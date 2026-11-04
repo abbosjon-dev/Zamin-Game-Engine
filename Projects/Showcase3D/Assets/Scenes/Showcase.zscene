@@ -20,7 +20,7 @@
     ],
     "Ambient": 0.55,
     "Exposure": 1.05,
-    "ShadowDistance": 45,
+    "ShadowDistance": 60,
     "Gravity": [
       0,
       -9.8

@@ -22,12 +22,12 @@ uniform mat4 u_Joints[MAX_JOINTS];
 uniform mat4 u_ViewProjection;
 uniform mat4 u_Model;
 uniform mat3 u_NormalMatrix;
-uniform mat4 u_LightSpace;
+uniform mat4 u_View;
 
 out vec3 v_WorldPos;
 out vec3 v_Normal;
 out vec2 v_TexCoord;
-out vec4 v_LightSpacePos;
+out float v_ViewDepth;
 
 void main()
 {
@@ -43,7 +43,7 @@ void main()
     v_WorldPos = world.xyz;
     v_Normal = normalize(u_NormalMatrix * localNormal);
     v_TexCoord = a_TexCoord;
-    v_LightSpacePos = u_LightSpace * vec4(world.xyz + v_Normal * 0.02, 1.0);
+    v_ViewDepth = -(u_View * world).z;
     gl_Position = u_ViewProjection * world;
 }
 )";
@@ -55,7 +55,7 @@ layout(location = 1) out int o_EntityID;
 in vec3 v_WorldPos;
 in vec3 v_Normal;
 in vec2 v_TexCoord;
-in vec4 v_LightSpacePos;
+in float v_ViewDepth;
 
 #define MAX_POINT_LIGHTS 16
 
@@ -79,7 +79,15 @@ uniform vec3 u_SunDirection;
 uniform vec3 u_SunRadiance;
 uniform int u_ShadowsEnabled;
 uniform sampler2DShadow u_ShadowMap;
-uniform float u_ShadowTexel;
+uniform float u_ShadowTexel;     // atlas texel size (uv)
+uniform mat4 u_LightSpaces[3];
+uniform vec3 u_CascadeSplits;     // view depth where each cascade ends
+uniform vec3 u_CascadeTexelWorld; // world size of a shadow texel per cascade
+uniform int u_CascadeCount;
+uniform int u_FogEnabled;
+uniform vec3 u_FogColor;
+uniform float u_FogDensity;
+uniform float u_FogHeightFalloff;
 
 uniform int u_PointLightCount;
 uniform vec3 u_PointPositions[MAX_POINT_LIGHTS];
@@ -135,18 +143,37 @@ vec3 BRDF(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float metallic, fl
     return (kD * albedo / PI + specular) * radiance * NdotL;
 }
 
-float ShadowFactor()
+float ShadowFactor(vec3 N, vec3 L)
 {
-    vec3 proj = v_LightSpacePos.xyz / v_LightSpacePos.w;
-    proj = proj * 0.5 + 0.5;
+    int cascade = u_CascadeCount - 1;
+    for (int i = 0; i < u_CascadeCount; i++)
+        if (v_ViewDepth < u_CascadeSplits[i]) { cascade = i; break; }
+    if (v_ViewDepth > u_CascadeSplits[u_CascadeCount - 1])
+        return 1.0;
+
+    // normal-offset bias scaled by the cascade's texel size
+    float NdotL = clamp(dot(N, L), 0.0, 1.0);
+    float texelWorld = u_CascadeTexelWorld[cascade];
+    vec3 offsetPos = v_WorldPos + N * texelWorld * (1.5 + 2.0 * (1.0 - NdotL));
+    vec4 ls = u_LightSpaces[cascade] * vec4(offsetPos, 1.0);
+    vec3 proj = ls.xyz / ls.w * 0.5 + 0.5;
     if (proj.z > 1.0 || proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0)
         return 1.0;
-    float bias = 0.0015;
+
+    vec2 atlasOffset = vec2(float(cascade % 2), float(cascade / 2)) * 0.5;
+    vec2 lo = atlasOffset + vec2(u_ShadowTexel * 1.5), hi = atlasOffset + vec2(0.5 - u_ShadowTexel * 1.5);
+    vec2 uv = atlasOffset + proj.xy * 0.5;
+    float bias = 0.0005;
     float sum = 0.0;
     for (int x = -1; x <= 1; x++)
         for (int y = -1; y <= 1; y++)
-            sum += texture(u_ShadowMap, vec3(proj.xy + vec2(x, y) * u_ShadowTexel, proj.z - bias));
-    return sum / 9.0;
+            sum += texture(u_ShadowMap, vec3(clamp(uv + vec2(x, y) * u_ShadowTexel, lo, hi), proj.z - bias));
+    float shadow = sum / 9.0;
+
+    // fade out at the end of the last cascade
+    float fadeStart = u_CascadeSplits[u_CascadeCount - 1] * 0.85;
+    float fade = clamp((v_ViewDepth - fadeStart) / (u_CascadeSplits[u_CascadeCount - 1] - fadeStart), 0.0, 1.0);
+    return mix(shadow, 1.0, fade);
 }
 
 vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
@@ -161,7 +188,6 @@ vec3 SkyRadiance(vec3 dir, float roughness)
     vec3 top = toLinear(u_SkyColor), horizon = toLinear(u_HorizonColor), ground = toLinear(u_GroundColor);
     vec3 c = y > 0.0 ? mix(horizon, top, pow(clamp(y, 0.0, 1.0), 0.6))
                      : mix(horizon, ground, pow(clamp(-y * 3.0, 0.0, 1.0), 0.5));
-    // Blur towards the average for rough surfaces.
     vec3 avg = (top + horizon * 2.0 + ground) * 0.25;
     return mix(c, avg, roughness * roughness);
 }
@@ -210,7 +236,7 @@ void main()
     vec3 Lo = vec3(0.0);
     if (u_HasSun == 1)
     {
-        float shadow = u_ShadowsEnabled == 1 ? ShadowFactor() : 1.0;
+        float shadow = u_ShadowsEnabled == 1 ? ShadowFactor(N, normalize(-u_SunDirection)) : 1.0;
         Lo += BRDF(N, V, normalize(-u_SunDirection), u_SunRadiance, albedo, metallic, roughness, F0) * shadow;
     }
     for (int i = 0; i < u_PointLightCount; i++)
@@ -236,6 +262,13 @@ void main()
         emission *= toLinear(texture(u_EmissiveMap, uv).rgb);
     // Linear HDR output - tonemapping & gamma happen in post-processing.
     vec3 color = (ambient + Lo + emission) * u_Exposure;
+    if (u_FogEnabled == 1)
+    {
+        float dist = length(u_CameraPos - v_WorldPos);
+        float heightFactor = exp(-u_FogHeightFalloff * max(v_WorldPos.y, 0.0));
+        float fog = 1.0 - exp(-dist * u_FogDensity * heightFactor);
+        color = mix(color, toLinear(u_FogColor) * u_Exposure, clamp(fog, 0.0, 1.0));
+    }
     o_Color = vec4(color, baseColor.a);
     o_EntityID = u_EntityID;
 }
@@ -297,6 +330,9 @@ uniform vec3 u_Ground;
 uniform int u_HasSun;
 uniform vec3 u_SunDirection;
 uniform vec3 u_SunColor;
+uniform int u_FogEnabled;
+uniform vec3 u_FogColor;
+uniform float u_FogDensity;
 void main()
 {
     vec3 dir = normalize(v_Direction - u_CameraPos);
@@ -307,6 +343,11 @@ void main()
     {
         float d = max(dot(dir, normalize(-u_SunDirection)), 0.0);
         color += u_SunColor * (pow(d, 900.0) * 4.0 + pow(d, 12.0) * 0.18);
+    }
+    if (u_FogEnabled == 1)
+    {
+        float horizon = 1.0 - smoothstep(-0.05, 0.35, dir.y);
+        color = mix(color, u_FogColor, horizon * clamp(u_FogDensity * 40.0, 0.0, 1.0));
     }
     o_Color = vec4(pow(color, vec3(2.2)), 1.0);
     o_EntityID = -1;
@@ -401,7 +442,7 @@ void main()
             Ref<Shader> GridShader;
             Ref<Texture2D> WhiteTexture;
             Ref<Framebuffer> ShadowMap;
-            uint32_t ShadowMapSize = 2048;
+            uint32_t ShadowMapSize = 4096; // 2x2 atlas of 2048 cascades
 
             glm::mat4 View{ 1.0f }, Projection{ 1.0f };
             glm::vec3 CameraPosition{ 0.0f };
@@ -465,25 +506,87 @@ void main()
         s_Data->Queue.push_back(std::move(item));
     }
 
-    static glm::mat4 ComputeLightSpace(const SceneEnvironment& env, const glm::vec3& cameraPos, const glm::mat4& view)
+    struct CascadeData
     {
-        glm::vec3 dir = glm::normalize(env.Sun.Direction);
-        // Center the shadow box in front of the camera.
-        glm::vec3 forward = -glm::vec3(glm::inverse(view)[2]);
-        glm::vec3 center = cameraPos + forward * (env.ShadowDistance * 0.35f);
-        float half = env.ShadowDistance * 0.5f;
+        int Count = 1;
+        glm::mat4 LightSpace[3]{ glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f) };
+        float Splits[3]{ 0.0f, 0.0f, 0.0f };
+        float TexelWorld[3]{ 0.05f, 0.05f, 0.05f };
+    };
 
+    static glm::mat4 FitLightToSphere(const glm::vec3& dir, const glm::vec3& center, float radius, float cascadeSize, float& texelWorld)
+    {
         glm::vec3 up = std::abs(dir.y) > 0.99f ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
-        glm::mat4 lightView = glm::lookAt(center - dir * env.ShadowDistance, center, up);
-
-        // Snap to texel grid to avoid shimmering when the camera moves.
-        float texel = (half * 2.0f) / (float)s_Data->ShadowMapSize;
+        float back = radius + 60.0f; // include casters between the light and the slice
+        glm::mat4 lightView = glm::lookAt(center - dir * back, center, up);
+        texelWorld = (radius * 2.0f) / cascadeSize;
+        // snap to the texel grid to avoid shimmering while the camera moves
         glm::vec4 origin = lightView * glm::vec4(0, 0, 0, 1);
-        glm::vec2 snapped = glm::floor(glm::vec2(origin) / texel) * texel;
+        glm::vec2 snapped = glm::floor(glm::vec2(origin) / texelWorld) * texelWorld;
         glm::mat4 snap = glm::translate(glm::mat4(1.0f), glm::vec3(snapped - glm::vec2(origin), 0.0f));
-
-        glm::mat4 lightProj = glm::ortho(-half, half, -half, half, 0.1f, env.ShadowDistance * 2.5f);
+        glm::mat4 lightProj = glm::ortho(-radius, radius, -radius, radius, 0.1f, back + radius * 2.0f);
         return lightProj * snap * lightView;
+    }
+
+    static CascadeData ComputeCascades(const SceneEnvironment& env, const glm::vec3& cameraPos, const glm::mat4& view, const glm::mat4& proj)
+    {
+        CascadeData c;
+        glm::vec3 dir = glm::normalize(env.Sun.Direction);
+        const float cascadeSize = (float)(s_Data->ShadowMapSize / 2); // 2x2 atlas
+        bool perspective = proj[3][3] == 0.0f;
+        if (!perspective)
+        {
+            // orthographic cameras: a single cascade around the view center
+            glm::vec3 forward = -glm::vec3(glm::inverse(view)[2]);
+            float half = env.ShadowDistance * 0.5f;
+            c.Count = 1;
+            c.LightSpace[0] = FitLightToSphere(dir, cameraPos + forward * half, half, cascadeSize, c.TexelWorld[0]);
+            c.Splits[0] = env.ShadowDistance * 2.0f;
+            return c;
+        }
+
+        float camNear = proj[3][2] / (proj[2][2] - 1.0f);
+        float camFar = proj[3][2] / (proj[2][2] + 1.0f);
+        float n = std::max(0.05f, camNear), f = std::min(camFar, env.ShadowDistance);
+        glm::mat4 invViewProj = glm::inverse(proj * view);
+        glm::vec3 nearCorners[4], farCorners[4];
+        const glm::vec2 ndc[4] = { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } };
+        for (int i = 0; i < 4; i++)
+        {
+            glm::vec4 a = invViewProj * glm::vec4(ndc[i], -1.0f, 1.0f);
+            glm::vec4 b = invViewProj * glm::vec4(ndc[i], 1.0f, 1.0f);
+            nearCorners[i] = glm::vec3(a) / a.w;
+            farCorners[i] = glm::vec3(b) / b.w;
+        }
+
+        c.Count = 3;
+        float prev = n;
+        for (int i = 0; i < c.Count; i++)
+        {
+            float p = (i + 1) / (float)c.Count;
+            float uniformSplit = n + (f - n) * p;
+            float logSplit = n * std::pow(f / n, p);
+            float split = glm::mix(uniformSplit, logSplit, 0.75f);
+
+            glm::vec3 corners[8];
+            for (int k = 0; k < 4; k++)
+            {
+                float t0 = (prev - camNear) / (camFar - camNear), t1 = (split - camNear) / (camFar - camNear);
+                corners[k] = glm::mix(nearCorners[k], farCorners[k], t0);
+                corners[k + 4] = glm::mix(nearCorners[k], farCorners[k], t1);
+            }
+            glm::vec3 center(0.0f);
+            for (auto& v : corners) center += v;
+            center /= 8.0f;
+            float radius = 0.0f;
+            for (auto& v : corners) radius = std::max(radius, glm::length(v - center));
+            radius = std::ceil(radius * 16.0f) / 16.0f;
+
+            c.LightSpace[i] = FitLightToSphere(dir, center, radius, cascadeSize, c.TexelWorld[i]);
+            c.Splits[i] = split;
+            prev = split;
+        }
+        return c;
     }
 
     void Renderer3D::EndScene()
@@ -493,31 +596,36 @@ void main()
         const glm::mat4 viewProj = s_Data->Projection * s_Data->View;
 
         bool shadows = env.HasSun && env.Sun.CastShadows && !s_Data->Queue.empty();
-        glm::mat4 lightSpace(1.0f);
+        CascadeData cascades;
 
-        // ---------------- shadow pass
+        // ---------------- shadow pass (cascades rendered into a 2x2 atlas)
         if (shadows)
         {
-            lightSpace = ComputeLightSpace(env, s_Data->CameraPosition, s_Data->View);
+            cascades = ComputeCascades(env, s_Data->CameraPosition, s_Data->View, s_Data->Projection);
             RenderCommand::SaveRenderTarget();
             s_Data->ShadowMap->Bind();
             RenderCommand::SetDepthWrite(true);
             RenderCommand::Clear();
-            for (auto& sh : { s_Data->ShadowShader, s_Data->SkinnedShadowShader })
+            uint32_t half = s_Data->ShadowMapSize / 2;
+            for (int c = 0; c < cascades.Count; c++)
             {
-                sh->Bind();
-                sh->SetMat4("u_LightSpace", lightSpace);
-            }
-            for (const auto& item : s_Data->Queue)
-            {
-                if (!item.CastShadows) continue;
-                bool skinned = item.MeshRef->IsSkinned();
-                auto& sh = skinned ? s_Data->SkinnedShadowShader : s_Data->ShadowShader;
-                sh->Bind();
-                if (skinned) sh->SetMat4Array("u_Joints", item.Joints.data(), (uint32_t)item.Joints.size());
-                sh->SetMat4("u_Model", item.Transform);
-                RenderCommand::DrawIndexed(item.MeshRef->GetVertexArray(), item.MeshRef->GetIndexCount());
-                stats.DrawCalls++;
+                RenderCommand::SetViewport((c % 2) * half, (c / 2) * half, half, half);
+                for (auto& sh : { s_Data->ShadowShader, s_Data->SkinnedShadowShader })
+                {
+                    sh->Bind();
+                    sh->SetMat4("u_LightSpace", cascades.LightSpace[c]);
+                }
+                for (const auto& item : s_Data->Queue)
+                {
+                    if (!item.CastShadows) continue;
+                    bool skinned = item.MeshRef->IsSkinned();
+                    auto& sh = skinned ? s_Data->SkinnedShadowShader : s_Data->ShadowShader;
+                    sh->Bind();
+                    if (skinned) sh->SetMat4Array("u_Joints", item.Joints.data(), (uint32_t)item.Joints.size());
+                    sh->SetMat4("u_Model", item.Transform);
+                    RenderCommand::DrawIndexed(item.MeshRef->GetVertexArray(), item.MeshRef->GetIndexCount());
+                    stats.DrawCalls++;
+                }
             }
             RenderCommand::RestoreRenderTarget();
         }
@@ -529,7 +637,15 @@ void main()
           {
             shader->Bind();
             shader->SetMat4("u_ViewProjection", viewProj);
-            shader->SetMat4("u_LightSpace", lightSpace);
+            shader->SetMat4("u_View", s_Data->View);
+            shader->SetMat4Array("u_LightSpaces", cascades.LightSpace, 3);
+            shader->SetFloat3("u_CascadeSplits", { cascades.Splits[0], cascades.Splits[1], cascades.Splits[2] });
+            shader->SetFloat3("u_CascadeTexelWorld", { cascades.TexelWorld[0], cascades.TexelWorld[1], cascades.TexelWorld[2] });
+            shader->SetInt("u_CascadeCount", cascades.Count);
+            shader->SetInt("u_FogEnabled", env.FogEnabled ? 1 : 0);
+            shader->SetFloat3("u_FogColor", env.FogColor);
+            shader->SetFloat("u_FogDensity", env.FogDensity);
+            shader->SetFloat("u_FogHeightFalloff", env.FogHeightFalloff);
             shader->SetFloat3("u_CameraPos", s_Data->CameraPosition);
             shader->SetInt("u_HasSun", env.HasSun ? 1 : 0);
             shader->SetFloat3("u_SunDirection", glm::normalize(env.Sun.Direction));
@@ -606,6 +722,9 @@ void main()
             sky->SetInt("u_HasSun", env.HasSun ? 1 : 0);
             sky->SetFloat3("u_SunDirection", glm::normalize(env.Sun.Direction));
             sky->SetFloat3("u_SunColor", env.Sun.Color);
+            sky->SetInt("u_FogEnabled", env.FogEnabled ? 1 : 0);
+            sky->SetFloat3("u_FogColor", env.FogColor);
+            sky->SetFloat("u_FogDensity", env.FogDensity);
             RenderCommand::DrawArrays(3);
             RenderCommand::SetDepthWrite(true);
             stats.DrawCalls++;

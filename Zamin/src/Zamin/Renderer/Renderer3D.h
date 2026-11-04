@@ -38,6 +38,11 @@ namespace Zamin {
         DirectionalLight Sun;
         std::vector<PointLight> PointLights;
         float ShadowDistance = 40.0f;
+
+        bool FogEnabled = false;
+        glm::vec3 FogColor{ 0.7f, 0.78f, 0.86f };
+        float FogDensity = 0.015f;
+        float FogHeightFalloff = 0.05f;
     };
 
     // Forward PBR mesh renderer with directional shadow map and gradient sky.

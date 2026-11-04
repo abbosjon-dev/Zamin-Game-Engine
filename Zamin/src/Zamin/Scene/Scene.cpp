@@ -1382,6 +1382,10 @@ namespace Zamin {
         env.AmbientIntensity = m_Settings.AmbientIntensity;
         env.Exposure = m_Settings.Exposure;
         env.ShadowDistance = m_Settings.ShadowDistance;
+        env.FogEnabled = m_Settings.FogEnabled;
+        env.FogColor = m_Settings.FogColor;
+        env.FogDensity = m_Settings.FogDensity;
+        env.FogHeightFalloff = m_Settings.FogHeightFalloff;
 
         for (auto e : m_Registry.view<TransformComponent, DirectionalLightComponent>())
         {

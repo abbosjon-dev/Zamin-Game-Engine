@@ -1715,6 +1715,13 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
             changed |= UI::PropertySlider("Atrof yorug'ligi", s.AmbientIntensity, 0.0f, 3.0f);
             changed |= UI::PropertySlider("Ekspozitsiya", s.Exposure, 0.1f, 4.0f);
             changed |= UI::PropertyFloat("Soya masofasi", s.ShadowDistance, 0.5f, 5.0f, 500.0f);
+            changed |= UI::PropertyBool("Tuman", s.FogEnabled);
+            if (s.FogEnabled)
+            {
+                changed |= UI::PropertyColor3("Tuman rangi", s.FogColor);
+                changed |= UI::PropertyFloat("Tuman zichligi", s.FogDensity, 0.0005f, 0.0f, 1.0f, "%.4f");
+                changed |= UI::PropertyFloat("Balandlik so'nishi", s.FogHeightFalloff, 0.005f, 0.0f, 5.0f);
+            }
             UI::EndPropertyGrid();
         }
 

@@ -42,7 +42,8 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - ECS arxitektura (EnTT), UUID, JSON sahna formati (`.zscene`)
 - **Renderer** (OpenGL 4.1 core, RHI abstraksiya qatlami orqasida):
   - 2D batch renderer: sprite, tekstura, doira, chiziq, **matn** (UTF-8, lotin/kirill, `oʻ gʻ`)
-  - 3D PBR (metallic/roughness), yo'naltirilgan quyosh + 16 ta nuqtali yorug'lik, **soyalar** (PCF), gradient osmon, atrof-muhit aksi, ACES tonemapping
+  - 3D PBR (metallic/roughness), yo'naltirilgan quyosh + 16 ta nuqtali yorug'lik, gradient osmon, atrof-muhit aksi
+  - **Cascaded Shadow Maps** (3 kaskad, 4096 atlas, PCF, texel snapping), **tuman** (masofa + balandlik)
   - Primitivlar (kub, shar, tekislik, silindr, konus), `.obj` va `.gltf/.glb` modellar
   - **HDR pipeline**: sahna float bufferga chiziladi, tonemapping (ACES / Reinhard / yo'q), haqiqiy HDR bloom
   - Material xaritalari: **normal map**, metallic/roughness map, emissive map
@@ -267,7 +268,8 @@ Tests/           Headless unit testlar
 - [x] Skeletal animatsiya (glTF skins), Animator, CPU profiler
 - [x] Animatsiyalar orasida silliq o'tish (crossfade), Character Controller 3D
 - [ ] Animatsiya holat mashinasi (vizual), root motion
-- [ ] SSAO, IBL (cubemap), cascaded shadow maps
+- [x] Cascaded shadow maps, tuman
+- [ ] SSAO, IBL (cubemap)
 - [ ] **Windows** (MSVC, `.dll` skript moduli)
 - [ ] **macOS** (Metal backend)
 - [ ] **Android** (OpenGL ES / Vulkan)

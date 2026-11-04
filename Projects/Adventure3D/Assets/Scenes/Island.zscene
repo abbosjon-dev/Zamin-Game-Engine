@@ -20,7 +20,7 @@
     ],
     "Ambient": 0.6,
     "Exposure": 1.1,
-    "ShadowDistance": 45,
+    "ShadowDistance": 70,
     "Gravity": [
       0,
       -9.8
@@ -46,6 +46,16 @@
         1,
         1
       ]
+    },
+    "Fog": {
+      "Enabled": true,
+      "Color": [
+        0.72,
+        0.82,
+        0.92
+      ],
+      "Density": 0.007,
+      "HeightFalloff": 0.04
     }
   },
   "Entities": [

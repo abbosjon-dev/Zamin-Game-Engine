@@ -241,70 +241,115 @@ namespace Zamin {
 
     void ScriptableEntity::Invoke(float delay, std::function<void()> callback)
     {
-        m_Timers.push_back({ delay, 0.0f, false, std::move(callback) });
+        if (!callback) return;
+        (m_TickingTimers ? m_PendingTimers : m_Timers).push_back({ delay, 0.0f, false, false, std::move(callback) });
     }
 
     void ScriptableEntity::InvokeRepeating(float delay, float interval, std::function<void()> callback)
     {
-        m_Timers.push_back({ delay, std::max(0.001f, interval), true, std::move(callback) });
+        if (!callback) return;
+        (m_TickingTimers ? m_PendingTimers : m_Timers).push_back({ delay, std::max(0.001f, interval), true, false, std::move(callback) });
     }
 
-    void ScriptableEntity::CancelInvokes() { m_Timers.clear(); }
+    void ScriptableEntity::CancelInvokes()
+    {
+        m_PendingTimers.clear();
+        if (!m_TickingTimers)
+        {
+            m_Timers.clear();
+            return;
+        }
+        // A callback may be running right now: only flag, erase after the loop.
+        for (Timer& t : m_Timers)
+            t.Done = true;
+    }
+
+    bool ScriptableEntity::IsInvoking() const
+    {
+        if (!m_PendingTimers.empty()) return true;
+        return std::any_of(m_Timers.begin(), m_Timers.end(), [](const Timer& t) { return !t.Done; });
+    }
 
     void ScriptableEntity::Tween(float duration, std::function<void(float)> onUpdate, Ease ease, std::function<void()> onComplete)
     {
-        m_Tweens.push_back({ 0.0f, std::max(0.0001f, duration), ease, std::move(onUpdate), std::move(onComplete) });
+        if (!onUpdate && !onComplete) return;
+        TweenState tw{ 0.0f, std::max(0.0001f, duration), ease, false, std::move(onUpdate), std::move(onComplete) };
+        (m_TickingTimers ? m_PendingTweens : m_Tweens).push_back(std::move(tw));
     }
 
-    void ScriptableEntity::TweenPosition(const glm::vec3& target, float duration, Ease ease)
+    void ScriptableEntity::TweenPosition(const glm::vec3& target, float duration, Ease ease, std::function<void()> onComplete)
     {
         glm::vec3 start = Transform().Translation;
         Entity e = m_Entity;
         Tween(duration, [e, start, target](float t) mutable {
             if (e.IsValid()) e.GetComponent<TransformComponent>().Translation = glm::mix(start, target, t);
-        }, ease);
+        }, ease, std::move(onComplete));
     }
 
-    void ScriptableEntity::TweenScale(const glm::vec3& target, float duration, Ease ease)
+    void ScriptableEntity::TweenScale(const glm::vec3& target, float duration, Ease ease, std::function<void()> onComplete)
     {
         glm::vec3 start = Transform().Scale;
         Entity e = m_Entity;
         Tween(duration, [e, start, target](float t) mutable {
             if (e.IsValid()) e.GetComponent<TransformComponent>().Scale = glm::mix(start, target, t);
-        }, ease);
+        }, ease, std::move(onComplete));
+    }
+
+    void ScriptableEntity::CancelTweens()
+    {
+        m_PendingTweens.clear();
+        if (!m_TickingTimers)
+        {
+            m_Tweens.clear();
+            return;
+        }
+        for (TweenState& tw : m_Tweens)
+            tw.Done = true;
+    }
+
+    bool ScriptableEntity::IsTweening() const
+    {
+        if (!m_PendingTweens.empty()) return true;
+        return std::any_of(m_Tweens.begin(), m_Tweens.end(), [](const TweenState& t) { return !t.Done; });
     }
 
     void ScriptableEntity::TickTimers(float ts)
     {
-        // callbacks may add new timers/tweens: iterate over the current size only
-        size_t count = m_Timers.size();
-        for (size_t i = 0; i < count && i < m_Timers.size(); i++)
+        if (m_TickingTimers) return; // no recursive ticking
+        m_TickingTimers = true;
+
+        // The vectors do not grow while ticking (new entries go to the pending lists),
+        // so references stay valid even when a callback schedules or cancels timers.
+        for (size_t i = 0; i < m_Timers.size(); i++)
         {
             Timer& t = m_Timers[i];
+            if (t.Done) continue;
             t.Remaining -= ts;
             if (t.Remaining > 0.0f) continue;
-            auto callback = t.Callback;
             if (t.Repeat) t.Remaining += t.Interval;
-            else t.Callback = nullptr;
-            if (callback) callback();
+            else t.Done = true;
+            t.Callback();
         }
-        std::erase_if(m_Timers, [](const Timer& t) { return !t.Callback; });
 
-        count = m_Tweens.size();
-        for (size_t i = 0; i < count && i < m_Tweens.size(); i++)
+        for (size_t i = 0; i < m_Tweens.size(); i++)
         {
             TweenState& tw = m_Tweens[i];
+            if (tw.Done) continue;
             tw.Elapsed += ts;
             float k = std::min(1.0f, tw.Elapsed / tw.Duration);
             if (tw.OnUpdate) tw.OnUpdate(ApplyEase(tw.Easing, k));
-            if (k >= 1.0f)
-            {
-                auto done = std::move(tw.OnComplete);
-                tw.OnUpdate = nullptr;
-                if (done) done();
-            }
+            if (tw.Done || k < 1.0f) continue; // cancelled inside the callback, or still running
+            tw.Done = true;
+            if (tw.OnComplete) tw.OnComplete();
         }
-        std::erase_if(m_Tweens, [](const TweenState& t) { return !t.OnUpdate; });
+
+        m_TickingTimers = false;
+        std::erase_if(m_Timers, [](const Timer& t) { return t.Done; });
+        std::erase_if(m_Tweens, [](const TweenState& t) { return t.Done; });
+        for (Timer& t : m_PendingTimers) m_Timers.push_back(std::move(t));
+        for (TweenState& t : m_PendingTweens) m_Tweens.push_back(std::move(t));
+        m_PendingTimers.clear();
+        m_PendingTweens.clear();
     }
 
     Entity ScriptableEntity::Resolve(const EntityRef& ref) const

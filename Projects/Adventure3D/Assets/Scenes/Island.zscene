@@ -107,6 +107,10 @@
             "Type": "Float",
             "Value": 7.0
           },
+          "Follow": {
+            "Type": "Entity",
+            "Value": 7394000000000052
+          },
           "Pitch": {
             "Type": "Float",
             "Value": 0.4

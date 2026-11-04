@@ -21,7 +21,8 @@ private:
 class OrbitFollowCamera : public Zamin::ScriptableEntity
 {
 public:
-    std::string Target = "Player";
+    std::string Target = "Player";  // used when Follow is not set
+    Zamin::EntityRef Follow;        // drag the target from the hierarchy
     float Distance = 7.0f;
     float Height = 1.6f;
     float Yaw = 0.0f;     // radians

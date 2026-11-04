@@ -742,6 +742,14 @@ namespace Zamin {
                 entity.GetComponent<RelationshipComponent>().Parent = p.GetUUID();
                 p.GetComponent<RelationshipComponent>().Children.push_back(entity.GetUUID());
             }
+
+            // EntityRef fields that point inside the pasted set follow the new IDs.
+            std::unordered_map<uint64_t, uint64_t> refs;
+            for (const auto& [old, id] : remap)
+                if (old && old != (uint64_t)id)
+                    refs[old] = (uint64_t)id;
+            if (!refs.empty())
+                Scene::RemapEntityReferences(created, refs);
         }
         catch (const std::exception& ex)
         {

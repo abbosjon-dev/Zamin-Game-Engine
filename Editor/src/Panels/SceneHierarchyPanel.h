@@ -47,6 +47,9 @@ namespace Zamin {
         void DrawEntityNode(Entity entity, int depth);
         void DrawEntityContextMenu(Entity entity);
         void DrawScriptComponent(Entity entity);
+        bool DrawFieldValue(const char* name, ScriptFieldType type, void* data);
+        // EntityRef script field: drop from the hierarchy, pick from a list, locate, clear.
+        bool DrawEntityRefField(const char* name, EntityRef& ref);
         const std::unordered_map<std::string, ScriptFieldValue>& GetScriptDefaults(const std::string& className);
         void MarkModified() { if (OnSceneModified) OnSceneModified(); }
 
@@ -55,6 +58,7 @@ namespace Zamin {
         Entity m_SelectionContext;
         std::string m_Filter;
         std::string m_AddComponentFilter;
+        std::string m_EntityPickerFilter;
         entt::entity m_RenamingEntity = entt::null;
         std::string m_RenameBuffer;
         Entity m_PendingDelete, m_PendingDuplicate, m_PendingCreateChildOf;

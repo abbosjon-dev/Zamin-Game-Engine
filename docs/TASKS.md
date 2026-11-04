@@ -4,11 +4,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M01 Skript va gameplay API
 
-- [ ] 001. EntityRef maydoni uchun inspektor (ierarxiyadan sudrab qo'yish, tozalash)
-- [ ] 002. EntityRef serializatsiya testi
-- [ ] 003. Invoke/InvokeRepeating/CancelInvokes testi
-- [ ] 004. Tween va easing funksiyalari testi
-- [ ] 005. Input action xaritasi (loyiha sozlamalarida: tugma/gamepad/sichqoncha bog'lash)
+- [x] 001. EntityRef maydoni uchun inspektor (ierarxiyadan sudrab qo'yish, tozalash)
+- [x] 002. EntityRef serializatsiya testi
+- [x] 003. Invoke/InvokeRepeating/CancelInvokes testi
+- [x] 004. Tween va easing funksiyalari testi
+- [x] 005. Input action xaritasi (loyiha sozlamalarida: tugma/gamepad/sichqoncha bog'lash)
 - [ ] 006. Input::IsActionPressed / IsActionJustPressed / IsActionJustReleased
 - [ ] 007. Input::GetAxis (manfiy/musbat tugma + gamepad o'qi, deadzone)
 - [ ] 008. Klaviatura va sichqoncha uchun JustPressed/JustReleased (kadrlar orasidagi holat)

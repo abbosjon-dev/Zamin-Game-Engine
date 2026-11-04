@@ -8,6 +8,7 @@
 #include "Zamin/Core/Application.h"
 #include "Zamin/Core/Layer.h"
 #include "Zamin/Core/Input.h"
+#include "Zamin/Core/InputActions.h"
 #include "Zamin/Core/KeyCodes.h"
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Core/UUID.h"

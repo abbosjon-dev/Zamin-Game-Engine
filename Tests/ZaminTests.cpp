@@ -1,6 +1,7 @@
 // Headless unit tests (no window / GPU needed).
 #include <Zamin/Zamin.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <functional>
@@ -662,6 +663,524 @@ TEST(IrradianceSH)
     auto eval = [&](glm::vec3 n) { return sh[0].x * 0.282095f + sh[1].x * 0.488603f * n.y + sh[2].x * 0.488603f * n.z + sh[3].x * 0.488603f * n.x; };
     CHECK(eval({ 0, 1, 0 }) > 1.5f);
     CHECK(eval({ 0, -1, 0 }) < 0.5f);
+}
+
+// ------------------------------------------------------------------ EntityRef fields
+static std::string g_RefName;
+static bool g_RefOtherResolved = true;
+
+class RefScript : public ScriptableEntity
+{
+public:
+    EntityRef Target;
+    EntityRef Other;
+
+    void OnCreate() override
+    {
+        Entity t = Resolve(Target);
+        g_RefName = t ? t.GetName() : std::string();
+        g_RefOtherResolved = (bool)Resolve(Other);
+    }
+};
+ZM_REGISTER_SCRIPT(RefScript, ZM_FIELD(RefScript, Target), ZM_FIELD(RefScript, Other))
+
+static void SetRefField(Entity e, const char* field, uint64_t id)
+{
+    ScriptFieldValue v;
+    v.Set(EntityRef{ id });
+    e.GetComponent<NativeScriptComponent>().Fields[field] = v;
+}
+
+static uint64_t GetRefField(Entity e, const char* field)
+{
+    auto& fields = e.GetComponent<NativeScriptComponent>().Fields;
+    auto it = fields.find(field);
+    return it != fields.end() && it->second.Type == ScriptFieldType::Entity ? it->second.Get<EntityRef>().ID : 0;
+}
+
+TEST(EntityRefSerialization)
+{
+    CHECK(ScriptFieldTypeOf<EntityRef>() == ScriptFieldType::Entity);
+    CHECK(ScriptFieldTypeFromString(ScriptFieldTypeToString(ScriptFieldType::Entity)) == ScriptFieldType::Entity);
+    const ScriptClassInfo* info = ScriptRegistry::Find("RefScript");
+    CHECK(info && info->Fields.size() == 2);
+    CHECK(info && info->Fields[0].Type == ScriptFieldType::Entity && info->Fields[0].Name == "Target");
+    CHECK(!EntityRef{} && (bool)EntityRef{ 5 });
+
+    // Copy between a stored value and a live field.
+    EntityRef live{ 0xFEDCBA9876543210ull };
+    ScriptFieldValue v;
+    v.Type = ScriptFieldType::Entity;
+    v.ReadFrom(&live);
+    CHECK(v.Get<EntityRef>().ID == live.ID);
+    EntityRef out;
+    v.WriteTo(&out);
+    CHECK(out.ID == live.ID);
+
+    auto scene = CreateRef<Scene>();
+    Entity target = scene->CreateEntity("Target");
+    Entity holder = scene->CreateEntity("Holder");
+    holder.AddComponent<NativeScriptComponent>().ClassName = "RefScript";
+    SetRefField(holder, "Target", target.GetUUID());
+    SetRefField(holder, "Other", 0xFEDCBA9876543210ull); // dangling, full 64-bit ID
+    Entity empty = scene->CreateEntity("Empty");
+    empty.AddComponent<NativeScriptComponent>().ClassName = "RefScript";
+    SetRefField(empty, "Target", 0);
+
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Entity\"") != std::string::npos);
+
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity lh = loaded->FindEntityByName("Holder");
+    CHECK((bool)lh);
+    CHECK(lh && lh.GetComponent<NativeScriptComponent>().Fields["Target"].Type == ScriptFieldType::Entity);
+    CHECK(lh && GetRefField(lh, "Target") == (uint64_t)target.GetUUID());
+    CHECK(lh && GetRefField(lh, "Other") == 0xFEDCBA9876543210ull); // no precision loss
+    CHECK(GetRefField(loaded->FindEntityByName("Empty"), "Target") == 0);
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+
+    // Resolved at runtime on a runtime copy of the scene (like the editor's Play).
+    auto runtime = Scene::Copy(loaded);
+    g_RefName = "?";
+    g_RefOtherResolved = true;
+    Entity rh = runtime->FindEntityByName("Holder");
+    runtime->DestroyEntity(runtime->FindEntityByName("Empty"));
+    runtime->OnRuntimeStart();
+    CHECK(g_RefName == "Target");
+    CHECK(!g_RefOtherResolved);
+    auto* script = ScriptableEntity::GetScript<RefScript>(rh);
+    CHECK(script && script->Target.ID == (uint64_t)target.GetUUID());
+    CHECK(script && script->Resolve(script->Target) == runtime->FindEntityByName("Target"));
+    CHECK(script && !script->Resolve(EntityRef{}));
+    runtime->OnRuntimeStop();
+}
+
+TEST(EntityRefRemapOnCopy)
+{
+    auto scene = CreateRef<Scene>();
+    Entity outside = scene->CreateEntity("Outside");
+    Entity root = scene->CreateEntity("Root");
+    Entity child = scene->CreateEntity("Child");
+    CHECK(scene->SetParent(child, root, false));
+    root.AddComponent<NativeScriptComponent>().ClassName = "RefScript";
+    SetRefField(root, "Target", child.GetUUID());   // inside the subtree
+    SetRefField(root, "Other", outside.GetUUID());  // outside the subtree
+
+    // Duplicate (Ctrl+D / Instantiate): inner references follow the copy.
+    Entity copy = scene->DuplicateEntity(root);
+    auto& copyChildren = copy.GetComponent<RelationshipComponent>().Children;
+    CHECK(copyChildren.size() == 1);
+    if (copyChildren.size() == 1)
+    {
+        CHECK(copyChildren[0] != child.GetUUID());
+        CHECK(GetRefField(copy, "Target") == (uint64_t)copyChildren[0]);
+    }
+    CHECK(GetRefField(copy, "Other") == (uint64_t)outside.GetUUID());
+    CHECK(GetRefField(root, "Target") == (uint64_t)child.GetUUID()); // original untouched
+
+    // Clipboard / prefab path: serialize a subtree and paste it with fresh IDs.
+    std::string text = SceneSerializer::SerializeEntities(*scene, { root, child });
+    auto pasted = SceneSerializer::DeserializeEntities(*scene, text, true);
+    CHECK(pasted.size() == 2);
+    if (pasted.size() == 2)
+    {
+        Entity pastedRoot = pasted[0], pastedChild = pasted[1];
+        CHECK(pastedRoot.GetName() == "Root" && pastedChild.GetName() == "Child");
+        CHECK(pastedChild.GetUUID() != child.GetUUID());
+        CHECK(GetRefField(pastedRoot, "Target") == (uint64_t)pastedChild.GetUUID());
+        CHECK(GetRefField(pastedRoot, "Other") == (uint64_t)outside.GetUUID());
+    }
+
+    // Instantiate at runtime: the spawned script resolves its own child.
+    scene->OnRuntimeStart();
+    Entity spawned = scene->Instantiate(root);
+    auto* script = ScriptableEntity::GetScript<RefScript>(spawned);
+    CHECK(script != nullptr);
+    if (script)
+    {
+        Entity resolved = script->Resolve(script->Target);
+        CHECK(resolved && resolved.GetName() == "Child");
+        CHECK(resolved && scene->GetParent(resolved) == spawned);
+    }
+    scene->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ timers (Invoke)
+static int g_InvokeOnce = 0, g_InvokeRepeat = 0, g_InvokeChained = 0, g_SelfCancel = 0;
+
+class TimerScript : public ScriptableEntity
+{
+public:
+    void OnCreate() override
+    {
+        Invoke(0.5f, [] { g_InvokeOnce++; });
+        InvokeRepeating(0.25f, 0.5f, [] { g_InvokeRepeat++; });
+        // A callback that schedules another timer (re-entrant use).
+        Invoke(0.25f, [this] { Invoke(0.25f, [] { g_InvokeChained++; }); });
+    }
+};
+ZM_REGISTER_SCRIPT(TimerScript)
+
+class SelfCancelScript : public ScriptableEntity
+{
+public:
+    void OnCreate() override
+    {
+        InvokeRepeating(0.0f, 0.125f, [this] {
+            if (++g_SelfCancel == 3)
+                CancelInvokes(); // cancel from inside the running callback
+        });
+    }
+};
+ZM_REGISTER_SCRIPT(SelfCancelScript)
+
+TEST(InvokeTimers)
+{
+    g_InvokeOnce = g_InvokeRepeat = g_InvokeChained = g_SelfCancel = 0;
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Timers");
+    e.AddComponent<NativeScriptComponent>().ClassName = "TimerScript";
+    Entity c = scene->CreateEntity("SelfCancel");
+    c.AddComponent<NativeScriptComponent>().ClassName = "SelfCancelScript";
+
+    const float dt = 0.125f; // exactly representable: no float drift in the counters
+    auto step = [&](int frames) { for (int i = 0; i < frames; i++) scene->OnUpdateRuntime(dt); };
+
+    scene->OnRuntimeStart();
+    auto* timers = ScriptableEntity::GetScript<TimerScript>(e);
+    CHECK(timers && timers->IsInvoking());
+
+    step(1); // t = 0.125
+    CHECK(g_InvokeRepeat == 0 && g_InvokeOnce == 0);
+    step(1); // t = 0.25: first repeat + the chain schedules its inner timer
+    CHECK(g_InvokeRepeat == 1);
+    CHECK(g_InvokeChained == 0);
+    step(1); // t = 0.375
+    CHECK(g_InvokeOnce == 0);
+    step(1); // t = 0.5
+    CHECK(g_InvokeOnce == 1);
+    CHECK(g_InvokeChained == 1);
+    step(12); // t = 2.0: repeats at 0.25, 0.75, 1.25, 1.75
+    CHECK(g_InvokeOnce == 1);
+    CHECK(g_InvokeChained == 1);
+    CHECK(g_InvokeRepeat == 4);
+
+    // Self-cancelling repeat stopped after 3 calls.
+    CHECK(g_SelfCancel == 3);
+    auto* selfCancel = ScriptableEntity::GetScript<SelfCancelScript>(c);
+    CHECK(selfCancel && !selfCancel->IsInvoking());
+
+    // Paused scenes do not tick timers.
+    scene->SetPaused(true);
+    step(8);
+    CHECK(g_InvokeRepeat == 4);
+    scene->SetPaused(false);
+    step(2); // t = 2.25
+    CHECK(g_InvokeRepeat == 5);
+
+    // CancelInvokes stops everything.
+    if (timers)
+    {
+        timers->CancelInvokes();
+        CHECK(!timers->IsInvoking());
+        // Invoke from outside a frame (e.g. from another script) still works after a cancel.
+        int late = 0;
+        timers->Invoke(0.25f, [&late] { late++; });
+        step(8);
+        CHECK(late == 1);
+        CHECK(!timers->IsInvoking());
+    }
+    CHECK(g_InvokeRepeat == 5);
+    scene->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ tweens / easing
+static int g_TweenComplete = 0, g_TweenCalls = 0;
+static float g_TweenLast = -1.0f;
+
+class TweenScript : public ScriptableEntity
+{
+public:
+    void OnCreate() override
+    {
+        TweenPosition({ 4.0f, 0.0f, 0.0f }, 1.0f, Ease::Linear, [this] {
+            g_TweenComplete++;
+            TweenScale(glm::vec3(3.0f), 0.5f, Ease::Linear); // chained from the completion callback
+        });
+        Tween(0.5f, [](float t) { g_TweenLast = t; g_TweenCalls++; }, Ease::InQuad);
+    }
+};
+ZM_REGISTER_SCRIPT(TweenScript)
+
+TEST(EasingFunctions)
+{
+    const Ease all[] = { Ease::Linear, Ease::InQuad, Ease::OutQuad, Ease::InOutQuad, Ease::OutCubic,
+                         Ease::InOutCubic, Ease::OutBack, Ease::OutElastic, Ease::OutBounce };
+    for (Ease e : all)
+    {
+        CHECK_NEAR(ApplyEase(e, 0.0f), 0.0f, 1e-5f);
+        CHECK_NEAR(ApplyEase(e, 1.0f), 1.0f, 1e-5f);
+        // input is clamped to [0, 1]
+        CHECK_NEAR(ApplyEase(e, -0.5f), ApplyEase(e, 0.0f), 1e-6f);
+        CHECK_NEAR(ApplyEase(e, 1.5f), ApplyEase(e, 1.0f), 1e-6f);
+    }
+
+    CHECK_NEAR(ApplyEase(Ease::Linear, 0.25f), 0.25f, 1e-6f);
+    CHECK_NEAR(ApplyEase(Ease::InQuad, 0.5f), 0.25f, 1e-6f);
+    CHECK_NEAR(ApplyEase(Ease::OutQuad, 0.5f), 0.75f, 1e-6f);
+    CHECK_NEAR(ApplyEase(Ease::InOutQuad, 0.25f), 0.125f, 1e-6f);
+    CHECK_NEAR(ApplyEase(Ease::InOutQuad, 0.5f), 0.5f, 1e-6f);
+    CHECK_NEAR(ApplyEase(Ease::InOutQuad, 0.75f), 0.875f, 1e-6f);
+    CHECK_NEAR(ApplyEase(Ease::OutCubic, 0.5f), 0.875f, 1e-6f);
+    CHECK_NEAR(ApplyEase(Ease::InOutCubic, 0.25f), 0.0625f, 1e-6f);
+    CHECK_NEAR(ApplyEase(Ease::InOutCubic, 0.5f), 0.5f, 1e-6f);
+    CHECK_NEAR(ApplyEase(Ease::OutBounce, 1.0f / 2.75f), 1.0f, 1e-5f); // first bounce touches the ground
+    CHECK_NEAR(ApplyEase(Ease::OutBounce, 0.5f), 0.765625f, 1e-5f);
+
+    // Monotonic curves never go backwards; InOut curves are point-symmetric.
+    const Ease monotonic[] = { Ease::Linear, Ease::InQuad, Ease::OutQuad, Ease::InOutQuad, Ease::OutCubic, Ease::InOutCubic };
+    for (Ease e : monotonic)
+        for (int i = 1; i <= 100; i++)
+            CHECK(ApplyEase(e, i / 100.0f) >= ApplyEase(e, (i - 1) / 100.0f) - 1e-6f);
+    for (Ease e : { Ease::InOutQuad, Ease::InOutCubic })
+        for (int i = 0; i <= 20; i++)
+            CHECK_NEAR(ApplyEase(e, i / 20.0f) + ApplyEase(e, 1.0f - i / 20.0f), 1.0f, 1e-5f);
+
+    // Back / elastic overshoot past 1, bounce stays inside [0, 1].
+    float maxBack = 0.0f, maxElastic = 0.0f, minBounce = 1.0f, maxBounce = 0.0f;
+    for (int i = 0; i <= 200; i++)
+    {
+        float t = i / 200.0f;
+        maxBack = std::max(maxBack, ApplyEase(Ease::OutBack, t));
+        maxElastic = std::max(maxElastic, ApplyEase(Ease::OutElastic, t));
+        minBounce = std::min(minBounce, ApplyEase(Ease::OutBounce, t));
+        maxBounce = std::max(maxBounce, ApplyEase(Ease::OutBounce, t));
+    }
+    CHECK(maxBack > 1.05f && maxBack < 1.15f);
+    CHECK(maxElastic > 1.1f);
+    CHECK(minBounce >= 0.0f && maxBounce <= 1.0f + 1e-5f);
+}
+
+TEST(TweensRunAndChain)
+{
+    g_TweenComplete = g_TweenCalls = 0;
+    g_TweenLast = -1.0f;
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Tweened");
+    e.AddComponent<NativeScriptComponent>().ClassName = "TweenScript";
+    const float dt = 0.125f;
+    auto step = [&](int frames) { for (int i = 0; i < frames; i++) scene->OnUpdateRuntime(dt); };
+
+    scene->OnRuntimeStart();
+    auto* script = ScriptableEntity::GetScript<TweenScript>(e);
+    CHECK(script && script->IsTweening());
+
+    step(2); // t = 0.25
+    CHECK_NEAR(e.GetTransform().Translation.x, 1.0f, 1e-5f);
+    CHECK_NEAR(g_TweenLast, 0.25f, 1e-6f); // InQuad(0.5)
+    step(2); // t = 0.5: generic tween finished
+    CHECK_NEAR(e.GetTransform().Translation.x, 2.0f, 1e-5f);
+    CHECK_NEAR(g_TweenLast, 1.0f, 1e-6f);
+    CHECK(g_TweenCalls == 4);
+    step(4); // t = 1.0: position tween finished, scale tween chained
+    CHECK_NEAR(e.GetTransform().Translation.x, 4.0f, 1e-5f);
+    CHECK(g_TweenComplete == 1);
+    CHECK(g_TweenCalls == 4);
+    CHECK_NEAR(e.GetTransform().Scale.x, 1.0f, 1e-5f);
+    step(2); // t = 1.25: halfway through the scale tween
+    CHECK_NEAR(e.GetTransform().Scale.y, 2.0f, 1e-5f);
+    step(2); // t = 1.5
+    CHECK_NEAR(e.GetTransform().Scale.z, 3.0f, 1e-5f);
+    step(4);
+    CHECK(g_TweenComplete == 1);
+    CHECK_NEAR(e.GetTransform().Translation.x, 4.0f, 1e-5f);
+    CHECK_NEAR(e.GetTransform().Scale.x, 3.0f, 1e-5f);
+    CHECK(script && !script->IsTweening());
+
+    // CancelTweens freezes the value where it is.
+    if (script)
+    {
+        script->TweenPosition({ 0.0f, 0.0f, 0.0f }, 1.0f, Ease::Linear);
+        step(2);
+        CHECK_NEAR(e.GetTransform().Translation.x, 3.0f, 1e-5f);
+        script->CancelTweens();
+        CHECK(!script->IsTweening());
+        step(8);
+        CHECK_NEAR(e.GetTransform().Translation.x, 3.0f, 1e-5f);
+    }
+    scene->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ input action map
+static bool SameBindings(const std::vector<InputBinding>& a, const std::vector<InputBinding>& b)
+{
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); i++)
+        if (!(a[i] == b[i])) return false;
+    return true;
+}
+
+TEST(InputActionMapDefaults)
+{
+    InputActionMap map = InputActionMap::CreateDefault();
+    const InputAction* jump = map.FindAction("Jump");
+    CHECK(jump != nullptr);
+    CHECK(jump && std::find(jump->Bindings.begin(), jump->Bindings.end(), InputBinding::FromKey(Key::Space)) != jump->Bindings.end());
+    CHECK(jump && std::find(jump->Bindings.begin(), jump->Bindings.end(), InputBinding::FromGamepadButton(GamepadButton::A)) != jump->Bindings.end());
+    const InputAction* fire = map.FindAction("Fire");
+    CHECK(fire && std::find(fire->Bindings.begin(), fire->Bindings.end(), InputBinding::FromMouse(MouseButton::Left)) != fire->Bindings.end());
+    CHECK(map.FindAction("Nope") == nullptr);
+
+    const InputAxis* h = map.FindAxis("Horizontal");
+    const InputAxis* v = map.FindAxis("Vertical");
+    CHECK(h && v);
+    if (h && v)
+    {
+        CHECK(h->GamepadAxisCode == (int)GamepadAxis::LeftX && !h->Invert);
+        CHECK(v->GamepadAxisCode == (int)GamepadAxis::LeftY && v->Invert);
+        CHECK(!h->Negative.empty() && h->Negative[0] == InputBinding::FromKey(Key::A));
+        CHECK(!h->Positive.empty() && h->Positive[0] == InputBinding::FromKey(Key::D));
+        CHECK(!v->Positive.empty() && v->Positive[0] == InputBinding::FromKey(Key::W));
+        CHECK(h->Deadzone > 0.0f && h->Deadzone < 0.5f);
+    }
+    CHECK(map.MakeUniqueActionName("Jump") == "Jump 2");
+    CHECK(map.MakeUniqueActionName("Dash") == "Dash");
+    CHECK(map.MakeUniqueAxisName("Vertical") == "Vertical 2");
+
+    // Without a project the default map is used.
+    Project::SetActive(nullptr);
+    CHECK(Project::GetInputActionMap().FindAction("Jump") != nullptr);
+}
+
+TEST(InputBindingNames)
+{
+    // Every named key survives a string round trip and names are unique.
+    std::set<std::string> names;
+    for (Key k : GetAllKeys())
+    {
+        std::string name = KeyToString(k);
+        CHECK(!name.empty());
+        names.insert(name);
+        Key back;
+        CHECK(KeyFromString(name, back) && back == k);
+        InputBinding b;
+        CHECK(InputBindingFromString(InputBindingToString(InputBinding::FromKey(k)), b) && b == InputBinding::FromKey(k));
+    }
+    CHECK(names.size() == GetAllKeys().size());
+    CHECK(GetAllKeys().size() > 100);
+
+    for (int i = 0; i < MouseButtonCount; i++)
+    {
+        InputBinding b, src = InputBinding::FromMouse((MouseButton)i);
+        CHECK(InputBindingFromString(InputBindingToString(src), b) && b == src);
+    }
+    for (int i = 0; i < GamepadButtonCount; i++)
+    {
+        InputBinding b, src = InputBinding::FromGamepadButton((GamepadButton)i);
+        CHECK(InputBindingFromString(InputBindingToString(src), b) && b == src);
+    }
+    for (int i = 0; i < GamepadAxisCount; i++)
+        for (int dir : { 1, -1 })
+        {
+            InputBinding b, src = InputBinding::FromGamepadAxis((GamepadAxis)i, dir);
+            CHECK(InputBindingFromString(InputBindingToString(src), b) && b == src && b.Direction == dir);
+        }
+
+    CHECK(InputBindingToString(InputBinding::FromKey(Key::Space)) == "Key:Space");
+    CHECK(InputBindingToString(InputBinding::FromGamepadAxis(GamepadAxis::LeftY, -1)) == "GamepadAxis:LeftY-");
+    InputBinding b;
+    CHECK(InputBindingFromString("Mouse:Right", b) && b == InputBinding::FromMouse(MouseButton::Right));
+    CHECK(InputBindingFromString("GamepadAxis:RightTrigger", b) && b == InputBinding::FromGamepadAxis(GamepadAxis::RightTrigger, 1));
+    CHECK(!InputBindingFromString("Key:NoSuchKey", b));
+    CHECK(!InputBindingFromString("Joystick:A", b));
+    CHECK(!InputBindingFromString("Space", b));
+    CHECK(!(InputBinding::FromGamepadAxis(GamepadAxis::LeftX, 1) == InputBinding::FromGamepadAxis(GamepadAxis::LeftX, -1)));
+    CHECK(!(InputBinding::FromKey(Key::A) == InputBinding::FromGamepadButton(GamepadButton::A)));
+}
+
+TEST(InputActionMapSerialization)
+{
+    InputActionMap map;
+    map.Actions.push_back({ "Dash", { InputBinding::FromKey(Key::LeftShift), InputBinding::FromGamepadAxis(GamepadAxis::LeftTrigger, 1) } });
+    map.Actions.push_back({ "Shoot", { InputBinding::FromMouse(MouseButton::Right) } });
+    map.Actions.push_back({ "Unbound", {} });
+    InputAxis steer;
+    steer.Name = "Steer";
+    steer.Negative = { InputBinding::FromKey(Key::Q) };
+    steer.Positive = { InputBinding::FromKey(Key::E), InputBinding::FromGamepadButton(GamepadButton::RightBumper) };
+    steer.GamepadAxisCode = (int)GamepadAxis::RightX;
+    steer.Invert = true;
+    steer.Deadzone = 0.3f;
+    InputAxis none;
+    none.Name = "NoStick";
+    map.Axes = { steer, none };
+
+    std::string text = ProjectSerializer::InputMapToString(map);
+    InputActionMap loaded;
+    CHECK(ProjectSerializer::InputMapFromString(text, loaded));
+    CHECK(loaded.Actions.size() == 3 && loaded.Axes.size() == 2);
+    if (loaded.Actions.size() == 3 && loaded.Axes.size() == 2)
+    {
+        for (size_t i = 0; i < 3; i++)
+        {
+            CHECK(loaded.Actions[i].Name == map.Actions[i].Name);
+            CHECK(SameBindings(loaded.Actions[i].Bindings, map.Actions[i].Bindings));
+        }
+        const InputAxis& a = loaded.Axes[0];
+        CHECK(a.Name == "Steer" && a.Invert && a.GamepadAxisCode == (int)GamepadAxis::RightX);
+        CHECK_NEAR(a.Deadzone, 0.3f, 1e-6f);
+        CHECK(SameBindings(a.Negative, steer.Negative) && SameBindings(a.Positive, steer.Positive));
+        CHECK(loaded.Axes[1].GamepadAxisCode == -1 && !loaded.Axes[1].Invert);
+    }
+    CHECK(ProjectSerializer::InputMapToString(loaded) == text);
+    Log::SetMinLevel(LogLevel::Critical); // the parse error below is expected
+    CHECK(!ProjectSerializer::InputMapFromString("{ not json", loaded));
+    Log::SetMinLevel(LogLevel::Error);
+
+    // Unknown bindings are skipped, the rest is kept.
+    CHECK(ProjectSerializer::InputMapFromString(R"({"Actions":[{"Name":"Jump","Bindings":["Key:Space","Key:Bogus",5]}],"Axes":[]})", loaded));
+    CHECK(loaded.Actions.size() == 1 && loaded.Actions[0].Bindings.size() == 1);
+}
+
+TEST(ProjectInputMapRoundTrip)
+{
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-input-" + std::to_string((uint64_t)UUID()));
+    auto project = Project::CreateFromTemplate(dir, "InputGame");
+    CHECK(project != nullptr);
+    if (project)
+    {
+        // New projects start with the default actions.
+        CHECK(project->GetConfig().InputActions.FindAction("Jump") != nullptr);
+        CHECK(Project::GetInputActionMap().FindAxis("Horizontal") != nullptr);
+
+        // Edit + save + reload.
+        auto& map = project->GetConfig().InputActions;
+        map.FindAction("Jump")->Bindings = { InputBinding::FromKey(Key::K) };
+        map.Actions.push_back({ "Dash", { InputBinding::FromKey(Key::LeftAlt) } });
+        map.Axes.erase(map.Axes.begin()); // drop Horizontal
+        CHECK(Project::SaveActive(dir / "InputGame.zproject"));
+
+        auto loaded = Project::Load(dir / "InputGame.zproject");
+        CHECK(loaded != nullptr);
+        if (loaded)
+        {
+            const auto& lm = loaded->GetConfig().InputActions;
+            CHECK(lm.FindAction("Jump") && SameBindings(lm.FindAction("Jump")->Bindings, { InputBinding::FromKey(Key::K) }));
+            CHECK(lm.FindAction("Dash") != nullptr);
+            CHECK(lm.FindAxis("Horizontal") == nullptr);
+            CHECK(lm.FindAxis("Vertical") != nullptr);
+            CHECK(&Project::GetInputActionMap() == &lm);
+        }
+
+        // An older project file without an input section gets the defaults.
+        CHECK(FileSystem::WriteTextFile(dir / "Old.zproject", R"({"Project":{"Name":"Old","StartScene":"Scenes/Main.zscene"}})"));
+        auto old = Project::Load(dir / "Old.zproject");
+        CHECK(old && old->GetConfig().InputActions.FindAction("Jump") && old->GetConfig().InputActions.FindAxis("Horizontal"));
+    }
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
 }
 
 int main()

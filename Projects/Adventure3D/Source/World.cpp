@@ -12,7 +12,7 @@ void OrbitFollowCamera::OnCreate()
 
 void OrbitFollowCamera::OnLateUpdate(Timestep ts)
 {
-    Entity target = FindEntity(Target);
+    Entity target = Follow ? Resolve(Follow) : FindEntity(Target);
     if (!target) return;
 
     // rotate: RMB drag, Q/E, gamepad right stick
@@ -41,7 +41,7 @@ void OrbitFollowCamera::OnLateUpdate(Timestep ts)
     glm::vec3 dir = glm::normalize(m_Focus - t.Translation);
     t.Rotation = { std::asin(dir.y), std::atan2(-dir.x, -dir.z), 0.0f };
 }
-ZM_REGISTER_SCRIPT(OrbitFollowCamera, ZM_FIELD(OrbitFollowCamera, Target), ZM_FIELD(OrbitFollowCamera, Distance),
+ZM_REGISTER_SCRIPT(OrbitFollowCamera, ZM_FIELD(OrbitFollowCamera, Follow), ZM_FIELD(OrbitFollowCamera, Target), ZM_FIELD(OrbitFollowCamera, Distance),
                    ZM_FIELD(OrbitFollowCamera, Height), ZM_FIELD(OrbitFollowCamera, Yaw), ZM_FIELD(OrbitFollowCamera, Pitch))
 
 // ------------------------------------------------------------------ game state / HUD

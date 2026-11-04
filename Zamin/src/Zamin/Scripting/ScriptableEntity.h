@@ -108,15 +108,20 @@ namespace Zamin {
         // ---- time
         float GetTime() const;
 
-        // ---- timers (run on the main thread after OnUpdate)
+        // ---- timers (run on the main thread after OnUpdate; safe to call from inside callbacks)
         void Invoke(float delay, std::function<void()> callback);
         void InvokeRepeating(float delay, float interval, std::function<void()> callback);
         void CancelInvokes();
+        bool IsInvoking() const;
         // Calls onUpdate(t) with eased t in [0,1] for `duration` seconds, then onComplete.
         void Tween(float duration, std::function<void(float)> onUpdate, Ease ease = Ease::InOutQuad,
                    std::function<void()> onComplete = {});
-        void TweenPosition(const glm::vec3& target, float duration, Ease ease = Ease::InOutQuad);
-        void TweenScale(const glm::vec3& target, float duration, Ease ease = Ease::OutBack);
+        void TweenPosition(const glm::vec3& target, float duration, Ease ease = Ease::InOutQuad,
+                           std::function<void()> onComplete = {});
+        void TweenScale(const glm::vec3& target, float duration, Ease ease = Ease::OutBack,
+                        std::function<void()> onComplete = {});
+        void CancelTweens();
+        bool IsTweening() const;
 
         // ---- entity references (EntityRef fields)
         Entity Resolve(const EntityRef& ref) const;
@@ -138,17 +143,22 @@ namespace Zamin {
         {
             float Remaining = 0.0f, Interval = 0.0f;
             bool Repeat = false;
+            bool Done = false;
             std::function<void()> Callback;
         };
         struct TweenState
         {
             float Elapsed = 0.0f, Duration = 1.0f;
             Ease Easing = Ease::Linear;
+            bool Done = false;
             std::function<void(float)> OnUpdate;
             std::function<void()> OnComplete;
         };
-        std::vector<Timer> m_Timers;
-        std::vector<TweenState> m_Tweens;
+        // Timers/tweens created while ticking go to the pending lists so the
+        // vectors being iterated never reallocate under a running callback.
+        std::vector<Timer> m_Timers, m_PendingTimers;
+        std::vector<TweenState> m_Tweens, m_PendingTweens;
+        bool m_TickingTimers = false;
         Entity m_Entity;
         friend class Scene;
     };

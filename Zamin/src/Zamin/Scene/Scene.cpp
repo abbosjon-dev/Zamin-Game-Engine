@@ -263,6 +263,8 @@ namespace Zamin {
         return newEntity;
     }
 
+    static void CollectSubtree(Scene& scene, Entity root, std::vector<Entity>& out);
+
     Entity Scene::DuplicateEntity(Entity entity)
     {
         UUID parent = entity.GetComponent<RelationshipComponent>().Parent;
@@ -270,7 +272,36 @@ namespace Zamin {
         if ((uint64_t)parent)
             if (Entity p = GetEntityByUUID(parent))
                 p.GetComponent<RelationshipComponent>().Children.push_back(copy.GetUUID());
+
+        // Both subtrees are created in the same depth-first order: pair them up so that
+        // EntityRef fields pointing inside the original subtree point inside the copy.
+        std::vector<Entity> originals, copies;
+        CollectSubtree(*this, entity, originals);
+        CollectSubtree(*this, copy, copies);
+        if (originals.size() == copies.size())
+        {
+            std::unordered_map<uint64_t, uint64_t> remap;
+            for (size_t i = 0; i < originals.size(); i++)
+                remap[(uint64_t)originals[i].GetUUID()] = (uint64_t)copies[i].GetUUID();
+            RemapEntityReferences(copies, remap);
+        }
         return copy;
+    }
+
+    void Scene::RemapEntityReferences(const std::vector<Entity>& entities, const std::unordered_map<uint64_t, uint64_t>& oldToNew)
+    {
+        for (Entity e : entities)
+        {
+            auto* nsc = e.TryGetComponent<NativeScriptComponent>();
+            if (!nsc) continue;
+            for (auto& [name, value] : nsc->Fields)
+            {
+                if (value.Type != ScriptFieldType::Entity) continue;
+                EntityRef ref = value.Get<EntityRef>();
+                if (auto it = oldToNew.find(ref.ID); ref.ID && it != oldToNew.end())
+                    value.Set(EntityRef{ it->second });
+            }
+        }
     }
 
     void Scene::OnEntitiesSpawned(const std::vector<Entity>& entities)

@@ -70,6 +70,10 @@ namespace Zamin {
         Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
         void DestroyEntity(Entity entity);
         Entity DuplicateEntity(Entity entity);
+        // Rewrites EntityRef script fields of `entities` using an old->new UUID map
+        // (used when a subtree is duplicated / pasted / instantiated with fresh IDs, so
+        // references inside the copied subtree point to the copies).
+        static void RemapEntityReferences(const std::vector<Entity>& entities, const std::unordered_map<uint64_t, uint64_t>& oldToNew);
 
         void OnRuntimeStart();
         void OnRuntimeStop();

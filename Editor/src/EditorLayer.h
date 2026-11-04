@@ -5,6 +5,7 @@
 #include "Panels/SceneHierarchyPanel.h"
 #include "Panels/ContentBrowserPanel.h"
 #include "Panels/ConsolePanel.h"
+#include "Panels/ProjectSettingsPanel.h"
 
 #include <atomic>
 #include <filesystem>
@@ -135,8 +136,10 @@ namespace Zamin {
         SceneHierarchyPanel m_SceneHierarchyPanel;
         ContentBrowserPanel m_ContentBrowserPanel;
         ConsolePanel m_ConsolePanel;
+        ProjectSettingsPanel m_ProjectSettingsPanel;
         bool m_ShowHierarchy = true, m_ShowInspector = true, m_ShowContentBrowser = true, m_ShowConsole = true;
         bool m_ShowSceneSettings = true, m_ShowStats = false, m_ShowImGuiDemo = false;
+        bool m_ShowProjectSettings = false;
         bool m_ShowLauncher = false;
         bool m_ShowAbout = false;
         bool m_LayoutInitialized = false;

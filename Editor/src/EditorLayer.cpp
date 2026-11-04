@@ -101,6 +101,7 @@ namespace Zamin {
     {
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
+        m_ProjectSettingsPanel.SaveIfDirty();
         m_ActiveScene.reset();
         m_EditorScene.reset();
         ScriptEngine::UnloadModule();
@@ -121,6 +122,11 @@ namespace Zamin {
                 OnScenePlay();
             if (std::getenv("ZAMIN_EDITOR_STATS"))
                 m_ShowStats = true;
+            if (std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS"))
+            {
+                m_ShowProjectSettings = true;
+                m_ProjectSettingsPanel.Focus();
+            }
             if (const char* out = std::getenv("ZAMIN_EDITOR_EXPORT"))
                 BuildGame(out);
             if (std::getenv("ZAMIN_EDITOR_BUILD"))
@@ -542,11 +548,13 @@ namespace Zamin {
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
 
+        m_ProjectSettingsPanel.SaveIfDirty();
         if (!Project::Load(projectFile))
         {
             ZM_ERROR("Loyiha ochilmadi: {}", path.string());
             return false;
         }
+        m_ProjectSettingsPanel.OnProjectChanged();
         AddRecentProject(projectFile);
         m_ShowLauncher = false;
 
@@ -582,6 +590,8 @@ namespace Zamin {
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
         ScriptEngine::UnloadModule();
+        m_ProjectSettingsPanel.SaveIfDirty();
+        m_ProjectSettingsPanel.OnProjectChanged();
         Project::SetActive(nullptr);
         m_ContentBrowserPanel.SetRoot({});
         NewScene();
@@ -1091,6 +1101,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         if (!project || m_Exporting) return;
         if (m_SceneState != SceneState::Edit) OnSceneStop();
         if (m_SceneDirty) SaveScene();
+        m_ProjectSettingsPanel.SaveIfDirty(); // the exported game reads the .zproject (input map)
 
         std::string name = project->GetConfig().Name;
         fs::path projectDir = Project::GetProjectDirectory();
@@ -1150,7 +1161,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         if (!io.WantTextInput)
         {
             bool ctrl = io.KeyCtrl, shift = io.KeyShift;
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) { shift ? SaveSceneAs() : SaveScene(); }
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) { shift ? SaveSceneAs() : SaveScene(); m_ProjectSettingsPanel.SaveIfDirty(); }
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) { shift ? OpenProjectDialog() : OpenScene(); }
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) NewScene();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_D, false)) DuplicateSelectedEntity();
@@ -1184,6 +1195,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         m_ContentBrowserPanel.OnImGuiRender(&m_ShowContentBrowser);
         m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
         UI_SceneSettings();
+        m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
         UI_Stats();
         UI_Viewport();
         if (m_MaximizeOnPlay && m_SceneState == SceneState::Play)
@@ -1232,6 +1244,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         ImGui::DockBuilderDockWindow("###Hierarchy", left);
         ImGui::DockBuilderDockWindow("###Inspector", right);
         ImGui::DockBuilderDockWindow("###SceneSettings", right);
+        ImGui::DockBuilderDockWindow("###ProjectSettings", right);
         ImGui::DockBuilderDockWindow("###ContentBrowser", bottom);
         ImGui::DockBuilderDockWindow("###Console", bottom);
         ImGui::DockBuilderDockWindow("###Stats", left);
@@ -1270,6 +1283,11 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
                         break;
                     }
                 ImGui::EndMenu();
+            }
+            if (ImGui::MenuItem(ICON_FA_GEAR "  Loyiha sozlamalari...", nullptr, false, hasProject))
+            {
+                m_ShowProjectSettings = true;
+                m_ProjectSettingsPanel.Focus();
             }
             if (ImGui::MenuItem(ICON_FA_XMARK "  Loyihani yopish", nullptr, false, hasProject)) CloseProject();
             ImGui::Separator();
@@ -1337,6 +1355,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
             ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Kontent", nullptr, &m_ShowContentBrowser);
             ImGui::MenuItem(ICON_FA_TERMINAL "  Konsol", nullptr, &m_ShowConsole);
             ImGui::MenuItem(ICON_FA_MOUNTAIN_SUN "  Sahna sozlamalari", nullptr, &m_ShowSceneSettings);
+            ImGui::MenuItem(ICON_FA_GEAR "  Loyiha sozlamalari", nullptr, &m_ShowProjectSettings);
             ImGui::MenuItem(ICON_FA_CHART_LINE "  Statistika", nullptr, &m_ShowStats);
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_BORDER_ALL "  Standart joylashuv")) m_LayoutInitialized = false;
@@ -1796,6 +1815,11 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
             {
                 c.StartScene = Project::GetAssetRelativePath(m_EditorScenePath);
                 Project::SaveActive(Project::GetProjectFilePath());
+            }
+            if (ImGui::Button(ICON_FA_GAMEPAD "  Input va loyiha sozlamalari"))
+            {
+                m_ShowProjectSettings = true;
+                m_ProjectSettingsPanel.Focus();
             }
         }
 

@@ -90,3 +90,7 @@
 #define ICON_FA_HAND_POINTER "\xef\x89\x9a"
 #define ICON_FA_TABLE_CELLS "\xef\x80\x8a"
 #define ICON_FA_ARROW_RIGHT "\xef\x81\xa1"
+#define ICON_FA_KEYBOARD "\xef\x84\x9c"
+#define ICON_FA_COMPUTER_MOUSE "\xef\xa3\x8c"
+#define ICON_FA_CROSSHAIRS "\xef\x81\x9b"
+#define ICON_FA_ARROWS_LEFT_RIGHT "\xef\x81\xbe"

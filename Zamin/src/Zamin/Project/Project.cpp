@@ -5,6 +5,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
+
 namespace Zamin {
 
     using json = nlohmann::json;
@@ -60,6 +62,12 @@ namespace Zamin {
         return s_ActiveProject->m_ProjectDirectory / s_ActiveProject->m_Config.ScriptModulePath;
     }
 
+    const InputActionMap& Project::GetInputActionMap()
+    {
+        static const InputActionMap s_Default = InputActionMap::CreateDefault();
+        return s_ActiveProject ? s_ActiveProject->m_Config.InputActions : s_Default;
+    }
+
     std::filesystem::path Project::GetAssetFileSystemPath(const std::filesystem::path& path)
     {
         if (path.is_absolute() || !s_ActiveProject)
@@ -77,6 +85,90 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ serializer
+    static json BindingsToJson(const std::vector<InputBinding>& bindings)
+    {
+        json list = json::array();
+        for (const auto& b : bindings)
+            list.push_back(InputBindingToString(b));
+        return list;
+    }
+
+    static std::vector<InputBinding> BindingsFromJson(const json& j, const std::string& owner)
+    {
+        std::vector<InputBinding> bindings;
+        if (!j.is_array()) return bindings;
+        for (const json& item : j)
+        {
+            InputBinding b;
+            if (item.is_string() && InputBindingFromString(item.get<std::string>(), b))
+                bindings.push_back(b);
+            else
+                ZM_CORE_WARN("Noma'lum input bog'lanishi '{}' ({})", item.dump(), owner);
+        }
+        return bindings;
+    }
+
+    static json InputMapToJson(const InputActionMap& map)
+    {
+        json actions = json::array();
+        for (const auto& a : map.Actions)
+            actions.push_back({ { "Name", a.Name }, { "Bindings", BindingsToJson(a.Bindings) } });
+        json axes = json::array();
+        for (const auto& a : map.Axes)
+        {
+            json axis = { { "Name", a.Name }, { "Negative", BindingsToJson(a.Negative) }, { "Positive", BindingsToJson(a.Positive) },
+                          { "Invert", a.Invert }, { "Deadzone", a.Deadzone } };
+            axis["GamepadAxis"] = a.GamepadAxisCode >= 0 ? GamepadAxisToString((GamepadAxis)a.GamepadAxisCode) : "";
+            axes.push_back(axis);
+        }
+        return { { "Actions", actions }, { "Axes", axes } };
+    }
+
+    static InputActionMap InputMapFromJson(const json& j)
+    {
+        InputActionMap map;
+        if (j.contains("Actions") && j["Actions"].is_array())
+            for (const json& a : j["Actions"])
+            {
+                InputAction action;
+                action.Name = a.value("Name", "");
+                if (action.Name.empty()) continue;
+                if (a.contains("Bindings")) action.Bindings = BindingsFromJson(a["Bindings"], action.Name);
+                map.Actions.push_back(std::move(action));
+            }
+        if (j.contains("Axes") && j["Axes"].is_array())
+            for (const json& a : j["Axes"])
+            {
+                InputAxis axis;
+                axis.Name = a.value("Name", "");
+                if (axis.Name.empty()) continue;
+                if (a.contains("Negative")) axis.Negative = BindingsFromJson(a["Negative"], axis.Name);
+                if (a.contains("Positive")) axis.Positive = BindingsFromJson(a["Positive"], axis.Name);
+                GamepadAxis gamepadAxis;
+                axis.GamepadAxisCode = GamepadAxisFromString(a.value("GamepadAxis", ""), gamepadAxis) ? (int)gamepadAxis : -1;
+                axis.Invert = a.value("Invert", false);
+                axis.Deadzone = std::clamp(a.value("Deadzone", 0.15f), 0.0f, 0.95f);
+                map.Axes.push_back(std::move(axis));
+            }
+        return map;
+    }
+
+    std::string ProjectSerializer::InputMapToString(const InputActionMap& map) { return InputMapToJson(map).dump(4); }
+
+    bool ProjectSerializer::InputMapFromString(const std::string& text, InputActionMap& out)
+    {
+        try
+        {
+            out = InputMapFromJson(json::parse(text));
+            return true;
+        }
+        catch (const std::exception& e)
+        {
+            ZM_CORE_ERROR("Input xaritasi o'qilmadi: {}", e.what());
+            return false;
+        }
+    }
+
     bool ProjectSerializer::Serialize(const std::filesystem::path& filepath)
     {
         const auto& c = m_Project->GetConfig();
@@ -89,6 +181,7 @@ namespace Zamin {
             { "ScriptModulePath", c.ScriptModulePath.generic_string() },
             { "EngineVersion", "0.1.0" },
         };
+        j["InputActions"] = InputMapToJson(c.InputActions);
         return FileSystem::WriteTextFile(filepath, j.dump(4));
     }
 
@@ -106,6 +199,11 @@ namespace Zamin {
             c.AssetDirectory = p.value("AssetDirectory", "Assets");
             c.SourceDirectory = p.value("SourceDirectory", "Source");
             c.ScriptModulePath = p.value("ScriptModulePath", "");
+            // Older projects have no input section: keep the defaults.
+            if (j.contains("InputActions") && j["InputActions"].is_object())
+                c.InputActions = InputMapFromJson(j["InputActions"]);
+            else
+                c.InputActions = InputActionMap::CreateDefault();
         }
         catch (const std::exception& e)
         {

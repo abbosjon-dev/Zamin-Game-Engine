@@ -619,7 +619,117 @@ namespace Zamin {
         return defaults;
     }
 
-    static bool DrawFieldValue(const char* name, ScriptFieldType type, void* data)
+    bool SceneHierarchyPanel::DrawEntityRefField(const char* name, EntityRef& ref)
+    {
+        UI::PropertyLabel(name);
+        ImGui::PushID(name);
+        bool changed = false;
+
+        Entity target = ref.ID && m_Context ? m_Context->GetEntityByUUID(ref.ID) : Entity();
+        bool missing = ref.ID && !target;
+
+        float buttonWidth = ImGui::GetFrameHeight();
+        float spacing = ImGui::GetStyle().ItemSpacing.x;
+        float width = std::max(20.0f, ImGui::GetContentRegionAvail().x - (buttonWidth + spacing) * 2.0f);
+        std::string display;
+        if (!ref.ID) display = ICON_FA_LINK "  (yo'q)";
+        else if (missing) display = ICON_FA_TRIANGLE_EXCLAMATION "  (topilmadi)";
+        else display = std::string(EntityIcon(target)) + "  " + target.GetName();
+
+        ImVec4 textColor = missing ? ImVec4(0.95f, 0.45f, 0.35f, 1.0f)
+                         : !ref.ID ? ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled)
+                         : ImGui::GetStyleColorVec4(ImGuiCol_Text);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+        ImGui::PushStyleColor(ImGuiCol_Text, textColor);
+        ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0f, 0.5f));
+        if (ImGui::Button(display.c_str(), ImVec2(width, 0)))
+        {
+            m_EntityPickerFilter.clear();
+            ImGui::OpenPopup("##entityPicker");
+        }
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(2);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip(missing ? "Bog'langan obyekt sahnada yo'q. Boshqasini tanlang yoki tozalang"
+                                : "Ierarxiyadan obyektni tortib tashlang yoki bosib tanlang");
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_ENTITY"))
+            {
+                uint64_t id = *(const uint64_t*)payload->Data;
+                if (id != ref.ID)
+                {
+                    ref.ID = id;
+                    changed = true;
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+        if (ImGui::BeginPopup("##entityPicker"))
+        {
+            if (ImGui::IsWindowAppearing())
+                ImGui::SetKeyboardFocusHere();
+            ImGui::SetNextItemWidth(ImGui::GetFontSize() * 16.0f);
+            ImGui::InputTextWithHint("##filter", ICON_FA_MAGNIFYING_GLASS "  Qidirish...", &m_EntityPickerFilter);
+            ImGui::Separator();
+            std::string filter = ToLower(m_EntityPickerFilter);
+            ImGui::BeginChild("##list", ImVec2(ImGui::GetFontSize() * 16.0f, ImGui::GetFontSize() * 14.0f), ImGuiChildFlags_None);
+            if (ImGui::Selectable(ICON_FA_XMARK "  (yo'q)", ref.ID == 0))
+            {
+                if (ref.ID) changed = true;
+                ref.ID = 0;
+                ImGui::CloseCurrentPopup();
+            }
+            if (m_Context)
+            {
+                for (Entity e : m_Context->GetEntitiesInOrder())
+                {
+                    const std::string& entityName = e.GetName();
+                    if (!filter.empty() && ToLower(entityName).find(filter) == std::string::npos)
+                        continue;
+                    ImGui::PushID((int)(uint32_t)e);
+                    std::string label = std::string(EntityIcon(e)) + "  " + entityName;
+                    if (ImGui::Selectable(label.c_str(), (uint64_t)e.GetUUID() == ref.ID))
+                    {
+                        if ((uint64_t)e.GetUUID() != ref.ID) changed = true;
+                        ref.ID = e.GetUUID();
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::PopID();
+                }
+            }
+            ImGui::EndChild();
+            ImGui::EndPopup();
+        }
+
+        // Locate: select the referenced entity in the hierarchy.
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!target);
+        if (ImGui::Button(ICON_FA_CROSSHAIRS, ImVec2(buttonWidth, 0)))
+            m_SelectionContext = target;
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) && target)
+            UI::Tooltip("Ierarxiyada ko'rsatish");
+
+        // Clear
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!ref.ID);
+        if (ImGui::Button(ICON_FA_XMARK, ImVec2(buttonWidth, 0)))
+        {
+            ref.ID = 0;
+            changed = true;
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) && ref.ID)
+            UI::Tooltip("Tozalash");
+
+        ImGui::PopID();
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::DrawFieldValue(const char* name, ScriptFieldType type, void* data)
     {
         switch (type)
         {
@@ -630,6 +740,7 @@ namespace Zamin {
             case ScriptFieldType::Vec3:   return UI::PropertyFloat3(name, *(glm::vec3*)data);
             case ScriptFieldType::Vec4:   return UI::PropertyColor4(name, *(glm::vec4*)data);
             case ScriptFieldType::String: return UI::PropertyString(name, *(std::string*)data);
+            case ScriptFieldType::Entity: return DrawEntityRefField(name, *(EntityRef*)data);
             default: return false;
         }
     }

@@ -1,6 +1,7 @@
 #include "Zamin/Scene/EntitySelection.h"
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Math/Math.h"
+#include "Zamin/Scene/ComponentRegistry.h"
 
 #include <algorithm>
 
@@ -249,6 +250,56 @@ namespace Zamin {
     {
         m_Scene = nullptr;
         m_Items.clear();
+    }
+
+    // ------------------------------------------------------------------ status bar summary
+    static size_t CountDescendants(Scene& scene, Entity entity, int depth = 0)
+    {
+        if (depth > 256) return 0; // broken (cyclic) hierarchies
+        size_t count = 0;
+        for (UUID child : entity.GetComponent<RelationshipComponent>().Children)
+            if (Entity c = scene.GetEntityByUUID(child))
+                count += 1 + CountDescendants(scene, c, depth + 1);
+        return count;
+    }
+
+    SelectionSummary SummarizeSelection(Scene& scene, const EntitySelection& selection)
+    {
+        SelectionSummary s;
+        std::vector<Entity> entities;
+        for (Entity e : selection.GetEntities())
+            if (e && e.GetScene() == &scene)
+                entities.push_back(e);
+        Entity primary = selection.GetPrimary();
+        if (entities.empty() || !primary || primary.GetScene() != &scene)
+            return s;
+
+        s.Count = entities.size();
+        s.Primary = primary;
+        s.Name = primary.GetName();
+        s.ID = (uint64_t)primary.GetUUID();
+        s.Path = s.Name;
+        int depth = 0;
+        for (Entity parent = scene.GetParent(primary); parent && depth < 256; parent = scene.GetParent(parent), depth++)
+            s.Path = parent.GetName() + "/" + s.Path;
+        s.Position = scene.GetWorldPosition(primary);
+        s.Components = ComponentRegistry::GetOrderedKeys(primary);
+        s.ChildCount = primary.GetComponent<RelationshipComponent>().Children.size();
+        s.DescendantCount = CountDescendants(scene, primary);
+        if (primary.HasComponent<TagsComponent>())
+            s.Tags = primary.GetComponent<TagsComponent>().Tags;
+        s.Hidden = scene.IsHiddenInEditor(primary);
+        s.Locked = scene.IsLockedInEditor(primary);
+
+        glm::vec3 sum(0.0f);
+        for (Entity e : entities)
+        {
+            sum += scene.GetWorldPosition(e);
+            if (scene.IsHiddenInEditor(e)) s.HiddenCount++;
+            if (scene.IsLockedInEditor(e)) s.LockedCount++;
+        }
+        s.Center = sum / (float)entities.size();
+        return s;
     }
 
 }

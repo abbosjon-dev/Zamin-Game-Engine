@@ -67,10 +67,19 @@ namespace Zamin {
 
         void SetLineWidth(float width) override
         {
-            // Core profiles only guarantee width 1.0 – clamp to the supported range.
-            GLfloat range[2] = { 1.0f, 1.0f };
-            glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, range);
-            glLineWidth(std::clamp(width, range[0], range[1]));
+            // Core profiles only guarantee width 1.0 – clamp to the supported range. A
+            // forward-compatible context (macOS, our GLFW window) rejects any width above 1.0
+            // with GL_INVALID_VALUE although the range query reports more.
+            static GLfloat s_MaxWidth = -1.0f;
+            if (s_MaxWidth < 0.0f)
+            {
+                GLfloat range[2] = { 1.0f, 1.0f };
+                glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, range);
+                GLint flags = 0;
+                glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+                s_MaxWidth = (flags & GL_CONTEXT_FLAG_FORWARD_COMPATIBLE_BIT) ? 1.0f : std::max(1.0f, range[1]);
+            }
+            glLineWidth(std::clamp(width, 1.0f, s_MaxWidth));
         }
 
         void SetDepthTest(bool enabled) override { enabled ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST); }

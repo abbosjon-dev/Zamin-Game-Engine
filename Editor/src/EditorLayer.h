@@ -63,6 +63,18 @@ namespace Zamin {
         void PasteEntity();
         void SavePrefab(Entity entity);
         Entity InstantiatePrefabInEditor(const std::filesystem::path& assetPath, Entity parent);
+        // A content browser item (asset-relative path) dropped onto the viewport: a scene opens,
+        // an image / model / sound / prefab becomes an entity (edit mode). Returns that entity.
+        Entity DropAssetOnViewport(const std::string& assetPath);
+
+        // ---- project files
+        // Files dropped onto the window from outside: a project opens; files from outside the
+        // project are copied into Assets (the content browser's folder when dropped on it, else
+        // Assets/<type folder>), and onto the viewport they also become entities.
+        void HandleFileDrop(const std::vector<std::string>& paths, glm::vec2 mouse);
+        // The content browser moved / renamed files: the open scene, its undo history, the
+        // clipboard, the scene path, camera bookmarks and the project's start scene follow.
+        void OnAssetsMoved(const AssetFiles::MoveResult& result);
         void LoadRuntimeScene(const std::filesystem::path& path);
 
         void OnScenePlay();
@@ -124,6 +136,8 @@ namespace Zamin {
         void UI_SceneSettings();
         void UI_Stats();
         void UI_StatusBar();
+        // Selected entity info in the status bar (name, position, components...) up to `maxX`.
+        void UI_StatusBarSelection(float maxX);
         void UI_Launcher();
         void UI_Modals();
         void UI_BuildDefaultLayout(unsigned int dockspaceID);
@@ -157,6 +171,9 @@ namespace Zamin {
         bool m_GizmoAltDrag = false;
         bool m_GizmoAltDuplicatePending = false;
         Entity m_HoveredEntity;
+        // Files dropped onto the window this frame (handled in OnImGuiRender) and where.
+        std::vector<std::string> m_PendingFileDrop;
+        glm::vec2 m_PendingFileDropPos{ 0.0f };
 
         bool m_ViewportFocused = false, m_ViewportHovered = false;
         glm::vec2 m_ViewportSize = { 0.0f, 0.0f };

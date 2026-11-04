@@ -44,6 +44,7 @@
 
 #include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Project/Project.h"
+#include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Math/Math.h"
 #include "Zamin/Math/Random.h"
 #include "Zamin/Utils/PlatformUtils.h"

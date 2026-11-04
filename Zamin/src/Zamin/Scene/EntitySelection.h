@@ -6,6 +6,7 @@
 
 #include <glm/glm.hpp>
 
+#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -57,6 +58,25 @@ namespace Zamin {
         Scene* m_Scene = nullptr; // every selected entity belongs to this scene
         Entity m_Primary, m_Anchor;
     };
+
+    // What the editor's status bar shows about the selection.
+    struct SelectionSummary
+    {
+        size_t Count = 0;                    // selected entities (0: nothing else is filled in)
+        Entity Primary;
+        std::string Name;                    // the primary entity's
+        std::string Path;                    // its parents' names and its own: "World/Player/Weapon"
+        uint64_t ID = 0;
+        glm::vec3 Position{ 0.0f };          // the primary's world position
+        glm::vec3 Center{ 0.0f };            // average world position of every selected entity
+        std::vector<std::string> Components; // the primary's component keys in inspector order (Transform first)
+        size_t ChildCount = 0;               // direct children of the primary
+        size_t DescendantCount = 0;          // everything below it
+        std::vector<std::string> Tags;       // gameplay tags of the primary
+        bool Hidden = false, Locked = false; // the primary's eye / lock state (inherited ones too)
+        size_t HiddenCount = 0, LockedCount = 0; // selected entities hidden / locked
+    };
+    SelectionSummary SummarizeSelection(Scene& scene, const EntitySelection& selection);
 
     // Moves, rotates or scales several entities together like one object (the editor gizmo
     // dragged with a multi-selection). Begin() records where everything was; each Update()

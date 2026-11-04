@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Zamin/Project/AssetFiles.h"
+
 #include <glm/glm.hpp>
 
 #include <array>
@@ -94,19 +96,38 @@ namespace Zamin {
         std::map<std::string, bool> m_Open;
     };
 
+    // How the content browser shows a folder: tiles or a sortable list, the tile size, the
+    // file type filter and the list's sort column.
+    struct ContentBrowserSettings
+    {
+        bool ListView = false;
+        float ThumbnailSize = 84.0f;
+        AssetTypeFilter Filter;
+        AssetSortColumn SortBy = AssetSortColumn::Name;
+        bool SortAscending = true;
+
+        static constexpr float MinThumbnailSize = 48.0f;
+        static constexpr float MaxThumbnailSize = 160.0f;
+
+        void Sanitize();
+    };
+
     // Per-user viewport preferences of the editor: snapping, grid, the camera bookmarks of
-    // every scene (keyed by the scene file path) and the inspector's open / collapsed component
-    // headers. Stored as JSON in the editor config directory.
+    // every scene (keyed by the scene file path), the inspector's open / collapsed component
+    // headers and the content browser's view. Stored as JSON in the editor config directory.
     struct EditorViewSettings
     {
         SnapSettings Snap;
         GridSettings Grid;
         std::map<std::string, CameraBookmarks> Bookmarks;
         InspectorFoldState Inspector;
+        ContentBrowserSettings ContentBrowser;
 
         // Bookmarks of a scene file ("" = a scene that was never saved).
         static std::string SceneKey(const std::filesystem::path& scenePath);
         CameraBookmarks& GetBookmarks(const std::filesystem::path& scenePath) { return Bookmarks[SceneKey(scenePath)]; }
+        // A scene file (or a folder of them) moved: its bookmarks follow it. Returns how many moved.
+        size_t MoveSceneBookmarks(const std::filesystem::path& from, const std::filesystem::path& to);
 
         std::string ToJson() const;
         // Fields that are missing keep their current value. Returns false (nothing changes)

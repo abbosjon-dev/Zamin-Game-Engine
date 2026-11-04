@@ -42,11 +42,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 033. Inspektorda komponent yig'ib qo'yish holatini eslab qolish
 - [x] 034. Ierarxiyada ko'rinish (ko'z) va qulf tugmalari
 - [x] 035. Qulflangan obyektlar viewport'da tanlanmaydi
-- [ ] 036. Kontent brauzerda fayllarni sudrab papkaga ko'chirish
-- [ ] 037. Kontent brauzerda ro'yxat ko'rinishi (list view)
-- [ ] 038. Kontent brauzerda fayl turlari bo'yicha filtr
-- [ ] 039. Tashqaridan faylni oynaga tashlab Assets'ga import qilish
-- [ ] 040. Status bar'da tanlangan obyekt ma'lumoti
+- [x] 036. Kontent brauzerda fayllarni sudrab papkaga ko'chirish
+- [x] 037. Kontent brauzerda ro'yxat ko'rinishi (list view)
+- [x] 038. Kontent brauzerda fayl turlari bo'yicha filtr
+- [x] 039. Tashqaridan faylni oynaga tashlab Assets'ga import qilish
+- [x] 040. Status bar'da tanlangan obyekt ma'lumoti
 
 ## M03 Faol/nofaol obyektlar
 

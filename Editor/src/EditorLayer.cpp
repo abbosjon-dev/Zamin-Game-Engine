@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <format>
+#include <map>
 #include <string_view>
 
 namespace Zamin {
@@ -82,6 +83,9 @@ namespace Zamin {
             scene->SetName(p.stem().string());
             SerializeScene(scene, p);
         };
+        m_ContentBrowserPanel.SetSettings(&m_ViewSettings.ContentBrowser); // grid / list, filter, sorting: per user
+        m_ContentBrowserPanel.OnSettingsModified = [this]() { MarkViewSettingsDirty(); };
+        m_ContentBrowserPanel.OnAssetsMoved = [this](const AssetFiles::MoveResult& result) { OnAssetsMoved(result); };
 
         ScriptEngine::SetBeforeUnloadCallback([this]() {
             if (m_SceneState != SceneState::Edit)
@@ -155,6 +159,23 @@ namespace Zamin {
                 m_ShowStats = true;
             if (std::getenv("ZAMIN_EDITOR_FRAME_ALL"))
                 FrameAll();
+            // Content browser: folder (relative to the project), list view, type filter ("Texture,Model").
+            if (const char* dir = std::getenv("ZAMIN_EDITOR_CB_DIR"))
+                m_ContentBrowserPanel.SetCurrentDirectory(Project::GetProjectDirectory() / dir);
+            if (const char* list = std::getenv("ZAMIN_EDITOR_CB_LIST"))
+                m_ViewSettings.ContentBrowser.ListView = std::string_view(list) != "0";
+            if (const char* filter = std::getenv("ZAMIN_EDITOR_CB_FILTER"))
+            {
+                m_ViewSettings.ContentBrowser.Filter.Clear();
+                std::string_view keys(filter);
+                while (!keys.empty())
+                {
+                    size_t comma = keys.find(',');
+                    if (auto type = AssetFiles::FindTypeByKey(keys.substr(0, comma)))
+                        m_ViewSettings.ContentBrowser.Filter.Set(*type, true);
+                    keys = comma == std::string_view::npos ? std::string_view() : keys.substr(comma + 1);
+                }
+            }
             if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | Tags | General
             {
                 m_ShowProjectSettings = true;
@@ -189,6 +210,47 @@ namespace Zamin {
                     bool minimal = bar != std::string::npos && v.substr(bar + 1) == "minimal";
                     CreateScriptClass(v.substr(0, bar), minimal ? ScriptTemplateKind::Minimal : ScriptTemplateKind::Full);
                 }
+            }
+        }
+
+        // Simulated file drops (no drag & drop source in CI): ZAMIN_EDITOR_DROP="a.png;b.wav" at frame
+        // ZAMIN_EDITOR_DROP_FRAME (30), or a request file ZAMIN_EDITOR_DROP_FILE whose lines are the
+        // paths (an optional first line "@x,y" is the mouse position in window pixels).
+        if (const char* drop = std::getenv("ZAMIN_EDITOR_DROP"))
+        {
+            const char* at = std::getenv("ZAMIN_EDITOR_DROP_FRAME");
+            if (frame == (at ? std::max(6, std::atoi(at)) : 30))
+            {
+                std::string_view list(drop);
+                while (!list.empty())
+                {
+                    size_t sep = list.find(';');
+                    if (sep != 0)
+                        m_PendingFileDrop.emplace_back(list.substr(0, sep));
+                    list = sep == std::string_view::npos ? std::string_view() : list.substr(sep + 1);
+                }
+                m_PendingFileDropPos = Input::GetMousePosition();
+            }
+        }
+        if (const char* request = std::getenv("ZAMIN_EDITOR_DROP_FILE"); request && frame % 10 == 0 && fs::exists(request))
+        {
+            std::string text = FileSystem::ReadTextFile(request);
+            std::error_code ec;
+            fs::remove(request, ec);
+            m_PendingFileDropPos = Input::GetMousePosition();
+            size_t start = 0;
+            while (start < text.size())
+            {
+                size_t end = text.find('\n', start);
+                std::string line = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
+                start = end == std::string::npos ? text.size() : end + 1;
+                if (line.empty())
+                    continue;
+                float x, y;
+                if (line[0] == '@' && std::sscanf(line.c_str() + 1, "%f,%f", &x, &y) == 2)
+                    m_PendingFileDropPos = { x, y };
+                else
+                    m_PendingFileDrop.push_back(line);
             }
         }
 
@@ -536,12 +598,9 @@ namespace Zamin {
         dispatcher.Dispatch<KeyPressedEvent>(ZM_BIND_EVENT_FN(OnKeyPressed));
         dispatcher.Dispatch<MouseButtonPressedEvent>(ZM_BIND_EVENT_FN(OnMouseButtonPressed));
         dispatcher.Dispatch<WindowDropEvent>([this](WindowDropEvent& ev) {
-            for (const auto& p : ev.GetPaths())
-            {
-                fs::path path(p);
-                if (path.extension() == ".zproject") { OpenProject(path); break; }
-                if (path.extension() == ".zscene") { OpenScene(path); break; }
-            }
+            // Handled in OnImGuiRender (inside a frame). Where the mouse is decides where the files go.
+            m_PendingFileDrop.insert(m_PendingFileDrop.end(), ev.GetPaths().begin(), ev.GetPaths().end());
+            m_PendingFileDropPos = Input::GetMousePosition();
             return true;
         });
     }
@@ -1167,6 +1226,247 @@ namespace Zamin {
         return root;
     }
 
+    Entity EditorLayer::DropAssetOnViewport(const std::string& assetPath)
+    {
+        fs::path path = Project::GetAssetFileSystemPath(assetPath);
+        AssetType type = AssetFiles::GetType(path);
+        if (type == AssetType::Scene)
+        {
+            OpenScene(path);
+            return {};
+        }
+        if (m_SceneState != SceneState::Edit)
+            return {};
+        Entity e;
+        switch (type)
+        {
+            case AssetType::Texture:
+            {
+                e = m_SceneHierarchyPanel.CreateEntityPreset("Sprite");
+                auto& sprite = e.GetComponent<SpriteRendererComponent>();
+                sprite.TexturePath = assetPath;
+                sprite.Texture = TextureLibrary::Load(path);
+                break;
+            }
+            case AssetType::Model:
+            {
+                e = m_SceneHierarchyPanel.CreateEntityPreset("Model");
+                auto& mr = e.GetComponent<MeshRendererComponent>();
+                mr.ModelPath = assetPath;
+                Scene::ResolveMeshRenderer(mr);
+                break;
+            }
+            case AssetType::Audio:
+                e = m_SceneHierarchyPanel.CreateEntityPreset("Audio");
+                e.GetComponent<AudioSourceComponent>().Path = assetPath;
+                break;
+            case AssetType::Prefab:
+                return InstantiatePrefabInEditor(assetPath, {});
+            default:
+                return {};
+        }
+        if (e)
+            e.SetName(path.stem().string());
+        return e;
+    }
+
+    // ================================================================== project files
+    void EditorLayer::HandleFileDrop(const std::vector<std::string>& paths, glm::vec2 mouse)
+    {
+        std::vector<fs::path> files(paths.begin(), paths.end());
+        // A project file opens that project, whatever else came with it.
+        for (const fs::path& p : files)
+            if (p.extension() == ".zproject")
+            {
+                OpenProject(p);
+                return;
+            }
+        if (!Project::GetActive())
+        {
+            for (const fs::path& p : files)
+                if (p.extension() == ".zscene")
+                {
+                    OpenScene(p);
+                    return;
+                }
+            ZM_WARN("Fayllarni import qilish uchun avval loyiha oching");
+            return;
+        }
+
+        fs::path projectDir = Project::GetProjectDirectory(), assets = Project::GetAssetDirectory(), source = Project::GetSourceDirectory();
+        bool overBrowser = m_ContentBrowserPanel.ContainsScreenPoint(mouse.x, mouse.y);
+        bool overViewport = !overBrowser && mouse.x >= m_ViewportBounds[0].x && mouse.y >= m_ViewportBounds[0].y &&
+                            mouse.x < m_ViewportBounds[1].x && mouse.y < m_ViewportBounds[1].y;
+        fs::path browserDir = m_ContentBrowserPanel.GetCurrentDirectory();
+        bool browserInAssets = overBrowser && AssetFiles::IsInside(browserDir, assets);
+        bool browserInSource = overBrowser && !source.empty() && AssetFiles::IsInside(browserDir, source);
+
+        // Files of this project are not copied: a scene opens, the rest is shown in the browser.
+        std::vector<fs::path> inProject;
+        std::map<fs::path, std::vector<fs::path>> imports; // destination folder -> files
+        for (const fs::path& p : files)
+        {
+            if (AssetFiles::IsInside(p, projectDir))
+            {
+                inProject.push_back(p);
+                continue;
+            }
+            std::error_code ec;
+            AssetType type = AssetFiles::GetType(p, fs::is_directory(p, ec));
+            fs::path destination;
+            if (type == AssetType::Script && !source.empty())
+                destination = browserInSource ? browserDir : source; // C++ files belong to the script module
+            else if (browserInAssets)
+                destination = browserDir;
+            else
+                destination = assets / AssetFiles::GetImportFolder(type);
+            imports[destination].push_back(p);
+        }
+
+        bool openedScene = false;
+        std::vector<fs::path> reveal;
+        for (const fs::path& p : inProject)
+        {
+            if (p.extension() == ".zscene" && !openedScene)
+                openedScene = OpenScene(p);
+            else
+                reveal.push_back(p);
+        }
+
+        std::vector<fs::path> imported;
+        bool scripts = false;
+        for (const auto& [destination, sources] : imports)
+        {
+            AssetFiles::ImportResult result = AssetFiles::Import(sources, destination);
+            for (const std::string& error : result.Errors)
+                ZM_WARN("Import: {}", error);
+            for (const fs::path& file : result.Imported)
+            {
+                bool code = AssetFiles::IsInside(file, source);
+                scripts |= code;
+                ZM_INFO("Import qilindi: {}", code ? file.lexically_relative(fs::weakly_canonical(projectDir)).generic_string()
+                                                   : Project::GetAssetRelativePath(file));
+                imported.push_back(file);
+            }
+        }
+
+        if (imported.empty())
+        {
+            if (!reveal.empty())
+                m_ContentBrowserPanel.Reveal(reveal);
+            return;
+        }
+        m_ContentBrowserPanel.Refresh();
+        m_ContentBrowserPanel.Reveal(imported);
+        fs::path folder = imported.front().parent_path();
+        std::string where = AssetFiles::IsInside(folder, assets) ? Project::GetAssetRelativePath(folder) : folder.filename().string();
+        std::string notice = imported.size() == 1 ? std::format("'{}' import qilindi ({})", imported.front().filename().string(), where)
+                                                  : std::format("{} ta fayl import qilindi", imported.size());
+        if (scripts)
+            notice += " - skriptlarni kompilyatsiya qiling (Ctrl+B)";
+        m_ContentBrowserPanel.ShowNotice(notice);
+
+        // Dropped onto the viewport: the imported assets go into the scene, too.
+        if (overViewport && m_SceneState == SceneState::Edit)
+        {
+            std::vector<Entity> created;
+            for (const fs::path& file : imported)
+            {
+                std::error_code ec;
+                if (fs::is_directory(file, ec) || !AssetFiles::IsInside(file, assets))
+                    continue;
+                if (Entity e = DropAssetOnViewport(Project::GetAssetRelativePath(file)))
+                    created.push_back(e);
+            }
+            if (created.size() > 1)
+                m_SceneHierarchyPanel.GetSelection().Set(created);
+            if (!created.empty())
+                notice += created.size() > 1 ? std::format(", sahnaga {} ta obyekt qo'shildi", created.size()) : std::string(", sahnaga qo'shildi");
+        }
+        if (!overBrowser) // the browser shows it in its footer already
+            ShowViewportMessage(std::string(ICON_FA_FILE_IMPORT "  ") + notice);
+    }
+
+    void EditorLayer::OnAssetsMoved(const AssetFiles::MoveResult& result)
+    {
+        if (result.Moved.empty())
+            return;
+        std::error_code ec;
+        fs::path assets = fs::weakly_canonical(Project::GetAssetDirectory(), ec);
+
+        // Asset paths as scenes store them (relative to Assets).
+        std::vector<std::pair<std::string, std::string>> moves;
+        for (const auto& m : result.Moved)
+        {
+            std::string from = m.From.lexically_relative(assets).generic_string(), to = m.To.lexically_relative(assets).generic_string();
+            if (!from.empty() && !to.empty() && !from.starts_with("..") && !to.starts_with(".."))
+                moves.emplace_back(from, to);
+        }
+        auto remap = [&](std::string& text) {
+            if (text.empty())
+                return (size_t)0;
+            return AssetFiles::RewriteJsonStrings(text, [&](std::string_view, const std::string& value) -> std::optional<std::string> {
+                for (const auto& [from, to] : moves)
+                    if (auto mapped = AssetFiles::RemapPath(value, from, to))
+                        return mapped;
+                return std::nullopt;
+            });
+        };
+
+        if (!moves.empty() && m_EditorScene)
+        {
+            // The open scene in memory (it may have unsaved changes; its file is already rewritten).
+            std::string text = SceneSerializer(m_EditorScene).SerializeToString();
+            if (size_t n = remap(text); n > 0)
+            {
+                Ref<Scene> scene = CreateRef<Scene>();
+                if (SceneSerializer(scene).DeserializeFromString(text))
+                {
+                    scene->ResolveAssets();
+                    m_EditorScene = scene;
+                    // Playing: the running copy keeps what it loaded; Stop returns to the updated scene.
+                    if (m_SceneState == SceneState::Edit)
+                        SetActiveScene(m_EditorScene);
+                    ZM_INFO("Ochiq sahnada {} ta havola yangilandi", n);
+                }
+            }
+            // Undo / redo snapshots and the entity clipboard use the new paths, too.
+            for (std::string& snapshot : m_UndoStack) remap(snapshot);
+            for (std::string& snapshot : m_RedoStack) remap(snapshot);
+            remap(m_LastSnapshot);
+            remap(m_Clipboard);
+        }
+
+        // The open scene file itself (or its folder) moved.
+        if (!m_EditorScenePath.empty())
+        {
+            fs::path current = fs::weakly_canonical(m_EditorScenePath, ec);
+            fs::path moved = result.MapPath(current);
+            if (moved != current)
+            {
+                m_EditorScenePath = moved;
+                UpdateWindowTitle();
+            }
+        }
+        for (const auto& m : result.Moved)
+            if (m_ViewSettings.MoveSceneBookmarks(m.From, m.To) > 0)
+                MarkViewSettingsDirty();
+
+        // The project's start scene.
+        if (auto project = Project::GetActive())
+        {
+            auto& start = project->GetConfig().StartScene;
+            for (const auto& [from, to] : moves)
+                if (auto mapped = AssetFiles::RemapPath(start.generic_string(), from, to))
+                {
+                    start = *mapped;
+                    Project::SaveActive(Project::GetProjectFilePath());
+                    ZM_INFO("Boshlang'ich sahna: {}", *mapped);
+                    break;
+                }
+        }
+    }
+
     void EditorLayer::LoadRuntimeScene(const fs::path& path)
     {
         Ref<Scene> next = CreateRef<Scene>();
@@ -1416,6 +1716,13 @@ namespace Zamin {
                     else if (!shift && !io.KeyAlt) RecallCameraBookmark(slot);
                 }
             }
+        }
+
+        if (!m_PendingFileDrop.empty())
+        {
+            std::vector<std::string> dropped = std::move(m_PendingFileDrop);
+            m_PendingFileDrop.clear();
+            HandleFileDrop(dropped, m_PendingFileDropPos);
         }
 
         UI_MenuBar();
@@ -1674,6 +1981,8 @@ namespace Zamin {
                 char fps[64];
                 std::snprintf(fps, sizeof(fps), "%.0f FPS  (%.2f ms)", Application::Get().GetFPS(), Application::Get().GetFrameTime());
                 float w = ImGui::CalcTextSize(fps).x + 16;
+                if (m_ActiveScene)
+                    UI_StatusBarSelection(ImGui::GetWindowWidth() - w - 12.0f);
                 ImGui::SameLine(ImGui::GetWindowWidth() - w);
                 ImGui::TextDisabled("%s", fps);
                 ImGui::EndMenuBar();
@@ -1681,6 +1990,121 @@ namespace Zamin {
         }
         ImGui::End();
         ImGui::PopStyleVar();
+    }
+
+    void EditorLayer::UI_StatusBarSelection(float maxX)
+    {
+        SelectionSummary s = SummarizeSelection(*m_ActiveScene, m_SceneHierarchyPanel.GetSelection());
+        // Pieces are added while they fit before maxX (the FPS counter), the most useful first.
+        auto fits = [&](const std::string& text) { return ImGui::GetCursorPosX() + ImGui::CalcTextSize(text.c_str()).x + 16.0f < maxX; };
+        if (!fits("|"))
+            return;
+        ImGui::TextDisabled("|");
+        if (s.Count == 0)
+        {
+            if (fits("Hech narsa tanlanmagan"))
+                ImGui::TextDisabled(ICON_FA_ARROW_POINTER "  Hech narsa tanlanmagan");
+            return;
+        }
+
+        // Name: click frames the selection, right click copies its name / UUID / path.
+        std::string head = s.Count > 1 ? std::format(ICON_FA_OBJECT_GROUP "  {} ta obyekt  " ICON_FA_ARROW_RIGHT "  {}", s.Count, s.Name)
+                                       : std::format("{}  {}", SceneHierarchyPanel::GetEntityIcon(s.Primary), s.Name);
+        float headWidth = std::min(ImGui::CalcTextSize(head.c_str()).x, std::max(40.0f, maxX - ImGui::GetCursorPosX() - 16.0f));
+        if (headWidth <= 40.0f && !fits(head))
+            return;
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.86f, 0.88f, 0.92f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(1, 1, 1, 0.08f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(1, 1, 1, 0.14f));
+        if (ImGui::Selectable((head + "##statussel").c_str(), false, ImGuiSelectableFlags_None, ImVec2(headWidth, 0)) &&
+            m_SceneState != SceneState::Play)
+            FrameSelection();
+        bool headHovered = ImGui::IsItemHovered();
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+            ImGui::OpenPopup("##StatusSelectionMenu");
+        ImGui::PopStyleColor(3);
+
+        if (headHovered && ImGui::BeginTooltip())
+        {
+            ImGui::PushFont(ImGuiLayer::GetBoldFont());
+            ImGui::TextUnformatted(s.Name.c_str());
+            ImGui::PopFont();
+            if (s.Count > 1)
+                ImGui::TextDisabled("Asosiy obyekt (%zu ta tanlangan)", s.Count);
+            ImGui::Separator();
+            ImGui::Text(ICON_FA_DIAGRAM_PROJECT "  Yo'l: %s", s.Path.c_str());
+            ImGui::Text(ICON_FA_HASHTAG "  UUID: %llu", (unsigned long long)s.ID);
+            ImGui::Text(ICON_FA_CROSSHAIRS "  Joylashuv: %.3f, %.3f, %.3f", s.Position.x, s.Position.y, s.Position.z);
+            if (s.Count > 1)
+                ImGui::Text(ICON_FA_OBJECT_GROUP "  Tanlov markazi: %.3f, %.3f, %.3f", s.Center.x, s.Center.y, s.Center.z);
+            std::string components;
+            for (const std::string& key : s.Components)
+            {
+                std::string name = SceneHierarchyPanel::GetComponentDisplayName(key);
+                if (key == ComponentKey<NativeScriptComponent>())
+                    if (const auto* script = s.Primary.TryGetComponent<NativeScriptComponent>(); script && !script->ClassName.empty())
+                        name += " (" + script->ClassName + ")";
+                components += (components.empty() ? "" : ", ") + name;
+            }
+            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 26.0f);
+            ImGui::Text(ICON_FA_LAYER_GROUP "  Komponentlar (%zu): %s", s.Components.size(), components.c_str());
+            if (!s.Tags.empty())
+            {
+                std::string tags;
+                for (const std::string& tag : s.Tags)
+                    tags += (tags.empty() ? "" : ", ") + tag;
+                ImGui::Text(ICON_FA_TAGS "  Teglar: %s", tags.c_str());
+            }
+            ImGui::PopTextWrapPos();
+            if (s.ChildCount > 0)
+                ImGui::Text(ICON_FA_SITEMAP "  Bolalar: %zu (jami ichida %zu)", s.ChildCount, s.DescendantCount);
+            if (s.Hidden || s.Locked)
+                ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.35f, 1.0f), "%s%s", s.Hidden ? ICON_FA_EYE_SLASH "  yashirin   " : "",
+                                   s.Locked ? ICON_FA_LOCK "  qulflangan" : "");
+            if (s.Count > 1 && (s.HiddenCount > 0 || s.LockedCount > 0))
+                ImGui::TextDisabled("Tanlanganlardan: %zu ta yashirin, %zu ta qulflangan", s.HiddenCount, s.LockedCount);
+            ImGui::Separator();
+            ImGui::TextDisabled("Bosing: kamerani yo'naltirish (F)  |  O'ng tugma: nusxalash");
+            ImGui::EndTooltip();
+        }
+        if (ImGui::BeginPopup("##StatusSelectionMenu"))
+        {
+            if (ImGui::MenuItem(ICON_FA_COPY "  Nomini nusxalash"))
+                ImGui::SetClipboardText(s.Name.c_str());
+            if (ImGui::MenuItem(ICON_FA_HASHTAG "  UUID nusxalash"))
+                ImGui::SetClipboardText(std::to_string(s.ID).c_str());
+            if (ImGui::MenuItem(ICON_FA_DIAGRAM_PROJECT "  Ierarxiya yo'lini nusxalash"))
+                ImGui::SetClipboardText(s.Path.c_str());
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_CROSSHAIRS "  Kamerani yo'naltirish", "F", false, m_SceneState != SceneState::Play))
+                FrameSelection();
+            if (ImGui::MenuItem(ICON_FA_XMARK "  Tanlovni bekor qilish"))
+                m_SceneHierarchyPanel.GetSelection().Clear();
+            ImGui::EndPopup();
+        }
+
+        // Position (2D: x / y), components, children, eye / lock.
+        glm::vec3 p = s.Count > 1 ? s.Center : s.Position;
+        std::string position = m_2DMode ? std::format("{}  {:.2f}, {:.2f}", s.Count > 1 ? "Markaz" : ICON_FA_CROSSHAIRS, p.x, p.y)
+                                        : std::format("{}  {:.2f}, {:.2f}, {:.2f}", s.Count > 1 ? "Markaz" : ICON_FA_CROSSHAIRS, p.x, p.y, p.z);
+        if (!fits(position))
+            return;
+        ImGui::TextDisabled("%s", position.c_str());
+        std::string components = std::format(ICON_FA_LAYER_GROUP "  {} komponent", s.Components.size());
+        if (!fits(components))
+            return;
+        ImGui::TextDisabled("%s", components.c_str());
+        if (s.ChildCount > 0)
+        {
+            std::string children = std::format(ICON_FA_SITEMAP "  {} bola", s.ChildCount);
+            if (!fits(children))
+                return;
+            ImGui::TextDisabled("%s", children.c_str());
+        }
+        if (s.Hidden && fits(ICON_FA_EYE_SLASH))
+            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.35f, 0.9f), ICON_FA_EYE_SLASH);
+        if (s.Locked && fits(ICON_FA_LOCK))
+            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.35f, 0.9f), ICON_FA_LOCK);
     }
 
     void EditorLayer::UI_Viewport()
@@ -1703,36 +2127,11 @@ namespace Zamin {
         m_ViewportHovered = ImGui::IsItemHovered();
         Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
 
-        // Drop scenes / prefabs onto the viewport
+        // Drop scenes / prefabs / images / models / sounds onto the viewport
         if (ImGui::BeginDragDropTarget())
         {
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
-            {
-                fs::path path = Project::GetAssetFileSystemPath((const char*)payload->Data);
-                std::string ext = path.extension().string();
-                if (ext == ".zscene")
-                    OpenScene(path);
-                else if ((ext == ".png" || ext == ".jpg" || ext == ".jpeg") && m_SceneState == SceneState::Edit)
-                {
-                    Entity e = m_SceneHierarchyPanel.CreateEntityPreset("Sprite");
-                    auto& sprite = e.GetComponent<SpriteRendererComponent>();
-                    sprite.TexturePath = (const char*)payload->Data;
-                    sprite.Texture = TextureLibrary::Load(path);
-                    e.SetName(path.stem().string());
-                }
-                else if (ext == ".zprefab" && m_SceneState == SceneState::Edit)
-                {
-                    InstantiatePrefabInEditor((const char*)payload->Data, {});
-                }
-                else if ((ext == ".obj" || ext == ".gltf" || ext == ".glb") && m_SceneState == SceneState::Edit)
-                {
-                    Entity e = m_SceneHierarchyPanel.CreateEntityPreset("Model");
-                    auto& mr = e.GetComponent<MeshRendererComponent>();
-                    mr.ModelPath = (const char*)payload->Data;
-                    Scene::ResolveMeshRenderer(mr);
-                    e.SetName(path.stem().string());
-                }
-            }
+                DropAssetOnViewport((const char*)payload->Data);
             ImGui::EndDragDropTarget();
         }
 

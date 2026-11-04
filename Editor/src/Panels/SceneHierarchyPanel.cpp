@@ -1004,6 +1004,9 @@ namespace Zamin {
         return "Komponent";
     }
 
+    const char* SceneHierarchyPanel::GetEntityIcon(Entity entity) { return EntityIcon(entity); }
+    const char* SceneHierarchyPanel::GetComponentDisplayName(std::string_view key) { return ComponentDisplayName(key); }
+
     std::string SceneHierarchyPanel::FoldKey(Entity entity, std::string_view key)
     {
         // Every script class keeps its own state (a big PlayerController can stay folded).

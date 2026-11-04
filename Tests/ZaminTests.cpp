@@ -4427,6 +4427,402 @@ TEST(InspectorFoldStateJson)
     CHECK(many.GetAll().size() == InspectorFoldState::MaxEntries);
 }
 
+// ------------------------------------------------------------------ content browser / assets
+static std::filesystem::path MakeTempDir(const char* prefix)
+{
+    auto dir = std::filesystem::temp_directory_path() / (std::string(prefix) + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    return dir;
+}
+
+static void WriteFile(const std::filesystem::path& path, const std::string& text)
+{
+    std::filesystem::create_directories(path.parent_path());
+    FileSystem::WriteTextFile(path, text);
+}
+
+TEST(AssetTypesAndFilter)
+{
+    CHECK(AssetFiles::GetType("Scenes/Level1.zscene") == AssetType::Scene);
+    CHECK(AssetFiles::GetType("a/Ball.ZPREFAB") == AssetType::Prefab);
+    CHECK(AssetFiles::GetType("coin.PNG") == AssetType::Texture && AssetFiles::GetType("x.jpeg") == AssetType::Texture);
+    CHECK(AssetFiles::GetType("Robot.gltf") == AssetType::Model && AssetFiles::GetType("m.glb") == AssetType::Model);
+    CHECK(AssetFiles::GetType("jump.ogg") == AssetType::Audio && AssetFiles::GetType("Inter.ttf") == AssetType::Font);
+    CHECK(AssetFiles::GetType("sunset.hdr") == AssetType::Environment);
+    CHECK(AssetFiles::GetType("Player.cpp") == AssetType::Script && AssetFiles::GetType("Player.h") == AssetType::Script);
+    CHECK(AssetFiles::GetType("Game.zproject") == AssetType::Project);
+    CHECK(AssetFiles::GetType("notes.txt") == AssetType::Other && AssetFiles::GetType("Makefile") == AssetType::Other);
+    CHECK(AssetFiles::GetType("Textures", true) == AssetType::Folder);
+    CHECK(std::string(AssetFiles::GetImportFolder(AssetType::Texture)) == "Textures");
+    CHECK(std::string(AssetFiles::GetImportFolder(AssetType::Model)) == "Models");
+    CHECK(std::string(AssetFiles::GetImportFolder(AssetType::Other)).empty());
+    for (int t = 0; t < (int)AssetType::Count; t++)
+        CHECK(AssetFiles::FindTypeByKey(AssetFiles::GetTypeKey((AssetType)t)) == (AssetType)t);
+    CHECK(!AssetFiles::FindTypeByKey("Nope"));
+
+    AssetTypeFilter filter;
+    CHECK(!filter.IsActive() && filter.Matches(AssetType::Folder) && filter.Matches(AssetType::Audio));
+    filter.Set(AssetType::Texture, true);
+    filter.Toggle(AssetType::Model);
+    filter.Set(AssetType::Folder, true); // folders are not a filter type
+    CHECK(filter.IsActive() && filter.Count() == 2);
+    CHECK(filter.Matches(AssetType::Texture) && filter.Matches(AssetType::Model));
+    CHECK(!filter.Matches(AssetType::Folder) && !filter.Matches(AssetType::Audio) && !filter.Matches(AssetType::Project));
+    filter.Set(AssetType::Other, true);
+    CHECK(filter.Matches(AssetType::Project)); // the project file counts as "other"
+    filter.Toggle(AssetType::Model);
+    CHECK(!filter.Matches(AssetType::Model) && filter.Count() == 2);
+    filter.Clear();
+    CHECK(!filter.IsActive());
+    CHECK(AssetTypeFilter::GetFilterableTypes().size() == 9);
+
+    // Natural, case-insensitive name order.
+    CHECK(AssetFiles::CompareNames("Level2", "Level10") < 0);
+    CHECK(AssetFiles::CompareNames("level10", "Level2") > 0);
+    CHECK(AssetFiles::CompareNames("apple", "Banana") < 0);
+    CHECK(AssetFiles::CompareNames("a", "a") == 0 && AssetFiles::CompareNames("a", "ab") < 0);
+    CHECK(AssetFiles::CompareNames("img007", "img7") != 0);
+
+    CHECK(AssetFiles::FormatSize(512) == "512 B");
+    CHECK(AssetFiles::FormatSize(1536) == "1.5 KB");
+    CHECK(AssetFiles::FormatSize(300 * 1024) == "300 KB");
+    CHECK(AssetFiles::FormatSize(5u * 1024 * 1024 + 300 * 1024) == "5.3 MB");
+}
+
+TEST(AssetListingAndSorting)
+{
+    namespace fs = std::filesystem;
+    fs::path root = MakeTempDir("zamin-list-");
+    WriteFile(root / "Level10.zscene", "{}");
+    WriteFile(root / "Level2.zscene", "{}");
+    WriteFile(root / "big.png", std::string(4000, 'x'));
+    WriteFile(root / "small.png", "x");
+    WriteFile(root / ".hidden.png", "x");
+    WriteFile(root / "Textures" / "wall.png", "xx");
+    WriteFile(root / "Textures" / "Deep" / "floor.png", "xxx");
+    WriteFile(root / "Models" / "Robot.gltf", "{}");
+    WriteFile(root / "Build" / "junk.png", "x");
+    WriteFile(root / ".git" / "obj.png", "x");
+
+    AssetListOptions options;
+    auto names = [](const std::vector<AssetEntry>& entries) {
+        std::vector<std::string> out;
+        for (const auto& e : entries) out.push_back(e.Name);
+        return out;
+    };
+
+    // One folder: folders first, then files in natural order; hidden names skipped.
+    auto entries = AssetFiles::List(root, options);
+    CHECK((names(entries) == std::vector<std::string>{ "Build", "Models", "Textures", "big.png", "Level2.zscene", "Level10.zscene", "small.png" }));
+    CHECK(entries[0].IsDirectory && entries[0].Type == AssetType::Folder);
+    CHECK(entries[3].Type == AssetType::Texture && entries[3].Size == 4000);
+
+    // Excluded folders are left out (and not searched below).
+    options.Excluded = { root / "Build" };
+    CHECK(AssetFiles::List(root, options).size() == 6);
+
+    // Type filter: the whole subtree, files of those types only.
+    options.Filter.Set(AssetType::Texture, true);
+    entries = AssetFiles::List(root, options);
+    CHECK((names(entries) == std::vector<std::string>{ "big.png", "floor.png", "small.png", "wall.png" }));
+    options.Filter.Set(AssetType::Model, true);
+    CHECK(AssetFiles::List(root, options).size() == 5);
+
+    // Search: the whole subtree too, folders included; combined with the filter.
+    options.Filter.Clear();
+    options.Search = "DEEP";
+    entries = AssetFiles::List(root, options);
+    CHECK(entries.size() == 1 && entries[0].IsDirectory && entries[0].Name == "Deep");
+    options.Search = "l";
+    options.Filter.Set(AssetType::Scene, true);
+    CHECK((names(AssetFiles::List(root, options)) == std::vector<std::string>{ "Level2.zscene", "Level10.zscene" }));
+
+    // Sorting by size (descending): folders stay first.
+    options = {};
+    options.SortBy = AssetSortColumn::Size;
+    options.Ascending = false;
+    entries = AssetFiles::List(root, options);
+    CHECK(entries[0].IsDirectory && entries[3].Name == "big.png" && entries.back().Size <= entries[4].Size);
+    AssetFiles::Sort(entries, AssetSortColumn::Name, false);
+    CHECK(entries[0].Name == "Textures" && entries.back().Name == "big.png");
+    AssetFiles::Sort(entries, AssetSortColumn::Type, true);
+    CHECK(entries[3].Type == AssetType::Texture && entries.back().Type == AssetType::Scene); // "Rasm" < "Sahna"
+
+    CHECK(AssetFiles::List(root / "missing", {}).empty());
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
+TEST(AssetJsonReferenceRewrite)
+{
+    // Asset paths: a file, or everything inside a folder.
+    CHECK(AssetFiles::RemapPath("Textures/a.png", "Textures/a.png", "Art/a.png") == std::optional<std::string>("Art/a.png"));
+    CHECK(AssetFiles::RemapPath("Textures/Deep/b.png", "Textures", "Art/Tex") == std::optional<std::string>("Art/Tex/Deep/b.png"));
+    CHECK(!AssetFiles::RemapPath("Textures2/b.png", "Textures", "Art"));
+    CHECK(!AssetFiles::RemapPath("Textures/a.png", "", "Art"));
+    CHECK(!AssetFiles::RemapPath("a.png", "Textures/a.png", "b.png"));
+
+    // Only string values change; keys, numbers and the layout stay byte for byte.
+    std::string text = "{\n  \"Textures/a.png\": \"Textures/a.png\",\n  \"List\": [ \"Textures/a.png\", 1.50, \"x\" ],\n"
+                       "  \"Nested\": { \"uri\" :  \"Textures/a.png\" }, \"Esc\": \"Q\\\"\\\\\\u00e9\"\n}";
+    std::vector<std::string> keys;
+    std::string original = text;
+    size_t n = AssetFiles::RewriteJsonStrings(text, [&](std::string_view key, const std::string& value) -> std::optional<std::string> {
+        keys.emplace_back(key);
+        if (value == "Q\"\\\xc3\xa9") return std::string("R \"2\"");
+        return AssetFiles::RemapPath(value, "Textures/a.png", "Art/a b.png");
+    });
+    CHECK(n == 4);
+    CHECK((keys == std::vector<std::string>{ "Textures/a.png", "", "", "uri", "Esc" }));
+    CHECK(text == "{\n  \"Textures/a.png\": \"Art/a b.png\",\n  \"List\": [ \"Art/a b.png\", 1.50, \"x\" ],\n"
+                  "  \"Nested\": { \"uri\" :  \"Art/a b.png\" }, \"Esc\": \"R \\\"2\\\"\"\n}");
+    std::string same = original;
+    CHECK(AssetFiles::RewriteJsonStrings(same, [](std::string_view, const std::string&) { return std::optional<std::string>(); }) == 0);
+    CHECK(same == original);
+    // The engine's own scene text parses again after a rewrite.
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Sprite");
+    e.AddComponent<SpriteRendererComponent>().TexturePath = "Textures/a.png";
+    std::string sceneText = SceneSerializer(scene).SerializeToString();
+    CHECK(AssetFiles::RewriteJsonStrings(sceneText, [](std::string_view, const std::string& v) {
+        return AssetFiles::RemapPath(v, "Textures", "Sprites"); }) == 1);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(sceneText));
+    CHECK(loaded->FindEntityByName("Sprite").GetComponent<SpriteRendererComponent>().TexturePath == "Sprites/a.png");
+}
+
+TEST(AssetMoveUpdatesReferences)
+{
+    namespace fs = std::filesystem;
+    fs::path project = MakeTempDir("zamin-move-");
+    fs::path assets = project / "Assets", source = project / "Source";
+    WriteFile(assets / "Textures" / "coin.png", "png");
+    WriteFile(assets / "Textures" / "wall.png", "png");
+    WriteFile(assets / "Models" / "Shrine.bin", "bin");
+    WriteFile(assets / "Models" / "Shrine.gltf",
+              "{\"images\": [{\"uri\": \"../Textures/wall.png\"}], \"buffers\": [{\"uri\": \"Shrine.bin\"}, {\"uri\": \"data:application/octet-stream;base64,AA==\"}]}");
+    WriteFile(source / "Game.cpp", "std::string Effect = \"Textures/coin.png\";\n");
+    WriteFile(source / "Other.cpp", "int x = 0;\n");
+
+    // A real scene file: a sprite and a script string field use the texture.
+    auto scene = CreateRef<Scene>();
+    Entity coin = scene->CreateEntity("Coin");
+    coin.AddComponent<SpriteRendererComponent>().TexturePath = "Textures/coin.png";
+    auto& script = coin.AddComponent<NativeScriptComponent>();
+    script.ClassName = "TestScript";
+    ScriptFieldValue label;
+    label.Set(std::string("Textures/coin.png"));
+    script.Fields["Label"] = label;
+    fs::path scenePath = assets / "Scenes" / "Level.zscene";
+    fs::create_directories(scenePath.parent_path());
+    CHECK(SceneSerializer(scene).Serialize(scenePath));
+    std::string before = FileSystem::ReadTextFile(scenePath);
+
+    // Not allowed: into itself, where it already is, a taken name, out of the asset folder.
+    CHECK(!AssetFiles::CheckMove(assets / "Textures", assets / "Textures", assets).empty());
+    CHECK(!AssetFiles::CheckMove(assets / "Textures", assets / "Textures" / "..", assets).empty());
+    WriteFile(assets / "Taken" / "coin.png", "other");
+    CHECK(!AssetFiles::CheckMove(assets / "Textures" / "coin.png", assets / "Taken", assets).empty());
+    CHECK(!AssetFiles::CheckMove(assets / "Textures" / "coin.png", source, assets).empty());
+    CHECK(!AssetFiles::CheckMove(assets, project / "Source", assets).empty());
+    CHECK(!AssetFiles::CheckMove(assets / "missing.png", assets / "Models", assets).empty());
+    fs::create_directories(assets / "Sprites");
+    CHECK(AssetFiles::CheckMove(assets / "Textures" / "coin.png", assets / "Sprites", assets).empty());
+
+    // Move one texture: the scene's sprite and script field follow, the C++ file is reported.
+    auto result = AssetFiles::MoveInto({ assets / "Textures" / "coin.png" }, assets / "Sprites", assets, source);
+    CHECK(result.Errors.empty() && result.Moved.size() == 1);
+    CHECK(fs::exists(assets / "Sprites" / "coin.png") && !fs::exists(assets / "Textures" / "coin.png"));
+    CHECK(result.UpdatedReferences == 2 && result.UpdatedFiles.size() == 1);
+    CHECK(result.SourceMentions.size() == 1 && result.SourceMentions[0].filename() == "Game.cpp");
+    std::string after = FileSystem::ReadTextFile(scenePath);
+    CHECK(after.size() + 2 == before.size()); // "Textures" -> "Sprites" twice, nothing else changed
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).Deserialize(scenePath));
+    Entity loadedCoin = loaded->FindEntityByName("Coin");
+    CHECK(loadedCoin.GetComponent<SpriteRendererComponent>().TexturePath == "Sprites/coin.png");
+    CHECK(loadedCoin.GetComponent<NativeScriptComponent>().Fields["Label"].Get<std::string>() == "Sprites/coin.png");
+    CHECK(FileSystem::ReadTextFile(source / "Game.cpp").find("Textures/coin.png") != std::string::npos); // code is not edited
+
+    // Move the model alone: its relative file names still find the same files.
+    fs::create_directories(assets / "Models" / "Props");
+    result = AssetFiles::MoveInto({ assets / "Models" / "Shrine.gltf" }, assets / "Models" / "Props", assets, source);
+    CHECK(result.Errors.empty() && result.UpdatedReferences == 2);
+    std::string gltf = FileSystem::ReadTextFile(assets / "Models" / "Props" / "Shrine.gltf");
+    CHECK(gltf.find("\"uri\": \"../../Textures/wall.png\"") != std::string::npos);
+    CHECK(gltf.find("\"uri\": \"../Shrine.bin\"") != std::string::npos);
+    CHECK(gltf.find("data:application/octet-stream;base64,AA==") != std::string::npos);
+    auto deps = AssetFiles::GetModelDependencies(assets / "Models" / "Props" / "Shrine.gltf");
+    CHECK(deps.size() == 2);
+
+    // Move a folder the model uses (with a nested selection): the model's uri and the scene follow.
+    fs::create_directories(assets / "Art");
+    result = AssetFiles::MoveInto({ assets / "Textures", assets / "Textures" / "wall.png", assets / "Sprites" }, assets / "Art", assets, source);
+    CHECK(result.Errors.empty() && result.Moved.size() == 2);
+    CHECK(fs::exists(assets / "Art" / "Textures" / "wall.png") && fs::exists(assets / "Art" / "Sprites" / "coin.png"));
+    gltf = FileSystem::ReadTextFile(assets / "Models" / "Props" / "Shrine.gltf");
+    CHECK(gltf.find("\"uri\": \"../../Art/Textures/wall.png\"") != std::string::npos);
+    CHECK(result.MapPath(fs::weakly_canonical(assets) / "Sprites" / "coin.png") == fs::weakly_canonical(assets) / "Art" / "Sprites" / "coin.png");
+    loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).Deserialize(scenePath));
+    CHECK(loaded->FindEntityByName("Coin").GetComponent<SpriteRendererComponent>().TexturePath == "Art/Sprites/coin.png");
+
+    // Rename works the same way; a taken or bad name changes nothing.
+    result = AssetFiles::Rename(assets / "Art" / "Sprites" / "coin.png", "gold.png", assets, source);
+    CHECK(result.Errors.empty() && result.UpdatedReferences == 2);
+    CHECK(AssetFiles::Rename(assets / "Art" / "Sprites" / "gold.png", "a/b.png", assets).Errors.size() == 1);
+    WriteFile(assets / "Art" / "Sprites" / "taken.png", "x");
+    CHECK(AssetFiles::Rename(assets / "Art" / "Sprites" / "gold.png", "taken.png", assets).Errors.size() == 1);
+    loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).Deserialize(scenePath));
+    CHECK(loaded->FindEntityByName("Coin").GetComponent<SpriteRendererComponent>().TexturePath == "Art/Sprites/gold.png");
+
+    // Moving the scene file itself; a second item with a taken name is refused, the first still moves.
+    fs::create_directories(assets / "Levels");
+    WriteFile(assets / "Levels" / "taken.png", "x");
+    result = AssetFiles::MoveInto({ scenePath, assets / "Art" / "Sprites" / "taken.png" }, assets / "Levels", assets);
+    CHECK(result.Moved.size() == 1 && result.Errors.size() == 1);
+    CHECK(fs::exists(assets / "Levels" / "Level.zscene"));
+
+    std::error_code ec;
+    fs::remove_all(project, ec);
+}
+
+TEST(AssetImportFromOutside)
+{
+    namespace fs = std::filesystem;
+    fs::path outside = MakeTempDir("zamin-import-src-");
+    fs::path assets = MakeTempDir("zamin-import-dst-") / "Assets";
+    WriteFile(outside / "hero.png", "png");
+    WriteFile(outside / "Robot" / "Robot.gltf",
+              "{\"buffers\": [{\"uri\": \"Robot.bin\"}], \"images\": [{\"uri\": \"tex/skin%20a.png\"}, {\"uri\": \"../shared.png\"}]}");
+    WriteFile(outside / "Robot" / "Robot.bin", "bin");
+    WriteFile(outside / "Robot" / "tex" / "skin a.png", "png");
+    WriteFile(outside / "shared.png", "png");
+    WriteFile(outside / "Pack" / "a.wav", "wav");
+    WriteFile(outside / "Pack" / "Sub" / "b.wav", "wav");
+
+    // Plain files: copied under a free name, never overwritten.
+    auto result = AssetFiles::Import({ outside / "hero.png" }, assets / "Textures");
+    CHECK(result.Errors.empty() && result.Imported.size() == 1 && fs::exists(assets / "Textures" / "hero.png"));
+    result = AssetFiles::Import({ outside / "hero.png" }, assets / "Textures");
+    CHECK(result.Imported.size() == 1 && result.Imported[0].filename() == "hero_1.png");
+    CHECK(fs::exists(outside / "hero.png")); // the original stays
+
+    // A glTF with separate files: its own folder, the files next to it, the uri still valid.
+    result = AssetFiles::Import({ outside / "Robot" / "Robot.gltf" }, assets / "Models");
+    CHECK(result.Errors.empty() && result.Imported.size() == 1);
+    fs::path model = result.Imported.empty() ? fs::path() : result.Imported[0];
+    CHECK(model.filename() == "Robot.gltf" && model.parent_path().filename() == "Robot");
+    CHECK(fs::exists(assets / "Models" / "Robot" / "Robot.bin"));
+    CHECK(fs::exists(assets / "Models" / "Robot" / "tex" / "skin a.png"));
+    CHECK(fs::exists(assets / "Models" / "Robot" / "shared.png"));
+    std::string gltf = FileSystem::ReadTextFile(model);
+    CHECK(gltf.find("\"uri\": \"shared.png\"") != std::string::npos && gltf.find("tex/skin%20a.png") != std::string::npos);
+    CHECK(AssetFiles::GetModelDependencies(model).size() == 3);
+    result = AssetFiles::Import({ outside / "Robot" / "Robot.gltf" }, assets / "Models");
+    CHECK(result.Imported.size() == 1 && result.Imported[0].parent_path().filename() == "Robot_1");
+
+    // Folders are copied with everything inside; a folder cannot go into itself; missing files fail.
+    result = AssetFiles::Import({ outside / "Pack", outside / "nothing.png" }, assets);
+    CHECK(result.Imported.size() == 1 && result.Errors.size() == 1);
+    CHECK(fs::exists(assets / "Pack" / "Sub" / "b.wav"));
+    result = AssetFiles::Import({ assets / "Pack" }, assets / "Pack" / "Sub");
+    CHECK(result.Imported.empty() && result.Errors.size() == 1);
+
+    std::error_code ec;
+    fs::remove_all(outside, ec);
+    fs::remove_all(assets.parent_path(), ec);
+}
+
+TEST(ContentBrowserSettingsJson)
+{
+    EditorViewSettings settings;
+    CHECK(!settings.ContentBrowser.ListView && !settings.ContentBrowser.Filter.IsActive());
+    settings.ContentBrowser.ListView = true;
+    settings.ContentBrowser.ThumbnailSize = 120.0f;
+    settings.ContentBrowser.Filter.Set(AssetType::Texture, true);
+    settings.ContentBrowser.Filter.Set(AssetType::Audio, true);
+    settings.ContentBrowser.SortBy = AssetSortColumn::Modified;
+    settings.ContentBrowser.SortAscending = false;
+    std::string text = settings.ToJson();
+    CHECK(text.find("\"Texture\"") != std::string::npos && text.find("\"List\"") != std::string::npos);
+
+    EditorViewSettings loaded;
+    CHECK(loaded.FromJson(text));
+    CHECK(loaded.ContentBrowser.ListView && loaded.ContentBrowser.ThumbnailSize == 120.0f);
+    CHECK(loaded.ContentBrowser.Filter.Mask == settings.ContentBrowser.Filter.Mask);
+    CHECK(loaded.ContentBrowser.SortBy == AssetSortColumn::Modified && !loaded.ContentBrowser.SortAscending);
+
+    // Junk is ignored / clamped; an older file without the section keeps the defaults.
+    EditorViewSettings junk;
+    CHECK(junk.FromJson("{\"ZaminEditorView\":1,\"ContentBrowser\":{\"View\":3,\"ThumbnailSize\":9000,"
+                        "\"Filter\":[\"Texture\",\"Folder\",\"Bogus\",7],\"SortBy\":\"Colour\"}}"));
+    CHECK(!junk.ContentBrowser.ListView && junk.ContentBrowser.ThumbnailSize == ContentBrowserSettings::MaxThumbnailSize);
+    CHECK(junk.ContentBrowser.Filter.Count() == 1 && junk.ContentBrowser.Filter.Has(AssetType::Texture));
+    CHECK(junk.ContentBrowser.SortBy == AssetSortColumn::Name);
+    EditorViewSettings old;
+    CHECK(old.FromJson("{\"ZaminEditorView\":1}"));
+    CHECK(!old.ContentBrowser.ListView && old.ContentBrowser.ThumbnailSize == 84.0f);
+
+    // Camera bookmarks follow a moved scene file (or a moved folder of scenes).
+    EditorViewSettings view;
+    view.GetBookmarks("/p/Assets/Scenes/A.zscene").Set(1, EditorCameraState{});
+    view.GetBookmarks("/p/Assets/Scenes/B.zscene").Set(2, EditorCameraState{});
+    view.GetBookmarks("/p/Assets/Other.zscene").Set(3, EditorCameraState{});
+    CHECK(view.MoveSceneBookmarks("/p/Assets/Scenes", "/p/Assets/Levels") == 2);
+    CHECK(view.GetBookmarks("/p/Assets/Levels/A.zscene").Has(1) && view.GetBookmarks("/p/Assets/Levels/B.zscene").Has(2));
+    CHECK(!view.Bookmarks.contains(EditorViewSettings::SceneKey("/p/Assets/Scenes/A.zscene")));
+    CHECK(view.MoveSceneBookmarks("/p/Assets/Other.zscene", "/p/Assets/Levels/Other.zscene") == 1);
+    CHECK(view.GetBookmarks("/p/Assets/Levels/Other.zscene").Has(3));
+}
+
+TEST(SelectionSummaryForStatusBar)
+{
+    auto scene = CreateRef<Scene>();
+    Entity world = scene->CreateEntity("World");
+    Entity player = scene->CreateEntity("Player");
+    Entity weapon = scene->CreateEntity("Weapon");
+    Entity tip = scene->CreateEntity("Tip");
+    Entity other = scene->CreateEntity("Other");
+    scene->SetParent(player, world, false);
+    scene->SetParent(weapon, player, false);
+    scene->SetParent(tip, weapon, false);
+    world.GetComponent<TransformComponent>().Translation = { 10.0f, 0.0f, 0.0f };
+    player.GetComponent<TransformComponent>().Translation = { 1.0f, 2.0f, 3.0f };
+    other.GetComponent<TransformComponent>().Translation = { -3.0f, 0.0f, 1.0f };
+    player.AddComponent<SpriteRendererComponent>();
+    player.AddComponent<Rigidbody2DComponent>();
+    player.AddComponent<TagsComponent>().Add("Player");
+
+    EntitySelection selection;
+    CHECK(SummarizeSelection(*scene, selection).Count == 0);
+
+    selection.Select(player);
+    SelectionSummary s = SummarizeSelection(*scene, selection);
+    CHECK(s.Count == 1 && s.Primary == player && s.Name == "Player");
+    CHECK(s.Path == "World/Player" && s.ID == (uint64_t)player.GetUUID());
+    CHECK_NEAR(s.Position.x, 11.0f, 1e-4f);
+    CHECK_NEAR(s.Position.z, 3.0f, 1e-4f);
+    CHECK((s.Components == std::vector<std::string>{ "Transform", "Tags", "SpriteRenderer", "Rigidbody2D" }));
+    CHECK(s.ChildCount == 1 && s.DescendantCount == 2);
+    CHECK(s.Tags.size() == 1 && s.Tags[0] == "Player");
+    CHECK(!s.Hidden && !s.Locked);
+
+    // Several entities: the primary's details, the center of all of them, hidden / locked counts.
+    scene->SetHiddenInEditor(world, true);
+    scene->SetLockedInEditor(other, true);
+    selection.Set({ player, other }, other);
+    s = SummarizeSelection(*scene, selection);
+    CHECK(s.Count == 2 && s.Name == "Other" && s.Path == "Other" && s.Locked && !s.Hidden);
+    CHECK(s.HiddenCount == 1 && s.LockedCount == 1);
+    CHECK_NEAR(s.Center.x, (11.0f - 3.0f) * 0.5f, 1e-4f);
+    CHECK_NEAR(s.Center.z, 2.0f, 1e-4f);
+    selection.Set({ tip });
+    s = SummarizeSelection(*scene, selection);
+    CHECK(s.Path == "World/Player/Weapon/Tip" && s.Hidden && s.ChildCount == 0);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

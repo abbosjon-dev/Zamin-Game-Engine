@@ -102,6 +102,28 @@ namespace Zamin {
         return true;
     }
 
+    // ------------------------------------------------------------------ content browser
+    void ContentBrowserSettings::Sanitize()
+    {
+        ThumbnailSize = std::clamp(SanitizeStep(ThumbnailSize, 84.0f, MinThumbnailSize), MinThumbnailSize, MaxThumbnailSize);
+        Filter.Mask &= (1u << (uint32_t)AssetType::Count) - 1u;
+        Filter.Set(AssetType::Folder, false);
+        Filter.Set(AssetType::Project, false);
+        if ((int)SortBy < (int)AssetSortColumn::Name || (int)SortBy > (int)AssetSortColumn::Modified)
+            SortBy = AssetSortColumn::Name;
+    }
+
+    static const char* SortColumnKey(AssetSortColumn column)
+    {
+        switch (column)
+        {
+            case AssetSortColumn::Type:     return "Type";
+            case AssetSortColumn::Size:     return "Size";
+            case AssetSortColumn::Modified: return "Modified";
+            default:                        return "Name";
+        }
+    }
+
     // ------------------------------------------------------------------ serialization
     std::string EditorViewSettings::SceneKey(const std::filesystem::path& scenePath)
     {
@@ -110,6 +132,24 @@ namespace Zamin {
         std::error_code ec;
         std::filesystem::path abs = std::filesystem::absolute(scenePath, ec);
         return (ec ? scenePath : abs).lexically_normal().generic_string();
+    }
+
+    size_t EditorViewSettings::MoveSceneBookmarks(const std::filesystem::path& from, const std::filesystem::path& to)
+    {
+        std::string fromKey = SceneKey(from), toKey = SceneKey(to);
+        if (fromKey.empty() || toKey.empty() || fromKey == toKey)
+            return 0;
+        std::vector<std::pair<std::string, std::string>> renames;
+        for (const auto& [key, bookmarks] : Bookmarks)
+            if (auto mapped = AssetFiles::RemapPath(key, fromKey, toKey))
+                renames.emplace_back(key, *mapped);
+        for (const auto& [oldKey, newKey] : renames)
+        {
+            CameraBookmarks moved = Bookmarks[oldKey];
+            Bookmarks.erase(oldKey);
+            Bookmarks[newKey] = moved;
+        }
+        return renames.size();
     }
 
     // Floats written with 6 significant digits (0.1, not 0.10000000149011612).
@@ -193,6 +233,17 @@ namespace Zamin {
         for (const auto& [key, open] : Inspector.GetAll())
             headers[key] = open;
         j["InspectorHeaders"] = std::move(headers);
+        json filter = json::array();
+        for (AssetType type : AssetTypeFilter::GetFilterableTypes())
+            if (ContentBrowser.Filter.Has(type))
+                filter.push_back(AssetFiles::GetTypeKey(type));
+        j["ContentBrowser"] = {
+            { "View", ContentBrowser.ListView ? "List" : "Grid" },
+            { "ThumbnailSize", Num(ContentBrowser.ThumbnailSize) },
+            { "Filter", std::move(filter) },
+            { "SortBy", SortColumnKey(ContentBrowser.SortBy) },
+            { "Ascending", ContentBrowser.SortAscending },
+        };
         return j.dump(2);
     }
 
@@ -253,6 +304,31 @@ namespace Zamin {
                 if (!key.empty() && open.is_boolean() && headers.size() < InspectorFoldState::MaxEntries)
                     headers[key] = open.get<bool>();
             Inspector.SetAll(std::move(headers));
+        }
+        if (auto it = j.find("ContentBrowser"); it != j.end() && it->is_object())
+        {
+            auto& cb = ContentBrowser;
+            if (auto view = it->find("View"); view != it->end() && view->is_string())
+                cb.ListView = view->get<std::string>() == "List";
+            Read(*it, "ThumbnailSize", cb.ThumbnailSize);
+            if (auto filter = it->find("Filter"); filter != it->end() && filter->is_array())
+            {
+                cb.Filter.Clear();
+                for (const json& key : *filter)
+                    if (key.is_string())
+                        if (auto type = AssetFiles::FindTypeByKey(key.get<std::string>()))
+                            cb.Filter.Set(*type, true);
+            }
+            if (auto sort = it->find("SortBy"); sort != it->end() && sort->is_string())
+            {
+                std::string key = sort->get<std::string>();
+                cb.SortBy = AssetSortColumn::Name;
+                for (AssetSortColumn c : { AssetSortColumn::Type, AssetSortColumn::Size, AssetSortColumn::Modified })
+                    if (key == SortColumnKey(c))
+                        cb.SortBy = c;
+            }
+            Read(*it, "Ascending", cb.SortAscending);
+            cb.Sanitize();
         }
         return true;
     }

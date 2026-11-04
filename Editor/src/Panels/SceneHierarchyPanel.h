@@ -64,6 +64,11 @@ namespace Zamin {
         // Keeps the inspector scrolled to its end for a few frames (screenshots / automation).
         void ScrollInspectorToBottom() { m_ScrollInspectorFrames = 30; }
 
+        // Row icon of an entity (by its main component) and the inspector header name of a
+        // component key (status bar, menus).
+        static const char* GetEntityIcon(Entity entity);
+        static const char* GetComponentDisplayName(std::string_view key);
+
         // Entity creation shortcuts (also used by the editor menu).
         Entity CreateEntityPreset(const char* preset);
         void DrawCreateMenu();

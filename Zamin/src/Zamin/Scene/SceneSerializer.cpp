@@ -114,6 +114,9 @@ namespace Zamin {
         json e;
         e["Entity"] = (uint64_t)entity.GetUUID();
         e["Tag"] = entity.GetName();
+        // Game state (kept by prefabs too); only written when off, so older files stay the same.
+        if (!entity.IsActive())
+            e["Active"] = false;
         if (includeParent)
             if (auto* rel = entity.TryGetComponent<RelationshipComponent>(); rel && (uint64_t)rel->Parent)
                 e["Parent"] = (uint64_t)rel->Parent;
@@ -264,6 +267,8 @@ namespace Zamin {
 
     static void DeserializeEntityComponents(const json& e, Entity entity)
     {
+        if (auto it = e.find("Active"); it != e.end() && it->is_boolean())
+            entity.GetComponent<TagComponent>().Active = it->get<bool>();
         if (e.contains("Transform"))
         {
             const json& j = e["Transform"];
@@ -882,6 +887,7 @@ namespace Zamin {
             }
             for (size_t i = 0; i < parents.size() && i < entityList.size(); i++)
                 ApplyChildOrder(parents[i].first, entityList[i], nullptr);
+            m_Scene->InvalidateActiveCache(); // flags and parents were written directly
         }
         catch (const std::exception& ex)
         {
@@ -966,6 +972,7 @@ namespace Zamin {
         {
             ZM_CORE_ERROR("Entity ma'lumotlari xato: {}", ex.what());
         }
+        scene.InvalidateActiveCache(); // flags and parents were written directly
         // Roots first
         std::stable_partition(created.begin(), created.end(), [](Entity e) {
             return !(uint64_t)e.GetComponent<RelationshipComponent>().Parent;

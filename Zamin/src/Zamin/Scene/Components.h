@@ -34,9 +34,15 @@ namespace Zamin {
         IDComponent(UUID id) : ID(id) {}
     };
 
+    // Display name and the entity's own active flag. An entity takes part in the game only
+    // when it and every ancestor are active (Scene::IsActiveInHierarchy); change the flag with
+    // Scene::SetActive / Entity::SetActive so the running scene reacts at once (a direct write
+    // is noticed on the next frame). Unlike EditorMetadataComponent::Hidden this is game state:
+    // it is saved with the scene and kept by copies, duplicates and prefabs.
     struct TagComponent
     {
         std::string Tag;
+        bool Active = true;
         TagComponent() = default;
         TagComponent(const std::string& tag) : Tag(tag) {}
     };

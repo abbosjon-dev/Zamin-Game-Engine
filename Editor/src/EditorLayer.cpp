@@ -442,10 +442,11 @@ namespace Zamin {
         RenderCommand::SetDepthTest(false);
         Renderer2D::BeginScene(viewProj);
         Scene& scene = *m_ActiveScene;
-        // Entities hidden with the hierarchy's eye get no outlines either (the game view shows everything).
-        std::unordered_set<entt::entity> hidden;
-        if (m_SceneState != SceneState::Play)
-            hidden = scene.CollectHiddenInEditor();
+        // Inactive entities get no outlines (they have no bodies), nor do the ones hidden with
+        // the hierarchy's eye outside play mode (the game view shows everything).
+        SceneRenderOptions skipped;
+        skipped.SkipEditorHidden = m_SceneState != SceneState::Play;
+        std::unordered_set<entt::entity> hidden = scene.CollectRenderSkipped(skipped);
 
         if (m_ShowColliders)
         {
@@ -557,11 +558,14 @@ namespace Zamin {
             }
         }
 
-        // Selection outline: the primary entity orange, the rest of a multi-selection yellow
+        // Selection outline: the primary entity orange, the rest of a multi-selection yellow. A
+        // selected inactive entity keeps its outline (it shows where the switched-off entity is);
+        // one hidden with the eye does not.
         Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
         for (Entity selected : m_SceneHierarchyPanel.GetSelection().GetEntities())
         {
-            if (!selected.IsValid() || selected.GetScene() != &scene || hidden.contains(selected)) continue;
+            if (!selected.IsValid() || selected.GetScene() != &scene) continue;
+            if (skipped.SkipEditorHidden && scene.IsHiddenInEditor(selected)) continue;
             const glm::vec4 orange = selected == primary ? glm::vec4(1.0f, 0.6f, 0.1f, 1.0f) : glm::vec4(1.0f, 0.85f, 0.35f, 0.85f);
             glm::mat4 transform = scene.GetWorldTransform(selected);
             if (auto* mr = selected.TryGetComponent<MeshRendererComponent>(); mr && (mr->MeshAsset || mr->ModelAsset))
@@ -2697,8 +2701,10 @@ namespace Zamin {
         glm::vec2 size = m_ViewportBounds[1] - m_ViewportBounds[0];
         ImVec2 mouse = ImGui::GetMousePos();
 
-        // Hidden entities have no icon; locked ones are drawn faint and cannot be clicked.
-        std::unordered_set<entt::entity> hidden = m_ActiveScene->CollectHiddenInEditor();
+        // Hidden and inactive entities have no icon; locked ones are drawn faint and cannot be clicked.
+        SceneRenderOptions skipped;
+        skipped.SkipEditorHidden = true;
+        std::unordered_set<entt::entity> hidden = m_ActiveScene->CollectRenderSkipped(skipped);
         auto drawIcon = [&](Entity e, const char* icon, ImU32 color) {
             if (hidden.contains(e)) return;
             glm::vec4 clip = viewProj * glm::vec4(m_ActiveScene->GetWorldPosition(e), 1.0f);

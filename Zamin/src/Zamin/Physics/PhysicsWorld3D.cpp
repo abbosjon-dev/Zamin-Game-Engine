@@ -382,7 +382,14 @@ namespace Zamin {
 
         auto character = new JPH::CharacterVirtual(settings, JPH::RVec3(desc.Position.x, desc.Position.y, desc.Position.z),
                                                    JPH::Quat::sIdentity(), (uint64_t)desc.EntityID, m_Impl->System.get());
-        m_Impl->Characters.push_back({ character, (uint64_t)desc.EntityID, {} });
+        // A slot freed by DestroyCharacter is reused (entities switched off and on again
+        // destroy and recreate their character).
+        uint32_t slot = 0;
+        while (slot < m_Impl->Characters.size() && m_Impl->Characters[slot].Character)
+            slot++;
+        if (slot == m_Impl->Characters.size())
+            m_Impl->Characters.push_back({});
+        m_Impl->Characters[slot] = { character, (uint64_t)desc.EntityID, {} };
         // Raycasts against the inner body report the entity.
         if (!character->GetInnerBodyID().IsInvalid())
         {
@@ -390,13 +397,23 @@ namespace Zamin {
             std::lock_guard lock(m_Impl->Contacts.Mutex);
             m_Impl->Contacts.BodyToEntity[character->GetInnerBodyID().GetIndexAndSequenceNumber()] = (uint64_t)desc.EntityID;
         }
-        return (uint32_t)m_Impl->Characters.size() - 1;
+        return slot;
     }
 
     void PhysicsWorld3D::DestroyCharacter(uint32_t id)
     {
-        if (id < m_Impl->Characters.size())
-            m_Impl->Characters[id].Character = nullptr;
+        if (id >= m_Impl->Characters.size() || !m_Impl->Characters[id].Character)
+            return;
+        auto& slot = m_Impl->Characters[id];
+        // The inner body goes with the character: its contacts end without events (as for DestroyBody).
+        if (JPH::BodyID inner = slot.Character->GetInnerBodyID(); !inner.IsInvalid())
+        {
+            std::lock_guard lock(m_Impl->Contacts.Mutex);
+            m_Impl->Contacts.BodyToEntity.erase(inner.GetIndexAndSequenceNumber());
+        }
+        slot.Character = nullptr;
+        slot.EntityID = 0;
+        slot.Touching.clear();
     }
 
     void PhysicsWorld3D::UpdateCharacter(uint32_t id, const glm::vec3& velocity, float dt, float stepHeight, bool stickToFloor)

@@ -5045,6 +5045,531 @@ TEST(SelectionSummaryForStatusBar)
     CHECK(s.Path == "World/Player/Weapon/Tip" && s.Hidden && s.ChildCount == 0);
 }
 
+// ------------------------------------------------------------------ active / inactive entities (M03)
+TEST(ActiveFlagAndHierarchy)
+{
+    auto scene = CreateRef<Scene>();
+    Entity parent = scene->CreateEntity("Parent");
+    Entity child = scene->CreateEntity("Child");
+    Entity grandchild = scene->CreateEntity("Grandchild");
+    Entity other = scene->CreateEntity("Other");
+    scene->SetParent(child, parent, false);
+    scene->SetParent(grandchild, child, false);
+    CHECK(parent.GetComponent<TagComponent>().Active && parent.IsActive() && scene->IsActive(parent));
+    CHECK(scene->IsActiveInHierarchy(grandchild) && scene->CountInactiveInHierarchy() == 0);
+    CHECK(!scene->IsActiveInHierarchy(Entity()) && !scene->IsActive(Entity()));
+
+    // An inactive parent switches its whole subtree off; the children keep their own flag.
+    scene->SetActive(parent, false);
+    CHECK(!scene->IsActive(parent) && child.IsActive() && grandchild.IsActive());
+    CHECK(!scene->IsActiveInHierarchy(parent) && !scene->IsActiveInHierarchy(child) && !grandchild.IsActiveInHierarchy());
+    CHECK(other.IsActiveInHierarchy() && scene->CountInactiveInHierarchy() == 3);
+    scene->SetActive(parent, true);
+    CHECK(grandchild.IsActiveInHierarchy() && scene->CountInactiveInHierarchy() == 0);
+
+    // A switched-off entity in the middle: itself and everything below it.
+    child.SetActive(false);
+    CHECK(parent.IsActiveInHierarchy() && !child.IsActiveInHierarchy() && !grandchild.IsActiveInHierarchy());
+    // Parent and child both off: switching the parent back on keeps the child's subtree off.
+    parent.SetActive(false);
+    CHECK(scene->CountInactiveInHierarchy() == 3);
+    parent.SetActive(true);
+    CHECK(parent.IsActiveInHierarchy() && !child.IsActiveInHierarchy() && !grandchild.IsActiveInHierarchy());
+
+    // Reparenting: out from under an inactive entity -> on, below one -> off (the whole subtree).
+    scene->SetParent(grandchild, other, false);
+    CHECK(grandchild.IsActiveInHierarchy());
+    scene->SetParent(other, child, false);
+    CHECK(!other.IsActiveInHierarchy() && !grandchild.IsActiveInHierarchy());
+    scene->MoveEntityNextTo(other, parent, true, false); // a root again
+    CHECK(other.IsActiveInHierarchy() && grandchild.IsActiveInHierarchy());
+    scene->SetParent(grandchild, child, false);
+    CHECK(!grandchild.IsActiveInHierarchy());
+
+    // A direct write is noticed after InvalidateActiveCache() or on the next frame.
+    other.GetComponent<TagComponent>().Active = false;
+    scene->InvalidateActiveCache();
+    CHECK(!other.IsActiveInHierarchy());
+    other.GetComponent<TagComponent>().Active = true;
+    scene->OnUpdateRuntime(0.016f); // a new frame (nothing runs: no scripts, no primary camera)
+    CHECK(other.IsActiveInHierarchy());
+
+    // A broken file with a parent cycle cannot hang the walk or the subtree collection.
+    parent.GetComponent<RelationshipComponent>().Parent = child.GetUUID();
+    child.GetComponent<RelationshipComponent>().Children.push_back(parent.GetUUID());
+    parent.GetComponent<TagComponent>().Active = false;
+    scene->InvalidateActiveCache();
+    CHECK(!parent.IsActiveInHierarchy() && !child.IsActiveInHierarchy() && scene->CountInactiveInHierarchy() == 3);
+    parent.GetComponent<RelationshipComponent>().Parent = 0;
+    std::erase(child.GetComponent<RelationshipComponent>().Children, parent.GetUUID());
+    parent.GetComponent<TagComponent>().Active = true;
+    scene->InvalidateActiveCache();
+    CHECK(parent.IsActiveInHierarchy() && !child.IsActiveInHierarchy());
+
+    // Saved only when off, so files of fully active scenes stay as they were.
+    child.SetActive(true);
+    CHECK(SceneSerializer(scene).SerializeToString().find("\"Active\"") == std::string::npos);
+    child.SetActive(false);
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Active\": false") != std::string::npos && text.find("\"Active\": true") == std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(!loaded->FindEntityByName("Child").IsActive() && loaded->FindEntityByName("Grandchild").IsActive());
+    CHECK(loaded->FindEntityByName("Parent").IsActiveInHierarchy() && !loaded->FindEntityByName("Grandchild").IsActiveInHierarchy());
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+
+    // Kept by the play-mode copy, duplicates, Instantiate() and prefabs (game state, unlike Hidden).
+    auto runtime = Scene::Copy(scene);
+    CHECK(!runtime->FindEntityByName("Child").IsActive() && !runtime->FindEntityByName("Grandchild").IsActiveInHierarchy());
+    CHECK(runtime->FindEntityByName("Parent").IsActiveInHierarchy());
+    Entity copy = scene->DuplicateEntity(child);
+    CHECK(!copy.IsActive() && scene->GetParent(copy) == parent && !scene->FindChild(copy, "Grandchild").IsActiveInHierarchy());
+    CHECK(scene->CountInactiveInHierarchy() == 4);
+    scene->DestroyEntity(copy);
+    CHECK(scene->CountInactiveInHierarchy() == 2);
+    Entity clone = scene->Instantiate(parent);
+    CHECK(clone.IsActiveInHierarchy() && !scene->FindChild(clone, "Child").IsActive());
+    CHECK(!scene->FindChild(clone, "Grandchild").IsActiveInHierarchy());
+    scene->DestroyEntity(clone);
+    std::string prefab = SceneSerializer::SerializeEntities(*scene, { parent, child, grandchild }, false);
+    CHECK(prefab.find("\"Active\": false") != std::string::npos);
+    auto third = CreateRef<Scene>();
+    third->CreateEntity("Existing").SetActive(false);
+    CHECK(third->CountInactiveInHierarchy() == 1);
+    auto inst = SceneSerializer::DeserializeEntities(*third, prefab, true);
+    CHECK(inst.size() == 3 && third->CountInactiveInHierarchy() == 3); // loading refreshes the cache at once
+    CHECK(third->FindEntityByName("Parent").IsActiveInHierarchy() && !third->FindEntityByName("Grandchild").IsActiveInHierarchy());
+}
+
+TEST(InactiveEntitiesAreNotDrawn)
+{
+    auto scene = CreateRef<Scene>();
+    Entity group = scene->CreateEntity("Group");
+    Entity sprite = scene->CreateEntity("Sprite");
+    sprite.AddComponent<SpriteRendererComponent>();
+    scene->SetParent(sprite, group, false);
+    Entity mesh = scene->CreateEntity("Mesh");
+    mesh.AddComponent<MeshRendererComponent>();
+    mesh.GetTransform().Translation = { 10.0f, 0.0f, 0.0f };
+    Entity light = scene->CreateEntity("Light");
+    light.AddComponent<PointLightComponent>();
+    Entity hud = scene->CreateEntity("HUD");
+    hud.AddComponent<UITransformComponent>();
+    hud.AddComponent<UIButtonComponent>();
+    Entity shown = scene->CreateEntity("Shown");
+    shown.AddComponent<CircleRendererComponent>();
+    CHECK(scene->CollectRenderSkipped().empty());
+
+    // What RenderScene leaves out: every inactive entity and its subtree - meshes, sprites, UI,
+    // lights - in every view (the game view too).
+    group.SetActive(false);
+    mesh.SetActive(false);
+    light.SetActive(false);
+    hud.SetActive(false);
+    auto skipped = scene->CollectRenderSkipped();
+    CHECK(skipped.size() == 5 && skipped.contains(sprite) && skipped.contains(mesh));
+    CHECK(skipped.contains(light) && skipped.contains(hud) && !skipped.contains(shown));
+    // The editor's eye adds to it only in the editor's views.
+    scene->SetHiddenInEditor(shown, true);
+    CHECK(!scene->CollectRenderSkipped().contains(shown));
+    SceneRenderOptions editorView;
+    editorView.SkipEditorHidden = true;
+    CHECK(scene->CollectRenderSkipped(editorView).size() == 6 && scene->CollectRenderSkipped(editorView).contains(shown));
+    scene->SetHiddenInEditor(shown, false);
+
+    // Frame All (Shift+F) frames what is drawn: not the inactive mesh far away.
+    AABB box;
+    CHECK(scene->ComputeSceneBounds(box));
+    CHECK_NEAR(box.Max.x, 0.5f, 1e-4f);
+    mesh.SetActive(true);
+    CHECK(scene->ComputeSceneBounds(box));
+    CHECK_NEAR(box.Max.x, 10.5f, 1e-4f);
+    // Switching the group on brings its child back.
+    group.SetActive(true);
+    CHECK(!scene->CollectRenderSkipped().contains(sprite) && scene->CollectRenderSkipped().size() == 2);
+}
+
+TEST(InactiveEntitiesLeavePhysics2D)
+{
+    auto scene = CreateRef<Scene>();
+    Entity ball = scene->CreateEntity("Ball");
+    ball.GetTransform().Translation = { 0.0f, 10.0f, 0.0f };
+    ball.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    ball.AddComponent<CircleCollider2DComponent>();
+    Entity holder = scene->CreateEntity("Holder"); // inactive when play starts, with a body below it
+    holder.GetTransform().Translation = { 5.0f, 0.0f, 0.0f };
+    holder.SetActive(false);
+    Entity crate = scene->CreateEntity("Crate");
+    crate.GetTransform().Translation = { 0.0f, 10.0f, 0.0f };
+    crate.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    crate.AddComponent<BoxCollider2DComponent>();
+    scene->SetParent(crate, holder, false);
+    Entity map = scene->CreateEntity("Map");
+    map.GetTransform().Translation = { -20.0f, -20.0f, 0.0f };
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = 4; tm.Height = 1;
+    tm.EnsureSize();
+    tm.Set(0, 0, 1);
+
+    scene->OnRuntimeStart();
+    CHECK(ball.GetComponent<Rigidbody2DComponent>().RuntimeBody != nullptr);
+    CHECK(crate.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr); // its parent is off
+    CHECK(map.GetComponent<TilemapComponent>().RuntimeBody != nullptr);
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    float fallen = ball.GetTransform().Translation.y;
+    CHECK(fallen < 9.5f);
+    CHECK_NEAR(crate.GetTransform().Translation.y, 10.0f, 1e-5f);
+    RaycastHit hit = scene->Raycast2D({ -5.0f, fallen }, { 1.0f, 0.0f }, 10.0f);
+    CHECK(hit.Hit && hit.EntityID == (uint64_t)ball.GetUUID());
+
+    // Switched off: the body leaves the world, the transform stays where it was.
+    ball.SetActive(false);
+    CHECK(ball.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr);
+    CHECK(ball.GetComponent<CircleCollider2DComponent>().RuntimeFixture == nullptr);
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(ball.GetTransform().Translation.y, fallen, 1e-5f);
+    CHECK(!scene->Raycast2D({ -5.0f, fallen }, { 1.0f, 0.0f }, 10.0f).Hit);
+
+    // Back on: a new body at the current (moved) transform, starting at rest.
+    ball.GetTransform().Translation = { 3.0f, 20.0f, 0.0f };
+    ball.SetActive(true);
+    CHECK(ball.GetComponent<Rigidbody2DComponent>().RuntimeBody && ball.GetComponent<CircleCollider2DComponent>().RuntimeFixture);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(ball.GetTransform().Translation.x, 3.0f, 1e-4f);
+    CHECK(ball.GetTransform().Translation.y < 20.0f && ball.GetTransform().Translation.y > 19.9f); // the old speed is gone
+
+    // An inactive parent switched on: the child's body appears at its world position.
+    holder.SetActive(true);
+    CHECK(crate.GetComponent<Rigidbody2DComponent>().RuntimeBody != nullptr);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(scene->GetWorldPosition(crate).x, 5.0f, 1e-4f);
+    CHECK(scene->GetWorldPosition(crate).y < 10.0f && scene->GetWorldPosition(crate).y > 9.9f);
+    // Tilemap collision goes and comes back with its entity.
+    map.SetActive(false);
+    CHECK(map.GetComponent<TilemapComponent>().RuntimeBody == nullptr);
+    map.SetActive(true);
+    CHECK(map.GetComponent<TilemapComponent>().RuntimeBody != nullptr);
+    // A direct write (inspector) takes effect on the next frame.
+    crate.GetComponent<TagComponent>().Active = false;
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(crate.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr);
+    scene->OnRuntimeStop();
+
+    // Simulation mode (physics without scripts) follows too.
+    scene->OnSimulationStart();
+    CHECK(crate.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr && ball.GetComponent<Rigidbody2DComponent>().RuntimeBody);
+    crate.GetComponent<TagComponent>().Active = true;
+    scene->InvalidateActiveCache();
+    scene->SetActive(holder, false);
+    CHECK(crate.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr);
+    scene->SetActive(holder, true);
+    CHECK(crate.GetComponent<Rigidbody2DComponent>().RuntimeBody != nullptr);
+    scene->OnSimulationStop();
+}
+
+TEST(InactiveEntitiesEndContacts)
+{
+    g_Contacts.clear();
+    auto scene = CreateRef<Scene>();
+    scene->GetSettings().Gravity = { 0.0f, 0.0f };
+    Entity zone = scene->CreateEntity("Zone");
+    zone.GetTransform().Scale = { 6, 6, 1 };
+    zone.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    zone.AddComponent<BoxCollider2DComponent>().IsSensor = true;
+    AddContactLog(zone);
+    Entity a = scene->CreateEntity("A");
+    a.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    a.AddComponent<BoxCollider2DComponent>();
+    AddContactLog(a);
+
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(CountContact("A:TriggerBegin:Zone") == 1 && CountContact("Zone:TriggerBegin:A") == 1);
+
+    // Switching off ends the contact for the other side at once, and only once.
+    g_Contacts.clear();
+    a.SetActive(false);
+    CHECK((g_Contacts == std::vector<std::string>{ "Zone:TriggerEnd:A" }));
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(g_Contacts.size() == 1);
+
+    // Back on inside the sensor: a fresh Begin on both sides.
+    g_Contacts.clear();
+    a.SetActive(true);
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(CountContact("A:TriggerBegin:Zone") == 1 && CountContact("Zone:TriggerBegin:A") == 1);
+    CHECK(CountContact("A:TriggerEnd:Zone") == 0);
+    scene->OnRuntimeStop();
+}
+
+TEST(InactiveEntitiesLeavePhysics3D)
+{
+    g_Contacts.clear();
+    auto scene = CreateRef<Scene>();
+    Entity ball = scene->CreateEntity("Ball");
+    ball.GetTransform().Translation = { 0, 10, 0 };
+    ball.AddComponent<Rigidbody3DComponent>();
+    ball.AddComponent<SphereCollider3DComponent>().Radius = 0.5f;
+    Entity hero = scene->CreateEntity("Hero");
+    hero.GetTransform().Translation = { 20, 0, 0 };
+    hero.AddComponent<CharacterController3DComponent>();
+    Entity sleeper = scene->CreateEntity("Sleeper"); // inactive from the start
+    sleeper.GetTransform().Translation = { -10, 5, 0 };
+    sleeper.AddComponent<Rigidbody3DComponent>();
+    sleeper.AddComponent<BoxCollider3DComponent>();
+    sleeper.SetActive(false);
+
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    CHECK(world != nullptr);
+    CHECK(ball.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff);
+    CHECK(sleeper.GetComponent<Rigidbody3DComponent>().RuntimeBodyID == 0xffffffff);
+    CHECK(hero.GetComponent<CharacterController3DComponent>().RuntimeID != 0xffffffff);
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    float fallen = ball.GetTransform().Translation.y;
+    CHECK(fallen < 9.5f);
+    CHECK(scene->Raycast3D({ -5.0f, fallen, 0.0f }, { 1, 0, 0 }, 10.0f).Hit);
+
+    ball.SetActive(false);
+    CHECK(ball.GetComponent<Rigidbody3DComponent>().RuntimeBodyID == 0xffffffff);
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(ball.GetTransform().Translation.y, fallen, 1e-5f);
+    CHECK(!scene->Raycast3D({ -5.0f, fallen, 0.0f }, { 1, 0, 0 }, 10.0f).Hit);
+    ball.GetTransform().Translation = { 2, 30, 0 };
+    ball.SetActive(true);
+    uint32_t id = ball.GetComponent<Rigidbody3DComponent>().RuntimeBodyID;
+    CHECK(id != 0xffffffff);
+    if (id != 0xffffffff)
+    {
+        glm::vec3 p; glm::quat q;
+        world->GetTransform(id, p, q);
+        CHECK_NEAR(p.y, 30.0f, 1e-4f);
+        CHECK_NEAR(p.x, 2.0f, 1e-4f);
+    }
+
+    // The character leaves too and comes back where the entity is now.
+    hero.SetActive(false);
+    CHECK(hero.GetComponent<CharacterController3DComponent>().RuntimeID == 0xffffffff);
+    hero.GetTransform().Translation = { 25, 3, 0 };
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(hero.GetTransform().Translation.x, 25.0f, 1e-5f);
+    CHECK_NEAR(hero.GetTransform().Translation.y, 3.0f, 1e-5f); // no gravity while off
+    hero.SetActive(true);
+    uint32_t cid = hero.GetComponent<CharacterController3DComponent>().RuntimeID;
+    CHECK(cid != 0xffffffff);
+    if (cid != 0xffffffff)
+        CHECK_NEAR(world->GetCharacterPosition(cid).x, 25.0f, 1e-4f);
+    // Off and on many times: the freed character slot is reused.
+    for (int i = 0; i < 5; i++)
+    {
+        hero.SetActive(false);
+        hero.SetActive(true);
+    }
+    CHECK(hero.GetComponent<CharacterController3DComponent>().RuntimeID == cid);
+
+    sleeper.SetActive(true);
+    CHECK(sleeper.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff);
+    scene->OnRuntimeStop();
+
+    // A sensor contact ends for the other side when one of them is switched off.
+    g_Contacts.clear();
+    auto zoneScene = CreateRef<Scene>();
+    zoneScene->GetSettings().Gravity3D = { 0.0f, 0.0f, 0.0f };
+    Entity zone = zoneScene->CreateEntity("Zone");
+    zone.GetTransform().Scale = { 4, 4, 4 };
+    zone.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    zone.AddComponent<BoxCollider3DComponent>().IsSensor = true;
+    AddContactLog(zone);
+    Entity orb = zoneScene->CreateEntity("Orb");
+    orb.AddComponent<Rigidbody3DComponent>();
+    orb.AddComponent<SphereCollider3DComponent>().Radius = 0.25f;
+    AddContactLog(orb);
+    zoneScene->OnRuntimeStart();
+    for (int i = 0; i < 5; i++)
+        zoneScene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(CountContact("Orb:TriggerBegin:Zone") == 1 && CountContact("Zone:TriggerBegin:Orb") == 1);
+    g_Contacts.clear();
+    orb.SetActive(false);
+    CHECK((g_Contacts == std::vector<std::string>{ "Zone:TriggerEnd:Orb" }));
+    for (int i = 0; i < 5; i++)
+        zoneScene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(g_Contacts.size() == 1);
+    orb.SetActive(true);
+    for (int i = 0; i < 5; i++)
+        zoneScene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(CountContact("Orb:TriggerBegin:Zone") == 1 && CountContact("Zone:TriggerBegin:Orb") == 1);
+    zoneScene->OnRuntimeStop();
+}
+
+// Switches entities from its callbacks. Mode 1: its own entity off in OnUpdate; 2: flips its
+// own entity in OnEnable / OnDisable (a runaway the guard must stop); 3: switches "Target" off
+// in its first OnUpdate.
+static int g_ActiveFlips = 0;
+class ActiveToggleScript : public ScriptableEntity
+{
+public:
+    int Mode = 0;
+    void OnEnable() override
+    {
+        Log("Enable");
+        if (Mode == 2 && ++g_ActiveFlips < 1000) GetEntity().SetActive(false);
+    }
+    void OnDisable() override
+    {
+        Log("Disable");
+        if (Mode == 2 && ++g_ActiveFlips < 1000) GetEntity().SetActive(true);
+    }
+    void OnUpdate(Timestep) override
+    {
+        Log("Update");
+        if (Mode == 1) GetEntity().SetActive(false);
+        if (Mode == 3 && !m_Done)
+        {
+            m_Done = true;
+            FindEntity("Target").SetActive(false);
+        }
+    }
+    void OnLateUpdate(Timestep) override { Log("Late"); }
+private:
+    void Log(const char* what) { g_Life.push_back(GetName() + ":" + what); }
+    bool m_Done = false;
+};
+ZM_REGISTER_SCRIPT(ActiveToggleScript, ZM_FIELD(ActiveToggleScript, Mode))
+
+static Entity AddToggleScript(Scene& scene, const std::string& name, int mode)
+{
+    Entity e = scene.CreateEntity(name);
+    auto& nsc = e.AddComponent<NativeScriptComponent>();
+    nsc.ClassName = "ActiveToggleScript";
+    ScriptFieldValue v; v.Set(mode);
+    nsc.Fields["Mode"] = v;
+    return e;
+}
+
+TEST(InactiveEntityScripts)
+{
+    g_Life.clear();
+    auto scene = CreateRef<Scene>();
+    Entity root = scene->CreateEntity("Root");
+    Entity a = AddLifeScript(*scene, "A");
+    scene->SetParent(a, root, false);
+    Entity b = AddLifeScript(*scene, "B");
+    Entity sleeper = AddLifeScript(*scene, "Sleeper");
+    sleeper.SetActive(false);                        // inactive when play starts
+    Entity off = AddLifeScript(*scene, "Off", 0, false); // script disabled and entity inactive
+    off.SetActive(false);
+
+    // Every script is created; only those on active entities get OnEnable.
+    scene->OnRuntimeStart();
+    CHECK((g_Life == std::vector<std::string>{ "A:Create", "B:Create", "Sleeper:Create", "Off:Create", "A:Enable", "B:Enable" }));
+    g_Life.clear();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK((g_Life == std::vector<std::string>{ "A:Start", "B:Start", "A:Update", "B:Update", "A:Late", "B:Late" }));
+
+    // An ancestor switched off: OnDisable at once, then no OnUpdate / OnLateUpdate, timers pause.
+    auto* sa = ScriptableEntity::GetScript<LifeScript>(a);
+    CHECK(sa != nullptr);
+    if (!sa) return;
+    sa->Invoke(0.05f, [sa]() { sa->TimerFired++; });
+    g_Life.clear();
+    root.SetActive(false);
+    CHECK((g_Life == std::vector<std::string>{ "A:Disable" }));
+    CHECK(sa->IsEnabled() && scene->IsScriptEnabled(a)); // the script's own flag is untouched
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(0.016f);
+    CHECK(!HasLife("A:Update") && !HasLife("A:Late") && CountLife("B:Update") == 10);
+    CHECK(sa->TimerFired == 0 && sa->IsInvoking());
+
+    // Back on: OnEnable (no second OnStart) and the paused timer continues.
+    g_Life.clear();
+    root.SetActive(true);
+    CHECK((g_Life == std::vector<std::string>{ "A:Enable" }));
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(0.016f);
+    CHECK(CountLife("A:Update") == 5 && !HasLife("A:Start") && sa->TimerFired == 1);
+
+    // Inactive at start: OnEnable when switched on, OnStart before its first OnUpdate.
+    g_Life.clear();
+    sleeper.SetActive(true);
+    CHECK((g_Life == std::vector<std::string>{ "Sleeper:Enable" }));
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(IndexOfLife("Sleeper:Start") >= 0 && IndexOfLife("Sleeper:Start") < IndexOfLife("Sleeper:Update"));
+
+    // A disabled script stays off when its entity comes on; enabling it while the entity is
+    // inactive waits for the entity.
+    g_Life.clear();
+    off.SetActive(true);
+    CHECK(g_Life.empty());
+    off.SetActive(false);
+    scene->SetScriptEnabled(off, true);
+    CHECK(g_Life.empty());
+    off.SetActive(true);
+    CHECK((g_Life == std::vector<std::string>{ "Off:Enable" }));
+
+    // A direct write to TagComponent::Active is noticed at the start of the next frame.
+    g_Life.clear();
+    b.GetComponent<TagComponent>().Active = false;
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!g_Life.empty() && g_Life.front() == "B:Disable" && !HasLife("B:Update"));
+    b.GetComponent<TagComponent>().Active = true;
+    g_Life.clear();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!g_Life.empty() && g_Life.front() == "B:Enable" && HasLife("B:Update"));
+
+    // Reparenting below an inactive entity switches the script off at once.
+    g_Life.clear();
+    root.SetActive(false);
+    scene->SetParent(b, root);
+    CHECK((g_Life == std::vector<std::string>{ "A:Disable", "B:Disable" }));
+    // Destroying an inactive entity: no second OnDisable.
+    g_Life.clear();
+    scene->DestroyEntity(root);
+    CHECK((g_Life == std::vector<std::string>{ "A:Destroy", "B:Destroy" }));
+    // Stop: inactive entities' scripts get only OnDestroy.
+    g_Life.clear();
+    sleeper.SetActive(false);
+    scene->OnRuntimeStop();
+    CHECK(CountLife("Sleeper:Disable") == 1 && CountLife("Sleeper:Destroy") == 1);
+    CHECK(IndexOfLife("Sleeper:Disable") < IndexOfLife("Sleeper:Destroy"));
+    CHECK(CountLife("Off:Disable") == 1 && CountLife("Off:Destroy") == 1);
+}
+
+TEST(ScriptsSwitchingEntitiesOff)
+{
+    g_Life.clear();
+    g_ActiveFlips = 0;
+    auto scene = CreateRef<Scene>();
+    AddToggleScript(*scene, "Self", 1);
+    AddToggleScript(*scene, "Switcher", 3);
+    Entity target = AddLifeScript(*scene, "Target");
+    Entity flip = AddToggleScript(*scene, "Flip", 2);
+
+    scene->OnRuntimeStart();
+    CHECK(g_ActiveFlips > 0 && g_ActiveFlips < 100); // the runaway is stopped by the nesting guard
+    g_Life.clear();
+    scene->OnUpdateRuntime(0.016f);
+    // Its own entity off inside OnUpdate: OnDisable at once, no OnLateUpdate this frame.
+    CHECK(IndexOfLife("Self:Update") >= 0 && IndexOfLife("Self:Disable") == IndexOfLife("Self:Update") + 1);
+    CHECK(!HasLife("Self:Late"));
+    // Another entity switched off before its turn: OnDisable, and no OnUpdate in the same frame.
+    CHECK(HasLife("Target:Disable") && !HasLife("Target:Update") && !HasLife("Target:Late"));
+    CHECK(!target.IsActive());
+    g_Life.clear();
+    for (int i = 0; i < 3; i++)
+        scene->OnUpdateRuntime(0.016f);
+    CHECK(!HasLife("Self:Update") && !HasLife("Target:Update") && CountLife("Switcher:Update") == 3);
+    (void)flip;
+    scene->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

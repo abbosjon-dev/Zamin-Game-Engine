@@ -184,6 +184,28 @@ namespace Zamin {
         // Locked entities and every descendant of one (what viewport clicks go through).
         std::unordered_set<entt::entity> CollectLockedInEditor();
 
+        // ---- active state (TagComponent::Active): game state, unlike the editor-only Hidden flag
+        // An entity is active in the hierarchy when it and all of its ancestors are active. An
+        // inactive one is not drawn (meshes, sprites, circles, text, tilemaps, particles, UI,
+        // lights), has no physics body / character (removed, and created again at its current
+        // transform when it comes back), and its script gets OnDisable, then no OnUpdate /
+        // OnLateUpdate / timers until it is active again (OnEnable). The flag is saved with the
+        // scene and kept by Scene::Copy, duplicates, Instantiate() and prefabs.
+        // Sets the entity's own flag; while playing / simulating, physics and scripts follow at once.
+        void SetActive(Entity entity, bool active);
+        // The entity's own flag (its ancestors may still switch it off).
+        bool IsActive(Entity entity);
+        // The entity and every ancestor are active. Cached (a hash lookup): SetActive, SetParent,
+        // duplicating / instantiating and loading keep it current; a direct write to
+        // TagComponent::Active is picked up on the next frame (or after InvalidateActiveCache()).
+        bool IsActiveInHierarchy(Entity entity);
+        void InvalidateActiveCache() { m_ActiveCacheDirty = true; }
+        // Entities that are not active in the hierarchy (own flag off, or below such an entity).
+        size_t CountInactiveInHierarchy();
+        // Everything RenderScene leaves out with these options: entities that are not active in
+        // the hierarchy always; the editor-hidden / editor-locked subtrees when the options say so.
+        std::unordered_set<entt::entity> CollectRenderSkipped(const SceneRenderOptions& options = {});
+
         glm::mat4 GetWorldTransform(Entity entity);
         // Sets local transform so that the entity ends up at `world`.
         void SetWorldTransform(Entity entity, const glm::mat4& world);
@@ -197,7 +219,7 @@ namespace Zamin {
         // Union over `entities` (with their descendants when includeChildren). False when none counted.
         bool ComputeBounds(const std::vector<Entity>& entities, AABB& out, bool includeChildren = true);
         // The whole scene as the editor's scene view shows it (Shift+F): entities hidden in the
-        // editor (and their subtrees) are left out, and so are the ones that draw nothing
+        // editor or inactive (and their subtrees) are left out, and so are the ones that draw nothing
         // (lights, cameras, empty groups) unless nothing draws at all - then their positions
         // are framed. False when there is nothing to frame.
         bool ComputeSceneBounds(AABB& out);
@@ -290,10 +312,25 @@ namespace Zamin {
         void OnPhysics2DStop();
         void OnPhysics3DStart();
         void OnPhysics3DStop();
+        // The Create* functions do nothing for an entity that is not active in the hierarchy.
         void CreatePhysicsBody(Entity entity);
         void CreatePhysicsBody3D(Entity entity);
         void CreateTilemapBody(Entity entity);
         void CreateCharacter3D(Entity entity);
+        // Every body / character the entity should have in the running worlds (none when inactive).
+        void CreatePhysicsBodies(Entity entity);
+        // Removes the entity's 2D / tilemap / 3D bodies and its character from the worlds.
+        void DestroyPhysicsBodies(Entity entity);
+        // ---- active state cache (IsActiveInHierarchy)
+        void EnsureActiveCache();
+        void RebuildActiveCache();
+        // Runtime / simulation: physics and scripts follow the entities whose active-in-hierarchy
+        // state changed since the last call (no-op in edit mode).
+        void ApplyActiveChanges();
+        // Makes one entity's bodies and script enabled state match IsActiveInHierarchy (idempotent).
+        void ApplyActiveState(Entity entity);
+        // NativeScriptComponent::Enabled and active in the hierarchy.
+        bool ShouldScriptBeEnabled(Entity entity, const struct NativeScriptComponent& nsc);
         void StepCharacters(float dt);
         void UpdateAudio();
         void UpdateAnimators(Timestep ts, bool editor);
@@ -386,6 +423,15 @@ namespace Zamin {
         uint64_t m_FrameIndex = 0;
         uint64_t m_NameCacheFrame = ~0ull; // frame of the last validation / rebuild
         NameCacheStats m_NameCacheStats;
+
+        // Entities not active in the hierarchy: as a set and depth-first (a parent before its
+        // children, subtrees in scene order). Rebuilt when dirty and once per frame.
+        std::unordered_set<entt::entity> m_InactiveInHierarchy;
+        std::vector<entt::entity> m_InactiveOrder;
+        bool m_ActiveCacheDirty = true;
+        uint64_t m_ActiveCacheFrame = ~0ull;
+        // The inactive entities the running physics / scripts were last brought in line with.
+        std::vector<entt::entity> m_AppliedInactive;
 
         // Begin/end pairs that were dispatched to scripts: (lower id, higher id, sensor) ->
         // number of physics contacts. Scripts hear one Begin/End per entity pair even when

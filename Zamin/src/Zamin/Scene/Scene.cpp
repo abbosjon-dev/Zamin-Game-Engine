@@ -164,6 +164,7 @@ namespace Zamin {
         for (Entity e : other->GetEntitiesInOrder())
         {
             Entity newEntity = newScene->CreateEntityWithUUID(e.GetUUID(), e.GetName());
+            newEntity.GetComponent<TagComponent>().Active = e.IsActive();
             enttMap[e.GetUUID()] = (entt::entity)newEntity;
         }
 
@@ -288,26 +289,9 @@ namespace Zamin {
         if (!entity.IsValid()) return; // destroyed by a survivor's OnCollisionEnd / OnTriggerEnd
         DestroyScriptInstance(entity);
         if (!entity.IsValid()) return; // destroyed by its own OnDisable / OnDestroy
-        if (auto* rb = entity.TryGetComponent<Rigidbody2DComponent>(); rb && rb->RuntimeBody && m_PhysicsWorld)
-        {
-            m_PhysicsWorld->DestroyBody((b2Body*)rb->RuntimeBody);
-            rb->RuntimeBody = nullptr;
-        }
-        if (auto* tm = entity.TryGetComponent<TilemapComponent>(); tm && tm->RuntimeBody && m_PhysicsWorld)
-        {
-            m_PhysicsWorld->DestroyBody((b2Body*)tm->RuntimeBody);
-            tm->RuntimeBody = nullptr;
-        }
-        if (auto* rb = entity.TryGetComponent<Rigidbody3DComponent>(); rb && rb->RuntimeBodyID != 0xffffffff && m_PhysicsWorld3D)
-        {
-            m_PhysicsWorld3D->DestroyBody(rb->RuntimeBodyID);
-            rb->RuntimeBodyID = 0xffffffff;
-        }
-        if (auto* cc = entity.TryGetComponent<CharacterController3DComponent>(); cc && cc->RuntimeID != 0xffffffff && m_PhysicsWorld3D)
-        {
-            m_PhysicsWorld3D->DestroyCharacter(cc->RuntimeID);
-            cc->RuntimeID = 0xffffffff;
-        }
+        DestroyPhysicsBodies(entity);
+        if (m_InactiveInHierarchy.contains(entity))
+            m_ActiveCacheDirty = true; // keep the cache free of dead handles
         if (auto* audio = entity.TryGetComponent<AudioSourceComponent>(); audio && audio->RuntimeHandle)
             AudioEngine::Stop(audio->RuntimeHandle);
 
@@ -348,6 +332,12 @@ namespace Zamin {
         Entity newEntity = CreateEntity(entity.GetName());
         CopyComponentIfExists(AllComponents{}, newEntity, entity);
         ResetRuntimeData(newEntity);
+        // The copy keeps the active flag (an inactive template gives inactive clones). It is
+        // attached to its parent below without SetParent: the cache is rebuilt when anything is
+        // inactive (a fully active scene stays fully active).
+        newEntity.GetComponent<TagComponent>().Active = entity.IsActive();
+        if (!entity.IsActive() || !m_InactiveInHierarchy.empty())
+            m_ActiveCacheDirty = true;
 
         auto& rel = newEntity.GetComponent<RelationshipComponent>();
         rel.Parent = newParent;
@@ -405,17 +395,11 @@ namespace Zamin {
 
     void Scene::OnEntitiesSpawned(const std::vector<Entity>& entities)
     {
+        // Inactive ones (an inactive template, or spawned below an inactive parent) get their
+        // bodies and OnEnable when they are switched on.
         for (Entity e : entities)
-        {
-            if (m_PhysicsWorld3D && e.HasComponent<CharacterController3DComponent>())
-                CreateCharacter3D(e);
-            if (m_PhysicsWorld && e.HasComponent<Rigidbody2DComponent>())
-                CreatePhysicsBody(e);
-            if (m_PhysicsWorld && e.HasComponent<TilemapComponent>())
-                CreateTilemapBody(e);
-            if (m_PhysicsWorld3D && e.HasComponent<Rigidbody3DComponent>())
-                CreatePhysicsBody3D(e);
-        }
+            if (e.IsValid())
+                CreatePhysicsBodies(e);
         if (m_ScriptsRunning)
         {
             for (Entity e : entities)
@@ -977,6 +961,165 @@ namespace Zamin {
         return CollectEditorFlagSubtrees(m_Registry, m_EntityMap, [](const EditorMetadataComponent& m) { return m.Locked; });
     }
 
+    // ------------------------------------------------------------------ active state
+    void Scene::SetActive(Entity entity, bool active)
+    {
+        if (!entity.IsValid() || entity.GetScene() != this)
+            return;
+        auto& tag = entity.GetComponent<TagComponent>();
+        if (tag.Active == active)
+            return;
+        tag.Active = active;
+        m_ActiveCacheDirty = true;
+        ApplyActiveChanges();
+    }
+
+    bool Scene::IsActive(Entity entity)
+    {
+        return entity.IsValid() && entity.GetComponent<TagComponent>().Active;
+    }
+
+    bool Scene::IsActiveInHierarchy(Entity entity)
+    {
+        if (!entity.IsValid() || entity.GetScene() != this)
+            return false;
+        EnsureActiveCache();
+        return m_InactiveInHierarchy.empty() || !m_InactiveInHierarchy.contains((entt::entity)entity);
+    }
+
+    size_t Scene::CountInactiveInHierarchy()
+    {
+        EnsureActiveCache();
+        return m_InactiveInHierarchy.size();
+    }
+
+    void Scene::EnsureActiveCache()
+    {
+        // Once per frame even when nothing was marked: direct writes to TagComponent::Active and
+        // raw RelationshipComponent edits bypass SetActive / SetParent.
+        if (m_ActiveCacheDirty || m_ActiveCacheFrame != m_FrameIndex)
+            RebuildActiveCache();
+    }
+
+    void Scene::RebuildActiveCache()
+    {
+        m_InactiveInHierarchy.clear();
+        m_InactiveOrder.clear();
+        m_ActiveCacheDirty = false;
+        m_ActiveCacheFrame = m_FrameIndex;
+
+        // Entities switched off themselves: usually none, so this is one pass over the flags.
+        std::vector<Entity> off;
+        for (auto e : m_Registry.view<TagComponent>())
+            if (!m_Registry.get<TagComponent>(e).Active && m_Registry.all_of<IDComponent, RelationshipComponent>(e))
+                off.emplace_back(e, this);
+        if (off.empty())
+            return;
+        SortInSceneOrder(off);
+
+        for (Entity e : off)
+        {
+            if (m_InactiveInHierarchy.contains((entt::entity)e))
+                continue; // inside a subtree collected already
+            // Start from the top-most switched-off ancestor so the subtree comes out parent first
+            // (bounded walk: a broken file with a parent cycle cannot hang it).
+            Entity top = e;
+            int depth = 0;
+            for (Entity p = GetParent(e); p && depth < 4096; p = GetParent(p), depth++)
+                if (!p.GetComponent<TagComponent>().Active)
+                    top = p;
+            if (m_InactiveInHierarchy.contains((entt::entity)top))
+                continue;
+            // Depth-first, children in their order (pushed in reverse).
+            std::vector<entt::entity> stack{ (entt::entity)top };
+            while (!stack.empty())
+            {
+                entt::entity current = stack.back();
+                stack.pop_back();
+                if (!m_InactiveInHierarchy.insert(current).second)
+                    continue;
+                m_InactiveOrder.push_back(current);
+                const auto* rel = m_Registry.try_get<RelationshipComponent>(current);
+                if (!rel)
+                    continue;
+                for (auto it = rel->Children.rbegin(); it != rel->Children.rend(); ++it)
+                    if (auto f = m_EntityMap.find(*it); f != m_EntityMap.end() && m_Registry.valid(f->second))
+                        stack.push_back(f->second);
+            }
+        }
+    }
+
+    std::unordered_set<entt::entity> Scene::CollectRenderSkipped(const SceneRenderOptions& options)
+    {
+        EnsureActiveCache();
+        std::unordered_set<entt::entity> skipped = m_InactiveInHierarchy;
+        if ((options.SkipEditorHidden || options.SkipEditorLocked) && !m_Registry.view<EditorMetadataComponent>().empty())
+        {
+            if (options.SkipEditorHidden)
+                skipped.merge(CollectHiddenInEditor());
+            if (options.SkipEditorLocked)
+                skipped.merge(CollectLockedInEditor());
+        }
+        return skipped;
+    }
+
+    bool Scene::ShouldScriptBeEnabled(Entity entity, const NativeScriptComponent& nsc)
+    {
+        return nsc.Enabled && IsActiveInHierarchy(entity);
+    }
+
+    void Scene::ApplyActiveChanges()
+    {
+        if (!m_ScriptsRunning && !m_PhysicsWorld && !m_PhysicsWorld3D)
+        {
+            m_AppliedInactive.clear(); // edit mode: only drawing looks at the flag
+            return;
+        }
+        EnsureActiveCache();
+        if (m_InactiveOrder.empty() && m_AppliedInactive.empty())
+            return;
+
+        std::vector<entt::entity> changed;
+        {
+            std::unordered_set<entt::entity> applied(m_AppliedInactive.begin(), m_AppliedInactive.end());
+            for (entt::entity e : m_InactiveOrder) // switched off (a parent before its children)
+                if (!applied.contains(e))
+                    changed.push_back(e);
+            for (entt::entity e : m_AppliedInactive) // switched back on
+                if (!m_InactiveInHierarchy.contains(e) && m_Registry.valid(e))
+                    changed.push_back(e);
+        }
+        // Recorded before any callback runs: a script that switches entities from its OnDisable /
+        // OnEnable / OnTriggerEnd starts a nested pass from this state.
+        m_AppliedInactive = m_InactiveOrder;
+        for (entt::entity e : changed)
+            if (m_Registry.valid(e))
+                ApplyActiveState({ e, this });
+    }
+
+    void Scene::ApplyActiveState(Entity entity)
+    {
+        if (!entity.IsValid())
+            return;
+        if (!IsActiveInHierarchy(entity))
+        {
+            // The same order as destroying: the others hear the contacts end, the script is
+            // disabled, then the bodies leave the worlds.
+            EndContactsOf(entity);
+            if (m_ScriptsRunning && entity.IsValid())
+                SyncScriptEnabled(entity);
+            // A callback may have destroyed it or switched it back on (that nested pass did the rest).
+            if (entity.IsValid() && !IsActiveInHierarchy(entity))
+                DestroyPhysicsBodies(entity);
+        }
+        else
+        {
+            CreatePhysicsBodies(entity); // at the current transform
+            if (m_ScriptsRunning && entity.IsValid())
+                SyncScriptEnabled(entity);
+        }
+    }
+
     glm::mat4 Scene::GetWorldTransform(Entity entity)
     {
         glm::mat4 local = entity.GetComponent<TransformComponent>().GetTransform();
@@ -1085,10 +1228,13 @@ namespace Zamin {
 
     bool Scene::ComputeSceneBounds(AABB& out)
     {
-        // What the editor's scene view shows: hidden subtrees (the hierarchy's eye) do not
-        // count, and when anything draws, only what draws does - a sun high above the level
-        // or the game camera far behind it would push the framed view off the content.
-        std::unordered_set<entt::entity> hidden = CollectHiddenInEditor();
+        // What the editor's scene view shows: hidden subtrees (the hierarchy's eye) and
+        // inactive ones do not count, and when anything draws, only what draws does - a sun
+        // high above the level or the game camera far behind it would push the framed view
+        // off the content.
+        SceneRenderOptions view;
+        view.SkipEditorHidden = true;
+        std::unordered_set<entt::entity> hidden = CollectRenderSkipped(view);
         std::vector<Entity> visuals, others;
         for (Entity e : GetEntitiesInOrder())
         {
@@ -1130,6 +1276,13 @@ namespace Zamin {
 
         if (keepWorldTransform)
             SetWorldTransform(child, world);
+        // Moving below an inactive parent (or out from under one) switches the subtree. In a
+        // scene where everything is active nothing can change.
+        if (m_ActiveCacheDirty || !m_InactiveInHierarchy.empty())
+        {
+            m_ActiveCacheDirty = true;
+            ApplyActiveChanges();
+        }
         return true;
     }
 
@@ -1138,6 +1291,9 @@ namespace Zamin {
     {
         m_IsRunning = true;
         m_Time = 0.0f;
+        // Inactive entities start without bodies and without OnEnable.
+        EnsureActiveCache();
+        m_AppliedInactive = m_InactiveOrder;
         OnPhysics2DStart();
         OnPhysics3DStart();
 
@@ -1162,12 +1318,25 @@ namespace Zamin {
         StopScripts();
         OnPhysics2DStop();
         OnPhysics3DStop();
+        m_AppliedInactive.clear();
         AudioEngine::StopAll();
         SaveData::Save(); // flush what the scripts stored (no-op when nothing changed)
     }
 
-    void Scene::OnSimulationStart() { OnPhysics2DStart(); OnPhysics3DStart(); }
-    void Scene::OnSimulationStop() { OnPhysics2DStop(); OnPhysics3DStop(); }
+    void Scene::OnSimulationStart()
+    {
+        EnsureActiveCache();
+        m_AppliedInactive = m_InactiveOrder;
+        OnPhysics2DStart();
+        OnPhysics3DStart();
+    }
+
+    void Scene::OnSimulationStop()
+    {
+        OnPhysics2DStop();
+        OnPhysics3DStop();
+        m_AppliedInactive.clear();
+    }
 
     void Scene::CreateScriptInstance(Entity entity)
     {
@@ -1214,13 +1383,18 @@ namespace Zamin {
             nsc = entity.IsValid() ? entity.TryGetComponent<NativeScriptComponent>() : nullptr;
             if (!nsc || nsc->Instance != instance)
                 return; // the instance was destroyed inside its own callback
-            bool wanted = nsc->Enabled;
+            // Enabled, and the entity active in the hierarchy (an inactive entity's script is off).
+            bool wanted = ShouldScriptBeEnabled(entity, *nsc);
             if (wanted == instance->m_EnabledState || instance->m_Destroying)
                 break;
             if (++instance->m_EnableTransitions > MaxTransitions)
             {
-                ZM_CORE_WARN("'{}': OnEnable/OnDisable skriptni to'xtovsiz yoqib-o'chirmoqda - to'xtatildi", entity.GetName());
-                nsc->Enabled = instance->m_EnabledState; // settle on the state the script was told last
+                if (instance->m_EnableTransitions == MaxTransitions + 1) // once per chain (outer levels unwind here too)
+                    ZM_CORE_WARN("'{}': OnEnable/OnDisable skriptni to'xtovsiz yoqib-o'chirmoqda - to'xtatildi", entity.GetName());
+                // Settle on the state the script was told last. Only the script's own flag is
+                // changed: an inactive entity's script gets no per-frame callbacks anyway.
+                if (IsActiveInHierarchy(entity))
+                    nsc->Enabled = instance->m_EnabledState;
                 break;
             }
             instance->m_EnabledState = wanted;
@@ -1452,7 +1626,7 @@ namespace Zamin {
     void Scene::CreateTilemapBody(Entity entity)
     {
         auto& tm = entity.GetComponent<TilemapComponent>();
-        if (!tm.Collision || tm.RuntimeBody || !m_PhysicsWorld) return;
+        if (!tm.Collision || tm.RuntimeBody || !m_PhysicsWorld || !IsActiveInHierarchy(entity)) return;
         tm.EnsureSize();
         glm::vec3 position, rotation, scale;
         Math::DecomposeTransform(GetWorldTransform(entity), position, rotation, scale);
@@ -1503,7 +1677,7 @@ namespace Zamin {
     void Scene::CreatePhysicsBody(Entity entity)
     {
         auto& rb2d = entity.GetComponent<Rigidbody2DComponent>();
-        if (rb2d.RuntimeBody) return;
+        if (rb2d.RuntimeBody || !m_PhysicsWorld || !IsActiveInHierarchy(entity)) return;
 
         glm::vec3 position, rotation, scale;
         Math::DecomposeTransform(GetWorldTransform(entity), position, rotation, scale);
@@ -1573,6 +1747,8 @@ namespace Zamin {
 
     void Scene::CreateCharacter3D(Entity entity)
     {
+        if (!IsActiveInHierarchy(entity))
+            return;
         if (!m_PhysicsWorld3D)
             m_PhysicsWorld3D = std::make_unique<PhysicsWorld3D>(m_Settings.Gravity3D);
         auto& cc = entity.GetComponent<CharacterController3DComponent>();
@@ -1601,6 +1777,8 @@ namespace Zamin {
 
     void Scene::CreatePhysicsBody3D(Entity entity)
     {
+        if (!IsActiveInHierarchy(entity))
+            return;
         if (!m_PhysicsWorld3D)
             m_PhysicsWorld3D = std::make_unique<PhysicsWorld3D>(m_Settings.Gravity3D);
 
@@ -1658,6 +1836,47 @@ namespace Zamin {
         rb.RuntimeBodyID = m_PhysicsWorld3D->CreateBody(desc);
     }
 
+    void Scene::CreatePhysicsBodies(Entity entity)
+    {
+        if (!IsActiveInHierarchy(entity))
+            return;
+        if (m_PhysicsWorld3D && entity.HasComponent<CharacterController3DComponent>())
+            CreateCharacter3D(entity);
+        if (m_PhysicsWorld && entity.HasComponent<Rigidbody2DComponent>())
+            CreatePhysicsBody(entity);
+        if (m_PhysicsWorld && entity.HasComponent<TilemapComponent>())
+            CreateTilemapBody(entity);
+        if (m_PhysicsWorld3D && entity.HasComponent<Rigidbody3DComponent>())
+            CreatePhysicsBody3D(entity);
+    }
+
+    void Scene::DestroyPhysicsBodies(Entity entity)
+    {
+        if (auto* rb = entity.TryGetComponent<Rigidbody2DComponent>(); rb && rb->RuntimeBody && m_PhysicsWorld)
+        {
+            m_PhysicsWorld->DestroyBody((b2Body*)rb->RuntimeBody); // its fixtures go with it
+            rb->RuntimeBody = nullptr;
+            if (auto* c = entity.TryGetComponent<BoxCollider2DComponent>()) c->RuntimeFixture = nullptr;
+            if (auto* c = entity.TryGetComponent<CircleCollider2DComponent>()) c->RuntimeFixture = nullptr;
+        }
+        if (auto* tm = entity.TryGetComponent<TilemapComponent>(); tm && tm->RuntimeBody && m_PhysicsWorld)
+        {
+            m_PhysicsWorld->DestroyBody((b2Body*)tm->RuntimeBody);
+            tm->RuntimeBody = nullptr;
+        }
+        if (auto* rb = entity.TryGetComponent<Rigidbody3DComponent>(); rb && rb->RuntimeBodyID != 0xffffffff && m_PhysicsWorld3D)
+        {
+            m_PhysicsWorld3D->DestroyBody(rb->RuntimeBodyID);
+            rb->RuntimeBodyID = 0xffffffff;
+        }
+        if (auto* cc = entity.TryGetComponent<CharacterController3DComponent>(); cc && cc->RuntimeID != 0xffffffff && m_PhysicsWorld3D)
+        {
+            m_PhysicsWorld3D->DestroyCharacter(cc->RuntimeID);
+            cc->RuntimeID = 0xffffffff;
+            cc->Grounded = false;
+        }
+    }
+
     void Scene::DeliverContact(Entity self, Entity other, bool begin, bool sensor)
     {
         if (!self.IsValid() || !other.IsValid()) return;
@@ -1683,6 +1902,8 @@ namespace Zamin {
             auto key = std::make_tuple(std::min(idA, idB), std::max(idA, idB), ev.Sensor);
             if (ev.Begin)
             {
+                // Switched off by an earlier callback of this batch (its body is gone already).
+                if (!IsActiveInHierarchy(a) || !IsActiveInHierarchy(b)) continue;
                 if (m_ActiveContacts[key]++ > 0) continue;
             }
             else
@@ -1938,11 +2159,17 @@ namespace Zamin {
                     scripted.push_back(e);
                 std::reverse(scripted.begin(), scripted.end());
             };
-            // Only scripts that are enabled and have run OnStart get per-frame callbacks.
+            // Only scripts that are enabled, have run OnStart and whose entity is active in the
+            // hierarchy get per-frame callbacks (timers included).
             auto active = [&](entt::entity e) -> ScriptableEntity* {
                 auto* nsc = m_Registry.valid(e) ? m_Registry.try_get<NativeScriptComponent>(e) : nullptr;
-                return nsc && nsc->Instance && nsc->Instance->IsActiveForUpdate() ? nsc->Instance : nullptr;
+                return nsc && nsc->Instance && nsc->Instance->IsActiveForUpdate() && IsActiveInHierarchy({ e, this })
+                    ? nsc->Instance : nullptr;
             };
+
+            // Active flags written straight into TagComponent (inspector, other code) and raw
+            // reparenting: bodies and scripts follow before anything runs this frame.
+            ApplyActiveChanges();
 
             {
                 ZM_PROFILE_SCOPE("Skriptlar");
@@ -1953,7 +2180,7 @@ namespace Zamin {
                     collectScripted();
                     for (auto e : scripted)
                         if (auto* nsc = m_Registry.valid(e) ? m_Registry.try_get<NativeScriptComponent>(e) : nullptr;
-                            nsc && nsc->Instance && nsc->Instance->m_EnabledState != nsc->Enabled)
+                            nsc && nsc->Instance && nsc->Instance->m_EnabledState != ShouldScriptBeEnabled({ e, this }, *nsc))
                             SyncScriptEnabled({ e, this });
                     StartPendingScripts();
                 }
@@ -2004,6 +2231,7 @@ namespace Zamin {
         m_FrameIndex++;
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
+            ApplyActiveChanges(); // flags changed in the inspector while simulating
             StepPhysics(ts);
             UpdateParticles(ts, false);
             UpdateAnimators(ts, false);
@@ -2410,16 +2638,16 @@ namespace Zamin {
             return worldCache.emplace(e, local).first->second;
         };
 
-        // Editor scene view: entities hidden with the hierarchy's eye (and their subtrees) are
-        // skipped; the picking pass skips the locked ones, too.
-        std::unordered_set<entt::entity> hidden;
+        // Inactive entities (and everything below them) are never drawn and their lights do not
+        // count. Editor scene view: entities hidden with the hierarchy's eye (and their subtrees)
+        // are skipped as well; the picking pass skips the locked ones, too.
+        // Without editor flags the active cache is used as it is (no copy of a big pool of
+        // switched-off entities every frame); nothing below rebuilds it.
+        EnsureActiveCache();
+        std::unordered_set<entt::entity> withEditorFlags;
         if ((options.SkipEditorHidden || options.SkipEditorLocked) && !m_Registry.view<EditorMetadataComponent>().empty())
-        {
-            if (options.SkipEditorHidden)
-                hidden = CollectHiddenInEditor();
-            if (options.SkipEditorLocked)
-                hidden.merge(CollectLockedInEditor());
-        }
+            withEditorFlags = CollectRenderSkipped(options);
+        const std::unordered_set<entt::entity>& hidden = withEditorFlags.empty() ? m_InactiveInHierarchy : withEditorFlags;
         auto skip = [&](entt::entity e) { return !hidden.empty() && hidden.contains(e); };
 
         // ---------------- 3D
@@ -2518,7 +2746,7 @@ namespace Zamin {
         std::vector<Item2D> items;
         auto depthOf = [&](entt::entity e) { return (view * world(e)[3]).z; };
 
-        // Screen-space UI is drawn by RenderUI; hidden entities not at all.
+        // Screen-space UI is drawn by RenderUI; hidden / inactive entities not at all.
         auto notWorld2D = [&](entt::entity e) { return m_Registry.all_of<UITransformComponent>(e) || skip(e); };
         for (auto e : m_Registry.view<TransformComponent, SpriteRendererComponent>())
             if (!notWorld2D(e)) items.push_back({ m_Registry.get<SpriteRendererComponent>(e).SortingOrder, depthOf(e), 0, e });

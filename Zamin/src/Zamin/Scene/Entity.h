@@ -91,6 +91,12 @@ namespace Zamin {
             auto* tags = m_Scene->m_Registry.try_get<TagsComponent>(m_EntityHandle);
             return tags && tags->Remove(tag);
         }
+        // ---- active state (see Scene::SetActive)
+        // The entity's own flag; IsActiveInHierarchy also looks at the ancestors.
+        bool IsActive() const { return GetComponent<TagComponent>().Active; }
+        void SetActive(bool active) { m_Scene->SetActive(*this, active); }
+        bool IsActiveInHierarchy() const { return m_Scene && m_Scene->IsActiveInHierarchy(*this); }
+
         TransformComponent& GetTransform() { return GetComponent<TransformComponent>(); }
         Scene* GetScene() const { return m_Scene; }
 

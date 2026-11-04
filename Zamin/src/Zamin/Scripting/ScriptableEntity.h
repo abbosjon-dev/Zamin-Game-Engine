@@ -39,6 +39,11 @@ namespace Zamin {
     //   OnDestroy  - once, when the entity is destroyed or play stops.
     // Event callbacks (collisions, triggers, messages, OnClick) also reach disabled scripts,
     // so a script can enable itself in response to them.
+    // "Enabled" above means the script's own flag is on AND its entity is active in the
+    // hierarchy (Scene::SetActive): switching the entity or an ancestor off delivers OnDisable
+    // and stops OnUpdate / OnLateUpdate / timers; switching it back on delivers OnEnable. A
+    // script on an entity that is inactive when play starts gets OnCreate, and OnEnable /
+    // OnStart only once the entity becomes active.
     class ScriptableEntity
     {
     public:

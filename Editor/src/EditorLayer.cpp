@@ -283,6 +283,9 @@ namespace Zamin {
             m_EditorCamera.SetViewportSize(m_ViewportSize.x, m_ViewportSize.y);
         }
 
+        if (m_PendingClickThrough)
+            ResolveClickThrough();
+
         Renderer::ResetStats();
         m_Framebuffer->Bind();
         glm::vec4 clear = m_ActiveScene->GetSettings().DrawSky ? glm::vec4(0.1f, 0.1f, 0.12f, 1.0f) : m_ActiveScene->GetClearColor();
@@ -344,9 +347,13 @@ namespace Zamin {
             m_HoveredEntity = pixel == -1 ? Entity() : Entity((entt::entity)pixel, m_ActiveScene.get());
             if (m_HoveredEntity && !m_HoveredEntity.IsValid())
                 m_HoveredEntity = {};
+            m_HoveredPixel = { mouseX, mouseY };
         }
         else
+        {
             m_HoveredEntity = {};
+            m_HoveredPixel = { -1, -1 };
+        }
 
         // Post-processing into the final target, then editor overlays on top.
         const auto& spec = m_Framebuffer->GetSpecification();
@@ -625,17 +632,50 @@ namespace Zamin {
             }
             if (!alt && !overGizmo && !m_SceneHierarchyPanel.IsTilePainting())
             {
-                // Ctrl+click toggles, Shift+click adds to the selection. A locked entity is not
-                // picked: the click counts as one on empty space (hidden ones are not drawn at all).
+                // Ctrl+click toggles, Shift+click adds to the selection. A click on a locked
+                // entity goes through it: the next frame picks again without the locked ones
+                // (hidden ones are not drawn at all).
                 bool ctrl = Input::IsKeyPressed(Key::LeftControl) || Input::IsKeyPressed(Key::RightControl);
                 bool shift = Input::IsKeyPressed(Key::LeftShift) || Input::IsKeyPressed(Key::RightShift);
                 Entity picked = m_HoveredEntity;
-                if (picked && m_ActiveScene->IsLockedInEditor(picked))
-                    picked = {};
-                m_SceneHierarchyPanel.SelectWithModifiers(picked, ctrl, shift);
+                if (picked && m_ActiveScene->IsLockedInEditor(picked) && m_HoveredPixel.x >= 0)
+                    m_PendingClickThrough = PendingPick{ m_HoveredPixel, ctrl, shift, m_ActiveScene.get() };
+                else
+                    m_SceneHierarchyPanel.SelectWithModifiers(picked && !m_ActiveScene->IsLockedInEditor(picked) ? picked : Entity(), ctrl, shift);
             }
         }
         return false;
+    }
+
+    void EditorLayer::ResolveClickThrough()
+    {
+        PendingPick pick = *m_PendingClickThrough;
+        m_PendingClickThrough.reset();
+        // Only for the scene and view the click was made in.
+        if (pick.SceneAtClick != m_ActiveScene.get() || m_SceneState == SceneState::Play)
+            return;
+        const auto& spec = m_Framebuffer->GetSpecification();
+        Entity picked;
+        if (pick.Pixel.x >= 0 && pick.Pixel.y >= 0 && pick.Pixel.x < (int)spec.Width && pick.Pixel.y < (int)spec.Height)
+        {
+            // The scene once more from the same camera, without the locked (and hidden)
+            // entities; only the entity IDs matter. The frame's real pass clears it all again.
+            m_Framebuffer->Bind();
+            RenderCommand::SetClearColor({ 0.0f, 0.0f, 0.0f, 1.0f });
+            RenderCommand::Clear();
+            m_Framebuffer->ClearAttachment(1, -1);
+            SceneRenderOptions options;
+            options.SkipEditorHidden = true;
+            options.SkipEditorLocked = true;
+            m_ActiveScene->OnRenderEditor(m_EditorCamera, options);
+            int pixel = m_Framebuffer->ReadPixel(1, pick.Pixel.x, pick.Pixel.y);
+            m_Framebuffer->Unbind();
+            if (pixel != -1)
+                picked = Entity((entt::entity)pixel, m_ActiveScene.get());
+            if (picked && (!picked.IsValid() || m_ActiveScene->IsLockedInEditor(picked)))
+                picked = {};
+        }
+        m_SceneHierarchyPanel.SelectWithModifiers(picked, pick.Ctrl, pick.Shift);
     }
 
     // ================================================================== projects
@@ -1007,7 +1047,9 @@ namespace Zamin {
         AABB bounds;
         if (!m_ActiveScene->ComputeSceneBounds(bounds))
         {
-            ShowViewportMessage(ICON_FA_EXPAND "  Sahna bo'sh");
+            // Everything may be hidden with the eye button (those are left out of the framing).
+            bool empty = m_ActiveScene->GetAllEntitiesWith<IDComponent>().empty();
+            ShowViewportMessage(empty ? ICON_FA_EXPAND "  Sahna bo'sh" : ICON_FA_EXPAND "  Ko'rinadigan obyekt yo'q");
             return;
         }
         m_EditorCamera.TransitionTo(m_EditorCamera.ComputeFrameState(bounds), 0.35f);
@@ -1366,18 +1408,31 @@ namespace Zamin {
             notice += " - skriptlarni kompilyatsiya qiling (Ctrl+B)";
         m_ContentBrowserPanel.ShowNotice(notice);
 
-        // Dropped onto the viewport: the imported assets go into the scene, too.
+        // Dropped onto the viewport: the imported assets go into the scene, too. A dropped scene
+        // opens first (unless one of the project's own did already) and the rest goes into it:
+        // opening it later would throw away the entities just made.
         if (overViewport && m_SceneState == SceneState::Edit)
         {
-            std::vector<Entity> created;
+            std::vector<fs::path> toPlace;
             for (const fs::path& file : imported)
             {
                 std::error_code ec;
                 if (fs::is_directory(file, ec) || !AssetFiles::IsInside(file, assets))
                     continue;
+                if (AssetFiles::GetType(file) == AssetType::Scene)
+                {
+                    if (!openedScene)
+                        openedScene = OpenScene(file);
+                    continue;
+                }
+                toPlace.push_back(file);
+            }
+            std::vector<Entity> created;
+            for (const fs::path& file : toPlace)
                 if (Entity e = DropAssetOnViewport(Project::GetAssetRelativePath(file)))
                     created.push_back(e);
-            }
+            // Only what is in the open scene can be selected.
+            std::erase_if(created, [&](Entity e) { return !e.IsValid() || e.GetScene() != m_ActiveScene.get(); });
             if (created.size() > 1)
                 m_SceneHierarchyPanel.GetSelection().Set(created);
             if (!created.empty())
@@ -1395,7 +1450,7 @@ namespace Zamin {
         fs::path assets = fs::weakly_canonical(Project::GetAssetDirectory(), ec);
 
         // Asset paths as scenes store them (relative to Assets).
-        std::vector<std::pair<std::string, std::string>> moves;
+        AssetFiles::PathMoves moves;
         for (const auto& m : result.Moved)
         {
             std::string from = m.From.lexically_relative(assets).generic_string(), to = m.To.lexically_relative(assets).generic_string();
@@ -1405,11 +1460,9 @@ namespace Zamin {
         auto remap = [&](std::string& text) {
             if (text.empty())
                 return (size_t)0;
-            return AssetFiles::RewriteJsonStrings(text, [&](std::string_view, const std::string& value) -> std::optional<std::string> {
-                for (const auto& [from, to] : moves)
-                    if (auto mapped = AssetFiles::RemapPath(value, from, to))
-                        return mapped;
-                return std::nullopt;
+            // Asset paths only (as in the files): names and tags equal to a moved path stay.
+            return AssetFiles::RewriteJsonStrings(text, [&](std::string_view key, const std::string& value) {
+                return AssetFiles::RemapAssetReference(key, value, moves);
             });
         };
 
@@ -2730,22 +2783,27 @@ namespace Zamin {
         {
             if (!dragging)
             {
-                if (m_GizmoAltDuplicatePending && m_SceneState == SceneState::Edit)
-                {
-                    // Alt + drag: the copies move, the originals stay where they were. The
-                    // copies sit exactly on the originals, so the pivot is still right.
-                    m_GizmoAltDuplicatePending = false;
-                    if (size_t count = m_SceneHierarchyPanel.DuplicateSelection(true))
-                    {
-                        targets = GetGizmoTargets();
-                        ShowViewportMessage(count > 1 ? std::format(ICON_FA_CLONE "  {} ta nusxa sudralmoqda", count)
-                                                      : std::string(ICON_FA_CLONE "  Nusxa sudralmoqda"));
-                    }
-                }
                 m_GizmoEdit.Begin(*m_ActiveScene, targets, pivot);
                 m_GizmoEditMode = m_GizmoMode;
             }
             m_GizmoMatrix = transform;
+            if (m_GizmoAltDuplicatePending && m_SceneState == SceneState::Edit)
+            {
+                // Alt + drag: the copies move, the originals stay where they were. ImGuizmo is
+                // "using" from the click on, so the copies are made only once the gizmo really
+                // moves past the drag threshold: a plain Alt+click leaves nothing behind. Until
+                // then nothing was applied, so the copies sit exactly on the originals and the
+                // drag restarts from its first pivot with them.
+                if (!ImGui::IsMouseDragging(ImGuiMouseButton_Left) || !m_GizmoEdit.HasMoved(transform))
+                    return;
+                m_GizmoAltDuplicatePending = false;
+                if (size_t count = m_SceneHierarchyPanel.DuplicateSelection(true))
+                {
+                    m_GizmoEdit.Begin(*m_ActiveScene, GetGizmoTargets(), m_GizmoEdit.GetStartPivot());
+                    ShowViewportMessage(count > 1 ? std::format(ICON_FA_CLONE "  {} ta nusxa sudralmoqda", count)
+                                                  : std::string(ICON_FA_CLONE "  Nusxa sudralmoqda"));
+                }
+            }
             m_GizmoEdit.Update(transform, (GroupTransformEdit::Operation)(int)m_GizmoMode);
             MarkDirty();
         }

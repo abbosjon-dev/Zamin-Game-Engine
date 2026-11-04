@@ -606,7 +606,9 @@ namespace Zamin {
     // ------------------------------------------------------------------ editor-only data
     // What the editor remembers about an entity: the hierarchy's eye / lock buttons and the
     // inspector's component order. Saved with the scene (only when something is set), copied
-    // with the entity; the game ignores it. Hidden and Locked apply to the whole subtree
+    // with the entity (duplicate, copy / paste, play-mode copy; prefab instances and script
+    // Instantiate() clones start without Hidden / Locked); the game ignores it. Hidden and
+    // Locked apply to the whole subtree
     // (Scene::IsHiddenInEditor / IsLockedInEditor look at the ancestors too):
     // - Hidden: not drawn in the editor's scene view (edit + simulate) - no mesh, sprite, text,
     //   light, icon or collider outline - so it cannot be clicked there either. Play mode and

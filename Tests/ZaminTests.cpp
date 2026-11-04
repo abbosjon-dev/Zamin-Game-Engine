@@ -4003,6 +4003,95 @@ TEST(EditorCameraFrameBounds)
     CHECK(camera.ComputeFrameState(huge).Distance <= camera.GetFarClip() * 0.5f + 1e-3f);
 }
 
+TEST(NameLookupFollowsSceneOrder)
+{
+    Ref<Scene> scene = CreateRef<Scene>();
+    Entity a = scene->CreateEntity("Twin");
+    Entity m = scene->CreateEntity("Middle");
+    Entity b = scene->CreateEntity("Twin");
+    CHECK(scene->FindEntityByName("Twin") == a);
+    // Reordering the roots (hierarchy drag & drop) changes which "Twin" comes first at once.
+    CHECK(scene->SetSiblingIndex(b, 0));
+    CHECK(scene->FindEntityByName("Twin") == b);
+    std::vector<Entity> twins = scene->FindEntitiesByName("Twin");
+    CHECK(twins.size() == 2 && twins[0] == b && twins[1] == a);
+    CHECK(scene->MoveEntityNextTo(b, m, true)); // a, Middle, b
+    CHECK(scene->FindEntityByName("Twin") == a);
+    twins = scene->FindEntitiesByName("Twin");
+    CHECK(twins.size() == 2 && twins[0] == a && twins[1] == b);
+    // A move that changes nothing does not throw the cache away.
+    uint32_t rebuilds = scene->GetNameCacheStats().Rebuilds;
+    CHECK(scene->SetSiblingIndex(b, 2));
+    CHECK(scene->FindEntityByName("Twin") == a);
+    CHECK(scene->GetNameCacheStats().Rebuilds == rebuilds);
+}
+
+TEST(DestroyKeepsSceneOrder)
+{
+    // Many entities, some with children; a third of them goes in one batch, then more one by
+    // one and through the deferred queue: the survivors keep their order every time.
+    Ref<Scene> scene = CreateRef<Scene>();
+    std::vector<Entity> roots;
+    for (int i = 0; i < 3000; i++)
+        roots.push_back(scene->CreateEntity(std::format("E{}", i)));
+    std::vector<Entity> children;
+    for (int i = 0; i < 3000; i += 50)
+    {
+        Entity c = scene->CreateEntity(std::format("C{}", i));
+        scene->SetParent(c, roots[i], false);
+        Entity g = scene->CreateEntity(std::format("G{}", i));
+        scene->SetParent(g, c, false);
+        children.push_back(c);
+        children.push_back(g);
+    }
+    auto ids = [&]() {
+        std::vector<uint64_t> out;
+        for (Entity e : scene->GetEntitiesInOrder())
+            out.push_back((uint64_t)e.GetUUID());
+        return out;
+    };
+    std::vector<uint64_t> expected = ids();
+    auto forget = [&](Entity e) {
+        std::vector<Entity> gone{ e };
+        for (Entity d : scene->GetDescendants(e))
+            gone.push_back(d);
+        for (Entity g : gone)
+            std::erase(expected, (uint64_t)g.GetUUID());
+    };
+
+    std::vector<Entity> batch;
+    for (int i = 0; i < 3000; i += 3)
+        batch.push_back(roots[i]);
+    batch.push_back(children[3]); // a grandchild whose parent stays
+    for (Entity e : batch)
+        forget(e);
+    CHECK(scene->DestroyEntities(batch) == batch.size());
+    CHECK(ids() == expected);
+    CHECK(scene->FindEntityByName("E0") == Entity() && scene->FindEntityByName("E1") == roots[1]);
+
+    // One by one, from the front (a subtree in the middle of the order).
+    for (int i : { 1, 50, 2 })
+    {
+        forget(roots[i]);
+        scene->DestroyEntity(roots[i]);
+        CHECK(ids() == expected);
+    }
+    // Deferred (the runtime's queue: a child and its parent both queued, in either order).
+    Entity c100 = scene->FindEntityByName("C100");
+    CHECK(c100 && scene->GetParent(c100) == roots[100]);
+    forget(roots[100]);
+    forget(roots[4]);
+    scene->DestroyEntityDeferred(c100);
+    scene->DestroyEntityDeferred(roots[100]);
+    scene->DestroyEntityDeferred(roots[4]);
+    scene->OnUpdateRuntime(0.016f); // no camera: nothing is drawn
+    CHECK(ids() == expected);
+    CHECK(!roots[100].IsValid() && !roots[4].IsValid() && roots[5].IsValid());
+    // A new entity still goes last.
+    Entity last = scene->CreateEntity("Last");
+    CHECK(scene->GetEntitiesInOrder().back() == last);
+}
+
 TEST(SceneBoundsForFraming)
 {
     Ref<Scene> scene = CreateRef<Scene>();
@@ -4076,14 +4165,45 @@ TEST(SceneBoundsForFraming)
     CHECK(!scene->ComputeBounds({ ui }, box));
     CHECK(!scene->ComputeBounds({}, box));
 
-    // The whole scene: everything above except the UI button.
+    // The whole scene: what draws, except the UI button. The light (y 25) and the empty
+    // parent draw nothing: a sun high above the level would push the view off the content.
     CHECK(scene->ComputeSceneBounds(box));
-    CHECK_NEAR(box.Min.x, -20.5f, 1e-4f);
+    CHECK_NEAR(box.Min.x, -20.5f, 1e-4f); // the child sprite
     CHECK_NEAR(box.Max.x, 12.0f, 1e-4f);
     CHECK_NEAR(box.Min.y, -1.0f, 1e-4f);
-    CHECK_NEAR(box.Max.y, 25.0f, 1e-4f);
+    CHECK_NEAR(box.Max.y, 5.5f, 1e-4f);
     CHECK_NEAR(box.Min.z, -10.0f, 1e-4f);
     CHECK_NEAR(box.Max.z, 10.0f, 1e-4f);
+
+    // Hidden in the editor (the hierarchy's eye): left out with the whole subtree.
+    scene->SetHiddenInEditor(parent, true); // and with it the child sprite at x -20
+    Entity parked = scene->CreateEntity("Template");
+    parked.AddComponent<MeshRendererComponent>();
+    parked.GetComponent<TransformComponent>().Translation = { 0.0f, -50.0f, 0.0f };
+    scene->SetHiddenInEditor(parked, true);
+    CHECK(scene->ComputeSceneBounds(box));
+    CHECK_NEAR(box.Min.x, -10.0f, 1e-4f); // the ground's edge
+    CHECK_NEAR(box.Min.y, -1.0f, 1e-4f);
+    CHECK_NEAR(box.Max.y, 2.0f, 1e-4f);   // the scaled sprite
+    // The selection's F still frames a hidden entity that is selected.
+    CHECK(scene->ComputeBounds({ parked }, box));
+    CHECK_NEAR(box.Min.y, -50.5f, 1e-4f);
+
+    // Nothing draws: the positions are framed; everything hidden: nothing to frame.
+    Ref<Scene> bare = CreateRef<Scene>();
+    Entity sun = bare->CreateEntity("Sun");
+    sun.AddComponent<DirectionalLightComponent>();
+    sun.GetComponent<TransformComponent>().Translation = { 0.0f, 10.0f, 0.0f };
+    Entity cam = bare->CreateEntity("Camera");
+    cam.AddComponent<CameraComponent>();
+    cam.GetComponent<TransformComponent>().Translation = { 0.0f, 0.0f, 5.0f };
+    CHECK(bare->ComputeSceneBounds(box));
+    CHECK_NEAR(box.Min.y, 0.0f, 1e-5f);
+    CHECK_NEAR(box.Max.y, 10.0f, 1e-5f);
+    CHECK_NEAR(box.Max.z, 5.0f, 1e-5f);
+    bare->SetHiddenInEditor(sun, true);
+    bare->SetHiddenInEditor(cam, true);
+    CHECK(!bare->ComputeSceneBounds(box));
 }
 
 TEST(GizmoDuplicateWhileDragging)
@@ -4093,6 +4213,22 @@ TEST(GizmoDuplicateWhileDragging)
     Entity b = scene->CreateEntity("B");
     b.GetComponent<TransformComponent>().Translation = { 0.0f, 0.0f, 2.0f };
     auto translate = [](glm::vec3 t) { return glm::translate(glm::mat4(1.0f), t); };
+
+    // The gizmo was clicked but not dragged: nothing moved (an Alt+click makes no copies).
+    {
+        GroupTransformEdit click;
+        glm::mat4 start = GroupTransformEdit::ComputePivot(*scene, { a, b }, a, false, false);
+        click.Begin(*scene, { a, b }, start);
+        CHECK(!click.HasMoved(start));
+        glm::mat4 noise = start;
+        noise[3][0] += 1e-7f;
+        CHECK(!click.HasMoved(noise));
+        CHECK(click.HasMoved(translate({ 0.01f, 0.0f, 0.0f })));
+        CHECK(click.HasMoved(glm::rotate(start, 0.01f, glm::vec3(0.0f, 1.0f, 0.0f))));
+        CHECK(click.GetStartPivot() == start);
+        click.End();
+        CHECK(scene->GetEntitiesInOrder().size() == 2);
+    }
 
     // Alt + drag: duplicate first, then drag the copies; the originals do not move.
     std::vector<Entity> copies = scene->DuplicateEntities({ a, b });
@@ -4333,6 +4469,9 @@ TEST(EditorHiddenAndLockedFlags)
     CHECK(scene->CountHiddenInEditor() == 1 && scene->CountLockedInEditor() == 1);
     auto hidden = scene->CollectHiddenInEditor();
     CHECK(hidden.size() == 3 && hidden.contains(grandchild) && !hidden.contains(other));
+    // What viewport clicks go through (the picking pass leaves these out): the locked subtree.
+    auto locked = scene->CollectLockedInEditor();
+    CHECK(locked.size() == 2 && locked.contains(child) && locked.contains(grandchild) && !locked.contains(parent));
 
     // Saved with the scene, kept by play-mode copies and duplicates.
     std::string text = SceneSerializer(scene).SerializeToString();
@@ -4347,6 +4486,12 @@ TEST(EditorHiddenAndLockedFlags)
     Entity copy = scene->DuplicateEntity(parent);
     CHECK(scene->IsHiddenInEditor(copy, false) && scene->CountHiddenInEditor() == 2);
     scene->DestroyEntity(copy);
+    // Script Instantiate() of a hidden / locked template: the clones start visible and unlocked.
+    Entity clone = scene->Instantiate(parent);
+    CHECK(clone && !scene->IsHiddenInEditor(clone) && scene->CountHiddenInEditor() == 1);
+    CHECK(scene->CountLockedInEditor() == 1 && !scene->IsLockedInEditor(scene->FindChild(clone, "Grandchild")));
+    scene->DestroyEntity(clone);
+    CHECK(scene->IsHiddenInEditor(parent, false) && scene->IsLockedInEditor(child, false));
 
     // Prefabs leave the flags out (instances start visible / unlocked), but keep the component order.
     child.AddComponent<Rigidbody2DComponent>();
@@ -4573,7 +4718,7 @@ TEST(AssetJsonReferenceRewrite)
         return AssetFiles::RemapPath(value, "Textures/a.png", "Art/a b.png");
     });
     CHECK(n == 4);
-    CHECK((keys == std::vector<std::string>{ "Textures/a.png", "", "", "uri", "Esc" }));
+    CHECK((keys == std::vector<std::string>{ "Textures/a.png", "List", "List", "uri", "Esc" })); // array items: the array's key
     CHECK(text == "{\n  \"Textures/a.png\": \"Art/a b.png\",\n  \"List\": [ \"Art/a b.png\", 1.50, \"x\" ],\n"
                   "  \"Nested\": { \"uri\" :  \"Art/a b.png\" }, \"Esc\": \"R \\\"2\\\"\"\n}");
     std::string same = original;
@@ -4589,6 +4734,27 @@ TEST(AssetJsonReferenceRewrite)
     auto loaded = CreateRef<Scene>();
     CHECK(SceneSerializer(loaded).DeserializeFromString(sceneText));
     CHECK(loaded->FindEntityByName("Sprite").GetComponent<SpriteRendererComponent>().TexturePath == "Sprites/a.png");
+
+    // Nested arrays and objects inside arrays report the right keys.
+    std::string nested = "{\"A\": [[\"x\"], {\"k\": \"y\"}, \"z\"], \"B\": \"w\"}";
+    keys.clear();
+    AssetFiles::RewriteJsonStrings(nested, [&](std::string_view key, const std::string&) { keys.emplace_back(key); return std::optional<std::string>(); });
+    CHECK((keys == std::vector<std::string>{ "A", "k", "A", "B" }));
+
+    // Which strings can be asset paths: shaped like a file, not under a name / text key.
+    CHECK(AssetFiles::IsAssetPathValue("Texture", "Textures/a.png"));
+    CHECK(AssetFiles::IsAssetPathValue("Value", "hero.png"));         // a script string field
+    CHECK(AssetFiles::IsAssetPathValue("Value", "Scenes/Level2.zscene"));
+    CHECK(!AssetFiles::IsAssetPathValue("Value", "Player"));          // a bare word is a name
+    CHECK(!AssetFiles::IsAssetPathValue("Tag", "Player/hero.png"));   // entity names never
+    CHECK(!AssetFiles::IsAssetPathValue("Tags", "AI/Patrol"));
+    CHECK(!AssetFiles::IsAssetPathValue("Text", "Textures/a.png"));
+    CHECK(!AssetFiles::IsAssetPathValue("Texture", ""));
+    AssetFiles::PathMoves moves{ { "Player", "Characters/Player" } };
+    CHECK(AssetFiles::RemapAssetReference("Texture", "Player/hero.png", moves) == std::optional<std::string>("Characters/Player/hero.png"));
+    CHECK(!AssetFiles::RemapAssetReference("Tags", "Player", moves));
+    CHECK(!AssetFiles::RemapAssetReference("Tag", "Player", moves));
+    CHECK(!AssetFiles::RemapAssetReference("Texture", "Players/hero.png", moves));
 }
 
 TEST(AssetMoveUpdatesReferences)
@@ -4683,6 +4849,62 @@ TEST(AssetMoveUpdatesReferences)
     result = AssetFiles::MoveInto({ scenePath, assets / "Art" / "Sprites" / "taken.png" }, assets / "Levels", assets);
     CHECK(result.Moved.size() == 1 && result.Errors.size() == 1);
     CHECK(fs::exists(assets / "Levels" / "Level.zscene"));
+
+    std::error_code ec;
+    fs::remove_all(project, ec);
+}
+
+TEST(AssetMoveKeepsNamesAndTags)
+{
+    // A folder named like entities and tags: renaming / moving it rewrites only asset paths.
+    namespace fs = std::filesystem;
+    fs::path project = MakeTempDir("zamin-move-names-");
+    fs::path assets = project / "Assets";
+    WriteFile(assets / "Player" / "hero.png", "png");
+
+    auto scene = CreateRef<Scene>();
+    scene->SetName("Player");
+    Entity player = scene->CreateEntity("Player");
+    player.AddComponent<TagsComponent>().Add("Player");
+    player.AddComponent<SpriteRendererComponent>().TexturePath = "Player/hero.png";
+    player.AddComponent<TextComponent>().Text = "Player";
+    auto& script = player.AddComponent<NativeScriptComponent>();
+    script.ClassName = "Player";
+    ScriptFieldValue target, icon;
+    target.Set(std::string("Player"));
+    icon.Set(std::string("Player/hero.png"));
+    script.Fields["Target"] = target;
+    script.Fields["Icon"] = icon;
+    Entity named = scene->CreateEntity("Player/hero.png"); // a (strange) name shaped like the path
+    named.AddComponent<TagsComponent>().Add("Player/hero.png");
+    fs::path scenePath = assets / "Scenes" / "Level.zscene";
+    fs::create_directories(scenePath.parent_path());
+    CHECK(SceneSerializer(scene).Serialize(scenePath));
+
+    auto check = [&](const std::string& folder) {
+        auto loaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(loaded).Deserialize(scenePath));
+        CHECK(loaded->GetName() == "Player");
+        Entity p = loaded->FindEntityByName("Player");
+        CHECK(p && p.GetComponent<TagsComponent>().Has("Player"));
+        CHECK(loaded->FindEntityWithTag("Player") == p);
+        CHECK(p.GetComponent<TextComponent>().Text == "Player");
+        CHECK(p.GetComponent<SpriteRendererComponent>().TexturePath == folder + "/hero.png");
+        auto& nsc = p.GetComponent<NativeScriptComponent>();
+        CHECK(nsc.ClassName == "Player");
+        CHECK(nsc.Fields["Target"].Get<std::string>() == "Player");
+        CHECK(nsc.Fields["Icon"].Get<std::string>() == folder + "/hero.png");
+        Entity n = loaded->FindEntityByName("Player/hero.png");
+        CHECK(n && n.GetComponent<TagsComponent>().Has("Player/hero.png"));
+    };
+
+    auto result = AssetFiles::Rename(assets / "Player", "Hero", assets);
+    CHECK(result.Errors.empty() && result.UpdatedReferences == 2); // the sprite and the Icon field
+    check("Hero");
+    fs::create_directories(assets / "Characters");
+    result = AssetFiles::MoveInto({ assets / "Hero" }, assets / "Characters", assets);
+    CHECK(result.Errors.empty() && result.UpdatedReferences == 2);
+    check("Characters/Hero");
 
     std::error_code ec;
     fs::remove_all(project, ec);

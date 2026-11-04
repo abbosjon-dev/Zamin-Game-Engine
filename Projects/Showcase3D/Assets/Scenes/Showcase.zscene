@@ -1511,6 +1511,9 @@
         "Friction": 0.6,
         "Restitution": 0.0,
         "IsSensor": false
+      },
+      "Editor": {
+        "Hidden": true
       }
     },
     {

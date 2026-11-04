@@ -312,6 +312,31 @@ namespace Zamin {
         return std::string(to) + std::string(value.substr(from.size()));
     }
 
+    bool AssetFiles::IsAssetPathValue(std::string_view key, std::string_view value)
+    {
+        // Keys of scene / prefab files whose strings are names or text, never asset paths: an
+        // entity called "Player" must stay "Player" when the folder Assets/Player is renamed.
+        static constexpr std::string_view NameKeys[] = {
+            "Tag", "Tags", "Scene", "Name", "Class", "ComponentOrder", "ZaminComponent", "Text", "Type",
+            "Mesh", "BodyType", "Clip", "DefaultState", "SpeedParameter", "Parameter", "From", "To",
+        };
+        if (value.empty() || std::find(std::begin(NameKeys), std::end(NameKeys), key) != std::end(NameKeys))
+            return false;
+        // Shaped like a file: a folder separator or an extension ("Textures/a.png", "hero.png").
+        // A bare word ("Player", script string fields too) is a name, not a top-level folder.
+        return value.find('/') != std::string_view::npos || fs::path(value).has_extension();
+    }
+
+    std::optional<std::string> AssetFiles::RemapAssetReference(std::string_view key, std::string_view value, const PathMoves& moves)
+    {
+        if (!IsAssetPathValue(key, value))
+            return std::nullopt;
+        for (const auto& [from, to] : moves)
+            if (auto mapped = RemapPath(value, from, to))
+                return mapped;
+        return std::nullopt;
+    }
+
     // ------------------------------------------------------------------ JSON strings
     static void AppendUtf8(std::string& out, uint32_t cp)
     {
@@ -416,11 +441,22 @@ namespace Zamin {
         size_t count = 0, copied = 0, i = 0;
         std::string key, value;
         bool keyPending = false; // a key and its ':' were read: the next string is its value
+        // Open objects / arrays; an array remembers the key it belongs to (its items report it).
+        struct Container { bool IsArray; std::string Key; };
+        std::vector<Container> containers;
         while (i < text.size())
         {
             char c = text[i];
             if (c != '"')
             {
+                if (c == '{' || c == '[')
+                {
+                    std::string owner = keyPending ? key
+                                      : (!containers.empty() && containers.back().IsArray ? containers.back().Key : std::string());
+                    containers.push_back({ c == '[', c == '[' ? std::move(owner) : std::string() });
+                }
+                else if ((c == '}' || c == ']') && !containers.empty())
+                    containers.pop_back();
                 if (c != ':' && !std::isspace((unsigned char)c))
                     keyPending = false;
                 i++;
@@ -438,7 +474,8 @@ namespace Zamin {
                 keyPending = true;
                 continue;
             }
-            std::string_view owner = keyPending ? std::string_view(key) : std::string_view();
+            std::string_view owner = keyPending ? std::string_view(key)
+                                   : (!containers.empty() && containers.back().IsArray ? std::string_view(containers.back().Key) : std::string_view());
             keyPending = false;
             std::optional<std::string> replacement = remap(owner, value);
             if (!replacement || *replacement == value)
@@ -597,15 +634,17 @@ namespace Zamin {
 
         struct RelativeMove { std::string From, To; bool IsDirectory; };
         std::vector<RelativeMove> moves;
+        AssetFiles::PathMoves pathMoves;
         for (const auto& m : result.Moved)
             if (IsUnder(m.From, assets) && IsUnder(m.To, assets))
+            {
                 moves.push_back({ RelativeTo(m.From, assets), RelativeTo(m.To, assets), m.IsDirectory });
+                pathMoves.emplace_back(moves.back().From, moves.back().To);
+            }
 
-        auto remapAssetPath = [&](std::string_view, const std::string& value) -> std::optional<std::string> {
-            for (const auto& m : moves)
-                if (auto mapped = AssetFiles::RemapPath(value, m.From, m.To))
-                    return mapped;
-            return std::nullopt;
+        // Asset paths only: names, tags and texts that happen to equal a moved path stay.
+        auto remapAssetPath = [&](std::string_view key, const std::string& value) {
+            return AssetFiles::RemapAssetReference(key, value, pathMoves);
         };
 
         std::vector<fs::path> files;

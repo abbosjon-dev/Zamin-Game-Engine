@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <optional>
 #include <thread>
 
 namespace Zamin {
@@ -143,6 +144,8 @@ namespace Zamin {
         void UI_BuildDefaultLayout(unsigned int dockspaceID);
 
         void OnOverlayRender();
+        // Picks for m_PendingClickThrough (an extra ID pass into the viewport framebuffer).
+        void ResolveClickThrough();
         void UpdateTilePainting();
         bool ViewportMouseToPlane(float planeZ, glm::vec3& out);
         glm::mat4 OverlayViewProjection();
@@ -167,10 +170,21 @@ namespace Zamin {
         glm::mat4 m_GizmoMatrix{ 1.0f };  // gizmo result of the previous frame while dragging
         GizmoMode m_GizmoEditMode = GizmoMode::None;
         // Alt pressed over the gizmo: the drag moves copies of the selection (the camera does
-        // not orbit while the button is held); the copies are made once, when the drag starts.
+        // not orbit while the button is held); the copies are made once, when the gizmo first
+        // really moves (a plain Alt+click on the gizmo copies nothing).
         bool m_GizmoAltDrag = false;
         bool m_GizmoAltDuplicatePending = false;
         Entity m_HoveredEntity;
+        glm::ivec2 m_HoveredPixel{ -1, -1 }; // the mouse in the viewport framebuffer (-1 = outside)
+        // A click that landed on a locked entity: picked again next frame from an ID pass
+        // without the locked entities, so the click goes through to what is behind.
+        struct PendingPick
+        {
+            glm::ivec2 Pixel{ -1, -1 };
+            bool Ctrl = false, Shift = false;
+            Scene* SceneAtClick = nullptr;
+        };
+        std::optional<PendingPick> m_PendingClickThrough;
         // Files dropped onto the window this frame (handled in OnImGuiRender) and where.
         std::vector<std::string> m_PendingFileDrop;
         glm::vec2 m_PendingFileDropPos{ 0.0f };

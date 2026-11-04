@@ -237,6 +237,18 @@ namespace Zamin {
         }
     }
 
+    bool GroupTransformEdit::HasMoved(const glm::mat4& pivot) const
+    {
+        for (int c = 0; c < 4; c++)
+            for (int r = 0; r < 4; r++)
+            {
+                float a = m_StartPivot[c][r], b = pivot[c][r];
+                if (std::abs(a - b) > 1e-5f * std::max({ 1.0f, std::abs(a), std::abs(b) }))
+                    return true;
+            }
+        return false;
+    }
+
     void GroupTransformEdit::Cancel()
     {
         if (m_Scene)

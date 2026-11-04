@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace Zamin {
@@ -91,9 +92,19 @@ namespace Zamin {
         // Asset path `value` after `from` (a file, or a folder: everything below it too) moved to
         // `to`. Nothing when `value` is not affected.
         static std::optional<std::string> RemapPath(std::string_view value, std::string_view from, std::string_view to);
+        // Whether a string of a scene / prefab file stored under `key` can be an asset path:
+        // not under a key that holds names or text (entity name "Tag", "Tags", "Text", script
+        // "Class", animator state names...), and shaped like a file - a '/' or an extension.
+        static bool IsAssetPathValue(std::string_view key, std::string_view value);
+        // Asset-relative moves (from, to): a file, or a folder with everything inside it.
+        using PathMoves = std::vector<std::pair<std::string, std::string>>;
+        // `value` (a scene / prefab string under `key`) after the moves; nothing when it is
+        // not an asset path (IsAssetPathValue) or not affected.
+        static std::optional<std::string> RemapAssetReference(std::string_view key, std::string_view value, const PathMoves& moves);
         // Calls `remap` for every string value of a JSON text (object keys are not values) with
-        // the key the value belongs to ("" for array items). A returned string replaces the value
-        // in place; the rest of the text stays byte for byte. Returns how many were replaced.
+        // the key the value belongs to (array items: the array's key; "" at the top level). A
+        // returned string replaces the value in place; the rest of the text stays byte for
+        // byte. Returns how many were replaced.
         using JsonStringRemap = std::function<std::optional<std::string>(std::string_view key, const std::string& value)>;
         static size_t RewriteJsonStrings(std::string& text, const JsonStringRemap& remap);
 

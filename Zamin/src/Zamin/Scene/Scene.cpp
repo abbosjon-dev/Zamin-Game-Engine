@@ -198,6 +198,74 @@ namespace Zamin {
 
     void Scene::DestroyEntity(Entity entity)
     {
+        if (!entity || !entity.IsValid()) return;
+        std::vector<entt::entity> order;
+        std::unordered_set<entt::entity> visited;
+        CollectDestroyOrder(entity, order, visited);
+        PrepareDestroyOrder(order);
+        DestroyEntityRecursive(entity);
+    }
+
+    void Scene::CollectDestroyOrder(Entity entity, std::vector<entt::entity>& order, std::unordered_set<entt::entity>& visited)
+    {
+        // The order DestroyEntityRecursive goes in: children first (in their order), then the entity.
+        if (!entity.IsValid() || !m_Registry.all_of<IDComponent>(entity) || !visited.insert((entt::entity)entity).second)
+            return;
+        if (const auto* rel = entity.TryGetComponent<RelationshipComponent>())
+            for (UUID child : rel->Children)
+                if (Entity c = GetEntityByUUID(child))
+                    CollectDestroyOrder(c, order, visited);
+        order.push_back((entt::entity)entity);
+    }
+
+    void Scene::PrepareDestroyOrder(const std::vector<entt::entity>& order)
+    {
+        // The pools remove by swap-and-pop, which would move the last entity into the hole.
+        // The entities about to go are moved to the end of the scene order first (the first
+        // one to go last), so each removal pops the end and everything else keeps its order.
+        // One pass over the tail of the pool for the whole batch, instead of shifting the tail
+        // once per destroyed entity.
+        auto& ids = m_Registry.storage<IDComponent>();
+        size_t count = 0, first = ids.size();
+        for (entt::entity e : order)
+            if (ids.contains(e))
+            {
+                first = std::min(first, ids.index(e));
+                count++;
+            }
+        if (count == 0)
+            return;
+        if (first == ids.size() - count)
+        {
+            // Already the tail: nothing to do when it is in the right order, too.
+            bool inPlace = true;
+            for (size_t i = 0, k = ids.size(); i < order.size() && inPlace; i++)
+                if (ids.contains(order[i]))
+                    inPlace = ids[--k] == order[i];
+            if (inPlace)
+                return;
+        }
+        std::unordered_set<entt::entity> doomed;
+        doomed.reserve(count);
+        for (entt::entity e : order)
+            if (ids.contains(e))
+                doomed.insert(e);
+        std::vector<entt::entity> desired;
+        desired.reserve(ids.size() - first);
+        for (size_t i = first; i < ids.size(); i++)
+            if (!doomed.contains(ids[i]))
+                desired.push_back(ids[i]);
+        for (auto it = order.rbegin(); it != order.rend(); ++it)
+            if (doomed.erase(*it)) // once each
+                desired.push_back(*it);
+        // Selection by swapping: slot `first + i` takes its entity from further back.
+        for (size_t i = 0; i < desired.size(); i++)
+            if (ids[first + i] != desired[i])
+                ids.swap_elements(ids[first + i], desired[i]);
+    }
+
+    void Scene::DestroyEntityRecursive(Entity entity)
+    {
         if (!entity) return;
 
         // Children first (copy the list: it is modified while destroying).
@@ -206,7 +274,7 @@ namespace Zamin {
             std::vector<UUID> children = rel->Children;
             for (UUID child : children)
                 if (Entity c = GetEntityByUUID(child))
-                    DestroyEntity(c);
+                    DestroyEntityRecursive(c);
         }
         // The children's OnDisable / OnDestroy (and the survivors' contact-end callbacks) may
         // have destroyed this entity already; removing them also moves components around in
@@ -244,9 +312,9 @@ namespace Zamin {
             AudioEngine::Stop(audio->RuntimeHandle);
 
         m_EntityMap.erase(entity.GetUUID());
-        // The pools remove by swap-and-pop: moving the entity to the end first keeps the
-        // scene order (hierarchy, serialization) of everything else unchanged.
-        MoveInSceneOrder(entity, {});
+        // Normally already the last one (PrepareDestroyOrder); a script callback above may
+        // have created or destroyed entities in between, so it is made sure of here.
+        PrepareDestroyOrder({ (entt::entity)entity });
         m_Registry.destroy(entity);
     }
 
@@ -262,9 +330,17 @@ namespace Zamin {
     {
         auto queue = std::move(m_DestroyQueue);
         m_DestroyQueue.clear();
+        if (queue.empty())
+            return;
+        std::vector<entt::entity> order;
+        std::unordered_set<entt::entity> visited;
         for (UUID id : queue)
             if (Entity e = GetEntityByUUID(id))
-                DestroyEntity(e);
+                CollectDestroyOrder(e, order, visited);
+        PrepareDestroyOrder(order);
+        for (UUID id : queue)
+            if (Entity e = GetEntityByUUID(id))
+                DestroyEntityRecursive(e);
     }
 
     Entity Scene::DuplicateEntityRecursive(Entity entity, UUID newParent)
@@ -364,6 +440,14 @@ namespace Zamin {
         Entity e = DuplicateEntity(prefab);
         std::vector<Entity> spawned;
         CollectSubtree(*this, e, spawned);
+        // Spawned copies start visible and unlocked in the editor, as prefab instances do: a
+        // template hidden in the editor's view (parked out of sight) does not hide its clones.
+        for (Entity s : spawned)
+            if (s.HasComponent<EditorMetadataComponent>())
+            {
+                SetHiddenInEditor(s, false);
+                SetLockedInEditor(s, false);
+            }
         if (m_IsRunning || m_PhysicsWorld || m_PhysicsWorld3D)
             OnEntitiesSpawned(spawned);
         return e;
@@ -487,9 +571,14 @@ namespace Zamin {
         size_t from = ids.index(entity);
         size_t to = before ? ids.index(before) : ids.size();
         if (to > from) to--; // the slots after the entity shift down once it is taken out
+        if (from == to)
+            return;
         // Adjacent swaps: everything else keeps its relative order.
         for (; from < to; from++) ids.swap_elements(ids[from], ids[from + 1]);
         for (; from > to; from--) ids.swap_elements(ids[from], ids[from - 1]);
+        // The name lookups list same-named entities in scene order: that order just changed
+        // (the cache's own check only notices renames and added / removed entities).
+        m_NameCacheDirty = true;
     }
 
     std::vector<Entity> Scene::FindEntitiesWithTag(std::string_view tag)
@@ -770,13 +859,19 @@ namespace Zamin {
     {
         // By ID: scripts' OnDisable / OnDestroy may destroy other listed entities first.
         std::vector<UUID> ids;
+        std::vector<entt::entity> order;
+        std::unordered_set<entt::entity> visited;
         for (Entity e : GetTopLevelEntities(entities))
+        {
             ids.push_back(e.GetUUID());
+            CollectDestroyOrder(e, order, visited);
+        }
+        PrepareDestroyOrder(order); // the whole batch in one pass
         size_t destroyed = 0;
         for (UUID id : ids)
             if (Entity e = GetEntityByUUID(id))
             {
-                DestroyEntity(e);
+                DestroyEntityRecursive(e);
                 destroyed++;
             }
         return destroyed;
@@ -847,27 +942,39 @@ namespace Zamin {
         return count;
     }
 
-    std::unordered_set<entt::entity> Scene::CollectHiddenInEditor()
+    template<typename Flag>
+    static std::unordered_set<entt::entity> CollectEditorFlagSubtrees(entt::registry& registry,
+                                                                     const std::unordered_map<UUID, entt::entity>& entityMap, Flag flag)
     {
-        std::unordered_set<entt::entity> hidden;
-        for (auto e : m_Registry.view<EditorMetadataComponent>())
+        std::unordered_set<entt::entity> result;
+        for (auto e : registry.view<EditorMetadataComponent>())
         {
-            if (!m_Registry.get<EditorMetadataComponent>(e).Hidden || hidden.contains(e))
+            if (!flag(registry.get<EditorMetadataComponent>(e)) || result.contains(e))
                 continue;
-            // The subtree, depth-first (children of a hidden entity are hidden too).
+            // The subtree, depth-first (children of a flagged entity count too).
             std::vector<entt::entity> stack{ e };
             while (!stack.empty())
             {
                 entt::entity current = stack.back();
                 stack.pop_back();
-                if (!hidden.insert(current).second)
+                if (!result.insert(current).second)
                     continue;
-                for (UUID child : m_Registry.get<RelationshipComponent>(current).Children)
-                    if (auto it = m_EntityMap.find(child); it != m_EntityMap.end() && m_Registry.valid(it->second))
+                for (UUID child : registry.get<RelationshipComponent>(current).Children)
+                    if (auto it = entityMap.find(child); it != entityMap.end() && registry.valid(it->second))
                         stack.push_back(it->second);
             }
         }
-        return hidden;
+        return result;
+    }
+
+    std::unordered_set<entt::entity> Scene::CollectHiddenInEditor()
+    {
+        return CollectEditorFlagSubtrees(m_Registry, m_EntityMap, [](const EditorMetadataComponent& m) { return m.Hidden; });
+    }
+
+    std::unordered_set<entt::entity> Scene::CollectLockedInEditor()
+    {
+        return CollectEditorFlagSubtrees(m_Registry, m_EntityMap, [](const EditorMetadataComponent& m) { return m.Locked; });
     }
 
     glm::mat4 Scene::GetWorldTransform(Entity entity)
@@ -967,9 +1074,29 @@ namespace Zamin {
         return any;
     }
 
+    // Something the scene view shows in the world (a light, camera or empty group draws nothing).
+    static bool HasWorldVisual(Entity e)
+    {
+        return !e.HasComponent<UITransformComponent>() &&
+               (e.HasComponent<MeshRendererComponent>() || e.HasComponent<SpriteRendererComponent>() ||
+                e.HasComponent<CircleRendererComponent>() || e.HasComponent<TextComponent>() ||
+                e.HasComponent<TilemapComponent>() || e.HasComponent<ParticleSystemComponent>());
+    }
+
     bool Scene::ComputeSceneBounds(AABB& out)
     {
-        return ComputeBounds(GetEntitiesInOrder(), out, false);
+        // What the editor's scene view shows: hidden subtrees (the hierarchy's eye) do not
+        // count, and when anything draws, only what draws does - a sun high above the level
+        // or the game camera far behind it would push the framed view off the content.
+        std::unordered_set<entt::entity> hidden = CollectHiddenInEditor();
+        std::vector<Entity> visuals, others;
+        for (Entity e : GetEntitiesInOrder())
+        {
+            if (hidden.contains((entt::entity)e))
+                continue;
+            (HasWorldVisual(e) ? visuals : others).push_back(e);
+        }
+        return ComputeBounds(visuals.empty() ? others : visuals, out, false);
     }
 
     void Scene::SetWorldTransform(Entity entity, const glm::mat4& world)
@@ -1892,6 +2019,11 @@ namespace Zamin {
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
     }
 
+    void Scene::OnRenderEditor(const EditorCamera& camera, const SceneRenderOptions& options)
+    {
+        RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
+    }
+
     void Scene::OnViewportResize(uint32_t width, uint32_t height)
     {
         if (m_ViewportWidth == width && m_ViewportHeight == height)
@@ -2278,10 +2410,16 @@ namespace Zamin {
             return worldCache.emplace(e, local).first->second;
         };
 
-        // Editor scene view: entities hidden with the hierarchy's eye (and their subtrees) are skipped.
+        // Editor scene view: entities hidden with the hierarchy's eye (and their subtrees) are
+        // skipped; the picking pass skips the locked ones, too.
         std::unordered_set<entt::entity> hidden;
-        if (options.SkipEditorHidden && !m_Registry.view<EditorMetadataComponent>().empty())
-            hidden = CollectHiddenInEditor();
+        if ((options.SkipEditorHidden || options.SkipEditorLocked) && !m_Registry.view<EditorMetadataComponent>().empty())
+        {
+            if (options.SkipEditorHidden)
+                hidden = CollectHiddenInEditor();
+            if (options.SkipEditorLocked)
+                hidden.merge(CollectLockedInEditor());
+        }
         auto skip = [&](entt::entity e) { return !hidden.empty() && hidden.contains(e); };
 
         // ---------------- 3D

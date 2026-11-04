@@ -105,6 +105,10 @@ namespace Zamin {
         bool IsActive() const { return m_Scene != nullptr; }
         Scene* GetScene() const { return m_Scene; }
         size_t GetCount() const { return m_Items.size(); }
+        const glm::mat4& GetStartPivot() const { return m_StartPivot; }
+        // Whether `pivot` differs from the one the edit started with (more than float noise):
+        // a gizmo that was clicked but not dragged has not moved.
+        bool HasMoved(const glm::mat4& pivot) const;
 
     private:
         struct Item

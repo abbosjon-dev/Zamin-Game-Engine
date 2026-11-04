@@ -66,6 +66,9 @@ namespace Zamin {
         // Editor scene view: entities hidden with the hierarchy's eye button (and their children)
         // are not drawn and their lights do not count. Runtime rendering never sets this.
         bool SkipEditorHidden = false;
+        // Editor picking pass (a click on a locked entity goes through it): locked entities and
+        // their subtrees are not drawn either, so the entity ID buffer shows what is behind them.
+        bool SkipEditorLocked = false;
     };
 
     class Scene
@@ -93,6 +96,9 @@ namespace Zamin {
         void OnUpdateRuntime(Timestep ts);
         void OnUpdateSimulation(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options = {});
         void OnUpdateEditor(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options = {});
+        // Draws the scene from the editor camera without updating anything (an extra pass in
+        // the same frame, e.g. the editor's click-through picking).
+        void OnRenderEditor(const EditorCamera& camera, const SceneRenderOptions& options = {});
         void OnViewportResize(uint32_t width, uint32_t height);
 
         // First entity with this name, in scene order (the order of GetEntitiesInOrder()).
@@ -175,6 +181,8 @@ namespace Zamin {
         size_t CountLockedInEditor();
         // Hidden entities and every descendant of one (what the editor's scene view skips).
         std::unordered_set<entt::entity> CollectHiddenInEditor();
+        // Locked entities and every descendant of one (what viewport clicks go through).
+        std::unordered_set<entt::entity> CollectLockedInEditor();
 
         glm::mat4 GetWorldTransform(Entity entity);
         // Sets local transform so that the entity ends up at `world`.
@@ -188,7 +196,10 @@ namespace Zamin {
         bool GetEntityBounds(Entity entity, AABB& out);
         // Union over `entities` (with their descendants when includeChildren). False when none counted.
         bool ComputeBounds(const std::vector<Entity>& entities, AABB& out, bool includeChildren = true);
-        // Union over every entity of the scene. False for an empty scene.
+        // The whole scene as the editor's scene view shows it (Shift+F): entities hidden in the
+        // editor (and their subtrees) are left out, and so are the ones that draw nothing
+        // (lights, cameras, empty groups) unless nothing draws at all - then their positions
+        // are framed. False when there is nothing to frame.
         bool ComputeSceneBounds(AABB& out);
 
         // ---- prefabs (.zprefab)
@@ -313,6 +324,14 @@ namespace Zamin {
         // Moves the entity in the scene order (IDComponent pool) to just before `before`
         // (the end when invalid); every other entity keeps its relative order.
         void MoveInSceneOrder(Entity entity, Entity before);
+        // DestroyEntity's work for one entity and its subtree (children first).
+        void DestroyEntityRecursive(Entity entity);
+        // The entities DestroyEntityRecursive(entity) removes, in the order it removes them.
+        void CollectDestroyOrder(Entity entity, std::vector<entt::entity>& order, std::unordered_set<entt::entity>& visited);
+        // Moves the entities (in the order they will be destroyed) to the end of the scene
+        // order without changing the order of the others: then removing them from the pools
+        // (swap-and-pop) disturbs nothing.
+        void PrepareDestroyOrder(const std::vector<entt::entity>& order);
         bool DeliverMessage(Entity target, const ScriptMessage& message);
         // OnDisable / OnDestroy for the entity's running script (if any), then it is retired.
         void DestroyScriptInstance(Entity entity);

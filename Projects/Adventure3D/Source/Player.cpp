@@ -71,14 +71,13 @@ public:
 
         // ---- animation state
         if (!cc->Grounded) m_AirTime += ts; else m_AirTime = 0.0f;
+        // The Animator state machine (defined in the scene) picks the clip from these parameters.
         if (auto* anim = TryGetComponent<AnimatorComponent>())
         {
-            if (m_AirTime > 0.12f)          anim->Play("Jump", true, 1.0f, 0.15f);
-            else if (speed > 4.0f)          anim->Play("Run", true, speed / RunSpeed, 0.2f);
-            else if (speed > 0.3f)          anim->Play("Walk", true, std::max(0.6f, speed / WalkSpeed), 0.2f);
-            else                            anim->Play("Idle", true, 1.0f, 0.25f);
-            if (anim->Clip == "Run") anim->Speed = std::max(0.7f, speed / RunSpeed);
-            if (anim->Clip == "Walk") anim->Speed = std::max(0.6f, speed / WalkSpeed);
+            anim->SetFloat("Speed", speed);
+            anim->SetBool("Grounded", m_AirTime <= 0.12f);
+            anim->SetFloat("WalkRate", std::max(0.6f, speed / WalkSpeed));
+            anim->SetFloat("RunRate", std::max(0.7f, speed / RunSpeed));
         }
 
         // ---- fell off the world

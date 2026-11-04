@@ -147,7 +147,24 @@ namespace Zamin {
                 { "Emission", ToJson(c->Mat.Emission) }, { "EmissionStrength", c->Mat.EmissionStrength },
             };
         if (auto* c = entity.TryGetComponent<AnimatorComponent>())
-            e["Animator"] = { { "Clip", c->Clip }, { "Speed", c->Speed }, { "Loop", c->Loop }, { "Playing", c->Playing }, { "PlayInEditor", c->PlayInEditor }, { "DefaultFade", c->DefaultFade } };
+        {
+            json params = json::array(), states = json::array(), transitions = json::array();
+            for (const auto& p : c->Parameters)
+                params.push_back({ { "Name", p.Name }, { "Type", (int)p.Kind }, { "Value", p.Value } });
+            for (const auto& st : c->States)
+                states.push_back({ { "Name", st.Name }, { "Clip", st.Clip }, { "Speed", st.Speed }, { "Loop", st.Loop }, { "SpeedParameter", st.SpeedParameter } });
+            for (const auto& t : c->Transitions)
+            {
+                json conds = json::array();
+                for (const auto& cd : t.Conditions)
+                    conds.push_back({ { "Parameter", cd.Parameter }, { "Op", (int)cd.Mode }, { "Threshold", cd.Threshold } });
+                transitions.push_back({ { "From", t.From }, { "To", t.To }, { "Fade", t.Fade }, { "HasExitTime", t.HasExitTime },
+                                        { "ExitTime", t.ExitTime }, { "Conditions", conds } });
+            }
+            e["Animator"] = { { "Clip", c->Clip }, { "Speed", c->Speed }, { "Loop", c->Loop }, { "Playing", c->Playing },
+                              { "PlayInEditor", c->PlayInEditor }, { "DefaultFade", c->DefaultFade }, { "DefaultState", c->DefaultState },
+                              { "Parameters", params }, { "States", states }, { "Transitions", transitions } };
+        }
         if (auto* c = entity.TryGetComponent<DirectionalLightComponent>())
             e["DirectionalLight"] = { { "Color", ToJson(c->Color) }, { "Intensity", c->Intensity }, { "CastShadows", c->CastShadows } };
         if (auto* c = entity.TryGetComponent<PointLightComponent>())
@@ -317,6 +334,24 @@ namespace Zamin {
             c.Playing = j.value("Playing", true);
             c.PlayInEditor = j.value("PlayInEditor", true);
             c.DefaultFade = j.value("DefaultFade", 0.2f);
+            c.DefaultState = j.value("DefaultState", 0);
+            for (const json& p : j.value("Parameters", json::array()))
+                c.Parameters.push_back({ p.value("Name", ""), (AnimatorParameter::Type)p.value("Type", 0), p.value("Value", 0.0f) });
+            for (const json& st : j.value("States", json::array()))
+                c.States.push_back({ st.value("Name", "State"), st.value("Clip", ""), st.value("Speed", 1.0f), st.value("Loop", true),
+                                     st.value("SpeedParameter", "") });
+            for (const json& t : j.value("Transitions", json::array()))
+            {
+                AnimatorTransition tr;
+                tr.From = t.value("From", -1);
+                tr.To = t.value("To", 0);
+                tr.Fade = t.value("Fade", 0.2f);
+                tr.HasExitTime = t.value("HasExitTime", false);
+                tr.ExitTime = t.value("ExitTime", 1.0f);
+                for (const json& cd : t.value("Conditions", json::array()))
+                    tr.Conditions.push_back({ cd.value("Parameter", ""), (AnimatorCondition::Op)cd.value("Op", 0), cd.value("Threshold", 0.0f) });
+                c.Transitions.push_back(std::move(tr));
+            }
         }
         if (e.contains("DirectionalLight"))
         {

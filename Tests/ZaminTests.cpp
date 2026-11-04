@@ -596,6 +596,54 @@ TEST(CharacterController3D)
     scene->OnRuntimeStop();
 }
 
+TEST(AnimatorStateMachine)
+{
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Hero");
+    auto& a = e.AddComponent<AnimatorComponent>();
+    a.Parameters = { { "Speed", AnimatorParameter::Type::Float, 0.0f },
+                     { "Grounded", AnimatorParameter::Type::Bool, 1.0f },
+                     { "Attack", AnimatorParameter::Type::Trigger, 0.0f } };
+    a.States = { { "Idle", "Idle" }, { "Run", "Run" }, { "Air", "Jump" }, { "Attack", "Attack", 1.0f, false } };
+    AnimatorTransition toRun{ 0, 1 };   toRun.Conditions = { { "Speed", AnimatorCondition::Op::Greater, 0.5f } };
+    AnimatorTransition toIdle{ 1, 0 };  toIdle.Conditions = { { "Speed", AnimatorCondition::Op::Less, 0.5f } };
+    AnimatorTransition toAir{ -1, 2 };  toAir.Conditions = { { "Grounded", AnimatorCondition::Op::IsFalse } };
+    AnimatorTransition land{ 2, 0 };    land.Conditions = { { "Grounded", AnimatorCondition::Op::IsTrue } };
+    AnimatorTransition attack{ -1, 3 }; attack.Conditions = { { "Attack", AnimatorCondition::Op::Triggered } };
+    AnimatorTransition back{ 3, 0 };    back.HasExitTime = true; back.ExitTime = 1.0f;
+    a.Transitions = { toRun, toIdle, toAir, land, attack, back };
+
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(std::string(a.GetCurrentStateName()) == "Idle");
+    a.SetFloat("Speed", 3.0f);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(std::string(a.GetCurrentStateName()) == "Run");
+    CHECK(a.Clip == "Run" && a.IsFading());
+    a.SetBool("Grounded", false);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(std::string(a.GetCurrentStateName()) == "Air");
+    a.SetBool("Grounded", true);
+    a.SetFloat("Speed", 0.0f);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(std::string(a.GetCurrentStateName()) == "Idle");
+    a.SetTrigger("Attack");
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(std::string(a.GetCurrentStateName()) == "Attack");
+    CHECK(a.GetFloat("Attack") == 0.0f); // consumed
+    scene->OnUpdateRuntime(0.016f);      // no clip => normalized time 1 => exit
+    CHECK(std::string(a.GetCurrentStateName()) == "Idle");
+
+    // serialization round trip keeps the graph
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    auto& la = loaded->FindEntityByName("Hero").GetComponent<AnimatorComponent>();
+    CHECK(la.States.size() == 4 && la.Transitions.size() == 6 && la.Parameters.size() == 3);
+    CHECK(la.Transitions[0].Conditions.size() == 1 && la.Transitions[5].HasExitTime);
+    scene->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

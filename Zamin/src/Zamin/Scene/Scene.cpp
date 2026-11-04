@@ -1079,24 +1079,71 @@ namespace Zamin {
     void Scene::UpdateAnimators(Timestep ts, bool editor)
     {
         ZM_PROFILE_SCOPE("Animatsiya");
-        for (auto e : m_Registry.view<AnimatorComponent, MeshRendererComponent>())
+        for (auto e : m_Registry.view<AnimatorComponent>())
         {
             auto& anim = m_Registry.get<AnimatorComponent>(e);
-            auto& mr = m_Registry.get<MeshRendererComponent>(e);
-            if (!mr.ModelAsset || !mr.ModelAsset->IsSkinned())
-            {
-                anim.JointMatrices.clear();
-                continue;
-            }
-            const auto& clips = mr.ModelAsset->GetAnimations();
+            auto* mr = m_Registry.try_get<MeshRendererComponent>(e);
+            Ref<Model> model = mr ? mr->ModelAsset : nullptr;
+            static const std::vector<AnimationClip> s_NoClips;
+            const auto& clips = model ? model->GetAnimations() : s_NoClips;
             auto findClip = [&](const std::string& name) -> const AnimationClip* {
-                int index = name.empty() ? (clips.empty() ? -1 : 0) : mr.ModelAsset->FindAnimation(name);
+                if (!model) return nullptr;
+                int index = name.empty() ? (clips.empty() ? -1 : 0) : model->FindAnimation(name);
                 return index >= 0 ? &clips[index] : nullptr;
             };
             auto wrap = [](const AnimationClip* c, float t, bool loop) {
                 if (!c || c->Duration <= 0.0f) return t;
                 return loop ? std::fmod(std::fmod(t, c->Duration) + c->Duration, c->Duration) : std::clamp(t, 0.0f, c->Duration);
             };
+            // ---- state machine (runtime only; the editor previews the default state)
+            if (anim.UsesStateMachine())
+            {
+                auto enter = [&](int index, float fade) {
+                    const AnimatorState& st = anim.States[index];
+                    anim.CurrentState = index;
+                    anim.Play(st.Clip, st.Loop, st.Speed, fade);
+                };
+                if (anim.CurrentState < 0 || anim.CurrentState >= (int)anim.States.size())
+                    enter(std::clamp(anim.DefaultState, 0, (int)anim.States.size() - 1), 0.0f);
+                else if (!editor)
+                {
+                    const AnimationClip* cur = findClip(anim.Clip);
+                    float normalized = cur && cur->Duration > 0.0f ? anim.Time / cur->Duration : 1.0f;
+                    for (const auto& tr : anim.Transitions)
+                    {
+                        if (tr.To < 0 || tr.To >= (int)anim.States.size()) continue;
+                        if (tr.From >= 0 && tr.From != anim.CurrentState) continue;
+                        if (tr.From < 0 && tr.To == anim.CurrentState) continue;
+                        if (tr.HasExitTime && normalized < tr.ExitTime) continue;
+                        bool ok = true;
+                        for (const auto& c : tr.Conditions)
+                        {
+                            const AnimatorParameter* p = anim.FindParameter(c.Parameter);
+                            float v = p ? p->Value : 0.0f;
+                            switch (c.Mode)
+                            {
+                                case AnimatorCondition::Op::Greater:   ok = v > c.Threshold; break;
+                                case AnimatorCondition::Op::Less:      ok = v < c.Threshold; break;
+                                case AnimatorCondition::Op::IsTrue:    ok = v != 0.0f; break;
+                                case AnimatorCondition::Op::IsFalse:   ok = v == 0.0f; break;
+                                case AnimatorCondition::Op::Triggered: ok = v != 0.0f; break;
+                            }
+                            if (!ok) break;
+                        }
+                        if (!ok) continue;
+                        for (const auto& c : tr.Conditions) // consume triggers
+                            if (c.Mode == AnimatorCondition::Op::Triggered)
+                                if (auto* p = anim.FindParameter(c.Parameter)) p->Value = 0.0f;
+                        enter(tr.To, tr.Fade);
+                        break;
+                    }
+                }
+                const AnimatorState& st = anim.States[anim.CurrentState];
+                anim.Speed = st.Speed;
+                if (!st.SpeedParameter.empty())
+                    if (auto* p = anim.FindParameter(st.SpeedParameter)) anim.Speed = st.Speed * p->Value;
+            }
+
             const AnimationClip* clip = findClip(anim.Clip);
 
             bool advance = anim.Playing && (!editor || anim.PlayInEditor);
@@ -1110,16 +1157,21 @@ namespace Zamin {
                 }
             }
 
+            if (!model || !model->IsSkinned())
+            {
+                anim.JointMatrices.clear();
+                continue;
+            }
             if (anim.IsFading())
             {
                 const AnimationClip* prev = findClip(anim.PreviousClip);
                 float w = anim.FadeElapsed / anim.FadeDuration;
                 w = w * w * (3.0f - 2.0f * w); // smoothstep
-                EvaluatePoseBlended(mr.ModelAsset->GetSkeleton(), prev, wrap(prev, anim.PreviousTime, anim.PreviousLoop),
+                EvaluatePoseBlended(model->GetSkeleton(), prev, wrap(prev, anim.PreviousTime, anim.PreviousLoop),
                                     clip, wrap(clip, anim.Time, anim.Loop), w, anim.JointMatrices);
             }
             else
-                EvaluatePose(mr.ModelAsset->GetSkeleton(), clip, wrap(clip, anim.Time, anim.Loop), anim.JointMatrices);
+                EvaluatePose(model->GetSkeleton(), clip, wrap(clip, anim.Time, anim.Loop), anim.JointMatrices);
         }
     }
 

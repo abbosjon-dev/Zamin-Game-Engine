@@ -89,3 +89,4 @@
 #define ICON_FA_FIRE "\xef\x81\xad"
 #define ICON_FA_HAND_POINTER "\xef\x89\x9a"
 #define ICON_FA_TABLE_CELLS "\xef\x80\x8a"
+#define ICON_FA_ARROW_RIGHT "\xef\x81\xa1"

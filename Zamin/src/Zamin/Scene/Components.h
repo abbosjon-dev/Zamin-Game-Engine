@@ -147,7 +147,45 @@ namespace Zamin {
         bool CastShadows = true;
     };
 
+    // ---- animation state machine data
+    struct AnimatorParameter
+    {
+        enum class Type { Float = 0, Bool, Trigger };
+        std::string Name;
+        Type Kind = Type::Float;
+        float Value = 0.0f; // bools/triggers: 0 or 1
+    };
+
+    struct AnimatorCondition
+    {
+        enum class Op { Greater = 0, Less, IsTrue, IsFalse, Triggered };
+        std::string Parameter;
+        Op Mode = Op::Greater;
+        float Threshold = 0.0f;
+    };
+
+    struct AnimatorState
+    {
+        std::string Name = "State";
+        std::string Clip;
+        float Speed = 1.0f;
+        bool Loop = true;
+        std::string SpeedParameter; // optional: multiplies Speed by a float parameter
+    };
+
+    struct AnimatorTransition
+    {
+        int From = -1;          // -1 = any state
+        int To = 0;
+        float Fade = 0.2f;
+        bool HasExitTime = false;
+        float ExitTime = 1.0f;  // normalized (1 = end of the clip)
+        std::vector<AnimatorCondition> Conditions;
+    };
+
     // Plays skeletal animations of the entity's (skinned glTF) MeshRenderer model.
+    // Either drive it directly with Play(), or define States/Transitions/Parameters
+    // (state machine) and only set parameters from scripts.
     struct AnimatorComponent
     {
         std::string Clip;          // animation name ("" = first clip)
@@ -178,6 +216,29 @@ namespace Zamin {
             Clip = clip; Loop = loop; Speed = speed; Playing = true; Time = 0.0f;
         }
         bool IsFading() const { return FadeDuration > 0.0f && FadeElapsed < FadeDuration; }
+
+        // ---- state machine
+        std::vector<AnimatorParameter> Parameters;
+        std::vector<AnimatorState> States;
+        std::vector<AnimatorTransition> Transitions;
+        int DefaultState = 0;
+        int CurrentState = -1; // runtime
+
+        AnimatorParameter* FindParameter(const std::string& name)
+        {
+            for (auto& p : Parameters) if (p.Name == name) return &p;
+            return nullptr;
+        }
+        void SetFloat(const std::string& name, float v) { if (auto* p = FindParameter(name)) p->Value = v; }
+        void SetBool(const std::string& name, bool v) { if (auto* p = FindParameter(name)) p->Value = v ? 1.0f : 0.0f; }
+        void SetTrigger(const std::string& name) { if (auto* p = FindParameter(name)) p->Value = 1.0f; }
+        float GetFloat(const std::string& name) { auto* p = FindParameter(name); return p ? p->Value : 0.0f; }
+        bool GetBool(const std::string& name) { auto* p = FindParameter(name); return p && p->Value != 0.0f; }
+        const char* GetCurrentStateName() const
+        {
+            return CurrentState >= 0 && CurrentState < (int)States.size() ? States[CurrentState].Name.c_str() : "";
+        }
+        bool UsesStateMachine() const { return !States.empty(); }
     };
 
     struct CameraComponent

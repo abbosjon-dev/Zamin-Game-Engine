@@ -707,6 +707,161 @@ namespace Zamin {
         if (modified) MarkModified();
     }
 
+    static bool DrawAnimatorStateMachine(AnimatorComponent& c, const Ref<Model>& model)
+    {
+        bool changed = false;
+        ImGui::PushID("asm");
+        if (!ImGui::CollapsingHeader(ICON_FA_DIAGRAM_PROJECT "  Animator holat mashinasi"))
+        {
+            ImGui::PopID();
+            return false;
+        }
+        ImGui::Indent(6.0f);
+        if (c.CurrentState >= 0)
+            ImGui::TextColored(UI::AccentColor(), ICON_FA_PLAY "  Hozirgi holat: %s", c.GetCurrentStateName());
+        if (c.States.empty())
+            ImGui::TextDisabled("Holatlar yo'q - Animator Play() bilan qo'lda boshqariladi.");
+
+        // ---- parameters
+        ImGui::SeparatorText("Parametrlar");
+        const char* types[] = { "Float", "Bool", "Trigger" };
+        for (size_t i = 0; i < c.Parameters.size(); i++)
+        {
+            auto& p = c.Parameters[i];
+            ImGui::PushID((int)i);
+            ImGui::SetNextItemWidth(110); changed |= ImGui::InputText("##n", &p.Name);
+            ImGui::SameLine(); ImGui::SetNextItemWidth(80);
+            int t = (int)p.Kind;
+            if (ImGui::Combo("##t", &t, types, 3)) { p.Kind = (AnimatorParameter::Type)t; changed = true; }
+            ImGui::SameLine(); ImGui::SetNextItemWidth(70);
+            if (p.Kind == AnimatorParameter::Type::Float) changed |= ImGui::DragFloat("##v", &p.Value, 0.05f);
+            else { bool b = p.Value != 0.0f; if (ImGui::Checkbox("##v", &b)) { p.Value = b ? 1.0f : 0.0f; changed = true; } }
+            ImGui::SameLine();
+            if (ImGui::SmallButton(ICON_FA_XMARK)) { c.Parameters.erase(c.Parameters.begin() + i); changed = true; ImGui::PopID(); break; }
+            ImGui::PopID();
+        }
+        if (ImGui::SmallButton(ICON_FA_PLUS "  Parametr")) { c.Parameters.push_back({ "Param" + std::to_string(c.Parameters.size()), AnimatorParameter::Type::Float, 0.0f }); changed = true; }
+
+        // ---- states
+        ImGui::SeparatorText("Holatlar");
+        for (size_t i = 0; i < c.States.size(); i++)
+        {
+            auto& st = c.States[i];
+            ImGui::PushID(1000 + (int)i);
+            bool isDefault = c.DefaultState == (int)i;
+            if (ImGui::RadioButton("##def", isDefault)) { c.DefaultState = (int)i; changed = true; }
+            if (ImGui::IsItemHovered()) UI::Tooltip("Boshlang'ich holat");
+            ImGui::SameLine(); ImGui::SetNextItemWidth(90); changed |= ImGui::InputText("##name", &st.Name);
+            ImGui::SameLine(); ImGui::SetNextItemWidth(90);
+            if (ImGui::BeginCombo("##clip", st.Clip.empty() ? "(klip)" : st.Clip.c_str()))
+            {
+                if (model)
+                    for (const auto& clip : model->GetAnimations())
+                        if (ImGui::Selectable(clip.Name.c_str(), clip.Name == st.Clip)) { st.Clip = clip.Name; changed = true; }
+                ImGui::EndCombo();
+            }
+            ImGui::SameLine(); ImGui::SetNextItemWidth(50); changed |= ImGui::DragFloat("##spd", &st.Speed, 0.01f, 0.0f, 10.0f, "%.2f");
+            ImGui::SameLine(); changed |= ImGui::Checkbox("##loop", &st.Loop);
+            if (ImGui::IsItemHovered()) UI::Tooltip("Takrorlash");
+            ImGui::SameLine();
+            if (ImGui::SmallButton(ICON_FA_XMARK))
+            {
+                c.States.erase(c.States.begin() + i);
+                for (auto it = c.Transitions.begin(); it != c.Transitions.end();)
+                {
+                    if (it->From == (int)i || it->To == (int)i) { it = c.Transitions.erase(it); continue; }
+                    if (it->From > (int)i) it->From--;
+                    if (it->To > (int)i) it->To--;
+                    ++it;
+                }
+                changed = true;
+                ImGui::PopID();
+                break;
+            }
+            ImGui::SetNextItemWidth(160);
+            ImGui::Indent(28);
+            if (ImGui::BeginCombo("##sp", st.SpeedParameter.empty() ? "Tezlik parametri: yo'q" : ("Tezlik x " + st.SpeedParameter).c_str()))
+            {
+                if (ImGui::Selectable("yo'q", st.SpeedParameter.empty())) { st.SpeedParameter.clear(); changed = true; }
+                for (auto& p : c.Parameters)
+                    if (p.Kind == AnimatorParameter::Type::Float && ImGui::Selectable(p.Name.c_str(), p.Name == st.SpeedParameter)) { st.SpeedParameter = p.Name; changed = true; }
+                ImGui::EndCombo();
+            }
+            ImGui::Unindent(28);
+            ImGui::PopID();
+        }
+        if (ImGui::SmallButton(ICON_FA_PLUS "  Holat"))
+        {
+            AnimatorState st;
+            st.Name = "Holat" + std::to_string(c.States.size());
+            if (model && !model->GetAnimations().empty()) st.Clip = model->GetAnimations()[std::min(c.States.size(), model->GetAnimations().size() - 1)].Name;
+            c.States.push_back(st);
+            changed = true;
+        }
+
+        // ---- transitions
+        ImGui::SeparatorText("O'tishlar");
+        auto stateName = [&](int i) -> std::string { return i < 0 ? "Har qanday" : (i < (int)c.States.size() ? c.States[i].Name : "?"); };
+        const char* ops[] = { ">", "<", "rost", "yolg'on", "trigger" };
+        for (size_t i = 0; i < c.Transitions.size(); i++)
+        {
+            auto& tr = c.Transitions[i];
+            ImGui::PushID(2000 + (int)i);
+            ImGui::SetNextItemWidth(95);
+            if (ImGui::BeginCombo("##from", stateName(tr.From).c_str()))
+            {
+                for (int k = -1; k < (int)c.States.size(); k++)
+                    if (ImGui::Selectable(stateName(k).c_str(), k == tr.From)) { tr.From = k; changed = true; }
+                ImGui::EndCombo();
+            }
+            ImGui::SameLine(); ImGui::TextUnformatted(ICON_FA_ARROW_RIGHT);
+            ImGui::SameLine(); ImGui::SetNextItemWidth(95);
+            if (ImGui::BeginCombo("##to", stateName(tr.To).c_str()))
+            {
+                for (int k = 0; k < (int)c.States.size(); k++)
+                    if (ImGui::Selectable(stateName(k).c_str(), k == tr.To)) { tr.To = k; changed = true; }
+                ImGui::EndCombo();
+            }
+            ImGui::SameLine(); ImGui::SetNextItemWidth(45); changed |= ImGui::DragFloat("##fade", &tr.Fade, 0.01f, 0.0f, 5.0f, "%.2fs");
+            ImGui::SameLine();
+            if (ImGui::SmallButton(ICON_FA_XMARK)) { c.Transitions.erase(c.Transitions.begin() + i); changed = true; ImGui::PopID(); break; }
+
+            ImGui::Indent(18);
+            changed |= ImGui::Checkbox("Exit time", &tr.HasExitTime);
+            if (tr.HasExitTime) { ImGui::SameLine(); ImGui::SetNextItemWidth(60); changed |= ImGui::DragFloat("##exit", &tr.ExitTime, 0.01f, 0.0f, 10.0f); }
+            for (size_t k = 0; k < tr.Conditions.size(); k++)
+            {
+                auto& cd = tr.Conditions[k];
+                ImGui::PushID((int)k);
+                ImGui::SetNextItemWidth(95);
+                if (ImGui::BeginCombo("##p", cd.Parameter.empty() ? "(parametr)" : cd.Parameter.c_str()))
+                {
+                    for (auto& p : c.Parameters)
+                        if (ImGui::Selectable(p.Name.c_str(), p.Name == cd.Parameter)) { cd.Parameter = p.Name; changed = true; }
+                    ImGui::EndCombo();
+                }
+                ImGui::SameLine(); ImGui::SetNextItemWidth(70);
+                int op = (int)cd.Mode;
+                if (ImGui::Combo("##op", &op, ops, 5)) { cd.Mode = (AnimatorCondition::Op)op; changed = true; }
+                if (cd.Mode == AnimatorCondition::Op::Greater || cd.Mode == AnimatorCondition::Op::Less)
+                {
+                    ImGui::SameLine(); ImGui::SetNextItemWidth(55); changed |= ImGui::DragFloat("##th", &cd.Threshold, 0.05f);
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton(ICON_FA_XMARK)) { tr.Conditions.erase(tr.Conditions.begin() + k); changed = true; ImGui::PopID(); break; }
+                ImGui::PopID();
+            }
+            if (ImGui::SmallButton(ICON_FA_PLUS "  Shart")) { tr.Conditions.push_back({}); changed = true; }
+            ImGui::Unindent(18);
+            ImGui::Separator();
+            ImGui::PopID();
+        }
+        if (!c.States.empty() && ImGui::SmallButton(ICON_FA_PLUS "  O'tish")) { c.Transitions.push_back({ -1, 0 }); changed = true; }
+        ImGui::Unindent(6.0f);
+        ImGui::PopID();
+        return changed;
+    }
+
     void SceneHierarchyPanel::DrawComponents(Entity entity)
     {
         bool modified = false;
@@ -950,6 +1105,12 @@ namespace Zamin {
             else ImGui::Text("%zu suyak, %zu klip, t=%.2f", model->GetSkeleton().Joints.size(), model->GetAnimations().size(), c.Time);
             return changed;
         }, true, modified);
+
+        if (auto* anim = entity.TryGetComponent<AnimatorComponent>())
+        {
+            auto* mr = entity.TryGetComponent<MeshRendererComponent>();
+            modified |= DrawAnimatorStateMachine(*anim, mr ? mr->ModelAsset : nullptr);
+        }
 
         DrawComponent<DirectionalLightComponent>(ICON_FA_SUN, "Directional Light", entity, [](DirectionalLightComponent& c) {
             bool changed = UI::PropertyColor3("Rang", c.Color);

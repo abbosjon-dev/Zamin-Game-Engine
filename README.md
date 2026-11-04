@@ -195,7 +195,7 @@ Foydali API:
 | 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `Raycast2D(origin, dir, dist)` |
 | 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)` |
 | Qahramon | `GetComponent<CharacterController3DComponent>()` → `.Move(velocity)`, `.Jump(speed)`, `.Grounded` |
-| Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` |
+| Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)`, `SetBool`, `SetTrigger` |
 | Input | `Input::IsKeyPressed`, `Input::IsMouseButtonPressed`, `Input::IsGamepadButtonPressed`, `Input::GetGamepadAxis`, `GetMousePosition()`, `GetMouseWorldPosition()`, `ScreenToWorld()` |
 | Boshqa | `LoadScene("Scenes/Level2.zscene")`, `EmitParticles(n)`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
 
@@ -267,7 +267,8 @@ Tests/           Headless unit testlar
 - [x] glTF import, HDR pipeline, normal/metal-roughness/emissive map'lar
 - [x] Skeletal animatsiya (glTF skins), Animator, CPU profiler
 - [x] Animatsiyalar orasida silliq o'tish (crossfade), Character Controller 3D
-- [ ] Animatsiya holat mashinasi (vizual), root motion
+- [x] Animatsiya holat mashinasi (parametrlar, holatlar, shartli o'tishlar, exit time, trigger'lar)
+- [ ] Root motion, animatsiya event'lari
 - [x] Cascaded shadow maps, tuman
 - [x] SSAO
 - [ ] IBL (cubemap), HDR osmon

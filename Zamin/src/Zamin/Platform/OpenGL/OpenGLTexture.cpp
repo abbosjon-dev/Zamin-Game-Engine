@@ -54,6 +54,7 @@ namespace Zamin {
             m_Specification.Width = (uint32_t)width;
             m_Specification.Height = (uint32_t)height;
             m_Specification.Filter = filter;
+            m_Specification.GenerateMips = filter != TextureFilter::Nearest;
             m_Specification.Format = channels == 4 ? ImageFormat::RGBA8 : channels == 3 ? ImageFormat::RGB8 :
                                      channels == 1 ? ImageFormat::R8 : ImageFormat::RGBA8;
             if (channels == 2) // grey + alpha: expand to RGBA
@@ -144,16 +145,17 @@ namespace Zamin {
     // ---------------------------------------------------------------- TextureLibrary
     static std::unordered_map<std::string, Ref<Texture2D>> s_TextureCache;
 
-    Ref<Texture2D> TextureLibrary::Load(const std::filesystem::path& path)
+    Ref<Texture2D> TextureLibrary::Load(const std::filesystem::path& path, TextureFilter filter)
     {
         std::error_code ec;
         std::filesystem::path abs = std::filesystem::weakly_canonical(path, ec);
-        std::string key = (ec ? path : abs).string();
+        std::string file = (ec ? path : abs).string();
+        std::string key = file + (filter == TextureFilter::Nearest ? "#nearest" : "");
         auto it = s_TextureCache.find(key);
         if (it != s_TextureCache.end())
             return it->second;
 
-        Ref<Texture2D> texture = Texture2D::Create(key);
+        Ref<Texture2D> texture = Texture2D::Create(file, filter);
         if (!texture->IsLoaded())
             return nullptr;
         s_TextureCache[key] = texture;

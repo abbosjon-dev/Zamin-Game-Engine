@@ -39,8 +39,18 @@ public:
         }
         m_JumpHeld = jump;
 
-        // Squash & stretch for a bit of juice
+        // Animation: idle (0-1), run (4-7), jump (8) on the sprite sheet
         auto& t = Transform();
+        if (auto* anim = TryGetComponent<SpriteAnimationComponent>())
+        {
+            if (m_GroundContacts == 0)              anim->Play(8, 1, 1.0f, true);
+            else if (std::abs(velocity.x) > 0.5f)  anim->Play(4, 4, 12.0f, true);
+            else                                    anim->Play(0, 2, 3.0f, true);
+        }
+        if (auto* sprite = TryGetComponent<SpriteRendererComponent>(); sprite && dir != 0.0f)
+            sprite->FlipX = dir < 0.0f;
+
+        // Squash & stretch for a bit of juice
         float stretch = std::clamp(std::abs(GetVelocity().y) * 0.02f, 0.0f, 0.15f);
         t.Scale = { 1.0f - stretch, 1.0f + stretch, 1.0f };
 
@@ -64,7 +74,14 @@ public:
     }
 
 private:
-    static bool IsCollectible(Entity e) { return e && e.GetName() == "Coin"; }
+    static bool IsCollectible(Entity e)
+    {
+        if (!e) return true;
+        if (e.GetName() == "Coin" || e.GetName() == "Goal") return true;
+        auto* box = e.TryGetComponent<BoxCollider2DComponent>();
+        auto* circle = e.TryGetComponent<CircleCollider2DComponent>();
+        return (box && box->IsSensor) || (circle && circle->IsSensor);
+    }
 
     glm::vec3 m_Spawn{ 0.0f };
     int m_GroundContacts = 0;

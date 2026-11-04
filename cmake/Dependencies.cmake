@@ -28,7 +28,24 @@ set(BOX2D_BUILD_TESTBED    OFF CACHE BOOL "" FORCE)
 set(BOX2D_BUILD_DOCS       OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(box2d GIT_REPOSITORY https://github.com/erincatto/box2d.git GIT_TAG v2.4.1 GIT_SHALLOW TRUE)
 
-FetchContent_MakeAvailable(glfw glm entt json box2d)
+# ---- Jolt Physics (3D physics) ----------------------------------------------
+set(TARGET_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+set(TARGET_HELLO_WORLD OFF CACHE BOOL "" FORCE)
+set(TARGET_PERFORMANCE_TEST OFF CACHE BOOL "" FORCE)
+set(TARGET_SAMPLES OFF CACHE BOOL "" FORCE)
+set(TARGET_VIEWER OFF CACHE BOOL "" FORCE)
+set(ENABLE_ALL_WARNINGS OFF CACHE BOOL "" FORCE)
+set(INTERPROCEDURAL_OPTIMIZATION OFF CACHE BOOL "" FORCE)
+set(OVERRIDE_CXX_FLAGS OFF CACHE BOOL "" FORCE)
+set(FLOATING_POINT_EXCEPTIONS_ENABLED OFF CACHE BOOL "" FORCE)
+set(CPP_RTTI_ENABLED ON CACHE BOOL "" FORCE)
+set(DEBUG_RENDERER_IN_DEBUG_AND_RELEASE OFF CACHE BOOL "" FORCE)
+set(PROFILER_IN_DEBUG_AND_RELEASE OFF CACHE BOOL "" FORCE)
+set(USE_ASSERTS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(JoltPhysics GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git GIT_TAG v5.2.0 GIT_SHALLOW TRUE SOURCE_SUBDIR Build)
+
+FetchContent_MakeAvailable(glfw glm entt json box2d JoltPhysics)
+set_target_properties(Jolt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # ---- Sources without (usable) CMake: populate and build our own targets ----
 FetchContent_Declare(imgui    GIT_REPOSITORY https://github.com/ocornut/imgui.git GIT_TAG v1.91.5-docking GIT_SHALLOW TRUE)

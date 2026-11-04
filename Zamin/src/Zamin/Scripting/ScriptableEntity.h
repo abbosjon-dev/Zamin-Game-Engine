@@ -44,6 +44,8 @@ namespace Zamin {
         // Copy an existing entity (a "prefab") into the running scene.
         Entity Instantiate(Entity prefab, const glm::vec3& position);
         Entity Instantiate(Entity prefab);
+        // Spawn a prefab asset (.zprefab, path relative to Assets).
+        Entity Instantiate(const std::string& prefabPath, const glm::vec3& position);
         // Deferred: entity is removed at the end of the frame.
         void Destroy(Entity entity);
         void Destroy() { Destroy(m_Entity); }
@@ -54,6 +56,32 @@ namespace Zamin {
         void ApplyImpulse(const glm::vec2& impulse);
         void ApplyForce(const glm::vec2& force);
         void SetPosition2D(const glm::vec2& position); // teleports the physics body too
+
+        // ---- hierarchy
+        Entity GetParent() const;
+        void SetParent(Entity parent, bool keepWorldTransform = true);
+        glm::vec3 GetWorldPosition() const;
+
+        // ---- 3D physics (requires Rigidbody3DComponent + a 3D collider)
+        glm::vec3 GetVelocity3D() const;
+        void SetVelocity3D(const glm::vec3& velocity);
+        glm::vec3 GetAngularVelocity3D() const;
+        void SetAngularVelocity3D(const glm::vec3& velocity);
+        void ApplyImpulse3D(const glm::vec3& impulse);
+        void ApplyForce3D(const glm::vec3& force);
+        void ApplyTorque3D(const glm::vec3& torque);
+        void SetPosition3D(const glm::vec3& position); // teleports the physics body too
+        // Same, for another entity (e.g. a freshly instantiated projectile)
+        void SetVelocity3D(Entity other, const glm::vec3& velocity);
+        void ApplyImpulse3D(Entity other, const glm::vec3& impulse);
+        void SetVelocity(Entity other, const glm::vec2& velocity);
+
+        // ---- raycasts (EntityID of the hit can be resolved with GetScene().GetEntityByUUID)
+        RaycastHit Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance = 100.0f) const;
+        RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 100.0f) const;
+
+        // ---- scenes: switch to another scene at the end of the frame (path relative to Assets)
+        void LoadScene(const std::string& scenePath);
 
         // ---- audio
         void PlaySound(const std::string& assetPath, float volume = 1.0f, float pitch = 1.0f);

@@ -39,7 +39,7 @@ target_compile_definitions(Zamin PUBLIC GLM_FORCE_RADIANS GLM_ENABLE_EXPERIMENTA
 # Header-only libraries exposed through the public API.
 target_link_libraries(Zamin PUBLIC glm::glm EnTT::EnTT)
 # Implementation details (compiled into libZamin.so).
-target_link_libraries(Zamin PRIVATE glad glfw imgui imguizmo box2d nlohmann_json::nlohmann_json stb tinyobj miniaudio
+target_link_libraries(Zamin PRIVATE glad glfw imgui imguizmo box2d Jolt nlohmann_json::nlohmann_json stb tinyobj miniaudio
     ${CMAKE_DL_LIBS} pthread)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

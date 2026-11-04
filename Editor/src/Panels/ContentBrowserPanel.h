@@ -35,6 +35,9 @@ namespace Zamin {
         int m_NewKind = 0; // 0 folder, 1 scene, 2 script
         bool m_OpenNewPopup = false;
         std::filesystem::path m_PendingDelete;
+        std::filesystem::path m_RenameTarget;
+        std::string m_RenameBuffer;
+        bool m_OpenRenamePopup = false;
     };
 
 }

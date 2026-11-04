@@ -3,6 +3,10 @@
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Core/UUID.h"
 #include "Zamin/Renderer/EditorCamera.h"
+#include "Zamin/Physics/PhysicsTypes.h"
+
+#include <filesystem>
+#include <memory>
 
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
@@ -17,6 +21,7 @@ namespace Zamin {
 
     class Entity;
     class ContactListener2D;
+    class PhysicsWorld3D;
 
     struct SceneSettings
     {
@@ -31,6 +36,7 @@ namespace Zamin {
 
         // Physics
         glm::vec2 Gravity{ 0.0f, -9.8f };
+        glm::vec3 Gravity3D{ 0.0f, -9.81f, 0.0f };
         int VelocityIterations = 6;
         int PositionIterations = 2;
     };
@@ -66,6 +72,33 @@ namespace Zamin {
 
         Entity FindEntityByName(std::string_view name);
         Entity GetEntityByUUID(UUID uuid);
+        // Entities in creation order (stable, used by UI & serialization).
+        std::vector<Entity> GetEntitiesInOrder();
+
+        // ---- hierarchy
+        // Make `child` a child of `parent` (or a root when parent is invalid).
+        // keepWorldTransform: the child keeps its current world position/rotation/scale.
+        bool SetParent(Entity child, Entity parent, bool keepWorldTransform = true);
+        Entity GetParent(Entity entity);
+        bool IsAncestorOf(Entity ancestor, Entity entity);
+        glm::mat4 GetWorldTransform(Entity entity);
+        // Sets local transform so that the entity ends up at `world`.
+        void SetWorldTransform(Entity entity, const glm::mat4& world);
+        glm::vec3 GetWorldPosition(Entity entity);
+
+        // ---- prefabs (.zprefab)
+        Entity InstantiatePrefab(const std::filesystem::path& path);
+        bool SavePrefab(Entity root, const std::filesystem::path& path);
+
+        // ---- physics queries
+        RaycastHit Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance);
+        RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance);
+        PhysicsWorld3D* GetPhysicsWorld3D() { return m_PhysicsWorld3D.get(); }
+
+        // ---- scene switching (handled by the host: editor / player)
+        void RequestLoadScene(const std::filesystem::path& path) { m_PendingSceneLoad = path; }
+        const std::filesystem::path& GetPendingSceneLoad() const { return m_PendingSceneLoad; }
+        void ClearPendingSceneLoad() { m_PendingSceneLoad.clear(); }
         Entity GetPrimaryCameraEntity();
         // Background color used when the sky is disabled (primary camera's clear color).
         glm::vec4 GetClearColor();
@@ -90,6 +123,7 @@ namespace Zamin {
 
         // --- used by ScriptableEntity
         Entity Instantiate(Entity prefab);
+        void OnEntitiesSpawned(const std::vector<Entity>& entities); // creates runtime state
         void DestroyEntityDeferred(Entity entity);
 
         // Destroys all live script instances (needed before hot-reloading the script module).
@@ -104,7 +138,12 @@ namespace Zamin {
 
         void OnPhysics2DStart();
         void OnPhysics2DStop();
+        void OnPhysics3DStart();
+        void OnPhysics3DStop();
         void CreatePhysicsBody(Entity entity);
+        void CreatePhysicsBody3D(Entity entity);
+        void DispatchContactEvents(const std::vector<ContactEvent>& events);
+        Entity DuplicateEntityRecursive(Entity entity, UUID newParent);
         void StepPhysics(Timestep ts);
         void StartScripts();
         void StopScripts();
@@ -129,6 +168,8 @@ namespace Zamin {
 
         b2World* m_PhysicsWorld = nullptr;
         ContactListener2D* m_ContactListener = nullptr;
+        std::unique_ptr<PhysicsWorld3D> m_PhysicsWorld3D;
+        std::filesystem::path m_PendingSceneLoad;
 
         std::unordered_map<UUID, entt::entity> m_EntityMap;
         std::vector<UUID> m_DestroyQueue;

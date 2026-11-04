@@ -279,6 +279,160 @@ TEST(ProjectTemplate)
     std::filesystem::remove_all(dir, ec);
 }
 
+TEST(HierarchyWorldTransforms)
+{
+    auto scene = CreateRef<Scene>();
+    Entity parent = scene->CreateEntity("Parent");
+    Entity child = scene->CreateEntity("Child");
+    parent.GetTransform().Translation = { 10, 0, 0 };
+    parent.GetTransform().Scale = { 2, 2, 2 };
+    child.GetTransform().Translation = { 1, 0, 0 };
+
+    CHECK(scene->SetParent(child, parent, false));
+    CHECK(scene->GetParent(child) == parent);
+    CHECK_NEAR(scene->GetWorldPosition(child).x, 12.0f, 1e-4f);
+    CHECK(!scene->SetParent(parent, child)); // cycle rejected
+
+    // keepWorldTransform: unparent keeps the world position
+    CHECK(scene->SetParent(child, {}, true));
+    CHECK_NEAR(child.GetTransform().Translation.x, 12.0f, 1e-4f);
+    CHECK(parent.GetComponent<RelationshipComponent>().Children.empty());
+
+    // re-parent with keepWorld => local position adapts
+    CHECK(scene->SetParent(child, parent, true));
+    CHECK_NEAR(child.GetTransform().Translation.x, 1.0f, 1e-4f);
+
+    // duplicate copies the subtree with new ids
+    Entity copy = scene->DuplicateEntity(parent);
+    auto& kids = copy.GetComponent<RelationshipComponent>().Children;
+    CHECK(kids.size() == 1);
+    CHECK(kids.size() == 1 && kids[0] != child.GetUUID());
+
+    // serialization keeps the hierarchy
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity lc = loaded->GetEntityByUUID(child.GetUUID());
+    CHECK(lc && loaded->GetParent(lc).GetUUID() == parent.GetUUID());
+    CHECK(lc && std::abs(loaded->GetWorldPosition(lc).x - 12.0f) < 1e-4f);
+
+    // destroying the parent destroys children
+    UUID childID = child.GetUUID();
+    scene->DestroyEntity(parent);
+    CHECK(!scene->GetEntityByUUID(childID));
+}
+
+TEST(PrefabsAndClipboard)
+{
+    auto scene = CreateRef<Scene>();
+    Entity root = scene->CreateEntity("Enemy");
+    root.AddComponent<SpriteRendererComponent>();
+    Entity gun = scene->CreateEntity("Gun");
+    gun.GetTransform().Translation = { 0.5f, 0, 0 };
+    scene->SetParent(gun, root, false);
+
+    auto path = std::filesystem::temp_directory_path() / ("zamin-prefab-" + std::to_string((uint64_t)UUID()) + ".zprefab");
+    CHECK(scene->SavePrefab(root, path));
+
+    auto other = CreateRef<Scene>();
+    Entity a = other->InstantiatePrefab(path);
+    Entity b = other->InstantiatePrefab(path);
+    CHECK(a && b && a != b);
+    CHECK(a && a.GetName() == "Enemy" && a.HasComponent<SpriteRendererComponent>());
+    CHECK(a && a.GetUUID() != root.GetUUID());
+    CHECK(a && a.GetComponent<RelationshipComponent>().Children.size() == 1);
+    if (a && !a.GetComponent<RelationshipComponent>().Children.empty())
+    {
+        Entity g = other->GetEntityByUUID(a.GetComponent<RelationshipComponent>().Children[0]);
+        CHECK(g && g.GetName() == "Gun" && other->GetParent(g) == a);
+    }
+    CHECK(other->GetRegistry().view<IDComponent>().size() == 4);
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+}
+
+TEST(SpriteAnimationFrames)
+{
+    SpriteAnimationComponent anim;
+    anim.Play(4, 4, 10.0f, true);
+    CHECK(anim.GetCurrentFrame() == 4);
+    anim.Time = 0.25f;
+    CHECK(anim.GetCurrentFrame() == 6);
+    anim.Time = 0.45f;
+    CHECK(anim.GetCurrentFrame() == 4); // looped
+    anim.Play(8, 3, 10.0f, false);
+    anim.Time = 5.0f;
+    CHECK(anim.GetCurrentFrame() == 10);
+    CHECK(anim.IsFinished());
+}
+
+static int g_Collisions3D = 0;
+class Collision3DScript : public ScriptableEntity
+{
+public:
+    void OnCollisionBegin(Entity other) override { if (other.GetName() == "Floor") g_Collisions3D++; }
+};
+ZM_REGISTER_SCRIPT(Collision3DScript)
+
+TEST(Physics3D)
+{
+    g_Collisions3D = 0;
+    auto scene = CreateRef<Scene>();
+    Entity floor = scene->CreateEntity("Floor");
+    floor.GetTransform().Scale = { 20, 1, 20 };
+    floor.GetTransform().Translation = { 0, -0.5f, 0 };
+    floor.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    floor.AddComponent<BoxCollider3DComponent>();
+
+    Entity box = scene->CreateEntity("Box");
+    box.GetTransform().Translation = { 0, 5, 0 };
+    box.AddComponent<Rigidbody3DComponent>();
+    box.AddComponent<BoxCollider3DComponent>();
+    box.AddComponent<NativeScriptComponent>().ClassName = "Collision3DScript";
+
+    Entity ball = scene->CreateEntity("Ball");
+    ball.GetTransform().Translation = { 3, 2, 0 };
+    ball.AddComponent<Rigidbody3DComponent>();
+    ball.AddComponent<SphereCollider3DComponent>().Radius = 0.5f;
+
+    scene->OnRuntimeStart();
+    CHECK(scene->GetPhysicsWorld3D() != nullptr);
+    for (int i = 0; i < 240; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(box.GetTransform().Translation.y, 0.5f, 0.05f);
+    CHECK_NEAR(ball.GetTransform().Translation.y, 0.5f, 0.05f);
+    CHECK(g_Collisions3D >= 1);
+
+    RaycastHit hit = scene->Raycast3D({ 0, 10, 0 }, { 0, -1, 0 }, 50.0f);
+    CHECK(hit.Hit);
+    CHECK(hit && hit.EntityID == box.GetUUID());
+    CHECK_NEAR(hit.Point.y, 1.0f, 0.05f);
+    CHECK_NEAR(hit.Normal.y, 1.0f, 0.05f);
+    scene->OnRuntimeStop();
+    CHECK(scene->GetPhysicsWorld3D() == nullptr);
+}
+
+TEST(Raycast2DAndSceneRequests)
+{
+    auto scene = CreateRef<Scene>();
+    Entity wall = scene->CreateEntity("Wall");
+    wall.GetTransform().Translation = { 5, 0, 0 };
+    wall.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    wall.AddComponent<BoxCollider2DComponent>();
+    scene->OnRuntimeStart();
+    RaycastHit hit = scene->Raycast2D({ 0, 0 }, { 1, 0 }, 20.0f);
+    CHECK(hit.Hit && hit.EntityID == wall.GetUUID());
+    CHECK_NEAR(hit.Point.x, 4.5f, 1e-3f);
+    CHECK_NEAR(hit.Distance, 4.5f, 1e-3f);
+    CHECK(!scene->Raycast2D({ 0, 0 }, { -1, 0 }, 20.0f).Hit);
+
+    scene->RequestLoadScene("Scenes/Next.zscene");
+    CHECK(scene->GetPendingSceneLoad() == "Scenes/Next.zscene");
+    scene->ClearPendingSceneLoad();
+    CHECK(scene->GetPendingSceneLoad().empty());
+    scene->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

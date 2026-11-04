@@ -2,6 +2,7 @@
 
 #include <Zamin/Zamin.h>
 
+#include <filesystem>
 #include <functional>
 #include <unordered_map>
 
@@ -31,12 +32,16 @@ namespace Zamin {
 
         std::function<void(Entity)> OnFocusRequested;
         std::function<void()> OnSceneModified;
+        std::function<void(Entity)> OnSavePrefabRequested;
+        std::function<void(const std::filesystem::path&, Entity parent)> OnPrefabDropped;
 
     private:
         template<typename T>
         void DisplayAddComponentEntry(const char* name, const char* icon);
 
         void DrawComponents(Entity entity);
+        void DrawEntityNode(Entity entity, int depth);
+        void DrawEntityContextMenu(Entity entity);
         void DrawScriptComponent(Entity entity);
         const std::unordered_map<std::string, ScriptFieldValue>& GetScriptDefaults(const std::string& className);
         void MarkModified() { if (OnSceneModified) OnSceneModified(); }
@@ -48,6 +53,8 @@ namespace Zamin {
         std::string m_AddComponentFilter;
         entt::entity m_RenamingEntity = entt::null;
         std::string m_RenameBuffer;
+        Entity m_PendingDelete, m_PendingDuplicate, m_PendingCreateChildOf;
+        int m_RowIndex = 0;
         bool m_HierarchyFocused = false;
         std::unordered_map<std::string, std::unordered_map<std::string, ScriptFieldValue>> m_ScriptDefaults;
     };

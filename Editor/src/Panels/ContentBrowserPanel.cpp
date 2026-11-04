@@ -26,6 +26,7 @@ namespace Zamin {
         if (ext == ".wav" || ext == ".mp3" || ext == ".ogg" || ext == ".flac") { color = IM_COL32(220, 120, 200, 255); return ICON_FA_FILE_AUDIO; }
         if (ext == ".obj") { color = IM_COL32(240, 140, 80, 255); return ICON_FA_CUBES; }
         if (ext == ".ttf" || ext == ".otf") return ICON_FA_FONT;
+        if (ext == ".zprefab") { color = IM_COL32(120, 180, 255, 255); return ICON_FA_BOX; }
         if (ext == ".zproject") { color = IM_COL32(46, 188, 148, 255); return ICON_FA_GAMEPAD; }
         return ICON_FA_FILE;
     }
@@ -140,6 +141,28 @@ namespace Zamin {
             ImGui::SameLine();
             if (ImGui::Button("Bekor qilish", ImVec2(120, 0)))
                 ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+
+        if (m_OpenRenamePopup) { ImGui::OpenPopup("RenameItem"); m_OpenRenamePopup = false; }
+        if (ImGui::BeginPopupModal("RenameItem", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::TextUnformatted(ICON_FA_FEATHER "  Yangi nom");
+            ImGui::SetNextItemWidth(300);
+            if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+            bool enter = ImGui::InputText("##rename", &m_RenameBuffer, ImGuiInputTextFlags_EnterReturnsTrue);
+            if ((ImGui::Button(ICON_FA_CHECK "  OK", ImVec2(120, 0)) || enter) && !m_RenameBuffer.empty())
+            {
+                std::error_code ec;
+                fs::path target = m_RenameTarget.parent_path() / m_RenameBuffer;
+                if (!fs::exists(target))
+                    fs::rename(m_RenameTarget, target, ec);
+                if (ec) ZM_ERROR("Nomlab bo'lmadi: {}", ec.message());
+                m_Thumbnails.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Bekor qilish", ImVec2(120, 0))) ImGui::CloseCurrentPopup();
             ImGui::EndPopup();
         }
 
@@ -291,6 +314,12 @@ namespace Zamin {
                         OnOpenScene(path);
                     if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Tizimda ochish"))
                         Platform::OpenInFileBrowser(path);
+                    if (ImGui::MenuItem(ICON_FA_FEATHER "  Nomini o'zgartirish"))
+                    {
+                        m_RenameTarget = path;
+                        m_RenameBuffer = path.filename().string();
+                        m_OpenRenamePopup = true;
+                    }
                     if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish"))
                         m_PendingDelete = path;
                     ImGui::EndPopup();

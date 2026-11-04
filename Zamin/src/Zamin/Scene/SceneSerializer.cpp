@@ -79,11 +79,32 @@ namespace Zamin {
         return true;
     }
 
-    static json SerializeEntity(Entity entity)
+    static const char* BodyType3DToString(Rigidbody3DComponent::BodyType t)
+    {
+        switch (t)
+        {
+            case Rigidbody3DComponent::BodyType::Static:    return "Static";
+            case Rigidbody3DComponent::BodyType::Dynamic:   return "Dynamic";
+            case Rigidbody3DComponent::BodyType::Kinematic: return "Kinematic";
+        }
+        return "Static";
+    }
+
+    static Rigidbody3DComponent::BodyType BodyType3DFromString(const std::string& s)
+    {
+        if (s == "Dynamic")   return Rigidbody3DComponent::BodyType::Dynamic;
+        if (s == "Kinematic") return Rigidbody3DComponent::BodyType::Kinematic;
+        return Rigidbody3DComponent::BodyType::Static;
+    }
+
+    static json SerializeEntity(Entity entity, bool includeParent = true)
     {
         json e;
         e["Entity"] = (uint64_t)entity.GetUUID();
         e["Tag"] = entity.GetName();
+        if (includeParent)
+            if (auto* rel = entity.TryGetComponent<RelationshipComponent>(); rel && (uint64_t)rel->Parent)
+                e["Parent"] = (uint64_t)rel->Parent;
 
         {
             auto& t = entity.GetComponent<TransformComponent>();
@@ -106,7 +127,11 @@ namespace Zamin {
             };
         }
         if (auto* c = entity.TryGetComponent<SpriteRendererComponent>())
-            e["SpriteRenderer"] = { { "Color", ToJson(c->Color) }, { "Texture", c->TexturePath }, { "Tiling", c->TilingFactor }, { "SortingOrder", c->SortingOrder } };
+            e["SpriteRenderer"] = { { "Color", ToJson(c->Color) }, { "Texture", c->TexturePath }, { "Tiling", c->TilingFactor },
+                                    { "SortingOrder", c->SortingOrder }, { "PixelArt", c->PixelArt }, { "FlipX", c->FlipX }, { "FlipY", c->FlipY } };
+        if (auto* c = entity.TryGetComponent<SpriteAnimationComponent>())
+            e["SpriteAnimation"] = { { "Columns", c->Columns }, { "Rows", c->Rows }, { "StartFrame", c->StartFrame },
+                                     { "FrameCount", c->FrameCount }, { "FPS", c->FPS }, { "Loop", c->Loop }, { "Playing", c->Playing } };
         if (auto* c = entity.TryGetComponent<CircleRendererComponent>())
             e["CircleRenderer"] = { { "Color", ToJson(c->Color) }, { "Thickness", c->Thickness }, { "Fade", c->Fade }, { "SortingOrder", c->SortingOrder } };
         if (auto* c = entity.TryGetComponent<TextComponent>())
@@ -135,6 +160,18 @@ namespace Zamin {
             e["CircleCollider2D"] = { { "Offset", ToJson(c->Offset) }, { "Radius", c->Radius }, { "Density", c->Density },
                                       { "Friction", c->Friction }, { "Restitution", c->Restitution },
                                       { "RestitutionThreshold", c->RestitutionThreshold }, { "IsSensor", c->IsSensor } };
+        if (auto* c = entity.TryGetComponent<Rigidbody3DComponent>())
+            e["Rigidbody3D"] = { { "BodyType", BodyType3DToString(c->Type) }, { "Mass", c->Mass }, { "LinearDamping", c->LinearDamping },
+                                 { "AngularDamping", c->AngularDamping }, { "GravityFactor", c->GravityFactor }, { "LockRotation", c->LockRotation } };
+        if (auto* c = entity.TryGetComponent<BoxCollider3DComponent>())
+            e["BoxCollider3D"] = { { "HalfExtents", ToJson(c->HalfExtents) }, { "Offset", ToJson(c->Offset) }, { "Friction", c->Friction },
+                                   { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
+        if (auto* c = entity.TryGetComponent<SphereCollider3DComponent>())
+            e["SphereCollider3D"] = { { "Radius", c->Radius }, { "Offset", ToJson(c->Offset) }, { "Friction", c->Friction },
+                                      { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
+        if (auto* c = entity.TryGetComponent<CapsuleCollider3DComponent>())
+            e["CapsuleCollider3D"] = { { "Radius", c->Radius }, { "HalfHeight", c->HalfHeight }, { "Offset", ToJson(c->Offset) },
+                                       { "Friction", c->Friction }, { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
         if (auto* c = entity.TryGetComponent<AudioSourceComponent>())
             e["AudioSource"] = { { "Path", c->Path }, { "Volume", c->Volume }, { "Pitch", c->Pitch }, { "Loop", c->Loop }, { "PlayOnStart", c->PlayOnStart } };
         if (auto* c = entity.TryGetComponent<NativeScriptComponent>())
@@ -147,6 +184,199 @@ namespace Zamin {
         return e;
     }
 
+    static void DeserializeEntityComponents(const json& e, Entity entity)
+    {
+        if (e.contains("Transform"))
+        {
+            const json& j = e["Transform"];
+            auto& t = entity.GetComponent<TransformComponent>();
+            t.Translation = Vec(j, "Translation", glm::vec3(0.0f));
+            t.Rotation = Vec(j, "Rotation", glm::vec3(0.0f));
+            t.Scale = Vec(j, "Scale", glm::vec3(1.0f));
+        }
+        if (e.contains("Camera"))
+        {
+            const json& j = e["Camera"];
+            auto& c = entity.AddComponent<CameraComponent>();
+            c.Camera.SetPerspectiveVerticalFOV(j.value("PerspectiveFOV", 0.7854f));
+            c.Camera.SetPerspectiveNearClip(j.value("PerspectiveNear", 0.1f));
+            c.Camera.SetPerspectiveFarClip(j.value("PerspectiveFar", 1000.0f));
+            c.Camera.SetOrthographicSize(j.value("OrthographicSize", 10.0f));
+            c.Camera.SetOrthographicNearClip(j.value("OrthographicNear", -100.0f));
+            c.Camera.SetOrthographicFarClip(j.value("OrthographicFar", 100.0f));
+            c.Camera.SetProjectionType((SceneCamera::ProjectionType)j.value("ProjectionType", 0));
+            c.Primary = j.value("Primary", true);
+            c.FixedAspectRatio = j.value("FixedAspectRatio", false);
+            c.ClearColor = Vec(j, "ClearColor", c.ClearColor);
+        }
+        if (e.contains("SpriteRenderer"))
+        {
+            const json& j = e["SpriteRenderer"];
+            auto& c = entity.AddComponent<SpriteRendererComponent>();
+            c.Color = Vec(j, "Color", glm::vec4(1.0f));
+            c.TexturePath = j.value("Texture", "");
+            c.TilingFactor = j.value("Tiling", 1.0f);
+            c.SortingOrder = j.value("SortingOrder", 0);
+            c.PixelArt = j.value("PixelArt", false);
+            c.FlipX = j.value("FlipX", false);
+            c.FlipY = j.value("FlipY", false);
+        }
+        if (e.contains("SpriteAnimation"))
+        {
+            const json& j = e["SpriteAnimation"];
+            auto& c = entity.AddComponent<SpriteAnimationComponent>();
+            c.Columns = j.value("Columns", 4);
+            c.Rows = j.value("Rows", 1);
+            c.StartFrame = j.value("StartFrame", 0);
+            c.FrameCount = j.value("FrameCount", 4);
+            c.FPS = j.value("FPS", 10.0f);
+            c.Loop = j.value("Loop", true);
+            c.Playing = j.value("Playing", true);
+        }
+        if (e.contains("CircleRenderer"))
+        {
+            const json& j = e["CircleRenderer"];
+            auto& c = entity.AddComponent<CircleRendererComponent>();
+            c.Color = Vec(j, "Color", glm::vec4(1.0f));
+            c.Thickness = j.value("Thickness", 1.0f);
+            c.Fade = j.value("Fade", 0.005f);
+            c.SortingOrder = j.value("SortingOrder", 0);
+        }
+        if (e.contains("Text"))
+        {
+            const json& j = e["Text"];
+            auto& c = entity.AddComponent<TextComponent>();
+            c.Text = j.value("Text", "");
+            c.Color = Vec(j, "Color", glm::vec4(1.0f));
+            c.Kerning = j.value("Kerning", 0.0f);
+            c.LineSpacing = j.value("LineSpacing", 0.0f);
+            c.Centered = j.value("Centered", false);
+            c.FontPath = j.value("Font", "");
+        }
+        if (e.contains("MeshRenderer"))
+        {
+            const json& j = e["MeshRenderer"];
+            auto& c = entity.AddComponent<MeshRendererComponent>();
+            c.Type = PrimitiveMeshFromString(j.value("Mesh", "Cube"));
+            c.ModelPath = j.value("Model", "");
+            c.CastShadows = j.value("CastShadows", true);
+            c.Mat.Albedo = Vec(j, "Albedo", glm::vec4(1.0f));
+            c.AlbedoPath = j.value("AlbedoMap", "");
+            c.Mat.Tiling = j.value("Tiling", 1.0f);
+            c.Mat.Metallic = j.value("Metallic", 0.0f);
+            c.Mat.Roughness = j.value("Roughness", 0.5f);
+            c.Mat.Emission = Vec(j, "Emission", glm::vec3(0.0f));
+            c.Mat.EmissionStrength = j.value("EmissionStrength", 0.0f);
+        }
+        if (e.contains("DirectionalLight"))
+        {
+            const json& j = e["DirectionalLight"];
+            auto& c = entity.AddComponent<DirectionalLightComponent>();
+            c.Color = Vec(j, "Color", c.Color);
+            c.Intensity = j.value("Intensity", c.Intensity);
+            c.CastShadows = j.value("CastShadows", true);
+        }
+        if (e.contains("PointLight"))
+        {
+            const json& j = e["PointLight"];
+            auto& c = entity.AddComponent<PointLightComponent>();
+            c.Color = Vec(j, "Color", c.Color);
+            c.Intensity = j.value("Intensity", c.Intensity);
+            c.Radius = j.value("Radius", c.Radius);
+        }
+        if (e.contains("Rigidbody2D"))
+        {
+            const json& j = e["Rigidbody2D"];
+            auto& c = entity.AddComponent<Rigidbody2DComponent>();
+            c.Type = BodyTypeFromString(j.value("BodyType", "Static"));
+            c.FixedRotation = j.value("FixedRotation", false);
+            c.GravityScale = j.value("GravityScale", 1.0f);
+            c.LinearDamping = j.value("LinearDamping", 0.0f);
+            c.AngularDamping = j.value("AngularDamping", 0.01f);
+            c.Bullet = j.value("Bullet", false);
+        }
+        auto readCollider = [](const json& j, auto& c) {
+            c.Offset = Vec(j, "Offset", glm::vec2(0.0f));
+            c.Density = j.value("Density", 1.0f);
+            c.Friction = j.value("Friction", 0.5f);
+            c.Restitution = j.value("Restitution", 0.0f);
+            c.RestitutionThreshold = j.value("RestitutionThreshold", 0.5f);
+            c.IsSensor = j.value("IsSensor", false);
+        };
+        if (e.contains("BoxCollider2D"))
+        {
+            auto& c = entity.AddComponent<BoxCollider2DComponent>();
+            readCollider(e["BoxCollider2D"], c);
+            c.Size = Vec(e["BoxCollider2D"], "Size", glm::vec2(0.5f));
+        }
+        if (e.contains("CircleCollider2D"))
+        {
+            auto& c = entity.AddComponent<CircleCollider2DComponent>();
+            readCollider(e["CircleCollider2D"], c);
+            c.Radius = e["CircleCollider2D"].value("Radius", 0.5f);
+        }
+        if (e.contains("Rigidbody3D"))
+        {
+            const json& j = e["Rigidbody3D"];
+            auto& c = entity.AddComponent<Rigidbody3DComponent>();
+            c.Type = BodyType3DFromString(j.value("BodyType", "Dynamic"));
+            c.Mass = j.value("Mass", 1.0f);
+            c.LinearDamping = j.value("LinearDamping", 0.05f);
+            c.AngularDamping = j.value("AngularDamping", 0.05f);
+            c.GravityFactor = j.value("GravityFactor", 1.0f);
+            c.LockRotation = j.value("LockRotation", false);
+        }
+        auto read3D = [](const json& j, auto& c) {
+            c.Offset = Vec(j, "Offset", glm::vec3(0.0f));
+            c.Friction = j.value("Friction", 0.5f);
+            c.Restitution = j.value("Restitution", 0.0f);
+            c.IsSensor = j.value("IsSensor", false);
+        };
+        if (e.contains("BoxCollider3D"))
+        {
+            auto& c = entity.AddComponent<BoxCollider3DComponent>();
+            read3D(e["BoxCollider3D"], c);
+            c.HalfExtents = Vec(e["BoxCollider3D"], "HalfExtents", glm::vec3(0.5f));
+        }
+        if (e.contains("SphereCollider3D"))
+        {
+            auto& c = entity.AddComponent<SphereCollider3DComponent>();
+            read3D(e["SphereCollider3D"], c);
+            c.Radius = e["SphereCollider3D"].value("Radius", 0.5f);
+        }
+        if (e.contains("CapsuleCollider3D"))
+        {
+            auto& c = entity.AddComponent<CapsuleCollider3DComponent>();
+            read3D(e["CapsuleCollider3D"], c);
+            c.Radius = e["CapsuleCollider3D"].value("Radius", 0.5f);
+            c.HalfHeight = e["CapsuleCollider3D"].value("HalfHeight", 0.5f);
+        }
+        if (e.contains("AudioSource"))
+        {
+            const json& j = e["AudioSource"];
+            auto& c = entity.AddComponent<AudioSourceComponent>();
+            c.Path = j.value("Path", "");
+            c.Volume = j.value("Volume", 1.0f);
+            c.Pitch = j.value("Pitch", 1.0f);
+            c.Loop = j.value("Loop", false);
+            c.PlayOnStart = j.value("PlayOnStart", true);
+        }
+        if (e.contains("NativeScript"))
+        {
+            const json& j = e["NativeScript"];
+            auto& c = entity.AddComponent<NativeScriptComponent>();
+            c.ClassName = j.value("Class", "");
+            if (j.contains("Fields") && j["Fields"].is_object())
+                for (auto it = j["Fields"].begin(); it != j["Fields"].end(); ++it)
+                {
+                    ScriptFieldValue v;
+                    if (DeserializeFieldValue(it.value(), v))
+                        c.Fields[it.key()] = v;
+                }
+        }
+        
+    }
+
     std::string SceneSerializer::SerializeToString()
     {
         const auto& s = m_Scene->GetSettings();
@@ -156,18 +386,12 @@ namespace Zamin {
         root["Settings"] = {
             { "DrawSky", s.DrawSky }, { "SkyTop", ToJson(s.SkyTopColor) }, { "SkyHorizon", ToJson(s.SkyHorizonColor) },
             { "Ground", ToJson(s.GroundColor) }, { "Ambient", s.AmbientIntensity }, { "Exposure", s.Exposure },
-            { "ShadowDistance", s.ShadowDistance }, { "Gravity", ToJson(s.Gravity) },
+            { "ShadowDistance", s.ShadowDistance }, { "Gravity", ToJson(s.Gravity) }, { "Gravity3D", ToJson(s.Gravity3D) },
         };
 
-        // Keep creation order for stable diffs.
-        std::vector<entt::entity> ordered;
-        for (auto e : m_Scene->m_Registry.view<IDComponent>())
-            ordered.push_back(e);
-        std::reverse(ordered.begin(), ordered.end());
-
         json entities = json::array();
-        for (auto e : ordered)
-            entities.push_back(SerializeEntity({ e, m_Scene.get() }));
+        for (Entity e : m_Scene->GetEntitiesInOrder()) // creation order => stable diffs
+            entities.push_back(SerializeEntity(e));
         root["Entities"] = entities;
         return root.dump(2);
     }
@@ -221,150 +445,24 @@ namespace Zamin {
                 s.Exposure = j.value("Exposure", s.Exposure);
                 s.ShadowDistance = j.value("ShadowDistance", s.ShadowDistance);
                 s.Gravity = Vec(j, "Gravity", s.Gravity);
+                s.Gravity3D = Vec(j, "Gravity3D", s.Gravity3D);
             }
 
+            std::vector<std::pair<Entity, uint64_t>> parents;
             for (const json& e : root.value("Entities", json::array()))
             {
                 uint64_t uuid = e.value("Entity", (uint64_t)0);
                 Entity entity = m_Scene->CreateEntityWithUUID(uuid ? UUID(uuid) : UUID(), e.value("Tag", "Entity"));
-
-                if (e.contains("Transform"))
-                {
-                    const json& j = e["Transform"];
-                    auto& t = entity.GetComponent<TransformComponent>();
-                    t.Translation = Vec(j, "Translation", glm::vec3(0.0f));
-                    t.Rotation = Vec(j, "Rotation", glm::vec3(0.0f));
-                    t.Scale = Vec(j, "Scale", glm::vec3(1.0f));
-                }
-                if (e.contains("Camera"))
-                {
-                    const json& j = e["Camera"];
-                    auto& c = entity.AddComponent<CameraComponent>();
-                    c.Camera.SetPerspectiveVerticalFOV(j.value("PerspectiveFOV", 0.7854f));
-                    c.Camera.SetPerspectiveNearClip(j.value("PerspectiveNear", 0.1f));
-                    c.Camera.SetPerspectiveFarClip(j.value("PerspectiveFar", 1000.0f));
-                    c.Camera.SetOrthographicSize(j.value("OrthographicSize", 10.0f));
-                    c.Camera.SetOrthographicNearClip(j.value("OrthographicNear", -100.0f));
-                    c.Camera.SetOrthographicFarClip(j.value("OrthographicFar", 100.0f));
-                    c.Camera.SetProjectionType((SceneCamera::ProjectionType)j.value("ProjectionType", 0));
-                    c.Primary = j.value("Primary", true);
-                    c.FixedAspectRatio = j.value("FixedAspectRatio", false);
-                    c.ClearColor = Vec(j, "ClearColor", c.ClearColor);
-                }
-                if (e.contains("SpriteRenderer"))
-                {
-                    const json& j = e["SpriteRenderer"];
-                    auto& c = entity.AddComponent<SpriteRendererComponent>();
-                    c.Color = Vec(j, "Color", glm::vec4(1.0f));
-                    c.TexturePath = j.value("Texture", "");
-                    c.TilingFactor = j.value("Tiling", 1.0f);
-                    c.SortingOrder = j.value("SortingOrder", 0);
-                }
-                if (e.contains("CircleRenderer"))
-                {
-                    const json& j = e["CircleRenderer"];
-                    auto& c = entity.AddComponent<CircleRendererComponent>();
-                    c.Color = Vec(j, "Color", glm::vec4(1.0f));
-                    c.Thickness = j.value("Thickness", 1.0f);
-                    c.Fade = j.value("Fade", 0.005f);
-                    c.SortingOrder = j.value("SortingOrder", 0);
-                }
-                if (e.contains("Text"))
-                {
-                    const json& j = e["Text"];
-                    auto& c = entity.AddComponent<TextComponent>();
-                    c.Text = j.value("Text", "");
-                    c.Color = Vec(j, "Color", glm::vec4(1.0f));
-                    c.Kerning = j.value("Kerning", 0.0f);
-                    c.LineSpacing = j.value("LineSpacing", 0.0f);
-                    c.Centered = j.value("Centered", false);
-                    c.FontPath = j.value("Font", "");
-                }
-                if (e.contains("MeshRenderer"))
-                {
-                    const json& j = e["MeshRenderer"];
-                    auto& c = entity.AddComponent<MeshRendererComponent>();
-                    c.Type = PrimitiveMeshFromString(j.value("Mesh", "Cube"));
-                    c.ModelPath = j.value("Model", "");
-                    c.CastShadows = j.value("CastShadows", true);
-                    c.Mat.Albedo = Vec(j, "Albedo", glm::vec4(1.0f));
-                    c.AlbedoPath = j.value("AlbedoMap", "");
-                    c.Mat.Tiling = j.value("Tiling", 1.0f);
-                    c.Mat.Metallic = j.value("Metallic", 0.0f);
-                    c.Mat.Roughness = j.value("Roughness", 0.5f);
-                    c.Mat.Emission = Vec(j, "Emission", glm::vec3(0.0f));
-                    c.Mat.EmissionStrength = j.value("EmissionStrength", 0.0f);
-                }
-                if (e.contains("DirectionalLight"))
-                {
-                    const json& j = e["DirectionalLight"];
-                    auto& c = entity.AddComponent<DirectionalLightComponent>();
-                    c.Color = Vec(j, "Color", c.Color);
-                    c.Intensity = j.value("Intensity", c.Intensity);
-                    c.CastShadows = j.value("CastShadows", true);
-                }
-                if (e.contains("PointLight"))
-                {
-                    const json& j = e["PointLight"];
-                    auto& c = entity.AddComponent<PointLightComponent>();
-                    c.Color = Vec(j, "Color", c.Color);
-                    c.Intensity = j.value("Intensity", c.Intensity);
-                    c.Radius = j.value("Radius", c.Radius);
-                }
-                if (e.contains("Rigidbody2D"))
-                {
-                    const json& j = e["Rigidbody2D"];
-                    auto& c = entity.AddComponent<Rigidbody2DComponent>();
-                    c.Type = BodyTypeFromString(j.value("BodyType", "Static"));
-                    c.FixedRotation = j.value("FixedRotation", false);
-                    c.GravityScale = j.value("GravityScale", 1.0f);
-                    c.LinearDamping = j.value("LinearDamping", 0.0f);
-                    c.AngularDamping = j.value("AngularDamping", 0.01f);
-                    c.Bullet = j.value("Bullet", false);
-                }
-                auto readCollider = [](const json& j, auto& c) {
-                    c.Offset = Vec(j, "Offset", glm::vec2(0.0f));
-                    c.Density = j.value("Density", 1.0f);
-                    c.Friction = j.value("Friction", 0.5f);
-                    c.Restitution = j.value("Restitution", 0.0f);
-                    c.RestitutionThreshold = j.value("RestitutionThreshold", 0.5f);
-                    c.IsSensor = j.value("IsSensor", false);
-                };
-                if (e.contains("BoxCollider2D"))
-                {
-                    auto& c = entity.AddComponent<BoxCollider2DComponent>();
-                    readCollider(e["BoxCollider2D"], c);
-                    c.Size = Vec(e["BoxCollider2D"], "Size", glm::vec2(0.5f));
-                }
-                if (e.contains("CircleCollider2D"))
-                {
-                    auto& c = entity.AddComponent<CircleCollider2DComponent>();
-                    readCollider(e["CircleCollider2D"], c);
-                    c.Radius = e["CircleCollider2D"].value("Radius", 0.5f);
-                }
-                if (e.contains("AudioSource"))
-                {
-                    const json& j = e["AudioSource"];
-                    auto& c = entity.AddComponent<AudioSourceComponent>();
-                    c.Path = j.value("Path", "");
-                    c.Volume = j.value("Volume", 1.0f);
-                    c.Pitch = j.value("Pitch", 1.0f);
-                    c.Loop = j.value("Loop", false);
-                    c.PlayOnStart = j.value("PlayOnStart", true);
-                }
-                if (e.contains("NativeScript"))
-                {
-                    const json& j = e["NativeScript"];
-                    auto& c = entity.AddComponent<NativeScriptComponent>();
-                    c.ClassName = j.value("Class", "");
-                    if (j.contains("Fields") && j["Fields"].is_object())
-                        for (auto it = j["Fields"].begin(); it != j["Fields"].end(); ++it)
-                        {
-                            ScriptFieldValue v;
-                            if (DeserializeFieldValue(it.value(), v))
-                                c.Fields[it.key()] = v;
-                        }
-                }
+                DeserializeEntityComponents(e, entity);
+                parents.emplace_back(entity, e.value("Parent", (uint64_t)0));
+            }
+            for (auto& [entity, parent] : parents)
+            {
+                if (!parent) continue;
+                Entity p = m_Scene->GetEntityByUUID(parent);
+                if (!p) continue;
+                entity.GetComponent<RelationshipComponent>().Parent = parent;
+                p.GetComponent<RelationshipComponent>().Children.push_back(entity.GetUUID());
             }
         }
         catch (const std::exception& ex)
@@ -373,6 +471,73 @@ namespace Zamin {
             return false;
         }
         return true;
+    }
+
+}
+
+namespace Zamin {
+
+    std::string SceneSerializer::SerializeEntities(Scene& scene, const std::vector<Entity>& entities)
+    {
+        std::unordered_map<uint64_t, bool> inSet;
+        for (Entity e : entities) inSet[(uint64_t)e.GetUUID()] = true;
+        json list = json::array();
+        for (Entity e : entities)
+        {
+            json j = SerializeEntity(e, true);
+            if (j.contains("Parent") && !inSet.count(j["Parent"].get<uint64_t>()))
+                j.erase("Parent");
+            list.push_back(j);
+        }
+        json root;
+        root["ZaminEntities"] = 1;
+        root["Entities"] = list;
+        return root.dump(2);
+    }
+
+    std::vector<Entity> SceneSerializer::DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs)
+    {
+        std::vector<Entity> created;
+        json root;
+        try { root = json::parse(text); }
+        catch (...) { return created; }
+        if (!root.contains("Entities") || !root["Entities"].is_array())
+            return created;
+
+        try
+        {
+            std::unordered_map<uint64_t, UUID> remap;
+            std::vector<std::pair<Entity, uint64_t>> parents;
+            for (const json& e : root["Entities"])
+            {
+                uint64_t old = e.value("Entity", (uint64_t)0);
+                UUID id = generateNewUUIDs || !old || scene.GetEntityByUUID(old) ? UUID() : UUID(old);
+                remap[old] = id;
+                Entity entity = scene.CreateEntityWithUUID(id, e.value("Tag", "Entity"));
+                DeserializeEntityComponents(e, entity);
+                parents.emplace_back(entity, e.value("Parent", (uint64_t)0));
+                created.push_back(entity);
+            }
+            for (auto& [entity, oldParent] : parents)
+            {
+                if (!oldParent) continue;
+                auto it = remap.find(oldParent);
+                if (it == remap.end()) continue;
+                Entity p = scene.GetEntityByUUID(it->second);
+                if (!p) continue;
+                entity.GetComponent<RelationshipComponent>().Parent = p.GetUUID();
+                p.GetComponent<RelationshipComponent>().Children.push_back(entity.GetUUID());
+            }
+        }
+        catch (const std::exception& ex)
+        {
+            ZM_CORE_ERROR("Entity ma'lumotlari xato: {}", ex.what());
+        }
+        // Roots first
+        std::stable_partition(created.begin(), created.end(), [](Entity e) {
+            return !(uint64_t)e.GetComponent<RelationshipComponent>().Parent;
+        });
+        return created;
     }
 
 }

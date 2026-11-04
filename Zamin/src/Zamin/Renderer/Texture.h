@@ -50,7 +50,7 @@ namespace Zamin {
     class TextureLibrary
     {
     public:
-        static Ref<Texture2D> Load(const std::filesystem::path& path);
+        static Ref<Texture2D> Load(const std::filesystem::path& path, TextureFilter filter = TextureFilter::Linear);
         static void Clear();
     };
 

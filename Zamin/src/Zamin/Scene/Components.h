@@ -17,6 +17,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace Zamin {
 
@@ -34,6 +35,13 @@ namespace Zamin {
         std::string Tag;
         TagComponent() = default;
         TagComponent(const std::string& tag) : Tag(tag) {}
+    };
+
+    // Parent/child hierarchy. Transform of a child is relative to its parent.
+    struct RelationshipComponent
+    {
+        UUID Parent = 0;              // 0 = root
+        std::vector<UUID> Children;
     };
 
     struct TransformComponent
@@ -64,9 +72,43 @@ namespace Zamin {
         std::string TexturePath; // relative to project assets
         float TilingFactor = 1.0f;
         int SortingOrder = 0;
+        bool PixelArt = false;   // nearest filtering (crisp pixels)
+        bool FlipX = false;
+        bool FlipY = false;
 
         SpriteRendererComponent() = default;
         SpriteRendererComponent(const glm::vec4& color) : Color(color) {}
+    };
+
+    // Plays frames from a sprite sheet (grid) on the SpriteRenderer texture.
+    struct SpriteAnimationComponent
+    {
+        int Columns = 4;
+        int Rows = 1;
+        int StartFrame = 0;
+        int FrameCount = 4;
+        float FPS = 10.0f;
+        bool Loop = true;
+        bool Playing = true;
+
+        // runtime
+        float Time = 0.0f;
+
+        void Play(int startFrame, int frameCount, float fps = 10.0f, bool loop = true)
+        {
+            if (StartFrame == startFrame && FrameCount == frameCount && Playing) return;
+            StartFrame = startFrame; FrameCount = frameCount; FPS = fps; Loop = loop; Playing = true; Time = 0.0f;
+        }
+
+        int GetCurrentFrame() const
+        {
+            int count = FrameCount > 0 ? FrameCount : 1;
+            int f = (int)(Time * FPS);
+            f = Loop ? f % count : (f < count ? f : count - 1);
+            return StartFrame + f;
+        }
+
+        bool IsFinished() const { return !Loop && (int)(Time * FPS) >= FrameCount; }
     };
 
     struct CircleRendererComponent
@@ -162,6 +204,48 @@ namespace Zamin {
         void* RuntimeFixture = nullptr;
     };
 
+    // ------------------------------------------------------------------ physics 3D (Jolt)
+    struct Rigidbody3DComponent
+    {
+        enum class BodyType { Static = 0, Dynamic, Kinematic };
+        BodyType Type = BodyType::Dynamic;
+        float Mass = 1.0f;
+        float LinearDamping = 0.05f;
+        float AngularDamping = 0.05f;
+        float GravityFactor = 1.0f;
+        bool LockRotation = false; // keep upright (characters)
+
+        uint32_t RuntimeBodyID = 0xffffffff; // JPH::BodyID
+    };
+
+    struct BoxCollider3DComponent
+    {
+        glm::vec3 HalfExtents = { 0.5f, 0.5f, 0.5f }; // multiplied by transform scale
+        glm::vec3 Offset = { 0.0f, 0.0f, 0.0f };
+        float Friction = 0.5f;
+        float Restitution = 0.0f;
+        bool IsSensor = false;
+    };
+
+    struct SphereCollider3DComponent
+    {
+        float Radius = 0.5f;
+        glm::vec3 Offset = { 0.0f, 0.0f, 0.0f };
+        float Friction = 0.5f;
+        float Restitution = 0.0f;
+        bool IsSensor = false;
+    };
+
+    struct CapsuleCollider3DComponent
+    {
+        float Radius = 0.5f;
+        float HalfHeight = 0.5f; // cylinder part, along Y
+        glm::vec3 Offset = { 0.0f, 0.0f, 0.0f };
+        float Friction = 0.5f;
+        float Restitution = 0.0f;
+        bool IsSensor = false;
+    };
+
     // ------------------------------------------------------------------ audio
     struct AudioSourceComponent
     {
@@ -197,9 +281,10 @@ namespace Zamin {
     struct ComponentGroup {};
 
     // Every component that is copied/serialized with an entity (IDComponent & TagComponent are handled separately).
-    using AllComponents = ComponentGroup<TransformComponent, SpriteRendererComponent, CircleRendererComponent,
-        TextComponent, MeshRendererComponent, CameraComponent, DirectionalLightComponent, PointLightComponent,
-        Rigidbody2DComponent, BoxCollider2DComponent, CircleCollider2DComponent, AudioSourceComponent,
-        NativeScriptComponent>;
+    using AllComponents = ComponentGroup<RelationshipComponent, TransformComponent, SpriteRendererComponent,
+        SpriteAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, CameraComponent,
+        DirectionalLightComponent, PointLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
+        CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
+        CapsuleCollider3DComponent, AudioSourceComponent, NativeScriptComponent>;
 
 }

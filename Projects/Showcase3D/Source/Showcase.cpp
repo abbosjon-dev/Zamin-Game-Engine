@@ -97,3 +97,66 @@ private:
     float m_VelocityY = 0.0f;
 };
 ZM_REGISTER_SCRIPT(PlayerMover3D, ZM_FIELD(PlayerMover3D, Speed), ZM_FIELD(PlayerMover3D, JumpVelocity), ZM_FIELD(PlayerMover3D, Gravity))
+
+// Space yoki sichqonchaning chap tugmasi: kamera yo'nalishida shar otadi (prefab + 3D fizika).
+class BallShooter : public ScriptableEntity
+{
+public:
+    std::string Prefab = "Prefabs/Ball.zprefab";
+    float Speed = 18.0f;
+    float Cooldown = 0.25f;
+
+    void OnUpdate(Timestep ts) override
+    {
+        m_Timer -= ts;
+        bool fire = Input::IsKeyPressed(Key::Space) || Input::IsMouseButtonPressed(MouseButton::Left) ||
+                    Input::IsGamepadButtonPressed(GamepadButton::A);
+        if (fire && m_Timer <= 0.0f)
+        {
+            m_Timer = Cooldown;
+            glm::vec3 forward = Transform().GetForward();
+            Entity ball = Instantiate(Prefab, GetWorldPosition() + forward * 1.5f);
+            SetVelocity3D(ball, forward * Speed);
+        }
+    }
+private:
+    float m_Timer = 0.0f;
+};
+ZM_REGISTER_SCRIPT(BallShooter, ZM_FIELD(BallShooter, Prefab), ZM_FIELD(BallShooter, Speed), ZM_FIELD(BallShooter, Cooldown))
+
+// Obyektni N soniyadan keyin o'chiradi (otilgan sharlar uchun).
+class Lifetime : public ScriptableEntity
+{
+public:
+    float Seconds = 8.0f;
+    void OnUpdate(Timestep ts) override
+    {
+        Seconds -= ts;
+        if (Seconds <= 0.0f || Transform().Translation.y < -20.0f)
+            Destroy();
+    }
+};
+ZM_REGISTER_SCRIPT(Lifetime, ZM_FIELD(Lifetime, Seconds))
+
+// Kub minorasini yaratadi (3D fizika demo).
+class TowerBuilder : public ScriptableEntity
+{
+public:
+    int Levels = 5;
+    float Size = 0.9f;
+
+    void OnCreate() override
+    {
+        Entity brick = FindEntity("Brick");
+        if (!brick) return;
+        glm::vec3 base = GetWorldPosition();
+        for (int level = 0; level < Levels; level++)
+            for (int i = 0; i < Levels - level; i++)
+            {
+                glm::vec3 p = base + glm::vec3((i - (Levels - level - 1) * 0.5f) * Size * 1.02f, 0.5f * Size + level * Size, 0.0f);
+                Instantiate(brick, p);
+            }
+        Destroy(brick); // template is not needed anymore
+    }
+};
+ZM_REGISTER_SCRIPT(TowerBuilder, ZM_FIELD(TowerBuilder, Levels), ZM_FIELD(TowerBuilder, Size))

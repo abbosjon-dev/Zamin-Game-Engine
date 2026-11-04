@@ -21,6 +21,19 @@ namespace Zamin {
         LeftShift = 340, LeftControl, LeftAlt, LeftSuper, RightShift, RightControl, RightAlt, RightSuper, Menu
     };
 
+    // Values match GLFW gamepad (SDL mapping) codes.
+    enum class GamepadButton : uint8_t
+    {
+        A = 0, B, X, Y, LeftBumper, RightBumper, Back, Start, Guide, LeftThumb, RightThumb,
+        DPadUp, DPadRight, DPadDown, DPadLeft,
+        Cross = A, Circle = B, Square = X, Triangle = Y
+    };
+
+    enum class GamepadAxis : uint8_t
+    {
+        LeftX = 0, LeftY, RightX, RightY, LeftTrigger, RightTrigger
+    };
+
     enum class MouseButton : uint8_t
     {
         Left = 0, Right = 1, Middle = 2, Button3, Button4, Button5, Button6, Button7

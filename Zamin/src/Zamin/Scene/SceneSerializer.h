@@ -4,10 +4,13 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace Zamin {
 
     // Scenes are stored as human-readable JSON (*.zscene).
+    class Entity;
+
     class SceneSerializer
     {
     public:
@@ -18,6 +21,11 @@ namespace Zamin {
 
         std::string SerializeToString();
         bool DeserializeFromString(const std::string& text);
+
+        // Entity subsets (prefabs, copy/paste). Parents outside the set become roots.
+        static std::string SerializeEntities(Scene& scene, const std::vector<Entity>& entities);
+        // Returns created entities, roots first. generateNewUUIDs = true for prefabs/paste.
+        static std::vector<Entity> DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs);
 
     private:
         Ref<Scene> m_Scene;

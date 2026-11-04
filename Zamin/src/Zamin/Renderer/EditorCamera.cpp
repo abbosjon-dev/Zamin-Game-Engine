@@ -31,11 +31,20 @@ namespace Zamin {
     void EditorCamera::UpdateProjection()
     {
         m_AspectRatio = m_ViewportWidth / m_ViewportHeight;
-        m_Projection = glm::perspective(glm::radians(m_FOV), m_AspectRatio, m_NearClip, m_FarClip);
+        if (m_Orthographic)
+        {
+            float h = m_Distance * std::tan(glm::radians(m_FOV) * 0.5f);
+            float w = h * m_AspectRatio;
+            m_Projection = glm::ortho(-w, w, -h, h, -m_FarClip, m_FarClip);
+        }
+        else
+            m_Projection = glm::perspective(glm::radians(m_FOV), m_AspectRatio, m_NearClip, m_FarClip);
     }
 
     void EditorCamera::UpdateView()
     {
+        if (m_Orthographic)
+            UpdateProjection(); // zoom changes the ortho size
         m_Position = CalculatePosition();
         glm::quat orientation = GetOrientation();
         m_ViewMatrix = glm::translate(glm::mat4(1.0f), m_Position) * glm::toMat4(orientation);
@@ -91,7 +100,14 @@ namespace Zamin {
             return;
         }
 
-        if (alt)
+        if (m_Orthographic)
+        {
+            // 2D: any drag pans, Alt+RMB zooms
+            if (alt && rmb) MouseZoom(delta.y);
+            else MousePan(delta);
+            m_Flying = false;
+        }
+        else if (alt)
         {
             if (Input::IsMouseButtonPressed(MouseButton::Left))        MouseRotate(delta);
             else if (Input::IsMouseButtonPressed(MouseButton::Middle)) MousePan(delta);
@@ -131,7 +147,7 @@ namespace Zamin {
     {
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<MouseScrolledEvent>([this](MouseScrolledEvent& ev) {
-            if (m_Flying)
+            if (m_Flying && !m_Orthographic)
             {
                 FlySpeed = std::clamp(FlySpeed * (ev.GetYOffset() > 0 ? 1.2f : 1.0f / 1.2f), 0.5f, 200.0f);
             }

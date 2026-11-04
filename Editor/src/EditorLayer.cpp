@@ -60,6 +60,8 @@ namespace Zamin {
 
         m_SceneHierarchyPanel.OnFocusRequested = [this](Entity e) { FocusEntity(e); };
         m_SceneHierarchyPanel.OnSceneModified = [this]() { MarkDirty(); };
+        m_SceneHierarchyPanel.OnSavePrefabRequested = [this](Entity e) { SavePrefab(e); };
+        m_SceneHierarchyPanel.OnPrefabDropped = [this](const fs::path& p, Entity parent) { InstantiatePrefabInEditor(p, parent); };
         m_ContentBrowserPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
         m_ContentBrowserPanel.OnCreateScript = [this](const std::string& name) { CreateScriptClass(name); };
         m_ContentBrowserPanel.OnNewScene = [this](const fs::path& p) {
@@ -178,6 +180,13 @@ namespace Zamin {
                 break;
         }
 
+        if (m_SceneState == SceneState::Play && !m_ActiveScene->GetPendingSceneLoad().empty())
+        {
+            fs::path next = Project::GetAssetFileSystemPath(m_ActiveScene->GetPendingSceneLoad());
+            m_ActiveScene->ClearPendingSceneLoad();
+            LoadRuntimeScene(next);
+        }
+
         OnOverlayRender();
 
         // Mouse picking
@@ -200,43 +209,114 @@ namespace Zamin {
         m_Framebuffer->Unbind();
     }
 
-    void EditorLayer::OnOverlayRender()
+    glm::mat4 EditorLayer::OverlayViewProjection()
     {
-        glm::mat4 viewProj;
         if (m_SceneState == SceneState::Play)
         {
             Entity camera = m_ActiveScene->GetPrimaryCameraEntity();
-            if (!camera) return;
-            viewProj = camera.GetComponent<CameraComponent>().Camera.GetProjection() *
-                       glm::inverse(camera.GetComponent<TransformComponent>().GetTransform());
+            if (!camera) return glm::mat4(0.0f);
+            return camera.GetComponent<CameraComponent>().Camera.GetProjection() * glm::inverse(m_ActiveScene->GetWorldTransform(camera));
         }
-        else
-            viewProj = m_EditorCamera.GetViewProjection();
+        return m_EditorCamera.GetViewProjection();
+    }
+
+    static void DrawWireBox(const glm::mat4& transform, const glm::vec4& color)
+    {
+        glm::vec3 c[8];
+        for (int i = 0; i < 8; i++)
+            c[i] = glm::vec3(transform * glm::vec4((i & 1) ? 0.5f : -0.5f, (i & 2) ? 0.5f : -0.5f, (i & 4) ? 0.5f : -0.5f, 1.0f));
+        const int edges[12][2] = { {0,1},{2,3},{4,5},{6,7},{0,2},{1,3},{4,6},{5,7},{0,4},{1,5},{2,6},{3,7} };
+        for (auto& edge : edges)
+            Renderer2D::DrawLine(c[edge[0]], c[edge[1]], color);
+    }
+
+    static void DrawWireCircle(const glm::vec3& center, const glm::vec3& axisA, const glm::vec3& axisB, float radius, const glm::vec4& color)
+    {
+        const int segments = 40;
+        glm::vec3 prev = center + axisA * radius;
+        for (int i = 1; i <= segments; i++)
+        {
+            float t = glm::two_pi<float>() * i / segments;
+            glm::vec3 p = center + (axisA * std::cos(t) + axisB * std::sin(t)) * radius;
+            Renderer2D::DrawLine(prev, p, color);
+            prev = p;
+        }
+    }
+
+    void EditorLayer::OnOverlayRender()
+    {
+        glm::mat4 viewProj = OverlayViewProjection();
+        if (viewProj == glm::mat4(0.0f))
+            return;
 
         RenderCommand::SetDepthTest(false);
         Renderer2D::BeginScene(viewProj);
+        Scene& scene = *m_ActiveScene;
 
         if (m_ShowColliders)
         {
-            const glm::vec4 green(0.3f, 0.95f, 0.45f, 1.0f);
-            auto boxes = m_ActiveScene->GetAllEntitiesWith<TransformComponent, BoxCollider2DComponent>();
-            for (auto e : boxes)
+            const glm::vec4 green(0.3f, 0.95f, 0.45f, 1.0f), yellow(0.95f, 0.8f, 0.2f, 1.0f);
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, BoxCollider2DComponent>())
             {
-                auto [tc, bc] = boxes.get<TransformComponent, BoxCollider2DComponent>(e);
-                glm::mat4 transform = glm::translate(glm::mat4(1.0f), tc.Translation)
-                    * glm::rotate(glm::mat4(1.0f), tc.Rotation.z, glm::vec3(0, 0, 1))
+                Entity entity{ e, &scene };
+                auto& bc = entity.GetComponent<BoxCollider2DComponent>();
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+                glm::mat4 transform = glm::translate(glm::mat4(1.0f), p)
+                    * glm::rotate(glm::mat4(1.0f), r.z, glm::vec3(0, 0, 1))
                     * glm::translate(glm::mat4(1.0f), glm::vec3(bc.Offset, 0.001f))
-                    * glm::scale(glm::mat4(1.0f), glm::vec3(glm::vec2(tc.Scale) * bc.Size * 2.0f, 1.0f));
-                Renderer2D::DrawRect(transform, bc.IsSensor ? glm::vec4(0.95f, 0.8f, 0.2f, 1.0f) : green);
+                    * glm::scale(glm::mat4(1.0f), glm::vec3(glm::vec2(sc) * bc.Size * 2.0f, 1.0f));
+                Renderer2D::DrawRect(transform, bc.IsSensor ? yellow : green);
             }
-            auto circles = m_ActiveScene->GetAllEntitiesWith<TransformComponent, CircleCollider2DComponent>();
-            for (auto e : circles)
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, CircleCollider2DComponent>())
             {
-                auto [tc, cc] = circles.get<TransformComponent, CircleCollider2DComponent>(e);
-                glm::vec3 translation = tc.Translation + glm::vec3(cc.Offset, 0.001f);
-                float d = std::abs(tc.Scale.x) * cc.Radius * 2.0f;
-                glm::mat4 transform = glm::translate(glm::mat4(1.0f), translation) * glm::scale(glm::mat4(1.0f), glm::vec3(d, d, 1.0f));
-                Renderer2D::DrawCircle(transform, cc.IsSensor ? glm::vec4(0.95f, 0.8f, 0.2f, 1.0f) : green, 0.04f);
+                Entity entity{ e, &scene };
+                auto& cc = entity.GetComponent<CircleCollider2DComponent>();
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+                float d = std::abs(sc.x) * cc.Radius * 2.0f;
+                glm::mat4 transform = glm::translate(glm::mat4(1.0f), p + glm::vec3(cc.Offset, 0.001f)) * glm::scale(glm::mat4(1.0f), glm::vec3(d, d, 1.0f));
+                Renderer2D::DrawCircle(transform, cc.IsSensor ? yellow : green, 0.04f);
+            }
+
+            const glm::vec4 cyan(0.3f, 0.85f, 1.0f, 1.0f);
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, BoxCollider3DComponent>())
+            {
+                Entity entity{ e, &scene };
+                auto& c = entity.GetComponent<BoxCollider3DComponent>();
+                glm::mat4 t = scene.GetWorldTransform(entity) * glm::translate(glm::mat4(1.0f), c.Offset) * glm::scale(glm::mat4(1.0f), c.HalfExtents * 2.0f);
+                DrawWireBox(t, c.IsSensor ? yellow : cyan);
+            }
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, SphereCollider3DComponent>())
+            {
+                Entity entity{ e, &scene };
+                auto& c = entity.GetComponent<SphereCollider3DComponent>();
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+                float radius = c.Radius * std::max({ std::abs(sc.x), std::abs(sc.y), std::abs(sc.z) });
+                glm::vec3 center = p + glm::quat(r) * (c.Offset * sc);
+                DrawWireCircle(center, { 1, 0, 0 }, { 0, 1, 0 }, radius, c.IsSensor ? yellow : cyan);
+                DrawWireCircle(center, { 1, 0, 0 }, { 0, 0, 1 }, radius, c.IsSensor ? yellow : cyan);
+                DrawWireCircle(center, { 0, 1, 0 }, { 0, 0, 1 }, radius, c.IsSensor ? yellow : cyan);
+            }
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, CapsuleCollider3DComponent>())
+            {
+                Entity entity{ e, &scene };
+                auto& c = entity.GetComponent<CapsuleCollider3DComponent>();
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+                glm::quat q(r);
+                float radius = c.Radius * std::max(std::abs(sc.x), std::abs(sc.z));
+                float half = c.HalfHeight * std::abs(sc.y);
+                glm::vec3 center = p + q * (c.Offset * sc);
+                glm::vec3 up = q * glm::vec3(0, 1, 0), right = q * glm::vec3(1, 0, 0), fwd = q * glm::vec3(0, 0, 1);
+                glm::vec4 col = c.IsSensor ? yellow : cyan;
+                DrawWireCircle(center + up * half, right, fwd, radius, col);
+                DrawWireCircle(center - up * half, right, fwd, radius, col);
+                for (glm::vec3 side : { right, -right, fwd, -fwd })
+                    Renderer2D::DrawLine(center + up * half + side * radius, center - up * half + side * radius, col);
+                DrawWireCircle(center + up * half, right, up, radius, col);
+                DrawWireCircle(center - up * half, right, up, radius, col);
             }
         }
 
@@ -244,19 +324,12 @@ namespace Zamin {
         if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity(); selected && selected.IsValid())
         {
             const glm::vec4 orange(1.0f, 0.6f, 0.1f, 1.0f);
-            glm::mat4 transform = selected.GetComponent<TransformComponent>().GetTransform();
+            glm::mat4 transform = scene.GetWorldTransform(selected);
             if (auto* mr = selected.TryGetComponent<MeshRendererComponent>(); mr && mr->MeshAsset)
             {
                 const AABB& b = mr->MeshAsset->GetBounds();
-                glm::vec3 c[8];
-                for (int i = 0; i < 8; i++)
-                {
-                    glm::vec3 p = { (i & 1) ? b.Max.x : b.Min.x, (i & 2) ? b.Max.y : b.Min.y, (i & 4) ? b.Max.z : b.Min.z };
-                    c[i] = glm::vec3(transform * glm::vec4(p, 1.0f));
-                }
-                const int edges[12][2] = { {0,1},{2,3},{4,5},{6,7},{0,2},{1,3},{4,6},{5,7},{0,4},{1,5},{2,6},{3,7} };
-                for (auto& edge : edges)
-                    Renderer2D::DrawLine(c[edge[0]], c[edge[1]], orange);
+                glm::vec3 size = glm::max(b.Max - b.Min, glm::vec3(0.001f));
+                DrawWireBox(transform * glm::translate(glm::mat4(1.0f), (b.Min + b.Max) * 0.5f) * glm::scale(glm::mat4(1.0f), size), orange);
             }
             else if (selected.HasComponent<SpriteRendererComponent>() || selected.HasComponent<CircleRendererComponent>())
             {
@@ -273,6 +346,10 @@ namespace Zamin {
                     Renderer2D::DrawRect(box, orange);
                 }
             }
+            // children get a subtle outline too
+            for (UUID child : selected.GetComponent<RelationshipComponent>().Children)
+                if (Entity c = scene.GetEntityByUUID(child))
+                    Renderer2D::DrawLine(glm::vec3(transform[3]), scene.GetWorldPosition(c), glm::vec4(1.0f, 0.6f, 0.1f, 0.5f));
         }
 
         Renderer2D::EndScene();
@@ -441,6 +518,7 @@ namespace Zamin {
         SetActiveScene(m_EditorScene);
         m_EditorScenePath.clear();
         m_SceneDirty = false;
+        ResetUndoHistory();
         UpdateWindowTitle();
     }
 
@@ -472,6 +550,10 @@ namespace Zamin {
         SetActiveScene(m_EditorScene);
         m_EditorScenePath = path;
         m_SceneDirty = false;
+        ResetUndoHistory();
+        // Auto-detect 2D scenes (orthographic primary camera).
+        if (Entity cam = m_EditorScene->GetPrimaryCameraEntity())
+            Set2DMode(cam.GetComponent<CameraComponent>().Camera.GetProjectionType() == SceneCamera::ProjectionType::Orthographic);
         ZM_INFO("Sahna ochildi: {}", path.filename().string());
         UpdateWindowTitle();
         return true;
@@ -595,9 +677,29 @@ namespace Zamin {
     void EditorLayer::FocusEntity(Entity entity)
     {
         if (!entity) return;
-        auto& t = entity.GetComponent<TransformComponent>();
-        float size = std::max({ std::abs(t.Scale.x), std::abs(t.Scale.y), std::abs(t.Scale.z), 1.0f });
-        m_EditorCamera.Focus(t.Translation, size * 3.5f + 2.0f);
+        glm::vec3 p, r, sc;
+        Math::DecomposeTransform(m_ActiveScene->GetWorldTransform(entity), p, r, sc);
+        float size = std::max({ std::abs(sc.x), std::abs(sc.y), std::abs(sc.z), 1.0f });
+        m_EditorCamera.Focus(p, size * 3.5f + 2.0f);
+    }
+
+    void EditorLayer::Set2DMode(bool enabled)
+    {
+        m_2DMode = enabled;
+        m_EditorCamera.SetOrthographic(enabled);
+        if (enabled)
+        {
+            glm::vec3 focus = m_EditorCamera.GetFocalPoint();
+            if (Entity cam = m_ActiveScene->GetPrimaryCameraEntity())
+                focus = m_ActiveScene->GetWorldPosition(cam);
+            m_EditorCamera.SetOrientation(0.0f, 0.0f);
+            m_EditorCamera.Focus({ focus.x, focus.y, 0.0f }, 18.0f);
+        }
+        else
+        {
+            m_EditorCamera.SetOrientation(0.35f, -0.6f);
+            m_EditorCamera.Focus({ 0.0f, 0.5f, 0.0f }, 14.0f);
+        }
     }
 
     void EditorLayer::UpdateWindowTitle()
@@ -609,6 +711,143 @@ namespace Zamin {
             title += " - " + m_EditorScene->GetName() + (m_SceneDirty ? " *" : "");
         if (m_SceneState == SceneState::Play) title += "  [O'YIN]";
         Application::Get().GetWindow().SetTitle(title);
+    }
+
+    // ================================================================== undo / redo
+    std::string EditorLayer::TakeSnapshot() { return SceneSerializer(m_EditorScene).SerializeToString(); }
+
+    void EditorLayer::ResetUndoHistory()
+    {
+        m_UndoStack.clear();
+        m_RedoStack.clear();
+        m_PendingUndo = false;
+        m_LastSnapshot = m_EditorScene ? TakeSnapshot() : std::string();
+    }
+
+    void EditorLayer::CommitUndo()
+    {
+        if (!m_PendingUndo || m_SceneState != SceneState::Edit)
+            return;
+        m_PendingUndo = false;
+        std::string current = TakeSnapshot();
+        if (current == m_LastSnapshot)
+            return;
+        m_UndoStack.push_back(std::move(m_LastSnapshot));
+        if (m_UndoStack.size() > 100)
+            m_UndoStack.erase(m_UndoStack.begin());
+        m_RedoStack.clear();
+        m_LastSnapshot = std::move(current);
+    }
+
+    void EditorLayer::RestoreSnapshot(const std::string& snapshot)
+    {
+        Ref<Scene> scene = CreateRef<Scene>();
+        if (!SceneSerializer(scene).DeserializeFromString(snapshot))
+            return;
+        scene->ResolveAssets();
+        m_EditorScene = scene;
+        SetActiveScene(m_EditorScene);
+        m_SceneDirty = true;
+        UpdateWindowTitle();
+    }
+
+    void EditorLayer::Undo()
+    {
+        if (m_SceneState != SceneState::Edit) return;
+        CommitUndo();
+        if (m_UndoStack.empty()) return;
+        m_RedoStack.push_back(std::move(m_LastSnapshot));
+        m_LastSnapshot = std::move(m_UndoStack.back());
+        m_UndoStack.pop_back();
+        RestoreSnapshot(m_LastSnapshot);
+    }
+
+    void EditorLayer::Redo()
+    {
+        if (m_SceneState != SceneState::Edit || m_RedoStack.empty()) return;
+        m_UndoStack.push_back(std::move(m_LastSnapshot));
+        m_LastSnapshot = std::move(m_RedoStack.back());
+        m_RedoStack.pop_back();
+        RestoreSnapshot(m_LastSnapshot);
+    }
+
+    // ================================================================== clipboard / prefabs
+    static void CollectSubtree(Scene& scene, Entity root, std::vector<Entity>& out)
+    {
+        out.push_back(root);
+        for (UUID child : root.GetComponent<RelationshipComponent>().Children)
+            if (Entity c = scene.GetEntityByUUID(child))
+                CollectSubtree(scene, c, out);
+    }
+
+    void EditorLayer::CopySelectedEntity()
+    {
+        Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
+        if (!selected) return;
+        std::vector<Entity> entities;
+        CollectSubtree(*m_ActiveScene, selected, entities);
+        m_Clipboard = SceneSerializer::SerializeEntities(*m_ActiveScene, entities);
+        ImGui::SetClipboardText(m_Clipboard.c_str());
+        ZM_INFO("Nusxalandi: {} ({} obyekt)", selected.GetName(), entities.size());
+    }
+
+    void EditorLayer::PasteEntity()
+    {
+        if (m_SceneState != SceneState::Edit) return;
+        const char* text = ImGui::GetClipboardText();
+        std::string data = (text && std::string_view(text).find("\"ZaminEntities\"") != std::string_view::npos) ? text : m_Clipboard;
+        if (data.empty()) return;
+        auto entities = SceneSerializer::DeserializeEntities(*m_EditorScene, data, true);
+        if (entities.empty()) return;
+        m_EditorScene->ResolveAssets();
+        m_SceneHierarchyPanel.SetSelectedEntity(entities.front());
+        MarkDirty();
+    }
+
+    void EditorLayer::SavePrefab(Entity entity)
+    {
+        if (!entity || !Project::GetActive()) return;
+        fs::path dir = Project::GetAssetDirectory() / "Prefabs";
+        std::error_code ec;
+        fs::create_directories(dir, ec);
+        std::string name;
+        for (char ch : entity.GetName())
+            name += (std::isalnum((unsigned char)ch) || ch == '_' || ch == '-') ? ch : '_';
+        if (name.empty()) name = "Prefab";
+        fs::path path = dir / (name + ".zprefab");
+        if (m_ActiveScene->SavePrefab(entity, path))
+            ZM_INFO("Prefab saqlandi: {}", Project::GetAssetRelativePath(path));
+    }
+
+    Entity EditorLayer::InstantiatePrefabInEditor(const fs::path& assetPath, Entity parent)
+    {
+        if (m_SceneState != SceneState::Edit) return {};
+        Entity root = m_EditorScene->InstantiatePrefab(Project::GetAssetFileSystemPath(assetPath));
+        if (!root)
+        {
+            ZM_ERROR("Prefab yuklanmadi: {}", assetPath.string());
+            return {};
+        }
+        if (parent)
+            m_EditorScene->SetParent(root, parent, false);
+        m_SceneHierarchyPanel.SetSelectedEntity(root);
+        MarkDirty();
+        return root;
+    }
+
+    void EditorLayer::LoadRuntimeScene(const fs::path& path)
+    {
+        Ref<Scene> next = CreateRef<Scene>();
+        if (!SceneSerializer(next).Deserialize(path))
+        {
+            ZM_ERROR("Sahna topilmadi: {}", path.string());
+            return;
+        }
+        next->ResolveAssets();
+        m_ActiveScene->OnRuntimeStop();
+        SetActiveScene(next);
+        m_ActiveScene->OnRuntimeStart();
+        ZM_INFO("Sahna almashtirildi: {}", path.filename().string());
     }
 
     // ================================================================== scripts
@@ -823,6 +1062,10 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) { shift ? OpenProjectDialog() : OpenScene(); }
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) NewScene();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_D, false)) DuplicateSelectedEntity();
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) { shift ? Redo() : Undo(); }
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) Redo();
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_C, false)) CopySelectedEntity();
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V, false)) PasteEntity();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_B, false)) BuildScripts(true);
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) { m_SceneState == SceneState::Edit ? OnScenePlay() : OnSceneStop(); }
             if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) && (m_ViewportFocused || m_SceneHierarchyPanel.IsHierarchyFocused()))
@@ -856,6 +1099,9 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         UI_Modals();
         if (m_ShowLauncher)
             UI_Launcher();
+
+        if (m_PendingUndo && !ImGui::IsAnyItemActive() && !ImGuizmo::IsUsing() && !ImGui::IsMouseDown(ImGuiMouseButton_Left))
+            CommitUndo();
 
         static bool lastDirty = false;
         if (lastDirty != m_SceneDirty)
@@ -951,6 +1197,14 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         if (ImGui::BeginMenu("Tahrirlash"))
         {
             bool sel = (bool)m_SceneHierarchyPanel.GetSelectedEntity();
+            bool editing = m_SceneState == SceneState::Edit;
+            if (ImGui::MenuItem(ICON_FA_ROTATE_LEFT "  Bekor qilish (Undo)", "Ctrl+Z", false, editing && (!m_UndoStack.empty() || m_PendingUndo))) Undo();
+            if (ImGui::MenuItem(ICON_FA_ROTATE_RIGHT "  Qaytarish (Redo)", "Ctrl+Y", false, editing && !m_RedoStack.empty())) Redo();
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_COPY "  Nusxalash", "Ctrl+C", false, sel)) CopySelectedEntity();
+            if (ImGui::MenuItem(ICON_FA_PASTE "  Joylash", "Ctrl+V", false, editing)) PasteEntity();
+            if (ImGui::MenuItem(ICON_FA_BOX "  Prefab sifatida saqlash", nullptr, false, sel && Project::GetActive())) SavePrefab(m_SceneHierarchyPanel.GetSelectedEntity());
+            ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_CLONE "  Nusxa olish", "Ctrl+D", false, sel)) DuplicateSelectedEntity();
             if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish", "Delete", false, sel)) DeleteSelectedEntity();
             if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Fokus", "F", false, sel)) FocusEntity(m_SceneHierarchyPanel.GetSelectedEntity());
@@ -1096,6 +1350,10 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
                     sprite.Texture = TextureLibrary::Load(path);
                     e.GetComponent<TagComponent>().Tag = path.stem().string();
                 }
+                else if (ext == ".zprefab" && m_SceneState == SceneState::Edit)
+                {
+                    InstantiatePrefabInEditor((const char*)payload->Data, {});
+                }
                 else if (ext == ".obj" && m_SceneState == SceneState::Edit)
                 {
                     Entity e = m_SceneHierarchyPanel.CreateEntityPreset("Model");
@@ -1205,19 +1463,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
             ImGui::SetCursorPos(ImVec2(regionMin.x + pos.x, regionMin.y + pos.y));
             ImVec2 size(buttonSize, buttonSize);
             if (UI::ToolbarButton(m_2DMode ? "2D" : "3D", m_2DMode ? "2D rejim (bosing: 3D)" : "3D rejim (bosing: 2D)", m_2DMode, size))
-            {
-                m_2DMode = !m_2DMode;
-                if (m_2DMode)
-                {
-                    m_EditorCamera.SetOrientation(0.0f, 0.0f);
-                    m_EditorCamera.Focus({ m_EditorCamera.GetFocalPoint().x, m_EditorCamera.GetFocalPoint().y, 0.0f }, 15.0f);
-                }
-                else
-                {
-                    m_EditorCamera.SetOrientation(0.35f, -0.6f);
-                    m_EditorCamera.Focus({ 0.0f, 0.5f, 0.0f }, 14.0f);
-                }
-            }
+                Set2DMode(!m_2DMode);
             ImGui::SameLine();
             if (UI::ToolbarButton(ICON_FA_BORDER_ALL, "Grid", m_ShowGrid, size)) m_ShowGrid = !m_ShowGrid;
             ImGui::SameLine();
@@ -1248,7 +1494,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
 
         auto drawIcon = [&](Entity e, const char* icon, ImU32 color) {
-            glm::vec4 clip = viewProj * glm::vec4(e.GetComponent<TransformComponent>().Translation, 1.0f);
+            glm::vec4 clip = viewProj * glm::vec4(m_ActiveScene->GetWorldPosition(e), 1.0f);
             if (clip.w <= 0.0f) return;
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
             if (std::abs(ndc.x) > 1.1f || std::abs(ndc.y) > 1.1f) return;
@@ -1280,7 +1526,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         if (!selected || !selected.IsValid() || m_GizmoMode == GizmoMode::None)
             return;
 
-        ImGuizmo::SetOrthographic(false);
+        ImGuizmo::SetOrthographic(m_EditorCamera.IsOrthographic());
         ImGuizmo::SetDrawlist();
         ImGuizmo::SetRect(m_ViewportBounds[0].x, m_ViewportBounds[0].y,
                           m_ViewportBounds[1].x - m_ViewportBounds[0].x, m_ViewportBounds[1].y - m_ViewportBounds[0].y);
@@ -1289,7 +1535,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         glm::mat4 view = m_EditorCamera.GetViewMatrix();
 
         auto& tc = selected.GetComponent<TransformComponent>();
-        glm::mat4 transform = tc.GetTransform();
+        glm::mat4 transform = m_ActiveScene->GetWorldTransform(selected);
 
         bool snap = Input::IsKeyPressed(Key::LeftControl);
         float snapValue = m_GizmoMode == GizmoMode::Rotate ? 15.0f : 0.5f;
@@ -1304,8 +1550,10 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
 
         if (ImGuizmo::IsUsing())
         {
+            Entity parent = m_ActiveScene->GetParent(selected);
+            glm::mat4 local = parent ? glm::inverse(m_ActiveScene->GetWorldTransform(parent)) * transform : transform;
             glm::vec3 translation, rotation, scale;
-            if (Math::DecomposeTransform(transform, translation, rotation, scale))
+            if (Math::DecomposeTransform(local, translation, rotation, scale))
             {
                 glm::vec3 deltaRotation = rotation - tc.Rotation;
                 tc.Translation = translation;

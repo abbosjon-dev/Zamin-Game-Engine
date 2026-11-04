@@ -47,7 +47,22 @@ namespace Zamin {
         void SaveSceneAs();
         void SerializeScene(const Ref<Scene>& scene, const std::filesystem::path& path);
         void SetActiveScene(const Ref<Scene>& scene);
-        void MarkDirty() { if (m_SceneState == SceneState::Edit) m_SceneDirty = true; }
+        void MarkDirty() { if (m_SceneState == SceneState::Edit) { m_SceneDirty = true; m_PendingUndo = true; } }
+
+        // ---- undo / redo (scene snapshots)
+        std::string TakeSnapshot();
+        void ResetUndoHistory();
+        void CommitUndo();
+        void Undo();
+        void Redo();
+        void RestoreSnapshot(const std::string& snapshot);
+
+        // ---- clipboard / prefabs
+        void CopySelectedEntity();
+        void PasteEntity();
+        void SavePrefab(Entity entity);
+        Entity InstantiatePrefabInEditor(const std::filesystem::path& assetPath, Entity parent);
+        void LoadRuntimeScene(const std::filesystem::path& path);
 
         void OnScenePlay();
         void OnSceneSimulate();
@@ -57,6 +72,7 @@ namespace Zamin {
         void DuplicateSelectedEntity();
         void DeleteSelectedEntity();
         void FocusEntity(Entity entity);
+        void Set2DMode(bool enabled);
 
         // ---- C++ scripts
         void BuildScripts(bool reloadAfter = true);
@@ -82,6 +98,7 @@ namespace Zamin {
         void UI_BuildDefaultLayout(unsigned int dockspaceID);
 
         void OnOverlayRender();
+        glm::mat4 OverlayViewProjection();
         void UpdateWindowTitle();
 
     private:
@@ -136,6 +153,12 @@ namespace Zamin {
         float m_BuildStartTime = 0.0f;
         bool m_OpenNewScriptPopup = false;
         std::string m_NewScriptName = "MyScript";
+
+        // undo
+        std::vector<std::string> m_UndoStack, m_RedoStack;
+        std::string m_LastSnapshot;
+        bool m_PendingUndo = false;
+        std::string m_Clipboard;
 
         // game export
         bool m_OpenBuildGamePopup = false;

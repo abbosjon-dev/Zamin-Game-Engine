@@ -49,6 +49,10 @@ namespace Zamin {
         float GetFarClip() const { return m_FarClip; }
         bool IsFlying() const { return m_Flying; }
 
+        // 2D editing: orthographic projection, rotation disabled (pan + zoom only).
+        void SetOrthographic(bool ortho) { m_Orthographic = ortho; UpdateProjection(); }
+        bool IsOrthographic() const { return m_Orthographic; }
+
         float FlySpeed = 6.0f;
 
     private:
@@ -73,6 +77,7 @@ namespace Zamin {
 
         glm::vec2 m_InitialMousePosition = { 0.0f, 0.0f };
         bool m_Flying = false;
+        bool m_Orthographic = false;
         bool m_HasMouse = false;
 
         float m_Distance = 12.0f;

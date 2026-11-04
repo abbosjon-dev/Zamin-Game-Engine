@@ -107,6 +107,28 @@ namespace Zamin {
             e.AddComponent<Rigidbody2DComponent>();
             e.AddComponent<CircleCollider2DComponent>();
         }
+        else if (p == "Physics Cube")
+        {
+            mesh("Fizik kub", PrimitiveMesh::Cube);
+            e.GetTransform().Translation = { 0.0f, 3.0f, 0.0f };
+            e.AddComponent<Rigidbody3DComponent>();
+            e.AddComponent<BoxCollider3DComponent>();
+        }
+        else if (p == "Physics Sphere")
+        {
+            mesh("Fizik shar", PrimitiveMesh::Sphere);
+            e.GetTransform().Translation = { 0.0f, 3.0f, 0.0f };
+            e.AddComponent<Rigidbody3DComponent>();
+            e.AddComponent<SphereCollider3DComponent>();
+        }
+        else if (p == "Physics Ground")
+        {
+            mesh("Fizik yer", PrimitiveMesh::Cube);
+            e.GetTransform().Scale = { 20.0f, 0.2f, 20.0f };
+            e.GetTransform().Translation = { 0.0f, -0.1f, 0.0f };
+            e.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+            e.AddComponent<BoxCollider3DComponent>();
+        }
         else if (p == "Audio") { e = m_Context->CreateEntity("Ovoz manbai"); e.AddComponent<AudioSourceComponent>(); }
 
         if (e)
@@ -139,6 +161,10 @@ namespace Zamin {
             if (ImGui::MenuItem(ICON_FA_DRAW_POLYGON "  Silindr")) CreateEntityPreset("Cylinder");
             if (ImGui::MenuItem(ICON_FA_MOUNTAIN_SUN "  Konus")) CreateEntityPreset("Cone");
             if (ImGui::MenuItem(ICON_FA_CUBES "  Model (.obj)")) CreateEntityPreset("Model");
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_ATOM "  Fizik kub")) CreateEntityPreset("Physics Cube");
+            if (ImGui::MenuItem(ICON_FA_ATOM "  Fizik shar")) CreateEntityPreset("Physics Sphere");
+            if (ImGui::MenuItem(ICON_FA_ATOM "  Fizik yer (statik)")) CreateEntityPreset("Physics Ground");
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu(ICON_FA_LIGHTBULB "  Yorug'lik"))
@@ -157,6 +183,138 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ hierarchy
+    void SceneHierarchyPanel::DrawEntityContextMenu(Entity entity)
+    {
+        if (!ImGui::BeginPopupContextItem("##entityctx"))
+            return;
+        m_SelectionContext = entity;
+        if (ImGui::BeginMenu(ICON_FA_PLUS "  Bola obyekt yaratish"))
+        {
+            Entity before = m_SelectionContext;
+            DrawCreateMenu();
+            Entity created = m_SelectionContext;
+            if (created && created != before)
+            {
+                m_Context->SetParent(created, before, false);
+                MarkModified();
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::MenuItem(ICON_FA_FEATHER "  Nomini o'zgartirish", "F2"))
+        {
+            m_RenamingEntity = entity;
+            m_RenameBuffer = entity.GetName();
+        }
+        if (ImGui::MenuItem(ICON_FA_CLONE "  Nusxa olish", "Ctrl+D")) m_PendingDuplicate = entity;
+        if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Fokus", "F")) { if (OnFocusRequested) OnFocusRequested(entity); }
+        if (m_Context->GetParent(entity) && ImGui::MenuItem(ICON_FA_ARROW_UP "  Ota-onadan ajratish"))
+        {
+            m_Context->SetParent(entity, {}, true);
+            MarkModified();
+        }
+        if (ImGui::MenuItem(ICON_FA_BOX "  Prefab sifatida saqlash") && OnSavePrefabRequested)
+            OnSavePrefabRequested(entity);
+        ImGui::Separator();
+        if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish", "Delete")) m_PendingDelete = entity;
+        ImGui::EndPopup();
+    }
+
+    void SceneHierarchyPanel::DrawEntityNode(Entity entity, int depth)
+    {
+        entt::entity handle = entity;
+        const std::string& tag = entity.GetName();
+        const auto& children = entity.GetComponent<RelationshipComponent>().Children;
+        bool hasChildren = !children.empty() && m_Filter.empty();
+        bool selected = m_SelectionContext == entity;
+
+        ImGui::PushID((int)(uint32_t)handle);
+
+        ImVec2 min = ImGui::GetCursorScreenPos();
+        ImVec2 max = ImVec2(min.x + ImGui::GetContentRegionAvail().x, min.y + ImGui::GetFrameHeight());
+        if (m_RowIndex++ % 2 == 1)
+            ImGui::GetWindowDrawList()->AddRectFilled(min, max, IM_COL32(255, 255, 255, 6));
+
+        if (m_RenamingEntity == handle)
+        {
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            ImGui::SetKeyboardFocusHere();
+            if (ImGui::InputText("##rename", &m_RenameBuffer, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll))
+            {
+                if (!m_RenameBuffer.empty())
+                    entity.GetComponent<TagComponent>().Tag = m_RenameBuffer;
+                m_RenamingEntity = entt::null;
+                MarkModified();
+            }
+            else if (!ImGui::IsItemActive() && ImGui::IsMouseClicked(0))
+                m_RenamingEntity = entt::null;
+            ImGui::PopID();
+            return;
+        }
+
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick |
+                                   ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding |
+                                   ImGuiTreeNodeFlags_DefaultOpen;
+        if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
+        if (selected) flags |= ImGuiTreeNodeFlags_Selected;
+
+        if (selected)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.12f, 0.52f, 0.41f, 0.75f));
+            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.14f, 0.58f, 0.46f, 0.85f));
+        }
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
+        std::string label = std::string(EntityIcon(entity)) + "  " + tag;
+        bool open = ImGui::TreeNodeEx("##node", flags, "%s", label.c_str());
+        ImGui::PopStyleVar();
+        if (selected)
+            ImGui::PopStyleColor(2);
+
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::IsItemToggledOpen())
+            m_SelectionContext = entity;
+        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0) && !hasChildren && OnFocusRequested)
+            OnFocusRequested(entity);
+
+        // drag & drop: parent entities by dropping onto each other
+        if (ImGui::BeginDragDropSource())
+        {
+            uint64_t id = entity.GetUUID();
+            ImGui::SetDragDropPayload("HIERARCHY_ENTITY", &id, sizeof(uint64_t));
+            ImGui::Text("%s  %s", EntityIcon(entity), tag.c_str());
+            ImGui::EndDragDropSource();
+        }
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_ENTITY"))
+            {
+                Entity dragged = m_Context->GetEntityByUUID(*(const uint64_t*)payload->Data);
+                if (dragged && m_Context->SetParent(dragged, entity, true))
+                    MarkModified();
+            }
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+            {
+                std::filesystem::path path((const char*)payload->Data);
+                if (path.extension() == ".zprefab" && OnPrefabDropped)
+                    OnPrefabDropped(path, entity);
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+        DrawEntityContextMenu(entity);
+
+        if (open)
+        {
+            if (hasChildren)
+            {
+                std::vector<UUID> copy = children; // may be modified by drag & drop
+                for (UUID child : copy)
+                    if (Entity c = m_Context->GetEntityByUUID(child))
+                        DrawEntityNode(c, depth + 1);
+            }
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+    }
+
     void SceneHierarchyPanel::DrawHierarchy()
     {
         m_HierarchyFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
@@ -181,86 +339,49 @@ namespace Zamin {
         UI::SearchBox("HierarchySearch", m_Filter);
         ImGui::Spacing();
 
-        std::vector<entt::entity> ordered;
-        for (auto e : m_Context->GetRegistry().view<IDComponent>())
-            ordered.push_back(e);
-        std::reverse(ordered.begin(), ordered.end());
-
         std::string filter = ToLower(m_Filter);
-        Entity toDelete, toDuplicate;
+        m_PendingDelete = {};
+        m_PendingDuplicate = {};
+        m_RowIndex = 0;
 
         ImGui::BeginChild("##entities", ImVec2(0, 0), ImGuiChildFlags_None);
-        int row = 0;
-        for (auto handle : ordered)
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
+        ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 14.0f);
+        for (Entity entity : m_Context->GetEntitiesInOrder())
         {
-            Entity entity{ handle, m_Context.get() };
-            const std::string& tag = entity.GetName();
-            if (!filter.empty() && ToLower(tag).find(filter) == std::string::npos)
+            if (filter.empty())
+            {
+                if ((uint64_t)entity.GetComponent<RelationshipComponent>().Parent && m_Context->GetParent(entity))
+                    continue; // drawn by its parent
+            }
+            else if (ToLower(entity.GetName()).find(filter) == std::string::npos)
                 continue;
-
-            ImGui::PushID((int)(uint32_t)handle);
-            bool selected = m_SelectionContext == entity;
-
-            // Alternating row background
-            ImVec2 min = ImGui::GetCursorScreenPos();
-            ImVec2 max = ImVec2(min.x + ImGui::GetContentRegionAvail().x, min.y + ImGui::GetFrameHeight());
-            if (row++ % 2 == 1)
-                ImGui::GetWindowDrawList()->AddRectFilled(min, max, IM_COL32(255, 255, 255, 6));
-
-            if (m_RenamingEntity == handle)
-            {
-                ImGui::SetNextItemWidth(-FLT_MIN);
-                ImGui::SetKeyboardFocusHere();
-                if (ImGui::InputText("##rename", &m_RenameBuffer, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll))
-                {
-                    if (!m_RenameBuffer.empty())
-                        entity.GetComponent<TagComponent>().Tag = m_RenameBuffer;
-                    m_RenamingEntity = entt::null;
-                    MarkModified();
-                }
-                else if (!ImGui::IsItemActive() && ImGui::IsMouseClicked(0))
-                    m_RenamingEntity = entt::null;
-            }
-            else
-            {
-                if (selected)
-                {
-                    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.12f, 0.52f, 0.41f, 0.75f));
-                    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.14f, 0.58f, 0.46f, 0.85f));
-                }
-                std::string label = std::string(EntityIcon(entity)) + "   " + tag;
-                if (ImGui::Selectable(label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick,
-                                      ImVec2(0, ImGui::GetFrameHeight() - ImGui::GetStyle().ItemSpacing.y)))
-                {
-                    m_SelectionContext = entity;
-                    if (ImGui::IsMouseDoubleClicked(0) && OnFocusRequested)
-                        OnFocusRequested(entity);
-                }
-                if (selected)
-                    ImGui::PopStyleColor(2);
-
-                if (ImGui::BeginPopupContextItem())
-                {
-                    m_SelectionContext = entity;
-                    if (ImGui::MenuItem(ICON_FA_FEATHER "  Nomini o'zgartirish", "F2"))
-                    {
-                        m_RenamingEntity = handle;
-                        m_RenameBuffer = tag;
-                    }
-                    if (ImGui::MenuItem(ICON_FA_CLONE "  Nusxa olish", "Ctrl+D")) toDuplicate = entity;
-                    if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Fokus", "F")) { if (OnFocusRequested) OnFocusRequested(entity); }
-                    ImGui::Separator();
-                    if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish", "Delete")) toDelete = entity;
-                    ImGui::EndPopup();
-                }
-            }
-            ImGui::PopID();
+            DrawEntityNode(entity, 0);
         }
+        ImGui::PopStyleVar(2);
 
-        if (ImGui::IsMouseClicked(0) && ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered())
+        // Empty area: drop to un-parent / instantiate prefabs; click to deselect
+        ImVec2 avail = ImGui::GetContentRegionAvail();
+        ImGui::InvisibleButton("##hierarchyEmpty", ImVec2(std::max(1.0f, avail.x), std::max(40.0f, avail.y)));
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
             m_SelectionContext = {};
-
-        if (ImGui::BeginPopupContextWindow("HierarchyContext", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_ENTITY"))
+            {
+                Entity dragged = m_Context->GetEntityByUUID(*(const uint64_t*)payload->Data);
+                if (dragged && m_Context->SetParent(dragged, {}, true))
+                    MarkModified();
+            }
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+            {
+                std::filesystem::path path((const char*)payload->Data);
+                if (path.extension() == ".zprefab" && OnPrefabDropped)
+                    OnPrefabDropped(path, {});
+            }
+            ImGui::EndDragDropTarget();
+        }
+        if (ImGui::BeginPopupContextItem("HierarchyContext"))
         {
             DrawCreateMenu();
             ImGui::EndPopup();
@@ -273,17 +394,16 @@ namespace Zamin {
         }
         ImGui::EndChild();
 
-        // Drop a scene/prefab? (scene files are opened by the editor viewport)
-        if (toDuplicate)
+        if (m_PendingDuplicate)
         {
-            m_SelectionContext = m_Context->DuplicateEntity(toDuplicate);
+            m_SelectionContext = m_Context->DuplicateEntity(m_PendingDuplicate);
             MarkModified();
         }
-        if (toDelete)
+        if (m_PendingDelete)
         {
-            m_Context->DestroyEntity(toDelete);
-            if (m_SelectionContext == toDelete)
+            if (m_SelectionContext == m_PendingDelete || (m_SelectionContext && m_Context->IsAncestorOf(m_PendingDelete, m_SelectionContext)))
                 m_SelectionContext = {};
+            m_Context->DestroyEntity(m_PendingDelete);
             MarkModified();
         }
     }
@@ -531,6 +651,7 @@ namespace Zamin {
                 ImGui::InputTextWithHint("##filter", ICON_FA_MAGNIFYING_GLASS "  Qidirish", &m_AddComponentFilter);
                 ImGui::SeparatorText("Render");
                 DisplayAddComponentEntry<SpriteRendererComponent>("Sprite Renderer", ICON_FA_IMAGE);
+                DisplayAddComponentEntry<SpriteAnimationComponent>("Sprite Animation", ICON_FA_FILM);
                 DisplayAddComponentEntry<CircleRendererComponent>("Circle Renderer", ICON_FA_CIRCLE);
                 DisplayAddComponentEntry<TextComponent>("Text", ICON_FA_FONT);
                 DisplayAddComponentEntry<MeshRendererComponent>("Mesh Renderer", ICON_FA_CUBE);
@@ -542,6 +663,11 @@ namespace Zamin {
                 DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D", ICON_FA_ATOM);
                 DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D", ICON_FA_VECTOR_SQUARE);
                 DisplayAddComponentEntry<CircleCollider2DComponent>("Circle Collider 2D", ICON_FA_CIRCLE_NODES);
+                ImGui::SeparatorText("Fizika 3D");
+                DisplayAddComponentEntry<Rigidbody3DComponent>("Rigidbody 3D", ICON_FA_ATOM);
+                DisplayAddComponentEntry<BoxCollider3DComponent>("Box Collider 3D", ICON_FA_CUBE);
+                DisplayAddComponentEntry<SphereCollider3DComponent>("Sphere Collider 3D", ICON_FA_CIRCLE);
+                DisplayAddComponentEntry<CapsuleCollider3DComponent>("Capsule Collider 3D", ICON_FA_CAPSULES);
                 ImGui::SeparatorText("Boshqa");
                 DisplayAddComponentEntry<AudioSourceComponent>("Audio Source", ICON_FA_VOLUME_HIGH);
                 DisplayAddComponentEntry<NativeScriptComponent>("C++ Script", ICON_FA_CODE);
@@ -612,6 +738,25 @@ namespace Zamin {
             }
             changed |= UI::PropertyFloat("Takrorlash", c.TilingFactor, 0.05f, 0.0f, 100.0f);
             changed |= UI::PropertyInt("Tartib (sorting)", c.SortingOrder);
+            if (UI::PropertyBool("Pixel-art (aniq piksellar)", c.PixelArt) && !c.TexturePath.empty())
+                c.Texture = TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TexturePath), c.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+            changed |= UI::PropertyBool("Gorizontal aks (Flip X)", c.FlipX);
+            changed |= UI::PropertyBool("Vertikal aks (Flip Y)", c.FlipY);
+            return changed;
+        }, true, modified);
+
+        DrawComponent<SpriteAnimationComponent>(ICON_FA_FILM, "Sprite Animation", entity, [](SpriteAnimationComponent& c) {
+            bool changed = UI::PropertyInt("Ustunlar", c.Columns);
+            changed |= UI::PropertyInt("Qatorlar", c.Rows);
+            changed |= UI::PropertyInt("Boshlang'ich kadr", c.StartFrame);
+            changed |= UI::PropertyInt("Kadrlar soni", c.FrameCount);
+            changed |= UI::PropertyFloat("FPS", c.FPS, 0.1f, 0.0f, 120.0f);
+            changed |= UI::PropertyBool("Takrorlash", c.Loop);
+            changed |= UI::PropertyBool("Ijroda", c.Playing);
+            c.Columns = std::max(1, c.Columns); c.Rows = std::max(1, c.Rows);
+            c.FrameCount = std::max(1, c.FrameCount); c.StartFrame = std::max(0, c.StartFrame);
+            UI::PropertyLabel("Hozirgi kadr");
+            ImGui::Text("%d", c.GetCurrentFrame());
             return changed;
         }, true, modified);
 
@@ -721,6 +866,43 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.0f, 1000.0f);
             changed |= colliderCommon(c);
             return changed;
+        }, true, modified);
+
+        DrawComponent<Rigidbody3DComponent>(ICON_FA_ATOM, "Rigidbody 3D", entity, [](Rigidbody3DComponent& c) {
+            bool changed = false;
+            const char* types[] = { "Statik", "Dinamik", "Kinematik" };
+            int type = (int)c.Type;
+            if (UI::PropertyCombo("Turi", type, types, 3)) { c.Type = (Rigidbody3DComponent::BodyType)type; changed = true; }
+            changed |= UI::PropertyFloat("Massa", c.Mass, 0.05f, 0.001f, 100000.0f);
+            changed |= UI::PropertyFloat("Gravitatsiya", c.GravityFactor, 0.05f);
+            changed |= UI::PropertyFloat("Chiziqli so'nish", c.LinearDamping, 0.01f, 0.0f, 100.0f);
+            changed |= UI::PropertyFloat("Burchak so'nishi", c.AngularDamping, 0.01f, 0.0f, 100.0f);
+            changed |= UI::PropertyBool("Aylanmasin", c.LockRotation);
+            return changed;
+        }, true, modified);
+
+        auto collider3D = [](auto& c) {
+            bool changed = UI::PropertyFloat3("Siljish", c.Offset);
+            changed |= UI::PropertySlider("Ishqalanish", c.Friction, 0.0f, 1.0f);
+            changed |= UI::PropertySlider("Sakrash", c.Restitution, 0.0f, 1.0f);
+            changed |= UI::PropertyBool("Trigger (sensor)", c.IsSensor);
+            return changed;
+        };
+
+        DrawComponent<BoxCollider3DComponent>(ICON_FA_CUBE, "Box Collider 3D", entity, [&](BoxCollider3DComponent& c) {
+            bool changed = UI::PropertyFloat3("Yarim o'lcham", c.HalfExtents);
+            return collider3D(c) || changed;
+        }, true, modified);
+
+        DrawComponent<SphereCollider3DComponent>(ICON_FA_CIRCLE, "Sphere Collider 3D", entity, [&](SphereCollider3DComponent& c) {
+            bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.001f, 1000.0f);
+            return collider3D(c) || changed;
+        }, true, modified);
+
+        DrawComponent<CapsuleCollider3DComponent>(ICON_FA_CAPSULES, "Capsule Collider 3D", entity, [&](CapsuleCollider3DComponent& c) {
+            bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.001f, 1000.0f);
+            changed |= UI::PropertyFloat("Yarim balandlik", c.HalfHeight, 0.01f, 0.0f, 1000.0f);
+            return collider3D(c) || changed;
         }, true, modified);
 
         DrawComponent<AudioSourceComponent>(ICON_FA_VOLUME_HIGH, "Audio Source", entity, [](AudioSourceComponent& c) {

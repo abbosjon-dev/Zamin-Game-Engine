@@ -64,6 +64,23 @@ namespace Zamin {
             RenderCommand::SetClearColor(m_Scene->GetClearColor());
             RenderCommand::Clear();
             m_Scene->OnUpdateRuntime(ts);
+
+            if (!m_Scene->GetPendingSceneLoad().empty())
+            {
+                std::filesystem::path next = Project::GetAssetFileSystemPath(m_Scene->GetPendingSceneLoad());
+                m_Scene->ClearPendingSceneLoad();
+                Ref<Scene> scene = CreateRef<Scene>();
+                if (SceneSerializer(scene).Deserialize(next))
+                {
+                    m_Scene->OnRuntimeStop();
+                    scene->ResolveAssets();
+                    scene->OnViewportResize(w, h);
+                    m_Scene = scene;
+                    m_Scene->OnRuntimeStart();
+                }
+                else
+                    ZM_ERROR("Sahna yuklanmadi: {}", next.string());
+            }
         }
 
         void OnEvent(Event& e) override

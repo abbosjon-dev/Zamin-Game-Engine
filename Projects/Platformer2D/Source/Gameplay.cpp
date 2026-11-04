@@ -19,8 +19,6 @@ public:
     {
         auto& t = Transform();
         t.Translation.y = m_BaseY + std::sin(GetTime() * BobSpeed + m_Phase) * BobHeight;
-        float s = 0.6f + 0.05f * std::sin(GetTime() * 6.0f + m_Phase);
-        t.Scale = { s, s, 1.0f };
     }
 
     void OnCollisionBegin(Entity other) override
@@ -95,3 +93,34 @@ public:
     }
 };
 ZM_REGISTER_SCRIPT(Cloud, ZM_FIELD(Cloud, Speed))
+
+// Daraja oxiri: o'yinchi tegsa keyingi sahnaga o'tadi.
+class LevelGoal : public ScriptableEntity
+{
+public:
+    std::string NextScene = "Scenes/Level2.zscene";
+    float Delay = 0.6f;
+
+    void OnCollisionBegin(Entity other) override
+    {
+        if (other.GetName() == "Player" && m_Timer < 0.0f)
+        {
+            m_Timer = Delay;
+            ZM_INFO("Daraja tugadi! Keyingisi: {}", NextScene);
+            if (auto* sprite = TryGetComponent<SpriteRendererComponent>())
+                sprite->Color = { 1.0f, 0.85f, 0.2f, 1.0f };
+        }
+    }
+
+    void OnUpdate(Timestep ts) override
+    {
+        if (m_Timer < 0.0f) return;
+        m_Timer -= ts;
+        if (m_Timer <= 0.0f)
+            LoadScene(NextScene);
+    }
+
+private:
+    float m_Timer = -1.0f;
+};
+ZM_REGISTER_SCRIPT(LevelGoal, ZM_FIELD(LevelGoal, NextScene), ZM_FIELD(LevelGoal, Delay))

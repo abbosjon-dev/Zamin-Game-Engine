@@ -24,11 +24,16 @@
     "Gravity": [
       0,
       -20
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
     ]
   },
   "Entities": [
     {
-      "Entity": 7340000007926919,
+      "Entity": 7340000791907919,
       "Tag": "Main Camera",
       "Transform": {
         "Translation": [
@@ -75,7 +80,7 @@
       }
     },
     {
-      "Entity": 7340000007934838,
+      "Entity": 7340000791915838,
       "Tag": "Hill",
       "Transform": {
         "Translation": [
@@ -107,7 +112,7 @@
       }
     },
     {
-      "Entity": 7340000007942757,
+      "Entity": 7340000791923757,
       "Tag": "Hill",
       "Transform": {
         "Translation": [
@@ -139,7 +144,7 @@
       }
     },
     {
-      "Entity": 7340000007950676,
+      "Entity": 7340000791931676,
       "Tag": "Hill",
       "Transform": {
         "Translation": [
@@ -171,7 +176,7 @@
       }
     },
     {
-      "Entity": 7340000007958595,
+      "Entity": 7340000791939595,
       "Tag": "Hill",
       "Transform": {
         "Translation": [
@@ -203,7 +208,7 @@
       }
     },
     {
-      "Entity": 7340000007966514,
+      "Entity": 7340000791947514,
       "Tag": "Hill",
       "Transform": {
         "Translation": [
@@ -235,7 +240,7 @@
       }
     },
     {
-      "Entity": 7340000007974433,
+      "Entity": 7340000791955433,
       "Tag": "Hill",
       "Transform": {
         "Translation": [
@@ -267,7 +272,7 @@
       }
     },
     {
-      "Entity": 7340000007982352,
+      "Entity": 7340000791963352,
       "Tag": "Hill",
       "Transform": {
         "Translation": [
@@ -299,7 +304,7 @@
       }
     },
     {
-      "Entity": 7340000007990271,
+      "Entity": 7340000791971271,
       "Tag": "Hill",
       "Transform": {
         "Translation": [
@@ -331,7 +336,7 @@
       }
     },
     {
-      "Entity": 7340000007998190,
+      "Entity": 7340000791979190,
       "Tag": "Hill",
       "Transform": {
         "Translation": [
@@ -363,7 +368,39 @@
       }
     },
     {
-      "Entity": 7340000008006109,
+      "Entity": 7340000791987109,
+      "Tag": "Hill",
+      "Transform": {
+        "Translation": [
+          69,
+          -1.5663543163376141,
+          -5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          9.17533237543927,
+          9.17533237543927,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.36,
+          0.62,
+          0.48,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": -10
+      }
+    },
+    {
+      "Entity": 7340000791995028,
       "Tag": "Sun",
       "Transform": {
         "Translation": [
@@ -395,13 +432,34 @@
       }
     },
     {
-      "Entity": 7340000008014028,
+      "Entity": 7340000792002947,
+      "Tag": "Clouds",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7340000792010866,
       "Tag": "Cloud",
       "Transform": {
         "Translation": [
           -6,
           4.6,
-          -4
+          0
         ],
         "Rotation": [
           0,
@@ -414,47 +472,7 @@
           1
         ]
       },
-      "CircleRenderer": {
-        "Color": [
-          1,
-          1,
-          1,
-          0.92
-        ],
-        "Thickness": 1.0,
-        "Fade": 0.08,
-        "SortingOrder": -9
-      },
-      "NativeScript": {
-        "Class": "Cloud",
-        "Fields": {
-          "Speed": {
-            "Type": "Float",
-            "Value": 0.52
-          }
-        }
-      }
-    },
-    {
-      "Entity": 7340000008021947,
-      "Tag": "Cloud",
-      "Transform": {
-        "Translation": [
-          8,
-          5.4,
-          -4
-        ],
-        "Rotation": [
-          0,
-          0,
-          0
-        ],
-        "Scale": [
-          3.2,
-          1.6,
-          1
-        ]
-      },
+      "Parent": 7340000792002947,
       "CircleRenderer": {
         "Color": [
           1,
@@ -477,13 +495,13 @@
       }
     },
     {
-      "Entity": 7340000008029866,
+      "Entity": 7340000792018785,
       "Tag": "Cloud",
       "Transform": {
         "Translation": [
-          22,
-          4.9,
-          -4
+          8,
+          5.4,
+          0
         ],
         "Rotation": [
           0,
@@ -496,6 +514,7 @@
           1
         ]
       },
+      "Parent": 7340000792002947,
       "CircleRenderer": {
         "Color": [
           1,
@@ -518,13 +537,13 @@
       }
     },
     {
-      "Entity": 7340000008037785,
+      "Entity": 7340000792026704,
       "Tag": "Cloud",
       "Transform": {
         "Translation": [
-          38,
-          5.6,
-          -4
+          22,
+          4.9,
+          0
         ],
         "Rotation": [
           0,
@@ -537,6 +556,7 @@
           1
         ]
       },
+      "Parent": 7340000792002947,
       "CircleRenderer": {
         "Color": [
           1,
@@ -559,13 +579,13 @@
       }
     },
     {
-      "Entity": 7340000008045704,
+      "Entity": 7340000792034623,
       "Tag": "Cloud",
       "Transform": {
         "Translation": [
-          52,
-          4.4,
-          -4
+          38,
+          5.6,
+          0
         ],
         "Rotation": [
           0,
@@ -578,6 +598,7 @@
           1
         ]
       },
+      "Parent": 7340000792002947,
       "CircleRenderer": {
         "Color": [
           1,
@@ -600,7 +621,49 @@
       }
     },
     {
-      "Entity": 7340000008053623,
+      "Entity": 7340000792042542,
+      "Tag": "Cloud",
+      "Transform": {
+        "Translation": [
+          52,
+          4.4,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3.2,
+          1.6,
+          1
+        ]
+      },
+      "Parent": 7340000792002947,
+      "CircleRenderer": {
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.08,
+        "SortingOrder": -9
+      },
+      "NativeScript": {
+        "Class": "Cloud",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.36
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000792050461,
       "Tag": "Ground",
       "Transform": {
         "Translation": [
@@ -628,7 +691,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -655,12 +721,12 @@
       }
     },
     {
-      "Entity": 7340000008061542,
+      "Entity": 7340000792058380,
       "Tag": "Dirt",
       "Transform": {
         "Translation": [
-          1.0,
-          -5.5,
+          0,
+          -2,
           0
         ],
         "Rotation": [
@@ -669,11 +735,12 @@
           0
         ],
         "Scale": [
-          26,
+          1,
           3,
           1
         ]
       },
+      "Parent": 7340000792050461,
       "SpriteRenderer": {
         "Color": [
           0.52,
@@ -683,11 +750,14 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": -1
+        "SortingOrder": -1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       }
     },
     {
-      "Entity": 7340000008069461,
+      "Entity": 7340000792066299,
       "Tag": "Ground",
       "Transform": {
         "Translation": [
@@ -715,7 +785,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -742,12 +815,12 @@
       }
     },
     {
-      "Entity": 7340000008077380,
+      "Entity": 7340000792074218,
       "Tag": "Dirt",
       "Transform": {
         "Translation": [
-          26.0,
-          -5.5,
+          0,
+          -2,
           0
         ],
         "Rotation": [
@@ -756,11 +829,12 @@
           0
         ],
         "Scale": [
-          16,
+          1,
           3,
           1
         ]
       },
+      "Parent": 7340000792066299,
       "SpriteRenderer": {
         "Color": [
           0.52,
@@ -770,11 +844,14 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": -1
+        "SortingOrder": -1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       }
     },
     {
-      "Entity": 7340000008085299,
+      "Entity": 7340000792082137,
       "Tag": "Ground",
       "Transform": {
         "Translation": [
@@ -802,7 +879,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -829,12 +909,12 @@
       }
     },
     {
-      "Entity": 7340000008093218,
+      "Entity": 7340000792090056,
       "Tag": "Dirt",
       "Transform": {
         "Translation": [
-          51.0,
-          -5.5,
+          0,
+          -2,
           0
         ],
         "Rotation": [
@@ -843,11 +923,12 @@
           0
         ],
         "Scale": [
-          26,
+          1,
           3,
           1
         ]
       },
+      "Parent": 7340000792082137,
       "SpriteRenderer": {
         "Color": [
           0.52,
@@ -857,11 +938,14 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": -1
+        "SortingOrder": -1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       }
     },
     {
-      "Entity": 7340000008101137,
+      "Entity": 7340000792097975,
       "Tag": "Platform",
       "Transform": {
         "Translation": [
@@ -889,7 +973,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -916,7 +1003,7 @@
       }
     },
     {
-      "Entity": 7340000008109056,
+      "Entity": 7340000792105894,
       "Tag": "Platform",
       "Transform": {
         "Translation": [
@@ -944,7 +1031,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -971,7 +1061,7 @@
       }
     },
     {
-      "Entity": 7340000008116975,
+      "Entity": 7340000792113813,
       "Tag": "Platform",
       "Transform": {
         "Translation": [
@@ -999,7 +1089,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -1026,7 +1119,7 @@
       }
     },
     {
-      "Entity": 7340000008124894,
+      "Entity": 7340000792121732,
       "Tag": "Platform",
       "Transform": {
         "Translation": [
@@ -1054,7 +1147,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -1081,7 +1177,7 @@
       }
     },
     {
-      "Entity": 7340000008132813,
+      "Entity": 7340000792129651,
       "Tag": "Platform",
       "Transform": {
         "Translation": [
@@ -1109,7 +1205,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -1136,7 +1235,7 @@
       }
     },
     {
-      "Entity": 7340000008140732,
+      "Entity": 7340000792137570,
       "Tag": "Platform",
       "Transform": {
         "Translation": [
@@ -1164,7 +1263,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -1191,7 +1293,7 @@
       }
     },
     {
-      "Entity": 7340000008148651,
+      "Entity": 7340000792145489,
       "Tag": "Platform",
       "Transform": {
         "Translation": [
@@ -1219,7 +1321,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -1246,7 +1351,7 @@
       }
     },
     {
-      "Entity": 7340000008156570,
+      "Entity": 7340000792153408,
       "Tag": "Platform",
       "Transform": {
         "Translation": [
@@ -1274,7 +1379,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Kinematic",
@@ -1302,6 +1410,13 @@
       "NativeScript": {
         "Class": "MovingPlatform",
         "Fields": {
+          "Direction": {
+            "Type": "Vec2",
+            "Value": [
+              1,
+              0
+            ]
+          },
           "Distance": {
             "Type": "Float",
             "Value": 1.6
@@ -1314,7 +1429,7 @@
       }
     },
     {
-      "Entity": 7340000008164489,
+      "Entity": 7340000792161327,
       "Tag": "Platform",
       "Transform": {
         "Translation": [
@@ -1328,7 +1443,7 @@
           0
         ],
         "Scale": [
-          2.5,
+          3,
           0.5,
           1
         ]
@@ -1342,7 +1457,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Kinematic",
@@ -1389,7 +1507,7 @@
       }
     },
     {
-      "Entity": 7340000008172408,
+      "Entity": 7340000792169246,
       "Tag": "Crate",
       "Transform": {
         "Translation": [
@@ -1417,7 +1535,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 1
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Dynamic",
@@ -1444,7 +1565,7 @@
       }
     },
     {
-      "Entity": 7340000008180327,
+      "Entity": 7340000792177165,
       "Tag": "Crate",
       "Transform": {
         "Translation": [
@@ -1472,7 +1593,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 1
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Dynamic",
@@ -1499,7 +1623,7 @@
       }
     },
     {
-      "Entity": 7340000008188246,
+      "Entity": 7340000792185084,
       "Tag": "Crate",
       "Transform": {
         "Translation": [
@@ -1527,7 +1651,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 1
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Dynamic",
@@ -1554,7 +1681,7 @@
       }
     },
     {
-      "Entity": 7340000008196165,
+      "Entity": 7340000792193003,
       "Tag": "Crate",
       "Transform": {
         "Translation": [
@@ -1582,7 +1709,10 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 1
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       },
       "Rigidbody2D": {
         "BodyType": "Dynamic",
@@ -1609,7 +1739,7 @@
       }
     },
     {
-      "Entity": 7340000008204084,
+      "Entity": 7340000792200922,
       "Tag": "Ball",
       "Transform": {
         "Translation": [
@@ -1661,7 +1791,7 @@
       }
     },
     {
-      "Entity": 7340000008212003,
+      "Entity": 7340000792208841,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -1675,21 +1805,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -1717,7 +1859,7 @@
       }
     },
     {
-      "Entity": 7340000008219922,
+      "Entity": 7340000792216760,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -1731,21 +1873,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -1773,7 +1927,7 @@
       }
     },
     {
-      "Entity": 7340000008227841,
+      "Entity": 7340000792224679,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -1787,21 +1941,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -1829,7 +1995,7 @@
       }
     },
     {
-      "Entity": 7340000008235760,
+      "Entity": 7340000792232598,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -1843,21 +2009,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -1885,7 +2063,7 @@
       }
     },
     {
-      "Entity": 7340000008243679,
+      "Entity": 7340000792240517,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -1899,21 +2077,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -1941,7 +2131,7 @@
       }
     },
     {
-      "Entity": 7340000008251598,
+      "Entity": 7340000792248436,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -1955,21 +2145,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -1997,7 +2199,7 @@
       }
     },
     {
-      "Entity": 7340000008259517,
+      "Entity": 7340000792256355,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -2011,21 +2213,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -2053,7 +2267,7 @@
       }
     },
     {
-      "Entity": 7340000008267436,
+      "Entity": 7340000792264274,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -2067,21 +2281,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -2109,7 +2335,7 @@
       }
     },
     {
-      "Entity": 7340000008275355,
+      "Entity": 7340000792272193,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -2123,21 +2349,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -2165,7 +2403,7 @@
       }
     },
     {
-      "Entity": 7340000008283274,
+      "Entity": 7340000792280112,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -2179,21 +2417,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -2221,7 +2471,7 @@
       }
     },
     {
-      "Entity": 7340000008291193,
+      "Entity": 7340000792288031,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -2235,21 +2485,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -2277,7 +2539,7 @@
       }
     },
     {
-      "Entity": 7340000008299112,
+      "Entity": 7340000792295950,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -2291,21 +2553,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -2333,7 +2607,7 @@
       }
     },
     {
-      "Entity": 7340000008307031,
+      "Entity": 7340000792303869,
       "Tag": "Coin",
       "Transform": {
         "Translation": [
@@ -2347,21 +2621,33 @@
           0
         ],
         "Scale": [
-          0.6,
-          0.6,
+          0.7,
+          0.7,
           1
         ]
       },
-      "CircleRenderer": {
+      "SpriteRenderer": {
         "Color": [
-          1.0,
-          0.82,
-          0.15,
+          1,
+          1,
+          1,
           1
         ],
-        "Thickness": 1.0,
-        "Fade": 0.02,
-        "SortingOrder": 2
+        "Texture": "Textures/coin.png",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 1,
+        "StartFrame": 0,
+        "FrameCount": 4,
+        "FPS": 8,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Static",
@@ -2389,7 +2675,7 @@
       }
     },
     {
-      "Entity": 7340000008314950,
+      "Entity": 7340000792311788,
       "Tag": "Player",
       "Transform": {
         "Translation": [
@@ -2410,14 +2696,26 @@
       },
       "SpriteRenderer": {
         "Color": [
-          0.98,
-          0.45,
-          0.2,
+          1,
+          1,
+          1,
           1
         ],
-        "Texture": "",
+        "Texture": "Textures/player.png",
         "Tiling": 1.0,
-        "SortingOrder": 5
+        "SortingOrder": 5,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "SpriteAnimation": {
+        "Columns": 4,
+        "Rows": 3,
+        "StartFrame": 0,
+        "FrameCount": 2,
+        "FPS": 3,
+        "Loop": true,
+        "Playing": true
       },
       "Rigidbody2D": {
         "BodyType": "Dynamic",
@@ -2433,8 +2731,8 @@
           0
         ],
         "Size": [
-          0.5,
-          0.5
+          0.4,
+          0.45
         ],
         "Density": 1.0,
         "Friction": 0.0,
@@ -2457,11 +2755,11 @@
       }
     },
     {
-      "Entity": 7340000008322869,
-      "Tag": "Goal Flag",
+      "Entity": 7340000792319707,
+      "Tag": "Goal",
       "Transform": {
         "Translation": [
-          62,
+          61,
           -1.5,
           0
         ],
@@ -2485,16 +2783,51 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          2,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "LevelGoal",
+        "Fields": {
+          "NextScene": {
+            "Type": "String",
+            "Value": "Scenes/Level2.zscene"
+          }
+        }
       }
     },
     {
-      "Entity": 7340000008330788,
+      "Entity": 7340000792327626,
       "Tag": "Goal Banner",
       "Transform": {
         "Translation": [
-          62.6,
-          -0.4,
+          4,
+          0.37,
           0
         ],
         "Rotation": [
@@ -2503,11 +2836,12 @@
           0
         ],
         "Scale": [
-          1.1,
-          0.7,
+          7,
+          0.23,
           1
         ]
       },
+      "Parent": 7340000792319707,
       "SpriteRenderer": {
         "Color": [
           0.18,
@@ -2517,11 +2851,14 @@
         ],
         "Texture": "",
         "Tiling": 1.0,
-        "SortingOrder": 0
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
       }
     },
     {
-      "Entity": 7340000008338707,
+      "Entity": 7340000792335545,
       "Tag": "GameManager",
       "Transform": {
         "Translation": [
@@ -2559,7 +2896,7 @@
       }
     },
     {
-      "Entity": 7340000008346626,
+      "Entity": 7340000792343464,
       "Tag": "Title",
       "Transform": {
         "Translation": [
@@ -2579,7 +2916,7 @@
         ]
       },
       "Text": {
-        "Text": "Zamin Platformer",
+        "Text": "Zamin Platformer - 1-daraja",
         "Color": [
           1,
           1,
@@ -2593,7 +2930,7 @@
       }
     },
     {
-      "Entity": 7340000008354545,
+      "Entity": 7340000792351383,
       "Tag": "Hint",
       "Transform": {
         "Translation": [
@@ -2613,7 +2950,7 @@
         ]
       },
       "Text": {
-        "Text": "A/D - yurish   Space - sakrash",
+        "Text": "A/D - yurish   Space - sakrash   Bayroqqa yeting!",
         "Color": [
           0.95,
           0.97,

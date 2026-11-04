@@ -1,0 +1,85 @@
+#pragma once
+
+#include "Zamin/Core/UUID.h"
+#include "Zamin/Scene/Scene.h"
+#include "Zamin/Scene/Components.h"
+
+#include <entt/entt.hpp>
+
+namespace Zamin {
+
+    // Lightweight handle (entt id + owning scene). Cheap to copy.
+    class Entity
+    {
+    public:
+        Entity() = default;
+        Entity(entt::entity handle, Scene* scene) : m_EntityHandle(handle), m_Scene(scene) {}
+
+        template<typename T, typename... Args>
+        T& AddComponent(Args&&... args)
+        {
+            T& component = m_Scene->m_Registry.emplace<T>(m_EntityHandle, std::forward<Args>(args)...);
+            m_Scene->OnComponentAdded<T>(*this, component);
+            return component;
+        }
+
+        template<typename T, typename... Args>
+        T& AddOrReplaceComponent(Args&&... args)
+        {
+            T& component = m_Scene->m_Registry.emplace_or_replace<T>(m_EntityHandle, std::forward<Args>(args)...);
+            m_Scene->OnComponentAdded<T>(*this, component);
+            return component;
+        }
+
+        template<typename T>
+        T& GetComponent() { return m_Scene->m_Registry.get<T>(m_EntityHandle); }
+
+        template<typename T>
+        const T& GetComponent() const { return m_Scene->m_Registry.get<T>(m_EntityHandle); }
+
+        template<typename T>
+        T* TryGetComponent() { return m_Scene->m_Registry.try_get<T>(m_EntityHandle); }
+
+        template<typename T>
+        bool HasComponent() const { return m_Scene->m_Registry.all_of<T>(m_EntityHandle); }
+
+        template<typename T>
+        void RemoveComponent() { m_Scene->m_Registry.remove<T>(m_EntityHandle); }
+
+        bool IsValid() const { return m_Scene && m_EntityHandle != entt::null && m_Scene->m_Registry.valid(m_EntityHandle); }
+        operator bool() const { return IsValid(); }
+        operator entt::entity() const { return m_EntityHandle; }
+        operator uint32_t() const { return (uint32_t)m_EntityHandle; }
+
+        UUID GetUUID() const { return GetComponent<IDComponent>().ID; }
+        const std::string& GetName() const { return GetComponent<TagComponent>().Tag; }
+        TransformComponent& GetTransform() { return GetComponent<TransformComponent>(); }
+        Scene* GetScene() const { return m_Scene; }
+
+        bool operator==(const Entity& other) const { return m_EntityHandle == other.m_EntityHandle && m_Scene == other.m_Scene; }
+        bool operator!=(const Entity& other) const { return !(*this == other); }
+
+    private:
+        entt::entity m_EntityHandle{ entt::null };
+        Scene* m_Scene = nullptr;
+    };
+
+}
+
+namespace Zamin {
+
+    template<typename T>
+    inline void Scene::OnComponentAdded(Entity, T& component)
+    {
+        if constexpr (std::is_same_v<T, CameraComponent>)
+        {
+            if (m_ViewportWidth > 0 && m_ViewportHeight > 0)
+                component.Camera.SetViewportSize(m_ViewportWidth, m_ViewportHeight);
+        }
+        else
+        {
+            (void)component;
+        }
+    }
+
+}

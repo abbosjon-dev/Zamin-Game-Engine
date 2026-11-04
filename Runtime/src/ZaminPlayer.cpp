@@ -1,0 +1,147 @@
+// Zamin Player: runs an exported / development game project fullscreen-ready.
+//   ZaminPlayer [path/to/Game.zproject] [--scene Scenes/Level.zscene] [--fullscreen] [--width W --height H]
+#include <Zamin/Zamin.h>
+#include <Zamin/Core/EntryPoint.h>
+
+#include <cstring>
+
+namespace Zamin {
+
+    class RuntimeLayer : public Layer
+    {
+    public:
+        RuntimeLayer(std::filesystem::path project, std::string scene)
+            : Layer("RuntimeLayer"), m_ProjectPath(std::move(project)), m_SceneOverride(std::move(scene)) {}
+
+        void OnAttach() override
+        {
+            if (!Project::Load(m_ProjectPath))
+            {
+                ZM_CRITICAL("Loyiha yuklanmadi: {}", m_ProjectPath.string());
+                Application::Get().Close();
+                return;
+            }
+            auto& config = Project::GetActive()->GetConfig();
+            Application::Get().GetWindow().SetTitle(config.Name);
+
+            if (auto module = Project::GetScriptModulePath(); !module.empty())
+                ScriptEngine::LoadModule(module);
+
+            std::filesystem::path scenePath = Project::GetAssetFileSystemPath(m_SceneOverride.empty() ? config.StartScene : std::filesystem::path(m_SceneOverride));
+            m_Scene = CreateRef<Scene>();
+            SceneSerializer serializer(m_Scene);
+            if (!serializer.Deserialize(scenePath))
+            {
+                ZM_CRITICAL("Sahna yuklanmadi: {}", scenePath.string());
+                Application::Get().Close();
+                return;
+            }
+            m_Scene->ResolveAssets();
+            auto& window = Application::Get().GetWindow();
+            m_Scene->OnViewportResize(window.GetFramebufferWidth(), window.GetFramebufferHeight());
+            m_Scene->OnRuntimeStart();
+        }
+
+        void OnDetach() override
+        {
+            if (m_Scene)
+            {
+                m_Scene->OnRuntimeStop();
+                m_Scene.reset();
+            }
+            ScriptEngine::UnloadModule();
+        }
+
+        void OnUpdate(Timestep ts) override
+        {
+            if (!m_Scene) return;
+            auto& window = Application::Get().GetWindow();
+            uint32_t w = window.GetFramebufferWidth(), h = window.GetFramebufferHeight();
+            m_Scene->OnViewportResize(w, h);
+
+            Renderer::ResetStats();
+            RenderCommand::SetViewport(0, 0, w, h);
+            RenderCommand::SetClearColor(m_Scene->GetClearColor());
+            RenderCommand::Clear();
+            m_Scene->OnUpdateRuntime(ts);
+        }
+
+        void OnEvent(Event& e) override
+        {
+            EventDispatcher dispatcher(e);
+            dispatcher.Dispatch<KeyPressedEvent>([](KeyPressedEvent& ev) {
+                if (ev.GetKeyCode() == Key::F11)
+                    ZM_INFO("FPS: {:.0f}", Application::Get().GetFPS());
+                return false;
+            });
+        }
+
+    private:
+        std::filesystem::path m_ProjectPath;
+        std::string m_SceneOverride;
+        Ref<Scene> m_Scene;
+    };
+
+    class ZaminPlayer : public Application
+    {
+    public:
+        ZaminPlayer(const ApplicationSpecification& spec, std::filesystem::path project, std::string scene)
+            : Application(spec)
+        {
+            PushLayer(new RuntimeLayer(std::move(project), std::move(scene)));
+        }
+    };
+
+    static std::filesystem::path FindProject(const char* arg)
+    {
+        namespace fs = std::filesystem;
+        if (arg)
+        {
+            fs::path p = fs::absolute(arg);
+            if (fs::is_directory(p))
+                for (auto& e : fs::directory_iterator(p))
+                    if (e.path().extension() == ".zproject") return e.path();
+            return p;
+        }
+        // Exported game layout: <exe dir>/Game/<Name>.zproject
+        for (const fs::path& dir : { FileSystem::GetExecutableDirectory() / "Game", FileSystem::GetExecutableDirectory() })
+        {
+            std::error_code ec;
+            if (!fs::exists(dir, ec)) continue;
+            for (auto& e : fs::directory_iterator(dir, ec))
+                if (e.path().extension() == ".zproject") return e.path();
+        }
+        return {};
+    }
+
+    Application* CreateApplication(ApplicationCommandLineArgs args)
+    {
+        ApplicationSpecification spec;
+        spec.Name = "Zamin Player";
+        spec.CommandLineArgs = args;
+        spec.EnableImGui = false;
+        spec.Window.Width = 1280;
+        spec.Window.Height = 720;
+
+        const char* projectArg = nullptr;
+        std::string scene;
+        for (int i = 1; i < args.Count; i++)
+        {
+            if (!std::strcmp(args[i], "--fullscreen")) spec.Window.Fullscreen = true;
+            else if (!std::strcmp(args[i], "--scene") && i + 1 < args.Count) scene = args[++i];
+            else if (!std::strcmp(args[i], "--width") && i + 1 < args.Count) spec.Window.Width = (uint32_t)std::atoi(args[++i]);
+            else if (!std::strcmp(args[i], "--height") && i + 1 < args.Count) spec.Window.Height = (uint32_t)std::atoi(args[++i]);
+            else if (!std::strcmp(args[i], "--no-vsync")) spec.Window.VSync = false;
+            else projectArg = args[i];
+        }
+
+        std::filesystem::path project = FindProject(projectArg);
+        if (project.empty())
+        {
+            ZM_CRITICAL("Loyiha topilmadi. Foydalanish: ZaminPlayer <Game.zproject>");
+            std::exit(1);
+        }
+        return new ZaminPlayer(spec, project, scene);
+    }
+
+}

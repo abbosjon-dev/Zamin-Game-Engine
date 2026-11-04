@@ -1,0 +1,16 @@
+# Build
+build/
+build-*/
+out/
+cmake-build-*/
+compile_commands.json
+
+# Game project outputs
+Projects/*/Build/
+Projects/*/Binaries/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+imgui.ini

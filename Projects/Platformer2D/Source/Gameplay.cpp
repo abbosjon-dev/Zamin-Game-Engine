@@ -1,0 +1,97 @@
+#include <Zamin/Zamin.h>
+
+#include "GameManager.h"
+
+#include <cmath>
+
+using namespace Zamin;
+
+// Tanga: o'yinchi tegsa yig'iladi. Joyida tebranib turadi.
+class Coin : public ScriptableEntity
+{
+public:
+    float BobSpeed = 3.0f;
+    float BobHeight = 0.15f;
+
+    void OnCreate() override { m_BaseY = Transform().Translation.y; m_Phase = Transform().Translation.x; }
+
+    void OnUpdate(Timestep) override
+    {
+        auto& t = Transform();
+        t.Translation.y = m_BaseY + std::sin(GetTime() * BobSpeed + m_Phase) * BobHeight;
+        float s = 0.6f + 0.05f * std::sin(GetTime() * 6.0f + m_Phase);
+        t.Scale = { s, s, 1.0f };
+    }
+
+    void OnCollisionBegin(Entity other) override
+    {
+        if (m_Collected || other.GetName() != "Player")
+            return;
+        m_Collected = true;
+        if (auto* gm = GetScript<GameManager>(FindEntity("GameManager")))
+            gm->AddCoin();
+        Destroy();
+    }
+
+private:
+    float m_BaseY = 0.0f, m_Phase = 0.0f;
+    bool m_Collected = false;
+};
+ZM_REGISTER_SCRIPT(Coin, ZM_FIELD(Coin, BobSpeed), ZM_FIELD(Coin, BobHeight))
+
+// Kamera o'yinchini silliq kuzatadi.
+class CameraFollow : public ScriptableEntity
+{
+public:
+    std::string Target = "Player";
+    float Smoothness = 5.0f;
+    glm::vec2 Offset = { 0.0f, 1.5f };
+    float MinY = -2.0f;
+
+    void OnLateUpdate(Timestep ts) override
+    {
+        Entity target = FindEntity(Target);
+        if (!target) return;
+        auto& t = Transform();
+        glm::vec3 goal = target.GetComponent<TransformComponent>().Translation;
+        glm::vec2 desired = { goal.x + Offset.x, std::max(MinY, goal.y + Offset.y) };
+        float k = 1.0f - std::exp(-Smoothness * (float)ts);
+        t.Translation.x += (desired.x - t.Translation.x) * k;
+        t.Translation.y += (desired.y - t.Translation.y) * k;
+    }
+};
+ZM_REGISTER_SCRIPT(CameraFollow, ZM_FIELD(CameraFollow, Target), ZM_FIELD(CameraFollow, Smoothness),
+                   ZM_FIELD(CameraFollow, Offset), ZM_FIELD(CameraFollow, MinY))
+
+// Kinematik platforma: oldinga-orqaga harakatlanadi (ustidagi o'yinchini ham olib yuradi).
+class MovingPlatform : public ScriptableEntity
+{
+public:
+    glm::vec2 Direction = { 1.0f, 0.0f };
+    float Distance = 3.0f;
+    float Speed = 1.0f;
+
+    void OnUpdate(Timestep) override
+    {
+        float v = Distance * Speed * std::cos(GetTime() * Speed);
+        SetVelocity(glm::normalize(Direction) * v);
+    }
+};
+ZM_REGISTER_SCRIPT(MovingPlatform, ZM_FIELD(MovingPlatform, Direction), ZM_FIELD(MovingPlatform, Distance),
+                   ZM_FIELD(MovingPlatform, Speed))
+
+// Bulutlar: sekin suzib yuradi va ekran chetidan qaytadi.
+class Cloud : public ScriptableEntity
+{
+public:
+    float Speed = 0.4f;
+    float WrapLeft = -20.0f, WrapRight = 60.0f;
+
+    void OnUpdate(Timestep ts) override
+    {
+        auto& t = Transform();
+        t.Translation.x += Speed * (float)ts;
+        if (t.Translation.x > WrapRight) t.Translation.x = WrapLeft;
+    }
+};
+ZM_REGISTER_SCRIPT(Cloud, ZM_FIELD(Cloud, Speed))

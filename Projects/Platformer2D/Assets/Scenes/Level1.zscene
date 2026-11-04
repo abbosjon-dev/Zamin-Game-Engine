@@ -1,0 +1,2630 @@
+{
+  "Scene": "Level1",
+  "Version": 1,
+  "Settings": {
+    "DrawSky": false,
+    "SkyTop": [
+      0.32,
+      0.52,
+      0.85
+    ],
+    "SkyHorizon": [
+      0.78,
+      0.86,
+      0.95
+    ],
+    "Ground": [
+      0.36,
+      0.33,
+      0.3
+    ],
+    "Ambient": 0.6,
+    "Exposure": 1.0,
+    "ShadowDistance": 40,
+    "Gravity": [
+      0,
+      -20
+    ]
+  },
+  "Entities": [
+    {
+      "Entity": 7340000007926919,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0,
+          1.5,
+          10
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 1,
+        "PerspectiveFOV": 0.7854,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 1000,
+        "OrthographicSize": 14,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.47,
+          0.72,
+          0.94,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "CameraFollow",
+        "Fields": {
+          "Smoothness": {
+            "Type": "Float",
+            "Value": 5.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000007934838,
+      "Tag": "Hill",
+      "Transform": {
+        "Translation": [
+          -12,
+          -1.6761672351668375,
+          -5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          8.47252969493224,
+          8.47252969493224,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.36,
+          0.62,
+          0.48,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": -10
+      }
+    },
+    {
+      "Entity": 7340000007942757,
+      "Tag": "Hill",
+      "Transform": {
+        "Translation": [
+          -3,
+          -1.849150826075498,
+          -5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          7.365434713116812,
+          7.365434713116812,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.36,
+          0.62,
+          0.48,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": -10
+      }
+    },
+    {
+      "Entity": 7340000007950676,
+      "Tag": "Hill",
+      "Transform": {
+        "Translation": [
+          6,
+          -1.3490655269601461,
+          -5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          10.565980627455065,
+          10.565980627455065,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.36,
+          0.62,
+          0.48,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": -10
+      }
+    },
+    {
+      "Entity": 7340000007958595,
+      "Tag": "Hill",
+      "Transform": {
+        "Translation": [
+          15,
+          -1.9275637133324572,
+          -5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          6.863592234672274,
+          6.863592234672274,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.36,
+          0.62,
+          0.48,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": -10
+      }
+    },
+    {
+      "Entity": 7340000007966514,
+      "Tag": "Hill",
+      "Transform": {
+        "Translation": [
+          24,
+          -1.4641179956933108,
+          -5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          9.829644827562811,
+          9.829644827562811,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.36,
+          0.62,
+          0.48,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": -10
+      }
+    },
+    {
+      "Entity": 7340000007974433,
+      "Tag": "Hill",
+      "Transform": {
+        "Translation": [
+          33,
+          -1.6343110830874146,
+          -5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          8.740409068240547,
+          8.740409068240547,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.36,
+          0.62,
+          0.48,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": -10
+      }
+    },
+    {
+      "Entity": 7340000007982352,
+      "Tag": "Hill",
+      "Transform": {
+        "Translation": [
+          42,
+          -1.9420010752252932,
+          -5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          6.771193118558124,
+          6.771193118558124,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.36,
+          0.62,
+          0.48,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": -10
+      }
+    },
+    {
+      "Entity": 7340000007990271,
+      "Tag": "Hill",
+      "Transform": {
+        "Translation": [
+          51,
+          -1.4925642668105796,
+          -5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          9.647588692412292,
+          9.647588692412292,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.36,
+          0.62,
+          0.48,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": -10
+      }
+    },
+    {
+      "Entity": 7340000007998190,
+      "Tag": "Hill",
+      "Transform": {
+        "Translation": [
+          60,
+          -1.9625043415580152,
+          -5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          6.6399722140287025,
+          6.6399722140287025,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.36,
+          0.62,
+          0.48,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": -10
+      }
+    },
+    {
+      "Entity": 7340000008006109,
+      "Tag": "Sun",
+      "Transform": {
+        "Translation": [
+          30,
+          4.5,
+          -6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          4,
+          4,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.9,
+          0.55,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.05,
+        "SortingOrder": -11
+      }
+    },
+    {
+      "Entity": 7340000008014028,
+      "Tag": "Cloud",
+      "Transform": {
+        "Translation": [
+          -6,
+          4.6,
+          -4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3.2,
+          1.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.08,
+        "SortingOrder": -9
+      },
+      "NativeScript": {
+        "Class": "Cloud",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.52
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000008021947,
+      "Tag": "Cloud",
+      "Transform": {
+        "Translation": [
+          8,
+          5.4,
+          -4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3.2,
+          1.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.08,
+        "SortingOrder": -9
+      },
+      "NativeScript": {
+        "Class": "Cloud",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.33
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000008029866,
+      "Tag": "Cloud",
+      "Transform": {
+        "Translation": [
+          22,
+          4.9,
+          -4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3.2,
+          1.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.08,
+        "SortingOrder": -9
+      },
+      "NativeScript": {
+        "Class": "Cloud",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.35
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000008037785,
+      "Tag": "Cloud",
+      "Transform": {
+        "Translation": [
+          38,
+          5.6,
+          -4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3.2,
+          1.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.08,
+        "SortingOrder": -9
+      },
+      "NativeScript": {
+        "Class": "Cloud",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.51
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000008045704,
+      "Tag": "Cloud",
+      "Transform": {
+        "Translation": [
+          52,
+          4.4,
+          -4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3.2,
+          1.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.08,
+        "SortingOrder": -9
+      },
+      "NativeScript": {
+        "Class": "Cloud",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.71
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000008053623,
+      "Tag": "Ground",
+      "Transform": {
+        "Translation": [
+          1.0,
+          -3.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          26,
+          1,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.3,
+          0.68,
+          0.33,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008061542,
+      "Tag": "Dirt",
+      "Transform": {
+        "Translation": [
+          1.0,
+          -5.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          26,
+          3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.52,
+          0.36,
+          0.22,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": -1
+      }
+    },
+    {
+      "Entity": 7340000008069461,
+      "Tag": "Ground",
+      "Transform": {
+        "Translation": [
+          26.0,
+          -3.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          16,
+          1,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.3,
+          0.68,
+          0.33,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008077380,
+      "Tag": "Dirt",
+      "Transform": {
+        "Translation": [
+          26.0,
+          -5.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          16,
+          3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.52,
+          0.36,
+          0.22,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": -1
+      }
+    },
+    {
+      "Entity": 7340000008085299,
+      "Tag": "Ground",
+      "Transform": {
+        "Translation": [
+          51.0,
+          -3.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          26,
+          1,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.3,
+          0.68,
+          0.33,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008093218,
+      "Tag": "Dirt",
+      "Transform": {
+        "Translation": [
+          51.0,
+          -5.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          26,
+          3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.52,
+          0.36,
+          0.22,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": -1
+      }
+    },
+    {
+      "Entity": 7340000008101137,
+      "Tag": "Platform",
+      "Transform": {
+        "Translation": [
+          4,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          4,
+          0.5,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.62,
+          0.45,
+          0.3,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008109056,
+      "Tag": "Platform",
+      "Transform": {
+        "Translation": [
+          10,
+          2.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3,
+          0.5,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.62,
+          0.45,
+          0.3,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008116975,
+      "Tag": "Platform",
+      "Transform": {
+        "Translation": [
+          23,
+          0.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          4,
+          0.5,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.62,
+          0.45,
+          0.3,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008124894,
+      "Tag": "Platform",
+      "Transform": {
+        "Translation": [
+          29,
+          3,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3,
+          0.5,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.62,
+          0.45,
+          0.3,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008132813,
+      "Tag": "Platform",
+      "Transform": {
+        "Translation": [
+          44,
+          1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3,
+          0.5,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.62,
+          0.45,
+          0.3,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008140732,
+      "Tag": "Platform",
+      "Transform": {
+        "Translation": [
+          50,
+          3.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3,
+          0.5,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.62,
+          0.45,
+          0.3,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008148651,
+      "Tag": "Platform",
+      "Transform": {
+        "Translation": [
+          56,
+          1.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          4,
+          0.5,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.62,
+          0.45,
+          0.3,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008156570,
+      "Tag": "Platform",
+      "Transform": {
+        "Translation": [
+          16,
+          -1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3,
+          0.5,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.85,
+          0.55,
+          0.25,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Kinematic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "NativeScript": {
+        "Class": "MovingPlatform",
+        "Fields": {
+          "Distance": {
+            "Type": "Float",
+            "Value": 1.6
+          },
+          "Speed": {
+            "Type": "Float",
+            "Value": 1.2
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000008164489,
+      "Tag": "Platform",
+      "Transform": {
+        "Translation": [
+          36,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.5,
+          0.5,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.85,
+          0.55,
+          0.25,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      },
+      "Rigidbody2D": {
+        "BodyType": "Kinematic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "NativeScript": {
+        "Class": "MovingPlatform",
+        "Fields": {
+          "Direction": {
+            "Type": "Vec2",
+            "Value": [
+              0,
+              1
+            ]
+          },
+          "Distance": {
+            "Type": "Float",
+            "Value": 2.0
+          },
+          "Speed": {
+            "Type": "Float",
+            "Value": 1.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000008172408,
+      "Tag": "Crate",
+      "Transform": {
+        "Translation": [
+          7,
+          -2.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.78,
+          0.55,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 0.6,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008180327,
+      "Tag": "Crate",
+      "Transform": {
+        "Translation": [
+          7.2,
+          -1.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.78,
+          0.55,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 0.6,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008188246,
+      "Tag": "Crate",
+      "Transform": {
+        "Translation": [
+          26,
+          -2.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.78,
+          0.55,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 0.6,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008196165,
+      "Tag": "Crate",
+      "Transform": {
+        "Translation": [
+          47,
+          -2.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.78,
+          0.55,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 0.6,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008204084,
+      "Tag": "Ball",
+      "Transform": {
+        "Translation": [
+          12,
+          4,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.8,
+          0.8,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.92,
+          0.3,
+          0.35,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": 1
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.75,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000008212003,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          2,
+          -2,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008219922,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          4,
+          1,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008227841,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          5,
+          1,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008235760,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          10,
+          3.6,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008243679,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          16,
+          0.5,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008251598,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          23,
+          1.6,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008259517,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          24,
+          1.6,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008267436,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          29,
+          4.1,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008275355,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          36,
+          3,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008283274,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          44,
+          2.1,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008291193,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          50,
+          4.6,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008299112,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          56,
+          2.6,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008307031,
+      "Tag": "Coin",
+      "Transform": {
+        "Translation": [
+          60,
+          -2,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          1.0,
+          0.82,
+          0.15,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.0,
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": true
+      },
+      "NativeScript": {
+        "Class": "Coin",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008314950,
+      "Tag": "Player",
+      "Transform": {
+        "Translation": [
+          -6,
+          -1,
+          0.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.98,
+          0.45,
+          0.2,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 5
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": true,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.0,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "NativeScript": {
+        "Class": "PlayerController",
+        "Fields": {
+          "MoveSpeed": {
+            "Type": "Float",
+            "Value": 7.0
+          },
+          "JumpImpulse": {
+            "Type": "Float",
+            "Value": 9.5
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000008322869,
+      "Tag": "Goal Flag",
+      "Transform": {
+        "Translation": [
+          62,
+          -1.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.15,
+          3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.9,
+          0.9,
+          0.95,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      }
+    },
+    {
+      "Entity": 7340000008330788,
+      "Tag": "Goal Banner",
+      "Transform": {
+        "Translation": [
+          62.6,
+          -0.4,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.1,
+          0.7,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.18,
+          0.74,
+          0.58,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0
+      }
+    },
+    {
+      "Entity": 7340000008338707,
+      "Tag": "GameManager",
+      "Transform": {
+        "Translation": [
+          -8.5,
+          6.7,
+          1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          0.7,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Tangalar: 0",
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      },
+      "NativeScript": {
+        "Class": "GameManager",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7340000008346626,
+      "Tag": "Title",
+      "Transform": {
+        "Translation": [
+          -6,
+          3.2,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Zamin Platformer",
+        "Color": [
+          1,
+          1,
+          1,
+          0.95
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7340000008354545,
+      "Tag": "Hint",
+      "Transform": {
+        "Translation": [
+          -6,
+          2.2,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.45,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "A/D - yurish   Space - sakrash",
+        "Color": [
+          0.95,
+          0.97,
+          1,
+          0.85
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    }
+  ]
+}

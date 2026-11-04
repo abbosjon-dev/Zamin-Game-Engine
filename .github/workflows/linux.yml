@@ -1,0 +1,43 @@
+name: Linux
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        compiler: [ { cc: gcc, cxx: g++ }, { cc: clang, cxx: clang++ } ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgl-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols xvfb mesa-utils
+
+      - name: Configure
+        env:
+          CC: ${{ matrix.compiler.cc }}
+          CXX: ${{ matrix.compiler.cxx }}
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Unit tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Smoke test (headless render)
+        run: |
+          ZAMIN_MAX_FRAMES=60 ZAMIN_SCREENSHOT=platformer.png xvfb-run -a -s "-screen 0 1280x720x24" ./build/bin/ZaminPlayer Projects/Platformer2D
+          ZAMIN_MAX_FRAMES=60 ZAMIN_SCREENSHOT=showcase.png xvfb-run -a -s "-screen 0 1280x720x24" ./build/bin/ZaminPlayer Projects/Showcase3D
+          ZAMIN_MAX_FRAMES=60 ZAMIN_SCREENSHOT=editor.png xvfb-run -a -s "-screen 0 1600x900x24" ./build/bin/ZaminEditor Projects/Showcase3D
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.compiler.cc }}
+          path: "*.png"

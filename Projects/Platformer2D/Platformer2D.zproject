@@ -1,0 +1,10 @@
+{
+    "Project": {
+        "Name": "Platformer2D",
+        "StartScene": "Scenes/Level1.zscene",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libPlatformer2D.so",
+        "EngineVersion": "0.1.0"
+    }
+}

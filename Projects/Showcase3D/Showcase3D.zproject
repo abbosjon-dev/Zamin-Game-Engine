@@ -1,0 +1,10 @@
+{
+    "Project": {
+        "Name": "Showcase3D",
+        "StartScene": "Scenes/Showcase.zscene",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libShowcase3D.so",
+        "EngineVersion": "0.1.0"
+    }
+}

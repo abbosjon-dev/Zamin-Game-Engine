@@ -1,0 +1,38 @@
+#pragma once
+
+// Zamin Engine – public API umbrella header (for games and tools).
+
+#include "Zamin/Core/Base.h"
+#include "Zamin/Core/Log.h"
+#include "Zamin/Core/Application.h"
+#include "Zamin/Core/Layer.h"
+#include "Zamin/Core/Input.h"
+#include "Zamin/Core/KeyCodes.h"
+#include "Zamin/Core/Timestep.h"
+#include "Zamin/Core/UUID.h"
+#include "Zamin/Events/Event.h"
+
+#include "Zamin/Renderer/Renderer.h"
+#include "Zamin/Renderer/Renderer2D.h"
+#include "Zamin/Renderer/Renderer3D.h"
+#include "Zamin/Renderer/RenderCommand.h"
+#include "Zamin/Renderer/Framebuffer.h"
+#include "Zamin/Renderer/Texture.h"
+#include "Zamin/Renderer/Shader.h"
+#include "Zamin/Renderer/Font.h"
+#include "Zamin/Renderer/Mesh.h"
+#include "Zamin/Renderer/EditorCamera.h"
+
+#include "Zamin/Scene/Scene.h"
+#include "Zamin/Scene/Entity.h"
+#include "Zamin/Scene/Components.h"
+#include "Zamin/Scene/SceneSerializer.h"
+
+#include "Zamin/Scripting/ScriptableEntity.h"
+#include "Zamin/Scripting/ScriptEngine.h"
+
+#include "Zamin/Audio/AudioEngine.h"
+#include "Zamin/Project/Project.h"
+#include "Zamin/Math/Math.h"
+#include "Zamin/Utils/PlatformUtils.h"
+#include "Zamin/Utils/FileSystem.h"

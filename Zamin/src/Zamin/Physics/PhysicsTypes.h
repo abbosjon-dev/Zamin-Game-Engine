@@ -10,6 +10,7 @@ namespace Zamin {
     {
         UUID A, B;
         bool Begin;
+        bool Sensor = false; // at least one of the two colliders is a sensor (trigger)
     };
 
     struct RaycastHit

@@ -71,7 +71,7 @@ namespace Zamin {
         m_ProjectSettingsPanel.OnSceneModified = [this]() { MarkDirty(); };
         m_SceneHierarchyPanel.OnPrefabDropped = [this](const fs::path& p, Entity parent) { InstantiatePrefabInEditor(p, parent); };
         m_ContentBrowserPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
-        m_ContentBrowserPanel.OnCreateScript = [this](const std::string& name) { CreateScriptClass(name); };
+        m_ContentBrowserPanel.OnRequestNewScript = [this]() { m_NewScriptName = "MyScript"; m_OpenNewScriptPopup = true; };
         m_ContentBrowserPanel.OnNewScene = [this](const fs::path& p) {
             Ref<Scene> scene = CreateRef<Scene>();
             scene->SetName(p.stem().string());
@@ -122,6 +122,8 @@ namespace Zamin {
                 m_SceneHierarchyPanel.SetSelectedEntity(m_ActiveScene->FindEntityByName(sel));
             if (const char* filter = std::getenv("ZAMIN_EDITOR_FILTER")) // e.g. "#Coin"
                 m_SceneHierarchyPanel.SetFilter(filter);
+            if (std::getenv("ZAMIN_EDITOR_INSPECTOR_BOTTOM"))
+                m_SceneHierarchyPanel.ScrollInspectorToBottom();
             if (std::getenv("ZAMIN_EDITOR_PLAY"))
                 OnScenePlay();
             if (std::getenv("ZAMIN_EDITOR_STATS"))
@@ -145,6 +147,21 @@ namespace Zamin {
                 size_t bar = v.find('|');
                 if (bar != std::string::npos)
                     NewProject(v.substr(0, bar), v.substr(bar + 1));
+            }
+            if (const char* ns = std::getenv("ZAMIN_EDITOR_NEW_SCRIPT")) // "<Class>[|minimal]" or "dialog"
+            {
+                std::string v = ns;
+                if (v == "dialog")
+                {
+                    m_NewScriptName = "EnemyAI";
+                    m_OpenNewScriptPopup = true;
+                }
+                else
+                {
+                    size_t bar = v.find('|');
+                    bool minimal = bar != std::string::npos && v.substr(bar + 1) == "minimal";
+                    CreateScriptClass(v.substr(0, bar), minimal ? ScriptTemplateKind::Minimal : ScriptTemplateKind::Full);
+                }
             }
         }
 
@@ -1051,57 +1068,33 @@ namespace Zamin {
         }
     }
 
-    void EditorLayer::CreateScriptClass(const std::string& className)
+    bool EditorLayer::CreateScriptClass(const std::string& className, ScriptTemplateKind kind)
     {
-        if (!Project::GetActive()) return;
-        std::string name;
-        for (char ch : className)
-            if (std::isalnum((unsigned char)ch) || ch == '_') name += ch;
-        if (name.empty() || std::isdigit((unsigned char)name[0]))
+        if (!Project::GetActive()) return false;
+        if (std::string problem = ScriptTemplate::ValidateClassName(className); !problem.empty())
         {
-            ZM_ERROR("Klass nomi noto'g'ri: '{}'", className);
-            return;
+            ZM_ERROR("Skript yaratilmadi: {}", problem);
+            return false;
         }
-        fs::path file = Project::GetSourceDirectory() / (name + ".cpp");
+        if (ScriptRegistry::Find(className))
+        {
+            ZM_WARN("'{}' klassi allaqachon mavjud (skript modulida ro'yxatdan o'tgan)", className);
+            return false;
+        }
+        fs::path file = Project::GetSourceDirectory() / (className + ".cpp");
         if (fs::exists(file))
         {
             ZM_WARN("Fayl allaqachon mavjud: {}", file.string());
-            return;
+            return false;
         }
-        std::string code = std::format(R"(#include <Zamin/Zamin.h>
-
-using namespace Zamin;
-
-class {0} : public ScriptableEntity
-{{
-public:
-    // Inspector'da ko'rinadigan maydonlar (ZM_FIELD bilan ro'yxatdan o'tkazing)
-    float Speed = 3.0f;
-
-    void OnCreate() override
-    {{
-        ZM_INFO("{0} yaratildi: {{}}", GetName());
-    }}
-
-    void OnUpdate(Timestep ts) override
-    {{
-        // Har kadrda chaqiriladi. Masalan:
-        // Transform().Translation.x += Speed * ts;
-    }}
-
-    void OnCollisionBegin(Entity other) override
-    {{
-        // 2D fizik to'qnashuv boshlandi
-    }}
-}};
-
-ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
-)", name);
-        if (FileSystem::WriteTextFile(file, code))
+        if (!FileSystem::WriteTextFile(file, ScriptTemplate::Generate(className, kind)))
         {
-            ZM_INFO("Yangi skript yaratildi: {}", file.string());
-            BuildScripts(true);
+            ZM_ERROR("Fayl yozilmadi: {}", file.string());
+            return false;
         }
+        ZM_INFO("Yangi skript yaratildi ({} shablon): {}", ScriptTemplate::GetKindName(kind), file.string());
+        BuildScripts(true);
+        return true;
     }
 
     // ================================================================== export
@@ -1892,15 +1885,54 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         if (m_OpenNewScriptPopup) { ImGui::OpenPopup("Yangi C++ skript"); m_OpenNewScriptPopup = false; }
         if (ImGui::BeginPopupModal("Yangi C++ skript", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
+            const float width = 460.0f;
             ImGui::TextUnformatted("Klass nomi (masalan: PlayerController)");
-            ImGui::SetNextItemWidth(320);
+            ImGui::SetNextItemWidth(width);
             if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
             bool enter = ImGui::InputText("##scriptname", &m_NewScriptName, ImGuiInputTextFlags_EnterReturnsTrue);
-            if (ImGui::Button(ICON_FA_CHECK "  Yaratish", ImVec2(150, 0)) || enter)
+
+            // Live check: the same rules CreateScriptClass applies.
+            std::string problem = ScriptTemplate::ValidateClassName(m_NewScriptName);
+            if (problem.empty() && ScriptRegistry::Find(m_NewScriptName))
+                problem = std::format("'{}' klassi allaqachon mavjud", m_NewScriptName);
+            fs::path file = Project::GetActive() ? Project::GetSourceDirectory() / (m_NewScriptName + ".cpp") : fs::path();
+            if (problem.empty() && !file.empty() && fs::exists(file))
+                problem = std::format("{} fayli allaqachon bor", file.filename().string());
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + width);
+            if (!problem.empty())
             {
-                CreateScriptClass(m_NewScriptName);
-                ImGui::CloseCurrentPopup();
+                ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s", problem.c_str());
+                if (std::string fixed = ScriptTemplate::SanitizeClassName(m_NewScriptName);
+                    fixed != m_NewScriptName && ScriptTemplate::IsValidClassName(fixed))
+                {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(std::format("{} ni ishlatish", fixed).c_str()))
+                        m_NewScriptName = fixed;
+                }
             }
+            else
+                ImGui::TextDisabled(ICON_FA_FILE_CODE "  Source/%s.cpp", m_NewScriptName.c_str());
+
+            ImGui::Spacing();
+            ImGui::SeparatorText("Shablon");
+            for (ScriptTemplateKind kind : { ScriptTemplateKind::Full, ScriptTemplateKind::Minimal })
+            {
+                if (ImGui::RadioButton(ScriptTemplate::GetKindName(kind), m_NewScriptTemplate == kind))
+                    m_NewScriptTemplate = kind;
+                ImGui::Indent(ImGui::GetFrameHeight());
+                ImGui::TextDisabled("%s", ScriptTemplate::GetKindDescription(kind));
+                ImGui::Unindent(ImGui::GetFrameHeight());
+            }
+            ImGui::PopTextWrapPos();
+            ImGui::Spacing();
+
+            ImGui::BeginDisabled(!problem.empty());
+            if (ImGui::Button(ICON_FA_CHECK "  Yaratish", ImVec2(150, 0)) || (enter && problem.empty()))
+            {
+                if (CreateScriptClass(m_NewScriptName, m_NewScriptTemplate))
+                    ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndDisabled();
             ImGui::SameLine();
             if (ImGui::Button("Bekor qilish", ImVec2(150, 0))) ImGui::CloseCurrentPopup();
             ImGui::EndPopup();

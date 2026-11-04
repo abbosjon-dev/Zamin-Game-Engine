@@ -23,6 +23,8 @@ namespace Zamin {
         void SetSelectedEntity(Entity entity) { m_SelectionContext = entity; }
         // Hierarchy search text ("#tag" filters by gameplay tag).
         void SetFilter(const std::string& filter) { m_Filter = filter; }
+        // Keeps the inspector scrolled to its end for a few frames (screenshots / automation).
+        void ScrollInspectorToBottom() { m_ScrollInspectorFrames = 30; }
 
         // Entity creation shortcuts (also used by the editor menu).
         Entity CreateEntityPreset(const char* preset);
@@ -51,9 +53,10 @@ namespace Zamin {
         void DrawEntityNode(Entity entity, int depth);
         void DrawEntityContextMenu(Entity entity);
         void DrawScriptComponent(Entity entity);
-        bool DrawFieldValue(const char* name, ScriptFieldType type, void* data);
+        // One script field with its attributes (header, label, tooltip, range, color, enum).
+        bool DrawScriptField(const ScriptFieldInfo& field, ScriptFieldValue& value);
         // EntityRef script field: drop from the hierarchy, pick from a list, locate, clear.
-        bool DrawEntityRefField(const char* name, EntityRef& ref);
+        bool DrawEntityRefField(const char* name, EntityRef& ref, const char* tooltip = nullptr);
         // Gameplay tags: removable chips + add field with suggestions.
         bool DrawTagsComponent(TagsComponent& c);
         bool MatchesFilter(Entity entity, const std::string& lowerFilter);
@@ -68,6 +71,7 @@ namespace Zamin {
         std::string m_EntityPickerFilter;
         std::string m_NewTagBuffer;
         entt::entity m_RenamingEntity = entt::null;
+        int m_ScrollInspectorFrames = 0;
         std::string m_RenameBuffer;
         Entity m_PendingDelete, m_PendingDuplicate, m_PendingCreateChildOf;
         int m_RowIndex = 0;

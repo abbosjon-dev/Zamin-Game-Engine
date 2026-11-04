@@ -14,6 +14,20 @@
 
 namespace Zamin {
 
+    bool ScriptableEntity::IsEnabled() const
+    {
+        Entity e = m_Entity;
+        if (!e.IsValid()) return false;
+        auto* nsc = e.TryGetComponent<NativeScriptComponent>();
+        return nsc && nsc->Enabled;
+    }
+
+    void ScriptableEntity::SetEnabled(bool enabled)
+    {
+        if (m_Entity.IsValid())
+            m_Entity.GetScene()->SetScriptEnabled(m_Entity, enabled);
+    }
+
     Entity ScriptableEntity::FindEntity(std::string_view name) const { return m_Entity.GetScene()->FindEntityByName(name); }
     std::vector<Entity> ScriptableEntity::FindEntities(std::string_view name) const { return m_Entity.GetScene()->FindEntitiesByName(name); }
     std::vector<Entity> ScriptableEntity::FindEntitiesWithTag(std::string_view tag) const { return m_Entity.GetScene()->FindEntitiesWithTag(tag); }

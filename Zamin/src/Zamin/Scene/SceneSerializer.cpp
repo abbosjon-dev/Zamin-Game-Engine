@@ -57,6 +57,7 @@ namespace Zamin {
             case ScriptFieldType::Vec4:   j["Value"] = ToJson(v.Get<glm::vec4>()); break;
             case ScriptFieldType::String: j["Value"] = v.StringValue; break;
             case ScriptFieldType::Entity: j["Value"] = v.Get<EntityRef>().ID; break;
+            case ScriptFieldType::Enum:   j["Value"] = v.GetEnum(); break;
             default: break;
         }
         return j;
@@ -76,6 +77,13 @@ namespace Zamin {
             case ScriptFieldType::Vec4:   v.Set(Vec<glm::vec4>(wrapper, "Value", glm::vec4(0.0f))); break;
             case ScriptFieldType::String: v.Set(j.value("Value", std::string())); break;
             case ScriptFieldType::Entity: v.Set(EntityRef{ j.value("Value", (uint64_t)0) }); break;
+            case ScriptFieldType::Enum:
+            {
+                const json& value = j.contains("Value") ? j["Value"] : json();
+                v.SetEnum(value.is_number_integer() ? value.get<int64_t>()
+                          : value.is_number() ? (int64_t)value.get<double>() : 0);
+                break;
+            }
             default: return false;
         }
         return true;
@@ -236,6 +244,8 @@ namespace Zamin {
             for (const auto& [name, value] : c->Fields)
                 fields[name] = SerializeFieldValue(value);
             e["NativeScript"] = { { "Class", c->ClassName }, { "Fields", fields } };
+            if (!c->Enabled)
+                e["NativeScript"]["Enabled"] = false; // written only when off: older files stay unchanged
         }
         return e;
     }
@@ -548,6 +558,7 @@ namespace Zamin {
             const json& j = e["NativeScript"];
             auto& c = entity.AddComponent<NativeScriptComponent>();
             c.ClassName = j.value("Class", "");
+            c.Enabled = j.value("Enabled", true);
             if (j.contains("Fields") && j["Fields"].is_object())
                 for (auto it = j["Fields"].begin(); it != j["Fields"].end(); ++it)
                 {

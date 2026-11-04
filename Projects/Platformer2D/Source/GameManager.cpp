@@ -2,12 +2,24 @@
 
 using namespace Zamin;
 
-void GameManager::OnCreate()
+void GameManager::OnEnable()
 {
-    // Tangalar "Coin" tegi bilan belgilangan (Inspektor > Teglar).
-    m_TotalCoins = (int)FindEntitiesWithTag("Coin").size();
     // Tanga yig'ilganini hodisalar shinasi orqali eshitamiz: tanga GameManager'ni bilishi shart emas.
-    Subscribe("CoinCollected", [this](const ScriptMessage&) { AddCoin(); });
+    // Faqat skript yoqilgan paytda tinglaymiz (OnDisable'da obuna bekor qilinadi).
+    m_CoinSubscription = Subscribe("CoinCollected", [this](const ScriptMessage&) { AddCoin(); });
+}
+
+void GameManager::OnDisable()
+{
+    Unsubscribe(m_CoinSubscription);
+    m_CoinSubscription = 0;
+}
+
+void GameManager::OnStart()
+{
+    // OnStart birinchi Update'dan oldin, sahnadagi hamma skriptlar OnCreate'dan o'tgach chaqiriladi:
+    // boshqa skriptlar yaratgan tangalar ham hisobga kiradi. Tangalar "Coin" tegi bilan belgilangan.
+    m_TotalCoins = (int)FindEntitiesWithTag("Coin").size();
     RefreshText();
 }
 
@@ -60,4 +72,6 @@ void GameManager::RefreshText()
     }
 }
 
-ZM_REGISTER_SCRIPT(GameManager, ZM_FIELD(GameManager, Title), ZM_FIELD(GameManager, ScreenOffset))
+ZM_REGISTER_SCRIPT(GameManager,
+    ZM_FIELD_TOOLTIP(GameManager, Title, "Ekrandagi hisob matni oldidagi so'z"),
+    ZM_FIELD(GameManager, ScreenOffset).Tooltip("Matnning kameraga nisbatan joyi (UI elementi bo'lmasa)"))

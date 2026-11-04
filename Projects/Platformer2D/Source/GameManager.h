@@ -9,7 +9,9 @@ public:
     std::string Title = "Tangalar";
     glm::vec2 ScreenOffset = { -8.5f, 5.2f }; // kameraga nisbatan joylashuv
 
-    void OnCreate() override;
+    void OnEnable() override;
+    void OnDisable() override;
+    void OnStart() override;
     void OnLateUpdate(Zamin::Timestep ts) override;
     // "PlayerFell" xabari (SendMessage orqali keladi).
     void OnMessage(const Zamin::ScriptMessage& message) override;
@@ -23,4 +25,5 @@ private:
     int m_Coins = 0;
     int m_TotalCoins = 0;
     int m_Falls = 0;
+    Zamin::SubscriptionID m_CoinSubscription = 0;
 };

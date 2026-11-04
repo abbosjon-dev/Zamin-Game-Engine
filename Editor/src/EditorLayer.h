@@ -78,7 +78,8 @@ namespace Zamin {
         // ---- C++ scripts
         void BuildScripts(bool reloadAfter = true);
         void ReloadScriptModule();
-        void CreateScriptClass(const std::string& className);
+        // Writes Source/<className>.cpp from a template and starts a script build.
+        bool CreateScriptClass(const std::string& className, ScriptTemplateKind kind = ScriptTemplateKind::Full);
         void CheckModuleHotReload(Timestep ts);
 
         // ---- export
@@ -161,6 +162,7 @@ namespace Zamin {
         float m_BuildStartTime = 0.0f;
         bool m_OpenNewScriptPopup = false;
         std::string m_NewScriptName = "MyScript";
+        ScriptTemplateKind m_NewScriptTemplate = ScriptTemplateKind::Full;
 
         // undo
         std::vector<std::string> m_UndoStack, m_RedoStack;

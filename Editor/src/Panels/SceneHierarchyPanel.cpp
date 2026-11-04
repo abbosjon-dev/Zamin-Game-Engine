@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <format>
 
 namespace Zamin {
 
@@ -51,7 +53,14 @@ namespace Zamin {
         if (*showInspector)
         {
             if (ImGui::Begin(ICON_FA_SLIDERS "  Inspektor###Inspector", showInspector))
+            {
                 DrawInspector();
+                if (m_ScrollInspectorFrames > 0) // automation: show the last components
+                {
+                    ImGui::SetScrollY(ImGui::GetScrollMaxY());
+                    m_ScrollInspectorFrames--;
+                }
+            }
             ImGui::End();
         }
     }
@@ -626,8 +635,7 @@ namespace Zamin {
             for (const auto& f : info->Fields)
             {
                 ScriptFieldValue v;
-                v.Type = f.Type;
-                v.ReadFrom(f.Accessor(tmp));
+                f.Load(tmp, v);
                 defaults[f.Name] = v;
             }
             delete tmp;
@@ -635,9 +643,9 @@ namespace Zamin {
         return defaults;
     }
 
-    bool SceneHierarchyPanel::DrawEntityRefField(const char* name, EntityRef& ref)
+    bool SceneHierarchyPanel::DrawEntityRefField(const char* name, EntityRef& ref, const char* tooltip)
     {
-        UI::PropertyLabel(name);
+        UI::PropertyLabel(name, tooltip);
         ImGui::PushID(name);
         bool changed = false;
 
@@ -847,20 +855,116 @@ namespace Zamin {
         return changed;
     }
 
-    bool SceneHierarchyPanel::DrawFieldValue(const char* name, ScriptFieldType type, void* data)
+    bool SceneHierarchyPanel::DrawScriptField(const ScriptFieldInfo& f, ScriptFieldValue& v)
     {
-        switch (type)
+        if (!f.HeaderText.empty())
+            UI::PropertyHeader(f.HeaderText.c_str());
+
+        const char* label = f.GetDisplayName().c_str();
+        const char* tooltip = f.TooltipText.empty() ? nullptr : f.TooltipText.c_str();
+        if (f.Type == ScriptFieldType::Entity)
         {
-            case ScriptFieldType::Float:  return UI::PropertyFloat(name, *(float*)data, 0.05f, 0.0f, 0.0f);
-            case ScriptFieldType::Int:    return UI::PropertyInt(name, *(int*)data);
-            case ScriptFieldType::Bool:   return UI::PropertyBool(name, *(bool*)data);
-            case ScriptFieldType::Vec2:   return UI::PropertyFloat2(name, *(glm::vec2*)data);
-            case ScriptFieldType::Vec3:   return UI::PropertyFloat3(name, *(glm::vec3*)data);
-            case ScriptFieldType::Vec4:   return UI::PropertyColor4(name, *(glm::vec4*)data);
-            case ScriptFieldType::String: return UI::PropertyString(name, *(std::string*)data);
-            case ScriptFieldType::Entity: return DrawEntityRefField(name, *(EntityRef*)data);
-            default: return false;
+            EntityRef ref = v.Get<EntityRef>();
+            if (!DrawEntityRefField(label, ref, tooltip))
+                return false;
+            v.Set(ref);
+            return true;
         }
+
+        UI::PropertyLabel(label, tooltip);
+        ImGui::PushID(f.Name.c_str());
+        bool changed = false;
+        const ImGuiSliderFlags clamp = ImGuiSliderFlags_AlwaysClamp;
+        auto vecField = [&](auto value, int components) {
+            float* p = &value.x;
+            bool edited = false;
+            if (f.IsColor && components == 3)
+                edited = ImGui::ColorEdit3("##v", p, ImGuiColorEditFlags_Float | (f.IsHdr ? ImGuiColorEditFlags_HDR : 0));
+            else if (f.IsColor && components == 4)
+                edited = ImGui::ColorEdit4("##v", p, ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreviewHalf |
+                                                     (f.IsHdr ? ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float : 0));
+            else if (f.HasRange)
+                edited = ImGui::SliderScalarN("##v", ImGuiDataType_Float, p, components, &f.RangeMin, &f.RangeMax, "%.3f", clamp);
+            else
+                edited = ImGui::DragScalarN("##v", ImGuiDataType_Float, p, components, 0.05f, nullptr, nullptr, "%.3f");
+            if (edited) v.Set(value);
+            return edited;
+        };
+
+        switch (f.Type)
+        {
+            case ScriptFieldType::Float:
+            {
+                float value = v.Get<float>();
+                changed = f.HasRange ? ImGui::SliderFloat("##v", &value, f.RangeMin, f.RangeMax, "%.3f", clamp)
+                                     : ImGui::DragFloat("##v", &value, 0.05f);
+                if (changed) v.Set(value);
+                break;
+            }
+            case ScriptFieldType::Int:
+            case ScriptFieldType::Enum:
+            {
+                bool isEnum = f.Type == ScriptFieldType::Enum;
+                int64_t value = isEnum ? v.GetEnum() : (int64_t)v.Get<int>();
+                if (!f.EnumOptions.empty())
+                {
+                    const ScriptEnumOption* current = f.FindOption(value);
+                    std::string preview = current ? current->Name : std::format("({})", value);
+                    if (ImGui::BeginCombo("##v", preview.c_str()))
+                    {
+                        for (const auto& option : f.EnumOptions)
+                        {
+                            bool selected = option.Value == value;
+                            if (ImGui::Selectable(option.Name.c_str(), selected) && !selected)
+                            {
+                                value = option.Value;
+                                changed = true;
+                            }
+                            if (selected) ImGui::SetItemDefaultFocus();
+                        }
+                        ImGui::EndCombo();
+                    }
+                }
+                else if (isEnum)
+                    changed = ImGui::DragScalar("##v", ImGuiDataType_S64, &value, 0.2f);
+                else
+                {
+                    int i = (int)value;
+                    int lo = (int)std::ceil(f.RangeMin), hi = (int)std::floor(f.RangeMax);
+                    changed = f.HasRange && lo <= hi ? ImGui::SliderInt("##v", &i, lo, hi, "%d", clamp) : ImGui::DragInt("##v", &i);
+                    value = i;
+                }
+                if (changed)
+                {
+                    if (isEnum) v.SetEnum(value);
+                    else v.Set((int)value);
+                }
+                break;
+            }
+            case ScriptFieldType::Bool:
+            {
+                bool value = v.Get<bool>();
+                changed = ImGui::Checkbox("##v", &value);
+                if (changed) v.Set(value);
+                break;
+            }
+            case ScriptFieldType::Vec2: changed = vecField(v.Get<glm::vec2>(), 2); break;
+            case ScriptFieldType::Vec3: changed = vecField(v.Get<glm::vec3>(), 3); break;
+            case ScriptFieldType::Vec4: changed = vecField(v.Get<glm::vec4>(), 4); break;
+            case ScriptFieldType::String:
+                changed = f.IsMultiline ? ImGui::InputTextMultiline("##v", &v.StringValue, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 4.5f))
+                                        : ImGui::InputText("##v", &v.StringValue);
+                break;
+            default:
+                ImGui::TextDisabled("(noma'lum tur)");
+                break;
+        }
+        if (tooltip && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            ImGui::SetTooltip("%s", tooltip);
+        ImGui::PopID();
+        if (changed)
+            f.ClampToRange(v);
+        return changed;
     }
 
     void SceneHierarchyPanel::DrawScriptComponent(Entity entity)
@@ -869,6 +973,25 @@ namespace Zamin {
         DrawComponent<NativeScriptComponent>(ICON_FA_CODE, "C++ Skript", entity, [&](NativeScriptComponent& c) {
             bool changed = false;
             const auto& all = ScriptRegistry::GetAll();
+
+            UI::PropertyLabel("Faol", "O'chirilgan skript OnEnable/OnStart/OnUpdate olmaydi (taymerlari to'xtaydi).\n"
+                                      "Skriptda: SetEnabled(false), IsEnabled()");
+            bool enabled = c.Enabled;
+            if (ImGui::Checkbox("##enabled", &enabled))
+            {
+                if (c.Instance)
+                    entity.GetScene()->SetScriptEnabled(entity, enabled); // OnEnable / OnDisable now
+                else
+                {
+                    c.Enabled = enabled;
+                    changed = true;
+                }
+            }
+            if (c.Instance)
+            {
+                ImGui::SameLine();
+                ImGui::TextDisabled(c.Instance->HasStarted() ? "ishlayapti" : enabled ? "OnStart kutilmoqda" : "o'chirilgan");
+            }
 
             UI::PropertyLabel("Klass");
             bool exists = ScriptRegistry::Find(c.ClassName) != nullptr;
@@ -903,29 +1026,28 @@ namespace Zamin {
 
             if (c.Instance)
             {
-                // Live editing while playing
+                // Live editing while playing (not saved to the scene)
                 for (const auto& f : info->Fields)
-                    DrawFieldValue(f.Name.c_str(), f.Type, f.Accessor(c.Instance));
+                {
+                    ScriptFieldValue value;
+                    f.Load(c.Instance, value);
+                    if (DrawScriptField(f, value))
+                        f.Store(c.Instance, value);
+                }
                 return changed;
             }
 
             const auto& defaults = GetScriptDefaults(c.ClassName);
             for (const auto& f : info->Fields)
             {
-                auto it = c.Fields.find(f.Name);
                 ScriptFieldValue value;
-                if (it != c.Fields.end() && it->second.Type == f.Type) value = it->second;
-                else if (auto d = defaults.find(f.Name); d != defaults.end()) value = d->second;
-                else value.Type = f.Type;
-
-                // Edit a temporary of the right type, then store it.
-                bool fieldChanged = false;
-                switch (f.Type)
+                auto it = c.Fields.find(f.Name);
+                if (it == c.Fields.end() || !f.Convert(it->second, value))
                 {
-                    case ScriptFieldType::String: fieldChanged = DrawFieldValue(f.Name.c_str(), f.Type, &value.StringValue); break;
-                    default: fieldChanged = DrawFieldValue(f.Name.c_str(), f.Type, value.Data); break;
+                    if (auto d = defaults.find(f.Name); d != defaults.end()) value = d->second;
+                    else value.Type = f.Type;
                 }
-                if (fieldChanged)
+                if (DrawScriptField(f, value))
                 {
                     c.Fields[f.Name] = value;
                     changed = true;

@@ -556,16 +556,42 @@ namespace Zamin {
     {
         std::string ClassName;  // registered with ZM_REGISTER_SCRIPT
         std::unordered_map<std::string, ScriptFieldValue> Fields; // inspector-edited values
+        // A disabled script is created (OnCreate) but gets no OnEnable / OnStart / OnUpdate /
+        // OnLateUpdate / timers until it is enabled. At runtime prefer
+        // ScriptableEntity::SetEnabled (callbacks run at once); a direct write is picked up
+        // at the start of the next frame.
+        bool Enabled = true;
         ScriptableEntity* Instance = nullptr;
 
+        // A copy is a new entity's component: it gets its own instance at runtime.
         NativeScriptComponent() = default;
         NativeScriptComponent(const NativeScriptComponent& other)
-            : ClassName(other.ClassName), Fields(other.Fields), Instance(nullptr) {}
+            : ClassName(other.ClassName), Fields(other.Fields), Enabled(other.Enabled), Instance(nullptr) {}
         NativeScriptComponent& operator=(const NativeScriptComponent& other)
         {
             ClassName = other.ClassName;
             Fields = other.Fields;
+            Enabled = other.Enabled;
             Instance = nullptr;
+            return *this;
+        }
+        // A move is the same component changing places (entt fills the hole left by a removed
+        // component with the last one): the live instance must move along with it.
+        NativeScriptComponent(NativeScriptComponent&& other) noexcept
+            : ClassName(std::move(other.ClassName)), Fields(std::move(other.Fields)), Enabled(other.Enabled), Instance(other.Instance)
+        {
+            other.Instance = nullptr;
+        }
+        NativeScriptComponent& operator=(NativeScriptComponent&& other) noexcept
+        {
+            if (this != &other)
+            {
+                ClassName = std::move(other.ClassName);
+                Fields = std::move(other.Fields);
+                Enabled = other.Enabled;
+                Instance = other.Instance;
+                other.Instance = nullptr;
+            }
             return *this;
         }
     };

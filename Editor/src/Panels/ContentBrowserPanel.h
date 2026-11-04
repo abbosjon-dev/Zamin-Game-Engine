@@ -17,7 +17,7 @@ namespace Zamin {
         void OnImGuiRender(bool* open);
 
         std::function<void(const std::filesystem::path&)> OnOpenScene;
-        std::function<void(const std::string&)> OnCreateScript;  // class name
+        std::function<void()> OnRequestNewScript;  // opens the editor's "new C++ script" dialog
         std::function<void(const std::filesystem::path&)> OnNewScene;
 
     private:
@@ -32,7 +32,7 @@ namespace Zamin {
         float m_ThumbnailSize = 84.0f;
         std::string m_Search;
         std::string m_NewName;
-        int m_NewKind = 0; // 0 folder, 1 scene, 2 script
+        int m_NewKind = 0; // 0 folder, 1 scene
         bool m_OpenNewPopup = false;
         std::filesystem::path m_PendingDelete;
         std::filesystem::path m_RenameTarget;

@@ -19,11 +19,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 013. Xabarlar/hodisalar: SendMessage(name), Broadcast, skriptlararo event bus
 - [x] 014. GetComponentInChildren / GetComponentInParent / GetChildren
 - [x] 015. FindEntity bo'yicha keshlash (nom->entity tez qidirish)
-- [ ] 016. Script lifecycle: OnEnable/OnDisable/OnStart (birinchi Update'dan oldin)
-- [ ] 017. OnTriggerBegin/OnTriggerEnd (sensorlar uchun alohida callback)
-- [ ] 018. Skript maydonlari: enum va ranglar (glm::vec4 rang sifatida) uchun ZM_FIELD_COLOR
-- [ ] 019. Skript maydonlari uchun tooltip/diapazon atributlari (ZM_FIELD_RANGE)
-- [ ] 020. Yangi skript shabloni: hamma callback va misollar bilan
+- [x] 016. Script lifecycle: OnEnable/OnDisable/OnStart (birinchi Update'dan oldin)
+- [x] 017. OnTriggerBegin/OnTriggerEnd (sensorlar uchun alohida callback)
+- [x] 018. Skript maydonlari: enum va ranglar (glm::vec4 rang sifatida) uchun ZM_FIELD_COLOR
+- [x] 019. Skript maydonlari uchun tooltip/diapazon atributlari (ZM_FIELD_RANGE)
+- [x] 020. Yangi skript shabloni: hamma callback va misollar bilan
 
 ## M02 Editor UX I
 

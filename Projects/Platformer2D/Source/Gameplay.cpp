@@ -22,7 +22,8 @@ public:
         t.Translation.y = m_BaseY + std::sin(GetTime() * BobSpeed + m_Phase) * BobHeight;
     }
 
-    void OnCollisionBegin(Entity other) override
+    // Tanganing collider'i sensor: tegish OnTriggerBegin bo'lib keladi (OnCollisionBegin emas).
+    void OnTriggerBegin(Entity other) override
     {
         if (m_Collected || !other.HasTag("Player"))
             return;
@@ -36,7 +37,10 @@ private:
     float m_BaseY = 0.0f, m_Phase = 0.0f;
     bool m_Collected = false;
 };
-ZM_REGISTER_SCRIPT(Coin, ZM_FIELD(Coin, BobSpeed), ZM_FIELD(Coin, BobHeight), ZM_FIELD(Coin, Effect))
+ZM_REGISTER_SCRIPT(Coin,
+    ZM_FIELD_RANGE(Coin, BobSpeed, 0.0f, 10.0f).Header("Tebranish"),
+    ZM_FIELD_RANGE(Coin, BobHeight, 0.0f, 1.0f).Tooltip("Yuqoriga-pastga tebranish balandligi (birlik)"),
+    ZM_FIELD_TOOLTIP(Coin, Effect, "Yig'ilganda paydo bo'ladigan prefab (Assets ichidagi yo'l)"))
 
 // Kamera o'yinchini silliq kuzatadi.
 class CameraFollow : public ScriptableEntity
@@ -66,18 +70,26 @@ ZM_REGISTER_SCRIPT(CameraFollow, ZM_FIELD(CameraFollow, Target), ZM_FIELD(Camera
 class MovingPlatform : public ScriptableEntity
 {
 public:
+    enum class Motion { Smooth, Linear };
+
     glm::vec2 Direction = { 1.0f, 0.0f };
     float Distance = 3.0f;
     float Speed = 1.0f;
+    Motion Mode = Motion::Smooth;
 
     void OnUpdate(Timestep) override
     {
-        float v = Distance * Speed * std::cos(GetTime() * Speed);
+        // Same amplitude and period for both: a sine wave, or a triangle wave (constant speed).
+        float phase = GetTime() * Speed;
+        float v = Mode == Motion::Smooth ? Distance * Speed * std::cos(phase)
+                                         : Distance * Speed * (2.0f / glm::pi<float>()) * (std::cos(phase) >= 0.0f ? 1.0f : -1.0f);
         SetVelocity(glm::normalize(Direction) * v);
     }
 };
-ZM_REGISTER_SCRIPT(MovingPlatform, ZM_FIELD(MovingPlatform, Direction), ZM_FIELD(MovingPlatform, Distance),
-                   ZM_FIELD(MovingPlatform, Speed))
+ZM_REGISTER_SCRIPT(MovingPlatform, ZM_FIELD(MovingPlatform, Direction), ZM_FIELD_RANGE(MovingPlatform, Distance, 0.0f, 20.0f),
+                   ZM_FIELD_RANGE(MovingPlatform, Speed, 0.0f, 5.0f),
+                   ZM_FIELD_ENUM(MovingPlatform, Mode, "Silliq (sinus)", "Bir tekis").Label("Harakat turi")
+                       .Tooltip("Silliq: chetlarda sekinlashadi. Bir tekis: doimiy tezlik bilan boradi-qaytadi"))
 
 // Bulutlar: sekin suzib yuradi va ekran chetidan qaytadi.
 class Cloud : public ScriptableEntity
@@ -101,15 +113,16 @@ class LevelGoal : public ScriptableEntity
 public:
     std::string NextScene = "Scenes/Level2.zscene";
     float Delay = 0.6f;
+    glm::vec4 ReachedColor = { 1.0f, 0.85f, 0.2f, 1.0f };
 
-    void OnCollisionBegin(Entity other) override
+    void OnTriggerBegin(Entity other) override
     {
-        if (other.GetName() == "Player" && m_Timer < 0.0f)
+        if (other.HasTag("Player") && m_Timer < 0.0f)
         {
             m_Timer = Delay;
             ZM_INFO("Daraja tugadi! Keyingisi: {}", NextScene);
             if (auto* sprite = TryGetComponent<SpriteRendererComponent>())
-                sprite->Color = { 1.0f, 0.85f, 0.2f, 1.0f };
+                sprite->Color = ReachedColor;
         }
     }
 
@@ -124,7 +137,9 @@ public:
 private:
     float m_Timer = -1.0f;
 };
-ZM_REGISTER_SCRIPT(LevelGoal, ZM_FIELD(LevelGoal, NextScene), ZM_FIELD(LevelGoal, Delay))
+ZM_REGISTER_SCRIPT(LevelGoal, ZM_FIELD_TOOLTIP(LevelGoal, NextScene, "Keyingi daraja sahnasi (Assets ichidagi yo'l)"),
+                   ZM_FIELD_RANGE(LevelGoal, Delay, 0.0f, 5.0f).Tooltip("O'tishdan oldingi kutish (sekund)"),
+                   ZM_FIELD_COLOR(LevelGoal, ReachedColor).Tooltip("O'yinchi yetib kelganda bayroq rangi"))
 
 // N soniyadan keyin obyektni o'chiradi (effektlar uchun).
 class AutoDestroy : public ScriptableEntity

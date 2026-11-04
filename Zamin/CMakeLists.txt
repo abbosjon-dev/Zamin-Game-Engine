@@ -19,8 +19,21 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND ZAMIN_SOURCES ${ZAMIN_PLATFORM_SOURCES})
 endif()
 
-add_library(Zamin SHARED ${ZAMIN_SOURCES})
+# Names declared in namespace Zamin: a script class named like one of them would clash with
+# `using namespace Zamin;` (the new-script dialog rejects such names).
+file(GLOB_RECURSE ZAMIN_HEADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/*.h)
+set(ZAMIN_GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
+set(ZAMIN_ENGINE_NAMES ${ZAMIN_GENERATED_DIR}/ZaminEngineNames.inc)
+add_custom_command(OUTPUT ${ZAMIN_ENGINE_NAMES}
+    COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin -DOUTPUT=${ZAMIN_ENGINE_NAMES}
+            -P ${PROJECT_SOURCE_DIR}/cmake/GenerateEngineNames.cmake
+    DEPENDS ${ZAMIN_HEADERS} ${PROJECT_SOURCE_DIR}/cmake/GenerateEngineNames.cmake
+    COMMENT "Zamin nomlari ro'yxati (skript klass nomlarini tekshirish uchun)"
+    VERBATIM)
+
+add_library(Zamin SHARED ${ZAMIN_SOURCES} ${ZAMIN_ENGINE_NAMES})
 add_library(Zamin::Zamin ALIAS Zamin)
+target_include_directories(Zamin PRIVATE ${ZAMIN_GENERATED_DIR})
 
 set_target_properties(Zamin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin

@@ -39,6 +39,44 @@ namespace Zamin::UI {
         ImGui::SetNextItemWidth(-FLT_MIN);
     }
 
+    // Same, with a help text shown when the label is hovered (a dotted underline hints at it).
+    inline void PropertyLabel(const char* label, const char* tooltip)
+    {
+        if (!tooltip || !*tooltip)
+        {
+            PropertyLabel(label);
+            return;
+        }
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(ImVec4(0.80f, 0.83f, 0.88f, 1.0f), "%s", label);
+        ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();
+        ImU32 dots = ImGui::GetColorU32(ImVec4(0.55f, 0.60f, 0.68f, 0.9f));
+        for (float x = min.x; x < max.x; x += 3.0f)
+            ImGui::GetWindowDrawList()->AddLine(ImVec2(x, max.y), ImVec2(std::min(x + 1.5f, max.x), max.y), dots);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            ImGui::SetTooltip("%s", tooltip);
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+    }
+
+    // Section title row inside a property grid (accent text + a line across the value column).
+    inline void PropertyHeader(const char* text)
+    {
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Dummy(ImVec2(0.0f, 2.0f));
+        ImGui::TextColored(AccentColor(), "%s", text);
+        float y = (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) * 0.5f;
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Dummy(ImVec2(0.0f, 2.0f));
+        ImVec2 cursor = ImGui::GetCursorScreenPos();
+        float width = ImGui::GetContentRegionAvail().x;
+        ImGui::GetWindowDrawList()->AddLine(ImVec2(cursor.x, y), ImVec2(cursor.x + width, y), AccentU32(0.35f));
+        ImGui::Dummy(ImVec2(width, ImGui::GetTextLineHeight()));
+    }
+
     inline bool PropertyFloat(const char* label, float& v, float speed = 0.05f, float min = 0.0f, float max = 0.0f, const char* fmt = "%.3f")
     {
         PropertyLabel(label);

@@ -12,7 +12,9 @@
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
 
+#include <map>
 #include <string_view>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -204,6 +206,11 @@ namespace Zamin {
         // Destroys all live script instances (needed before hot-reloading the script module).
         void DestroyScriptInstances();
 
+        // ---- script enabled state (NativeScriptComponent::Enabled)
+        // Sets the flag; a live instance gets OnEnable / OnDisable immediately.
+        void SetScriptEnabled(Entity entity, bool enabled);
+        bool IsScriptEnabled(Entity entity);
+
         // Reload GPU assets (textures, meshes, fonts) referenced by components.
         void ResolveAssets();
 
@@ -228,6 +235,13 @@ namespace Zamin {
         void StartScripts();
         void StopScripts();
         void CreateScriptInstance(Entity entity);
+        // Delivers OnEnable / OnDisable until the instance matches NativeScriptComponent::Enabled.
+        void SyncScriptEnabled(Entity entity);
+        // OnStart for every enabled script that has not started yet (before the frame's OnUpdate).
+        void StartPendingScripts();
+        // OnCollisionEnd / OnTriggerEnd for everything still touching `entity` (it is being destroyed).
+        void EndContactsOf(Entity entity);
+        void DeliverContact(Entity self, Entity other, bool begin, bool sensor);
         void FlushDestroyQueue();
         void UpdateParticles(Timestep ts, bool editor);
         void UpdateUI();
@@ -285,6 +299,12 @@ namespace Zamin {
         uint64_t m_FrameIndex = 0;
         uint64_t m_NameCacheFrame = ~0ull; // frame of the last validation / rebuild
         NameCacheStats m_NameCacheStats;
+
+        // Begin/end pairs that were dispatched to scripts: (lower id, higher id, sensor) ->
+        // number of physics contacts. Scripts hear one Begin/End per entity pair even when
+        // several fixtures / shapes (or a character and its inner body) touch.
+        std::map<std::tuple<uint64_t, uint64_t, bool>, int> m_ActiveContacts;
+        bool m_ScriptsPendingStart = false;
 
         std::unique_ptr<EventBus> m_EventBus;
         int m_MessageDepth = 0;

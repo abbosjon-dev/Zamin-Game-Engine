@@ -27,22 +27,50 @@ namespace Zamin {
     enum class Ease { Linear = 0, InQuad, OutQuad, InOutQuad, OutCubic, InOutCubic, OutBack, OutElastic, OutBounce };
     float ApplyEase(Ease ease, float t);
 
+    //
+    // Lifecycle (in this order):
+    //   OnCreate   - once, when the instance is created (play starts / the entity is spawned).
+    //                All scripts of the scene are created before any OnEnable runs.
+    //   OnEnable   - after OnCreate when the script is enabled, and every time it is re-enabled.
+    //   OnStart    - once, right before the script's first OnUpdate (only while enabled), after
+    //                every script that exists at that moment has run OnCreate/OnEnable.
+    //   OnUpdate / OnLateUpdate - every frame while enabled.
+    //   OnDisable  - when it is disabled, and before OnDestroy if it is enabled at that moment.
+    //   OnDestroy  - once, when the entity is destroyed or play stops.
+    // Event callbacks (collisions, triggers, messages, OnClick) also reach disabled scripts,
+    // so a script can enable itself in response to them.
     class ScriptableEntity
     {
     public:
         virtual ~ScriptableEntity() = default;
 
         virtual void OnCreate() {}
+        virtual void OnEnable() {}
+        virtual void OnStart() {}
+        virtual void OnDisable() {}
         virtual void OnDestroy() {}
         virtual void OnUpdate(Timestep) {}
         virtual void OnLateUpdate(Timestep) {}
+        // Solid contacts (neither collider is a sensor), once per entity pair.
         virtual void OnCollisionBegin(Entity /*other*/) {}
         virtual void OnCollisionEnd(Entity /*other*/) {}
+        // Contacts where at least one collider is a sensor (IsSensor), once per entity pair.
+        // OnTriggerEnd also comes when the other entity is destroyed while overlapping.
+        virtual void OnTriggerBegin(Entity /*other*/) {}
+        virtual void OnTriggerEnd(Entity /*other*/) {}
         // Called when a UIButton on this entity is clicked.
         virtual void OnClick() {}
         // Called for every message sent to this entity (SendMessage, Broadcast ...),
         // after the handlers registered with AddMessageHandler for that name.
         virtual void OnMessage(const ScriptMessage& /*message*/) {}
+
+        // ---- enabled state (NativeScriptComponent::Enabled). SetEnabled runs
+        // OnEnable / OnDisable immediately; a disabled script keeps its state and timers
+        // (they are paused) and continues where it stopped when enabled again.
+        bool IsEnabled() const;
+        void SetEnabled(bool enabled);
+        // true once OnStart has run.
+        bool HasStarted() const { return m_Started; }
 
         // ---- helpers available to scripts
         template<typename T> T& GetComponent() { return m_Entity.GetComponent<T>(); }
@@ -286,6 +314,16 @@ namespace Zamin {
         std::vector<Timer> m_Timers, m_PendingTimers;
         std::vector<TweenState> m_Tweens, m_PendingTweens;
         bool m_TickingTimers = false;
+
+        // Lifecycle state, managed by the scene.
+        bool m_Created = false;       // OnCreate has returned
+        bool m_EnabledState = false;  // the last OnEnable / OnDisable that was delivered
+        bool m_Started = false;       // OnStart has been called
+        bool m_Destroying = false;    // OnDisable / OnDestroy in progress
+        int m_EnableDepth = 0;        // nested SetEnabled calls from inside OnEnable / OnDisable
+        int m_EnableTransitions = 0;  // OnEnable/OnDisable delivered by the current (nested) sync
+        bool IsActiveForUpdate() const { return m_EnabledState && m_Started && !m_Destroying; }
+
         Entity m_Entity;
         friend class Scene;
     };

@@ -1,4 +1,5 @@
 #include "Zamin/Project/Project.h"
+#include "Zamin/Scripting/ScriptTemplate.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -269,51 +270,6 @@ zamin_add_game_module({0} ${{GAME_SOURCES}})
         return FileSystem::WriteTextFile(projectDir / "CMakeLists.txt", cmake);
     }
 
-    static const char* s_TemplateScripts = R"(// O'yin skriptlari (C++). Har bir klass ZM_REGISTER_SCRIPT orqali ro'yxatdan o'tadi
-// va Editor'da "Native Script" komponentida tanlanadi.
-#include <Zamin/Zamin.h>
-
-using namespace Zamin;
-
-// Obyektni doimiy aylantiradi.
-class Rotator : public ScriptableEntity
-{
-public:
-    glm::vec3 Speed = { 0.0f, 1.0f, 0.0f }; // radian/sekund
-
-    void OnUpdate(Timestep ts) override
-    {
-        Transform().Rotation += Speed * (float)ts;
-    }
-};
-ZM_REGISTER_SCRIPT(Rotator, ZM_FIELD(Rotator, Speed))
-
-// WASD / strelkalar / gamepad bilan harakatlanadigan obyekt. "Horizontal", "Vertical" va
-// "Jump" nomlari Loyiha sozlamalari > Input oynasida tugmalarga bog'lanadi.
-class PlayerController : public ScriptableEntity
-{
-public:
-    float MoveSpeed = 5.0f;
-
-    void OnCreate() override
-    {
-        // SaveData: o'yinlar orasida saqlanadigan qiymatlar (~/.local/share/zamin/<loyiha>)
-        int launches = SaveData::GetInt("Launches") + 1;
-        SaveData::SetInt("Launches", launches);
-        ZM_INFO("PlayerController ishga tushdi: {}, {}-marta", GetName(), launches);
-    }
-
-    void OnUpdate(Timestep ts) override
-    {
-        glm::vec2 move = Input::GetAxis2D("Horizontal", "Vertical");
-        Transform().Translation += glm::vec3(move.x, 0.0f, -move.y) * MoveSpeed * (float)ts;
-        if (Input::IsActionJustPressed("Jump"))
-            ZM_INFO("Sakrash!");
-    }
-};
-ZM_REGISTER_SCRIPT(PlayerController, ZM_FIELD(PlayerController, MoveSpeed))
-)";
-
     Ref<Project> Project::CreateFromTemplate(const std::filesystem::path& directory, const std::string& name)
     {
         std::error_code ec;
@@ -341,7 +297,7 @@ ZM_REGISTER_SCRIPT(PlayerController, ZM_FIELD(PlayerController, MoveSpeed))
             return nullptr;
         WriteBuildFiles(directory, name);
         if (!std::filesystem::exists(directory / "Source" / "Scripts.cpp"))
-            FileSystem::WriteTextFile(directory / "Source" / "Scripts.cpp", s_TemplateScripts);
+            FileSystem::WriteTextFile(directory / "Source" / "Scripts.cpp", ScriptTemplate::GenerateProjectStarter());
         FileSystem::WriteTextFile(directory / ".gitignore", "Build/\nBinaries/\n");
 
         // Default scene

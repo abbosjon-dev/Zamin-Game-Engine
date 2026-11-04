@@ -103,7 +103,7 @@ namespace Zamin {
         {
             if (ImGui::MenuItem(ICON_FA_FOLDER "  Yangi papka")) { m_NewKind = 0; m_NewName = "NewFolder"; m_OpenNewPopup = true; }
             if (ImGui::MenuItem(ICON_FA_EARTH_ASIA "  Yangi sahna")) { m_NewKind = 1; m_NewName = "NewScene"; m_OpenNewPopup = true; }
-            if (ImGui::MenuItem(ICON_FA_FILE_CODE "  Yangi C++ skript")) { m_NewKind = 2; m_NewName = "MyScript"; m_OpenNewPopup = true; }
+            if (ImGui::MenuItem(ICON_FA_FILE_CODE "  Yangi C++ skript...") && OnRequestNewScript) OnRequestNewScript();
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Fayl menejerida ochish"))
                 Platform::OpenInFileBrowser(m_CurrentDirectory);
@@ -119,15 +119,13 @@ namespace Zamin {
         }
         if (ImGui::BeginPopupModal("NewItem", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            const char* titles[] = { "Yangi papka", "Yangi sahna", "Yangi C++ skript klassi" };
+            const char* titles[] = { "Yangi papka", "Yangi sahna" };
             ImGui::PushFont(ImGuiLayer::GetBoldFont());
             ImGui::TextUnformatted(titles[m_NewKind]);
             ImGui::PopFont();
             ImGui::SetNextItemWidth(300);
             if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
             bool enter = ImGui::InputText("##name", &m_NewName, ImGuiInputTextFlags_EnterReturnsTrue);
-            if (m_NewKind == 2)
-                ImGui::TextDisabled("Fayl Source/%s.cpp ga yoziladi", m_NewName.c_str());
             if ((ImGui::Button(ICON_FA_CHECK "  Yaratish", ImVec2(140, 0)) || enter) && !m_NewName.empty())
             {
                 std::error_code ec;
@@ -135,8 +133,6 @@ namespace Zamin {
                     fs::create_directories(m_CurrentDirectory / m_NewName, ec);
                 else if (m_NewKind == 1 && OnNewScene)
                     OnNewScene(m_CurrentDirectory / (m_NewName + ".zscene"));
-                else if (m_NewKind == 2 && OnCreateScript)
-                    OnCreateScript(m_NewName);
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();

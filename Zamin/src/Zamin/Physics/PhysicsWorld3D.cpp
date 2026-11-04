@@ -123,7 +123,12 @@ namespace Zamin {
         std::unordered_map<uint32_t, uint64_t> BodyToEntity; // guarded by Mutex
         std::vector<ContactEvent> Events;
         // count active sub-shape contacts per body pair, so begin/end fire once per pair
-        std::unordered_map<uint64_t, int> PairCounts;
+        struct PairState
+        {
+            int Count = 0;
+            bool Sensor = false; // OnContactRemoved no longer has the bodies: remember it here
+        };
+        std::unordered_map<uint64_t, PairState> PairCounts;
 
         static uint64_t PairKey(uint32_t a, uint32_t b)
         {
@@ -135,8 +140,12 @@ namespace Zamin {
         {
             std::lock_guard lock(Mutex);
             uint32_t a = b1.GetID().GetIndexAndSequenceNumber(), b = b2.GetID().GetIndexAndSequenceNumber();
-            if (PairCounts[PairKey(a, b)]++ == 0)
-                Push(a, b, true);
+            auto& pair = PairCounts[PairKey(a, b)];
+            if (pair.Count++ == 0)
+            {
+                pair.Sensor = b1.IsSensor() || b2.IsSensor();
+                Push(a, b, true, pair.Sensor);
+            }
         }
 
         void OnContactRemoved(const JPH::SubShapeIDPair& pair) override
@@ -145,19 +154,20 @@ namespace Zamin {
             uint32_t a = pair.GetBody1ID().GetIndexAndSequenceNumber(), b = pair.GetBody2ID().GetIndexAndSequenceNumber();
             auto it = PairCounts.find(PairKey(a, b));
             if (it == PairCounts.end()) return;
-            if (--it->second <= 0)
+            if (--it->second.Count <= 0)
             {
+                bool sensor = it->second.Sensor;
                 PairCounts.erase(it);
-                Push(a, b, false);
+                Push(a, b, false, sensor);
             }
         }
 
     private:
-        void Push(uint32_t a, uint32_t b, bool begin)
+        void Push(uint32_t a, uint32_t b, bool begin, bool sensor)
         {
             auto ea = BodyToEntity.find(a), eb = BodyToEntity.find(b);
             if (ea != BodyToEntity.end() && eb != BodyToEntity.end())
-                Events.push_back({ ea->second, eb->second, begin });
+                Events.push_back({ ea->second, eb->second, begin, sensor });
         }
     };
 
@@ -177,7 +187,7 @@ namespace Zamin {
         {
             JPH::Ref<JPH::CharacterVirtual> Character;
             uint64_t EntityID = 0;
-            std::vector<uint64_t> Touching; // entity ids from the previous update
+            std::vector<std::pair<uint64_t, bool>> Touching; // (entity id, sensor) from the previous update
         };
         std::vector<CharacterSlot> Characters;
 
@@ -407,18 +417,21 @@ namespace Zamin {
                          JPH::IgnoreSingleBodyFilter(c.GetInnerBodyID()), {}, *m_Impl->TempAllocator);
 
         // Contact begin/end events
-        std::vector<uint64_t> touching;
+        std::vector<std::pair<uint64_t, bool>> touching;
         for (const auto& contact : c.GetActiveContacts())
-            if ((contact.mHadCollision || contact.mIsSensorB) && contact.mUserData &&
-                std::find(touching.begin(), touching.end(), contact.mUserData) == touching.end())
-                touching.push_back(contact.mUserData);
+        {
+            if (!(contact.mHadCollision || contact.mIsSensorB) || !contact.mUserData) continue;
+            std::pair<uint64_t, bool> entry{ contact.mUserData, contact.mIsSensorB };
+            if (std::find(touching.begin(), touching.end(), entry) == touching.end())
+                touching.push_back(entry);
+        }
         std::lock_guard lock(m_Impl->Contacts.Mutex);
-        for (uint64_t other : touching)
-            if (std::find(slot.Touching.begin(), slot.Touching.end(), other) == slot.Touching.end())
-                m_Impl->Contacts.Events.push_back({ slot.EntityID, other, true });
-        for (uint64_t other : slot.Touching)
-            if (std::find(touching.begin(), touching.end(), other) == touching.end())
-                m_Impl->Contacts.Events.push_back({ slot.EntityID, other, false });
+        for (auto [other, sensor] : touching)
+            if (std::find(slot.Touching.begin(), slot.Touching.end(), std::make_pair(other, sensor)) == slot.Touching.end())
+                m_Impl->Contacts.Events.push_back({ slot.EntityID, other, true, sensor });
+        for (auto [other, sensor] : slot.Touching)
+            if (std::find(touching.begin(), touching.end(), std::make_pair(other, sensor)) == touching.end())
+                m_Impl->Contacts.Events.push_back({ slot.EntityID, other, false, sensor });
         slot.Touching = std::move(touching);
     }
 

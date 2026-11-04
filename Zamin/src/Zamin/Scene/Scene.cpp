@@ -41,10 +41,12 @@ namespace Zamin {
     private:
         void Push(b2Contact* contact, bool begin)
         {
-            uint64_t a = (uint64_t)contact->GetFixtureA()->GetUserData().pointer;
-            uint64_t b = (uint64_t)contact->GetFixtureB()->GetUserData().pointer;
+            b2Fixture* fa = contact->GetFixtureA();
+            b2Fixture* fb = contact->GetFixtureB();
+            uint64_t a = (uint64_t)fa->GetUserData().pointer;
+            uint64_t b = (uint64_t)fb->GetUserData().pointer;
             if (a && b)
-                Events.push_back({ a, b, begin });
+                Events.push_back({ a, b, begin, fa->IsSensor() || fb->IsSensor() });
         }
     };
 
@@ -206,7 +208,10 @@ namespace Zamin {
                     std::erase(parent.GetComponent<RelationshipComponent>().Children, entity.GetUUID());
         }
 
+        EndContactsOf(entity);
+        if (!entity.IsValid()) return; // destroyed by a survivor's OnCollisionEnd / OnTriggerEnd
         DestroyScriptInstance(entity);
+        if (!entity.IsValid()) return; // destroyed by its own OnDisable / OnDestroy
         if (auto* rb = entity.TryGetComponent<Rigidbody2DComponent>(); rb && rb->RuntimeBody && m_PhysicsWorld)
         {
             m_PhysicsWorld->DestroyBody((b2Body*)rb->RuntimeBody);
@@ -325,9 +330,13 @@ namespace Zamin {
                 CreatePhysicsBody3D(e);
         }
         if (m_ScriptsRunning)
+        {
             for (Entity e : entities)
                 if (e.IsValid() && e.HasComponent<NativeScriptComponent>())
                     CreateScriptInstance(e);
+            for (Entity e : entities)
+                SyncScriptEnabled(e);
+        }
     }
 
     static void CollectSubtree(Scene& scene, Entity root, std::vector<Entity>& out)
@@ -704,25 +713,112 @@ namespace Zamin {
         ScriptableEntity* instance = info->Factory();
         instance->m_Entity = entity;
         for (const auto& field : info->Fields)
-        {
-            auto it = nsc.Fields.find(field.Name);
-            if (it != nsc.Fields.end() && it->second.Type == field.Type)
-                it->second.WriteTo(field.Accessor(instance));
-        }
+            if (auto it = nsc.Fields.find(field.Name); it != nsc.Fields.end())
+                field.Store(instance, it->second);
         nsc.Instance = instance;
         instance->OnCreate();
+        // OnEnable comes from SyncScriptEnabled once every script of the batch exists.
+        if (entity.IsValid())
+            if (auto* n = entity.TryGetComponent<NativeScriptComponent>(); n && n->Instance == instance)
+                instance->m_Created = true;
+    }
+
+    void Scene::SyncScriptEnabled(Entity entity)
+    {
+        if (!entity.IsValid()) return;
+        auto* nsc = entity.TryGetComponent<NativeScriptComponent>();
+        if (!nsc || !nsc->Instance) return;
+        ScriptableEntity* instance = nsc->Instance;
+        if (!instance->m_Created || instance->m_Destroying) return;
+        // SetEnabled from inside OnEnable / OnDisable nests here; the transition budget is
+        // shared by the whole nested chain so scripts that keep toggling themselves stop.
+        constexpr int MaxTransitions = 16;
+        if (instance->m_EnableDepth == 0)
+            instance->m_EnableTransitions = 0;
+        instance->m_EnableDepth++;
+        for (;;)
+        {
+            // The callbacks may add components (storage moves) or destroy the entity.
+            nsc = entity.IsValid() ? entity.TryGetComponent<NativeScriptComponent>() : nullptr;
+            if (!nsc || nsc->Instance != instance)
+                return; // the instance was destroyed inside its own callback
+            bool wanted = nsc->Enabled;
+            if (wanted == instance->m_EnabledState || instance->m_Destroying)
+                break;
+            if (++instance->m_EnableTransitions > MaxTransitions)
+            {
+                ZM_CORE_WARN("'{}': OnEnable/OnDisable skriptni to'xtovsiz yoqib-o'chirmoqda - to'xtatildi", entity.GetName());
+                nsc->Enabled = instance->m_EnabledState; // settle on the state the script was told last
+                break;
+            }
+            instance->m_EnabledState = wanted;
+            if (wanted)
+            {
+                if (!instance->m_Started) m_ScriptsPendingStart = true;
+                instance->OnEnable();
+            }
+            else
+                instance->OnDisable();
+        }
+        instance->m_EnableDepth--;
+    }
+
+    void Scene::SetScriptEnabled(Entity entity, bool enabled)
+    {
+        if (!entity.IsValid()) return;
+        auto* nsc = entity.TryGetComponent<NativeScriptComponent>();
+        if (!nsc) return;
+        nsc->Enabled = enabled;
+        SyncScriptEnabled(entity);
+    }
+
+    bool Scene::IsScriptEnabled(Entity entity)
+    {
+        if (!entity.IsValid()) return false;
+        auto* nsc = entity.TryGetComponent<NativeScriptComponent>();
+        return nsc && nsc->Enabled;
+    }
+
+    void Scene::StartPendingScripts()
+    {
+        // Scripts spawned or enabled by an OnStart are started in the same pass loop, so they
+        // still run OnStart before this frame's OnUpdate. The limit only stops runaway chains.
+        for (int pass = 0; pass < 16 && m_ScriptsPendingStart; pass++)
+        {
+            m_ScriptsPendingStart = false;
+            std::vector<entt::entity> pending;
+            for (auto e : m_Registry.view<NativeScriptComponent>())
+                if (auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance;
+                    inst && inst->m_Created && inst->m_EnabledState && !inst->m_Started && !inst->m_Destroying)
+                    pending.push_back(e);
+            std::reverse(pending.begin(), pending.end()); // scene order
+            for (auto e : pending)
+            {
+                if (!m_Registry.valid(e)) continue;
+                auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance;
+                // An earlier OnStart may have disabled or destroyed it.
+                if (!inst || !inst->m_EnabledState || inst->m_Started || inst->m_Destroying) continue;
+                inst->m_Started = true;
+                inst->OnStart();
+            }
+        }
     }
 
     void Scene::StartScripts()
     {
         m_ScriptsRunning = true;
+        m_ActiveContacts.clear();
         std::vector<entt::entity> entities;
         for (auto e : m_Registry.view<NativeScriptComponent>())
             entities.push_back(e);
         std::reverse(entities.begin(), entities.end());
+        // Every OnCreate first, then OnEnable: scripts can find each other in OnEnable.
         for (auto e : entities)
             if (m_Registry.valid(e))
                 CreateScriptInstance({ e, this });
+        for (auto e : entities)
+            if (m_Registry.valid(e))
+                SyncScriptEnabled({ e, this });
     }
 
     void Scene::DestroyScriptInstance(Entity entity)
@@ -731,10 +827,21 @@ namespace Zamin {
         if (!nsc || !nsc->Instance)
             return;
         ScriptableEntity* instance = nsc->Instance;
-        nsc->Instance = nullptr;
+        if (instance->m_Destroying)
+            return; // already on its way out (destroyed again from OnDisable / OnDestroy)
+        instance->m_Destroying = true;
+        uint64_t owner = (uint64_t)entity.GetUUID();
+        if (instance->m_EnabledState)
+        {
+            instance->m_EnabledState = false;
+            instance->OnDisable();
+        }
+        if (entity.IsValid())
+            if (auto* n = entity.TryGetComponent<NativeScriptComponent>(); n && n->Instance == instance)
+                n->Instance = nullptr;
         instance->OnDestroy();
         // Handlers capture the instance: they must not outlive it.
-        m_EventBus->UnsubscribeOwner((uint64_t)entity.GetUUID());
+        m_EventBus->UnsubscribeOwner(owner);
         delete instance;
     }
 
@@ -750,6 +857,8 @@ namespace Zamin {
         // Anything left (unowned handlers, queued payloads) may point into the script
         // module, which can be unloaded / reloaded after this.
         m_EventBus->Clear();
+        m_ActiveContacts.clear();
+        m_ScriptsPendingStart = false;
     }
 
     // ------------------------------------------------------------------ messages
@@ -1049,21 +1158,64 @@ namespace Zamin {
         rb.RuntimeBodyID = m_PhysicsWorld3D->CreateBody(desc);
     }
 
+    void Scene::DeliverContact(Entity self, Entity other, bool begin, bool sensor)
+    {
+        if (!self.IsValid() || !other.IsValid()) return;
+        auto* nsc = self.TryGetComponent<NativeScriptComponent>();
+        if (!nsc || !nsc->Instance || nsc->Instance->m_Destroying) return;
+        ScriptableEntity* s = nsc->Instance;
+        if (sensor) begin ? s->OnTriggerBegin(other) : s->OnTriggerEnd(other);
+        else        begin ? s->OnCollisionBegin(other) : s->OnCollisionEnd(other);
+    }
+
     void Scene::DispatchContactEvents(const std::vector<ContactEvent>& events)
     {
         if (!m_ScriptsRunning) return;
         for (const auto& ev : events)
         {
+            uint64_t idA = (uint64_t)ev.A, idB = (uint64_t)ev.B;
+            if (idA == idB) continue;
             Entity a = GetEntityByUUID(ev.A), b = GetEntityByUUID(ev.B);
             if (!a || !b) continue;
-            auto dispatch = [&](Entity self, Entity other) {
-                if (!self.IsValid() || !other.IsValid()) return;
-                if (auto* nsc = self.TryGetComponent<NativeScriptComponent>(); nsc && nsc->Instance)
-                    ev.Begin ? nsc->Instance->OnCollisionBegin(other) : nsc->Instance->OnCollisionEnd(other);
-            };
-            dispatch(a, b);
-            dispatch(b, a);
+
+            // One Begin/End per entity pair (and kind): several fixtures, tilemap tiles or a
+            // character with its inner body produce several physics contacts.
+            auto key = std::make_tuple(std::min(idA, idB), std::max(idA, idB), ev.Sensor);
+            if (ev.Begin)
+            {
+                if (m_ActiveContacts[key]++ > 0) continue;
+            }
+            else
+            {
+                auto it = m_ActiveContacts.find(key);
+                if (it == m_ActiveContacts.end()) continue; // its Begin was never delivered
+                if (--it->second > 0) continue;
+                m_ActiveContacts.erase(it);
+            }
+            DeliverContact(a, b, ev.Begin, ev.Sensor);
+            DeliverContact(b, a, ev.Begin, ev.Sensor);
         }
+    }
+
+    void Scene::EndContactsOf(Entity entity)
+    {
+        if (!m_ScriptsRunning || m_ActiveContacts.empty()) return;
+        uint64_t id = (uint64_t)entity.GetUUID();
+        std::vector<std::pair<uint64_t, bool>> ended; // (other entity, sensor)
+        for (auto it = m_ActiveContacts.begin(); it != m_ActiveContacts.end();)
+        {
+            auto [lo, hi, sensor] = it->first;
+            if (lo == id || hi == id)
+            {
+                ended.emplace_back(lo == id ? hi : lo, sensor);
+                it = m_ActiveContacts.erase(it);
+            }
+            else
+                ++it;
+        }
+        // Only the survivors hear about it: `entity` is being destroyed (still valid here).
+        for (auto [other, sensor] : ended)
+            DeliverContact(GetEntityByUUID(other), entity, false, sensor);
     }
 
     // Writes a simulated world pose back into the (possibly parented) transform.
@@ -1279,20 +1431,39 @@ namespace Zamin {
             m_Time += ts;
 
             std::vector<entt::entity> scripted;
-            for (auto e : m_Registry.view<NativeScriptComponent>())
-                scripted.push_back(e);
-            std::reverse(scripted.begin(), scripted.end());
+            auto collectScripted = [&]() {
+                scripted.clear();
+                for (auto e : m_Registry.view<NativeScriptComponent>())
+                    scripted.push_back(e);
+                std::reverse(scripted.begin(), scripted.end());
+            };
+            // Only scripts that are enabled and have run OnStart get per-frame callbacks.
+            auto active = [&](entt::entity e) -> ScriptableEntity* {
+                auto* nsc = m_Registry.valid(e) ? m_Registry.try_get<NativeScriptComponent>(e) : nullptr;
+                return nsc && nsc->Instance && nsc->Instance->IsActiveForUpdate() ? nsc->Instance : nullptr;
+            };
 
             {
                 ZM_PROFILE_SCOPE("Skriptlar");
+                if (m_ScriptsRunning)
+                {
+                    // Enabled flags written straight into the component (inspector, other
+                    // code) -> OnEnable / OnDisable; then OnStart before the first OnUpdate.
+                    collectScripted();
+                    for (auto e : scripted)
+                        if (auto* nsc = m_Registry.valid(e) ? m_Registry.try_get<NativeScriptComponent>(e) : nullptr;
+                            nsc && nsc->Instance && nsc->Instance->m_EnabledState != nsc->Enabled)
+                            SyncScriptEnabled({ e, this });
+                    StartPendingScripts();
+                }
+                // Entities spawned from now on wait for the next frame (OnStart first).
+                collectScripted();
                 for (auto e : scripted)
-                    if (m_Registry.valid(e))
-                        if (auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance)
-                            inst->OnUpdate(ts);
+                    if (auto* inst = active(e))
+                        inst->OnUpdate(ts);
                 for (auto e : scripted)
-                    if (m_Registry.valid(e))
-                        if (auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance)
-                            inst->TickTimers(ts);
+                    if (auto* inst = active(e))
+                        inst->TickTimers(ts);
             }
 
             StepPhysics(ts);
@@ -1300,9 +1471,8 @@ namespace Zamin {
             {
                 ZM_PROFILE_SCOPE("Skriptlar");
                 for (auto e : scripted)
-                    if (m_Registry.valid(e))
-                        if (auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance)
-                            inst->OnLateUpdate(ts);
+                    if (auto* inst = active(e))
+                        inst->OnLateUpdate(ts);
                 // Events queued with EmitDeferred during this frame.
                 m_EventBus->Flush();
             }

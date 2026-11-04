@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <functional>
 #include <limits>
 #include <set>
@@ -2508,6 +2509,677 @@ TEST(FindEntityNameCache)
     CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
     CHECK(loaded->FindEntityByName("Renamed") && loaded->FindEntityByName("Renamed").GetUUID() == entities[5].GetUUID());
     CHECK(loaded->FindEntitiesByName("Dup").size() == 2);
+}
+
+// ------------------------------------------------------------------ script lifecycle (OnEnable / OnStart / OnDisable)
+static std::vector<std::string> g_Life;
+static bool HasLife(const std::string& entry) { return std::find(g_Life.begin(), g_Life.end(), entry) != g_Life.end(); }
+static int CountLife(const std::string& entry) { return (int)std::count(g_Life.begin(), g_Life.end(), entry); }
+static int IndexOfLife(const std::string& entry)
+{
+    auto it = std::find(g_Life.begin(), g_Life.end(), entry);
+    return it == g_Life.end() ? -1 : (int)(it - g_Life.begin());
+}
+
+class LifeScript : public ScriptableEntity
+{
+public:
+    int Mode = 0; // 1: disable in OnCreate, 2: disable in OnStart, 3: disable in OnEnable, 4: spawn in OnUpdate
+    int TimerFired = 0;
+
+    void OnCreate() override { Log("Create"); if (Mode == 1) SetEnabled(false); }
+    void OnEnable() override
+    {
+        Log("Enable");
+        if (Mode == 3 && !m_DidToggle) { m_DidToggle = true; SetEnabled(false); }
+    }
+    void OnStart() override { Log("Start"); if (Mode == 2) SetEnabled(false); }
+    void OnUpdate(Timestep) override
+    {
+        Log("Update");
+        if (Mode == 4 && !m_Spawned)
+        {
+            m_Spawned = true;
+            Entity clone = Instantiate(FindEntity("Template"));
+            clone.SetName("Clone");
+        }
+    }
+    void OnLateUpdate(Timestep) override { Log("Late"); }
+    void OnDisable() override { Log("Disable"); }
+    void OnDestroy() override { Log("Destroy"); }
+
+private:
+    void Log(const char* what) { g_Life.push_back(GetName() + ":" + what); }
+    bool m_DidToggle = false, m_Spawned = false;
+};
+ZM_REGISTER_SCRIPT(LifeScript, ZM_FIELD(LifeScript, Mode))
+
+static Entity AddLifeScript(Scene& scene, const std::string& name, int mode = 0, bool enabled = true)
+{
+    Entity e = scene.CreateEntity(name);
+    auto& nsc = e.AddComponent<NativeScriptComponent>();
+    nsc.ClassName = "LifeScript";
+    nsc.Enabled = enabled;
+    ScriptFieldValue v; v.Set(mode);
+    nsc.Fields["Mode"] = v;
+    return e;
+}
+
+TEST(ScriptLifecycleOrder)
+{
+    g_Life.clear();
+    auto scene = CreateRef<Scene>();
+    Entity a = AddLifeScript(*scene, "A");
+    Entity b = AddLifeScript(*scene, "B");
+    Entity c = AddLifeScript(*scene, "C", 0, false); // disabled in the inspector
+
+    // Every OnCreate first, then OnEnable (only for enabled scripts); OnStart waits for the first frame.
+    scene->OnRuntimeStart();
+    CHECK((g_Life == std::vector<std::string>{ "A:Create", "B:Create", "C:Create", "A:Enable", "B:Enable" }));
+    auto* sa = ScriptableEntity::GetScript<LifeScript>(a);
+    auto* sc = ScriptableEntity::GetScript<LifeScript>(c);
+    CHECK(sa && sa->IsEnabled() && !sa->HasStarted());
+    CHECK(sc && !sc->IsEnabled());
+
+    g_Life.clear();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK((g_Life == std::vector<std::string>{ "A:Start", "B:Start", "A:Update", "B:Update", "A:Late", "B:Late" }));
+    CHECK(sa && sa->HasStarted());
+    CHECK(sc && !sc->HasStarted());
+
+    g_Life.clear();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK((g_Life == std::vector<std::string>{ "A:Update", "B:Update", "A:Late", "B:Late" }));
+
+    // Enabling: OnEnable at once, OnStart right before its first OnUpdate.
+    g_Life.clear();
+    scene->SetScriptEnabled(c, true);
+    CHECK((g_Life == std::vector<std::string>{ "C:Enable" }));
+    CHECK(scene->IsScriptEnabled(c) && c.GetComponent<NativeScriptComponent>().Enabled);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK((g_Life == std::vector<std::string>{ "C:Enable", "C:Start", "A:Update", "B:Update", "C:Update", "A:Late", "B:Late", "C:Late" }));
+
+    // Disabling from a script: OnDisable at once, no per-frame callbacks, timers pause.
+    sa->Invoke(0.05f, [sa]() { sa->TimerFired++; });
+    g_Life.clear();
+    sa->SetEnabled(false);
+    CHECK((g_Life == std::vector<std::string>{ "A:Disable" }));
+    CHECK(!sa->IsEnabled() && !a.GetComponent<NativeScriptComponent>().Enabled);
+    sa->SetEnabled(false); // no change -> no callback
+    CHECK(g_Life.size() == 1);
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(0.016f);
+    CHECK(!HasLife("A:Update") && !HasLife("A:Late"));
+    CHECK(CountLife("B:Update") == 10);
+    CHECK(sa->TimerFired == 0 && sa->IsInvoking());
+
+    // A direct write to the component is noticed at the start of the next frame.
+    g_Life.clear();
+    b.GetComponent<NativeScriptComponent>().Enabled = false;
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!g_Life.empty() && g_Life.front() == "B:Disable");
+    CHECK(!HasLife("B:Update"));
+
+    // Re-enabling does not start the script again; its paused timer continues.
+    g_Life.clear();
+    sa->SetEnabled(true);
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(0.016f);
+    CHECK(CountLife("A:Enable") == 1 && !HasLife("A:Start"));
+    CHECK(CountLife("A:Update") == 5);
+    CHECK(sa->TimerFired == 1);
+
+    // Stop: enabled scripts get OnDisable then OnDestroy, disabled ones only OnDestroy.
+    g_Life.clear();
+    scene->OnRuntimeStop();
+    CHECK(CountLife("A:Destroy") == 1 && CountLife("B:Destroy") == 1 && CountLife("C:Destroy") == 1);
+    CHECK(CountLife("A:Disable") == 1 && IndexOfLife("A:Disable") + 1 == IndexOfLife("A:Destroy"));
+    CHECK(CountLife("C:Disable") == 1 && IndexOfLife("C:Disable") + 1 == IndexOfLife("C:Destroy"));
+    CHECK(!HasLife("B:Disable")); // B was already disabled
+    CHECK(!a.GetComponent<NativeScriptComponent>().Instance);
+}
+
+static int g_FlipCount = 0;
+class FlipFlopScript : public ScriptableEntity
+{
+public:
+    // Toggles itself back from both callbacks: must not recurse forever.
+    void OnEnable() override { if (++g_FlipCount < 1000) SetEnabled(false); }
+    void OnDisable() override { if (++g_FlipCount < 1000) SetEnabled(true); }
+};
+ZM_REGISTER_SCRIPT(FlipFlopScript)
+
+TEST(ScriptLifecycleEdgeCases)
+{
+    g_Life.clear();
+    auto scene = CreateRef<Scene>();
+    AddLifeScript(*scene, "OffInCreate", 1);
+    AddLifeScript(*scene, "OffInStart", 2);
+    Entity toggled = AddLifeScript(*scene, "OffInEnable", 3);
+    AddLifeScript(*scene, "Spawner", 4);
+    Entity tmpl = AddLifeScript(*scene, "Template");
+    tmpl.GetComponent<NativeScriptComponent>().Enabled = false; // the template itself stays idle
+    Entity flip = scene->CreateEntity("Flip");
+    flip.AddComponent<NativeScriptComponent>().ClassName = "FlipFlopScript";
+
+    scene->OnRuntimeStart();
+    CHECK(HasLife("OffInCreate:Create") && !HasLife("OffInCreate:Enable"));
+    CHECK(CountLife("OffInEnable:Enable") == 1 && CountLife("OffInEnable:Disable") == 1);
+    CHECK(!scene->IsScriptEnabled(toggled));
+    CHECK(g_FlipCount > 0 && g_FlipCount < 100); // stopped by the nesting guard
+
+    // Paused at start: nothing starts until a frame is stepped.
+    scene->SetPaused(true);
+    g_Life.clear();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(g_Life.empty());
+    scene->Step(1);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(HasLife("OffInStart:Start") && HasLife("OffInStart:Disable") && !HasLife("OffInStart:Update"));
+    CHECK(!HasLife("OffInCreate:Start") && !HasLife("Template:Start"));
+    CHECK(IndexOfLife("Spawner:Start") >= 0 && IndexOfLife("Spawner:Start") < IndexOfLife("Spawner:Update"));
+    // The clone (copied from a disabled template, then enabled) is created during Spawner's
+    // OnUpdate: OnCreate now, but no OnStart / OnUpdate / OnLateUpdate in this frame.
+    Entity clone = scene->FindEntityByName("Clone");
+    CHECK((bool)clone);
+    CHECK(HasLife("Template:Create")); // the clone's OnCreate runs before it is renamed
+    CHECK(!HasLife("Clone:Update") && !HasLife("Clone:Late"));
+    scene->SetPaused(false);
+
+    g_Life.clear();
+    scene->SetScriptEnabled(clone, true);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(IndexOfLife("Clone:Enable") == 0);
+    CHECK(IndexOfLife("Clone:Start") >= 0 && IndexOfLife("Clone:Start") < IndexOfLife("Clone:Update"));
+    CHECK(IndexOfLife("Spawner:Update") >= 0 && IndexOfLife("Clone:Start") < IndexOfLife("Spawner:Update"));
+    CHECK(CountLife("Clone:Start") == 1);
+
+    // Destroying an enabled script: OnDisable, then OnDestroy.
+    g_Life.clear();
+    scene->DestroyEntity(clone);
+    CHECK((g_Life == std::vector<std::string>{ "Clone:Disable", "Clone:Destroy" }));
+    scene->OnRuntimeStop();
+
+    // The Enabled flag is saved only when it is off (older files stay byte-identical).
+    auto saved = CreateRef<Scene>();
+    Entity on = saved->CreateEntity("On");
+    on.AddComponent<NativeScriptComponent>().ClassName = "LifeScript";
+    Entity off = saved->CreateEntity("Off");
+    off.AddComponent<NativeScriptComponent>().ClassName = "LifeScript";
+    off.GetComponent<NativeScriptComponent>().Enabled = false;
+    std::string text = SceneSerializer(saved).SerializeToString();
+    CHECK(std::count(text.begin(), text.end(), 'E') > 0);
+    CHECK(text.find("\"Enabled\": false") != std::string::npos);
+    CHECK(text.find("\"Enabled\": true") == std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->FindEntityByName("On").GetComponent<NativeScriptComponent>().Enabled);
+    CHECK(!loaded->FindEntityByName("Off").GetComponent<NativeScriptComponent>().Enabled);
+    // Copies (Ctrl+D, prefabs, play-mode scene copy) keep the flag.
+    CHECK(!saved->DuplicateEntity(off).GetComponent<NativeScriptComponent>().Enabled);
+    CHECK(!Scene::Copy(saved)->FindEntityByName("Off").GetComponent<NativeScriptComponent>().Enabled);
+}
+
+TEST(DestroyKeepsOtherScriptsAlive)
+{
+    // Regression: entt fills the hole of a removed component by moving the last one; the
+    // moved NativeScriptComponent used to lose its Instance (leaked, never updated again).
+    g_Life.clear();
+    auto scene = CreateRef<Scene>();
+    std::vector<Entity> entities;
+    for (int i = 0; i < 6; i++)
+        entities.push_back(AddLifeScript(*scene, "S" + std::to_string(i)));
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(0.016f);
+
+    scene->DestroyEntity(entities[0]);                                   // immediate
+    entities[2].GetComponent<NativeScriptComponent>().Instance->Destroy(); // deferred
+    scene->OnUpdateRuntime(0.016f);
+    g_Life.clear();
+    scene->OnUpdateRuntime(0.016f);
+    for (int i : { 1, 3, 4, 5 })
+    {
+        CHECK(entities[i].GetComponent<NativeScriptComponent>().Instance != nullptr);
+        CHECK(CountLife("S" + std::to_string(i) + ":Update") == 1);
+    }
+    scene->OnRuntimeStop();
+    for (int i = 0; i < 6; i++)
+        CHECK(CountLife("S" + std::to_string(i) + ":Destroy") == (i == 0 || i == 2 ? 0 : 1));
+}
+
+// ------------------------------------------------------------------ triggers (OnTriggerBegin / OnTriggerEnd)
+static std::vector<std::string> g_Contacts;
+static int CountContact(const std::string& entry) { return (int)std::count(g_Contacts.begin(), g_Contacts.end(), entry); }
+static int IndexOfContact(const std::string& entry)
+{
+    auto it = std::find(g_Contacts.begin(), g_Contacts.end(), entry);
+    return it == g_Contacts.end() ? -1 : (int)(it - g_Contacts.begin());
+}
+
+class ContactLogScript : public ScriptableEntity
+{
+public:
+    void OnCollisionBegin(Entity other) override { Log("CollisionBegin", other); }
+    void OnCollisionEnd(Entity other) override { Log("CollisionEnd", other); }
+    void OnTriggerBegin(Entity other) override { Log("TriggerBegin", other); }
+    void OnTriggerEnd(Entity other) override { Log("TriggerEnd", other); }
+private:
+    void Log(const char* what, Entity other)
+    {
+        g_Contacts.push_back(GetName() + ":" + what + ":" + (other ? other.GetName() : std::string("?")));
+    }
+};
+ZM_REGISTER_SCRIPT(ContactLogScript)
+
+static void AddContactLog(Entity e) { e.AddComponent<NativeScriptComponent>().ClassName = "ContactLogScript"; }
+
+TEST(TriggerCallbacks2D)
+{
+    g_Contacts.clear();
+    auto scene = CreateRef<Scene>();
+    Entity ground = scene->CreateEntity("Ground");
+    ground.GetTransform().Translation = { 0, -2, 0 };
+    ground.GetTransform().Scale = { 20, 1, 1 };
+    ground.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    ground.AddComponent<BoxCollider2DComponent>();
+    AddContactLog(ground);
+
+    Entity zone = scene->CreateEntity("Zone"); // sensor the box falls through
+    zone.GetTransform().Translation = { 0, 1, 0 };
+    zone.GetTransform().Scale = { 4, 1, 1 };
+    zone.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    zone.AddComponent<BoxCollider2DComponent>().IsSensor = true;
+    AddContactLog(zone);
+
+    // Two fixtures on one body: scripts still hear one Begin per entity pair.
+    Entity box = scene->CreateEntity("Box");
+    box.GetTransform().Translation = { 0, 4, 0 };
+    box.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    box.AddComponent<BoxCollider2DComponent>();
+    box.AddComponent<CircleCollider2DComponent>().Radius = 0.5f;
+    AddContactLog(box);
+
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 180; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(box.GetTransform().Translation.y, -1.0f, 0.05f); // went through the sensor, rests on the ground
+
+    CHECK(CountContact("Box:TriggerBegin:Zone") == 1);
+    CHECK(CountContact("Box:TriggerEnd:Zone") == 1);
+    CHECK(CountContact("Zone:TriggerBegin:Box") == 1);
+    CHECK(CountContact("Zone:TriggerEnd:Box") == 1);
+    CHECK(CountContact("Box:CollisionBegin:Ground") == 1);
+    CHECK(CountContact("Ground:CollisionBegin:Box") == 1);
+    CHECK(CountContact("Box:CollisionBegin:Zone") == 0 && CountContact("Zone:CollisionBegin:Box") == 0);
+    CHECK(CountContact("Box:TriggerBegin:Ground") == 0);
+    CHECK(CountContact("Box:CollisionEnd:Ground") == 0); // still resting
+    int enter = IndexOfContact("Box:TriggerBegin:Zone"), leave = IndexOfContact("Box:TriggerEnd:Zone");
+    CHECK(enter >= 0 && enter < leave && leave < IndexOfContact("Box:CollisionBegin:Ground"));
+    scene->OnRuntimeStop();
+}
+
+TEST(TriggerEndWhenDestroyed)
+{
+    g_Contacts.clear();
+    auto scene = CreateRef<Scene>();
+    scene->GetSettings().Gravity = { 0.0f, 0.0f };
+    Entity zone = scene->CreateEntity("Zone");
+    zone.GetTransform().Scale = { 6, 6, 1 };
+    zone.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    zone.AddComponent<BoxCollider2DComponent>().IsSensor = true;
+    AddContactLog(zone);
+    Entity a = scene->CreateEntity("A");
+    a.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    a.AddComponent<BoxCollider2DComponent>();
+    AddContactLog(a);
+    Entity b = scene->CreateEntity("B");
+    b.GetTransform().Translation = { 1.5f, 0, 0 };
+    b.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    b.AddComponent<CircleCollider2DComponent>();
+    AddContactLog(b);
+
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(CountContact("A:TriggerBegin:Zone") == 1 && CountContact("Zone:TriggerBegin:A") == 1);
+    CHECK(CountContact("B:TriggerBegin:Zone") == 1);
+
+    // The survivor hears OnTriggerEnd with a still valid `other` while it is being destroyed ...
+    g_Contacts.clear();
+    a.GetComponent<NativeScriptComponent>().Instance->Destroy(); // deferred: end of this frame
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK((g_Contacts == std::vector<std::string>{ "Zone:TriggerEnd:A" }));
+    // ... and only once (Box2D's own end-contact for the destroyed body is ignored).
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(g_Contacts.size() == 1);
+
+    // Destroying the sensor ends the trigger for the bodies inside it.
+    g_Contacts.clear();
+    scene->DestroyEntity(zone);
+    CHECK((g_Contacts == std::vector<std::string>{ "B:TriggerEnd:Zone" }));
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(g_Contacts.size() == 1);
+    scene->OnRuntimeStop();
+}
+
+TEST(TriggerCallbacks3D)
+{
+    g_Contacts.clear();
+    auto scene = CreateRef<Scene>();
+    Entity floor = scene->CreateEntity("Floor");
+    floor.GetTransform().Translation = { 0, -0.5f, 0 };
+    floor.GetTransform().Scale = { 30, 1, 30 };
+    floor.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    floor.AddComponent<BoxCollider3DComponent>();
+    AddContactLog(floor);
+
+    Entity zone = scene->CreateEntity("Zone"); // the ball falls through it
+    zone.GetTransform().Translation = { 0, 3, 0 };
+    zone.GetTransform().Scale = { 3, 1, 3 };
+    zone.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    zone.AddComponent<BoxCollider3DComponent>().IsSensor = true;
+    AddContactLog(zone);
+
+    Entity ball = scene->CreateEntity("Ball");
+    ball.GetTransform().Translation = { 0, 6, 0 };
+    ball.AddComponent<Rigidbody3DComponent>();
+    ball.AddComponent<SphereCollider3DComponent>().Radius = 0.5f;
+    AddContactLog(ball);
+
+    // A character walking into a sensor (CharacterVirtual + its inner body: still one Begin).
+    Entity pad = scene->CreateEntity("Pad");
+    pad.GetTransform().Translation = { 8, 1, 0 };
+    pad.GetTransform().Scale = { 2, 2, 2 };
+    pad.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    pad.AddComponent<BoxCollider3DComponent>().IsSensor = true;
+    AddContactLog(pad);
+    Entity hero = scene->CreateEntity("Hero");
+    hero.GetTransform().Translation = { 4, 0.1f, 0 };
+    auto& cc = hero.AddComponent<CharacterController3DComponent>();
+    AddContactLog(hero);
+
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 60; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    cc.Move({ 3.0f, 0, 0 });
+    for (int i = 0; i < 150; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(ball.GetTransform().Translation.y, 0.5f, 0.05f);
+    CHECK(hero.GetTransform().Translation.x > 8.0f); // walked through the pad (sensors do not block)
+
+    CHECK(CountContact("Ball:TriggerBegin:Zone") == 1 && CountContact("Ball:TriggerEnd:Zone") == 1);
+    CHECK(CountContact("Zone:TriggerBegin:Ball") == 1 && CountContact("Zone:TriggerEnd:Ball") == 1);
+    CHECK(CountContact("Ball:CollisionBegin:Zone") == 0);
+    CHECK(CountContact("Ball:CollisionBegin:Floor") == 1);
+    int leave = IndexOfContact("Ball:TriggerEnd:Zone");
+    CHECK(leave >= 0 && leave < IndexOfContact("Ball:CollisionBegin:Floor"));
+
+    CHECK(CountContact("Hero:TriggerBegin:Pad") == 1);
+    CHECK(CountContact("Pad:TriggerBegin:Hero") == 1);
+    CHECK(CountContact("Hero:CollisionBegin:Pad") == 0);
+    CHECK(CountContact("Hero:CollisionBegin:Floor") == 1);
+    scene->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ script field attributes (enum, color, range, tooltip)
+class FieldAttributeScript : public ScriptableEntity
+{
+public:
+    enum class Tiny : uint8_t { A = 0, B = 1, Max = 255 };
+    enum class Signed8 : int8_t { Minus = -100, Zero = 0, Plus = 100 };
+    enum class Wide : int64_t { Low = -(1ll << 40), High = 1ll << 40 };
+    enum Plain { PlainA, PlainB, PlainC }; // unscoped, int-sized
+
+    uint8_t GuardBefore = 0xAB;
+    Tiny Small = Tiny::B;
+    uint8_t GuardAfter = 0xCD;
+    Signed8 Neg = Signed8::Minus;
+    Wide Big = Wide::High;
+    Plain Simple = PlainB;
+    int Difficulty = 1;
+    float Speed = 5.0f;
+    int Lives = 3;
+    glm::vec3 Offset{ 0.0f };
+    glm::vec4 Tint{ 1.0f };
+    glm::vec3 Glow{ 2.0f, 1.0f, 0.5f };
+    std::string Notes = "line1\nline2";
+};
+ZM_REGISTER_SCRIPT(FieldAttributeScript,
+    ZM_FIELD_ENUM(FieldAttributeScript, Small, "A", "B", { "Max", FieldAttributeScript::Tiny::Max }),
+    ZM_FIELD(FieldAttributeScript, Neg),
+    ZM_FIELD(FieldAttributeScript, Big),
+    ZM_FIELD_ENUM(FieldAttributeScript, Simple, "First", "Second", { "Tenth", 10 }, "Eleventh").Label("Oddiy"),
+    ZM_FIELD_ENUM(FieldAttributeScript, Difficulty, "Oson", "O'rta", "Qiyin"),
+    ZM_FIELD_RANGE(FieldAttributeScript, Speed, 20.0f, 0.5f).Tooltip("Tezlik").Header("Harakat"),
+    ZM_FIELD_RANGE(FieldAttributeScript, Lives, 0.5f, 3.7f),
+    ZM_FIELD_RANGE(FieldAttributeScript, Offset, -1, 1),
+    ZM_FIELD_COLOR(FieldAttributeScript, Tint),
+    ZM_FIELD_COLOR_HDR(FieldAttributeScript, Glow),
+    ZM_FIELD_TOOLTIP(FieldAttributeScript, Notes, "Izoh").Multiline())
+
+static const ScriptFieldInfo* FindField(const ScriptClassInfo* info, const char* name)
+{
+    if (!info) return nullptr;
+    for (const auto& f : info->Fields)
+        if (f.Name == name) return &f;
+    return nullptr;
+}
+
+TEST(ScriptFieldEnumColorRange)
+{
+    const ScriptClassInfo* info = ScriptRegistry::Find("FieldAttributeScript");
+    CHECK(info && info->Fields.size() == 11);
+    const ScriptFieldInfo* small = FindField(info, "Small");
+    const ScriptFieldInfo* neg = FindField(info, "Neg");
+    const ScriptFieldInfo* big = FindField(info, "Big");
+    const ScriptFieldInfo* simple = FindField(info, "Simple");
+    const ScriptFieldInfo* difficulty = FindField(info, "Difficulty");
+    const ScriptFieldInfo* speed = FindField(info, "Speed");
+    const ScriptFieldInfo* lives = FindField(info, "Lives");
+    const ScriptFieldInfo* offset = FindField(info, "Offset");
+    const ScriptFieldInfo* tint = FindField(info, "Tint");
+    const ScriptFieldInfo* glow = FindField(info, "Glow");
+    const ScriptFieldInfo* notes = FindField(info, "Notes");
+    CHECK(small && neg && big && simple && difficulty && speed && lives && offset && tint && glow && notes);
+    if (!(small && neg && big && simple && difficulty && speed && lives && offset && tint && glow && notes))
+        return;
+
+    // ---- enums: type, underlying size / sign, option values (auto values continue)
+    CHECK(small->Type == ScriptFieldType::Enum && small->EnumSize == 1 && !small->EnumSigned);
+    CHECK(neg->Type == ScriptFieldType::Enum && neg->EnumSize == 1 && neg->EnumSigned && neg->EnumOptions.empty());
+    CHECK(big->Type == ScriptFieldType::Enum && big->EnumSize == 8 && big->EnumSigned);
+    CHECK(simple->Type == ScriptFieldType::Enum && simple->EnumSize == sizeof(int));
+    CHECK(small->EnumOptions.size() == 3 && small->EnumOptions[2].Name == "Max" && small->EnumOptions[2].Value == 255);
+    CHECK(simple->EnumOptions.size() == 4);
+    CHECK(simple->EnumOptions.size() == 4 && simple->EnumOptions[0].Value == 0 && simple->EnumOptions[1].Value == 1 &&
+          simple->EnumOptions[2].Value == 10 && simple->EnumOptions[3].Value == 11);
+    CHECK(simple->FindOption(10) && simple->FindOption(10)->Name == "Tenth");
+    CHECK(!simple->FindOption(5));
+    CHECK(simple->GetDisplayName() == "Oddiy" && small->GetDisplayName() == "Small");
+    CHECK(difficulty->Type == ScriptFieldType::Int && difficulty->EnumOptions.size() == 3 && difficulty->EnumOptions[2].Name == "Qiyin");
+
+    // ---- range / tooltip / header / color / multiline
+    CHECK(speed->HasRange && speed->RangeMin == 0.5f && speed->RangeMax == 20.0f); // swapped into order
+    CHECK(speed->TooltipText == "Tezlik" && speed->HeaderText == "Harakat");
+    CHECK(!lives->TooltipText.size() && lives->HasRange);
+    CHECK(offset->HasRange && offset->RangeMin == -1.0f && offset->RangeMax == 1.0f);
+    CHECK(tint->IsColor && !tint->IsHdr && tint->Type == ScriptFieldType::Vec4);
+    CHECK(glow->IsColor && glow->IsHdr && glow->Type == ScriptFieldType::Vec3);
+    CHECK(notes->IsMultiline && notes->TooltipText == "Izoh");
+    CHECK(!FindField(info, "Speed")->IsColor && !small->HasRange);
+
+    ScriptFieldValue v;
+    v.Set(25.0f); speed->ClampToRange(v); CHECK(v.Get<float>() == 20.0f);
+    v.Set(-3.0f); speed->ClampToRange(v); CHECK(v.Get<float>() == 0.5f);
+    v.Set(7.0f);  speed->ClampToRange(v); CHECK(v.Get<float>() == 7.0f);
+    v.Set(9);     lives->ClampToRange(v); CHECK(v.Get<int>() == 3);  // whole numbers inside [0.5, 3.7]
+    v.Set(0);     lives->ClampToRange(v); CHECK(v.Get<int>() == 1);
+    v.Set(glm::vec3(-5.0f, 0.25f, 9.0f)); offset->ClampToRange(v);
+    CHECK(v.Get<glm::vec3>() == glm::vec3(-1.0f, 0.25f, 1.0f));
+    v.Set(100.0f); lives->ClampToRange(v); CHECK(v.Get<float>() == 100.0f); // other type: untouched
+    v.Set(100.0f); tint->ClampToRange(v); CHECK(v.Get<float>() == 100.0f);  // no range
+
+    // ---- Load / Store with the member's real size and sign
+    auto* script = static_cast<FieldAttributeScript*>(info->Factory());
+    ScriptFieldValue loaded;
+    small->Load(script, loaded);
+    CHECK(loaded.Type == ScriptFieldType::Enum && loaded.GetEnum() == 1);
+    ScriptFieldValue in; in.SetEnum(255);
+    CHECK(small->Store(script, in));
+    CHECK(script->Small == FieldAttributeScript::Tiny::Max);
+    CHECK(script->GuardBefore == 0xAB && script->GuardAfter == 0xCD); // only one byte written
+    small->Load(script, loaded);
+    CHECK(loaded.GetEnum() == 255); // unsigned underlying type: not -1
+    neg->Load(script, loaded);
+    CHECK(loaded.GetEnum() == -100);
+    in.SetEnum(100); CHECK(neg->Store(script, in)); CHECK(script->Neg == FieldAttributeScript::Signed8::Plus);
+    big->Load(script, loaded);
+    CHECK(loaded.GetEnum() == (1ll << 40));
+    in.SetEnum(-(1ll << 40)); CHECK(big->Store(script, in)); CHECK(script->Big == FieldAttributeScript::Wide::Low);
+    in.Set(FieldAttributeScript::PlainC); // Set<T> with an enum type
+    CHECK(in.Type == ScriptFieldType::Enum && in.Get<FieldAttributeScript::Plain>() == FieldAttributeScript::PlainC);
+    CHECK(simple->Store(script, in) && script->Simple == FieldAttributeScript::PlainC);
+
+    // Int <-> Enum conversions keep the number (a field changed from int to an enum or back).
+    ScriptFieldValue asInt; asInt.Set(2);
+    CHECK(simple->Store(script, asInt) && script->Simple == FieldAttributeScript::PlainC);
+    ScriptFieldValue asEnum; asEnum.SetEnum(2);
+    CHECK(difficulty->Store(script, asEnum) && script->Difficulty == 2);
+    ScriptFieldValue huge; huge.SetEnum(1ll << 40);
+    ScriptFieldValue converted;
+    CHECK(difficulty->Convert(huge, converted) && converted.Type == ScriptFieldType::Int &&
+          converted.Get<int>() == std::numeric_limits<int>::max());
+    ScriptFieldValue wrong; wrong.Set(1.5f);
+    CHECK(!simple->Store(script, wrong) && !simple->Convert(wrong, converted));
+    CHECK(script->Simple == FieldAttributeScript::PlainC);
+    tint->Load(script, loaded);
+    CHECK(loaded.Type == ScriptFieldType::Vec4 && loaded.Get<glm::vec4>() == glm::vec4(1.0f));
+    delete script;
+
+    // ---- stored values reach the instance at play start (with Int -> Enum conversion) and
+    // Enum values survive serialization (negative and 64-bit included).
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Attrs");
+    auto& nsc = e.AddComponent<NativeScriptComponent>();
+    nsc.ClassName = "FieldAttributeScript";
+    ScriptFieldValue smallValue; smallValue.SetEnum(255);
+    ScriptFieldValue negValue; negValue.SetEnum(100);
+    ScriptFieldValue bigValue; bigValue.SetEnum(-(1ll << 40));
+    ScriptFieldValue simpleAsInt; simpleAsInt.Set(10); // an old scene where Simple was an int
+    nsc.Fields["Small"] = smallValue;
+    nsc.Fields["Neg"] = negValue;
+    nsc.Fields["Big"] = bigValue;
+    nsc.Fields["Simple"] = simpleAsInt;
+
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Enum\"") != std::string::npos);
+    auto loadedScene = CreateRef<Scene>();
+    CHECK(SceneSerializer(loadedScene).DeserializeFromString(text));
+    Entity le = loadedScene->FindEntityByName("Attrs");
+    CHECK(le && le.GetComponent<NativeScriptComponent>().Fields["Big"].Type == ScriptFieldType::Enum);
+    CHECK(le && le.GetComponent<NativeScriptComponent>().Fields["Big"].GetEnum() == -(1ll << 40));
+    CHECK(le && le.GetComponent<NativeScriptComponent>().Fields["Small"].GetEnum() == 255);
+    CHECK(SceneSerializer(loadedScene).SerializeToString() == text);
+
+    loadedScene->OnRuntimeStart();
+    auto* live = ScriptableEntity::GetScript<FieldAttributeScript>(le);
+    CHECK(live && live->Small == FieldAttributeScript::Tiny::Max && live->GuardAfter == 0xCD);
+    CHECK(live && live->Neg == FieldAttributeScript::Signed8::Plus);
+    CHECK(live && live->Big == FieldAttributeScript::Wide::Low);
+    CHECK(live && (int)live->Simple == 10);
+    loadedScene->OnRuntimeStop();
+
+    // Hand-edited / foreign JSON: a float value for an Enum field is truncated, junk becomes 0.
+    auto junk = CreateRef<Scene>();
+    std::string edited = text;
+    size_t pos = edited.find("-1099511627776");
+    CHECK(pos != std::string::npos);
+    if (pos != std::string::npos)
+    {
+        edited.replace(pos, std::strlen("-1099511627776"), "7.9");
+        CHECK(SceneSerializer(junk).DeserializeFromString(edited));
+        Entity je = junk->FindEntityByName("Attrs");
+        CHECK(je && je.GetComponent<NativeScriptComponent>().Fields["Big"].GetEnum() == 7);
+    }
+}
+
+// ------------------------------------------------------------------ new-script templates
+// Skips string / char literals and comments; true when (), {} and [] are balanced.
+static bool BracketsBalanced(const std::string& code)
+{
+    std::vector<char> stack;
+    for (size_t i = 0; i < code.size(); i++)
+    {
+        char c = code[i];
+        if (c == '/' && i + 1 < code.size() && code[i + 1] == '/') { i = code.find('\n', i); if (i == std::string::npos) break; continue; }
+        if (c == '"' || c == '\'')
+        {
+            for (i++; i < code.size() && code[i] != c; i++)
+                if (code[i] == '\\') i++;
+            continue;
+        }
+        if (c == '(' || c == '{' || c == '[') stack.push_back(c);
+        else if (c == ')' || c == '}' || c == ']')
+        {
+            char open = c == ')' ? '(' : c == '}' ? '{' : '[';
+            if (stack.empty() || stack.back() != open) return false;
+            stack.pop_back();
+        }
+    }
+    return stack.empty();
+}
+
+TEST(ScriptTemplates)
+{
+    std::string full = ScriptTemplate::Generate("EnemyAI", ScriptTemplateKind::Full);
+    CHECK(full.find("$CLASS$") == std::string::npos);
+    CHECK(full.find("class EnemyAI : public ScriptableEntity") != std::string::npos);
+    CHECK(full.find("ZM_REGISTER_SCRIPT(EnemyAI,") != std::string::npos);
+    CHECK(full.find("#include <Zamin/Zamin.h>") != std::string::npos);
+    CHECK(BracketsBalanced(full));
+    // Every ScriptableEntity callback, overridden.
+    for (const char* callback : { "OnCreate()", "OnEnable()", "OnStart()", "OnUpdate(Timestep", "OnLateUpdate(Timestep",
+                                  "OnDisable()", "OnDestroy()", "OnCollisionBegin(Entity", "OnCollisionEnd(Entity",
+                                  "OnTriggerBegin(Entity", "OnTriggerEnd(Entity", "OnClick()", "OnMessage(const ScriptMessage&" })
+        CHECK(full.find(std::string("void ") + callback) != std::string::npos);
+    CHECK(std::count(full.begin(), full.end(), '\n') > 100);
+    // ... and every kind of inspector field attribute.
+    for (const char* attribute : { "ZM_FIELD_RANGE(", "ZM_FIELD_ENUM(", "ZM_FIELD_COLOR(", "ZM_FIELD_TOOLTIP(", ".Header(",
+                                   ".Tooltip(", ".Label(", ".Multiline(", "EntityRef " })
+        CHECK(full.find(attribute) != std::string::npos);
+
+    std::string minimal = ScriptTemplate::Generate("Spinner", ScriptTemplateKind::Minimal);
+    CHECK(minimal.find("class Spinner : public ScriptableEntity") != std::string::npos);
+    CHECK(minimal.find("void OnCreate()") != std::string::npos && minimal.find("void OnUpdate(Timestep") != std::string::npos);
+    CHECK(minimal.find("OnTriggerBegin") == std::string::npos);
+    CHECK(minimal.find("ZM_REGISTER_SCRIPT(Spinner,") != std::string::npos);
+    CHECK(BracketsBalanced(minimal) && minimal.size() < full.size() / 3);
+
+    std::string starter = ScriptTemplate::GenerateProjectStarter();
+    CHECK(starter.find("ZM_REGISTER_SCRIPT(Rotator") != std::string::npos);
+    CHECK(starter.find("ZM_REGISTER_SCRIPT(PlayerController") != std::string::npos);
+    CHECK(BracketsBalanced(starter));
+    CHECK(std::string(ScriptTemplate::GetKindName(ScriptTemplateKind::Full)) != ScriptTemplate::GetKindName(ScriptTemplateKind::Minimal));
+
+    // ---- class names
+    for (const char* ok : { "Player", "EnemyAI", "Health", "my_script2", "_private", "CameraController", "Animation" })
+        CHECK(ScriptTemplate::IsValidClassName(ok));
+    for (const char* bad : { "", "2Fast", "my script", "Player!", "O\xCA\xBByinchi", "class", "override", "_Upper", "a__b",
+                             "Entity", "Camera", "Input", "Scene", "Random", "TransformComponent", "Transform", "Destroy",
+                             "OnUpdate", "MoveMode", "std", "glm" })
+    {
+        CHECK(!ScriptTemplate::IsValidClassName(bad));
+        CHECK(!ScriptTemplate::ValidateClassName(bad).empty());
+    }
+    CHECK(ScriptTemplate::ValidateClassName("Camera").find("CameraController") != std::string::npos); // suggests a fix
+    CHECK(ScriptTemplate::SanitizeClassName("my enemy-2") == "myenemy2");
+    CHECK(ScriptTemplate::SanitizeClassName("2fast") == "_2fast");
+    CHECK(ScriptTemplate::SanitizeClassName("O\xCA\xBByin!") == "Oyin");
+    CHECK(ScriptTemplate::SanitizeClassName("") == "");
+    // The engine name list is generated from the headers, so new engine types are covered too.
+    CHECK(!ScriptTemplate::IsValidClassName("ScriptTemplateKind") && !ScriptTemplate::IsValidClassName("EventBus"));
 }
 
 int main()

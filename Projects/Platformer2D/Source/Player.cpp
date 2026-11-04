@@ -59,31 +59,17 @@ public:
         }
     }
 
-    void OnCollisionBegin(Entity other) override
-    {
-        if (!IsCollectible(other)) m_GroundContacts++;
-    }
-
-    void OnCollisionEnd(Entity other) override
-    {
-        if (!IsCollectible(other)) m_GroundContacts = std::max(0, m_GroundContacts - 1);
-    }
+    // Faqat qattiq to'qnashuvlar (yer, platformalar). Tangalar va bayroq sensor - ular
+    // OnTriggerBegin/End bo'lib keladi, shuning uchun bu yerda alohida tekshirish shart emas.
+    void OnCollisionBegin(Entity) override { m_GroundContacts++; }
+    void OnCollisionEnd(Entity) override { m_GroundContacts = std::max(0, m_GroundContacts - 1); }
 
 private:
-    static bool IsCollectible(Entity e)
-    {
-        if (!e) return true;
-        if (e.HasTag("Coin") || e.GetName() == "Goal") return true;
-        auto* box = e.TryGetComponent<BoxCollider2DComponent>();
-        auto* circle = e.TryGetComponent<CircleCollider2DComponent>();
-        return (box && box->IsSensor) || (circle && circle->IsSensor);
-    }
-
     glm::vec3 m_Spawn{ 0.0f };
     int m_GroundContacts = 0;
 };
 
 ZM_REGISTER_SCRIPT(PlayerController,
-    ZM_FIELD(PlayerController, MoveSpeed),
-    ZM_FIELD(PlayerController, JumpImpulse),
-    ZM_FIELD(PlayerController, FallLimit))
+    ZM_FIELD_RANGE(PlayerController, MoveSpeed, 0.0f, 20.0f).Header("Harakat").Tooltip("Yurish tezligi (birlik/sekund)"),
+    ZM_FIELD_RANGE(PlayerController, JumpImpulse, 0.0f, 30.0f).Tooltip("Sakrash kuchi (impuls)"),
+    ZM_FIELD(PlayerController, FallLimit).Tooltip("Shu balandlikdan pastga tushsa, o'yinchi boshlang'ich joyga qaytadi"))

@@ -12,6 +12,7 @@ class Coin : public ScriptableEntity
 public:
     float BobSpeed = 3.0f;
     float BobHeight = 0.15f;
+    std::string Effect = "Prefabs/CoinSparkle.zprefab";
 
     void OnCreate() override { m_BaseY = Transform().Translation.y; m_Phase = Transform().Translation.x; }
 
@@ -28,6 +29,7 @@ public:
         m_Collected = true;
         if (auto* gm = GetScript<GameManager>(FindEntity("GameManager")))
             gm->AddCoin();
+        Instantiate(Effect, GetWorldPosition());
         Destroy();
     }
 
@@ -35,7 +37,7 @@ private:
     float m_BaseY = 0.0f, m_Phase = 0.0f;
     bool m_Collected = false;
 };
-ZM_REGISTER_SCRIPT(Coin, ZM_FIELD(Coin, BobSpeed), ZM_FIELD(Coin, BobHeight))
+ZM_REGISTER_SCRIPT(Coin, ZM_FIELD(Coin, BobSpeed), ZM_FIELD(Coin, BobHeight), ZM_FIELD(Coin, Effect))
 
 // Kamera o'yinchini silliq kuzatadi.
 class CameraFollow : public ScriptableEntity
@@ -124,3 +126,29 @@ private:
     float m_Timer = -1.0f;
 };
 ZM_REGISTER_SCRIPT(LevelGoal, ZM_FIELD(LevelGoal, NextScene), ZM_FIELD(LevelGoal, Delay))
+
+// N soniyadan keyin obyektni o'chiradi (effektlar uchun).
+class AutoDestroy : public ScriptableEntity
+{
+public:
+    float Seconds = 1.5f;
+    void OnUpdate(Timestep ts) override
+    {
+        Seconds -= ts;
+        if (Seconds <= 0.0f) Destroy();
+    }
+};
+ZM_REGISTER_SCRIPT(AutoDestroy, ZM_FIELD(AutoDestroy, Seconds))
+
+// Ekrandagi tugma: bosilganda sahnani qayta yuklaydi.
+class RestartButton : public ScriptableEntity
+{
+public:
+    std::string Scene = "Scenes/Level1.zscene";
+    void OnClick() override
+    {
+        ZM_INFO("Qayta boshlanmoqda...");
+        LoadScene(Scene);
+    }
+};
+ZM_REGISTER_SCRIPT(RestartButton, ZM_FIELD(RestartButton, Scene))

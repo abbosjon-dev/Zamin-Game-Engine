@@ -77,6 +77,16 @@ namespace Zamin {
         void SetDepthWrite(bool enabled) override { glDepthMask(enabled ? GL_TRUE : GL_FALSE); }
         void SetBlend(bool enabled) override { enabled ? glEnable(GL_BLEND) : glDisable(GL_BLEND); }
 
+        void SetBlendMode(BlendMode mode) override
+        {
+            switch (mode)
+            {
+                case BlendMode::None:     glDisable(GL_BLEND); break;
+                case BlendMode::Alpha:    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); break;
+                case BlendMode::Additive: glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE); break;
+            }
+        }
+
         void SetCullMode(CullMode mode) override
         {
             if (mode == CullMode::None) { glDisable(GL_CULL_FACE); return; }

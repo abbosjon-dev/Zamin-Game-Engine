@@ -10,12 +10,18 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 |---|---|
 | ![Platformer](docs/images/platformer2d.png) | ![Showcase](docs/images/showcase3d.png) |
 
+![2D editor](docs/images/editor2d.png)
+
 ---
 
 ## ✨ Imkoniyatlar
 
 **Editor**
 - Docking interfeys: Viewport, Ierarxiya, Inspektor, Kontent brauzer, Konsol, Sahna sozlamalari, Statistika
+- **Undo/Redo** (`Ctrl+Z` / `Ctrl+Y`), **Copy/Paste** (`Ctrl+C` / `Ctrl+V`), nusxa olish (`Ctrl+D`)
+- **Parent/child ierarxiya**: daraxt ko'rinishi, drag & drop bilan ota-ona belgilash, bola obyekt yaratish
+- **Prefab'lar** (`.zprefab`): obyektni prefab qilib saqlash, sahnaga/ierarxiyaga sudrab qo'yish
+- 2D sahnalar uchun avtomatik ortografik kamera, 3D collider'larni wireframe ko'rinishda chizish
 - Zamonaviy qorong'i tema, Inter shrifti, Font Awesome ikonkalari, o'zbekcha interfeys
 - Gizmo'lar (ko'chirish / aylantirish / masshtab, `Ctrl` bilan snapping), sichqoncha bilan obyekt tanlash (picking)
 - **Play / Simulate / Pause / Step** — o'yinni editor ichida ishga tushirish (sahna nusxasida, tahrir buzilmaydi)
@@ -32,7 +38,15 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - 2D batch renderer: sprite, tekstura, doira, chiziq, **matn** (UTF-8, lotin/kirill, `oʻ gʻ`)
   - 3D PBR (metallic/roughness), yo'naltirilgan quyosh + 16 ta nuqtali yorug'lik, **soyalar** (PCF), gradient osmon, atrof-muhit aksi, ACES tonemapping
   - Primitivlar (kub, shar, tekislik, silindr, konus) va `.obj` modellar
+  - **Post-processing**: bloom, vinyetka, kontrast/to'yinganlik/rang tuslash
+  - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview)
+  - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
 - **2D fizika** (Box2D): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
+- **3D fizika** (Jolt Physics): Rigidbody3D, Box/Sphere/Capsule collider, trigger'lar, to'qnashuvlar
+- **Raycast** 2D va 3D
+- **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, 9 ta langar (anchor), `OnClick()`
+- **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash
+- Skriptlardan **sahna almashtirish** (`LoadScene`), prefab'larni `Instantiate` qilish
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime
@@ -71,7 +85,7 @@ cd zamin-game-engine
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
-Boshqa barcha kutubxonalar (GLFW, GLM, EnTT, ImGui, ImGuizmo, Box2D, nlohmann/json, stb, miniaudio, tinyobjloader) CMake orqali avtomatik yuklab olinadi (versiyalar qat'iy belgilangan).
+Boshqa barcha kutubxonalar (GLFW, GLM, EnTT, ImGui, ImGuizmo, Box2D, Jolt, nlohmann/json, stb, miniaudio, tinyobjloader) CMake orqali avtomatik yuklab olinadi (versiyalar qat'iy belgilangan).
 
 ### Ishga tushirish
 ```bash
@@ -154,7 +168,19 @@ ZM_REGISTER_SCRIPT(Player, ZM_FIELD(Player, Speed), ZM_FIELD(Player, JumpImpulse
 | `OnCollisionBegin/End(other)` | 2D to'qnashuv / trigger |
 | `OnDestroy()` | Obyekt o'chirilganda yoki o'yin to'xtaganda |
 
-Foydali API: `Transform()`, `GetComponent<T>()`, `AddComponent<T>()`, `FindEntity("Nom")`, `Instantiate(prefab, pos)`, `Destroy(e)`, `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce`, `PlaySound(path)`, `GetTime()`, `GetScript<T>(entity)`, `Input::IsKeyPressed`, `Input::GetMousePosition`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga chiqadi).
+| `OnClick()` | Shu obyektdagi UI tugma bosilganda |
+
+Foydali API:
+
+| Soha | Funksiyalar |
+|---|---|
+| Obyektlar | `Transform()`, `GetComponent<T>()`, `AddComponent<T>()`, `FindEntity("Nom")`, `Destroy(e)`, `GetScript<T>(entity)` |
+| Spawn | `Instantiate(entity, pos)`, `Instantiate("Prefabs/Ball.zprefab", pos)` |
+| Ierarxiya | `GetParent()`, `SetParent(e)`, `GetWorldPosition()` |
+| 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `Raycast2D(origin, dir, dist)` |
+| 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)` |
+| Input | `Input::IsKeyPressed`, `Input::IsMouseButtonPressed`, `Input::IsGamepadButtonPressed`, `Input::GetGamepadAxis`, `GetMousePosition()`, `GetMouseWorldPosition()`, `ScreenToWorld()` |
+| Boshqa | `LoadScene("Scenes/Level2.zscene")`, `EmitParticles(n)`, `PlaySound(path)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
 
 `ZM_FIELD` turlari: `float`, `int`, `bool`, `glm::vec2`, `glm::vec3`, `glm::vec4` (rang), `std::string`.
 
@@ -177,6 +203,8 @@ Skriptni o'zgartirgach: **Skriptlar → Kompilyatsiya** (`Ctrl+B`) yoki loyihani
 | Ctrl+O / Ctrl+Shift+O | Sahna / Loyiha ochish |
 | Ctrl+N | Yangi sahna |
 | Ctrl+D / Delete / F2 | Nusxa / O'chirish / Nomini o'zgartirish |
+| Ctrl+Z / Ctrl+Y | Bekor qilish / Qaytarish |
+| Ctrl+C / Ctrl+V | Nusxalash / Joylash |
 | Ctrl+B | C++ skriptlarni kompilyatsiya qilish |
 
 ---
@@ -188,9 +216,10 @@ Zamin/src/Zamin/
 ├── Core/        Application, Window, Layer, Input, Log, UUID, Timestep
 ├── Events/      Oyna, klaviatura, sichqoncha hodisalari
 ├── Renderer/    RHI interfeyslari (Buffer, Shader, Texture, Framebuffer, RendererAPI),
-│                Renderer2D, Renderer3D, Font, Mesh, EditorCamera
+│                Renderer2D, Renderer3D, PostProcess, Font, Mesh, EditorCamera
 ├── Scene/       Scene (EnTT), Entity, Components, SceneSerializer, SceneCamera
 ├── Scripting/   ScriptableEntity, ScriptRegistry, ScriptEngine (.so yuklash, hot reload)
+├── Physics/     PhysicsWorld3D (Jolt), raycast turlari
 ├── Audio/       AudioEngine (miniaudio)
 ├── Project/     Project, shablonlar, build fayllari
 ├── ImGui/       ImGuiLayer, tema, ikonkalar
@@ -213,10 +242,13 @@ Tests/           Headless unit testlar
 ## 🗺️ Yo'l xaritasi
 
 - [x] Linux: editor, 2D/3D renderer, 2D fizika, audio, C++ skriptlar + hot reload, eksport
-- [ ] Undo/Redo, obyektlar ierarxiyasi (parent/child), prefab'lar
-- [ ] 3D fizika (Jolt), skeletal animatsiya, glTF import
-- [ ] Sprite animatsiya / sprite sheet editori, tilemap
-- [ ] Post-processing (bloom, SSAO), HDR pipeline, IBL
+- [x] Undo/Redo, obyektlar ierarxiyasi (parent/child), prefab'lar, copy/paste
+- [x] 3D fizika (Jolt), raycast'lar
+- [x] Sprite animatsiya, particle tizimi, ekran UI, gamepad
+- [x] Post-processing (bloom, vinyetka, rang sozlamalari)
+- [ ] Tilemap, sprite sheet editori
+- [ ] Skeletal animatsiya, glTF import
+- [ ] HDR pipeline, SSAO, IBL, normal map'lar
 - [ ] **Windows** (MSVC, `.dll` skript moduli)
 - [ ] **macOS** (Metal backend)
 - [ ] **Android** (OpenGL ES / Vulkan)
@@ -226,7 +258,7 @@ Tests/           Headless unit testlar
 
 ## 📦 Uchinchi tomon kutubxonalari
 
-GLFW (zlib), glad (MIT/Public), GLM (MIT), EnTT (MIT), Dear ImGui (MIT), ImGuizmo (MIT), Box2D (MIT), nlohmann/json (MIT), stb (Public Domain/MIT), miniaudio (Public Domain/MIT-0), tinyobjloader (MIT). Shriftlar: Inter (SIL OFL 1.1), Font Awesome Free (SIL OFL 1.1) — litsenziyalar `Resources/fonts/` ichida.
+GLFW (zlib), glad (MIT/Public), GLM (MIT), EnTT (MIT), Dear ImGui (MIT), ImGuizmo (MIT), Box2D (MIT), Jolt Physics (MIT), nlohmann/json (MIT), stb (Public Domain/MIT), miniaudio (Public Domain/MIT-0), tinyobjloader (MIT). Shriftlar: Inter (SIL OFL 1.1), Font Awesome Free (SIL OFL 1.1) — litsenziyalar `Resources/fonts/` ichida.
 
 ## Litsenziya
 

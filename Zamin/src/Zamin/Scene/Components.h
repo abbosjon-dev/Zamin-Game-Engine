@@ -162,6 +162,87 @@ namespace Zamin {
         float Radius = 10.0f;
     };
 
+    // ------------------------------------------------------------------ particles
+    struct Particle
+    {
+        glm::vec3 Position{ 0.0f };
+        glm::vec3 Velocity{ 0.0f };
+        float Rotation = 0.0f;
+        float AngularVelocity = 0.0f;
+        float Life = 0.0f;      // remaining
+        float Lifetime = 1.0f;  // total
+    };
+
+    struct ParticleSystemComponent
+    {
+        enum class EmitterShape { Point = 0, Circle, Sphere, Box };
+
+        bool Playing = true;
+        bool Looping = true;
+        bool PlayInEditor = true;
+        float EmissionRate = 30.0f;  // particles / second
+        int Burst = 0;               // particles emitted once at start
+        int MaxParticles = 1000;
+
+        EmitterShape Shape = EmitterShape::Point;
+        float ShapeRadius = 0.5f;
+        glm::vec3 ShapeExtents{ 0.5f };
+
+        float LifetimeMin = 0.8f, LifetimeMax = 1.6f;
+        float SpeedMin = 1.0f, SpeedMax = 3.0f;
+        glm::vec3 Direction{ 0.0f, 1.0f, 0.0f };
+        float Spread = 25.0f;        // degrees
+        glm::vec3 Gravity{ 0.0f, 0.0f, 0.0f };
+        float Drag = 0.0f;
+        float AngularVelocityMax = 0.0f; // radians / second
+
+        glm::vec4 StartColor{ 1.0f, 0.85f, 0.35f, 1.0f };
+        glm::vec4 EndColor{ 1.0f, 0.25f, 0.05f, 0.0f };
+        float StartSize = 0.35f, EndSize = 0.05f;
+
+        bool RenderAsCircle = true;
+        bool Additive = true;
+        bool WorldSpace = true;      // particles stay in the world when the emitter moves
+        bool Billboard = true;       // face the camera (3D)
+        std::string TexturePath;
+        Ref<Texture2D> Texture;
+        int SortingOrder = 0;
+
+        // runtime
+        std::vector<Particle> Particles;
+        float EmitAccumulator = 0.0f;
+        bool BurstDone = false;
+        uint32_t RandomState = 0x9E3779B9u;
+
+        void Clear() { Particles.clear(); EmitAccumulator = 0.0f; BurstDone = false; }
+    };
+
+    // ------------------------------------------------------------------ screen-space UI
+    // Entities with a UITransform are drawn in screen space (pixels) on top of the scene,
+    // instead of in the world. Works with Sprite/Circle/Text renderers.
+    struct UITransformComponent
+    {
+        enum class AnchorPoint { TopLeft = 0, Top, TopRight, Left, Center, Right, BottomLeft, Bottom, BottomRight };
+        AnchorPoint Anchor = AnchorPoint::TopLeft;
+        glm::vec2 Position{ 100.0f, -60.0f }; // pixels from the anchor (+x right, +y up)
+        glm::vec2 Size{ 200.0f, 60.0f };      // pixels
+        float FontSize = 0.0f;                // text height in pixels (0 = Size.y)
+        int Order = 0;
+    };
+
+    struct UIButtonComponent
+    {
+        glm::vec4 NormalColor{ 0.16f, 0.62f, 0.50f, 1.0f };
+        glm::vec4 HoverColor{ 0.22f, 0.74f, 0.60f, 1.0f };
+        glm::vec4 PressedColor{ 0.10f, 0.45f, 0.36f, 1.0f };
+        bool Interactable = true;
+
+        // runtime state (read by scripts)
+        bool Hovered = false;
+        bool Pressed = false;
+        bool Clicked = false; // true for one frame
+    };
+
     // ------------------------------------------------------------------ physics 2D
     struct Rigidbody2DComponent
     {
@@ -285,6 +366,7 @@ namespace Zamin {
         SpriteAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
-        CapsuleCollider3DComponent, AudioSourceComponent, NativeScriptComponent>;
+        CapsuleCollider3DComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
+        AudioSourceComponent, NativeScriptComponent>;
 
 }

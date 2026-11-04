@@ -2,6 +2,7 @@
 
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Renderer/Font.h"
+#include "Zamin/Renderer/RendererAPI.h"
 
 #include <glm/glm.hpp>
 #include <string>
@@ -51,6 +52,9 @@ namespace Zamin {
         static void DrawString(const std::string& text, const Ref<Font>& font, const glm::mat4& transform,
                                const TextParams& params, int entityID = -1);
         static glm::vec2 MeasureString(const std::string& text, const Ref<Font>& font, const TextParams& params = TextParams());
+
+        // Flushes the current batch and switches blending (e.g. additive particles).
+        static void SetBlendMode(BlendMode mode);
 
         static float GetLineWidth();
         static void SetLineWidth(float width);

@@ -9,6 +9,7 @@
 namespace Zamin {
 
     enum class CullMode { None, Back, Front };
+    enum class BlendMode { None, Alpha, Additive };
 
     // Low-level graphics API abstraction. Today only OpenGL is implemented;
     // Vulkan / Metal / GLES backends can be added behind this interface.
@@ -32,6 +33,7 @@ namespace Zamin {
         virtual void SetDepthTest(bool enabled) = 0;
         virtual void SetDepthWrite(bool enabled) = 0;
         virtual void SetBlend(bool enabled) = 0;
+        virtual void SetBlendMode(BlendMode mode) = 0;
         virtual void SetCullMode(CullMode mode) = 0;
 
         // Remember / restore the currently bound render target + viewport

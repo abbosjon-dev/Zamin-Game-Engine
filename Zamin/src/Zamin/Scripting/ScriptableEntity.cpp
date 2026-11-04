@@ -133,6 +133,12 @@ namespace Zamin {
         return m_Entity.GetScene()->Raycast3D(origin, direction, maxDistance);
     }
 
+    glm::vec2 ScriptableEntity::GetMousePosition() const { return m_Entity.GetScene()->GetViewportMouse(); }
+    glm::vec2 ScriptableEntity::GetViewportSize() const { return m_Entity.GetScene()->GetViewportSize(); }
+    glm::vec2 ScriptableEntity::GetMouseWorldPosition() const { return glm::vec2(ScreenToWorld(GetMousePosition(), 0.0f)); }
+    glm::vec3 ScriptableEntity::ScreenToWorld(const glm::vec2& screen, float depthZ) const { return m_Entity.GetScene()->ScreenToWorld(screen, depthZ); }
+    void ScriptableEntity::EmitParticles(int count) { m_Entity.GetScene()->EmitParticles(m_Entity, count); }
+
     void ScriptableEntity::LoadScene(const std::string& scenePath)
     {
         m_Entity.GetScene()->RequestLoadScene(scenePath);

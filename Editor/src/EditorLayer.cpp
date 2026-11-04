@@ -51,6 +51,11 @@ namespace Zamin {
         fbSpec.Width = 1280;
         fbSpec.Height = 720;
         m_Framebuffer = Framebuffer::Create(fbSpec);
+        FramebufferSpecification finalSpec;
+        finalSpec.Attachments = { FramebufferTextureFormat::RGBA8 };
+        finalSpec.Width = fbSpec.Width;
+        finalSpec.Height = fbSpec.Height;
+        m_FinalFramebuffer = Framebuffer::Create(finalSpec);
 
         static std::string iniPath = (ConfigDirectory() / "editor-layout.ini").string();
         ImGui::GetIO().IniFilename = iniPath.c_str();
@@ -151,6 +156,7 @@ namespace Zamin {
             (spec.Width != (uint32_t)m_ViewportSize.x || spec.Height != (uint32_t)m_ViewportSize.y))
         {
             m_Framebuffer->Resize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
+            m_FinalFramebuffer->Resize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
             m_EditorCamera.SetViewportSize(m_ViewportSize.x, m_ViewportSize.y);
         }
 
@@ -160,6 +166,12 @@ namespace Zamin {
         RenderCommand::SetClearColor(clear);
         RenderCommand::Clear();
         m_Framebuffer->ClearAttachment(1, -1);
+
+        {
+            ImVec2 mouse = ImGui::GetMousePos();
+            m_ActiveScene->SetViewportMouse({ mouse.x - m_ViewportBounds[0].x, mouse.y - m_ViewportBounds[0].y },
+                                            m_ViewportHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left));
+        }
 
         SceneRenderOptions options;
         options.ShowGrid = m_ShowGrid;
@@ -187,8 +199,6 @@ namespace Zamin {
             LoadRuntimeScene(next);
         }
 
-        OnOverlayRender();
-
         // Mouse picking
         auto [mx, my] = ImGui::GetMousePos();
         mx -= m_ViewportBounds[0].x;
@@ -206,7 +216,13 @@ namespace Zamin {
         else
             m_HoveredEntity = {};
 
-        m_Framebuffer->Unbind();
+        // Post-processing into the final target, then editor overlays on top.
+        const auto& spec = m_Framebuffer->GetSpecification();
+        PostProcessor::Apply(m_Framebuffer->GetColorAttachmentRendererID(0), spec.Width, spec.Height,
+                             m_ActiveScene->GetSettings().Post, m_FinalFramebuffer);
+        m_FinalFramebuffer->Bind();
+        OnOverlayRender();
+        m_FinalFramebuffer->Unbind();
     }
 
     glm::mat4 EditorLayer::OverlayViewProjection()
@@ -1327,7 +1343,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         ImVec2 panelSize = ImGui::GetContentRegionAvail();
         m_ViewportSize = { std::max(1.0f, panelSize.x), std::max(1.0f, panelSize.y) };
 
-        uint64_t textureID = m_Framebuffer->GetColorAttachmentRendererID(0);
+        uint64_t textureID = m_FinalFramebuffer->GetColorAttachmentRendererID(0);
         ImGui::SetNextItemAllowOverlap();
         ImGui::Image((ImTextureID)textureID, ImVec2(m_ViewportSize.x, m_ViewportSize.y), ImVec2(0, 1), ImVec2(1, 0));
         m_ViewportHovered = ImGui::IsItemHovered();
@@ -1591,10 +1607,30 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
             UI::EndPropertyGrid();
         }
 
+        ImGui::SeparatorText(ICON_FA_WAND_MAGIC_SPARKLES "  Post-processing");
+        if (UI::BeginPropertyGrid("post"))
+        {
+            auto& p = s.Post;
+            changed |= UI::PropertyBool("Bloom (yorqinlik)", p.Bloom);
+            if (p.Bloom)
+            {
+                changed |= UI::PropertySlider("Bloom chegarasi", p.BloomThreshold, 0.0f, 1.0f);
+                changed |= UI::PropertySlider("Bloom kuchi", p.BloomIntensity, 0.0f, 3.0f);
+                changed |= UI::PropertySlider("Bloom radiusi", p.BloomRadius, 0.5f, 3.0f);
+            }
+            changed |= UI::PropertySlider("Vinyetka", p.Vignette, 0.0f, 1.0f);
+            changed |= UI::PropertySlider("To'yinganlik", p.Saturation, 0.0f, 2.0f);
+            changed |= UI::PropertySlider("Kontrast", p.Contrast, 0.5f, 2.0f);
+            changed |= UI::PropertySlider("Yorqinlik", p.Brightness, -0.5f, 0.5f);
+            changed |= UI::PropertyColor3("Rang tuslash", p.Tint);
+            UI::EndPropertyGrid();
+        }
+
         ImGui::SeparatorText(ICON_FA_ATOM "  Fizika 2D");
         if (UI::BeginPropertyGrid("phys"))
         {
             changed |= UI::PropertyFloat2("Gravitatsiya", s.Gravity);
+            changed |= UI::PropertyFloat3("Gravitatsiya (3D)", s.Gravity3D);
             changed |= UI::PropertyInt("Tezlik iteratsiyalari", s.VelocityIterations);
             changed |= UI::PropertyInt("Pozitsiya iteratsiyalari", s.PositionIterations);
             UI::EndPropertyGrid();

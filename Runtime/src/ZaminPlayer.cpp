@@ -60,10 +60,38 @@ namespace Zamin {
             m_Scene->OnViewportResize(w, h);
 
             Renderer::ResetStats();
-            RenderCommand::SetViewport(0, 0, w, h);
+            glm::vec2 mouse = Input::GetMousePosition();
+            float scale = window.GetWidth() > 0 ? (float)w / (float)window.GetWidth() : 1.0f;
+            m_Scene->SetViewportMouse(mouse * scale, Input::IsMouseButtonPressed(MouseButton::Left));
+
+            const auto& post = m_Scene->GetSettings().Post;
+            bool usePost = !PostProcessor::IsIdentity(post);
+            if (usePost)
+            {
+                if (!m_Target)
+                {
+                    FramebufferSpecification spec;
+                    spec.Width = w; spec.Height = h;
+                    spec.Attachments = { FramebufferTextureFormat::RGBA8, FramebufferTextureFormat::Depth };
+                    m_Target = Framebuffer::Create(spec);
+                }
+                else if (m_Target->GetSpecification().Width != w || m_Target->GetSpecification().Height != h)
+                    m_Target->Resize(w, h);
+                m_Target->Bind();
+            }
+            else
+                RenderCommand::SetViewport(0, 0, w, h);
+
             RenderCommand::SetClearColor(m_Scene->GetClearColor());
             RenderCommand::Clear();
             m_Scene->OnUpdateRuntime(ts);
+
+            if (usePost)
+            {
+                m_Target->Unbind();
+                RenderCommand::SetViewport(0, 0, w, h);
+                PostProcessor::Apply(m_Target->GetColorAttachmentRendererID(0), w, h, post, nullptr);
+            }
 
             if (!m_Scene->GetPendingSceneLoad().empty())
             {
@@ -97,6 +125,7 @@ namespace Zamin {
         std::filesystem::path m_ProjectPath;
         std::string m_SceneOverride;
         Ref<Scene> m_Scene;
+        Ref<Framebuffer> m_Target;
     };
 
     class ZaminPlayer : public Application

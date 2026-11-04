@@ -1,0 +1,87 @@
+{
+  "ZaminEntities": 1,
+  "Entities": [
+    {
+      "Entity": 1,
+      "Tag": "CoinSparkle",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0.3
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": false,
+        "PlayInEditor": true,
+        "EmissionRate": 0,
+        "Burst": 24,
+        "MaxParticles": 64,
+        "Shape": 1,
+        "ShapeRadius": 0.2,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.35,
+        "LifetimeMax": 0.8,
+        "SpeedMin": 2.0,
+        "SpeedMax": 5.0,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 180,
+        "Gravity": [
+          0,
+          -12,
+          0
+        ],
+        "Drag": 1.5,
+        "AngularVelocityMax": 0,
+        "StartColor": [
+          1,
+          0.95,
+          0.5,
+          1
+        ],
+        "EndColor": [
+          1,
+          0.6,
+          0.1,
+          0
+        ],
+        "StartSize": 0.25,
+        "EndSize": 0.04,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": false,
+        "Texture": "",
+        "SortingOrder": 10
+      },
+      "NativeScript": {
+        "Class": "AutoDestroy",
+        "Fields": {
+          "Seconds": {
+            "Type": "Float",
+            "Value": 1.0
+          }
+        }
+      }
+    }
+  ]
+}

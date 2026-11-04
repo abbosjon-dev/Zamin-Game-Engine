@@ -22,6 +22,7 @@ namespace Zamin {
         static void SetDepthTest(bool enabled) { s_API->SetDepthTest(enabled); }
         static void SetDepthWrite(bool enabled) { s_API->SetDepthWrite(enabled); }
         static void SetBlend(bool enabled) { s_API->SetBlend(enabled); }
+        static void SetBlendMode(BlendMode mode) { s_API->SetBlendMode(mode); }
         static void SetCullMode(CullMode mode) { s_API->SetCullMode(mode); }
 
         static void BindTextureUnit(uint32_t unit, uint32_t id) { s_API->BindTextureUnit(unit, id); }

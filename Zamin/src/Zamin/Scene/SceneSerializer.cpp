@@ -172,6 +172,24 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<CapsuleCollider3DComponent>())
             e["CapsuleCollider3D"] = { { "Radius", c->Radius }, { "HalfHeight", c->HalfHeight }, { "Offset", ToJson(c->Offset) },
                                        { "Friction", c->Friction }, { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
+        if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
+            e["ParticleSystem"] = {
+                { "Playing", c->Playing }, { "Looping", c->Looping }, { "PlayInEditor", c->PlayInEditor },
+                { "EmissionRate", c->EmissionRate }, { "Burst", c->Burst }, { "MaxParticles", c->MaxParticles },
+                { "Shape", (int)c->Shape }, { "ShapeRadius", c->ShapeRadius }, { "ShapeExtents", ToJson(c->ShapeExtents) },
+                { "LifetimeMin", c->LifetimeMin }, { "LifetimeMax", c->LifetimeMax }, { "SpeedMin", c->SpeedMin }, { "SpeedMax", c->SpeedMax },
+                { "Direction", ToJson(c->Direction) }, { "Spread", c->Spread }, { "Gravity", ToJson(c->Gravity) }, { "Drag", c->Drag },
+                { "AngularVelocityMax", c->AngularVelocityMax },
+                { "StartColor", ToJson(c->StartColor) }, { "EndColor", ToJson(c->EndColor) },
+                { "StartSize", c->StartSize }, { "EndSize", c->EndSize },
+                { "RenderAsCircle", c->RenderAsCircle }, { "Additive", c->Additive }, { "WorldSpace", c->WorldSpace },
+                { "Billboard", c->Billboard }, { "Texture", c->TexturePath }, { "SortingOrder", c->SortingOrder },
+            };
+        if (auto* c = entity.TryGetComponent<UITransformComponent>())
+            e["UITransform"] = { { "Anchor", (int)c->Anchor }, { "Position", ToJson(c->Position) }, { "Size", ToJson(c->Size) }, { "FontSize", c->FontSize }, { "Order", c->Order } };
+        if (auto* c = entity.TryGetComponent<UIButtonComponent>())
+            e["UIButton"] = { { "Normal", ToJson(c->NormalColor) }, { "Hover", ToJson(c->HoverColor) }, { "Pressed", ToJson(c->PressedColor) },
+                              { "Interactable", c->Interactable } };
         if (auto* c = entity.TryGetComponent<AudioSourceComponent>())
             e["AudioSource"] = { { "Path", c->Path }, { "Volume", c->Volume }, { "Pitch", c->Pitch }, { "Loop", c->Loop }, { "PlayOnStart", c->PlayOnStart } };
         if (auto* c = entity.TryGetComponent<NativeScriptComponent>())
@@ -351,6 +369,58 @@ namespace Zamin {
             c.Radius = e["CapsuleCollider3D"].value("Radius", 0.5f);
             c.HalfHeight = e["CapsuleCollider3D"].value("HalfHeight", 0.5f);
         }
+        if (e.contains("ParticleSystem"))
+        {
+            const json& j = e["ParticleSystem"];
+            auto& c = entity.AddComponent<ParticleSystemComponent>();
+            c.Playing = j.value("Playing", true);
+            c.Looping = j.value("Looping", true);
+            c.PlayInEditor = j.value("PlayInEditor", true);
+            c.EmissionRate = j.value("EmissionRate", 30.0f);
+            c.Burst = j.value("Burst", 0);
+            c.MaxParticles = j.value("MaxParticles", 1000);
+            c.Shape = (ParticleSystemComponent::EmitterShape)j.value("Shape", 0);
+            c.ShapeRadius = j.value("ShapeRadius", 0.5f);
+            c.ShapeExtents = Vec(j, "ShapeExtents", glm::vec3(0.5f));
+            c.LifetimeMin = j.value("LifetimeMin", 0.8f);
+            c.LifetimeMax = j.value("LifetimeMax", 1.6f);
+            c.SpeedMin = j.value("SpeedMin", 1.0f);
+            c.SpeedMax = j.value("SpeedMax", 3.0f);
+            c.Direction = Vec(j, "Direction", glm::vec3(0, 1, 0));
+            c.Spread = j.value("Spread", 25.0f);
+            c.Gravity = Vec(j, "Gravity", glm::vec3(0.0f));
+            c.Drag = j.value("Drag", 0.0f);
+            c.AngularVelocityMax = j.value("AngularVelocityMax", 0.0f);
+            c.StartColor = Vec(j, "StartColor", c.StartColor);
+            c.EndColor = Vec(j, "EndColor", c.EndColor);
+            c.StartSize = j.value("StartSize", 0.35f);
+            c.EndSize = j.value("EndSize", 0.05f);
+            c.RenderAsCircle = j.value("RenderAsCircle", true);
+            c.Additive = j.value("Additive", true);
+            c.WorldSpace = j.value("WorldSpace", true);
+            c.Billboard = j.value("Billboard", true);
+            c.TexturePath = j.value("Texture", "");
+            c.SortingOrder = j.value("SortingOrder", 0);
+        }
+        if (e.contains("UITransform"))
+        {
+            const json& j = e["UITransform"];
+            auto& c = entity.AddComponent<UITransformComponent>();
+            c.Anchor = (UITransformComponent::AnchorPoint)j.value("Anchor", 0);
+            c.Position = Vec(j, "Position", c.Position);
+            c.Size = Vec(j, "Size", c.Size);
+            c.FontSize = j.value("FontSize", 0.0f);
+            c.Order = j.value("Order", 0);
+        }
+        if (e.contains("UIButton"))
+        {
+            const json& j = e["UIButton"];
+            auto& c = entity.AddComponent<UIButtonComponent>();
+            c.NormalColor = Vec(j, "Normal", c.NormalColor);
+            c.HoverColor = Vec(j, "Hover", c.HoverColor);
+            c.PressedColor = Vec(j, "Pressed", c.PressedColor);
+            c.Interactable = j.value("Interactable", true);
+        }
         if (e.contains("AudioSource"))
         {
             const json& j = e["AudioSource"];
@@ -387,6 +457,11 @@ namespace Zamin {
             { "DrawSky", s.DrawSky }, { "SkyTop", ToJson(s.SkyTopColor) }, { "SkyHorizon", ToJson(s.SkyHorizonColor) },
             { "Ground", ToJson(s.GroundColor) }, { "Ambient", s.AmbientIntensity }, { "Exposure", s.Exposure },
             { "ShadowDistance", s.ShadowDistance }, { "Gravity", ToJson(s.Gravity) }, { "Gravity3D", ToJson(s.Gravity3D) },
+            { "Post", {
+                { "Bloom", s.Post.Bloom }, { "BloomThreshold", s.Post.BloomThreshold }, { "BloomKnee", s.Post.BloomKnee },
+                { "BloomIntensity", s.Post.BloomIntensity }, { "BloomRadius", s.Post.BloomRadius }, { "Vignette", s.Post.Vignette },
+                { "Saturation", s.Post.Saturation }, { "Contrast", s.Post.Contrast }, { "Brightness", s.Post.Brightness },
+                { "Tint", ToJson(s.Post.Tint) } } },
         };
 
         json entities = json::array();
@@ -446,6 +521,20 @@ namespace Zamin {
                 s.ShadowDistance = j.value("ShadowDistance", s.ShadowDistance);
                 s.Gravity = Vec(j, "Gravity", s.Gravity);
                 s.Gravity3D = Vec(j, "Gravity3D", s.Gravity3D);
+                if (j.contains("Post"))
+                {
+                    const json& p = j["Post"];
+                    s.Post.Bloom = p.value("Bloom", false);
+                    s.Post.BloomThreshold = p.value("BloomThreshold", 0.85f);
+                    s.Post.BloomKnee = p.value("BloomKnee", 0.25f);
+                    s.Post.BloomIntensity = p.value("BloomIntensity", 0.8f);
+                    s.Post.BloomRadius = p.value("BloomRadius", 1.0f);
+                    s.Post.Vignette = p.value("Vignette", 0.0f);
+                    s.Post.Saturation = p.value("Saturation", 1.0f);
+                    s.Post.Contrast = p.value("Contrast", 1.0f);
+                    s.Post.Brightness = p.value("Brightness", 0.0f);
+                    s.Post.Tint = Vec(p, "Tint", glm::vec3(1.0f));
+                }
             }
 
             std::vector<std::pair<Entity, uint64_t>> parents;

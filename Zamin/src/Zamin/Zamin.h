@@ -22,11 +22,13 @@
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/EditorCamera.h"
+#include "Zamin/Renderer/PostProcess.h"
 
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Scene/SceneSerializer.h"
+#include "Zamin/Physics/PhysicsWorld3D.h"
 
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/Scripting/ScriptEngine.h"

@@ -4,6 +4,7 @@
 #include "Zamin/Core/UUID.h"
 #include "Zamin/Renderer/EditorCamera.h"
 #include "Zamin/Physics/PhysicsTypes.h"
+#include "Zamin/Renderer/PostProcess.h"
 
 #include <filesystem>
 #include <memory>
@@ -33,6 +34,9 @@ namespace Zamin {
         float AmbientIntensity = 0.6f;
         float Exposure = 1.0f;
         float ShadowDistance = 40.0f;
+
+        // Post-processing
+        PostProcessSettings Post;
 
         // Physics
         glm::vec2 Gravity{ 0.0f, -9.8f };
@@ -95,6 +99,16 @@ namespace Zamin {
         RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance);
         PhysicsWorld3D* GetPhysicsWorld3D() { return m_PhysicsWorld3D.get(); }
 
+        // ---- viewport input (set by the host each frame; pixels, origin top-left of the game view)
+        void SetViewportMouse(const glm::vec2& position, bool leftButtonDown) { m_MousePosition = position; m_MouseDown = leftButtonDown; }
+        const glm::vec2& GetViewportMouse() const { return m_MousePosition; }
+        glm::vec2 GetViewportSize() const { return { (float)m_ViewportWidth, (float)m_ViewportHeight }; }
+        // Unprojects a viewport pixel through the primary camera onto the plane z = depthZ.
+        glm::vec3 ScreenToWorld(const glm::vec2& screen, float depthZ = 0.0f);
+
+        // ---- particles
+        void EmitParticles(Entity entity, int count);
+
         // ---- scene switching (handled by the host: editor / player)
         void RequestLoadScene(const std::filesystem::path& path) { m_PendingSceneLoad = path; }
         const std::filesystem::path& GetPendingSceneLoad() const { return m_PendingSceneLoad; }
@@ -149,7 +163,10 @@ namespace Zamin {
         void StopScripts();
         void CreateScriptInstance(Entity entity);
         void FlushDestroyQueue();
+        void UpdateParticles(Timestep ts, bool editor);
+        void UpdateUI();
 
+        void RenderUI();
         void RenderScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                          const SceneRenderOptions& options);
 
@@ -170,6 +187,9 @@ namespace Zamin {
         ContactListener2D* m_ContactListener = nullptr;
         std::unique_ptr<PhysicsWorld3D> m_PhysicsWorld3D;
         std::filesystem::path m_PendingSceneLoad;
+        glm::vec2 m_MousePosition{ -1.0f };
+        bool m_MouseDown = false, m_MouseWasDown = false;
+        entt::entity m_PressedButton = entt::null;
 
         std::unordered_map<UUID, entt::entity> m_EntityMap;
         std::vector<UUID> m_DestroyQueue;

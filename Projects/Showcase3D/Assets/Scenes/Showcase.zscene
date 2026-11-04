@@ -29,7 +29,23 @@
       0,
       -9.81,
       0
-    ]
+    ],
+    "Post": {
+      "Bloom": true,
+      "BloomThreshold": 0.93,
+      "BloomKnee": 0.08,
+      "BloomIntensity": 0.7,
+      "BloomRadius": 1.0,
+      "Vignette": 0.35,
+      "Saturation": 1.08,
+      "Contrast": 1.05,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ]
+    }
   },
   "Entities": [
     {
@@ -1336,8 +1352,8 @@
       "Transform": {
         "Translation": [
           0,
-          7.2,
-          -6
+          5.2,
+          -7
         ],
         "Rotation": [
           0,
@@ -1345,9 +1361,9 @@
           0
         ],
         "Scale": [
-          1.2,
-          1.2,
-          1.2
+          0.9,
+          0.9,
+          0.9
         ]
       },
       "Text": {
@@ -1483,6 +1499,338 @@
         "Friction": 0.6,
         "Restitution": 0.0,
         "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7398000000000001,
+      "Tag": "Torch Fire",
+      "Parent": 7340000039729623,
+      "Transform": {
+        "Translation": [
+          0,
+          0.55,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.833,
+          0.1667,
+          0.833
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 55,
+        "Burst": 0,
+        "MaxParticles": 400,
+        "Shape": 1,
+        "ShapeRadius": 0.3,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.5,
+        "LifetimeMax": 1.1,
+        "SpeedMin": 0.8,
+        "SpeedMax": 2.0,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 15,
+        "Gravity": [
+          0,
+          1.5,
+          0
+        ],
+        "Drag": 0.5,
+        "AngularVelocityMax": 2.0,
+        "StartColor": [
+          1,
+          0.55,
+          0.15,
+          0.45
+        ],
+        "EndColor": [
+          0.9,
+          0.1,
+          0.02,
+          0
+        ],
+        "StartSize": 0.55,
+        "EndSize": 0.08,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 0
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.55,
+          0.2
+        ],
+        "Intensity": 5.0,
+        "Radius": 9.0
+      }
+    },
+    {
+      "Entity": 7398000000000002,
+      "Tag": "Torch Fire",
+      "Parent": 7340000039737542,
+      "Transform": {
+        "Translation": [
+          0,
+          0.55,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.833,
+          0.1667,
+          0.833
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 55,
+        "Burst": 0,
+        "MaxParticles": 400,
+        "Shape": 1,
+        "ShapeRadius": 0.3,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.5,
+        "LifetimeMax": 1.1,
+        "SpeedMin": 0.8,
+        "SpeedMax": 2.0,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 15,
+        "Gravity": [
+          0,
+          1.5,
+          0
+        ],
+        "Drag": 0.5,
+        "AngularVelocityMax": 2.0,
+        "StartColor": [
+          1,
+          0.55,
+          0.15,
+          0.45
+        ],
+        "EndColor": [
+          0.9,
+          0.1,
+          0.02,
+          0
+        ],
+        "StartSize": 0.55,
+        "EndSize": 0.08,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 0
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.55,
+          0.2
+        ],
+        "Intensity": 5.0,
+        "Radius": 9.0
+      }
+    },
+    {
+      "Entity": 7398000000000003,
+      "Tag": "Torch Fire",
+      "Parent": 7340000039745461,
+      "Transform": {
+        "Translation": [
+          0,
+          0.55,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.833,
+          0.1667,
+          0.833
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 55,
+        "Burst": 0,
+        "MaxParticles": 400,
+        "Shape": 1,
+        "ShapeRadius": 0.3,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.5,
+        "LifetimeMax": 1.1,
+        "SpeedMin": 0.8,
+        "SpeedMax": 2.0,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 15,
+        "Gravity": [
+          0,
+          1.5,
+          0
+        ],
+        "Drag": 0.5,
+        "AngularVelocityMax": 2.0,
+        "StartColor": [
+          1,
+          0.55,
+          0.15,
+          0.45
+        ],
+        "EndColor": [
+          0.9,
+          0.1,
+          0.02,
+          0
+        ],
+        "StartSize": 0.55,
+        "EndSize": 0.08,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 0
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.55,
+          0.2
+        ],
+        "Intensity": 5.0,
+        "Radius": 9.0
+      }
+    },
+    {
+      "Entity": 7398000000000004,
+      "Tag": "Torch Fire",
+      "Parent": 7340000039753380,
+      "Transform": {
+        "Translation": [
+          0,
+          0.55,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.833,
+          0.1667,
+          0.833
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 55,
+        "Burst": 0,
+        "MaxParticles": 400,
+        "Shape": 1,
+        "ShapeRadius": 0.3,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.5,
+        "LifetimeMax": 1.1,
+        "SpeedMin": 0.8,
+        "SpeedMax": 2.0,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 15,
+        "Gravity": [
+          0,
+          1.5,
+          0
+        ],
+        "Drag": 0.5,
+        "AngularVelocityMax": 2.0,
+        "StartColor": [
+          1,
+          0.55,
+          0.15,
+          0.45
+        ],
+        "EndColor": [
+          0.9,
+          0.1,
+          0.02,
+          0
+        ],
+        "StartSize": 0.55,
+        "EndSize": 0.08,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 0
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.55,
+          0.2
+        ],
+        "Intensity": 5.0,
+        "Radius": 9.0
       }
     }
   ]

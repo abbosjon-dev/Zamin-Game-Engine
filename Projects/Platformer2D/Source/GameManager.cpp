@@ -12,7 +12,9 @@ void GameManager::OnCreate()
 
 void GameManager::OnLateUpdate(Timestep)
 {
-    // HUD: keep the text pinned to the camera.
+    // HUD: keep the text pinned to the camera (only when it is not a screen-space UI element).
+    if (HasComponent<UITransformComponent>())
+        return;
     if (Entity camera = GetScene().GetPrimaryCameraEntity())
     {
         const auto& cam = camera.GetComponent<TransformComponent>().Translation;

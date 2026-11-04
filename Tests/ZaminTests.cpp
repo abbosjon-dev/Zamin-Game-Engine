@@ -433,6 +433,28 @@ TEST(Raycast2DAndSceneRequests)
     scene->OnRuntimeStop();
 }
 
+TEST(Kinematic3DFollowsTransformAtLowFPS)
+{
+    // Regression: with several physics sub-steps per frame the kinematic velocity
+    // must target the whole frame, otherwise the body oscillates and explodes.
+    auto scene = CreateRef<Scene>();
+    Entity k = scene->CreateEntity("Kinematic");
+    k.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Kinematic;
+    k.AddComponent<SphereCollider3DComponent>();
+    scene->OnRuntimeStart();
+    float maxError = 0.0f;
+    for (int i = 0; i < 120; i++)
+    {
+        k.GetTransform().Translation.y = std::sin(i * 0.1f) * 2.0f;
+        scene->OnUpdateRuntime(0.1f); // 10 FPS => 5 sub-steps
+        glm::vec3 p; glm::quat q;
+        scene->GetPhysicsWorld3D()->GetTransform(k.GetComponent<Rigidbody3DComponent>().RuntimeBodyID, p, q);
+        maxError = std::max(maxError, std::abs(p.y - k.GetTransform().Translation.y));
+    }
+    CHECK(maxError < 0.25f);
+    scene->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

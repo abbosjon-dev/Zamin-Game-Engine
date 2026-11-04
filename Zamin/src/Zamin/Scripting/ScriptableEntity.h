@@ -28,6 +28,8 @@ namespace Zamin {
         virtual void OnLateUpdate(Timestep) {}
         virtual void OnCollisionBegin(Entity /*other*/) {}
         virtual void OnCollisionEnd(Entity /*other*/) {}
+        // Called when a UIButton on this entity is clicked.
+        virtual void OnClick() {}
 
         // ---- helpers available to scripts
         template<typename T> T& GetComponent() { return m_Entity.GetComponent<T>(); }
@@ -79,6 +81,16 @@ namespace Zamin {
         // ---- raycasts (EntityID of the hit can be resolved with GetScene().GetEntityByUUID)
         RaycastHit Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance = 100.0f) const;
         RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 100.0f) const;
+
+        // ---- viewport / mouse (pixels, origin top-left of the game view)
+        glm::vec2 GetMousePosition() const;
+        glm::vec2 GetViewportSize() const;
+        // Mouse position projected onto the z = 0 plane using the primary camera (2D games).
+        glm::vec2 GetMouseWorldPosition() const;
+        glm::vec3 ScreenToWorld(const glm::vec2& screen, float depthZ = 0.0f) const;
+
+        // ---- particles
+        void EmitParticles(int count); // requires ParticleSystemComponent
 
         // ---- scenes: switch to another scene at the end of the frame (path relative to Assets)
         void LoadScene(const std::string& scenePath);

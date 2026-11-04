@@ -17,6 +17,9 @@ namespace Zamin {
 
     static const char* EntityIcon(Entity e)
     {
+        if (e.HasComponent<UIButtonComponent>()) return ICON_FA_HAND_POINTER;
+        if (e.HasComponent<UITransformComponent>()) return ICON_FA_TABLE_CELLS;
+        if (e.HasComponent<ParticleSystemComponent>()) return ICON_FA_WAND_MAGIC_SPARKLES;
         if (e.HasComponent<CameraComponent>()) return ICON_FA_CAMERA;
         if (e.HasComponent<DirectionalLightComponent>()) return ICON_FA_SUN;
         if (e.HasComponent<PointLightComponent>()) return ICON_FA_LIGHTBULB;
@@ -25,6 +28,9 @@ namespace Zamin {
         if (e.HasComponent<CircleRendererComponent>()) return ICON_FA_CIRCLE;
         if (e.HasComponent<SpriteRendererComponent>()) return ICON_FA_IMAGE;
         if (e.HasComponent<AudioSourceComponent>()) return ICON_FA_VOLUME_HIGH;
+        if (e.HasComponent<ParticleSystemComponent>()) return ICON_FA_WAND_MAGIC_SPARKLES;
+        if (e.HasComponent<UIButtonComponent>()) return ICON_FA_HAND_POINTER;
+        if (e.HasComponent<UITransformComponent>()) return ICON_FA_TABLE_CELLS;
         return ICON_FA_BOX;
     }
 
@@ -129,6 +135,59 @@ namespace Zamin {
             e.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
             e.AddComponent<BoxCollider3DComponent>();
         }
+        else if (p == "Fire")
+        {
+            e = m_Context->CreateEntity("Olov");
+            auto& ps = e.AddComponent<ParticleSystemComponent>();
+            ps.EmissionRate = 60.0f; ps.Spread = 18.0f; ps.SpeedMin = 1.0f; ps.SpeedMax = 2.2f;
+            ps.Shape = ParticleSystemComponent::EmitterShape::Circle; ps.ShapeRadius = 0.25f;
+            ps.StartSize = 0.45f; ps.EndSize = 0.05f; ps.Gravity = { 0.0f, 1.0f, 0.0f };
+        }
+        else if (p == "Sparks")
+        {
+            e = m_Context->CreateEntity("Uchqunlar");
+            auto& ps = e.AddComponent<ParticleSystemComponent>();
+            ps.EmissionRate = 25.0f; ps.Spread = 60.0f; ps.SpeedMin = 3.0f; ps.SpeedMax = 6.0f;
+            ps.Gravity = { 0.0f, -9.8f, 0.0f }; ps.StartSize = 0.12f; ps.EndSize = 0.02f;
+            ps.StartColor = { 1.0f, 0.95f, 0.6f, 1.0f }; ps.EndColor = { 1.0f, 0.4f, 0.1f, 0.0f };
+            ps.LifetimeMin = 0.4f; ps.LifetimeMax = 1.0f;
+        }
+        else if (p == "Smoke")
+        {
+            e = m_Context->CreateEntity("Tutun");
+            auto& ps = e.AddComponent<ParticleSystemComponent>();
+            ps.EmissionRate = 12.0f; ps.Spread = 15.0f; ps.SpeedMin = 0.5f; ps.SpeedMax = 1.2f;
+            ps.StartSize = 0.4f; ps.EndSize = 1.6f; ps.LifetimeMin = 2.0f; ps.LifetimeMax = 3.5f;
+            ps.StartColor = { 0.6f, 0.6f, 0.62f, 0.5f }; ps.EndColor = { 0.4f, 0.4f, 0.42f, 0.0f };
+            ps.Additive = false; ps.AngularVelocityMax = 1.0f;
+        }
+        else if (p == "UI Text")
+        {
+            e = m_Context->CreateEntity("UI Matn");
+            auto& ui = e.AddComponent<UITransformComponent>();
+            ui.Position = { 30.0f, -40.0f }; ui.Size = { 300.0f, 36.0f };
+            auto& t = e.AddComponent<TextComponent>();
+            t.Text = "Hisob: 0";
+            t.FontAsset = Font::GetDefault();
+        }
+        else if (p == "UI Image")
+        {
+            e = m_Context->CreateEntity("UI Rasm");
+            auto& ui = e.AddComponent<UITransformComponent>();
+            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 128, 128 };
+            e.AddComponent<SpriteRendererComponent>();
+        }
+        else if (p == "UI Button")
+        {
+            e = m_Context->CreateEntity("UI Tugma");
+            auto& ui = e.AddComponent<UITransformComponent>();
+            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 220, 56 };
+            e.AddComponent<UIButtonComponent>();
+            auto& t = e.AddComponent<TextComponent>();
+            t.Text = "Boshlash"; t.Centered = true;
+            t.FontAsset = Font::GetDefault();
+            ui.FontSize = 26.0f;
+        }
         else if (p == "Audio") { e = m_Context->CreateEntity("Ovoz manbai"); e.AddComponent<AudioSourceComponent>(); }
 
         if (e)
@@ -177,6 +236,20 @@ namespace Zamin {
         {
             if (ImGui::MenuItem(ICON_FA_CAMERA "  Perspektiv (3D)")) CreateEntityPreset("Camera");
             if (ImGui::MenuItem(ICON_FA_CAMERA "  Ortografik (2D)")) CreateEntityPreset("Camera2D");
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu(ICON_FA_WAND_MAGIC_SPARKLES "  Effektlar"))
+        {
+            if (ImGui::MenuItem(ICON_FA_FIRE "  Olov")) CreateEntityPreset("Fire");
+            if (ImGui::MenuItem(ICON_FA_BOLT "  Uchqunlar")) CreateEntityPreset("Sparks");
+            if (ImGui::MenuItem(ICON_FA_CLOUD "  Tutun")) CreateEntityPreset("Smoke");
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu(ICON_FA_TABLE_CELLS "  UI (ekran)"))
+        {
+            if (ImGui::MenuItem(ICON_FA_FONT "  Matn")) CreateEntityPreset("UI Text");
+            if (ImGui::MenuItem(ICON_FA_IMAGE "  Rasm")) CreateEntityPreset("UI Image");
+            if (ImGui::MenuItem(ICON_FA_HAND_POINTER "  Tugma")) CreateEntityPreset("UI Button");
             ImGui::EndMenu();
         }
         if (ImGui::MenuItem(ICON_FA_VOLUME_HIGH "  Ovoz manbai")) CreateEntityPreset("Audio");
@@ -668,6 +741,10 @@ namespace Zamin {
                 DisplayAddComponentEntry<BoxCollider3DComponent>("Box Collider 3D", ICON_FA_CUBE);
                 DisplayAddComponentEntry<SphereCollider3DComponent>("Sphere Collider 3D", ICON_FA_CIRCLE);
                 DisplayAddComponentEntry<CapsuleCollider3DComponent>("Capsule Collider 3D", ICON_FA_CAPSULES);
+                ImGui::SeparatorText("Effektlar va UI");
+                DisplayAddComponentEntry<ParticleSystemComponent>("Particle System", ICON_FA_WAND_MAGIC_SPARKLES);
+                DisplayAddComponentEntry<UITransformComponent>("UI Transform", ICON_FA_TABLE_CELLS);
+                DisplayAddComponentEntry<UIButtonComponent>("UI Button", ICON_FA_HAND_POINTER);
                 ImGui::SeparatorText("Boshqa");
                 DisplayAddComponentEntry<AudioSourceComponent>("Audio Source", ICON_FA_VOLUME_HIGH);
                 DisplayAddComponentEntry<NativeScriptComponent>("C++ Script", ICON_FA_CODE);
@@ -903,6 +980,70 @@ namespace Zamin {
             bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.001f, 1000.0f);
             changed |= UI::PropertyFloat("Yarim balandlik", c.HalfHeight, 0.01f, 0.0f, 1000.0f);
             return collider3D(c) || changed;
+        }, true, modified);
+
+        DrawComponent<ParticleSystemComponent>(ICON_FA_WAND_MAGIC_SPARKLES, "Particle System", entity, [](ParticleSystemComponent& c) {
+            bool changed = false;
+            UI::PropertyLabel("");
+            if (ImGui::Button(c.Playing ? ICON_FA_PAUSE "  Pauza" : ICON_FA_PLAY "  Ijro")) { c.Playing = !c.Playing; }
+            ImGui::SameLine();
+            if (ImGui::Button(ICON_FA_ARROWS_ROTATE "  Qayta")) c.Clear();
+            ImGui::SameLine();
+            ImGui::TextDisabled("%zu", c.Particles.size());
+            changed |= UI::PropertyBool("Takrorlash", c.Looping);
+            changed |= UI::PropertyBool("Editorda ko'rsatish", c.PlayInEditor);
+            changed |= UI::PropertyFloat("Chiqarish (1/s)", c.EmissionRate, 0.5f, 0.0f, 10000.0f);
+            changed |= UI::PropertyInt("Portlash (burst)", c.Burst);
+            changed |= UI::PropertyInt("Maksimal soni", c.MaxParticles);
+            const char* shapes[] = { "Nuqta", "Doira", "Sfera", "Quti" };
+            int shape = (int)c.Shape;
+            if (UI::PropertyCombo("Shakl", shape, shapes, 4)) { c.Shape = (ParticleSystemComponent::EmitterShape)shape; changed = true; }
+            if (c.Shape == ParticleSystemComponent::EmitterShape::Box) changed |= UI::PropertyFloat3("O'lchami", c.ShapeExtents);
+            else if (c.Shape != ParticleSystemComponent::EmitterShape::Point) changed |= UI::PropertyFloat("Radius", c.ShapeRadius, 0.01f, 0.0f, 1000.0f);
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Harakat");
+            changed |= UI::PropertyFloat("Umr (min)", c.LifetimeMin, 0.01f, 0.01f, 100.0f);
+            changed |= UI::PropertyFloat("Umr (max)", c.LifetimeMax, 0.01f, 0.01f, 100.0f);
+            changed |= UI::PropertyFloat("Tezlik (min)", c.SpeedMin, 0.05f);
+            changed |= UI::PropertyFloat("Tezlik (max)", c.SpeedMax, 0.05f);
+            changed |= UI::PropertyFloat3("Yo'nalish", c.Direction);
+            changed |= UI::PropertySlider("Tarqalish (°)", c.Spread, 0.0f, 180.0f);
+            changed |= UI::PropertyFloat3("Gravitatsiya", c.Gravity);
+            changed |= UI::PropertyFloat("Qarshilik", c.Drag, 0.01f, 0.0f, 50.0f);
+            changed |= UI::PropertyFloat("Aylanish (max)", c.AngularVelocityMax, 0.05f, 0.0f, 100.0f);
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Ko'rinish");
+            changed |= UI::PropertyColor4("Boshlang'ich rang", c.StartColor);
+            changed |= UI::PropertyColor4("Oxirgi rang", c.EndColor);
+            changed |= UI::PropertyFloat("Boshlang'ich o'lcham", c.StartSize, 0.01f, 0.0f, 100.0f);
+            changed |= UI::PropertyFloat("Oxirgi o'lcham", c.EndSize, 0.01f, 0.0f, 100.0f);
+            changed |= UI::PropertyBool("Doira shaklida", c.RenderAsCircle);
+            changed |= UI::PropertyBool("Qo'shimcha yorqinlik (additive)", c.Additive);
+            changed |= UI::PropertyBool("Dunyo koordinatalari", c.WorldSpace);
+            changed |= UI::PropertyBool("Kameraga qaragan", c.Billboard);
+            if (UI::PropertyAssetPath("Tekstura", c.TexturePath, ".png;.jpg;.jpeg", ICON_FA_FILE_IMAGE)) { c.Texture = nullptr; changed = true; }
+            changed |= UI::PropertyInt("Tartib (sorting)", c.SortingOrder);
+            return changed;
+        }, true, modified);
+
+        DrawComponent<UITransformComponent>(ICON_FA_TABLE_CELLS, "UI Transform", entity, [](UITransformComponent& c) {
+            bool changed = false;
+            const char* anchors[] = { "Yuqori-chap", "Yuqori", "Yuqori-o'ng", "Chap", "Markaz", "O'ng", "Past-chap", "Past", "Past-o'ng" };
+            int a = (int)c.Anchor;
+            if (UI::PropertyCombo("Langar (anchor)", a, anchors, 9)) { c.Anchor = (UITransformComponent::AnchorPoint)a; changed = true; }
+            changed |= UI::PropertyFloat2("Pozitsiya (px)", c.Position, 1.0f);
+            changed |= UI::PropertyFloat2("O'lcham (px)", c.Size, 1.0f);
+            changed |= UI::PropertyFloat("Shrift o'lchami (px)", c.FontSize, 0.5f, 0.0f, 500.0f);
+            changed |= UI::PropertyInt("Tartib", c.Order);
+            return changed;
+        }, true, modified);
+
+        DrawComponent<UIButtonComponent>(ICON_FA_HAND_POINTER, "UI Button", entity, [](UIButtonComponent& c) {
+            bool changed = UI::PropertyColor4("Oddiy", c.NormalColor);
+            changed |= UI::PropertyColor4("Ustida (hover)", c.HoverColor);
+            changed |= UI::PropertyColor4("Bosilgan", c.PressedColor);
+            changed |= UI::PropertyBool("Faol", c.Interactable);
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("Skriptda: OnClick() yoki .Clicked");
+            return changed;
         }, true, modified);
 
         DrawComponent<AudioSourceComponent>(ICON_FA_VOLUME_HIGH, "Audio Source", entity, [](AudioSourceComponent& c) {

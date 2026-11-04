@@ -542,6 +542,12 @@ void main()
             DrawLine(v[i], v[(i + 1) % 4], color, entityID);
     }
 
+    void Renderer2D::SetBlendMode(BlendMode mode)
+    {
+        NextBatch();
+        RenderCommand::SetBlendMode(mode);
+    }
+
     float Renderer2D::GetLineWidth() { return s_Data->LineWidth; }
     void Renderer2D::SetLineWidth(float width) { s_Data->LineWidth = width; }
 

@@ -102,6 +102,7 @@ namespace Zamin {
         for (auto e : registry.view<Rigidbody3DComponent>()) registry.get<Rigidbody3DComponent>(e).RuntimeBodyID = 0xffffffff;
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).RuntimeHandle = 0;
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
+        for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).Clear();
     }
 
     static void ResetRuntimeData(Entity e)
@@ -112,6 +113,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<Rigidbody3DComponent>()) c->RuntimeBodyID = 0xffffffff;
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->RuntimeHandle = 0;
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
+        if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->Clear(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
     }
 
     // ------------------------------------------------------------------ scene
@@ -712,28 +714,34 @@ namespace Zamin {
                     body->SetTransform({ p.x, p.y }, angle);
             }
         }
-        if (m_PhysicsWorld3D)
+        m_PhysicsAccumulator += ts;
+        int stepCount = std::min(5, (int)(m_PhysicsAccumulator / fixedStep));
+
+        // Kinematic 3D bodies: velocity is chosen so the target is reached after this frame's steps.
+        if (m_PhysicsWorld3D && stepCount > 0)
         {
+            float frameDt = stepCount * fixedStep;
             for (auto e : m_Registry.view<Rigidbody3DComponent>())
             {
                 auto& rb = m_Registry.get<Rigidbody3DComponent>(e);
                 if (rb.RuntimeBodyID == 0xffffffff || rb.Type == Rigidbody3DComponent::BodyType::Dynamic) continue;
-                glm::vec3 p, r, s;
-                Math::DecomposeTransform(GetWorldTransform({ e, this }), p, r, s);
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(GetWorldTransform({ e, this }), p, r, sc);
+                if (glm::any(glm::isnan(p)) || glm::any(glm::isnan(r))) continue;
                 glm::vec3 bp; glm::quat bq;
                 m_PhysicsWorld3D->GetTransform(rb.RuntimeBodyID, bp, bq);
                 glm::quat q(r);
-                if (glm::length(bp - p) > 1e-5f || std::abs(glm::dot(bq, q)) < 0.99999f)
+                bool moved = glm::length(bp - p) > 1e-5f || std::abs(glm::dot(bq, q)) < 0.99999f;
+                if (rb.Type == Rigidbody3DComponent::BodyType::Kinematic)
                 {
-                    if (rb.Type == Rigidbody3DComponent::BodyType::Kinematic)
-                        m_PhysicsWorld3D->MoveKinematic(rb.RuntimeBodyID, p, q, fixedStep);
-                    else
-                        m_PhysicsWorld3D->SetTransform(rb.RuntimeBodyID, p, q);
+                    if (moved) m_PhysicsWorld3D->MoveKinematic(rb.RuntimeBodyID, p, q, frameDt);
+                    else m_PhysicsWorld3D->SetLinearVelocity(rb.RuntimeBodyID, glm::vec3(0.0f));
                 }
+                else if (moved)
+                    m_PhysicsWorld3D->SetTransform(rb.RuntimeBodyID, p, q);
             }
         }
 
-        m_PhysicsAccumulator += ts;
         int steps = 0;
         while (m_PhysicsAccumulator >= fixedStep && steps < 5)
         {
@@ -835,6 +843,7 @@ namespace Zamin {
     // ------------------------------------------------------------------ update
     void Scene::OnUpdateRuntime(Timestep ts)
     {
+        UpdateUI();
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
             m_Time += ts;
@@ -861,6 +870,7 @@ namespace Zamin {
                 auto& anim = m_Registry.get<SpriteAnimationComponent>(e);
                 if (anim.Playing) anim.Time += ts;
             }
+            UpdateParticles(ts, false);
 
             FlushDestroyQueue();
         }
@@ -876,12 +886,16 @@ namespace Zamin {
     void Scene::OnUpdateSimulation(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options)
     {
         if (!m_IsPaused || m_StepFrames-- > 0)
+        {
             StepPhysics(ts);
+            UpdateParticles(ts, false);
+        }
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
     }
 
-    void Scene::OnUpdateEditor(Timestep, const EditorCamera& camera, const SceneRenderOptions& options)
+    void Scene::OnUpdateEditor(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options)
     {
+        UpdateParticles(ts, true);
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
     }
 
@@ -921,6 +935,199 @@ namespace Zamin {
             auto& text = m_Registry.get<TextComponent>(e);
             text.FontAsset = text.FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(text.FontPath));
         }
+    }
+
+    // ------------------------------------------------------------------ particles
+    static float Rand01(uint32_t& state)
+    {
+        state ^= state << 13; state ^= state >> 17; state ^= state << 5;
+        return (state & 0xFFFFFF) / float(0x1000000);
+    }
+
+    static glm::vec3 RandomInCone(const glm::vec3& direction, float spreadDegrees, uint32_t& rng)
+    {
+        glm::vec3 dir = glm::length(direction) > 0.0f ? glm::normalize(direction) : glm::vec3(0, 1, 0);
+        float spread = glm::radians(std::clamp(spreadDegrees, 0.0f, 180.0f));
+        float cosTheta = 1.0f - Rand01(rng) * (1.0f - std::cos(spread));
+        float sinTheta = std::sqrt(std::max(0.0f, 1.0f - cosTheta * cosTheta));
+        float phi = Rand01(rng) * glm::two_pi<float>();
+        glm::vec3 up = std::abs(dir.y) < 0.99f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+        glm::vec3 t = glm::normalize(glm::cross(up, dir));
+        glm::vec3 b = glm::cross(dir, t);
+        return glm::normalize(t * (std::cos(phi) * sinTheta) + b * (std::sin(phi) * sinTheta) + dir * cosTheta);
+    }
+
+    static void SpawnParticles(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, int count)
+    {
+        uint32_t& rng = ps.RandomState;
+        for (int i = 0; i < count && (int)ps.Particles.size() < ps.MaxParticles; i++)
+        {
+            Particle p;
+            glm::vec3 local(0.0f);
+            switch (ps.Shape)
+            {
+                case ParticleSystemComponent::EmitterShape::Circle:
+                {
+                    float a = Rand01(rng) * glm::two_pi<float>(), r = std::sqrt(Rand01(rng)) * ps.ShapeRadius;
+                    local = { std::cos(a) * r, std::sin(a) * r, 0.0f };
+                    break;
+                }
+                case ParticleSystemComponent::EmitterShape::Sphere:
+                    local = RandomInCone({ 0, 1, 0 }, 180.0f, rng) * (std::cbrt(Rand01(rng)) * ps.ShapeRadius);
+                    break;
+                case ParticleSystemComponent::EmitterShape::Box:
+                    local = (glm::vec3(Rand01(rng), Rand01(rng), Rand01(rng)) * 2.0f - 1.0f) * ps.ShapeExtents;
+                    break;
+                default: break;
+            }
+            glm::vec3 dir = RandomInCone(ps.Direction, ps.Spread, rng);
+            float speed = ps.SpeedMin + (ps.SpeedMax - ps.SpeedMin) * Rand01(rng);
+            if (ps.WorldSpace)
+            {
+                p.Position = glm::vec3(emitterWorld * glm::vec4(local, 1.0f));
+                p.Velocity = glm::normalize(glm::vec3(emitterWorld * glm::vec4(dir, 0.0f))) * speed;
+            }
+            else
+            {
+                p.Position = local;
+                p.Velocity = dir * speed;
+            }
+            p.Lifetime = p.Life = std::max(0.01f, ps.LifetimeMin + (ps.LifetimeMax - ps.LifetimeMin) * Rand01(rng));
+            p.Rotation = Rand01(rng) * glm::two_pi<float>();
+            p.AngularVelocity = (Rand01(rng) * 2.0f - 1.0f) * ps.AngularVelocityMax;
+            ps.Particles.push_back(p);
+        }
+    }
+
+    void Scene::UpdateParticles(Timestep ts, bool editor)
+    {
+        for (auto e : m_Registry.view<ParticleSystemComponent>())
+        {
+            auto& ps = m_Registry.get<ParticleSystemComponent>(e);
+            if (editor && !ps.PlayInEditor)
+            {
+                if (!ps.Particles.empty()) ps.Clear();
+                continue;
+            }
+            Entity entity{ e, this };
+            glm::mat4 world = GetWorldTransform(entity);
+
+            if (ps.Playing)
+            {
+                if (!ps.BurstDone)
+                {
+                    SpawnParticles(ps, world, ps.Burst);
+                    ps.BurstDone = true;
+                }
+                if (ps.Looping || !editor)
+                {
+                    ps.EmitAccumulator += ps.EmissionRate * ts;
+                    int count = (int)ps.EmitAccumulator;
+                    ps.EmitAccumulator -= count;
+                    if (count > 0) SpawnParticles(ps, world, count);
+                }
+                if (!ps.Looping && ps.BurstDone && ps.EmissionRate <= 0.0f && ps.Particles.empty() && editor)
+                    ps.BurstDone = false; // keep previewing bursts in the editor
+            }
+
+            float drag = std::max(0.0f, 1.0f - ps.Drag * ts);
+            for (auto& p : ps.Particles)
+            {
+                p.Velocity += ps.Gravity * (float)ts;
+                p.Velocity *= drag;
+                p.Position += p.Velocity * (float)ts;
+                p.Rotation += p.AngularVelocity * ts;
+                p.Life -= ts;
+            }
+            std::erase_if(ps.Particles, [](const Particle& p) { return p.Life <= 0.0f; });
+        }
+    }
+
+    void Scene::EmitParticles(Entity entity, int count)
+    {
+        if (auto* ps = entity.TryGetComponent<ParticleSystemComponent>())
+            SpawnParticles(*ps, GetWorldTransform(entity), count);
+    }
+
+    // ------------------------------------------------------------------ UI
+    static glm::vec2 AnchorOffset(UITransformComponent::AnchorPoint a, const glm::vec2& viewport)
+    {
+        int i = (int)a;
+        float fx = (i % 3) * 0.5f;          // 0, 0.5, 1
+        float fy = 1.0f - (i / 3) * 0.5f;   // top = 1
+        return { fx * viewport.x, fy * viewport.y };
+    }
+
+    static glm::vec2 UICenter(const UITransformComponent& ui, const glm::vec2& viewport)
+    {
+        return AnchorOffset(ui.Anchor, viewport) + ui.Position; // bottom-left origin, pixels
+    }
+
+    void Scene::UpdateUI()
+    {
+        glm::vec2 viewport = GetViewportSize();
+        glm::vec2 mouse = { m_MousePosition.x, viewport.y - m_MousePosition.y }; // to bottom-left origin
+        bool pressedNow = m_MouseDown && !m_MouseWasDown;
+        bool released = !m_MouseDown && m_MouseWasDown;
+        m_MouseWasDown = m_MouseDown;
+
+        entt::entity hovered = entt::null;
+        int bestOrder = INT32_MIN;
+        for (auto e : m_Registry.view<UITransformComponent, UIButtonComponent>())
+        {
+            auto& ui = m_Registry.get<UITransformComponent>(e);
+            auto& button = m_Registry.get<UIButtonComponent>(e);
+            button.Clicked = false;
+            button.Hovered = false;
+            if (!button.Interactable) continue;
+            glm::vec2 c = UICenter(ui, viewport), half = glm::abs(ui.Size) * 0.5f;
+            if (std::abs(mouse.x - c.x) <= half.x && std::abs(mouse.y - c.y) <= half.y && ui.Order >= bestOrder)
+            {
+                hovered = e;
+                bestOrder = ui.Order;
+            }
+        }
+
+        if (hovered != entt::null)
+            m_Registry.get<UIButtonComponent>(hovered).Hovered = true;
+        if (pressedNow)
+            m_PressedButton = hovered;
+
+        std::vector<entt::entity> clicked;
+        for (auto e : m_Registry.view<UIButtonComponent>())
+        {
+            auto& b = m_Registry.get<UIButtonComponent>(e);
+            b.Pressed = m_MouseDown && m_PressedButton == e && b.Hovered;
+            if (released && m_PressedButton == e && b.Hovered)
+            {
+                b.Clicked = true;
+                clicked.push_back(e);
+            }
+        }
+        if (released)
+            m_PressedButton = entt::null;
+
+        if (m_ScriptsRunning)
+            for (auto e : clicked)
+                if (m_Registry.valid(e))
+                    if (auto* nsc = m_Registry.try_get<NativeScriptComponent>(e); nsc && nsc->Instance)
+                        nsc->Instance->OnClick();
+    }
+
+    glm::vec3 Scene::ScreenToWorld(const glm::vec2& screen, float depthZ)
+    {
+        Entity cam = GetPrimaryCameraEntity();
+        glm::vec2 size = GetViewportSize();
+        if (!cam || size.x <= 0.0f || size.y <= 0.0f) return glm::vec3(0.0f);
+        glm::mat4 viewProj = cam.GetComponent<CameraComponent>().Camera.GetProjection() * glm::inverse(GetWorldTransform(cam));
+        glm::mat4 inv = glm::inverse(viewProj);
+        glm::vec2 ndc = { screen.x / size.x * 2.0f - 1.0f, 1.0f - screen.y / size.y * 2.0f };
+        glm::vec4 n = inv * glm::vec4(ndc, -1.0f, 1.0f), f = inv * glm::vec4(ndc, 1.0f, 1.0f);
+        glm::vec3 nearP = glm::vec3(n) / n.w, farP = glm::vec3(f) / f.w;
+        glm::vec3 dir = farP - nearP;
+        if (std::abs(dir.z) < 1e-6f) return nearP;
+        float t = (depthZ - nearP.z) / dir.z;
+        return nearP + dir * t;
     }
 
     // ------------------------------------------------------------------ rendering
@@ -995,15 +1202,27 @@ namespace Zamin {
         std::vector<Item2D> items;
         auto depthOf = [&](entt::entity e) { return (view * world(e)[3]).z; };
 
+        auto isUI = [&](entt::entity e) { return m_Registry.all_of<UITransformComponent>(e); };
         for (auto e : m_Registry.view<TransformComponent, SpriteRendererComponent>())
-            items.push_back({ m_Registry.get<SpriteRendererComponent>(e).SortingOrder, depthOf(e), 0, e });
+            if (!isUI(e)) items.push_back({ m_Registry.get<SpriteRendererComponent>(e).SortingOrder, depthOf(e), 0, e });
         for (auto e : m_Registry.view<TransformComponent, CircleRendererComponent>())
-            items.push_back({ m_Registry.get<CircleRendererComponent>(e).SortingOrder, depthOf(e), 1, e });
+            if (!isUI(e)) items.push_back({ m_Registry.get<CircleRendererComponent>(e).SortingOrder, depthOf(e), 1, e });
         for (auto e : m_Registry.view<TransformComponent, TextComponent>())
-            items.push_back({ 1000, depthOf(e), 2, e });
+            if (!isUI(e)) items.push_back({ 1000, depthOf(e), 2, e });
+        for (auto e : m_Registry.view<TransformComponent, ParticleSystemComponent>())
+            if (!m_Registry.get<ParticleSystemComponent>(e).Particles.empty())
+                items.push_back({ m_Registry.get<ParticleSystemComponent>(e).SortingOrder, depthOf(e), 3, e });
 
-        if (items.empty())
-            return;
+        // camera basis for billboards
+        glm::mat4 invView = glm::inverse(view);
+        glm::vec3 camRight = glm::vec3(invView[0]), camUp = glm::vec3(invView[1]), camBack = glm::vec3(invView[2]);
+        glm::mat4 billboard(1.0f);
+        billboard[0] = glm::vec4(camRight, 0.0f);
+        billboard[1] = glm::vec4(camUp, 0.0f);
+        billboard[2] = glm::vec4(camBack, 0.0f);
+
+        if (!items.empty())
+        {
 
         std::stable_sort(items.begin(), items.end(), [](const Item2D& a, const Item2D& b) {
             if (a.Order != b.Order) return a.Order < b.Order;
@@ -1045,7 +1264,7 @@ namespace Zamin {
                 auto& c = m_Registry.get<CircleRendererComponent>(item.Handle);
                 Renderer2D::DrawCircle(transform, c.Color, c.Thickness, c.Fade, id);
             }
-            else
+            else if (item.Kind == 2)
             {
                 auto& text = m_Registry.get<TextComponent>(item.Handle);
                 if (!text.FontAsset)
@@ -1060,8 +1279,95 @@ namespace Zamin {
                 }
                 Renderer2D::DrawString(text.Text, text.FontAsset, t, params, id);
             }
+            else
+            {
+                auto& ps = m_Registry.get<ParticleSystemComponent>(item.Handle);
+                if (ps.Additive) Renderer2D::SetBlendMode(BlendMode::Additive);
+                RenderCommand::SetDepthWrite(false);
+                if (!ps.TexturePath.empty() && !ps.Texture)
+                    ps.Texture = TextureLibrary::Load(Project::GetAssetFileSystemPath(ps.TexturePath));
+                for (const auto& p : ps.Particles)
+                {
+                    float t = 1.0f - p.Life / p.Lifetime;
+                    glm::vec4 color = glm::mix(ps.StartColor, ps.EndColor, t);
+                    float size = glm::mix(ps.StartSize, ps.EndSize, t);
+                    glm::vec3 pos = ps.WorldSpace ? p.Position : glm::vec3(transform * glm::vec4(p.Position, 1.0f));
+                    glm::mat4 m = glm::translate(glm::mat4(1.0f), pos);
+                    if (ps.Billboard) m = m * billboard;
+                    m = m * glm::rotate(glm::mat4(1.0f), p.Rotation, glm::vec3(0, 0, 1)) * glm::scale(glm::mat4(1.0f), glm::vec3(size));
+                    if (ps.Texture)
+                        Renderer2D::DrawQuad(m, ps.Texture, 1.0f, color, id);
+                    else if (ps.RenderAsCircle)
+                        Renderer2D::DrawCircle(m, color, 1.0f, 0.6f, id);
+                    else
+                        Renderer2D::DrawQuad(m, color, id);
+                }
+                Renderer2D::Flush();
+                RenderCommand::SetDepthWrite(true);
+                if (ps.Additive) Renderer2D::SetBlendMode(BlendMode::Alpha);
+            }
         }
         Renderer2D::EndScene();
+        }
+
+        RenderUI();
+    }
+
+    void Scene::RenderUI()
+    {
+        // ---------------- screen-space UI (pixels, bottom-left origin)
+        auto uiView = m_Registry.view<UITransformComponent>();
+        if (uiView.empty() || m_ViewportWidth == 0 || m_ViewportHeight == 0)
+            return;
+        glm::vec2 viewport = GetViewportSize();
+
+        std::vector<entt::entity> ui(uiView.begin(), uiView.end());
+        std::reverse(ui.begin(), ui.end()); // views iterate newest-first; keep creation order for equal Order
+        std::stable_sort(ui.begin(), ui.end(), [&](entt::entity a, entt::entity b) {
+            return m_Registry.get<UITransformComponent>(a).Order < m_Registry.get<UITransformComponent>(b).Order;
+        });
+
+        RenderCommand::SetDepthTest(false);
+        Renderer2D::BeginScene(glm::ortho(0.0f, viewport.x, 0.0f, viewport.y, -1.0f, 1.0f));
+        for (auto e : ui)
+        {
+            const auto& t = m_Registry.get<UITransformComponent>(e);
+            glm::vec2 center = UICenter(t, viewport);
+            int id = (int)(uint32_t)e;
+            glm::mat4 rect = glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(t.Size, 1.0f));
+
+            glm::vec4 tint(1.0f);
+            if (auto* b = m_Registry.try_get<UIButtonComponent>(e))
+                tint = !b->Interactable ? glm::vec4(0.5f, 0.5f, 0.5f, 1.0f) : b->Pressed ? b->PressedColor : b->Hovered ? b->HoverColor : b->NormalColor;
+
+            if (auto* s = m_Registry.try_get<SpriteRendererComponent>(e))
+            {
+                glm::vec4 c = s->Color * tint;
+                if (s->Texture) Renderer2D::DrawQuad(rect, s->Texture, s->TilingFactor, c, id);
+                else Renderer2D::DrawQuad(rect, c, id);
+            }
+            else if (m_Registry.all_of<UIButtonComponent>(e))
+                Renderer2D::DrawQuad(rect, tint, id);
+
+            if (auto* c = m_Registry.try_get<CircleRendererComponent>(e))
+                Renderer2D::DrawCircle(rect, c->Color, c->Thickness, c->Fade, id);
+
+            if (auto* text = m_Registry.try_get<TextComponent>(e))
+            {
+                if (!text->FontAsset) text->FontAsset = Font::GetDefault();
+                Renderer2D::TextParams params{ text->Color, text->Kerning, text->LineSpacing };
+                float scale = std::max(1.0f, t.FontSize > 0.0f ? t.FontSize : t.Size.y);
+                glm::mat4 tm = glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(scale, scale, 1.0f));
+                glm::vec2 size = Renderer2D::MeasureString(text->Text, text->FontAsset, params);
+                float asc = text->FontAsset->GetAscent();
+                // Text is vertically centered on the rect; horizontally centered or left-aligned.
+                float x = text->Centered ? -size.x * 0.5f : -t.Size.x * 0.5f / scale;
+                tm = tm * glm::translate(glm::mat4(1.0f), { x, size.y * 0.5f - asc, 0.0f });
+                Renderer2D::DrawString(text->Text, text->FontAsset, tm, params, id);
+            }
+        }
+        Renderer2D::EndScene();
+        RenderCommand::SetDepthTest(true);
     }
 
 }

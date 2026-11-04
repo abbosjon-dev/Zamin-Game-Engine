@@ -4,6 +4,7 @@
 
 #include "Zamin/Core/Base.h"
 #include "Zamin/Core/Log.h"
+#include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/Application.h"
 #include "Zamin/Core/Layer.h"
 #include "Zamin/Core/Input.h"

@@ -12,6 +12,7 @@
 #include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Math/Math.h"
 #include "Zamin/Utils/FileSystem.h"
+#include "Zamin/Core/Profiler.h"
 
 #include <box2d/b2_body.h>
 #include <box2d/b2_circle_shape.h>
@@ -751,6 +752,7 @@ namespace Zamin {
     void Scene::StepPhysics(Timestep ts)
     {
         if (!m_PhysicsWorld && !m_PhysicsWorld3D) return;
+        ZM_PROFILE_SCOPE("Fizika");
         constexpr float fixedStep = 1.0f / 60.0f;
 
         // Kinematic/static bodies follow their transforms (lets scripts move them directly).
@@ -907,17 +909,23 @@ namespace Zamin {
                 scripted.push_back(e);
             std::reverse(scripted.begin(), scripted.end());
 
-            for (auto e : scripted)
-                if (m_Registry.valid(e))
-                    if (auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance)
-                        inst->OnUpdate(ts);
+            {
+                ZM_PROFILE_SCOPE("Skriptlar");
+                for (auto e : scripted)
+                    if (m_Registry.valid(e))
+                        if (auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance)
+                            inst->OnUpdate(ts);
+            }
 
             StepPhysics(ts);
 
-            for (auto e : scripted)
-                if (m_Registry.valid(e))
-                    if (auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance)
-                        inst->OnLateUpdate(ts);
+            {
+                ZM_PROFILE_SCOPE("Skriptlar");
+                for (auto e : scripted)
+                    if (m_Registry.valid(e))
+                        if (auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance)
+                            inst->OnLateUpdate(ts);
+            }
 
             for (auto e : m_Registry.view<SpriteAnimationComponent>())
             {
@@ -925,6 +933,7 @@ namespace Zamin {
                 if (anim.Playing) anim.Time += ts;
             }
             UpdateParticles(ts, false);
+            UpdateAnimators(ts, false);
             UpdateAudio();
 
             FlushDestroyQueue();
@@ -944,6 +953,7 @@ namespace Zamin {
         {
             StepPhysics(ts);
             UpdateParticles(ts, false);
+            UpdateAnimators(ts, false);
         }
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
     }
@@ -951,6 +961,7 @@ namespace Zamin {
     void Scene::OnUpdateEditor(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options)
     {
         UpdateParticles(ts, true);
+        UpdateAnimators(ts, true);
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
     }
 
@@ -992,6 +1003,34 @@ namespace Zamin {
         {
             auto& text = m_Registry.get<TextComponent>(e);
             text.FontAsset = text.FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(text.FontPath));
+        }
+    }
+
+    void Scene::UpdateAnimators(Timestep ts, bool editor)
+    {
+        ZM_PROFILE_SCOPE("Animatsiya");
+        for (auto e : m_Registry.view<AnimatorComponent, MeshRendererComponent>())
+        {
+            auto& anim = m_Registry.get<AnimatorComponent>(e);
+            auto& mr = m_Registry.get<MeshRendererComponent>(e);
+            if (!mr.ModelAsset || !mr.ModelAsset->IsSkinned())
+            {
+                anim.JointMatrices.clear();
+                continue;
+            }
+            const auto& clips = mr.ModelAsset->GetAnimations();
+            int index = anim.Clip.empty() ? (clips.empty() ? -1 : 0) : mr.ModelAsset->FindAnimation(anim.Clip);
+            const AnimationClip* clip = index >= 0 ? &clips[index] : nullptr;
+
+            bool advance = anim.Playing && (!editor || anim.PlayInEditor);
+            if (advance) anim.Time += ts * anim.Speed;
+            float t = anim.Time;
+            if (clip && clip->Duration > 0.0f)
+            {
+                if (anim.Loop) t = std::fmod(std::fmod(t, clip->Duration) + clip->Duration, clip->Duration);
+                else t = std::clamp(t, 0.0f, clip->Duration);
+            }
+            EvaluatePose(mr.ModelAsset->GetSkeleton(), clip, t, anim.JointMatrices);
         }
     }
 
@@ -1075,6 +1114,7 @@ namespace Zamin {
 
     void Scene::UpdateParticles(Timestep ts, bool editor)
     {
+        ZM_PROFILE_SCOPE("Particle'lar");
         for (auto e : m_Registry.view<ParticleSystemComponent>())
         {
             auto& ps = m_Registry.get<ParticleSystemComponent>(e);
@@ -1270,6 +1310,7 @@ namespace Zamin {
             env.PointLights.push_back({ glm::vec3(world(e)[3]), l.Color, l.Intensity, l.Radius });
         }
 
+        ZM_PROFILE_SCOPE("Render");
         Renderer3D::BeginScene(view, projection, cameraPosition, env);
         for (auto e : m_Registry.view<TransformComponent, MeshRendererComponent>())
         {
@@ -1290,7 +1331,18 @@ namespace Zamin {
                     m.EmissionStrength = 1.0f;
                     m.Tiling *= mr.Mat.Tiling;
                     m.NormalStrength *= mr.Mat.NormalStrength;
-                    Renderer3D::SubmitMesh(sub.MeshRef, world(e), m, (int)(uint32_t)e, mr.CastShadows);
+                    const std::vector<glm::mat4>* joints = nullptr;
+                    if (sub.MeshRef->IsSkinned())
+                        if (auto* anim = m_Registry.try_get<AnimatorComponent>(e); anim && !anim->JointMatrices.empty())
+                            joints = &anim->JointMatrices;
+                    if (sub.MeshRef->IsSkinned() && !joints)
+                    {
+                        // bind pose
+                        static thread_local std::vector<glm::mat4> bindPose;
+                        EvaluatePose(mr.ModelAsset->GetSkeleton(), nullptr, 0.0f, bindPose);
+                        joints = &bindPose;
+                    }
+                    Renderer3D::SubmitMesh(sub.MeshRef, world(e), m, (int)(uint32_t)e, mr.CastShadows, joints);
                 }
             }
             else if (mr.MeshAsset)

@@ -32,6 +32,31 @@ namespace Zamin {
         }
     }
 
+    Mesh::Mesh(const std::vector<SkinnedVertex>& vertices, const std::vector<uint32_t>& indices) : m_Skinned(true)
+    {
+        m_VertexArray = VertexArray::Create();
+        Ref<VertexBuffer> vb = VertexBuffer::Create(vertices.data(), (uint32_t)(vertices.size() * sizeof(SkinnedVertex)));
+        vb->SetLayout({
+            { ShaderDataType::Float3, "a_Position" },
+            { ShaderDataType::Float3, "a_Normal" },
+            { ShaderDataType::Float2, "a_TexCoord" },
+            { ShaderDataType::Int4,   "a_Joints" },
+            { ShaderDataType::Float4, "a_Weights" },
+        });
+        m_VertexArray->AddVertexBuffer(vb);
+        m_VertexArray->SetIndexBuffer(IndexBuffer::Create(indices.data(), (uint32_t)indices.size()));
+        m_IndexCount = (uint32_t)indices.size();
+        if (!vertices.empty())
+        {
+            m_Bounds.Min = m_Bounds.Max = vertices[0].Position;
+            for (const auto& v : vertices)
+            {
+                m_Bounds.Min = glm::min(m_Bounds.Min, v.Position);
+                m_Bounds.Max = glm::max(m_Bounds.Max, v.Position);
+            }
+        }
+    }
+
     const char* PrimitiveMeshToString(PrimitiveMesh type)
     {
         switch (type)

@@ -31,6 +31,11 @@ namespace Zamin {
         void SetMat3(const std::string& name, const glm::mat3& m) override { glUniformMatrix3fv(Loc(name), 1, GL_FALSE, glm::value_ptr(m)); }
         void SetMat4(const std::string& name, const glm::mat4& m) override { glUniformMatrix4fv(Loc(name), 1, GL_FALSE, glm::value_ptr(m)); }
 
+        void SetMat4Array(const std::string& name, const glm::mat4* m, uint32_t count) override
+        {
+            glUniformMatrix4fv(Loc(name), (GLsizei)count, GL_FALSE, glm::value_ptr(m[0]));
+        }
+
         const std::string& GetName() const override { return m_Name; }
         bool IsValid() const override { return m_RendererID != 0; }
 

@@ -736,6 +736,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<CircleRendererComponent>("Circle Renderer", ICON_FA_CIRCLE);
                 DisplayAddComponentEntry<TextComponent>("Text", ICON_FA_FONT);
                 DisplayAddComponentEntry<MeshRendererComponent>("Mesh Renderer", ICON_FA_CUBE);
+                DisplayAddComponentEntry<AnimatorComponent>("Animator (skeletal)", ICON_FA_PERSON_RUNNING);
                 DisplayAddComponentEntry<CameraComponent>("Camera", ICON_FA_CAMERA);
                 ImGui::SeparatorText("Yorug'lik");
                 DisplayAddComponentEntry<DirectionalLightComponent>("Directional Light", ICON_FA_SUN);
@@ -913,6 +914,30 @@ namespace Zamin {
             changed |= UI::PropertyColor3("Nurlanish", c.Mat.Emission);
             changed |= UI::PropertyFloat("Nurlanish kuchi", c.Mat.EmissionStrength, 0.05f, 0.0f, 100.0f);
             changed |= UI::PropertyBool("Soya tashlaydi", c.CastShadows);
+            return changed;
+        }, true, modified);
+
+        DrawComponent<AnimatorComponent>(ICON_FA_PERSON_RUNNING, "Animator", entity, [&](AnimatorComponent& c) {
+            bool changed = false;
+            auto* mr = entity.TryGetComponent<MeshRendererComponent>();
+            Ref<Model> model = mr ? mr->ModelAsset : nullptr;
+            UI::PropertyLabel("Klip");
+            if (ImGui::BeginCombo("##clip", c.Clip.empty() ? "(birinchi)" : c.Clip.c_str()))
+            {
+                if (ImGui::Selectable("(birinchi)", c.Clip.empty())) { c.Clip.clear(); changed = true; }
+                if (model)
+                    for (const auto& clip : model->GetAnimations())
+                        if (ImGui::Selectable(clip.Name.c_str(), clip.Name == c.Clip)) { c.Clip = clip.Name; c.Time = 0.0f; changed = true; }
+                ImGui::EndCombo();
+            }
+            changed |= UI::PropertyFloat("Tezlik", c.Speed, 0.01f, -10.0f, 10.0f);
+            changed |= UI::PropertyBool("Takrorlash", c.Loop);
+            changed |= UI::PropertyBool("Ijroda", c.Playing);
+            changed |= UI::PropertyBool("Editorda ko'rsatish", c.PlayInEditor);
+            UI::PropertyLabel("Ma'lumot");
+            if (!model) ImGui::TextDisabled("Mesh Renderer'da glTF model yo'q");
+            else if (!model->IsSkinned()) ImGui::TextDisabled("Modelda skelet yo'q");
+            else ImGui::Text("%zu suyak, %zu klip, t=%.2f", model->GetSkeleton().Joints.size(), model->GetAnimations().size(), c.Time);
             return changed;
         }, true, modified);
 

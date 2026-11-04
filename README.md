@@ -30,6 +30,8 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - Kontent brauzerdan drag & drop (tekstura → sprite, `.obj` → model, `.zscene` → sahnani ochish)
 - C++ skript maydonlari (`ZM_FIELD`) inspektorda tahrirlanadi, o'yin paytida jonli o'zgartiriladi
 - Loyiha launcher'i: yangi loyiha (shablondan), so'nggi loyihalar, namuna o'yinlar
+- **Profiler**: har bir tizim (skriptlar, fizika, animatsiya, render, post-processing, UI) uchun CPU vaqti
+- **Maximize on Play**: o'yin rejimida viewport butun oynaga yoyiladi
 - **O'yinni build qilish**: bitta tugma bilan mustaqil papkaga eksport (`./MeningOyinim.sh`)
 
 **Dvigatel**
@@ -41,6 +43,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - **HDR pipeline**: sahna float bufferga chiziladi, tonemapping (ACES / Reinhard / yo'q), haqiqiy HDR bloom
   - Material xaritalari: **normal map**, metallic/roughness map, emissive map
   - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
+  - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti
   - **Post-processing**: bloom, vinyetka, kontrast/to'yinganlik/rang tuslash
   - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview)
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
@@ -252,7 +255,8 @@ Tests/           Headless unit testlar
 - [x] Post-processing (bloom, vinyetka, rang sozlamalari)
 - [x] Tilemap (editor'da chizish), 3D ovoz
 - [x] glTF import, HDR pipeline, normal/metal-roughness/emissive map'lar
-- [ ] Skeletal animatsiya (glTF skins), animator
+- [x] Skeletal animatsiya (glTF skins), Animator, CPU profiler
+- [ ] Animatsiyalar orasida silliq o'tish (blending), animatsiya holat mashinasi
 - [ ] SSAO, IBL (cubemap), cascaded shadow maps
 - [ ] **Windows** (MSVC, `.dll` skript moduli)
 - [ ] **macOS** (Metal backend)

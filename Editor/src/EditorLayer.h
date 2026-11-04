@@ -88,6 +88,7 @@ namespace Zamin {
         void UI_MenuBar();
         void UI_Viewport();
         void UI_ViewportToolbar();
+        void UI_MaximizedGame();
         void UI_ViewportIcons();
         void UI_Gizmos();
         void UI_SceneSettings();
@@ -128,6 +129,7 @@ namespace Zamin {
         bool m_ShowColliders = true;
         bool m_ShowIcons = true;
         bool m_2DMode = false;
+        bool m_MaximizeOnPlay = false;
 
         // panels
         SceneHierarchyPanel m_SceneHierarchyPanel;

@@ -1983,6 +1983,153 @@
         "Intensity": 4.0,
         "Radius": 7.0
       }
+    },
+    {
+      "Entity": 7395000000000000,
+      "Tag": "Tentacle",
+      "Transform": {
+        "Translation": [
+          -9,
+          0,
+          4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/Tentacle.gltf",
+        "CastShadows": true,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Animator": {
+        "Clip": "Wave",
+        "Speed": 1.0,
+        "Loop": true,
+        "Playing": true,
+        "PlayInEditor": true
+      }
+    },
+    {
+      "Entity": 7395000000000001,
+      "Tag": "Tentacle",
+      "Transform": {
+        "Translation": [
+          9,
+          0,
+          4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/Tentacle.gltf",
+        "CastShadows": true,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Animator": {
+        "Clip": "Twist",
+        "Speed": 1.2,
+        "Loop": true,
+        "Playing": true,
+        "PlayInEditor": true
+      }
+    },
+    {
+      "Entity": 7395000000000002,
+      "Tag": "Tentacle",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -11
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/Tentacle.gltf",
+        "CastShadows": true,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Animator": {
+        "Clip": "Sway",
+        "Speed": 0.8,
+        "Loop": true,
+        "Playing": true,
+        "PlayInEditor": true
+      }
     }
   ]
 }

@@ -158,6 +158,7 @@ namespace Zamin {
         void CreatePhysicsBody3D(Entity entity);
         void CreateTilemapBody(Entity entity);
         void UpdateAudio();
+        void UpdateAnimators(Timestep ts, bool editor);
         void DispatchContactEvents(const std::vector<ContactEvent>& events);
         Entity DuplicateEntityRecursive(Entity entity, UUID newParent);
         void StepPhysics(Timestep ts);

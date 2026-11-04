@@ -15,6 +15,15 @@ namespace Zamin {
         glm::vec2 TexCoord;
     };
 
+    struct SkinnedVertex
+    {
+        glm::vec3 Position;
+        glm::vec3 Normal;
+        glm::vec2 TexCoord;
+        glm::ivec4 Joints{ 0 };
+        glm::vec4 Weights{ 0.0f };
+    };
+
     struct AABB
     {
         glm::vec3 Min{ 0.0f };
@@ -25,6 +34,8 @@ namespace Zamin {
     {
     public:
         Mesh(const std::vector<MeshVertex>& vertices, const std::vector<uint32_t>& indices);
+        Mesh(const std::vector<SkinnedVertex>& vertices, const std::vector<uint32_t>& indices);
+        bool IsSkinned() const { return m_Skinned; }
 
         const Ref<VertexArray>& GetVertexArray() const { return m_VertexArray; }
         uint32_t GetIndexCount() const { return m_IndexCount; }
@@ -34,6 +45,7 @@ namespace Zamin {
         Ref<VertexArray> m_VertexArray;
         uint32_t m_IndexCount = 0;
         AABB m_Bounds;
+        bool m_Skinned = false;
     };
 
     enum class PrimitiveMesh { Cube = 0, Sphere, Plane, Cylinder, Cone, Model };

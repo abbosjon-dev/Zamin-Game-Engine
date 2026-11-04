@@ -1,6 +1,7 @@
 #include "Zamin/Core/Application.h"
 
 #include "Zamin/ImGui/ImGuiLayer.h"
+#include "Zamin/Core/Profiler.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Renderer/RenderCommand.h"
 #include "Zamin/Audio/AudioEngine.h"
@@ -105,15 +106,21 @@ namespace Zamin {
                 fpsFrames = 0;
             }
 
+            Profiler::BeginFrame();
             ExecuteMainThreadQueue();
 
             if (!m_Minimized)
             {
-                for (Layer* layer : m_LayerStack)
-                    layer->OnUpdate(timestep);
+                ZM_PROFILE_SCOPE("Kadr");
+                {
+                    ZM_PROFILE_SCOPE("Layer'lar (update)");
+                    for (Layer* layer : m_LayerStack)
+                        layer->OnUpdate(timestep);
+                }
 
                 if (m_ImGuiLayer)
                 {
+                    ZM_PROFILE_SCOPE("UI (ImGui)");
                     m_ImGuiLayer->Begin();
                     for (Layer* layer : m_LayerStack)
                         layer->OnImGuiRender();

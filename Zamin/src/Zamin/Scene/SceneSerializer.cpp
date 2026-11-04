@@ -146,6 +146,8 @@ namespace Zamin {
                 { "Metallic", c->Mat.Metallic }, { "Roughness", c->Mat.Roughness },
                 { "Emission", ToJson(c->Mat.Emission) }, { "EmissionStrength", c->Mat.EmissionStrength },
             };
+        if (auto* c = entity.TryGetComponent<AnimatorComponent>())
+            e["Animator"] = { { "Clip", c->Clip }, { "Speed", c->Speed }, { "Loop", c->Loop }, { "Playing", c->Playing }, { "PlayInEditor", c->PlayInEditor } };
         if (auto* c = entity.TryGetComponent<DirectionalLightComponent>())
             e["DirectionalLight"] = { { "Color", ToJson(c->Color) }, { "Intensity", c->Intensity }, { "CastShadows", c->CastShadows } };
         if (auto* c = entity.TryGetComponent<PointLightComponent>())
@@ -300,6 +302,16 @@ namespace Zamin {
             c.Mat.Roughness = j.value("Roughness", 0.5f);
             c.Mat.Emission = Vec(j, "Emission", glm::vec3(0.0f));
             c.Mat.EmissionStrength = j.value("EmissionStrength", 0.0f);
+        }
+        if (e.contains("Animator"))
+        {
+            const json& j = e["Animator"];
+            auto& c = entity.AddComponent<AnimatorComponent>();
+            c.Clip = j.value("Clip", "");
+            c.Speed = j.value("Speed", 1.0f);
+            c.Loop = j.value("Loop", true);
+            c.Playing = j.value("Playing", true);
+            c.PlayInEditor = j.value("PlayInEditor", true);
         }
         if (e.contains("DirectionalLight"))
         {

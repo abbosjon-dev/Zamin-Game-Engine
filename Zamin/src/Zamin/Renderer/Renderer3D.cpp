@@ -13,6 +13,11 @@ namespace Zamin {
 layout(location = 0) in vec3 a_Position;
 layout(location = 1) in vec3 a_Normal;
 layout(location = 2) in vec2 a_TexCoord;
+#ifdef SKINNED
+layout(location = 3) in ivec4 a_Joints;
+layout(location = 4) in vec4 a_Weights;
+uniform mat4 u_Joints[MAX_JOINTS];
+#endif
 
 uniform mat4 u_ViewProjection;
 uniform mat4 u_Model;
@@ -26,9 +31,17 @@ out vec4 v_LightSpacePos;
 
 void main()
 {
-    vec4 world = u_Model * vec4(a_Position, 1.0);
+    vec4 localPos = vec4(a_Position, 1.0);
+    vec3 localNormal = a_Normal;
+#ifdef SKINNED
+    mat4 skin = a_Weights.x * u_Joints[a_Joints.x] + a_Weights.y * u_Joints[a_Joints.y]
+              + a_Weights.z * u_Joints[a_Joints.z] + a_Weights.w * u_Joints[a_Joints.w];
+    localPos = skin * localPos;
+    localNormal = mat3(skin) * localNormal;
+#endif
+    vec4 world = u_Model * localPos;
     v_WorldPos = world.xyz;
-    v_Normal = normalize(u_NormalMatrix * a_Normal);
+    v_Normal = normalize(u_NormalMatrix * localNormal);
     v_TexCoord = a_TexCoord;
     v_LightSpacePos = u_LightSpace * vec4(world.xyz + v_Normal * 0.02, 1.0);
     gl_Position = u_ViewProjection * world;
@@ -230,10 +243,32 @@ void main()
 
         const char* s_ShadowVS = R"(#version 410 core
 layout(location = 0) in vec3 a_Position;
+#ifdef SKINNED
+layout(location = 3) in ivec4 a_Joints;
+layout(location = 4) in vec4 a_Weights;
+uniform mat4 u_Joints[MAX_JOINTS];
+#endif
 uniform mat4 u_LightSpace;
 uniform mat4 u_Model;
-void main() { gl_Position = u_LightSpace * u_Model * vec4(a_Position, 1.0); }
+void main()
+{
+    vec4 p = vec4(a_Position, 1.0);
+#ifdef SKINNED
+    mat4 skin = a_Weights.x * u_Joints[a_Joints.x] + a_Weights.y * u_Joints[a_Joints.y]
+              + a_Weights.z * u_Joints[a_Joints.z] + a_Weights.w * u_Joints[a_Joints.w];
+    p = skin * p;
+#endif
+    gl_Position = u_LightSpace * u_Model * p;
+}
 )";
+
+        std::string Variant(const char* src, bool skinned)
+        {
+            std::string s(src);
+            size_t eol = s.find('\n');
+            std::string defs = "\n#define MAX_JOINTS " + std::to_string(MaxJoints) + "\n" + (skinned ? "#define SKINNED\n" : "");
+            return s.substr(0, eol) + defs + s.substr(eol + 1);
+        }
 
         const char* s_ShadowFS = R"(#version 410 core
 void main() { }
@@ -355,12 +390,13 @@ void main()
             Material Mat;
             int EntityID;
             bool CastShadows;
+            std::vector<glm::mat4> Joints; // skinned meshes only
         };
 
         struct Renderer3DData
         {
-            Ref<Shader> MeshShader;
-            Ref<Shader> ShadowShader;
+            Ref<Shader> MeshShader, SkinnedMeshShader;
+            Ref<Shader> ShadowShader, SkinnedShadowShader;
             Ref<Shader> SkyShader;
             Ref<Shader> GridShader;
             Ref<Texture2D> WhiteTexture;
@@ -379,8 +415,10 @@ void main()
     void Renderer3D::Init()
     {
         s_Data = new Renderer3DData();
-        s_Data->MeshShader = Shader::Create("Renderer3D_PBR", s_MeshVS, s_MeshFS);
-        s_Data->ShadowShader = Shader::Create("Renderer3D_Shadow", s_ShadowVS, s_ShadowFS);
+        s_Data->MeshShader = Shader::Create("Renderer3D_PBR", Variant(s_MeshVS, false), s_MeshFS);
+        s_Data->SkinnedMeshShader = Shader::Create("Renderer3D_PBR_Skinned", Variant(s_MeshVS, true), s_MeshFS);
+        s_Data->ShadowShader = Shader::Create("Renderer3D_Shadow", Variant(s_ShadowVS, false), s_ShadowFS);
+        s_Data->SkinnedShadowShader = Shader::Create("Renderer3D_Shadow_Skinned", Variant(s_ShadowVS, true), s_ShadowFS);
         s_Data->SkyShader = Shader::Create("Renderer3D_Sky", s_SkyVS, s_SkyFS);
         s_Data->GridShader = Shader::Create("Editor_Grid", s_GridVS, s_GridFS);
 
@@ -414,10 +452,17 @@ void main()
         s_Data->Queue.clear();
     }
 
-    void Renderer3D::SubmitMesh(const Ref<Mesh>& mesh, const glm::mat4& transform, const Material& material, int entityID, bool castShadows)
+    void Renderer3D::SubmitMesh(const Ref<Mesh>& mesh, const glm::mat4& transform, const Material& material, int entityID, bool castShadows,
+                                const std::vector<glm::mat4>* joints)
     {
         if (!mesh) return;
-        s_Data->Queue.push_back({ mesh, transform, material, entityID, castShadows });
+        DrawItem item{ mesh, transform, material, entityID, castShadows, {} };
+        if (mesh->IsSkinned())
+        {
+            if (joints && !joints->empty()) item.Joints = *joints;
+            item.Joints.resize(MaxJoints, glm::mat4(1.0f));
+        }
+        s_Data->Queue.push_back(std::move(item));
     }
 
     static glm::mat4 ComputeLightSpace(const SceneEnvironment& env, const glm::vec3& cameraPos, const glm::mat4& view)
@@ -458,12 +503,19 @@ void main()
             s_Data->ShadowMap->Bind();
             RenderCommand::SetDepthWrite(true);
             RenderCommand::Clear();
-            s_Data->ShadowShader->Bind();
-            s_Data->ShadowShader->SetMat4("u_LightSpace", lightSpace);
+            for (auto& sh : { s_Data->ShadowShader, s_Data->SkinnedShadowShader })
+            {
+                sh->Bind();
+                sh->SetMat4("u_LightSpace", lightSpace);
+            }
             for (const auto& item : s_Data->Queue)
             {
                 if (!item.CastShadows) continue;
-                s_Data->ShadowShader->SetMat4("u_Model", item.Transform);
+                bool skinned = item.MeshRef->IsSkinned();
+                auto& sh = skinned ? s_Data->SkinnedShadowShader : s_Data->ShadowShader;
+                sh->Bind();
+                if (skinned) sh->SetMat4Array("u_Joints", item.Joints.data(), (uint32_t)item.Joints.size());
+                sh->SetMat4("u_Model", item.Transform);
                 RenderCommand::DrawIndexed(item.MeshRef->GetVertexArray(), item.MeshRef->GetIndexCount());
                 stats.DrawCalls++;
             }
@@ -473,7 +525,8 @@ void main()
         // ---------------- main pass
         if (!s_Data->Queue.empty())
         {
-            auto& shader = s_Data->MeshShader;
+          for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader })
+          {
             shader->Bind();
             shader->SetMat4("u_ViewProjection", viewProj);
             shader->SetMat4("u_LightSpace", lightSpace);
@@ -505,12 +558,17 @@ void main()
             shader->SetInt("u_NormalMap", 2);
             shader->SetInt("u_MetalRoughMap", 3);
             shader->SetInt("u_EmissiveMap", 4);
+          }
             RenderCommand::BindTextureUnit(1, s_Data->ShadowMap->GetDepthAttachmentRendererID());
 
             RenderCommand::SetCullMode(CullMode::None);
             for (const auto& item : s_Data->Queue)
             {
                 const Material& m = item.Mat;
+                bool skinned = item.MeshRef->IsSkinned();
+                auto& shader = skinned ? s_Data->SkinnedMeshShader : s_Data->MeshShader;
+                shader->Bind();
+                if (skinned) shader->SetMat4Array("u_Joints", item.Joints.data(), (uint32_t)item.Joints.size());
                 (m.AlbedoMap ? m.AlbedoMap : s_Data->WhiteTexture)->Bind(0);
                 (m.NormalMap ? m.NormalMap : s_Data->WhiteTexture)->Bind(2);
                 (m.MetalRoughMap ? m.MetalRoughMap : s_Data->WhiteTexture)->Bind(3);

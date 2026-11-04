@@ -2,6 +2,7 @@
 #include "Zamin/Renderer/RenderCommand.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Renderer/Shader.h"
+#include "Zamin/Core/Profiler.h"
 
 #include <glm/glm.hpp>
 #include <vector>
@@ -183,6 +184,7 @@ void main()
         if (!s_Data || width == 0 || height == 0)
             return;
 
+        ZM_PROFILE_SCOPE("Post-processing");
         RenderCommand::SaveRenderTarget();
         RenderCommand::SetDepthTest(false);
         RenderCommand::SetDepthWrite(false);

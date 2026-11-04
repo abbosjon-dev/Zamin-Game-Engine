@@ -511,6 +511,44 @@ TEST(ParticlesSimulate)
     scene->OnRuntimeStop();
 }
 
+TEST(SkeletalPoseEvaluation)
+{
+    Skeleton sk;
+    sk.Joints.resize(2);
+    sk.Joints[0].Name = "Root";
+    sk.Joints[1].Name = "Tip";
+    sk.Joints[1].Parent = 0;
+    sk.Joints[1].RestTranslation = { 0, 1, 0 };
+    sk.Joints[1].InverseBind = glm::translate(glm::mat4(1.0f), { 0, -1, 0 });
+
+    // bind pose => identity skinning matrices
+    std::vector<glm::mat4> joints;
+    EvaluatePose(sk, nullptr, 0.0f, joints);
+    CHECK(joints.size() == 2);
+    glm::vec4 p = joints[1] * glm::vec4(0, 2, 0, 1);
+    CHECK_NEAR(p.y, 2.0f, 1e-5f);
+
+    // rotate the tip joint 90 degrees around Z at t = 1
+    AnimationClip clip;
+    clip.Duration = 1.0f;
+    AnimationChannel ch;
+    ch.JointIndex = 1;
+    ch.Target = AnimationChannel::Path::Rotation;
+    ch.Times = { 0.0f, 1.0f };
+    glm::quat q = glm::angleAxis(glm::half_pi<float>(), glm::vec3(0, 0, 1));
+    ch.Values = { glm::vec4(0, 0, 0, 1), glm::vec4(q.x, q.y, q.z, q.w) };
+    clip.Channels.push_back(ch);
+
+    EvaluatePose(sk, &clip, 1.0f, joints);
+    p = joints[1] * glm::vec4(0, 2, 0, 1); // point one unit above the tip joint
+    CHECK_NEAR(p.x, -1.0f, 1e-4f);
+    CHECK_NEAR(p.y, 1.0f, 1e-4f);
+
+    EvaluatePose(sk, &clip, 0.5f, joints); // slerp halfway = 45 degrees
+    p = joints[1] * glm::vec4(0, 2, 0, 1);
+    CHECK_NEAR(p.x, -std::sqrt(0.5f), 1e-4f);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

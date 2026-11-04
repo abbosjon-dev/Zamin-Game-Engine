@@ -1170,6 +1170,8 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         UI_SceneSettings();
         UI_Stats();
         UI_Viewport();
+        if (m_MaximizeOnPlay && m_SceneState == SceneState::Play)
+            UI_MaximizedGame();
         if (m_ShowImGuiDemo) ImGui::ShowDemoWindow(&m_ShowImGuiDemo);
 
         UI_Modals();
@@ -1467,6 +1469,37 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         ImGui::PopStyleVar();
     }
 
+    void EditorLayer::UI_MaximizedGame()
+    {
+        // Full-window game view while playing (the docked viewport keeps rendering underneath).
+        ImGuiViewport* vp = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(vp->WorkPos);
+        ImGui::SetNextWindowSize(vp->WorkSize);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::Begin("##MaximizedGame", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
+                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNav);
+        ImVec2 size = ImGui::GetContentRegionAvail();
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        m_ViewportBounds[0] = { pos.x, pos.y };
+        m_ViewportBounds[1] = { pos.x + size.x, pos.y + size.y };
+        m_ViewportSize = { std::max(1.0f, size.x), std::max(1.0f, size.y) };
+        m_ViewportFocused = true;
+        ImGui::SetNextItemAllowOverlap();
+        ImGui::Image((ImTextureID)(uint64_t)m_FinalFramebuffer->GetColorAttachmentRendererID(0), size, ImVec2(0, 1), ImVec2(1, 0));
+        m_ViewportHovered = ImGui::IsItemHovered();
+        Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
+
+        // small stop button + hint
+        ImGui::SetCursorPos(ImVec2(size.x * 0.5f - 40, 10));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.4f, 0.4f, 1));
+        if (UI::ToolbarButton(ICON_FA_STOP "  To'xtatish", "Ctrl+P", false, ImVec2(110, 0)))
+            OnSceneStop();
+        ImGui::PopStyleColor();
+        ImGui::End();
+        ImGui::PopStyleVar(2);
+    }
+
     void EditorLayer::UI_ViewportToolbar()
     {
         ImVec2 regionMin = ImGui::GetWindowContentRegionMin();
@@ -1533,7 +1566,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
 
         // ---- right: view options
         {
-            float w = buttonSize * 5 + 2 * 4;
+            float w = buttonSize * 6 + 2 * 5;
             ImVec2 pos(width - w - 10, 10);
             panelBg(pos, w);
             ImGui::SetCursorPos(ImVec2(regionMin.x + pos.x, regionMin.y + pos.y));
@@ -1549,6 +1582,9 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
             ImGui::SameLine();
             if (UI::ToolbarButton(ICON_FA_GLOBE, m_GizmoLocal ? "Lokal koordinatalar" : "Global koordinatalar", m_GizmoLocal, size))
                 m_GizmoLocal = !m_GizmoLocal;
+            ImGui::SameLine();
+            if (UI::ToolbarButton(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER, "O'yinda to'liq oyna (Maximize on Play)", m_MaximizeOnPlay, size))
+                m_MaximizeOnPlay = !m_MaximizeOnPlay;
         }
 
         // camera fly speed hint
@@ -1753,6 +1789,24 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
                 UI::PropertyLabel("Hover");
                 ImGui::TextUnformatted(m_HoveredEntity ? m_HoveredEntity.GetName().c_str() : "-");
                 UI::EndPropertyGrid();
+            }
+
+            ImGui::SeparatorText(ICON_FA_CHART_LINE "  Profiler (CPU, ms)");
+            const auto& entries = Profiler::GetLastFrame();
+            float total = std::max(0.001f, Profiler::GetLastFrameTotal());
+            if (ImGui::BeginTable("##prof", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+            {
+                for (const auto& e : entries)
+                {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted(e.Name);
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.2f", e.Milliseconds);
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::ProgressBar(std::min(1.0f, e.Milliseconds / total), ImVec2(-1, ImGui::GetTextLineHeight()), "");
+                }
+                ImGui::EndTable();
             }
         }
         ImGui::End();

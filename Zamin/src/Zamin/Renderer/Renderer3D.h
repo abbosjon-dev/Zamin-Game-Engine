@@ -2,6 +2,7 @@
 
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/Material.h"
+#include "Zamin/Renderer/Animation.h"
 
 #include <glm/glm.hpp>
 #include <vector>
@@ -51,7 +52,7 @@ namespace Zamin {
         static void BeginScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                                const SceneEnvironment& environment);
         static void SubmitMesh(const Ref<Mesh>& mesh, const glm::mat4& transform, const Material& material,
-                               int entityID = -1, bool castShadows = true);
+                               int entityID = -1, bool castShadows = true, const std::vector<glm::mat4>* joints = nullptr);
         static void EndScene();
 
         // Editor-only infinite grid. plane: 0 = XZ (3D), 1 = XY (2D)

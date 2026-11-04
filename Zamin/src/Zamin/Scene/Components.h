@@ -147,6 +147,27 @@ namespace Zamin {
         bool CastShadows = true;
     };
 
+    // Plays skeletal animations of the entity's (skinned glTF) MeshRenderer model.
+    struct AnimatorComponent
+    {
+        std::string Clip;          // animation name ("" = first clip)
+        float Speed = 1.0f;
+        bool Loop = true;
+        bool Playing = true;
+        bool PlayInEditor = true;
+        float CrossFade = 0.0f;    // reserved
+
+        // runtime
+        float Time = 0.0f;
+        std::vector<glm::mat4> JointMatrices;
+
+        void Play(const std::string& clip, bool loop = true, float speed = 1.0f)
+        {
+            if (Clip == clip && Playing) return;
+            Clip = clip; Loop = loop; Speed = speed; Playing = true; Time = 0.0f;
+        }
+    };
+
     struct CameraComponent
     {
         SceneCamera Camera;
@@ -423,7 +444,7 @@ namespace Zamin {
 
     // Every component that is copied/serialized with an entity (IDComponent & TagComponent are handled separately).
     using AllComponents = ComponentGroup<RelationshipComponent, TransformComponent, SpriteRendererComponent,
-        SpriteAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, CameraComponent,
+        SpriteAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, TilemapComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,

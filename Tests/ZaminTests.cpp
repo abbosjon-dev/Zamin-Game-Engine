@@ -4131,6 +4131,302 @@ TEST(GizmoDuplicateWhileDragging)
     CHECK_NEAR(sc[0].GetComponent<TransformComponent>().Scale.x, 3.0f, 1e-5f);
 }
 
+// ------------------------------------------------------------------ M02: inspector / hierarchy (31-35)
+static std::string Join(const std::vector<std::string>& keys)
+{
+    std::string out;
+    for (const auto& k : keys)
+        out += (out.empty() ? "" : ",") + k;
+    return out;
+}
+
+TEST(ComponentKeysMatchSceneFiles)
+{
+    // Every inspector component has a scene-file key, and copying a component yields exactly
+    // the JSON the scene file has under that key (no GPU assets are touched).
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("All");
+    e.AddComponent<TagsComponent>().Add("Enemy");
+    e.AddComponent<CameraComponent>();
+    e.AddComponent<SpriteRendererComponent>();
+    e.AddComponent<SpriteAnimationComponent>();
+    e.AddComponent<CircleRendererComponent>();
+    e.AddComponent<TextComponent>().Text = "Salom";
+    e.AddComponent<MeshRendererComponent>();
+    e.AddComponent<AnimatorComponent>();
+    e.AddComponent<DirectionalLightComponent>();
+    e.AddComponent<PointLightComponent>();
+    e.AddComponent<Rigidbody2DComponent>();
+    e.AddComponent<BoxCollider2DComponent>();
+    e.AddComponent<CircleCollider2DComponent>();
+    e.AddComponent<Rigidbody3DComponent>();
+    e.AddComponent<BoxCollider3DComponent>();
+    e.AddComponent<SphereCollider3DComponent>();
+    e.AddComponent<CapsuleCollider3DComponent>();
+    e.AddComponent<CharacterController3DComponent>();
+    e.AddComponent<TilemapComponent>();
+    e.AddComponent<ParticleSystemComponent>();
+    e.AddComponent<UITransformComponent>();
+    e.AddComponent<UIButtonComponent>();
+    e.AddComponent<AudioSourceComponent>();
+    e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
+
+    const auto& types = ComponentRegistry::GetTypes();
+    CHECK(types.size() == 25);
+    CHECK(types.front().Key == "Transform");
+    std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
+    CHECK(keys.size() == types.size());
+    std::string file = SceneSerializer::SerializeEntities(*scene, { e });
+    for (const auto& type : types)
+    {
+        std::string clip = SceneSerializer::SerializeComponent(e, type.Key);
+        CHECK(!clip.empty());
+        CHECK(SceneSerializer::GetSerializedComponentKey(clip) == type.Key);
+        CHECK(file.find("\"" + std::string(type.Key) + "\":") != std::string::npos);
+        CHECK(ComponentRegistry::Find(type.Key) == &type);
+    }
+    CHECK(ComponentKey<Rigidbody2DComponent>() == "Rigidbody2D");
+    CHECK(ComponentKey<NativeScriptComponent>() == "NativeScript");
+    CHECK(!ComponentRegistry::Find("Editor") && !ComponentRegistry::Find("Relationship"));
+    CHECK(!ComponentRegistry::Remove(e, "Transform"));       // every entity keeps one
+    CHECK(ComponentRegistry::Remove(e, "PointLight") && !e.HasComponent<PointLightComponent>());
+    CHECK(!ComponentRegistry::Remove(e, "PointLight"));      // already gone
+    CHECK(SceneSerializer::SerializeComponent(e, "PointLight").empty());
+}
+
+TEST(InspectorComponentOrder)
+{
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Player");
+    e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
+    e.AddComponent<Rigidbody2DComponent>();
+    e.AddComponent<BoxCollider2DComponent>();
+    CHECK(Join(ComponentRegistry::GetOrderedKeys(e)) == "Transform,Rigidbody2D,BoxCollider2D,NativeScript");
+
+    // The script to the top (right below Transform, which never moves).
+    CHECK(ComponentRegistry::MoveComponent(e, "NativeScript", 0));
+    CHECK(Join(ComponentRegistry::GetOrderedKeys(e)) == "Transform,NativeScript,Rigidbody2D,BoxCollider2D");
+    CHECK(e.HasComponent<EditorMetadataComponent>());
+    CHECK(Join(e.GetComponent<EditorMetadataComponent>().ComponentOrder) == "NativeScript,Rigidbody2D,BoxCollider2D");
+    CHECK(!ComponentRegistry::MoveComponent(e, "Transform", 3));
+    CHECK(!ComponentRegistry::MoveComponent(e, "NativeScript", 1));   // already there
+    CHECK(!ComponentRegistry::MoveComponent(e, "Camera", 1));         // the entity has none
+    CHECK(ComponentRegistry::GetComponentIndex(e, "BoxCollider2D") == 3);
+
+    // One step down, then to the end (-1).
+    CHECK(ComponentRegistry::MoveComponent(e, "Rigidbody2D", 3));
+    CHECK(Join(ComponentRegistry::GetOrderedKeys(e)) == "Transform,NativeScript,BoxCollider2D,Rigidbody2D");
+    CHECK(ComponentRegistry::MoveComponent(e, "NativeScript", -1));
+    CHECK(Join(ComponentRegistry::GetOrderedKeys(e)) == "Transform,BoxCollider2D,Rigidbody2D,NativeScript");
+
+    // Saved with the scene; a component added later goes to the bottom.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"ComponentOrder\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity le = loaded->FindEntityByName("Player");
+    CHECK(Join(ComponentRegistry::GetOrderedKeys(le)) == "Transform,BoxCollider2D,Rigidbody2D,NativeScript");
+    le.AddComponent<CameraComponent>();
+    CHECK(Join(ComponentRegistry::GetOrderedKeys(le)) == "Transform,BoxCollider2D,Rigidbody2D,NativeScript,Camera");
+    // Removed components drop out; play-mode copies / duplicates keep the order.
+    le.RemoveComponent<Rigidbody2DComponent>();
+    CHECK(Join(ComponentRegistry::GetOrderedKeys(le)) == "Transform,BoxCollider2D,NativeScript,Camera");
+    auto runtime = Scene::Copy(loaded);
+    CHECK(Join(ComponentRegistry::GetOrderedKeys(runtime->FindEntityByName("Player"))) == "Transform,BoxCollider2D,NativeScript,Camera");
+    Entity dup = loaded->DuplicateEntity(le);
+    CHECK(Join(ComponentRegistry::GetOrderedKeys(dup)) == "Transform,BoxCollider2D,NativeScript,Camera");
+
+    // Back to the default order: nothing is stored any more (the file is as before).
+    CHECK(ComponentRegistry::MoveComponent(e, "Rigidbody2D", 1));
+    CHECK(Join(ComponentRegistry::GetOrderedKeys(e)) == "Transform,Rigidbody2D,BoxCollider2D,NativeScript");
+    CHECK(!e.HasComponent<EditorMetadataComponent>());
+    CHECK(SceneSerializer(scene).SerializeToString().find("\"Editor\"") == std::string::npos);
+
+    // Sorting rules on their own: unknown / missing keys are ignored, Transform always first.
+    CHECK(Join(ComponentRegistry::SortKeys({ "Transform", "A", "B", "C" }, { "C", "Transform", "X", "A" })) == "Transform,C,A,B");
+    CHECK(Join(ComponentRegistry::SortKeys({ "A", "B" }, {})) == "A,B");
+}
+
+TEST(ComponentClipboardCopyPaste)
+{
+    auto scene = CreateRef<Scene>();
+    Entity a = scene->CreateEntity("A");
+    auto& rb = a.AddComponent<Rigidbody2DComponent>();
+    rb.Type = Rigidbody2DComponent::BodyType::Dynamic;
+    rb.GravityScale = 0.25f;
+    rb.FixedRotation = true;
+    auto& script = a.AddComponent<NativeScriptComponent>();
+    script.ClassName = "TestScript";
+    ScriptFieldValue speed;
+    speed.Set(7.5f);
+    script.Fields["Speed"] = speed;
+    a.GetTransform().Translation = { 1.0f, 2.0f, 3.0f };
+
+    std::string clip = SceneSerializer::SerializeComponent(a, "Rigidbody2D");
+    CHECK(SceneSerializer::GetSerializedComponentKey(clip) == "Rigidbody2D");
+    CHECK(SceneSerializer::GetSerializedComponentKey("salom").empty());
+    CHECK(SceneSerializer::GetSerializedComponentKey("{\"ZaminComponent\":\"Nope\",\"Data\":{}}").empty());
+    CHECK(SceneSerializer::GetSerializedComponentKey(SceneSerializer::SerializeTransform(a.GetTransform())).empty());
+
+    // Pasted onto an entity without one: added with the values.
+    Entity b = scene->CreateEntity("B");
+    CHECK(SceneSerializer::DeserializeComponent(clip, b));
+    CHECK(b.HasComponent<Rigidbody2DComponent>());
+    CHECK(b.GetComponent<Rigidbody2DComponent>().Type == Rigidbody2DComponent::BodyType::Dynamic);
+    CHECK_NEAR(b.GetComponent<Rigidbody2DComponent>().GravityScale, 0.25f, 1e-6f);
+    CHECK(b.GetComponent<Rigidbody2DComponent>().FixedRotation);
+
+    // Onto one that has it: values replaced, nothing else touched; across scenes too.
+    auto other = CreateRef<Scene>();
+    Entity c = other->CreateEntity("C");
+    c.AddComponent<Rigidbody2DComponent>().GravityScale = 3.0f;
+    c.AddComponent<BoxCollider2DComponent>().Size = { 2.0f, 2.0f };
+    CHECK(SceneSerializer::DeserializeComponent(clip, c));
+    CHECK_NEAR(c.GetComponent<Rigidbody2DComponent>().GravityScale, 0.25f, 1e-6f);
+    CHECK_NEAR(c.GetComponent<BoxCollider2DComponent>().Size.x, 2.0f, 1e-6f);
+
+    // Script component with its field values; Transform through the same path.
+    std::string scriptClip = SceneSerializer::SerializeComponent(a, "NativeScript");
+    CHECK(SceneSerializer::DeserializeComponent(scriptClip, c));
+    CHECK(c.GetComponent<NativeScriptComponent>().ClassName == "TestScript");
+    CHECK(c.GetComponent<NativeScriptComponent>().Fields.count("Speed") == 1);
+    CHECK_NEAR(c.GetComponent<NativeScriptComponent>().Fields["Speed"].Get<float>(), 7.5f, 1e-6f);
+    CHECK(c.GetComponent<NativeScriptComponent>().Instance == nullptr);
+    CHECK(SceneSerializer::DeserializeComponent(SceneSerializer::SerializeComponent(a, "Transform"), c));
+    CHECK_NEAR(c.GetTransform().Translation.z, 3.0f, 1e-6f);
+
+    // Anything else is refused and leaves the target as it was.
+    CHECK(!SceneSerializer::DeserializeComponent("salom", c));
+    CHECK(!SceneSerializer::DeserializeComponent("{\"ZaminComponent\":\"Rigidbody2D\",\"Data\":{\"GravityScale\":\"x\"}}", c));
+    CHECK_NEAR(c.GetComponent<Rigidbody2DComponent>().GravityScale, 0.25f, 1e-6f);
+    CHECK(!SceneSerializer::DeserializeComponent(clip, Entity()));
+    CHECK(SceneSerializer::SerializeComponent(b, "Camera").empty());
+
+    // A pasted component works at runtime like any other (body created on start).
+    auto play = Scene::Copy(scene);
+    play->OnRuntimeStart();
+    Entity pb = play->FindEntityByName("B");
+    CHECK(pb.GetComponent<Rigidbody2DComponent>().RuntimeBody != nullptr);
+    play->OnRuntimeStop();
+}
+
+TEST(EditorHiddenAndLockedFlags)
+{
+    auto scene = CreateRef<Scene>();
+    Entity parent = scene->CreateEntity("Parent");
+    Entity child = scene->CreateEntity("Child");
+    Entity grandchild = scene->CreateEntity("Grandchild");
+    Entity other = scene->CreateEntity("Other");
+    scene->SetParent(child, parent, false);
+    scene->SetParent(grandchild, child, false);
+    CHECK(!scene->IsHiddenInEditor(grandchild) && !scene->IsLockedInEditor(grandchild));
+    CHECK(scene->CollectHiddenInEditor().empty());
+
+    // A hidden / locked parent hides / locks its whole subtree.
+    scene->SetHiddenInEditor(parent, true);
+    scene->SetLockedInEditor(child, true);
+    CHECK(scene->IsHiddenInEditor(parent, false) && !scene->IsHiddenInEditor(child, false));
+    CHECK(scene->IsHiddenInEditor(child) && scene->IsHiddenInEditor(grandchild));
+    CHECK(!scene->IsLockedInEditor(parent) && scene->IsLockedInEditor(child) && scene->IsLockedInEditor(grandchild));
+    CHECK(!scene->IsLockedInEditor(grandchild, false));
+    CHECK(!scene->IsHiddenInEditor(other) && !scene->IsLockedInEditor(other));
+    CHECK(scene->CountHiddenInEditor() == 1 && scene->CountLockedInEditor() == 1);
+    auto hidden = scene->CollectHiddenInEditor();
+    CHECK(hidden.size() == 3 && hidden.contains(grandchild) && !hidden.contains(other));
+
+    // Saved with the scene, kept by play-mode copies and duplicates.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Hidden\": true") != std::string::npos && text.find("\"Locked\": true") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->IsHiddenInEditor(loaded->FindEntityByName("Grandchild")));
+    CHECK(loaded->IsLockedInEditor(loaded->FindEntityByName("Child"), false));
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+    auto runtime = Scene::Copy(scene);
+    CHECK(runtime->IsHiddenInEditor(runtime->FindEntityByName("Parent"), false));
+    Entity copy = scene->DuplicateEntity(parent);
+    CHECK(scene->IsHiddenInEditor(copy, false) && scene->CountHiddenInEditor() == 2);
+    scene->DestroyEntity(copy);
+
+    // Prefabs leave the flags out (instances start visible / unlocked), but keep the component order.
+    child.AddComponent<Rigidbody2DComponent>();
+    child.AddComponent<BoxCollider2DComponent>();
+    CHECK(ComponentRegistry::MoveComponent(child, "BoxCollider2D", 1));
+    std::string prefab = SceneSerializer::SerializeEntities(*scene, { parent, child, grandchild }, false);
+    CHECK(prefab.find("\"Hidden\"") == std::string::npos && prefab.find("\"Locked\"") == std::string::npos);
+    CHECK(prefab.find("\"ComponentOrder\"") != std::string::npos);
+    auto third = CreateRef<Scene>();
+    auto inst = SceneSerializer::DeserializeEntities(*third, prefab, true);
+    CHECK(inst.size() == 3 && !third->IsHiddenInEditor(inst.back()) && third->CountLockedInEditor() == 0);
+    Entity instChild = third->FindEntityByName("Child");
+    CHECK(Join(ComponentRegistry::GetOrderedKeys(instChild)) == "Transform,BoxCollider2D,Rigidbody2D");
+    CHECK(SceneSerializer::SerializeEntities(*scene, { parent }).find("\"Hidden\"") != std::string::npos); // copy / paste keeps them
+
+    // Clearing the flags removes the editor data again (files stay as they were before).
+    scene->SetHiddenInEditor(parent, false);
+    CHECK(!parent.HasComponent<EditorMetadataComponent>());
+    scene->SetLockedInEditor(child, false);
+    CHECK(child.HasComponent<EditorMetadataComponent>()); // still holds the component order
+    CHECK(ComponentRegistry::MoveComponent(child, "BoxCollider2D", -1));
+    CHECK(!child.HasComponent<EditorMetadataComponent>());
+    CHECK(SceneSerializer(scene).SerializeToString().find("\"Editor\"") == std::string::npos);
+
+    // A broken file with a parent cycle cannot hang the ancestor walk.
+    parent.GetComponent<RelationshipComponent>().Parent = grandchild.GetUUID();
+    CHECK(!scene->IsHiddenInEditor(parent));
+    parent.GetComponent<RelationshipComponent>().Parent = 0;
+
+    // Hidden entities still run at runtime (the flag only filters the editor's view).
+    scene->SetHiddenInEditor(other, true);
+    other.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
+    ResetCounters();
+    auto game = Scene::Copy(scene);
+    game->OnRuntimeStart();
+    game->OnUpdateRuntime(0.5f);
+    CHECK(g_Updated == 1);
+    CHECK_NEAR(game->FindEntityByName("Other").GetTransform().Translation.x, 0.5f, 1e-5f);
+    game->OnRuntimeStop();
+}
+
+TEST(InspectorFoldStateJson)
+{
+    InspectorFoldState fold;
+    CHECK(fold.IsOpen("Rigidbody2D") && !fold.IsOpen("Animator.StateMachine", false));
+    CHECK(fold.SetOpen("Rigidbody2D", false));
+    CHECK(!fold.SetOpen("Rigidbody2D", false));            // unchanged
+    CHECK(!fold.IsOpen("Rigidbody2D"));
+    CHECK(fold.SetOpen("Animator.StateMachine", true, false));
+    CHECK(fold.SetOpen("NativeScript:PlayerController", false));
+    CHECK(!fold.SetOpen("", false));
+    CHECK(fold.GetAll().size() == 3);
+    CHECK(fold.SetOpen("Rigidbody2D", true));              // back to the default: forgotten
+    CHECK(fold.GetAll().size() == 2 && fold.IsOpen("Rigidbody2D"));
+
+    EditorViewSettings settings;
+    settings.Inspector = fold;
+    std::string text = settings.ToJson();
+    CHECK(text.find("InspectorHeaders") != std::string::npos);
+    EditorViewSettings loaded;
+    CHECK(loaded.FromJson(text));
+    CHECK(loaded.Inspector.GetAll() == fold.GetAll());
+    CHECK(!loaded.Inspector.IsOpen("NativeScript:PlayerController"));
+    CHECK(loaded.Inspector.IsOpen("Animator.StateMachine", false));
+    CHECK(loaded.Inspector.IsOpen("NativeScript:Enemy")); // other script classes are separate
+
+    // Junk values are skipped; older files without the section keep the current state.
+    EditorViewSettings junk;
+    CHECK(junk.FromJson("{\"ZaminEditorView\":1,\"InspectorHeaders\":{\"Camera\":false,\"Bad\":3,\"\":false}}"));
+    CHECK(junk.Inspector.GetAll().size() == 1 && !junk.Inspector.IsOpen("Camera"));
+    CHECK(junk.FromJson("{\"ZaminEditorView\":1}"));
+    CHECK(!junk.Inspector.IsOpen("Camera"));
+
+    // Bounded: a long session with many script classes does not grow the file without end.
+    InspectorFoldState many;
+    for (size_t i = 0; i < InspectorFoldState::MaxEntries + 20; i++)
+        many.SetOpen("NativeScript:S" + std::to_string(i), false);
+    CHECK(many.GetAll().size() == InspectorFoldState::MaxEntries);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

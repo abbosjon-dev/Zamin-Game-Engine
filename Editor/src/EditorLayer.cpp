@@ -71,6 +71,8 @@ namespace Zamin {
         m_SceneHierarchyPanel.OnSceneModified = [this]() { MarkDirty(); };
         m_SceneHierarchyPanel.OnSavePrefabRequested = [this](Entity e) { SavePrefab(e); };
         m_SceneHierarchyPanel.OnProjectSettingsModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
+        m_SceneHierarchyPanel.SetFoldState(&m_ViewSettings.Inspector); // open / collapsed inspector headers, per user
+        m_SceneHierarchyPanel.OnFoldStateModified = [this]() { MarkViewSettingsDirty(); };
         m_ProjectSettingsPanel.OnSceneModified = [this]() { MarkDirty(); };
         m_SceneHierarchyPanel.OnPrefabDropped = [this](const fs::path& p, Entity parent) { InstantiatePrefabInEditor(p, parent); };
         m_ContentBrowserPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
@@ -236,6 +238,7 @@ namespace Zamin {
         options.ShowGrid = m_ViewSettings.Grid.Visible;
         options.GridPlane = m_2DMode ? 1 : 0;
         options.Grid = m_ViewSettings.Grid;
+        options.SkipEditorHidden = true; // the hierarchy's eye: edit + simulate views only (play draws everything)
 
         // The camera does not take a mouse drag that belongs to the gizmo (Alt + drag on the
         // gizmo duplicates instead of orbiting; Alt pressed in the middle of a gizmo drag).
@@ -370,12 +373,17 @@ namespace Zamin {
         RenderCommand::SetDepthTest(false);
         Renderer2D::BeginScene(viewProj);
         Scene& scene = *m_ActiveScene;
+        // Entities hidden with the hierarchy's eye get no outlines either (the game view shows everything).
+        std::unordered_set<entt::entity> hidden;
+        if (m_SceneState != SceneState::Play)
+            hidden = scene.CollectHiddenInEditor();
 
         if (m_ShowColliders)
         {
             const glm::vec4 green(0.3f, 0.95f, 0.45f, 1.0f), yellow(0.95f, 0.8f, 0.2f, 1.0f);
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, BoxCollider2DComponent>())
             {
+                if (hidden.contains(e)) continue;
                 Entity entity{ e, &scene };
                 auto& bc = entity.GetComponent<BoxCollider2DComponent>();
                 glm::vec3 p, r, sc;
@@ -388,6 +396,7 @@ namespace Zamin {
             }
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, CircleCollider2DComponent>())
             {
+                if (hidden.contains(e)) continue;
                 Entity entity{ e, &scene };
                 auto& cc = entity.GetComponent<CircleCollider2DComponent>();
                 glm::vec3 p, r, sc;
@@ -400,6 +409,7 @@ namespace Zamin {
             const glm::vec4 cyan(0.3f, 0.85f, 1.0f, 1.0f);
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, BoxCollider3DComponent>())
             {
+                if (hidden.contains(e)) continue;
                 Entity entity{ e, &scene };
                 auto& c = entity.GetComponent<BoxCollider3DComponent>();
                 glm::mat4 t = scene.GetWorldTransform(entity) * glm::translate(glm::mat4(1.0f), c.Offset) * glm::scale(glm::mat4(1.0f), c.HalfExtents * 2.0f);
@@ -407,6 +417,7 @@ namespace Zamin {
             }
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, SphereCollider3DComponent>())
             {
+                if (hidden.contains(e)) continue;
                 Entity entity{ e, &scene };
                 auto& c = entity.GetComponent<SphereCollider3DComponent>();
                 glm::vec3 p, r, sc;
@@ -419,6 +430,7 @@ namespace Zamin {
             }
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, CharacterController3DComponent>())
             {
+                if (hidden.contains(e)) continue;
                 Entity entity{ e, &scene };
                 auto& c = entity.GetComponent<CharacterController3DComponent>();
                 glm::vec3 feet = scene.GetWorldPosition(entity);
@@ -434,6 +446,7 @@ namespace Zamin {
             }
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, CapsuleCollider3DComponent>())
             {
+                if (hidden.contains(e)) continue;
                 Entity entity{ e, &scene };
                 auto& c = entity.GetComponent<CapsuleCollider3DComponent>();
                 glm::vec3 p, r, sc;
@@ -454,7 +467,7 @@ namespace Zamin {
         }
 
         // Tilemap bounds + hovered cell
-        if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity(); selected && selected.IsValid() && selected.HasComponent<TilemapComponent>())
+        if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity(); selected && selected.IsValid() && selected.HasComponent<TilemapComponent>() && !hidden.contains(selected))
         {
             auto& tm = selected.GetComponent<TilemapComponent>();
             glm::mat4 world = scene.GetWorldTransform(selected);
@@ -479,7 +492,7 @@ namespace Zamin {
         Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
         for (Entity selected : m_SceneHierarchyPanel.GetSelection().GetEntities())
         {
-            if (!selected.IsValid() || selected.GetScene() != &scene) continue;
+            if (!selected.IsValid() || selected.GetScene() != &scene || hidden.contains(selected)) continue;
             const glm::vec4 orange = selected == primary ? glm::vec4(1.0f, 0.6f, 0.1f, 1.0f) : glm::vec4(1.0f, 0.85f, 0.35f, 0.85f);
             glm::mat4 transform = scene.GetWorldTransform(selected);
             if (auto* mr = selected.TryGetComponent<MeshRendererComponent>(); mr && (mr->MeshAsset || mr->ModelAsset))
@@ -553,10 +566,14 @@ namespace Zamin {
             }
             if (!alt && !overGizmo && !m_SceneHierarchyPanel.IsTilePainting())
             {
-                // Ctrl+click toggles, Shift+click adds to the selection.
+                // Ctrl+click toggles, Shift+click adds to the selection. A locked entity is not
+                // picked: the click counts as one on empty space (hidden ones are not drawn at all).
                 bool ctrl = Input::IsKeyPressed(Key::LeftControl) || Input::IsKeyPressed(Key::RightControl);
                 bool shift = Input::IsKeyPressed(Key::LeftShift) || Input::IsKeyPressed(Key::RightShift);
-                m_SceneHierarchyPanel.SelectWithModifiers(m_HoveredEntity, ctrl, shift);
+                Entity picked = m_HoveredEntity;
+                if (picked && m_ActiveScene->IsLockedInEditor(picked))
+                    picked = {};
+                m_SceneHierarchyPanel.SelectWithModifiers(picked, ctrl, shift);
             }
         }
         return false;
@@ -843,8 +860,9 @@ namespace Zamin {
     {
         if (m_SceneState != SceneState::Edit) return;
         bool midDrag = m_GizmoEdit.IsActive() && m_GizmoEdit.GetScene() == m_ActiveScene.get();
-        // Every selected subtree at once: one undo step (MarkDirty via OnSceneModified).
-        size_t count = m_SceneHierarchyPanel.DuplicateSelection();
+        // Every selected subtree at once: one undo step (MarkDirty via OnSceneModified). In the
+        // middle of a drag only the dragged (unlocked) subtrees are copied.
+        size_t count = m_SceneHierarchyPanel.DuplicateSelection(midDrag);
         if (count == 0)
             return;
         if (midDrag)
@@ -852,7 +870,7 @@ namespace Zamin {
             // Ctrl+D during a gizmo drag: the originals stay where they are now and the drag
             // goes on with the copies (press again to leave more copies along the way). The
             // gizmo's current matrix is where the copies are, so the edit restarts from it.
-            m_GizmoEdit.Begin(*m_ActiveScene, m_SceneHierarchyPanel.GetSelectedRoots(), m_GizmoMatrix);
+            m_GizmoEdit.Begin(*m_ActiveScene, GetGizmoTargets(), m_GizmoMatrix);
             ShowViewportMessage(count > 1 ? std::format(ICON_FA_CLONE "  {} ta nusxa qoldirildi", count)
                                           : std::string(ICON_FA_CLONE "  Nusxa qoldirildi"));
         }
@@ -867,6 +885,41 @@ namespace Zamin {
         size_t count = m_SceneHierarchyPanel.DeleteSelection();
         if (count > 1)
             ZM_INFO("{} ta obyekt o'chirildi", count);
+    }
+
+    std::vector<Entity> EditorLayer::GetGizmoTargets()
+    {
+        std::vector<Entity> targets = m_SceneHierarchyPanel.GetSelectedRoots();
+        std::erase_if(targets, [&](Entity e) { return !e.IsValid() || m_ActiveScene->IsLockedInEditor(e); });
+        return targets;
+    }
+
+    void EditorLayer::ToggleSelectionHidden()
+    {
+        bool hidden = false;
+        size_t count = m_SceneHierarchyPanel.ToggleSelectionHidden(&hidden);
+        if (count == 0)
+            return;
+        std::string what = count > 1 ? std::format("{} ta obyekt", count) : m_SceneHierarchyPanel.GetSelectedEntity().GetName();
+        ShowViewportMessage(hidden ? std::format(ICON_FA_EYE_SLASH "  Yashirildi: {}  (H: ko'rsatish, Alt+H: hammasi)", what)
+                                   : std::format(ICON_FA_EYE "  Ko'rsatildi: {}", what));
+    }
+
+    void EditorLayer::ToggleSelectionLocked()
+    {
+        bool locked = false;
+        size_t count = m_SceneHierarchyPanel.ToggleSelectionLocked(&locked);
+        if (count == 0)
+            return;
+        std::string what = count > 1 ? std::format("{} ta obyekt", count) : m_SceneHierarchyPanel.GetSelectedEntity().GetName();
+        ShowViewportMessage(locked ? std::format(ICON_FA_LOCK "  Qulflandi: {}", what) : std::format(ICON_FA_LOCK_OPEN "  Qulf ochildi: {}", what));
+    }
+
+    void EditorLayer::ShowAllHidden()
+    {
+        size_t count = m_SceneHierarchyPanel.ShowAll();
+        ShowViewportMessage(count ? std::format(ICON_FA_EYE "  {} ta yashirin obyekt ko'rsatildi", count)
+                                  : std::string(ICON_FA_EYE "  Yashirin obyekt yo'q"));
     }
 
     void EditorLayer::FocusEntity(Entity entity)
@@ -1331,6 +1384,14 @@ namespace Zamin {
                 m_SceneHierarchyPanel.SelectAll();
             if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && m_SceneState == SceneState::Play && Input::IsKeyPressed(Key::LeftShift))
                 OnSceneStop();
+            // H: hide / show the selection in the scene view, Alt+H: show everything again.
+            if (!ctrl && !shift && ImGui::IsKeyPressed(ImGuiKey_H, false) && m_SceneState == SceneState::Edit &&
+                (m_SceneHierarchyPanel.IsHierarchyFocused() || m_ViewportFocused || m_ViewportHovered) &&
+                !Input::IsMouseButtonPressed(MouseButton::Right))
+            {
+                if (io.KeyAlt) ShowAllHidden();
+                else ToggleSelectionHidden();
+            }
 
             bool flying = Input::IsMouseButtonPressed(MouseButton::Right);
             bool viewportKeys = !flying && (m_ViewportHovered || m_ViewportFocused);
@@ -1361,6 +1422,7 @@ namespace Zamin {
         UI_StatusBar();
         UI_DockSpace();
 
+        m_SceneHierarchyPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         m_SceneHierarchyPanel.OnImGuiRender(&m_ShowHierarchy, &m_ShowInspector);
         m_ContentBrowserPanel.OnImGuiRender(&m_ShowContentBrowser);
         m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
@@ -1496,6 +1558,20 @@ namespace Zamin {
             if (ImGui::MenuItem((ICON_FA_CLONE "  Nusxa olish" + suffix).c_str(), "Ctrl+D", false, sel && editing)) DuplicateSelectedEntity();
             if (ImGui::MenuItem((ICON_FA_TRASH "  O'chirish" + suffix).c_str(), "Delete", false, sel && editing)) DeleteSelectedEntity();
             if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Fokus", "F", false, sel)) FrameSelection();
+            ImGui::Separator();
+            {
+                Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
+                bool hidden = primary && m_ActiveScene->IsHiddenInEditor(primary, false);
+                bool locked = primary && m_ActiveScene->IsLockedInEditor(primary, false);
+                if (ImGui::MenuItem(((hidden ? ICON_FA_EYE "  Ko'rsatish" : ICON_FA_EYE_SLASH "  Yashirish (editorda)") + suffix).c_str(), "H", false, sel && editing))
+                    ToggleSelectionHidden();
+                if (ImGui::MenuItem(((locked ? ICON_FA_LOCK_OPEN "  Qulfni ochish" : ICON_FA_LOCK "  Qulflash (viewport'da)") + suffix).c_str(), nullptr, false, sel && editing))
+                    ToggleSelectionLocked();
+                if (ImGui::MenuItem(ICON_FA_EYE "  Hammasini ko'rsatish", "Alt+H", false, editing && m_ActiveScene->CountHiddenInEditor() > 0))
+                    ShowAllHidden();
+                if (ImGui::MenuItem(ICON_FA_LOCK_OPEN "  Hamma qulflarni ochish", nullptr, false, editing && m_ActiveScene->CountLockedInEditor() > 0))
+                    m_SceneHierarchyPanel.UnlockAll();
+            }
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A")) m_SceneHierarchyPanel.SelectAll();
             if (ImGui::MenuItem(ICON_FA_XMARK "  Tanlovni bekor qilish", nullptr, false, sel)) m_SceneHierarchyPanel.SetSelectedEntity({});
@@ -2169,15 +2245,21 @@ namespace Zamin {
         glm::vec2 size = m_ViewportBounds[1] - m_ViewportBounds[0];
         ImVec2 mouse = ImGui::GetMousePos();
 
+        // Hidden entities have no icon; locked ones are drawn faint and cannot be clicked.
+        std::unordered_set<entt::entity> hidden = m_ActiveScene->CollectHiddenInEditor();
         auto drawIcon = [&](Entity e, const char* icon, ImU32 color) {
+            if (hidden.contains(e)) return;
             glm::vec4 clip = viewProj * glm::vec4(m_ActiveScene->GetWorldPosition(e), 1.0f);
             if (clip.w <= 0.0f) return;
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
             if (std::abs(ndc.x) > 1.1f || std::abs(ndc.y) > 1.1f) return;
             ImVec2 p(m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * size.x, m_ViewportBounds[0].y + (1.0f - (ndc.y * 0.5f + 0.5f)) * size.y);
             float r = 14.0f;
-            bool hovered = (mouse.x - p.x) * (mouse.x - p.x) + (mouse.y - p.y) * (mouse.y - p.y) < r * r;
+            const bool locked = m_ActiveScene->IsLockedInEditor(e);
+            bool hovered = !locked && (mouse.x - p.x) * (mouse.x - p.x) + (mouse.y - p.y) * (mouse.y - p.y) < r * r;
             bool isSelected = m_SceneHierarchyPanel.IsSelected(e);
+            if (locked)
+                color = (color & ~IM_COL32_A_MASK) | IM_COL32(0, 0, 0, 110);
             dl->AddCircleFilled(p, r, isSelected ? IM_COL32(30, 140, 110, 230) : (hovered ? IM_COL32(50, 55, 65, 230) : IM_COL32(20, 22, 26, 200)));
             dl->AddCircle(p, r, color, 0, 1.5f);
             ImVec2 ts = ImGui::CalcTextSize(icon);
@@ -2204,10 +2286,16 @@ namespace Zamin {
             m_GizmoEdit.End();
             return;
         }
-        // Every selected subtree moves together (an entity inside another selected one follows it).
-        std::vector<Entity> targets = m_SceneHierarchyPanel.GetSelectedRoots();
+        // Every selected subtree moves together (an entity inside another selected one follows
+        // it); locked ones stay where they are.
+        std::vector<Entity> targets = GetGizmoTargets();
         if (targets.empty())
+        {
+            m_GizmoEdit.End();
             return;
+        }
+        if (m_ActiveScene->IsLockedInEditor(primary))
+            primary = targets.front(); // the pivot follows an entity that moves
 
         ImGuizmo::SetOrthographic(m_EditorCamera.IsOrthographic());
         ImGuizmo::SetDrawlist();
@@ -2248,9 +2336,9 @@ namespace Zamin {
                     // Alt + drag: the copies move, the originals stay where they were. The
                     // copies sit exactly on the originals, so the pivot is still right.
                     m_GizmoAltDuplicatePending = false;
-                    if (size_t count = m_SceneHierarchyPanel.DuplicateSelection())
+                    if (size_t count = m_SceneHierarchyPanel.DuplicateSelection(true))
                     {
-                        targets = m_SceneHierarchyPanel.GetSelectedRoots();
+                        targets = GetGizmoTargets();
                         ShowViewportMessage(count > 1 ? std::format(ICON_FA_CLONE "  {} ta nusxa sudralmoqda", count)
                                                       : std::string(ICON_FA_CLONE "  Nusxa sudralmoqda"));
                     }

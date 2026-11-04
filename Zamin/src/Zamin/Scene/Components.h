@@ -603,6 +603,27 @@ namespace Zamin {
         }
     };
 
+    // ------------------------------------------------------------------ editor-only data
+    // What the editor remembers about an entity: the hierarchy's eye / lock buttons and the
+    // inspector's component order. Saved with the scene (only when something is set), copied
+    // with the entity; the game ignores it. Hidden and Locked apply to the whole subtree
+    // (Scene::IsHiddenInEditor / IsLockedInEditor look at the ancestors too):
+    // - Hidden: not drawn in the editor's scene view (edit + simulate) - no mesh, sprite, text,
+    //   light, icon or collider outline - so it cannot be clicked there either. Play mode and
+    //   the player draw it as usual: it is a view filter, not a gameplay state.
+    // - Locked: drawn, but clicks in the viewport go through it and the gizmo does not move it;
+    //   it can still be selected and edited in the hierarchy / inspector.
+    struct EditorMetadataComponent
+    {
+        bool Hidden = false;
+        bool Locked = false;
+        // Inspector order of the component headers (scene-file keys, see ComponentKey<T>());
+        // empty = the default order. Transform always stays on top.
+        std::vector<std::string> ComponentOrder;
+
+        bool IsDefault() const { return !Hidden && !Locked && ComponentOrder.empty(); }
+    };
+
     template<typename... Component>
     struct ComponentGroup {};
 
@@ -612,6 +633,6 @@ namespace Zamin {
         DirectionalLightComponent, PointLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
-        AudioSourceComponent, NativeScriptComponent>;
+        AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;
 
 }

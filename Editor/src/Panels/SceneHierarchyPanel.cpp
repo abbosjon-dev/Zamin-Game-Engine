@@ -85,9 +85,11 @@ namespace Zamin {
         m_Selection.Set(m_Context->GetEntitiesInHierarchyOrder(), primary);
     }
 
-    size_t SceneHierarchyPanel::DuplicateSelection()
+    size_t SceneHierarchyPanel::DuplicateSelection(bool skipLocked)
     {
         std::vector<Entity> roots = GetSelectedRoots();
+        if (skipLocked)
+            std::erase_if(roots, [&](Entity e) { return m_Context->IsLockedInEditor(e); });
         if (roots.empty()) return 0;
         Entity primary = GetSelectedEntity();
         std::vector<Entity> copies = m_Context->DuplicateEntities(roots);
@@ -110,6 +112,138 @@ namespace Zamin {
         size_t count = m_Context->DestroyEntities(roots);
         MarkModified();
         return count;
+    }
+
+    // ------------------------------------------------------------------ eye / lock
+    size_t SceneHierarchyPanel::SetFlagFromRow(Entity entity, bool lockFlag, bool value)
+    {
+        if (!m_Context || !entity || !m_SceneEditable)
+            return 0;
+        // A click on a row of the selection sets the flag of every selected entity.
+        std::vector<Entity> targets;
+        if (IsSelected(entity))
+            for (Entity e : m_Selection.GetEntities())
+                if (e && e.GetScene() == m_Context.get()) targets.push_back(e);
+        if (targets.empty())
+            targets.push_back(entity);
+        bool changed = false;
+        for (Entity e : targets)
+        {
+            bool before = lockFlag ? m_Context->IsLockedInEditor(e, false) : m_Context->IsHiddenInEditor(e, false);
+            if (before == value) continue;
+            if (lockFlag) m_Context->SetLockedInEditor(e, value);
+            else m_Context->SetHiddenInEditor(e, value);
+            changed = true;
+        }
+        if (changed)
+            MarkModified();
+        return targets.size();
+    }
+
+    size_t SceneHierarchyPanel::ToggleSelectionHidden(bool* hidden)
+    {
+        Entity primary = GetSelectedEntity();
+        if (!m_Context || !primary || !m_SceneEditable)
+            return 0;
+        bool value = !m_Context->IsHiddenInEditor(primary, false);
+        if (hidden) *hidden = value;
+        return SetFlagFromRow(primary, false, value);
+    }
+
+    size_t SceneHierarchyPanel::ToggleSelectionLocked(bool* locked)
+    {
+        Entity primary = GetSelectedEntity();
+        if (!m_Context || !primary || !m_SceneEditable)
+            return 0;
+        bool value = !m_Context->IsLockedInEditor(primary, false);
+        if (locked) *locked = value;
+        return SetFlagFromRow(primary, true, value);
+    }
+
+    // Clears one flag on every entity that has it (collected first: clearing may remove the
+    // metadata component while the view is being walked).
+    static size_t ClearEditorFlag(Scene& scene, bool lockFlag)
+    {
+        std::vector<Entity> flagged;
+        for (auto e : scene.GetAllEntitiesWith<EditorMetadataComponent>())
+        {
+            const auto& m = scene.GetRegistry().get<EditorMetadataComponent>(e);
+            if (lockFlag ? m.Locked : m.Hidden)
+                flagged.emplace_back(e, &scene);
+        }
+        for (Entity e : flagged)
+        {
+            if (lockFlag) scene.SetLockedInEditor(e, false);
+            else scene.SetHiddenInEditor(e, false);
+        }
+        return flagged.size();
+    }
+
+    size_t SceneHierarchyPanel::ShowAll()
+    {
+        if (!m_Context || !m_SceneEditable) return 0;
+        size_t count = ClearEditorFlag(*m_Context, false);
+        if (count) MarkModified();
+        return count;
+    }
+
+    size_t SceneHierarchyPanel::UnlockAll()
+    {
+        if (!m_Context || !m_SceneEditable) return 0;
+        size_t count = ClearEditorFlag(*m_Context, true);
+        if (count) MarkModified();
+        return count;
+    }
+
+    void SceneHierarchyPanel::DrawRowToggles(Entity entity, const ImVec2& rowMin, const ImVec2& rowMax)
+    {
+        const float size = rowMax.y - rowMin.y;
+        const ImVec2 restore = ImGui::GetCursorScreenPos();
+        const bool rowHovered = ImGui::IsMouseHoveringRect(ImVec2(m_GutterX, rowMin.y), rowMax) && ImGui::IsWindowHovered();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+
+        // One column each: eye (hidden in the scene view), lock (not pickable in the viewport).
+        // Own flag: bright icon; inherited from a parent: faint icon; off: shown on hover only.
+        auto toggle = [&](const char* id, float x, bool self, bool inherited, const char* onIcon, const char* offIcon,
+                          const ImVec4& onColor, const char* tip) {
+            ImGui::SetCursorScreenPos(ImVec2(x, rowMin.y));
+            bool clicked = ImGui::InvisibleButton(id, ImVec2(size, size)) && m_SceneEditable;
+            bool hovered = ImGui::IsItemHovered();
+            const bool on = self || inherited;
+            float alpha = self ? 1.0f : inherited ? 0.4f : hovered ? 0.85f : rowHovered ? 0.3f : 0.0f;
+            if (hovered && !self && inherited) alpha = 0.7f;
+            if (alpha > 0.0f)
+            {
+                ImVec4 c = on ? onColor : ImGui::GetStyleColorVec4(ImGuiCol_Text);
+                c.w *= alpha * (m_SceneEditable ? 1.0f : 0.6f);
+                const char* icon = on ? onIcon : offIcon;
+                ImVec2 ts = ImGui::CalcTextSize(icon);
+                dl->AddText(ImVec2(x + (size - ts.x) * 0.5f, rowMin.y + (size - ts.y) * 0.5f), ImGui::GetColorU32(c), icon);
+            }
+            if (hovered)
+                UI::Tooltip(tip);
+            return clicked;
+        };
+
+        const bool selfHidden = m_Context->IsHiddenInEditor(entity, false);
+        const bool inheritedHidden = !selfHidden && m_Context->IsHiddenInEditor(entity, true);
+        const char* hideTip = selfHidden ? "Yashirilgan: editor sahnasida chizilmaydi (o'yinda ko'rinadi). Bosing: ko'rsatish  (H)"
+                            : inheritedHidden ? "Ota obyekt yashirilgan - u bilan birga yashirin. Bosing: buni ham yashirish"
+                            : "Editor sahnasida yashirish  (H)";
+        if (toggle("##eye", m_GutterX, selfHidden, inheritedHidden, ICON_FA_EYE_SLASH, ICON_FA_EYE,
+                   ImGui::GetStyleColorVec4(ImGuiCol_Text), hideTip))
+            SetFlagFromRow(entity, false, !selfHidden);
+
+        const bool selfLocked = m_Context->IsLockedInEditor(entity, false);
+        const bool inheritedLocked = !selfLocked && m_Context->IsLockedInEditor(entity, true);
+        const char* lockTip = selfLocked ? "Qulflangan: viewport'da tanlanmaydi va gizmo bilan surilmaydi. Bosing: qulfni ochish"
+                            : inheritedLocked ? "Ota obyekt qulflangan - u bilan birga qulflangan. Bosing: buni ham qulflash"
+                            : "Qulflash: viewport'da tanlanmaydi va surilmaydi (ierarxiya va inspektorda tahrirlash mumkin)";
+        if (toggle("##lock", m_GutterX + size, selfLocked, inheritedLocked, ICON_FA_LOCK, ICON_FA_LOCK_OPEN,
+                   ImVec4(0.96f, 0.72f, 0.32f, 1.0f), lockTip))
+            SetFlagFromRow(entity, true, !selfLocked);
+
+        ImGui::SetCursorScreenPos(restore);
     }
 
     void SceneHierarchyPanel::OnImGuiRender(bool* showHierarchy, bool* showInspector)
@@ -402,6 +536,16 @@ namespace Zamin {
         if (ImGui::MenuItem(ICON_FA_BOX "  Prefab sifatida saqlash") && OnSavePrefabRequested)
             OnSavePrefabRequested(entity);
         ImGui::Separator();
+        {
+            // Applied to the whole selection (SetFlagFromRow), like the row buttons.
+            const bool hidden = m_Context->IsHiddenInEditor(entity, false);
+            const bool locked = m_Context->IsLockedInEditor(entity, false);
+            if (ImGui::MenuItem(hidden ? ICON_FA_EYE "  Ko'rsatish" : ICON_FA_EYE_SLASH "  Yashirish (editorda)", "H", false, m_SceneEditable))
+                SetFlagFromRow(entity, false, !hidden);
+            if (ImGui::MenuItem(locked ? ICON_FA_LOCK_OPEN "  Qulfni ochish" : ICON_FA_LOCK "  Qulflash (viewport'da)", nullptr, false, m_SceneEditable))
+                SetFlagFromRow(entity, true, !locked);
+        }
+        ImGui::Separator();
         if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A")) SelectAll();
         std::string deleteLabel = count > 1 ? std::format(ICON_FA_TRASH "  O'chirish ({} ta)", count) : std::string(ICON_FA_TRASH "  O'chirish");
         if (ImGui::MenuItem(deleteLabel.c_str(), "Delete")) m_PendingDelete = true;
@@ -416,14 +560,15 @@ namespace Zamin {
         bool hasChildren = !children.empty() && m_Filter.empty();
         bool selected = IsSelected(entity);
         bool primary = selected && GetSelectedEntity() == entity;
+        bool hiddenInView = m_Context->IsHiddenInEditor(entity);
 
         ImGui::PushID((int)(uint32_t)handle);
         m_VisibleRows.push_back(entity);
 
         ImVec2 min = ImGui::GetCursorScreenPos();
         ImVec2 max = ImVec2(min.x + ImGui::GetContentRegionAvail().x, min.y + ImGui::GetFrameHeight());
-        if (m_RowIndex++ % 2 == 1)
-            ImGui::GetWindowDrawList()->AddRectFilled(min, max, IM_COL32(255, 255, 255, 6));
+        if (m_RowIndex++ % 2 == 1) // the stripe covers the eye / lock column too
+            ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(m_GutterX, min.y), max, IM_COL32(255, 255, 255, 6));
 
         if (m_RenamingEntity == handle)
         {
@@ -455,11 +600,16 @@ namespace Zamin {
             ImGui::PushStyleColor(ImGuiCol_HeaderHovered, primary ? ImVec4(0.14f, 0.58f, 0.46f, 0.85f) : ImVec4(0.14f, 0.58f, 0.46f, 0.55f));
         }
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
+        if (hiddenInView) // hidden in the scene view: a faint label
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
         std::string label = std::string(EntityIcon(entity)) + "  " + tag;
         bool open = ImGui::TreeNodeEx("##node", flags, "%s", label.c_str());
+        if (hiddenInView)
+            ImGui::PopStyleColor();
         ImGui::PopStyleVar();
         if (selected)
             ImGui::PopStyleColor(2);
+        const ImVec2 rowMin = ImGui::GetItemRectMin(), rowMax = ImGui::GetItemRectMax();
 
         // Selection: plain click = only this row, Ctrl = toggle, Shift = range from the anchor.
         // Pressing a row of a multi-selection may start dragging all of it, so a plain click
@@ -497,6 +647,7 @@ namespace Zamin {
         DrawRowDropTarget(entity, open, hasChildren);
 
         DrawEntityContextMenu(entity);
+        DrawRowToggles(entity, rowMin, rowMax);
 
         if (open)
         {
@@ -660,6 +811,30 @@ namespace Zamin {
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Tanlangan obyektlar soni (Ctrl+bosish: qo'shish/olib tashlash, Shift+bosish: oraliq)");
         }
+        // Hidden / locked counters: a click shows / unlocks everything again.
+        if (size_t hiddenCount = m_Context->CountHiddenInEditor())
+        {
+            ImGui::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+            std::string text = std::format(ICON_FA_EYE_SLASH " {}##showAll", hiddenCount);
+            if (ImGui::SmallButton(text.c_str()) && m_SceneEditable)
+                ShowAll();
+            ImGui::PopStyleColor();
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(std::format("{} ta obyekt editorda yashirilgan. Bosing: hammasini ko'rsatish (Alt+H)", hiddenCount).c_str());
+        }
+        if (size_t lockedCount = m_Context->CountLockedInEditor())
+        {
+            ImGui::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.96f, 0.72f, 0.32f, 1.0f));
+            std::string text = std::format(ICON_FA_LOCK " {}##unlockAll", lockedCount);
+            if (ImGui::SmallButton(text.c_str()) && m_SceneEditable)
+                UnlockAll();
+            ImGui::PopStyleColor(2);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(std::format("{} ta obyekt qulflangan. Bosing: hamma qulflarni ochish", lockedCount).c_str());
+        }
         ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - ImGui::GetFrameHeight());
         if (UI::ToolbarButton(ICON_FA_PLUS, "Obyekt yaratish", false, ImVec2(ImGui::GetFrameHeight(), 0)))
             ImGui::OpenPopup("CreateEntityPopup");
@@ -681,6 +856,10 @@ namespace Zamin {
         ImGui::BeginChild("##entities", ImVec2(0, 0), ImGuiChildFlags_None);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
         ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 14.0f);
+        // Eye / lock column on the left of every row (the tree starts after it).
+        m_GutterX = ImGui::GetCursorScreenPos().x;
+        const float gutterWidth = ImGui::GetFrameHeight() * 2.0f + 2.0f;
+        ImGui::Indent(gutterWidth);
         for (Entity entity : m_Context->GetEntitiesInOrder())
         {
             if (filter.empty())
@@ -692,6 +871,7 @@ namespace Zamin {
                 continue;
             DrawEntityNode(entity, 0);
         }
+        ImGui::Unindent(gutterWidth);
         ImGui::PopStyleVar(2);
 
         // Empty area: drop to un-parent (to the end of the root list) / instantiate prefabs;
@@ -715,6 +895,11 @@ namespace Zamin {
         if (ImGui::BeginPopupContextItem("HierarchyContext"))
         {
             DrawCreateMenu();
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_EYE "  Hammasini ko'rsatish", "Alt+H", false, m_SceneEditable && m_Context->CountHiddenInEditor() > 0))
+                ShowAll();
+            if (ImGui::MenuItem(ICON_FA_LOCK_OPEN "  Hamma qulflarni ochish", nullptr, false, m_SceneEditable && m_Context->CountLockedInEditor() > 0))
+                UnlockAll();
             ImGui::EndPopup();
         }
 
@@ -799,18 +984,203 @@ namespace Zamin {
         DrawComponents(primary);
     }
 
+    // Header names of the components (also used by the clipboard / move menu items).
+    static const char* ComponentDisplayName(std::string_view key)
+    {
+        static const std::pair<std::string_view, const char*> s_Names[] = {
+            { "Transform", "Transform" }, { "Tags", "Teglar" }, { "Camera", "Camera" },
+            { "SpriteRenderer", "Sprite Renderer" }, { "SpriteAnimation", "Sprite Animation" },
+            { "CircleRenderer", "Circle Renderer" }, { "Text", "Text" }, { "MeshRenderer", "Mesh Renderer" },
+            { "Animator", "Animator" }, { "DirectionalLight", "Directional Light" }, { "PointLight", "Point Light" },
+            { "Rigidbody2D", "Rigidbody 2D" }, { "BoxCollider2D", "Box Collider 2D" }, { "CircleCollider2D", "Circle Collider 2D" },
+            { "Rigidbody3D", "Rigidbody 3D" }, { "BoxCollider3D", "Box Collider 3D" }, { "SphereCollider3D", "Sphere Collider 3D" },
+            { "CapsuleCollider3D", "Capsule Collider 3D" }, { "CharacterController3D", "Character Controller 3D" },
+            { "Tilemap", "Tilemap" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
+            { "UIButton", "UI Button" }, { "AudioSource", "Audio Source" }, { "NativeScript", "C++ Skript" },
+        };
+        for (const auto& [k, name] : s_Names)
+            if (k == key)
+                return name;
+        return "Komponent";
+    }
+
+    std::string SceneHierarchyPanel::FoldKey(Entity entity, std::string_view key)
+    {
+        // Every script class keeps its own state (a big PlayerController can stay folded).
+        if (key == ComponentKey<NativeScriptComponent>())
+            if (const auto* c = entity.TryGetComponent<NativeScriptComponent>(); c && !c->ClassName.empty())
+                return std::string(key) + ":" + c->ClassName;
+        return std::string(key);
+    }
+
+    std::vector<Entity> SceneHierarchyPanel::GetMenuTargets(Entity entity) const
+    {
+        std::vector<Entity> targets;
+        if (IsSelected(entity))
+            for (Entity e : m_Selection.GetEntities())
+                if (e && e.GetScene() == m_Context.get())
+                    targets.push_back(e);
+        if (targets.empty())
+            targets.push_back(entity);
+        return targets;
+    }
+
+    void SceneHierarchyPanel::RefreshComponentClipboard()
+    {
+        // The system clipboard first (copied in another editor window), then our own copy.
+        m_PasteText.clear();
+        m_PasteKey.clear();
+        const char* text = ImGui::GetClipboardText();
+        std::string key = text ? SceneSerializer::GetSerializedComponentKey(text) : std::string();
+        if (!key.empty())
+        {
+            m_PasteText = text;
+            m_PasteKey = std::move(key);
+            return;
+        }
+        key = SceneSerializer::GetSerializedComponentKey(m_ComponentClipboard);
+        if (!key.empty())
+        {
+            m_PasteText = m_ComponentClipboard;
+            m_PasteKey = std::move(key);
+        }
+    }
+
+    size_t SceneHierarchyPanel::PasteComponent(Entity entity, bool addMissing)
+    {
+        if (m_PasteText.empty() || m_PasteKey.empty() || !m_SceneEditable || !entity)
+            return 0;
+        size_t count = 0;
+        for (Entity e : GetMenuTargets(entity))
+        {
+            if (!addMissing && !ComponentRegistry::Has(e, m_PasteKey))
+                continue;
+            if (SceneSerializer::DeserializeComponent(m_PasteText, e))
+            {
+                m_Context->ResolveEntityAssets(e); // textures / meshes / fonts of the pasted values
+                count++;
+            }
+        }
+        if (count)
+        {
+            MarkModified();
+            ZM_INFO("Komponent joylandi: {} ({} ta obyekt)", ComponentDisplayName(m_PasteKey), count);
+        }
+        else
+            ZM_WARN("Komponentni joylab bo'lmadi: {}", ComponentDisplayName(m_PasteKey));
+        return count;
+    }
+
+    bool SceneHierarchyPanel::DrawComponentMenuItems(Entity entity, std::string_view key)
+    {
+        bool changed = false;
+        if (ImGui::IsWindowAppearing()) // read the clipboard once per opening
+            RefreshComponentClipboard();
+        const char* display = ComponentDisplayName(key);
+
+        // ---- copy / paste values
+        if (ImGui::MenuItem(ICON_FA_COPY "  Komponentni nusxalash"))
+        {
+            m_ComponentClipboard = SceneSerializer::SerializeComponent(entity, key);
+            if (!m_ComponentClipboard.empty())
+            {
+                ImGui::SetClipboardText(m_ComponentClipboard.c_str());
+                m_PasteText = m_ComponentClipboard;
+                m_PasteKey = std::string(key);
+                ZM_INFO("Komponent nusxalandi: {} ({})", display, entity.GetName());
+            }
+        }
+        size_t withComponent = 0;
+        for (Entity e : GetMenuTargets(entity))
+            withComponent += ComponentRegistry::Has(e, key) ? 1 : 0;
+        const bool sameType = m_PasteKey == key;
+        std::string pasteLabel = withComponent > 1 ? std::format(ICON_FA_PASTE "  Qiymatlarni joylash ({} ta obyekt)", withComponent)
+                                                   : std::string(ICON_FA_PASTE "  Qiymatlarni joylash");
+        if (ImGui::MenuItem(pasteLabel.c_str(), nullptr, false, sameType && m_SceneEditable))
+            changed |= PasteComponent(entity, false) > 0;
+        if (m_PasteKey.empty())
+            ImGui::TextDisabled("      Bufer bo'sh");
+        else if (!sameType)
+            ImGui::TextDisabled("      Buferda boshqa komponent: %s", ComponentDisplayName(m_PasteKey));
+        else if (!m_SceneEditable)
+            ImGui::TextDisabled("      O'yin davomida joylab bo'lmaydi");
+
+        // ---- order (Transform stays on top)
+        ImGui::Separator();
+        auto it = std::find(m_SectionOrder.begin(), m_SectionOrder.end(), key);
+        const int index = it == m_SectionOrder.end() ? -1 : (int)(it - m_SectionOrder.begin());
+        const int first = !m_SectionOrder.empty() && m_SectionOrder.front() == ComponentKey<TransformComponent>() ? 1 : 0;
+        const int last = (int)m_SectionOrder.size() - 1;
+        const bool canMove = m_SceneEditable && index >= first;
+        if (ImGui::MenuItem(ICON_FA_ARROW_UP "  Yuqoriga ko'chirish", nullptr, false, canMove && index > first))
+            m_PendingMove = { std::string(key), {}, false, index - 1 };
+        if (ImGui::MenuItem(ICON_FA_ARROW_DOWN "  Pastga ko'chirish", nullptr, false, canMove && index < last))
+            m_PendingMove = { std::string(key), {}, false, index + 1 };
+        if (ImGui::MenuItem(ICON_FA_ANGLES_UP "  Eng yuqoriga", nullptr, false, canMove && index > first))
+            m_PendingMove = { std::string(key), {}, false, first };
+        if (ImGui::MenuItem(ICON_FA_ANGLES_DOWN "  Eng pastga", nullptr, false, canMove && index < last))
+            m_PendingMove = { std::string(key), {}, false, -1 };
+        return changed;
+    }
+
+    void SceneHierarchyPanel::DrawSectionDragDrop(std::string_view key)
+    {
+        // Drag a header onto another one: upper half = before it, lower half = after it.
+        const bool isTransform = key == ComponentKey<TransformComponent>();
+        if (!m_SceneEditable)
+            return;
+        if (!isTransform && ImGui::BeginDragDropSource())
+        {
+            std::string k(key);
+            ImGui::SetDragDropPayload("INSPECTOR_COMPONENT", k.c_str(), k.size() + 1);
+            ImGui::Text(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT "  %s", ComponentDisplayName(key));
+            ImGui::EndDragDropSource();
+        }
+        if (ImGui::BeginDragDropTarget())
+        {
+            const ImGuiPayload* active = ImGui::GetDragDropPayload();
+            if (active && active->IsDataType("INSPECTOR_COMPONENT") && std::string_view((const char*)active->Data) != key)
+            {
+                const ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();
+                const bool after = isTransform || ImGui::GetMousePos().y > (min.y + max.y) * 0.5f;
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("INSPECTOR_COMPONENT",
+                        ImGuiDragDropFlags_AcceptBeforeDelivery | ImGuiDragDropFlags_AcceptNoDrawDefaultRect))
+                {
+                    const float y = after ? max.y + 1.0f : min.y - 1.0f;
+                    ImDrawList* dl = ImGui::GetWindowDrawList();
+                    dl->AddLine(ImVec2(min.x, y), ImVec2(max.x, y), UI::AccentU32(), 2.5f);
+                    dl->AddCircleFilled(ImVec2(min.x + 3.0f, y), 3.5f, UI::AccentU32());
+                    if (payload->IsDelivery())
+                        m_PendingMove = { std::string((const char*)payload->Data), std::string(key), after, -1 };
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+    }
+
+    // Queues the component's inspector section; sections are drawn later in the entity's order.
     // settingsMenu (optional): extra items of the component's menu (gear button / right-click
     // on the header); returns true when it changed something.
     template<typename T, typename UIFunction>
-    static void DrawComponent(const char* icon, const std::string& name, Entity entity, UIFunction uiFunction,
-                              bool removable, bool& modified, const std::function<bool(T&)>& settingsMenu = {})
+    void SceneHierarchyPanel::AddSection(const char* icon, const std::string& name, Entity entity, UIFunction uiFunction,
+                                         bool removable, bool& modified, const std::function<bool(T&)>& settingsMenu)
+    {
+        if (!entity.HasComponent<T>())
+            return;
+        m_Sections.push_back({ ComponentKey<T>(), [this, icon, name, entity, uiFunction, removable, &modified, settingsMenu]() mutable {
+            DrawSection<T>(icon, name, entity, uiFunction, removable, modified, settingsMenu);
+        } });
+    }
+
+    template<typename T, typename UIFunction>
+    void SceneHierarchyPanel::DrawSection(const char* icon, const std::string& name, Entity entity, UIFunction& uiFunction,
+                                          bool removable, bool& modified, const std::function<bool(T&)>& settingsMenu)
     {
         const ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth
             | ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_FramePadding;
-        if (!entity.HasComponent<T>())
+        if (!entity.IsValid() || !entity.HasComponent<T>()) // removed by an earlier section (script callbacks)
             return;
-
-        auto& component = entity.GetComponent<T>();
+        constexpr std::string_view key = ComponentKey<T>();
         ImVec2 available = ImGui::GetContentRegionAvail();
 
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 6));
@@ -819,50 +1189,69 @@ namespace Zamin {
         ImGui::Spacing();
         ImGui::PushFont(ImGuiLayer::GetBoldFont());
         std::string title = std::string(icon) + "   " + name;
+        // Open / collapsed is remembered per component type (scripts per class), for every
+        // entity and the next session (editor-view.json).
+        const std::string foldKey = FoldKey(entity, key);
+        const bool wasOpen = m_FoldState ? m_FoldState->IsOpen(foldKey, true) : true;
+        if (m_FoldState)
+            ImGui::SetNextItemOpen(wasOpen, ImGuiCond_Always);
         bool open = ImGui::TreeNodeEx((void*)typeid(T).hash_code(), flags, "%s", title.c_str());
         ImGui::PopFont();
         ImGui::PopStyleColor();
         ImGui::PopStyleVar();
+        if (m_FoldState && open != wasOpen && m_FoldState->SetOpen(foldKey, open, true) && OnFoldStateModified)
+            OnFoldStateModified();
+        DrawSectionDragDrop(key);
 
+        // Menu (gear button / right-click on the header): the component's own items, then copy /
+        // paste values and move up / down, then remove.
         bool removeComponent = false;
-        if (removable || settingsMenu)
+        const std::string popupId = "ComponentSettings##" + std::string(key); // collapsed headers share one ID scope
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+            ImGui::OpenPopup(popupId.c_str());
+        ImGui::SameLine(available.x - lineHeight * 0.75f);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+        if (ImGui::Button(ICON_FA_GEAR, ImVec2(lineHeight, lineHeight)))
+            ImGui::OpenPopup(popupId.c_str());
+        ImGui::PopStyleColor();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Komponent menyusi: nusxalash / joylash, tartib, olib tashlash (sarlavhani sudrab ham tartiblash mumkin)");
+        if (ImGui::BeginPopup(popupId.c_str()))
         {
-            // Unique per component: collapsed headers share one ID scope.
-            const std::string popupId = "ComponentSettings##" + name;
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
-                ImGui::OpenPopup(popupId.c_str());
-            ImGui::SameLine(available.x - lineHeight * 0.75f);
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-            if (ImGui::Button(ICON_FA_GEAR, ImVec2(lineHeight, lineHeight)))
-                ImGui::OpenPopup(popupId.c_str());
-            ImGui::PopStyleColor();
-            if (ImGui::BeginPopup(popupId.c_str()))
+            if (settingsMenu && settingsMenu(entity.GetComponent<T>()))
+                modified = true;
+            if (key != ComponentKey<TransformComponent>()) // Transform copies / pastes with its own menu
             {
-                if (settingsMenu && settingsMenu(component))
+                if (settingsMenu) ImGui::Separator();
+                if (DrawComponentMenuItems(entity, key))
                     modified = true;
-                if (removable)
-                {
-                    if (settingsMenu) ImGui::Separator();
-                    if (ImGui::MenuItem(ICON_FA_TRASH "  Komponentni olib tashlash"))
-                        removeComponent = true;
-                }
-                ImGui::EndPopup();
             }
+            if (removable)
+            {
+                ImGui::Separator();
+                if (ImGui::MenuItem(ICON_FA_TRASH "  Komponentni olib tashlash"))
+                    removeComponent = true;
+            }
+            ImGui::EndPopup();
         }
 
         if (open)
         {
-            ImGui::Indent(4.0f);
-            if (UI::BeginPropertyGrid(name.c_str()))
+            // Looked up again: a paste onto the other selected entities may have moved the pool.
+            if (entity.IsValid() && entity.HasComponent<T>())
             {
-                modified |= uiFunction(component);
-                UI::EndPropertyGrid();
+                ImGui::Indent(4.0f);
+                if (UI::BeginPropertyGrid(name.c_str()))
+                {
+                    modified |= uiFunction(entity.GetComponent<T>());
+                    UI::EndPropertyGrid();
+                }
+                ImGui::Unindent(4.0f);
             }
-            ImGui::Unindent(4.0f);
             ImGui::TreePop();
         }
 
-        if (removeComponent)
+        if (removeComponent && entity.IsValid() && entity.HasComponent<T>())
         {
             entity.RemoveComponent<T>();
             modified = true;
@@ -1318,10 +1707,10 @@ namespace Zamin {
         return changed;
     }
 
-    void SceneHierarchyPanel::DrawScriptComponent(Entity entity)
+    void SceneHierarchyPanel::DrawScriptComponent(Entity entity, bool& modified)
     {
-        bool modified = false;
-        DrawComponent<NativeScriptComponent>(ICON_FA_CODE, "C++ Skript", entity, [&](NativeScriptComponent& c) {
+        // Drawn after this function returns (AddSection): captures by value only.
+        AddSection<NativeScriptComponent>(ICON_FA_CODE, "C++ Skript", entity, [this, entity](NativeScriptComponent& c) {
             bool changed = false;
             const auto& all = ScriptRegistry::GetAll();
 
@@ -1429,14 +1818,14 @@ namespace Zamin {
             }
             return changed;
         }, true, modified);
-        if (modified) MarkModified();
     }
 
-    static bool DrawAnimatorStateMachine(AnimatorComponent& c, const Ref<Model>& model)
+    static bool DrawAnimatorStateMachine(AnimatorComponent& c, const Ref<Model>& model, bool* isOpen)
     {
         bool changed = false;
         ImGui::PushID("asm");
-        if (!ImGui::CollapsingHeader(ICON_FA_DIAGRAM_PROJECT "  Animator holat mashinasi"))
+        *isOpen = ImGui::CollapsingHeader(ICON_FA_DIAGRAM_PROJECT "  Animator holat mashinasi");
+        if (!*isOpen)
         {
             ImGui::PopID();
             return false;
@@ -1599,12 +1988,32 @@ namespace Zamin {
             ImGui::TextUnformatted(EntityIcon(entity));
             ImGui::PopFont();
             ImGui::SameLine();
-            float addWidth = ImGui::CalcTextSize(ICON_FA_PLUS "  Komponent").x + ImGui::GetStyle().FramePadding.x * 2;
-            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - addWidth - ImGui::GetStyle().ItemSpacing.x);
+            const ImGuiStyle& style = ImGui::GetStyle();
+            float addWidth = ImGui::CalcTextSize(ICON_FA_PLUS "  Komponent").x + style.FramePadding.x * 2;
+            float foldWidth = ImGui::GetFrameHeight();
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - addWidth - foldWidth - style.ItemSpacing.x * 2);
             if (ImGui::InputText("##Tag", &tag))
             {
                 entity.GetScene()->InvalidateNameCache(); // edited in place (FindEntity cache)
                 modified = true;
+            }
+
+            // Collapse / expand every component header at once (remembered like single clicks).
+            ImGui::SameLine();
+            {
+                std::vector<std::string> keys = ComponentRegistry::GetKeys(entity);
+                bool anyOpen = false;
+                for (const auto& key : keys)
+                    anyOpen |= !m_FoldState || m_FoldState->IsOpen(FoldKey(entity, key), true);
+                if (UI::ToolbarButton(anyOpen ? ICON_FA_SQUARE_MINUS : ICON_FA_SQUARE_PLUS,
+                                      anyOpen ? "Hamma komponentlarni yig'ish" : "Hamma komponentlarni ochish", false, ImVec2(foldWidth, 0)) && m_FoldState)
+                {
+                    bool changed = false;
+                    for (const auto& key : keys)
+                        changed |= m_FoldState->SetOpen(FoldKey(entity, key), !anyOpen, true);
+                    if (changed && OnFoldStateModified)
+                        OnFoldStateModified();
+                }
             }
             ImGui::SameLine();
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.52f, 0.41f, 1.0f));
@@ -1618,6 +2027,24 @@ namespace Zamin {
 
             if (ImGui::BeginPopup("AddComponent"))
             {
+                // A copied component (with its values) can be added to the selection directly.
+                if (ImGui::IsWindowAppearing())
+                    RefreshComponentClipboard();
+                if (!m_PasteKey.empty())
+                {
+                    size_t targets = GetMenuTargets(entity).size();
+                    std::string label = targets > 1 ? std::format(ICON_FA_PASTE "  Buferdan joylash: {} ({} ta obyekt)", ComponentDisplayName(m_PasteKey), targets)
+                                                    : std::format(ICON_FA_PASTE "  Buferdan joylash: {}", ComponentDisplayName(m_PasteKey));
+                    if (ImGui::MenuItem(label.c_str(), nullptr, false, m_SceneEditable))
+                    {
+                        PasteComponent(entity, true);
+                        ImGui::CloseCurrentPopup();
+                    }
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                        UI::Tooltip(m_SceneEditable ? "Nusxalangan komponent qiymatlari bilan qo'shiladi (bor bo'lsa qiymatlari almashtiriladi)"
+                                                    : "O'yin davomida joylab bo'lmaydi");
+                    ImGui::Separator();
+                }
                 ImGui::SetNextItemWidth(220);
                 if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
                 ImGui::InputTextWithHint("##filter", ICON_FA_MAGNIFYING_GLASS "  Qidirish", &m_AddComponentFilter);
@@ -1654,10 +2081,25 @@ namespace Zamin {
                 ImGui::EndPopup();
             }
             ImGui::TextDisabled("ID: %llu", (unsigned long long)(uint64_t)entity.GetUUID());
+            // Why the viewport ignores it: the hierarchy's eye / lock (own or a parent's).
+            if (entity.GetScene()->IsHiddenInEditor(entity))
+            {
+                ImGui::SameLine();
+                ImGui::TextDisabled("  " ICON_FA_EYE_SLASH " yashirin");
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Editor sahnasida chizilmaydi (o'yinda ko'rinadi). Ierarxiyadagi ko'z tugmasi yoki H");
+            }
+            if (entity.GetScene()->IsLockedInEditor(entity))
+            {
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.96f, 0.72f, 0.32f, 1.0f), "  " ICON_FA_LOCK " qulflangan");
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Viewport'da tanlanmaydi va gizmo bilan surilmaydi; bu yerda tahrirlash mumkin");
+            }
         }
 
         // ---- transform
-        DrawComponent<TransformComponent>(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT, "Transform", entity, [](TransformComponent& c) {
+        AddSection<TransformComponent>(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT, "Transform", entity, [](TransformComponent& c) {
             bool changed = UI::Vec3Control("Pozitsiya", c.Translation);
             glm::vec3 rotation = glm::degrees(c.Rotation);
             if (UI::Vec3Control("Aylanish", rotation, 0.0f, 0.5f))
@@ -1669,11 +2111,11 @@ namespace Zamin {
             return changed;
         }, false, modified, [&](TransformComponent&) { return DrawTransformMenu(entity); });
 
-        DrawComponent<TagsComponent>(ICON_FA_TAGS, "Teglar", entity, [&](TagsComponent& c) {
+        AddSection<TagsComponent>(ICON_FA_TAGS, "Teglar", entity, [&](TagsComponent& c) {
             return DrawTagsComponent(c);
         }, true, modified);
 
-        DrawComponent<CameraComponent>(ICON_FA_CAMERA, "Camera", entity, [](CameraComponent& c) {
+        AddSection<CameraComponent>(ICON_FA_CAMERA, "Camera", entity, [](CameraComponent& c) {
             bool changed = false;
             auto& camera = c.Camera;
             changed |= UI::PropertyBool("Asosiy (Primary)", c.Primary);
@@ -1708,7 +2150,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        DrawComponent<SpriteRendererComponent>(ICON_FA_IMAGE, "Sprite Renderer", entity, [](SpriteRendererComponent& c) {
+        AddSection<SpriteRendererComponent>(ICON_FA_IMAGE, "Sprite Renderer", entity, [](SpriteRendererComponent& c) {
             bool changed = UI::PropertyColor4("Rang", c.Color);
             if (UI::PropertyAssetPath("Tekstura", c.TexturePath, ".png;.jpg;.jpeg;.bmp;.tga", ICON_FA_FILE_IMAGE))
             {
@@ -1729,7 +2171,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        DrawComponent<SpriteAnimationComponent>(ICON_FA_FILM, "Sprite Animation", entity, [](SpriteAnimationComponent& c) {
+        AddSection<SpriteAnimationComponent>(ICON_FA_FILM, "Sprite Animation", entity, [](SpriteAnimationComponent& c) {
             bool changed = UI::PropertyInt("Ustunlar", c.Columns);
             changed |= UI::PropertyInt("Qatorlar", c.Rows);
             changed |= UI::PropertyInt("Boshlang'ich kadr", c.StartFrame);
@@ -1744,7 +2186,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        DrawComponent<CircleRendererComponent>(ICON_FA_CIRCLE, "Circle Renderer", entity, [](CircleRendererComponent& c) {
+        AddSection<CircleRendererComponent>(ICON_FA_CIRCLE, "Circle Renderer", entity, [](CircleRendererComponent& c) {
             bool changed = UI::PropertyColor4("Rang", c.Color);
             changed |= UI::PropertySlider("Qalinlik", c.Thickness, 0.0f, 1.0f);
             changed |= UI::PropertyFloat("Yumshoqlik", c.Fade, 0.00025f, 0.0f, 1.0f);
@@ -1752,7 +2194,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        DrawComponent<TextComponent>(ICON_FA_FONT, "Text", entity, [](TextComponent& c) {
+        AddSection<TextComponent>(ICON_FA_FONT, "Text", entity, [](TextComponent& c) {
             bool changed = UI::PropertyString("Matn", c.Text, true);
             changed |= UI::PropertyColor4("Rang", c.Color);
             changed |= UI::PropertyFloat("Harf oralig'i", c.Kerning, 0.005f);
@@ -1766,7 +2208,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        DrawComponent<MeshRendererComponent>(ICON_FA_CUBE, "Mesh Renderer", entity, [](MeshRendererComponent& c) {
+        AddSection<MeshRendererComponent>(ICON_FA_CUBE, "Mesh Renderer", entity, [](MeshRendererComponent& c) {
             bool changed = false;
             const char* meshes[] = { "Kub", "Shar", "Tekislik", "Silindr", "Konus", "Model (glTF / OBJ)" };
             int type = (int)c.Type;
@@ -1814,7 +2256,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        DrawComponent<AnimatorComponent>(ICON_FA_PERSON_RUNNING, "Animator", entity, [&](AnimatorComponent& c) {
+        AddSection<AnimatorComponent>(ICON_FA_PERSON_RUNNING, "Animator", entity, [&](AnimatorComponent& c) {
             bool changed = false;
             auto* mr = entity.TryGetComponent<MeshRendererComponent>();
             Ref<Model> model = mr ? mr->ModelAsset : nullptr;
@@ -1839,27 +2281,36 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        if (auto* anim = entity.TryGetComponent<AnimatorComponent>())
-        {
-            auto* mr = entity.TryGetComponent<MeshRendererComponent>();
-            modified |= DrawAnimatorStateMachine(*anim, mr ? mr->ModelAsset : nullptr);
-        }
+        if (entity.HasComponent<AnimatorComponent>()) // right below the Animator header, wherever it is
+            m_Sections.push_back({ ComponentKey<AnimatorComponent>(), [&]() {
+                auto* anim = entity.IsValid() ? entity.TryGetComponent<AnimatorComponent>() : nullptr;
+                if (!anim) return;
+                auto* mr = entity.TryGetComponent<MeshRendererComponent>();
+                const char* foldKey = "Animator.StateMachine";
+                const bool wasOpen = m_FoldState ? m_FoldState->IsOpen(foldKey, false) : false;
+                if (m_FoldState)
+                    ImGui::SetNextItemOpen(wasOpen, ImGuiCond_Always);
+                bool open = wasOpen;
+                modified |= DrawAnimatorStateMachine(*anim, mr ? mr->ModelAsset : nullptr, &open);
+                if (m_FoldState && open != wasOpen && m_FoldState->SetOpen(foldKey, open, false) && OnFoldStateModified)
+                    OnFoldStateModified();
+            } });
 
-        DrawComponent<DirectionalLightComponent>(ICON_FA_SUN, "Directional Light", entity, [](DirectionalLightComponent& c) {
+        AddSection<DirectionalLightComponent>(ICON_FA_SUN, "Directional Light", entity, [](DirectionalLightComponent& c) {
             bool changed = UI::PropertyColor3("Rang", c.Color);
             changed |= UI::PropertyFloat("Kuch", c.Intensity, 0.05f, 0.0f, 100.0f);
             changed |= UI::PropertyBool("Soyalar", c.CastShadows);
             return changed;
         }, true, modified);
 
-        DrawComponent<PointLightComponent>(ICON_FA_LIGHTBULB, "Point Light", entity, [](PointLightComponent& c) {
+        AddSection<PointLightComponent>(ICON_FA_LIGHTBULB, "Point Light", entity, [](PointLightComponent& c) {
             bool changed = UI::PropertyColor3("Rang", c.Color);
             changed |= UI::PropertyFloat("Kuch", c.Intensity, 0.05f, 0.0f, 1000.0f);
             changed |= UI::PropertyFloat("Radius", c.Radius, 0.05f, 0.0f, 1000.0f);
             return changed;
         }, true, modified);
 
-        DrawComponent<Rigidbody2DComponent>(ICON_FA_ATOM, "Rigidbody 2D", entity, [](Rigidbody2DComponent& c) {
+        AddSection<Rigidbody2DComponent>(ICON_FA_ATOM, "Rigidbody 2D", entity, [](Rigidbody2DComponent& c) {
             bool changed = false;
             const char* types[] = { "Statik", "Dinamik", "Kinematik" };
             int type = (int)c.Type;
@@ -1881,21 +2332,21 @@ namespace Zamin {
             return changed;
         };
 
-        DrawComponent<BoxCollider2DComponent>(ICON_FA_VECTOR_SQUARE, "Box Collider 2D", entity, [&](BoxCollider2DComponent& c) {
+        AddSection<BoxCollider2DComponent>(ICON_FA_VECTOR_SQUARE, "Box Collider 2D", entity, [&](BoxCollider2DComponent& c) {
             bool changed = UI::PropertyFloat2("Siljish", c.Offset);
             changed |= UI::PropertyFloat2("Yarim o'lcham", c.Size);
             changed |= colliderCommon(c);
             return changed;
         }, true, modified);
 
-        DrawComponent<CircleCollider2DComponent>(ICON_FA_CIRCLE_NODES, "Circle Collider 2D", entity, [&](CircleCollider2DComponent& c) {
+        AddSection<CircleCollider2DComponent>(ICON_FA_CIRCLE_NODES, "Circle Collider 2D", entity, [&](CircleCollider2DComponent& c) {
             bool changed = UI::PropertyFloat2("Siljish", c.Offset);
             changed |= UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.0f, 1000.0f);
             changed |= colliderCommon(c);
             return changed;
         }, true, modified);
 
-        DrawComponent<Rigidbody3DComponent>(ICON_FA_ATOM, "Rigidbody 3D", entity, [](Rigidbody3DComponent& c) {
+        AddSection<Rigidbody3DComponent>(ICON_FA_ATOM, "Rigidbody 3D", entity, [](Rigidbody3DComponent& c) {
             bool changed = false;
             const char* types[] = { "Statik", "Dinamik", "Kinematik" };
             int type = (int)c.Type;
@@ -1916,23 +2367,23 @@ namespace Zamin {
             return changed;
         };
 
-        DrawComponent<BoxCollider3DComponent>(ICON_FA_CUBE, "Box Collider 3D", entity, [&](BoxCollider3DComponent& c) {
+        AddSection<BoxCollider3DComponent>(ICON_FA_CUBE, "Box Collider 3D", entity, [&](BoxCollider3DComponent& c) {
             bool changed = UI::PropertyFloat3("Yarim o'lcham", c.HalfExtents);
             return collider3D(c) || changed;
         }, true, modified);
 
-        DrawComponent<SphereCollider3DComponent>(ICON_FA_CIRCLE, "Sphere Collider 3D", entity, [&](SphereCollider3DComponent& c) {
+        AddSection<SphereCollider3DComponent>(ICON_FA_CIRCLE, "Sphere Collider 3D", entity, [&](SphereCollider3DComponent& c) {
             bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.001f, 1000.0f);
             return collider3D(c) || changed;
         }, true, modified);
 
-        DrawComponent<CapsuleCollider3DComponent>(ICON_FA_CAPSULES, "Capsule Collider 3D", entity, [&](CapsuleCollider3DComponent& c) {
+        AddSection<CapsuleCollider3DComponent>(ICON_FA_CAPSULES, "Capsule Collider 3D", entity, [&](CapsuleCollider3DComponent& c) {
             bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.001f, 1000.0f);
             changed |= UI::PropertyFloat("Yarim balandlik", c.HalfHeight, 0.01f, 0.0f, 1000.0f);
             return collider3D(c) || changed;
         }, true, modified);
 
-        DrawComponent<CharacterController3DComponent>(ICON_FA_PERSON_RUNNING, "Character Controller 3D", entity, [](CharacterController3DComponent& c) {
+        AddSection<CharacterController3DComponent>(ICON_FA_PERSON_RUNNING, "Character Controller 3D", entity, [](CharacterController3DComponent& c) {
             bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.05f, 10.0f);
             changed |= UI::PropertyFloat("Balandlik", c.Height, 0.01f, 0.2f, 20.0f);
             changed |= UI::PropertySlider("Maks. qiyalik (°)", c.MaxSlope, 0.0f, 89.0f);
@@ -1945,7 +2396,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        DrawComponent<TilemapComponent>(ICON_FA_TABLE_CELLS, "Tilemap", entity, [&](TilemapComponent& c) {
+        AddSection<TilemapComponent>(ICON_FA_TABLE_CELLS, "Tilemap", entity, [&](TilemapComponent& c) {
             bool changed = false;
             if (UI::PropertyAssetPath("Tileset", c.TilesetPath, ".png;.jpg;.jpeg", ICON_FA_FILE_IMAGE)) { c.Tileset = nullptr; changed = true; }
             if (UI::PropertyBool("Pixel-art", c.PixelArt)) { c.Tileset = nullptr; changed = true; }
@@ -2008,7 +2459,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        DrawComponent<ParticleSystemComponent>(ICON_FA_WAND_MAGIC_SPARKLES, "Particle System", entity, [](ParticleSystemComponent& c) {
+        AddSection<ParticleSystemComponent>(ICON_FA_WAND_MAGIC_SPARKLES, "Particle System", entity, [](ParticleSystemComponent& c) {
             bool changed = false;
             UI::PropertyLabel("");
             if (ImGui::Button(c.Playing ? ICON_FA_PAUSE "  Pauza" : ICON_FA_PLAY "  Ijro")) { c.Playing = !c.Playing; }
@@ -2050,7 +2501,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        DrawComponent<UITransformComponent>(ICON_FA_TABLE_CELLS, "UI Transform", entity, [](UITransformComponent& c) {
+        AddSection<UITransformComponent>(ICON_FA_TABLE_CELLS, "UI Transform", entity, [](UITransformComponent& c) {
             bool changed = false;
             const char* anchors[] = { "Yuqori-chap", "Yuqori", "Yuqori-o'ng", "Chap", "Markaz", "O'ng", "Past-chap", "Past", "Past-o'ng" };
             int a = (int)c.Anchor;
@@ -2062,7 +2513,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        DrawComponent<UIButtonComponent>(ICON_FA_HAND_POINTER, "UI Button", entity, [](UIButtonComponent& c) {
+        AddSection<UIButtonComponent>(ICON_FA_HAND_POINTER, "UI Button", entity, [](UIButtonComponent& c) {
             bool changed = UI::PropertyColor4("Oddiy", c.NormalColor);
             changed |= UI::PropertyColor4("Ustida (hover)", c.HoverColor);
             changed |= UI::PropertyColor4("Bosilgan", c.PressedColor);
@@ -2072,7 +2523,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        DrawComponent<AudioSourceComponent>(ICON_FA_VOLUME_HIGH, "Audio Source", entity, [](AudioSourceComponent& c) {
+        AddSection<AudioSourceComponent>(ICON_FA_VOLUME_HIGH, "Audio Source", entity, [](AudioSourceComponent& c) {
             bool changed = UI::PropertyAssetPath("Ovoz fayli", c.Path, ".wav;.mp3;.flac;.ogg", ICON_FA_FILE_AUDIO);
             changed |= UI::PropertySlider("Balandlik", c.Volume, 0.0f, 2.0f);
             changed |= UI::PropertySlider("Ton (pitch)", c.Pitch, 0.1f, 3.0f);
@@ -2093,8 +2544,38 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
+        DrawScriptComponent(entity, modified);
+
+        // Draw the queued sections in the entity's component order (Transform first).
+        m_SectionOrder = ComponentRegistry::GetOrderedKeys(entity);
+        for (const std::string& key : m_SectionOrder)
+        {
+            for (InspectorSection& section : m_Sections)
+                if (section.Key == key && entity.IsValid())
+                    section.Draw();
+            if (!entity.IsValid()) // a script callback destroyed it
+                break;
+        }
+        m_Sections.clear();
         if (modified) MarkModified();
-        DrawScriptComponent(entity);
+
+        // Reordering (menu / header drag & drop) is applied after everything was drawn.
+        PendingMove move = std::move(m_PendingMove);
+        m_PendingMove = {};
+        if (!move.Key.empty() && entity.IsValid() && m_SceneEditable)
+        {
+            int index = move.Index;
+            if (!move.Target.empty())
+            {
+                std::vector<std::string> keys = ComponentRegistry::GetOrderedKeys(entity);
+                auto from = std::find(keys.begin(), keys.end(), move.Key), to = std::find(keys.begin(), keys.end(), move.Target);
+                index = from == keys.end() || to == keys.end() ? -2 : (int)(to - keys.begin()) + (move.After ? 1 : 0);
+                if (index >= 0 && from - keys.begin() < index)
+                    index--; // the dragged one leaves its place first
+            }
+            if (index != -2 && ComponentRegistry::MoveComponent(entity, move.Key, index))
+                MarkModified();
+        }
     }
 
 }

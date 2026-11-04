@@ -74,13 +74,35 @@ namespace Zamin {
         std::array<std::optional<EditorCameraState>, SlotCount> m_Slots;
     };
 
-    // Per-user viewport preferences of the editor: snapping, grid and the camera bookmarks of
-    // every scene (keyed by the scene file path). Stored as JSON in the editor config directory.
+    // Which inspector headers are open: per component type ("Rigidbody2D"), scripts per class
+    // ("NativeScript:PlayerController"). Collapsing a header collapses it on every entity, in
+    // every scene and the next session too. Only headers that differ from their default are kept.
+    class InspectorFoldState
+    {
+    public:
+        // `defaultOpen`: what a header the user never toggled starts as.
+        bool IsOpen(const std::string& key, bool defaultOpen = true) const;
+        // Returns true when the stored state changed.
+        bool SetOpen(const std::string& key, bool open, bool defaultOpen = true);
+        void Clear() { m_Open.clear(); }
+        const std::map<std::string, bool>& GetAll() const { return m_Open; }
+        void SetAll(std::map<std::string, bool> states) { m_Open = std::move(states); }
+
+        static constexpr size_t MaxEntries = 512; // script classes come and go: the file stays small
+
+    private:
+        std::map<std::string, bool> m_Open;
+    };
+
+    // Per-user viewport preferences of the editor: snapping, grid, the camera bookmarks of
+    // every scene (keyed by the scene file path) and the inspector's open / collapsed component
+    // headers. Stored as JSON in the editor config directory.
     struct EditorViewSettings
     {
         SnapSettings Snap;
         GridSettings Grid;
         std::map<std::string, CameraBookmarks> Bookmarks;
+        InspectorFoldState Inspector;
 
         // Bookmarks of a scene file ("" = a scene that was never saved).
         static std::string SceneKey(const std::filesystem::path& scenePath);

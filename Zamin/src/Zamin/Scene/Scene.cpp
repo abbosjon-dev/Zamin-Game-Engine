@@ -388,7 +388,8 @@ namespace Zamin {
         if (!root) return false;
         std::vector<Entity> entities;
         CollectSubtree(*this, root, entities);
-        return FileSystem::WriteTextFile(path, SceneSerializer::SerializeEntities(*this, entities));
+        // Instances should not start hidden / locked in the editor: those flags stay in this scene.
+        return FileSystem::WriteTextFile(path, SceneSerializer::SerializeEntities(*this, entities, false));
     }
 
     // ------------------------------------------------------------------ name cache
@@ -779,6 +780,94 @@ namespace Zamin {
                 destroyed++;
             }
         return destroyed;
+    }
+
+    // ------------------------------------------------------------------ editor-only flags
+    template<typename Flag>
+    static bool HasEditorFlag(Scene& scene, Entity entity, bool inherited, Flag flag)
+    {
+        // Walks up the parents (bounded: a broken file with a parent cycle cannot hang the editor).
+        for (int depth = 0; entity && depth < 4096; depth++)
+        {
+            if (const auto* meta = entity.TryGetComponent<EditorMetadataComponent>(); meta && flag(*meta))
+                return true;
+            if (!inherited)
+                return false;
+            entity = scene.GetParent(entity);
+        }
+        return false;
+    }
+
+    template<typename Edit>
+    static void EditEditorMetadata(Entity entity, Edit edit)
+    {
+        auto* meta = entity.TryGetComponent<EditorMetadataComponent>();
+        if (!meta)
+            meta = &entity.AddComponent<EditorMetadataComponent>();
+        edit(*meta);
+        if (meta->IsDefault()) // nothing left to remember: the scene file stays as before
+            entity.RemoveComponent<EditorMetadataComponent>();
+    }
+
+    bool Scene::IsHiddenInEditor(Entity entity, bool inherited)
+    {
+        return HasEditorFlag(*this, entity, inherited, [](const EditorMetadataComponent& m) { return m.Hidden; });
+    }
+
+    bool Scene::IsLockedInEditor(Entity entity, bool inherited)
+    {
+        return HasEditorFlag(*this, entity, inherited, [](const EditorMetadataComponent& m) { return m.Locked; });
+    }
+
+    void Scene::SetHiddenInEditor(Entity entity, bool hidden)
+    {
+        if (entity && IsHiddenInEditor(entity, false) != hidden)
+            EditEditorMetadata(entity, [&](EditorMetadataComponent& m) { m.Hidden = hidden; });
+    }
+
+    void Scene::SetLockedInEditor(Entity entity, bool locked)
+    {
+        if (entity && IsLockedInEditor(entity, false) != locked)
+            EditEditorMetadata(entity, [&](EditorMetadataComponent& m) { m.Locked = locked; });
+    }
+
+    size_t Scene::CountHiddenInEditor()
+    {
+        size_t count = 0;
+        for (auto e : m_Registry.view<EditorMetadataComponent>())
+            count += m_Registry.get<EditorMetadataComponent>(e).Hidden ? 1 : 0;
+        return count;
+    }
+
+    size_t Scene::CountLockedInEditor()
+    {
+        size_t count = 0;
+        for (auto e : m_Registry.view<EditorMetadataComponent>())
+            count += m_Registry.get<EditorMetadataComponent>(e).Locked ? 1 : 0;
+        return count;
+    }
+
+    std::unordered_set<entt::entity> Scene::CollectHiddenInEditor()
+    {
+        std::unordered_set<entt::entity> hidden;
+        for (auto e : m_Registry.view<EditorMetadataComponent>())
+        {
+            if (!m_Registry.get<EditorMetadataComponent>(e).Hidden || hidden.contains(e))
+                continue;
+            // The subtree, depth-first (children of a hidden entity are hidden too).
+            std::vector<entt::entity> stack{ e };
+            while (!stack.empty())
+            {
+                entt::entity current = stack.back();
+                stack.pop_back();
+                if (!hidden.insert(current).second)
+                    continue;
+                for (UUID child : m_Registry.get<RelationshipComponent>(current).Children)
+                    if (auto it = m_EntityMap.find(child); it != m_EntityMap.end() && m_Registry.valid(it->second))
+                        stack.push_back(it->second);
+            }
+        }
+        return hidden;
     }
 
     glm::mat4 Scene::GetWorldTransform(Entity entity)
@@ -1820,28 +1909,24 @@ namespace Zamin {
 
     void Scene::ResolveAssets()
     {
-        for (auto e : m_Registry.view<SpriteRendererComponent>())
-        {
-            auto& sprite = m_Registry.get<SpriteRendererComponent>(e);
-            sprite.Texture = sprite.TexturePath.empty() ? nullptr
-                : TextureLibrary::Load(Project::GetAssetFileSystemPath(sprite.TexturePath), sprite.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
-        }
-        for (auto e : m_Registry.view<MeshRendererComponent>())
-        {
-            auto& mr = m_Registry.get<MeshRendererComponent>(e);
-            ResolveMeshRenderer(mr);
-        }
-        for (auto e : m_Registry.view<TilemapComponent>())
-        {
-            auto& tm = m_Registry.get<TilemapComponent>(e);
-            tm.Tileset = tm.TilesetPath.empty() ? nullptr
-                : TextureLibrary::Load(Project::GetAssetFileSystemPath(tm.TilesetPath), tm.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
-        }
-        for (auto e : m_Registry.view<TextComponent>())
-        {
-            auto& text = m_Registry.get<TextComponent>(e);
-            text.FontAsset = text.FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(text.FontPath));
-        }
+        for (auto e : m_Registry.view<IDComponent>())
+            ResolveEntityAssets({ e, this });
+    }
+
+    void Scene::ResolveEntityAssets(Entity entity)
+    {
+        if (!entity)
+            return;
+        if (auto* sprite = entity.TryGetComponent<SpriteRendererComponent>())
+            sprite->Texture = sprite->TexturePath.empty() ? nullptr
+                : TextureLibrary::Load(Project::GetAssetFileSystemPath(sprite->TexturePath), sprite->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+        if (auto* mr = entity.TryGetComponent<MeshRendererComponent>())
+            ResolveMeshRenderer(*mr);
+        if (auto* tm = entity.TryGetComponent<TilemapComponent>())
+            tm->Tileset = tm->TilesetPath.empty() ? nullptr
+                : TextureLibrary::Load(Project::GetAssetFileSystemPath(tm->TilesetPath), tm->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+        if (auto* text = entity.TryGetComponent<TextComponent>())
+            text->FontAsset = text->FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(text->FontPath));
     }
 
     void Scene::UpdateAnimators(Timestep ts, bool editor)
@@ -2193,6 +2278,12 @@ namespace Zamin {
             return worldCache.emplace(e, local).first->second;
         };
 
+        // Editor scene view: entities hidden with the hierarchy's eye (and their subtrees) are skipped.
+        std::unordered_set<entt::entity> hidden;
+        if (options.SkipEditorHidden && !m_Registry.view<EditorMetadataComponent>().empty())
+            hidden = CollectHiddenInEditor();
+        auto skip = [&](entt::entity e) { return !hidden.empty() && hidden.contains(e); };
+
         // ---------------- 3D
         SceneEnvironment env;
         env.DrawSky = m_Settings.DrawSky;
@@ -2217,6 +2308,7 @@ namespace Zamin {
 
         for (auto e : m_Registry.view<TransformComponent, DirectionalLightComponent>())
         {
+            if (skip(e)) continue;
             const auto& l = m_Registry.get<DirectionalLightComponent>(e);
             env.HasSun = true;
             env.Sun.Direction = glm::normalize(glm::vec3(world(e) * glm::vec4(0, 0, -1, 0)));
@@ -2227,6 +2319,7 @@ namespace Zamin {
         }
         for (auto e : m_Registry.view<TransformComponent, PointLightComponent>())
         {
+            if (skip(e)) continue;
             const auto& l = m_Registry.get<PointLightComponent>(e);
             env.PointLights.push_back({ glm::vec3(world(e)[3]), l.Color, l.Intensity, l.Radius });
         }
@@ -2236,6 +2329,7 @@ namespace Zamin {
         Renderer3D::BeginScene(view, projection, cameraPosition, env);
         for (auto e : m_Registry.view<TransformComponent, MeshRendererComponent>())
         {
+            if (skip(e)) continue;
             auto& mr = m_Registry.get<MeshRendererComponent>(e);
             if (!mr.MeshAsset && mr.Type != PrimitiveMesh::Model)
                 mr.MeshAsset = MeshLibrary::GetPrimitive(mr.Type);
@@ -2286,17 +2380,18 @@ namespace Zamin {
         std::vector<Item2D> items;
         auto depthOf = [&](entt::entity e) { return (view * world(e)[3]).z; };
 
-        auto isUI = [&](entt::entity e) { return m_Registry.all_of<UITransformComponent>(e); };
+        // Screen-space UI is drawn by RenderUI; hidden entities not at all.
+        auto notWorld2D = [&](entt::entity e) { return m_Registry.all_of<UITransformComponent>(e) || skip(e); };
         for (auto e : m_Registry.view<TransformComponent, SpriteRendererComponent>())
-            if (!isUI(e)) items.push_back({ m_Registry.get<SpriteRendererComponent>(e).SortingOrder, depthOf(e), 0, e });
+            if (!notWorld2D(e)) items.push_back({ m_Registry.get<SpriteRendererComponent>(e).SortingOrder, depthOf(e), 0, e });
         for (auto e : m_Registry.view<TransformComponent, CircleRendererComponent>())
-            if (!isUI(e)) items.push_back({ m_Registry.get<CircleRendererComponent>(e).SortingOrder, depthOf(e), 1, e });
+            if (!notWorld2D(e)) items.push_back({ m_Registry.get<CircleRendererComponent>(e).SortingOrder, depthOf(e), 1, e });
         for (auto e : m_Registry.view<TransformComponent, TextComponent>())
-            if (!isUI(e)) items.push_back({ 1000, depthOf(e), 2, e });
+            if (!notWorld2D(e)) items.push_back({ 1000, depthOf(e), 2, e });
         for (auto e : m_Registry.view<TransformComponent, TilemapComponent>())
-            if (!isUI(e)) items.push_back({ m_Registry.get<TilemapComponent>(e).SortingOrder, depthOf(e), 4, e });
+            if (!notWorld2D(e)) items.push_back({ m_Registry.get<TilemapComponent>(e).SortingOrder, depthOf(e), 4, e });
         for (auto e : m_Registry.view<TransformComponent, ParticleSystemComponent>())
-            if (!m_Registry.get<ParticleSystemComponent>(e).Particles.empty())
+            if (!m_Registry.get<ParticleSystemComponent>(e).Particles.empty() && !skip(e))
                 items.push_back({ m_Registry.get<ParticleSystemComponent>(e).SortingOrder, depthOf(e), 3, e });
 
         // camera basis for billboards
@@ -2423,10 +2518,10 @@ namespace Zamin {
         Renderer2D::EndScene();
         }
 
-        RenderUI();
+        RenderUI(hidden.empty() ? nullptr : &hidden);
     }
 
-    void Scene::RenderUI()
+    void Scene::RenderUI(const std::unordered_set<entt::entity>* skip)
     {
         // ---------------- screen-space UI (pixels, bottom-left origin)
         auto uiView = m_Registry.view<UITransformComponent>();
@@ -2434,7 +2529,10 @@ namespace Zamin {
             return;
         glm::vec2 viewport = GetViewportSize();
 
-        std::vector<entt::entity> ui(uiView.begin(), uiView.end());
+        std::vector<entt::entity> ui;
+        for (auto e : uiView)
+            if (!skip || !skip->contains(e))
+                ui.push_back(e);
         std::reverse(ui.begin(), ui.end()); // views iterate newest-first; keep creation order for equal Order
         std::stable_sort(ui.begin(), ui.end(), [&](entt::entity a, entt::entity b) {
             return m_Registry.get<UITransformComponent>(a).Order < m_Registry.get<UITransformComponent>(b).Order;

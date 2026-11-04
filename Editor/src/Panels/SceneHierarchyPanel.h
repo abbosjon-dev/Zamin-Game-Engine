@@ -2,6 +2,8 @@
 
 #include <Zamin/Zamin.h>
 
+#include <imgui.h>
+
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -39,9 +41,23 @@ namespace Zamin {
         void SelectAll();
 
         // Duplicates / deletes every selected subtree (one undo step for the caller).
-        // The copies become the new selection.
-        size_t DuplicateSelection();
+        // The copies become the new selection. skipLocked: only the subtrees the gizmo can
+        // move (Alt + drag / Ctrl+D while dragging leave locked ones alone).
+        size_t DuplicateSelection(bool skipLocked = false);
         size_t DeleteSelection();
+
+        // ---- eye / lock buttons (editor-only flags saved with the scene, see EditorMetadataComponent)
+        // H: hides the selection, or shows it again when the primary entity is hidden. Returns how
+        // many entities changed (0 = nothing selected / not editable); `hidden` = the new state.
+        size_t ToggleSelectionHidden(bool* hidden = nullptr);
+        size_t ToggleSelectionLocked(bool* locked = nullptr);
+        size_t ShowAll();     // clears every hidden flag of the scene
+        size_t UnlockAll();   // clears every lock
+        // Edit mode only: eye / lock toggles, component reordering and pasting.
+        void SetSceneEditable(bool editable) { m_SceneEditable = editable; }
+
+        // Inspector headers' open / collapsed state (owned by the editor layer, saved per user).
+        void SetFoldState(InspectorFoldState* state) { m_FoldState = state; }
 
         // Hierarchy search text ("#tag" filters by gameplay tag).
         void SetFilter(const std::string& filter) { m_Filter = filter; }
@@ -60,7 +76,9 @@ namespace Zamin {
         bool IsTilePainting() const
         {
             Entity e = GetSelectedEntity();
-            return m_TilePaint && e && e.HasComponent<TilemapComponent>();
+            // Hidden / locked tilemaps are not painted in the viewport.
+            return m_TilePaint && e && e.HasComponent<TilemapComponent>() &&
+                   !e.GetScene()->IsHiddenInEditor(e) && !e.GetScene()->IsLockedInEditor(e);
         }
         int GetSelectedTile() const { return m_SelectedTile; }
 
@@ -70,6 +88,8 @@ namespace Zamin {
         std::function<void(const std::filesystem::path&, Entity parent)> OnPrefabDropped;
         // The project's tag list changed (a new tag was typed in the inspector).
         std::function<void()> OnProjectSettingsModified;
+        // The fold state (SetFoldState) changed: the editor saves its view settings.
+        std::function<void()> OnFoldStateModified;
 
     private:
         // Where a hierarchy row drop puts the dragged entities.
@@ -79,6 +99,32 @@ namespace Zamin {
 
         template<typename T>
         void DisplayAddComponentEntry(const char* name, const char* icon);
+        // Inspector sections are collected first (AddSection) and then drawn in the entity's
+        // component order (ComponentRegistry::GetOrderedKeys).
+        struct InspectorSection { std::string_view Key; std::function<void()> Draw; };
+        template<typename T, typename UIFunction>
+        void AddSection(const char* icon, const std::string& name, Entity entity, UIFunction uiFunction,
+                        bool removable, bool& modified, const std::function<bool(T&)>& settingsMenu = {});
+        template<typename T, typename UIFunction>
+        void DrawSection(const char* icon, const std::string& name, Entity entity, UIFunction& uiFunction,
+                         bool removable, bool& modified, const std::function<bool(T&)>& settingsMenu);
+        // Copy / paste values / move up-down items of a component's menu. True when it changed the scene.
+        bool DrawComponentMenuItems(Entity entity, std::string_view key);
+        // Header drag & drop: dropping a component header before / after another one reorders them.
+        void DrawSectionDragDrop(std::string_view key);
+        // Fold-state key of a header: the component key, scripts per class.
+        static std::string FoldKey(Entity entity, std::string_view key);
+        // Reads the component clipboard (the system clipboard first, then our own copy).
+        void RefreshComponentClipboard();
+        // Pastes the clipboard component onto the selected entities (the primary when not
+        // selected): addMissing = also to those without that component. Returns how many changed.
+        size_t PasteComponent(Entity entity, bool addMissing);
+        // Entities a component menu acts on: the selection when `entity` is part of it.
+        std::vector<Entity> GetMenuTargets(Entity entity) const;
+        // Eye / lock buttons left of a hierarchy row.
+        void DrawRowToggles(Entity entity, const ImVec2& rowMin, const ImVec2& rowMax);
+        // Sets the flag on `entity`, or on the whole selection when `entity` is part of it.
+        size_t SetFlagFromRow(Entity entity, bool lockFlag, bool value);
         void ApplyPendingClick();
         void ApplyPendingDrop();
         // Accepts a hierarchy entity dropped on the row drawn last (before / after it, or into it).
@@ -90,7 +136,7 @@ namespace Zamin {
         void DrawComponents(Entity entity);
         void DrawEntityNode(Entity entity, int depth);
         void DrawEntityContextMenu(Entity entity);
-        void DrawScriptComponent(Entity entity);
+        void DrawScriptComponent(Entity entity, bool& modified);
         // One script field with its attributes (header, label, tooltip, range, color, enum).
         bool DrawScriptField(const ScriptFieldInfo& field, ScriptFieldValue& value);
         // EntityRef script field: drop from the hierarchy, pick from a list, locate, clear.
@@ -124,6 +170,17 @@ namespace Zamin {
         bool m_TilePaint = false;
         int m_SelectedTile = 0;
         std::unordered_map<std::string, std::unordered_map<std::string, ScriptFieldValue>> m_ScriptDefaults;
+
+        // inspector: sections of the entity being drawn, component clipboard, reordering
+        std::vector<InspectorSection> m_Sections;
+        std::vector<std::string> m_SectionOrder;   // the drawn entity's component keys, in order
+        std::string m_ComponentClipboard;          // our own copy (the system clipboard is read first)
+        std::string m_PasteText, m_PasteKey;       // clipboard contents when the menu opened
+        struct PendingMove { std::string Key, Target; bool After = false; int Index = -1; };
+        PendingMove m_PendingMove;                 // applied after the inspector is drawn
+        InspectorFoldState* m_FoldState = nullptr;
+        bool m_SceneEditable = true;
+        float m_GutterX = 0.0f;                    // left edge of the hierarchy's eye / lock column
     };
 
 }

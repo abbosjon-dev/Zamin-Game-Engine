@@ -72,6 +72,12 @@ namespace Zamin {
 
         void DuplicateSelectedEntity();
         void DeleteSelectedEntity();
+        // Selected subtrees the gizmo moves (locked ones are left out).
+        std::vector<Entity> GetGizmoTargets();
+        // Eye / lock of the selection (H, Alt+H, Edit menu) with a viewport notice.
+        void ToggleSelectionHidden();
+        void ToggleSelectionLocked();
+        void ShowAllHidden();
         void Set2DMode(bool enabled);
 
         // ---- editor camera framing / bookmarks

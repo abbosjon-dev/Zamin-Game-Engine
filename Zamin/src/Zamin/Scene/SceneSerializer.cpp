@@ -1,4 +1,5 @@
 #include "Zamin/Scene/SceneSerializer.h"
+#include "Zamin/Scene/ComponentRegistry.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Utils/FileSystem.h"
 
@@ -107,7 +108,8 @@ namespace Zamin {
         return Rigidbody3DComponent::BodyType::Static;
     }
 
-    static json SerializeEntity(Entity entity, bool includeParent = true)
+    // includeEditorFlags: false for prefabs (an instance should not start hidden / locked).
+    static json SerializeEntity(Entity entity, bool includeParent = true, bool includeEditorFlags = true)
     {
         json e;
         e["Entity"] = (uint64_t)entity.GetUUID();
@@ -246,6 +248,16 @@ namespace Zamin {
             e["NativeScript"] = { { "Class", c->ClassName }, { "Fields", fields } };
             if (!c->Enabled)
                 e["NativeScript"]["Enabled"] = false; // written only when off: older files stay unchanged
+        }
+        if (auto* c = entity.TryGetComponent<EditorMetadataComponent>())
+        {
+            // Editor-only data, written only when something is set (other files stay unchanged).
+            json m = json::object();
+            if (c->Hidden && includeEditorFlags) m["Hidden"] = true;
+            if (c->Locked && includeEditorFlags) m["Locked"] = true;
+            if (!c->ComponentOrder.empty()) m["ComponentOrder"] = c->ComponentOrder;
+            if (!m.empty())
+                e["Editor"] = std::move(m);
         }
         return e;
     }
@@ -567,7 +579,19 @@ namespace Zamin {
                         c.Fields[it.key()] = v;
                 }
         }
-        
+        if (auto it = e.find("Editor"); it != e.end() && it->is_object())
+        {
+            EditorMetadataComponent m;
+            auto flag = [&](const char* key) { auto f = it->find(key); return f != it->end() && f->is_boolean() && f->get<bool>(); };
+            m.Hidden = flag("Hidden");
+            m.Locked = flag("Locked");
+            if (auto order = it->find("ComponentOrder"); order != it->end() && order->is_array())
+                for (const json& key : *order)
+                    if (key.is_string() && std::find(m.ComponentOrder.begin(), m.ComponentOrder.end(), key.get<std::string>()) == m.ComponentOrder.end())
+                        m.ComponentOrder.push_back(key.get<std::string>());
+            if (!m.IsDefault())
+                entity.AddOrReplaceComponent<EditorMetadataComponent>(std::move(m));
+        }
     }
 
     // Children lists are rebuilt from the "Parent" links in file order. When a parent's
@@ -655,6 +679,73 @@ namespace Zamin {
         {
             return false;
         }
+    }
+
+    // ------------------------------------------------------------------ component clipboard
+    std::string SceneSerializer::SerializeComponent(Entity entity, std::string_view key)
+    {
+        if (!entity || !ComponentRegistry::Has(entity, key))
+            return {};
+        json e = SerializeEntity(entity, false, false);
+        auto it = e.find(std::string(key));
+        if (it == e.end())
+            return {};
+        json j;
+        j["ZaminComponent"] = std::string(key);
+        j["Data"] = *it;
+        return j.dump(2);
+    }
+
+    // The copied component's key and data, or false for any other text.
+    static bool ParseComponentText(const std::string& text, std::string& key, json& data)
+    {
+        if (text.find("\"ZaminComponent\"") == std::string::npos) // cheap test for clipboard text
+            return false;
+        json j = json::parse(text, nullptr, false);
+        if (j.is_discarded() || !j.is_object())
+            return false;
+        auto k = j.find("ZaminComponent");
+        auto d = j.find("Data");
+        // Data is an object for most components (an array for Tags).
+        if (k == j.end() || !k->is_string() || d == j.end() || d->is_null() || !ComponentRegistry::Find(k->get<std::string>()))
+            return false;
+        key = k->get<std::string>();
+        data = *d;
+        return true;
+    }
+
+    std::string SceneSerializer::GetSerializedComponentKey(const std::string& text)
+    {
+        std::string key;
+        json data;
+        return ParseComponentText(text, key, data) ? key : std::string();
+    }
+
+    bool SceneSerializer::DeserializeComponent(const std::string& text, Entity target)
+    {
+        std::string key;
+        json data;
+        if (!target || !ParseComponentText(text, key, data))
+            return false;
+        // Read into a scratch entity first: a broken value fails without touching the target.
+        Scene scratch;
+        Entity temp = scratch.CreateEntity("Clipboard");
+        try
+        {
+            json e = json::object();
+            e[key] = std::move(data);
+            DeserializeEntityComponents(e, temp);
+        }
+        catch (const std::exception& ex)
+        {
+            ZM_CORE_ERROR("Komponent ma'lumotlari xato: {}", ex.what());
+            return false;
+        }
+        const ComponentTypeInfo* type = ComponentRegistry::Find(key);
+        if (!type || !type->Has(temp))
+            return false;
+        type->Copy(temp, target);
+        return true;
     }
 
     std::string SceneSerializer::SerializeToString()
@@ -804,14 +895,14 @@ namespace Zamin {
 
 namespace Zamin {
 
-    std::string SceneSerializer::SerializeEntities(Scene& scene, const std::vector<Entity>& entities)
+    std::string SceneSerializer::SerializeEntities(Scene& scene, const std::vector<Entity>& entities, bool includeEditorFlags)
     {
         std::unordered_map<uint64_t, bool> inSet;
         for (Entity e : entities) inSet[(uint64_t)e.GetUUID()] = true;
         json list = json::array();
         for (Entity e : entities)
         {
-            json j = SerializeEntity(e, true);
+            json j = SerializeEntity(e, true, includeEditorFlags);
             if (j.contains("Parent") && !inSet.count(j["Parent"].get<uint64_t>()))
                 j.erase("Parent");
             list.push_back(j);

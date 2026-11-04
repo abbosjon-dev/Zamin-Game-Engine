@@ -75,6 +75,33 @@ namespace Zamin {
         return (int)std::count_if(m_Slots.begin(), m_Slots.end(), [](const auto& s) { return s.has_value(); });
     }
 
+    // ------------------------------------------------------------------ inspector headers
+    bool InspectorFoldState::IsOpen(const std::string& key, bool defaultOpen) const
+    {
+        auto it = m_Open.find(key);
+        return it == m_Open.end() ? defaultOpen : it->second;
+    }
+
+    bool InspectorFoldState::SetOpen(const std::string& key, bool open, bool defaultOpen)
+    {
+        if (key.empty())
+            return false;
+        auto it = m_Open.find(key);
+        if (open == defaultOpen)
+        {
+            if (it == m_Open.end())
+                return false;
+            m_Open.erase(it);
+            return true;
+        }
+        if (it != m_Open.end() && it->second == open)
+            return false;
+        if (it == m_Open.end() && m_Open.size() >= MaxEntries)
+            return false;
+        m_Open[key] = open;
+        return true;
+    }
+
     // ------------------------------------------------------------------ serialization
     std::string EditorViewSettings::SceneKey(const std::filesystem::path& scenePath)
     {
@@ -162,6 +189,10 @@ namespace Zamin {
             scenes[scene] = std::move(slots);
         }
         j["CameraBookmarks"] = std::move(scenes);
+        json headers = json::object();
+        for (const auto& [key, open] : Inspector.GetAll())
+            headers[key] = open;
+        j["InspectorHeaders"] = std::move(headers);
         return j.dump(2);
     }
 
@@ -214,6 +245,14 @@ namespace Zamin {
                 }
                 Bookmarks[scene] = bookmarks;
             }
+        }
+        if (auto it = j.find("InspectorHeaders"); it != j.end() && it->is_object())
+        {
+            std::map<std::string, bool> headers;
+            for (const auto& [key, open] : it->items())
+                if (!key.empty() && open.is_boolean() && headers.size() < InspectorFoldState::MaxEntries)
+                    headers[key] = open.get<bool>();
+            Inspector.SetAll(std::move(headers));
         }
         return true;
     }

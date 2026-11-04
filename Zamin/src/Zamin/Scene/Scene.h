@@ -16,6 +16,7 @@
 #include <string_view>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class b2World;
@@ -62,6 +63,9 @@ namespace Zamin {
         bool ShowGrid = false;
         int GridPlane = 0;       // 0 = XZ, 1 = XY
         GridSettings Grid;       // cell size, colors, axes (editor viewport preferences)
+        // Editor scene view: entities hidden with the hierarchy's eye button (and their children)
+        // are not drawn and their lights do not count. Runtime rendering never sets this.
+        bool SkipEditorHidden = false;
     };
 
     class Scene
@@ -158,6 +162,20 @@ namespace Zamin {
         std::vector<Entity> DuplicateEntities(const std::vector<Entity>& entities);
         // Destroys the entities with their descendants. Returns how many top-level ones were destroyed.
         size_t DestroyEntities(const std::vector<Entity>& entities);
+        // ---- editor-only flags (EditorMetadataComponent: the hierarchy's eye / lock buttons)
+        // inherited: also true when an ancestor has the flag (a hidden / locked parent hides /
+        // locks its whole subtree); false: only the entity's own flag.
+        bool IsHiddenInEditor(Entity entity, bool inherited = true);
+        bool IsLockedInEditor(Entity entity, bool inherited = true);
+        // Set the entity's own flag (the component is removed again when nothing is left in it).
+        void SetHiddenInEditor(Entity entity, bool hidden);
+        void SetLockedInEditor(Entity entity, bool locked);
+        // Entities with their own flag set.
+        size_t CountHiddenInEditor();
+        size_t CountLockedInEditor();
+        // Hidden entities and every descendant of one (what the editor's scene view skips).
+        std::unordered_set<entt::entity> CollectHiddenInEditor();
+
         glm::mat4 GetWorldTransform(Entity entity);
         // Sets local transform so that the entity ends up at `world`.
         void SetWorldTransform(Entity entity, const glm::mat4& world);
@@ -250,6 +268,8 @@ namespace Zamin {
 
         // Reload GPU assets (textures, meshes, fonts) referenced by components.
         void ResolveAssets();
+        // The same for one entity (e.g. after pasting a component onto it).
+        void ResolveEntityAssets(Entity entity);
 
     private:
         template<typename T>
@@ -283,7 +303,7 @@ namespace Zamin {
         void UpdateParticles(Timestep ts, bool editor);
         void UpdateUI();
 
-        void RenderUI();
+        void RenderUI(const std::unordered_set<entt::entity>* skip);
 
         void OnNameChanged(entt::registry&, entt::entity) { m_NameCacheDirty = true; }
         void RebuildNameCache();

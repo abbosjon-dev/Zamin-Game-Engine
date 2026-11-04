@@ -32,6 +32,7 @@
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/Components.h"
+#include "Zamin/Scene/ComponentRegistry.h"
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Scene/EntitySelection.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"

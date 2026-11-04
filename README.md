@@ -167,7 +167,6 @@ ZM_REGISTER_SCRIPT(Player, ZM_FIELD(Player, Speed), ZM_FIELD(Player, JumpImpulse
 | `OnLateUpdate(ts)` | Har kadrda (fizikadan keyin — kamera kuzatish uchun qulay) |
 | `OnCollisionBegin/End(other)` | 2D to'qnashuv / trigger |
 | `OnDestroy()` | Obyekt o'chirilganda yoki o'yin to'xtaganda |
-
 | `OnClick()` | Shu obyektdagi UI tugma bosilganda |
 
 Foydali API:

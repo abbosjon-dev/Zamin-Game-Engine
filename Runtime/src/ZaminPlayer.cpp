@@ -86,7 +86,8 @@ namespace Zamin {
             {
                 m_Target->Unbind();
                 RenderCommand::SetViewport(0, 0, w, h);
-                PostProcessor::Apply(m_Target->GetColorAttachmentRendererID(0), w, h, post, nullptr);
+                PostProcessor::Apply(m_Target->GetColorAttachmentRendererID(0), w, h, post, nullptr,
+                                     m_Target->GetDepthAttachmentRendererID(), m_Scene->GetLastProjection());
             }
 
             if (!m_Scene->GetPendingSceneLoad().empty())

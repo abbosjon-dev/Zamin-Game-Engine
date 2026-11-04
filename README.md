@@ -50,7 +50,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
   - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti,
     kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`
-  - **Post-processing**: bloom, vinyetka, kontrast/to'yinganlik/rang tuslash
+  - **Post-processing**: SSAO (ambient occlusion), bloom, vinyetka, kontrast/to'yinganlik/rang tuslash
   - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview)
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
 - **2D fizika** (Box2D): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
@@ -269,7 +269,8 @@ Tests/           Headless unit testlar
 - [x] Animatsiyalar orasida silliq o'tish (crossfade), Character Controller 3D
 - [ ] Animatsiya holat mashinasi (vizual), root motion
 - [x] Cascaded shadow maps, tuman
-- [ ] SSAO, IBL (cubemap)
+- [x] SSAO
+- [ ] IBL (cubemap), HDR osmon
 - [ ] **Windows** (MSVC, `.dll` skript moduli)
 - [ ] **macOS** (Metal backend)
 - [ ] **Android** (OpenGL ES / Vulkan)

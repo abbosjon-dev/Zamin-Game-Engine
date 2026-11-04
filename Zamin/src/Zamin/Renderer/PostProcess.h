@@ -18,6 +18,11 @@ namespace Zamin {
         float BloomIntensity = 0.6f;
         float BloomRadius = 1.0f;
 
+        bool SSAO = false;       // screen-space ambient occlusion (3D)
+        float SSAORadius = 0.6f;
+        float SSAOIntensity = 1.0f;
+        float SSAOBias = 0.03f;
+
         float Vignette = 0.0f;   // 0..1
         float Saturation = 1.0f;
         float Contrast = 1.0f;
@@ -35,8 +40,9 @@ namespace Zamin {
 
         // Reads `inputTexture` (w x h) and writes the result into `target`
         // (or the currently bound framebuffer when target is null).
+        // depthTexture/projection are needed for SSAO (pass 0 / identity to skip it).
         static void Apply(uint32_t inputTexture, uint32_t width, uint32_t height, const PostProcessSettings& settings,
-                          const Ref<Framebuffer>& target);
+                          const Ref<Framebuffer>& target, uint32_t depthTexture = 0, const glm::mat4& projection = glm::mat4(1.0f));
 
         // Input is linear HDR; output is display (sRGB) color.
     };

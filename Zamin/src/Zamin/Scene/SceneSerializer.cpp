@@ -524,7 +524,8 @@ namespace Zamin {
             { "ShadowDistance", s.ShadowDistance }, { "Gravity", ToJson(s.Gravity) },
             { "Fog", { { "Enabled", s.FogEnabled }, { "Color", ToJson(s.FogColor) }, { "Density", s.FogDensity }, { "HeightFalloff", s.FogHeightFalloff } } }, { "Gravity3D", ToJson(s.Gravity3D) },
             { "Post", {
-                { "Tonemap", (int)s.Post.Tonemap }, { "Bloom", s.Post.Bloom }, { "BloomThreshold", s.Post.BloomThreshold }, { "BloomKnee", s.Post.BloomKnee },
+                { "Tonemap", (int)s.Post.Tonemap }, { "Bloom", s.Post.Bloom },
+                { "SSAO", s.Post.SSAO }, { "SSAORadius", s.Post.SSAORadius }, { "SSAOIntensity", s.Post.SSAOIntensity }, { "SSAOBias", s.Post.SSAOBias }, { "BloomThreshold", s.Post.BloomThreshold }, { "BloomKnee", s.Post.BloomKnee },
                 { "BloomIntensity", s.Post.BloomIntensity }, { "BloomRadius", s.Post.BloomRadius }, { "Vignette", s.Post.Vignette },
                 { "Saturation", s.Post.Saturation }, { "Contrast", s.Post.Contrast }, { "Brightness", s.Post.Brightness },
                 { "Tint", ToJson(s.Post.Tint) } } },
@@ -600,6 +601,10 @@ namespace Zamin {
                     const json& p = j["Post"];
                     s.Post.Tonemap = (TonemapMode)p.value("Tonemap", 1);
                     s.Post.Bloom = p.value("Bloom", false);
+                    s.Post.SSAO = p.value("SSAO", false);
+                    s.Post.SSAORadius = p.value("SSAORadius", 0.6f);
+                    s.Post.SSAOIntensity = p.value("SSAOIntensity", 1.0f);
+                    s.Post.SSAOBias = p.value("SSAOBias", 0.03f);
                     s.Post.BloomThreshold = p.value("BloomThreshold", 1.0f);
                     s.Post.BloomKnee = p.value("BloomKnee", 0.5f);
                     s.Post.BloomIntensity = p.value("BloomIntensity", 0.6f);

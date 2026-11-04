@@ -223,7 +223,8 @@ namespace Zamin {
         // Post-processing into the final target, then editor overlays on top.
         const auto& spec = m_Framebuffer->GetSpecification();
         PostProcessor::Apply(m_Framebuffer->GetColorAttachmentRendererID(0), spec.Width, spec.Height,
-                             m_ActiveScene->GetSettings().Post, m_FinalFramebuffer);
+                             m_ActiveScene->GetSettings().Post, m_FinalFramebuffer,
+                             m_Framebuffer->GetDepthAttachmentRendererID(), m_ActiveScene->GetLastProjection());
         m_FinalFramebuffer->Bind();
         OnOverlayRender();
         m_FinalFramebuffer->Unbind();
@@ -1729,6 +1730,15 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         if (UI::BeginPropertyGrid("post"))
         {
             auto& p = s.Post;
+            const char* tonemaps[] = { "Yo'q (2D)", "ACES (film)", "Reinhard" };
+            int tm = (int)p.Tonemap;
+            if (UI::PropertyCombo("Tonemapping", tm, tonemaps, 3)) { p.Tonemap = (TonemapMode)tm; changed = true; }
+            changed |= UI::PropertyBool("SSAO (soyalanish)", p.SSAO);
+            if (p.SSAO)
+            {
+                changed |= UI::PropertySlider("SSAO radiusi", p.SSAORadius, 0.05f, 3.0f);
+                changed |= UI::PropertySlider("SSAO kuchi", p.SSAOIntensity, 0.2f, 4.0f);
+            }
             changed |= UI::PropertyBool("Bloom (yorqinlik)", p.Bloom);
             if (p.Bloom)
             {

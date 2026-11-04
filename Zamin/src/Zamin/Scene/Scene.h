@@ -107,6 +107,8 @@ namespace Zamin {
         void SetViewportMouse(const glm::vec2& position, bool leftButtonDown) { m_MousePosition = position; m_MouseDown = leftButtonDown; }
         const glm::vec2& GetViewportMouse() const { return m_MousePosition; }
         glm::vec2 GetViewportSize() const { return { (float)m_ViewportWidth, (float)m_ViewportHeight }; }
+        // Projection used by the most recent render (post-processing needs it for SSAO).
+        const glm::mat4& GetLastProjection() const { return m_LastProjection; }
         // Unprojects a viewport pixel through the primary camera onto the plane z = depthZ.
         glm::vec3 ScreenToWorld(const glm::vec2& screen, float depthZ = 0.0f);
 
@@ -200,6 +202,7 @@ namespace Zamin {
         std::unique_ptr<PhysicsWorld3D> m_PhysicsWorld3D;
         std::filesystem::path m_PendingSceneLoad;
         glm::vec2 m_MousePosition{ -1.0f };
+        glm::mat4 m_LastProjection{ 1.0f };
         bool m_MouseDown = false, m_MouseWasDown = false;
         entt::entity m_PressedButton = entt::null;
 

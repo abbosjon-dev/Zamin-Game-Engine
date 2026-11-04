@@ -1404,6 +1404,7 @@ namespace Zamin {
         }
 
         ZM_PROFILE_SCOPE("Render");
+        m_LastProjection = projection;
         Renderer3D::BeginScene(view, projection, cameraPosition, env);
         for (auto e : m_Registry.view<TransformComponent, MeshRendererComponent>())
         {

@@ -4,6 +4,7 @@
 #include "Zamin/Renderer/Material.h"
 #include "Zamin/Renderer/Animation.h"
 #include "Zamin/Renderer/Environment.h"
+#include "Zamin/Renderer/EditorViewSettings.h"
 
 #include <glm/glm.hpp>
 #include <vector>
@@ -66,8 +67,10 @@ namespace Zamin {
                                int entityID = -1, bool castShadows = true, const std::vector<glm::mat4>* joints = nullptr);
         static void EndScene();
 
-        // Editor-only infinite grid. plane: 0 = XZ (3D), 1 = XY (2D)
-        static void DrawGrid(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition, int plane = 0);
+        // Editor-only infinite grid. plane: 0 = XZ (3D), 1 = XY (2D). settings.Visible is not
+        // checked here (the caller decides whether to draw).
+        static void DrawGrid(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition, int plane = 0,
+                             const GridSettings& settings = {});
 
         static uint32_t GetShadowMapRendererID();
     };

@@ -32,11 +32,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 023. Ko'p tanlanganlarni gizmo bilan birga ko'chirish
 - [x] 024. Ierarxiyada drag-drop bilan tartibni o'zgartirish (siblings orasiga qo'yish)
 - [x] 025. Transform kontekst menyusi: reset, copy, paste
-- [ ] 026. Snapping sozlamalari (qadam: ko'chirish/aylantirish/masshtab) toolbar'da
-- [ ] 027. Grid sozlamalari (o'lcham, rang, ko'rinish)
-- [ ] 028. Kamera xatcho'plari (Ctrl+1..5 saqlash, 1..5 qaytish)
-- [ ] 029. Hammasini ko'rsatish (Frame All) - butun sahnaga fokus
-- [ ] 030. Viewport'da obyektni nusxalash (Ctrl+D bilan sudrash Alt+drag)
+- [x] 026. Snapping sozlamalari (qadam: ko'chirish/aylantirish/masshtab) toolbar'da
+- [x] 027. Grid sozlamalari (o'lcham, rang, ko'rinish)
+- [x] 028. Kamera xatcho'plari (Ctrl+1..5 saqlash, 1..5 qaytish)
+- [x] 029. Hammasini ko'rsatish (Frame All) - butun sahnaga fokus
+- [x] 030. Viewport'da obyektni nusxalash (Ctrl+D bilan sudrash Alt+drag)
 - [ ] 031. Inspektorda komponentlarni tartiblash (yuqori/past)
 - [ ] 032. Komponentni nusxalash va boshqa obyektga joylash
 - [ ] 033. Inspektorda komponent yig'ib qo'yish holatini eslab qolish

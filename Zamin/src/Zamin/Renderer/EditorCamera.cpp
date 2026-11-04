@@ -1,8 +1,10 @@
 #include "Zamin/Renderer/EditorCamera.h"
+#include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Core/Input.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
+#include <cmath>
 
 namespace Zamin {
 
@@ -26,6 +28,101 @@ namespace Zamin {
         m_FocalPoint = point;
         m_Distance = distance;
         UpdateView();
+    }
+
+    EditorCameraState EditorCamera::GetViewState() const
+    {
+        EditorCameraState state;
+        state.FocalPoint = m_FocalPoint;
+        state.Distance = m_Distance;
+        state.Pitch = m_Pitch;
+        state.Yaw = m_Yaw;
+        state.Orthographic = m_Orthographic;
+        return state;
+    }
+
+    void EditorCamera::SetViewState(const EditorCameraState& state)
+    {
+        m_Transition.Active = false;
+        m_FocalPoint = state.FocalPoint;
+        m_Distance = std::max(state.Distance, 0.01f);
+        m_Pitch = state.Pitch;
+        m_Yaw = state.Yaw;
+        m_Orthographic = state.Orthographic;
+        UpdateProjection();
+        UpdateView();
+    }
+
+    // The same angle as close to `from` as possible (shortest way around).
+    static float NearestAngle(float from, float to)
+    {
+        float diff = std::remainder(to - from, glm::two_pi<float>());
+        return from + diff;
+    }
+
+    void EditorCamera::TransitionTo(const EditorCameraState& state, float duration)
+    {
+        if (duration <= 0.0f)
+        {
+            SetViewState(state);
+            return;
+        }
+        if (m_Orthographic != state.Orthographic)
+        {
+            m_Orthographic = state.Orthographic;
+            UpdateProjection();
+        }
+        m_Transition.Active = true;
+        m_Transition.Time = 0.0f;
+        m_Transition.Duration = duration;
+        m_Transition.From = GetViewState();
+        m_Transition.To = state;
+        m_Transition.To.Distance = std::max(state.Distance, 0.01f);
+    }
+
+    EditorCameraState EditorCamera::ComputeFrameState(const AABB& bounds, float padding) const
+    {
+        constexpr float MinFrameRadius = 1.0f; // a point (empty entity, light) is not framed from 0 m
+        EditorCameraState state = GetViewState();
+        glm::vec3 center = (bounds.Min + bounds.Max) * 0.5f;
+        glm::vec3 half = glm::max((bounds.Max - bounds.Min) * 0.5f, glm::vec3(0.0f));
+        state.FocalPoint = center;
+
+        float tanHalfY = std::tan(glm::radians(m_FOV) * 0.5f);
+        float aspect = m_AspectRatio > 0.0f ? m_AspectRatio : 1.0f;
+        padding = std::max(padding, 1.0f);
+        if (m_Orthographic)
+        {
+            // The box's half size across the view: its corners projected on the right / up axes.
+            glm::vec3 right = glm::abs(GetRightDirection()), up = glm::abs(GetUpDirection());
+            float halfWidth = glm::dot(half, right), halfHeight = glm::dot(half, up);
+            float needed = std::max({ halfHeight, halfWidth / aspect, MinFrameRadius }) * padding;
+            state.Distance = needed / tanHalfY; // UpdateProjection: half height = distance * tan(fov / 2)
+        }
+        else if (glm::length(half) < MinFrameRadius)
+        {
+            // Small things: a sphere of MinFrameRadius inside the narrower field-of-view angle.
+            float halfFov = std::atan(std::min(tanHalfY, tanHalfY * aspect));
+            state.Distance = MinFrameRadius * padding / std::sin(halfFov);
+        }
+        else
+        {
+            // Every corner of the box inside the view (shrunk by `padding`): a corner at
+            // (x, y) across the view and z along the view direction from the center needs
+            // distance + z >= |x| / tan(fovX / 2) and >= |y| / tan(fovY / 2).
+            glm::vec3 right = GetRightDirection(), up = GetUpDirection(), forward = GetForwardDirection();
+            float tanY = tanHalfY / padding, tanX = tanHalfY * aspect / padding;
+            float distance = 0.0f;
+            for (int i = 0; i < 8; i++)
+            {
+                glm::vec3 o((i & 1) ? half.x : -half.x, (i & 2) ? half.y : -half.y, (i & 4) ? half.z : -half.z);
+                float x = glm::dot(o, right), y = glm::dot(o, up), z = glm::dot(o, forward);
+                distance = std::max({ distance, std::abs(x) / tanX - z, std::abs(y) / tanY - z, m_NearClip * 2.0f - z });
+            }
+            state.Distance = distance;
+        }
+        state.Distance = std::clamp(state.Distance, 0.5f, m_FarClip * 0.5f);
+        return state;
     }
 
     void EditorCamera::UpdateProjection()
@@ -73,6 +170,32 @@ namespace Zamin {
         glm::vec2 delta = (mouse - m_InitialMousePosition) * 0.003f;
         m_InitialMousePosition = mouse;
 
+        if (m_Transition.Active)
+        {
+            m_Transition.Time += (float)ts;
+            float t = std::clamp(m_Transition.Time / m_Transition.Duration, 0.0f, 1.0f);
+            const EditorCameraState& a = m_Transition.From;
+            const EditorCameraState& b = m_Transition.To;
+            if (t >= 1.0f)
+            {
+                m_FocalPoint = b.FocalPoint;
+                m_Distance = b.Distance;
+                m_Pitch = b.Pitch;
+                m_Yaw = b.Yaw;
+                m_Transition.Active = false;
+            }
+            else
+            {
+                float k = t * t * (3.0f - 2.0f * t); // smoothstep
+                m_FocalPoint = glm::mix(a.FocalPoint, b.FocalPoint, k);
+                // zoom evenly (in log space): far-away targets do not rush the first frames
+                m_Distance = a.Distance * std::pow(b.Distance / std::max(a.Distance, 0.01f), k);
+                m_Pitch = glm::mix(a.Pitch, NearestAngle(a.Pitch, b.Pitch), k);
+                m_Yaw = glm::mix(a.Yaw, NearestAngle(a.Yaw, b.Yaw), k);
+            }
+            UpdateView();
+        }
+
         bool rmb = Input::IsMouseButtonPressed(MouseButton::Right);
         bool alt = Input::IsKeyPressed(Key::LeftAlt) || Input::IsKeyPressed(Key::RightAlt);
 
@@ -88,6 +211,7 @@ namespace Zamin {
                 return;
             }
             m_HasMouse = true;
+            m_Transition.Active = false; // the user takes over
             return; // skip the first delta to avoid jumps
         }
 
@@ -147,6 +271,7 @@ namespace Zamin {
     {
         EventDispatcher dispatcher(e);
         dispatcher.Dispatch<MouseScrolledEvent>([this](MouseScrolledEvent& ev) {
+            m_Transition.Active = false;
             if (m_Flying && !m_Orthographic)
             {
                 FlySpeed = std::clamp(FlySpeed * (ev.GetYOffset() > 0 ? 1.2f : 1.0f / 1.2f), 0.5f, 200.0f);

@@ -25,6 +25,7 @@
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/EditorCamera.h"
+#include "Zamin/Renderer/EditorViewSettings.h"
 #include "Zamin/Renderer/PostProcess.h"
 #include "Zamin/Renderer/Environment.h"
 

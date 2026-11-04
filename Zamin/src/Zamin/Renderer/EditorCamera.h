@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Renderer/Camera.h"
+#include "Zamin/Renderer/EditorViewSettings.h"
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Events/Event.h"
 
@@ -11,6 +12,8 @@
 #include <glm/gtx/quaternion.hpp>
 
 namespace Zamin {
+
+    struct AABB;
 
     // Viewport camera for the editor.
     //  * Alt + LMB: orbit    * Alt + MMB / MMB: pan    * Alt + RMB / scroll: zoom
@@ -28,6 +31,19 @@ namespace Zamin {
         void SetViewportSize(float width, float height);
         void Focus(const glm::vec3& point, float distance = 8.0f);
         void SetOrientation(float pitch, float yaw) { m_Pitch = pitch; m_Yaw = yaw; UpdateView(); }
+
+        // Focal point, distance, orientation and projection (camera bookmarks, framing).
+        EditorCameraState GetViewState() const;
+        void SetViewState(const EditorCameraState& state);
+        // Moves smoothly to `state` over `duration` seconds (<= 0: at once). The projection
+        // switches right away; any mouse navigation or zoom stops the transition where it is.
+        void TransitionTo(const EditorCameraState& state, float duration = 0.3f);
+        bool IsTransitioning() const { return m_Transition.Active; }
+        void StopTransition() { m_Transition.Active = false; }
+        // The view of `bounds` from the current direction: the focal point at the box center,
+        // just far enough that every corner of the box is inside the viewport. `padding` > 1
+        // leaves a margin; a box smaller than about a meter is framed as if it were that big.
+        EditorCameraState ComputeFrameState(const AABB& bounds, float padding = 1.15f) const;
 
         float GetDistance() const { return m_Distance; }
         void SetDistance(float distance) { m_Distance = distance; UpdateView(); }
@@ -47,6 +63,7 @@ namespace Zamin {
         float GetFOV() const { return m_FOV; }
         float GetNearClip() const { return m_NearClip; }
         float GetFarClip() const { return m_FarClip; }
+        float GetAspectRatio() const { return m_AspectRatio; }
         bool IsFlying() const { return m_Flying; }
 
         // 2D editing: orthographic projection, rotation disabled (pan + zoom only).
@@ -84,6 +101,13 @@ namespace Zamin {
         float m_Pitch = 0.35f, m_Yaw = -0.6f;
 
         float m_ViewportWidth = 1280, m_ViewportHeight = 720;
+
+        struct Transition
+        {
+            bool Active = false;
+            float Time = 0.0f, Duration = 0.0f;
+            EditorCameraState From, To;
+        } m_Transition;
     };
 
 }

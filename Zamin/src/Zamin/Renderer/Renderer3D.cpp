@@ -433,20 +433,25 @@ in vec3 v_Near;
 in vec3 v_Far;
 uniform mat4 u_ViewProjection;
 uniform vec3 u_CameraPos;
-uniform int u_Plane; // 0 = XZ, 1 = XY
+uniform int u_Plane;          // 0 = XZ, 1 = XY
+uniform float u_CellSize;     // world units between minor lines
+uniform float u_MajorEvery;   // every Nth line is a major line (<= 1: none)
+uniform vec4 u_MinorColor;    // rgb + opacity
+uniform vec4 u_MajorColor;
+uniform int u_ShowAxes;
+uniform float u_FadeScale;
 
-vec4 Grid(vec2 coord, float scale, vec2 axisCoord)
+// Coverage of the lines every `spacing` world units (anti-aliased, about one pixel wide).
+// Lines closer than a few pixels to each other fade out instead of turning into noise.
+float LineAlpha(vec2 coord, float spacing)
 {
-    vec2 c = coord / scale;
+    vec2 c = coord / spacing;
     vec2 derivative = fwidth(c);
     vec2 grid = abs(fract(c - 0.5) - 0.5) / derivative;
     float line = min(grid.x, grid.y);
     float alpha = 1.0 - min(line, 1.0);
-    vec4 color = vec4(0.45, 0.47, 0.52, alpha);
-    vec2 minDer = min(derivative, 1.0) * scale;
-    if (abs(axisCoord.x) < minDer.x * 1.0) color = vec4(0.25, 0.45, 1.0, max(alpha, 0.9)); // vertical axis line
-    if (abs(axisCoord.y) < minDer.y * 1.0) color = vec4(1.0, 0.3, 0.3, max(alpha, 0.9));   // X axis line
-    return color;
+    float cellsPerPixel = max(derivative.x, derivative.y);
+    return alpha * (1.0 - smoothstep(0.12, 0.3, cellsPerPixel));
 }
 
 void main()
@@ -457,7 +462,6 @@ void main()
         discard;
     vec3 p = v_Near + t * dir;
     vec2 coord = u_Plane == 0 ? p.xz : p.xy;
-    vec2 axis = u_Plane == 0 ? vec2(p.x, p.z) : vec2(p.x, p.y);
 
     vec4 clip = u_ViewProjection * vec4(p, 1.0);
     float depth = clip.z / clip.w;
@@ -465,12 +469,22 @@ void main()
 
     float dist = length(p - u_CameraPos);
     float camHeight = abs(u_Plane == 0 ? u_CameraPos.y : u_CameraPos.z);
-    float fade = 1.0 - smoothstep(camHeight * 4.0 + 10.0, camHeight * 12.0 + 40.0, dist);
+    float fade = 1.0 - smoothstep((camHeight * 4.0 + 10.0) * u_FadeScale, (camHeight * 12.0 + 40.0) * u_FadeScale, dist);
 
-    vec4 small = Grid(coord, 1.0, axis);
-    vec4 big = Grid(coord, 10.0, axis);
-    vec4 color = big.a > small.a * 0.9 ? big : small;
-    color.a *= fade * 0.75;
+    float minor = LineAlpha(coord, u_CellSize) * u_MinorColor.a;
+    float major = u_MajorEvery > 1.5 ? LineAlpha(coord, u_CellSize * u_MajorEvery) * u_MajorColor.a : 0.0;
+    vec4 color = major >= minor ? vec4(u_MajorColor.rgb, major) : vec4(u_MinorColor.rgb, minor);
+
+    if (u_ShowAxes == 1)
+    {
+        vec2 pixel = min(fwidth(coord), vec2(u_CellSize)); // world units per pixel
+        if (abs(coord.x) < pixel.x) // the line x = 0: Z axis (3D) / Y axis (2D)
+            color = vec4(u_Plane == 0 ? vec3(0.25, 0.45, 1.0) : vec3(0.35, 0.85, 0.35), 0.9);
+        if (abs(coord.y) < pixel.y) // X axis
+            color = vec4(1.0, 0.3, 0.3, 0.9);
+    }
+
+    color.a *= fade;
     if (color.a < 0.02)
         discard;
     o_Color = vec4(pow(color.rgb, vec3(2.2)), color.a);
@@ -807,8 +821,11 @@ void main()
         s_Data->Queue.clear();
     }
 
-    void Renderer3D::DrawGrid(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition, int plane)
+    void Renderer3D::DrawGrid(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition, int plane,
+                              const GridSettings& settings)
     {
+        GridSettings gs = settings;
+        gs.Sanitize();
         glm::mat4 viewProj = projection * view;
         RenderCommand::SetDepthWrite(false);
         auto& grid = s_Data->GridShader;
@@ -817,6 +834,12 @@ void main()
         grid->SetMat4("u_InverseViewProjection", glm::inverse(viewProj));
         grid->SetFloat3("u_CameraPos", cameraPosition);
         grid->SetInt("u_Plane", plane);
+        grid->SetFloat("u_CellSize", gs.CellSize);
+        grid->SetFloat("u_MajorEvery", (float)gs.MajorEvery);
+        grid->SetFloat4("u_MinorColor", gs.Color);
+        grid->SetFloat4("u_MajorColor", gs.MajorColor);
+        grid->SetInt("u_ShowAxes", gs.ShowAxes ? 1 : 0);
+        grid->SetFloat("u_FadeScale", gs.FadeDistance);
         RenderCommand::DrawArrays(3);
         RenderCommand::SetDepthWrite(true);
         Renderer::GetStats().DrawCalls++;

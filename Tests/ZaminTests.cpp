@@ -3754,6 +3754,383 @@ TEST(TransformClipboardText)
     CHECK_NEAR(keep.Scale.y, 1.0f, 1e-6f);
 }
 
+// ------------------------------------------------------------------ M02: viewport (snap, grid, camera)
+TEST(EditorSnapSettings)
+{
+    SnapSettings snap;
+    CHECK(!snap.Enabled);
+    CHECK(!snap.IsActive(false));
+    CHECK(snap.IsActive(true));          // Ctrl turns snapping on...
+    snap.Enabled = true;
+    CHECK(snap.IsActive(false));
+    CHECK(!snap.IsActive(true));         // ...or off while the toggle is on
+    snap.Translate = 0.25f;
+    snap.Rotate = 45.0f;
+    snap.Scale = 0.5f;
+    CHECK_NEAR(snap.GetStep(0), 0.25f, 1e-6f);
+    CHECK_NEAR(snap.GetStep(1), 45.0f, 1e-6f);
+    CHECK_NEAR(snap.GetStep(2), 0.5f, 1e-6f);
+    CHECK_NEAR(snap.GetStep(-1), 0.25f, 1e-6f); // "no gizmo" shows the translate step
+
+    snap.Translate = 0.0f;
+    snap.Rotate = 720.0f;
+    snap.Scale = std::numeric_limits<float>::quiet_NaN();
+    snap.Sanitize();
+    CHECK_NEAR(snap.Translate, SnapSettings::MinStep, 1e-7f);
+    CHECK_NEAR(snap.Rotate, 360.0f, 1e-6f);
+    CHECK_NEAR(snap.Scale, 0.1f, 1e-6f);
+
+    GridSettings grid;
+    grid.CellSize = -2.0f;
+    grid.MajorEvery = 0;
+    grid.FadeDistance = 50.0f;
+    grid.Color = glm::vec4(2.0f, -1.0f, 0.5f, 1.5f);
+    grid.Sanitize();
+    CHECK_NEAR(grid.CellSize, GridSettings::MinCellSize, 1e-7f);
+    CHECK(grid.MajorEvery == 1);
+    CHECK_NEAR(grid.FadeDistance, 10.0f, 1e-6f);
+    CHECK_NEAR(grid.Color.r, 1.0f, 1e-6f);
+    CHECK_NEAR(grid.Color.g, 0.0f, 1e-6f);
+    CHECK_NEAR(grid.Color.a, 1.0f, 1e-6f);
+}
+
+TEST(EditorViewSettingsJson)
+{
+    CameraBookmarks bm;
+    CHECK(bm.IsEmpty());
+    EditorCameraState a;
+    a.FocalPoint = { 1.0f, 2.0f, 3.0f };
+    a.Distance = 7.5f;
+    a.Pitch = -0.4f;
+    a.Yaw = 2.0f;
+    a.Orthographic = true;
+    bm.Set(2, a);
+    bm.Set(0, a);  // out of range: ignored
+    bm.Set(6, a);
+    CHECK(bm.Count() == 1);
+    CHECK(bm.Has(2) && !bm.Has(1) && !bm.Has(0) && !bm.Has(6));
+    CHECK(bm.Get(2) && bm.Get(2)->Orthographic);
+
+    EditorViewSettings settings;
+    settings.Snap.Enabled = true;
+    settings.Snap.Translate = 0.25f;
+    settings.Snap.Rotate = 45.0f;
+    settings.Grid.Visible = false;
+    settings.Grid.CellSize = 0.5f;
+    settings.Grid.MajorEvery = 4;
+    settings.Grid.Color = { 0.1f, 0.2f, 0.3f, 0.4f };
+    settings.Grid.ShowAxes = false;
+    std::string sceneKey = EditorViewSettings::SceneKey("/tmp/zamin-test/Scenes/../Scenes/Main.zscene");
+    CHECK(sceneKey == "/tmp/zamin-test/Scenes/Main.zscene");
+    CHECK(EditorViewSettings::SceneKey("").empty());
+    settings.Bookmarks[sceneKey] = bm;
+    settings.GetBookmarks("").Set(1, a);              // unsaved scene: not written
+    settings.GetBookmarks("/tmp/zamin-test/Empty.zscene"); // empty set: not written
+
+    std::string text = settings.ToJson();
+    EditorViewSettings loaded;
+    CHECK(loaded.FromJson(text));
+    CHECK(loaded.Snap.Enabled);
+    CHECK_NEAR(loaded.Snap.Translate, 0.25f, 1e-6f);
+    CHECK_NEAR(loaded.Snap.Rotate, 45.0f, 1e-6f);
+    CHECK_NEAR(loaded.Snap.Scale, 0.1f, 1e-6f);
+    CHECK(!loaded.Grid.Visible);
+    CHECK_NEAR(loaded.Grid.CellSize, 0.5f, 1e-6f);
+    CHECK(loaded.Grid.MajorEvery == 4);
+    CHECK_NEAR(loaded.Grid.Color.b, 0.3f, 1e-6f);
+    CHECK_NEAR(loaded.Grid.Color.a, 0.4f, 1e-6f);
+    CHECK(!loaded.Grid.ShowAxes);
+    CHECK(loaded.Bookmarks.size() == 1);
+    CHECK(loaded.Bookmarks.count("") == 0);
+    const EditorCameraState* back = loaded.GetBookmarks("/tmp/zamin-test/Scenes/Main.zscene").Get(2);
+    CHECK(back != nullptr);
+    if (back)
+    {
+        CHECK_NEAR(back->FocalPoint.y, 2.0f, 1e-6f);
+        CHECK_NEAR(back->Distance, 7.5f, 1e-6f);
+        CHECK_NEAR(back->Pitch, -0.4f, 1e-6f);
+        CHECK_NEAR(back->Yaw, 2.0f, 1e-6f);
+        CHECK(back->Orthographic);
+    }
+
+    // Not settings: nothing changes.
+    EditorViewSettings keep;
+    keep.Snap.Translate = 3.0f;
+    CHECK(!keep.FromJson(""));
+    CHECK(!keep.FromJson("{ broken"));
+    CHECK(!keep.FromJson("{\"ZaminEntities\":1}"));
+    CHECK_NEAR(keep.Snap.Translate, 3.0f, 1e-6f);
+    // Missing / wrongly typed fields keep their values; bad numbers are sanitized.
+    CHECK(keep.FromJson("{\"ZaminEditorView\":1,\"Snap\":{\"Rotate\":\"x\",\"Scale\":-1},\"Grid\":{\"CellSize\":0,\"Color\":[1,2]},"
+                        "\"CameraBookmarks\":{\"/a.zscene\":{\"9\":{},\"3\":{\"Distance\":-4}}}}"));
+    CHECK_NEAR(keep.Snap.Translate, 3.0f, 1e-6f);
+    CHECK_NEAR(keep.Snap.Rotate, 15.0f, 1e-6f);
+    CHECK_NEAR(keep.Snap.Scale, SnapSettings::MinStep, 1e-7f);
+    CHECK_NEAR(keep.Grid.CellSize, GridSettings::MinCellSize, 1e-7f);
+    CHECK_NEAR(keep.Grid.Color.a, GridSettings().Color.a, 1e-6f);
+    CHECK(keep.Bookmarks["/a.zscene"].Count() == 1);
+    CHECK(keep.Bookmarks["/a.zscene"].Get(3) && keep.Bookmarks["/a.zscene"].Get(3)->Distance > 0.0f);
+}
+
+TEST(EditorCameraBookmarkTransition)
+{
+    EditorCamera camera(45.0f, 16.0f / 9.0f, 0.1f, 1000.0f);
+    camera.SetViewportSize(1600, 900);
+    camera.Focus({ 0.0f, 0.0f, 0.0f }, 10.0f);
+    camera.SetOrientation(0.3f, 3.0f);
+
+    EditorCameraState saved = camera.GetViewState();
+    CHECK_NEAR(saved.Distance, 10.0f, 1e-6f);
+    CHECK_NEAR(saved.Yaw, 3.0f, 1e-6f);
+    CHECK(!saved.Orthographic);
+
+    // At once: exactly the stored view.
+    EditorCameraState target;
+    target.FocalPoint = { 10.0f, 2.0f, -4.0f };
+    target.Distance = 40.0f;
+    target.Pitch = 0.5f;
+    target.Yaw = -3.0f; // 6 - 2*pi = -0.28 rad away from 3.0 the short way
+    camera.SetViewState(target);
+    CHECK_NEAR(camera.GetFocalPoint().x, 10.0f, 1e-5f);
+    CHECK_NEAR(camera.GetDistance(), 40.0f, 1e-4f);
+    glm::vec3 expected = target.FocalPoint - camera.GetForwardDirection() * 40.0f;
+    CHECK_NEAR(glm::length(camera.GetPosition() - expected), 0.0f, 1e-3f);
+
+    // Smoothly: halfway the camera is between both views and turns the short way around.
+    camera.SetViewState(saved);
+    camera.TransitionTo(target, 1.0f);
+    CHECK(camera.IsTransitioning());
+    camera.OnUpdate(0.5f, false);
+    CHECK(camera.IsTransitioning());
+    CHECK_NEAR(camera.GetFocalPoint().x, 5.0f, 1e-3f);
+    CHECK_NEAR(camera.GetDistance(), 20.0f, 1e-2f); // zoom is even in log space: sqrt(10 * 40)
+    float shortWay = 3.0f + std::remainder(-3.0f - 3.0f, glm::two_pi<float>()) * 0.5f;
+    CHECK_NEAR(camera.GetYaw(), shortWay, 1e-3f);
+    CHECK(camera.GetYaw() > 3.0f); // not back through 0
+    camera.OnUpdate(0.6f, false);
+    CHECK(!camera.IsTransitioning());
+    CHECK_NEAR(camera.GetYaw(), -3.0f, 1e-6f); // ends exactly on the bookmark
+    CHECK_NEAR(camera.GetDistance(), 40.0f, 1e-4f);
+
+    // The projection switches at once; scrolling stops a transition where it is.
+    EditorCameraState flat = target;
+    flat.Orthographic = true;
+    camera.TransitionTo(flat, 1.0f);
+    CHECK(camera.IsOrthographic());
+    MouseScrolledEvent scroll(0.0f, 1.0f);
+    camera.OnEvent(scroll);
+    CHECK(!camera.IsTransitioning());
+    camera.TransitionTo(saved, 0.0f);
+    CHECK(!camera.IsTransitioning());
+    CHECK(!camera.IsOrthographic());
+    CHECK_NEAR(camera.GetDistance(), 10.0f, 1e-4f);
+}
+
+// Every corner of `box` inside the camera's view (normalized device coordinates); returns the
+// largest |x| / |y| a corner reaches.
+static float MaxCornerNdc(const EditorCamera& camera, const AABB& box, bool& inside)
+{
+    inside = true;
+    float extent = 0.0f;
+    glm::mat4 vp = camera.GetViewProjection();
+    for (int i = 0; i < 8; i++)
+    {
+        glm::vec3 c((i & 1) ? box.Max.x : box.Min.x, (i & 2) ? box.Max.y : box.Min.y, (i & 4) ? box.Max.z : box.Min.z);
+        glm::vec4 clip = vp * glm::vec4(c, 1.0f);
+        if (clip.w <= 0.0f) { inside = false; continue; }
+        glm::vec3 ndc = glm::vec3(clip) / clip.w;
+        if (std::abs(ndc.x) > 1.0f || std::abs(ndc.y) > 1.0f) inside = false;
+        extent = std::max({ extent, std::abs(ndc.x), std::abs(ndc.y) });
+    }
+    return extent;
+}
+
+TEST(EditorCameraFrameBounds)
+{
+    EditorCamera camera(45.0f, 16.0f / 9.0f, 0.1f, 1000.0f);
+    camera.SetViewportSize(1600, 900);
+    camera.SetOrientation(0.35f, -0.6f);
+    camera.Focus({ 50.0f, 0.0f, 0.0f }, 3.0f);
+
+    AABB box{ { -4.0f, 0.0f, -2.0f }, { 6.0f, 3.0f, 8.0f } };
+    EditorCameraState framed = camera.ComputeFrameState(box);
+    CHECK_NEAR(framed.Pitch, 0.35f, 1e-6f); // the view direction does not change
+    CHECK_NEAR(framed.Yaw, -0.6f, 1e-6f);
+    CHECK_NEAR(framed.FocalPoint.x, 1.0f, 1e-5f);
+    CHECK_NEAR(framed.FocalPoint.y, 1.5f, 1e-5f);
+    CHECK_NEAR(framed.FocalPoint.z, 3.0f, 1e-5f);
+    camera.SetViewState(framed);
+    bool inside = false;
+    float extent = MaxCornerNdc(camera, box, inside);
+    CHECK(inside);
+    CHECK(extent > 0.8f); // and tight: a corner reaches the margin
+    glm::vec4 center = camera.GetViewProjection() * glm::vec4(framed.FocalPoint, 1.0f);
+    CHECK_NEAR(center.x / center.w, 0.0f, 1e-4f);
+    CHECK_NEAR(center.y / center.w, 0.0f, 1e-4f);
+
+    // A tall narrow viewport: the horizontal field of view is the limit.
+    camera.SetViewportSize(400, 1000);
+    camera.SetViewState(camera.ComputeFrameState(box));
+    extent = MaxCornerNdc(camera, box, inside);
+    CHECK(inside);
+    CHECK(extent > 0.8f);
+    // Seen from straight above, a flat wide box fills the view sideways.
+    camera.SetViewportSize(1600, 900);
+    camera.SetOrientation(1.5f, 0.0f);
+    AABB flat{ { -30.0f, 0.0f, -1.0f }, { 30.0f, 0.2f, 1.0f } };
+    camera.SetViewState(camera.ComputeFrameState(flat));
+    extent = MaxCornerNdc(camera, flat, inside);
+    CHECK(inside);
+    CHECK(extent > 0.8f);
+
+    // 2D (orthographic, looking down -Z): the box's extent across the view fits tightly.
+    camera.SetViewportSize(1600, 900);
+    camera.SetOrientation(0.0f, 0.0f);
+    camera.SetOrthographic(true);
+    AABB level{ { 0.0f, -1.0f, 0.0f }, { 32.0f, 11.0f, 0.0f } };
+    camera.SetViewState(camera.ComputeFrameState(level));
+    extent = MaxCornerNdc(camera, level, inside);
+    CHECK(inside);
+    CHECK(extent > 0.8f);
+
+    // A single point is framed from a sensible distance, not from inside it.
+    camera.SetOrthographic(false);
+    AABB point{ glm::vec3(2.0f), glm::vec3(2.0f) };
+    EditorCameraState p = camera.ComputeFrameState(point);
+    CHECK(p.Distance > 1.5f && p.Distance < 10.0f);
+    // Huge scenes stay inside the far plane.
+    AABB huge{ glm::vec3(-5000.0f), glm::vec3(5000.0f) };
+    CHECK(camera.ComputeFrameState(huge).Distance <= camera.GetFarClip() * 0.5f + 1e-3f);
+}
+
+TEST(SceneBoundsForFraming)
+{
+    Ref<Scene> scene = CreateRef<Scene>();
+    AABB box;
+    CHECK(!scene->ComputeSceneBounds(box)); // empty scene: nothing to frame
+
+    Entity sprite = scene->CreateEntity("Sprite");
+    sprite.AddComponent<SpriteRendererComponent>();
+    sprite.GetComponent<TransformComponent>().Translation = { 3.0f, 1.0f, 0.0f };
+    sprite.GetComponent<TransformComponent>().Scale = { 2.0f, 2.0f, 1.0f };
+    CHECK(scene->GetEntityBounds(sprite, box));
+    CHECK_NEAR(box.Min.x, 2.0f, 1e-5f);
+    CHECK_NEAR(box.Max.x, 4.0f, 1e-5f);
+    CHECK_NEAR(box.Min.y, 0.0f, 1e-5f);
+    CHECK_NEAR(box.Max.y, 2.0f, 1e-5f);
+
+    Entity cube = scene->CreateEntity("Cube");
+    cube.AddComponent<MeshRendererComponent>(); // primitive cube, no GPU mesh needed
+    cube.GetComponent<TransformComponent>().Rotation = { 0.0f, glm::radians(45.0f), 0.0f };
+    CHECK(scene->GetEntityBounds(cube, box));
+    CHECK_NEAR(box.Max.x, std::sqrt(0.5f), 1e-4f); // the rotated corners reach further
+    CHECK_NEAR(box.Max.y, 0.5f, 1e-5f);
+
+    Entity ground = scene->CreateEntity("Ground");
+    ground.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Plane;
+    ground.GetComponent<TransformComponent>().Scale = { 20.0f, 1.0f, 20.0f };
+    ground.GetComponent<TransformComponent>().Translation = { 0.0f, -1.0f, 0.0f };
+    CHECK(scene->GetEntityBounds(ground, box));
+    CHECK_NEAR(box.Min.x, -10.0f, 1e-4f);
+    CHECK_NEAR(box.Min.y, -1.0f, 1e-5f);
+    CHECK_NEAR(box.Max.y, -1.0f, 1e-5f); // flat
+
+    Entity map = scene->CreateEntity("Map");
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = 4;
+    tm.Height = 2;
+    tm.TileSize = 0.5f;
+    map.GetComponent<TransformComponent>().Translation = { 10.0f, 0.0f, 0.0f };
+    CHECK(scene->GetEntityBounds(map, box));
+    CHECK_NEAR(box.Min.x, 10.0f, 1e-5f);
+    CHECK_NEAR(box.Max.x, 12.0f, 1e-5f);
+    CHECK_NEAR(box.Max.y, 1.0f, 1e-5f);
+
+    // No renderer (or a text without a loaded font): the position.
+    Entity light = scene->CreateEntity("Light");
+    light.AddComponent<PointLightComponent>();
+    light.GetComponent<TransformComponent>().Translation = { 0.0f, 25.0f, 0.0f };
+    CHECK(scene->GetEntityBounds(light, box));
+    CHECK_NEAR(box.Min.y, 25.0f, 1e-5f);
+    CHECK_NEAR(box.Max.y, 25.0f, 1e-5f);
+
+    // Screen-space UI is not in the world.
+    Entity ui = scene->CreateEntity("Button");
+    ui.AddComponent<UITransformComponent>();
+    ui.AddComponent<SpriteRendererComponent>();
+    ui.GetComponent<TransformComponent>().Translation = { 900.0f, 900.0f, 0.0f };
+    CHECK(!scene->GetEntityBounds(ui, box));
+
+    // Children count with their parent (in world space).
+    Entity parent = scene->CreateEntity("Parent");
+    parent.GetComponent<TransformComponent>().Translation = { -20.0f, 0.0f, 0.0f };
+    Entity child = scene->CreateEntity("Child");
+    child.AddComponent<SpriteRendererComponent>();
+    child.GetComponent<TransformComponent>().Translation = { 0.0f, 5.0f, 0.0f };
+    scene->SetParent(child, parent, false);
+    CHECK(scene->ComputeBounds({ parent }, box, true));
+    CHECK_NEAR(box.Min.x, -20.5f, 1e-5f);
+    CHECK_NEAR(box.Max.y, 5.5f, 1e-5f);
+    CHECK(scene->ComputeBounds({ parent }, box, false));
+    CHECK_NEAR(box.Max.y, 0.0f, 1e-5f);
+    CHECK(!scene->ComputeBounds({ ui }, box));
+    CHECK(!scene->ComputeBounds({}, box));
+
+    // The whole scene: everything above except the UI button.
+    CHECK(scene->ComputeSceneBounds(box));
+    CHECK_NEAR(box.Min.x, -20.5f, 1e-4f);
+    CHECK_NEAR(box.Max.x, 12.0f, 1e-4f);
+    CHECK_NEAR(box.Min.y, -1.0f, 1e-4f);
+    CHECK_NEAR(box.Max.y, 25.0f, 1e-4f);
+    CHECK_NEAR(box.Min.z, -10.0f, 1e-4f);
+    CHECK_NEAR(box.Max.z, 10.0f, 1e-4f);
+}
+
+TEST(GizmoDuplicateWhileDragging)
+{
+    Ref<Scene> scene = CreateRef<Scene>();
+    Entity a = scene->CreateEntity("A");
+    Entity b = scene->CreateEntity("B");
+    b.GetComponent<TransformComponent>().Translation = { 0.0f, 0.0f, 2.0f };
+    auto translate = [](glm::vec3 t) { return glm::translate(glm::mat4(1.0f), t); };
+
+    // Alt + drag: duplicate first, then drag the copies; the originals do not move.
+    std::vector<Entity> copies = scene->DuplicateEntities({ a, b });
+    CHECK(copies.size() == 2);
+    GroupTransformEdit edit;
+    glm::mat4 pivot = GroupTransformEdit::ComputePivot(*scene, copies, copies[0], false, false);
+    edit.Begin(*scene, copies, pivot);
+    edit.Update(translate({ 3.0f, 0.0f, 0.0f }), GroupTransformEdit::Operation::Translate);
+    CHECK_NEAR(a.GetComponent<TransformComponent>().Translation.x, 0.0f, 1e-6f);
+    CHECK_NEAR(copies[0].GetComponent<TransformComponent>().Translation.x, 3.0f, 1e-5f);
+    CHECK_NEAR(copies[1].GetComponent<TransformComponent>().Translation.z, 2.0f, 1e-5f);
+    CHECK_NEAR(copies[1].GetComponent<TransformComponent>().Translation.x, 3.0f, 1e-5f);
+
+    // Ctrl+D in the middle of the drag: copies of the dragged entities stay at the current
+    // place and the drag goes on with them, restarted from the current gizmo matrix.
+    glm::mat4 current = translate({ 3.0f, 0.0f, 0.0f });
+    std::vector<Entity> stamps = scene->DuplicateEntities(copies);
+    edit.Begin(*scene, stamps, current);
+    edit.Update(translate({ 7.0f, 1.0f, 0.0f }), GroupTransformEdit::Operation::Translate);
+    CHECK_NEAR(copies[0].GetComponent<TransformComponent>().Translation.x, 3.0f, 1e-5f); // left behind
+    CHECK_NEAR(stamps[0].GetComponent<TransformComponent>().Translation.x, 7.0f, 1e-5f);
+    CHECK_NEAR(stamps[0].GetComponent<TransformComponent>().Translation.y, 1.0f, 1e-5f);
+    CHECK_NEAR(stamps[1].GetComponent<TransformComponent>().Translation.z, 2.0f, 1e-5f);
+    edit.End();
+    CHECK(scene->GetEntitiesInOrder().size() == 6);
+
+    // The same with scaling: the copy keeps the scale it had, the dragged one goes on.
+    Entity s = scene->CreateEntity("S");
+    edit.Begin(*scene, { s }, glm::mat4(1.0f));
+    glm::mat4 twice = glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
+    edit.Update(twice, GroupTransformEdit::Operation::Scale);
+    std::vector<Entity> sc = scene->DuplicateEntities({ s });
+    edit.Begin(*scene, sc, twice);
+    edit.Update(glm::scale(glm::mat4(1.0f), glm::vec3(3.0f)), GroupTransformEdit::Operation::Scale);
+    CHECK_NEAR(s.GetComponent<TransformComponent>().Scale.x, 2.0f, 1e-5f);
+    CHECK_NEAR(sc[0].GetComponent<TransformComponent>().Scale.x, 3.0f, 1e-5f);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

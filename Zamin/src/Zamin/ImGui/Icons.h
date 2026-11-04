@@ -101,3 +101,7 @@
 #define ICON_FA_CIRCLE_DOT "\xef\x86\x92"
 #define ICON_FA_ARROW_ROTATE_LEFT "\xef\x83\xa2"
 #define ICON_FA_CHECK_DOUBLE "\xef\x95\xa0"
+#define ICON_FA_MAGNET "\xef\x81\xb6"
+#define ICON_FA_BOOKMARK "\xef\x80\xae"
+#define ICON_FA_EXPAND "\xef\x81\xa5"
+#define ICON_FA_CARET_DOWN "\xef\x83\x97"

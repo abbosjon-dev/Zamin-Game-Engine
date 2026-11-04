@@ -61,6 +61,7 @@ namespace Zamin {
     {
         bool ShowGrid = false;
         int GridPlane = 0;       // 0 = XZ, 1 = XY
+        GridSettings Grid;       // cell size, colors, axes (editor viewport preferences)
     };
 
     class Scene
@@ -161,6 +162,16 @@ namespace Zamin {
         // Sets local transform so that the entity ends up at `world`.
         void SetWorldTransform(Entity entity, const glm::mat4& world);
         glm::vec3 GetWorldPosition(Entity entity);
+
+        // ---- bounds (editor framing: F = selection, Shift+F = whole scene)
+        // World-space box around what the entity draws: mesh / model, sprite, circle, text,
+        // tilemap. Without any of these it is just the entity's position. False for screen-space
+        // UI entities (they are not in the world).
+        bool GetEntityBounds(Entity entity, AABB& out);
+        // Union over `entities` (with their descendants when includeChildren). False when none counted.
+        bool ComputeBounds(const std::vector<Entity>& entities, AABB& out, bool includeChildren = true);
+        // Union over every entity of the scene. False for an empty scene.
+        bool ComputeSceneBounds(AABB& out);
 
         // ---- prefabs (.zprefab)
         Entity InstantiatePrefab(const std::filesystem::path& path);

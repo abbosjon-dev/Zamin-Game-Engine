@@ -29,7 +29,13 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - **Prefab'lar** (`.zprefab`): obyektni prefab qilib saqlash, sahnaga/ierarxiyaga sudrab qo'yish
 - 2D sahnalar uchun avtomatik ortografik kamera, 3D collider'larni wireframe ko'rinishda chizish
 - Zamonaviy qorong'i tema, Inter shrifti, Font Awesome ikonkalari, o'zbekcha interfeys
-- Gizmo'lar (ko'chirish / aylantirish / masshtab, `Ctrl` bilan snapping), sichqoncha bilan obyekt tanlash (picking)
+- Gizmo'lar (ko'chirish / aylantirish / masshtab), sichqoncha bilan obyekt tanlash (picking)
+- **Snapping** toolbar'da (magnit): ko'chirish / aylantirish / masshtab qadamlari va tayyor qiymatlar; `Ctrl` bosib turish vaqtincha teskari qiladi
+- **Grid sozlamalari**: katak o'lchami, katta chiziqlar oralig'i, ranglar, o'qlar, ko'rinish masofasi (toolbar'dagi ▾ yoki o'ng tugma)
+- **Kamera xatcho'plari**: `Ctrl+1..5` ko'rinishni saqlaydi, `1..5` unga silliq qaytaradi (har bir sahna uchun alohida)
+- **Hammasini ko'rsatish** (`Shift+F`) va tanlanganlarni ko'rsatish (`F`): kamera obyektlarning chegaralariga moslanadi
+- Viewport'da **nusxalab sudrash**: `Alt` + gizmo'ni sudrash nusxasini sudraydi, sudrash paytida `Ctrl+D` shu joyda nusxa qoldiradi
+- Viewport sozlamalari (snapping, grid, xatcho'plar) foydalanuvchi uchun `~/.config/zamin/editor-view.json` faylida saqlanadi
 - **Play / Simulate / Pause / Step** — o'yinni editor ichida ishga tushirish (sahna nusxasida, tahrir buzilmaydi)
 - Editor kamerasi: Unity kabi uchish (RMB + WASD) va Maya kabi orbit (Alt + sichqoncha)
 - 2D/3D rejim, infinite grid, fizik collider'larni ko'rsatish, kamera/yorug'lik ikonkalari
@@ -281,8 +287,11 @@ Skriptni o'zgartirgach: **Skriptlar → Kompilyatsiya** (`Ctrl+B`) yoki loyihani
 | Alt + LMB / MMB / RMB | Orbit / surish / zoom |
 | G'ildirak | Yaqinlashtirish |
 | Q / W / E / R | Tanlash / Ko'chirish / Aylantirish / Masshtab |
-| F | Tanlangan obyektga fokus |
-| Ctrl (gizmo bilan) | Snapping |
+| F / Shift+F | Tanlanganlarga fokus / Butun sahnani ko'rsatish |
+| Ctrl+1..5 / 1..5 | Kamera xatcho'pini saqlash / unga qaytish |
+| Ctrl (gizmo bilan) | Snapping'ni vaqtincha yoqish/o'chirish (toolbar'dagi magnitga teskari) |
+| Alt + gizmo'ni sudrash | Nusxasini sudrash (asl obyekt joyida qoladi) |
+| Ctrl+D (sudrash paytida) | Shu joyda nusxa qoldirib, sudrashni davom ettirish |
 | Ctrl+P | O'ynash / To'xtatish |
 | Ctrl+S / Ctrl+Shift+S | Saqlash / Boshqacha saqlash |
 | Ctrl+O / Ctrl+Shift+O | Sahna / Loyiha ochish |

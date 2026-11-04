@@ -790,6 +790,99 @@ namespace Zamin {
 
     glm::vec3 Scene::GetWorldPosition(Entity entity) { return glm::vec3(GetWorldTransform(entity)[3]); }
 
+    // ------------------------------------------------------------------ bounds
+    static void ExpandBounds(AABB& box, bool& any, const glm::vec3& p)
+    {
+        box.Min = any ? glm::min(box.Min, p) : p;
+        box.Max = any ? glm::max(box.Max, p) : p;
+        any = true;
+    }
+
+    // The 8 corners of the local box `min..max` through `world`.
+    static void ExpandBounds(AABB& box, bool& any, const glm::mat4& world, const glm::vec3& min, const glm::vec3& max)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            glm::vec3 corner((i & 1) ? max.x : min.x, (i & 2) ? max.y : min.y, (i & 4) ? max.z : min.z);
+            ExpandBounds(box, any, glm::vec3(world * glm::vec4(corner, 1.0f)));
+        }
+    }
+
+    bool Scene::GetEntityBounds(Entity entity, AABB& out)
+    {
+        if (!entity.IsValid() || entity.HasComponent<UITransformComponent>())
+            return false;
+        const glm::mat4 world = GetWorldTransform(entity);
+        AABB box;
+        bool any = false;
+
+        if (auto* mr = entity.TryGetComponent<MeshRendererComponent>())
+        {
+            if (mr->Type == PrimitiveMesh::Model)
+            {
+                if (mr->ModelAsset)
+                    ExpandBounds(box, any, world, mr->ModelAsset->GetBounds().Min, mr->ModelAsset->GetBounds().Max);
+            }
+            else if (mr->MeshAsset)
+                ExpandBounds(box, any, world, mr->MeshAsset->GetBounds().Min, mr->MeshAsset->GetBounds().Max);
+            else if (mr->Type == PrimitiveMesh::Plane) // every primitive fits the unit cube
+                ExpandBounds(box, any, world, { -0.5f, 0.0f, -0.5f }, { 0.5f, 0.0f, 0.5f });
+            else
+                ExpandBounds(box, any, world, glm::vec3(-0.5f), glm::vec3(0.5f));
+        }
+        if (entity.HasComponent<SpriteRendererComponent>() || entity.HasComponent<CircleRendererComponent>())
+            ExpandBounds(box, any, world, { -0.5f, -0.5f, 0.0f }, { 0.5f, 0.5f, 0.0f }); // unit quad
+        if (auto* text = entity.TryGetComponent<TextComponent>(); text && text->FontAsset)
+        {
+            // Same box as Renderer2D::DrawString lays the text out (see the editor's selection outline).
+            glm::vec2 size = Renderer2D::MeasureString(text->Text, text->FontAsset, { text->Color, text->Kerning, text->LineSpacing });
+            float ascent = text->FontAsset->GetAscent();
+            glm::vec2 center = text->Centered ? glm::vec2(0.0f) : glm::vec2(size.x * 0.5f, ascent - size.y * 0.5f);
+            glm::vec2 half = size * 0.5f;
+            ExpandBounds(box, any, world, glm::vec3(center - half, 0.0f), glm::vec3(center + half, 0.0f));
+        }
+        if (auto* tm = entity.TryGetComponent<TilemapComponent>()) // the position is the bottom-left corner
+            ExpandBounds(box, any, world, glm::vec3(0.0f), glm::vec3(tm->Width * tm->TileSize, tm->Height * tm->TileSize, 0.0f));
+
+        if (!any)
+            ExpandBounds(box, any, glm::vec3(world[3]));
+        out = box;
+        return true;
+    }
+
+    bool Scene::ComputeBounds(const std::vector<Entity>& entities, AABB& out, bool includeChildren)
+    {
+        AABB total;
+        bool any = false;
+        std::unordered_set<entt::entity> visited;
+        auto add = [&](Entity e) {
+            if (!e.IsValid() || !visited.insert((entt::entity)e).second)
+                return;
+            AABB box;
+            if (!GetEntityBounds(e, box))
+                return;
+            ExpandBounds(total, any, box.Min);
+            ExpandBounds(total, any, box.Max);
+        };
+        for (Entity e : entities)
+        {
+            if (!e.IsValid() || e.GetScene() != this)
+                continue;
+            add(e);
+            if (includeChildren)
+                for (Entity child : GetDescendants(e))
+                    add(child);
+        }
+        if (any)
+            out = total;
+        return any;
+    }
+
+    bool Scene::ComputeSceneBounds(AABB& out)
+    {
+        return ComputeBounds(GetEntitiesInOrder(), out, false);
+    }
+
     void Scene::SetWorldTransform(Entity entity, const glm::mat4& world)
     {
         Entity parent = GetParent(entity);
@@ -2180,7 +2273,7 @@ namespace Zamin {
         Renderer3D::EndScene();
 
         if (options.ShowGrid)
-            Renderer3D::DrawGrid(view, projection, cameraPosition, options.GridPlane);
+            Renderer3D::DrawGrid(view, projection, cameraPosition, options.GridPlane, options.Grid);
 
         // ---------------- 2D (sorted back-to-front for correct blending)
         struct Item2D

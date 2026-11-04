@@ -65,6 +65,7 @@ namespace Zamin {
         m_LayoutInitialized = fs::exists(iniPath);
 
         m_EditorCamera.Focus({ 0.0f, 0.5f, 0.0f }, 14.0f);
+        LoadViewSettings();
 
         m_SceneHierarchyPanel.OnFocusRequested = [this](Entity e) { FocusEntity(e); };
         m_SceneHierarchyPanel.OnSceneModified = [this]() { MarkDirty(); };
@@ -106,6 +107,8 @@ namespace Zamin {
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
         m_ProjectSettingsPanel.SaveIfDirty();
+        if (m_ViewSettingsDirty)
+            SaveViewSettings();
         m_ActiveScene.reset();
         m_EditorScene.reset();
         ScriptEngine::UnloadModule();
@@ -148,6 +151,8 @@ namespace Zamin {
                 OnScenePlay();
             if (std::getenv("ZAMIN_EDITOR_STATS"))
                 m_ShowStats = true;
+            if (std::getenv("ZAMIN_EDITOR_FRAME_ALL"))
+                FrameAll();
             if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | Tags | General
             {
                 m_ShowProjectSettings = true;
@@ -228,18 +233,25 @@ namespace Zamin {
         }
 
         SceneRenderOptions options;
-        options.ShowGrid = m_ShowGrid;
+        options.ShowGrid = m_ViewSettings.Grid.Visible;
         options.GridPlane = m_2DMode ? 1 : 0;
+        options.Grid = m_ViewSettings.Grid;
+
+        // The camera does not take a mouse drag that belongs to the gizmo (Alt + drag on the
+        // gizmo duplicates instead of orbiting; Alt pressed in the middle of a gizmo drag).
+        if (m_GizmoAltDrag && !Input::IsMouseButtonPressed(MouseButton::Left))
+            m_GizmoAltDrag = m_GizmoAltDuplicatePending = false;
+        bool cameraInput = m_ViewportHovered && !m_GizmoAltDrag && !m_GizmoEdit.IsActive();
 
         switch (m_SceneState)
         {
             case SceneState::Edit:
                 UpdateTilePainting();
-                m_EditorCamera.OnUpdate(ts, m_ViewportHovered);
+                m_EditorCamera.OnUpdate(ts, cameraInput);
                 m_ActiveScene->OnUpdateEditor(ts, m_EditorCamera, options);
                 break;
             case SceneState::Simulate:
-                m_EditorCamera.OnUpdate(ts, m_ViewportHovered);
+                m_EditorCamera.OnUpdate(ts, cameraInput);
                 m_ActiveScene->OnUpdateSimulation(ts, m_EditorCamera, options);
                 break;
             case SceneState::Play:
@@ -533,6 +545,12 @@ namespace Zamin {
         {
             bool alt = Input::IsKeyPressed(Key::LeftAlt) || Input::IsKeyPressed(Key::RightAlt);
             bool overGizmo = m_SceneHierarchyPanel.GetSelectedEntity() && ImGuizmo::IsOver() && m_GizmoMode != GizmoMode::None;
+            if (alt && overGizmo && m_SceneState == SceneState::Edit && !m_SceneHierarchyPanel.IsTilePainting())
+            {
+                // Alt + drag on the gizmo: drag copies of the selection, the originals stay.
+                m_GizmoAltDrag = true;
+                m_GizmoAltDuplicatePending = true;
+            }
             if (!alt && !overGizmo && !m_SceneHierarchyPanel.IsTilePainting())
             {
                 // Ctrl+click toggles, Shift+click adds to the selection.
@@ -671,6 +689,7 @@ namespace Zamin {
         m_EditorScene->SetName("Yangi sahna");
         SetActiveScene(m_EditorScene);
         m_EditorScenePath.clear();
+        m_ViewSettings.Bookmarks.erase(std::string()); // bookmarks of the previous unsaved scene
         m_SceneDirty = false;
         ResetUndoHistory();
         UpdateWindowTitle();
@@ -760,6 +779,20 @@ namespace Zamin {
         fs::path p(path);
         if (p.extension() != ".zscene") p += ".zscene";
         m_EditorScene->SetName(p.stem().string());
+        if (m_EditorScenePath.empty())
+        {
+            // Camera bookmarks made before the first save belong to the new file now.
+            auto unsaved = m_ViewSettings.Bookmarks.find(std::string());
+            if (unsaved != m_ViewSettings.Bookmarks.end())
+            {
+                if (!unsaved->second.IsEmpty())
+                {
+                    m_ViewSettings.Bookmarks[EditorViewSettings::SceneKey(p)] = unsaved->second;
+                    MarkViewSettingsDirty();
+                }
+                m_ViewSettings.Bookmarks.erase(std::string());
+            }
+        }
         m_EditorScenePath = p;
         SaveScene();
     }
@@ -809,9 +842,21 @@ namespace Zamin {
     void EditorLayer::DuplicateSelectedEntity()
     {
         if (m_SceneState != SceneState::Edit) return;
+        bool midDrag = m_GizmoEdit.IsActive() && m_GizmoEdit.GetScene() == m_ActiveScene.get();
         // Every selected subtree at once: one undo step (MarkDirty via OnSceneModified).
         size_t count = m_SceneHierarchyPanel.DuplicateSelection();
-        if (count > 1)
+        if (count == 0)
+            return;
+        if (midDrag)
+        {
+            // Ctrl+D during a gizmo drag: the originals stay where they are now and the drag
+            // goes on with the copies (press again to leave more copies along the way). The
+            // gizmo's current matrix is where the copies are, so the edit restarts from it.
+            m_GizmoEdit.Begin(*m_ActiveScene, m_SceneHierarchyPanel.GetSelectedRoots(), m_GizmoMatrix);
+            ShowViewportMessage(count > 1 ? std::format(ICON_FA_CLONE "  {} ta nusxa qoldirildi", count)
+                                          : std::string(ICON_FA_CLONE "  Nusxa qoldirildi"));
+        }
+        else if (count > 1)
             ZM_INFO("{} ta obyekt nusxalandi", count);
     }
 
@@ -826,11 +871,86 @@ namespace Zamin {
 
     void EditorLayer::FocusEntity(Entity entity)
     {
-        if (!entity) return;
-        glm::vec3 p, r, sc;
-        Math::DecomposeTransform(m_ActiveScene->GetWorldTransform(entity), p, r, sc);
-        float size = std::max({ std::abs(sc.x), std::abs(sc.y), std::abs(sc.z), 1.0f });
-        m_EditorCamera.Focus(p, size * 3.5f + 2.0f);
+        if (entity && entity.IsValid())
+            FrameEntities({ entity });
+    }
+
+    bool EditorLayer::FrameEntities(const std::vector<Entity>& entities)
+    {
+        AABB bounds;
+        if (!m_ActiveScene->ComputeBounds(entities, bounds, true))
+            return false;
+        m_EditorCamera.TransitionTo(m_EditorCamera.ComputeFrameState(bounds), 0.3f);
+        return true;
+    }
+
+    void EditorLayer::FrameSelection()
+    {
+        if (!FrameEntities(m_SceneHierarchyPanel.GetSelectedRoots()))
+            ShowViewportMessage(ICON_FA_BULLSEYE "  Hech narsa tanlanmagan (Shift+F: butun sahna)");
+    }
+
+    void EditorLayer::FrameAll()
+    {
+        AABB bounds;
+        if (!m_ActiveScene->ComputeSceneBounds(bounds))
+        {
+            ShowViewportMessage(ICON_FA_EXPAND "  Sahna bo'sh");
+            return;
+        }
+        m_EditorCamera.TransitionTo(m_EditorCamera.ComputeFrameState(bounds), 0.35f);
+        ShowViewportMessage(ICON_FA_EXPAND "  Butun sahna");
+    }
+
+    CameraBookmarks& EditorLayer::GetSceneBookmarks()
+    {
+        return m_ViewSettings.GetBookmarks(m_EditorScenePath);
+    }
+
+    void EditorLayer::SaveCameraBookmark(int slot)
+    {
+        if (slot < 1 || slot > CameraBookmarks::SlotCount) return;
+        GetSceneBookmarks().Set(slot, m_EditorCamera.GetViewState());
+        MarkViewSettingsDirty();
+        ShowViewportMessage(std::format(ICON_FA_BOOKMARK "  Kamera xatcho'pi {} saqlandi", slot));
+        ZM_INFO("Kamera xatcho'pi {} saqlandi", slot);
+    }
+
+    void EditorLayer::RecallCameraBookmark(int slot)
+    {
+        const EditorCameraState* state = GetSceneBookmarks().Get(slot);
+        if (!state)
+        {
+            ShowViewportMessage(std::format(ICON_FA_BOOKMARK "  Xatcho'p {} bo'sh (saqlash: Ctrl+{})", slot, slot));
+            return;
+        }
+        m_2DMode = state->Orthographic; // the camera switches its projection itself
+        m_EditorCamera.TransitionTo(*state, 0.35f);
+        ShowViewportMessage(std::format(ICON_FA_BOOKMARK "  Xatcho'p {}", slot));
+    }
+
+    void EditorLayer::ShowViewportMessage(std::string text)
+    {
+        m_ViewportMessage = std::move(text);
+        m_ViewportMessageTime = ImGui::GetCurrentContext() ? ImGui::GetTime() : 0.0;
+    }
+
+    void EditorLayer::LoadViewSettings()
+    {
+        fs::path path = ConfigDirectory() / "editor-view.json";
+        std::error_code ec;
+        if (fs::exists(path, ec) && !m_ViewSettings.Load(path))
+            ZM_WARN("Viewport sozlamalari o'qilmadi (standart qiymatlar ishlatiladi): {}", path.string());
+        m_ViewSettingsDirty = false;
+    }
+
+    void EditorLayer::SaveViewSettings()
+    {
+        m_ViewSettings.Snap.Sanitize();
+        m_ViewSettings.Grid.Sanitize();
+        if (!m_ViewSettings.Save(ConfigDirectory() / "editor-view.json"))
+            ZM_WARN("Viewport sozlamalari saqlanmadi");
+        m_ViewSettingsDirty = false;
     }
 
     void EditorLayer::Set2DMode(bool enabled)
@@ -1213,13 +1333,27 @@ namespace Zamin {
                 OnSceneStop();
 
             bool flying = Input::IsMouseButtonPressed(MouseButton::Right);
-            if (!ctrl && !flying && m_SceneState == SceneState::Edit && (m_ViewportHovered || m_ViewportFocused))
+            bool viewportKeys = !flying && (m_ViewportHovered || m_ViewportFocused);
+            if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit)
             {
                 if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) m_GizmoMode = GizmoMode::None;
                 if (ImGui::IsKeyPressed(ImGuiKey_W, false)) m_GizmoMode = GizmoMode::Translate;
                 if (ImGui::IsKeyPressed(ImGuiKey_E, false)) m_GizmoMode = GizmoMode::Rotate;
                 if (ImGui::IsKeyPressed(ImGuiKey_R, false)) m_GizmoMode = GizmoMode::Scale;
-                if (ImGui::IsKeyPressed(ImGuiKey_F, false)) FocusEntity(m_SceneHierarchyPanel.GetSelectedEntity());
+            }
+            // Editor camera (edit + simulate): F frames the selection, Shift+F the whole scene,
+            // Ctrl+1..5 stores the view in a bookmark, 1..5 flies back to it. (Not Home: ImGui's
+            // keyboard navigation uses it.)
+            if (viewportKeys && m_SceneState != SceneState::Play)
+            {
+                if (!ctrl && ImGui::IsKeyPressed(ImGuiKey_F, false)) { shift ? FrameAll() : FrameSelection(); }
+                for (int slot = 1; slot <= CameraBookmarks::SlotCount; slot++)
+                {
+                    if (!ImGui::IsKeyPressed((ImGuiKey)(ImGuiKey_0 + slot), false))
+                        continue;
+                    if (ctrl) SaveCameraBookmark(slot);
+                    else if (!shift && !io.KeyAlt) RecallCameraBookmark(slot);
+                }
             }
         }
 
@@ -1246,6 +1380,8 @@ namespace Zamin {
 
         if (m_PendingUndo && !ImGui::IsAnyItemActive() && !ImGuizmo::IsUsing() && !ImGui::IsMouseDown(ImGuiMouseButton_Left))
             CommitUndo();
+        if (m_ViewSettingsDirty && !ImGui::IsAnyItemActive())
+            SaveViewSettings();
 
         static bool lastDirty = false;
         if (lastDirty != m_SceneDirty)
@@ -1359,12 +1495,14 @@ namespace Zamin {
             ImGui::Separator();
             if (ImGui::MenuItem((ICON_FA_CLONE "  Nusxa olish" + suffix).c_str(), "Ctrl+D", false, sel && editing)) DuplicateSelectedEntity();
             if (ImGui::MenuItem((ICON_FA_TRASH "  O'chirish" + suffix).c_str(), "Delete", false, sel && editing)) DeleteSelectedEntity();
-            if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Fokus", "F", false, sel)) FocusEntity(m_SceneHierarchyPanel.GetSelectedEntity());
+            if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Fokus", "F", false, sel)) FrameSelection();
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A")) m_SceneHierarchyPanel.SelectAll();
             if (ImGui::MenuItem(ICON_FA_XMARK "  Tanlovni bekor qilish", nullptr, false, sel)) m_SceneHierarchyPanel.SetSelectedEntity({});
             ImGui::EndMenu();
         }
+
+        UI_ViewMenu();
 
         if (ImGui::BeginMenu("Obyekt"))
         {
@@ -1528,6 +1666,7 @@ namespace Zamin {
             if (m_ShowIcons) UI_ViewportIcons();
         }
         UI_ViewportToolbar();
+        UI_ViewportMessage();
 
         // Play-mode border
         if (m_SceneState != SceneState::Edit)
@@ -1583,8 +1722,9 @@ namespace Zamin {
         ImVec2 regionMin = ImGui::GetWindowContentRegionMin();
         float width = m_ViewportBounds[1].x - m_ViewportBounds[0].x;
         float buttonSize = ImGui::GetFrameHeight() + 4.0f;
+        const float spacing = 2.0f, caretWidth = std::floor(buttonSize * 0.55f);
         ImDrawList* dl = ImGui::GetWindowDrawList();
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, 0));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
         auto panelBg = [&](ImVec2 pos, float w) {
@@ -1592,17 +1732,28 @@ namespace Zamin {
             ImVec2 b(a.x + w + 8, a.y + buttonSize + 8);
             dl->AddRectFilled(a, b, IM_COL32(18, 20, 24, 210), 7.0f);
         };
-
-        // ---- left: gizmo tools
-        {
-            ImVec2 pos(10, 10);
-            float w = buttonSize * 5 + 2 * 4;
+        auto beginPanel = [&](ImVec2 pos, float w) {
             panelBg(pos, w);
             ImGui::SetCursorPos(ImVec2(regionMin.x + pos.x, regionMin.y + pos.y));
-            ImVec2 size(buttonSize, buttonSize);
+        };
+        ImVec2 size(buttonSize, buttonSize);
+        bool editing = m_SceneState == SceneState::Edit;
+        auto& snap = m_ViewSettings.Snap;
+        auto& grid = m_ViewSettings.Grid;
+        // The play controls sit in the middle; the side panels next to them are left out when
+        // the viewport is too narrow (snapping / camera stay reachable from the "Ko'rinish" menu).
+        const float centerW = buttonSize * 4 + spacing * 3;
+        const float centerMin = (width - centerW) * 0.5f - 12.0f, centerMax = (width + centerW) * 0.5f + 12.0f;
+
+        // ---- left: gizmo tools | snapping
+        float leftEnd = 10.0f;
+        {
+            ImVec2 pos(10, 10);
+            float w = buttonSize * 5 + spacing * 4;
+            beginPanel(pos, w);
             if (UI::ToolbarButton(ICON_FA_ARROW_POINTER, "Tanlash (Q)", m_GizmoMode == GizmoMode::None, size)) m_GizmoMode = GizmoMode::None;
             ImGui::SameLine();
-            if (UI::ToolbarButton(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT, "Ko'chirish (W)", m_GizmoMode == GizmoMode::Translate, size)) m_GizmoMode = GizmoMode::Translate;
+            if (UI::ToolbarButton(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT, "Ko'chirish (W)\nAlt+sudrash: nusxasini sudrash", m_GizmoMode == GizmoMode::Translate, size)) m_GizmoMode = GizmoMode::Translate;
             ImGui::SameLine();
             if (UI::ToolbarButton(ICON_FA_ROTATE, "Aylantirish (E)", m_GizmoMode == GizmoMode::Rotate, size)) m_GizmoMode = GizmoMode::Rotate;
             ImGui::SameLine();
@@ -1613,16 +1764,40 @@ namespace Zamin {
                                                      : "Gizmo: asosiy obyektda (bosing: tanlov markazida)",
                                   m_GizmoPivotCenter, size))
                 m_GizmoPivotCenter = !m_GizmoPivotCenter;
+            leftEnd = pos.x + w;
+        }
+        {
+            // The step of the current gizmo operation, e.g. "0.5", "15°", "x0.1".
+            std::string step = m_GizmoMode == GizmoMode::Rotate ? std::format("{:g}\xc2\xb0", snap.Rotate)
+                             : m_GizmoMode == GizmoMode::Scale  ? std::format("x{:g}", snap.Scale)
+                                                                : std::format("{:g}", snap.Translate);
+            std::string label = step + "  " ICON_FA_CARET_DOWN;
+            float stepWidth = ImGui::CalcTextSize(label.c_str()).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+            ImVec2 pos(leftEnd + 14.0f, 10);
+            float w = buttonSize + spacing + stepWidth;
+            if (pos.x + w < centerMin)
+            {
+                beginPanel(pos, w);
+                if (UI::ToolbarButton(ICON_FA_MAGNET, snap.Enabled ? "Snapping yoqilgan (Ctrl bosib turish: vaqtincha o'chirish)"
+                                                                   : "Snapping o'chiq (Ctrl bosib turish: vaqtincha yoqish)",
+                                      snap.Enabled, size))
+                {
+                    snap.Enabled = !snap.Enabled;
+                    MarkViewSettingsDirty();
+                }
+                ImGui::SameLine();
+                if (UI::ToolbarButton((label + "###SnapStep").c_str(), "Snapping qadamlari (ko'chirish / aylantirish / masshtab)", false,
+                                      ImVec2(stepWidth, buttonSize)))
+                    ImGui::OpenPopup("##SnapSettings");
+            }
+            UI_SnapSettingsPopup();
         }
 
         // ---- center: play controls
         {
-            float w = buttonSize * 4 + 2 * 3;
+            float w = centerW;
             ImVec2 pos((width - w) * 0.5f, 10);
-            panelBg(pos, w);
-            ImGui::SetCursorPos(ImVec2(regionMin.x + pos.x, regionMin.y + pos.y));
-            ImVec2 size(buttonSize, buttonSize);
-            bool editing = m_SceneState == SceneState::Edit;
+            beginPanel(pos, w);
 
             ImGui::PushStyleColor(ImGuiCol_Text, m_SceneState == SceneState::Play ? ImVec4(0.95f, 0.4f, 0.4f, 1) : ImVec4(0.35f, 0.9f, 0.55f, 1));
             if (UI::ToolbarButton(m_SceneState == SceneState::Play ? ICON_FA_STOP : ICON_FA_PLAY,
@@ -1648,17 +1823,43 @@ namespace Zamin {
             ImGui::EndDisabled();
         }
 
-        // ---- right: view options
+        // ---- right: camera (frame all, bookmarks) | view options
+        float viewW = buttonSize * 6 + caretWidth + spacing * 6;
+        ImVec2 viewPos(width - viewW - 10, 10);
         {
-            float w = buttonSize * 6 + 2 * 5;
-            ImVec2 pos(width - w - 10, 10);
-            panelBg(pos, w);
-            ImGui::SetCursorPos(ImVec2(regionMin.x + pos.x, regionMin.y + pos.y));
-            ImVec2 size(buttonSize, buttonSize);
+            bool cameraTools = m_SceneState != SceneState::Play;
+            float w = buttonSize * 2 + spacing;
+            ImVec2 pos(viewPos.x - 14.0f - w, 10);
+            if (pos.x > centerMax)
+            {
+                beginPanel(pos, w);
+                ImGui::BeginDisabled(!cameraTools);
+                if (UI::ToolbarButton(ICON_FA_EXPAND, "Hammasini ko'rsatish (Shift+F)", false, size)) FrameAll();
+                ImGui::SameLine();
+                int saved = GetSceneBookmarks().Count();
+                std::string tip = std::format("Kamera xatcho'plari ({} / {})\nCtrl+1..5: saqlash   1..5: qaytish", saved, CameraBookmarks::SlotCount);
+                if (UI::ToolbarButton(ICON_FA_BOOKMARK, tip.c_str(), saved > 0, size))
+                    ImGui::OpenPopup("##CameraBookmarks");
+                ImGui::EndDisabled();
+            }
+            UI_CameraBookmarksPopup();
+        }
+        {
+            beginPanel(viewPos, viewW);
             if (UI::ToolbarButton(m_2DMode ? "2D" : "3D", m_2DMode ? "2D rejim (bosing: 3D)" : "3D rejim (bosing: 2D)", m_2DMode, size))
                 Set2DMode(!m_2DMode);
             ImGui::SameLine();
-            if (UI::ToolbarButton(ICON_FA_BORDER_ALL, "Grid", m_ShowGrid, size)) m_ShowGrid = !m_ShowGrid;
+            if (UI::ToolbarButton(ICON_FA_BORDER_ALL, "Grid (o'ng tugma: sozlamalar)", grid.Visible, size))
+            {
+                grid.Visible = !grid.Visible;
+                MarkViewSettingsDirty();
+            }
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                ImGui::OpenPopup("##GridSettings");
+            ImGui::SameLine(0.0f, 0.0f);
+            if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###GridMenu", "Grid sozlamalari: o'lcham, rang, ko'rinish", false, ImVec2(caretWidth, buttonSize)))
+                ImGui::OpenPopup("##GridSettings");
+            UI_GridSettingsPopup();
             ImGui::SameLine();
             if (UI::ToolbarButton(ICON_FA_VECTOR_SQUARE, "Fizik colliderlar", m_ShowColliders, size)) m_ShowColliders = !m_ShowColliders;
             ImGui::SameLine();
@@ -1679,6 +1880,286 @@ namespace Zamin {
         }
 
         ImGui::PopStyleVar(2);
+    }
+
+    // Small buttons that set `value` to one of `presets` (the current one highlighted).
+    static bool PresetButtons(const char* id, float& value, std::initializer_list<float> presets, const char* suffix = "")
+    {
+        bool changed = false;
+        ImGui::PushID(id);
+        int i = 0;
+        for (float preset : presets)
+        {
+            if (i++) ImGui::SameLine(0.0f, 3.0f);
+            bool current = std::abs(value - preset) <= 1e-4f * std::max(1.0f, preset);
+            if (current) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.52f, 0.41f, 1.0f));
+            std::string label = std::format("{:g}{}", preset, suffix);
+            if (ImGui::SmallButton(label.c_str()))
+            {
+                value = preset;
+                changed = true;
+            }
+            if (current) ImGui::PopStyleColor();
+        }
+        ImGui::PopID();
+        return changed;
+    }
+
+    void EditorLayer::UI_SnapSettingsPopup()
+    {
+        ImGui::SetNextWindowSizeConstraints(ImVec2(330, 0), ImVec2(420, FLT_MAX));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 5));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+        if (ImGui::BeginPopup("##SnapSettings"))
+        {
+            auto& snap = m_ViewSettings.Snap;
+            bool changed = false;
+            ImGui::TextColored(UI::AccentColor(), ICON_FA_MAGNET "  Snapping");
+            ImGui::SameLine();
+            ImGui::TextDisabled("(Ctrl bosib turish teskari qiladi)");
+            changed |= ImGui::Checkbox("Doim yoqilgan", &snap.Enabled);
+            if (UI::BeginPropertyGrid("snapgrid"))
+            {
+                changed |= UI::PropertyFloat("Ko'chirish", snap.Translate, 0.01f, SnapSettings::MinStep, 1000.0f, "%.3g");
+                UI::PropertyLabel("");
+                changed |= PresetButtons("t", snap.Translate, { 0.1f, 0.25f, 0.5f, 1.0f, 2.0f, 5.0f });
+                changed |= UI::PropertyFloat("Aylantirish (\xc2\xb0)", snap.Rotate, 0.5f, SnapSettings::MinStep, 360.0f, "%.3g");
+                UI::PropertyLabel("");
+                changed |= PresetButtons("r", snap.Rotate, { 5.0f, 10.0f, 15.0f, 30.0f, 45.0f, 90.0f }, "\xc2\xb0");
+                changed |= UI::PropertyFloat("Masshtab", snap.Scale, 0.01f, SnapSettings::MinStep, 100.0f, "%.3g");
+                UI::PropertyLabel("");
+                changed |= PresetButtons("s", snap.Scale, { 0.05f, 0.1f, 0.25f, 0.5f, 1.0f });
+                UI::EndPropertyGrid();
+            }
+            std::string fromGrid = std::format(ICON_FA_BORDER_ALL "  Ko'chirish qadami = grid katagi ({:g})", m_ViewSettings.Grid.CellSize);
+            if (ImGui::Button(fromGrid.c_str()))
+            {
+                snap.Translate = m_ViewSettings.Grid.CellSize;
+                changed = true;
+            }
+            if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Standart qadamlar"))
+            {
+                SnapSettings defaults;
+                defaults.Enabled = snap.Enabled;
+                snap = defaults;
+                changed = true;
+            }
+            if (changed)
+            {
+                snap.Sanitize();
+                MarkViewSettingsDirty();
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar(2);
+    }
+
+    void EditorLayer::UI_GridSettingsPopup()
+    {
+        ImGui::SetNextWindowSizeConstraints(ImVec2(340, 0), ImVec2(440, FLT_MAX));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 5));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+        if (ImGui::BeginPopup("##GridSettings"))
+        {
+            auto& grid = m_ViewSettings.Grid;
+            bool changed = false;
+            ImGui::TextColored(UI::AccentColor(), ICON_FA_BORDER_ALL "  Grid");
+            ImGui::SameLine();
+            ImGui::TextDisabled(m_2DMode ? "(XY tekislik, 2D)" : "(XZ tekislik, 3D)");
+            if (UI::BeginPropertyGrid("gridprops"))
+            {
+                changed |= UI::PropertyBool("Ko'rinadi", grid.Visible);
+                changed |= UI::PropertyFloat("Katak o'lchami", grid.CellSize, 0.01f, GridSettings::MinCellSize, 1000.0f, "%.3g");
+                UI::PropertyLabel("");
+                changed |= PresetButtons("cell", grid.CellSize, { 0.1f, 0.25f, 0.5f, 1.0f, 2.0f, 5.0f, 10.0f });
+                UI::PropertyLabel("Katta chiziq", "Har nechanchi chiziq qalinroq ko'rinadi (1 = katta chiziqlar yo'q)");
+                changed |= ImGui::SliderInt("##major", &grid.MajorEvery, 1, 20, grid.MajorEvery > 1 ? "har %d" : "yo'q");
+                changed |= UI::PropertyColor4("Chiziq rangi", grid.Color);
+                changed |= UI::PropertyColor4("Katta chiziq rangi", grid.MajorColor);
+                changed |= UI::PropertyBool("O'qlar (X / Y / Z)", grid.ShowAxes);
+                UI::PropertyLabel("Masofa", "Grid qancha uzoqqacha ko'rinadi (standart qiymatga ko'paytma)");
+                changed |= ImGui::SliderFloat("##fade", &grid.FadeDistance, 0.25f, 4.0f, "x%.2f");
+                UI::EndPropertyGrid();
+            }
+            if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Standart qiymatlar"))
+            {
+                GridSettings defaults;
+                defaults.Visible = grid.Visible;
+                grid = defaults;
+                changed = true;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(ICON_FA_MAGNET "  Snapping qadamiga tenglash"))
+            {
+                m_ViewSettings.Snap.Translate = grid.CellSize;
+                changed = true;
+            }
+            if (changed)
+            {
+                grid.Sanitize();
+                MarkViewSettingsDirty();
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar(2);
+    }
+
+    void EditorLayer::UI_CameraBookmarksPopup()
+    {
+        ImGui::SetNextWindowSizeConstraints(ImVec2(360, 0), ImVec2(520, FLT_MAX));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 5));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+        if (ImGui::BeginPopup("##CameraBookmarks"))
+        {
+            CameraBookmarks& bookmarks = GetSceneBookmarks();
+            ImGui::TextColored(UI::AccentColor(), ICON_FA_BOOKMARK "  Kamera xatcho'plari");
+            ImGui::SameLine();
+            if (m_EditorScenePath.empty())
+                ImGui::TextDisabled("(saqlanmagan sahna)");
+            else
+                ImGui::TextDisabled("(%s)", m_EditorScenePath.filename().string().c_str());
+            ImGui::TextDisabled("Ctrl+1..5: saqlash    1..5: qaytish");
+            ImGui::Separator();
+            for (int slot = 1; slot <= CameraBookmarks::SlotCount; slot++)
+            {
+                ImGui::PushID(slot);
+                const EditorCameraState* state = bookmarks.Get(slot);
+                ImGui::BeginDisabled(!state);
+                if (ImGui::Button(std::format(ICON_FA_CAMERA "  {}", slot).c_str(), ImVec2(60, 0)))
+                {
+                    RecallCameraBookmark(slot);
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndDisabled();
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_FLOPPY_DISK "  Saqlash"))
+                    SaveCameraBookmark(slot);
+                ImGui::SameLine();
+                ImGui::BeginDisabled(!state);
+                if (ImGui::Button(ICON_FA_XMARK))
+                {
+                    bookmarks.Clear(slot);
+                    MarkViewSettingsDirty();
+                }
+                ImGui::EndDisabled();
+                ImGui::SameLine();
+                ImGui::AlignTextToFramePadding();
+                if (state)
+                    ImGui::Text("%s  (%.1f, %.1f, %.1f)  %.1f m", state->Orthographic ? "2D" : "3D",
+                                state->FocalPoint.x, state->FocalPoint.y, state->FocalPoint.z, state->Distance);
+                else
+                    ImGui::TextDisabled("bo'sh");
+                ImGui::PopID();
+            }
+            ImGui::Separator();
+            ImGui::BeginDisabled(bookmarks.IsEmpty());
+            if (ImGui::Button(ICON_FA_TRASH "  Hammasini tozalash"))
+            {
+                bookmarks.ClearAll();
+                MarkViewSettingsDirty();
+            }
+            ImGui::EndDisabled();
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar(2);
+    }
+
+    void EditorLayer::UI_ViewMenu()
+    {
+        if (!ImGui::BeginMenu("Ko'rinish"))
+            return;
+        bool camera = m_SceneState != SceneState::Play;
+        if (ImGui::MenuItem(ICON_FA_BORDER_ALL "  Grid", nullptr, &m_ViewSettings.Grid.Visible)) MarkViewSettingsDirty();
+        if (ImGui::BeginMenu(ICON_FA_SLIDERS "  Grid sozlamalari"))
+        {
+            auto& grid = m_ViewSettings.Grid;
+            bool changed = false;
+            ImGui::SetNextItemWidth(140);
+            changed |= ImGui::DragFloat("Katak o'lchami", &grid.CellSize, 0.01f, GridSettings::MinCellSize, 1000.0f, "%.3g");
+            ImGui::SetNextItemWidth(140);
+            changed |= ImGui::SliderInt("Katta chiziq", &grid.MajorEvery, 1, 20, grid.MajorEvery > 1 ? "har %d" : "yo'q");
+            changed |= ImGui::ColorEdit4("Chiziq rangi", &grid.Color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
+            changed |= ImGui::ColorEdit4("Katta chiziq rangi", &grid.MajorColor.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
+            changed |= ImGui::Checkbox("O'qlar", &grid.ShowAxes);
+            if (changed)
+            {
+                grid.Sanitize();
+                MarkViewSettingsDirty();
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::MenuItem(ICON_FA_MAGNET "  Snapping", "Ctrl = teskari", &m_ViewSettings.Snap.Enabled)) MarkViewSettingsDirty();
+        if (ImGui::BeginMenu(ICON_FA_SLIDERS "  Snapping qadamlari"))
+        {
+            auto& snap = m_ViewSettings.Snap;
+            bool changed = false;
+            ImGui::SetNextItemWidth(140);
+            changed |= ImGui::DragFloat("Ko'chirish", &snap.Translate, 0.01f, SnapSettings::MinStep, 1000.0f, "%.3g");
+            ImGui::SetNextItemWidth(140);
+            changed |= ImGui::DragFloat("Aylantirish (\xc2\xb0)", &snap.Rotate, 0.5f, SnapSettings::MinStep, 360.0f, "%.3g");
+            ImGui::SetNextItemWidth(140);
+            changed |= ImGui::DragFloat("Masshtab", &snap.Scale, 0.01f, SnapSettings::MinStep, 100.0f, "%.3g");
+            if (changed)
+            {
+                snap.Sanitize();
+                MarkViewSettingsDirty();
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::MenuItem(ICON_FA_VECTOR_SQUARE "  Fizik colliderlar", nullptr, &m_ShowColliders);
+        ImGui::MenuItem(ICON_FA_EYE "  Ikonkalar", nullptr, &m_ShowIcons);
+        ImGui::Separator();
+        if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Tanlanganga fokus", "F", false, camera && m_SceneHierarchyPanel.GetSelectedEntity())) FrameSelection();
+        if (ImGui::MenuItem(ICON_FA_EXPAND "  Hammasini ko'rsatish", "Shift+F", false, camera)) FrameAll();
+        if (ImGui::BeginMenu(ICON_FA_BOOKMARK "  Kamera xatcho'plari", camera))
+        {
+            CameraBookmarks& bookmarks = GetSceneBookmarks();
+            for (int slot = 1; slot <= CameraBookmarks::SlotCount; slot++)
+            {
+                std::string label = std::format(ICON_FA_CAMERA "  Xatcho'p {}{}", slot, bookmarks.Has(slot) ? "" : "  (bo'sh)");
+                if (ImGui::MenuItem(label.c_str(), std::to_string(slot).c_str(), false, bookmarks.Has(slot)))
+                    RecallCameraBookmark(slot);
+            }
+            ImGui::Separator();
+            if (ImGui::BeginMenu(ICON_FA_FLOPPY_DISK "  Joriy ko'rinishni saqlash"))
+            {
+                for (int slot = 1; slot <= CameraBookmarks::SlotCount; slot++)
+                    if (ImGui::MenuItem(std::format("Xatcho'p {}", slot).c_str(), std::format("Ctrl+{}", slot).c_str()))
+                        SaveCameraBookmark(slot);
+                ImGui::EndMenu();
+            }
+            if (ImGui::MenuItem(ICON_FA_TRASH "  Hammasini tozalash", nullptr, false, !bookmarks.IsEmpty()))
+            {
+                bookmarks.ClearAll();
+                MarkViewSettingsDirty();
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenu();
+    }
+
+    void EditorLayer::UI_ViewportMessage()
+    {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        glm::vec2 min = m_ViewportBounds[0], max = m_ViewportBounds[1];
+        auto banner = [&](const char* text, float alpha, float y) {
+            ImVec2 ts = ImGui::CalcTextSize(text);
+            ImVec2 a((min.x + max.x - ts.x) * 0.5f - 12.0f, y);
+            ImVec2 b(a.x + ts.x + 24.0f, a.y + ts.y + 12.0f);
+            dl->AddRectFilled(a, b, IM_COL32(18, 20, 24, (int)(215 * alpha)), 6.0f);
+            dl->AddText(ImVec2(a.x + 12.0f, a.y + 6.0f), IM_COL32(235, 238, 242, (int)(255 * alpha)), text);
+        };
+
+        // Hint while dragging with the gizmo (duplicating in the middle of a drag).
+        if (m_GizmoEdit.IsActive() && m_SceneState == SceneState::Edit)
+            banner(ICON_FA_CLONE "  Ctrl+D: shu joyda nusxa qoldirish", 0.85f, max.y - 78.0f);
+
+        double age = ImGui::GetTime() - m_ViewportMessageTime;
+        const double duration = 2.5, fadeOut = 0.5;
+        if (m_ViewportMessage.empty() || age < 0.0 || age > duration)
+            return;
+        float alpha = age > duration - fadeOut ? (float)((duration - age) / fadeOut) : 1.0f;
+        banner(m_ViewportMessage.c_str(), alpha, max.y - 44.0f);
     }
 
     void EditorLayer::UI_ViewportIcons()
@@ -1736,8 +2217,10 @@ namespace Zamin {
         const glm::mat4& projection = m_EditorCamera.GetProjection();
         glm::mat4 view = m_EditorCamera.GetViewMatrix();
 
-        bool snap = Input::IsKeyPressed(Key::LeftControl);
-        float snapValue = m_GizmoMode == GizmoMode::Rotate ? 15.0f : 0.5f;
+        // Snapping: the toolbar toggle (magnet), inverted while Ctrl is held; steps per operation.
+        bool ctrl = Input::IsKeyPressed(Key::LeftControl) || Input::IsKeyPressed(Key::RightControl);
+        bool snap = m_ViewSettings.Snap.IsActive(ctrl);
+        float snapValue = m_ViewSettings.Snap.GetStep((int)m_GizmoMode);
         float snapValues[3] = { snapValue, snapValue, snapValue };
 
         ImGuizmo::OPERATION op = m_GizmoMode == GizmoMode::Translate ? ImGuizmo::TRANSLATE :
@@ -1760,6 +2243,18 @@ namespace Zamin {
         {
             if (!dragging)
             {
+                if (m_GizmoAltDuplicatePending && m_SceneState == SceneState::Edit)
+                {
+                    // Alt + drag: the copies move, the originals stay where they were. The
+                    // copies sit exactly on the originals, so the pivot is still right.
+                    m_GizmoAltDuplicatePending = false;
+                    if (size_t count = m_SceneHierarchyPanel.DuplicateSelection())
+                    {
+                        targets = m_SceneHierarchyPanel.GetSelectedRoots();
+                        ShowViewportMessage(count > 1 ? std::format(ICON_FA_CLONE "  {} ta nusxa sudralmoqda", count)
+                                                      : std::string(ICON_FA_CLONE "  Nusxa sudralmoqda"));
+                    }
+                }
                 m_GizmoEdit.Begin(*m_ActiveScene, targets, pivot);
                 m_GizmoEditMode = m_GizmoMode;
             }

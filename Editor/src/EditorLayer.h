@@ -72,8 +72,25 @@ namespace Zamin {
 
         void DuplicateSelectedEntity();
         void DeleteSelectedEntity();
-        void FocusEntity(Entity entity);
         void Set2DMode(bool enabled);
+
+        // ---- editor camera framing / bookmarks
+        void FocusEntity(Entity entity);
+        // Flies the camera so that the entities (with their children) fill the view. False when
+        // there is nothing to frame.
+        bool FrameEntities(const std::vector<Entity>& entities);
+        void FrameSelection();   // F
+        void FrameAll();         // Shift+F
+        CameraBookmarks& GetSceneBookmarks();
+        void SaveCameraBookmark(int slot);   // Ctrl+1..5
+        void RecallCameraBookmark(int slot); // 1..5
+        // Short notice drawn over the bottom of the viewport for a moment.
+        void ShowViewportMessage(std::string text);
+
+        // ---- viewport preferences (snapping, grid, camera bookmarks): per user
+        void LoadViewSettings();
+        void SaveViewSettings();
+        void MarkViewSettingsDirty() { m_ViewSettingsDirty = true; }
 
         // ---- C++ scripts
         void BuildScripts(bool reloadAfter = true);
@@ -90,6 +107,11 @@ namespace Zamin {
         void UI_MenuBar();
         void UI_Viewport();
         void UI_ViewportToolbar();
+        void UI_SnapSettingsPopup();
+        void UI_GridSettingsPopup();
+        void UI_CameraBookmarksPopup();
+        void UI_ViewMenu();
+        void UI_ViewportMessage();
         void UI_MaximizedGame();
         void UI_ViewportIcons();
         void UI_Gizmos();
@@ -124,14 +146,21 @@ namespace Zamin {
         GroupTransformEdit m_GizmoEdit;   // the selection being dragged with the gizmo
         glm::mat4 m_GizmoMatrix{ 1.0f };  // gizmo result of the previous frame while dragging
         GizmoMode m_GizmoEditMode = GizmoMode::None;
+        // Alt pressed over the gizmo: the drag moves copies of the selection (the camera does
+        // not orbit while the button is held); the copies are made once, when the drag starts.
+        bool m_GizmoAltDrag = false;
+        bool m_GizmoAltDuplicatePending = false;
         Entity m_HoveredEntity;
 
         bool m_ViewportFocused = false, m_ViewportHovered = false;
         glm::vec2 m_ViewportSize = { 0.0f, 0.0f };
         glm::vec2 m_ViewportBounds[2] = {};
 
-        // view options
-        bool m_ShowGrid = true;
+        // view options (snapping, grid, camera bookmarks are saved per user in editor-view.json)
+        EditorViewSettings m_ViewSettings;
+        bool m_ViewSettingsDirty = false;
+        std::string m_ViewportMessage;
+        double m_ViewportMessageTime = -100.0;
         bool m_ShowColliders = true;
         bool m_ShowIcons = true;
         bool m_2DMode = false;

@@ -1,0 +1,97 @@
+#pragma once
+
+#include <glm/glm.hpp>
+
+#include <array>
+#include <filesystem>
+#include <map>
+#include <optional>
+#include <string>
+
+namespace Zamin {
+
+    // Snapping steps of the editor gizmo (viewport toolbar: magnet button + step popup).
+    struct SnapSettings
+    {
+        bool Enabled = false;     // snap without holding Ctrl (holding Ctrl inverts it)
+        float Translate = 0.5f;   // world units
+        float Rotate = 15.0f;     // degrees
+        float Scale = 0.1f;       // step of the scale factor
+
+        static constexpr float MinStep = 0.001f;
+
+        // Whether the gizmo snaps right now: the toolbar toggle, inverted while Ctrl is held.
+        bool IsActive(bool ctrlHeld) const { return Enabled != ctrlHeld; }
+        // Step for a gizmo operation: 0 translate, 1 rotate, 2 scale.
+        float GetStep(int operation) const;
+        // Steps below MinStep (or not finite) fall back to MinStep / the defaults.
+        void Sanitize();
+    };
+
+    // The editor viewport grid (XZ plane in 3D, XY plane in 2D mode).
+    struct GridSettings
+    {
+        bool Visible = true;
+        float CellSize = 1.0f;     // world units between two minor lines
+        int MajorEvery = 10;       // every Nth line is a major line (1 = no major lines)
+        glm::vec4 Color{ 0.45f, 0.47f, 0.52f, 0.6f };        // minor lines (alpha = opacity)
+        glm::vec4 MajorColor{ 0.58f, 0.60f, 0.66f, 0.85f };  // major lines
+        bool ShowAxes = true;      // the world axes in red (X) / blue (Z) or green (Y in 2D)
+        float FadeDistance = 1.0f; // how far the grid reaches before it fades out (x the default)
+
+        static constexpr float MinCellSize = 0.001f;
+        static constexpr int MaxMajorEvery = 100;
+
+        void Sanitize();
+    };
+
+    // Where the editor camera looks from (EditorCamera::GetViewState / SetViewState).
+    struct EditorCameraState
+    {
+        glm::vec3 FocalPoint{ 0.0f };
+        float Distance = 12.0f;
+        float Pitch = 0.35f;
+        float Yaw = -0.6f;
+        bool Orthographic = false; // 2D mode
+    };
+
+    // Saved editor camera views of one scene: Ctrl+1..5 stores, 1..5 flies back.
+    // Slots are numbered 1..SlotCount; anything else is ignored.
+    class CameraBookmarks
+    {
+    public:
+        static constexpr int SlotCount = 5;
+
+        void Set(int slot, const EditorCameraState& state);
+        void Clear(int slot);
+        void ClearAll() { m_Slots = {}; }
+        bool Has(int slot) const { return Get(slot) != nullptr; }
+        const EditorCameraState* Get(int slot) const;
+        bool IsEmpty() const;
+        int Count() const;
+
+    private:
+        std::array<std::optional<EditorCameraState>, SlotCount> m_Slots;
+    };
+
+    // Per-user viewport preferences of the editor: snapping, grid and the camera bookmarks of
+    // every scene (keyed by the scene file path). Stored as JSON in the editor config directory.
+    struct EditorViewSettings
+    {
+        SnapSettings Snap;
+        GridSettings Grid;
+        std::map<std::string, CameraBookmarks> Bookmarks;
+
+        // Bookmarks of a scene file ("" = a scene that was never saved).
+        static std::string SceneKey(const std::filesystem::path& scenePath);
+        CameraBookmarks& GetBookmarks(const std::filesystem::path& scenePath) { return Bookmarks[SceneKey(scenePath)]; }
+
+        std::string ToJson() const;
+        // Fields that are missing keep their current value. Returns false (nothing changes)
+        // when the text is not an editor-settings JSON object.
+        bool FromJson(const std::string& text);
+        bool Save(const std::filesystem::path& path) const;
+        bool Load(const std::filesystem::path& path);
+    };
+
+}

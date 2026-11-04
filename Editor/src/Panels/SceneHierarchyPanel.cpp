@@ -188,6 +188,13 @@ namespace Zamin {
             t.FontAsset = Font::GetDefault();
             ui.FontSize = 26.0f;
         }
+        else if (p == "Tilemap")
+        {
+            e = m_Context->CreateEntity("Tilemap");
+            auto& tm = e.AddComponent<TilemapComponent>();
+            tm.EnsureSize();
+            m_TilePaint = true;
+        }
         else if (p == "Audio") { e = m_Context->CreateEntity("Ovoz manbai"); e.AddComponent<AudioSourceComponent>(); }
 
         if (e)
@@ -207,6 +214,7 @@ namespace Zamin {
             if (ImGui::MenuItem(ICON_FA_IMAGE "  Sprite")) CreateEntityPreset("Sprite");
             if (ImGui::MenuItem(ICON_FA_CIRCLE "  Doira")) CreateEntityPreset("Circle");
             if (ImGui::MenuItem(ICON_FA_FONT "  Matn")) CreateEntityPreset("Text");
+            if (ImGui::MenuItem(ICON_FA_TABLE_CELLS "  Tilemap")) CreateEntityPreset("Tilemap");
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_BOX "  Fizik quti")) CreateEntityPreset("Physics Box");
             if (ImGui::MenuItem(ICON_FA_CIRCLE "  Fizik shar")) CreateEntityPreset("Physics Ball");
@@ -219,7 +227,7 @@ namespace Zamin {
             if (ImGui::MenuItem(ICON_FA_SQUARE "  Tekislik")) CreateEntityPreset("Plane");
             if (ImGui::MenuItem(ICON_FA_DRAW_POLYGON "  Silindr")) CreateEntityPreset("Cylinder");
             if (ImGui::MenuItem(ICON_FA_MOUNTAIN_SUN "  Konus")) CreateEntityPreset("Cone");
-            if (ImGui::MenuItem(ICON_FA_CUBES "  Model (.obj)")) CreateEntityPreset("Model");
+            if (ImGui::MenuItem(ICON_FA_CUBES "  Model (glTF / OBJ)")) CreateEntityPreset("Model");
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_ATOM "  Fizik kub")) CreateEntityPreset("Physics Cube");
             if (ImGui::MenuItem(ICON_FA_ATOM "  Fizik shar")) CreateEntityPreset("Physics Sphere");
@@ -742,6 +750,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<SphereCollider3DComponent>("Sphere Collider 3D", ICON_FA_CIRCLE);
                 DisplayAddComponentEntry<CapsuleCollider3DComponent>("Capsule Collider 3D", ICON_FA_CAPSULES);
                 ImGui::SeparatorText("Effektlar va UI");
+                DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<ParticleSystemComponent>("Particle System", ICON_FA_WAND_MAGIC_SPARKLES);
                 DisplayAddComponentEntry<UITransformComponent>("UI Transform", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<UIButtonComponent>("UI Button", ICON_FA_HAND_POINTER);
@@ -861,29 +870,41 @@ namespace Zamin {
 
         DrawComponent<MeshRendererComponent>(ICON_FA_CUBE, "Mesh Renderer", entity, [](MeshRendererComponent& c) {
             bool changed = false;
-            const char* meshes[] = { "Kub", "Shar", "Tekislik", "Silindr", "Konus", "Model (.obj)" };
+            const char* meshes[] = { "Kub", "Shar", "Tekislik", "Silindr", "Konus", "Model (glTF / OBJ)" };
             int type = (int)c.Type;
             if (UI::PropertyCombo("Mesh", type, meshes, 6))
             {
                 c.Type = (PrimitiveMesh)type;
-                c.MeshAsset = c.Type == PrimitiveMesh::Model ? nullptr : MeshLibrary::GetPrimitive(c.Type);
+                Scene::ResolveMeshRenderer(c);
                 changed = true;
             }
             if (c.Type == PrimitiveMesh::Model)
             {
-                if (UI::PropertyAssetPath("Model fayli", c.ModelPath, ".obj", ICON_FA_CUBES) || (!c.MeshAsset && !c.ModelPath.empty() && changed))
+                if (UI::PropertyAssetPath("Model fayli", c.ModelPath, ".gltf;.glb;.obj", ICON_FA_CUBES))
                 {
-                    c.MeshAsset = c.ModelPath.empty() ? nullptr : MeshLibrary::LoadOBJ(Project::GetAssetFileSystemPath(c.ModelPath));
+                    Scene::ResolveMeshRenderer(c);
                     changed = true;
+                }
+                if (c.ModelAsset)
+                {
+                    UI::PropertyLabel("Qismlar");
+                    ImGui::Text("%zu mesh", c.ModelAsset->GetSubMeshes().size());
                 }
             }
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::SeparatorText("Material");
             changed |= UI::PropertyColor4("Rang (albedo)", c.Mat.Albedo);
-            if (UI::PropertyAssetPath("Tekstura", c.AlbedoPath, ".png;.jpg;.jpeg;.bmp;.tga", ICON_FA_FILE_IMAGE))
+            const char* imgExt = ".png;.jpg;.jpeg;.bmp;.tga";
+            bool maps = UI::PropertyAssetPath("Tekstura", c.AlbedoPath, imgExt, ICON_FA_FILE_IMAGE);
+            maps |= UI::PropertyAssetPath("Normal map", c.NormalPath, imgExt, ICON_FA_FILE_IMAGE);
+            if (!c.NormalPath.empty())
+                changed |= UI::PropertySlider("Normal kuchi", c.Mat.NormalStrength, 0.0f, 3.0f);
+            maps |= UI::PropertyAssetPath("Metal/Roughness", c.MetalRoughPath, imgExt, ICON_FA_FILE_IMAGE);
+            maps |= UI::PropertyAssetPath("Nurlanish map", c.EmissivePath, imgExt, ICON_FA_FILE_IMAGE);
+            if (maps)
             {
-                c.Mat.AlbedoMap = c.AlbedoPath.empty() ? nullptr : TextureLibrary::Load(Project::GetAssetFileSystemPath(c.AlbedoPath));
+                Scene::ResolveMeshRenderer(c);
                 changed = true;
             }
             changed |= UI::PropertyFloat("Takrorlash", c.Mat.Tiling, 0.05f, 0.0f, 1000.0f);
@@ -982,6 +1003,69 @@ namespace Zamin {
             return collider3D(c) || changed;
         }, true, modified);
 
+        DrawComponent<TilemapComponent>(ICON_FA_TABLE_CELLS, "Tilemap", entity, [&](TilemapComponent& c) {
+            bool changed = false;
+            if (UI::PropertyAssetPath("Tileset", c.TilesetPath, ".png;.jpg;.jpeg", ICON_FA_FILE_IMAGE)) { c.Tileset = nullptr; changed = true; }
+            if (UI::PropertyBool("Pixel-art", c.PixelArt)) { c.Tileset = nullptr; changed = true; }
+            changed |= UI::PropertyInt("Tileset ustunlari", c.TilesetColumns);
+            changed |= UI::PropertyInt("Tileset qatorlari", c.TilesetRows);
+            c.TilesetColumns = std::max(1, c.TilesetColumns); c.TilesetRows = std::max(1, c.TilesetRows);
+            int w = c.Width, h = c.Height;
+            bool resized = UI::PropertyInt("Kenglik (plitka)", w);
+            resized |= UI::PropertyInt("Balandlik (plitka)", h);
+            if (resized) { c.Resize(std::clamp(w, 1, 1024), std::clamp(h, 1, 1024)); changed = true; }
+            changed |= UI::PropertyFloat("Plitka o'lchami", c.TileSize, 0.01f, 0.01f, 100.0f);
+            changed |= UI::PropertyColor4("Rang", c.Color);
+            changed |= UI::PropertyInt("Tartib (sorting)", c.SortingOrder);
+            changed |= UI::PropertyBool("Collision (fizika)", c.Collision);
+            changed |= UI::PropertySlider("Ishqalanish", c.Friction, 0.0f, 1.0f);
+
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Bo'yash");
+            UI::PropertyLabel("Rejim");
+            if (ImGui::Checkbox(ICON_FA_PEN "  Viewport'da chizish", &m_TilePaint)) {}
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("LMB: chizish  |  Shift+LMB: o'chirish");
+            UI::PropertyLabel("");
+            if (ImGui::Button(ICON_FA_ERASER "  Hammasini tozalash")) { std::fill(c.Tiles.begin(), c.Tiles.end(), -1); changed = true; }
+
+            // palette
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0);
+            ImGui::TextDisabled("Palitra");
+            ImGui::TableSetColumnIndex(1);
+            if (!c.Tileset && !c.TilesetPath.empty())
+                c.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TilesetPath), c.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+            if (c.Tileset)
+            {
+                float cellPx = std::max(20.0f, std::min(40.0f, (ImGui::GetContentRegionAvail().x - 8) / c.TilesetColumns - 4));
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 2));
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1, 1));
+                for (int ty = 0; ty < c.TilesetRows; ty++)
+                {
+                    for (int tx = 0; tx < c.TilesetColumns; tx++)
+                    {
+                        int index = ty * c.TilesetColumns + tx;
+                        ImVec2 uv0((float)tx / c.TilesetColumns, 1.0f - (float)ty / c.TilesetRows);
+                        ImVec2 uv1((float)(tx + 1) / c.TilesetColumns, 1.0f - (float)(ty + 1) / c.TilesetRows);
+                        ImGui::PushID(index);
+                        bool selected = m_SelectedTile == index;
+                        if (selected) ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentColor());
+                        if (ImGui::ImageButton("##tile", (ImTextureID)(uintptr_t)c.Tileset->GetRendererID(), ImVec2(cellPx, cellPx), uv0, uv1))
+                        {
+                            m_SelectedTile = index;
+                            m_TilePaint = true;
+                        }
+                        if (selected) ImGui::PopStyleColor();
+                        ImGui::PopID();
+                        if (tx + 1 < c.TilesetColumns) ImGui::SameLine();
+                    }
+                }
+                ImGui::PopStyleVar(2);
+            }
+            else
+                ImGui::TextDisabled("Tileset teksturasini tanlang");
+            return changed;
+        }, true, modified);
+
         DrawComponent<ParticleSystemComponent>(ICON_FA_WAND_MAGIC_SPARKLES, "Particle System", entity, [](ParticleSystemComponent& c) {
             bool changed = false;
             UI::PropertyLabel("");
@@ -1052,6 +1136,12 @@ namespace Zamin {
             changed |= UI::PropertySlider("Ton (pitch)", c.Pitch, 0.1f, 3.0f);
             changed |= UI::PropertyBool("Takrorlash", c.Loop);
             changed |= UI::PropertyBool("Boshida ijro", c.PlayOnStart);
+            changed |= UI::PropertyBool("3D ovoz (spatial)", c.Spatial);
+            if (c.Spatial)
+            {
+                changed |= UI::PropertyFloat("Min masofa", c.MinDistance, 0.05f, 0.01f, 1000.0f);
+                changed |= UI::PropertyFloat("Max masofa", c.MaxDistance, 0.1f, 0.1f, 10000.0f);
+            }
             UI::PropertyLabel("");
             if (ImGui::Button(ICON_FA_PLAY "  Eshitish") && !c.Path.empty())
                 AudioEngine::Play(Project::GetAssetFileSystemPath(c.Path), c.Volume, c.Pitch, false);

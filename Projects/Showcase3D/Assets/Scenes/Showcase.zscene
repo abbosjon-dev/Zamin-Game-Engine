@@ -32,11 +32,11 @@
     ],
     "Post": {
       "Bloom": true,
-      "BloomThreshold": 0.93,
-      "BloomKnee": 0.08,
-      "BloomIntensity": 0.7,
+      "BloomThreshold": 1.0,
+      "BloomKnee": 0.5,
+      "BloomIntensity": 0.6,
       "BloomRadius": 1.0,
-      "Vignette": 0.35,
+      "Vignette": 0.3,
       "Saturation": 1.08,
       "Contrast": 1.05,
       "Brightness": 0.0,
@@ -44,7 +44,8 @@
         1,
         1,
         1
-      ]
+      ],
+      "Tonemap": 1
     }
   },
   "Entities": [
@@ -158,13 +159,13 @@
         "Model": "",
         "CastShadows": true,
         "Albedo": [
-          0.42,
-          0.45,
-          0.42,
+          0.9,
+          0.9,
+          0.9,
           1
         ],
-        "AlbedoMap": "",
-        "Tiling": 1.0,
+        "AlbedoMap": "Textures/bricks.png",
+        "Tiling": 10.0,
         "Metallic": 0,
         "Roughness": 0.95,
         "Emission": [
@@ -172,7 +173,9 @@
           0,
           0
         ],
-        "EmissionStrength": 0.0
+        "EmissionStrength": 0.0,
+        "NormalMap": "Textures/bricks_normal.png",
+        "NormalStrength": 1.2
       },
       "Rigidbody3D": {
         "BodyType": "Static",
@@ -1557,7 +1560,7 @@
           1,
           0.55,
           0.15,
-          0.45
+          0.9
         ],
         "EndColor": [
           0.9,
@@ -1640,7 +1643,7 @@
           1,
           0.55,
           0.15,
-          0.45
+          0.9
         ],
         "EndColor": [
           0.9,
@@ -1723,7 +1726,7 @@
           1,
           0.55,
           0.15,
-          0.45
+          0.9
         ],
         "EndColor": [
           0.9,
@@ -1806,7 +1809,7 @@
           1,
           0.55,
           0.15,
-          0.45
+          0.9
         ],
         "EndColor": [
           0.9,
@@ -1831,6 +1834,154 @@
         ],
         "Intensity": 5.0,
         "Radius": 9.0
+      }
+    },
+    {
+      "Entity": 7397000000000000,
+      "Tag": "Crystal Shrine",
+      "Transform": {
+        "Translation": [
+          -6,
+          0,
+          -9
+        ],
+        "Rotation": [
+          0,
+          0.0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/CrystalShrine.gltf",
+        "CastShadows": true,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.6,
+          0.45,
+          0.6
+        ],
+        "Offset": [
+          0,
+          0.45,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.85,
+          1.0
+        ],
+        "Intensity": 4.0,
+        "Radius": 7.0
+      }
+    },
+    {
+      "Entity": 7397000000000001,
+      "Tag": "Crystal Shrine",
+      "Transform": {
+        "Translation": [
+          6,
+          0,
+          -9
+        ],
+        "Rotation": [
+          0,
+          0.4,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/CrystalShrine.gltf",
+        "CastShadows": true,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.6,
+          0.45,
+          0.6
+        ],
+        "Offset": [
+          0,
+          0.45,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.85,
+          1.0
+        ],
+        "Intensity": 4.0,
+        "Radius": 7.0
       }
     }
   ]

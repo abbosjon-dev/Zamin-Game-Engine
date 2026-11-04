@@ -141,6 +141,8 @@ namespace Zamin {
             e["MeshRenderer"] = {
                 { "Mesh", PrimitiveMeshToString(c->Type) }, { "Model", c->ModelPath }, { "CastShadows", c->CastShadows },
                 { "Albedo", ToJson(c->Mat.Albedo) }, { "AlbedoMap", c->AlbedoPath }, { "Tiling", c->Mat.Tiling },
+                { "NormalMap", c->NormalPath }, { "NormalStrength", c->Mat.NormalStrength },
+                { "MetalRoughMap", c->MetalRoughPath }, { "EmissiveMap", c->EmissivePath },
                 { "Metallic", c->Mat.Metallic }, { "Roughness", c->Mat.Roughness },
                 { "Emission", ToJson(c->Mat.Emission) }, { "EmissionStrength", c->Mat.EmissionStrength },
             };
@@ -172,6 +174,14 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<CapsuleCollider3DComponent>())
             e["CapsuleCollider3D"] = { { "Radius", c->Radius }, { "HalfHeight", c->HalfHeight }, { "Offset", ToJson(c->Offset) },
                                        { "Friction", c->Friction }, { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
+        if (auto* c = entity.TryGetComponent<TilemapComponent>())
+        {
+            c->EnsureSize();
+            e["Tilemap"] = { { "Tileset", c->TilesetPath }, { "PixelArt", c->PixelArt }, { "TilesetColumns", c->TilesetColumns },
+                             { "TilesetRows", c->TilesetRows }, { "Width", c->Width }, { "Height", c->Height }, { "TileSize", c->TileSize },
+                             { "Tiles", c->Tiles }, { "Color", ToJson(c->Color) }, { "SortingOrder", c->SortingOrder },
+                             { "Collision", c->Collision }, { "Friction", c->Friction } };
+        }
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
             e["ParticleSystem"] = {
                 { "Playing", c->Playing }, { "Looping", c->Looping }, { "PlayInEditor", c->PlayInEditor },
@@ -191,7 +201,8 @@ namespace Zamin {
             e["UIButton"] = { { "Normal", ToJson(c->NormalColor) }, { "Hover", ToJson(c->HoverColor) }, { "Pressed", ToJson(c->PressedColor) },
                               { "Interactable", c->Interactable } };
         if (auto* c = entity.TryGetComponent<AudioSourceComponent>())
-            e["AudioSource"] = { { "Path", c->Path }, { "Volume", c->Volume }, { "Pitch", c->Pitch }, { "Loop", c->Loop }, { "PlayOnStart", c->PlayOnStart } };
+            e["AudioSource"] = { { "Path", c->Path }, { "Volume", c->Volume }, { "Pitch", c->Pitch }, { "Loop", c->Loop }, { "PlayOnStart", c->PlayOnStart },
+                                 { "Spatial", c->Spatial }, { "MinDistance", c->MinDistance }, { "MaxDistance", c->MaxDistance } };
         if (auto* c = entity.TryGetComponent<NativeScriptComponent>())
         {
             json fields = json::object();
@@ -280,6 +291,10 @@ namespace Zamin {
             c.CastShadows = j.value("CastShadows", true);
             c.Mat.Albedo = Vec(j, "Albedo", glm::vec4(1.0f));
             c.AlbedoPath = j.value("AlbedoMap", "");
+            c.NormalPath = j.value("NormalMap", "");
+            c.Mat.NormalStrength = j.value("NormalStrength", 1.0f);
+            c.MetalRoughPath = j.value("MetalRoughMap", "");
+            c.EmissivePath = j.value("EmissiveMap", "");
             c.Mat.Tiling = j.value("Tiling", 1.0f);
             c.Mat.Metallic = j.value("Metallic", 0.0f);
             c.Mat.Roughness = j.value("Roughness", 0.5f);
@@ -369,6 +384,24 @@ namespace Zamin {
             c.Radius = e["CapsuleCollider3D"].value("Radius", 0.5f);
             c.HalfHeight = e["CapsuleCollider3D"].value("HalfHeight", 0.5f);
         }
+        if (e.contains("Tilemap"))
+        {
+            const json& j = e["Tilemap"];
+            auto& c = entity.AddComponent<TilemapComponent>();
+            c.TilesetPath = j.value("Tileset", "");
+            c.PixelArt = j.value("PixelArt", true);
+            c.TilesetColumns = j.value("TilesetColumns", 8);
+            c.TilesetRows = j.value("TilesetRows", 4);
+            c.Width = j.value("Width", 32);
+            c.Height = j.value("Height", 12);
+            c.TileSize = j.value("TileSize", 1.0f);
+            if (j.contains("Tiles") && j["Tiles"].is_array()) c.Tiles = j["Tiles"].get<std::vector<int>>();
+            c.EnsureSize();
+            c.Color = Vec(j, "Color", glm::vec4(1.0f));
+            c.SortingOrder = j.value("SortingOrder", -1);
+            c.Collision = j.value("Collision", true);
+            c.Friction = j.value("Friction", 0.6f);
+        }
         if (e.contains("ParticleSystem"))
         {
             const json& j = e["ParticleSystem"];
@@ -430,6 +463,9 @@ namespace Zamin {
             c.Pitch = j.value("Pitch", 1.0f);
             c.Loop = j.value("Loop", false);
             c.PlayOnStart = j.value("PlayOnStart", true);
+            c.Spatial = j.value("Spatial", false);
+            c.MinDistance = j.value("MinDistance", 1.0f);
+            c.MaxDistance = j.value("MaxDistance", 30.0f);
         }
         if (e.contains("NativeScript"))
         {
@@ -458,7 +494,7 @@ namespace Zamin {
             { "Ground", ToJson(s.GroundColor) }, { "Ambient", s.AmbientIntensity }, { "Exposure", s.Exposure },
             { "ShadowDistance", s.ShadowDistance }, { "Gravity", ToJson(s.Gravity) }, { "Gravity3D", ToJson(s.Gravity3D) },
             { "Post", {
-                { "Bloom", s.Post.Bloom }, { "BloomThreshold", s.Post.BloomThreshold }, { "BloomKnee", s.Post.BloomKnee },
+                { "Tonemap", (int)s.Post.Tonemap }, { "Bloom", s.Post.Bloom }, { "BloomThreshold", s.Post.BloomThreshold }, { "BloomKnee", s.Post.BloomKnee },
                 { "BloomIntensity", s.Post.BloomIntensity }, { "BloomRadius", s.Post.BloomRadius }, { "Vignette", s.Post.Vignette },
                 { "Saturation", s.Post.Saturation }, { "Contrast", s.Post.Contrast }, { "Brightness", s.Post.Brightness },
                 { "Tint", ToJson(s.Post.Tint) } } },
@@ -524,10 +560,11 @@ namespace Zamin {
                 if (j.contains("Post"))
                 {
                     const json& p = j["Post"];
+                    s.Post.Tonemap = (TonemapMode)p.value("Tonemap", 1);
                     s.Post.Bloom = p.value("Bloom", false);
-                    s.Post.BloomThreshold = p.value("BloomThreshold", 0.85f);
-                    s.Post.BloomKnee = p.value("BloomKnee", 0.25f);
-                    s.Post.BloomIntensity = p.value("BloomIntensity", 0.8f);
+                    s.Post.BloomThreshold = p.value("BloomThreshold", 1.0f);
+                    s.Post.BloomKnee = p.value("BloomKnee", 0.5f);
+                    s.Post.BloomIntensity = p.value("BloomIntensity", 0.6f);
                     s.Post.BloomRadius = p.value("BloomRadius", 1.0f);
                     s.Post.Vignette = p.value("Vignette", 0.0f);
                     s.Post.Saturation = p.value("Saturation", 1.0f);

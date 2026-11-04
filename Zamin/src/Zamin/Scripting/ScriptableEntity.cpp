@@ -194,6 +194,11 @@ namespace Zamin {
         AudioEngine::Play(Project::GetAssetFileSystemPath(assetPath), volume, pitch, false);
     }
 
+    void ScriptableEntity::PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume, float pitch)
+    {
+        AudioEngine::PlaySpatial(Project::GetAssetFileSystemPath(assetPath), position, volume, pitch, false);
+    }
+
     float ScriptableEntity::GetTime() const { return m_Entity.GetScene()->GetTime(); }
 
 }

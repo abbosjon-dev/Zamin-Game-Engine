@@ -4,12 +4,15 @@
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/Material.h"
+#include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Scene/SceneCamera.h"
 #include "Zamin/Scripting/ScriptField.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#include <algorithm>
 #ifndef GLM_ENABLE_EXPERIMENTAL
 #define GLM_ENABLE_EXPERIMENTAL
 #endif
@@ -133,10 +136,14 @@ namespace Zamin {
     struct MeshRendererComponent
     {
         PrimitiveMesh Type = PrimitiveMesh::Cube;
-        std::string ModelPath;    // .obj (when Type == Model)
-        Ref<Mesh> MeshAsset;      // runtime cache
-        Material Mat;
-        std::string AlbedoPath;   // texture path relative to assets
+        std::string ModelPath;    // .gltf / .glb / .obj (when Type == Model)
+        Ref<Mesh> MeshAsset;      // runtime cache (primitives)
+        Ref<Model> ModelAsset;    // runtime cache (models)
+        Material Mat;             // primitives: the material; models: tint/overrides
+        std::string AlbedoPath;   // texture paths relative to assets
+        std::string NormalPath;
+        std::string MetalRoughPath;
+        std::string EmissivePath;
         bool CastShadows = true;
     };
 
@@ -160,6 +167,56 @@ namespace Zamin {
         glm::vec3 Color{ 1.0f };
         float Intensity = 5.0f;
         float Radius = 10.0f;
+    };
+
+    // ------------------------------------------------------------------ tilemap (2D)
+    // Grid of tiles from a tileset texture. The entity position is the bottom-left corner.
+    struct TilemapComponent
+    {
+        std::string TilesetPath;
+        Ref<Texture2D> Tileset;
+        bool PixelArt = true;
+        int TilesetColumns = 8;
+        int TilesetRows = 4;
+
+        int Width = 32;
+        int Height = 12;
+        float TileSize = 1.0f;
+        std::vector<int> Tiles; // Width * Height, row-major, y = 0 is the bottom row, -1 = empty
+        glm::vec4 Color{ 1.0f };
+        int SortingOrder = -1;
+
+        bool Collision = true;   // every non-empty tile is solid (static 2D physics)
+        float Friction = 0.6f;
+
+        void* RuntimeBody = nullptr; // b2Body*
+
+        void EnsureSize()
+        {
+            Width = std::max(1, Width); Height = std::max(1, Height);
+            if ((int)Tiles.size() != Width * Height) Tiles.resize((size_t)Width * Height, -1);
+        }
+        int Get(int x, int y) const
+        {
+            if (x < 0 || y < 0 || x >= Width || y >= Height || (int)Tiles.size() != Width * Height) return -1;
+            return Tiles[(size_t)y * Width + x];
+        }
+        void Set(int x, int y, int tile)
+        {
+            EnsureSize();
+            if (x < 0 || y < 0 || x >= Width || y >= Height) return;
+            Tiles[(size_t)y * Width + x] = tile;
+        }
+        // Resize keeping existing tiles anchored at the bottom-left.
+        void Resize(int w, int h)
+        {
+            w = std::max(1, w); h = std::max(1, h);
+            std::vector<int> t((size_t)w * h, -1);
+            for (int y = 0; y < std::min(h, Height); y++)
+                for (int x = 0; x < std::min(w, Width); x++)
+                    t[(size_t)y * w + x] = Get(x, y);
+            Width = w; Height = h; Tiles = std::move(t);
+        }
     };
 
     // ------------------------------------------------------------------ particles
@@ -335,6 +392,9 @@ namespace Zamin {
         float Pitch = 1.0f;
         bool Loop = false;
         bool PlayOnStart = true;
+        bool Spatial = false;      // 3D sound: volume/pan depend on the listener (primary camera)
+        float MinDistance = 1.0f;
+        float MaxDistance = 30.0f;
 
         uint32_t RuntimeHandle = 0;
     };
@@ -366,7 +426,7 @@ namespace Zamin {
         SpriteAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
-        CapsuleCollider3DComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
+        CapsuleCollider3DComponent, TilemapComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent>;
 
 }

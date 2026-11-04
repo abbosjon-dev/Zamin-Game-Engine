@@ -455,6 +455,62 @@ TEST(Kinematic3DFollowsTransformAtLowFPS)
     scene->OnRuntimeStop();
 }
 
+TEST(TilemapCollisionAndResize)
+{
+    auto scene = CreateRef<Scene>();
+    Entity map = scene->CreateEntity("Map");
+    map.GetTransform().Translation = { -5, -2, 0 };
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = 10; tm.Height = 4;
+    tm.EnsureSize();
+    for (int x = 0; x < 10; x++) tm.Set(x, 0, 1); // floor: top at y = -1
+    CHECK(tm.Get(3, 0) == 1 && tm.Get(3, 1) == -1 && tm.Get(-1, 0) == -1);
+
+    Entity box = scene->CreateEntity("Box");
+    box.GetTransform().Translation = { 0, 3, 0 };
+    box.AddComponent<Rigidbody2DComponent>();
+    box.AddComponent<BoxCollider2DComponent>();
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 180; i++) scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(box.GetTransform().Translation.y, -0.5f, 0.05f);
+    RaycastHit hit = scene->Raycast2D({ 0, 5 }, { 0, -1 }, 20.0f);
+    CHECK(hit && hit.EntityID == box.GetUUID());
+    scene->OnRuntimeStop();
+
+    tm.Resize(20, 2);
+    CHECK(tm.Width == 20 && tm.Height == 2 && tm.Tiles.size() == 40);
+    CHECK(tm.Get(3, 0) == 1 && tm.Get(15, 0) == -1);
+
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity lm = loaded->FindEntityByName("Map");
+    CHECK(lm && lm.GetComponent<TilemapComponent>().Get(9, 0) == 1 && lm.GetComponent<TilemapComponent>().Width == 20);
+}
+
+TEST(ParticlesSimulate)
+{
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Fx");
+    auto& ps = e.AddComponent<ParticleSystemComponent>();
+    ps.EmissionRate = 100.0f;
+    ps.Burst = 10;
+    ps.LifetimeMin = ps.LifetimeMax = 0.5f;
+    ps.Gravity = { 0, -10, 0 };
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(0.1f);
+    size_t count = ps.Particles.size();
+    CHECK(count >= 15 && count <= 25); // burst 10 + ~10 emitted
+    for (int i = 0; i < 10; i++) scene->OnUpdateRuntime(0.1f);
+    CHECK(ps.Particles.size() <= 60);    // old ones die after 0.5 s
+    ps.Playing = false;
+    for (int i = 0; i < 10; i++) scene->OnUpdateRuntime(0.1f);
+    CHECK(ps.Particles.empty());
+    scene->EmitParticles(e, 5);
+    CHECK(ps.Particles.size() == 5);
+    scene->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

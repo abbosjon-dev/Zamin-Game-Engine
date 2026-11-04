@@ -70,6 +70,25 @@ namespace Zamin {
             m_Loaded = true;
         }
 
+        OpenGLTexture2D(const void* encoded, size_t size, const std::string& name) : m_Path(name)
+        {
+            int width, height, channels;
+            stbi_set_flip_vertically_on_load(1); // same convention as file textures (glTF V is flipped in the mesh)
+            stbi_uc* data = stbi_load_from_memory((const stbi_uc*)encoded, (int)size, &width, &height, &channels, 4);
+            if (!data)
+            {
+                ZM_CORE_ERROR("Rasm (xotiradan) yuklanmadi: '{}' ({})", name, stbi_failure_reason());
+                return;
+            }
+            m_Specification.Width = (uint32_t)width;
+            m_Specification.Height = (uint32_t)height;
+            m_Specification.Format = ImageFormat::RGBA8;
+            Allocate();
+            SetData(data, (uint32_t)(width * height * 4));
+            stbi_image_free(data);
+            m_Loaded = true;
+        }
+
         ~OpenGLTexture2D() override { if (m_RendererID) glDeleteTextures(1, &m_RendererID); }
 
         const TextureSpecification& GetSpecification() const override { return m_Specification; }
@@ -141,6 +160,11 @@ namespace Zamin {
 
     Ref<Texture2D> Texture2D::Create(const TextureSpecification& specification) { return CreateRef<OpenGLTexture2D>(specification); }
     Ref<Texture2D> Texture2D::Create(const std::string& path, TextureFilter filter) { return CreateRef<OpenGLTexture2D>(path, filter); }
+    Ref<Texture2D> Texture2D::CreateFromMemory(const void* data, size_t size, const std::string& name)
+    {
+        auto t = CreateRef<OpenGLTexture2D>(data, size, name);
+        return t->IsLoaded() ? t : nullptr;
+    }
 
     // ---------------------------------------------------------------- TextureLibrary
     static std::unordered_map<std::string, Ref<Texture2D>> s_TextureCache;

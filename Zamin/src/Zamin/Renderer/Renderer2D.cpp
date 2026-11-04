@@ -77,7 +77,8 @@ void main()
     texColor *= v_Color;
     if (texColor.a < 0.01)
         discard;
-    o_Color = texColor;
+    // Sprites are authored in sRGB; the scene buffer is linear HDR.
+    o_Color = vec4(pow(texColor.rgb, vec3(2.2)), texColor.a);
     o_EntityID = v_EntityID;
 }
 )";
@@ -126,8 +127,7 @@ void main()
     circle *= smoothstep(v_Thickness + v_Fade, v_Thickness, distance);
     if (circle == 0.0)
         discard;
-    o_Color = v_Color;
-    o_Color.a *= circle;
+    o_Color = vec4(pow(v_Color.rgb, vec3(2.2)), v_Color.a * circle);
     o_EntityID = v_EntityID;
 }
 )";
@@ -159,7 +159,7 @@ flat in int v_EntityID;
 
 void main()
 {
-    o_Color = v_Color;
+    o_Color = vec4(pow(v_Color.rgb, vec3(2.2)), v_Color.a);
     o_EntityID = v_EntityID;
 }
 )";

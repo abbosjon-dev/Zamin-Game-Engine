@@ -13,6 +13,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 
@@ -47,7 +48,7 @@ namespace Zamin {
     void EditorLayer::OnAttach()
     {
         FramebufferSpecification fbSpec;
-        fbSpec.Attachments = { FramebufferTextureFormat::RGBA8, FramebufferTextureFormat::RED_INTEGER, FramebufferTextureFormat::Depth };
+        fbSpec.Attachments = { FramebufferTextureFormat::RGBA16F, FramebufferTextureFormat::RED_INTEGER, FramebufferTextureFormat::Depth };
         fbSpec.Width = 1280;
         fbSpec.Height = 720;
         m_Framebuffer = Framebuffer::Create(fbSpec);
@@ -112,6 +113,8 @@ namespace Zamin {
         static int frame = 0;
         if (++frame == 5)
         {
+            if (const char* scene = std::getenv("ZAMIN_EDITOR_SCENE"))
+                OpenScene(Project::GetAssetFileSystemPath(scene));
             if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT"))
                 m_SceneHierarchyPanel.SetSelectedEntity(m_ActiveScene->FindEntityByName(sel));
             if (std::getenv("ZAMIN_EDITOR_PLAY"))
@@ -163,7 +166,7 @@ namespace Zamin {
         Renderer::ResetStats();
         m_Framebuffer->Bind();
         glm::vec4 clear = m_ActiveScene->GetSettings().DrawSky ? glm::vec4(0.1f, 0.1f, 0.12f, 1.0f) : m_ActiveScene->GetClearColor();
-        RenderCommand::SetClearColor(clear);
+        RenderCommand::SetClearColor({ std::pow(clear.r, 2.2f), std::pow(clear.g, 2.2f), std::pow(clear.b, 2.2f), clear.a }); // linear
         RenderCommand::Clear();
         m_Framebuffer->ClearAttachment(1, -1);
 
@@ -180,6 +183,7 @@ namespace Zamin {
         switch (m_SceneState)
         {
             case SceneState::Edit:
+                UpdateTilePainting();
                 m_EditorCamera.OnUpdate(ts, m_ViewportHovered);
                 m_ActiveScene->OnUpdateEditor(ts, m_EditorCamera, options);
                 break;
@@ -234,6 +238,40 @@ namespace Zamin {
             return camera.GetComponent<CameraComponent>().Camera.GetProjection() * glm::inverse(m_ActiveScene->GetWorldTransform(camera));
         }
         return m_EditorCamera.GetViewProjection();
+    }
+
+    bool EditorLayer::ViewportMouseToPlane(float planeZ, glm::vec3& out)
+    {
+        ImVec2 mouse = ImGui::GetMousePos();
+        glm::vec2 size = m_ViewportBounds[1] - m_ViewportBounds[0];
+        if (size.x <= 0 || size.y <= 0) return false;
+        glm::vec2 ndc = { (mouse.x - m_ViewportBounds[0].x) / size.x * 2.0f - 1.0f, 1.0f - (mouse.y - m_ViewportBounds[0].y) / size.y * 2.0f };
+        glm::mat4 inv = glm::inverse(m_EditorCamera.GetViewProjection());
+        glm::vec4 n = inv * glm::vec4(ndc, -1.0f, 1.0f), f = inv * glm::vec4(ndc, 1.0f, 1.0f);
+        glm::vec3 a = glm::vec3(n) / n.w, b = glm::vec3(f) / f.w, d = b - a;
+        if (std::abs(d.z) < 1e-6f) return false;
+        float t = (planeZ - a.z) / d.z;
+        out = a + d * t;
+        return true;
+    }
+
+    void EditorLayer::UpdateTilePainting()
+    {
+        if (!m_SceneHierarchyPanel.IsTilePainting() || !m_ViewportHovered) return;
+        if (Input::IsKeyPressed(Key::LeftAlt) || !ImGui::IsMouseDown(ImGuiMouseButton_Left)) return;
+        Entity e = m_SceneHierarchyPanel.GetSelectedEntity();
+        auto& tm = e.GetComponent<TilemapComponent>();
+        glm::mat4 world = m_ActiveScene->GetWorldTransform(e);
+        glm::vec3 hit;
+        if (!ViewportMouseToPlane(world[3].z, hit)) return;
+        glm::vec3 local = glm::vec3(glm::inverse(world) * glm::vec4(hit, 1.0f));
+        int x = (int)std::floor(local.x / tm.TileSize), y = (int)std::floor(local.y / tm.TileSize);
+        int tile = Input::IsKeyPressed(Key::LeftShift) ? -1 : m_SceneHierarchyPanel.GetSelectedTile();
+        if (tm.Get(x, y) != tile && x >= 0 && y >= 0 && x < tm.Width && y < tm.Height)
+        {
+            tm.Set(x, y, tile);
+            MarkDirty();
+        }
     }
 
     static void DrawWireBox(const glm::mat4& transform, const glm::vec4& color)
@@ -336,14 +374,36 @@ namespace Zamin {
             }
         }
 
+        // Tilemap bounds + hovered cell
+        if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity(); selected && selected.IsValid() && selected.HasComponent<TilemapComponent>())
+        {
+            auto& tm = selected.GetComponent<TilemapComponent>();
+            glm::mat4 world = scene.GetWorldTransform(selected);
+            glm::vec2 size = { tm.Width * tm.TileSize, tm.Height * tm.TileSize };
+            Renderer2D::DrawRect(world * glm::translate(glm::mat4(1.0f), glm::vec3(size * 0.5f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f)),
+                                 glm::vec4(0.3f, 0.85f, 1.0f, 0.8f));
+            glm::vec3 hit;
+            if (m_SceneHierarchyPanel.IsTilePainting() && m_ViewportHovered && ViewportMouseToPlane(world[3].z, hit))
+            {
+                glm::vec3 local = glm::vec3(glm::inverse(world) * glm::vec4(hit, 1.0f));
+                int x = (int)std::floor(local.x / tm.TileSize), y = (int)std::floor(local.y / tm.TileSize);
+                if (x >= 0 && y >= 0 && x < tm.Width && y < tm.Height)
+                {
+                    glm::mat4 cell = world * glm::translate(glm::mat4(1.0f), { (x + 0.5f) * tm.TileSize, (y + 0.5f) * tm.TileSize, 0.0f })
+                                           * glm::scale(glm::mat4(1.0f), { tm.TileSize, tm.TileSize, 1.0f });
+                    Renderer2D::DrawRect(cell, Input::IsKeyPressed(Key::LeftShift) ? glm::vec4(1, 0.3f, 0.3f, 1) : glm::vec4(1, 1, 1, 1));
+                }
+            }
+        }
+
         // Selection outline
         if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity(); selected && selected.IsValid())
         {
             const glm::vec4 orange(1.0f, 0.6f, 0.1f, 1.0f);
             glm::mat4 transform = scene.GetWorldTransform(selected);
-            if (auto* mr = selected.TryGetComponent<MeshRendererComponent>(); mr && mr->MeshAsset)
+            if (auto* mr = selected.TryGetComponent<MeshRendererComponent>(); mr && (mr->MeshAsset || mr->ModelAsset))
             {
-                const AABB& b = mr->MeshAsset->GetBounds();
+                const AABB& b = mr->ModelAsset ? mr->ModelAsset->GetBounds() : mr->MeshAsset->GetBounds();
                 glm::vec3 size = glm::max(b.Max - b.Min, glm::vec3(0.001f));
                 DrawWireBox(transform * glm::translate(glm::mat4(1.0f), (b.Min + b.Max) * 0.5f) * glm::scale(glm::mat4(1.0f), size), orange);
             }
@@ -404,7 +464,7 @@ namespace Zamin {
         {
             bool alt = Input::IsKeyPressed(Key::LeftAlt) || Input::IsKeyPressed(Key::RightAlt);
             bool overGizmo = m_SceneHierarchyPanel.GetSelectedEntity() && ImGuizmo::IsOver() && m_GizmoMode != GizmoMode::None;
-            if (!alt && !overGizmo)
+            if (!alt && !overGizmo && !m_SceneHierarchyPanel.IsTilePainting())
                 m_SceneHierarchyPanel.SetSelectedEntity(m_HoveredEntity);
         }
         return false;
@@ -1370,12 +1430,12 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
                 {
                     InstantiatePrefabInEditor((const char*)payload->Data, {});
                 }
-                else if (ext == ".obj" && m_SceneState == SceneState::Edit)
+                else if ((ext == ".obj" || ext == ".gltf" || ext == ".glb") && m_SceneState == SceneState::Edit)
                 {
                     Entity e = m_SceneHierarchyPanel.CreateEntityPreset("Model");
                     auto& mr = e.GetComponent<MeshRendererComponent>();
                     mr.ModelPath = (const char*)payload->Data;
-                    mr.MeshAsset = MeshLibrary::LoadOBJ(path);
+                    Scene::ResolveMeshRenderer(mr);
                     e.GetComponent<TagComponent>().Tag = path.stem().string();
                 }
             }
@@ -1539,7 +1599,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
     void EditorLayer::UI_Gizmos()
     {
         Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
-        if (!selected || !selected.IsValid() || m_GizmoMode == GizmoMode::None)
+        if (!selected || !selected.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting())
             return;
 
         ImGuizmo::SetOrthographic(m_EditorCamera.IsOrthographic());

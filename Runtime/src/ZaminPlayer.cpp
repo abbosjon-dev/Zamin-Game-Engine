@@ -3,6 +3,7 @@
 #include <Zamin/Zamin.h>
 #include <Zamin/Core/EntryPoint.h>
 
+#include <cmath>
 #include <cstring>
 
 namespace Zamin {
@@ -65,28 +66,23 @@ namespace Zamin {
             m_Scene->SetViewportMouse(mouse * scale, Input::IsMouseButtonPressed(MouseButton::Left));
 
             const auto& post = m_Scene->GetSettings().Post;
-            bool usePost = !PostProcessor::IsIdentity(post);
-            if (usePost)
+            // The scene is rendered in linear HDR, then tonemapped to the screen.
+            if (!m_Target)
             {
-                if (!m_Target)
-                {
-                    FramebufferSpecification spec;
-                    spec.Width = w; spec.Height = h;
-                    spec.Attachments = { FramebufferTextureFormat::RGBA8, FramebufferTextureFormat::Depth };
-                    m_Target = Framebuffer::Create(spec);
-                }
-                else if (m_Target->GetSpecification().Width != w || m_Target->GetSpecification().Height != h)
-                    m_Target->Resize(w, h);
-                m_Target->Bind();
+                FramebufferSpecification spec;
+                spec.Width = w; spec.Height = h;
+                spec.Attachments = { FramebufferTextureFormat::RGBA16F, FramebufferTextureFormat::Depth };
+                m_Target = Framebuffer::Create(spec);
             }
-            else
-                RenderCommand::SetViewport(0, 0, w, h);
+            else if (m_Target->GetSpecification().Width != w || m_Target->GetSpecification().Height != h)
+                m_Target->Resize(w, h);
+            m_Target->Bind();
 
-            RenderCommand::SetClearColor(m_Scene->GetClearColor());
+            glm::vec4 clear = m_Scene->GetClearColor();
+            RenderCommand::SetClearColor({ std::pow(clear.r, 2.2f), std::pow(clear.g, 2.2f), std::pow(clear.b, 2.2f), clear.a });
             RenderCommand::Clear();
             m_Scene->OnUpdateRuntime(ts);
 
-            if (usePost)
             {
                 m_Target->Unbind();
                 RenderCommand::SetViewport(0, 0, w, h);

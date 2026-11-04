@@ -113,6 +113,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<Rigidbody3DComponent>()) c->RuntimeBodyID = 0xffffffff;
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->RuntimeHandle = 0;
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
+        if (auto* c = e.TryGetComponent<TilemapComponent>()) c->RuntimeBody = nullptr;
         if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->Clear(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
     }
 
@@ -202,6 +203,11 @@ namespace Zamin {
             m_PhysicsWorld->DestroyBody((b2Body*)rb->RuntimeBody);
             rb->RuntimeBody = nullptr;
         }
+        if (auto* tm = entity.TryGetComponent<TilemapComponent>(); tm && tm->RuntimeBody && m_PhysicsWorld)
+        {
+            m_PhysicsWorld->DestroyBody((b2Body*)tm->RuntimeBody);
+            tm->RuntimeBody = nullptr;
+        }
         if (auto* rb = entity.TryGetComponent<Rigidbody3DComponent>(); rb && rb->RuntimeBodyID != 0xffffffff && m_PhysicsWorld3D)
         {
             m_PhysicsWorld3D->DestroyBody(rb->RuntimeBodyID);
@@ -266,6 +272,8 @@ namespace Zamin {
         {
             if (m_PhysicsWorld && e.HasComponent<Rigidbody2DComponent>())
                 CreatePhysicsBody(e);
+            if (m_PhysicsWorld && e.HasComponent<TilemapComponent>())
+                CreateTilemapBody(e);
             if (m_PhysicsWorld3D && e.HasComponent<Rigidbody3DComponent>())
                 CreatePhysicsBody3D(e);
         }
@@ -423,7 +431,12 @@ namespace Zamin {
         {
             auto& audio = m_Registry.get<AudioSourceComponent>(e);
             if (audio.PlayOnStart && !audio.Path.empty())
-                audio.RuntimeHandle = AudioEngine::Play(Project::GetAssetFileSystemPath(audio.Path), audio.Volume, audio.Pitch, audio.Loop);
+            {
+                auto path = Project::GetAssetFileSystemPath(audio.Path);
+                audio.RuntimeHandle = audio.Spatial
+                    ? AudioEngine::PlaySpatial(path, GetWorldPosition({ e, this }), audio.Volume, audio.Pitch, audio.Loop, audio.MinDistance, audio.MaxDistance)
+                    : AudioEngine::Play(path, audio.Volume, audio.Pitch, audio.Loop);
+            }
         }
 
         StartScripts();
@@ -511,6 +524,46 @@ namespace Zamin {
 
         for (auto e : m_Registry.view<Rigidbody2DComponent>())
             CreatePhysicsBody({ e, this });
+        for (auto e : m_Registry.view<TilemapComponent>())
+            CreateTilemapBody({ e, this });
+    }
+
+    void Scene::CreateTilemapBody(Entity entity)
+    {
+        auto& tm = entity.GetComponent<TilemapComponent>();
+        if (!tm.Collision || tm.RuntimeBody || !m_PhysicsWorld) return;
+        tm.EnsureSize();
+        glm::vec3 position, rotation, scale;
+        Math::DecomposeTransform(GetWorldTransform(entity), position, rotation, scale);
+
+        b2BodyDef def;
+        def.type = b2_staticBody;
+        def.position.Set(position.x, position.y);
+        def.angle = rotation.z;
+        def.userData.pointer = (uintptr_t)(uint64_t)entity.GetUUID();
+        b2Body* body = m_PhysicsWorld->CreateBody(&def);
+        tm.RuntimeBody = body;
+
+        float sx = tm.TileSize * std::abs(scale.x), sy = tm.TileSize * std::abs(scale.y);
+        // Merge horizontal runs of solid tiles into single boxes (fewer fixtures, no seams).
+        for (int y = 0; y < tm.Height; y++)
+        {
+            int x = 0;
+            while (x < tm.Width)
+            {
+                if (tm.Get(x, y) < 0) { x++; continue; }
+                int start = x;
+                while (x < tm.Width && tm.Get(x, y) >= 0) x++;
+                float w = (x - start) * sx;
+                b2PolygonShape shape;
+                shape.SetAsBox(w * 0.5f, sy * 0.5f, b2Vec2(start * sx + w * 0.5f, y * sy + sy * 0.5f), 0.0f);
+                b2FixtureDef fd;
+                fd.shape = &shape;
+                fd.friction = tm.Friction;
+                fd.userData.pointer = (uintptr_t)(uint64_t)entity.GetUUID();
+                body->CreateFixture(&fd);
+            }
+        }
     }
 
     void Scene::OnPhysics2DStop()
@@ -519,6 +572,7 @@ namespace Zamin {
         for (auto e : m_Registry.view<Rigidbody2DComponent>()) m_Registry.get<Rigidbody2DComponent>(e).RuntimeBody = nullptr;
         for (auto e : m_Registry.view<BoxCollider2DComponent>()) m_Registry.get<BoxCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : m_Registry.view<CircleCollider2DComponent>()) m_Registry.get<CircleCollider2DComponent>(e).RuntimeFixture = nullptr;
+        for (auto e : m_Registry.view<TilemapComponent>()) m_Registry.get<TilemapComponent>(e).RuntimeBody = nullptr;
         delete m_PhysicsWorld;
         m_PhysicsWorld = nullptr;
         delete m_ContactListener;
@@ -871,6 +925,7 @@ namespace Zamin {
                 if (anim.Playing) anim.Time += ts;
             }
             UpdateParticles(ts, false);
+            UpdateAudio();
 
             FlushDestroyQueue();
         }
@@ -925,15 +980,34 @@ namespace Zamin {
         for (auto e : m_Registry.view<MeshRendererComponent>())
         {
             auto& mr = m_Registry.get<MeshRendererComponent>(e);
-            mr.MeshAsset = mr.Type == PrimitiveMesh::Model
-                ? (mr.ModelPath.empty() ? nullptr : MeshLibrary::LoadOBJ(Project::GetAssetFileSystemPath(mr.ModelPath)))
-                : MeshLibrary::GetPrimitive(mr.Type);
-            mr.Mat.AlbedoMap = mr.AlbedoPath.empty() ? nullptr : TextureLibrary::Load(Project::GetAssetFileSystemPath(mr.AlbedoPath));
+            ResolveMeshRenderer(mr);
+        }
+        for (auto e : m_Registry.view<TilemapComponent>())
+        {
+            auto& tm = m_Registry.get<TilemapComponent>(e);
+            tm.Tileset = tm.TilesetPath.empty() ? nullptr
+                : TextureLibrary::Load(Project::GetAssetFileSystemPath(tm.TilesetPath), tm.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
         }
         for (auto e : m_Registry.view<TextComponent>())
         {
             auto& text = m_Registry.get<TextComponent>(e);
             text.FontAsset = text.FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(text.FontPath));
+        }
+    }
+
+    void Scene::UpdateAudio()
+    {
+        if (!AudioEngine::IsAvailable()) return;
+        if (Entity cam = GetPrimaryCameraEntity())
+        {
+            glm::mat4 w = GetWorldTransform(cam);
+            AudioEngine::SetListener(glm::vec3(w[3]), -glm::normalize(glm::vec3(w[2])), glm::normalize(glm::vec3(w[1])));
+        }
+        for (auto e : m_Registry.view<AudioSourceComponent>())
+        {
+            auto& a = m_Registry.get<AudioSourceComponent>(e);
+            if (a.Spatial && a.RuntimeHandle)
+                AudioEngine::SetSoundPosition(a.RuntimeHandle, GetWorldPosition({ e, this }));
         }
     }
 
@@ -1130,6 +1204,25 @@ namespace Zamin {
         return nearP + dir * t;
     }
 
+    void Scene::ResolveMeshRenderer(MeshRendererComponent& mr)
+    {
+        auto tex = [](const std::string& p) { return p.empty() ? nullptr : TextureLibrary::Load(Project::GetAssetFileSystemPath(p)); };
+        if (mr.Type == PrimitiveMesh::Model)
+        {
+            mr.MeshAsset = nullptr;
+            mr.ModelAsset = mr.ModelPath.empty() ? nullptr : Model::Load(Project::GetAssetFileSystemPath(mr.ModelPath));
+        }
+        else
+        {
+            mr.ModelAsset = nullptr;
+            mr.MeshAsset = MeshLibrary::GetPrimitive(mr.Type);
+        }
+        mr.Mat.AlbedoMap = tex(mr.AlbedoPath);
+        mr.Mat.NormalMap = tex(mr.NormalPath);
+        mr.Mat.MetalRoughMap = tex(mr.MetalRoughPath);
+        mr.Mat.EmissiveMap = tex(mr.EmissivePath);
+    }
+
     // ------------------------------------------------------------------ rendering
     void Scene::RenderScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                             const SceneRenderOptions& options)
@@ -1183,7 +1276,24 @@ namespace Zamin {
             auto& mr = m_Registry.get<MeshRendererComponent>(e);
             if (!mr.MeshAsset && mr.Type != PrimitiveMesh::Model)
                 mr.MeshAsset = MeshLibrary::GetPrimitive(mr.Type);
-            if (mr.MeshAsset)
+            if (mr.Type == PrimitiveMesh::Model && mr.ModelAsset)
+            {
+                for (const auto& sub : mr.ModelAsset->GetSubMeshes())
+                {
+                    Material m = sub.Mat;
+                    m.Albedo *= mr.Mat.Albedo;
+                    if (mr.Mat.AlbedoMap) m.AlbedoMap = mr.Mat.AlbedoMap;
+                    if (mr.Mat.NormalMap) m.NormalMap = mr.Mat.NormalMap;
+                    if (mr.Mat.MetalRoughMap) m.MetalRoughMap = mr.Mat.MetalRoughMap;
+                    if (mr.Mat.EmissiveMap) m.EmissiveMap = mr.Mat.EmissiveMap;
+                    m.Emission = m.Emission * m.EmissionStrength + mr.Mat.Emission * mr.Mat.EmissionStrength;
+                    m.EmissionStrength = 1.0f;
+                    m.Tiling *= mr.Mat.Tiling;
+                    m.NormalStrength *= mr.Mat.NormalStrength;
+                    Renderer3D::SubmitMesh(sub.MeshRef, world(e), m, (int)(uint32_t)e, mr.CastShadows);
+                }
+            }
+            else if (mr.MeshAsset)
                 Renderer3D::SubmitMesh(mr.MeshAsset, world(e), mr.Mat, (int)(uint32_t)e, mr.CastShadows);
         }
         Renderer3D::EndScene();
@@ -1209,6 +1319,8 @@ namespace Zamin {
             if (!isUI(e)) items.push_back({ m_Registry.get<CircleRendererComponent>(e).SortingOrder, depthOf(e), 1, e });
         for (auto e : m_Registry.view<TransformComponent, TextComponent>())
             if (!isUI(e)) items.push_back({ 1000, depthOf(e), 2, e });
+        for (auto e : m_Registry.view<TransformComponent, TilemapComponent>())
+            if (!isUI(e)) items.push_back({ m_Registry.get<TilemapComponent>(e).SortingOrder, depthOf(e), 4, e });
         for (auto e : m_Registry.view<TransformComponent, ParticleSystemComponent>())
             if (!m_Registry.get<ParticleSystemComponent>(e).Particles.empty())
                 items.push_back({ m_Registry.get<ParticleSystemComponent>(e).SortingOrder, depthOf(e), 3, e });
@@ -1278,6 +1390,33 @@ namespace Zamin {
                     t = t * glm::translate(glm::mat4(1.0f), { -size.x * 0.5f, size.y * 0.5f - firstLine, 0.0f });
                 }
                 Renderer2D::DrawString(text.Text, text.FontAsset, t, params, id);
+            }
+            else if (item.Kind == 4)
+            {
+                auto& tm = m_Registry.get<TilemapComponent>(item.Handle);
+                tm.EnsureSize();
+                if (!tm.Tileset && !tm.TilesetPath.empty())
+                    tm.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(tm.TilesetPath), tm.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+                int cols = std::max(1, tm.TilesetColumns), rows = std::max(1, tm.TilesetRows);
+                glm::vec2 cell = { 1.0f / cols, 1.0f / rows };
+                // tiny inset avoids bleeding between neighbouring tiles
+                glm::vec2 inset = tm.Tileset ? glm::vec2(0.5f / tm.Tileset->GetWidth(), 0.5f / tm.Tileset->GetHeight()) : glm::vec2(0.0f);
+                for (int y = 0; y < tm.Height; y++)
+                    for (int x = 0; x < tm.Width; x++)
+                    {
+                        int tile = tm.Tiles[(size_t)y * tm.Width + x];
+                        if (tile < 0) continue;
+                        glm::mat4 t = transform * glm::translate(glm::mat4(1.0f), { (x + 0.5f) * tm.TileSize, (y + 0.5f) * tm.TileSize, 0.0f })
+                                                * glm::scale(glm::mat4(1.0f), { tm.TileSize, tm.TileSize, 1.0f });
+                        if (tm.Tileset)
+                        {
+                            int tx = tile % cols, ty = tile / cols;
+                            glm::vec2 uvMin = { tx * cell.x, 1.0f - (ty + 1) * cell.y };
+                            Renderer2D::DrawQuad(t, tm.Tileset, uvMin + inset, uvMin + cell - inset, tm.Color, id);
+                        }
+                        else
+                            Renderer2D::DrawQuad(t, tm.Color * glm::vec4(0.6f + 0.05f * (tile % 8), 0.6f, 0.65f, 1.0f), id);
+                    }
             }
             else
             {

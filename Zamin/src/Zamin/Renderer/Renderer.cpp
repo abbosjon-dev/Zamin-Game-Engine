@@ -3,6 +3,7 @@
 #include "Zamin/Renderer/Renderer3D.h"
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/Mesh.h"
+#include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Renderer/PostProcess.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -20,6 +21,7 @@ namespace Zamin {
     void Renderer::Shutdown()
     {
         Font::ClearCache();
+        Model::ClearCache();
         MeshLibrary::Clear();
         TextureLibrary::Clear();
         PostProcessor::Shutdown();

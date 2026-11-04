@@ -30,6 +30,10 @@ namespace Zamin {
         void OnScriptsReloaded() { m_ScriptDefaults.clear(); }
         bool IsHierarchyFocused() const { return m_HierarchyFocused; }
 
+        // Tilemap painting (used by the viewport)
+        bool IsTilePainting() const { return m_TilePaint && m_SelectionContext && m_SelectionContext.IsValid() && m_SelectionContext.HasComponent<TilemapComponent>(); }
+        int GetSelectedTile() const { return m_SelectedTile; }
+
         std::function<void(Entity)> OnFocusRequested;
         std::function<void()> OnSceneModified;
         std::function<void(Entity)> OnSavePrefabRequested;
@@ -56,6 +60,8 @@ namespace Zamin {
         Entity m_PendingDelete, m_PendingDuplicate, m_PendingCreateChildOf;
         int m_RowIndex = 0;
         bool m_HierarchyFocused = false;
+        bool m_TilePaint = false;
+        int m_SelectedTile = 0;
         std::unordered_map<std::string, std::unordered_map<std::string, ScriptFieldValue>> m_ScriptDefaults;
     };
 

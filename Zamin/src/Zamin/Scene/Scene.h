@@ -156,6 +156,8 @@ namespace Zamin {
         void OnPhysics3DStop();
         void CreatePhysicsBody(Entity entity);
         void CreatePhysicsBody3D(Entity entity);
+        void CreateTilemapBody(Entity entity);
+        void UpdateAudio();
         void DispatchContactEvents(const std::vector<ContactEvent>& events);
         Entity DuplicateEntityRecursive(Entity entity, UUID newParent);
         void StepPhysics(Timestep ts);
@@ -167,6 +169,9 @@ namespace Zamin {
         void UpdateUI();
 
         void RenderUI();
+    public:
+        static void ResolveMeshRenderer(struct MeshRendererComponent& mr);
+    private:
         void RenderScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                          const SceneRenderOptions& options);
 

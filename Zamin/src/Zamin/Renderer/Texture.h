@@ -44,6 +44,8 @@ namespace Zamin {
     public:
         static Ref<Texture2D> Create(const TextureSpecification& specification);
         static Ref<Texture2D> Create(const std::string& path, TextureFilter filter = TextureFilter::Linear);
+        // Decode an encoded image (png/jpg/...) from memory, e.g. textures embedded in .glb files.
+        static Ref<Texture2D> CreateFromMemory(const void* data, size_t size, const std::string& debugName = {});
     };
 
     // Caches textures by absolute path so the same file is only uploaded once.

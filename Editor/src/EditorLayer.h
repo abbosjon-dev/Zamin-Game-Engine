@@ -98,6 +98,8 @@ namespace Zamin {
         void UI_BuildDefaultLayout(unsigned int dockspaceID);
 
         void OnOverlayRender();
+        void UpdateTilePainting();
+        bool ViewportMouseToPlane(float planeZ, glm::vec3& out);
         glm::mat4 OverlayViewProjection();
         void UpdateWindowTitle();
 

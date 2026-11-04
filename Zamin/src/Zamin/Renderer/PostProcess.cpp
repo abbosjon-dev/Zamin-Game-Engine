@@ -98,11 +98,23 @@ uniform float u_Saturation;
 uniform float u_Contrast;
 uniform float u_Brightness;
 uniform vec3 u_Tint;
+uniform int u_Tonemap;
+
+vec3 ACES(vec3 x)
+{
+    const float a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
 void main()
 {
-    vec3 color = texture(u_Scene, v_UV).rgb;
+    vec3 color = max(texture(u_Scene, v_UV).rgb, vec3(0.0));
     if (u_BloomEnabled == 1)
         color += texture(u_Bloom, v_UV).rgb * u_BloomIntensity;
+
+    if (u_Tonemap == 1) color = ACES(color);
+    else if (u_Tonemap == 2) color = color / (1.0 + color);
+    color = pow(clamp(color, 0.0, 1.0), vec3(1.0 / 2.2));
 
     color *= u_Tint;
     color += u_Brightness;
@@ -241,6 +253,7 @@ void main()
         comp->SetFloat("u_Contrast", settings.Contrast);
         comp->SetFloat("u_Brightness", settings.Brightness);
         comp->SetFloat3("u_Tint", settings.Tint);
+        comp->SetInt("u_Tonemap", (int)settings.Tonemap);
         RenderCommand::DrawArrays(3);
         stats.DrawCalls++;
 

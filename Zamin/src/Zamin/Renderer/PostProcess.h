@@ -7,12 +7,15 @@
 
 namespace Zamin {
 
+    enum class TonemapMode { None = 0, ACES, Reinhard };
+
     struct PostProcessSettings
     {
+        TonemapMode Tonemap = TonemapMode::ACES;
         bool Bloom = false;
-        float BloomThreshold = 0.92f;
-        float BloomKnee = 0.1f;
-        float BloomIntensity = 0.7f;
+        float BloomThreshold = 1.0f;
+        float BloomKnee = 0.5f;
+        float BloomIntensity = 0.6f;
         float BloomRadius = 1.0f;
 
         float Vignette = 0.0f;   // 0..1
@@ -35,11 +38,7 @@ namespace Zamin {
         static void Apply(uint32_t inputTexture, uint32_t width, uint32_t height, const PostProcessSettings& settings,
                           const Ref<Framebuffer>& target);
 
-        static bool IsIdentity(const PostProcessSettings& s)
-        {
-            return !s.Bloom && s.Vignette <= 0.0f && s.Saturation == 1.0f && s.Contrast == 1.0f && s.Brightness == 0.0f &&
-                   s.Tint == glm::vec3(1.0f);
-        }
+        // Input is linear HDR; output is display (sRGB) color.
     };
 
 }

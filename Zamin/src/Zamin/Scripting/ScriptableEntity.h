@@ -97,6 +97,8 @@ namespace Zamin {
 
         // ---- audio
         void PlaySound(const std::string& assetPath, float volume = 1.0f, float pitch = 1.0f);
+        // 3D positional sound (heard relative to the primary camera)
+        void PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume = 1.0f, float pitch = 1.0f);
 
         // ---- time
         float GetTime() const;

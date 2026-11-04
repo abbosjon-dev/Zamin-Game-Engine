@@ -37,13 +37,18 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - **Renderer** (OpenGL 4.1 core, RHI abstraksiya qatlami orqasida):
   - 2D batch renderer: sprite, tekstura, doira, chiziq, **matn** (UTF-8, lotin/kirill, `oʻ gʻ`)
   - 3D PBR (metallic/roughness), yo'naltirilgan quyosh + 16 ta nuqtali yorug'lik, **soyalar** (PCF), gradient osmon, atrof-muhit aksi, ACES tonemapping
-  - Primitivlar (kub, shar, tekislik, silindr, konus) va `.obj` modellar
+  - Primitivlar (kub, shar, tekislik, silindr, konus), `.obj` va `.gltf/.glb` modellar
+  - **HDR pipeline**: sahna float bufferga chiziladi, tonemapping (ACES / Reinhard / yo'q), haqiqiy HDR bloom
+  - Material xaritalari: **normal map**, metallic/roughness map, emissive map
+  - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
   - **Post-processing**: bloom, vinyetka, kontrast/to'yinganlik/rang tuslash
   - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview)
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
 - **2D fizika** (Box2D): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
 - **3D fizika** (Jolt Physics): Rigidbody3D, Box/Sphere/Capsule collider, trigger'lar, to'qnashuvlar
 - **Raycast** 2D va 3D
+- **Tilemap**: tileset'dan plitkali darajalar, editor'da chizish (palitra), avtomatik birlashtirilgan collider'lar
+- **3D (spatial) ovoz**: tinglovchi — asosiy kamera, masofaga qarab so'nish
 - **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, 9 ta langar (anchor), `OnClick()`
 - **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash
 - Skriptlardan **sahna almashtirish** (`LoadScene`), prefab'larni `Instantiate` qilish
@@ -179,7 +184,7 @@ Foydali API:
 | 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `Raycast2D(origin, dir, dist)` |
 | 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)` |
 | Input | `Input::IsKeyPressed`, `Input::IsMouseButtonPressed`, `Input::IsGamepadButtonPressed`, `Input::GetGamepadAxis`, `GetMousePosition()`, `GetMouseWorldPosition()`, `ScreenToWorld()` |
-| Boshqa | `LoadScene("Scenes/Level2.zscene")`, `EmitParticles(n)`, `PlaySound(path)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
+| Boshqa | `LoadScene("Scenes/Level2.zscene")`, `EmitParticles(n)`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
 
 `ZM_FIELD` turlari: `float`, `int`, `bool`, `glm::vec2`, `glm::vec3`, `glm::vec4` (rang), `std::string`.
 
@@ -245,9 +250,10 @@ Tests/           Headless unit testlar
 - [x] 3D fizika (Jolt), raycast'lar
 - [x] Sprite animatsiya, particle tizimi, ekran UI, gamepad
 - [x] Post-processing (bloom, vinyetka, rang sozlamalari)
-- [ ] Tilemap, sprite sheet editori
-- [ ] Skeletal animatsiya, glTF import
-- [ ] HDR pipeline, SSAO, IBL, normal map'lar
+- [x] Tilemap (editor'da chizish), 3D ovoz
+- [x] glTF import, HDR pipeline, normal/metal-roughness/emissive map'lar
+- [ ] Skeletal animatsiya (glTF skins), animator
+- [ ] SSAO, IBL (cubemap), cascaded shadow maps
 - [ ] **Windows** (MSVC, `.dll` skript moduli)
 - [ ] **macOS** (Metal backend)
 - [ ] **Android** (OpenGL ES / Vulkan)
@@ -257,7 +263,7 @@ Tests/           Headless unit testlar
 
 ## 📦 Uchinchi tomon kutubxonalari
 
-GLFW (zlib), glad (MIT/Public), GLM (MIT), EnTT (MIT), Dear ImGui (MIT), ImGuizmo (MIT), Box2D (MIT), Jolt Physics (MIT), nlohmann/json (MIT), stb (Public Domain/MIT), miniaudio (Public Domain/MIT-0), tinyobjloader (MIT). Shriftlar: Inter (SIL OFL 1.1), Font Awesome Free (SIL OFL 1.1) — litsenziyalar `Resources/fonts/` ichida.
+GLFW (zlib), glad (MIT/Public), GLM (MIT), EnTT (MIT), Dear ImGui (MIT), ImGuizmo (MIT), Box2D (MIT), Jolt Physics (MIT), nlohmann/json (MIT), cgltf (MIT), stb (Public Domain/MIT), miniaudio (Public Domain/MIT-0), tinyobjloader (MIT). Shriftlar: Inter (SIL OFL 1.1), Font Awesome Free (SIL OFL 1.1) — litsenziyalar `Resources/fonts/` ichida.
 
 ## Litsenziya
 

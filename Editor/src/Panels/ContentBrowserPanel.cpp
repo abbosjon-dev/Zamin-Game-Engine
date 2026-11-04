@@ -24,7 +24,7 @@ namespace Zamin {
         if (ext == ".cpp" || ext == ".h" || ext == ".hpp") { color = IM_COL32(100, 160, 240, 255); return ICON_FA_FILE_CODE; }
         if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga") return ICON_FA_FILE_IMAGE;
         if (ext == ".wav" || ext == ".mp3" || ext == ".ogg" || ext == ".flac") { color = IM_COL32(220, 120, 200, 255); return ICON_FA_FILE_AUDIO; }
-        if (ext == ".obj") { color = IM_COL32(240, 140, 80, 255); return ICON_FA_CUBES; }
+        if (ext == ".obj" || ext == ".gltf" || ext == ".glb") { color = IM_COL32(240, 140, 80, 255); return ICON_FA_CUBES; }
         if (ext == ".ttf" || ext == ".otf") return ICON_FA_FONT;
         if (ext == ".zprefab") { color = IM_COL32(120, 180, 255, 255); return ICON_FA_BOX; }
         if (ext == ".zproject") { color = IM_COL32(46, 188, 148, 255); return ICON_FA_GAMEPAD; }

@@ -16,6 +16,11 @@ namespace Zamin {
         float Roughness = 0.5f;
         glm::vec3 Emission{ 0.0f };
         float EmissionStrength = 0.0f;
+
+        Ref<Texture2D> NormalMap;
+        float NormalStrength = 1.0f;
+        Ref<Texture2D> MetalRoughMap; // G = roughness, B = metallic (glTF)
+        Ref<Texture2D> EmissiveMap;
     };
 
 }

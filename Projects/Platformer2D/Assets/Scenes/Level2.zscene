@@ -44,7 +44,8 @@
         1,
         1,
         1
-      ]
+      ],
+      "Tonemap": 0
     }
   },
   "Entities": [
@@ -2994,7 +2995,7 @@
         "Fields": {
           "NextScene": {
             "Type": "String",
-            "Value": "Scenes/Level1.zscene"
+            "Value": "Scenes/Level3.zscene"
           }
         }
       }

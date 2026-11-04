@@ -52,9 +52,10 @@ FetchContent_Declare(imgui    GIT_REPOSITORY https://github.com/ocornut/imgui.gi
 FetchContent_Declare(imguizmo GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo.git GIT_TAG b10e91756d32395f5c1fefd417899b657ed7cb88)
 FetchContent_Declare(stb      GIT_REPOSITORY https://github.com/nothings/stb.git GIT_TAG d14d46f6b44456eb88beac58cba833a4135d4c89)
 FetchContent_Declare(miniaudio GIT_REPOSITORY https://github.com/mackron/miniaudio.git GIT_TAG 0.11.21 GIT_SHALLOW TRUE)
+FetchContent_Declare(cgltf GIT_REPOSITORY https://github.com/jkuhlmann/cgltf.git GIT_TAG v1.14 GIT_SHALLOW TRUE)
 FetchContent_Declare(tinyobj  GIT_REPOSITORY https://github.com/tinyobjloader/tinyobjloader.git GIT_TAG v2.0.0rc13 GIT_SHALLOW TRUE)
 
-foreach(dep imgui imguizmo stb tinyobj miniaudio)
+foreach(dep imgui imguizmo stb tinyobj miniaudio cgltf)
     FetchContent_GetProperties(${dep})
     if(NOT ${dep}_POPULATED)
         FetchContent_Populate(${dep})
@@ -91,6 +92,10 @@ target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
 # tinyobjloader (OBJ models)
 add_library(tinyobj INTERFACE)
 target_include_directories(tinyobj INTERFACE ${tinyobj_SOURCE_DIR})
+
+# cgltf (glTF 2.0 models)
+add_library(cgltf INTERFACE)
+target_include_directories(cgltf INTERFACE ${cgltf_SOURCE_DIR})
 
 # miniaudio (audio)
 add_library(miniaudio INTERFACE)

@@ -48,6 +48,13 @@ in vec4 v_LightSpacePos;
 
 uniform vec4 u_Albedo;
 uniform sampler2D u_AlbedoMap;
+uniform sampler2D u_NormalMap;
+uniform sampler2D u_MetalRoughMap; // glTF layout: G = roughness, B = metallic
+uniform sampler2D u_EmissiveMap;
+uniform int u_HasNormalMap;
+uniform int u_HasMetalRoughMap;
+uniform int u_HasEmissiveMap;
+uniform float u_NormalStrength;
 uniform float u_Tiling;
 uniform float u_Metallic;
 uniform float u_Roughness;
@@ -146,24 +153,44 @@ vec3 SkyRadiance(vec3 dir, float roughness)
     return mix(c, avg, roughness * roughness);
 }
 
-vec3 ACES(vec3 x)
+// Normal mapping without vertex tangents (cotangent frame from screen-space derivatives).
+mat3 CotangentFrame(vec3 N, vec3 p, vec2 uv)
 {
-    const float a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14;
-    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+    vec3 dp1 = dFdx(p), dp2 = dFdy(p);
+    vec2 duv1 = dFdx(uv), duv2 = dFdy(uv);
+    vec3 dp2perp = cross(dp2, N), dp1perp = cross(N, dp1);
+    vec3 T = dp2perp * duv1.x + dp1perp * duv2.x;
+    vec3 B = dp2perp * duv1.y + dp1perp * duv2.y;
+    float invmax = inversesqrt(max(dot(T, T), dot(B, B)) + 1e-12);
+    return mat3(T * invmax, B * invmax, N);
 }
 
 void main()
 {
-    vec4 texColor = texture(u_AlbedoMap, v_TexCoord * u_Tiling);
-    vec4 baseColor = u_Albedo * texColor;
+    vec2 uv = v_TexCoord * u_Tiling;
+    vec4 texColor = texture(u_AlbedoMap, uv);
+    vec4 baseColor = u_Albedo * vec4(toLinear(texColor.rgb), texColor.a);
     if (baseColor.a < 0.05)
         discard;
-    vec3 albedo = toLinear(baseColor.rgb);
+    vec3 albedo = toLinear(u_Albedo.rgb) * toLinear(texColor.rgb);
     float metallic = clamp(u_Metallic, 0.0, 1.0);
     float roughness = clamp(u_Roughness, 0.04, 1.0);
+    if (u_HasMetalRoughMap == 1)
+    {
+        vec4 mr = texture(u_MetalRoughMap, uv);
+        roughness = clamp(roughness * mr.g, 0.04, 1.0);
+        metallic = clamp(metallic * mr.b, 0.0, 1.0);
+    }
 
     vec3 N = normalize(v_Normal);
     if (!gl_FrontFacing) N = -N;
+    if (u_HasNormalMap == 1)
+    {
+        vec3 tn = texture(u_NormalMap, uv).xyz * 2.0 - 1.0;
+        tn.xy *= u_NormalStrength;
+        vec3 V0 = u_CameraPos - v_WorldPos;
+        N = normalize(CotangentFrame(N, -V0, uv) * tn);
+    }
     vec3 V = normalize(u_CameraPos - v_WorldPos);
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
@@ -191,10 +218,11 @@ void main()
     vec3 specularEnv = SkyRadiance(R, roughness) * F * mix(1.0, 0.35, roughness);
     vec3 ambient = (kD * albedo * irradiance + specularEnv) * u_Ambient;
 
-    vec3 color = ambient + Lo + u_Emission;
-    color = ACES(color * u_Exposure);
-    color = pow(color, vec3(1.0 / 2.2));
-
+    vec3 emission = u_Emission;
+    if (u_HasEmissiveMap == 1)
+        emission *= toLinear(texture(u_EmissiveMap, uv).rgb);
+    // Linear HDR output - tonemapping & gamma happen in post-processing.
+    vec3 color = (ambient + Lo + emission) * u_Exposure;
     o_Color = vec4(color, baseColor.a);
     o_EntityID = u_EntityID;
 }
@@ -245,7 +273,7 @@ void main()
         float d = max(dot(dir, normalize(-u_SunDirection)), 0.0);
         color += u_SunColor * (pow(d, 900.0) * 4.0 + pow(d, 12.0) * 0.18);
     }
-    o_Color = vec4(color, 1.0);
+    o_Color = vec4(pow(color, vec3(2.2)), 1.0);
     o_EntityID = -1;
 }
 )";
@@ -315,7 +343,7 @@ void main()
     color.a *= fade * 0.75;
     if (color.a < 0.02)
         discard;
-    o_Color = color;
+    o_Color = vec4(pow(color.rgb, vec3(2.2)), color.a);
     o_EntityID = -1;
 }
 )";
@@ -474,6 +502,9 @@ void main()
 
             shader->SetInt("u_AlbedoMap", 0);
             shader->SetInt("u_ShadowMap", 1);
+            shader->SetInt("u_NormalMap", 2);
+            shader->SetInt("u_MetalRoughMap", 3);
+            shader->SetInt("u_EmissiveMap", 4);
             RenderCommand::BindTextureUnit(1, s_Data->ShadowMap->GetDepthAttachmentRendererID());
 
             RenderCommand::SetCullMode(CullMode::None);
@@ -481,6 +512,13 @@ void main()
             {
                 const Material& m = item.Mat;
                 (m.AlbedoMap ? m.AlbedoMap : s_Data->WhiteTexture)->Bind(0);
+                (m.NormalMap ? m.NormalMap : s_Data->WhiteTexture)->Bind(2);
+                (m.MetalRoughMap ? m.MetalRoughMap : s_Data->WhiteTexture)->Bind(3);
+                (m.EmissiveMap ? m.EmissiveMap : s_Data->WhiteTexture)->Bind(4);
+                shader->SetInt("u_HasNormalMap", m.NormalMap ? 1 : 0);
+                shader->SetInt("u_HasMetalRoughMap", m.MetalRoughMap ? 1 : 0);
+                shader->SetInt("u_HasEmissiveMap", m.EmissiveMap ? 1 : 0);
+                shader->SetFloat("u_NormalStrength", m.NormalStrength);
                 shader->SetMat4("u_Model", item.Transform);
                 shader->SetMat3("u_NormalMatrix", glm::transpose(glm::inverse(glm::mat3(item.Transform))));
                 shader->SetFloat4("u_Albedo", m.Albedo);

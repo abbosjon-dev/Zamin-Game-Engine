@@ -985,6 +985,10 @@ namespace Zamin {
                     if (m_Registry.valid(e))
                         if (auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance)
                             inst->OnUpdate(ts);
+                for (auto e : scripted)
+                    if (m_Registry.valid(e))
+                        if (auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance)
+                            inst->TickTimers(ts);
             }
 
             StepPhysics(ts);

@@ -13,6 +13,7 @@ namespace Zamin {
             case ScriptFieldType::Vec3:   return "Vec3";
             case ScriptFieldType::Vec4:   return "Vec4";
             case ScriptFieldType::String: return "String";
+            case ScriptFieldType::Entity: return "Entity";
             default: return "None";
         }
     }
@@ -26,6 +27,7 @@ namespace Zamin {
         if (s == "Vec3")   return ScriptFieldType::Vec3;
         if (s == "Vec4")   return ScriptFieldType::Vec4;
         if (s == "String") return ScriptFieldType::String;
+        if (s == "Entity") return ScriptFieldType::Entity;
         return ScriptFieldType::None;
     }
 
@@ -39,6 +41,7 @@ namespace Zamin {
             case ScriptFieldType::Vec2:  return sizeof(glm::vec2);
             case ScriptFieldType::Vec3:  return sizeof(glm::vec3);
             case ScriptFieldType::Vec4:  return sizeof(glm::vec4);
+            case ScriptFieldType::Entity: return sizeof(EntityRef);
             default: return 0;
         }
     }

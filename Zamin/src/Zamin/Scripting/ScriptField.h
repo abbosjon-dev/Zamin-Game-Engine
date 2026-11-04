@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <type_traits>
@@ -10,7 +11,14 @@ namespace Zamin {
 
     class ScriptableEntity;
 
-    enum class ScriptFieldType { None = 0, Float, Int, Bool, Vec2, Vec3, Vec4, String };
+    // Reference to another entity in the scene (set in the inspector by drag & drop).
+    struct EntityRef
+    {
+        uint64_t ID = 0;
+        explicit operator bool() const { return ID != 0; }
+    };
+
+    enum class ScriptFieldType { None = 0, Float, Int, Bool, Vec2, Vec3, Vec4, String, Entity };
 
     const char* ScriptFieldTypeToString(ScriptFieldType type);
     ScriptFieldType ScriptFieldTypeFromString(const std::string& str);
@@ -24,9 +32,10 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, glm::vec3>)   return ScriptFieldType::Vec3;
         else if constexpr (std::is_same_v<T, glm::vec4>)   return ScriptFieldType::Vec4;
         else if constexpr (std::is_same_v<T, std::string>) return ScriptFieldType::String;
+        else if constexpr (std::is_same_v<T, EntityRef>)   return ScriptFieldType::Entity;
         else
         {
-            static_assert(sizeof(T) == 0, "ZM_FIELD: qo'llab-quvvatlanmaydigan tur (float,int,bool,vec2,vec3,vec4,std::string)");
+            static_assert(sizeof(T) == 0, "ZM_FIELD: qo'llab-quvvatlanmaydigan tur (float,int,bool,vec2,vec3,vec4,std::string,EntityRef)");
             return ScriptFieldType::None;
         }
     }

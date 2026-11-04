@@ -56,6 +56,7 @@ namespace Zamin {
             case ScriptFieldType::Vec3:   j["Value"] = ToJson(v.Get<glm::vec3>()); break;
             case ScriptFieldType::Vec4:   j["Value"] = ToJson(v.Get<glm::vec4>()); break;
             case ScriptFieldType::String: j["Value"] = v.StringValue; break;
+            case ScriptFieldType::Entity: j["Value"] = v.Get<EntityRef>().ID; break;
             default: break;
         }
         return j;
@@ -74,6 +75,7 @@ namespace Zamin {
             case ScriptFieldType::Vec3:   v.Set(Vec<glm::vec3>(wrapper, "Value", glm::vec3(0.0f))); break;
             case ScriptFieldType::Vec4:   v.Set(Vec<glm::vec4>(wrapper, "Value", glm::vec4(0.0f))); break;
             case ScriptFieldType::String: v.Set(j.value("Value", std::string())); break;
+            case ScriptFieldType::Entity: v.Set(EntityRef{ j.value("Value", (uint64_t)0) }); break;
             default: return false;
         }
         return true;

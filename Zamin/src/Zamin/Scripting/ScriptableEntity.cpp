@@ -8,6 +8,10 @@
 
 #include <box2d/b2_body.h>
 
+#include <glm/gtc/constants.hpp>
+#include <algorithm>
+#include <cmath>
+
 namespace Zamin {
 
     Entity ScriptableEntity::FindEntity(std::string_view name) const { return m_Entity.GetScene()->FindEntityByName(name); }
@@ -200,5 +204,112 @@ namespace Zamin {
     }
 
     float ScriptableEntity::GetTime() const { return m_Entity.GetScene()->GetTime(); }
+
+    float ApplyEase(Ease ease, float t)
+    {
+        t = std::clamp(t, 0.0f, 1.0f);
+        switch (ease)
+        {
+            case Ease::Linear:     return t;
+            case Ease::InQuad:     return t * t;
+            case Ease::OutQuad:    return 1.0f - (1.0f - t) * (1.0f - t);
+            case Ease::InOutQuad:  return t < 0.5f ? 2.0f * t * t : 1.0f - std::pow(-2.0f * t + 2.0f, 2.0f) * 0.5f;
+            case Ease::OutCubic:   return 1.0f - std::pow(1.0f - t, 3.0f);
+            case Ease::InOutCubic: return t < 0.5f ? 4.0f * t * t * t : 1.0f - std::pow(-2.0f * t + 2.0f, 3.0f) * 0.5f;
+            case Ease::OutBack:
+            {
+                const float c1 = 1.70158f, c3 = c1 + 1.0f;
+                return 1.0f + c3 * std::pow(t - 1.0f, 3.0f) + c1 * std::pow(t - 1.0f, 2.0f);
+            }
+            case Ease::OutElastic:
+            {
+                if (t == 0.0f || t == 1.0f) return t;
+                const float c4 = glm::two_pi<float>() / 3.0f;
+                return std::pow(2.0f, -10.0f * t) * std::sin((t * 10.0f - 0.75f) * c4) + 1.0f;
+            }
+            case Ease::OutBounce:
+            {
+                const float n1 = 7.5625f, d1 = 2.75f;
+                if (t < 1.0f / d1) return n1 * t * t;
+                if (t < 2.0f / d1) { t -= 1.5f / d1; return n1 * t * t + 0.75f; }
+                if (t < 2.5f / d1) { t -= 2.25f / d1; return n1 * t * t + 0.9375f; }
+                t -= 2.625f / d1; return n1 * t * t + 0.984375f;
+            }
+        }
+        return t;
+    }
+
+    void ScriptableEntity::Invoke(float delay, std::function<void()> callback)
+    {
+        m_Timers.push_back({ delay, 0.0f, false, std::move(callback) });
+    }
+
+    void ScriptableEntity::InvokeRepeating(float delay, float interval, std::function<void()> callback)
+    {
+        m_Timers.push_back({ delay, std::max(0.001f, interval), true, std::move(callback) });
+    }
+
+    void ScriptableEntity::CancelInvokes() { m_Timers.clear(); }
+
+    void ScriptableEntity::Tween(float duration, std::function<void(float)> onUpdate, Ease ease, std::function<void()> onComplete)
+    {
+        m_Tweens.push_back({ 0.0f, std::max(0.0001f, duration), ease, std::move(onUpdate), std::move(onComplete) });
+    }
+
+    void ScriptableEntity::TweenPosition(const glm::vec3& target, float duration, Ease ease)
+    {
+        glm::vec3 start = Transform().Translation;
+        Entity e = m_Entity;
+        Tween(duration, [e, start, target](float t) mutable {
+            if (e.IsValid()) e.GetComponent<TransformComponent>().Translation = glm::mix(start, target, t);
+        }, ease);
+    }
+
+    void ScriptableEntity::TweenScale(const glm::vec3& target, float duration, Ease ease)
+    {
+        glm::vec3 start = Transform().Scale;
+        Entity e = m_Entity;
+        Tween(duration, [e, start, target](float t) mutable {
+            if (e.IsValid()) e.GetComponent<TransformComponent>().Scale = glm::mix(start, target, t);
+        }, ease);
+    }
+
+    void ScriptableEntity::TickTimers(float ts)
+    {
+        // callbacks may add new timers/tweens: iterate over the current size only
+        size_t count = m_Timers.size();
+        for (size_t i = 0; i < count && i < m_Timers.size(); i++)
+        {
+            Timer& t = m_Timers[i];
+            t.Remaining -= ts;
+            if (t.Remaining > 0.0f) continue;
+            auto callback = t.Callback;
+            if (t.Repeat) t.Remaining += t.Interval;
+            else t.Callback = nullptr;
+            if (callback) callback();
+        }
+        std::erase_if(m_Timers, [](const Timer& t) { return !t.Callback; });
+
+        count = m_Tweens.size();
+        for (size_t i = 0; i < count && i < m_Tweens.size(); i++)
+        {
+            TweenState& tw = m_Tweens[i];
+            tw.Elapsed += ts;
+            float k = std::min(1.0f, tw.Elapsed / tw.Duration);
+            if (tw.OnUpdate) tw.OnUpdate(ApplyEase(tw.Easing, k));
+            if (k >= 1.0f)
+            {
+                auto done = std::move(tw.OnComplete);
+                tw.OnUpdate = nullptr;
+                if (done) done();
+            }
+        }
+        std::erase_if(m_Tweens, [](const TweenState& t) { return !t.OnUpdate; });
+    }
+
+    Entity ScriptableEntity::Resolve(const EntityRef& ref) const
+    {
+        return ref.ID ? m_Entity.GetScene()->GetEntityByUUID(ref.ID) : Entity();
+    }
 
 }

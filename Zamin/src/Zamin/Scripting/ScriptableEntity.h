@@ -4,7 +4,9 @@
 #include "Zamin/Core/Input.h"
 #include "Zamin/Core/Timestep.h"
 
+#include <functional>
 #include <string_view>
+#include <vector>
 
 namespace Zamin {
 
@@ -17,6 +19,9 @@ namespace Zamin {
     //       void OnUpdate(Zamin::Timestep ts) override { ... }
     //   };
     //   ZM_REGISTER_SCRIPT(Player, ZM_FIELD(Player, Speed))
+    enum class Ease { Linear = 0, InQuad, OutQuad, InOutQuad, OutCubic, InOutCubic, OutBack, OutElastic, OutBounce };
+    float ApplyEase(Ease ease, float t);
+
     class ScriptableEntity
     {
     public:
@@ -103,6 +108,19 @@ namespace Zamin {
         // ---- time
         float GetTime() const;
 
+        // ---- timers (run on the main thread after OnUpdate)
+        void Invoke(float delay, std::function<void()> callback);
+        void InvokeRepeating(float delay, float interval, std::function<void()> callback);
+        void CancelInvokes();
+        // Calls onUpdate(t) with eased t in [0,1] for `duration` seconds, then onComplete.
+        void Tween(float duration, std::function<void(float)> onUpdate, Ease ease = Ease::InOutQuad,
+                   std::function<void()> onComplete = {});
+        void TweenPosition(const glm::vec3& target, float duration, Ease ease = Ease::InOutQuad);
+        void TweenScale(const glm::vec3& target, float duration, Ease ease = Ease::OutBack);
+
+        // ---- entity references (EntityRef fields)
+        Entity Resolve(const EntityRef& ref) const;
+
         // Returns the script instance of type T attached to `entity` (or nullptr).
         template<typename T>
         static T* GetScript(Entity entity)
@@ -112,7 +130,25 @@ namespace Zamin {
             return nsc ? dynamic_cast<T*>(nsc->Instance) : nullptr;
         }
 
+        // Called by the scene each frame.
+        void TickTimers(float ts);
+
     private:
+        struct Timer
+        {
+            float Remaining = 0.0f, Interval = 0.0f;
+            bool Repeat = false;
+            std::function<void()> Callback;
+        };
+        struct TweenState
+        {
+            float Elapsed = 0.0f, Duration = 1.0f;
+            Ease Easing = Ease::Linear;
+            std::function<void(float)> OnUpdate;
+            std::function<void()> OnComplete;
+        };
+        std::vector<Timer> m_Timers;
+        std::vector<TweenState> m_Tweens;
         Entity m_Entity;
         friend class Scene;
     };

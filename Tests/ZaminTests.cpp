@@ -6219,6 +6219,580 @@ TEST(InactiveCamerasDoNotCount)
     CHECK(scene->GetPrimaryCameraEntity() == main);
 }
 
+TEST(InactiveLightsDoNotCount)
+{
+    auto scene = CreateRef<Scene>();
+    Entity sunA = scene->CreateEntity("SunA");
+    sunA.AddComponent<DirectionalLightComponent>();
+    Entity sunB = scene->CreateEntity("SunB");
+    sunB.AddComponent<DirectionalLightComponent>();
+
+    // The first sun in scene order lights the scene; the other one is extra (unused).
+    Scene::LightSet set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.Sun == (entt::entity)sunA && set.ExtraSuns == 1 && set.InactiveLights == 0 && set.PointLights.empty());
+    Entity first = sunA, second = sunB;
+    CHECK(scene->GetSunEntity() == first);
+    // Scene order, not creation order of the light components: moved first, SunB is the sun.
+    CHECK(scene->MoveEntityNextTo(sunB, sunA, false));
+    CHECK(scene->CollectLights(glm::vec3(0.0f)).Sun == (entt::entity)sunB && scene->GetSunEntity() == sunB);
+    CHECK(scene->MoveEntityNextTo(sunA, sunB, false));
+    CHECK(scene->GetSunEntity() == sunA);
+    // Switched off: the other one takes its place; both off: no sun.
+    first.SetActive(false);
+    set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.Sun == (entt::entity)second && set.ExtraSuns == 0 && set.InactiveLights == 1);
+    CHECK(scene->GetSunEntity() == second);
+    second.SetActive(false);
+    set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.Sun == entt::null && set.InactiveLights == 2 && !scene->GetSunEntity());
+    first.SetActive(true);
+    second.SetActive(true);
+
+    // 20 lamps in a row (x = 0, 10, ..., 190) below one group: 16 fit, the nearest to the view.
+    Entity street = scene->CreateEntity("Street");
+    std::vector<Entity> lamps;
+    for (int i = 0; i < 20; i++)
+    {
+        Entity lamp = scene->CreateEntity("Lamp" + std::to_string(i));
+        lamp.AddComponent<PointLightComponent>();
+        lamp.GetTransform().Translation = { i * 10.0f, 3.0f, 0.0f };
+        scene->SetParent(lamp, street, false);
+        lamps.push_back(lamp);
+    }
+    auto uses = [&](const Scene::LightSet& s, int index) {
+        return std::find(s.PointLights.begin(), s.PointLights.end(), (entt::entity)lamps[index]) != s.PointLights.end();
+    };
+    set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.PointLights.size() == Renderer3D::MaxPointLights && set.DroppedPointLights == 4);
+    CHECK(uses(set, 0) && uses(set, 15) && !uses(set, 16) && !uses(set, 19));
+    CHECK(set.PointLights.front() == (entt::entity)lamps[0]); // nearest first
+    set = scene->CollectLights(glm::vec3(190.0f, 0.0f, 0.0f));
+    CHECK(uses(set, 19) && uses(set, 4) && !uses(set, 3) && !uses(set, 0));
+
+    // Switched-off lamps take no slot: the next farther ones light the scene instead.
+    lamps[1].SetActive(false);
+    lamps[2].SetActive(false);
+    lamps[3].SetActive(false);
+    set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.PointLights.size() == Renderer3D::MaxPointLights && set.DroppedPointLights == 1 && set.InactiveLights == 3);
+    CHECK(!uses(set, 1) && !uses(set, 2) && !uses(set, 3) && uses(set, 18) && !uses(set, 19));
+    // Up to 16: every one that counts, in pool order (nothing is sorted).
+    for (int i = 10; i < 20; i++)
+        lamps[i].SetActive(false);
+    set = scene->CollectLights(glm::vec3(1000.0f, 0.0f, 0.0f));
+    CHECK(set.PointLights.size() == 7 && set.DroppedPointLights == 0 && set.InactiveLights == 13);
+    CHECK(uses(set, 0) && uses(set, 4) && uses(set, 9) && !uses(set, 10));
+    // The group switched off: every lamp below it is out, whatever its own flag says.
+    street.SetActive(false);
+    set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.PointLights.empty() && set.InactiveLights == 20 && set.Sun != entt::null);
+    street.SetActive(true);
+    for (Entity lamp : lamps)
+        lamp.SetActive(true);
+
+    // A direct write (inspector) counts after InvalidateActiveCache / on the next frame.
+    lamps[0].GetComponent<TagComponent>().Active = false;
+    scene->InvalidateActiveCache();
+    set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(!uses(set, 0) && uses(set, 16) && set.InactiveLights == 1);
+    lamps[0].GetComponent<TagComponent>().Active = true;
+    scene->InvalidateActiveCache();
+
+    // Editor view: lamps hidden with the eye are left out there, but they are not inactive.
+    scene->SetHiddenInEditor(lamps[0], true);
+    SceneRenderOptions editorView;
+    editorView.SkipEditorHidden = true;
+    set = scene->CollectLights(glm::vec3(0.0f), editorView);
+    CHECK(!uses(set, 0) && set.InactiveLights == 0);
+    CHECK(uses(scene->CollectLights(glm::vec3(0.0f)), 0)); // the game sees it
+    scene->SetHiddenInEditor(lamps[0], false);
+
+    // The play-mode copy keeps the flags (and its own state from then on).
+    first.SetActive(false);
+    lamps[5].SetActive(false);
+    auto runtime = Scene::Copy(scene);
+    Scene::LightSet copied = runtime->CollectLights(glm::vec3(0.0f));
+    CHECK(copied.InactiveLights == 2 && copied.Sun != entt::null);
+    CHECK(Entity(copied.Sun, runtime.get()).GetName() == second.GetName());
+    runtime->FindEntityByName("Lamp5").SetActive(true);
+    CHECK(runtime->CollectLights(glm::vec3(0.0f)).InactiveLights == 1 && scene->CollectLights(glm::vec3(0.0f)).InactiveLights == 2);
+}
+
+TEST(InactiveTilemapCollision)
+{
+    g_Contacts.clear();
+    auto scene = CreateRef<Scene>();
+    Entity level = scene->CreateEntity("Level");
+    Entity map = scene->CreateEntity("Map");
+    scene->SetParent(map, level, false);
+    map.GetTransform().Translation = { -5.0f, -1.0f, 0.0f }; // tiles cover x -5..5, y -1..0
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = 10;
+    tm.Height = 1;
+    tm.EnsureSize();
+    for (int x = 0; x < 10; x++)
+        tm.Set(x, 0, 0);
+    AddContactLog(map);
+    Entity crate = scene->CreateEntity("Crate"); // rests on the tiles
+    crate.GetTransform().Translation = { 0.0f, 0.5f, 0.0f };
+    crate.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    crate.AddComponent<BoxCollider2DComponent>();
+    AddContactLog(crate);
+    Entity shelf = scene->CreateEntity("Shelf"); // far away, with a crate asleep on it
+    shelf.GetTransform().Translation = { 40.0f, -0.5f, 0.0f };
+    shelf.GetTransform().Scale = { 4.0f, 1.0f, 1.0f };
+    shelf.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    shelf.AddComponent<BoxCollider2DComponent>();
+    Entity sleeper = scene->CreateEntity("Sleeper");
+    sleeper.GetTransform().Translation = { 40.0f, 0.5f, 0.0f };
+    sleeper.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    sleeper.AddComponent<BoxCollider2DComponent>();
+
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 120; i++) // everything comes to rest (and falls asleep)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(CountContact("Crate:CollisionBegin:Map") == 1 && CountContact("Map:CollisionBegin:Crate") == 1);
+    const float resting = crate.GetTransform().Translation.y;
+    CHECK_NEAR(resting, 0.5f, 0.05f);
+    auto ray = [&](float x) { return scene->Raycast2D({ x, 5.0f }, { 0.0f, -1.0f }, 20.0f); };
+    CHECK(ray(4.5f).Hit && ray(4.5f).EntityID == (uint64_t)map.GetUUID());
+
+    // Switched off: the collision goes at once, the crate resting on it hears the contact end
+    // (once), wakes up and falls; rays go through.
+    g_Contacts.clear();
+    map.SetActive(false);
+    CHECK(map.GetComponent<TilemapComponent>().RuntimeBody == nullptr);
+    CHECK((g_Contacts == std::vector<std::string>{ "Crate:CollisionEnd:Map" }));
+    CHECK(!ray(4.5f).Hit);
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(crate.GetTransform().Translation.y < resting - 1.0f);
+    CHECK(g_Contacts.size() == 1);
+    CHECK_NEAR(map.GetTransform().Translation.y, -1.0f, 1e-6f);
+
+    // Edited and moved while off: back on, the collision is built from the tiles as they are now,
+    // where the tilemap is now. Its first tile appears in the sleeping crate's side: it wakes up
+    // and is pushed out.
+    tm.Set(9, 0, -1);
+    map.GetTransform().Translation = { 40.3f, 0.0f, 0.0f }; // tile 0 covers x 40.3..41.3, y 0..1
+    const float sleeperX = sleeper.GetTransform().Translation.x;
+    CHECK_NEAR(sleeperX, 40.0f, 0.01f);
+    map.SetActive(true);
+    CHECK(map.GetComponent<TilemapComponent>().RuntimeBody != nullptr);
+    CHECK(ray(48.8f).Hit && ray(48.8f).EntityID == (uint64_t)map.GetUUID());
+    CHECK(!ray(49.8f).Hit && !ray(4.5f).Hit);
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(sleeper.GetTransform().Translation.x < sleeperX - 0.05f);
+
+    // Its parent switched off and on: the collision follows the hierarchy.
+    level.SetActive(false);
+    CHECK(map.GetComponent<TilemapComponent>().RuntimeBody == nullptr && !ray(48.8f).Hit);
+    map.SetActive(false);
+    level.SetActive(true);
+    CHECK(map.GetComponent<TilemapComponent>().RuntimeBody == nullptr); // still off itself
+    // Collision switched off meanwhile: coming back builds nothing.
+    tm.Collision = false;
+    map.SetActive(true);
+    CHECK(map.GetComponent<TilemapComponent>().RuntimeBody == nullptr && !ray(48.8f).Hit);
+    scene->OnRuntimeStop();
+
+    // A tilemap that is off when play starts gets no collision until it is switched on.
+    tm.Collision = true;
+    map.SetActive(false);
+    scene->OnSimulationStart(); // (simulation: physics without scripts)
+    CHECK(map.GetComponent<TilemapComponent>().RuntimeBody == nullptr);
+    map.SetActive(true);
+    CHECK(map.GetComponent<TilemapComponent>().RuntimeBody != nullptr);
+    scene->OnSimulationStop();
+    CHECK(map.GetComponent<TilemapComponent>().RuntimeBody == nullptr);
+}
+
+TEST(InactiveCharacterControllers)
+{
+    g_Contacts.clear();
+    auto scene = CreateRef<Scene>();
+    Entity ground = scene->CreateEntity("Ground");
+    ground.GetTransform().Translation = { 0.0f, -0.5f, 0.0f };
+    ground.GetTransform().Scale = { 40.0f, 1.0f, 40.0f };
+    ground.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    ground.AddComponent<BoxCollider3DComponent>();
+    AddContactLog(ground);
+    Entity squad = scene->CreateEntity("Squad");
+    Entity hero = scene->CreateEntity("Hero");
+    scene->SetParent(hero, squad, false);
+    hero.GetTransform().Translation = { 0.0f, 0.05f, 0.0f };
+    hero.AddComponent<CharacterController3DComponent>();
+    AddContactLog(hero);
+
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    CHECK(world != nullptr);
+    if (!world) return;
+    auto& cc = hero.GetComponent<CharacterController3DComponent>();
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(cc.RuntimeID != 0xffffffff && cc.Grounded);
+    CHECK(CountContact("Hero:CollisionBegin:Ground") == 1 && CountContact("Ground:CollisionBegin:Hero") == 1);
+    auto ray = [&]() { return scene->Raycast3D({ -3.0f, 0.9f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 6.0f); };
+    CHECK(ray().Hit && ray().EntityID == (uint64_t)hero.GetUUID()); // its capsule (inner body)
+
+    // Switched off: out of the 3D world at once - nothing to hit, the ground hears the contact end
+    // (once), no gravity, not grounded, no jumping.
+    g_Contacts.clear();
+    hero.SetActive(false);
+    CHECK(cc.RuntimeID == 0xffffffff && !cc.Grounded);
+    CHECK((g_Contacts == std::vector<std::string>{ "Ground:CollisionEnd:Hero" }));
+    CHECK(!ray().Hit);
+    CHECK(!cc.Jump(5.0f) && cc.VerticalVelocity == 0.0f);
+    hero.GetTransform().Translation = { 2.0f, 3.0f, 0.0f }; // teleported while off
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(hero.GetTransform().Translation.x, 2.0f, 1e-6f);
+    CHECK_NEAR(hero.GetTransform().Translation.y, 3.0f, 1e-6f);
+    CHECK(g_Contacts.size() == 1 && cc.RuntimeID == 0xffffffff);
+
+    // On again below a switched-off parent: still out. The parent moved and switched on: the
+    // character appears at the hero's world position now, at rest (no speed kept from before).
+    squad.SetActive(false);
+    hero.SetActive(true);
+    CHECK(cc.RuntimeID == 0xffffffff && !scene->IsActiveInHierarchy(hero));
+    squad.GetTransform().Translation = { 1.0f, 0.0f, 0.0f };
+    cc.VerticalVelocity = -50.0f; // whatever was left: a new character starts at rest
+    squad.SetActive(true);
+    CHECK(cc.RuntimeID != 0xffffffff);
+    if (cc.RuntimeID != 0xffffffff)
+    {
+        CHECK_NEAR(world->GetCharacterPosition(cc.RuntimeID).x, 3.0f, 1e-4f);
+        CHECK_NEAR(world->GetCharacterPosition(cc.RuntimeID).y, 3.0f, 1e-4f);
+    }
+    CHECK(cc.VerticalVelocity == 0.0f && !cc.Grounded);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    float y = scene->GetWorldPosition(hero).y;
+    CHECK(y < 3.0f && y > 2.95f);
+    CHECK_NEAR(scene->GetWorldPosition(hero).x, 3.0f, 1e-3f);
+    for (int i = 0; i < 90; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(cc.Grounded && std::abs(scene->GetWorldPosition(hero).y) < 0.05f);
+    CHECK(CountContact("Hero:CollisionBegin:Ground") == 1 && CountContact("Ground:CollisionBegin:Hero") == 1);
+    CHECK(cc.Jump(5.0f));
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(scene->GetWorldPosition(hero).y > 0.01f);
+    for (int i = 0; i < 90; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+
+    // The ground switched off below it: it falls, and hears the contact end once.
+    g_Contacts.clear();
+    ground.SetActive(false);
+    CHECK(CountContact("Hero:CollisionEnd:Ground") == 1 && g_Contacts.size() == 1);
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!cc.Grounded && scene->GetWorldPosition(hero).y < -0.5f);
+    scene->OnRuntimeStop();
+    CHECK(cc.RuntimeID == 0xffffffff);
+
+    // Simulation mode (physics without scripts): an inactive hero has no character either.
+    hero.SetActive(false);
+    ground.SetActive(true);
+    scene->OnSimulationStart();
+    CHECK(scene->GetPhysicsWorld3D() && cc.RuntimeID == 0xffffffff);
+    hero.SetActive(true);
+    CHECK(cc.RuntimeID != 0xffffffff);
+    scene->OnSimulationStop();
+}
+
+TEST(PrefabInstancesKeepActiveState)
+{
+    g_Life.clear();
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-prefab-active-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+
+    // Turret (active) > Barrel (off itself, scripted, with a body) > Muzzle (active, scripted).
+    auto source = CreateRef<Scene>();
+    Entity turret = source->CreateEntity("Turret");
+    Entity barrel = AddLifeScript(*source, "Barrel");
+    barrel.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    barrel.AddComponent<BoxCollider2DComponent>();
+    Entity muzzle = AddLifeScript(*source, "Muzzle");
+    source->SetParent(barrel, turret, false);
+    source->SetParent(muzzle, barrel, false);
+    barrel.SetActive(false);
+    const auto prefab = dir / "Turret.zprefab";
+    CHECK(source->SavePrefab(turret, prefab));
+    const std::string saved = FileSystem::ReadTextFile(prefab);
+
+    // Instances in a running scene: every entity starts as it was saved, independently.
+    auto game = CreateRef<Scene>();
+    game->GetSettings().Gravity = { 0.0f, 0.0f };
+    game->OnRuntimeStart();
+    Entity a = game->InstantiatePrefab(prefab);
+    Entity b = game->InstantiatePrefab(prefab);
+    CHECK(a && b && a != b);
+    if (!a || !b) return;
+    Entity barrelA = game->FindChild(a, "Barrel"), barrelB = game->FindChild(b, "Barrel");
+    Entity muzzleA = game->FindChild(a, "Muzzle");
+    CHECK(a.IsActive() && !barrelA.IsActive() && !barrelB.IsActive());
+    CHECK(muzzleA.IsActive() && !muzzleA.IsActiveInHierarchy());
+    CHECK(barrelA.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr);
+    game->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(CountLife("Barrel:Create") == 2 && CountLife("Barrel:Enable") == 0 && CountLife("Barrel:Update") == 0);
+    CHECK(CountLife("Muzzle:Create") == 2 && CountLife("Muzzle:Start") == 0 && CountLife("Muzzle:Update") == 0);
+    // One instance switched on: only its subtree joins (OnEnable, then OnStart, body).
+    barrelA.SetActive(true);
+    CHECK(barrelA.GetComponent<Rigidbody2DComponent>().RuntimeBody != nullptr);
+    CHECK(barrelB.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr);
+    CHECK(CountLife("Barrel:Enable") == 1 && CountLife("Muzzle:Enable") == 1);
+    game->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(CountLife("Barrel:Start") == 1 && CountLife("Barrel:Update") == 1 && CountLife("Muzzle:Update") == 1);
+    game->OnRuntimeStop();
+    CHECK(FileSystem::ReadTextFile(prefab) == saved); // the prefab itself is untouched
+
+    // Placed in an edited scene, each instance keeps its own state through save / load and the
+    // play-mode copy.
+    auto level = CreateRef<Scene>();
+    Entity first = level->InstantiatePrefab(prefab);
+    Entity second = level->InstantiatePrefab(prefab);
+    level->FindChild(first, "Barrel").SetActive(true);
+    second.SetActive(false);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(level).SerializeToString()));
+    std::vector<Entity> turrets = loaded->FindEntitiesByName("Turret");
+    CHECK(turrets.size() == 2);
+    if (turrets.size() == 2)
+    {
+        Entity l1 = turrets[0].GetUUID() == first.GetUUID() ? turrets[0] : turrets[1];
+        Entity l2 = l1 == turrets[0] ? turrets[1] : turrets[0];
+        CHECK(l1.IsActive() && loaded->FindChild(l1, "Barrel").IsActive() && loaded->FindChild(l1, "Muzzle").IsActiveInHierarchy());
+        CHECK(!l2.IsActive() && !loaded->FindChild(l2, "Barrel").IsActive() && loaded->FindChild(l2, "Muzzle").IsActive());
+        auto play = Scene::Copy(loaded);
+        CHECK(play->CountInactiveInHierarchy() == 3 && loaded->CountInactiveInHierarchy() == 3);
+    }
+
+    // Templates in the scene (Instantiate(entity)).
+    g_Life.clear();
+    auto scene = CreateRef<Scene>();
+    scene->GetSettings().Gravity = { 0.0f, 0.0f };
+    auto withBody = [&](const std::string& name) {
+        Entity e = scene->CreateEntity(name);
+        e.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+        e.AddComponent<BoxCollider2DComponent>();
+        return e;
+    };
+    Entity ghost = withBody("Ghost"); // switched off itself, at the root
+    ghost.GetTransform().Translation = { -10.0f, 0.0f, 0.0f };
+    ghost.SetActive(false);
+    Entity templates = scene->CreateEntity("Templates"); // a switched-off group of templates
+    templates.GetTransform().Translation = { 10.0f, 0.0f, 0.0f };
+    templates.SetActive(false);
+    Entity bullet = withBody("Bullet");
+    bullet.GetTransform().Translation = { 1.0f, 2.0f, 0.0f };
+    scene->SetParent(bullet, templates, false);
+    Entity spark = scene->CreateEntity("Spark"); // inside the bullet, off itself
+    scene->SetParent(spark, bullet, false);
+    spark.SetActive(false);
+    Entity mine = withBody("Mine"); // off itself, inside the switched-off group too
+    scene->SetParent(mine, templates, false);
+    mine.SetActive(false);
+    Entity rack = scene->CreateEntity("Rack"); // an active parent
+    rack.GetTransform().Translation = { 20.0f, 0.0f, 0.0f };
+    Entity shell = withBody("Shell");
+    scene->SetParent(shell, rack, false);
+
+    scene->OnRuntimeStart();
+    auto bodyAt = [&](Entity e, const glm::vec2& expected) {
+        void* body = e.GetComponent<Rigidbody2DComponent>().RuntimeBody;
+        if (!body) return false;
+        scene->OnUpdateRuntime(1.0f / 60.0f); // the transform follows the body
+        glm::vec3 p = scene->GetWorldPosition(e);
+        return std::abs(p.x - expected.x) < 1e-3f && std::abs(p.y - expected.y) < 1e-3f;
+    };
+    // A switched-off template gives a switched-off clone; switched on, it joins where it is.
+    Entity ghostClone = scene->Instantiate(ghost);
+    CHECK(ghostClone && !ghostClone.IsActive() && ghostClone.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr);
+    ghostClone.SetActive(true);
+    CHECK(bodyAt(ghostClone, { -10.0f, 0.0f }));
+    // An active template in a switched-off group: the clone is a root, as active as the template
+    // itself, where the template is in the world; the subtree keeps its flags.
+    Entity bulletClone = scene->Instantiate(bullet);
+    CHECK(bulletClone && !scene->GetParent(bulletClone) && bulletClone.IsActiveInHierarchy());
+    CHECK(bodyAt(bulletClone, { 11.0f, 2.0f }));
+    Entity sparkClone = scene->FindChild(bulletClone, "Spark");
+    CHECK(sparkClone && sparkClone != spark && !sparkClone.IsActive());
+    CHECK(bullet.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr && scene->GetParent(bullet) == templates);
+    // With a position: the world position of the root clone.
+    Entity placed = scene->Instantiate(bullet, glm::vec3(5.0f, 5.0f, 0.0f));
+    CHECK(placed && !scene->GetParent(placed) && bodyAt(placed, { 5.0f, 5.0f }));
+    // Switched off itself as well: a root clone that is still off.
+    Entity mineClone = scene->Instantiate(mine);
+    CHECK(mineClone && !scene->GetParent(mineClone) && !mineClone.IsActive());
+    CHECK(mineClone.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr);
+    mineClone.SetActive(true);
+    CHECK(bodyAt(mineClone, { 10.0f, 0.0f }));
+    // Below an active parent nothing changes: the clone stays next to the template, and the
+    // position is local to that parent.
+    Entity shellClone = scene->Instantiate(shell, glm::vec3(2.0f, 0.0f, 0.0f));
+    CHECK(shellClone && scene->GetParent(shellClone) == rack && bodyAt(shellClone, { 22.0f, 0.0f }));
+    // The same through the script API.
+    Entity spawner = AddLifeScript(*scene, "Spawner");
+    scene->OnEntitiesSpawned({ spawner });
+    auto* script = ScriptableEntity::GetScript<LifeScript>(spawner);
+    CHECK(script != nullptr);
+    if (script)
+    {
+        Entity fromScript = script->Instantiate(bullet, glm::vec3(-3.0f, 1.0f, 0.0f));
+        CHECK(fromScript && !scene->GetParent(fromScript) && bodyAt(fromScript, { -3.0f, 1.0f }));
+        // A prefab file: the whole subtree as it was saved (absolute path without a project).
+        Entity fromFile = script->Instantiate(prefab.string(), glm::vec3(0.0f, 30.0f, 0.0f));
+        CHECK(fromFile && fromFile.IsActive() && !scene->FindChild(fromFile, "Barrel").IsActive());
+        CHECK(scene->FindChild(fromFile, "Barrel").GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr);
+        CHECK_NEAR(scene->GetWorldPosition(fromFile).y, 30.0f, 1e-5f);
+    }
+    scene->OnRuntimeStop();
+    std::filesystem::remove_all(dir);
+}
+
+// Activity across hierarchy, physics and scripts at once: random switching / reparenting while
+// the game runs, checked against a brute-force walk up the parents after every step.
+TEST(ActivityHierarchyPhysicsScripts)
+{
+    g_Life.clear();
+    auto scene = CreateRef<Scene>();
+    scene->GetSettings().Gravity = { 0.0f, 0.0f };
+    const int count = 12;
+    std::vector<Entity> nodes;
+    uint32_t seed = 12345;
+    auto next = [&](uint32_t range) { seed = seed * 1664525u + 1013904223u; return (seed >> 8) % range; };
+    for (int i = 0; i < count; i++)
+    {
+        Entity e = AddLifeScript(*scene, "N" + std::to_string(i));
+        e.GetTransform().Translation = { i * 3.0f, 0.0f, 0.0f };
+        e.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+        e.AddComponent<CircleCollider2DComponent>().Radius = 0.25f;
+        if (i > 0 && next(3) != 0)
+            scene->SetParent(e, nodes[next((uint32_t)i)], true);
+        if (next(4) == 0)
+            e.SetActive(false);
+        nodes.push_back(e);
+    }
+    auto expected = [&](Entity e) {
+        for (Entity p = e; p; p = scene->GetParent(p))
+            if (!p.IsActive())
+                return false;
+        return true;
+    };
+    auto enabled = [&](Entity e) {
+        const std::string name = e.GetName();
+        return CountLife(name + ":Enable") - CountLife(name + ":Disable") == 1;
+    };
+    int mismatches = 0;
+    auto verify = [&]() {
+        for (Entity e : nodes)
+        {
+            const bool on = expected(e);
+            if (scene->IsActiveInHierarchy(e) != on) mismatches++;
+            if ((e.GetComponent<Rigidbody2DComponent>().RuntimeBody != nullptr) != on) mismatches++;
+            if (enabled(e) != on) mismatches++;
+            const int balance = CountLife(e.GetName() + ":Enable") - CountLife(e.GetName() + ":Disable");
+            if (balance < 0 || balance > 1) mismatches++; // never twice in a row
+        }
+    };
+
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    verify();
+    size_t inactiveAtStart = scene->CountInactiveInHierarchy();
+    for (int step = 0; step < 300; step++)
+    {
+        Entity e = nodes[next(count)];
+        switch (next(5))
+        {
+            case 0: case 1: e.SetActive(!e.IsActive()); break;
+            case 2:
+            {
+                Entity parent = next(3) == 0 ? Entity() : nodes[next(count)];
+                if (!parent || (parent != e && !scene->IsAncestorOf(e, parent)))
+                    scene->SetParent(e, parent, true);
+                break;
+            }
+            case 3: // a direct write (inspector), picked up on the next frame
+                e.GetComponent<TagComponent>().Active = !e.IsActive();
+                scene->OnUpdateRuntime(1.0f / 60.0f);
+                break;
+            default:
+            {
+                // One frame: only scripts of active entities update.
+                std::vector<int> before;
+                for (Entity n : nodes) before.push_back(CountLife(n.GetName() + ":Update"));
+                scene->OnUpdateRuntime(1.0f / 60.0f);
+                for (int i = 0; i < count; i++)
+                    if ((CountLife(nodes[i].GetName() + ":Update") - before[i] == 1) != expected(nodes[i]))
+                        mismatches++;
+                break;
+            }
+        }
+        verify();
+    }
+    CHECK(mismatches == 0);
+    CHECK(inactiveAtStart > 0 || scene->CountInactiveInHierarchy() > 0); // the run did switch things
+
+    // Destroying a switched-off entity: OnDestroy once, no second OnDisable.
+    Entity victim;
+    for (Entity e : nodes)
+        if (!e.IsActive() && scene->GetChildCount(e) == 0) { victim = e; break; }
+    if (!victim)
+    {
+        victim = AddLifeScript(*scene, "Victim");
+        scene->OnEntitiesSpawned({ victim });
+        victim.SetActive(false);
+    }
+    const std::string name = victim.GetName();
+    const int disables = CountLife(name + ":Disable");
+    scene->DestroyEntityDeferred(victim);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(CountLife(name + ":Destroy") == 1 && CountLife(name + ":Disable") == disables);
+    scene->OnRuntimeStop();
+
+    // 3D: a sleeping box wakes up and falls when the floor it rests on is switched off, and one
+    // a switched-on wall appears in is pushed out.
+    auto world3D = CreateRef<Scene>();
+    auto staticBox = [&](const std::string& name, const glm::vec3& at, const glm::vec3& scale) {
+        Entity e = world3D->CreateEntity(name);
+        e.GetTransform().Translation = at;
+        e.GetTransform().Scale = scale;
+        e.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+        e.AddComponent<BoxCollider3DComponent>();
+        return e;
+    };
+    Entity floor = staticBox("Floor", { 0.0f, -0.5f, 0.0f }, { 4.0f, 1.0f, 4.0f });
+    Entity table = staticBox("Table", { 20.0f, -0.5f, 0.0f }, { 4.0f, 1.0f, 4.0f });
+    Entity wall = staticBox("Wall", { 20.8f, 0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }); // overlaps the second box by 0.2
+    wall.SetActive(false);
+    auto dynamicBox = [&](const std::string& name, const glm::vec3& at) {
+        Entity e = world3D->CreateEntity(name);
+        e.GetTransform().Translation = at;
+        e.AddComponent<Rigidbody3DComponent>();
+        e.AddComponent<BoxCollider3DComponent>();
+        return e;
+    };
+    Entity crate = dynamicBox("Crate", { 0.0f, 0.5f, 0.0f });
+    Entity cup = dynamicBox("Cup", { 20.0f, 0.5f, 0.0f });
+    world3D->OnRuntimeStart();
+    for (int i = 0; i < 180; i++) // at rest, asleep
+        world3D->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(crate.GetTransform().Translation.y, 0.5f, 0.02f);
+    floor.SetActive(false);
+    for (int i = 0; i < 30; i++)
+        world3D->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(crate.GetTransform().Translation.y < 0.0f);
+    const float cupX = cup.GetTransform().Translation.x;
+    wall.SetActive(true);
+    for (int i = 0; i < 30; i++)
+        world3D->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(cup.GetTransform().Translation.x < cupX - 0.05f);
+    CHECK(table.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff);
+    world3D->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

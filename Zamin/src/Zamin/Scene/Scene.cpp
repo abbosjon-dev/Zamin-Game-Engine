@@ -429,10 +429,21 @@ namespace Zamin {
                 CollectSubtree(scene, c, out);
     }
 
-    Entity Scene::Instantiate(Entity prefab)
+    Entity Scene::Instantiate(Entity prefab) { return InstantiateCopy(prefab, nullptr); }
+
+    Entity Scene::Instantiate(Entity prefab, const glm::vec3& position) { return InstantiateCopy(prefab, &position); }
+
+    Entity Scene::InstantiateCopy(Entity prefab, const glm::vec3* position)
     {
-        if (!prefab) return {};
+        if (!prefab.IsValid() || prefab.GetScene() != this) return {};
         Entity e = DuplicateEntity(prefab);
+        // The copies keep their own active flags. Below a switched-off parent (a template parked
+        // in an inactive group) the clone would be switched off as well, whatever the template's
+        // own flag says: it becomes a root instead, where the template is in the world.
+        if (Entity parent = GetParent(e); parent && !IsActiveInHierarchy(parent))
+            SetParent(e, {}, position == nullptr);
+        if (position)
+            e.GetComponent<TransformComponent>().Translation = *position;
         std::vector<Entity> spawned;
         CollectSubtree(*this, e, spawned);
         // Spawned copies start visible and unlocked in the editor, as prefab instances do: a
@@ -1072,6 +1083,81 @@ namespace Zamin {
                 skipped.merge(CollectLockedInEditor());
         }
         return skipped;
+    }
+
+    // ------------------------------------------------------------------ lights
+    Scene::LightSet Scene::GatherLights(const glm::vec3& viewPosition, const std::unordered_set<entt::entity>& skipped)
+    {
+        EnsureActiveCache();
+        LightSet set;
+        auto counts = [&](entt::entity e) {
+            if (skipped.empty() || !skipped.contains(e))
+                return true;
+            if (m_InactiveInHierarchy.contains(e))
+                set.InactiveLights++;
+            return false;
+        };
+        // The sun: the first directional light in scene order (as the hierarchy and the scene
+        // file list them), not in the pool's order.
+        const auto& ids = m_Registry.storage<IDComponent>();
+        auto earlier = [&](entt::entity a, entt::entity b) {
+            return ids.contains(a) && ids.contains(b) && ids.index(a) < ids.index(b);
+        };
+        for (auto e : m_Registry.view<TransformComponent, DirectionalLightComponent>())
+        {
+            if (!counts(e))
+                continue;
+            if (set.Sun == entt::null)
+                set.Sun = e;
+            else
+            {
+                set.ExtraSuns++;
+                if (earlier(e, set.Sun))
+                    set.Sun = e;
+            }
+        }
+        for (auto e : m_Registry.view<TransformComponent, PointLightComponent>())
+            if (counts(e))
+                set.PointLights.push_back(e);
+
+        // More than the renderer has slots for: the nearest ones (to the view) light the scene.
+        if (set.PointLights.size() > Renderer3D::MaxPointLights)
+        {
+            std::vector<std::pair<float, entt::entity>> byDistance;
+            byDistance.reserve(set.PointLights.size());
+            for (entt::entity e : set.PointLights)
+            {
+                glm::vec3 d = GetWorldPosition({ e, this }) - viewPosition;
+                byDistance.emplace_back(glm::dot(d, d), e);
+            }
+            std::stable_sort(byDistance.begin(), byDistance.end(),
+                             [](const auto& a, const auto& b) { return a.first < b.first; });
+            set.DroppedPointLights = (uint32_t)(byDistance.size() - Renderer3D::MaxPointLights);
+            set.PointLights.clear();
+            for (uint32_t i = 0; i < Renderer3D::MaxPointLights; i++)
+                set.PointLights.push_back(byDistance[i].second);
+        }
+        return set;
+    }
+
+    Scene::LightSet Scene::CollectLights(const glm::vec3& viewPosition, const SceneRenderOptions& options)
+    {
+        if ((options.SkipEditorHidden || options.SkipEditorLocked) && !m_Registry.view<EditorMetadataComponent>().empty())
+            return GatherLights(viewPosition, CollectRenderSkipped(options));
+        EnsureActiveCache();
+        return GatherLights(viewPosition, m_InactiveInHierarchy);
+    }
+
+    Entity Scene::GetSunEntity()
+    {
+        EnsureActiveCache();
+        const auto& ids = m_Registry.storage<IDComponent>();
+        entt::entity sun = entt::null;
+        for (auto e : m_Registry.view<TransformComponent, DirectionalLightComponent>())
+            if ((m_InactiveInHierarchy.empty() || !m_InactiveInHierarchy.contains(e)) && ids.contains(e)
+                && (sun == entt::null || ids.index(e) < ids.index(sun)))
+                sun = e;
+        return sun == entt::null ? Entity() : Entity(sun, this);
     }
 
     bool Scene::ShouldScriptBeEnabled(Entity entity, const NativeScriptComponent& nsc)
@@ -1880,6 +1966,29 @@ namespace Zamin {
         rb.RuntimeBodyID = m_PhysicsWorld3D->CreateBody(desc);
     }
 
+    // Box2D does not wake sleeping bodies that a new body appears on or in (a platform or tilemap
+    // switched on again, a spawned wall): they would stay inside it until something else wakes them.
+    static void WakeBodiesOverlapping(b2World* world, b2Body* body)
+    {
+        if (!world || !body)
+            return;
+        struct Waker : b2QueryCallback
+        {
+            b2Body* Self = nullptr;
+            bool ReportFixture(b2Fixture* fixture) override
+            {
+                b2Body* other = fixture->GetBody();
+                if (other != Self && other->GetType() != b2_staticBody && !other->IsAwake())
+                    other->SetAwake(true);
+                return true; // keep going
+            }
+        } waker;
+        waker.Self = body;
+        for (b2Fixture* f = body->GetFixtureList(); f; f = f->GetNext())
+            for (int32 child = 0; child < f->GetShape()->GetChildCount(); child++)
+                world->QueryAABB(&waker, f->GetAABB(child));
+    }
+
     void Scene::CreatePhysicsBodies(Entity entity)
     {
         if (!IsActiveInHierarchy(entity))
@@ -1887,11 +1996,20 @@ namespace Zamin {
         if (m_PhysicsWorld3D && entity.HasComponent<CharacterController3DComponent>())
             CreateCharacter3D(entity);
         if (m_PhysicsWorld && entity.HasComponent<Rigidbody2DComponent>())
+        {
             CreatePhysicsBody(entity);
+            WakeBodiesOverlapping(m_PhysicsWorld, (b2Body*)entity.GetComponent<Rigidbody2DComponent>().RuntimeBody);
+        }
         if (m_PhysicsWorld && entity.HasComponent<TilemapComponent>())
+        {
             CreateTilemapBody(entity);
+            WakeBodiesOverlapping(m_PhysicsWorld, (b2Body*)entity.GetComponent<TilemapComponent>().RuntimeBody);
+        }
         if (m_PhysicsWorld3D && entity.HasComponent<Rigidbody3DComponent>())
+        {
             CreatePhysicsBody3D(entity);
+            m_PhysicsWorld3D->WakeBodiesAround(entity.GetComponent<Rigidbody3DComponent>().RuntimeBodyID);
+        }
     }
 
     void Scene::DestroyPhysicsBodies(Entity entity)
@@ -2768,20 +2886,20 @@ namespace Zamin {
         env.FogDensity = m_Settings.FogDensity;
         env.FogHeightFalloff = m_Settings.FogHeightFalloff;
 
-        for (auto e : m_Registry.view<TransformComponent, DirectionalLightComponent>())
+        // Only the lights that count: inactive (and skipped) ones take no sun / point light slot.
+        const LightSet lights = GatherLights(cameraPosition, hidden);
+        if (lights.Sun != entt::null)
         {
-            if (skip(e)) continue;
-            const auto& l = m_Registry.get<DirectionalLightComponent>(e);
+            const auto& l = m_Registry.get<DirectionalLightComponent>(lights.Sun);
             env.HasSun = true;
-            env.Sun.Direction = glm::normalize(glm::vec3(world(e) * glm::vec4(0, 0, -1, 0)));
+            env.Sun.Direction = glm::normalize(glm::vec3(world(lights.Sun) * glm::vec4(0, 0, -1, 0)));
             env.Sun.Color = l.Color;
             env.Sun.Intensity = l.Intensity;
             env.Sun.CastShadows = l.CastShadows;
-            break;
         }
-        for (auto e : m_Registry.view<TransformComponent, PointLightComponent>())
+        env.PointLights.reserve(lights.PointLights.size());
+        for (entt::entity e : lights.PointLights)
         {
-            if (skip(e)) continue;
             const auto& l = m_Registry.get<PointLightComponent>(e);
             env.PointLights.push_back({ glm::vec3(world(e)[3]), l.Color, l.Intensity, l.Radius });
         }

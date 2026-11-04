@@ -1273,7 +1273,12 @@ namespace Zamin {
         if (name.empty()) name = "Prefab";
         fs::path path = dir / (name + ".zprefab");
         if (m_ActiveScene->SavePrefab(entity, path))
+        {
             ZM_INFO("Prefab saqlandi: {}", Project::GetAssetRelativePath(path));
+            // The flags are saved as they are: instances start the same way.
+            if (!entity.IsActive())
+                ZM_INFO("'{}' nofaol holatda saqlandi: prefab nusxalari ham nofaol boshlanadi (SetActive(true) bilan yoqiladi)", entity.GetName());
+        }
     }
 
     Entity EditorLayer::InstantiatePrefabInEditor(const fs::path& assetPath, Entity parent)
@@ -2994,6 +2999,24 @@ namespace Zamin {
                 UI::PropertyLabel("Meshlar"); ImGui::Text("%u", stats.MeshCount);
                 UI::PropertyLabel("Uchburchaklar"); ImGui::Text("%u", stats.TriangleCount);
                 UI::PropertyLabel("Obyektlar"); ImGui::Text("%zu", m_ActiveScene->GetRegistry().view<IDComponent>().size());
+                // Lights that light the scene (inactive ones take no slot).
+                {
+                    SceneRenderOptions view;
+                    view.SkipEditorHidden = m_SceneState != SceneState::Play;
+                    Scene::LightSet lights = m_ActiveScene->CollectLights(m_EditorCamera.GetPosition(), view);
+                    UI::PropertyLabel("Quyosh");
+                    ImGui::TextUnformatted(lights.Sun != entt::null ? Entity(lights.Sun, m_ActiveScene.get()).GetName().c_str() : "-");
+                    if (lights.ExtraSuns && ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Yana %u ta faol Directional Light ishlatilmayapti (faqat birinchisi yoritadi)", lights.ExtraSuns);
+                    UI::PropertyLabel("Nuqtali yorug'lik");
+                    ImGui::Text("%zu / %u", lights.PointLights.size(), Renderer3D::MaxPointLights);
+                    if (lights.DroppedPointLights && ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Limitdan oshgan %u tasi ishlatilmayapti (kameradan eng uzoqlari)", lights.DroppedPointLights);
+                    UI::PropertyLabel("Nofaol yorug'lik");
+                    ImGui::Text("%u", lights.InactiveLights);
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Nofaol obyektlardagi yorug'liklar hisobga olinmaydi va joy egallamaydi");
+                }
                 UI::PropertyLabel("Hover");
                 ImGui::TextUnformatted(m_HoveredEntity ? m_HoveredEntity.GetName().c_str() : "-");
                 UI::EndPropertyGrid();

@@ -2446,14 +2446,29 @@ namespace Zamin {
                     OnFoldStateModified();
             } });
 
-        AddSection<DirectionalLightComponent>(ICON_FA_SUN, "Directional Light", entity, [](DirectionalLightComponent& c) {
+        AddSection<DirectionalLightComponent>(ICON_FA_SUN, "Directional Light", entity, [&](DirectionalLightComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: quyosh hisobga olinmaydi (yorug'lik ham, soya ham yo'q)");
+            // Only the first active directional light is the sun; say which one when it is another.
+            if (entity.IsActiveInHierarchy())
+                if (Entity sun = m_Context->GetSunEntity(); sun && sun != entity)
+                {
+                    UI::PropertyLabel("");
+                    ImGui::PushTextWrapPos(0.0f);
+                    ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_CIRCLE_INFO "  Ishlatilmaydi: quyosh '%s'", sun.GetName().c_str());
+                    ImGui::PopTextWrapPos();
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                        ImGui::SetTooltip("Sahnani faqat birinchi faol Directional Light yoritadi. Bosing: uni tanlash");
+                    if (ImGui::IsItemClicked())
+                        SetSelectedEntity(sun);
+                }
             bool changed = UI::PropertyColor3("Rang", c.Color);
             changed |= UI::PropertyFloat("Kuch", c.Intensity, 0.05f, 0.0f, 100.0f);
             changed |= UI::PropertyBool("Soyalar", c.CastShadows);
             return changed;
         }, true, modified);
 
-        AddSection<PointLightComponent>(ICON_FA_LIGHTBULB, "Point Light", entity, [](PointLightComponent& c) {
+        AddSection<PointLightComponent>(ICON_FA_LIGHTBULB, "Point Light", entity, [&](PointLightComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: yorug'lik hisobga olinmaydi (yoritmaydi, joy egallamaydi)");
             bool changed = UI::PropertyColor3("Rang", c.Color);
             changed |= UI::PropertyFloat("Kuch", c.Intensity, 0.05f, 0.0f, 1000.0f);
             changed |= UI::PropertyFloat("Radius", c.Radius, 0.05f, 0.0f, 1000.0f);
@@ -2533,7 +2548,8 @@ namespace Zamin {
             return collider3D(c) || changed;
         }, true, modified);
 
-        AddSection<CharacterController3DComponent>(ICON_FA_PERSON_RUNNING, "Character Controller 3D", entity, [](CharacterController3DComponent& c) {
+        AddSection<CharacterController3DComponent>(ICON_FA_PERSON_RUNNING, "Character Controller 3D", entity, [&](CharacterController3DComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: qahramon fizikada yo'q (faollashganda joriy joyida qayta yaratiladi)");
             bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.05f, 10.0f);
             changed |= UI::PropertyFloat("Balandlik", c.Height, 0.01f, 0.2f, 20.0f);
             changed |= UI::PropertySlider("Maks. qiyalik (°)", c.MaxSlope, 0.0f, 89.0f);
@@ -2542,7 +2558,7 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Gravitatsiya", c.GravityScale, 0.05f, 0.0f, 10.0f);
             changed |= UI::PropertyBool("Yerga yopishish", c.StickToFloor);
             UI::PropertyLabel("Holat");
-            ImGui::TextDisabled(c.Grounded ? "Yerda" : "Havoda");
+            ImGui::TextDisabled(!entity.IsActiveInHierarchy() ? "Nofaol" : (c.Grounded ? "Yerda" : "Havoda"));
             return changed;
         }, true, modified);
 
@@ -2561,6 +2577,8 @@ namespace Zamin {
             changed |= UI::PropertyColor4("Rang", c.Color);
             changed |= UI::PropertyInt("Tartib (sorting)", c.SortingOrder);
             changed |= UI::PropertyBool("Collision (fizika)", c.Collision);
+            InactiveComponentNote(entity, c.Collision ? "Obyekt nofaol: tilemap chizilmaydi, kolliziyasi o'chirilgan (faollashganda qayta quriladi)"
+                                                      : "Obyekt nofaol: tilemap chizilmaydi");
             changed |= UI::PropertySlider("Ishqalanish", c.Friction, 0.0f, 1.0f);
 
             ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Bo'yash");

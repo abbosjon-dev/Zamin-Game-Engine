@@ -65,11 +65,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 053. Animator nofaol bo'lsa yangilanmaydi
 - [x] 054. UI elementlar nofaol bo'lsa ko'rinmaydi va bosilmaydi
 - [x] 055. Kameralar nofaol bo'lsa asosiy kamera hisoblanmaydi
-- [ ] 056. Yorug'liklar nofaol bo'lsa hisobga olinmaydi
-- [ ] 057. Tilemap collision nofaol bo'lsa o'chadi
-- [ ] 058. Character controller nofaol bo'lsa o'chadi
-- [ ] 059. Prefab instansiyalar faollik holatini saqlaydi
-- [ ] 060. Faollik testlari (ierarxiya, fizika, skript)
+- [x] 056. Yorug'liklar nofaol bo'lsa hisobga olinmaydi
+- [x] 057. Tilemap collision nofaol bo'lsa o'chadi
+- [x] 058. Character controller nofaol bo'lsa o'chadi
+- [x] 059. Prefab instansiyalar faollik holatini saqlaydi
+- [x] 060. Faollik testlari (ierarxiya, fizika, skript)
 
 ## M04 Asset tizimi
 

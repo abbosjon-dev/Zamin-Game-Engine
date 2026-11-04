@@ -127,10 +127,14 @@ namespace Zamin {
         bool RemoveTag(std::string_view tag) { return m_Entity.RemoveTag(tag); }
         std::vector<Entity> FindEntitiesWithTag(std::string_view tag) const;
         Entity FindEntityWithTag(std::string_view tag) const;
-        // Copy an existing entity (a "prefab") into the running scene.
+        // Copy an existing entity (a "prefab") into the running scene. The copies keep their
+        // own active flags: a switched-off template gives a switched-off clone (SetActive(clone,
+        // true) brings it in). A template parked in a switched-off group gives a root clone.
+        // position: local to the template's parent, or the world position for a root clone.
         Entity Instantiate(Entity prefab, const glm::vec3& position);
         Entity Instantiate(Entity prefab);
-        // Spawn a prefab asset (.zprefab, path relative to Assets).
+        // Spawn a prefab asset (.zprefab, path relative to Assets). Every entity of the prefab
+        // starts as active as it was saved.
         Entity Instantiate(const std::string& prefabPath, const glm::vec3& position);
         // Deferred: entity is removed at the end of the frame.
         void Destroy(Entity entity);

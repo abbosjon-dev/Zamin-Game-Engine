@@ -198,7 +198,10 @@ namespace Zamin {
         //   where they were and continue from there;
         // - UI buttons cannot be hovered, pressed or clicked (a press in progress is cancelled);
         // - cameras do not count: GetPrimaryCameraEntity skips them (also for the audio listener
-        //   and ScreenToWorld).
+        //   and ScreenToWorld);
+        // - lights do not count: no light, no shadow, no sun / point light slot (CollectLights);
+        // - a tilemap has no collision body, a character controller is not in the 3D world (no
+        //   gravity, Grounded false, Jump refused); bodies resting on a removed body wake up and fall.
         // The flag is saved with the scene and kept by Scene::Copy, duplicates, Instantiate() and
         // prefabs.
         // Sets the entity's own flag; while playing / simulating, physics, scripts, sounds, particles
@@ -218,6 +221,28 @@ namespace Zamin {
         // Everything RenderScene leaves out with these options: entities that are not active in
         // the hierarchy always; the editor-hidden / editor-locked subtrees when the options say so.
         std::unordered_set<entt::entity> CollectRenderSkipped(const SceneRenderOptions& options = {});
+
+        // ---- lights (what the 3D renderer lights the scene with)
+        // Only lights on entities that are active in the hierarchy count (with the options' editor
+        // flags, the subtrees RenderScene skips are left out as well): an inactive light does not
+        // light anything, casts no shadow, and takes neither the sun's place nor one of the
+        // Renderer3D::MaxPointLights slots - the next active light gets it.
+        struct LightSet
+        {
+            // The sun: the first directional light that counts, in scene order (as the hierarchy /
+            // scene file list them); null: no sun.
+            entt::entity Sun = entt::null;
+            // Point lights that light the scene, at most Renderer3D::MaxPointLights: in pool order,
+            // or nearest to the view position first when more than that count.
+            std::vector<entt::entity> PointLights;
+            uint32_t InactiveLights = 0;     // directional + point lights left out (not active in the hierarchy)
+            uint32_t ExtraSuns = 0;          // directional lights that count but are not the first one (unused)
+            uint32_t DroppedPointLights = 0; // point lights that count beyond the limit (the farthest ones)
+        };
+        LightSet CollectLights(const glm::vec3& viewPosition, const SceneRenderOptions& options = {});
+        // The directional light the scene is lit by (the first active one in scene order), or an
+        // invalid entity.
+        Entity GetSunEntity();
 
         glm::mat4 GetWorldTransform(Entity entity);
         // Sets local transform so that the entity ends up at `world`.
@@ -312,7 +337,17 @@ namespace Zamin {
         entt::registry& GetRegistry() { return m_Registry; }
 
         // --- used by ScriptableEntity
+        // Copies `prefab` with its subtree (fresh IDs) next to it; while running, the copies get
+        // their bodies, sounds and scripts at once (OnEntitiesSpawned). Every copy keeps the
+        // active flag of the entity it was copied from: a switched-off template gives switched-off
+        // clones (SetActive(true) brings them in, also right after this call). A template that is
+        // switched off only by an ancestor (kept in an inactive "templates" group) gives a root
+        // copy - where the template is in the world - so the clone is as active as the template
+        // itself is.
         Entity Instantiate(Entity prefab);
+        // The same with the copy's position set before its bodies are created: local to the
+        // template's parent, or the world position when the copy is a root.
+        Entity Instantiate(Entity prefab, const glm::vec3& position);
         void OnEntitiesSpawned(const std::vector<Entity>& entities); // creates runtime state
         void DestroyEntityDeferred(Entity entity);
 
@@ -342,9 +377,11 @@ namespace Zamin {
         void CreatePhysicsBody3D(Entity entity);
         void CreateTilemapBody(Entity entity);
         void CreateCharacter3D(Entity entity);
-        // Every body / character the entity should have in the running worlds (none when inactive).
+        // Every body / character the entity should have in the running worlds (none when inactive);
+        // sleeping bodies where a new body appears are woken (switched on again / spawned).
         void CreatePhysicsBodies(Entity entity);
-        // Removes the entity's 2D / tilemap / 3D bodies and its character from the worlds.
+        // Removes the entity's 2D / tilemap / 3D bodies and its character from the worlds (bodies
+        // resting on them wake up).
         void DestroyPhysicsBodies(Entity entity);
         // ---- active state cache (IsActiveInHierarchy)
         void EnsureActiveCache();
@@ -366,6 +403,7 @@ namespace Zamin {
         void UpdateAnimators(Timestep ts, bool editor);
         void DispatchContactEvents(const std::vector<ContactEvent>& events);
         Entity DuplicateEntityRecursive(Entity entity, UUID newParent);
+        Entity InstantiateCopy(Entity prefab, const glm::vec3* position);
         void StepPhysics(Timestep ts);
         void StartScripts();
         void StopScripts();
@@ -382,6 +420,8 @@ namespace Zamin {
         void UpdateUI();
 
         void RenderUI(const std::unordered_set<entt::entity>* skip);
+        // CollectLights with the set of entities to leave out given (RenderScene has it already).
+        LightSet GatherLights(const glm::vec3& viewPosition, const std::unordered_set<entt::entity>& skipped);
 
         void OnNameChanged(entt::registry&, entt::entity) { m_NameCacheDirty = true; }
         void RebuildNameCache();

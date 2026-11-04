@@ -63,13 +63,8 @@ namespace Zamin {
 
     Entity ScriptableEntity::Instantiate(Entity prefab, const glm::vec3& position)
     {
-        if (!prefab) return {};
-        // Set the position before physics bodies are created.
-        glm::vec3 old = prefab.GetComponent<TransformComponent>().Translation;
-        prefab.GetComponent<TransformComponent>().Translation = position;
-        Entity e = m_Entity.GetScene()->Instantiate(prefab);
-        prefab.GetComponent<TransformComponent>().Translation = old;
-        return e;
+        // The position is set before physics bodies are created.
+        return m_Entity.GetScene()->Instantiate(prefab, position);
     }
 
     Entity ScriptableEntity::Instantiate(const std::string& prefabPath, const glm::vec3& position)

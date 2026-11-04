@@ -9,6 +9,7 @@
 #include <Jolt/Physics/PhysicsSettings.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/Collision/RayCast.h>
+#include <Jolt/Physics/Collision/TransformedShape.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
@@ -314,6 +315,15 @@ namespace Zamin {
         return id.GetIndexAndSequenceNumber();
     }
 
+    // World-space bounds of a body in the world, grown a little so that bodies resting on it
+    // (touching, not overlapping) are inside.
+    static JPH::AABox WakeBounds(const JPH::BodyInterface& bi, JPH::BodyID id)
+    {
+        JPH::AABox box = bi.GetTransformedShape(id).GetWorldSpaceBounds();
+        box.ExpandBy(JPH::Vec3::sReplicate(0.05f));
+        return box;
+    }
+
     void PhysicsWorld3D::DestroyBody(uint32_t bodyID)
     {
         if (bodyID == 0xffffffff) return;
@@ -321,11 +331,24 @@ namespace Zamin {
         auto& bi = m_Impl->BI();
         auto it = std::find(m_Impl->Bodies.begin(), m_Impl->Bodies.end(), id);
         if (it == m_Impl->Bodies.end()) return;
+        // Jolt does not wake the bodies that were resting on this one: a sleeping crate would stay
+        // in the air where the floor was.
+        JPH::AABox around = WakeBounds(bi, id);
         bi.RemoveBody(id);
         bi.DestroyBody(id);
         m_Impl->Bodies.erase(it);
+        bi.ActivateBodiesInAABox(around, {}, {});
         std::lock_guard lock(m_Impl->Contacts.Mutex);
         m_Impl->Contacts.BodyToEntity.erase(bodyID);
+    }
+
+    void PhysicsWorld3D::WakeBodiesAround(uint32_t bodyID)
+    {
+        if (bodyID == 0xffffffff) return;
+        JPH::BodyID id = ToBodyID(bodyID);
+        if (std::find(m_Impl->Bodies.begin(), m_Impl->Bodies.end(), id) == m_Impl->Bodies.end()) return;
+        auto& bi = m_Impl->BI();
+        bi.ActivateBodiesInAABox(WakeBounds(bi, id), {}, {});
     }
 
     void PhysicsWorld3D::OptimizeBroadPhase() { m_Impl->System->OptimizeBroadPhase(); }
@@ -405,15 +428,21 @@ namespace Zamin {
         if (id >= m_Impl->Characters.size() || !m_Impl->Characters[id].Character)
             return;
         auto& slot = m_Impl->Characters[id];
-        // The inner body goes with the character: its contacts end without events (as for DestroyBody).
-        if (JPH::BodyID inner = slot.Character->GetInnerBodyID(); !inner.IsInvalid())
+        // The inner body goes with the character: its contacts end without events (as for
+        // DestroyBody), and whatever rested on it (a crate on its head) wakes up.
+        JPH::BodyID inner = slot.Character->GetInnerBodyID();
+        JPH::AABox around;
+        if (!inner.IsInvalid())
         {
+            around = WakeBounds(m_Impl->BI(), inner);
             std::lock_guard lock(m_Impl->Contacts.Mutex);
             m_Impl->Contacts.BodyToEntity.erase(inner.GetIndexAndSequenceNumber());
         }
-        slot.Character = nullptr;
+        slot.Character = nullptr; // releases the CharacterVirtual, which removes its inner body
         slot.EntityID = 0;
         slot.Touching.clear();
+        if (around.IsValid())
+            m_Impl->BI().ActivateBodiesInAABox(around, {}, {});
     }
 
     void PhysicsWorld3D::UpdateCharacter(uint32_t id, const glm::vec3& velocity, float dt, float stepHeight, bool stickToFloor)

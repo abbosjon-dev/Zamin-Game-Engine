@@ -58,7 +58,11 @@ namespace Zamin {
 
         // Returns the body id (0xffffffff on failure).
         uint32_t CreateBody(const PhysicsBody3DDesc& desc);
+        // Sleeping bodies that rested on it wake up (and fall when nothing else holds them).
         void DestroyBody(uint32_t bodyID);
+        // Wakes the sleeping bodies around this body (one that just appeared where they rest:
+        // Jolt would leave them inside it until something else wakes them).
+        void WakeBodiesAround(uint32_t bodyID);
         void OptimizeBroadPhase();
 
         void Step(float dt);
@@ -77,6 +81,7 @@ namespace Zamin {
 
         // ---- kinematic character controllers (Jolt CharacterVirtual)
         uint32_t CreateCharacter(const CharacterDesc& desc);
+        // Its slot is reused by the next CreateCharacter; bodies resting on it wake up.
         void DestroyCharacter(uint32_t id);
         // Moves the character with `velocity` (includes vertical speed) for dt seconds.
         void UpdateCharacter(uint32_t id, const glm::vec3& velocity, float dt, float stepHeight, bool stickToFloor);

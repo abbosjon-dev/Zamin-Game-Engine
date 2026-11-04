@@ -5875,6 +5875,350 @@ TEST(SelectionSummaryInactive)
     CHECK(s.Inactive && s.InactiveSelf && s.InactiveCount == 2);
 }
 
+// ------------------------------------------------------------------ M03: what else an inactive entity stops
+TEST(InactiveParticlesStop)
+{
+    auto scene = CreateRef<Scene>();
+    Entity group = scene->CreateEntity("Group");
+    Entity sparks = scene->CreateEntity("Sparks");
+    scene->SetParent(sparks, group, false);
+    auto& ps = sparks.AddComponent<ParticleSystemComponent>();
+    ps.EmissionRate = 100.0f;
+    ps.Burst = 7;
+    ps.LifetimeMin = ps.LifetimeMax = 5.0f;
+    Entity sleeping = scene->CreateEntity("Sleeping"); // inactive when play starts
+    sleeping.AddComponent<ParticleSystemComponent>().Burst = 3;
+    sleeping.SetActive(false);
+
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(0.02f);
+    CHECK(ps.Particles.size() >= 7 + 15 && ps.BurstDone);
+    auto& sleepingPs = sleeping.GetComponent<ParticleSystemComponent>();
+    CHECK(sleepingPs.Particles.empty() && !sleepingPs.BurstDone); // never started
+
+    // An ancestor switched off: the live particles go at once and nothing is emitted meanwhile,
+    // not even by EmitParticles.
+    group.SetActive(false);
+    CHECK(ps.Particles.empty() && !ps.BurstDone && ps.EmitAccumulator == 0.0f);
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(0.02f);
+    scene->EmitParticles(sparks, 20);
+    CHECK(ps.Particles.empty());
+
+    // Back on: the system starts over, Burst included.
+    group.SetActive(true);
+    scene->OnUpdateRuntime(0.02f);
+    CHECK(ps.Particles.size() >= 7 && ps.Particles.size() <= 7 + 3 && ps.BurstDone);
+    scene->EmitParticles(sparks, 4);
+    CHECK(ps.Particles.size() >= 11);
+    sleeping.SetActive(true);
+    scene->OnUpdateRuntime(0.02f);
+    CHECK(sleepingPs.Particles.size() == 3 && sleepingPs.BurstDone);
+
+    // A direct write to the flag is noticed on the next update.
+    sparks.GetComponent<TagComponent>().Active = false;
+    scene->OnUpdateRuntime(0.02f);
+    CHECK(ps.Particles.empty() && !ps.BurstDone);
+    scene->OnRuntimeStop();
+}
+
+static size_t g_AudioSeenInEnable = 0, g_AudioSeenInDisable = 0;
+static int g_AudioPlayInDisable = -1;
+
+class AudioProbeScript : public ScriptableEntity
+{
+public:
+    void OnEnable() override { if (IsAudioPlaying()) g_AudioSeenInEnable++; }
+    void OnDisable() override
+    {
+        if (IsAudioPlaying()) g_AudioSeenInDisable++;
+        g_AudioPlayInDisable = PlayAudio() ? 1 : 0; // refused: the entity is already inactive
+    }
+};
+ZM_REGISTER_SCRIPT(AudioProbeScript)
+
+// 16-bit mono PCM .wav with a quiet tone.
+static void WriteTestWav(const std::filesystem::path& path, float seconds)
+{
+    const uint32_t rate = 22050, frames = (uint32_t)(rate * seconds), dataSize = frames * 2;
+    std::string bytes;
+    auto u32 = [&](uint32_t v) { for (int i = 0; i < 4; i++) bytes.push_back((char)((v >> (8 * i)) & 0xff)); };
+    auto u16 = [&](uint16_t v) { bytes.push_back((char)(v & 0xff)); bytes.push_back((char)(v >> 8)); };
+    bytes += "RIFF"; u32(36 + dataSize); bytes += "WAVE";
+    bytes += "fmt "; u32(16); u16(1); u16(1); u32(rate); u32(rate * 2); u16(2); u16(16);
+    bytes += "data"; u32(dataSize);
+    for (uint32_t i = 0; i < frames; i++)
+        u16((uint16_t)(int16_t)(std::sin((float)i * 0.06f) * 6000.0f));
+    FileSystem::WriteTextFile(path, bytes);
+}
+
+TEST(InactiveAudioSourcesStop)
+{
+    // An engine without an output device: sounds really load and play, nothing is heard.
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    CHECK(AudioEngine::IsAvailable());
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-audio-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    std::string wav = (dir / "tone.wav").string();
+    WriteTestWav(wav, 1.0f);
+
+    auto scene = CreateRef<Scene>();
+    auto source = [&](const std::string& name, bool playOnStart) {
+        Entity e = scene->CreateEntity(name);
+        auto& a = e.AddComponent<AudioSourceComponent>();
+        a.Path = wav;
+        a.Loop = true;
+        a.PlayOnStart = playOnStart;
+        return e;
+    };
+    Entity music = source("Music", true);
+    music.AddComponent<NativeScriptComponent>().ClassName = "AudioProbeScript";
+    Entity group = scene->CreateEntity("Group");
+    Entity hum = source("Hum", true);
+    scene->SetParent(hum, group, false);
+    Entity later = source("Later", true); // inactive when play starts
+    later.SetActive(false);
+    Entity manual = source("Manual", false);
+    Entity spatial = source("Spatial", true);
+    spatial.GetComponent<AudioSourceComponent>().Spatial = true;
+    spatial.GetTransform().Translation = { 3.0f, 0.0f, 0.0f };
+
+    // Edit mode: no sound.
+    CHECK(!scene->PlayAudio(manual) && !scene->IsAudioPlaying(manual));
+
+    g_AudioSeenInEnable = g_AudioSeenInDisable = 0;
+    g_AudioPlayInDisable = -1;
+    scene->OnRuntimeStart();
+    CHECK(scene->IsAudioPlaying(music) && scene->IsAudioPlaying(hum) && scene->IsAudioPlaying(spatial));
+    CHECK(!scene->IsAudioPlaying(later) && later.GetComponent<AudioSourceComponent>().RuntimeHandle == 0);
+    CHECK(!scene->IsAudioPlaying(manual));
+    CHECK(AudioEngine::GetPlayingCount() == 3);
+    CHECK(g_AudioSeenInEnable == 1); // the source plays before the script's OnEnable
+
+    // Switched off: the script's OnDisable still hears it, then it stops and its handle goes.
+    music.SetActive(false);
+    CHECK(g_AudioSeenInDisable == 1 && g_AudioPlayInDisable == 0);
+    CHECK(!scene->IsAudioPlaying(music) && music.GetComponent<AudioSourceComponent>().RuntimeHandle == 0);
+    CHECK(!scene->PlayAudio(music)); // refused while inactive
+    // Through an ancestor.
+    group.SetActive(false);
+    CHECK(!scene->IsAudioPlaying(hum) && AudioEngine::GetPlayingCount() == 1);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!scene->IsAudioPlaying(music) && !scene->IsAudioPlaying(hum));
+
+    // Back on: PlayOnStart sources start again; the others stay silent.
+    music.SetActive(true);
+    group.SetActive(true);
+    later.SetActive(true);
+    CHECK(scene->IsAudioPlaying(music) && scene->IsAudioPlaying(hum) && scene->IsAudioPlaying(later));
+    CHECK(g_AudioSeenInEnable == 2);
+    CHECK(scene->PlayAudio(manual) && scene->IsAudioPlaying(manual));
+    manual.SetActive(false);
+    CHECK(!scene->IsAudioPlaying(manual));
+    manual.SetActive(true);
+    CHECK(!scene->IsAudioPlaying(manual)); // not PlayOnStart: it waits for PlayAudio
+    scene->StopAudio(hum);
+    CHECK(!scene->IsAudioPlaying(hum) && hum.GetComponent<AudioSourceComponent>().RuntimeHandle == 0);
+    CHECK(AudioEngine::GetPlayingCount() == 3); // music, later, spatial
+
+    // Spawned: an active clone plays at once, a clone of an inactive template once switched on.
+    Entity clone = scene->Instantiate(spatial);
+    CHECK(scene->IsAudioPlaying(clone) && scene->IsAudioPlaying(spatial));
+    CHECK(clone.GetComponent<AudioSourceComponent>().RuntimeHandle != spatial.GetComponent<AudioSourceComponent>().RuntimeHandle);
+    spatial.SetActive(false);
+    Entity sleepingClone = scene->Instantiate(spatial);
+    CHECK(!scene->IsAudioPlaying(sleepingClone));
+    sleepingClone.SetActive(true);
+    CHECK(scene->IsAudioPlaying(sleepingClone));
+
+    // A direct write to the flag stops it at the start of the next frame; destroying stops it too.
+    later.GetComponent<TagComponent>().Active = false;
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!scene->IsAudioPlaying(later));
+    size_t before = AudioEngine::GetPlayingCount();
+    scene->DestroyEntity(clone);
+    CHECK(AudioEngine::GetPlayingCount() == before - 1);
+
+    scene->OnRuntimeStop();
+    CHECK(AudioEngine::GetPlayingCount() == 0);
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
+TEST(InactiveAnimatorsPause)
+{
+    auto scene = CreateRef<Scene>();
+    Entity rig = scene->CreateEntity("Rig");
+    Entity hero = scene->CreateEntity("Hero");
+    scene->SetParent(hero, rig, false);
+    auto& anim = hero.AddComponent<AnimatorComponent>();
+    anim.Parameters = { { "Attack", AnimatorParameter::Type::Trigger, 0.0f } };
+    anim.States = { { "Idle", "", 1.0f, true }, { "Attack", "", 1.0f, false } };
+    AnimatorTransition attack{ -1, 1 };
+    attack.Conditions = { { "Attack", AnimatorCondition::Op::Triggered } };
+    anim.Transitions = { attack };
+    auto& sprite = hero.AddComponent<SpriteAnimationComponent>();
+    Entity sleeper = scene->CreateEntity("Sleeper"); // inactive when play starts
+    auto& sleeperAnim = sleeper.AddComponent<AnimatorComponent>();
+    sleeper.SetActive(false);
+
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(0.1f);
+    CHECK_NEAR(anim.Time, 0.5f, 1e-4f);
+    CHECK_NEAR(sprite.Time, 0.5f, 1e-4f);
+    CHECK(std::string(anim.GetCurrentStateName()) == "Idle");
+    CHECK(sleeperAnim.Time == 0.0f);
+
+    // An ancestor switched off: time, state and pending triggers wait.
+    rig.SetActive(false);
+    anim.SetTrigger("Attack");
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(0.1f);
+    CHECK_NEAR(anim.Time, 0.5f, 1e-4f);
+    CHECK_NEAR(sprite.Time, 0.5f, 1e-4f);
+    CHECK(std::string(anim.GetCurrentStateName()) == "Idle" && anim.GetBool("Attack"));
+
+    // Back on: it continues from there (and takes the pending trigger).
+    rig.SetActive(true);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(std::string(anim.GetCurrentStateName()) == "Attack" && !anim.GetBool("Attack"));
+    CHECK_NEAR(sprite.Time, 0.6f, 1e-4f);
+    sleeper.SetActive(true);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK_NEAR(sleeperAnim.Time, 0.1f, 1e-4f);
+    scene->OnRuntimeStop();
+}
+
+static int g_ButtonClicks = 0;
+class ClickCountScript : public ScriptableEntity
+{
+public:
+    void OnClick() override { g_ButtonClicks++; }
+};
+ZM_REGISTER_SCRIPT(ClickCountScript)
+
+TEST(InactiveUIButtons)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    auto button = [&](const std::string& name, int order) {
+        Entity e = scene->CreateEntity(name);
+        auto& ui = e.AddComponent<UITransformComponent>();
+        ui.Anchor = UITransformComponent::AnchorPoint::Center;
+        ui.Position = { 0.0f, 0.0f };
+        ui.Size = { 200.0f, 60.0f };
+        ui.Order = order;
+        e.AddComponent<UIButtonComponent>();
+        e.AddComponent<NativeScriptComponent>().ClassName = "ClickCountScript";
+        return e;
+    };
+    Entity back = button("Back", 0);
+    Entity panel = scene->CreateEntity("Panel");
+    Entity front = button("Front", 1); // on top of Back, inside a panel
+    scene->SetParent(front, panel, false);
+    auto& backButton = back.GetComponent<UIButtonComponent>();
+    auto& frontButton = front.GetComponent<UIButtonComponent>();
+    const glm::vec2 center{ 400.0f, 300.0f };
+    auto frame = [&](bool down) {
+        scene->SetViewportMouse(center, down);
+        scene->OnUpdateRuntime(0.016f);
+    };
+
+    g_ButtonClicks = 0;
+    scene->OnRuntimeStart();
+    frame(false);
+    CHECK(frontButton.Hovered && !backButton.Hovered);
+
+    // The front button switched off (through its panel): the mouse reaches the one below.
+    panel.SetActive(false);
+    frame(false);
+    CHECK(!frontButton.Hovered && backButton.Hovered);
+    CHECK(scene->CollectRenderSkipped().contains(front)); // not drawn either
+    frame(true);
+    CHECK(backButton.Pressed && !frontButton.Pressed);
+    frame(false);
+    CHECK(backButton.Clicked && !frontButton.Clicked && g_ButtonClicks == 1);
+
+    // A press in progress is cancelled when its button goes inactive: no click later.
+    panel.SetActive(true);
+    frame(false);
+    frame(true);
+    CHECK(frontButton.Pressed && frontButton.Hovered);
+    front.SetActive(false);
+    CHECK(!frontButton.Pressed && !frontButton.Hovered);
+    frame(true);
+    CHECK(!frontButton.Pressed && !backButton.Pressed); // Back was not pressed: no new press
+    front.SetActive(true);
+    frame(false);
+    CHECK(!frontButton.Clicked && !backButton.Clicked && g_ButtonClicks == 1);
+
+    // Active again: clickable as before.
+    frame(true);
+    frame(false);
+    CHECK(frontButton.Clicked && g_ButtonClicks == 2);
+    scene->OnRuntimeStop();
+}
+
+TEST(InactiveCamerasDoNotCount)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    auto camera = [&](const std::string& name, float x, const glm::vec4& clear) {
+        Entity e = scene->CreateEntity(name);
+        auto& c = e.AddComponent<CameraComponent>();
+        c.Camera.SetProjectionType(SceneCamera::ProjectionType::Orthographic);
+        c.Camera.SetViewportSize(800, 600);
+        c.ClearColor = clear;
+        e.GetTransform().Translation = { x, 0.0f, 10.0f };
+        return e;
+    };
+    Entity main = camera("Main", -10.0f, { 1.0f, 0.0f, 0.0f, 1.0f });
+    Entity rig = scene->CreateEntity("CutsceneRig");
+    Entity cutscene = camera("Cutscene", 10.0f, { 0.0f, 1.0f, 0.0f, 1.0f }); // also Primary, created later
+    scene->SetParent(cutscene, rig, false);
+    Entity spare = camera("Spare", 0.0f, { 0.0f, 0.0f, 1.0f, 1.0f });
+    spare.GetComponent<CameraComponent>().Primary = false;
+
+    // Cameras are switched by switching their entities (or a parent).
+    rig.SetActive(false);
+    CHECK(scene->GetPrimaryCameraEntity() == main);
+    CHECK_NEAR(scene->GetClearColor().r, 1.0f, 1e-6f);
+    CHECK_NEAR(scene->ScreenToWorld({ 400.0f, 300.0f }).x, -10.0f, 1e-3f);
+    rig.SetActive(true);
+    main.SetActive(false);
+    CHECK(scene->GetPrimaryCameraEntity() == cutscene);
+    CHECK_NEAR(scene->GetClearColor().g, 1.0f, 1e-6f);
+    CHECK_NEAR(scene->ScreenToWorld({ 400.0f, 300.0f }).x, 10.0f, 1e-3f);
+
+    // No active primary camera: none (a non-primary one does not step in); the editor can still
+    // find the switched-off one.
+    rig.SetActive(false);
+    CHECK(!scene->GetPrimaryCameraEntity());
+    CHECK(scene->GetPrimaryCameraEntity(true) == main || scene->GetPrimaryCameraEntity(true) == cutscene);
+    CHECK(scene->ScreenToWorld({ 400.0f, 300.0f }) == glm::vec3(0.0f));
+    CHECK_NEAR(scene->GetClearColor().b, 0.11f, 1e-6f); // the default background
+
+    // The runtime copy sees the same (play mode starts from Scene::Copy). Updating it renders
+    // nothing headless as long as no camera is active.
+    auto copy = Scene::Copy(scene);
+    CHECK(!copy->GetPrimaryCameraEntity() && copy->GetPrimaryCameraEntity(true));
+    if (!copy->GetPrimaryCameraEntity()) // (would render, which needs a GPU)
+    {
+        copy->OnRuntimeStart();
+        copy->OnUpdateRuntime(0.016f);
+        CHECK(!copy->GetPrimaryCameraEntity());
+        copy->OnRuntimeStop();
+    }
+    main.SetActive(true);
+    CHECK(scene->GetPrimaryCameraEntity() == main);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

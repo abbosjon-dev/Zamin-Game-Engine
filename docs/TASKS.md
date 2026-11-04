@@ -60,11 +60,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 048. Inspektorda Active checkbox
 - [x] 049. Ierarxiyada nofaol obyektlar xira ko'rinadi
 - [x] 050. Serializatsiya va testlar
-- [ ] 051. Particle tizimi nofaol bo'lsa to'xtaydi
-- [ ] 052. Audio manbalar nofaol bo'lsa to'xtaydi
-- [ ] 053. Animator nofaol bo'lsa yangilanmaydi
-- [ ] 054. UI elementlar nofaol bo'lsa ko'rinmaydi va bosilmaydi
-- [ ] 055. Kameralar nofaol bo'lsa asosiy kamera hisoblanmaydi
+- [x] 051. Particle tizimi nofaol bo'lsa to'xtaydi
+- [x] 052. Audio manbalar nofaol bo'lsa to'xtaydi
+- [x] 053. Animator nofaol bo'lsa yangilanmaydi
+- [x] 054. UI elementlar nofaol bo'lsa ko'rinmaydi va bosilmaydi
+- [x] 055. Kameralar nofaol bo'lsa asosiy kamera hisoblanmaydi
 - [ ] 056. Yorug'liklar nofaol bo'lsa hisobga olinmaydi
 - [ ] 057. Tilemap collision nofaol bo'lsa o'chadi
 - [ ] 058. Character controller nofaol bo'lsa o'chadi

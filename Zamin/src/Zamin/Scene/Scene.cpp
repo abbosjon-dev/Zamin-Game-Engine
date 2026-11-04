@@ -109,6 +109,11 @@ namespace Zamin {
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).RuntimeHandle = 0;
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).Clear();
+        for (auto e : registry.view<UIButtonComponent>())
+        {
+            auto& b = registry.get<UIButtonComponent>(e);
+            b.Hovered = b.Pressed = b.Clicked = false;
+        }
     }
 
     static void ResetRuntimeData(Entity e)
@@ -122,6 +127,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<TilemapComponent>()) c->RuntimeBody = nullptr;
         if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; }
         if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->Clear(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
+        if (auto* c = e.TryGetComponent<UIButtonComponent>()) c->Hovered = c->Pressed = c->Clicked = false;
     }
 
     // ------------------------------------------------------------------ scene
@@ -401,7 +407,10 @@ namespace Zamin {
         ApplyActiveChanges();
         for (Entity e : entities)
             if (e.IsValid())
+            {
                 CreatePhysicsBodies(e);
+                StartEntityEffects(e); // PlayOnStart sounds of active clones
+            }
         if (m_ScriptsRunning)
         {
             for (Entity e : entities)
@@ -620,11 +629,11 @@ namespace Zamin {
         return {};
     }
 
-    Entity Scene::GetPrimaryCameraEntity()
+    Entity Scene::GetPrimaryCameraEntity(bool includeInactive)
     {
         auto view = m_Registry.view<CameraComponent>();
         for (auto entity : view)
-            if (view.get<CameraComponent>(entity).Primary)
+            if (view.get<CameraComponent>(entity).Primary && (includeInactive || IsActiveInHierarchy({ entity, this })))
                 return Entity{ entity, this };
         return {};
     }
@@ -1072,9 +1081,9 @@ namespace Zamin {
 
     void Scene::ApplyActiveChanges()
     {
-        if (!m_ScriptsRunning && !m_PhysicsWorld && !m_PhysicsWorld3D)
+        if (!m_IsRunning && !m_ScriptsRunning && !m_PhysicsWorld && !m_PhysicsWorld3D)
         {
-            m_AppliedInactive.clear(); // edit mode: only drawing looks at the flag
+            m_AppliedInactive.clear(); // edit mode: only drawing / per-frame updates look at the flag
             return;
         }
         EnsureActiveCache();
@@ -1105,7 +1114,8 @@ namespace Zamin {
 
         // Switched off, in the same order as destroying, one step at a time for the whole batch
         // so every script of a subtree sees the same world: the others hear the contacts end,
-        // every script gets OnDisable (parent first), then the bodies leave the worlds.
+        // every script gets OnDisable (parent first), then the bodies leave the worlds and the
+        // sounds / particles / button states go.
         for (entt::entity e : switchedOff)
             if (valid(e) && !IsActiveInHierarchy({ e, this }))
                 EndContactsOf({ e, this });
@@ -1115,17 +1125,47 @@ namespace Zamin {
                     SyncScriptEnabled({ e, this });
         for (entt::entity e : switchedOff)
             if (valid(e) && !IsActiveInHierarchy({ e, this }))
+            {
                 DestroyPhysicsBodies({ e, this });
+                StopEntityEffects({ e, this });
+            }
 
-        // Switched on: every body first (at the current transform), then OnEnable parent first,
-        // so a script can already move its children's bodies from its OnEnable.
+        // Switched on: every body first (at the current transform) and the PlayOnStart sounds,
+        // then OnEnable parent first, so a script can already move its children's bodies (or stop
+        // their sounds) from its OnEnable.
         for (entt::entity e : switchedOn)
             if (valid(e))
+            {
                 CreatePhysicsBodies({ e, this }); // nothing when a callback switched it off again
+                StartEntityEffects({ e, this });
+            }
         if (m_ScriptsRunning)
             for (entt::entity e : switchedOn)
                 if (valid(e))
                     SyncScriptEnabled({ e, this });
+    }
+
+    void Scene::StopEntityEffects(Entity entity)
+    {
+        if (auto* audio = entity.TryGetComponent<AudioSourceComponent>(); audio && audio->RuntimeHandle)
+        {
+            AudioEngine::Stop(audio->RuntimeHandle);
+            audio->RuntimeHandle = 0;
+        }
+        if (auto* ps = entity.TryGetComponent<ParticleSystemComponent>())
+            ps->Clear(); // starts over (Burst included) when the entity comes back
+        if (auto* button = entity.TryGetComponent<UIButtonComponent>())
+            button->Hovered = button->Pressed = button->Clicked = false;
+        if (m_PressedButton == (entt::entity)entity)
+            m_PressedButton = entt::null; // a press in progress is cancelled, not clicked later
+    }
+
+    void Scene::StartEntityEffects(Entity entity)
+    {
+        if (!m_IsRunning || !IsActiveInHierarchy(entity))
+            return;
+        if (auto* audio = entity.TryGetComponent<AudioSourceComponent>(); audio && audio->PlayOnStart)
+            PlayAudio(entity);
     }
 
     glm::mat4 Scene::GetWorldTransform(Entity entity)
@@ -1305,17 +1345,13 @@ namespace Zamin {
         OnPhysics2DStart();
         OnPhysics3DStart();
 
+        // Sources on inactive entities start when they are switched on.
+        std::vector<entt::entity> sources;
         for (auto e : m_Registry.view<AudioSourceComponent>())
-        {
-            auto& audio = m_Registry.get<AudioSourceComponent>(e);
-            if (audio.PlayOnStart && !audio.Path.empty())
-            {
-                auto path = Project::GetAssetFileSystemPath(audio.Path);
-                audio.RuntimeHandle = audio.Spatial
-                    ? AudioEngine::PlaySpatial(path, GetWorldPosition({ e, this }), audio.Volume, audio.Pitch, audio.Loop, audio.MinDistance, audio.MaxDistance)
-                    : AudioEngine::Play(path, audio.Volume, audio.Pitch, audio.Loop);
-            }
-        }
+            sources.push_back(e);
+        std::reverse(sources.begin(), sources.end()); // scene order
+        for (auto e : sources)
+            StartEntityEffects({ e, this });
 
         StartScripts();
     }
@@ -2216,7 +2252,8 @@ namespace Zamin {
             for (auto e : m_Registry.view<SpriteAnimationComponent>())
             {
                 auto& anim = m_Registry.get<SpriteAnimationComponent>(e);
-                if (anim.Playing) anim.Time += ts;
+                if (anim.Playing && IsActiveInHierarchy({ e, this })) // inactive: paused where it is
+                    anim.Time += ts;
             }
             UpdateParticles(ts, false);
             UpdateAnimators(ts, false);
@@ -2302,6 +2339,10 @@ namespace Zamin {
         ZM_PROFILE_SCOPE("Animatsiya");
         for (auto e : m_Registry.view<AnimatorComponent>())
         {
+            // Inactive in the hierarchy: not updated at all - time, pose and state machine wait
+            // (triggers set meanwhile stay pending) and continue where they stopped.
+            if (!IsActiveInHierarchy({ e, this }))
+                continue;
             auto& anim = m_Registry.get<AnimatorComponent>(e);
             auto* mr = m_Registry.try_get<MeshRendererComponent>(e);
             Ref<Model> model = mr ? mr->ModelAsset : nullptr;
@@ -2396,6 +2437,41 @@ namespace Zamin {
         }
     }
 
+    bool Scene::PlayAudio(Entity entity)
+    {
+        if (!m_IsRunning || !entity.IsValid() || entity.GetScene() != this || !IsActiveInHierarchy(entity))
+            return false;
+        auto* audio = entity.TryGetComponent<AudioSourceComponent>();
+        if (!audio || audio->Path.empty())
+            return false;
+        if (audio->RuntimeHandle)
+            AudioEngine::Stop(audio->RuntimeHandle);
+        auto path = Project::GetAssetFileSystemPath(audio->Path);
+        audio->RuntimeHandle = audio->Spatial
+            ? AudioEngine::PlaySpatial(path, GetWorldPosition(entity), audio->Volume, audio->Pitch, audio->Loop, audio->MinDistance, audio->MaxDistance)
+            : AudioEngine::Play(path, audio->Volume, audio->Pitch, audio->Loop);
+        return audio->RuntimeHandle != 0;
+    }
+
+    void Scene::StopAudio(Entity entity)
+    {
+        if (!entity.IsValid() || entity.GetScene() != this)
+            return;
+        if (auto* audio = entity.TryGetComponent<AudioSourceComponent>(); audio && audio->RuntimeHandle)
+        {
+            AudioEngine::Stop(audio->RuntimeHandle);
+            audio->RuntimeHandle = 0;
+        }
+    }
+
+    bool Scene::IsAudioPlaying(Entity entity)
+    {
+        if (!entity.IsValid() || entity.GetScene() != this)
+            return false;
+        auto* audio = entity.TryGetComponent<AudioSourceComponent>();
+        return audio && audio->RuntimeHandle && AudioEngine::IsPlaying(audio->RuntimeHandle);
+    }
+
     void Scene::UpdateAudio()
     {
         if (!AudioEngine::IsAvailable()) return;
@@ -2480,12 +2556,16 @@ namespace Zamin {
         for (auto e : m_Registry.view<ParticleSystemComponent>())
         {
             auto& ps = m_Registry.get<ParticleSystemComponent>(e);
-            if (editor && !ps.PlayInEditor)
+            Entity entity{ e, this };
+            // Not previewed in the editor, or inactive in the hierarchy: stopped and empty, so it
+            // starts over (Burst included) when it plays again. Edit mode and direct writes to
+            // TagComponent::Active end up here; at runtime SetActive already cleared it.
+            if ((editor && !ps.PlayInEditor) || !IsActiveInHierarchy(entity))
             {
-                if (!ps.Particles.empty()) ps.Clear();
+                if (!ps.Particles.empty() || ps.BurstDone || ps.EmitAccumulator != 0.0f)
+                    ps.Clear();
                 continue;
             }
-            Entity entity{ e, this };
             glm::mat4 world = GetWorldTransform(entity);
 
             if (ps.Playing)
@@ -2521,6 +2601,8 @@ namespace Zamin {
 
     void Scene::EmitParticles(Entity entity, int count)
     {
+        if (!entity.IsValid() || entity.GetScene() != this || !IsActiveInHierarchy(entity))
+            return;
         if (auto* ps = entity.TryGetComponent<ParticleSystemComponent>())
             SpawnParticles(*ps, GetWorldTransform(entity), count);
     }
@@ -2547,6 +2629,10 @@ namespace Zamin {
         bool released = !m_MouseDown && m_MouseWasDown;
         m_MouseWasDown = m_MouseDown;
 
+        // A button that went inactive while held down is not clicked when it comes back.
+        if (m_PressedButton != entt::null && (!m_Registry.valid(m_PressedButton) || !IsActiveInHierarchy({ m_PressedButton, this })))
+            m_PressedButton = entt::null;
+
         entt::entity hovered = entt::null;
         int bestOrder = INT32_MIN;
         for (auto e : m_Registry.view<UITransformComponent, UIButtonComponent>())
@@ -2555,7 +2641,9 @@ namespace Zamin {
             auto& button = m_Registry.get<UIButtonComponent>(e);
             button.Clicked = false;
             button.Hovered = false;
-            if (!button.Interactable) continue;
+            // Inactive buttons are not drawn and cannot be hovered: the mouse reaches what is
+            // below them.
+            if (!button.Interactable || !IsActiveInHierarchy({ e, this })) continue;
             glm::vec2 c = UICenter(ui, viewport), half = glm::abs(ui.Size) * 0.5f;
             if (std::abs(mouse.x - c.x) <= half.x && std::abs(mouse.y - c.y) <= half.y && ui.Order >= bestOrder)
             {
@@ -2585,7 +2673,7 @@ namespace Zamin {
 
         if (m_ScriptsRunning)
             for (auto e : clicked)
-                if (m_Registry.valid(e))
+                if (m_Registry.valid(e) && IsActiveInHierarchy({ e, this })) // still active after earlier OnClicks
                     if (auto* nsc = m_Registry.try_get<NativeScriptComponent>(e); nsc && nsc->Instance)
                         nsc->Instance->OnClick();
     }

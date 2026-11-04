@@ -849,9 +849,12 @@ namespace Zamin {
         m_EditorScenePath = path;
         m_SceneDirty = false;
         ResetUndoHistory();
-        // Auto-detect 2D scenes (orthographic primary camera).
-        if (Entity cam = m_EditorScene->GetPrimaryCameraEntity())
-            Set2DMode(cam.GetComponent<CameraComponent>().Camera.GetProjectionType() == SceneCamera::ProjectionType::Orthographic);
+        // Auto-detect 2D scenes (orthographic primary camera; an inactive one still tells).
+        Entity sceneCamera = m_EditorScene->GetPrimaryCameraEntity();
+        if (!sceneCamera)
+            sceneCamera = m_EditorScene->GetPrimaryCameraEntity(true);
+        if (sceneCamera)
+            Set2DMode(sceneCamera.GetComponent<CameraComponent>().Camera.GetProjectionType() == SceneCamera::ProjectionType::Orthographic);
         ZM_INFO("Sahna ochildi: {}", path.filename().string());
         UpdateWindowTitle();
         return true;
@@ -2242,7 +2245,12 @@ namespace Zamin {
         if (!m_ActiveScene->GetPrimaryCameraEntity() && m_SceneState == SceneState::Play)
         {
             ImGui::SetCursorPos(ImVec2(regionMin.x + 20, regionMax.y - 40));
-            ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1), ICON_FA_TRIANGLE_EXCLAMATION "  Sahnada asosiy (Primary) kamera yo'q!");
+            // An inactive primary camera does not count: say so instead of "there is none".
+            if (Entity inactive = m_ActiveScene->GetPrimaryCameraEntity(true))
+                ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1), ICON_FA_TRIANGLE_EXCLAMATION "  Asosiy kamera nofaol: '%s' (boshqa faol asosiy kamera yo'q)",
+                                   inactive.GetName().c_str());
+            else
+                ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1), ICON_FA_TRIANGLE_EXCLAMATION "  Sahnada asosiy (Primary) kamera yo'q!");
         }
 
         ImGui::End();

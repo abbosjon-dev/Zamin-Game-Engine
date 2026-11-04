@@ -289,6 +289,10 @@ namespace Zamin {
         AudioEngine::PlaySpatial(Project::GetAssetFileSystemPath(assetPath), position, volume, pitch, false);
     }
 
+    bool ScriptableEntity::PlayAudio() { return m_Entity.GetScene()->PlayAudio(m_Entity); }
+    void ScriptableEntity::StopAudio() { m_Entity.GetScene()->StopAudio(m_Entity); }
+    bool ScriptableEntity::IsAudioPlaying() const { return m_Entity.GetScene()->IsAudioPlaying(m_Entity); }
+
     float ScriptableEntity::GetTime() const { return m_Entity.GetScene()->GetTime(); }
 
     float ApplyEase(Ease ease, float t)

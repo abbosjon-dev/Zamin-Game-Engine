@@ -31,17 +31,25 @@ namespace Zamin {
         }
     }
 
-    void AudioEngine::Init()
+    void AudioEngine::Init(bool withoutDevice)
     {
+        if (s_Engine) return;
+        ma_engine_config config = ma_engine_config_init();
+        if (withoutDevice)
+        {
+            config.noDevice = MA_TRUE;
+            config.channels = 2;
+            config.sampleRate = 48000;
+        }
         s_Engine = new ma_engine();
-        if (ma_engine_init(nullptr, s_Engine) != MA_SUCCESS)
+        if (ma_engine_init(&config, s_Engine) != MA_SUCCESS)
         {
             ZM_CORE_WARN("Audio qurilmasi topilmadi - ovoz o'chirilgan");
             delete s_Engine;
             s_Engine = nullptr;
             return;
         }
-        ZM_CORE_INFO("Audio tizimi ishga tushdi");
+        ZM_CORE_INFO("{}", withoutDevice ? "Audio tizimi qurilmasiz ishga tushdi" : "Audio tizimi ishga tushdi");
     }
 
     void AudioEngine::Shutdown()
@@ -129,6 +137,15 @@ namespace Zamin {
             ma_sound_uninit(sound.get());
         }
         s_Sounds.clear();
+    }
+
+    size_t AudioEngine::GetPlayingCount()
+    {
+        size_t count = 0;
+        for (auto& [handle, sound] : s_Sounds)
+            if (ma_sound_is_playing(sound.get()))
+                count++;
+        return count;
     }
 
     void AudioEngine::SetMasterVolume(float volume)

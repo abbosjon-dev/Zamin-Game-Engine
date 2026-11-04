@@ -206,6 +206,20 @@ namespace Zamin {
         return {};
     }
 
+    // Inspector row under a component that an inactive entity switches off (camera, particles,
+    // audio, animators, UI buttons): says why it does nothing right now.
+    static void InactiveComponentNote(Entity entity, const char* text)
+    {
+        if (!entity || entity.IsActiveInHierarchy())
+            return;
+        UI::PropertyLabel("");
+        ImGui::PushTextWrapPos(0.0f); // wraps inside the value column
+        ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1.0f), ICON_FA_POWER_OFF "  %s", text);
+        ImGui::PopTextWrapPos();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            ImGui::SetTooltip("Obyekt (yoki ota-onalaridan biri) nofaol. Faollashtirilganda yana ishlaydi.");
+    }
+
     size_t SceneHierarchyPanel::SetActiveFromRow(Entity entity, bool active)
     {
         if (!m_Context || !entity || entity.GetScene() != m_Context.get())
@@ -390,12 +404,12 @@ namespace Zamin {
         else if (p == "Cylinder") mesh("Silindr", PrimitiveMesh::Cylinder);
         else if (p == "Cone") mesh("Konus", PrimitiveMesh::Cone);
         else if (p == "Model") { mesh("Model", PrimitiveMesh::Model); e.GetComponent<MeshRendererComponent>().MeshAsset = nullptr; }
-        else if (p == "Camera") { e = m_Context->CreateEntity("Kamera"); e.AddComponent<CameraComponent>().Primary = !m_Context->GetPrimaryCameraEntity(); }
+        else if (p == "Camera") { e = m_Context->CreateEntity("Kamera"); e.AddComponent<CameraComponent>().Primary = !m_Context->GetPrimaryCameraEntity(true); }
         else if (p == "Camera2D")
         {
             e = m_Context->CreateEntity("2D Kamera");
             auto& c = e.AddComponent<CameraComponent>();
-            c.Primary = !m_Context->GetPrimaryCameraEntity();
+            c.Primary = !m_Context->GetPrimaryCameraEntity(true);
             c.Camera.SetProjectionType(SceneCamera::ProjectionType::Orthographic);
         }
         else if (p == "DirectionalLight")
@@ -2248,10 +2262,11 @@ namespace Zamin {
             return DrawTagsComponent(c);
         }, true, modified);
 
-        AddSection<CameraComponent>(ICON_FA_CAMERA, "Camera", entity, [](CameraComponent& c) {
+        AddSection<CameraComponent>(ICON_FA_CAMERA, "Camera", entity, [&](CameraComponent& c) {
             bool changed = false;
             auto& camera = c.Camera;
             changed |= UI::PropertyBool("Asosiy (Primary)", c.Primary);
+            InactiveComponentNote(entity, c.Primary ? "Obyekt nofaol: asosiy kamera hisoblanmaydi" : "Obyekt nofaol: kamera ishlatilmaydi");
 
             const char* types[] = { "Perspektiv", "Ortografik" };
             int type = (int)camera.GetProjectionType();
@@ -2304,7 +2319,8 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        AddSection<SpriteAnimationComponent>(ICON_FA_FILM, "Sprite Animation", entity, [](SpriteAnimationComponent& c) {
+        AddSection<SpriteAnimationComponent>(ICON_FA_FILM, "Sprite Animation", entity, [&](SpriteAnimationComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: animatsiya to'xtab turadi");
             bool changed = UI::PropertyInt("Ustunlar", c.Columns);
             changed |= UI::PropertyInt("Qatorlar", c.Rows);
             changed |= UI::PropertyInt("Boshlang'ich kadr", c.StartFrame);
@@ -2391,6 +2407,7 @@ namespace Zamin {
 
         AddSection<AnimatorComponent>(ICON_FA_PERSON_RUNNING, "Animator", entity, [&](AnimatorComponent& c) {
             bool changed = false;
+            InactiveComponentNote(entity, "Obyekt nofaol: animator yangilanmaydi (joyida to'xtab turadi)");
             auto* mr = entity.TryGetComponent<MeshRendererComponent>();
             Ref<Model> model = mr ? mr->ModelAsset : nullptr;
             UI::PropertyLabel("Klip");
@@ -2592,8 +2609,9 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        AddSection<ParticleSystemComponent>(ICON_FA_WAND_MAGIC_SPARKLES, "Particle System", entity, [](ParticleSystemComponent& c) {
+        AddSection<ParticleSystemComponent>(ICON_FA_WAND_MAGIC_SPARKLES, "Particle System", entity, [&](ParticleSystemComponent& c) {
             bool changed = false;
+            InactiveComponentNote(entity, "Obyekt nofaol: particle'lar to'xtatilgan");
             UI::PropertyLabel("");
             if (ImGui::Button(c.Playing ? ICON_FA_PAUSE "  Pauza" : ICON_FA_PLAY "  Ijro")) { c.Playing = !c.Playing; }
             ImGui::SameLine();
@@ -2646,7 +2664,8 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        AddSection<UIButtonComponent>(ICON_FA_HAND_POINTER, "UI Button", entity, [](UIButtonComponent& c) {
+        AddSection<UIButtonComponent>(ICON_FA_HAND_POINTER, "UI Button", entity, [&](UIButtonComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: tugma ko'rinmaydi va bosilmaydi");
             bool changed = UI::PropertyColor4("Oddiy", c.NormalColor);
             changed |= UI::PropertyColor4("Ustida (hover)", c.HoverColor);
             changed |= UI::PropertyColor4("Bosilgan", c.PressedColor);
@@ -2656,7 +2675,8 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        AddSection<AudioSourceComponent>(ICON_FA_VOLUME_HIGH, "Audio Source", entity, [](AudioSourceComponent& c) {
+        AddSection<AudioSourceComponent>(ICON_FA_VOLUME_HIGH, "Audio Source", entity, [&](AudioSourceComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: ovoz to'xtatilgan (faollashganda 'Boshida ijro' qayta boshlanadi)");
             bool changed = UI::PropertyAssetPath("Ovoz fayli", c.Path, ".wav;.mp3;.flac;.ogg", ICON_FA_FILE_AUDIO);
             changed |= UI::PropertySlider("Balandlik", c.Volume, 0.0f, 2.0f);
             changed |= UI::PropertySlider("Ton (pitch)", c.Pitch, 0.1f, 3.0f);

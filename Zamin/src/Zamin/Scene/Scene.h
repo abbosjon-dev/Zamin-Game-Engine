@@ -189,11 +189,22 @@ namespace Zamin {
         // inactive one is not drawn (meshes, sprites, circles, text, tilemaps, particles, UI,
         // lights), has no physics body / character (removed, and created again at its current
         // transform when it comes back), and its script gets OnDisable, then no OnUpdate /
-        // OnLateUpdate / timers until it is active again (OnEnable). The flag is saved with the
-        // scene and kept by Scene::Copy, duplicates, Instantiate() and prefabs.
-        // Sets the entity's own flag; while playing / simulating, physics and scripts follow at once
-        // (also while paused): the OnDisable / OnEnable calls of the whole subtree have run when it
-        // returns. Scripts use ScriptableEntity::SetActive, the editor the inspector's checkbox.
+        // OnLateUpdate / timers until it is active again (OnEnable). Besides that, while inactive:
+        // - particle systems stop: live particles are cleared and nothing is emitted (also by
+        //   EmitParticles); back on, the system starts over (its Burst fires again);
+        // - audio sources stop (the sound is released); back on, a PlayOnStart source plays again
+        //   from the beginning, and PlayAudio refuses an inactive entity;
+        // - animators (skeletal and sprite) are not updated: time, pose and state machine stay
+        //   where they were and continue from there;
+        // - UI buttons cannot be hovered, pressed or clicked (a press in progress is cancelled);
+        // - cameras do not count: GetPrimaryCameraEntity skips them (also for the audio listener
+        //   and ScreenToWorld).
+        // The flag is saved with the scene and kept by Scene::Copy, duplicates, Instantiate() and
+        // prefabs.
+        // Sets the entity's own flag; while playing / simulating, physics, scripts, sounds, particles
+        // and UI buttons follow at once (also while paused): the OnDisable / OnEnable calls of the
+        // whole subtree have run when it returns. Animators, cameras and drawing look at the flag
+        // every frame. Scripts use ScriptableEntity::SetActive, the editor the inspector's checkbox.
         void SetActive(Entity entity, bool active);
         // The entity's own flag (its ancestors may still switch it off).
         bool IsActive(Entity entity);
@@ -244,8 +255,16 @@ namespace Zamin {
         // Unprojects a viewport pixel through the primary camera onto the plane z = depthZ.
         glm::vec3 ScreenToWorld(const glm::vec2& screen, float depthZ = 0.0f);
 
-        // ---- particles
+        // ---- particles (nothing is emitted for an entity that is not active in the hierarchy)
         void EmitParticles(Entity entity, int count);
+
+        // ---- audio sources (AudioSourceComponent; only while the game runs)
+        // Starts the source's sound from the beginning (a sound it is already playing is
+        // stopped first). False when the scene is not running, the entity is not active in the
+        // hierarchy, it has no source / path, or the sound could not be started (no device).
+        bool PlayAudio(Entity entity);
+        void StopAudio(Entity entity);
+        bool IsAudioPlaying(Entity entity);
 
         // ---- script messages (delivered immediately to live script instances:
         // handlers added with ScriptableEntity::AddMessageHandler, then OnMessage)
@@ -266,7 +285,11 @@ namespace Zamin {
         void RequestLoadScene(const std::filesystem::path& path) { m_PendingSceneLoad = path; }
         const std::filesystem::path& GetPendingSceneLoad() const { return m_PendingSceneLoad; }
         void ClearPendingSceneLoad() { m_PendingSceneLoad.clear(); }
-        Entity GetPrimaryCameraEntity();
+        // The camera the game is seen through: a CameraComponent with Primary set on an entity
+        // that is active in the hierarchy (with several, the first one in the camera pool).
+        // includeInactive: inactive entities count too (the editor uses it to tell "no primary
+        // camera" from "the primary camera is switched off").
+        Entity GetPrimaryCameraEntity(bool includeInactive = false);
         // Background color used when the sky is disabled (primary camera's clear color).
         glm::vec4 GetClearColor();
 
@@ -331,6 +354,11 @@ namespace Zamin {
         // OnDisable, bodies removed; switched on: bodies created, OnEnable - each step for the
         // whole batch, parent first. Idempotent per entity, so callbacks may nest it.
         void ApplyActiveChanges();
+        // What else follows the active state while the game runs / simulates: an entity that
+        // left the game stops its sound, clears its particles and drops its UI button state;
+        // one that (re)joined it starts its PlayOnStart sound.
+        void StopEntityEffects(Entity entity);
+        void StartEntityEffects(Entity entity);
         // NativeScriptComponent::Enabled and active in the hierarchy.
         bool ShouldScriptBeEnabled(Entity entity, const struct NativeScriptComponent& nsc);
         void StepCharacters(float dt);

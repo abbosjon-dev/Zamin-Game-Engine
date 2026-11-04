@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 
 #include <glm/glm.hpp>
@@ -11,7 +13,9 @@ namespace Zamin {
     class AudioEngine
     {
     public:
-        static void Init();
+        // withoutDevice: a working engine that outputs to nothing (headless tests, servers):
+        // sounds load, start and report IsPlaying, but nothing is heard and they never advance.
+        static void Init(bool withoutDevice = false);
         static void Shutdown();
         static bool IsAvailable();
 
@@ -24,6 +28,8 @@ namespace Zamin {
         static bool IsPlaying(uint32_t handle);
         static void Stop(uint32_t handle);
         static void StopAll();
+        // Sounds that are playing right now.
+        static size_t GetPlayingCount();
         static void SetMasterVolume(float volume);
     };
 

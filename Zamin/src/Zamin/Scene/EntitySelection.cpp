@@ -302,6 +302,8 @@ namespace Zamin {
             s.Tags = primary.GetComponent<TagsComponent>().Tags;
         s.Hidden = scene.IsHiddenInEditor(primary);
         s.Locked = scene.IsLockedInEditor(primary);
+        s.InactiveSelf = !scene.IsActive(primary);
+        s.Inactive = !scene.IsActiveInHierarchy(primary);
 
         glm::vec3 sum(0.0f);
         for (Entity e : entities)
@@ -309,6 +311,7 @@ namespace Zamin {
             sum += scene.GetWorldPosition(e);
             if (scene.IsHiddenInEditor(e)) s.HiddenCount++;
             if (scene.IsLockedInEditor(e)) s.LockedCount++;
+            if (!scene.IsActiveInHierarchy(e)) s.InactiveCount++;
         }
         s.Center = sum / (float)entities.size();
         return s;

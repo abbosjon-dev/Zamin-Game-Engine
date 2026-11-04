@@ -75,6 +75,10 @@ namespace Zamin {
         std::vector<std::string> Tags;       // gameplay tags of the primary
         bool Hidden = false, Locked = false; // the primary's eye / lock state (inherited ones too)
         size_t HiddenCount = 0, LockedCount = 0; // selected entities hidden / locked
+        // The primary is not active in the hierarchy (TagComponent::Active): its own flag is off
+        // (InactiveSelf) or an ancestor's is.
+        bool Inactive = false, InactiveSelf = false;
+        size_t InactiveCount = 0;            // selected entities not active in the hierarchy
     };
     SelectionSummary SummarizeSelection(Scene& scene, const EntitySelection& selection);
 

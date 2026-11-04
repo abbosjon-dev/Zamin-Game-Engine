@@ -55,11 +55,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 043. Nofaol obyektlar chizilmaydi
 - [x] 044. Nofaol obyektlar fizikada ishtirok etmaydi (body o'chiriladi)
 - [x] 045. Nofaol obyektlarning skriptlari Update olmaydi
-- [ ] 046. SetActive() skript API
-- [ ] 047. OnEnable/OnDisable chaqiruvlari
-- [ ] 048. Inspektorda Active checkbox
-- [ ] 049. Ierarxiyada nofaol obyektlar xira ko'rinadi
-- [ ] 050. Serializatsiya va testlar
+- [x] 046. SetActive() skript API
+- [x] 047. OnEnable/OnDisable chaqiruvlari
+- [x] 048. Inspektorda Active checkbox
+- [x] 049. Ierarxiyada nofaol obyektlar xira ko'rinadi
+- [x] 050. Serializatsiya va testlar
 - [ ] 051. Particle tizimi nofaol bo'lsa to'xtaydi
 - [ ] 052. Audio manbalar nofaol bo'lsa to'xtaydi
 - [ ] 053. Animator nofaol bo'lsa yangilanmaydi

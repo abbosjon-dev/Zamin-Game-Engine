@@ -267,8 +267,14 @@ namespace Zamin {
 
     static void DeserializeEntityComponents(const json& e, Entity entity)
     {
-        if (auto it = e.find("Active"); it != e.end() && it->is_boolean())
-            entity.GetComponent<TagComponent>().Active = it->get<bool>();
+        // Missing = active. A hand-edited 0 / 1 is accepted too; anything else keeps the default.
+        if (auto it = e.find("Active"); it != e.end())
+        {
+            if (it->is_boolean())
+                entity.GetComponent<TagComponent>().Active = it->get<bool>();
+            else if (it->is_number())
+                entity.GetComponent<TagComponent>().Active = it->get<double>() != 0.0;
+        }
         if (e.contains("Transform"))
         {
             const json& j = e["Transform"];

@@ -396,7 +396,9 @@ namespace Zamin {
     void Scene::OnEntitiesSpawned(const std::vector<Entity>& entities)
     {
         // Inactive ones (an inactive template, or spawned below an inactive parent) get their
-        // bodies and OnEnable when they are switched on.
+        // bodies and OnEnable when they are switched on. They are recorded as switched off first,
+        // so a SetActive(true) right after Instantiate() is seen as a change.
+        ApplyActiveChanges();
         for (Entity e : entities)
             if (e.IsValid())
                 CreatePhysicsBodies(e);
@@ -1079,45 +1081,51 @@ namespace Zamin {
         if (m_InactiveOrder.empty() && m_AppliedInactive.empty())
             return;
 
-        std::vector<entt::entity> changed;
+        // Both lists in hierarchy order: a parent before its children, subtrees in scene order.
+        std::vector<entt::entity> switchedOff, switchedOn;
         {
             std::unordered_set<entt::entity> applied(m_AppliedInactive.begin(), m_AppliedInactive.end());
-            for (entt::entity e : m_InactiveOrder) // switched off (a parent before its children)
+            for (entt::entity e : m_InactiveOrder)
                 if (!applied.contains(e))
-                    changed.push_back(e);
-            for (entt::entity e : m_AppliedInactive) // switched back on
+                    switchedOff.push_back(e);
+            for (entt::entity e : m_AppliedInactive)
                 if (!m_InactiveInHierarchy.contains(e) && m_Registry.valid(e))
-                    changed.push_back(e);
+                    switchedOn.push_back(e);
+        }
+        if (switchedOff.empty() && switchedOn.empty())
+        {
+            m_AppliedInactive = m_InactiveOrder; // drops handles of destroyed entities
+            return;
         }
         // Recorded before any callback runs: a script that switches entities from its OnDisable /
-        // OnEnable / OnTriggerEnd starts a nested pass from this state.
+        // OnEnable / OnTriggerEnd starts a nested pass from this state. Every step below looks at
+        // the entity's current state, so whatever such a nested pass did is not undone here.
         m_AppliedInactive = m_InactiveOrder;
-        for (entt::entity e : changed)
-            if (m_Registry.valid(e))
-                ApplyActiveState({ e, this });
-    }
+        auto valid = [&](entt::entity e) { return m_Registry.valid(e); };
 
-    void Scene::ApplyActiveState(Entity entity)
-    {
-        if (!entity.IsValid())
-            return;
-        if (!IsActiveInHierarchy(entity))
-        {
-            // The same order as destroying: the others hear the contacts end, the script is
-            // disabled, then the bodies leave the worlds.
-            EndContactsOf(entity);
-            if (m_ScriptsRunning && entity.IsValid())
-                SyncScriptEnabled(entity);
-            // A callback may have destroyed it or switched it back on (that nested pass did the rest).
-            if (entity.IsValid() && !IsActiveInHierarchy(entity))
-                DestroyPhysicsBodies(entity);
-        }
-        else
-        {
-            CreatePhysicsBodies(entity); // at the current transform
-            if (m_ScriptsRunning && entity.IsValid())
-                SyncScriptEnabled(entity);
-        }
+        // Switched off, in the same order as destroying, one step at a time for the whole batch
+        // so every script of a subtree sees the same world: the others hear the contacts end,
+        // every script gets OnDisable (parent first), then the bodies leave the worlds.
+        for (entt::entity e : switchedOff)
+            if (valid(e) && !IsActiveInHierarchy({ e, this }))
+                EndContactsOf({ e, this });
+        if (m_ScriptsRunning)
+            for (entt::entity e : switchedOff)
+                if (valid(e))
+                    SyncScriptEnabled({ e, this });
+        for (entt::entity e : switchedOff)
+            if (valid(e) && !IsActiveInHierarchy({ e, this }))
+                DestroyPhysicsBodies({ e, this });
+
+        // Switched on: every body first (at the current transform), then OnEnable parent first,
+        // so a script can already move its children's bodies from its OnEnable.
+        for (entt::entity e : switchedOn)
+            if (valid(e))
+                CreatePhysicsBodies({ e, this }); // nothing when a callback switched it off again
+        if (m_ScriptsRunning)
+            for (entt::entity e : switchedOn)
+                if (valid(e))
+                    SyncScriptEnabled({ e, this });
     }
 
     glm::mat4 Scene::GetWorldTransform(Entity entity)

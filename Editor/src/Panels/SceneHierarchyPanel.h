@@ -53,6 +53,11 @@ namespace Zamin {
         size_t ToggleSelectionLocked(bool* locked = nullptr);
         size_t ShowAll();     // clears every hidden flag of the scene
         size_t UnlockAll();   // clears every lock
+        // ---- active state (TagComponent::Active: game state saved with the scene, see Scene::SetActive)
+        // Alt+Shift+A: switches the selection off, or on again when the primary entity is off.
+        // Works while playing too (the running scene reacts at once: OnDisable / OnEnable, bodies).
+        // Returns how many entities were targeted (0 = nothing selected); `active` = the new state.
+        size_t ToggleSelectionActive(bool* active = nullptr);
         // Edit mode only: eye / lock toggles, component reordering and pasting.
         void SetSceneEditable(bool editable) { m_SceneEditable = editable; }
 
@@ -130,6 +135,11 @@ namespace Zamin {
         void DrawRowToggles(Entity entity, const ImVec2& rowMin, const ImVec2& rowMax);
         // Sets the flag on `entity`, or on the whole selection when `entity` is part of it.
         size_t SetFlagFromRow(Entity entity, bool lockFlag, bool value);
+        // The same for the active flag (allowed while playing). Returns how many were targeted.
+        size_t SetActiveFromRow(Entity entity, bool active);
+        // Active checkbox of the inspector header and the "inactive" note under the name.
+        void DrawActiveToggle(Entity entity);
+        void DrawInactiveNote(Entity entity);
         void ApplyPendingClick();
         void ApplyPendingDrop();
         // Accepts a hierarchy entity dropped on the row drawn last (before / after it, or into it).

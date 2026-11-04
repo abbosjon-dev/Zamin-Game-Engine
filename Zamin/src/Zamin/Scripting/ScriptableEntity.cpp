@@ -28,6 +28,32 @@ namespace Zamin {
             m_Entity.GetScene()->SetScriptEnabled(m_Entity, enabled);
     }
 
+    void ScriptableEntity::SetActive(bool active) { SetActive(m_Entity, active); }
+
+    void ScriptableEntity::SetActive(Entity other, bool active)
+    {
+        // Entities of this script's scene only (a handle kept from another scene does nothing).
+        if (m_Entity.IsValid() && other.IsValid() && other.GetScene() == m_Entity.GetScene())
+            m_Entity.GetScene()->SetActive(other, active);
+    }
+
+    bool ScriptableEntity::IsActive() const
+    {
+        Entity e = m_Entity;
+        return e.IsValid() && e.IsActive();
+    }
+
+    bool ScriptableEntity::IsActiveInHierarchy() const
+    {
+        Entity e = m_Entity;
+        return e.IsValid() && e.IsActiveInHierarchy();
+    }
+
+    bool ScriptableEntity::IsActiveAndEnabled() const
+    {
+        return IsEnabled() && IsActiveInHierarchy();
+    }
+
     Entity ScriptableEntity::FindEntity(std::string_view name) const { return m_Entity.GetScene()->FindEntityByName(name); }
     std::vector<Entity> ScriptableEntity::FindEntities(std::string_view name) const { return m_Entity.GetScene()->FindEntitiesByName(name); }
     std::vector<Entity> ScriptableEntity::FindEntitiesWithTag(std::string_view tag) const { return m_Entity.GetScene()->FindEntitiesWithTag(tag); }

@@ -213,6 +213,11 @@ namespace Zamin {
             }
         }
 
+        // ZAMIN_EDITOR_TOGGLE_ACTIVE=1: switches the selection off / on at frame 20 (after
+        // ZAMIN_EDITOR_PLAY has started the game), the same path as Alt+Shift+A.
+        if (frame == 20 && std::getenv("ZAMIN_EDITOR_TOGGLE_ACTIVE"))
+            ToggleSelectionActive();
+
         // Simulated file drops (no drag & drop source in CI): ZAMIN_EDITOR_DROP="a.png;b.wav" at frame
         // ZAMIN_EDITOR_DROP_FRAME (30), or a request file ZAMIN_EDITOR_DROP_FILE whose lines are the
         // paths (an optional first line "@x,y" is the mouse position in window pixels).
@@ -1018,6 +1023,18 @@ namespace Zamin {
         ShowViewportMessage(locked ? std::format(ICON_FA_LOCK "  Qulflandi: {}", what) : std::format(ICON_FA_LOCK_OPEN "  Qulf ochildi: {}", what));
     }
 
+    void EditorLayer::ToggleSelectionActive()
+    {
+        bool active = false;
+        size_t count = m_SceneHierarchyPanel.ToggleSelectionActive(&active);
+        if (count == 0)
+            return;
+        Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
+        std::string what = count > 1 ? std::format("{} ta obyekt", count) : primary ? primary.GetName() : std::string("obyekt");
+        ShowViewportMessage(active ? std::format(ICON_FA_TOGGLE_ON "  Faollashtirildi: {}", what)
+                                   : std::format(ICON_FA_TOGGLE_OFF "  Nofaol qilindi: {}  (Alt+Shift+A: qayta yoqish)", what));
+    }
+
     void EditorLayer::ShowAllHidden()
     {
         size_t count = m_SceneHierarchyPanel.ShowAll();
@@ -1741,6 +1758,10 @@ namespace Zamin {
                 m_SceneHierarchyPanel.SelectAll();
             if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && m_SceneState == SceneState::Play && Input::IsKeyPressed(Key::LeftShift))
                 OnSceneStop();
+            // Alt+Shift+A: switch the selection off / on (game state; while playing from the hierarchy).
+            if (!ctrl && shift && io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_A, false) &&
+                (m_SceneHierarchyPanel.IsHierarchyFocused() || (m_SceneState != SceneState::Play && (m_ViewportFocused || m_ViewportHovered))))
+                ToggleSelectionActive();
             // H: hide / show the selection in the scene view, Alt+H: show everything again.
             if (!ctrl && !shift && ImGui::IsKeyPressed(ImGuiKey_H, false) && m_SceneState == SceneState::Edit &&
                 (m_SceneHierarchyPanel.IsHierarchyFocused() || m_ViewportFocused || m_ViewportHovered) &&
@@ -1931,6 +1952,9 @@ namespace Zamin {
                     ToggleSelectionHidden();
                 if (ImGui::MenuItem(((locked ? ICON_FA_LOCK_OPEN "  Qulfni ochish" : ICON_FA_LOCK "  Qulflash (viewport'da)") + suffix).c_str(), nullptr, false, sel && editing))
                     ToggleSelectionLocked();
+                bool active = !primary || primary.IsActive();
+                if (ImGui::MenuItem(((active ? ICON_FA_TOGGLE_OFF "  Nofaol qilish" : ICON_FA_TOGGLE_ON "  Faollashtirish") + suffix).c_str(), "Alt+Shift+A", false, sel))
+                    ToggleSelectionActive();
                 if (ImGui::MenuItem(ICON_FA_EYE "  Hammasini ko'rsatish", "Alt+H", false, editing && m_ActiveScene->CountHiddenInEditor() > 0))
                     ShowAllHidden();
                 if (ImGui::MenuItem(ICON_FA_LOCK_OPEN "  Hamma qulflarni ochish", nullptr, false, editing && m_ActiveScene->CountLockedInEditor() > 0))
@@ -2120,6 +2144,11 @@ namespace Zamin {
                                    s.Locked ? ICON_FA_LOCK "  qulflangan" : "");
             if (s.Count > 1 && (s.HiddenCount > 0 || s.LockedCount > 0))
                 ImGui::TextDisabled("Tanlanganlardan: %zu ta yashirin, %zu ta qulflangan", s.HiddenCount, s.LockedCount);
+            if (s.Inactive)
+                ImGui::TextColored(ImVec4(0.95f, 0.55f, 0.35f, 1.0f), ICON_FA_POWER_OFF "  %s",
+                                   s.InactiveSelf ? "nofaol: o'yinda ishtirok etmaydi" : "nofaol (ota obyekt nofaol)");
+            if (s.Count > 1 && s.InactiveCount > 0)
+                ImGui::TextDisabled("Tanlanganlardan %zu tasi nofaol", s.InactiveCount);
             ImGui::Separator();
             ImGui::TextDisabled("Bosing: kamerani yo'naltirish (F)  |  O'ng tugma: nusxalash");
             ImGui::EndTooltip();
@@ -2140,7 +2169,7 @@ namespace Zamin {
             ImGui::EndPopup();
         }
 
-        // Position (2D: x / y), components, children, eye / lock.
+        // Position (2D: x / y), components, children, eye / lock / inactive.
         glm::vec3 p = s.Count > 1 ? s.Center : s.Position;
         std::string position = m_2DMode ? std::format("{}  {:.2f}, {:.2f}", s.Count > 1 ? "Markaz" : ICON_FA_CROSSHAIRS, p.x, p.y)
                                         : std::format("{}  {:.2f}, {:.2f}, {:.2f}", s.Count > 1 ? "Markaz" : ICON_FA_CROSSHAIRS, p.x, p.y, p.z);
@@ -2162,6 +2191,8 @@ namespace Zamin {
             ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.35f, 0.9f), ICON_FA_EYE_SLASH);
         if (s.Locked && fits(ICON_FA_LOCK))
             ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.35f, 0.9f), ICON_FA_LOCK);
+        if (s.Inactive && fits(ICON_FA_POWER_OFF))
+            ImGui::TextColored(ImVec4(0.95f, 0.55f, 0.35f, s.InactiveSelf ? 0.9f : 0.55f), ICON_FA_POWER_OFF);
     }
 
     void EditorLayer::UI_Viewport()

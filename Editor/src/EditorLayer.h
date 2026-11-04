@@ -90,6 +90,8 @@ namespace Zamin {
         // Eye / lock of the selection (H, Alt+H, Edit menu) with a viewport notice.
         void ToggleSelectionHidden();
         void ToggleSelectionLocked();
+        // Alt+Shift+A: switches the selection off / on (TagComponent::Active, game state).
+        void ToggleSelectionActive();
         void ShowAllHidden();
         void Set2DMode(bool enabled);
 

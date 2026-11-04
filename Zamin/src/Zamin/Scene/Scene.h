@@ -191,7 +191,9 @@ namespace Zamin {
         // transform when it comes back), and its script gets OnDisable, then no OnUpdate /
         // OnLateUpdate / timers until it is active again (OnEnable). The flag is saved with the
         // scene and kept by Scene::Copy, duplicates, Instantiate() and prefabs.
-        // Sets the entity's own flag; while playing / simulating, physics and scripts follow at once.
+        // Sets the entity's own flag; while playing / simulating, physics and scripts follow at once
+        // (also while paused): the OnDisable / OnEnable calls of the whole subtree have run when it
+        // returns. Scripts use ScriptableEntity::SetActive, the editor the inspector's checkbox.
         void SetActive(Entity entity, bool active);
         // The entity's own flag (its ancestors may still switch it off).
         bool IsActive(Entity entity);
@@ -325,10 +327,10 @@ namespace Zamin {
         void EnsureActiveCache();
         void RebuildActiveCache();
         // Runtime / simulation: physics and scripts follow the entities whose active-in-hierarchy
-        // state changed since the last call (no-op in edit mode).
+        // state changed since the last call (no-op in edit mode). Switched off: contacts end,
+        // OnDisable, bodies removed; switched on: bodies created, OnEnable - each step for the
+        // whole batch, parent first. Idempotent per entity, so callbacks may nest it.
         void ApplyActiveChanges();
-        // Makes one entity's bodies and script enabled state match IsActiveInHierarchy (idempotent).
-        void ApplyActiveState(Entity entity);
         // NativeScriptComponent::Enabled and active in the hierarchy.
         bool ShouldScriptBeEnabled(Entity entity, const struct NativeScriptComponent& nsc);
         void StepCharacters(float dt);

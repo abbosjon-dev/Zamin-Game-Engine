@@ -195,6 +195,99 @@ namespace Zamin {
         return count;
     }
 
+    // ------------------------------------------------------------------ active flag
+    // The nearest ancestor that is switched off itself (what keeps an active entity out of the game).
+    static Entity FindInactiveAncestor(Scene& scene, Entity entity)
+    {
+        int depth = 0;
+        for (Entity p = scene.GetParent(entity); p && depth < 4096; p = scene.GetParent(p), depth++)
+            if (!p.IsActive())
+                return p;
+        return {};
+    }
+
+    size_t SceneHierarchyPanel::SetActiveFromRow(Entity entity, bool active)
+    {
+        if (!m_Context || !entity || entity.GetScene() != m_Context.get())
+            return 0;
+        // Unlike the eye / lock this is game state: it can be changed while playing (the running
+        // scene's scripts get OnDisable / OnEnable at once) and is part of the undo history.
+        std::vector<Entity> targets = GetMenuTargets(entity);
+        bool changed = false;
+        for (Entity e : targets)
+        {
+            // A script's OnDisable / OnEnable may have destroyed later targets already.
+            if (!e.IsValid() || e.IsActive() == active)
+                continue;
+            m_Context->SetActive(e, active);
+            changed = true;
+        }
+        if (changed)
+            MarkModified();
+        return targets.size();
+    }
+
+    size_t SceneHierarchyPanel::ToggleSelectionActive(bool* active)
+    {
+        Entity primary = GetSelectedEntity();
+        if (!m_Context || !primary || primary.GetScene() != m_Context.get())
+            return 0;
+        bool value = !primary.IsActive();
+        if (active) *active = value;
+        return SetActiveFromRow(primary, value);
+    }
+
+    void SceneHierarchyPanel::DrawActiveToggle(Entity entity)
+    {
+        // The entity's own flag, for the whole selection when it is part of it; a selection with
+        // both states shows a mixed box and a click switches all of them on.
+        std::vector<Entity> targets = GetMenuTargets(entity);
+        const bool active = entity.IsActive();
+        const bool mixed = std::any_of(targets.begin(), targets.end(), [&](Entity e) { return e.IsValid() && e.IsActive() != active; });
+        bool value = active;
+        ImGui::PushItemFlag(ImGuiItemFlags_MixedValue, mixed);
+        bool clicked = ImGui::Checkbox("##Active", &value);
+        ImGui::PopItemFlag();
+        if (ImGui::IsItemHovered())
+        {
+            std::string tip = mixed ? std::string("Tanlanganlarning bir qismi nofaol. Bosing: hammasini faollashtirish")
+                            : active ? std::string("Faol: obyekt o'yinda ishtirok etadi. O'chirilsa u va bolalari chizilmaydi, "
+                                                   "fizikada qatnashmaydi, skriptlari OnDisable oladi va yangilanmaydi  (Alt+Shift+A)")
+                                     : std::string("Nofaol: obyekt va uning bolalari o'yinda ishtirok etmaydi. Bosing: faollashtirish  (Alt+Shift+A)");
+            if (targets.size() > 1)
+                tip += std::format("\n{} ta tanlangan obyektga qo'llaniladi", targets.size());
+            UI::Tooltip(tip.c_str());
+        }
+        if (clicked)
+            SetActiveFromRow(entity, mixed ? true : value);
+    }
+
+    void SceneHierarchyPanel::DrawInactiveNote(Entity entity)
+    {
+        Scene& scene = *entity.GetScene();
+        if (scene.IsActiveInHierarchy(entity))
+            return;
+        ImGui::SameLine();
+        const ImVec4 color(0.95f, 0.55f, 0.35f, 1.0f);
+        if (!entity.IsActive())
+        {
+            ImGui::TextColored(color, "  " ICON_FA_POWER_OFF " nofaol");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("O'yinda ishtirok etmaydi (bolalari ham): chizilmaydi, fizikada yo'q, skriptlari yangilanmaydi. "
+                            "Nom yonidagi belgi yoki Alt+Shift+A bilan yoqiladi");
+            return;
+        }
+        // Switched off by an ancestor: a click selects it.
+        Entity ancestor = FindInactiveAncestor(scene, entity);
+        std::string text = ancestor ? std::format("  " ICON_FA_POWER_OFF " nofaol (ota: {})", ancestor.GetName())
+                                    : std::string("  " ICON_FA_POWER_OFF " nofaol (ota obyekt)");
+        ImGui::TextColored(ImVec4(color.x, color.y, color.z, 0.7f), "%s", text.c_str());
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("O'zi faol, lekin ota obyekt nofaol - u bilan birga o'yinda ishtirok etmaydi. Bosing: ota obyektni tanlash");
+        if (ancestor && ImGui::IsItemClicked(ImGuiMouseButton_Left))
+            SetSelectedEntity(ancestor);
+    }
+
     void SceneHierarchyPanel::DrawRowToggles(Entity entity, const ImVec2& rowMin, const ImVec2& rowMax)
     {
         const float size = rowMax.y - rowMin.y;
@@ -544,6 +637,10 @@ namespace Zamin {
                 SetFlagFromRow(entity, false, !hidden);
             if (ImGui::MenuItem(locked ? ICON_FA_LOCK_OPEN "  Qulfni ochish" : ICON_FA_LOCK "  Qulflash (viewport'da)", nullptr, false, m_SceneEditable))
                 SetFlagFromRow(entity, true, !locked);
+            // Game state: also while playing.
+            const bool active = entity.IsActive();
+            if (ImGui::MenuItem(active ? ICON_FA_TOGGLE_OFF "  Nofaol qilish" : ICON_FA_TOGGLE_ON "  Faollashtirish", "Alt+Shift+A"))
+                SetActiveFromRow(entity, !active);
         }
         ImGui::Separator();
         if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A")) SelectAll();
@@ -561,6 +658,9 @@ namespace Zamin {
         bool selected = IsSelected(entity);
         bool primary = selected && GetSelectedEntity() == entity;
         bool hiddenInView = m_Context->IsHiddenInEditor(entity);
+        // Not active in the hierarchy (its own flag, or an ancestor's): the whole row is faded.
+        bool inactiveSelf = !entity.IsActive();
+        bool inactive = inactiveSelf || !m_Context->IsActiveInHierarchy(entity);
 
         ImGui::PushID((int)(uint32_t)handle);
         m_VisibleRows.push_back(entity);
@@ -600,16 +700,34 @@ namespace Zamin {
             ImGui::PushStyleColor(ImGuiCol_HeaderHovered, primary ? ImVec4(0.14f, 0.58f, 0.46f, 0.85f) : ImVec4(0.14f, 0.58f, 0.46f, 0.55f));
         }
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
-        if (hiddenInView) // hidden in the scene view: a faint label
-            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        // Hidden in the scene view: a grey label; inactive (game state): a translucent one.
+        const bool dimmed = hiddenInView || inactive;
+        if (dimmed)
+        {
+            ImVec4 color = ImGui::GetStyleColorVec4(hiddenInView ? ImGuiCol_TextDisabled : ImGuiCol_Text);
+            if (inactive)
+                color.w *= 0.42f;
+            ImGui::PushStyleColor(ImGuiCol_Text, color);
+        }
         std::string label = std::string(EntityIcon(entity)) + "  " + tag;
         bool open = ImGui::TreeNodeEx("##node", flags, "%s", label.c_str());
-        if (hiddenInView)
+        if (dimmed)
             ImGui::PopStyleColor();
         ImGui::PopStyleVar();
         if (selected)
             ImGui::PopStyleColor(2);
         const ImVec2 rowMin = ImGui::GetItemRectMin(), rowMax = ImGui::GetItemRectMax();
+        // Switched off itself (not only through a parent): a power icon at the row's right end.
+        if (inactiveSelf)
+        {
+            const char* icon = ICON_FA_POWER_OFF;
+            ImVec2 size = ImGui::CalcTextSize(icon);
+            ImVec2 pos(rowMax.x - size.x - 6.0f, rowMin.y + (rowMax.y - rowMin.y - size.y) * 0.5f);
+            ImVec4 color(0.95f, 0.55f, 0.35f, 0.8f);
+            ImGui::GetWindowDrawList()->AddText(pos, ImGui::GetColorU32(color), icon);
+            if (ImGui::IsMouseHoveringRect(pos, ImVec2(pos.x + size.x, pos.y + size.y)) && ImGui::IsWindowHovered())
+                UI::Tooltip("Nofaol: o'yinda ishtirok etmaydi (bolalari ham). Inspektordagi belgi yoki Alt+Shift+A bilan yoqiladi");
+        }
 
         // Selection: plain click = only this row, Ctrl = toggle, Shift = range from the anchor.
         // Pressing a row of a multi-selection may start dragging all of it, so a plain click
@@ -1986,9 +2104,19 @@ namespace Zamin {
         // ---- header: name + add component
         {
             auto& tag = entity.GetComponent<TagComponent>().Tag;
+            // Active checkbox first (like the script header's "Faol" box), then icon and name.
+            DrawActiveToggle(entity);
+            if (!entity.IsValid())
+                return; // a script's OnDisable destroyed it
+            ImGui::SameLine();
+            const bool inactive = !entity.GetScene()->IsActiveInHierarchy(entity);
             ImGui::PushFont(ImGuiLayer::GetBoldFont());
             ImGui::AlignTextToFramePadding();
+            if (inactive)
+                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
             ImGui::TextUnformatted(EntityIcon(entity));
+            if (inactive)
+                ImGui::PopStyleColor();
             ImGui::PopFont();
             ImGui::SameLine();
             const ImGuiStyle& style = ImGui::GetStyle();
@@ -2084,6 +2212,8 @@ namespace Zamin {
                 ImGui::EndPopup();
             }
             ImGui::TextDisabled("ID: %llu", (unsigned long long)(uint64_t)entity.GetUUID());
+            // Why the game leaves it out: switched off itself or by an ancestor.
+            DrawInactiveNote(entity);
             // Why the viewport ignores it: the hierarchy's eye / lock (own or a parent's).
             if (entity.GetScene()->IsHiddenInEditor(entity))
             {

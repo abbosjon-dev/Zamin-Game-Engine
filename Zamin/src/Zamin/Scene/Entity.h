@@ -93,8 +93,8 @@ namespace Zamin {
         }
         // ---- active state (see Scene::SetActive)
         // The entity's own flag; IsActiveInHierarchy also looks at the ancestors.
-        bool IsActive() const { return GetComponent<TagComponent>().Active; }
-        void SetActive(bool active) { m_Scene->SetActive(*this, active); }
+        bool IsActive() const { return m_Scene && m_Scene->IsActive(*this); }
+        void SetActive(bool active) { if (m_Scene) m_Scene->SetActive(*this, active); }
         bool IsActiveInHierarchy() const { return m_Scene && m_Scene->IsActiveInHierarchy(*this); }
 
         TransformComponent& GetTransform() { return GetComponent<TransformComponent>(); }

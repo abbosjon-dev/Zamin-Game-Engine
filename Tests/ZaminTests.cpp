@@ -5570,6 +5570,311 @@ TEST(ScriptsSwitchingEntitiesOff)
     scene->OnRuntimeStop();
 }
 
+// Uses the script-side active API (task 046). Mode 1: in its first OnUpdate switches "Door"
+// off and tries entities that are not in its scene; mode 2: answers the messages "Off" / "On"
+// by switching its own entity (a script on an inactive entity still gets messages).
+class ActiveApiScript : public ScriptableEntity
+{
+public:
+    int Mode = 0;
+    void OnEnable() override { Log("Enable"); }
+    void OnDisable() override { Log("Disable"); }
+    void OnUpdate(Timestep) override
+    {
+        Log("Update");
+        if (Mode == 1 && !m_Done)
+        {
+            m_Done = true;
+            SetActive(FindEntity("Door"), false);
+            SetActive(Entity(), false);            // nothing to switch: ignored
+            if (Foreign) SetActive(Foreign, false); // another scene's entity: ignored
+        }
+    }
+    void OnMessage(const ScriptMessage& message) override
+    {
+        if (message.Name == "Off") SetActive(false);
+        if (message.Name == "On") SetActive(true);
+    }
+    Entity Foreign;
+private:
+    void Log(const char* what) { g_Life.push_back(GetName() + ":" + what); }
+    bool m_Done = false;
+};
+ZM_REGISTER_SCRIPT(ActiveApiScript, ZM_FIELD(ActiveApiScript, Mode))
+
+static Entity AddActiveApiScript(Scene& scene, const std::string& name, int mode)
+{
+    Entity e = scene.CreateEntity(name);
+    auto& nsc = e.AddComponent<NativeScriptComponent>();
+    nsc.ClassName = "ActiveApiScript";
+    ScriptFieldValue v; v.Set(mode);
+    nsc.Fields["Mode"] = v;
+    return e;
+}
+
+TEST(ScriptActiveApi)
+{
+    g_Life.clear();
+    auto other = CreateRef<Scene>();
+    Entity foreign = other->CreateEntity("Foreign");
+    auto scene = CreateRef<Scene>();
+    Entity manager = AddActiveApiScript(*scene, "Manager", 1);
+    Entity door = AddActiveApiScript(*scene, "Door", 2);
+    Entity knob = AddLifeScript(*scene, "Knob");
+    scene->SetParent(knob, door, false);
+
+    scene->OnRuntimeStart();
+    auto* sm = ScriptableEntity::GetScript<ActiveApiScript>(manager);
+    auto* sd = ScriptableEntity::GetScript<ActiveApiScript>(door);
+    auto* sk = ScriptableEntity::GetScript<LifeScript>(knob);
+    CHECK(sm && sd && sk);
+    if (!sm || !sd || !sk) return;
+    sm->Foreign = foreign;
+    CHECK(sd->IsActive() && sd->IsActiveInHierarchy() && sd->IsActiveAndEnabled());
+
+    // Another entity switched off from OnUpdate: its subtree gets OnDisable at once, parent first.
+    g_Life.clear();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(IndexOfLife("Door:Disable") >= 0 && IndexOfLife("Knob:Disable") == IndexOfLife("Door:Disable") + 1);
+    CHECK(IndexOfLife("Manager:Update") < IndexOfLife("Door:Disable"));
+    CHECK(!HasLife("Door:Update") && !HasLife("Knob:Update"));
+    CHECK(!door.IsActive() && !sd->IsActive() && !sd->IsActiveInHierarchy() && !sd->IsActiveAndEnabled());
+    CHECK(sd->IsEnabled());                                       // the script's own flag stays on
+    CHECK(sk->IsActive() && !sk->IsActiveInHierarchy() && !sk->IsActiveAndEnabled());
+    CHECK(foreign.IsActive() && other->CountInactiveInHierarchy() == 0); // other scenes are left alone
+
+    // A script on an inactive entity still gets messages and can switch itself back on.
+    g_Life.clear();
+    CHECK(scene->SendMessage(door, ScriptMessage{ "On" }));
+    CHECK((g_Life == std::vector<std::string>{ "Door:Enable", "Knob:Enable" }));
+    CHECK(sd->IsActiveAndEnabled() && sk->IsActiveInHierarchy());
+    g_Life.clear();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(HasLife("Door:Update") && HasLife("Knob:Update"));
+    // ...and off again: the same calls in the same order, nothing twice.
+    g_Life.clear();
+    scene->SendMessage(door, ScriptMessage{ "Off" });
+    scene->SendMessage(door, ScriptMessage{ "Off" });
+    CHECK((g_Life == std::vector<std::string>{ "Door:Disable", "Knob:Disable" }));
+
+    // IsActiveAndEnabled needs both: the entity active and the script's own flag on.
+    scene->SendMessage(door, ScriptMessage{ "On" });
+    sd->SetEnabled(false);
+    CHECK(sd->IsActiveInHierarchy() && !sd->IsActiveAndEnabled());
+    sd->SetEnabled(true);
+    CHECK(sd->IsActiveAndEnabled());
+    scene->OnRuntimeStop();
+}
+
+// Records in OnEnable / OnDisable whether its first child still / already has a 2D body.
+static std::vector<std::string> g_BodySeen;
+class ChildBodyScript : public ScriptableEntity
+{
+public:
+    void OnEnable() override { Record("Enable"); }
+    void OnDisable() override { Record("Disable"); }
+private:
+    void Record(const char* what)
+    {
+        Entity child = GetChild(0);
+        auto* rb = child ? child.TryGetComponent<Rigidbody2DComponent>() : nullptr;
+        g_BodySeen.push_back(std::string(what) + (rb && rb->RuntimeBody ? ":body" : ":none"));
+    }
+};
+ZM_REGISTER_SCRIPT(ChildBodyScript)
+
+TEST(ActiveOnEnableOnDisable)
+{
+    g_Life.clear();
+    g_BodySeen.clear();
+    auto scene = CreateRef<Scene>();
+    Entity root = AddLifeScript(*scene, "Root");
+    Entity child = AddLifeScript(*scene, "Child");
+    Entity grandchild = AddLifeScript(*scene, "Grandchild");
+    scene->SetParent(child, root, false);
+    scene->SetParent(grandchild, child, false);
+    Entity holder = scene->CreateEntity("Holder");
+    holder.AddComponent<NativeScriptComponent>().ClassName = "ChildBodyScript";
+    Entity crate = scene->CreateEntity("Crate");
+    crate.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    crate.AddComponent<BoxCollider2DComponent>();
+    scene->SetParent(crate, holder, false);
+    Entity tmpl = AddLifeScript(*scene, "Template");
+    tmpl.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    tmpl.AddComponent<BoxCollider2DComponent>();
+    tmpl.SetActive(false);
+
+    scene->OnRuntimeStart();
+    CHECK((g_BodySeen == std::vector<std::string>{ "Enable:body" }));
+    scene->OnUpdateRuntime(0.016f);
+
+    // A whole subtree: OnDisable parent first, OnEnable parent first; nothing delivered twice.
+    g_Life.clear();
+    root.SetActive(false);
+    root.SetActive(false);
+    CHECK((g_Life == std::vector<std::string>{ "Root:Disable", "Child:Disable", "Grandchild:Disable" }));
+    g_Life.clear();
+    root.SetActive(true);
+    CHECK((g_Life == std::vector<std::string>{ "Root:Enable", "Child:Enable", "Grandchild:Enable" }));
+    // Off and on again within one frame: both calls, then updates as before (no second OnStart).
+    g_Life.clear();
+    child.SetActive(false);
+    child.SetActive(true);
+    CHECK((g_Life == std::vector<std::string>{ "Child:Disable", "Grandchild:Disable", "Child:Enable", "Grandchild:Enable" }));
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(CountLife("Child:Update") == 1 && !HasLife("Child:Start"));
+
+    // OnDisable still sees the children's bodies (they leave after every OnDisable); OnEnable
+    // already sees them (they come back before any OnEnable).
+    g_BodySeen.clear();
+    holder.SetActive(false);
+    CHECK(crate.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr);
+    holder.SetActive(true);
+    CHECK((g_BodySeen == std::vector<std::string>{ "Disable:body", "Enable:body" }));
+
+    // While paused (editor) the calls still come at once; updates wait for the game to go on.
+    g_Life.clear();
+    scene->SetPaused(true);
+    root.SetActive(false);
+    CHECK((g_Life == std::vector<std::string>{ "Root:Disable", "Child:Disable", "Grandchild:Disable" }));
+    root.SetActive(true);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!HasLife("Root:Update"));
+    scene->SetPaused(false);
+
+    // An inactive template: its clone gets OnCreate only, and switched on right away it gets its
+    // body and OnEnable at once, then OnStart before its first OnUpdate.
+    g_Life.clear();
+    Entity clone = scene->Instantiate(tmpl);
+    CHECK((g_Life == std::vector<std::string>{ "Template:Create" }));
+    CHECK(!clone.IsActive() && clone.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr);
+    clone.SetName("Clone");
+    clone.SetActive(true);
+    CHECK((g_Life == std::vector<std::string>{ "Template:Create", "Clone:Enable" }));
+    CHECK(clone.GetComponent<Rigidbody2DComponent>().RuntimeBody != nullptr);
+    CHECK(tmpl.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr); // the template stays off
+    g_Life.clear();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(IndexOfLife("Clone:Start") >= 0 && IndexOfLife("Clone:Start") < IndexOfLife("Clone:Update"));
+    CHECK(!HasLife("Template:Update"));
+
+    // An active copy with an inactive child: the parent is enabled, the child only created.
+    g_Life.clear();
+    Entity spawnRoot = AddLifeScript(*scene, "SpawnRoot");
+    Entity spawnChild = AddLifeScript(*scene, "SpawnChild");
+    scene->SetParent(spawnChild, spawnRoot, false);
+    spawnChild.SetActive(false);
+    g_Life.clear();
+    Entity spawned = scene->Instantiate(spawnRoot);
+    CHECK((g_Life == std::vector<std::string>{ "SpawnRoot:Create", "SpawnChild:Create", "SpawnRoot:Enable" }));
+    g_Life.clear();
+    scene->FindChild(spawned, "SpawnChild").SetActive(true);
+    CHECK((g_Life == std::vector<std::string>{ "SpawnChild:Enable" }));
+
+    // Destroying an active subtree: OnDisable before OnDestroy for each.
+    g_Life.clear();
+    scene->DestroyEntity(root);
+    CHECK(IndexOfLife("Root:Disable") >= 0 && IndexOfLife("Root:Disable") < IndexOfLife("Root:Destroy"));
+    CHECK(CountLife("Grandchild:Disable") == 1 && CountLife("Grandchild:Destroy") == 1);
+    scene->OnRuntimeStop();
+}
+
+TEST(ActiveStateSerialization)
+{
+    auto scene = CreateRef<Scene>();
+    Entity level = scene->CreateEntity("Level");
+    Entity door = scene->CreateEntity("Door");
+    Entity knob = scene->CreateEntity("Knob");
+    Entity lamp = scene->CreateEntity("Lamp");
+    scene->SetParent(door, level, false);
+    scene->SetParent(knob, door, false);
+    door.SetActive(false);
+    lamp.SetActive(false);
+
+    // On disk: only the switched-off entities carry the key, and loading gives the same state.
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-active-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    CHECK(SceneSerializer(scene).Serialize(dir / "Level.zscene"));
+    std::string text = FileSystem::ReadTextFile(dir / "Level.zscene");
+    size_t keys = 0;
+    for (size_t at = text.find("\"Active\""); at != std::string::npos; at = text.find("\"Active\"", at + 1))
+        keys++;
+    CHECK(keys == 2);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).Deserialize(dir / "Level.zscene"));
+    CHECK(loaded->FindEntityByName("Level").IsActive() && !loaded->FindEntityByName("Door").IsActive());
+    CHECK(loaded->FindEntityByName("Knob").IsActive() && !loaded->FindEntityByName("Knob").IsActiveInHierarchy());
+    CHECK(!loaded->FindEntityByName("Lamp").IsActive() && loaded->CountInactiveInHierarchy() == 3);
+    CHECK(SceneSerializer(loaded).SerializeToString() == SceneSerializer(scene).SerializeToString()); // stable (undo snapshots)
+
+    // Hand-edited files: 0 / 1 work like false / true, anything else keeps the default (active).
+    {
+        auto edited = CreateRef<Scene>();
+        std::string zero = text, odd = text;
+        for (size_t at = zero.find("\"Active\": false"); at != std::string::npos; at = zero.find("\"Active\": false"))
+            zero.replace(at, 15, "\"Active\": 0");
+        CHECK(SceneSerializer(edited).DeserializeFromString(zero));
+        CHECK(!edited->FindEntityByName("Door").IsActive() && edited->CountInactiveInHierarchy() == 3);
+        for (size_t at = odd.find("\"Active\": false"); at != std::string::npos; at = odd.find("\"Active\": false"))
+            odd.replace(at, 15, "\"Active\": \"no\"");
+        auto broken = CreateRef<Scene>();
+        CHECK(SceneSerializer(broken).DeserializeFromString(odd));
+        CHECK(broken->FindEntityByName("Door").IsActive() && broken->CountInactiveInHierarchy() == 0);
+    }
+
+    // The play-mode copy is independent of the scene it was made from.
+    auto runtime = Scene::Copy(scene);
+    CHECK(!runtime->FindEntityByName("Door").IsActive() && runtime->CountInactiveInHierarchy() == 3);
+    runtime->FindEntityByName("Door").SetActive(true);
+    CHECK(!door.IsActive() && runtime->CountInactiveInHierarchy() == 1);
+
+    // Copy / paste (new UUIDs) and prefab files keep the flags of the whole subtree.
+    std::string clip = SceneSerializer::SerializeEntities(*scene, { level, door, knob });
+    auto pasted = SceneSerializer::DeserializeEntities(*scene, clip, true);
+    CHECK(pasted.size() == 3 && pasted[0].IsActive() && !pasted[1].IsActive() && !pasted[2].IsActiveInHierarchy());
+    CHECK(pasted[1].GetUUID() != door.GetUUID());
+    CHECK(scene->SavePrefab(level, dir / "Level.zprefab"));
+    auto game = CreateRef<Scene>();
+    Entity instance = game->InstantiatePrefab(dir / "Level.zprefab");
+    CHECK(instance && instance.IsActive());
+    CHECK(!game->FindChild(instance, "Door").IsActive() && !game->FindChild(instance, "Knob").IsActiveInHierarchy());
+
+    // A prefab whose root is off, spawned into a running scene: no bodies until switched on.
+    Entity crate = scene->CreateEntity("Crate");
+    crate.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    crate.AddComponent<BoxCollider2DComponent>();
+    crate.SetActive(false);
+    CHECK(scene->SavePrefab(crate, dir / "Crate.zprefab"));
+    CHECK(FileSystem::ReadTextFile(dir / "Crate.zprefab").find("\"Active\": false") != std::string::npos);
+    game->OnRuntimeStart();
+    Entity spawned = game->InstantiatePrefab(dir / "Crate.zprefab");
+    CHECK(spawned && !spawned.IsActive() && spawned.GetComponent<Rigidbody2DComponent>().RuntimeBody == nullptr);
+    spawned.SetActive(true);
+    CHECK(spawned.GetComponent<Rigidbody2DComponent>().RuntimeBody != nullptr);
+    game->OnRuntimeStop();
+    std::filesystem::remove_all(dir);
+}
+
+TEST(SelectionSummaryInactive)
+{
+    auto scene = CreateRef<Scene>();
+    Entity group = scene->CreateEntity("Group");
+    Entity member = scene->CreateEntity("Member");
+    Entity free = scene->CreateEntity("Free");
+    scene->SetParent(member, group, false);
+    EntitySelection selection;
+    selection.Set({ member, free }, member);
+    SelectionSummary s = SummarizeSelection(*scene, selection);
+    CHECK(!s.Inactive && !s.InactiveSelf && s.InactiveCount == 0);
+    group.SetActive(false);
+    s = SummarizeSelection(*scene, selection);
+    CHECK(s.Inactive && !s.InactiveSelf && s.InactiveCount == 1); // through its parent
+    member.SetActive(false);
+    free.SetActive(false);
+    s = SummarizeSelection(*scene, selection);
+    CHECK(s.Inactive && s.InactiveSelf && s.InactiveCount == 2);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

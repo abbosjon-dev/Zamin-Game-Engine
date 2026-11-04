@@ -40,10 +40,14 @@ namespace Zamin {
     // Event callbacks (collisions, triggers, messages, OnClick) also reach disabled scripts,
     // so a script can enable itself in response to them.
     // "Enabled" above means the script's own flag is on AND its entity is active in the
-    // hierarchy (Scene::SetActive): switching the entity or an ancestor off delivers OnDisable
-    // and stops OnUpdate / OnLateUpdate / timers; switching it back on delivers OnEnable. A
-    // script on an entity that is inactive when play starts gets OnCreate, and OnEnable /
-    // OnStart only once the entity becomes active.
+    // hierarchy (SetActive below / Scene::SetActive): switching the entity or an ancestor off
+    // delivers OnDisable and stops OnUpdate / OnLateUpdate / timers; switching it back on
+    // delivers OnEnable (OnStart is not repeated). Both come before SetActive returns, for the
+    // whole subtree in hierarchy order (a parent before its children); OnDisable still sees the
+    // subtree's physics bodies, OnEnable already sees the new ones. A script on an entity that
+    // is inactive when play starts - or spawned inactive (Instantiate of an inactive template) -
+    // gets OnCreate, and OnEnable / OnStart only once the entity becomes active. Messages and
+    // event bus deliveries still reach scripts of inactive entities (a manager can wake them).
     class ScriptableEntity
     {
     public:
@@ -76,6 +80,24 @@ namespace Zamin {
         void SetEnabled(bool enabled);
         // true once OnStart has run.
         bool HasStarted() const { return m_Started; }
+
+        // ---- active state of entities (TagComponent::Active, see Scene::SetActive)
+        // SetActive switches an entity - and with it everything below it - on or off at once:
+        // the scripts there get OnDisable / OnEnable before it returns, their bodies leave /
+        // rejoin the physics worlds (at the current transform) and nothing of it is drawn while
+        // it is off. Safe to call from any callback, also for this script's own entity (after
+        // SetActive(false) inside OnUpdate this script gets no OnLateUpdate in that frame).
+        //   SetActive(false);                    // this entity
+        //   SetActive(FindEntity("Door"), true); // another one (or entity.SetActive(true))
+        void SetActive(bool active);
+        void SetActive(Entity other, bool active);
+        // This entity's own flag: an inactive ancestor can still keep it out of the game.
+        bool IsActive() const;
+        // This entity and every ancestor are active.
+        bool IsActiveInHierarchy() const;
+        // The script's own flag is on (IsEnabled) and its entity is active in the hierarchy:
+        // the state in which it gets OnUpdate / OnLateUpdate / timers.
+        bool IsActiveAndEnabled() const;
         // Registered class this instance was created from (NativeScriptComponent::ClassName
         // at creation time; the component's value can change later, the instance cannot).
         const std::string& GetScriptClassName() const { return m_ClassName; }

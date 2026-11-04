@@ -4,6 +4,7 @@
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/Scripting/ScriptEngine.h"
+#include "Zamin/Scripting/EventBus.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
 #include "Zamin/Renderer/Renderer2D.h"
 #include "Zamin/Renderer/Renderer3D.h"
@@ -121,7 +122,15 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ scene
-    Scene::Scene() = default;
+    Scene::Scene()
+        : m_EventBus(std::make_unique<EventBus>())
+    {
+        // Every way of adding / replacing / removing a name goes through these signals
+        // (Entity::SetName uses patch -> on_update), so the name cache knows when to rebuild.
+        m_Registry.on_construct<TagComponent>().connect<&Scene::OnNameChanged>(*this);
+        m_Registry.on_update<TagComponent>().connect<&Scene::OnNameChanged>(*this);
+        m_Registry.on_destroy<TagComponent>().connect<&Scene::OnNameChanged>(*this);
+    }
 
     Scene::~Scene()
     {
@@ -129,6 +138,9 @@ namespace Zamin {
             StopScripts();
         OnPhysics2DStop();
         OnPhysics3DStop();
+        m_Registry.on_construct<TagComponent>().disconnect(this);
+        m_Registry.on_update<TagComponent>().disconnect(this);
+        m_Registry.on_destroy<TagComponent>().disconnect(this);
     }
 
     Ref<Scene> Scene::Copy(const Ref<Scene>& other)
@@ -194,13 +206,7 @@ namespace Zamin {
                     std::erase(parent.GetComponent<RelationshipComponent>().Children, entity.GetUUID());
         }
 
-        if (auto* nsc = entity.TryGetComponent<NativeScriptComponent>(); nsc && nsc->Instance)
-        {
-            ScriptableEntity* instance = nsc->Instance;
-            nsc->Instance = nullptr;
-            instance->OnDestroy();
-            delete instance;
-        }
+        DestroyScriptInstance(entity);
         if (auto* rb = entity.TryGetComponent<Rigidbody2DComponent>(); rb && rb->RuntimeBody && m_PhysicsWorld)
         {
             m_PhysicsWorld->DestroyBody((b2Body*)rb->RuntimeBody);
@@ -365,13 +371,136 @@ namespace Zamin {
         return FileSystem::WriteTextFile(path, SceneSerializer::SerializeEntities(*this, entities));
     }
 
+    // ------------------------------------------------------------------ name cache
+    void Scene::RebuildNameCache()
+    {
+        m_NameCache.clear();
+        for (Entity e : GetEntitiesInOrder())
+            if (const auto* tag = m_Registry.try_get<TagComponent>(e))
+            {
+                auto it = m_NameCache.find(std::string_view(tag->Tag));
+                if (it == m_NameCache.end())
+                    it = m_NameCache.emplace(tag->Tag, std::vector<entt::entity>{}).first;
+                it->second.push_back(e);
+            }
+        m_NameCacheDirty = false;
+        m_NameCacheFrame = m_FrameIndex;
+        m_NameCacheStats.Rebuilds++;
+    }
+
+    bool Scene::IsNameCacheValid()
+    {
+        size_t cached = 0;
+        for (const auto& [name, entities] : m_NameCache)
+            for (entt::entity e : entities)
+            {
+                const auto* tag = m_Registry.valid(e) ? m_Registry.try_get<TagComponent>(e) : nullptr;
+                if (!tag || tag->Tag != name)
+                    return false;
+                cached++;
+            }
+        return cached == m_Registry.view<TagComponent>().size();
+    }
+
+    const std::vector<entt::entity>* Scene::LookupName(std::string_view name)
+    {
+        // Direct writes to TagComponent::Tag bypass the registry signals: check the
+        // whole cache once per frame (cheap compared to scanning on every lookup).
+        if (!m_NameCacheDirty && m_NameCacheFrame != m_FrameIndex)
+        {
+            m_NameCacheFrame = m_FrameIndex;
+            m_NameCacheStats.Validations++;
+            if (!IsNameCacheValid())
+                m_NameCacheDirty = true;
+        }
+        if (m_NameCacheDirty)
+            RebuildNameCache();
+
+        auto it = m_NameCache.find(name);
+        if (it == m_NameCache.end())
+            return nullptr;
+        // Verifying a hit is cheap and catches a direct rename made earlier this frame.
+        for (entt::entity e : it->second)
+        {
+            const auto* tag = m_Registry.valid(e) ? m_Registry.try_get<TagComponent>(e) : nullptr;
+            if (!tag || tag->Tag != name)
+            {
+                RebuildNameCache();
+                it = m_NameCache.find(name);
+                return it == m_NameCache.end() ? nullptr : &it->second;
+            }
+        }
+        return &it->second;
+    }
+
     Entity Scene::FindEntityByName(std::string_view name)
     {
-        auto view = m_Registry.view<TagComponent>();
-        for (auto entity : view)
-            if (view.get<TagComponent>(entity).Tag == name)
-                return Entity{ entity, this };
-        return {};
+        const std::vector<entt::entity>* entities = LookupName(name);
+        return entities && !entities->empty() ? Entity{ entities->front(), this } : Entity{};
+    }
+
+    std::vector<Entity> Scene::FindEntitiesByName(std::string_view name)
+    {
+        std::vector<Entity> result;
+        if (const std::vector<entt::entity>* entities = LookupName(name))
+            for (entt::entity e : *entities)
+                result.emplace_back(e, this);
+        return result;
+    }
+
+    // ------------------------------------------------------------------ tags
+    void Scene::SortInSceneOrder(std::vector<Entity>& entities)
+    {
+        // Scene order == position in the IDComponent pool (see GetEntitiesInOrder).
+        const auto& ids = m_Registry.storage<IDComponent>();
+        std::sort(entities.begin(), entities.end(), [&](const Entity& a, const Entity& b) {
+            return ids.index((entt::entity)a) < ids.index((entt::entity)b);
+        });
+    }
+
+    std::vector<Entity> Scene::FindEntitiesWithTag(std::string_view tag)
+    {
+        std::vector<Entity> result;
+        auto view = m_Registry.view<TagsComponent>();
+        for (auto e : view)
+            if (view.get<TagsComponent>(e).Has(tag) && m_Registry.all_of<IDComponent>(e))
+                result.emplace_back(e, this);
+        SortInSceneOrder(result);
+        return result;
+    }
+
+    Entity Scene::FindEntityWithTag(std::string_view tag)
+    {
+        const auto& ids = m_Registry.storage<IDComponent>();
+        entt::entity best = entt::null;
+        auto view = m_Registry.view<TagsComponent>();
+        for (auto e : view)
+            if (view.get<TagsComponent>(e).Has(tag) && ids.contains(e))
+                if (best == entt::null || ids.index(e) < ids.index(best))
+                    best = e;
+        return best == entt::null ? Entity{} : Entity{ best, this };
+    }
+
+    size_t Scene::CountEntitiesWithTag(std::string_view tag)
+    {
+        size_t n = 0;
+        auto view = m_Registry.view<TagsComponent>();
+        for (auto e : view)
+            if (view.get<TagsComponent>(e).Has(tag))
+                n++;
+        return n;
+    }
+
+    std::vector<std::string> Scene::GetAllTags()
+    {
+        std::vector<std::string> tags;
+        auto view = m_Registry.view<TagsComponent>();
+        for (auto e : view)
+            for (const auto& t : view.get<TagsComponent>(e).Tags)
+                tags.push_back(t);
+        std::sort(tags.begin(), tags.end());
+        tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
+        return tags;
     }
 
     Entity Scene::GetEntityByUUID(UUID uuid)
@@ -404,6 +533,71 @@ namespace Zamin {
         if (!entity) return {};
         UUID parent = entity.GetComponent<RelationshipComponent>().Parent;
         return (uint64_t)parent ? GetEntityByUUID(parent) : Entity();
+    }
+
+    std::vector<Entity> Scene::GetChildren(Entity entity)
+    {
+        std::vector<Entity> children;
+        if (!entity) return children;
+        const auto& ids = entity.GetComponent<RelationshipComponent>().Children;
+        children.reserve(ids.size());
+        for (UUID id : ids)
+            if (Entity c = GetEntityByUUID(id))
+                children.push_back(c);
+        return children;
+    }
+
+    size_t Scene::GetChildCount(Entity entity)
+    {
+        if (!entity) return 0;
+        size_t n = 0;
+        for (UUID id : entity.GetComponent<RelationshipComponent>().Children)
+            if (GetEntityByUUID(id))
+                n++;
+        return n;
+    }
+
+    Entity Scene::GetChild(Entity entity, size_t index)
+    {
+        if (!entity) return {};
+        for (UUID id : entity.GetComponent<RelationshipComponent>().Children)
+            if (Entity c = GetEntityByUUID(id))
+                if (index-- == 0)
+                    return c;
+        return {};
+    }
+
+    Entity Scene::FindChild(Entity parent, std::string_view name, bool recursive)
+    {
+        if (!parent) return {};
+        for (UUID id : parent.GetComponent<RelationshipComponent>().Children)
+            if (Entity c = GetEntityByUUID(id))
+            {
+                if (c.GetName() == name)
+                    return c;
+                if (recursive)
+                    if (Entity found = FindChild(c, name, true))
+                        return found;
+            }
+        return {};
+    }
+
+    std::vector<Entity> Scene::GetDescendants(Entity entity)
+    {
+        std::vector<Entity> result;
+        if (!entity) return result;
+        CollectSubtree(*this, entity, result);
+        result.erase(result.begin()); // the entity itself
+        return result;
+    }
+
+    Entity Scene::GetRoot(Entity entity)
+    {
+        if (!entity) return {};
+        Entity root = entity;
+        while (Entity p = GetParent(root))
+            root = p;
+        return root;
     }
 
     bool Scene::IsAncestorOf(Entity ancestor, Entity entity)
@@ -531,20 +725,96 @@ namespace Zamin {
                 CreateScriptInstance({ e, this });
     }
 
+    void Scene::DestroyScriptInstance(Entity entity)
+    {
+        auto* nsc = entity.TryGetComponent<NativeScriptComponent>();
+        if (!nsc || !nsc->Instance)
+            return;
+        ScriptableEntity* instance = nsc->Instance;
+        nsc->Instance = nullptr;
+        instance->OnDestroy();
+        // Handlers capture the instance: they must not outlive it.
+        m_EventBus->UnsubscribeOwner((uint64_t)entity.GetUUID());
+        delete instance;
+    }
+
     void Scene::StopScripts()
     {
         m_ScriptsRunning = false;
+        std::vector<entt::entity> entities;
         for (auto e : m_Registry.view<NativeScriptComponent>())
+            entities.push_back(e);
+        for (auto e : entities)
+            if (m_Registry.valid(e))
+                DestroyScriptInstance({ e, this });
+        // Anything left (unowned handlers, queued payloads) may point into the script
+        // module, which can be unloaded / reloaded after this.
+        m_EventBus->Clear();
+    }
+
+    // ------------------------------------------------------------------ messages
+    bool Scene::DeliverMessage(Entity target, const ScriptMessage& message)
+    {
+        if (!target.IsValid())
+            return false;
+        auto* nsc = target.TryGetComponent<NativeScriptComponent>();
+        if (!nsc || !nsc->Instance)
+            return false;
+        if (m_MessageDepth >= MaxMessageDepth)
         {
-            auto& nsc = m_Registry.get<NativeScriptComponent>(e);
-            if (nsc.Instance)
-            {
-                ScriptableEntity* instance = nsc.Instance;
-                nsc.Instance = nullptr;
-                instance->OnDestroy();
-                delete instance;
-            }
+            if (!m_MessageDepthWarned)
+                ZM_CORE_WARN("Xabar '{}' juda chuqur ichma-ich yuborildi ({} daraja) va tashlab yuborildi (cheksiz tsikl?)",
+                             message.Name, MaxMessageDepth);
+            m_MessageDepthWarned = true;
+            return false;
         }
+        m_MessageDepth++;
+        nsc->Instance->ReceiveMessage(message);
+        if (--m_MessageDepth == 0)
+            m_MessageDepthWarned = false;
+        return true;
+    }
+
+    bool Scene::SendMessage(Entity target, const ScriptMessage& message)
+    {
+        return DeliverMessage(target, message);
+    }
+
+    int Scene::SendMessageToChildren(Entity root, const ScriptMessage& message, bool includeSelf)
+    {
+        if (!root) return 0;
+        // Snapshot first: receivers may instantiate / reparent entities.
+        std::vector<Entity> targets;
+        CollectSubtree(*this, root, targets);
+        int delivered = 0;
+        for (size_t i = includeSelf ? 0 : 1; i < targets.size(); i++)
+            delivered += DeliverMessage(targets[i], message) ? 1 : 0;
+        return delivered;
+    }
+
+    int Scene::SendMessageUpwards(Entity entity, const ScriptMessage& message, bool includeSelf)
+    {
+        if (!entity) return 0;
+        std::vector<Entity> targets;
+        for (Entity e = includeSelf ? entity : GetParent(entity); e; e = GetParent(e))
+            targets.push_back(e);
+        int delivered = 0;
+        for (Entity e : targets)
+            delivered += DeliverMessage(e, message) ? 1 : 0;
+        return delivered;
+    }
+
+    int Scene::Broadcast(const ScriptMessage& message)
+    {
+        std::vector<Entity> targets;
+        for (auto e : m_Registry.view<NativeScriptComponent>())
+            if (m_Registry.get<NativeScriptComponent>(e).Instance)
+                targets.emplace_back(e, this);
+        SortInSceneOrder(targets);
+        int delivered = 0;
+        for (Entity e : targets)
+            delivered += DeliverMessage(e, message) ? 1 : 0;
+        return delivered;
     }
 
     void Scene::DestroyScriptInstances()
@@ -1002,6 +1272,7 @@ namespace Zamin {
     // ------------------------------------------------------------------ update
     void Scene::OnUpdateRuntime(Timestep ts)
     {
+        m_FrameIndex++;
         UpdateUI();
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
@@ -1032,6 +1303,8 @@ namespace Zamin {
                     if (m_Registry.valid(e))
                         if (auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance)
                             inst->OnLateUpdate(ts);
+                // Events queued with EmitDeferred during this frame.
+                m_EventBus->Flush();
             }
 
             for (auto e : m_Registry.view<SpriteAnimationComponent>())
@@ -1056,6 +1329,7 @@ namespace Zamin {
 
     void Scene::OnUpdateSimulation(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options)
     {
+        m_FrameIndex++;
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
             StepPhysics(ts);
@@ -1067,6 +1341,7 @@ namespace Zamin {
 
     void Scene::OnUpdateEditor(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options)
     {
+        m_FrameIndex++;
         UpdateParticles(ts, true);
         UpdateAnimators(ts, true);
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);

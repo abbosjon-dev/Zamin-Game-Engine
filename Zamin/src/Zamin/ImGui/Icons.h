@@ -94,3 +94,6 @@
 #define ICON_FA_COMPUTER_MOUSE "\xef\xa3\x8c"
 #define ICON_FA_CROSSHAIRS "\xef\x81\x9b"
 #define ICON_FA_ARROWS_LEFT_RIGHT "\xef\x81\xbe"
+#define ICON_FA_TAG "\xef\x80\xab"
+#define ICON_FA_TAGS "\xef\x80\xac"
+#define ICON_FA_HASHTAG "\xef\x8a\x92"

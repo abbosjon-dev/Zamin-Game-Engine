@@ -55,8 +55,7 @@ public:
         {
             SetPosition2D({ m_Spawn.x, m_Spawn.y });
             SetVelocity({ 0.0f, 0.0f });
-            if (auto* gm = GetScript<GameManager>(FindEntity("GameManager")))
-                gm->OnPlayerFell();
+            SendMessage(FindEntity("GameManager"), "PlayerFell");
         }
     }
 
@@ -74,7 +73,7 @@ private:
     static bool IsCollectible(Entity e)
     {
         if (!e) return true;
-        if (e.GetName() == "Coin" || e.GetName() == "Goal") return true;
+        if (e.HasTag("Coin") || e.GetName() == "Goal") return true;
         auto* box = e.TryGetComponent<BoxCollider2DComponent>();
         auto* circle = e.TryGetComponent<CircleCollider2DComponent>();
         return (box && box->IsSensor) || (circle && circle->IsSensor);

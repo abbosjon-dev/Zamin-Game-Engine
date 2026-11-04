@@ -15,6 +15,9 @@
 namespace Zamin {
 
     Entity ScriptableEntity::FindEntity(std::string_view name) const { return m_Entity.GetScene()->FindEntityByName(name); }
+    std::vector<Entity> ScriptableEntity::FindEntities(std::string_view name) const { return m_Entity.GetScene()->FindEntitiesByName(name); }
+    std::vector<Entity> ScriptableEntity::FindEntitiesWithTag(std::string_view tag) const { return m_Entity.GetScene()->FindEntitiesWithTag(tag); }
+    Entity ScriptableEntity::FindEntityWithTag(std::string_view tag) const { return m_Entity.GetScene()->FindEntityWithTag(tag); }
 
     Entity ScriptableEntity::Instantiate(Entity prefab) { return m_Entity.GetScene()->Instantiate(prefab); }
 
@@ -46,6 +49,49 @@ namespace Zamin {
     Entity ScriptableEntity::GetParent() const { return m_Entity.GetScene()->GetParent(m_Entity); }
     void ScriptableEntity::SetParent(Entity parent, bool keepWorld) { m_Entity.GetScene()->SetParent(m_Entity, parent, keepWorld); }
     glm::vec3 ScriptableEntity::GetWorldPosition() const { return m_Entity.GetScene()->GetWorldPosition(m_Entity); }
+    std::vector<Entity> ScriptableEntity::GetChildren() const { return m_Entity.GetScene()->GetChildren(m_Entity); }
+    size_t ScriptableEntity::GetChildCount() const { return m_Entity.GetScene()->GetChildCount(m_Entity); }
+    Entity ScriptableEntity::GetChild(size_t index) const { return m_Entity.GetScene()->GetChild(m_Entity, index); }
+    Entity ScriptableEntity::FindChild(std::string_view name, bool recursive) const { return m_Entity.GetScene()->FindChild(m_Entity, name, recursive); }
+    std::vector<Entity> ScriptableEntity::GetDescendants() const { return m_Entity.GetScene()->GetDescendants(m_Entity); }
+    Entity ScriptableEntity::GetRoot() const { return m_Entity.GetScene()->GetRoot(m_Entity); }
+
+    static Entity VisitSubtree(Scene& scene, Entity e, const std::function<bool(Entity)>& visit)
+    {
+        if (visit(e))
+            return e;
+        // Copy: visit() may reparent / spawn entities.
+        std::vector<UUID> children = e.GetComponent<RelationshipComponent>().Children;
+        for (UUID id : children)
+            if (Entity c = scene.GetEntityByUUID(id))
+                if (Entity found = VisitSubtree(scene, c, visit))
+                    return found;
+        return {};
+    }
+
+    Entity ScriptableEntity::VisitChildren(bool includeSelf, const std::function<bool(Entity)>& visit) const
+    {
+        Scene& scene = *m_Entity.GetScene();
+        if (!m_Entity.IsValid())
+            return {};
+        if (includeSelf)
+            return VisitSubtree(scene, m_Entity, visit);
+        for (Entity c : scene.GetChildren(m_Entity))
+            if (Entity found = VisitSubtree(scene, c, visit))
+                return found;
+        return {};
+    }
+
+    Entity ScriptableEntity::VisitParents(bool includeSelf, const std::function<bool(Entity)>& visit) const
+    {
+        Scene& scene = *m_Entity.GetScene();
+        if (!m_Entity.IsValid())
+            return {};
+        for (Entity e = includeSelf ? m_Entity : scene.GetParent(m_Entity); e; e = scene.GetParent(e))
+            if (visit(e))
+                return e;
+        return {};
+    }
 
     static uint32_t BodyID3D(const Entity& e)
     {
@@ -355,6 +401,69 @@ namespace Zamin {
     Entity ScriptableEntity::Resolve(const EntityRef& ref) const
     {
         return ref.ID ? m_Entity.GetScene()->GetEntityByUUID(ref.ID) : Entity();
+    }
+
+    // ------------------------------------------------------------------ messages
+    void ScriptableEntity::AddMessageHandler(std::string name, MessageHandler handler)
+    {
+        if (name.empty() || !handler) return;
+        m_MessageHandlers.push_back({ std::move(name), std::move(handler) });
+    }
+
+    void ScriptableEntity::RemoveMessageHandlers(std::string_view name)
+    {
+        std::erase_if(m_MessageHandlers, [&](const NamedHandler& h) { return h.Name == name; });
+    }
+
+    void ScriptableEntity::ReceiveMessage(const ScriptMessage& message)
+    {
+        // Copy the matching handlers: a handler may add / remove handlers while running.
+        std::vector<MessageHandler> handlers;
+        for (const NamedHandler& h : m_MessageHandlers)
+            if (h.Name == message.Name)
+                handlers.push_back(h.Handler);
+        for (const MessageHandler& handler : handlers)
+            handler(message);
+        OnMessage(message);
+    }
+
+    bool ScriptableEntity::SendMessage(Entity target, std::string name, std::any payload)
+    {
+        return m_Entity.GetScene()->SendMessage(target, ScriptMessage{ std::move(name), m_Entity, std::move(payload) });
+    }
+
+    int ScriptableEntity::SendMessageToChildren(std::string name, std::any payload, bool includeSelf)
+    {
+        return m_Entity.GetScene()->SendMessageToChildren(m_Entity, ScriptMessage{ std::move(name), m_Entity, std::move(payload) }, includeSelf);
+    }
+
+    int ScriptableEntity::SendMessageUpwards(std::string name, std::any payload, bool includeSelf)
+    {
+        return m_Entity.GetScene()->SendMessageUpwards(m_Entity, ScriptMessage{ std::move(name), m_Entity, std::move(payload) }, includeSelf);
+    }
+
+    int ScriptableEntity::Broadcast(std::string name, std::any payload)
+    {
+        return m_Entity.GetScene()->Broadcast(ScriptMessage{ std::move(name), m_Entity, std::move(payload) });
+    }
+
+    EventBus& ScriptableEntity::GetEventBus() const { return m_Entity.GetScene()->GetEventBus(); }
+
+    SubscriptionID ScriptableEntity::Subscribe(std::string eventName, MessageHandler handler)
+    {
+        return GetEventBus().Subscribe(std::move(eventName), std::move(handler), (uint64_t)m_Entity.GetUUID());
+    }
+
+    bool ScriptableEntity::Unsubscribe(SubscriptionID id) { return GetEventBus().Unsubscribe(id); }
+
+    int ScriptableEntity::Emit(std::string eventName, std::any payload)
+    {
+        return GetEventBus().Emit(std::move(eventName), std::move(payload), m_Entity);
+    }
+
+    void ScriptableEntity::EmitDeferred(std::string eventName, std::any payload)
+    {
+        GetEventBus().EmitDeferred(std::move(eventName), std::move(payload), m_Entity);
     }
 
 }

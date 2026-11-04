@@ -23,6 +23,8 @@ namespace Zamin {
     class Entity;
     class ContactListener2D;
     class PhysicsWorld3D;
+    class EventBus;
+    struct ScriptMessage;
 
     struct SceneSettings
     {
@@ -85,16 +87,47 @@ namespace Zamin {
         void OnUpdateEditor(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options = {});
         void OnViewportResize(uint32_t width, uint32_t height);
 
+        // First entity with this name, in scene order (the order of GetEntitiesInOrder()).
+        // Cached: a hash lookup instead of a scan over all entities. Creating / destroying
+        // entities and Entity::SetName update the cache at once; a direct write to
+        // TagComponent::Tag is picked up on the next frame (or after InvalidateNameCache()).
         Entity FindEntityByName(std::string_view name);
+        // Every entity with this name, in scene order.
+        std::vector<Entity> FindEntitiesByName(std::string_view name);
+        void InvalidateNameCache() { m_NameCacheDirty = true; }
+        struct NameCacheStats
+        {
+            uint32_t Rebuilds = 0;     // full rebuilds of the name -> entity map
+            uint32_t Validations = 0;  // once-per-frame consistency checks
+        };
+        const NameCacheStats& GetNameCacheStats() const { return m_NameCacheStats; }
+
         Entity GetEntityByUUID(UUID uuid);
         // Entities in creation order (stable, used by UI & serialization).
         std::vector<Entity> GetEntitiesInOrder();
+
+        // ---- gameplay tags (TagsComponent), results in scene order
+        std::vector<Entity> FindEntitiesWithTag(std::string_view tag);
+        Entity FindEntityWithTag(std::string_view tag);
+        size_t CountEntitiesWithTag(std::string_view tag);
+        // Every tag used in this scene (sorted, unique).
+        std::vector<std::string> GetAllTags();
 
         // ---- hierarchy
         // Make `child` a child of `parent` (or a root when parent is invalid).
         // keepWorldTransform: the child keeps its current world position/rotation/scale.
         bool SetParent(Entity child, Entity parent, bool keepWorldTransform = true);
         Entity GetParent(Entity entity);
+        // Direct children, in order.
+        std::vector<Entity> GetChildren(Entity entity);
+        size_t GetChildCount(Entity entity);
+        Entity GetChild(Entity entity, size_t index);
+        // Child with this name (recursive: searches the whole subtree depth-first).
+        Entity FindChild(Entity parent, std::string_view name, bool recursive = true);
+        // All descendants, depth-first pre-order (a parent comes before its children).
+        std::vector<Entity> GetDescendants(Entity entity);
+        // Top-most ancestor (the entity itself when it has no parent).
+        Entity GetRoot(Entity entity);
         bool IsAncestorOf(Entity ancestor, Entity entity);
         glm::mat4 GetWorldTransform(Entity entity);
         // Sets local transform so that the entity ends up at `world`.
@@ -121,6 +154,21 @@ namespace Zamin {
 
         // ---- particles
         void EmitParticles(Entity entity, int count);
+
+        // ---- script messages (delivered immediately to live script instances:
+        // handlers added with ScriptableEntity::AddMessageHandler, then OnMessage)
+        // Returns true when `target` has a running script.
+        bool SendMessage(Entity target, const ScriptMessage& message);
+        // `root` (optional) and its descendants, depth-first. Returns the number of scripts reached.
+        int SendMessageToChildren(Entity root, const ScriptMessage& message, bool includeSelf = true);
+        // `entity` (optional) and its ancestors, nearest first.
+        int SendMessageUpwards(Entity entity, const ScriptMessage& message, bool includeSelf = true);
+        // Every running script in the scene (scene order), the sender included.
+        int Broadcast(const ScriptMessage& message);
+        static constexpr int MaxMessageDepth = 32;
+
+        // ---- publish / subscribe events shared by all scripts (cleared when play mode stops)
+        EventBus& GetEventBus() { return *m_EventBus; }
 
         // ---- scene switching (handled by the host: editor / player)
         void RequestLoadScene(const std::filesystem::path& path) { m_PendingSceneLoad = path; }
@@ -185,6 +233,14 @@ namespace Zamin {
         void UpdateUI();
 
         void RenderUI();
+
+        void OnNameChanged(entt::registry&, entt::entity) { m_NameCacheDirty = true; }
+        void RebuildNameCache();
+        bool IsNameCacheValid();
+        const std::vector<entt::entity>* LookupName(std::string_view name);
+        void SortInSceneOrder(std::vector<Entity>& entities);
+        bool DeliverMessage(Entity target, const ScriptMessage& message);
+        void DestroyScriptInstance(Entity entity);
     public:
         static void ResolveMeshRenderer(struct MeshRendererComponent& mr);
     private:
@@ -217,6 +273,22 @@ namespace Zamin {
 
         std::unordered_map<UUID, entt::entity> m_EntityMap;
         std::vector<UUID> m_DestroyQueue;
+
+        // FindEntityByName cache: name -> entities in scene order.
+        struct StringHash
+        {
+            using is_transparent = void;
+            size_t operator()(std::string_view s) const { return std::hash<std::string_view>{}(s); }
+        };
+        std::unordered_map<std::string, std::vector<entt::entity>, StringHash, std::equal_to<>> m_NameCache;
+        bool m_NameCacheDirty = true;
+        uint64_t m_FrameIndex = 0;
+        uint64_t m_NameCacheFrame = ~0ull; // frame of the last validation / rebuild
+        NameCacheStats m_NameCacheStats;
+
+        std::unique_ptr<EventBus> m_EventBus;
+        int m_MessageDepth = 0;
+        bool m_MessageDepthWarned = false;
 
         friend class Entity;
         friend class SceneSerializer;

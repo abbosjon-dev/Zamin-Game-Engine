@@ -19,6 +19,7 @@
 #include <glm/gtx/quaternion.hpp>
 
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -38,6 +39,33 @@ namespace Zamin {
         std::string Tag;
         TagComponent() = default;
         TagComponent(const std::string& tag) : Tag(tag) {}
+    };
+
+    // Gameplay tags ("Enemy", "Pickup", ...). Not to be confused with TagComponent,
+    // which holds the entity's display name. Queried with Scene::FindEntitiesWithTag,
+    // Entity::HasTag and the matching ScriptableEntity helpers.
+    struct TagsComponent
+    {
+        std::vector<std::string> Tags;
+
+        bool Has(std::string_view tag) const
+        {
+            return std::find(Tags.begin(), Tags.end(), tag) != Tags.end();
+        }
+        // Returns false for empty or duplicate tags.
+        bool Add(std::string_view tag)
+        {
+            if (tag.empty() || Has(tag)) return false;
+            Tags.emplace_back(tag);
+            return true;
+        }
+        bool Remove(std::string_view tag)
+        {
+            auto it = std::find(Tags.begin(), Tags.end(), tag);
+            if (it == Tags.end()) return false;
+            Tags.erase(it);
+            return true;
+        }
     };
 
     // Parent/child hierarchy. Transform of a child is relative to its parent.
@@ -546,7 +574,7 @@ namespace Zamin {
     struct ComponentGroup {};
 
     // Every component that is copied/serialized with an entity (IDComponent & TagComponent are handled separately).
-    using AllComponents = ComponentGroup<RelationshipComponent, TransformComponent, SpriteRendererComponent,
+    using AllComponents = ComponentGroup<RelationshipComponent, TagsComponent, TransformComponent, SpriteRendererComponent,
         SpriteAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,

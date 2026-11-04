@@ -67,6 +67,8 @@ namespace Zamin {
         m_SceneHierarchyPanel.OnFocusRequested = [this](Entity e) { FocusEntity(e); };
         m_SceneHierarchyPanel.OnSceneModified = [this]() { MarkDirty(); };
         m_SceneHierarchyPanel.OnSavePrefabRequested = [this](Entity e) { SavePrefab(e); };
+        m_SceneHierarchyPanel.OnProjectSettingsModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
+        m_ProjectSettingsPanel.OnSceneModified = [this]() { MarkDirty(); };
         m_SceneHierarchyPanel.OnPrefabDropped = [this](const fs::path& p, Entity parent) { InstantiatePrefabInEditor(p, parent); };
         m_ContentBrowserPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
         m_ContentBrowserPanel.OnCreateScript = [this](const std::string& name) { CreateScriptClass(name); };
@@ -118,15 +120,18 @@ namespace Zamin {
                 OpenScene(Project::GetAssetFileSystemPath(scene));
             if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT"))
                 m_SceneHierarchyPanel.SetSelectedEntity(m_ActiveScene->FindEntityByName(sel));
+            if (const char* filter = std::getenv("ZAMIN_EDITOR_FILTER")) // e.g. "#Coin"
+                m_SceneHierarchyPanel.SetFilter(filter);
             if (std::getenv("ZAMIN_EDITOR_PLAY"))
                 OnScenePlay();
             if (std::getenv("ZAMIN_EDITOR_STATS"))
                 m_ShowStats = true;
-            if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | General
+            if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | Tags | General
             {
                 m_ShowProjectSettings = true;
                 std::string_view t(tab);
                 m_ProjectSettingsPanel.Focus(t == "SaveData" ? ProjectSettingsPanel::Tab::SaveData
+                                           : t == "Tags"     ? ProjectSettingsPanel::Tab::Tags
                                            : t == "General"  ? ProjectSettingsPanel::Tab::General
                                                              : ProjectSettingsPanel::Tab::Input);
             }
@@ -1200,6 +1205,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
         m_ContentBrowserPanel.OnImGuiRender(&m_ShowContentBrowser);
         m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
         UI_SceneSettings();
+        m_ProjectSettingsPanel.SetScene(m_EditorScene); // tag counts / renames apply to the saved scene
         m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
         UI_Stats();
         UI_Viewport();
@@ -1466,7 +1472,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
                     auto& sprite = e.GetComponent<SpriteRendererComponent>();
                     sprite.TexturePath = (const char*)payload->Data;
                     sprite.Texture = TextureLibrary::Load(path);
-                    e.GetComponent<TagComponent>().Tag = path.stem().string();
+                    e.SetName(path.stem().string());
                 }
                 else if (ext == ".zprefab" && m_SceneState == SceneState::Edit)
                 {
@@ -1478,7 +1484,7 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
                     auto& mr = e.GetComponent<MeshRendererComponent>();
                     mr.ModelPath = (const char*)payload->Data;
                     Scene::ResolveMeshRenderer(mr);
-                    e.GetComponent<TagComponent>().Tag = path.stem().string();
+                    e.SetName(path.stem().string());
                 }
             }
             ImGui::EndDragDropTarget();

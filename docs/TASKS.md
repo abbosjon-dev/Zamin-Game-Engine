@@ -14,11 +14,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 008. Klaviatura va sichqoncha uchun JustPressed/JustReleased (kadrlar orasidagi holat)
 - [x] 009. SaveData (PlayerPrefs): Int/Float/String/Bool saqlash, fayl ~/.local/share/zamin/<loyiha>
 - [x] 010. SaveData testi
-- [ ] 011. Random API (seed, Range, Float, Int, Bool, InsideCircle, OnSphere)
-- [ ] 012. Teglar (Tag) tizimi: FindEntitiesWithTag, HasTag
-- [ ] 013. Xabarlar/hodisalar: SendMessage(name), Broadcast, skriptlararo event bus
-- [ ] 014. GetComponentInChildren / GetComponentInParent / GetChildren
-- [ ] 015. FindEntity bo'yicha keshlash (nom->entity tez qidirish)
+- [x] 011. Random API (seed, Range, Float, Int, Bool, InsideCircle, OnSphere)
+- [x] 012. Teglar (Tag) tizimi: FindEntitiesWithTag, HasTag
+- [x] 013. Xabarlar/hodisalar: SendMessage(name), Broadcast, skriptlararo event bus
+- [x] 014. GetComponentInChildren / GetComponentInParent / GetChildren
+- [x] 015. FindEntity bo'yicha keshlash (nom->entity tez qidirish)
 - [ ] 016. Script lifecycle: OnEnable/OnDisable/OnStart (birinchi Update'dan oldin)
 - [ ] 017. OnTriggerBegin/OnTriggerEnd (sensorlar uchun alohida callback)
 - [ ] 018. Skript maydonlari: enum va ranglar (glm::vec4 rang sifatida) uchun ZM_FIELD_COLOR

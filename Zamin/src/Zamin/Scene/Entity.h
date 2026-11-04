@@ -53,6 +53,32 @@ namespace Zamin {
 
         UUID GetUUID() const { return GetComponent<IDComponent>().ID; }
         const std::string& GetName() const { return GetComponent<TagComponent>().Tag; }
+        // Renames the entity and keeps Scene::FindEntityByName's cache up to date
+        // (writing TagComponent::Tag directly is only noticed on the next frame).
+        void SetName(std::string name)
+        {
+            if (name.empty()) name = "Entity";
+            m_Scene->m_Registry.patch<TagComponent>(m_EntityHandle, [&](TagComponent& t) { t.Tag = std::move(name); });
+        }
+
+        // ---- gameplay tags (TagsComponent)
+        bool HasTag(std::string_view tag) const
+        {
+            const auto* tags = m_Scene->m_Registry.try_get<TagsComponent>(m_EntityHandle);
+            return tags && tags->Has(tag);
+        }
+        // Adds a TagsComponent when needed. Returns false for empty / duplicate tags.
+        bool AddTag(std::string_view tag)
+        {
+            if (tag.empty()) return false;
+            auto* tags = m_Scene->m_Registry.try_get<TagsComponent>(m_EntityHandle);
+            return (tags ? *tags : AddComponent<TagsComponent>()).Add(tag);
+        }
+        bool RemoveTag(std::string_view tag)
+        {
+            auto* tags = m_Scene->m_Registry.try_get<TagsComponent>(m_EntityHandle);
+            return tags && tags->Remove(tag);
+        }
         TransformComponent& GetTransform() { return GetComponent<TransformComponent>(); }
         Scene* GetScene() const { return m_Scene; }
 

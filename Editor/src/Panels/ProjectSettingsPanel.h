@@ -2,6 +2,7 @@
 
 #include <Zamin/Zamin.h>
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -13,11 +14,17 @@ namespace Zamin {
     class ProjectSettingsPanel
     {
     public:
-        enum class Tab { Input = 0, SaveData, General };
+        enum class Tab { Input = 0, SaveData, Tags, General };
 
         void OnImGuiRender(bool* show);
 
         bool IsDirty() const { return m_Dirty; }
+        // Something else (e.g. the inspector's tag field) changed the project config.
+        void MarkDirty() { m_Dirty = true; }
+        // Scene used for the tag usage counts (the editor's active scene).
+        void SetScene(const Ref<Scene>& scene) { m_Scene = scene; }
+        // Renaming a tag also renames it on the scene's entities.
+        std::function<void()> OnSceneModified;
         // Writes the active .zproject if there are unsaved changes.
         void SaveIfDirty();
         // Call when another project is opened / the project is closed.
@@ -38,6 +45,7 @@ namespace Zamin {
 
         void DrawGeneral(ProjectConfig& config);
         void DrawSaveData();
+        void DrawTags(ProjectConfig& config);
         void DrawInputMap(InputActionMap& map);
         bool DrawBindingList(const char* label, std::vector<InputBinding>& bindings, ListKind kind, int entry);
         bool DrawBinding(InputBinding& binding, const ListenTarget& target);
@@ -53,6 +61,12 @@ namespace Zamin {
         ListenTarget m_Listen;
         bool m_ListenArmed = false; // all inputs were released since listening started
         int m_RequestedTab = -1;
+
+        Ref<Scene> m_Scene;
+        std::string m_NewTag;
+        int m_RenamingTag = -1;
+        std::string m_TagRenameBuffer;
+        bool m_FocusTagRename = false;
 
         // SaveData tab: new entry
         std::string m_NewSaveKey;

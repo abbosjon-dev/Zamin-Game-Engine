@@ -82,5 +82,11 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libPlatformer2D.so",
         "EngineVersion": "0.1.0"
-    }
+    },
+    "Tags": [
+        "Player",
+        "Coin",
+        "Enemy",
+        "Pickup"
+    ]
 }

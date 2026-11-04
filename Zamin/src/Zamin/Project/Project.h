@@ -5,6 +5,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace Zamin {
 
@@ -18,6 +19,11 @@ namespace Zamin {
         // Named input actions / axes (Project settings > Input). Projects without
         // an "InputActions" section get the defaults (Jump, Fire, Horizontal, Vertical ...).
         InputActionMap InputActions = InputActionMap::CreateDefault();
+        // Gameplay tags offered in the inspector (Project settings > Tags). Entities may
+        // still use tags that are not in this list.
+        std::vector<std::string> Tags = DefaultTags();
+
+        static std::vector<std::string> DefaultTags() { return { "Player", "Enemy", "Pickup" }; }
     };
 
     // A game project: <Name>.zproject + Assets/ + Source/ (C++ scripts) + CMakeLists.txt
@@ -39,6 +45,9 @@ namespace Zamin {
         static std::filesystem::path GetScriptModulePath();
         // Input map of the active project (the default map when no project is open).
         static const InputActionMap& GetInputActionMap();
+        // Adds a tag to the active project's tag list. Returns true when it was added
+        // (false: no project, empty name or already listed).
+        static bool RegisterTag(const std::string& tag);
 
         // Relative asset path -> absolute file system path (works without a project, too).
         static std::filesystem::path GetAssetFileSystemPath(const std::filesystem::path& path);

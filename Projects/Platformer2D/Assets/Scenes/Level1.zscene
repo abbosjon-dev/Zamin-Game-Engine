@@ -1810,6 +1810,9 @@
     {
       "Entity": 7340000792208841,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           2,
@@ -1878,6 +1881,9 @@
     {
       "Entity": 7340000792216760,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           4,
@@ -1946,6 +1952,9 @@
     {
       "Entity": 7340000792224679,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           5,
@@ -2014,6 +2023,9 @@
     {
       "Entity": 7340000792232598,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           10,
@@ -2082,6 +2094,9 @@
     {
       "Entity": 7340000792240517,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           16,
@@ -2150,6 +2165,9 @@
     {
       "Entity": 7340000792248436,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           23,
@@ -2218,6 +2236,9 @@
     {
       "Entity": 7340000792256355,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           24,
@@ -2286,6 +2307,9 @@
     {
       "Entity": 7340000792264274,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           29,
@@ -2354,6 +2378,9 @@
     {
       "Entity": 7340000792272193,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           36,
@@ -2422,6 +2449,9 @@
     {
       "Entity": 7340000792280112,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           44,
@@ -2490,6 +2520,9 @@
     {
       "Entity": 7340000792288031,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           50,
@@ -2558,6 +2591,9 @@
     {
       "Entity": 7340000792295950,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           56,
@@ -2626,6 +2662,9 @@
     {
       "Entity": 7340000792303869,
       "Tag": "Coin",
+      "Tags": [
+        "Coin"
+      ],
       "Transform": {
         "Translation": [
           60,
@@ -2694,6 +2733,9 @@
     {
       "Entity": 7340000792311788,
       "Tag": "Player",
+      "Tags": [
+        "Player"
+      ],
       "Transform": {
         "Translation": [
           -6,

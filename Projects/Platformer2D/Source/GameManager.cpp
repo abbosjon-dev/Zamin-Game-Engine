@@ -4,10 +4,17 @@ using namespace Zamin;
 
 void GameManager::OnCreate()
 {
-    for (auto e : GetScene().GetAllEntitiesWith<TagComponent>())
-        if (GetScene().GetRegistry().get<TagComponent>(e).Tag == "Coin")
-            m_TotalCoins++;
+    // Tangalar "Coin" tegi bilan belgilangan (Inspektor > Teglar).
+    m_TotalCoins = (int)FindEntitiesWithTag("Coin").size();
+    // Tanga yig'ilganini hodisalar shinasi orqali eshitamiz: tanga GameManager'ni bilishi shart emas.
+    Subscribe("CoinCollected", [this](const ScriptMessage&) { AddCoin(); });
     RefreshText();
+}
+
+void GameManager::OnMessage(const ScriptMessage& message)
+{
+    if (message.Name == "PlayerFell")
+        OnPlayerFell();
 }
 
 void GameManager::OnLateUpdate(Timestep)

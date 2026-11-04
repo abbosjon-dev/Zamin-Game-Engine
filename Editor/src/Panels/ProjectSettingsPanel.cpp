@@ -205,6 +205,11 @@ namespace Zamin {
                 DrawSaveData();
                 ImGui::EndTabItem();
             }
+            if (ImGui::BeginTabItem(ICON_FA_TAGS "  Teglar", nullptr, tabFlags(Tab::Tags)))
+            {
+                DrawTags(config);
+                ImGui::EndTabItem();
+            }
             if (ImGui::BeginTabItem(ICON_FA_SLIDERS "  Umumiy", nullptr, tabFlags(Tab::General)))
             {
                 DrawGeneral(config);
@@ -233,6 +238,172 @@ namespace Zamin {
         UI::PropertyLabel("Skript moduli");
         ImGui::TextUnformatted(c.ScriptModulePath.empty() ? "-" : c.ScriptModulePath.generic_string().c_str());
         UI::EndPropertyGrid();
+    }
+
+    // ------------------------------------------------------------------ tags
+    static std::string TrimText(const std::string& s)
+    {
+        size_t b = s.find_first_not_of(" \t\r\n");
+        if (b == std::string::npos) return {};
+        size_t e = s.find_last_not_of(" \t\r\n");
+        return s.substr(b, e - b + 1);
+    }
+
+    void ProjectSettingsPanel::DrawTags(ProjectConfig& config)
+    {
+        auto& tags = config.Tags;
+        ImGui::TextWrapped("Teglar obyektlarni guruhlaydi (masalan, barcha dushmanlar). Inspektorda \"Teglar\" komponenti "
+                           "bilan beriladi, skriptda HasTag(\"Enemy\") va FindEntitiesWithTag(\"Enemy\") bilan so'raladi. "
+                           "Bu ro'yxat inspektordagi takliflar uchun; ro'yxatda yo'q teglar ham ishlaydi.");
+        ImGui::Spacing();
+
+        // Add a new tag
+        std::string trimmed = TrimText(m_NewTag);
+        const bool duplicate = std::find(tags.begin(), tags.end(), trimmed) != tags.end();
+        ImGui::SetNextItemWidth(std::min(260.0f, ImGui::GetContentRegionAvail().x * 0.6f));
+        bool submit = ImGui::InputTextWithHint("##newTag", "Yangi teg nomi", &m_NewTag, ImGuiInputTextFlags_EnterReturnsTrue);
+        ImGui::SameLine();
+        ImGui::BeginDisabled(trimmed.empty() || duplicate);
+        submit |= ImGui::Button(ICON_FA_PLUS "  Qo'shish");
+        ImGui::EndDisabled();
+        if (submit && !trimmed.empty() && !duplicate)
+        {
+            tags.push_back(trimmed);
+            m_NewTag.clear();
+            m_Dirty = true;
+        }
+        if (duplicate && !trimmed.empty())
+        {
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "Bu teg allaqachon bor");
+        }
+
+        // Tags used in the open scene but missing from the list
+        std::vector<std::string> missing;
+        if (m_Scene)
+            for (auto& t : m_Scene->GetAllTags())
+                if (std::find(tags.begin(), tags.end(), t) == tags.end())
+                    missing.push_back(t);
+        if (!missing.empty())
+        {
+            ImGui::SameLine();
+            if (ImGui::Button(std::format(ICON_FA_PLUS "  Sahnadagilarni qo'shish ({})", missing.size()).c_str()))
+            {
+                tags.insert(tags.end(), missing.begin(), missing.end());
+                m_Dirty = true;
+            }
+            if (ImGui::IsItemHovered())
+            {
+                std::string list;
+                for (auto& t : missing) list += (list.empty() ? "" : ", ") + t;
+                UI::Tooltip(("Sahnada ishlatilgan, ro'yxatda yo'q: " + list).c_str());
+            }
+        }
+        ImGui::Spacing();
+
+        if (tags.empty())
+        {
+            ImGui::TextDisabled("Ro'yxat bo'sh");
+            return;
+        }
+
+        int remove = -1, moveUp = -1;
+        const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX;
+        if (ImGui::BeginTable("##tags", 3, flags))
+        {
+            ImGui::TableSetupColumn("Teg", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Sahnada", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 7.0f);
+            ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() * 3.4f);
+            ImGui::TableHeadersRow();
+            for (int i = 0; i < (int)tags.size(); i++)
+            {
+                ImGui::PushID(i);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                if (m_RenamingTag == i)
+                {
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    if (m_FocusTagRename)
+                    {
+                        ImGui::SetKeyboardFocusHere();
+                        m_FocusTagRename = false;
+                    }
+                    if (ImGui::InputText("##rename", &m_TagRenameBuffer, ImGuiInputTextFlags_EnterReturnsTrue))
+                    {
+                        std::string name = TrimText(m_TagRenameBuffer);
+                        if (!name.empty() && std::find(tags.begin(), tags.end(), name) == tags.end())
+                        {
+                            // Rename in the open scene too, so existing entities keep the tag.
+                            if (m_Scene)
+                            {
+                                bool sceneChanged = false;
+                                for (Entity e : m_Scene->FindEntitiesWithTag(tags[i]))
+                                {
+                                    auto& c = e.GetComponent<TagsComponent>();
+                                    if (c.Has(name)) c.Remove(tags[i]);
+                                    else std::replace(c.Tags.begin(), c.Tags.end(), tags[i], name);
+                                    sceneChanged = true;
+                                }
+                                if (sceneChanged && OnSceneModified)
+                                    OnSceneModified();
+                            }
+                            tags[i] = name;
+                            m_Dirty = true;
+                        }
+                        m_RenamingTag = -1;
+                    }
+                    else if (ImGui::IsItemDeactivated() || ImGui::IsKeyPressed(ImGuiKey_Escape))
+                        m_RenamingTag = -1;
+                }
+                else
+                {
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::Text(ICON_FA_TAG "  %s", tags[i].c_str());
+                    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+                    {
+                        m_RenamingTag = i;
+                        m_TagRenameBuffer = tags[i];
+                        m_FocusTagRename = true;
+                    }
+                }
+                ImGui::TableSetColumnIndex(1);
+                ImGui::AlignTextToFramePadding();
+                size_t used = m_Scene ? m_Scene->CountEntitiesWithTag(tags[i]) : 0;
+                if (used > 0) ImGui::Text("%zu ta obyekt", used);
+                else ImGui::TextDisabled("-");
+                ImGui::TableSetColumnIndex(2);
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+                ImGui::BeginDisabled(i == 0);
+                if (ImGui::Button(ICON_FA_ARROW_UP)) moveUp = i;
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) UI::Tooltip("Yuqoriga");
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_PEN))
+                {
+                    m_RenamingTag = i;
+                    m_TagRenameBuffer = tags[i];
+                    m_FocusTagRename = true;
+                }
+                if (ImGui::IsItemHovered()) UI::Tooltip("Qayta nomlash (sahnadagi obyektlarda ham)");
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_TRASH)) remove = i;
+                if (ImGui::IsItemHovered()) UI::Tooltip("Ro'yxatdan olib tashlash (obyektlardagi teglar qoladi)");
+                ImGui::PopStyleColor();
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+        if (moveUp > 0)
+        {
+            std::swap(tags[moveUp], tags[moveUp - 1]);
+            m_Dirty = true;
+        }
+        if (remove >= 0)
+        {
+            tags.erase(tags.begin() + remove);
+            if (m_RenamingTag == remove) m_RenamingTag = -1;
+            m_Dirty = true;
+        }
     }
 
     // ------------------------------------------------------------------ save data

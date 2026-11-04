@@ -3,9 +3,14 @@
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Core/Input.h"
 #include "Zamin/Core/Timestep.h"
+#include "Zamin/Math/Random.h"
+#include "Zamin/Scripting/EventBus.h"
 
+#include <any>
 #include <functional>
+#include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace Zamin {
@@ -35,6 +40,9 @@ namespace Zamin {
         virtual void OnCollisionEnd(Entity /*other*/) {}
         // Called when a UIButton on this entity is clicked.
         virtual void OnClick() {}
+        // Called for every message sent to this entity (SendMessage, Broadcast ...),
+        // after the handlers registered with AddMessageHandler for that name.
+        virtual void OnMessage(const ScriptMessage& /*message*/) {}
 
         // ---- helpers available to scripts
         template<typename T> T& GetComponent() { return m_Entity.GetComponent<T>(); }
@@ -46,8 +54,18 @@ namespace Zamin {
         Scene& GetScene() const { return *m_Entity.GetScene(); }
         TransformComponent& Transform() { return m_Entity.GetComponent<TransformComponent>(); }
         const std::string& GetName() const { return m_Entity.GetName(); }
+        void SetName(const std::string& name) { m_Entity.SetName(name); }
 
+        // First entity with this name (cached hash lookup, cheap enough to call every frame).
         Entity FindEntity(std::string_view name) const;
+        std::vector<Entity> FindEntities(std::string_view name) const;
+
+        // ---- gameplay tags (TagsComponent)
+        bool HasTag(std::string_view tag) const { return m_Entity.HasTag(tag); }
+        bool AddTag(std::string_view tag) { return m_Entity.AddTag(tag); }
+        bool RemoveTag(std::string_view tag) { return m_Entity.RemoveTag(tag); }
+        std::vector<Entity> FindEntitiesWithTag(std::string_view tag) const;
+        Entity FindEntityWithTag(std::string_view tag) const;
         // Copy an existing entity (a "prefab") into the running scene.
         Entity Instantiate(Entity prefab, const glm::vec3& position);
         Entity Instantiate(Entity prefab);
@@ -68,6 +86,66 @@ namespace Zamin {
         Entity GetParent() const;
         void SetParent(Entity parent, bool keepWorldTransform = true);
         glm::vec3 GetWorldPosition() const;
+        std::vector<Entity> GetChildren() const;
+        size_t GetChildCount() const;
+        Entity GetChild(size_t index) const;
+        // Child by name; recursive searches the whole subtree (depth-first).
+        Entity FindChild(std::string_view name, bool recursive = true) const;
+        // All descendants, depth-first (a parent comes before its children).
+        std::vector<Entity> GetDescendants() const;
+        Entity GetRoot() const;
+
+        // Components on this entity and its children / parents. T can also be a script
+        // class (derived from ScriptableEntity): then the script instance is returned.
+        // includeSelf = true checks this entity first; children are searched depth-first,
+        // parents nearest first.
+        //   auto* light = GetComponentInChildren<PointLightComponent>();
+        //   auto* game  = GetComponentInParent<GameManager>();
+        template<typename T>
+        T* GetComponentInChildren(bool includeSelf = true) const
+        {
+            T* found = nullptr;
+            VisitChildren(includeSelf, [&](Entity e) { return (found = ComponentOrScript<T>(e)) != nullptr; });
+            return found;
+        }
+        template<typename T>
+        std::vector<T*> GetComponentsInChildren(bool includeSelf = true) const
+        {
+            std::vector<T*> all;
+            VisitChildren(includeSelf, [&](Entity e) {
+                if (T* c = ComponentOrScript<T>(e)) all.push_back(c);
+                return false;
+            });
+            return all;
+        }
+        template<typename T>
+        T* GetComponentInParent(bool includeSelf = true) const
+        {
+            T* found = nullptr;
+            VisitParents(includeSelf, [&](Entity e) { return (found = ComponentOrScript<T>(e)) != nullptr; });
+            return found;
+        }
+        template<typename T>
+        std::vector<T*> GetComponentsInParent(bool includeSelf = true) const
+        {
+            std::vector<T*> all;
+            VisitParents(includeSelf, [&](Entity e) {
+                if (T* c = ComponentOrScript<T>(e)) all.push_back(c);
+                return false;
+            });
+            return all;
+        }
+        // The entity itself (not the component) of the first match.
+        template<typename T>
+        Entity FindInChildren(bool includeSelf = true) const
+        {
+            return VisitChildren(includeSelf, [](Entity e) { return ComponentOrScript<T>(e) != nullptr; });
+        }
+        template<typename T>
+        Entity FindInParent(bool includeSelf = true) const
+        {
+            return VisitParents(includeSelf, [](Entity e) { return ComponentOrScript<T>(e) != nullptr; });
+        }
 
         // ---- 3D physics (requires Rigidbody3DComponent + a 3D collider)
         glm::vec3 GetVelocity3D() const;
@@ -126,6 +204,33 @@ namespace Zamin {
         // ---- entity references (EntityRef fields)
         Entity Resolve(const EntityRef& ref) const;
 
+        // ---- messages: delivered immediately to the target's script
+        // (AddMessageHandler handlers for that name, then OnMessage). The payload can be
+        // any copyable value; read it with message.Get<T>().
+        //   SendMessage(enemy, "Damage", 25.0f);
+        //   AddMessageHandler("Damage", [this](const ScriptMessage& m) { Health -= m.Get<float>(); });
+        void AddMessageHandler(std::string name, MessageHandler handler);
+        void RemoveMessageHandlers(std::string_view name);
+        // true when `target` has a running script.
+        bool SendMessage(Entity target, std::string name, std::any payload = {});
+        // This entity (optional) and all its descendants. Returns the number of scripts reached.
+        int SendMessageToChildren(std::string name, std::any payload = {}, bool includeSelf = true);
+        // This entity (optional) and its ancestors, nearest first.
+        int SendMessageUpwards(std::string name, std::any payload = {}, bool includeSelf = true);
+        // Every running script in the scene, this one included.
+        int Broadcast(std::string name, std::any payload = {});
+
+        // ---- event bus (publish / subscribe). Subscriptions made here end automatically
+        // when this script is destroyed.
+        //   Subscribe("CoinCollected", [this](const ScriptMessage&) { m_Coins++; });
+        //   Emit("CoinCollected");                 // now
+        //   EmitDeferred("LevelDone", levelIndex);  // after this frame's OnLateUpdate
+        SubscriptionID Subscribe(std::string eventName, MessageHandler handler);
+        bool Unsubscribe(SubscriptionID id);
+        int Emit(std::string eventName, std::any payload = {});
+        void EmitDeferred(std::string eventName, std::any payload = {});
+        EventBus& GetEventBus() const;
+
         // Returns the script instance of type T attached to `entity` (or nullptr).
         template<typename T>
         static T* GetScript(Entity entity)
@@ -139,6 +244,28 @@ namespace Zamin {
         void TickTimers(float ts);
 
     private:
+        template<typename T>
+        static T* ComponentOrScript(Entity e)
+        {
+            if constexpr (std::is_base_of_v<ScriptableEntity, T>)
+                return GetScript<T>(e);
+            else
+                return e.TryGetComponent<T>();
+        }
+        // Depth-first over this entity (optional) and its descendants / its ancestors;
+        // stops at (and returns) the first entity for which visit() returns true.
+        Entity VisitChildren(bool includeSelf, const std::function<bool(Entity)>& visit) const;
+        Entity VisitParents(bool includeSelf, const std::function<bool(Entity)>& visit) const;
+        // Called by the scene for SendMessage / Broadcast.
+        void ReceiveMessage(const ScriptMessage& message);
+
+        struct NamedHandler
+        {
+            std::string Name;
+            MessageHandler Handler;
+        };
+        std::vector<NamedHandler> m_MessageHandlers;
+
         struct Timer
         {
             float Remaining = 0.0f, Interval = 0.0f;

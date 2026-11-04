@@ -68,6 +68,17 @@ namespace Zamin {
         return s_ActiveProject ? s_ActiveProject->m_Config.InputActions : s_Default;
     }
 
+    bool Project::RegisterTag(const std::string& tag)
+    {
+        if (!s_ActiveProject || tag.empty())
+            return false;
+        auto& tags = s_ActiveProject->m_Config.Tags;
+        if (std::find(tags.begin(), tags.end(), tag) != tags.end())
+            return false;
+        tags.push_back(tag);
+        return true;
+    }
+
     std::filesystem::path Project::GetAssetFileSystemPath(const std::filesystem::path& path)
     {
         if (path.is_absolute() || !s_ActiveProject)
@@ -182,6 +193,7 @@ namespace Zamin {
             { "EngineVersion", "0.1.0" },
         };
         j["InputActions"] = InputMapToJson(c.InputActions);
+        j["Tags"] = c.Tags;
         return FileSystem::WriteTextFile(filepath, j.dump(4));
     }
 
@@ -204,6 +216,17 @@ namespace Zamin {
                 c.InputActions = InputMapFromJson(j["InputActions"]);
             else
                 c.InputActions = InputActionMap::CreateDefault();
+            // Tag list (older projects: the defaults).
+            if (j.contains("Tags") && j["Tags"].is_array())
+            {
+                c.Tags.clear();
+                for (const json& tag : j["Tags"])
+                    if (tag.is_string() && !tag.get<std::string>().empty() &&
+                        std::find(c.Tags.begin(), c.Tags.end(), tag.get<std::string>()) == c.Tags.end())
+                        c.Tags.push_back(tag.get<std::string>());
+            }
+            else
+                c.Tags = ProjectConfig::DefaultTags();
         }
         catch (const std::exception& e)
         {

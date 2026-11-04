@@ -14,7 +14,7 @@ public:
     float BobHeight = 0.15f;
     std::string Effect = "Prefabs/CoinSparkle.zprefab";
 
-    void OnCreate() override { m_BaseY = Transform().Translation.y; m_Phase = Transform().Translation.x; }
+    void OnCreate() override { m_BaseY = Transform().Translation.y; m_Phase = Random::Angle(); }
 
     void OnUpdate(Timestep) override
     {
@@ -24,11 +24,10 @@ public:
 
     void OnCollisionBegin(Entity other) override
     {
-        if (m_Collected || other.GetName() != "Player")
+        if (m_Collected || !other.HasTag("Player"))
             return;
         m_Collected = true;
-        if (auto* gm = GetScript<GameManager>(FindEntity("GameManager")))
-            gm->AddCoin();
+        Emit("CoinCollected"); // GameManager obuna bo'lgan
         Instantiate(Effect, GetWorldPosition());
         Destroy();
     }

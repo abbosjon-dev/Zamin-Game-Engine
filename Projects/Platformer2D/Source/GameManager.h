@@ -11,6 +11,8 @@ public:
 
     void OnCreate() override;
     void OnLateUpdate(Zamin::Timestep ts) override;
+    // "PlayerFell" xabari (SendMessage orqali keladi).
+    void OnMessage(const Zamin::ScriptMessage& message) override;
 
     void AddCoin();
     void OnPlayerFell();

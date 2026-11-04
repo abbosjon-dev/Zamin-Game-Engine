@@ -330,7 +330,7 @@ namespace Zamin {
             if (ImGui::InputText("##rename", &m_RenameBuffer, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll))
             {
                 if (!m_RenameBuffer.empty())
-                    entity.GetComponent<TagComponent>().Tag = m_RenameBuffer;
+                    entity.SetName(m_RenameBuffer);
                 m_RenamingEntity = entt::null;
                 MarkModified();
             }
@@ -425,7 +425,7 @@ namespace Zamin {
             ImGui::EndPopup();
         }
 
-        UI::SearchBox("HierarchySearch", m_Filter);
+        UI::SearchBox("HierarchySearch", m_Filter, "Qidirish...  (#teg)");
         ImGui::Spacing();
 
         std::string filter = ToLower(m_Filter);
@@ -443,7 +443,7 @@ namespace Zamin {
                 if ((uint64_t)entity.GetComponent<RelationshipComponent>().Parent && m_Context->GetParent(entity))
                     continue; // drawn by its parent
             }
-            else if (ToLower(entity.GetName()).find(filter) == std::string::npos)
+            else if (!MatchesFilter(entity, filter))
                 continue;
             DrawEntityNode(entity, 0);
         }
@@ -495,6 +495,22 @@ namespace Zamin {
             m_Context->DestroyEntity(m_PendingDelete);
             MarkModified();
         }
+    }
+
+    // Name search, or "#tag" to list entities by gameplay tag ("#" alone: any tagged entity).
+    bool SceneHierarchyPanel::MatchesFilter(Entity entity, const std::string& lowerFilter)
+    {
+        if (!lowerFilter.empty() && lowerFilter[0] == '#')
+        {
+            const auto* tags = entity.TryGetComponent<TagsComponent>();
+            if (!tags) return false;
+            std::string wanted = lowerFilter.substr(1);
+            for (const auto& tag : tags->Tags)
+                if (ToLower(tag).find(wanted) != std::string::npos)
+                    return true;
+            return false;
+        }
+        return ToLower(entity.GetName()).find(lowerFilter) != std::string::npos;
     }
 
     // ------------------------------------------------------------------ inspector
@@ -726,6 +742,108 @@ namespace Zamin {
             UI::Tooltip("Tozalash");
 
         ImGui::PopID();
+        return changed;
+    }
+
+    static std::string TrimTag(const std::string& s)
+    {
+        size_t b = s.find_first_not_of(" \t\r\n");
+        if (b == std::string::npos) return {};
+        size_t e = s.find_last_not_of(" \t\r\n");
+        return s.substr(b, e - b + 1);
+    }
+
+    bool SceneHierarchyPanel::DrawTagsComponent(TagsComponent& c)
+    {
+        bool changed = false;
+        const ImGuiStyle& style = ImGui::GetStyle();
+
+        UI::PropertyLabel("Teglar");
+        if (c.Tags.empty())
+            ImGui::TextDisabled("(teg yo'q)");
+        else
+        {
+            // Chips wrap onto new lines; clicking one removes the tag.
+            const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+            int remove = -1;
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, ImGui::GetFrameHeight() * 0.5f);
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.52f, 0.41f, 0.55f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.72f, 0.27f, 0.24f, 0.85f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.82f, 0.30f, 0.27f, 1.0f));
+            for (int i = 0; i < (int)c.Tags.size(); i++)
+            {
+                std::string label = std::string(ICON_FA_TAG " ") + c.Tags[i] + "  " ICON_FA_XMARK;
+                float w = ImGui::CalcTextSize(label.c_str()).x + style.FramePadding.x * 2.0f;
+                if (i > 0 && ImGui::GetItemRectMax().x + style.ItemSpacing.x + w <= right)
+                    ImGui::SameLine();
+                ImGui::PushID(i);
+                if (ImGui::Button(label.c_str()))
+                    remove = i;
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Tegni olib tashlash");
+                ImGui::PopID();
+            }
+            ImGui::PopStyleColor(3);
+            ImGui::PopStyleVar();
+            if (remove >= 0)
+            {
+                c.Tags.erase(c.Tags.begin() + remove);
+                changed = true;
+            }
+        }
+
+        // Add: type a new tag (Enter) or pick one used in the project / scene.
+        UI::PropertyLabel("Qo'shish");
+        const float buttonW = ImGui::GetFrameHeight();
+        ImGui::SetNextItemWidth(std::max(40.0f, ImGui::GetContentRegionAvail().x - buttonW - style.ItemSpacing.x));
+        std::string toAdd;
+        if (ImGui::InputTextWithHint("##newTag", "Yangi teg (Enter)", &m_NewTagBuffer, ImGuiInputTextFlags_EnterReturnsTrue))
+        {
+            toAdd = TrimTag(m_NewTagBuffer);
+            m_NewTagBuffer.clear();
+            ImGui::SetKeyboardFocusHere(-1); // keep typing the next tag
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_LIST "##tagSuggestions", ImVec2(buttonW, 0)))
+            ImGui::OpenPopup("TagSuggestions");
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Mavjud teglardan tanlash");
+        if (ImGui::BeginPopup("TagSuggestions"))
+        {
+            std::vector<std::string> known;
+            if (auto project = Project::GetActive())
+                known = project->GetConfig().Tags;
+            for (auto& t : m_Context->GetAllTags())
+                if (std::find(known.begin(), known.end(), t) == known.end())
+                    known.push_back(t);
+            std::string filter = ToLower(TrimTag(m_NewTagBuffer));
+            int shown = 0;
+            for (const auto& t : known)
+            {
+                if (c.Has(t) || (!filter.empty() && ToLower(t).find(filter) == std::string::npos))
+                    continue;
+                if (ImGui::Selectable((std::string(ICON_FA_TAG "  ") + t).c_str()))
+                {
+                    toAdd = t;
+                    m_NewTagBuffer.clear();
+                }
+                shown++;
+            }
+            if (shown == 0)
+                ImGui::TextDisabled("Taklif yo'q: yangi teg nomini yozing");
+            ImGui::EndPopup();
+        }
+
+        if (!toAdd.empty() && c.Add(toAdd))
+        {
+            changed = true;
+            // New names go to the project's tag list (Project settings > Tags).
+            if (Project::RegisterTag(toAdd) && OnProjectSettingsModified)
+                OnProjectSettingsModified();
+        }
+
+        UI::PropertyLabel("");
+        ImGui::TextDisabled("Skriptda: HasTag(\"%s\"), FindEntitiesWithTag(...)", c.Tags.empty() ? "Enemy" : c.Tags.front().c_str());
         return changed;
     }
 
@@ -988,7 +1106,10 @@ namespace Zamin {
             float addWidth = ImGui::CalcTextSize(ICON_FA_PLUS "  Komponent").x + ImGui::GetStyle().FramePadding.x * 2;
             ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - addWidth - ImGui::GetStyle().ItemSpacing.x);
             if (ImGui::InputText("##Tag", &tag))
+            {
+                entity.GetScene()->InvalidateNameCache(); // edited in place (FindEntity cache)
                 modified = true;
+            }
             ImGui::SameLine();
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.52f, 0.41f, 1.0f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.62f, 0.50f, 1.0f));
@@ -1033,6 +1154,7 @@ namespace Zamin {
                 ImGui::SeparatorText("Boshqa");
                 DisplayAddComponentEntry<AudioSourceComponent>("Audio Source", ICON_FA_VOLUME_HIGH);
                 DisplayAddComponentEntry<NativeScriptComponent>("C++ Script", ICON_FA_CODE);
+                DisplayAddComponentEntry<TagsComponent>("Teglar (Tags)", ICON_FA_TAGS);
                 ImGui::EndPopup();
             }
             ImGui::TextDisabled("ID: %llu", (unsigned long long)(uint64_t)entity.GetUUID());
@@ -1050,6 +1172,10 @@ namespace Zamin {
             changed |= UI::Vec3Control("Masshtab", c.Scale, 1.0f);
             return changed;
         }, false, modified);
+
+        DrawComponent<TagsComponent>(ICON_FA_TAGS, "Teglar", entity, [&](TagsComponent& c) {
+            return DrawTagsComponent(c);
+        }, true, modified);
 
         DrawComponent<CameraComponent>(ICON_FA_CAMERA, "Camera", entity, [](CameraComponent& c) {
             bool changed = false;

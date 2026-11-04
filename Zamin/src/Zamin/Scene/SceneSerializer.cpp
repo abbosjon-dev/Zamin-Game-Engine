@@ -112,6 +112,8 @@ namespace Zamin {
             auto& t = entity.GetComponent<TransformComponent>();
             e["Transform"] = { { "Translation", ToJson(t.Translation) }, { "Rotation", ToJson(t.Rotation) }, { "Scale", ToJson(t.Scale) } };
         }
+        if (auto* c = entity.TryGetComponent<TagsComponent>())
+            e["Tags"] = c->Tags; // gameplay tags ("Tag" above is the display name)
         if (auto* c = entity.TryGetComponent<CameraComponent>())
         {
             auto& cam = c->Camera;
@@ -247,6 +249,14 @@ namespace Zamin {
             t.Translation = Vec(j, "Translation", glm::vec3(0.0f));
             t.Rotation = Vec(j, "Rotation", glm::vec3(0.0f));
             t.Scale = Vec(j, "Scale", glm::vec3(1.0f));
+        }
+        if (e.contains("Tags") && e["Tags"].is_array())
+        {
+            auto& c = entity.AddOrReplaceComponent<TagsComponent>();
+            c.Tags.clear();
+            for (const json& tag : e["Tags"])
+                if (tag.is_string())
+                    c.Add(tag.get<std::string>()); // skips empty / duplicate entries
         }
         if (e.contains("Camera"))
         {

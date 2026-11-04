@@ -21,6 +21,8 @@ namespace Zamin {
 
         Entity GetSelectedEntity() const { return m_SelectionContext; }
         void SetSelectedEntity(Entity entity) { m_SelectionContext = entity; }
+        // Hierarchy search text ("#tag" filters by gameplay tag).
+        void SetFilter(const std::string& filter) { m_Filter = filter; }
 
         // Entity creation shortcuts (also used by the editor menu).
         Entity CreateEntityPreset(const char* preset);
@@ -38,6 +40,8 @@ namespace Zamin {
         std::function<void()> OnSceneModified;
         std::function<void(Entity)> OnSavePrefabRequested;
         std::function<void(const std::filesystem::path&, Entity parent)> OnPrefabDropped;
+        // The project's tag list changed (a new tag was typed in the inspector).
+        std::function<void()> OnProjectSettingsModified;
 
     private:
         template<typename T>
@@ -50,6 +54,9 @@ namespace Zamin {
         bool DrawFieldValue(const char* name, ScriptFieldType type, void* data);
         // EntityRef script field: drop from the hierarchy, pick from a list, locate, clear.
         bool DrawEntityRefField(const char* name, EntityRef& ref);
+        // Gameplay tags: removable chips + add field with suggestions.
+        bool DrawTagsComponent(TagsComponent& c);
+        bool MatchesFilter(Entity entity, const std::string& lowerFilter);
         const std::unordered_map<std::string, ScriptFieldValue>& GetScriptDefaults(const std::string& className);
         void MarkModified() { if (OnSceneModified) OnSceneModified(); }
 
@@ -59,6 +66,7 @@ namespace Zamin {
         std::string m_Filter;
         std::string m_AddComponentFilter;
         std::string m_EntityPickerFilter;
+        std::string m_NewTagBuffer;
         entt::entity m_RenamingEntity = entt::null;
         std::string m_RenameBuffer;
         Entity m_PendingDelete, m_PendingDuplicate, m_PendingCreateChildOf;

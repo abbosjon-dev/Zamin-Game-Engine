@@ -1665,6 +1665,851 @@ TEST(SaveDataProjectLocation)
     std::filesystem::remove_all(dir, ec);
 }
 
+// ------------------------------------------------------------------ M01: Random
+TEST(RandomDeterminism)
+{
+    // PCG32 reference output (pcg32-demo: seed 42, stream 54).
+    RandomGenerator ref(42u, 54u);
+    const uint32_t expected[] = { 0xa15c02b7u, 0x7b47f409u, 0xba1d3330u, 0x83d2f293u, 0xbfa4784bu, 0xcbed606eu };
+    for (uint32_t e : expected)
+        CHECK(ref.NextUInt() == e);
+
+    // Same seed -> same sequence, different seed -> different sequence.
+    RandomGenerator a(1234), b(1234), c(1235);
+    bool allSame = true, anyDifferent = false;
+    for (int i = 0; i < 100; i++)
+    {
+        float x = a.Float();
+        allSame &= x == b.Float();
+        anyDifferent |= x != c.Float();
+    }
+    CHECK(allSame);
+    CHECK(anyDifferent);
+    CHECK(a.GetSeed() == 1234);
+
+    // SetSeed restarts the sequence (including the cached Gaussian pair).
+    RandomGenerator g(7);
+    float first[4] = { g.Float(), g.Gaussian(), g.Range(0.0f, 10.0f), (float)g.Int(1, 100) };
+    g.Gaussian(); // leaves a spare value behind
+    g.SetSeed(7);
+    float again[4] = { g.Float(), g.Gaussian(), g.Range(0.0f, 10.0f), (float)g.Int(1, 100) };
+    for (int i = 0; i < 4; i++)
+        CHECK(first[i] == again[i]);
+
+    // The global generator follows Random::SetSeed.
+    Random::SetSeed(99);
+    RandomGenerator local(99);
+    CHECK(Random::GetSeed() == 99);
+    CHECK(Random::Float() == local.Float());
+    CHECK(Random::Range(-5, 5) == local.Range(-5, 5));
+    CHECK(Random::InsideCircle(2.0f) == local.InsideCircle(2.0f));
+
+    // Randomize picks a new seed (two in a row are practically never equal).
+    RandomGenerator r1, r2;
+    CHECK(r1.GetSeed() != r2.GetSeed());
+
+    // Shuffle: a permutation, reproducible with the seed.
+    std::vector<int> v1(50), v2(50);
+    for (int i = 0; i < 50; i++) v1[i] = v2[i] = i;
+    RandomGenerator s1(5), s2(5);
+    s1.Shuffle(v1);
+    s2.Shuffle(v2);
+    CHECK(v1 == v2);
+    std::vector<int> sorted = v1;
+    std::sort(sorted.begin(), sorted.end());
+    bool permutation = true;
+    for (int i = 0; i < 50; i++) permutation &= sorted[i] == i;
+    CHECK(permutation);
+    bool moved = false;
+    for (int i = 0; i < 50; i++) moved |= v1[i] != i;
+    CHECK(moved);
+}
+
+TEST(RandomRanges)
+{
+    RandomGenerator rng(2024);
+    const int N = 20000;
+
+    // Float in [0, 1), mean ~0.5
+    double sum = 0.0;
+    bool inRange = true;
+    for (int i = 0; i < N; i++)
+    {
+        float f = rng.Float();
+        inRange &= f >= 0.0f && f < 1.0f;
+        sum += f;
+    }
+    CHECK(inRange);
+    CHECK_NEAR(sum / N, 0.5, 0.01);
+
+    // Float ranges (also with swapped / equal ends)
+    bool rangeOk = true;
+    double rangeSum = 0.0;
+    for (int i = 0; i < N; i++)
+    {
+        float f = rng.Range(-3.0f, 7.0f);
+        rangeOk &= f >= -3.0f && f <= 7.0f;
+        rangeSum += f;
+        float s = rng.Range(5.0f, 2.0f);
+        rangeOk &= s >= 2.0f && s <= 5.0f;
+    }
+    CHECK(rangeOk);
+    CHECK_NEAR(rangeSum / N, 2.0, 0.1);
+    CHECK(rng.Range(4.0f, 4.0f) == 4.0f);
+
+    // Int: both ends inclusive, every value reachable, roughly uniform
+    int counts[6] = {};
+    bool intOk = true;
+    for (int i = 0; i < N; i++)
+    {
+        int d = rng.Int(1, 6);
+        intOk &= d >= 1 && d <= 6;
+        if (d >= 1 && d <= 6) counts[d - 1]++;
+    }
+    CHECK(intOk);
+    for (int c : counts)
+        CHECK(std::abs(c - N / 6) < N / 60); // within 10 %
+    CHECK(rng.Range(5, 5) == 5);
+    bool swappedOk = true;
+    for (int i = 0; i < 100; i++) { int v = rng.Range(10, -10); swappedOk &= v >= -10 && v <= 10; }
+    CHECK(swappedOk);
+    // Extreme ranges do not overflow
+    bool extremeOk = true;
+    for (int i = 0; i < 100; i++)
+    {
+        int v = rng.Int(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
+        (void)v;
+        int w = rng.Int(std::numeric_limits<int>::max() - 1, std::numeric_limits<int>::max());
+        extremeOk &= w >= std::numeric_limits<int>::max() - 1;
+        int m = rng.Int(std::numeric_limits<int>::min(), std::numeric_limits<int>::min() + 2);
+        extremeOk &= m <= std::numeric_limits<int>::min() + 2;
+    }
+    CHECK(extremeOk);
+
+    // Index
+    CHECK(rng.Index(0) == 0);
+    CHECK(rng.Index(1) == 0);
+    bool indexOk = true;
+    for (int i = 0; i < 1000; i++) indexOk &= rng.Index(7) < 7;
+    CHECK(indexOk);
+    std::vector<std::string> names = { "a", "b", "c" };
+    std::set<std::string> picked;
+    for (int i = 0; i < 200; i++) picked.insert(rng.Pick(names));
+    CHECK(picked.size() == 3);
+
+    // Bool probabilities
+    int trues = 0;
+    bool never = false, always = true;
+    for (int i = 0; i < N; i++)
+    {
+        trues += rng.Bool(0.25f) ? 1 : 0;
+        never |= rng.Bool(0.0f);
+        always &= rng.Bool(1.0f);
+    }
+    CHECK(!never);
+    CHECK(always);
+    CHECK_NEAR((double)trues / N, 0.25, 0.015);
+    float sign = rng.Sign();
+    CHECK(sign == 1.0f || sign == -1.0f);
+
+    // Angle / Gaussian
+    bool angleOk = true;
+    for (int i = 0; i < 1000; i++) { float a = rng.Angle(); angleOk &= a >= 0.0f && a < 6.2832f; }
+    CHECK(angleOk);
+    double gSum = 0.0, gSq = 0.0;
+    for (int i = 0; i < N; i++) { double g = rng.Gaussian(10.0f, 2.0f); gSum += g; gSq += g * g; }
+    double mean = gSum / N, var = gSq / N - mean * mean;
+    CHECK_NEAR(mean, 10.0, 0.06);
+    CHECK_NEAR(std::sqrt(var), 2.0, 0.06);
+
+    // Weighted choice
+    const float weights[] = { 1.0f, 0.0f, 3.0f, -2.0f };
+    int wc[4] = {};
+    for (int i = 0; i < N; i++)
+    {
+        int k = rng.WeightedIndex(weights);
+        if (k >= 0) wc[k]++;
+    }
+    CHECK(wc[1] == 0 && wc[3] == 0);
+    CHECK_NEAR((double)wc[2] / N, 0.75, 0.015);
+    const float zero[] = { 0.0f, -1.0f };
+    CHECK(rng.WeightedIndex(zero) == -1);
+    CHECK(rng.WeightedIndex({}) == -1);
+
+    // Colors stay valid
+    bool colorOk = true;
+    for (int i = 0; i < 500; i++)
+    {
+        glm::vec4 c = rng.ColorHSV();
+        colorOk &= c.r >= 0.0f && c.r <= 1.0f && c.g >= 0.0f && c.g <= 1.0f && c.b >= 0.0f && c.b <= 1.0f && c.a == 1.0f;
+    }
+    CHECK(colorOk);
+    glm::vec4 red = rng.ColorHSV(0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+    CHECK_NEAR(red.r, 1.0f, 1e-5f);
+    CHECK_NEAR(red.g, 0.0f, 1e-5f);
+    CHECK_NEAR(red.b, 0.0f, 1e-5f);
+}
+
+TEST(RandomGeometry)
+{
+    RandomGenerator rng(77);
+    const int N = 20000;
+
+    // Inside a circle: within the radius, uniform over the area (1/4 inside r/2).
+    int innerCircle = 0;
+    bool circleOk = true;
+    glm::vec2 circleMean(0.0f);
+    for (int i = 0; i < N; i++)
+    {
+        glm::vec2 p = rng.InsideCircle(3.0f);
+        float len = glm::length(p);
+        circleOk &= len <= 3.0f + 1e-4f;
+        innerCircle += len < 1.5f ? 1 : 0;
+        circleMean += p;
+    }
+    CHECK(circleOk);
+    CHECK_NEAR((double)innerCircle / N, 0.25, 0.015);
+    CHECK(glm::length(circleMean / (float)N) < 0.06f);
+
+    // On a circle / sphere: exactly on the radius, centred on the origin.
+    bool onOk = true;
+    glm::vec3 sphereMean(0.0f);
+    int upperHalf = 0;
+    for (int i = 0; i < N; i++)
+    {
+        onOk &= std::abs(glm::length(rng.OnUnitCircle()) - 1.0f) < 1e-4f;
+        onOk &= std::abs(glm::length(rng.OnCircle(2.5f)) - 2.5f) < 1e-3f;
+        glm::vec3 s = rng.OnSphere(4.0f);
+        onOk &= std::abs(glm::length(s) - 4.0f) < 1e-3f;
+        sphereMean += s;
+        upperHalf += s.y > 0.0f ? 1 : 0;
+        onOk &= std::abs(glm::length(rng.OnUnitSphere()) - 1.0f) < 1e-4f;
+    }
+    CHECK(onOk);
+    CHECK(glm::length(sphereMean / (float)N) < 0.1f);
+    CHECK_NEAR((double)upperHalf / N, 0.5, 0.015);
+
+    // Inside a sphere: within the radius, 1/8 of the points inside r/2.
+    int innerSphere = 0;
+    bool sphereOk = true;
+    for (int i = 0; i < N; i++)
+    {
+        glm::vec3 p = rng.InsideSphere(2.0f);
+        float len = glm::length(p);
+        sphereOk &= len <= 2.0f + 1e-4f;
+        innerSphere += len < 1.0f ? 1 : 0;
+    }
+    CHECK(sphereOk);
+    CHECK_NEAR((double)innerSphere / N, 0.125, 0.012);
+
+    // Box and rotation
+    bool boxOk = true, rotOk = true;
+    for (int i = 0; i < 1000; i++)
+    {
+        glm::vec3 b = rng.InsideBox({ -1.0f, 2.0f, 5.0f }, { 1.0f, 3.0f, 5.0f });
+        boxOk &= b.x >= -1.0f && b.x <= 1.0f && b.y >= 2.0f && b.y <= 3.0f && b.z == 5.0f;
+        glm::quat q = rng.Rotation();
+        rotOk &= std::abs(glm::length(q) - 1.0f) < 1e-4f;
+    }
+    CHECK(boxOk);
+    CHECK(rotOk);
+}
+
+// ------------------------------------------------------------------ M01: tags
+class TagProbe : public ScriptableEntity
+{
+public:
+};
+ZM_REGISTER_SCRIPT(TagProbe)
+
+TEST(TagsQueries)
+{
+    auto scene = CreateRef<Scene>();
+    Entity e1 = scene->CreateEntity("Goblin");
+    Entity e2 = scene->CreateEntity("Orc");
+    Entity e3 = scene->CreateEntity("Tree");
+    Entity e4 = scene->CreateEntity("Dragon");
+
+    CHECK(!e1.HasTag("Enemy"));
+    CHECK(e4.AddTag("Boss"));       // creates the component
+    CHECK(e4.HasComponent<TagsComponent>());
+    CHECK(e4.AddTag("Enemy"));
+    CHECK(e2.AddTag("Enemy"));
+    CHECK(e1.AddTag("Enemy"));
+    CHECK(!e1.AddTag("Enemy"));     // duplicate
+    CHECK(!e3.AddTag(""));          // empty
+    CHECK(!e3.HasComponent<TagsComponent>());
+    CHECK(e1.HasTag("Enemy") && !e1.HasTag("enemy")); // case sensitive
+    CHECK(!e3.HasTag("Enemy"));
+
+    // Results come in scene order, whatever order the tags were added in.
+    std::vector<Entity> enemies = scene->FindEntitiesWithTag("Enemy");
+    CHECK(enemies.size() == 3);
+    CHECK(enemies.size() == 3 && enemies[0] == e1 && enemies[1] == e2 && enemies[2] == e4);
+    CHECK(scene->FindEntityWithTag("Enemy") == e1);
+    CHECK(scene->FindEntityWithTag("Boss") == e4);
+    CHECK(!scene->FindEntityWithTag("Nobody"));
+    CHECK(scene->FindEntitiesWithTag("Nobody").empty());
+    CHECK(scene->CountEntitiesWithTag("Enemy") == 3);
+    CHECK(scene->GetAllTags() == std::vector<std::string>({ "Boss", "Enemy" }));
+
+    CHECK(e1.RemoveTag("Enemy"));
+    CHECK(!e1.RemoveTag("Enemy"));
+    CHECK(!e3.RemoveTag("Enemy"));
+    CHECK(scene->FindEntityWithTag("Enemy") == e2);
+
+    // Copies keep their tags.
+    Entity copy = scene->DuplicateEntity(e4);
+    CHECK(copy.HasTag("Boss") && copy.HasTag("Enemy"));
+    CHECK(scene->CountEntitiesWithTag("Boss") == 2);
+
+    // Serialization round trip (order of the tags is kept).
+    e2.AddTag("Green");
+    SceneSerializer serializer(scene);
+    std::string text = serializer.SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity lo = loaded->FindEntityByName("Orc");
+    CHECK(lo && lo.HasComponent<TagsComponent>());
+    CHECK(lo && lo.GetComponent<TagsComponent>().Tags == std::vector<std::string>({ "Enemy", "Green" }));
+    Entity lg = loaded->FindEntityByName("Goblin");
+    CHECK(lg && lg.HasComponent<TagsComponent>() && lg.GetComponent<TagsComponent>().Tags.empty()); // kept, empty
+    CHECK(loaded->FindEntityByName("Tree") && !loaded->FindEntityByName("Tree").HasComponent<TagsComponent>());
+    CHECK(loaded->CountEntitiesWithTag("Boss") == 2);
+
+    // Hand-edited files: empty and duplicate entries are dropped.
+    auto edited = CreateRef<Scene>();
+    CHECK(SceneSerializer(edited).DeserializeFromString(
+        R"({"Scene":"T","Entities":[{"Entity":12345,"Tag":"X","Tags":["A","","A","B",7]}]})"));
+    Entity ex = edited->FindEntityByName("X");
+    CHECK(ex && ex.GetComponent<TagsComponent>().Tags == std::vector<std::string>({ "A", "B" }));
+
+    // Runtime copy + script helpers.
+    e3.AddComponent<NativeScriptComponent>().ClassName = "TagProbe";
+    auto runtime = Scene::Copy(scene);
+    runtime->OnRuntimeStart();
+    auto* probe = ScriptableEntity::GetScript<TagProbe>(runtime->FindEntityByName("Tree"));
+    CHECK(probe != nullptr);
+    if (probe)
+    {
+        CHECK(!probe->HasTag("Tree"));
+        CHECK(probe->AddTag("Tree"));
+        CHECK(probe->HasTag("Tree"));
+        CHECK(probe->FindEntityWithTag("Tree") == probe->GetEntity());
+        CHECK(probe->FindEntitiesWithTag("Enemy").size() == 3); // Orc, Dragon, its copy
+        CHECK(probe->FindEntityWithTag("Enemy") == runtime->FindEntityByName("Orc"));
+        CHECK(probe->RemoveTag("Tree"));
+    }
+    CHECK(!scene->FindEntityWithTag("Tree")); // the editor scene is untouched
+    runtime->OnRuntimeStop();
+}
+
+TEST(ProjectTagList)
+{
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-tags-" + std::to_string((uint64_t)UUID()));
+    auto project = Project::CreateFromTemplate(dir, "TagGame");
+    CHECK(project != nullptr);
+    if (project)
+    {
+        CHECK(project->GetConfig().Tags == ProjectConfig::DefaultTags());
+        CHECK(Project::RegisterTag("Coin"));
+        CHECK(!Project::RegisterTag("Coin"));
+        CHECK(!Project::RegisterTag(""));
+        CHECK(Project::SaveActive(dir / "TagGame.zproject"));
+        auto loaded = Project::Load(dir / "TagGame.zproject");
+        CHECK(loaded && loaded->GetConfig().Tags.size() == ProjectConfig::DefaultTags().size() + 1);
+        CHECK(loaded && loaded->GetConfig().Tags.back() == "Coin");
+
+        CHECK(FileSystem::WriteTextFile(dir / "Edited.zproject", R"({"Project":{"Name":"E"},"Tags":["A","","A","B"]})"));
+        auto edited = Project::Load(dir / "Edited.zproject");
+        CHECK(edited && edited->GetConfig().Tags == std::vector<std::string>({ "A", "B" }));
+        CHECK(FileSystem::WriteTextFile(dir / "Old.zproject", R"({"Project":{"Name":"Old"}})"));
+        auto old = Project::Load(dir / "Old.zproject");
+        CHECK(old && old->GetConfig().Tags == ProjectConfig::DefaultTags());
+    }
+    Project::SetActive(nullptr);
+    CHECK(!Project::RegisterTag("NoProject"));
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+}
+
+// ------------------------------------------------------------------ M01: messages / events
+static std::vector<std::string> g_MessageLog;
+
+class MessageReceiver : public ScriptableEntity
+{
+public:
+    float Health = 100.0f;
+    int Received = 0;
+
+    void OnCreate() override
+    {
+        AddMessageHandler("Damage", [this](const ScriptMessage& m) {
+            Health -= m.Get<float>();
+            g_MessageLog.push_back(GetName() + ":handler");
+        });
+    }
+
+    void OnMessage(const ScriptMessage& m) override
+    {
+        Received++;
+        g_MessageLog.push_back(GetName() + ":" + m.Name);
+        if (m.Name == "Ping" && m.Sender && m.Sender != GetEntity())
+            SendMessage(m.Sender, "Pong", GetName());
+        if (m.Name == "Loop")
+            SendMessage(GetEntity(), "Loop"); // endless: stopped by the depth guard
+        if (m.Name == "Mute")
+            RemoveMessageHandlers("Damage");
+    }
+};
+ZM_REGISTER_SCRIPT(MessageReceiver)
+
+TEST(ScriptMessages)
+{
+    // Payload conversions
+    ScriptMessage m{ "X", {}, 5 };
+    CHECK(m.HasPayload() && m.Is<int>() && !m.Is<float>());
+    CHECK(m.Get<int>() == 5);
+    CHECK(m.Get<float>() == 5.0f);
+    CHECK(m.Get<double>() == 5.0);
+    CHECK(m.Get<bool>() == true);
+    CHECK(m.Get<std::string>("none") == "none");
+    CHECK(m.TryGet<int>() && *m.TryGet<int>() == 5 && !m.TryGet<float>());
+    ScriptMessage f{ "F", {}, 2.75f };
+    CHECK(f.Get<int>() == 2);
+    ScriptMessage s{ "S", {}, "salom" };
+    CHECK(s.Get<std::string>() == "salom");
+    CHECK(s.Get<int>(-1) == -1);
+    ScriptMessage v{ "V", {}, glm::vec3(1, 2, 3) };
+    CHECK(v.Get<glm::vec3>() == glm::vec3(1, 2, 3));
+    CHECK(v.Get<float>(9.0f) == 9.0f);
+    ScriptMessage empty{ "E" };
+    CHECK(!empty.HasPayload() && empty.Get<int>(3) == 3);
+
+    // Hierarchy: Root -> (A -> A1), B; C is a separate root; D has no script.
+    auto scene = CreateRef<Scene>();
+    Entity root = scene->CreateEntity("Root");
+    Entity a = scene->CreateEntity("A");
+    Entity a1 = scene->CreateEntity("A1");
+    Entity b = scene->CreateEntity("B");
+    Entity c = scene->CreateEntity("C");
+    Entity d = scene->CreateEntity("D");
+    scene->SetParent(a, root);
+    scene->SetParent(a1, a);
+    scene->SetParent(b, root);
+    scene->SetParent(d, root);
+    for (Entity e : { root, a, a1, b, c })
+        e.AddComponent<NativeScriptComponent>().ClassName = "MessageReceiver";
+
+    // Without running scripts nothing is delivered.
+    CHECK(!scene->SendMessage(a, ScriptMessage{ "Hello" }));
+
+    scene->OnRuntimeStart();
+    auto* ra = ScriptableEntity::GetScript<MessageReceiver>(a);
+    auto* rroot = ScriptableEntity::GetScript<MessageReceiver>(root);
+    auto* rc = ScriptableEntity::GetScript<MessageReceiver>(c);
+    CHECK(ra && rroot && rc);
+    if (ra && rroot && rc)
+    {
+        // Direct message: named handler first, then OnMessage.
+        g_MessageLog.clear();
+        CHECK(rc->SendMessage(a, "Damage", 30));
+        CHECK_NEAR(ra->Health, 70.0f, 1e-5f);
+        CHECK(g_MessageLog == std::vector<std::string>({ "A:handler", "A:Damage" }));
+        CHECK(!rc->SendMessage(d, "Damage", 10));        // no script
+        CHECK(!rc->SendMessage(Entity{}, "Damage", 10));  // invalid entity
+
+        // Replies: the sender is known.
+        g_MessageLog.clear();
+        CHECK(rc->SendMessage(a, "Ping"));
+        CHECK(g_MessageLog == std::vector<std::string>({ "A:Ping", "C:Pong" }));
+
+        // Children (depth-first) and upwards.
+        g_MessageLog.clear();
+        CHECK(rroot->SendMessageToChildren("Wave") == 4);
+        CHECK(g_MessageLog == std::vector<std::string>({ "Root:Wave", "A:Wave", "A1:Wave", "B:Wave" }));
+        g_MessageLog.clear();
+        CHECK(rroot->SendMessageToChildren("Wave", {}, false) == 3);
+        CHECK(g_MessageLog.size() == 3 && g_MessageLog.front() == "A:Wave");
+        auto* ra1 = ScriptableEntity::GetScript<MessageReceiver>(a1);
+        g_MessageLog.clear();
+        CHECK(ra1 && ra1->SendMessageUpwards("Up") == 3);
+        CHECK(g_MessageLog == std::vector<std::string>({ "A1:Up", "A:Up", "Root:Up" }));
+        CHECK(ra1 && ra1->SendMessageUpwards("Up", {}, false) == 2);
+
+        // Broadcast reaches every script in scene order.
+        g_MessageLog.clear();
+        CHECK(rc->Broadcast("All", 1) == 5);
+        CHECK(g_MessageLog == std::vector<std::string>({ "Root:All", "A:All", "A1:All", "B:All", "C:All" }));
+
+        // Removing handlers.
+        CHECK(rc->SendMessage(a, "Mute"));
+        CHECK(rc->SendMessage(a, "Damage", 30));
+        CHECK_NEAR(ra->Health, 70.0f, 1e-5f);
+
+        // Endless recursion is cut off.
+        int before = ra->Received;
+        CHECK(rc->SendMessage(a, "Loop"));
+        CHECK(ra->Received - before == Scene::MaxMessageDepth);
+        // ... and messaging still works afterwards.
+        CHECK(rc->SendMessage(a, "Hello"));
+    }
+    scene->OnRuntimeStop();
+    g_MessageLog.clear();
+}
+
+static int g_StaticEvents = 0;
+
+class EventListener : public ScriptableEntity
+{
+public:
+    int Coins = 0;
+    SubscriptionID Sub = 0;
+    void OnCreate() override
+    {
+        Sub = Subscribe("CoinCollected", [this](const ScriptMessage& m) {
+            Coins += m.Get<int>(1);
+            g_MessageLog.push_back(GetName() + ":" + std::to_string(m.Get<int>(1)));
+        });
+    }
+};
+ZM_REGISTER_SCRIPT(EventListener)
+
+class EventEmitter : public ScriptableEntity
+{
+public:
+    int Frame = 0;
+    void OnUpdate(Timestep) override
+    {
+        Frame++;
+        if (Frame == 1)
+        {
+            Emit("CoinCollected", 2);
+            EmitDeferred("CoinCollected", 5); // after OnLateUpdate
+            g_MessageLog.push_back("emitted");
+        }
+    }
+    void OnLateUpdate(Timestep) override { if (Frame == 1) g_MessageLog.push_back("late"); }
+};
+ZM_REGISTER_SCRIPT(EventEmitter)
+
+TEST(EventBusBasics)
+{
+    EventBus bus;
+    std::vector<std::string> log;
+    SubscriptionID s1 = bus.Subscribe("Hit", [&](const ScriptMessage& m) { log.push_back("s1:" + std::to_string(m.Get<int>())); });
+    SubscriptionID s2 = bus.Subscribe("Hit", [&](const ScriptMessage&) { log.push_back("s2"); }, 77);
+    CHECK(s1 != 0 && s2 != 0 && s1 != s2);
+    CHECK(bus.Subscribe("", [](const ScriptMessage&) {}) == 0);
+    CHECK(bus.Subscribe("Hit", MessageHandler{}) == 0);
+    CHECK(bus.GetSubscriberCount("Hit") == 2 && bus.HasSubscribers("Hit") && !bus.HasSubscribers("Miss"));
+
+    CHECK(bus.Emit("Hit", 4) == 2);
+    CHECK(log == std::vector<std::string>({ "s1:4", "s2" }));
+    CHECK(bus.Emit("Miss") == 0);
+
+    // Unsubscribing
+    CHECK(bus.Unsubscribe(s1));
+    CHECK(!bus.Unsubscribe(s1));
+    CHECK(!bus.Unsubscribe(0));
+    log.clear();
+    CHECK(bus.Emit("Hit", 1) == 1 && log == std::vector<std::string>({ "s2" }));
+    CHECK(bus.UnsubscribeOwner(77) == 1);
+    CHECK(bus.Emit("Hit") == 0 && bus.GetSubscriptionCount() == 0);
+
+    // Deferred events wait for Flush; events queued during Flush wait for the next one.
+    int count = 0;
+    bus.Subscribe("Tick", [&](const ScriptMessage& m) {
+        count++;
+        if (m.Get<int>() < 3) bus.EmitDeferred("Tick", m.Get<int>() + 1);
+    });
+    bus.EmitDeferred("Tick", 1);
+    CHECK(count == 0 && bus.GetQueuedCount() == 1);
+    CHECK(bus.Flush() == 1 && count == 1 && bus.GetQueuedCount() == 1);
+    CHECK(bus.Flush() == 1 && count == 2);
+    CHECK(bus.Flush() == 1 && count == 3);
+    CHECK(bus.Flush() == 0 && count == 3);
+
+    // Changing subscriptions from inside a handler.
+    bus.Clear();
+    log.clear();
+    SubscriptionID self = 0, victim = 0;
+    self = bus.Subscribe("E", [&](const ScriptMessage&) {
+        log.push_back("self");
+        bus.Unsubscribe(self);    // removes itself
+        bus.Unsubscribe(victim);  // and a later handler (not called anymore)
+        bus.Subscribe("E", [&](const ScriptMessage&) { log.push_back("late"); }); // starts with the next event
+        bus.Emit("Other");        // nested emit of another event
+    });
+    victim = bus.Subscribe("E", [&](const ScriptMessage&) { log.push_back("victim"); });
+    bus.Subscribe("Other", [&](const ScriptMessage&) { log.push_back("other"); });
+    CHECK(bus.Emit("E") == 1);
+    CHECK(log == std::vector<std::string>({ "self", "other" }));
+    log.clear();
+    CHECK(bus.Emit("E") == 1 && log == std::vector<std::string>({ "late" }));
+    CHECK(bus.GetSubscriberCount("E") == 1);
+
+    // Clear inside a handler stops the remaining handlers.
+    bus.Clear();
+    log.clear();
+    bus.Subscribe("C", [&](const ScriptMessage&) { log.push_back("first"); bus.Clear(); });
+    bus.Subscribe("C", [&](const ScriptMessage&) { log.push_back("second"); });
+    CHECK(bus.Emit("C") == 1 && log == std::vector<std::string>({ "first" }));
+    CHECK(bus.GetSubscriptionCount() == 0);
+
+    // Endless re-emitting is cut off at MaxEmitDepth.
+    int depth = 0;
+    bus.Subscribe("Rec", [&](const ScriptMessage&) { depth++; bus.Emit("Rec"); });
+    bus.Emit("Rec");
+    CHECK(depth == EventBus::MaxEmitDepth);
+    bus.Clear();
+
+    // Free functions / static handlers work too.
+    bus.Subscribe("S", [](const ScriptMessage&) { g_StaticEvents++; });
+    bus.Emit("S");
+    CHECK(g_StaticEvents == 1);
+}
+
+TEST(EventBusInScene)
+{
+    auto scene = CreateRef<Scene>();
+    Entity emitter = scene->CreateEntity("Emitter");
+    emitter.AddComponent<NativeScriptComponent>().ClassName = "EventEmitter";
+    Entity l1 = scene->CreateEntity("L1");
+    l1.AddComponent<NativeScriptComponent>().ClassName = "EventListener";
+    Entity l2 = scene->CreateEntity("L2");
+    l2.AddComponent<NativeScriptComponent>().ClassName = "EventListener";
+
+    g_MessageLog.clear();
+    scene->OnRuntimeStart();
+    CHECK(scene->GetEventBus().GetSubscriberCount("CoinCollected") == 2);
+    scene->OnUpdateRuntime(0.016f);
+    // Immediate delivery during OnUpdate, deferred one after OnLateUpdate.
+    CHECK(g_MessageLog == std::vector<std::string>({ "L1:2", "L2:2", "emitted", "late", "L1:5", "L2:5" }));
+    auto* listener = ScriptableEntity::GetScript<EventListener>(l1);
+    CHECK(listener && listener->Coins == 7);
+
+    // The sender of an event is the emitting entity.
+    Entity sender;
+    scene->GetEventBus().Subscribe("Who", [&](const ScriptMessage& m) { sender = m.Sender; });
+    if (auto* em = ScriptableEntity::GetScript<EventEmitter>(emitter)) em->Emit("Who");
+    CHECK(sender == emitter);
+
+    // A destroyed script's subscriptions go away with it.
+    scene->DestroyEntity(l2);
+    CHECK(scene->GetEventBus().GetSubscriberCount("CoinCollected") == 1);
+    CHECK(scene->GetEventBus().Emit("CoinCollected", 1) == 1);
+    if (listener)
+    {
+        CHECK(listener->Unsubscribe(listener->Sub));
+        CHECK(scene->GetEventBus().GetSubscriberCount("CoinCollected") == 0);
+    }
+
+    // Stopping play mode clears everything (handlers may live in the script module).
+    scene->GetEventBus().EmitDeferred("Pending");
+    scene->OnRuntimeStop();
+    CHECK(scene->GetEventBus().GetSubscriptionCount() == 0);
+    CHECK(scene->GetEventBus().GetQueuedCount() == 0);
+    g_MessageLog.clear();
+}
+
+// ------------------------------------------------------------------ M01: hierarchy queries
+class HierarchyProbe : public ScriptableEntity
+{
+};
+ZM_REGISTER_SCRIPT(HierarchyProbe)
+
+class LeafProbe : public ScriptableEntity
+{
+};
+ZM_REGISTER_SCRIPT(LeafProbe)
+
+TEST(HierarchyQueries)
+{
+    // Root -> A (light) -> A1 (camera, light), B (light); Other is unrelated.
+    auto scene = CreateRef<Scene>();
+    Entity root = scene->CreateEntity("Root");
+    Entity a = scene->CreateEntity("A");
+    Entity a1 = scene->CreateEntity("A1");
+    Entity b = scene->CreateEntity("B");
+    Entity other = scene->CreateEntity("Other");
+    scene->SetParent(a, root);
+    scene->SetParent(a1, a);
+    scene->SetParent(b, root);
+    a.AddComponent<PointLightComponent>().Intensity = 1.0f;
+    a1.AddComponent<PointLightComponent>().Intensity = 2.0f;
+    b.AddComponent<PointLightComponent>().Intensity = 3.0f;
+    other.AddComponent<PointLightComponent>();
+    a1.AddComponent<CameraComponent>();
+    root.AddComponent<NativeScriptComponent>().ClassName = "HierarchyProbe";
+    a1.AddComponent<NativeScriptComponent>().ClassName = "LeafProbe";
+
+    // Scene-level helpers
+    CHECK(scene->GetChildren(root) == std::vector<Entity>({ a, b }));
+    CHECK(scene->GetChildCount(root) == 2 && scene->GetChildCount(a1) == 0);
+    CHECK(scene->GetChild(root, 1) == b && !scene->GetChild(root, 2));
+    CHECK(scene->FindChild(root, "A1") == a1);
+    CHECK(!scene->FindChild(root, "A1", false));
+    CHECK(scene->FindChild(root, "B", false) == b);
+    CHECK(!scene->FindChild(root, "Other"));
+    CHECK(scene->GetDescendants(root) == std::vector<Entity>({ a, a1, b }));
+    CHECK(scene->GetDescendants(a1).empty());
+    CHECK(scene->GetRoot(a1) == root && scene->GetRoot(root) == root);
+    CHECK(scene->GetChildren(Entity{}).empty() && !scene->GetRoot(Entity{}));
+
+    scene->OnRuntimeStart();
+    auto* top = ScriptableEntity::GetScript<HierarchyProbe>(root);
+    auto* leaf = ScriptableEntity::GetScript<LeafProbe>(a1);
+    CHECK(top && leaf);
+    if (top && leaf)
+    {
+        CHECK(top->GetChildren() == std::vector<Entity>({ a, b }));
+        CHECK(top->GetChildCount() == 2 && top->GetChild(0) == a);
+        CHECK(top->FindChild("A1") == a1 && !top->FindChild("A1", false));
+        CHECK(top->GetDescendants().size() == 3);
+        CHECK(leaf->GetRoot() == root && leaf->GetParent() == a);
+
+        // In children: depth-first, the entity itself first when included.
+        CHECK(top->GetComponentInChildren<PointLightComponent>() == &a.GetComponent<PointLightComponent>());
+        CHECK(top->GetComponentInChildren<CameraComponent>() == &a1.GetComponent<CameraComponent>());
+        CHECK(top->GetComponentInChildren<TextComponent>() == nullptr);
+        auto lights = top->GetComponentsInChildren<PointLightComponent>();
+        CHECK(lights.size() == 3);
+        CHECK(lights.size() == 3 && lights[0]->Intensity == 1.0f && lights[1]->Intensity == 2.0f && lights[2]->Intensity == 3.0f);
+        CHECK(top->FindInChildren<CameraComponent>() == a1);
+        CHECK(!top->FindInChildren<TextComponent>());
+
+        root.AddComponent<PointLightComponent>().Intensity = 9.0f;
+        CHECK(top->GetComponentInChildren<PointLightComponent>()->Intensity == 9.0f);
+        CHECK(top->GetComponentInChildren<PointLightComponent>(false)->Intensity == 1.0f);
+        CHECK(top->GetComponentsInChildren<PointLightComponent>().size() == 4);
+        CHECK(top->GetComponentsInChildren<PointLightComponent>(false).size() == 3);
+
+        // In parents: nearest first.
+        CHECK(leaf->GetComponentInParent<PointLightComponent>()->Intensity == 2.0f);       // itself
+        CHECK(leaf->GetComponentInParent<PointLightComponent>(false)->Intensity == 1.0f);  // A
+        CHECK(leaf->GetComponentsInParent<PointLightComponent>().size() == 3);
+        CHECK(leaf->GetComponentsInParent<PointLightComponent>(false).size() == 2);
+        CHECK(leaf->GetComponentInParent<CameraComponent>(false) == nullptr);
+        CHECK(leaf->FindInParent<PointLightComponent>(false) == a);
+        CHECK(leaf->FindInParent<CameraComponent>() == a1);
+
+        // Script classes work like components.
+        CHECK(top->GetComponentInChildren<LeafProbe>() == leaf);
+        CHECK(top->GetComponentInChildren<HierarchyProbe>() == top);
+        CHECK(top->GetComponentInChildren<HierarchyProbe>(false) == nullptr);
+        CHECK(leaf->GetComponentInParent<HierarchyProbe>() == top);
+        CHECK(leaf->GetComponentInParent<LeafProbe>(false) == nullptr);
+        CHECK(top->GetComponentsInChildren<ScriptableEntity>().size() == 2);
+        CHECK(top->FindInChildren<LeafProbe>() == a1);
+
+        // Reparenting is reflected right away.
+        scene->SetParent(b, a);
+        CHECK(top->GetChildren() == std::vector<Entity>({ a }));
+        CHECK(scene->GetChildren(a) == std::vector<Entity>({ a1, b }));
+        CHECK(top->GetComponentsInChildren<PointLightComponent>(false).size() == 3);
+        CHECK(top->FindChild("B", false) == Entity{});
+        CHECK(top->FindChild("B") == b);
+    }
+    scene->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ M01: name cache
+TEST(FindEntityNameCache)
+{
+    auto scene = CreateRef<Scene>();
+    std::vector<Entity> entities;
+    for (int i = 0; i < 300; i++)
+        entities.push_back(scene->CreateEntity("E" + std::to_string(i)));
+    Entity dup1 = scene->CreateEntity("Dup");
+    Entity dup2 = scene->CreateEntity("Dup");
+    Entity dup3 = scene->CreateEntity("Dup");
+
+    const uint32_t rebuilds0 = scene->GetNameCacheStats().Rebuilds;
+    CHECK(scene->FindEntityByName("E150") == entities[150]);
+    CHECK(scene->GetNameCacheStats().Rebuilds == rebuilds0 + 1);
+    bool allFound = true;
+    for (int round = 0; round < 5; round++)
+        for (int i = 0; i < 300; i++)
+            allFound &= scene->FindEntityByName("E" + std::to_string(i)) == entities[i];
+    CHECK(allFound);
+    CHECK(!scene->FindEntityByName("Missing"));
+    CHECK(!scene->FindEntityByName(""));
+    CHECK(scene->GetNameCacheStats().Rebuilds == rebuilds0 + 1); // 1500 lookups, one build
+
+    // Duplicates: the first one in scene order; all of them on request.
+    CHECK(scene->FindEntityByName("Dup") == dup1);
+    CHECK(scene->FindEntitiesByName("Dup") == std::vector<Entity>({ dup1, dup2, dup3 }));
+    CHECK(scene->FindEntitiesByName("Missing").empty());
+
+    // Creating / destroying / SetName are seen immediately.
+    Entity fresh = scene->CreateEntity("Fresh");
+    CHECK(scene->FindEntityByName("Fresh") == fresh);
+    scene->DestroyEntity(dup1);
+    CHECK(scene->FindEntityByName("Dup") == dup2);
+    CHECK(scene->FindEntitiesByName("Dup").size() == 2);
+    entities[5].SetName("Renamed");
+    CHECK(scene->FindEntityByName("Renamed") == entities[5]);
+    CHECK(!scene->FindEntityByName("E5"));
+    entities[6].SetName("");
+    CHECK(entities[6].GetName() == "Entity");
+
+    // A direct write to the name: a stale hit is detected at once ...
+    CHECK(scene->FindEntityByName("E7") == entities[7]); // cache is clean now
+    uint32_t beforeDirect = scene->GetNameCacheStats().Rebuilds;
+    entities[7].GetComponent<TagComponent>().Tag = "Direct7";
+    CHECK(!scene->FindEntityByName("E7"));
+    CHECK(scene->FindEntityByName("Direct7") == entities[7]);
+    CHECK(scene->GetNameCacheStats().Rebuilds == beforeDirect + 1);
+    // ... a new name is found on the next frame at the latest ...
+    scene->FindEntityByName("E9"); // validated for this frame
+    entities[8].GetComponent<TagComponent>().Tag = "Direct8";
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(scene->FindEntityByName("Direct8") == entities[8]);
+    CHECK(!scene->FindEntityByName("E8"));
+    // ... or right away after InvalidateNameCache().
+    entities[10].GetComponent<TagComponent>().Tag = "Direct10";
+    scene->InvalidateNameCache();
+    CHECK(scene->FindEntityByName("Direct10") == entities[10]);
+
+    // One validation per frame, not per lookup.
+    uint32_t validations = scene->GetNameCacheStats().Validations;
+    uint32_t rebuilds = scene->GetNameCacheStats().Rebuilds;
+    for (int frame = 0; frame < 10; frame++)
+    {
+        scene->OnUpdateRuntime(0.016f);
+        for (int i = 0; i < 50; i++)
+            scene->FindEntityByName("E" + std::to_string(100 + i));
+    }
+    CHECK(scene->GetNameCacheStats().Validations == validations + 10);
+    CHECK(scene->GetNameCacheStats().Rebuilds == rebuilds);
+
+    // Scripts use the same cache (and runtime spawns are found).
+    Entity spawned = scene->Instantiate(fresh);
+    CHECK(scene->FindEntitiesByName("Fresh").size() == 2);
+    CHECK(scene->FindEntityByName("Fresh") == fresh);
+    scene->DestroyEntity(fresh);
+    CHECK(scene->FindEntityByName("Fresh") == spawned);
+    scene->OnRuntimeStop();
+
+    // A copied scene has its own cache.
+    auto copy = Scene::Copy(scene);
+    Entity copied = copy->FindEntityByName("E42");
+    CHECK(copied && copied != entities[42] && copied.GetScene() == copy.get());
+    CHECK(copied && copied.GetUUID() == entities[42].GetUUID());
+    copied.SetName("OnlyInCopy");
+    CHECK(copy->FindEntityByName("OnlyInCopy") == copied);
+    CHECK(!scene->FindEntityByName("OnlyInCopy"));
+    CHECK(scene->FindEntityByName("E42") == entities[42]);
+
+    // Loading a scene fills the cache with the loaded names.
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+    CHECK(loaded->FindEntityByName("Renamed") && loaded->FindEntityByName("Renamed").GetUUID() == entities[5].GetUUID());
+    CHECK(loaded->FindEntitiesByName("Dup").size() == 2);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

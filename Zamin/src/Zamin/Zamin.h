@@ -36,9 +36,11 @@
 
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/Scripting/ScriptEngine.h"
+#include "Zamin/Scripting/EventBus.h"
 
 #include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Math/Math.h"
+#include "Zamin/Math/Random.h"
 #include "Zamin/Utils/PlatformUtils.h"
 #include "Zamin/Utils/FileSystem.h"

@@ -1,0 +1,10 @@
+{
+    "Project": {
+        "Name": "Adventure3D",
+        "StartScene": "Scenes/Island.zscene",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libAdventure3D.so",
+        "EngineVersion": "0.1.0"
+    }
+}

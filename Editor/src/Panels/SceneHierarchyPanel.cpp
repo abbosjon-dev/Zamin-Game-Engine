@@ -188,6 +188,13 @@ namespace Zamin {
             t.FontAsset = Font::GetDefault();
             ui.FontSize = 26.0f;
         }
+        else if (p == "Character3D")
+        {
+            mesh("Qahramon", PrimitiveMesh::Cylinder);
+            e.GetTransform().Scale = { 0.7f, 1.8f, 0.7f };
+            e.GetTransform().Translation = { 0.0f, 0.0f, 0.0f };
+            e.AddComponent<CharacterController3DComponent>();
+        }
         else if (p == "Tilemap")
         {
             e = m_Context->CreateEntity("Tilemap");
@@ -232,6 +239,7 @@ namespace Zamin {
             if (ImGui::MenuItem(ICON_FA_ATOM "  Fizik kub")) CreateEntityPreset("Physics Cube");
             if (ImGui::MenuItem(ICON_FA_ATOM "  Fizik shar")) CreateEntityPreset("Physics Sphere");
             if (ImGui::MenuItem(ICON_FA_ATOM "  Fizik yer (statik)")) CreateEntityPreset("Physics Ground");
+            if (ImGui::MenuItem(ICON_FA_PERSON_RUNNING "  Qahramon (Character Controller)")) CreateEntityPreset("Character3D");
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu(ICON_FA_LIGHTBULB "  Yorug'lik"))
@@ -750,6 +758,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<BoxCollider3DComponent>("Box Collider 3D", ICON_FA_CUBE);
                 DisplayAddComponentEntry<SphereCollider3DComponent>("Sphere Collider 3D", ICON_FA_CIRCLE);
                 DisplayAddComponentEntry<CapsuleCollider3DComponent>("Capsule Collider 3D", ICON_FA_CAPSULES);
+                DisplayAddComponentEntry<CharacterController3DComponent>("Character Controller 3D", ICON_FA_PERSON_RUNNING);
                 ImGui::SeparatorText("Effektlar va UI");
                 DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<ParticleSystemComponent>("Particle System", ICON_FA_WAND_MAGIC_SPARKLES);
@@ -927,13 +936,14 @@ namespace Zamin {
                 if (ImGui::Selectable("(birinchi)", c.Clip.empty())) { c.Clip.clear(); changed = true; }
                 if (model)
                     for (const auto& clip : model->GetAnimations())
-                        if (ImGui::Selectable(clip.Name.c_str(), clip.Name == c.Clip)) { c.Clip = clip.Name; c.Time = 0.0f; changed = true; }
+                        if (ImGui::Selectable(clip.Name.c_str(), clip.Name == c.Clip)) { c.Play(clip.Name, c.Loop, c.Speed); changed = true; }
                 ImGui::EndCombo();
             }
             changed |= UI::PropertyFloat("Tezlik", c.Speed, 0.01f, -10.0f, 10.0f);
             changed |= UI::PropertyBool("Takrorlash", c.Loop);
             changed |= UI::PropertyBool("Ijroda", c.Playing);
             changed |= UI::PropertyBool("Editorda ko'rsatish", c.PlayInEditor);
+            changed |= UI::PropertyFloat("O'tish vaqti (s)", c.DefaultFade, 0.01f, 0.0f, 5.0f);
             UI::PropertyLabel("Ma'lumot");
             if (!model) ImGui::TextDisabled("Mesh Renderer'da glTF model yo'q");
             else if (!model->IsSkinned()) ImGui::TextDisabled("Modelda skelet yo'q");
@@ -1026,6 +1036,19 @@ namespace Zamin {
             bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.001f, 1000.0f);
             changed |= UI::PropertyFloat("Yarim balandlik", c.HalfHeight, 0.01f, 0.0f, 1000.0f);
             return collider3D(c) || changed;
+        }, true, modified);
+
+        DrawComponent<CharacterController3DComponent>(ICON_FA_PERSON_RUNNING, "Character Controller 3D", entity, [](CharacterController3DComponent& c) {
+            bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.05f, 10.0f);
+            changed |= UI::PropertyFloat("Balandlik", c.Height, 0.01f, 0.2f, 20.0f);
+            changed |= UI::PropertySlider("Maks. qiyalik (°)", c.MaxSlope, 0.0f, 89.0f);
+            changed |= UI::PropertyFloat("Zinapoya balandligi", c.StepHeight, 0.01f, 0.0f, 2.0f);
+            changed |= UI::PropertyFloat("Massa", c.Mass, 0.5f, 1.0f, 10000.0f);
+            changed |= UI::PropertyFloat("Gravitatsiya", c.GravityScale, 0.05f, 0.0f, 10.0f);
+            changed |= UI::PropertyBool("Yerga yopishish", c.StickToFloor);
+            UI::PropertyLabel("Holat");
+            ImGui::TextDisabled(c.Grounded ? "Yerda" : "Havoda");
+            return changed;
         }, true, modified);
 
         DrawComponent<TilemapComponent>(ICON_FA_TABLE_CELLS, "Tilemap", entity, [&](TilemapComponent& c) {

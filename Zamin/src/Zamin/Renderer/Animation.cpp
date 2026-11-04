@@ -30,41 +30,73 @@ namespace Zamin {
         return glm::mix(c.Values[a], c.Values[b], f);
     }
 
-    void EvaluatePose(const Skeleton& skeleton, const AnimationClip* clip, float time, std::vector<glm::mat4>& out)
+    struct LocalPose
+    {
+        std::vector<glm::vec3> T, S;
+        std::vector<glm::quat> R;
+    };
+
+    static void SamplePose(const Skeleton& skeleton, const AnimationClip* clip, float time, LocalPose& pose)
     {
         size_t n = skeleton.Joints.size();
-        std::vector<glm::vec3> T(n), S(n);
-        std::vector<glm::quat> R(n);
+        pose.T.resize(n); pose.S.resize(n); pose.R.resize(n);
         for (size_t i = 0; i < n; i++)
         {
-            T[i] = skeleton.Joints[i].RestTranslation;
-            R[i] = skeleton.Joints[i].RestRotation;
-            S[i] = skeleton.Joints[i].RestScale;
+            pose.T[i] = skeleton.Joints[i].RestTranslation;
+            pose.R[i] = skeleton.Joints[i].RestRotation;
+            pose.S[i] = skeleton.Joints[i].RestScale;
         }
-        if (clip)
+        if (!clip) return;
+        for (const auto& ch : clip->Channels)
         {
-            for (const auto& ch : clip->Channels)
+            if (ch.JointIndex < 0 || ch.JointIndex >= (int)n) continue;
+            glm::vec4 v = Sample(ch, time);
+            switch (ch.Target)
             {
-                if (ch.JointIndex < 0 || ch.JointIndex >= (int)n) continue;
-                glm::vec4 v = Sample(ch, time);
-                switch (ch.Target)
-                {
-                    case AnimationChannel::Path::Translation: T[ch.JointIndex] = glm::vec3(v); break;
-                    case AnimationChannel::Path::Scale:       S[ch.JointIndex] = glm::vec3(v); break;
-                    case AnimationChannel::Path::Rotation:    R[ch.JointIndex] = glm::normalize(glm::quat(v.w, v.x, v.y, v.z)); break;
-                }
+                case AnimationChannel::Path::Translation: pose.T[ch.JointIndex] = glm::vec3(v); break;
+                case AnimationChannel::Path::Scale:       pose.S[ch.JointIndex] = glm::vec3(v); break;
+                case AnimationChannel::Path::Rotation:    pose.R[ch.JointIndex] = glm::normalize(glm::quat(v.w, v.x, v.y, v.z)); break;
             }
         }
+    }
 
+    static void ComposePose(const Skeleton& skeleton, const LocalPose& pose, std::vector<glm::mat4>& out)
+    {
+        size_t n = skeleton.Joints.size();
         std::vector<glm::mat4> global(n);
         out.resize(n);
         for (size_t i = 0; i < n; i++)
         {
-            glm::mat4 local = glm::translate(glm::mat4(1.0f), T[i]) * glm::toMat4(R[i]) * glm::scale(glm::mat4(1.0f), S[i]);
+            glm::mat4 local = glm::translate(glm::mat4(1.0f), pose.T[i]) * glm::toMat4(pose.R[i]) * glm::scale(glm::mat4(1.0f), pose.S[i]);
             int p = skeleton.Joints[i].Parent;
             global[i] = (p >= 0 ? global[p] : skeleton.RootTransform) * local;
             out[i] = global[i] * skeleton.Joints[i].InverseBind;
         }
+    }
+
+    void EvaluatePose(const Skeleton& skeleton, const AnimationClip* clip, float time, std::vector<glm::mat4>& out)
+    {
+        LocalPose pose;
+        SamplePose(skeleton, clip, time, pose);
+        ComposePose(skeleton, pose, out);
+    }
+
+    void EvaluatePoseBlended(const Skeleton& skeleton, const AnimationClip* clipA, float timeA,
+                             const AnimationClip* clipB, float timeB, float weight, std::vector<glm::mat4>& out)
+    {
+        weight = std::clamp(weight, 0.0f, 1.0f);
+        LocalPose a, b;
+        SamplePose(skeleton, clipA, timeA, a);
+        if (weight <= 0.0f) { ComposePose(skeleton, a, out); return; }
+        SamplePose(skeleton, clipB, timeB, b);
+        for (size_t i = 0; i < a.T.size(); i++)
+        {
+            a.T[i] = glm::mix(a.T[i], b.T[i], weight);
+            a.S[i] = glm::mix(a.S[i], b.S[i], weight);
+            glm::quat qb = glm::dot(a.R[i], b.R[i]) < 0.0f ? -b.R[i] : b.R[i];
+            a.R[i] = glm::normalize(glm::slerp(a.R[i], qb, weight));
+        }
+        ComposePose(skeleton, a, out);
     }
 
 }

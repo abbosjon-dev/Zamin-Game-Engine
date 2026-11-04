@@ -353,6 +353,21 @@ namespace Zamin {
                 DrawWireCircle(center, { 1, 0, 0 }, { 0, 0, 1 }, radius, c.IsSensor ? yellow : cyan);
                 DrawWireCircle(center, { 0, 1, 0 }, { 0, 0, 1 }, radius, c.IsSensor ? yellow : cyan);
             }
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, CharacterController3DComponent>())
+            {
+                Entity entity{ e, &scene };
+                auto& c = entity.GetComponent<CharacterController3DComponent>();
+                glm::vec3 feet = scene.GetWorldPosition(entity);
+                float r = c.Radius, half = std::max(0.0f, c.Height * 0.5f - r);
+                glm::vec3 center = feet + glm::vec3(0, c.Height * 0.5f, 0);
+                glm::vec4 col(0.6f, 0.4f, 1.0f, 1.0f);
+                DrawWireCircle(center + glm::vec3(0, half, 0), { 1, 0, 0 }, { 0, 0, 1 }, r, col);
+                DrawWireCircle(center - glm::vec3(0, half, 0), { 1, 0, 0 }, { 0, 0, 1 }, r, col);
+                for (glm::vec3 side : { glm::vec3(1, 0, 0), glm::vec3(-1, 0, 0), glm::vec3(0, 0, 1), glm::vec3(0, 0, -1) })
+                    Renderer2D::DrawLine(center + glm::vec3(0, half, 0) + side * r, center - glm::vec3(0, half, 0) + side * r, col);
+                DrawWireCircle(center + glm::vec3(0, half, 0), { 1, 0, 0 }, { 0, 1, 0 }, r, col);
+                DrawWireCircle(center - glm::vec3(0, half, 0), { 1, 0, 0 }, { 0, 1, 0 }, r, col);
+            }
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, CapsuleCollider3DComponent>())
             {
                 Entity entity{ e, &scene };

@@ -36,6 +36,16 @@ namespace Zamin {
         std::vector<Shape> Shapes;
     };
 
+    struct CharacterDesc
+    {
+        UUID EntityID = 0;
+        glm::vec3 Position{ 0.0f };   // feet position
+        float Radius = 0.35f;
+        float Height = 1.8f;          // total height (capsule)
+        float MaxSlopeDegrees = 50.0f;
+        float Mass = 70.0f;
+    };
+
     // 3D rigid body simulation (Jolt Physics). Jolt types are hidden from users.
     class PhysicsWorld3D
     {
@@ -64,6 +74,17 @@ namespace Zamin {
         void AddImpulse(uint32_t bodyID, const glm::vec3& impulse);
         void AddForce(uint32_t bodyID, const glm::vec3& force);
         void AddTorque(uint32_t bodyID, const glm::vec3& torque);
+
+        // ---- kinematic character controllers (Jolt CharacterVirtual)
+        uint32_t CreateCharacter(const CharacterDesc& desc);
+        void DestroyCharacter(uint32_t id);
+        // Moves the character with `velocity` (includes vertical speed) for dt seconds.
+        void UpdateCharacter(uint32_t id, const glm::vec3& velocity, float dt, float stepHeight, bool stickToFloor);
+        glm::vec3 GetCharacterPosition(uint32_t id) const;
+        void SetCharacterPosition(uint32_t id, const glm::vec3& position);
+        glm::vec3 GetCharacterVelocity(uint32_t id) const;
+        glm::vec3 GetCharacterGroundVelocity(uint32_t id) const;
+        bool IsCharacterGrounded(uint32_t id) const;
 
         RaycastHit CastRay(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const;
 

@@ -549,6 +549,53 @@ TEST(SkeletalPoseEvaluation)
     CHECK_NEAR(p.x, -std::sqrt(0.5f), 1e-4f);
 }
 
+TEST(CharacterController3D)
+{
+    auto scene = CreateRef<Scene>();
+    Entity floor = scene->CreateEntity("Floor");
+    floor.GetTransform().Translation = { 0, -0.5f, 0 };
+    floor.GetTransform().Scale = { 40, 1, 40 };
+    floor.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    floor.AddComponent<BoxCollider3DComponent>();
+
+    Entity step = scene->CreateEntity("Step"); // 0.25 high stair at x = 3
+    step.GetTransform().Translation = { 3.5f, 0.125f, 0 };
+    step.GetTransform().Scale = { 3, 0.25f, 4 };
+    step.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    step.AddComponent<BoxCollider3DComponent>();
+
+    Entity hero = scene->CreateEntity("Hero");
+    hero.GetTransform().Translation = { 0, 2, 0 };
+    auto& cc = hero.AddComponent<CharacterController3DComponent>();
+
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 120; i++) scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(cc.Grounded);
+    CHECK_NEAR(hero.GetTransform().Translation.y, 0.0f, 0.05f);
+
+    // walk onto the stair (step-up)
+    cc.Move({ 3.0f, 0, 0 });
+    for (int i = 0; i < 90; i++) scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(hero.GetTransform().Translation.x > 3.0f);
+    CHECK_NEAR(hero.GetTransform().Translation.y, 0.25f, 0.06f);
+
+    // jump
+    cc.Move({ 0, 0, 0 });
+    CHECK(cc.Jump(5.0f));
+    float maxY = 0.0f;
+    for (int i = 0; i < 90; i++)
+    {
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        maxY = std::max(maxY, hero.GetTransform().Translation.y);
+    }
+    CHECK(maxY > 1.2f);
+    CHECK(cc.Grounded);
+
+    RaycastHit hit = scene->Raycast3D(hero.GetTransform().Translation + glm::vec3(0, 3, 0), { 0, -1, 0 }, 10.0f);
+    CHECK(hit && hit.EntityID == hero.GetUUID());
+    scene->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

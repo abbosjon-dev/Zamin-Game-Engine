@@ -115,6 +115,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->RuntimeHandle = 0;
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
         if (auto* c = e.TryGetComponent<TilemapComponent>()) c->RuntimeBody = nullptr;
+        if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; }
         if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->Clear(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
     }
 
@@ -214,6 +215,11 @@ namespace Zamin {
             m_PhysicsWorld3D->DestroyBody(rb->RuntimeBodyID);
             rb->RuntimeBodyID = 0xffffffff;
         }
+        if (auto* cc = entity.TryGetComponent<CharacterController3DComponent>(); cc && cc->RuntimeID != 0xffffffff && m_PhysicsWorld3D)
+        {
+            m_PhysicsWorld3D->DestroyCharacter(cc->RuntimeID);
+            cc->RuntimeID = 0xffffffff;
+        }
         if (auto* audio = entity.TryGetComponent<AudioSourceComponent>(); audio && audio->RuntimeHandle)
             AudioEngine::Stop(audio->RuntimeHandle);
 
@@ -271,6 +277,8 @@ namespace Zamin {
     {
         for (Entity e : entities)
         {
+            if (m_PhysicsWorld3D && e.HasComponent<CharacterController3DComponent>())
+                CreateCharacter3D(e);
             if (m_PhysicsWorld && e.HasComponent<Rigidbody2DComponent>())
                 CreatePhysicsBody(e);
             if (m_PhysicsWorld && e.HasComponent<TilemapComponent>())
@@ -641,17 +649,39 @@ namespace Zamin {
     void Scene::OnPhysics3DStart()
     {
         OnPhysics3DStop();
-        if (m_Registry.view<Rigidbody3DComponent>().empty())
+        if (m_Registry.view<Rigidbody3DComponent>().empty() && m_Registry.view<CharacterController3DComponent>().empty())
             return; // don't spin up Jolt for 2D-only scenes
         m_PhysicsWorld3D = std::make_unique<PhysicsWorld3D>(m_Settings.Gravity3D);
         for (auto e : m_Registry.view<Rigidbody3DComponent>())
             CreatePhysicsBody3D({ e, this });
         m_PhysicsWorld3D->OptimizeBroadPhase();
+        for (auto e : m_Registry.view<CharacterController3DComponent>())
+            CreateCharacter3D({ e, this });
+    }
+
+    void Scene::CreateCharacter3D(Entity entity)
+    {
+        if (!m_PhysicsWorld3D)
+            m_PhysicsWorld3D = std::make_unique<PhysicsWorld3D>(m_Settings.Gravity3D);
+        auto& cc = entity.GetComponent<CharacterController3DComponent>();
+        if (cc.RuntimeID != 0xffffffff) return;
+        CharacterDesc desc;
+        desc.EntityID = entity.GetUUID();
+        desc.Position = GetWorldPosition(entity);
+        desc.Radius = cc.Radius;
+        desc.Height = cc.Height;
+        desc.MaxSlopeDegrees = cc.MaxSlope;
+        desc.Mass = cc.Mass;
+        cc.RuntimeID = m_PhysicsWorld3D->CreateCharacter(desc);
+        cc.VerticalVelocity = 0.0f;
+        cc.Grounded = false;
     }
 
     void Scene::OnPhysics3DStop()
     {
         if (!m_PhysicsWorld3D) return;
+        for (auto e : m_Registry.view<CharacterController3DComponent>())
+            m_Registry.get<CharacterController3DComponent>(e).RuntimeID = 0xffffffff;
         for (auto e : m_Registry.view<Rigidbody3DComponent>())
             m_Registry.get<Rigidbody3DComponent>(e).RuntimeBodyID = 0xffffffff;
         m_PhysicsWorld3D.reset();
@@ -804,7 +834,10 @@ namespace Zamin {
             if (m_PhysicsWorld)
                 m_PhysicsWorld->Step(fixedStep, m_Settings.VelocityIterations, m_Settings.PositionIterations);
             if (m_PhysicsWorld3D)
+            {
                 m_PhysicsWorld3D->Step(fixedStep);
+                StepCharacters(fixedStep);
+            }
             m_PhysicsAccumulator -= fixedStep;
             steps++;
         }
@@ -859,6 +892,43 @@ namespace Zamin {
             events.insert(events.end(), e3.begin(), e3.end());
         }
         DispatchContactEvents(events);
+    }
+
+    void Scene::StepCharacters(float dt)
+    {
+        for (auto e : m_Registry.view<CharacterController3DComponent>())
+        {
+            auto& cc = m_Registry.get<CharacterController3DComponent>(e);
+            if (cc.RuntimeID == 0xffffffff) continue;
+            Entity entity{ e, this };
+            // Teleports done by scripts (transform changed) are applied to the character.
+            glm::vec3 wp = GetWorldPosition(entity);
+            glm::vec3 cp = m_PhysicsWorld3D->GetCharacterPosition(cc.RuntimeID);
+            if (glm::length(wp - cp) > 0.01f) m_PhysicsWorld3D->SetCharacterPosition(cc.RuntimeID, wp);
+
+            bool grounded = m_PhysicsWorld3D->IsCharacterGrounded(cc.RuntimeID);
+            if (grounded && cc.VerticalVelocity <= 0.0f)
+                cc.VerticalVelocity = 0.0f;
+            else
+                cc.VerticalVelocity += m_Settings.Gravity3D.y * cc.GravityScale * dt;
+            glm::vec3 velocity = cc.MoveVelocity + glm::vec3(0.0f, cc.VerticalVelocity, 0.0f);
+            if (grounded) velocity += m_PhysicsWorld3D->GetCharacterGroundVelocity(cc.RuntimeID);
+
+            m_PhysicsWorld3D->UpdateCharacter(cc.RuntimeID, velocity, dt, cc.StepHeight, cc.StickToFloor && cc.VerticalVelocity <= 0.0f);
+            cc.Grounded = m_PhysicsWorld3D->IsCharacterGrounded(cc.RuntimeID);
+            glm::vec3 newVel = m_PhysicsWorld3D->GetCharacterVelocity(cc.RuntimeID);
+            if (cc.VerticalVelocity > 0.0f && newVel.y < cc.VerticalVelocity * 0.5f)
+                cc.VerticalVelocity = std::min(cc.VerticalVelocity, std::max(0.0f, newVel.y)); // bonked the ceiling
+
+            glm::vec3 p = m_PhysicsWorld3D->GetCharacterPosition(cc.RuntimeID);
+            if (!GetParent(entity)) m_Registry.get<TransformComponent>(e).Translation = p;
+            else
+            {
+                auto& t = m_Registry.get<TransformComponent>(e);
+                glm::mat4 parentInv = glm::inverse(GetWorldTransform(GetParent(entity)));
+                t.Translation = glm::vec3(parentInv * glm::vec4(p, 1.0f));
+            }
+        }
     }
 
     // ------------------------------------------------------------------ queries
@@ -1019,18 +1089,37 @@ namespace Zamin {
                 continue;
             }
             const auto& clips = mr.ModelAsset->GetAnimations();
-            int index = anim.Clip.empty() ? (clips.empty() ? -1 : 0) : mr.ModelAsset->FindAnimation(anim.Clip);
-            const AnimationClip* clip = index >= 0 ? &clips[index] : nullptr;
+            auto findClip = [&](const std::string& name) -> const AnimationClip* {
+                int index = name.empty() ? (clips.empty() ? -1 : 0) : mr.ModelAsset->FindAnimation(name);
+                return index >= 0 ? &clips[index] : nullptr;
+            };
+            auto wrap = [](const AnimationClip* c, float t, bool loop) {
+                if (!c || c->Duration <= 0.0f) return t;
+                return loop ? std::fmod(std::fmod(t, c->Duration) + c->Duration, c->Duration) : std::clamp(t, 0.0f, c->Duration);
+            };
+            const AnimationClip* clip = findClip(anim.Clip);
 
             bool advance = anim.Playing && (!editor || anim.PlayInEditor);
-            if (advance) anim.Time += ts * anim.Speed;
-            float t = anim.Time;
-            if (clip && clip->Duration > 0.0f)
+            if (advance)
             {
-                if (anim.Loop) t = std::fmod(std::fmod(t, clip->Duration) + clip->Duration, clip->Duration);
-                else t = std::clamp(t, 0.0f, clip->Duration);
+                anim.Time += ts * anim.Speed;
+                if (anim.IsFading())
+                {
+                    anim.PreviousTime += ts * anim.PreviousSpeed;
+                    anim.FadeElapsed += ts;
+                }
             }
-            EvaluatePose(mr.ModelAsset->GetSkeleton(), clip, t, anim.JointMatrices);
+
+            if (anim.IsFading())
+            {
+                const AnimationClip* prev = findClip(anim.PreviousClip);
+                float w = anim.FadeElapsed / anim.FadeDuration;
+                w = w * w * (3.0f - 2.0f * w); // smoothstep
+                EvaluatePoseBlended(mr.ModelAsset->GetSkeleton(), prev, wrap(prev, anim.PreviousTime, anim.PreviousLoop),
+                                    clip, wrap(clip, anim.Time, anim.Loop), w, anim.JointMatrices);
+            }
+            else
+                EvaluatePose(mr.ModelAsset->GetSkeleton(), clip, wrap(clip, anim.Time, anim.Loop), anim.JointMatrices);
         }
     }
 

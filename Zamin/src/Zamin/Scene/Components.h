@@ -155,17 +155,29 @@ namespace Zamin {
         bool Loop = true;
         bool Playing = true;
         bool PlayInEditor = true;
-        float CrossFade = 0.0f;    // reserved
+        float DefaultFade = 0.2f;  // seconds used by Play() when no fade is given
 
         // runtime
         float Time = 0.0f;
         std::vector<glm::mat4> JointMatrices;
+        // crossfade state: blending from the previous clip into `Clip`
+        std::string PreviousClip;
+        float PreviousTime = 0.0f;
+        float PreviousSpeed = 1.0f;
+        bool PreviousLoop = true;
+        float FadeDuration = 0.0f;
+        float FadeElapsed = 0.0f;
 
-        void Play(const std::string& clip, bool loop = true, float speed = 1.0f)
+        // Switch clip with a smooth crossfade (fade < 0 = DefaultFade, 0 = instant).
+        void Play(const std::string& clip, bool loop = true, float speed = 1.0f, float fade = -1.0f)
         {
-            if (Clip == clip && Playing) return;
+            if (Clip == clip && Playing) { Speed = speed; Loop = loop; return; }
+            if (fade < 0.0f) fade = DefaultFade;
+            PreviousClip = Clip; PreviousTime = Time; PreviousSpeed = Speed; PreviousLoop = Loop;
+            FadeDuration = fade; FadeElapsed = 0.0f;
             Clip = clip; Loop = loop; Speed = speed; Playing = true; Time = 0.0f;
         }
+        bool IsFading() const { return FadeDuration > 0.0f && FadeElapsed < FadeDuration; }
     };
 
     struct CameraComponent
@@ -188,6 +200,36 @@ namespace Zamin {
         glm::vec3 Color{ 1.0f };
         float Intensity = 5.0f;
         float Radius = 10.0f;
+    };
+
+    // Capsule character (Jolt CharacterVirtual): walks on slopes/stairs, collides with the world.
+    // Scripts set the horizontal velocity with Move() and call Jump(); gravity is applied automatically.
+    struct CharacterController3DComponent
+    {
+        float Radius = 0.35f;
+        float Height = 1.8f;
+        float MaxSlope = 50.0f;     // degrees
+        float StepHeight = 0.35f;
+        float Mass = 70.0f;
+        float GravityScale = 1.0f;
+        bool StickToFloor = true;
+
+        // control (set by scripts)
+        glm::vec3 MoveVelocity{ 0.0f }; // horizontal, world space
+        float VerticalVelocity = 0.0f;
+
+        // runtime (read by scripts)
+        bool Grounded = false;
+        uint32_t RuntimeID = 0xffffffff;
+
+        void Move(const glm::vec3& velocity) { MoveVelocity = { velocity.x, 0.0f, velocity.z }; }
+        bool Jump(float speed)
+        {
+            if (!Grounded) return false;
+            VerticalVelocity = speed;
+            Grounded = false;
+            return true;
+        }
     };
 
     // ------------------------------------------------------------------ tilemap (2D)
@@ -447,7 +489,7 @@ namespace Zamin {
         SpriteAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
-        CapsuleCollider3DComponent, TilemapComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
+        CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent>;
 
 }

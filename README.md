@@ -10,6 +10,10 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 |---|---|
 | ![Platformer](docs/images/platformer2d.png) | ![Showcase](docs/images/showcase3d.png) |
 
+**Adventure3D** — uchinchi shaxs o'yini: animatsiyali robot, character controller, kristallar yig'ish:
+
+![Adventure3D](docs/images/adventure3d.png)
+
 ![2D editor](docs/images/editor2d.png)
 
 ---
@@ -43,12 +47,14 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - **HDR pipeline**: sahna float bufferga chiziladi, tonemapping (ACES / Reinhard / yo'q), haqiqiy HDR bloom
   - Material xaritalari: **normal map**, metallic/roughness map, emissive map
   - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
-  - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti
+  - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti,
+    kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`
   - **Post-processing**: bloom, vinyetka, kontrast/to'yinganlik/rang tuslash
   - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview)
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
 - **2D fizika** (Box2D): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
 - **3D fizika** (Jolt Physics): Rigidbody3D, Box/Sphere/Capsule collider, trigger'lar, to'qnashuvlar
+- **Character Controller 3D** (Jolt CharacterVirtual): qiyaliklar, zinapoyalar, yerni aniqlash, sakrash, harakatlanuvchi platformalarda yurish
 - **Raycast** 2D va 3D
 - **Tilemap**: tileset'dan plitkali darajalar, editor'da chizish (palitra), avtomatik birlashtirilgan collider'lar
 - **3D (spatial) ovoz**: tinglovchi — asosiy kamera, masofaga qarab so'nish
@@ -100,6 +106,7 @@ Boshqa barcha kutubxonalar (GLFW, GLM, EnTT, ImGui, ImGuizmo, Box2D, Jolt, nlohm
 ./build/bin/ZaminEditor                          # launcher ochiladi
 ./build/bin/ZaminEditor Projects/Platformer2D    # namuna 2D o'yin
 ./build/bin/ZaminEditor Projects/Showcase3D      # namuna 3D sahna
+./build/bin/ZaminEditor Projects/Adventure3D     # uchinchi shaxs 3D o'yin
 ./build/bin/ZaminPlayer Projects/Platformer2D    # o'yinni editor'siz ishga tushirish
 ctest --test-dir build                           # unit testlar
 ```
@@ -186,6 +193,8 @@ Foydali API:
 | Ierarxiya | `GetParent()`, `SetParent(e)`, `GetWorldPosition()` |
 | 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `Raycast2D(origin, dir, dist)` |
 | 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)` |
+| Qahramon | `GetComponent<CharacterController3DComponent>()` → `.Move(velocity)`, `.Jump(speed)`, `.Grounded` |
+| Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` |
 | Input | `Input::IsKeyPressed`, `Input::IsMouseButtonPressed`, `Input::IsGamepadButtonPressed`, `Input::GetGamepadAxis`, `GetMousePosition()`, `GetMouseWorldPosition()`, `ScreenToWorld()` |
 | Boshqa | `LoadScene("Scenes/Level2.zscene")`, `EmitParticles(n)`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
 
@@ -236,7 +245,7 @@ Zamin/src/Zamin/
     └── Linux/   Fayl dialoglari, jarayonlar
 Editor/          Zamin Editor (ImGui)
 Runtime/         Zamin Player (eksport qilingan o'yinlar uchun)
-Projects/        Namuna o'yinlar (Platformer2D, Showcase3D)
+Projects/        Namuna o'yinlar (Platformer2D, Showcase3D, Adventure3D)
 Tests/           Headless unit testlar
 ```
 
@@ -256,7 +265,8 @@ Tests/           Headless unit testlar
 - [x] Tilemap (editor'da chizish), 3D ovoz
 - [x] glTF import, HDR pipeline, normal/metal-roughness/emissive map'lar
 - [x] Skeletal animatsiya (glTF skins), Animator, CPU profiler
-- [ ] Animatsiyalar orasida silliq o'tish (blending), animatsiya holat mashinasi
+- [x] Animatsiyalar orasida silliq o'tish (crossfade), Character Controller 3D
+- [ ] Animatsiya holat mashinasi (vizual), root motion
 - [ ] SSAO, IBL (cubemap), cascaded shadow maps
 - [ ] **Windows** (MSVC, `.dll` skript moduli)
 - [ ] **macOS** (Metal backend)

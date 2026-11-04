@@ -47,4 +47,8 @@ namespace Zamin {
     // Computes skinning matrices (global * inverseBind) for `time` seconds into `clip`.
     void EvaluatePose(const Skeleton& skeleton, const AnimationClip* clip, float time, std::vector<glm::mat4>& outJointMatrices);
 
+    // Blends two clips: weight 0 = clipA only, 1 = clipB only (crossfades).
+    void EvaluatePoseBlended(const Skeleton& skeleton, const AnimationClip* clipA, float timeA,
+                             const AnimationClip* clipB, float timeB, float weight, std::vector<glm::mat4>& outJointMatrices);
+
 }

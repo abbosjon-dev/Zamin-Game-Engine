@@ -17,6 +17,9 @@
 #include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
+#include <Jolt/Physics/Character/CharacterVirtual.h>
+#include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
+#include <Jolt/Physics/Collision/ObjectLayer.h>
 
 #include <algorithm>
 #include <mutex>
@@ -170,6 +173,14 @@ namespace Zamin {
         ContactListener3D Contacts;
         std::vector<JPH::BodyID> Bodies;
 
+        struct CharacterSlot
+        {
+            JPH::Ref<JPH::CharacterVirtual> Character;
+            uint64_t EntityID = 0;
+            std::vector<uint64_t> Touching; // entity ids from the previous update
+        };
+        std::vector<CharacterSlot> Characters;
+
         JPH::BodyInterface& BI() { return System->GetBodyInterface(); }
         const JPH::BodyInterface& BI() const { return System->GetBodyInterface(); }
     };
@@ -193,6 +204,7 @@ namespace Zamin {
 
     PhysicsWorld3D::~PhysicsWorld3D()
     {
+        m_Impl->Characters.clear();
         auto& bi = m_Impl->BI();
         for (const JPH::BodyID& id : m_Impl->Bodies)
         {
@@ -340,6 +352,106 @@ namespace Zamin {
     void PhysicsWorld3D::AddImpulse(uint32_t bodyID, const glm::vec3& i) { m_Impl->BI().AddImpulse(ToBodyID(bodyID), ToJolt(i)); }
     void PhysicsWorld3D::AddForce(uint32_t bodyID, const glm::vec3& f) { m_Impl->BI().AddForce(ToBodyID(bodyID), ToJolt(f)); }
     void PhysicsWorld3D::AddTorque(uint32_t bodyID, const glm::vec3& t) { m_Impl->BI().AddTorque(ToBodyID(bodyID), ToJolt(t)); }
+
+    // ------------------------------------------------------------------ characters
+    uint32_t PhysicsWorld3D::CreateCharacter(const CharacterDesc& desc)
+    {
+        float radius = std::max(0.05f, desc.Radius);
+        float halfCylinder = std::max(0.01f, desc.Height * 0.5f - radius);
+        JPH::RefConst<JPH::Shape> capsule = new JPH::CapsuleShape(halfCylinder, radius);
+        // Offset so the character position is at the feet.
+        JPH::RefConst<JPH::Shape> shape = new JPH::RotatedTranslatedShape(JPH::Vec3(0, halfCylinder + radius, 0), JPH::Quat::sIdentity(), capsule);
+
+        JPH::Ref<JPH::CharacterVirtualSettings> settings = new JPH::CharacterVirtualSettings();
+        settings->mShape = shape;
+        settings->mInnerBodyShape = shape;
+        settings->mInnerBodyLayer = Layers::MOVING;
+        settings->mMaxSlopeAngle = JPH::DegreesToRadians(desc.MaxSlopeDegrees);
+        settings->mMass = desc.Mass;
+        settings->mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -radius); // feet area counts as support
+
+        auto character = new JPH::CharacterVirtual(settings, JPH::RVec3(desc.Position.x, desc.Position.y, desc.Position.z),
+                                                   JPH::Quat::sIdentity(), (uint64_t)desc.EntityID, m_Impl->System.get());
+        m_Impl->Characters.push_back({ character, (uint64_t)desc.EntityID, {} });
+        // Raycasts against the inner body report the entity.
+        if (!character->GetInnerBodyID().IsInvalid())
+        {
+            m_Impl->BI().SetUserData(character->GetInnerBodyID(), (uint64_t)desc.EntityID);
+            std::lock_guard lock(m_Impl->Contacts.Mutex);
+            m_Impl->Contacts.BodyToEntity[character->GetInnerBodyID().GetIndexAndSequenceNumber()] = (uint64_t)desc.EntityID;
+        }
+        return (uint32_t)m_Impl->Characters.size() - 1;
+    }
+
+    void PhysicsWorld3D::DestroyCharacter(uint32_t id)
+    {
+        if (id < m_Impl->Characters.size())
+            m_Impl->Characters[id].Character = nullptr;
+    }
+
+    void PhysicsWorld3D::UpdateCharacter(uint32_t id, const glm::vec3& velocity, float dt, float stepHeight, bool stickToFloor)
+    {
+        if (id >= m_Impl->Characters.size() || !m_Impl->Characters[id].Character) return;
+        auto& slot = m_Impl->Characters[id];
+        JPH::CharacterVirtual& c = *slot.Character;
+        c.SetLinearVelocity(ToJolt(velocity));
+
+        JPH::CharacterVirtual::ExtendedUpdateSettings ext;
+        ext.mWalkStairsStepUp = JPH::Vec3(0, std::max(0.0f, stepHeight), 0);
+        ext.mStickToFloorStepDown = stickToFloor ? JPH::Vec3(0, -0.5f, 0) : JPH::Vec3::sZero();
+
+        auto& sys = *m_Impl->System;
+        c.ExtendedUpdate(dt, sys.GetGravity(), ext,
+                         sys.GetDefaultBroadPhaseLayerFilter(Layers::MOVING),
+                         sys.GetDefaultLayerFilter(Layers::MOVING),
+                         JPH::IgnoreSingleBodyFilter(c.GetInnerBodyID()), {}, *m_Impl->TempAllocator);
+
+        // Contact begin/end events
+        std::vector<uint64_t> touching;
+        for (const auto& contact : c.GetActiveContacts())
+            if ((contact.mHadCollision || contact.mIsSensorB) && contact.mUserData &&
+                std::find(touching.begin(), touching.end(), contact.mUserData) == touching.end())
+                touching.push_back(contact.mUserData);
+        std::lock_guard lock(m_Impl->Contacts.Mutex);
+        for (uint64_t other : touching)
+            if (std::find(slot.Touching.begin(), slot.Touching.end(), other) == slot.Touching.end())
+                m_Impl->Contacts.Events.push_back({ slot.EntityID, other, true });
+        for (uint64_t other : slot.Touching)
+            if (std::find(touching.begin(), touching.end(), other) == touching.end())
+                m_Impl->Contacts.Events.push_back({ slot.EntityID, other, false });
+        slot.Touching = std::move(touching);
+    }
+
+    glm::vec3 PhysicsWorld3D::GetCharacterPosition(uint32_t id) const
+    {
+        if (id >= m_Impl->Characters.size() || !m_Impl->Characters[id].Character) return glm::vec3(0.0f);
+        JPH::RVec3 p = m_Impl->Characters[id].Character->GetPosition();
+        return { (float)p.GetX(), (float)p.GetY(), (float)p.GetZ() };
+    }
+
+    void PhysicsWorld3D::SetCharacterPosition(uint32_t id, const glm::vec3& p)
+    {
+        if (id < m_Impl->Characters.size() && m_Impl->Characters[id].Character)
+            m_Impl->Characters[id].Character->SetPosition(JPH::RVec3(p.x, p.y, p.z));
+    }
+
+    glm::vec3 PhysicsWorld3D::GetCharacterVelocity(uint32_t id) const
+    {
+        if (id >= m_Impl->Characters.size() || !m_Impl->Characters[id].Character) return glm::vec3(0.0f);
+        return FromJolt(m_Impl->Characters[id].Character->GetLinearVelocity());
+    }
+
+    glm::vec3 PhysicsWorld3D::GetCharacterGroundVelocity(uint32_t id) const
+    {
+        if (id >= m_Impl->Characters.size() || !m_Impl->Characters[id].Character) return glm::vec3(0.0f);
+        return FromJolt(m_Impl->Characters[id].Character->GetGroundVelocity());
+    }
+
+    bool PhysicsWorld3D::IsCharacterGrounded(uint32_t id) const
+    {
+        if (id >= m_Impl->Characters.size() || !m_Impl->Characters[id].Character) return false;
+        return m_Impl->Characters[id].Character->GetGroundState() == JPH::CharacterBase::EGroundState::OnGround;
+    }
 
     RaycastHit PhysicsWorld3D::CastRay(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const
     {

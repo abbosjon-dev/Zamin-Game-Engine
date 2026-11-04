@@ -157,6 +157,8 @@ namespace Zamin {
         void CreatePhysicsBody(Entity entity);
         void CreatePhysicsBody3D(Entity entity);
         void CreateTilemapBody(Entity entity);
+        void CreateCharacter3D(Entity entity);
+        void StepCharacters(float dt);
         void UpdateAudio();
         void UpdateAnimators(Timestep ts, bool editor);
         void DispatchContactEvents(const std::vector<ContactEvent>& events);

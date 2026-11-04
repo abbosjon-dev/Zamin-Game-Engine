@@ -1,0 +1,96 @@
+{
+  "ZaminEntities": 1,
+  "Entities": [
+    {
+      "Entity": 1,
+      "Tag": "CrystalBurst",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": false,
+        "PlayInEditor": true,
+        "EmissionRate": 0,
+        "Burst": 40,
+        "MaxParticles": 80,
+        "Shape": 2,
+        "ShapeRadius": 0.3,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.4,
+        "LifetimeMax": 1.0,
+        "SpeedMin": 2.0,
+        "SpeedMax": 5.0,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 180,
+        "Gravity": [
+          0,
+          -6,
+          0
+        ],
+        "Drag": 1.0,
+        "AngularVelocityMax": 0,
+        "StartColor": [
+          0.5,
+          0.95,
+          1,
+          1
+        ],
+        "EndColor": [
+          0.1,
+          0.4,
+          1,
+          0
+        ],
+        "StartSize": 0.22,
+        "EndSize": 0.03,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 10
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.85,
+          1.0
+        ],
+        "Intensity": 6.0,
+        "Radius": 5.0
+      },
+      "NativeScript": {
+        "Class": "AutoDestroy",
+        "Fields": {
+          "Seconds": {
+            "Type": "Float",
+            "Value": 1.0
+          }
+        }
+      }
+    }
+  ]
+}

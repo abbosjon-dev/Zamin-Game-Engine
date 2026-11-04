@@ -147,7 +147,7 @@ namespace Zamin {
                 { "Emission", ToJson(c->Mat.Emission) }, { "EmissionStrength", c->Mat.EmissionStrength },
             };
         if (auto* c = entity.TryGetComponent<AnimatorComponent>())
-            e["Animator"] = { { "Clip", c->Clip }, { "Speed", c->Speed }, { "Loop", c->Loop }, { "Playing", c->Playing }, { "PlayInEditor", c->PlayInEditor } };
+            e["Animator"] = { { "Clip", c->Clip }, { "Speed", c->Speed }, { "Loop", c->Loop }, { "Playing", c->Playing }, { "PlayInEditor", c->PlayInEditor }, { "DefaultFade", c->DefaultFade } };
         if (auto* c = entity.TryGetComponent<DirectionalLightComponent>())
             e["DirectionalLight"] = { { "Color", ToJson(c->Color) }, { "Intensity", c->Intensity }, { "CastShadows", c->CastShadows } };
         if (auto* c = entity.TryGetComponent<PointLightComponent>())
@@ -176,6 +176,10 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<CapsuleCollider3DComponent>())
             e["CapsuleCollider3D"] = { { "Radius", c->Radius }, { "HalfHeight", c->HalfHeight }, { "Offset", ToJson(c->Offset) },
                                        { "Friction", c->Friction }, { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
+        if (auto* c = entity.TryGetComponent<CharacterController3DComponent>())
+            e["CharacterController3D"] = { { "Radius", c->Radius }, { "Height", c->Height }, { "MaxSlope", c->MaxSlope },
+                                           { "StepHeight", c->StepHeight }, { "Mass", c->Mass }, { "GravityScale", c->GravityScale },
+                                           { "StickToFloor", c->StickToFloor } };
         if (auto* c = entity.TryGetComponent<TilemapComponent>())
         {
             c->EnsureSize();
@@ -312,6 +316,7 @@ namespace Zamin {
             c.Loop = j.value("Loop", true);
             c.Playing = j.value("Playing", true);
             c.PlayInEditor = j.value("PlayInEditor", true);
+            c.DefaultFade = j.value("DefaultFade", 0.2f);
         }
         if (e.contains("DirectionalLight"))
         {
@@ -395,6 +400,18 @@ namespace Zamin {
             read3D(e["CapsuleCollider3D"], c);
             c.Radius = e["CapsuleCollider3D"].value("Radius", 0.5f);
             c.HalfHeight = e["CapsuleCollider3D"].value("HalfHeight", 0.5f);
+        }
+        if (e.contains("CharacterController3D"))
+        {
+            const json& j = e["CharacterController3D"];
+            auto& c = entity.AddComponent<CharacterController3DComponent>();
+            c.Radius = j.value("Radius", 0.35f);
+            c.Height = j.value("Height", 1.8f);
+            c.MaxSlope = j.value("MaxSlope", 50.0f);
+            c.StepHeight = j.value("StepHeight", 0.35f);
+            c.Mass = j.value("Mass", 70.0f);
+            c.GravityScale = j.value("GravityScale", 1.0f);
+            c.StickToFloor = j.value("StickToFloor", true);
         }
         if (e.contains("Tilemap"))
         {

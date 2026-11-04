@@ -9,11 +9,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 003. Invoke/InvokeRepeating/CancelInvokes testi
 - [x] 004. Tween va easing funksiyalari testi
 - [x] 005. Input action xaritasi (loyiha sozlamalarida: tugma/gamepad/sichqoncha bog'lash)
-- [ ] 006. Input::IsActionPressed / IsActionJustPressed / IsActionJustReleased
-- [ ] 007. Input::GetAxis (manfiy/musbat tugma + gamepad o'qi, deadzone)
-- [ ] 008. Klaviatura va sichqoncha uchun JustPressed/JustReleased (kadrlar orasidagi holat)
-- [ ] 009. SaveData (PlayerPrefs): Int/Float/String/Bool saqlash, fayl ~/.local/share/zamin/<loyiha>
-- [ ] 010. SaveData testi
+- [x] 006. Input::IsActionPressed / IsActionJustPressed / IsActionJustReleased
+- [x] 007. Input::GetAxis (manfiy/musbat tugma + gamepad o'qi, deadzone)
+- [x] 008. Klaviatura va sichqoncha uchun JustPressed/JustReleased (kadrlar orasidagi holat)
+- [x] 009. SaveData (PlayerPrefs): Int/Float/String/Bool saqlash, fayl ~/.local/share/zamin/<loyiha>
+- [x] 010. SaveData testi
 - [ ] 011. Random API (seed, Range, Float, Int, Bool, InsideCircle, OnSphere)
 - [ ] 012. Teglar (Tag) tizimi: FindEntitiesWithTag, HasTag
 - [ ] 013. Xabarlar/hodisalar: SendMessage(name), Broadcast, skriptlararo event bus

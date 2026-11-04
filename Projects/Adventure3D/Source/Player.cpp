@@ -26,16 +26,9 @@ public:
         auto* cc = TryGetComponent<CharacterController3DComponent>();
         if (!cc) return;
 
-        // ---- input
-        glm::vec2 input(0.0f);
-        if (Input::IsKeyPressed(Key::W) || Input::IsKeyPressed(Key::Up))    input.y += 1.0f;
-        if (Input::IsKeyPressed(Key::S) || Input::IsKeyPressed(Key::Down))  input.y -= 1.0f;
-        if (Input::IsKeyPressed(Key::D) || Input::IsKeyPressed(Key::Right)) input.x += 1.0f;
-        if (Input::IsKeyPressed(Key::A) || Input::IsKeyPressed(Key::Left))  input.x -= 1.0f;
-        input.x += Input::GetGamepadAxis(GamepadAxis::LeftX);
-        input.y -= Input::GetGamepadAxis(GamepadAxis::LeftY);
-        if (glm::length(input) > 1.0f) input = glm::normalize(input);
-        bool run = Input::IsKeyPressed(Key::LeftShift) || Input::GetGamepadAxis(GamepadAxis::RightTrigger) > 0.3f;
+        // ---- input (named actions / axes: Loyiha sozlamalari > Input)
+        glm::vec2 input = Input::GetAxis2D("Horizontal", "Vertical");
+        bool run = Input::IsActionPressed("Sprint");
 
         // ---- camera-relative direction
         glm::vec3 forward(0, 0, -1), right(1, 0, 0);
@@ -64,10 +57,8 @@ public:
         }
 
         // ---- jump
-        bool jump = Input::IsKeyPressed(Key::Space) || Input::IsGamepadButtonPressed(GamepadButton::A);
-        if (jump && !m_JumpHeld && cc->Jump(JumpSpeed))
+        if (Input::IsActionJustPressed("Jump") && cc->Jump(JumpSpeed))
             m_AirTime = 0.0f;
-        m_JumpHeld = jump;
 
         // ---- animation state
         if (!cc->Grounded) m_AirTime += ts; else m_AirTime = 0.0f;
@@ -92,7 +83,6 @@ public:
 private:
     glm::vec3 m_Spawn{ 0.0f };
     glm::vec3 m_Velocity{ 0.0f };
-    bool m_JumpHeld = false;
     float m_AirTime = 0.0f;
 };
 ZM_REGISTER_SCRIPT(ThirdPersonController, ZM_FIELD(ThirdPersonController, WalkSpeed), ZM_FIELD(ThirdPersonController, RunSpeed),

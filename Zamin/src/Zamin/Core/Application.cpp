@@ -2,6 +2,8 @@
 
 #include "Zamin/ImGui/ImGuiLayer.h"
 #include "Zamin/Core/Profiler.h"
+#include "Zamin/Core/Input.h"
+#include "Zamin/Core/SaveData.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Renderer/RenderCommand.h"
 #include "Zamin/Audio/AudioEngine.h"
@@ -45,6 +47,7 @@ namespace Zamin {
 
     Application::~Application()
     {
+        SaveData::Save(); // unsaved game data (PlayerPrefs) is never lost on exit
         AudioEngine::Shutdown();
         Renderer::Shutdown();
     }
@@ -72,6 +75,16 @@ namespace Zamin {
     void Application::OnEvent(Event& e)
     {
         EventDispatcher dispatcher(e);
+        // The input system sees every device event, even ones a layer (e.g. ImGui) handles.
+        dispatcher.Dispatch<KeyPressedEvent>([](KeyPressedEvent& ev) {
+            if (!ev.IsRepeat()) Input::OnKeyEvent(ev.GetKeyCode(), true);
+            return false;
+        });
+        dispatcher.Dispatch<KeyReleasedEvent>([](KeyReleasedEvent& ev) { Input::OnKeyEvent(ev.GetKeyCode(), false); return false; });
+        dispatcher.Dispatch<MouseButtonPressedEvent>([](MouseButtonPressedEvent& ev) { Input::OnMouseButtonEvent(ev.GetMouseButton(), true); return false; });
+        dispatcher.Dispatch<MouseButtonReleasedEvent>([](MouseButtonReleasedEvent& ev) { Input::OnMouseButtonEvent(ev.GetMouseButton(), false); return false; });
+        dispatcher.Dispatch<MouseMovedEvent>([](MouseMovedEvent& ev) { Input::OnMouseMovedEvent(ev.GetX(), ev.GetY()); return false; });
+        dispatcher.Dispatch<MouseScrolledEvent>([](MouseScrolledEvent& ev) { Input::OnMouseScrolledEvent(ev.GetXOffset(), ev.GetYOffset()); return false; });
         dispatcher.Dispatch<WindowCloseEvent>(ZM_BIND_EVENT_FN(OnWindowClose));
         dispatcher.Dispatch<WindowResizeEvent>(ZM_BIND_EVENT_FN(OnWindowResize));
 
@@ -108,6 +121,8 @@ namespace Zamin {
 
             Profiler::BeginFrame();
             ExecuteMainThreadQueue();
+            // Snapshot keyboard / mouse / gamepads once per frame (JustPressed, actions, axes).
+            Input::Update();
 
             if (!m_Minimized)
             {

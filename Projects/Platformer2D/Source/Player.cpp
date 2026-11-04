@@ -4,7 +4,8 @@
 
 using namespace Zamin;
 
-// 2D platformer qahramoni: A/D yoki strelkalar bilan yurish, Space bilan sakrash.
+// 2D platformer qahramoni: "Horizontal" o'qi (A/D, strelkalar, gamepad) bilan yurish,
+// "Jump" harakati (Space, W, Up, gamepad A) bilan sakrash. Loyiha sozlamalari > Input.
 class PlayerController : public ScriptableEntity
 {
 public:
@@ -20,9 +21,7 @@ public:
 
     void OnUpdate(Timestep ts) override
     {
-        float dir = 0.0f;
-        if (Input::IsKeyPressed(Key::A) || Input::IsKeyPressed(Key::Left))  dir -= 1.0f;
-        if (Input::IsKeyPressed(Key::D) || Input::IsKeyPressed(Key::Right)) dir += 1.0f;
+        float dir = Input::GetAxis("Horizontal");
 
         glm::vec2 velocity = GetVelocity();
         // Smooth horizontal acceleration
@@ -30,14 +29,12 @@ public:
         velocity.x += (target - velocity.x) * std::min(1.0f, 12.0f * (float)ts);
         SetVelocity(velocity);
 
-        bool jump = Input::IsKeyPressed(Key::Space) || Input::IsKeyPressed(Key::W) || Input::IsKeyPressed(Key::Up);
-        if (jump && !m_JumpHeld && m_GroundContacts > 0)
+        if (Input::IsActionJustPressed("Jump") && m_GroundContacts > 0)
         {
             SetVelocity({ velocity.x, 0.0f });
             float mass = 1.0f;
             ApplyImpulse({ 0.0f, JumpImpulse * mass });
         }
-        m_JumpHeld = jump;
 
         // Animation: idle (0-1), run (4-7), jump (8) on the sprite sheet
         auto& t = Transform();
@@ -85,7 +82,6 @@ private:
 
     glm::vec3 m_Spawn{ 0.0f };
     int m_GroundContacts = 0;
-    bool m_JumpHeld = false;
 };
 
 ZM_REGISTER_SCRIPT(PlayerController,

@@ -89,6 +89,48 @@ namespace Zamin {
         return false;
     }
 
+    // Live preview: a dot that lights up while the action is active.
+    static void ActionIndicator(const InputAction& action)
+    {
+        const bool active = Input::IsActionPressed(action);
+        const float h = ImGui::GetFrameHeight();
+        const float r = ImGui::GetFontSize() * 0.26f;
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        ImGui::Dummy(ImVec2(r * 2.0f + 6.0f, h));
+        ImVec2 c(p.x + r + 3.0f, p.y + h * 0.5f);
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        if (active)
+        {
+            dl->AddCircleFilled(c, r + 2.5f, UI::AccentU32(0.30f));
+            dl->AddCircleFilled(c, r, UI::AccentU32());
+        }
+        else
+            dl->AddCircle(c, r, ImGui::GetColorU32(ImGuiCol_TextDisabled), 0, 1.5f);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip(active ? "Faol (hozir bosilgan)" : "Jonli holat: bog'langan tugmani bosib sinab ko'ring");
+    }
+
+    // Live preview: a -1..1 bar filled from the centre to the axis value.
+    static void AxisIndicator(const InputAxis& axis)
+    {
+        const float value = Input::GetAxis(axis);
+        const float h = ImGui::GetFrameHeight();
+        const float w = ImGui::GetFontSize() * 4.5f;
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        ImGui::Dummy(ImVec2(w, h));
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const float barH = h * 0.36f;
+        ImVec2 a(p.x, p.y + (h - barH) * 0.5f), b(p.x + w, a.y + barH);
+        dl->AddRectFilled(a, b, ImGui::GetColorU32(ImGuiCol_FrameBg), barH * 0.5f);
+        const float mid = (a.x + b.x) * 0.5f;
+        const float end = mid + value * (w * 0.5f);
+        if (std::abs(value) > 0.001f)
+            dl->AddRectFilled(ImVec2(std::min(mid, end), a.y), ImVec2(std::max(mid, end), b.y), UI::AccentU32(), barH * 0.5f);
+        dl->AddLine(ImVec2(mid, a.y - 2.0f), ImVec2(mid, b.y + 2.0f), ImGui::GetColorU32(ImGuiCol_TextDisabled), 1.0f);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip(std::format("Jonli qiymat: {:.2f}", value).c_str());
+    }
+
     // ------------------------------------------------------------------ panel
     void ProjectSettingsPanel::OnProjectChanged()
     {
@@ -150,16 +192,25 @@ namespace Zamin {
 
         if (ImGui::BeginTabBar("##projectTabs"))
         {
-            if (ImGui::BeginTabItem(ICON_FA_GAMEPAD "  Input"))
+            auto tabFlags = [&](Tab tab) {
+                return m_RequestedTab == (int)tab ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None;
+            };
+            if (ImGui::BeginTabItem(ICON_FA_GAMEPAD "  Input", nullptr, tabFlags(Tab::Input)))
             {
                 DrawInputMap(config.InputActions);
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem(ICON_FA_SLIDERS "  Umumiy"))
+            if (ImGui::BeginTabItem(ICON_FA_FLOPPY_DISK "  Saqlangan ma'lumotlar", nullptr, tabFlags(Tab::SaveData)))
+            {
+                DrawSaveData();
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem(ICON_FA_SLIDERS "  Umumiy", nullptr, tabFlags(Tab::General)))
             {
                 DrawGeneral(config);
                 ImGui::EndTabItem();
             }
+            m_RequestedTab = -1;
             ImGui::EndTabBar();
         }
         ImGui::End();
@@ -182,6 +233,155 @@ namespace Zamin {
         UI::PropertyLabel("Skript moduli");
         ImGui::TextUnformatted(c.ScriptModulePath.empty() ? "-" : c.ScriptModulePath.generic_string().c_str());
         UI::EndPropertyGrid();
+    }
+
+    // ------------------------------------------------------------------ save data
+    void ProjectSettingsPanel::DrawSaveData()
+    {
+        namespace fs = std::filesystem;
+        const fs::path file = SaveData::GetFilePath();
+
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextWrapped("O'yin skriptlari SaveData::SetInt / SetFloat / SetString / SetBool bilan saqlagan qiymatlar "
+                           "(o'yinlar orasida saqlanadi).");
+        ImGui::PopStyleColor();
+        ImGui::TextDisabled("Fayl:");
+        ImGui::SameLine();
+        ImGui::TextWrapped("%s", file.string().c_str());
+
+        if (ImGui::Button(ICON_FA_FLOPPY_DISK "  Faylga yozish"))
+            SaveData::Save();
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_ARROWS_ROTATE "  Qayta o'qish"))
+            SaveData::Reload();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Saqlanmagan o'zgarishlarni bekor qilib, faylni qaytadan o'qish");
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_FOLDER_OPEN "  Papkani ochish"))
+        {
+            std::error_code ec;
+            fs::create_directories(file.parent_path(), ec);
+            Platform::OpenInFileBrowser(file.parent_path());
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_TRASH "  Hammasini o'chirish"))
+            ImGui::OpenPopup("ClearSaveData");
+        if (ImGui::BeginPopup("ClearSaveData"))
+        {
+            ImGui::TextUnformatted("Barcha saqlangan qiymatlar o'chirilsinmi? (fayl ham yangilanadi)");
+            if (ImGui::Button("Ha, o'chirish"))
+            {
+                SaveData::DeleteAll();
+                SaveData::Save();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Yo'q"))
+                ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+        if (SaveData::IsDirty())
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "Faylga hali yozilmagan o'zgarishlar bor");
+        ImGui::Spacing();
+
+        // ---- values
+        const std::vector<std::string> keys = SaveData::GetKeys();
+        std::string remove;
+        const ImGuiTableFlags tableFlags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp;
+        if (keys.empty())
+            ImGui::TextDisabled("Hozircha hech narsa saqlanmagan");
+        else if (ImGui::BeginTable("##saveData", 4, tableFlags))
+        {
+            ImGui::TableSetupColumn("Kalit", ImGuiTableColumnFlags_WidthStretch, 0.38f);
+            ImGui::TableSetupColumn("Tur", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 3.8f);
+            ImGui::TableSetupColumn("Qiymat", ImGuiTableColumnFlags_WidthStretch, 0.62f);
+            ImGui::TableSetupColumn("##del", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
+            ImGui::TableHeadersRow();
+            for (const std::string& key : keys)
+            {
+                ImGui::PushID(key.c_str());
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted(key.c_str());
+                ImGui::TableNextColumn();
+                SaveValueType type = SaveData::GetType(key);
+                ImGui::TextDisabled("%s", SaveData::TypeToString(type));
+                ImGui::TableNextColumn();
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                switch (type)
+                {
+                    case SaveValueType::Int:
+                    {
+                        int v = SaveData::GetInt(key);
+                        if (ImGui::InputInt("##v", &v))
+                            SaveData::SetInt(key, v);
+                        break;
+                    }
+                    case SaveValueType::Float:
+                    {
+                        float v = SaveData::GetFloat(key);
+                        if (ImGui::DragFloat("##v", &v, 0.01f, 0.0f, 0.0f, "%.4g"))
+                            SaveData::SetFloat(key, v);
+                        break;
+                    }
+                    case SaveValueType::String:
+                    {
+                        std::string v = SaveData::GetString(key);
+                        if (ImGui::InputText("##v", &v))
+                            SaveData::SetString(key, v);
+                        break;
+                    }
+                    case SaveValueType::Bool:
+                    {
+                        bool v = SaveData::GetBool(key);
+                        if (ImGui::Checkbox("##v", &v))
+                            SaveData::SetBool(key, v);
+                        break;
+                    }
+                    default:
+                        break;
+                }
+                ImGui::TableNextColumn();
+                if (ImGui::Button(ICON_FA_TRASH, ImVec2(ImGui::GetFrameHeight(), 0)))
+                    remove = key;
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Kalitni o'chirish");
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+        if (!remove.empty())
+            SaveData::DeleteKey(remove);
+
+        // ---- new value
+        ImGui::Spacing();
+        ImGui::SeparatorText(ICON_FA_PLUS "  Yangi qiymat");
+        static const char* s_TypeNames[] = { "Int", "Float", "String", "Bool" };
+        const float typeWidth = ImGui::GetFontSize() * 6.0f;
+        ImGui::SetNextItemWidth(std::max(80.0f, ImGui::GetContentRegionAvail().x - typeWidth - ImGui::GetFontSize() * 6.5f));
+        bool submit = ImGui::InputTextWithHint("##newKey", "kalit nomi", &m_NewSaveKey, ImGuiInputTextFlags_EnterReturnsTrue);
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(typeWidth);
+        ImGui::Combo("##newType", &m_NewSaveType, s_TypeNames, IM_ARRAYSIZE(s_TypeNames));
+        ImGui::SameLine();
+        const bool exists = !m_NewSaveKey.empty() && SaveData::HasKey(m_NewSaveKey);
+        ImGui::BeginDisabled(m_NewSaveKey.empty() || exists);
+        submit |= ImGui::Button(ICON_FA_PLUS "  Qo'shish");
+        ImGui::EndDisabled();
+        if (exists)
+            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Bu kalit allaqachon bor");
+        if (submit && !m_NewSaveKey.empty() && !exists)
+        {
+            switch (m_NewSaveType)
+            {
+                case 0: SaveData::SetInt(m_NewSaveKey, 0); break;
+                case 1: SaveData::SetFloat(m_NewSaveKey, 0.0f); break;
+                case 2: SaveData::SetString(m_NewSaveKey, ""); break;
+                default: SaveData::SetBool(m_NewSaveKey, false); break;
+            }
+            m_NewSaveKey.clear();
+        }
     }
 
     // ------------------------------------------------------------------ input map
@@ -375,6 +575,7 @@ namespace Zamin {
         const ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
 
         ImGui::TextDisabled("Harakat va o'qlarni nomi bilan tugma, sichqoncha yoki gamepad'ga bog'lang.");
+        ImGui::TextDisabled("Skriptda: Input::IsActionJustPressed(\"Jump\"), Input::GetAxis(\"Horizontal\")");
         ImGui::Spacing();
 
         // ---- actions
@@ -385,6 +586,8 @@ namespace Zamin {
             InputAction& action = map.Actions[i];
             ImGui::PushID(i);
             bool open = ImGui::TreeNodeEx("##action", nodeFlags, "%s", action.Name.empty() ? "(nomsiz)" : action.Name.c_str());
+            ImGui::SameLine();
+            ActionIndicator(action);
             if (!open)
             {
                 ImGui::SameLine();
@@ -429,6 +632,8 @@ namespace Zamin {
             InputAxis& axis = map.Axes[i];
             ImGui::PushID(1000 + i);
             bool open = ImGui::TreeNodeEx("##axis", nodeFlags, "%s", axis.Name.empty() ? "(nomsiz)" : axis.Name.c_str());
+            ImGui::SameLine();
+            AxisIndicator(axis);
             if (!open)
             {
                 ImGui::SameLine();

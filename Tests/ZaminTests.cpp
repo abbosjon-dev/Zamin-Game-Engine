@@ -4,7 +4,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <functional>
+#include <limits>
 #include <set>
 #include <vector>
 
@@ -1179,6 +1181,486 @@ TEST(ProjectInputMapRoundTrip)
         CHECK(old && old->GetConfig().InputActions.FindAction("Jump") && old->GetConfig().InputActions.FindAxis("Horizontal"));
     }
     Project::SetActive(nullptr);
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+}
+
+// Advances the simulated input by one frame.
+static void NextFrame() { Input::Update(); }
+
+TEST(InputKeyAndMouseFrames)
+{
+    Input::ResetState();
+    NextFrame();
+    CHECK(!Input::IsKeyPressed(Key::Space) && !Input::IsKeyJustPressed(Key::Space) && !Input::IsKeyJustReleased(Key::Space));
+
+    // A press is visible from the next frame on and "just pressed" for exactly one frame.
+    Input::OnKeyEvent(Key::Space, true);
+    CHECK(!Input::IsKeyPressed(Key::Space));
+    NextFrame();
+    CHECK(Input::IsKeyPressed(Key::Space) && Input::IsKeyJustPressed(Key::Space) && !Input::IsKeyJustReleased(Key::Space));
+    NextFrame();
+    CHECK(Input::IsKeyPressed(Key::Space) && !Input::IsKeyJustPressed(Key::Space));
+    NextFrame();
+    CHECK(Input::IsKeyPressed(Key::Space) && !Input::IsKeyJustPressed(Key::Space));
+
+    Input::OnKeyEvent(Key::Space, false);
+    NextFrame();
+    CHECK(!Input::IsKeyPressed(Key::Space) && Input::IsKeyJustReleased(Key::Space) && !Input::IsKeyJustPressed(Key::Space));
+    NextFrame();
+    CHECK(!Input::IsKeyJustReleased(Key::Space));
+
+    // A tap between two frames still reports both edges once.
+    Input::OnKeyEvent(Key::E, true);
+    Input::OnKeyEvent(Key::E, false);
+    NextFrame();
+    CHECK(!Input::IsKeyPressed(Key::E) && Input::IsKeyJustPressed(Key::E) && Input::IsKeyJustReleased(Key::E));
+    NextFrame();
+    CHECK(!Input::IsKeyJustPressed(Key::E) && !Input::IsKeyJustReleased(Key::E));
+
+    // Released and pressed again between two frames: a new press.
+    Input::OnKeyEvent(Key::A, true);
+    NextFrame();
+    NextFrame();
+    Input::OnKeyEvent(Key::A, false);
+    Input::OnKeyEvent(Key::A, true);
+    NextFrame();
+    CHECK(Input::IsKeyPressed(Key::A) && Input::IsKeyJustPressed(Key::A) && Input::IsKeyJustReleased(Key::A));
+    CHECK(!Input::IsKeyPressed(Key::D));
+
+    // Codes outside the key range are ignored.
+    Input::OnKeyEvent((Key)5, true);
+    Input::OnKeyEvent((Key)60000, true);
+    NextFrame();
+    CHECK(!Input::IsKeyPressed((Key)5) && !Input::IsKeyPressed((Key)60000) && !Input::IsKeyJustPressed((Key)60000));
+
+    // Mouse: buttons, position delta (no jump on the first frame) and scroll.
+    Input::ResetState();
+    Input::OnMouseMovedEvent(100.0f, 50.0f);
+    NextFrame();
+    CHECK(Input::GetMousePosition() == glm::vec2(100.0f, 50.0f));
+    CHECK(Input::GetMouseDelta() == glm::vec2(0.0f));
+    Input::OnMouseButtonEvent(MouseButton::Left, true);
+    Input::OnMouseMovedEvent(105.0f, 47.0f);
+    Input::OnMouseMovedEvent(110.0f, 45.0f);
+    Input::OnMouseScrolledEvent(0.0f, 1.0f);
+    Input::OnMouseScrolledEvent(0.5f, 2.0f);
+    NextFrame();
+    CHECK(Input::IsMouseButtonPressed(MouseButton::Left) && Input::IsMouseButtonJustPressed(MouseButton::Left));
+    CHECK(!Input::IsMouseButtonPressed(MouseButton::Right) && !Input::IsMouseButtonJustPressed(MouseButton::Right));
+    CHECK(Input::GetMouseDelta() == glm::vec2(10.0f, -5.0f));
+    CHECK(Input::GetMouseScrollDelta() == glm::vec2(0.5f, 3.0f));
+    CHECK_NEAR(Input::GetMouseX(), 110.0f, 1e-6f);
+    NextFrame();
+    CHECK(Input::IsMouseButtonPressed(MouseButton::Left) && !Input::IsMouseButtonJustPressed(MouseButton::Left));
+    CHECK(Input::GetMouseDelta() == glm::vec2(0.0f) && Input::GetMouseScrollDelta() == glm::vec2(0.0f));
+    Input::OnMouseButtonEvent(MouseButton::Left, false);
+    NextFrame();
+    CHECK(!Input::IsMouseButtonPressed(MouseButton::Left) && Input::IsMouseButtonJustReleased(MouseButton::Left));
+    NextFrame();
+    CHECK(!Input::IsMouseButtonJustReleased(MouseButton::Left));
+    Input::OnMouseButtonEvent((MouseButton)200, true);
+    NextFrame();
+    CHECK(!Input::IsMouseButtonPressed((MouseButton)200));
+
+    // Gamepad buttons follow the same frame rules (polled state).
+    CHECK(!Input::IsGamepadConnected(0));
+    Input::SimulateGamepadButton(0, GamepadButton::B, true);
+    NextFrame();
+    CHECK(Input::IsGamepadConnected(0) && Input::IsGamepadButtonPressed(GamepadButton::B) && Input::IsGamepadButtonJustPressed(GamepadButton::B));
+    CHECK(!Input::IsGamepadConnected(1) && !Input::IsGamepadButtonPressed(GamepadButton::B, 1));
+    NextFrame();
+    CHECK(!Input::IsGamepadButtonJustPressed(GamepadButton::B));
+    Input::SimulateGamepadButton(0, GamepadButton::B, false);
+    NextFrame();
+    CHECK(Input::IsGamepadButtonJustReleased(GamepadButton::B) && !Input::IsGamepadButtonPressed(GamepadButton::B));
+    CHECK(!Input::IsGamepadConnected(-1) && !Input::IsGamepadConnected(Input::MaxGamepads));
+
+    Input::ResetState();
+    CHECK(!Input::IsKeyPressed(Key::A) && !Input::IsGamepadConnected(0));
+}
+
+TEST(InputActionQueries)
+{
+    Project::SetActive(nullptr); // default map: Jump = Space / Gamepad A, Fire = Mouse Left / LeftControl / RightTrigger
+    Input::ResetState();
+    NextFrame();
+    CHECK(!Input::IsActionPressed("Jump") && !Input::IsActionJustPressed("Jump") && !Input::IsActionJustReleased("Jump"));
+
+    Input::OnKeyEvent(Key::Space, true);
+    NextFrame();
+    CHECK(Input::IsActionPressed("Jump") && Input::IsActionJustPressed("Jump") && !Input::IsActionJustReleased("Jump"));
+    NextFrame();
+    CHECK(Input::IsActionPressed("Jump") && !Input::IsActionJustPressed("Jump"));
+
+    // A second binding while the action is held is not a new press ...
+    Input::SimulateGamepadButton(0, GamepadButton::A, true);
+    NextFrame();
+    CHECK(Input::IsActionPressed("Jump") && !Input::IsActionJustPressed("Jump"));
+    // ... and releasing one of two held bindings is not a release.
+    Input::OnKeyEvent(Key::Space, false);
+    NextFrame();
+    CHECK(Input::IsActionPressed("Jump") && !Input::IsActionJustReleased("Jump") && !Input::IsActionJustPressed("Jump"));
+    Input::SimulateGamepadButton(0, GamepadButton::A, false);
+    NextFrame();
+    CHECK(!Input::IsActionPressed("Jump") && Input::IsActionJustReleased("Jump") && !Input::IsActionJustPressed("Jump"));
+    NextFrame();
+    CHECK(!Input::IsActionJustReleased("Jump"));
+
+    // Gamepad-only press, and a second gamepad.
+    Input::SimulateGamepadButton(0, GamepadButton::A, true);
+    NextFrame();
+    CHECK(Input::IsActionJustPressed("Jump"));
+    Input::SimulateGamepadButton(0, GamepadButton::A, false);
+    NextFrame();
+    Input::SimulateGamepadButton(1, GamepadButton::A, true);
+    NextFrame();
+    CHECK(Input::IsActionPressed("Jump") && Input::IsActionJustPressed("Jump"));
+    CHECK(Input::IsGamepadButtonJustPressed(GamepadButton::A, 1) && !Input::IsGamepadButtonPressed(GamepadButton::A, 0));
+    // Pad 0 pressing while pad 1 holds: still the same press.
+    Input::SimulateGamepadButton(0, GamepadButton::A, true);
+    NextFrame();
+    CHECK(Input::IsActionPressed("Jump") && !Input::IsActionJustPressed("Jump"));
+    Input::SimulateGamepadButton(0, GamepadButton::A, false);
+    Input::SimulateGamepadButton(1, GamepadButton::A, false);
+    NextFrame();
+    CHECK(Input::IsActionJustReleased("Jump"));
+
+    // A quick tap between two frames.
+    Input::OnKeyEvent(Key::Space, true);
+    Input::OnKeyEvent(Key::Space, false);
+    NextFrame();
+    CHECK(!Input::IsActionPressed("Jump") && Input::IsActionJustPressed("Jump") && Input::IsActionJustReleased("Jump"));
+    NextFrame();
+    CHECK(!Input::IsActionJustPressed("Jump") && !Input::IsActionJustReleased("Jump"));
+
+    // Gamepad axis as a button: Fire listens to the right trigger (-1 released .. 1 pressed).
+    CHECK(!Input::IsActionPressed("Fire"));
+    Input::SimulateGamepadAxis(0, GamepadAxis::RightTrigger, 0.0f); // half way = 0.5: not yet
+    NextFrame();
+    CHECK(!Input::IsActionPressed("Fire"));
+    Input::SimulateGamepadAxis(0, GamepadAxis::RightTrigger, 0.8f);
+    NextFrame();
+    CHECK(Input::IsActionPressed("Fire") && Input::IsActionJustPressed("Fire"));
+    Input::OnMouseButtonEvent(MouseButton::Left, true);
+    NextFrame();
+    CHECK(Input::IsActionPressed("Fire") && !Input::IsActionJustPressed("Fire"));
+    Input::SimulateGamepadAxis(0, GamepadAxis::RightTrigger, -1.0f);
+    Input::OnMouseButtonEvent(MouseButton::Left, false);
+    NextFrame();
+    CHECK(!Input::IsActionPressed("Fire") && Input::IsActionJustReleased("Fire"));
+
+    // A gamepad that disconnects while held releases the action.
+    Input::SimulateGamepadButton(0, GamepadButton::A, true);
+    NextFrame();
+    CHECK(Input::IsActionPressed("Jump"));
+    Input::SimulateGamepadConnected(0, false);
+    NextFrame();
+    CHECK(!Input::IsActionPressed("Jump") && Input::IsActionJustReleased("Jump") && !Input::IsGamepadConnected(0));
+
+    // Unknown names are simply inactive.
+    CHECK(!Input::IsActionPressed("NoSuchAction") && !Input::IsActionJustPressed("NoSuchAction") && !Input::IsActionJustReleased("NoSuchAction"));
+    CHECK(Input::GetAxis("NoSuchAxis") == 0.0f);
+
+    // The active project's map is used.
+    auto project = Project::New();
+    project->GetConfig().InputActions.FindAction("Jump")->Bindings = { InputBinding::FromKey(Key::K) };
+    Input::ResetState();
+    Input::OnKeyEvent(Key::Space, true);
+    NextFrame();
+    CHECK(!Input::IsActionPressed("Jump"));
+    Input::OnKeyEvent(Key::K, true);
+    NextFrame();
+    CHECK(Input::IsActionPressed("Jump") && Input::IsActionJustPressed("Jump"));
+
+    // Definitions can be queried directly, too.
+    InputAction dash{ "Dash", { InputBinding::FromKey(Key::LeftShift), InputBinding::FromMouse(MouseButton::Right) } };
+    InputAction unbound{ "Unbound", {} };
+    CHECK(!Input::IsActionPressed(dash));
+    Input::OnMouseButtonEvent(MouseButton::Right, true);
+    NextFrame();
+    CHECK(Input::IsActionPressed(dash) && Input::IsActionJustPressed(dash));
+    CHECK(!Input::IsActionPressed(unbound) && !Input::IsActionJustPressed(unbound) && !Input::IsActionJustReleased(unbound));
+
+    Project::SetActive(nullptr);
+    Input::ResetState();
+}
+
+TEST(InputAxes)
+{
+    Project::SetActive(nullptr); // Horizontal: A/Left/DPadLeft - D/Right/DPadRight + LeftX; Vertical: S - W + LeftY (inverted)
+    Input::ResetState();
+    NextFrame();
+    CHECK(Input::GetAxis("Horizontal") == 0.0f && Input::GetAxis("Vertical") == 0.0f);
+
+    Input::OnKeyEvent(Key::D, true);
+    NextFrame();
+    CHECK(Input::GetAxis("Horizontal") == 1.0f);
+    Input::OnKeyEvent(Key::A, true);
+    NextFrame();
+    CHECK(Input::GetAxis("Horizontal") == 0.0f); // both directions cancel
+    Input::OnKeyEvent(Key::D, false);
+    NextFrame();
+    CHECK(Input::GetAxis("Horizontal") == -1.0f);
+    Input::OnKeyEvent(Key::A, false);
+    Input::OnKeyEvent(Key::Right, true);
+    NextFrame();
+    CHECK(Input::GetAxis("Horizontal") == 1.0f);
+
+    // Diagonal keyboard input is normalized by GetAxis2D.
+    Input::OnKeyEvent(Key::W, true);
+    NextFrame();
+    CHECK(Input::GetAxis("Vertical") == 1.0f);
+    glm::vec2 move = Input::GetAxis2D();
+    CHECK_NEAR(glm::length(move), 1.0f, 1e-5f);
+    CHECK_NEAR(move.x, 0.70710678f, 1e-5f);
+    CHECK_NEAR(move.y, 0.70710678f, 1e-5f);
+    Input::OnKeyEvent(Key::Right, false);
+    Input::OnKeyEvent(Key::W, false);
+    NextFrame();
+    CHECK(Input::GetAxis2D() == glm::vec2(0.0f));
+
+    // Analog stick: deadzone (0.15) and rescaling.
+    Input::SimulateGamepadAxis(0, GamepadAxis::LeftX, 0.1f);
+    NextFrame();
+    CHECK(Input::GetAxis("Horizontal") == 0.0f);
+    CHECK(Input::GetGamepadAxis(GamepadAxis::LeftX) == 0.0f); // raw query uses its own deadzone
+    Input::SimulateGamepadAxis(0, GamepadAxis::LeftX, 0.575f);
+    NextFrame();
+    CHECK_NEAR(Input::GetAxis("Horizontal"), 0.5f, 1e-5f);
+    CHECK_NEAR(Input::GetGamepadAxis(GamepadAxis::LeftX), 0.575f, 1e-6f);
+    Input::SimulateGamepadAxis(0, GamepadAxis::LeftX, -1.0f);
+    NextFrame();
+    CHECK_NEAR(Input::GetAxis("Horizontal"), -1.0f, 1e-6f);
+    CHECK_NEAR(Input::GetAxis2D().x, -1.0f, 1e-6f);
+
+    // Inverted vertical stick: up (-1) reads +1.
+    Input::SimulateGamepadAxis(0, GamepadAxis::LeftY, -1.0f);
+    NextFrame();
+    CHECK_NEAR(Input::GetAxis("Vertical"), 1.0f, 1e-6f);
+    CHECK_NEAR(glm::length(Input::GetAxis2D()), 1.0f, 1e-5f);
+
+    // The input with the larger magnitude wins.
+    Input::SimulateGamepadAxis(0, GamepadAxis::LeftX, 0.575f); // 0.5
+    Input::OnKeyEvent(Key::A, true);                            // -1
+    NextFrame();
+    CHECK(Input::GetAxis("Horizontal") == -1.0f);
+    Input::OnKeyEvent(Key::A, false);
+    NextFrame();
+    CHECK_NEAR(Input::GetAxis("Horizontal"), 0.5f, 1e-5f);
+
+    // D-pad buttons are digital bindings; a second gamepad with a bigger value wins.
+    Input::SimulateGamepadAxis(0, GamepadAxis::LeftX, 0.0f);
+    Input::SimulateGamepadButton(0, GamepadButton::DPadLeft, true);
+    NextFrame();
+    CHECK(Input::GetAxis("Horizontal") == -1.0f);
+    Input::SimulateGamepadButton(0, GamepadButton::DPadLeft, false);
+    Input::SimulateGamepadAxis(0, GamepadAxis::LeftX, 0.4f);
+    Input::SimulateGamepadAxis(1, GamepadAxis::LeftX, -0.8f);
+    NextFrame();
+    CHECK_NEAR(Input::GetAxis("Horizontal"), Input::ApplyDeadzone(-0.8f, 0.15f), 1e-6f);
+
+    // Custom axes: a trigger (0..1) with its own deadzone, and stick halves used as buttons.
+    InputAxis throttle;
+    throttle.Name = "Throttle";
+    throttle.GamepadAxisCode = (int)GamepadAxis::RightTrigger;
+    throttle.Deadzone = 0.1f;
+    Input::SimulateGamepadAxis(0, GamepadAxis::RightTrigger, -1.0f);
+    NextFrame();
+    CHECK(Input::GetAxis(throttle) == 0.0f);
+    Input::SimulateGamepadAxis(0, GamepadAxis::RightTrigger, 0.0f);
+    NextFrame();
+    CHECK_NEAR(Input::GetAxis(throttle), 0.4f / 0.9f, 1e-5f);
+    Input::SimulateGamepadAxis(0, GamepadAxis::RightTrigger, 1.0f);
+    NextFrame();
+    CHECK_NEAR(Input::GetAxis(throttle), 1.0f, 1e-6f);
+    throttle.Invert = true;
+    CHECK_NEAR(Input::GetAxis(throttle), -1.0f, 1e-6f);
+
+    InputAxis steer;
+    steer.Name = "Steer";
+    steer.Negative = { InputBinding::FromGamepadAxis(GamepadAxis::RightX, -1) };
+    steer.Positive = { InputBinding::FromGamepadAxis(GamepadAxis::RightX, 1) };
+    Input::SimulateGamepadAxis(0, GamepadAxis::RightX, -0.7f);
+    NextFrame();
+    CHECK(Input::GetAxis(steer) == -1.0f);
+    Input::SimulateGamepadAxis(0, GamepadAxis::RightX, 0.3f);
+    NextFrame();
+    CHECK(Input::GetAxis(steer) == 0.0f);
+    InputAxis empty;
+    CHECK(Input::GetAxis(empty) == 0.0f);
+
+    // Deadzone helper.
+    CHECK(Input::ApplyDeadzone(0.1f, 0.2f) == 0.0f);
+    CHECK(Input::ApplyDeadzone(-0.2f, 0.2f) == 0.0f);
+    CHECK_NEAR(Input::ApplyDeadzone(-0.6f, 0.2f), -0.5f, 1e-6f);
+    CHECK_NEAR(Input::ApplyDeadzone(1.0f, 0.2f), 1.0f, 1e-6f);
+    CHECK_NEAR(Input::ApplyDeadzone(0.5f, 0.0f), 0.5f, 1e-6f);
+    CHECK(Input::ApplyDeadzone(1.0f, 1.0f) <= 1.0f);
+
+    Input::ResetState();
+}
+
+TEST(SaveDataValuesAndFile)
+{
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-save-" + std::to_string((uint64_t)UUID()));
+    auto file = dir / "save.json";
+    SaveData::SetFilePath(file);
+    CHECK(SaveData::GetFilePath() == file);
+    CHECK(SaveData::GetKeys().empty() && !SaveData::HasKey("Score") && !SaveData::IsDirty());
+    CHECK(SaveData::GetType("Score") == SaveValueType::None);
+
+    // Defaults for missing keys.
+    CHECK(SaveData::GetInt("Score", 7) == 7);
+    CHECK(SaveData::GetFloat("Volume", 0.5f) == 0.5f);
+    CHECK(SaveData::GetString("Name", "x") == "x");
+    CHECK(SaveData::GetBool("Muted", true));
+
+    const std::string unicode = "Abbos O'g'li \xE2\x80\x94 \xE2\x9C\x93 \"qo'shtirnoq\"\n";
+    SaveData::SetInt("Score", 1234);
+    SaveData::SetInt("Negative", -42);
+    SaveData::SetInt("Max", std::numeric_limits<int>::max());
+    SaveData::SetFloat("Volume", 0.75f);
+    SaveData::SetFloat("Pi", 3.14159274f);
+    SaveData::SetFloat("Tiny", 1.0e-7f);
+    SaveData::SetString("Name", unicode);
+    SaveData::SetString("Empty", "");
+    SaveData::SetBool("Muted", true);
+    SaveData::SetBool("Off", false);
+    CHECK(SaveData::IsDirty());
+    CHECK(SaveData::GetInt("Score") == 1234 && SaveData::GetInt("Negative") == -42);
+    CHECK(SaveData::GetFloat("Volume") == 0.75f && SaveData::GetString("Name") == unicode);
+    CHECK(SaveData::GetBool("Muted") && !SaveData::GetBool("Off", true));
+    CHECK(SaveData::HasKey("Empty") && SaveData::GetString("Empty", "d").empty());
+    CHECK(SaveData::GetType("Score") == SaveValueType::Int && SaveData::GetType("Pi") == SaveValueType::Float);
+    CHECK(SaveData::GetType("Name") == SaveValueType::String && SaveData::GetType("Off") == SaveValueType::Bool);
+    CHECK(std::string(SaveData::TypeToString(SaveValueType::Float)) == "Float");
+
+    // Numbers convert, other mismatches give the default.
+    CHECK(SaveData::GetFloat("Score") == 1234.0f);
+    CHECK(SaveData::GetInt("Pi") == 3 && SaveData::GetInt("Volume", 9) == 0);
+    CHECK(SaveData::GetInt("Name", 5) == 5 && SaveData::GetString("Score", "d") == "d");
+    CHECK(!SaveData::GetBool("Score", false) && SaveData::GetInt("Muted", -1) == -1);
+
+    // Setting a key again replaces the value and its type.
+    SaveData::SetString("Negative", "minus");
+    CHECK(SaveData::GetType("Negative") == SaveValueType::String && SaveData::GetInt("Negative", 9) == 9);
+
+    // Save -> file on disk; unsaved changes are dropped by Reload().
+    CHECK(SaveData::Save());
+    CHECK(!SaveData::IsDirty());
+    CHECK(std::filesystem::exists(file));
+    CHECK(!std::filesystem::exists(dir / "save.json.tmp"));
+    SaveData::SetInt("Score", 1);
+    SaveData::DeleteKey("Muted");
+    CHECK(SaveData::IsDirty() && !SaveData::HasKey("Muted"));
+    CHECK(SaveData::Reload());
+    CHECK(SaveData::GetInt("Score") == 1234 && SaveData::GetBool("Muted") && !SaveData::IsDirty());
+
+    // Another file is separate; coming back reads everything exactly (like a new session).
+    SaveData::SetFilePath(dir / "other.json");
+    CHECK(!SaveData::HasKey("Score") && SaveData::GetKeys().empty());
+    SaveData::SetFilePath(file);
+    CHECK(SaveData::GetInt("Score") == 1234 && SaveData::GetInt("Max") == std::numeric_limits<int>::max());
+    CHECK(SaveData::GetFloat("Pi") == 3.14159274f && SaveData::GetFloat("Tiny") == 1.0e-7f);
+    CHECK(SaveData::GetString("Name") == unicode && SaveData::GetString("Negative") == "minus");
+    CHECK(!SaveData::GetBool("Off", true) && SaveData::GetType("Volume") == SaveValueType::Float);
+    auto keys = SaveData::GetKeys();
+    CHECK(keys.size() == 10 && std::is_sorted(keys.begin(), keys.end()));
+
+    // Writing the same value does not mark the data dirty.
+    SaveData::SetInt("Score", 1234);
+    SaveData::SetString("Name", unicode);
+    CHECK(!SaveData::IsDirty());
+
+    // Switching files saves unsaved data first.
+    SaveData::SetInt("Coins", 5);
+    SaveData::SetFilePath(dir / "other.json");
+    SaveData::SetFilePath(file);
+    CHECK(SaveData::GetInt("Coins") == 5);
+
+    // DeleteKey / DeleteAll.
+    SaveData::DeleteKey("Coins");
+    SaveData::DeleteKey("NoSuchKey");
+    CHECK(!SaveData::HasKey("Coins"));
+    SaveData::DeleteAll();
+    CHECK(SaveData::GetKeys().empty() && SaveData::IsDirty());
+    CHECK(SaveData::Save() && SaveData::Reload());
+    CHECK(SaveData::GetKeys().empty());
+
+    // A broken file is kept as .bak and the game starts with empty data.
+    CHECK(FileSystem::WriteTextFile(file, "{ broken"));
+    Log::SetMinLevel(LogLevel::Critical); // the errors below are expected
+    CHECK(!SaveData::Reload());
+    CHECK(SaveData::GetKeys().empty() && std::filesystem::exists(dir / "save.json.bak"));
+    SaveData::SetBool("Recovered", true);
+    CHECK(SaveData::Save() && SaveData::Reload() && SaveData::GetBool("Recovered"));
+
+    // Hand-edited files: out-of-range ints are clamped, unsupported values skipped.
+    CHECK(FileSystem::WriteTextFile(file, R"({"Version":1,"Data":{"Big":99999999999,"Small":-99999999999,"Arr":[1,2],"Null":null,"F":2.5,"S":"ok","B":false}})"));
+    CHECK(SaveData::Reload());
+    Log::SetMinLevel(LogLevel::Error);
+    CHECK(SaveData::GetInt("Big") == std::numeric_limits<int>::max() && SaveData::GetInt("Small") == std::numeric_limits<int>::min());
+    CHECK(!SaveData::HasKey("Arr") && !SaveData::HasKey("Null"));
+    CHECK(SaveData::GetFloat("F") == 2.5f && SaveData::GetString("S") == "ok" && !SaveData::GetBool("B", true));
+
+    SaveData::SetFilePath({});
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+}
+
+TEST(SaveDataProjectLocation)
+{
+    const char* oldXdg = std::getenv("XDG_DATA_HOME");
+    const std::string savedXdg = oldXdg ? oldXdg : "";
+    const bool hadXdg = oldXdg != nullptr;
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-xdg-" + std::to_string((uint64_t)UUID()));
+    setenv("XDG_DATA_HOME", dir.c_str(), 1);
+
+    // <XDG_DATA_HOME>/zamin/<project>, with a file-system safe name.
+    CHECK(SaveData::GetDirectoryForProject("My Game") == dir / "zamin" / "My Game");
+    CHECK(SaveData::GetDirectoryForProject("a/b:c*") == dir / "zamin" / "a_b_c_");
+    CHECK(SaveData::GetDirectoryForProject("..") == dir / "zamin" / "Untitled");
+    CHECK(SaveData::GetDirectoryForProject("") == dir / "zamin" / "Untitled");
+    CHECK(SaveData::GetDirectoryForProject(" .Hidden. ") == dir / "zamin" / "Hidden");
+    // A relative XDG_DATA_HOME is ignored (XDG spec): ~/.local/share is used.
+    setenv("XDG_DATA_HOME", "relative/dir", 1);
+    if (const char* home = std::getenv("HOME"); home && *home)
+        CHECK(SaveData::GetDirectoryForProject("G") == std::filesystem::path(home) / ".local" / "share" / "zamin" / "G");
+    setenv("XDG_DATA_HOME", dir.c_str(), 1);
+
+    // The data follows the active project; the previous project's data is written first.
+    auto a = Project::New();
+    a->GetConfig().Name = "SaveGameA";
+    CHECK(SaveData::GetFilePath() == dir / "zamin" / "SaveGameA" / "savedata.json");
+    SaveData::SetInt("Level", 3);
+    auto b = Project::New();
+    b->GetConfig().Name = "SaveGameB";
+    CHECK(!SaveData::HasKey("Level"));
+    CHECK(std::filesystem::exists(dir / "zamin" / "SaveGameA" / "savedata.json"));
+    SaveData::SetInt("Level", 9);
+    Project::SetActive(a);
+    CHECK(SaveData::GetInt("Level") == 3);
+    Project::SetActive(b);
+    CHECK(SaveData::GetInt("Level") == 9);
+
+    // Stopping play mode flushes the data.
+    SaveData::SetInt("Level", 10);
+    CHECK(SaveData::IsDirty());
+    {
+        Scene scene;
+        scene.CreateEntity("E");
+        scene.OnRuntimeStart();
+        scene.OnUpdateRuntime(0.016f);
+        scene.OnRuntimeStop();
+    }
+    CHECK(!SaveData::IsDirty());
+    CHECK(FileSystem::ReadTextFile(dir / "zamin" / "SaveGameB" / "savedata.json").find("10") != std::string::npos);
+
+    Project::SetActive(nullptr);
+    SaveData::SetFilePath({});
+    if (hadXdg) setenv("XDG_DATA_HOME", savedXdg.c_str(), 1);
+    else unsetenv("XDG_DATA_HOME");
     std::error_code ec;
     std::filesystem::remove_all(dir, ec);
 }

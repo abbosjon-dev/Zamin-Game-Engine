@@ -265,7 +265,8 @@ public:
 };
 ZM_REGISTER_SCRIPT(Rotator, ZM_FIELD(Rotator, Speed))
 
-// WASD bilan harakatlanadigan obyekt.
+// WASD / strelkalar / gamepad bilan harakatlanadigan obyekt. "Horizontal", "Vertical" va
+// "Jump" nomlari Loyiha sozlamalari > Input oynasida tugmalarga bog'lanadi.
 class PlayerController : public ScriptableEntity
 {
 public:
@@ -273,18 +274,18 @@ public:
 
     void OnCreate() override
     {
-        ZM_INFO("PlayerController ishga tushdi: {}", GetName());
+        // SaveData: o'yinlar orasida saqlanadigan qiymatlar (~/.local/share/zamin/<loyiha>)
+        int launches = SaveData::GetInt("Launches") + 1;
+        SaveData::SetInt("Launches", launches);
+        ZM_INFO("PlayerController ishga tushdi: {}, {}-marta", GetName(), launches);
     }
 
     void OnUpdate(Timestep ts) override
     {
-        glm::vec3 dir(0.0f);
-        if (Input::IsKeyPressed(Key::W)) dir.z -= 1.0f;
-        if (Input::IsKeyPressed(Key::S)) dir.z += 1.0f;
-        if (Input::IsKeyPressed(Key::A)) dir.x -= 1.0f;
-        if (Input::IsKeyPressed(Key::D)) dir.x += 1.0f;
-        if (glm::length(dir) > 0.0f)
-            Transform().Translation += glm::normalize(dir) * MoveSpeed * (float)ts;
+        glm::vec2 move = Input::GetAxis2D("Horizontal", "Vertical");
+        Transform().Translation += glm::vec3(move.x, 0.0f, -move.y) * MoveSpeed * (float)ts;
+        if (Input::IsActionJustPressed("Jump"))
+            ZM_INFO("Sakrash!");
     }
 };
 ZM_REGISTER_SCRIPT(PlayerController, ZM_FIELD(PlayerController, MoveSpeed))

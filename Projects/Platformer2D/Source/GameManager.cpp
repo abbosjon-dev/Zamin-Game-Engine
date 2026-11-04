@@ -26,6 +26,8 @@ void GameManager::OnLateUpdate(Timestep)
 void GameManager::AddCoin()
 {
     m_Coins++;
+    // Kept between sessions (SaveData file in ~/.local/share/zamin/Platformer2D).
+    SaveData::SetInt("TotalCoins", SaveData::GetInt("TotalCoins") + 1);
     RefreshText();
     if (m_Coins == m_TotalCoins)
         ZM_INFO("Barakalla! Hamma tangalar yig'ildi!");
@@ -42,6 +44,8 @@ void GameManager::RefreshText()
     if (auto* text = TryGetComponent<TextComponent>())
     {
         text->Text = std::format("{}: {} / {}", Title, m_Coins, m_TotalCoins);
+        if (int total = SaveData::GetInt("TotalCoins"); total > 0)
+            text->Text += std::format("   (jami: {})", total);
         if (m_Falls > 0)
             text->Text += std::format("\nYiqilishlar: {}", m_Falls);
         if (m_TotalCoins > 0 && m_Coins == m_TotalCoins)

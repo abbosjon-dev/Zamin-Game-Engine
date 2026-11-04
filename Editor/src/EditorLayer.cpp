@@ -122,10 +122,13 @@ namespace Zamin {
                 OnScenePlay();
             if (std::getenv("ZAMIN_EDITOR_STATS"))
                 m_ShowStats = true;
-            if (std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS"))
+            if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | General
             {
                 m_ShowProjectSettings = true;
-                m_ProjectSettingsPanel.Focus();
+                std::string_view t(tab);
+                m_ProjectSettingsPanel.Focus(t == "SaveData" ? ProjectSettingsPanel::Tab::SaveData
+                                           : t == "General"  ? ProjectSettingsPanel::Tab::General
+                                                             : ProjectSettingsPanel::Tab::Input);
             }
             if (const char* out = std::getenv("ZAMIN_EDITOR_EXPORT"))
                 BuildGame(out);
@@ -549,6 +552,7 @@ namespace Zamin {
             OnSceneStop();
 
         m_ProjectSettingsPanel.SaveIfDirty();
+        SaveData::Save(); // the previous project's game data
         if (!Project::Load(projectFile))
         {
             ZM_ERROR("Loyiha ochilmadi: {}", path.string());
@@ -592,6 +596,7 @@ namespace Zamin {
         ScriptEngine::UnloadModule();
         m_ProjectSettingsPanel.SaveIfDirty();
         m_ProjectSettingsPanel.OnProjectChanged();
+        SaveData::Save();
         Project::SetActive(nullptr);
         m_ContentBrowserPanel.SetRoot({});
         NewScene();

@@ -1,63 +1,63 @@
-#include "Zamin/Core/Input.h"
+#include "Zamin/Core/InputState.h"
 #include "Zamin/Core/Application.h"
 
 #include <GLFW/glfw3.h>
 
-#include <cmath>
-
 namespace Zamin {
 
-    static GLFWwindow* NativeWindow()
-    {
-        return static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
-    }
+    namespace Internal {
 
-    bool Input::IsKeyPressed(Key key)
-    {
-        if (!Application::Exists()) return false;
-        int state = glfwGetKey(NativeWindow(), static_cast<int32_t>(key));
-        return state == GLFW_PRESS || state == GLFW_REPEAT;
-    }
+        void PollPlatformInput(InputState& state)
+        {
+            if (!Application::Exists())
+                return;
+            auto* window = static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow());
+            if (!window)
+                return;
 
-    bool Input::IsMouseButtonPressed(MouseButton button)
-    {
-        if (!Application::Exists()) return false;
-        return glfwGetMouseButton(NativeWindow(), static_cast<int32_t>(button)) == GLFW_PRESS;
-    }
+            // Keys / buttons only change while GLFW processes events, so this matches the
+            // event stream; polling also covers presses that happened before the window opened.
+            static_assert(InputKeyCount == GLFW_KEY_LAST + 1);
+            for (int key = InputFirstKey; key < InputKeyCount; key++)
+            {
+                int s = glfwGetKey(window, key);
+                state.Keys[key].Live = s == GLFW_PRESS || s == GLFW_REPEAT;
+            }
+            for (int b = 0; b < MouseButtonCount; b++)
+                state.Mouse[b].Live = glfwGetMouseButton(window, b) == GLFW_PRESS;
 
-    glm::vec2 Input::GetMousePosition()
-    {
-        if (!Application::Exists()) return { 0.0f, 0.0f };
-        double x, y;
-        glfwGetCursorPos(NativeWindow(), &x, &y);
-        return { (float)x, (float)y };
-    }
+            double x, y;
+            glfwGetCursorPos(window, &x, &y);
+            state.MouseLive = { (float)x, (float)y };
 
+            for (int id = 0; id < Input::MaxGamepads; id++)
+            {
+                auto& slot = state.Gamepads[id];
+                if (slot.Simulated)
+                    continue;
+                GLFWgamepadstate gs;
+                slot.Live = {};
+                if (!glfwGetGamepadState(GLFW_JOYSTICK_1 + id, &gs))
+                    continue;
+                slot.Live.Connected = true;
+                for (int b = 0; b < GamepadButtonCount; b++)
+                    slot.Live.Buttons[b] = gs.buttons[b] == GLFW_PRESS;
+                for (int a = 0; a < GamepadAxisCount; a++)
+                    slot.Live.Axes[a] = gs.axes[a];
+            }
+        }
 
-    bool Input::IsGamepadConnected(int id)
-    {
-        return glfwJoystickIsGamepad(GLFW_JOYSTICK_1 + id) == GLFW_TRUE;
-    }
-
-    bool Input::IsGamepadButtonPressed(GamepadButton button, int id)
-    {
-        GLFWgamepadstate state;
-        if (!glfwGetGamepadState(GLFW_JOYSTICK_1 + id, &state)) return false;
-        return state.buttons[(int)button] == GLFW_PRESS;
-    }
-
-    float Input::GetGamepadAxis(GamepadAxis axis, int id, float deadzone)
-    {
-        GLFWgamepadstate state;
-        if (!glfwGetGamepadState(GLFW_JOYSTICK_1 + id, &state)) return 0.0f;
-        float v = state.axes[(int)axis];
-        if (axis != GamepadAxis::LeftTrigger && axis != GamepadAxis::RightTrigger && std::abs(v) < deadzone)
-            return 0.0f;
-        return v;
     }
 
     const char* Input::GetGamepadName(int id)
     {
+        if (id < 0 || id >= MaxGamepads)
+            return "";
+        const auto& slot = Internal::GetInputState().Gamepads[id];
+        if (slot.Simulated)
+            return slot.Current.Connected ? "Simulyatsiya" : "";
+        if (!Application::Exists())
+            return "";
         const char* name = glfwGetGamepadName(GLFW_JOYSTICK_1 + id);
         return name ? name : "";
     }

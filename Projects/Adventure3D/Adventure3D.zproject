@@ -1,4 +1,80 @@
 {
+    "InputActions": {
+        "Actions": [
+            {
+                "Name": "Jump",
+                "Bindings": [
+                    "Key:Space",
+                    "Gamepad:A"
+                ]
+            },
+            {
+                "Name": "Fire",
+                "Bindings": [
+                    "Mouse:Left",
+                    "Key:LeftControl",
+                    "GamepadAxis:RightTrigger+"
+                ]
+            },
+            {
+                "Name": "Interact",
+                "Bindings": [
+                    "Key:E",
+                    "Gamepad:X"
+                ]
+            },
+            {
+                "Name": "Sprint",
+                "Bindings": [
+                    "Key:LeftShift",
+                    "Key:RightShift",
+                    "GamepadAxis:RightTrigger+",
+                    "Gamepad:LeftThumb"
+                ]
+            },
+            {
+                "Name": "Pause",
+                "Bindings": [
+                    "Key:Escape",
+                    "Gamepad:Start"
+                ]
+            }
+        ],
+        "Axes": [
+            {
+                "Deadzone": 0.15,
+                "GamepadAxis": "LeftX",
+                "Invert": false,
+                "Name": "Horizontal",
+                "Negative": [
+                    "Key:A",
+                    "Key:Left",
+                    "Gamepad:DPadLeft"
+                ],
+                "Positive": [
+                    "Key:D",
+                    "Key:Right",
+                    "Gamepad:DPadRight"
+                ]
+            },
+            {
+                "Deadzone": 0.15,
+                "GamepadAxis": "LeftY",
+                "Invert": true,
+                "Name": "Vertical",
+                "Negative": [
+                    "Key:S",
+                    "Key:Down",
+                    "Gamepad:DPadDown"
+                ],
+                "Positive": [
+                    "Key:W",
+                    "Key:Up",
+                    "Gamepad:DPadUp"
+                ]
+            }
+        ]
+    },
     "Project": {
         "Name": "Adventure3D",
         "StartScene": "Scenes/Island.zscene",

@@ -13,6 +13,7 @@
 #include "Zamin/Math/Math.h"
 #include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Core/Profiler.h"
+#include "Zamin/Core/SaveData.h"
 
 #include <box2d/b2_body.h>
 #include <box2d/b2_circle_shape.h>
@@ -489,6 +490,7 @@ namespace Zamin {
         OnPhysics2DStop();
         OnPhysics3DStop();
         AudioEngine::StopAll();
+        SaveData::Save(); // flush what the scripts stored (no-op when nothing changed)
     }
 
     void Scene::OnSimulationStart() { OnPhysics2DStart(); OnPhysics3DStart(); }

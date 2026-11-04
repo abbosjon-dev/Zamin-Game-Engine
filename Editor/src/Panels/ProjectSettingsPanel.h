@@ -2,15 +2,19 @@
 
 #include <Zamin/Zamin.h>
 
+#include <string>
 #include <vector>
 
 namespace Zamin {
 
-    // "Project settings" window: general project info + the input action map
-    // (actions and axes bound to keys / mouse buttons / gamepad).
+    // "Project settings" window: general project info, the input action map (actions and
+    // axes bound to keys / mouse buttons / gamepad, with a live preview) and the game's
+    // SaveData (PlayerPrefs) viewer / editor.
     class ProjectSettingsPanel
     {
     public:
+        enum class Tab { Input = 0, SaveData, General };
+
         void OnImGuiRender(bool* show);
 
         bool IsDirty() const { return m_Dirty; }
@@ -18,8 +22,9 @@ namespace Zamin {
         void SaveIfDirty();
         // Call when another project is opened / the project is closed.
         void OnProjectChanged();
-        // Bring the window to the front on the next frame.
+        // Bring the window to the front on the next frame (optionally on a specific tab).
         void Focus() { m_FocusRequested = true; }
+        void Focus(Tab tab) { m_FocusRequested = true; m_RequestedTab = (int)tab; }
 
     private:
         enum class ListKind { None = 0, Action, AxisNegative, AxisPositive };
@@ -32,6 +37,7 @@ namespace Zamin {
         };
 
         void DrawGeneral(ProjectConfig& config);
+        void DrawSaveData();
         void DrawInputMap(InputActionMap& map);
         bool DrawBindingList(const char* label, std::vector<InputBinding>& bindings, ListKind kind, int entry);
         bool DrawBinding(InputBinding& binding, const ListenTarget& target);
@@ -46,6 +52,11 @@ namespace Zamin {
         bool m_FocusRequested = false;
         ListenTarget m_Listen;
         bool m_ListenArmed = false; // all inputs were released since listening started
+        int m_RequestedTab = -1;
+
+        // SaveData tab: new entry
+        std::string m_NewSaveKey;
+        int m_NewSaveType = 0;
     };
 
 }

@@ -1710,6 +1710,13 @@ ZM_REGISTER_SCRIPT({0}, ZM_FIELD({0}, Speed))
             std::string name = m_ActiveScene->GetName();
             if (UI::PropertyString("Nomi", name)) { m_ActiveScene->SetName(name); changed = true; }
             changed |= UI::PropertyBool("Osmon", s.DrawSky);
+            changed |= UI::PropertyAssetPath("HDRI (IBL)", s.EnvironmentMap, ".hdr;.png;.jpg;.jpeg", ICON_FA_GLOBE);
+            if (!s.EnvironmentMap.empty())
+            {
+                changed |= UI::PropertySlider("HDRI kuchi", s.EnvironmentIntensity, 0.0f, 5.0f);
+                float deg = glm::degrees(s.EnvironmentRotation);
+                if (UI::PropertySlider("HDRI burilishi", deg, -180.0f, 180.0f)) { s.EnvironmentRotation = glm::radians(deg); changed = true; }
+            }
             changed |= UI::PropertyColor3("Osmon (tepa)", s.SkyTopColor);
             changed |= UI::PropertyColor3("Ufq", s.SkyHorizonColor);
             changed |= UI::PropertyColor3("Yer", s.GroundColor);

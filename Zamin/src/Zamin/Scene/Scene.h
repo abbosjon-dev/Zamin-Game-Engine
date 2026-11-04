@@ -34,6 +34,9 @@ namespace Zamin {
         float AmbientIntensity = 0.6f;
         float Exposure = 1.0f;
         float ShadowDistance = 40.0f;
+        std::string EnvironmentMap;      // .hdr / .png / .jpg equirect panorama (empty = gradient sky)
+        float EnvironmentIntensity = 1.0f;
+        float EnvironmentRotation = 0.0f; // radians
         bool FogEnabled = false;
         glm::vec3 FogColor{ 0.7f, 0.78f, 0.86f };
         float FogDensity = 0.015f;
@@ -203,6 +206,8 @@ namespace Zamin {
         std::filesystem::path m_PendingSceneLoad;
         glm::vec2 m_MousePosition{ -1.0f };
         glm::mat4 m_LastProjection{ 1.0f };
+        Ref<class EnvironmentMap> m_EnvMap;
+        std::string m_EnvMapPath;
         bool m_MouseDown = false, m_MouseWasDown = false;
         entt::entity m_PressedButton = entt::null;
 

@@ -88,6 +88,29 @@ uniform int u_FogEnabled;
 uniform vec3 u_FogColor;
 uniform float u_FogDensity;
 uniform float u_FogHeightFalloff;
+uniform int u_UseIBL;
+uniform sampler2D u_EnvMap;
+uniform float u_EnvMaxLod;
+uniform float u_EnvIntensity;
+uniform float u_EnvRotation;
+uniform vec3 u_SH[9];
+
+vec2 EquirectUV(vec3 d)
+{
+    float c = cos(u_EnvRotation), s = sin(u_EnvRotation);
+    d = vec3(c * d.x - s * d.z, d.y, s * d.x + c * d.z);
+    return vec2(atan(d.z, d.x) / 6.2831853 + 0.5, asin(clamp(d.y, -1.0, 1.0)) / 3.14159265 + 0.5);
+}
+
+vec3 EvalSH(vec3 n)
+{
+    float c = cos(u_EnvRotation), s = sin(u_EnvRotation);
+    n = vec3(c * n.x - s * n.z, n.y, s * n.x + c * n.z);
+    return max(u_SH[0] * 0.282095
+         + u_SH[1] * 0.488603 * n.y + u_SH[2] * 0.488603 * n.z + u_SH[3] * 0.488603 * n.x
+         + u_SH[4] * 1.092548 * n.x * n.y + u_SH[5] * 1.092548 * n.y * n.z + u_SH[6] * 0.315392 * (3.0 * n.z * n.z - 1.0)
+         + u_SH[7] * 1.092548 * n.x * n.z + u_SH[8] * 0.546274 * (n.x * n.x - n.y * n.y), vec3(0.0));
+}
 
 uniform int u_PointLightCount;
 uniform vec3 u_PointPositions[MAX_POINT_LIGHTS];
@@ -250,11 +273,26 @@ void main()
 
     // Image-based-ish ambient: hemisphere irradiance + sky reflection.
     float NdotV = max(dot(N, V), 0.0);
-    vec3 irradiance = mix(toLinear(u_GroundColor), mix(toLinear(u_HorizonColor), toLinear(u_SkyColor), 0.5), N.y * 0.5 + 0.5);
     vec3 F = FresnelSchlickRoughness(NdotV, F0, roughness);
     vec3 kD = (1.0 - F) * (1.0 - metallic);
     vec3 R = reflect(-V, N);
-    vec3 specularEnv = SkyRadiance(R, roughness) * F * mix(1.0, 0.35, roughness);
+    vec3 irradiance, specularEnv;
+    if (u_UseIBL == 1)
+    {
+        irradiance = EvalSH(N) * u_EnvIntensity;
+        vec3 prefiltered = textureLod(u_EnvMap, EquirectUV(R), roughness * u_EnvMaxLod * 0.85).rgb * u_EnvIntensity;
+        // analytic approximation of the split-sum BRDF term (Karis)
+        vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022), c1 = vec4(1.0, 0.0425, 1.04, -0.04);
+        vec4 r = roughness * c0 + c1;
+        float a004 = min(r.x * r.x, exp2(-9.28 * NdotV)) * r.x + r.y;
+        vec2 AB = vec2(-1.04, 1.04) * a004 + r.zw;
+        specularEnv = prefiltered * (F0 * AB.x + AB.y);
+    }
+    else
+    {
+        irradiance = mix(toLinear(u_GroundColor), mix(toLinear(u_HorizonColor), toLinear(u_SkyColor), 0.5), N.y * 0.5 + 0.5);
+        specularEnv = SkyRadiance(R, roughness) * F * mix(1.0, 0.35, roughness);
+    }
     vec3 ambient = (kD * albedo * irradiance + specularEnv) * u_Ambient;
 
     vec3 emission = u_Emission;
@@ -333,9 +371,25 @@ uniform vec3 u_SunColor;
 uniform int u_FogEnabled;
 uniform vec3 u_FogColor;
 uniform float u_FogDensity;
+uniform int u_UseIBL;
+uniform sampler2D u_EnvMap;
+uniform float u_EnvIntensity;
+uniform float u_EnvRotation;
 void main()
 {
     vec3 dir = normalize(v_Direction - u_CameraPos);
+    if (u_UseIBL == 1)
+    {
+        float c = cos(u_EnvRotation), s = sin(u_EnvRotation);
+        vec3 d = vec3(c * dir.x - s * dir.z, dir.y, s * dir.x + c * dir.z);
+        vec2 uv = vec2(atan(d.z, d.x) / 6.2831853 + 0.5, asin(clamp(d.y, -1.0, 1.0)) / 3.14159265 + 0.5);
+        vec3 env = textureLod(u_EnvMap, uv, 0.0).rgb * u_EnvIntensity;
+        if (u_FogEnabled == 1)
+            env = mix(env, pow(u_FogColor, vec3(2.2)), (1.0 - smoothstep(-0.05, 0.35, dir.y)) * clamp(u_FogDensity * 40.0, 0.0, 1.0));
+        o_Color = vec4(env, 1.0);
+        o_EntityID = -1;
+        return;
+    }
     float y = dir.y;
     vec3 color = y > 0.0 ? mix(u_Horizon, u_Top, pow(clamp(y, 0.0, 1.0), 0.6))
                          : mix(u_Horizon, u_Ground, pow(clamp(-y * 3.0, 0.0, 1.0), 0.5));
@@ -642,6 +696,17 @@ void main()
             shader->SetFloat3("u_CascadeSplits", { cascades.Splits[0], cascades.Splits[1], cascades.Splits[2] });
             shader->SetFloat3("u_CascadeTexelWorld", { cascades.TexelWorld[0], cascades.TexelWorld[1], cascades.TexelWorld[2] });
             shader->SetInt("u_CascadeCount", cascades.Count);
+            shader->SetInt("u_UseIBL", env.EnvMap ? 1 : 0);
+            shader->SetInt("u_EnvMap", 5);
+            if (env.EnvMap)
+            {
+                shader->SetFloat("u_EnvMaxLod", env.EnvMap->GetMaxLod());
+                shader->SetFloat("u_EnvIntensity", env.EnvIntensity);
+                shader->SetFloat("u_EnvRotation", env.EnvRotation);
+                const auto& sh = env.EnvMap->GetSH();
+                for (int i = 0; i < 9; i++)
+                    shader->SetFloat3("u_SH[" + std::to_string(i) + "]", sh[i]);
+            }
             shader->SetInt("u_FogEnabled", env.FogEnabled ? 1 : 0);
             shader->SetFloat3("u_FogColor", env.FogColor);
             shader->SetFloat("u_FogDensity", env.FogDensity);
@@ -676,6 +741,7 @@ void main()
             shader->SetInt("u_EmissiveMap", 4);
           }
             RenderCommand::BindTextureUnit(1, s_Data->ShadowMap->GetDepthAttachmentRendererID());
+            (env.EnvMap ? env.EnvMap->GetTexture() : s_Data->WhiteTexture)->Bind(5);
 
             RenderCommand::SetCullMode(CullMode::None);
             for (const auto& item : s_Data->Queue)
@@ -722,6 +788,14 @@ void main()
             sky->SetInt("u_HasSun", env.HasSun ? 1 : 0);
             sky->SetFloat3("u_SunDirection", glm::normalize(env.Sun.Direction));
             sky->SetFloat3("u_SunColor", env.Sun.Color);
+            sky->SetInt("u_UseIBL", env.EnvMap ? 1 : 0);
+            sky->SetInt("u_EnvMap", 5);
+            if (env.EnvMap)
+            {
+                env.EnvMap->GetTexture()->Bind(5);
+                sky->SetFloat("u_EnvIntensity", env.EnvIntensity);
+                sky->SetFloat("u_EnvRotation", env.EnvRotation);
+            }
             sky->SetInt("u_FogEnabled", env.FogEnabled ? 1 : 0);
             sky->SetFloat3("u_FogColor", env.FogColor);
             sky->SetFloat("u_FogDensity", env.FogDensity);

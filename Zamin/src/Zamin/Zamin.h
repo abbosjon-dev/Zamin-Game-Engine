@@ -24,6 +24,7 @@
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/EditorCamera.h"
 #include "Zamin/Renderer/PostProcess.h"
+#include "Zamin/Renderer/Environment.h"
 
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/Entity.h"

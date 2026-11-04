@@ -3,6 +3,7 @@
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/Material.h"
 #include "Zamin/Renderer/Animation.h"
+#include "Zamin/Renderer/Environment.h"
 
 #include <glm/glm.hpp>
 #include <vector>
@@ -38,6 +39,11 @@ namespace Zamin {
         DirectionalLight Sun;
         std::vector<PointLight> PointLights;
         float ShadowDistance = 40.0f;
+
+        // Image based lighting / HDRI sky (null = procedural gradient sky)
+        Ref<EnvironmentMap> EnvMap;
+        float EnvIntensity = 1.0f;
+        float EnvRotation = 0.0f; // radians around Y
 
         bool FogEnabled = false;
         glm::vec3 FogColor{ 0.7f, 0.78f, 0.86f };

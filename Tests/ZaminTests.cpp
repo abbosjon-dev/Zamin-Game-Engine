@@ -644,6 +644,26 @@ TEST(AnimatorStateMachine)
     scene->OnRuntimeStop();
 }
 
+TEST(IrradianceSH)
+{
+    // A uniform environment of radiance 1 must give irradiance/PI == 1 in every direction.
+    const int w = 64, h = 32;
+    std::vector<float> img((size_t)w * h * 3, 1.0f);
+    auto sh = EnvironmentMap::ComputeIrradianceSH(img.data(), w, h, 3);
+    CHECK_NEAR(sh[0].x * 0.282095f, 1.0f, 0.03f);
+    for (int i = 1; i < 9; i++) CHECK(glm::length(sh[i]) < 0.05f);
+
+    // Sky bright on top, dark below => upward normals receive more light.
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+            for (int c = 0; c < 3; c++)
+                img[((size_t)y * w + x) * 3 + c] = y >= h / 2 ? 2.0f : 0.0f; // rows >= h/2 are the upper hemisphere
+    sh = EnvironmentMap::ComputeIrradianceSH(img.data(), w, h, 3);
+    auto eval = [&](glm::vec3 n) { return sh[0].x * 0.282095f + sh[1].x * 0.488603f * n.y + sh[2].x * 0.488603f * n.z + sh[3].x * 0.488603f * n.x; };
+    CHECK(eval({ 0, 1, 0 }) > 1.5f);
+    CHECK(eval({ 0, -1, 0 }) < 0.5f);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

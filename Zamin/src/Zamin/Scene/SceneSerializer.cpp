@@ -557,6 +557,7 @@ namespace Zamin {
             { "DrawSky", s.DrawSky }, { "SkyTop", ToJson(s.SkyTopColor) }, { "SkyHorizon", ToJson(s.SkyHorizonColor) },
             { "Ground", ToJson(s.GroundColor) }, { "Ambient", s.AmbientIntensity }, { "Exposure", s.Exposure },
             { "ShadowDistance", s.ShadowDistance }, { "Gravity", ToJson(s.Gravity) },
+            { "Environment", { { "Map", s.EnvironmentMap }, { "Intensity", s.EnvironmentIntensity }, { "Rotation", s.EnvironmentRotation } } },
             { "Fog", { { "Enabled", s.FogEnabled }, { "Color", ToJson(s.FogColor) }, { "Density", s.FogDensity }, { "HeightFalloff", s.FogHeightFalloff } } }, { "Gravity3D", ToJson(s.Gravity3D) },
             { "Post", {
                 { "Tonemap", (int)s.Post.Tonemap }, { "Bloom", s.Post.Bloom },
@@ -623,6 +624,13 @@ namespace Zamin {
                 s.ShadowDistance = j.value("ShadowDistance", s.ShadowDistance);
                 s.Gravity = Vec(j, "Gravity", s.Gravity);
                 s.Gravity3D = Vec(j, "Gravity3D", s.Gravity3D);
+                if (j.contains("Environment"))
+                {
+                    const json& en = j["Environment"];
+                    s.EnvironmentMap = en.value("Map", "");
+                    s.EnvironmentIntensity = en.value("Intensity", 1.0f);
+                    s.EnvironmentRotation = en.value("Rotation", 0.0f);
+                }
                 if (j.contains("Fog"))
                 {
                     const json& f = j["Fog"];

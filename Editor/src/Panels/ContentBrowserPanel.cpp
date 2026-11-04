@@ -26,6 +26,7 @@ namespace Zamin {
         if (ext == ".wav" || ext == ".mp3" || ext == ".ogg" || ext == ".flac") { color = IM_COL32(220, 120, 200, 255); return ICON_FA_FILE_AUDIO; }
         if (ext == ".obj" || ext == ".gltf" || ext == ".glb") { color = IM_COL32(240, 140, 80, 255); return ICON_FA_CUBES; }
         if (ext == ".ttf" || ext == ".otf") return ICON_FA_FONT;
+        if (ext == ".hdr") { color = IM_COL32(255, 200, 90, 255); return ICON_FA_GLOBE; }
         if (ext == ".zprefab") { color = IM_COL32(120, 180, 255, 255); return ICON_FA_BOX; }
         if (ext == ".zproject") { color = IM_COL32(46, 188, 148, 255); return ICON_FA_GAMEPAD; }
         return ICON_FA_FILE;

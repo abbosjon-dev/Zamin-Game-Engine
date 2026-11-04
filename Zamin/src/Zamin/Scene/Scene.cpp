@@ -1434,6 +1434,14 @@ namespace Zamin {
         env.AmbientIntensity = m_Settings.AmbientIntensity;
         env.Exposure = m_Settings.Exposure;
         env.ShadowDistance = m_Settings.ShadowDistance;
+        if (m_EnvMapPath != m_Settings.EnvironmentMap)
+        {
+            m_EnvMapPath = m_Settings.EnvironmentMap;
+            m_EnvMap = m_EnvMapPath.empty() ? nullptr : EnvironmentMap::Load(Project::GetAssetFileSystemPath(m_EnvMapPath));
+        }
+        env.EnvMap = m_EnvMap;
+        env.EnvIntensity = m_Settings.EnvironmentIntensity;
+        env.EnvRotation = m_Settings.EnvironmentRotation;
         env.FogEnabled = m_Settings.FogEnabled;
         env.FogColor = m_Settings.FogColor;
         env.FogDensity = m_Settings.FogDensity;

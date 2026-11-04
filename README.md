@@ -43,6 +43,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - **Renderer** (OpenGL 4.1 core, RHI abstraksiya qatlami orqasida):
   - 2D batch renderer: sprite, tekstura, doira, chiziq, **matn** (UTF-8, lotin/kirill, `oʻ gʻ`)
   - 3D PBR (metallic/roughness), yo'naltirilgan quyosh + 16 ta nuqtali yorug'lik, gradient osmon, atrof-muhit aksi
+  - **HDRI osmon + IBL**: `.hdr` panorama — diffuz yorug'lik SH9 orqali, aks (specular) mip darajalari bo'yicha
   - **Cascaded Shadow Maps** (3 kaskad, 4096 atlas, PCF, texel snapping), **tuman** (masofa + balandlik)
   - Primitivlar (kub, shar, tekislik, silindr, konus), `.obj` va `.gltf/.glb` modellar
   - **HDR pipeline**: sahna float bufferga chiziladi, tonemapping (ACES / Reinhard / yo'q), haqiqiy HDR bloom
@@ -271,7 +272,7 @@ Tests/           Headless unit testlar
 - [ ] Root motion, animatsiya event'lari
 - [x] Cascaded shadow maps, tuman
 - [x] SSAO
-- [ ] IBL (cubemap), HDR osmon
+- [x] HDRI osmon va IBL (SH9 + prefiltered mip)
 - [ ] **Windows** (MSVC, `.dll` skript moduli)
 - [ ] **macOS** (Metal backend)
 - [ ] **Android** (OpenGL ES / Vulkan)

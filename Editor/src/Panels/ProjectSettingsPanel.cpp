@@ -320,6 +320,11 @@ namespace Zamin {
                 ImGui::PushID(i);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
+                const size_t used = m_Scene ? m_Scene->CountEntitiesWithTag(tags[i]) : 0;
+                // Renaming also renames the tag on the scene's entities: only while editing.
+                const bool canRename = m_SceneEditable || used == 0;
+                if (m_RenamingTag == i && !canRename)
+                    m_RenamingTag = -1; // play started while the rename field was open
                 if (m_RenamingTag == i)
                 {
                     ImGui::SetNextItemWidth(-FLT_MIN);
@@ -359,7 +364,7 @@ namespace Zamin {
                 {
                     ImGui::AlignTextToFramePadding();
                     ImGui::Text(ICON_FA_TAG "  %s", tags[i].c_str());
-                    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+                    if (canRename && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
                     {
                         m_RenamingTag = i;
                         m_TagRenameBuffer = tags[i];
@@ -368,7 +373,6 @@ namespace Zamin {
                 }
                 ImGui::TableSetColumnIndex(1);
                 ImGui::AlignTextToFramePadding();
-                size_t used = m_Scene ? m_Scene->CountEntitiesWithTag(tags[i]) : 0;
                 if (used > 0) ImGui::Text("%zu ta obyekt", used);
                 else ImGui::TextDisabled("-");
                 ImGui::TableSetColumnIndex(2);
@@ -378,13 +382,17 @@ namespace Zamin {
                 ImGui::EndDisabled();
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) UI::Tooltip("Yuqoriga");
                 ImGui::SameLine();
+                ImGui::BeginDisabled(!canRename);
                 if (ImGui::Button(ICON_FA_PEN))
                 {
                     m_RenamingTag = i;
                     m_TagRenameBuffer = tags[i];
                     m_FocusTagRename = true;
                 }
-                if (ImGui::IsItemHovered()) UI::Tooltip("Qayta nomlash (sahnadagi obyektlarda ham)");
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    UI::Tooltip(canRename ? "Qayta nomlash (sahnadagi obyektlarda ham)"
+                                          : "Sahnada ishlatilgan tegni o'yin davomida qayta nomlab bo'lmaydi");
                 ImGui::SameLine();
                 if (ImGui::Button(ICON_FA_TRASH)) remove = i;
                 if (ImGui::IsItemHovered()) UI::Tooltip("Ro'yxatdan olib tashlash (obyektlardagi teglar qoladi)");

@@ -23,6 +23,10 @@ namespace Zamin {
         void MarkDirty() { m_Dirty = true; }
         // Scene used for the tag usage counts (the editor's active scene).
         void SetScene(const Ref<Scene>& scene) { m_Scene = scene; }
+        // false in Play / Simulate: the scene above is then the saved edit scene, which must
+        // not change behind the editor's back (no dirty flag / undo), so tags its entities
+        // use cannot be renamed until play stops.
+        void SetSceneEditable(bool editable) { m_SceneEditable = editable; }
         // Renaming a tag also renames it on the scene's entities.
         std::function<void()> OnSceneModified;
         // Writes the active .zproject if there are unsaved changes.
@@ -63,6 +67,7 @@ namespace Zamin {
         int m_RequestedTab = -1;
 
         Ref<Scene> m_Scene;
+        bool m_SceneEditable = true;
         std::string m_NewTag;
         int m_RenamingTag = -1;
         std::string m_TagRenameBuffer;

@@ -567,16 +567,20 @@ namespace Zamin {
         NativeScriptComponent() = default;
         NativeScriptComponent(const NativeScriptComponent& other)
             : ClassName(other.ClassName), Fields(other.Fields), Enabled(other.Enabled), Instance(nullptr) {}
+        // Assigning onto an existing component changes its data, not the script the entity
+        // is running: a live instance stays (and is destroyed by the scene as usual), it is
+        // never dropped here. Entity::AddOrReplaceComponent destroys it first.
         NativeScriptComponent& operator=(const NativeScriptComponent& other)
         {
             ClassName = other.ClassName;
             Fields = other.Fields;
             Enabled = other.Enabled;
-            Instance = nullptr;
             return *this;
         }
         // A move is the same component changing places (entt fills the hole left by a removed
-        // component with the last one): the live instance must move along with it.
+        // component with the last one, sorting swaps): the live instance moves along with it.
+        // entt only move-assigns into elements it has just moved out of; the one other case,
+        // a replace with a fresh value (registry.replace), brings no instance and keeps ours.
         NativeScriptComponent(NativeScriptComponent&& other) noexcept
             : ClassName(std::move(other.ClassName)), Fields(std::move(other.Fields)), Enabled(other.Enabled), Instance(other.Instance)
         {
@@ -589,8 +593,11 @@ namespace Zamin {
                 ClassName = std::move(other.ClassName);
                 Fields = std::move(other.Fields);
                 Enabled = other.Enabled;
-                Instance = other.Instance;
-                other.Instance = nullptr;
+                if (other.Instance)
+                {
+                    Instance = other.Instance;
+                    other.Instance = nullptr;
+                }
             }
             return *this;
         }

@@ -3182,6 +3182,210 @@ TEST(ScriptTemplates)
     CHECK(!ScriptTemplate::IsValidClassName("ScriptTemplateKind") && !ScriptTemplate::IsValidClassName("EventBus"));
 }
 
+// ------------------------------------------------------------------ script component removed / replaced at runtime
+static int g_RemovalLive = 0; // RemovalScript instances not deleted yet
+static std::vector<std::string> g_Removal;
+static bool HasRemoval(const std::string& entry) { return std::find(g_Removal.begin(), g_Removal.end(), entry) != g_Removal.end(); }
+static int IndexOfRemoval(const std::string& entry)
+{
+    auto it = std::find(g_Removal.begin(), g_Removal.end(), entry);
+    return it == g_Removal.end() ? -1 : (int)(it - g_Removal.begin());
+}
+
+class RemovalScript : public ScriptableEntity
+{
+public:
+    // 1 = removes its own script in OnUpdate, 2 = OnDestroy destroys the parent,
+    // 3 = OnStart removes the script of the entity "Victim"
+    int Mode = 0;
+    int Pings = 0;
+
+    RemovalScript() { g_RemovalLive++; }
+    ~RemovalScript() override { g_RemovalLive--; }
+
+    void OnCreate() override { Subscribe("Ping", [this](const ScriptMessage&) { Pings++; }); }
+    void OnStart() override
+    {
+        Log("Start");
+        if (Mode == 3)
+            if (Entity victim = FindEntity("Victim"))
+                victim.RemoveComponent<NativeScriptComponent>();
+    }
+    void OnUpdate(Timestep) override
+    {
+        if (Mode == 1 && !m_Removed)
+        {
+            m_Removed = true;
+            GetEntity().RemoveComponent<NativeScriptComponent>();
+            // The instance lives until the end of the frame: members are still usable here.
+            Pings += 100;
+            Log("AfterRemove");
+        }
+    }
+    void OnDisable() override { Log("Disable"); }
+    void OnDestroy() override
+    {
+        Log("Destroy");
+        if (Mode == 2)
+            if (Entity parent = GetParent())
+                GetScene().DestroyEntity(parent);
+    }
+
+private:
+    void Log(const char* what) { g_Removal.push_back(GetName() + ":" + what); }
+    bool m_Removed = false;
+};
+ZM_REGISTER_SCRIPT(RemovalScript, ZM_FIELD(RemovalScript, Mode))
+
+static Entity AddRemovalScript(Scene& scene, const std::string& name, int mode = 0)
+{
+    Entity e = scene.CreateEntity(name);
+    auto& nsc = e.AddComponent<NativeScriptComponent>();
+    nsc.ClassName = "RemovalScript";
+    ScriptFieldValue v; v.Set(mode);
+    nsc.Fields["Mode"] = v;
+    return e;
+}
+
+TEST(ScriptComponentRemovedAtRuntime)
+{
+    g_Removal.clear();
+    g_RemovalLive = 0;
+    {
+        auto scene = CreateRef<Scene>();
+        Entity a = AddRemovalScript(*scene, "A");
+        Entity b = AddRemovalScript(*scene, "B");
+        Entity self = AddRemovalScript(*scene, "Self", 1);
+        Entity remover = AddRemovalScript(*scene, "Remover", 3);
+        Entity victim = AddRemovalScript(*scene, "Victim");
+        scene->OnRuntimeStart();
+        CHECK(g_RemovalLive == 5);
+        CHECK(scene->GetEventBus().GetSubscriberCount("Ping") == 5);
+        CHECK(a.GetComponent<NativeScriptComponent>().Instance->GetScriptClassName() == "RemovalScript");
+
+        // Remover's OnStart removes Victim's script while Victim is still waiting for its
+        // own OnStart (which then never comes). Self removes its own script inside OnUpdate
+        // and keeps running until OnUpdate returns.
+        scene->OnUpdateRuntime(0.016f);
+        CHECK(!victim.HasComponent<NativeScriptComponent>());
+        CHECK(HasRemoval("Victim:Disable") && HasRemoval("Victim:Destroy") && !HasRemoval("Victim:Start"));
+        CHECK(!self.HasComponent<NativeScriptComponent>());
+        CHECK(IndexOfRemoval("Self:Disable") >= 0 && IndexOfRemoval("Self:Disable") < IndexOfRemoval("Self:Destroy"));
+        CHECK(IndexOfRemoval("Self:Destroy") < IndexOfRemoval("Self:AfterRemove"));
+        CHECK(g_RemovalLive == 3); // deleted at the end of the frame
+        CHECK(scene->GetEventBus().GetSubscriberCount("Ping") == 3);
+
+        // Entity::RemoveComponent (the inspector's "remove component", script code):
+        // OnDisable + OnDestroy, and the subscriptions end with the instance.
+        g_Removal.clear();
+        a.RemoveComponent<NativeScriptComponent>();
+        CHECK((g_Removal == std::vector<std::string>{ "A:Disable", "A:Destroy" }));
+        CHECK(!a.HasComponent<NativeScriptComponent>());
+        CHECK(scene->GetEventBus().Emit("Ping") == 2); // B and Remover
+
+        // AddOrReplaceComponent: the old instance ends, the new component has none yet.
+        g_Removal.clear();
+        NativeScriptComponent copy = b.GetComponent<NativeScriptComponent>();
+        CHECK(copy.Instance == nullptr && copy.ClassName == "RemovalScript");
+        b.AddOrReplaceComponent<NativeScriptComponent>(copy);
+        CHECK((g_Removal == std::vector<std::string>{ "B:Disable", "B:Destroy" }));
+        CHECK(b.GetComponent<NativeScriptComponent>().Instance == nullptr);
+        CHECK(scene->GetEventBus().Emit("Ping") == 1);
+
+        // Assigning data onto a live component keeps its instance (no leak, no orphan) ...
+        auto& rc = remover.GetComponent<NativeScriptComponent>();
+        ScriptableEntity* live = rc.Instance;
+        CHECK(live != nullptr);
+        copy.ClassName = "TestScript";
+        rc = copy;
+        CHECK(rc.Instance == live && rc.ClassName == "TestScript");
+        CHECK(live->GetScriptClassName() == "RemovalScript"); // the inspector edits this class's fields
+        scene->GetRegistry().replace<NativeScriptComponent>(remover, copy);
+        CHECK(remover.GetComponent<NativeScriptComponent>().Instance == live);
+
+        // ... and removing it behind the scene's back (raw registry) detaches it without
+        // callbacks: no more events reach it and it is still deleted.
+        g_Removal.clear();
+        scene->GetRegistry().remove<NativeScriptComponent>(remover);
+        CHECK(g_Removal.empty());
+        CHECK(scene->GetEventBus().GetSubscriberCount("Ping") == 0);
+        CHECK(scene->GetEventBus().Emit("Ping") == 0);
+        CHECK(g_RemovalLive == 3);
+        scene->OnUpdateRuntime(0.016f);
+        CHECK(g_RemovalLive == 0);
+        scene->OnRuntimeStop();
+    }
+    CHECK(g_RemovalLive == 0);
+
+    // Removing a script in edit mode (no instance) is a plain removal.
+    auto edit = CreateRef<Scene>();
+    Entity e = AddRemovalScript(*edit, "Edit");
+    e.RemoveComponent<NativeScriptComponent>();
+    CHECK(!e.HasComponent<NativeScriptComponent>() && g_RemovalLive == 0);
+}
+
+TEST(DestroyEntityReentrant)
+{
+    g_Removal.clear();
+    g_RemovalLive = 0;
+    {
+        // The children are created before their parent, so the parent's components are the
+        // last ones in their pools and move when the children are removed.
+        auto scene = CreateRef<Scene>();
+        Entity child = AddRemovalScript(*scene, "Child", 2); // OnDestroy destroys its parent
+        Entity sibling = AddRemovalScript(*scene, "Sibling");
+        Entity parent = scene->CreateEntity("Parent");
+        Entity root = scene->CreateEntity("Root");
+        CHECK(scene->SetParent(child, parent, false));
+        CHECK(scene->SetParent(sibling, parent, false));
+        CHECK(scene->SetParent(parent, root, false));
+        // Removing the sibling moves `filler` into its slot, removing the parent moves `other`
+        // into the parent's: with a parent of its own, a stale pointer to that slot looks
+        // like a live relationship.
+        Entity other = AddRemovalScript(*scene, "Other");
+        Entity filler = scene->CreateEntity("Filler");
+        CHECK(scene->SetParent(other, root, false));
+        CHECK(scene->SetParent(filler, root, false));
+        scene->OnRuntimeStart();
+        scene->OnUpdateRuntime(0.016f);
+
+        // Destroying the parent: the first child's OnDestroy destroys the parent again
+        // (from inside the outer DestroyEntity's children loop).
+        const UUID parentID = parent.GetUUID();
+        scene->DestroyEntity(parent);
+        CHECK(!parent.IsValid() && !child.IsValid() && !sibling.IsValid());
+        const std::vector<UUID> rest{ other.GetUUID(), filler.GetUUID() };
+        CHECK(root.IsValid() && root.GetComponent<RelationshipComponent>().Children == rest);
+        CHECK(HasRemoval("Child:Destroy") && HasRemoval("Sibling:Destroy"));
+        CHECK(!scene->GetEntityByUUID(parentID));
+        CHECK(other.IsValid() && !scene->FindEntityByName("Parent"));
+
+        // Destroying the child directly: its OnDestroy destroys the parent and with it the
+        // child itself, while the child's own DestroyEntity is still running.
+        g_Removal.clear();
+        Entity p2 = scene->CreateEntity("P2");
+        Entity c2 = AddRemovalScript(*scene, "C2", 2);
+        Entity s2 = AddRemovalScript(*scene, "S2");
+        CHECK(scene->SetParent(c2, p2, false));
+        CHECK(scene->SetParent(s2, p2, false));
+        CHECK(scene->SetParent(p2, root, false));
+        std::vector<Entity> spawned{ p2, c2, s2 };
+        scene->OnEntitiesSpawned(spawned);
+        scene->OnUpdateRuntime(0.016f);
+        CHECK(HasRemoval("C2:Start") && HasRemoval("S2:Start"));
+        scene->DestroyEntity(c2);
+        CHECK(!c2.IsValid() && !p2.IsValid() && !s2.IsValid());
+        CHECK(root.GetComponent<RelationshipComponent>().Children == rest);
+        CHECK(HasRemoval("C2:Destroy") && HasRemoval("S2:Destroy"));
+
+        scene->OnUpdateRuntime(0.016f);
+        CHECK(g_RemovalLive == 1); // only Other is left
+        scene->OnRuntimeStop();
+        CHECK(g_RemovalLive == 0);
+    }
+    CHECK(g_RemovalLive == 0);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

@@ -980,7 +980,12 @@ namespace Zamin {
             if (ImGui::Checkbox("##enabled", &enabled))
             {
                 if (c.Instance)
-                    entity.GetScene()->SetScriptEnabled(entity, enabled); // OnEnable / OnDisable now
+                {
+                    // OnEnable / OnDisable run now and may change this entity's components
+                    // (even destroy it): `c` is not touched again this frame.
+                    entity.GetScene()->SetScriptEnabled(entity, enabled);
+                    return changed;
+                }
                 else
                 {
                     c.Enabled = enabled;
@@ -998,7 +1003,17 @@ namespace Zamin {
             if (!exists && !c.ClassName.empty())
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.4f, 0.35f, 1.0f));
             std::string preview = c.ClassName.empty() ? "(tanlang)" : c.ClassName;
-            if (ImGui::BeginCombo("##class", preview.c_str()))
+            if (c.Instance)
+            {
+                // The running instance is of one class: switching it would need a new instance.
+                ImGui::BeginDisabled();
+                if (ImGui::BeginCombo("##class", preview.c_str()))
+                    ImGui::EndCombo();
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    ImGui::SetTooltip("O'yin davomida klassni almashtirib bo'lmaydi");
+            }
+            else if (ImGui::BeginCombo("##class", preview.c_str()))
             {
                 if (all.empty())
                     ImGui::TextDisabled("Skriptlar yo'q. 'Skriptlar > Kompilyatsiya' ni bosing");
@@ -1020,22 +1035,30 @@ namespace Zamin {
                 ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION " Klass yuklanmagan");
             }
 
+            if (c.Instance)
+            {
+                // Live editing while playing (not saved to the scene). The field accessors
+                // must come from the instance's own class: code may have changed ClassName.
+                const std::string& liveClass = c.Instance->GetScriptClassName();
+                if (liveClass != c.ClassName)
+                {
+                    UI::PropertyLabel("Ishlayotgan klass");
+                    ImGui::TextDisabled("%s", liveClass.c_str());
+                }
+                if (const ScriptClassInfo* live = ScriptRegistry::Find(liveClass))
+                    for (const auto& f : live->Fields)
+                    {
+                        ScriptFieldValue value;
+                        f.Load(c.Instance, value);
+                        if (DrawScriptField(f, value))
+                            f.Store(c.Instance, value);
+                    }
+                return changed;
+            }
+
             const ScriptClassInfo* info = ScriptRegistry::Find(c.ClassName);
             if (!info)
                 return changed;
-
-            if (c.Instance)
-            {
-                // Live editing while playing (not saved to the scene)
-                for (const auto& f : info->Fields)
-                {
-                    ScriptFieldValue value;
-                    f.Load(c.Instance, value);
-                    if (DrawScriptField(f, value))
-                        f.Store(c.Instance, value);
-                }
-                return changed;
-            }
 
             const auto& defaults = GetScriptDefaults(c.ClassName);
             for (const auto& f : info->Fields)

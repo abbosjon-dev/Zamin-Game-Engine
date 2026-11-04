@@ -1199,6 +1199,7 @@ namespace Zamin {
         m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
         UI_SceneSettings();
         m_ProjectSettingsPanel.SetScene(m_EditorScene); // tag counts / renames apply to the saved scene
+        m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
         UI_Stats();
         UI_Viewport();

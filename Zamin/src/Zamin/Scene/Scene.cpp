@@ -132,6 +132,7 @@ namespace Zamin {
         m_Registry.on_construct<TagComponent>().connect<&Scene::OnNameChanged>(*this);
         m_Registry.on_update<TagComponent>().connect<&Scene::OnNameChanged>(*this);
         m_Registry.on_destroy<TagComponent>().connect<&Scene::OnNameChanged>(*this);
+        m_Registry.on_destroy<NativeScriptComponent>().connect<&Scene::OnScriptComponentDestroyed>(*this);
     }
 
     Scene::~Scene()
@@ -143,6 +144,8 @@ namespace Zamin {
         m_Registry.on_construct<TagComponent>().disconnect(this);
         m_Registry.on_update<TagComponent>().disconnect(this);
         m_Registry.on_destroy<TagComponent>().disconnect(this);
+        m_Registry.on_destroy<NativeScriptComponent>().disconnect(this);
+        DeleteRetiredScripts();
     }
 
     Ref<Scene> Scene::Copy(const Ref<Scene>& other)
@@ -203,10 +206,14 @@ namespace Zamin {
             for (UUID child : children)
                 if (Entity c = GetEntityByUUID(child))
                     DestroyEntity(c);
-            if ((uint64_t)rel->Parent)
-                if (Entity parent = GetEntityByUUID(rel->Parent))
-                    std::erase(parent.GetComponent<RelationshipComponent>().Children, entity.GetUUID());
         }
+        // The children's OnDisable / OnDestroy (and the survivors' contact-end callbacks) may
+        // have destroyed this entity already; removing them also moves components around in
+        // the pools, so the relationship is looked up again.
+        if (!entity.IsValid()) return;
+        if (auto* rel = entity.TryGetComponent<RelationshipComponent>(); rel && (uint64_t)rel->Parent)
+            if (Entity parent = GetEntityByUUID(rel->Parent))
+                std::erase(parent.GetComponent<RelationshipComponent>().Children, entity.GetUUID());
 
         EndContactsOf(entity);
         if (!entity.IsValid()) return; // destroyed by a survivor's OnCollisionEnd / OnTriggerEnd
@@ -712,6 +719,8 @@ namespace Zamin {
         }
         ScriptableEntity* instance = info->Factory();
         instance->m_Entity = entity;
+        instance->m_ClassName = info->Name;
+        instance->m_OwnerID = (uint64_t)entity.GetUUID();
         for (const auto& field : info->Fields)
             if (auto it = nsc.Fields.find(field.Name); it != nsc.Fields.end())
                 field.Store(instance, it->second);
@@ -794,9 +803,9 @@ namespace Zamin {
             std::reverse(pending.begin(), pending.end()); // scene order
             for (auto e : pending)
             {
-                if (!m_Registry.valid(e)) continue;
-                auto* inst = m_Registry.get<NativeScriptComponent>(e).Instance;
-                // An earlier OnStart may have disabled or destroyed it.
+                // An earlier OnStart may have disabled or destroyed it, or removed its component.
+                auto* nsc = m_Registry.valid(e) ? m_Registry.try_get<NativeScriptComponent>(e) : nullptr;
+                auto* inst = nsc ? nsc->Instance : nullptr;
                 if (!inst || !inst->m_EnabledState || inst->m_Started || inst->m_Destroying) continue;
                 inst->m_Started = true;
                 inst->OnStart();
@@ -830,7 +839,6 @@ namespace Zamin {
         if (instance->m_Destroying)
             return; // already on its way out (destroyed again from OnDisable / OnDestroy)
         instance->m_Destroying = true;
-        uint64_t owner = (uint64_t)entity.GetUUID();
         if (instance->m_EnabledState)
         {
             instance->m_EnabledState = false;
@@ -841,8 +849,36 @@ namespace Zamin {
                 n->Instance = nullptr;
         instance->OnDestroy();
         // Handlers capture the instance: they must not outlive it.
-        m_EventBus->UnsubscribeOwner(owner);
-        delete instance;
+        m_EventBus->UnsubscribeOwner(instance->m_OwnerID);
+        // Not deleted yet: this may be running inside one of the instance's own callbacks.
+        m_RetiredScripts.push_back(instance);
+    }
+
+    void Scene::OnScriptComponentDestroyed(entt::registry& registry, entt::entity entity)
+    {
+        auto& nsc = registry.get<NativeScriptComponent>(entity);
+        ScriptableEntity* instance = nsc.Instance;
+        // DestroyEntity / Entity::RemoveComponent have already run DestroyScriptInstance; one
+        // that is in progress (m_Destroying) still owns the instance.
+        if (!instance || instance->m_Destroying)
+            return;
+        // No callbacks from inside an entt signal (the entity may be half destroyed already).
+        nsc.Instance = nullptr;
+        instance->m_Destroying = true;
+        instance->m_EnabledState = false;
+        m_EventBus->UnsubscribeOwner(instance->m_OwnerID);
+        m_RetiredScripts.push_back(instance);
+    }
+
+    void Scene::DeleteRetiredScripts()
+    {
+        while (!m_RetiredScripts.empty())
+        {
+            std::vector<ScriptableEntity*> retired = std::move(m_RetiredScripts);
+            m_RetiredScripts.clear();
+            for (ScriptableEntity* instance : retired)
+                delete instance;
+        }
     }
 
     void Scene::StopScripts()
@@ -859,6 +895,7 @@ namespace Zamin {
         m_EventBus->Clear();
         m_ActiveContacts.clear();
         m_ScriptsPendingStart = false;
+        DeleteRetiredScripts();
     }
 
     // ------------------------------------------------------------------ messages
@@ -1425,6 +1462,7 @@ namespace Zamin {
     void Scene::OnUpdateRuntime(Timestep ts)
     {
         m_FrameIndex++;
+        DeleteRetiredScripts(); // destroyed between frames (editor, other code)
         UpdateUI();
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
@@ -1487,6 +1525,7 @@ namespace Zamin {
             UpdateAudio();
 
             FlushDestroyQueue();
+            DeleteRetiredScripts();
         }
 
         Entity cameraEntity = GetPrimaryCameraEntity();

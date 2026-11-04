@@ -71,6 +71,9 @@ namespace Zamin {
         void SetEnabled(bool enabled);
         // true once OnStart has run.
         bool HasStarted() const { return m_Started; }
+        // Registered class this instance was created from (NativeScriptComponent::ClassName
+        // at creation time; the component's value can change later, the instance cannot).
+        const std::string& GetScriptClassName() const { return m_ClassName; }
 
         // ---- helpers available to scripts
         template<typename T> T& GetComponent() { return m_Entity.GetComponent<T>(); }
@@ -325,6 +328,8 @@ namespace Zamin {
         bool IsActiveForUpdate() const { return m_EnabledState && m_Started && !m_Destroying; }
 
         Entity m_Entity;
+        std::string m_ClassName;
+        uint64_t m_OwnerID = 0; // entity UUID, also known after the entity's components are gone
         friend class Scene;
     };
 

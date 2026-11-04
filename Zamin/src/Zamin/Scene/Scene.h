@@ -26,6 +26,7 @@ namespace Zamin {
     class ContactListener2D;
     class PhysicsWorld3D;
     class EventBus;
+    class ScriptableEntity;
     struct ScriptMessage;
 
     struct SceneSettings
@@ -254,7 +255,15 @@ namespace Zamin {
         const std::vector<entt::entity>* LookupName(std::string_view name);
         void SortInSceneOrder(std::vector<Entity>& entities);
         bool DeliverMessage(Entity target, const ScriptMessage& message);
+        // OnDisable / OnDestroy for the entity's running script (if any), then it is retired.
         void DestroyScriptInstance(Entity entity);
+        // on_destroy<NativeScriptComponent>: a component removed while its instance is still
+        // live (raw registry access) is detached without callbacks, so it neither leaks nor
+        // keeps receiving events.
+        void OnScriptComponentDestroyed(entt::registry& registry, entt::entity entity);
+        // Destroyed instances are deleted here, outside any script callback: a script may
+        // destroy its own entity / component and keep running until its callback returns.
+        void DeleteRetiredScripts();
     public:
         static void ResolveMeshRenderer(struct MeshRendererComponent& mr);
     private:
@@ -307,6 +316,7 @@ namespace Zamin {
         bool m_ScriptsPendingStart = false;
 
         std::unique_ptr<EventBus> m_EventBus;
+        std::vector<ScriptableEntity*> m_RetiredScripts;
         int m_MessageDepth = 0;
         bool m_MessageDepthWarned = false;
 

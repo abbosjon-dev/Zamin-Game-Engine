@@ -26,6 +26,8 @@ namespace Zamin {
         template<typename T, typename... Args>
         T& AddOrReplaceComponent(Args&&... args)
         {
+            if constexpr (std::is_same_v<T, NativeScriptComponent>)
+                m_Scene->DestroyScriptInstance(*this); // the running script ends with its component
             T& component = m_Scene->m_Registry.emplace_or_replace<T>(m_EntityHandle, std::forward<Args>(args)...);
             m_Scene->OnComponentAdded<T>(*this, component);
             return component;
@@ -44,7 +46,17 @@ namespace Zamin {
         bool HasComponent() const { return m_Scene->m_Registry.all_of<T>(m_EntityHandle); }
 
         template<typename T>
-        void RemoveComponent() { m_Scene->m_Registry.remove<T>(m_EntityHandle); }
+        void RemoveComponent()
+        {
+            if constexpr (std::is_same_v<T, NativeScriptComponent>)
+            {
+                // A running script gets OnDisable / OnDestroy while its component still exists.
+                m_Scene->DestroyScriptInstance(*this);
+                if (!IsValid())
+                    return; // its OnDestroy destroyed the entity
+            }
+            m_Scene->m_Registry.remove<T>(m_EntityHandle);
+        }
 
         bool IsValid() const { return m_Scene && m_EntityHandle != entt::null && m_Scene->m_Registry.valid(m_EntityHandle); }
         operator bool() const { return IsValid(); }

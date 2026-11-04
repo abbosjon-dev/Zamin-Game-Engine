@@ -132,6 +132,31 @@ namespace Zamin {
         // Top-most ancestor (the entity itself when it has no parent).
         Entity GetRoot(Entity entity);
         bool IsAncestorOf(Entity ancestor, Entity entity);
+
+        // ---- hierarchy order (what the editor's hierarchy shows; saved with the scene)
+        // Entities without a parent, in scene order.
+        std::vector<Entity> GetRootEntities();
+        // Every entity, depth-first: roots in scene order, children in their sibling order.
+        std::vector<Entity> GetEntitiesInHierarchyOrder();
+        // Position among the siblings (the parent's children, or the root entities); -1 if invalid.
+        int GetSiblingIndex(Entity entity);
+        // Moves the entity among its siblings so that it ends up at `index` (negative or past
+        // the end = last).
+        bool SetSiblingIndex(Entity entity, int index);
+        // Gives `entity` the parent of `sibling` and places it right before / after `sibling`.
+        // Fails (nothing changes) when that would make the entity its own ancestor.
+        bool MoveEntityNextTo(Entity entity, Entity sibling, bool after, bool keepWorldTransform = true);
+
+        // ---- several entities at once (editor multi-selection)
+        // The given entities without duplicates and without those inside another listed
+        // entity's subtree, in hierarchy order.
+        std::vector<Entity> GetTopLevelEntities(const std::vector<Entity>& entities);
+        // Duplicates every top-level subtree once; each copy is placed right after its original.
+        // EntityRef fields pointing anywhere inside the duplicated set point to the copies.
+        // Returns the copied top-level entities (in hierarchy order of the originals).
+        std::vector<Entity> DuplicateEntities(const std::vector<Entity>& entities);
+        // Destroys the entities with their descendants. Returns how many top-level ones were destroyed.
+        size_t DestroyEntities(const std::vector<Entity>& entities);
         glm::mat4 GetWorldTransform(Entity entity);
         // Sets local transform so that the entity ends up at `world`.
         void SetWorldTransform(Entity entity, const glm::mat4& world);
@@ -254,6 +279,9 @@ namespace Zamin {
         bool IsNameCacheValid();
         const std::vector<entt::entity>* LookupName(std::string_view name);
         void SortInSceneOrder(std::vector<Entity>& entities);
+        // Moves the entity in the scene order (IDComponent pool) to just before `before`
+        // (the end when invalid); every other entity keeps its relative order.
+        void MoveInSceneOrder(Entity entity, Entity before);
         bool DeliverMessage(Entity target, const ScriptMessage& message);
         // OnDisable / OnDestroy for the entity's running script (if any), then it is retired.
         void DestroyScriptInstance(Entity entity);

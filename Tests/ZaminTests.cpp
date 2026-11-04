@@ -3386,6 +3386,374 @@ TEST(DestroyEntityReentrant)
     CHECK(g_RemovalLive == 0);
 }
 
+// ------------------------------------------------------------------ M02: editor UX (hierarchy order, multi-selection)
+static std::string Names(const std::vector<Entity>& entities)
+{
+    std::string out;
+    for (Entity e : entities)
+        out += (out.empty() ? "" : ",") + (e ? e.GetName() : std::string("?"));
+    return out;
+}
+
+static std::string ChildNames(Scene& scene, Entity parent) { return Names(scene.GetChildren(parent)); }
+
+TEST(HierarchySiblingOrder)
+{
+    auto scene = CreateRef<Scene>();
+    Entity a = scene->CreateEntity("A");
+    Entity b = scene->CreateEntity("B");
+    Entity c = scene->CreateEntity("C");
+    CHECK(Names(scene->GetRootEntities()) == "A,B,C");
+    CHECK(scene->GetSiblingIndex(a) == 0 && scene->GetSiblingIndex(c) == 2);
+
+    // Root order (the scene order) can be changed.
+    CHECK(scene->SetSiblingIndex(c, 0));
+    CHECK(Names(scene->GetRootEntities()) == "C,A,B");
+    CHECK(Names(scene->GetEntitiesInOrder()) == "C,A,B");
+    CHECK(scene->SetSiblingIndex(c, -1)); // last
+    CHECK(Names(scene->GetRootEntities()) == "A,B,C");
+    CHECK(scene->SetSiblingIndex(a, 99)); // clamped
+    CHECK(Names(scene->GetRootEntities()) == "B,C,A");
+    CHECK(scene->MoveEntityNextTo(a, b, false)); // before B
+    CHECK(Names(scene->GetRootEntities()) == "A,B,C");
+    CHECK(scene->MoveEntityNextTo(a, b, true));  // after B
+    CHECK(Names(scene->GetRootEntities()) == "B,A,C");
+    CHECK(scene->FindEntityByName("A") == a); // the name cache follows
+
+    // Children: the parent's list.
+    Entity p = scene->CreateEntity("P");
+    Entity x = scene->CreateEntity("X");
+    Entity y = scene->CreateEntity("Y");
+    Entity z = scene->CreateEntity("Z");
+    for (Entity e : { x, y, z })
+        CHECK(scene->SetParent(e, p, false));
+    CHECK(ChildNames(*scene, p) == "X,Y,Z");
+    CHECK(scene->SetSiblingIndex(z, 0));
+    CHECK(ChildNames(*scene, p) == "Z,X,Y");
+    CHECK(scene->GetSiblingIndex(y) == 2);
+    CHECK(Names(scene->GetEntitiesInHierarchyOrder()) == "B,A,C,P,Z,X,Y");
+
+    // Into another parent next to a sibling, keeping the world position.
+    p.GetTransform().Translation = { 10.0f, 0.0f, 0.0f };
+    c.GetTransform().Translation = { 1.0f, 2.0f, 3.0f };
+    CHECK(scene->MoveEntityNextTo(c, x, true));
+    CHECK(scene->GetParent(c) == p);
+    CHECK(ChildNames(*scene, p) == "Z,X,C,Y");
+    CHECK(Names(scene->GetRootEntities()) == "B,A,P");
+    CHECK_NEAR(scene->GetWorldPosition(c).x, 1.0f, 1e-4f);
+    CHECK_NEAR(c.GetTransform().Translation.x, -9.0f, 1e-4f);
+    // ... and back to the root list, before A.
+    CHECK(scene->MoveEntityNextTo(c, a, false));
+    CHECK(!scene->GetParent(c) && ChildNames(*scene, p) == "Z,X,Y");
+    CHECK(Names(scene->GetRootEntities()) == "B,C,A,P");
+    CHECK_NEAR(c.GetTransform().Translation.x, 1.0f, 1e-4f);
+
+    // A parent can not go next to its own descendant (cycle); nothing changes.
+    CHECK(!scene->MoveEntityNextTo(p, x, false));
+    CHECK(!scene->GetParent(p) && ChildNames(*scene, p) == "Z,X,Y");
+    CHECK(!scene->MoveEntityNextTo(a, a, true));
+    CHECK(scene->GetSiblingIndex(Entity()) == -1);
+}
+
+TEST(SceneOrderStableOnDestroy)
+{
+    auto scene = CreateRef<Scene>();
+    Entity a = scene->CreateEntity("A");
+    Entity b = scene->CreateEntity("B");
+    scene->CreateEntity("C");
+    scene->CreateEntity("D");
+    Entity e = scene->CreateEntity("E");
+    scene->DestroyEntity(b); // swap-and-pop would have moved E into B's place
+    CHECK(Names(scene->GetEntitiesInOrder()) == "A,C,D,E");
+    scene->DestroyEntity(a);
+    CHECK(Names(scene->GetEntitiesInOrder()) == "C,D,E");
+    scene->DestroyEntity(e);
+    CHECK(Names(scene->GetEntitiesInOrder()) == "C,D");
+    scene->CreateEntity("F");
+    CHECK(Names(scene->GetEntitiesInOrder()) == "C,D,F");
+    CHECK(scene->FindEntityByName("F") && !scene->FindEntityByName("A"));
+}
+
+TEST(HierarchyOrderSerialization)
+{
+    auto scene = CreateRef<Scene>();
+    Entity p = scene->CreateEntity("P");
+    Entity x = scene->CreateEntity("X");
+    Entity y = scene->CreateEntity("Y");
+    Entity z = scene->CreateEntity("Z");
+    Entity r = scene->CreateEntity("R");
+    for (Entity e : { x, y, z })
+        scene->SetParent(e, p, false);
+
+    // Children in file order need no extra data (unchanged scene files stay unchanged).
+    std::string plain = SceneSerializer(scene).SerializeToString();
+    CHECK(plain.find("ChildOrder") == std::string::npos);
+
+    scene->SetSiblingIndex(z, 0);  // P: Z,X,Y
+    scene->SetSiblingIndex(r, 0);  // roots: R,P
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("ChildOrder") != std::string::npos);
+
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity lp = loaded->FindEntityByName("P");
+    CHECK(ChildNames(*loaded, lp) == "Z,X,Y");
+    CHECK(Names(loaded->GetRootEntities()) == "R,P");
+    CHECK(SceneSerializer(loaded).SerializeToString() == text); // stable
+
+    // Copy / paste of the subtree keeps the order with fresh IDs.
+    std::vector<Entity> subtree{ p };
+    for (Entity c : scene->GetDescendants(p)) subtree.push_back(c);
+    std::string clip = SceneSerializer::SerializeEntities(*scene, std::vector<Entity>{ p, x, y, z });
+    auto other = CreateRef<Scene>();
+    auto pasted = SceneSerializer::DeserializeEntities(*other, clip, true);
+    CHECK(pasted.size() == 4 && pasted.front().GetName() == "P");
+    CHECK(pasted.size() == 4 && ChildNames(*other, pasted.front()) == "Z,X,Y");
+    CHECK(pasted.size() == 4 && pasted.front().GetUUID() != p.GetUUID());
+    // A prefab-style depth-first subset is already in order.
+    std::string prefab = SceneSerializer::SerializeEntities(*scene, subtree);
+    CHECK(prefab.find("ChildOrder") == std::string::npos);
+    auto third = CreateRef<Scene>();
+    auto inst = SceneSerializer::DeserializeEntities(*third, prefab, true);
+    CHECK(!inst.empty() && ChildNames(*third, inst.front()) == "Z,X,Y");
+
+    // Runtime copies (play mode) keep the order too.
+    auto runtime = Scene::Copy(scene);
+    CHECK(ChildNames(*runtime, runtime->FindEntityByName("P")) == "Z,X,Y");
+    CHECK(Names(runtime->GetRootEntities()) == "R,P");
+}
+
+TEST(MultiEntityDuplicateDestroy)
+{
+    auto scene = CreateRef<Scene>();
+    Entity a = scene->CreateEntity("A");
+    Entity a1 = scene->CreateEntity("A1");
+    scene->SetParent(a1, a, false);
+    Entity b = scene->CreateEntity("B");
+    Entity c = scene->CreateEntity("C");
+    Entity d = scene->CreateEntity("D");
+    // A refers to B, B to its own child-free self, C to D (not duplicated).
+    a.AddComponent<NativeScriptComponent>().ClassName = "RefScript";
+    SetRefField(a, "Target", b.GetUUID());
+    SetRefField(a, "Other", a1.GetUUID());
+    b.AddComponent<NativeScriptComponent>().ClassName = "RefScript";
+    SetRefField(b, "Target", d.GetUUID());
+
+    // Nested and repeated entries collapse to the top-level ones, in hierarchy order.
+    CHECK(Names(scene->GetTopLevelEntities({ c, a1, b, a, b, Entity() })) == "A,B,C");
+    CHECK(scene->GetTopLevelEntities({}).empty());
+
+    auto copies = scene->DuplicateEntities({ b, a1, a });
+    CHECK(Names(copies) == "A,B");
+    CHECK(Names(scene->GetRootEntities()) == "A,A,B,B,C,D"); // each copy right after its original
+    CHECK(copies.size() == 2 && copies[0] != a && copies[1] != b);
+    if (copies.size() == 2)
+    {
+        Entity ca = copies[0], cb = copies[1];
+        CHECK(scene->GetChildCount(ca) == 1);
+        Entity ca1 = scene->GetChild(ca, 0);
+        CHECK(ca1 && ca1 != a1 && ca1.GetName() == "A1");
+        // References inside the duplicated set follow the copies; outside ones stay.
+        CHECK(GetRefField(ca, "Target") == (uint64_t)cb.GetUUID());
+        CHECK(GetRefField(ca, "Other") == (uint64_t)ca1.GetUUID());
+        CHECK(GetRefField(cb, "Target") == (uint64_t)d.GetUUID());
+        CHECK(GetRefField(a, "Target") == (uint64_t)b.GetUUID()); // originals untouched
+
+        // Destroying a mixed selection: nested / repeated entries are fine.
+        CHECK(scene->DestroyEntities({ ca1, ca, cb, cb }) == 2);
+        CHECK(!ca.IsValid() && !ca1.IsValid() && !cb.IsValid());
+    }
+    CHECK(Names(scene->GetRootEntities()) == "A,B,C,D");
+    CHECK(scene->DestroyEntities({ a, c }) == 2);
+    CHECK(Names(scene->GetEntitiesInOrder()) == "B,D");
+    CHECK(!a1.IsValid());
+
+    // A child duplicated alone stays under the same parent, after the original.
+    Entity p = scene->CreateEntity("P");
+    Entity x = scene->CreateEntity("X");
+    Entity y = scene->CreateEntity("Y");
+    scene->SetParent(x, p, false);
+    scene->SetParent(y, p, false);
+    auto childCopy = scene->DuplicateEntities({ x });
+    CHECK(childCopy.size() == 1 && scene->GetParent(childCopy[0]) == p);
+    CHECK(ChildNames(*scene, p) == "X,X,Y");
+}
+
+TEST(EntitySelectionModel)
+{
+    auto scene = CreateRef<Scene>();
+    Entity a = scene->CreateEntity("A");
+    Entity b = scene->CreateEntity("B");
+    Entity c = scene->CreateEntity("C");
+    Entity d = scene->CreateEntity("D");
+    Entity e = scene->CreateEntity("E");
+    std::vector<Entity> rows{ a, b, c, d, e };
+
+    EntitySelection sel;
+    CHECK(sel.IsEmpty() && !sel.GetPrimary());
+    sel.Select(b);
+    CHECK(sel.Size() == 1 && sel.GetPrimary() == b && sel.Contains(b) && !sel.Contains(a));
+    sel.Toggle(d); // Ctrl+click
+    CHECK(sel.Size() == 2 && sel.GetPrimary() == d && sel.Contains(d));
+    sel.Toggle(b);
+    CHECK(sel.Size() == 1 && !sel.Contains(b) && sel.GetPrimary() == d);
+    CHECK(sel.GetAnchor() == b); // ranges continue from the last Ctrl-clicked row
+
+    // Shift+click: range from the anchor, replacing the selection.
+    sel.Select(b);
+    sel.SelectRange(rows, d);
+    CHECK(Names(sel.GetEntities()) == "B,C,D" && sel.GetPrimary() == d && sel.GetAnchor() == b);
+    sel.SelectRange(rows, a); // the anchor stays: B..A
+    CHECK(sel.Size() == 2 && sel.Contains(a) && sel.Contains(b) && !sel.Contains(d));
+    // Ctrl+Shift: added to the selection.
+    sel.Select(e);
+    sel.SelectRange(rows, d, true);
+    CHECK(sel.Size() == 2);
+    sel.Toggle(a);
+    sel.SelectRange(rows, b, true);
+    CHECK(Names(sel.GetEntities()) == "E,D,A,B" && sel.GetPrimary() == b);
+    // Anchor not listed (collapsed / filtered out): just the clicked row.
+    sel.Select(c);
+    sel.SelectRange({ a, b }, b);
+    CHECK(sel.Size() == 1 && sel.GetPrimary() == b);
+
+    sel.Set({ a, c, e }, c);
+    CHECK(sel.Size() == 3 && sel.GetPrimary() == c);
+    sel.Set({ a, c, e });
+    CHECK(sel.GetPrimary() == e);
+    sel.Add(b, false);
+    CHECK(sel.GetPrimary() == e && sel.Contains(b));
+
+    // Destroyed entities are dropped; the primary falls back to the latest one left.
+    scene->DestroyEntity(e);
+    sel.Prune();
+    CHECK(Names(sel.GetEntities()) == "A,C,B" && sel.GetPrimary() == b);
+    sel.Remove(b);
+    CHECK(sel.GetPrimary() == c);
+
+    // Same entities in a copy of the scene (play mode / undo snapshot).
+    auto copy = Scene::Copy(scene);
+    sel.Remap(copy.get());
+    CHECK(sel.Size() == 2 && sel.GetPrimary() && sel.GetPrimary().GetScene() == copy.get());
+    CHECK(sel.GetPrimary().GetUUID() == c.GetUUID());
+    CHECK(!sel.Contains(a) && sel.Contains(copy->GetEntityByUUID(a.GetUUID())));
+    sel.Remap(nullptr);
+    CHECK(sel.IsEmpty());
+    sel.Select(Entity());
+    CHECK(sel.IsEmpty());
+}
+
+TEST(GroupTransformEditing)
+{
+    auto scene = CreateRef<Scene>();
+    Entity a = scene->CreateEntity("A");
+    Entity b = scene->CreateEntity("B");
+    Entity parent = scene->CreateEntity("Parent");
+    Entity child = scene->CreateEntity("Child");
+    a.GetTransform().Translation = { -2.0f, 0.0f, 0.0f };
+    b.GetTransform().Translation = { 2.0f, 0.0f, 0.0f };
+    b.GetTransform().Scale = { 1.0f, 2.0f, 1.0f };
+    parent.GetTransform().Translation = { 0.0f, 0.0f, 5.0f };
+    parent.GetTransform().Scale = glm::vec3(2.0f);
+    scene->SetParent(child, parent, false);
+    child.GetTransform().Translation = { 1.0f, 0.0f, 0.0f }; // world (2, 0, 5)
+    std::vector<Entity> group{ a, b, child };
+
+    glm::mat4 center = GroupTransformEdit::ComputePivot(*scene, group, a, true, false);
+    CHECK_NEAR(center[3].x, 2.0f / 3.0f, 1e-4f); // (-2 + 2 + 2) / 3
+    CHECK_NEAR(center[3].z, 5.0f / 3.0f, 1e-4f);
+    CHECK_NEAR(center[0].x, 1.0f, 1e-5f); // world axes, unit scale
+    glm::mat4 pivotOnA = GroupTransformEdit::ComputePivot(*scene, group, a, false, false);
+    CHECK_NEAR(pivotOnA[3].x, -2.0f, 1e-4f);
+
+    // Translate: everything moves by the same world offset (the child in its parent's space).
+    GroupTransformEdit edit;
+    edit.Begin(*scene, group, center);
+    CHECK(edit.IsActive() && edit.GetCount() == 3);
+    edit.Update(glm::translate(glm::mat4(1.0f), glm::vec3(0.5f, 1.0f, 0.0f)) * center, GroupTransformEdit::Operation::Translate);
+    edit.Update(glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 2.0f, 0.0f)) * center, GroupTransformEdit::Operation::Translate);
+    CHECK_NEAR(a.GetTransform().Translation.x, -1.0f, 1e-4f);
+    CHECK_NEAR(a.GetTransform().Translation.y, 2.0f, 1e-4f);
+    CHECK_NEAR(b.GetTransform().Translation.x, 3.0f, 1e-4f);
+    CHECK_NEAR(scene->GetWorldPosition(child).x, 3.0f, 1e-4f);
+    CHECK_NEAR(scene->GetWorldPosition(child).y, 2.0f, 1e-4f);
+    CHECK_NEAR(child.GetTransform().Translation.x, 1.5f, 1e-4f); // parent scale 2
+    CHECK_NEAR(b.GetTransform().Scale.y, 2.0f, 1e-5f);
+    // Cancel restores the start.
+    edit.Cancel();
+    CHECK(!edit.IsActive());
+    CHECK_NEAR(a.GetTransform().Translation.x, -2.0f, 1e-5f);
+    CHECK_NEAR(child.GetTransform().Translation.x, 1.0f, 1e-5f);
+
+    // Rotate 90 degrees around Y about the center of A and B.
+    std::vector<Entity> pair{ a, b };
+    glm::mat4 mid = GroupTransformEdit::ComputePivot(*scene, pair, a, true, false);
+    edit.Begin(*scene, pair, mid);
+    glm::mat4 rotated = mid * glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
+    edit.Update(rotated, GroupTransformEdit::Operation::Rotate);
+    edit.End();
+    CHECK_NEAR(a.GetTransform().Translation.x, 0.0f, 1e-4f);
+    CHECK_NEAR(a.GetTransform().Translation.z, 2.0f, 1e-4f);  // (-2,0,0) -> (0,0,2)
+    CHECK_NEAR(b.GetTransform().Translation.z, -2.0f, 1e-4f);
+    CHECK_NEAR(a.GetTransform().Rotation.y, glm::radians(90.0f), 1e-4f);
+    CHECK_NEAR(b.GetTransform().Scale.y, 2.0f, 1e-4f);
+
+    // Scale x2 on X about the center: positions spread, local scales double on that axis.
+    a.GetTransform() = TransformComponent(glm::vec3(-2.0f, 0.0f, 0.0f));
+    b.GetTransform() = TransformComponent(glm::vec3(2.0f, 0.0f, 0.0f));
+    b.GetTransform().Scale = { 1.0f, 2.0f, 1.0f };
+    mid = GroupTransformEdit::ComputePivot(*scene, pair, a, true, false);
+    edit.Begin(*scene, pair, mid);
+    edit.Update(mid * glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.0f, 1.0f)), GroupTransformEdit::Operation::Scale);
+    edit.Update(mid * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 1.0f, 1.0f)), GroupTransformEdit::Operation::Scale);
+    edit.End();
+    CHECK_NEAR(a.GetTransform().Translation.x, -4.0f, 1e-4f);
+    CHECK_NEAR(b.GetTransform().Translation.x, 4.0f, 1e-4f);
+    CHECK_NEAR(a.GetTransform().Scale.x, 2.0f, 1e-4f);
+    CHECK_NEAR(b.GetTransform().Scale.x, 2.0f, 1e-4f);
+    CHECK_NEAR(b.GetTransform().Scale.y, 2.0f, 1e-4f); // other axes keep their own scale
+
+    // Single entity with the pivot on itself behaves like a plain gizmo.
+    std::vector<Entity> single{ b };
+    glm::mat4 own = GroupTransformEdit::ComputePivot(*scene, single, b, false, false);
+    edit.Begin(*scene, single, own);
+    edit.Update(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -1.0f)) * own, GroupTransformEdit::Operation::Translate);
+    edit.End();
+    CHECK_NEAR(b.GetTransform().Translation.z, -1.0f, 1e-4f);
+    CHECK_NEAR(b.GetTransform().Scale.x, 2.0f, 1e-5f);
+    // Entities destroyed during an edit are skipped.
+    edit.Begin(*scene, pair, mid);
+    scene->DestroyEntity(a);
+    edit.Update(glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * mid, GroupTransformEdit::Operation::Translate);
+    edit.End();
+    CHECK_NEAR(b.GetTransform().Translation.x, 5.0f, 1e-4f);
+}
+
+TEST(TransformClipboardText)
+{
+    TransformComponent t;
+    t.Translation = { 1.5f, -2.0f, 3.25f };
+    t.Rotation = { 0.1f, 0.2f, -0.3f };
+    t.Scale = { 2.0f, 1.0f, 0.5f };
+    std::string text = SceneSerializer::SerializeTransform(t);
+    TransformComponent out;
+    CHECK(SceneSerializer::DeserializeTransform(text, out));
+    CHECK_NEAR(out.Translation.z, 3.25f, 1e-6f);
+    CHECK_NEAR(out.Rotation.z, -0.3f, 1e-6f);
+    CHECK_NEAR(out.Scale.x, 2.0f, 1e-6f);
+    // Anything else on the clipboard is not a transform and leaves the target alone.
+    TransformComponent keep(glm::vec3(7.0f));
+    CHECK(!SceneSerializer::DeserializeTransform("", keep));
+    CHECK(!SceneSerializer::DeserializeTransform("salom", keep));
+    CHECK(!SceneSerializer::DeserializeTransform("{\"ZaminEntities\":1,\"Entities\":[]}", keep));
+    CHECK(!SceneSerializer::DeserializeTransform("{\"ZaminTransform\": [", keep));
+    CHECK_NEAR(keep.Translation.x, 7.0f, 1e-6f);
+    // Missing parts fall back to the defaults.
+    CHECK(SceneSerializer::DeserializeTransform("{\"ZaminTransform\":1,\"Translation\":[4,5,6]}", keep));
+    CHECK_NEAR(keep.Translation.y, 5.0f, 1e-6f);
+    CHECK_NEAR(keep.Scale.y, 1.0f, 1e-6f);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

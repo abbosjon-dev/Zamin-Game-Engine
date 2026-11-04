@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <unordered_set>
 
 namespace Zamin {
 
@@ -243,6 +244,9 @@ namespace Zamin {
             AudioEngine::Stop(audio->RuntimeHandle);
 
         m_EntityMap.erase(entity.GetUUID());
+        // The pools remove by swap-and-pop: moving the entity to the end first keeps the
+        // scene order (hierarchy, serialization) of everything else unchanged.
+        MoveInSceneOrder(entity, {});
         m_Registry.destroy(entity);
     }
 
@@ -474,6 +478,19 @@ namespace Zamin {
         });
     }
 
+    void Scene::MoveInSceneOrder(Entity entity, Entity before)
+    {
+        auto& ids = m_Registry.storage<IDComponent>();
+        if (!ids.contains(entity) || (before && !ids.contains(before)))
+            return;
+        size_t from = ids.index(entity);
+        size_t to = before ? ids.index(before) : ids.size();
+        if (to > from) to--; // the slots after the entity shift down once it is taken out
+        // Adjacent swaps: everything else keeps its relative order.
+        for (; from < to; from++) ids.swap_elements(ids[from], ids[from + 1]);
+        for (; from > to; from--) ids.swap_elements(ids[from], ids[from - 1]);
+    }
+
     std::vector<Entity> Scene::FindEntitiesWithTag(std::string_view tag)
     {
         std::vector<Entity> result;
@@ -625,6 +642,143 @@ namespace Zamin {
             p = GetParent(p);
         }
         return false;
+    }
+
+    // ------------------------------------------------------------------ hierarchy order
+    std::vector<Entity> Scene::GetRootEntities()
+    {
+        std::vector<Entity> roots;
+        for (Entity e : GetEntitiesInOrder())
+            if (!GetParent(e)) // a dangling parent ID counts as a root (as in the hierarchy panel)
+                roots.push_back(e);
+        return roots;
+    }
+
+    std::vector<Entity> Scene::GetEntitiesInHierarchyOrder()
+    {
+        std::vector<Entity> result;
+        result.reserve(m_Registry.storage<IDComponent>().size());
+        for (Entity root : GetRootEntities())
+            CollectSubtree(*this, root, result);
+        return result;
+    }
+
+    int Scene::GetSiblingIndex(Entity entity)
+    {
+        if (!entity) return -1;
+        if (Entity parent = GetParent(entity))
+        {
+            const auto& children = parent.GetComponent<RelationshipComponent>().Children;
+            auto it = std::find(children.begin(), children.end(), entity.GetUUID());
+            return it == children.end() ? -1 : (int)(it - children.begin());
+        }
+        std::vector<Entity> roots = GetRootEntities();
+        auto it = std::find(roots.begin(), roots.end(), entity);
+        return it == roots.end() ? -1 : (int)(it - roots.begin());
+    }
+
+    bool Scene::SetSiblingIndex(Entity entity, int index)
+    {
+        if (!entity) return false;
+        if (Entity parent = GetParent(entity))
+        {
+            auto& children = parent.GetComponent<RelationshipComponent>().Children;
+            auto it = std::find(children.begin(), children.end(), entity.GetUUID());
+            if (it == children.end()) return false;
+            UUID id = *it;
+            children.erase(it);
+            size_t pos = index < 0 || (size_t)index > children.size() ? children.size() : (size_t)index;
+            children.insert(children.begin() + pos, id);
+            return true;
+        }
+
+        // Root order is the scene order: the entity goes right before the root that will follow it.
+        std::vector<Entity> roots = GetRootEntities();
+        auto it = std::find(roots.begin(), roots.end(), entity);
+        if (it == roots.end()) return false;
+        roots.erase(it);
+        size_t pos = index < 0 || (size_t)index > roots.size() ? roots.size() : (size_t)index;
+        MoveInSceneOrder(entity, pos < roots.size() ? roots[pos] : Entity());
+        return true;
+    }
+
+    bool Scene::MoveEntityNextTo(Entity entity, Entity sibling, bool after, bool keepWorldTransform)
+    {
+        if (!entity || !sibling || entity == sibling) return false;
+        Entity parent = GetParent(sibling);
+        if (parent && (parent == entity || IsAncestorOf(entity, parent)))
+            return false; // the entity would become its own ancestor
+        if (GetParent(entity) != parent && !SetParent(entity, parent, keepWorldTransform))
+            return false;
+        int current = GetSiblingIndex(entity);
+        int target = GetSiblingIndex(sibling);
+        if (current < 0 || target < 0) return false;
+        if (current < target) target--; // the sibling's index once the entity is taken out
+        return SetSiblingIndex(entity, after ? target + 1 : target);
+    }
+
+    // ------------------------------------------------------------------ multi-entity editing
+    std::vector<Entity> Scene::GetTopLevelEntities(const std::vector<Entity>& entities)
+    {
+        std::unordered_set<entt::entity> wanted;
+        for (Entity e : entities)
+            if (e.IsValid() && e.GetScene() == this)
+                wanted.insert((entt::entity)e);
+        std::vector<Entity> result;
+        if (wanted.empty()) return result;
+        for (Entity e : GetEntitiesInHierarchyOrder())
+        {
+            if (!wanted.count((entt::entity)e)) continue;
+            bool nested = false;
+            for (Entity p = GetParent(e); p && !nested; p = GetParent(p))
+                nested = wanted.count((entt::entity)p) != 0;
+            if (!nested)
+                result.push_back(e);
+        }
+        return result;
+    }
+
+    std::vector<Entity> Scene::DuplicateEntities(const std::vector<Entity>& entities)
+    {
+        std::vector<Entity> tops = GetTopLevelEntities(entities);
+        std::vector<Entity> copies, spawned;
+        std::unordered_map<uint64_t, uint64_t> remap;
+        for (Entity original : tops)
+        {
+            Entity copy = DuplicateEntity(original);
+            MoveEntityNextTo(copy, original, true, false); // DuplicateEntity appends it last
+            std::vector<Entity> from, to;
+            CollectSubtree(*this, original, from);
+            CollectSubtree(*this, copy, to);
+            if (from.size() == to.size())
+                for (size_t i = 0; i < from.size(); i++)
+                    remap[(uint64_t)from[i].GetUUID()] = (uint64_t)to[i].GetUUID();
+            spawned.insert(spawned.end(), to.begin(), to.end());
+            copies.push_back(copy);
+        }
+        // DuplicateEntity remaps references inside one subtree; references from one duplicated
+        // subtree into another one follow the copies as well.
+        if (copies.size() > 1)
+            RemapEntityReferences(spawned, remap);
+        if (m_IsRunning || m_PhysicsWorld || m_PhysicsWorld3D)
+            OnEntitiesSpawned(spawned);
+        return copies;
+    }
+
+    size_t Scene::DestroyEntities(const std::vector<Entity>& entities)
+    {
+        // By ID: scripts' OnDisable / OnDestroy may destroy other listed entities first.
+        std::vector<UUID> ids;
+        for (Entity e : GetTopLevelEntities(entities))
+            ids.push_back(e.GetUUID());
+        size_t destroyed = 0;
+        for (UUID id : ids)
+            if (Entity e = GetEntityByUUID(id))
+            {
+                DestroyEntity(e);
+                destroyed++;
+            }
+        return destroyed;
     }
 
     glm::mat4 Scene::GetWorldTransform(Entity entity)

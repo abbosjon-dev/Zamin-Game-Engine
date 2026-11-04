@@ -27,11 +27,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M02 Editor UX I
 
-- [ ] 021. Ko'p obyekt tanlash (Ctrl/Shift bilan) ierarxiyada
-- [ ] 022. Ko'p tanlangan obyektlarni birga o'chirish/nusxalash
-- [ ] 023. Ko'p tanlanganlarni gizmo bilan birga ko'chirish
-- [ ] 024. Ierarxiyada drag-drop bilan tartibni o'zgartirish (siblings orasiga qo'yish)
-- [ ] 025. Transform kontekst menyusi: reset, copy, paste
+- [x] 021. Ko'p obyekt tanlash (Ctrl/Shift bilan) ierarxiyada
+- [x] 022. Ko'p tanlangan obyektlarni birga o'chirish/nusxalash
+- [x] 023. Ko'p tanlanganlarni gizmo bilan birga ko'chirish
+- [x] 024. Ierarxiyada drag-drop bilan tartibni o'zgartirish (siblings orasiga qo'yish)
+- [x] 025. Transform kontekst menyusi: reset, copy, paste
 - [ ] 026. Snapping sozlamalari (qadam: ko'chirish/aylantirish/masshtab) toolbar'da
 - [ ] 027. Grid sozlamalari (o'lcham, rang, ko'rinish)
 - [ ] 028. Kamera xatcho'plari (Ctrl+1..5 saqlash, 1..5 qaytish)

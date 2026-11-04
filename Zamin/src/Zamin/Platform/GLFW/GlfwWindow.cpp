@@ -8,6 +8,9 @@ namespace Zamin {
 
     static void GLFWErrorCallback(int error, const char* description)
     {
+        // Reading an empty / non-text clipboard (editor paste menus) is not an error.
+        if (error == GLFW_FORMAT_UNAVAILABLE)
+            return;
         ZM_CORE_ERROR("GLFW xatosi ({}): {}", error, description);
     }
 

@@ -16,6 +16,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <format>
+#include <string_view>
 
 namespace Zamin {
 
@@ -118,8 +120,26 @@ namespace Zamin {
         {
             if (const char* scene = std::getenv("ZAMIN_EDITOR_SCENE"))
                 OpenScene(Project::GetAssetFileSystemPath(scene));
-            if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT"))
-                m_SceneHierarchyPanel.SetSelectedEntity(m_ActiveScene->FindEntityByName(sel));
+            if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT")) // "Name" or "A,B,C" (multi-selection, the last is primary)
+            {
+                if (Entity e = m_ActiveScene->FindEntityByName(sel))
+                    m_SceneHierarchyPanel.SetSelectedEntity(e);
+                else
+                {
+                    std::vector<Entity> picked;
+                    std::string_view names(sel);
+                    while (!names.empty())
+                    {
+                        size_t comma = names.find(',');
+                        if (Entity e = m_ActiveScene->FindEntityByName(names.substr(0, comma)))
+                            picked.push_back(e);
+                        names = comma == std::string_view::npos ? std::string_view() : names.substr(comma + 1);
+                    }
+                    m_SceneHierarchyPanel.GetSelection().Set(picked);
+                }
+            }
+            if (const char* pivot = std::getenv("ZAMIN_EDITOR_PIVOT_CENTER"))
+                m_GizmoPivotCenter = std::string_view(pivot) != "0";
             if (const char* filter = std::getenv("ZAMIN_EDITOR_FILTER")) // e.g. "#Coin"
                 m_SceneHierarchyPanel.SetFilter(filter);
             if (std::getenv("ZAMIN_EDITOR_INSPECTOR_BOTTOM"))
@@ -443,10 +463,12 @@ namespace Zamin {
             }
         }
 
-        // Selection outline
-        if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity(); selected && selected.IsValid())
+        // Selection outline: the primary entity orange, the rest of a multi-selection yellow
+        Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
+        for (Entity selected : m_SceneHierarchyPanel.GetSelection().GetEntities())
         {
-            const glm::vec4 orange(1.0f, 0.6f, 0.1f, 1.0f);
+            if (!selected.IsValid() || selected.GetScene() != &scene) continue;
+            const glm::vec4 orange = selected == primary ? glm::vec4(1.0f, 0.6f, 0.1f, 1.0f) : glm::vec4(1.0f, 0.85f, 0.35f, 0.85f);
             glm::mat4 transform = scene.GetWorldTransform(selected);
             if (auto* mr = selected.TryGetComponent<MeshRendererComponent>(); mr && (mr->MeshAsset || mr->ModelAsset))
             {
@@ -472,7 +494,7 @@ namespace Zamin {
             // children get a subtle outline too
             for (UUID child : selected.GetComponent<RelationshipComponent>().Children)
                 if (Entity c = scene.GetEntityByUUID(child))
-                    Renderer2D::DrawLine(glm::vec3(transform[3]), scene.GetWorldPosition(c), glm::vec4(1.0f, 0.6f, 0.1f, 0.5f));
+                    Renderer2D::DrawLine(glm::vec3(transform[3]), scene.GetWorldPosition(c), glm::vec4(orange.r, orange.g, orange.b, 0.5f));
         }
 
         Renderer2D::EndScene();
@@ -512,7 +534,12 @@ namespace Zamin {
             bool alt = Input::IsKeyPressed(Key::LeftAlt) || Input::IsKeyPressed(Key::RightAlt);
             bool overGizmo = m_SceneHierarchyPanel.GetSelectedEntity() && ImGuizmo::IsOver() && m_GizmoMode != GizmoMode::None;
             if (!alt && !overGizmo && !m_SceneHierarchyPanel.IsTilePainting())
-                m_SceneHierarchyPanel.SetSelectedEntity(m_HoveredEntity);
+            {
+                // Ctrl+click toggles, Shift+click adds to the selection.
+                bool ctrl = Input::IsKeyPressed(Key::LeftControl) || Input::IsKeyPressed(Key::RightControl);
+                bool shift = Input::IsKeyPressed(Key::LeftShift) || Input::IsKeyPressed(Key::RightShift);
+                m_SceneHierarchyPanel.SelectWithModifiers(m_HoveredEntity, ctrl, shift);
+            }
         }
         return false;
     }
@@ -631,11 +658,9 @@ namespace Zamin {
     {
         m_ActiveScene = scene;
         m_ActiveScene->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
-        Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
-        UUID selectedID = selected && selected.IsValid() ? selected.GetUUID() : UUID(0);
-        m_SceneHierarchyPanel.SetContext(m_ActiveScene);
-        if ((uint64_t)selectedID)
-            m_SceneHierarchyPanel.SetSelectedEntity(m_ActiveScene->GetEntityByUUID(selectedID));
+        m_GizmoEdit.End();
+        // The same entities (by UUID) stay selected: play mode copies, undo snapshots.
+        m_SceneHierarchyPanel.SetContext(m_ActiveScene, true);
     }
 
     void EditorLayer::NewScene()
@@ -784,23 +809,19 @@ namespace Zamin {
     void EditorLayer::DuplicateSelectedEntity()
     {
         if (m_SceneState != SceneState::Edit) return;
-        if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity())
-        {
-            Entity copy = m_EditorScene->DuplicateEntity(selected);
-            m_SceneHierarchyPanel.SetSelectedEntity(copy);
-            MarkDirty();
-        }
+        // Every selected subtree at once: one undo step (MarkDirty via OnSceneModified).
+        size_t count = m_SceneHierarchyPanel.DuplicateSelection();
+        if (count > 1)
+            ZM_INFO("{} ta obyekt nusxalandi", count);
     }
 
     void EditorLayer::DeleteSelectedEntity()
     {
         if (m_SceneState != SceneState::Edit) return;
-        if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity())
-        {
-            m_SceneHierarchyPanel.SetSelectedEntity({});
-            m_EditorScene->DestroyEntity(selected);
-            MarkDirty();
-        }
+        m_GizmoEdit.End();
+        size_t count = m_SceneHierarchyPanel.DeleteSelection();
+        if (count > 1)
+            ZM_INFO("{} ta obyekt o'chirildi", count);
     }
 
     void EditorLayer::FocusEntity(Entity entity)
@@ -911,13 +932,17 @@ namespace Zamin {
 
     void EditorLayer::CopySelectedEntity()
     {
-        Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
-        if (!selected) return;
+        std::vector<Entity> roots = m_SceneHierarchyPanel.GetSelectedRoots();
+        if (roots.empty()) return;
         std::vector<Entity> entities;
-        CollectSubtree(*m_ActiveScene, selected, entities);
+        for (Entity root : roots)
+            CollectSubtree(*m_ActiveScene, root, entities);
         m_Clipboard = SceneSerializer::SerializeEntities(*m_ActiveScene, entities);
         ImGui::SetClipboardText(m_Clipboard.c_str());
-        ZM_INFO("Nusxalandi: {} ({} obyekt)", selected.GetName(), entities.size());
+        if (roots.size() == 1)
+            ZM_INFO("Nusxalandi: {} ({} obyekt)", roots.front().GetName(), entities.size());
+        else
+            ZM_INFO("Nusxalandi: {} ta tanlangan ({} obyekt)", roots.size(), entities.size());
     }
 
     void EditorLayer::PasteEntity()
@@ -929,7 +954,12 @@ namespace Zamin {
         auto entities = SceneSerializer::DeserializeEntities(*m_EditorScene, data, true);
         if (entities.empty()) return;
         m_EditorScene->ResolveAssets();
-        m_SceneHierarchyPanel.SetSelectedEntity(entities.front());
+        // Every pasted root is selected (the list comes roots first).
+        std::vector<Entity> roots;
+        for (Entity e : entities)
+            if (!m_EditorScene->GetParent(e))
+                roots.push_back(e);
+        m_SceneHierarchyPanel.GetSelection().Set(roots, roots.empty() ? entities.front() : roots.front());
         MarkDirty();
     }
 
@@ -1176,6 +1206,9 @@ namespace Zamin {
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) { m_SceneState == SceneState::Edit ? OnScenePlay() : OnSceneStop(); }
             if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) && (m_ViewportFocused || m_SceneHierarchyPanel.IsHierarchyFocused()))
                 DeleteSelectedEntity();
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_A, false) &&
+                (m_SceneHierarchyPanel.IsHierarchyFocused() || (m_ViewportFocused && m_SceneState != SceneState::Play)))
+                m_SceneHierarchyPanel.SelectAll();
             if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && m_SceneState == SceneState::Play && Input::IsKeyPressed(Key::LeftShift))
                 OnSceneStop();
 
@@ -1315,16 +1348,21 @@ namespace Zamin {
         {
             bool sel = (bool)m_SceneHierarchyPanel.GetSelectedEntity();
             bool editing = m_SceneState == SceneState::Edit;
+            size_t count = m_SceneHierarchyPanel.GetSelectionCount();
+            std::string suffix = count > 1 ? std::format(" ({} ta)", count) : std::string();
             if (ImGui::MenuItem(ICON_FA_ROTATE_LEFT "  Bekor qilish (Undo)", "Ctrl+Z", false, editing && (!m_UndoStack.empty() || m_PendingUndo))) Undo();
             if (ImGui::MenuItem(ICON_FA_ROTATE_RIGHT "  Qaytarish (Redo)", "Ctrl+Y", false, editing && !m_RedoStack.empty())) Redo();
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_COPY "  Nusxalash", "Ctrl+C", false, sel)) CopySelectedEntity();
+            if (ImGui::MenuItem((ICON_FA_COPY "  Nusxalash" + suffix).c_str(), "Ctrl+C", false, sel)) CopySelectedEntity();
             if (ImGui::MenuItem(ICON_FA_PASTE "  Joylash", "Ctrl+V", false, editing)) PasteEntity();
             if (ImGui::MenuItem(ICON_FA_BOX "  Prefab sifatida saqlash", nullptr, false, sel && Project::GetActive())) SavePrefab(m_SceneHierarchyPanel.GetSelectedEntity());
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_CLONE "  Nusxa olish", "Ctrl+D", false, sel)) DuplicateSelectedEntity();
-            if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish", "Delete", false, sel)) DeleteSelectedEntity();
+            if (ImGui::MenuItem((ICON_FA_CLONE "  Nusxa olish" + suffix).c_str(), "Ctrl+D", false, sel && editing)) DuplicateSelectedEntity();
+            if (ImGui::MenuItem((ICON_FA_TRASH "  O'chirish" + suffix).c_str(), "Delete", false, sel && editing)) DeleteSelectedEntity();
             if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Fokus", "F", false, sel)) FocusEntity(m_SceneHierarchyPanel.GetSelectedEntity());
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A")) m_SceneHierarchyPanel.SelectAll();
+            if (ImGui::MenuItem(ICON_FA_XMARK "  Tanlovni bekor qilish", nullptr, false, sel)) m_SceneHierarchyPanel.SetSelectedEntity({});
             ImGui::EndMenu();
         }
 
@@ -1558,7 +1596,7 @@ namespace Zamin {
         // ---- left: gizmo tools
         {
             ImVec2 pos(10, 10);
-            float w = buttonSize * 4 + 2 * 3;
+            float w = buttonSize * 5 + 2 * 4;
             panelBg(pos, w);
             ImGui::SetCursorPos(ImVec2(regionMin.x + pos.x, regionMin.y + pos.y));
             ImVec2 size(buttonSize, buttonSize);
@@ -1569,6 +1607,12 @@ namespace Zamin {
             if (UI::ToolbarButton(ICON_FA_ROTATE, "Aylantirish (E)", m_GizmoMode == GizmoMode::Rotate, size)) m_GizmoMode = GizmoMode::Rotate;
             ImGui::SameLine();
             if (UI::ToolbarButton(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER, "Masshtab (R)", m_GizmoMode == GizmoMode::Scale, size)) m_GizmoMode = GizmoMode::Scale;
+            ImGui::SameLine();
+            if (UI::ToolbarButton(m_GizmoPivotCenter ? ICON_FA_OBJECT_GROUP : ICON_FA_CIRCLE_DOT,
+                                  m_GizmoPivotCenter ? "Gizmo: tanlov markazida (bosing: asosiy obyektda)"
+                                                     : "Gizmo: asosiy obyektda (bosing: tanlov markazida)",
+                                  m_GizmoPivotCenter, size))
+                m_GizmoPivotCenter = !m_GizmoPivotCenter;
         }
 
         // ---- center: play controls
@@ -1643,7 +1687,6 @@ namespace Zamin {
         glm::mat4 viewProj = m_EditorCamera.GetViewProjection();
         glm::vec2 size = m_ViewportBounds[1] - m_ViewportBounds[0];
         ImVec2 mouse = ImGui::GetMousePos();
-        Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
 
         auto drawIcon = [&](Entity e, const char* icon, ImU32 color) {
             glm::vec4 clip = viewProj * glm::vec4(m_ActiveScene->GetWorldPosition(e), 1.0f);
@@ -1653,13 +1696,13 @@ namespace Zamin {
             ImVec2 p(m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * size.x, m_ViewportBounds[0].y + (1.0f - (ndc.y * 0.5f + 0.5f)) * size.y);
             float r = 14.0f;
             bool hovered = (mouse.x - p.x) * (mouse.x - p.x) + (mouse.y - p.y) * (mouse.y - p.y) < r * r;
-            bool isSelected = selected == e;
+            bool isSelected = m_SceneHierarchyPanel.IsSelected(e);
             dl->AddCircleFilled(p, r, isSelected ? IM_COL32(30, 140, 110, 230) : (hovered ? IM_COL32(50, 55, 65, 230) : IM_COL32(20, 22, 26, 200)));
             dl->AddCircle(p, r, color, 0, 1.5f);
             ImVec2 ts = ImGui::CalcTextSize(icon);
             dl->AddText(ImVec2(p.x - ts.x * 0.5f, p.y - ts.y * 0.5f), color, icon);
             if (hovered && m_ViewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGuizmo::IsOver())
-                m_SceneHierarchyPanel.SetSelectedEntity(e);
+                m_SceneHierarchyPanel.SelectWithModifiers(e, ImGui::GetIO().KeyCtrl, ImGui::GetIO().KeyShift);
         };
 
         for (auto e : m_ActiveScene->GetAllEntitiesWith<CameraComponent>())
@@ -1674,8 +1717,15 @@ namespace Zamin {
 
     void EditorLayer::UI_Gizmos()
     {
-        Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
-        if (!selected || !selected.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting())
+        Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
+        if (!primary || !primary.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting())
+        {
+            m_GizmoEdit.End();
+            return;
+        }
+        // Every selected subtree moves together (an entity inside another selected one follows it).
+        std::vector<Entity> targets = m_SceneHierarchyPanel.GetSelectedRoots();
+        if (targets.empty())
             return;
 
         ImGuizmo::SetOrthographic(m_EditorCamera.IsOrthographic());
@@ -1686,9 +1736,6 @@ namespace Zamin {
         const glm::mat4& projection = m_EditorCamera.GetProjection();
         glm::mat4 view = m_EditorCamera.GetViewMatrix();
 
-        auto& tc = selected.GetComponent<TransformComponent>();
-        glm::mat4 transform = m_ActiveScene->GetWorldTransform(selected);
-
         bool snap = Input::IsKeyPressed(Key::LeftControl);
         float snapValue = m_GizmoMode == GizmoMode::Rotate ? 15.0f : 0.5f;
         float snapValues[3] = { snapValue, snapValue, snapValue };
@@ -1697,23 +1744,31 @@ namespace Zamin {
                                  m_GizmoMode == GizmoMode::Rotate ? ImGuizmo::ROTATE : ImGuizmo::SCALE;
         ImGuizmo::MODE mode = (m_GizmoLocal || m_GizmoMode == GizmoMode::Scale) ? ImGuizmo::LOCAL : ImGuizmo::WORLD;
 
+        // Pivot: the primary entity, or the center of the selection. While dragging, the
+        // gizmo's own previous result is fed back (ImGuizmo works incrementally).
+        if (m_GizmoEdit.IsActive() && m_GizmoEditMode != m_GizmoMode)
+            m_GizmoEdit.End(); // W/E/R pressed mid-drag: start over with the new operation
+        bool dragging = m_GizmoEdit.IsActive() && m_GizmoEdit.GetScene() == m_ActiveScene.get();
+        bool center = m_GizmoPivotCenter && targets.size() > 1;
+        glm::mat4 pivot = dragging ? m_GizmoMatrix
+                                   : GroupTransformEdit::ComputePivot(*m_ActiveScene, targets, primary, center, mode == ImGuizmo::LOCAL);
+        glm::mat4 transform = pivot;
         ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), op, mode, glm::value_ptr(transform),
                              nullptr, snap ? snapValues : nullptr);
 
         if (ImGuizmo::IsUsing())
         {
-            Entity parent = m_ActiveScene->GetParent(selected);
-            glm::mat4 local = parent ? glm::inverse(m_ActiveScene->GetWorldTransform(parent)) * transform : transform;
-            glm::vec3 translation, rotation, scale;
-            if (Math::DecomposeTransform(local, translation, rotation, scale))
+            if (!dragging)
             {
-                glm::vec3 deltaRotation = rotation - tc.Rotation;
-                tc.Translation = translation;
-                tc.Rotation += deltaRotation;
-                tc.Scale = scale;
-                MarkDirty();
+                m_GizmoEdit.Begin(*m_ActiveScene, targets, pivot);
+                m_GizmoEditMode = m_GizmoMode;
             }
+            m_GizmoMatrix = transform;
+            m_GizmoEdit.Update(transform, (GroupTransformEdit::Operation)(int)m_GizmoMode);
+            MarkDirty();
         }
+        else if (m_GizmoEdit.IsActive())
+            m_GizmoEdit.End();
     }
 
     void EditorLayer::UI_SceneSettings()

@@ -570,6 +570,93 @@ namespace Zamin {
         
     }
 
+    // Children lists are rebuilt from the "Parent" links in file order. When a parent's
+    // children are in another order (reordered in the hierarchy) it is stored explicitly.
+    static void WriteChildOrder(json& list, const std::vector<Entity>& entities)
+    {
+        std::unordered_map<uint64_t, size_t> position;
+        for (size_t i = 0; i < entities.size(); i++)
+            position[(uint64_t)entities[i].GetUUID()] = i;
+        for (size_t i = 0; i < entities.size(); i++)
+        {
+            const auto& children = entities[i].GetComponent<RelationshipComponent>().Children;
+            if (children.size() < 2) continue;
+            std::vector<uint64_t> order;
+            bool fileOrder = true;
+            size_t last = 0;
+            for (UUID child : children)
+            {
+                auto it = position.find((uint64_t)child);
+                if (it == position.end()) continue; // not part of this file (copy / prefab subset)
+                if (!order.empty() && it->second < last) fileOrder = false;
+                last = it->second;
+                order.push_back((uint64_t)child);
+            }
+            if (!fileOrder)
+                list[i]["ChildOrder"] = order;
+        }
+    }
+
+    // `idMap` maps the file's IDs to the created entities' IDs (nullptr: unchanged).
+    static void ApplyChildOrder(Entity parent, const json& e, const std::unordered_map<uint64_t, UUID>* idMap)
+    {
+        auto it = e.find("ChildOrder");
+        if (it == e.end() || !it->is_array()) return;
+        auto& children = parent.GetComponent<RelationshipComponent>().Children;
+        std::vector<UUID> ordered;
+        ordered.reserve(children.size());
+        for (const json& id : *it)
+        {
+            if (!id.is_number_integer()) continue;
+            UUID child = UUID(id.get<uint64_t>());
+            if (idMap)
+            {
+                auto mapped = idMap->find((uint64_t)child);
+                if (mapped == idMap->end()) continue;
+                child = mapped->second;
+            }
+            if (std::find(children.begin(), children.end(), child) != children.end() &&
+                std::find(ordered.begin(), ordered.end(), child) == ordered.end())
+                ordered.push_back(child);
+        }
+        for (UUID child : children) // anything not listed keeps the file order, after the listed ones
+            if (std::find(ordered.begin(), ordered.end(), child) == ordered.end())
+                ordered.push_back(child);
+        children = std::move(ordered);
+    }
+
+    std::string SceneSerializer::SerializeTransform(const TransformComponent& t)
+    {
+        json j;
+        j["ZaminTransform"] = 1;
+        j["Translation"] = ToJson(t.Translation);
+        j["Rotation"] = ToJson(t.Rotation);
+        j["Scale"] = ToJson(t.Scale);
+        return j.dump();
+    }
+
+    bool SceneSerializer::DeserializeTransform(const std::string& text, TransformComponent& out)
+    {
+        if (text.find("\"ZaminTransform\"") == std::string::npos)
+            return false;
+        try
+        {
+            json j = json::parse(text);
+            if (!j.is_object() || !j.contains("ZaminTransform"))
+                return false;
+            TransformComponent t;
+            t.Translation = Vec(j, "Translation", glm::vec3(0.0f));
+            t.Rotation = Vec(j, "Rotation", glm::vec3(0.0f));
+            t.Scale = Vec(j, "Scale", glm::vec3(1.0f));
+            out = t;
+            return true;
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
     std::string SceneSerializer::SerializeToString()
     {
         const auto& s = m_Scene->GetSettings();
@@ -591,8 +678,10 @@ namespace Zamin {
         };
 
         json entities = json::array();
-        for (Entity e : m_Scene->GetEntitiesInOrder()) // creation order => stable diffs
+        std::vector<Entity> ordered = m_Scene->GetEntitiesInOrder(); // creation order => stable diffs
+        for (Entity e : ordered)
             entities.push_back(SerializeEntity(e));
+        WriteChildOrder(entities, ordered);
         root["Entities"] = entities;
         return root.dump(2);
     }
@@ -684,7 +773,8 @@ namespace Zamin {
             }
 
             std::vector<std::pair<Entity, uint64_t>> parents;
-            for (const json& e : root.value("Entities", json::array()))
+            const json entityList = root.value("Entities", json::array());
+            for (const json& e : entityList)
             {
                 uint64_t uuid = e.value("Entity", (uint64_t)0);
                 Entity entity = m_Scene->CreateEntityWithUUID(uuid ? UUID(uuid) : UUID(), e.value("Tag", "Entity"));
@@ -699,6 +789,8 @@ namespace Zamin {
                 entity.GetComponent<RelationshipComponent>().Parent = parent;
                 p.GetComponent<RelationshipComponent>().Children.push_back(entity.GetUUID());
             }
+            for (size_t i = 0; i < parents.size() && i < entityList.size(); i++)
+                ApplyChildOrder(parents[i].first, entityList[i], nullptr);
         }
         catch (const std::exception& ex)
         {
@@ -724,6 +816,7 @@ namespace Zamin {
                 j.erase("Parent");
             list.push_back(j);
         }
+        WriteChildOrder(list, entities);
         json root;
         root["ZaminEntities"] = 1;
         root["Entities"] = list;
@@ -762,6 +855,12 @@ namespace Zamin {
                 if (!p) continue;
                 entity.GetComponent<RelationshipComponent>().Parent = p.GetUUID();
                 p.GetComponent<RelationshipComponent>().Children.push_back(entity.GetUUID());
+            }
+            {
+                size_t i = 0;
+                for (const json& e : root["Entities"])
+                    if (i < created.size())
+                        ApplyChildOrder(created[i++], e, &remap);
             }
 
             // EntityRef fields that point inside the pasted set follow the new IDs.

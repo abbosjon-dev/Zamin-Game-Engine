@@ -36,10 +36,80 @@ namespace Zamin {
         return ICON_FA_BOX;
     }
 
-    void SceneHierarchyPanel::SetContext(const Ref<Scene>& context)
+    void SceneHierarchyPanel::SetContext(const Ref<Scene>& context, bool keepSelection)
     {
+        // Remap reads the old entities: m_Context still keeps the previous scene alive here.
+        if (keepSelection && context)
+            m_Selection.Remap(context.get());
+        else
+            m_Selection.Clear();
         m_Context = context;
-        m_SelectionContext = {};
+        m_RenamingEntity = entt::null;
+        m_ClickedSelected = {};
+        m_PendingClick = {};
+        m_PendingDrop = {};
+        m_VisibleRows.clear();
+    }
+
+    // ------------------------------------------------------------------ selection
+    std::vector<Entity> SceneHierarchyPanel::GetSelectedRoots() const
+    {
+        if (!m_Context || m_Selection.IsEmpty())
+            return {};
+        if (m_Selection.Size() == 1) // the common case, without walking the hierarchy
+        {
+            Entity only = m_Selection.GetEntities().front();
+            return only && only.GetScene() == m_Context.get() ? std::vector<Entity>{ only } : std::vector<Entity>{};
+        }
+        return m_Context->GetTopLevelEntities(m_Selection.GetEntities());
+    }
+
+    void SceneHierarchyPanel::SelectWithModifiers(Entity entity, bool ctrl, bool shift)
+    {
+        if (ctrl)
+        {
+            if (entity) m_Selection.Toggle(entity);
+        }
+        else if (shift)
+        {
+            if (entity) m_Selection.Add(entity, true);
+        }
+        else
+            m_Selection.Select(entity);
+    }
+
+    void SceneHierarchyPanel::SelectAll()
+    {
+        if (!m_Context) return;
+        Entity primary = GetSelectedEntity();
+        m_Selection.Set(m_Context->GetEntitiesInHierarchyOrder(), primary);
+    }
+
+    size_t SceneHierarchyPanel::DuplicateSelection()
+    {
+        std::vector<Entity> roots = GetSelectedRoots();
+        if (roots.empty()) return 0;
+        Entity primary = GetSelectedEntity();
+        std::vector<Entity> copies = m_Context->DuplicateEntities(roots);
+        // The copy of the primary entity stays primary (or of the subtree it is in).
+        Entity newPrimary;
+        for (size_t i = 0; i < roots.size() && i < copies.size(); i++)
+            if (roots[i] == primary || m_Context->IsAncestorOf(roots[i], primary))
+                newPrimary = copies[i];
+        m_Selection.Set(copies, newPrimary);
+        MarkModified();
+        return copies.size();
+    }
+
+    size_t SceneHierarchyPanel::DeleteSelection()
+    {
+        std::vector<Entity> roots = GetSelectedRoots();
+        if (roots.empty()) return 0;
+        m_Selection.Clear();
+        m_RenamingEntity = entt::null;
+        size_t count = m_Context->DestroyEntities(roots);
+        MarkModified();
+        return count;
     }
 
     void SceneHierarchyPanel::OnImGuiRender(bool* showHierarchy, bool* showInspector)
@@ -215,7 +285,7 @@ namespace Zamin {
 
         if (e)
         {
-            m_SelectionContext = e;
+            SetSelectedEntity(e);
             MarkModified();
         }
         return e;
@@ -285,12 +355,23 @@ namespace Zamin {
     {
         if (!ImGui::BeginPopupContextItem("##entityctx"))
             return;
-        m_SelectionContext = entity;
+        // Right-click inside a multi-selection keeps it (the menu acts on all of it).
+        if (!IsSelected(entity))
+            SetSelectedEntity(entity);
+        else if (GetSelectedEntity() != entity)
+            m_Selection.Add(entity, true);
+        const size_t count = m_Selection.Size();
+        if (count > 1)
+        {
+            ImGui::TextDisabled(ICON_FA_OBJECT_GROUP "  %zu ta obyekt tanlangan", count);
+            ImGui::Separator();
+        }
+
         if (ImGui::BeginMenu(ICON_FA_PLUS "  Bola obyekt yaratish"))
         {
-            Entity before = m_SelectionContext;
+            Entity before = entity;
             DrawCreateMenu();
-            Entity created = m_SelectionContext;
+            Entity created = GetSelectedEntity();
             if (created && created != before)
             {
                 m_Context->SetParent(created, before, false);
@@ -300,20 +381,30 @@ namespace Zamin {
         }
         if (ImGui::MenuItem(ICON_FA_FEATHER "  Nomini o'zgartirish", "F2"))
         {
+            SetSelectedEntity(entity);
             m_RenamingEntity = entity;
             m_RenameBuffer = entity.GetName();
         }
-        if (ImGui::MenuItem(ICON_FA_CLONE "  Nusxa olish", "Ctrl+D")) m_PendingDuplicate = entity;
+        std::string duplicateLabel = count > 1 ? std::format(ICON_FA_CLONE "  Nusxa olish ({} ta)", count) : std::string(ICON_FA_CLONE "  Nusxa olish");
+        if (ImGui::MenuItem(duplicateLabel.c_str(), "Ctrl+D")) m_PendingDuplicate = true;
         if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Fokus", "F")) { if (OnFocusRequested) OnFocusRequested(entity); }
-        if (m_Context->GetParent(entity) && ImGui::MenuItem(ICON_FA_ARROW_UP "  Ota-onadan ajratish"))
+        std::vector<Entity> parented;
+        for (Entity e : GetSelectedRoots())
+            if (m_Context->GetParent(e))
+                parented.push_back(e);
+        if (!parented.empty() && ImGui::MenuItem(ICON_FA_ARROW_UP "  Ota-onadan ajratish"))
         {
-            m_Context->SetParent(entity, {}, true);
+            for (Entity e : parented)
+                if (m_Context->SetParent(e, {}, true))
+                    m_Context->SetSiblingIndex(e, -1);
             MarkModified();
         }
         if (ImGui::MenuItem(ICON_FA_BOX "  Prefab sifatida saqlash") && OnSavePrefabRequested)
             OnSavePrefabRequested(entity);
         ImGui::Separator();
-        if (ImGui::MenuItem(ICON_FA_TRASH "  O'chirish", "Delete")) m_PendingDelete = entity;
+        if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A")) SelectAll();
+        std::string deleteLabel = count > 1 ? std::format(ICON_FA_TRASH "  O'chirish ({} ta)", count) : std::string(ICON_FA_TRASH "  O'chirish");
+        if (ImGui::MenuItem(deleteLabel.c_str(), "Delete")) m_PendingDelete = true;
         ImGui::EndPopup();
     }
 
@@ -323,9 +414,11 @@ namespace Zamin {
         const std::string& tag = entity.GetName();
         const auto& children = entity.GetComponent<RelationshipComponent>().Children;
         bool hasChildren = !children.empty() && m_Filter.empty();
-        bool selected = m_SelectionContext == entity;
+        bool selected = IsSelected(entity);
+        bool primary = selected && GetSelectedEntity() == entity;
 
         ImGui::PushID((int)(uint32_t)handle);
+        m_VisibleRows.push_back(entity);
 
         ImVec2 min = ImGui::GetCursorScreenPos();
         ImVec2 max = ImVec2(min.x + ImGui::GetContentRegionAvail().x, min.y + ImGui::GetFrameHeight());
@@ -355,10 +448,11 @@ namespace Zamin {
         if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
         if (selected) flags |= ImGuiTreeNodeFlags_Selected;
 
+        // The primary entity is highlighted stronger than the rest of a multi-selection.
         if (selected)
         {
-            ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.12f, 0.52f, 0.41f, 0.75f));
-            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.14f, 0.58f, 0.46f, 0.85f));
+            ImGui::PushStyleColor(ImGuiCol_Header, primary ? ImVec4(0.12f, 0.52f, 0.41f, 0.75f) : ImVec4(0.12f, 0.52f, 0.41f, 0.38f));
+            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, primary ? ImVec4(0.14f, 0.58f, 0.46f, 0.85f) : ImVec4(0.14f, 0.58f, 0.46f, 0.55f));
         }
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
         std::string label = std::string(EntityIcon(entity)) + "  " + tag;
@@ -367,35 +461,40 @@ namespace Zamin {
         if (selected)
             ImGui::PopStyleColor(2);
 
+        // Selection: plain click = only this row, Ctrl = toggle, Shift = range from the anchor.
+        // Pressing a row of a multi-selection may start dragging all of it, so a plain click
+        // there is decided on release (when the mouse did not move).
+        const ImGuiIO& io = ImGui::GetIO();
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::IsItemToggledOpen())
-            m_SelectionContext = entity;
+        {
+            if (!io.KeyCtrl && !io.KeyShift && selected && m_Selection.Size() > 1)
+                m_ClickedSelected = entity;
+            else
+                m_PendingClick = { entity, io.KeyCtrl, io.KeyShift };
+        }
+        if (m_ClickedSelected == entity && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+        {
+            const float threshold = io.MouseDragThreshold;
+            if (ImGui::IsItemHovered() && io.MouseDragMaxDistanceSqr[0] < threshold * threshold)
+                m_PendingClick = { entity, false, false };
+            m_ClickedSelected = {};
+        }
         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0) && !hasChildren && OnFocusRequested)
             OnFocusRequested(entity);
 
-        // drag & drop: parent entities by dropping onto each other
+        // drag & drop: reorder (row edges), parent (row middle); a multi-selection moves together
         if (ImGui::BeginDragDropSource())
         {
             uint64_t id = entity.GetUUID();
             ImGui::SetDragDropPayload("HIERARCHY_ENTITY", &id, sizeof(uint64_t));
-            ImGui::Text("%s  %s", EntityIcon(entity), tag.c_str());
+            size_t count = selected ? GetSelectedRoots().size() : 1;
+            if (count > 1)
+                ImGui::Text(ICON_FA_OBJECT_GROUP "  %zu ta obyekt", count);
+            else
+                ImGui::Text("%s  %s", EntityIcon(entity), tag.c_str());
             ImGui::EndDragDropSource();
         }
-        if (ImGui::BeginDragDropTarget())
-        {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_ENTITY"))
-            {
-                Entity dragged = m_Context->GetEntityByUUID(*(const uint64_t*)payload->Data);
-                if (dragged && m_Context->SetParent(dragged, entity, true))
-                    MarkModified();
-            }
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
-            {
-                std::filesystem::path path((const char*)payload->Data);
-                if (path.extension() == ".zprefab" && OnPrefabDropped)
-                    OnPrefabDropped(path, entity);
-            }
-            ImGui::EndDragDropTarget();
-        }
+        DrawRowDropTarget(entity, open, hasChildren);
 
         DrawEntityContextMenu(entity);
 
@@ -413,11 +512,140 @@ namespace Zamin {
         ImGui::PopID();
     }
 
+    void SceneHierarchyPanel::DrawRowDropTarget(Entity entity, bool open, bool hasChildren)
+    {
+        if (!ImGui::BeginDragDropTarget())
+            return;
+
+        const ImVec2 rowMin = ImGui::GetItemRectMin(), rowMax = ImGui::GetItemRectMax();
+        const ImGuiPayload* active = ImGui::GetDragDropPayload();
+        if (active && active->IsDataType("HIERARCHY_ENTITY"))
+        {
+            // Upper quarter: before the row, lower quarter: after it (or as the first child of
+            // an open parent), the middle: into it. A filtered (flat) list only parents.
+            const float h = rowMax.y - rowMin.y, y = ImGui::GetMousePos().y;
+            DropZone zone = DropZone::Into;
+            if (m_Filter.empty())
+            {
+                if (y < rowMin.y + h * 0.25f) zone = DropZone::Before;
+                else if (y > rowMax.y - h * 0.25f) zone = open && hasChildren ? DropZone::FirstChild : DropZone::After;
+            }
+            Entity dragged = m_Context->GetEntityByUUID(*(const uint64_t*)active->Data);
+            bool self = dragged == entity && (zone == DropZone::Into || m_Selection.Size() <= 1 || !IsSelected(dragged));
+            if (!self)
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_ENTITY",
+                        ImGuiDragDropFlags_AcceptBeforeDelivery | ImGuiDragDropFlags_AcceptNoDrawDefaultRect))
+                {
+                    ImDrawList* dl = ImGui::GetWindowDrawList();
+                    const ImU32 color = UI::AccentU32();
+                    if (zone == DropZone::Into)
+                        dl->AddRect(rowMin, rowMax, color, 3.0f, 0, 2.0f);
+                    else
+                    {
+                        float lineY = zone == DropZone::Before ? rowMin.y : rowMax.y;
+                        float x0 = rowMin.x + (zone == DropZone::FirstChild ? ImGui::GetStyle().IndentSpacing : 0.0f);
+                        dl->AddLine(ImVec2(x0, lineY), ImVec2(rowMax.x, lineY), color, 2.0f);
+                        dl->AddCircleFilled(ImVec2(x0 + 3.0f, lineY), 3.5f, color);
+                    }
+                    if (payload->IsDelivery())
+                        m_PendingDrop = { *(const uint64_t*)payload->Data, entity, zone };
+                }
+            }
+        }
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+        {
+            std::filesystem::path path((const char*)payload->Data);
+            if (path.extension() == ".zprefab" && OnPrefabDropped)
+                OnPrefabDropped(path, entity);
+        }
+        ImGui::EndDragDropTarget();
+    }
+
+    void SceneHierarchyPanel::ApplyPendingClick()
+    {
+        PendingClick click = m_PendingClick;
+        m_PendingClick = {};
+        if (!click.Target)
+            return;
+        if (click.Shift)
+            m_Selection.SelectRange(m_VisibleRows, click.Target, click.Ctrl);
+        else if (click.Ctrl)
+            m_Selection.Toggle(click.Target);
+        else
+            m_Selection.Select(click.Target);
+    }
+
+    void SceneHierarchyPanel::ApplyPendingDrop()
+    {
+        PendingDrop drop = m_PendingDrop;
+        m_PendingDrop = {};
+        Entity dragged = (uint64_t)drop.Dragged ? m_Context->GetEntityByUUID(drop.Dragged) : Entity();
+        if (!dragged || drop.Zone == DropZone::None)
+            return;
+
+        // Dragging a selected row moves the whole selection (its top-level entities, in order).
+        std::vector<Entity> moving = IsSelected(dragged) ? GetSelectedRoots() : std::vector<Entity>{ dragged };
+        Entity target = drop.Target;
+        bool changed = false;
+        switch (drop.Zone)
+        {
+            case DropZone::Into:
+                for (Entity e : moving)
+                    if (e != target && m_Context->SetParent(e, target, true))
+                        changed = true;
+                break;
+            case DropZone::FirstChild:
+            {
+                int index = 0;
+                for (Entity e : moving)
+                    if (e != target && m_Context->SetParent(e, target, true))
+                    {
+                        m_Context->SetSiblingIndex(e, index++);
+                        changed = true;
+                    }
+                break;
+            }
+            case DropZone::Before:
+                for (Entity e : moving)
+                    if (e != target && m_Context->MoveEntityNextTo(e, target, false))
+                        changed = true;
+                break;
+            case DropZone::After:
+            {
+                Entity anchor = target;
+                for (Entity e : moving)
+                    if (e != target && m_Context->MoveEntityNextTo(e, anchor, true))
+                    {
+                        anchor = e;
+                        changed = true;
+                    }
+                break;
+            }
+            case DropZone::RootEnd:
+                for (Entity e : moving)
+                {
+                    if (m_Context->GetParent(e))
+                        m_Context->SetParent(e, {}, true);
+                    m_Context->SetSiblingIndex(e, -1);
+                    changed = true;
+                }
+                break;
+            case DropZone::None:
+                break;
+        }
+        if (changed)
+            MarkModified();
+        else if (moving.size() == 1 && (target == dragged || (target && m_Context->IsAncestorOf(dragged, target))))
+            ZM_WARN("Obyektni o'zining ichiga ko'chirib bo'lmaydi: {}", dragged.GetName());
+    }
+
     void SceneHierarchyPanel::DrawHierarchy()
     {
         m_HierarchyFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
         if (!m_Context)
             return;
+        m_Selection.Prune();
 
         // Header: scene name + add button
         ImGui::PushFont(ImGuiLayer::GetBoldFont());
@@ -425,6 +653,13 @@ namespace Zamin {
         ImGui::SameLine();
         ImGui::TextUnformatted(m_Context->GetName().c_str());
         ImGui::PopFont();
+        if (m_Selection.Size() > 1)
+        {
+            ImGui::SameLine();
+            ImGui::TextColored(UI::AccentColor(), ICON_FA_OBJECT_GROUP " %zu", m_Selection.Size());
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Tanlangan obyektlar soni (Ctrl+bosish: qo'shish/olib tashlash, Shift+bosish: oraliq)");
+        }
         ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - ImGui::GetFrameHeight());
         if (UI::ToolbarButton(ICON_FA_PLUS, "Obyekt yaratish", false, ImVec2(ImGui::GetFrameHeight(), 0)))
             ImGui::OpenPopup("CreateEntityPopup");
@@ -438,9 +673,10 @@ namespace Zamin {
         ImGui::Spacing();
 
         std::string filter = ToLower(m_Filter);
-        m_PendingDelete = {};
-        m_PendingDuplicate = {};
+        m_PendingDelete = false;
+        m_PendingDuplicate = false;
         m_RowIndex = 0;
+        m_VisibleRows.clear();
 
         ImGui::BeginChild("##entities", ImVec2(0, 0), ImGuiChildFlags_None);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
@@ -458,19 +694,16 @@ namespace Zamin {
         }
         ImGui::PopStyleVar(2);
 
-        // Empty area: drop to un-parent / instantiate prefabs; click to deselect
+        // Empty area: drop to un-parent (to the end of the root list) / instantiate prefabs;
+        // click to deselect
         ImVec2 avail = ImGui::GetContentRegionAvail();
         ImGui::InvisibleButton("##hierarchyEmpty", ImVec2(std::max(1.0f, avail.x), std::max(40.0f, avail.y)));
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
-            m_SelectionContext = {};
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift)
+            m_Selection.Clear();
         if (ImGui::BeginDragDropTarget())
         {
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_ENTITY"))
-            {
-                Entity dragged = m_Context->GetEntityByUUID(*(const uint64_t*)payload->Data);
-                if (dragged && m_Context->SetParent(dragged, {}, true))
-                    MarkModified();
-            }
+                m_PendingDrop = { *(const uint64_t*)payload->Data, {}, DropZone::RootEnd };
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
             {
                 std::filesystem::path path((const char*)payload->Data);
@@ -485,25 +718,23 @@ namespace Zamin {
             ImGui::EndPopup();
         }
 
-        if (m_SelectionContext && ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_F2))
+        if (Entity primary = GetSelectedEntity(); primary && ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_F2))
         {
-            m_RenamingEntity = m_SelectionContext;
-            m_RenameBuffer = m_SelectionContext.GetName();
+            m_RenamingEntity = primary;
+            m_RenameBuffer = primary.GetName();
         }
         ImGui::EndChild();
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
+            m_ClickedSelected = {};
 
+        // Deferred until every row is drawn: ranges need all visible rows, and the hierarchy
+        // must not change while it is being drawn.
+        ApplyPendingClick();
+        ApplyPendingDrop();
         if (m_PendingDuplicate)
-        {
-            m_SelectionContext = m_Context->DuplicateEntity(m_PendingDuplicate);
-            MarkModified();
-        }
+            DuplicateSelection();
         if (m_PendingDelete)
-        {
-            if (m_SelectionContext == m_PendingDelete || (m_SelectionContext && m_Context->IsAncestorOf(m_PendingDelete, m_SelectionContext)))
-                m_SelectionContext = {};
-            m_Context->DestroyEntity(m_PendingDelete);
-            MarkModified();
-        }
+            DeleteSelection();
     }
 
     // Name search, or "#tag" to list entities by gameplay tag ("#" alone: any tagged entity).
@@ -525,10 +756,9 @@ namespace Zamin {
     // ------------------------------------------------------------------ inspector
     void SceneHierarchyPanel::DrawInspector()
     {
-        if (m_SelectionContext && !m_SelectionContext.IsValid())
-            m_SelectionContext = {};
-
-        if (!m_SelectionContext)
+        m_Selection.Prune();
+        Entity primary = GetSelectedEntity();
+        if (!primary)
         {
             ImGui::Dummy(ImVec2(0, 40));
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
@@ -540,12 +770,40 @@ namespace Zamin {
             ImGui::PopStyleColor();
             return;
         }
-        DrawComponents(m_SelectionContext);
+
+        if (m_Selection.Size() > 1)
+        {
+            // Multi-selection: the components shown are the primary entity's; the Transform
+            // menu (reset / paste) and the hierarchy / viewport operations act on all of them.
+            ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
+            ImGui::TextUnformatted(ICON_FA_OBJECT_GROUP);
+            ImGui::SameLine();
+            ImGui::Text("%zu ta obyekt tanlangan", m_Selection.Size());
+            ImGui::PopStyleColor();
+            if (ImGui::IsItemHovered())
+            {
+                std::string names;
+                size_t shown = 0;
+                for (Entity e : m_Selection.GetEntities())
+                {
+                    if (!e) continue;
+                    if (shown++ == 12) { names += "\n..."; break; }
+                    names += (names.empty() ? "" : "\n") + std::string(e == primary ? ICON_FA_CIRCLE_DOT " " : "   ") + e.GetName();
+                }
+                UI::Tooltip(names.c_str());
+            }
+            ImGui::SameLine();
+            ImGui::TextDisabled("(asosiy: %s)", primary.GetName().c_str());
+            ImGui::Separator();
+        }
+        DrawComponents(primary);
     }
 
+    // settingsMenu (optional): extra items of the component's menu (gear button / right-click
+    // on the header); returns true when it changed something.
     template<typename T, typename UIFunction>
     static void DrawComponent(const char* icon, const std::string& name, Entity entity, UIFunction uiFunction,
-                              bool removable, bool& modified)
+                              bool removable, bool& modified, const std::function<bool(T&)>& settingsMenu = {})
     {
         const ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth
             | ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_FramePadding;
@@ -567,17 +825,27 @@ namespace Zamin {
         ImGui::PopStyleVar();
 
         bool removeComponent = false;
-        if (removable)
+        if (removable || settingsMenu)
         {
+            // Unique per component: collapsed headers share one ID scope.
+            const std::string popupId = "ComponentSettings##" + name;
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                ImGui::OpenPopup(popupId.c_str());
             ImGui::SameLine(available.x - lineHeight * 0.75f);
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
             if (ImGui::Button(ICON_FA_GEAR, ImVec2(lineHeight, lineHeight)))
-                ImGui::OpenPopup("ComponentSettings");
+                ImGui::OpenPopup(popupId.c_str());
             ImGui::PopStyleColor();
-            if (ImGui::BeginPopup("ComponentSettings"))
+            if (ImGui::BeginPopup(popupId.c_str()))
             {
-                if (ImGui::MenuItem(ICON_FA_TRASH "  Komponentni olib tashlash"))
-                    removeComponent = true;
+                if (settingsMenu && settingsMenu(component))
+                    modified = true;
+                if (removable)
+                {
+                    if (settingsMenu) ImGui::Separator();
+                    if (ImGui::MenuItem(ICON_FA_TRASH "  Komponentni olib tashlash"))
+                        removeComponent = true;
+                }
                 ImGui::EndPopup();
             }
         }
@@ -604,14 +872,15 @@ namespace Zamin {
     template<typename T>
     void SceneHierarchyPanel::DisplayAddComponentEntry(const char* name, const char* icon)
     {
-        if (m_SelectionContext.HasComponent<T>())
+        Entity entity = GetSelectedEntity();
+        if (!entity || entity.HasComponent<T>())
             return;
         if (!m_AddComponentFilter.empty() && ToLower(name).find(ToLower(m_AddComponentFilter)) == std::string::npos)
             return;
         std::string label = std::string(icon) + "   " + name;
         if (ImGui::MenuItem(label.c_str()))
         {
-            T& c = m_SelectionContext.AddComponent<T>();
+            T& c = entity.AddComponent<T>();
             if constexpr (std::is_same_v<T, MeshRendererComponent>)
                 c.MeshAsset = MeshLibrary::GetPrimitive(c.Type);
             if constexpr (std::is_same_v<T, TextComponent>)
@@ -732,7 +1001,7 @@ namespace Zamin {
         ImGui::SameLine();
         ImGui::BeginDisabled(!target);
         if (ImGui::Button(ICON_FA_CROSSHAIRS, ImVec2(buttonWidth, 0)))
-            m_SelectionContext = target;
+            SetSelectedEntity(target);
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) && target)
             UI::Tooltip("Ierarxiyada ko'rsatish");
@@ -759,6 +1028,88 @@ namespace Zamin {
         if (b == std::string::npos) return {};
         size_t e = s.find_last_not_of(" \t\r\n");
         return s.substr(b, e - b + 1);
+    }
+
+    bool SceneHierarchyPanel::PeekTransformClipboard(TransformComponent& out)
+    {
+        // The system clipboard first (copied in another editor window), then our own copy.
+        const char* text = ImGui::GetClipboardText();
+        if (text && SceneSerializer::DeserializeTransform(text, out))
+            return true;
+        if (m_TransformClipboard)
+        {
+            out = *m_TransformClipboard;
+            return true;
+        }
+        return false;
+    }
+
+    bool SceneHierarchyPanel::DrawTransformMenu(Entity entity)
+    {
+        // Reset / paste act on every selected entity (the inspector shows the primary one).
+        std::vector<Entity> targets;
+        if (IsSelected(entity))
+            for (Entity e : m_Selection.GetEntities())
+                if (e) targets.push_back(e);
+        if (targets.empty())
+            targets.push_back(entity);
+        if (ImGui::IsWindowAppearing()) // read the clipboard once per opening
+            m_CanPasteTransform = PeekTransformClipboard(m_PasteTransform);
+
+        bool changed = false;
+        auto apply = [&](auto&& edit) {
+            for (Entity e : targets)
+                edit(e.GetComponent<TransformComponent>());
+            changed = true;
+        };
+
+        if (targets.size() > 1)
+        {
+            ImGui::TextDisabled(ICON_FA_OBJECT_GROUP "  %zu ta obyektga qo'llanadi", targets.size());
+            ImGui::Separator();
+        }
+        if (ImGui::MenuItem(ICON_FA_ARROW_ROTATE_LEFT "  Tiklash (hammasi)"))
+            apply([](TransformComponent& t) { t = TransformComponent(); });
+        if (ImGui::MenuItem("      Pozitsiyani tiklash"))
+            apply([](TransformComponent& t) { t.Translation = glm::vec3(0.0f); });
+        if (ImGui::MenuItem("      Aylanishni tiklash"))
+            apply([](TransformComponent& t) { t.Rotation = glm::vec3(0.0f); });
+        if (ImGui::MenuItem("      Masshtabni tiklash"))
+            apply([](TransformComponent& t) { t.Scale = glm::vec3(1.0f); });
+
+        ImGui::Separator();
+        if (ImGui::MenuItem(ICON_FA_COPY "  Nusxalash"))
+        {
+            const TransformComponent& t = entity.GetComponent<TransformComponent>();
+            m_TransformClipboard = t;
+            m_PasteTransform = t;
+            m_CanPasteTransform = true;
+            ImGui::SetClipboardText(SceneSerializer::SerializeTransform(t).c_str());
+            ZM_INFO("Transform nusxalandi: {}", entity.GetName());
+        }
+        const TransformComponent clip = m_PasteTransform;
+        const bool canPaste = m_CanPasteTransform;
+        if (ImGui::MenuItem(ICON_FA_PASTE "  Joylash (hammasi)", nullptr, false, canPaste))
+            apply([&](TransformComponent& t) { t = clip; });
+        if (ImGui::MenuItem("      Faqat pozitsiyani joylash", nullptr, false, canPaste))
+            apply([&](TransformComponent& t) { t.Translation = clip.Translation; });
+        if (ImGui::MenuItem("      Faqat aylanishni joylash", nullptr, false, canPaste))
+            apply([&](TransformComponent& t) { t.Rotation = clip.Rotation; });
+        if (ImGui::MenuItem("      Faqat masshtabni joylash", nullptr, false, canPaste))
+            apply([&](TransformComponent& t) { t.Scale = clip.Scale; });
+        if (canPaste)
+        {
+            glm::vec3 r = glm::degrees(clip.Rotation);
+            ImGui::Separator();
+            ImGui::TextDisabled("Buferda: P(%.2f, %.2f, %.2f)", clip.Translation.x, clip.Translation.y, clip.Translation.z);
+            ImGui::TextDisabled("          A(%.1f, %.1f, %.1f)  M(%.2f, %.2f, %.2f)", r.x, r.y, r.z, clip.Scale.x, clip.Scale.y, clip.Scale.z);
+        }
+        else
+        {
+            ImGui::Separator();
+            ImGui::TextDisabled("Bufer bo'sh: avval 'Nusxalash'ni bosing");
+        }
+        return changed;
     }
 
     bool SceneHierarchyPanel::DrawTagsComponent(TagsComponent& c)
@@ -1316,7 +1667,7 @@ namespace Zamin {
             }
             changed |= UI::Vec3Control("Masshtab", c.Scale, 1.0f);
             return changed;
-        }, false, modified);
+        }, false, modified, [&](TransformComponent&) { return DrawTransformMenu(entity); });
 
         DrawComponent<TagsComponent>(ICON_FA_TAGS, "Teglar", entity, [&](TagsComponent& c) {
             return DrawTagsComponent(c);

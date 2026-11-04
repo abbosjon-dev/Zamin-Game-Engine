@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <unordered_map>
 
 namespace Zamin {
@@ -14,13 +15,34 @@ namespace Zamin {
     public:
         SceneHierarchyPanel() = default;
 
-        void SetContext(const Ref<Scene>& scene);
+        // keepSelection: the same entities (by UUID) stay selected in the new scene (play mode, undo).
+        void SetContext(const Ref<Scene>& scene, bool keepSelection = false);
         void OnImGuiRender(bool* showHierarchy, bool* showInspector);
         void DrawHierarchy();
         void DrawInspector();
 
-        Entity GetSelectedEntity() const { return m_SelectionContext; }
-        void SetSelectedEntity(Entity entity) { m_SelectionContext = entity; }
+        // ---- selection (Ctrl+click toggles, Shift+click selects a range of rows)
+        // The primary entity (the last one picked) is what the inspector shows; the gizmo
+        // pivot, focus, rename, tile painting... use it.
+        Entity GetSelectedEntity() const { return m_Selection.GetPrimary(); }
+        // Replaces the selection with this one entity (an invalid entity clears it).
+        void SetSelectedEntity(Entity entity) { m_Selection.Select(entity); }
+        const EntitySelection& GetSelection() const { return m_Selection; }
+        EntitySelection& GetSelection() { return m_Selection; }
+        size_t GetSelectionCount() const { return m_Selection.Size(); }
+        bool IsSelected(Entity entity) const { return m_Selection.Contains(entity); }
+        // Selected entities without those inside another selected subtree, in hierarchy order:
+        // what delete / duplicate / copy / move / the gizmo work on.
+        std::vector<Entity> GetSelectedRoots() const;
+        // A click outside the hierarchy (viewport): Ctrl toggles, Shift adds, otherwise only this one.
+        void SelectWithModifiers(Entity entity, bool ctrl, bool shift);
+        void SelectAll();
+
+        // Duplicates / deletes every selected subtree (one undo step for the caller).
+        // The copies become the new selection.
+        size_t DuplicateSelection();
+        size_t DeleteSelection();
+
         // Hierarchy search text ("#tag" filters by gameplay tag).
         void SetFilter(const std::string& filter) { m_Filter = filter; }
         // Keeps the inspector scrolled to its end for a few frames (screenshots / automation).
@@ -35,7 +57,11 @@ namespace Zamin {
         bool IsHierarchyFocused() const { return m_HierarchyFocused; }
 
         // Tilemap painting (used by the viewport)
-        bool IsTilePainting() const { return m_TilePaint && m_SelectionContext && m_SelectionContext.IsValid() && m_SelectionContext.HasComponent<TilemapComponent>(); }
+        bool IsTilePainting() const
+        {
+            Entity e = GetSelectedEntity();
+            return m_TilePaint && e && e.HasComponent<TilemapComponent>();
+        }
         int GetSelectedTile() const { return m_SelectedTile; }
 
         std::function<void(Entity)> OnFocusRequested;
@@ -46,8 +72,20 @@ namespace Zamin {
         std::function<void()> OnProjectSettingsModified;
 
     private:
+        // Where a hierarchy row drop puts the dragged entities.
+        enum class DropZone { None, Before, After, Into, FirstChild, RootEnd };
+        struct PendingClick { Entity Target; bool Ctrl = false, Shift = false; };
+        struct PendingDrop { UUID Dragged = 0; Entity Target; DropZone Zone = DropZone::None; };
+
         template<typename T>
         void DisplayAddComponentEntry(const char* name, const char* icon);
+        void ApplyPendingClick();
+        void ApplyPendingDrop();
+        // Accepts a hierarchy entity dropped on the row drawn last (before / after it, or into it).
+        void DrawRowDropTarget(Entity entity, bool open, bool hasChildren);
+        // Transform header menu: reset / copy / paste (applied to every selected entity).
+        bool DrawTransformMenu(Entity entity);
+        bool PeekTransformClipboard(TransformComponent& out);
 
         void DrawComponents(Entity entity);
         void DrawEntityNode(Entity entity, int depth);
@@ -65,7 +103,14 @@ namespace Zamin {
 
     private:
         Ref<Scene> m_Context;
-        Entity m_SelectionContext;
+        EntitySelection m_Selection;
+        std::vector<Entity> m_VisibleRows;   // hierarchy rows in display order (Shift+click ranges)
+        PendingClick m_PendingClick;
+        PendingDrop m_PendingDrop;
+        Entity m_ClickedSelected;            // pressed on an already selected row: decided on release
+        std::optional<TransformComponent> m_TransformClipboard;
+        TransformComponent m_PasteTransform;
+        bool m_CanPasteTransform = false;
         std::string m_Filter;
         std::string m_AddComponentFilter;
         std::string m_EntityPickerFilter;
@@ -73,7 +118,7 @@ namespace Zamin {
         entt::entity m_RenamingEntity = entt::null;
         int m_ScrollInspectorFrames = 0;
         std::string m_RenameBuffer;
-        Entity m_PendingDelete, m_PendingDuplicate, m_PendingCreateChildOf;
+        bool m_PendingDelete = false, m_PendingDuplicate = false;
         int m_RowIndex = 0;
         bool m_HierarchyFocused = false;
         bool m_TilePaint = false;

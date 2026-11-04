@@ -10,6 +10,7 @@ namespace Zamin {
 
     // Scenes are stored as human-readable JSON (*.zscene).
     class Entity;
+    struct TransformComponent;
 
     class SceneSerializer
     {
@@ -26,6 +27,11 @@ namespace Zamin {
         static std::string SerializeEntities(Scene& scene, const std::vector<Entity>& entities);
         // Returns created entities, roots first. generateNewUUIDs = true for prefabs/paste.
         static std::vector<Entity> DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs);
+
+        // Transform clipboard text (inspector Copy / Paste). Deserialize returns false for any
+        // text that is not a copied transform.
+        static std::string SerializeTransform(const TransformComponent& transform);
+        static bool DeserializeTransform(const std::string& text, TransformComponent& out);
 
     private:
         Ref<Scene> m_Scene;

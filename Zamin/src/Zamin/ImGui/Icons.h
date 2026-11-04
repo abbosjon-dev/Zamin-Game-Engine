@@ -97,3 +97,7 @@
 #define ICON_FA_TAG "\xef\x80\xab"
 #define ICON_FA_TAGS "\xef\x80\xac"
 #define ICON_FA_HASHTAG "\xef\x8a\x92"
+#define ICON_FA_OBJECT_GROUP "\xef\x89\x87"
+#define ICON_FA_CIRCLE_DOT "\xef\x86\x92"
+#define ICON_FA_ARROW_ROTATE_LEFT "\xef\x83\xa2"
+#define ICON_FA_CHECK_DOUBLE "\xef\x95\xa0"

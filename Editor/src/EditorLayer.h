@@ -120,6 +120,10 @@ namespace Zamin {
         SceneState m_SceneState = SceneState::Edit;
         GizmoMode m_GizmoMode = GizmoMode::Translate;
         bool m_GizmoLocal = false;
+        bool m_GizmoPivotCenter = false;  // multi-selection gizmo at the selection's center (else the primary entity)
+        GroupTransformEdit m_GizmoEdit;   // the selection being dragged with the gizmo
+        glm::mat4 m_GizmoMatrix{ 1.0f };  // gizmo result of the previous frame while dragging
+        GizmoMode m_GizmoEditMode = GizmoMode::None;
         Entity m_HoveredEntity;
 
         bool m_ViewportFocused = false, m_ViewportHovered = false;

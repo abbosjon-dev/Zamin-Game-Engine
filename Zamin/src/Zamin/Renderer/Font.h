@@ -31,12 +31,24 @@ namespace Zamin {
         bool IsLoaded() const { return m_Atlas != nullptr; }
         const std::filesystem::path& GetPath() const { return m_Path; }
 
+        // Reads the file again into this font (same object; the atlas texture is updated in
+        // place). False - and the old glyphs stay - when it cannot be read.
+        bool Reload();
+
         static Ref<Font> GetDefault();
         static Ref<Font> Load(const std::filesystem::path& path);
+        // Re-reads a file into the cached font made from it. Returns how many fonts were updated;
+        // `failed` is set when the file could not be read.
+        static size_t ReloadFile(const std::filesystem::path& path, bool* failed = nullptr);
+        static bool IsFileLoaded(const std::filesystem::path& path);
         static void ClearCache();
 
     private:
+        bool Build(bool reload);
+
+    private:
         std::filesystem::path m_Path;
+        float m_PixelHeight = 64.0f;
         Ref<Texture2D> m_Atlas;
         std::unordered_map<uint32_t, Glyph> m_Glyphs;
         float m_Ascent = 0.8f, m_Descent = -0.2f, m_LineHeight = 1.2f;

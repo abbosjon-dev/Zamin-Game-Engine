@@ -46,6 +46,11 @@ namespace Zamin {
         static Ref<Texture2D> Create(const std::string& path, TextureFilter filter = TextureFilter::Linear);
         // Decode an encoded image (png/jpg/...) from memory, e.g. textures embedded in .glb files.
         static Ref<Texture2D> CreateFromMemory(const void* data, size_t size, const std::string& debugName = {});
+
+        // Reads the file again into this texture (same GPU object, so everything that holds it
+        // shows the new pixels; the size may change). False - and the old pixels stay - when the
+        // file cannot be read or the texture was not made from a file.
+        virtual bool Reload() = 0;
     };
 
     // Caches textures by absolute path so the same file is only uploaded once.
@@ -53,6 +58,11 @@ namespace Zamin {
     {
     public:
         static Ref<Texture2D> Load(const std::filesystem::path& path, TextureFilter filter = TextureFilter::Linear);
+        // Re-reads a file into every cached texture made from it (each filter variant), in place.
+        // Returns how many were updated; `failed` is set when one could not be read.
+        static size_t Reload(const std::filesystem::path& path, bool* failed = nullptr);
+        // Whether a texture of this file is in the cache.
+        static bool IsLoaded(const std::filesystem::path& path);
         static void Clear();
     };
 

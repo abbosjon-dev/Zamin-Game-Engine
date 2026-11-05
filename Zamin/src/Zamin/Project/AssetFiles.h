@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Zamin/Asset/AssetTypes.h"
+
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -10,14 +12,6 @@
 #include <vector>
 
 namespace Zamin {
-
-    // What a file of the project is, judged by its extension (content browser icons, the type
-    // filter, where dropped files are imported to).
-    enum class AssetType : uint8_t
-    {
-        Folder = 0, Scene, Prefab, Texture, Model, Audio, Font, Environment, Script, Project, Other,
-        Count
-    };
 
     // Type filter of the content browser: one bit per AssetType; nothing set = every type.
     struct AssetTypeFilter
@@ -77,7 +71,7 @@ namespace Zamin {
         static const char* GetImportFolder(AssetType type);
 
         // ---- listing
-        // Hidden names (".git") are skipped. Sorted by options.SortBy, folders first.
+        // Hidden names (".git") and .zmeta files are skipped. Sorted by options.SortBy, folders first.
         static std::vector<AssetEntry> List(const std::filesystem::path& directory, const AssetListOptions& options);
         static void Sort(std::vector<AssetEntry>& entries, AssetSortColumn column, bool ascending);
         // Case-insensitive, numbers in numeric order ("Level2" before "Level10"). <0, 0, >0.
@@ -129,15 +123,19 @@ namespace Zamin {
         // a folder into itself, already there, the name taken, or in / out of the asset folder.
         static std::string CheckMove(const std::filesystem::path& source, const std::filesystem::path& destinationDir,
                                      const std::filesystem::path& assetDirectory);
-        // Moves the files / folders into `destinationDir` and rewrites what refers to them: asset
-        // paths in every .zscene / .zprefab under `assetDirectory` and the relative file names
-        // (uri) of .gltf models. C++ files under `sourceDirectory` that spell an old path are only
-        // reported. Items that cannot move are skipped (see Errors).
+        // Moves the files / folders (each file with its .zmeta) into `destinationDir` and rewrites
+        // what refers to them: asset paths in every .zscene / .zprefab under `assetDirectory` and
+        // the relative file names (uri) of .gltf models. C++ files under `sourceDirectory` that
+        // spell an old path are only reported. Items that cannot move are skipped (see Errors).
         static MoveResult MoveInto(const std::vector<std::filesystem::path>& sources, const std::filesystem::path& destinationDir,
                                    const std::filesystem::path& assetDirectory, const std::filesystem::path& sourceDirectory = {});
         // A move inside the same folder (the references follow it the same way).
         static MoveResult Rename(const std::filesystem::path& source, const std::string& newName,
                                  const std::filesystem::path& assetDirectory, const std::filesystem::path& sourceDirectory = {});
+
+        // ---- deleting
+        // Removes a file (with its .zmeta) or a folder with everything inside it.
+        static bool Remove(const std::filesystem::path& path, std::string* error = nullptr);
 
         // ---- importing (files dropped onto the editor window)
         struct ImportResult

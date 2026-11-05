@@ -1,4 +1,5 @@
 #include "Zamin/Project/Project.h"
+#include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Scripting/ScriptTemplate.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/SceneSerializer.h"
@@ -78,6 +79,32 @@ namespace Zamin {
             return false;
         tags.push_back(tag);
         return true;
+    }
+
+    AssetRegistry* Project::GetAssetRegistry()
+    {
+        if (!s_ActiveProject)
+            return nullptr;
+        Ref<AssetRegistry>& registry = s_ActiveProject->m_AssetRegistry;
+        if (!registry)
+            registry = CreateRef<AssetRegistry>();
+        std::filesystem::path directory = GetAssetDirectory().lexically_normal();
+        while (!directory.has_filename() && directory.has_relative_path())
+            directory = directory.parent_path(); // "Assets/" -> "Assets", as the registry keeps it
+        if (!registry->IsScanned() || registry->GetAssetDirectory() != directory)
+        {
+            const AssetRegistry::ScanResult& scan = registry->Scan(directory);
+            ZM_CORE_INFO("Assetlar: {} ta{}{}", scan.Assets,
+                         scan.CreatedMeta ? std::format(", {} ta yangi .zmeta yaratildi", scan.CreatedMeta) : std::string(),
+                         scan.OrphanMeta ? std::format(", {} ta egasiz .zmeta", scan.OrphanMeta) : std::string());
+            size_t shown = 0;
+            for (const std::string& problem : scan.Problems)
+                if (shown++ < 10)
+                    ZM_CORE_WARN("{}", problem);
+            if (scan.Problems.size() > 10)
+                ZM_CORE_WARN("... va yana {} ta .zmeta muammosi", scan.Problems.size() - 10);
+        }
+        return registry.get();
     }
 
     std::filesystem::path Project::GetAssetFileSystemPath(const std::filesystem::path& path)

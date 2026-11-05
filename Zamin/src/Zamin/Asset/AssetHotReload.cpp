@@ -1,0 +1,112 @@
+#include "Zamin/Asset/AssetHotReload.h"
+#include "Zamin/Asset/AssetRegistry.h"
+#include "Zamin/Renderer/Font.h"
+#include "Zamin/Renderer/Texture.h"
+
+#include <algorithm>
+
+namespace Zamin {
+
+    namespace fs = std::filesystem;
+
+    bool AssetHotReload::Start(const fs::path& assetDirectory, const FileWatcherOptions& options)
+    {
+        return m_Watcher.Start(assetDirectory, options);
+    }
+
+    void AssetHotReload::Stop()
+    {
+        m_Watcher.Stop();
+    }
+
+    AssetHotReload::Report AssetHotReload::Update(AssetRegistry* registry)
+    {
+        if (!m_Watcher.IsWatching())
+            return {};
+        std::vector<FileChange> changes = m_Watcher.Poll();
+        if (changes.empty())
+            return {};
+        return Apply(changes, registry);
+    }
+
+    static void AddUnique(std::vector<fs::path>& list, const fs::path& path)
+    {
+        if (std::find(list.begin(), list.end(), path) == list.end())
+            list.push_back(path);
+    }
+
+    AssetHotReload::Report AssetHotReload::Apply(const std::vector<FileChange>& changes, AssetRegistry* registry)
+    {
+        Report report;
+        auto reload = [&](const fs::path& path) {
+            bool failed = false;
+            if (ReloadAsset(path, &failed) > 0)
+                AddUnique(report.Reloaded, path);
+            if (failed)
+                AddUnique(report.Failed, path);
+        };
+
+        for (const FileChange& change : changes)
+        {
+            if (!change.IsDirectory && AssetMetaFile::IsMetaFile(change.Path))
+            {
+                // New import settings (edited by hand, or from version control): import again.
+                if (registry && registry->OnMetaFileChanged(change.Path))
+                    reload(AssetMetaFile::GetAssetPath(change.Path));
+                continue;
+            }
+            switch (change.Type)
+            {
+                case FileChangeType::Added:
+                    if (registry)
+                        registry->OnFileAdded(change.Path);
+                    AddUnique(report.Added, change.Path);
+                    if (!change.IsDirectory)
+                        reload(change.Path); // put back after being deleted while in use
+                    break;
+                case FileChangeType::Modified:
+                    if (registry && !registry->Find(change.Path))
+                        registry->OnFileAdded(change.Path);
+                    AddUnique(report.Modified, change.Path);
+                    if (!change.IsDirectory)
+                        reload(change.Path);
+                    break;
+                case FileChangeType::Removed:
+                    if (registry)
+                        registry->OnFileRemoved(change.Path);
+                    AddUnique(report.Removed, change.Path);
+                    break;
+            }
+        }
+        if (registry)
+            report.Problems = registry->TakeProblems();
+        return report;
+    }
+
+    size_t AssetHotReload::ReloadAsset(const fs::path& path, bool* failed)
+    {
+        switch (AssetTypes::FromPath(path))
+        {
+            case AssetType::Texture: return TextureLibrary::Reload(path, failed);
+            case AssetType::Font:    return Font::ReloadFile(path, failed);
+            default:                 return 0;
+        }
+    }
+
+    bool AssetHotReload::IsLoaded(const fs::path& path)
+    {
+        switch (AssetTypes::FromPath(path))
+        {
+            case AssetType::Texture: return TextureLibrary::IsLoaded(path);
+            case AssetType::Font:    return Font::IsFileLoaded(path);
+            default:                 return false;
+        }
+    }
+
+    bool AssetHotReload::CanReload(const fs::path& path)
+    {
+        AssetType type = AssetTypes::FromPath(path);
+        return type == AssetType::Texture || type == AssetType::Font;
+    }
+
+}

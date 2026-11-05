@@ -9,6 +9,8 @@
 
 namespace Zamin {
 
+    class AssetRegistry;
+
     struct ProjectConfig
     {
         std::string Name = "Untitled";
@@ -49,6 +51,10 @@ namespace Zamin {
         // (false: no project, empty name or already listed).
         static bool RegisterTag(const std::string& tag);
 
+        // Every asset of the active project with its handle (nullptr without a project). Read from
+        // the asset folder on first use; the editor keeps it up to date while it runs.
+        static AssetRegistry* GetAssetRegistry();
+
         // Relative asset path -> absolute file system path (works without a project, too).
         static std::filesystem::path GetAssetFileSystemPath(const std::filesystem::path& path);
         // Absolute path -> path relative to the asset directory (generic '/' separators).
@@ -64,6 +70,7 @@ namespace Zamin {
         ProjectConfig m_Config;
         std::filesystem::path m_ProjectDirectory;
         std::filesystem::path m_ProjectFile;
+        Ref<AssetRegistry> m_AssetRegistry;
 
         static inline Ref<Project> s_ActiveProject;
     };

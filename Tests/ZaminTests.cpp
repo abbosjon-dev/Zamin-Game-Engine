@@ -2,6 +2,7 @@
 #include <Zamin/Zamin.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -9,6 +10,8 @@
 #include <functional>
 #include <limits>
 #include <set>
+#include <thread>
+#include <unordered_map>
 #include <vector>
 
 using namespace Zamin;
@@ -4619,7 +4622,7 @@ TEST(AssetTypesAndFilter)
     CHECK(!filter.Matches(AssetType::Model) && filter.Count() == 2);
     filter.Clear();
     CHECK(!filter.IsActive());
-    CHECK(AssetTypeFilter::GetFilterableTypes().size() == 9);
+    CHECK(AssetTypeFilter::GetFilterableTypes().size() == 10);
 
     // Natural, case-insensitive name order.
     CHECK(AssetFiles::CompareNames("Level2", "Level10") < 0);
@@ -4955,6 +4958,466 @@ TEST(AssetImportFromOutside)
     std::error_code ec;
     fs::remove_all(outside, ec);
     fs::remove_all(assets.parent_path(), ec);
+}
+
+// ------------------------------------------------------------------ asset registry, .zmeta, file watcher
+TEST(AssetTypeDetection)
+{
+    CHECK(AssetTypes::FromPath("Textures/coin.PNG") == AssetType::Texture);
+    CHECK(AssetTypes::FromExtension("jpg") == AssetType::Texture && AssetTypes::FromExtension(".TGA") == AssetType::Texture);
+    CHECK(AssetTypes::FromPath("Models/Robot.glb") == AssetType::Model && AssetTypes::FromPath("m.obj") == AssetType::Model);
+    CHECK(AssetTypes::FromPath("Audio/jump.wav") == AssetType::Audio && AssetTypes::FromPath("music.MP3") == AssetType::Audio);
+    CHECK(AssetTypes::FromPath("Scenes/L1.zscene") == AssetType::Scene && AssetTypes::FromPath("Ball.zprefab") == AssetType::Prefab);
+    CHECK(AssetTypes::FromPath("Fonts/Inter.otf") == AssetType::Font && AssetTypes::FromPath("a.ttf") == AssetType::Font);
+    CHECK(AssetTypes::FromPath("Sky/sunset.hdr") == AssetType::Environment);
+    CHECK(AssetTypes::FromPath("Materials/Metal.zmat") == AssetType::Material);
+    CHECK(AssetTypes::FromPath("Source/Player.cpp") == AssetType::Script);
+    CHECK(AssetTypes::FromPath("Game.zproject") == AssetType::Project);
+    CHECK(AssetTypes::FromPath("Robot.bin") == AssetType::Other && AssetTypes::FromPath("README") == AssetType::Other);
+    CHECK(AssetTypes::FromPath("coin.png.zmeta") == AssetType::Other);
+    CHECK(AssetTypes::FromPath("Textures", true) == AssetType::Folder && AssetTypes::FromExtension("") == AssetType::Other);
+    CHECK(AssetFiles::GetType("Metal.zmat") == AssetType::Material); // the content browser uses the same detection
+
+    // The registry keeps (and gives a .zmeta to) these types only.
+    for (AssetType t : { AssetType::Scene, AssetType::Prefab, AssetType::Texture, AssetType::Model, AssetType::Audio,
+                         AssetType::Font, AssetType::Environment, AssetType::Material })
+        CHECK(AssetTypes::IsRegistered(t));
+    for (AssetType t : { AssetType::Folder, AssetType::Script, AssetType::Project, AssetType::Other })
+        CHECK(!AssetTypes::IsRegistered(t));
+    for (int t = 0; t < (int)AssetType::Count; t++)
+    {
+        for (std::string_view ext : AssetTypes::GetExtensions((AssetType)t))
+            CHECK(AssetTypes::FromExtension(ext) == (AssetType)t);
+        CHECK(AssetTypes::FromKey(AssetTypes::GetKey((AssetType)t)) == (AssetType)t);
+    }
+    CHECK(std::string(AssetTypes::GetKey(AssetType::Material)) == "Material");
+    CHECK(std::string(AssetTypes::GetImportFolder(AssetType::Material)) == "Materials");
+}
+
+TEST(AssetHandleText)
+{
+    AssetHandle none;
+    CHECK(!none.IsValid() && !none && none.ToString().empty());
+    AssetHandle h(0x0123456789abcdefull);
+    CHECK(h.ToString() == "0123456789abcdef");
+    CHECK(AssetHandle::FromString("0123456789ABCDEF") == h && AssetHandle::FromString("0x123456789abcdef") == h);
+    CHECK(AssetHandle::FromString("ff") == AssetHandle(255));
+    CHECK(!AssetHandle::FromString("") && !AssetHandle::FromString("0") && !AssetHandle::FromString("xyz"));
+    CHECK(!AssetHandle::FromString("12345678901234567") && !AssetHandle::FromString("Textures/a.png"));
+    std::set<uint64_t> seen;
+    for (int i = 0; i < 1000; i++)
+    {
+        AssetHandle g = AssetHandle::Generate();
+        CHECK(g.IsValid() && AssetHandle::FromString(g.ToString()) == g);
+        seen.insert(g.GetValue());
+    }
+    CHECK(seen.size() == 1000);
+    std::unordered_map<AssetHandle, int> byHandle;
+    byHandle[h] = 1;
+    CHECK(byHandle.count(AssetHandle(0x0123456789abcdefull)) == 1 && byHandle.count(AssetHandle(1)) == 0);
+}
+
+TEST(AssetMetaFileRoundTrip)
+{
+    namespace fs = std::filesystem;
+    CHECK(AssetMetaFile::IsMetaFile("Textures/coin.png.zmeta") && AssetMetaFile::IsMetaFile("a.ZMETA"));
+    CHECK(!AssetMetaFile::IsMetaFile("coin.png") && !AssetMetaFile::IsMetaFile("zmeta"));
+    CHECK(AssetMetaFile::GetMetaPath("Textures/coin.png") == fs::path("Textures/coin.png.zmeta"));
+    CHECK(AssetMetaFile::GetAssetPath("Textures/coin.png.zmeta") == fs::path("Textures/coin.png"));
+
+    AssetMetadata meta;
+    meta.Handle = AssetHandle(0xabcdef0012345678ull);
+    meta.Type = AssetType::Texture;
+    meta.Import.SetString("Filter", "Nearest");
+    meta.Import.SetBool("Mipmaps", false);
+    meta.Import.SetNumber("Scale", 2.0);
+    meta.Import.SetNumber("Gamma", 2.2);
+    meta.Import.Set("Platforms", AssetImportSettings::Json{ "{\"Web\":{\"MaxSize\":512}}" });
+    std::string text = AssetMetaFile::Serialize(meta);
+    CHECK(text.find("\"UUID\": \"abcdef0012345678\"") != std::string::npos && text.find("\"Type\": \"Texture\"") != std::string::npos);
+    CHECK(text.find("\"UUID\"") < text.find("\"Type\"") && text.find("\"Type\"") < text.find("\"Import\""));
+    CHECK(text.find("\"Scale\": 2") != std::string::npos && text.find("\"Scale\": 2.0") == std::string::npos); // whole stays whole
+
+    AssetMetadata back;
+    CHECK(AssetMetaFile::Deserialize(text, back));
+    CHECK(back.Handle == meta.Handle && back.Type == AssetType::Texture && back.Import == meta.Import);
+    CHECK(back.Import.GetString("Filter") == "Nearest" && !back.Import.GetBool("Mipmaps", true));
+    CHECK_NEAR(back.Import.GetFloat("Gamma", 0.0f), 2.2f, 1e-5f);
+    // Missing values and values of another kind fall back.
+    CHECK(back.Import.GetBool("Filter", true) && back.Import.GetNumber("Missing", 7.0) == 7.0 && back.Import.GetString("Scale", "x") == "x");
+    CHECK(back.Import.Remove("Gamma") && !back.Import.Has("Gamma") && !back.Import.Remove("Gamma"));
+
+    // A number as UUID and an unknown type are fine; no UUID, a bad one or broken JSON are not.
+    AssetMetadata other;
+    CHECK(AssetMetaFile::Deserialize("{\"UUID\": 255, \"Type\": \"Nope\"}", other) && other.Handle == AssetHandle(255));
+    CHECK(other.Import.IsEmpty());
+    std::string error;
+    CHECK(!AssetMetaFile::Deserialize("{\"Type\": \"Texture\"}", other, &error) && !error.empty());
+    CHECK(!AssetMetaFile::Deserialize("{\"UUID\": \"zz\"}", other, &error) && !error.empty());
+    CHECK(!AssetMetaFile::Deserialize("<<<<<<< HEAD\n", other, &error) && !error.empty());
+
+    // On disk, beside the asset.
+    fs::path dir = MakeTempDir("zamin-meta-");
+    WriteFile(dir / "coin.png", "png");
+    CHECK(!AssetMetaFile::Read(dir / "coin.png", &error) && error.empty()); // missing: no error
+    CHECK(AssetMetaFile::Write(dir / "coin.png", meta) && fs::exists(dir / "coin.png.zmeta"));
+    auto read = AssetMetaFile::Read(dir / "coin.png");
+    CHECK(read && read->Handle == meta.Handle && read->HasMetaFile && read->Import == meta.Import && read->Type == AssetType::Texture);
+    // The same content is not written again (no needless changes for version control and the file watcher).
+    auto past = fs::last_write_time(dir / "coin.png.zmeta") - std::chrono::hours(1);
+    fs::last_write_time(dir / "coin.png.zmeta", past);
+    CHECK(AssetMetaFile::Write(dir / "coin.png", meta) && fs::last_write_time(dir / "coin.png.zmeta") == past);
+    meta.Import.SetBool("Mipmaps", true);
+    CHECK(AssetMetaFile::Write(dir / "coin.png", meta) && fs::last_write_time(dir / "coin.png.zmeta") != past);
+    WriteFile(dir / "coin.png.zmeta", "{ broken");
+    CHECK(!AssetMetaFile::Read(dir / "coin.png", &error) && !error.empty());
+    CHECK(!AssetMetaFile::Write(dir / "coin.png", AssetMetadata{})); // no handle: nothing written
+
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(AssetRegistryScanAndLookup)
+{
+    namespace fs = std::filesystem;
+    fs::path root = MakeTempDir("zamin-registry-");
+    fs::path assets = root / "Assets";
+    WriteFile(assets / "Textures" / "coin.png", "png");
+    WriteFile(assets / "Textures" / "wall.jpg", "jpg");
+    WriteFile(assets / "Models" / "Robot.gltf", "{}");
+    WriteFile(assets / "Models" / "Robot.bin", "bin"); // a model's buffer: not an asset of its own
+    WriteFile(assets / "Scenes" / "Level1.zscene", "{}");
+    WriteFile(assets / "Audio" / "jump.wav", "wav");
+    WriteFile(assets / "notes.txt", "x");
+    WriteFile(assets / ".cache" / "junk.png", "x");    // hidden: skipped
+    const char* files[] = { "Textures/coin.png", "Textures/wall.jpg", "Models/Robot.gltf", "Scenes/Level1.zscene", "Audio/jump.wav" };
+
+    // The player only reads: every asset gets a handle, nothing is written.
+    AssetRegistry player(false);
+    AssetRegistry::ScanResult scan = player.Scan(assets);
+    CHECK(scan.Assets == 5 && scan.CreatedMeta == 0 && player.IsScanned());
+    CHECK(!fs::exists(assets / "Textures" / "coin.png.zmeta"));
+    const AssetMetadata* coin = player.Find(fs::path("Textures/coin.png"));
+    CHECK(coin && coin->Handle.IsValid() && !coin->HasMetaFile && coin->Type == AssetType::Texture);
+
+    // The editor writes the missing .zmeta files.
+    AssetRegistry editor(true);
+    scan = editor.Scan(assets);
+    CHECK(scan.Assets == 5 && scan.CreatedMeta == 5 && scan.Problems.empty());
+    for (const char* f : files)
+        CHECK(fs::exists(assets / (std::string(f) + ".zmeta")));
+    CHECK(!fs::exists(assets / "Models" / "Robot.bin.zmeta") && !fs::exists(assets / "notes.txt.zmeta"));
+    CHECK(!fs::exists(assets / ".cache" / "junk.png.zmeta"));
+
+    // Lookups both ways, by relative or absolute path.
+    AssetHandle coinHandle = editor.GetHandle("Textures/coin.png");
+    CHECK(coinHandle.IsValid() && editor.GetPath(coinHandle) == "Textures/coin.png");
+    CHECK(editor.GetHandle(assets / "Textures" / "coin.png") == coinHandle);
+    CHECK(editor.GetHandle("Textures/../Textures/coin.png") == coinHandle);
+    CHECK(editor.Find(coinHandle) && editor.Find(coinHandle)->HasMetaFile && editor.Find(coinHandle)->Type == AssetType::Texture);
+    CHECK(!editor.GetHandle("Textures/missing.png") && editor.GetPath(AssetHandle(42)).empty() && !editor.Contains(AssetHandle(42)));
+    CHECK(!editor.Find(fs::path("/elsewhere/coin.png")) && editor.ToRelativePath("/elsewhere/coin.png").empty());
+    CHECK(editor.ToRelativePath(assets / "Textures" / "coin.png") == "Textures/coin.png");
+    CHECK(editor.ToFileSystemPath("Textures/coin.png") == assets / "Textures" / "coin.png");
+    CHECK(editor.GetAssets(AssetType::Texture).size() == 2 && editor.GetAssets().size() == 5);
+    CHECK(editor.GetAssets().front()->RelativePath == "Audio/jump.wav"); // sorted by path
+
+    // The handles come from the .zmeta files: the same in the player, and after scanning again.
+    AssetRegistry again(false);
+    again.Scan(assets);
+    CHECK(again.GetHandle("Textures/coin.png") == coinHandle && again.Find(coinHandle)->HasMetaFile && again.GetCount() == 5);
+    scan = editor.Scan(assets);
+    CHECK(scan.CreatedMeta == 0 && editor.GetHandle("Textures/coin.png") == coinHandle);
+
+    // The content browser does not list .zmeta files.
+    for (const AssetEntry& entry : AssetFiles::List(assets / "Textures", {}))
+        CHECK(!AssetMetaFile::IsMetaFile(entry.Path));
+    CHECK(AssetFiles::List(assets / "Textures", {}).size() == 2);
+
+    // A file copied together with its .zmeta gets an identity of its own (the older .zmeta keeps
+    // the UUID); a wrong type is corrected; an unreadable .zmeta is left alone (a session handle);
+    // .zmeta files without an asset are counted.
+    fs::copy_file(assets / "Textures" / "coin.png", assets / "Textures" / "coin_copy.png");
+    fs::copy_file(assets / "Textures" / "coin.png.zmeta", assets / "Textures" / "coin_copy.png.zmeta");
+    fs::last_write_time(assets / "Textures" / "coin_copy.png.zmeta",
+                        fs::last_write_time(assets / "Textures" / "coin.png.zmeta") + std::chrono::hours(1));
+    AssetMetadata wall = *editor.Find(fs::path("Textures/wall.jpg"));
+    wall.Type = AssetType::Audio;
+    AssetMetaFile::Write(assets / "Textures" / "wall.jpg", wall);
+    WriteFile(assets / "Audio" / "jump.wav.zmeta", "<<<<<<< HEAD\n");
+    WriteFile(assets / "Textures" / "gone.png.zmeta", AssetMetaFile::Serialize(wall));
+    scan = editor.Scan(assets);
+    CHECK(scan.Assets == 6 && scan.RepairedMeta == 2 && scan.BrokenMeta == 1 && scan.OrphanMeta == 1 && scan.Problems.size() == 2);
+    CHECK(editor.GetHandle("Textures/coin.png") == coinHandle);
+    AssetHandle copyHandle = editor.GetHandle("Textures/coin_copy.png");
+    CHECK(copyHandle.IsValid() && copyHandle != coinHandle);
+    CHECK(AssetMetaFile::Read(assets / "Textures" / "coin_copy.png")->Handle == copyHandle);
+    CHECK(AssetMetaFile::Read(assets / "Textures" / "wall.jpg")->Type == AssetType::Texture);
+    CHECK(editor.GetHandle("Textures/wall.jpg") == wall.Handle);
+    CHECK(FileSystem::ReadTextFile(assets / "Audio" / "jump.wav.zmeta").starts_with("<<<<<<<")); // not overwritten
+    CHECK(editor.Find(fs::path("Audio/jump.wav")) && !editor.Find(fs::path("Audio/jump.wav"))->HasMetaFile);
+
+    // A missing folder: nothing, no crash.
+    CHECK(AssetRegistry(true).Scan(root / "Nothing").Assets == 0);
+
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
+TEST(AssetRegistryFollowsFileChanges)
+{
+    namespace fs = std::filesystem;
+    fs::path root = MakeTempDir("zamin-registry-changes-");
+    fs::path assets = root / "Assets";
+    WriteFile(assets / "Textures" / "coin.png", "png");
+    WriteFile(assets / "Textures" / "Ui" / "button.png", "png");
+    AssetRegistry registry(true);
+    registry.Scan(assets);
+    AssetHandle coin = registry.GetHandle("Textures/coin.png"), button = registry.GetHandle("Textures/Ui/button.png");
+    CHECK(coin && button && coin != button);
+
+    // A new file is registered (and gets a .zmeta); other files are not.
+    WriteFile(assets / "Audio" / "hit.wav", "wav");
+    CHECK(registry.OnFileAdded(assets / "Audio" / "hit.wav") == 1);
+    CHECK(registry.GetHandle("Audio/hit.wav").IsValid() && fs::exists(assets / "Audio" / "hit.wav.zmeta"));
+    CHECK(registry.OnFileAdded(assets / "Audio" / "hit.wav") == 0); // a repeated event
+    WriteFile(assets / "readme.txt", "x");
+    CHECK(registry.OnFileAdded(assets / "readme.txt") == 0 && registry.GetCount() == 3);
+    // A new folder: everything inside it.
+    WriteFile(assets / "Fonts" / "a.ttf", "ttf");
+    WriteFile(assets / "Fonts" / "Bold" / "b.otf", "otf");
+    CHECK(registry.OnFileAdded(assets / "Fonts") == 2 && registry.GetCount() == 5);
+
+    // Renamed / moved in the content browser: the .zmeta goes along, the handle stays.
+    CHECK(AssetFiles::Rename(assets / "Textures" / "coin.png", "gold.png", assets).Moved.size() == 1);
+    CHECK(fs::exists(assets / "Textures" / "gold.png.zmeta") && !fs::exists(assets / "Textures" / "coin.png.zmeta"));
+    CHECK(registry.OnFileMoved(assets / "Textures" / "coin.png", assets / "Textures" / "gold.png") == 1);
+    CHECK(registry.GetHandle("Textures/gold.png") == coin && !registry.GetHandle("Textures/coin.png"));
+    auto moved = AssetFiles::MoveInto({ assets / "Textures" / "Ui" }, assets, assets);
+    CHECK(moved.Moved.size() == 1 && fs::exists(assets / "Ui" / "button.png.zmeta"));
+    CHECK(registry.OnFileMoved(assets / "Textures" / "Ui", assets / "Ui") == 1 && registry.GetPath(button) == "Ui/button.png");
+    WriteFile(assets / "Audio" / "Sfx" / ".keep", "");
+    moved = AssetFiles::MoveInto({ assets / "Audio" / "hit.wav" }, assets / "Audio" / "Sfx", assets);
+    CHECK(moved.Moved.size() == 1 && fs::exists(assets / "Audio" / "Sfx" / "hit.wav.zmeta") && !fs::exists(assets / "Audio" / "hit.wav.zmeta"));
+
+    // Moved outside the editor together with its .zmeta (the watcher may report the new place
+    // first): the handle follows the .zmeta.
+    fs::rename(assets / "Ui" / "button.png", assets / "Textures" / "button.png");
+    fs::rename(assets / "Ui" / "button.png.zmeta", assets / "Textures" / "button.png.zmeta");
+    CHECK(registry.OnFileAdded(assets / "Textures" / "button.png") == 1);
+    CHECK(registry.GetPath(button) == "Textures/button.png");
+    CHECK(registry.OnFileRemoved(assets / "Ui" / "button.png") == 0); // already followed
+
+    // A copy with its .zmeta (the original still there) gets a new identity.
+    fs::copy_file(assets / "Textures" / "gold.png", assets / "Textures" / "gold2.png");
+    fs::copy_file(assets / "Textures" / "gold.png.zmeta", assets / "Textures" / "gold2.png.zmeta");
+    CHECK(registry.OnFileAdded(assets / "Textures" / "gold2.png") == 1);
+    AssetHandle gold2 = registry.GetHandle("Textures/gold2.png");
+    CHECK(gold2.IsValid() && gold2 != coin && registry.GetHandle("Textures/gold.png") == coin);
+    CHECK(AssetMetaFile::Read(assets / "Textures" / "gold2.png")->Handle == gold2);
+    CHECK(registry.TakeProblems().size() == 1 && registry.TakeProblems().empty());
+
+    // Deleted: a file (its .zmeta too), a folder (everything below it).
+    CHECK(AssetFiles::Remove(assets / "Textures" / "gold2.png") && !fs::exists(assets / "Textures" / "gold2.png.zmeta"));
+    CHECK(registry.OnFileRemoved(assets / "Textures" / "gold2.png") == 1 && !registry.Find(gold2));
+    CHECK(AssetFiles::Remove(assets / "Fonts") && !fs::exists(assets / "Fonts"));
+    CHECK(registry.OnFileRemoved(assets / "Fonts") == 2 && registry.GetCount() == 3);
+    CHECK(!AssetFiles::Remove(assets / "Fonts"));
+
+    // The .zmeta changed on disk: new import settings are reported, a new UUID (from version
+    // control) is adopted, a deleted .zmeta is written again.
+    fs::path goldMeta = assets / "Textures" / "gold.png.zmeta";
+    AssetMetadata edited = *registry.Find(coin);
+    edited.Import.SetString("Filter", "Nearest");
+    AssetMetaFile::Write(assets / "Textures" / "gold.png", edited);
+    const AssetMetadata* changed = registry.OnMetaFileChanged(goldMeta);
+    CHECK(changed && changed->Handle == coin && changed->Import.GetString("Filter") == "Nearest");
+    CHECK(!registry.OnMetaFileChanged(goldMeta)); // nothing new
+    edited.Handle = AssetHandle(0x1234);
+    AssetMetaFile::Write(assets / "Textures" / "gold.png", edited);
+    CHECK(!registry.OnMetaFileChanged(goldMeta));
+    CHECK(registry.GetHandle("Textures/gold.png") == AssetHandle(0x1234) && !registry.Find(coin));
+    fs::remove(goldMeta);
+    registry.OnMetaFileChanged(goldMeta);
+    CHECK(AssetMetaFile::Read(assets / "Textures" / "gold.png") && AssetMetaFile::Read(assets / "Textures" / "gold.png")->Handle == AssetHandle(0x1234));
+    WriteFile(goldMeta, "{ broken");
+    CHECK(!registry.OnMetaFileChanged(goldMeta) && registry.GetHandle("Textures/gold.png") == AssetHandle(0x1234));
+
+    // Import settings set in the editor are saved to the .zmeta.
+    AssetImportSettings settings;
+    settings.SetBool("Mipmaps", false);
+    CHECK(registry.SetImportSettings(AssetHandle(0x1234), settings));
+    CHECK(AssetMetaFile::Read(assets / "Textures" / "gold.png")->Import == settings);
+    CHECK(!registry.SetImportSettings(AssetHandle(99), settings));
+
+    // The player never writes, not even for a new file.
+    AssetRegistry player(false);
+    player.Scan(assets);
+    WriteFile(assets / "new.png", "png");
+    CHECK(player.OnFileAdded(assets / "new.png") == 1 && !fs::exists(assets / "new.png.zmeta"));
+    CHECK(player.Find(fs::path("new.png")) && !player.Find(fs::path("new.png"))->HasMetaFile);
+
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
+TEST(AssetHotReloadAppliesChanges)
+{
+    namespace fs = std::filesystem;
+    fs::path root = MakeTempDir("zamin-hotreload-");
+    fs::path assets = root / "Assets";
+    WriteFile(assets / "Textures" / "coin.png", "png");
+    AssetRegistry registry(true);
+    registry.Scan(assets);
+
+    WriteFile(assets / "Textures" / "new.png", "png");
+    auto report = AssetHotReload::Apply({ { assets / "Textures" / "new.png", FileChangeType::Added, false } }, &registry);
+    CHECK(report.Added.size() == 1 && report.HasStructureChanges());
+    CHECK(registry.GetHandle("Textures/new.png").IsValid() && fs::exists(assets / "Textures" / "new.png.zmeta"));
+    CHECK(report.Reloaded.empty() && report.Failed.empty()); // nothing loaded uses it (headless)
+
+    // .zmeta files are not asset changes of their own.
+    report = AssetHotReload::Apply({ { assets / "Textures" / "new.png.zmeta", FileChangeType::Added, false } }, &registry);
+    CHECK(report.IsEmpty());
+    // A changed file the registry did not know yet (a missed event) is registered.
+    WriteFile(assets / "Audio" / "hit.wav", "wav");
+    report = AssetHotReload::Apply({ { assets / "Audio" / "hit.wav", FileChangeType::Modified, false } }, &registry);
+    CHECK(report.Modified.size() == 1 && !report.HasStructureChanges() && registry.GetHandle("Audio/hit.wav").IsValid());
+    report = AssetHotReload::Apply({ { assets / "Textures" / "coin.png", FileChangeType::Removed, false },
+                                     { assets / "Audio", FileChangeType::Removed, true } }, &registry);
+    CHECK(report.Removed.size() == 2 && !registry.Find(fs::path("Textures/coin.png")) && !registry.Find(fs::path("Audio/hit.wav")));
+    CHECK(registry.GetCount() == 1);
+    // No registry (no project): only reloading.
+    CHECK(AssetHotReload::Apply({ { assets / "Textures" / "new.png", FileChangeType::Modified, false } }, nullptr).Modified.size() == 1);
+
+    CHECK(AssetHotReload::CanReload("a.png") && AssetHotReload::CanReload("f.TTF") && !AssetHotReload::CanReload("s.zscene"));
+    CHECK(!AssetHotReload::IsLoaded(assets / "Textures" / "new.png") && AssetHotReload::ReloadAsset(assets / "Textures" / "new.png") == 0);
+
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
+TEST(FileChangeQueueDebounce)
+{
+    FileChangeQueue queue;
+    queue.Push("/a/x.png", FileChangeType::Modified, false, 0.0);
+    queue.Push("/a/x.png", FileChangeType::Modified, false, 0.2); // still being written
+    queue.Push("/a/y.png", FileChangeType::Added, false, 0.1);
+    CHECK(queue.Pop(0.25, 0.3).empty() && queue.GetPendingCount() == 2); // nothing settled yet
+    auto out = queue.Pop(0.45, 0.3);
+    CHECK(out.size() == 1 && out[0].Path == "/a/y.png" && out[0].Type == FileChangeType::Added);
+    out = queue.Pop(0.6, 0.3);
+    CHECK(out.size() == 1 && out[0].Path == "/a/x.png" && out[0].Type == FileChangeType::Modified);
+
+    queue.Push("/a/s.zscene", FileChangeType::Removed, false, 1.0); // a safe save: removed, written again
+    queue.Push("/a/s.zscene", FileChangeType::Added, false, 1.01);
+    queue.Push("/a/tmp~", FileChangeType::Added, false, 1.0);       // came and went
+    queue.Push("/a/tmp~", FileChangeType::Removed, false, 1.02);
+    queue.Push("/a/n.png", FileChangeType::Added, false, 1.0);      // new, then written some more
+    queue.Push("/a/n.png", FileChangeType::Modified, false, 1.03);
+    queue.Push("/a/m.png", FileChangeType::Modified, false, 1.0);   // changed, then deleted
+    queue.Push("/a/m.png", FileChangeType::Removed, false, 1.04);
+    queue.Push("/a/Dir", FileChangeType::Added, true, 1.05);
+    out = queue.Pop(2.0, 0.3);
+    CHECK(out.size() == 4 && queue.GetPendingCount() == 0);
+    if (out.size() == 4)
+    {
+        CHECK(out[0].Path == "/a/s.zscene" && out[0].Type == FileChangeType::Modified);
+        CHECK(out[1].Path == "/a/n.png" && out[1].Type == FileChangeType::Added);
+        CHECK(out[2].Path == "/a/m.png" && out[2].Type == FileChangeType::Removed);
+        CHECK(out[3].Path == "/a/Dir" && out[3].IsDirectory);
+    }
+    queue.Push("/a/z", FileChangeType::Added, false, 3.0);
+    queue.Clear();
+    CHECK(queue.GetPendingCount() == 0 && queue.Pop(10.0, 0.0).empty());
+}
+
+static bool HasFileChange(const std::vector<FileChange>& changes, const std::filesystem::path& path, FileChangeType type)
+{
+    return std::any_of(changes.begin(), changes.end(), [&](const FileChange& c) { return c.Path == path && c.Type == type; });
+}
+
+// Polls like the editor does every frame until `done` or a timeout.
+static std::vector<FileChange> WaitForFileChanges(FileWatcher& watcher, const std::function<bool(const std::vector<FileChange>&)>& done)
+{
+    std::vector<FileChange> all;
+    auto start = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - start < std::chrono::seconds(5))
+    {
+        for (FileChange& change : watcher.Poll())
+            all.push_back(std::move(change));
+        if (done(all))
+            break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return all;
+}
+
+TEST(FileWatcherSeesChanges)
+{
+    namespace fs = std::filesystem;
+    for (bool native : { true, false })
+    {
+        fs::path dir = MakeTempDir(native ? "zamin-watch-native-" : "zamin-watch-poll-");
+        WriteFile(dir / "Textures" / "coin.png", "png");
+        WriteFile(dir / "old.wav", "wav");
+        FileWatcherOptions options;
+        options.Debounce = 0.05;
+        options.PollInterval = 0.05;
+        options.NativeEvents = native;
+        FileWatcher watcher;
+        CHECK(watcher.Start(dir, options) && watcher.IsWatching() && watcher.GetDirectory() == dir);
+#if defined(__linux__)
+        CHECK(watcher.UsesNativeEvents() == native);
+#endif
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        CHECK(watcher.Poll().empty()); // nothing changed, nothing reported
+
+        WriteFile(dir / "Textures" / "coin.png", "png, but bigger");
+        WriteFile(dir / "Textures" / "new.png", "new");
+        fs::remove(dir / "old.wav");
+        WriteFile(dir / "Models" / "Robot" / "robot.gltf", "{}");
+        WriteFile(dir / ".git" / "index", "x"); // hidden: never reported
+        auto changes = WaitForFileChanges(watcher, [&](const std::vector<FileChange>& c) {
+            return HasFileChange(c, dir / "Textures" / "coin.png", FileChangeType::Modified) &&
+                   HasFileChange(c, dir / "Textures" / "new.png", FileChangeType::Added) &&
+                   HasFileChange(c, dir / "old.wav", FileChangeType::Removed) &&
+                   HasFileChange(c, dir / "Models" / "Robot" / "robot.gltf", FileChangeType::Added);
+        });
+        CHECK(HasFileChange(changes, dir / "Textures" / "coin.png", FileChangeType::Modified));
+        CHECK(HasFileChange(changes, dir / "Textures" / "new.png", FileChangeType::Added));
+        CHECK(HasFileChange(changes, dir / "old.wav", FileChangeType::Removed));
+        CHECK(HasFileChange(changes, dir / "Models" / "Robot" / "robot.gltf", FileChangeType::Added));
+        CHECK(std::any_of(changes.begin(), changes.end(), [&](const FileChange& c) { return c.Path == dir / "Models" && c.IsDirectory; }));
+        CHECK(std::none_of(changes.begin(), changes.end(), [](const FileChange& c) { return c.Path.string().find(".git") != std::string::npos; }));
+        // Each path once (several writes of one file come out as one change).
+        std::set<std::string> unique;
+        for (const FileChange& c : changes)
+            unique.insert(c.Path.string());
+        CHECK(unique.size() == changes.size());
+
+        // A folder renamed: its files leave the old place and appear at the new one...
+        fs::rename(dir / "Models", dir / "Meshes");
+        changes = WaitForFileChanges(watcher, [&](const std::vector<FileChange>& c) {
+            return HasFileChange(c, dir / "Models" / "Robot" / "robot.gltf", FileChangeType::Removed) &&
+                   HasFileChange(c, dir / "Meshes" / "Robot" / "robot.gltf", FileChangeType::Added);
+        });
+        CHECK(HasFileChange(changes, dir / "Models" / "Robot" / "robot.gltf", FileChangeType::Removed));
+        CHECK(HasFileChange(changes, dir / "Meshes" / "Robot" / "robot.gltf", FileChangeType::Added));
+        // ... and what happens inside it later is still seen.
+        WriteFile(dir / "Meshes" / "Robot" / "robot.gltf", "{\"asset\": {}}");
+        changes = WaitForFileChanges(watcher, [&](const std::vector<FileChange>& c) {
+            return HasFileChange(c, dir / "Meshes" / "Robot" / "robot.gltf", FileChangeType::Modified);
+        });
+        CHECK(HasFileChange(changes, dir / "Meshes" / "Robot" / "robot.gltf", FileChangeType::Modified));
+
+        watcher.Stop();
+        CHECK(!watcher.IsWatching() && watcher.Poll().empty());
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+    }
+    FileWatcher missing;
+    CHECK(!missing.Start("/definitely/not/a/folder") && !missing.IsWatching());
 }
 
 TEST(ContentBrowserSettingsJson)

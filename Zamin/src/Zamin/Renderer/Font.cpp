@@ -21,20 +21,34 @@ namespace Zamin {
         return cp;
     }
 
-    Font::Font(const std::filesystem::path& path, float pixelHeight) : m_Path(path)
+    Font::Font(const std::filesystem::path& path, float pixelHeight) : m_Path(path), m_PixelHeight(pixelHeight)
     {
+        Build(false);
+    }
+
+    bool Font::Reload()
+    {
+        return Build(true);
+    }
+
+    bool Font::Build(bool reload)
+    {
+        const std::filesystem::path& path = m_Path;
+        const float pixelHeight = m_PixelHeight;
+        const char* what = reload ? "qayta yuklanmadi" : "yuklanmadi";
         std::vector<uint8_t> ttf = FileSystem::ReadBinaryFile(path);
         if (ttf.empty())
         {
-            ZM_CORE_ERROR("Shrift yuklanmadi: '{}'", path.string());
-            return;
+            ZM_CORE_ERROR("Shrift {}: '{}' (fayl o'qilmadi)", what, path.string());
+            return false;
         }
 
         stbtt_fontinfo info;
-        if (!stbtt_InitFont(&info, ttf.data(), stbtt_GetFontOffsetForIndex(ttf.data(), 0)))
+        int offset = stbtt_GetFontOffsetForIndex(ttf.data(), 0);
+        if (offset < 0 || !stbtt_InitFont(&info, ttf.data(), offset))
         {
-            ZM_CORE_ERROR("Shrift formati noto'g'ri: '{}'", path.string());
-            return;
+            ZM_CORE_ERROR("Shrift {}: '{}' (formati noto'g'ri)", what, path.string());
+            return false;
         }
 
         constexpr int atlasSize = 2048;
@@ -73,9 +87,7 @@ namespace Zamin {
         int ascent, descent, lineGap;
         stbtt_GetFontVMetrics(&info, &ascent, &descent, &lineGap);
         float scale = stbtt_ScaleForPixelHeight(&info, pixelHeight);
-        m_Ascent = ascent * scale / pixelHeight;
-        m_Descent = descent * scale / pixelHeight;
-        m_LineHeight = (ascent - descent + lineGap) * scale / pixelHeight;
+        std::unordered_map<uint32_t, Glyph> glyphs;
 
         for (size_t r = 0; r < std::size(ranges); r++)
         {
@@ -94,7 +106,7 @@ namespace Zamin {
                 g.V0 = pcd.y1 / (float)atlasSize;
                 g.V1 = pcd.y0 / (float)atlasSize;
                 g.Advance = pcd.xadvance / pixelHeight;
-                m_Glyphs[(uint32_t)(ranges[r].First + c)] = g;
+                glyphs[(uint32_t)(ranges[r].First + c)] = g;
             }
         }
 
@@ -102,20 +114,28 @@ namespace Zamin {
         std::vector<uint8_t> flipped(bitmap.size());
         for (int y = 0; y < atlasSize; y++)
             std::memcpy(&flipped[(size_t)y * atlasSize], &bitmap[(size_t)(atlasSize - 1 - y) * atlasSize], atlasSize);
-        for (auto& [cp, g] : m_Glyphs)
+        for (auto& [cp, g] : glyphs)
         {
             g.V0 = 1.0f - g.V0;
             g.V1 = 1.0f - g.V1;
         }
 
-        TextureSpecification spec;
-        spec.Width = atlasSize;
-        spec.Height = atlasSize;
-        spec.Format = ImageFormat::R8;
-        spec.GenerateMips = true;
-        spec.Wrap = TextureWrap::ClampToEdge;
-        m_Atlas = Texture2D::Create(spec);
-        m_Atlas->SetData(flipped.data(), (uint32_t)flipped.size());
+        m_Glyphs = std::move(glyphs);
+        m_Ascent = ascent * scale / pixelHeight;
+        m_Descent = descent * scale / pixelHeight;
+        m_LineHeight = (ascent - descent + lineGap) * scale / pixelHeight;
+        if (!m_Atlas)
+        {
+            TextureSpecification spec;
+            spec.Width = atlasSize;
+            spec.Height = atlasSize;
+            spec.Format = ImageFormat::R8;
+            spec.GenerateMips = true;
+            spec.Wrap = TextureWrap::ClampToEdge;
+            m_Atlas = Texture2D::Create(spec);
+        }
+        m_Atlas->SetData(flipped.data(), (uint32_t)flipped.size()); // same atlas object when reloading
+        return true;
     }
 
     const Glyph* Font::GetGlyph(uint32_t codepoint) const
@@ -150,6 +170,36 @@ namespace Zamin {
     Ref<Font> Font::GetDefault()
     {
         return Load(Renderer::GetResourcesDirectory() / "fonts" / "Inter-SemiBold.ttf");
+    }
+
+    static bool SameFile(const std::filesystem::path& a, const std::filesystem::path& b)
+    {
+        std::error_code ea, eb;
+        std::filesystem::path ca = std::filesystem::weakly_canonical(a, ea), cb = std::filesystem::weakly_canonical(b, eb);
+        return (ea ? a : ca) == (eb ? b : cb);
+    }
+
+    size_t Font::ReloadFile(const std::filesystem::path& path, bool* failed)
+    {
+        size_t reloaded = 0;
+        for (auto& [key, font] : FontCache())
+        {
+            if (!SameFile(font->GetPath(), path))
+                continue;
+            if (font->Reload())
+                reloaded++;
+            else if (failed)
+                *failed = true;
+        }
+        return reloaded;
+    }
+
+    bool Font::IsFileLoaded(const std::filesystem::path& path)
+    {
+        for (const auto& [key, font] : FontCache())
+            if (SameFile(font->GetPath(), path))
+                return true;
+        return false;
     }
 
     void Font::ClearCache() { FontCache().clear(); }

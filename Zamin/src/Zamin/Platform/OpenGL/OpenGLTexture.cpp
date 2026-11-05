@@ -40,33 +40,22 @@ namespace Zamin {
             m_Loaded = true;
         }
 
-        OpenGLTexture2D(const std::string& path, TextureFilter filter) : m_Path(path)
+        OpenGLTexture2D(const std::string& path, TextureFilter filter) : m_Path(path), m_FromFile(true)
         {
-            int width, height, channels;
-            stbi_set_flip_vertically_on_load(1);
-            stbi_uc* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
-            if (!data)
+            DecodedImage image;
+            if (!Decode(path, image))
             {
-                ZM_CORE_ERROR("Rasm yuklanmadi: '{}' ({})", path, stbi_failure_reason());
+                ZM_CORE_ERROR("Rasm yuklanmadi: '{}' ({})", path, image.Error);
                 return;
             }
-
-            m_Specification.Width = (uint32_t)width;
-            m_Specification.Height = (uint32_t)height;
+            m_Specification.Width = image.Width;
+            m_Specification.Height = image.Height;
             m_Specification.Filter = filter;
             m_Specification.GenerateMips = filter != TextureFilter::Nearest;
-            m_Specification.Format = channels == 4 ? ImageFormat::RGBA8 : channels == 3 ? ImageFormat::RGB8 :
-                                     channels == 1 ? ImageFormat::R8 : ImageFormat::RGBA8;
-            if (channels == 2) // grey + alpha: expand to RGBA
-            {
-                stbi_image_free(data);
-                data = stbi_load(path.c_str(), &width, &height, &channels, 4);
-                m_Specification.Format = ImageFormat::RGBA8;
-            }
+            m_Specification.Format = image.Format;
 
             Allocate();
-            SetData(data, (uint32_t)(width * height * BytesPerPixel(m_Specification.Format)));
-            stbi_image_free(data);
+            SetData(image.Pixels, (uint32_t)(image.Width * image.Height * BytesPerPixel(image.Format)));
             m_Loaded = true;
         }
 
@@ -90,6 +79,30 @@ namespace Zamin {
         }
 
         ~OpenGLTexture2D() override { if (m_RendererID) glDeleteTextures(1, &m_RendererID); }
+
+        bool Reload() override
+        {
+            if (!m_FromFile)
+                return false;
+            DecodedImage image;
+            if (!Decode(m_Path, image))
+            {
+                ZM_CORE_ERROR("Rasm qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", m_Path, image.Error);
+                return false;
+            }
+            bool resized = !m_RendererID || image.Width != m_Specification.Width || image.Height != m_Specification.Height ||
+                           image.Format != m_Specification.Format;
+            m_Specification.Width = image.Width;
+            m_Specification.Height = image.Height;
+            m_Specification.Format = image.Format;
+            if (!m_RendererID)
+                Allocate();       // the first load had failed
+            else if (resized)
+                DefineStorage();  // same texture object, new size / format
+            SetData(image.Pixels, (uint32_t)(image.Width * image.Height * BytesPerPixel(image.Format)));
+            m_Loaded = true;
+            return true;
+        }
 
         const TextureSpecification& GetSpecification() const override { return m_Specification; }
         uint32_t GetWidth() const override { return m_Specification.Width; }
@@ -124,12 +137,54 @@ namespace Zamin {
         bool operator==(const Texture& other) const override { return m_RendererID == other.GetRendererID(); }
 
     private:
+        struct DecodedImage
+        {
+            stbi_uc* Pixels = nullptr;
+            uint32_t Width = 0, Height = 0;
+            ImageFormat Format = ImageFormat::RGBA8;
+            std::string Error;
+
+            DecodedImage() = default;
+            DecodedImage(const DecodedImage&) = delete;
+            DecodedImage& operator=(const DecodedImage&) = delete;
+            ~DecodedImage() { if (Pixels) stbi_image_free(Pixels); }
+        };
+
+        static bool Decode(const std::string& path, DecodedImage& image)
+        {
+            int width, height, channels;
+            stbi_set_flip_vertically_on_load(1);
+            image.Pixels = stbi_load(path.c_str(), &width, &height, &channels, 0);
+            if (image.Pixels && channels == 2) // grey + alpha: expand to RGBA
+            {
+                stbi_image_free(image.Pixels);
+                image.Pixels = stbi_load(path.c_str(), &width, &height, &channels, 4);
+                channels = 4;
+            }
+            if (!image.Pixels)
+            {
+                const char* reason = stbi_failure_reason();
+                image.Error = reason ? reason : "noma'lum xato";
+                return false;
+            }
+            image.Width = (uint32_t)width;
+            image.Height = (uint32_t)height;
+            image.Format = channels == 3 ? ImageFormat::RGB8 : channels == 1 ? ImageFormat::R8 : ImageFormat::RGBA8;
+            return true;
+        }
+
         void Allocate()
+        {
+            glGenTextures(1, &m_RendererID);
+            DefineStorage();
+        }
+
+        // Size, format and sampling of the bound texture object (kept when it is defined again).
+        void DefineStorage()
         {
             GLenum internalFormat, dataFormat, type;
             FormatToGL(m_Specification.Format, internalFormat, dataFormat, type);
 
-            glGenTextures(1, &m_RendererID);
             glBindTexture(GL_TEXTURE_2D, m_RendererID);
             glTexImage2D(GL_TEXTURE_2D, 0, (GLint)internalFormat, (GLsizei)m_Specification.Width, (GLsizei)m_Specification.Height,
                          0, dataFormat, type, nullptr);
@@ -143,12 +198,10 @@ namespace Zamin {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 
-            if (m_Specification.Format == ImageFormat::R8)
-            {
-                // Sample single-channel textures (e.g. font atlases) as white + alpha.
-                GLint swizzle[] = { GL_ONE, GL_ONE, GL_ONE, GL_RED };
-                glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzle);
-            }
+            // Sample single-channel textures (e.g. font atlases) as white + alpha.
+            GLint swizzle[] = { GL_ONE, GL_ONE, GL_ONE, GL_RED };
+            GLint identity[] = { GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA };
+            glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, m_Specification.Format == ImageFormat::R8 ? swizzle : identity);
         }
 
     private:
@@ -156,6 +209,7 @@ namespace Zamin {
         std::string m_Path;
         uint32_t m_RendererID = 0;
         bool m_Loaded = false;
+        bool m_FromFile = false; // m_Path is a file (not the name of an image decoded from memory)
     };
 
     Ref<Texture2D> Texture2D::Create(const TextureSpecification& specification) { return CreateRef<OpenGLTexture2D>(specification); }
@@ -169,11 +223,11 @@ namespace Zamin {
     // ---------------------------------------------------------------- TextureLibrary
     static std::unordered_map<std::string, Ref<Texture2D>> s_TextureCache;
 
+    static std::string CanonicalFile(const std::filesystem::path& path);
+
     Ref<Texture2D> TextureLibrary::Load(const std::filesystem::path& path, TextureFilter filter)
     {
-        std::error_code ec;
-        std::filesystem::path abs = std::filesystem::weakly_canonical(path, ec);
-        std::string file = (ec ? path : abs).string();
+        std::string file = CanonicalFile(path);
         std::string key = file + (filter == TextureFilter::Nearest ? "#nearest" : "");
         auto it = s_TextureCache.find(key);
         if (it != s_TextureCache.end())
@@ -184,6 +238,38 @@ namespace Zamin {
             return nullptr;
         s_TextureCache[key] = texture;
         return texture;
+    }
+
+    static std::string CanonicalFile(const std::filesystem::path& path)
+    {
+        std::error_code ec;
+        std::filesystem::path abs = std::filesystem::weakly_canonical(path, ec);
+        return (ec ? path : abs).string();
+    }
+
+    size_t TextureLibrary::Reload(const std::filesystem::path& path, bool* failed)
+    {
+        std::string file = CanonicalFile(path);
+        size_t reloaded = 0;
+        for (auto& [key, texture] : s_TextureCache)
+        {
+            if (texture->GetPath() != file)
+                continue;
+            if (texture->Reload())
+                reloaded++;
+            else if (failed)
+                *failed = true;
+        }
+        return reloaded;
+    }
+
+    bool TextureLibrary::IsLoaded(const std::filesystem::path& path)
+    {
+        std::string file = CanonicalFile(path);
+        for (const auto& [key, texture] : s_TextureCache)
+            if (texture->GetPath() == file)
+                return true;
+        return false;
     }
 
     void TextureLibrary::Clear() { s_TextureCache.clear(); }

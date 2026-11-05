@@ -1,4 +1,5 @@
 #include "Zamin/Project/AssetFiles.h"
+#include "Zamin/Asset/AssetMetadata.h"
 #include "Zamin/Utils/FileSystem.h"
 
 #include <algorithm>
@@ -55,66 +56,17 @@ namespace Zamin {
     {
         static const std::vector<AssetType> s_Types = {
             AssetType::Scene, AssetType::Prefab, AssetType::Texture, AssetType::Model, AssetType::Audio,
-            AssetType::Font, AssetType::Environment, AssetType::Script, AssetType::Other,
+            AssetType::Font, AssetType::Environment, AssetType::Material, AssetType::Script, AssetType::Other,
         };
         return s_Types;
     }
 
     // ------------------------------------------------------------------ types
-    AssetType AssetFiles::GetType(const fs::path& path, bool isDirectory)
-    {
-        if (isDirectory)
-            return AssetType::Folder;
-        std::string ext = Lower(path.extension().string());
-        if (ext == ".zscene") return AssetType::Scene;
-        if (ext == ".zprefab") return AssetType::Prefab;
-        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga" || ext == ".gif") return AssetType::Texture;
-        if (ext == ".gltf" || ext == ".glb" || ext == ".obj") return AssetType::Model;
-        if (ext == ".wav" || ext == ".mp3" || ext == ".ogg" || ext == ".flac") return AssetType::Audio;
-        if (ext == ".ttf" || ext == ".otf") return AssetType::Font;
-        if (ext == ".hdr") return AssetType::Environment;
-        if (ext == ".cpp" || ext == ".h" || ext == ".hpp" || ext == ".cc" || ext == ".c" || ext == ".inl") return AssetType::Script;
-        if (ext == ".zproject") return AssetType::Project;
-        return AssetType::Other;
-    }
-
-    struct AssetTypeInfo { AssetType Type; const char* Name; const char* Key; const char* ImportFolder; };
-    static constexpr std::array<AssetTypeInfo, (size_t)AssetType::Count> s_TypeInfo = { {
-        { AssetType::Folder, "Papka", "Folder", "" },
-        { AssetType::Scene, "Sahna", "Scene", "Scenes" },
-        { AssetType::Prefab, "Prefab", "Prefab", "Prefabs" },
-        { AssetType::Texture, "Rasm", "Texture", "Textures" },
-        { AssetType::Model, "Model", "Model", "Models" },
-        { AssetType::Audio, "Audio", "Audio", "Audio" },
-        { AssetType::Font, "Shrift", "Font", "Fonts" },
-        { AssetType::Environment, "HDRI muhit", "Environment", "Textures" },
-        { AssetType::Script, "C++ skript", "Script", "" },
-        { AssetType::Project, "Loyiha", "Project", "" },
-        { AssetType::Other, "Boshqa", "Other", "" },
-    } };
-
-    const char* AssetFiles::GetTypeName(AssetType type)
-    {
-        return type < AssetType::Count ? s_TypeInfo[(size_t)type].Name : "Boshqa";
-    }
-
-    const char* AssetFiles::GetTypeKey(AssetType type)
-    {
-        return type < AssetType::Count ? s_TypeInfo[(size_t)type].Key : "Other";
-    }
-
-    std::optional<AssetType> AssetFiles::FindTypeByKey(std::string_view key)
-    {
-        for (const auto& info : s_TypeInfo)
-            if (key == info.Key)
-                return info.Type;
-        return std::nullopt;
-    }
-
-    const char* AssetFiles::GetImportFolder(AssetType type)
-    {
-        return type < AssetType::Count ? s_TypeInfo[(size_t)type].ImportFolder : "";
-    }
+    AssetType AssetFiles::GetType(const fs::path& path, bool isDirectory) { return AssetTypes::FromPath(path, isDirectory); }
+    const char* AssetFiles::GetTypeName(AssetType type) { return AssetTypes::GetName(type); }
+    const char* AssetFiles::GetTypeKey(AssetType type) { return AssetTypes::GetKey(type); }
+    std::optional<AssetType> AssetFiles::FindTypeByKey(std::string_view key) { return AssetTypes::FromKey(key); }
+    const char* AssetFiles::GetImportFolder(AssetType type) { return AssetTypes::GetImportFolder(type); }
 
     // ------------------------------------------------------------------ listing
     int AssetFiles::CompareNames(std::string_view a, std::string_view b)
@@ -204,6 +156,8 @@ namespace Zamin {
             bool isDir = e.is_directory(fec);
             if (name.empty() || name.starts_with(".") || (isDir && isExcluded(e.path())))
                 return false;
+            if (!isDir && AssetMetaFile::IsMetaFile(e.path()))
+                return true; // .zmeta files go with their asset, they are not shown on their own
             AssetType type = GetType(e.path(), isDir);
             if (!search.empty() && Lower(name).find(search) == std::string::npos)
                 return true;
@@ -614,6 +568,24 @@ namespace Zamin {
         return ec;
     }
 
+    // The .zmeta file of a moved asset goes with it (replacing an orphan one at the new place).
+    static void MoveMetaFile(const fs::path& from, const fs::path& to)
+    {
+        std::error_code ec;
+        fs::path meta = AssetMetaFile::GetMetaPath(from);
+        if (!fs::is_regular_file(meta, ec))
+            return;
+        fs::path target = AssetMetaFile::GetMetaPath(to);
+        fs::rename(meta, target, ec);
+        if (ec)
+        {
+            ec.clear();
+            fs::copy_file(meta, target, fs::copy_options::overwrite_existing, ec);
+            if (!ec)
+                fs::remove(meta, ec);
+        }
+    }
+
     static std::string RelativeTo(const fs::path& path, const fs::path& base)
     {
         return path.lexically_relative(base).generic_string();
@@ -758,6 +730,8 @@ namespace Zamin {
                 result.Errors.push_back(std::format("'{}' ko'chirilmadi: {}", src.filename().string(), ec.message()));
                 continue;
             }
+            if (!move.IsDirectory)
+                MoveMetaFile(move.From, move.To);
             result.Moved.push_back(std::move(move));
         }
         UpdateReferences(result, assetDirectory, sourceDirectory);
@@ -801,9 +775,32 @@ namespace Zamin {
             result.Errors.push_back(std::format("Nomlab bo'lmadi: {}", ec.message()));
             return result;
         }
+        if (!move.IsDirectory)
+            MoveMetaFile(move.From, move.To);
         result.Moved.push_back(std::move(move));
         UpdateReferences(result, assetDirectory, sourceDirectory);
         return result;
+    }
+
+    // ------------------------------------------------------------------ deleting
+    bool AssetFiles::Remove(const fs::path& path, std::string* error)
+    {
+        std::error_code ec;
+        bool isDirectory = fs::is_directory(path, ec);
+        if (!fs::exists(path, ec))
+        {
+            if (error) *error = std::format("'{}' topilmadi", path.filename().string());
+            return false;
+        }
+        fs::remove_all(path, ec);
+        if (ec)
+        {
+            if (error) *error = std::format("'{}' o'chirilmadi: {}", path.filename().string(), ec.message());
+            return false;
+        }
+        if (!isDirectory)
+            fs::remove(AssetMetaFile::GetMetaPath(path), ec); // the asset's .zmeta goes with it
+        return true;
     }
 
     // ------------------------------------------------------------------ importing
@@ -842,13 +839,24 @@ namespace Zamin {
                 continue;
             }
 
+            // Import settings come along (a UUID that is already taken gets replaced by the registry).
+            auto copyMetaFile = [](const fs::path& from, const fs::path& to) {
+                std::error_code mec;
+                fs::path meta = AssetMetaFile::GetMetaPath(from);
+                if (fs::is_regular_file(meta, mec))
+                    fs::copy_file(meta, AssetMetaFile::GetMetaPath(to), fs::copy_options::overwrite_existing, mec);
+            };
             std::vector<fs::path> deps = GetModelDependencies(src);
             if (deps.empty())
             {
                 fs::path target = MakeUniquePath(dst, src.filename());
                 fs::copy_file(src, target, ec);
                 if (ec) result.Errors.push_back(std::format("'{}' nusxalanmadi: {}", name, ec.message()));
-                else result.Imported.push_back(target);
+                else
+                {
+                    copyMetaFile(src, target);
+                    result.Imported.push_back(target);
+                }
                 continue;
             }
 
@@ -862,6 +870,7 @@ namespace Zamin {
                 result.Errors.push_back(std::format("'{}' nusxalanmadi: {}", name, ec.message()));
                 continue;
             }
+            copyMetaFile(src, target);
             std::map<fs::path, std::string> moved; // files from outside the model's folder: new uri
             fs::path srcDir = src.parent_path();
             for (const fs::path& dep : deps)

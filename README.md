@@ -241,7 +241,8 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     tahrirlanadi, fayl o'zgarsa o'yin davomida ham darhol qo'llanadi (hot reload)
   - **To'qnashuv qatlamlari**: loyihada 16 ta nomli qatlam va qaysi juftliklar to'qnashishi (Loyiha sozlamalari >
     Fizika qatlamlari: burchakli sarlavhali matritsa). Rigidbody 2D, har bir kollider (o'z qatlami yoki jismniki) va
-    Tilemap qatlam tanlaydi (Box2D category/mask); `Raycast2D(..., LayerMask({ "Ground" }))`
+    Tilemap qatlam tanlaydi (Box2D category/mask); `Raycast2D(..., LayerMask({ "Ground" }))`. 3D fizika ham shu
+    qatlamlardan foydalanadi
   - **Platform Effector 2D**: obyektning barcha kolliderlari (yoki tilemap plitkalari) platforma - bir tomonlama, sirt
     yoyi (180 - oddiy, kichigi burchaklardan ham o'tkazadi, kattasi yondan ham ushlaydi), burilish, yon tomonda
     ishqalanish / sakrashni o'chirish (devorga yopishib qolmaslik). Box Collider 2D'ning "Bir tomonlama" belgisi avvalgidek
@@ -307,8 +308,24 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     tayog'i (Gizmolar > Joint'lar). Namuna: Showcase3D `Scenes/Joints3D.zscene` (prujinali eshik, sharlar zanjiri,
     lift - `SliderShuttle` skripti, motorli tegirmon parragi, payvandlangan L, qiyalikdan dumalaydigan konus /
     silindr / kristall ziyoratgoh qobiqlari)
+  - **Mesh Collider 3D** (Jolt MeshShape): modelning (yoki Mesh Renderer'dagi model / primitivning) o'z uchburchaklari -
+    botiq shakllar (zinapoya, ark, tunnel, yarim quvur, notekis yer) chizilgan joyida to'qnashadi. Faqat statik va
+    kinematik jismlar uchun (dinamik jism uni hisobga olmaydi - ogohlantirish, inspektorda ham); uchburchaklar old
+    tomonidan qattiq. Uchburchaklar har model uchun bir marta o'qiladi, Jolt daraxti esa barcha dunyolar uchun umumiy va
+    Play / Stop'dan keyin qayta qurilmaydi; burchaklar joyi bo'yicha birlashtiriladi (choklarda sakramaydi). Inspektorda
+    uchburchak / nuqta soni, viewport'da qirralari (bir tekislikdagi ichki qirralarsiz)
+  - **To'qnashuv qatlamlari 3D**: 2D bilan bir xil 16 ta nomli qatlam va matritsa (Loyiha sozlamalari > Fizika
+    qatlamlari). Rigidbody 3D va Character Controller 3D qatlam tanlaydi (Jolt ObjectLayer); o'yin davomida qatlam ham,
+    matritsa ham darhol qo'llanadi
+  - **3D so'rovlar** (qatlam niqobi va "trigger'lar ham" belgisi bilan; nur / shakl to'qnashuvchi ichidan boshlansa uni
+    urmaydi - o'z tanasi o'tkazib yuboriladi): `Raycast3D`, `Raycast3DAll` (har obyekt bir marta, yaqinidan),
+    `OverlapSphere3D` / `OverlapBox3D` / `OverlapCapsule3D` (obyektlar, markazga yaqinidan), `SphereCast3D` /
+    `BoxCast3D` / `CapsuleCast3D` va ularning `...All` turlari ("qalin nur": shakl qancha yurgani, tegish nuqtasi,
+    normal). "Raycastlar" debug chizishda shakl, yo'l va tegishlar ko'rinadi (`DebugDraw::WireCapsule` ham bor).
+    Namuna: Showcase3D `Scenes/Queries3D.zscene` (yarim quvurdagi sharlar, Arvoh sharlar o'tib ketadigan panjara,
+    `SphereSweep3D`, `OverlapGlow3D`, `LaserAll3D` skriptlari)
 - **Character Controller 3D** (Jolt CharacterVirtual): qiyaliklar, zinapoyalar, yerni aniqlash, sakrash, harakatlanuvchi platformalarda yurish
-- **Raycast** 2D va 3D
+- **Raycast** 2D va 3D (`Raycast2DAll` / `Raycast3DAll`, overlap va shape cast so'rovlari)
 - **Debug chizish** (`DebugDraw`, `Zamin/Debug/DebugDraw.h`): skriptlardan va dvigateldan dunyo fazosida chiziq, nur, o'q,
   quti (AABB va burilgan), sfera, aylana, krest, nuqta, o'qlar, yo'l (path) va ekranga qaragan matn - rang, davomiylik
   (0 = bir kadr, > 0 = o'yin vaqtida soniyalar; pauzada to'xtaydi - oxirgi o'yin kadrining shakllari ekranda qoladi,

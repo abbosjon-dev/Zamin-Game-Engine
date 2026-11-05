@@ -216,11 +216,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 183. Distance joint 3D
 - [x] 184. Slider joint 3D
 - [x] 185. Convex hull collider (modeldan)
-- [ ] 186. Statik triangle mesh collider (modeldan)
-- [ ] 187. Collision qatlamlari va maskalar (3D)
-- [ ] 188. OverlapSphere/OverlapBox so'rovlari 3D
-- [ ] 189. SphereCast/ShapeCast 3D
-- [ ] 190. RaycastAll 3D
+- [x] 186. Statik triangle mesh collider (modeldan)
+- [x] 187. Collision qatlamlari va maskalar (3D)
+- [x] 188. OverlapSphere/OverlapBox so'rovlari 3D
+- [x] 189. SphereCast/ShapeCast 3D
+- [x] 190. RaycastAll 3D
 - [ ] 191. Continuous collision detection (CCD) bayrog'i
 - [ ] 192. Sleeping/uyg'otish API
 - [ ] 193. Physics material 3D

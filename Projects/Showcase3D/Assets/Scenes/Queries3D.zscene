@@ -1,0 +1,2212 @@
+{
+  "Scene": "Queries3D",
+  "Version": 1,
+  "Settings": {
+    "DrawSky": true,
+    "SkyTop": [
+      0.26,
+      0.46,
+      0.82
+    ],
+    "SkyHorizon": [
+      0.82,
+      0.86,
+      0.92
+    ],
+    "Ground": [
+      0.33,
+      0.31,
+      0.28
+    ],
+    "Ambient": 0.55,
+    "Exposure": 1.05,
+    "ShadowDistance": 60,
+    "Gravity": [
+      0,
+      -9.8
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ],
+    "Post": {
+      "Bloom": true,
+      "BloomThreshold": 1.0,
+      "BloomKnee": 0.5,
+      "BloomIntensity": 0.6,
+      "BloomRadius": 1.0,
+      "Vignette": 0.3,
+      "Saturation": 1.08,
+      "Contrast": 1.05,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "Tonemap": 1,
+      "SSAO": true,
+      "SSAORadius": 0.6,
+      "SSAOIntensity": 1.3,
+      "SSAOBias": 0.03
+    },
+    "Environment": {
+      "Map": "Textures/sunset.hdr",
+      "Intensity": 0.85,
+      "Rotation": 0.0
+    }
+  },
+  "Entities": [
+    {
+      "Entity": 7291127144768798,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0.0,
+          8.0,
+          15.0
+        ],
+        "Rotation": [
+          -0.45,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 0,
+        "PerspectiveFOV": 0.85,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 500,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.1,
+          0.1,
+          0.12,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 6053630993266841,
+      "Tag": "Sun",
+      "Transform": {
+        "Translation": [
+          0,
+          10,
+          0
+        ],
+        "Rotation": [
+          -0.8,
+          -0.5,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "DirectionalLight": {
+        "Color": [
+          1.0,
+          0.93,
+          0.85
+        ],
+        "Intensity": 3.0,
+        "CastShadows": true
+      }
+    },
+    {
+      "Entity": 6839742077933508,
+      "Tag": "Ground",
+      "Transform": {
+        "Translation": [
+          0,
+          -0.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          34,
+          1,
+          22
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.33,
+          0.36,
+          0.34,
+          1.0
+        ],
+        "Roughness": 0.9,
+        "Metallic": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7629766202384951,
+      "Tag": "Yarim quvur",
+      "Transform": {
+        "Translation": [
+          -7.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/HalfPipe.obj",
+        "CastShadows": true,
+        "Albedo": [
+          0.62,
+          0.66,
+          0.72,
+          1.0
+        ],
+        "Roughness": 0.5,
+        "Metallic": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "MeshCollider3D": {
+        "Model": "",
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.4,
+        "Restitution": 0.0,
+        "IsSensor": false
+      },
+      "NativeScript": {
+        "Class": "Label3D",
+        "Fields": {
+          "Text": {
+            "Type": "String",
+            "Value": "Mesh Collider 3D\n(botiq yarim quvur)"
+          },
+          "Offset": {
+            "Type": "Vec3",
+            "Value": [
+              0,
+              3.4,
+              0
+            ]
+          },
+          "Color": {
+            "Type": "Vec4",
+            "Value": [
+              0.6,
+              0.9,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 4531029242109063,
+      "Tag": "Quvur shari",
+      "Transform": {
+        "Translation": [
+          -7.96,
+          3.0,
+          -2.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.95,
+          0.35,
+          0.25,
+          1.0
+        ],
+        "Roughness": 0.3,
+        "Metallic": 0.2
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 1.0,
+        "LinearDamping": 0.02,
+        "AngularDamping": 0.02,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "SphereCollider3D": {
+        "Radius": 0.5,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8290590143469724,
+      "Tag": "Quvur shari",
+      "Transform": {
+        "Translation": [
+          -5.88,
+          3.6,
+          -1.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.95,
+          0.75,
+          0.2,
+          1.0
+        ],
+        "Roughness": 0.3,
+        "Metallic": 0.2
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 1.0,
+        "LinearDamping": 0.02,
+        "AngularDamping": 0.02,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "SphereCollider3D": {
+        "Radius": 0.5,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 5731525614102775,
+      "Tag": "Quvur shari",
+      "Transform": {
+        "Translation": [
+          -8.280000000000001,
+          4.2,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.35,
+          0.8,
+          0.4,
+          1.0
+        ],
+        "Roughness": 0.3,
+        "Metallic": 0.2
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 1.0,
+        "LinearDamping": 0.02,
+        "AngularDamping": 0.02,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "SphereCollider3D": {
+        "Radius": 0.5,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 4989194777989694,
+      "Tag": "Quvur shari",
+      "Transform": {
+        "Translation": [
+          -5.56,
+          4.8,
+          1.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.3,
+          0.6,
+          0.95,
+          1.0
+        ],
+        "Roughness": 0.3,
+        "Metallic": 0.2
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 1.0,
+        "LinearDamping": 0.02,
+        "AngularDamping": 0.02,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "SphereCollider3D": {
+        "Radius": 0.5,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7664300829686200,
+      "Tag": "Quvur shari",
+      "Transform": {
+        "Translation": [
+          -8.6,
+          5.4,
+          2.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.85,
+          0.4,
+          0.85,
+          1.0
+        ],
+        "Roughness": 0.3,
+        "Metallic": 0.2
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 1.0,
+        "LinearDamping": 0.02,
+        "AngularDamping": 0.02,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "SphereCollider3D": {
+        "Radius": 0.5,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7011825166520959,
+      "Tag": "Panjara",
+      "Transform": {
+        "Translation": [
+          0.0,
+          2.4,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          4.2,
+          0.12,
+          3.4
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1.0
+        ],
+        "Roughness": 0.1,
+        "Metallic": 0.0,
+        "Material": "Materials/Glass.zmat"
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false,
+        "Layer": 2
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      },
+      "NativeScript": {
+        "Class": "Label3D",
+        "Fields": {
+          "Text": {
+            "Type": "String",
+            "Value": "Qatlamlar: qutilar panjarada,\nArvoh sharlar undan o'tadi"
+          },
+          "Offset": {
+            "Type": "Vec3",
+            "Value": [
+              0,
+              2.6,
+              0
+            ]
+          },
+          "Color": {
+            "Type": "Vec4",
+            "Value": [
+              0.75,
+              1.0,
+              0.75,
+              1.0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 8197304577179386,
+      "Tag": "Quti",
+      "Transform": {
+        "Translation": [
+          -1.3,
+          4.5,
+          -0.8
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.55,
+          0.55
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.85,
+          0.55,
+          0.3,
+          1.0
+        ],
+        "Roughness": 0.6,
+        "Metallic": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 5905468920164201,
+      "Tag": "Quti",
+      "Transform": {
+        "Translation": [
+          -0.4,
+          5.2,
+          -0.30000000000000004
+        ],
+        "Rotation": [
+          0.17453292519943295,
+          0.4363323129985824,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.55,
+          0.55
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.85,
+          0.55,
+          0.3,
+          1.0
+        ],
+        "Roughness": 0.6,
+        "Metallic": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7476545887264603,
+      "Tag": "Quti",
+      "Transform": {
+        "Translation": [
+          0.5,
+          5.9,
+          -0.8
+        ],
+        "Rotation": [
+          0.3490658503988659,
+          0.8726646259971648,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.55,
+          0.55
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.85,
+          0.55,
+          0.3,
+          1.0
+        ],
+        "Roughness": 0.6,
+        "Metallic": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 6097479424049447,
+      "Tag": "Quti",
+      "Transform": {
+        "Translation": [
+          1.4000000000000001,
+          6.6,
+          -0.30000000000000004
+        ],
+        "Rotation": [
+          0.5235987755982988,
+          1.3089969389957472,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.55,
+          0.55
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.85,
+          0.55,
+          0.3,
+          1.0
+        ],
+        "Roughness": 0.6,
+        "Metallic": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 4915707715588629,
+      "Tag": "Arvoh shar",
+      "Transform": {
+        "Translation": [
+          -1.2,
+          5.4,
+          0.9
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.4,
+          0.75,
+          1.0,
+          1.0
+        ],
+        "Roughness": 0.2,
+        "Metallic": 0.0,
+        "Emission": [
+          0.1,
+          0.3,
+          0.6
+        ],
+        "EmissionStrength": 1.5
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 0.5,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false,
+        "Layer": 1
+      },
+      "SphereCollider3D": {
+        "Radius": 0.5,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7509756171782110,
+      "Tag": "Arvoh shar",
+      "Transform": {
+        "Translation": [
+          -0.3999999999999999,
+          6.2,
+          0.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.4,
+          0.75,
+          1.0,
+          1.0
+        ],
+        "Roughness": 0.2,
+        "Metallic": 0.0,
+        "Emission": [
+          0.1,
+          0.3,
+          0.6
+        ],
+        "EmissionStrength": 1.5
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 0.5,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false,
+        "Layer": 1
+      },
+      "SphereCollider3D": {
+        "Radius": 0.5,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 6508435385963325,
+      "Tag": "Arvoh shar",
+      "Transform": {
+        "Translation": [
+          0.40000000000000013,
+          7.0,
+          0.9
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.4,
+          0.75,
+          1.0,
+          1.0
+        ],
+        "Roughness": 0.2,
+        "Metallic": 0.0,
+        "Emission": [
+          0.1,
+          0.3,
+          0.6
+        ],
+        "EmissionStrength": 1.5
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 0.5,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false,
+        "Layer": 1
+      },
+      "SphereCollider3D": {
+        "Radius": 0.5,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 5578838623821114,
+      "Tag": "Arvoh shar",
+      "Transform": {
+        "Translation": [
+          1.2000000000000004,
+          7.800000000000001,
+          0.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.4,
+          0.75,
+          1.0,
+          1.0
+        ],
+        "Roughness": 0.2,
+        "Metallic": 0.0,
+        "Emission": [
+          0.1,
+          0.3,
+          0.6
+        ],
+        "EmissionStrength": 1.5
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 0.5,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false,
+        "Layer": 1
+      },
+      "SphereCollider3D": {
+        "Radius": 0.5,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8304137167336163,
+      "Tag": "Skaner (SphereCast3DAll)",
+      "Transform": {
+        "Translation": [
+          9.5,
+          0.6,
+          2.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.35,
+          0.35,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.3,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Roughness": 0.2,
+        "Metallic": 0.0,
+        "Emission": [
+          0.2,
+          0.8,
+          1.0
+        ],
+        "EmissionStrength": 1.5
+      },
+      "NativeScript": {
+        "Class": "SphereSweep3D",
+        "Fields": {
+          "Radius": {
+            "Type": "Float",
+            "Value": 0.35
+          },
+          "Range": {
+            "Type": "Float",
+            "Value": 11.0
+          },
+          "Spread": {
+            "Type": "Float",
+            "Value": 0.5
+          },
+          "SweepSpeed": {
+            "Type": "Float",
+            "Value": 0.45
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7692378607887176,
+      "Tag": "Ustun",
+      "Transform": {
+        "Translation": [
+          6.5,
+          0.25,
+          1.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.7,
+          0.68,
+          0.62,
+          1.0
+        ],
+        "Roughness": 0.7,
+        "Metallic": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "ConvexHullCollider3D": {
+        "Model": "",
+        "MaxVertices": 24,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8012703493689192,
+      "Tag": "Ustun",
+      "Transform": {
+        "Translation": [
+          4.6,
+          0.375,
+          3.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          0.75,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.7,
+          0.68,
+          0.62,
+          1.0
+        ],
+        "Roughness": 0.7,
+        "Metallic": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "ConvexHullCollider3D": {
+        "Model": "",
+        "MaxVertices": 24,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 5341290388380278,
+      "Tag": "Ustun",
+      "Transform": {
+        "Translation": [
+          3.2,
+          0.5,
+          1.8
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          1.0,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.7,
+          0.68,
+          0.62,
+          1.0
+        ],
+        "Roughness": 0.7,
+        "Metallic": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "ConvexHullCollider3D": {
+        "Model": "",
+        "MaxVertices": 24,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7247746609773797,
+      "Tag": "Ustun",
+      "Transform": {
+        "Translation": [
+          5.4,
+          0.625,
+          0.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          1.25,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.7,
+          0.68,
+          0.62,
+          1.0
+        ],
+        "Roughness": 0.7,
+        "Metallic": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "ConvexHullCollider3D": {
+        "Model": "",
+        "MaxVertices": 24,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7729233751575714,
+      "Tag": "Ustun",
+      "Transform": {
+        "Translation": [
+          7.6,
+          0.75,
+          3.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.5,
+          1.5,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.7,
+          0.68,
+          0.62,
+          1.0
+        ],
+        "Roughness": 0.7,
+        "Metallic": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "ConvexHullCollider3D": {
+        "Model": "",
+        "MaxVertices": 24,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 6563906841363844,
+      "Tag": "Arvoh ustun",
+      "Transform": {
+        "Translation": [
+          5.8,
+          0.6,
+          2.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          1.2,
+          0.45
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1.0
+        ],
+        "Roughness": 0.2,
+        "Metallic": 0.0,
+        "Material": "Materials/Ghost.zmat"
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false,
+        "Layer": 1
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7072694419468339,
+      "Tag": "OverlapSphere3D",
+      "Transform": {
+        "Translation": [
+          6.3,
+          1.2,
+          -3.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.2,
+          0.2,
+          0.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          1.0,
+          0.8,
+          0.3,
+          1.0
+        ],
+        "Roughness": 0.2,
+        "Metallic": 0.0,
+        "Emission": [
+          1.0,
+          0.7,
+          0.2
+        ],
+        "EmissionStrength": 1.5
+      },
+      "NativeScript": {
+        "Class": "OverlapGlow3D",
+        "Fields": {
+          "Radius": {
+            "Type": "Float",
+            "Value": 1.0
+          },
+          "OrbitRadius": {
+            "Type": "Float",
+            "Value": 1.9
+          },
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.6
+          },
+          "GlowStrength": {
+            "Type": "Float",
+            "Value": 1.6
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7522560884306872,
+      "Tag": "Kub",
+      "Transform": {
+        "Translation": [
+          8.2,
+          0.3,
+          -3.6
+        ],
+        "Rotation": [
+          0,
+          0.0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.45,
+          0.48,
+          0.55,
+          1.0
+        ],
+        "Roughness": 0.5,
+        "Metallic": 0.3
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 6033029942213007,
+      "Tag": "Kub",
+      "Transform": {
+        "Translation": [
+          7.484630623531594,
+          0.3,
+          -2.114520183310743
+        ],
+        "Rotation": [
+          0,
+          0.8975979010256552,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.45,
+          0.48,
+          0.55,
+          1.0
+        ],
+        "Roughness": 0.5,
+        "Metallic": 0.3
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 5375498688749314,
+      "Tag": "Kub",
+      "Transform": {
+        "Translation": [
+          5.877210225483003,
+          0.3,
+          -1.7476369668545353
+        ],
+        "Rotation": [
+          0,
+          1.7951958020513104,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.45,
+          0.48,
+          0.55,
+          1.0
+        ],
+        "Roughness": 0.5,
+        "Metallic": 0.3
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 6797813858672871,
+      "Tag": "Kub",
+      "Transform": {
+        "Translation": [
+          4.588159150985404,
+          0.3,
+          -2.7756208956766395
+        ],
+        "Rotation": [
+          0,
+          2.6927937030769655,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.45,
+          0.48,
+          0.55,
+          1.0
+        ],
+        "Roughness": 0.5,
+        "Metallic": 0.3
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8992667738455766,
+      "Tag": "Kub",
+      "Transform": {
+        "Translation": [
+          4.588159150985404,
+          0.3,
+          -4.424379104323361
+        ],
+        "Rotation": [
+          0,
+          3.5903916041026207,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.45,
+          0.48,
+          0.55,
+          1.0
+        ],
+        "Roughness": 0.5,
+        "Metallic": 0.3
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 5703925220843561,
+      "Tag": "Kub",
+      "Transform": {
+        "Translation": [
+          5.877210225483002,
+          0.3,
+          -5.452363033145465
+        ],
+        "Rotation": [
+          0,
+          4.487989505128276,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.45,
+          0.48,
+          0.55,
+          1.0
+        ],
+        "Roughness": 0.5,
+        "Metallic": 0.3
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 5088437588582548,
+      "Tag": "Kub",
+      "Transform": {
+        "Translation": [
+          7.484630623531594,
+          0.3,
+          -5.085479816689257
+        ],
+        "Rotation": [
+          0,
+          5.385587406153931,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.45,
+          0.48,
+          0.55,
+          1.0
+        ],
+        "Roughness": 0.5,
+        "Metallic": 0.3
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 4507590653728264,
+      "Tag": "Lazer (Raycast3DAll)",
+      "Transform": {
+        "Translation": [
+          11.0,
+          1.3,
+          -7.2
+        ],
+        "Rotation": [
+          0,
+          1.5707963267948966,
+          0
+        ],
+        "Scale": [
+          0.25,
+          0.25,
+          0.25
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          1.0,
+          0.3,
+          0.3,
+          1.0
+        ],
+        "Roughness": 0.3,
+        "Metallic": 0.0,
+        "Emission": [
+          1.0,
+          0.2,
+          0.2
+        ],
+        "EmissionStrength": 1.5
+      },
+      "NativeScript": {
+        "Class": "LaserAll3D",
+        "Fields": {
+          "Range": {
+            "Type": "Float",
+            "Value": 13.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 8465664397188103,
+      "Tag": "Oyna",
+      "Transform": {
+        "Translation": [
+          8.6,
+          1.3,
+          -7.2
+        ],
+        "Rotation": [
+          0,
+          -0.20943951023931956,
+          0
+        ],
+        "Scale": [
+          0.08,
+          1.6,
+          1.4
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1.0
+        ],
+        "Roughness": 0.05,
+        "Metallic": 0.0,
+        "Material": "Materials/Glass.zmat"
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 5859044809129032,
+      "Tag": "Oyna",
+      "Transform": {
+        "Translation": [
+          6.6,
+          1.3,
+          -7.2
+        ],
+        "Rotation": [
+          0,
+          -0.06981317007977318,
+          0
+        ],
+        "Scale": [
+          0.08,
+          1.6,
+          1.4
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1.0
+        ],
+        "Roughness": 0.05,
+        "Metallic": 0.0,
+        "Material": "Materials/Glass.zmat"
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8541271288297860,
+      "Tag": "Oyna",
+      "Transform": {
+        "Translation": [
+          4.6,
+          1.3,
+          -7.2
+        ],
+        "Rotation": [
+          0,
+          0.06981317007977318,
+          0
+        ],
+        "Scale": [
+          0.08,
+          1.6,
+          1.4
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1.0
+        ],
+        "Roughness": 0.05,
+        "Metallic": 0.0,
+        "Material": "Materials/Glass.zmat"
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8745347002939342,
+      "Tag": "Oyna",
+      "Transform": {
+        "Translation": [
+          2.5999999999999996,
+          1.3,
+          -7.2
+        ],
+        "Rotation": [
+          0,
+          0.20943951023931956,
+          0
+        ],
+        "Scale": [
+          0.08,
+          1.6,
+          1.4
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1.0
+        ],
+        "Roughness": 0.05,
+        "Metallic": 0.0,
+        "Material": "Materials/Glass.zmat"
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    }
+  ]
+}

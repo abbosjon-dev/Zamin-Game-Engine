@@ -18350,6 +18350,57 @@ TEST(Raycast3DAllOrdering)
     scene->OnRuntimeStop();
 }
 
+TEST(Queries3DSampleScene)
+{
+    namespace fs = std::filesystem;
+    // The Showcase3D sample's Queries3D scene: balls in a half-pipe (a mesh collider), crates on a grate the
+    // ghost balls fall through (the project's layers), a sphere sweep, an overlap sphere, a laser through panes.
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D";
+    auto project = Project::Load(root / "Showcase3D.zproject");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    Project::SetActive(project);
+    ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
+    const CollisionLayers2D& layers = Project::GetCollisionLayers2D();
+    CHECK(layers.Find("Arvoh") == 1 && layers.Find("Panjara") == 2 && !layers.CanCollide(1, 2) && layers.CanCollide(0, 2));
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Queries3D.zscene"));
+    Entity pipe = scene->FindEntityByName("Yarim quvur"), laser = scene->FindEntityByName("Lazer (Raycast3DAll)");
+    std::vector<Entity> balls = scene->FindEntitiesByName("Quvur shari"), crates = scene->FindEntitiesByName("Quti");
+    std::vector<Entity> ghosts = scene->FindEntitiesByName("Arvoh shar");
+    CHECK(pipe && laser && balls.size() == 5 && crates.size() == 4 && ghosts.size() == 4);
+    if (!(pipe && laser && balls.size() == 5 && crates.size() == 4 && ghosts.size() == 4))
+        return;
+    std::string error;
+    Ref<const CollisionMesh3D> mesh = Scene::GetMeshCollider(pipe, &error);
+    CHECK(mesh && mesh->GetTriangleCount() > 100);
+    // Headless: without a primary camera nothing is drawn.
+    scene->DestroyEntity(scene->FindEntityByName("Main Camera"));
+    scene->OnRuntimeStart();
+    CHECK(pipe.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff);
+    RunFrames(scene, 240);
+    // The balls stay in the trough (its walls are 2.4 high, from x -10 to -4), below its rim.
+    for (Entity ball : balls)
+        CHECK(Pos3D(ball).x > -10.0f && Pos3D(ball).x < -4.0f && Pos3D(ball).y > 0.2f && Pos3D(ball).y < 2.4f && std::abs(Pos3D(ball).z) < 3.0f);
+    // Crates lie on the grate (its top at 2.46), ghosts went through it onto the ground.
+    for (Entity crate : crates)
+        CHECK(Pos3D(crate).y > 2.5f && Pos3D(crate).y < 3.2f);
+    for (Entity ghost : ghosts)
+        CHECK(Pos3D(ghost).y > 0.0f && Pos3D(ghost).y < 0.5f);
+    // The laser's ray goes through the four glass panes, nearest first.
+    std::vector<RaycastHit> hits = scene->Raycast3DAll(Pos3D(laser), laser.GetTransform().GetForward(), 13.0f);
+    CHECK(hits.size() == 4);
+    for (const RaycastHit& hit : hits)
+        CHECK(scene->GetEntityByUUID(hit.EntityID).GetName() == "Oyna");
+    for (size_t i = 1; i < hits.size(); i++)
+        CHECK(hits[i - 1].Distance < hits[i].Distance);
+    // A sphere over the grate finds the crates, not the ghosts below it.
+    for (Entity e : scene->OverlapSphere3D({ 0.0f, 3.0f, 0.0f }, 2.5f))
+        CHECK(e.GetName() == "Quti" || e.GetName() == "Panjara");
+    scene->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

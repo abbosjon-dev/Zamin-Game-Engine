@@ -42,6 +42,7 @@
 #include <map>
 #include <mutex>
 #include <thread>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -219,18 +220,30 @@ namespace Zamin {
             if (auto it = cache.Entries.find(mesh.get()); it != cache.Entries.end() && it->second.Mesh.lock() == mesh)
                 return it->second.Shape;
             cache.Prune();
+            // Corners welded by position (a model has a vertex per face corner at its normal / UV
+            // seams): Jolt finds the edges between neighbouring triangles by their shared vertices and
+            // leaves the flat ones inactive - a ball rolls over the seams instead of bumping on them.
             JPH::VertexList vertices;
-            vertices.reserve(mesh->Positions.size());
-            for (const glm::vec3& p : mesh->Positions)
-                vertices.push_back(JPH::Float3(p.x, p.y, p.z));
+            std::vector<uint32_t> welded(mesh->Positions.size());
+            {
+                std::map<std::tuple<float, float, float>, uint32_t> corners;
+                for (size_t i = 0; i < mesh->Positions.size(); i++)
+                {
+                    const glm::vec3& p = mesh->Positions[i];
+                    auto [it, added] = corners.try_emplace({ p.x, p.y, p.z }, (uint32_t)vertices.size());
+                    if (added)
+                        vertices.push_back(JPH::Float3(p.x, p.y, p.z));
+                    welded[i] = it->second;
+                }
+            }
             JPH::IndexedTriangleList triangles;
             triangles.reserve(mesh->GetTriangleCount());
-            const uint32_t count = (uint32_t)vertices.size();
+            const uint32_t count = (uint32_t)welded.size();
             for (size_t i = 0; i + 2 < mesh->Indices.size(); i += 3)
             {
                 const uint32_t a = mesh->Indices[i], b = mesh->Indices[i + 1], c = mesh->Indices[i + 2];
                 if (a < count && b < count && c < count)
-                    triangles.push_back(JPH::IndexedTriangle(a, b, c, 0));
+                    triangles.push_back(JPH::IndexedTriangle(welded[a], welded[b], welded[c], 0));
             }
             // Removes the degenerate / duplicate triangles.
             JPH::MeshShapeSettings settings(std::move(vertices), std::move(triangles));

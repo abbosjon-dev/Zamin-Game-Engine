@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <format>
+#include <unordered_map>
 
 using namespace Zamin;
 
@@ -337,3 +338,135 @@ private:
 };
 ZM_REGISTER_SCRIPT(PatrolWalker, ZM_FIELD(PatrolWalker, Speed), ZM_FIELD(PatrolWalker, Width), ZM_FIELD(PatrolWalker, Depth),
                    ZM_FIELD(PatrolWalker, ShowRoute))
+
+// ---- Queries3D sahnasi: 3D fizika so'rovlari. "Raycastlar" debug chizish yoqiq bo'lsa dvigatel har
+// so'rovni o'zi chizadi (shakl, yo'l, tegish nuqtalari, normallar); aks holda skriptlar natijani o'zlari
+// ko'rsatadi.
+
+// Obyekt ustida doim ko'rinadigan yozuv.
+class Label3D : public ScriptableEntity
+{
+public:
+    std::string Text = "Yozuv";
+    glm::vec3 Offset{ 0.0f, 1.0f, 0.0f };
+    glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };
+    void OnUpdate(Timestep) override { DebugDraw::Text(GetWorldPosition() + Offset, Text, Color); }
+};
+ZM_REGISTER_SCRIPT(Label3D, ZM_FIELD(Label3D, Text), ZM_FIELD(Label3D, Offset), ZM_FIELD_COLOR(Label3D, Color))
+
+// "Qalin nur": SphereCast3DAll yo'lidagi hamma obyektlarni tartib bilan topadi va u yoq-bu yoqqa buriladi.
+// Arvoh qatlamidagi obyektlar niqobdan chiqarilgan (LayerMask).
+class SphereSweep3D : public ScriptableEntity
+{
+public:
+    float Radius = 0.35f;
+    float Range = 11.0f;
+    float Spread = 0.55f;    // radian: har tomonga qancha buriladi
+    float SweepSpeed = 0.5f;
+    bool SkipGhosts = true;  // "Arvoh" qatlamini hisobga olmaydi
+
+    void OnUpdate(Timestep) override
+    {
+        const glm::vec3 origin = GetWorldPosition();
+        const float a = std::sin(GetTime() * SweepSpeed) * Spread;
+        const glm::vec3 dir(-std::cos(a), 0.0f, std::sin(a));
+        const uint16_t mask = SkipGhosts ? (uint16_t)~LayerMask({ "Arvoh" }) : (uint16_t)0xFFFF;
+        const std::vector<RaycastHit> hits = SphereCast3DAll(origin, Radius, dir, Range, mask);
+        if (!DebugDraw::IsShowingRaycasts())
+        {
+            const float stop = hits.empty() ? Range : hits.front().Distance;
+            DebugDraw::Line(origin, origin + dir * stop, hits.empty() ? DebugColor::Red : DebugColor::Green, 0.0f, false);
+            DebugDraw::WireSphere(origin + dir * stop, Radius, hits.empty() ? DebugColor::Red : DebugColor::Green, 0.0f, false);
+            for (size_t i = 0; i < hits.size(); i++)
+            {
+                DebugDraw::Point(hits[i].Point, DebugColor::Yellow, 0.0f, false);
+                DebugDraw::Text(hits[i].Point + glm::vec3(0.0f, 0.3f, 0.0f), std::to_string(i + 1), DebugColor::Yellow);
+            }
+        }
+        DebugDraw::Text(origin + glm::vec3(0.0f, 0.9f, 0.0f), std::format("SphereCast3DAll: {} ta", hits.size()), DebugColor::Cyan);
+    }
+};
+ZM_REGISTER_SCRIPT(SphereSweep3D, ZM_FIELD(SphereSweep3D, Radius), ZM_FIELD(SphereSweep3D, Range), ZM_FIELD(SphereSweep3D, Spread),
+                   ZM_FIELD(SphereSweep3D, SweepSpeed), ZM_FIELD(SphereSweep3D, SkipGhosts))
+
+// Aylanib yuradigan OverlapSphere3D: ichiga tushgan obyektlar yorishadi (emissiya), chiqqanda asl holiga qaytadi.
+class OverlapGlow3D : public ScriptableEntity
+{
+public:
+    float Radius = 1.4f;
+    float OrbitRadius = 1.8f;
+    float Speed = 0.6f;
+    glm::vec4 Glow{ 1.0f, 0.7f, 0.15f, 1.0f };
+    float GlowStrength = 2.5f;
+
+    void OnCreate() override { m_Center = Transform().Translation; }
+
+    void OnUpdate(Timestep) override
+    {
+        const float a = GetTime() * Speed;
+        Transform().Translation = m_Center + glm::vec3(std::cos(a) * OrbitRadius, 0.0f, std::sin(a) * OrbitRadius);
+        const glm::vec3 center = GetWorldPosition();
+        const std::vector<Entity> found = OverlapSphere3D(center, Radius);
+        std::unordered_map<uint64_t, Saved> still;
+        for (Entity e : found)
+        {
+            auto* mr = e.TryGetComponent<MeshRendererComponent>();
+            if (!mr || e == GetEntity())
+                continue;
+            const uint64_t id = (uint64_t)e.GetUUID();
+            auto it = m_Lit.find(id);
+            Saved saved = it != m_Lit.end() ? it->second : Saved{ mr->Mat.Emission, mr->Mat.EmissionStrength };
+            mr->Mat.Emission = glm::vec3(Glow);
+            mr->Mat.EmissionStrength = GlowStrength;
+            still[id] = saved;
+        }
+        // The ones that left the sphere get their own light back.
+        for (const auto& [id, saved] : m_Lit)
+            if (!still.contains(id))
+                if (Entity e = GetScene().GetEntityByUUID(id))
+                    if (auto* mr = e.TryGetComponent<MeshRendererComponent>())
+                    {
+                        mr->Mat.Emission = saved.Emission;
+                        mr->Mat.EmissionStrength = saved.Strength;
+                    }
+        m_Lit = std::move(still);
+        if (!DebugDraw::IsShowingRaycasts())
+            DebugDraw::WireSphere(center, Radius, found.empty() ? DebugColor::Red : DebugColor::Green, 0.0f, false);
+        DebugDraw::Text(center + glm::vec3(0.0f, Radius + 0.3f, 0.0f), std::format("OverlapSphere3D: {} ta", found.size()), DebugColor::Cyan);
+    }
+
+private:
+    struct Saved
+    {
+        glm::vec3 Emission{ 0.0f };
+        float Strength = 0.0f;
+    };
+    glm::vec3 m_Center{ 0.0f };
+    std::unordered_map<uint64_t, Saved> m_Lit;
+};
+ZM_REGISTER_SCRIPT(OverlapGlow3D, ZM_FIELD(OverlapGlow3D, Radius), ZM_FIELD(OverlapGlow3D, OrbitRadius), ZM_FIELD(OverlapGlow3D, Speed),
+                   ZM_FIELD_COLOR(OverlapGlow3D, Glow), ZM_FIELD(OverlapGlow3D, GlowStrength))
+
+// Lazer: Raycast3DAll nur yo'lidagi hamma oynalarni yaqinidan boshlab topadi (har biri bir marta).
+class LaserAll3D : public ScriptableEntity
+{
+public:
+    float Range = 12.0f;
+    void OnUpdate(Timestep) override
+    {
+        const glm::vec3 origin = GetWorldPosition();
+        const glm::vec3 dir = Transform().GetForward();
+        const std::vector<RaycastHit> hits = Raycast3DAll(origin, dir, Range);
+        if (!DebugDraw::IsShowingRaycasts())
+        {
+            DebugDraw::Line(origin, origin + dir * Range, DebugColor::Red, 0.0f, false);
+            for (size_t i = 0; i < hits.size(); i++)
+            {
+                DebugDraw::Point(hits[i].Point, DebugColor::Yellow, 0.0f, false);
+                DebugDraw::Text(hits[i].Point + glm::vec3(0.0f, 0.35f, 0.0f), std::to_string(i + 1), DebugColor::Yellow);
+            }
+        }
+        DebugDraw::Text(origin + glm::vec3(0.0f, 0.7f, 0.0f), std::format("Raycast3DAll: {} ta", hits.size()), DebugColor::Cyan);
+    }
+};
+ZM_REGISTER_SCRIPT(LaserAll3D, ZM_FIELD(LaserAll3D, Range))

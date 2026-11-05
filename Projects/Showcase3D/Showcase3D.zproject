@@ -7,5 +7,43 @@
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libShowcase3D.so",
         "EngineVersion": "0.1.0"
+    },
+    "CollisionLayers2D": {
+        "Names": [
+            "Default",
+            "Arvoh",
+            "Panjara",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+        ],
+        "Collisions": [
+            65535,
+            65531,
+            65533,
+            65535,
+            65535,
+            65535,
+            65535,
+            65535,
+            65535,
+            65535,
+            65535,
+            65535,
+            65535,
+            65535,
+            65535,
+            65535
+        ]
     }
 }

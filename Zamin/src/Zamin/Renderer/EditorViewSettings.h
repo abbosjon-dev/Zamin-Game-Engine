@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Project/AssetFiles.h"
 
 #include <glm/glm.hpp>
@@ -114,13 +115,15 @@ namespace Zamin {
         void Sanitize();
     };
 
-    // Per-user viewport preferences of the editor: snapping, grid, the camera bookmarks of
-    // every scene (keyed by the scene file path), the inspector's open / collapsed component
-    // headers and the content browser's view. Stored as JSON in the editor config directory.
+    // Per-user viewport preferences of the editor: snapping, grid, debug drawing, the camera
+    // bookmarks of every scene (keyed by the scene file path), the inspector's open / collapsed
+    // component headers and the content browser's view. Stored as JSON in the editor config directory.
     struct EditorViewSettings
     {
         SnapSettings Snap;
         GridSettings Grid;
+        // What the viewport shows of DebugDraw (scripts' shapes, physics raycasts / contacts).
+        DebugDrawSettings DebugDraw;
         std::map<std::string, CameraBookmarks> Bookmarks;
         InspectorFoldState Inspector;
         ContentBrowserSettings ContentBrowser;

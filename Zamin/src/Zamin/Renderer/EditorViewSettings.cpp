@@ -211,6 +211,17 @@ namespace Zamin {
             { "ShowAxes", Grid.ShowAxes },
             { "FadeDistance", Num(Grid.FadeDistance) },
         };
+        j["DebugDraw"] = {
+            { "Enabled", DebugDraw.Enabled },
+            { "Raycasts", DebugDraw.ShowRaycasts },
+            { "RaycastDuration", Num(DebugDraw.RaycastDuration) },
+            { "Contacts", DebugDraw.ShowContacts },
+            { "NormalLength", Num(DebugDraw.NormalLength) },
+            { "LineWidth", Num(DebugDraw.LineWidth) },
+            { "PointSize", Num(DebugDraw.PointSize) },
+            { "TextSize", Num(DebugDraw.TextSize) },
+            { "OccludedOpacity", Num(DebugDraw.OccludedOpacity) },
+        };
         json scenes = json::object();
         for (const auto& [scene, bookmarks] : Bookmarks)
         {
@@ -272,6 +283,19 @@ namespace Zamin {
             Read(*it, "ShowAxes", Grid.ShowAxes);
             Read(*it, "FadeDistance", Grid.FadeDistance);
             Grid.Sanitize();
+        }
+        if (auto it = j.find("DebugDraw"); it != j.end() && it->is_object())
+        {
+            Read(*it, "Enabled", DebugDraw.Enabled);
+            Read(*it, "Raycasts", DebugDraw.ShowRaycasts);
+            Read(*it, "RaycastDuration", DebugDraw.RaycastDuration);
+            Read(*it, "Contacts", DebugDraw.ShowContacts);
+            Read(*it, "NormalLength", DebugDraw.NormalLength);
+            Read(*it, "LineWidth", DebugDraw.LineWidth);
+            Read(*it, "PointSize", DebugDraw.PointSize);
+            Read(*it, "TextSize", DebugDraw.TextSize);
+            Read(*it, "OccludedOpacity", DebugDraw.OccludedOpacity);
+            DebugDraw.Sanitize();
         }
         if (auto it = j.find("CameraBookmarks"); it != j.end() && it->is_object())
         {

@@ -170,6 +170,15 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - **3D fizika** (Jolt Physics): Rigidbody3D, Box/Sphere/Capsule collider, trigger'lar, to'qnashuvlar
 - **Character Controller 3D** (Jolt CharacterVirtual): qiyaliklar, zinapoyalar, yerni aniqlash, sakrash, harakatlanuvchi platformalarda yurish
 - **Raycast** 2D va 3D
+- **Debug chizish** (`DebugDraw`, `Zamin/Debug/DebugDraw.h`): skriptlardan va dvigateldan dunyo fazosida chiziq, nur, o'q,
+  quti (AABB va burilgan), sfera, aylana, krest, nuqta, o'qlar, yo'l (path) va ekranga qaragan matn - rang, davomiylik
+  (0 = bir kadr, > 0 = o'yin vaqtida soniyalar; pauzada to'xtaydi) va chuqurlik testi bilan. Sahna chizilgandan keyin
+  post-processingdan o'tgan tasvir ustiga (aniq ranglar, silliq qalin chiziqlar) sahna chuqurligiga qarab chiziladi.
+  Fizika ko'rinishlari: **raycast so'rovlari** (nur, tegish nuqtasi, normal; tegmasa qizil) va **kontakt nuqtalari**
+  (2D, 3D, personajlar; normallari bilan). Editor'da viewport toolbar'idagi hasharot (bug) tugmasi va uning menyusi, player'da
+  loyiha sozlamalari (Umumiy > Debug chizish) va `--no-debug-draw` / `--debug-raycasts` / `--debug-contacts` bayroqlari.
+  Shipping build'da (`-DZAMIN_SHIPPING=ON`; yoki `-DZAMIN_DEBUG_DRAW=OFF`) barcha chaqiruvlar bo'sh inline funksiyalar -
+  skriptlarda qoldirsa bo'ladi. Namuna: `Projects/Showcase3D` > `Scenes/DebugDraw.zscene`
 - **Tilemap**: tileset'dan plitkali darajalar, editor'da chizish (palitra), avtomatik birlashtirilgan collider'lar
 - **3D (spatial) ovoz**: tinglovchi — asosiy kamera, masofaga qarab so'nish
 - **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, 9 ta langar (anchor), `OnClick()`
@@ -222,6 +231,7 @@ Boshqa barcha kutubxonalar (GLFW, GLM, EnTT, ImGui, ImGuizmo, Box2D, Jolt, nlohm
 ./build/bin/ZaminEditor Projects/Showcase3D      # namuna 3D sahna
 ./build/bin/ZaminEditor Projects/Adventure3D     # uchinchi shaxs 3D o'yin
 ./build/bin/ZaminPlayer Projects/Platformer2D    # o'yinni editor'siz ishga tushirish
+./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/DebugDraw.zscene --debug-raycasts --debug-contacts
 ctest --test-dir build                           # unit testlar
 Tests/render_tests.sh                            # rendering regressiya testi (display kerak; yo'q bo'lsa xvfb-run)
 ```
@@ -345,6 +355,7 @@ Foydali API:
 | Tween | `Tween(davomiylik, [](float t){...}, Ease::OutBack, onComplete)`, `TweenPosition(target, sek, ease, onComplete)`, `TweenScale(...)`, `CancelTweens()`, `ApplyEase(ease, t)` |
 | Havolalar | `EntityRef Target;` maydoni + `Resolve(Target)` → `Entity` |
 | Audio manba | `PlayAudio()` (obyektning `AudioSourceComponent`'ini boshidan chaladi; obyekt nofaol bo'lsa `false`), `StopAudio()`, `IsAudioPlaying()`; `GetScene().PlayAudio(entity)` |
+| Debug chizish | `DebugDraw::Line(a, b, DebugColor::Red)`, `Ray(o, dir)`, `Arrow(a, b)`, `Box(center, half)` / `Box(center, half, quat)` / `Box(worldTransform)`, `Bounds(aabb)`, `Rect(c, size)`, `WireSphere(c, r)`, `Circle(c, normal, r)`, `Cross(p, size)`, `Point(p)`, `Axes(transform)`, `Path(points)`, `Text(p, "matn")` — oxirgi parametrlar: rang, `duration` (soniya, 0 = bir kadr), `depthTest` |
 | Boshqa | `LoadScene("Scenes/Level2.zscene")`, `EmitParticles(n)`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
 
 `ZM_FIELD` turlari: `float`, `int`, `bool`, `glm::vec2`, `glm::vec3`, `glm::vec4`, `std::string`, istalgan `enum` / `enum class` (har qanday asosiy tur: `uint8_t` ... `int64_t`), `EntityRef` (boshqa obyektga havola: inspektorda ierarxiyadan tortib tashlanadi yoki ro'yxatdan tanlanadi; nusxalash/prefab'da ichki havolalar yangi nusxaga moslashadi).

@@ -40,6 +40,7 @@
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Scene/EntitySelection.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
+#include "Zamin/Debug/DebugDraw.h"
 
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/Scripting/ScriptEngine.h"

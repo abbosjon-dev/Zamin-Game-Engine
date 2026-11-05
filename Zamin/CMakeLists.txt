@@ -7,6 +7,7 @@ file(GLOB_RECURSE ZAMIN_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Scripting/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Physics/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Audio/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Debug/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Project/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Asset/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/ImGui/*.cpp
@@ -50,6 +51,18 @@ target_include_directories(Zamin PUBLIC
 
 target_compile_definitions(Zamin PUBLIC GLM_FORCE_RADIANS GLM_ENABLE_EXPERIMENTAL IMGUI_DEFINE_MATH_OPERATORS)
 
+# Debug drawing (Zamin/Debug/DebugDraw.h): on in the editor and Development builds, compiled out
+# (empty inline calls) in Shipping builds. The game modules get the same setting.
+set(ZAMIN_BUILD_DEFINITIONS "")
+if(ZAMIN_SHIPPING)
+    list(APPEND ZAMIN_BUILD_DEFINITIONS ZAMIN_SHIPPING ZM_DEBUG_DRAW=0)
+elseif(ZAMIN_DEBUG_DRAW)
+    list(APPEND ZAMIN_BUILD_DEFINITIONS ZM_DEBUG_DRAW=1)
+else()
+    list(APPEND ZAMIN_BUILD_DEFINITIONS ZM_DEBUG_DRAW=0)
+endif()
+target_compile_definitions(Zamin PUBLIC ${ZAMIN_BUILD_DEFINITIONS})
+
 # Header-only libraries exposed through the public API.
 target_link_libraries(Zamin PUBLIC glm::glm EnTT::EnTT)
 # Implementation details (compiled into libZamin.so).
@@ -84,7 +97,7 @@ if(NOT TARGET Zamin::Zamin)
         IMPORTED_LOCATION \"$<TARGET_FILE:Zamin>\"
         IMPORTED_SONAME \"$<TARGET_FILE_NAME:Zamin>\"
         INTERFACE_INCLUDE_DIRECTORIES \"${ZAMIN_EXPORT_INCLUDES}\"
-        INTERFACE_COMPILE_DEFINITIONS \"GLM_FORCE_RADIANS;GLM_ENABLE_EXPERIMENTAL;IMGUI_DEFINE_MATH_OPERATORS\")
+        INTERFACE_COMPILE_DEFINITIONS \"GLM_FORCE_RADIANS;GLM_ENABLE_EXPERIMENTAL;IMGUI_DEFINE_MATH_OPERATORS;${ZAMIN_BUILD_DEFINITIONS}\")
 endif()
 set(ZAMIN_BIN_DIR \"${CMAKE_BINARY_DIR}/bin\")
 include(\"${PROJECT_SOURCE_DIR}/cmake/ZaminGame.cmake\")

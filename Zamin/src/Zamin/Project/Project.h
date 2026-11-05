@@ -3,6 +3,7 @@
 #include "Zamin/Asset/AssetTypes.h"
 #include "Zamin/Core/Base.h"
 #include "Zamin/Core/InputActions.h"
+#include "Zamin/Debug/DebugDraw.h"
 
 #include <filesystem>
 #include <string>
@@ -28,6 +29,10 @@ namespace Zamin {
         // Gameplay tags offered in the inspector (Project settings > Tags). Entities may
         // still use tags that are not in this list.
         std::vector<std::string> Tags = DefaultTags();
+        // Debug drawing in the player (Project settings > General): whether scripts' DebugDraw
+        // shapes are shown (the player's --no-debug-draw turns it off) and the physics debug views.
+        // Shipping builds have no debug drawing at all. The editor viewport has its own toggles.
+        DebugDrawSettings DebugDraw;
 
         static std::vector<std::string> DefaultTags() { return { "Player", "Enemy", "Pickup" }; }
     };

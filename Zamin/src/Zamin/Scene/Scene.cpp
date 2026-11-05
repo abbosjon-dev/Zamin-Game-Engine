@@ -18,6 +18,7 @@
 #include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/SaveData.h"
+#include "Zamin/Debug/DebugDraw.h"
 
 #include <box2d/b2_body.h>
 #include <box2d/b2_circle_shape.h>
@@ -1483,6 +1484,7 @@ namespace Zamin {
     {
         m_IsRunning = true;
         m_Time = 0.0f;
+        DebugDraw::Clear(); // the game starts with an empty debug drawing queue
         // Inactive entities start without bodies and without OnEnable.
         EnsureActiveCache();
         m_AppliedInactive = m_InactiveOrder;
@@ -1509,10 +1511,12 @@ namespace Zamin {
         m_AppliedInactive.clear();
         AudioEngine::StopAll();
         SaveData::Save(); // flush what the scripts stored (no-op when nothing changed)
+        DebugDraw::Clear(); // nothing the game drew stays in the editor's view
     }
 
     void Scene::OnSimulationStart()
     {
+        DebugDraw::Clear();
         EnsureActiveCache();
         m_AppliedInactive = m_InactiveOrder;
         OnPhysics2DStart();
@@ -1524,6 +1528,7 @@ namespace Zamin {
         OnPhysics2DStop();
         OnPhysics3DStop();
         m_AppliedInactive.clear();
+        DebugDraw::Clear();
     }
 
     void Scene::CreateScriptInstance(Entity entity)
@@ -2189,6 +2194,9 @@ namespace Zamin {
         if (!m_PhysicsWorld && !m_PhysicsWorld3D) return;
         ZM_PROFILE_SCOPE("Fizika");
         constexpr float fixedStep = 1.0f / 60.0f;
+        const bool debugContacts = DebugDraw::IsShowingContacts();
+        if (m_PhysicsWorld3D)
+            m_PhysicsWorld3D->SetDebugContactsEnabled(debugContacts);
 
         // Kinematic/static bodies follow their transforms (lets scripts move them directly).
         if (m_PhysicsWorld)
@@ -2297,6 +2305,46 @@ namespace Zamin {
             events.insert(events.end(), e3.begin(), e3.end());
         }
         DispatchContactEvents(events);
+
+        if (debugContacts)
+            DrawPhysicsContacts();
+    }
+
+    void Scene::DrawPhysicsContacts()
+    {
+        // Every frame (also one without a physics step): the contacts as they are now.
+        if (m_PhysicsWorld)
+        {
+            for (b2Contact* contact = m_PhysicsWorld->GetContactList(); contact; contact = contact->GetNext())
+            {
+                if (!contact->IsTouching() || !contact->IsEnabled() || contact->GetFixtureA()->IsSensor() || contact->GetFixtureB()->IsSensor())
+                    continue;
+                const int count = contact->GetManifold()->pointCount;
+                if (count <= 0)
+                    continue;
+                b2WorldManifold manifold;
+                contact->GetWorldManifold(&manifold);
+                // The 2D world is flat: the points get the depth of the first body's entity.
+                float z = 0.0f;
+                if (auto it = m_EntityMap.find(UUID((uint64_t)contact->GetFixtureA()->GetUserData().pointer));
+                    it != m_EntityMap.end() && m_Registry.valid(it->second))
+                    z = GetWorldPosition({ it->second, this }).z;
+                // Box2D's normal points from A to B: turned so that it leaves a static / kinematic
+                // body (the ground's normal under the player), as the 3D world's.
+                glm::vec3 normal(manifold.normal.x, manifold.normal.y, 0.0f);
+                if (contact->GetFixtureA()->GetBody()->GetType() == b2_dynamicBody && contact->GetFixtureB()->GetBody()->GetType() != b2_dynamicBody)
+                    normal = -normal;
+                for (int i = 0; i < count && i < b2_maxManifoldPoints; i++)
+                    DebugDraw::PhysicsContact({ manifold.points[i].x, manifold.points[i].y, z }, normal);
+            }
+        }
+        if (m_PhysicsWorld3D)
+        {
+            std::vector<PhysicsContactPoint> points;
+            m_PhysicsWorld3D->GetDebugContacts(points);
+            for (const PhysicsContactPoint& p : points)
+                DebugDraw::PhysicsContact(p.Position, p.Normal);
+        }
     }
 
     void Scene::StepCharacters(float dt)
@@ -2362,13 +2410,16 @@ namespace Zamin {
         cb.MaxDistance = maxDistance;
         b2Vec2 p1(origin.x, origin.y), p2(origin.x + dir.x * maxDistance, origin.y + dir.y * maxDistance);
         m_PhysicsWorld->RayCast(&cb, p1, p2);
+        DebugDraw::PhysicsRaycast(glm::vec3(origin, 0.0f), glm::vec3(dir, 0.0f), maxDistance, hit);
         return hit;
     }
 
     RaycastHit Scene::Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance)
     {
         if (!m_PhysicsWorld3D) return {};
-        return m_PhysicsWorld3D->CastRay(origin, direction, maxDistance);
+        RaycastHit hit = m_PhysicsWorld3D->CastRay(origin, direction, maxDistance);
+        DebugDraw::PhysicsRaycast(origin, direction, maxDistance, hit);
+        return hit;
     }
 
     // ------------------------------------------------------------------ update
@@ -2380,6 +2431,8 @@ namespace Zamin {
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
             m_Time += ts;
+            // Game time goes on: last frame's one-frame debug shapes go (paused: they stay).
+            DebugDraw::Advance(ts);
 
             std::vector<entt::entity> scripted;
             auto collectScripted = [&]() {
@@ -2461,6 +2514,7 @@ namespace Zamin {
         m_FrameIndex++;
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
+            DebugDraw::Advance(ts);
             ApplyActiveChanges(); // flags changed in the inspector while simulating
             StepPhysics(ts);
             UpdateParticles(ts, false);
@@ -2472,6 +2526,7 @@ namespace Zamin {
     void Scene::OnUpdateEditor(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options)
     {
         m_FrameIndex++;
+        DebugDraw::Advance(ts); // the edit scene's time is the editor's
         UpdateParticles(ts, true);
         UpdateAnimators(ts, true);
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
@@ -3170,6 +3225,7 @@ namespace Zamin {
 
         ZM_PROFILE_SCOPE("Render");
         m_LastProjection = projection;
+        m_LastView = view;
         Renderer3D::BeginScene(view, projection, cameraPosition, env);
         for (auto e : m_Registry.view<TransformComponent, MeshRendererComponent>())
         {

@@ -1,5 +1,6 @@
 // Zamin Player: runs an exported / development game project fullscreen-ready.
 //   ZaminPlayer [path/to/Game.zproject] [--scene Scenes/Level.zscene] [--fullscreen] [--width W --height H]
+//               [--no-debug-draw] [--debug-raycasts] [--debug-contacts]
 #include <Zamin/Zamin.h>
 #include <Zamin/Core/EntryPoint.h>
 
@@ -12,8 +13,14 @@ namespace Zamin {
     class RuntimeLayer : public Layer
     {
     public:
-        RuntimeLayer(std::filesystem::path project, std::string scene)
-            : Layer("RuntimeLayer"), m_ProjectPath(std::move(project)), m_SceneOverride(std::move(scene)) {}
+        // Command line overrides of the project's debug drawing settings.
+        struct DebugDrawFlags
+        {
+            bool Disable = false, Raycasts = false, Contacts = false;
+        };
+
+        RuntimeLayer(std::filesystem::path project, std::string scene, DebugDrawFlags debugDraw)
+            : Layer("RuntimeLayer"), m_ProjectPath(std::move(project)), m_SceneOverride(std::move(scene)), m_DebugDrawFlags(debugDraw) {}
 
         void OnAttach() override
         {
@@ -25,6 +32,13 @@ namespace Zamin {
             }
             auto& config = Project::GetActive()->GetConfig();
             Application::Get().GetWindow().SetTitle(config.Name);
+
+            // Debug drawing: the project's settings, then the command line (Shipping: compiled out).
+            DebugDrawSettings& debugDraw = DebugDraw::GetSettings();
+            debugDraw = config.DebugDraw;
+            if (m_DebugDrawFlags.Disable) debugDraw.Enabled = false;
+            if (m_DebugDrawFlags.Raycasts) debugDraw.ShowRaycasts = true;
+            if (m_DebugDrawFlags.Contacts) debugDraw.ShowContacts = true;
 
             if (auto module = Project::GetScriptModulePath(); !module.empty())
                 ScriptEngine::LoadModule(module);
@@ -110,6 +124,20 @@ namespace Zamin {
                 input.DeltaTime = ts;
                 input.History = &m_PostHistory;
                 PostProcessor::Apply(input, post, nullptr);
+
+                // Debug drawing over the finished picture, depth tested against the scene.
+                if (m_Scene->GetPrimaryCameraEntity())
+                {
+                    DebugDrawView view;
+                    view.View = m_Scene->GetLastView();
+                    view.Projection = m_Scene->GetLastProjection();
+                    view.Width = w;
+                    view.Height = h;
+                    view.DepthTexture = m_Target->GetDepthAttachmentRendererID();
+                    view.DepthWidth = m_Target->GetSpecification().Width;
+                    view.DepthHeight = m_Target->GetSpecification().Height;
+                    DebugDraw::Render(view);
+                }
             }
 
             if (!m_Scene->GetPendingSceneLoad().empty())
@@ -144,6 +172,7 @@ namespace Zamin {
     private:
         std::filesystem::path m_ProjectPath;
         std::string m_SceneOverride;
+        DebugDrawFlags m_DebugDrawFlags;
         Ref<Scene> m_Scene;
         Ref<Framebuffer> m_Target;
         PostProcessHistory m_PostHistory; // auto exposure: the screen's adapted brightness
@@ -152,10 +181,10 @@ namespace Zamin {
     class ZaminPlayer : public Application
     {
     public:
-        ZaminPlayer(const ApplicationSpecification& spec, std::filesystem::path project, std::string scene)
+        ZaminPlayer(const ApplicationSpecification& spec, std::filesystem::path project, std::string scene, RuntimeLayer::DebugDrawFlags debugDraw)
             : Application(spec)
         {
-            PushLayer(new RuntimeLayer(std::move(project), std::move(scene)));
+            PushLayer(new RuntimeLayer(std::move(project), std::move(scene), debugDraw));
         }
     };
 
@@ -192,6 +221,7 @@ namespace Zamin {
 
         const char* projectArg = nullptr;
         std::string scene;
+        RuntimeLayer::DebugDrawFlags debugDraw;
         for (int i = 1; i < args.Count; i++)
         {
             if (!std::strcmp(args[i], "--fullscreen")) spec.Window.Fullscreen = true;
@@ -199,6 +229,9 @@ namespace Zamin {
             else if (!std::strcmp(args[i], "--width") && i + 1 < args.Count) spec.Window.Width = (uint32_t)std::atoi(args[++i]);
             else if (!std::strcmp(args[i], "--height") && i + 1 < args.Count) spec.Window.Height = (uint32_t)std::atoi(args[++i]);
             else if (!std::strcmp(args[i], "--no-vsync")) spec.Window.VSync = false;
+            else if (!std::strcmp(args[i], "--no-debug-draw")) debugDraw.Disable = true;
+            else if (!std::strcmp(args[i], "--debug-raycasts")) debugDraw.Raycasts = true;
+            else if (!std::strcmp(args[i], "--debug-contacts")) debugDraw.Contacts = true;
             else projectArg = args[i];
         }
 
@@ -208,7 +241,7 @@ namespace Zamin {
             ZM_CRITICAL("Loyiha topilmadi. Foydalanish: ZaminPlayer <Game.zproject>");
             std::exit(1);
         }
-        return new ZaminPlayer(spec, project, scene);
+        return new ZaminPlayer(spec, project, scene, debugDraw);
     }
 
 }

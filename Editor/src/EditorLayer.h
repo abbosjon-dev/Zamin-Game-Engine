@@ -161,6 +161,9 @@ namespace Zamin {
         void UI_GridSettingsPopup();
         void UI_CameraBookmarksPopup();
         void UI_ViewModePopup();
+        // Debug drawing: the toolbar's popup and the view menu share the settings' widgets.
+        void UI_DebugDrawPopup();
+        bool UI_DebugDrawSettings();
         void UI_ViewMenu();
         void UI_ViewportMessage();
         void UI_MaximizedGame();
@@ -177,6 +180,8 @@ namespace Zamin {
         void UI_BuildDefaultLayout(unsigned int dockspaceID);
 
         void OnOverlayRender();
+        // DebugDraw's queue into the final viewport picture (depth tested against the scene).
+        void RenderDebugDraw();
         // Picks for m_PendingClickThrough (an extra ID pass into the viewport framebuffer).
         void ResolveClickThrough();
         void UpdateTilePainting();
@@ -268,6 +273,7 @@ namespace Zamin {
         WireframeMode m_Wireframe = WireframeMode::Off;
         WireframeMode m_WireframeStyle = WireframeMode::Wire; // what the toolbar's toggle switches on
         bool m_OpenViewModeMenu = false;  // automation (ZAMIN_EDITOR_VIEW_MENU): the menu opens
+        bool m_OpenDebugDrawMenu = false; // automation (ZAMIN_EDITOR_DEBUG_DRAW=...,menu): the debug draw popup opens
         PostProcessHistory m_PostHistory; // the viewport's auto exposure (adapted brightness)
         bool m_2DMode = false;
         bool m_MaximizeOnPlay = false;

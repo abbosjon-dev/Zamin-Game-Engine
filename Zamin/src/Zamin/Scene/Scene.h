@@ -318,8 +318,10 @@ namespace Zamin {
         void SetViewportMouse(const glm::vec2& position, bool leftButtonDown) { m_MousePosition = position; m_MouseDown = leftButtonDown; }
         const glm::vec2& GetViewportMouse() const { return m_MousePosition; }
         glm::vec2 GetViewportSize() const { return { (float)m_ViewportWidth, (float)m_ViewportHeight }; }
-        // Projection used by the most recent render (post-processing needs it for SSAO).
+        // Projection and view matrix used by the most recent render (post-processing needs the
+        // projection for SSAO, debug drawing both).
         const glm::mat4& GetLastProjection() const { return m_LastProjection; }
+        const glm::mat4& GetLastView() const { return m_LastView; }
         // Unprojects a viewport pixel through the primary camera onto the plane z = depthZ.
         glm::vec3 ScreenToWorld(const glm::vec2& screen, float depthZ = 0.0f);
 
@@ -449,6 +451,8 @@ namespace Zamin {
         Entity DuplicateEntityRecursive(Entity entity, UUID newParent);
         Entity InstantiateCopy(Entity prefab, const glm::vec3* position);
         void StepPhysics(Timestep ts);
+        // DebugDraw: the 2D / 3D contact points with their normals (ShowContacts).
+        void DrawPhysicsContacts();
         void StartScripts();
         void StopScripts();
         void CreateScriptInstance(Entity entity);
@@ -554,6 +558,7 @@ namespace Zamin {
         std::filesystem::path m_PendingSceneLoad;
         glm::vec2 m_MousePosition{ -1.0f };
         glm::mat4 m_LastProjection{ 1.0f };
+        glm::mat4 m_LastView{ 1.0f };
         Ref<class EnvironmentMap> m_EnvMap;
         std::string m_EnvMapPath;
         bool m_MouseDown = false, m_MouseWasDown = false;

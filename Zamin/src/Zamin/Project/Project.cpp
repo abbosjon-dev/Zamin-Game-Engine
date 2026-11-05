@@ -283,6 +283,14 @@ namespace Zamin {
             j["Project"]["StartSceneUUID"] = c.StartSceneHandle.ToString();
         j["InputActions"] = InputMapToJson(c.InputActions);
         j["Tags"] = c.Tags;
+        j["DebugDraw"] = {
+            { "Enabled", c.DebugDraw.Enabled },
+            { "Raycasts", c.DebugDraw.ShowRaycasts },
+            { "RaycastDuration", c.DebugDraw.RaycastDuration },
+            { "Contacts", c.DebugDraw.ShowContacts },
+            { "LineWidth", c.DebugDraw.LineWidth },
+            { "TextSize", c.DebugDraw.TextSize },
+        };
         return FileSystem::WriteTextFile(filepath, j.dump(4));
     }
 
@@ -319,6 +327,25 @@ namespace Zamin {
             }
             else
                 c.Tags = ProjectConfig::DefaultTags();
+            // Debug drawing in the player (older projects: on, no physics views).
+            c.DebugDraw = DebugDrawSettings();
+            if (auto it = j.find("DebugDraw"); it != j.end() && it->is_object())
+            {
+                const json& d = *it;
+                auto readBool = [&](const char* key, bool& out) {
+                    if (auto v = d.find(key); v != d.end() && v->is_boolean()) out = v->get<bool>();
+                };
+                auto readFloat = [&](const char* key, float& out) {
+                    if (auto v = d.find(key); v != d.end() && v->is_number()) out = v->get<float>();
+                };
+                readBool("Enabled", c.DebugDraw.Enabled);
+                readBool("Raycasts", c.DebugDraw.ShowRaycasts);
+                readFloat("RaycastDuration", c.DebugDraw.RaycastDuration);
+                readBool("Contacts", c.DebugDraw.ShowContacts);
+                readFloat("LineWidth", c.DebugDraw.LineWidth);
+                readFloat("TextSize", c.DebugDraw.TextSize);
+                c.DebugDraw.Sanitize();
+            }
         }
         catch (const std::exception& e)
         {

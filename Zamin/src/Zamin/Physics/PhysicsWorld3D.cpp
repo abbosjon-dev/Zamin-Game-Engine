@@ -23,6 +23,8 @@
 #include <Jolt/Physics/Collision/ObjectLayer.h>
 
 #include <algorithm>
+#include <atomic>
+#include <map>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
@@ -137,9 +139,55 @@ namespace Zamin {
             return ((uint64_t)a << 32) | b;
         }
 
-        void OnContactAdded(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold&, JPH::ContactSettings&) override
+        // ---- debug contact points (CollectDebug), guarded by Mutex
+        std::atomic<bool> CollectDebug{ false };
+        struct DebugManifold
+        {
+            JPH::BodyID Body1, Body2;
+            glm::vec3 Normal{ 0.0f };
+            std::vector<glm::vec3> Points;
+            uint64_t Step = 0; // the step that last reported it
+        };
+        // (body 1 << 32 | body 2, sub shape 1 << 32 | sub shape 2) -> its points
+        std::map<std::pair<uint64_t, uint64_t>, DebugManifold> DebugContacts;
+        uint64_t DebugStep = 0;
+
+        void RecordDebugContact(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& m)
+        {
+            if (b1.IsSensor() || b2.IsSensor())
+                return;
+            std::pair<uint64_t, uint64_t> key{ ((uint64_t)b1.GetID().GetIndexAndSequenceNumber() << 32) | b2.GetID().GetIndexAndSequenceNumber(),
+                                               ((uint64_t)m.mSubShapeID1.GetValue() << 32) | m.mSubShapeID2.GetValue() };
+            DebugManifold& d = DebugContacts[key];
+            d.Body1 = b1.GetID();
+            d.Body2 = b2.GetID();
+            // Jolt's normal moves body 2 out of body 1: turned so that it leaves a static /
+            // kinematic surface (the surface normal under a resting crate).
+            glm::vec3 n = FromJolt(m.mWorldSpaceNormal);
+            d.Normal = !b2.IsDynamic() && b1.IsDynamic() ? -n : n;
+            d.Points.clear();
+            for (JPH::uint i = 0; i < m.mRelativeContactPointsOn1.size(); i++)
+            {
+                JPH::RVec3 p1 = m.GetWorldSpaceContactPointOn1(i), p2 = m.GetWorldSpaceContactPointOn2(i);
+                d.Points.push_back({ (float)(p1.GetX() + p2.GetX()) * 0.5f, (float)(p1.GetY() + p2.GetY()) * 0.5f,
+                                     (float)(p1.GetZ() + p2.GetZ()) * 0.5f });
+            }
+            d.Step = DebugStep;
+        }
+
+        void OnContactPersisted(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& m, JPH::ContactSettings&) override
+        {
+            if (!CollectDebug.load(std::memory_order_relaxed))
+                return;
+            std::lock_guard lock(Mutex);
+            RecordDebugContact(b1, b2, m);
+        }
+
+        void OnContactAdded(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& manifold, JPH::ContactSettings&) override
         {
             std::lock_guard lock(Mutex);
+            if (CollectDebug.load(std::memory_order_relaxed))
+                RecordDebugContact(b1, b2, manifold);
             uint32_t a = b1.GetID().GetIndexAndSequenceNumber(), b = b2.GetID().GetIndexAndSequenceNumber();
             auto& pair = PairCounts[PairKey(a, b)];
             if (pair.Count++ == 0)
@@ -371,7 +419,65 @@ namespace Zamin {
 
     void PhysicsWorld3D::Step(float dt)
     {
+        ContactListener3D& contacts = m_Impl->Contacts;
+        const bool debug = contacts.CollectDebug.load();
+        if (debug)
+        {
+            std::lock_guard lock(contacts.Mutex);
+            contacts.DebugStep++;
+        }
         m_Impl->System->Update(dt, 1, m_Impl->TempAllocator.get(), m_Impl->JobSystem.get());
+        if (!debug)
+            return;
+        // A contact this step did not report is gone - unless both bodies sleep (Jolt reports
+        // nothing for them, the crate still lies on the floor).
+        auto& bi = m_Impl->BI();
+        std::lock_guard lock(contacts.Mutex);
+        for (auto it = contacts.DebugContacts.begin(); it != contacts.DebugContacts.end();)
+        {
+            const auto& d = it->second;
+            bool keep = d.Step == contacts.DebugStep ||
+                        (bi.IsAdded(d.Body1) && bi.IsAdded(d.Body2) && !bi.IsActive(d.Body1) && !bi.IsActive(d.Body2));
+            it = keep ? std::next(it) : contacts.DebugContacts.erase(it);
+        }
+    }
+
+    void PhysicsWorld3D::SetDebugContactsEnabled(bool enabled)
+    {
+        ContactListener3D& contacts = m_Impl->Contacts;
+        if (contacts.CollectDebug.exchange(enabled) == enabled)
+            return;
+        {
+            std::lock_guard lock(contacts.Mutex);
+            contacts.DebugContacts.clear();
+        }
+        if (enabled)
+        {
+            // Sleeping bodies report no contacts: woken once, they show theirs at once (and keep
+            // them when they fall asleep again).
+            m_Impl->BI().ActivateBodies(m_Impl->Bodies.data(), (int)m_Impl->Bodies.size());
+        }
+    }
+
+    bool PhysicsWorld3D::IsDebugContactsEnabled() const { return m_Impl->Contacts.CollectDebug.load(); }
+
+    void PhysicsWorld3D::GetDebugContacts(std::vector<PhysicsContactPoint>& out) const
+    {
+        {
+            std::lock_guard lock(m_Impl->Contacts.Mutex);
+            for (const auto& [key, d] : m_Impl->Contacts.DebugContacts)
+                for (const glm::vec3& p : d.Points)
+                    out.push_back({ p, d.Normal });
+        }
+        for (const auto& slot : m_Impl->Characters)
+        {
+            if (!slot.Character)
+                continue;
+            for (const auto& contact : slot.Character->GetActiveContacts())
+                if (contact.mHadCollision && !contact.mIsSensorB)
+                    out.push_back({ { (float)contact.mPosition.GetX(), (float)contact.mPosition.GetY(), (float)contact.mPosition.GetZ() },
+                                    FromJolt(contact.mContactNormal) });
+        }
     }
 
     void PhysicsWorld3D::GetTransform(uint32_t bodyID, glm::vec3& position, glm::quat& rotation) const

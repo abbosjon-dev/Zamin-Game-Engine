@@ -237,6 +237,32 @@ namespace Zamin {
         ImGui::TextUnformatted(c.SourceDirectory.generic_string().c_str());
         UI::PropertyLabel("Skript moduli");
         ImGui::TextUnformatted(c.ScriptModulePath.empty() ? "-" : c.ScriptModulePath.generic_string().c_str());
+
+        // Debug drawing in the player (the editor viewport has its own toggles in the toolbar).
+        UI::PropertyHeader(ICON_FA_BUG "  Debug chizish (o'yinda)",
+                           "Skriptlardagi DebugDraw chaqiruvlari (chiziq, quti, sfera, o'q, matn) va fizika ko'rinishlari "
+                           "ZaminPlayer'da. Shipping build'da debug chizish umuman yo'q; --no-debug-draw bayrog'i ham o'chiradi. "
+                           "Editor viewport'ining o'z sozlamalari bor (asboblar panelidagi " ICON_FA_BUG " tugma).");
+        bool changed = false;
+        DebugDrawSettings& d = c.DebugDraw;
+        changed |= UI::PropertyBool("Yoqilgan", d.Enabled);
+        ImGui::BeginDisabled(!d.Enabled);
+        changed |= UI::PropertyBool("Raycastlar", d.ShowRaycasts);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Har bir Raycast2D / Raycast3D so'rovi: nur, tegish nuqtasi va normal (tegmasa qizil)");
+        if (d.ShowRaycasts)
+            changed |= UI::PropertyFloat("Raycast vaqti (s)", d.RaycastDuration, 0.01f, 0.0f, DebugDrawSettings::MaxRaycastDuration, "%.2f");
+        changed |= UI::PropertyBool("Kontakt nuqtalari", d.ShowContacts);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Fizik jismlar tegib turgan nuqtalar va normallari (2D va 3D)");
+        changed |= UI::PropertyFloat("Chiziq qalinligi (px)", d.LineWidth, 0.05f, DebugDrawSettings::MinLineWidth, DebugDrawSettings::MaxLineWidth, "%.1f");
+        changed |= UI::PropertyFloat("Matn o'lchami (px)", d.TextSize, 0.1f, DebugDrawSettings::MinTextSize, DebugDrawSettings::MaxTextSize, "%.0f");
+        ImGui::EndDisabled();
+        if (changed)
+        {
+            d.Sanitize();
+            m_Dirty = true;
+        }
         UI::EndPropertyGrid();
     }
 

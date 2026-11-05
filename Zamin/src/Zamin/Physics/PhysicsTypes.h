@@ -24,4 +24,11 @@ namespace Zamin {
         explicit operator bool() const { return Hit; }
     };
 
+    // A point where two bodies touch (debug drawing): world position and the contact normal.
+    struct PhysicsContactPoint
+    {
+        glm::vec3 Position{ 0.0f };
+        glm::vec3 Normal{ 0.0f };
+    };
+
 }

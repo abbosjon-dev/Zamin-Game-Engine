@@ -142,11 +142,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M07 Debug draw va vizualizatsiya
 
-- [ ] 121. DebugDraw API: Line, Box, Sphere, Arrow, Text (skriptlardan)
-- [ ] 122. DebugDraw davomiyligi (duration) bilan
-- [ ] 123. DebugDraw faqat editor/Development rejimda
-- [ ] 124. Raycast natijasini vizualizatsiya qilish
-- [ ] 125. Fizika kontakt nuqtalarini ko'rsatish
+- [x] 121. DebugDraw API: Line, Box, Sphere, Arrow, Text (skriptlardan)
+- [x] 122. DebugDraw davomiyligi (duration) bilan
+- [x] 123. DebugDraw faqat editor/Development rejimda
+- [x] 124. Raycast natijasini vizualizatsiya qilish
+- [x] 125. Fizika kontakt nuqtalarini ko'rsatish
 - [ ] 126. Kamera frustumini editorda chizish
 - [ ] 127. Yorug'lik yo'nalishini o'q bilan ko'rsatish
 - [ ] 128. Audio manba radiusini ko'rsatish

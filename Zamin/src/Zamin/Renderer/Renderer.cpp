@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Renderer.h"
+#include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Renderer/Renderer2D.h"
 #include "Zamin/Renderer/Renderer3D.h"
 #include "Zamin/Renderer/Font.h"
@@ -32,6 +33,7 @@ namespace Zamin {
         EnvironmentMap::ClearCache();
         MeshLibrary::Clear();
         TextureLibrary::Clear();
+        DebugDraw::Shutdown();
         PostProcessor::Shutdown();
         Renderer3D::Shutdown();
         Renderer2D::Shutdown();

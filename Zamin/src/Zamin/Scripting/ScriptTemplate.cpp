@@ -94,6 +94,9 @@ public:
 
         if (Input::IsActionJustPressed("Jump"))
             ZM_INFO("$CLASS$: sakrash!");
+        // Debug chizish (editor va Development build'da; Shipping'da chaqiruvlar bo'sh):
+        // DebugDraw::Arrow(GetWorldPosition(), GetWorldPosition() + glm::vec3(0, 2, 0), DebugColor::Green);
+        // DebugDraw::Text(GetWorldPosition() + glm::vec3(0, 2.5f, 0), GetName());
     }
 
     // Har kadrda, fizikadan keyin (masalan, kamera kuzatishi uchun).

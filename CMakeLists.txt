@@ -18,6 +18,10 @@ option(ZAMIN_BUILD_EDITOR  "Build Zamin Editor"          ON)
 option(ZAMIN_BUILD_RUNTIME "Build Zamin Player (runtime)" ON)
 option(ZAMIN_BUILD_TESTS   "Build Zamin unit tests"      ON)
 option(ZAMIN_BUILD_EXAMPLES "Build example game projects" ON)
+# Shipping: the final game build - debug drawing (DebugDraw) and other development aids are
+# compiled out. ZAMIN_DEBUG_DRAW: debug drawing in the editor / Development builds.
+option(ZAMIN_SHIPPING      "Shipping build (no development aids)" OFF)
+option(ZAMIN_DEBUG_DRAW    "DebugDraw API (ignored when ZAMIN_SHIPPING)" ON)
 
 include(cmake/Dependencies.cmake)
 

@@ -172,3 +172,78 @@ public:
 };
 ZM_REGISTER_SCRIPT(TowerBuilder, ZM_FIELD(TowerBuilder, Levels), ZM_FIELD(TowerBuilder, Size), ZM_FIELD_COLOR(TowerBuilder, BottomColor),
                    ZM_FIELD_COLOR(TowerBuilder, TopColor))
+
+// DebugDraw namunasi (Scenes/DebugDraw.zscene): aylanib turuvchi raycast "radari", sharlar atrofida
+// shakllar, harakat o'qlari, iz (davomiyligi bor nuqtalar) va yozuvlar. Editor'da "Debug chizish"
+// menyusidan raycastlar va kontakt nuqtalarini ham yoqing.
+class DebugDrawDemo : public ScriptableEntity
+{
+public:
+    int Rays = 9;
+    float Spread = 1.1f;      // fan width (radians)
+    float SweepSpeed = 0.5f;  // radians / second
+    float Range = 18.0f;
+
+    void OnUpdate(Timestep ts) override
+    {
+        Scene& scene = GetScene();
+        const glm::vec3 origin = GetWorldPosition();
+        const float heading = GetTime() * SweepSpeed;
+
+        // Raycast fan: with "Raycastlar" on the engine draws every query (hit: green + normal, miss:
+        // red); the middle ray's hit gets a label with the name and distance.
+        for (int i = 0; i < Rays; i++)
+        {
+            float a = heading + Spread * ((float)i / (float)std::max(1, Rays - 1) - 0.5f);
+            glm::vec3 dir(std::sin(a), -0.02f, std::cos(a));
+            RaycastHit hit = Raycast3D(origin, dir, Range);
+            if (hit && i == Rays / 2)
+            {
+                Entity target = scene.GetEntityByUUID(hit.EntityID);
+                DebugDraw::Text(hit.Point + glm::vec3(0.0f, 0.8f, 0.0f),
+                                std::format("{}\n{:.1f} m", target ? target.GetName() : std::string("?"), hit.Distance), DebugColor::Yellow);
+            }
+        }
+        DebugDraw::Axes(scene.GetWorldTransform(GetEntity()), 1.2f);
+        DebugDraw::WireSphere(origin, 0.35f, DebugColor::Cyan);
+        DebugDraw::Text(origin + glm::vec3(0.0f, 1.6f, 0.0f), "Radar", DebugColor::Cyan);
+
+        // Orbs: a ring around each, an arrow along its motion and a fading trail of points.
+        m_TrailTimer -= ts;
+        const bool dropTrail = m_TrailTimer <= 0.0f;
+        if (dropTrail)
+            m_TrailTimer = 0.08f;
+        int index = 0;
+        for (const char* name : { "Orb 1", "Orb 2", "Orb 3" })
+        {
+            Entity orb = FindEntity(name);
+            if (!orb) continue;
+            glm::vec3 p = scene.GetWorldPosition(orb);
+            glm::vec3& last = m_LastOrb[index++];
+            glm::vec3 velocity = ts > 0.0f && glm::length(last) > 0.0f ? (p - last) / (float)ts : glm::vec3(0.0f);
+            last = p;
+            DebugDraw::WireSphere(p, 0.45f, DebugColor::Yellow);
+            if (glm::length(velocity) > 0.01f)
+                DebugDraw::Arrow(p, p + velocity * 0.6f, DebugColor::Orange, 0.0f, true, 0.25f);
+            if (dropTrail)
+                DebugDraw::Point(p, glm::vec4(1.0f, 0.85f, 0.35f, 0.8f), 1.5f, true, 5.0f); // 1.5 s of game time
+            DebugDraw::Text(p + glm::vec3(0.0f, 0.75f, 0.0f), name, DebugColor::White, 0.0f, true);
+        }
+
+        // Oriented boxes around the pillars, hidden behind what stands in front of them.
+        for (Entity pillar : FindEntities("Pillar"))
+            DebugDraw::Box(scene.GetWorldTransform(pillar) * glm::scale(glm::mat4(1.0f), glm::vec3(1.15f, 1.02f, 1.15f)), DebugColor::Magenta);
+        if (Entity hero = FindEntity("Hero Sphere"))
+        {
+            glm::vec3 p = scene.GetWorldPosition(hero);
+            DebugDraw::Circle(glm::vec3(p.x, 0.02f, p.z), glm::vec3(0.0f, 1.0f, 0.0f), 2.0f, DebugColor::Green);
+            DebugDraw::Text(p + glm::vec3(0.0f, 1.7f, 0.0f), "Hero Sphere", DebugColor::Green, 0.0f, true);
+        }
+    }
+
+private:
+    float m_TrailTimer = 0.0f;
+    glm::vec3 m_LastOrb[3]{};
+};
+ZM_REGISTER_SCRIPT(DebugDrawDemo, ZM_FIELD(DebugDrawDemo, Rays), ZM_FIELD(DebugDrawDemo, Spread), ZM_FIELD(DebugDrawDemo, SweepSpeed),
+                   ZM_FIELD(DebugDrawDemo, Range))

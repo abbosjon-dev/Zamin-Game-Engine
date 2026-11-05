@@ -96,6 +96,15 @@ namespace Zamin {
         // Collision begin/end events gathered since the last call.
         std::vector<ContactEvent> TakeEvents();
 
+        // ---- contact points for debug drawing (off by default: costs a lock per contact)
+        // On: every step records the contact points of the touching shapes; the contacts of
+        // sleeping bodies are kept (Jolt stops reporting them) until a body wakes up or goes.
+        void SetDebugContactsEnabled(bool enabled);
+        bool IsDebugContactsEnabled() const;
+        // The recorded points (normals point out of the static / kinematic body, else from the
+        // second body to the first) and those of the characters, appended to `out`.
+        void GetDebugContacts(std::vector<PhysicsContactPoint>& out) const;
+
     private:
         struct Impl;
         std::unique_ptr<Impl> m_Impl;

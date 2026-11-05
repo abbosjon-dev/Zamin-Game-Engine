@@ -318,6 +318,17 @@ namespace Zamin {
                 m_Wireframe = m_WireframeStyle = std::string_view(wire) == "shaded" ? WireframeMode::ShadedWire : WireframeMode::Wire;
             if (std::getenv("ZAMIN_EDITOR_VIEW_MENU"))
                 m_OpenViewModeMenu = true;
+            // ZAMIN_EDITOR_DEBUG_DRAW=0 | 1 | raycasts,contacts,menu: debug drawing off / on, its physics
+            // views on, its popup open (for this session; not saved unless the settings change).
+            if (const char* debug = std::getenv("ZAMIN_EDITOR_DEBUG_DRAW"))
+            {
+                std::string_view v(debug);
+                auto& d = m_ViewSettings.DebugDraw;
+                d.Enabled = v != "0";
+                if (v.find("raycasts") != std::string_view::npos) d.ShowRaycasts = true;
+                if (v.find("contacts") != std::string_view::npos) d.ShowContacts = true;
+                if (v.find("menu") != std::string_view::npos) m_OpenDebugDrawMenu = true;
+            }
             // ZAMIN_EDITOR_NO_CULLING=1 / ZAMIN_EDITOR_NO_INSTANCING=1: frustum culling (3D and 2D) / GPU
             // instancing off (to compare the pictures).
             if (std::getenv("ZAMIN_EDITOR_NO_CULLING"))
@@ -704,6 +715,9 @@ namespace Zamin {
             m_GizmoAltDrag = m_GizmoAltDuplicatePending = false;
         bool cameraInput = m_ViewportHovered && !m_GizmoAltDrag && !m_GizmoEdit.IsActive();
 
+        // What the viewport shows of DebugDraw: the editor's own settings (the player uses the project's).
+        DebugDraw::GetSettings() = m_ViewSettings.DebugDraw;
+
         uint64_t scenesDrawn = Renderer3D::GetEndSceneCount();
         switch (m_SceneState)
         {
@@ -775,8 +789,27 @@ namespace Zamin {
         const bool neutralPost = IsDebugViewActive() && !Renderer3D::DebugViewUsesPostProcessing(m_DebugView);
         PostProcessor::Apply(post, neutralPost ? PostProcessSettings::Neutral() : m_ActiveScene->GetSettings().Post, m_FinalFramebuffer);
         m_FinalFramebuffer->Bind();
+        RenderDebugDraw();
         OnOverlayRender();
         m_FinalFramebuffer->Unbind();
+    }
+
+    void EditorLayer::RenderDebugDraw()
+    {
+        // Play mode without a camera: nothing was drawn (the last view would be a stale one).
+        if (m_SceneState == SceneState::Play && !m_ActiveScene->GetPrimaryCameraEntity())
+            return;
+        const auto& render = m_Framebuffer->GetSpecification();
+        const auto& output = m_FinalFramebuffer->GetSpecification();
+        DebugDrawView view;
+        view.View = m_ActiveScene->GetLastView();
+        view.Projection = m_ActiveScene->GetLastProjection();
+        view.Width = output.Width;
+        view.Height = output.Height;
+        view.DepthTexture = m_Framebuffer->GetDepthAttachmentRendererID();
+        view.DepthWidth = render.Width;
+        view.DepthHeight = render.Height;
+        DebugDraw::Render(view);
     }
 
     glm::ivec2 EditorLayer::ViewportToRenderPixel(glm::ivec2 pixel) const
@@ -3375,7 +3408,7 @@ namespace Zamin {
         }
 
         // ---- right: camera (frame all, bookmarks) | view options
-        float viewW = buttonSize * 7 + caretWidth * 2 + spacing * 7;
+        float viewW = buttonSize * 8 + caretWidth * 3 + spacing * 8;
         ImVec2 viewPos(width - viewW - 10, 10);
         {
             bool cameraTools = m_SceneState != SceneState::Play;
@@ -3437,6 +3470,33 @@ namespace Zamin {
             }
             ImGui::SameLine();
             if (UI::ToolbarButton(ICON_FA_VECTOR_SQUARE, "Fizik colliderlar", m_ShowColliders, size)) m_ShowColliders = !m_ShowColliders;
+            ImGui::SameLine();
+            // Debug drawing (scripts' DebugDraw shapes, physics raycasts / contacts) + its settings.
+            {
+                auto& debug = m_ViewSettings.DebugDraw;
+                std::string tip = std::format("Debug chizish: {} (o'ng tugma yoki {}: raycastlar, kontakt nuqtalari, qalinlik ...)",
+                                              debug.Enabled ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
+                if (UI::ToolbarButton(ICON_FA_BUG, tip.c_str(), debug.Enabled, size))
+                {
+                    debug.Enabled = !debug.Enabled;
+                    MarkViewSettingsDirty();
+                }
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                    ImGui::OpenPopup("##DebugDraw");
+                ImGui::SameLine(0.0f, 0.0f);
+                const bool physicsViews = debug.Enabled && (debug.ShowRaycasts || debug.ShowContacts);
+                if (physicsViews) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
+                if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###DebugDrawMenu", "Debug chizish sozlamalari: raycastlar, kontakt nuqtalari, "
+                                      "chiziq qalinligi, matn o'lchami", physicsViews, ImVec2(caretWidth, buttonSize)))
+                    ImGui::OpenPopup("##DebugDraw");
+                if (physicsViews) ImGui::PopStyleColor();
+                if (m_OpenDebugDrawMenu)
+                {
+                    ImGui::OpenPopup("##DebugDraw");
+                    m_OpenDebugDrawMenu = false;
+                }
+                UI_DebugDrawPopup();
+            }
             ImGui::SameLine();
             if (UI::ToolbarButton(ICON_FA_EYE, "Ikonkalar", m_ShowIcons, size)) m_ShowIcons = !m_ShowIcons;
             ImGui::SameLine();
@@ -3565,6 +3625,69 @@ namespace Zamin {
             ImGui::EndPopup();
         }
         ImGui::PopStyleVar(2);
+    }
+
+    void EditorLayer::UI_DebugDrawPopup()
+    {
+        if (!ImGui::BeginPopup("##DebugDraw"))
+            return;
+        if (UI_DebugDrawSettings())
+            MarkViewSettingsDirty();
+        ImGui::EndPopup();
+    }
+
+    bool EditorLayer::UI_DebugDrawSettings()
+    {
+        auto& d = m_ViewSettings.DebugDraw;
+        bool changed = false;
+        ImGui::TextDisabled(ICON_FA_BUG "  Debug chizish");
+        changed |= ImGui::Checkbox("Yoqilgan", &d.Enabled);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Skriptlar va dvigatel chizgan shakllar: DebugDraw::Line, Box, Sphere, Arrow, Text ...\n"
+                        "Davomiylik o'yin vaqtida sanaladi (pauzada to'xtaydi). Faqat editor va Development build'da.");
+        ImGui::BeginDisabled(!d.Enabled);
+        ImGui::Spacing();
+        ImGui::TextDisabled("Fizika");
+        changed |= ImGui::Checkbox(ICON_FA_CROSSHAIRS "  Raycastlar", &d.ShowRaycasts);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Har bir Raycast2D / Raycast3D so'rovi: tekkan joyigacha yashil nur, tegish nuqtasi va sirt normali; "
+                        "tegmasa butun nur qizil");
+        if (d.ShowRaycasts)
+        {
+            ImGui::Indent();
+            ImGui::SetNextItemWidth(150);
+            changed |= ImGui::SliderFloat("Ko'rsatish vaqti", &d.RaycastDuration, 0.0f, 2.0f, d.RaycastDuration > 0.0f ? "%.2f s" : "1 kadr");
+            ImGui::Unindent();
+        }
+        changed |= ImGui::Checkbox(ICON_FA_CIRCLE_DOT "  Kontakt nuqtalari", &d.ShowContacts);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Fizik jismlar (2D, 3D, 3D personajlar) tegib turgan nuqtalar va normallari - o'yin yoki simulyatsiya paytida");
+        if (d.ShowRaycasts || d.ShowContacts)
+        {
+            ImGui::SetNextItemWidth(150);
+            changed |= ImGui::SliderFloat("Normal uzunligi", &d.NormalLength, 0.05f, 2.0f, "%.2f");
+        }
+        ImGui::Spacing();
+        ImGui::TextDisabled("Ko'rinish");
+        ImGui::SetNextItemWidth(150);
+        changed |= ImGui::SliderFloat("Chiziq qalinligi", &d.LineWidth, DebugDrawSettings::MinLineWidth, DebugDrawSettings::MaxLineWidth, "%.1f px");
+        ImGui::SetNextItemWidth(150);
+        changed |= ImGui::SliderFloat("Nuqta o'lchami", &d.PointSize, DebugDrawSettings::MinPointSize, DebugDrawSettings::MaxPointSize, "%.0f px");
+        ImGui::SetNextItemWidth(150);
+        changed |= ImGui::SliderFloat("Matn o'lchami", &d.TextSize, DebugDrawSettings::MinTextSize, DebugDrawSettings::MaxTextSize, "%.0f px");
+        ImGui::SetNextItemWidth(150);
+        changed |= ImGui::SliderFloat("Sirt orqasidagilar", &d.OccludedOpacity, 0.0f, 1.0f, "%.2f");
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Chuqurlik testi bilan chizilgan shakllarning sirt orqasida qolgan qismi: 0 - ko'rinmaydi, 1 - to'liq ko'rinadi");
+        ImGui::EndDisabled();
+        ImGui::Separator();
+        ImGui::TextDisabled("Navbatda: %zu chiziq, %zu nuqta, %zu matn", DebugDraw::GetLines().size(), DebugDraw::GetPoints().size(),
+                            DebugDraw::GetTexts().size());
+        if (ImGui::SmallButton(ICON_FA_BROOM "  Tozalash"))
+            DebugDraw::Clear();
+        if (changed)
+            d.Sanitize();
+        return changed;
     }
 
     void EditorLayer::UI_GridSettingsPopup()
@@ -3720,6 +3843,13 @@ namespace Zamin {
             ImGui::EndMenu();
         }
         ImGui::MenuItem(ICON_FA_VECTOR_SQUARE "  Fizik colliderlar", nullptr, &m_ShowColliders);
+        if (ImGui::MenuItem(ICON_FA_BUG "  Debug chizish", nullptr, &m_ViewSettings.DebugDraw.Enabled)) MarkViewSettingsDirty();
+        if (ImGui::BeginMenu(ICON_FA_SLIDERS "  Debug chizish sozlamalari"))
+        {
+            if (UI_DebugDrawSettings())
+                MarkViewSettingsDirty();
+            ImGui::EndMenu();
+        }
         ImGui::MenuItem(ICON_FA_EYE "  Ikonkalar", nullptr, &m_ShowIcons);
         ImGui::MenuItem(ICON_FA_LAYER_GROUP "  Shaffoflar tartibi", nullptr, &m_ShowTransparentOrder);
         if (ImGui::IsItemHovered())

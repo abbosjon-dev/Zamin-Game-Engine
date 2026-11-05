@@ -1,4 +1,4 @@
-add_executable(ZaminTests ZaminTests.cpp)
+add_executable(ZaminTests ZaminTests.cpp DebugDrawShippingCheck.cpp)
 target_link_libraries(ZaminTests PRIVATE Zamin)
 # The sample projects are read by some tests (their assets must stay valid).
 target_compile_definitions(ZaminTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")

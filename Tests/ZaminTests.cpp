@@ -11365,6 +11365,448 @@ TEST(LensEffectsSceneSetting)
         CHECK(std::abs((int)dirt[((size_t)p[1] * 128 + (size_t)p[0]) * 4] - p[2]) <= 4);
 }
 
+// ------------------------------------------------------------------ debug drawing (M07)
+namespace ShippingCheck { int DrawEverything(); }
+
+static void ResetDebugDraw()
+{
+    DebugDraw::Clear();
+    DebugDraw::GetSettings() = DebugDrawSettings();
+}
+
+// Every line end lies at `distance` from `center` (within eps).
+static bool LinesAtDistance(const glm::vec3& center, float distance, float eps)
+{
+    for (const DebugDrawLine& l : DebugDraw::GetLines())
+        if (std::abs(glm::length(l.From - center) - distance) > eps || std::abs(glm::length(l.To - center) - distance) > eps)
+            return false;
+    return true;
+}
+
+TEST(DebugDrawShapes)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return; // a Shipping build: nothing is queued (DebugDrawShippingCheck.cpp)
+    ResetDebugDraw();
+    CHECK(DebugDraw::IsCompiledIn() && DebugDraw::IsEnabled());
+    const auto& lines = DebugDraw::GetLines();
+
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 }, DebugColor::Red);
+    CHECK(lines.size() == 1 && lines[0].DepthTest && lines[0].TimeLeft == 0.0f && lines[0].Color == DebugColor::Red);
+    CHECK(lines[0].To == glm::vec3(1, 0, 0));
+    DebugDraw::Ray({ 1, 1, 1 }, { 0, 2, 0 }, DebugColor::Green, 0.0f, false);
+    CHECK(lines.size() == 2 && lines[1].To == glm::vec3(1, 3, 1) && !lines[1].DepthTest);
+
+    // Boxes: 12 edges; flat in one axis: a rectangle of 4.
+    DebugDraw::Clear();
+    DebugDraw::Box({ 1, 2, 3 }, { 1, 2, 3 });
+    CHECK(lines.size() == 12);
+    float total = 0.0f;
+    for (const auto& l : lines)
+        total += glm::length(l.To - l.From);
+    CHECK_NEAR(total, 4.0f * (2.0f + 4.0f + 6.0f), 1e-4f);
+    DebugDraw::Clear();
+    DebugDraw::Rect({ 0, 0, 0 }, { 2, 1 });
+    CHECK(lines.size() == 4);
+    for (const auto& l : lines)
+        CHECK(l.From.z == 0.0f && l.To.z == 0.0f && std::abs(l.From.x) == 1.0f && std::abs(l.From.y) == 0.5f);
+    DebugDraw::Clear();
+    DebugDraw::Box(glm::scale(glm::mat4(1.0f), { 2.0f, 0.0f, 2.0f })); // flat transform
+    CHECK(lines.size() == 4);
+    DebugDraw::Clear();
+    // Oriented: a quarter turn around Y swaps the X and Z extents.
+    DebugDraw::Box({ 0, 0, 0 }, { 2, 1, 0.5f }, glm::angleAxis(glm::half_pi<float>(), glm::vec3(0, 1, 0)));
+    CHECK(lines.size() == 12);
+    glm::vec3 maxCorner(-1e9f);
+    for (const auto& l : lines)
+        maxCorner = glm::max(maxCorner, glm::max(l.From, l.To));
+    CHECK_NEAR(maxCorner.x, 0.5f, 1e-4f);
+    CHECK_NEAR(maxCorner.z, 2.0f, 1e-4f);
+    DebugDraw::Clear();
+    DebugDraw::Box(glm::translate(glm::mat4(1.0f), { 5, 0, 0 }) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+    CHECK(lines.size() == 12 && LinesAtDistance({ 5, 0, 0 }, std::sqrt(3.0f), 1e-4f));
+    DebugDraw::Clear();
+    DebugDraw::Bounds(AABB{ { -1, -1, -1 }, { 1, 1, 1 } });
+    CHECK(lines.size() == 12 && LinesAtDistance({ 0, 0, 0 }, std::sqrt(3.0f), 1e-4f));
+
+    // Spheres: three circles; circles lie in their plane.
+    DebugDraw::Clear();
+    DebugDraw::WireSphere({ 1, 2, 3 }, 2.0f, DebugColor::Yellow);
+    CHECK(lines.size() > 60 && lines.size() % 3 == 0 && LinesAtDistance({ 1, 2, 3 }, 2.0f, 1e-4f));
+    size_t sphereLines = lines.size();
+    DebugDraw::Clear();
+    DebugDraw::Sphere({ 0, 0, 0 }, 1.0f);
+    CHECK(lines.size() == sphereLines);
+    DebugDraw::Clear();
+    DebugDraw::WireSphere({ 0, 0, 0 }, 0.0f); // nothing to draw
+    DebugDraw::Circle({ 0, 0, 0 }, -1.0f);
+    CHECK(lines.empty());
+    DebugDraw::Circle({ 0, 4, 0 }, { 0, 1, 0 }, 1.5f);
+    CHECK(lines.size() == sphereLines / 3 && LinesAtDistance({ 0, 4, 0 }, 1.5f, 1e-4f));
+    for (const auto& l : lines)
+        CHECK_NEAR(l.From.y, 4.0f, 1e-5f);
+    DebugDraw::Clear();
+    DebugDraw::Circle({ 0, 0, 2 }, 1.0f); // 2D: in the XY plane
+    for (const auto& l : lines)
+        CHECK_NEAR(l.From.z, 2.0f, 1e-5f);
+
+    // Arrow: the shaft, then a head of 4 fins and the square joining them, all reaching the tip.
+    DebugDraw::Clear();
+    DebugDraw::Arrow({ 0, 0, 0 }, { 0, 0, 4 }, DebugColor::Cyan);
+    CHECK(lines.size() == 9 && lines[0].From == glm::vec3(0.0f) && lines[0].To == glm::vec3(0, 0, 4));
+    for (size_t i = 1; i < lines.size(); i++)
+        CHECK(lines[i].From.z >= 3.5f - 1e-4f && lines[i].To.z >= 3.5f - 1e-4f); // head: 0.5 long (at most)
+    DebugDraw::Clear();
+    DebugDraw::Arrow({ 1, 1, 1 }, { 1, 1, 1 }); // no direction: only the (empty) shaft
+    CHECK(lines.size() == 1);
+
+    DebugDraw::Clear();
+    DebugDraw::Cross({ 1, 1, 1 }, 2.0f);
+    CHECK(lines.size() == 3 && glm::length(lines[0].To - lines[0].From) == 2.0f);
+    DebugDraw::Clear();
+    DebugDraw::Path({ { 0, 0, 0 }, { 1, 0, 0 }, { 1, 1, 0 }, { 0, 1, 0 } });
+    CHECK(lines.size() == 3);
+    DebugDraw::Path({ { 0, 0, 0 }, { 1, 0, 0 }, { 1, 1, 0 }, { 0, 1, 0 } }, DebugColor::White, 0.0f, true, true);
+    CHECK(lines.size() == 7 && lines.back().To == glm::vec3(0.0f));
+    DebugDraw::Path({ { 0, 0, 0 } });
+    CHECK(lines.size() == 7);
+    DebugDraw::Clear();
+    DebugDraw::Axes(glm::translate(glm::mat4(1.0f), { 0, 1, 0 }), 2.0f);
+    CHECK(lines.size() == 27 && lines[0].Color == DebugColor::Red && lines[9].Color == DebugColor::Green && lines[18].Color == DebugColor::Blue);
+    CHECK(lines[0].To == glm::vec3(2, 1, 0) && lines[18].To == glm::vec3(0, 1, 2));
+
+    // Points and labels.
+    DebugDraw::Clear();
+    DebugDraw::Point({ 1, 2, 3 }, DebugColor::Orange, 0.0f, false, 12.0f);
+    DebugDraw::Point({ 1, 2, 3 }, DebugColor::Orange, 0.0f, true, -3.0f);
+    CHECK(DebugDraw::GetPoints().size() == 2 && DebugDraw::GetPoints()[0].Size == 12.0f && !DebugDraw::GetPoints()[0].DepthTest);
+    CHECK(DebugDraw::GetPoints()[1].Size == 0.0f); // the settings' size
+    DebugDraw::Text({ 0, 3, 0 }, "Salom\nDunyo", DebugColor::White, 0.0f, true, 20.0f);
+    DebugDraw::Text({ 0, 3, 0 }, "");
+    CHECK(DebugDraw::GetTexts().size() == 1 && DebugDraw::GetTexts()[0].Text == "Salom\nDunyo" && DebugDraw::GetTexts()[0].DepthTest);
+    CHECK(DebugDraw::GetTexts()[0].Size == 20.0f);
+
+    // Nothing that is not finite.
+    DebugDraw::Clear();
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    DebugDraw::Line({ nan, 0, 0 }, { 1, 0, 0 });
+    DebugDraw::Point({ 0, std::numeric_limits<float>::infinity(), 0 });
+    DebugDraw::Text({ 0, 0, nan }, "x");
+    CHECK(lines.empty() && DebugDraw::GetPoints().empty() && DebugDraw::GetTexts().empty());
+
+    // The runtime toggle: off queues nothing.
+    DebugDraw::SetEnabled(false);
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 });
+    DebugDraw::Box({ 0, 0, 0 }, { 1, 1, 1 });
+    DebugDraw::WireSphere({ 0, 0, 0 }, 1.0f);
+    DebugDraw::Arrow({ 0, 0, 0 }, { 1, 0, 0 });
+    DebugDraw::Point({ 0, 0, 0 });
+    DebugDraw::Text({ 0, 0, 0 }, "x");
+    CHECK(lines.empty() && DebugDraw::GetPoints().empty() && DebugDraw::GetTexts().empty());
+    DebugDraw::SetEnabled(true);
+    ResetDebugDraw();
+}
+
+TEST(DebugDrawDurations)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return; // a Shipping build: nothing is queued (DebugDrawShippingCheck.cpp)
+    ResetDebugDraw();
+    const auto& lines = DebugDraw::GetLines();
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 });                     // this frame
+    DebugDraw::Line({ 0, 0, 0 }, { 0, 1, 0 }, DebugColor::Red, 1.0f); // one second
+    DebugDraw::Text({ 0, 0, 0 }, "t", DebugColor::White, 0.25f);
+    DebugDraw::Point({ 0, 0, 0 }, DebugColor::White, -5.0f);         // negative: this frame
+    DebugDraw::Point({ 0, 0, 0 }, DebugColor::White, std::numeric_limits<float>::quiet_NaN());
+    CHECK(lines.size() == 2 && DebugDraw::GetTexts().size() == 1 && DebugDraw::GetPoints().size() == 2);
+    CHECK(DebugDraw::GetPoints()[0].TimeLeft == 0.0f && DebugDraw::GetPoints()[1].TimeLeft == 0.0f);
+
+    // A frame without game time (the edit scene): the one-frame shapes go, the others stay.
+    DebugDraw::Advance(0.0f);
+    CHECK(lines.size() == 1 && lines[0].TimeLeft == 1.0f && DebugDraw::GetPoints().empty() && DebugDraw::GetTexts().size() == 1);
+    DebugDraw::Advance(0.2f);
+    CHECK(lines.size() == 1 && DebugDraw::GetTexts().size() == 1);
+    CHECK_NEAR(lines[0].TimeLeft, 0.8f, 1e-5f);
+    DebugDraw::Advance(0.1f);
+    CHECK(DebugDraw::GetTexts().empty()); // 0.25 s are over
+    DebugDraw::Advance(0.6f);
+    CHECK(lines.size() == 1);
+    CHECK_NEAR(lines[0].TimeLeft, 0.1f, 1e-5f);
+    DebugDraw::Advance(-1.0f); // no time backwards
+    CHECK(lines.size() == 1);
+    CHECK_NEAR(lines[0].TimeLeft, 0.1f, 1e-5f);
+    DebugDraw::Advance(0.1f);
+    CHECK(lines.empty());
+
+    // Clear empties every list; a later frame starts with nothing.
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 }, DebugColor::White, 10.0f);
+    DebugDraw::Point({ 0, 0, 0 }, DebugColor::White, 10.0f);
+    DebugDraw::Text({ 0, 0, 0 }, "x", DebugColor::White, 10.0f);
+    DebugDraw::Clear();
+    CHECK(lines.empty() && DebugDraw::GetPoints().empty() && DebugDraw::GetTexts().empty());
+
+    // A full queue drops what does not fit.
+    for (size_t i = 0; i < DebugDraw::MaxTexts + 10; i++)
+        DebugDraw::Text({ 0, 0, 0 }, "x", DebugColor::White, 5.0f);
+    CHECK(DebugDraw::GetTexts().size() == DebugDraw::MaxTexts);
+    ResetDebugDraw();
+
+    // Settings out of range come back into range.
+    DebugDrawSettings settings;
+    settings.LineWidth = 100.0f;
+    settings.PointSize = std::numeric_limits<float>::quiet_NaN();
+    settings.TextSize = 0.0f;
+    settings.RaycastDuration = -2.0f;
+    settings.OccludedOpacity = 3.0f;
+    settings.Sanitize();
+    CHECK(settings.LineWidth == DebugDrawSettings::MaxLineWidth && settings.PointSize == 8.0f);
+    CHECK(settings.TextSize == DebugDrawSettings::MinTextSize && settings.RaycastDuration == 0.0f && settings.OccludedOpacity == 1.0f);
+}
+
+// Draws a one-frame line and, on its first frame, a sphere for 0.5 s of game time.
+class DebugDrawTestScript : public ScriptableEntity
+{
+public:
+    void OnUpdate(Timestep) override
+    {
+        DebugDraw::Line(GetWorldPosition(), GetWorldPosition() + glm::vec3(0, 1, 0), DebugColor::Green);
+        if (!m_Drawn)
+            DebugDraw::WireSphere(GetWorldPosition(), 1.0f, DebugColor::Yellow, 0.5f);
+        m_Drawn = true;
+        Frames++;
+    }
+    static inline int Frames = 0;
+private:
+    bool m_Drawn = false;
+};
+ZM_REGISTER_SCRIPT(DebugDrawTestScript)
+
+TEST(DebugDrawFollowsGameTime)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return; // a Shipping build: nothing is queued (DebugDrawShippingCheck.cpp)
+    ResetDebugDraw();
+    DebugDrawTestScript::Frames = 0;
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Drawer");
+    e.AddComponent<NativeScriptComponent>().ClassName = "DebugDrawTestScript";
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 }, DebugColor::White, 100.0f); // from before the game
+    scene->OnRuntimeStart();
+    const auto& lines = DebugDraw::GetLines();
+    CHECK(lines.empty()); // the game starts with an empty queue
+
+    scene->OnUpdateRuntime(0.1f);
+    const size_t sphere = lines.size() - 1;
+    CHECK(DebugDrawTestScript::Frames == 1 && sphere > 60);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(lines.size() == sphere + 1); // the line was drawn again (one copy), the sphere stays
+    CHECK_NEAR(lines[0].TimeLeft, 0.4f, 1e-5f);
+
+    // Paused: no frame of game time - one-frame shapes stay, the sphere's clock stops.
+    scene->SetPaused(true);
+    for (int i = 0; i < 20; i++)
+        scene->OnUpdateRuntime(0.1f);
+    CHECK(DebugDrawTestScript::Frames == 2 && lines.size() == sphere + 1);
+    CHECK_NEAR(lines[0].TimeLeft, 0.4f, 1e-5f);
+    // One step goes on by one frame.
+    scene->Step(1);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(DebugDrawTestScript::Frames == 3 && lines.size() == sphere + 1);
+    CHECK_NEAR(lines[0].TimeLeft, 0.3f, 1e-5f);
+    scene->SetPaused(false);
+    for (int i = 0; i < 3; i++)
+        scene->OnUpdateRuntime(0.1f);
+    CHECK(lines.size() == 1); // the sphere's 0.5 s are over, the script's line is left
+
+    // Stopping empties the queue (nothing the game drew stays in the editor); so do the editor's
+    // simulation start and stop.
+    scene->OnRuntimeStop();
+    CHECK(lines.empty());
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 }, DebugColor::White, 5.0f);
+    scene->OnSimulationStart();
+    CHECK(lines.empty());
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 }, DebugColor::White, 5.0f);
+    scene->OnSimulationStop();
+    CHECK(lines.empty());
+    ResetDebugDraw();
+}
+
+TEST(DebugDrawRaycasts)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return; // a Shipping build: nothing is queued (DebugDrawShippingCheck.cpp)
+    ResetDebugDraw();
+    auto scene = CreateRef<Scene>();
+    Entity floor = scene->CreateEntity("Floor");
+    floor.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    floor.AddComponent<BoxCollider3DComponent>();
+    Entity wall = scene->CreateEntity("Wall");
+    wall.GetTransform().Translation = { 5, 0, 0 };
+    wall.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    wall.AddComponent<BoxCollider2DComponent>();
+    scene->OnRuntimeStart();
+    const auto& lines = DebugDraw::GetLines();
+    const auto& points = DebugDraw::GetPoints();
+
+    // Off by default: queries draw nothing.
+    CHECK(scene->Raycast3D({ 0, 10, 0 }, { 0, -1, 0 }, 50.0f).Hit);
+    CHECK(lines.empty() && points.empty());
+
+    DebugDraw::GetSettings().ShowRaycasts = true;
+    CHECK(DebugDraw::IsShowingRaycasts());
+    RaycastHit hit = scene->Raycast3D({ 0, 10, 0 }, { 0, -1, 0 }, 50.0f);
+    CHECK(hit.Hit);
+    // The ray to the hit point, the rest of it, the normal (an arrow) and the hit point.
+    CHECK(lines.size() == 11 && points.size() == 1);
+    CHECK(lines[0].From == glm::vec3(0, 10, 0) && glm::length(lines[0].To - hit.Point) < 1e-5f && !lines[0].DepthTest);
+    CHECK(glm::length(lines[1].To - glm::vec3(0, -40, 0)) < 1e-3f && lines[1].Color.a < 0.5f);
+    CHECK(glm::length(lines[2].To - (hit.Point + glm::vec3(0, DebugDraw::GetSettings().NormalLength, 0))) < 1e-3f);
+    CHECK(glm::length(points[0].Position - hit.Point) < 1e-5f && lines[0].TimeLeft == 0.0f);
+
+    // A miss: the whole ray in red.
+    DebugDraw::Clear();
+    DebugDraw::GetSettings().RaycastDuration = 0.5f;
+    CHECK(!scene->Raycast3D({ 0, 10, 0 }, { 0, 1, 0 }, 20.0f).Hit);
+    CHECK(lines.size() == 1 && lines[0].Color == DebugColor::Red && lines[0].To == glm::vec3(0, 30, 0));
+    CHECK(lines[0].TimeLeft == 0.5f); // shown for the settings' time
+
+    // 2D queries lie in the XY plane.
+    DebugDraw::Clear();
+    RaycastHit hit2 = scene->Raycast2D({ 0, 0 }, { 2, 0 }, 20.0f);
+    CHECK(hit2.Hit && lines.size() == 11 && lines[0].To.z == 0.0f);
+    CHECK_NEAR(lines[0].To.x, 4.5f, 1e-3f);
+    CHECK(glm::length(lines[2].To - glm::vec3(4.5f - DebugDraw::GetSettings().NormalLength, 0, 0)) < 1e-3f);
+
+    // Debug drawing off: no physics views either.
+    DebugDraw::Clear();
+    DebugDraw::SetEnabled(false);
+    CHECK(!DebugDraw::IsShowingRaycasts());
+    scene->Raycast3D({ 0, 10, 0 }, { 0, -1, 0 }, 50.0f);
+    CHECK(lines.empty() && points.empty());
+    scene->OnRuntimeStop();
+    ResetDebugDraw();
+}
+
+TEST(DebugDrawContacts)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return; // a Shipping build: nothing is queued (DebugDrawShippingCheck.cpp)
+    ResetDebugDraw();
+    auto scene = CreateRef<Scene>();
+    // 2D: a crate resting on the ground.
+    Entity ground = scene->CreateEntity("Ground");
+    ground.GetTransform().Scale = { 10, 1, 1 };
+    ground.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    ground.AddComponent<BoxCollider2DComponent>();
+    Entity crate = scene->CreateEntity("Crate");
+    crate.GetTransform().Translation = { 0, 1.5f, 0 };
+    crate.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    crate.AddComponent<BoxCollider2DComponent>();
+    // 3D: a box on a floor, far from the 2D one.
+    Entity floor = scene->CreateEntity("Floor");
+    floor.GetTransform().Translation = { 0, 0, 50 };
+    floor.GetTransform().Scale = { 10, 1, 10 };
+    floor.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    floor.AddComponent<BoxCollider3DComponent>();
+    Entity box = scene->CreateEntity("Box");
+    box.GetTransform().Translation = { 0, 2, 50 };
+    box.AddComponent<Rigidbody3DComponent>();
+    box.AddComponent<BoxCollider3DComponent>();
+
+    scene->OnRuntimeStart();
+    const auto& points = DebugDraw::GetPoints();
+    for (int i = 0; i < 90; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(points.empty()); // off by default
+
+    DebugDraw::GetSettings().ShowContacts = true;
+    CHECK(DebugDraw::IsShowingContacts());
+    auto count = [&](float minZ, float maxZ) {
+        size_t n = 0;
+        for (const auto& p : points)
+            if (p.Position.z >= minZ && p.Position.z <= maxZ)
+                n++;
+        return n;
+    };
+    auto check = [&]() {
+        CHECK(count(-1.0f, 1.0f) == 2);   // the crate's bottom corners
+        CHECK(count(45.0f, 55.0f) >= 3);  // the box's face on the floor
+        for (const auto& p : points)
+            CHECK_NEAR(p.Position.y, 0.5f, 0.05f);
+        // Each point has a normal line pointing up, out of the ground (2D and 3D alike).
+        size_t normals = 0;
+        for (const auto& l : DebugDraw::GetLines())
+            if (std::abs(l.To.y - l.From.y - DebugDraw::GetSettings().NormalLength) < 1e-3f)
+                normals++;
+        CHECK(normals == points.size());
+    };
+    for (int i = 0; i < 2; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    check();
+    // Long after everything fell asleep the contacts are still shown, once per frame.
+    for (int i = 0; i < 240; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    check();
+    // Off again: the next frame shows none.
+    DebugDraw::GetSettings().ShowContacts = false;
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(points.empty() && DebugDraw::GetLines().empty());
+    CHECK(scene->GetPhysicsWorld3D() && !scene->GetPhysicsWorld3D()->IsDebugContactsEnabled());
+    scene->OnRuntimeStop();
+    ResetDebugDraw();
+}
+
+TEST(DebugDrawShippingIsEmpty)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return; // a Shipping build: nothing is queued (DebugDrawShippingCheck.cpp)
+    ResetDebugDraw();
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 }, DebugColor::White, 5.0f);
+    // The Shipping API (compiled with ZM_DEBUG_DRAW 0 in another file) does nothing, and does not
+    // touch this build's queue.
+    CHECK(ShippingCheck::DrawEverything() == 0);
+    CHECK(DebugDraw::GetLines().size() == 1 && DebugDraw::IsEnabled() && !DebugDraw::IsShowingRaycasts());
+    ResetDebugDraw();
+}
+
+TEST(DebugDrawSettingsSaved)
+{
+    EditorViewSettings view;
+    view.DebugDraw.Enabled = false;
+    view.DebugDraw.ShowRaycasts = true;
+    view.DebugDraw.RaycastDuration = 0.75f;
+    view.DebugDraw.ShowContacts = true;
+    view.DebugDraw.LineWidth = 3.5f;
+    view.DebugDraw.TextSize = 22.0f;
+    view.DebugDraw.OccludedOpacity = 0.25f;
+    EditorViewSettings loaded;
+    CHECK(loaded.FromJson(view.ToJson()));
+    CHECK(!loaded.DebugDraw.Enabled && loaded.DebugDraw.ShowRaycasts && loaded.DebugDraw.ShowContacts);
+    CHECK(loaded.DebugDraw.RaycastDuration == 0.75f && loaded.DebugDraw.LineWidth == 3.5f && loaded.DebugDraw.TextSize == 22.0f);
+    CHECK(loaded.DebugDraw.OccludedOpacity == 0.25f);
+    // Older files without the section keep the defaults.
+    EditorViewSettings old;
+    CHECK(old.FromJson("{\"ZaminEditorView\": 1}") && old.DebugDraw.Enabled && !old.DebugDraw.ShowRaycasts);
+
+    // The project's settings for the player.
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / "zamin_debugdraw_project";
+    fs::create_directories(dir);
+    Ref<Project> previous = Project::GetActive();
+    auto project = Project::New();
+    project->GetConfig().Name = "DebugDrawTest";
+    project->GetConfig().DebugDraw.Enabled = false;
+    project->GetConfig().DebugDraw.ShowContacts = true;
+    project->GetConfig().DebugDraw.LineWidth = 4.0f;
+    CHECK(ProjectSerializer(project).Serialize(dir / "Test.zproject"));
+    auto read = Project::New();
+    CHECK(ProjectSerializer(read).Deserialize(dir / "Test.zproject"));
+    CHECK(!read->GetConfig().DebugDraw.Enabled && read->GetConfig().DebugDraw.ShowContacts && !read->GetConfig().DebugDraw.ShowRaycasts);
+    CHECK(read->GetConfig().DebugDraw.LineWidth == 4.0f);
+    Project::SetActive(previous);
+    fs::remove_all(dir);
+}
+
 TEST(ImageCompare)
 {
     const uint32_t w = 8, h = 4;

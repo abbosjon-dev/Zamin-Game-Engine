@@ -1,0 +1,2221 @@
+{
+  "Scene": "DebugDraw",
+  "Version": 1,
+  "Settings": {
+    "DrawSky": true,
+    "SkyTop": [
+      0.26,
+      0.46,
+      0.82
+    ],
+    "SkyHorizon": [
+      0.82,
+      0.86,
+      0.92
+    ],
+    "Ground": [
+      0.33,
+      0.31,
+      0.28
+    ],
+    "Ambient": 0.55,
+    "Exposure": 1.05,
+    "ShadowDistance": 60,
+    "Gravity": [
+      0,
+      -9.8
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ],
+    "Post": {
+      "Bloom": true,
+      "BloomThreshold": 1.0,
+      "BloomKnee": 0.5,
+      "BloomIntensity": 0.6,
+      "BloomRadius": 1.0,
+      "Vignette": 0.3,
+      "Saturation": 1.08,
+      "Contrast": 1.05,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "Tonemap": 1,
+      "SSAO": true,
+      "SSAORadius": 0.6,
+      "SSAOIntensity": 1.3,
+      "SSAOBias": 0.03
+    },
+    "Environment": {
+      "Map": "Textures/sunset.hdr",
+      "Intensity": 0.85,
+      "Rotation": 0.0
+    }
+  },
+  "Entities": [
+    {
+      "Entity": 7340000039602919,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0,
+          5,
+          13
+        ],
+        "Rotation": [
+          -0.33,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 0,
+        "PerspectiveFOV": 0.85,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 500,
+        "OrthographicSize": 10,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.1,
+          0.1,
+          0.12,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "OrbitCamera",
+        "Fields": {
+          "Distance": {
+            "Type": "Float",
+            "Value": 16.0
+          },
+          "Height": {
+            "Type": "Float",
+            "Value": 6.0
+          },
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.12
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039610838,
+      "Tag": "Sun",
+      "Transform": {
+        "Translation": [
+          0,
+          10,
+          0
+        ],
+        "Rotation": [
+          -0.14,
+          -2.0907999999999998,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "DirectionalLight": {
+        "Color": [
+          1.0,
+          0.8,
+          0.6
+        ],
+        "Intensity": 3.2,
+        "CastShadows": true
+      }
+    },
+    {
+      "Entity": 4801091957780797,
+      "Tag": "Debug Demo",
+      "Transform": {
+        "Translation": [
+          0,
+          0.9,
+          3.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "DebugDrawDemo",
+        "Fields": {
+          "Rays": {
+            "Type": "Int",
+            "Value": 9
+          },
+          "Spread": {
+            "Type": "Float",
+            "Value": 1.1
+          },
+          "SweepSpeed": {
+            "Type": "Float",
+            "Value": 0.5
+          },
+          "Range": {
+            "Type": "Float",
+            "Value": 18.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039618757,
+      "Tag": "Ground",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          40,
+          1,
+          40
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Plane",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Bricks.zmat",
+        "MaterialUUID": "6799173c93db9f9b",
+        "Albedo": [
+          0.9,
+          0.9,
+          0.9,
+          1
+        ],
+        "AlbedoMap": "Textures/bricks.png",
+        "Tiling": 10.0,
+        "Metallic": 0,
+        "Roughness": 0.95,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "NormalMap": "Textures/bricks_normal.png",
+        "NormalStrength": 1.2
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          -0.5,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000039626676,
+      "Tag": "Pedestal",
+      "Transform": {
+        "Translation": [
+          0,
+          0.25,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          6,
+          0.5,
+          6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.85,
+          0.85,
+          0.82,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.6,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.42,
+          0.5,
+          0.42
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000039634595,
+      "Tag": "Hero Sphere",
+      "Transform": {
+        "Translation": [
+          0,
+          1.6,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.2,
+          2.2,
+          2.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Gold.zmat",
+        "MaterialUUID": "916b6a5969fee8d3",
+        "Albedo": [
+          0.95,
+          0.75,
+          0.35,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 1.0,
+        "Roughness": 0.22,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Bobbing",
+        "Fields": {
+          "Height": {
+            "Type": "Float",
+            "Value": 0.25
+          }
+        }
+      },
+      "Rigidbody3D": {
+        "BodyType": "Kinematic",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "SphereCollider3D": {
+        "Radius": 0.5,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000039642514,
+      "Tag": "Cube 1",
+      "Transform": {
+        "Translation": [
+          6.5,
+          0.75,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.5,
+          1.5,
+          1.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.9,
+          0.25,
+          0.25,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.15,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0,
+              0.6,
+              0
+            ]
+          }
+        }
+      },
+      "Rigidbody3D": {
+        "BodyType": "Kinematic",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000039650433,
+      "Tag": "Sphere 2",
+      "Transform": {
+        "Translation": [
+          4.59619407771256,
+          0.75,
+          4.596194077712559
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.5,
+          1.5,
+          1.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.95,
+          0.55,
+          0.2,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 1.0,
+        "Roughness": 0.25,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0,
+              0.75,
+              0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039658352,
+      "Tag": "Cylinder 3",
+      "Transform": {
+        "Translation": [
+          3.9801020972288977e-16,
+          0.75,
+          6.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.5,
+          1.5,
+          1.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.95,
+          0.85,
+          0.25,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.35,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0,
+              0.8999999999999999,
+              0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039666271,
+      "Tag": "Cone 4",
+      "Transform": {
+        "Translation": [
+          -4.596194077712559,
+          0.75,
+          4.59619407771256
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.5,
+          1.5,
+          1.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cone",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.3,
+          0.8,
+          0.4,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 1.0,
+        "Roughness": 0.45000000000000007,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0,
+              1.0499999999999998,
+              0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039674190,
+      "Tag": "Cube 5",
+      "Transform": {
+        "Translation": [
+          -6.5,
+          0.75,
+          7.960204194457795e-16
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.5,
+          1.5,
+          1.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.25,
+          0.6,
+          0.95,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.55,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0,
+              1.2,
+              0
+            ]
+          }
+        }
+      },
+      "Rigidbody3D": {
+        "BodyType": "Kinematic",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000039682109,
+      "Tag": "Sphere 6",
+      "Transform": {
+        "Translation": [
+          -4.59619407771256,
+          0.75,
+          -4.596194077712559
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.5,
+          1.5,
+          1.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.55,
+          0.35,
+          0.9,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 1.0,
+        "Roughness": 0.65,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0,
+              1.35,
+              0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039690028,
+      "Tag": "Cylinder 7",
+      "Transform": {
+        "Translation": [
+          -1.1940306291686693e-15,
+          0.75,
+          -6.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.5,
+          1.5,
+          1.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.9,
+          0.4,
+          0.7,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.7500000000000001,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0,
+              1.5,
+              0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039697947,
+      "Tag": "Cone 8",
+      "Transform": {
+        "Translation": [
+          4.596194077712558,
+          0.75,
+          -4.59619407771256
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.5,
+          1.5,
+          1.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cone",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.85,
+          0.88,
+          0.9,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 1.0,
+        "Roughness": 0.8500000000000001,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "Rotator",
+        "Fields": {
+          "Speed": {
+            "Type": "Vec3",
+            "Value": [
+              0,
+              1.65,
+              0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039705866,
+      "Tag": "Orb 1",
+      "Transform": {
+        "Translation": [
+          3.5,
+          2.2,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.35,
+          0.35,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.2,
+          0.9,
+          0.8,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0.2,
+          0.9,
+          0.8
+        ],
+        "EmissionStrength": 4.0
+      },
+      "PointLight": {
+        "Color": [
+          0.2,
+          0.9,
+          0.8
+        ],
+        "Intensity": 6.0,
+        "Radius": 8.0
+      },
+      "NativeScript": {
+        "Class": "Orbit",
+        "Fields": {
+          "Radius": {
+            "Type": "Float",
+            "Value": 3.5
+          },
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.7
+          },
+          "Phase": {
+            "Type": "Float",
+            "Value": 0.0
+          },
+          "Height": {
+            "Type": "Float",
+            "Value": 2.2
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039713785,
+      "Tag": "Orb 2",
+      "Transform": {
+        "Translation": [
+          -1.7499999999999991,
+          2.2,
+          3.0310889132455356
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.35,
+          0.35,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.35,
+          0.2,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          1.0,
+          0.35,
+          0.2
+        ],
+        "EmissionStrength": 4.0
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.35,
+          0.2
+        ],
+        "Intensity": 6.0,
+        "Radius": 8.0
+      },
+      "NativeScript": {
+        "Class": "Orbit",
+        "Fields": {
+          "Radius": {
+            "Type": "Float",
+            "Value": 3.5
+          },
+          "Speed": {
+            "Type": "Float",
+            "Value": 0.8999999999999999
+          },
+          "Phase": {
+            "Type": "Float",
+            "Value": 2.0943951023931953
+          },
+          "Height": {
+            "Type": "Float",
+            "Value": 2.2
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039721704,
+      "Tag": "Orb 3",
+      "Transform": {
+        "Translation": [
+          -1.7500000000000016,
+          2.2,
+          -3.0310889132455343
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.35,
+          0.35,
+          0.35
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          0.4,
+          0.5,
+          1.0,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0.4,
+          0.5,
+          1.0
+        ],
+        "EmissionStrength": 4.0
+      },
+      "PointLight": {
+        "Color": [
+          0.4,
+          0.5,
+          1.0
+        ],
+        "Intensity": 6.0,
+        "Radius": 8.0
+      },
+      "NativeScript": {
+        "Class": "Orbit",
+        "Fields": {
+          "Radius": {
+            "Type": "Float",
+            "Value": 3.5
+          },
+          "Speed": {
+            "Type": "Float",
+            "Value": 1.1
+          },
+          "Phase": {
+            "Type": "Float",
+            "Value": 4.1887902047863905
+          },
+          "Height": {
+            "Type": "Float",
+            "Value": 2.2
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039729623,
+      "Tag": "Pillar",
+      "Transform": {
+        "Translation": [
+          -12,
+          3,
+          -12
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.2,
+          6,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Stone.zmat",
+        "MaterialUUID": "70bb878dbb22d8c0",
+        "Albedo": [
+          0.75,
+          0.72,
+          0.68,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000039737542,
+      "Tag": "Pillar",
+      "Transform": {
+        "Translation": [
+          -12,
+          3,
+          12
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.2,
+          6,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Stone.zmat",
+        "MaterialUUID": "70bb878dbb22d8c0",
+        "Albedo": [
+          0.75,
+          0.72,
+          0.68,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000039745461,
+      "Tag": "Pillar",
+      "Transform": {
+        "Translation": [
+          12,
+          3,
+          -12
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.2,
+          6,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Stone.zmat",
+        "MaterialUUID": "70bb878dbb22d8c0",
+        "Albedo": [
+          0.75,
+          0.72,
+          0.68,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000039753380,
+      "Tag": "Pillar",
+      "Transform": {
+        "Translation": [
+          12,
+          3,
+          12
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.2,
+          6,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Stone.zmat",
+        "MaterialUUID": "70bb878dbb22d8c0",
+        "Albedo": [
+          0.75,
+          0.72,
+          0.68,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7340000039761299,
+      "Tag": "Player",
+      "Transform": {
+        "Translation": [
+          0,
+          0.5,
+          9
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.18,
+          0.74,
+          0.58,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.35,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "PlayerMover3D",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 6.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7340000039769218,
+      "Tag": "Title",
+      "Transform": {
+        "Translation": [
+          0,
+          5.2,
+          -7
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          0.9
+        ]
+      },
+      "Text": {
+        "Text": "Debug chizish",
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7350007127107919,
+      "Tag": "Ball Shooter",
+      "Parent": 7340000039602919,
+      "Transform": {
+        "Translation": [
+          0,
+          -0.4,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "BallShooter",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7350007127115838,
+      "Tag": "Tower",
+      "Transform": {
+        "Translation": [
+          -9,
+          0,
+          -3
+        ],
+        "Rotation": [
+          0,
+          0.5,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "TowerBuilder",
+        "Fields": {
+          "Levels": {
+            "Type": "Int",
+            "Value": 5
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7350007127123757,
+      "Tag": "Brick",
+      "Transform": {
+        "Translation": [
+          0,
+          -50,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          0.9
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Clay.zmat",
+        "MaterialUUID": "fca2c532cce0ce3e",
+        "Albedo": [
+          0.86,
+          0.42,
+          0.3,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.7,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Dynamic",
+        "Mass": 1.0,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1.0,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "IsSensor": false
+      },
+      "Editor": {
+        "Hidden": true
+      }
+    },
+    {
+      "Entity": 7398000000000001,
+      "Tag": "Torch Fire",
+      "Parent": 7340000039729623,
+      "Transform": {
+        "Translation": [
+          0,
+          0.55,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.833,
+          0.1667,
+          0.833
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 55,
+        "Burst": 0,
+        "MaxParticles": 400,
+        "Shape": 1,
+        "ShapeRadius": 0.3,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.5,
+        "LifetimeMax": 1.1,
+        "SpeedMin": 0.8,
+        "SpeedMax": 2.0,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 15,
+        "Gravity": [
+          0,
+          1.5,
+          0
+        ],
+        "Drag": 0.5,
+        "AngularVelocityMax": 2.0,
+        "StartColor": [
+          1,
+          0.55,
+          0.15,
+          0.9
+        ],
+        "EndColor": [
+          0.9,
+          0.1,
+          0.02,
+          0
+        ],
+        "StartSize": 0.55,
+        "EndSize": 0.08,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 0
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.55,
+          0.2
+        ],
+        "Intensity": 5.0,
+        "Radius": 9.0
+      }
+    },
+    {
+      "Entity": 7398000000000002,
+      "Tag": "Torch Fire",
+      "Parent": 7340000039737542,
+      "Transform": {
+        "Translation": [
+          0,
+          0.55,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.833,
+          0.1667,
+          0.833
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 55,
+        "Burst": 0,
+        "MaxParticles": 400,
+        "Shape": 1,
+        "ShapeRadius": 0.3,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.5,
+        "LifetimeMax": 1.1,
+        "SpeedMin": 0.8,
+        "SpeedMax": 2.0,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 15,
+        "Gravity": [
+          0,
+          1.5,
+          0
+        ],
+        "Drag": 0.5,
+        "AngularVelocityMax": 2.0,
+        "StartColor": [
+          1,
+          0.55,
+          0.15,
+          0.9
+        ],
+        "EndColor": [
+          0.9,
+          0.1,
+          0.02,
+          0
+        ],
+        "StartSize": 0.55,
+        "EndSize": 0.08,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 0
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.55,
+          0.2
+        ],
+        "Intensity": 5.0,
+        "Radius": 9.0
+      }
+    },
+    {
+      "Entity": 7398000000000003,
+      "Tag": "Torch Fire",
+      "Parent": 7340000039745461,
+      "Transform": {
+        "Translation": [
+          0,
+          0.55,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.833,
+          0.1667,
+          0.833
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 55,
+        "Burst": 0,
+        "MaxParticles": 400,
+        "Shape": 1,
+        "ShapeRadius": 0.3,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.5,
+        "LifetimeMax": 1.1,
+        "SpeedMin": 0.8,
+        "SpeedMax": 2.0,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 15,
+        "Gravity": [
+          0,
+          1.5,
+          0
+        ],
+        "Drag": 0.5,
+        "AngularVelocityMax": 2.0,
+        "StartColor": [
+          1,
+          0.55,
+          0.15,
+          0.9
+        ],
+        "EndColor": [
+          0.9,
+          0.1,
+          0.02,
+          0
+        ],
+        "StartSize": 0.55,
+        "EndSize": 0.08,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 0
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.55,
+          0.2
+        ],
+        "Intensity": 5.0,
+        "Radius": 9.0
+      }
+    },
+    {
+      "Entity": 7398000000000004,
+      "Tag": "Torch Fire",
+      "Parent": 7340000039753380,
+      "Transform": {
+        "Translation": [
+          0,
+          0.55,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.833,
+          0.1667,
+          0.833
+        ]
+      },
+      "ParticleSystem": {
+        "Playing": true,
+        "Looping": true,
+        "PlayInEditor": true,
+        "EmissionRate": 55,
+        "Burst": 0,
+        "MaxParticles": 400,
+        "Shape": 1,
+        "ShapeRadius": 0.3,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "LifetimeMin": 0.5,
+        "LifetimeMax": 1.1,
+        "SpeedMin": 0.8,
+        "SpeedMax": 2.0,
+        "Direction": [
+          0,
+          1,
+          0
+        ],
+        "Spread": 15,
+        "Gravity": [
+          0,
+          1.5,
+          0
+        ],
+        "Drag": 0.5,
+        "AngularVelocityMax": 2.0,
+        "StartColor": [
+          1,
+          0.55,
+          0.15,
+          0.9
+        ],
+        "EndColor": [
+          0.9,
+          0.1,
+          0.02,
+          0
+        ],
+        "StartSize": 0.55,
+        "EndSize": 0.08,
+        "RenderAsCircle": true,
+        "Additive": true,
+        "WorldSpace": true,
+        "Billboard": true,
+        "Texture": "",
+        "SortingOrder": 0
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.55,
+          0.2
+        ],
+        "Intensity": 5.0,
+        "Radius": 9.0
+      }
+    },
+    {
+      "Entity": 7397000000000000,
+      "Tag": "Crystal Shrine",
+      "Transform": {
+        "Translation": [
+          -6,
+          0,
+          -9
+        ],
+        "Rotation": [
+          0,
+          0.0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/CrystalShrine.gltf",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.6,
+          0.45,
+          0.6
+        ],
+        "Offset": [
+          0,
+          0.45,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.85,
+          1.0
+        ],
+        "Intensity": 4.0,
+        "Radius": 7.0
+      }
+    },
+    {
+      "Entity": 7397000000000001,
+      "Tag": "Crystal Shrine",
+      "Transform": {
+        "Translation": [
+          6,
+          0,
+          -9
+        ],
+        "Rotation": [
+          0,
+          0.4,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/CrystalShrine.gltf",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Static",
+        "Mass": 1,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.6,
+          0.45,
+          0.6
+        ],
+        "Offset": [
+          0,
+          0.45,
+          0
+        ],
+        "Friction": 0.6,
+        "Restitution": 0.1,
+        "IsSensor": false
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.85,
+          1.0
+        ],
+        "Intensity": 4.0,
+        "Radius": 7.0
+      }
+    },
+    {
+      "Entity": 7395000000000000,
+      "Tag": "Tentacle",
+      "Transform": {
+        "Translation": [
+          -9,
+          0,
+          4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/Tentacle.gltf",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Animator": {
+        "Clip": "Wave",
+        "Speed": 1.0,
+        "Loop": true,
+        "Playing": true,
+        "PlayInEditor": true
+      }
+    },
+    {
+      "Entity": 7395000000000001,
+      "Tag": "Tentacle",
+      "Transform": {
+        "Translation": [
+          9,
+          0,
+          4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/Tentacle.gltf",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Animator": {
+        "Clip": "Twist",
+        "Speed": 1.2,
+        "Loop": true,
+        "Playing": true,
+        "PlayInEditor": true
+      }
+    },
+    {
+      "Entity": 7395000000000002,
+      "Tag": "Tentacle",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -11
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.2,
+          1.2,
+          1.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/Tentacle.gltf",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Animator": {
+        "Clip": "Sway",
+        "Speed": 0.8,
+        "Loop": true,
+        "Playing": true,
+        "PlayInEditor": true
+      }
+    }
+  ]
+}

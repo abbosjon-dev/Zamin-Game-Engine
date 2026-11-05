@@ -11,6 +11,8 @@
 #include "Zamin/Scripting/ScriptEngine.h"
 #include "Zamin/Scripting/EventBus.h"
 #include "Zamin/Physics/PhysicsWorld2D.h"
+#include "Zamin/Physics/PhysicsMaterial.h"
+#include "Zamin/Physics/Polygon2D.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
 #include "Zamin/Renderer/Renderer2D.h"
 #include "Zamin/Renderer/Renderer3D.h"
@@ -163,6 +165,63 @@ namespace Zamin {
         return d;
     }
 
+    // ------------------------------------------------------------------ 2D collider shapes
+    // Which component of an entity a fixture came from (PhysicsWorld2D::SetShapeMaterial).
+    enum : int { ShapeTagBox = 1, ShapeTagCircle, ShapeTagPolygon, ShapeTagEdge, ShapeTagTilemap };
+
+    static void ApplySurface(PhysicsShape2DDesc& shape, const PhysicsMaterialData& surface)
+    {
+        shape.Density = surface.Density;
+        shape.Friction = surface.Friction;
+        shape.Restitution = surface.Restitution;
+        shape.RestitutionThreshold = surface.RestitutionThreshold;
+        shape.FrictionCombine = surface.FrictionCombine;
+        shape.RestitutionCombine = surface.RestitutionCombine;
+    }
+
+    static PhysicsPlatform2D MakePlatform(const PlatformEffector2DComponent& e)
+    {
+        PhysicsPlatform2D p;
+        p.Enabled = true;
+        p.OneWay = e.OneWay;
+        p.SurfaceArc = std::clamp(e.SurfaceArc, 0.0f, 360.0f);
+        p.RotationOffset = e.RotationOffset;
+        p.UseSideFriction = e.UseSideFriction;
+        p.UseSideBounce = e.UseSideBounce;
+        p.SideArc = std::clamp(e.SideArc, 0.0f, 180.0f);
+        return p;
+    }
+
+    // A collider's own surface values (used without a material asset).
+    template<typename C>
+    static PhysicsMaterialData ColliderOwnSurface(const C& c)
+    {
+        PhysicsMaterialData d;
+        d.Friction = c.Friction;
+        d.Restitution = c.Restitution;
+        d.RestitutionThreshold = c.RestitutionThreshold;
+        d.Density = c.Density;
+        return d;
+    }
+
+    // What every collider shape shares: its surface (material asset or own values), sensor flag,
+    // collision layer (its own, else the body's) and the entity's platform effector.
+    template<typename C>
+    static PhysicsShape2DDesc MakeColliderShape(const C& c, int bodyLayer, const PlatformEffector2DComponent* effector, int tag)
+    {
+        PhysicsShape2DDesc shape;
+        ApplySurface(shape, PhysicsMaterialLibrary::Resolve(c.MaterialPath, ColliderOwnSurface(c)));
+        shape.IsSensor = c.IsSensor;
+        const CollisionLayers2D& layers = Project::GetCollisionLayers2D();
+        const int layer = c.Layer >= 0 ? c.Layer : bodyLayer;
+        shape.CategoryBits = layers.GetCategoryBits(layer);
+        shape.MaskBits = layers.GetMaskBits(layer);
+        shape.Tag = tag;
+        if (effector && !c.IsSensor)
+            shape.Platform = MakePlatform(*effector);
+        return shape;
+    }
+
     // The 2D body an entity has in the running world: its Rigidbody 2D's, else its tilemap's.
     static b2Body* GetBody2D(Entity entity, bool tilemap)
     {
@@ -184,6 +243,13 @@ namespace Zamin {
         for (auto e : registry.view<Rigidbody2DComponent>()) registry.get<Rigidbody2DComponent>(e).RuntimeBody = nullptr;
         for (auto e : registry.view<BoxCollider2DComponent>()) registry.get<BoxCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : registry.view<CircleCollider2DComponent>()) registry.get<CircleCollider2DComponent>(e).RuntimeFixture = nullptr;
+        for (auto e : registry.view<PolygonCollider2DComponent>())
+        {
+            auto& c = registry.get<PolygonCollider2DComponent>(e);
+            c.RuntimeFixture = nullptr;
+            c.RuntimePieces = 0;
+        }
+        for (auto e : registry.view<EdgeCollider2DComponent>()) registry.get<EdgeCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : registry.view<Rigidbody3DComponent>()) registry.get<Rigidbody3DComponent>(e).RuntimeBodyID = 0xffffffff;
         for (auto e : registry.view<CharacterController3DComponent>())
         {
@@ -217,6 +283,8 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<Rigidbody2DComponent>()) c->RuntimeBody = nullptr;
         if (auto* c = e.TryGetComponent<BoxCollider2DComponent>()) c->RuntimeFixture = nullptr;
         if (auto* c = e.TryGetComponent<CircleCollider2DComponent>()) c->RuntimeFixture = nullptr;
+        if (auto* c = e.TryGetComponent<PolygonCollider2DComponent>()) { c->RuntimeFixture = nullptr; c->RuntimePieces = 0; }
+        if (auto* c = e.TryGetComponent<EdgeCollider2DComponent>()) c->RuntimeFixture = nullptr;
         if (auto* c = e.TryGetComponent<Rigidbody3DComponent>()) c->RuntimeBodyID = 0xffffffff;
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->RuntimeHandle = 0;
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
@@ -2008,6 +2076,7 @@ namespace Zamin {
             OnPhysics2DStop();
         m_PhysicsWorld = std::make_unique<PhysicsWorld2D>(m_Settings.Gravity);
         m_PhysicsAccumulator = 0.0f;
+        m_PhysicsMaterialRevision = PhysicsMaterialLibrary::GetRevision();
 
         for (auto e : m_Registry.view<Rigidbody2DComponent>())
             CreatePhysicsBody({ e, this });
@@ -2036,14 +2105,31 @@ namespace Zamin {
         // Horizontal runs of solid tiles (and of one-way tiles) are single boxes: fewer fixtures, no seams.
         // The tileset's per-tile collision decides which tiles count.
         const TilesetProperties* properties = TilesetProperties::Get(tm.TilesetPath);
+        // What every tile box shares: the surface (material asset or the tilemap's own values), the
+        // collision layer and a platform effector on the tilemap's entity.
+        PhysicsShape2DDesc tileShape;
+        PhysicsMaterialData own;
+        own.Friction = tm.Friction;
+        own.Restitution = tm.Restitution;
+        own.RestitutionThreshold = 1.0f;
+        own.Density = 0.0f;
+        const PhysicsMaterialData surface = PhysicsMaterialLibrary::Resolve(tm.MaterialPath, own);
+        ApplySurface(tileShape, surface);
+        tileShape.Density = 0.0f; // static
+        const CollisionLayers2D& layers = Project::GetCollisionLayers2D();
+        tileShape.CategoryBits = layers.GetCategoryBits(tm.CollisionLayer);
+        tileShape.MaskBits = layers.GetMaskBits(tm.CollisionLayer);
+        tileShape.Tag = ShapeTagTilemap;
+        const auto* effector = entity.TryGetComponent<PlatformEffector2DComponent>();
+        if (effector)
+            tileShape.Platform = MakePlatform(*effector);
         for (const TileColliderBox& run : TilemapCollision::BuildBoxes(tm, properties))
         {
             float w = (run.X1 - run.X0) * sx;
-            PhysicsShape2DDesc shape;
+            PhysicsShape2DDesc shape = tileShape;
             shape.HalfExtents = { w * 0.5f, sy * 0.5f };
             shape.Offset = { run.X0 * sx + w * 0.5f, run.Y * sy + sy * 0.5f };
-            shape.Friction = tm.Friction;
-            shape.OneWay = run.Type == TileCollision::OneWay;
+            shape.OneWay = run.Type == TileCollision::OneWay && !effector; // an effector decides for every tile
             m_PhysicsWorld->AddShape(body, shape);
         }
     }
@@ -2054,6 +2140,13 @@ namespace Zamin {
         for (auto e : m_Registry.view<Rigidbody2DComponent>()) m_Registry.get<Rigidbody2DComponent>(e).RuntimeBody = nullptr;
         for (auto e : m_Registry.view<BoxCollider2DComponent>()) m_Registry.get<BoxCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : m_Registry.view<CircleCollider2DComponent>()) m_Registry.get<CircleCollider2DComponent>(e).RuntimeFixture = nullptr;
+        for (auto e : m_Registry.view<PolygonCollider2DComponent>())
+        {
+            auto& c = m_Registry.get<PolygonCollider2DComponent>(e);
+            c.RuntimeFixture = nullptr;
+            c.RuntimePieces = 0;
+        }
+        for (auto e : m_Registry.view<EdgeCollider2DComponent>()) m_Registry.get<EdgeCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : m_Registry.view<TilemapComponent>()) m_Registry.get<TilemapComponent>(e).RuntimeBody = nullptr;
         ForEachJoint2DType([&](auto type) {
             using T = typename decltype(type)::type;
@@ -2262,31 +2355,104 @@ namespace Zamin {
         b2Body* body = m_PhysicsWorld->CreateBody(bodyDef);
         rb2d.RuntimeBody = body;
 
-        auto material = [](PhysicsShape2DDesc& shape, const auto& collider) {
-            shape.Offset = collider.Offset;
-            shape.Density = collider.Density;
-            shape.Friction = collider.Friction;
-            shape.Restitution = collider.Restitution;
-            shape.RestitutionThreshold = collider.RestitutionThreshold;
-            shape.IsSensor = collider.IsSensor;
-        };
+        const glm::vec2 bodyScale(std::abs(scale.x), std::abs(scale.y));
+        const auto* effector = entity.TryGetComponent<PlatformEffector2DComponent>();
         if (auto* bc2d = entity.TryGetComponent<BoxCollider2DComponent>())
         {
-            PhysicsShape2DDesc shape;
+            PhysicsShape2DDesc shape = MakeColliderShape(*bc2d, rb2d.Layer, effector, ShapeTagBox);
             shape.Type = PhysicsShape2DDesc::Kind::Box;
-            shape.HalfExtents = { std::max(0.001f, bc2d->Size.x * std::abs(scale.x)), std::max(0.001f, bc2d->Size.y * std::abs(scale.y)) };
-            material(shape, *bc2d);
-            shape.OneWay = bc2d->OneWay;
+            shape.Offset = bc2d->Offset;
+            shape.HalfExtents = { std::max(0.001f, bc2d->Size.x * bodyScale.x), std::max(0.001f, bc2d->Size.y * bodyScale.y) };
+            shape.OneWay = bc2d->OneWay && !effector; // an effector decides for every collider of the entity
             bc2d->RuntimeFixture = m_PhysicsWorld->AddShape(body, shape);
         }
 
         if (auto* cc2d = entity.TryGetComponent<CircleCollider2DComponent>())
         {
-            PhysicsShape2DDesc shape;
+            PhysicsShape2DDesc shape = MakeColliderShape(*cc2d, rb2d.Layer, effector, ShapeTagCircle);
             shape.Type = PhysicsShape2DDesc::Kind::Circle;
+            shape.Offset = cc2d->Offset;
             shape.Radius = std::max(0.001f, std::abs(scale.x) * cc2d->Radius);
-            material(shape, *cc2d);
             cc2d->RuntimeFixture = m_PhysicsWorld->AddShape(body, shape);
+        }
+
+        if (auto* pc2d = entity.TryGetComponent<PolygonCollider2DComponent>())
+        {
+            // Convex pieces of the scaled outline: one fixture each.
+            PhysicsShape2DDesc shape = MakeColliderShape(*pc2d, rb2d.Layer, effector, ShapeTagPolygon);
+            shape.Type = PhysicsShape2DDesc::Kind::Polygon;
+            pc2d->RuntimeFixture = nullptr;
+            pc2d->RuntimePieces = 0;
+            for (const std::vector<glm::vec2>& piece : DecomposePolygonCollider(*pc2d, bodyScale).Pieces)
+            {
+                shape.Points = piece;
+                if (b2Fixture* fixture = m_PhysicsWorld->AddShape(body, shape))
+                {
+                    if (!pc2d->RuntimeFixture)
+                        pc2d->RuntimeFixture = fixture;
+                    pc2d->RuntimePieces++;
+                }
+            }
+        }
+
+        if (auto* ec2d = entity.TryGetComponent<EdgeCollider2DComponent>())
+        {
+            PhysicsShape2DDesc shape = MakeColliderShape(*ec2d, rb2d.Layer, effector, ShapeTagEdge);
+            shape.Type = ec2d->OneSided ? PhysicsShape2DDesc::Kind::Chain : PhysicsShape2DDesc::Kind::Edge;
+            shape.Density = 0.0f; // no area
+            shape.Loop = ec2d->Loop;
+            shape.Offset = ec2d->Offset;
+            for (const glm::vec2& p : ec2d->Points)
+                shape.Points.push_back(p * bodyScale);
+            ec2d->RuntimeFixture = m_PhysicsWorld->AddShape(body, shape);
+        }
+    }
+
+    Polygon2D::Decomposition Scene::DecomposePolygonCollider(const PolygonCollider2DComponent& collider, const glm::vec2& scale)
+    {
+        std::vector<glm::vec2> points;
+        points.reserve(collider.Points.size());
+        for (const glm::vec2& p : collider.Points)
+            points.push_back(collider.Offset + p * scale);
+        return Polygon2D::Decompose(points);
+    }
+
+    void Scene::ApplyPhysicsMaterials()
+    {
+        // A physics material asset changed (hot reload, the editor): the colliders naming one get its values.
+        m_PhysicsMaterialRevision = PhysicsMaterialLibrary::GetRevision();
+        if (!m_PhysicsWorld)
+            return;
+        auto apply = [&](auto type, int tag) {
+            using T = typename decltype(type)::type;
+            for (auto e : m_Registry.view<T, Rigidbody2DComponent>())
+            {
+                auto& c = m_Registry.get<T>(e);
+                auto& rb = m_Registry.get<Rigidbody2DComponent>(e);
+                if (c.MaterialPath.empty() || !rb.RuntimeBody)
+                    continue;
+                PhysicsMaterialData surface = PhysicsMaterialLibrary::Resolve(c.MaterialPath, ColliderOwnSurface(c));
+                if constexpr (std::is_same_v<T, EdgeCollider2DComponent>)
+                    surface.Density = 0.0f;
+                m_PhysicsWorld->SetShapeMaterial((b2Body*)rb.RuntimeBody, tag, surface);
+            }
+        };
+        apply(std::type_identity<BoxCollider2DComponent>(), ShapeTagBox);
+        apply(std::type_identity<CircleCollider2DComponent>(), ShapeTagCircle);
+        apply(std::type_identity<PolygonCollider2DComponent>(), ShapeTagPolygon);
+        apply(std::type_identity<EdgeCollider2DComponent>(), ShapeTagEdge);
+        for (auto e : m_Registry.view<TilemapComponent>())
+        {
+            auto& tm = m_Registry.get<TilemapComponent>(e);
+            if (tm.MaterialPath.empty() || !tm.RuntimeBody)
+                continue;
+            PhysicsMaterialData own;
+            own.Friction = tm.Friction;
+            own.Restitution = tm.Restitution;
+            own.RestitutionThreshold = 1.0f;
+            PhysicsMaterialData surface = PhysicsMaterialLibrary::Resolve(tm.MaterialPath, own);
+            surface.Density = 0.0f;
+            m_PhysicsWorld->SetShapeMaterial((b2Body*)tm.RuntimeBody, ShapeTagTilemap, surface);
         }
     }
 
@@ -2431,6 +2597,8 @@ namespace Zamin {
             ForgetJoints2D(joints);
             if (auto* c = entity.TryGetComponent<BoxCollider2DComponent>()) c->RuntimeFixture = nullptr;
             if (auto* c = entity.TryGetComponent<CircleCollider2DComponent>()) c->RuntimeFixture = nullptr;
+            if (auto* c = entity.TryGetComponent<PolygonCollider2DComponent>()) { c->RuntimeFixture = nullptr; c->RuntimePieces = 0; }
+            if (auto* c = entity.TryGetComponent<EdgeCollider2DComponent>()) c->RuntimeFixture = nullptr;
         }
         if (auto* tm = entity.TryGetComponent<TilemapComponent>(); tm && tm->RuntimeBody && m_PhysicsWorld)
         {
@@ -2572,6 +2740,9 @@ namespace Zamin {
         }
         // Joints whose bodies appeared since the last frame, live motor / limit settings.
         SyncJoints2D();
+        // Physics material assets edited / reloaded since the last frame.
+        if (m_PhysicsWorld && m_PhysicsMaterialRevision != PhysicsMaterialLibrary::GetRevision())
+            ApplyPhysicsMaterials();
         m_PhysicsAccumulator += ts;
         int stepCount = std::min(5, (int)(m_PhysicsAccumulator / fixedStep));
 
@@ -2790,10 +2961,10 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ queries
-    RaycastHit Scene::Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance)
+    RaycastHit Scene::Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance, uint16_t layerMask)
     {
         if (!m_PhysicsWorld || glm::length(direction) == 0.0f) return {};
-        RaycastHit hit = m_PhysicsWorld->CastRay(origin, direction, maxDistance);
+        RaycastHit hit = m_PhysicsWorld->CastRay(origin, direction, maxDistance, layerMask);
         DebugDraw::PhysicsRaycast(glm::vec3(origin, 0.0f), glm::vec3(glm::normalize(direction), 0.0f), maxDistance, hit);
         return hit;
     }

@@ -40,7 +40,7 @@ namespace Zamin {
     // the asset registry, where dropped files are imported to). Other = unknown.
     enum class AssetType : uint8_t
     {
-        Folder = 0, Scene, Prefab, Texture, Model, Audio, Font, Environment, Material, Script, Project, Other,
+        Folder = 0, Scene, Prefab, Texture, Model, Audio, Font, Environment, Material, PhysicsMaterial, Script, Project, Other,
         Count
     };
 
@@ -61,7 +61,8 @@ namespace Zamin {
         static const char* GetImportFolder(AssetType type);
 
         // Whether files of this type are assets of the registry (a handle and a .zmeta file):
-        // scenes, prefabs, textures, models, audio, fonts, HDR environments and materials. Not
+        // scenes, prefabs, textures, models, audio, fonts, HDR environments, materials and physics
+        // materials. Not
         // folders, C++ files, the project file or unknown files (model buffers, notes...).
         static bool IsRegistered(AssetType type);
     };

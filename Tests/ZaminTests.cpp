@@ -4308,6 +4308,9 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<Rigidbody2DComponent>();
     e.AddComponent<BoxCollider2DComponent>();
     e.AddComponent<CircleCollider2DComponent>();
+    e.AddComponent<PolygonCollider2DComponent>();
+    e.AddComponent<EdgeCollider2DComponent>();
+    e.AddComponent<PlatformEffector2DComponent>();
     e.AddComponent<DistanceJoint2DComponent>();
     e.AddComponent<RevoluteJoint2DComponent>();
     e.AddComponent<PrismaticJoint2DComponent>();
@@ -4328,7 +4331,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 35);
+    CHECK(types.size() == 38);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -4639,7 +4642,8 @@ TEST(AssetTypesAndFilter)
     CHECK(!filter.Matches(AssetType::Model) && filter.Count() == 2);
     filter.Clear();
     CHECK(!filter.IsActive());
-    CHECK(AssetTypeFilter::GetFilterableTypes().size() == 10);
+    CHECK(AssetTypeFilter::GetFilterableTypes().size() == 11);
+    CHECK(AssetFiles::GetType("Physics/Ice.ZPHYSMAT") == AssetType::PhysicsMaterial);
 
     // Natural, case-insensitive name order.
     CHECK(AssetFiles::CompareNames("Level2", "Level10") < 0);
@@ -5000,7 +5004,7 @@ TEST(AssetTypeDetection)
 
     // The registry keeps (and gives a .zmeta to) these types only.
     for (AssetType t : { AssetType::Scene, AssetType::Prefab, AssetType::Texture, AssetType::Model, AssetType::Audio,
-                         AssetType::Font, AssetType::Environment, AssetType::Material })
+                         AssetType::Font, AssetType::Environment, AssetType::Material, AssetType::PhysicsMaterial })
         CHECK(AssetTypes::IsRegistered(t));
     for (AssetType t : { AssetType::Folder, AssetType::Script, AssetType::Project, AssetType::Other })
         CHECK(!AssetTypes::IsRegistered(t));
@@ -15573,6 +15577,585 @@ TEST(Joint2DSerializeAndRemap)
     }
     CHECK(pastedTorso && pastedArm && pastedTorso.GetUUID() != torso.GetUUID());
     CHECK(pastedArm.GetComponent<RevoluteJoint2DComponent>().ConnectedBody.ID == (uint64_t)pastedTorso.GetUUID());
+}
+
+// ------------------------------------------------------------------ 2D colliders, materials, layers, platforms (M09)
+static float PiecesArea(const std::vector<std::vector<glm::vec2>>& pieces)
+{
+    float area = 0.0f;
+    for (const auto& p : pieces)
+        area += Polygon2D::SignedArea(p) * 0.5f;
+    return area;
+}
+
+TEST(Polygon2DDecomposition)
+{
+    // A convex square: one piece as it is (either winding).
+    std::vector<glm::vec2> square = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } };
+    CHECK(Polygon2D::IsConvex(square) && Polygon2D::IsSimple(square) && Polygon2D::IsCounterClockwise(square));
+    auto d = Polygon2D::Decompose(square);
+    CHECK(d.Result == Polygon2D::DecomposeResult::Convex && d.Pieces.size() == 1 && d.Pieces[0].size() == 4);
+    std::vector<glm::vec2> clockwise(square.rbegin(), square.rend());
+    d = Polygon2D::Decompose(clockwise);
+    CHECK(d.Pieces.size() == 1 && Polygon2D::IsCounterClockwise(d.Pieces[0]));
+
+    // A concave L (area 3): convex pieces of at most 8 corners that add up to it.
+    std::vector<glm::vec2> l = { { 0, 0 }, { 2, 0 }, { 2, 1 }, { 1, 1 }, { 1, 2 }, { 0, 2 } };
+    CHECK(!Polygon2D::IsConvex(l) && Polygon2D::IsSimple(l));
+    CHECK(Polygon2D::Triangulate(l).size() == 4);
+    d = Polygon2D::Decompose(l);
+    CHECK(d.Result == Polygon2D::DecomposeResult::Decomposed && d.Pieces.size() == 2);
+    CHECK_NEAR(PiecesArea(d.Pieces), 3.0f, 1e-4f);
+    for (const auto& piece : d.Pieces)
+        CHECK(Polygon2D::IsConvex(piece) && (int)piece.size() <= Polygon2D::MaxPieceVertices && Polygon2D::IsCounterClockwise(piece));
+
+    // A star (10 corners, concave): still covered exactly.
+    std::vector<glm::vec2> star;
+    for (int i = 0; i < 10; i++)
+    {
+        float a = glm::radians(90.0f + 36.0f * i), r = i % 2 == 0 ? 2.0f : 0.8f;
+        star.push_back({ std::cos(a) * r, std::sin(a) * r });
+    }
+    d = Polygon2D::Decompose(star);
+    CHECK(d.Result == Polygon2D::DecomposeResult::Decomposed && d.Pieces.size() >= 5);
+    CHECK_NEAR(PiecesArea(d.Pieces), Polygon2D::SignedArea(star) * 0.5f, 1e-3f);
+    for (const auto& piece : d.Pieces)
+        CHECK(Polygon2D::IsConvex(piece) && (int)piece.size() <= 8);
+
+    // A convex 12-gon: split into fans of at most 8 corners, nothing lost.
+    std::vector<glm::vec2> circle;
+    for (int i = 0; i < 12; i++)
+        circle.push_back({ std::cos(glm::radians(30.0f * i)), std::sin(glm::radians(30.0f * i)) });
+    d = Polygon2D::Decompose(circle);
+    CHECK(d.Result == Polygon2D::DecomposeResult::Convex && d.Pieces.size() == 2);
+    CHECK_NEAR(PiecesArea(d.Pieces), Polygon2D::SignedArea(circle) * 0.5f, 1e-4f);
+    CHECK(Polygon2D::SimplifyConvex(circle, 8).size() == 8);
+
+    // A bow tie crosses itself: its convex hull. Points on a line, or one point: nothing.
+    std::vector<glm::vec2> bowtie = { { 0, 0 }, { 2, 2 }, { 2, 0 }, { 0, 2 } };
+    CHECK(!Polygon2D::IsSimple(bowtie));
+    d = Polygon2D::Decompose(bowtie);
+    CHECK(d.Result == Polygon2D::DecomposeResult::SelfIntersecting && d.Pieces.size() == 1);
+    CHECK_NEAR(PiecesArea(d.Pieces), 4.0f, 1e-4f);
+    CHECK(Polygon2D::Decompose({ { 0, 0 }, { 1, 1 }, { 2, 2 } }).Result == Polygon2D::DecomposeResult::Degenerate);
+    CHECK(Polygon2D::Decompose({ { 0, 0 }, { 0.001f, 0.0f }, { 0.0f, 0.001f } }).Pieces.empty());
+    // Repeated and straight-line points are cleaned away.
+    CHECK(Polygon2D::Clean({ { 0, 0 }, { 0, 0 }, { 1, 0 }, { 2, 0 }, { 2, 2 }, { 0, 2 }, { 0, 0 } }).size() == 4);
+    // Polylines: neighbours welded, too short ones empty.
+    CHECK(Polygon2D::CleanPolyline({ { 0, 0 }, { 0.001f, 0 }, { 1, 0 } }, false).size() == 2);
+    CHECK(Polygon2D::CleanPolyline({ { 0, 0 }, { 0.001f, 0 } }, false).empty());
+    CHECK(Polygon2D::CleanPolyline({ { 0, 0 }, { 1, 0 } }, true).empty());
+    CHECK(Polygon2D::MakeConvexPiece({ { 0, 0 }, { 1, 0 }, { 0.5f, 0.0001f } }).empty()); // a sliver
+}
+
+TEST(Polygon2DTraceAlphaOutline)
+{
+    // A 16 x 16 picture: an opaque L (rows go down: the L's foot at the bottom), a stray pixel, a hole.
+    const int w = 16, h = 16;
+    std::vector<uint8_t> rgba((size_t)w * h * 4, 0);
+    auto set = [&](int x, int y) { rgba[((size_t)y * w + x) * 4 + 3] = 255; };
+    for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 4; x++)
+            set(x, y);      // the upright: columns 0..3, every row
+    for (int y = 12; y < 16; y++)
+        for (int x = 4; x < 16; x++)
+            set(x, y);      // the foot: bottom 4 rows
+    rgba[((size_t)6 * w + 2) * 4 + 3] = 0; // a hole inside the upright: filled
+    set(10, 2);                             // a stray pixel: not the largest island
+    std::vector<glm::vec2> outline = Polygon2D::TraceAlphaOutline(rgba.data(), w, h, 0, 0, w, h, 16, 12);
+    CHECK(outline.size() == 6);
+    CHECK(Polygon2D::IsSimple(outline) && Polygon2D::IsCounterClockwise(outline));
+    // Area of the L in the unit square: (4*16 + 12*4) / 256.
+    CHECK_NEAR(Polygon2D::SignedArea(outline) * 0.5f, (64.0f + 48.0f) / 256.0f, 1e-4f);
+    // y up: the foot is at the bottom (v < 0.25), the upright on the left.
+    bool footCorner = false;
+    for (const glm::vec2& p : outline)
+        footCorner |= std::abs(p.x - 1.0f) < 1e-4f && std::abs(p.y - 0.25f) < 1e-4f;
+    CHECK(footCorner);
+    // A region of the picture (an atlas frame): only the foot's part.
+    std::vector<glm::vec2> part = Polygon2D::TraceAlphaOutline(rgba.data(), w, h, 8, 8, 16, 16);
+    CHECK(part.size() == 4);
+    CHECK_NEAR(Polygon2D::SignedArea(part) * 0.5f, 0.5f, 1e-4f); // the lower half of the 8 x 8 frame
+    // Nothing opaque: nothing.
+    std::vector<uint8_t> empty((size_t)w * h * 4, 0);
+    CHECK(Polygon2D::TraceAlphaOutline(empty.data(), w, h, 0, 0, w, h).empty());
+    // A round blob: simplified to the corner budget.
+    std::vector<uint8_t> blob((size_t)64 * 64 * 4, 0);
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++)
+            if ((x - 31.5f) * (x - 31.5f) + (y - 31.5f) * (y - 31.5f) < 30.0f * 30.0f)
+                blob[((size_t)y * 64 + x) * 4 + 3] = 200;
+    std::vector<glm::vec2> round = Polygon2D::TraceAlphaOutline(blob.data(), 64, 64, 0, 0, 64, 64, 16, 10);
+    CHECK(round.size() >= 6 && round.size() <= 10 && Polygon2D::IsSimple(round));
+    CHECK(Polygon2D::SignedArea(round) * 0.5f > 0.55f && Polygon2D::SignedArea(round) * 0.5f < 0.75f); // pi*0.47^2 ~ 0.69
+}
+
+TEST(PolygonCollider2DInScene)
+{
+    auto scene = CreateRef<Scene>();
+    Entity ground = scene->CreateEntity("Ground");
+    ground.GetTransform().Scale = { 20.0f, 1.0f, 1.0f };
+    ground.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    ground.AddComponent<BoxCollider2DComponent>(); // top at y = 0.5
+    // A static cup (a concave U, scaled 2x): a ball dropped into it stays inside.
+    Entity cup = scene->CreateEntity("Cup");
+    cup.GetTransform().Translation = { 0.0f, 0.5f, 0.0f };
+    cup.GetTransform().Scale = { 2.0f, 2.0f, 1.0f };
+    cup.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    cup.AddComponent<PolygonCollider2DComponent>().Points = { { -1.5f, 0.0f }, { 1.5f, 0.0f }, { 1.5f, 2.0f }, { 1.2f, 2.0f },
+                                                               { 1.2f, 0.3f }, { -1.2f, 0.3f }, { -1.2f, 2.0f }, { -1.5f, 2.0f } };
+    Entity ball = MakeBody2D(scene, "Ball", { 0.8f, 6.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.3f);
+    ball.GetComponent<CircleCollider2DComponent>().Restitution = 0.3f;
+    // A dynamic triangle (the default house shape is used elsewhere) falls onto the ground.
+    Entity wedge = scene->CreateEntity("Wedge");
+    wedge.GetTransform().Translation = { 8.0f, 3.0f, 0.0f };
+    wedge.AddComponent<Rigidbody2DComponent>();
+    wedge.AddComponent<PolygonCollider2DComponent>().Points = { { -0.5f, 0.0f }, { 0.5f, 0.0f }, { 0.0f, 1.0f } };
+
+    // The pieces the cup gets: convex, at its world scale.
+    Polygon2D::Decomposition pieces = Scene::DecomposePolygonCollider(cup.GetComponent<PolygonCollider2DComponent>(), { 2.0f, 2.0f });
+    CHECK(pieces.Result == Polygon2D::DecomposeResult::Decomposed && pieces.Pieces.size() == 3);
+
+    scene->OnRuntimeStart();
+    CHECK(cup.GetComponent<PolygonCollider2DComponent>().RuntimePieces == 3);
+    CHECK(PhysicsWorld2D::GetFixtureCount((const b2Body*)cup.GetComponent<Rigidbody2DComponent>().RuntimeBody) == 3);
+    CHECK(wedge.GetComponent<PolygonCollider2DComponent>().RuntimePieces == 1);
+    RunFrames(scene, 240);
+    // In the cup: above its floor (y = 0.5 + 0.6 inside) between its walls (x = +-2.4).
+    CHECK(Pos2D(ball).x > -2.4f && Pos2D(ball).x < 2.4f);
+    CHECK_NEAR(Pos2D(ball).y, 0.5f + 0.6f + 0.3f, 0.05f);
+    // The wedge rests on its base on the ground.
+    CHECK_NEAR(Pos2D(wedge).y, 0.5f, 0.05f);
+    scene->OnRuntimeStop();
+    CHECK(cup.GetComponent<PolygonCollider2DComponent>().RuntimePieces == 0 && !cup.GetComponent<PolygonCollider2DComponent>().RuntimeFixture);
+
+    // The points are saved with the scene.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    auto& points = loaded->FindEntityByName("Cup").GetComponent<PolygonCollider2DComponent>().Points;
+    CHECK(points.size() == 8 && points[4] == glm::vec2(1.2f, 0.3f));
+    // A polygon with no area makes no fixture (and does not assert).
+    Entity flat = loaded->CreateEntity("Flat");
+    flat.AddComponent<Rigidbody2DComponent>();
+    flat.AddComponent<PolygonCollider2DComponent>().Points = { { 0, 0 }, { 1, 0 }, { 2, 0 } };
+    loaded->OnRuntimeStart();
+    CHECK(flat.GetComponent<PolygonCollider2DComponent>().RuntimePieces == 0 && flat.GetComponent<Rigidbody2DComponent>().RuntimeBody);
+    loaded->OnRuntimeStop();
+}
+
+TEST(EdgeCollider2DInScene)
+{
+    auto makeScene = [](bool oneSided, bool loop) {
+        auto scene = CreateRef<Scene>();
+        Entity ground = scene->CreateEntity("Ground");
+        ground.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+        auto& edge = ground.AddComponent<EdgeCollider2DComponent>();
+        edge.Points = { { -5.0f, 0.0f }, { 0.0f, 0.0f }, { 5.0f, 0.0f } }; // left to right
+        edge.OneSided = oneSided;
+        edge.Loop = loop;
+        if (loop)
+            edge.Points = { { -5.0f, 0.0f }, { -5.0f, -6.0f }, { 5.0f, -6.0f }, { 5.0f, 0.0f } }; // a box (counter-clockwise from top left)
+        Entity above = MakeBody2D(scene, "Above", { -2.0f, 3.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.5f);
+        Entity below = MakeBody2D(scene, "Below", { 2.0f, -2.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.5f);
+        below.GetComponent<Rigidbody2DComponent>().GravityScale = -1.0f; // falls up into the line
+        (void)above;
+        return scene;
+    };
+    // Two-sided: both stop at the line.
+    {
+        auto scene = makeScene(false, false);
+        scene->OnRuntimeStart();
+        CHECK(PhysicsWorld2D::GetFixtureCount((const b2Body*)scene->FindEntityByName("Ground").GetComponent<Rigidbody2DComponent>().RuntimeBody) == 2);
+        RunFrames(scene, 180);
+        CHECK_NEAR(Pos2D(scene->FindEntityByName("Above")).y, 0.5f, 0.05f);
+        CHECK_NEAR(Pos2D(scene->FindEntityByName("Below")).y, -0.5f, 0.05f);
+        scene->OnRuntimeStop();
+    }
+    // One-sided chain (points left to right: solid from above): the one from below passes.
+    {
+        auto scene = makeScene(true, false);
+        scene->OnRuntimeStart();
+        CHECK(PhysicsWorld2D::GetFixtureCount((const b2Body*)scene->FindEntityByName("Ground").GetComponent<Rigidbody2DComponent>().RuntimeBody) == 1);
+        RunFrames(scene, 180);
+        CHECK_NEAR(Pos2D(scene->FindEntityByName("Above")).y, 0.5f, 0.05f);
+        CHECK(Pos2D(scene->FindEntityByName("Below")).y > 2.0f);
+        scene->OnRuntimeStop();
+    }
+    // A counter-clockwise one-sided loop holds bodies inside: the one inside rests on its floor.
+    {
+        auto scene = makeScene(true, true);
+        scene->FindEntityByName("Below").GetComponent<Rigidbody2DComponent>().GravityScale = 1.0f;
+        scene->OnRuntimeStart();
+        RunFrames(scene, 180);
+        CHECK_NEAR(Pos2D(scene->FindEntityByName("Below")).y, -5.5f, 0.05f);
+        // The one above came in through the top (solid only from inside) and is held by the floor.
+        CHECK_NEAR(Pos2D(scene->FindEntityByName("Above")).y, -5.5f, 0.05f);
+        scene->OnRuntimeStop();
+    }
+    // Saved with the scene.
+    auto scene = makeScene(true, true);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+    const auto& e = loaded->FindEntityByName("Ground").GetComponent<EdgeCollider2DComponent>();
+    CHECK(e.Loop && e.OneSided && e.Points.size() == 4 && e.Points[2] == glm::vec2(5.0f, -6.0f));
+}
+
+TEST(PhysicsMaterialCombineAndJson)
+{
+    using C = PhysicsCombine;
+    CHECK_NEAR(PhysicsMaterial::CombineFriction(0.25f, C::Default, 1.0f, C::Default), 0.5f, 1e-6f); // Box2D: sqrt
+    CHECK_NEAR(PhysicsMaterial::CombineRestitution(0.2f, C::Default, 0.7f, C::Default), 0.7f, 1e-6f); // Box2D: max
+    CHECK_NEAR(PhysicsMaterial::CombineFriction(0.2f, C::Average, 0.6f, C::Default), 0.4f, 1e-6f);
+    CHECK_NEAR(PhysicsMaterial::CombineFriction(0.2f, C::Average, 0.6f, C::Minimum), 0.2f, 1e-6f);  // Minimum wins over Average
+    CHECK_NEAR(PhysicsMaterial::CombineFriction(0.5f, C::Multiply, 0.6f, C::Minimum), 0.3f, 1e-6f); // Multiply over Minimum
+    CHECK_NEAR(PhysicsMaterial::CombineRestitution(0.9f, C::Maximum, 0.0f, C::Multiply), 0.9f, 1e-6f);
+    CHECK_NEAR(PhysicsMaterial::CombineRestitution(0.9f, C::Minimum, 0.1f, C::Default), 0.1f, 1e-6f);
+
+    PhysicsMaterialData ice;
+    ice.Friction = 0.02f;
+    ice.Restitution = 0.1f;
+    ice.Density = 0.9f;
+    ice.FrictionCombine = C::Minimum;
+    ice.RestitutionCombine = C::Maximum;
+    PhysicsMaterialData back;
+    CHECK(PhysicsMaterial::FromJson(PhysicsMaterial::ToJson(ice), back) && back == ice);
+    CHECK(PhysicsMaterial::FromJson(R"({ "Friction": -3, "Restitution": 0.5, "FrictionCombine": "Nope" })", back));
+    CHECK(back.Friction == 0.0f && back.Restitution == 0.5f && back.Density == 1.0f && back.FrictionCombine == C::Default);
+    CHECK(!PhysicsMaterial::FromJson("[1, 2]", back) && !PhysicsMaterial::FromJson("{ broken", back));
+    for (int i = 0; i <= (int)C::Maximum; i++)
+        CHECK(PhysicsMaterial::CombineFromKey(PhysicsMaterial::GetCombineKey((C)i)) == (C)i);
+}
+
+TEST(PhysicsMaterialAssetOnColliders)
+{
+    namespace fs = std::filesystem;
+    fs::path root = MakeTempDir("zamin-physmat-");
+    bool writesMeta = AssetRegistry::GetWriteMetaFilesByDefault();
+    AssetRegistry::SetWriteMetaFilesByDefault(true); // like the editor: the material gets a UUID
+    auto project = Project::CreateFromTemplate(root, "PhysGame");
+    CHECK(project != nullptr);
+    if (!project)
+    {
+        AssetRegistry::SetWriteMetaFilesByDefault(writesMeta);
+        return;
+    }
+    PhysicsMaterialData bouncy;
+    bouncy.Restitution = 0.9f;
+    bouncy.RestitutionThreshold = 0.1f;
+    bouncy.Friction = 0.1f;
+    bouncy.Density = 3.0f;
+    bouncy.RestitutionCombine = PhysicsCombine::Maximum;
+    fs::path file = root / "Assets" / "Physics" / "Bouncy.zphysmat";
+    fs::create_directories(file.parent_path());
+    CHECK(PhysicsMaterial::Save(file, bouncy));
+    AssetHandle handle;
+    if (AssetRegistry* registry = Project::GetAssetRegistry())
+    {
+        registry->Scan(Project::GetAssetDirectory());
+        handle = registry->GetHandle("Physics/Bouncy.zphysmat");
+    }
+    AssetRegistry::SetWriteMetaFilesByDefault(writesMeta);
+    CHECK(handle && AssetFiles::GetType(file) == AssetType::PhysicsMaterial);
+
+    auto makeScene = [&](const std::string& material) {
+        auto scene = CreateRef<Scene>();
+        Entity ground = scene->CreateEntity("Ground");
+        ground.GetTransform().Scale = { 20.0f, 1.0f, 1.0f };
+        ground.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+        ground.AddComponent<BoxCollider2DComponent>(); // top at 0.5
+        Entity ball = MakeBody2D(scene, "Ball", { 0.0f, 5.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.5f);
+        ball.GetComponent<CircleCollider2DComponent>().MaterialPath = material;
+        return scene;
+    };
+    auto bounceHeight = [&](const Ref<Scene>& scene) {
+        scene->OnRuntimeStart();
+        Entity ball = scene->FindEntityByName("Ball");
+        bool fell = false;
+        float peak = -100.0f;
+        for (int i = 0; i < 240; i++)
+        {
+            RunFrames(const_cast<Ref<Scene>&>(scene), 1);
+            float y = Pos2D(ball).y;
+            if (y < 1.2f) fell = true;
+            if (fell) peak = std::max(peak, y);
+        }
+        return peak;
+    };
+    // Without a material: no bounce. With the bouncy one: it bounces most of the way back.
+    auto plain = makeScene("");
+    CHECK(bounceHeight(plain) < 1.2f);
+    plain->OnRuntimeStop();
+    auto scene = makeScene("Physics/Bouncy.zphysmat");
+    CHECK(bounceHeight(scene) > 3.0f);
+    Entity ball = scene->FindEntityByName("Ball");
+    const b2Fixture* fixture = (const b2Fixture*)ball.GetComponent<CircleCollider2DComponent>().RuntimeFixture;
+    PhysicsMaterialData got = scene->GetPhysicsWorld2D()->GetShapeMaterial(fixture);
+    CHECK(got.Restitution == 0.9f && got.Density == 3.0f && got.RestitutionCombine == PhysicsCombine::Maximum);
+    // Hot reload: the file changes, the running collider takes the new values on the next step.
+    PhysicsMaterialData dull = bouncy;
+    dull.Restitution = 0.0f;
+    dull.Friction = 0.8f;
+    CHECK(PhysicsMaterial::Save(file, dull));
+    CHECK(PhysicsMaterialLibrary::ReloadFile(file) == 1);
+    RunFrames(scene, 1);
+    got = scene->GetPhysicsWorld2D()->GetShapeMaterial(fixture);
+    CHECK(got.Restitution == 0.0f && got.Friction == 0.8f);
+    CHECK(PhysicsMaterialLibrary::ReloadFile(file) == 0); // the same again: nothing changed
+    scene->OnRuntimeStop();
+    // The path is saved with the scene (with the asset's UUID).
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Material\": \"Physics/Bouncy.zphysmat\"") != std::string::npos);
+    CHECK(text.find("\"MaterialUUID\": \"" + handle.ToString() + "\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->FindEntityByName("Ball").GetComponent<CircleCollider2DComponent>().MaterialPath == "Physics/Bouncy.zphysmat");
+    // A material that is not there: the collider's own values.
+    auto missing = makeScene("Physics/Nope.zphysmat");
+    missing->OnRuntimeStart();
+    const b2Fixture* own = (const b2Fixture*)missing->FindEntityByName("Ball").GetComponent<CircleCollider2DComponent>().RuntimeFixture;
+    CHECK(missing->GetPhysicsWorld2D()->GetShapeMaterial(own).Friction == 0.5f);
+    missing->OnRuntimeStop();
+
+    PhysicsMaterialLibrary::Clear();
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
+TEST(CollisionLayers2DMatrixAndFiltering)
+{
+    CollisionLayers2D layers;
+    CHECK(layers.IsDefault() && layers.GetName(0) == "Default" && layers.GetName(3) == "Qatlam 3" && layers.CanCollide(0, 15));
+    layers.Names[1] = "Player";
+    layers.Names[2] = "Ghost";
+    layers.Names[3] = "Ground";
+    layers.SetCollision(2, 3, false);
+    layers.SetCollision(2, 2, false);
+    CHECK(!layers.CanCollide(2, 3) && !layers.CanCollide(3, 2) && layers.CanCollide(1, 3) && !layers.CanCollide(2, 2));
+    CHECK(layers.Find("Ghost") == 2 && layers.Find("Nope") == -1 && layers.GetNamedLayers().size() == 4);
+    CHECK(layers.MakeMask({ "Player", "Ground", "Nope" }) == ((1u << 1) | (1u << 3)));
+    CHECK(CollisionLayers2D::GetCategoryBits(2) == 4 && (layers.GetMaskBits(2) & 8) == 0 && (layers.GetMaskBits(3) & 4) == 0);
+    CollisionLayers2D back;
+    CHECK(CollisionLayers2D::FromJson(layers.ToJson(), back) && back == layers);
+    // One-sided rows are made symmetric (only when both say so).
+    CHECK(CollisionLayers2D::FromJson(R"({ "Names": ["", "A"], "Collisions": [65535, 65534] })", back));
+    CHECK(back.Names[0] == "Default" && !back.CanCollide(0, 1) && !back.CanCollide(1, 0) && back.CanCollide(1, 1));
+
+    // In a project: saved with it, and the scene's bodies follow the matrix.
+    namespace fs = std::filesystem;
+    fs::path root = MakeTempDir("zamin-layers-");
+    auto project = Project::CreateFromTemplate(root, "LayerGame");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    project->GetConfig().CollisionLayers = layers;
+    CHECK(Project::SaveActive(Project::GetProjectFilePath()));
+    auto reloaded = Project::Load(Project::GetProjectFilePath());
+    CHECK(reloaded && reloaded->GetConfig().CollisionLayers == layers);
+
+    auto scene = CreateRef<Scene>();
+    Entity ground = scene->CreateEntity("Ground");
+    ground.GetTransform().Scale = { 20.0f, 1.0f, 1.0f };
+    auto& groundBody = ground.AddComponent<Rigidbody2DComponent>();
+    groundBody.Type = Rigidbody2DComponent::BodyType::Static;
+    groundBody.Layer = 3;
+    ground.AddComponent<BoxCollider2DComponent>();
+    Entity player = MakeBody2D(scene, "Player", { -3.0f, 3.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.5f);
+    player.GetComponent<Rigidbody2DComponent>().Layer = 1;
+    Entity ghost = MakeBody2D(scene, "Ghost", { 3.0f, 3.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.5f);
+    ghost.GetComponent<Rigidbody2DComponent>().Layer = 2;
+    // The ghost's own body is on Ghost, but a box collider of it says Player: that one lands.
+    Entity mixed = MakeBody2D(scene, "Mixed", { 6.0f, 3.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.0f);
+    mixed.GetComponent<Rigidbody2DComponent>().Layer = 2;
+    mixed.AddComponent<BoxCollider2DComponent>().Layer = 1;
+    scene->OnRuntimeStart();
+    uint16_t category = 0, mask = 0;
+    PhysicsWorld2D::GetShapeFilter((const b2Fixture*)ghost.GetComponent<CircleCollider2DComponent>().RuntimeFixture, category, mask);
+    CHECK(category == 4 && mask == layers.GetMaskBits(2));
+    PhysicsWorld2D::GetShapeFilter((const b2Fixture*)mixed.GetComponent<BoxCollider2DComponent>().RuntimeFixture, category, mask);
+    CHECK(category == 2);
+    RunFrames(scene, 120);
+    CHECK_NEAR(Pos2D(player).y, 1.0f, 0.05f);
+    CHECK(Pos2D(ghost).y < -2.0f); // Ghost does not touch Ground
+    CHECK_NEAR(Pos2D(mixed).y, 1.0f, 0.05f);
+    // Raycasts down through the ground: all layers hit it, a mask without Ground goes past.
+    RaycastHit all = scene->Raycast2D({ -8.0f, 5.0f }, { 0.0f, -1.0f }, 20.0f);
+    CHECK(all && all.EntityID == ground.GetUUID());
+    CHECK(!scene->Raycast2D({ -8.0f, 5.0f }, { 0.0f, -1.0f }, 20.0f, layers.MakeMask({ "Player" })));
+    CHECK(scene->Raycast2D({ -3.0f, 5.0f }, { 0.0f, -1.0f }, 20.0f, layers.MakeMask({ "Player" })).EntityID == player.GetUUID());
+    scene->OnRuntimeStop();
+    // Saved with the scene: the body's layer, a collider's own one.
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+    CHECK(loaded->FindEntityByName("Ghost").GetComponent<Rigidbody2DComponent>().Layer == 2);
+    CHECK(loaded->FindEntityByName("Mixed").GetComponent<BoxCollider2DComponent>().Layer == 1);
+    CHECK(loaded->FindEntityByName("Player").GetComponent<CircleCollider2DComponent>().Layer == -1);
+
+    // A tilemap on Ground: the ghost falls through its tiles too.
+    auto tiles = CreateRef<Scene>();
+    Entity map = tiles->CreateEntity("Map");
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = 10; tm.Height = 2;
+    tm.EnsureSize();
+    for (int x = 0; x < 10; x++) tm.Set(x, 0, 0);
+    tm.CollisionLayer = 3;
+    Entity tileGhost = MakeBody2D(tiles, "Ghost", { 5.0f, 3.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.4f);
+    tileGhost.GetComponent<Rigidbody2DComponent>().Layer = 2;
+    Entity tilePlayer = MakeBody2D(tiles, "Player", { 2.0f, 3.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.4f);
+    tilePlayer.GetComponent<Rigidbody2DComponent>().Layer = 1;
+    tiles->OnRuntimeStart();
+    RunFrames(tiles, 120);
+    CHECK_NEAR(Pos2D(tilePlayer).y, 1.4f, 0.05f);
+    CHECK(Pos2D(tileGhost).y < -1.0f);
+    tiles->OnRuntimeStop();
+    auto tilesLoaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(tilesLoaded).DeserializeFromString(SceneSerializer(tiles).SerializeToString()));
+    CHECK(tilesLoaded->FindEntityByName("Map").GetComponent<TilemapComponent>().CollisionLayer == 3);
+
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    // Without a project: the default matrix (everything collides).
+    CHECK(Project::GetCollisionLayers2D().IsDefault());
+}
+
+static glm::vec2 g_PushSpeed{ 0.0f };
+class SidePusher : public ScriptableEntity
+{
+public:
+    void OnUpdate(Timestep) override
+    {
+        glm::vec2 v = GetVelocity();
+        SetVelocity({ g_PushSpeed.x, g_PushSpeed.y != 0.0f ? g_PushSpeed.y : v.y });
+    }
+};
+ZM_REGISTER_SCRIPT(SidePusher)
+
+TEST(PlatformEffector2DInScene)
+{
+    auto makeScene = [](float startY, auto setup) {
+        auto scene = CreateRef<Scene>();
+        Entity platform = scene->CreateEntity("Platform");
+        platform.GetTransform().Scale = { 4.0f, 0.5f, 1.0f };   // top at y = 0.25, sides at x = +-2
+        platform.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+        platform.AddComponent<BoxCollider2DComponent>();
+        setup(platform.AddComponent<PlatformEffector2DComponent>());
+        Entity box = scene->CreateEntity("Box");
+        box.GetTransform().Translation = { 0.0f, startY, 0.0f };
+        box.AddComponent<Rigidbody2DComponent>().FixedRotation = true;
+        box.AddComponent<BoxCollider2DComponent>();              // 1 x 1
+        box.AddComponent<NativeScriptComponent>().ClassName = "OneWayProbe";
+        return scene;
+    };
+    // The defaults: the classic one-way platform (thrown up from below: passes, lands; drops through).
+    g_OneWayBegins = g_OneWayEnds = 0;
+    g_OneWayLaunch = 9.0f;
+    {
+        auto scene = makeScene(-2.0f, [](PlatformEffector2DComponent&) {});
+        scene->OnRuntimeStart();
+        Entity box = scene->FindEntityByName("Box");
+        float highest = -100.0f;
+        for (int i = 0; i < 240; i++)
+        {
+            RunFrames(scene, 1);
+            highest = std::max(highest, Pos2D(box).y);
+        }
+        CHECK(highest > 1.5f);
+        CHECK_NEAR(Pos2D(box).y, 0.75f, 0.05f);
+        CHECK(g_OneWayBegins == 1 && g_OneWayEnds == 0);
+        CHECK(scene->DropThroughPlatforms(box, 0.3f));
+        RunFrames(scene, 60);
+        CHECK(Pos2D(box).y < -1.0f && g_OneWayEnds == 1);
+        scene->OnRuntimeStop();
+    }
+    // OneWay off: solid from below.
+    {
+        auto scene = makeScene(-2.0f, [](PlatformEffector2DComponent& e) { e.OneWay = false; });
+        scene->OnRuntimeStart();
+        RunFrames(scene, 120);
+        CHECK(Pos2D(scene->FindEntityByName("Box")).y < -0.7f);
+        scene->OnRuntimeStop();
+    }
+    g_OneWayLaunch = 0.0f;
+    // A narrow arc (60 degrees) still holds a body landing flat on top.
+    {
+        auto scene = makeScene(3.0f, [](PlatformEffector2DComponent& e) { e.SurfaceArc = 60.0f; });
+        scene->OnRuntimeStart();
+        RunFrames(scene, 120);
+        CHECK_NEAR(Pos2D(scene->FindEntityByName("Box")).y, 0.75f, 0.05f);
+        scene->OnRuntimeStop();
+    }
+    // From the side (no gravity, pushed to the right): a 180 degree platform lets the body through,
+    // a 270 degree one holds it at its side.
+    auto sideways = [&](float arc) {
+        auto scene = makeScene(0.0f, [arc](PlatformEffector2DComponent& e) { e.SurfaceArc = arc; });
+        Entity box = scene->FindEntityByName("Box");
+        box.GetTransform().Translation = { -4.0f, 0.0f, 0.0f };
+        box.GetComponent<Rigidbody2DComponent>().GravityScale = 0.0f;
+        box.GetComponent<NativeScriptComponent>().ClassName = "SidePusher";
+        scene->OnRuntimeStart();
+        RunFrames(scene, 120);
+        float x = Pos2D(box).x;
+        scene->OnRuntimeStop();
+        return x;
+    };
+    g_PushSpeed = { 6.0f, 0.0f };
+    CHECK(sideways(180.0f) > 4.0f);
+    CHECK_NEAR(sideways(270.0f), -2.5f, 0.05f);
+    // Side friction: a box pushed against a solid platform's side slides down it without friction
+    // (the default), and is held up by friction when the platform has UseSideFriction.
+    auto wallSlide = [&](bool sideFriction) {
+        auto scene = CreateRef<Scene>();
+        Entity wall = scene->CreateEntity("Wall");
+        wall.GetTransform().Scale = { 1.0f, 12.0f, 1.0f };   // x -0.5..0.5, y -6..6
+        wall.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+        wall.AddComponent<BoxCollider2DComponent>().Friction = 1.0f;
+        auto& effector = wall.AddComponent<PlatformEffector2DComponent>();
+        effector.OneWay = false;
+        effector.UseSideFriction = sideFriction;
+        Entity box = scene->CreateEntity("Box");
+        box.GetTransform().Translation = { -1.0f, 3.0f, 0.0f };
+        box.AddComponent<Rigidbody2DComponent>().FixedRotation = true;
+        box.AddComponent<BoxCollider2DComponent>().Friction = 1.0f;
+        box.AddComponent<NativeScriptComponent>().ClassName = "SidePusher";
+        scene->OnRuntimeStart();
+        RunFrames(scene, 60);
+        float y = Pos2D(box).y;
+        scene->OnRuntimeStop();
+        return y;
+    };
+    g_PushSpeed = { 3.0f, 0.0f };
+    CHECK(wallSlide(false) < -1.0f);  // fell freely (about 4.9 units in a second)
+    CHECK(wallSlide(true) > 2.0f);    // stuck to the side
+    g_PushSpeed = { 0.0f, 0.0f };
+    // A tilemap with an effector: its tiles are one-way (a body thrown up through the floor lands on it).
+    {
+        auto tiles = CreateRef<Scene>();
+        Entity map = tiles->CreateEntity("Map");
+        auto& tm = map.AddComponent<TilemapComponent>();
+        tm.Width = 6; tm.Height = 1;
+        tm.EnsureSize();
+        for (int x = 0; x < 6; x++) tm.Set(x, 0, 0); // y 0..1
+        map.AddComponent<PlatformEffector2DComponent>();
+        Entity box = tiles->CreateEntity("Box");
+        box.GetTransform().Translation = { 3.0f, -2.0f, 0.0f };
+        box.AddComponent<Rigidbody2DComponent>().FixedRotation = true;
+        box.AddComponent<BoxCollider2DComponent>();
+        box.AddComponent<NativeScriptComponent>().ClassName = "OneWayProbe";
+        g_OneWayLaunch = 10.0f;
+        tiles->OnRuntimeStart();
+        RunFrames(tiles, 240);
+        CHECK_NEAR(Pos2D(box).y, 1.5f, 0.05f);
+        tiles->OnRuntimeStop();
+        g_OneWayLaunch = 0.0f;
+    }
+    // Saved with the scene.
+    auto scene = makeScene(1.0f, [](PlatformEffector2DComponent& e) { e.SurfaceArc = 120.0f; e.UseSideFriction = true; e.RotationOffset = 15.0f; });
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+    const auto& e = loaded->FindEntityByName("Platform").GetComponent<PlatformEffector2DComponent>();
+    CHECK(e.OneWay && e.SurfaceArc == 120.0f && e.UseSideFriction && !e.UseSideBounce && e.RotationOffset == 15.0f);
 }
 
 int main()

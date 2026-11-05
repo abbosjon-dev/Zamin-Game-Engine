@@ -10,6 +10,7 @@
 
 #include <any>
 #include <functional>
+#include <initializer_list>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -243,7 +244,13 @@ namespace Zamin {
         void SetVelocity(Entity other, const glm::vec2& velocity);
 
         // ---- raycasts (EntityID of the hit can be resolved with GetScene().GetEntityByUUID)
-        RaycastHit Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance = 100.0f) const;
+        // layerMask: the 2D collision layers that count (all by default), e.g. LayerMask({ "Ground", "Enemy" }).
+        RaycastHit Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance = 100.0f, uint16_t layerMask = 0xFFFF) const;
+        // The bits of the project's named 2D collision layers (Project settings > Physics layers);
+        // unknown names are left out.
+        static uint16_t LayerMask(std::initializer_list<std::string_view> layerNames);
+        // The index of a named 2D collision layer, -1 when the project has none of that name.
+        static int LayerIndex(std::string_view layerName);
         RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 100.0f) const;
 
         // ---- viewport / mouse (pixels, origin top-left of the game view)

@@ -60,6 +60,7 @@ namespace Zamin {
         { AssetType::Font, "Shrift", "Font", "Fonts", true },
         { AssetType::Environment, "HDRI muhit", "Environment", "Textures", true },
         { AssetType::Material, "Material", "Material", "Materials", true },
+        { AssetType::PhysicsMaterial, "Fizik material", "PhysicsMaterial", "Physics", true },
         { AssetType::Script, "C++ skript", "Script", "", false },
         { AssetType::Project, "Loyiha", "Project", "", false },
         { AssetType::Other, "Boshqa", "Other", "", false },
@@ -77,6 +78,7 @@ namespace Zamin {
             { ".ttf", ".otf" },                                           // Font
             { ".hdr" },                                                   // Environment
             { ".zmat" },                                                  // Material
+            { ".zphysmat" },                                              // PhysicsMaterial
             { ".cpp", ".h", ".hpp", ".cc", ".c", ".inl" },                // Script
             { ".zproject" },                                              // Project
             {},                                                           // Other

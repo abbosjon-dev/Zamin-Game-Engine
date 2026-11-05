@@ -56,7 +56,7 @@ namespace Zamin {
     {
         static const std::vector<AssetType> s_Types = {
             AssetType::Scene, AssetType::Prefab, AssetType::Texture, AssetType::Model, AssetType::Audio,
-            AssetType::Font, AssetType::Environment, AssetType::Material, AssetType::Script, AssetType::Other,
+            AssetType::Font, AssetType::Environment, AssetType::Material, AssetType::PhysicsMaterial, AssetType::Script, AssetType::Other,
         };
         return s_Types;
     }

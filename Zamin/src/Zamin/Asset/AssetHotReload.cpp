@@ -1,6 +1,7 @@
 #include "Zamin/Asset/AssetHotReload.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
+#include "Zamin/Physics/PhysicsMaterial.h"
 #include "Zamin/Renderer/Environment.h"
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/MaterialAsset.h"
@@ -120,6 +121,7 @@ namespace Zamin {
                 return std::max(textures, materials);
             }
             case AssetType::Material:    return MaterialLibrary::ReloadFile(path, failed);
+            case AssetType::PhysicsMaterial: return PhysicsMaterialLibrary::ReloadFile(path, failed);
             case AssetType::Model:       return Model::ReloadFile(path, failed);
             case AssetType::Font:        return Font::ReloadFile(path, failed);
             case AssetType::Environment: return EnvironmentMap::ReloadFile(path, failed);
@@ -134,6 +136,7 @@ namespace Zamin {
         {
             case AssetType::Texture:     return TextureLibrary::IsLoaded(path) || MaterialLibrary::UsesTexture(path);
             case AssetType::Material:    return MaterialLibrary::IsFileLoaded(path);
+            case AssetType::PhysicsMaterial: return PhysicsMaterialLibrary::IsFileLoaded(path);
             case AssetType::Model:       return Model::IsFileLoaded(path);
             case AssetType::Font:        return Font::IsFileLoaded(path);
             case AssetType::Environment: return EnvironmentMap::IsFileLoaded(path);
@@ -146,7 +149,7 @@ namespace Zamin {
     {
         AssetType type = AssetTypes::FromPath(path);
         return type == AssetType::Texture || type == AssetType::Model || type == AssetType::Font || type == AssetType::Environment ||
-               type == AssetType::Material;
+               type == AssetType::Material || type == AssetType::PhysicsMaterial;
     }
 
 }

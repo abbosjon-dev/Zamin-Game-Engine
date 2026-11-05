@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/Physics/PhysicsMaterial.h"
 #include "Zamin/Physics/PhysicsTypes.h"
 
 #include <glm/glm.hpp>
@@ -27,21 +28,53 @@ namespace Zamin {
         bool Bullet = false;
     };
 
-    // One fixture of a body. Its user data is the body's entity.
+    // A platform surface (PlatformEffector2DComponent; BoxCollider2D::OneWay / OneWay tiles are the
+    // classic one: one-way, 180 degrees, side friction and bounce kept). Angles in degrees.
+    struct PhysicsPlatform2D
+    {
+        bool Enabled = false;
+        // Bodies pass through it unless they touch it from within SurfaceArc around its up (the
+        // body's +Y turned by RotationOffset). At 180 a body lands when it was above the surface
+        // (OneWayPlatform::ShouldCollide); a smaller arc also leaves out contacts whose normal is
+        // further from up; a larger one also holds bodies that touch it from the side first.
+        bool OneWay = true;
+        float SurfaceArc = 180.0f;
+        float RotationOffset = 0.0f;
+        // Contacts within SideArc of the surface's left / right: friction / bounce only when on.
+        bool UseSideFriction = true;
+        bool UseSideBounce = true;
+        float SideArc = 1.0f;
+    };
+
+    // One fixture of a body (Edge: one per segment). Its user data is the body's entity.
     struct PhysicsShape2DDesc
     {
-        enum class Kind { Box, Circle } Type = Kind::Box;
+        enum class Kind { Box, Circle, Polygon, Edge, Chain } Type = Kind::Box;
         glm::vec2 HalfExtents{ 0.5f }; // box
         float Radius = 0.5f;           // circle
-        glm::vec2 Offset{ 0.0f };      // centre in the body's frame
+        glm::vec2 Offset{ 0.0f };      // centre in the body's frame (polygons / edges: added to the points)
+        // Polygon: one convex piece of 3..8 corners (see Polygon2D::Decompose). Edge: two-sided
+        // segments through the points. Chain: one smooth one-sided chain, solid on the left of the
+        // points' direction. In the body's frame.
+        std::vector<glm::vec2> Points;
+        bool Loop = false;             // edge / chain: the last point joins the first
         float Density = 0.0f;
         float Friction = 0.2f;
         float Restitution = 0.0f;
         float RestitutionThreshold = 1.0f;
+        // How friction / restitution mix with the other collider's (physics material assets).
+        PhysicsCombine FrictionCombine = PhysicsCombine::Default;
+        PhysicsCombine RestitutionCombine = PhysicsCombine::Default;
         bool IsSensor = false;
+        // Collision filtering (CollisionLayers2D): this shape's layer bit and the layers it touches.
+        uint16_t CategoryBits = 0x0001;
+        uint16_t MaskBits = 0xFFFF;
+        // Which part of the entity made it (a component): SetShapeMaterial finds its fixtures by it.
+        int Tag = 0;
         // A one-way surface (OneWay tiles, BoxCollider2D::OneWay): bodies pass through it from below
-        // and land on its top (its up = the body's +Y). Ignored for sensors.
+        // and land on its top (its up = the body's +Y). The classic Platform; ignored for sensors.
         bool OneWay = false;
+        PhysicsPlatform2D Platform;
     };
 
     // A joint between a body (Box2D's body B: the entity the joint component belongs to) and a
@@ -119,7 +152,17 @@ namespace Zamin {
 
         // ---- bodies
         b2Body* CreateBody(const PhysicsBody2DDesc& desc);
+        // The (first) fixture, or null when the shape has nothing Box2D can use (a polygon without
+        // area, an edge without length...).
         b2Fixture* AddShape(b2Body* body, const PhysicsShape2DDesc& shape);
+        // New friction / bounciness / density for the fixtures of `body` made with `tag` (a physics
+        // material changed): touching contacts take the new values at once, the mass follows.
+        void SetShapeMaterial(b2Body* body, int tag, const PhysicsMaterialData& material);
+        static int GetFixtureCount(const b2Body* body);
+        // The surface a fixture has now: friction, restitution, threshold, density and combine modes.
+        PhysicsMaterialData GetShapeMaterial(const b2Fixture* fixture) const;
+        // A fixture's filter bits (tests, tools).
+        static void GetShapeFilter(const b2Fixture* fixture, uint16_t& categoryBits, uint16_t& maskBits);
         // Its fixtures and joints go with it; the joints are added to `destroyedJoints` (when given).
         void DestroyBody(b2Body* body, std::vector<PhysicsJoint2DRef>* destroyedJoints = nullptr);
         // Box2D does not wake sleeping bodies that a new body appears on or in (a platform or tilemap
@@ -162,8 +205,8 @@ namespace Zamin {
         size_t GetJointCount() const;
 
         // ---- queries
-        // The closest non-sensor fixture along the ray.
-        RaycastHit CastRay(const glm::vec2& origin, const glm::vec2& direction, float maxDistance) const;
+        // The closest non-sensor fixture along the ray whose layer is in `layerMask` (category bits).
+        RaycastHit CastRay(const glm::vec2& origin, const glm::vec2& direction, float maxDistance, uint16_t layerMask = 0xFFFF) const;
         // The points of the touching, enabled, non-sensor contacts as they are now.
         void GetDebugContacts(std::vector<PhysicsContactPoint2D>& out) const;
 

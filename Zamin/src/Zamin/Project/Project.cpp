@@ -98,6 +98,12 @@ namespace Zamin {
         return s_ActiveProject ? s_ActiveProject->m_Config.SortingLayers : s_Default;
     }
 
+    const CollisionLayers2D& Project::GetCollisionLayers2D()
+    {
+        static const CollisionLayers2D s_Default;
+        return s_ActiveProject ? s_ActiveProject->m_Config.CollisionLayers : s_Default;
+    }
+
     AssetRegistry* Project::GetAssetRegistry()
     {
         if (!s_ActiveProject)
@@ -337,6 +343,9 @@ namespace Zamin {
         // Written once there is more than the Default layer (older files stay as they were).
         if (!(c.SortingLayers == SortingLayerList()))
             j["SortingLayers"] = SortingLayersToJson(c.SortingLayers);
+        // Written once something differs from the defaults (older files stay as they were).
+        if (!c.CollisionLayers.IsDefault())
+            j["CollisionLayers2D"] = json::parse(c.CollisionLayers.ToJson());
         j["DebugDraw"] = {
             { "Enabled", c.DebugDraw.Enabled },
             { "Raycasts", c.DebugDraw.ShowRaycasts },
@@ -388,6 +397,10 @@ namespace Zamin {
             c.SortingLayers = SortingLayerList();
             if (auto it = j.find("SortingLayers"); it != j.end())
                 SortingLayersFromJson(*it, c.SortingLayers);
+            // 2D collision layers (older projects: only Default, everything collides).
+            c.CollisionLayers = CollisionLayers2D();
+            if (auto it = j.find("CollisionLayers2D"); it != j.end() && it->is_object())
+                CollisionLayers2D::FromJson(it->dump(), c.CollisionLayers);
             // Debug drawing in the player (older projects: on, no physics views).
             c.DebugDraw = DebugDrawSettings();
             if (auto it = j.find("DebugDraw"); it != j.end() && it->is_object())

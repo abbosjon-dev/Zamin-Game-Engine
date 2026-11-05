@@ -400,21 +400,61 @@ namespace Zamin {
                              { "Falloff", c->Falloff }, { "SpotAngle", c->SpotAngle }, { "SpotSoftness", c->SpotSoftness },
                              { "Flicker", c->Flicker }, { "FlickerSpeed", c->FlickerSpeed } };
         if (auto* c = entity.TryGetComponent<Rigidbody2DComponent>())
+        {
             e["Rigidbody2D"] = { { "BodyType", BodyTypeToString(c->Type) }, { "FixedRotation", c->FixedRotation },
                                  { "GravityScale", c->GravityScale }, { "LinearDamping", c->LinearDamping },
                                  { "AngularDamping", c->AngularDamping }, { "Bullet", c->Bullet } };
+            if (c->Layer != 0)
+                e["Rigidbody2D"]["Layer"] = c->Layer;
+        }
+        // The common collider values; the material and an own layer only when set (older files stay as they were).
+        auto writeCollider = [](const auto& c) {
+            json j = { { "Offset", ToJson(c.Offset) }, { "Density", c.Density }, { "Friction", c.Friction }, { "Restitution", c.Restitution },
+                       { "RestitutionThreshold", c.RestitutionThreshold }, { "IsSensor", c.IsSensor } };
+            if (!c.MaterialPath.empty())
+            {
+                j["Material"] = c.MaterialPath;
+                WriteAssetHandle(j, "Material", c.MaterialPath);
+            }
+            if (c.Layer >= 0)
+                j["Layer"] = c.Layer;
+            return j;
+        };
+        auto writePoints = [](const std::vector<glm::vec2>& points) {
+            json list = json::array();
+            for (const glm::vec2& p : points)
+                list.push_back(ToJson(p));
+            return list;
+        };
         if (auto* c = entity.TryGetComponent<BoxCollider2DComponent>())
         {
-            e["BoxCollider2D"] = { { "Offset", ToJson(c->Offset) }, { "Size", ToJson(c->Size) }, { "Density", c->Density },
-                                   { "Friction", c->Friction }, { "Restitution", c->Restitution },
-                                   { "RestitutionThreshold", c->RestitutionThreshold }, { "IsSensor", c->IsSensor } };
+            e["BoxCollider2D"] = writeCollider(*c);
+            e["BoxCollider2D"]["Size"] = ToJson(c->Size);
             if (c->OneWay)
                 e["BoxCollider2D"]["OneWay"] = true;
         }
         if (auto* c = entity.TryGetComponent<CircleCollider2DComponent>())
-            e["CircleCollider2D"] = { { "Offset", ToJson(c->Offset) }, { "Radius", c->Radius }, { "Density", c->Density },
-                                      { "Friction", c->Friction }, { "Restitution", c->Restitution },
-                                      { "RestitutionThreshold", c->RestitutionThreshold }, { "IsSensor", c->IsSensor } };
+        {
+            e["CircleCollider2D"] = writeCollider(*c);
+            e["CircleCollider2D"]["Radius"] = c->Radius;
+        }
+        if (auto* c = entity.TryGetComponent<PolygonCollider2DComponent>())
+        {
+            e["PolygonCollider2D"] = writeCollider(*c);
+            e["PolygonCollider2D"]["Points"] = writePoints(c->Points);
+        }
+        if (auto* c = entity.TryGetComponent<EdgeCollider2DComponent>())
+        {
+            json j = writeCollider(*c);
+            j["Points"] = writePoints(c->Points);
+            j["Loop"] = c->Loop;
+            j["OneSided"] = c->OneSided;
+            e["EdgeCollider2D"] = std::move(j);
+        }
+        if (auto* c = entity.TryGetComponent<PlatformEffector2DComponent>())
+            e["PlatformEffector2D"] = { { "OneWay", c->OneWay }, { "SurfaceArc", c->SurfaceArc }, { "RotationOffset", c->RotationOffset },
+                                        { "UseSideFriction", c->UseSideFriction }, { "UseSideBounce", c->UseSideBounce },
+                                        { "SideArc", c->SideArc } };
         // Joints: the connected body by its UUID (0 = a fixed point in the world).
         auto writeJoint = [](const Joint2DComponentBase& c) {
             return json{ { "ConnectedBody", c.ConnectedBody.ID }, { "Anchor", ToJson(c.Anchor) }, { "ConnectedAnchor", ToJson(c.ConnectedAnchor) },
@@ -503,6 +543,15 @@ namespace Zamin {
                              { "Layers", std::move(layers) }, { "Color", ToJson(c->Color) }, { "SortingOrder", c->SortingOrder },
                              { "Collision", c->Collision }, { "Friction", c->Friction } };
             WriteAssetHandle(e["Tilemap"], "Tileset", c->TilesetPath);
+            if (c->Restitution != 0.0f)
+                e["Tilemap"]["Restitution"] = c->Restitution;
+            if (!c->MaterialPath.empty())
+            {
+                e["Tilemap"]["Material"] = c->MaterialPath;
+                WriteAssetHandle(e["Tilemap"], "Material", c->MaterialPath);
+            }
+            if (c->CollisionLayer != 0)
+                e["Tilemap"]["CollisionLayer"] = c->CollisionLayer;
             if (c->Lit)
                 e["Tilemap"]["Lit"] = true;
             WriteSortingLayer(e["Tilemap"], c->SortingLayer);
@@ -847,6 +896,7 @@ namespace Zamin {
             c.LinearDamping = j.value("LinearDamping", 0.0f);
             c.AngularDamping = j.value("AngularDamping", 0.01f);
             c.Bullet = j.value("Bullet", false);
+            c.Layer = CollisionLayers2D::Clamp(j.value("Layer", 0));
         }
         auto readCollider = [](const json& j, auto& c) {
             c.Offset = Vec(j, "Offset", glm::vec2(0.0f));
@@ -855,6 +905,18 @@ namespace Zamin {
             c.Restitution = j.value("Restitution", 0.0f);
             c.RestitutionThreshold = j.value("RestitutionThreshold", 0.5f);
             c.IsSensor = j.value("IsSensor", false);
+            c.MaterialPath = ReadAssetPath(j, "Material");
+            const int layer = j.value("Layer", -1);
+            c.Layer = layer < 0 ? -1 : CollisionLayers2D::Clamp(layer);
+        };
+        auto readPoints = [](const json& j, std::vector<glm::vec2>& out) {
+            auto it = j.find("Points");
+            if (it == j.end() || !it->is_array())
+                return;
+            out.clear();
+            for (const json& p : *it)
+                if (p.is_array() && p.size() >= 2 && p[0].is_number() && p[1].is_number())
+                    out.push_back({ p[0].get<float>(), p[1].get<float>() });
         };
         if (e.contains("BoxCollider2D"))
         {
@@ -868,6 +930,32 @@ namespace Zamin {
             auto& c = entity.AddComponent<CircleCollider2DComponent>();
             readCollider(e["CircleCollider2D"], c);
             c.Radius = e["CircleCollider2D"].value("Radius", 0.5f);
+        }
+        if (e.contains("PolygonCollider2D"))
+        {
+            auto& c = entity.AddComponent<PolygonCollider2DComponent>();
+            readCollider(e["PolygonCollider2D"], c);
+            readPoints(e["PolygonCollider2D"], c.Points);
+        }
+        if (e.contains("EdgeCollider2D"))
+        {
+            const json& j = e["EdgeCollider2D"];
+            auto& c = entity.AddComponent<EdgeCollider2DComponent>();
+            readCollider(j, c);
+            readPoints(j, c.Points);
+            c.Loop = j.value("Loop", false);
+            c.OneSided = j.value("OneSided", false);
+        }
+        if (e.contains("PlatformEffector2D"))
+        {
+            const json& j = e["PlatformEffector2D"];
+            auto& c = entity.AddComponent<PlatformEffector2DComponent>();
+            c.OneWay = j.value("OneWay", c.OneWay);
+            c.SurfaceArc = std::clamp(j.value("SurfaceArc", c.SurfaceArc), 0.0f, 360.0f);
+            c.RotationOffset = j.value("RotationOffset", c.RotationOffset);
+            c.UseSideFriction = j.value("UseSideFriction", c.UseSideFriction);
+            c.UseSideBounce = j.value("UseSideBounce", c.UseSideBounce);
+            c.SideArc = std::clamp(j.value("SideArc", c.SideArc), 0.0f, 180.0f);
         }
         // Missing values keep the defaults; limits are put in order, forces / frequencies are not negative.
         auto readJoint = [](const json& j, Joint2DComponentBase& c) {
@@ -1043,6 +1131,9 @@ namespace Zamin {
             c.Lit = j.value("Lit", false);
             c.Collision = j.value("Collision", true);
             c.Friction = j.value("Friction", 0.6f);
+            c.Restitution = std::max(0.0f, j.value("Restitution", 0.0f));
+            c.MaterialPath = ReadAssetPath(j, "Material");
+            c.CollisionLayer = CollisionLayers2D::Clamp(j.value("CollisionLayer", 0));
         }
         if (e.contains("Parallax"))
         {

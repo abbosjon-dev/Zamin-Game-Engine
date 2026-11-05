@@ -1,10 +1,13 @@
 #include "Zamin/Physics/PhysicsWorld2D.h"
+#include "Zamin/Physics/Polygon2D.h"
 #include "Zamin/Scene/TilesetProperties.h"
 
 #include <box2d/b2_body.h>
 #include <box2d/b2_circle_shape.h>
+#include <box2d/b2_chain_shape.h>
 #include <box2d/b2_contact.h>
 #include <box2d/b2_distance_joint.h>
+#include <box2d/b2_edge_shape.h>
 #include <box2d/b2_fixture.h>
 #include <box2d/b2_polygon_shape.h>
 #include <box2d/b2_prismatic_joint.h>
@@ -30,11 +33,29 @@ namespace Zamin {
         float ToDegrees(float radians) { return radians * (180.0f / b2_pi); }
 
         // ------------------------------------------------------------------ contact listener
-        // Collects the contact events of a physics step for the scripts, and decides the contacts of
-        // the one-way surfaces (OneWay tiles, BoxCollider2D::OneWay): Box2D re-enables every contact
-        // each step and asks PreSolve, which switches it off while the body passes through. Such a
-        // contact is a collision for the scripts only while it is on (Begin when it starts holding the
-        // body up, End when it lets go), so jumping up through a platform reports nothing.
+        // What the world remembers of a fixture: the part of the entity that made it, how its
+        // friction / restitution mix, and its platform settings.
+        struct FixtureInfo
+        {
+            int Tag = 0;
+            PhysicsCombine FrictionCombine = PhysicsCombine::Default;
+            PhysicsCombine RestitutionCombine = PhysicsCombine::Default;
+            PhysicsPlatform2D Platform;
+
+            // Contacts with it need PreSolve (mixing / platform rules).
+            bool IsSpecial() const
+            {
+                return Platform.Enabled || FrictionCombine != PhysicsCombine::Default || RestitutionCombine != PhysicsCombine::Default;
+            }
+            bool IsOneWay() const { return Platform.Enabled && Platform.OneWay; }
+        };
+
+        // Collects the contact events of a physics step for the scripts, mixes friction / bounciness
+        // of colliders with combine modes, and decides the contacts of the platforms (one-way
+        // surfaces, side friction): Box2D re-enables every contact each step and asks PreSolve,
+        // which switches it off while the body passes through. Such a contact is a collision for the
+        // scripts only while it is on (Begin when it starts holding the body up, End when it lets
+        // go), so jumping up through a platform reports nothing.
         class ContactListener2D : public b2ContactListener, public b2DestructionListener
         {
         public:
@@ -42,7 +63,7 @@ namespace Zamin {
             {
                 if (IsOneWay(contact))
                 {
-                    m_OneWayContacts[contact] = false; // reported once PreSolve lets it collide
+                    m_OneWayContacts[contact] = {}; // reported once PreSolve lets it collide
                     return;
                 }
                 Push(contact, true);
@@ -51,7 +72,7 @@ namespace Zamin {
             {
                 if (auto it = m_OneWayContacts.find(contact); it != m_OneWayContacts.end())
                 {
-                    if (it->second)
+                    if (it->second.Reported)
                         Push(contact, false);
                     m_OneWayContacts.erase(it);
                     return;
@@ -60,29 +81,88 @@ namespace Zamin {
             }
             void PreSolve(b2Contact* contact, const b2Manifold*) override
             {
-                auto it = m_OneWayContacts.find(contact);
-                if (it == m_OneWayContacts.end())
+                if (m_SpecialFixtures == 0)
                     return;
-                bool collide = ShouldCollide(contact);
-                contact->SetEnabled(collide);
-                if (collide != it->second)
+                b2Fixture* fa = contact->GetFixtureA();
+                b2Fixture* fb = contact->GetFixtureB();
+                const FixtureInfo* ia = Find(fa);
+                const FixtureInfo* ib = Find(fb);
+                if (!(ia && ia->IsSpecial()) && !(ib && ib->IsSpecial()))
+                    return;
+                if (auto it = m_OneWayContacts.find(contact); it != m_OneWayContacts.end())
                 {
-                    it->second = collide;
-                    Push(contact, collide);
+                    bool collide = ShouldCollide(contact, it->second);
+                    contact->SetEnabled(collide);
+                    if (collide != it->second.Reported)
+                    {
+                        it->second.Reported = collide;
+                        Push(contact, collide);
+                    }
+                    if (!collide)
+                        return;
                 }
+                const PhysicsCombine noMode = PhysicsCombine::Default;
+                float friction = PhysicsMaterial::CombineFriction(fa->GetFriction(), ia ? ia->FrictionCombine : noMode,
+                                                                  fb->GetFriction(), ib ? ib->FrictionCombine : noMode);
+                float restitution = PhysicsMaterial::CombineRestitution(fa->GetRestitution(), ia ? ia->RestitutionCombine : noMode,
+                                                                        fb->GetRestitution(), ib ? ib->RestitutionCombine : noMode);
+                // Platform sides: no friction / bounce unless the platform wants them.
+                for (int i = 0; i < 2; i++)
+                {
+                    const FixtureInfo* info = i == 0 ? ia : ib;
+                    if (!info || !info->Platform.Enabled || (info->Platform.UseSideFriction && info->Platform.UseSideBounce))
+                        continue;
+                    b2Fixture* platform = i == 0 ? fa : fb;
+                    float angle = NormalAngle(contact, platform, info->Platform);
+                    if (std::abs(angle - 90.0f) <= std::clamp(info->Platform.SideArc, 0.0f, 180.0f) * 0.5f + 1e-3f)
+                    {
+                        if (!info->Platform.UseSideFriction) friction = 0.0f;
+                        if (!info->Platform.UseSideBounce) restitution = 0.0f;
+                    }
+                }
+                contact->SetFriction(friction);
+                contact->SetRestitution(restitution);
             }
 
             // b2DestructionListener: a body's fixtures go with it.
             void SayGoodbye(b2Joint*) override {}
-            void SayGoodbye(b2Fixture* fixture) override { OneWayFixtures.erase(fixture); }
+            void SayGoodbye(b2Fixture* fixture) override { Forget(fixture); }
+
+            void Remember(const b2Fixture* fixture, const FixtureInfo& info)
+            {
+                Forget(fixture);
+                Fixtures[fixture] = info;
+                if (info.IsSpecial()) m_SpecialFixtures++;
+                if (info.IsOneWay()) m_OneWayFixtures++;
+            }
+            void Forget(const b2Fixture* fixture)
+            {
+                auto it = Fixtures.find(fixture);
+                if (it == Fixtures.end())
+                    return;
+                if (it->second.IsSpecial()) m_SpecialFixtures--;
+                if (it->second.IsOneWay()) m_OneWayFixtures--;
+                Fixtures.erase(it);
+            }
+            const FixtureInfo* Find(const b2Fixture* fixture) const
+            {
+                auto it = Fixtures.find(fixture);
+                return it != Fixtures.end() ? &it->second : nullptr;
+            }
 
             std::vector<ContactEvent> Events;
-            std::unordered_set<const b2Fixture*> OneWayFixtures;
+            std::unordered_map<const b2Fixture*, FixtureInfo> Fixtures;
             // Entities that fall through one-way surfaces for a while (DropThroughPlatforms): seconds left.
             std::unordered_map<uint64_t, float> DropThrough;
             float StepTime = 1.0f / 60.0f;
 
         private:
+            struct OneWayContact
+            {
+                bool Reported = false; // a Begin went to the scripts
+                int8_t Side = -1;      // arcs over 180: touched first from within the arc (1) or not (0)
+            };
+
             void Push(b2Contact* contact, bool begin)
             {
                 b2Fixture* fa = contact->GetFixtureA();
@@ -93,15 +173,38 @@ namespace Zamin {
                     Events.push_back({ a, b, begin, fa->IsSensor() || fb->IsSensor() });
             }
 
+            bool IsOneWayFixture(const b2Fixture* fixture) const
+            {
+                const FixtureInfo* info = Find(fixture);
+                return info && info->IsOneWay();
+            }
+
             bool IsOneWay(b2Contact* contact) const
             {
-                if (OneWayFixtures.empty())
+                if (m_OneWayFixtures == 0)
                     return false;
                 const b2Fixture* fa = contact->GetFixtureA();
                 const b2Fixture* fb = contact->GetFixtureB();
                 if (fa->IsSensor() || fb->IsSensor())
                     return false;
-                return OneWayFixtures.contains(fa) || OneWayFixtures.contains(fb);
+                return IsOneWayFixture(fa) || IsOneWayFixture(fb);
+            }
+
+            // The platform's up in the world.
+            static b2Vec2 SurfaceUp(const b2Fixture* platform, const PhysicsPlatform2D& settings)
+            {
+                const b2Vec2 up = b2Mul(b2Rot(ToRadians(settings.RotationOffset)), b2Vec2(0.0f, 1.0f));
+                return b2Mul(platform->GetBody()->GetTransform().q, up);
+            }
+
+            // Degrees between the platform's up and the contact normal pointing out of the platform.
+            static float NormalAngle(b2Contact* contact, const b2Fixture* platform, const PhysicsPlatform2D& settings)
+            {
+                b2WorldManifold manifold;
+                contact->GetWorldManifold(&manifold);
+                b2Vec2 normal = contact->GetFixtureA() == platform ? manifold.normal : -manifold.normal; // Box2D: A to B
+                const float c = std::clamp(b2Dot(normal, SurfaceUp(platform, settings)), -1.0f, 1.0f);
+                return ToDegrees(std::acos(c));
             }
 
             // The extent of a fixture along a world direction.
@@ -130,6 +233,14 @@ namespace Zamin {
                     }
                     return;
                 }
+                if (shape->GetType() == b2Shape::e_edge)
+                {
+                    const auto* edge = (const b2EdgeShape*)shape;
+                    float p1 = b2Dot(b2Mul(xf, edge->m_vertex1), dir), p2 = b2Dot(b2Mul(xf, edge->m_vertex2), dir);
+                    min = std::min(p1, p2);
+                    max = std::max(p1, p2);
+                    return;
+                }
                 const b2AABB& box = fixture->GetAABB(0);
                 min = std::numeric_limits<float>::max();
                 max = -std::numeric_limits<float>::max();
@@ -141,26 +252,41 @@ namespace Zamin {
                 }
             }
 
-            bool ShouldCollide(b2Contact* contact) const
+            bool ShouldCollide(b2Contact* contact, OneWayContact& state) const
             {
                 b2Fixture* platform = contact->GetFixtureA();
                 b2Fixture* other = contact->GetFixtureB();
-                if (!OneWayFixtures.contains(platform))
+                if (!IsOneWayFixture(platform))
                     std::swap(platform, other);
+                const PhysicsPlatform2D& settings = Find(platform)->Platform;
                 b2Body* platformBody = platform->GetBody();
                 b2Body* body = other->GetBody();
                 if (!DropThrough.empty())
                     if (auto it = DropThrough.find((uint64_t)body->GetUserData().pointer); it != DropThrough.end() && it->second > 0.0f)
                         return false;
-                const b2Vec2 up = b2Mul(platformBody->GetTransform().q, b2Vec2(0.0f, 1.0f));
+                const b2Vec2 up = SurfaceUp(platform, settings);
                 float platformMin, top, bottom, otherMax;
                 Project(platform, up, platformMin, top);
                 Project(other, up, bottom, otherMax);
                 b2Vec2 relative = body->GetLinearVelocity() - platformBody->GetLinearVelocity();
-                return OneWayPlatform::ShouldCollide(bottom, top, b2Dot(relative, up), StepTime);
+                const bool onTop = OneWayPlatform::ShouldCollide(bottom, top, b2Dot(relative, up), StepTime);
+                const float arc = std::clamp(settings.SurfaceArc, 0.0f, 360.0f);
+                if (std::abs(arc - 180.0f) < 0.01f)
+                    return onTop; // the classic one-way platform
+                const float angle = NormalAngle(contact, platform, settings);
+                if (arc < 180.0f)
+                    return onTop && angle <= arc * 0.5f + 0.5f;
+                // Wider: also held at the sides - decided when the body first touches it (once it is
+                // part way in, the normal no longer says where it came from).
+                if (onTop)
+                    return true;
+                if (state.Side < 0)
+                    state.Side = angle <= arc * 0.5f ? 1 : 0;
+                return state.Side == 1;
             }
 
-            std::unordered_map<b2Contact*, bool> m_OneWayContacts; // touching one-way contacts: reported as colliding?
+            std::unordered_map<b2Contact*, OneWayContact> m_OneWayContacts; // touching one-way contacts
+            size_t m_SpecialFixtures = 0, m_OneWayFixtures = 0;
         };
 
         b2BodyType ToBox2DBodyType(int motionType)
@@ -286,30 +412,192 @@ namespace Zamin {
     {
         if (!body)
             return nullptr;
-        b2PolygonShape box;
-        b2CircleShape circle;
         b2FixtureDef fixtureDef;
-        if (desc.Type == PhysicsShape2DDesc::Kind::Circle)
-        {
-            circle.m_p = ToB2(desc.Offset);
-            circle.m_radius = desc.Radius;
-            fixtureDef.shape = &circle;
-        }
-        else
-        {
-            box.SetAsBox(desc.HalfExtents.x, desc.HalfExtents.y, ToB2(desc.Offset), 0.0f);
-            fixtureDef.shape = &box;
-        }
         fixtureDef.density = desc.Density;
         fixtureDef.friction = desc.Friction;
         fixtureDef.restitution = desc.Restitution;
         fixtureDef.restitutionThreshold = desc.RestitutionThreshold;
         fixtureDef.isSensor = desc.IsSensor;
+        fixtureDef.filter.categoryBits = desc.CategoryBits;
+        fixtureDef.filter.maskBits = desc.MaskBits;
         fixtureDef.userData.pointer = body->GetUserData().pointer;
-        b2Fixture* fixture = body->CreateFixture(&fixtureDef);
-        if (desc.OneWay && !desc.IsSensor)
-            m_Impl->Listener.OneWayFixtures.insert(fixture);
-        return fixture;
+
+        FixtureInfo info;
+        info.Tag = desc.Tag;
+        info.FrictionCombine = desc.FrictionCombine;
+        info.RestitutionCombine = desc.RestitutionCombine;
+        info.Platform = desc.Platform;
+        if (desc.OneWay)
+        {
+            info.Platform = PhysicsPlatform2D();
+            info.Platform.Enabled = true;
+        }
+        if (desc.IsSensor)
+            info.Platform.Enabled = false;
+
+        b2Fixture* first = nullptr;
+        auto create = [&](const b2Shape& shape) {
+            fixtureDef.shape = &shape;
+            b2Fixture* fixture = body->CreateFixture(&fixtureDef);
+            m_Impl->Listener.Remember(fixture, info);
+            if (!first)
+                first = fixture;
+        };
+        std::vector<b2Vec2> points;
+        for (const glm::vec2& p : desc.Points)
+            points.push_back(ToB2(p + desc.Offset));
+        switch (desc.Type)
+        {
+            case PhysicsShape2DDesc::Kind::Box:
+            {
+                b2PolygonShape box;
+                box.SetAsBox(std::max(desc.HalfExtents.x, 0.001f), std::max(desc.HalfExtents.y, 0.001f), ToB2(desc.Offset), 0.0f);
+                create(box);
+                break;
+            }
+            case PhysicsShape2DDesc::Kind::Circle:
+            {
+                b2CircleShape circle;
+                circle.m_p = ToB2(desc.Offset);
+                circle.m_radius = std::max(desc.Radius, 0.001f);
+                create(circle);
+                break;
+            }
+            case PhysicsShape2DDesc::Kind::Polygon:
+            {
+                std::vector<glm::vec2> local;
+                for (const glm::vec2& p : desc.Points)
+                    local.push_back(p + desc.Offset);
+                std::vector<glm::vec2> piece = Polygon2D::MakeConvexPiece(local);
+                if (piece.size() < 3)
+                    break; // no area: Box2D would assert
+                b2Vec2 vertices[b2_maxPolygonVertices];
+                for (size_t i = 0; i < piece.size(); i++)
+                    vertices[i] = ToB2(piece[i]);
+                b2PolygonShape polygon;
+                polygon.Set(vertices, (int32)piece.size());
+                create(polygon);
+                break;
+            }
+            case PhysicsShape2DDesc::Kind::Edge:
+            {
+                std::vector<glm::vec2> local;
+                for (const glm::vec2& p : desc.Points)
+                    local.push_back(p + desc.Offset);
+                std::vector<glm::vec2> line = Polygon2D::CleanPolyline(local, desc.Loop);
+                const size_t segments = line.size() < 2 ? 0 : desc.Loop ? line.size() : line.size() - 1;
+                for (size_t i = 0; i < segments; i++)
+                {
+                    b2EdgeShape edge;
+                    edge.SetTwoSided(ToB2(line[i]), ToB2(line[(i + 1) % line.size()]));
+                    create(edge);
+                }
+                break;
+            }
+            case PhysicsShape2DDesc::Kind::Chain:
+            {
+                std::vector<glm::vec2> local;
+                for (const glm::vec2& p : desc.Points)
+                    local.push_back(p + desc.Offset);
+                std::vector<glm::vec2> line = Polygon2D::CleanPolyline(local, desc.Loop);
+                if (line.empty())
+                    break;
+                // Box2D's chains collide on the right of their direction: the points go the other
+                // way round, so the solid side is on the left of the points as given.
+                std::reverse(line.begin(), line.end());
+                std::vector<b2Vec2> vertices;
+                for (const glm::vec2& p : line)
+                    vertices.push_back(ToB2(p));
+                b2ChainShape chain;
+                if (desc.Loop)
+                    chain.CreateLoop(vertices.data(), (int32)vertices.size());
+                else
+                {
+                    // Ghost vertices straight on: the ends behave like the rest of the chain.
+                    const b2Vec2 prev = vertices[0] + (vertices[0] - vertices[1]);
+                    const size_t n = vertices.size();
+                    const b2Vec2 next = vertices[n - 1] + (vertices[n - 1] - vertices[n - 2]);
+                    chain.CreateChain(vertices.data(), (int32)n, prev, next);
+                }
+                create(chain);
+                break;
+            }
+        }
+        return first;
+    }
+
+    void PhysicsWorld2D::SetShapeMaterial(b2Body* body, int tag, const PhysicsMaterialData& material)
+    {
+        if (!body)
+            return;
+        bool density = false, changed = false;
+        for (b2Fixture* f = body->GetFixtureList(); f; f = f->GetNext())
+        {
+            auto it = m_Impl->Listener.Fixtures.find(f);
+            if (it == m_Impl->Listener.Fixtures.end() || it->second.Tag != tag)
+                continue;
+            if (f->GetDensity() != material.Density && f->GetShape()->GetType() != b2Shape::e_edge && f->GetShape()->GetType() != b2Shape::e_chain)
+            {
+                f->SetDensity(material.Density);
+                density = true;
+            }
+            f->SetFriction(material.Friction);
+            f->SetRestitution(material.Restitution);
+            f->SetRestitutionThreshold(material.RestitutionThreshold);
+            FixtureInfo info = it->second;
+            info.FrictionCombine = material.FrictionCombine;
+            info.RestitutionCombine = material.RestitutionCombine;
+            m_Impl->Listener.Remember(f, info);
+            changed = true;
+        }
+        if (!changed)
+            return;
+        if (density)
+            body->ResetMassData();
+        // Contacts copy the mixed values when they start: the touching ones mix again.
+        for (b2ContactEdge* edge = body->GetContactList(); edge; edge = edge->next)
+        {
+            edge->contact->ResetFriction();
+            edge->contact->ResetRestitution();
+            edge->contact->ResetRestitutionThreshold();
+        }
+        body->SetAwake(true);
+    }
+
+    int PhysicsWorld2D::GetFixtureCount(const b2Body* body)
+    {
+        int count = 0;
+        if (body)
+            for (const b2Fixture* f = body->GetFixtureList(); f; f = f->GetNext())
+                count++;
+        return count;
+    }
+
+    PhysicsMaterialData PhysicsWorld2D::GetShapeMaterial(const b2Fixture* fixture) const
+    {
+        PhysicsMaterialData d;
+        if (!fixture)
+            return d;
+        d.Friction = fixture->GetFriction();
+        d.Restitution = fixture->GetRestitution();
+        d.RestitutionThreshold = fixture->GetRestitutionThreshold();
+        d.Density = fixture->GetDensity();
+        if (const FixtureInfo* info = m_Impl->Listener.Find(fixture))
+        {
+            d.FrictionCombine = info->FrictionCombine;
+            d.RestitutionCombine = info->RestitutionCombine;
+        }
+        return d;
+    }
+
+    void PhysicsWorld2D::GetShapeFilter(const b2Fixture* fixture, uint16_t& categoryBits, uint16_t& maskBits)
+    {
+        categoryBits = maskBits = 0;
+        if (!fixture)
+            return;
+        const b2Filter& filter = fixture->GetFilterData();
+        categoryBits = filter.categoryBits;
+        maskBits = filter.maskBits;
     }
 
     void PhysicsWorld2D::DestroyBody(b2Body* body, std::vector<PhysicsJoint2DRef>* destroyedJoints)
@@ -634,7 +922,7 @@ namespace Zamin {
     size_t PhysicsWorld2D::GetJointCount() const { return (size_t)m_Impl->World.GetJointCount(); }
 
     // ------------------------------------------------------------------ queries
-    RaycastHit PhysicsWorld2D::CastRay(const glm::vec2& origin, const glm::vec2& direction, float maxDistance) const
+    RaycastHit PhysicsWorld2D::CastRay(const glm::vec2& origin, const glm::vec2& direction, float maxDistance, uint16_t layerMask) const
     {
         RaycastHit hit;
         if (glm::length(direction) == 0.0f)
@@ -645,9 +933,11 @@ namespace Zamin {
         {
             RaycastHit* Out;
             float MaxDistance;
+            uint16_t Mask;
             float ReportFixture(b2Fixture* fixture, const b2Vec2& point, const b2Vec2& normal, float fraction) override
             {
                 if (fixture->IsSensor()) return -1.0f; // ignore triggers
+                if ((fixture->GetFilterData().categoryBits & Mask) == 0) return -1.0f; // another layer
                 Out->Hit = true;
                 Out->EntityID = (uint64_t)fixture->GetUserData().pointer;
                 Out->Point = { point.x, point.y, 0.0f };
@@ -658,6 +948,7 @@ namespace Zamin {
         } cb;
         cb.Out = &hit;
         cb.MaxDistance = maxDistance;
+        cb.Mask = layerMask;
         b2Vec2 p1(origin.x, origin.y), p2(origin.x + dir.x * maxDistance, origin.y + dir.y * maxDistance);
         m_Impl->World.RayCast(&cb, p1, p2);
         return hit;

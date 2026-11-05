@@ -4,6 +4,7 @@
 #include "Zamin/Core/Base.h"
 #include "Zamin/Core/InputActions.h"
 #include "Zamin/Debug/DebugDraw.h"
+#include "Zamin/Physics/CollisionLayers.h"
 #include "Zamin/Scene/SortingLayers.h"
 
 #include <filesystem>
@@ -37,6 +38,9 @@ namespace Zamin {
         // Named 2D sorting layers, back to front (Project settings > Sorting layers). Projects
         // without a "SortingLayers" section have only "Default".
         SortingLayerList SortingLayers;
+        // Named 2D collision layers and which of them collide (Project settings > Physics layers).
+        // Projects without a "CollisionLayers2D" section: only "Default", everything collides.
+        CollisionLayers2D CollisionLayers;
 
         static std::vector<std::string> DefaultTags() { return { "Player", "Enemy", "Pickup" }; }
     };
@@ -65,6 +69,8 @@ namespace Zamin {
         static bool RegisterTag(const std::string& tag);
         // Sorting layers of the active project (only "Default" when no project is open).
         static const SortingLayerList& GetSortingLayers();
+        // 2D collision layers of the active project (the defaults when no project is open).
+        static const CollisionLayers2D& GetCollisionLayers2D();
 
         // Every asset of the active project with its handle (nullptr without a project). Read from
         // the asset folder on first use (with the snapshot in the cache folder: files moved while the

@@ -4,6 +4,7 @@
 #include "Zamin/Core/UUID.h"
 #include "Zamin/Renderer/EditorCamera.h"
 #include "Zamin/Physics/PhysicsTypes.h"
+#include "Zamin/Physics/Polygon2D.h"
 #include "Zamin/Renderer/PostProcess.h"
 #include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Renderer/Renderer3D.h"
@@ -353,7 +354,12 @@ namespace Zamin {
         bool SavePrefab(Entity root, const std::filesystem::path& path);
 
         // ---- physics queries
-        RaycastHit Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance);
+        // The closest 2D collider (not a trigger) along the ray whose collision layer is in
+        // `layerMask` (bits of CollisionLayers2D, e.g. Project::GetCollisionLayers2D().MakeMask({ "Ground" })).
+        RaycastHit Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance, uint16_t layerMask = 0xFFFF);
+        // The convex pieces a polygon collider's outline is made of at this scale (the entity's world
+        // scale; what its body gets, and what the editor draws).
+        static Polygon2D::Decomposition DecomposePolygonCollider(const struct PolygonCollider2DComponent& collider, const glm::vec2& scale);
         RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance);
         // The running worlds (null outside play / simulate).
         PhysicsWorld2D* GetPhysicsWorld2D() { return m_PhysicsWorld.get(); }
@@ -512,6 +518,8 @@ namespace Zamin {
         void CreatePhysicsBody3D(Entity entity);
         void CreateTilemapBody(Entity entity);
         void CreateCharacter3D(Entity entity);
+        // A physics material asset changed: the running colliders that use one get its values.
+        void ApplyPhysicsMaterials();
         // Every body / character the entity should have in the running worlds (none when inactive);
         // sleeping bodies where a new body appears are woken (switched on again / spawned).
         void CreatePhysicsBodies(Entity entity);
@@ -696,6 +704,7 @@ namespace Zamin {
         float m_Time = 0.0f;
         double m_AnimationTime = 0.0;
         float m_PhysicsAccumulator = 0.0f;
+        uint64_t m_PhysicsMaterialRevision = 0; // PhysicsMaterialLibrary::GetRevision() the colliders have
 
         std::string m_Name = "Untitled";
         SceneSettings m_Settings;

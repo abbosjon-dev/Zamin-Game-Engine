@@ -592,6 +592,9 @@ namespace Zamin {
 
         bool Collision = true;   // the tiles of the layers with Collision are solid (static 2D physics)
         float Friction = 0.6f;
+        float Restitution = 0.0f;
+        std::string MaterialPath; // physics material asset (.zphysmat), "" = Friction / Restitution above
+        int CollisionLayer = 0;   // the 2D collision layer of the tiles (Project settings > Physics layers)
 
         void* RuntimeBody = nullptr; // b2Body*
 
@@ -808,9 +811,20 @@ namespace Zamin {
         float LinearDamping = 0.0f;
         float AngularDamping = 0.01f;
         bool Bullet = false;
+        // The collision layer of its colliders (0..15, Project settings > Physics layers): which other
+        // layers it touches is the project's layer matrix. A collider may pick its own (Layer >= 0).
+        int Layer = 0;
 
         void* RuntimeBody = nullptr; // b2Body*
     };
+
+    // What every 2D collider has besides its shape. The values are the collider's own unless
+    // MaterialPath names a physics material asset (.zphysmat): then its friction, bounciness,
+    // density and combine modes are used (and follow the file when it changes).
+    // Layer: -1 = the Rigidbody 2D's layer, else this collider's own collision layer.
+    // BoxCollider2D, CircleCollider2D, PolygonCollider2D and EdgeCollider2D have these fields:
+    //   float Density, Friction, Restitution, RestitutionThreshold; bool IsSensor;
+    //   std::string MaterialPath; int Layer;
 
     struct BoxCollider2DComponent
     {
@@ -822,8 +836,11 @@ namespace Zamin {
         float Restitution = 0.0f;
         float RestitutionThreshold = 0.5f;
         bool IsSensor = false;
+        std::string MaterialPath; // physics material asset (.zphysmat), "" = the values above
+        int Layer = -1;           // -1: the Rigidbody 2D's layer
         // A one-way platform: bodies jump up through it from below and land on its top (its up is the
         // entity's +Y). Scripts can drop through with ScriptableEntity::DropThroughPlatforms.
+        // (PlatformEffector2DComponent does the same with more settings.)
         bool OneWay = false;
 
         void* RuntimeFixture = nullptr;
@@ -839,8 +856,72 @@ namespace Zamin {
         float Restitution = 0.0f;
         float RestitutionThreshold = 0.5f;
         bool IsSensor = false;
+        std::string MaterialPath;
+        int Layer = -1;
 
         void* RuntimeFixture = nullptr;
+    };
+
+    // Any polygon (points in the entity's frame, multiplied by its scale like a box's size, plus
+    // Offset). A concave or long outline is split into convex pieces of at most 8 corners (ear
+    // clipping, then the pieces merged back while they stay convex); an outline that crosses itself
+    // uses its convex hull. The editor moves / adds / removes the points in the viewport.
+    struct PolygonCollider2DComponent
+    {
+        glm::vec2 Offset = { 0.0f, 0.0f };
+        std::vector<glm::vec2> Points = { { -0.5f, -0.5f }, { 0.5f, -0.5f }, { 0.5f, 0.2f }, { 0.0f, 0.5f }, { -0.5f, 0.2f } };
+
+        float Density = 1.0f;
+        float Friction = 0.5f;
+        float Restitution = 0.0f;
+        float RestitutionThreshold = 0.5f;
+        bool IsSensor = false;
+        std::string MaterialPath;
+        int Layer = -1;
+
+        void* RuntimeFixture = nullptr; // the first piece's b2Fixture*
+        int RuntimePieces = 0;          // how many convex pieces the body got
+    };
+
+    // A line through the points (an open chain), or a closed loop: ground, slopes, walls. Edges
+    // have no area (no mass); on a dynamic body they collide but do not weigh anything. Two-sided by
+    // default; OneSided makes a smooth chain that only stops bodies coming from the left of the
+    // points' direction (points left to right: from above; a counter-clockwise loop: from inside) -
+    // bodies sliding along it do not catch on the corners between its segments.
+    struct EdgeCollider2DComponent
+    {
+        glm::vec2 Offset = { 0.0f, 0.0f };
+        std::vector<glm::vec2> Points = { { -1.0f, 0.0f }, { 1.0f, 0.0f } };
+        bool Loop = false;
+        bool OneSided = false;
+
+        float Density = 1.0f; // unused by edges (kept for the material / inspector)
+        float Friction = 0.5f;
+        float Restitution = 0.0f;
+        float RestitutionThreshold = 0.5f;
+        bool IsSensor = false;
+        std::string MaterialPath;
+        int Layer = -1;
+
+        void* RuntimeFixture = nullptr; // the first segment's / the chain's b2Fixture*
+    };
+
+    // Turns the entity's colliders (its Rigidbody 2D's, or a tilemap's tiles) into platforms. OneWay:
+    // bodies pass through from below / the sides and land on the surface - collisions only from
+    // within SurfaceArc (degrees, around the surface's up: the entity's +Y turned by RotationOffset).
+    // 180 is the classic one-way platform (BoxCollider2D::OneWay), smaller arcs leave out the
+    // corners, larger ones also hold bodies at the sides. Side contacts (within SideArc of the
+    // surface's left / right) get no friction / bounce unless UseSideFriction / UseSideBounce, so a
+    // player pushing against the side does not stick to it. Scripts drop through with
+    // ScriptableEntity::DropThroughPlatforms.
+    struct PlatformEffector2DComponent
+    {
+        bool OneWay = true;
+        float SurfaceArc = 180.0f;    // degrees, 1..360
+        float RotationOffset = 0.0f;  // degrees: the surface's up from the entity's +Y
+        bool UseSideFriction = false;
+        bool UseSideBounce = false;
+        float SideArc = 1.0f;         // degrees, 0..180
     };
 
     // ------------------------------------------------------------------ joints 2D
@@ -1092,7 +1173,7 @@ namespace Zamin {
     using AllComponents = ComponentGroup<RelationshipComponent, TagsComponent, TransformComponent, SpriteRendererComponent,
         SpriteAnimationComponent, TintAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, SpotLightComponent, Light2DComponent, Rigidbody2DComponent, BoxCollider2DComponent,
-        CircleCollider2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
+        CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;

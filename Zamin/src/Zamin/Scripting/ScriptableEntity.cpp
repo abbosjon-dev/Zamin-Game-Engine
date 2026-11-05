@@ -258,9 +258,19 @@ namespace Zamin {
         if (b2Body* body = BodyOf(other)) body->SetLinearVelocity({ v.x, v.y });
     }
 
-    RaycastHit ScriptableEntity::Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance) const
+    RaycastHit ScriptableEntity::Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance, uint16_t layerMask) const
     {
-        return m_Entity.GetScene()->Raycast2D(origin, direction, maxDistance);
+        return m_Entity.GetScene()->Raycast2D(origin, direction, maxDistance, layerMask);
+    }
+
+    uint16_t ScriptableEntity::LayerMask(std::initializer_list<std::string_view> layerNames)
+    {
+        return Project::GetCollisionLayers2D().MakeMask(layerNames);
+    }
+
+    int ScriptableEntity::LayerIndex(std::string_view layerName)
+    {
+        return Project::GetCollisionLayers2D().Find(layerName);
     }
 
     RaycastHit ScriptableEntity::Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const

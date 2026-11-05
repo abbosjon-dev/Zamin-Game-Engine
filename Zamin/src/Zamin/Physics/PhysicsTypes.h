@@ -24,6 +24,9 @@ namespace Zamin {
         explicit operator bool() const { return Hit; }
     };
 
+    // The kinds of 2D joints (DistanceJoint2DComponent ... WheelJoint2DComponent).
+    enum class Joint2DType { Distance = 0, Revolute, Prismatic, Weld, Wheel };
+
     // A point where two bodies touch (debug drawing): world position and the contact normal.
     struct PhysicsContactPoint
     {

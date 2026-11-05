@@ -49,6 +49,7 @@
 #include "Zamin/Scene/TilesetProperties.h"
 #include "Zamin/Scene/TintAnimation.h"
 #include "Zamin/Scene/PixelPerfect.h"
+#include "Zamin/Physics/PhysicsWorld2D.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Debug/MeshNormals.h"

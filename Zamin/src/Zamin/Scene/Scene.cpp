@@ -10,6 +10,7 @@
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/Scripting/ScriptEngine.h"
 #include "Zamin/Scripting/EventBus.h"
+#include "Zamin/Physics/PhysicsWorld2D.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
 #include "Zamin/Renderer/Renderer2D.h"
 #include "Zamin/Renderer/Renderer3D.h"
@@ -24,165 +25,12 @@
 #include "Zamin/Core/SaveData.h"
 #include "Zamin/Debug/DebugDraw.h"
 
-#include <box2d/b2_body.h>
-#include <box2d/b2_circle_shape.h>
-#include <box2d/b2_contact.h>
-#include <box2d/b2_fixture.h>
-#include <box2d/b2_polygon_shape.h>
-#include <box2d/b2_world.h>
-#include <box2d/b2_world_callbacks.h>
-
 #include <algorithm>
 #include <functional>
 #include <limits>
 #include <unordered_set>
 
 namespace Zamin {
-
-    // ------------------------------------------------------------------ contact listener (2D)
-    // Collects the contact events of a physics step for the scripts, and decides the contacts of the
-    // one-way surfaces (OneWay tiles, BoxCollider2D::OneWay): Box2D re-enables every contact each
-    // step and asks PreSolve, which switches it off while the body passes through. Such a contact
-    // is a collision for the scripts only while it is on (Begin when it starts holding the body up,
-    // End when it lets go), so jumping up through a platform reports nothing.
-    class ContactListener2D : public b2ContactListener, public b2DestructionListener
-    {
-    public:
-        void BeginContact(b2Contact* contact) override
-        {
-            if (IsOneWay(contact))
-            {
-                m_OneWayContacts[contact] = false; // reported once PreSolve lets it collide
-                return;
-            }
-            Push(contact, true);
-        }
-        void EndContact(b2Contact* contact) override
-        {
-            if (auto it = m_OneWayContacts.find(contact); it != m_OneWayContacts.end())
-            {
-                if (it->second)
-                    Push(contact, false);
-                m_OneWayContacts.erase(it);
-                return;
-            }
-            Push(contact, false);
-        }
-        void PreSolve(b2Contact* contact, const b2Manifold*) override
-        {
-            auto it = m_OneWayContacts.find(contact);
-            if (it == m_OneWayContacts.end())
-                return;
-            bool collide = ShouldCollide(contact);
-            contact->SetEnabled(collide);
-            if (collide != it->second)
-            {
-                it->second = collide;
-                Push(contact, collide);
-            }
-        }
-
-        // b2DestructionListener: a body's fixtures go with it.
-        void SayGoodbye(b2Joint*) override {}
-        void SayGoodbye(b2Fixture* fixture) override { OneWayFixtures.erase(fixture); }
-
-        std::vector<ContactEvent> Events;
-        std::unordered_set<const b2Fixture*> OneWayFixtures;
-        // Entities that fall through one-way surfaces for a while (Scene::DropThroughPlatforms): seconds left.
-        std::unordered_map<uint64_t, float> DropThrough;
-        float StepTime = 1.0f / 60.0f;
-
-    private:
-        void Push(b2Contact* contact, bool begin)
-        {
-            b2Fixture* fa = contact->GetFixtureA();
-            b2Fixture* fb = contact->GetFixtureB();
-            uint64_t a = (uint64_t)fa->GetUserData().pointer;
-            uint64_t b = (uint64_t)fb->GetUserData().pointer;
-            if (a && b)
-                Events.push_back({ a, b, begin, fa->IsSensor() || fb->IsSensor() });
-        }
-
-        bool IsOneWay(b2Contact* contact) const
-        {
-            if (OneWayFixtures.empty())
-                return false;
-            const b2Fixture* fa = contact->GetFixtureA();
-            const b2Fixture* fb = contact->GetFixtureB();
-            if (fa->IsSensor() || fb->IsSensor())
-                return false;
-            return OneWayFixtures.contains(fa) || OneWayFixtures.contains(fb);
-        }
-
-        // The extent of a fixture along a world direction.
-        static void Project(const b2Fixture* fixture, const b2Vec2& dir, float& min, float& max)
-        {
-            const b2Transform& xf = fixture->GetBody()->GetTransform();
-            const b2Shape* shape = fixture->GetShape();
-            if (shape->GetType() == b2Shape::e_circle)
-            {
-                const auto* circle = (const b2CircleShape*)shape;
-                float p = b2Dot(b2Mul(xf, circle->m_p), dir);
-                min = p - circle->m_radius;
-                max = p + circle->m_radius;
-                return;
-            }
-            if (shape->GetType() == b2Shape::e_polygon)
-            {
-                const auto* polygon = (const b2PolygonShape*)shape;
-                min = std::numeric_limits<float>::max();
-                max = -std::numeric_limits<float>::max();
-                for (int32 i = 0; i < polygon->m_count; i++)
-                {
-                    float p = b2Dot(b2Mul(xf, polygon->m_vertices[i]), dir);
-                    min = std::min(min, p);
-                    max = std::max(max, p);
-                }
-                return;
-            }
-            const b2AABB& box = fixture->GetAABB(0);
-            min = std::numeric_limits<float>::max();
-            max = -std::numeric_limits<float>::max();
-            for (b2Vec2 corner : { box.lowerBound, box.upperBound, b2Vec2(box.lowerBound.x, box.upperBound.y), b2Vec2(box.upperBound.x, box.lowerBound.y) })
-            {
-                float p = b2Dot(corner, dir);
-                min = std::min(min, p);
-                max = std::max(max, p);
-            }
-        }
-
-        bool ShouldCollide(b2Contact* contact) const
-        {
-            b2Fixture* platform = contact->GetFixtureA();
-            b2Fixture* other = contact->GetFixtureB();
-            if (!OneWayFixtures.contains(platform))
-                std::swap(platform, other);
-            b2Body* platformBody = platform->GetBody();
-            b2Body* body = other->GetBody();
-            if (!DropThrough.empty())
-                if (auto it = DropThrough.find((uint64_t)body->GetUserData().pointer); it != DropThrough.end() && it->second > 0.0f)
-                    return false;
-            const b2Vec2 up = b2Mul(platformBody->GetTransform().q, b2Vec2(0.0f, 1.0f));
-            float platformMin, top, bottom, otherMax;
-            Project(platform, up, platformMin, top);
-            Project(other, up, bottom, otherMax);
-            b2Vec2 relative = body->GetLinearVelocity() - platformBody->GetLinearVelocity();
-            return OneWayPlatform::ShouldCollide(bottom, top, b2Dot(relative, up), StepTime);
-        }
-
-        std::unordered_map<b2Contact*, bool> m_OneWayContacts; // touching one-way contacts: reported as colliding?
-    };
-
-    static b2BodyType ToBox2DBodyType(Rigidbody2DComponent::BodyType type)
-    {
-        switch (type)
-        {
-            case Rigidbody2DComponent::BodyType::Static:    return b2_staticBody;
-            case Rigidbody2DComponent::BodyType::Dynamic:   return b2_dynamicBody;
-            case Rigidbody2DComponent::BodyType::Kinematic: return b2_kinematicBody;
-        }
-        return b2_staticBody;
-    }
 
     // ------------------------------------------------------------------ copy helpers
     template<typename... Component>
@@ -2025,10 +1873,7 @@ namespace Zamin {
     {
         if (m_PhysicsWorld)
             OnPhysics2DStop();
-        m_PhysicsWorld = new b2World({ m_Settings.Gravity.x, m_Settings.Gravity.y });
-        m_ContactListener = new ContactListener2D();
-        m_PhysicsWorld->SetContactListener(m_ContactListener);
-        m_PhysicsWorld->SetDestructionListener(m_ContactListener);
+        m_PhysicsWorld = std::make_unique<PhysicsWorld2D>(m_Settings.Gravity);
         m_PhysicsAccumulator = 0.0f;
 
         for (auto e : m_Registry.view<Rigidbody2DComponent>())
@@ -2045,12 +1890,12 @@ namespace Zamin {
         glm::vec3 position, rotation, scale;
         Math::DecomposeTransform(GetWorldTransform(entity), position, rotation, scale);
 
-        b2BodyDef def;
-        def.type = b2_staticBody;
-        def.position.Set(position.x, position.y);
-        def.angle = rotation.z;
-        def.userData.pointer = (uintptr_t)(uint64_t)entity.GetUUID();
-        b2Body* body = m_PhysicsWorld->CreateBody(&def);
+        PhysicsBody2DDesc def;
+        def.EntityID = entity.GetUUID();
+        def.MotionType = (int)Rigidbody2DComponent::BodyType::Static;
+        def.Position = { position.x, position.y };
+        def.Angle = rotation.z;
+        b2Body* body = m_PhysicsWorld->CreateBody(def);
         tm.RuntimeBody = body;
 
         float sx = tm.TileSize * std::abs(scale.x), sy = tm.TileSize * std::abs(scale.y);
@@ -2060,15 +1905,12 @@ namespace Zamin {
         for (const TileColliderBox& run : TilemapCollision::BuildBoxes(tm, properties))
         {
             float w = (run.X1 - run.X0) * sx;
-            b2PolygonShape shape;
-            shape.SetAsBox(w * 0.5f, sy * 0.5f, b2Vec2(run.X0 * sx + w * 0.5f, run.Y * sy + sy * 0.5f), 0.0f);
-            b2FixtureDef fd;
-            fd.shape = &shape;
-            fd.friction = tm.Friction;
-            fd.userData.pointer = (uintptr_t)(uint64_t)entity.GetUUID();
-            b2Fixture* fixture = body->CreateFixture(&fd);
-            if (run.Type == TileCollision::OneWay && m_ContactListener)
-                m_ContactListener->OneWayFixtures.insert(fixture);
+            PhysicsShape2DDesc shape;
+            shape.HalfExtents = { w * 0.5f, sy * 0.5f };
+            shape.Offset = { run.X0 * sx + w * 0.5f, run.Y * sy + sy * 0.5f };
+            shape.Friction = tm.Friction;
+            shape.OneWay = run.Type == TileCollision::OneWay;
+            m_PhysicsWorld->AddShape(body, shape);
         }
     }
 
@@ -2079,10 +1921,7 @@ namespace Zamin {
         for (auto e : m_Registry.view<BoxCollider2DComponent>()) m_Registry.get<BoxCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : m_Registry.view<CircleCollider2DComponent>()) m_Registry.get<CircleCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : m_Registry.view<TilemapComponent>()) m_Registry.get<TilemapComponent>(e).RuntimeBody = nullptr;
-        delete m_PhysicsWorld;
-        m_PhysicsWorld = nullptr;
-        delete m_ContactListener;
-        m_ContactListener = nullptr;
+        m_PhysicsWorld.reset();
     }
 
     void Scene::CreatePhysicsBody(Entity entity)
@@ -2092,55 +1931,46 @@ namespace Zamin {
 
         glm::vec3 position, rotation, scale;
         Math::DecomposeTransform(GetWorldTransform(entity), position, rotation, scale);
-        uintptr_t id = (uintptr_t)(uint64_t)entity.GetUUID();
 
-        b2BodyDef bodyDef;
-        bodyDef.type = ToBox2DBodyType(rb2d.Type);
-        bodyDef.position.Set(position.x, position.y);
-        bodyDef.angle = rotation.z;
-        bodyDef.fixedRotation = rb2d.FixedRotation;
-        bodyDef.gravityScale = rb2d.GravityScale;
-        bodyDef.linearDamping = rb2d.LinearDamping;
-        bodyDef.angularDamping = rb2d.AngularDamping;
-        bodyDef.bullet = rb2d.Bullet;
-        bodyDef.userData.pointer = id;
+        PhysicsBody2DDesc bodyDef;
+        bodyDef.EntityID = entity.GetUUID();
+        bodyDef.MotionType = (int)rb2d.Type;
+        bodyDef.Position = { position.x, position.y };
+        bodyDef.Angle = rotation.z;
+        bodyDef.FixedRotation = rb2d.FixedRotation;
+        bodyDef.GravityScale = rb2d.GravityScale;
+        bodyDef.LinearDamping = rb2d.LinearDamping;
+        bodyDef.AngularDamping = rb2d.AngularDamping;
+        bodyDef.Bullet = rb2d.Bullet;
 
-        b2Body* body = m_PhysicsWorld->CreateBody(&bodyDef);
+        b2Body* body = m_PhysicsWorld->CreateBody(bodyDef);
         rb2d.RuntimeBody = body;
 
+        auto material = [](PhysicsShape2DDesc& shape, const auto& collider) {
+            shape.Offset = collider.Offset;
+            shape.Density = collider.Density;
+            shape.Friction = collider.Friction;
+            shape.Restitution = collider.Restitution;
+            shape.RestitutionThreshold = collider.RestitutionThreshold;
+            shape.IsSensor = collider.IsSensor;
+        };
         if (auto* bc2d = entity.TryGetComponent<BoxCollider2DComponent>())
         {
-            b2PolygonShape shape;
-            shape.SetAsBox(std::max(0.001f, bc2d->Size.x * std::abs(scale.x)),
-                           std::max(0.001f, bc2d->Size.y * std::abs(scale.y)),
-                           b2Vec2(bc2d->Offset.x, bc2d->Offset.y), 0.0f);
-            b2FixtureDef fixtureDef;
-            fixtureDef.shape = &shape;
-            fixtureDef.density = bc2d->Density;
-            fixtureDef.friction = bc2d->Friction;
-            fixtureDef.restitution = bc2d->Restitution;
-            fixtureDef.restitutionThreshold = bc2d->RestitutionThreshold;
-            fixtureDef.isSensor = bc2d->IsSensor;
-            fixtureDef.userData.pointer = id;
-            bc2d->RuntimeFixture = body->CreateFixture(&fixtureDef);
-            if (bc2d->OneWay && !bc2d->IsSensor && m_ContactListener)
-                m_ContactListener->OneWayFixtures.insert((b2Fixture*)bc2d->RuntimeFixture);
+            PhysicsShape2DDesc shape;
+            shape.Type = PhysicsShape2DDesc::Kind::Box;
+            shape.HalfExtents = { std::max(0.001f, bc2d->Size.x * std::abs(scale.x)), std::max(0.001f, bc2d->Size.y * std::abs(scale.y)) };
+            material(shape, *bc2d);
+            shape.OneWay = bc2d->OneWay;
+            bc2d->RuntimeFixture = m_PhysicsWorld->AddShape(body, shape);
         }
 
         if (auto* cc2d = entity.TryGetComponent<CircleCollider2DComponent>())
         {
-            b2CircleShape shape;
-            shape.m_p.Set(cc2d->Offset.x, cc2d->Offset.y);
-            shape.m_radius = std::max(0.001f, std::abs(scale.x) * cc2d->Radius);
-            b2FixtureDef fixtureDef;
-            fixtureDef.shape = &shape;
-            fixtureDef.density = cc2d->Density;
-            fixtureDef.friction = cc2d->Friction;
-            fixtureDef.restitution = cc2d->Restitution;
-            fixtureDef.restitutionThreshold = cc2d->RestitutionThreshold;
-            fixtureDef.isSensor = cc2d->IsSensor;
-            fixtureDef.userData.pointer = id;
-            cc2d->RuntimeFixture = body->CreateFixture(&fixtureDef);
+            PhysicsShape2DDesc shape;
+            shape.Type = PhysicsShape2DDesc::Kind::Circle;
+            shape.Radius = std::max(0.001f, std::abs(scale.x) * cc2d->Radius);
+            material(shape, *cc2d);
+            cc2d->RuntimeFixture = m_PhysicsWorld->AddShape(body, shape);
         }
     }
 
@@ -2250,29 +2080,6 @@ namespace Zamin {
         rb.RuntimeBodyID = m_PhysicsWorld3D->CreateBody(desc);
     }
 
-    // Box2D does not wake sleeping bodies that a new body appears on or in (a platform or tilemap
-    // switched on again, a spawned wall): they would stay inside it until something else wakes them.
-    static void WakeBodiesOverlapping(b2World* world, b2Body* body)
-    {
-        if (!world || !body)
-            return;
-        struct Waker : b2QueryCallback
-        {
-            b2Body* Self = nullptr;
-            bool ReportFixture(b2Fixture* fixture) override
-            {
-                b2Body* other = fixture->GetBody();
-                if (other != Self && other->GetType() != b2_staticBody && !other->IsAwake())
-                    other->SetAwake(true);
-                return true; // keep going
-            }
-        } waker;
-        waker.Self = body;
-        for (b2Fixture* f = body->GetFixtureList(); f; f = f->GetNext())
-            for (int32 child = 0; child < f->GetShape()->GetChildCount(); child++)
-                world->QueryAABB(&waker, f->GetAABB(child));
-    }
-
     void Scene::CreatePhysicsBodies(Entity entity)
     {
         if (!IsActiveInHierarchy(entity))
@@ -2282,12 +2089,12 @@ namespace Zamin {
         if (m_PhysicsWorld && entity.HasComponent<Rigidbody2DComponent>())
         {
             CreatePhysicsBody(entity);
-            WakeBodiesOverlapping(m_PhysicsWorld, (b2Body*)entity.GetComponent<Rigidbody2DComponent>().RuntimeBody);
+            m_PhysicsWorld->WakeBodiesOverlapping((b2Body*)entity.GetComponent<Rigidbody2DComponent>().RuntimeBody);
         }
         if (m_PhysicsWorld && entity.HasComponent<TilemapComponent>())
         {
             CreateTilemapBody(entity);
-            WakeBodiesOverlapping(m_PhysicsWorld, (b2Body*)entity.GetComponent<TilemapComponent>().RuntimeBody);
+            m_PhysicsWorld->WakeBodiesOverlapping((b2Body*)entity.GetComponent<TilemapComponent>().RuntimeBody);
         }
         if (m_PhysicsWorld3D && entity.HasComponent<Rigidbody3DComponent>())
         {
@@ -2413,14 +2220,9 @@ namespace Zamin {
 
     bool Scene::DropThroughPlatforms(Entity entity, float seconds)
     {
-        if (!m_PhysicsWorld || !m_ContactListener || !entity || !entity.HasComponent<Rigidbody2DComponent>())
+        if (!m_PhysicsWorld || !entity || !entity.HasComponent<Rigidbody2DComponent>())
             return false;
-        float& left = m_ContactListener->DropThrough[(uint64_t)entity.GetUUID()];
-        left = std::max(left, std::max(0.0f, seconds));
-        if (left <= 0.0f)
-            m_ContactListener->DropThrough.erase((uint64_t)entity.GetUUID());
-        if (auto* body = (b2Body*)entity.GetComponent<Rigidbody2DComponent>().RuntimeBody)
-            body->SetAwake(true);
+        m_PhysicsWorld->DropThroughPlatforms(entity.GetUUID(), (b2Body*)entity.GetComponent<Rigidbody2DComponent>().RuntimeBody, seconds);
         return true;
     }
 
@@ -2443,9 +2245,9 @@ namespace Zamin {
                 glm::vec3 p = GetWorldPosition({ e, this });
                 float angle = m_Registry.get<TransformComponent>(e).Rotation.z;
                 b2Body* body = (b2Body*)rb2d.RuntimeBody;
-                const b2Vec2& bp = body->GetPosition();
-                if (bp.x != p.x || bp.y != p.y || body->GetAngle() != angle)
-                    body->SetTransform({ p.x, p.y }, angle);
+                const glm::vec2 bp = PhysicsWorld2D::GetPosition(body);
+                if (bp.x != p.x || bp.y != p.y || PhysicsWorld2D::GetAngle(body) != angle)
+                    PhysicsWorld2D::SetTransform(body, { p.x, p.y }, angle);
             }
         }
         m_PhysicsAccumulator += ts;
@@ -2482,11 +2284,7 @@ namespace Zamin {
             if (m_PhysicsWorld)
             {
                 ZM_PROFILE_SCOPE("Box2D (2D)");
-                if (m_ContactListener)
-                    m_ContactListener->StepTime = fixedStep;
                 m_PhysicsWorld->Step(fixedStep, m_Settings.VelocityIterations, m_Settings.PositionIterations);
-                if (m_ContactListener && !m_ContactListener->DropThrough.empty())
-                    std::erase_if(m_ContactListener->DropThrough, [&](auto& item) { return (item.second -= fixedStep) <= 0.0f; });
             }
             if (m_PhysicsWorld3D)
             {
@@ -2509,20 +2307,21 @@ namespace Zamin {
             {
                 auto& rb2d = m_Registry.get<Rigidbody2DComponent>(e);
                 if (!rb2d.RuntimeBody || rb2d.Type != Rigidbody2DComponent::BodyType::Dynamic) continue;
-                b2Body* body = (b2Body*)rb2d.RuntimeBody;
-                const auto& position = body->GetPosition();
+                const b2Body* body = (const b2Body*)rb2d.RuntimeBody;
+                const glm::vec2 position = PhysicsWorld2D::GetPosition(body);
+                const float angle = PhysicsWorld2D::GetAngle(body);
                 Entity entity{ e, this };
                 if (!GetParent(entity))
                 {
                     auto& t = m_Registry.get<TransformComponent>(e);
                     t.Translation.x = position.x;
                     t.Translation.y = position.y;
-                    t.Rotation.z = body->GetAngle();
+                    t.Rotation.z = angle;
                 }
                 else
                 {
                     glm::vec3 wp = GetWorldPosition(entity);
-                    ApplyWorldPose(*this, entity, { position.x, position.y, wp.z }, glm::quat(glm::vec3(0, 0, body->GetAngle())));
+                    ApplyWorldPose(*this, entity, { position.x, position.y, wp.z }, glm::quat(glm::vec3(0, 0, angle)));
                 }
             }
         }
@@ -2540,11 +2339,8 @@ namespace Zamin {
 
         // Dispatch collision events after the step (worlds are unlocked now).
         std::vector<ContactEvent> events;
-        if (m_ContactListener)
-        {
-            events = std::move(m_ContactListener->Events);
-            m_ContactListener->Events.clear();
-        }
+        if (m_PhysicsWorld)
+            events = m_PhysicsWorld->TakeEvents();
         if (m_PhysicsWorld3D)
         {
             auto e3 = m_PhysicsWorld3D->TakeEvents();
@@ -2579,10 +2375,10 @@ namespace Zamin {
                 const auto& rb = m_Registry.get<Rigidbody2DComponent>(e);
                 if (!rb.RuntimeBody || rb.Type != Rigidbody2DComponent::BodyType::Dynamic)
                     continue;
-                b2Body* body = (b2Body*)rb.RuntimeBody;
-                if (!body->IsEnabled() || !body->IsAwake())
+                const b2Body* body = (const b2Body*)rb.RuntimeBody;
+                if (!PhysicsWorld2D::IsEnabled(body) || !PhysicsWorld2D::IsAwake(body))
                     continue;
-                const b2Vec2 c = body->GetWorldCenter(), v = body->GetLinearVelocity();
+                const glm::vec2 c = PhysicsWorld2D::GetWorldCenter(body), v = PhysicsWorld2D::GetLinearVelocity(body);
                 DebugDraw::BodyVelocity({ c.x, c.y, GetWorldPosition({ e, this }).z }, { v.x, v.y, 0.0f });
             }
         if (m_PhysicsWorld3D)
@@ -2602,27 +2398,21 @@ namespace Zamin {
         // Every frame (also one without a physics step): the contacts as they are now.
         if (m_PhysicsWorld)
         {
-            for (b2Contact* contact = m_PhysicsWorld->GetContactList(); contact; contact = contact->GetNext())
+            std::vector<PhysicsContactPoint2D> points;
+            m_PhysicsWorld->GetDebugContacts(points);
+            UUID lastEntity = 0;
+            float z = 0.0f;
+            for (const PhysicsContactPoint2D& p : points)
             {
-                if (!contact->IsTouching() || !contact->IsEnabled() || contact->GetFixtureA()->IsSensor() || contact->GetFixtureB()->IsSensor())
-                    continue;
-                const int count = contact->GetManifold()->pointCount;
-                if (count <= 0)
-                    continue;
-                b2WorldManifold manifold;
-                contact->GetWorldManifold(&manifold);
                 // The 2D world is flat: the points get the depth of the first body's entity.
-                float z = 0.0f;
-                if (auto it = m_EntityMap.find(UUID((uint64_t)contact->GetFixtureA()->GetUserData().pointer));
-                    it != m_EntityMap.end() && m_Registry.valid(it->second))
-                    z = GetWorldPosition({ it->second, this }).z;
-                // Box2D's normal points from A to B: turned so that it leaves a static / kinematic
-                // body (the ground's normal under the player), as the 3D world's.
-                glm::vec3 normal(manifold.normal.x, manifold.normal.y, 0.0f);
-                if (contact->GetFixtureA()->GetBody()->GetType() == b2_dynamicBody && contact->GetFixtureB()->GetBody()->GetType() != b2_dynamicBody)
-                    normal = -normal;
-                for (int i = 0; i < count && i < b2_maxManifoldPoints; i++)
-                    DebugDraw::PhysicsContact({ manifold.points[i].x, manifold.points[i].y, z }, normal);
+                if (p.EntityA != lastEntity || &p == points.data())
+                {
+                    lastEntity = p.EntityA;
+                    z = 0.0f;
+                    if (auto it = m_EntityMap.find(p.EntityA); it != m_EntityMap.end() && m_Registry.valid(it->second))
+                        z = GetWorldPosition({ it->second, this }).z;
+                }
+                DebugDraw::PhysicsContact({ p.Position.x, p.Position.y, z }, { p.Normal.x, p.Normal.y, 0.0f });
             }
         }
         if (m_PhysicsWorld3D)
@@ -2676,30 +2466,9 @@ namespace Zamin {
     // ------------------------------------------------------------------ queries
     RaycastHit Scene::Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance)
     {
-        RaycastHit hit;
-        if (!m_PhysicsWorld || glm::length(direction) == 0.0f) return hit;
-        glm::vec2 dir = glm::normalize(direction);
-
-        struct Callback : b2RayCastCallback
-        {
-            RaycastHit* Out;
-            float MaxDistance;
-            float ReportFixture(b2Fixture* fixture, const b2Vec2& point, const b2Vec2& normal, float fraction) override
-            {
-                if (fixture->IsSensor()) return -1.0f; // ignore triggers
-                Out->Hit = true;
-                Out->EntityID = (uint64_t)fixture->GetUserData().pointer;
-                Out->Point = { point.x, point.y, 0.0f };
-                Out->Normal = { normal.x, normal.y, 0.0f };
-                Out->Distance = fraction * MaxDistance;
-                return fraction; // clip to closest
-            }
-        } cb;
-        cb.Out = &hit;
-        cb.MaxDistance = maxDistance;
-        b2Vec2 p1(origin.x, origin.y), p2(origin.x + dir.x * maxDistance, origin.y + dir.y * maxDistance);
-        m_PhysicsWorld->RayCast(&cb, p1, p2);
-        DebugDraw::PhysicsRaycast(glm::vec3(origin, 0.0f), glm::vec3(dir, 0.0f), maxDistance, hit);
+        if (!m_PhysicsWorld || glm::length(direction) == 0.0f) return {};
+        RaycastHit hit = m_PhysicsWorld->CastRay(origin, direction, maxDistance);
+        DebugDraw::PhysicsRaycast(glm::vec3(origin, 0.0f), glm::vec3(glm::normalize(direction), 0.0f), maxDistance, hit);
         return hit;
     }
 

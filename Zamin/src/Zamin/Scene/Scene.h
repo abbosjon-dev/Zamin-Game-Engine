@@ -26,14 +26,12 @@
 #include <unordered_set>
 #include <vector>
 
-class b2World;
-
 namespace Zamin {
 
     class Entity;
     class AssetRegistry;
     struct TilemapComponent;
-    class ContactListener2D;
+    class PhysicsWorld2D;
     class PhysicsWorld3D;
     class EventBus;
     class ScriptableEntity;
@@ -356,6 +354,8 @@ namespace Zamin {
         // ---- physics queries
         RaycastHit Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance);
         RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance);
+        // The running worlds (null outside play / simulate).
+        PhysicsWorld2D* GetPhysicsWorld2D() { return m_PhysicsWorld.get(); }
         PhysicsWorld3D* GetPhysicsWorld3D() { return m_PhysicsWorld3D.get(); }
 
         // ---- viewport input (set by the host each frame; pixels, origin top-left of the game view)
@@ -682,8 +682,7 @@ namespace Zamin {
         std::string m_Name = "Untitled";
         SceneSettings m_Settings;
 
-        b2World* m_PhysicsWorld = nullptr;
-        ContactListener2D* m_ContactListener = nullptr;
+        std::unique_ptr<PhysicsWorld2D> m_PhysicsWorld;
         std::unique_ptr<PhysicsWorld3D> m_PhysicsWorld3D;
         std::filesystem::path m_PendingSceneLoad;
         glm::vec2 m_MousePosition{ -1.0f };
@@ -737,7 +736,6 @@ namespace Zamin {
         friend class Entity;
         friend class SceneSerializer;
         friend class SceneHierarchyPanel;
-        friend class ContactListener2D;
     };
 
 }

@@ -7868,6 +7868,318 @@ TEST(ActivityHierarchyPhysicsScripts)
     world3D->OnRuntimeStop();
 }
 
+// ------------------------------------------------------------------ asset inspector / references
+static std::string Base64(const std::string& bytes)
+{
+    static const char* table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string out;
+    size_t i = 0;
+    for (; i + 2 < bytes.size(); i += 3)
+    {
+        uint32_t v = ((uint8_t)bytes[i] << 16) | ((uint8_t)bytes[i + 1] << 8) | (uint8_t)bytes[i + 2];
+        for (int k = 3; k >= 0; k--) out += table[(v >> (6 * k)) & 63];
+    }
+    if (i + 1 == bytes.size())
+    {
+        uint32_t v = (uint8_t)bytes[i] << 16;
+        out += table[(v >> 18) & 63]; out += table[(v >> 12) & 63]; out += "==";
+    }
+    else if (i + 2 == bytes.size())
+    {
+        uint32_t v = ((uint8_t)bytes[i] << 16) | ((uint8_t)bytes[i + 1] << 8);
+        out += table[(v >> 18) & 63]; out += table[(v >> 12) & 63]; out += table[(v >> 6) & 63]; out += '=';
+    }
+    return out;
+}
+
+TEST(AssetInfoImages)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-image-info-");
+    // 3x2 RGB and 2x2 RGBA (alpha 0 / 128 / 255 / 64).
+    const uint8_t rgb[3 * 2 * 3] = { 255, 0, 0, 0, 255, 0, 0, 0, 255, 10, 20, 30, 40, 50, 60, 70, 80, 90 };
+    CHECK(Image::WritePNG((dir / "rgb.png").string(), 3, 2, 3, rgb));
+    const uint8_t rgba[2 * 2 * 4] = { 200, 100, 50, 0, 10, 20, 30, 128, 1, 2, 3, 255, 9, 8, 7, 64 };
+    CHECK(Image::WritePNG((dir / "rgba.png").string(), 2, 2, 4, rgba));
+    WriteFile(dir / "broken.png", "this is not an image");
+
+    ImageFileInfo info = AssetInfo::ReadImage(dir / "rgb.png");
+    CHECK(info.Valid && info.Error.empty());
+    CHECK(info.Width == 3 && info.Height == 2 && info.Channels == 3);
+    CHECK(!info.Is16Bit && !info.IsHDR && info.Format == "PNG");
+    ImageFileInfo alpha = AssetInfo::ReadImage(dir / "rgba.png");
+    CHECK(alpha.Valid && alpha.Channels == 4 && alpha.Width == 2);
+    ImageFileInfo broken = AssetInfo::ReadImage(dir / "broken.png");
+    CHECK(!broken.Valid && !broken.Error.empty());
+    ImageFileInfo missing = AssetInfo::ReadImage(dir / "nope.png");
+    CHECK(!missing.Valid && missing.Error == "fayl topilmadi");
+
+    // CPU pixels and channel views (what the preview shows for R / G / B / A).
+    ImageData data;
+    std::string error;
+    CHECK(Image::Load((dir / "rgba.png").string(), data, 4, false, &error));
+    CHECK(data.IsValid() && data.Width == 2 && data.Height == 2 && data.Channels == 4 && data.FileChannels == 4);
+    CHECK(data.Pixels.size() == 16 && data.Pixels[0] == 200 && data.Pixels[7] == 128);
+    std::vector<uint8_t> a = Image::MakeChannelView(data.Pixels, ImageChannelView::Alpha);
+    CHECK(a.size() == 16 && a[0] == 0 && a[1] == 0 && a[3] == 255 && a[4] == 128 && a[8] == 255 && a[12] == 64);
+    std::vector<uint8_t> r = Image::MakeChannelView(data.Pixels, ImageChannelView::Red);
+    CHECK(r[0] == 200 && r[1] == 200 && r[2] == 200 && r[3] == 255 && r[4] == 10);
+    std::vector<uint8_t> g = Image::MakeChannelView(data.Pixels, ImageChannelView::Green);
+    CHECK(g[0] == 100 && g[4] == 20);
+    std::vector<uint8_t> opaque = Image::MakeChannelView(data.Pixels, ImageChannelView::RGB);
+    CHECK(opaque[0] == 200 && opaque[1] == 100 && opaque[2] == 50 && opaque[3] == 255 && opaque[7] == 255);
+    CHECK(Image::MakeChannelView(data.Pixels, ImageChannelView::RGBA) == data.Pixels);
+    ImageData flipped;
+    CHECK(Image::Load((dir / "rgb.png").string(), flipped, 4, true));
+    CHECK(flipped.FileChannels == 3 && flipped.Pixels[0] == 10 && flipped.Pixels[3] == 255); // bottom row first
+    CHECK(!Image::Load((dir / "broken.png").string(), data, 4, false, &error) && !error.empty() && !data.IsValid());
+
+    // GPU memory and mip levels.
+    CHECK(AssetInfo::GetMipLevelCount(256, 128) == 9);
+    CHECK(AssetInfo::GetMipLevelCount(1, 1) == 1);
+    CHECK(AssetInfo::GetMipLevelCount(300, 1) == 9);
+    CHECK(AssetInfo::EstimateTextureMemory(256, 256, 4, false) == 262144);
+    CHECK(AssetInfo::EstimateTextureMemory(256, 256, 4, true) == 349524);
+    CHECK(AssetInfo::EstimateTextureMemory(4, 2, 4, true) == 44);
+    CHECK(AssetInfo::FormatDuration(0.25) == "0.250 s");
+    CHECK(AssetInfo::FormatDuration(12.5) == "12.5 s");
+    CHECK(AssetInfo::FormatDuration(125.3) == "2:05.3");
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(AssetInfoAudio)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-audio-info-");
+    WriteTestWav(dir / "tone.wav", 0.5f); // mono, 22050 Hz, 16-bit
+    WriteFile(dir / "broken.wav", "RIFF....WAVEnope");
+
+    AudioFileInfo info = AssetInfo::ReadAudio(dir / "tone.wav");
+    CHECK(info.Valid && info.Error.empty());
+    CHECK(info.Format == "WAV" && info.SampleFormat == "16-bit");
+    CHECK(info.Channels == 1 && info.SampleRate == 22050);
+    CHECK(info.Frames == 11025);
+    CHECK_NEAR(info.Duration, 0.5, 0.001);
+
+    std::string error;
+    std::vector<glm::vec2> peaks = AssetInfo::ReadAudioWaveform(dir / "tone.wav", 64, &error);
+    CHECK(peaks.size() == 64 && error.empty());
+    bool inRange = true;
+    float lowest = 1.0f, highest = -1.0f;
+    for (const glm::vec2& p : peaks)
+    {
+        inRange = inRange && p.x >= -1.0f && p.y <= 1.0f && p.x <= p.y;
+        lowest = std::min(lowest, p.x);
+        highest = std::max(highest, p.y);
+    }
+    CHECK(inRange);
+    CHECK(highest > 0.15f && lowest < -0.15f); // the tone peaks at 6000 / 32768
+    CHECK(highest < 0.2f);
+
+    AudioFileInfo broken = AssetInfo::ReadAudio(dir / "broken.wav");
+    CHECK(!broken.Valid && !broken.Error.empty());
+    CHECK(AssetInfo::ReadAudioWaveform(dir / "broken.wav", 64, &error).empty() && !error.empty());
+    CHECK(AssetInfo::ReadAudio(dir / "nope.wav").Error == "fayl topilmadi");
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(AssetInfoModels)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-model-info-");
+    // One triangle, a 2-joint skin and two animations: "Walk" moves a joint (input max 2.5 stated),
+    // "Wave" moves the mesh node (no max: the last key time is read from the buffer).
+    std::string buffer;
+    auto f32 = [&](float v) { char b[4]; std::memcpy(b, &v, 4); buffer.append(b, 4); };
+    auto u16 = [&](uint16_t v) { buffer.push_back((char)(v & 0xff)); buffer.push_back((char)(v >> 8)); };
+    for (float v : { 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f, 0.f }) f32(v); // 0: positions (36)
+    u16(0); u16(1); u16(2); u16(0);                                        // 36: indices (6 + 2 padding)
+    f32(0.0f); f32(2.5f);                                                  // 44: Walk times
+    for (float v : { 0.f, 0.f, 0.f, 0.f, 1.f, 0.f }) f32(v);               // 52: translations (24)
+    f32(0.0f); f32(1.25f);                                                 // 76: Wave times
+    std::string gltf = R"({
+  "asset": { "version": "2.0", "generator": "Zamin test" },
+  "buffers": [ { "byteLength": 84, "uri": "data:application/octet-stream;base64,)" + Base64(buffer) + R"(" } ],
+  "bufferViews": [
+    { "buffer": 0, "byteOffset": 0, "byteLength": 36 }, { "buffer": 0, "byteOffset": 36, "byteLength": 6 },
+    { "buffer": 0, "byteOffset": 44, "byteLength": 8 }, { "buffer": 0, "byteOffset": 52, "byteLength": 24 },
+    { "buffer": 0, "byteOffset": 76, "byteLength": 8 } ],
+  "accessors": [
+    { "bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3", "min": [0, 0, 0], "max": [1, 1, 0] },
+    { "bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR" },
+    { "bufferView": 2, "componentType": 5126, "count": 2, "type": "SCALAR", "min": [0], "max": [2.5] },
+    { "bufferView": 3, "componentType": 5126, "count": 2, "type": "VEC3" },
+    { "bufferView": 4, "componentType": 5126, "count": 2, "type": "SCALAR" } ],
+  "images": [ { "uri": "tex/missing%20one.png" } ],
+  "textures": [ { "source": 0 } ],
+  "materials": [ { "name": "Red", "pbrMetallicRoughness": { "baseColorFactor": [1, 0, 0, 1], "metallicFactor": 0.2,
+                   "roughnessFactor": 0.7, "baseColorTexture": { "index": 0 } } } ],
+  "meshes": [ { "name": "Tri", "primitives": [ { "attributes": { "POSITION": 0 }, "indices": 1, "material": 0 } ] } ],
+  "nodes": [ { "name": "Body", "mesh": 0 }, { "name": "Hip", "children": [2] }, { "name": "Knee" } ],
+  "skins": [ { "joints": [1, 2] } ],
+  "animations": [
+    { "name": "Walk", "samplers": [ { "input": 2, "output": 3 } ], "channels": [ { "sampler": 0, "target": { "node": 1, "path": "translation" } } ] },
+    { "name": "Wave", "samplers": [ { "input": 4, "output": 3 } ], "channels": [ { "sampler": 0, "target": { "node": 0, "path": "translation" } } ] } ],
+  "scenes": [ { "nodes": [0, 1] } ], "scene": 0
+})";
+    WriteFile(dir / "tri.gltf", gltf);
+    ModelFileInfo info = AssetInfo::ReadModel(dir / "tri.gltf");
+    CHECK(info.Valid && info.Error.empty());
+    CHECK(info.Format == "glTF" && info.Version == "2.0" && info.Generator == "Zamin test");
+    CHECK(info.Meshes == 1 && info.Nodes == 3 && info.Images == 1 && info.Skins == 1 && info.Joints == 2);
+    CHECK(info.Primitives.size() == 1 && info.Vertices == 3 && info.Triangles == 1);
+    if (info.Primitives.size() == 1)
+    {
+        CHECK(info.Primitives[0].Mesh == "Tri" && info.Primitives[0].Material == "Red");
+        CHECK(info.Primitives[0].Vertices == 3 && info.Primitives[0].Triangles == 1 && !info.Primitives[0].Skinned);
+    }
+    CHECK(info.Materials.size() == 1);
+    if (!info.Materials.empty())
+    {
+        CHECK(info.Materials[0].Name == "Red");
+        CHECK_NEAR(info.Materials[0].BaseColor.r, 1.0f, 1e-6f);
+        CHECK_NEAR(info.Materials[0].Metallic, 0.2f, 1e-6f);
+        CHECK(info.Materials[0].Maps == std::vector<std::string>{ "Albedo" });
+    }
+    CHECK(info.Animations.size() == 2);
+    if (info.Animations.size() == 2)
+    {
+        CHECK(info.Animations[0].Name == "Walk" && info.Animations[0].TargetsJoints && info.Animations[0].Channels == 1);
+        CHECK_NEAR(info.Animations[0].Duration, 2.5f, 1e-5f);
+        CHECK(info.Animations[1].Name == "Wave" && !info.Animations[1].TargetsJoints);
+        CHECK_NEAR(info.Animations[1].Duration, 1.25f, 1e-5f);
+    }
+    CHECK(info.ExternalFiles == std::vector<std::string>{ "tex/missing one.png" });
+    CHECK(info.MissingFiles == std::vector<std::string>{ "tex/missing one.png" });
+
+    WriteFile(dir / "quad.obj", "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n");
+    ModelFileInfo obj = AssetInfo::ReadModel(dir / "quad.obj");
+    CHECK(obj.Valid && obj.Format == "OBJ" && obj.Triangles == 2 && obj.Primitives.size() == 1);
+    WriteFile(dir / "broken.gltf", "{ not json");
+    ModelFileInfo broken = AssetInfo::ReadModel(dir / "broken.gltf");
+    CHECK(!broken.Valid && !broken.Error.empty());
+    CHECK(AssetInfo::ReadModel(dir / "nope.glb").Error == "fayl topilmadi");
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+static std::vector<std::string> UnusedPaths(const std::vector<UnusedAsset>& unused)
+{
+    std::vector<std::string> paths;
+    for (const UnusedAsset& u : unused)
+        paths.push_back(u.Path);
+    return paths;
+}
+
+TEST(AssetReferenceIndexScans)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-asset-usage-");
+    fs::path assets = dir / "Assets";
+    for (const char* name : { "a.png", "b.png", "c.png", "unused.png" })
+        WriteFile(assets / "Textures" / name, "png");
+    WriteFile(assets / "Audio" / "x.wav", "wav");
+    WriteFile(assets / "Audio" / "y.wav", "wav");
+    WriteFile(assets / "Models" / "m.bin", "bin");
+    WriteFile(assets / "Models" / "m.gltf", R"({ "asset": { "version": "2.0" },
+        "buffers": [ { "uri": "m.bin", "byteLength": 3 } ],
+        "images": [ { "uri": "../Textures/b.png" }, { "uri": "gone.png" }, { "uri": "data:image/png;base64,AAAA" } ] })");
+    WriteFile(assets / "Prefabs" / "p.zprefab", R"({ "Entities": [ { "Tag": "Textures/unused.png",
+        "MeshRenderer": { "Model": "Models/m.gltf", "Mesh": "Model" } } ] })");
+    WriteFile(assets / "Scenes" / "Old.zscene", R"({ "Scene": "Old", "Entities": [ { "Tag": "C", "SpriteRenderer": { "Texture": "Textures/c.png" } } ] })");
+    WriteFile(dir / "Source" / "Game.cpp", "// Audio/y.wav was the old sound\n"
+                                           "/* \"Audio/y.wav\" */\n"
+                                           "void Play() { int n = 1'000; char c = '\"'; PlaySound(\"Audio/x.wav\"); Load(\"Audio/missing.wav\"); }\n");
+    WriteFile(dir / "Game.zproject", R"({ "Project": { "Name": "Game", "StartScene": "Scenes/Main.zscene", "AssetDirectory": "Assets",
+        "ScriptModulePath": "Binaries/libGame.so", "EngineVersion": "0.1.0" } })");
+
+    AssetRegistry registry(true);
+    WriteFile(assets / "Scenes" / "Main.zscene", "{}");
+    registry.Scan(assets);
+    AssetHandle a = registry.GetHandle("Textures/a.png"), prefab = registry.GetHandle("Prefabs/p.zprefab");
+    CHECK(a && prefab);
+    // The prefab by UUID only: its path in the scene is out of date (renamed outside the editor).
+    std::string main = R"({ "Scene": "Main", "Entities": [
+        { "Tag": "A", "SpriteRenderer": { "Texture": "Textures/a.png", "TextureUUID": ")" + a.ToString() + R"(" } },
+        { "Tag": "B", "Prefab": { "Source": "Prefabs/old_name.zprefab", "SourceUUID": ")" + prefab.ToString() + R"(" } },
+        { "Tag": "Gone", "SpriteRenderer": { "Texture": "Textures/gone.png" } },
+        { "Tag": "Restart", "NativeScript": { "Class": "Door", "Fields": [ { "Name": "Next", "Value": "Scenes/Main.zscene" } ] } } ] })";
+    WriteFile(assets / "Scenes" / "Main.zscene", main);
+
+    AssetReferenceIndex::Sources sources;
+    sources.AssetDirectory = assets;
+    sources.ProjectDirectory = dir;
+    sources.ProjectFile = dir / "Game.zproject";
+    sources.SourceDirectory = dir / "Source";
+    sources.Registry = &registry;
+    AssetReferenceIndex index;
+    index.Build(sources);
+    CHECK(index.IsBuilt());
+    CHECK(index.GetScannedFileCount() == 6); // 2 scenes, prefab, gltf, project file, Game.cpp
+
+    const auto& byA = index.GetReferrers("Textures/a.png");
+    CHECK(byA.size() == 1 && index.GetReferrers(assets / "Textures" / "a.png").size() == 1);
+    if (byA.size() == 1)
+    {
+        CHECK(byA[0].Name == "Assets/Scenes/Main.zscene" && byA[0].AssetPath == "Scenes/Main.zscene");
+        CHECK(byA[0].Has(AssetReferenceKind::Path) && byA[0].Has(AssetReferenceKind::UUID) && byA[0].Count == 1);
+    }
+    const auto& byPrefab = index.GetReferrers("Prefabs/p.zprefab");
+    CHECK(byPrefab.size() == 1 && !byPrefab.empty() && byPrefab[0].Has(AssetReferenceKind::UUID) && !byPrefab[0].Has(AssetReferenceKind::Path));
+    const auto& byModel = index.GetReferrers("Models/m.gltf");
+    CHECK(byModel.size() == 1 && !byModel.empty() && byModel[0].AssetPath == "Prefabs/p.zprefab");
+    const auto& byB = index.GetReferrers("Textures/b.png");
+    CHECK(byB.size() == 1 && !byB.empty() && byB[0].Has(AssetReferenceKind::ModelFile) && byB[0].AssetPath == "Models/m.gltf");
+    CHECK(index.IsReferenced("Models/m.bin"));
+    const auto& byX = index.GetReferrers("Audio/x.wav");
+    CHECK(byX.size() == 1 && !byX.empty() && byX[0].Name == "Source/Game.cpp" && byX[0].Has(AssetReferenceKind::Code));
+    // The start scene: the project file (its own restart field does not count).
+    const auto& byMain = index.GetReferrers("Scenes/Main.zscene");
+    CHECK(byMain.size() == 1 && !byMain.empty() && byMain[0].Name == "Game.zproject");
+    CHECK(!index.IsReferenced("Textures/unused.png")); // only an entity name
+    CHECK(!index.IsReferenced("Audio/y.wav"));         // only in comments
+    CHECK(index.GetReferences("Scenes/Main.zscene") == (std::vector<std::string>{ "Prefabs/p.zprefab", "Textures/a.png" }));
+    CHECK(index.GetReferences(assets / "Models" / "m.gltf") == (std::vector<std::string>{ "Models/m.bin", "Textures/b.png" }));
+
+    CHECK(UnusedPaths(index.FindUnused()) == (std::vector<std::string>{ "Audio/y.wav", "Scenes/Old.zscene", "Textures/unused.png" }));
+    // Reachable from the project file and the code: Old.zscene opens nowhere, so c.png is unused too.
+    CHECK(UnusedPaths(index.FindUnused(true)) ==
+          (std::vector<std::string>{ "Audio/y.wav", "Scenes/Old.zscene", "Textures/c.png", "Textures/unused.png" }));
+    std::vector<UnusedAsset> unused = index.FindUnused();
+    CHECK(!unused.empty() && unused[0].Type == AssetType::Audio && unused[0].Size == 3);
+
+    std::vector<std::string> missing;
+    for (const MissingAssetReference& m : index.GetMissing())
+        missing.push_back(m.Name + " -> " + m.Path);
+    CHECK(missing == (std::vector<std::string>{ "Assets/Models/m.gltf -> Models/gone.png", "Assets/Scenes/Main.zscene -> Textures/gone.png",
+                                                "Source/Game.cpp -> Audio/missing.wav" }));
+
+    // The open scene's unsaved state instead of the file: a.png is not used any more.
+    sources.Overrides[(assets / "Scenes" / "Main.zscene").string()] =
+        R"({ "Entities": [ { "Prefab": { "Source": "Prefabs/p.zprefab" } } ] })";
+    index.Build(sources);
+    CHECK(!index.IsReferenced("Textures/a.png"));
+    CHECK(index.GetReferrers("Prefabs/p.zprefab").size() == 1);
+
+    // Without a registry: no UUIDs (the renamed prefab is missing then), assets from the folder.
+    sources.Overrides.clear();
+    sources.Registry = nullptr;
+    index.Build(sources);
+    CHECK(index.GetAssets().size() == 10); // 4 textures, 2 sounds, model, prefab, 2 scenes
+    CHECK(!index.IsReferenced("Prefabs/p.zprefab") && index.IsReferenced("Textures/a.png"));
+    bool missingPrefab = false;
+    for (const MissingAssetReference& m : index.GetMissing())
+        missingPrefab = missingPrefab || m.Path == "Prefabs/old_name.zprefab";
+    CHECK(missingPrefab);
+
+    index.Clear();
+    CHECK(!index.IsBuilt() && index.GetReferrers("Textures/a.png").empty());
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

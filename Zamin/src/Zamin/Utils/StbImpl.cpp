@@ -23,4 +23,51 @@ namespace Zamin {
         return ok != 0;
     }
 
+    bool Image::Load(const std::string& path, ImageData& out, uint32_t channels, bool flipVertically, std::string* error)
+    {
+        out = {};
+        channels = channels < 1 ? 1 : channels > 4 ? 4 : channels;
+        stbi_set_flip_vertically_on_load(flipVertically ? 1 : 0);
+        int width = 0, height = 0, fileChannels = 0;
+        stbi_uc* data = stbi_load(path.c_str(), &width, &height, &fileChannels, (int)channels);
+        stbi_set_flip_vertically_on_load(0);
+        if (!data)
+        {
+            if (error)
+            {
+                const char* reason = stbi_failure_reason();
+                *error = reason ? reason : "unknown";
+            }
+            return false;
+        }
+        out.Width = (uint32_t)width;
+        out.Height = (uint32_t)height;
+        out.Channels = channels;
+        out.FileChannels = (uint32_t)fileChannels;
+        out.Pixels.assign(data, data + (size_t)width * (size_t)height * channels);
+        stbi_image_free(data);
+        return true;
+    }
+
+    std::vector<uint8_t> Image::MakeChannelView(const std::vector<uint8_t>& rgba, ImageChannelView view)
+    {
+        if (view == ImageChannelView::RGBA)
+            return rgba;
+        std::vector<uint8_t> out(rgba.size());
+        int channel = view == ImageChannelView::Red ? 0 : view == ImageChannelView::Green ? 1 : view == ImageChannelView::Blue ? 2 : 3;
+        for (size_t i = 0; i + 3 < rgba.size(); i += 4)
+        {
+            if (view == ImageChannelView::RGB)
+            {
+                out[i] = rgba[i];
+                out[i + 1] = rgba[i + 1];
+                out[i + 2] = rgba[i + 2];
+            }
+            else
+                out[i] = out[i + 1] = out[i + 2] = rgba[i + channel];
+            out[i + 3] = 255;
+        }
+        return out;
+    }
+
 }

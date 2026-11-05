@@ -120,6 +120,48 @@ namespace Zamin {
         return it != s_Sounds.end() && ma_sound_is_playing(it->second.get());
     }
 
+    float AudioEngine::GetCursor(uint32_t handle)
+    {
+        auto it = s_Sounds.find(handle);
+        float seconds = 0.0f;
+        if (it != s_Sounds.end() && ma_sound_get_cursor_in_seconds(it->second.get(), &seconds) == MA_SUCCESS)
+            return seconds;
+        return 0.0f;
+    }
+
+    float AudioEngine::GetLength(uint32_t handle)
+    {
+        auto it = s_Sounds.find(handle);
+        float seconds = 0.0f;
+        if (it != s_Sounds.end() && ma_sound_get_length_in_seconds(it->second.get(), &seconds) == MA_SUCCESS)
+            return seconds;
+        return 0.0f;
+    }
+
+    void AudioEngine::Seek(uint32_t handle, float seconds)
+    {
+        auto it = s_Sounds.find(handle);
+        if (it == s_Sounds.end())
+            return;
+        ma_sound* sound = it->second.get();
+        // Frames of the sound's own data (its sample rate, not the device's).
+        ma_uint32 sampleRate = 0;
+        if (ma_sound_get_data_format(sound, nullptr, nullptr, &sampleRate, nullptr, 0) != MA_SUCCESS || sampleRate == 0)
+            sampleRate = ma_engine_get_sample_rate(s_Engine);
+        ma_uint64 length = 0;
+        ma_sound_get_length_in_pcm_frames(sound, &length);
+        ma_uint64 frame = (ma_uint64)std::max(0.0, (double)seconds * (double)sampleRate);
+        if (length > 0)
+            frame = std::min(frame, length - 1);
+        ma_sound_seek_to_pcm_frame(sound, frame);
+    }
+
+    void AudioEngine::SetVolume(uint32_t handle, float volume)
+    {
+        if (auto it = s_Sounds.find(handle); it != s_Sounds.end())
+            ma_sound_set_volume(it->second.get(), std::max(0.0f, volume));
+    }
+
     void AudioEngine::Stop(uint32_t handle)
     {
         auto it = s_Sounds.find(handle);

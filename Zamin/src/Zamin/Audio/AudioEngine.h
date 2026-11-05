@@ -26,6 +26,12 @@ namespace Zamin {
         static void SetSoundPosition(uint32_t handle, const glm::vec3& position);
         static void SetListener(const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up);
         static bool IsPlaying(uint32_t handle);
+        // Playback position and length of a playing sound, in seconds (0 for an unknown handle).
+        static float GetCursor(uint32_t handle);
+        static float GetLength(uint32_t handle);
+        // Jumps to `seconds` into the sound (clamped to its length).
+        static void Seek(uint32_t handle, float seconds);
+        static void SetVolume(uint32_t handle, float volume);
         static void Stop(uint32_t handle);
         static void StopAll();
         // Sounds that are playing right now.

@@ -20,6 +20,7 @@ namespace Zamin {
         m_VertexArray->AddVertexBuffer(vb);
         m_VertexArray->SetIndexBuffer(IndexBuffer::Create(indices.data(), (uint32_t)indices.size()));
         m_IndexCount = (uint32_t)indices.size();
+        m_VertexCount = (uint32_t)vertices.size();
 
         if (!vertices.empty())
         {
@@ -46,6 +47,7 @@ namespace Zamin {
         m_VertexArray->AddVertexBuffer(vb);
         m_VertexArray->SetIndexBuffer(IndexBuffer::Create(indices.data(), (uint32_t)indices.size()));
         m_IndexCount = (uint32_t)indices.size();
+        m_VertexCount = (uint32_t)vertices.size();
         if (!vertices.empty())
         {
             m_Bounds.Min = m_Bounds.Max = vertices[0].Position;

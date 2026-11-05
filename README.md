@@ -278,13 +278,15 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     sichqoncha bilan portlash - OverlapCircle2D)
   - **Simulyatsiya sozlamalari** (Sahna > Fizika): qadam chastotasi (2D va 3D, standart 60 Hz), kadrda ko'pi bilan
     qadam, Box2D **sub-qadamlari** (har qadam shuncha kichik qadamga bo'linadi: og'ir yuk osilgan zanjir va ragdoll'lar
-    cho'zilmaydi; effektorlar va joint uzilishi har sub-qadamda), tezlik / pozitsiya iteratsiyalari. O'yin davomida
+    cho'zilmaydi; effektorlar, joint uzilishi va skriptning `ApplyForce` kuchi har sub-qadamda - har kadr berilgan kuch
+    istalgan FPS, qadam chastotasi va sub-qadamlar sonida bir xil ta'sir qiladi), tezlik / pozitsiya iteratsiyalari. O'yin davomida
     jismlar, uyg'oq / uxlayotganlar, joint'lar, kontaktlar va kadrdagi Box2D qadamlari soni ko'rinadi
   - **Uxlash**: qimirlamay qolgan jism (unga tegib / ulanib turganlar bilan birga, Box2D orollari kabi) hisoblanmaydi -
     sahnada yoqish / o'chirish va qancha vaqtdan keyin (Box2D'niki 0.5 s, boshqasini dvigatel o'zi sanaydi); har
     Rigidbody 2D: "Uyg'oq boshlanadi", "Uxlab boshlanadi" (urilguncha kutib turadigan minora) yoki "Hech uxlamaydi".
     Inspektorda holati va "Uyg'otish" tugmasi, colliderlar ko'rinishida uxlayotganlar ko'kish-kulrang; skriptda
-    `IsSleeping()`, `WakeUp()`, `PutToSleep()`. Namuna: Platformer2D `Scenes/Ragdoll2D.zscene` - sichqoncha bilan
+    `IsSleeping()`, `WakeUp()` (jism yana to'liq vaqt uyg'oq turadi), `PutToSleep()`; `SetPosition2D` va kuch ham
+    uyg'otadi. Namuna: Platformer2D `Scenes/Ragdoll2D.zscene` - sichqoncha bilan
     (yoki R, o'zi ham har 2 soniyada) `Prefabs/Ragdoll.zprefab` tashlanadi: 11 bo'lak, chegarali va ishqalanishli 10 ta
     sharnir, tana qismlari "Ragdoll", qo'l-oyoqlar "RagdollLimb" qatlamida (o'zaro to'qnashmaydi); zinapoya, chegarali
     ko'prik, motorli rotor, arg'imchoq, uxlab turgan quti minorasi va zanjirli mayatnik; 2 sub-qadam

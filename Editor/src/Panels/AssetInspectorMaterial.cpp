@@ -92,7 +92,9 @@ namespace Zamin {
             if (UI::PropertyCombo("Sakrash", restitution, modes, 5)) { d.RestitutionCombine = (PhysicsCombine)restitution; changed = true; }
             UI::EndPropertyGrid();
         }
+        ImGui::PushTextWrapPos(0.0f);
         ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Standart: ishqalanish sqrt(a*b), sakrash max(a, b) (Box2D)");
+        ImGui::PopTextWrapPos();
         if (changed)
         {
             asset->SetData(d); // every collider using it, also in the running game

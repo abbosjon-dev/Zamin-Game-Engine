@@ -211,12 +211,17 @@ namespace Zamin {
         static void SetTransform(b2Body* body, const glm::vec2& position, float angle);
         static glm::vec2 GetLinearVelocity(const b2Body* body);
         static void SetLinearVelocity(b2Body* body, const glm::vec2& velocity);
+        // A force on the body's centre for the next step (wakes it; Box2D clears it after the step).
+        static void ApplyForceToCenter(b2Body* body, const glm::vec2& force);
         static float GetAngularVelocity(const b2Body* body); // radians per second
         static glm::vec2 GetWorldCenter(const b2Body* body);
         static bool IsDynamic(const b2Body* body);
         static bool IsAwake(const b2Body* body);
         static bool IsEnabled(const b2Body* body);
-        static void SetAwake(b2Body* body, bool awake);
+        // Wakes the body / puts it to sleep. Either way its time of keeping still starts again
+        // (Box2D's and, with the world's own sleep timing, this world's): woken, it has the whole
+        // sleep time before it may sleep again.
+        void SetAwake(b2Body* body, bool awake);
 
         // ---- simulation
         // One Box2D step of `dt` seconds (Scene: the fixed step / the sub-step count).
@@ -234,7 +239,8 @@ namespace Zamin {
         // allowSleep false: no body sleeps (the sleeping ones wake up). timeToSleep: the seconds of
         // keeping still - Box2D counts its own 0.5 s; for any other time this world counts it, island
         // by island like Box2D (velocities under Box2D's sleep tolerances). Changing between the two
-        // wakes every body.
+        // wakes every body. Switching sleeping off and on again starts every body's time of keeping
+        // still again.
         void SetSleeping(bool allowSleep, float timeToSleep);
         bool IsSleepingAllowed() const;
         float GetTimeToSleep() const;

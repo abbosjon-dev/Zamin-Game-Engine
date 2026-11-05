@@ -16883,11 +16883,169 @@ TEST(Physics2DSleeping)
     CHECK(bare.GetComponent<Rigidbody2DComponent>().Sleeping == Mode::StartAwake);
 }
 
+// A steady push every frame (ScriptableEntity::ApplyForce); none while Thrust is zero.
+class Thrust2DScript : public ScriptableEntity
+{
+public:
+    glm::vec2 Thrust{ 0.0f };
+    void OnUpdate(Timestep) override
+    {
+        if (Thrust != glm::vec2(0.0f))
+            ApplyForce(Thrust);
+    }
+};
+ZM_REGISTER_SCRIPT(Thrust2DScript, ZM_FIELD(Thrust2DScript, Thrust))
+
+TEST(Physics2DScriptForcesAcrossSteps)
+{
+    // A ball (r 0.25, density 1) without gravity, pushed every frame with 2 x its mass: 2 units/s^2
+    // whatever the frame rate, step rate or sub-step count (Box2D forgets a force after each step).
+    const float mass = glm::pi<float>() * 0.25f * 0.25f;
+    auto push = [&](int rate, int subSteps, float frame, int frames) {
+        auto sc = CreateRef<Scene>();
+        sc->GetSettings().PhysicsStep.StepRate = rate;
+        sc->GetSettings().Physics2D.SubSteps = subSteps;
+        Entity ball = MakeBody2D(sc, "Ball", { 0.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+        ball.GetComponent<Rigidbody2DComponent>().GravityScale = 0.0f;
+        auto& nsc = ball.AddComponent<NativeScriptComponent>();
+        nsc.ClassName = "Thrust2DScript";
+        ScriptFieldValue thrust;
+        thrust.Set(glm::vec2(2.0f * mass, 0.0f));
+        nsc.Fields["Thrust"] = thrust;
+        sc->OnRuntimeStart();
+        for (int i = 0; i < frames; i++)
+            sc->OnUpdateRuntime(frame);
+        // The time Box2D simulated (steps x sub-steps of the fixed step / the sub-steps).
+        const float simulated = (float)sc->GetPhysics2DStats().Steps / (float)(rate * subSteps);
+        const float speed = Velocity2D(ball).x;
+        sc->OnRuntimeStop();
+        return speed / simulated; // the acceleration it had
+    };
+    CHECK_NEAR(push(60, 1, 1.0f / 60.0f, 60), 2.0f, 0.01f);
+    CHECK_NEAR(push(60, 4, 1.0f / 60.0f, 60), 2.0f, 0.01f);   // sub-steps: the force acts in every one
+    CHECK_NEAR(push(60, 8, 1.0f / 60.0f, 60), 2.0f, 0.01f);
+    CHECK_NEAR(push(60, 1, 1.0f / 144.0f, 144), 2.0f, 0.01f); // frames without a step: not added up
+    CHECK_NEAR(push(60, 2, 1.0f / 144.0f, 144), 2.0f, 0.01f);
+    CHECK_NEAR(push(60, 3, 1.0f / 20.0f, 20), 2.0f, 0.01f);   // three steps a frame: in all of them
+    CHECK_NEAR(push(120, 2, 1.0f / 50.0f, 50), 2.0f, 0.01f);
+
+    // A force of one frame acts for that frame's time: in a frame without a step it is kept for the
+    // next one, weighted by the time (1/120 s of a 1/60 s step), not applied twice.
+    for (int subSteps : { 1, 4 })
+    {
+        auto sc = CreateRef<Scene>();
+        sc->GetSettings().Physics2D.SubSteps = subSteps;
+        Entity ball = MakeBody2D(sc, "Ball", { 0.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+        ball.GetComponent<Rigidbody2DComponent>().GravityScale = 0.0f;
+        Entity wall = MakeBody2D(sc, "Wall", { 5.0f, 0.0f }, Rigidbody2DComponent::BodyType::Static);
+        sc->OnRuntimeStart();
+        CHECK(!sc->ApplyForce2D(wall, { 1.0f, 0.0f })); // static: no
+        CHECK(sc->ApplyForce2D(ball, { 120.0f * mass, 0.0f }));
+        sc->OnUpdateRuntime(1.0f / 120.0f);
+        CHECK(sc->GetPhysics2DStepsLastFrame() == 0 && Velocity2D(ball) == glm::vec2(0.0f));
+        for (int i = 0; i < 5; i++)
+            sc->OnUpdateRuntime(1.0f / 120.0f);
+        CHECK_NEAR(Velocity2D(ball).x, 1.0f, 1e-3f); // 120 units/s^2 for 1/120 s
+        CHECK(sc->GetPhysics2DStats().Steps == (uint64_t)(3 * subSteps));
+        sc->OnRuntimeStop();
+    }
+
+    // Sleeping bodies: a force wakes one; a script that teleports one (SetPosition2D) wakes it, and so
+    // does a kinematic body moved by its transform (a sleeping crate it is moved onto wakes too).
+    auto sc = CreateRef<Scene>();
+    Entity hanging = MakeBox2D(sc, "Hanging", { 0.0f, 5.0f }, { 0.5f, 0.5f }, Rigidbody2DComponent::BodyType::Dynamic);
+    hanging.GetComponent<Rigidbody2DComponent>().Sleeping = Rigidbody2DComponent::SleepMode::StartAsleep;
+    hanging.AddComponent<NativeScriptComponent>().ClassName = "Thrust2DScript";
+    Entity pushed = MakeBox2D(sc, "Pushed", { 4.0f, 5.0f }, { 0.5f, 0.5f }, Rigidbody2DComponent::BodyType::Dynamic);
+    pushed.GetComponent<Rigidbody2DComponent>().Sleeping = Rigidbody2DComponent::SleepMode::StartAsleep;
+    Entity mover = MakeBox2D(sc, "Mover", { -10.0f, 0.0f }, { 0.5f, 0.5f }, Rigidbody2DComponent::BodyType::Kinematic);
+    mover.GetComponent<Rigidbody2DComponent>().Sleeping = Rigidbody2DComponent::SleepMode::StartAsleep;
+    Entity crate = MakeBox2D(sc, "Crate", { -6.0f, 0.0f }, { 0.5f, 0.5f }, Rigidbody2DComponent::BodyType::Dynamic);
+    crate.GetComponent<Rigidbody2DComponent>().Sleeping = Rigidbody2DComponent::SleepMode::StartAsleep;
+    sc->OnRuntimeStart();
+    RunFrames(sc, 10);
+    CHECK(sc->IsSleeping2D(hanging) && sc->IsSleeping2D(pushed) && sc->IsSleeping2D(mover) && sc->IsSleeping2D(crate));
+    CHECK(Pos2D(hanging) == glm::vec2(0.0f, 5.0f));
+    ScriptableEntity* script = hanging.GetComponent<NativeScriptComponent>().Instance;
+    CHECK(script != nullptr);
+    if (script)
+        script->SetPosition2D({ 1.0f, 6.0f });
+    CHECK(!sc->IsSleeping2D(hanging));
+    CHECK(sc->ApplyForce2D(pushed, { 0.0f, 0.0f }) && !sc->IsSleeping2D(pushed));
+    mover.GetTransform().Translation.x = -6.3f; // into the crate
+    RunFrames(sc, 30);
+    CHECK(Pos2D(hanging).y < 5.5f && Pos2D(pushed).y < 4.5f); // falling
+    CHECK(!sc->IsSleeping2D(mover) && !sc->IsSleeping2D(crate) && Pos2D(crate).y < -0.5f);
+    sc->OnRuntimeStop();
+}
+
+TEST(Physics2DOwnSleepTimingWakeAndSwitch)
+{
+    // The world's own sleep timing (1 s): WakeUp on a still, awake body gives it the whole time again,
+    // and switching sleeping off and on starts the time of keeping still again.
+    auto makeScene = [](Entity& box) {
+        auto sc = CreateRef<Scene>();
+        sc->GetSettings().Physics2D.TimeToSleep = 1.0f;
+        MakeBox2D(sc, "Ground", { 0.0f, -0.5f }, { 20.0f, 0.5f }, Rigidbody2DComponent::BodyType::Static);
+        box = MakeBox2D(sc, "Box", { 0.0f, 0.5f }, { 0.5f, 0.5f }, Rigidbody2DComponent::BodyType::Dynamic);
+        sc->OnRuntimeStart();
+        return sc;
+    };
+    auto framesUntilAsleep = [](Ref<Scene>& sc, Entity box, int frames) {
+        for (int i = 1; i <= frames; i++)
+        {
+            sc->OnUpdateRuntime(1.0f / 60.0f);
+            if (sc->IsSleeping2D(box))
+                return i;
+        }
+        return -1;
+    };
+    Entity box;
+    auto first = makeScene(box);
+    const int asleep = framesUntilAsleep(first, box, 300);
+    first->OnRuntimeStop();
+    CHECK(asleep >= 60 && asleep < 200);
+    if (asleep < 60)
+        return;
+
+    // Woken 5 frames before it would sleep: another second.
+    auto woken = makeScene(box);
+    CHECK(framesUntilAsleep(woken, box, asleep - 5) == -1);
+    CHECK(woken->SetAwake2D(box, true));
+    const int again = framesUntilAsleep(woken, box, 120);
+    CHECK(again >= 59 && again <= 62);
+    woken->OnRuntimeStop();
+
+    // Sleeping switched off for a frame 5 frames before it would sleep: another second too.
+    auto toggled = makeScene(box);
+    CHECK(framesUntilAsleep(toggled, box, asleep - 5) == -1);
+    toggled->GetSettings().Physics2D.AllowSleep = false;
+    CHECK(framesUntilAsleep(toggled, box, 1) == -1);
+    toggled->GetSettings().Physics2D.AllowSleep = true;
+    const int afterSwitch = framesUntilAsleep(toggled, box, 120);
+    CHECK(afterSwitch >= 59 && afterSwitch <= 62);
+    toggled->OnRuntimeStop();
+}
+
+// Runs Fn when the scope ends (also on a test's early return).
+template<typename F>
+struct ScopeExit
+{
+    F Fn;
+    ~ScopeExit() { Fn(); }
+};
+template<typename F>
+ScopeExit(F) -> ScopeExit<F>;
+
 TEST(Joint2DPrefabFileAndSpawn)
 {
     namespace fs = std::filesystem;
     fs::path dir = fs::temp_directory_path() / ("zamin-joint-prefab-" + std::to_string((uint64_t)UUID()));
     fs::create_directories(dir);
+    ScopeExit removeDir{ [&]() {
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+    } };
     // A rig (a root, a torso and an arm on a limited hinge) whose torso hangs from a hook outside it.
     auto scene = CreateRef<Scene>();
     Entity hook = MakeBody2D(scene, "Hook", { 0.0f, 8.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
@@ -16960,8 +17118,6 @@ TEST(Joint2DPrefabFileAndSpawn)
         CHECK_NEAR(scene->GetWorldPosition(tc).y, 5.0f, 0.05f);
     }
     scene->OnRuntimeStop();
-    std::error_code ec;
-    fs::remove_all(dir, ec);
 }
 
 TEST(Ragdoll2DSampleScene)
@@ -16994,6 +17150,7 @@ TEST(Ragdoll2DSampleScene)
     auto project = Project::New();
     project->GetConfig().CollisionLayers = layers;
     Project::SetActive(project);
+    ScopeExit noProject{ []() { Project::SetActive(nullptr); } }; // also when it returns early
 
     auto scene = CreateRef<Scene>();
     CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Ragdoll2D.zscene"));
@@ -17090,7 +17247,6 @@ TEST(Ragdoll2DSampleScene)
     CHECK(inside);
     CHECK(play->GetPhysics2DStats().Sleeping > 0);
     play->OnRuntimeStop();
-    Project::SetActive(nullptr);
 }
 
 int main()

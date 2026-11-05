@@ -761,7 +761,7 @@ namespace Zamin {
             edge->contact->ResetRestitution();
             edge->contact->ResetRestitutionThreshold();
         }
-        body->SetAwake(true);
+        SetAwake(body, true);
     }
 
     int PhysicsWorld2D::GetFixtureCount(const b2Body* body)
@@ -837,12 +837,21 @@ namespace Zamin {
     void PhysicsWorld2D::SetTransform(b2Body* body, const glm::vec2& position, float angle) { body->SetTransform(ToB2(position), angle); }
     glm::vec2 PhysicsWorld2D::GetLinearVelocity(const b2Body* body) { return FromB2(body->GetLinearVelocity()); }
     void PhysicsWorld2D::SetLinearVelocity(b2Body* body, const glm::vec2& velocity) { body->SetLinearVelocity(ToB2(velocity)); }
+    void PhysicsWorld2D::ApplyForceToCenter(b2Body* body, const glm::vec2& force) { body->ApplyForceToCenter(ToB2(force), true); }
     float PhysicsWorld2D::GetAngularVelocity(const b2Body* body) { return body->GetAngularVelocity(); }
     glm::vec2 PhysicsWorld2D::GetWorldCenter(const b2Body* body) { return FromB2(body->GetWorldCenter()); }
     bool PhysicsWorld2D::IsDynamic(const b2Body* body) { return body->GetType() == b2_dynamicBody; }
     bool PhysicsWorld2D::IsAwake(const b2Body* body) { return body->IsAwake(); }
     bool PhysicsWorld2D::IsEnabled(const b2Body* body) { return body->IsEnabled(); }
-    void PhysicsWorld2D::SetAwake(b2Body* body, bool awake) { body->SetAwake(awake); }
+
+    void PhysicsWorld2D::SetAwake(b2Body* body, bool awake)
+    {
+        if (!body)
+            return;
+        body->SetAwake(awake); // Box2D's own sleep time starts again (also for an awake body)
+        if (auto it = m_Impl->Sleep.find(body); it != m_Impl->Sleep.end())
+            it->second.StillTime = 0.0f; // and so does this world's (own timing)
+    }
 
     // ------------------------------------------------------------------ simulation
     void PhysicsWorld2D::Step(float dt, int velocityIterations, int positionIterations)
@@ -872,7 +881,7 @@ namespace Zamin {
         if (left <= 0.0f)
             dropThrough.erase((uint64_t)entity);
         if (body)
-            body->SetAwake(true);
+            SetAwake(body, true);
     }
 
     // ------------------------------------------------------------------ sleeping
@@ -886,6 +895,10 @@ namespace Zamin {
         {
             impl.AllowSleep = allowSleep;
             impl.World.SetAllowSleeping(allowSleep); // off: every body wakes up
+            // SleepIslands does not count while sleeping is off: the time a body had kept still
+            // before must not let it sleep at once when sleeping comes back.
+            for (auto& [body, state] : impl.Sleep)
+                state.StillTime = 0.0f;
         }
         const bool wasOwn = impl.OwnSleepTiming();
         impl.TimeToSleep = timeToSleep;

@@ -2119,6 +2119,8 @@ namespace Zamin {
         m_PhysicsWorld->SetSleeping(m_Settings.Physics2D.AllowSleep, m_Settings.Physics2D.TimeToSleep); // before the bodies
         m_PhysicsAccumulator = 0.0f;
         m_Physics2DStepsLastFrame = 0;
+        m_ScriptForces2D.clear();
+        m_ScriptForceTime2D = 0.0f;
         m_PhysicsMaterialRevision = PhysicsMaterialLibrary::GetRevision();
 
         for (auto e : m_Registry.view<Rigidbody2DComponent>())
@@ -2236,6 +2238,8 @@ namespace Zamin {
                 ResetJointRuntime(m_Registry.get<T>(e));
         });
         m_JointBreaks2D.clear();
+        m_ScriptForces2D.clear();
+        m_ScriptForceTime2D = 0.0f;
         m_PhysicsWorld.reset();
     }
 
@@ -2864,8 +2868,36 @@ namespace Zamin {
         auto* rb = entity ? entity.TryGetComponent<Rigidbody2DComponent>() : nullptr;
         if (!m_PhysicsWorld || !rb || !rb->RuntimeBody || rb->Type == Rigidbody2DComponent::BodyType::Static)
             return false;
-        PhysicsWorld2D::SetAwake((b2Body*)rb->RuntimeBody, awake);
+        m_PhysicsWorld->SetAwake((b2Body*)rb->RuntimeBody, awake);
         return true;
+    }
+
+    bool Scene::ApplyForce2D(Entity entity, const glm::vec2& force)
+    {
+        const auto* rb = entity ? entity.TryGetComponent<Rigidbody2DComponent>() : nullptr;
+        if (!m_PhysicsWorld || !rb || !rb->RuntimeBody || rb->Type != Rigidbody2DComponent::BodyType::Dynamic)
+            return false;
+        if (!std::isfinite(force.x) || !std::isfinite(force.y))
+            return false;
+        b2Body* body = (b2Body*)rb->RuntimeBody;
+        if (!PhysicsWorld2D::IsAwake(body))
+            m_PhysicsWorld->SetAwake(body, true); // as b2Body::ApplyForce(..., wake = true)
+        m_ScriptForces2D[(entt::entity)entity].Frame += force;
+        return true;
+    }
+
+    void Scene::ApplyScriptForces2D()
+    {
+        if (m_ScriptForces2D.empty() || m_ScriptForceTime2D <= 0.0f)
+            return;
+        const float invTime = 1.0f / m_ScriptForceTime2D;
+        for (const auto& [e, f] : m_ScriptForces2D)
+        {
+            const auto* rb = m_Registry.valid(e) ? m_Registry.try_get<Rigidbody2DComponent>(e) : nullptr;
+            if (!rb || !rb->RuntimeBody || f.Impulse == glm::vec2(0.0f))
+                continue;
+            PhysicsWorld2D::ApplyForceToCenter((b2Body*)rb->RuntimeBody, f.Impulse * invTime);
+        }
     }
 
     PhysicsStats2D Scene::GetPhysics2DStats() const
@@ -2913,7 +2945,13 @@ namespace Zamin {
                 b2Body* body = (b2Body*)rb2d.RuntimeBody;
                 const glm::vec2 bp = PhysicsWorld2D::GetPosition(body);
                 if (bp.x != p.x || bp.y != p.y || PhysicsWorld2D::GetAngle(body) != angle)
+                {
                     PhysicsWorld2D::SetTransform(body, { p.x, p.y }, angle);
+                    // Moved: not keeping still (Box2D does not wake a body it teleports; a sleeping
+                    // kinematic body's contacts would not be updated). Static bodies never sleep.
+                    if (rb2d.Type == Rigidbody2DComponent::BodyType::Kinematic)
+                        m_PhysicsWorld->SetAwake(body, true);
+                }
             }
         }
         // Joints whose bodies appeared since the last frame, live motor / limit settings.
@@ -2923,6 +2961,19 @@ namespace Zamin {
             ApplyPhysicsMaterials();
         m_PhysicsAccumulator += ts;
         int stepCount = std::min(maxSteps, (int)(m_PhysicsAccumulator / fixedStep));
+        // Script forces (ApplyForce2D): Box2D forgets a body's force after every b2World::Step, so
+        // this frame's forces join the time-weighted sum of the frames not simulated yet, and every
+        // step and sub-step below applies their average - a steady force acts the same at any frame
+        // rate, step rate and sub-step count.
+        if (m_PhysicsWorld)
+        {
+            m_ScriptForceTime2D += ts;
+            for (auto& [e, f] : m_ScriptForces2D)
+            {
+                f.Impulse += f.Frame * (float)ts;
+                f.Frame = glm::vec2(0.0f);
+            }
+        }
 
         // Kinematic 3D bodies: velocity is chosen so the target is reached after this frame's steps.
         if (m_PhysicsWorld3D && stepCount > 0)
@@ -2958,6 +3009,7 @@ namespace Zamin {
                 for (int sub = 0; sub < physics2D.SubSteps; sub++)
                 {
                     ApplyEffectors2D(subStep);
+                    ApplyScriptForces2D();
                     m_PhysicsWorld->Step(subStep, physics2D.VelocityIterations, physics2D.PositionIterations);
                     CheckJointBreaks2D(subStep);
                     m_Physics2DStepsLastFrame++;
@@ -2978,7 +3030,16 @@ namespace Zamin {
         if (steps == maxSteps)
             m_PhysicsAccumulator = 0.0f;
         if (steps > 0)
+        {
             UpdateJointStates2D(subStep); // the reaction forces come from the last Box2D step's impulses
+            // The frames' script forces have acted; forces applied during the steps (joint break
+            // callbacks) wait for the next frame.
+            m_ScriptForceTime2D = 0.0f;
+            std::erase_if(m_ScriptForces2D, [](auto& item) {
+                item.second.Impulse = glm::vec2(0.0f);
+                return item.second.Frame == glm::vec2(0.0f);
+            });
+        }
 
         if (m_PhysicsWorld)
         {

@@ -414,6 +414,12 @@ namespace Zamin {
         // Wakes the entity's 2D body / puts it to sleep (its velocities stop; it wakes again when
         // something touches it). False without a running dynamic / kinematic body.
         bool SetAwake2D(Entity entity, bool awake);
+        // A force on the entity's dynamic 2D body's centre (ScriptableEntity::ApplyForce; wakes it). It
+        // acts for the time of the frame it is applied in: through every fixed step and sub-step that
+        // simulates that time (Box2D itself forgets a force after one b2World::Step), so a force applied
+        // every frame acts the same at any frame rate, step rate or sub-step count. False without a
+        // running dynamic body.
+        bool ApplyForce2D(Entity entity, const glm::vec2& force);
         // The running 2D world's bodies, sleeping ones, joints, contacts, steps (zeros without one).
         PhysicsStats2D GetPhysics2DStats() const;
         // Box2D steps the last frame took (fixed steps x sub-steps).
@@ -591,6 +597,8 @@ namespace Zamin {
         void ReportMissingJointBodies(const std::vector<Entity>* entities);
         // Before each physics step of `dt`: the area / buoyancy effectors push the bodies inside them.
         void ApplyEffectors2D(float dt);
+        // Before each physics step: the average of the scripts' forces (ApplyForce2D) not simulated yet.
+        void ApplyScriptForces2D();
         // After a physics step of `dt`: the joints pulled harder than their BreakForce / BreakTorque break.
         void CheckJointBreaks2D(float dt);
         // The read-outs of the joints (reaction force / torque, angle, translation ...).
@@ -764,6 +772,16 @@ namespace Zamin {
         double m_AnimationTime = 0.0;
         float m_PhysicsAccumulator = 0.0f;
         int m_Physics2DStepsLastFrame = 0;
+        // Script forces on 2D bodies (ApplyForce2D): this frame's sum, and the earlier frames' forces x
+        // their time since Box2D last stepped (m_ScriptForceTime2D seconds of frames); the steps apply
+        // Impulse / m_ScriptForceTime2D.
+        struct ScriptForce2D
+        {
+            glm::vec2 Frame{ 0.0f };
+            glm::vec2 Impulse{ 0.0f };
+        };
+        std::unordered_map<entt::entity, ScriptForce2D> m_ScriptForces2D;
+        float m_ScriptForceTime2D = 0.0f;
         uint64_t m_PhysicsMaterialRevision = 0; // PhysicsMaterialLibrary::GetRevision() the colliders have
 
         std::string m_Name = "Untitled";

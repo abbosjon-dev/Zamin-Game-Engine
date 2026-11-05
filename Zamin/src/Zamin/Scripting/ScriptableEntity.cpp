@@ -515,8 +515,8 @@ namespace Zamin {
 
     void ScriptableEntity::ApplyForce(const glm::vec2& force)
     {
-        if (b2Body* body = BodyOf(m_Entity))
-            body->ApplyForceToCenter({ force.x, force.y }, true);
+        // Kept by the scene for every step / sub-step of the frame (Box2D clears forces after each).
+        m_Entity.GetScene()->ApplyForce2D(m_Entity, force);
     }
 
     bool ScriptableEntity::IsSleeping() const { return m_Entity.GetScene()->IsSleeping2D(m_Entity); }
@@ -535,7 +535,11 @@ namespace Zamin {
         t.Translation.x = position.x;
         t.Translation.y = position.y;
         if (b2Body* body = BodyOf(m_Entity))
+        {
             body->SetTransform({ position.x, position.y }, body->GetAngle());
+            // Box2D does not wake a body it teleports: a sleeping one would hang where it was put.
+            m_Entity.GetScene()->SetAwake2D(m_Entity, true);
+        }
     }
 
     void ScriptableEntity::PlaySound(const std::string& assetPath, float volume, float pitch)

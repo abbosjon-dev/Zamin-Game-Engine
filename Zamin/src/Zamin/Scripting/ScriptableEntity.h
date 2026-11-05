@@ -158,8 +158,10 @@ namespace Zamin {
         glm::vec2 GetVelocity() const;
         void SetVelocity(const glm::vec2& velocity);
         void ApplyImpulse(const glm::vec2& impulse);
+        // A force for this frame (dynamic bodies; wakes it): applied every frame, it acts the same at
+        // any frame rate and sub-step count (scene settings > Physics 2D).
         void ApplyForce(const glm::vec2& force);
-        void SetPosition2D(const glm::vec2& position); // teleports the physics body too
+        void SetPosition2D(const glm::vec2& position); // teleports the physics body too (and wakes it)
         // Falls through one-way platforms (OneWay tiles, one-way box colliders) for `seconds`:
         //   if (Input::GetAxis("Vertical") < -0.5f && Input::IsActionJustPressed("Jump")) DropThroughPlatforms();
         bool DropThroughPlatforms(float seconds = 0.35f);

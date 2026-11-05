@@ -5641,6 +5641,218 @@ TEST(ImportSettingsOfProjectAssets)
     fs::remove_all(dir, ec);
 }
 
+TEST(AssetReferencesFollowUUIDs)
+{
+    namespace fs = std::filesystem;
+    Project::SetActive(nullptr);
+    {
+        // Without a project nothing but the path is written.
+        auto plain = CreateRef<Scene>();
+        plain->CreateEntity("S").AddComponent<SpriteRendererComponent>().TexturePath = "Textures/coin.png";
+        CHECK(SceneSerializer(plain).SerializeToString().find("TextureUUID") == std::string::npos);
+    }
+
+    fs::path dir = MakeTempDir("zamin-asset-refs-");
+    CHECK(Project::CreateFromTemplate(dir, "RefGame") != nullptr);
+    fs::path assets = dir / "Assets";
+    WriteFile(assets / "Textures" / "coin.png", "png");
+    WriteFile(assets / "Models" / "ship.glb", "glb");
+    WriteFile(assets / "Audio" / "jump.wav", "wav");
+    WriteFile(assets / "Environment" / "sky.hdr", "hdr");
+    bool writes = AssetRegistry::GetWriteMetaFilesByDefault();
+    AssetRegistry::SetWriteMetaFilesByDefault(true); // like the editor
+    CHECK(Project::Load(dir / "RefGame.zproject") != nullptr);
+    AssetRegistry* registry = Project::GetAssetRegistry();
+    CHECK(registry != nullptr);
+    if (!registry)
+    {
+        AssetRegistry::SetWriteMetaFilesByDefault(writes);
+        return;
+    }
+    AssetHandle coin = registry->GetHandle("Textures/coin.png"), ship = registry->GetHandle("Models/ship.glb");
+    AssetHandle jump = registry->GetHandle("Audio/jump.wav"), sky = registry->GetHandle("Environment/sky.hdr");
+    CHECK(coin && ship && jump && sky);
+
+    // ---- saving: the UUID next to each path the registry knows
+    auto scene = CreateRef<Scene>();
+    Entity sprite = scene->CreateEntity("Coin");
+    sprite.AddComponent<SpriteRendererComponent>().TexturePath = "Textures/coin.png";
+    Entity mesh = scene->CreateEntity("Ship");
+    auto& mr = mesh.AddComponent<MeshRendererComponent>();
+    mr.Type = PrimitiveMesh::Model;
+    mr.ModelPath = "Models/ship.glb";
+    mr.AlbedoPath = "Textures/coin.png";
+    mr.NormalPath = "Textures/missing.png"; // unknown: path only
+    Entity sound = scene->CreateEntity("Sound");
+    sound.AddComponent<AudioSourceComponent>().Path = "Audio/jump.wav";
+    scene->GetSettings().EnvironmentMap = "Environment/sky.hdr";
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"TextureUUID\": \"" + coin.ToString() + "\"") != std::string::npos);
+    CHECK(text.find("\"ModelUUID\": \"" + ship.ToString() + "\"") != std::string::npos);
+    CHECK(text.find("\"AlbedoMapUUID\": \"" + coin.ToString() + "\"") != std::string::npos);
+    CHECK(text.find("NormalMapUUID") == std::string::npos);
+    CHECK(text.find("\"PathUUID\": \"" + jump.ToString() + "\"") != std::string::npos);
+    CHECK(text.find("\"MapUUID\": \"" + sky.ToString() + "\"") != std::string::npos);
+    fs::path scenePath = assets / "Scenes" / "Level.zscene";
+    CHECK(SceneSerializer(scene).Serialize(scenePath));
+    std::string prefabText = SceneSerializer::SerializeEntities(*scene, { sprite }, false);
+
+    // ---- loading unchanged files: the same paths, nothing repaired
+    {
+        auto loaded = CreateRef<Scene>();
+        SceneSerializer serializer(loaded);
+        CHECK(serializer.Deserialize(scenePath) && serializer.GetRepairedReferences().empty());
+        CHECK(loaded->FindEntityByName("Coin").GetComponent<SpriteRendererComponent>().TexturePath == "Textures/coin.png");
+        CHECK(loaded->FindEntityByName("Ship").GetComponent<MeshRendererComponent>().NormalPath == "Textures/missing.png");
+    }
+
+    // ---- renamed outside the editor (with their .zmeta files), editor closed: a new scan
+    fs::create_directories(assets / "Art");
+    fs::rename(assets / "Textures" / "coin.png", assets / "Art" / "gold.png");
+    fs::rename(assets / "Textures" / "coin.png.zmeta", assets / "Art" / "gold.png.zmeta");
+    fs::rename(assets / "Audio" / "jump.wav", assets / "Audio" / "hop.wav");
+    fs::rename(assets / "Audio" / "jump.wav.zmeta", assets / "Audio" / "hop.wav.zmeta");
+    fs::rename(assets / "Environment" / "sky.hdr", assets / "Environment" / "dusk.hdr");
+    fs::rename(assets / "Environment" / "sky.hdr.zmeta", assets / "Environment" / "dusk.hdr.zmeta");
+    registry->Scan(assets);
+    CHECK(registry->GetHandle("Art/gold.png") == coin && registry->GetHandle("Audio/hop.wav") == jump);
+    {
+        auto loaded = CreateRef<Scene>();
+        SceneSerializer serializer(loaded);
+        CHECK(serializer.Deserialize(scenePath));
+        CHECK(loaded->FindEntityByName("Coin").GetComponent<SpriteRendererComponent>().TexturePath == "Art/gold.png");
+        auto& lmr = loaded->FindEntityByName("Ship").GetComponent<MeshRendererComponent>();
+        CHECK(lmr.AlbedoPath == "Art/gold.png" && lmr.ModelPath == "Models/ship.glb" && lmr.NormalPath == "Textures/missing.png");
+        CHECK(loaded->FindEntityByName("Sound").GetComponent<AudioSourceComponent>().Path == "Audio/hop.wav");
+        CHECK(loaded->GetSettings().EnvironmentMap == "Environment/dusk.hdr");
+        const auto& repairs = serializer.GetRepairedReferences();
+        CHECK(repairs.size() == 4); // sprite, albedo map, audio, environment
+        CHECK(std::any_of(repairs.begin(), repairs.end(), [](const auto& r) { return r.OldPath == "Textures/coin.png" && r.NewPath == "Art/gold.png"; }));
+        // Saved again: the new paths, the same UUIDs.
+        std::string again = SceneSerializer(loaded).SerializeToString();
+        CHECK(again.find("\"Art/gold.png\"") != std::string::npos && again.find("Textures/coin.png") == std::string::npos);
+        CHECK(again.find("\"TextureUUID\": \"" + coin.ToString() + "\"") != std::string::npos);
+    }
+    // Prefabs (and pasted entities) the same way.
+    {
+        auto target = CreateRef<Scene>();
+        std::vector<SceneSerializer::AssetReferenceRepair> repairs;
+        auto created = SceneSerializer::DeserializeEntities(*target, prefabText, true, &repairs);
+        CHECK(created.size() == 1 && created[0].GetComponent<SpriteRendererComponent>().TexturePath == "Art/gold.png");
+        CHECK(repairs.size() == 1 && repairs[0].NewPath == "Art/gold.png");
+    }
+    // A path that exists wins over the UUID; an unknown UUID leaves the path alone.
+    {
+        WriteFile(assets / "Textures" / "coin.png", "another png"); // a new file under the old name
+        registry->OnFileAdded(assets / "Textures" / "coin.png");
+        auto loaded = CreateRef<Scene>();
+        SceneSerializer serializer(loaded);
+        CHECK(serializer.Deserialize(scenePath));
+        CHECK(loaded->FindEntityByName("Coin").GetComponent<SpriteRendererComponent>().TexturePath == "Textures/coin.png");
+        std::string unknown = R"({"Scene":"X","Entities":[{"Entity":1,"Tag":"A","SpriteRenderer":{"Texture":"Gone/a.png","TextureUUID":"00000000deadbeef"}}]})";
+        auto other = CreateRef<Scene>();
+        SceneSerializer otherSerializer(other);
+        CHECK(otherSerializer.DeserializeFromString(unknown) && otherSerializer.GetRepairedReferences().empty());
+        CHECK(other->FindEntityByName("A").GetComponent<SpriteRendererComponent>().TexturePath == "Gone/a.png");
+    }
+
+    // ---- the project's start scene, renamed with its .zmeta
+    {
+        auto project = Project::GetActive();
+        project->GetConfig().StartScene = "Scenes/Level.zscene";
+        CHECK(Project::SaveActive(Project::GetProjectFilePath()));
+        CHECK(project->GetConfig().StartSceneHandle == registry->GetHandle("Scenes/Level.zscene"));
+        CHECK(FileSystem::ReadTextFile(Project::GetProjectFilePath()).find("StartSceneUUID") != std::string::npos);
+        fs::rename(scenePath, assets / "Scenes" / "World.zscene");
+        fs::rename(AssetMetaFile::GetMetaPath(scenePath), assets / "Scenes" / "World.zscene.zmeta");
+        auto reopened = Project::Load(dir / "RefGame.zproject");
+        CHECK(reopened && reopened->GetConfig().StartScene.generic_string() == "Scenes/World.zscene");
+    }
+
+    AssetRegistry::SetWriteMetaFilesByDefault(writes);
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(AssetMovesOutsideEditorAreDetected)
+{
+    namespace fs = std::filesystem;
+    fs::path root = MakeTempDir("zamin-outside-moves-");
+    fs::path assets = root / "Assets";
+    WriteFile(assets / "Textures" / "coin.png", "png");
+    WriteFile(assets / "Textures" / "gem.png", "png");
+    WriteFile(assets / "Sfx" / "hit.wav", "wav");
+    WriteFile(assets / "Sfx" / "win.wav", "wav");
+    AssetRegistry registry(true);
+    registry.Scan(assets);
+    AssetHandle coin = registry.GetHandle("Textures/coin.png"), gem = registry.GetHandle("Textures/gem.png");
+    AssetHandle hit = registry.GetHandle("Sfx/hit.wav");
+    auto moveWithMeta = [&](const fs::path& from, const fs::path& to) {
+        fs::create_directories(to.parent_path());
+        fs::rename(from, to);
+        fs::rename(AssetMetaFile::GetMetaPath(from), AssetMetaFile::GetMetaPath(to));
+    };
+
+    // Removal seen first, then the new name.
+    moveWithMeta(assets / "Textures" / "coin.png", assets / "Textures" / "gold.png");
+    registry.OnFileRemoved(assets / "Textures" / "coin.png");
+    registry.OnFileAdded(assets / "Textures" / "gold.png");
+    auto moves = registry.TakeDetectedMoves();
+    CHECK(moves.size() == 1 && moves[0].first == "Textures/coin.png" && moves[0].second == "Textures/gold.png");
+    CHECK(registry.GetHandle("Textures/gold.png") == coin && registry.TakeDetectedMoves().empty());
+
+    // The new name seen first.
+    moveWithMeta(assets / "Textures" / "gem.png", assets / "Gems" / "gem.png");
+    registry.OnFileAdded(assets / "Gems" / "gem.png");
+    registry.OnFileRemoved(assets / "Textures" / "gem.png");
+    moves = registry.TakeDetectedMoves();
+    CHECK(moves.size() == 1 && moves[0].first == "Textures/gem.png" && moves[0].second == "Gems/gem.png");
+    CHECK(registry.GetHandle("Gems/gem.png") == gem);
+
+    // A copy (the original still there) is not a move; nor is a file put back where it was.
+    fs::copy_file(assets / "Gems" / "gem.png", assets / "Gems" / "gem2.png");
+    fs::copy_file(assets / "Gems" / "gem.png.zmeta", assets / "Gems" / "gem2.png.zmeta");
+    registry.OnFileAdded(assets / "Gems" / "gem2.png");
+    CHECK(registry.TakeDetectedMoves().empty() && registry.GetHandle("Gems/gem2.png") != gem);
+    std::string hitText = FileSystem::ReadTextFile(assets / "Sfx" / "hit.wav");
+    fs::path parked = root / "hit.wav";
+    fs::rename(assets / "Sfx" / "hit.wav", parked);
+    registry.OnFileRemoved(assets / "Sfx" / "hit.wav");
+    fs::rename(parked, assets / "Sfx" / "hit.wav");
+    registry.OnFileAdded(assets / "Sfx" / "hit.wav");
+    CHECK(registry.TakeDetectedMoves().empty() && registry.GetHandle("Sfx/hit.wav") == hit);
+
+    // A whole folder renamed: every asset inside.
+    fs::rename(assets / "Sfx", assets / "Sounds");
+    registry.OnFileRemoved(assets / "Sfx");
+    registry.OnFileAdded(assets / "Sounds");
+    moves = registry.TakeDetectedMoves();
+    std::sort(moves.begin(), moves.end());
+    CHECK(moves.size() == 2 && moves[0] == AssetRegistry::PathMove("Sfx/hit.wav", "Sounds/hit.wav") &&
+          moves[1] == AssetRegistry::PathMove("Sfx/win.wav", "Sounds/win.wav"));
+
+    // Through the hot reload report (what the editor gets each frame), and the references follow.
+    WriteFile(assets / "Scenes" / "Level.zscene",
+              R"({"Scene":"Level","Entities":[{"Entity":1,"Tag":"Textures/gold.png","SpriteRenderer":{"Texture":"Textures/gold.png"}}]})");
+    registry.OnFileAdded(assets / "Scenes" / "Level.zscene");
+    moveWithMeta(assets / "Textures" / "gold.png", assets / "Art" / "gold.png");
+    AssetHotReload hotReload;
+    auto report = hotReload.Apply({ { assets / "Textures" / "gold.png", FileChangeType::Removed, false },
+                                    { assets / "Art" / "gold.png", FileChangeType::Added, false } }, &registry);
+    CHECK(report.Moved.size() == 1 && report.Moved[0].second == "Art/gold.png" && !report.IsEmpty());
+    AssetFiles::MoveResult result;
+    for (const auto& [from, to] : report.Moved)
+        result.Moved.push_back({ assets / from, assets / to, false });
+    AssetFiles::UpdateReferences(result, assets);
+    std::string level = FileSystem::ReadTextFile(assets / "Scenes" / "Level.zscene");
+    CHECK(result.UpdatedReferences == 1 && level.find("\"Texture\":\"Art/gold.png\"") != std::string::npos);
+    CHECK(level.find("\"Tag\":\"Textures/gold.png\"") != std::string::npos); // a name, not a reference
+
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
 TEST(ContentBrowserSettingsJson)
 {
     EditorViewSettings settings;

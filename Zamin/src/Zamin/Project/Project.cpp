@@ -29,6 +29,17 @@ namespace Zamin {
         project->m_ProjectDirectory = project->m_ProjectFile.parent_path();
         s_ActiveProject = project;
         ZM_CORE_INFO("Loyiha ochildi: {} ({})", project->m_Config.Name, project->m_ProjectDirectory.string());
+
+        // The start scene was renamed / moved outside the editor: found again by its UUID.
+        ProjectConfig& config = project->m_Config;
+        std::error_code ec;
+        if (!config.StartScene.empty() && config.StartSceneHandle && !std::filesystem::exists(GetAssetFileSystemPath(config.StartScene), ec))
+            if (AssetRegistry* registry = GetAssetRegistry())
+                if (std::string moved = registry->GetPath(config.StartSceneHandle); !moved.empty())
+                {
+                    ZM_CORE_INFO("Boshlang'ich sahna UUID orqali topildi: '{}' -> '{}'", config.StartScene.generic_string(), moved);
+                    config.StartScene = moved;
+                }
         return s_ActiveProject;
     }
 
@@ -208,7 +219,14 @@ namespace Zamin {
 
     bool ProjectSerializer::Serialize(const std::filesystem::path& filepath)
     {
-        const auto& c = m_Project->GetConfig();
+        auto& c = m_Project->GetConfig();
+        // The start scene's UUID, from the registry of the project being saved (when it is active).
+        if (m_Project == Project::GetActive() && !c.StartScene.empty())
+            if (AssetRegistry* registry = Project::GetAssetRegistry())
+            {
+                const AssetMetadata* meta = registry->Find(c.StartScene);
+                c.StartSceneHandle = meta && meta->HasMetaFile ? meta->Handle : AssetHandle();
+            }
         json j;
         j["Project"] = {
             { "Name", c.Name },
@@ -218,6 +236,8 @@ namespace Zamin {
             { "ScriptModulePath", c.ScriptModulePath.generic_string() },
             { "EngineVersion", "0.1.0" },
         };
+        if (c.StartSceneHandle && !c.StartScene.empty())
+            j["Project"]["StartSceneUUID"] = c.StartSceneHandle.ToString();
         j["InputActions"] = InputMapToJson(c.InputActions);
         j["Tags"] = c.Tags;
         return FileSystem::WriteTextFile(filepath, j.dump(4));
@@ -234,6 +254,9 @@ namespace Zamin {
             auto& c = m_Project->GetConfig();
             c.Name = p.value("Name", "Untitled");
             c.StartScene = p.value("StartScene", "");
+            c.StartSceneHandle = {};
+            if (auto it = p.find("StartSceneUUID"); it != p.end() && it->is_string())
+                c.StartSceneHandle = AssetHandle::FromString(it->get<std::string>()).value_or(AssetHandle());
             c.AssetDirectory = p.value("AssetDirectory", "Assets");
             c.SourceDirectory = p.value("SourceDirectory", "Source");
             c.ScriptModulePath = p.value("ScriptModulePath", "");

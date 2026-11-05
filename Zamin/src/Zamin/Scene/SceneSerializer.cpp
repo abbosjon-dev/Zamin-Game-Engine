@@ -1,4 +1,6 @@
 #include "Zamin/Scene/SceneSerializer.h"
+#include "Zamin/Asset/AssetRegistry.h"
+#include "Zamin/Project/Project.h"
 #include "Zamin/Scene/ComponentRegistry.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -24,6 +26,77 @@ namespace Zamin {
         for (int i = 0; i < V::length(); i++)
             v[i] = j[key][i].get<float>();
         return v;
+    }
+
+    // ------------------------------------------------------------------ asset references
+    // Components refer to assets by path ("Texture": "Textures/coin.png"). Next to each path the
+    // asset's UUID is written when the registry knows the file ("TextureUUID": "3f2a..."), so a
+    // reference survives the file being renamed or moved outside the editor: when the path is
+    // gone on load but the UUID belongs to an asset elsewhere, that asset's path is used.
+    // One scope per (de)serialization: the registry of the active project, the repairs made.
+    class AssetReferenceScope
+    {
+    public:
+        explicit AssetReferenceScope(std::vector<SceneSerializer::AssetReferenceRepair>* repairs = nullptr)
+            : m_Previous(s_Current), m_Repairs(repairs)
+        {
+            m_Registry = Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
+            s_Current = this;
+        }
+        ~AssetReferenceScope() { s_Current = m_Previous; }
+        AssetReferenceScope(const AssetReferenceScope&) = delete;
+        AssetReferenceScope& operator=(const AssetReferenceScope&) = delete;
+
+        static AssetReferenceScope* Get() { return s_Current; }
+        AssetRegistry* GetRegistry() const { return m_Registry; }
+        void AddRepair(const std::string& from, const std::string& to)
+        {
+            if (m_Repairs)
+                m_Repairs->push_back({ from, to });
+        }
+
+    private:
+        static inline thread_local AssetReferenceScope* s_Current = nullptr;
+        AssetReferenceScope* m_Previous = nullptr;
+        AssetRegistry* m_Registry = nullptr;
+        std::vector<SceneSerializer::AssetReferenceRepair>* m_Repairs = nullptr;
+    };
+
+    static std::string UUIDKey(std::string_view key) { return std::string(key) + "UUID"; }
+
+    // Adds "<key>UUID" for the asset path stored under `key` of `object` (when known).
+    static void WriteAssetHandle(json& object, std::string_view key, const std::string& path)
+    {
+        AssetReferenceScope* scope = AssetReferenceScope::Get();
+        AssetRegistry* registry = scope ? scope->GetRegistry() : nullptr;
+        if (path.empty() || !registry)
+            return;
+        // Only a UUID stored in a .zmeta file means something in the next session.
+        if (const AssetMetadata* meta = registry->Find(std::filesystem::path(path)); meta && meta->HasMetaFile)
+            object[UUIDKey(key)] = meta->Handle.ToString();
+    }
+
+    // The asset path stored under `key`, or where its UUID is now when that file is gone.
+    static std::string ReadAssetPath(const json& object, std::string_view key)
+    {
+        std::string path = object.value(std::string(key), std::string());
+        auto handleIt = object.find(UUIDKey(key));
+        if (path.empty() || handleIt == object.end() || !handleIt->is_string())
+            return path;
+        AssetReferenceScope* scope = AssetReferenceScope::Get();
+        AssetRegistry* registry = scope ? scope->GetRegistry() : nullptr;
+        if (!registry || registry->Find(std::filesystem::path(path)))
+            return path; // no project, or the file is still there
+        std::error_code ec;
+        if (std::filesystem::exists(registry->ToFileSystemPath(path), ec))
+            return path; // there, just not a registered asset
+        std::optional<AssetHandle> handle = AssetHandle::FromString(handleIt->get<std::string>());
+        std::string moved = handle ? registry->GetPath(*handle) : std::string();
+        if (moved.empty() || moved == path)
+            return path; // gone for good: the path stays (the editor shows what is missing)
+        ZM_CORE_INFO("Asset havolasi UUID orqali tiklandi: '{}' -> '{}'", path, moved);
+        scope->AddRepair(path, moved);
+        return moved;
     }
 
     static const char* BodyTypeToString(Rigidbody2DComponent::BodyType t)
@@ -144,18 +217,26 @@ namespace Zamin {
             };
         }
         if (auto* c = entity.TryGetComponent<SpriteRendererComponent>())
+        {
             e["SpriteRenderer"] = { { "Color", ToJson(c->Color) }, { "Texture", c->TexturePath }, { "Tiling", c->TilingFactor },
                                     { "SortingOrder", c->SortingOrder }, { "PixelArt", c->PixelArt }, { "FlipX", c->FlipX }, { "FlipY", c->FlipY } };
+            WriteAssetHandle(e["SpriteRenderer"], "Texture", c->TexturePath);
+        }
         if (auto* c = entity.TryGetComponent<SpriteAnimationComponent>())
             e["SpriteAnimation"] = { { "Columns", c->Columns }, { "Rows", c->Rows }, { "StartFrame", c->StartFrame },
                                      { "FrameCount", c->FrameCount }, { "FPS", c->FPS }, { "Loop", c->Loop }, { "Playing", c->Playing } };
         if (auto* c = entity.TryGetComponent<CircleRendererComponent>())
             e["CircleRenderer"] = { { "Color", ToJson(c->Color) }, { "Thickness", c->Thickness }, { "Fade", c->Fade }, { "SortingOrder", c->SortingOrder } };
         if (auto* c = entity.TryGetComponent<TextComponent>())
+        {
             e["Text"] = { { "Text", c->Text }, { "Color", ToJson(c->Color) }, { "Kerning", c->Kerning }, { "LineSpacing", c->LineSpacing },
                           { "Centered", c->Centered }, { "Font", c->FontPath } };
+            WriteAssetHandle(e["Text"], "Font", c->FontPath);
+        }
         if (auto* c = entity.TryGetComponent<MeshRendererComponent>())
-            e["MeshRenderer"] = {
+        {
+            json& j = e["MeshRenderer"];
+            j = {
                 { "Mesh", PrimitiveMeshToString(c->Type) }, { "Model", c->ModelPath }, { "CastShadows", c->CastShadows },
                 { "Albedo", ToJson(c->Mat.Albedo) }, { "AlbedoMap", c->AlbedoPath }, { "Tiling", c->Mat.Tiling },
                 { "NormalMap", c->NormalPath }, { "NormalStrength", c->Mat.NormalStrength },
@@ -163,6 +244,12 @@ namespace Zamin {
                 { "Metallic", c->Mat.Metallic }, { "Roughness", c->Mat.Roughness },
                 { "Emission", ToJson(c->Mat.Emission) }, { "EmissionStrength", c->Mat.EmissionStrength },
             };
+            WriteAssetHandle(j, "Model", c->ModelPath);
+            WriteAssetHandle(j, "AlbedoMap", c->AlbedoPath);
+            WriteAssetHandle(j, "NormalMap", c->NormalPath);
+            WriteAssetHandle(j, "MetalRoughMap", c->MetalRoughPath);
+            WriteAssetHandle(j, "EmissiveMap", c->EmissivePath);
+        }
         if (auto* c = entity.TryGetComponent<AnimatorComponent>())
         {
             json params = json::array(), states = json::array(), transitions = json::array();
@@ -221,6 +308,7 @@ namespace Zamin {
                              { "TilesetRows", c->TilesetRows }, { "Width", c->Width }, { "Height", c->Height }, { "TileSize", c->TileSize },
                              { "Tiles", c->Tiles }, { "Color", ToJson(c->Color) }, { "SortingOrder", c->SortingOrder },
                              { "Collision", c->Collision }, { "Friction", c->Friction } };
+            WriteAssetHandle(e["Tilemap"], "Tileset", c->TilesetPath);
         }
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
             e["ParticleSystem"] = {
@@ -235,14 +323,19 @@ namespace Zamin {
                 { "RenderAsCircle", c->RenderAsCircle }, { "Additive", c->Additive }, { "WorldSpace", c->WorldSpace },
                 { "Billboard", c->Billboard }, { "Texture", c->TexturePath }, { "SortingOrder", c->SortingOrder },
             };
+        if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
+            WriteAssetHandle(e["ParticleSystem"], "Texture", c->TexturePath);
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
             e["UITransform"] = { { "Anchor", (int)c->Anchor }, { "Position", ToJson(c->Position) }, { "Size", ToJson(c->Size) }, { "FontSize", c->FontSize }, { "Order", c->Order } };
         if (auto* c = entity.TryGetComponent<UIButtonComponent>())
             e["UIButton"] = { { "Normal", ToJson(c->NormalColor) }, { "Hover", ToJson(c->HoverColor) }, { "Pressed", ToJson(c->PressedColor) },
                               { "Interactable", c->Interactable } };
         if (auto* c = entity.TryGetComponent<AudioSourceComponent>())
+        {
             e["AudioSource"] = { { "Path", c->Path }, { "Volume", c->Volume }, { "Pitch", c->Pitch }, { "Loop", c->Loop }, { "PlayOnStart", c->PlayOnStart },
                                  { "Spatial", c->Spatial }, { "MinDistance", c->MinDistance }, { "MaxDistance", c->MaxDistance } };
+            WriteAssetHandle(e["AudioSource"], "Path", c->Path);
+        }
         if (auto* c = entity.TryGetComponent<NativeScriptComponent>())
         {
             json fields = json::object();
@@ -311,7 +404,7 @@ namespace Zamin {
             const json& j = e["SpriteRenderer"];
             auto& c = entity.AddComponent<SpriteRendererComponent>();
             c.Color = Vec(j, "Color", glm::vec4(1.0f));
-            c.TexturePath = j.value("Texture", "");
+            c.TexturePath = ReadAssetPath(j, "Texture");
             c.TilingFactor = j.value("Tiling", 1.0f);
             c.SortingOrder = j.value("SortingOrder", 0);
             c.PixelArt = j.value("PixelArt", false);
@@ -348,21 +441,21 @@ namespace Zamin {
             c.Kerning = j.value("Kerning", 0.0f);
             c.LineSpacing = j.value("LineSpacing", 0.0f);
             c.Centered = j.value("Centered", false);
-            c.FontPath = j.value("Font", "");
+            c.FontPath = ReadAssetPath(j, "Font");
         }
         if (e.contains("MeshRenderer"))
         {
             const json& j = e["MeshRenderer"];
             auto& c = entity.AddComponent<MeshRendererComponent>();
             c.Type = PrimitiveMeshFromString(j.value("Mesh", "Cube"));
-            c.ModelPath = j.value("Model", "");
+            c.ModelPath = ReadAssetPath(j, "Model");
             c.CastShadows = j.value("CastShadows", true);
             c.Mat.Albedo = Vec(j, "Albedo", glm::vec4(1.0f));
-            c.AlbedoPath = j.value("AlbedoMap", "");
-            c.NormalPath = j.value("NormalMap", "");
+            c.AlbedoPath = ReadAssetPath(j, "AlbedoMap");
+            c.NormalPath = ReadAssetPath(j, "NormalMap");
             c.Mat.NormalStrength = j.value("NormalStrength", 1.0f);
-            c.MetalRoughPath = j.value("MetalRoughMap", "");
-            c.EmissivePath = j.value("EmissiveMap", "");
+            c.MetalRoughPath = ReadAssetPath(j, "MetalRoughMap");
+            c.EmissivePath = ReadAssetPath(j, "EmissiveMap");
             c.Mat.Tiling = j.value("Tiling", 1.0f);
             c.Mat.Metallic = j.value("Metallic", 0.0f);
             c.Mat.Roughness = j.value("Roughness", 0.5f);
@@ -497,7 +590,7 @@ namespace Zamin {
         {
             const json& j = e["Tilemap"];
             auto& c = entity.AddComponent<TilemapComponent>();
-            c.TilesetPath = j.value("Tileset", "");
+            c.TilesetPath = ReadAssetPath(j, "Tileset");
             c.PixelArt = j.value("PixelArt", true);
             c.TilesetColumns = j.value("TilesetColumns", 8);
             c.TilesetRows = j.value("TilesetRows", 4);
@@ -541,7 +634,7 @@ namespace Zamin {
             c.Additive = j.value("Additive", true);
             c.WorldSpace = j.value("WorldSpace", true);
             c.Billboard = j.value("Billboard", true);
-            c.TexturePath = j.value("Texture", "");
+            c.TexturePath = ReadAssetPath(j, "Texture");
             c.SortingOrder = j.value("SortingOrder", 0);
         }
         if (e.contains("UITransform"))
@@ -567,7 +660,7 @@ namespace Zamin {
         {
             const json& j = e["AudioSource"];
             auto& c = entity.AddComponent<AudioSourceComponent>();
-            c.Path = j.value("Path", "");
+            c.Path = ReadAssetPath(j, "Path");
             c.Volume = j.value("Volume", 1.0f);
             c.Pitch = j.value("Pitch", 1.0f);
             c.Loop = j.value("Loop", false);
@@ -697,6 +790,7 @@ namespace Zamin {
     {
         if (!entity || !ComponentRegistry::Has(entity, key))
             return {};
+        AssetReferenceScope assetReferences;
         json e = SerializeEntity(entity, false, false);
         auto it = e.find(std::string(key));
         if (it == e.end())
@@ -741,6 +835,7 @@ namespace Zamin {
         // Read into a scratch entity first: a broken value fails without touching the target.
         Scene scratch;
         Entity temp = scratch.CreateEntity("Clipboard");
+        AssetReferenceScope assetReferences;
         try
         {
             json e = json::object();
@@ -762,6 +857,7 @@ namespace Zamin {
     std::string SceneSerializer::SerializeToString()
     {
         const auto& s = m_Scene->GetSettings();
+        AssetReferenceScope assetReferences;
         json root;
         root["Scene"] = m_Scene->GetName();
         root["Version"] = 1;
@@ -778,6 +874,7 @@ namespace Zamin {
                 { "Saturation", s.Post.Saturation }, { "Contrast", s.Post.Contrast }, { "Brightness", s.Post.Brightness },
                 { "Tint", ToJson(s.Post.Tint) } } },
         };
+        WriteAssetHandle(root["Settings"]["Environment"], "Map", s.EnvironmentMap);
 
         json entities = json::array();
         std::vector<Entity> ordered = m_Scene->GetEntitiesInOrder(); // creation order => stable diffs
@@ -812,6 +909,8 @@ namespace Zamin {
 
     bool SceneSerializer::DeserializeFromString(const std::string& text)
     {
+        m_RepairedReferences.clear();
+        AssetReferenceScope assetReferences(&m_RepairedReferences);
         json root;
         try { root = json::parse(text); }
         catch (const std::exception& e)
@@ -841,7 +940,7 @@ namespace Zamin {
                 if (j.contains("Environment"))
                 {
                     const json& en = j["Environment"];
-                    s.EnvironmentMap = en.value("Map", "");
+                    s.EnvironmentMap = ReadAssetPath(en, "Map");
                     s.EnvironmentIntensity = en.value("Intensity", 1.0f);
                     s.EnvironmentRotation = en.value("Rotation", 0.0f);
                 }
@@ -911,6 +1010,7 @@ namespace Zamin {
     {
         std::unordered_map<uint64_t, bool> inSet;
         for (Entity e : entities) inSet[(uint64_t)e.GetUUID()] = true;
+        AssetReferenceScope assetReferences;
         json list = json::array();
         for (Entity e : entities)
         {
@@ -926,9 +1026,11 @@ namespace Zamin {
         return root.dump(2);
     }
 
-    std::vector<Entity> SceneSerializer::DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs)
+    std::vector<Entity> SceneSerializer::DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs,
+                                                             std::vector<AssetReferenceRepair>* repairs)
     {
         std::vector<Entity> created;
+        AssetReferenceScope assetReferences(repairs);
         json root;
         try { root = json::parse(text); }
         catch (...) { return created; }

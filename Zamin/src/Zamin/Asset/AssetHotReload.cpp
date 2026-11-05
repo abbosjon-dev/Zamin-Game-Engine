@@ -91,7 +91,10 @@ namespace Zamin {
             }
         }
         if (registry)
+        {
             report.Problems = registry->TakeProblems();
+            report.Moved = registry->TakeDetectedMoves();
+        }
         return report;
     }
 

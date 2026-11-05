@@ -27,10 +27,14 @@ namespace Zamin {
             std::vector<std::filesystem::path> Failed;
             // Broken / duplicate .zmeta files.
             std::vector<std::string> Problems;
+            // Assets moved / renamed outside the editor (their .zmeta went with them): (old, new)
+            // paths relative to the asset folder (AssetRegistry::TakeDetectedMoves).
+            std::vector<std::pair<std::string, std::string>> Moved;
 
             bool IsEmpty() const
             {
-                return Added.empty() && Modified.empty() && Removed.empty() && Reloaded.empty() && Failed.empty() && Problems.empty();
+                return Added.empty() && Modified.empty() && Removed.empty() && Reloaded.empty() && Failed.empty() && Problems.empty() &&
+                       Moved.empty();
             }
             // Files or folders appeared or disappeared (listings are out of date).
             bool HasStructureChanges() const { return !Added.empty() || !Removed.empty(); }

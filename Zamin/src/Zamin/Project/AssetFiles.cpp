@@ -597,7 +597,7 @@ namespace Zamin {
     }
 
     // Rewrites what refers to the moved items (see MoveInto).
-    static void UpdateReferences(AssetFiles::MoveResult& result, const fs::path& assetDirectory, const fs::path& sourceDirectory)
+    void AssetFiles::UpdateReferences(MoveResult& result, const fs::path& assetDirectory, const fs::path& sourceDirectory)
     {
         if (result.Moved.empty() || assetDirectory.empty())
             return;

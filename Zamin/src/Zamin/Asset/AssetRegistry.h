@@ -80,6 +80,12 @@ namespace Zamin {
         // Broken / duplicate .zmeta files met since the last call (outside Scan, whose result lists its own).
         std::vector<std::string> TakeProblems();
 
+        // Assets that were moved or renamed outside the editor since the last call, as (old, new)
+        // relative paths: a file removed and one added with the same UUID (its .zmeta went with
+        // it), in either order. The editor updates the references to them.
+        using PathMove = std::pair<std::string, std::string>;
+        std::vector<PathMove> TakeDetectedMoves();
+
     private:
         struct Candidate
         {
@@ -106,6 +112,10 @@ namespace Zamin {
         std::unordered_map<std::string, AssetHandle> m_Paths;
         ScanResult m_LastScan;
         std::vector<std::string> m_Problems;
+        // Removed since the last scan: where an asset with a .zmeta was (a file added later with
+        // that UUID moved there).
+        std::unordered_map<AssetHandle, std::string> m_RemovedPaths;
+        std::vector<PathMove> m_DetectedMoves;
         bool m_WriteMetaFiles = false;
         bool m_Scanned = false;
     };

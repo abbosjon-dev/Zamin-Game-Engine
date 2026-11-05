@@ -854,7 +854,12 @@ namespace Zamin {
         m_SceneHierarchyPanel.SetContext({});
         SetActiveScene(m_EditorScene);
         m_EditorScenePath = path;
-        m_SceneDirty = false;
+        // Asset paths found again by UUID (files renamed outside the editor): the scene in memory
+        // is newer than its file until it is saved.
+        m_SceneDirty = !serializer.GetRepairedReferences().empty();
+        if (m_SceneDirty)
+            m_ContentBrowserPanel.ShowNotice(std::format("Sahnada {} ta asset havolasi UUID orqali tiklandi - saqlang",
+                                                         serializer.GetRepairedReferences().size()));
         ResetUndoHistory();
         // Auto-detect 2D scenes (orthographic primary camera; an inactive one still tells).
         Entity sceneCamera = m_EditorScene->GetPrimaryCameraEntity();
@@ -1505,6 +1510,8 @@ namespace Zamin {
 
         for (const std::string& problem : report.Problems)
             ZM_WARN("{}", problem);
+        if (!report.Moved.empty())
+            OnAssetsMovedOutside(report.Moved);
         for (const auto* list : { &report.Added, &report.Modified, &report.Removed })
             for (const fs::path& p : *list)
                 m_ContentBrowserPanel.InvalidateThumbnail(p);
@@ -1548,6 +1555,31 @@ namespace Zamin {
             m_ContentBrowserPanel.ShowNotice(std::format("'{}' qayta yuklandi", report.Reloaded.front().filename().string()));
         else if (report.Reloaded.size() > 1)
             m_ContentBrowserPanel.ShowNotice(std::format("{} ta asset qayta yuklandi", report.Reloaded.size()));
+    }
+
+    void EditorLayer::OnAssetsMovedOutside(const std::vector<std::pair<std::string, std::string>>& moves)
+    {
+        // Renamed / moved in a file manager or by version control, the .zmeta files with them (the
+        // registry recognized the UUIDs): the same updates as a move in the content browser.
+        std::error_code ec;
+        fs::path assets = fs::weakly_canonical(Project::GetAssetDirectory(), ec);
+        if (ec)
+            assets = Project::GetAssetDirectory();
+        AssetFiles::MoveResult result;
+        for (const auto& [from, to] : moves)
+        {
+            result.Moved.push_back({ assets / from, assets / to, false });
+            ZM_INFO("Asset tashqarida ko'chirildi: {} -> {}", from, to);
+        }
+        AssetFiles::UpdateReferences(result, assets, Project::GetSourceDirectory());
+        OnAssetsMoved(result);
+        if (result.UpdatedReferences > 0)
+            ZM_INFO("{} ta faylda {} ta havola yangilandi", result.UpdatedFiles.size(), result.UpdatedReferences);
+        for (const fs::path& source : result.SourceMentions)
+            ZM_WARN("C++ kodda eski yo'l yozilgan: {}", source.filename().string());
+        m_ContentBrowserPanel.ShowNotice(moves.size() == 1
+            ? std::format("'{}' ko'chirilgani aniqlandi - havolalar yangilandi", fs::path(moves.front().second).filename().string())
+            : std::format("{} ta asset ko'chirilgani aniqlandi - havolalar yangilandi", moves.size()));
     }
 
     void EditorLayer::OnAssetsMoved(const AssetFiles::MoveResult& result)

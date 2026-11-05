@@ -234,11 +234,20 @@ namespace Zamin {
         return problems;
     }
 
+    std::vector<AssetRegistry::PathMove> AssetRegistry::TakeDetectedMoves()
+    {
+        std::vector<PathMove> moves = std::move(m_DetectedMoves);
+        m_DetectedMoves.clear();
+        return moves;
+    }
+
     void AssetRegistry::Clear()
     {
         m_Assets.clear();
         m_Paths.clear();
         m_Problems.clear();
+        m_RemovedPaths.clear();
+        m_DetectedMoves.clear();
         m_LastScan = {};
         m_Scanned = false;
     }
@@ -339,7 +348,19 @@ namespace Zamin {
                     if (ExistsOnDisk(other->RelativePath))
                         duplicate = true;                 // a copy: a new identity
                     else
-                        Erase(other->Handle);             // moved here (its removal not seen yet)
+                    {
+                        // Moved here (its removal not seen yet).
+                        if (other->HasMetaFile)
+                            m_DetectedMoves.emplace_back(other->RelativePath, file);
+                        Erase(other->Handle);
+                    }
+                }
+                else if (auto removed = m_RemovedPaths.find(c.Meta->Handle); removed != m_RemovedPaths.end())
+                {
+                    // Moved here: the removal came first.
+                    if (removed->second != file)
+                        m_DetectedMoves.emplace_back(removed->second, file);
+                    m_RemovedPaths.erase(removed);
                 }
             }
             ScanResult problems;
@@ -362,7 +383,12 @@ namespace Zamin {
             if (p == rel || p.starts_with(prefix))
                 gone.push_back(handle);
         for (AssetHandle handle : gone)
+        {
+            const AssetMetadata& meta = m_Assets.at(handle);
+            if (meta.HasMetaFile) // a session-only handle cannot come back somewhere else
+                m_RemovedPaths[handle] = meta.RelativePath;
             Erase(handle);
+        }
         return gone.size();
     }
 

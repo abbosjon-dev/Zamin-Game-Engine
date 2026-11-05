@@ -13,9 +13,20 @@ namespace Zamin {
     class Entity;
     struct TransformComponent;
 
+    //
+    // Asset references are paths relative to the asset folder ("Texture": "Textures/coin.png").
+    // When the active project's asset registry knows the file, its UUID is written next to the
+    // path ("TextureUUID": "3f2a..."). Loading uses the path; when that file is gone but the UUID
+    // belongs to an asset somewhere else (renamed / moved outside the editor), the asset's new
+    // path is used instead and the repair is reported (GetRepairedReferences).
     class SceneSerializer
     {
     public:
+        struct AssetReferenceRepair
+        {
+            std::string OldPath, NewPath; // relative to the asset folder
+        };
+
         explicit SceneSerializer(const Ref<Scene>& scene) : m_Scene(scene) {}
 
         bool Serialize(const std::filesystem::path& filepath);
@@ -23,13 +34,18 @@ namespace Zamin {
 
         std::string SerializeToString();
         bool DeserializeFromString(const std::string& text);
+        // Asset paths the last Deserialize* call took from UUIDs (the scene in memory differs from
+        // its file until it is saved).
+        const std::vector<AssetReferenceRepair>& GetRepairedReferences() const { return m_RepairedReferences; }
 
         // Entity subsets (prefabs, copy/paste). Parents outside the set become roots.
         // includeEditorFlags = false (prefabs): the hierarchy's hidden / locked flags are left
         // out, the inspector component order is kept.
         static std::string SerializeEntities(Scene& scene, const std::vector<Entity>& entities, bool includeEditorFlags = true);
         // Returns created entities, roots first. generateNewUUIDs = true for prefabs/paste.
-        static std::vector<Entity> DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs);
+        // `repairs` receives the asset paths taken from UUIDs (see above).
+        static std::vector<Entity> DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs,
+                                                       std::vector<AssetReferenceRepair>* repairs = nullptr);
 
         // Transform clipboard text (inspector Copy / Paste). Deserialize returns false for any
         // text that is not a copied transform.
@@ -49,6 +65,7 @@ namespace Zamin {
 
     private:
         Ref<Scene> m_Scene;
+        std::vector<AssetReferenceRepair> m_RepairedReferences;
     };
 
 }

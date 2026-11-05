@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/Asset/AssetTypes.h"
 #include "Zamin/Core/Base.h"
 #include "Zamin/Core/InputActions.h"
 
@@ -15,6 +16,9 @@ namespace Zamin {
     {
         std::string Name = "Untitled";
         std::filesystem::path StartScene;                 // relative to AssetDirectory
+        // UUID of the start scene ("StartSceneUUID"): finds it when it was renamed / moved
+        // outside the editor. Written from the asset registry when the project is saved.
+        AssetHandle StartSceneHandle;
         std::filesystem::path AssetDirectory = "Assets";  // relative to project dir
         std::filesystem::path SourceDirectory = "Source"; // C++ gameplay scripts
         std::filesystem::path ScriptModulePath;           // relative to project dir, e.g. Binaries/libGame.so

@@ -76,6 +76,8 @@ namespace Zamin {
         // The content browser moved / renamed files: the open scene, its undo history, the
         // clipboard, the scene path, camera bookmarks and the project's start scene follow.
         void OnAssetsMoved(const AssetFiles::MoveResult& result);
+        // Assets the watcher saw moved outside the editor ((old, new) paths relative to Assets).
+        void OnAssetsMovedOutside(const std::vector<std::pair<std::string, std::string>>& moves);
         // Asset folder watcher (started with the project): the registry follows the files, changed
         // textures / fonts are imported again in place, the content browser is refreshed.
         void StartAssetWatcher();

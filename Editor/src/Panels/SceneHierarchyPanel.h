@@ -195,6 +195,8 @@ namespace Zamin {
         bool DrawSpriteRenderer(Entity entity, SpriteRendererComponent& c);
         // Sprite Animation: grid cells or a list of sprite sheet frames.
         bool DrawSpriteAnimation(Entity entity, SpriteAnimationComponent& c);
+        // Camera 2D Follow: target, damping, dead zone, look-ahead, bounds.
+        bool DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c);
         bool MatchesFilter(Entity entity, const std::string& lowerFilter);
         const std::unordered_map<std::string, ScriptFieldValue>& GetScriptDefaults(const std::string& className);
         void MarkModified() { if (OnSceneModified) OnSceneModified(); }

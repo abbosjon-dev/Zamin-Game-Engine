@@ -121,7 +121,7 @@ namespace Zamin {
         Entity CreateEntityWithUUID(UUID uuid, const std::string& name = std::string());
         void DestroyEntity(Entity entity);
         Entity DuplicateEntity(Entity entity);
-        // Rewrites EntityRef script fields of `entities` using an old->new UUID map
+        // Rewrites EntityRef script fields (and Camera2DFollow targets) of `entities` using an old->new UUID map
         // (used when a subtree is duplicated / pasted / instantiated with fresh IDs, so
         // references inside the copied subtree point to the copies).
         static void RemapEntityReferences(const std::vector<Entity>& entities, const std::unordered_map<uint64_t, uint64_t>& oldToNew);
@@ -371,6 +371,19 @@ namespace Zamin {
         // Background color used when the sky is disabled (primary camera's clear color).
         glm::vec4 GetClearColor();
 
+        // ---- camera shake (CameraComponent::Shake)
+        // Shakes the view of the primary camera (or of `camera`): `intensity` of trauma (0..1, added
+        // up to 1) that fades out over `duration` seconds (an earlier, longer shake keeps going);
+        // `frequency`: how jittery (noise samples per second). Only the picture moves - the camera's
+        // transform, a Camera2DFollow on it, physics and scripts are not affected. Runs while the
+        // game runs (paused: it holds). False without such a camera.
+        bool ShakeCamera(float intensity, float duration = 0.4f, float frequency = 20.0f);
+        bool ShakeCamera(Entity camera, float intensity, float duration = 0.4f, float frequency = 20.0f);
+        void StopCameraShake(); // every camera
+        // What a camera entity sees through: its world transform with its shake (the game view,
+        // the editor's play-mode overlays).
+        glm::mat4 GetCameraViewTransform(Entity camera);
+
         bool IsRunning() const { return m_IsRunning; }
         bool IsPaused() const { return m_IsPaused; }
         void SetPaused(bool paused) { m_IsPaused = paused; }
@@ -453,6 +466,8 @@ namespace Zamin {
         // NativeScriptComponent::Enabled and active in the hierarchy.
         bool ShouldScriptBeEnabled(Entity entity, const struct NativeScriptComponent& nsc);
         void StepCharacters(float dt);
+        // Camera2DFollowComponent: the followers move after their targets (game time `dt`).
+        void UpdateCameraFollow(float dt);
         void UpdateAudio();
         void UpdateAnimators(Timestep ts, bool editor);
         void DispatchContactEvents(const std::vector<ContactEvent>& events);

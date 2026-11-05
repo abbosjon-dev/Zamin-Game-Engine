@@ -1161,7 +1161,7 @@ namespace Zamin {
             { "Rigidbody2D", "Rigidbody 2D" }, { "BoxCollider2D", "Box Collider 2D" }, { "CircleCollider2D", "Circle Collider 2D" },
             { "Rigidbody3D", "Rigidbody 3D" }, { "BoxCollider3D", "Box Collider 3D" }, { "SphereCollider3D", "Sphere Collider 3D" },
             { "CapsuleCollider3D", "Capsule Collider 3D" }, { "CharacterController3D", "Character Controller 3D" },
-            { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
+            { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
             { "UIButton", "UI Button" }, { "AudioSource", "Audio Source" }, { "NativeScript", "C++ Skript" },
         };
         for (const auto& [k, name] : s_Names)
@@ -2145,6 +2145,101 @@ namespace Zamin {
         return changed;
     }
 
+    bool SceneHierarchyPanel::DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c)
+    {
+        bool changed = DrawEntityRefField("Nishon", c.Target, "Kuzatiladigan obyekt (ierarxiyadan tortib tashlang). O'yin davomida "
+                                                              "fizika va skriptlardan keyin har kadrda uning ortidan siljiydi (faqat x / y)");
+        Entity target = c.Target && m_Context ? m_Context->GetEntityByUUID(c.Target.ID) : Entity();
+        if (!c.Target || (target && target == entity))
+        {
+            UI::PropertyLabel("");
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s",
+                               !c.Target ? "Nishon tanlanmagan: kamera joyida turadi" : "O'zini kuzata olmaydi");
+        }
+        InactiveComponentNote(entity, "Obyekt nofaol: kuzatmaydi");
+
+        auto float2 = [&](const char* label, const char* tooltip, glm::vec2& v, float speed, float min, float max) {
+            UI::PropertyLabel(label, tooltip);
+            ImGui::PushID(label);
+            bool edited = ImGui::DragFloat2("##v", &v.x, speed, min, max, "%.2f");
+            ImGui::PopID();
+            if (edited && min < max)
+                v = glm::clamp(v, glm::vec2(min), glm::vec2(max));
+            return edited;
+        };
+        changed |= float2("Siljish", "Nishon pozitsiyasiga qo'shiladi (masalan, o'yinchidan biroz yuqoriga qarash)", c.Offset, 0.05f, 0.0f, 0.0f);
+        changed |= float2("Silliqlik (s)", "Kamera masofaning ~63% ini necha soniyada bosib o'tadi (x / y alohida). 0 - nishonga mahkam",
+                          c.Damping, 0.01f, 0.0f, 10.0f);
+        changed |= float2("O'lik zona", "Ko'rinish markazidagi to'rtburchak (to'liq eni / bo'yi, birlik): nishon uning ichida "
+                                         "yurganda kamera qimirlamaydi", c.DeadZone, 0.05f, 0.0f, 1000.0f);
+
+        UI::PropertyHeader("Oldinga qarash", "Kamera nishon oxirgi marta harakatlangan tomonga biroz oldinga o'tadi");
+        changed |= float2("Masofa", "Harakat yo'nalishi bo'yicha qancha oldinga (birlik, x / y). 0 - o'chiq", c.LookAhead, 0.05f, -100.0f, 100.0f);
+        UI::PropertyLabel("Silliqlik (s)", "Oldinga qarash qancha sekin almashadi (yo'nalish o'zgarganda)");
+        if (ImGui::DragFloat("##lookDamping", &c.LookAheadDamping, 0.01f, 0.0f, 10.0f, "%.2f"))
+        {
+            c.LookAheadDamping = std::clamp(c.LookAheadDamping, 0.0f, 10.0f);
+            changed = true;
+        }
+        UI::PropertyLabel("Min. tezlik", "Nishon shundan tezroq yursa yo'nalish almashadi (birlik/s): mayda qimirlashlar e'tiborga olinmaydi");
+        if (ImGui::DragFloat("##lookSpeed", &c.LookAheadMinSpeed, 0.05f, 0.0f, 100.0f, "%.2f"))
+        {
+            c.LookAheadMinSpeed = std::clamp(c.LookAheadMinSpeed, 0.0f, 100.0f);
+            changed = true;
+        }
+
+        UI::PropertyHeader("Chegaralar", "Kameraning butun ko'rinishi (nishon chuqurligida) shu dunyo to'rtburchagidan chiqmaydi");
+        changed |= UI::PropertyBool("Chegaralash", c.UseBounds);
+        if (c.UseBounds)
+        {
+            changed |= float2("Min (chap-past)", nullptr, c.BoundsMin, 0.1f, 0.0f, 0.0f);
+            changed |= float2("Maks (o'ng-yuqori)", nullptr, c.BoundsMax, 0.1f, 0.0f, 0.0f);
+            UI::PropertyLabel("");
+            ImGui::BeginDisabled(!m_SceneEditable);
+            if (ImGui::Button(ICON_FA_EXPAND "  Sahna chegaralari") && m_Context)
+            {
+                AABB box;
+                if (m_Context->ComputeSceneBounds(box))
+                {
+                    c.BoundsMin = glm::vec2(box.Min);
+                    c.BoundsMax = glm::vec2(box.Max);
+                    changed = true;
+                }
+            }
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip("Sahnada chiziladigan hamma narsani o'rab oluvchi to'rtburchak (Shift+F kabi)");
+            if (!entity.HasComponent<CameraComponent>())
+            {
+                UI::PropertyLabel("");
+                ImGui::TextDisabled("Kamera komponentisiz: faqat markaz chegaralanadi");
+            }
+        }
+        changed |= UI::PropertyBool("Boshida nishonga", c.SnapOnStart);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("O'yin boshlanganda kamera darhol nishon ustida turadi (aks holda joyidan silliq yetib boradi)");
+
+        UI::PropertyLabel("");
+        ImGui::BeginDisabled(!target || target == entity || !m_SceneEditable);
+        if (ImGui::Button(ICON_FA_CROSSHAIRS "  Kamerani nishonga qo'yish") && target && m_Context)
+        {
+            glm::mat4 world = m_Context->GetWorldTransform(entity);
+            glm::vec3 targetPosition = m_Context->GetWorldPosition(target);
+            glm::vec2 halfView(0.0f);
+            if (auto* camera = entity.TryGetComponent<CameraComponent>())
+                halfView = Camera2DFollow::GetHalfView(camera->Camera.GetProjection(), world, targetPosition.z);
+            glm::vec2 position = Camera2DFollow::GetSnapPosition(c, glm::vec2(targetPosition), halfView);
+            world[3].x = position.x;
+            world[3].y = position.y;
+            m_Context->SetWorldTransform(entity, world);
+            changed = true;
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip("Editorda: kamerani o'yin boshidagi joyiga (nishon + siljish, chegaralar ichida) qo'yadi");
+        return changed;
+    }
+
     bool SceneHierarchyPanel::DrawSpriteAnimation(Entity entity, SpriteAnimationComponent& c)
     {
         InactiveComponentNote(entity, "Obyekt nofaol: animatsiya to'xtab turadi");
@@ -2828,6 +2923,7 @@ namespace Zamin {
                 ImGui::SeparatorText("Effektlar va UI");
                 DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<ParallaxComponent>("Parallax", ICON_FA_MOUNTAIN);
+                DisplayAddComponentEntry<Camera2DFollowComponent>("Camera 2D Follow", ICON_FA_VIDEO);
                 DisplayAddComponentEntry<ParticleSystemComponent>("Particle System", ICON_FA_WAND_MAGIC_SPARKLES);
                 DisplayAddComponentEntry<UITransformComponent>("UI Transform", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<UIButtonComponent>("UI Button", ICON_FA_HAND_POINTER);
@@ -2907,7 +3003,46 @@ namespace Zamin {
             }
             changed |= UI::PropertyBool("Qat'iy nisbat", c.FixedAspectRatio);
             changed |= UI::PropertyColor4("Fon rangi", c.ClearColor);
+
+            UI::PropertyHeader(ICON_FA_BURST "  Silkinish",
+                               "Skriptdan: ShakeCamera(kuch, davomiylik, chastota). Faqat tasvir silkinadi - kameraning joyi, "
+                               "kuzatish, fizika va skriptlar o'zgarmaydi");
+            UI::PropertyLabel("Maks. siljish", "To'liq silkinishda (kuch 1) kamera ko'rinishi o'ngga/yuqoriga qancha siljiydi (birlik)");
+            if (ImGui::DragFloat2("##shakeOffset", &c.Shake.MaxOffset.x, 0.01f, 0.0f, 100.0f, "%.2f"))
+            {
+                c.Shake.MaxOffset = glm::max(c.Shake.MaxOffset, glm::vec2(0.0f));
+                changed = true;
+            }
+            UI::PropertyLabel("Maks. burchak", "To'liq silkinishda kamera qancha og'adi (gradus)");
+            if (ImGui::DragFloat("##shakeAngle", &c.Shake.MaxAngle, 0.05f, 0.0f, 45.0f, "%.1f\xc2\xb0"))
+            {
+                c.Shake.MaxAngle = std::clamp(c.Shake.MaxAngle, 0.0f, 45.0f);
+                changed = true;
+            }
+            UI::PropertyLabel("Daraja", "Silkinish = kuch ^ daraja. 2: kichik zarbalar yengil, kattalari kuchli; 1: chiziqli");
+            if (ImGui::SliderFloat("##shakeExponent", &c.Shake.Exponent, 0.5f, 4.0f, "%.2f"))
+            {
+                c.Shake.Exponent = std::clamp(c.Shake.Exponent, 0.1f, 8.0f);
+                changed = true;
+            }
+            UI::PropertyLabel("");
+            const bool running = m_Context && m_Context->IsRunning();
+            ImGui::BeginDisabled(!running);
+            if (ImGui::Button(ICON_FA_BURST "  Sinash"))
+                m_Context->ShakeCamera(entity, 0.7f, 0.6f, 20.0f);
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip(running ? "Kuch 0.7, 0.6 soniya" : "O'yin rejimida sinab ko'ring");
+            if (running && c.Shake.IsActive())
+            {
+                ImGui::SameLine();
+                ImGui::TextDisabled("kuch %.2f, %.2f s", c.Shake.Trauma, c.Shake.GetRemaining());
+            }
             return changed;
+        }, true, modified);
+
+        AddSection<Camera2DFollowComponent>(ICON_FA_VIDEO, "Camera 2D Follow", entity, [&](Camera2DFollowComponent& c) {
+            return DrawCamera2DFollow(entity, c);
         }, true, modified);
 
         AddSection<SpriteRendererComponent>(ICON_FA_IMAGE, "Sprite Renderer", entity, [&](SpriteRendererComponent& c) {

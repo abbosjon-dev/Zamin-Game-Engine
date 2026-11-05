@@ -145,3 +145,8 @@
 #define ICON_FA_IMAGES "\xef\x8c\x82" // sprite sheet
 #define ICON_FA_CROP "\xef\x84\xa5"
 #define ICON_FA_PANORAMA "\xee\x88\x89"
+#define ICON_FA_VIDEO "\xef\x80\xbd" // camera follow
+#define ICON_FA_PAINTBRUSH "\xef\x87\xbc" // tile brush
+#define ICON_FA_FILL_DRIP "\xef\x95\xb6" // flood fill
+#define ICON_FA_EYEDROPPER "\xef\x87\xbb" // tile picker
+#define ICON_FA_BURST "\xee\x93\x9c" // camera shake

@@ -123,6 +123,8 @@ namespace Zamin {
         }
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).RuntimeHandle = 0;
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
+        for (auto e : registry.view<CameraComponent>()) registry.get<CameraComponent>(e).Shake.ResetRuntime();
+        for (auto e : registry.view<Camera2DFollowComponent>()) registry.get<Camera2DFollowComponent>(e).ResetRuntime();
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).Clear();
         for (auto e : registry.view<MeshRendererComponent>()) Scene::ClearMaterialInstances(registry.get<MeshRendererComponent>(e));
         for (auto e : registry.view<UIButtonComponent>())
@@ -141,6 +143,8 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->RuntimeHandle = 0;
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
         if (auto* c = e.TryGetComponent<TilemapComponent>()) c->RuntimeBody = nullptr;
+        if (auto* c = e.TryGetComponent<CameraComponent>()) c->Shake.ResetRuntime();
+        if (auto* c = e.TryGetComponent<Camera2DFollowComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; c->Velocity = glm::vec3(0.0f); }
         if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->Clear(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
         if (auto* c = e.TryGetComponent<UIButtonComponent>()) c->Hovered = c->Pressed = c->Clicked = false;
@@ -412,6 +416,9 @@ namespace Zamin {
     {
         for (Entity e : entities)
         {
+            if (auto* follow = e.TryGetComponent<Camera2DFollowComponent>())
+                if (auto it = oldToNew.find(follow->Target.ID); follow->Target.ID && it != oldToNew.end())
+                    follow->Target.ID = it->second;
             auto* nsc = e.TryGetComponent<NativeScriptComponent>();
             if (!nsc) continue;
             for (auto& [name, value] : nsc->Fields)
@@ -2584,6 +2591,11 @@ namespace Zamin {
                 m_EventBus->Flush();
             }
 
+            // Cameras follow their targets where physics and the scripts left them; shakes go on.
+            UpdateCameraFollow(ts);
+            for (auto e : m_Registry.view<CameraComponent>())
+                m_Registry.get<CameraComponent>(e).Shake.Update(ts);
+
             for (auto e : m_Registry.view<SpriteAnimationComponent>())
             {
                 auto& anim = m_Registry.get<SpriteAnimationComponent>(e);
@@ -2604,7 +2616,7 @@ namespace Zamin {
         if (!cameraEntity)
             return;
         auto& camera = cameraEntity.GetComponent<CameraComponent>();
-        glm::mat4 cameraWorld = GetWorldTransform(cameraEntity);
+        glm::mat4 cameraWorld = GetCameraViewTransform(cameraEntity); // with its shake
         SceneRenderOptions options;
         options.Parallax = true; // the game camera moves the parallax layers
         RenderScene(glm::inverse(cameraWorld), camera.Camera.GetProjection(), glm::vec3(cameraWorld[3]), options);
@@ -3127,6 +3139,73 @@ namespace Zamin {
                 if (m_Registry.valid(e) && IsActiveInHierarchy({ e, this })) // still active after earlier OnClicks
                     if (auto* nsc = m_Registry.try_get<NativeScriptComponent>(e); nsc && nsc->Instance)
                         nsc->Instance->OnClick();
+    }
+
+    // ------------------------------------------------------------------ cameras (2D follow, shake)
+    void Scene::UpdateCameraFollow(float dt)
+    {
+        auto view = m_Registry.view<Camera2DFollowComponent>();
+        if (view.empty())
+            return;
+        for (auto e : view)
+        {
+            Entity entity{ e, this };
+            auto& follow = m_Registry.get<Camera2DFollowComponent>(e);
+            if (!follow.Target || !IsActiveInHierarchy(entity))
+                continue;
+            Entity target = GetEntityByUUID(follow.Target.ID);
+            if (!target || target == entity || !IsActiveInHierarchy(target))
+                continue; // nothing to follow: the camera stays where it is
+            glm::mat4 world = GetWorldTransform(entity);
+            glm::vec3 targetPosition = GetWorldPosition(target);
+            glm::vec2 halfView(0.0f);
+            if (auto* camera = m_Registry.try_get<CameraComponent>(e))
+                halfView = Camera2DFollow::GetHalfView(camera->Camera.GetProjection(), world, targetPosition.z);
+            glm::vec2 position = Camera2DFollow::Step(follow, glm::vec2(world[3]), glm::vec2(targetPosition), halfView, dt);
+            if (position == glm::vec2(world[3]))
+                continue;
+            auto& transform = m_Registry.get<TransformComponent>(e);
+            if ((uint64_t)m_Registry.get<RelationshipComponent>(e).Parent)
+            {
+                world[3].x = position.x;
+                world[3].y = position.y;
+                SetWorldTransform(entity, world);
+            }
+            else
+            {
+                transform.Translation.x = position.x;
+                transform.Translation.y = position.y;
+            }
+        }
+    }
+
+    bool Scene::ShakeCamera(float intensity, float duration, float frequency)
+    {
+        return ShakeCamera(GetPrimaryCameraEntity(), intensity, duration, frequency);
+    }
+
+    bool Scene::ShakeCamera(Entity camera, float intensity, float duration, float frequency)
+    {
+        if (!camera || !camera.IsValid() || camera.GetScene() != this || !camera.HasComponent<CameraComponent>())
+            return false;
+        camera.GetComponent<CameraComponent>().Shake.Add(intensity, duration, frequency);
+        return true;
+    }
+
+    void Scene::StopCameraShake()
+    {
+        for (auto e : m_Registry.view<CameraComponent>())
+            m_Registry.get<CameraComponent>(e).Shake.Stop();
+    }
+
+    glm::mat4 Scene::GetCameraViewTransform(Entity camera)
+    {
+        if (!camera || !camera.IsValid())
+            return glm::mat4(1.0f);
+        glm::mat4 world = GetWorldTransform(camera);
+        if (auto* c = camera.TryGetComponent<CameraComponent>(); c && c->Shake.IsActive())
+            world = world * c->Shake.GetMatrix();
+        return world;
     }
 
     glm::vec3 Scene::ScreenToWorld(const glm::vec2& screen, float depthZ)

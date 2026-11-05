@@ -8,6 +8,7 @@
 #include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/SpriteSheet.h"
+#include "Zamin/Scene/Camera2D.h"
 #include "Zamin/Scene/SceneCamera.h"
 #include "Zamin/Scripting/ScriptField.h"
 
@@ -336,6 +337,49 @@ namespace Zamin {
         bool Primary = true;
         bool FixedAspectRatio = false;
         glm::vec4 ClearColor{ 0.08f, 0.09f, 0.11f, 1.0f };
+        // Scene::ShakeCamera / ScriptableEntity::ShakeCamera shake the view of the camera the game
+        // is seen through; its strength settings are saved, the trauma is runtime only.
+        CameraShake Shake;
+    };
+
+    // ------------------------------------------------------------------ 2D camera follow
+    // Moves its entity (usually the camera) after Target while the game runs: once per frame,
+    // after physics and the scripts' OnLateUpdate; only x / y change (z stays). See Camera2DFollow.
+    // - Offset: added to the target's position (look a little above the player);
+    // - Damping: seconds to catch up about 63% of the way, per axis (0 = locked to the target);
+    // - DeadZone: a box (full width / height, units) around the view's centre inside which the
+    //   target moves without the camera moving;
+    // - LookAhead: how far (units, per axis) the view runs ahead in the direction the target last
+    //   moved, eased in with LookAheadDamping seconds;
+    // - Bounds: the camera's whole view (at the target's depth) stays inside this world rectangle.
+    struct Camera2DFollowComponent
+    {
+        EntityRef Target;
+        glm::vec2 Offset{ 0.0f, 1.0f };
+        glm::vec2 Damping{ 0.2f, 0.3f };
+        glm::vec2 DeadZone{ 1.0f, 1.5f };
+        glm::vec2 LookAhead{ 1.5f, 0.0f };
+        float LookAheadDamping = 0.6f;
+        float LookAheadMinSpeed = 0.5f;   // units / s the target must move before the look-ahead turns
+        bool UseBounds = false;
+        glm::vec2 BoundsMin{ -20.0f, -10.0f };
+        glm::vec2 BoundsMax{ 20.0f, 10.0f };
+        bool SnapOnStart = true;          // play starts with the camera on the target
+
+        // runtime (cleared when play starts / stops)
+        bool Initialized = false;
+        bool SnapRequested = false;
+        glm::vec2 LastTarget{ 0.0f };
+        glm::vec2 LookAheadDirection{ 0.0f }; // -1, 0 or 1 per axis
+        glm::vec2 LookAheadOffset{ 0.0f };
+
+        // Jumps onto the target on the next update (after a teleport / respawn).
+        void Snap() { SnapRequested = true; }
+        void ResetRuntime()
+        {
+            Initialized = SnapRequested = false;
+            LastTarget = LookAheadDirection = LookAheadOffset = glm::vec2(0.0f);
+        }
     };
 
     struct DirectionalLightComponent
@@ -734,7 +778,7 @@ namespace Zamin {
         SpriteAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, SpotLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
-        CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
+        CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;
 
 }

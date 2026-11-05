@@ -237,6 +237,17 @@ namespace Zamin {
         glm::vec2 GetMouseWorldPosition() const;
         glm::vec3 ScreenToWorld(const glm::vec2& screen, float depthZ = 0.0f) const;
 
+        // ---- camera
+        // Shakes the game camera's view (Scene::ShakeCamera): `intensity` 0..1 of trauma that fades
+        // out over `duration` seconds; `frequency`: how jittery. Several shakes add up (at most 1).
+        //   ShakeCamera(0.3f);               // a small hit
+        //   ShakeCamera(1.0f, 1.2f, 25.0f);  // an explosion
+        bool ShakeCamera(float intensity, float duration = 0.4f, float frequency = 20.0f);
+        void StopCameraShake();
+        // The primary camera's Camera 2D Follow target (added to the camera when missing). snap:
+        // the camera jumps there on the next frame instead of gliding. False without a primary camera.
+        bool SetCameraTarget(Entity target, bool snap = false);
+
         // ---- materials (requires MeshRendererComponent)
         // This entity's own copy of its material, made on the first call - of the material asset,
         // or of the inline material without one (models: the inline material is the tint of every

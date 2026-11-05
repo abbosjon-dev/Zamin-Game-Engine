@@ -272,6 +272,26 @@ namespace Zamin {
     glm::vec2 ScriptableEntity::GetViewportSize() const { return m_Entity.GetScene()->GetViewportSize(); }
     glm::vec2 ScriptableEntity::GetMouseWorldPosition() const { return glm::vec2(ScreenToWorld(GetMousePosition(), 0.0f)); }
     glm::vec3 ScriptableEntity::ScreenToWorld(const glm::vec2& screen, float depthZ) const { return m_Entity.GetScene()->ScreenToWorld(screen, depthZ); }
+
+    bool ScriptableEntity::ShakeCamera(float intensity, float duration, float frequency)
+    {
+        return m_Entity.GetScene()->ShakeCamera(intensity, duration, frequency);
+    }
+
+    void ScriptableEntity::StopCameraShake() { m_Entity.GetScene()->StopCameraShake(); }
+
+    bool ScriptableEntity::SetCameraTarget(Entity target, bool snap)
+    {
+        Entity camera = m_Entity.GetScene()->GetPrimaryCameraEntity();
+        if (!camera)
+            return false;
+        auto& follow = camera.HasComponent<Camera2DFollowComponent>() ? camera.GetComponent<Camera2DFollowComponent>()
+                                                                        : camera.AddComponent<Camera2DFollowComponent>();
+        follow.Target.ID = target && target.IsValid() ? (uint64_t)target.GetUUID() : 0;
+        if (snap)
+            follow.Snap();
+        return true;
+    }
     void ScriptableEntity::EmitParticles(int count) { m_Entity.GetScene()->EmitParticles(m_Entity, count); }
 
     const SpriteSheet* ScriptableEntity::GetSpriteSheet() const

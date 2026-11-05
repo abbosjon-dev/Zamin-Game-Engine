@@ -39,6 +39,7 @@ namespace Zamin {
             MakeTypeInfo<CharacterController3DComponent>(),
             MakeTypeInfo<TilemapComponent>(),
             MakeTypeInfo<ParallaxComponent>(),
+            MakeTypeInfo<Camera2DFollowComponent>(),
             MakeTypeInfo<ParticleSystemComponent>(),
             MakeTypeInfo<UITransformComponent>(),
             MakeTypeInfo<UIButtonComponent>(),

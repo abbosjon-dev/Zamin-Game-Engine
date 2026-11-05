@@ -262,6 +262,10 @@ namespace Zamin {
                 { "FixedAspectRatio", c->FixedAspectRatio },
                 { "ClearColor", ToJson(c->ClearColor) },
             };
+            const CameraShake defaults;
+            if (c->Shake.MaxOffset != defaults.MaxOffset || c->Shake.MaxAngle != defaults.MaxAngle || c->Shake.Exponent != defaults.Exponent)
+                e["Camera"]["Shake"] = { { "MaxOffset", ToJson(c->Shake.MaxOffset) }, { "MaxAngle", c->Shake.MaxAngle },
+                                         { "Exponent", c->Shake.Exponent } };
         }
         if (auto* c = entity.TryGetComponent<SpriteRendererComponent>())
         {
@@ -407,6 +411,12 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<ParallaxComponent>())
             e["Parallax"] = { { "Factor", ToJson(c->Factor) }, { "RepeatX", c->RepeatX }, { "RepeatY", c->RepeatY },
                               { "Spacing", ToJson(c->Spacing) } };
+        if (auto* c = entity.TryGetComponent<Camera2DFollowComponent>())
+            e["Camera2DFollow"] = { { "Target", c->Target.ID }, { "Offset", ToJson(c->Offset) }, { "Damping", ToJson(c->Damping) },
+                                    { "DeadZone", ToJson(c->DeadZone) }, { "LookAhead", ToJson(c->LookAhead) },
+                                    { "LookAheadDamping", c->LookAheadDamping }, { "LookAheadMinSpeed", c->LookAheadMinSpeed },
+                                    { "UseBounds", c->UseBounds }, { "BoundsMin", ToJson(c->BoundsMin) }, { "BoundsMax", ToJson(c->BoundsMax) },
+                                    { "SnapOnStart", c->SnapOnStart } };
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
             e["ParticleSystem"] = {
                 { "Playing", c->Playing }, { "Looping", c->Looping }, { "PlayInEditor", c->PlayInEditor },
@@ -498,6 +508,13 @@ namespace Zamin {
             c.Primary = j.value("Primary", true);
             c.FixedAspectRatio = j.value("FixedAspectRatio", false);
             c.ClearColor = Vec(j, "ClearColor", c.ClearColor);
+            if (j.contains("Shake") && j["Shake"].is_object())
+            {
+                const json& shake = j["Shake"];
+                c.Shake.MaxOffset = glm::max(Vec(shake, "MaxOffset", c.Shake.MaxOffset), glm::vec2(0.0f));
+                c.Shake.MaxAngle = std::max(0.0f, shake.value("MaxAngle", c.Shake.MaxAngle));
+                c.Shake.Exponent = std::clamp(shake.value("Exponent", c.Shake.Exponent), 0.1f, 8.0f);
+            }
         }
         if (e.contains("SpriteRenderer"))
         {
@@ -766,6 +783,22 @@ namespace Zamin {
             c.RepeatX = j.value("RepeatX", false);
             c.RepeatY = j.value("RepeatY", false);
             c.Spacing = glm::max(Vec(j, "Spacing", glm::vec2(0.0f)), glm::vec2(0.0f));
+        }
+        if (e.contains("Camera2DFollow"))
+        {
+            const json& j = e["Camera2DFollow"];
+            auto& c = entity.AddComponent<Camera2DFollowComponent>();
+            c.Target.ID = j.contains("Target") && j["Target"].is_number_unsigned() ? j["Target"].get<uint64_t>() : 0;
+            c.Offset = Vec(j, "Offset", c.Offset);
+            c.Damping = glm::max(Vec(j, "Damping", c.Damping), glm::vec2(0.0f));
+            c.DeadZone = glm::max(Vec(j, "DeadZone", c.DeadZone), glm::vec2(0.0f));
+            c.LookAhead = Vec(j, "LookAhead", c.LookAhead);
+            c.LookAheadDamping = std::max(0.0f, j.value("LookAheadDamping", c.LookAheadDamping));
+            c.LookAheadMinSpeed = std::max(0.0f, j.value("LookAheadMinSpeed", c.LookAheadMinSpeed));
+            c.UseBounds = j.value("UseBounds", false);
+            c.BoundsMin = Vec(j, "BoundsMin", c.BoundsMin);
+            c.BoundsMax = Vec(j, "BoundsMax", c.BoundsMax);
+            c.SnapOnStart = j.value("SnapOnStart", true);
         }
         if (e.contains("ParticleSystem"))
         {

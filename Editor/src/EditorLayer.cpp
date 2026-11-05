@@ -1126,7 +1126,8 @@ namespace Zamin {
         {
             Entity camera = m_ActiveScene->GetPrimaryCameraEntity();
             if (!camera) return glm::mat4(0.0f);
-            return camera.GetComponent<CameraComponent>().Camera.GetProjection() * glm::inverse(m_ActiveScene->GetWorldTransform(camera));
+            // What the game view shows: the camera with its shake.
+            return camera.GetComponent<CameraComponent>().Camera.GetProjection() * glm::inverse(m_ActiveScene->GetCameraViewTransform(camera));
         }
         return m_EditorCamera.GetViewProjection();
     }
@@ -1137,7 +1138,7 @@ namespace Zamin {
         {
             Entity camera = m_ActiveScene->GetPrimaryCameraEntity();
             if (!camera) return false;
-            view = glm::inverse(m_ActiveScene->GetWorldTransform(camera));
+            view = glm::inverse(m_ActiveScene->GetCameraViewTransform(camera));
             projection = camera.GetComponent<CameraComponent>().Camera.GetProjection();
             return true;
         }
@@ -1825,6 +1826,27 @@ namespace Zamin {
                 DrawWireCircle(center + up * half, right, up, radius, col);
                 DrawWireCircle(center - up * half, right, up, radius, col);
             }
+        }
+
+        // Camera 2D Follow of the selected entity: its dead zone around the view's centre (yellow)
+        // and the world rectangle the view stays in (orange), on the target's plane.
+        if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity(); selected && selected.IsValid() &&
+            selected.HasComponent<Camera2DFollowComponent>() && !hidden.contains(selected))
+        {
+            const auto& follow = selected.GetComponent<Camera2DFollowComponent>();
+            glm::vec3 center = scene.GetWorldPosition(selected);
+            float z = 0.0f;
+            if (Entity target = follow.Target ? scene.GetEntityByUUID(follow.Target.ID) : Entity(); target && target != selected)
+                z = scene.GetWorldPosition(target).z;
+            auto rect = [&](const glm::vec2& min, const glm::vec2& max, const glm::vec4& color) {
+                glm::vec2 size = glm::max(glm::abs(max - min), glm::vec2(1e-3f));
+                Renderer2D::DrawRect(glm::translate(glm::mat4(1.0f), glm::vec3((min + max) * 0.5f, z)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f)),
+                                     color);
+            };
+            glm::vec2 half = follow.DeadZone * 0.5f;
+            rect(glm::vec2(center) - half, glm::vec2(center) + half, glm::vec4(1.0f, 0.85f, 0.25f, 0.9f));
+            if (follow.UseBounds)
+                rect(glm::min(follow.BoundsMin, follow.BoundsMax), glm::max(follow.BoundsMin, follow.BoundsMax), glm::vec4(1.0f, 0.55f, 0.15f, 0.9f));
         }
 
         // Tilemap bounds + hovered cell

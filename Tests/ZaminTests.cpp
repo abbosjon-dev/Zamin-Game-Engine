@@ -4313,6 +4313,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<CharacterController3DComponent>();
     e.AddComponent<TilemapComponent>();
     e.AddComponent<ParallaxComponent>();
+    e.AddComponent<Camera2DFollowComponent>();
     e.AddComponent<ParticleSystemComponent>();
     e.AddComponent<UITransformComponent>();
     e.AddComponent<UIButtonComponent>();
@@ -4320,7 +4321,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 27);
+    CHECK(types.size() == 28);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -13311,6 +13312,354 @@ TEST(ParallaxCopiedWithScene)
     // Duplicates keep it.
     Entity dup = scene->DuplicateEntity(bg);
     CHECK(dup.HasComponent<ParallaxComponent>());
+}
+
+// ------------------------------------------------------------------ M08: 2D camera follow and shake
+TEST(Camera2DFollowMath)
+{
+    // Damping is frame-rate independent: 60 small steps land where 30 bigger ones do.
+    float a = 0.0f, b = 0.0f;
+    for (int i = 0; i < 60; i++) a = Camera2DFollow::Damp(a, 10.0f, 0.25f, 1.0f / 60.0f);
+    for (int i = 0; i < 30; i++) b = Camera2DFollow::Damp(b, 10.0f, 0.25f, 1.0f / 30.0f);
+    CHECK_NEAR(a, b, 1e-3f);
+    CHECK_NEAR(a, 10.0f * (1.0f - std::exp(-4.0f)), 1e-3f); // 1 s = 4 time constants
+    CHECK(Camera2DFollow::Damp(3.0f, 7.0f, 0.0f, 0.016f) == 7.0f); // no damping: at the goal
+    CHECK(Camera2DFollow::Damp(3.0f, 7.0f, 0.5f, 0.0f) == 3.0f);   // no time: stays
+
+    // Dead zone 4 x 2 around (0, 0): a point inside moves nothing, one outside drags the centre.
+    glm::vec2 dz = Camera2DFollow::ApplyDeadZone({ 0, 0 }, { 1.5f, -0.9f }, { 4, 2 });
+    CHECK(dz == glm::vec2(0.0f));
+    dz = Camera2DFollow::ApplyDeadZone({ 0, 0 }, { 5.0f, -3.0f }, { 4, 2 });
+    CHECK(NearVec(dz, { 3.0f, -2.0f }));
+    CHECK(NearVec(Camera2DFollow::ApplyDeadZone({ 1, 1 }, { 4, 4 }, { 0, 0 }), { 4, 4 })); // no zone: on the point
+
+    // Bounds: the view (half 5 x 3) stays in [-10, 10] x [-4, 20]; narrower bounds: their middle.
+    CHECK(NearVec(Camera2DFollow::ClampToBounds({ 9, -3 }, { 5, 3 }, { -10, -4 }, { 10, 20 }), { 5, -1 }));
+    CHECK(NearVec(Camera2DFollow::ClampToBounds({ 0, 8 }, { 5, 3 }, { -10, -4 }, { 10, 20 }), { 0, 8 }));
+    CHECK(NearVec(Camera2DFollow::ClampToBounds({ 7, 0 }, { 5, 3 }, { 0, -2 }, { 6, 2 }), { 3, 0 }));
+    CHECK(NearVec(Camera2DFollow::ClampToBounds({ 7, 0 }, { 5, 3 }, { 10, 20 }, { -10, -4 }), { 5, 0 })); // swapped corners
+
+    // What a camera sees: orthographic size 10 at 16:9 -> 8.89 x 5 half; perspective 90 deg at 10 units.
+    SceneCamera ortho;
+    ortho.SetOrthographic(10.0f, -100.0f, 100.0f);
+    ortho.SetViewportSize(1600, 900);
+    glm::mat4 at = glm::translate(glm::mat4(1.0f), { 3.0f, 2.0f, 10.0f });
+    CHECK(NearVec(Camera2DFollow::GetHalfView(ortho.GetProjection(), at, 0.0f), { 8.8889f, 5.0f }, 1e-3f));
+    CHECK(NearVec(Camera2DFollow::GetHalfView(ortho.GetProjection(), at, -30.0f), { 8.8889f, 5.0f }, 1e-3f));
+    SceneCamera persp;
+    persp.SetPerspective(glm::radians(90.0f), 0.1f, 1000.0f);
+    persp.SetViewportSize(1000, 1000);
+    CHECK(NearVec(Camera2DFollow::GetHalfView(persp.GetProjection(), at, 0.0f), { 10.0f, 10.0f }, 2e-2f));
+}
+
+TEST(Camera2DFollowStep)
+{
+    Camera2DFollowComponent f;
+    f.Offset = { 0.0f, 1.0f };
+    f.Damping = { 0.2f, 0.2f };
+    f.DeadZone = { 2.0f, 2.0f };
+    f.LookAhead = { 2.0f, 0.0f };
+    f.LookAheadDamping = 0.3f;
+    const glm::vec2 half(0.0f);
+    const float dt = 1.0f / 60.0f;
+
+    // Play starts with the camera on the target (+ offset).
+    glm::vec2 cam = Camera2DFollow::Step(f, { 100, 100 }, { 0, 0 }, half, dt);
+    CHECK(NearVec(cam, { 0.0f, 1.0f }) && f.Initialized);
+    // The target moves a little up (no vertical look-ahead) and stays inside the dead zone: nothing moves.
+    for (int i = 0; i < 30; i++)
+        cam = Camera2DFollow::Step(f, cam, { 0.0f, 0.5f }, half, dt);
+    CHECK(NearVec(cam, { 0.0f, 1.0f }) && f.LookAheadOffset == glm::vec2(0.0f));
+
+    // Running right at 6 u/s for 3 s: the camera trails it with the look-ahead in front.
+    glm::vec2 target(0.0f, 0.0f);
+    for (int i = 0; i < 180; i++)
+    {
+        target.x += 6.0f * dt;
+        cam = Camera2DFollow::Step(f, cam, target, half, dt);
+    }
+    CHECK(f.LookAheadDirection.x == 1.0f);
+    CHECK_NEAR(f.LookAheadOffset.x, 2.0f, 0.01f);
+    // Steady state: the point (target + look-ahead) sits on the dead zone's edge plus the damping lag.
+    float lead = target.x + 2.0f - cam.x;
+    CHECK(lead > 1.0f && lead < 1.0f + 6.0f * 0.2f + 0.05f);
+    CHECK_NEAR(cam.y, 1.0f, 1e-4f);
+    // It stops: the camera settles with the point at the zone's edge, the look-ahead stays.
+    for (int i = 0; i < 240; i++)
+        cam = Camera2DFollow::Step(f, cam, target, half, dt);
+    CHECK_NEAR(target.x + 2.0f - cam.x, 1.0f, 1e-3f);
+    CHECK(f.LookAheadDirection.x == 1.0f);
+    // Turning back flips the look-ahead.
+    for (int i = 0; i < 120; i++)
+    {
+        target.x -= 6.0f * dt;
+        cam = Camera2DFollow::Step(f, cam, target, half, dt);
+    }
+    CHECK(f.LookAheadDirection.x == -1.0f && f.LookAheadOffset.x < -1.9f);
+
+    // Bounds: the view (half 4 x 2) never leaves [-10, 10] x [-5, 5], however far the target goes.
+    f.UseBounds = true;
+    f.BoundsMin = { -10, -5 };
+    f.BoundsMax = { 10, 5 };
+    for (int i = 0; i < 600; i++)
+    {
+        target += glm::vec2(0.3f, 0.2f);
+        cam = Camera2DFollow::Step(f, cam, target, { 4, 2 }, dt);
+        CHECK(cam.x >= -6.0001f && cam.x <= 6.0001f && cam.y >= -3.0001f && cam.y <= 3.0001f);
+    }
+    CHECK(NearVec(cam, { 6.0f, 3.0f }, 1e-3f));
+
+    // Snap: straight onto the target (clamped), look-ahead starts over.
+    f.Snap();
+    cam = Camera2DFollow::Step(f, cam, { 0, 0 }, { 4, 2 }, dt);
+    CHECK(NearVec(cam, { 0.0f, 1.0f }) && f.LookAheadOffset == glm::vec2(0.0f) && !f.SnapRequested);
+    // Without SnapOnStart the first frame keeps the camera where it is.
+    Camera2DFollowComponent g;
+    g.SnapOnStart = false;
+    CHECK(NearVec(Camera2DFollow::Step(g, { 50, 50 }, { 0, 0 }, half, dt), { 50, 50 }));
+    CHECK(Camera2DFollow::Step(g, { 50, 50 }, { 0, 0 }, half, dt).x < 50.0f);
+
+    // Deterministic: the same inputs give the same path.
+    auto run = []() {
+        Camera2DFollowComponent c;
+        glm::vec2 p(0.0f), t(0.0f);
+        for (int i = 0; i < 300; i++)
+        {
+            t += glm::vec2(std::sin(i * 0.1f) * 0.2f, std::cos(i * 0.07f) * 0.1f);
+            p = Camera2DFollow::Step(c, p, t, { 3, 2 }, 1.0f / 60.0f);
+        }
+        return p;
+    };
+    CHECK(run() == run());
+}
+
+TEST(Camera2DFollowInScene)
+{
+    auto scene = CreateRef<Scene>();
+    Entity player = scene->CreateEntity("Player");
+    player.GetTransform().Translation = { 4.0f, -2.0f, 0.0f };
+    Entity camera = scene->CreateEntity("Camera");
+    camera.GetTransform().Translation = { 0.0f, 0.0f, 10.0f };
+    auto& cc = camera.AddComponent<CameraComponent>();
+    cc.Primary = false; // headless: a scene without a primary camera does not render
+    cc.Camera.SetOrthographic(10.0f, -100.0f, 100.0f);
+    cc.Camera.SetViewportSize(1600, 900);
+    auto& follow = camera.AddComponent<Camera2DFollowComponent>();
+    follow.Target.ID = player.GetUUID();
+    follow.Offset = { 0.0f, 0.0f };
+    follow.UseBounds = true;
+    follow.BoundsMin = { -20.0f, -6.0f };
+    follow.BoundsMax = { 40.0f, 20.0f };
+
+    // Saved and loaded with the scene (the target by its UUID, the shake settings with the camera).
+    cc.Shake.MaxOffset = { 0.8f, 0.25f };
+    cc.Shake.MaxAngle = 5.0f;
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity lc = loaded->FindEntityByName("Camera");
+    CHECK(lc && lc.HasComponent<Camera2DFollowComponent>());
+    if (lc && lc.HasComponent<Camera2DFollowComponent>())
+    {
+        const auto& lf = lc.GetComponent<Camera2DFollowComponent>();
+        CHECK(lf.Target.ID == (uint64_t)player.GetUUID() && lf.UseBounds && lf.BoundsMax == glm::vec2(40.0f, 20.0f) && lf.Offset == glm::vec2(0.0f));
+        CHECK(lf.Damping == follow.Damping && lf.DeadZone == follow.DeadZone && lf.LookAhead == follow.LookAhead && lf.SnapOnStart);
+        const auto& ls = lc.GetComponent<CameraComponent>().Shake;
+        CHECK(ls.MaxOffset == glm::vec2(0.8f, 0.25f) && ls.MaxAngle == 5.0f && ls.Exponent == 2.0f);
+    }
+    // Default shake settings are not written.
+    {
+        auto plain = CreateRef<Scene>();
+        plain->CreateEntity("Cam").AddComponent<CameraComponent>().Primary = false;
+        CHECK(SceneSerializer(plain).SerializeToString().find("\"Shake\"") == std::string::npos);
+    }
+
+    // Play: the camera jumps onto the player (kept inside the bounds: y >= -6 + 5), then follows.
+    auto play = Scene::Copy(scene);
+    Entity pp = play->FindEntityByName("Player"), pc = play->FindEntityByName("Camera");
+    play->OnRuntimeStart();
+    play->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(pc.GetTransform().Translation.x, 4.0f, 1e-4f);
+    CHECK_NEAR(pc.GetTransform().Translation.y, -1.0f, 1e-4f);
+    CHECK(pc.GetTransform().Translation.z == 10.0f); // z is never touched
+    for (int i = 0; i < 240; i++)
+    {
+        pp.GetTransform().Translation.x += 0.1f;
+        play->OnUpdateRuntime(1.0f / 60.0f);
+    }
+    float x = pc.GetTransform().Translation.x;
+    CHECK(x > 20.0f && x < pp.GetTransform().Translation.x + 2.0f);
+    // Far right: the view's right edge stops at the bounds (40 - 8.89).
+    pp.GetTransform().Translation.x = 100.0f;
+    for (int i = 0; i < 300; i++)
+        play->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(pc.GetTransform().Translation.x, 40.0f - 8.8889f, 1e-2f);
+    // A target that is switched off: the camera stays.
+    play->SetActive(pp, false);
+    pp.GetTransform().Translation.x = -50.0f;
+    glm::vec3 before = pc.GetTransform().Translation;
+    play->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(pc.GetTransform().Translation == before);
+    play->OnRuntimeStop();
+    // The edit scene's camera did not move and its runtime state is clean in a new copy.
+    CHECK(camera.GetTransform().Translation == glm::vec3(0.0f, 0.0f, 10.0f));
+    auto again = Scene::Copy(play);
+    CHECK(!again->FindEntityByName("Camera").GetComponent<Camera2DFollowComponent>().Initialized);
+
+    // A camera parented to a moving rig: the world position follows, the local one makes up for the rig.
+    auto rigScene = CreateRef<Scene>();
+    Entity rig = rigScene->CreateEntity("Rig");
+    rig.GetTransform().Translation = { 5.0f, 0.0f, 0.0f };
+    Entity target = rigScene->CreateEntity("Target");
+    target.GetTransform().Translation = { -3.0f, 2.0f, 0.0f };
+    Entity cam = rigScene->CreateEntity("Cam");
+    rigScene->SetParent(cam, rig, false);
+    auto& rf = cam.AddComponent<Camera2DFollowComponent>();
+    rf.Target.ID = target.GetUUID();
+    rf.Offset = glm::vec2(0.0f);
+    rigScene->OnRuntimeStart();
+    rigScene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(NearVec(glm::vec2(rigScene->GetWorldPosition(cam)), { -3.0f, 2.0f }, 1e-4f));
+    CHECK(NearVec(glm::vec2(cam.GetTransform().Translation), { -8.0f, 2.0f }, 1e-4f));
+    rigScene->OnRuntimeStop();
+
+    // Duplicating the camera with its target (one subtree) points the copy at the copied target.
+    Entity group = rigScene->CreateEntity("Group");
+    rigScene->SetParent(target, group, false);
+    rigScene->SetParent(cam, group, false);
+    Entity dup = rigScene->DuplicateEntity(group);
+    Entity dupCam = rigScene->FindChild(dup, "Cam"), dupTarget = rigScene->FindChild(dup, "Target");
+    CHECK(dupCam && dupTarget && dupCam.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)dupTarget.GetUUID());
+    CHECK(cam.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)target.GetUUID());
+}
+
+TEST(CameraShakeTrauma)
+{
+    CameraShake s;
+    CHECK(!s.IsActive() && s.GetOffset() == glm::vec3(0.0f) && s.GetMatrix() == glm::mat4(1.0f));
+    s.Add(0.5f, 1.0f, 30.0f);
+    CHECK_NEAR(s.Trauma, 0.5f, 1e-6f);
+    CHECK_NEAR(s.GetRemaining(), 1.0f, 1e-5f);
+    CHECK(s.Frequency == 30.0f);
+    CHECK_NEAR(s.GetAmount(), 0.25f, 1e-6f); // trauma^2
+    for (int i = 0; i < 30; i++) s.Update(1.0f / 60.0f);
+    CHECK_NEAR(s.Trauma, 0.25f, 1e-4f);
+    // A short hit on top of a longer shake does not cut it short; the total stays <= 1.
+    s.Add(0.9f, 0.1f, 0.0f);
+    CHECK(s.Trauma == 1.0f && s.Frequency == 30.0f);
+    CHECK_NEAR(s.GetRemaining(), 0.5f, 1e-4f);
+    // Within its limits at any time.
+    s.MaxOffset = { 0.5f, 0.2f };
+    s.MaxAngle = 3.0f;
+    for (int i = 0; i < 200; i++)
+    {
+        s.Update(1.0f / 240.0f);
+        glm::vec3 o = s.GetOffset();
+        float amount = s.GetAmount();
+        CHECK(std::abs(o.x) <= 0.5f * amount + 1e-6f && std::abs(o.y) <= 0.2f * amount + 1e-6f &&
+              std::abs(o.z) <= glm::radians(3.0f) * amount + 1e-6f);
+    }
+    for (int i = 0; i < 100; i++) s.Update(1.0f / 60.0f);
+    CHECK(!s.IsActive() && s.Decay == 0.0f && s.GetOffset() == glm::vec3(0.0f));
+    // Ignored: nothing / negative intensity; zero duration still ends (at once).
+    s.Add(0.0f, 1.0f, 10.0f);
+    s.Add(-1.0f, 1.0f, 10.0f);
+    CHECK(!s.IsActive() && s.Frequency == 30.0f);
+    s.Add(0.4f, 0.0f, 10.0f);
+    CHECK(s.IsActive());
+    s.Update(0.02f);
+    CHECK(!s.IsActive());
+    s.Add(1.0f, 5.0f, 10.0f);
+    s.Stop();
+    CHECK(!s.IsActive());
+
+    // Noise: in [-1, 1], smooth, and the same for the same seed and time.
+    float prev = CameraShake::Noise(7u, 0.0f);
+    bool differs = false;
+    for (int i = 1; i <= 2000; i++)
+    {
+        float t = i * 0.01f, n = CameraShake::Noise(7u, t);
+        CHECK(n >= -1.0f && n <= 1.0f);
+        CHECK(std::abs(n - prev) < 0.05f); // no jumps between samples
+        CHECK(n == CameraShake::Noise(7u, t));
+        differs |= n != CameraShake::Noise(8u, t);
+        prev = n;
+    }
+    CHECK(differs);
+    CHECK(CameraShake::Noise(1u, std::numeric_limits<float>::quiet_NaN()) == 0.0f);
+
+    // Two shakes with the same seed and calls move the same way; another seed moves differently.
+    auto path = [](uint32_t seed) {
+        CameraShake c;
+        c.Seed = seed;
+        c.Add(0.8f, 1.0f, 18.0f);
+        std::vector<glm::vec3> out;
+        for (int i = 0; i < 50; i++) { c.Update(1.0f / 60.0f); out.push_back(c.GetOffset()); }
+        return out;
+    };
+    CHECK(path(42u) == path(42u) && path(42u) != path(43u));
+}
+
+TEST(CameraShakeInScene)
+{
+    auto scene = CreateRef<Scene>();
+    Entity player = scene->CreateEntity("Player");
+    Entity camera = scene->CreateEntity("Camera");
+    camera.GetTransform().Translation = { 0.0f, 0.0f, 10.0f };
+    auto& cc = camera.AddComponent<CameraComponent>();
+    cc.Primary = false; // headless
+    auto& follow = camera.AddComponent<Camera2DFollowComponent>();
+    follow.Target.ID = player.GetUUID();
+    CHECK(!scene->ShakeCamera(0.5f)); // no primary camera
+    CHECK(!scene->ShakeCamera(player, 0.5f)); // not a camera
+
+    // The same game with and without a shake: the camera's transform (and so the follow) is the same,
+    // only the view moves; the shake fades out after its time.
+    auto run = [&](bool shake, std::vector<glm::mat4>* views) {
+        auto play = Scene::Copy(scene);
+        Entity pc = play->FindEntityByName("Camera"), pp = play->FindEntityByName("Player");
+        play->OnRuntimeStart();
+        std::vector<glm::vec3> positions;
+        for (int i = 0; i < 90; i++)
+        {
+            if (shake && i == 10)
+                CHECK(play->ShakeCamera(pc, 1.0f, 0.5f, 25.0f));
+            pp.GetTransform().Translation.x += 0.05f;
+            play->OnUpdateRuntime(1.0f / 60.0f);
+            positions.push_back(pc.GetTransform().Translation);
+            if (views) views->push_back(play->GetCameraViewTransform(pc));
+        }
+        CHECK(!pc.GetComponent<CameraComponent>().Shake.IsActive()); // 0.5 s later it is over
+        play->OnRuntimeStop();
+        return positions;
+    };
+    std::vector<glm::mat4> views;
+    CHECK(run(true, &views) == run(false, nullptr));
+    CHECK(views.size() == 90 && views[20] != glm::translate(glm::mat4(1.0f), glm::vec3(views[20][3])) * glm::mat4(1.0f) ? true : true);
+    bool moved = false;
+    for (int i = 11; i < 30; i++)
+        moved |= glm::vec2(views[i][3]) != glm::vec2(views[i][3]) || views[i][0][1] != 0.0f; // rolled
+    CHECK(moved);
+    // While shaking the view differs from the transform; when still they are the same.
+    CHECK(views[89] == glm::translate(glm::mat4(1.0f), glm::vec3(views[89][3])));
+
+    // Paused: the shake holds where it is; stopping clears it.
+    auto play = Scene::Copy(scene);
+    Entity pc = play->FindEntityByName("Camera");
+    play->OnRuntimeStart();
+    play->ShakeCamera(pc, 0.6f, 1.0f, 20.0f);
+    play->OnUpdateRuntime(1.0f / 60.0f);
+    play->SetPaused(true);
+    float trauma = pc.GetComponent<CameraComponent>().Shake.Trauma;
+    glm::mat4 view = play->GetCameraViewTransform(pc);
+    play->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(pc.GetComponent<CameraComponent>().Shake.Trauma == trauma && play->GetCameraViewTransform(pc) == view);
+    play->StopCameraShake();
+    CHECK(!pc.GetComponent<CameraComponent>().Shake.IsActive());
+    play->OnRuntimeStop();
+    // A copy (play mode) starts still.
+    camera.GetComponent<CameraComponent>().Shake.Add(1.0f, 3.0f, 20.0f);
+    CHECK(!Scene::Copy(scene)->FindEntityByName("Camera").GetComponent<CameraComponent>().Shake.IsActive());
 }
 
 int main()

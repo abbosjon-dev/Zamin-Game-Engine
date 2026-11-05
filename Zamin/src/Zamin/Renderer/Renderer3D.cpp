@@ -1038,17 +1038,18 @@ void main()
         ShadowSettings settings = env.Shadows;
         settings.Sanitize();
         glm::vec3 dir = glm::normalize(env.Sun.Direction);
-        // 2x2 tiles of the atlas; a single cascade has all of it.
-        c.AtlasTiles = settings.GetAtlasTiles();
-        c.TileSize = settings.GetTileSize();
+        const bool perspective = proj[3][3] == 0.0f;
+        // 2x2 tiles of the atlas; a single cascade (always the case for an orthographic camera)
+        // has all of it.
+        c.Count = settings.GetCascadeCount(perspective);
+        c.AtlasTiles = settings.GetAtlasTiles(perspective);
+        c.TileSize = settings.GetTileSize(perspective);
         const float cascadeSize = (float)c.TileSize;
-        bool perspective = proj[3][3] == 0.0f;
         if (!perspective)
         {
             // orthographic cameras: a single cascade around the view center
             glm::vec3 forward = -glm::vec3(glm::inverse(view)[2]);
             float half = env.ShadowDistance * 0.5f;
-            c.Count = 1;
             c.LightSpace[0] = FitLightToSphere(dir, cameraPos + forward * half, half, cascadeSize, c.TexelWorld[0]);
             c.Splits[0] = env.ShadowDistance * 2.0f;
             return c;
@@ -1068,7 +1069,6 @@ void main()
             farCorners[i] = glm::vec3(b) / b.w;
         }
 
-        c.Count = settings.CascadeCount;
         const std::vector<float> splits = Renderer3D::GetCascadeSplits(n, f, c.Count, settings.CascadeSplit);
         float prev = n;
         for (int i = 0; i < c.Count; i++)
@@ -1260,6 +1260,8 @@ void main()
         bool shadows = env.HasSun && env.Sun.CastShadows && !s_Data->Queue.empty();
         CascadeData cascades;
 
+        // Editor view: meshes drawn as their triangle edges only (see the ID pass below).
+        const bool wireOnly = env.Wireframe == WireframeMode::Wire && !s_Data->Queue.empty();
         // How each queued mesh is drawn (pass, culling, shadow), once for every pass below.
         std::vector<SurfaceState> states;
         states.reserve(s_Data->Queue.size());
@@ -1444,9 +1446,40 @@ void main()
             RenderCommand::BindTextureUnit(1, s_Data->ShadowMap->GetDepthAttachmentRendererID());
             (env.EnvMap ? env.EnvMap->GetTexture() : s_Data->WhiteTexture)->Bind(5);
 
+            // Editor "edges only" view: the edges would write the entity IDs only on their own
+            // pixels, so a click inside a face would pick what is behind it. The IDs come from a
+            // filled pass first (colour masked, the cheap flat debug output; the same IDs as the
+            // filled picture), its depth is cleared again (the edges stay see-through), and the ID
+            // attachment is kept as it is while the edges, the sky and the grid are drawn.
+            if (wireOnly)
+            {
+                for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader })
+                {
+                    shader->Bind();
+                    shader->SetInt("u_DebugView", 6);
+                }
+                RenderCommand::SetBlendMode(BlendMode::None);
+                RenderCommand::SetColorWrite(0, false);
+                RenderCommand::SetDepthWrite(true);
+                for (size_t i = 0; i < s_Data->Queue.size(); i++)
+                {
+                    if (!visible[i]) continue;
+                    RenderCommand::SetCullMode(states[i].TwoSidedBlend ? CullMode::None : states[i].Cull);
+                    DrawQueued(s_Data->Queue[i], states[i].Mirrored, false);
+                }
+                RenderCommand::SetColorWrite(0, true);
+                RenderCommand::ClearDepth();
+                RenderCommand::SetColorWrite(1, false);
+                for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader })
+                {
+                    shader->Bind();
+                    shader->SetInt("u_DebugView", (int)env.DebugView);
+                }
+            }
+
             // Opaque, then cutout surfaces: they cover what is behind them (no blending needed).
             RenderCommand::SetBlendMode(BlendMode::None);
-            RenderCommand::SetWireframe(env.Wireframe == WireframeMode::Wire);
+            RenderCommand::SetWireframe(wireOnly);
             // Meshes that share the mesh, the material and the facing are drawn as instances of one
             // call (in the order of the first of them; alone they are drawn as before).
             std::vector<size_t> passItems;
@@ -1515,7 +1548,14 @@ void main()
         // ---------------- editor grid (blended over the opaque scene, under the transparent one)
         RenderCommand::SetBlendMode(BlendMode::Alpha);
         if (s_Data->GridSubmitted)
+        {
+            // Only a guide: the grid keeps the entity IDs as they are (a click on a line over the
+            // ground still picks the ground).
+            RenderCommand::SetColorWrite(1, false);
             DrawGrid(s_Data->View, s_Data->Projection, s_Data->CameraPosition, s_Data->GridPlane, s_Data->Grid);
+            if (!wireOnly)
+                RenderCommand::SetColorWrite(1, true);
+        }
 
         // ---------------- transparent surfaces: over the opaque scene and the sky, by priority and
         // back to front (by the center of their bounds), depth tested but not written (what is
@@ -1536,7 +1576,7 @@ void main()
         {
             RenderCommand::SetBlendMode(BlendMode::Premultiplied);
             RenderCommand::SetDepthWrite(false);
-            RenderCommand::SetWireframe(env.Wireframe == WireframeMode::Wire);
+            RenderCommand::SetWireframe(wireOnly);
             bool perspective = s_Data->Projection[3][3] == 0.0f;
             glm::vec3 eye = glm::vec3(glm::inverse(s_Data->View)[3]);
             for (size_t order : SortTransparent(s_Data->View, perspective, sortItems))
@@ -1590,6 +1630,8 @@ void main()
         }
 
         // the defaults everything else (2D, overlays, ImGui) expects
+        if (wireOnly)
+            RenderCommand::SetColorWrite(1, true);
         RenderCommand::SetBlendMode(BlendMode::Alpha);
         RenderCommand::SetCullMode(CullMode::None);
         RenderCommand::SetDepthWrite(true);

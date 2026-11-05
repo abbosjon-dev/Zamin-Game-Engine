@@ -2829,7 +2829,9 @@ namespace Zamin {
                 changed = true;
             }
             UI::PropertyLabel("");
+            ImGui::PushTextWrapPos(0.0f); // wraps inside the value column
             ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Obyektning -Z o'qi bo'ylab nur sochadi");
+            ImGui::PopTextWrapPos();
             return changed;
         }, true, modified);
 

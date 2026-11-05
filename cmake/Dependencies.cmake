@@ -97,9 +97,10 @@ target_include_directories(tinyobj INTERFACE ${tinyobj_SOURCE_DIR})
 add_library(cgltf INTERFACE)
 target_include_directories(cgltf INTERFACE ${cgltf_SOURCE_DIR})
 
-# miniaudio (audio)
+# miniaudio (audio). SYSTEM: its implementation is compiled in AudioEngine.cpp, and its own
+# warnings (e.g. Clang's -Wunused-but-set-variable in Release) are not the engine's.
 add_library(miniaudio INTERFACE)
-target_include_directories(miniaudio INTERFACE ${miniaudio_SOURCE_DIR})
+target_include_directories(miniaudio SYSTEM INTERFACE ${miniaudio_SOURCE_DIR})
 
 foreach(t glad imgui imguizmo)
     set_target_properties(${t} PROPERTIES POSITION_INDEPENDENT_CODE ON)

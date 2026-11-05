@@ -26,6 +26,8 @@ namespace Zamin {
         static void SetBlendMode(BlendMode mode) { s_API->SetBlendMode(mode); }
         static void SetCullMode(CullMode mode) { s_API->SetCullMode(mode); }
         static void SetWireframe(bool enabled, bool pullForward = false) { s_API->SetWireframe(enabled, pullForward); }
+        static void SetColorWrite(uint32_t attachment, bool enabled) { s_API->SetColorWrite(attachment, enabled); }
+        static void ClearDepth() { s_API->ClearDepth(); }
 
         static void BindTextureUnit(uint32_t unit, uint32_t id) { s_API->BindTextureUnit(unit, id); }
         static void SaveRenderTarget() { s_API->SaveRenderTarget(); }

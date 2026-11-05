@@ -43,6 +43,11 @@ namespace Zamin {
         // little towards the camera, so they win the depth test against the same surface drawn
         // filled (wireframe over a shaded picture).
         virtual void SetWireframe(bool enabled, bool pullForward = false) = 0;
+        // Whether draws write into the bound framebuffer's colour attachment `attachment` (all
+        // channels); the other attachments keep their own setting.
+        virtual void SetColorWrite(uint32_t attachment, bool enabled) = 0;
+        // Clears only the depth of the bound framebuffer (depth writes must be on).
+        virtual void ClearDepth() = 0;
 
         // Remember / restore the currently bound render target + viewport
         // (used by passes such as shadow mapping that render off-screen).

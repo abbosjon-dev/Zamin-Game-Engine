@@ -687,13 +687,35 @@ void main()
                     value[(size_t)y * size + x] += alpha * edge * shape;
                 }
         };
+        // Each random value is drawn into its own variable in a fixed order: the evaluation order of
+        // function arguments is unspecified (GCC and Clang differ), so next() calls inside one argument
+        // list would give a different picture per compiler.
+        struct Speck { float X, Y, Radius, Alpha; bool Ring; };
+        auto speck = [&](float minRadius, float radiusRange, float minAlpha, float alphaRange, float ringChance) {
+            Speck s;
+            s.X = next() * size;
+            s.Y = next() * size;
+            s.Radius = minRadius + next() * radiusRange;
+            s.Alpha = minAlpha + next() * alphaRange;
+            s.Ring = ringChance > 0.0f && next() < ringChance;
+            return s;
+        };
         // Big faint smudges, out-of-focus specks, then fine dust.
         for (int i = 0; i < 10; i++)
-            disc(next() * size, next() * size, (60.0f + next() * 110.0f) * scale, 0.04f + next() * 0.06f, 0.9f, false);
+        {
+            Speck s = speck(60.0f, 110.0f, 0.04f, 0.06f, 0.0f);
+            disc(s.X, s.Y, s.Radius * scale, s.Alpha, 0.9f, false);
+        }
         for (int i = 0; i < 36; i++)
-            disc(next() * size, next() * size, (8.0f + next() * 24.0f) * scale, 0.06f + next() * 0.16f, 0.25f, next() < 0.6f);
+        {
+            Speck s = speck(8.0f, 24.0f, 0.06f, 0.16f, 0.6f);
+            disc(s.X, s.Y, s.Radius * scale, s.Alpha, 0.25f, s.Ring);
+        }
         for (int i = 0; i < 160; i++)
-            disc(next() * size, next() * size, (0.8f + next() * 2.0f) * scale + 0.5f, 0.1f + next() * 0.35f, 0.6f, false);
+        {
+            Speck s = speck(0.8f, 2.0f, 0.1f, 0.35f, 0.0f);
+            disc(s.X, s.Y, s.Radius * scale + 0.5f, s.Alpha, 0.6f, false);
+        }
         std::vector<uint8_t> rgba((size_t)size * size * 4);
         for (size_t i = 0; i < value.size(); i++)
         {

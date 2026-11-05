@@ -122,7 +122,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 101. Spot yorug'lik (konus, ichki/tashqi burchak)
 - [x] 102. Spot yorug'lik inspektori va wireframe ko'rinishi
 - [x] 103. Point light wireframe radius ko'rinishi editorda
-- [x] 104. Yorug'liklar sonini oshirish (32) va eng yaqinlarini tanlash
+- [x] 104. Yorug'liklar sonini oshirish (32) va eng yaqinlarini tanlash (ataylab: masofaning o'zi emas, kameraga ta'siri bo'yicha — kuchi x (radius/masofa)^2, teng ta'sirda eng yaqini; README'da)
 - [x] 105. FXAA anti-aliasing
 - [x] 106. Render scale (ichki o'lcham koeffitsienti)
 - [x] 107. Gamma/eksposure avtomatik (auto exposure, oddiy)

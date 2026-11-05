@@ -123,6 +123,14 @@ namespace Zamin {
                 glDisable(GL_POLYGON_OFFSET_LINE);
         }
 
+        void SetColorWrite(uint32_t attachment, bool enabled) override
+        {
+            GLboolean on = enabled ? GL_TRUE : GL_FALSE;
+            glColorMaski(attachment, on, on, on, on);
+        }
+
+        void ClearDepth() override { glClear(GL_DEPTH_BUFFER_BIT); }
+
         void BindTextureUnit(uint32_t unit, uint32_t rendererID) override
         {
             glActiveTexture(GL_TEXTURE0 + unit);

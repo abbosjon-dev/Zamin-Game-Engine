@@ -11040,6 +11040,13 @@ TEST(ShadowQualitySettings)
     ShadowSettings one;
     one.CascadeCount = 1;
     CHECK(one.GetAtlasTiles() == 1 && one.GetTileSize() == 4096); // a single cascade has the whole atlas
+    // An orthographic camera always uses one cascade, so it gets the whole atlas whatever the count.
+    CHECK(d.GetCascadeCount(true) == 3 && d.GetCascadeCount(false) == 1);
+    CHECK(d.GetAtlasTiles(false) == 1 && d.GetTileSize(false) == 4096);
+    ShadowSettings four;
+    four.CascadeCount = 4;
+    four.AtlasSize = 2048;
+    CHECK(four.GetTileSize(true) == 1024 && four.GetTileSize(false) == 2048 && four.GetAtlasTiles(false) == 1);
     CHECK(SceneEnvironment().Shadows.AtlasSize == 4096 && SceneSettings().Shadows.Filter == ShadowFilter::PCF3x3);
 
     // Sanitizing: the atlas to the nearest supported size, the rest clamped, not finite: default.
@@ -11349,6 +11356,13 @@ TEST(LensEffectsSceneSetting)
         if (dirt[i] > 40) lit++;
     }
     CHECK(dark > dirt.size() / 4 / 3 && lit > 0);
+    // Pinned pixels (x, y, red) of seed 7: every compiler makes the same picture (the random
+    // values are drawn in a fixed order, not in the unspecified order of call arguments, which
+    // GCC and Clang evaluate differently). A small tolerance for the last bit of float math.
+    const int pinned[][3] = { { 27, 4, 125 }, { 48, 20, 146 }, { 105, 30, 132 }, { 50, 36, 122 }, { 18, 82, 70 },
+                              { 73, 83, 130 }, { 50, 118, 143 }, { 87, 113, 97 } };
+    for (const auto& p : pinned)
+        CHECK(std::abs((int)dirt[((size_t)p[1] * 128 + (size_t)p[0]) * 4] - p[2]) <= 4);
 }
 
 TEST(ImageCompare)

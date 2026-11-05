@@ -55,8 +55,9 @@ namespace Zamin {
     };
     constexpr int RenderDebugViewCount = 6;
 
-    // Meshes drawn as their triangle edges: Wire - only the edges (in the view's colors),
-    // ShadedWire - the normal picture with dark edges over it.
+    // Meshes drawn as their triangle edges: Wire - only the edges (in the view's colors; the
+    // entity IDs for picking still cover the whole faces), ShadedWire - the normal picture with
+    // dark edges over it.
     enum class WireframeMode : uint8_t { Off = 0, Wire, ShadedWire };
 
     // How the edge of a sun shadow is softened: Hard - one (hardware bilinear) comparison,
@@ -86,10 +87,13 @@ namespace Zamin {
         // Values from a file or a script brought into range: the atlas size to the nearest of
         // 1024 / 2048 / 4096, the counts and biases clamped, anything not finite to its default.
         void Sanitize();
+        // The cascades a camera uses: CascadeCount for a perspective camera, one for an
+        // orthographic camera (its single cascade then has the whole atlas).
+        int GetCascadeCount(bool perspective = true) const { return perspective ? CascadeCount : 1; }
         // The texels per side of one cascade's tile.
-        uint32_t GetTileSize() const { return CascadeCount <= 1 ? AtlasSize : AtlasSize / 2; }
+        uint32_t GetTileSize(bool perspective = true) const { return GetCascadeCount(perspective) <= 1 ? AtlasSize : AtlasSize / 2; }
         // Tiles per side of the atlas (1 for a single cascade, else 2).
-        int GetAtlasTiles() const { return CascadeCount <= 1 ? 1 : 2; }
+        int GetAtlasTiles(bool perspective = true) const { return GetCascadeCount(perspective) <= 1 ? 1 : 2; }
     };
 
     // The gradient sky (scenes without an HDRI): how its zenith / horizon / ground colours blend,

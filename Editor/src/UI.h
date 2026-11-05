@@ -20,11 +20,14 @@ namespace Zamin::UI {
     inline ImU32 AccentU32(float alpha = 1.0f) { return ImGui::GetColorU32(ImVec4(0.180f, 0.737f, 0.580f, alpha)); }
 
     // Two-column property table: label | widget
-    inline bool BeginPropertyGrid(const char* id)
+    // `labelWidth`: the label column's width (0: about a third of the panel, at most 8.5 lines high;
+    // a grid of long read-only labels passes the width of its longest one).
+    inline bool BeginPropertyGrid(const char* id, float labelWidth = 0.0f)
     {
         if (!ImGui::BeginTable(id, 2, ImGuiTableFlags_PadOuterX))
             return false;
-        float labelWidth = std::min(ImGui::GetContentRegionAvail().x * 0.36f, ImGui::GetFontSize() * 8.5f);
+        if (labelWidth <= 0.0f)
+            labelWidth = std::min(ImGui::GetContentRegionAvail().x * 0.36f, ImGui::GetFontSize() * 8.5f);
         ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, labelWidth);
         ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
         return true;

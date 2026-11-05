@@ -124,6 +124,7 @@ namespace Zamin {
                     scene->OnViewportResize(w, h);
                     m_Scene = scene;
                     m_Scene->OnRuntimeStart();
+                    m_PostHistory.Reset(); // the new level adapts at once (not from the last one's brightness)
                 }
                 else
                     ZM_ERROR("Sahna yuklanmadi: {}", next.string());

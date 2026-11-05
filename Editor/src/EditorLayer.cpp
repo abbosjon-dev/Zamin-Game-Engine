@@ -1309,11 +1309,15 @@ namespace Zamin {
     }
 
     // ================================================================== scenes
-    void EditorLayer::SetActiveScene(const Ref<Scene>& scene)
+    void EditorLayer::SetActiveScene(const Ref<Scene>& scene, bool newView)
     {
         m_ActiveScene = scene;
         m_ActiveScene->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
         m_GizmoEdit.End();
+        // The brightness adapted to the previous scene (or to play mode) does not carry over:
+        // the next frame adapts at once.
+        if (newView)
+            m_PostHistory.Reset();
         // The same entities (by UUID) stay selected: play mode copies, undo snapshots.
         m_SceneHierarchyPanel.SetContext(m_ActiveScene, true);
     }
@@ -1726,7 +1730,7 @@ namespace Zamin {
             return;
         scene->ResolveAssets();
         m_EditorScene = scene;
-        SetActiveScene(m_EditorScene);
+        SetActiveScene(m_EditorScene, false);
         m_SceneDirty = true;
         m_AssetUsage.MarkDirty(); // undo / redo brings back (or takes away) what used assets
         UpdateWindowTitle();
@@ -2387,7 +2391,7 @@ namespace Zamin {
                     m_EditorScene = scene;
                     // Playing: the running copy keeps what it loaded; Stop returns to the updated scene.
                     if (m_SceneState == SceneState::Edit)
-                        SetActiveScene(m_EditorScene);
+                        SetActiveScene(m_EditorScene, false);
                     ZM_INFO("Ochiq sahnada {} ta havola yangilandi", n);
                 }
             }
@@ -4047,8 +4051,9 @@ namespace Zamin {
             {
                 if (!m_ActiveScene->GetSunEntity())
                 {
-                    ImGui::SameLine();
-                    ImGui::TextDisabled("(sahnada Directional Light yo'q)");
+                    ImGui::PushTextWrapPos(0.0f); // wraps inside the value column
+                    ImGui::TextDisabled("Sahnada Directional Light yo'q - disk chizilmaydi");
+                    ImGui::PopTextWrapPos();
                 }
                 UI::PropertyLabel("Disk o'lchami", "Disk markazidan yorqinligi yarmiga tushadigan burchak (gradus). Haqiqiy quyosh "
                                                    "~0.27 gradus; o'yinlarda kattaroq disk chiroyliroq ko'rinadi");
@@ -4227,8 +4232,8 @@ namespace Zamin {
                 ImGui::SetScrollHereY(0.1f);
                 m_SceneSettingsScrollTo.clear();
             }
-            UI::PropertyLabel("Xromatik aberratsiya", "Tasvir chetlariga tomon qizil va ko'k ranglar bir-biridan siljiydi (arzon "
-                                                      "linzadagi rangli hoshiya). 0 - o'chiq");
+            UI::PropertyLabel("Aberratsiya", "Xromatik aberratsiya: tasvir chetlariga tomon qizil va ko'k ranglar bir-biridan "
+                                             "siljiydi (arzon linzadagi rangli hoshiya). 0 - o'chiq");
             ImGui::SetNextItemWidth(-FLT_MIN);
             changed |= ImGui::SliderFloat("##chromatic", &p.ChromaticAberration, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
             UI::PropertyLabel("Plyonka donasi", "Tayyor tasvir ustidagi har kadr o'zgaradigan shovqin (kino plyonkasi donadorligi), "
@@ -4363,7 +4368,13 @@ namespace Zamin {
             offset = (offset + 1) % 120;
             ImGui::Text("FPS: %.0f   Kadr: %.2f ms", Application::Get().GetFPS(), Application::Get().GetFrameTime());
             ImGui::PlotLines("##ft", history, 120, offset, nullptr, 0.0f, 40.0f, ImVec2(-1, 50));
-            if (UI::BeginPropertyGrid("stats"))
+            // The label column as wide as the longest label (they would run into the values).
+            float statsLabelWidth = 0.0f;
+            for (const char* label : { "Soya chizishlari", "Soya instanced", "Shaffof meshlar", "Render o'lchami", "Nofaol yorug'lik",
+                                       "Tile bo'laklari" })
+                statsLabelWidth = std::max(statsLabelWidth, ImGui::CalcTextSize(label).x);
+            statsLabelWidth = std::min(statsLabelWidth + ImGui::GetStyle().ItemSpacing.x, ImGui::GetContentRegionAvail().x * 0.5f);
+            if (UI::BeginPropertyGrid("stats", statsLabelWidth))
             {
                 // "drawn (culled)" pairs: the culled part dimmed.
                 auto drawnCulled = [](uint32_t drawn, uint32_t culled) {

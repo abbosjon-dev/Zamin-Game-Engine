@@ -3395,6 +3395,8 @@ namespace Zamin {
             else
             {
                 auto& ps = m_Registry.get<ParticleSystemComponent>(item.Handle);
+                // What came before is drawn with depth writes; the particles without them.
+                Renderer2D::Flush();
                 if (ps.Additive) Renderer2D::SetBlendMode(BlendMode::Additive);
                 RenderCommand::SetDepthWrite(false);
                 if (!ps.TexturePath.empty() && !ps.Texture)

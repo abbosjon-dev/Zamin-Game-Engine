@@ -51,7 +51,9 @@ namespace Zamin {
         void SaveScene();
         void SaveSceneAs();
         void SerializeScene(const Ref<Scene>& scene, const std::filesystem::path& path);
-        void SetActiveScene(const Ref<Scene>& scene);
+        // `newView`: another scene or another view of it (open, play, stop, a level switch) - the
+        // viewport's auto exposure starts over. False for the same scene rebuilt (undo, references).
+        void SetActiveScene(const Ref<Scene>& scene, bool newView = true);
         void MarkDirty() { if (m_SceneState == SceneState::Edit) { m_SceneDirty = true; m_PendingUndo = true; m_AssetUsage.MarkDirty(); } }
 
         // ---- undo / redo (scene snapshots)

@@ -357,48 +357,65 @@ void main()
 
     void Renderer2D::StartBatch() { ResetBatch(); }
 
+    // Each kind of the batch drawn and taken out of it (the next draw starts that kind afresh).
+    static void FlushQuads()
+    {
+        if (!s_Data->QuadIndexCount)
+            return;
+        uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->QuadVertexBufferPtr - (uint8_t*)s_Data->QuadVertexBufferBase);
+        s_Data->QuadVertexBuffer->SetData(s_Data->QuadVertexBufferBase, dataSize);
+        int linearTextures = 0;
+        for (uint32_t i = 0; i < s_Data->TextureSlotIndex; i++)
+        {
+            s_Data->TextureSlots[i]->Bind(i);
+            if (!s_Data->TextureSlots[i]->GetSpecification().SRGB)
+                linearTextures |= 1 << i;
+        }
+        s_Data->QuadShader->Bind();
+        s_Data->QuadShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
+        s_Data->QuadShader->SetInt("u_LinearTextures", linearTextures);
+        RenderCommand::DrawIndexed(s_Data->QuadVertexArray, s_Data->QuadIndexCount);
+        Renderer::GetStats().DrawCalls++;
+        s_Data->QuadIndexCount = 0;
+        s_Data->QuadVertexBufferPtr = s_Data->QuadVertexBufferBase;
+        s_Data->TextureSlotIndex = 1;
+    }
+
+    static void FlushCircles()
+    {
+        if (!s_Data->CircleIndexCount)
+            return;
+        uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->CircleVertexBufferPtr - (uint8_t*)s_Data->CircleVertexBufferBase);
+        s_Data->CircleVertexBuffer->SetData(s_Data->CircleVertexBufferBase, dataSize);
+        s_Data->CircleShader->Bind();
+        s_Data->CircleShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
+        RenderCommand::DrawIndexed(s_Data->CircleVertexArray, s_Data->CircleIndexCount);
+        Renderer::GetStats().DrawCalls++;
+        s_Data->CircleIndexCount = 0;
+        s_Data->CircleVertexBufferPtr = s_Data->CircleVertexBufferBase;
+    }
+
+    static void FlushLines()
+    {
+        if (!s_Data->LineVertexCount)
+            return;
+        uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->LineVertexBufferPtr - (uint8_t*)s_Data->LineVertexBufferBase);
+        s_Data->LineVertexBuffer->SetData(s_Data->LineVertexBufferBase, dataSize);
+        s_Data->LineShader->Bind();
+        s_Data->LineShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
+        RenderCommand::SetLineWidth(s_Data->LineWidth);
+        RenderCommand::DrawLines(s_Data->LineVertexArray, s_Data->LineVertexCount);
+        Renderer::GetStats().DrawCalls++;
+        s_Data->LineVertexCount = 0;
+        s_Data->LineVertexBufferPtr = s_Data->LineVertexBufferBase;
+    }
+
+    // Draws what is pending and empties the batch (flushing twice draws nothing twice).
     void Renderer2D::Flush()
     {
-        auto& stats = Renderer::GetStats();
-
-        if (s_Data->QuadIndexCount)
-        {
-            uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->QuadVertexBufferPtr - (uint8_t*)s_Data->QuadVertexBufferBase);
-            s_Data->QuadVertexBuffer->SetData(s_Data->QuadVertexBufferBase, dataSize);
-            int linearTextures = 0;
-            for (uint32_t i = 0; i < s_Data->TextureSlotIndex; i++)
-            {
-                s_Data->TextureSlots[i]->Bind(i);
-                if (!s_Data->TextureSlots[i]->GetSpecification().SRGB)
-                    linearTextures |= 1 << i;
-            }
-            s_Data->QuadShader->Bind();
-            s_Data->QuadShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
-            s_Data->QuadShader->SetInt("u_LinearTextures", linearTextures);
-            RenderCommand::DrawIndexed(s_Data->QuadVertexArray, s_Data->QuadIndexCount);
-            stats.DrawCalls++;
-        }
-
-        if (s_Data->CircleIndexCount)
-        {
-            uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->CircleVertexBufferPtr - (uint8_t*)s_Data->CircleVertexBufferBase);
-            s_Data->CircleVertexBuffer->SetData(s_Data->CircleVertexBufferBase, dataSize);
-            s_Data->CircleShader->Bind();
-            s_Data->CircleShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
-            RenderCommand::DrawIndexed(s_Data->CircleVertexArray, s_Data->CircleIndexCount);
-            stats.DrawCalls++;
-        }
-
-        if (s_Data->LineVertexCount)
-        {
-            uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->LineVertexBufferPtr - (uint8_t*)s_Data->LineVertexBufferBase);
-            s_Data->LineVertexBuffer->SetData(s_Data->LineVertexBufferBase, dataSize);
-            s_Data->LineShader->Bind();
-            s_Data->LineShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
-            RenderCommand::SetLineWidth(s_Data->LineWidth);
-            RenderCommand::DrawLines(s_Data->LineVertexArray, s_Data->LineVertexCount);
-            stats.DrawCalls++;
-        }
+        FlushQuads();
+        FlushCircles();
+        FlushLines();
     }
 
     void Renderer2D::NextBatch()
@@ -427,9 +444,20 @@ void main()
         return index;
     }
 
+    // Quads and circles are drawn in the order they were submitted: what is pending of the other
+    // kind is drawn first. (A batch draws its quads, then its circles: a circle submitted after a
+    // text glyph or a sprite in front of it would fail the depth test on that quad's blended edge
+    // and leave a fringe of the colour behind both.) Lines stay at the end of the batch.
+    static void BeginQuads()
+    {
+        if (s_Data->CircleIndexCount)
+            FlushCircles();
+    }
+
     static void SubmitQuad(const glm::mat4& transform, const glm::vec4& color, float texIndex, float tiling,
                            const glm::vec2* texCoords, int entityID)
     {
+        BeginQuads();
         for (int i = 0; i < 4; i++)
         {
             s_Data->QuadVertexBufferPtr->Position = transform * s_Data->QuadVertexPositions[i];
@@ -499,6 +527,8 @@ void main()
     {
         if (s_Data->CircleIndexCount >= Renderer2DData::MaxIndices)
             NextBatch();
+        if (s_Data->QuadIndexCount)
+            FlushQuads(); // keeps the submission order (see BeginQuads)
 
         for (int i = 0; i < 4; i++)
         {
@@ -567,6 +597,7 @@ void main()
     {
         if (!font || !font->IsLoaded())
             return;
+        BeginQuads();
         const Ref<Texture2D>& atlas = font->GetAtlasTexture();
 
         float x = 0.0f, y = 0.0f;

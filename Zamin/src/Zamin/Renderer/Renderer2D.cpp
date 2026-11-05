@@ -23,6 +23,7 @@ layout(location = 6) in vec4 a_Flash;         // rgb + amount
 layout(location = 7) in vec4 a_OutlineColor;
 layout(location = 8) in vec4 a_UVRect;        // the picture's own UV rectangle (min, max)
 layout(location = 9) in float a_OutlineWidth; // texture pixels (0: no outline)
+layout(location = 10) in float a_Lit;         // 1: lit by the 2D lights
 
 uniform mat4 u_ViewProjection;
 
@@ -35,9 +36,13 @@ flat out vec4 v_Flash;
 flat out vec4 v_OutlineColor;
 flat out vec4 v_UVRect;
 flat out float v_OutlineWidth;
+flat out float v_Lit;
+out vec2 v_WorldPos;
 
 void main()
 {
+    v_Lit = a_Lit;
+    v_WorldPos = a_Position.xy;
     v_Color = a_Color;
     v_TexCoord = a_TexCoord;
     v_TexIndex = a_TexIndex;
@@ -64,9 +69,47 @@ flat in vec4 v_Flash;
 flat in vec4 v_OutlineColor;
 flat in vec4 v_UVRect;
 flat in float v_OutlineWidth;
+flat in float v_Lit;
+in vec2 v_WorldPos;
 
 uniform sampler2D u_Textures[16];
 uniform int u_LinearTextures; // bit per slot: the texture holds linear values (import setting sRGB off)
+
+// 2D lights (Light2DMath does the same on the CPU)
+const int MAX_LIGHTS_2D = 32;
+uniform int u_LightCount;
+uniform vec3 u_Ambient2D;                       // linear
+uniform vec4 u_LightPosRadius[MAX_LIGHTS_2D];   // xy position, z radius, w inner radius
+uniform vec4 u_LightColor[MAX_LIGHTS_2D];       // rgb linear x intensity, w falloff
+uniform vec4 u_LightSpot[MAX_LIGHTS_2D];        // xy direction, z cos outer, w cos inner (z < -1.5: a point light)
+
+vec3 Lighting2D(vec2 p)
+{
+    vec3 light = u_Ambient2D;
+    for (int i = 0; i < u_LightCount; i++)
+    {
+        vec4 pr = u_LightPosRadius[i];
+        vec2 d = p - pr.xy;
+        float dist = length(d);
+        if (dist >= pr.z)
+            continue;
+        float inner = clamp(pr.w, 0.0, pr.z);
+        float a = 1.0;
+        if (dist > inner)
+            a = pow(clamp(1.0 - (dist - inner) / max(1e-6, pr.z - inner), 0.0, 1.0), max(0.01, u_LightColor[i].w));
+        vec4 spot = u_LightSpot[i];
+        if (spot.z > -1.5 && dist > 1e-6)
+        {
+            float c = dot(spot.xy, d / dist);
+            if (spot.w <= spot.z + 1e-6)
+                a *= c >= spot.z ? 1.0 : 0.0;
+            else
+                a *= smoothstep(spot.z, spot.w, c);
+        }
+        light += u_LightColor[i].rgb * a;
+    }
+    return light;
+}
 
 vec4 SampleTexture(int index, vec2 uv)
 {
@@ -155,6 +198,9 @@ void main()
     // Sprites are authored in sRGB; the scene buffer is linear HDR.
     vec3 rgb = linearTexture ? pow(v_Color.rgb, vec3(2.2)) * texColor.rgb : pow(color.rgb, vec3(2.2));
     float alpha = color.a;
+    // 2D lights (Lit renderers): the picture times the light that reaches it.
+    if (v_Lit > 0.5)
+        rgb *= Lighting2D(v_WorldPos);
     // Hit flash: the picture toward the flash colour.
     if (v_Flash.a > 0.0)
         rgb = mix(rgb, pow(v_Flash.rgb, vec3(2.2)), clamp(v_Flash.a, 0.0, 1.0));
@@ -281,6 +327,7 @@ void main()
             glm::vec4 OutlineColor;
             glm::vec4 UVRect;       // min.xy, max.xy
             float OutlineWidth;     // texture pixels (0: none)
+            float Lit;              // 1: lit by the 2D lights
         };
 
         struct CircleVertex
@@ -334,6 +381,11 @@ void main()
 
             float LineWidth = 2.0f;
 
+            // 2D lighting: what lit quads get (uploaded with the next quad draw that follows a change)
+            float CurrentLit = 0.0f;
+            Lighting2DData Lighting;
+            bool LightingDirty = true;
+
             std::array<Ref<Texture2D>, MaxTextureSlots> TextureSlots;
             uint32_t TextureSlotIndex = 1; // 0 = white texture
 
@@ -364,6 +416,7 @@ void main()
             { ShaderDataType::Float4, "a_OutlineColor" },
             { ShaderDataType::Float4, "a_UVRect" },
             { ShaderDataType::Float,  "a_OutlineWidth" },
+            { ShaderDataType::Float,  "a_Lit" },
         });
         s_Data->QuadVertexArray->AddVertexBuffer(s_Data->QuadVertexBuffer);
         s_Data->QuadVertexBufferBase = new QuadVertex[Renderer2DData::MaxVertices];
@@ -466,6 +519,28 @@ void main()
 
     void Renderer2D::StartBatch() { ResetBatch(); }
 
+    // The 2D lights into the quad shader's uniforms (the shader is bound).
+    static void UploadLighting()
+    {
+        const Lighting2DData& l = s_Data->Lighting;
+        const int count = std::min((int)l.Lights.size(), Light2DMath::MaxLights);
+        std::array<glm::vec4, Light2DMath::MaxLights> posRadius{}, color{}, spot{};
+        for (int i = 0; i < count; i++)
+        {
+            const Light2DData& light = l.Lights[(size_t)i];
+            posRadius[(size_t)i] = { light.Position, light.Radius, light.InnerRadius };
+            color[(size_t)i] = { light.Color, light.Falloff };
+            spot[(size_t)i] = light.Spot ? glm::vec4(light.Direction, light.CosOuter, light.CosInner) : glm::vec4(1.0f, 0.0f, -2.0f, -2.0f);
+        }
+        Shader& shader = *s_Data->QuadShader;
+        shader.SetInt("u_LightCount", count);
+        shader.SetFloat3("u_Ambient2D", l.Ambient);
+        shader.SetFloat4Array("u_LightPosRadius", posRadius.data(), (uint32_t)count);
+        shader.SetFloat4Array("u_LightColor", color.data(), (uint32_t)count);
+        shader.SetFloat4Array("u_LightSpot", spot.data(), (uint32_t)count);
+        s_Data->LightingDirty = false;
+    }
+
     // Each kind of the batch drawn and taken out of it (the next draw starts that kind afresh).
     static void FlushQuads()
     {
@@ -483,6 +558,8 @@ void main()
         s_Data->QuadShader->Bind();
         s_Data->QuadShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
         s_Data->QuadShader->SetInt("u_LinearTextures", linearTextures);
+        if (s_Data->LightingDirty)
+            UploadLighting();
         RenderCommand::DrawIndexed(s_Data->QuadVertexArray, s_Data->QuadIndexCount);
         Renderer::GetStats().DrawCalls++;
         s_Data->QuadIndexCount = 0;
@@ -583,6 +660,7 @@ void main()
             s_Data->QuadVertexBufferPtr->OutlineColor = outline ? effect->OutlineColor : glm::vec4(0.0f);
             s_Data->QuadVertexBufferPtr->UVRect = uvRect;
             s_Data->QuadVertexBufferPtr->OutlineWidth = outline ? effect->OutlineThickness : 0.0f;
+            s_Data->QuadVertexBufferPtr->Lit = s_Data->CurrentLit;
             s_Data->QuadVertexBufferPtr++;
         }
         s_Data->QuadIndexCount += 6;
@@ -718,6 +796,23 @@ void main()
         RenderCommand::SetBlendMode(mode);
     }
 
+    void Renderer2D::SetLighting(const Lighting2DData& lighting)
+    {
+        if (!s_Data->LightingDirty && s_Data->Lighting == lighting)
+            return;
+        // What was submitted before was meant for the old lights.
+        FlushQuads();
+        s_Data->Lighting = lighting;
+        if (s_Data->Lighting.Lights.size() > (size_t)Light2DMath::MaxLights)
+            s_Data->Lighting.Lights.resize((size_t)Light2DMath::MaxLights);
+        s_Data->LightingDirty = true;
+    }
+
+    const Lighting2DData& Renderer2D::GetLighting() { return s_Data->Lighting; }
+
+    void Renderer2D::SetLit(bool lit) { s_Data->CurrentLit = lit ? 1.0f : 0.0f; }
+    bool Renderer2D::IsLit() { return s_Data->CurrentLit > 0.5f; }
+
     float Renderer2D::GetLineWidth() { return s_Data->LineWidth; }
     void Renderer2D::SetLineWidth(float width) { s_Data->LineWidth = width; }
 
@@ -769,6 +864,7 @@ void main()
                     s_Data->QuadVertexBufferPtr->OutlineColor = glm::vec4(0.0f);
                     s_Data->QuadVertexBufferPtr->UVRect = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
                     s_Data->QuadVertexBufferPtr->OutlineWidth = 0.0f;
+                    s_Data->QuadVertexBufferPtr->Lit = s_Data->CurrentLit;
                     s_Data->QuadVertexBufferPtr++;
                 }
                 s_Data->QuadIndexCount += 6;

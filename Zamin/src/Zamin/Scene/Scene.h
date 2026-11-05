@@ -8,8 +8,12 @@
 #include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Renderer/Renderer3D.h"
 #include "Zamin/Renderer/SpriteSheet.h"
+#include "Zamin/Renderer/Lighting2D.h"
+#include "Zamin/Scene/SortingLayers.h"
+#include "Zamin/Scene/PixelPerfect.h"
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 
 #include <entt/entt.hpp>
@@ -65,6 +69,15 @@ namespace Zamin {
         // Post-processing
         PostProcessSettings Post;
 
+        // 2D lighting: the light Lit sprites and tilemaps get everywhere (linear colour x intensity),
+        // the Light 2D lights add to it. White at 1: a Lit renderer without lights looks unlit.
+        struct Lighting2DSettings
+        {
+            glm::vec3 AmbientColor{ 1.0f };
+            float AmbientIntensity = 1.0f;
+            bool operator==(const Lighting2DSettings&) const = default;
+        } Lighting2D;
+
         // Physics
         glm::vec2 Gravity{ 0.0f, -9.8f };
         glm::vec3 Gravity3D{ 0.0f, -9.81f, 0.0f };
@@ -112,6 +125,12 @@ namespace Zamin {
         entt::entity TilePreviewEntity = entt::null;
         int TilePreviewLayer = 0;
         const std::vector<int>* TilePreviewTiles = nullptr;
+        // Pixel-perfect camera (SnapSprites): sprites and tilemaps are drawn at the nearest multiple
+        // of this many world units (0: where they are).
+        float PixelSnap = 0.0f;
+        // Screen-space UI: the viewport pixels (left, right, bottom, top) the render target spans
+        // (a pixel-perfect camera's upscaled picture is centred); all 0: the viewport itself.
+        glm::vec4 UIViewRect{ 0.0f };
     };
 
     class Scene
@@ -310,6 +329,18 @@ namespace Zamin {
         // The box around what the entity draws in its own space (before its world transform; a
         // model's bounds in its bind pose). False when it draws nothing of the above or is UI.
         bool GetEntityLocalBounds(Entity entity, AABB& out);
+
+        // ---- 2D draw order (sorting layers, see SortKey2D)
+        // The sorting layer of the entity's 2D renderer (sprite, circle, text, tilemap, particles,
+        // in that order); false without one.
+        static bool GetSortingLayer(Entity entity, uint32_t& layer);
+        // Y-sorted layers: the entity whose world position is the sort point of `entity` drawn on
+        // `layer` - its topmost ancestor reached through parents that all draw on that layer, else
+        // the entity itself (a group entity without a renderer breaks the chain).
+        Entity GetSortRoot(Entity entity, uint32_t layer);
+        // The key the renderer sorts the entity's renderer on `layer` with (`view`: the camera's
+        // view matrix, for the depth; parallax offsets not counted).
+        SortKey2D GetSortKey2D(Entity entity, uint32_t layer, int order, const glm::mat4& view = glm::mat4(1.0f));
         // Union over `entities` (with their descendants when includeChildren). False when none counted.
         bool ComputeBounds(const std::vector<Entity>& entities, AABB& out, bool includeChildren = true);
         // The whole scene as the editor's scene view shows it (Shift+F): entities hidden in the
@@ -337,6 +368,17 @@ namespace Zamin {
         const glm::mat4& GetLastView() const { return m_LastView; }
         // Unprojects a viewport pixel through the primary camera onto the plane z = depthZ.
         glm::vec3 ScreenToWorld(const glm::vec2& screen, float depthZ = 0.0f);
+
+        // ---- pixel-perfect cameras (CameraComponent::PixelPerfect), for the viewport size
+        // The projection a camera entity shows the viewport with: its pixel-perfect one (what the
+        // view shows of the render target) when it has one, else its own.
+        glm::mat4 GetCameraProjection(Entity camera);
+        // The pixel-perfect view of the primary camera; false when it has none (or no camera).
+        bool GetPixelPerfectView(PixelPerfectView& out);
+        // The size the game's scene picture is drawn at for a width x height view: a pixel-perfect
+        // camera's render target (upscaling: the art's resolution; otherwise the view's own size),
+        // else the render scale's (Renderer::GetRenderResolution).
+        glm::uvec2 GetRuntimeRenderResolution(uint32_t width, uint32_t height);
 
         // ---- particles (nothing is emitted for an entity that is not active in the hierarchy)
         void EmitParticles(Entity entity, int count);
@@ -389,6 +431,9 @@ namespace Zamin {
         // the editor's play-mode overlays).
         glm::mat4 GetCameraViewTransform(Entity camera);
 
+        // ---- tint animation (TintAnimationComponent)
+        // What the entity's 2D renderers and Light 2D colours are multiplied by now (white without one).
+        static glm::vec4 GetTint(Entity entity);
         // ---- one-way platforms (OneWay tiles of a tileset, BoxCollider2D::OneWay)
         // The entity's 2D body falls through every one-way surface for `seconds` (and for as long as
         // it is still inside one): "down + jump" in a platformer. False without a running 2D world.
@@ -484,6 +529,13 @@ namespace Zamin {
         void UpdateCameraFollow(float dt);
         void UpdateAudio();
         void UpdateAnimators(Timestep ts, bool editor);
+        // TintAnimationComponent: the playing ones advance (editor: only the inspector's previews).
+        void UpdateTintAnimations(Timestep ts, bool editor);
+    public:
+        // The 2D lights (Light 2D) as the renderer gets them for a view centred at `viewCenter`
+        // (no culling, parallax not counted): for tests and tools.
+        Lighting2DData CollectLights2D(const glm::vec2& viewCenter);
+    private:
         void DispatchContactEvents(const std::vector<ContactEvent>& events);
         Entity DuplicateEntityRecursive(Entity entity, UUID newParent);
         Entity InstantiateCopy(Entity prefab, const glm::vec3* position);
@@ -506,7 +558,11 @@ namespace Zamin {
         void UpdateParticles(Timestep ts, bool editor);
         void UpdateUI();
 
-        void RenderUI(const std::unordered_set<entt::entity>* skip);
+        void RenderUI(const std::unordered_set<entt::entity>* skip, const glm::vec4& viewRect = glm::vec4(0.0f));
+        // The Light 2D lights the view sees (culled by `frustum` when given; the nearest to
+        // `viewCenter` first, at most Light2DMath::MaxLights) and the scene's 2D ambient light.
+        Lighting2DData GatherLights2D(const std::function<const glm::mat4&(entt::entity)>& world, const glm::vec2& viewCenter,
+                                      const Frustum* frustum, const std::unordered_set<entt::entity>& skipped);
         // CollectLights with the set of entities to leave out given (RenderScene has it already).
         LightSet GatherLights(const glm::vec3& viewPosition, const std::unordered_set<entt::entity>& skipped);
         // Entities by their scene order (the order of the ID pool, as the hierarchy lists them).

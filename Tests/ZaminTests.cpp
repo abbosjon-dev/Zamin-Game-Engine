@@ -4303,6 +4303,8 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<DirectionalLightComponent>();
     e.AddComponent<PointLightComponent>();
     e.AddComponent<SpotLightComponent>();
+    e.AddComponent<Light2DComponent>();
+    e.AddComponent<TintAnimationComponent>();
     e.AddComponent<Rigidbody2DComponent>();
     e.AddComponent<BoxCollider2DComponent>();
     e.AddComponent<CircleCollider2DComponent>();
@@ -4321,7 +4323,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 28);
+    CHECK(types.size() == 30);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -14427,6 +14429,436 @@ TEST(SpriteFlashAndOutline)
     CHECK(SceneSerializer(again).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
     const auto& as = again->FindEntityByName("Hero").GetComponent<SpriteRendererComponent>();
     CHECK(as.FlashAmount == 0.4f && as.FlashColor == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) && as.OutlineThickness == 0.0f);
+}
+
+// ------------------------------------------------------------------ M08: tint animation, 2D lights, pixel perfect, Y-sort
+static bool NearColor(const glm::vec4& a, const glm::vec4& b, float eps = 1e-4f)
+{
+    return glm::all(glm::lessThanEqual(glm::abs(a - b), glm::vec4(eps)));
+}
+
+TEST(TintGradientAndPhases)
+{
+    for (int i = 0; i < EaseCount; i++)
+        CHECK(EaseFromString(EaseToString((Ease)i)) == (Ease)i);
+    CHECK(!EaseFromString("Nope") && TintAnimation::ModeFromString("PingPong") == TintPlayMode::PingPong && !TintAnimation::ModeFromString("x"));
+
+    // The keys need not be sorted; between two keys the colour is blended, outside them it holds.
+    const glm::vec4 red(1, 0, 0, 1), green(0, 1, 0, 0), blue(0, 0, 1, 1), white(1.0f);
+    std::vector<TintKey> keys = { { 1.0f, blue }, { 0.0f, red }, { 0.5f, green } };
+    CHECK(NearColor(TintAnimation::EvaluateGradient(keys, 0.0f), red));
+    CHECK(NearColor(TintAnimation::EvaluateGradient(keys, 0.25f), { 0.5f, 0.5f, 0.0f, 0.5f }));
+    CHECK(NearColor(TintAnimation::EvaluateGradient(keys, 0.75f), { 0.0f, 0.5f, 0.5f, 0.5f }));
+    CHECK(NearColor(TintAnimation::EvaluateGradient(keys, -1.0f), red) && NearColor(TintAnimation::EvaluateGradient(keys, 2.0f), blue));
+    CHECK(TintAnimation::EvaluateGradient({}, 0.3f) == white && TintAnimation::EvaluateGradient({ { 0.7f, red } }, 0.1f) == red);
+    std::vector<TintKey> messy = { { 2.0f, blue }, { -1.0f, red }, { 0.4f, green } };
+    TintAnimation::SortKeys(messy);
+    CHECK(messy[0].Time == 0.0f && messy[0].Color == red && messy[1].Time == 0.4f && messy[2].Time == 1.0f);
+
+    // Phases: Once runs 0 -> 1 and holds; Loop starts over; PingPong comes back; cycles stop it.
+    CHECK_NEAR(TintAnimation::GetPhase(TintPlayMode::Once, Ease::Linear, 2.0f, 0, 1.0f), 0.5f, 1e-6f);
+    CHECK_NEAR(TintAnimation::GetPhase(TintPlayMode::Once, Ease::Linear, 2.0f, 0, 5.0f), 1.0f, 1e-6f);
+    CHECK_NEAR(TintAnimation::GetPhase(TintPlayMode::Once, Ease::InQuad, 1.0f, 0, 0.5f), 0.25f, 1e-6f);
+    CHECK(TintAnimation::IsFinished(TintPlayMode::Once, 2.0f, 0, 2.0f) && !TintAnimation::IsFinished(TintPlayMode::Once, 2.0f, 0, 1.9f));
+    CHECK_NEAR(TintAnimation::GetPhase(TintPlayMode::Loop, Ease::Linear, 1.0f, 0, 2.25f), 0.25f, 1e-5f);
+    CHECK(!TintAnimation::IsFinished(TintPlayMode::Loop, 1.0f, 0, 1000.0f));
+    CHECK(TintAnimation::IsFinished(TintPlayMode::Loop, 1.0f, 2, 2.5f) && TintAnimation::GetPhase(TintPlayMode::Loop, Ease::Linear, 1.0f, 2, 2.5f) == 1.0f);
+    CHECK_NEAR(TintAnimation::GetPhase(TintPlayMode::PingPong, Ease::Linear, 1.0f, 0, 0.5f), 0.5f, 1e-5f);
+    CHECK_NEAR(TintAnimation::GetPhase(TintPlayMode::PingPong, Ease::Linear, 1.0f, 0, 1.75f), 0.25f, 1e-5f);
+    CHECK_NEAR(TintAnimation::GetPhase(TintPlayMode::PingPong, Ease::Linear, 1.0f, 0, 3.25f), 0.75f, 1e-5f);
+    CHECK(TintAnimation::IsFinished(TintPlayMode::PingPong, 1.0f, 1, 2.0f) && !TintAnimation::IsFinished(TintPlayMode::PingPong, 1.0f, 1, 1.5f));
+    CHECK(TintAnimation::GetPhase(TintPlayMode::PingPong, Ease::Linear, 1.0f, 1, 2.5f) == 0.0f); // back at the start
+    CHECK(TintAnimation::GetPhase(TintPlayMode::Once, Ease::Linear, 0.0f, 0, 0.0f) == 1.0f);
+    CHECK(TintAnimation::GetPhase(TintPlayMode::PingPong, Ease::Linear, 0.0f, 0, 3.0f) == 0.0f);
+
+    // The component: Update stops a finished one on its last colour; the start offset skips ahead.
+    TintAnimationComponent c;
+    c.Keys = { { 0.0f, white }, { 1.0f, red } };
+    c.Mode = TintPlayMode::Once;
+    c.Easing = Ease::Linear;
+    c.Duration = 1.0f;
+    CHECK(c.GetColor() == white && !c.Playing);
+    c.Play();
+    c.Update(0.5f);
+    CHECK(NearColor(c.GetColor(), { 1.0f, 0.5f, 0.5f, 1.0f }) && c.Playing);
+    c.Update(0.6f);
+    CHECK(!c.Playing && c.IsFinished() && NearColor(c.GetColor(), red));
+    c.Reset();
+    CHECK(c.Elapsed == 0.0f && c.GetColor() == white);
+    c.StartOffset = 0.25f;
+    CHECK(NearColor(c.GetColor(), { 1.0f, 0.75f, 0.75f, 1.0f }));
+    c.PlayOnStart = false;
+    c.Playing = c.EditorPreview = true;
+    c.Elapsed = 3.0f;
+    c.ResetRuntime();
+    CHECK(!c.Playing && !c.EditorPreview && c.Elapsed == 0.0f);
+}
+
+class TintProbe : public ScriptableEntity
+{
+public:
+    void OnStart() override { TweenColor({ 0.0f, 0.0f, 1.0f, 1.0f }, 1.0f, Ease::Linear); }
+};
+ZM_REGISTER_SCRIPT(TintProbe)
+
+class BlinkProbe : public ScriptableEntity
+{
+public:
+    void OnStart() override
+    {
+        PlayTint({ 1.0f, 1.0f, 1.0f, 0.0f }, 0.1f, TintPlayMode::PingPong, 3, Ease::Linear);
+        FadeTo(0.5f, 0.5f, Ease::Linear);
+    }
+};
+ZM_REGISTER_SCRIPT(BlinkProbe)
+
+TEST(TintAnimationInScene)
+{
+    auto scene = CreateRef<Scene>();
+    Entity gem = scene->CreateEntity("Gem");
+    gem.AddComponent<SpriteRendererComponent>().Color = { 0.5f, 1.0f, 1.0f, 1.0f };
+    auto& tint = gem.AddComponent<TintAnimationComponent>();
+    tint.Keys = { { 0.0f, glm::vec4(1.0f) }, { 1.0f, { 1.0f, 0.0f, 0.0f, 0.5f } } };
+    tint.Mode = TintPlayMode::PingPong;
+    tint.Easing = Ease::Linear;
+    tint.Duration = 1.0f;
+    Entity idle = scene->CreateEntity("Idle");
+    idle.AddComponent<CircleRendererComponent>();
+    idle.AddComponent<TintAnimationComponent>().PlayOnStart = false;
+    Entity off = scene->CreateEntity("Off");
+    off.AddComponent<TextComponent>();
+    off.AddComponent<TintAnimationComponent>().Easing = Ease::Linear;
+    off.SetActive(false);
+    Entity tweened = scene->CreateEntity("Tweened");
+    tweened.AddComponent<SpriteRendererComponent>();
+    tweened.AddComponent<NativeScriptComponent>().ClassName = "TintProbe";
+    Entity blinker = scene->CreateEntity("Blinker");
+    blinker.AddComponent<SpriteRendererComponent>();
+    blinker.AddComponent<NativeScriptComponent>().ClassName = "BlinkProbe";
+
+    // Edit mode: nothing plays; the start colour is shown.
+    CHECK(!tint.Playing && Scene::GetTint(gem) == glm::vec4(1.0f) && Scene::GetTint(scene->CreateEntity("None")) == glm::vec4(1.0f));
+
+    auto play = Scene::Copy(scene);
+    play->OnRuntimeStart();
+    Entity g = play->FindEntityByName("Gem"), i = play->FindEntityByName("Idle"), o = play->FindEntityByName("Off");
+    CHECK(g.GetComponent<TintAnimationComponent>().Playing && !i.GetComponent<TintAnimationComponent>().Playing);
+    for (int f = 0; f < 30; f++)
+        play->OnUpdateRuntime(1.0f / 60.0f);
+    // Half way there (0.5 s of a 1 s PingPong): the renderer's own colour stays.
+    CHECK(NearColor(Scene::GetTint(g), { 1.0f, 0.5f, 0.5f, 0.75f }, 1e-3f));
+    CHECK(g.GetComponent<SpriteRendererComponent>().Color == glm::vec4(0.5f, 1.0f, 1.0f, 1.0f));
+    CHECK(Scene::GetTint(i) == glm::vec4(1.0f) && o.GetComponent<TintAnimationComponent>().Elapsed == 0.0f); // not started / inactive: waits
+    // Paused: it holds.
+    play->SetPaused(true);
+    glm::vec4 held = Scene::GetTint(g);
+    for (int f = 0; f < 20; f++)
+        play->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(Scene::GetTint(g) == held);
+    play->SetPaused(false);
+    for (int f = 0; f < 60; f++)
+        play->OnUpdateRuntime(1.0f / 60.0f);
+    // 1.5 s: on the way back (0.5 again).
+    CHECK(NearColor(Scene::GetTint(g), { 1.0f, 0.5f, 0.5f, 0.75f }, 1e-3f));
+
+    // Scripts: TweenColor changes the renderer's own colour; PlayTint adds a blink that stops after
+    // its cycles (back at white); FadeTo only the alpha.
+    Entity t = play->FindEntityByName("Tweened"), b = play->FindEntityByName("Blinker");
+    CHECK(NearColor(t.GetComponent<SpriteRendererComponent>().Color, { 0.0f, 0.0f, 1.0f, 1.0f }, 1e-4f)); // the 1 s tween is over
+    CHECK(b.HasComponent<TintAnimationComponent>() && !b.GetComponent<TintAnimationComponent>().Playing &&
+          b.GetComponent<TintAnimationComponent>().IsFinished() && Scene::GetTint(b) == glm::vec4(1.0f));
+    CHECK_NEAR(b.GetComponent<SpriteRendererComponent>().Color.a, 0.5f, 1e-4f);
+    CHECK(b.GetComponent<SpriteRendererComponent>().Color.r == 1.0f);
+
+    // A copy (play mode again) starts from the beginning; the settings are saved, the state is not.
+    auto again = Scene::Copy(play);
+    CHECK(again->FindEntityByName("Gem").GetComponent<TintAnimationComponent>().Elapsed == 0.0f);
+    std::string text = SceneSerializer(play).SerializeToString();
+    play->OnRuntimeStop();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& lt = loaded->FindEntityByName("Gem").GetComponent<TintAnimationComponent>();
+    CHECK(lt.Keys == tint.Keys && lt.Mode == TintPlayMode::PingPong && lt.Easing == Ease::Linear && lt.Duration == 1.0f &&
+          lt.PlayOnStart && !lt.Playing && lt.Elapsed == 0.0f);
+    const auto& lb = loaded->FindEntityByName("Blinker").GetComponent<TintAnimationComponent>();
+    CHECK(lb.Cycles == 3 && lb.Duration == 0.1f && lb.Keys.size() == 2 && lb.Keys[1].Color.a == 0.0f);
+    CHECK(!loaded->FindEntityByName("Idle").GetComponent<TintAnimationComponent>().PlayOnStart);
+}
+
+TEST(Light2DMathAndGathering)
+{
+    // Attenuation: full inside the inner radius, (1 - t)^falloff to the radius, nothing beyond.
+    CHECK(Light2DMath::Attenuation(0.0f, 4.0f, 0.0f, 2.0f) == 1.0f);
+    CHECK_NEAR(Light2DMath::Attenuation(2.0f, 4.0f, 0.0f, 1.0f), 0.5f, 1e-6f);
+    CHECK_NEAR(Light2DMath::Attenuation(2.0f, 4.0f, 0.0f, 2.0f), 0.25f, 1e-6f);
+    CHECK(Light2DMath::Attenuation(4.0f, 4.0f, 0.0f, 2.0f) == 0.0f && Light2DMath::Attenuation(9.0f, 4.0f, 0.0f, 2.0f) == 0.0f);
+    CHECK(Light2DMath::Attenuation(1.0f, 4.0f, 1.0f, 1.0f) == 1.0f);
+    CHECK_NEAR(Light2DMath::Attenuation(2.5f, 4.0f, 1.0f, 1.0f), 0.5f, 1e-6f);
+    CHECK(Light2DMath::Attenuation(0.0f, 0.0f, 0.0f, 1.0f) == 0.0f);
+    // Spot cone.
+    const float c45 = std::cos(glm::radians(45.0f)), c30 = std::cos(glm::radians(30.0f));
+    CHECK(Light2DMath::SpotFactor({ 1, 0 }, { 2, 0 }, c30, c45) == 1.0f);
+    CHECK(Light2DMath::SpotFactor({ 1, 0 }, { -2, 0 }, c30, c45) == 0.0f);
+    float edge = Light2DMath::SpotFactor({ 1, 0 }, { std::cos(glm::radians(37.5f)), std::sin(glm::radians(37.5f)) }, c30, c45);
+    CHECK(edge > 0.2f && edge < 0.8f);
+    CHECK(Light2DMath::SpotFactor({ 0, 1 }, { 0, 0 }, c30, c45) == 1.0f);
+    // Ambient plus each light.
+    Lighting2DData lighting;
+    lighting.Ambient = glm::vec3(0.1f);
+    lighting.Lights.push_back({ { 0.0f, 0.0f }, 4.0f, 0.0f, { 1.0f, 0.5f, 0.0f }, 1.0f });
+    glm::vec3 at = Light2DMath::Evaluate(lighting, { 2.0f, 0.0f });
+    CHECK_NEAR(at.r, 0.6f, 1e-5f);
+    CHECK_NEAR(at.g, 0.35f, 1e-5f);
+    CHECK_NEAR(at.b, 0.1f, 1e-5f);
+    CHECK(Light2DMath::Evaluate(lighting, { 10.0f, 0.0f }) == glm::vec3(0.1f));
+    // Flicker: the same for the same time and seed, within 1 - amount .. 1, not constant.
+    float f1 = Light2DMath::Flicker(1.234, 0.5f, 8.0f, 7), f2 = Light2DMath::Flicker(1.234, 0.5f, 8.0f, 7);
+    CHECK(f1 == f2 && f1 >= 0.5f && f1 <= 1.0f && Light2DMath::Flicker(3.0, 0.0f, 8.0f, 7) == 1.0f);
+    std::set<int> values;
+    for (int k = 0; k < 40; k++)
+        values.insert((int)(Light2DMath::Flicker(k * 0.37, 0.8f, 8.0f, 3) * 100.0f));
+    CHECK(values.size() > 5);
+
+    // A scene: the ambient light (linear), the lights that count (nearest first), a tint on a light.
+    auto scene = CreateRef<Scene>();
+    scene->GetSettings().Lighting2D.AmbientColor = glm::vec3(0.5f);
+    scene->GetSettings().Lighting2D.AmbientIntensity = 2.0f;
+    Entity a = scene->CreateEntity("A");
+    auto& la = a.AddComponent<Light2DComponent>();
+    la.Color = glm::vec3(1.0f);
+    la.Intensity = 2.0f;
+    la.Radius = 3.0f;
+    Entity spot = scene->CreateEntity("Spot");
+    spot.GetTransform().Translation = { 10.0f, 0.0f, 0.0f };
+    spot.GetTransform().Rotation = { 0.0f, 0.0f, glm::radians(90.0f) }; // +X turned to +Y
+    auto& ls = spot.AddComponent<Light2DComponent>();
+    ls.Type = Light2DType::Spot;
+    ls.SpotAngle = 90.0f;
+    ls.SpotSoftness = 0.0f;
+    ls.Color = { 1.0f, 0.0f, 0.0f };
+    auto& spotTint = spot.AddComponent<TintAnimationComponent>();
+    spotTint.Keys = { { 0.0f, { 0.5f, 1.0f, 1.0f, 0.5f } } }; // the colour times the tint's rgb, the intensity times its alpha
+    scene->CreateEntity("Dark").AddComponent<Light2DComponent>().Radius = 0.0f;
+    Entity off = scene->CreateEntity("Off");
+    off.AddComponent<Light2DComponent>();
+    off.SetActive(false);
+    Lighting2DData data = scene->CollectLights2D({ 0.0f, 0.0f });
+    CHECK_NEAR(data.Ambient.r, std::pow(0.5f, 2.2f) * 2.0f, 1e-5f);
+    CHECK(data.Lights.size() == 2);
+    if (data.Lights.size() == 2)
+    {
+        CHECK(data.Lights[0].Position == glm::vec2(0.0f) && data.Lights[0].Color == glm::vec3(2.0f) && !data.Lights[0].Spot);
+        const Light2DData& s = data.Lights[1];
+        CHECK(s.Spot && std::abs(s.Direction.x) < 1e-5f && std::abs(s.Direction.y - 1.0f) < 1e-5f);
+        CHECK_NEAR(s.CosOuter, c45, 1e-5f);
+        CHECK_NEAR(s.CosInner, c45, 1e-5f);
+        CHECK_NEAR(s.Color.r, std::pow(0.5f, 2.2f) * 0.5f, 1e-5f);
+        CHECK(s.Color.g == 0.0f && s.Color.b == 0.0f);
+    }
+    // The defaults: white at 1 - a Lit sprite without lights looks unlit.
+    CHECK(CreateRef<Scene>()->CollectLights2D({ 0.0f, 0.0f }).Ambient == glm::vec3(1.0f));
+    // At most MaxLights, the nearest.
+    for (int k = 0; k < 40; k++)
+    {
+        Entity e = scene->CreateEntity("L" + std::to_string(k));
+        e.GetTransform().Translation = { 100.0f + k, 0.0f, 0.0f };
+        e.AddComponent<Light2DComponent>().Radius = 1.0f;
+    }
+    data = scene->CollectLights2D({ 0.0f, 0.0f });
+    CHECK(data.Lights.size() == (size_t)Light2DMath::MaxLights && data.Lights[0].Position == glm::vec2(0.0f));
+    CHECK(data.Lights.back().Position.x == 100.0f + (Light2DMath::MaxLights - 3)); // A, Spot, then L0..L29
+
+    // Saved: the lights, the Lit flags, the ambient (only when it is not the default).
+    Entity sprite = scene->CreateEntity("Sprite");
+    sprite.AddComponent<SpriteRendererComponent>().Lit = true;
+    Entity map = scene->CreateEntity("Map");
+    map.AddComponent<TilemapComponent>().Lit = true;
+    la.Flicker = 0.3f;
+    la.InnerRadius = 1.0f;
+    la.Falloff = 3.0f;
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& l2 = loaded->FindEntityByName("A").GetComponent<Light2DComponent>();
+    CHECK(l2.Intensity == 2.0f && l2.Radius == 3.0f && l2.InnerRadius == 1.0f && l2.Falloff == 3.0f && l2.Flicker == 0.3f && l2.Type == Light2DType::Point);
+    const auto& s2 = loaded->FindEntityByName("Spot").GetComponent<Light2DComponent>();
+    CHECK(s2.Type == Light2DType::Spot && s2.SpotAngle == 90.0f && s2.SpotSoftness == 0.0f && s2.Color == glm::vec3(1.0f, 0.0f, 0.0f));
+    CHECK(loaded->FindEntityByName("Sprite").GetComponent<SpriteRendererComponent>().Lit && loaded->FindEntityByName("Map").GetComponent<TilemapComponent>().Lit);
+    CHECK(loaded->GetSettings().Lighting2D.AmbientIntensity == 2.0f && loaded->GetSettings().Lighting2D.AmbientColor == glm::vec3(0.5f));
+    auto plain = CreateRef<Scene>();
+    plain->CreateEntity("S").AddComponent<SpriteRendererComponent>();
+    std::string plainText = SceneSerializer(plain).SerializeToString();
+    CHECK(plainText.find("Lighting2D") == std::string::npos && plainText.find("\"Lit\"") == std::string::npos);
+}
+
+TEST(PixelPerfectCamera)
+{
+    PixelPerfectSettings s;
+    s.Enabled = true;
+    s.PixelsPerUnit = 16.0f;
+    s.ReferenceResolution = { 320, 180 };
+    CHECK(PixelPerfect::GetZoom(s, 1600, 900) == 5 && PixelPerfect::GetZoom(s, 1280, 720) == 4 && PixelPerfect::GetZoom(s, 1920, 1080) == 6);
+    CHECK(PixelPerfect::GetZoom(s, 1600, 700) == 3 && PixelPerfect::GetZoom(s, 300, 100) == 1 && PixelPerfect::GetZoom(s, 0, 0) == 1);
+
+    PixelPerfectView v = PixelPerfect::Compute(s, 1600, 900);
+    CHECK(v.Upscale && v.Zoom == 5 && v.RenderSize == glm::uvec2(320, 180) && v.ViewSize == glm::uvec2(1600, 900));
+    CHECK(v.VisibleWorldSize == glm::vec2(20.0f, 11.25f) && v.RenderWorldSize == glm::vec2(20.0f, 11.25f) && v.SnapUnit == 1.0f / 16.0f);
+    CHECK(PixelPerfect::GetUpscaleOffset(v) == glm::ivec2(0));
+    CHECK(PixelPerfect::ViewToRenderPixel({ 0, 0 }, v) == glm::ivec2(0) && PixelPerfect::ViewToRenderPixel({ 1599, 899 }, v) == glm::ivec2(319, 179));
+    // A view that is not a multiple: the render target is rounded up and the picture centred.
+    PixelPerfectView odd = PixelPerfect::Compute(s, 1603, 901);
+    CHECK(odd.Zoom == 5 && odd.RenderSize == glm::uvec2(321, 181) && PixelPerfect::GetUpscaleOffset(odd) == glm::ivec2(1, 2));
+    CHECK(PixelPerfect::ViewToRenderPixel({ 4, 3 }, odd) == glm::ivec2(1, 1) && PixelPerfect::ViewToRenderPixel({ 1602, 900 }, odd) == glm::ivec2(320, 180));
+    CHECK_NEAR(odd.VisibleWorldSize.x, 1603.0f / 80.0f, 1e-5f);
+    CHECK(odd.RenderWorldSize.x > odd.VisibleWorldSize.x);
+    // Without upscaling: the view's own size, snapping to screen pixels.
+    PixelPerfectSettings full = s;
+    full.UpscaleRenderTarget = false;
+    PixelPerfectView f = PixelPerfect::Compute(full, 1600, 900);
+    CHECK(!f.Upscale && f.RenderSize == glm::uvec2(1600, 900) && f.SnapUnit == 1.0f / 80.0f && f.VisibleWorldSize == v.VisibleWorldSize);
+    // Snapping and the projection.
+    CHECK(PixelPerfect::Snap({ 1.03f, -2.01f }, 0.0625f) == glm::vec2(1.0f, -2.0f) && PixelPerfect::Snap({ 1.03f, 2.0f }, 0.0f) == glm::vec2(1.03f, 2.0f));
+    glm::vec4 corner = PixelPerfect::GetProjection(v, -100.0f, 100.0f, false) * glm::vec4(10.0f, 5.625f, 0.0f, 1.0f);
+    CHECK_NEAR(corner.x, 1.0f, 1e-5f);
+    CHECK_NEAR(corner.y, 1.0f, 1e-5f);
+    PixelPerfectSettings bad;
+    bad.PixelsPerUnit = 0.0f;
+    bad.ReferenceResolution = { 0, -5 };
+    PixelPerfect::Sanitize(bad);
+    CHECK(bad.PixelsPerUnit == PixelPerfect::MinPixelsPerUnit && bad.ReferenceResolution == glm::ivec2(1));
+
+    // In a scene: the projection, the render resolution, the snapped view.
+    auto scene = CreateRef<Scene>();
+    Entity cam = scene->CreateEntity("Camera");
+    auto& cc = cam.AddComponent<CameraComponent>();
+    cc.Camera.SetProjectionType(SceneCamera::ProjectionType::Orthographic);
+    cc.PixelPerfect = s;
+    cam.GetTransform().Translation = { 1.03f, 2.01f, 10.0f };
+    scene->OnViewportResize(1600, 900);
+    CHECK(cc.IsPixelPerfect());
+    glm::vec4 c2 = scene->GetCameraProjection(cam) * glm::vec4(10.0f, 5.625f, 0.0f, 1.0f);
+    CHECK_NEAR(c2.x, 1.0f, 1e-5f);
+    CHECK_NEAR(c2.y, 1.0f, 1e-5f);
+    CHECK(scene->GetRuntimeRenderResolution(1600, 900) == glm::uvec2(320, 180));
+    PixelPerfectView pv;
+    CHECK(scene->GetPixelPerfectView(pv) && pv.Zoom == 5);
+    glm::vec3 view = glm::vec3(scene->GetCameraViewTransform(cam)[3]);
+    CHECK(view == glm::vec3(1.0f, 2.0f, 10.0f) && cam.GetTransform().Translation == glm::vec3(1.03f, 2.01f, 10.0f));
+    cc.PixelPerfect.SnapCamera = false;
+    CHECK(glm::vec3(scene->GetCameraViewTransform(cam)[3]) == glm::vec3(1.03f, 2.01f, 10.0f));
+    // Not pixel perfect: a perspective camera, or switched off - the render scale decides.
+    cc.Camera.SetProjectionType(SceneCamera::ProjectionType::Perspective);
+    CHECK(!cc.IsPixelPerfect() && !scene->GetPixelPerfectView(pv));
+    CHECK(scene->GetRuntimeRenderResolution(1600, 900) == Renderer::GetRenderResolution(1600, 900, scene->GetSettings().RenderScale));
+    CHECK(scene->GetCameraProjection(cam) == cc.Camera.GetProjection());
+    cc.Camera.SetProjectionType(SceneCamera::ProjectionType::Orthographic);
+    cc.PixelPerfect.SnapCamera = true;
+
+    // Camera 2D Follow keeps the pixel-perfect view (20 x 11.25 units) inside its bounds.
+    cc.Primary = false; // headless: nothing is drawn
+    Entity target = scene->CreateEntity("Target");
+    target.GetTransform().Translation = { 100.0f, 0.0f, 0.0f };
+    auto& follow = cam.AddComponent<Camera2DFollowComponent>();
+    follow.Target.ID = target.GetUUID();
+    follow.UseBounds = true;
+    follow.BoundsMin = { -20.0f, -20.0f };
+    follow.BoundsMax = { 20.0f, 20.0f };
+    follow.Damping = glm::vec2(0.0f);
+    follow.DeadZone = glm::vec2(0.0f);
+    follow.LookAhead = glm::vec2(0.0f);
+    follow.Offset = glm::vec2(0.0f);
+    auto play = Scene::Copy(scene);
+    play->OnViewportResize(1600, 900);
+    play->OnRuntimeStart();
+    for (int k = 0; k < 5; k++)
+        play->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(play->FindEntityByName("Camera").GetTransform().Translation.x, 10.0f, 1e-4f);
+    play->OnRuntimeStop();
+
+    // Saved only when used.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("PixelPerfect") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->FindEntityByName("Camera").GetComponent<CameraComponent>().PixelPerfect == cc.PixelPerfect);
+    auto plain = CreateRef<Scene>();
+    plain->CreateEntity("C").AddComponent<CameraComponent>();
+    CHECK(SceneSerializer(plain).SerializeToString().find("PixelPerfect") == std::string::npos);
+}
+
+TEST(YSortedSortingLayers)
+{
+    // The layer list keeps the flag (edits, Assign, the project file's text form).
+    SortingLayerList layers;
+    uint32_t objects = layers.Add("Objects");
+    CHECK(!layers.IsYSorted(objects) && layers.SetYSort(objects, true) && layers.IsYSorted(objects) && !layers.SetYSort(77, true));
+    CHECK(!layers.IsYSorted(77)); // unknown: Default's setting
+    CHECK(ProjectSerializer::SortingLayersToString(layers).find("YSort") != std::string::npos);
+    SortingLayerList parsed;
+    CHECK(ProjectSerializer::SortingLayersFromString(ProjectSerializer::SortingLayersToString(layers), parsed) && parsed == layers && parsed.IsYSorted(objects));
+    CHECK(ProjectSerializer::SortingLayersToString(SortingLayerList()).find("YSort") == std::string::npos);
+
+    // The comparator: on a Y-sorted layer a larger Y comes first (behind), the order only breaks ties.
+    std::vector<SortKey2D> keys = {
+        SortKey2D::Make(1, 0, 0.0f, true, 1.0f), SortKey2D::Make(1, 5, 0.0f, true, 3.0f), SortKey2D::Make(1, 1, 0.0f, true, 1.0f),
+        SortKey2D::Make(0, 9, 0.0f), SortKey2D::Make(2, -9, 0.0f), SortKey2D::Make(1, 0, -5.0f, true, 1.0f),
+    };
+    std::stable_sort(keys.begin(), keys.end(), SortKey2D::Less);
+    CHECK(keys[0].Layer == 0 && keys[5].Layer == 2);
+    CHECK(keys[1].SortY == -3.0f && keys[1].Order == 5);
+    CHECK(keys[2].Order == 0 && keys[2].Depth == -5.0f && keys[3].Order == 0 && keys[3].Depth == 0.0f && keys[4].Order == 1);
+    CHECK(SortKey2D::Make(0, 0, 0.0f, false, 123.0f).SortY == 0.0f); // not Y-sorted: Y does not count
+
+    // A scene in a project with a Y-sorted layer: parts of a character sort at its root's Y; a group
+    // entity without a renderer does not hold its children together.
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-ysort-");
+    auto project = Project::CreateFromTemplate(dir, "TopDown");
+    CHECK(project != nullptr);
+    if (project)
+    {
+        uint32_t layer = project->GetConfig().SortingLayers.Add("Obyektlar");
+        project->GetConfig().SortingLayers.SetYSort(layer, true);
+        auto scene = CreateRef<Scene>();
+        auto sprite = [&](const std::string& name, float y, int order, Entity parent = {}) {
+            Entity e = scene->CreateEntity(name);
+            e.GetTransform().Translation.y = y;
+            auto& s = e.AddComponent<SpriteRendererComponent>();
+            s.SortingLayer = layer;
+            s.SortingOrder = order;
+            if (parent)
+                scene->SetParent(e, parent, false);
+            return e;
+        };
+        Entity tree = sprite("Tree", 3.0f, 0);
+        Entity player = sprite("Player", 1.0f, 0);
+        Entity hat = sprite("Hat", 0.8f, 1, player); // world y 1.8: drawn with the player, over it
+        Entity folder = scene->CreateEntity("Rocks");
+        folder.GetTransform().Translation.y = 10.0f;
+        Entity rock = sprite("Rock", -8.0f, 0, folder); // world y 2
+        Entity ground = scene->CreateEntity("Ground");
+        ground.AddComponent<TilemapComponent>(); // Default layer, behind
+        CHECK(scene->GetSortRoot(hat, layer) == player && scene->GetSortRoot(rock, layer) == rock && scene->GetSortRoot(player, layer) == player);
+        uint32_t found = 99;
+        CHECK(Scene::GetSortingLayer(hat, found) && found == layer && !Scene::GetSortingLayer(folder, found));
+        struct Item { Entity E; SortKey2D Key; };
+        std::vector<Item> items;
+        for (Entity e : { hat, ground, player, rock, tree })
+        {
+            uint32_t l = 0;
+            Scene::GetSortingLayer(e, l);
+            int order = e.HasComponent<SpriteRendererComponent>() ? e.GetComponent<SpriteRendererComponent>().SortingOrder : -1;
+            items.push_back({ e, scene->GetSortKey2D(e, l, order) });
+        }
+        std::stable_sort(items.begin(), items.end(), [](const Item& a, const Item& b) { return SortKey2D::Less(a.Key, b.Key); });
+        CHECK(items[0].E == ground && items[1].E == tree && items[2].E == rock && items[3].E == player && items[4].E == hat);
+        // Without Y sorting the order in the layer decides (the hat last, the others by scene order).
+        project->GetConfig().SortingLayers.SetYSort(layer, false);
+        CHECK(scene->GetSortKey2D(tree, layer, 0).SortY == 0.0f && SortKey2D::Less(scene->GetSortKey2D(tree, layer, 0), scene->GetSortKey2D(hat, layer, 1)));
+    }
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
 }
 
 int main()

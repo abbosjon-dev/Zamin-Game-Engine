@@ -851,7 +851,9 @@ namespace Zamin {
         if (m_ViewportSize.x > 0.0f && m_ViewportSize.y > 0.0f)
         {
             const uint32_t vw = (uint32_t)m_ViewportSize.x, vh = (uint32_t)m_ViewportSize.y;
-            glm::uvec2 renderSize = Renderer::GetRenderResolution(vw, vh, m_ActiveScene->GetSettings().RenderScale);
+            // Play: the game camera's size (a pixel-perfect camera draws at the art's resolution).
+            glm::uvec2 renderSize = m_SceneState == SceneState::Play ? m_ActiveScene->GetRuntimeRenderResolution(vw, vh)
+                                                                     : Renderer::GetRenderResolution(vw, vh, m_ActiveScene->GetSettings().RenderScale);
             if (const auto& spec = m_Framebuffer->GetSpecification(); spec.Width != renderSize.x || spec.Height != renderSize.y)
                 m_Framebuffer->Resize(renderSize.x, renderSize.y);
             if (const auto& spec = m_FinalFramebuffer->GetSpecification(); spec.Width != vw || spec.Height != vh)
@@ -1009,6 +1011,14 @@ namespace Zamin {
         post.OutputHeight = m_FinalFramebuffer->GetSpecification().Height;
         post.DeltaTime = ts;
         post.History = &m_PostHistory;
+        m_PlayPixelZoom = {};
+        if (PixelPerfectView pixel; m_SceneState == SceneState::Play && m_ActiveScene->GetPixelPerfectView(pixel) && pixel.Upscale &&
+                                    pixel.RenderSize == glm::uvec2(spec.Width, spec.Height))
+        {
+            post.PixelZoom = pixel.Zoom;
+            post.PixelOffset = PixelPerfect::GetUpscaleOffset(pixel);
+            m_PlayPixelZoom = pixel;
+        }
         const bool neutralPost = IsDebugViewActive() && !Renderer3D::DebugViewUsesPostProcessing(m_DebugView);
         PostProcessor::Apply(post, neutralPost ? PostProcessSettings::Neutral() : m_ActiveScene->GetSettings().Post, m_FinalFramebuffer);
         m_FinalFramebuffer->Bind();
@@ -1134,6 +1144,9 @@ namespace Zamin {
     {
         const auto& render = m_Framebuffer->GetSpecification();
         const auto& view = m_FinalFramebuffer->GetSpecification();
+        // Play with a pixel-perfect camera: the sharp, centred upscale.
+        if (m_PlayPixelZoom.Upscale && m_SceneState == SceneState::Play && m_PlayPixelZoom.RenderSize == glm::uvec2(render.Width, render.Height))
+            return glm::clamp(PixelPerfect::ViewToRenderPixel(pixel, m_PlayPixelZoom), glm::ivec2(0), glm::ivec2(render.Width, render.Height) - 1);
         if (view.Width == 0 || view.Height == 0 || (render.Width == view.Width && render.Height == view.Height))
             return pixel;
         // the render pixel under the viewport pixel's center
@@ -1152,8 +1165,8 @@ namespace Zamin {
         {
             Entity camera = m_ActiveScene->GetPrimaryCameraEntity();
             if (!camera) return glm::mat4(0.0f);
-            // What the game view shows: the camera with its shake.
-            return camera.GetComponent<CameraComponent>().Camera.GetProjection() * glm::inverse(m_ActiveScene->GetCameraViewTransform(camera));
+            // What the game view shows: the camera with its shake (and its pixel-perfect view).
+            return m_ActiveScene->GetCameraProjection(camera) * glm::inverse(m_ActiveScene->GetCameraViewTransform(camera));
         }
         return m_EditorCamera.GetViewProjection();
     }
@@ -1165,7 +1178,7 @@ namespace Zamin {
             Entity camera = m_ActiveScene->GetPrimaryCameraEntity();
             if (!camera) return false;
             view = glm::inverse(m_ActiveScene->GetCameraViewTransform(camera));
-            projection = camera.GetComponent<CameraComponent>().Camera.GetProjection();
+            projection = m_ActiveScene->GetCameraProjection(camera);
             return true;
         }
         view = m_EditorCamera.GetViewMatrix();
@@ -1714,6 +1727,46 @@ namespace Zamin {
         Renderer2D::DrawLine(apex, apex + d * std::min(range, 1.0f), color);
     }
 
+    // A 2D light in the XY plane: the circle it reaches, fainter the inner (full brightness) one;
+    // a spot light: its cone's edges and the arc where it ends.
+    static void DrawLight2DRange(const glm::vec3& center, const glm::vec2& axis, const Light2DComponent& light, const glm::vec4& color)
+    {
+        if (light.Radius <= 0.0f) return;
+        const glm::vec3 u(1.0f, 0.0f, 0.0f), v(0.0f, 1.0f, 0.0f);
+        const glm::vec4 faint(color.r, color.g, color.b, color.a * 0.45f);
+        if (light.Type == Light2DType::Spot && light.SpotAngle < 360.0f)
+        {
+            float len = glm::length(axis);
+            glm::vec2 d = len > 1e-6f ? axis / len : glm::vec2(1.0f, 0.0f);
+            float base = std::atan2(d.y, d.x);
+            float half = glm::radians(std::clamp(light.SpotAngle, 1.0f, 360.0f) * 0.5f);
+            const int segments = 32;
+            glm::vec3 previous = center;
+            for (int i = 0; i <= segments; i++)
+            {
+                float a = base - half + 2.0f * half * (float)i / (float)segments;
+                glm::vec3 p = center + glm::vec3(std::cos(a), std::sin(a), 0.0f) * light.Radius;
+                if (i > 0)
+                    Renderer2D::DrawLine(previous, p, color);
+                if (i == 0 || i == segments)
+                    Renderer2D::DrawLine(center, p, color);
+                previous = p;
+            }
+            Renderer2D::DrawLine(center, center + glm::vec3(d, 0.0f) * std::min(light.Radius, 1.0f), color);
+            if (light.InnerRadius > 0.0f && light.InnerRadius < light.Radius)
+                for (int i = 0; i < segments; i++)
+                {
+                    float a0 = base - half + 2.0f * half * (float)i / (float)segments, a1 = base - half + 2.0f * half * (float)(i + 1) / (float)segments;
+                    Renderer2D::DrawLine(center + glm::vec3(std::cos(a0), std::sin(a0), 0.0f) * light.InnerRadius,
+                                         center + glm::vec3(std::cos(a1), std::sin(a1), 0.0f) * light.InnerRadius, faint);
+                }
+            return;
+        }
+        DrawWireCircle(center, u, v, light.Radius, color);
+        if (light.InnerRadius > 0.0f && light.InnerRadius < light.Radius)
+            DrawWireCircle(center, u, v, light.InnerRadius, faint);
+    }
+
     bool EditorLayer::ShowsGizmo(entt::entity e, GizmoVisibility visibility, const std::unordered_set<entt::entity>& hidden)
     {
         // A selected entity gets its visualisation unless the eye hides it (outside play mode);
@@ -1756,7 +1809,8 @@ namespace Zamin {
                 Math::DecomposeTransform(world, p, r, sc);
                 glm::mat4 rigid = glm::translate(glm::mat4(1.0f), p) * glm::mat4_cast(glm::quat(r));
                 const bool perspective = camera.Camera.GetProjectionType() == SceneCamera::ProjectionType::Perspective;
-                DrawCameraFrustum(FrustumCorners(camera.Camera.GetProjection(), rigid), rigid, perspective, CameraFrustumPreviewDistance,
+                // (A pixel-perfect camera: what it shows at the viewport's size.)
+                DrawCameraFrustum(FrustumCorners(scene.GetCameraProjection(entity), rigid), rigid, perspective, CameraFrustumPreviewDistance,
                                   tint(e, camera.Primary ? glm::vec4(0.9f, 0.92f, 1.0f, 1.0f) : glm::vec4(0.7f, 0.8f, 0.95f, 1.0f)));
             }
         }
@@ -2348,6 +2402,8 @@ namespace Zamin {
             if (auto* sl = selected.TryGetComponent<SpotLightComponent>())
                 DrawSpotLightCone(glm::vec3(transform[3]), glm::vec3(transform * glm::vec4(0, 0, -1, 0)), sl->Range, sl->GetInnerAngle(),
                                   sl->GetOuterAngle(), lightColor);
+            if (auto* l2 = selected.TryGetComponent<Light2DComponent>())
+                DrawLight2DRange(glm::vec3(transform[3]), glm::vec2(transform * glm::vec4(1, 0, 0, 0)), *l2, lightColor);
             // children get a subtle line in the Box style (the outline marks them itself)
             if (boxStyle)
                 for (UUID child : selected.GetComponent<RelationshipComponent>().Children)
@@ -6006,6 +6062,8 @@ namespace Zamin {
             drawIcon({ e, m_ActiveScene.get() }, ICON_FA_LIGHTBULB, IM_COL32(255, 230, 140, 255));
         for (auto e : m_ActiveScene->GetAllEntitiesWith<SpotLightComponent>())
             drawIcon({ e, m_ActiveScene.get() }, ICON_FA_BULLHORN, IM_COL32(255, 220, 120, 255));
+        for (auto e : m_ActiveScene->GetAllEntitiesWith<Light2DComponent>())
+            drawIcon({ e, m_ActiveScene.get() }, ICON_FA_FIRE, IM_COL32(255, 190, 90, 255));
         for (auto e : m_ActiveScene->GetAllEntitiesWith<AudioSourceComponent>())
             drawIcon({ e, m_ActiveScene.get() }, ICON_FA_VOLUME_HIGH, IM_COL32(220, 140, 220, 255));
     }
@@ -6441,6 +6499,34 @@ namespace Zamin {
                     changed = true;
                 }
             }
+            UI::EndPropertyGrid();
+        }
+
+        ImGui::SeparatorText(ICON_FA_FIRE "  2D yorug'lik");
+        if (m_SceneSettingsScrollTo == "lighting2d")
+        {
+            ImGui::SetScrollHereY(0.0f);
+            m_SceneSettingsScrollTo.clear();
+        }
+        if (UI::BeginPropertyGrid("light2d"))
+        {
+            changed |= UI::PropertyColor3("Muhit rangi", s.Lighting2D.AmbientColor);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("\"Lit\" sprite va tilemap'lar hamma joyda oladigan yorug'lik; Light 2D yorug'liklari unga qo'shiladi. "
+                            "Oq, kuch 1: yorug'liksiz Lit sprite odatdagidek ko'rinadi. Tun uchun: to'q ko'k, 0.2-0.4");
+            if (UI::PropertyFloat("Muhit kuchi", s.Lighting2D.AmbientIntensity, 0.01f, 0.0f, 10.0f, "%.2f"))
+            {
+                s.Lighting2D.AmbientIntensity = std::max(0.0f, s.Lighting2D.AmbientIntensity);
+                changed = true;
+            }
+            size_t lights = 0, lit = 0;
+            for (auto e : m_ActiveScene->GetAllEntitiesWith<Light2DComponent>()) { (void)e; lights++; }
+            for (auto e : m_ActiveScene->GetAllEntitiesWith<SpriteRendererComponent>())
+                if (Entity(e, m_ActiveScene.get()).GetComponent<SpriteRendererComponent>().Lit) lit++;
+            for (auto e : m_ActiveScene->GetAllEntitiesWith<TilemapComponent>())
+                if (Entity(e, m_ActiveScene.get()).GetComponent<TilemapComponent>().Lit) lit++;
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("%zu ta Light 2D, %zu ta Lit renderer", lights, lit);
             UI::EndPropertyGrid();
         }
 

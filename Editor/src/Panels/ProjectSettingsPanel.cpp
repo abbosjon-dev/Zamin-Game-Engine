@@ -480,6 +480,9 @@ namespace Zamin {
                            "tartibi - chizish tartibi: yuqoridagi qatlam orqada, pastdagisi hammasidan oldinda. Qatlam ichida "
                            "\"Qatlamdagi tartib\", keyin kameradan uzoqlik hal qiladi. Obyektlar qatlamni ID bilan eslaydi: "
                            "qayta nomlash va surish sahnalarni buzmaydi; o'chirilgan qatlamdagilar Default'da chiziladi.");
+        ImGui::TextWrapped("\"Y\" belgilangan qatlam (top-down o'yinlar) avval Y bo'yicha saralanadi: ekranda yuqoriroq turgan "
+                           "(Y katta) orqada, pastroqdagisi oldinda chiziladi. Saralash nuqtasi - obyektning pivot'i (oyoqlari); "
+                           "shu qatlamdagi ota-obyekt ostidagi qismlar otaning Y'i bilan birga, o'zaro tartib bo'yicha chiziladi.");
         ImGui::Spacing();
 
         std::string trimmed = TrimText(m_NewSortingLayer);
@@ -507,11 +510,13 @@ namespace Zamin {
         int moveFrom = -1, moveTo = -1;
         uint32_t remove = ~0u;
         const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX;
-        if (ImGui::BeginTable("##sortingLayers", 3, flags))
+        uint32_t ySortToggle = ~0u;
+        if (ImGui::BeginTable("##sortingLayers", 4, flags))
         {
             const float buttons = 4.0f * (ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x);
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 1.2f);
             ImGui::TableSetupColumn("Qatlam (sahnada)", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Y", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() + 4.0f);
             ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, buttons);
             ImGui::TableHeadersRow();
             const auto& list = layers.GetLayers();
@@ -564,6 +569,13 @@ namespace Zamin {
                         ImGui::TextDisabled("-");
                 }
                 ImGui::TableSetColumnIndex(2);
+                bool ySort = layer.YSort;
+                if (ImGui::Checkbox("##ysort", &ySort))
+                    ySortToggle = layer.ID;
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Y bo'yicha saralash (top-down): Y katta - orqada, kichik - oldinda. Tartib faqat bir xil "
+                                "Y'dagilarni (bitta qahramon qismlarini) ajratadi");
+                ImGui::TableSetColumnIndex(3);
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
                 ImGui::BeginDisabled(i == 0);
                 if (ImGui::Button(ICON_FA_ARROW_UP)) { moveFrom = i; moveTo = i - 1; }
@@ -594,6 +606,8 @@ namespace Zamin {
             }
             ImGui::EndTable();
         }
+        if (ySortToggle != ~0u && layers.SetYSort(ySortToggle, !layers.IsYSorted(ySortToggle)))
+            m_Dirty = true;
         if (moveFrom >= 0 && layers.Move((size_t)moveFrom, (size_t)moveTo))
             m_Dirty = true;
         if (remove != ~0u && layers.Remove(remove))

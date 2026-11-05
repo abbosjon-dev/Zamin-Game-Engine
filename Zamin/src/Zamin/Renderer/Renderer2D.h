@@ -4,6 +4,7 @@
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/RendererAPI.h"
 #include "Zamin/Renderer/Frustum.h"
+#include "Zamin/Renderer/Lighting2D.h"
 
 #include <glm/glm.hpp>
 #include <string>
@@ -82,6 +83,15 @@ namespace Zamin {
 
         // Flushes the current batch and switches blending (e.g. additive particles).
         static void SetBlendMode(BlendMode mode);
+
+        // 2D lighting: quads (sprites, tiles, text) submitted while SetLit(true) is on are multiplied
+        // by the light that reaches them (the ambient plus every light, at most
+        // Light2DMath::MaxLights); the others are drawn as they are. A change of the lights draws
+        // what is pending first. Lit is off until it is switched on.
+        static void SetLighting(const Lighting2DData& lighting);
+        static const Lighting2DData& GetLighting();
+        static void SetLit(bool lit);
+        static bool IsLit();
 
         static float GetLineWidth();
         static void SetLineWidth(float width);

@@ -9,6 +9,8 @@
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/SpriteSheet.h"
 #include "Zamin/Scene/Camera2D.h"
+#include "Zamin/Scene/PixelPerfect.h"
+#include "Zamin/Scene/TintAnimation.h"
 #include "Zamin/Scene/SceneCamera.h"
 #include "Zamin/Scripting/ScriptField.h"
 
@@ -122,6 +124,8 @@ namespace Zamin {
         bool PixelArt = false;   // nearest filtering (crisp pixels)
         bool FlipX = false;
         bool FlipY = false;
+        // Lit by the 2D lights (Light2DComponent) and the scene's 2D ambient light; off: drawn as it is.
+        bool Lit = false;
         // Simple: the picture on the unit quad (sized by the transform's scale). Sliced (9-slice) /
         // Tiled: the picture fills Size (local units, the scale applies on top) keeping its borders:
         // corners are SliceBorder px / PixelsPerUnit big. All four borders 0 = the frame's border
@@ -223,6 +227,44 @@ namespace Zamin {
         }
 
         bool IsFinished() const { return !Loop && (int)(Time * FPS) >= FrameCount; }
+    };
+
+    // Animates the colour of the entity's 2D renderer - Sprite Renderer, Circle Renderer, Text or
+    // Tilemap - and of its Light 2D: what is drawn is the renderer's own colour times the gradient's
+    // colour (Keys, 0..1 of Duration) at the animation's time; the renderer's Color itself does not
+    // change. Mode: Once (start -> end), Loop, PingPong (there and back); Cycles > 0 stops it after
+    // that many cycles. StartOffset seconds are skipped at the start (copies out of step). The
+    // editor shows the colour the game starts with (the inspector can preview it playing).
+    struct TintAnimationComponent
+    {
+        std::vector<TintKey> Keys{ TintKey{ 0.0f, glm::vec4(1.0f) }, TintKey{ 1.0f, glm::vec4(1.0f, 0.35f, 0.3f, 1.0f) } };
+        float Duration = 1.0f;
+        TintPlayMode Mode = TintPlayMode::PingPong;
+        Ease Easing = Ease::InOutQuad;
+        int Cycles = 0;            // Loop / PingPong: 0 = endless
+        float StartOffset = 0.0f;  // seconds
+        bool PlayOnStart = true;
+
+        // runtime (reset when play starts / stops and for spawned copies)
+        bool Playing = false;
+        bool EditorPreview = false; // the inspector's preview in the editor's scene view
+        float Elapsed = 0.0f;
+
+        void Play(bool restart = true) { if (restart) Elapsed = 0.0f; Playing = true; }
+        void Stop() { Playing = false; }
+        // Back to the start colour (and stopped).
+        void Reset() { Playing = false; Elapsed = 0.0f; }
+        void ResetRuntime() { Playing = PlayOnStart; EditorPreview = false; Elapsed = 0.0f; }
+        void Update(float dt)
+        {
+            Elapsed += dt;
+            if (Playing && TintAnimation::IsFinished(Mode, Duration, Cycles, Elapsed + StartOffset))
+                Playing = false; // stays on its last colour
+        }
+        bool IsFinished() const { return TintAnimation::IsFinished(Mode, Duration, Cycles, Elapsed + StartOffset); }
+        float GetPhase() const { return TintAnimation::GetPhase(Mode, Easing, Duration, Cycles, Elapsed + StartOffset); }
+        // The colour the renderer's colour is multiplied by now.
+        glm::vec4 GetColor() const { return TintAnimation::EvaluateGradient(Keys, GetPhase()); }
     };
 
     struct CircleRendererComponent
@@ -379,6 +421,10 @@ namespace Zamin {
         // Scene::ShakeCamera / ScriptableEntity::ShakeCamera shake the view of the camera the game
         // is seen through; its strength settings are saved, the trauma is runtime only.
         CameraShake Shake;
+        // Orthographic cameras: whole screen pixels per texture pixel (see PixelPerfectSettings);
+        // the game view (play) only - the editor's scene view is not changed.
+        PixelPerfectSettings PixelPerfect;
+        bool IsPixelPerfect() const { return PixelPerfect.Enabled && Camera.GetProjectionType() == SceneCamera::ProjectionType::Orthographic; }
     };
 
     // ------------------------------------------------------------------ 2D camera follow
@@ -452,6 +498,28 @@ namespace Zamin {
         float GetInnerAngle() const { return std::clamp(InnerAngle, 0.0f, GetOuterAngle()); }
     };
 
+    // ------------------------------------------------------------------ 2D lights
+    // A light for 2D scenes. It lights the Lit sprites and tilemaps (their "Lit" flag) within Radius
+    // of it: fully inside InnerRadius, then fading out ((1 - t)^Falloff: 1 linear, 2 soft, 4 a bright
+    // core). Spot: a cone SpotAngle degrees wide along the entity's +X axis (its rotation turns it),
+    // the outer SpotSoftness of it fading. Lights add up on top of the scene's 2D ambient light
+    // (Scene settings > 2D lighting); renderers that are not Lit are drawn as before. Flicker
+    // makes the intensity waver (torches, fire).
+    enum class Light2DType { Point = 0, Spot };
+    struct Light2DComponent
+    {
+        Light2DType Type = Light2DType::Point;
+        glm::vec3 Color{ 1.0f, 0.85f, 0.6f };
+        float Intensity = 1.0f;
+        float Radius = 4.0f;
+        float InnerRadius = 0.0f;
+        float Falloff = 2.0f;
+        float SpotAngle = 60.0f;    // degrees, the whole cone
+        float SpotSoftness = 0.3f;  // 0..1 of the cone's half angle that fades
+        float Flicker = 0.0f;       // 0..1
+        float FlickerSpeed = 8.0f;  // noise samples per second
+    };
+
     // Capsule character (Jolt CharacterVirtual): walks on slopes/stairs, collides with the world.
     // Scripts set the horizontal velocity with Move() and call Jump(); gravity is applied automatically.
     struct CharacterController3DComponent
@@ -519,6 +587,7 @@ namespace Zamin {
         glm::vec4 Color{ 1.0f };
         uint32_t SortingLayer = 0;
         int SortingOrder = -1;
+        bool Lit = false;        // lit by the 2D lights (Light2DComponent) and the scene's 2D ambient
 
         bool Collision = true;   // the tiles of the layers with Collision are solid (static 2D physics)
         float Friction = 0.6f;
@@ -910,8 +979,8 @@ namespace Zamin {
 
     // Every component that is copied/serialized with an entity (IDComponent & TagComponent are handled separately).
     using AllComponents = ComponentGroup<RelationshipComponent, TagsComponent, TransformComponent, SpriteRendererComponent,
-        SpriteAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
-        DirectionalLightComponent, PointLightComponent, SpotLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
+        SpriteAnimationComponent, TintAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
+        DirectionalLightComponent, PointLightComponent, SpotLightComponent, Light2DComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;

@@ -57,6 +57,23 @@ namespace Zamin {
         return s_Default;
     }
 
+    bool SortingLayerList::IsYSorted(uint32_t id) const
+    {
+        if (const SortingLayer* l = Find(id))
+            return l->YSort;
+        const SortingLayer* fallback = Find(DefaultID);
+        return fallback && fallback->YSort;
+    }
+
+    bool SortingLayerList::SetYSort(uint32_t id, bool ySort)
+    {
+        auto it = std::find_if(m_Layers.begin(), m_Layers.end(), [&](const SortingLayer& l) { return l.ID == id; });
+        if (it == m_Layers.end())
+            return false;
+        it->YSort = ySort;
+        return true;
+    }
+
     uint32_t SortingLayerList::Add(std::string_view name)
     {
         name = Trim(name);
@@ -125,7 +142,7 @@ namespace Zamin {
             std::string_view name = Trim(l.Name);
             if (name.empty() || Find(l.ID) || FindByName(name) || m_Layers.size() >= MaxLayers)
                 continue;
-            m_Layers.push_back({ l.ID, std::string(name) });
+            m_Layers.push_back({ l.ID, std::string(name), l.YSort });
             m_NextID = std::max(m_NextID, l.ID + 1);
         }
         if (!Find(DefaultID))

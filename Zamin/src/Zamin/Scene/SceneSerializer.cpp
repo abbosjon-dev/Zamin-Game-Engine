@@ -266,6 +266,15 @@ namespace Zamin {
             if (c->Shake.MaxOffset != defaults.MaxOffset || c->Shake.MaxAngle != defaults.MaxAngle || c->Shake.Exponent != defaults.Exponent)
                 e["Camera"]["Shake"] = { { "MaxOffset", ToJson(c->Shake.MaxOffset) }, { "MaxAngle", c->Shake.MaxAngle },
                                          { "Exponent", c->Shake.Exponent } };
+            // Only when used (older files stay the same).
+            if (c->PixelPerfect != PixelPerfectSettings())
+            {
+                const PixelPerfectSettings& pp = c->PixelPerfect;
+                e["Camera"]["PixelPerfect"] = { { "Enabled", pp.Enabled }, { "PixelsPerUnit", pp.PixelsPerUnit },
+                                                { "ReferenceResolution", { pp.ReferenceResolution.x, pp.ReferenceResolution.y } },
+                                                { "Upscale", pp.UpscaleRenderTarget }, { "SnapCamera", pp.SnapCamera },
+                                                { "SnapSprites", pp.SnapSprites } };
+            }
         }
         if (auto* c = entity.TryGetComponent<SpriteRendererComponent>())
         {
@@ -288,6 +297,8 @@ namespace Zamin {
                 j["Flash"] = { { "Color", ToJson(c->FlashColor) }, { "Amount", c->FlashAmount } };
             if (c->OutlineThickness > 0.0f || c->OutlineColor != glm::vec4(1.0f))
                 j["Outline"] = { { "Color", ToJson(c->OutlineColor) }, { "Thickness", c->OutlineThickness } };
+            if (c->Lit)
+                j["Lit"] = true;
             WriteSortingLayer(j, c->SortingLayer);
         }
         if (auto* c = entity.TryGetComponent<SpriteAnimationComponent>())
@@ -296,6 +307,15 @@ namespace Zamin {
                                      { "FrameCount", c->FrameCount }, { "FPS", c->FPS }, { "Loop", c->Loop }, { "Playing", c->Playing } };
             if (!c->Frames.empty())
                 e["SpriteAnimation"]["Frames"] = c->Frames;
+        }
+        if (auto* c = entity.TryGetComponent<TintAnimationComponent>())
+        {
+            json keys = json::array();
+            for (const TintKey& k : c->Keys)
+                keys.push_back({ { "Time", k.Time }, { "Color", ToJson(k.Color) } });
+            e["TintAnimation"] = { { "Keys", std::move(keys) }, { "Duration", c->Duration }, { "Mode", TintAnimation::ModeToString(c->Mode) },
+                                   { "Ease", EaseToString(c->Easing) }, { "Cycles", c->Cycles }, { "StartOffset", c->StartOffset },
+                                   { "PlayOnStart", c->PlayOnStart } };
         }
         if (auto* c = entity.TryGetComponent<CircleRendererComponent>())
         {
@@ -374,6 +394,11 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<SpotLightComponent>())
             e["SpotLight"] = { { "Color", ToJson(c->Color) }, { "Intensity", c->Intensity }, { "Range", c->Range },
                                { "InnerAngle", c->InnerAngle }, { "OuterAngle", c->OuterAngle } };
+        if (auto* c = entity.TryGetComponent<Light2DComponent>())
+            e["Light2D"] = { { "Type", c->Type == Light2DType::Spot ? "Spot" : "Point" }, { "Color", ToJson(c->Color) },
+                             { "Intensity", c->Intensity }, { "Radius", c->Radius }, { "InnerRadius", c->InnerRadius },
+                             { "Falloff", c->Falloff }, { "SpotAngle", c->SpotAngle }, { "SpotSoftness", c->SpotSoftness },
+                             { "Flicker", c->Flicker }, { "FlickerSpeed", c->FlickerSpeed } };
         if (auto* c = entity.TryGetComponent<Rigidbody2DComponent>())
             e["Rigidbody2D"] = { { "BodyType", BodyTypeToString(c->Type) }, { "FixedRotation", c->FixedRotation },
                                  { "GravityScale", c->GravityScale }, { "LinearDamping", c->LinearDamping },
@@ -418,6 +443,8 @@ namespace Zamin {
                              { "Layers", std::move(layers) }, { "Color", ToJson(c->Color) }, { "SortingOrder", c->SortingOrder },
                              { "Collision", c->Collision }, { "Friction", c->Friction } };
             WriteAssetHandle(e["Tilemap"], "Tileset", c->TilesetPath);
+            if (c->Lit)
+                e["Tilemap"]["Lit"] = true;
             WriteSortingLayer(e["Tilemap"], c->SortingLayer);
         }
         if (auto* c = entity.TryGetComponent<ParallaxComponent>())
@@ -527,6 +554,20 @@ namespace Zamin {
                 c.Shake.MaxAngle = std::max(0.0f, shake.value("MaxAngle", c.Shake.MaxAngle));
                 c.Shake.Exponent = std::clamp(shake.value("Exponent", c.Shake.Exponent), 0.1f, 8.0f);
             }
+            if (j.contains("PixelPerfect") && j["PixelPerfect"].is_object())
+            {
+                const json& pj = j["PixelPerfect"];
+                PixelPerfectSettings& pp = c.PixelPerfect;
+                pp.Enabled = pj.value("Enabled", false);
+                pp.PixelsPerUnit = pj.value("PixelsPerUnit", pp.PixelsPerUnit);
+                if (auto ref = pj.find("ReferenceResolution"); ref != pj.end() && ref->is_array() && ref->size() == 2 &&
+                    (*ref)[0].is_number() && (*ref)[1].is_number())
+                    pp.ReferenceResolution = { (*ref)[0].get<int>(), (*ref)[1].get<int>() };
+                pp.UpscaleRenderTarget = pj.value("Upscale", pp.UpscaleRenderTarget);
+                pp.SnapCamera = pj.value("SnapCamera", pp.SnapCamera);
+                pp.SnapSprites = pj.value("SnapSprites", pp.SnapSprites);
+                PixelPerfect::Sanitize(pp);
+            }
         }
         if (e.contains("SpriteRenderer"))
         {
@@ -554,6 +595,7 @@ namespace Zamin {
                 c.OutlineColor = Vec(*outline, "Color", glm::vec4(1.0f));
                 c.OutlineThickness = std::clamp(outline->value("Thickness", 0.0f), 0.0f, 64.0f);
             }
+            c.Lit = j.value("Lit", false);
             c.SortingLayer = ReadSortingLayer(j);
         }
         if (e.contains("SpriteAnimation"))
@@ -571,6 +613,27 @@ namespace Zamin {
                 for (const json& name : *it)
                     if (name.is_string())
                         c.Frames.push_back(name.get<std::string>());
+        }
+        if (e.contains("TintAnimation"))
+        {
+            const json& j = e["TintAnimation"];
+            auto& c = entity.AddComponent<TintAnimationComponent>();
+            if (auto keys = j.find("Keys"); keys != j.end() && keys->is_array())
+            {
+                c.Keys.clear();
+                for (const json& k : *keys)
+                    if (k.is_object())
+                        c.Keys.push_back({ k.value("Time", 0.0f), Vec(k, "Color", glm::vec4(1.0f)) });
+                TintAnimation::SortKeys(c.Keys);
+            }
+            c.Duration = std::max(0.0f, j.value("Duration", c.Duration));
+            if (auto mode = j.find("Mode"); mode != j.end() && mode->is_string())
+                c.Mode = TintAnimation::ModeFromString(mode->get<std::string>()).value_or(TintPlayMode::PingPong);
+            if (auto ease = j.find("Ease"); ease != j.end() && ease->is_string())
+                c.Easing = EaseFromString(ease->get<std::string>()).value_or(Ease::InOutQuad);
+            c.Cycles = std::max(0, j.value("Cycles", 0));
+            c.StartOffset = std::max(0.0f, j.value("StartOffset", 0.0f));
+            c.PlayOnStart = j.value("PlayOnStart", true);
         }
         if (e.contains("CircleRenderer"))
         {
@@ -698,6 +761,21 @@ namespace Zamin {
             c.Range = j.value("Range", c.Range);
             c.OuterAngle = std::clamp(j.value("OuterAngle", c.OuterAngle), 0.1f, SpotLightComponent::MaxAngle);
             c.InnerAngle = std::clamp(j.value("InnerAngle", c.InnerAngle), 0.0f, c.OuterAngle);
+        }
+        if (e.contains("Light2D"))
+        {
+            const json& j = e["Light2D"];
+            auto& c = entity.AddComponent<Light2DComponent>();
+            c.Type = j.value("Type", std::string("Point")) == "Spot" ? Light2DType::Spot : Light2DType::Point;
+            c.Color = glm::max(Vec(j, "Color", c.Color), glm::vec3(0.0f));
+            c.Intensity = std::max(0.0f, j.value("Intensity", c.Intensity));
+            c.Radius = std::max(0.0f, j.value("Radius", c.Radius));
+            c.InnerRadius = std::clamp(j.value("InnerRadius", c.InnerRadius), 0.0f, c.Radius);
+            c.Falloff = std::clamp(j.value("Falloff", c.Falloff), 0.1f, 8.0f);
+            c.SpotAngle = std::clamp(j.value("SpotAngle", c.SpotAngle), 1.0f, 360.0f);
+            c.SpotSoftness = std::clamp(j.value("SpotSoftness", c.SpotSoftness), 0.0f, 1.0f);
+            c.Flicker = std::clamp(j.value("Flicker", c.Flicker), 0.0f, 1.0f);
+            c.FlickerSpeed = std::max(0.0f, j.value("FlickerSpeed", c.FlickerSpeed));
         }
         if (e.contains("Rigidbody2D"))
         {
@@ -830,6 +908,7 @@ namespace Zamin {
             c.Color = Vec(j, "Color", glm::vec4(1.0f));
             c.SortingOrder = j.value("SortingOrder", -1);
             c.SortingLayer = ReadSortingLayer(j);
+            c.Lit = j.value("Lit", false);
             c.Collision = j.value("Collision", true);
             c.Friction = j.value("Friction", 0.6f);
         }
@@ -1140,6 +1219,9 @@ namespace Zamin {
                 { "AutoExposureSpeed", s.Post.AutoExposureSpeed } } },
         };
         WriteAssetHandle(root["Settings"]["Environment"], "Map", s.EnvironmentMap);
+        if (s.Lighting2D != SceneSettings::Lighting2DSettings())
+            root["Settings"]["Lighting2D"] = { { "AmbientColor", ToJson(s.Lighting2D.AmbientColor) },
+                                               { "AmbientIntensity", s.Lighting2D.AmbientIntensity } };
 
         json entities = json::array();
         std::vector<Entity> ordered = m_Scene->GetEntitiesInOrder(); // creation order => stable diffs
@@ -1233,6 +1315,13 @@ namespace Zamin {
                 s.RenderScale = std::isfinite(renderScale) ? std::clamp(renderScale, Renderer::MinRenderScale, Renderer::MaxRenderScale) : 1.0f;
                 s.Gravity = Vec(j, "Gravity", s.Gravity);
                 s.Gravity3D = Vec(j, "Gravity3D", s.Gravity3D);
+                // Older scenes have none: white at 1 (Lit renderers look unlit).
+                s.Lighting2D = {};
+                if (auto l2d = j.find("Lighting2D"); l2d != j.end() && l2d->is_object())
+                {
+                    s.Lighting2D.AmbientColor = glm::max(Vec(*l2d, "AmbientColor", glm::vec3(1.0f)), glm::vec3(0.0f));
+                    s.Lighting2D.AmbientIntensity = std::max(0.0f, l2d->value("AmbientIntensity", 1.0f));
+                }
                 if (j.contains("Environment"))
                 {
                     const json& en = j["Environment"];

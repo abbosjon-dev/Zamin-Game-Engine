@@ -113,6 +113,11 @@ namespace Zamin {
         uint32_t OutputWidth = 0, OutputHeight = 0;
         float DeltaTime = 0.0f;             // seconds since this view's last frame (adaptation)
         PostProcessHistory* History = nullptr;
+        // Pixel-perfect upscaling (PixelPerfectView): > 0 - every input texel becomes PixelZoom x
+        // PixelZoom output pixels, sharp (no filtering), the picture starting PixelOffset output
+        // pixels before the output (it is centred). 0: scaled with linear filtering.
+        int PixelZoom = 0;
+        glm::ivec2 PixelOffset{ 0 };
     };
 
     // Screen-space effects applied to a rendered color texture: SSAO, bloom (threshold +

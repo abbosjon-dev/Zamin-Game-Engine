@@ -256,7 +256,12 @@ namespace Zamin {
     {
         json list = json::array();
         for (const SortingLayer& l : layers.GetLayers())
-            list.push_back({ { "ID", l.ID }, { "Name", l.Name } });
+        {
+            json item = { { "ID", l.ID }, { "Name", l.Name } };
+            if (l.YSort)
+                item["YSort"] = true; // only when on: older files stay the same
+            list.push_back(std::move(item));
+        }
         return list;
     }
 
@@ -275,7 +280,8 @@ namespace Zamin {
                     ZM_CORE_WARN("Noto'g'ri saralash qatlami e'tiborsiz qoldirildi: {}", item.dump());
                     continue;
                 }
-                layers.push_back({ id->get<uint32_t>(), name->get<std::string>() });
+                auto ySort = item.find("YSort");
+                layers.push_back({ id->get<uint32_t>(), name->get<std::string>(), ySort != item.end() && ySort->is_boolean() && ySort->get<bool>() });
             }
         out.Assign(layers);
     }

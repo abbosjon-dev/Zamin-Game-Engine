@@ -317,6 +317,99 @@ namespace Zamin {
         return true;
     }
 
+    // The colour of the entity's 2D renderer (the first it has of these).
+    static glm::vec4* RendererColor(Entity entity)
+    {
+        if (!entity.IsValid()) return nullptr;
+        if (auto* c = entity.TryGetComponent<SpriteRendererComponent>()) return &c->Color;
+        if (auto* c = entity.TryGetComponent<CircleRendererComponent>()) return &c->Color;
+        if (auto* c = entity.TryGetComponent<TextComponent>()) return &c->Color;
+        if (auto* c = entity.TryGetComponent<TilemapComponent>()) return &c->Color;
+        return nullptr;
+    }
+
+    glm::vec4 ScriptableEntity::GetColor() const
+    {
+        const glm::vec4* color = RendererColor(m_Entity);
+        return color ? *color : glm::vec4(1.0f);
+    }
+
+    bool ScriptableEntity::SetColor(const glm::vec4& color)
+    {
+        glm::vec4* c = RendererColor(m_Entity);
+        if (!c) return false;
+        *c = color;
+        return true;
+    }
+
+    bool ScriptableEntity::TweenColor(const glm::vec4& target, float duration, Ease ease, std::function<void()> onComplete)
+    {
+        const glm::vec4* color = RendererColor(m_Entity);
+        if (!color)
+            return false;
+        const glm::vec4 start = *color;
+        Entity e = m_Entity;
+        Tween(duration, [e, start, target](float t) mutable {
+            if (glm::vec4* c = RendererColor(e)) *c = glm::mix(start, target, t);
+        }, ease, std::move(onComplete));
+        return true;
+    }
+
+    bool ScriptableEntity::FadeTo(float alpha, float duration, Ease ease, std::function<void()> onComplete)
+    {
+        const glm::vec4* color = RendererColor(m_Entity);
+        if (!color)
+            return false;
+        const float start = color->a;
+        Entity e = m_Entity;
+        Tween(duration, [e, start, alpha](float t) mutable {
+            if (glm::vec4* c = RendererColor(e)) c->a = start + (alpha - start) * t;
+        }, ease, std::move(onComplete));
+        return true;
+    }
+
+    bool ScriptableEntity::PlayTint(bool restart)
+    {
+        Entity entity = m_Entity;
+        auto* tint = entity.TryGetComponent<TintAnimationComponent>();
+        if (!tint)
+            return false;
+        tint->Play(restart);
+        return true;
+    }
+
+    void ScriptableEntity::PlayTint(const glm::vec4& color, float duration, TintPlayMode mode, int cycles, Ease ease)
+    {
+        Entity entity = m_Entity;
+        auto& tint = entity.HasComponent<TintAnimationComponent>() ? entity.GetComponent<TintAnimationComponent>()
+                                                                   : entity.AddComponent<TintAnimationComponent>();
+        tint.Keys = { TintKey{ 0.0f, glm::vec4(1.0f) }, TintKey{ 1.0f, color } };
+        tint.Duration = std::max(0.0f, duration);
+        tint.Mode = mode;
+        tint.Cycles = std::max(0, cycles);
+        tint.Easing = ease;
+        tint.StartOffset = 0.0f;
+        tint.Play(true);
+    }
+
+    bool ScriptableEntity::StopTint(bool reset)
+    {
+        Entity entity = m_Entity;
+        auto* tint = entity.TryGetComponent<TintAnimationComponent>();
+        if (!tint)
+            return false;
+        if (reset) tint->Reset();
+        else tint->Stop();
+        return true;
+    }
+
+    bool ScriptableEntity::IsTintPlaying() const
+    {
+        Entity entity = m_Entity;
+        auto* tint = entity.TryGetComponent<TintAnimationComponent>();
+        return tint && tint->Playing;
+    }
+
     const SpriteSheet* ScriptableEntity::GetSpriteSheet() const
     {
         Entity entity = m_Entity;
@@ -413,40 +506,6 @@ namespace Zamin {
     bool ScriptableEntity::IsAudioPlaying() const { return m_Entity.GetScene()->IsAudioPlaying(m_Entity); }
 
     float ScriptableEntity::GetTime() const { return m_Entity.GetScene()->GetTime(); }
-
-    float ApplyEase(Ease ease, float t)
-    {
-        t = std::clamp(t, 0.0f, 1.0f);
-        switch (ease)
-        {
-            case Ease::Linear:     return t;
-            case Ease::InQuad:     return t * t;
-            case Ease::OutQuad:    return 1.0f - (1.0f - t) * (1.0f - t);
-            case Ease::InOutQuad:  return t < 0.5f ? 2.0f * t * t : 1.0f - std::pow(-2.0f * t + 2.0f, 2.0f) * 0.5f;
-            case Ease::OutCubic:   return 1.0f - std::pow(1.0f - t, 3.0f);
-            case Ease::InOutCubic: return t < 0.5f ? 4.0f * t * t * t : 1.0f - std::pow(-2.0f * t + 2.0f, 3.0f) * 0.5f;
-            case Ease::OutBack:
-            {
-                const float c1 = 1.70158f, c3 = c1 + 1.0f;
-                return 1.0f + c3 * std::pow(t - 1.0f, 3.0f) + c1 * std::pow(t - 1.0f, 2.0f);
-            }
-            case Ease::OutElastic:
-            {
-                if (t == 0.0f || t == 1.0f) return t;
-                const float c4 = glm::two_pi<float>() / 3.0f;
-                return std::pow(2.0f, -10.0f * t) * std::sin((t * 10.0f - 0.75f) * c4) + 1.0f;
-            }
-            case Ease::OutBounce:
-            {
-                const float n1 = 7.5625f, d1 = 2.75f;
-                if (t < 1.0f / d1) return n1 * t * t;
-                if (t < 2.0f / d1) { t -= 1.5f / d1; return n1 * t * t + 0.75f; }
-                if (t < 2.5f / d1) { t -= 2.25f / d1; return n1 * t * t + 0.9375f; }
-                t -= 2.625f / d1; return n1 * t * t + 0.984375f;
-            }
-        }
-        return t;
-    }
 
     void ScriptableEntity::Invoke(float delay, std::function<void()> callback)
     {

@@ -238,6 +238,7 @@ namespace Zamin {
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).RuntimeHandle = 0;
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
         for (auto e : registry.view<SpriteRendererComponent>()) registry.get<SpriteRendererComponent>(e).StopFlash();
+        for (auto e : registry.view<TintAnimationComponent>()) registry.get<TintAnimationComponent>(e).ResetRuntime();
         for (auto e : registry.view<CameraComponent>()) registry.get<CameraComponent>(e).Shake.ResetRuntime();
         for (auto e : registry.view<Camera2DFollowComponent>()) registry.get<Camera2DFollowComponent>(e).ResetRuntime();
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).Clear();
@@ -258,6 +259,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->RuntimeHandle = 0;
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
         if (auto* c = e.TryGetComponent<SpriteRendererComponent>()) c->StopFlash();
+        if (auto* c = e.TryGetComponent<TintAnimationComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<TilemapComponent>()) c->RuntimeBody = nullptr;
         if (auto* c = e.TryGetComponent<CameraComponent>()) c->Shake.ResetRuntime();
         if (auto* c = e.TryGetComponent<Camera2DFollowComponent>()) c->ResetRuntime();
@@ -1550,6 +1552,42 @@ namespace Zamin {
         return any;
     }
 
+    bool Scene::GetSortingLayer(Entity entity, uint32_t& layer)
+    {
+        if (!entity || !entity.IsValid())
+            return false;
+        if (auto* c = entity.TryGetComponent<SpriteRendererComponent>()) { layer = c->SortingLayer; return true; }
+        if (auto* c = entity.TryGetComponent<CircleRendererComponent>()) { layer = c->SortingLayer; return true; }
+        if (auto* c = entity.TryGetComponent<TextComponent>()) { layer = c->SortingLayer; return true; }
+        if (auto* c = entity.TryGetComponent<TilemapComponent>()) { layer = c->SortingLayer; return true; }
+        if (auto* c = entity.TryGetComponent<ParticleSystemComponent>()) { layer = c->SortingLayer; return true; }
+        return false;
+    }
+
+    Entity Scene::GetSortRoot(Entity entity, uint32_t layer)
+    {
+        Entity root = entity;
+        // A broken hierarchy (a cycle) cannot hang the renderer: at most as many steps as entities.
+        size_t steps = m_EntityMap.size();
+        for (Entity parent = GetParent(root); parent && steps-- > 0; parent = GetParent(parent))
+        {
+            uint32_t parentLayer = 0;
+            if (!GetSortingLayer(parent, parentLayer) || parentLayer != layer)
+                break;
+            root = parent;
+        }
+        return root;
+    }
+
+    SortKey2D Scene::GetSortKey2D(Entity entity, uint32_t layer, int order, const glm::mat4& view)
+    {
+        const SortingLayerList& layers = Project::GetSortingLayers();
+        const float depth = (view * GetWorldTransform(entity)[3]).z;
+        if (!layers.IsYSorted(layer))
+            return SortKey2D::Make(layers.GetIndex(layer), order, depth);
+        return SortKey2D::Make(layers.GetIndex(layer), order, depth, true, GetWorldPosition(GetSortRoot(entity, layer)).y);
+    }
+
     bool Scene::ComputeBounds(const std::vector<Entity>& entities, AABB& out, bool includeChildren)
     {
         AABB total;
@@ -1654,6 +1692,9 @@ namespace Zamin {
         m_Time = 0.0f;
         m_AnimationTime = 0.0;
         DebugDraw::Clear(); // the game starts with an empty debug drawing queue
+        // Tint animations start (PlayOnStart) from their first colour.
+        for (auto e : m_Registry.view<TintAnimationComponent>())
+            m_Registry.get<TintAnimationComponent>(e).ResetRuntime();
         // Inactive entities start without bodies and without OnEnable.
         EnsureActiveCache();
         m_AppliedInactive = m_InactiveOrder;
@@ -1686,6 +1727,8 @@ namespace Zamin {
     void Scene::OnSimulationStart()
     {
         DebugDraw::Clear();
+        for (auto e : m_Registry.view<TintAnimationComponent>())
+            m_Registry.get<TintAnimationComponent>(e).ResetRuntime();
         EnsureActiveCache();
         m_AppliedInactive = m_InactiveOrder;
         OnPhysics2DStart();
@@ -1694,6 +1737,8 @@ namespace Zamin {
 
     void Scene::OnSimulationStop()
     {
+        for (auto e : m_Registry.view<TintAnimationComponent>())
+            m_Registry.get<TintAnimationComponent>(e).ResetRuntime();
         OnPhysics2DStop();
         OnPhysics3DStop();
         m_AppliedInactive.clear();
@@ -2741,6 +2786,7 @@ namespace Zamin {
                 if (anim.Playing && IsActiveInHierarchy({ e, this })) // inactive: paused where it is
                     anim.Time += ts;
             }
+            UpdateTintAnimations(ts, false);
             UpdateParticles(ts, false);
             UpdateAnimators(ts, false);
             UpdateAudio();
@@ -2755,10 +2801,28 @@ namespace Zamin {
         if (!cameraEntity)
             return;
         auto& camera = cameraEntity.GetComponent<CameraComponent>();
-        glm::mat4 cameraWorld = GetCameraViewTransform(cameraEntity); // with its shake
+        glm::mat4 cameraWorld = GetCameraViewTransform(cameraEntity); // with its shake (pixel perfect: on the pixel grid)
         SceneRenderOptions options;
         options.Parallax = true; // the game camera moves the parallax layers
-        RenderScene(glm::inverse(cameraWorld), camera.Camera.GetProjection(), glm::vec3(cameraWorld[3]), options);
+        PixelPerfectView pixel;
+        if (!GetPixelPerfectView(pixel))
+        {
+            RenderScene(glm::inverse(cameraWorld), camera.Camera.GetProjection(), glm::vec3(cameraWorld[3]), options);
+            return;
+        }
+        // Pixel perfect: drawn over the whole render target; the screen <-> world mapping (overlays,
+        // debug drawing, ScreenToWorld) is what the view shows of it.
+        if (camera.PixelPerfect.SnapSprites)
+            options.PixelSnap = pixel.SnapUnit;
+        if (pixel.Upscale)
+        {
+            glm::vec2 offset = glm::vec2(PixelPerfect::GetUpscaleOffset(pixel));
+            glm::vec2 covered = glm::vec2(pixel.RenderSize) * (float)pixel.Zoom;
+            options.UIViewRect = { -offset.x, covered.x - offset.x, -offset.y, covered.y - offset.y };
+        }
+        const float nearClip = camera.Camera.GetOrthographicNearClip(), farClip = camera.Camera.GetOrthographicFarClip();
+        RenderScene(glm::inverse(cameraWorld), PixelPerfect::GetProjection(pixel, nearClip, farClip, true), glm::vec3(cameraWorld[3]), options);
+        m_LastProjection = PixelPerfect::GetProjection(pixel, nearClip, farClip, false);
     }
 
     void Scene::OnUpdateSimulation(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options)
@@ -2770,6 +2834,7 @@ namespace Zamin {
             m_AnimationTime += (double)ts;
             ApplyActiveChanges(); // flags changed in the inspector while simulating
             StepPhysics(ts);
+            UpdateTintAnimations(ts, false);
             UpdateParticles(ts, false);
             UpdateAnimators(ts, false);
         }
@@ -2783,6 +2848,7 @@ namespace Zamin {
         m_FrameIndex++;
         DebugDraw::Advance(ts); // the edit scene's time is the editor's
         m_AnimationTime += (double)ts; // animated tiles play in the scene view
+        UpdateTintAnimations(ts, true);
         UpdateParticles(ts, true);
         UpdateAnimators(ts, true);
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
@@ -3092,6 +3158,31 @@ namespace Zamin {
         }
     }
 
+    void Scene::UpdateTintAnimations(Timestep ts, bool editor)
+    {
+        for (auto e : m_Registry.view<TintAnimationComponent>())
+        {
+            auto& tint = m_Registry.get<TintAnimationComponent>(e);
+            if (editor)
+            {
+                // The inspector's preview: it plays round and round (a finished one starts over).
+                if (!tint.EditorPreview)
+                    continue;
+                tint.Elapsed += ts;
+                if (tint.IsFinished())
+                    tint.Elapsed = 0.0f;
+            }
+            else if (tint.Playing && IsActiveInHierarchy({ e, this })) // inactive: it waits where it is
+                tint.Update(ts);
+        }
+    }
+
+    glm::vec4 Scene::GetTint(Entity entity)
+    {
+        const auto* tint = entity ? entity.TryGetComponent<TintAnimationComponent>() : nullptr;
+        return tint ? tint->GetColor() : glm::vec4(1.0f);
+    }
+
     bool Scene::PlayAudio(Entity entity)
     {
         if (!m_IsRunning || !entity.IsValid() || entity.GetScene() != this || !IsActiveInHierarchy(entity))
@@ -3352,7 +3443,8 @@ namespace Zamin {
             glm::vec3 targetPosition = GetWorldPosition(target);
             glm::vec2 halfView(0.0f);
             if (auto* camera = m_Registry.try_get<CameraComponent>(e))
-                halfView = Camera2DFollow::GetHalfView(camera->Camera.GetProjection(), world, targetPosition.z);
+                halfView = Camera2DFollow::GetHalfView(camera->IsPixelPerfect() ? GetCameraProjection(entity) : camera->Camera.GetProjection(),
+                                                       world, targetPosition.z);
             glm::vec2 position = Camera2DFollow::Step(follow, glm::vec2(world[3]), glm::vec2(targetPosition), halfView, dt);
             if (position == glm::vec2(world[3]))
                 continue;
@@ -3395,9 +3487,50 @@ namespace Zamin {
         if (!camera || !camera.IsValid())
             return glm::mat4(1.0f);
         glm::mat4 world = GetWorldTransform(camera);
-        if (auto* c = camera.TryGetComponent<CameraComponent>(); c && c->Shake.IsActive())
+        auto* c = camera.TryGetComponent<CameraComponent>();
+        if (c && c->Shake.IsActive())
             world = world * c->Shake.GetMatrix();
+        // Pixel perfect: the view moves in whole pixels.
+        if (c && c->IsPixelPerfect() && c->PixelPerfect.SnapCamera && m_ViewportWidth > 0 && m_ViewportHeight > 0)
+        {
+            PixelPerfectView view = PixelPerfect::Compute(c->PixelPerfect, m_ViewportWidth, m_ViewportHeight);
+            glm::vec2 snapped = PixelPerfect::Snap(glm::vec2(world[3]), view.SnapUnit);
+            world[3].x = snapped.x;
+            world[3].y = snapped.y;
+        }
         return world;
+    }
+
+    glm::mat4 Scene::GetCameraProjection(Entity camera)
+    {
+        if (!camera || !camera.IsValid() || !camera.HasComponent<CameraComponent>())
+            return glm::mat4(1.0f);
+        const auto& c = camera.GetComponent<CameraComponent>();
+        if (!c.IsPixelPerfect() || m_ViewportWidth == 0 || m_ViewportHeight == 0)
+            return c.Camera.GetProjection();
+        PixelPerfectView view = PixelPerfect::Compute(c.PixelPerfect, m_ViewportWidth, m_ViewportHeight);
+        return PixelPerfect::GetProjection(view, c.Camera.GetOrthographicNearClip(), c.Camera.GetOrthographicFarClip(), false);
+    }
+
+    bool Scene::GetPixelPerfectView(PixelPerfectView& out)
+    {
+        Entity camera = GetPrimaryCameraEntity();
+        if (!camera || m_ViewportWidth == 0 || m_ViewportHeight == 0)
+            return false;
+        const auto& c = camera.GetComponent<CameraComponent>();
+        if (!c.IsPixelPerfect())
+            return false;
+        out = PixelPerfect::Compute(c.PixelPerfect, m_ViewportWidth, m_ViewportHeight);
+        return true;
+    }
+
+    glm::uvec2 Scene::GetRuntimeRenderResolution(uint32_t width, uint32_t height)
+    {
+        Entity camera = GetPrimaryCameraEntity();
+        if (camera && width > 0 && height > 0)
+            if (const auto& c = camera.GetComponent<CameraComponent>(); c.IsPixelPerfect())
+                return PixelPerfect::Compute(c.PixelPerfect, width, height).RenderSize; // no render scale: it would blur the pixels
+        return Renderer::GetRenderResolution(width, height, m_Settings.RenderScale);
     }
 
     glm::vec3 Scene::ScreenToWorld(const glm::vec2& screen, float depthZ)
@@ -3405,7 +3538,7 @@ namespace Zamin {
         Entity cam = GetPrimaryCameraEntity();
         glm::vec2 size = GetViewportSize();
         if (!cam || size.x <= 0.0f || size.y <= 0.0f) return glm::vec3(0.0f);
-        glm::mat4 viewProj = cam.GetComponent<CameraComponent>().Camera.GetProjection() * glm::inverse(GetWorldTransform(cam));
+        glm::mat4 viewProj = GetCameraProjection(cam) * glm::inverse(GetWorldTransform(cam));
         glm::mat4 inv = glm::inverse(viewProj);
         glm::vec2 ndc = { screen.x / size.x * 2.0f - 1.0f, 1.0f - screen.y / size.y * 2.0f };
         glm::vec4 n = inv * glm::vec4(ndc, -1.0f, 1.0f), f = inv * glm::vec4(ndc, 1.0f, 1.0f);
@@ -3773,8 +3906,13 @@ namespace Zamin {
         std::vector<Item2D> items;
         auto depthOf = [&](entt::entity e) { return (view * world(e)[3]).z; };
         const SortingLayerList& sortingLayers = Project::GetSortingLayers();
+        // Y-sorted layers (top-down games): the sort point is the entity's world position - of
+        // its topmost ancestor that draws on the same layer, so the parts of one character (a
+        // hat, a weapon) go with it and the order in the layer sorts them among themselves.
         auto keyOf = [&](entt::entity e, uint32_t layer, int order) {
-            return SortKey2D{ sortingLayers.GetIndex(layer), order, depthOf(e) };
+            if (!sortingLayers.IsYSorted(layer))
+                return SortKey2D::Make(sortingLayers.GetIndex(layer), order, depthOf(e));
+            return SortKey2D::Make(sortingLayers.GetIndex(layer), order, depthOf(e), true, world((entt::entity)GetSortRoot({ e, this }, layer))[3].y);
         };
         // Sprite sheet frames are looked up in the asset registry (only when a sprite uses one).
         const AssetRegistry* assetRegistry = nullptr;
@@ -3907,19 +4045,50 @@ namespace Zamin {
         {
 
         std::stable_sort(items.begin(), items.end(), [](const Item2D& a, const Item2D& b) {
-            return SortKey2D::Less(a.Key, b.Key); // layer, order in the layer, then farther first
+            return SortKey2D::Less(a.Key, b.Key); // layer, (Y), order in the layer, then farther first
         });
         const glm::mat4 viewProjection = projection * view;
+
+        // 2D lights for the Lit renderers (only looked up when one is Lit).
+        bool anyLit = false;
+        for (const Item2D& item : items)
+            if ((item.Kind == 0 && m_Registry.get<SpriteRendererComponent>(item.Handle).Lit) ||
+                (item.Kind == 4 && m_Registry.get<TilemapComponent>(item.Handle).Lit))
+            {
+                anyLit = true;
+                break;
+            }
+        if (anyLit)
+            Renderer2D::SetLighting(GatherLights2D(world, glm::vec2(cameraPosition), culling2D ? &frustum2D : nullptr, hidden));
+        // Tint animations multiply the renderer's colour.
+        const bool tints = !m_Registry.view<TintAnimationComponent>().empty();
+        auto tintOf = [&](entt::entity e) {
+            const auto* tint = tints ? m_Registry.try_get<TintAnimationComponent>(e) : nullptr;
+            return tint ? tint->GetColor() : glm::vec4(1.0f);
+        };
+        // Pixel-perfect camera: drawn at whole pixels (the transform stays).
+        auto snapped = [&](glm::mat4 m) {
+            if (options.PixelSnap > 0.0f)
+            {
+                glm::vec2 p = PixelPerfect::Snap(glm::vec2(m[3]), options.PixelSnap);
+                m[3].x = p.x;
+                m[3].y = p.y;
+            }
+            return m;
+        };
 
         Renderer2D::BeginScene(projection * view);
         for (const auto& item : items)
         {
             const glm::mat4& transform = world(item.Handle);
             int id = (int)(uint32_t)item.Handle;
+            Renderer2D::SetLit(anyLit && ((item.Kind == 0 && m_Registry.get<SpriteRendererComponent>(item.Handle).Lit) ||
+                                          (item.Kind == 4 && m_Registry.get<TilemapComponent>(item.Handle).Lit)));
             if (item.Kind == 0)
             {
                 auto& s = m_Registry.get<SpriteRendererComponent>(item.Handle);
-                glm::mat4 t = transform;
+                glm::mat4 t = snapped(transform);
+                const glm::vec4 color = s.Color * tintOf(item.Handle);
                 if (s.FlipX || s.FlipY)
                     t = t * glm::scale(glm::mat4(1.0f), { s.FlipX ? -1.0f : 1.0f, s.FlipY ? -1.0f : 1.0f, 1.0f });
                 const auto* anim = m_Registry.try_get<SpriteAnimationComponent>(item.Handle);
@@ -3927,7 +4096,7 @@ namespace Zamin {
                 const ParallaxComponent* repeat = repeats(item.Handle);
                 if (!repeat)
                 {
-                    DrawSprite(t, s, anim, s.Color, id, sheets);
+                    DrawSprite(t, s, anim, color, id, sheets);
                     continue;
                 }
                 // An endless parallax background: copies side by side (and / or above each other)
@@ -3949,18 +4118,18 @@ namespace Zamin {
                     for (int kx = x0; kx <= x1; kx++)
                     {
                         glm::mat4 copy = glm::translate(glm::mat4(1.0f), { kx * spacing.x, ky * spacing.y, 0.0f }) * t;
-                        DrawSprite(copy, s, anim, s.Color, id, sheets);
+                        DrawSprite(copy, s, anim, color, id, sheets);
                     }
             }
             else if (item.Kind == 1)
             {
                 auto& c = m_Registry.get<CircleRendererComponent>(item.Handle);
-                Renderer2D::DrawCircle(transform, c.Color, c.Thickness, c.Fade, id);
+                Renderer2D::DrawCircle(transform, c.Color * tintOf(item.Handle), c.Thickness, c.Fade, id);
             }
             else if (item.Kind == 2)
             {
                 auto& text = m_Registry.get<TextComponent>(item.Handle);
-                Renderer2D::TextParams params{ text.Color, text.Kerning, text.LineSpacing };
+                Renderer2D::TextParams params{ text.Color * tintOf(item.Handle), text.Kerning, text.LineSpacing };
                 glm::mat4 t = transform;
                 if (text.Centered)
                 {
@@ -3977,7 +4146,9 @@ namespace Zamin {
                 if (!tm.IsValidLayer(item.Layer))
                     continue;
                 const TilemapLayer& layer = tm.Layers[(size_t)item.Layer];
-                const glm::vec4 color = layer.Opacity >= 1.0f ? tm.Color : tm.Color * glm::vec4(1.0f, 1.0f, 1.0f, std::max(0.0f, layer.Opacity));
+                const glm::vec4 tmColor = tm.Color * tintOf(item.Handle);
+                const glm::vec4 color = layer.Opacity >= 1.0f ? tmColor : tmColor * glm::vec4(1.0f, 1.0f, 1.0f, std::max(0.0f, layer.Opacity));
+                const glm::mat4 origin = snapped(transform);
                 const bool previewed = item.Handle == options.TilePreviewEntity && item.Layer == options.TilePreviewLayer &&
                                        options.TilePreviewTiles && options.TilePreviewTiles->size() == layer.Tiles.size();
                 const std::vector<int>& tiles = previewed ? *options.TilePreviewTiles : layer.Tiles;
@@ -4002,8 +4173,8 @@ namespace Zamin {
                         if (tile < 0) continue;
                         if (tileProperties)
                             tile = tileProperties->Resolve(tile, m_AnimationTime);
-                        glm::mat4 t = transform * glm::translate(glm::mat4(1.0f), { (x + 0.5f) * tm.TileSize, (y + 0.5f) * tm.TileSize, 0.0f })
-                                                * glm::scale(glm::mat4(1.0f), { tm.TileSize, tm.TileSize, 1.0f });
+                        glm::mat4 t = origin * glm::translate(glm::mat4(1.0f), { (x + 0.5f) * tm.TileSize, (y + 0.5f) * tm.TileSize, 0.0f })
+                                             * glm::scale(glm::mat4(1.0f), { tm.TileSize, tm.TileSize, 1.0f });
                         if (tm.Tileset)
                         {
                             int tx = tile % cols, ty = tile / cols;
@@ -4044,13 +4215,91 @@ namespace Zamin {
                 if (ps.Additive) Renderer2D::SetBlendMode(BlendMode::Alpha);
             }
         }
+        Renderer2D::SetLit(false);
         Renderer2D::EndScene();
         }
 
-        RenderUI(hidden.empty() ? nullptr : &hidden);
+        RenderUI(hidden.empty() ? nullptr : &hidden, options.UIViewRect);
     }
 
-    void Scene::RenderUI(const std::unordered_set<entt::entity>* skip)
+    Lighting2DData Scene::GatherLights2D(const std::function<const glm::mat4&(entt::entity)>& world, const glm::vec2& viewCenter,
+                                         const Frustum* frustum, const std::unordered_set<entt::entity>& skipped)
+    {
+        Lighting2DData data;
+        const auto& settings = m_Settings.Lighting2D;
+        data.Ambient = glm::pow(glm::max(settings.AmbientColor, glm::vec3(0.0f)), glm::vec3(2.2f)) * std::max(0.0f, settings.AmbientIntensity);
+        struct Candidate
+        {
+            float Distance;
+            Light2DData Light;
+        };
+        std::vector<Candidate> candidates;
+        for (auto e : m_Registry.view<TransformComponent, Light2DComponent>())
+        {
+            if (!skipped.empty() && skipped.contains(e))
+                continue;
+            const auto& l = m_Registry.get<Light2DComponent>(e);
+            if (l.Radius <= 0.0f || l.Intensity <= 0.0f)
+                continue;
+            const glm::mat4& t = world(e);
+            glm::vec2 position(t[3]);
+            if (frustum)
+            {
+                glm::vec3 p(t[3]);
+                if (!frustum->Intersects(AABB{ p - glm::vec3(l.Radius, l.Radius, 0.0f), p + glm::vec3(l.Radius, l.Radius, 0.0f) }))
+                    continue;
+            }
+            glm::vec4 tint(1.0f);
+            if (const auto* anim = m_Registry.try_get<TintAnimationComponent>(e))
+                tint = anim->GetColor();
+            float intensity = l.Intensity * tint.a;
+            if (l.Flicker > 0.0f)
+                intensity *= Light2DMath::Flicker(m_AnimationTime, l.Flicker, l.FlickerSpeed, (uint32_t)(uint64_t)m_Registry.get<IDComponent>(e).ID);
+            if (intensity <= 0.0f)
+                continue;
+            Light2DData light;
+            light.Position = position;
+            light.Radius = l.Radius;
+            light.InnerRadius = std::clamp(l.InnerRadius, 0.0f, l.Radius);
+            light.Color = glm::pow(glm::max(l.Color * glm::vec3(tint), glm::vec3(0.0f)), glm::vec3(2.2f)) * intensity;
+            light.Falloff = std::max(0.01f, l.Falloff);
+            if (l.Type == Light2DType::Spot && l.SpotAngle < 360.0f)
+            {
+                glm::vec2 axis(t * glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+                float len = glm::length(axis);
+                light.Spot = true;
+                light.Direction = len > 1e-6f ? axis / len : glm::vec2(1.0f, 0.0f);
+                float half = glm::radians(std::clamp(l.SpotAngle, 1.0f, 360.0f) * 0.5f);
+                light.CosOuter = std::cos(half);
+                light.CosInner = std::cos(half * (1.0f - std::clamp(l.SpotSoftness, 0.0f, 1.0f)));
+            }
+            candidates.push_back({ glm::length(position - viewCenter) - l.Radius, light });
+        }
+        // The nearest first (their edge: a big light far away still reaches the view); at most the
+        // shader's number.
+        std::stable_sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) { return a.Distance < b.Distance; });
+        if (candidates.size() > (size_t)Light2DMath::MaxLights)
+            candidates.resize((size_t)Light2DMath::MaxLights);
+        data.Lights.reserve(candidates.size());
+        for (const Candidate& c : candidates)
+            data.Lights.push_back(c.Light);
+        return data;
+    }
+
+    Lighting2DData Scene::CollectLights2D(const glm::vec2& viewCenter)
+    {
+        EnsureActiveCache();
+        std::unordered_map<entt::entity, glm::mat4> cache;
+        std::function<const glm::mat4&(entt::entity)> world = [&](entt::entity e) -> const glm::mat4& {
+            auto it = cache.find(e);
+            if (it == cache.end())
+                it = cache.emplace(e, GetWorldTransform({ e, this })).first;
+            return it->second;
+        };
+        return GatherLights2D(world, viewCenter, nullptr, m_InactiveInHierarchy);
+    }
+
+    void Scene::RenderUI(const std::unordered_set<entt::entity>* skip, const glm::vec4& viewRect)
     {
         // ---------------- screen-space UI (pixels, bottom-left origin)
         auto uiView = m_Registry.view<UITransformComponent>();
@@ -4068,7 +4317,11 @@ namespace Zamin {
         });
 
         RenderCommand::SetDepthTest(false);
-        Renderer2D::BeginScene(glm::ortho(0.0f, viewport.x, 0.0f, viewport.y, -1.0f, 1.0f));
+        Renderer2D::SetLit(false);
+        if (viewRect != glm::vec4(0.0f))
+            Renderer2D::BeginScene(glm::ortho(viewRect.x, viewRect.y, viewRect.z, viewRect.w, -1.0f, 1.0f));
+        else
+            Renderer2D::BeginScene(glm::ortho(0.0f, viewport.x, 0.0f, viewport.y, -1.0f, 1.0f));
         for (auto e : ui)
         {
             const auto& t = m_Registry.get<UITransformComponent>(e);
@@ -4079,6 +4332,9 @@ namespace Zamin {
             glm::vec4 tint(1.0f);
             if (auto* b = m_Registry.try_get<UIButtonComponent>(e))
                 tint = !b->Interactable ? glm::vec4(0.5f, 0.5f, 0.5f, 1.0f) : b->Pressed ? b->PressedColor : b->Hovered ? b->HoverColor : b->NormalColor;
+            // A tint animation colours all of it (the button's own colours included).
+            const glm::vec4 animated = m_Registry.all_of<TintAnimationComponent>(e) ? m_Registry.get<TintAnimationComponent>(e).GetColor() : glm::vec4(1.0f);
+            tint *= animated;
 
             if (auto* s = m_Registry.try_get<SpriteRendererComponent>(e))
             {
@@ -4093,12 +4349,12 @@ namespace Zamin {
                 Renderer2D::DrawQuad(rect, tint, id);
 
             if (auto* c = m_Registry.try_get<CircleRendererComponent>(e))
-                Renderer2D::DrawCircle(rect, c->Color, c->Thickness, c->Fade, id);
+                Renderer2D::DrawCircle(rect, c->Color * animated, c->Thickness, c->Fade, id);
 
             if (auto* text = m_Registry.try_get<TextComponent>(e))
             {
                 if (!text->FontAsset) text->FontAsset = Font::GetDefault();
-                Renderer2D::TextParams params{ text->Color, text->Kerning, text->LineSpacing };
+                Renderer2D::TextParams params{ text->Color * animated, text->Kerning, text->LineSpacing };
                 float scale = std::max(1.0f, t.FontSize > 0.0f ? t.FontSize : t.Size.y);
                 glm::mat4 tm = glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(scale, scale, 1.0f));
                 glm::vec2 size = Renderer2D::MeasureString(text->Text, text->FontAsset, params);

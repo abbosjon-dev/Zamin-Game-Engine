@@ -230,6 +230,9 @@ namespace Zamin {
         bool DrawSpriteAnimation(Entity entity, SpriteAnimationComponent& c);
         // Camera 2D Follow: target, damping, dead zone, look-ahead, bounds.
         bool DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c);
+        bool DrawTintAnimation(Entity entity, TintAnimationComponent& c);
+        bool DrawLight2D(Entity entity, Light2DComponent& c);
+        bool DrawPixelPerfect(CameraComponent& c);
         // Tilemap: tileset, layers, paint tools, auto-tile rules, palette.
         bool DrawTilemap(Entity entity, TilemapComponent& c);
         // Writes the auto-tile rules into the tileset's .zmeta.

@@ -243,6 +243,8 @@ uniform int u_Tonemap;
 uniform int u_AutoExposure;
 uniform sampler2D u_Exposure;      // 1x1: the adapted average brightness (log2 luminance)
 uniform float u_ExposureScale;     // key x 2^compensation
+uniform int u_PixelZoom;           // > 0: each scene texel covers that many output pixels (sharp)
+uniform vec2 u_PixelOffset;        // output pixels the centred picture starts before the view
 
 vec3 ACES(vec3 x)
 {
@@ -252,19 +254,27 @@ vec3 ACES(vec3 x)
 
 void main()
 {
+    // Pixel-perfect upscaling: the texel under this output pixel, sampled at its centre.
+    vec2 uv = v_UV;
+    if (u_PixelZoom > 0)
+    {
+        vec2 size = vec2(textureSize(u_Scene, 0));
+        vec2 texel = floor((gl_FragCoord.xy - 0.5 + u_PixelOffset) / float(u_PixelZoom));
+        uv = (texel + 0.5) / size;
+    }
     vec3 color;
     if (u_ChromaticAberration > 0.0)
     {
         // red and blue taken from a little further out / further in, more towards the edges
-        vec2 d = v_UV - 0.5;
+        vec2 d = uv - 0.5;
         vec2 shift = d * dot(d, d) * (0.06 * u_ChromaticAberration);
-        color = vec3(texture(u_Scene, v_UV - shift).r, texture(u_Scene, v_UV).g, texture(u_Scene, v_UV + shift).b);
+        color = vec3(texture(u_Scene, uv - shift).r, texture(u_Scene, uv).g, texture(u_Scene, uv + shift).b);
         color = max(color, vec3(0.0));
     }
     else
-        color = max(texture(u_Scene, v_UV).rgb, vec3(0.0));
+        color = max(texture(u_Scene, uv).rgb, vec3(0.0));
     if (u_AOEnabled == 1)
-        color *= texture(u_AO, v_UV).r;
+        color *= texture(u_AO, uv).r;
     if (u_BloomEnabled == 1)
     {
         vec3 glow = texture(u_Bloom, v_UV).rgb;
@@ -981,6 +991,8 @@ void main()
         comp->SetFloat("u_Brightness", settings.Brightness);
         comp->SetFloat3("u_Tint", settings.Tint);
         comp->SetInt("u_Tonemap", (int)settings.Tonemap);
+        comp->SetInt("u_PixelZoom", input.PixelZoom > 0 ? input.PixelZoom : 0);
+        comp->SetFloat2("u_PixelOffset", glm::vec2(input.PixelOffset));
         comp->SetInt("u_Exposure", 3);
         comp->SetInt("u_AutoExposure", exposureTexture ? 1 : 0);
         RenderCommand::BindTextureUnit(3, exposureTexture);

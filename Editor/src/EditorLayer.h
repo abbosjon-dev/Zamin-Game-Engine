@@ -388,6 +388,8 @@ namespace Zamin {
         };
         std::vector<JointLabel> m_JointLabels;
         PostProcessHistory m_PostHistory; // the viewport's auto exposure (adapted brightness)
+        // Play with a pixel-perfect camera that upscales: how the picture was blown up (mouse picking).
+        PixelPerfectView m_PlayPixelZoom;
         bool m_2DMode = false;
         bool m_MaximizeOnPlay = false;
 

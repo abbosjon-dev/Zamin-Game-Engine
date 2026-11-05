@@ -29,6 +29,7 @@ namespace Zamin {
         if (e.HasComponent<DirectionalLightComponent>()) return ICON_FA_SUN;
         if (e.HasComponent<PointLightComponent>()) return ICON_FA_LIGHTBULB;
         if (e.HasComponent<SpotLightComponent>()) return ICON_FA_BULLHORN;
+        if (e.HasComponent<Light2DComponent>()) return ICON_FA_FIRE;
         if (e.HasComponent<MeshRendererComponent>()) return ICON_FA_CUBE;
         if (e.HasComponent<TextComponent>()) return ICON_FA_FONT;
         if (e.HasComponent<CircleRendererComponent>()) return ICON_FA_CIRCLE;
@@ -1958,10 +1959,11 @@ namespace Zamin {
         bool changed = false;
         const SortingLayerList& layers = Project::GetSortingLayers();
         UI::PropertyLabel("Saralash qatlami", "Orqadan oldinga: avval qatlam (Loyiha sozlamalari > Saralash qatlamlari "
-                                              "ro'yxatidagi o'rni), keyin qatlamdagi tartib, keyin kameradan uzoqligi.");
+                                              "ro'yxatidagi o'rni), keyin qatlamdagi tartib, keyin kameradan uzoqligi. "
+                                              "(Y) qatlamda tartibdan oldin Y: yuqoriroqdagi orqada chiziladi.");
         ImGui::PushID("sortingLayer");
         const SortingLayer* current = layers.Find(layer);
-        std::string preview = current ? std::format(ICON_FA_LAYER_GROUP "  {}", current->Name)
+        std::string preview = current ? std::format(ICON_FA_LAYER_GROUP "  {}{}", current->Name, current->YSort ? "  (Y)" : "")
                                       : std::format(ICON_FA_TRIANGLE_EXCLAMATION "  #{} (yo'q - Default)", layer);
         const float button = ImGui::GetFrameHeight();
         ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
@@ -1971,7 +1973,7 @@ namespace Zamin {
             for (size_t i = 0; i < list.size(); i++)
             {
                 ImGui::PushID((int)list[i].ID);
-                std::string label = std::format("{}  {}", i + 1, list[i].Name);
+                std::string label = std::format("{}  {}{}", i + 1, list[i].Name, list[i].YSort ? "  (Y bo'yicha)" : "");
                 if (ImGui::Selectable(label.c_str(), list[i].ID == layer))
                 {
                     layer = list[i].ID;
@@ -2142,6 +2144,10 @@ namespace Zamin {
         }
         changed |= UI::PropertyBool("Gorizontal aks (Flip X)", c.FlipX);
         changed |= UI::PropertyBool("Vertikal aks (Flip Y)", c.FlipY);
+        changed |= UI::PropertyBool(ICON_FA_FIRE "  Yorug'lik (Lit)", c.Lit);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Light 2D yorug'liklari va sahnaning 2D muhit yorug'ligi (Sahna sozlamalari) bilan yoritiladi. "
+                        "O'chiq: rasm o'z rangida chiziladi");
 
         // ---- effects: hit flash, outline
         ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Effektlar");
@@ -2181,6 +2187,325 @@ namespace Zamin {
         {
             UI::PropertyLabel("");
             ImGui::TextDisabled(!c.Texture ? "Kontur uchun tekstura kerak" : "Kontur faqat Simple rejimda (takrorlashsiz)");
+        }
+        return changed;
+    }
+
+    // ------------------------------------------------------------------ tint animation
+    // The gradient as a strip `height` px high (a checkerboard under see-through colours).
+    static void DrawTintGradient(const std::vector<TintKey>& keys, float width, float height, float marker = -1.0f)
+    {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 p0 = ImGui::GetCursorScreenPos();
+        ImVec2 p1(p0.x + width, p0.y + height);
+        const float cell = height * 0.5f;
+        for (float x = p0.x; x < p1.x; x += cell)
+            for (int row = 0; row < 2; row++)
+            {
+                bool dark = ((int)((x - p0.x) / cell) + row) % 2 == 0;
+                dl->AddRectFilled(ImVec2(x, p0.y + row * cell), ImVec2(std::min(x + cell, p1.x), p0.y + (row + 1) * cell),
+                                  dark ? IM_COL32(90, 90, 96, 255) : IM_COL32(140, 140, 148, 255));
+            }
+        const int steps = std::max(8, (int)(width / 4.0f));
+        for (int i = 0; i < steps; i++)
+        {
+            float t0 = (float)i / steps, t1 = (float)(i + 1) / steps;
+            glm::vec4 ca = TintAnimation::EvaluateGradient(keys, t0), cb = TintAnimation::EvaluateGradient(keys, t1);
+            ImU32 a = ImGui::ColorConvertFloat4ToU32(ImVec4(ca.r, ca.g, ca.b, ca.a));
+            ImU32 b = ImGui::ColorConvertFloat4ToU32(ImVec4(cb.r, cb.g, cb.b, cb.a));
+            dl->AddRectFilledMultiColor(ImVec2(p0.x + width * t0, p0.y), ImVec2(p0.x + width * t1, p1.y), a, b, b, a);
+        }
+        for (const TintKey& k : keys)
+        {
+            float x = p0.x + width * std::clamp(k.Time, 0.0f, 1.0f);
+            dl->AddTriangleFilled(ImVec2(x - 4.0f, p1.y + 5.0f), ImVec2(x + 4.0f, p1.y + 5.0f), ImVec2(x, p1.y - 1.0f), IM_COL32(230, 230, 235, 255));
+        }
+        if (marker >= 0.0f)
+        {
+            float x = p0.x + width * std::clamp(marker, 0.0f, 1.0f);
+            dl->AddLine(ImVec2(x, p0.y - 2.0f), ImVec2(x, p1.y + 2.0f), IM_COL32(255, 210, 80, 255), 2.0f);
+        }
+        dl->AddRect(p0, p1, IM_COL32(20, 20, 24, 255));
+        ImGui::Dummy(ImVec2(width, height + 6.0f));
+    }
+
+    bool SceneHierarchyPanel::DrawTintAnimation(Entity entity, TintAnimationComponent& c)
+    {
+        bool changed = false;
+        const bool renders = entity.HasComponent<SpriteRendererComponent>() || entity.HasComponent<CircleRendererComponent>() ||
+                             entity.HasComponent<TextComponent>() || entity.HasComponent<TilemapComponent>() ||
+                             entity.HasComponent<Light2DComponent>();
+        if (!renders)
+        {
+            UI::PropertyLabel("");
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Bo'yaydigan narsa yo'q (Sprite, Circle, Text, Tilemap yoki Light 2D)");
+        }
+
+        // ---- gradient: a strip with the keys, then the keys one by one
+        UI::PropertyLabel("Gradiyent", "Chiziladigan rang = renderer rangi x shu gradiyent rangi (animatsiya vaqtida). "
+                                       "Oq - o'zgarishsiz, alfa 0 - ko'rinmas. Renderer'ning o'z rangi o'zgarmaydi");
+        const bool playing = c.Playing || c.EditorPreview;
+        DrawTintGradient(c.Keys, std::max(40.0f, ImGui::GetContentRegionAvail().x), ImGui::GetFrameHeight() * 0.8f,
+                         playing || c.Elapsed > 0.0f || c.StartOffset > 0.0f ? c.GetPhase() : -1.0f);
+        int remove = -1;
+        bool sort = false;
+        for (int i = 0; i < (int)c.Keys.size(); i++)
+        {
+            TintKey& k = c.Keys[(size_t)i];
+            ImGui::PushID(i);
+            UI::PropertyLabel(i == 0 ? "Kalitlar" : "", "Vaqt (0..1, davomiylikka nisbatan) va rang. Kalitlar orasida rang tekis o'tadi");
+            const float button = ImGui::GetFrameHeight();
+            const float avail = ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x * 2.0f;
+            ImGui::SetNextItemWidth(std::max(40.0f, avail * 0.38f));
+            if (ImGui::DragFloat("##time", &k.Time, 0.005f, 0.0f, 1.0f, "%.2f"))
+                changed = true;
+            if (ImGui::IsItemDeactivatedAfterEdit())
+                sort = true;
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(std::max(40.0f, avail * 0.62f));
+            changed |= ImGui::ColorEdit4("##color", &k.Color.x, ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreviewHalf);
+            ImGui::SameLine();
+            ImGui::BeginDisabled(c.Keys.size() <= 1);
+            if (ImGui::Button(ICON_FA_TRASH, ImVec2(button, 0)))
+                remove = i;
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip(c.Keys.size() <= 1 ? "Kamida bitta kalit qoladi" : "Kalitni o'chirish");
+            ImGui::PopID();
+        }
+        if (remove >= 0 && c.Keys.size() > 1)
+        {
+            c.Keys.erase(c.Keys.begin() + remove);
+            changed = true;
+        }
+        UI::PropertyLabel("");
+        if (ImGui::Button(ICON_FA_PLUS "  Kalit"))
+        {
+            // In the widest gap, with the colour the gradient has there (nothing changes until it is edited).
+            TintAnimation::SortKeys(c.Keys);
+            float time = 0.5f, widest = -1.0f;
+            for (size_t i = 0; i + 1 < c.Keys.size(); i++)
+                if (c.Keys[i + 1].Time - c.Keys[i].Time > widest)
+                {
+                    widest = c.Keys[i + 1].Time - c.Keys[i].Time;
+                    time = (c.Keys[i].Time + c.Keys[i + 1].Time) * 0.5f;
+                }
+            if (c.Keys.size() == 1)
+                time = c.Keys[0].Time < 0.5f ? 1.0f : 0.0f;
+            c.Keys.push_back({ time, TintAnimation::EvaluateGradient(c.Keys, time) });
+            sort = changed = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_ARROWS_ROTATE "  Teskari"))
+        {
+            for (TintKey& k : c.Keys)
+                k.Time = 1.0f - k.Time;
+            sort = changed = true;
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Gradiyentni teskari aylantirish");
+        if (sort)
+            TintAnimation::SortKeys(c.Keys);
+
+        // ---- timing
+        if (UI::PropertyFloat("Davomiylik (s)", c.Duration, 0.01f, 0.0f, 3600.0f, "%.2f"))
+        {
+            c.Duration = std::max(0.0f, c.Duration);
+            changed = true;
+        }
+        const char* modes[] = { "Bir marta (Once)", "Takror (Loop)", "Borib-qaytish (PingPong)" };
+        int mode = (int)c.Mode;
+        if (UI::PropertyCombo("Rejim", mode, modes, 3))
+        {
+            c.Mode = (TintPlayMode)mode;
+            changed = true;
+        }
+        static const char* eases[EaseCount] = { "Linear", "In Quad", "Out Quad", "In-Out Quad", "Out Cubic", "In-Out Cubic",
+                                                "Out Back", "Out Elastic", "Out Bounce" };
+        int ease = (int)c.Easing;
+        if (UI::PropertyCombo("Silliqlik (ease)", ease, eases, EaseCount))
+        {
+            c.Easing = (Ease)ease;
+            changed = true;
+        }
+        if (c.Mode != TintPlayMode::Once)
+        {
+            if (UI::PropertyInt("Sikllar (0 = cheksiz)", c.Cycles))
+            {
+                c.Cycles = std::max(0, c.Cycles);
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Shuncha marta aylanib to'xtaydi (PingPong: borib-qaytish bitta sikl). Masalan miltillash: oq -> shaffof, PingPong, 6 sikl");
+        }
+        if (UI::PropertyFloat("Boshlanish siljishi (s)", c.StartOffset, 0.01f, 0.0f, 3600.0f, "%.2f"))
+        {
+            c.StartOffset = std::max(0.0f, c.StartOffset);
+            changed = true;
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Animatsiya shuncha soniyadan boshlanadi: bir xil obyektlar bir vaqtda miltillamasin");
+        changed |= UI::PropertyBool("O'yin boshida", c.PlayOnStart);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("O'yin boshlanganda (yoki obyekt paydo bo'lganda) o'zi boshlanadi. Skriptdan: PlayTint() / StopTint()");
+
+        // ---- preview (scene view) / play controls (game)
+        UI::PropertyLabel("");
+        const bool running = m_Context && m_Context->IsRunning();
+        if (running)
+        {
+            if (ImGui::Button(c.Playing ? ICON_FA_STOP "  To'xtatish" : ICON_FA_PLAY "  Boshlash"))
+            {
+                if (c.Playing) c.Stop();
+                else c.Play(true);
+            }
+            ImGui::SameLine();
+            ImGui::TextDisabled("%.2f s%s", c.Elapsed, c.IsFinished() ? "  (tugadi)" : "");
+        }
+        else
+        {
+            if (ImGui::Button(c.EditorPreview ? ICON_FA_STOP "  Ko'rishni to'xtatish" : ICON_FA_PLAY "  Sahnada ko'rish"))
+            {
+                c.EditorPreview = !c.EditorPreview;
+                c.Elapsed = 0.0f;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Editor sahnasida aylanib o'ynaydi (saqlanmaydi; o'yin har doim boshidan boshlanadi)");
+        }
+        return changed;
+    }
+
+    // ------------------------------------------------------------------ 2D light
+    bool SceneHierarchyPanel::DrawLight2D(Entity entity, Light2DComponent& c)
+    {
+        InactiveComponentNote(entity, "Obyekt nofaol: yorug'lik hisobga olinmaydi");
+        bool changed = false;
+        const char* types[] = { "Nuqta (Point)", "Konus (Spot)" };
+        int type = (int)c.Type;
+        if (UI::PropertyCombo("Turi", type, types, 2))
+        {
+            c.Type = (Light2DType)type;
+            changed = true;
+        }
+        changed |= UI::PropertyColor3("Rang", c.Color);
+        if (UI::PropertyFloat("Kuch", c.Intensity, 0.01f, 0.0f, 100.0f, "%.2f"))
+        {
+            c.Intensity = std::max(0.0f, c.Intensity);
+            changed = true;
+        }
+        if (UI::PropertyFloat("Radius", c.Radius, 0.02f, 0.0f, 1000.0f, "%.2f"))
+        {
+            c.Radius = std::max(0.0f, c.Radius);
+            c.InnerRadius = std::min(c.InnerRadius, c.Radius);
+            changed = true;
+        }
+        if (UI::PropertyFloat("Ichki radius", c.InnerRadius, 0.02f, 0.0f, 1000.0f, "%.2f"))
+        {
+            c.InnerRadius = std::clamp(c.InnerRadius, 0.0f, c.Radius);
+            changed = true;
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Shu masofagacha to'liq yorqinlik, keyin radiusgacha so'nadi");
+        UI::PropertyLabel("So'nish", "(1 - t)^daraja: 1 - chiziqli, 2 - yumshoq, 4 - yorqin markaz, tez so'nadi");
+        if (ImGui::SliderFloat("##falloff", &c.Falloff, 0.25f, 6.0f, "%.2f"))
+        {
+            c.Falloff = std::clamp(c.Falloff, 0.1f, 8.0f);
+            changed = true;
+        }
+        if (c.Type == Light2DType::Spot)
+        {
+            UI::PropertyLabel("Konus burchagi", "Konusning to'liq kengligi (gradus). Obyektning +X o'qi bo'ylab: aylantirish bilan buriladi");
+            if (ImGui::SliderFloat("##spotAngle", &c.SpotAngle, 1.0f, 360.0f, "%.0f\xc2\xb0"))
+            {
+                c.SpotAngle = std::clamp(c.SpotAngle, 1.0f, 360.0f);
+                changed = true;
+            }
+            UI::PropertyLabel("Chet yumshoqligi", "Konus chetining qanchasi (0..1) yumshoq so'nadi");
+            if (ImGui::SliderFloat("##spotSoftness", &c.SpotSoftness, 0.0f, 1.0f, "%.2f"))
+            {
+                c.SpotSoftness = std::clamp(c.SpotSoftness, 0.0f, 1.0f);
+                changed = true;
+            }
+        }
+        UI::PropertyLabel("Miltillash", "Kuch shuncha (0..1) tebranadi: mash'al, olov. 0 - tekis");
+        if (ImGui::SliderFloat("##flicker", &c.Flicker, 0.0f, 1.0f, "%.2f"))
+        {
+            c.Flicker = std::clamp(c.Flicker, 0.0f, 1.0f);
+            changed = true;
+        }
+        if (c.Flicker > 0.0f && UI::PropertyFloat("Miltillash tezligi", c.FlickerSpeed, 0.1f, 0.0f, 100.0f, "%.1f"))
+        {
+            c.FlickerSpeed = std::max(0.0f, c.FlickerSpeed);
+            changed = true;
+        }
+        // Which renderers it lights: only the Lit ones.
+        if (m_Context)
+        {
+            size_t lit = 0;
+            for (auto e : m_Context->GetAllEntitiesWith<SpriteRendererComponent>())
+                if (Entity(e, m_Context.get()).GetComponent<SpriteRendererComponent>().Lit) lit++;
+            for (auto e : m_Context->GetAllEntitiesWith<TilemapComponent>())
+                if (Entity(e, m_Context.get()).GetComponent<TilemapComponent>().Lit) lit++;
+            UI::PropertyLabel("");
+            ImGui::PushTextWrapPos(0.0f);
+            if (lit == 0)
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Sahnada \"Lit\" belgilangan sprite/tilemap yo'q: "
+                                   "yorug'lik faqat ularni yoritadi");
+            else
+                ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  %zu ta Lit renderer'ni yoritadi (muhit yorug'ligi: Sahna sozlamalari > 2D yorug'lik)", lit);
+            ImGui::PopTextWrapPos();
+        }
+        return changed;
+    }
+
+    // ------------------------------------------------------------------ camera: pixel perfect
+    bool SceneHierarchyPanel::DrawPixelPerfect(CameraComponent& c)
+    {
+        bool changed = false;
+        PixelPerfectSettings& pp = c.PixelPerfect;
+        UI::PropertyHeader(ICON_FA_CHESS_BOARD "  Pixel-perfect",
+                           "Har bir tekstura pikseli ekranda bir xil butun sondagi pikselga aylanadi (pixel-art o'yinlar). "
+                           "Faqat o'yin ko'rinishida (Play / Player); editor sahnasi o'zgarmaydi");
+        changed |= UI::PropertyBool("Yoqilgan", pp.Enabled);
+        if (!pp.Enabled)
+            return changed;
+        if (UI::PropertyFloat("Piksel / birlik", pp.PixelsPerUnit, 0.25f, PixelPerfect::MinPixelsPerUnit, PixelPerfect::MaxPixelsPerUnit, "%.1f"))
+        {
+            PixelPerfect::Sanitize(pp);
+            changed = true;
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Bir dunyo birligida nechta tekstura pikseli (sprite'lar shu o'lchamda chizilgan bo'lishi kerak)");
+        UI::PropertyLabel("Asosiy o'lcham (px)", "O'yin shu o'lchamdagi (art piksel) ekran uchun yasalgan: kattalashtirish - shu o'lcham "
+                                                 "ko'rinishga sig'adigan eng katta butun son. Katta oyna dunyodan ko'proq ko'rsatadi");
+        if (ImGui::DragInt2("##reference", &pp.ReferenceResolution.x, 1.0f, 1, 8192))
+        {
+            PixelPerfect::Sanitize(pp);
+            changed = true;
+        }
+        changed |= UI::PropertyBool("Past o'lchamda chizish", pp.UpscaleRenderTarget);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Sahna art o'lchamida chiziladi va aniq piksellar bilan kattalashtiriladi: aylantirilgan sprite'lar va "
+                        "chiziqlar ham piksel to'rida qoladi (UI ham shu o'lchamda)");
+        changed |= UI::PropertyBool("Kamerani pikselga", pp.SnapCamera);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Ko'rinish butun piksellarda siljiydi - harakatda piksellar titramaydi");
+        changed |= UI::PropertyBool("Sprite'larni pikselga", pp.SnapSprites);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Sprite va tilemap'lar ham butun piksellarda chiziladi (transformlari o'zgarmaydi)");
+        if (m_Context)
+        {
+            glm::vec2 viewport = m_Context->GetViewportSize();
+            if (viewport.x > 0.0f && viewport.y > 0.0f)
+            {
+                PixelPerfectView v = PixelPerfect::Compute(pp, (uint32_t)viewport.x, (uint32_t)viewport.y);
+                UI::PropertyLabel("");
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  %.0fx%.0f oynada: x%d, %ux%u art piksel, %.2f x %.2f birlik", viewport.x, viewport.y,
+                                    v.Zoom, (unsigned)((float)v.ViewSize.x / (float)v.Zoom), (unsigned)((float)v.ViewSize.y / (float)v.Zoom),
+                                    v.VisibleWorldSize.x, v.VisibleWorldSize.y);
+                ImGui::PopTextWrapPos();
+            }
         }
         return changed;
     }
@@ -2291,6 +2616,9 @@ namespace Zamin {
         changed |= UI::PropertyFloat("Plitka o'lchami", c.TileSize, 0.01f, 0.01f, 100.0f);
         changed |= UI::PropertyColor4("Rang", c.Color);
         changed |= DrawSortingLayer(c.SortingLayer, c.SortingOrder);
+        changed |= UI::PropertyBool(ICON_FA_FIRE "  Yorug'lik (Lit)", c.Lit);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Plitkalar Light 2D yorug'liklari va 2D muhit yorug'ligi bilan yoritiladi (g'orlar, tungi sahnalar)");
         changed |= UI::PropertyBool("Collision (fizika)", c.Collision);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Collision belgilangan qatlamlardagi plitkalar qattiq (qo'shni plitkalar bitta to'rtburchakka birlashadi)");
@@ -3267,8 +3595,8 @@ namespace Zamin {
             glm::mat4 world = m_Context->GetWorldTransform(entity);
             glm::vec3 targetPosition = m_Context->GetWorldPosition(target);
             glm::vec2 halfView(0.0f);
-            if (auto* camera = entity.TryGetComponent<CameraComponent>())
-                halfView = Camera2DFollow::GetHalfView(camera->Camera.GetProjection(), world, targetPosition.z);
+            if (entity.HasComponent<CameraComponent>())
+                halfView = Camera2DFollow::GetHalfView(m_Context->GetCameraProjection(entity), world, targetPosition.z);
             glm::vec2 position = Camera2DFollow::GetSnapPosition(c, glm::vec2(targetPosition), halfView);
             world[3].x = position.x;
             world[3].y = position.y;
@@ -3942,6 +4270,7 @@ namespace Zamin {
                 ImGui::SeparatorText("Render");
                 DisplayAddComponentEntry<SpriteRendererComponent>("Sprite Renderer", ICON_FA_IMAGE);
                 DisplayAddComponentEntry<SpriteAnimationComponent>("Sprite Animation", ICON_FA_FILM);
+                DisplayAddComponentEntry<TintAnimationComponent>("Tint Animation (rang)", ICON_FA_PALETTE);
                 DisplayAddComponentEntry<CircleRendererComponent>("Circle Renderer", ICON_FA_CIRCLE);
                 DisplayAddComponentEntry<TextComponent>("Text", ICON_FA_FONT);
                 DisplayAddComponentEntry<MeshRendererComponent>("Mesh Renderer", ICON_FA_CUBE);
@@ -3951,6 +4280,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<DirectionalLightComponent>("Directional Light", ICON_FA_SUN);
                 DisplayAddComponentEntry<PointLightComponent>("Point Light", ICON_FA_LIGHTBULB);
                 DisplayAddComponentEntry<SpotLightComponent>("Spot Light", ICON_FA_BULLHORN);
+                DisplayAddComponentEntry<Light2DComponent>("Light 2D", ICON_FA_FIRE);
                 ImGui::SeparatorText("Fizika 2D");
                 DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D", ICON_FA_ATOM);
                 DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D", ICON_FA_VECTOR_SQUARE);
@@ -4044,6 +4374,8 @@ namespace Zamin {
             }
             changed |= UI::PropertyBool("Qat'iy nisbat", c.FixedAspectRatio);
             changed |= UI::PropertyColor4("Fon rangi", c.ClearColor);
+            if (camera.GetProjectionType() == SceneCamera::ProjectionType::Orthographic)
+                changed |= DrawPixelPerfect(c);
 
             UI::PropertyHeader(ICON_FA_BURST "  Silkinish",
                                "Skriptdan: ShakeCamera(kuch, davomiylik, chastota). Faqat tasvir silkinadi - kameraning joyi, "
@@ -4092,6 +4424,10 @@ namespace Zamin {
 
         AddSection<SpriteAnimationComponent>(ICON_FA_FILM, "Sprite Animation", entity, [&](SpriteAnimationComponent& c) {
             return DrawSpriteAnimation(entity, c);
+        }, true, modified);
+
+        AddSection<TintAnimationComponent>(ICON_FA_PALETTE, "Tint Animation", entity, [&](TintAnimationComponent& c) {
+            return DrawTintAnimation(entity, c);
         }, true, modified);
 
         AddSection<CircleRendererComponent>(ICON_FA_CIRCLE, "Circle Renderer", entity, [&](CircleRendererComponent& c) {
@@ -4269,6 +4605,10 @@ namespace Zamin {
             ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Obyektning -Z o'qi bo'ylab nur sochadi");
             ImGui::PopTextWrapPos();
             return changed;
+        }, true, modified);
+
+        AddSection<Light2DComponent>(ICON_FA_FIRE, "Light 2D", entity, [&](Light2DComponent& c) {
+            return DrawLight2D(entity, c);
         }, true, modified);
 
         AddSection<Rigidbody2DComponent>(ICON_FA_ATOM, "Rigidbody 2D", entity, [](Rigidbody2DComponent& c) {

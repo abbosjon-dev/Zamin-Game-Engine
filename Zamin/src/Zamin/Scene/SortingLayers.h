@@ -15,6 +15,9 @@ namespace Zamin {
     {
         uint32_t ID = 0;
         std::string Name;
+        // Top-down games: inside this layer what stands higher on the screen (a larger world Y) is
+        // drawn first, behind what stands lower (see SortKey2D).
+        bool YSort = false;
         bool operator==(const SortingLayer&) const = default;
     };
 
@@ -37,6 +40,10 @@ namespace Zamin {
         // The layer's name ("Default" for an unknown ID).
         const std::string& GetName(uint32_t id) const;
         bool Contains(uint32_t id) const { return Find(id) != nullptr; }
+        // The layer sorts by Y (an unknown ID: Default's setting).
+        bool IsYSorted(uint32_t id) const;
+        // False for an unknown ID.
+        bool SetYSort(uint32_t id, bool ySort);
 
         // A new layer on top (drawn last). Returns its ID; 0 for an empty or a taken name, or when
         // the list is full.
@@ -54,8 +61,8 @@ namespace Zamin {
         // ID unchanged (drawn on Default; nothing is lost when the file is saved again).
         uint32_t Resolve(uint32_t id, std::string_view name) const;
 
-        // Rebuilds the list from stored layers: duplicate IDs / names and empty names are dropped,
-        // Default is put back (at the front) when missing.
+        // Rebuilds the list from stored layers (with their Y sorting): duplicate IDs / names and
+        // empty names are dropped, Default is put back (at the front) when missing.
         void Assign(const std::vector<SortingLayer>& layers);
         uint32_t GetNextID() const { return m_NextID; }
 
@@ -68,15 +75,26 @@ namespace Zamin {
 
     // What decides the drawing order of 2D things (back to front): the sorting layer's position,
     // then the order inside the layer, then the depth from the camera (farther first).
+    // A Y-sorted layer (top-down games) compares the sort point's Y before the order: a larger
+    // world Y is drawn first (it stands farther up, behind); the order in the layer then only
+    // breaks ties - the parts of one character drawn at its root's Y (see GetSortY).
     struct SortKey2D
     {
         int Layer = 0;
         int Order = 0;
         float Depth = 0.0f; // view-space z: more negative = farther away
+        float SortY = 0.0f; // -world Y on a Y-sorted layer, else 0
+
+        // A key on a layer that sorts by Y (`ySort`) at world height `y`, else without Y.
+        static SortKey2D Make(int layer, int order, float depth, bool ySort = false, float y = 0.0f)
+        {
+            return SortKey2D{ layer, order, depth, ySort ? -y : 0.0f };
+        }
 
         static bool Less(const SortKey2D& a, const SortKey2D& b)
         {
             if (a.Layer != b.Layer) return a.Layer < b.Layer;
+            if (a.SortY != b.SortY) return a.SortY < b.SortY;
             if (a.Order != b.Order) return a.Order < b.Order;
             return a.Depth < b.Depth;
         }

@@ -97,7 +97,8 @@ namespace Zamin {
             const auto& post = m_Scene->GetSettings().Post;
             // The scene is rendered in linear HDR at the render scale of the window's size, then
             // tonemapped (and scaled) to the screen.
-            const glm::uvec2 renderSize = Renderer::GetRenderResolution(w, h, m_Scene->GetSettings().RenderScale);
+            // (A pixel-perfect camera: the art's resolution, blown up with sharp pixels.)
+            const glm::uvec2 renderSize = m_Scene->GetRuntimeRenderResolution(w, h);
             if (!m_Target)
             {
                 FramebufferSpecification spec;
@@ -127,6 +128,12 @@ namespace Zamin {
                 input.OutputHeight = h;
                 input.DeltaTime = ts;
                 input.History = &m_PostHistory;
+                if (PixelPerfectView pixel; m_Scene->GetPixelPerfectView(pixel) && pixel.Upscale &&
+                                            pixel.RenderSize == glm::uvec2(input.Width, input.Height))
+                {
+                    input.PixelZoom = pixel.Zoom;
+                    input.PixelOffset = PixelPerfect::GetUpscaleOffset(pixel);
+                }
                 PostProcessor::Apply(input, post, nullptr);
 
                 // Debug drawing over the finished picture, depth tested against the scene.

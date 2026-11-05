@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Zamin/Math/Easing.h"
+#include "Zamin/Scene/TintAnimation.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Core/Input.h"
 #include "Zamin/Core/Timestep.h"
@@ -24,8 +26,7 @@ namespace Zamin {
     //       void OnUpdate(Zamin::Timestep ts) override { ... }
     //   };
     //   ZM_REGISTER_SCRIPT(Player, ZM_FIELD(Player, Speed))
-    enum class Ease { Linear = 0, InQuad, OutQuad, InOutQuad, OutCubic, InOutCubic, OutBack, OutElastic, OutBounce };
-    float ApplyEase(Ease ease, float t);
+    // (Ease / ApplyEase: Zamin/Math/Easing.h)
 
     //
     // Lifecycle (in this order):
@@ -290,6 +291,29 @@ namespace Zamin {
         bool Flash(const glm::vec4& color = glm::vec4(1.0f), float duration = 0.15f);
         // A border `thickness` texture pixels wide around the sprite's picture (0: off).
         bool SetOutline(const glm::vec4& color, float thickness = 1.0f);
+
+        // ---- colour of the 2D renderer (Sprite Renderer, else Circle Renderer, Text, Tilemap)
+        // False / white without one.
+        glm::vec4 GetColor() const;
+        bool SetColor(const glm::vec4& color);
+        // Tweens the renderer's colour to `target` over `duration` seconds (a Tween: CancelTweens
+        // stops it; the colour then stays where it got to).
+        //   TweenColor({ 1.0f, 0.3f, 0.3f, 1.0f }, 0.25f);       // to red
+        //   FadeTo(0.0f, 0.5f, Ease::OutQuad, [this] { Destroy(); });
+        bool TweenColor(const glm::vec4& target, float duration, Ease ease = Ease::InOutQuad, std::function<void()> onComplete = {});
+        // Only the alpha.
+        bool FadeTo(float alpha, float duration, Ease ease = Ease::InOutQuad, std::function<void()> onComplete = {});
+
+        // ---- tint animation (TintAnimationComponent: the renderer's colour times a gradient)
+        // (Re)starts the entity's tint animation; false without one.
+        bool PlayTint(bool restart = true);
+        // Plays white -> `color` (added when missing; its gradient is replaced), e.g. a blink:
+        //   PlayTint({ 1.0f, 1.0f, 1.0f, 0.2f }, 0.08f, TintPlayMode::PingPong, 6);
+        void PlayTint(const glm::vec4& color, float duration, TintPlayMode mode = TintPlayMode::PingPong, int cycles = 0,
+                      Ease ease = Ease::InOutQuad);
+        // Stops it where it is (reset: back to its first colour).
+        bool StopTint(bool reset = false);
+        bool IsTintPlaying() const;
 
         const SpriteSheet* GetSpriteSheet() const;
         // Shows one named frame of the texture ("" = the whole texture). False without a Sprite

@@ -27,6 +27,8 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, DirectionalLightComponent>) return "DirectionalLight";
         else if constexpr (std::is_same_v<T, PointLightComponent>) return "PointLight";
         else if constexpr (std::is_same_v<T, SpotLightComponent>) return "SpotLight";
+        else if constexpr (std::is_same_v<T, Light2DComponent>) return "Light2D";
+        else if constexpr (std::is_same_v<T, TintAnimationComponent>) return "TintAnimation";
         else if constexpr (std::is_same_v<T, Rigidbody2DComponent>) return "Rigidbody2D";
         else if constexpr (std::is_same_v<T, BoxCollider2DComponent>) return "BoxCollider2D";
         else if constexpr (std::is_same_v<T, CircleCollider2DComponent>) return "CircleCollider2D";

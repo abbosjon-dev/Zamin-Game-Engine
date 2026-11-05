@@ -3490,11 +3490,14 @@ namespace Zamin {
                                       "chiziq qalinligi, matn o'lchami", physicsViews, ImVec2(caretWidth, buttonSize)))
                     ImGui::OpenPopup("##DebugDraw");
                 if (physicsViews) ImGui::PopStyleColor();
+                // The popup hangs below the caret, its right edge under the caret's.
+                const ImVec2 popupAnchor(ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + 8.0f);
                 if (m_OpenDebugDrawMenu)
                 {
                     ImGui::OpenPopup("##DebugDraw");
                     m_OpenDebugDrawMenu = false;
                 }
+                ImGui::SetNextWindowPos(popupAnchor, ImGuiCond_Appearing, ImVec2(1.0f, 0.0f));
                 UI_DebugDrawPopup();
             }
             ImGui::SameLine();
@@ -3629,11 +3632,16 @@ namespace Zamin {
 
     void EditorLayer::UI_DebugDrawPopup()
     {
-        if (!ImGui::BeginPopup("##DebugDraw"))
-            return;
-        if (UI_DebugDrawSettings())
-            MarkViewSettingsDirty();
-        ImGui::EndPopup();
+        ImGui::SetNextWindowSizeConstraints(ImVec2(300, 0), ImVec2(440, FLT_MAX));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 5));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+        if (ImGui::BeginPopup("##DebugDraw"))
+        {
+            if (UI_DebugDrawSettings())
+                MarkViewSettingsDirty();
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar(2);
     }
 
     bool EditorLayer::UI_DebugDrawSettings()

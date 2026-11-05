@@ -655,7 +655,10 @@ void main()
             RenderCommand::BindTextureUnit(0, depthTexture);
             sh->SetMat4("u_Projection", projection);
             sh->SetMat4("u_InvProjection", glm::inverse(projection));
-            sh->SetFloat2("u_TexelSize", { 1.0f / width, 1.0f / height });
+            // Normals are rebuilt from depths one output pixel apart (at least one texel): with the
+            // render scale above 1, neighbouring texels are so close that the depth buffer's
+            // precision would show as stripes on flat surfaces.
+            sh->SetFloat2("u_TexelSize", { 1.0f / std::min(width, outWidth), 1.0f / std::min(height, outHeight) });
             sh->SetFloat("u_Radius", settings.SSAORadius);
             sh->SetFloat("u_Bias", settings.SSAOBias);
             sh->SetFloat("u_Intensity", settings.SSAOIntensity);

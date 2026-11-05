@@ -3598,10 +3598,17 @@ namespace Zamin {
             return;
         UI::PropertyLabel("Kuch / moment");
         ImGui::TextDisabled("%.1f N   %.1f N*m", c.ReactionForce, c.ReactionTorque);
-        if (readout && *readout)
+        // One row per line ("name: value").
+        for (std::string_view rest = readout ? readout : ""; !rest.empty();)
         {
-            UI::PropertyLabel("");
-            ImGui::TextDisabled("%s", readout);
+            size_t end = rest.find('\n');
+            std::string_view line = rest.substr(0, end);
+            rest = end == std::string_view::npos ? std::string_view() : rest.substr(end + 1);
+            size_t colon = line.find(':');
+            if (colon == std::string_view::npos)
+                continue;
+            UI::PropertyLabel(std::string(line.substr(0, colon)).c_str());
+            ImGui::TextDisabled("%s", std::string(line.substr(colon + 1 + (colon + 1 < line.size() && line[colon + 1] == ' ' ? 1 : 0))).c_str());
         }
     }
 
@@ -4824,7 +4831,7 @@ namespace Zamin {
             changed |= degrees("Tezlik", "Gradus / soniya", c.MotorSpeed, -1e5f, 1e5f);
             changed |= positive("Maks. moment", "Motor bera oladigan eng katta moment (N*m)", c.MaxMotorTorque, "%.1f N*m");
             ImGui::EndDisabled();
-            DrawJoint2DStatus(c, std::format("Burchak: {:.1f}\xc2\xb0   tezlik: {:.1f}\xc2\xb0/s", c.JointAngle, c.JointSpeed).c_str());
+            DrawJoint2DStatus(c, std::format("Burchak: {:.1f}\xc2\xb0\nAylanish tezligi: {:.1f}\xc2\xb0/s", c.JointAngle, c.JointSpeed).c_str());
             return changed;
         }, true, modified);
 
@@ -4844,7 +4851,7 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Tezlik (birlik/s)", c.MotorSpeed, 0.05f);
             changed |= positive("Maks. kuch", "Motor bera oladigan eng katta kuch (N)", c.MaxMotorForce, "%.1f N");
             ImGui::EndDisabled();
-            DrawJoint2DStatus(c, std::format("Siljish: {:.3f}   tezlik: {:.2f}/s", c.JointTranslation, c.JointSpeed).c_str());
+            DrawJoint2DStatus(c, std::format("Siljish: {:.3f}\nTezlik: {:.2f} birlik/s", c.JointTranslation, c.JointSpeed).c_str());
             return changed;
         }, true, modified);
 
@@ -4874,7 +4881,7 @@ namespace Zamin {
             changed |= degrees("Tezlik", "Gradus / soniya (360 - soniyasiga bir aylanish)", c.MotorSpeed, -1e5f, 1e5f);
             changed |= positive("Maks. moment", "Motor bera oladigan eng katta moment (N*m)", c.MaxMotorTorque, "%.1f N*m");
             ImGui::EndDisabled();
-            DrawJoint2DStatus(c, std::format("Osma: {:.3f}   aylanish: {:.0f}\xc2\xb0/s", c.JointTranslation, c.JointSpeed).c_str());
+            DrawJoint2DStatus(c, std::format("Osma siljishi: {:.3f}\nAylanish: {:.0f}\xc2\xb0/s", c.JointTranslation, c.JointSpeed).c_str());
             return changed;
         }, true, modified);
 

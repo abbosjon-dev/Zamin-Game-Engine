@@ -636,6 +636,13 @@ namespace Zamin {
                     m_SceneHierarchyPanel.SetSelectedEntity(e);
                 else
                     ZM_WARN("ZAMIN_EDITOR_SELECT: '{}' topilmadi", sel);
+                // The inspector of the entity selected now shows its last components.
+                if (const char* bottom = std::getenv("ZAMIN_EDITOR_INSPECTOR_BOTTOM"))
+                {
+                    float y = (float)std::atof(bottom);
+                    if (y > 1.0f) m_SceneHierarchyPanel.ScrollInspectorTo(y);
+                    else m_SceneHierarchyPanel.ScrollInspectorToBottom();
+                }
             }
         // ZAMIN_EDITOR_STANDARD_MATERIALS=1: the selected entity's "Standart material..." list opens at frame 40.
         if (frame == 40 && std::getenv("ZAMIN_EDITOR_STANDARD_MATERIALS"))
@@ -1820,7 +1827,16 @@ namespace Zamin {
             else if (!joint.AutoConfigureConnectedAnchor || joint.RuntimeJoint)
                 connected = joint.ConnectedAnchor;
 
-            const glm::vec4 col = joint.Broken ? glm::vec4(0.95f, 0.35f, 0.3f, color.a) : color;
+            if (joint.Broken)
+            {
+                // A broken joint holds nothing: only where it was attached, crossed out in red.
+                const glm::vec4 red(0.95f, 0.35f, 0.3f, color.a);
+                Renderer2D::DrawCircle(glm::translate(glm::mat4(1.0f), at(anchor)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.16f, 0.16f, 1.0f)), red, 0.2f);
+                Renderer2D::DrawLine(at(anchor + glm::vec2(-0.12f, -0.12f)), at(anchor + glm::vec2(0.12f, 0.12f)), red);
+                Renderer2D::DrawLine(at(anchor + glm::vec2(-0.12f, 0.12f)), at(anchor + glm::vec2(0.12f, -0.12f)), red);
+                return;
+            }
+            const glm::vec4 col = color;
             Renderer2D::DrawLine(at(origin), at(anchor), faint);
             if (other && other != entity)
                 Renderer2D::DrawLine(at(otherOrigin), at(connected), glm::vec4(connectedColor.r, connectedColor.g, connectedColor.b, 0.4f));

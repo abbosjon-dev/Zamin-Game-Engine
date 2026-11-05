@@ -49,6 +49,13 @@ namespace Zamin {
             glDrawElements(GL_TRIANGLES, (GLsizei)count, GL_UNSIGNED_INT, nullptr);
         }
 
+        void DrawIndexedInstanced(const Ref<VertexArray>& vertexArray, uint32_t indexCount, uint32_t instanceCount) override
+        {
+            vertexArray->Bind();
+            uint32_t count = indexCount ? indexCount : vertexArray->GetIndexBuffer()->GetCount();
+            glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)count, GL_UNSIGNED_INT, nullptr, (GLsizei)instanceCount);
+        }
+
         void DrawLines(const Ref<VertexArray>& vertexArray, uint32_t vertexCount) override
         {
             vertexArray->Bind();

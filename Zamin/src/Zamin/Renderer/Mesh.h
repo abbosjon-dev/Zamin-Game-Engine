@@ -39,6 +39,10 @@ namespace Zamin {
         bool IsSkinned() const { return m_Skinned; }
 
         const Ref<VertexArray>& GetVertexArray() const { return m_VertexArray; }
+        // The mesh's vertices and indices plus `instanceBuffer` (per-instance attributes from
+        // location 3 on) for instanced draws; made on first use, again when the buffer changes.
+        // Not for skinned meshes (their joints take locations 3 and 4).
+        const Ref<VertexArray>& GetInstancedVertexArray(const Ref<VertexBuffer>& instanceBuffer) const;
         uint32_t GetIndexCount() const { return m_IndexCount; }
         uint32_t GetVertexCount() const { return m_VertexCount; }
         uint32_t GetTriangleCount() const { return m_IndexCount / 3; }
@@ -46,6 +50,10 @@ namespace Zamin {
 
     private:
         Ref<VertexArray> m_VertexArray;
+        Ref<VertexBuffer> m_VertexBuffer;
+        Ref<IndexBuffer> m_IndexBuffer;
+        mutable Ref<VertexArray> m_InstancedVertexArray;
+        mutable Ref<VertexBuffer> m_InstanceBuffer;
         uint32_t m_IndexCount = 0;
         uint32_t m_VertexCount = 0;
         AABB m_Bounds;

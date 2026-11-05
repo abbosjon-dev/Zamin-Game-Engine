@@ -70,6 +70,11 @@ namespace Zamin {
         uint32_t GetStride() const { return m_Stride; }
         const std::vector<BufferElement>& GetElements() const { return m_Elements; }
 
+        // Per instance: each element advances once per instance of an instanced draw instead of
+        // once per vertex (matrices always do).
+        bool IsPerInstance() const { return m_PerInstance; }
+        BufferLayout& SetPerInstance(bool perInstance) { m_PerInstance = perInstance; return *this; }
+
         std::vector<BufferElement>::const_iterator begin() const { return m_Elements.begin(); }
         std::vector<BufferElement>::const_iterator end() const { return m_Elements.end(); }
 
@@ -88,6 +93,7 @@ namespace Zamin {
 
         std::vector<BufferElement> m_Elements;
         uint32_t m_Stride = 0;
+        bool m_PerInstance = false;
     };
 
     class VertexBuffer
@@ -97,6 +103,9 @@ namespace Zamin {
         virtual void Bind() const = 0;
         virtual void Unbind() const = 0;
         virtual void SetData(const void* data, uint32_t size) = 0;
+        // Like SetData, for a buffer rewritten several times a frame (instance data): the old
+        // storage is let go - draws still reading it keep it - instead of waiting for them.
+        virtual void StreamData(const void* data, uint32_t size) = 0;
 
         virtual const BufferLayout& GetLayout() const = 0;
         virtual void SetLayout(const BufferLayout& layout) = 0;

@@ -26,6 +26,7 @@ class b2World;
 namespace Zamin {
 
     class Entity;
+    struct TilemapComponent;
     class ContactListener2D;
     class PhysicsWorld3D;
     class EventBus;
@@ -42,6 +43,8 @@ namespace Zamin {
         float AmbientIntensity = 0.6f;
         float Exposure = 1.0f;
         float ShadowDistance = 40.0f;
+        // Sun shadow quality: atlas size, filter (PCF), cascades, depth / normal bias.
+        ShadowSettings Shadows;
         std::string EnvironmentMap;      // .hdr / .png / .jpg equirect panorama (empty = gradient sky)
         float EnvironmentIntensity = 1.0f;
         float EnvironmentRotation = 0.0f; // radians
@@ -64,6 +67,19 @@ namespace Zamin {
         int VelocityIterations = 6;
         int PositionIterations = 2;
     };
+
+    // Tilemaps are drawn (and frustum culled) in square chunks of this many tiles per side.
+    constexpr int TilemapChunkSize = 16;
+    // A block of tiles: columns [X0, X1), rows [Y0, Y1).
+    struct TilemapChunk
+    {
+        int X0 = 0, Y0 = 0, X1 = 0, Y1 = 0;
+    };
+    // The chunks of `tilemap` (drawn with the world transform `world`) whose world bounds the
+    // frustum can see, row by row from the bottom (every chunk without a frustum). `culled`: add
+    // the number of the others. No GPU needed.
+    std::vector<TilemapChunk> GetVisibleTilemapChunks(const TilemapComponent& tilemap, const glm::mat4& world, const Frustum* frustum,
+                                                      uint32_t* culled = nullptr);
 
     struct SceneRenderOptions
     {

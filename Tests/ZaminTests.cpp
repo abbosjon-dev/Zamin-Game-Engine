@@ -10881,6 +10881,286 @@ TEST(EditorDebugViews)
     CHECK(n.Vignette == 0.0f && n.Saturation == 1.0f && n.Contrast == 1.0f && n.Brightness == 0.0f && n.Tint == glm::vec3(1.0f));
 }
 
+TEST(Culling2DBounds)
+{
+    // Sprites / circles: the unit quad moved by the transform.
+    AABB q = Renderer2D::GetQuadBounds(glm::translate(glm::mat4(1.0f), { 10, -2, 0 }) * glm::scale(glm::mat4(1.0f), { 4, 2, 1 }));
+    CHECK_NEAR(q.Min.x, 8.0f, 1e-5f);
+    CHECK_NEAR(q.Max.x, 12.0f, 1e-5f);
+    CHECK_NEAR(q.Min.y, -3.0f, 1e-5f);
+    CHECK_NEAR(q.Max.y, -1.0f, 1e-5f);
+    CHECK(q.Min.z == 0.0f && q.Max.z == 0.0f);
+    // A flipped sprite (negative scale) covers the same box.
+    AABB flipped = Renderer2D::GetQuadBounds(glm::scale(glm::mat4(1.0f), { -2, 1, 1 }));
+    CHECK_NEAR(flipped.Min.x, -1.0f, 1e-5f);
+    CHECK_NEAR(flipped.Max.x, 1.0f, 1e-5f);
+    // Rotated 45 degrees: the box around the diamond.
+    AABB turned = Renderer2D::GetQuadBounds(glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), { 0, 0, 1 }));
+    CHECK_NEAR(turned.Max.x, std::sqrt(0.5f), 1e-5f);
+    // No font: no glyphs, an empty box (never visible).
+    AABB text = Renderer2D::GetStringBounds("Salom", nullptr);
+    CHECK(text.Min.x > text.Max.x);
+
+    // A 2D camera: 16 x 9 units around (0, 0), looking down -Z (the editor's 2D view).
+    glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 10), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+    Frustum camera = Frustum::FromViewProjection(glm::ortho(-8.0f, 8.0f, -4.5f, 4.5f, 0.1f, 100.0f) * view);
+    CHECK(camera.Intersects(Renderer2D::GetQuadBounds(glm::translate(glm::mat4(1.0f), { 7.8f, 4.3f, 0 }))));  // a corner
+    CHECK(!camera.Intersects(Renderer2D::GetQuadBounds(glm::translate(glm::mat4(1.0f), { 9.0f, 0, 0 }))));    // right of the view
+    CHECK(!camera.Intersects(Renderer2D::GetQuadBounds(glm::translate(glm::mat4(1.0f), { 0, -5.1f, 0 }))));   // below
+    CHECK(camera.Intersects(Renderer2D::GetQuadBounds(glm::translate(glm::mat4(1.0f), { 8.4f, 0, 0 }))));     // half inside
+
+    // Tilemaps: 16 x 16 chunks, the last ones cut at the map's edge.
+    TilemapComponent tm;
+    tm.Width = 40;
+    tm.Height = 20;
+    tm.TileSize = 0.5f;
+    tm.EnsureSize();
+    uint32_t culled = 0;
+    std::vector<TilemapChunk> all = GetVisibleTilemapChunks(tm, glm::mat4(1.0f), nullptr, &culled);
+    CHECK(all.size() == 6 && culled == 0); // 3 x 2
+    CHECK(all[0].X0 == 0 && all[0].Y0 == 0 && all[0].X1 == 16 && all[0].Y1 == 16);
+    CHECK(all[2].X0 == 32 && all[2].X1 == 40 && all[2].Y1 == 16);
+    CHECK(all[5].Y0 == 16 && all[5].Y1 == 20 && all[5].X1 == 40);
+    int tiles = 0;
+    for (const TilemapChunk& c : all)
+        tiles += (c.X1 - c.X0) * (c.Y1 - c.Y0);
+    CHECK(tiles == 40 * 20); // every tile in exactly one chunk
+    // The map's bottom-left corner at (-7.9, -4.5), chunks 8 units wide: the view (x -8..8) shows the
+    // first two columns of chunks (to x 8.1), both rows; the third column (x 8.1..12.1) is outside.
+    glm::mat4 placed = glm::translate(glm::mat4(1.0f), { -7.9f, -4.5f, 0.0f });
+    std::vector<TilemapChunk> seen = GetVisibleTilemapChunks(tm, placed, &camera, &culled);
+    CHECK(seen.size() == 4 && culled == 2);
+    for (const TilemapChunk& c : seen)
+        CHECK(c.X0 < 32);
+    // Moved far away: everything culled; a negative tile size (mirrored) is still culled correctly.
+    culled = 0;
+    CHECK(GetVisibleTilemapChunks(tm, glm::translate(glm::mat4(1.0f), { 100, 0, 0 }), &camera, &culled).empty() && culled == 6);
+    tm.TileSize = -0.5f; // the map extends to the left / down of its position
+    culled = 0;
+    std::vector<TilemapChunk> mirrored = GetVisibleTilemapChunks(tm, glm::translate(glm::mat4(1.0f), { 7.9f, 4.5f, 0.0f }), &camera, &culled);
+    CHECK(mirrored.size() == 4 && culled == 2);
+    // A tiny map: one chunk.
+    TilemapComponent small;
+    small.Width = 3;
+    small.Height = 2;
+    small.EnsureSize();
+    std::vector<TilemapChunk> one = GetVisibleTilemapChunks(small, glm::mat4(1.0f), &camera);
+    CHECK(one.size() == 1 && one[0].X1 == 3 && one[0].Y1 == 2);
+}
+
+TEST(MeshInstancingBatches)
+{
+    CHECK(Renderer3D::IsInstancingEnabled()); // on by default (no renderer here: the toggle is a no-op)
+    int meshA = 0, meshB = 0; // only their addresses count
+    Material red;
+    red.Albedo = { 1, 0, 0, 1 };
+    Material red2 = red; // another object, the same values
+    Material blue = red;
+    blue.Albedo = { 0, 0, 1, 1 };
+    CHECK(Renderer3D::SameInstanceMaterial(red, red2));
+    CHECK(!Renderer3D::SameInstanceMaterial(red, blue));
+    // Every value the shader reads tells materials apart.
+    auto differs = [&](auto change) { Material m = red; change(m); return !Renderer3D::SameInstanceMaterial(red, m); };
+    CHECK(differs([](Material& m) { m.Roughness = 0.2f; }));
+    CHECK(differs([](Material& m) { m.Metallic = 1.0f; }));
+    CHECK(differs([](Material& m) { m.Tiling = { 2, 2 }; }));
+    CHECK(differs([](Material& m) { m.Offset = { 0.5f, 0 }; }));
+    CHECK(differs([](Material& m) { m.Emission = { 1, 1, 1 }; m.EmissionStrength = 2.0f; }));
+    CHECK(differs([](Material& m) { m.NormalStrength = 0.5f; }));
+    CHECK(differs([](Material& m) { m.Shader = MaterialShader::Unlit; }));
+    CHECK(differs([](Material& m) { m.BlendMode = MaterialBlendMode::Cutout; }));
+    CHECK(differs([](Material& m) { m.AlphaCutoff = 0.3f; }));
+    CHECK(differs([](Material& m) { m.DoubleSided = true; }));
+    CHECK(differs([](Material& m) { m.AlbedoMap = CreateRef<FakeTexture>("a.png"); }));
+    CHECK(differs([](Material& m) { m.NormalMap = CreateRef<FakeTexture>("n.png"); }));
+    // The same texture object: equal; another one (even of the same file): not.
+    Ref<Texture2D> tex = CreateRef<FakeTexture>("t.png");
+    Material texA = red, texB = red, texC = red;
+    texA.AlbedoMap = texB.AlbedoMap = tex;
+    texC.AlbedoMap = CreateRef<FakeTexture>("t.png");
+    CHECK(Renderer3D::SameInstanceMaterial(texA, texB) && !Renderer3D::SameInstanceMaterial(texA, texC));
+    // Emission is compared as the light it gives (color x strength).
+    Material glowA = red, glowB = red;
+    glowA.Emission = { 1, 1, 1 };
+    glowA.EmissionStrength = 0.0f;
+    glowB.Emission = { 0, 0, 0 };
+    glowB.EmissionStrength = 5.0f;
+    CHECK(Renderer3D::SameInstanceMaterial(glowA, glowB));
+
+    using C = Renderer3D::InstanceCandidate;
+    Material glass = red;
+    glass.BlendMode = MaterialBlendMode::Transparent;
+    std::vector<C> items = {
+        { &meshA, &red, false, false },   // 0  group A-red
+        { &meshB, &red, false, false },   // 1  group B-red
+        { &meshA, &red2, false, false },  // 2  -> A-red (equal values)
+        { &meshA, &blue, false, false },  // 3  group A-blue
+        { &meshA, &red, true, false },    // 4  skinned: alone
+        { &meshA, &red, false, true },    // 5  mirrored: its own group
+        { &meshA, &glass, false, false }, // 6  transparent: alone
+        { &meshA, &glass, false, false }, // 7  transparent: alone
+        { &meshA, &red, false, false },   // 8  -> A-red
+        { &meshA, &red, false, true },    // 9  -> mirrored group
+    };
+    auto batches = Renderer3D::BuildInstanceBatches(items);
+    CHECK(batches.size() == 7);
+    // In the order of their first item; the items of a group in their order.
+    CHECK((batches[0] == std::vector<size_t>{ 0, 2, 8 }));
+    CHECK((batches[1] == std::vector<size_t>{ 1 }));
+    CHECK((batches[2] == std::vector<size_t>{ 3 }));
+    CHECK((batches[3] == std::vector<size_t>{ 4 }));
+    CHECK((batches[4] == std::vector<size_t>{ 5, 9 }));
+    CHECK((batches[5] == std::vector<size_t>{ 6 }));
+    CHECK((batches[6] == std::vector<size_t>{ 7 }));
+    // Every item drawn exactly once.
+    std::vector<int> drawn(items.size(), 0);
+    for (const auto& b : batches)
+        for (size_t i : b)
+            drawn[i]++;
+    CHECK(std::all_of(drawn.begin(), drawn.end(), [](int n) { return n == 1; }));
+
+    // Big groups are split at the per-draw limit (the rest starts a new group).
+    std::vector<C> many(5, C{ &meshA, &red, false, false });
+    auto split = Renderer3D::BuildInstanceBatches(many, 2);
+    CHECK(split.size() == 3 && split[0].size() == 2 && split[1].size() == 2 && split[2].size() == 1);
+    CHECK(split[0][0] == 0 && split[1][0] == 2 && split[2][0] == 4);
+    CHECK(Renderer3D::BuildInstanceBatches(many).size() == 1);
+    // Nothing to draw: no batches; a candidate without a mesh is drawn alone.
+    CHECK(Renderer3D::BuildInstanceBatches({}).empty());
+    CHECK(Renderer3D::BuildInstanceBatches({ C{ nullptr, &red }, C{ nullptr, &red } }).size() == 2);
+}
+
+TEST(ShadowQualitySettings)
+{
+    // The defaults are the renderer's original fixed quality (existing scenes keep their look).
+    ShadowSettings d;
+    CHECK(d.AtlasSize == 4096 && d.Filter == ShadowFilter::PCF3x3 && d.CascadeCount == 3);
+    CHECK(d.CascadeSplit == 0.75f && d.DepthBias == 0.0005f && d.NormalBias == 1.0f);
+    CHECK(d.GetAtlasTiles() == 2 && d.GetTileSize() == 2048);
+    ShadowSettings one;
+    one.CascadeCount = 1;
+    CHECK(one.GetAtlasTiles() == 1 && one.GetTileSize() == 4096); // a single cascade has the whole atlas
+    CHECK(SceneEnvironment().Shadows.AtlasSize == 4096 && SceneSettings().Shadows.Filter == ShadowFilter::PCF3x3);
+
+    // Sanitizing: the atlas to the nearest supported size, the rest clamped, not finite: default.
+    for (auto [in, out] : { std::pair{ 0u, 1024u }, std::pair{ 1024u, 1024u }, std::pair{ 1500u, 1024u }, std::pair{ 1600u, 2048u },
+                            std::pair{ 2048u, 2048u }, std::pair{ 3000u, 2048u }, std::pair{ 3500u, 4096u }, std::pair{ 99999u, 4096u } })
+    {
+        ShadowSettings s;
+        s.AtlasSize = in;
+        s.Sanitize();
+        CHECK(s.AtlasSize == out);
+    }
+    ShadowSettings wild;
+    wild.Filter = (ShadowFilter)17;
+    wild.CascadeCount = 9;
+    wild.CascadeSplit = std::numeric_limits<float>::quiet_NaN();
+    wild.DepthBias = -1.0f;
+    wild.NormalBias = std::numeric_limits<float>::infinity();
+    wild.Sanitize();
+    CHECK(wild.Filter == ShadowFilter::PCF3x3 && wild.CascadeCount == ShadowSettings::MaxCascades);
+    CHECK(wild.CascadeSplit == 0.75f && wild.DepthBias == 0.0f && wild.NormalBias == 1.0f);
+    wild.CascadeCount = 0;
+    wild.DepthBias = 5.0f;
+    wild.NormalBias = 100.0f;
+    wild.Sanitize();
+    CHECK(wild.CascadeCount == 1 && wild.DepthBias == ShadowSettings::MaxDepthBias && wild.NormalBias == ShadowSettings::MaxNormalBias);
+
+    // Cascade splits: the original formula (a 75 % logarithmic mix) for the defaults.
+    float n = 0.1f, f = 40.0f;
+    std::vector<float> splits = Renderer3D::GetCascadeSplits(n, f, 3, 0.75f);
+    CHECK(splits.size() == 3);
+    for (int i = 0; i < 3; i++)
+    {
+        float p = (i + 1) / 3.0f;
+        CHECK_NEAR(splits[(size_t)i], glm::mix(n + (f - n) * p, n * std::pow(f / n, p), 0.75f), 1e-5f);
+    }
+    CHECK(splits[0] < splits[1] && splits[1] < splits[2]);
+    CHECK_NEAR(splits.back(), f, 1e-3f);
+    // 0: evenly spaced; 1: logarithmic (each cascade the same ratio longer).
+    std::vector<float> even = Renderer3D::GetCascadeSplits(0.0f, 30.0f, 3, 0.0f);
+    CHECK_NEAR(even[0], 10.0f, 1e-3f);
+    CHECK_NEAR(even[1], 20.0f, 1e-3f);
+    std::vector<float> logarithmic = Renderer3D::GetCascadeSplits(1.0f, 64.0f, 3, 1.0f);
+    CHECK_NEAR(logarithmic[0], 4.0f, 1e-3f);
+    CHECK_NEAR(logarithmic[1], 16.0f, 1e-3f);
+    CHECK_NEAR(logarithmic[2], 64.0f, 1e-2f);
+    // Counts out of range are clamped; one cascade ends at the far depth.
+    CHECK(Renderer3D::GetCascadeSplits(0.1f, 40.0f, 0, 0.75f).size() == 1);
+    CHECK(Renderer3D::GetCascadeSplits(0.1f, 40.0f, 12, 0.75f).size() == (size_t)ShadowSettings::MaxCascades);
+    CHECK_NEAR(Renderer3D::GetCascadeSplits(0.1f, 40.0f, 1, 0.5f)[0], 40.0f, 1e-3f);
+    // More detail near the camera with a higher split value: the first cascade is shorter.
+    CHECK(Renderer3D::GetCascadeSplits(0.1f, 40.0f, 4, 0.9f)[0] < Renderer3D::GetCascadeSplits(0.1f, 40.0f, 4, 0.2f)[0]);
+}
+
+TEST(ShadowSettingsSceneSetting)
+{
+    auto scene = CreateRef<Scene>();
+    auto& sh = scene->GetSettings().Shadows;
+    sh.AtlasSize = 2048;
+    sh.Filter = ShadowFilter::Poisson;
+    sh.CascadeCount = 2;
+    sh.CascadeSplit = 0.4f;
+    sh.DepthBias = 0.0012f;
+    sh.NormalBias = 2.5f;
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Shadows\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const ShadowSettings& l = loaded->GetSettings().Shadows;
+    CHECK(l.AtlasSize == 2048 && l.Filter == ShadowFilter::Poisson && l.CascadeCount == 2);
+    CHECK_NEAR(l.CascadeSplit, 0.4f, 1e-6f);
+    CHECK_NEAR(l.DepthBias, 0.0012f, 1e-7f);
+    CHECK_NEAR(l.NormalBias, 2.5f, 1e-6f);
+    // Play mode (a copy of the scene) keeps them.
+    CHECK(Scene::Copy(scene)->GetSettings().Shadows.Filter == ShadowFilter::Poisson);
+
+    // A scene from before the settings: the original quality.
+    std::string old = text;
+    old.replace(old.find("\"Shadows\""), std::string("\"Shadows\"").size(), "\"ShadowsOld\"");
+    auto legacy = CreateRef<Scene>();
+    CHECK(SceneSerializer(legacy).DeserializeFromString(old));
+    const ShadowSettings& lg = legacy->GetSettings().Shadows;
+    CHECK(lg.AtlasSize == 4096 && lg.Filter == ShadowFilter::PCF3x3 && lg.CascadeCount == 3 && lg.DepthBias == 0.0005f);
+    // Values out of range are brought into it.
+    std::string wild = text;
+    wild.replace(wild.find("\"AtlasSize\": 2048"), std::string("\"AtlasSize\": 2048").size(), "\"AtlasSize\": 3333");
+    wild.replace(wild.find("\"Filter\": 3"), std::string("\"Filter\": 3").size(), "\"Filter\": 42");
+    wild.replace(wild.find("\"Cascades\": 2"), std::string("\"Cascades\": 2").size(), "\"Cascades\": 7");
+    auto fixed = CreateRef<Scene>();
+    CHECK(SceneSerializer(fixed).DeserializeFromString(wild));
+    const ShadowSettings& fx = fixed->GetSettings().Shadows;
+    CHECK(fx.AtlasSize == 4096 && fx.Filter == ShadowFilter::PCF3x3 && fx.CascadeCount == ShadowSettings::MaxCascades);
+}
+
+TEST(RenderStatsSummary)
+{
+    RenderStatistics stats;
+    stats.DrawCalls = 12;
+    stats.MeshCount = 30;
+    stats.CulledMeshCount = 7;
+    stats.InstancedMeshCount = 20;
+    stats.InstancedDrawCount = 3;
+    stats.ShadowCasterCount = 55;
+    stats.CulledShadowCasterCount = 9;
+    stats.InstancedShadowCasterCount = 40;
+    stats.InstancedShadowDrawCount = 4;
+    stats.SpriteCount = 14;
+    stats.CulledSpriteCount = 86;
+    stats.TileChunkCount = 2;
+    stats.CulledTileChunkCount = 10;
+    std::string line = stats.Format();
+    CHECK(line.find("draw call 12") != std::string::npos);
+    CHECK(line.find("mesh: 30 chizildi, 7 kesildi, 20 instanced (3 chaqiruv)") != std::string::npos);
+    CHECK(line.find("soya: 55 chizildi, 9 kesildi, 40 instanced (4 chaqiruv)") != std::string::npos);
+    CHECK(line.find("2D: 14 chizildi, 86 kesildi") != std::string::npos);
+    CHECK(line.find("tile bo'laklari: 2 chizildi, 10 kesildi") != std::string::npos);
+    // A new frame starts from zero.
+    Renderer::GetStats() = stats;
+    Renderer::ResetStats();
+    CHECK(Renderer::GetStats().CulledSpriteCount == 0 && Renderer::GetStats().InstancedMeshCount == 0);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

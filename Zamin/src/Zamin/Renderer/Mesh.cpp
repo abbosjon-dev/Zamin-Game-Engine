@@ -19,7 +19,9 @@ namespace Zamin {
             { ShaderDataType::Float2, "a_TexCoord" },
         });
         m_VertexArray->AddVertexBuffer(vb);
-        m_VertexArray->SetIndexBuffer(IndexBuffer::Create(indices.data(), (uint32_t)indices.size()));
+        m_IndexBuffer = IndexBuffer::Create(indices.data(), (uint32_t)indices.size());
+        m_VertexArray->SetIndexBuffer(m_IndexBuffer);
+        m_VertexBuffer = vb;
         m_IndexCount = (uint32_t)indices.size();
         m_VertexCount = (uint32_t)vertices.size();
 
@@ -46,7 +48,9 @@ namespace Zamin {
             { ShaderDataType::Float4, "a_Weights" },
         });
         m_VertexArray->AddVertexBuffer(vb);
-        m_VertexArray->SetIndexBuffer(IndexBuffer::Create(indices.data(), (uint32_t)indices.size()));
+        m_IndexBuffer = IndexBuffer::Create(indices.data(), (uint32_t)indices.size());
+        m_VertexArray->SetIndexBuffer(m_IndexBuffer);
+        m_VertexBuffer = vb;
         m_IndexCount = (uint32_t)indices.size();
         m_VertexCount = (uint32_t)vertices.size();
         if (!vertices.empty())
@@ -58,6 +62,21 @@ namespace Zamin {
                 m_Bounds.Max = glm::max(m_Bounds.Max, v.Position);
             }
         }
+    }
+
+    const Ref<VertexArray>& Mesh::GetInstancedVertexArray(const Ref<VertexBuffer>& instanceBuffer) const
+    {
+        if (!m_InstancedVertexArray || m_InstanceBuffer != instanceBuffer)
+        {
+            // The same vertex and index buffers as the plain vertex array (locations 0..2), then
+            // the instance attributes.
+            m_InstancedVertexArray = VertexArray::Create();
+            m_InstancedVertexArray->AddVertexBuffer(m_VertexBuffer);
+            m_InstancedVertexArray->AddVertexBuffer(instanceBuffer);
+            m_InstancedVertexArray->SetIndexBuffer(m_IndexBuffer);
+            m_InstanceBuffer = instanceBuffer;
+        }
+        return m_InstancedVertexArray;
     }
 
     const char* PrimitiveMeshToString(PrimitiveMesh type)

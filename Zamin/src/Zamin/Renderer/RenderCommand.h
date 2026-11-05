@@ -15,6 +15,7 @@ namespace Zamin {
         static void Clear() { s_API->Clear(); }
 
         static void DrawIndexed(const Ref<VertexArray>& va, uint32_t count = 0) { s_API->DrawIndexed(va, count); }
+        static void DrawIndexedInstanced(const Ref<VertexArray>& va, uint32_t count, uint32_t instances) { s_API->DrawIndexedInstanced(va, count, instances); }
         static void DrawLines(const Ref<VertexArray>& va, uint32_t vertexCount) { s_API->DrawLines(va, vertexCount); }
         static void DrawArrays(uint32_t vertexCount) { s_API->DrawArrays(vertexCount); }
 

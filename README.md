@@ -73,7 +73,10 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     Editorda tanlangan nuqtali yorug'likning radiusi (3 ta aylana) va spot konusi (ichki konus xiraroq) ko'rinadi,
     viewport'da spot belgisi bor. Namuna: `Projects/Showcase3D` ichidagi `Scenes/Lights.zscene` (29 ta yorug'lik)
   - **HDRI osmon + IBL**: `.hdr` panorama — diffuz yorug'lik SH9 orqali, aks (specular) mip darajalari bo'yicha
-  - **Cascaded Shadow Maps** (3 kaskad, 4096 atlas, PCF, texel snapping), **tuman** (masofa + balandlik)
+  - **Cascaded Shadow Maps** (texel snapping), **tuman** (masofa + balandlik). Soya sifati sahna sozlamalarida (Sahna
+    panelining "Soyalar" bo'limi, sahna faylida saqlanadi): atlas o'lchami (1024 / 2048 / 4096), filtr (o'chiq, PCF 3x3,
+    PCF 5x5, Poisson 16 nuqta), kaskadlar soni (1-4, bitta kaskad butun atlasni oladi) va taqsimoti (teng .. logarifmik),
+    soya masofasi, chuqurlik bias va normal bias. Standart qiymatlar (4096, PCF 3x3, 3 kaskad) avvalgi ko'rinishni saqlaydi
   - Primitivlar (kub, shar, tekislik, silindr, konus), `.obj` va `.gltf/.glb` modellar
   - **HDR pipeline**: sahna float bufferga chiziladi, tonemapping (ACES / Reinhard / yo'q), haqiqiy HDR bloom
   - Material xaritalari: **normal map**, metallic/roughness map, emissive map; tekstura **takrorlash va siljish** (vec2)
@@ -136,7 +139,14 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     kattalashtiriladi / kichraytiriladi (editor viewport'i va player; Sahna panelining "Render" bo'limi)
   - **Frustum culling**: kamera ko'rmaydigan meshlar dunyo AABB'lari bo'yicha chizilmaydi (model qismlari alohida,
     skinned meshlar uchun barcha suyaklar bo'yicha kafolatli chegaralar), soyalarda har bir kaskad o'z hajmi bo'yicha;
-    Statistika panelida kesilganlar soni
+    2D'da sprite, doira, matn (glif chegaralari bo'yicha), zarrachalar tizimi va tilemap'ning 16x16 plitkali bo'laklari
+  - **GPU instancing**: bir xil mesh + material (shader oladigan barcha qiymatlar teng, skinned emas, opaque / cutout)
+    bitta `glDrawElementsInstanced` chaqiruvida - transform, normal matritsa va entity ID har nusxa uchun atribut; soya
+    kaskadlarida ham bir xil meshlar birlashtiriladi. Tasvir va tanlash (picking) buferi o'zgarmaydi
+  - **Render statistikasi** (Statistika paneli): chizilgan / kesilgan / instanced meshlar va chaqiruvlar, soya chizishlari,
+    2D obyektlar va tile bo'laklari. `ZAMIN_EDITOR_STATS=1` (editor) / `ZAMIN_PLAYER_STATS=1` (player) chiqishda oxirgi
+    kadr statistikasini logga yozadi; `ZAMIN_EDITOR_NO_CULLING`, `ZAMIN_EDITOR_NO_INSTANCING` (player'da
+    `ZAMIN_PLAYER_NO_...`) solishtirish uchun o'chiradi
   - **Editor ko'rinish rejimlari** (viewport toolbar'i): wireframe (faqat qirralar yoki sirt + qirralar) va debug
     ko'rinishlar - faqat yorug'lik, normallar, albedo, roughness, metallic (qiymat ko'rinishlari tonemappingsiz)
   - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview)

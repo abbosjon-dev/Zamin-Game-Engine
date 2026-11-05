@@ -3,6 +3,7 @@
 #include "Zamin/Renderer/RenderCommand.h"
 
 #include <filesystem>
+#include <string>
 
 namespace Zamin {
 
@@ -16,7 +17,20 @@ namespace Zamin {
         uint32_t TriangleCount = 0;
         uint32_t TransparentCount = 0; // meshes drawn in the sorted transparent pass (also in MeshCount)
         uint32_t CulledMeshCount = 0;  // meshes skipped: outside the camera's view (frustum culling)
+        uint32_t InstancedMeshCount = 0;  // meshes drawn as instances (also in MeshCount)
+        uint32_t InstancedDrawCount = 0;  // the instanced draw calls they took (also in DrawCalls)
+        uint32_t ShadowCasterCount = 0;   // shadow caster draws into the cascades (summed over the cascades)
         uint32_t CulledShadowCasterCount = 0; // shadow caster draws skipped: outside a cascade's volume
+        uint32_t InstancedShadowCasterCount = 0; // shadow caster draws done as instances (also in ShadowCasterCount)
+        uint32_t InstancedShadowDrawCount = 0;   // the instanced draw calls they took (also in DrawCalls)
+        uint32_t SpriteCount = 0;         // 2D objects drawn: sprites, circles, texts, particle systems
+        uint32_t CulledSpriteCount = 0;   // 2D objects skipped: outside the camera's view
+        uint32_t TileChunkCount = 0;      // tilemap chunks drawn (blocks of TilemapChunkSize x TilemapChunkSize tiles)
+        uint32_t CulledTileChunkCount = 0; // tilemap chunks skipped: outside the camera's view
+
+        // One line for logs (ZAMIN_EDITOR_STATS / ZAMIN_PLAYER_STATS): what was drawn, culled
+        // and instanced.
+        std::string Format() const;
     };
 
     class Renderer

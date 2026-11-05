@@ -205,6 +205,9 @@ namespace Zamin {
 
     void EditorLayer::OnDetach()
     {
+        // ZAMIN_EDITOR_STATS: the last frame's numbers in the log as well (automation / CI).
+        if (std::getenv("ZAMIN_EDITOR_STATS"))
+            ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
         m_AssetHotReload.Stop();
         SaveAssetRegistryCache(true);
         if (m_SceneState != SceneState::Edit)
@@ -315,17 +318,48 @@ namespace Zamin {
                 m_Wireframe = m_WireframeStyle = std::string_view(wire) == "shaded" ? WireframeMode::ShadedWire : WireframeMode::Wire;
             if (std::getenv("ZAMIN_EDITOR_VIEW_MENU"))
                 m_OpenViewModeMenu = true;
-            // ZAMIN_EDITOR_NO_CULLING=1: frustum culling off (to compare the pictures).
+            // ZAMIN_EDITOR_NO_CULLING=1 / ZAMIN_EDITOR_NO_INSTANCING=1: frustum culling (3D and 2D) / GPU
+            // instancing off (to compare the pictures).
             if (std::getenv("ZAMIN_EDITOR_NO_CULLING"))
                 Renderer3D::SetFrustumCulling(false);
+            if (std::getenv("ZAMIN_EDITOR_NO_INSTANCING"))
+                Renderer3D::SetInstancing(false);
             // ZAMIN_EDITOR_RENDER_SCALE=<0.5..2> / ZAMIN_EDITOR_AUTO_EXPOSURE=1: the open scene's settings
             // (not saved unless the scene is).
             if (const char* scale = std::getenv("ZAMIN_EDITOR_RENDER_SCALE"))
                 m_ActiveScene->GetSettings().RenderScale = std::clamp((float)std::atof(scale), Renderer::MinRenderScale, Renderer::MaxRenderScale);
             if (std::getenv("ZAMIN_EDITOR_AUTO_EXPOSURE"))
                 m_ActiveScene->GetSettings().Post.AutoExposure = true;
-            // ZAMIN_EDITOR_SCENE_SETTINGS=1 | render | post | exposure: the scene settings tab in front (scrolled
-            // to that section).
+            // ZAMIN_EDITOR_SHADOWS="atlas=2048,filter=hard|pcf3|pcf5|poisson,cascades=2,split=0.5,depth=0.001,normal=2,
+            // distance=60": the open scene's shadow settings (not saved unless the scene is).
+            if (const char* shadows = std::getenv("ZAMIN_EDITOR_SHADOWS"))
+            {
+                auto& s = m_ActiveScene->GetSettings();
+                std::string_view rest(shadows);
+                while (!rest.empty())
+                {
+                    size_t comma = rest.find(',');
+                    std::string_view pair = rest.substr(0, comma);
+                    rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
+                    size_t eq = pair.find('=');
+                    if (eq == std::string_view::npos)
+                        continue;
+                    std::string key(pair.substr(0, eq)), value(pair.substr(eq + 1));
+                    if (key == "atlas") s.Shadows.AtlasSize = (uint32_t)std::atoi(value.c_str());
+                    else if (key == "filter")
+                        s.Shadows.Filter = value == "hard" ? ShadowFilter::Hard : value == "pcf5" ? ShadowFilter::PCF5x5
+                                         : value == "poisson" ? ShadowFilter::Poisson : ShadowFilter::PCF3x3;
+                    else if (key == "cascades") s.Shadows.CascadeCount = std::atoi(value.c_str());
+                    else if (key == "split") s.Shadows.CascadeSplit = (float)std::atof(value.c_str());
+                    else if (key == "depth") s.Shadows.DepthBias = (float)std::atof(value.c_str());
+                    else if (key == "normal") s.Shadows.NormalBias = (float)std::atof(value.c_str());
+                    else if (key == "distance") s.ShadowDistance = (float)std::atof(value.c_str());
+                    else ZM_WARN("ZAMIN_EDITOR_SHADOWS: noma'lum kalit '{}'", key);
+                }
+                s.Shadows.Sanitize();
+            }
+            // ZAMIN_EDITOR_SCENE_SETTINGS=1 | render | shadows | post | exposure: the scene settings tab in front
+            // (scrolled to that section).
             if (const char* settings = std::getenv("ZAMIN_EDITOR_SCENE_SETTINGS"))
             {
                 m_ShowSceneSettings = m_FocusSceneSettings = true;
@@ -3970,7 +4004,6 @@ namespace Zamin {
             changed |= UI::PropertyColor3("Yer", s.GroundColor);
             changed |= UI::PropertySlider("Atrof yorug'ligi", s.AmbientIntensity, 0.0f, 3.0f);
             changed |= UI::PropertySlider("Ekspozitsiya", s.Exposure, 0.1f, 4.0f);
-            changed |= UI::PropertyFloat("Soya masofasi", s.ShadowDistance, 0.5f, 5.0f, 500.0f);
             changed |= UI::PropertyBool("Tuman", s.FogEnabled);
             if (s.FogEnabled)
             {
@@ -4005,6 +4038,88 @@ namespace Zamin {
             const auto& view = m_FinalFramebuffer->GetSpecification();
             UI::PropertyLabel("Ichki o'lcham", "Viewport'ning sahna tasviri hozir chizilayotgan o'lcham (ko'rinish o'lchami qavsda)");
             ImGui::Text("%u x %u  (%u x %u)", fb.Width, fb.Height, view.Width, view.Height);
+            UI::EndPropertyGrid();
+        }
+
+        ImGui::SeparatorText(ICON_FA_MOON "  Soyalar");
+        if (m_SceneSettingsScrollTo == "shadows")
+        {
+            ImGui::SetScrollHereY(0.0f);
+            m_SceneSettingsScrollTo.clear();
+        }
+        if (UI::BeginPropertyGrid("shadows"))
+        {
+            ShadowSettings& sh = s.Shadows;
+            UI::PropertyLabel("Soya masofasi", "Kameradan shu masofagacha (metr) quyosh soyalari chiziladi; kaskadlar shu oraliqqa "
+                                               "taqsimlanadi. Kichikroq - yaqindagi soyalar aniqroq.");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            changed |= ImGui::DragFloat("##shadowdistance", &s.ShadowDistance, 0.5f, 5.0f, 500.0f, "%.1f m", ImGuiSliderFlags_AlwaysClamp);
+
+            static const char* atlasSizes[] = { "1024", "2048", "4096" };
+            int atlas = sh.AtlasSize <= 1024 ? 0 : sh.AtlasSize <= 2048 ? 1 : 2;
+            UI::PropertyLabel("Atlas o'lchami", "Soya xaritasi (atlas) tomoni, tekselda. Kaskadlar uning 2x2 bo'laklarida "
+                                                "(bitta kaskad bo'lsa butun atlasda). Kattaroq - aniqroq soya, lekin ko'proq "
+                                                "video xotira (4096: 64 MB, 2048: 16 MB, 1024: 4 MB).");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::Combo("##shadowatlas", &atlas, atlasSizes, 3))
+            {
+                sh.AtlasSize = 1024u << atlas;
+                changed = true;
+            }
+
+            static const char* filters[] = { "O'chiq (qattiq)", "PCF 3x3", "PCF 5x5", "Poisson (16 nuqta)" };
+            int filter = (int)sh.Filter;
+            UI::PropertyLabel("Filtr (PCF)", "Soya chetini yumshatish: O'chiq - bitta taqqoslash (qattiq, zinapoyali chet), "
+                                             "PCF 3x3 / 5x5 - 9 / 25 ta qo'shni tekselni o'rtachalash, Poisson - disk bo'ylab "
+                                             "16 nuqta (5x5 dan yumshoqroq, kamroq namuna).");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::Combo("##shadowfilter", &filter, filters, ShadowFilterCount))
+            {
+                sh.Filter = (ShadowFilter)filter;
+                changed = true;
+            }
+
+            UI::PropertyLabel("Kaskadlar", "Soya masofasi nechta bo'lakka bo'linadi: har biri o'z tekstel o'lchami bilan (yaqindagisi "
+                                           "eng aniq). Ortografik kamera doim bittasini ishlatadi.");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            changed |= ImGui::SliderInt("##cascades", &sh.CascadeCount, 1, ShadowSettings::MaxCascades, "%d", ImGuiSliderFlags_AlwaysClamp);
+            if (sh.CascadeCount > 1)
+            {
+                UI::PropertyLabel("Kaskad taqsimoti", "Kaskadlar chegarasi: 0 - teng oraliqlar, 1 - logarifmik (kameraga yaqin joy "
+                                                      "aniqroq, uzoqdagisi xiraroq)");
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                changed |= ImGui::SliderFloat("##cascadesplit", &sh.CascadeSplit, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            }
+            {
+                // Where the cascades of the scene view end (the editor camera's near plane).
+                float nearDepth = std::max(0.05f, m_EditorCamera.GetNearClip());
+                float farDepth = std::min(m_EditorCamera.GetFarClip(), s.ShadowDistance);
+                std::string ends;
+                for (float split : Renderer3D::GetCascadeSplits(nearDepth, farDepth, sh.CascadeCount, sh.CascadeSplit))
+                    ends += std::format("{}{:.1f}", ends.empty() ? "" : " / ", split);
+                UI::PropertyLabel("Chegaralar", "Har bir kaskad kameradan qancha masofada tugaydi (metr; editor kamerasi uchun)");
+                ImGui::TextDisabled("%s m", ends.c_str());
+            }
+
+            UI::PropertyLabel("Chuqurlik bias", "Taqqoslanadigan chuqurlikdan ayiriladi: sirtdagi 'soya donalari' (acne) yo'qoladi, "
+                                                "lekin juda katta bo'lsa soya obyektdan ajralib qoladi (peter panning)");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            changed |= ImGui::SliderFloat("##depthbias", &sh.DepthBias, 0.0f, ShadowSettings::MaxDepthBias, "%.5f",
+                                          ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
+            UI::PropertyLabel("Normal bias", "Soya tekshiriladigan nuqta sirt normali bo'ylab siljitiladi (kaskad teksel o'lchamiga "
+                                             "nisbatan; 1 - standart). Qiya sirtlardagi donalarni yo'qotadi.");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            changed |= ImGui::SliderFloat("##normalbias", &sh.NormalBias, 0.0f, ShadowSettings::MaxNormalBias, "x%.2f",
+                                          ImGuiSliderFlags_AlwaysClamp);
+            UI::PropertyLabel("");
+            if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Standart sifat"))
+            {
+                sh = ShadowSettings();
+                s.ShadowDistance = SceneSettings().ShadowDistance;
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Atlas 4096, PCF 3x3, 3 kaskad, bias va soya masofasi standart qiymatlarga qaytadi");
             UI::EndPropertyGrid();
         }
 
@@ -4157,21 +4272,44 @@ namespace Zamin {
             ImGui::PlotLines("##ft", history, 120, offset, nullptr, 0.0f, 40.0f, ImVec2(-1, 50));
             if (UI::BeginPropertyGrid("stats"))
             {
-                UI::PropertyLabel("Draw calls"); ImGui::Text("%u", stats.DrawCalls);
-                UI::PropertyLabel("Quadlar"); ImGui::Text("%u", stats.QuadCount);
-                UI::PropertyLabel("Doiralar"); ImGui::Text("%u", stats.CircleCount);
-                UI::PropertyLabel("Chiziqlar"); ImGui::Text("%u", stats.LineCount);
-                UI::PropertyLabel("Meshlar"); ImGui::Text("%u", stats.MeshCount);
+                // "drawn / culled" pairs: the culled part dimmed.
+                auto drawnCulled = [](uint32_t drawn, uint32_t culled) {
+                    ImGui::Text("%u", drawn);
+                    ImGui::SameLine(0.0f, 4.0f);
+                    ImGui::TextDisabled("chizildi  /  %u kesildi", culled);
+                };
+                UI::PropertyLabel("Draw calls", "GPU'ga yuborilgan chizish buyruqlari (instanced partiya bitta buyruq)");
+                ImGui::Text("%u", stats.DrawCalls);
+                UI::PropertyLabel("Meshlar", "Frustum culling: kamera ko'rmaydigan meshlar (dunyo AABB chegaralari ko'rish hajmidan "
+                                             "tashqarida) chizilmaydi");
+                drawnCulled(stats.MeshCount, stats.CulledMeshCount);
+                UI::PropertyLabel("Instanced", "GPU instancing: bir xil mesh va material (skinned emas, opaque/cutout) bitta "
+                                               "chaqiruvda - har nusxa o'z transformi va ID'si bilan chiziladi");
+                ImGui::Text("%u", stats.InstancedMeshCount);
+                ImGui::SameLine(0.0f, 4.0f);
+                ImGui::TextDisabled("mesh  /  %u chaqiruv", stats.InstancedDrawCount);
                 UI::PropertyLabel("Shaffof meshlar", "Shaffof (Transparent) sirtlar: ustuvorlik va kameradan uzoqlik bo'yicha "
                                                      "orqadan oldinga saralanib, oxirida chiziladi");
                 ImGui::Text("%u", stats.TransparentCount);
                 UI::PropertyLabel("Uchburchaklar"); ImGui::Text("%u", stats.TriangleCount);
-                UI::PropertyLabel("Kesilgan mesh", "Frustum culling: kamera ko'rmaydigan meshlar (dunyo AABB chegaralari "
-                                                      "ko'rish hajmidan tashqarida) chizilmadi");
-                ImGui::Text("%u", stats.CulledMeshCount);
-                UI::PropertyLabel("Kesilgan soyalar", "Soya kaskadi hajmidan tashqaridagi soya tashlovchilar shu kaskadga chizilmadi "
-                                                      "(kaskadlar bo'yicha yig'indi)");
-                ImGui::Text("%u", stats.CulledShadowCasterCount);
+                UI::PropertyLabel("Soya chizishlari", "Soya tashlovchilar kaskadlarga (kaskadlar bo'yicha yig'indi): kaskad hajmidan "
+                                                      "tashqaridagilari kesiladi, bir xil meshlar instanced chiziladi");
+                drawnCulled(stats.ShadowCasterCount, stats.CulledShadowCasterCount);
+                if (stats.InstancedShadowCasterCount)
+                {
+                    ImGui::SameLine(0.0f, 4.0f);
+                    ImGui::TextDisabled("/  %u instanced", stats.InstancedShadowCasterCount);
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("%u ta instanced chaqiruvda", stats.InstancedShadowDrawCount);
+                }
+                UI::PropertyLabel("2D obyektlar", "Sprite, doira, matn va zarrachalar tizimlari: kamera ko'rmaydiganlari chizilmaydi");
+                drawnCulled(stats.SpriteCount, stats.CulledSpriteCount);
+                UI::PropertyLabel("Tile bo'laklari", "Tilemap'lar 16x16 plitkali bo'laklarda chiziladi: ko'rinmaydigan bo'lak butunlay "
+                                                     "tashlab ketiladi");
+                drawnCulled(stats.TileChunkCount, stats.CulledTileChunkCount);
+                UI::PropertyLabel("Quadlar"); ImGui::Text("%u", stats.QuadCount);
+                UI::PropertyLabel("Doiralar"); ImGui::Text("%u", stats.CircleCount);
+                UI::PropertyLabel("Chiziqlar"); ImGui::Text("%u", stats.LineCount);
                 {
                     const auto& fb = m_Framebuffer->GetSpecification();
                     UI::PropertyLabel("Render o'lchami", "Sahna tasviri chizilayotgan o'lcham (render masshtabi bilan)");

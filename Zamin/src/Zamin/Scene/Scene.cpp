@@ -10,6 +10,7 @@
 #include "Zamin/Renderer/Renderer2D.h"
 #include "Zamin/Renderer/Renderer3D.h"
 #include "Zamin/Renderer/RenderCommand.h"
+#include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Audio/AudioEngine.h"
@@ -28,6 +29,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <limits>
 #include <unordered_set>
 
 namespace Zamin {
@@ -3029,6 +3031,31 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ rendering
+    std::vector<TilemapChunk> GetVisibleTilemapChunks(const TilemapComponent& tilemap, const glm::mat4& world, const Frustum* frustum,
+                                                      uint32_t* culled)
+    {
+        std::vector<TilemapChunk> visible;
+        const int width = std::max(1, tilemap.Width), height = std::max(1, tilemap.Height);
+        const float size = tilemap.TileSize;
+        for (int y0 = 0; y0 < height; y0 += TilemapChunkSize)
+            for (int x0 = 0; x0 < width; x0 += TilemapChunkSize)
+            {
+                TilemapChunk chunk{ x0, y0, std::min(x0 + TilemapChunkSize, width), std::min(y0 + TilemapChunkSize, height) };
+                if (frustum)
+                {
+                    // The tiles' quads cover [x * size, (x + 1) * size] (a negative size mirrors them).
+                    glm::vec3 a(chunk.X0 * size, chunk.Y0 * size, 0.0f), b(chunk.X1 * size, chunk.Y1 * size, 0.0f);
+                    if (!frustum->Intersects(TransformAABB(AABB{ glm::min(a, b), glm::max(a, b) }, world)))
+                    {
+                        if (culled) (*culled)++;
+                        continue;
+                    }
+                }
+                visible.push_back(chunk);
+            }
+        return visible;
+    }
+
     void Scene::RenderScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                             const SceneRenderOptions& options)
     {
@@ -3070,6 +3097,7 @@ namespace Zamin {
         env.AmbientIntensity = m_Settings.AmbientIntensity;
         env.Exposure = m_Settings.Exposure;
         env.ShadowDistance = m_Settings.ShadowDistance;
+        env.Shadows = m_Settings.Shadows;
         if (m_EnvMapPath != m_Settings.EnvironmentMap)
         {
             m_EnvMapPath = m_Settings.EnvironmentMap;
@@ -3171,17 +3199,76 @@ namespace Zamin {
 
         // Screen-space UI is drawn by RenderUI; hidden / inactive entities not at all.
         auto notWorld2D = [&](entt::entity e) { return m_Registry.all_of<UITransformComponent>(e) || skip(e); };
+        // Frustum culling: what lies entirely outside the camera's view is not drawn (tilemaps
+        // chunk by chunk, see below).
+        auto& stats = Renderer::GetStats();
+        const bool culling2D = Renderer3D::IsFrustumCullingEnabled();
+        const Frustum frustum2D = Frustum::FromViewProjection(projection * view);
+        auto seen = [&](const AABB& bounds) {
+            if (!culling2D || frustum2D.Intersects(bounds))
+                return true;
+            stats.CulledSpriteCount++;
+            return false;
+        };
         for (auto e : m_Registry.view<TransformComponent, SpriteRendererComponent>())
-            if (!notWorld2D(e)) items.push_back({ m_Registry.get<SpriteRendererComponent>(e).SortingOrder, depthOf(e), 0, e });
+            if (!notWorld2D(e) && seen(Renderer2D::GetQuadBounds(world(e))))
+                items.push_back({ m_Registry.get<SpriteRendererComponent>(e).SortingOrder, depthOf(e), 0, e });
         for (auto e : m_Registry.view<TransformComponent, CircleRendererComponent>())
-            if (!notWorld2D(e)) items.push_back({ m_Registry.get<CircleRendererComponent>(e).SortingOrder, depthOf(e), 1, e });
+            if (!notWorld2D(e) && seen(Renderer2D::GetQuadBounds(world(e))))
+                items.push_back({ m_Registry.get<CircleRendererComponent>(e).SortingOrder, depthOf(e), 1, e });
         for (auto e : m_Registry.view<TransformComponent, TextComponent>())
-            if (!notWorld2D(e)) items.push_back({ 1000, depthOf(e), 2, e });
+        {
+            if (notWorld2D(e)) continue;
+            auto& text = m_Registry.get<TextComponent>(e);
+            if (!text.FontAsset)
+                text.FontAsset = Font::GetDefault();
+            if (culling2D)
+            {
+                // The glyphs' box, placed as the draw below places it.
+                Renderer2D::TextParams params{ text.Color, text.Kerning, text.LineSpacing };
+                AABB local = Renderer2D::GetStringBounds(text.Text, text.FontAsset, params);
+                if (local.Min.x > local.Max.x)
+                    continue; // no glyph to draw
+                glm::mat4 t = world(e);
+                if (text.Centered)
+                {
+                    glm::vec2 size = Renderer2D::MeasureString(text.Text, text.FontAsset, params);
+                    t = t * glm::translate(glm::mat4(1.0f), { -size.x * 0.5f, size.y * 0.5f - text.FontAsset->GetAscent(), 0.0f });
+                }
+                if (!seen(TransformAABB(local, t)))
+                    continue;
+            }
+            items.push_back({ 1000, depthOf(e), 2, e });
+        }
         for (auto e : m_Registry.view<TransformComponent, TilemapComponent>())
             if (!notWorld2D(e)) items.push_back({ m_Registry.get<TilemapComponent>(e).SortingOrder, depthOf(e), 4, e });
         for (auto e : m_Registry.view<TransformComponent, ParticleSystemComponent>())
-            if (!m_Registry.get<ParticleSystemComponent>(e).Particles.empty() && !skip(e))
-                items.push_back({ m_Registry.get<ParticleSystemComponent>(e).SortingOrder, depthOf(e), 3, e });
+        {
+            const auto& ps = m_Registry.get<ParticleSystemComponent>(e);
+            if (ps.Particles.empty() || skip(e)) continue;
+            if (culling2D)
+            {
+                // Every particle quad (any rotation, billboarded or not) fits in a sphere of half
+                // its diagonal around its position.
+                const glm::mat4& emitter = world(e);
+                float radius = std::max(std::abs(ps.StartSize), std::abs(ps.EndSize)) * 0.70711f;
+                AABB box{ glm::vec3(std::numeric_limits<float>::max()), glm::vec3(-std::numeric_limits<float>::max()) };
+                for (const auto& p : ps.Particles)
+                {
+                    glm::vec3 pos = ps.WorldSpace ? p.Position : glm::vec3(emitter * glm::vec4(p.Position, 1.0f));
+                    box.Min = glm::min(box.Min, pos);
+                    box.Max = glm::max(box.Max, pos);
+                }
+                box.Min -= glm::vec3(radius);
+                box.Max += glm::vec3(radius);
+                if (!seen(box))
+                    continue;
+            }
+            items.push_back({ ps.SortingOrder, depthOf(e), 3, e });
+        }
+        for (const Item2D& item : items)
+            if (item.Kind != 4)
+                stats.SpriteCount++;
 
         // camera basis for billboards
         glm::mat4 invView = glm::inverse(view);
@@ -3237,8 +3324,6 @@ namespace Zamin {
             else if (item.Kind == 2)
             {
                 auto& text = m_Registry.get<TextComponent>(item.Handle);
-                if (!text.FontAsset)
-                    text.FontAsset = Font::GetDefault();
                 Renderer2D::TextParams params{ text.Color, text.Kerning, text.LineSpacing };
                 glm::mat4 t = transform;
                 if (text.Centered)
@@ -3259,8 +3344,12 @@ namespace Zamin {
                 glm::vec2 cell = { 1.0f / cols, 1.0f / rows };
                 // tiny inset avoids bleeding between neighbouring tiles
                 glm::vec2 inset = tm.Tileset ? glm::vec2(0.5f / tm.Tileset->GetWidth(), 0.5f / tm.Tileset->GetHeight()) : glm::vec2(0.0f);
-                for (int y = 0; y < tm.Height; y++)
-                    for (int x = 0; x < tm.Width; x++)
+                const std::vector<TilemapChunk> chunks =
+                    GetVisibleTilemapChunks(tm, transform, culling2D ? &frustum2D : nullptr, &stats.CulledTileChunkCount);
+                stats.TileChunkCount += (uint32_t)chunks.size();
+                for (const TilemapChunk& chunk : chunks)
+                for (int y = chunk.Y0; y < chunk.Y1; y++)
+                    for (int x = chunk.X0; x < chunk.X1; x++)
                     {
                         int tile = tm.Tiles[(size_t)y * tm.Width + x];
                         if (tile < 0) continue;

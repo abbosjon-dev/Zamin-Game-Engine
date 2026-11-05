@@ -129,11 +129,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 108. Wireframe rejimi (editor)
 - [x] 109. Faqat yorug'lik/normal/albedo debug ko'rinishlari
 - [x] 110. Frustum culling (meshlar uchun)
-- [ ] 111. Frustum culling (2D sprite'lar uchun)
-- [ ] 112. Mesh instancing (bir xil mesh + material)
-- [ ] 113. Render statistikasi: culled soni
-- [ ] 114. Soyalar sifati sozlamalari (atlas o'lchami, PCF)
-- [ ] 115. Shadow bias sozlamalari sahna sozlamalarida
+- [x] 111. Frustum culling (2D sprite'lar uchun)
+- [x] 112. Mesh instancing (bir xil mesh + material)
+- [x] 113. Render statistikasi: culled soni
+- [x] 114. Soyalar sifati sozlamalari (atlas o'lchami, PCF)
+- [x] 115. Shadow bias sozlamalari sahna sozlamalarida
 - [ ] 116. Directional light soyasi bilan bir nechta quyosh (faqat biri soya)
 - [ ] 117. Sky gradient + quyosh diskini sozlash
 - [ ] 118. Chromatic aberration va film grain effekti

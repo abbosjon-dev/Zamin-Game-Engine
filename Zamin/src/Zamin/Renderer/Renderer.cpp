@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
 
 namespace Zamin {
 
@@ -52,6 +53,16 @@ namespace Zamin {
             return (uint32_t)std::clamp(std::lround((double)size * scale), 1l, (long)MaxRenderSize);
         };
         return { side(width), side(height) };
+    }
+
+    std::string RenderStatistics::Format() const
+    {
+        return std::format("draw call {}, uchburchak {} | mesh: {} chizildi, {} kesildi, {} instanced ({} chaqiruv), {} shaffof | "
+                           "soya: {} chizildi, {} kesildi, {} instanced ({} chaqiruv) | 2D: {} chizildi, {} kesildi | tile bo'laklari: "
+                           "{} chizildi, {} kesildi | quad {}, doira {}, chiziq {}",
+                           DrawCalls, TriangleCount, MeshCount, CulledMeshCount, InstancedMeshCount, InstancedDrawCount, TransparentCount,
+                           ShadowCasterCount, CulledShadowCasterCount, InstancedShadowCasterCount, InstancedShadowDrawCount, SpriteCount,
+                           CulledSpriteCount, TileChunkCount, CulledTileChunkCount, QuadCount, CircleCount, LineCount);
     }
 
     std::filesystem::path Renderer::GetResourcesDirectory()

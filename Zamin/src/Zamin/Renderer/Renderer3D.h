@@ -59,6 +59,39 @@ namespace Zamin {
     // ShadedWire - the normal picture with dark edges over it.
     enum class WireframeMode : uint8_t { Off = 0, Wire, ShadedWire };
 
+    // How the edge of a sun shadow is softened: Hard - one (hardware bilinear) comparison,
+    // PCF3x3 / PCF5x5 - a grid of comparisons one texel apart, Poisson - 16 comparisons spread
+    // over a disc (softer than 5x5 for fewer samples).
+    enum class ShadowFilter : uint8_t { Hard = 0, PCF3x3, PCF5x5, Poisson };
+    constexpr int ShadowFilterCount = 4;
+
+    // Quality of the sun's cascaded shadow maps (SceneSettings::Shadows). The defaults are the
+    // renderer's original fixed values. The cascades are tiles of one square depth atlas: 2x2
+    // tiles, or the whole atlas when there is a single cascade.
+    struct ShadowSettings
+    {
+        static constexpr uint32_t MinAtlasSize = 1024;
+        static constexpr uint32_t MaxAtlasSize = 4096;
+        static constexpr int MaxCascades = 4;
+        static constexpr float MaxDepthBias = 0.01f;
+        static constexpr float MaxNormalBias = 8.0f;
+
+        uint32_t AtlasSize = 4096;            // 1024, 2048 or 4096 texels per side
+        ShadowFilter Filter = ShadowFilter::PCF3x3;
+        int CascadeCount = 3;                 // 1 .. MaxCascades (perspective cameras; orthographic ones use one)
+        float CascadeSplit = 0.75f;           // where the cascades end: 0 evenly spaced .. 1 logarithmic (finer near the camera)
+        float DepthBias = 0.0005f;            // subtracted from the depth that is compared (light space, 0..1): less acne, more gap
+        float NormalBias = 1.0f;              // x the offset along the surface normal (about 1.5 .. 3.5 shadow texels)
+
+        // Values from a file or a script brought into range: the atlas size to the nearest of
+        // 1024 / 2048 / 4096, the counts and biases clamped, anything not finite to its default.
+        void Sanitize();
+        // The texels per side of one cascade's tile.
+        uint32_t GetTileSize() const { return CascadeCount <= 1 ? AtlasSize : AtlasSize / 2; }
+        // Tiles per side of the atlas (1 for a single cascade, else 2).
+        int GetAtlasTiles() const { return CascadeCount <= 1 ? 1 : 2; }
+    };
+
     struct SceneEnvironment
     {
         bool DrawSky = true;
@@ -75,6 +108,7 @@ namespace Zamin {
         std::vector<PointLight> PointLights;
         std::vector<SpotLight> SpotLights;
         float ShadowDistance = 40.0f;
+        ShadowSettings Shadows;
 
         // Image based lighting / HDRI sky (null = procedural gradient sky)
         Ref<EnvironmentMap> EnvMap;
@@ -153,12 +187,47 @@ namespace Zamin {
         static bool DebugViewUsesPostProcessing(RenderDebugView view);
 
         // Frustum culling: meshes whose world bounds are outside the camera's view are not drawn,
-        // shadow casters outside a cascade's volume not into it (on by default; off to compare).
+        // shadow casters outside a cascade's volume not into it; the scene's 2D sprites, circles,
+        // texts, particle systems and tilemap chunks follow the same switch (on by default; off to
+        // compare).
         static void SetFrustumCulling(bool enabled);
         static bool IsFrustumCullingEnabled();
         // The world-space bounds a mesh is culled by: its bounds moved by the transform - for a
         // skinned mesh conservative bounds of every pose the joints can give it (see SkinnedBounds).
         static AABB GetWorldBounds(const Mesh& mesh, const glm::mat4& transform, const std::vector<glm::mat4>* joints = nullptr);
+
+        // GPU instancing: opaque and cutout meshes that are not skinned and share the mesh, the
+        // material (every value the shader takes from it) and the facing are drawn with one
+        // instanced call - the transforms and entity IDs per instance (the picture and the picking
+        // buffer stay the same). Shadow casters are grouped the same way per cascade. On by
+        // default; off to compare.
+        static void SetInstancing(bool enabled);
+        static bool IsInstancingEnabled();
+        // The most instances one call draws (bigger groups are split).
+        static constexpr uint32_t MaxInstancesPerDraw = 512;
+
+        // One mesh to draw, as instancing sees it (no GPU needed).
+        struct InstanceCandidate
+        {
+            const void* MeshKey = nullptr;     // the mesh (only its identity counts)
+            const Material* Mat = nullptr;
+            bool Skinned = false;              // skinned meshes are drawn one by one (their own joints)
+            bool Mirrored = false;             // a negative scale turns the winding (and the culled side) around
+        };
+        // Whether meshes with these materials can share an instanced draw: every value the mesh
+        // shader reads from a material is equal (the textures the same objects).
+        static bool SameInstanceMaterial(const Material& a, const Material& b);
+        // The draws `items` turn into: groups of indices, in the order of each group's first item,
+        // the items of a group in their own order. Opaque / cutout items that are not skinned and
+        // share the mesh, an equal material and the facing are grouped (at most `maxPerDraw` per
+        // group); transparent and skinned ones are groups of one. Without instancing: every item alone.
+        static std::vector<std::vector<size_t>> BuildInstanceBatches(const std::vector<InstanceCandidate>& items,
+                                                                     uint32_t maxPerDraw = MaxInstancesPerDraw);
+
+        // Where the shadow cascades of a perspective camera end (view depths): `count` splits
+        // between `nearDepth` and `farDepth`, a mix of even and logarithmic spacing (`split` 0 ..
+        // 1). The last one is (up to rounding) `farDepth`. No GPU needed.
+        static std::vector<float> GetCascadeSplits(float nearDepth, float farDepth, int count, float split);
 
         static void Init();
         static void Shutdown();

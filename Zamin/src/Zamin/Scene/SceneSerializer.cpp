@@ -934,6 +934,8 @@ namespace Zamin {
             { "ShadowDistance", s.ShadowDistance }, { "RenderScale", s.RenderScale }, { "Gravity", ToJson(s.Gravity) },
             { "Environment", { { "Map", s.EnvironmentMap }, { "Intensity", s.EnvironmentIntensity }, { "Rotation", s.EnvironmentRotation } } },
             { "Fog", { { "Enabled", s.FogEnabled }, { "Color", ToJson(s.FogColor) }, { "Density", s.FogDensity }, { "HeightFalloff", s.FogHeightFalloff } } }, { "Gravity3D", ToJson(s.Gravity3D) },
+            { "Shadows", { { "AtlasSize", s.Shadows.AtlasSize }, { "Filter", (int)s.Shadows.Filter }, { "Cascades", s.Shadows.CascadeCount },
+                           { "CascadeSplit", s.Shadows.CascadeSplit }, { "DepthBias", s.Shadows.DepthBias }, { "NormalBias", s.Shadows.NormalBias } } },
             { "Post", {
                 { "Tonemap", (int)s.Post.Tonemap }, { "Bloom", s.Post.Bloom },
                 { "SSAO", s.Post.SSAO }, { "SSAORadius", s.Post.SSAORadius }, { "SSAOIntensity", s.Post.SSAOIntensity }, { "SSAOBias", s.Post.SSAOBias }, { "BloomThreshold", s.Post.BloomThreshold }, { "BloomKnee", s.Post.BloomKnee },
@@ -1039,6 +1041,20 @@ namespace Zamin {
                     s.FogColor = Vec(f, "Color", s.FogColor);
                     s.FogDensity = f.value("Density", 0.015f);
                     s.FogHeightFalloff = f.value("HeightFalloff", 0.05f);
+                }
+                // Older scenes have none: the renderer's original fixed quality.
+                s.Shadows = {};
+                if (j.contains("Shadows") && j["Shadows"].is_object())
+                {
+                    const json& sh = j["Shadows"];
+                    s.Shadows.AtlasSize = sh.value("AtlasSize", s.Shadows.AtlasSize);
+                    int filter = sh.value("Filter", (int)s.Shadows.Filter);
+                    s.Shadows.Filter = filter >= 0 && filter < ShadowFilterCount ? (ShadowFilter)filter : ShadowFilter::PCF3x3;
+                    s.Shadows.CascadeCount = sh.value("Cascades", s.Shadows.CascadeCount);
+                    s.Shadows.CascadeSplit = sh.value("CascadeSplit", s.Shadows.CascadeSplit);
+                    s.Shadows.DepthBias = sh.value("DepthBias", s.Shadows.DepthBias);
+                    s.Shadows.NormalBias = sh.value("NormalBias", s.Shadows.NormalBias);
+                    s.Shadows.Sanitize();
                 }
                 if (j.contains("Post"))
                 {

@@ -135,3 +135,4 @@
 #define ICON_FA_LINK_SLASH "\xef\x84\xa7"
 #define ICON_FA_CIRCLE_HALF_STROKE "\xef\x81\x82"
 #define ICON_FA_GEM "\xef\x8e\xa5"
+#define ICON_FA_MOON "\xef\x86\x86"

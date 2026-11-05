@@ -3,20 +3,22 @@
 
 #include <glad/glad.h>
 
+#include <algorithm>
+
 namespace Zamin {
 
     // ---------------------------------------------------------------- VertexBuffer
     class OpenGLVertexBuffer : public VertexBuffer
     {
     public:
-        explicit OpenGLVertexBuffer(uint32_t size)
+        explicit OpenGLVertexBuffer(uint32_t size) : m_Size(size)
         {
             glGenBuffers(1, &m_RendererID);
             glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
             glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
         }
 
-        OpenGLVertexBuffer(const void* vertices, uint32_t size)
+        OpenGLVertexBuffer(const void* vertices, uint32_t size) : m_Size(size)
         {
             glGenBuffers(1, &m_RendererID);
             glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
@@ -34,11 +36,19 @@ namespace Zamin {
             glBufferSubData(GL_ARRAY_BUFFER, 0, size, data);
         }
 
+        void StreamData(const void* data, uint32_t size) override
+        {
+            glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
+            glBufferData(GL_ARRAY_BUFFER, m_Size, nullptr, GL_DYNAMIC_DRAW); // orphan
+            glBufferSubData(GL_ARRAY_BUFFER, 0, std::min(size, m_Size), data);
+        }
+
         const BufferLayout& GetLayout() const override { return m_Layout; }
         void SetLayout(const BufferLayout& layout) override { m_Layout = layout; }
 
     private:
         uint32_t m_RendererID = 0;
+        uint32_t m_Size = 0;
         BufferLayout m_Layout;
     };
 
@@ -111,6 +121,8 @@ namespace Zamin {
                         glEnableVertexAttribArray(m_VertexBufferIndex);
                         glVertexAttribPointer(m_VertexBufferIndex, element.GetComponentCount(), ShaderDataTypeToGL(element.Type),
                                               element.Normalized ? GL_TRUE : GL_FALSE, layout.GetStride(), (const void*)element.Offset);
+                        if (layout.IsPerInstance())
+                            glVertexAttribDivisor(m_VertexBufferIndex, 1);
                         m_VertexBufferIndex++;
                         break;
                     }
@@ -120,6 +132,8 @@ namespace Zamin {
                         glEnableVertexAttribArray(m_VertexBufferIndex);
                         glVertexAttribIPointer(m_VertexBufferIndex, element.GetComponentCount(), ShaderDataTypeToGL(element.Type),
                                                layout.GetStride(), (const void*)element.Offset);
+                        if (layout.IsPerInstance())
+                            glVertexAttribDivisor(m_VertexBufferIndex, 1);
                         m_VertexBufferIndex++;
                         break;
                     }

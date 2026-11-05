@@ -4,6 +4,7 @@
 #include <Zamin/Core/EntryPoint.h>
 
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 
 namespace Zamin {
@@ -41,10 +42,20 @@ namespace Zamin {
             auto& window = Application::Get().GetWindow();
             m_Scene->OnViewportResize(window.GetFramebufferWidth(), window.GetFramebufferHeight());
             m_Scene->OnRuntimeStart();
+
+            // Automation (comparisons, CI): ZAMIN_PLAYER_NO_CULLING=1 / ZAMIN_PLAYER_NO_INSTANCING=1 turn the
+            // renderer's frustum culling / GPU instancing off; ZAMIN_PLAYER_STATS=1 logs the last frame's
+            // render statistics at exit.
+            if (std::getenv("ZAMIN_PLAYER_NO_CULLING"))
+                Renderer3D::SetFrustumCulling(false);
+            if (std::getenv("ZAMIN_PLAYER_NO_INSTANCING"))
+                Renderer3D::SetInstancing(false);
         }
 
         void OnDetach() override
         {
+            if (std::getenv("ZAMIN_PLAYER_STATS"))
+                ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
             if (m_Scene)
             {
                 m_Scene->OnRuntimeStop();

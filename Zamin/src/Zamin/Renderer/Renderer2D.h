@@ -3,6 +3,7 @@
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/RendererAPI.h"
+#include "Zamin/Renderer/Frustum.h"
 
 #include <glm/glm.hpp>
 #include <string>
@@ -52,6 +53,13 @@ namespace Zamin {
         static void DrawString(const std::string& text, const Ref<Font>& font, const glm::mat4& transform,
                                const TextParams& params, int entityID = -1);
         static glm::vec2 MeasureString(const std::string& text, const Ref<Font>& font, const TextParams& params = TextParams());
+
+        // Frustum culling helpers (no GPU): the world-space boxes of what the draws cover.
+        // The unit quad (-0.5 .. 0.5 in x and y: a sprite, a circle, a tile) moved by `transform`.
+        static AABB GetQuadBounds(const glm::mat4& transform);
+        // The box around every glyph quad DrawString lays out for `text`, in the text's own space
+        // (before its transform); empty (Min > Max) when nothing would be drawn.
+        static AABB GetStringBounds(const std::string& text, const Ref<Font>& font, const TextParams& params = TextParams());
 
         // Flushes the current batch and switches blending (e.g. additive particles).
         static void SetBlendMode(BlendMode mode);

@@ -2212,6 +2212,7 @@ namespace Zamin {
         if (tile < 0)
             return;
         m_TileBrush = TileBrush::Single(tile);
+        m_PaletteScrollRequest++;
         m_TileRule = rule;
         if (m_TileTool == TileTool::Picker)
             m_TileTool = m_ToolBeforePicker == TileTool::Picker || m_ToolBeforePicker == TileTool::Eraser ? TileTool::Brush : m_ToolBeforePicker;
@@ -2618,14 +2619,14 @@ namespace Zamin {
         const TilesetProperties* storedProperties = TilesetProperties::Get(c.TilesetPath);
         TilesetProperties properties = storedProperties ? *storedProperties : TilesetProperties();
         bool propertiesEdited = false;
-        ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0);
-        ImGui::TextDisabled("Palitra");
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-            UI::Tooltip("G'ildirak - kattalashtirish / kichraytirish (sichqoncha ostida), o'rta yoki o'ng tugma bilan sudrash - surish. "
-                        "Bosish - plitka, sudrash - bir nechta plitkali mo'yqalam. Pastki chetini tortib balandligini o'zgartiring");
-        ImGui::TableSetColumnIndex(1);
+        UI::PropertyHeader(ICON_FA_TABLE_CELLS "  Palitra", "G'ildirak - kattalashtirish / kichraytirish (sichqoncha ostida), o'rta yoki o'ng "
+                                                          "tugma bilan sudrash - surish. Bosish - plitka, sudrash - bir nechta plitkali "
+                                                          "mo'yqalam. Pastki chetini tortib balandligini o'zgartiring");
+        // The palette takes the whole width of the inspector: the property grid pauses around it.
+        UI::EndPropertyGrid();
         m_PaletteViews[0].Resizable = true;
         DrawTilePalette(c, m_PaletteViews[0], std::max(120.0f, ImGui::GetFontSize() * 16.0f), rules, rulesEdited, properties, propertiesEdited);
+        UI::BeginPropertyGrid("##tilemapAfterPalette"); // never fails here: the window is drawing (its section's grid did not)
         DrawTileProperties(c, properties, propertiesEdited);
 
         if (rulesEdited && !c.TilesetPath.empty())
@@ -2659,6 +2660,7 @@ namespace Zamin {
         if (brush.Width < 1 || brush.Height < 1 || (int)brush.Tiles.size() != brush.Width * brush.Height)
             return;
         m_TileBrush = brush;
+        m_PaletteScrollRequest++;
     }
 
     // Tile `index` of a cols x rows tileset as UVs of its (bottom-up) texture.
@@ -2718,7 +2720,7 @@ namespace Zamin {
         if (UI::ToolbarButton(ICON_FA_EXPAND, "Kenglikka moslash"))
             view.Zoom = fitZoom;
         ImGui::SameLine(0, 2);
-        if (UI::ToolbarButton(ICON_FA_TAGS, "Plitka xususiyatlari belgilari: qizil x - collision yo'q, to'q sariq - bir tomonlama, "
+        if (UI::ToolbarButton(ICON_FA_TAGS, "Plitka xususiyatlari belgilari: qizil x - collision yo'q, pushti - bir tomonlama, "
                                             "uchburchak - animatsiya", m_ShowTileProperties))
             m_ShowTileProperties = !m_ShowTileProperties;
         if (view.Resizable && OnTilePaletteWindowRequested)
@@ -2781,6 +2783,21 @@ namespace Zamin {
             return ty * cols + tx;
         };
         auto tileMin = [&](int index) { return ImVec2(origin.x + (index % cols) * cw, origin.y + (index / cols) * ch); };
+        // The brush was picked elsewhere (the picker, automation): bring it into view.
+        if (view.ScrolledTo != m_PaletteScrollRequest)
+        {
+            view.ScrolledTo = m_PaletteScrollRequest;
+            int topLeft = m_TileBrush.GetTopLeft();
+            if (topLeft >= 0 && topLeft < count && !activeRule)
+            {
+                float localY = (topLeft / cols) * ch, localX = (topLeft % cols) * cw;
+                float viewH = ImGui::GetWindowHeight(), viewW = ImGui::GetWindowWidth();
+                if (localY < ImGui::GetScrollY() || localY + ch * m_TileBrush.Height > ImGui::GetScrollY() + viewH)
+                    ImGui::SetScrollY(std::max(0.0f, localY + ch * m_TileBrush.Height * 0.5f - viewH * 0.5f));
+                if (localX < ImGui::GetScrollX() || localX + cw * m_TileBrush.Width > ImGui::GetScrollX() + viewW)
+                    ImGui::SetScrollX(std::max(0.0f, localX + cw * m_TileBrush.Width * 0.5f - viewW * 0.5f));
+            }
+        }
 
         ImDrawList* dl = ImGui::GetWindowDrawList();
         {
@@ -2814,7 +2831,7 @@ namespace Zamin {
         // Collision / animation marks.
         if (m_ShowTileProperties && !props.IsEmpty())
         {
-            const ImU32 red = IM_COL32(255, 90, 90, 235), orange = IM_COL32(255, 165, 40, 240), play = IM_COL32(120, 210, 255, 240);
+            const ImU32 red = IM_COL32(255, 90, 90, 235), oneWay = IM_COL32(242, 102, 230, 245), play = IM_COL32(120, 210, 255, 240);
             const float m = std::max(3.0f, std::min(cw, ch) * 0.22f);
             for (int t : props.GetTilesWith(TileCollision::None))
             {
@@ -2828,9 +2845,9 @@ namespace Zamin {
             {
                 if (t >= count) break;
                 ImVec2 a = tileMin(t);
-                dl->AddRectFilled(a, ImVec2(a.x + cw, a.y + std::max(2.0f, ch * 0.08f)), orange);
+                dl->AddRectFilled(a, ImVec2(a.x + cw, a.y + std::max(2.0f, ch * 0.08f)), oneWay);
                 float cx = a.x + cw * 0.5f, top = a.y + std::max(3.0f, ch * 0.12f);
-                dl->AddTriangleFilled(ImVec2(cx, top), ImVec2(cx - m * 0.6f, top + m * 0.7f), ImVec2(cx + m * 0.6f, top + m * 0.7f), orange);
+                dl->AddTriangleFilled(ImVec2(cx, top), ImVec2(cx - m * 0.6f, top + m * 0.7f), ImVec2(cx + m * 0.6f, top + m * 0.7f), oneWay);
             }
             for (const TileAnimation& anim : props.GetAnimations())
             {
@@ -2930,8 +2947,9 @@ namespace Zamin {
                 view.DragEnd = tileAt(io.MousePos, true);
             else
             {
-                // Released: the tile (or the rectangle of tiles) is the brush now.
+                // Released: the tile (or the rectangle of tiles) is the brush now (in view already).
                 SetTileBrush(TileBrush::FromTileset(cols, rows, view.DragStart, view.DragEnd));
+                view.ScrolledTo = m_PaletteScrollRequest;
                 view.DragStart = view.DragEnd = -1;
                 m_TileRule = -1;
                 if (m_TileTool == TileTool::Eraser || m_TileTool == TileTool::Picker)

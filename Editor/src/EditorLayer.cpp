@@ -2078,8 +2078,8 @@ namespace Zamin {
                     * glm::scale(glm::mat4(1.0f), glm::vec3(glm::vec2(sc) * bc.Size * 2.0f, 1.0f));
                 if (bc.OneWay && !bc.IsSensor)
                 {
-                    // One-way: the top edge solid, the rest faint, an arrow up through the middle.
-                    const glm::vec4 oneWay(1.0f, 0.62f, 0.15f, 1.0f);
+                    // One-way: the top edge solid, the rest faint, an arrow up through the middle (magenta).
+                    const glm::vec4 oneWay(0.95f, 0.4f, 0.9f, 1.0f);
                     auto at = [&](float x, float y) { return glm::vec3(transform * glm::vec4(x, y, 0.0f, 1.0f)); };
                     Renderer2D::DrawRect(transform, glm::vec4(oneWay.r, oneWay.g, oneWay.b, 0.45f));
                     Renderer2D::DrawLine(at(-0.5f, 0.5f), at(0.5f, 0.5f), oneWay);
@@ -2090,8 +2090,8 @@ namespace Zamin {
                 }
                 Renderer2D::DrawRect(transform, bc.IsSensor ? yellow : green);
             }
-            // Tilemaps: the boxes their static body is made of (one-way ones orange, with arrows up).
-            const glm::vec4 orange(1.0f, 0.62f, 0.15f, 1.0f);
+            // Tilemaps: the boxes their static body is made of (one-way ones magenta, with arrows up).
+            const glm::vec4 oneWayColor(0.95f, 0.4f, 0.9f, 1.0f);
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, TilemapComponent>())
             {
                 if (hidden.contains(e)) continue;
@@ -2111,16 +2111,16 @@ namespace Zamin {
                         Renderer2D::DrawRect(t, green);
                         continue;
                     }
-                    Renderer2D::DrawRect(t, glm::vec4(orange.r, orange.g, orange.b, 0.45f));
+                    Renderer2D::DrawRect(t, glm::vec4(oneWayColor.r, oneWayColor.g, oneWayColor.b, 0.45f));
                     glm::vec3 left = world * glm::vec4(box.X0 * tm.TileSize, (box.Y + 1) * tm.TileSize, 0.001f, 1.0f);
                     glm::vec3 right = world * glm::vec4(box.X1 * tm.TileSize, (box.Y + 1) * tm.TileSize, 0.001f, 1.0f);
-                    Renderer2D::DrawLine(left, right, orange);
+                    Renderer2D::DrawLine(left, right, oneWayColor);
                     for (int x = box.X0; x < box.X1; x++)
                     {
                         auto at = [&](float fx, float fy) { return glm::vec3(world * glm::vec4((x + fx) * tm.TileSize, (box.Y + fy) * tm.TileSize, 0.001f, 1.0f)); };
-                        Renderer2D::DrawLine(at(0.5f, 0.25f), at(0.5f, 0.8f), orange);
-                        Renderer2D::DrawLine(at(0.5f, 0.8f), at(0.35f, 0.62f), orange);
-                        Renderer2D::DrawLine(at(0.5f, 0.8f), at(0.65f, 0.62f), orange);
+                        Renderer2D::DrawLine(at(0.5f, 0.25f), at(0.5f, 0.8f), oneWayColor);
+                        Renderer2D::DrawLine(at(0.5f, 0.8f), at(0.35f, 0.62f), oneWayColor);
+                        Renderer2D::DrawLine(at(0.5f, 0.8f), at(0.65f, 0.62f), oneWayColor);
                     }
                 }
             }

@@ -238,6 +238,7 @@ namespace Zamin {
             std::string Tileset;        // the tileset it was fitted for
             int DragStart = -1, DragEnd = -1;
             bool Resizable = true;
+            uint64_t ScrolledTo = 0;    // the last m_PaletteScrollRequest it scrolled for
         };
         // The palette of a tilemap's tileset: mouse wheel zooms (around the cursor), the scrollbars or a
         // middle / right drag scroll; a click picks a tile, a drag a rectangle of tiles (a multi-tile
@@ -284,6 +285,7 @@ namespace Zamin {
         int m_RuleFirstTile = 0;
         uint64_t m_TileEntity = 0;    // the tilemap the tile state above belongs to
         TileBrush m_TileBrush;        // the palette selection (1 x 1 = one tile)
+        uint64_t m_PaletteScrollRequest = 0; // the brush changed outside the palette (picker): palettes scroll to it
         TilePaletteView m_PaletteViews[2];  // the inspector's palette, the palette window's
         bool m_ShowTileProperties = true;    // collision / animation marks over the palette tiles
         bool m_TilePropertiesOpen = false;   // the inspector's "tile properties" part is open

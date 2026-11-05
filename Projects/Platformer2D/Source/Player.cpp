@@ -13,6 +13,8 @@ public:
     float JumpImpulse = 9.0f;
     float FallLimit = -15.0f;
     float LandShake = 0.0f; // 0 = o'chiq; shundan tez qo'nsa kamera silkinadi (birlik/s)
+    bool DropThrough = false; // pastga + sakrash: bir tomonlama platformadan tushib ketadi
+    bool HitFlash = false;    // yiqilib qaytganda qizil, qattiq qo'nganda oq chaqnaydi
 
     void OnCreate() override
     {
@@ -33,9 +35,14 @@ public:
 
         if (Input::IsActionJustPressed("Jump") && m_GroundContacts > 0)
         {
-            SetVelocity({ velocity.x, 0.0f });
-            float mass = 1.0f;
-            ApplyImpulse({ 0.0f, JumpImpulse * mass });
+            if (DropThrough && Input::GetAxis("Vertical") < -0.5f)
+                DropThroughPlatforms(0.3f); // down + jump: through the one-way platform below
+            else
+            {
+                SetVelocity({ velocity.x, 0.0f });
+                float mass = 1.0f;
+                ApplyImpulse({ 0.0f, JumpImpulse * mass });
+            }
         }
 
         // Animation: idle (0-1), run (4-7), jump (8) on the sprite sheet
@@ -60,6 +67,8 @@ public:
             SendMessage(FindEntity("GameManager"), "PlayerFell");
             if (LandShake > 0.0f)
                 ShakeCamera(0.6f, 0.5f, 18.0f);
+            if (HitFlash)
+                Flash({ 1.0f, 0.3f, 0.25f, 1.0f }, 0.6f);
         }
     }
 
@@ -71,6 +80,8 @@ public:
         // Hard landing: the camera shakes (the faster, the stronger).
         if (LandShake > 0.0f && m_FallSpeed > LandShake)
             ShakeCamera(std::clamp(0.25f + (m_FallSpeed - LandShake) * 0.06f, 0.0f, 0.8f), 0.35f, 22.0f);
+        if (HitFlash && LandShake > 0.0f && m_FallSpeed > LandShake)
+            Flash(glm::vec4(1.0f), 0.15f);
         m_FallSpeed = 0.0f;
     }
     void OnCollisionEnd(Entity) override { m_GroundContacts = std::max(0, m_GroundContacts - 1); }
@@ -85,5 +96,9 @@ ZM_REGISTER_SCRIPT(PlayerController,
     ZM_FIELD_RANGE(PlayerController, MoveSpeed, 0.0f, 20.0f).Header("Harakat").Tooltip("Yurish tezligi (birlik/sekund)"),
     ZM_FIELD_RANGE(PlayerController, JumpImpulse, 0.0f, 30.0f).Tooltip("Sakrash kuchi (impuls)"),
     ZM_FIELD(PlayerController, FallLimit).Tooltip("Shu balandlikdan pastga tushsa, o'yinchi boshlang'ich joyga qaytadi"),
+    ZM_FIELD(PlayerController, DropThrough).Label("Platformadan tushish")
+        .Tooltip("Pastga (S) + sakrash: bir tomonlama platformadan (plitka yoki Box Collider) pastga tushib ketadi"),
     ZM_FIELD_RANGE(PlayerController, LandShake, 0.0f, 40.0f).Header("Kamera")
-        .Tooltip("Shundan tezroq tushib qo'nsa (birlik/s) kamera silkinadi; yiqilganda ham. 0 - o'chiq"))
+        .Tooltip("Shundan tezroq tushib qo'nsa (birlik/s) kamera silkinadi; yiqilganda ham. 0 - o'chiq"),
+    ZM_FIELD(PlayerController, HitFlash).Header("Effektlar").Label("Chaqnash (flash)")
+        .Tooltip("Yiqilib boshlang'ich joyga qaytganda qizil, qattiq qo'nganda oq chaqnaydi (SpriteRenderer::Flash)"))

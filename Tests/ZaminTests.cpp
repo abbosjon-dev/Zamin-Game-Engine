@@ -14017,6 +14017,22 @@ TEST(TilemapSampleAutoTilesConsistent)
     // Every variant of the grass blob is drawn somewhere in its tileset (47 distinct tiles).
     CHECK(std::set<int>(rules.Rules[1].Tiles.begin(), rules.Rules[1].Tiles.end()).size() == 47);
 
+    // The tileset's tile properties: decorations and water have no collision, planks are one-way,
+    // water and torches are animated; the main layer gets one-way boxes and the water is not solid.
+    TilesetProperties props = meta ? TilesetProperties::FromImportSettings(meta->Import) : TilesetProperties();
+    CHECK(props.GetCollision(75) == TileCollision::OneWay && props.GetCollision(77) == TileCollision::OneWay &&
+          props.GetCollision(78) == TileCollision::None && props.GetCollision(64) == TileCollision::None &&
+          props.GetCollision(0) == TileCollision::Solid && props.GetCollision(30) == TileCollision::Solid);
+    CHECK(props.FindAnimation(80) && props.FindAnimation(80)->Frames.size() == 4 && props.FindAnimation(84) && props.Resolve(84, 0.2) == 85);
+    CHECK(tm.TilesetRows == 11);
+    std::vector<TileColliderBox> boxes = TilemapCollision::BuildBoxes(tm, &props);
+    size_t oneWay = std::count_if(boxes.begin(), boxes.end(), [](const TileColliderBox& b) { return b.Type == TileCollision::OneWay; });
+    CHECK(oneWay == 3);
+    bool water = false;
+    for (int t : tm.Layers[(size_t)main].Tiles)
+        water |= t == 80;
+    CHECK(water && TilemapCollision::GetCell(tm, 16, 2, &props) == TileCollision::None && TilemapCollision::GetCell(tm, 16, 2, nullptr) == TileCollision::Solid);
+
     Entity camera = scene->FindEntityByName("Main Camera");
     Entity player = scene->FindEntityByName("Player");
     CHECK(camera && player && camera.HasComponent<Camera2DFollowComponent>() &&

@@ -146,6 +146,10 @@ namespace Zamin {
         m_AssetInspectorPanel.OnRevealRequested = [this](const fs::path& p) { RevealAsset(p); };
         m_SceneHierarchyPanel.OnAssetEditRequested = [this](const fs::path& p) { RevealAsset(p); };
         m_SceneHierarchyPanel.OnSpriteEditorRequested = [this](const std::string& texture) { OpenSpriteEditor(texture); };
+        m_SceneHierarchyPanel.OnTilePaletteWindowRequested = [this]() {
+            m_ShowTilePalette = true;
+            ImGui::SetWindowFocus("###TilePalette");
+        };
         m_SceneHierarchyPanel.OnSortingLayersRequested = [this]() {
             m_ShowProjectSettings = true;
             m_ProjectSettingsPanel.Focus(ProjectSettingsPanel::Tab::SortingLayers);
@@ -525,7 +529,8 @@ namespace Zamin {
             // ZAMIN_EDITOR_PARALLAX=1: the scene view moves parallax layers with the editor camera.
             if (std::getenv("ZAMIN_EDITOR_PARALLAX"))
                 m_PreviewParallax = true;
-            // ZAMIN_EDITOR_TILEMAP="tool=brush|rect|fill|eraser|picker|layer=1|rule=0|tile=5|hover=12,3|drag=2,2>8,5|apply|editrule=3"
+            // ZAMIN_EDITOR_TILEMAP="tool=brush|rect|fill|eraser|picker|layer=1|rule=0|tile=5|brush=24>34|hover=12,3|drag=2,2>8,5|apply|editrule=3|
+            //                      zoom=3|zoom=window:4|props|window"
             // (with ZAMIN_EDITOR_SELECT on a tilemap): tile painting on with that tool / layer / auto-tile
             // rule / tile, the preview at the hover cell (or a rectangle being dragged); "apply" uses
             // the tool there once.
@@ -1213,20 +1218,32 @@ namespace Zamin {
         const int layer = std::clamp(m_SceneHierarchyPanel.GetActiveTileLayer(), 0, tm.GetLayerCount() - 1);
         const AutoTileSet* rules = AutoTileSet::Get(tm.TilesetPath);
         const AutoTileRule* rule = rules ? rules->Get(m_SceneHierarchyPanel.GetSelectedAutoTileRule()) : nullptr;
-        const int tile = m_SceneHierarchyPanel.GetSelectedTile();
+        const TileBrush& brush = m_SceneHierarchyPanel.GetTileBrush();
         erase = erase || tool == Tool::Eraser;
-        auto paint = [&](const std::vector<glm::ivec2>& cells) {
+        // A multi-tile brush repeats from the stroke's origin (a click: centred on the cell).
+        const glm::ivec2 origin = m_TileStroke.Active && m_TileStroke.Entity == e.GetUUID() ? m_TileStroke.Origin : brush.OriginFor(from);
+        auto paint = [&](const std::vector<glm::ivec2>& cells, glm::ivec2 patternOrigin) {
             if (rule)
                 return AutoTile::Paint(tm, layer, *rule, cells, erase);
-            return TilemapEdit::SetCells(tm, layer, cells, erase ? -1 : tile);
+            if (erase)
+                return TilemapEdit::SetCells(tm, layer, cells, -1);
+            return TilemapEdit::Stamp(tm, layer, cells, brush, patternOrigin);
         };
         switch (tool)
         {
             case Tool::Brush:
+            {
+                std::vector<glm::ivec2> line = TilemapEdit::LineCells(from, cell);
+                return paint(rule ? line : brush.StrokeCells(line), origin);
+            }
             case Tool::Eraser:
-                return paint(TilemapEdit::LineCells(from, cell));
+                return paint(TilemapEdit::LineCells(from, cell), origin);
             case Tool::Rectangle:
-                return paint(TilemapEdit::RectCells(tm, from, cell));
+            {
+                // The pattern starts at the rectangle's top-left corner.
+                glm::ivec2 corner(std::min(from.x, cell.x), std::max(from.y, cell.y));
+                return paint(TilemapEdit::RectCells(tm, from, cell), corner);
+            }
             case Tool::Fill:
             {
                 if (!tm.Contains(cell.x, cell.y))
@@ -1239,7 +1256,9 @@ namespace Zamin {
                         return 0; // already this terrain
                     return AutoTile::Paint(tm, layer, *rule, region, erase);
                 }
-                return TilemapEdit::FloodFill(tm, layer, cell.x, cell.y, erase ? -1 : tile);
+                if (brush.IsSingle() || erase)
+                    return TilemapEdit::FloodFill(tm, layer, cell.x, cell.y, erase ? -1 : brush.GetTopLeft());
+                return TilemapEdit::Stamp(tm, layer, TilemapEdit::FloodRegion(tm, layer, cell.x, cell.y), brush, brush.OriginFor(cell));
             }
             case Tool::Picker:
             {
@@ -1307,7 +1326,7 @@ namespace Zamin {
             return;
         const Tool tool = panel.GetTileTool();
         const bool erase = Input::IsKeyPressed(Key::LeftShift) || Input::IsKeyPressed(Key::RightShift) || tool == Tool::Eraser;
-        m_TileStroke = TileStroke{ true, e.GetUUID(), layer, tool, cell, cell, erase, 0 };
+        m_TileStroke = TileStroke{ true, e.GetUUID(), layer, tool, cell, cell, erase, 0, panel.GetTileBrush().OriginFor(cell) };
         if (tool == Tool::Brush || tool == Tool::Eraser || tool == Tool::Fill || tool == Tool::Picker)
         {
             int changed = ApplyTileTool(e, tool, cell, cell, erase);
@@ -1340,13 +1359,28 @@ namespace Zamin {
         const AutoTileSet* rules = AutoTileSet::Get(tm.TilesetPath);
         const AutoTileRule* rule = rules ? rules->Get(panel.GetSelectedAutoTileRule()) : nullptr;
 
+        const TileBrush& brush = panel.GetTileBrush();
+        const bool stamp = !rule && !erase;
         std::vector<glm::ivec2> cells;
+        glm::ivec2 origin = brush.OriginFor(hover);
         if (m_TileStroke.Active && tool == Tool::Rectangle)
+        {
             cells = TilemapEdit::RectCells(tm, m_TileStroke.Start, m_TileStroke.Last);
+            origin = { std::min(m_TileStroke.Start.x, m_TileStroke.Last.x), std::max(m_TileStroke.Start.y, m_TileStroke.Last.y) };
+        }
         else if (tool == Tool::Fill && tm.Contains(hover.x, hover.y))
         {
             if (!rule || erase || !rule->Contains(tm.Get(hover.x, hover.y, layer)))
                 cells = TilemapEdit::FloodRegion(tm, layer, hover.x, hover.y, rule);
+        }
+        else if (tool == Tool::Brush && !rule)
+        {
+            // The brush's footprint (aligned with the stroke being painted).
+            if (m_TileStroke.Active && m_TileStroke.Entity == e.GetUUID())
+                origin = m_TileStroke.Origin;
+            for (const glm::ivec2& c : brush.StrokeCells({ hover }))
+                if (tm.Contains(c.x, c.y))
+                    cells.push_back(c);
         }
         else if ((tool == Tool::Brush || tool == Tool::Eraser) && tm.Contains(hover.x, hover.y))
             cells = { hover };
@@ -1360,8 +1394,10 @@ namespace Zamin {
         trial.Layers = { tm.Layers[(size_t)layer] };
         if (rule)
             AutoTile::Paint(trial, 0, *rule, cells, erase);
+        else if (stamp)
+            TilemapEdit::Stamp(trial, 0, cells, brush, origin);
         else
-            TilemapEdit::SetCells(trial, 0, cells, erase ? -1 : panel.GetSelectedTile());
+            TilemapEdit::SetCells(trial, 0, cells, -1);
         const std::vector<int>& before = tm.Layers[(size_t)layer].Tiles;
         std::vector<int>& after = trial.Layers[0].Tiles;
         for (size_t i = 0; i < after.size(); i++)
@@ -1406,6 +1442,25 @@ namespace Zamin {
                 panel.SetSelectedAutoTileRule(std::atoi(text.c_str()));
             else if (key == "tile")
                 panel.PickTile(std::atoi(text.c_str()), -1);
+            else if (key == "brush") // "brush=24>34": the palette rectangle between two tiles
+            {
+                int a = 0, b = 0;
+                if (std::sscanf(text.c_str(), "%d>%d", &a, &b) == 2)
+                {
+                    const auto& tm = e.GetComponent<TilemapComponent>();
+                    panel.SetTileBrush(TileBrush::FromTileset(tm.TilesetColumns, tm.TilesetRows, a, b));
+                    panel.SetSelectedAutoTileRule(-1);
+                }
+            }
+            else if (key == "zoom") // "zoom=3" (inspector) / "zoom=window:4"
+            {
+                bool window = value.starts_with("window:");
+                panel.SetTilePaletteZoom(window ? 1 : 0, (float)std::atof(text.c_str() + (window ? 7 : 0)));
+            }
+            else if (key == "props")
+                panel.SetTilePropertiesOpen(true);
+            else if (key == "window")
+                m_ShowTilePalette = true;
             else if (key == "hover")
             {
                 std::sscanf(text.c_str(), "%d,%d", &m_TileHoverCell.x, &m_TileHoverCell.y);
@@ -1436,7 +1491,7 @@ namespace Zamin {
             else
             {
                 m_TileStroke = TileStroke{ true, e.GetUUID(), std::clamp(panel.GetActiveTileLayer(), 0, e.GetComponent<TilemapComponent>().GetLayerCount() - 1),
-                                           Tool::Rectangle, dragFrom, dragTo, false, 0 };
+                                           Tool::Rectangle, dragFrom, dragTo, false, 0, panel.GetTileBrush().OriginFor(dragFrom) };
                 m_TileDragHeld = true; // as if the button were still down: only the preview
             }
         }
@@ -2021,7 +2076,53 @@ namespace Zamin {
                     * glm::rotate(glm::mat4(1.0f), r.z, glm::vec3(0, 0, 1))
                     * glm::translate(glm::mat4(1.0f), glm::vec3(bc.Offset, 0.001f))
                     * glm::scale(glm::mat4(1.0f), glm::vec3(glm::vec2(sc) * bc.Size * 2.0f, 1.0f));
+                if (bc.OneWay && !bc.IsSensor)
+                {
+                    // One-way: the top edge solid, the rest faint, an arrow up through the middle.
+                    const glm::vec4 oneWay(1.0f, 0.62f, 0.15f, 1.0f);
+                    auto at = [&](float x, float y) { return glm::vec3(transform * glm::vec4(x, y, 0.0f, 1.0f)); };
+                    Renderer2D::DrawRect(transform, glm::vec4(oneWay.r, oneWay.g, oneWay.b, 0.45f));
+                    Renderer2D::DrawLine(at(-0.5f, 0.5f), at(0.5f, 0.5f), oneWay);
+                    Renderer2D::DrawLine(at(0.0f, -0.3f), at(0.0f, 0.35f), oneWay);
+                    Renderer2D::DrawLine(at(0.0f, 0.35f), at(-0.08f, 0.15f), oneWay);
+                    Renderer2D::DrawLine(at(0.0f, 0.35f), at(0.08f, 0.15f), oneWay);
+                    continue;
+                }
                 Renderer2D::DrawRect(transform, bc.IsSensor ? yellow : green);
+            }
+            // Tilemaps: the boxes their static body is made of (one-way ones orange, with arrows up).
+            const glm::vec4 orange(1.0f, 0.62f, 0.15f, 1.0f);
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, TilemapComponent>())
+            {
+                if (hidden.contains(e)) continue;
+                Entity entity{ e, &scene };
+                const auto& tm = entity.GetComponent<TilemapComponent>();
+                if (!tm.Collision || (size_t)tm.Width * tm.Height > (1u << 18))
+                    continue;
+                const glm::mat4 world = scene.GetWorldTransform(entity);
+                const TilesetProperties* properties = TilesetProperties::Get(tm.TilesetPath);
+                for (const TileColliderBox& box : TilemapCollision::BuildBoxes(tm, properties))
+                {
+                    glm::vec2 size((box.X1 - box.X0) * tm.TileSize, tm.TileSize);
+                    glm::vec2 center(box.X0 * tm.TileSize + size.x * 0.5f, box.Y * tm.TileSize + size.y * 0.5f);
+                    glm::mat4 t = world * glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.001f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+                    if (box.Type != TileCollision::OneWay)
+                    {
+                        Renderer2D::DrawRect(t, green);
+                        continue;
+                    }
+                    Renderer2D::DrawRect(t, glm::vec4(orange.r, orange.g, orange.b, 0.45f));
+                    glm::vec3 left = world * glm::vec4(box.X0 * tm.TileSize, (box.Y + 1) * tm.TileSize, 0.001f, 1.0f);
+                    glm::vec3 right = world * glm::vec4(box.X1 * tm.TileSize, (box.Y + 1) * tm.TileSize, 0.001f, 1.0f);
+                    Renderer2D::DrawLine(left, right, orange);
+                    for (int x = box.X0; x < box.X1; x++)
+                    {
+                        auto at = [&](float fx, float fy) { return glm::vec3(world * glm::vec4((x + fx) * tm.TileSize, (box.Y + fy) * tm.TileSize, 0.001f, 1.0f)); };
+                        Renderer2D::DrawLine(at(0.5f, 0.25f), at(0.5f, 0.8f), orange);
+                        Renderer2D::DrawLine(at(0.5f, 0.8f), at(0.35f, 0.62f), orange);
+                        Renderer2D::DrawLine(at(0.5f, 0.8f), at(0.65f, 0.62f), orange);
+                    }
+                }
             }
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, CircleCollider2DComponent>())
             {
@@ -2165,6 +2266,14 @@ namespace Zamin {
                     for (const glm::ivec2& c : region)
                         Renderer2D::DrawQuad(cellTransform(c), glm::vec4(outline.r, outline.g, outline.b, m_TilePreview.Valid ? 0.06f : 0.15f));
                     Renderer2D::DrawRect(cellTransform(hover), outline);
+                }
+                else if (tool == Tool::Brush && !rule && !m_SceneHierarchyPanel.GetTileBrush().IsSingle())
+                {
+                    // The multi-tile brush's footprint around the cell.
+                    const TileBrush& brush = m_SceneHierarchyPanel.GetTileBrush();
+                    glm::ivec2 topLeft = brush.OriginFor(hover);
+                    glm::ivec2 lo(topLeft.x, topLeft.y - brush.Height + 1);
+                    Renderer2D::DrawRect(cellTransform(lo, glm::vec2((float)brush.Width, (float)brush.Height)), outline);
                 }
                 else if (tm.Contains(hover.x, hover.y))
                 {
@@ -3899,6 +4008,7 @@ namespace Zamin {
         m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
         m_SpriteEditorPanel.OnImGuiRender(&m_ShowSpriteEditor);
+        m_SceneHierarchyPanel.DrawTilePaletteWindow(&m_ShowTilePalette);
         UI_Stats();
         UI_ProfilerWindow();
         UI_Viewport();
@@ -3953,6 +4063,7 @@ namespace Zamin {
         ImGui::DockBuilderDockWindow("###ProjectSettings", right);
         ImGui::DockBuilderDockWindow("###ContentBrowser", bottom);
         ImGui::DockBuilderDockWindow("###Console", bottom);
+        ImGui::DockBuilderDockWindow("###TilePalette", bottom);
         ImGui::DockBuilderDockWindow("###Stats", left);
         ImGui::DockBuilderDockWindow("###Viewport", main);
         ImGui::DockBuilderFinish(dockspaceID);
@@ -4097,6 +4208,7 @@ namespace Zamin {
                     AssetFiles::GetType(m_AssetInspectorPanel.GetPath()) == AssetType::Texture)
                     m_SpriteEditorPanel.Open(Project::GetAssetRelativePath(m_AssetInspectorPanel.GetPath()));
             }
+            ImGui::MenuItem(ICON_FA_TABLE_CELLS "  Plitka palitrasi", nullptr, &m_ShowTilePalette);
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_BORDER_ALL "  Standart joylashuv")) m_LayoutInitialized = false;
             ImGui::MenuItem("ImGui demo", nullptr, &m_ShowImGuiDemo);

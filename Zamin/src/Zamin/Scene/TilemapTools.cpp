@@ -448,4 +448,86 @@ namespace Zamin {
         return cells;
     }
 
+    // ------------------------------------------------------------------ brushes
+    TileBrush TileBrush::Single(int tile)
+    {
+        TileBrush brush;
+        brush.Tiles = { tile < 0 ? -1 : tile };
+        return brush;
+    }
+
+    TileBrush TileBrush::FromTileset(int columns, int rows, int tileA, int tileB)
+    {
+        columns = std::max(1, columns);
+        rows = std::max(1, rows);
+        const int count = columns * rows;
+        tileA = std::clamp(tileA, 0, count - 1);
+        tileB = std::clamp(tileB, 0, count - 1);
+        int x0 = std::min(tileA % columns, tileB % columns), x1 = std::max(tileA % columns, tileB % columns);
+        int y0 = std::min(tileA / columns, tileB / columns), y1 = std::max(tileA / columns, tileB / columns);
+        x1 = std::min(x1, x0 + MaxSize - 1);
+        y1 = std::min(y1, y0 + MaxSize - 1);
+        TileBrush brush;
+        brush.Width = x1 - x0 + 1;
+        brush.Height = y1 - y0 + 1;
+        brush.Tiles.clear();
+        brush.Tiles.reserve((size_t)brush.Width * brush.Height);
+        for (int y = y0; y <= y1; y++)
+            for (int x = x0; x <= x1; x++)
+                brush.Tiles.push_back(y * columns + x);
+        return brush;
+    }
+
+    int TileBrush::At(glm::ivec2 cell, glm::ivec2 origin) const
+    {
+        if (Width <= 0 || Height <= 0 || (int)Tiles.size() != Width * Height)
+            return -1;
+        auto wrap = [](int v, int n) { int m = v % n; return m < 0 ? m + n : m; };
+        int bx = wrap(cell.x - origin.x, Width);
+        int by = wrap(origin.y - cell.y, Height);
+        return Tiles[(size_t)by * Width + bx];
+    }
+
+    std::vector<glm::ivec2> TileBrush::Footprint(glm::ivec2 origin) const
+    {
+        std::vector<glm::ivec2> cells;
+        cells.reserve((size_t)std::max(0, Width) * std::max(0, Height));
+        for (int by = 0; by < Height; by++)
+            for (int bx = 0; bx < Width; bx++)
+                cells.push_back({ origin.x + bx, origin.y - by });
+        return cells;
+    }
+
+    std::vector<glm::ivec2> TileBrush::StrokeCells(const std::vector<glm::ivec2>& strokeCells) const
+    {
+        if (IsSingle())
+            return strokeCells;
+        std::vector<glm::ivec2> cells;
+        std::unordered_map<int64_t, bool> seen;
+        for (const glm::ivec2& c : strokeCells)
+            for (const glm::ivec2& f : Footprint(OriginFor(c)))
+                if (seen.emplace(((int64_t)f.x << 32) ^ (uint32_t)f.y, true).second)
+                    cells.push_back(f);
+        return cells;
+    }
+
+    int TilemapEdit::Stamp(TilemapComponent& tilemap, int layer, const std::vector<glm::ivec2>& cells, const TileBrush& brush, glm::ivec2 origin)
+    {
+        tilemap.EnsureSize();
+        if (!tilemap.IsValidLayer(layer))
+            return 0;
+        int changed = 0;
+        for (const glm::ivec2& c : cells)
+        {
+            if (!tilemap.Contains(c.x, c.y))
+                continue;
+            int tile = brush.At(c, origin);
+            if (tilemap.Get(c.x, c.y, layer) == tile)
+                continue;
+            tilemap.Set(c.x, c.y, tile, layer);
+            changed++;
+        }
+        return changed;
+    }
+
 }

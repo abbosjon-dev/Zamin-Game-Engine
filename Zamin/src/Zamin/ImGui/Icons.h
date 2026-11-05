@@ -150,3 +150,6 @@
 #define ICON_FA_FILL_DRIP "\xef\x95\xb6" // flood fill
 #define ICON_FA_EYEDROPPER "\xef\x87\xbb" // tile picker
 #define ICON_FA_BURST "\xee\x93\x9c" // camera shake
+#define ICON_FA_MAGNIFYING_GLASS_PLUS "\xef\x80\x8e" // zoom in (tile palette)
+#define ICON_FA_MAGNIFYING_GLASS_MINUS "\xef\x80\x90" // zoom out
+#define ICON_FA_UP_RIGHT_FROM_SQUARE "\xef\x8d\x9d" // open in its own window

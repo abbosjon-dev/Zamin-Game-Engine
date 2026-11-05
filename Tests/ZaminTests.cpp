@@ -14268,6 +14268,47 @@ TEST(TilemapTilePropertiesInScene)
     fs::remove_all(root, ec);
 }
 
+TEST(TileBrushStamp)
+{
+    TileBrush one = TileBrush::Single(7);
+    CHECK(one.IsSingle() && one.GetTopLeft() == 7 && one.At({ 5, 5 }, { 0, 0 }) == 7 && one.OriginFor({ 3, 4 }) == glm::ivec2(3, 4));
+    CHECK(one.StrokeCells({ { 1, 1 }, { 2, 1 } }).size() == 2);
+    // A 3 x 2 block of an 8-wide tileset: tiles 10..12 over 18..20 (corners in any order, clipped to the set).
+    TileBrush b = TileBrush::FromTileset(8, 10, 20, 10);
+    CHECK(b.Width == 3 && b.Height == 2 && b.Tiles == std::vector<int>({ 10, 11, 12, 18, 19, 20 }) && b.GetTopLeft() == 10);
+    TileBrush all = TileBrush::FromTileset(8, 10, -4, 999);
+    CHECK(all.Width == 8 && all.Height == 10 && all.Tiles.size() == 80 && all.Tiles.back() == 79);
+    // Its top-left tile at the origin; map rows count up, the brush's rows down; it repeats every way.
+    const glm::ivec2 o(4, 6);
+    CHECK(b.At({ 4, 6 }, o) == 10 && b.At({ 6, 6 }, o) == 12 && b.At({ 4, 5 }, o) == 18 && b.At({ 6, 5 }, o) == 20);
+    CHECK(b.At({ 7, 6 }, o) == 10 && b.At({ 3, 6 }, o) == 12 && b.At({ 4, 4 }, o) == 10 && b.At({ 4, 7 }, o) == 18);
+    CHECK(b.OriginFor({ 5, 6 }) == glm::ivec2(4, 6)); // centred: width 3 -> one cell to the left, height 2 -> the cell is on the top row
+    std::vector<glm::ivec2> footprint = b.Footprint(o);
+    CHECK(footprint.size() == 6 && footprint.front() == glm::ivec2(4, 6) && footprint.back() == glm::ivec2(6, 5));
+
+    // A stroke: the footprints joined (no duplicates) and stamped from one origin - no seams.
+    TilemapComponent tm;
+    tm.Width = 12; tm.Height = 8;
+    tm.EnsureSize();
+    std::vector<glm::ivec2> cells = b.StrokeCells(TilemapEdit::LineCells({ 2, 4 }, { 6, 4 }));
+    CHECK(cells.size() == 14); // x 1..7, y 3..4
+    const glm::ivec2 origin = b.OriginFor({ 2, 4 });
+    CHECK(origin == glm::ivec2(1, 4));
+    CHECK(TilemapEdit::Stamp(tm, 0, cells, b, origin) == 14);
+    CHECK(tm.Get(1, 4) == 10 && tm.Get(2, 4) == 11 && tm.Get(3, 4) == 12 && tm.Get(4, 4) == 10 && tm.Get(7, 4) == 10);
+    CHECK(tm.Get(1, 3) == 18 && tm.Get(5, 3) == 19 && tm.Get(0, 4) == -1 && tm.Get(1, 5) == -1);
+    CHECK(TilemapEdit::Stamp(tm, 0, cells, b, origin) == 0); // nothing new
+    // Cells outside the map are skipped; a bad layer changes nothing.
+    CHECK(TilemapEdit::Stamp(tm, 0, b.Footprint({ -1, 0 }), b, { -1, 0 }) == 2);
+    CHECK(tm.Get(0, 0) == 11 && tm.Get(1, 0) == 12);
+    CHECK(TilemapEdit::Stamp(tm, 5, cells, b, origin) == 0);
+    // A whole region (flood fill with a pattern): the rest of the empty map, aligned with the origin.
+    std::vector<glm::ivec2> region = TilemapEdit::FloodRegion(tm, 0, 11, 7);
+    int stamped = TilemapEdit::Stamp(tm, 0, region, b, origin);
+    CHECK(stamped == (int)region.size() && tm.CountTiles(0) == 12 * 8);
+    CHECK(tm.Get(10, 7) == b.At({ 10, 7 }, origin) && tm.Get(1, 4) == 10);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

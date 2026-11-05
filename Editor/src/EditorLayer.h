@@ -312,7 +312,9 @@ namespace Zamin {
             glm::ivec2 Start{ 0 }, Last{ 0 };
             bool Erase = false;
             int Changed = 0;
+            glm::ivec2 Origin{ 0 }; // where the brush pattern repeats from (its top-left at the first cell)
         } m_TileStroke;
+        bool m_ShowTilePalette = false;     // Oyna > Plitka palitrasi
         bool m_TileHoverOverride = false;   // automation: the preview cell below instead of the mouse
         bool m_TileDragHeld = false;        // automation: a rectangle stroke stays held (its preview shows)
         // The tiles of the painted layer as the tool would leave them (drawn by the scene view in

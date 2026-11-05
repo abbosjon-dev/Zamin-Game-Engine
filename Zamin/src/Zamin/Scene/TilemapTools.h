@@ -115,9 +115,43 @@ namespace Zamin {
         static int Paint(TilemapComponent& tilemap, int layer, const AutoTileRule& rule, int x, int y, bool erase = false);
     };
 
+    // ------------------------------------------------------------------ brushes
+    // What the paint tools put down: one tile, or a block of tiles picked in the palette (dragged
+    // as a rectangle over the tileset). It repeats in every direction from an origin - the map cell
+    // of its top-left tile - so a stroke, a rectangle or a fill continues its pattern without seams.
+    struct TileBrush
+    {
+        static constexpr int MaxSize = 64; // tiles per side
+
+        int Width = 1, Height = 1;
+        std::vector<int> Tiles = { 0 }; // Width * Height, row-major, row 0 = the top row (as in the tileset picture)
+
+        bool operator==(const TileBrush&) const = default;
+
+        static TileBrush Single(int tile);
+        // The tiles of a tileset `columns` x `rows` big between two of its tiles (inclusive, any
+        // order; numbered left to right, top to bottom). Clipped to the tileset and to MaxSize.
+        static TileBrush FromTileset(int columns, int rows, int tileA, int tileB);
+        bool IsSingle() const { return Width == 1 && Height == 1; }
+        int GetTopLeft() const { return Tiles.empty() ? -1 : Tiles.front(); }
+        // The tile it gives map cell `cell` when its top-left tile is at `origin` (map rows count
+        // up, the brush's rows down).
+        int At(glm::ivec2 cell, glm::ivec2 origin) const;
+        // The origin that centres the brush on `cell` (a single tile: the cell itself).
+        glm::ivec2 OriginFor(glm::ivec2 cell) const { return { cell.x - (Width - 1) / 2, cell.y + (Height - 1) / 2 }; }
+        // The cells it covers with its top-left tile at `origin` (not clipped to a map).
+        std::vector<glm::ivec2> Footprint(glm::ivec2 origin) const;
+        // The footprints of every cell of a stroke, each centred on its cell (duplicates removed, in
+        // stroke order).
+        std::vector<glm::ivec2> StrokeCells(const std::vector<glm::ivec2>& strokeCells) const;
+    };
+
     // ------------------------------------------------------------------ editing tools
     struct TilemapEdit
     {
+        // Paints the cells with `brush` repeating from `origin` (outside the map: skipped). Returns
+        // the number of cells changed.
+        static int Stamp(TilemapComponent& tilemap, int layer, const std::vector<glm::ivec2>& cells, const TileBrush& brush, glm::ivec2 origin);
         // The cells of `layer` connected to (x, y) through edge neighbours that hold the same tile
         // ((x, y) first, then breadth first). With `terrain` and a start cell of that terrain, any
         // tile of the terrain connects. At most maxCells (0: no limit). Empty outside the map.

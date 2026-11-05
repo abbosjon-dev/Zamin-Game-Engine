@@ -103,7 +103,11 @@ namespace Zamin {
                    !e.GetScene()->IsHiddenInEditor(e) && !e.GetScene()->IsLockedInEditor(e);
         }
         void SetTilePaint(bool paint) { m_TilePaint = paint; }
-        int GetSelectedTile() const { return m_SelectedTile; }
+        // The brush's top-left tile (the tile picked in the palette).
+        int GetSelectedTile() const { return m_TileBrush.GetTopLeft(); }
+        // What the tools paint with: the picked tile, or a block of tiles dragged out in the palette.
+        const TileBrush& GetTileBrush() const { return m_TileBrush; }
+        void SetTileBrush(const TileBrush& brush);
         TileTool GetTileTool() const { return m_TileTool; }
         // Switches painting on with that tool (the picker remembers the tool to go back to).
         void SetTileTool(TileTool tool);
@@ -117,6 +121,13 @@ namespace Zamin {
         void SetAutoTileRuleEditor(bool open, int variant = -1) { m_EditRule = open; m_EditRuleVariant = variant; }
         // The picker found `tile` (of auto-tile rule `rule`, -1 none) on the map: it becomes the brush.
         void PickTile(int tile, int rule = -1);
+        // ---- tile palette window (Oyna > Plitka palitrasi): the selected tilemap's palette, bigger
+        void DrawTilePaletteWindow(bool* open);
+        // Automation: the palette zoom (0 = fit the width) of the inspector (0) / the window (1), and
+        // the tile whose collision / animation the inspector edits.
+        void SetTilePaletteZoom(int view, float zoom) { m_PaletteViews[std::clamp(view, 0, 1)].Zoom = zoom; }
+        void SetTilePropertiesOpen(bool open) { m_TilePropertiesOpen = open; }
+        std::function<void()> OnTilePaletteWindowRequested;
 
         std::function<void(Entity)> OnFocusRequested;
         std::function<void()> OnSceneModified;
@@ -218,6 +229,24 @@ namespace Zamin {
         bool DrawTilemap(Entity entity, TilemapComponent& c);
         // Writes the auto-tile rules into the tileset's .zmeta.
         bool SaveAutoTiles(const std::string& tilesetPath, const AutoTileSet& set);
+        // Writes the per-tile collision / animations into the tileset's .zmeta.
+        bool SaveTileProperties(const std::string& tilesetPath, const TilesetProperties& properties);
+        // How a palette is scrolled / zoomed and what is being dragged in it (inspector, window).
+        struct TilePaletteView
+        {
+            float Zoom = 0.0f;          // screen px per tileset px (0: fit the width)
+            std::string Tileset;        // the tileset it was fitted for
+            int DragStart = -1, DragEnd = -1;
+            bool Resizable = true;
+        };
+        // The palette of a tilemap's tileset: mouse wheel zooms (around the cursor), the scrollbars or a
+        // middle / right drag scroll; a click picks a tile, a drag a rectangle of tiles (a multi-tile
+        // brush). While an auto-tile variant / animation frames are being picked, clicks go there.
+        // `height`: of the scrolling area (<= 0: the rest of the window). Edits go into `rules` / `props`.
+        void DrawTilePalette(TilemapComponent& c, TilePaletteView& view, float height, AutoTileSet& rules, bool& rulesEdited,
+                             TilesetProperties& props, bool& propsEdited);
+        // The selected tile's collision and animation (the tileset's, see TilesetProperties).
+        void DrawTileProperties(TilemapComponent& c, TilesetProperties& props, bool& propsEdited);
         bool MatchesFilter(Entity entity, const std::string& lowerFilter);
         const std::unordered_map<std::string, ScriptFieldValue>& GetScriptDefaults(const std::string& className);
         void MarkModified() { if (OnSceneModified) OnSceneModified(); }
@@ -247,7 +276,6 @@ namespace Zamin {
         int m_RowIndex = 0;
         bool m_HierarchyFocused = false;
         bool m_TilePaint = false;
-        int m_SelectedTile = 0;
         TileTool m_TileTool = TileTool::Brush, m_ToolBeforePicker = TileTool::Brush;
         int m_TileLayer = 0;
         int m_TileRule = -1;          // auto-tile rule of the tileset, -1 = plain tile
@@ -255,6 +283,11 @@ namespace Zamin {
         int m_EditRuleVariant = -1;   // the variant the next palette click goes to
         int m_RuleFirstTile = 0;
         uint64_t m_TileEntity = 0;    // the tilemap the tile state above belongs to
+        TileBrush m_TileBrush;        // the palette selection (1 x 1 = one tile)
+        TilePaletteView m_PaletteViews[2];  // the inspector's palette, the palette window's
+        bool m_ShowTileProperties = true;    // collision / animation marks over the palette tiles
+        bool m_TilePropertiesOpen = false;   // the inspector's "tile properties" part is open
+        int m_AnimFramesTile = -1;    // palette clicks add frames to this tile's animation (-1: off)
         std::unordered_map<std::string, std::unordered_map<std::string, ScriptFieldValue>> m_ScriptDefaults;
 
         // inspector: sections of the entity being drawn, component clipboard, reordering

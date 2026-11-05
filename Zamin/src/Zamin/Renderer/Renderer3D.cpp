@@ -67,6 +67,8 @@ uniform sampler2D u_EmissiveMap;
 uniform int u_HasNormalMap;
 uniform int u_HasMetalRoughMap;
 uniform int u_HasEmissiveMap;
+uniform int u_AlbedoSRGB;   // 0: the albedo / emissive map holds linear values (import setting sRGB off)
+uniform int u_EmissiveSRGB;
 uniform float u_NormalStrength;
 uniform float u_Tiling;
 uniform float u_Metallic;
@@ -231,10 +233,11 @@ void main()
 {
     vec2 uv = v_TexCoord * u_Tiling;
     vec4 texColor = texture(u_AlbedoMap, uv);
-    vec4 baseColor = u_Albedo * vec4(toLinear(texColor.rgb), texColor.a);
+    vec3 texLinear = u_AlbedoSRGB == 1 ? toLinear(texColor.rgb) : texColor.rgb;
+    vec4 baseColor = u_Albedo * vec4(texLinear, texColor.a);
     if (baseColor.a < 0.05)
         discard;
-    vec3 albedo = toLinear(u_Albedo.rgb) * toLinear(texColor.rgb);
+    vec3 albedo = toLinear(u_Albedo.rgb) * texLinear;
     float metallic = clamp(u_Metallic, 0.0, 1.0);
     float roughness = clamp(u_Roughness, 0.04, 1.0);
     if (u_HasMetalRoughMap == 1)
@@ -297,7 +300,10 @@ void main()
 
     vec3 emission = u_Emission;
     if (u_HasEmissiveMap == 1)
-        emission *= toLinear(texture(u_EmissiveMap, uv).rgb);
+    {
+        vec3 emissiveTex = texture(u_EmissiveMap, uv).rgb;
+        emission *= u_EmissiveSRGB == 1 ? toLinear(emissiveTex) : emissiveTex;
+    }
     // Linear HDR output - tonemapping & gamma happen in post-processing.
     vec3 color = (ambient + Lo + emission) * u_Exposure;
     if (u_FogEnabled == 1)
@@ -772,6 +778,8 @@ void main()
                 shader->SetInt("u_HasNormalMap", m.NormalMap ? 1 : 0);
                 shader->SetInt("u_HasMetalRoughMap", m.MetalRoughMap ? 1 : 0);
                 shader->SetInt("u_HasEmissiveMap", m.EmissiveMap ? 1 : 0);
+                shader->SetInt("u_AlbedoSRGB", !m.AlbedoMap || m.AlbedoMap->GetSpecification().SRGB ? 1 : 0);
+                shader->SetInt("u_EmissiveSRGB", !m.EmissiveMap || m.EmissiveMap->GetSpecification().SRGB ? 1 : 0);
                 shader->SetFloat("u_NormalStrength", m.NormalStrength);
                 shader->SetMat4("u_Model", item.Transform);
                 shader->SetMat3("u_NormalMatrix", glm::transpose(glm::inverse(glm::mat3(item.Transform))));

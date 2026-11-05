@@ -12,7 +12,7 @@ namespace Zamin {
 
     // Keeps a running editor in step with the asset folder: watches it, keeps the asset registry up
     // to date (new files get a .zmeta, removed ones are forgotten) and imports changed files again
-    // into the objects already in use - the same texture / font / environment object, so
+    // into the objects already in use - the same texture / model / font / environment object, so
     // components, renderers and editor previews keep working and simply show the new content.
     class AssetHotReload
     {
@@ -46,9 +46,10 @@ namespace Zamin {
         // Applies changes found some other way (the same as Update does with the watcher's).
         Report Apply(const std::vector<FileChange>& changes, AssetRegistry* registry);
 
-        // Imports one file again into the loaded objects made from it: textures (every filter
-        // variant), fonts and HDR environment maps. Returns how many were updated; `failed` is set when the file could
-        // not be read (they keep the old content).
+        // Imports one file again into the loaded objects made from it, with its current import
+        // settings: textures (every filter variant), models (also when one of their .gltf buffers
+        // changed), fonts and HDR environment maps. Returns how many were updated; `failed` is
+        // set when the file could not be read (they keep the old content).
         static size_t ReloadAsset(const std::filesystem::path& path, bool* failed = nullptr);
         // Whether something loaded was made from this file (ReloadAsset would update it).
         static bool IsLoaded(const std::filesystem::path& path);

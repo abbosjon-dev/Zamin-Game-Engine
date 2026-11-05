@@ -49,6 +49,7 @@ in float v_TilingFactor;
 flat in int v_EntityID;
 
 uniform sampler2D u_Textures[16];
+uniform int u_LinearTextures; // bit per slot: the texture holds linear values (import setting sRGB off)
 
 void main()
 {
@@ -74,11 +75,13 @@ void main()
         case 15: texColor = texture(u_Textures[15], uv); break;
         default: texColor = vec4(1.0); break;
     }
-    texColor *= v_Color;
-    if (texColor.a < 0.01)
+    bool linearTexture = ((u_LinearTextures >> int(v_TexIndex)) & 1) != 0;
+    vec4 color = texColor * v_Color;
+    if (color.a < 0.01)
         discard;
     // Sprites are authored in sRGB; the scene buffer is linear HDR.
-    o_Color = vec4(pow(texColor.rgb, vec3(2.2)), texColor.a);
+    o_Color = linearTexture ? vec4(pow(v_Color.rgb, vec3(2.2)) * texColor.rgb, color.a)
+                            : vec4(pow(color.rgb, vec3(2.2)), color.a);
     o_EntityID = v_EntityID;
 }
 )";
@@ -361,10 +364,16 @@ void main()
         {
             uint32_t dataSize = (uint32_t)((uint8_t*)s_Data->QuadVertexBufferPtr - (uint8_t*)s_Data->QuadVertexBufferBase);
             s_Data->QuadVertexBuffer->SetData(s_Data->QuadVertexBufferBase, dataSize);
+            int linearTextures = 0;
             for (uint32_t i = 0; i < s_Data->TextureSlotIndex; i++)
+            {
                 s_Data->TextureSlots[i]->Bind(i);
+                if (!s_Data->TextureSlots[i]->GetSpecification().SRGB)
+                    linearTextures |= 1 << i;
+            }
             s_Data->QuadShader->Bind();
             s_Data->QuadShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
+            s_Data->QuadShader->SetInt("u_LinearTextures", linearTextures);
             RenderCommand::DrawIndexed(s_Data->QuadVertexArray, s_Data->QuadIndexCount);
             stats.DrawCalls++;
         }

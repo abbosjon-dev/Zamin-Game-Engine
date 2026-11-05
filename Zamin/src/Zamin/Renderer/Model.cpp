@@ -1,10 +1,12 @@
 #include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Texture.h"
+#include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Core/Log.h"
 
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <algorithm>
 #include <cstring>
@@ -13,13 +15,57 @@
 
 namespace Zamin {
 
+    namespace fs = std::filesystem;
+
+    // ------------------------------------------------------------------ import settings
+    glm::mat4 ModelImportSettings::GetTransform() const
+    {
+        glm::mat4 transform = glm::scale(glm::mat4(1.0f), glm::vec3(Scale));
+        if (UpAxis == ModelUpAxis::Z)
+            transform = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) * transform; // +Z -> +Y
+        return transform;
+    }
+
+    void ApplyImportTransform(Skeleton& skeleton, const glm::mat4& transform)
+    {
+        // Skinning matrix of a joint: global * inverseBind. With vertices v' = T v the matrices
+        // become T * global * inverseBind * T^-1, i.e. root' = T * root and inverseBind' = inverseBind * T^-1.
+        glm::mat4 inverse = glm::inverse(transform);
+        skeleton.RootTransform = transform * skeleton.RootTransform;
+        for (Joint& joint : skeleton.Joints)
+            joint.InverseBind = joint.InverseBind * inverse;
+    }
+
+    // ------------------------------------------------------------------ loading
     class ModelLoader
     {
     public:
-        static Ref<Model> LoadGLTF(const std::filesystem::path& path);
+        // A new model (nullptr with the reason in `error` when the file cannot be read).
+        static Ref<Model> LoadFile(const fs::path& path, const ModelImportSettings& settings, std::string& error);
+        static Ref<Model> LoadGLTF(const fs::path& path, const ModelImportSettings& settings, std::string& error);
+        static Ref<Model> LoadOBJ(const fs::path& path, const ModelImportSettings& settings, std::string& error);
+        // Moves the content of `from` into `to` (the object everything holds stays the same).
+        static void Replace(Model& to, Model&& from);
     };
 
     static std::unordered_map<std::string, Ref<Model>> s_ModelCache;
+
+    static const char* CgltfResultText(cgltf_result result)
+    {
+        switch (result)
+        {
+            case cgltf_result_data_too_short:   return "fayl qisqa (buzilgan?)";
+            case cgltf_result_unknown_format:   return "noma'lum format";
+            case cgltf_result_invalid_json:     return "JSON xato";
+            case cgltf_result_invalid_gltf:     return "glTF tuzilishi xato";
+            case cgltf_result_invalid_options:  return "noto'g'ri sozlamalar";
+            case cgltf_result_file_not_found:   return "fayl topilmadi";
+            case cgltf_result_io_error:         return "o'qish xatosi";
+            case cgltf_result_out_of_memory:    return "xotira yetmadi";
+            case cgltf_result_legacy_gltf:      return "eski glTF 1.0 qo'llab-quvvatlanmaydi";
+            default:                            return "noma'lum xato";
+        }
+    }
 
     static Ref<Texture2D> LoadGLTFTexture(const cgltf_texture_view& view, const std::filesystem::path& baseDir,
                                           std::unordered_map<const cgltf_image*, Ref<Texture2D>>& cache)
@@ -67,26 +113,39 @@ namespace Zamin {
         return tex;
     }
 
-    Ref<Model> ModelLoader::LoadGLTF(const std::filesystem::path& path)
+    Ref<Model> ModelLoader::LoadGLTF(const fs::path& path, const ModelImportSettings& settings, std::string& error)
     {
         cgltf_options options{};
         cgltf_data* data = nullptr;
         std::string file = path.string();
-        if (cgltf_parse_file(&options, file.c_str(), &data) != cgltf_result_success)
+        if (cgltf_result result = cgltf_parse_file(&options, file.c_str(), &data); result != cgltf_result_success)
         {
-            ZM_CORE_ERROR("glTF o'qilmadi: '{}'", file);
-            return nullptr;
-        }
-        if (cgltf_load_buffers(&options, data, file.c_str()) != cgltf_result_success)
-        {
-            ZM_CORE_ERROR("glTF buferlari yuklanmadi: '{}'", file);
-            cgltf_free(data);
+            error = CgltfResultText(result);
             return nullptr;
         }
 
         auto model = CreateRef<Model>();
         model->m_Path = path;
+        model->m_ImportSettings = settings;
         std::filesystem::path baseDir = path.parent_path();
+        // External buffers: reloading the model follows changes of these files, too.
+        for (cgltf_size i = 0; i < data->buffers_count; i++)
+        {
+            const char* uri = data->buffers[i].uri;
+            if (!uri || std::string_view(uri).starts_with("data:"))
+                continue;
+            std::string decoded = uri;
+            cgltf_decode_uri(decoded.data());
+            decoded.resize(std::strlen(decoded.c_str()));
+            model->m_Dependencies.push_back((baseDir / decoded).lexically_normal());
+        }
+        if (cgltf_result result = cgltf_load_buffers(&options, data, file.c_str()); result != cgltf_result_success)
+        {
+            error = std::format("buferlar yuklanmadi - {}", CgltfResultText(result));
+            cgltf_free(data);
+            return nullptr;
+        }
+        const glm::mat4 importTransform = settings.GetTransform();
         std::unordered_map<const cgltf_image*, Ref<Texture2D>> textureCache;
         bool first = true;
 
@@ -189,8 +248,9 @@ namespace Zamin {
             }
             if (!pos) return;
             bool skinned = primSkin == skin && skin && joints && weights;
-            // glTF: the node transform of a skinned mesh is ignored (joints place it).
-            glm::mat4 transform = skinned ? glm::mat4(1.0f) : transformIn;
+            // glTF: the node transform of a skinned mesh is ignored (joints place it). The import
+            // transform (scale, up axis) comes on top; the skeleton gets it too (see below).
+            glm::mat4 transform = importTransform * (skinned ? glm::mat4(1.0f) : transformIn);
 
             glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(transform)));
             std::vector<MeshVertex> vertices(pos->count);
@@ -207,7 +267,7 @@ namespace Zamin {
                 if (uv)
                 {
                     cgltf_accessor_read_float(uv, i, v, 2);
-                    vertices[i].TexCoord = { v[0], 1.0f - v[1] }; // textures are uploaded bottom-up
+                    vertices[i].TexCoord = { v[0], settings.FlipUVs ? v[1] : 1.0f - v[1] }; // textures are uploaded bottom-up
                 }
             }
 
@@ -311,12 +371,77 @@ namespace Zamin {
                 for (cgltf_size p = 0; p < data->meshes[i].primitives_count; p++)
                     addPrimitive(data->meshes[i].primitives[p], glm::mat4(1.0f), data->meshes[i].name, nullptr);
 
+        if (!model->m_Skeleton.Empty())
+            ApplyImportTransform(model->m_Skeleton, importTransform);
+
         size_t triangles = 0;
         for (auto& s : model->m_SubMeshes) triangles += s.MeshRef->GetIndexCount() / 3;
+        cgltf_free(data);
+        if (model->m_SubMeshes.empty())
+        {
+            error = "faylda uchburchakli mesh yo'q";
+            return nullptr;
+        }
         ZM_CORE_INFO("glTF yuklandi: {} ({} qism, {} uchburchak, {} suyak, {} animatsiya)", path.filename().string(),
                      model->m_SubMeshes.size(), triangles, model->m_Skeleton.Joints.size(), model->m_Animations.size());
-        cgltf_free(data);
-        return model->m_SubMeshes.empty() ? nullptr : model;
+        return model;
+    }
+
+    Ref<Model> ModelLoader::LoadOBJ(const fs::path& path, const ModelImportSettings& settings, std::string& error)
+    {
+        std::vector<MeshVertex> vertices;
+        std::vector<uint32_t> indices;
+        if (!MeshLibrary::ReadOBJ(path, vertices, indices, &error))
+            return nullptr;
+        if (!(settings == ModelImportSettings{}))
+        {
+            glm::mat4 transform = settings.GetTransform();
+            glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(transform)));
+            for (MeshVertex& v : vertices)
+            {
+                v.Position = glm::vec3(transform * glm::vec4(v.Position, 1.0f));
+                if (glm::dot(v.Normal, v.Normal) > 0.0f)
+                    v.Normal = glm::normalize(normalMatrix * v.Normal);
+                if (settings.FlipUVs)
+                    v.TexCoord.y = 1.0f - v.TexCoord.y;
+            }
+        }
+        auto mesh = CreateRef<Mesh>(vertices, indices);
+        auto model = CreateRef<Model>();
+        model->m_Path = path;
+        model->m_ImportSettings = settings;
+        model->m_SubMeshes.push_back({ mesh, Material{}, path.stem().string() });
+        model->m_Bounds = mesh->GetBounds();
+        ZM_CORE_INFO("Model yuklandi: {} ({} uchburchak)", path.filename().string(), indices.size() / 3);
+        return model;
+    }
+
+    Ref<Model> ModelLoader::LoadFile(const fs::path& path, const ModelImportSettings& settings, std::string& error)
+    {
+        std::error_code ec;
+        if (!fs::is_regular_file(path, ec))
+        {
+            error = "fayl topilmadi";
+            return nullptr;
+        }
+        std::string ext = path.extension().string();
+        for (auto& c : ext) c = (char)std::tolower((unsigned char)c);
+        if (ext == ".gltf" || ext == ".glb")
+            return LoadGLTF(path, settings, error);
+        if (ext == ".obj")
+            return LoadOBJ(path, settings, error);
+        error = "format qo'llab-quvvatlanmaydi";
+        return nullptr;
+    }
+
+    void ModelLoader::Replace(Model& to, Model&& from)
+    {
+        to.m_SubMeshes = std::move(from.m_SubMeshes);
+        to.m_Bounds = from.m_Bounds;
+        to.m_Skeleton = std::move(from.m_Skeleton);
+        to.m_Animations = std::move(from.m_Animations);
+        to.m_ImportSettings = from.m_ImportSettings;
+        to.m_Dependencies = std::move(from.m_Dependencies);
     }
 
     Ref<Model> Model::Load(const std::filesystem::path& path)
@@ -325,26 +450,89 @@ namespace Zamin {
         if (auto it = s_ModelCache.find(key); it != s_ModelCache.end())
             return it->second;
 
-        Ref<Model> model;
-        std::string ext = path.extension().string();
-        for (auto& c : ext) c = (char)std::tolower((unsigned char)c);
-        if (ext == ".gltf" || ext == ".glb")
-            model = ModelLoader::LoadGLTF(path);
-        else if (ext == ".obj")
-        {
-            if (Ref<Mesh> mesh = MeshLibrary::LoadOBJ(path))
-            {
-                model = CreateRef<Model>();
-                model->m_Path = path;
-                model->m_SubMeshes.push_back({ mesh, Material{}, path.stem().string() });
-                model->m_Bounds = mesh->GetBounds();
-            }
-        }
-        else
-            ZM_CORE_ERROR("Model formati qo'llab-quvvatlanmaydi: '{}'", key);
-
-        s_ModelCache[key] = model;
+        std::string error;
+        Ref<Model> model = ModelLoader::LoadFile(path, AssetImporter::GetModelSettings(path), error);
+        if (!model)
+            ZM_CORE_ERROR("Model yuklanmadi: '{}' ({})", key, error);
+        s_ModelCache[key] = model; // a failed file is not read again until it changes (ReloadFile)
         return model;
+    }
+
+    bool Model::Reimport(const ModelImportSettings& settings, std::string* error)
+    {
+        std::string reason;
+        Ref<Model> fresh = ModelLoader::LoadFile(m_Path, settings, reason);
+        if (!fresh)
+        {
+            if (error)
+                *error = reason;
+            else
+                ZM_CORE_ERROR("Model qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", m_Path.string(), reason);
+            return false;
+        }
+        ModelLoader::Replace(*this, std::move(*fresh));
+        return true;
+    }
+
+    bool Model::Reload(std::string* error)
+    {
+        return Reimport(AssetImporter::GetModelSettings(m_Path), error);
+    }
+
+    static std::string CanonicalModelPath(const fs::path& path)
+    {
+        std::error_code ec;
+        fs::path canonical = fs::weakly_canonical(path, ec);
+        return (ec ? path.lexically_normal() : canonical).string();
+    }
+
+    // Whether the cached model under `key` is made from `file` (canonical) or reads it.
+    static bool UsesFile(const std::string& key, const Ref<Model>& model, const std::string& file)
+    {
+        if (CanonicalModelPath(key) == file)
+            return true;
+        if (model)
+            for (const fs::path& dependency : model->GetDependencies())
+                if (CanonicalModelPath(dependency) == file)
+                    return true;
+        return false;
+    }
+
+    size_t Model::ReloadFile(const std::filesystem::path& path, bool* failed)
+    {
+        std::string file = CanonicalModelPath(path);
+        size_t reloaded = 0;
+        std::string error;
+        for (auto it = s_ModelCache.begin(); it != s_ModelCache.end();)
+        {
+            if (!UsesFile(it->first, it->second, file))
+            {
+                ++it;
+                continue;
+            }
+            if (!it->second)
+            {
+                it = s_ModelCache.erase(it); // failed before: loaded again by the next Load
+                continue;
+            }
+            if (error.empty() && it->second->Reload(&error)) // a file that failed once is not read again
+                reloaded++;
+            else if (failed)
+                *failed = true;
+            ++it;
+        }
+        if (!error.empty())
+            ZM_CORE_ERROR("Model qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", path.string(), error);
+        return reloaded;
+    }
+
+    bool Model::IsFileLoaded(const std::filesystem::path& path)
+    {
+        std::string file = CanonicalModelPath(path);
+        for (const auto& [key, model] : s_ModelCache)
+            if (model && UsesFile(key, model, file))
+                return true;
+        return false;
     }
 
     void Model::ClearCache() { s_ModelCache.clear(); }

@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Texture.h"
+#include "Zamin/Asset/AssetImporter.h"
 
 #include <glad/glad.h>
 #include <stb_image.h>
@@ -40,8 +41,9 @@ namespace Zamin {
             m_Loaded = true;
         }
 
-        OpenGLTexture2D(const std::string& path, TextureFilter filter) : m_Path(path), m_FromFile(true)
+        OpenGLTexture2D(const std::string& path, const TextureImportSettings& settings) : m_Path(path), m_FromFile(true)
         {
+            ApplySettings(settings);
             DecodedImage image;
             if (!Decode(path, image))
             {
@@ -50,8 +52,6 @@ namespace Zamin {
             }
             m_Specification.Width = image.Width;
             m_Specification.Height = image.Height;
-            m_Specification.Filter = filter;
-            m_Specification.GenerateMips = filter != TextureFilter::Nearest;
             m_Specification.Format = image.Format;
 
             Allocate();
@@ -80,6 +80,22 @@ namespace Zamin {
 
         ~OpenGLTexture2D() override { if (m_RendererID) glDeleteTextures(1, &m_RendererID); }
 
+        bool Reimport(const TextureImportSettings& settings, std::string* error) override
+        {
+            if (!m_FromFile)
+            {
+                if (error) *error = "fayldan yuklanmagan";
+                return false;
+            }
+            bool changed = !(settings == GetImportSettings());
+            ApplySettings(settings);
+            if (Reload(error))
+                return true;
+            if (changed && m_RendererID)
+                ApplySampling(); // the old pixels with the new sampling
+            return false;
+        }
+
         bool Reload(std::string* error) override
         {
             if (!m_FromFile)
@@ -105,6 +121,8 @@ namespace Zamin {
                 Allocate();       // the first load had failed
             else if (resized)
                 DefineStorage();  // same texture object, new size / format
+            else
+                ApplySampling();  // import settings may have changed
             SetData(image.Pixels, (uint32_t)(image.Width * image.Height * BytesPerPixel(image.Format)));
             m_Loaded = true;
             return true;
@@ -179,6 +197,14 @@ namespace Zamin {
             return true;
         }
 
+        void ApplySettings(const TextureImportSettings& settings)
+        {
+            m_Specification.Filter = settings.Filter;
+            m_Specification.Wrap = settings.Wrap;
+            m_Specification.GenerateMips = settings.Mipmaps;
+            m_Specification.SRGB = settings.SRGB;
+        }
+
         void Allocate()
         {
             glGenTextures(1, &m_RendererID);
@@ -194,13 +220,20 @@ namespace Zamin {
             glBindTexture(GL_TEXTURE_2D, m_RendererID);
             glTexImage2D(GL_TEXTURE_2D, 0, (GLint)internalFormat, (GLsizei)m_Specification.Width, (GLsizei)m_Specification.Height,
                          0, dataFormat, type, nullptr);
+            ApplySampling();
+        }
 
+        // Filtering, wrapping and channel swizzle of the texture object (binds it).
+        void ApplySampling()
+        {
+            glBindTexture(GL_TEXTURE_2D, m_RendererID);
             bool nearest = m_Specification.Filter == TextureFilter::Nearest;
             GLint minFilter = nearest ? (m_Specification.GenerateMips ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST)
                                       : (m_Specification.GenerateMips ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, nearest ? GL_NEAREST : GL_LINEAR);
-            GLint wrap = m_Specification.Wrap == TextureWrap::Repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE;
+            GLint wrap = m_Specification.Wrap == TextureWrap::ClampToEdge ? GL_CLAMP_TO_EDGE
+                       : m_Specification.Wrap == TextureWrap::MirroredRepeat ? GL_MIRRORED_REPEAT : GL_REPEAT;
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 
@@ -219,7 +252,14 @@ namespace Zamin {
     };
 
     Ref<Texture2D> Texture2D::Create(const TextureSpecification& specification) { return CreateRef<OpenGLTexture2D>(specification); }
-    Ref<Texture2D> Texture2D::Create(const std::string& path, TextureFilter filter) { return CreateRef<OpenGLTexture2D>(path, filter); }
+    Ref<Texture2D> Texture2D::Create(const std::string& path, TextureFilter filter)
+    {
+        TextureImportSettings settings;
+        settings.Filter = filter;
+        settings.Mipmaps = filter != TextureFilter::Nearest;
+        return CreateRef<OpenGLTexture2D>(path, settings);
+    }
+    Ref<Texture2D> Texture2D::Create(const std::string& path, const TextureImportSettings& settings) { return CreateRef<OpenGLTexture2D>(path, settings); }
     Ref<Texture2D> Texture2D::CreateFromMemory(const void* data, size_t size, const std::string& name)
     {
         auto t = CreateRef<OpenGLTexture2D>(data, size, name);
@@ -231,15 +271,29 @@ namespace Zamin {
 
     static std::string CanonicalFile(const std::filesystem::path& path);
 
+    static constexpr std::string_view s_PixelArtSuffix = "#nearest";
+
+    TextureImportSettings TextureLibrary::GetLoadSettings(const std::filesystem::path& path, bool pixelArt)
+    {
+        TextureImportSettings settings = AssetImporter::GetTextureSettings(path);
+        if (pixelArt)
+        {
+            settings.Filter = TextureFilter::Nearest;
+            settings.Mipmaps = false;
+        }
+        return settings;
+    }
+
     Ref<Texture2D> TextureLibrary::Load(const std::filesystem::path& path, TextureFilter filter)
     {
         std::string file = CanonicalFile(path);
-        std::string key = file + (filter == TextureFilter::Nearest ? "#nearest" : "");
+        bool pixelArt = filter == TextureFilter::Nearest;
+        std::string key = pixelArt ? file + std::string(s_PixelArtSuffix) : file;
         auto it = s_TextureCache.find(key);
         if (it != s_TextureCache.end())
             return it->second;
 
-        Ref<Texture2D> texture = Texture2D::Create(file, filter);
+        Ref<Texture2D> texture = Texture2D::Create(file, GetLoadSettings(file, pixelArt));
         if (!texture->IsLoaded())
             return nullptr;
         s_TextureCache[key] = texture;
@@ -262,7 +316,8 @@ namespace Zamin {
         {
             if (texture->GetPath() != file)
                 continue;
-            if (error.empty() && texture->Reload(&error)) // a file that failed once is not read again
+            bool pixelArt = key.ends_with(s_PixelArtSuffix);
+            if (error.empty() && texture->Reimport(GetLoadSettings(file, pixelArt), &error)) // a file that failed once is not read again
                 reloaded++;
             else if (failed)
                 *failed = true;

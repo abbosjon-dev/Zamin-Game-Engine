@@ -4,6 +4,7 @@
 
 #include <glm/glm.hpp>
 #include <filesystem>
+#include <string>
 #include <vector>
 
 namespace Zamin {
@@ -57,6 +58,10 @@ namespace Zamin {
     public:
         static Ref<Mesh> GetPrimitive(PrimitiveMesh type);
         static Ref<Mesh> LoadOBJ(const std::filesystem::path& path);
+        // The triangles of an .obj file (flat normals where it has none). False, with the reason in
+        // `error`, when it cannot be read or holds no faces.
+        static bool ReadOBJ(const std::filesystem::path& path, std::vector<MeshVertex>& vertices, std::vector<uint32_t>& indices,
+                            std::string* error = nullptr);
         static void Clear();
     };
 

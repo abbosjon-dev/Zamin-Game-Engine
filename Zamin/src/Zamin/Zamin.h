@@ -50,6 +50,7 @@
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Asset/FileWatcher.h"
 #include "Zamin/Asset/AssetHotReload.h"
+#include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Math/Math.h"
 #include "Zamin/Math/Random.h"
 #include "Zamin/Utils/PlatformUtils.h"

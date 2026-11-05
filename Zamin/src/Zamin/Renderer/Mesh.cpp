@@ -201,28 +201,29 @@ namespace Zamin {
         return mesh;
     }
 
-    Ref<Mesh> MeshLibrary::LoadOBJ(const std::filesystem::path& path)
+    bool MeshLibrary::ReadOBJ(const std::filesystem::path& path, std::vector<MeshVertex>& vertices, std::vector<uint32_t>& indices,
+                              std::string* error)
     {
-        std::string key = path.string();
-        auto it = s_Models.find(key);
-        if (it != s_Models.end())
-            return it->second;
-
+        vertices.clear();
+        indices.clear();
         tinyobj::ObjReaderConfig config;
         config.triangulate = true;
         config.vertex_color = false;
         tinyobj::ObjReader reader;
-        if (!reader.ParseFromFile(key, config))
+        if (!reader.ParseFromFile(path.string(), config))
         {
-            ZM_CORE_ERROR("OBJ yuklanmadi '{}': {}", key, reader.Error());
-            s_Models[key] = nullptr;
-            return nullptr;
+            if (error)
+            {
+                *error = reader.Error();
+                while (!error->empty() && (error->back() == '\n' || error->back() == '\r'))
+                    error->pop_back();
+                if (error->empty())
+                    *error = "o'qilmadi";
+            }
+            return false;
         }
 
         const auto& attrib = reader.GetAttrib();
-        std::vector<MeshVertex> vertices;
-        std::vector<uint32_t> indices;
-
         for (const auto& shape : reader.GetShapes())
         {
             size_t offset = 0;
@@ -254,10 +255,28 @@ namespace Zamin {
                 offset += fv;
             }
         }
-
         if (vertices.empty())
         {
-            ZM_CORE_WARN("OBJ bo'sh: '{}'", key);
+            if (error) *error = "faylda uchburchak yo'q";
+            return false;
+        }
+        return true;
+    }
+
+    Ref<Mesh> MeshLibrary::LoadOBJ(const std::filesystem::path& path)
+    {
+        std::string key = path.string();
+        auto it = s_Models.find(key);
+        if (it != s_Models.end())
+            return it->second;
+
+        std::vector<MeshVertex> vertices;
+        std::vector<uint32_t> indices;
+        std::string error;
+        if (!ReadOBJ(path, vertices, indices, &error))
+        {
+            ZM_CORE_ERROR("OBJ yuklanmadi '{}': {}", key, error);
+            s_Models[key] = nullptr;
             return nullptr;
         }
         auto mesh = CreateRef<Mesh>(vertices, indices);

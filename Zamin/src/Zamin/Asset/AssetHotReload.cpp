@@ -2,6 +2,7 @@
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Renderer/Environment.h"
 #include "Zamin/Renderer/Font.h"
+#include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Texture.h"
 
 #include <algorithm>
@@ -99,8 +100,10 @@ namespace Zamin {
         switch (AssetTypes::FromPath(path))
         {
             case AssetType::Texture:     return TextureLibrary::Reload(path, failed);
+            case AssetType::Model:       return Model::ReloadFile(path, failed);
             case AssetType::Font:        return Font::ReloadFile(path, failed);
             case AssetType::Environment: return EnvironmentMap::ReloadFile(path, failed);
+            case AssetType::Other:       return Model::ReloadFile(path, failed); // a model's .bin buffer
             default:                     return 0;
         }
     }
@@ -110,8 +113,10 @@ namespace Zamin {
         switch (AssetTypes::FromPath(path))
         {
             case AssetType::Texture:     return TextureLibrary::IsLoaded(path);
+            case AssetType::Model:       return Model::IsFileLoaded(path);
             case AssetType::Font:        return Font::IsFileLoaded(path);
             case AssetType::Environment: return EnvironmentMap::IsFileLoaded(path);
+            case AssetType::Other:       return Model::IsFileLoaded(path);
             default:                     return false;
         }
     }
@@ -119,7 +124,7 @@ namespace Zamin {
     bool AssetHotReload::CanReload(const fs::path& path)
     {
         AssetType type = AssetTypes::FromPath(path);
-        return type == AssetType::Texture || type == AssetType::Font || type == AssetType::Environment;
+        return type == AssetType::Texture || type == AssetType::Model || type == AssetType::Font || type == AssetType::Environment;
     }
 
 }

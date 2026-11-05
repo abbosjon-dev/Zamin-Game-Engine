@@ -78,8 +78,8 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 063. Asset turlarini aniqlash (texture, model, audio, scene, prefab, font, hdr, material)
 - [x] 064. Fayl kuzatuvchi (file watcher) - o'zgargan assetlarni qayta yuklash
 - [x] 065. Teksturalarni qayta yuklash (hot reload) editor'da
-- [ ] 066. Modellarni qayta yuklash
-- [ ] 067. Tekstura import sozlamalari: filtr, wrap, mipmap, sRGB
+- [x] 066. Modellarni qayta yuklash
+- [x] 067. Tekstura import sozlamalari: filtr, wrap, mipmap, sRGB
 - [ ] 068. Tekstura import sozlamalari inspektori
 - [ ] 069. Model import sozlamalari: masshtab, yuqori o'q
 - [ ] 070. Asset nomi o'zgarganda havolalarni yangilash (UUID orqali)

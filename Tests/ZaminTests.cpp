@@ -5463,6 +5463,184 @@ TEST(FileWatcherSeesChanges)
     CHECK(!missing.Start("/definitely/not/a/folder") && !missing.IsWatching());
 }
 
+TEST(TextureImportSettingsInMeta)
+{
+    // Missing keys: the defaults (how textures always loaded).
+    AssetImportSettings empty;
+    CHECK(AssetImporter::ReadTextureSettings(empty) == TextureImportSettings{});
+    TextureImportSettings defaults;
+    CHECK(defaults.Filter == TextureFilter::Linear && defaults.Wrap == TextureWrap::Repeat && defaults.Mipmaps && defaults.SRGB);
+
+    // Written next to keys of other tools, read back the same.
+    AssetImportSettings import;
+    import.SetString("Compression", "BC7"); // not ours: kept
+    TextureImportSettings pixel{ TextureFilter::Nearest, TextureWrap::MirroredRepeat, false, false };
+    AssetImporter::WriteTextureSettings(pixel, import);
+    CHECK(import.GetString("Filter") == "Nearest" && import.GetString("Wrap") == "Mirror");
+    CHECK(import.GetBool("Mipmaps", true) == false && import.GetBool("sRGB", true) == false);
+    CHECK(import.GetString("Compression") == "BC7");
+    CHECK(AssetImporter::ReadTextureSettings(import) == pixel);
+
+    // Through a .zmeta file and back.
+    AssetMetadata meta;
+    meta.Handle = AssetHandle::Generate();
+    meta.Type = AssetType::Texture;
+    meta.Import = import;
+    AssetMetadata read;
+    CHECK(AssetMetaFile::Deserialize(AssetMetaFile::Serialize(meta), read));
+    CHECK(AssetImporter::ReadTextureSettings(read.Import) == pixel && read.Import.GetString("Compression") == "BC7");
+
+    // Hand-written spellings, wrong values.
+    AssetImportSettings hand;
+    hand.SetString("Filter", "point");
+    hand.SetString("Wrap", "ClampToEdge");
+    hand.SetString("sRGB", "yes"); // not a bool: default
+    TextureImportSettings handRead = AssetImporter::ReadTextureSettings(hand);
+    CHECK(handRead.Filter == TextureFilter::Nearest && handRead.Wrap == TextureWrap::ClampToEdge && handRead.SRGB);
+    hand.SetString("Filter", "Blurry");
+    hand.SetNumber("Wrap", 2.0);
+    handRead = AssetImporter::ReadTextureSettings(hand);
+    CHECK(handRead.Filter == TextureFilter::Linear && handRead.Wrap == TextureWrap::Repeat);
+
+    for (TextureWrap wrap : { TextureWrap::Repeat, TextureWrap::ClampToEdge, TextureWrap::MirroredRepeat })
+        CHECK(AssetImporter::WrapFromKey(AssetImporter::GetWrapKey(wrap)) == wrap);
+    for (TextureFilter filter : { TextureFilter::Linear, TextureFilter::Nearest })
+        CHECK(AssetImporter::FilterFromKey(AssetImporter::GetFilterKey(filter)) == filter);
+}
+
+TEST(ModelImportSettingsInMeta)
+{
+    CHECK(AssetImporter::ReadModelSettings(AssetImportSettings{}) == ModelImportSettings{});
+    ModelImportSettings cm{ 0.01f, ModelUpAxis::Z, true };
+    AssetImportSettings import;
+    AssetImporter::WriteModelSettings(cm, import);
+    CHECK(import.GetString("UpAxis") == "Z" && import.GetBool("FlipUVs", false));
+    ModelImportSettings back = AssetImporter::ReadModelSettings(import);
+    CHECK_NEAR(back.Scale, 0.01f, 1e-6f);
+    CHECK(back.UpAxis == ModelUpAxis::Z && back.FlipUVs);
+
+    // Scale: 0, negative or huge values are not taken as they are.
+    import.SetNumber("Scale", 0.0);
+    CHECK(AssetImporter::ReadModelSettings(import).Scale == 1.0f);
+    import.SetNumber("Scale", -3.0);
+    CHECK(AssetImporter::ReadModelSettings(import).Scale == 1.0f);
+    import.SetNumber("Scale", 1e9);
+    CHECK(AssetImporter::ReadModelSettings(import).Scale == AssetImporter::MaxModelScale);
+    import.SetString("UpAxis", "z-up");
+    CHECK(AssetImporter::ReadModelSettings(import).UpAxis == ModelUpAxis::Z);
+
+    // The import transform: scale, then Z-up turned into Y-up.
+    ModelImportSettings identity;
+    glm::vec4 p = identity.GetTransform() * glm::vec4(1, 2, 3, 1);
+    CHECK_NEAR(p.x, 1.0f, 1e-6f); CHECK_NEAR(p.y, 2.0f, 1e-6f); CHECK_NEAR(p.z, 3.0f, 1e-6f);
+    ModelImportSettings zUp{ 2.0f, ModelUpAxis::Z, false };
+    glm::vec4 up = zUp.GetTransform() * glm::vec4(0, 0, 1, 1);    // the file's up...
+    CHECK_NEAR(up.x, 0.0f, 1e-5f); CHECK_NEAR(up.y, 2.0f, 1e-5f); CHECK_NEAR(up.z, 0.0f, 1e-5f); // ...is our up, scaled
+    glm::vec4 back2 = zUp.GetTransform() * glm::vec4(0, 1, 0, 1); // the file's +Y (its "back") is -Z
+    CHECK_NEAR(back2.y, 0.0f, 1e-5f); CHECK_NEAR(back2.z, -2.0f, 1e-5f);
+}
+
+TEST(ModelImportTransformSkinning)
+{
+    // A two-joint arm, its tip turned 90 degrees: skinning the transformed vertex with the
+    // transformed skeleton gives the transformed result of the original.
+    Skeleton sk;
+    sk.Joints.resize(2);
+    sk.Joints[1].Parent = 0;
+    sk.Joints[1].RestTranslation = { 0, 1, 0 };
+    sk.Joints[1].InverseBind = glm::translate(glm::mat4(1.0f), { 0, -1, 0 });
+    sk.RootTransform = glm::translate(glm::mat4(1.0f), { 0.5f, 0, 0 });
+    AnimationClip clip;
+    clip.Duration = 1.0f;
+    AnimationChannel ch;
+    ch.JointIndex = 1;
+    ch.Target = AnimationChannel::Path::Rotation;
+    ch.Times = { 0.0f, 1.0f };
+    glm::quat q = glm::angleAxis(glm::half_pi<float>(), glm::vec3(0, 0, 1));
+    ch.Values = { glm::vec4(0, 0, 0, 1), glm::vec4(q.x, q.y, q.z, q.w) };
+    clip.Channels.push_back(ch);
+
+    std::vector<glm::mat4> before, after;
+    EvaluatePose(sk, &clip, 0.7f, before);
+    glm::mat4 t = ModelImportSettings{ 0.5f, ModelUpAxis::Z, false }.GetTransform();
+    Skeleton imported = sk;
+    ApplyImportTransform(imported, t);
+    EvaluatePose(imported, &clip, 0.7f, after);
+    glm::vec4 v(0.2f, 2.0f, 0.3f, 1.0f);
+    glm::vec4 expected = t * (before[1] * v);
+    glm::vec4 got = after[1] * (t * v);
+    CHECK_NEAR(got.x, expected.x, 1e-4f); CHECK_NEAR(got.y, expected.y, 1e-4f); CHECK_NEAR(got.z, expected.z, 1e-4f);
+    // Bind pose: the transformed vertex stays where the import put it.
+    EvaluatePose(imported, nullptr, 0.0f, after);
+    EvaluatePose(sk, nullptr, 0.0f, before);
+    glm::vec4 bindExpected = t * (before[1] * v), bindGot = after[1] * (t * v);
+    CHECK_NEAR(bindGot.y, bindExpected.y, 1e-4f); CHECK_NEAR(bindGot.z, bindExpected.z, 1e-4f);
+}
+
+TEST(ImportSettingsOfProjectAssets)
+{
+    namespace fs = std::filesystem;
+    Project::SetActive(nullptr);
+    CHECK(AssetImporter::GetTextureSettings("anything.png") == TextureImportSettings{}); // no project: defaults
+
+    fs::path dir = MakeTempDir("zamin-import-settings-");
+    CHECK(Project::CreateFromTemplate(dir, "ImportGame") != nullptr);
+    WriteFile(dir / "Assets" / "Textures" / "tiles.png", "png");
+    WriteFile(dir / "Assets" / "Models" / "ship.glb", "glb");
+    CHECK(Project::Load(dir / "ImportGame.zproject") != nullptr);
+    AssetRegistry* registry = Project::GetAssetRegistry();
+    CHECK(registry != nullptr);
+    if (!registry)
+        return;
+
+    // Settings set in the registry (as the asset inspector does) are what loading uses.
+    AssetHandle tiles = registry->GetHandle("Textures/tiles.png");
+    AssetImportSettings import = registry->Find(tiles)->Import;
+    TextureImportSettings pixel{ TextureFilter::Nearest, TextureWrap::ClampToEdge, false, true };
+    AssetImporter::WriteTextureSettings(pixel, import);
+    CHECK(registry->SetImportSettings(tiles, import));
+    fs::path tilesFile = Project::GetAssetFileSystemPath("Textures/tiles.png");
+    CHECK(AssetImporter::GetTextureSettings(tilesFile) == pixel);
+    CHECK(AssetImporter::GetTextureSettings("Textures/tiles.png") == pixel); // relative works too
+    // The pixel-art copy of sprites / tilemaps: crisp, no mipmaps, the rest as imported.
+    TextureImportSettings sprite = TextureLibrary::GetLoadSettings(tilesFile, true);
+    CHECK(sprite.Filter == TextureFilter::Nearest && !sprite.Mipmaps && sprite.Wrap == TextureWrap::ClampToEdge);
+    CHECK(TextureLibrary::GetLoadSettings(tilesFile, false) == pixel);
+    CHECK(AssetImporter::GetTextureSettings(dir / "elsewhere.png") == TextureImportSettings{});
+
+    AssetHandle ship = registry->GetHandle("Models/ship.glb");
+    import = registry->Find(ship)->Import;
+    AssetImporter::WriteModelSettings({ 0.01f, ModelUpAxis::Z, false }, import);
+    registry->SetImportSettings(ship, import);
+    ModelImportSettings shipSettings = AssetImporter::GetModelSettings(Project::GetAssetFileSystemPath("Models/ship.glb"));
+    CHECK(shipSettings.UpAxis == ModelUpAxis::Z);
+    CHECK_NEAR(shipSettings.Scale, 0.01f, 1e-6f);
+
+    // Saved to the .zmeta when the registry writes them (the editor): a new session reads them.
+    if (registry->GetWriteMetaFiles())
+    {
+        auto onDisk = AssetMetaFile::Read(tilesFile);
+        CHECK(onDisk && AssetImporter::ReadTextureSettings(onDisk->Import) == pixel);
+    }
+
+    // A model that cannot be read is not loaded (no GPU objects made) and is tried again after it changes.
+    WriteFile(dir / "Assets" / "Models" / "broken.gltf", "{ not json");
+    fs::path broken = Project::GetAssetFileSystemPath("Models/broken.gltf");
+    Log::SetMinLevel(LogLevel::Critical); // the expected load errors stay out of the output
+    CHECK(Model::Load(broken) == nullptr);
+    CHECK(!Model::IsFileLoaded(broken));
+    bool failed = false;
+    CHECK(Model::ReloadFile(broken, &failed) == 0 && !failed); // nothing loaded to update: no failure
+    CHECK(Model::Load(Project::GetAssetFileSystemPath("Models/missing.obj")) == nullptr);
+    Log::SetMinLevel(LogLevel::Error);
+    CHECK(AssetHotReload::CanReload("ship.glb") && AssetHotReload::CanReload("rock.obj"));
+    Model::ClearCache();
+
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
 TEST(ContentBrowserSettingsJson)
 {
     EditorViewSettings settings;

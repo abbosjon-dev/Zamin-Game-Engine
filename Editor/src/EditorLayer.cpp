@@ -1489,7 +1489,7 @@ namespace Zamin {
         if (!registry || !fs::is_directory(assets, ec))
             return;
         if (m_AssetHotReload.Start(assets))
-            ZM_CORE_INFO("Assetlar kuzatilmoqda ({}): o'zgargan rasm, shrift va HDRI fayllar avtomatik qayta yuklanadi",
+            ZM_CORE_INFO("Assetlar kuzatilmoqda ({}): o'zgargan rasm, model, shrift va HDRI fayllar avtomatik qayta yuklanadi",
                          m_AssetHotReload.GetWatcher().UsesNativeEvents() ? "inotify" : "har soniyada tekshirish");
         else
             ZM_WARN("Asset papkasini kuzatib bo'lmadi: {}", assets.string());

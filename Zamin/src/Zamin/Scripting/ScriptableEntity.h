@@ -242,6 +242,7 @@ namespace Zamin {
         void SetVelocity3D(Entity other, const glm::vec3& velocity);
         void ApplyImpulse3D(Entity other, const glm::vec3& impulse);
         void SetVelocity(Entity other, const glm::vec2& velocity);
+        void ApplyImpulse(Entity other, const glm::vec2& impulse);
 
         // ---- raycasts (EntityID of the hit can be resolved with GetScene().GetEntityByUUID)
         // layerMask: the 2D collision layers that count (all by default), e.g. LayerMask({ "Ground", "Enemy" }).
@@ -251,6 +252,18 @@ namespace Zamin {
         static uint16_t LayerMask(std::initializer_list<std::string_view> layerNames);
         // The index of a named 2D collision layer, -1 when the project has none of that name.
         static int LayerIndex(std::string_view layerName);
+        // Every entity along the ray (its first hit), the closest first; triggers with includeTriggers:
+        //   for (const RaycastHit& hit : Raycast2DAll(origin, { 1, 0 }, 20.0f, LayerMask({ "Enemy" }))) ...
+        std::vector<RaycastHit> Raycast2DAll(const glm::vec2& origin, const glm::vec2& direction, float maxDistance = 100.0f,
+                                             uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
+        // The entities whose 2D colliders overlap the circle / the box (half extents, turned by
+        // `angleDegrees`) / contain the point; the one nearest to the centre first. The entity itself
+        // is found too when it is inside - skip it if you do not want it:
+        //   for (Entity e : OverlapCircle2D(GetWorldPosition(), 3.0f, LayerMask({ "Enemy" }))) Hurt(e);
+        std::vector<Entity> OverlapCircle2D(const glm::vec2& center, float radius, uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
+        std::vector<Entity> OverlapBox2D(const glm::vec2& center, const glm::vec2& halfExtents, float angleDegrees = 0.0f,
+                                         uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
+        std::vector<Entity> OverlapPoint2D(const glm::vec2& point, uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
         RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 100.0f) const;
 
         // ---- viewport / mouse (pixels, origin top-left of the game view)

@@ -399,6 +399,56 @@ namespace Zamin {
         }
     }
 
+    void DebugDraw::PhysicsRaycastAll(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, const std::vector<RaycastHit>& hits)
+    {
+        if (!IsShowingRaycasts() || !Finite(origin))
+            return;
+        if (hits.empty())
+        {
+            PhysicsRaycast(origin, direction, maxDistance, RaycastHit());
+            return;
+        }
+        const DebugDrawSettings& s = State().Settings;
+        float length = glm::length(direction);
+        glm::vec3 dir = length > 0.0f && std::isfinite(length) ? direction / length : glm::vec3(0.0f, -1.0f, 0.0f);
+        float range = std::isfinite(maxDistance) ? std::clamp(maxDistance, 0.0f, 10000.0f) : 10000.0f;
+        const float duration = s.RaycastDuration;
+        // Solid up to the last hit, faint after it.
+        const RaycastHit& last = hits.back();
+        PushLine(origin, last.Point, DebugColor::Green, duration, false);
+        if (range > last.Distance + 1e-4f)
+            PushLine(last.Point, origin + dir * range, glm::vec4(0.75f, 0.78f, 0.8f, 0.3f), duration, false);
+        for (size_t i = 0; i < hits.size(); i++)
+        {
+            const RaycastHit& hit = hits[i];
+            Point(hit.Point, DebugColor::Yellow, duration, false);
+            if (glm::length(hit.Normal) > 0.5f)
+                Arrow(hit.Point, hit.Point + glm::normalize(hit.Normal) * s.NormalLength, DebugColor::Cyan, duration, false,
+                      s.NormalLength * 0.3f);
+            if (hits.size() > 1)
+                Text(hit.Point + glm::vec3(0.0f, s.NormalLength * 0.6f, 0.0f), std::to_string(i + 1), DebugColor::Yellow, duration, false);
+        }
+    }
+
+    void DebugDraw::PhysicsOverlap(const glm::vec3& center, const std::vector<glm::vec3>& outline, const std::vector<glm::vec3>& found)
+    {
+        if (!IsShowingRaycasts() || !Finite(center))
+            return;
+        const DebugDrawSettings& s = State().Settings;
+        const float duration = s.RaycastDuration;
+        const glm::vec4 color = found.empty() ? DebugColor::Red : DebugColor::Green;
+        if (outline.size() >= 2)
+            for (size_t i = 0; i < outline.size(); i++)
+                PushLine(outline[i], outline[(i + 1) % outline.size()], color, duration, false);
+        else
+            Cross(center, 0.2f, color, duration, false);
+        for (const glm::vec3& p : found)
+        {
+            PushLine(center, p, glm::vec4(color.r, color.g, color.b, 0.35f), duration, false);
+            Point(p, DebugColor::Yellow, duration, false);
+        }
+    }
+
     void DebugDraw::PhysicsContact(const glm::vec3& point, const glm::vec3& normal)
     {
         if (!IsShowingContacts())

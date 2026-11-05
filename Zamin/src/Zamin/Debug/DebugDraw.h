@@ -47,8 +47,9 @@ namespace Zamin {
         bool Enabled = true;
         // Every Scene::Raycast2D / Raycast3D query (scripts: Raycast2D / Raycast3D): the ray up to
         // the hit point (green) and on to its full length (faint), the hit point and the surface
-        // normal there; a miss in red. Shown for RaycastDuration seconds of game time (0: the
-        // frame of the query).
+        // normal there; a miss in red. Raycast2DAll: every hit, numbered. The 2D overlap queries
+        // (OverlapCircle2D / OverlapBox2D / OverlapPoint2D): their shape and what they found.
+        // Shown for RaycastDuration seconds of game time (0: the frame of the query).
         bool ShowRaycasts = false;
         float RaycastDuration = 0.0f;
         // The physics contact points (2D and 3D bodies, 3D characters) with their normals, every
@@ -209,6 +210,12 @@ namespace Zamin {
         // ---- engine hooks
         // A physics ray query and its result (shown when ShowRaycasts is on).
         static void PhysicsRaycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, const RaycastHit& hit);
+        // A ray query that reports every hit (Raycast2DAll): the ray, each hit point with its normal
+        // and its place in the order (shown when ShowRaycasts is on).
+        static void PhysicsRaycastAll(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, const std::vector<RaycastHit>& hits);
+        // An overlap query (OverlapCircle2D / OverlapBox2D / OverlapPoint2D): its outline (empty: a
+        // point query at `center`), green when it found something, and the found entities' positions.
+        static void PhysicsOverlap(const glm::vec3& center, const std::vector<glm::vec3>& outline, const std::vector<glm::vec3>& found);
         // A contact point and its normal (shown when ShowContacts is on).
         static void PhysicsContact(const glm::vec3& point, const glm::vec3& normal);
         // A 3D character's velocity (`desired`: what its script asked for) from `center` (shown

@@ -488,6 +488,89 @@ namespace Zamin {
         return p;
     }
 
+    // ------------------------------------------------------------------ clipping
+    std::vector<glm::vec2> Polygon2D::ClipHalfPlane(const std::vector<glm::vec2>& subject, const glm::vec2& point, const glm::vec2& normal)
+    {
+        std::vector<glm::vec2> out;
+        const size_t n = subject.size();
+        if (n < 3)
+            return out;
+        out.reserve(n + 2);
+        for (size_t i = 0; i < n; i++)
+        {
+            const glm::vec2& a = subject[i];
+            const glm::vec2& b = subject[(i + 1) % n];
+            const float da = glm::dot(a - point, normal), db = glm::dot(b - point, normal);
+            if (da <= 0.0f)
+                out.push_back(a);
+            if ((da < 0.0f && db > 0.0f) || (da > 0.0f && db < 0.0f))
+                out.push_back(a + (b - a) * (da / (da - db)));
+        }
+        if (out.size() < 3)
+            out.clear();
+        return out;
+    }
+
+    std::vector<glm::vec2> Polygon2D::ClipConvex(const std::vector<glm::vec2>& subject, const std::vector<glm::vec2>& clip)
+    {
+        if (subject.size() < 3 || clip.size() < 3)
+            return {};
+        std::vector<glm::vec2> result = subject;
+        if (SignedArea(result) < 0.0f)
+            std::reverse(result.begin(), result.end());
+        const bool ccw = SignedArea(clip) > 0.0f;
+        const size_t n = clip.size();
+        for (size_t i = 0; i < n && !result.empty(); i++)
+        {
+            const glm::vec2& a = clip[i];
+            const glm::vec2 e = clip[(i + 1) % n] - a;
+            if (glm::dot(e, e) <= 0.0f)
+                continue;
+            // Inside is on the left of a counter-clockwise edge: the outward normal points right.
+            const glm::vec2 outward = ccw ? glm::vec2(e.y, -e.x) : glm::vec2(-e.y, e.x);
+            result = ClipHalfPlane(result, a, outward);
+        }
+        return result;
+    }
+
+    bool Polygon2D::AreaCentroid(const std::vector<glm::vec2>& p, float& area, glm::vec2& centroid)
+    {
+        area = 0.0f;
+        centroid = glm::vec2(0.0f);
+        const size_t n = p.size();
+        if (n < 3)
+            return false;
+        // A fan of triangles from the first point (relative to it: precise far from the origin).
+        const glm::vec2 o = p[0];
+        float twice = 0.0f;
+        glm::vec2 sum(0.0f);
+        for (size_t i = 1; i + 1 < n; i++)
+        {
+            const glm::vec2 e1 = p[i] - o, e2 = p[i + 1] - o;
+            const float cross = Cross(e1, e2);
+            twice += cross;
+            sum += (e1 + e2) * cross;
+        }
+        if (!(std::abs(twice) > 1e-12f))
+            return false;
+        centroid = o + sum / (3.0f * twice);
+        area = std::abs(twice) * 0.5f;
+        return true;
+    }
+
+    std::vector<glm::vec2> Polygon2D::CirclePolygon(const glm::vec2& center, float radius, int segments)
+    {
+        segments = std::max(segments, 3);
+        const float step = 2.0f * 3.14159265358979f / (float)segments;
+        // A regular polygon's area is n/2 R^2 sin(2 pi / n): R chosen so that it is pi r^2.
+        const float R = radius * std::sqrt(3.14159265358979f / (0.5f * (float)segments * std::sin(step)));
+        std::vector<glm::vec2> out;
+        out.reserve((size_t)segments);
+        for (int i = 0; i < segments; i++)
+            out.push_back(center + glm::vec2(std::cos(step * (float)i), std::sin(step * (float)i)) * R);
+        return out;
+    }
+
     // ------------------------------------------------------------------ fit to a picture
     std::vector<glm::vec2> Polygon2D::SimplifyLoop(const std::vector<glm::vec2>& loop, float tolerance)
     {

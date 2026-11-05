@@ -59,6 +59,20 @@ namespace Zamin {
         // (for a loop also the last and the first); fewer than 2 (loop: 3) points: empty.
         static std::vector<glm::vec2> CleanPolyline(const std::vector<glm::vec2>& points, bool loop, float weld = WeldDistance);
 
+        // ---- clipping (buoyancy: the part of a shape under a fluid's surface)
+        // The part of `subject` on the side of the line through `point` that `normal` points away
+        // from: dot(p - point, normal) <= 0 (Sutherland-Hodgman). Keeps the winding; empty when
+        // nothing is left.
+        static std::vector<glm::vec2> ClipHalfPlane(const std::vector<glm::vec2>& subject, const glm::vec2& point, const glm::vec2& normal);
+        // The intersection of `subject` (any simple polygon) with the convex polygon `clip` (either
+        // winding), counter-clockwise; empty when they do not overlap.
+        static std::vector<glm::vec2> ClipConvex(const std::vector<glm::vec2>& subject, const std::vector<glm::vec2>& clip);
+        // The area (positive) and the centroid of a simple polygon; false without area.
+        static bool AreaCentroid(const std::vector<glm::vec2>& points, float& area, glm::vec2& centroid);
+        // A circle as a regular polygon with the circle's area (its corners just outside it),
+        // counter-clockwise.
+        static std::vector<glm::vec2> CirclePolygon(const glm::vec2& center, float radius, int segments = 24);
+
         // ---- fitting a shape to a picture
         // The outline of the opaque part of an RGBA image region: the largest 4-connected island of
         // pixels whose alpha is above `alphaThreshold` (its holes filled), traced along the pixel

@@ -153,3 +153,7 @@
 #define ICON_FA_MAGNIFYING_GLASS_PLUS "\xef\x80\x8e" // zoom in (tile palette)
 #define ICON_FA_MAGNIFYING_GLASS_MINUS "\xef\x80\x90" // zoom out
 #define ICON_FA_UP_RIGHT_FROM_SQUARE "\xef\x8d\x9d" // open in its own window
+#define ICON_FA_WIND "\xef\x9c\xae" // area effector 2D
+#define ICON_FA_WATER "\xef\x9d\xb3" // buoyancy effector 2D
+#define ICON_FA_ANCHOR "\xef\x84\xbd" // joint anchors in the viewport
+#define ICON_FA_LOCATION_CROSSHAIRS "\xef\x98\x81"

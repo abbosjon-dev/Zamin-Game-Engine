@@ -4311,6 +4311,8 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<PolygonCollider2DComponent>();
     e.AddComponent<EdgeCollider2DComponent>();
     e.AddComponent<PlatformEffector2DComponent>();
+    e.AddComponent<AreaEffector2DComponent>();
+    e.AddComponent<BuoyancyEffector2DComponent>();
     e.AddComponent<DistanceJoint2DComponent>();
     e.AddComponent<RevoluteJoint2DComponent>();
     e.AddComponent<PrismaticJoint2DComponent>();
@@ -4331,7 +4333,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 38);
+    CHECK(types.size() == 40);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -16156,6 +16158,478 @@ TEST(PlatformEffector2DInScene)
     CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
     const auto& e = loaded->FindEntityByName("Platform").GetComponent<PlatformEffector2DComponent>();
     CHECK(e.OneWay && e.SurfaceArc == 120.0f && e.UseSideFriction && !e.UseSideBounce && e.RotationOffset == 15.0f);
+}
+
+// ------------------------------------------------------------------ M09: effectors, queries, filtering (171-175)
+TEST(Polygon2DClipping)
+{
+    const std::vector<glm::vec2> square = { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } };
+    float area = 0.0f;
+    glm::vec2 c(0.0f);
+    // Below the line y = 0: the lower half.
+    std::vector<glm::vec2> lower = Polygon2D::ClipHalfPlane(square, { 0.0f, 0.0f }, { 0.0f, 1.0f });
+    CHECK(Polygon2D::AreaCentroid(lower, area, c));
+    CHECK_NEAR(area, 2.0f, 1e-5f);
+    CHECK_NEAR(c.x, 0.0f, 1e-5f);
+    CHECK_NEAR(c.y, -0.5f, 1e-5f);
+    // A slanted line through a corner: a triangle.
+    std::vector<glm::vec2> corner = Polygon2D::ClipHalfPlane(square, { 0.0f, 0.0f }, glm::normalize(glm::vec2(1.0f, 1.0f)));
+    CHECK(Polygon2D::AreaCentroid(corner, area, c));
+    CHECK_NEAR(area, 2.0f, 1e-5f);
+    CHECK(c.x < 0.0f && c.y < 0.0f);
+    // Everything / nothing.
+    CHECK(Polygon2D::ClipHalfPlane(square, { 0.0f, 5.0f }, { 0.0f, 1.0f }).size() == 4);
+    CHECK(Polygon2D::ClipHalfPlane(square, { 0.0f, -5.0f }, { 0.0f, 1.0f }).empty());
+    // Against a convex polygon of either winding: the square's part inside the triangle (0,0) (2,0) (0,2).
+    for (bool clockwise : { false, true })
+    {
+        std::vector<glm::vec2> triangle = { { 0, 0 }, { 2, 0 }, { 0, 2 } };
+        if (clockwise)
+            std::reverse(triangle.begin(), triangle.end());
+        std::vector<glm::vec2> part = Polygon2D::ClipConvex(square, triangle);
+        CHECK(Polygon2D::AreaCentroid(part, area, c));
+        CHECK_NEAR(area, 1.0f, 1e-5f);
+        CHECK_NEAR(c.x, 0.5f, 1e-5f);
+        CHECK_NEAR(c.y, 0.5f, 1e-5f);
+        CHECK(Polygon2D::IsCounterClockwise(part));
+    }
+    CHECK(Polygon2D::ClipConvex(square, { { 3, 3 }, { 4, 3 }, { 4, 4 } }).empty());
+    // A circle polygon has the circle's area; no area: false.
+    CHECK(Polygon2D::AreaCentroid(Polygon2D::CirclePolygon({ 2.0f, -1.0f }, 0.5f, 24), area, c));
+    CHECK_NEAR(area, 3.14159265f * 0.25f, 1e-4f);
+    CHECK_NEAR(c.x, 2.0f, 1e-4f);
+    CHECK(!Polygon2D::AreaCentroid({ { 0, 0 }, { 1, 1 }, { 2, 2 } }, area, c));
+    CHECK(!Polygon2D::AreaCentroid({ { 0, 0 }, { 1, 1 } }, area, c));
+}
+
+static Entity MakeZone2D(Ref<Scene>& scene, const char* name, glm::vec2 position, glm::vec2 halfExtents, bool sensor = true)
+{
+    Entity e = scene->CreateEntity(name);
+    e.GetTransform().Translation = { position.x, position.y, 0.0f };
+    e.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    auto& box = e.AddComponent<BoxCollider2DComponent>();
+    box.Size = halfExtents;
+    box.IsSensor = sensor;
+    return e;
+}
+
+static glm::vec2 Velocity2D(Entity e)
+{
+    const auto& rb = e.GetComponent<Rigidbody2DComponent>();
+    return rb.RuntimeBody ? PhysicsWorld2D::GetLinearVelocity((const b2Body*)rb.RuntimeBody) : glm::vec2(0.0f);
+}
+
+TEST(AreaEffector2DPushesBodies)
+{
+    // Wind up through a tall trigger: per kg every body rises alike, as a force the light one faster.
+    for (bool perKg : { true, false })
+    {
+        auto scene = CreateRef<Scene>();
+        Entity wind = MakeZone2D(scene, "Wind", { 0.0f, 5.0f }, { 3.0f, 5.0f });
+        auto& effector = wind.AddComponent<AreaEffector2DComponent>();
+        effector.ForceMagnitude = 20.0f;
+        effector.ScaleWithMass = perKg;
+        Entity small = MakeBody2D(scene, "Small", { -1.5f, 1.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.25f);
+        Entity big = MakeBody2D(scene, "Big", { 1.5f, 1.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.5f);
+        Entity outside = MakeBody2D(scene, "Outside", { 8.0f, 1.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.25f);
+        // Its layer is not in the effector's mask: it falls like the one outside.
+        Entity ignored = MakeBody2D(scene, "Ignored", { 0.0f, 3.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.25f);
+        ignored.GetComponent<Rigidbody2DComponent>().Layer = 3;
+        effector.ColliderMask = (uint16_t)~(1u << 3);
+        scene->OnRuntimeStart();
+        RunFrames(scene, 30);
+        const float vs = Velocity2D(small).y, vb = Velocity2D(big).y;
+        if (perKg)
+        {
+            CHECK_NEAR(vs, (20.0f - 9.8f) * 0.5f, 0.4f);
+            CHECK_NEAR(vs, vb, 0.05f);
+        }
+        else
+            CHECK(vs > vb + 10.0f && vb > 0.0f);
+        CHECK(Velocity2D(outside).y < -4.0f);
+        CHECK(Velocity2D(ignored).y < -4.0f);
+        CHECK(effector.AffectedBodies == (perKg ? 2 : 1)); // as a force the light one is out of the wind already
+        scene->OnRuntimeStop();
+        CHECK(effector.AffectedBodies == 0);
+    }
+
+    // Turned with the entity (or in the world), and drag slows the bodies inside down.
+    for (bool global : { false, true })
+    {
+        auto scene = CreateRef<Scene>();
+        scene->GetSettings().Gravity = { 0.0f, 0.0f };
+        Entity jet = MakeZone2D(scene, "Jet", { 0.0f, 0.0f }, { 4.0f, 4.0f });
+        jet.GetTransform().Rotation.z = glm::radians(90.0f);
+        auto& effector = jet.AddComponent<AreaEffector2DComponent>();
+        effector.ForceAngle = 0.0f;
+        effector.UseGlobalAngle = global;
+        effector.ForceMagnitude = 5.0f;
+        effector.ScaleWithMass = true;
+        Entity ball = MakeBody2D(scene, "Ball", { 0.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.25f);
+        scene->OnRuntimeStart();
+        RunFrames(scene, 20);
+        const glm::vec2 v = Velocity2D(ball);
+        if (global)
+            CHECK(v.x > 1.0f && std::abs(v.y) < 0.05f);
+        else
+            CHECK(v.y > 1.0f && std::abs(v.x) < 0.05f);
+        scene->OnRuntimeStop();
+    }
+    {
+        auto scene = CreateRef<Scene>();
+        scene->GetSettings().Gravity = { 0.0f, 0.0f };
+        Entity mud = MakeZone2D(scene, "Mud", { 0.0f, 0.0f }, { 20.0f, 2.0f });
+        auto& effector = mud.AddComponent<AreaEffector2DComponent>();
+        effector.ForceMagnitude = 0.0f;
+        effector.Drag = 2.0f;
+        effector.AngularDrag = 2.0f;
+        Entity ball = MakeBody2D(scene, "Ball", { -10.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.25f);
+        scene->OnRuntimeStart();
+        RunFrames(scene, 1); // the contact with the trigger exists after a step
+        PhysicsWorld2D::SetLinearVelocity((b2Body*)ball.GetComponent<Rigidbody2DComponent>().RuntimeBody, { 10.0f, 0.0f });
+        RunFrames(scene, 60);
+        const float v = Velocity2D(ball).x;
+        CHECK(v > 0.8f && v < 2.0f); // about 10 e^-2
+        scene->OnRuntimeStop();
+
+        // Saved with the scene.
+        effector.ForceAngle = 30.0f;
+        effector.ForceVariation = 1.5f;
+        effector.UseGlobalAngle = true;
+        effector.ColliderMask = 0x00F3;
+        auto loaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+        const auto& e = loaded->FindEntityByName("Mud").GetComponent<AreaEffector2DComponent>();
+        CHECK(e.ForceAngle == 30.0f && e.ForceMagnitude == 0.0f && e.ForceVariation == 1.5f && e.UseGlobalAngle && !e.ScaleWithMass);
+        CHECK(e.Drag == 2.0f && e.AngularDrag == 2.0f && e.ColliderMask == 0x00F3);
+    }
+}
+
+TEST(BuoyancyEffector2DFloats)
+{
+    // A pool: water 10 wide, its surface at y = 2, the bottom at y = -2.
+    auto makePool = [](float flow) {
+        auto scene = CreateRef<Scene>();
+        Entity water = MakeZone2D(scene, "Water", { 0.0f, 0.0f }, { 5.0f, 2.0f });
+        auto& b = water.AddComponent<BuoyancyEffector2DComponent>();
+        b.SurfaceLevel = 2.0f;
+        b.Density = 2.0f;
+        b.LinearDrag = 2.0f;
+        b.AngularDrag = 1.5f;
+        b.FlowMagnitude = flow;
+        MakeZone2D(scene, "Bottom", { 0.0f, -2.5f }, { 6.0f, 0.5f }, false);
+        MakeZone2D(scene, "Left", { -5.5f, 0.0f }, { 0.5f, 3.0f }, false);
+        MakeZone2D(scene, "Right", { 5.5f, 0.0f }, { 0.5f, 3.0f }, false);
+        return scene;
+    };
+    auto crate = [](Ref<Scene>& scene, const char* name, glm::vec2 at, glm::vec2 half, float density) {
+        Entity e = MakeBody2D(scene, name, at, Rigidbody2DComponent::BodyType::Dynamic, 0.0f);
+        auto& box = e.AddComponent<BoxCollider2DComponent>();
+        box.Size = half;
+        box.Density = density;
+        return e;
+    };
+    {
+        auto scene = makePool(0.0f);
+        // Half as dense as the water: half under, its centre at the surface (whichever way it turns).
+        Entity light = crate(scene, "Light", { -3.5f, 3.0f }, { 0.5f, 0.5f }, 1.0f);
+        Entity ball = MakeBody2D(scene, "Ball", { -1.5f, 3.5f }, Rigidbody2DComponent::BodyType::Dynamic, 0.5f);
+        Entity heavy = crate(scene, "Heavy", { 0.5f, 3.0f }, { 0.5f, 0.5f }, 1.5f);
+        Entity stone = crate(scene, "Stone", { 2.5f, 3.0f }, { 0.5f, 0.5f }, 3.0f);
+        // A long plank lies flat on the water.
+        Entity plank = crate(scene, "Plank", { 0.0f, 5.5f }, { 1.5f, 0.2f }, 0.8f);
+        plank.GetTransform().Rotation.z = 0.6f;
+        scene->OnRuntimeStart();
+        RunFrames(scene, 900);
+        CHECK_NEAR(Pos2D(light).y, 2.0f, 0.08f);
+        CHECK_NEAR(Pos2D(ball).y, 2.0f, 0.08f);
+        CHECK(Pos2D(heavy).y < Pos2D(light).y - 0.1f && Pos2D(heavy).y > 1.0f);
+        CHECK_NEAR(Pos2D(stone).y, -1.5f, 0.05f); // denser than water: on the bottom
+        CHECK(std::abs(std::sin(plank.GetTransform().Rotation.z)) < 0.15f);
+        CHECK(Pos2D(plank).y > 1.6f && Pos2D(plank).y < 2.2f);
+        const auto& b = scene->FindEntityByName("Water").GetComponent<BuoyancyEffector2DComponent>();
+        CHECK(b.AffectedBodies == 5);
+        CHECK(b.SubmergedArea > 2.0f);
+        scene->OnRuntimeStop();
+    }
+    {
+        // A current carries a floating crate along; a crate on a layer the effector leaves out sinks.
+        auto scene = makePool(4.0f);
+        Entity raft = crate(scene, "Raft", { -3.0f, 2.2f }, { 0.5f, 0.3f }, 0.6f);
+        Entity ignored = crate(scene, "Ignored", { 3.0f, 2.2f }, { 0.4f, 0.4f }, 0.6f);
+        ignored.GetComponent<Rigidbody2DComponent>().Layer = 4;
+        scene->FindEntityByName("Water").GetComponent<BuoyancyEffector2DComponent>().ColliderMask = (uint16_t)~(1u << 4);
+        scene->OnRuntimeStart();
+        RunFrames(scene, 120);
+        CHECK(Pos2D(raft).x > -2.0f);
+        CHECK(Pos2D(raft).y > 1.5f);
+        CHECK_NEAR(Pos2D(ignored).y, -1.6f, 0.05f);
+        scene->OnRuntimeStop();
+    }
+    {
+        // Without gravity nothing floats (and nothing breaks); saved with the scene.
+        auto scene = makePool(0.0f);
+        scene->GetSettings().Gravity = { 0.0f, 0.0f };
+        Entity drifting = crate(scene, "Drifting", { 0.0f, 0.0f }, { 0.5f, 0.5f }, 1.0f);
+        scene->OnRuntimeStart();
+        RunFrames(scene, 30);
+        CHECK_NEAR(Pos2D(drifting).y, 0.0f, 1e-4f);
+        scene->OnRuntimeStop();
+        auto& b = scene->FindEntityByName("Water").GetComponent<BuoyancyEffector2DComponent>();
+        b.FlowAngle = 180.0f;
+        b.FlowMagnitude = 3.0f;
+        b.FlowVariation = 0.5f;
+        b.ColliderMask = 0x0101;
+        auto loaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+        const auto& l = loaded->FindEntityByName("Water").GetComponent<BuoyancyEffector2DComponent>();
+        CHECK(l.SurfaceLevel == 2.0f && l.Density == 2.0f && l.LinearDrag == 2.0f && l.AngularDrag == 1.5f);
+        CHECK(l.FlowAngle == 180.0f && l.FlowMagnitude == 3.0f && l.FlowVariation == 0.5f && l.ColliderMask == 0x0101);
+    }
+}
+
+static std::vector<std::string> EntityNames(const std::vector<Entity>& entities)
+{
+    std::vector<std::string> names;
+    for (Entity e : entities)
+        names.push_back(e.GetName());
+    return names;
+}
+
+TEST(Overlap2DQueries)
+{
+    auto scene = CreateRef<Scene>();
+    Entity wall = MakeZone2D(scene, "Wall", { 0.0f, 0.0f }, { 1.0f, 1.0f }, false);
+    Entity ball = MakeBody2D(scene, "Ball", { 3.0f, 0.0f }, Rigidbody2DComponent::BodyType::Static, 0.5f);
+    Entity rock = MakeBody2D(scene, "Rock", { -3.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.0f);
+    rock.GetComponent<Rigidbody2DComponent>().GravityScale = 0.0f;
+    rock.AddComponent<PolygonCollider2DComponent>(); // the default pentagon
+    Entity line = MakeBody2D(scene, "Line", { 0.0f, -3.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    line.AddComponent<EdgeCollider2DComponent>().Points = { { -5.0f, 0.0f }, { 5.0f, 0.0f } };
+    MakeZone2D(scene, "Zone", { 0.0f, 4.0f }, { 1.0f, 1.0f }, true);
+    Entity ghost = MakeBody2D(scene, "Ghost", { 3.0f, 3.0f }, Rigidbody2DComponent::BodyType::Static, 0.5f);
+    ghost.GetComponent<Rigidbody2DComponent>().Layer = 2;
+    // An L made of two convex pieces: found once.
+    Entity ell = MakeBody2D(scene, "Ell", { -6.0f, 4.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    ell.AddComponent<PolygonCollider2DComponent>().Points = { { 0, 0 }, { 2, 0 }, { 2, 0.5f }, { 0.5f, 0.5f }, { 0.5f, 2 }, { 0, 2 } };
+
+    CHECK(scene->OverlapCircle2D({ 0.0f, 0.0f }, 0.5f).empty()); // edit mode: no world
+    scene->OnRuntimeStart();
+    CHECK(EntityNames(scene->OverlapCircle2D({ 0.0f, 0.0f }, 0.5f)) == std::vector<std::string>{ "Wall" });
+    // The nearest body first.
+    CHECK(EntityNames(scene->OverlapCircle2D({ 1.8f, 0.0f }, 1.2f)) == (std::vector<std::string>{ "Ball", "Wall" }));
+    CHECK(scene->OverlapCircle2D({ 1.5f, 1.8f }, 0.3f).empty());
+    // Edges count for shapes, not for points (no inside).
+    CHECK(EntityNames(scene->OverlapCircle2D({ 0.0f, -3.0f }, 0.2f)) == std::vector<std::string>{ "Line" });
+    CHECK(scene->OverlapPoint2D({ 0.0f, -3.0f }).empty());
+    CHECK(EntityNames(scene->OverlapPoint2D({ 0.5f, 0.5f })) == std::vector<std::string>{ "Wall" });
+    CHECK(EntityNames(scene->OverlapPoint2D({ -3.0f, 0.1f })) == std::vector<std::string>{ "Rock" });
+    // Triggers only when asked for.
+    CHECK(scene->OverlapPoint2D({ 0.0f, 4.0f }).empty());
+    CHECK(EntityNames(scene->OverlapPoint2D({ 0.0f, 4.0f }, 0xFFFF, true)) == std::vector<std::string>{ "Zone" });
+    CHECK(EntityNames(scene->OverlapBox2D({ 0.0f, 2.5f }, { 0.2f, 2.0f })) == std::vector<std::string>{ "Wall" });
+    CHECK(EntityNames(scene->OverlapBox2D({ 0.0f, 2.5f }, { 0.2f, 2.0f }, 0.0f, 0xFFFF, true)) == (std::vector<std::string>{ "Zone", "Wall" }));
+    // A thin box turned upright reaches the ball and the ghost above it; a mask without layer 2 leaves the ghost out.
+    CHECK(scene->OverlapBox2D({ 3.0f, 1.5f }, { 2.0f, 0.05f }).empty());
+    CHECK(EntityNames(scene->OverlapBox2D({ 3.0f, 1.0f }, { 2.0f, 0.05f }, 90.0f)) == (std::vector<std::string>{ "Ball", "Ghost" }));
+    CHECK(EntityNames(scene->OverlapBox2D({ 3.0f, 1.0f }, { 2.0f, 0.05f }, 90.0f, (uint16_t)~(1u << 2))) == std::vector<std::string>{ "Ball" });
+    CHECK(EntityNames(scene->OverlapCircle2D({ -5.0f, 5.0f }, 2.5f)) == std::vector<std::string>{ "Ell" });
+    // Bad input: nothing.
+    CHECK(scene->OverlapCircle2D({ 0.0f, 0.0f }, 0.0f).empty());
+    CHECK(scene->OverlapBox2D({ 0.0f, 0.0f }, { 0.0f, 1.0f }).empty());
+    CHECK(scene->OverlapCircle2D({ std::numeric_limits<float>::quiet_NaN(), 0.0f }, 1.0f).empty());
+    // The world moves on: the rock is found where it is now.
+    PhysicsWorld2D::SetLinearVelocity((b2Body*)rock.GetComponent<Rigidbody2DComponent>().RuntimeBody, { 0.0f, 6.0f });
+    RunFrames(scene, 60);
+    CHECK(scene->OverlapPoint2D({ -3.0f, 0.1f }).empty());
+    CHECK(EntityNames(scene->OverlapPoint2D({ -3.0f, Pos2D(rock).y + 0.1f })) == std::vector<std::string>{ "Rock" });
+    scene->OnRuntimeStop();
+}
+
+TEST(Raycast2DAllOrdering)
+{
+    auto scene = CreateRef<Scene>();
+    // Made out of order along the ray.
+    Entity far = MakeZone2D(scene, "Far", { 8.0f, 0.0f }, { 0.5f, 0.5f }, false);
+    Entity nearest = MakeZone2D(scene, "Near", { 2.0f, 0.0f }, { 0.5f, 0.5f }, false);
+    Entity middle = MakeZone2D(scene, "Middle", { 5.0f, 0.0f }, { 0.5f, 0.5f }, false);
+    Entity trigger = MakeZone2D(scene, "Trigger", { 3.5f, 0.0f }, { 0.25f, 1.0f }, true);
+    Entity ghost = MakeZone2D(scene, "Ghost", { 6.5f, 0.0f }, { 0.25f, 1.0f }, false);
+    ghost.GetComponent<Rigidbody2DComponent>().Layer = 5;
+    // A comb (concave: several pieces) on the ray, through two teeth: one hit, where the ray enters it.
+    Entity comb = MakeBody2D(scene, "Comb", { 10.0f, 0.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    comb.AddComponent<PolygonCollider2DComponent>().Points = { { 0, -1 }, { 2, -1 }, { 2, 1 }, { 1.5f, 1 }, { 1.5f, -0.5f }, { 1, -0.5f },
+                                                               { 1, 1 }, { 0.5f, 1 }, { 0.5f, -0.5f }, { 0, -0.5f } };
+    scene->OnRuntimeStart();
+    CHECK(comb.GetComponent<PolygonCollider2DComponent>().RuntimePieces > 1);
+    std::vector<RaycastHit> hits = scene->Raycast2DAll({ -1.0f, 0.0f }, { 3.0f, 0.0f }, 20.0f);
+    std::vector<std::string> names;
+    for (const RaycastHit& h : hits)
+        names.push_back(scene->GetEntityByUUID(h.EntityID).GetName());
+    CHECK(names == (std::vector<std::string>{ "Near", "Middle", "Ghost", "Far", "Comb" }));
+    for (size_t i = 1; i < hits.size(); i++)
+        CHECK(hits[i - 1].Distance <= hits[i].Distance);
+    if (hits.size() == 5)
+    {
+        CHECK_NEAR(hits[0].Distance, 2.5f, 1e-3f);
+        CHECK_NEAR(hits[0].Point.x, 1.5f, 1e-3f);
+        CHECK_NEAR(hits[0].Normal.x, -1.0f, 1e-3f);
+        CHECK_NEAR(hits[4].Point.x, 10.5f, 1e-3f); // the comb's first tooth
+        // The closest one is what Raycast2D finds.
+        CHECK(scene->Raycast2D({ -1.0f, 0.0f }, { 1.0f, 0.0f }, 20.0f).EntityID == hits[0].EntityID);
+    }
+    // Triggers when asked for, a layer mask, a shorter ray.
+    std::vector<RaycastHit> withTriggers = scene->Raycast2DAll({ -1.0f, 0.0f }, { 1.0f, 0.0f }, 20.0f, 0xFFFF, true);
+    CHECK(withTriggers.size() == 6 && withTriggers.size() > 1 && withTriggers[1].EntityID == trigger.GetUUID());
+    std::vector<RaycastHit> masked = scene->Raycast2DAll({ -1.0f, 0.0f }, { 1.0f, 0.0f }, 20.0f, (uint16_t)~(1u << 5));
+    CHECK(masked.size() == 4);
+    for (const RaycastHit& h : masked)
+        CHECK(h.EntityID != ghost.GetUUID());
+    std::vector<RaycastHit> shortRay = scene->Raycast2DAll({ -1.0f, 0.0f }, { 1.0f, 0.0f }, 6.0f);
+    CHECK(shortRay.size() == 2 && shortRay.size() > 1 && shortRay[1].EntityID == middle.GetUUID());
+    // Starting inside a collider: that one is not hit; backwards: the order turns round.
+    std::vector<RaycastHit> inside = scene->Raycast2DAll({ 2.0f, 0.0f }, { 1.0f, 0.0f }, 7.0f);
+    CHECK(inside.size() == 3 && inside[0].EntityID == middle.GetUUID());
+    std::vector<RaycastHit> back = scene->Raycast2DAll({ 9.0f, 0.0f }, { -1.0f, 0.0f }, 20.0f);
+    CHECK(back.size() == 4 && back[0].EntityID == far.GetUUID() && back.back().EntityID == nearest.GetUUID());
+    CHECK(scene->Raycast2DAll({ 0.0f, 0.0f }, { 0.0f, 0.0f }, 10.0f).empty());
+    CHECK(scene->Raycast2DAll({ 0.0f, 0.0f }, { 1.0f, 0.0f }, 0.0f).empty());
+    CHECK(scene->Raycast2DAll({ 0.0f, 5.0f }, { 1.0f, 0.0f }, 20.0f).empty());
+    scene->OnRuntimeStop();
+    CHECK(scene->Raycast2DAll({ -1.0f, 0.0f }, { 1.0f, 0.0f }, 20.0f).empty()); // no world
+}
+
+static int g_FilterTriggers = 0;
+class FilterTriggerCounter : public ScriptableEntity
+{
+public:
+    void OnTriggerBegin(Entity) override { g_FilterTriggers++; }
+};
+ZM_REGISTER_SCRIPT(FilterTriggerCounter)
+
+TEST(CollisionFiltering2D)
+{
+    // The matrix's bits: for every pair of layers Box2D's filter rule says what the matrix says.
+    CollisionLayers2D layers;
+    uint32_t seed = 12345u;
+    auto next = [&] { seed = seed * 1664525u + 1013904223u; return seed >> 16; };
+    for (int a = 0; a < CollisionLayers2D::Count; a++)
+        for (int b = a; b < CollisionLayers2D::Count; b++)
+            layers.SetCollision(a, b, (next() & 3u) != 0);
+    int pairs = 0, mismatches = 0;
+    for (int a = 0; a < CollisionLayers2D::Count; a++)
+        for (int b = 0; b < CollisionLayers2D::Count; b++)
+        {
+            const bool filter = CollisionLayers2D::FiltersCollide(CollisionLayers2D::GetCategoryBits(a), layers.GetMaskBits(a),
+                                                                  CollisionLayers2D::GetCategoryBits(b), layers.GetMaskBits(b));
+            mismatches += filter != layers.CanCollide(a, b) || layers.CanCollide(a, b) != layers.CanCollide(b, a);
+            pairs += layers.CanCollide(a, b);
+        }
+    CHECK(mismatches == 0);
+    CHECK(pairs > 0 && pairs < CollisionLayers2D::Count * CollisionLayers2D::Count);
+
+    // In a scene: four layers, a ball of each layer dropped on a floor of each layer.
+    namespace fs = std::filesystem;
+    fs::path root = MakeTempDir("zamin-filter-");
+    auto project = Project::CreateFromTemplate(root, "FilterGame");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    CollisionLayers2D matrix;
+    matrix.Names[1] = "Player";
+    matrix.Names[2] = "Enemy";
+    matrix.Names[3] = "Water";
+    matrix.SetCollision(1, 2, false);
+    matrix.SetCollision(2, 2, false);
+    matrix.SetCollision(3, 0, false);
+    matrix.SetCollision(3, 1, false);
+    project->GetConfig().CollisionLayers = matrix;
+
+    auto scene = CreateRef<Scene>();
+    std::vector<std::tuple<Entity, int, int>> drops;
+    for (int floor = 0; floor < 4; floor++)
+        for (int layer = 0; layer < 4; layer++)
+        {
+            const float x = (float)(floor * 4 + layer) * 3.0f;
+            Entity f = MakeZone2D(scene, "Floor", { x, 0.0f }, { 1.0f, 0.5f }, false);
+            f.GetComponent<Rigidbody2DComponent>().Layer = floor;
+            Entity ball = MakeBody2D(scene, "Ball", { x, 2.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.4f);
+            ball.GetComponent<Rigidbody2DComponent>().Layer = layer;
+            drops.push_back({ ball, floor, layer });
+        }
+    // Each collider type takes its own layer over the body's; a tilemap uses its CollisionLayer.
+    Entity mixed = MakeBody2D(scene, "Mixed", { -10.0f, 10.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    mixed.GetComponent<Rigidbody2DComponent>().Layer = 1;
+    mixed.AddComponent<BoxCollider2DComponent>().Layer = 2;
+    mixed.AddComponent<CircleCollider2DComponent>(); // the body's layer
+    mixed.AddComponent<PolygonCollider2DComponent>().Layer = 3;
+    mixed.AddComponent<EdgeCollider2DComponent>().Layer = 0;
+    Entity map = scene->CreateEntity("Map");
+    map.GetTransform().Translation = { -30.0f, 0.0f, 0.0f };
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = 4;
+    tm.Height = 1;
+    tm.EnsureSize();
+    for (int x = 0; x < 4; x++)
+        tm.Set(x, 0, 0);
+    tm.CollisionLayer = 3;
+    // Triggers follow the matrix too: a Water trigger sees Enemy balls, not Player ones.
+    Entity pond = MakeZone2D(scene, "Pond", { -20.0f, 0.0f }, { 2.0f, 2.0f }, true);
+    pond.GetComponent<Rigidbody2DComponent>().Layer = 3;
+    pond.AddComponent<NativeScriptComponent>().ClassName = "FilterTriggerCounter";
+    Entity player = MakeBody2D(scene, "Player", { -21.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.3f);
+    player.GetComponent<Rigidbody2DComponent>().Layer = 1;
+    player.GetComponent<Rigidbody2DComponent>().GravityScale = 0.0f;
+    Entity enemy = MakeBody2D(scene, "Enemy", { -19.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.3f);
+    enemy.GetComponent<Rigidbody2DComponent>().Layer = 2;
+    enemy.GetComponent<Rigidbody2DComponent>().GravityScale = 0.0f;
+    // An area effector acts only on what its trigger touches: not on a layer the matrix keeps apart.
+    Entity wind = MakeZone2D(scene, "Wind", { -40.0f, 0.0f }, { 3.0f, 3.0f }, true);
+    wind.GetComponent<Rigidbody2DComponent>().Layer = 3;
+    auto& blow = wind.AddComponent<AreaEffector2DComponent>();
+    blow.ForceMagnitude = 30.0f;
+    blow.ScaleWithMass = true;
+    Entity blown = MakeBody2D(scene, "Blown", { -41.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.3f);
+    blown.GetComponent<Rigidbody2DComponent>().Layer = 2;
+    Entity still = MakeBody2D(scene, "Still", { -39.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.3f);
+    still.GetComponent<Rigidbody2DComponent>().Layer = 1;
+
+    g_FilterTriggers = 0;
+    scene->OnRuntimeStart();
+    uint16_t category = 0, mask = 0;
+    auto filterOf = [&](void* fixture) {
+        PhysicsWorld2D::GetShapeFilter((const b2Fixture*)fixture, category, mask);
+        return std::make_pair(category, mask);
+    };
+    CHECK(filterOf(mixed.GetComponent<BoxCollider2DComponent>().RuntimeFixture) == std::make_pair(CollisionLayers2D::GetCategoryBits(2), matrix.GetMaskBits(2)));
+    CHECK(filterOf(mixed.GetComponent<CircleCollider2DComponent>().RuntimeFixture) == std::make_pair(CollisionLayers2D::GetCategoryBits(1), matrix.GetMaskBits(1)));
+    CHECK(filterOf(mixed.GetComponent<PolygonCollider2DComponent>().RuntimeFixture) == std::make_pair(CollisionLayers2D::GetCategoryBits(3), matrix.GetMaskBits(3)));
+    CHECK(filterOf(mixed.GetComponent<EdgeCollider2DComponent>().RuntimeFixture) == std::make_pair(CollisionLayers2D::GetCategoryBits(0), matrix.GetMaskBits(0)));
+    std::vector<UUID> tiles = scene->GetPhysicsWorld2D()->OverlapPoint({ -29.5f, 0.5f });
+    CHECK(tiles.size() == 1 && tiles.size() == 1 && tiles[0] == map.GetUUID());
+    RunFrames(scene, 90);
+    int wrong = 0;
+    for (const auto& [ball, floor, layer] : drops)
+    {
+        const bool lands = matrix.CanCollide(floor, layer);
+        const float y = Pos2D(ball).y;
+        wrong += lands ? std::abs(y - 0.9f) > 0.05f : y > -2.0f;
+    }
+    CHECK(wrong == 0);
+    CHECK(g_FilterTriggers == 1); // the enemy
+    CHECK(Pos2D(blown).y > 3.0f); // blown out of the wind
+    CHECK(Velocity2D(still).y < -5.0f);
+    CHECK(blow.AffectedBodies == 0 || blow.AffectedBodies == 1);
+    // Queries take a mask of their own, whatever the matrix says.
+    CHECK(scene->OverlapPoint2D({ -10.0f, 10.0f }, CollisionLayers2D::GetCategoryBits(1)).size() == 1);
+    CHECK(scene->OverlapPoint2D({ -10.0f, 10.0f }, CollisionLayers2D::GetCategoryBits(5)).empty());
+    CHECK(scene->OverlapCircle2D({ -20.0f, 0.0f }, 2.5f, matrix.MakeMask({ "Player", "Enemy" })).size() == 2);
+    CHECK(scene->OverlapCircle2D({ -20.0f, 0.0f }, 2.5f, matrix.MakeMask({ "Water" }), true).size() == 1);
+    scene->OnRuntimeStop();
+
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(root, ec);
 }
 
 int main()

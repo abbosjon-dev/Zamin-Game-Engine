@@ -37,6 +37,8 @@ namespace Zamin {
             MakeTypeInfo<PolygonCollider2DComponent>(),
             MakeTypeInfo<EdgeCollider2DComponent>(),
             MakeTypeInfo<PlatformEffector2DComponent>(),
+            MakeTypeInfo<AreaEffector2DComponent>(),
+            MakeTypeInfo<BuoyancyEffector2DComponent>(),
             MakeTypeInfo<DistanceJoint2DComponent>(),
             MakeTypeInfo<RevoluteJoint2DComponent>(),
             MakeTypeInfo<PrismaticJoint2DComponent>(),

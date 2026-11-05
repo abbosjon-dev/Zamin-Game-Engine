@@ -250,6 +250,13 @@ namespace Zamin {
             c.RuntimePieces = 0;
         }
         for (auto e : registry.view<EdgeCollider2DComponent>()) registry.get<EdgeCollider2DComponent>(e).RuntimeFixture = nullptr;
+        for (auto e : registry.view<AreaEffector2DComponent>()) registry.get<AreaEffector2DComponent>(e).AffectedBodies = 0;
+        for (auto e : registry.view<BuoyancyEffector2DComponent>())
+        {
+            auto& c = registry.get<BuoyancyEffector2DComponent>(e);
+            c.AffectedBodies = 0;
+            c.SubmergedArea = 0.0f;
+        }
         for (auto e : registry.view<Rigidbody3DComponent>()) registry.get<Rigidbody3DComponent>(e).RuntimeBodyID = 0xffffffff;
         for (auto e : registry.view<CharacterController3DComponent>())
         {
@@ -285,6 +292,8 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<CircleCollider2DComponent>()) c->RuntimeFixture = nullptr;
         if (auto* c = e.TryGetComponent<PolygonCollider2DComponent>()) { c->RuntimeFixture = nullptr; c->RuntimePieces = 0; }
         if (auto* c = e.TryGetComponent<EdgeCollider2DComponent>()) c->RuntimeFixture = nullptr;
+        if (auto* c = e.TryGetComponent<AreaEffector2DComponent>()) c->AffectedBodies = 0;
+        if (auto* c = e.TryGetComponent<BuoyancyEffector2DComponent>()) { c->AffectedBodies = 0; c->SubmergedArea = 0.0f; }
         if (auto* c = e.TryGetComponent<Rigidbody3DComponent>()) c->RuntimeBodyID = 0xffffffff;
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->RuntimeHandle = 0;
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
@@ -2148,6 +2157,13 @@ namespace Zamin {
         }
         for (auto e : m_Registry.view<EdgeCollider2DComponent>()) m_Registry.get<EdgeCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : m_Registry.view<TilemapComponent>()) m_Registry.get<TilemapComponent>(e).RuntimeBody = nullptr;
+        for (auto e : m_Registry.view<AreaEffector2DComponent>()) m_Registry.get<AreaEffector2DComponent>(e).AffectedBodies = 0;
+        for (auto e : m_Registry.view<BuoyancyEffector2DComponent>())
+        {
+            auto& c = m_Registry.get<BuoyancyEffector2DComponent>(e);
+            c.AffectedBodies = 0;
+            c.SubmergedArea = 0.0f;
+        }
         ForEachJoint2DType([&](auto type) {
             using T = typename decltype(type)::type;
             for (auto e : m_Registry.view<T>())
@@ -2706,6 +2722,51 @@ namespace Zamin {
         t.Scale = keepScale;
     }
 
+    void Scene::ApplyEffectors2D(float dt)
+    {
+        if (!m_PhysicsWorld)
+            return;
+        for (auto e : m_Registry.view<AreaEffector2DComponent>())
+        {
+            auto& c = m_Registry.get<AreaEffector2DComponent>(e);
+            const auto* rb = m_Registry.try_get<Rigidbody2DComponent>(e);
+            c.AffectedBodies = 0;
+            if (!rb || !rb->RuntimeBody)
+                continue;
+            b2Body* body = (b2Body*)rb->RuntimeBody;
+            const float angle = glm::radians(c.ForceAngle) + (c.UseGlobalAngle ? 0.0f : PhysicsWorld2D::GetAngle(body));
+            PhysicsAreaEffector2D s;
+            s.Force = glm::vec2(std::cos(angle), std::sin(angle)) * c.ForceMagnitude;
+            s.Variation = std::max(0.0f, c.ForceVariation);
+            s.ScaleWithMass = c.ScaleWithMass;
+            s.Drag = std::max(0.0f, c.Drag);
+            s.AngularDrag = std::max(0.0f, c.AngularDrag);
+            s.LayerMask = c.ColliderMask;
+            c.AffectedBodies = m_PhysicsWorld->ApplyAreaEffector(body, s, dt).Bodies;
+        }
+        for (auto e : m_Registry.view<BuoyancyEffector2DComponent>())
+        {
+            auto& c = m_Registry.get<BuoyancyEffector2DComponent>(e);
+            const auto* rb = m_Registry.try_get<Rigidbody2DComponent>(e);
+            c.AffectedBodies = 0;
+            c.SubmergedArea = 0.0f;
+            if (!rb || !rb->RuntimeBody)
+                continue;
+            const float angle = glm::radians(c.FlowAngle);
+            PhysicsBuoyancy2D s;
+            s.SurfaceLevel = c.SurfaceLevel;
+            s.Density = std::max(0.0f, c.Density);
+            s.LinearDrag = std::max(0.0f, c.LinearDrag);
+            s.AngularDrag = std::max(0.0f, c.AngularDrag);
+            s.Flow = glm::vec2(std::cos(angle), std::sin(angle)) * c.FlowMagnitude;
+            s.FlowVariation = std::max(0.0f, c.FlowVariation);
+            s.LayerMask = c.ColliderMask;
+            const PhysicsEffectorResult2D result = m_PhysicsWorld->ApplyBuoyancy((b2Body*)rb->RuntimeBody, s, dt);
+            c.AffectedBodies = result.Bodies;
+            c.SubmergedArea = result.SubmergedArea;
+        }
+    }
+
     bool Scene::DropThroughPlatforms(Entity entity, float seconds)
     {
         if (!m_PhysicsWorld || !entity || !entity.HasComponent<Rigidbody2DComponent>())
@@ -2777,6 +2838,7 @@ namespace Zamin {
             if (m_PhysicsWorld)
             {
                 ZM_PROFILE_SCOPE("Box2D (2D)");
+                ApplyEffectors2D(fixedStep);
                 m_PhysicsWorld->Step(fixedStep, m_Settings.VelocityIterations, m_Settings.PositionIterations);
                 CheckJointBreaks2D(fixedStep);
             }
@@ -2967,6 +3029,64 @@ namespace Zamin {
         RaycastHit hit = m_PhysicsWorld->CastRay(origin, direction, maxDistance, layerMask);
         DebugDraw::PhysicsRaycast(glm::vec3(origin, 0.0f), glm::vec3(glm::normalize(direction), 0.0f), maxDistance, hit);
         return hit;
+    }
+
+    std::vector<RaycastHit> Scene::Raycast2DAll(const glm::vec2& origin, const glm::vec2& direction, float maxDistance, uint16_t layerMask,
+                                                bool includeTriggers)
+    {
+        if (!m_PhysicsWorld || glm::length(direction) == 0.0f) return {};
+        std::vector<RaycastHit> hits = m_PhysicsWorld->CastRayAll(origin, direction, maxDistance, layerMask, includeTriggers);
+        DebugDraw::PhysicsRaycastAll(glm::vec3(origin, 0.0f), glm::vec3(glm::normalize(direction), 0.0f), maxDistance, hits);
+        return hits;
+    }
+
+    // The entities of an overlap query (IDs of the running world) and its debug drawing.
+    static std::vector<Entity> ResolveOverlap(Scene& scene, const std::vector<UUID>& ids, const glm::vec2& center,
+                                              const std::vector<glm::vec3>& outline)
+    {
+        std::vector<Entity> out;
+        std::vector<glm::vec3> positions;
+        out.reserve(ids.size());
+        for (UUID id : ids)
+            if (Entity e = scene.GetEntityByUUID(id))
+            {
+                out.push_back(e);
+                if (DebugDraw::IsShowingRaycasts())
+                    positions.push_back(scene.GetWorldPosition(e));
+            }
+        DebugDraw::PhysicsOverlap(glm::vec3(center, 0.0f), outline, positions);
+        return out;
+    }
+
+    std::vector<Entity> Scene::OverlapCircle2D(const glm::vec2& center, float radius, uint16_t layerMask, bool includeTriggers)
+    {
+        if (!m_PhysicsWorld) return {};
+        std::vector<glm::vec3> outline;
+        if (DebugDraw::IsShowingRaycasts())
+            for (const glm::vec2& p : Polygon2D::CirclePolygon(center, std::max(radius, 0.0f), 32))
+                outline.push_back(glm::vec3(p, 0.0f));
+        return ResolveOverlap(*this, m_PhysicsWorld->OverlapCircle(center, radius, layerMask, includeTriggers), center, outline);
+    }
+
+    std::vector<Entity> Scene::OverlapBox2D(const glm::vec2& center, const glm::vec2& halfExtents, float angleDegrees, uint16_t layerMask,
+                                            bool includeTriggers)
+    {
+        if (!m_PhysicsWorld) return {};
+        const float angle = glm::radians(angleDegrees);
+        std::vector<glm::vec3> outline;
+        if (DebugDraw::IsShowingRaycasts())
+        {
+            const glm::vec2 x(std::cos(angle), std::sin(angle)), y(-x.y, x.x), h = glm::abs(halfExtents);
+            for (const glm::vec2& corner : { -x * h.x - y * h.y, x * h.x - y * h.y, x * h.x + y * h.y, -x * h.x + y * h.y })
+                outline.push_back(glm::vec3(center + corner, 0.0f));
+        }
+        return ResolveOverlap(*this, m_PhysicsWorld->OverlapBox(center, halfExtents, angle, layerMask, includeTriggers), center, outline);
+    }
+
+    std::vector<Entity> Scene::OverlapPoint2D(const glm::vec2& point, uint16_t layerMask, bool includeTriggers)
+    {
+        if (!m_PhysicsWorld) return {};
+        return ResolveOverlap(*this, m_PhysicsWorld->OverlapPoint(point, layerMask, includeTriggers), point, {});
     }
 
     RaycastHit Scene::Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance)

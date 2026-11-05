@@ -357,6 +357,19 @@ namespace Zamin {
         // The closest 2D collider (not a trigger) along the ray whose collision layer is in
         // `layerMask` (bits of CollisionLayers2D, e.g. Project::GetCollisionLayers2D().MakeMask({ "Ground" })).
         RaycastHit Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance, uint16_t layerMask = 0xFFFF);
+        // Every entity the ray goes through (its first hit along the ray), the closest first; on a
+        // layer in `layerMask`, triggers only with includeTriggers. A ray that starts inside a
+        // collider does not hit it.
+        std::vector<RaycastHit> Raycast2DAll(const glm::vec2& origin, const glm::vec2& direction, float maxDistance,
+                                             uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
+        // The entities whose 2D colliders overlap a circle / a box (half extents, turned by
+        // `angleDegrees` counter-clockwise) / contain a point (edge colliders have no inside), on a
+        // layer in `layerMask`; triggers only with includeTriggers. Each entity once, the one whose
+        // body is nearest to the centre first. Empty outside play / simulate.
+        std::vector<Entity> OverlapCircle2D(const glm::vec2& center, float radius, uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
+        std::vector<Entity> OverlapBox2D(const glm::vec2& center, const glm::vec2& halfExtents, float angleDegrees = 0.0f,
+                                         uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
+        std::vector<Entity> OverlapPoint2D(const glm::vec2& point, uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
         // The convex pieces a polygon collider's outline is made of at this scale (the entity's world
         // scale; what its body gets, and what the editor draws).
         static Polygon2D::Decomposition DecomposePolygonCollider(const struct PolygonCollider2DComponent& collider, const glm::vec2& scale);
@@ -532,6 +545,8 @@ namespace Zamin {
         void SyncJoints2D();
         // The joints a destroyed body took with it: their components let go of them.
         void ForgetJoints2D(const std::vector<PhysicsJoint2DRef>& joints);
+        // Before each physics step of `dt`: the area / buoyancy effectors push the bodies inside them.
+        void ApplyEffectors2D(float dt);
         // After a physics step of `dt`: the joints pulled harder than their BreakForce / BreakTorque break.
         void CheckJointBreaks2D(float dt);
         // The read-outs of the joints (reaction force / torque, angle, translation ...).

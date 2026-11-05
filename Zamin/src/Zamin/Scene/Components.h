@@ -924,6 +924,45 @@ namespace Zamin {
         float SideArc = 1.0f;         // degrees, 0..180
     };
 
+    // Pushes the dynamic bodies inside the entity's colliders (usually triggers on a static Rigidbody
+    // 2D): wind, a jet of air, a current. Every physics step each body overlapping one of them (whose
+    // collider's layer is in ColliderMask) gets ForceMagnitude along ForceAngle and is slowed down by
+    // Drag / AngularDrag. Solid colliders push the bodies that touch them.
+    struct AreaEffector2DComponent
+    {
+        float ForceAngle = 90.0f;      // degrees (0 = +X, 90 = up)
+        bool UseGlobalAngle = false;   // the angle in the world, else turned with the entity
+        float ForceMagnitude = 10.0f;  // N (ScaleWithMass: N per kg, i.e. an acceleration)
+        float ForceVariation = 0.0f;   // a random amount up to this much added / taken each step (gusts)
+        bool ScaleWithMass = false;    // every body gets the same acceleration, light or heavy
+        float Drag = 0.0f;             // 1/s: how quickly the bodies' velocity dies away inside
+        float AngularDrag = 0.0f;
+        uint16_t ColliderMask = 0xFFFF; // the collision layers (bits) it acts on
+
+        int AffectedBodies = 0;        // runtime: bodies pushed in the last physics step
+    };
+
+    // A fluid (water) in the entity's colliders (triggers on a static Rigidbody 2D) up to its surface:
+    // SurfaceLevel world units above the entity's position, level (at right angles to gravity). A
+    // body inside gets the weight of the fluid it displaces upwards - Density x its collider area
+    // below the surface x gravity, at the centre of that part, so a collider less dense than the
+    // fluid floats and turns upright - and is slowed by the drags and carried by the flow in
+    // proportion to how much of it is under.
+    struct BuoyancyEffector2DComponent
+    {
+        float SurfaceLevel = 0.5f;     // world units above the entity's position
+        float Density = 2.0f;          // the fluid's (colliders' Density: 1 by default)
+        float LinearDrag = 1.5f;       // 1/s, for a fully submerged body
+        float AngularDrag = 1.0f;
+        float FlowAngle = 0.0f;        // degrees in the world (0 = +X)
+        float FlowMagnitude = 0.0f;    // N on a fully submerged body (a current)
+        float FlowVariation = 0.0f;
+        uint16_t ColliderMask = 0xFFFF;
+
+        int AffectedBodies = 0;        // runtime: bodies in the fluid in the last physics step
+        float SubmergedArea = 0.0f;    // runtime: their area under the surface
+    };
+
     // ------------------------------------------------------------------ joints 2D
     // What every 2D joint has. A joint ties the entity's Rigidbody 2D to the connected body (another
     // entity's Rigidbody 2D or Tilemap) or, without one, to a fixed point in the world. It is made
@@ -1173,7 +1212,7 @@ namespace Zamin {
     using AllComponents = ComponentGroup<RelationshipComponent, TagsComponent, TransformComponent, SpriteRendererComponent,
         SpriteAnimationComponent, TintAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, SpotLightComponent, Light2DComponent, Rigidbody2DComponent, BoxCollider2DComponent,
-        CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
+        CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;

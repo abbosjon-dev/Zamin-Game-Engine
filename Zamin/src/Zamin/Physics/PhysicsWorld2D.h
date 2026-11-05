@@ -131,6 +131,39 @@ namespace Zamin {
         Joint2DType Type = Joint2DType::Distance;
     };
 
+    // An area effector (AreaEffector2DComponent) for one physics step: what it does to every dynamic
+    // body that overlaps one of its fixtures (wind, a jet of air, a current).
+    struct PhysicsAreaEffector2D
+    {
+        glm::vec2 Force{ 0.0f };   // world direction x magnitude: N (per kg when ScaleWithMass)
+        float Variation = 0.0f;    // a random amount in [-Variation, Variation] added to the magnitude (gusts)
+        bool ScaleWithMass = false; // the force is per kg: every body gets the same acceleration
+        float Drag = 0.0f;         // linear / angular drag inside (1/s, like Rigidbody 2D damping)
+        float AngularDrag = 0.0f;
+        uint16_t LayerMask = 0xFFFF; // the bodies' collider layers (category bits) it acts on
+    };
+
+    // A buoyancy effector (BuoyancyEffector2DComponent): its fixtures are a fluid up to the surface.
+    struct PhysicsBuoyancy2D
+    {
+        // The surface: this far above the effector body's position along the world's up (against
+        // gravity; +Y without gravity). The fluid is the part of the fixtures below it.
+        float SurfaceLevel = 0.0f;
+        float Density = 1.0f;      // a body whose colliders are less dense floats
+        float LinearDrag = 1.0f;   // (1/s) times the submerged part of the body
+        float AngularDrag = 1.0f;
+        glm::vec2 Flow{ 0.0f };    // world force on a fully submerged body (a current)
+        float FlowVariation = 0.0f;
+        uint16_t LayerMask = 0xFFFF;
+    };
+
+    // What an effector did in a step.
+    struct PhysicsEffectorResult2D
+    {
+        int Bodies = 0;            // dynamic bodies it acted on
+        float SubmergedArea = 0.0f; // buoyancy: the area under the surface, over all of them
+    };
+
     // A point where two 2D bodies touch (debug drawing) and the entity of the first fixture.
     struct PhysicsContactPoint2D
     {
@@ -173,6 +206,8 @@ namespace Zamin {
         static float GetAngle(const b2Body* body);
         static void SetTransform(b2Body* body, const glm::vec2& position, float angle);
         static glm::vec2 GetLinearVelocity(const b2Body* body);
+        static void SetLinearVelocity(b2Body* body, const glm::vec2& velocity);
+        static float GetAngularVelocity(const b2Body* body); // radians per second
         static glm::vec2 GetWorldCenter(const b2Body* body);
         static bool IsDynamic(const b2Body* body);
         static bool IsAwake(const b2Body* body);
@@ -204,9 +239,33 @@ namespace Zamin {
         static void GetJointAnchors(const b2Joint* joint, glm::vec2& anchor, glm::vec2& connectedAnchor);
         size_t GetJointCount() const;
 
+        // ---- effectors (called before each step: Box2D clears the forces after it)
+        // `effector`'s fixtures push the dynamic bodies overlapping them (sensors) / touching them
+        // (solid fixtures); its own body is left alone, and so are sensor fixtures of the others.
+        PhysicsEffectorResult2D ApplyAreaEffector(b2Body* effector, const PhysicsAreaEffector2D& settings, float dt);
+        // Buoyancy: every overlapping body gets the weight of the fluid it displaces (Density x the
+        // area of its colliders under the surface and inside the fixture x gravity) against gravity at
+        // the centre of that part, the drags and the flow in proportion to how much of it is under.
+        // Edges / chains have no area: they do not float.
+        PhysicsEffectorResult2D ApplyBuoyancy(b2Body* effector, const PhysicsBuoyancy2D& settings, float dt);
+        // The world's gravity (what buoyancy pushes against).
+        glm::vec2 GetGravity() const;
+
         // ---- queries
         // The closest non-sensor fixture along the ray whose layer is in `layerMask` (category bits).
         RaycastHit CastRay(const glm::vec2& origin, const glm::vec2& direction, float maxDistance, uint16_t layerMask = 0xFFFF) const;
+        // Every entity the ray hits (its first hit along the ray), the closest first (ties: by ID).
+        // A ray that starts inside a collider does not hit it.
+        std::vector<RaycastHit> CastRayAll(const glm::vec2& origin, const glm::vec2& direction, float maxDistance,
+                                           uint16_t layerMask = 0xFFFF, bool includeSensors = false) const;
+        // The entities with a fixture (on a layer in `layerMask`) that overlaps the circle / the box
+        // (half extents, turned by `angle` radians) / contains the point - exact shape tests, edges and
+        // chains count for the circle and box only. Each entity once, the nearest body position to
+        // the query's centre first (ties: by ID).
+        std::vector<UUID> OverlapCircle(const glm::vec2& center, float radius, uint16_t layerMask = 0xFFFF, bool includeSensors = false) const;
+        std::vector<UUID> OverlapBox(const glm::vec2& center, const glm::vec2& halfExtents, float angle,
+                                     uint16_t layerMask = 0xFFFF, bool includeSensors = false) const;
+        std::vector<UUID> OverlapPoint(const glm::vec2& point, uint16_t layerMask = 0xFFFF, bool includeSensors = false) const;
         // The points of the touching, enabled, non-sensor contacts as they are now.
         void GetDebugContacts(std::vector<PhysicsContactPoint2D>& out) const;
 

@@ -35,6 +35,8 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, PolygonCollider2DComponent>) return "PolygonCollider2D";
         else if constexpr (std::is_same_v<T, EdgeCollider2DComponent>) return "EdgeCollider2D";
         else if constexpr (std::is_same_v<T, PlatformEffector2DComponent>) return "PlatformEffector2D";
+        else if constexpr (std::is_same_v<T, AreaEffector2DComponent>) return "AreaEffector2D";
+        else if constexpr (std::is_same_v<T, BuoyancyEffector2DComponent>) return "BuoyancyEffector2D";
         else if constexpr (std::is_same_v<T, DistanceJoint2DComponent>) return "DistanceJoint2D";
         else if constexpr (std::is_same_v<T, RevoluteJoint2DComponent>) return "RevoluteJoint2D";
         else if constexpr (std::is_same_v<T, PrismaticJoint2DComponent>) return "PrismaticJoint2D";

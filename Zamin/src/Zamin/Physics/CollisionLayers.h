@@ -45,6 +45,12 @@ namespace Zamin {
             return IsValid(a) && IsValid(b) && ((Masks[(size_t)a] >> b) & 1u) != 0;
         }
         void SetCollision(int a, int b, bool collide);
+        // Box2D's rule for two fixtures' filter bits (b2ContactFilter): each one's layer is in the
+        // other's mask.
+        static bool FiltersCollide(uint16_t categoryA, uint16_t maskA, uint16_t categoryB, uint16_t maskB)
+        {
+            return (categoryA & maskB) != 0 && (categoryB & maskA) != 0;
+        }
         // Box2D filter bits of a body / collider on `layer`.
         static uint16_t GetCategoryBits(int layer) { return (uint16_t)(1u << Clamp(layer)); }
         uint16_t GetMaskBits(int layer) const { return Masks[(size_t)Clamp(layer)]; }

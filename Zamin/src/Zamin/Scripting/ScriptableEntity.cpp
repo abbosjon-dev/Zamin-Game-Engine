@@ -258,9 +258,36 @@ namespace Zamin {
         if (b2Body* body = BodyOf(other)) body->SetLinearVelocity({ v.x, v.y });
     }
 
+    void ScriptableEntity::ApplyImpulse(Entity other, const glm::vec2& i)
+    {
+        if (b2Body* body = BodyOf(other)) body->ApplyLinearImpulseToCenter({ i.x, i.y }, true);
+    }
+
     RaycastHit ScriptableEntity::Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance, uint16_t layerMask) const
     {
         return m_Entity.GetScene()->Raycast2D(origin, direction, maxDistance, layerMask);
+    }
+
+    std::vector<RaycastHit> ScriptableEntity::Raycast2DAll(const glm::vec2& origin, const glm::vec2& direction, float maxDistance, uint16_t layerMask,
+                                                           bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->Raycast2DAll(origin, direction, maxDistance, layerMask, includeTriggers);
+    }
+
+    std::vector<Entity> ScriptableEntity::OverlapCircle2D(const glm::vec2& center, float radius, uint16_t layerMask, bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->OverlapCircle2D(center, radius, layerMask, includeTriggers);
+    }
+
+    std::vector<Entity> ScriptableEntity::OverlapBox2D(const glm::vec2& center, const glm::vec2& halfExtents, float angleDegrees, uint16_t layerMask,
+                                                       bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->OverlapBox2D(center, halfExtents, angleDegrees, layerMask, includeTriggers);
+    }
+
+    std::vector<Entity> ScriptableEntity::OverlapPoint2D(const glm::vec2& point, uint16_t layerMask, bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->OverlapPoint2D(point, layerMask, includeTriggers);
     }
 
     uint16_t ScriptableEntity::LayerMask(std::initializer_list<std::string_view> layerNames)

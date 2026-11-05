@@ -5,6 +5,7 @@
 #include <box2d/b2_body.h>
 #include <box2d/b2_circle_shape.h>
 #include <box2d/b2_chain_shape.h>
+#include <box2d/b2_collision.h>
 #include <box2d/b2_contact.h>
 #include <box2d/b2_distance_joint.h>
 #include <box2d/b2_edge_shape.h>
@@ -19,6 +20,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
@@ -357,6 +359,102 @@ namespace Zamin {
             return a->GetLocalVector(b->GetWorldVector(axis));
         }
 
+        // ------------------------------------------------------------------ effectors / queries
+        // A fixture's shape as a convex polygon in the world (a circle: a polygon of the same area);
+        // false for shapes without area (edges, chains).
+        bool WorldPolygon(const b2Fixture* fixture, std::vector<glm::vec2>& out)
+        {
+            out.clear();
+            const b2Transform& xf = fixture->GetBody()->GetTransform();
+            const b2Shape* shape = fixture->GetShape();
+            if (shape->GetType() == b2Shape::e_polygon)
+            {
+                const auto* polygon = (const b2PolygonShape*)shape;
+                for (int32 i = 0; i < polygon->m_count; i++)
+                    out.push_back(FromB2(b2Mul(xf, polygon->m_vertices[i])));
+                return out.size() >= 3;
+            }
+            if (shape->GetType() == b2Shape::e_circle)
+            {
+                const auto* circle = (const b2CircleShape*)shape;
+                out = Polygon2D::CirclePolygon(FromB2(b2Mul(xf, circle->m_p)), circle->m_radius, 24);
+                return true;
+            }
+            return false;
+        }
+
+        // The rotational inertia about the centre of mass (Box2D's is about the body's origin).
+        float CentralInertia(const b2Body* body)
+        {
+            const b2Vec2 c = body->GetLocalCenter();
+            return std::max(0.0f, body->GetInertia() - body->GetMass() * b2Dot(c, c));
+        }
+
+        // The other side of a touching contact of `self`: its fixture when an effector may act on it
+        // (a dynamic body's solid fixture on a layer in `mask`), else null. `mine`: self's fixture.
+        b2Fixture* EffectorTarget(b2Contact* contact, const b2Body* self, uint16_t mask, b2Fixture*& mine)
+        {
+            if (!contact->IsTouching())
+                return nullptr;
+            mine = contact->GetFixtureA();
+            b2Fixture* other = contact->GetFixtureB();
+            if (mine->GetBody() != self)
+                std::swap(mine, other);
+            const b2Body* body = other->GetBody();
+            if (body == self || body->GetType() != b2_dynamicBody || !body->IsEnabled() || other->IsSensor())
+                return nullptr;
+            if ((other->GetFilterData().categoryBits & mask) == 0)
+                return nullptr;
+            return other;
+        }
+
+        bool PassesQuery(b2Fixture* fixture, uint16_t mask, bool sensors)
+        {
+            if (fixture->IsSensor() && !sensors)
+                return false;
+            return (fixture->GetFilterData().categoryBits & mask) != 0 && fixture->GetUserData().pointer != 0;
+        }
+
+        // The entities of the fixtures whose shape overlaps `shape` at `xf`, each once, the nearest
+        // body position to the shape's first.
+        std::vector<UUID> OverlapShape(const b2World& world, const b2Shape& shape, const b2Transform& xf, uint16_t mask, bool sensors)
+        {
+            b2AABB box;
+            shape.ComputeAABB(&box, xf, 0);
+            struct Query : b2QueryCallback
+            {
+                std::vector<b2Fixture*> Found;
+                bool ReportFixture(b2Fixture* fixture) override
+                {
+                    Found.push_back(fixture);
+                    return true; // all of them
+                }
+            } query;
+            world.QueryAABB(&query, box);
+            // A chain reports a fixture once per child in the box.
+            std::sort(query.Found.begin(), query.Found.end());
+            query.Found.erase(std::unique(query.Found.begin(), query.Found.end()), query.Found.end());
+            std::vector<std::pair<float, uint64_t>> hits;
+            for (b2Fixture* fixture : query.Found)
+            {
+                if (!PassesQuery(fixture, mask, sensors))
+                    continue;
+                const b2Transform& bodyXf = fixture->GetBody()->GetTransform();
+                bool overlap = false;
+                for (int32 child = 0; child < fixture->GetShape()->GetChildCount() && !overlap; child++)
+                    overlap = b2TestOverlap(box, fixture->GetAABB(child)) && b2TestOverlap(&shape, 0, fixture->GetShape(), child, xf, bodyXf);
+                if (overlap)
+                    hits.push_back({ b2DistanceSquared(bodyXf.p, xf.p), (uint64_t)fixture->GetUserData().pointer });
+            }
+            std::sort(hits.begin(), hits.end());
+            std::vector<UUID> out;
+            std::unordered_set<uint64_t> seen;
+            for (const auto& [distance, id] : hits)
+                if (seen.insert(id).second)
+                    out.push_back(UUID(id));
+            return out;
+        }
+
     }
 
     // ------------------------------------------------------------------ world
@@ -365,6 +463,16 @@ namespace Zamin {
         ContactListener2D Listener; // outlives the world
         b2World World;
         b2Body* Ground = nullptr; // anchors joints without a connected body (created on demand)
+        uint32_t RandomState = 0x9E3779B9u; // effector variations (xorshift: the same run every time)
+
+        // A random number in [-1, 1].
+        float RandomSigned()
+        {
+            RandomState ^= RandomState << 13;
+            RandomState ^= RandomState >> 17;
+            RandomState ^= RandomState << 5;
+            return (float)(RandomState & 0xFFFFFF) / (float)0xFFFFFF * 2.0f - 1.0f;
+        }
 
         explicit Impl(const glm::vec2& gravity)
             : World(ToB2(gravity))
@@ -635,6 +743,8 @@ namespace Zamin {
     float PhysicsWorld2D::GetAngle(const b2Body* body) { return body->GetAngle(); }
     void PhysicsWorld2D::SetTransform(b2Body* body, const glm::vec2& position, float angle) { body->SetTransform(ToB2(position), angle); }
     glm::vec2 PhysicsWorld2D::GetLinearVelocity(const b2Body* body) { return FromB2(body->GetLinearVelocity()); }
+    void PhysicsWorld2D::SetLinearVelocity(b2Body* body, const glm::vec2& velocity) { body->SetLinearVelocity(ToB2(velocity)); }
+    float PhysicsWorld2D::GetAngularVelocity(const b2Body* body) { return body->GetAngularVelocity(); }
     glm::vec2 PhysicsWorld2D::GetWorldCenter(const b2Body* body) { return FromB2(body->GetWorldCenter()); }
     bool PhysicsWorld2D::IsDynamic(const b2Body* body) { return body->GetType() == b2_dynamicBody; }
     bool PhysicsWorld2D::IsAwake(const b2Body* body) { return body->IsAwake(); }
@@ -921,11 +1031,138 @@ namespace Zamin {
 
     size_t PhysicsWorld2D::GetJointCount() const { return (size_t)m_Impl->World.GetJointCount(); }
 
+    // ------------------------------------------------------------------ effectors
+    PhysicsEffectorResult2D PhysicsWorld2D::ApplyAreaEffector(b2Body* effector, const PhysicsAreaEffector2D& s, float dt)
+    {
+        PhysicsEffectorResult2D result;
+        if (!effector || !effector->IsEnabled())
+            return result;
+        std::vector<b2Body*> bodies;
+        for (b2ContactEdge* edge = effector->GetContactList(); edge; edge = edge->next)
+        {
+            b2Fixture* mine = nullptr;
+            if (b2Fixture* other = EffectorTarget(edge->contact, effector, s.LayerMask, mine))
+                if (std::find(bodies.begin(), bodies.end(), other->GetBody()) == bodies.end())
+                    bodies.push_back(other->GetBody());
+        }
+        // Drag is a velocity change of Drag x dt per step: kept below the velocity itself.
+        const float limit = dt > 0.0f ? 0.9f / dt : FLT_MAX;
+        const float baseMagnitude = glm::length(s.Force);
+        const b2Vec2 dir = baseMagnitude > 0.0f ? ToB2(s.Force / baseMagnitude) : b2Vec2(0.0f, 0.0f);
+        for (b2Body* body : bodies)
+        {
+            const float mass = body->GetMass();
+            float magnitude = baseMagnitude;
+            if (s.Variation != 0.0f && baseMagnitude > 0.0f)
+                magnitude += s.Variation * m_Impl->RandomSigned();
+            b2Vec2 force = (s.ScaleWithMass ? mass : 1.0f) * magnitude * dir;
+            if (s.Drag > 0.0f)
+            {
+                const b2Vec2 v = body->GetLinearVelocity() - effector->GetLinearVelocityFromWorldPoint(body->GetWorldCenter());
+                force -= (std::min(s.Drag, limit) * mass) * v;
+            }
+            if (force.LengthSquared() > 0.0f) // a sleeping body without a push stays asleep
+                body->ApplyForceToCenter(force, true);
+            if (s.AngularDrag > 0.0f)
+            {
+                const float w = body->GetAngularVelocity() - effector->GetAngularVelocity();
+                if (w != 0.0f)
+                    body->ApplyTorque(-std::min(s.AngularDrag, limit) * CentralInertia(body) * w, true);
+            }
+            result.Bodies++;
+        }
+        return result;
+    }
+
+    PhysicsEffectorResult2D PhysicsWorld2D::ApplyBuoyancy(b2Body* effector, const PhysicsBuoyancy2D& s, float dt)
+    {
+        PhysicsEffectorResult2D result;
+        if (!effector || !effector->IsEnabled())
+            return result;
+        const b2Vec2 gravity = m_Impl->World.GetGravity();
+        const float g = gravity.Length();
+        const glm::vec2 up = g > 0.0f ? -FromB2(gravity) / g : glm::vec2(0.0f, 1.0f);
+        const glm::vec2 surface = FromB2(effector->GetPosition()) + up * s.SurfaceLevel;
+
+        // The parts of the bodies' fixtures inside the fluid: area and area-weighted centre.
+        struct Submerged
+        {
+            b2Body* Body;
+            float Area = 0.0f;
+            glm::vec2 Moment{ 0.0f };
+        };
+        std::vector<Submerged> parts;
+        std::vector<glm::vec2> fluid, shape;
+        for (b2ContactEdge* edge = effector->GetContactList(); edge; edge = edge->next)
+        {
+            b2Fixture* mine = nullptr;
+            b2Fixture* other = EffectorTarget(edge->contact, effector, s.LayerMask, mine);
+            if (!other || !WorldPolygon(mine, fluid) || !WorldPolygon(other, shape))
+                continue;
+            const std::vector<glm::vec2> under = Polygon2D::ClipHalfPlane(Polygon2D::ClipConvex(shape, fluid), surface, up);
+            float area;
+            glm::vec2 centroid;
+            if (!Polygon2D::AreaCentroid(under, area, centroid))
+                continue;
+            auto it = std::find_if(parts.begin(), parts.end(), [&](const Submerged& p) { return p.Body == other->GetBody(); });
+            if (it == parts.end())
+                it = parts.insert(parts.end(), Submerged{ other->GetBody() });
+            it->Area += area;
+            it->Moment += centroid * area;
+        }
+
+        const float limit = dt > 0.0f ? 0.9f / dt : FLT_MAX;
+        const float flowMagnitude = glm::length(s.Flow);
+        for (const Submerged& part : parts)
+        {
+            b2Body* body = part.Body;
+            // How much of the body is under: its solid area against the submerged one.
+            float bodyArea = 0.0f;
+            for (const b2Fixture* f = body->GetFixtureList(); f; f = f->GetNext())
+            {
+                float area;
+                glm::vec2 centroid;
+                if (!f->IsSensor() && WorldPolygon(f, shape) && Polygon2D::AreaCentroid(shape, area, centroid))
+                    bodyArea += area;
+            }
+            const float fraction = bodyArea > 0.0f ? std::clamp(part.Area / bodyArea, 0.0f, 1.0f) : 1.0f;
+            const glm::vec2 center = part.Moment / part.Area;
+            const b2Vec2 at = ToB2(center);
+            const float mass = body->GetMass();
+
+            glm::vec2 force = up * (std::max(0.0f, s.Density) * part.Area * g);
+            if (s.LinearDrag > 0.0f)
+            {
+                const glm::vec2 v = FromB2(body->GetLinearVelocityFromWorldPoint(at) - effector->GetLinearVelocityFromWorldPoint(at));
+                force -= v * (std::min(s.LinearDrag * fraction, limit) * mass);
+            }
+            if (flowMagnitude > 0.0f)
+            {
+                float magnitude = flowMagnitude;
+                if (s.FlowVariation != 0.0f)
+                    magnitude += s.FlowVariation * m_Impl->RandomSigned();
+                force += s.Flow / flowMagnitude * (magnitude * fraction);
+            }
+            body->ApplyForce(ToB2(force), at, true);
+            if (s.AngularDrag > 0.0f)
+            {
+                const float w = body->GetAngularVelocity() - effector->GetAngularVelocity();
+                if (w != 0.0f)
+                    body->ApplyTorque(-std::min(s.AngularDrag * fraction, limit) * CentralInertia(body) * w, true);
+            }
+            result.Bodies++;
+            result.SubmergedArea += part.Area;
+        }
+        return result;
+    }
+
+    glm::vec2 PhysicsWorld2D::GetGravity() const { return FromB2(m_Impl->World.GetGravity()); }
+
     // ------------------------------------------------------------------ queries
     RaycastHit PhysicsWorld2D::CastRay(const glm::vec2& origin, const glm::vec2& direction, float maxDistance, uint16_t layerMask) const
     {
         RaycastHit hit;
-        if (glm::length(direction) == 0.0f)
+        if (glm::length(direction) == 0.0f || !(maxDistance > 0.0f))
             return hit;
         glm::vec2 dir = glm::normalize(direction);
 
@@ -952,6 +1189,103 @@ namespace Zamin {
         b2Vec2 p1(origin.x, origin.y), p2(origin.x + dir.x * maxDistance, origin.y + dir.y * maxDistance);
         m_Impl->World.RayCast(&cb, p1, p2);
         return hit;
+    }
+
+    std::vector<RaycastHit> PhysicsWorld2D::CastRayAll(const glm::vec2& origin, const glm::vec2& direction, float maxDistance,
+                                                       uint16_t layerMask, bool includeSensors) const
+    {
+        std::vector<RaycastHit> hits;
+        if (glm::length(direction) == 0.0f || !(maxDistance > 0.0f) || !std::isfinite(maxDistance))
+            return hits;
+        const glm::vec2 dir = glm::normalize(direction);
+        struct Callback : b2RayCastCallback
+        {
+            std::vector<RaycastHit>* Out;
+            float MaxDistance;
+            uint16_t Mask;
+            bool Sensors;
+            float ReportFixture(b2Fixture* fixture, const b2Vec2& point, const b2Vec2& normal, float fraction) override
+            {
+                if (!PassesQuery(fixture, Mask, Sensors))
+                    return -1.0f; // ignore it, go on
+                RaycastHit hit;
+                hit.Hit = true;
+                hit.EntityID = (uint64_t)fixture->GetUserData().pointer;
+                hit.Point = { point.x, point.y, 0.0f };
+                hit.Normal = { normal.x, normal.y, 0.0f };
+                hit.Distance = fraction * MaxDistance;
+                Out->push_back(hit);
+                return 1.0f; // the whole ray: every fixture on it
+            }
+        } cb;
+        cb.Out = &hits;
+        cb.MaxDistance = maxDistance;
+        cb.Mask = layerMask;
+        cb.Sensors = includeSensors;
+        m_Impl->World.RayCast(&cb, ToB2(origin), ToB2(origin + dir * maxDistance));
+        // Box2D reports them in no particular order: by distance, each entity's first hit only.
+        std::sort(hits.begin(), hits.end(), [](const RaycastHit& a, const RaycastHit& b) {
+            return a.Distance != b.Distance ? a.Distance < b.Distance : (uint64_t)a.EntityID < (uint64_t)b.EntityID;
+        });
+        std::unordered_set<uint64_t> seen;
+        std::erase_if(hits, [&](const RaycastHit& hit) { return !seen.insert((uint64_t)hit.EntityID).second; });
+        return hits;
+    }
+
+    std::vector<UUID> PhysicsWorld2D::OverlapCircle(const glm::vec2& center, float radius, uint16_t layerMask, bool includeSensors) const
+    {
+        if (!(radius > 0.0f) || !std::isfinite(radius) || !std::isfinite(center.x) || !std::isfinite(center.y))
+            return {};
+        b2CircleShape circle;
+        circle.m_radius = radius;
+        b2Transform xf(ToB2(center), b2Rot(0.0f));
+        return OverlapShape(m_Impl->World, circle, xf, layerMask, includeSensors);
+    }
+
+    std::vector<UUID> PhysicsWorld2D::OverlapBox(const glm::vec2& center, const glm::vec2& halfExtents, float angle, uint16_t layerMask,
+                                                 bool includeSensors) const
+    {
+        const glm::vec2 h = glm::abs(halfExtents);
+        if (!(h.x > 0.0f && h.y > 0.0f) || !std::isfinite(h.x) || !std::isfinite(h.y) || !std::isfinite(center.x) || !std::isfinite(center.y) ||
+            !std::isfinite(angle))
+            return {};
+        b2PolygonShape box;
+        box.SetAsBox(std::max(h.x, b2_linearSlop), std::max(h.y, b2_linearSlop));
+        b2Transform xf(ToB2(center), b2Rot(angle));
+        return OverlapShape(m_Impl->World, box, xf, layerMask, includeSensors);
+    }
+
+    std::vector<UUID> PhysicsWorld2D::OverlapPoint(const glm::vec2& point, uint16_t layerMask, bool includeSensors) const
+    {
+        if (!std::isfinite(point.x) || !std::isfinite(point.y))
+            return {};
+        struct Query : b2QueryCallback
+        {
+            b2Vec2 Point;
+            uint16_t Mask;
+            bool Sensors;
+            std::vector<std::pair<float, uint64_t>> Hits;
+            bool ReportFixture(b2Fixture* fixture) override
+            {
+                if (PassesQuery(fixture, Mask, Sensors) && fixture->TestPoint(Point))
+                    Hits.push_back({ b2DistanceSquared(fixture->GetBody()->GetPosition(), Point), (uint64_t)fixture->GetUserData().pointer });
+                return true;
+            }
+        } query;
+        query.Point = ToB2(point);
+        query.Mask = layerMask;
+        query.Sensors = includeSensors;
+        b2AABB box;
+        box.lowerBound = query.Point - b2Vec2(1e-4f, 1e-4f);
+        box.upperBound = query.Point + b2Vec2(1e-4f, 1e-4f);
+        m_Impl->World.QueryAABB(&query, box);
+        std::sort(query.Hits.begin(), query.Hits.end());
+        std::vector<UUID> out;
+        std::unordered_set<uint64_t> seen;
+        for (const auto& [distance, id] : query.Hits)
+            if (seen.insert(id).second)
+                out.push_back(UUID(id));
+        return out;
     }
 
     void PhysicsWorld2D::GetDebugContacts(std::vector<PhysicsContactPoint2D>& out) const

@@ -455,6 +455,14 @@ namespace Zamin {
             e["PlatformEffector2D"] = { { "OneWay", c->OneWay }, { "SurfaceArc", c->SurfaceArc }, { "RotationOffset", c->RotationOffset },
                                         { "UseSideFriction", c->UseSideFriction }, { "UseSideBounce", c->UseSideBounce },
                                         { "SideArc", c->SideArc } };
+        if (auto* c = entity.TryGetComponent<AreaEffector2DComponent>())
+            e["AreaEffector2D"] = { { "ForceAngle", c->ForceAngle }, { "UseGlobalAngle", c->UseGlobalAngle }, { "ForceMagnitude", c->ForceMagnitude },
+                                    { "ForceVariation", c->ForceVariation }, { "ScaleWithMass", c->ScaleWithMass }, { "Drag", c->Drag },
+                                    { "AngularDrag", c->AngularDrag }, { "ColliderMask", c->ColliderMask } };
+        if (auto* c = entity.TryGetComponent<BuoyancyEffector2DComponent>())
+            e["BuoyancyEffector2D"] = { { "SurfaceLevel", c->SurfaceLevel }, { "Density", c->Density }, { "LinearDrag", c->LinearDrag },
+                                        { "AngularDrag", c->AngularDrag }, { "FlowAngle", c->FlowAngle }, { "FlowMagnitude", c->FlowMagnitude },
+                                        { "FlowVariation", c->FlowVariation }, { "ColliderMask", c->ColliderMask } };
         // Joints: the connected body by its UUID (0 = a fixed point in the world).
         auto writeJoint = [](const Joint2DComponentBase& c) {
             return json{ { "ConnectedBody", c.ConnectedBody.ID }, { "Anchor", ToJson(c.Anchor) }, { "ConnectedAnchor", ToJson(c.ConnectedAnchor) },
@@ -956,6 +964,36 @@ namespace Zamin {
             c.UseSideFriction = j.value("UseSideFriction", c.UseSideFriction);
             c.UseSideBounce = j.value("UseSideBounce", c.UseSideBounce);
             c.SideArc = std::clamp(j.value("SideArc", c.SideArc), 0.0f, 180.0f);
+        }
+        // Effectors: drags and densities are not negative; the layer mask is 16 bits.
+        auto readMask = [](const json& j, uint16_t fallback) {
+            return j.contains("ColliderMask") && j["ColliderMask"].is_number_integer() ? (uint16_t)(j["ColliderMask"].get<int64_t>() & 0xFFFF) : fallback;
+        };
+        if (e.contains("AreaEffector2D"))
+        {
+            const json& j = e["AreaEffector2D"];
+            auto& c = entity.AddComponent<AreaEffector2DComponent>();
+            c.ForceAngle = j.value("ForceAngle", c.ForceAngle);
+            c.UseGlobalAngle = j.value("UseGlobalAngle", c.UseGlobalAngle);
+            c.ForceMagnitude = j.value("ForceMagnitude", c.ForceMagnitude);
+            c.ForceVariation = std::max(0.0f, j.value("ForceVariation", c.ForceVariation));
+            c.ScaleWithMass = j.value("ScaleWithMass", c.ScaleWithMass);
+            c.Drag = std::max(0.0f, j.value("Drag", c.Drag));
+            c.AngularDrag = std::max(0.0f, j.value("AngularDrag", c.AngularDrag));
+            c.ColliderMask = readMask(j, c.ColliderMask);
+        }
+        if (e.contains("BuoyancyEffector2D"))
+        {
+            const json& j = e["BuoyancyEffector2D"];
+            auto& c = entity.AddComponent<BuoyancyEffector2DComponent>();
+            c.SurfaceLevel = j.value("SurfaceLevel", c.SurfaceLevel);
+            c.Density = std::max(0.0f, j.value("Density", c.Density));
+            c.LinearDrag = std::max(0.0f, j.value("LinearDrag", c.LinearDrag));
+            c.AngularDrag = std::max(0.0f, j.value("AngularDrag", c.AngularDrag));
+            c.FlowAngle = j.value("FlowAngle", c.FlowAngle);
+            c.FlowMagnitude = j.value("FlowMagnitude", c.FlowMagnitude);
+            c.FlowVariation = std::max(0.0f, j.value("FlowVariation", c.FlowVariation));
+            c.ColliderMask = readMask(j, c.ColliderMask);
         }
         // Missing values keep the defaults; limits are put in order, forces / frequencies are not negative.
         auto readJoint = [](const json& j, Joint2DComponentBase& c) {

@@ -1,0 +1,36 @@
+{
+  "Albedo": [
+    0.9,
+    0.9,
+    0.9,
+    1
+  ],
+  "AlbedoMap": "Textures/bricks.png",
+  "AlbedoMapUUID": "a606cee7830b630a",
+  "AlphaCutoff": 0.5,
+  "BlendMode": "Opaque",
+  "DoubleSided": false,
+  "Emission": [
+    0,
+    0,
+    0
+  ],
+  "EmissionStrength": 0.0,
+  "EmissiveMap": "",
+  "MetalRoughMap": "",
+  "Metallic": 0.0,
+  "NormalMap": "Textures/bricks_normal.png",
+  "NormalMapUUID": "e8216642a50d789a",
+  "NormalStrength": 1.2,
+  "Offset": [
+    0,
+    0
+  ],
+  "Roughness": 0.95,
+  "Shader": "Lit",
+  "Tiling": [
+    10,
+    10
+  ],
+  "Version": 1
+}

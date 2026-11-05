@@ -4,6 +4,7 @@
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/Model.h"
+#include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Renderer/Environment.h"
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Renderer/PostProcess.h"
@@ -23,6 +24,7 @@ namespace Zamin {
     {
         Font::ClearCache();
         Model::ClearCache();
+        MaterialLibrary::Clear();
         EnvironmentMap::ClearCache();
         MeshLibrary::Clear();
         TextureLibrary::Clear();

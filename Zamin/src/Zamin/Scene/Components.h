@@ -4,6 +4,7 @@
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/Material.h"
+#include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Scene/SceneCamera.h"
@@ -173,7 +174,15 @@ namespace Zamin {
         std::string ModelPath;    // .gltf / .glb / .obj (when Type == Model)
         Ref<Mesh> MeshAsset;      // runtime cache (primitives)
         Ref<Model> ModelAsset;    // runtime cache (models)
-        Material Mat;             // primitives: the material; models: tint/overrides
+        // Material asset (.zmat, relative to assets). When set, the primitive and every submesh of
+        // the model are drawn with it and the inline material below is not used.
+        std::string MaterialPath;
+        // Models: a material asset per submesh (index = submesh, "" = MaterialPath or, without
+        // one, the model's own material with the inline tint).
+        std::vector<std::string> SubmeshMaterials;
+        Ref<MaterialAsset> MaterialRef;                     // runtime cache of MaterialPath
+        std::vector<Ref<MaterialAsset>> SubmeshMaterialRefs; // runtime cache of SubmeshMaterials
+        Material Mat;             // inline material: primitives: the material; models: tint/overrides
         std::string AlbedoPath;   // texture paths relative to assets
         std::string NormalPath;
         std::string MetalRoughPath;

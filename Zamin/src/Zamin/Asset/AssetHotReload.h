@@ -51,8 +51,9 @@ namespace Zamin {
         Report Apply(const std::vector<FileChange>& changes, AssetRegistry* registry);
 
         // Imports one file again into the loaded objects made from it, with its current import
-        // settings: textures (every filter variant), models (also when one of their .gltf buffers
-        // changed), fonts and HDR environment maps. Returns how many were updated; `failed` is
+        // settings: textures (every filter variant; materials that had no texture for the file take
+        // it), models (also when one of their .gltf buffers changed), fonts, HDR environment maps
+        // and materials (.zmat). Returns how many were updated; `failed` is
         // set when the file could not be read (they keep the old content).
         static size_t ReloadAsset(const std::filesystem::path& path, bool* failed = nullptr);
         // Whether something loaded was made from this file (ReloadAsset would update it).

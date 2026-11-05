@@ -38,21 +38,50 @@ namespace Zamin::UI {
 
     bool PropertyAssetPath(const char* label, std::string& path, const char* extensions, const char* icon)
     {
-        PropertyLabel(label);
+        return PropertyAssetPath(label, path, extensions, icon, AssetPathOptions{});
+    }
+
+    bool PropertyAssetPath(const char* label, std::string& path, const char* extensions, const char* icon, const AssetPathOptions& options)
+    {
+        PropertyLabel(label, options.Tooltip);
         ImGui::PushID(label);
         bool changed = false;
 
-        float clearWidth = ImGui::GetFrameHeight();
-        float width = ImGui::GetContentRegionAvail().x - clearWidth - ImGui::GetStyle().ItemSpacing.x;
+        float buttonWidth = ImGui::GetFrameHeight();
+        float spacing = ImGui::GetStyle().ItemSpacing.x;
+        bool action = options.ActionIcon && options.ActionClicked;
+        float width = ImGui::GetContentRegionAvail().x - buttonWidth - spacing;
+        if (action)
+            width -= buttonWidth + spacing;
+        if (options.PreviewTexture)
+        {
+            // A small picture of the asset (a texture) before its path.
+            float size = ImGui::GetFrameHeight();
+            ImGui::Image((ImTextureID)(uintptr_t)options.PreviewTexture, ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0));
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::BeginTooltip();
+                ImGui::Image((ImTextureID)(uintptr_t)options.PreviewTexture, ImVec2(128, 128), ImVec2(0, 1), ImVec2(1, 0));
+                ImGui::EndTooltip();
+            }
+            ImGui::SameLine();
+            width -= size + spacing;
+        }
         std::string display = path.empty() ? std::string(icon) + "  (yo'q)" : std::string(icon) + "  " + path;
 
         ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+        if (options.Missing && !path.empty())
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.45f, 0.4f, 1.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0f, 0.5f));
-        ImGui::Button(display.c_str(), ImVec2(width, 0));
+        ImGui::Button(display.c_str(), ImVec2(std::max(width, 20.0f), 0));
         ImGui::PopStyleVar();
+        if (options.Missing && !path.empty())
+            ImGui::PopStyleColor();
         ImGui::PopStyleColor();
         if (ImGui::IsItemHovered())
-            Tooltip("Content Browser'dan fayl tortib tashlang");
+            Tooltip(options.Missing && !path.empty() ? "Fayl yuklanmadi (yo'q yoki buzilgan) - konsolni tekshiring.\n"
+                                                       "Content Browser'dan boshqa fayl tortib tashlang"
+                                                     : "Content Browser'dan fayl tortib tashlang");
 
         if (ImGui::BeginDragDropTarget())
         {
@@ -68,8 +97,18 @@ namespace Zamin::UI {
             ImGui::EndDragDropTarget();
         }
 
+        if (action)
+        {
+            ImGui::SameLine();
+            ImGui::BeginDisabled(path.empty());
+            if (ImGui::Button(options.ActionIcon, ImVec2(buttonWidth, 0)))
+                *options.ActionClicked = true;
+            ImGui::EndDisabled();
+            if (options.ActionTooltip && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                Tooltip(options.ActionTooltip);
+        }
         ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_XMARK, ImVec2(clearWidth, 0)) && !path.empty())
+        if (ImGui::Button(ICON_FA_XMARK, ImVec2(buttonWidth, 0)) && !path.empty())
         {
             path.clear();
             changed = true;

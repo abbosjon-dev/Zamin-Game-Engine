@@ -155,7 +155,7 @@ namespace Zamin {
         {
             std::vector<Move> Moved;
             std::vector<std::string> Errors;                   // what could not be moved, and why
-            std::vector<std::filesystem::path> UpdatedFiles;   // scenes / prefabs / models rewritten
+            std::vector<std::filesystem::path> UpdatedFiles;   // scenes / prefabs / materials / models rewritten
             size_t UpdatedReferences = 0;
             std::vector<std::filesystem::path> SourceMentions; // C++ files spelling an old path (left alone)
 
@@ -176,7 +176,7 @@ namespace Zamin {
         static MoveResult Rename(const std::filesystem::path& source, const std::string& newName,
                                  const std::filesystem::path& assetDirectory, const std::filesystem::path& sourceDirectory = {});
         // Rewrites what refers to `result.Moved` - moves that already happened on disk (MoveInto /
-        // Rename call it; the editor too, for files moved outside it): scene / prefab asset paths,
+        // Rename call it; the editor too, for files moved outside it): scene / prefab / material asset paths,
         // .gltf file names, C++ mentions reported. Fills UpdatedFiles, UpdatedReferences, SourceMentions.
         static void UpdateReferences(MoveResult& result, const std::filesystem::path& assetDirectory,
                                      const std::filesystem::path& sourceDirectory = {});

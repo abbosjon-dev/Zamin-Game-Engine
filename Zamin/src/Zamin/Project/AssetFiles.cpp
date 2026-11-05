@@ -780,7 +780,7 @@ namespace Zamin {
             std::string ext = Lower(file.extension().string());
             size_t replaced = 0;
             std::string text;
-            if ((ext == ".zscene" || ext == ".zprefab") && !moves.empty())
+            if ((ext == ".zscene" || ext == ".zprefab" || ext == ".zmat") && !moves.empty())
             {
                 text = FileSystem::ReadTextFile(file);
                 bool mentioned = std::any_of(moves.begin(), moves.end(), [&](const RelativeMove& m) { return text.find(m.From) != std::string::npos; });

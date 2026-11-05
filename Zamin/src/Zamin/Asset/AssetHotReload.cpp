@@ -3,6 +3,7 @@
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Renderer/Environment.h"
 #include "Zamin/Renderer/Font.h"
+#include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Texture.h"
 
@@ -75,6 +76,10 @@ namespace Zamin {
                         m_MissingWhileLoaded.erase(missing);
                         reload(change.Path);
                     }
+                    // A texture a loaded material names but could not find: the material takes it now.
+                    else if (!change.IsDirectory && AssetTypes::FromPath(change.Path) == AssetType::Texture &&
+                             MaterialLibrary::UsesTexture(change.Path))
+                        reload(change.Path);
                     break;
                 }
                 case FileChangeType::Modified:
@@ -105,7 +110,14 @@ namespace Zamin {
     {
         switch (AssetTypes::FromPath(path))
         {
-            case AssetType::Texture:     return TextureLibrary::Reload(path, failed);
+            case AssetType::Texture:
+            {
+                // In place for the textures already loaded; materials whose texture was missing take it now.
+                size_t textures = TextureLibrary::Reload(path, failed);
+                size_t materials = MaterialLibrary::ReloadFile(path);
+                return std::max(textures, materials);
+            }
+            case AssetType::Material:    return MaterialLibrary::ReloadFile(path, failed);
             case AssetType::Model:       return Model::ReloadFile(path, failed);
             case AssetType::Font:        return Font::ReloadFile(path, failed);
             case AssetType::Environment: return EnvironmentMap::ReloadFile(path, failed);
@@ -118,7 +130,8 @@ namespace Zamin {
     {
         switch (AssetTypes::FromPath(path))
         {
-            case AssetType::Texture:     return TextureLibrary::IsLoaded(path);
+            case AssetType::Texture:     return TextureLibrary::IsLoaded(path) || MaterialLibrary::UsesTexture(path);
+            case AssetType::Material:    return MaterialLibrary::IsFileLoaded(path);
             case AssetType::Model:       return Model::IsFileLoaded(path);
             case AssetType::Font:        return Font::IsFileLoaded(path);
             case AssetType::Environment: return EnvironmentMap::IsFileLoaded(path);
@@ -130,7 +143,8 @@ namespace Zamin {
     bool AssetHotReload::CanReload(const fs::path& path)
     {
         AssetType type = AssetTypes::FromPath(path);
-        return type == AssetType::Texture || type == AssetType::Model || type == AssetType::Font || type == AssetType::Environment;
+        return type == AssetType::Texture || type == AssetType::Model || type == AssetType::Font || type == AssetType::Environment ||
+               type == AssetType::Material;
     }
 
 }

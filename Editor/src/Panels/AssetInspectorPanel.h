@@ -18,10 +18,12 @@ namespace Zamin {
     // entity): name, type, path, UUID, where it is used and a preview for its type - textures
     // (size, channels, format, GPU memory, channel views), models (a 3D view that turns and plays
     // the animations, submeshes, triangles, materials, skeleton), audio (length, channels, sample
-    // rate, waveform, play / stop), scenes and prefabs (entities), fonts, scripts; folders and
-    // several files get a summary. Import settings of textures and models are edited here: Apply
-    // saves them to the .zmeta file and imports the asset again at once (everything using it
-    // updates in place); Revert drops the edits.
+    // rate, waveform, play / stop), scenes and prefabs (entities), fonts, scripts, materials (a
+    // turning preview sphere and the material editor); folders and several files get a summary.
+    // Import settings of textures and models are edited here: Apply saves them to the .zmeta file
+    // and imports the asset again at once (everything using it updates in place); Revert drops the
+    // edits. Material edits show in the scene at once (the shared material object changes) and go
+    // to the .zmat file with Save; Revert puts the saved values back.
     class AssetInspectorPanel
     {
     public:
@@ -66,6 +68,20 @@ namespace Zamin {
         void StartPreviewPlayback();
         void StopAudio();
 
+        // The shown material's values as edited (null when no material is shown). After changing
+        // them, ApplyMaterialEdit shows them on the material (what the editor fields do).
+        MaterialData* GetEditedMaterial() { return m_Material ? &m_MaterialEdit : nullptr; }
+        void ApplyMaterialEdit();
+        // Writes the edited values to the .zmat file / puts the saved ones back.
+        bool SaveMaterial();
+        void RevertMaterial();
+        bool HasUnsavedMaterial() const { return m_Material && !(m_MaterialEdit == m_MaterialSaved); }
+        MaterialPreview::Settings& GetMaterialPreviewSettings() { return m_MaterialView; }
+        void SetMaterialSceneLighting(bool scene) { m_MaterialSceneLight = scene; }
+        // Lighting of the material preview's "scene" mode: fills the open scene's HDRI (map,
+        // intensity, rotation); false when it has none.
+        std::function<bool(MaterialPreview::Settings&)> GetSceneLighting;
+
     private:
         const AssetMetadata* FindMetadata() const;
         // Follows the asset when it moved (by UUID) and picks up settings changed on disk.
@@ -83,6 +99,8 @@ namespace Zamin {
             AssetType Type = AssetType::Other;
             TextureImportSettings Texture;
             ModelImportSettings Model;
+            Ref<MaterialAsset> Material;          // materials: the object holding the edits
+            MaterialData MaterialSaved, MaterialEdit;
         };
         PendingEdits CaptureEdits() const;
         bool ApplyEdits(const PendingEdits& edits, bool showStatus);
@@ -103,6 +121,13 @@ namespace Zamin {
         void DrawSceneFile();
         void DrawFont();
         void DrawScript();
+        void DrawMaterial();
+        void DrawMaterialPreview();
+        // The material's fields (into m_MaterialEdit); true when one changed.
+        bool DrawMaterialFields();
+        void DrawMaterialSaveBar();
+        // The material changed elsewhere (its file was read again): taken over, edits stay on top.
+        void SyncMaterial();
         void DrawFolder();
         void DrawMultiSelection();
         void DrawApplyBar(bool canApply);
@@ -159,6 +184,16 @@ namespace Zamin {
         float m_ClipTime = 0.0f;
         double m_LastPreviewTime = -1.0;
         std::vector<glm::mat4> m_Joints;
+
+        // material: the library's shared object (edits show in the scene at once)
+        Ref<MaterialAsset> m_Material;
+        bool m_MaterialLoaded = false;
+        MaterialData m_MaterialSaved, m_MaterialEdit;
+        uint64_t m_MaterialRevision = 0;      // the material's revision after this panel's last change
+        MaterialPreview m_MaterialPreview;
+        MaterialPreview::Settings m_MaterialView;
+        bool m_MaterialAutoRotate = true;
+        bool m_MaterialSceneLight = false;    // the open scene's HDRI instead of the sky gradient
 
         // font
         Ref<Font> m_Font;

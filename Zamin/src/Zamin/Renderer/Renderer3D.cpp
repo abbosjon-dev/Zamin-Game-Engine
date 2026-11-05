@@ -70,10 +70,14 @@ uniform int u_HasEmissiveMap;
 uniform int u_AlbedoSRGB;   // 0: the albedo / emissive map holds linear values (import setting sRGB off)
 uniform int u_EmissiveSRGB;
 uniform float u_NormalStrength;
-uniform float u_Tiling;
+uniform vec2 u_Tiling;
+uniform vec2 u_Offset;
 uniform float u_Metallic;
 uniform float u_Roughness;
 uniform vec3 u_Emission;
+uniform int u_Unlit;          // 1: albedo (x map) + emission only, no lights
+uniform int u_BlendMode;      // 0 opaque, 1 cutout, 2 transparent
+uniform float u_AlphaCutoff;  // cutout: alpha below this is not drawn
 
 uniform vec3 u_CameraPos;
 uniform int u_HasSun;
@@ -229,15 +233,42 @@ mat3 CotangentFrame(vec3 N, vec3 p, vec2 uv)
     return mat3(T * invmax, B * invmax, N);
 }
 
+// Fog, then the outputs (linear HDR - tonemapping & gamma happen in post-processing).
+void Finish(vec3 color, float alpha)
+{
+    if (u_FogEnabled == 1)
+    {
+        float dist = length(u_CameraPos - v_WorldPos);
+        float heightFactor = exp(-u_FogHeightFalloff * max(v_WorldPos.y, 0.0));
+        float fog = 1.0 - exp(-dist * u_FogDensity * heightFactor);
+        color = mix(color, toLinear(u_FogColor) * u_Exposure, clamp(fog, 0.0, 1.0));
+    }
+    o_Color = vec4(color, alpha);
+    o_EntityID = u_EntityID;
+}
+
 void main()
 {
-    vec2 uv = v_TexCoord * u_Tiling;
+    vec2 uv = v_TexCoord * u_Tiling + u_Offset;
     vec4 texColor = texture(u_AlbedoMap, uv);
     vec3 texLinear = u_AlbedoSRGB == 1 ? toLinear(texColor.rgb) : texColor.rgb;
     vec4 baseColor = u_Albedo * vec4(texLinear, texColor.a);
-    if (baseColor.a < 0.05)
+    float cutoff = u_BlendMode == 1 ? u_AlphaCutoff : (u_BlendMode == 2 ? 0.003 : 0.05);
+    if (baseColor.a < cutoff)
         discard;
     vec3 albedo = toLinear(u_Albedo.rgb) * texLinear;
+    vec3 emission = u_Emission;
+    if (u_HasEmissiveMap == 1)
+    {
+        vec3 emissiveTex = texture(u_EmissiveMap, uv).rgb;
+        emission *= u_EmissiveSRGB == 1 ? toLinear(emissiveTex) : emissiveTex;
+    }
+    float alpha = u_BlendMode == 1 ? 1.0 : baseColor.a;
+    if (u_Unlit == 1)
+    {
+        Finish((albedo + emission) * u_Exposure, alpha);
+        return;
+    }
     float metallic = clamp(u_Metallic, 0.0, 1.0);
     float roughness = clamp(u_Roughness, 0.04, 1.0);
     if (u_HasMetalRoughMap == 1)
@@ -297,24 +328,7 @@ void main()
         specularEnv = SkyRadiance(R, roughness) * F * mix(1.0, 0.35, roughness);
     }
     vec3 ambient = (kD * albedo * irradiance + specularEnv) * u_Ambient;
-
-    vec3 emission = u_Emission;
-    if (u_HasEmissiveMap == 1)
-    {
-        vec3 emissiveTex = texture(u_EmissiveMap, uv).rgb;
-        emission *= u_EmissiveSRGB == 1 ? toLinear(emissiveTex) : emissiveTex;
-    }
-    // Linear HDR output - tonemapping & gamma happen in post-processing.
-    vec3 color = (ambient + Lo + emission) * u_Exposure;
-    if (u_FogEnabled == 1)
-    {
-        float dist = length(u_CameraPos - v_WorldPos);
-        float heightFactor = exp(-u_FogHeightFalloff * max(v_WorldPos.y, 0.0));
-        float fog = 1.0 - exp(-dist * u_FogDensity * heightFactor);
-        color = mix(color, toLinear(u_FogColor) * u_Exposure, clamp(fog, 0.0, 1.0));
-    }
-    o_Color = vec4(color, baseColor.a);
-    o_EntityID = u_EntityID;
+    Finish((ambient + Lo + emission) * u_Exposure, alpha);
 }
 )";
 
@@ -663,6 +677,43 @@ void main()
         return c;
     }
 
+    // One queued mesh with its material (the main pass shader's per-frame uniforms are set).
+    static void DrawQueued(const DrawItem& item)
+    {
+        auto& stats = Renderer::GetStats();
+        const Material& m = item.Mat;
+        bool skinned = item.MeshRef->IsSkinned();
+        auto& shader = skinned ? s_Data->SkinnedMeshShader : s_Data->MeshShader;
+        shader->Bind();
+        if (skinned) shader->SetMat4Array("u_Joints", item.Joints.data(), (uint32_t)item.Joints.size());
+        (m.AlbedoMap ? m.AlbedoMap : s_Data->WhiteTexture)->Bind(0);
+        (m.NormalMap ? m.NormalMap : s_Data->WhiteTexture)->Bind(2);
+        (m.MetalRoughMap ? m.MetalRoughMap : s_Data->WhiteTexture)->Bind(3);
+        (m.EmissiveMap ? m.EmissiveMap : s_Data->WhiteTexture)->Bind(4);
+        shader->SetInt("u_HasNormalMap", m.NormalMap ? 1 : 0);
+        shader->SetInt("u_HasMetalRoughMap", m.MetalRoughMap ? 1 : 0);
+        shader->SetInt("u_HasEmissiveMap", m.EmissiveMap ? 1 : 0);
+        shader->SetInt("u_AlbedoSRGB", !m.AlbedoMap || m.AlbedoMap->GetSpecification().SRGB ? 1 : 0);
+        shader->SetInt("u_EmissiveSRGB", !m.EmissiveMap || m.EmissiveMap->GetSpecification().SRGB ? 1 : 0);
+        shader->SetFloat("u_NormalStrength", m.NormalStrength);
+        shader->SetMat4("u_Model", item.Transform);
+        shader->SetMat3("u_NormalMatrix", glm::transpose(glm::inverse(glm::mat3(item.Transform))));
+        shader->SetFloat4("u_Albedo", m.Albedo);
+        shader->SetFloat2("u_Tiling", m.Tiling);
+        shader->SetFloat2("u_Offset", m.Offset);
+        shader->SetFloat("u_Metallic", m.Metallic);
+        shader->SetFloat("u_Roughness", m.Roughness);
+        shader->SetFloat3("u_Emission", m.Emission * m.EmissionStrength);
+        shader->SetInt("u_Unlit", m.Shader == MaterialShader::Unlit ? 1 : 0);
+        shader->SetInt("u_BlendMode", (int)m.BlendMode);
+        shader->SetFloat("u_AlphaCutoff", m.AlphaCutoff);
+        shader->SetInt("u_EntityID", item.EntityID);
+        RenderCommand::DrawIndexed(item.MeshRef->GetVertexArray(), item.MeshRef->GetIndexCount());
+        stats.DrawCalls++;
+        stats.MeshCount++;
+        stats.TriangleCount += item.MeshRef->GetIndexCount() / 3;
+    }
+
     void Renderer3D::EndScene()
     {
         auto& env = s_Data->Environment;
@@ -691,7 +742,8 @@ void main()
                 }
                 for (const auto& item : s_Data->Queue)
                 {
-                    if (!item.CastShadows) continue;
+                    // Transparent surfaces let the light through (no shadow of their own).
+                    if (!item.CastShadows || item.Mat.BlendMode == MaterialBlendMode::Transparent) continue;
                     bool skinned = item.MeshRef->IsSkinned();
                     auto& sh = skinned ? s_Data->SkinnedShadowShader : s_Data->ShadowShader;
                     sh->Bind();
@@ -765,35 +817,8 @@ void main()
 
             RenderCommand::SetCullMode(CullMode::None);
             for (const auto& item : s_Data->Queue)
-            {
-                const Material& m = item.Mat;
-                bool skinned = item.MeshRef->IsSkinned();
-                auto& shader = skinned ? s_Data->SkinnedMeshShader : s_Data->MeshShader;
-                shader->Bind();
-                if (skinned) shader->SetMat4Array("u_Joints", item.Joints.data(), (uint32_t)item.Joints.size());
-                (m.AlbedoMap ? m.AlbedoMap : s_Data->WhiteTexture)->Bind(0);
-                (m.NormalMap ? m.NormalMap : s_Data->WhiteTexture)->Bind(2);
-                (m.MetalRoughMap ? m.MetalRoughMap : s_Data->WhiteTexture)->Bind(3);
-                (m.EmissiveMap ? m.EmissiveMap : s_Data->WhiteTexture)->Bind(4);
-                shader->SetInt("u_HasNormalMap", m.NormalMap ? 1 : 0);
-                shader->SetInt("u_HasMetalRoughMap", m.MetalRoughMap ? 1 : 0);
-                shader->SetInt("u_HasEmissiveMap", m.EmissiveMap ? 1 : 0);
-                shader->SetInt("u_AlbedoSRGB", !m.AlbedoMap || m.AlbedoMap->GetSpecification().SRGB ? 1 : 0);
-                shader->SetInt("u_EmissiveSRGB", !m.EmissiveMap || m.EmissiveMap->GetSpecification().SRGB ? 1 : 0);
-                shader->SetFloat("u_NormalStrength", m.NormalStrength);
-                shader->SetMat4("u_Model", item.Transform);
-                shader->SetMat3("u_NormalMatrix", glm::transpose(glm::inverse(glm::mat3(item.Transform))));
-                shader->SetFloat4("u_Albedo", m.Albedo);
-                shader->SetFloat("u_Tiling", m.Tiling);
-                shader->SetFloat("u_Metallic", m.Metallic);
-                shader->SetFloat("u_Roughness", m.Roughness);
-                shader->SetFloat3("u_Emission", m.Emission * m.EmissionStrength);
-                shader->SetInt("u_EntityID", item.EntityID);
-                RenderCommand::DrawIndexed(item.MeshRef->GetVertexArray(), item.MeshRef->GetIndexCount());
-                stats.DrawCalls++;
-                stats.MeshCount++;
-                stats.TriangleCount += item.MeshRef->GetIndexCount() / 3;
-            }
+                if (item.Mat.BlendMode != MaterialBlendMode::Transparent)
+                    DrawQueued(item);
         }
 
         // ---------------- sky (drawn behind everything, depth = far plane)
@@ -826,7 +851,39 @@ void main()
             stats.DrawCalls++;
         }
 
+        // ---------------- transparent surfaces: over the opaque scene and the sky, back to front,
+        // depth tested but not written (what is behind them stays visible)
+        std::vector<glm::vec3> positions;
+        std::vector<size_t> transparent;
+        for (size_t i = 0; i < s_Data->Queue.size(); i++)
+            if (s_Data->Queue[i].Mat.BlendMode == MaterialBlendMode::Transparent)
+            {
+                transparent.push_back(i);
+                positions.push_back(glm::vec3(s_Data->Queue[i].Transform[3]));
+            }
+        if (!transparent.empty())
+        {
+            RenderCommand::SetBlendMode(BlendMode::Alpha);
+            RenderCommand::SetDepthWrite(false);
+            for (size_t order : SortBackToFront(s_Data->View, positions))
+                DrawQueued(s_Data->Queue[transparent[order]]);
+            RenderCommand::SetDepthWrite(true);
+        }
+
         s_Data->Queue.clear();
+    }
+
+    std::vector<size_t> Renderer3D::SortBackToFront(const glm::mat4& view, const std::vector<glm::vec3>& positions)
+    {
+        std::vector<float> depth(positions.size());
+        for (size_t i = 0; i < positions.size(); i++)
+            depth[i] = -(view * glm::vec4(positions[i], 1.0f)).z; // distance in front of the camera
+        std::vector<size_t> order(positions.size());
+        for (size_t i = 0; i < order.size(); i++)
+            order[i] = i;
+        // Farthest first; equal depths keep the submission order (stable).
+        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) { return depth[a] > depth[b]; });
+        return order;
     }
 
     void Renderer3D::DrawGrid(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition, int plane,

@@ -1407,6 +1407,160 @@ namespace Zamin {
         }
     }
 
+    // A material asset made of a mesh renderer's inline material (values and texture paths).
+    static MaterialData InlineMaterialData(const MeshRendererComponent& c)
+    {
+        MaterialData data = MaterialData::FromMaterial(c.Mat);
+        data.AlbedoMap = c.AlbedoPath;
+        data.NormalMap = c.NormalPath;
+        data.MetalRoughMap = c.MetalRoughPath;
+        data.EmissiveMap = c.EmissivePath;
+        return data;
+    }
+
+    // One line about a material asset: its color, shader, blend mode and textures.
+    static void DrawMaterialSummary(const Ref<MaterialAsset>& asset)
+    {
+        UI::PropertyLabel("");
+        const MaterialData& d = asset->GetData();
+        ImGui::ColorButton("##albedo", ImVec4(d.Albedo.r, d.Albedo.g, d.Albedo.b, d.Albedo.a),
+                           ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_AlphaPreviewHalf, ImVec2(ImGui::GetFrameHeight(), ImGui::GetFrameHeight()));
+        ImGui::SameLine();
+        size_t maps = d.GetTexturePaths().size();
+        std::string text = std::format("{} · {} · metall {:.2f} · g'adir {:.2f}{}", MaterialSerializer::ShaderToString(d.Shader),
+                                       MaterialSerializer::BlendModeToString(d.BlendMode), d.Metallic, d.Roughness,
+                                       maps ? std::format(" · {} tekstura", maps) : std::string());
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextWrapped("%s", text.c_str());
+        ImGui::PopStyleColor();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip(Project::GetAssetRelativePath(asset->GetPath()).c_str());
+    }
+
+    bool SceneHierarchyPanel::DrawMeshMaterial(Entity entity, MeshRendererComponent& c)
+    {
+        bool changed = false;
+        bool edit = false;
+        UI::AssetPathOptions options;
+        options.ActionIcon = ICON_FA_PEN;
+        options.ActionTooltip = "Materialni tahrirlash (inspektorda ochiladi)";
+        options.ActionClicked = &edit;
+        options.Missing = !c.MaterialPath.empty() && !c.MaterialRef;
+        options.Tooltip = "Material asset (.zmat). Tanlansa mesh (modelning barcha qismlari) shu material bilan chiziladi va "
+                          "quyidagi ichki material ishlatilmaydi. Bitta material ko'p obyektda ishlatiladi: uni o'zgartirsangiz, hammasi o'zgaradi.";
+        if (UI::PropertyAssetPath("Material asset", c.MaterialPath, ".zmat", ICON_FA_PALETTE, options))
+        {
+            Scene::ResolveMeshMaterials(c);
+            changed = true;
+        }
+        if (edit && OnAssetEditRequested)
+            OnAssetEditRequested(Project::GetAssetFileSystemPath(c.MaterialPath));
+        if (c.MaterialRef)
+            DrawMaterialSummary(c.MaterialRef);
+
+        // Models: a material asset per submesh (overrides the one above for that part).
+        if (c.Type == PrimitiveMesh::Model && c.ModelAsset && !c.ModelAsset->GetSubMeshes().empty())
+        {
+            const auto& subMeshes = c.ModelAsset->GetSubMeshes();
+            size_t overridden = std::count_if(c.SubmeshMaterials.begin(), c.SubmeshMaterials.end(), [](const std::string& p) { return !p.empty(); });
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            std::string title = std::format("Qismlar materiallari ({}/{})###submeshMaterials", overridden, subMeshes.size());
+            bool open = ImGui::TreeNodeEx(title.c_str(), ImGuiTreeNodeFlags_SpanAllColumns);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Har bir submesh uchun alohida material asset. Bo'sh joy: yuqoridagi material asset, u ham bo'lmasa modelning o'z materiali.");
+            if (open)
+            {
+                for (size_t i = 0; i < subMeshes.size(); i++)
+                {
+                    ImGui::PushID((int)i);
+                    std::string path = i < c.SubmeshMaterials.size() ? c.SubmeshMaterials[i] : std::string();
+                    std::string label = subMeshes[i].Name.empty() ? std::format("#{}", i) : std::format("#{} {}", i, subMeshes[i].Name);
+                    bool editSlot = false;
+                    UI::AssetPathOptions slotOptions;
+                    slotOptions.ActionIcon = ICON_FA_PEN;
+                    slotOptions.ActionTooltip = "Materialni tahrirlash";
+                    slotOptions.ActionClicked = &editSlot;
+                    slotOptions.Missing = !path.empty() && (i >= c.SubmeshMaterialRefs.size() || !c.SubmeshMaterialRefs[i]);
+                    if (UI::PropertyAssetPath(label.c_str(), path, ".zmat", ICON_FA_PALETTE, slotOptions))
+                    {
+                        if (c.SubmeshMaterials.size() <= i)
+                            c.SubmeshMaterials.resize(i + 1);
+                        c.SubmeshMaterials[i] = path;
+                        while (!c.SubmeshMaterials.empty() && c.SubmeshMaterials.back().empty())
+                            c.SubmeshMaterials.pop_back(); // nothing kept for the parts without one
+                        Scene::ResolveMeshMaterials(c);
+                        changed = true;
+                    }
+                    if (editSlot && OnAssetEditRequested)
+                        OnAssetEditRequested(Project::GetAssetFileSystemPath(path));
+                    ImGui::PopID();
+                }
+                ImGui::TreePop();
+            }
+        }
+
+        if (!c.MaterialPath.empty())
+        {
+            UI::PropertyLabel("");
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+            ImGui::TextWrapped(ICON_FA_CIRCLE_INFO "  Ichki material ishlatilmaydi: material asset tanlangan");
+            ImGui::PopStyleColor();
+            return changed;
+        }
+
+        // The inline material (no asset): the component's own values.
+        UI::PropertyHeader(c.Type == PrimitiveMesh::Model ? "Ichki material (tus)" : "Ichki material");
+        changed |= UI::PropertyColor4("Rang (albedo)", c.Mat.Albedo);
+        const char* imgExt = ".png;.jpg;.jpeg;.bmp;.tga";
+        bool maps = UI::PropertyAssetPath("Tekstura", c.AlbedoPath, imgExt, ICON_FA_FILE_IMAGE);
+        maps |= UI::PropertyAssetPath("Normal map", c.NormalPath, imgExt, ICON_FA_FILE_IMAGE);
+        if (!c.NormalPath.empty())
+            changed |= UI::PropertySlider("Normal kuchi", c.Mat.NormalStrength, 0.0f, 3.0f);
+        maps |= UI::PropertyAssetPath("Metal/Roughness", c.MetalRoughPath, imgExt, ICON_FA_FILE_IMAGE);
+        maps |= UI::PropertyAssetPath("Nurlanish map", c.EmissivePath, imgExt, ICON_FA_FILE_IMAGE);
+        if (maps)
+        {
+            Scene::ResolveMeshMaterials(c);
+            changed = true;
+        }
+        changed |= UI::PropertyFloat2("Takrorlash", c.Mat.Tiling, 0.05f);
+        changed |= UI::PropertyFloat2("Siljish", c.Mat.Offset, 0.01f);
+        changed |= UI::PropertySlider("Metallik", c.Mat.Metallic, 0.0f, 1.0f);
+        changed |= UI::PropertySlider("G'adir-budurlik", c.Mat.Roughness, 0.0f, 1.0f);
+        changed |= UI::PropertyColor3("Nurlanish", c.Mat.Emission);
+        changed |= UI::PropertyFloat("Nurlanish kuchi", c.Mat.EmissionStrength, 0.05f, 0.0f, 100.0f);
+
+        // Turns the inline material into a material asset the mesh then uses (and others can share).
+        if (Project::GetActive() && c.Type != PrimitiveMesh::Model)
+        {
+            UI::PropertyLabel("");
+            if (ImGui::Button(ICON_FA_FLOPPY_DISK "  Material asset sifatida saqlash", ImVec2(-FLT_MIN, 0)))
+            {
+                std::filesystem::path dir = Project::GetAssetDirectory() / "Materials";
+                std::string name = entity.GetName().empty() ? std::string("Material") : entity.GetName();
+                for (char& ch : name)
+                    if (std::string_view("/\\:*?\"<>|").find(ch) != std::string_view::npos)
+                        ch = '_';
+                std::filesystem::path file = AssetFiles::MakeUniquePath(dir, name + ".zmat");
+                if (MaterialSerializer::Serialize(InlineMaterialData(c), file))
+                {
+                    if (AssetRegistry* registry = Project::GetAssetRegistry())
+                        registry->OnFileAdded(file); // a UUID at once (written next to the path in the scene)
+                    c.MaterialPath = Project::GetAssetRelativePath(file);
+                    Scene::ResolveMeshMaterials(c);
+                    changed = true;
+                    ZM_INFO("Material asset yaratildi: {}", c.MaterialPath);
+                }
+                else
+                    ZM_ERROR("Material fayli yozilmadi: {}", file.string());
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Shu qiymatlar va teksturalar bilan Assets/Materials ichida .zmat fayl yaratiladi va mesh uni ishlatadi");
+        }
+        return changed;
+    }
+
     template<typename T>
     void SceneHierarchyPanel::DisplayAddComponentEntry(const char* name, const char* icon)
     {
@@ -2379,7 +2533,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        AddSection<MeshRendererComponent>(ICON_FA_CUBE, "Mesh Renderer", entity, [](MeshRendererComponent& c) {
+        AddSection<MeshRendererComponent>(ICON_FA_CUBE, "Mesh Renderer", entity, [&](MeshRendererComponent& c) {
             bool changed = false;
             const char* meshes[] = { "Kub", "Shar", "Tekislik", "Silindr", "Konus", "Model (glTF / OBJ)" };
             int type = (int)c.Type;
@@ -2405,24 +2559,7 @@ namespace Zamin {
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::SeparatorText("Material");
-            changed |= UI::PropertyColor4("Rang (albedo)", c.Mat.Albedo);
-            const char* imgExt = ".png;.jpg;.jpeg;.bmp;.tga";
-            bool maps = UI::PropertyAssetPath("Tekstura", c.AlbedoPath, imgExt, ICON_FA_FILE_IMAGE);
-            maps |= UI::PropertyAssetPath("Normal map", c.NormalPath, imgExt, ICON_FA_FILE_IMAGE);
-            if (!c.NormalPath.empty())
-                changed |= UI::PropertySlider("Normal kuchi", c.Mat.NormalStrength, 0.0f, 3.0f);
-            maps |= UI::PropertyAssetPath("Metal/Roughness", c.MetalRoughPath, imgExt, ICON_FA_FILE_IMAGE);
-            maps |= UI::PropertyAssetPath("Nurlanish map", c.EmissivePath, imgExt, ICON_FA_FILE_IMAGE);
-            if (maps)
-            {
-                Scene::ResolveMeshRenderer(c);
-                changed = true;
-            }
-            changed |= UI::PropertyFloat("Takrorlash", c.Mat.Tiling, 0.05f, 0.0f, 1000.0f);
-            changed |= UI::PropertySlider("Metallik", c.Mat.Metallic, 0.0f, 1.0f);
-            changed |= UI::PropertySlider("G'adir-budurlik", c.Mat.Roughness, 0.0f, 1.0f);
-            changed |= UI::PropertyColor3("Nurlanish", c.Mat.Emission);
-            changed |= UI::PropertyFloat("Nurlanish kuchi", c.Mat.EmissionStrength, 0.05f, 0.0f, 100.0f);
+            changed |= DrawMeshMaterial(entity, c);
             changed |= UI::PropertyBool("Soya tashlaydi", c.CastShadows);
             return changed;
         }, true, modified);

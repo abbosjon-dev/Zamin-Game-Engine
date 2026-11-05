@@ -146,6 +146,11 @@ namespace Zamin {
         m_Preview = nullptr;
         m_PreviewPath.clear();
         m_Model = nullptr;
+        m_Material = nullptr;
+        m_MaterialLoaded = false;
+        m_MaterialView.Yaw = 0.5f;
+        m_MaterialView.Pitch = 0.2f;
+        m_MaterialView.Zoom = 1.0f;
         m_FolderSummary = {};
         ResetPreviews();
         m_VersionPath.clear();
@@ -170,6 +175,8 @@ namespace Zamin {
         m_Preview = nullptr;
         m_PreviewPath.clear();
         m_Model = nullptr;
+        m_Material = nullptr;
+        m_MaterialLoaded = false;
         m_FolderSummary = {};
         ResetPreviews();
         m_VersionPath.clear();
@@ -217,6 +224,8 @@ namespace Zamin {
             m_Preview = nullptr;
             m_PreviewPath.clear();
             m_Model = nullptr;
+            m_Material = nullptr; // looked up by the new path (the library moved it: the same object)
+            m_MaterialLoaded = false;
             ResetPreviews();
             m_VersionPath.clear();
         }
@@ -281,6 +290,7 @@ namespace Zamin {
         {
             case AssetType::Texture: return !(m_TextureEdit == m_TextureSaved);
             case AssetType::Model:   return !(m_ModelEdit == m_ModelSaved);
+            case AssetType::Material: return HasUnsavedMaterial();
             default:                 return false;
         }
     }
@@ -293,12 +303,15 @@ namespace Zamin {
         edits.Type = m_Type;
         edits.Texture = m_TextureEdit;
         edits.Model = m_ModelEdit;
+        edits.Material = m_Material;
+        edits.MaterialSaved = m_MaterialSaved;
+        edits.MaterialEdit = m_MaterialEdit;
         return edits;
     }
 
     void AssetInspectorPanel::KeepUnappliedEdits()
     {
-        if (!HasUnappliedChanges() || !FindMetadata())
+        if (!HasUnappliedChanges() || (m_Type != AssetType::Material && !FindMetadata()))
             return;
         PendingEdits edits = CaptureEdits();
         auto same = [&](const PendingEdits& p) { return p.Handle == edits.Handle && p.Path == edits.Path; };
@@ -308,6 +321,26 @@ namespace Zamin {
 
     bool AssetInspectorPanel::ApplyEdits(const PendingEdits& edits, bool showStatus)
     {
+        if (edits.Type == AssetType::Material)
+        {
+            // Materials keep their edits in the shared object; saving writes them to the .zmat.
+            if (!edits.Material)
+                return false;
+            edits.Material->SetData(edits.MaterialEdit);
+            bool saved = edits.Material->Save();
+            std::string name = Project::GetAssetRelativePath(edits.Material->GetPath());
+            if (showStatus)
+            {
+                m_StatusError = !saved;
+                m_StatusTime = ImGui::GetTime();
+                m_Status = saved ? "Saqlandi" : "Saqlanmadi - faylga yozib bo'lmadi";
+            }
+            if (saved)
+                ZM_INFO("Material saqlandi: {}", name);
+            else
+                ZM_ERROR("Material saqlanmadi: {}", name);
+            return saved;
+        }
         AssetRegistry* registry = GetRegistry();
         if (!registry)
             return false;
@@ -349,6 +382,8 @@ namespace Zamin {
 
     bool AssetInspectorPanel::Apply()
     {
+        if (m_Type == AssetType::Material)
+            return HasUnsavedMaterial() && SaveMaterial();
         if (!HasUnappliedChanges() || !ApplyEdits(CaptureEdits(), true))
             return false;
         m_TextureSaved = m_TextureEdit;
@@ -361,6 +396,8 @@ namespace Zamin {
     {
         m_TextureEdit = m_TextureSaved;
         m_ModelEdit = m_ModelSaved;
+        if (m_Type == AssetType::Material)
+            RevertMaterial();
     }
 
     void AssetInspectorPanel::DrawPopups()
@@ -369,28 +406,42 @@ namespace Zamin {
             return;
         if (!ImGui::IsPopupOpen("###UnappliedImport"))
             ImGui::OpenPopup("###UnappliedImport");
-        if (ImGui::BeginPopupModal(ICON_FA_TRIANGLE_EXCLAMATION "  Qo'llanmagan import sozlamalari###UnappliedImport", nullptr,
-                                   ImGuiWindowFlags_AlwaysAutoResize))
+        const bool material = m_Pending.front().Type == AssetType::Material;
+        std::string popupTitle = material ? ICON_FA_TRIANGLE_EXCLAMATION "  Saqlanmagan material###UnappliedImport"
+                                          : ICON_FA_TRIANGLE_EXCLAMATION "  Qo'llanmagan import sozlamalari###UnappliedImport";
+        if (ImGui::BeginPopupModal(popupTitle.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             const PendingEdits& edits = m_Pending.front();
             AssetRegistry* registry = GetRegistry();
             const AssetMetadata* meta = registry ? (edits.Handle ? registry->Find(edits.Handle) : registry->Find(edits.Path)) : nullptr;
             std::string name = meta ? meta->RelativePath : edits.Path.filename().string();
-            ImGui::Text("'%s' import sozlamalari o'zgartirilgan, lekin qo'llanmagan.", name.c_str());
-            ImGui::TextDisabled("Qo'llansa .zmeta fayliga yoziladi va asset darhol qayta import qilinadi.");
+            if (material)
+            {
+                ImGui::Text("'%s' materiali o'zgartirilgan, lekin saqlanmagan.", name.c_str());
+                ImGui::TextDisabled("Saqlansa .zmat fayliga yoziladi; tashlab yuborilsa saqlangan holiga qaytadi.");
+            }
+            else
+            {
+                ImGui::Text("'%s' import sozlamalari o'zgartirilgan, lekin qo'llanmagan.", name.c_str());
+                ImGui::TextDisabled("Qo'llansa .zmeta fayliga yoziladi va asset darhol qayta import qilinadi.");
+            }
             ImGui::Spacing();
             bool close = false;
             ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentU32(0.75f));
-            if (ImGui::Button(ICON_FA_CHECK "  Qo'llash", ImVec2(150, 0)))
+            if (ImGui::Button(material ? ICON_FA_FLOPPY_DISK "  Saqlash" : ICON_FA_CHECK "  Qo'llash", ImVec2(150, 0)))
             {
-                if (!ApplyEdits(edits, false))
+                if (!ApplyEdits(edits, false) && !material)
                     ZM_WARN("Import sozlamalari saqlanmadi: '{}' ro'yxatda yo'q", name);
                 close = true;
             }
             ImGui::PopStyleColor();
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_XMARK "  Tashlab yuborish", ImVec2(170, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+            {
+                if (material && edits.Material)
+                    edits.Material->SetData(edits.MaterialSaved); // the scene shows the saved material again
                 close = true;
+            }
             if (close)
             {
                 m_Pending.erase(m_Pending.begin());
@@ -438,6 +489,7 @@ namespace Zamin {
             case AssetType::Prefab:      DrawSceneFile(); break;
             case AssetType::Font:        DrawFont(); break;
             case AssetType::Script:      DrawScript(); break;
+            case AssetType::Material:    DrawMaterial(); break;
             default:
                 ImGui::Spacing();
                 ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Bu turdagi fayl uchun ko'rinish yo'q");
@@ -498,6 +550,13 @@ namespace Zamin {
         ImGui::PushFont(ImGuiLayer::GetBoldFont());
         ImGui::TextUnformatted(m_Path.filename().string().c_str());
         ImGui::PopFont();
+        if (m_Type == AssetType::Material && HasUnsavedMaterial())
+        {
+            ImGui::SameLine();
+            ImGui::TextColored(s_WarnColor, ICON_FA_CIRCLE " saqlanmagan");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Material o'zgartirilgan (sahnada ko'rinadi), lekin faylga saqlanmagan");
+        }
         ImGui::TextDisabled("%s", AssetFiles::GetTypeName(m_Type));
         // Quick actions.
         if (OnRevealRequested && ImGui::SmallButton(ICON_FA_FOLDER_OPEN "##reveal"))

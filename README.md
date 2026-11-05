@@ -71,7 +71,15 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - **Cascaded Shadow Maps** (3 kaskad, 4096 atlas, PCF, texel snapping), **tuman** (masofa + balandlik)
   - Primitivlar (kub, shar, tekislik, silindr, konus), `.obj` va `.gltf/.glb` modellar
   - **HDR pipeline**: sahna float bufferga chiziladi, tonemapping (ACES / Reinhard / yo'q), haqiqiy HDR bloom
-  - Material xaritalari: **normal map**, metallic/roughness map, emissive map
+  - Material xaritalari: **normal map**, metallic/roughness map, emissive map; tekstura **takrorlash va siljish** (vec2)
+  - **Material assetlari (`.zmat`)**: JSON fayl — shader (Lit / Unlit), aralashtirish rejimi (Opaque / Cutout / Transparent),
+    alfa chegarasi, ikki tomonlama, rang, metallik, g'adir-budurlik, nurlanish (rang + kuch), normal / metal-roughness /
+    nurlanish teksturalari (loyiha yo'li + UUID), takrorlash va siljish. Bitta fayl — bitta umumiy obyekt (`MaterialLibrary`):
+    Mesh Renderer'da **Material asset** maydoni (primitiv va modelning barcha qismlari, yoki har bir submesh uchun alohida)
+    ichki materialni almashtiradi; eski sahnalar avvalgidek yuklanadi. Fayl yoki uning teksturalari o'zgarsa joyida qayta
+    yuklanadi. Inspektorda **material muharriri**: aylanadigan preview (shar / kub / tekislik / silindr, osmon gradienti
+    yoki sahna HDRI'si bilan), o'zgarishlar sahnada darhol ko'rinadi, **Saqlash** / **Bekor qilish**, saqlanmagan belgisi.
+    Ichki materialni bir tugma bilan `.zmat`ga aylantirish mumkin
   - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
   - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti,
     kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`

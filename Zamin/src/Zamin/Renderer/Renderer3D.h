@@ -52,7 +52,9 @@ namespace Zamin {
         float FogHeightFalloff = 0.05f;
     };
 
-    // Forward PBR mesh renderer with directional shadow map and gradient sky.
+    // Forward PBR mesh renderer with directional shadow map and gradient sky. Materials: Lit or
+    // Unlit; opaque and cutout (alpha tested) surfaces first, then the sky, then transparent ones
+    // (alpha blended, sorted back to front, no depth write, no shadows).
     class Renderer3D
     {
     public:
@@ -73,6 +75,10 @@ namespace Zamin {
                              const GridSettings& settings = {});
 
         static uint32_t GetShadowMapRendererID();
+
+        // The order transparent surfaces at these world positions are drawn in: back to front
+        // (the farthest from the camera first; equal depths keep their order).
+        static std::vector<size_t> SortBackToFront(const glm::mat4& view, const std::vector<glm::vec3>& positions);
     };
 
 }

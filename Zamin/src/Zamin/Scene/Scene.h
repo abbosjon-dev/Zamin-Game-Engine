@@ -5,6 +5,7 @@
 #include "Zamin/Renderer/EditorCamera.h"
 #include "Zamin/Physics/PhysicsTypes.h"
 #include "Zamin/Renderer/PostProcess.h"
+#include "Zamin/Renderer/MaterialAsset.h"
 
 #include <filesystem>
 #include <memory>
@@ -451,7 +452,17 @@ namespace Zamin {
         // destroy its own entity / component and keep running until its callback returns.
         void DeleteRetiredScripts();
     public:
+        // Looks up the mesh / model, the material assets and the inline material's textures.
         static void ResolveMeshRenderer(struct MeshRendererComponent& mr);
+        // Only the material assets (MaterialPath, SubmeshMaterials) and inline textures: no GPU mesh.
+        static void ResolveMeshMaterials(struct MeshRendererComponent& mr);
+        // What a mesh renderer draws with. A primitive (modelMaterial = null): its material asset,
+        // or the inline material. Submesh `submesh` of a model: the slot's material asset, then the
+        // component's material asset, else the model's own material tinted / overridden by the
+        // inline material (albedo multiplied, inline maps replace the model's, emission added).
+        static Material ComposeMeshMaterial(const struct MeshRendererComponent& mr, const Material* modelMaterial, size_t submesh = 0);
+        // The material asset submesh `submesh` (or the primitive) is drawn with (null = none).
+        static Ref<MaterialAsset> GetMeshMaterialAsset(const struct MeshRendererComponent& mr, size_t submesh = 0);
     private:
         void RenderScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                          const SceneRenderOptions& options);

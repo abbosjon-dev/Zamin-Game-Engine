@@ -2838,7 +2838,6 @@ namespace Zamin {
 
     void Scene::ResolveMeshRenderer(MeshRendererComponent& mr)
     {
-        auto tex = [](const std::string& p) { return p.empty() ? nullptr : TextureLibrary::Load(Project::GetAssetFileSystemPath(p)); };
         if (mr.Type == PrimitiveMesh::Model)
         {
             mr.MeshAsset = nullptr;
@@ -2849,10 +2848,49 @@ namespace Zamin {
             mr.ModelAsset = nullptr;
             mr.MeshAsset = MeshLibrary::GetPrimitive(mr.Type);
         }
+        ResolveMeshMaterials(mr);
+    }
+
+    void Scene::ResolveMeshMaterials(MeshRendererComponent& mr)
+    {
+        auto tex = [](const std::string& p) { return MaterialLibrary::LoadTexture(p); };
         mr.Mat.AlbedoMap = tex(mr.AlbedoPath);
         mr.Mat.NormalMap = tex(mr.NormalPath);
         mr.Mat.MetalRoughMap = tex(mr.MetalRoughPath);
         mr.Mat.EmissiveMap = tex(mr.EmissivePath);
+        mr.MaterialRef = mr.MaterialPath.empty() ? nullptr : MaterialLibrary::Load(Project::GetAssetFileSystemPath(mr.MaterialPath));
+        mr.SubmeshMaterialRefs.assign(mr.SubmeshMaterials.size(), nullptr);
+        for (size_t i = 0; i < mr.SubmeshMaterials.size(); i++)
+            if (!mr.SubmeshMaterials[i].empty())
+                mr.SubmeshMaterialRefs[i] = MaterialLibrary::Load(Project::GetAssetFileSystemPath(mr.SubmeshMaterials[i]));
+    }
+
+    Ref<MaterialAsset> Scene::GetMeshMaterialAsset(const MeshRendererComponent& mr, size_t submesh)
+    {
+        if (mr.Type == PrimitiveMesh::Model && submesh < mr.SubmeshMaterialRefs.size() && mr.SubmeshMaterialRefs[submesh])
+            return mr.SubmeshMaterialRefs[submesh];
+        return mr.MaterialRef;
+    }
+
+    Material Scene::ComposeMeshMaterial(const MeshRendererComponent& mr, const Material* modelMaterial, size_t submesh)
+    {
+        if (Ref<MaterialAsset> asset = GetMeshMaterialAsset(mr, modelMaterial ? submesh : 0))
+            return asset->GetMaterial();
+        if (!modelMaterial)
+            return mr.Mat;
+        // The model's own material with the inline material as tint / overrides.
+        Material m = *modelMaterial;
+        m.Albedo *= mr.Mat.Albedo;
+        if (mr.Mat.AlbedoMap) m.AlbedoMap = mr.Mat.AlbedoMap;
+        if (mr.Mat.NormalMap) m.NormalMap = mr.Mat.NormalMap;
+        if (mr.Mat.MetalRoughMap) m.MetalRoughMap = mr.Mat.MetalRoughMap;
+        if (mr.Mat.EmissiveMap) m.EmissiveMap = mr.Mat.EmissiveMap;
+        m.Emission = m.Emission * m.EmissionStrength + mr.Mat.Emission * mr.Mat.EmissionStrength;
+        m.EmissionStrength = 1.0f;
+        m.Tiling *= mr.Mat.Tiling;
+        m.Offset = m.Offset * mr.Mat.Tiling + mr.Mat.Offset;
+        m.NormalStrength *= mr.Mat.NormalStrength;
+        return m;
     }
 
     // ------------------------------------------------------------------ rendering
@@ -2939,18 +2977,11 @@ namespace Zamin {
                 mr.MeshAsset = MeshLibrary::GetPrimitive(mr.Type);
             if (mr.Type == PrimitiveMesh::Model && mr.ModelAsset)
             {
-                for (const auto& sub : mr.ModelAsset->GetSubMeshes())
+                const auto& subMeshes = mr.ModelAsset->GetSubMeshes();
+                for (size_t index = 0; index < subMeshes.size(); index++)
                 {
-                    Material m = sub.Mat;
-                    m.Albedo *= mr.Mat.Albedo;
-                    if (mr.Mat.AlbedoMap) m.AlbedoMap = mr.Mat.AlbedoMap;
-                    if (mr.Mat.NormalMap) m.NormalMap = mr.Mat.NormalMap;
-                    if (mr.Mat.MetalRoughMap) m.MetalRoughMap = mr.Mat.MetalRoughMap;
-                    if (mr.Mat.EmissiveMap) m.EmissiveMap = mr.Mat.EmissiveMap;
-                    m.Emission = m.Emission * m.EmissionStrength + mr.Mat.Emission * mr.Mat.EmissionStrength;
-                    m.EmissionStrength = 1.0f;
-                    m.Tiling *= mr.Mat.Tiling;
-                    m.NormalStrength *= mr.Mat.NormalStrength;
+                    const auto& sub = subMeshes[index];
+                    Material m = ComposeMeshMaterial(mr, &sub.Mat, index);
                     const std::vector<glm::mat4>* joints = nullptr;
                     if (sub.MeshRef->IsSkinned())
                         if (auto* anim = m_Registry.try_get<AnimatorComponent>(e); anim && !anim->JointMatrices.empty())
@@ -2966,7 +2997,8 @@ namespace Zamin {
                 }
             }
             else if (mr.MeshAsset)
-                Renderer3D::SubmitMesh(mr.MeshAsset, world(e), mr.Mat, (int)(uint32_t)e, mr.CastShadows);
+                Renderer3D::SubmitMesh(mr.MeshAsset, world(e), mr.MaterialRef ? mr.MaterialRef->GetMaterial() : mr.Mat, (int)(uint32_t)e,
+                                       mr.CastShadows);
         }
         Renderer3D::EndScene();
 

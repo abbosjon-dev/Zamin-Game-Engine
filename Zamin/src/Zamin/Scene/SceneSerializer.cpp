@@ -239,12 +239,28 @@ namespace Zamin {
             json& j = e["MeshRenderer"];
             j = {
                 { "Mesh", PrimitiveMeshToString(c->Type) }, { "Model", c->ModelPath }, { "CastShadows", c->CastShadows },
-                { "Albedo", ToJson(c->Mat.Albedo) }, { "AlbedoMap", c->AlbedoPath }, { "Tiling", c->Mat.Tiling },
+                { "Material", c->MaterialPath },
+                { "Albedo", ToJson(c->Mat.Albedo) }, { "AlbedoMap", c->AlbedoPath },
+                // the same on both axes: one number, as before tiling became a vec2
+                { "Tiling", c->Mat.Tiling.x == c->Mat.Tiling.y ? json(c->Mat.Tiling.x) : ToJson(c->Mat.Tiling) },
+                { "Offset", ToJson(c->Mat.Offset) },
                 { "NormalMap", c->NormalPath }, { "NormalStrength", c->Mat.NormalStrength },
                 { "MetalRoughMap", c->MetalRoughPath }, { "EmissiveMap", c->EmissivePath },
                 { "Metallic", c->Mat.Metallic }, { "Roughness", c->Mat.Roughness },
                 { "Emission", ToJson(c->Mat.Emission) }, { "EmissionStrength", c->Mat.EmissionStrength },
             };
+            WriteAssetHandle(j, "Material", c->MaterialPath);
+            if (std::any_of(c->SubmeshMaterials.begin(), c->SubmeshMaterials.end(), [](const std::string& p) { return !p.empty(); }))
+            {
+                json slots = json::array();
+                for (const std::string& path : c->SubmeshMaterials)
+                {
+                    json slot = { { "Material", path } };
+                    WriteAssetHandle(slot, "Material", path);
+                    slots.push_back(std::move(slot));
+                }
+                j["SubmeshMaterials"] = std::move(slots);
+            }
             WriteAssetHandle(j, "Model", c->ModelPath);
             WriteAssetHandle(j, "AlbedoMap", c->AlbedoPath);
             WriteAssetHandle(j, "NormalMap", c->NormalPath);
@@ -457,7 +473,16 @@ namespace Zamin {
             c.Mat.NormalStrength = j.value("NormalStrength", 1.0f);
             c.MetalRoughPath = ReadAssetPath(j, "MetalRoughMap");
             c.EmissivePath = ReadAssetPath(j, "EmissiveMap");
-            c.Mat.Tiling = j.value("Tiling", 1.0f);
+            c.MaterialPath = ReadAssetPath(j, "Material");
+            if (auto slots = j.find("SubmeshMaterials"); slots != j.end() && slots->is_array())
+                for (const json& slot : *slots)
+                    c.SubmeshMaterials.push_back(slot.is_object() ? ReadAssetPath(slot, "Material") : slot.is_string() ? slot.get<std::string>() : std::string());
+            // A single number before tiling became a vec2 (the same on both axes).
+            if (auto tiling = j.find("Tiling"); tiling != j.end() && tiling->is_number())
+                c.Mat.Tiling = glm::vec2(tiling->get<float>());
+            else
+                c.Mat.Tiling = Vec(j, "Tiling", glm::vec2(1.0f));
+            c.Mat.Offset = Vec(j, "Offset", glm::vec2(0.0f));
             c.Mat.Metallic = j.value("Metallic", 0.0f);
             c.Mat.Roughness = j.value("Roughness", 0.5f);
             c.Mat.Emission = Vec(j, "Emission", glm::vec3(0.0f));

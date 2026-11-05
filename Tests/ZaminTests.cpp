@@ -8915,6 +8915,388 @@ TEST(AssetThumbnailsAndDiskCache)
     fs::remove_all(dir, ec);
 }
 
+// ------------------------------------------------------------------ materials (.zmat)
+// A texture without a GPU: the material tests hand these out instead of loading files.
+class FakeTexture : public Texture2D
+{
+public:
+    explicit FakeTexture(std::string path) : m_Path(std::move(path)) {}
+    const TextureSpecification& GetSpecification() const override { return m_Spec; }
+    uint32_t GetWidth() const override { return 1; }
+    uint32_t GetHeight() const override { return 1; }
+    uint32_t GetRendererID() const override { return 0; }
+    const std::string& GetPath() const override { return m_Path; }
+    void SetData(const void*, uint32_t) override {}
+    void Bind(uint32_t = 0) const override {}
+    bool IsLoaded() const override { return true; }
+    bool operator==(const Texture& other) const override { return this == &other; }
+    bool Reload(std::string* = nullptr) override { return true; }
+    bool Reimport(const TextureImportSettings&, std::string* = nullptr) override { return true; }
+
+private:
+    TextureSpecification m_Spec;
+    std::string m_Path;
+};
+
+// Installs a texture loader that makes one FakeTexture per path and counts the calls.
+struct FakeTextureLoader
+{
+    std::unordered_map<std::string, Ref<Texture2D>> Textures;
+    int Calls = 0;
+    std::set<std::string> Missing; // paths that "fail" (nullptr)
+
+    FakeTextureLoader()
+    {
+        MaterialLibrary::SetTextureLoader([this](const std::string& path) -> Ref<Texture2D> {
+            Calls++;
+            if (Missing.count(path))
+                return nullptr;
+            auto& texture = Textures[path];
+            if (!texture)
+                texture = CreateRef<FakeTexture>(path);
+            return texture;
+        });
+    }
+    ~FakeTextureLoader()
+    {
+        MaterialLibrary::SetTextureLoader(nullptr);
+        MaterialLibrary::Clear();
+    }
+};
+
+TEST(MaterialFormatRoundtrip)
+{
+    // Defaults: an empty object is the default material, and the default material is what the
+    // renderer's Material starts as.
+    MaterialData defaults;
+    MaterialData read;
+    CHECK(MaterialSerializer::DeserializeFromString("{}", read) && read == defaults);
+    CHECK(defaults.Shader == MaterialShader::Lit && defaults.BlendMode == MaterialBlendMode::Opaque);
+    CHECK(defaults.Tiling == glm::vec2(1.0f) && defaults.Offset == glm::vec2(0.0f) && defaults.Albedo == glm::vec4(1.0f));
+    CHECK(MaterialData::FromMaterial(Material{}) == defaults);
+
+    MaterialData d;
+    d.Shader = MaterialShader::Unlit;
+    d.BlendMode = MaterialBlendMode::Cutout;
+    d.AlphaCutoff = 0.35f;
+    d.DoubleSided = true;
+    d.Albedo = { 0.2f, 0.4f, 0.6f, 0.8f };
+    d.AlbedoMap = "Textures/leaves.png";
+    d.Metallic = 0.75f;
+    d.Roughness = 0.125f;
+    d.MetalRoughMap = "Textures/mr.png";
+    d.NormalMap = "Textures/n.png";
+    d.NormalStrength = 1.5f;
+    d.Emission = { 1.0f, 0.5f, 0.25f };
+    d.EmissionStrength = 3.0f;
+    d.EmissiveMap = "Textures/e.png";
+    d.Tiling = { 2.0f, 4.0f };
+    d.Offset = { 0.5f, -0.25f };
+    std::string text = MaterialSerializer::SerializeToString(d);
+    CHECK(text.find("\"Version\": 1") != std::string::npos);
+    CHECK(text.find("\"Shader\": \"Unlit\"") != std::string::npos && text.find("\"BlendMode\": \"Cutout\"") != std::string::npos);
+    MaterialData back;
+    CHECK(MaterialSerializer::DeserializeFromString(text, back));
+    CHECK(back == d);
+    CHECK(d.GetTexturePaths() == std::vector<std::string>({ "Textures/leaves.png", "Textures/mr.png", "Textures/n.png", "Textures/e.png" }));
+
+    // Old single-number tiling, unknown names, out of range cutoff, partial vectors.
+    CHECK(MaterialSerializer::DeserializeFromString(R"({ "Tiling": 4, "Shader": "Toon", "BlendMode": "Additive", "AlphaCutoff": 3,
+                                                        "Albedo": [0.5, 0.5] })", read));
+    CHECK(read.Tiling == glm::vec2(4.0f) && read.Shader == MaterialShader::Lit && read.BlendMode == MaterialBlendMode::Opaque);
+    CHECK(read.AlphaCutoff == 1.0f && read.Albedo == glm::vec4(1.0f));
+    CHECK(MaterialSerializer::DeserializeFromString(R"({ "Tiling": [3, 0.5], "BlendMode": "Transparent", "Version": 99 })", read));
+    CHECK(read.Tiling == glm::vec2(3.0f, 0.5f) && read.BlendMode == MaterialBlendMode::Transparent);
+
+    std::string error;
+    CHECK(!MaterialSerializer::DeserializeFromString("{ broken", read, &error) && !error.empty());
+    CHECK(!MaterialSerializer::DeserializeFromString("[1, 2]", read, &error));
+    CHECK(!MaterialSerializer::Deserialize("/no/such/dir/x.zmat", read, &error) && !error.empty());
+
+    for (MaterialShader shader : { MaterialShader::Lit, MaterialShader::Unlit })
+        CHECK(MaterialSerializer::ShaderFromString(MaterialSerializer::ShaderToString(shader)) == shader);
+    for (MaterialBlendMode mode : { MaterialBlendMode::Opaque, MaterialBlendMode::Cutout, MaterialBlendMode::Transparent })
+        CHECK(MaterialSerializer::BlendModeFromString(MaterialSerializer::BlendModeToString(mode)) == mode);
+    CHECK(!MaterialSerializer::ShaderFromString("lit") && !MaterialSerializer::BlendModeFromString(""));
+
+    // Values into a renderer material and back.
+    Material m;
+    d.ApplyValuesTo(m);
+    CHECK(m.Shader == MaterialShader::Unlit && m.BlendMode == MaterialBlendMode::Cutout && m.DoubleSided && m.AlphaCutoff == 0.35f);
+    CHECK(m.Tiling == glm::vec2(2.0f, 4.0f) && m.Offset == glm::vec2(0.5f, -0.25f) && m.EmissionStrength == 3.0f);
+    MaterialData values = MaterialData::FromMaterial(m);
+    values.AlbedoMap = d.AlbedoMap; values.MetalRoughMap = d.MetalRoughMap; values.NormalMap = d.NormalMap; values.EmissiveMap = d.EmissiveMap;
+    CHECK(values == d);
+}
+
+TEST(MaterialAssetLibraryAndReload)
+{
+    namespace fs = std::filesystem;
+    Project::SetActive(nullptr);
+    FakeTextureLoader loader;
+    fs::path dir = MakeTempDir("zamin-materials-");
+    fs::path file = dir / "Materials" / "Gold.zmat";
+    MaterialData gold;
+    gold.Albedo = { 1.0f, 0.8f, 0.3f, 1.0f };
+    gold.Metallic = 1.0f;
+    gold.AlbedoMap = (dir / "Textures" / "gold.png").string();
+    CHECK(MaterialSerializer::Serialize(gold, file)); // makes the folder
+
+    // One shared object per file, whatever the spelling of the path.
+    Ref<MaterialAsset> a = MaterialLibrary::Load(file);
+    CHECK(a && a->GetData() == gold && a->GetPath() == fs::path(MaterialLibrary::MakeKey(file)));
+    CHECK(MaterialLibrary::Load(dir / "Materials" / "." / "Gold.zmat") == a && MaterialLibrary::Find(file) == a);
+    CHECK(MaterialLibrary::IsFileLoaded(file) && MaterialLibrary::GetLoaded().size() == 1);
+    CHECK(a->GetMaterial().AlbedoMap && a->GetMaterial().AlbedoMap->GetPath() == gold.AlbedoMap && a->GetMaterial().Metallic == 1.0f);
+    CHECK(!a->GetMaterial().NormalMap && loader.Calls == 1); // empty paths never reach the loader
+    CHECK(MaterialLibrary::UsesTexture(dir / "Textures" / "gold.png") && !MaterialLibrary::UsesTexture(dir / "Textures" / "x.png"));
+
+    // Edits: only changed texture paths are looked up again; every change has a new revision.
+    uint64_t revision = a->GetRevision();
+    MaterialData edit = a->GetData();
+    edit.Roughness = 0.1f;
+    a->SetData(edit);
+    CHECK(a->GetRevision() != revision && loader.Calls == 1 && a->GetMaterial().Roughness == 0.1f);
+    revision = a->GetRevision();
+    a->SetData(edit); // the same values: nothing changes
+    CHECK(a->GetRevision() == revision);
+    edit.NormalMap = "Textures/n.png";
+    a->SetData(edit);
+    CHECK(loader.Calls == 2 && a->GetMaterial().NormalMap && a->GetMaterial().NormalMap->GetPath() == "Textures/n.png");
+
+    // Instances: a copy whose edits leave the shared asset alone.
+    Ref<MaterialAsset> copy = a->Clone();
+    CHECK(copy != a && copy->GetData() == a->GetData() && copy->GetMaterial().AlbedoMap == a->GetMaterial().AlbedoMap);
+    MaterialData red = copy->GetData();
+    red.Albedo = { 1.0f, 0.0f, 0.0f, 1.0f };
+    copy->SetData(red);
+    CHECK(a->GetData().Albedo == gold.Albedo && copy->GetMaterial().Albedo == red.Albedo && copy->GetRevision() != a->GetRevision());
+    CHECK(MaterialLibrary::Find(file) == a); // the clone is not cached
+
+    // The file changed on disk: read again into the same object (what hot reload does).
+    MaterialData changed = gold;
+    changed.Roughness = 0.9f;
+    changed.Tiling = { 3.0f, 3.0f };
+    CHECK(MaterialSerializer::Serialize(changed, file));
+    bool failed = false;
+    CHECK(MaterialLibrary::ReloadFile(file, &failed) == 1 && !failed);
+    CHECK(MaterialLibrary::Find(file) == a && a->GetData() == changed && a->GetMaterial().Tiling == glm::vec2(3.0f));
+    // Saved by the editor with what it already holds: nothing to update.
+    CHECK(a->Save() && MaterialLibrary::ReloadFile(file, &failed) == 0 && !failed);
+    // Broken on disk: the old content stays and the error is reported (once) for the file.
+    AssetImportLog::ClearAll();
+    FileSystem::WriteTextFile(file, "{ not json");
+    CHECK(MaterialLibrary::ReloadFile(file, &failed) == 0 && failed);
+    CHECK(a->GetData() == changed && AssetImportLog::HasError(file));
+    CHECK(AssetImportLog::Find(file)->Reload);
+    CHECK(MaterialSerializer::Serialize(changed, file));
+    CHECK(a->Reload() && !AssetImportLog::HasError(file));
+
+    // A texture appeared / changed: the materials using it take it again.
+    loader.Missing.insert("Textures/n.png");
+    edit = a->GetData();
+    edit.NormalMap = "Textures/n.png";
+    a->SetData(edit);
+    CHECK(!a->GetMaterial().NormalMap);
+    loader.Missing.clear();
+    CHECK(MaterialLibrary::ReloadFile(dir / "Textures" / "gold.png") == 1 && a->GetMaterial().NormalMap);
+    // The same through hot reload, when a texture file a material names appears.
+    {
+        MaterialData withAbsolute = a->GetData();
+        withAbsolute.EmissiveMap = (dir / "Textures" / "glow.png").string();
+        loader.Missing.insert(withAbsolute.EmissiveMap);
+        a->SetData(withAbsolute);
+        CHECK(!a->GetMaterial().EmissiveMap);
+        loader.Missing.clear();
+        AssetHotReload watcher;
+        AssetHotReload::Report added = watcher.Apply({ { dir / "Textures" / "glow.png", FileChangeType::Added, false } }, nullptr);
+        CHECK(added.Reloaded.size() == 1 && a->GetMaterial().EmissiveMap);
+    }
+
+    // Hot reload knows .zmat files.
+    CHECK(AssetHotReload::CanReload("Materials/Glass.zmat") && AssetHotReload::IsLoaded(file));
+    changed.Metallic = 0.5f;
+    CHECK(MaterialSerializer::Serialize(changed, file));
+    AssetHotReload hotReload;
+    AssetHotReload::Report report = hotReload.Apply({ { file, FileChangeType::Modified, false } }, nullptr);
+    CHECK(report.Reloaded.size() == 1 && report.Failed.empty() && a->GetData().Metallic == 0.5f);
+
+    // Renamed: the cached object follows (scenes resolving the new path get it).
+    fs::path moved = dir / "Materials" / "Brass.zmat";
+    fs::rename(file, moved);
+    MaterialLibrary::OnFileMoved(file, moved);
+    CHECK(!MaterialLibrary::Find(file) && MaterialLibrary::Load(moved) == a && a->GetPath() == fs::path(MaterialLibrary::MakeKey(moved)));
+    // A whole folder moved.
+    fs::rename(dir / "Materials", dir / "Mats");
+    MaterialLibrary::OnFileMoved(dir / "Materials", dir / "Mats");
+    CHECK(MaterialLibrary::Find(dir / "Mats" / "Brass.zmat") == a);
+
+    // Missing / broken files: nullptr, reported once, not read again until the file changes.
+    AssetImportLog::ClearAll();
+    CHECK(!MaterialLibrary::Load(dir / "Nope.zmat") && AssetImportLog::HasError(dir / "Nope.zmat"));
+    CHECK(!AssetImportLog::ShouldRetry(dir / "Nope.zmat") && !MaterialLibrary::Load(dir / "Nope.zmat"));
+    FileSystem::WriteTextFile(dir / "Broken.zmat", "[]");
+    CHECK(!MaterialLibrary::Load(dir / "Broken.zmat") && AssetImportLog::HasError(dir / "Broken.zmat"));
+    MaterialSerializer::Serialize(MaterialData{}, dir / "Broken.zmat");
+    AssetImportLog::OnFileChanged(dir / "Broken.zmat");
+    CHECK(MaterialLibrary::Load(dir / "Broken.zmat") && !AssetImportLog::HasError(dir / "Broken.zmat"));
+    AssetImportLog::ClearAll();
+
+    // Released when nothing holds it any more.
+    CHECK(!MaterialLibrary::ReleaseIfUnused(dir / "Mats" / "Brass.zmat"));
+    a.reset();
+    CHECK(MaterialLibrary::ReleaseIfUnused(dir / "Mats" / "Brass.zmat") && !MaterialLibrary::Find(dir / "Mats" / "Brass.zmat"));
+
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(MeshRendererMaterialAssets)
+{
+    namespace fs = std::filesystem;
+    FakeTextureLoader loader;
+    fs::path dir = MakeTempDir("zamin-mesh-materials-");
+    CHECK(Project::CreateFromTemplate(dir, "MatGame") != nullptr);
+    fs::path assets = dir / "Assets";
+    WriteFile(assets / "Textures" / "wood.png", "png");
+    MaterialData gold;
+    gold.Albedo = { 1.0f, 0.8f, 0.3f, 1.0f };
+    gold.Metallic = 1.0f;
+    MaterialData red;
+    red.Albedo = { 1.0f, 0.0f, 0.0f, 1.0f };
+    red.AlbedoMap = "Textures/wood.png";
+    CHECK(MaterialSerializer::Serialize(gold, assets / "Materials" / "Gold.zmat"));
+    CHECK(MaterialSerializer::Serialize(red, assets / "Materials" / "Red.zmat"));
+    bool writes = AssetRegistry::GetWriteMetaFilesByDefault();
+    AssetRegistry::SetWriteMetaFilesByDefault(true);
+    CHECK(Project::Load(dir / "MatGame.zproject") != nullptr);
+    AssetRegistry* registry = Project::GetAssetRegistry();
+    CHECK(registry && registry->GetHandle("Materials/Gold.zmat") && registry->GetHandle("Textures/wood.png"));
+    // Texture UUIDs go next to their paths in the .zmat (renames outside the editor are followed).
+    std::string redText = MaterialSerializer::SerializeToString(red);
+    CHECK(redText.find("\"AlbedoMapUUID\": \"" + registry->GetHandle("Textures/wood.png").ToString() + "\"") != std::string::npos);
+    CHECK(MaterialSerializer::Serialize(red, assets / "Materials" / "Red.zmat"));
+
+    // A scene with material assets: the path (+ UUID) and per-submesh slots round trip.
+    auto scene = CreateRef<Scene>();
+    Entity box = scene->CreateEntity("Box");
+    auto& mr = box.AddComponent<MeshRendererComponent>();
+    mr.MaterialPath = "Materials/Gold.zmat";
+    mr.Mat.Tiling = { 2.0f, 3.0f };
+    mr.Mat.Offset = { 0.5f, 0.25f };
+    Entity statue = scene->CreateEntity("Statue");
+    auto& model = statue.AddComponent<MeshRendererComponent>();
+    model.Type = PrimitiveMesh::Model;
+    model.ModelPath = "Models/statue.gltf";
+    model.SubmeshMaterials = { "", "Materials/Red.zmat" };
+    Entity plain = scene->CreateEntity("Plain");
+    plain.AddComponent<MeshRendererComponent>().Mat.Tiling = glm::vec2(4.0f);
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"MaterialUUID\": \"" + registry->GetHandle("Materials/Gold.zmat").ToString() + "\"") != std::string::npos);
+    CHECK(text.find("\"Tiling\": 4.0") != std::string::npos); // uniform tiling stays one number
+
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity box2 = loaded->FindEntityByName("Box"), statue2 = loaded->FindEntityByName("Statue"), plain2 = loaded->FindEntityByName("Plain");
+    CHECK(box2 && statue2 && plain2);
+    if (box2 && statue2 && plain2)
+    {
+        auto& b = box2.GetComponent<MeshRendererComponent>();
+        auto& s = statue2.GetComponent<MeshRendererComponent>();
+        CHECK(b.MaterialPath == "Materials/Gold.zmat" && b.Mat.Tiling == glm::vec2(2.0f, 3.0f) && b.Mat.Offset == glm::vec2(0.5f, 0.25f));
+        CHECK(s.MaterialPath.empty() && s.SubmeshMaterials == std::vector<std::string>({ "", "Materials/Red.zmat" }));
+        CHECK(plain2.GetComponent<MeshRendererComponent>().Mat.Tiling == glm::vec2(4.0f));
+
+        // Resolved: the shared library objects (no GPU mesh needed for the materials).
+        Scene::ResolveMeshMaterials(b);
+        Scene::ResolveMeshMaterials(s);
+        Ref<MaterialAsset> goldAsset = MaterialLibrary::Find(assets / "Materials" / "Gold.zmat");
+        CHECK(goldAsset && b.MaterialRef == goldAsset && s.SubmeshMaterialRefs.size() == 2 && !s.SubmeshMaterialRefs[0]);
+        CHECK(s.SubmeshMaterialRefs.size() == 2 && s.SubmeshMaterialRefs[1] && s.SubmeshMaterialRefs[1]->GetMaterial().AlbedoMap);
+
+        // What is drawn: the asset replaces the inline material of a primitive ...
+        Material drawn = Scene::ComposeMeshMaterial(b, nullptr);
+        CHECK(drawn.Metallic == 1.0f && drawn.Albedo == gold.Albedo && drawn.Tiling == glm::vec2(1.0f));
+        // ... and is shared: an edit of the asset shows on every renderer using it.
+        MaterialData edit = goldAsset->GetData();
+        edit.Roughness = 0.05f;
+        goldAsset->SetData(edit);
+        CHECK(Scene::ComposeMeshMaterial(b, nullptr).Roughness == 0.05f);
+        // Models: the slot's asset, else the component's asset, else the model's material + inline tint.
+        Material modelMaterial;
+        modelMaterial.Albedo = { 0.5f, 0.5f, 0.5f, 1.0f };
+        modelMaterial.Tiling = { 2.0f, 2.0f };
+        modelMaterial.Offset = { 0.1f, 0.0f };
+        s.Mat.Albedo = { 1.0f, 0.5f, 1.0f, 1.0f };
+        s.Mat.Tiling = { 3.0f, 1.0f };
+        s.Mat.Offset = { 0.0f, 0.5f };
+        CHECK(Scene::ComposeMeshMaterial(s, &modelMaterial, 1).Albedo == red.Albedo);
+        Material tinted = Scene::ComposeMeshMaterial(s, &modelMaterial, 0);
+        CHECK(tinted.Albedo == glm::vec4(0.5f, 0.25f, 0.5f, 1.0f) && tinted.Tiling == glm::vec2(6.0f, 2.0f));
+        CHECK_NEAR(tinted.Offset.x, 0.3f, 1e-6f);
+        CHECK_NEAR(tinted.Offset.y, 0.5f, 1e-6f);
+        CHECK(Scene::ComposeMeshMaterial(s, &modelMaterial, 7).Albedo == tinted.Albedo); // no slot that far
+        s.MaterialPath = "Materials/Gold.zmat";
+        Scene::ResolveMeshMaterials(s);
+        CHECK(Scene::ComposeMeshMaterial(s, &modelMaterial, 0).Metallic == 1.0f && Scene::ComposeMeshMaterial(s, &modelMaterial, 1).Albedo == red.Albedo);
+        CHECK(Scene::GetMeshMaterialAsset(s, 0) == goldAsset && Scene::GetMeshMaterialAsset(s, 1) == s.SubmeshMaterialRefs[1]);
+    }
+
+    // An old scene (before material assets): loads as it was, single-number tiling.
+    auto old = CreateRef<Scene>();
+    CHECK(SceneSerializer(old).DeserializeFromString(R"({ "Scene": "Old", "Entities": [ { "Entity": 5, "Tag": "Floor",
+        "MeshRenderer": { "Mesh": "Plane", "Tiling": 10.0, "Roughness": 0.9 } } ] })"));
+    if (Entity floor = old->FindEntityByName("Floor"))
+    {
+        auto& f = floor.GetComponent<MeshRendererComponent>();
+        CHECK(f.MaterialPath.empty() && f.SubmeshMaterials.empty() && f.Mat.Tiling == glm::vec2(10.0f) && f.Mat.Offset == glm::vec2(0.0f));
+        CHECK(f.Mat.Roughness == 0.9f);
+    }
+
+    // Renamed outside the editor (with its .zmeta): the scene finds the material by its UUID, and
+    // the material finds its texture the same way.
+    fs::rename(assets / "Materials" / "Gold.zmat", assets / "Materials" / "Shiny.zmat");
+    fs::rename(assets / "Materials" / "Gold.zmat.zmeta", assets / "Materials" / "Shiny.zmat.zmeta");
+    fs::rename(assets / "Textures" / "wood.png", assets / "Textures" / "oak.png");
+    fs::rename(assets / "Textures" / "wood.png.zmeta", assets / "Textures" / "oak.png.zmeta");
+    CHECK(Project::Load(dir / "MatGame.zproject") != nullptr);
+    auto repaired = CreateRef<Scene>();
+    CHECK(SceneSerializer(repaired).DeserializeFromString(text));
+    if (Entity e = repaired->FindEntityByName("Box"))
+        CHECK(e.GetComponent<MeshRendererComponent>().MaterialPath == "Materials/Shiny.zmat");
+    MaterialData redBack;
+    CHECK(MaterialSerializer::Deserialize(assets / "Materials" / "Red.zmat", redBack) && redBack.AlbedoMap == "Textures/oak.png");
+    CHECK(MaterialSerializer::Serialize(redBack, assets / "Materials" / "Red.zmat")); // saved with the repaired path
+
+    // Renamed in the editor: material files that refer to the texture are rewritten as well.
+    AssetFiles::MoveResult result = AssetFiles::Rename(assets / "Textures" / "oak.png", "pine.png", assets);
+    CHECK(result.Errors.empty() && std::any_of(result.UpdatedFiles.begin(), result.UpdatedFiles.end(),
+                                               [](const fs::path& f) { return f.filename() == "Red.zmat"; }));
+    CHECK(MaterialSerializer::Deserialize(assets / "Materials" / "Red.zmat", redBack) && redBack.AlbedoMap == "Textures/pine.png");
+
+    // Who uses what: the material refers to its texture, the scene to the material.
+    AssetReferenceIndex index;
+    CHECK(index.BuildForActiveProject());
+    std::vector<std::string> uses = index.GetReferences(assets / "Materials" / "Red.zmat");
+    CHECK(std::find(uses.begin(), uses.end(), "Textures/pine.png") != uses.end());
+
+    AssetRegistry::SetWriteMetaFilesByDefault(writes);
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(TransparentSortBackToFront)
+{
+    // Camera at z = 10 looking at the origin: farther = smaller z. Equal depths keep their order.
+    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    std::vector<glm::vec3> positions = { { 0, 0, 0 }, { 0, 0, -5 }, { 0, 0, 5 }, { 3, 0, 0 } };
+    CHECK(Renderer3D::SortBackToFront(view, positions) == std::vector<size_t>({ 1, 0, 3, 2 }));
+    CHECK(Renderer3D::SortBackToFront(view, {}).empty());
+    // Behind the camera counts as nearest (negative depth): drawn last.
+    CHECK(Renderer3D::SortBackToFront(view, { { 0, 0, 20 }, { 0, 0, 0 } }) == std::vector<size_t>({ 1, 0 }));
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

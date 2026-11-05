@@ -123,6 +123,17 @@ namespace Zamin {
         };
         m_AssetInspectorPanel.SetUsageCache(&m_AssetUsage);
         m_AssetInspectorPanel.OnRevealRequested = [this](const fs::path& p) { RevealAsset(p); };
+        m_SceneHierarchyPanel.OnAssetEditRequested = [this](const fs::path& p) { RevealAsset(p); };
+        // The material preview's "scene" lighting: the open scene's HDRI.
+        m_AssetInspectorPanel.GetSceneLighting = [this](MaterialPreview::Settings& settings) {
+            const SceneSettings* scene = m_ActiveScene ? &m_ActiveScene->GetSettings() : nullptr;
+            if (!scene || scene->EnvironmentMap.empty())
+                return false;
+            settings.Environment = EnvironmentMap::Load(Project::GetAssetFileSystemPath(scene->EnvironmentMap));
+            settings.EnvironmentIntensity = scene->EnvironmentIntensity;
+            settings.EnvironmentRotation = scene->EnvironmentRotation;
+            return settings.Environment != nullptr;
+        };
         m_AssetInspectorPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
         m_UnusedAssetsPanel.SetUsageCache(&m_AssetUsage);
         m_UnusedAssetsPanel.OnAssetSelected = [this](const fs::path& p) { RevealAsset(p); };
@@ -308,6 +319,15 @@ namespace Zamin {
                 std::string_view v(preview);
                 if (v == "play")
                     m_AssetInspectorPanel.StartPreviewPlayback();
+                else if (v == "hdri" || v == "cube" || v == "plane" || v == "cylinder") // materials: lighting / shape
+                {
+                    MaterialPreview::Settings& view = m_AssetInspectorPanel.GetMaterialPreviewSettings();
+                    if (v == "hdri")
+                        m_AssetInspectorPanel.SetMaterialSceneLighting(true);
+                    else
+                        view.PreviewShape = v == "cube" ? MaterialPreview::Shape::Cube : v == "plane" ? MaterialPreview::Shape::Plane
+                                                                                                      : MaterialPreview::Shape::Cylinder;
+                }
                 else
                     m_AssetInspectorPanel.SetTextureChannelView(v == "R" ? ImageChannelView::Red : v == "G" ? ImageChannelView::Green
                                                                : v == "B" ? ImageChannelView::Blue : v == "A" ? ImageChannelView::Alpha
@@ -344,6 +364,53 @@ namespace Zamin {
                 m_AssetInspectorPanel.GetEditedTextureSettings() = AssetImporter::ReadTextureSettings(import);
                 m_AssetInspectorPanel.GetEditedModelSettings() = AssetImporter::ReadModelSettings(import);
                 m_AssetInspectorPanel.Apply();
+            }
+
+        // ZAMIN_EDITOR_MATERIAL_EDIT="Metallic=1,Roughness=0.2,Albedo=0.9:0.2:0.2:1" (with ZAMIN_EDITOR_ASSET
+        // on a .zmat): edits the shown material at frame 30 like its fields do (live, not saved);
+        // ZAMIN_EDITOR_MATERIAL_SAVE=1 then saves it.
+        if (frame == 30 && m_AssetInspectorPanel.GetEditedMaterial())
+            if (const char* edits = std::getenv("ZAMIN_EDITOR_MATERIAL_EDIT"))
+            {
+                MaterialData& d = *m_AssetInspectorPanel.GetEditedMaterial();
+                std::string_view rest(edits);
+                while (!rest.empty())
+                {
+                    size_t comma = rest.find(',');
+                    std::string_view pair = rest.substr(0, comma);
+                    rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
+                    size_t eq = pair.find('=');
+                    if (eq == std::string_view::npos)
+                        continue;
+                    std::string key(pair.substr(0, eq)), value(pair.substr(eq + 1));
+                    std::vector<float> numbers;
+                    for (size_t start = 0; start <= value.size();)
+                    {
+                        size_t colon = value.find(':', start);
+                        numbers.push_back(std::strtof(value.substr(start, colon - start).c_str(), nullptr));
+                        if (colon == std::string::npos)
+                            break;
+                        start = colon + 1;
+                    }
+                    auto at = [&](size_t i) { return numbers[std::min(i, numbers.size() - 1)]; };
+                    if (key == "Metallic") d.Metallic = at(0);
+                    else if (key == "Roughness") d.Roughness = at(0);
+                    else if (key == "NormalStrength") d.NormalStrength = at(0);
+                    else if (key == "EmissionStrength") d.EmissionStrength = at(0);
+                    else if (key == "AlphaCutoff") d.AlphaCutoff = at(0);
+                    else if (key == "Albedo") d.Albedo = { at(0), at(1), at(2), numbers.size() > 3 ? at(3) : 1.0f };
+                    else if (key == "Emission") d.Emission = { at(0), at(1), at(2) };
+                    else if (key == "Tiling") d.Tiling = { at(0), at(1) };
+                    else if (key == "Offset") d.Offset = { at(0), at(1) };
+                    else if (key == "Shader") d.Shader = value == "Unlit" ? MaterialShader::Unlit : MaterialShader::Lit;
+                    else if (key == "BlendMode")
+                        d.BlendMode = MaterialSerializer::BlendModeFromString(value).value_or(MaterialBlendMode::Opaque);
+                    else
+                        ZM_WARN("ZAMIN_EDITOR_MATERIAL_EDIT: noma'lum maydon '{}'", key);
+                }
+                m_AssetInspectorPanel.ApplyMaterialEdit();
+                if (std::getenv("ZAMIN_EDITOR_MATERIAL_SAVE"))
+                    m_AssetInspectorPanel.SaveMaterial();
             }
 
         // Simulated file drops (no drag & drop source in CI): ZAMIN_EDITOR_DROP="a.png;b.wav" at frame
@@ -1688,7 +1755,7 @@ namespace Zamin {
             {
                 AssetType type = AssetFiles::GetType(changed);
                 bool resolvable = type == AssetType::Texture || type == AssetType::Model || type == AssetType::Font ||
-                                  type == AssetType::Environment;
+                                  type == AssetType::Environment || type == AssetType::Material;
                 if (!resolvable || std::find(report.Reloaded.begin(), report.Reloaded.end(), changed) != report.Reloaded.end() ||
                     std::find(report.Failed.begin(), report.Failed.end(), changed) != report.Failed.end())
                     continue;
@@ -1760,6 +1827,13 @@ namespace Zamin {
         if (AssetRegistry* registry = Project::GetAssetRegistry())
             for (const auto& m : result.Moved)
                 registry->OnFileMoved(m.From, m.To);
+        // Loaded materials follow their files (the same objects: the open scene finds them by the new
+        // path), and the ones whose texture paths were just rewritten read their file again.
+        for (const auto& m : result.Moved)
+            MaterialLibrary::OnFileMoved(m.From, m.To);
+        for (const fs::path& file : result.UpdatedFiles)
+            if (AssetFiles::GetType(file) == AssetType::Material)
+                MaterialLibrary::ReloadFile(file);
 
         // Asset paths as scenes store them (relative to Assets).
         AssetFiles::PathMoves moves;

@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 
 #include <algorithm>
+#include <cstdint>
 #include <string>
 
 // Small helpers for a consistent, good-looking editor UI.
@@ -163,6 +164,17 @@ namespace Zamin::UI {
     // Path field that accepts drag & drop from the content browser.
     // Returns true when changed. `extensions` e.g. ".png;.jpg"
     bool PropertyAssetPath(const char* label, std::string& path, const char* extensions, const char* icon);
+
+    struct AssetPathOptions
+    {
+        uint32_t PreviewTexture = 0;        // a small picture before the path (GPU texture id, 0 = none)
+        const char* ActionIcon = nullptr;   // an extra button before the clear button (e.g. edit)...
+        const char* ActionTooltip = nullptr;
+        bool* ActionClicked = nullptr;      // ...that sets this when pressed (disabled while the path is empty)
+        bool Missing = false;               // the path is set but its file could not be loaded (shown in red)
+        const char* Tooltip = nullptr;      // help text of the label
+    };
+    bool PropertyAssetPath(const char* label, std::string& path, const char* extensions, const char* icon, const AssetPathOptions& options);
 
     bool PropertyCombo(const char* label, int& current, const char* const* items, int count);
 

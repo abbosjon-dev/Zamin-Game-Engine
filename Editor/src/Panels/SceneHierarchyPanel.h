@@ -102,6 +102,8 @@ namespace Zamin {
         std::function<void(Entity)> OnFocusRequested;
         std::function<void()> OnSceneModified;
         std::function<void(Entity)> OnSavePrefabRequested;
+        // An asset (absolute path) is to be edited in the inspector (a mesh renderer's material).
+        std::function<void(const std::filesystem::path&)> OnAssetEditRequested;
         std::function<void(const std::filesystem::path&, Entity parent)> OnPrefabDropped;
         // The project's tag list changed (a new tag was typed in the inspector).
         std::function<void()> OnProjectSettingsModified;
@@ -116,6 +118,9 @@ namespace Zamin {
 
         template<typename T>
         void DisplayAddComponentEntry(const char* name, const char* icon);
+        // The Material part of the Mesh Renderer section: the material asset (and per-submesh ones)
+        // or the inline material. True when something changed.
+        bool DrawMeshMaterial(Entity entity, struct MeshRendererComponent& c);
         // Inspector sections are collected first (AddSection) and then drawn in the entity's
         // component order (ComponentRegistry::GetOrderedKeys).
         struct InspectorSection { std::string_view Key; std::function<void()> Draw; };

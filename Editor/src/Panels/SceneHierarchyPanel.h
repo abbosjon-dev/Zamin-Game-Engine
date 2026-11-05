@@ -125,7 +125,12 @@ namespace Zamin {
         void DrawTilePaletteWindow(bool* open);
         // Automation: the palette zoom (0 = fit the width) of the inspector (0) / the window (1), and
         // the tile whose collision / animation the inspector edits.
-        void SetTilePaletteZoom(int view, float zoom) { m_PaletteViews[std::clamp(view, 0, 1)].Zoom = zoom; }
+        void SetTilePaletteZoom(int view, float zoom)
+        {
+            TilePaletteView& v = m_PaletteViews[std::clamp(view, 0, 1)];
+            v.Zoom = zoom;
+            v.AutoFit = zoom <= 0.0f;
+        }
         void SetTilePropertiesOpen(bool open) { m_TilePropertiesOpen = open; }
         std::function<void()> OnTilePaletteWindowRequested;
 
@@ -234,7 +239,8 @@ namespace Zamin {
         // How a palette is scrolled / zoomed and what is being dragged in it (inspector, window).
         struct TilePaletteView
         {
-            float Zoom = 0.0f;          // screen px per tileset px (0: fit the width)
+            float Zoom = 0.0f;          // screen px per tileset px (0: fitted, see AutoFit)
+            bool AutoFit = true;        // follows the area's size until it is zoomed by hand
             std::string Tileset;        // the tileset it was fitted for
             int DragStart = -1, DragEnd = -1;
             bool Resizable = true;

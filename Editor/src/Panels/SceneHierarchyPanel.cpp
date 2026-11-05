@@ -2700,25 +2700,44 @@ namespace Zamin {
         const bool addingFrames = !assigning && m_AnimFramesTile >= 0;
         if (view.Tileset != c.TilesetPath)
         {
+            if (!view.Tileset.empty())
+                view.AutoFit = true; // another tileset: fitted afresh
             view.Tileset = c.TilesetPath;
-            view.Zoom = 0.0f;
             view.DragStart = view.DragEnd = -1;
         }
         ImGui::PushID(&view);
 
         // ---- toolbar: zoom, the property marks, the brush
-        const float fitZoom = std::clamp((ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ScrollbarSize - ImGui::GetStyle().WindowPadding.x * 2.0f - 2.0f) / texW,
-                                         0.25f, 32.0f);
-        if (view.Zoom <= 0.0f)
+        // Fitted: the inspector's palette to its width (its height is dragged by the user), the
+        // window's to the whole area.
+        const ImGuiStyle& style = ImGui::GetStyle();
+        float fitZoom = (ImGui::GetContentRegionAvail().x - style.ScrollbarSize - style.WindowPadding.x * 2.0f - 2.0f) / texW;
+        if (height <= 0.0f)
+        {
+            float areaH = ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() * (assigning || addingFrames ? 2.0f : 1.0f) -
+                          style.WindowPadding.y * 2.0f - 4.0f;
+            fitZoom = std::min(fitZoom, areaH / texH);
+        }
+        fitZoom = std::clamp(fitZoom, 0.25f, 32.0f);
+        if (view.AutoFit || view.Zoom <= 0.0f)
+        {
             view.Zoom = fitZoom;
+            view.AutoFit = true;
+        }
         if (UI::ToolbarButton(ICON_FA_MAGNIFYING_GLASS_MINUS, "Kichraytirish (g'ildirak)"))
+        {
             view.Zoom = std::max(0.25f, view.Zoom / 1.25f);
+            view.AutoFit = false;
+        }
         ImGui::SameLine(0, 2);
         if (UI::ToolbarButton(ICON_FA_MAGNIFYING_GLASS_PLUS, "Kattalashtirish (g'ildirak)"))
+        {
             view.Zoom = std::min(32.0f, view.Zoom * 1.25f);
+            view.AutoFit = false;
+        }
         ImGui::SameLine(0, 2);
-        if (UI::ToolbarButton(ICON_FA_EXPAND, "Kenglikka moslash"))
-            view.Zoom = fitZoom;
+        if (UI::ToolbarButton(ICON_FA_EXPAND, height > 0.0f ? "Kenglikka moslash" : "Oynaga moslash", view.AutoFit))
+            view.AutoFit = true;
         ImGui::SameLine(0, 2);
         if (UI::ToolbarButton(ICON_FA_TAGS, "Plitka xususiyatlari belgilari: qizil x - collision yo'q, pushti - bir tomonlama, "
                                             "uchburchak - animatsiya", m_ShowTileProperties))
@@ -2741,7 +2760,7 @@ namespace Zamin {
 
         // ---- the scrolling area
         ImGuiChildFlags childFlags = ImGuiChildFlags_Borders | (view.Resizable ? ImGuiChildFlags_ResizeY : 0);
-        float areaHeight = height > 0.0f ? height : std::max(80.0f, ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing());
+        float areaHeight = height > 0.0f ? height : 0.0f; // the window: the rest of it
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(24, 26, 30, 255));
         ImGui::BeginChild("##paletteArea", ImVec2(-FLT_MIN, areaHeight), childFlags, ImGuiWindowFlags_HorizontalScrollbar);
         ImGui::PopStyleColor();
@@ -2753,6 +2772,7 @@ namespace Zamin {
             ImVec2 local(io.MousePos.x - origin.x, io.MousePos.y - origin.y);
             float old = view.Zoom;
             view.Zoom = std::clamp(view.Zoom * std::pow(1.2f, io.MouseWheel), 0.25f, 32.0f);
+            view.AutoFit = false;
             float k = view.Zoom / old;
             ImGui::SetScrollX(ImGui::GetScrollX() + local.x * (k - 1.0f));
             ImGui::SetScrollY(ImGui::GetScrollY() + local.y * (k - 1.0f));

@@ -175,11 +175,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 148. Tilemap: bir nechta qatlam
 - [x] 149. Tilemap: auto-tile qoidalari (4/8 qo'shni)
 - [x] 150. Tilemap: to'rtburchak va to'ldirish (flood fill) asboblari
-- [ ] 151. Tilemap: plitka bo'yicha collision bayroqlari
-- [ ] 152. Tilemap: one-way platformalar
-- [ ] 153. Tilemap: animatsiyali plitkalar
-- [ ] 154. Tilemap: kattalashtirish/kichraytirishda palitra
-- [ ] 155. Sprite outline/flash effekti (hit flash)
+- [x] 151. Tilemap: plitka bo'yicha collision bayroqlari
+- [x] 152. Tilemap: one-way platformalar
+- [x] 153. Tilemap: animatsiyali plitkalar
+- [x] 154. Tilemap: kattalashtirish/kichraytirishda palitra
+- [x] 155. Sprite outline/flash effekti (hit flash)
 - [ ] 156. Sprite rang tint animatsiyasi
 - [ ] 157. 2D yorug'lik (oddiy point light 2D, additive)
 - [ ] 158. Pixel-perfect kamera rejimi

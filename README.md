@@ -104,6 +104,11 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     modeli: kuch qo'shiladi (eng ko'pi 1), davomiylik ichida so'nadi, siljish = kuch^daraja × `MaxOffset` / `MaxAngle`
     (kamera komponentida sozlanadi), silliq shovqin bo'yicha; faqat tasvir silkinadi — transform, kuzatish, fizika
     o'zgarmaydi; bir xil seed bilan aynan takrorlanadi. Inspektorda o'yin paytida "Sinash" tugmasi
+  - **Hit flash va kontur** (Sprite Renderer > Effektlar): `FlashAmount` rasmni `FlashColor` rangiga aralashtiradi,
+    skriptdan `Flash(rang, soniya)` — darhol to'liq, so'ng so'nib boradi (pauzada kutadi); `OutlineThickness` (tekstura
+    pikseli) — rasmning ko'rinadigan piksellari atrofida `OutlineColor` chegarasi (shader qo'shni alfalarni tekshiradi,
+    quad kontur kengligicha kattalashadi, atlas kadridan tashqariga chiqmaydi; Simple rejimda), `SetOutline(rang, qalinlik)`.
+    Ekran UI sprite'larida ham ishlaydi; sozlanmagan sprite'lar avvalgidek chiziladi
   - 3D PBR (metallic/roughness), yo'naltirilgan quyosh, gradient osmon, atrof-muhit aksi
   - **Bir nechta quyosh**: barcha faol Directional Light'lar (bir vaqtda 4 tagacha) sahnani yoritadi, soyani esa faqat
     bittasi beradi — sahna tartibida "Soyalar" yoqilgan birinchisi (asosiy quyosh; osmondagi quyosh diski ham unga
@@ -253,6 +258,17 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - **Asboblar**: mo'yqalam (B), to'rtburchak (R), to'ldirish (G, 4 qo'shnili flood fill), o'chirg'ich (E), tomizg'ich (I);
     Shift — o'chirish, auto-tile qoidasi bilan ham ishlaydi; viewport'da natija oldindan ko'rinadi (auto-tile variantlari
     bilan), har bir chiziq/to'rtburchak bitta Ctrl+Z qadami. Namuna: Platformer2D `Scenes/Tilemap2D.zscene`
+  - **Plitka xususiyatlari** (tileset'ning `.zmeta` faylida, `"TileProperties"`; inspektorda tanlangan plitka uchun):
+    collision turi — qattiq (standart), yo'q (o't, gul, suv: collision qatlamida ham o'tib ketiladi) yoki **bir tomonlama**
+    (pastdan sakrab o'tiladi, ustiga qo'niladi); birlashtirilgan collider'lar shunga qarab quriladi. **Animatsiyali
+    plitkalar**: plitka → kadrlar ro'yxati + FPS (palitradan bosib yoki tanlangan plitkalardan), editorda ham o'ynaydi
+  - **Bir tomonlama platformalar**: plitkalar va Box Collider 2D'dagi "Bir tomonlama" belgisi (Box2D PreSolve: yuqoriga
+    harakatlanayotgan yoki sirtdan pastdagi jism o'tib ketadi, tez tushayotgani ham qo'nadi); skriptlarga to'qnashuv faqat
+    platforma ushlab turganda keladi; `DropThroughPlatforms(soniya)` — pastga tushib ketish (pastga + sakrash)
+  - **Palitra**: sichqoncha g'ildiragi bilan kattalashtirish (kursor atrofida), surish (scroll, o'rta/o'ng tugma), bosib
+    plitka yoki **sudrab bir nechta plitkali mo'yqalam** tanlash (mo'yqalam, to'rtburchak va to'ldirish uni choksiz
+    takrorlaydi); belgilar (collision yo'q, bir tomonlama, animatsiya). Inspektor kengligida yoki alohida **Oyna > Plitka
+    palitrasi** oynasida. Fizik colliderlar ko'rinishida tilemap qutilari (bir tomonlamalari pushti, strelka bilan)
 - **3D (spatial) ovoz**: tinglovchi — asosiy kamera, masofaga qarab so'nish
 - **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, 9 ta langar (anchor), `OnClick()`
 - **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash

@@ -4,6 +4,7 @@
 #include <imgui_stdlib.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <format>
 #include <unordered_map>
@@ -214,6 +215,11 @@ namespace Zamin {
             if (ImGui::BeginTabItem(ICON_FA_LAYER_GROUP "  Saralash qatlamlari", nullptr, tabFlags(Tab::SortingLayers)))
             {
                 DrawSortingLayers(config);
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem(ICON_FA_TABLE_CELLS "  Fizika qatlamlari", nullptr, tabFlags(Tab::PhysicsLayers)))
+            {
+                DrawPhysicsLayers(config);
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem(ICON_FA_SLIDERS "  Umumiy", nullptr, tabFlags(Tab::General)))
@@ -471,6 +477,138 @@ namespace Zamin {
         for (auto e : scene.GetAllEntitiesWith<ParticleSystemComponent>())
             used[Entity(e, &scene).GetComponent<ParticleSystemComponent>().SortingLayer]++;
         return used;
+    }
+
+    void ProjectSettingsPanel::DrawPhysicsLayers(ProjectConfig& config)
+    {
+        CollisionLayers2D& layers = config.CollisionLayers;
+        ImGui::TextWrapped("2D fizikaning 16 ta to'qnashuv qatlami. Rigidbody 2D (va xohlasa har bir kollider), tilemap'lar bitta "
+                           "qatlamda bo'ladi; ikki kollider faqat quyidagi jadvalda belgilangan qatlamlar juftligida bir-biriga "
+                           "tegadi (raycast'lar ham qatlam niqobini oladi). O'zgarishlar keyingi Play / Simulate'da qo'llanadi.");
+        ImGui::Spacing();
+
+        // How many bodies / colliders / tilemaps of the edited scene use each layer.
+        std::array<int, CollisionLayers2D::Count> usage{};
+        if (m_Scene)
+        {
+            auto count = [&](int layer) {
+                if (CollisionLayers2D::IsValid(layer))
+                    usage[(size_t)layer]++;
+            };
+            for (auto e : m_Scene->GetAllEntitiesWith<Rigidbody2DComponent>())
+                count(m_Scene->GetRegistry().get<Rigidbody2DComponent>(e).Layer);
+            for (auto e : m_Scene->GetAllEntitiesWith<BoxCollider2DComponent>()) count(m_Scene->GetRegistry().get<BoxCollider2DComponent>(e).Layer);
+            for (auto e : m_Scene->GetAllEntitiesWith<CircleCollider2DComponent>()) count(m_Scene->GetRegistry().get<CircleCollider2DComponent>(e).Layer);
+            for (auto e : m_Scene->GetAllEntitiesWith<PolygonCollider2DComponent>()) count(m_Scene->GetRegistry().get<PolygonCollider2DComponent>(e).Layer);
+            for (auto e : m_Scene->GetAllEntitiesWith<EdgeCollider2DComponent>()) count(m_Scene->GetRegistry().get<EdgeCollider2DComponent>(e).Layer);
+            for (auto e : m_Scene->GetAllEntitiesWith<TilemapComponent>()) count(m_Scene->GetRegistry().get<TilemapComponent>(e).CollisionLayer);
+        }
+
+        // ---- names
+        ImGui::SeparatorText("Qatlamlar");
+        if (ImGui::BeginTable("##physicsLayerNames", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH))
+        {
+            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 26.0f);
+            ImGui::TableSetupColumn("Nomi", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Sahnada", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+            ImGui::TableHeadersRow();
+            for (int i = 0; i < CollisionLayers2D::Count; i++)
+            {
+                ImGui::PushID(i);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("%d", i);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                if (i == 0)
+                {
+                    ImGui::BeginDisabled();
+                    std::string name = layers.Names[0];
+                    ImGui::InputText("##name", &name);
+                    ImGui::EndDisabled();
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                        UI::Tooltip("Asosiy qatlam: hamma narsa avval shu qatlamda");
+                }
+                else if (ImGui::InputTextWithHint("##name", std::format("(Qatlam {})", i).c_str(), &layers.Names[(size_t)i]))
+                    m_Dirty = true;
+                ImGui::TableSetColumnIndex(2);
+                ImGui::AlignTextToFramePadding();
+                if (usage[(size_t)i] > 0)
+                    ImGui::Text("%d", usage[(size_t)i]);
+                else
+                    ImGui::TextDisabled("-");
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+
+        // ---- the matrix of the named layers (a triangle: each pair once)
+        ImGui::SeparatorText("Qaysi qatlamlar to'qnashadi");
+        std::vector<int> named = layers.GetNamedLayers();
+        for (int i = 0; i < CollisionLayers2D::Count; i++)
+            if (usage[(size_t)i] > 0 && std::find(named.begin(), named.end(), i) == named.end())
+                named.insert(std::upper_bound(named.begin(), named.end(), i), i); // unnamed, but used
+        if (ImGui::SmallButton(ICON_FA_CHECK_DOUBLE "  Hammasi to'qnashadi"))
+        {
+            layers.Masks.fill(CollisionLayers2D::AllLayers);
+            m_Dirty = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton(ICON_FA_SQUARE "  Hech biri"))
+        {
+            for (int a : named)
+                for (int b : named)
+                    layers.SetCollision(a, b, false);
+            m_Dirty = true;
+        }
+        ImGui::Spacing();
+        const int columns = (int)named.size() + 1;
+        const ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg |
+                                      ImGuiTableFlags_HighlightHoveredColumn;
+        if (columns > 1 && ImGui::BeginTable("##physicsMatrix", columns, flags))
+        {
+            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_NoReorder, 140.0f);
+            // Columns from the last layer to the first: the rows' cells fill a staircase towards the left.
+            std::vector<int> columnLayers(named.rbegin(), named.rend());
+            std::vector<std::string> labels;
+            for (int l : columnLayers)
+                labels.push_back(std::format("{}  {}", l, layers.GetName(l)));
+            for (size_t c = 0; c < columnLayers.size(); c++)
+                ImGui::TableSetupColumn(labels[c].c_str(), ImGuiTableColumnFlags_AngledHeader | ImGuiTableColumnFlags_WidthFixed, 0.0f);
+            ImGui::TableAngledHeadersRow();
+            for (size_t r = 0; r < named.size(); r++)
+            {
+                const int a = named[r];
+                ImGui::PushID(a);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted(std::format("{}  {}", a, layers.GetName(a)).c_str());
+                for (size_t c = 0; c < columnLayers.size(); c++)
+                {
+                    const int b = columnLayers[c];
+                    // Each pair once: the row's layer against itself and the layers after it.
+                    if (b < a)
+                        continue;
+                    ImGui::TableSetColumnIndex((int)c + 1);
+                    ImGui::PushID(b);
+                    bool collide = layers.CanCollide(a, b);
+                    if (ImGui::Checkbox("##pair", &collide))
+                    {
+                        layers.SetCollision(a, b, collide);
+                        m_Dirty = true;
+                    }
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                        UI::Tooltip(std::format("{} va {}: {}", layers.GetName(a), layers.GetName(b), collide ? "to'qnashadi" : "bir-biridan o'tib ketadi").c_str());
+                    ImGui::PopID();
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+        ImGui::Spacing();
+        ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Skriptlarda: Raycast2D(..., LayerMask({ \"Ground\" })), LayerIndex(\"Player\")");
     }
 
     void ProjectSettingsPanel::DrawSortingLayers(ProjectConfig& config)

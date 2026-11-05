@@ -103,6 +103,25 @@ namespace Zamin {
                    !e.GetScene()->IsHiddenInEditor(e) && !e.GetScene()->IsLockedInEditor(e);
         }
         void SetTilePaint(bool paint) { m_TilePaint = paint; }
+
+        // Collider points edited in the viewport: the selected entity's Polygon / Edge collider 2D
+        // (None when it has no such collider or is hidden / locked).
+        enum class ColliderPointKind { None = 0, Polygon, Edge };
+        ColliderPointKind GetColliderPointEdit() const
+        {
+            Entity e = GetSelectedEntity();
+            if (m_ColliderPointEdit == ColliderPointKind::None || !e || e.GetScene()->IsHiddenInEditor(e) || e.GetScene()->IsLockedInEditor(e))
+                return ColliderPointKind::None;
+            if (m_ColliderPointEdit == ColliderPointKind::Polygon && !e.HasComponent<PolygonCollider2DComponent>())
+                return ColliderPointKind::None;
+            if (m_ColliderPointEdit == ColliderPointKind::Edge && !e.HasComponent<EdgeCollider2DComponent>())
+                return ColliderPointKind::None;
+            return m_ColliderPointEdit;
+        }
+        void SetColliderPointEdit(ColliderPointKind kind) { m_ColliderPointEdit = kind; }
+        // The points of a polygon collider follow the opaque outline of the entity's sprite (its
+        // current frame); without a picture, the sprite's rectangle. False when it has no sprite.
+        static bool FitPolygonToSprite(Entity entity, PolygonCollider2DComponent& c, int maxVertices = 12);
         // The brush's top-left tile (the tile picked in the palette).
         int GetSelectedTile() const { return m_TileBrush.GetTopLeft(); }
         // What the tools paint with: the picked tile, or a block of tiles dragged out in the palette.
@@ -155,6 +174,8 @@ namespace Zamin {
         std::function<void(const std::string&)> OnSpriteEditorRequested;
         // Project settings > Sorting layers is to open.
         std::function<void()> OnSortingLayersRequested;
+        // Project settings > Physics layers is to open.
+        std::function<void()> OnPhysicsLayersRequested;
 
     private:
         // Where a hierarchy row drop puts the dragged entities.
@@ -233,6 +254,13 @@ namespace Zamin {
         // 2D joints: the connected body (with what keeps the joint from being made), the anchors and
         // the break limits; the type's own settings follow in its section, then the live read-outs.
         bool DrawJoint2DCommon(Entity entity, Joint2DComponentBase& c);
+        // A 2D collision layer of the project (inherit: -1 = "the Rigidbody 2D's" is offered too).
+        bool DrawCollisionLayer(const char* label, int& layer, bool inherit, const char* tooltip);
+        // A physics material asset (.zphysmat) field: open / create one from `own` values.
+        // `active` is set when the path names a material that loaded (its values replace the own ones).
+        bool DrawPhysicsMaterialField(Entity entity, std::string& path, const PhysicsMaterialData& own, bool& active);
+        // The points of a polygon / edge collider: a list (drag, add, remove) and the viewport edit toggle.
+        bool DrawColliderPoints(std::vector<glm::vec2>& points, ColliderPointKind kind, int minPoints);
         void DrawJoint2DStatus(const Joint2DComponentBase& c, const char* readout);
         bool DrawTintAnimation(Entity entity, TintAnimationComponent& c);
         bool DrawLight2D(Entity entity, Light2DComponent& c);
@@ -290,6 +318,7 @@ namespace Zamin {
         int m_RowIndex = 0;
         bool m_HierarchyFocused = false;
         bool m_TilePaint = false;
+        ColliderPointKind m_ColliderPointEdit = ColliderPointKind::None;
         TileTool m_TileTool = TileTool::Brush, m_ToolBeforePicker = TileTool::Brush;
         int m_TileLayer = 0;
         int m_TileRule = -1;          // auto-tile rule of the tileset, -1 = plain tile

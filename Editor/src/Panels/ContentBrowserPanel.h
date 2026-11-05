@@ -59,6 +59,11 @@ namespace Zamin {
         // The "Yangi material" menu items: an empty material and the standard library. Returns true
         // when one was chosen.
         bool DrawNewMaterialMenu();
+        // "Yangi fizik material": a .zphysmat (2D collider surface) in the open folder - Assets/Physics
+        // when it is outside the asset folder - with the values of a preset (0 = the defaults: ice,
+        // rubber...). Selected and shown in the inspector. Returns the file (empty on failure).
+        std::filesystem::path CreatePhysicsMaterial(int preset = 0);
+        bool DrawNewPhysicsMaterialMenu();
         // The search text (AssetSearch syntax); the listing follows next frame.
         void SetSearch(std::string text) { m_Search = std::move(text); m_ListDirty = true; }
         const std::string& GetSearch() const { return m_Search; }

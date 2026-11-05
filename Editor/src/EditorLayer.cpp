@@ -154,6 +154,10 @@ namespace Zamin {
             m_ShowProjectSettings = true;
             m_ProjectSettingsPanel.Focus(ProjectSettingsPanel::Tab::SortingLayers);
         };
+        m_SceneHierarchyPanel.OnPhysicsLayersRequested = [this]() {
+            m_ShowProjectSettings = true;
+            m_ProjectSettingsPanel.Focus(ProjectSettingsPanel::Tab::PhysicsLayers);
+        };
         m_AssetInspectorPanel.OnOpenSpriteEditor = [this](const fs::path& p) { OpenSpriteEditor(Project::GetAssetRelativePath(p)); };
         m_SceneHierarchyPanel.GetAssetThumbnail = [this](const fs::path& p) -> uint32_t {
             Ref<Texture2D> thumbnail = m_ContentBrowserPanel.GetThumbnails().GetForFile(p);
@@ -517,7 +521,7 @@ namespace Zamin {
                     keys = comma == std::string_view::npos ? std::string_view() : keys.substr(comma + 1);
                 }
             }
-            if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | Tags | General | SortingLayers
+            if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | Tags | General | SortingLayers | PhysicsLayers
             {
                 m_ShowProjectSettings = true;
                 std::string_view t(tab);
@@ -525,6 +529,7 @@ namespace Zamin {
                                            : t == "Tags"            ? ProjectSettingsPanel::Tab::Tags
                                            : t == "General"         ? ProjectSettingsPanel::Tab::General
                                            : t == "SortingLayers"   ? ProjectSettingsPanel::Tab::SortingLayers
+                                           : t == "PhysicsLayers"   ? ProjectSettingsPanel::Tab::PhysicsLayers
                                                                     : ProjectSettingsPanel::Tab::Input);
             }
             // ZAMIN_EDITOR_PARALLAX=1: the scene view moves parallax layers with the editor camera.
@@ -628,6 +633,16 @@ namespace Zamin {
         }
         if (frame == 20 && std::getenv("ZAMIN_EDITOR_TOGGLE_ACTIVE"))
             ToggleSelectionActive();
+        // ZAMIN_EDITOR_COLLIDER_EDIT=polygon|edge (with ZAMIN_EDITOR_SELECT): the collider's points are
+        // edited in the viewport from frame 12; ZAMIN_EDITOR_COLLIDER_HOVER=v<i> | e<i> pins the hovered
+        // point / edge (screenshots).
+        if (const char* edit = std::getenv("ZAMIN_EDITOR_COLLIDER_EDIT"); edit && frame == 12)
+        {
+            using Kind = SceneHierarchyPanel::ColliderPointKind;
+            m_SceneHierarchyPanel.SetColliderPointEdit(std::string_view(edit) == "edge" ? Kind::Edge : Kind::Polygon);
+            if (const char* hover = std::getenv("ZAMIN_EDITOR_COLLIDER_HOVER"))
+                m_ColliderHoverOverride = hover;
+        }
 
         if (const char* at = std::getenv("ZAMIN_EDITOR_SELECT_FRAME"); at && frame == std::max(6, std::atoi(at)))
             if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT"))
@@ -1076,7 +1091,7 @@ namespace Zamin {
         // over the gizmo or with a popup open; a locked entity is clicked through.
         if (m_SceneState == SceneState::Play || !m_ViewportHovered || !m_HoveredEntity || !m_HoveredEntity.IsValid())
             return {};
-        if (m_ActiveScene->IsLockedInEditor(m_HoveredEntity) || m_SceneHierarchyPanel.IsTilePainting() || m_MaterialDrag.Active ||
+        if (m_ActiveScene->IsLockedInEditor(m_HoveredEntity) || m_SceneHierarchyPanel.IsTilePainting() || IsColliderPointEditing() || m_MaterialDrag.Active ||
             m_GizmoEdit.IsActive() || m_GizmoHovered || m_EditorCamera.IsFlying())
             return {};
         for (ImGuiMouseButton button : { ImGuiMouseButton_Left, ImGuiMouseButton_Right, ImGuiMouseButton_Middle })
@@ -2323,7 +2338,8 @@ namespace Zamin {
                     * glm::rotate(glm::mat4(1.0f), r.z, glm::vec3(0, 0, 1))
                     * glm::translate(glm::mat4(1.0f), glm::vec3(bc.Offset, 0.001f))
                     * glm::scale(glm::mat4(1.0f), glm::vec3(glm::vec2(sc) * bc.Size * 2.0f, 1.0f));
-                if (bc.OneWay && !bc.IsSensor)
+                const auto* effector = entity.TryGetComponent<PlatformEffector2DComponent>();
+                if (!bc.IsSensor && (effector ? effector->OneWay : bc.OneWay))
                 {
                     // One-way: the top edge solid, the rest faint, an arrow up through the middle (magenta).
                     const glm::vec4 oneWay(0.95f, 0.4f, 0.9f, 1.0f);
@@ -2348,12 +2364,13 @@ namespace Zamin {
                     continue;
                 const glm::mat4 world = scene.GetWorldTransform(entity);
                 const TilesetProperties* properties = TilesetProperties::Get(tm.TilesetPath);
+                const auto* effector = entity.TryGetComponent<PlatformEffector2DComponent>();
                 for (const TileColliderBox& box : TilemapCollision::BuildBoxes(tm, properties))
                 {
                     glm::vec2 size((box.X1 - box.X0) * tm.TileSize, tm.TileSize);
                     glm::vec2 center(box.X0 * tm.TileSize + size.x * 0.5f, box.Y * tm.TileSize + size.y * 0.5f);
                     glm::mat4 t = world * glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.001f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
-                    if (box.Type != TileCollision::OneWay)
+                    if (effector ? !effector->OneWay : box.Type != TileCollision::OneWay)
                     {
                         Renderer2D::DrawRect(t, green);
                         continue;
@@ -2381,6 +2398,105 @@ namespace Zamin {
                 float d = std::abs(sc.x) * cc.Radius * 2.0f;
                 glm::mat4 transform = glm::translate(glm::mat4(1.0f), p + glm::vec3(cc.Offset, 0.001f)) * glm::scale(glm::mat4(1.0f), glm::vec3(d, d, 1.0f));
                 Renderer2D::DrawCircle(transform, cc.IsSensor ? yellow : green, 0.04f);
+            }
+            // Polygons (their convex pieces faint inside the outline) and edges / chains (a one-sided
+            // chain's solid side marked with short ticks). Platforms (Platform Effector 2D) magenta.
+            const glm::vec4 platformColor(0.95f, 0.4f, 0.9f, 1.0f);
+            auto colliderFrame = [&](Entity entity, const glm::vec2& offset) {
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+                const glm::vec2 s(std::abs(sc.x), std::abs(sc.y));
+                const float c = std::cos(r.z), sn = std::sin(r.z);
+                return [p, s, c, sn, offset](const glm::vec2& q, bool scaled) {
+                    glm::vec2 l = scaled ? offset + q * s : q; // pieces are already scaled (and offset)
+                    return glm::vec3(p.x + c * l.x - sn * l.y, p.y + sn * l.x + c * l.y, p.z + 0.001f);
+                };
+            };
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, PolygonCollider2DComponent>())
+            {
+                if (hidden.contains(e)) continue;
+                Entity entity{ e, &scene };
+                const auto& pc = entity.GetComponent<PolygonCollider2DComponent>();
+                const glm::vec4 color = pc.IsSensor ? yellow : entity.HasComponent<PlatformEffector2DComponent>() ? platformColor : green;
+                auto at = colliderFrame(entity, pc.Offset);
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+                const Polygon2D::Decomposition d = Scene::DecomposePolygonCollider(pc, glm::abs(glm::vec2(sc)));
+                if (d.Pieces.size() > 1 || d.Result == Polygon2D::DecomposeResult::SelfIntersecting)
+                    for (const auto& piece : d.Pieces)
+                        for (size_t i = 0; i < piece.size(); i++)
+                            Renderer2D::DrawLine(at(piece[i], false), at(piece[(i + 1) % piece.size()], false),
+                                                 glm::vec4(color.r, color.g, color.b, 0.3f));
+                const glm::vec4 outline = d.Result == Polygon2D::DecomposeResult::Degenerate ? glm::vec4(0.95f, 0.35f, 0.3f, 1.0f) : color;
+                for (size_t i = 0; i < pc.Points.size() && pc.Points.size() >= 2; i++)
+                    Renderer2D::DrawLine(at(pc.Points[i], true), at(pc.Points[(i + 1) % pc.Points.size()], true), outline);
+            }
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, EdgeCollider2DComponent>())
+            {
+                if (hidden.contains(e)) continue;
+                Entity entity{ e, &scene };
+                const auto& ec = entity.GetComponent<EdgeCollider2DComponent>();
+                const glm::vec4 color = ec.IsSensor ? yellow : entity.HasComponent<PlatformEffector2DComponent>() ? platformColor : green;
+                auto at = colliderFrame(entity, ec.Offset);
+                const size_t n = ec.Points.size();
+                const size_t edges = n < 2 ? 0 : (ec.Loop && n >= 3 ? n : n - 1);
+                for (size_t i = 0; i < edges; i++)
+                {
+                    const glm::vec3 a = at(ec.Points[i], true), b = at(ec.Points[(i + 1) % n], true);
+                    Renderer2D::DrawLine(a, b, color);
+                    if (!ec.OneSided)
+                        continue;
+                    // Ticks on the solid side (left of the direction), every ~0.25 units.
+                    glm::vec2 dir = glm::vec2(b - a);
+                    const float length = glm::length(dir);
+                    if (length < 1e-4f)
+                        continue;
+                    dir /= length;
+                    const glm::vec3 normal(-dir.y * 0.12f, dir.x * 0.12f, 0.0f);
+                    const int ticks = std::max(1, (int)(length / 0.25f));
+                    for (int t = 0; t < ticks; t++)
+                    {
+                        const glm::vec3 q = a + (b - a) * ((t + 0.5f) / (float)ticks);
+                        Renderer2D::DrawLine(q, q + normal, glm::vec4(color.r, color.g, color.b, 0.6f));
+                    }
+                }
+            }
+            // Platform effectors of the selection: the surface arc (where bodies are held) from the centre.
+            for (Entity entity : m_SceneHierarchyPanel.GetSelection().GetEntities())
+            {
+                if (!entity || !entity.IsValid() || entity.GetScene() != &scene || hidden.contains((entt::entity)entity))
+                    continue;
+                const auto* pe = entity.TryGetComponent<PlatformEffector2DComponent>();
+                if (!pe)
+                    continue;
+                AABB bounds;
+                float radius = 1.0f;
+                if (scene.GetEntityBounds(entity, bounds))
+                    radius = std::max(0.5f, glm::length(glm::vec2(bounds.Max - bounds.Min)) * 0.35f);
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+                const float up = r.z + glm::radians(90.0f + pe->RotationOffset);
+                const float half = glm::radians(std::clamp(pe->OneWay ? pe->SurfaceArc : 360.0f, 1.0f, 360.0f) * 0.5f);
+                auto point = [&](float a, float rr) { return glm::vec3(p.x + std::cos(a) * rr, p.y + std::sin(a) * rr, p.z + 0.002f); };
+                const int segments = std::max(6, (int)(half * 2.0f / glm::radians(6.0f)));
+                glm::vec3 previous = point(up - half, radius);
+                if (half < glm::pi<float>() - 1e-3f)
+                    Renderer2D::DrawLine(point(0.0f, 0.0f), previous, platformColor);
+                for (int i = 1; i <= segments; i++)
+                {
+                    glm::vec3 q = point(up - half + 2.0f * half * (float)i / (float)segments, radius);
+                    Renderer2D::DrawLine(previous, q, platformColor);
+                    previous = q;
+                }
+                if (half < glm::pi<float>() - 1e-3f)
+                    Renderer2D::DrawLine(point(0.0f, 0.0f), previous, platformColor);
+                // The surface's up.
+                const glm::vec3 tip = point(up, radius * 1.15f);
+                const glm::vec3 dir(std::cos(up), std::sin(up), 0.0f), side(-dir.y, dir.x, 0.0f);
+                const float head = std::min(0.25f, radius * 0.2f);
+                Renderer2D::DrawLine(point(0.0f, 0.0f), tip, platformColor);
+                Renderer2D::DrawLine(tip, tip - dir * head + side * head * 0.6f, platformColor);
+                Renderer2D::DrawLine(tip, tip - dir * head - side * head * 0.6f, platformColor);
             }
 
             const glm::vec4 cyan(0.3f, 0.85f, 1.0f, 1.0f);
@@ -2643,7 +2759,7 @@ namespace Zamin {
                 m_GizmoAltDrag = true;
                 m_GizmoAltDuplicatePending = true;
             }
-            if (!alt && !overGizmo && !m_SceneHierarchyPanel.IsTilePainting())
+            if (!alt && !overGizmo && !m_SceneHierarchyPanel.IsTilePainting() && !IsColliderPointEditing())
             {
                 // Ctrl+click toggles, Shift+click adds to the selection. A click on a locked
                 // entity goes through it: the next frame picks again without the locked ones
@@ -3875,7 +3991,10 @@ namespace Zamin {
         // Loaded materials follow their files (the same objects: the open scene finds them by the new
         // path), and the ones whose texture paths were just rewritten read their file again.
         for (const auto& m : result.Moved)
+        {
             MaterialLibrary::OnFileMoved(m.From, m.To);
+            PhysicsMaterialLibrary::OnFileMoved(m.From, m.To);
+        }
         for (const fs::path& file : result.UpdatedFiles)
             if (AssetFiles::GetType(file) == AssetType::Material)
                 MaterialLibrary::ReloadFile(file);
@@ -4174,7 +4293,9 @@ namespace Zamin {
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V, false)) PasteEntity();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_B, false)) BuildScripts(true);
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) { m_SceneState == SceneState::Edit ? OnScenePlay() : OnSceneStop(); }
-            if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) && (m_ViewportFocused || m_SceneHierarchyPanel.IsHierarchyFocused()))
+            // (While collider points are edited, Delete removes the point under the mouse instead.)
+            if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) && (m_ViewportFocused || m_SceneHierarchyPanel.IsHierarchyFocused()) &&
+                !(IsColliderPointEditing() && m_ViewportHovered))
                 DeleteSelectedEntity();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_A, false) &&
                 (m_SceneHierarchyPanel.IsHierarchyFocused() || (m_ViewportFocused && m_SceneState != SceneState::Play)))
@@ -4208,6 +4329,14 @@ namespace Zamin {
                 if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) m_SceneHierarchyPanel.SetTilePaint(false);
                 if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) { m_SceneHierarchyPanel.SetTilePaint(false); m_GizmoMode = GizmoMode::None; }
                 if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { m_SceneHierarchyPanel.SetTilePaint(false); m_GizmoMode = GizmoMode::Translate; }
+            }
+            else if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit && IsColliderPointEditing())
+            {
+                // Collider points: Esc / Q / W leave the editing (the transform gizmo comes back with W).
+                using Kind = SceneHierarchyPanel::ColliderPointKind;
+                if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_Q, false))
+                    m_SceneHierarchyPanel.SetColliderPointEdit(Kind::None);
+                if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { m_SceneHierarchyPanel.SetColliderPointEdit(Kind::None); m_GizmoMode = GizmoMode::Translate; }
             }
             else if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit)
             {
@@ -4748,6 +4877,7 @@ namespace Zamin {
             UI_Gizmos();
             if (m_ShowIcons) UI_ViewportIcons();
         }
+        UI_ColliderPointEditor();
         if (m_ShowTransparentOrder) UI_TransparentOrder(); // also while playing (the game camera's order)
         if (!m_JointLabels.empty()) UI_JointLabels();
         // The view mode, when it is not the real picture (the toolbar's menu changes it).
@@ -5882,6 +6012,246 @@ namespace Zamin {
         dl->PopClipRect();
     }
 
+    bool EditorLayer::IsColliderPointEditing() const
+    {
+        return m_SceneState == SceneState::Edit && m_SceneHierarchyPanel.GetColliderPointEdit() != SceneHierarchyPanel::ColliderPointKind::None;
+    }
+
+    void EditorLayer::UI_ColliderPointEditor()
+    {
+        using Kind = SceneHierarchyPanel::ColliderPointKind;
+        const Kind kind = m_SceneState == SceneState::Edit ? m_SceneHierarchyPanel.GetColliderPointEdit() : Kind::None;
+        if (kind == Kind::None)
+        {
+            m_ColliderDrag = -1;
+            m_ColliderHoverVertex = m_ColliderHoverEdge = -1;
+            return;
+        }
+        Entity e = m_SceneHierarchyPanel.GetSelectedEntity();
+        std::vector<glm::vec2>* points = nullptr;
+        glm::vec2 offset(0.0f);
+        bool loop = true;
+        int minPoints = 3;
+        if (kind == Kind::Polygon)
+        {
+            auto& c = e.GetComponent<PolygonCollider2DComponent>();
+            points = &c.Points;
+            offset = c.Offset;
+        }
+        else
+        {
+            auto& c = e.GetComponent<EdgeCollider2DComponent>();
+            points = &c.Points;
+            offset = c.Offset;
+            loop = c.Loop;
+            minPoints = c.Loop ? 3 : 2;
+        }
+        // The collider's frame: position, rotation about Z, scale (as the physics body gets it).
+        glm::vec3 position, rotation, scale;
+        Math::DecomposeTransform(m_ActiveScene->GetWorldTransform(e), position, rotation, scale);
+        const glm::vec2 s = glm::max(glm::abs(glm::vec2(scale)), glm::vec2(1e-4f));
+        const float cs = std::cos(rotation.z), sn = std::sin(rotation.z);
+        auto toWorld = [&](const glm::vec2& q) {
+            glm::vec2 l = offset + q * s;
+            return glm::vec3(position.x + cs * l.x - sn * l.y, position.y + sn * l.x + cs * l.y, position.z);
+        };
+        auto toLocal = [&](const glm::vec3& w) {
+            glm::vec2 d(w.x - position.x, w.y - position.y);
+            glm::vec2 l(cs * d.x + sn * d.y, -sn * d.x + cs * d.y);
+            return (l - offset) / s;
+        };
+        const glm::mat4 viewProjection = OverlayViewProjection();
+        const glm::vec2 viewport = m_ViewportBounds[1] - m_ViewportBounds[0];
+        auto toScreen = [&](const glm::vec2& q, bool& visible) {
+            glm::vec4 clip = viewProjection * glm::vec4(toWorld(q), 1.0f);
+            visible = clip.w > 0.0f;
+            glm::vec2 ndc = visible ? glm::vec2(clip) / clip.w : glm::vec2(0.0f);
+            return ImVec2(m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * viewport.x, m_ViewportBounds[0].y + (0.5f - ndc.y * 0.5f) * viewport.y);
+        };
+        const size_t n = points->size();
+        std::vector<ImVec2> screen(n);
+        bool allVisible = true;
+        for (size_t i = 0; i < n; i++)
+        {
+            bool visible = true;
+            screen[i] = toScreen((*points)[i], visible);
+            allVisible &= visible;
+        }
+        if (!allVisible)
+            return;
+        const size_t edges = n < 2 ? 0 : (loop && n >= 3 ? n : n - 1);
+
+        // What is under the mouse: a point (within 9 px), else an edge (within 7 px) and where on it.
+        const ImVec2 mouse = ImGui::GetMousePos();
+        int hoverVertex = -1, hoverEdge = -1;
+        glm::vec2 edgePoint(0.0f);
+        ImVec2 edgeScreen(0.0f, 0.0f);
+        auto edgeAt = [&](size_t i, float t) {
+            const glm::vec2& a = (*points)[i];
+            const glm::vec2& b = (*points)[(i + 1) % n];
+            edgePoint = a + (b - a) * t;
+            bool visible = true;
+            edgeScreen = toScreen(edgePoint, visible);
+        };
+        if (!m_ColliderHoverOverride.empty())
+        {
+            const int index = std::atoi(m_ColliderHoverOverride.c_str() + 1);
+            if (m_ColliderHoverOverride[0] == 'v' && index >= 0 && index < (int)n)
+                hoverVertex = index;
+            else if (m_ColliderHoverOverride[0] == 'e' && index >= 0 && index < (int)edges)
+            {
+                hoverEdge = index;
+                edgeAt((size_t)index, 0.5f);
+            }
+        }
+        else if (m_ViewportHovered && m_ColliderDrag < 0)
+        {
+            float best = 9.0f;
+            for (size_t i = 0; i < n; i++)
+            {
+                float d = std::hypot(screen[i].x - mouse.x, screen[i].y - mouse.y);
+                if (d < best)
+                {
+                    best = d;
+                    hoverVertex = (int)i;
+                }
+            }
+            if (hoverVertex < 0)
+            {
+                best = 7.0f;
+                for (size_t i = 0; i < edges; i++)
+                {
+                    const ImVec2 a = screen[i], b = screen[(i + 1) % n];
+                    const float dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+                    const float t = l2 > 0.0f ? std::clamp(((mouse.x - a.x) * dx + (mouse.y - a.y) * dy) / l2, 0.0f, 1.0f) : 0.0f;
+                    const float d = std::hypot(a.x + dx * t - mouse.x, a.y + dy * t - mouse.y);
+                    if (d < best && t > 0.02f && t < 0.98f)
+                    {
+                        best = d;
+                        hoverEdge = (int)i;
+                        edgeAt(i, t);
+                    }
+                }
+            }
+        }
+        m_ColliderHoverVertex = hoverVertex;
+        m_ColliderHoverEdge = hoverEdge;
+
+        // Editing: drag a point; a click on an edge adds one there (and drags it); Ctrl + click removes.
+        const ImGuiIO& io = ImGui::GetIO();
+        const bool ctrl = io.KeyCtrl;
+        bool changed = false;
+        if (m_ColliderDrag >= 0)
+        {
+            if (m_ColliderDrag >= (int)n || !ImGui::IsMouseDown(ImGuiMouseButton_Left))
+                m_ColliderDrag = -1;
+            else
+            {
+                glm::vec3 hit;
+                if (ViewportMouseToPlane(position.z, hit))
+                {
+                    glm::vec2 q = toLocal(hit) + m_ColliderDragOffset;
+                    if (io.KeyShift)
+                        q = glm::round(q * 10.0f) / 10.0f; // Shift: steps of 0.1
+                    if (q != (*points)[(size_t)m_ColliderDrag])
+                    {
+                        (*points)[(size_t)m_ColliderDrag] = q;
+                        changed = true;
+                    }
+                }
+            }
+        }
+        else if (m_ViewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt && !ImGui::IsMouseDown(ImGuiMouseButton_Right))
+        {
+            glm::vec3 hit;
+            const bool onPlane = ViewportMouseToPlane(position.z, hit);
+            if (hoverVertex >= 0)
+            {
+                if (ctrl)
+                {
+                    if ((int)n > minPoints)
+                    {
+                        points->erase(points->begin() + hoverVertex);
+                        changed = true;
+                    }
+                    else
+                        ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  Kamida {} ta nuqta kerak", minPoints));
+                }
+                else
+                {
+                    m_ColliderDrag = hoverVertex;
+                    m_ColliderDragOffset = onPlane ? (*points)[(size_t)hoverVertex] - toLocal(hit) : glm::vec2(0.0f);
+                }
+            }
+            else if (hoverEdge >= 0 && !ctrl)
+            {
+                points->insert(points->begin() + hoverEdge + 1, edgePoint);
+                m_ColliderDrag = hoverEdge + 1;
+                m_ColliderDragOffset = onPlane ? edgePoint - toLocal(hit) : glm::vec2(0.0f);
+                changed = true;
+            }
+        }
+        if (m_ColliderDrag < 0 && hoverVertex >= 0 && m_ViewportHovered && ImGui::IsKeyPressed(ImGuiKey_Delete, false) && (int)points->size() > minPoints)
+        {
+            points->erase(points->begin() + hoverVertex);
+            changed = true;
+        }
+        if (changed)
+        {
+            MarkDirty();
+            return; // drawn with the new points next frame
+        }
+
+        // Drawing: the outline, the points, the ghost point on the hovered edge, a hint.
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->PushClipRect(ImVec2(m_ViewportBounds[0].x, m_ViewportBounds[0].y), ImVec2(m_ViewportBounds[1].x, m_ViewportBounds[1].y), true);
+        const ImU32 lineColor = IM_COL32(90, 220, 255, 230), shadow = IM_COL32(10, 12, 16, 170);
+        for (size_t i = 0; i < edges; i++)
+        {
+            const ImVec2 a = screen[i], b = screen[(i + 1) % n];
+            const bool hovered = (int)i == hoverEdge;
+            dl->AddLine(a, b, shadow, 4.0f);
+            dl->AddLine(a, b, hovered ? IM_COL32(255, 230, 120, 255) : lineColor, hovered ? 2.5f : 2.0f);
+        }
+        if (hoverEdge >= 0)
+        {
+            dl->AddCircleFilled(edgeScreen, 6.0f, IM_COL32(255, 230, 120, 120));
+            dl->AddCircle(edgeScreen, 6.0f, IM_COL32(255, 230, 120, 255), 0, 1.5f);
+            dl->AddLine(ImVec2(edgeScreen.x - 3.0f, edgeScreen.y), ImVec2(edgeScreen.x + 3.5f, edgeScreen.y), IM_COL32(30, 30, 30, 255), 1.5f);
+            dl->AddLine(ImVec2(edgeScreen.x, edgeScreen.y - 3.0f), ImVec2(edgeScreen.x, edgeScreen.y + 3.5f), IM_COL32(30, 30, 30, 255), 1.5f);
+        }
+        for (size_t i = 0; i < n; i++)
+        {
+            const bool hovered = (int)i == hoverVertex, dragged = (int)i == m_ColliderDrag;
+            const bool removing = hovered && ctrl;
+            const float r = hovered || dragged ? 6.5f : 5.0f;
+            const ImU32 fill = removing ? IM_COL32(240, 80, 70, 255) : dragged ? IM_COL32(255, 160, 60, 255)
+                             : hovered ? IM_COL32(255, 230, 120, 255) : IM_COL32(240, 248, 255, 255);
+            dl->AddCircleFilled(screen[i], r + 1.5f, shadow);
+            dl->AddCircleFilled(screen[i], r, fill);
+            dl->AddCircle(screen[i], r, lineColor, 0, 1.5f);
+            if (hovered || dragged)
+            {
+                const glm::vec2& q = (*points)[i];
+                std::string label = std::format("{}  ({:.2f}, {:.2f})", i, q.x, q.y);
+                const ImVec2 at(screen[i].x + 10.0f, screen[i].y - 22.0f);
+                const ImVec2 size = ImGui::CalcTextSize(label.c_str());
+                dl->AddRectFilled(ImVec2(at.x - 4.0f, at.y - 2.0f), ImVec2(at.x + size.x + 4.0f, at.y + size.y + 2.0f), IM_COL32(14, 16, 20, 210), 3.0f);
+                dl->AddText(at, IM_COL32(235, 240, 245, 255), label.c_str());
+            }
+        }
+        const char* hint = kind == Kind::Polygon ? ICON_FA_DRAW_POLYGON "  Polygon collider nuqtalari:  sudrang  |  chiziqqa bosing - yangi nuqta  |  "
+                                                   "Ctrl + bosish / Delete - o'chirish  |  Shift - 0.1 qadam  |  Esc - tugatish"
+                                                 : ICON_FA_CHART_LINE "  Edge collider nuqtalari:  sudrang  |  chiziqqa bosing - yangi nuqta  |  "
+                                                   "Ctrl + bosish / Delete - o'chirish  |  Shift - 0.1 qadam  |  Esc - tugatish";
+        const ImVec2 hintSize = ImGui::CalcTextSize(hint);
+        const ImVec2 hintAt(m_ViewportBounds[0].x + (viewport.x - hintSize.x) * 0.5f, m_ViewportBounds[0].y + 44.0f);
+        dl->AddRectFilled(ImVec2(hintAt.x - 10.0f, hintAt.y - 5.0f), ImVec2(hintAt.x + hintSize.x + 10.0f, hintAt.y + hintSize.y + 5.0f),
+                          IM_COL32(16, 20, 26, 215), 6.0f);
+        dl->AddText(hintAt, IM_COL32(150, 225, 255, 255), hint);
+        dl->PopClipRect();
+    }
+
     // Colours of a frame time against the overlay's budget (ViewportStatsOverlaySettings::Rate).
     static ImVec4 FrameRateColor(int rate)
     {
@@ -6269,7 +6639,7 @@ namespace Zamin {
     {
         m_GizmoHovered = false;
         Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
-        if (!primary || !primary.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting())
+        if (!primary || !primary.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting() || IsColliderPointEditing())
         {
             m_GizmoEdit.End();
             return;

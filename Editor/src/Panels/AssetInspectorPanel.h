@@ -134,6 +134,9 @@ namespace Zamin {
         void DrawFont();
         void DrawScript();
         void DrawMaterial();
+        // A physics material (.zphysmat): its values, edited live (the running scene follows) and
+        // saved to the file once an edit is finished.
+        void DrawPhysicsMaterial();
         void DrawMaterialPreview();
         // The material's fields (into m_MaterialEdit); true when one changed.
         bool DrawMaterialFields();
@@ -207,6 +210,7 @@ namespace Zamin {
         // material: the library's shared object (edits show in the scene at once)
         Ref<MaterialAsset> m_Material;
         bool m_MaterialLoaded = false;
+        bool m_PhysicsMaterialUnsaved = false;
         MaterialData m_MaterialSaved, m_MaterialEdit;
         uint64_t m_MaterialRevision = 0;      // the material's revision after this panel's last change
         MaterialPreview m_MaterialPreview;

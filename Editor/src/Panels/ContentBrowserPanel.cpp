@@ -29,6 +29,7 @@ namespace Zamin {
             case AssetType::Font:        return ICON_FA_FONT;
             case AssetType::Environment: color = IM_COL32(255, 200, 90, 255); return ICON_FA_GLOBE;
             case AssetType::Material:    color = IM_COL32(200, 160, 255, 255); return ICON_FA_PALETTE;
+            case AssetType::PhysicsMaterial: color = IM_COL32(110, 215, 230, 255); return ICON_FA_GEM;
             case AssetType::Script:      color = IM_COL32(100, 160, 240, 255); return ICON_FA_FILE_CODE;
             case AssetType::Project:     color = IM_COL32(46, 188, 148, 255); return ICON_FA_GAMEPAD;
             default:                     return ICON_FA_FILE;
@@ -1275,6 +1276,104 @@ namespace Zamin {
         return chosen;
     }
 
+    // Built-in physics materials: name, file name, values.
+    struct PhysicsMaterialPreset
+    {
+        const char* Name;
+        const char* FileName;
+        const char* Description;
+        PhysicsMaterialData Data;
+    };
+    static const std::vector<PhysicsMaterialPreset>& GetPhysicsMaterialPresets()
+    {
+        static const std::vector<PhysicsMaterialPreset> s_Presets = [] {
+            std::vector<PhysicsMaterialPreset> list;
+            PhysicsMaterialData d;
+            list.push_back({ "Standart", "NewPhysicsMaterial", "Kolliderlarning standart qiymatlari", d });
+            d = {};
+            d.Friction = 0.02f;
+            d.FrictionCombine = PhysicsCombine::Minimum;
+            d.Density = 0.9f;
+            list.push_back({ "Muz", "Ice", "Deyarli ishqalanishsiz: ustida hamma narsa sirpanadi (eng kichigi)", d });
+            d = {};
+            d.Friction = 0.8f;
+            d.Restitution = 0.85f;
+            d.RestitutionThreshold = 0.2f;
+            d.RestitutionCombine = PhysicsCombine::Maximum;
+            list.push_back({ "Rezina to'p", "Bouncy", "Kuchli sakraydi (eng kattasi)", d });
+            d = {};
+            d.Friction = 1.0f;
+            d.Density = 1.2f;
+            d.FrictionCombine = PhysicsCombine::Maximum;
+            list.push_back({ "Yopishqoq", "Grip", "Ishqalanishi katta: qiyalikda ham sirpanmaydi", d });
+            d = {};
+            d.Friction = 0.4f;
+            d.Restitution = 0.1f;
+            d.Density = 7.8f;
+            list.push_back({ "Metall", "Metal", "Og'ir (zichlik 7.8), biroz sirpanchiq", d });
+            d = {};
+            d.Friction = 0.6f;
+            d.Restitution = 0.15f;
+            d.Density = 0.6f;
+            list.push_back({ "Yog'och", "Wood", "Yengil, ishqalanishi o'rtacha", d });
+            return list;
+        }();
+        return s_Presets;
+    }
+
+    fs::path ContentBrowserPanel::CreatePhysicsMaterial(int preset)
+    {
+        if (!Project::GetActive())
+            return {};
+        const auto& presets = GetPhysicsMaterialPresets();
+        const PhysicsMaterialPreset& p = presets[(size_t)std::clamp(preset, 0, (int)presets.size() - 1)];
+        fs::path assets = Project::GetAssetDirectory();
+        fs::path dir = !m_CurrentDirectory.empty() && AssetFiles::IsInside(m_CurrentDirectory, assets) ? m_CurrentDirectory : assets / "Physics";
+        std::error_code ec;
+        fs::create_directories(dir, ec);
+        fs::path file = AssetFiles::MakeUniquePath(dir, std::string(p.FileName) + PhysicsMaterial::Extension);
+        if (!PhysicsMaterial::Save(file, p.Data))
+        {
+            ShowNotice(std::format("Fizik material yaratilmadi: {}", file.filename().string()), true);
+            ZM_ERROR("Fizik material fayli yozilmadi: {}", file.string());
+            return {};
+        }
+        if (AssetRegistry* registry = Project::GetAssetRegistry())
+            registry->OnFileAdded(file); // its UUID at once
+        ZM_INFO("Yangi fizik material yaratildi: {}", Project::GetAssetRelativePath(file));
+        m_ListDirty = true;
+        if (OnFilesChanged)
+            OnFilesChanged();
+        m_Selection.clear();
+        Reveal({ file });
+        if (OnAssetSelected)
+            OnAssetSelected(file);
+        ShowNotice(std::format("Yangi fizik material: {}  (F2 - nomini o'zgartirish)", file.filename().string()));
+        return file;
+    }
+
+    bool ContentBrowserPanel::DrawNewPhysicsMaterialMenu()
+    {
+        bool chosen = false;
+        const auto& presets = GetPhysicsMaterialPresets();
+        for (size_t i = 0; i < presets.size(); i++)
+        {
+            const PhysicsMaterialPreset& p = presets[i];
+            std::string label = std::format("{}  {}", i == 0 ? ICON_FA_FILE : ICON_FA_GEM, p.Name);
+            if (ImGui::MenuItem(label.c_str()))
+            {
+                CreatePhysicsMaterial((int)i);
+                chosen = true;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(std::format("{}\nIshqalanish {:.2f}, sakrash {:.2f}, zichlik {:.2f}\n{}{} shu papkada yaratiladi", p.Description,
+                                        p.Data.Friction, p.Data.Restitution, p.Data.Density, p.FileName, PhysicsMaterial::Extension).c_str());
+            if (i == 0)
+                ImGui::Separator();
+        }
+        return chosen;
+    }
+
     // ------------------------------------------------------------------ menus / popups
     void ContentBrowserPanel::DrawContextMenu()
     {
@@ -1286,6 +1385,11 @@ namespace Zamin {
             if (ImGui::BeginMenu(ICON_FA_PALETTE "  Yangi material", Project::GetActive() != nullptr))
             {
                 DrawNewMaterialMenu();
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu(ICON_FA_GEM "  Yangi fizik material (2D)", Project::GetActive() != nullptr))
+            {
+                DrawNewPhysicsMaterialMenu();
                 ImGui::EndMenu();
             }
             ImGui::Separator();

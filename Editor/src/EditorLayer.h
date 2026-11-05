@@ -184,6 +184,9 @@ namespace Zamin {
         bool UI_TransformGizmoSettings();
         bool UI_SelectionOutlineSettings();
         void UI_JointLabels();
+        // The selected Polygon / Edge collider 2D's points in the viewport: drag, add on an edge,
+        // Ctrl + click / Delete removes (Inspector: "Nuqtalarni tahrirlash").
+        void UI_ColliderPointEditor();
         void UI_ViewMenu();
         void UI_ViewportMessage();
         void UI_MaximizedGame();
@@ -232,6 +235,7 @@ namespace Zamin {
         // Picks for m_PendingClickThrough (an extra ID pass into the viewport framebuffer).
         void ResolveClickThrough();
         void UpdateTilePainting();
+        bool IsColliderPointEditing() const;
         // The cell of the selected tilemap under the mouse (or the automation's hover cell); false
         // when the mouse does not hit the tilemap's plane. The cell may lie outside the map.
         bool GetTileCellUnderMouse(Entity tilemap, glm::ivec2& cell);
@@ -303,6 +307,12 @@ namespace Zamin {
         } m_MaterialDrag;
         // A tile tool stroke in progress (mouse held in the viewport): brush / eraser paint along the
         // way, the rectangle is filled when the button comes up.
+        // Collider point editing: the point being dragged (-1 none), where the mouse grabbed it,
+        // and the hovered point / edge (automation can pin them: ZAMIN_EDITOR_COLLIDER_HOVER).
+        int m_ColliderDrag = -1;
+        glm::vec2 m_ColliderDragOffset{ 0.0f };
+        int m_ColliderHoverVertex = -1, m_ColliderHoverEdge = -1;
+        std::string m_ColliderHoverOverride;
         struct TileStroke
         {
             bool Active = false;

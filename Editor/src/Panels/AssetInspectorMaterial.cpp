@@ -50,6 +50,62 @@ namespace Zamin {
         DrawMaterialSaveBar();
     }
 
+    void AssetInspectorPanel::DrawPhysicsMaterial()
+    {
+        Ref<PhysicsMaterialAsset> asset = PhysicsMaterialLibrary::Load(m_Path);
+        ImGui::Spacing();
+        if (!asset)
+        {
+            ImGui::TextColored(s_MaterialErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  Fizik material yuklanmadi - konsolni tekshiring");
+            return;
+        }
+        ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.9f, 1.0f), ICON_FA_GEM "  Fizik material (2D kolliderlar sirti)");
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextDisabled("Box / Circle / Polygon / Edge Collider 2D va Tilemap shu faylni tanlasa, o'z qiymatlari o'rniga shular "
+                            "ishlatiladi. O'zgarishlar darhol (o'yin davomida ham) qo'llanadi va faylga saqlanadi.");
+        ImGui::PopTextWrapPos();
+        ImGui::Spacing();
+        PhysicsMaterialData d = asset->GetData();
+        bool changed = false;
+        if (UI::BeginPropertyGrid("##physicsMaterial"))
+        {
+            UI::PropertyHeader("Sirt");
+            changed |= UI::PropertyFloat("Ishqalanish", d.Friction, 0.01f, 0.0f, 10.0f, "%.2f");
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("0 - muzdek sirpanchiq, 1 va undan katta - yopishqoq");
+            changed |= UI::PropertySlider("Sakrash", d.Restitution, 0.0f, 1.0f);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("0 - sakramaydi, 1 - qanday tezlikda kelsa, shunday qaytadi");
+            changed |= UI::PropertyFloat("Sakrash chegarasi", d.RestitutionThreshold, 0.01f, 0.0f, 100.0f, "%.2f");
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Bundan sekinroq urilishlar (birlik/soniya) sakramaydi");
+            changed |= UI::PropertyFloat("Zichlik", d.Density, 0.01f, 0.0f, 1000.0f, "%.2f");
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Massa = zichlik x yuza (dinamik jismlar). Edge collider'larda ishlatilmaydi");
+            UI::PropertyHeader("Qo'shilish", "Ikki kollider tekkanda ularning qiymatlari qanday birlashadi. Ikkisi har xil usul "
+                                             "so'rasa, ro'yxatda pastrog'i yutadi (Eng kattasi > Ko'paytma > Eng kichigi > O'rtacha > Standart)");
+            const char* modes[5];
+            for (int i = 0; i < 5; i++)
+                modes[i] = PhysicsMaterial::GetCombineName((PhysicsCombine)i);
+            int friction = (int)d.FrictionCombine, restitution = (int)d.RestitutionCombine;
+            if (UI::PropertyCombo("Ishqalanish", friction, modes, 5)) { d.FrictionCombine = (PhysicsCombine)friction; changed = true; }
+            if (UI::PropertyCombo("Sakrash", restitution, modes, 5)) { d.RestitutionCombine = (PhysicsCombine)restitution; changed = true; }
+            UI::EndPropertyGrid();
+        }
+        ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Standart: ishqalanish sqrt(a*b), sakrash max(a, b) (Box2D)");
+        if (changed)
+        {
+            asset->SetData(d); // every collider using it, also in the running game
+            m_PhysicsMaterialUnsaved = true;
+        }
+        if (m_PhysicsMaterialUnsaved && !ImGui::IsAnyItemActive())
+        {
+            m_PhysicsMaterialUnsaved = false;
+            if (!PhysicsMaterial::Save(m_Path, asset->GetData()))
+                ZM_ERROR("Fizik material saqlanmadi: {}", m_Path.string());
+        }
+    }
+
     void AssetInspectorPanel::SyncMaterial()
     {
         if (!m_Material || m_Material->GetRevision() == m_MaterialRevision)

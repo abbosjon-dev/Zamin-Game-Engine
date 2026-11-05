@@ -10,11 +10,12 @@ namespace Zamin {
 
     // "Project settings" window: general project info, the input action map (actions and
     // axes bound to keys / mouse buttons / gamepad, with a live preview), the game's
-    // SaveData (PlayerPrefs) viewer / editor, gameplay tags and the 2D sorting layers.
+    // SaveData (PlayerPrefs) viewer / editor, gameplay tags, the 2D sorting layers and the 2D
+    // collision (physics) layers with their collision matrix.
     class ProjectSettingsPanel
     {
     public:
-        enum class Tab { Input = 0, SaveData, Tags, General, SortingLayers };
+        enum class Tab { Input = 0, SaveData, Tags, General, SortingLayers, PhysicsLayers };
 
         void OnImGuiRender(bool* show);
 
@@ -51,6 +52,8 @@ namespace Zamin {
         void DrawSaveData();
         void DrawTags(ProjectConfig& config);
         void DrawSortingLayers(ProjectConfig& config);
+        // The 16 named 2D collision layers and the matrix of which pairs collide.
+        void DrawPhysicsLayers(ProjectConfig& config);
         void DrawInputMap(InputActionMap& map);
         bool DrawBindingList(const char* label, std::vector<InputBinding>& bindings, ListKind kind, int entry);
         bool DrawBinding(InputBinding& binding, const ListenTarget& target);

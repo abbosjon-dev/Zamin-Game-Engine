@@ -2,6 +2,8 @@
 #include "AssetInspectorPanel.h"
 #include "../UI.h"
 
+#include <Zamin/Utils/Image.h>
+
 #include <imgui_stdlib.h>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -1160,6 +1162,7 @@ namespace Zamin {
             { "CircleRenderer", "Circle Renderer" }, { "Text", "Text" }, { "MeshRenderer", "Mesh Renderer" },
             { "Animator", "Animator" }, { "DirectionalLight", "Directional Light" }, { "PointLight", "Point Light" }, { "SpotLight", "Spot Light" },
             { "Rigidbody2D", "Rigidbody 2D" }, { "BoxCollider2D", "Box Collider 2D" }, { "CircleCollider2D", "Circle Collider 2D" },
+            { "PolygonCollider2D", "Polygon Collider 2D" }, { "EdgeCollider2D", "Edge Collider 2D" }, { "PlatformEffector2D", "Platform Effector 2D" },
             { "DistanceJoint2D", "Distance Joint 2D" }, { "RevoluteJoint2D", "Revolute Joint 2D" }, { "PrismaticJoint2D", "Prismatic Joint 2D" },
             { "WeldJoint2D", "Weld Joint 2D" }, { "WheelJoint2D", "Wheel Joint 2D" },
             { "Rigidbody3D", "Rigidbody 3D" }, { "BoxCollider3D", "Box Collider 3D" }, { "SphereCollider3D", "Sphere Collider 3D" },
@@ -1997,6 +2000,210 @@ namespace Zamin {
         return changed;
     }
 
+    bool SceneHierarchyPanel::DrawCollisionLayer(const char* label, int& layer, bool inherit, const char* tooltip)
+    {
+        bool changed = false;
+        const CollisionLayers2D& layers = Project::GetCollisionLayers2D();
+        UI::PropertyLabel(label, tooltip);
+        ImGui::PushID(label);
+        auto name = [&](int l) { return std::format("{}  {}", l, layers.GetName(l)); };
+        std::string preview = layer < 0 ? std::string("(Rigidbody 2D qatlami)") : std::format(ICON_FA_LAYER_GROUP "  {}", name(layer));
+        const float button = ImGui::GetFrameHeight();
+        ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
+        if (ImGui::BeginCombo("##collisionLayer", preview.c_str()))
+        {
+            if (inherit && ImGui::Selectable("(Rigidbody 2D qatlami)", layer < 0))
+            {
+                layer = -1;
+                changed = true;
+            }
+            std::vector<int> list = layers.GetNamedLayers();
+            if (layer >= 0 && std::find(list.begin(), list.end(), layer) == list.end())
+                list.insert(std::upper_bound(list.begin(), list.end(), layer), layer); // unnamed, but in use
+            for (int l : list)
+            {
+                ImGui::PushID(l);
+                if (ImGui::Selectable(name(l).c_str(), l == layer))
+                {
+                    layer = l;
+                    changed = true;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_PEN, ImVec2(button, 0)) && OnPhysicsLayersRequested)
+            OnPhysicsLayersRequested();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Qatlamlar va qaysilari to'qnashishini tahrirlash (Loyiha sozlamalari > Fizika qatlamlari)");
+        ImGui::PopID();
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::DrawPhysicsMaterialField(Entity entity, std::string& path, const PhysicsMaterialData& own, bool& active)
+    {
+        bool changed = false, edit = false;
+        Ref<PhysicsMaterialAsset> asset = path.empty() ? nullptr : PhysicsMaterialLibrary::Load(path);
+        UI::AssetPathOptions options;
+        options.ActionIcon = ICON_FA_PEN;
+        options.ActionTooltip = "Fizik materialni tahrirlash (inspektorda ochiladi)";
+        options.ActionClicked = &edit;
+        options.Missing = !path.empty() && !asset;
+        options.Tooltip = "Fizik material asset (.zphysmat): ishqalanish, sakrash, zichlik va ular boshqa kollider bilan qanday "
+                          "qo'shilishi. Tanlansa quyidagi o'z qiymatlari o'rniga ishlatiladi; fayl o'zgarsa o'yin davomida ham yangilanadi.";
+        if (UI::PropertyAssetPath("Fizik material", path, PhysicsMaterial::Extension, ICON_FA_GEM, options))
+        {
+            changed = true;
+            asset = path.empty() ? nullptr : PhysicsMaterialLibrary::Load(path);
+        }
+        if (edit && asset && OnAssetEditRequested)
+            OnAssetEditRequested(Project::GetAssetFileSystemPath(path));
+        active = asset != nullptr;
+        if (asset)
+        {
+            const PhysicsMaterialData& d = asset->GetData();
+            UI::PropertyLabel("");
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextDisabled(ICON_FA_GEM "  Ishqalanish %.2f (%s), sakrash %.2f (%s), zichlik %.2f", d.Friction,
+                                PhysicsMaterial::GetCombineName(d.FrictionCombine), d.Restitution,
+                                PhysicsMaterial::GetCombineName(d.RestitutionCombine), d.Density);
+            ImGui::PopTextWrapPos();
+        }
+        else if (path.empty() && Project::GetActive())
+        {
+            UI::PropertyLabel("");
+            ImGui::BeginDisabled(!m_SceneEditable);
+            bool create = ImGui::SmallButton(ICON_FA_PLUS "  Shu qiymatlardan material yaratish");
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip("Quyidagi qiymatlarni Assets/Physics/ ga .zphysmat qilib saqlaydi va shu kolliderga biriktiradi - keyin "
+                            "uni boshqa kolliderlar ham ishlatishi mumkin.");
+            if (create)
+            {
+                std::filesystem::path dir = Project::GetAssetDirectory() / "Physics";
+                std::error_code ec;
+                std::filesystem::create_directories(dir, ec);
+                std::string name = entity.GetName().empty() ? std::string("PhysicsMaterial") : entity.GetName();
+                for (char& ch : name)
+                    if (std::string_view("/\\:*?\"<>|").find(ch) != std::string_view::npos)
+                        ch = '_';
+                std::filesystem::path file = AssetFiles::MakeUniquePath(dir, name + PhysicsMaterial::Extension);
+                if (PhysicsMaterial::Save(file, own))
+                {
+                    if (AssetRegistry* registry = Project::GetAssetRegistry())
+                        registry->OnFileAdded(file);
+                    path = Project::GetAssetRelativePath(file);
+                    changed = true;
+                    if (OnFilesCreated)
+                        OnFilesCreated({ file });
+                    ZM_INFO("Fizik material yaratildi: {}", path);
+                }
+                else
+                    ZM_ERROR("Fizik material saqlanmadi: {}", file.string());
+            }
+        }
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::DrawColliderPoints(std::vector<glm::vec2>& points, ColliderPointKind kind, int minPoints)
+    {
+        bool changed = false;
+        const bool editing = m_ColliderPointEdit == kind;
+        UI::PropertyLabel("Viewportda", "Nuqtalarni sahnada sudrab o'zgartirish. Chiziq ustiga bosish - o'sha joyga yangi nuqta, "
+                                        "Ctrl + nuqtaga bosish - nuqtani o'chirish. Esc yoki tugma qayta bosilsa - tugaydi.");
+        ImGui::BeginDisabled(!m_SceneEditable);
+        if (editing)
+            ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentColor());
+        if (ImGui::Button(editing ? ICON_FA_CHECK "  Tahrirlashni tugatish" : ICON_FA_DRAW_POLYGON "  Nuqtalarni tahrirlash", ImVec2(-FLT_MIN, 0)))
+        {
+            m_ColliderPointEdit = editing ? ColliderPointKind::None : kind;
+            if (!editing)
+                m_TilePaint = false;
+        }
+        if (editing)
+            ImGui::PopStyleColor();
+        ImGui::EndDisabled();
+
+        UI::PropertyHeader(std::format("Nuqtalar ({})", points.size()).c_str(), "Obyekt koordinatalarida (masshtabi bilan ko'paytiriladi)");
+        int remove = -1;
+        const float button = ImGui::GetFrameHeight();
+        for (size_t i = 0; i < points.size(); i++)
+        {
+            ImGui::PushID((int)i);
+            UI::PropertyLabel(std::format("  {}", i).c_str());
+            ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
+            changed |= ImGui::DragFloat2("##p", &points[i].x, 0.01f, 0.0f, 0.0f, "%.3f");
+            ImGui::SameLine();
+            ImGui::BeginDisabled((int)points.size() <= minPoints);
+            if (ImGui::Button(ICON_FA_XMARK, ImVec2(button, 0)))
+                remove = (int)i;
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip((int)points.size() <= minPoints ? "Kamida shuncha nuqta kerak" : "Nuqtani o'chirish");
+            ImGui::PopID();
+        }
+        if (remove >= 0)
+        {
+            points.erase(points.begin() + remove);
+            changed = true;
+        }
+        UI::PropertyLabel("");
+        if (ImGui::Button(ICON_FA_PLUS "  Nuqta qo'shish", ImVec2(-FLT_MIN, 0)))
+        {
+            // Polygons: in the middle of the closing edge; lines: one step further on.
+            if (points.empty())
+                points.push_back({ 0.0f, 0.0f });
+            else if (points.size() == 1)
+                points.push_back(points[0] + glm::vec2(1.0f, 0.0f));
+            else if (kind == ColliderPointKind::Polygon)
+                points.push_back((points.back() + points.front()) * 0.5f);
+            else
+                points.push_back(points.back() + (points.back() - points[points.size() - 2]));
+            changed = true;
+        }
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::FitPolygonToSprite(Entity entity, PolygonCollider2DComponent& c, int maxVertices)
+    {
+        auto* sprite = entity.TryGetComponent<SpriteRendererComponent>();
+        if (!sprite)
+            return false;
+        AssetRegistry* registry = Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
+        const auto* animation = entity.TryGetComponent<SpriteAnimationComponent>();
+        const glm::mat4 rect = Scene::GetSpriteRectTransform(*sprite, animation, registry);
+        // The opaque outline of the frame the sprite shows (in its unit square, y up).
+        std::vector<glm::vec2> unit;
+        if (!sprite->TexturePath.empty())
+        {
+            ImageData image;
+            if (Image::Load(Project::GetAssetFileSystemPath(sprite->TexturePath).string(), image, 4, false))
+            {
+                const SpriteRegion region = Scene::GetSpriteRegion(*sprite, animation, registry);
+                const float w = (float)image.Width, h = (float)image.Height;
+                // UVs have v up (textures are loaded bottom row first); the picture's rows go down.
+                const int x0 = (int)std::floor(region.UVMin.x * w + 0.01f), x1 = (int)std::ceil(region.UVMax.x * w - 0.01f);
+                const int y0 = (int)std::floor((1.0f - region.UVMax.y) * h + 0.01f), y1 = (int)std::ceil((1.0f - region.UVMin.y) * h - 0.01f);
+                unit = Polygon2D::TraceAlphaOutline(image.Pixels.data(), (int)image.Width, (int)image.Height, x0, y0, x1, y1, 16, maxVertices);
+            }
+        }
+        if (unit.size() < 3)
+            unit = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } }; // the sprite's rectangle
+        std::vector<glm::vec2> points;
+        for (glm::vec2 u : unit)
+        {
+            if (sprite->FlipX) u.x = 1.0f - u.x;
+            if (sprite->FlipY) u.y = 1.0f - u.y;
+            glm::vec4 p = rect * glm::vec4(u.x - 0.5f, u.y - 0.5f, 0.0f, 1.0f);
+            points.push_back(glm::vec2(p) - c.Offset);
+        }
+        if (sprite->FlipX != sprite->FlipY)
+            std::reverse(points.begin(), points.end()); // mirrored: counter-clockwise again
+        c.Points = std::move(points);
+        return true;
+    }
+
     // A frame of a texture shown in a box of `size` px (the whole texture without a frame).
     static void SpriteImage(const Ref<Texture2D>& texture, const SpriteRegion& region, float size)
     {
@@ -2636,7 +2843,21 @@ namespace Zamin {
             UI::Tooltip("Collision belgilangan qatlamlardagi plitkalar qattiq (qo'shni plitkalar bitta to'rtburchakka birlashadi)");
         InactiveComponentNote(entity, c.Collision ? "Obyekt nofaol: tilemap chizilmaydi, kolliziyasi o'chirilgan (faollashganda qayta quriladi)"
                                                   : "Obyekt nofaol: tilemap chizilmaydi");
-        changed |= UI::PropertySlider("Ishqalanish", c.Friction, 0.0f, 1.0f);
+        {
+            PhysicsMaterialData own;
+            own.Friction = c.Friction;
+            own.Restitution = c.Restitution;
+            own.RestitutionThreshold = 1.0f;
+            own.Density = 0.0f;
+            bool material = false;
+            changed |= DrawPhysicsMaterialField(entity, c.MaterialPath, own, material);
+            ImGui::BeginDisabled(material);
+            changed |= UI::PropertySlider("Ishqalanish", c.Friction, 0.0f, 1.0f);
+            changed |= UI::PropertySlider("Sakrash", c.Restitution, 0.0f, 1.0f);
+            ImGui::EndDisabled();
+            changed |= DrawCollisionLayer("Qatlam", c.CollisionLayer, false,
+                                          "Plitkalarning to'qnashuv qatlami (Loyiha sozlamalari > Fizika qatlamlari)");
+        }
         c.EnsureSize();
 
         // ---- layers
@@ -4383,6 +4604,9 @@ namespace Zamin {
                 DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D", ICON_FA_ATOM);
                 DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D", ICON_FA_VECTOR_SQUARE);
                 DisplayAddComponentEntry<CircleCollider2DComponent>("Circle Collider 2D", ICON_FA_CIRCLE_NODES);
+                DisplayAddComponentEntry<PolygonCollider2DComponent>("Polygon Collider 2D (ko'pburchak)", ICON_FA_DRAW_POLYGON);
+                DisplayAddComponentEntry<EdgeCollider2DComponent>("Edge Collider 2D (chiziq/zanjir)", ICON_FA_CHART_LINE);
+                DisplayAddComponentEntry<PlatformEffector2DComponent>("Platform Effector 2D (bir tomonlama)", ICON_FA_TURN_UP);
                 DisplayAddComponentEntry<DistanceJoint2DComponent>("Distance Joint 2D (masofa)", ICON_FA_LINK);
                 DisplayAddComponentEntry<RevoluteJoint2DComponent>("Revolute Joint 2D (sharnir)", ICON_FA_ARROWS_ROTATE);
                 DisplayAddComponentEntry<PrismaticJoint2DComponent>("Prismatic Joint 2D (sirpanish)", ICON_FA_ARROWS_LEFT_RIGHT);
@@ -4714,7 +4938,7 @@ namespace Zamin {
             return DrawLight2D(entity, c);
         }, true, modified);
 
-        AddSection<Rigidbody2DComponent>(ICON_FA_ATOM, "Rigidbody 2D", entity, [](Rigidbody2DComponent& c) {
+        AddSection<Rigidbody2DComponent>(ICON_FA_ATOM, "Rigidbody 2D", entity, [&](Rigidbody2DComponent& c) {
             bool changed = false;
             const char* types[] = { "Statik", "Dinamik", "Kinematik" };
             int type = (int)c.Type;
@@ -4724,35 +4948,184 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Chiziqli so'nish", c.LinearDamping, 0.01f, 0.0f, 100.0f);
             changed |= UI::PropertyFloat("Burchak so'nishi", c.AngularDamping, 0.01f, 0.0f, 100.0f);
             changed |= UI::PropertyBool("Tez obyekt (bullet)", c.Bullet);
+            changed |= DrawCollisionLayer("Qatlam", c.Layer, false,
+                                          "Kolliderlarining to'qnashuv qatlami: qaysi qatlamlarga tegishi loyiha matritsasida "
+                                          "(Loyiha sozlamalari > Fizika qatlamlari). Kollider o'z qatlamini tanlashi mumkin.");
             return changed;
         }, true, modified);
 
-        auto colliderCommon = [](auto& c) {
-            bool changed = UI::PropertyFloat("Zichlik", c.Density, 0.01f, 0.0f, 1000.0f);
+        // What every 2D collider has after its shape: the material (or its own values), trigger, layer.
+        auto colliderCommon = [&](auto& c, bool hasDensity) {
+            PhysicsMaterialData own;
+            own.Friction = c.Friction;
+            own.Restitution = c.Restitution;
+            own.RestitutionThreshold = c.RestitutionThreshold;
+            own.Density = c.Density;
+            bool material = false;
+            bool changed = DrawPhysicsMaterialField(entity, c.MaterialPath, own, material);
+            ImGui::BeginDisabled(material); // the material's values are used
+            if (hasDensity)
+                changed |= UI::PropertyFloat("Zichlik", c.Density, 0.01f, 0.0f, 1000.0f);
             changed |= UI::PropertySlider("Ishqalanish", c.Friction, 0.0f, 1.0f);
             changed |= UI::PropertySlider("Sakrash", c.Restitution, 0.0f, 1.0f);
             changed |= UI::PropertyFloat("Sakrash chegarasi", c.RestitutionThreshold, 0.01f, 0.0f, 100.0f);
+            ImGui::EndDisabled();
             changed |= UI::PropertyBool("Trigger (sensor)", c.IsSensor);
+            changed |= DrawCollisionLayer("Qatlam", c.Layer, true,
+                                          "Shu kolliderning to'qnashuv qatlami. '(Rigidbody 2D qatlami)' - obyekt Rigidbody 2D'sidagi qatlam");
             return changed;
         };
 
         AddSection<BoxCollider2DComponent>(ICON_FA_VECTOR_SQUARE, "Box Collider 2D", entity, [&](BoxCollider2DComponent& c) {
             bool changed = UI::PropertyFloat2("Siljish", c.Offset);
             changed |= UI::PropertyFloat2("Yarim o'lcham", c.Size);
-            changed |= colliderCommon(c);
-            ImGui::BeginDisabled(c.IsSensor);
+            changed |= colliderCommon(c, true);
+            const bool effector = entity.HasComponent<PlatformEffector2DComponent>();
+            ImGui::BeginDisabled(c.IsSensor || effector);
             changed |= UI::PropertyBool("Bir tomonlama (platforma)", c.OneWay);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                UI::Tooltip("Pastdan sakrab o'tiladi, ustiga qo'niladi (yuqorisi - obyektning +Y tomoni). Skriptdan "
-                            "DropThroughPlatforms() bilan pastga tushib ketiladi. Trigger'da ishlamaydi");
+                UI::Tooltip(effector ? "Obyektda Platform Effector 2D bor: uning sozlamalari ishlatiladi"
+                                     : "Pastdan sakrab o'tiladi, ustiga qo'niladi (yuqorisi - obyektning +Y tomoni). Skriptdan "
+                                       "DropThroughPlatforms() bilan pastga tushib ketiladi. Trigger'da ishlamaydi. Ko'proq sozlama: "
+                                       "Platform Effector 2D");
             ImGui::EndDisabled();
+            if (c.OneWay && !effector && !c.IsSensor && m_SceneEditable)
+            {
+                UI::PropertyLabel("");
+                if (ImGui::SmallButton(ICON_FA_TURN_UP "  Platform Effector 2D ga o'tkazish"))
+                {
+                    entity.AddComponent<PlatformEffector2DComponent>();
+                    c.OneWay = false;
+                    changed = true;
+                }
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Xuddi shunday bir tomonlama platforma, lekin yoy burchagi, yon ishqalanish va sakrash sozlamalari bilan");
+            }
             return changed;
         }, true, modified);
 
         AddSection<CircleCollider2DComponent>(ICON_FA_CIRCLE_NODES, "Circle Collider 2D", entity, [&](CircleCollider2DComponent& c) {
             bool changed = UI::PropertyFloat2("Siljish", c.Offset);
             changed |= UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.0f, 1000.0f);
-            changed |= colliderCommon(c);
+            changed |= colliderCommon(c, true);
+            return changed;
+        }, true, modified);
+
+        AddSection<PolygonCollider2DComponent>(ICON_FA_DRAW_POLYGON, "Polygon Collider 2D", entity, [&](PolygonCollider2DComponent& c) {
+            bool changed = UI::PropertyFloat2("Siljish", c.Offset);
+            // What the physics makes of the outline at the entity's scale.
+            glm::vec3 position, rotation, scale;
+            Math::DecomposeTransform(entity.GetScene()->GetWorldTransform(entity), position, rotation, scale);
+            Polygon2D::Decomposition d = Scene::DecomposePolygonCollider(c, glm::abs(glm::vec2(scale)));
+            UI::PropertyLabel("");
+            ImGui::PushTextWrapPos(0.0f);
+            const ImVec4 info(0.55f, 0.78f, 0.95f, 1.0f), warn(0.95f, 0.75f, 0.3f, 1.0f), error(0.95f, 0.45f, 0.4f, 1.0f);
+            switch (d.Result)
+            {
+                case Polygon2D::DecomposeResult::Convex:
+                    ImGui::TextColored(info, ICON_FA_CIRCLE_CHECK "  Qavariq: %zu ta bo'lak", d.Pieces.size());
+                    break;
+                case Polygon2D::DecomposeResult::Decomposed:
+                    ImGui::TextColored(info, ICON_FA_SHAPES "  Botiq: %zu ta qavariq bo'lakka bo'lindi", d.Pieces.size());
+                    break;
+                case Polygon2D::DecomposeResult::SelfIntersecting:
+                    ImGui::TextColored(warn, ICON_FA_TRIANGLE_EXCLAMATION "  Chiziqlari kesishadi: qavariq qobig'i ishlatiladi");
+                    break;
+                case Polygon2D::DecomposeResult::Degenerate:
+                    ImGui::TextColored(error, ICON_FA_CIRCLE_XMARK "  Yuzasi yo'q: kolliziya bo'lmaydi");
+                    break;
+            }
+            ImGui::PopTextWrapPos();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Box2D faqat qavariq, ko'pi bilan 8 burchakli shakllarni biladi: botiq yoki ko'p burchakli shakl "
+                            "uchburchaklarga bo'linib, qavariq bo'laklarga qayta birlashtiriladi (har biri alohida fixture)");
+            changed |= DrawColliderPoints(c.Points, ColliderPointKind::Polygon, 3);
+            UI::PropertyLabel("");
+            const bool sprite = entity.HasComponent<SpriteRendererComponent>();
+            ImGui::BeginDisabled(!sprite || !m_SceneEditable);
+            if (ImGui::Button(ICON_FA_CROP "  Spraytga moslash", ImVec2(-FLT_MIN, 0)))
+                changed |= FitPolygonToSprite(entity, c);
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip(sprite ? "Nuqtalar sprayt rasmining shaffof bo'lmagan qismi chetiga (hozirgi kadr) moslanadi: ko'pi bilan 12 nuqta"
+                                   : "Obyektda Sprite Renderer yo'q");
+            changed |= colliderCommon(c, true);
+            return changed;
+        }, true, modified);
+
+        AddSection<EdgeCollider2DComponent>(ICON_FA_CHART_LINE, "Edge Collider 2D", entity, [&](EdgeCollider2DComponent& c) {
+            bool changed = UI::PropertyFloat2("Siljish", c.Offset);
+            changed |= UI::PropertyBool("Yopiq (loop)", c.Loop);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Oxirgi nuqta birinchisiga ulanadi (kamida 3 nuqta)");
+            changed |= UI::PropertyBool("Bir tomonlama (silliq zanjir)", c.OneSided);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Faqat nuqtalar yo'nalishining chap tomonidan to'xtatadi (chapdan o'ngga - ustidan; soat millariga teskari "
+                            "yopiq - ichidan). Ustida sirpangan jismlar bo'g'inlarga ilinmaydi. Viewportda qattiq tomoni chiziqchalar bilan ko'rsatiladi");
+            if (c.OneSided)
+            {
+                UI::PropertyLabel("");
+                if (ImGui::SmallButton(ICON_FA_ARROWS_LEFT_RIGHT "  Tomonini almashtirish"))
+                {
+                    std::reverse(c.Points.begin(), c.Points.end());
+                    changed = true;
+                }
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Nuqtalar tartibini teskari qiladi: qattiq tomon qarama-qarshi tomonga o'tadi");
+            }
+            const size_t usable = Polygon2D::CleanPolyline(c.Points, c.Loop).size();
+            if (usable == 0)
+            {
+                UI::PropertyLabel("");
+                ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.4f, 1.0f), ICON_FA_CIRCLE_XMARK "  Nuqtalar yetarli emas: kolliziya bo'lmaydi");
+            }
+            changed |= DrawColliderPoints(c.Points, ColliderPointKind::Edge, c.Loop ? 3 : 2);
+            changed |= colliderCommon(c, false);
+            return changed;
+        }, true, modified);
+
+        AddSection<PlatformEffector2DComponent>(ICON_FA_TURN_UP, "Platform Effector 2D", entity, [&](PlatformEffector2DComponent& c) {
+            bool changed = false;
+            if (!entity.HasComponent<Rigidbody2DComponent>() && !entity.HasComponent<TilemapComponent>())
+            {
+                UI::PropertyLabel("");
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Rigidbody 2D (kolliderlari bilan) yoki Tilemap kerak");
+                ImGui::PopTextWrapPos();
+            }
+            changed |= UI::PropertyBool("Bir tomonlama", c.OneWay);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Jismlar pastdan / yondan o'tib ketadi va ustiga qo'nadi. Skriptdan DropThroughPlatforms() bilan tushib ketiladi");
+            ImGui::BeginDisabled(!c.OneWay);
+            UI::PropertyLabel("Sirt yoyi", "Faqat shu burchak ichidan (sirtning yuqorisi atrofida) kelgan to'qnashuvlar ushlab qoladi. "
+                                           "180 - oddiy bir tomonlama platforma, kichikroq - burchaklardan ham o'tib ketadi, "
+                                           "kattaroq - yon tomonlardan ham ushlaydi");
+            if (ImGui::SliderFloat("##arc", &c.SurfaceArc, 1.0f, 360.0f, "%.0f\xc2\xb0"))
+            {
+                c.SurfaceArc = std::clamp(c.SurfaceArc, 1.0f, 360.0f);
+                changed = true;
+            }
+            ImGui::EndDisabled();
+            UI::PropertyLabel("Burilish", "Sirtning yuqorisi obyektning +Y o'qidan shuncha gradus buriladi (soat millariga teskari)");
+            changed |= ImGui::DragFloat("##rotation", &c.RotationOffset, 0.5f, -360.0f, 360.0f, "%.1f\xc2\xb0");
+            UI::PropertyHeader("Yon tomonlar", "Sirtning chap / o'ng tomoniga (yon yoy ichida) tekkan to'qnashuvlar");
+            changed |= UI::PropertyBool("Yon ishqalanish", c.UseSideFriction);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("O'chiq: yon tomonda ishqalanish yo'q - o'yinchi devorga tiralganda unga yopishib qolmaydi");
+            changed |= UI::PropertyBool("Yon sakrash", c.UseSideBounce);
+            UI::PropertyLabel("Yon yoy", "Yon tomon deb hisoblanadigan burchak (gorizontal atrofida)");
+            if (ImGui::SliderFloat("##sideArc", &c.SideArc, 0.0f, 180.0f, "%.0f\xc2\xb0"))
+            {
+                c.SideArc = std::clamp(c.SideArc, 0.0f, 180.0f);
+                changed = true;
+            }
+            if (auto* box = entity.TryGetComponent<BoxCollider2DComponent>(); box && box->OneWay)
+            {
+                UI::PropertyLabel("");
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Box Collider 2D'ning 'Bir tomonlama' belgisi o'rniga shu sozlamalar ishlatiladi");
+                ImGui::PopTextWrapPos();
+            }
             return changed;
         }, true, modified);
 

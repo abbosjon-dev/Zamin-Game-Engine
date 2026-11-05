@@ -490,6 +490,7 @@ namespace Zamin {
             case AssetType::Font:        DrawFont(); break;
             case AssetType::Script:      DrawScript(); break;
             case AssetType::Material:    DrawMaterial(); break;
+            case AssetType::PhysicsMaterial: DrawPhysicsMaterial(); break;
             default:
                 ImGui::Spacing();
                 ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Bu turdagi fayl uchun ko'rinish yo'q");

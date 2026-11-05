@@ -75,6 +75,8 @@ namespace Zamin {
         void SetFilter(const std::string& filter) { m_Filter = filter; }
         // Keeps the inspector scrolled to its end for a few frames (screenshots / automation).
         void ScrollInspectorToBottom() { m_ScrollInspectorFrames = 30; }
+        // Automation: the Mesh Renderer's "Standart material..." list opens (selected entity).
+        void OpenStandardMaterialPicker() { m_OpenStandardMaterials = true; }
 
         // Row icon of an entity (by its main component) and the inspector header name of a
         // component key (status bar, menus).
@@ -203,6 +205,7 @@ namespace Zamin {
         std::string m_NewTagBuffer;
         entt::entity m_RenamingEntity = entt::null;
         int m_ScrollInspectorFrames = 0;
+        bool m_OpenStandardMaterials = false;
         AssetInspectorPanel* m_AssetInspector = nullptr;
         uint64_t m_SeenSelectionRevision = 0;
         std::string m_RenameBuffer;

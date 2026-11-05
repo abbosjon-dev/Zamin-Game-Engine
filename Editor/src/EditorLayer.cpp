@@ -340,6 +340,9 @@ namespace Zamin {
                 else
                     ZM_WARN("ZAMIN_EDITOR_SELECT: '{}' topilmadi", sel);
             }
+        // ZAMIN_EDITOR_STANDARD_MATERIALS=1: the selected entity's "Standart material..." list opens at frame 40.
+        if (frame == 40 && std::getenv("ZAMIN_EDITOR_STANDARD_MATERIALS"))
+            m_SceneHierarchyPanel.OpenStandardMaterialPicker();
         // ZAMIN_EDITOR_NEW_MATERIAL=1: "Yangi material" of the content browser's menu at frame 8;
         // a standard material's id instead of 1 ("wood", "glass"...) makes a copy of that one.
         if (const char* preset = std::getenv("ZAMIN_EDITOR_NEW_MATERIAL"); preset && frame == 8)

@@ -1496,8 +1496,13 @@ namespace Zamin {
         if (!Project::GetActive())
             return false;
         UI::PropertyLabel("");
-        if (ImGui::Button(ICON_FA_SWATCHBOOK "  Standart material...", ImVec2(-FLT_MIN, 0)))
+        if (ImGui::Button(ICON_FA_SWATCHBOOK "  Standart material...", ImVec2(-FLT_MIN, 0)) || m_OpenStandardMaterials)
+        {
+            m_OpenStandardMaterials = false;
             ImGui::OpenPopup("##standardMaterials");
+        }
+        // Opens under the button, like a drop-down list.
+        ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 2.0f), ImGuiCond_Appearing);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Dvigatelning standart materiallari (metall, oltin, plastik, yog'och, shisha...). Tanlangani loyihada "
                         "Assets/Materials/Standart/ ichida bir marta yaratiladi va shu mesh'ga biriktiriladi - uni tanlagan "

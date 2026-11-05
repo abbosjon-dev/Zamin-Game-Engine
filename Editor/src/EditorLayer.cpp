@@ -254,6 +254,8 @@ namespace Zamin {
                 OnScenePlay();
             if (std::getenv("ZAMIN_EDITOR_STATS"))
                 m_ShowStats = true;
+            if (const char* colliders = std::getenv("ZAMIN_EDITOR_COLLIDERS")) // 0: collider outlines off
+                m_ShowColliders = std::string_view(colliders) != "0";
             if (std::getenv("ZAMIN_EDITOR_FRAME_ALL"))
                 FrameAll();
             // Content browser: folder (relative to the project), list view, type filter ("Texture,Model").
@@ -1776,6 +1778,11 @@ namespace Zamin {
         ImVec2 hintSize = hint.empty() ? ImVec2(0, 0) : ImGui::CalcTextSize(hint.c_str());
         float lineGap = hint.empty() ? 0.0f : 3.0f;
         ImVec2 size(std::max(titleSize.x, hintSize.x) + pad.x * 2.0f, titleSize.y + hintSize.y + lineGap + pad.y * 2.0f);
+        // Kept inside the viewport (near its right / bottom edge the label goes left / up of the mouse).
+        if (at.x + size.x > m_ViewportBounds[1].x - 4.0f)
+            at.x = std::max(m_ViewportBounds[0].x + 4.0f, at.x - size.x - 36.0f);
+        if (at.y + size.y > m_ViewportBounds[1].y - 4.0f)
+            at.y = std::max(m_ViewportBounds[0].y + 4.0f, at.y - size.y - 56.0f);
         ImVec2 max(at.x + size.x, at.y + size.y);
         dl->AddRectFilled(at, max, IM_COL32(24, 26, 32, 235), 5.0f);
         dl->AddRect(at, max, accent, 5.0f, 0, 1.5f);
@@ -2913,8 +2920,9 @@ namespace Zamin {
                 if (clip.w > 0.0f)
                 {
                     glm::vec2 ndc = glm::vec2(clip) / clip.w;
-                    ImVec2 at(m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * m_ViewportSize.x,
-                              m_ViewportBounds[0].y + (0.5f - ndc.y * 0.5f) * m_ViewportSize.y);
+                    // Where it is for a mouse over the entity (see UpdateMaterialDrag).
+                    ImVec2 at(m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * m_ViewportSize.x + 18.0f,
+                              m_ViewportBounds[0].y + (0.5f - ndc.y * 0.5f) * m_ViewportSize.y + 34.0f);
                     DrawMaterialDragLabel(at, target);
                 }
             }

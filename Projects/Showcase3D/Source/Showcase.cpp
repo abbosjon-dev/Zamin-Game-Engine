@@ -1,6 +1,7 @@
 #include <Zamin/Zamin.h>
 
 #include <cmath>
+#include <format>
 
 using namespace Zamin;
 
@@ -158,6 +159,7 @@ public:
             {
                 glm::vec3 p = base + glm::vec3((i - (Levels - level - 1) * 0.5f) * Size * 1.02f, 0.5f * Size + level * Size, 0.0f);
                 Entity clone = Instantiate(brick, p);
+                clone.SetName(std::format("Brick {}-{}", level + 1, i + 1));
                 // Per-brick material instance: only this brick changes colour.
                 if (Ref<MaterialAsset> material = GetMaterial(clone))
                 {

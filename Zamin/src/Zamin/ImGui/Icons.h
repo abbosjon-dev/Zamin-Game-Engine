@@ -141,3 +141,7 @@
 #define ICON_FA_STOPWATCH "\xef\x8b\xb2"
 #define ICON_FA_SNOWFLAKE "\xef\x8b\x9c"
 #define ICON_FA_SCISSORS "\xef\x83\x84"
+#define ICON_FA_MOUNTAIN "\xef\x9b\xbc" // parallax
+#define ICON_FA_IMAGES "\xef\x8c\x82" // sprite sheet
+#define ICON_FA_CROP "\xef\x84\xa5"
+#define ICON_FA_PANORAMA "\xee\x88\x89"

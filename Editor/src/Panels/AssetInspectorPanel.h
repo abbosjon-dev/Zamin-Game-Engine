@@ -54,6 +54,8 @@ namespace Zamin {
         std::function<void(const std::filesystem::path&)> OnOpenScene;
         // Files were written here (a model's materials exported): the content browser lists them.
         std::function<void(const std::vector<std::filesystem::path>&)> OnFilesCreated;
+        // Textures: the Sprite Editor is to open for the shown file.
+        std::function<void(const std::filesystem::path&)> OnOpenSpriteEditor;
 
         // Models: writes the file's materials as .zmat files (Model::ExportMaterials) into the
         // default folder next to it. False when nothing could be exported (the reason is shown).

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <unordered_map>
 
 namespace Zamin {
 
@@ -208,6 +209,11 @@ namespace Zamin {
             if (ImGui::BeginTabItem(ICON_FA_TAGS "  Teglar", nullptr, tabFlags(Tab::Tags)))
             {
                 DrawTags(config);
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem(ICON_FA_LAYER_GROUP "  Saralash qatlamlari", nullptr, tabFlags(Tab::SortingLayers)))
+            {
+                DrawSortingLayers(config);
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem(ICON_FA_SLIDERS "  Umumiy", nullptr, tabFlags(Tab::General)))
@@ -445,6 +451,153 @@ namespace Zamin {
         {
             tags.erase(tags.begin() + remove);
             if (m_RenamingTag == remove) m_RenamingTag = -1;
+            m_Dirty = true;
+        }
+    }
+
+    // ------------------------------------------------------------------ sorting layers
+    // How many 2D renderers of the scene are on each layer (by ID).
+    static std::unordered_map<uint32_t, size_t> CountSortingLayerUse(Scene& scene)
+    {
+        std::unordered_map<uint32_t, size_t> used;
+        for (auto e : scene.GetAllEntitiesWith<SpriteRendererComponent>())
+            used[Entity(e, &scene).GetComponent<SpriteRendererComponent>().SortingLayer]++;
+        for (auto e : scene.GetAllEntitiesWith<CircleRendererComponent>())
+            used[Entity(e, &scene).GetComponent<CircleRendererComponent>().SortingLayer]++;
+        for (auto e : scene.GetAllEntitiesWith<TextComponent>())
+            used[Entity(e, &scene).GetComponent<TextComponent>().SortingLayer]++;
+        for (auto e : scene.GetAllEntitiesWith<TilemapComponent>())
+            used[Entity(e, &scene).GetComponent<TilemapComponent>().SortingLayer]++;
+        for (auto e : scene.GetAllEntitiesWith<ParticleSystemComponent>())
+            used[Entity(e, &scene).GetComponent<ParticleSystemComponent>().SortingLayer]++;
+        return used;
+    }
+
+    void ProjectSettingsPanel::DrawSortingLayers(ProjectConfig& config)
+    {
+        SortingLayerList& layers = config.SortingLayers;
+        ImGui::TextWrapped("2D renderer'lar (sprite, doira, matn, tilemap, particle) shu qatlamlarning birida chiziladi. Ro'yxat "
+                           "tartibi - chizish tartibi: yuqoridagi qatlam orqada, pastdagisi hammasidan oldinda. Qatlam ichida "
+                           "\"Qatlamdagi tartib\", keyin kameradan uzoqlik hal qiladi. Obyektlar qatlamni ID bilan eslaydi: "
+                           "qayta nomlash va surish sahnalarni buzmaydi; o'chirilgan qatlamdagilar Default'da chiziladi.");
+        ImGui::Spacing();
+
+        std::string trimmed = TrimText(m_NewSortingLayer);
+        const bool duplicate = !trimmed.empty() && layers.FindByName(trimmed);
+        const bool full = layers.GetCount() >= SortingLayerList::MaxLayers;
+        ImGui::SetNextItemWidth(std::min(260.0f, ImGui::GetContentRegionAvail().x * 0.6f));
+        bool submit = ImGui::InputTextWithHint("##newLayer", "Yangi qatlam nomi", &m_NewSortingLayer, ImGuiInputTextFlags_EnterReturnsTrue);
+        ImGui::SameLine();
+        ImGui::BeginDisabled(trimmed.empty() || duplicate || full);
+        submit |= ImGui::Button(ICON_FA_PLUS "  Qo'shish##layer");
+        ImGui::EndDisabled();
+        if (submit && !trimmed.empty() && !duplicate && !full && layers.Add(trimmed))
+        {
+            m_NewSortingLayer.clear();
+            m_Dirty = true;
+        }
+        if (duplicate)
+        {
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), "Bu nom band");
+        }
+        ImGui::Spacing();
+
+        const std::unordered_map<uint32_t, size_t> used = m_Scene ? CountSortingLayerUse(*m_Scene) : std::unordered_map<uint32_t, size_t>();
+        int moveFrom = -1, moveTo = -1;
+        uint32_t remove = ~0u;
+        const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX;
+        if (ImGui::BeginTable("##sortingLayers", 4, flags))
+        {
+            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 2.0f);
+            ImGui::TableSetupColumn("Qatlam", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Sahnada", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 7.0f);
+            ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() * 4.6f);
+            ImGui::TableHeadersRow();
+            const auto& list = layers.GetLayers();
+            for (int i = 0; i < (int)list.size(); i++)
+            {
+                const SortingLayer& layer = list[(size_t)i];
+                ImGui::PushID((int)layer.ID);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("%d", i + 1);
+                ImGui::TableSetColumnIndex(1);
+                if (m_RenamingLayer == layer.ID)
+                {
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    if (m_FocusLayerRename)
+                    {
+                        ImGui::SetKeyboardFocusHere();
+                        m_FocusLayerRename = false;
+                    }
+                    if (ImGui::InputText("##rename", &m_LayerRenameBuffer, ImGuiInputTextFlags_EnterReturnsTrue))
+                    {
+                        if (layers.Rename(layer.ID, TrimText(m_LayerRenameBuffer)))
+                            m_Dirty = true;
+                        m_RenamingLayer = ~0u;
+                    }
+                    else if (ImGui::IsItemDeactivated() || ImGui::IsKeyPressed(ImGuiKey_Escape))
+                        m_RenamingLayer = ~0u;
+                }
+                else
+                {
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::Text(ICON_FA_LAYER_GROUP "  %s", layer.Name.c_str());
+                    if (layer.ID == SortingLayerList::DefaultID)
+                    {
+                        ImGui::SameLine();
+                        ImGui::TextDisabled("(asosiy)");
+                    }
+                    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+                    {
+                        m_RenamingLayer = layer.ID;
+                        m_LayerRenameBuffer = layer.Name;
+                        m_FocusLayerRename = true;
+                    }
+                }
+                ImGui::TableSetColumnIndex(2);
+                ImGui::AlignTextToFramePadding();
+                auto it = used.find(layer.ID);
+                if (it != used.end() && it->second > 0) ImGui::Text("%zu ta", it->second);
+                else ImGui::TextDisabled("-");
+                ImGui::TableSetColumnIndex(3);
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+                ImGui::BeginDisabled(i == 0);
+                if (ImGui::Button(ICON_FA_ARROW_UP)) { moveFrom = i; moveTo = i - 1; }
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) UI::Tooltip("Orqaroqqa (oldinroq chiziladi)");
+                ImGui::SameLine();
+                ImGui::BeginDisabled(i + 1 == (int)list.size());
+                if (ImGui::Button(ICON_FA_ARROW_DOWN)) { moveFrom = i; moveTo = i + 1; }
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) UI::Tooltip("Oldinroqqa (keyinroq chiziladi)");
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_PEN))
+                {
+                    m_RenamingLayer = layer.ID;
+                    m_LayerRenameBuffer = layer.Name;
+                    m_FocusLayerRename = true;
+                }
+                if (ImGui::IsItemHovered()) UI::Tooltip("Qayta nomlash (obyektlar qatlamni ID bilan eslaydi)");
+                ImGui::SameLine();
+                ImGui::BeginDisabled(layer.ID == SortingLayerList::DefaultID);
+                if (ImGui::Button(ICON_FA_TRASH)) remove = layer.ID;
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    UI::Tooltip(layer.ID == SortingLayerList::DefaultID ? "Default qatlamini o'chirib bo'lmaydi"
+                                                                        : "O'chirish (undagi obyektlar Default'da chiziladi)");
+                ImGui::PopStyleColor();
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+        if (moveFrom >= 0 && layers.Move((size_t)moveFrom, (size_t)moveTo))
+            m_Dirty = true;
+        if (remove != ~0u && layers.Remove(remove))
+        {
+            if (m_RenamingLayer == remove) m_RenamingLayer = ~0u;
             m_Dirty = true;
         }
     }

@@ -973,6 +973,39 @@ namespace Zamin {
         if (environment)
             return;
 
+        // ---- sprite sheet: the named frames kept in the .zmeta (Sprite Editor)
+        if (UI::BeginPropertyGrid("##textureSprites"))
+        {
+            UI::PropertyHeader(ICON_FA_IMAGES "  Sprite kadrlari", "Rasmning nomlangan kadrlari (atlas): Sprite Renderer ularni nomi bilan "
+                                                                  "ko'rsatadi, Sprite Animation ketma-ketlik qilib o'ynaydi. Sprite muharririda "
+                                                                  "kesiladi va .zmeta faylida saqlanadi.");
+            SpriteSheet sheet = meta ? SpriteSheet::FromImportSettings(meta->Import) : SpriteSheet();
+            UI::PropertyLabel("Kadrlar");
+            if (sheet.IsEmpty())
+                ImGui::TextDisabled("yo'q (butun rasm bitta sprite)");
+            else
+            {
+                std::vector<std::string> prefixes = sheet.GetSequencePrefixes();
+                std::string groups;
+                for (size_t i = 0; i < prefixes.size() && i < 6; i++)
+                    groups += (i ? ", " : "") + prefixes[i];
+                if (prefixes.size() > 6)
+                    groups += ", ...";
+                ImGui::Text("%zu ta", sheet.Frames.size());
+                if (!groups.empty())
+                {
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("(%s)", groups.c_str());
+                }
+            }
+            UI::PropertyLabel("");
+            ImGui::BeginDisabled(!meta || !OnOpenSpriteEditor);
+            if (ImGui::Button(ICON_FA_SCISSORS "  Sprite muharriri", ImVec2(-FLT_MIN, 0)) && OnOpenSpriteEditor)
+                OnOpenSpriteEditor(m_Path);
+            ImGui::EndDisabled();
+            UI::EndPropertyGrid();
+        }
+
         // ---- import settings
         bool canApply = meta != nullptr;
         if (UI::BeginPropertyGrid("##textureImport"))

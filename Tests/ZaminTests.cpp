@@ -12777,6 +12777,542 @@ TEST(DebugDrawQueueLimitsAndShortDurations)
     ResetDebugDraw();
 }
 
+// ------------------------------------------------------------------ M08: 2D (sprite sheets, 9-slice, sorting layers, parallax)
+static bool NearVec(const glm::vec2& a, const glm::vec2& b, float eps = 1e-5f)
+{
+    return std::abs(a.x - b.x) <= eps && std::abs(a.y - b.y) <= eps;
+}
+
+TEST(SpriteSheetSliceGrid)
+{
+    // A 64 x 48 sheet of 16 px cells: 4 x 3 frames, left to right, top to bottom.
+    SpriteSliceSettings s;
+    s.CellSize = { 16, 16 };
+    s.NamePrefix = "player";
+    std::vector<SpriteFrame> frames = SpriteSheet::SliceGrid(s, 64, 48);
+    CHECK(frames.size() == 12);
+    CHECK(frames[0].Name == "player_0" && frames[0].Position == glm::ivec2(0, 0) && frames[0].Size == glm::ivec2(16, 16));
+    CHECK(frames[5].Name == "player_5" && frames[5].Position == glm::ivec2(16, 16));
+    CHECK(frames[11].Position == glm::ivec2(48, 32));
+    CHECK(NearVec(frames[3].Pivot, { 0.5f, 0.5f }));
+    // Cells that do not fit entirely are left out.
+    s.CellSize = { 20, 20 };
+    CHECK(SpriteSheet::SliceGrid(s, 64, 48).size() == 6);
+    // Offset and padding.
+    s.CellSize = { 10, 10 };
+    s.Offset = { 2, 3 };
+    s.Padding = { 4, 1 };
+    frames = SpriteSheet::SliceGrid(s, 38, 25);
+    // x: 2, 16 (30 + 10 > 38: no); y: 3, 14 (14 + 10 <= 25)
+    CHECK(frames.size() == 4);
+    CHECK(frames.size() == 4 && frames[1].Position == glm::ivec2(16, 3) && frames[2].Position == glm::ivec2(2, 14));
+    CHECK(SpriteSheet::SliceGrid(s, 40, 25).size() == 6); // 30 + 10 fits a 40 px texture exactly
+    // By the number of columns / rows: the cell size is worked out.
+    SpriteSliceSettings c;
+    c.Mode = SpriteSliceSettings::SliceMode::CellCount;
+    c.CellCount = { 4, 2 };
+    c.Offset = { 2, 2 };
+    c.Padding = { 2, 2 };
+    CHECK(SpriteSheet::GetCellSize(c, 70, 40) == glm::ivec2(15, 18)); // (70 - 2 - 3 * 2) / 4, (40 - 2 - 2) / 2
+    frames = SpriteSheet::SliceGrid(c, 70, 40);
+    CHECK(frames.size() == 8);
+    CHECK(frames.size() == 8 && frames[7].Position == glm::ivec2(2 + 3 * 17, 2 + 20) && frames[7].Size == glm::ivec2(15, 18));
+    // Empty cells (all transparent) can be skipped: names stay consecutive.
+    std::vector<uint8_t> rgba(8 * 4 * 4, 0);
+    auto opaque = [&](int x, int y) { rgba[((size_t)y * 8 + x) * 4 + 3] = 255; };
+    opaque(1, 0);  // cell 0
+    opaque(6, 3);  // cell 7
+    opaque(4, 2);  // cell 6
+    SpriteSliceSettings e;
+    e.CellSize = { 2, 2 };
+    e.SkipEmpty = true;
+    e.NamePrefix = "t";
+    frames = SpriteSheet::SliceGrid(e, 8, 4, rgba.data());
+    CHECK(frames.size() == 3);
+    CHECK(frames.size() == 3 && frames[0].Position == glm::ivec2(0, 0) && frames[1].Position == glm::ivec2(4, 2) &&
+          frames[2].Position == glm::ivec2(6, 2) && frames[2].Name == "t_2");
+    // Without pixels SkipEmpty keeps every cell; nothing for an empty texture.
+    CHECK(SpriteSheet::SliceGrid(e, 8, 4).size() == 8);
+    CHECK(SpriteSheet::SliceGrid(e, 0, 4).empty());
+}
+
+TEST(SpriteFrameUVAndRegions)
+{
+    SpriteFrame f;
+    f.Position = { 16, 0 };
+    f.Size = { 16, 16 };
+    glm::vec2 uvMin, uvMax;
+    f.GetUV(64, 48, uvMin, uvMax);
+    // Top row of the picture = the largest v (textures are bottom-up).
+    CHECK(NearVec(uvMin, { 0.25f, 1.0f - 16.0f / 48.0f }) && NearVec(uvMax, { 0.5f, 1.0f }));
+    SpriteRegion r = SpriteRegion::FromFrame(f, 64, 48);
+    CHECK(!r.Whole && NearVec(r.Pixels, { 16, 16 }) && NearVec(r.UVMin, uvMin));
+    // Grid cells: the same coordinates the old sprite animation used.
+    SpriteRegion cell = SpriteRegion::GridCell(4, 3, 5, 64, 48);
+    CHECK(NearVec(cell.UVMin, { 0.25f, 1.0f - 2.0f / 3.0f }) && NearVec(cell.UVMax, { 0.5f, 1.0f - 1.0f / 3.0f }));
+    CHECK(NearVec(cell.Pixels, { 16, 16 }));
+    CHECK(NearVec(SpriteRegion::GridCell(4, 3, 99, 64, 48).UVMin, SpriteRegion::GridCell(4, 3, 11, 64, 48).UVMin)); // clamped
+    SpriteRegion whole = SpriteRegion::WholeTexture(64, 48);
+    CHECK(whole.Whole && NearVec(whole.UVMin, { 0, 0 }) && NearVec(whole.UVMax, { 1, 1 }) && NearVec(whole.Pixels, { 64, 48 }));
+}
+
+TEST(SpriteSheetStorageAndSequences)
+{
+    SpriteSheet sheet;
+    auto add = [&](const char* name, int x) {
+        SpriteFrame f;
+        f.Name = name;
+        f.Position = { x, 0 };
+        f.Size = { 8, 8 };
+        sheet.Frames.push_back(f);
+    };
+    add("run_2", 0); add("run_0", 8); add("run_10", 16); add("run_1", 24); add("idle_0", 32); add("jump", 40); add("idle1", 48);
+    sheet.Frames[2].Pivot = { 0.5f, 0.0f };
+    sheet.Frames[2].Border = { 1, 2, 3, 4 };
+    CHECK(sheet.FindIndex("run_10") == 2 && sheet.Find("jump") && !sheet.Find("walk"));
+    std::vector<std::string> run = sheet.FindSequence("run");
+    CHECK(run == std::vector<std::string>({ "run_0", "run_1", "run_2", "run_10" }));
+    CHECK(sheet.FindSequence("run_") == run);
+    CHECK(sheet.FindSequence("idle") == std::vector<std::string>({ "idle_0", "idle1" }));
+    CHECK(sheet.FindSequence("").size() == sheet.Frames.size());
+    CHECK(sheet.GetSequencePrefixes() == std::vector<std::string>({ "run", "idle" }));
+    CHECK(sheet.MakeUniqueName("jump") == "jump_1" && sheet.MakeUniqueName("fly") == "fly");
+
+    // JSON round trip (the "Sprites" import setting of the texture's .zmeta).
+    std::string text = sheet.ToJson();
+    SpriteSheet loaded;
+    CHECK(SpriteSheet::FromJson(text, loaded));
+    CHECK(loaded == sheet);
+    CHECK(loaded.Frames[2].HasBorder() && !loaded.Frames[0].HasBorder());
+    AssetImportSettings import;
+    import.SetString("Filter", "Nearest");
+    sheet.WriteTo(import);
+    CHECK(import.Has(SpriteSheet::ImportKey) && import.GetString("Filter") == "Nearest");
+    CHECK(SpriteSheet::FromImportSettings(import) == sheet);
+    // The .zmeta text keeps it (and reads back the same).
+    AssetMetadata meta;
+    meta.Handle = AssetHandle::Generate();
+    meta.Type = AssetType::Texture;
+    meta.Import = import;
+    AssetMetadata reread;
+    CHECK(AssetMetaFile::Deserialize(AssetMetaFile::Serialize(meta), reread));
+    CHECK(reread.Import == import && SpriteSheet::FromImportSettings(reread.Import) == sheet);
+    // No frames: the key goes.
+    SpriteSheet().WriteTo(import);
+    CHECK(!import.Has(SpriteSheet::ImportKey) && import.Has("Filter"));
+
+    // Bad entries are skipped, repeated names get a suffix, broken text changes nothing.
+    CHECK(SpriteSheet::FromJson(R"([{"Name":"a","Rect":[0,0,4,4]},{"Name":"a","Rect":[4,0,4,4],"Pivot":[0,1]},
+                                    {"Name":"","Rect":[0,0,1,1]},{"Name":"z","Rect":[0,0,0,4]},{"Rect":[0,0,1,1]},
+                                    {"Name":"b","Rect":[1,2]},{"Name":"c","Rect":[0,0,2,2],"Border":[-3,1,1,1]}])", loaded));
+    CHECK(loaded.Frames.size() == 3);
+    CHECK(loaded.Frames.size() == 3 && loaded.Frames[1].Name == "a_1" && NearVec(loaded.Frames[1].Pivot, { 0, 1 }) &&
+          loaded.Frames[2].Border.x == 0.0f && loaded.Frames[2].Border.y == 1.0f);
+    CHECK(!SpriteSheet::FromJson("{ not json", loaded) && loaded.Frames.size() == 3);
+    CHECK(!SpriteSheet::FromJson(R"({"Name":"a"})", loaded));
+}
+
+TEST(SpriteSheetFromAssetRegistry)
+{
+    namespace fs = std::filesystem;
+    fs::path root = MakeTempDir("zamin-sprites-");
+    fs::path assets = root / "Assets";
+    WriteFile(assets / "Textures" / "hero.png", "png");
+    WriteFile(assets / "Textures" / "plain.png", "png");
+    WriteFile(assets / "Textures" / "hero.png.zmeta",
+              R"({ "UUID": "00000000000000a1", "Type": "Texture", "Import": { "Sprites": [ { "Name": "hero_0", "Rect": [0, 0, 16, 16] },
+                                                                                          { "Name": "hero_1", "Rect": [16, 0, 16, 16] } ] } })");
+    AssetRegistry registry(false);
+    registry.Scan(assets);
+    const SpriteSheet* sheet = SpriteSheet::Get(&registry, "Textures/hero.png");
+    CHECK(sheet && sheet->Frames.size() == 2 && sheet->Find("hero_1"));
+    CHECK(!SpriteSheet::Get(&registry, "Textures/plain.png"));  // no frames
+    CHECK(!SpriteSheet::Get(&registry, "Textures/missing.png"));
+    CHECK(!SpriteSheet::Get(nullptr, "Textures/hero.png"));
+
+    // New frames (the Sprite Editor's Save): the cached sheet follows the registry.
+    const AssetMetadata* meta = registry.Find(fs::path("Textures/hero.png"));
+    CHECK(meta != nullptr);
+    if (meta)
+    {
+        SpriteSheet edited = *sheet;
+        edited.Frames.pop_back();
+        edited.Frames[0].Name = "idle";
+        AssetImportSettings import = meta->Import;
+        edited.WriteTo(import);
+        CHECK(registry.SetImportSettings(meta->Handle, import));
+        sheet = SpriteSheet::Get(&registry, "Textures/hero.png");
+        CHECK(sheet && sheet->Frames.size() == 1 && sheet->Find("idle") && !sheet->Find("hero_1"));
+    }
+
+    // A sprite renderer shows its named frame; an animation's frame list wins over it.
+    SpriteRendererComponent sprite;
+    sprite.TexturePath = "Textures/hero.png";
+    sprite.SpriteName = "idle";
+    SpriteRegion region = Scene::GetSpriteRegion(sprite, nullptr, &registry);
+    CHECK(!region.Whole && NearVec(region.Pixels, { 16, 16 }));
+    sprite.SpriteName = "nope";
+    CHECK(Scene::GetSpriteRegion(sprite, nullptr, &registry).Whole);
+    SpriteAnimationComponent grid;
+    CHECK(!Scene::GetSpriteRegion(sprite, &grid, &registry).Whole); // a grid cell
+    SpriteSheet::ClearCache();
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
+TEST(SpriteGeometryNineSlice)
+{
+    std::vector<SpriteQuad> quads;
+    // Simple: one quad, the unit square around the pivot.
+    SpriteGeometry g;
+    g.Pivot = { 0.0f, 0.0f };
+    CHECK(g.Build(quads) == 1 && NearVec(quads[0].Min, { 0, 0 }) && NearVec(quads[0].Max, { 1, 1 }));
+
+    // Sliced: 3 x 3 quads; corners keep border / ppu (10 px at 10 px per unit = 1 unit).
+    quads.clear();
+    g = SpriteGeometry();
+    g.Mode = SpriteDrawMode::Sliced;
+    g.Size = { 4.0f, 3.0f };
+    g.RegionPixels = { 40.0f, 40.0f };
+    g.Border = { 10.0f, 10.0f, 10.0f, 10.0f };
+    g.PixelsPerUnit = 10.0f;
+    CHECK(g.Build(quads) == 9);
+    CHECK(quads.size() == 9);
+    if (quads.size() == 9)
+    {
+        // Bottom-left corner first (rows bottom to top, columns left to right).
+        CHECK(NearVec(quads[0].Min, { -2.0f, -1.5f }) && NearVec(quads[0].Max, { -1.0f, -0.5f }));
+        CHECK(NearVec(quads[0].UVMin, { 0.0f, 0.0f }) && NearVec(quads[0].UVMax, { 0.25f, 0.25f }));
+        // Centre: stretched, inner part of the picture.
+        CHECK(NearVec(quads[4].Min, { -1.0f, -0.5f }) && NearVec(quads[4].Max, { 1.0f, 0.5f }));
+        CHECK(NearVec(quads[4].UVMin, { 0.25f, 0.25f }) && NearVec(quads[4].UVMax, { 0.75f, 0.75f }));
+        // Top-right corner.
+        CHECK(NearVec(quads[8].Min, { 1.0f, 0.5f }) && NearVec(quads[8].Max, { 2.0f, 1.5f }) && NearVec(quads[8].UVMax, { 1.0f, 1.0f }));
+    }
+    glm::vec2 min, max;
+    g.GetBounds(min, max);
+    CHECK(NearVec(min, { -2.0f, -1.5f }) && NearVec(max, { 2.0f, 1.5f }));
+
+    // A frame's UV rectangle: the slices stay inside it.
+    quads.clear();
+    g.UVMin = { 0.5f, 0.0f };
+    g.UVMax = { 1.0f, 0.5f };
+    g.Build(quads);
+    CHECK(quads.size() == 9 && NearVec(quads[0].UVMax, { 0.625f, 0.125f }) && NearVec(quads[8].UVMin, { 0.875f, 0.375f }));
+
+    // Corners bigger than the rectangle shrink together; empty middles are left out.
+    quads.clear();
+    g = SpriteGeometry();
+    g.Mode = SpriteDrawMode::Sliced;
+    g.Size = { 1.0f, 1.0f };
+    g.RegionPixels = { 30.0f, 30.0f };
+    g.Border = { 10.0f, 10.0f, 10.0f, 10.0f };
+    g.PixelsPerUnit = 10.0f;
+    CHECK(g.Build(quads) == 4);
+    CHECK(quads.size() == 4 && NearVec(quads[0].Max - quads[0].Min, { 0.5f, 0.5f }));
+    // No border: a single stretched quad; zero size: nothing.
+    quads.clear();
+    g.Border = glm::vec4(0.0f);
+    CHECK(g.Build(quads) == 1);
+    g.Size = { 0.0f, 2.0f };
+    CHECK(g.Build(quads) == 0);
+}
+
+TEST(SpriteGeometryTiled)
+{
+    std::vector<SpriteQuad> quads;
+    // Without a border the whole picture repeats: 10 px at 10 px per unit = 1 unit tiles, the last cut.
+    SpriteGeometry g;
+    g.Mode = SpriteDrawMode::Tiled;
+    g.Size = { 2.5f, 1.0f };
+    g.Pivot = { 0.0f, 0.0f };
+    g.RegionPixels = { 10.0f, 10.0f };
+    g.PixelsPerUnit = 10.0f;
+    CHECK(g.Build(quads) == 3);
+    CHECK(quads.size() == 3 && NearVec(quads[2].Min, { 2.0f, 0.0f }) && NearVec(quads[2].Max, { 2.5f, 1.0f }) &&
+          NearVec(quads[2].UVMax, { 0.5f, 1.0f }) && NearVec(quads[1].UVMin, { 0.0f, 0.0f }));
+    // With borders: corners once, edges and centre repeat (1 + 3 + 1 columns, 1 + 1 + 1 rows).
+    quads.clear();
+    g.Size = { 5.0f, 3.0f };
+    g.RegionPixels = { 30.0f, 30.0f };
+    g.Border = { 10.0f, 10.0f, 10.0f, 10.0f };
+    CHECK(g.Build(quads) == 15);
+    // At most maxQuads.
+    quads.clear();
+    CHECK(g.Build(quads, 7) == 7 && quads.size() == 7);
+    // A tiny tile never makes thousands of quads per axis.
+    quads.clear();
+    g.Border = glm::vec4(0.0f);
+    g.Size = { 1000.0f, 1.0f };
+    g.RegionPixels = { 1.0f, 10.0f };
+    CHECK(g.Build(quads) <= 256);
+}
+
+TEST(SpriteRendererRectAndBounds)
+{
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Panel");
+    auto& s = e.AddComponent<SpriteRendererComponent>();
+    // Simple, whole texture: the unit quad as before.
+    CHECK(Scene::GetSpriteRectTransform(s, nullptr, nullptr) == glm::mat4(1.0f));
+    s.DrawMode = SpriteDrawMode::Sliced;
+    s.Size = { 4.0f, 2.0f };
+    glm::mat4 rect = Scene::GetSpriteRectTransform(s, nullptr, nullptr);
+    CHECK_NEAR(rect[0][0], 4.0f, 1e-5f);
+    CHECK_NEAR(rect[1][1], 2.0f, 1e-5f);
+    CHECK_NEAR(rect[3][0], 0.0f, 1e-5f);
+    e.GetComponent<TransformComponent>().Translation = { 10.0f, 1.0f, 0.0f };
+    AABB box;
+    CHECK(scene->GetEntityBounds(e, box));
+    CHECK_NEAR(box.Min.x, 8.0f, 1e-4f);
+    CHECK_NEAR(box.Max.x, 12.0f, 1e-4f);
+    CHECK_NEAR(box.Min.y, 0.0f, 1e-4f);
+    CHECK_NEAR(box.Max.y, 2.0f, 1e-4f);
+
+    // Frame lists of the animation.
+    SpriteAnimationComponent anim;
+    CHECK(!anim.UsesFrameList() && anim.GetCurrentFrameName().empty());
+    anim.PlayFrames({ "a", "b", "c" }, 10.0f, true);
+    CHECK(anim.UsesFrameList() && anim.FrameCount == 3 && anim.GetCurrentFrameName() == "a");
+    anim.Time = 0.25f;
+    CHECK(anim.GetCurrentFrameName() == "c");
+    anim.Time = 0.35f;
+    CHECK(anim.GetCurrentFrameName() == "a"); // looped
+    anim.Play(1, 2, 10.0f, false);            // a range of the list
+    anim.Time = 5.0f;
+    CHECK(anim.GetCurrentFrameName() == "c");
+}
+
+TEST(SortingLayerListEdits)
+{
+    SortingLayerList layers;
+    CHECK(layers.GetCount() == 1 && layers.GetName(0) == "Default" && layers.GetIndex(0) == 0);
+    uint32_t back = layers.Add("Background");
+    uint32_t ui = layers.Add("  UI ");
+    CHECK(back == 1 && ui == 2 && layers.FindByName("UI") && layers.GetCount() == 3);
+    CHECK(layers.Add("UI") == 0 && layers.Add("") == 0 && layers.Add("   ") == 0);
+    // Background goes behind Default.
+    CHECK(layers.Move(1, 0));
+    CHECK(layers.GetIndex(back) == 0 && layers.GetIndex(0) == 1 && layers.GetIndex(ui) == 2);
+    CHECK(!layers.Move(0, 5));
+    // An unknown ID counts as Default.
+    CHECK(layers.GetIndex(77) == layers.GetIndex(0) && layers.GetName(77) == "Default");
+    CHECK(layers.Rename(ui, "HUD") && layers.GetName(ui) == "HUD");
+    CHECK(!layers.Rename(ui, "Background") && !layers.Rename(99, "X") && !layers.Rename(ui, ""));
+    CHECK(layers.Rename(0, "Asosiy") && layers.GetName(0) == "Asosiy");
+    CHECK(!layers.Remove(0) && layers.Remove(back) && !layers.Remove(back));
+    CHECK(layers.GetCount() == 2 && layers.GetIndex(back) == layers.GetIndex(0));
+    // A removed layer's ID is not given out again.
+    CHECK(layers.Add("Background") == 3);
+
+    // A stored (ID, name): the ID when it is that layer, else by name, else kept as it is.
+    CHECK(layers.Resolve(ui, "HUD") == ui);
+    CHECK(layers.Resolve(ui, "") == ui);
+    CHECK(layers.Resolve(42, "HUD") == ui);   // another project's ID, a known name
+    CHECK(layers.Resolve(ui, "Background") == 3); // the ID means another layer here: the name decides
+    CHECK(layers.Resolve(42, "Nowhere") == 42); // unknown: kept (drawn on Default)
+
+    // Assign: duplicates and empty names are dropped, Default comes back at the front.
+    SortingLayerList stored;
+    stored.Assign({ { 5, "Fon" }, { 5, "Again" }, { 6, "Fon" }, { 7, "" }, { 8, "Default" }, { 9, "Old" } });
+    CHECK(stored.GetCount() == 4);
+    CHECK(stored.GetCount() == 4 && stored.GetLayers()[0].ID == 0 && stored.GetLayers()[0].Name == "Default 2");
+    CHECK(stored.GetIndex(5) == 1 && stored.GetIndex(8) == 2 && stored.GetIndex(9) == 3 && stored.GetNextID() == 10);
+    // At most MaxLayers.
+    SortingLayerList many;
+    for (size_t i = 0; i < SortingLayerList::MaxLayers + 5; i++)
+        many.Add("L" + std::to_string(i));
+    CHECK(many.GetCount() == SortingLayerList::MaxLayers);
+}
+
+TEST(SortKey2DOrder)
+{
+    // Layer first, then the order inside the layer, then the depth (farther first).
+    std::vector<SortKey2D> keys = {
+        { 1, 0, -1.0f }, { 0, 5, -9.0f }, { 0, 5, -2.0f }, { 2, -100, -50.0f }, { 0, -3, 0.0f }, { 1, 0, -4.0f },
+    };
+    std::stable_sort(keys.begin(), keys.end(), SortKey2D::Less);
+    CHECK(keys[0].Layer == 0 && keys[0].Order == -3);
+    CHECK(keys[1].Layer == 0 && keys[1].Depth == -9.0f && keys[2].Depth == -2.0f);
+    CHECK(keys[3].Layer == 1 && keys[3].Depth == -4.0f && keys[4].Depth == -1.0f);
+    CHECK(keys[5].Layer == 2);
+    CHECK(!SortKey2D::Less({ 0, 0, 0.0f }, { 0, 0, 0.0f }));
+}
+
+TEST(SortingLayersInProjectFile)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-layers-");
+    auto project = Project::CreateFromTemplate(dir, "LayerGame");
+    CHECK(project != nullptr);
+    if (project)
+    {
+        CHECK(Project::GetSortingLayers().GetCount() == 1);
+        // Only the Default layer: no section is written.
+        CHECK(Project::SaveActive(dir / "LayerGame.zproject"));
+        CHECK(FileSystem::ReadTextFile(dir / "LayerGame.zproject").find("SortingLayers") == std::string::npos);
+        auto& layers = project->GetConfig().SortingLayers;
+        uint32_t back = layers.Add("Fon");
+        layers.Move(1, 0);
+        uint32_t front = layers.Add("Oldingi plan");
+        CHECK(Project::SaveActive(dir / "LayerGame.zproject"));
+        auto loaded = Project::Load(dir / "LayerGame.zproject");
+        CHECK(loaded != nullptr);
+        if (loaded)
+        {
+            const SortingLayerList& l = Project::GetSortingLayers();
+            CHECK(&l == &loaded->GetConfig().SortingLayers);
+            CHECK(l == layers && l.GetIndex(back) == 0 && l.GetIndex(front) == 2 && l.GetNextID() == front + 1);
+        }
+        // Text form; broken entries skipped.
+        SortingLayerList parsed;
+        CHECK(ProjectSerializer::SortingLayersFromString(ProjectSerializer::SortingLayersToString(layers), parsed) && parsed == layers);
+        CHECK(ProjectSerializer::SortingLayersFromString(R"([{"ID":3,"Name":"A"},{"ID":-1,"Name":"B"},{"Name":"C"},5])", parsed));
+        CHECK(parsed.GetCount() == 2 && parsed.GetLayers()[0].ID == 0 && parsed.FindByName("A"));
+        CHECK(!ProjectSerializer::SortingLayersFromString("{}", parsed));
+        // An older project: only Default.
+        CHECK(FileSystem::WriteTextFile(dir / "Old.zproject", R"({"Project":{"Name":"Old","StartScene":""}})"));
+        auto old = Project::Load(dir / "Old.zproject");
+        CHECK(old && old->GetConfig().SortingLayers == SortingLayerList());
+    }
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(Scene2DFieldsSerialized)
+{
+    auto scene = CreateRef<Scene>();
+    Entity panel = scene->CreateEntity("Panel");
+    auto& s = panel.AddComponent<SpriteRendererComponent>();
+    s.TexturePath = "Textures/ui.png";
+    s.SpriteName = "panel";
+    s.DrawMode = SpriteDrawMode::Sliced;
+    s.Size = { 6.0f, 2.5f };
+    s.SliceBorder = { 8, 8, 6, 6 };
+    s.PixelsPerUnit = 32.0f;
+    s.SortingLayer = 4;
+    s.SortingOrder = 7;
+    auto& anim = panel.AddComponent<SpriteAnimationComponent>();
+    anim.PlayFrames({ "run_0", "run_1" }, 8.0f);
+    auto& p = panel.AddComponent<ParallaxComponent>();
+    p.Factor = { 0.75f, -0.25f };
+    p.RepeatX = true;
+    p.Spacing = { 12.0f, 0.0f };
+    Entity label = scene->CreateEntity("Label");
+    label.AddComponent<TextComponent>().SortingLayer = 4;
+    label.GetComponent<TextComponent>().SortingOrder = 3;
+    Entity dot = scene->CreateEntity("Dot");
+    dot.AddComponent<CircleRendererComponent>().SortingLayer = 2;
+    dot.AddComponent<TilemapComponent>().SortingLayer = 3;
+    dot.AddComponent<ParticleSystemComponent>().SortingLayer = 5;
+    Entity plain = scene->CreateEntity("Plain");
+    plain.AddComponent<SpriteRendererComponent>();
+    plain.AddComponent<TextComponent>();
+
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity lp = loaded->FindEntityByName("Panel");
+    CHECK(lp && lp.HasComponent<ParallaxComponent>());
+    if (lp && lp.HasComponent<ParallaxComponent>())
+    {
+        const auto& ls = lp.GetComponent<SpriteRendererComponent>();
+        CHECK(ls.SpriteName == "panel" && ls.DrawMode == SpriteDrawMode::Sliced && ls.Size == glm::vec2(6.0f, 2.5f));
+        CHECK(ls.SliceBorder == glm::vec4(8, 8, 6, 6) && ls.PixelsPerUnit == 32.0f && ls.SortingOrder == 7);
+        // Without a project the unknown layer ID is kept as it is.
+        CHECK(ls.SortingLayer == 4);
+        CHECK(lp.GetComponent<SpriteAnimationComponent>().Frames == std::vector<std::string>({ "run_0", "run_1" }));
+        const auto& lpx = lp.GetComponent<ParallaxComponent>();
+        CHECK(lpx.Factor == glm::vec2(0.75f, -0.25f) && lpx.RepeatX && !lpx.RepeatY && lpx.Spacing == glm::vec2(12.0f, 0.0f));
+    }
+    Entity ll = loaded->FindEntityByName("Label");
+    CHECK(ll && ll.GetComponent<TextComponent>().SortingLayer == 4 && ll.GetComponent<TextComponent>().SortingOrder == 3);
+    Entity ld = loaded->FindEntityByName("Dot");
+    CHECK(ld && ld.GetComponent<CircleRendererComponent>().SortingLayer == 2 && ld.GetComponent<TilemapComponent>().SortingLayer == 3 &&
+          ld.GetComponent<ParticleSystemComponent>().SortingLayer == 5);
+    // Defaults are not written (older files stay as they were) and read back as defaults.
+    Entity lplain = loaded->FindEntityByName("Plain");
+    CHECK(lplain && lplain.GetComponent<SpriteRendererComponent>().DrawMode == SpriteDrawMode::Simple &&
+          lplain.GetComponent<SpriteRendererComponent>().SpriteName.empty() && lplain.GetComponent<TextComponent>().SortingOrder == 1000);
+    std::string plainText = SceneSerializer::SerializeEntities(*scene, { plain });
+    CHECK(plainText.find("DrawMode") == std::string::npos && plainText.find("SortingLayer") == std::string::npos &&
+          plainText.find("\"Sprite\"") == std::string::npos);
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+
+    // A scene of another project: the layer is found by its name.
+    auto project = Project::New();
+    project->GetConfig().SortingLayers.Add("A");            // ID 1
+    project->GetConfig().SortingLayers.Add("Panels");       // ID 2
+    std::string file = R"({"Scene":"X","Entities":[{"Entity":11,"Tag":"S","Transform":{},"SpriteRenderer":{"SortingLayer":4,"SortingLayerName":"Panels"}}]})";
+    auto other = CreateRef<Scene>();
+    CHECK(SceneSerializer(other).DeserializeFromString(file));
+    Entity os = other->FindEntityByName("S");
+    CHECK(os && os.GetComponent<SpriteRendererComponent>().SortingLayer == 2);
+    // ... and saved with this project's name.
+    std::string saved = SceneSerializer(other).SerializeToString();
+    CHECK(saved.find("\"SortingLayerName\": \"Panels\"") != std::string::npos);
+    Project::SetActive(nullptr);
+}
+
+TEST(ParallaxOffsetAndRepeat)
+{
+    // The layer moves by the camera's distance from it times the factor.
+    CHECK(NearVec(ParallaxMath::GetOffset({ 10.0f, 4.0f }, { 2.0f, 0.0f }, { 0.5f, 0.25f }), { 4.0f, 1.0f }));
+    CHECK(NearVec(ParallaxMath::GetOffset({ 10.0f, 4.0f }, { 2.0f, 0.0f }, { 0.0f, 0.0f }), { 0.0f, 0.0f }));
+    // Factor 1: it stays where the camera is (the same place on the screen however the camera moves).
+    glm::vec2 layer = { 3.0f, 1.0f };
+    for (float cam : { -20.0f, 0.0f, 7.5f })
+        CHECK(NearVec(layer + ParallaxMath::GetOffset({ cam, 2.0f }, layer, { 1.0f, 1.0f }), { cam, 2.0f }));
+
+    // Copies of a 10 wide piece every 10 units covering a view.
+    int first = 0, last = 0;
+    CHECK(ParallaxMath::GetRepeatRange(0.0f, 10.0f, 10.0f, -5.0f, 5.0f, first, last) && first == 0 && last == 0);
+    CHECK(ParallaxMath::GetRepeatRange(0.0f, 10.0f, 10.0f, -6.0f, 5.0f, first, last) && first == -1 && last == 0);
+    CHECK(ParallaxMath::GetRepeatRange(3.0f, 10.0f, 10.0f, 40.0f, 62.0f, first, last) && first == 4 && last == 6);
+    CHECK(ParallaxMath::GetRepeatRange(0.0f, 4.0f, 10.0f, 2.5f, 7.5f, first, last) == false); // falls in the gap
+    // At most maxCopies, around the view's centre.
+    CHECK(ParallaxMath::GetRepeatRange(0.0f, 1.0f, 1.0f, -1000.0f, 1000.0f, first, last, 8) && last - first + 1 == 8 && first <= 0 && last >= 0);
+    CHECK(!ParallaxMath::GetRepeatRange(0.0f, 1.0f, 0.0f, -1.0f, 1.0f, first, last));
+    CHECK(!ParallaxMath::GetRepeatRange(0.0f, 1.0f, 1.0f, 1.0f, -1.0f, first, last));
+
+    // What an orthographic 2D camera sees of a plane.
+    glm::mat4 view = glm::inverse(glm::translate(glm::mat4(1.0f), { -3.0f, 1.0f, 10.0f }));
+    glm::mat4 ortho = glm::ortho(-10.0f, 10.0f, -5.0f, 5.0f, -100.0f, 100.0f);
+    glm::vec2 min, max;
+    CHECK(ParallaxMath::GetViewRectAtDepth(ortho * view, 0.0f, min, max));
+    CHECK(NearVec(min, { -13.0f, -4.0f }, 1e-3f) && NearVec(max, { 7.0f, 6.0f }, 1e-3f));
+    CHECK(ParallaxMath::GetViewRectAtDepth(ortho * view, -40.0f, min, max) && NearVec(min, { -13.0f, -4.0f }, 1e-3f));
+    // A perspective camera sees more of a farther plane.
+    glm::mat4 persp = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
+    glm::mat4 v2 = glm::inverse(glm::translate(glm::mat4(1.0f), { 0.0f, 0.0f, 10.0f }));
+    CHECK(ParallaxMath::GetViewRectAtDepth(persp * v2, 0.0f, min, max));
+    CHECK(NearVec(min, { -10.0f, -10.0f }, 1e-2f) && NearVec(max, { 10.0f, 10.0f }, 1e-2f));
+    CHECK(ParallaxMath::GetViewRectAtDepth(persp * v2, -10.0f, min, max) && NearVec(max, { 20.0f, 20.0f }, 2e-2f));
+}
+
+TEST(ParallaxCopiedWithScene)
+{
+    auto scene = CreateRef<Scene>();
+    Entity bg = scene->CreateEntity("Background");
+    bg.AddComponent<SpriteRendererComponent>();
+    bg.AddComponent<ParallaxComponent>().Factor = { 0.9f, 0.1f };
+    Entity child = scene->CreateEntity("Tree");
+    scene->SetParent(child, bg);
+    // Play mode copies it; the transform is never changed by the parallax (rendering only).
+    auto copy = Scene::Copy(scene);
+    Entity cbg = copy->FindEntityByName("Background");
+    CHECK(cbg && cbg.HasComponent<ParallaxComponent>() && cbg.GetComponent<ParallaxComponent>().Factor == glm::vec2(0.9f, 0.1f));
+    copy->OnRuntimeStart();
+    for (int i = 0; i < 3; i++)
+        copy->OnUpdateRuntime(1.0f / 60.0f); // no camera: nothing is drawn (headless)
+    CHECK(cbg.GetComponent<TransformComponent>().Translation == glm::vec3(0.0f));
+    copy->OnRuntimeStop();
+    // Duplicates keep it.
+    Entity dup = scene->DuplicateEntity(bg);
+    CHECK(dup.HasComponent<ParallaxComponent>());
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

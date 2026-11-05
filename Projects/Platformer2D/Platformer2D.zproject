@@ -89,5 +89,19 @@
         "Coin",
         "Enemy",
         "Pickup"
+    ],
+    "SortingLayers": [
+        {
+            "ID": 1,
+            "Name": "Fon"
+        },
+        {
+            "ID": 0,
+            "Name": "Default"
+        },
+        {
+            "ID": 2,
+            "Name": "Oldingi plan"
+        }
     ]
 }

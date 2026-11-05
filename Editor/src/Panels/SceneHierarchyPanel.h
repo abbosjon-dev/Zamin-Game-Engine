@@ -118,6 +118,10 @@ namespace Zamin {
         std::function<void()> OnProjectSettingsModified;
         // The fold state (SetFoldState) changed: the editor saves its view settings.
         std::function<void()> OnFoldStateModified;
+        // The Sprite Editor is to open for a texture (path relative to Assets).
+        std::function<void(const std::string&)> OnSpriteEditorRequested;
+        // Project settings > Sorting layers is to open.
+        std::function<void()> OnSortingLayersRequested;
 
     private:
         // Where a hierarchy row drop puts the dragged entities.
@@ -185,6 +189,12 @@ namespace Zamin {
         bool DrawEntityRefField(const char* name, EntityRef& ref, const char* tooltip = nullptr);
         // Gameplay tags: removable chips + add field with suggestions.
         bool DrawTagsComponent(TagsComponent& c);
+        // 2D renderers: the sorting layer (from the project's list) and the order inside it.
+        bool DrawSortingLayer(uint32_t& layer, int& order);
+        // Sprite Renderer: texture, sprite sheet frame, draw mode (Simple / Sliced / Tiled) ...
+        bool DrawSpriteRenderer(Entity entity, SpriteRendererComponent& c);
+        // Sprite Animation: grid cells or a list of sprite sheet frames.
+        bool DrawSpriteAnimation(Entity entity, SpriteAnimationComponent& c);
         bool MatchesFilter(Entity entity, const std::string& lowerFilter);
         const std::unordered_map<std::string, ScriptFieldValue>& GetScriptDefaults(const std::string& className);
         void MarkModified() { if (OnSceneModified) OnSceneModified(); }

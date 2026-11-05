@@ -274,6 +274,37 @@ namespace Zamin {
     glm::vec3 ScriptableEntity::ScreenToWorld(const glm::vec2& screen, float depthZ) const { return m_Entity.GetScene()->ScreenToWorld(screen, depthZ); }
     void ScriptableEntity::EmitParticles(int count) { m_Entity.GetScene()->EmitParticles(m_Entity, count); }
 
+    const SpriteSheet* ScriptableEntity::GetSpriteSheet() const
+    {
+        Entity entity = m_Entity;
+        const auto* sprite = entity.TryGetComponent<SpriteRendererComponent>();
+        return sprite ? SpriteSheet::Get(sprite->TexturePath) : nullptr;
+    }
+
+    bool ScriptableEntity::SetSprite(const std::string& frameName)
+    {
+        auto* sprite = m_Entity.TryGetComponent<SpriteRendererComponent>();
+        if (!sprite)
+            return false;
+        sprite->SpriteName = frameName;
+        if (frameName.empty())
+            return true;
+        const SpriteSheet* sheet = SpriteSheet::Get(sprite->TexturePath);
+        return sheet && sheet->Find(frameName);
+    }
+
+    int ScriptableEntity::PlaySpriteSequence(const std::string& prefix, float fps, bool loop)
+    {
+        const SpriteSheet* sheet = GetSpriteSheet();
+        std::vector<std::string> frames = sheet ? sheet->FindSequence(prefix) : std::vector<std::string>();
+        if (frames.empty())
+            return 0;
+        auto& anim = m_Entity.HasComponent<SpriteAnimationComponent>() ? m_Entity.GetComponent<SpriteAnimationComponent>()
+                                                                       : m_Entity.AddComponent<SpriteAnimationComponent>();
+        anim.PlayFrames(frames, fps, loop);
+        return (int)frames.size();
+    }
+
     void ScriptableEntity::LoadScene(const std::string& scenePath)
     {
         m_Entity.GetScene()->RequestLoadScene(scenePath);

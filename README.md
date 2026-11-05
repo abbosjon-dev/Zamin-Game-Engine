@@ -76,6 +76,25 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - ECS arxitektura (EnTT), UUID, JSON sahna formati (`.zscene`)
 - **Renderer** (OpenGL 4.1 core, RHI abstraksiya qatlami orqasida):
   - 2D batch renderer: sprite, tekstura, doira, chiziq, **matn** (UTF-8, lotin/kirill, `oʻ gʻ`)
+  - **Sprite atlas va Sprite muharriri** (Oyna > Sprite muharriri, yoki rasm inspektoridagi / Sprite Renderer'dagi ✂
+    tugma): teksturani grid bo'yicha kesish (katak o'lchami yoki ustun/qator soni, siljish, oraliq, bo'sh kataklarni
+    tashlash, nom prefiksi), rasm ustida sichqoncha bilan yangi kadr chizish, har bir kadrning nomi, to'rtburchagi,
+    pivot'i va 9-slice chegaralari; zoom (g'ildirak) va surish. Kadrlar rasmning `.zmeta` faylida (`"Sprites"`) saqlanadi —
+    rasm o'zi atlas bo'ladi: Sprite Renderer kadrni nomi bilan ko'rsatadi (`SpriteName`, bo'sh — butun rasm), Sprite
+    Animation nomlangan kadrlar ro'yxatini o'ynaydi (`Frames`, inspektorda `run_0, run_1, ...` ketma-ketliklari bitta
+    tanlov bilan; skriptdan `PlaySpriteSequence("run")`, `SetSprite("idle")`), eksport qilingan o'yinga registry bilan o'tadi
+  - **9-slice va plitkali sprite'lar**: Sprite Renderer'ning chizish rejimi Oddiy / 9-slice (Sliced) / Plitka (Tiled) —
+    `Size` (birlik) to'rtburchagini burchaklari cho'zilmay (chegara px / `PixelsPerUnit`) to'ldiradi, Tiled'da chetlar va
+    o'rta takrorlanadi; chegaralar komponentda yoki kadrda. Ekran UI'sida ham (panel, tugma — chegara ekran pikselida).
+    Oddiy rejimdan o'tilganda masshtab avtomatik `Size`'ga ko'chadi (burchaklar cho'zilmasin)
+  - **Saralash qatlamlari** (Loyiha sozlamalari > Saralash qatlamlari): nomlangan qatlamlar ro'yxati (tartibi — chizish
+    tartibi), sprite, doira, matn, tilemap va particle'larda qatlam + qatlamdagi tartib; chizish tartibi: qatlam, tartib,
+    keyin kameradan uzoqlik. Obyektlar qatlamni ID bilan eslaydi (qayta nomlash/surish buzmaydi, boshqa loyihadan kelgan
+    sahna nom bo'yicha topadi)
+  - **Parallax** komponenti: obyekt (bolalari bilan) o'yin kamerasi bilan `Factor` (0 — oddiy, 1 — ekranda qotgan, manfiy —
+    old plan) bo'yicha siljiydi, `RepeatX`/`RepeatY` bilan sprite ko'rinadigan joyni cheksiz to'ldiradi. Transform
+    o'zgarmaydi (fizika va skriptlarga ta'sir qilmaydi); editorda Ko'rinish > Parallax bilan editor kamerasida ham.
+    Namuna: Platformer2D `Scenes/Showcase2D.zscene`
   - 3D PBR (metallic/roughness), yo'naltirilgan quyosh, gradient osmon, atrof-muhit aksi
   - **Bir nechta quyosh**: barcha faol Directional Light'lar (bir vaqtda 4 tagacha) sahnani yoritadi, soyani esa faqat
     bittasi beradi — sahna tartibida "Soyalar" yoqilgan birinchisi (asosiy quyosh; osmondagi quyosh diski ham unga

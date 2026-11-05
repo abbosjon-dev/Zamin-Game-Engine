@@ -8,6 +8,7 @@
 #include "Panels/ConsolePanel.h"
 #include "Panels/ProjectSettingsPanel.h"
 #include "Panels/UnusedAssetsPanel.h"
+#include "Panels/SpriteEditorPanel.h"
 #include "AssetUsageCache.h"
 
 #include <atomic>
@@ -108,6 +109,8 @@ namespace Zamin {
         // Shows a project file in the content browser and the inspector (asset inspector links,
         // the unused assets window).
         void RevealAsset(const std::filesystem::path& path);
+        // Shows the Sprite Editor for a texture (path relative to Assets).
+        void OpenSpriteEditor(const std::string& texturePath);
         void LoadRuntimeScene(const std::filesystem::path& path);
 
         void OnScenePlay();
@@ -373,6 +376,9 @@ namespace Zamin {
         bool m_FocusSceneSettings = false;
         std::string m_SceneSettingsScrollTo;
         bool m_ShowProjectSettings = false;
+        SpriteEditorPanel m_SpriteEditorPanel;
+        bool m_ShowSpriteEditor = false;
+        bool m_PreviewParallax = false;          // the scene view moves parallax layers with the editor camera
         bool m_ShowLauncher = false;
         bool m_ShowAbout = false;
         bool m_LayoutInitialized = false;

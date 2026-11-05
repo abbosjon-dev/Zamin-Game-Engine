@@ -145,6 +145,12 @@ namespace Zamin {
         m_AssetInspectorPanel.SetUsageCache(&m_AssetUsage);
         m_AssetInspectorPanel.OnRevealRequested = [this](const fs::path& p) { RevealAsset(p); };
         m_SceneHierarchyPanel.OnAssetEditRequested = [this](const fs::path& p) { RevealAsset(p); };
+        m_SceneHierarchyPanel.OnSpriteEditorRequested = [this](const std::string& texture) { OpenSpriteEditor(texture); };
+        m_SceneHierarchyPanel.OnSortingLayersRequested = [this]() {
+            m_ShowProjectSettings = true;
+            m_ProjectSettingsPanel.Focus(ProjectSettingsPanel::Tab::SortingLayers);
+        };
+        m_AssetInspectorPanel.OnOpenSpriteEditor = [this](const fs::path& p) { OpenSpriteEditor(Project::GetAssetRelativePath(p)); };
         m_SceneHierarchyPanel.GetAssetThumbnail = [this](const fs::path& p) -> uint32_t {
             Ref<Texture2D> thumbnail = m_ContentBrowserPanel.GetThumbnails().GetForFile(p);
             return thumbnail ? thumbnail->GetRendererID() : 0;
@@ -501,14 +507,59 @@ namespace Zamin {
                     keys = comma == std::string_view::npos ? std::string_view() : keys.substr(comma + 1);
                 }
             }
-            if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | Tags | General
+            if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | Tags | General | SortingLayers
             {
                 m_ShowProjectSettings = true;
                 std::string_view t(tab);
-                m_ProjectSettingsPanel.Focus(t == "SaveData" ? ProjectSettingsPanel::Tab::SaveData
-                                           : t == "Tags"     ? ProjectSettingsPanel::Tab::Tags
-                                           : t == "General"  ? ProjectSettingsPanel::Tab::General
-                                                             : ProjectSettingsPanel::Tab::Input);
+                m_ProjectSettingsPanel.Focus(t == "SaveData"        ? ProjectSettingsPanel::Tab::SaveData
+                                           : t == "Tags"            ? ProjectSettingsPanel::Tab::Tags
+                                           : t == "General"         ? ProjectSettingsPanel::Tab::General
+                                           : t == "SortingLayers"   ? ProjectSettingsPanel::Tab::SortingLayers
+                                                                    : ProjectSettingsPanel::Tab::Input);
+            }
+            // ZAMIN_EDITOR_PARALLAX=1: the scene view moves parallax layers with the editor camera.
+            if (std::getenv("ZAMIN_EDITOR_PARALLAX"))
+                m_PreviewParallax = true;
+            // ZAMIN_EDITOR_SPRITE_EDITOR="<texture>[|cell=16x16|count=4x3|offset=1,1|padding=2,2|prefix=run|skip|slice|select=3|zoom=4]":
+            // the Sprite Editor opens on that texture (path relative to Assets); "slice" cuts it with
+            // the given settings (not saved), "save" writes the frames to its .zmeta.
+            if (const char* sprite = std::getenv("ZAMIN_EDITOR_SPRITE_EDITOR"))
+            {
+                std::string_view spec(sprite);
+                size_t bar = spec.find('|');
+                OpenSpriteEditor(std::string(spec.substr(0, bar)));
+                SpriteSliceSettings& slice = m_SpriteEditorPanel.GetSliceSettings();
+                bool doSlice = false, doSave = false;
+                int select = -1;
+                auto pair = [](std::string_view v, char sep, glm::ivec2& out) {
+                    size_t s = v.find(sep);
+                    if (s == std::string_view::npos) return;
+                    out = { std::atoi(std::string(v.substr(0, s)).c_str()), std::atoi(std::string(v.substr(s + 1)).c_str()) };
+                };
+                while (bar != std::string_view::npos)
+                {
+                    spec = spec.substr(bar + 1);
+                    bar = spec.find('|');
+                    std::string_view item = spec.substr(0, bar);
+                    size_t eq = item.find('=');
+                    std::string_view key = item.substr(0, eq), value = eq == std::string_view::npos ? std::string_view() : item.substr(eq + 1);
+                    if (key == "cell") { slice.Mode = SpriteSliceSettings::SliceMode::CellSize; pair(value, 'x', slice.CellSize); }
+                    else if (key == "count") { slice.Mode = SpriteSliceSettings::SliceMode::CellCount; pair(value, 'x', slice.CellCount); }
+                    else if (key == "offset") pair(value, ',', slice.Offset);
+                    else if (key == "padding") pair(value, ',', slice.Padding);
+                    else if (key == "prefix") slice.NamePrefix = std::string(value);
+                    else if (key == "skip") slice.SkipEmpty = true;
+                    else if (key == "slice") doSlice = true;
+                    else if (key == "save") doSave = true;
+                    else if (key == "select") select = std::atoi(std::string(value).c_str());
+                    else ZM_WARN("ZAMIN_EDITOR_SPRITE_EDITOR: noma'lum kalit '{}'", key);
+                }
+                if (doSlice)
+                    ZM_INFO("Sprite muharriri: {} ta kadr kesildi", m_SpriteEditorPanel.Slice(true));
+                if (select >= 0)
+                    m_SpriteEditorPanel.SetSelected(select);
+                if (doSave)
+                    m_SpriteEditorPanel.Save();
             }
             if (const char* out = std::getenv("ZAMIN_EDITOR_EXPORT"))
                 BuildGame(out);
@@ -808,6 +859,7 @@ namespace Zamin {
         options.SkipEditorHidden = true; // the hierarchy's eye: edit + simulate views only (play draws everything)
         options.DebugView = m_DebugView;
         options.Wireframe = m_Wireframe;
+        options.Parallax = m_PreviewParallax;
         // A material dragged over a mesh is shown on it before the drop.
         if (m_MaterialDrag.Active && m_MaterialDrag.Material && m_SceneState == SceneState::Edit && (uint64_t)m_MaterialDrag.Target)
             if (Entity target = m_ActiveScene->GetEntityByUUID(m_MaterialDrag.Target))
@@ -1834,7 +1886,13 @@ namespace Zamin {
                     glm::vec3 size = glm::max(b.Max - b.Min, glm::vec3(0.001f));
                     DrawWireBox(transform * glm::translate(glm::mat4(1.0f), (b.Min + b.Max) * 0.5f) * glm::scale(glm::mat4(1.0f), size), orange);
                 }
-                else if (selected.HasComponent<SpriteRendererComponent>() || selected.HasComponent<CircleRendererComponent>())
+                else if (auto* sprite = selected.TryGetComponent<SpriteRendererComponent>())
+                {
+                    // A sliced / tiled sprite's rectangle, an off-centre frame.
+                    Renderer2D::DrawRect(transform * Scene::GetSpriteRectTransform(*sprite, selected.TryGetComponent<SpriteAnimationComponent>(),
+                                                                                   Project::GetAssetRegistry()), orange);
+                }
+                else if (selected.HasComponent<CircleRendererComponent>())
                 {
                     Renderer2D::DrawRect(transform, orange);
                 }
@@ -1941,6 +1999,7 @@ namespace Zamin {
             SceneRenderOptions options;
             options.SkipEditorHidden = true;
             options.SkipEditorLocked = true;
+            options.Parallax = m_PreviewParallax; // the layers where the scene view shows them
             m_ActiveScene->OnRenderEditor(m_EditorCamera, options);
             int id = m_Framebuffer->ReadPixel(1, pixel.x, pixel.y);
             m_Framebuffer->Unbind();
@@ -2033,6 +2092,7 @@ namespace Zamin {
         m_SceneHierarchyPanel.OnScriptsReloaded();
         m_ContentBrowserPanel.SetRoot(Project::GetProjectDirectory());
         m_AssetInspectorPanel.Reset();
+        m_SpriteEditorPanel.Reset();
         m_AssetUsage.Reset();
 
         auto& config = Project::GetActive()->GetConfig();
@@ -2063,6 +2123,7 @@ namespace Zamin {
         Project::SetActive(nullptr);
         m_ContentBrowserPanel.SetRoot({});
         m_AssetInspectorPanel.Reset();
+        m_SpriteEditorPanel.Reset();
         m_AssetUsage.Reset();
         NewScene();
         m_ShowLauncher = true;
@@ -3077,6 +3138,12 @@ namespace Zamin {
             m_ContentBrowserPanel.ShowNotice(std::format("{} ta asset qayta yuklandi", report.Reloaded.size()));
     }
 
+    void EditorLayer::OpenSpriteEditor(const std::string& texturePath)
+    {
+        m_ShowSpriteEditor = true;
+        m_SpriteEditorPanel.Open(texturePath);
+    }
+
     void EditorLayer::RevealAsset(const fs::path& path)
     {
         m_ContentBrowserPanel.Reveal({ path });
@@ -3409,7 +3476,13 @@ namespace Zamin {
         if (!io.WantTextInput)
         {
             bool ctrl = io.KeyCtrl, shift = io.KeyShift;
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) { shift ? SaveSceneAs() : SaveScene(); m_ProjectSettingsPanel.SaveIfDirty(); }
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S, false))
+            {
+                shift ? SaveSceneAs() : SaveScene();
+                m_ProjectSettingsPanel.SaveIfDirty();
+                if (m_SpriteEditorPanel.HasUnsavedChanges())
+                    m_SpriteEditorPanel.Save();
+            }
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) { shift ? OpenProjectDialog() : OpenScene(); }
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) NewScene();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_D, false)) DuplicateSelectedEntity();
@@ -3488,6 +3561,7 @@ namespace Zamin {
         m_ProjectSettingsPanel.SetScene(m_EditorScene); // tag counts / renames apply to the saved scene
         m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
+        m_SpriteEditorPanel.OnImGuiRender(&m_ShowSpriteEditor);
         UI_Stats();
         UI_ProfilerWindow();
         UI_Viewport();
@@ -3678,6 +3752,14 @@ namespace Zamin {
             ImGui::MenuItem(ICON_FA_CHART_LINE "  Statistika", nullptr, &m_ShowStats);
             ImGui::MenuItem(ICON_FA_STOPWATCH "  Profiler", nullptr, &m_ShowProfiler);
             ImGui::MenuItem(ICON_FA_BROOM "  Ishlatilmagan assetlar", nullptr, &m_ShowUnusedAssets, hasProject);
+            if (ImGui::MenuItem(ICON_FA_SCISSORS "  Sprite muharriri", nullptr, m_ShowSpriteEditor, hasProject))
+            {
+                m_ShowSpriteEditor = !m_ShowSpriteEditor;
+                // Opened without a texture: the one picked in the content browser, if any.
+                if (m_ShowSpriteEditor && m_SpriteEditorPanel.GetTexturePath().empty() && m_AssetInspectorPanel.HasAsset() &&
+                    AssetFiles::GetType(m_AssetInspectorPanel.GetPath()) == AssetType::Texture)
+                    m_SpriteEditorPanel.Open(Project::GetAssetRelativePath(m_AssetInspectorPanel.GetPath()));
+            }
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_BORDER_ALL "  Standart joylashuv")) m_LayoutInitialized = false;
             ImGui::MenuItem("ImGui demo", nullptr, &m_ShowImGuiDemo);
@@ -4923,6 +5005,9 @@ namespace Zamin {
             ImGui::EndMenu();
         }
         ImGui::MenuItem(ICON_FA_EYE "  Ikonkalar", nullptr, &m_ShowIcons);
+        ImGui::MenuItem(ICON_FA_MOUNTAIN "  Parallax (editor kamerasi bilan)", nullptr, &m_PreviewParallax);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Parallax qatlamlari sahna ko'rinishida ham editor kamerasi bilan siljiydi (o'yinda doim)");
         if (ImGui::BeginMenu(ICON_FA_SHAPES "  Gizmolar"))
         {
             if (UI_ComponentGizmoSettings())

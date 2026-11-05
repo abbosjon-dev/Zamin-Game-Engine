@@ -266,6 +266,16 @@ namespace Zamin {
         // ---- particles
         void EmitParticles(int count); // requires ParticleSystemComponent; nothing while inactive
 
+        // ---- sprites (2D)
+        // The named frames of the Sprite Renderer's texture (Sprite Editor); nullptr when it has none.
+        const SpriteSheet* GetSpriteSheet() const;
+        // Shows one named frame of the texture ("" = the whole texture). False without a Sprite
+        // Renderer or when the sheet has no such frame (the frame is set anyway).
+        bool SetSprite(const std::string& frameName);
+        // Plays the sheet's numbered frames "<prefix>_0", "<prefix>_1", ... on the Sprite Animation
+        // (added when missing). Returns how many frames were found (0: nothing changes).
+        int PlaySpriteSequence(const std::string& prefix, float fps = 10.0f, bool loop = true);
+
         // ---- scenes: switch to another scene at the end of the frame (path relative to Assets)
         void LoadScene(const std::string& scenePath);
 

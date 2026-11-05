@@ -25,6 +25,7 @@ namespace Zamin {
         if (e.HasComponent<UITransformComponent>()) return ICON_FA_TABLE_CELLS;
         if (e.HasComponent<ParticleSystemComponent>()) return ICON_FA_WAND_MAGIC_SPARKLES;
         if (e.HasComponent<CameraComponent>()) return ICON_FA_CAMERA;
+        if (e.HasComponent<ParallaxComponent>()) return ICON_FA_MOUNTAIN;
         if (e.HasComponent<DirectionalLightComponent>()) return ICON_FA_SUN;
         if (e.HasComponent<PointLightComponent>()) return ICON_FA_LIGHTBULB;
         if (e.HasComponent<SpotLightComponent>()) return ICON_FA_BULLHORN;
@@ -1160,7 +1161,7 @@ namespace Zamin {
             { "Rigidbody2D", "Rigidbody 2D" }, { "BoxCollider2D", "Box Collider 2D" }, { "CircleCollider2D", "Circle Collider 2D" },
             { "Rigidbody3D", "Rigidbody 3D" }, { "BoxCollider3D", "Box Collider 3D" }, { "SphereCollider3D", "Sphere Collider 3D" },
             { "CapsuleCollider3D", "Capsule Collider 3D" }, { "CharacterController3D", "Character Controller 3D" },
-            { "Tilemap", "Tilemap" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
+            { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
             { "UIButton", "UI Button" }, { "AudioSource", "Audio Source" }, { "NativeScript", "C++ Skript" },
         };
         for (const auto& [k, name] : s_Names)
@@ -1951,6 +1952,292 @@ namespace Zamin {
         return changed;
     }
 
+    // ------------------------------------------------------------------ 2D renderers
+    bool SceneHierarchyPanel::DrawSortingLayer(uint32_t& layer, int& order)
+    {
+        bool changed = false;
+        const SortingLayerList& layers = Project::GetSortingLayers();
+        UI::PropertyLabel("Saralash qatlami", "Orqadan oldinga: avval qatlam (Loyiha sozlamalari > Saralash qatlamlari "
+                                              "ro'yxatidagi o'rni), keyin qatlamdagi tartib, keyin kameradan uzoqligi.");
+        ImGui::PushID("sortingLayer");
+        const SortingLayer* current = layers.Find(layer);
+        std::string preview = current ? std::format(ICON_FA_LAYER_GROUP "  {}", current->Name)
+                                      : std::format(ICON_FA_TRIANGLE_EXCLAMATION "  #{} (yo'q - Default)", layer);
+        const float button = ImGui::GetFrameHeight();
+        ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
+        if (ImGui::BeginCombo("##layer", preview.c_str()))
+        {
+            const auto& list = layers.GetLayers();
+            for (size_t i = 0; i < list.size(); i++)
+            {
+                ImGui::PushID((int)list[i].ID);
+                std::string label = std::format("{}  {}", i + 1, list[i].Name);
+                if (ImGui::Selectable(label.c_str(), list[i].ID == layer))
+                {
+                    layer = list[i].ID;
+                    changed = true;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+        if (!current && ImGui::IsItemHovered())
+            UI::Tooltip("Bu qatlam loyihada yo'q (o'chirilgan): Default qatlamida chiziladi");
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_PEN, ImVec2(button, 0)) && OnSortingLayersRequested)
+            OnSortingLayersRequested();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Qatlamlarni tahrirlash (Loyiha sozlamalari)");
+        ImGui::PopID();
+        changed |= UI::PropertyInt("Qatlamdagi tartib", order);
+        return changed;
+    }
+
+    // A frame of a texture shown in a box of `size` px (the whole texture without a frame).
+    static void SpriteImage(const Ref<Texture2D>& texture, const SpriteRegion& region, float size)
+    {
+        glm::vec2 px = region.Pixels;
+        float scale = size / std::max(1.0f, std::max(px.x, px.y));
+        ImVec2 extent(std::max(4.0f, px.x * scale), std::max(4.0f, px.y * scale));
+        // ImGui wants the top-left corner first: v flipped.
+        ImGui::Image((ImTextureID)(uintptr_t)texture->GetRendererID(), extent, ImVec2(region.UVMin.x, region.UVMax.y),
+                     ImVec2(region.UVMax.x, region.UVMin.y));
+    }
+
+    bool SceneHierarchyPanel::DrawSpriteRenderer(Entity entity, SpriteRendererComponent& c)
+    {
+        bool changed = UI::PropertyColor4("Rang", c.Color);
+        if (UI::PropertyAssetPath("Tekstura", c.TexturePath, ".png;.jpg;.jpeg;.bmp;.tga", ICON_FA_FILE_IMAGE))
+        {
+            c.Texture = c.TexturePath.empty() ? nullptr
+                : TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TexturePath), c.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+            changed = true;
+        }
+
+        // ---- sprite sheet frame
+        const SpriteSheet* sheet = c.TexturePath.empty() ? nullptr : SpriteSheet::Get(c.TexturePath);
+        const bool missingFrame = !c.SpriteName.empty() && (!sheet || !sheet->Find(c.SpriteName));
+        UI::PropertyLabel("Sprite (kadr)", "Teksturaning nomlangan kadri (Sprite muharriri bilan kesiladi, .zmeta faylida saqlanadi). "
+                                           "Bo'sh - butun rasm.");
+        ImGui::PushID("spriteFrame");
+        const float button = ImGui::GetFrameHeight();
+        ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
+        std::string preview = c.SpriteName.empty() ? std::string("(butun rasm)")
+                            : missingFrame ? std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {} (topilmadi)", c.SpriteName) : c.SpriteName;
+        ImGui::BeginDisabled(!sheet && c.SpriteName.empty());
+        if (ImGui::BeginCombo("##frame", preview.c_str(), ImGuiComboFlags_HeightLarge))
+        {
+            if (ImGui::Selectable("(butun rasm)", c.SpriteName.empty()))
+            {
+                c.SpriteName.clear();
+                changed = true;
+            }
+            if (sheet)
+                for (const SpriteFrame& f : sheet->Frames)
+                {
+                    std::string label = std::format("{}  ({}x{})", f.Name, f.Size.x, f.Size.y);
+                    if (ImGui::Selectable(label.c_str(), f.Name == c.SpriteName))
+                    {
+                        c.SpriteName = f.Name;
+                        changed = true;
+                    }
+                    if (ImGui::IsItemHovered() && c.Texture)
+                    {
+                        ImGui::BeginTooltip();
+                        SpriteImage(c.Texture, SpriteRegion::FromFrame(f, c.Texture->GetWidth(), c.Texture->GetHeight()), 96.0f);
+                        ImGui::EndTooltip();
+                    }
+                }
+            ImGui::EndCombo();
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) && !sheet && c.SpriteName.empty())
+            UI::Tooltip("Teksturada kadrlar yo'q: Sprite muharririda kesing (" ICON_FA_SCISSORS " tugma)");
+        ImGui::SameLine();
+        ImGui::BeginDisabled(c.TexturePath.empty());
+        if (ImGui::Button(ICON_FA_SCISSORS, ImVec2(button, 0)) && OnSpriteEditorRequested)
+            OnSpriteEditorRequested(c.TexturePath);
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip("Sprite muharriri: teksturani kadrlarga kesish");
+        ImGui::PopID();
+
+        if (c.Texture)
+        {
+            UI::PropertyLabel("");
+            SpriteRegion region = Scene::GetSpriteRegion(c, nullptr, Project::GetActive() ? Project::GetAssetRegistry() : nullptr);
+            SpriteImage(c.Texture, region, 64.0f);
+        }
+
+        // ---- draw mode
+        const char* modes[] = { "Oddiy (Simple)", "9-slice (Sliced)", "Plitka (Tiled)" };
+        int mode = (int)c.DrawMode;
+        UI::PropertyLabel("Chizish rejimi", "Oddiy: rasm kvadratga cho'ziladi (o'lchami - masshtab). 9-slice: burchaklar o'z o'lchamida qoladi, "
+                                            "chetlar va o'rta cho'ziladi - panellar, tugmalar, ramkalar uchun. Plitka: chetlar va o'rta takrorlanadi.");
+        ImGui::PushID("drawMode");
+        if (ImGui::Combo("##v", &mode, modes, 3) && mode != (int)c.DrawMode)
+        {
+            // Switching to a sized mode: the scale becomes the size, so the sprite keeps its
+            // footprint and the corners are not stretched.
+            if (c.DrawMode == SpriteDrawMode::Simple && c.Size == glm::vec2(1.0f))
+            {
+                auto& t = entity.GetComponent<TransformComponent>();
+                if (glm::abs(t.Scale.x) > 1e-4f && glm::abs(t.Scale.y) > 1e-4f && (t.Scale.x != 1.0f || t.Scale.y != 1.0f))
+                {
+                    c.Size = glm::abs(glm::vec2(t.Scale));
+                    t.Scale.x = t.Scale.x < 0.0f ? -1.0f : 1.0f;
+                    t.Scale.y = t.Scale.y < 0.0f ? -1.0f : 1.0f;
+                }
+            }
+            c.DrawMode = (SpriteDrawMode)mode;
+            changed = true;
+        }
+        ImGui::PopID();
+        if (c.DrawMode != SpriteDrawMode::Simple)
+        {
+            if (UI::PropertyFloat2("O'lcham (birlik)", c.Size, 0.02f))
+            {
+                c.Size = glm::max(c.Size, glm::vec2(0.0f));
+                changed = true;
+            }
+            UI::PropertyLabel("Chegaralar (px)", "Chap, o'ng, yuqori, past - burchaklar shu piksellar. Hammasi 0 bo'lsa kadrning "
+                                                 "chegaralari ishlatiladi (Sprite muharriri).");
+            ImGui::PushID("border");
+            if (ImGui::DragFloat4("##v", &c.SliceBorder.x, 0.25f, 0.0f, 4096.0f, "%.0f"))
+            {
+                c.SliceBorder = glm::max(c.SliceBorder, glm::vec4(0.0f));
+                changed = true;
+            }
+            ImGui::PopID();
+            if (!c.HasSliceBorder())
+            {
+                const SpriteFrame* frame = sheet && !c.SpriteName.empty() ? sheet->Find(c.SpriteName) : nullptr;
+                UI::PropertyLabel("");
+                if (frame && frame->HasBorder())
+                    ImGui::TextDisabled("Kadrdan: %.0f, %.0f, %.0f, %.0f", frame->Border.x, frame->Border.y, frame->Border.z, frame->Border.w);
+                else
+                    ImGui::TextDisabled(c.DrawMode == SpriteDrawMode::Tiled ? "Chegarasiz: butun rasm takrorlanadi" : "Chegara yo'q: oddiy cho'zish");
+            }
+            if (UI::PropertyFloat("Piksel / birlik", c.PixelsPerUnit, 0.5f, 0.01f, 10000.0f, "%.1f"))
+            {
+                c.PixelsPerUnit = std::max(0.01f, c.PixelsPerUnit);
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Bir dunyo birligiga necha piksel: chegara burchaklarining va plitkalarning o'lchami");
+        }
+        else
+        {
+            ImGui::BeginDisabled(!c.SpriteName.empty());
+            changed |= UI::PropertyFloat("Takrorlash", c.TilingFactor, 0.05f, 0.0f, 100.0f);
+            ImGui::EndDisabled();
+        }
+
+        ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Saralash");
+        changed |= DrawSortingLayer(c.SortingLayer, c.SortingOrder);
+        if (UI::PropertyBool("Pixel-art (aniq piksellar)", c.PixelArt) && !c.TexturePath.empty())
+        {
+            c.Texture = TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TexturePath), c.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+            changed = true;
+        }
+        changed |= UI::PropertyBool("Gorizontal aks (Flip X)", c.FlipX);
+        changed |= UI::PropertyBool("Vertikal aks (Flip Y)", c.FlipY);
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::DrawSpriteAnimation(Entity entity, SpriteAnimationComponent& c)
+    {
+        InactiveComponentNote(entity, "Obyekt nofaol: animatsiya to'xtab turadi");
+        bool changed = false;
+        const auto* sprite = entity.TryGetComponent<SpriteRendererComponent>();
+        const SpriteSheet* sheet = sprite && !sprite->TexturePath.empty() ? SpriteSheet::Get(sprite->TexturePath) : nullptr;
+
+        const char* sources[] = { "Grid (ustun x qator)", "Sprite sheet kadrlari" };
+        int source = c.UsesFrameList() ? 1 : 0;
+        UI::PropertyLabel("Kadrlar manbai", "Grid: tekstura teng kataklarga bo'linadi. Sprite sheet: teksturaning nomlangan kadrlari "
+                                            "(Sprite muharriri) ro'yxati - turli o'lchamli kadrlar ham bo'ladi.");
+        ImGui::PushID("source");
+        if (ImGui::Combo("##v", &source, sources, 2))
+        {
+            if (source == 0)
+                c.Frames.clear();
+            else if (sheet)
+                c.PlayFrames(sheet->FindSequence(sheet->GetSequencePrefixes().empty() ? "" : sheet->GetSequencePrefixes().front()), c.FPS, c.Loop);
+            changed = true;
+        }
+        ImGui::PopID();
+        if (source == 1 && !c.UsesFrameList())
+        {
+            UI::PropertyLabel("");
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Teksturada kadrlar yo'q");
+        }
+
+        if (c.UsesFrameList())
+        {
+            // Sequences of the sheet ("run_0", "run_1", ...) by their prefix.
+            UI::PropertyLabel("Ketma-ketlik", "Bir xil nomli, raqamlangan kadrlar (masalan run_0, run_1, ...) tartib bilan qo'yiladi");
+            ImGui::PushID("sequence");
+            if (ImGui::BeginCombo("##v", std::format("{} ta kadr", c.Frames.size()).c_str()))
+            {
+                if (sheet)
+                {
+                    for (const std::string& prefix : sheet->GetSequencePrefixes())
+                    {
+                        std::vector<std::string> sequence = sheet->FindSequence(prefix);
+                        if (ImGui::Selectable(std::format("{}  ({} ta)", prefix, sequence.size()).c_str()))
+                        {
+                            c.PlayFrames(sequence, c.FPS, c.Loop);
+                            changed = true;
+                        }
+                    }
+                    if (ImGui::Selectable(std::format("(hammasi, {} ta)", sheet->Frames.size()).c_str()))
+                    {
+                        c.PlayFrames(sheet->FindSequence(""), c.FPS, c.Loop);
+                        changed = true;
+                    }
+                }
+                else
+                    ImGui::TextDisabled("Teksturada kadrlar yo'q");
+                ImGui::EndCombo();
+            }
+            ImGui::PopID();
+            UI::PropertyLabel("Kadrlar");
+            std::string list;
+            for (size_t i = 0; i < c.Frames.size() && i < 12; i++)
+                list += (i ? ", " : "") + c.Frames[i];
+            if (c.Frames.size() > 12)
+                list += std::format(" ... (+{})", c.Frames.size() - 12);
+            ImGui::TextWrapped("%s", list.c_str());
+            int missing = 0;
+            for (const std::string& name : c.Frames)
+                if (!sheet || !sheet->Find(name))
+                    missing++;
+            if (missing > 0)
+            {
+                UI::PropertyLabel("");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %d ta kadr teksturada topilmadi", missing);
+            }
+        }
+        else
+        {
+            changed |= UI::PropertyInt("Ustunlar", c.Columns);
+            changed |= UI::PropertyInt("Qatorlar", c.Rows);
+        }
+        changed |= UI::PropertyInt("Boshlang'ich kadr", c.StartFrame);
+        changed |= UI::PropertyInt("Kadrlar soni", c.FrameCount);
+        changed |= UI::PropertyFloat("FPS", c.FPS, 0.1f, 0.0f, 120.0f);
+        changed |= UI::PropertyBool("Takrorlash", c.Loop);
+        changed |= UI::PropertyBool("Ijroda", c.Playing);
+        c.Columns = std::max(1, c.Columns); c.Rows = std::max(1, c.Rows);
+        c.FrameCount = std::max(1, c.FrameCount); c.StartFrame = std::max(0, c.StartFrame);
+        UI::PropertyLabel("Hozirgi kadr");
+        if (c.UsesFrameList())
+            ImGui::Text("%d  (%s)", c.GetCurrentFrame(), c.GetCurrentFrameName().c_str());
+        else
+            ImGui::Text("%d", c.GetCurrentFrame());
+        return changed;
+    }
+
     bool SceneHierarchyPanel::DrawTagsComponent(TagsComponent& c)
     {
         bool changed = false;
@@ -2540,6 +2827,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<CharacterController3DComponent>("Character Controller 3D", ICON_FA_PERSON_RUNNING);
                 ImGui::SeparatorText("Effektlar va UI");
                 DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
+                DisplayAddComponentEntry<ParallaxComponent>("Parallax", ICON_FA_MOUNTAIN);
                 DisplayAddComponentEntry<ParticleSystemComponent>("Particle System", ICON_FA_WAND_MAGIC_SPARKLES);
                 DisplayAddComponentEntry<UITransformComponent>("UI Transform", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<UIButtonComponent>("UI Button", ICON_FA_HAND_POINTER);
@@ -2622,52 +2910,23 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        AddSection<SpriteRendererComponent>(ICON_FA_IMAGE, "Sprite Renderer", entity, [](SpriteRendererComponent& c) {
-            bool changed = UI::PropertyColor4("Rang", c.Color);
-            if (UI::PropertyAssetPath("Tekstura", c.TexturePath, ".png;.jpg;.jpeg;.bmp;.tga", ICON_FA_FILE_IMAGE))
-            {
-                c.Texture = c.TexturePath.empty() ? nullptr : TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TexturePath));
-                changed = true;
-            }
-            if (c.Texture)
-            {
-                UI::PropertyLabel("");
-                ImGui::Image((ImTextureID)(uintptr_t)c.Texture->GetRendererID(), ImVec2(64, 64), ImVec2(0, 1), ImVec2(1, 0));
-            }
-            changed |= UI::PropertyFloat("Takrorlash", c.TilingFactor, 0.05f, 0.0f, 100.0f);
-            changed |= UI::PropertyInt("Tartib (sorting)", c.SortingOrder);
-            if (UI::PropertyBool("Pixel-art (aniq piksellar)", c.PixelArt) && !c.TexturePath.empty())
-                c.Texture = TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TexturePath), c.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
-            changed |= UI::PropertyBool("Gorizontal aks (Flip X)", c.FlipX);
-            changed |= UI::PropertyBool("Vertikal aks (Flip Y)", c.FlipY);
-            return changed;
+        AddSection<SpriteRendererComponent>(ICON_FA_IMAGE, "Sprite Renderer", entity, [&](SpriteRendererComponent& c) {
+            return DrawSpriteRenderer(entity, c);
         }, true, modified);
 
         AddSection<SpriteAnimationComponent>(ICON_FA_FILM, "Sprite Animation", entity, [&](SpriteAnimationComponent& c) {
-            InactiveComponentNote(entity, "Obyekt nofaol: animatsiya to'xtab turadi");
-            bool changed = UI::PropertyInt("Ustunlar", c.Columns);
-            changed |= UI::PropertyInt("Qatorlar", c.Rows);
-            changed |= UI::PropertyInt("Boshlang'ich kadr", c.StartFrame);
-            changed |= UI::PropertyInt("Kadrlar soni", c.FrameCount);
-            changed |= UI::PropertyFloat("FPS", c.FPS, 0.1f, 0.0f, 120.0f);
-            changed |= UI::PropertyBool("Takrorlash", c.Loop);
-            changed |= UI::PropertyBool("Ijroda", c.Playing);
-            c.Columns = std::max(1, c.Columns); c.Rows = std::max(1, c.Rows);
-            c.FrameCount = std::max(1, c.FrameCount); c.StartFrame = std::max(0, c.StartFrame);
-            UI::PropertyLabel("Hozirgi kadr");
-            ImGui::Text("%d", c.GetCurrentFrame());
-            return changed;
+            return DrawSpriteAnimation(entity, c);
         }, true, modified);
 
-        AddSection<CircleRendererComponent>(ICON_FA_CIRCLE, "Circle Renderer", entity, [](CircleRendererComponent& c) {
+        AddSection<CircleRendererComponent>(ICON_FA_CIRCLE, "Circle Renderer", entity, [&](CircleRendererComponent& c) {
             bool changed = UI::PropertyColor4("Rang", c.Color);
             changed |= UI::PropertySlider("Qalinlik", c.Thickness, 0.0f, 1.0f);
             changed |= UI::PropertyFloat("Yumshoqlik", c.Fade, 0.00025f, 0.0f, 1.0f);
-            changed |= UI::PropertyInt("Tartib (sorting)", c.SortingOrder);
+            changed |= DrawSortingLayer(c.SortingLayer, c.SortingOrder);
             return changed;
         }, true, modified);
 
-        AddSection<TextComponent>(ICON_FA_FONT, "Text", entity, [](TextComponent& c) {
+        AddSection<TextComponent>(ICON_FA_FONT, "Text", entity, [&](TextComponent& c) {
             bool changed = UI::PropertyString("Matn", c.Text, true);
             changed |= UI::PropertyColor4("Rang", c.Color);
             changed |= UI::PropertyFloat("Harf oralig'i", c.Kerning, 0.005f);
@@ -2678,6 +2937,7 @@ namespace Zamin {
                 c.FontAsset = c.FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(c.FontPath));
                 changed = true;
             }
+            changed |= DrawSortingLayer(c.SortingLayer, c.SortingOrder);
             return changed;
         }, true, modified);
 
@@ -2942,7 +3202,7 @@ namespace Zamin {
             if (resized) { c.Resize(std::clamp(w, 1, 1024), std::clamp(h, 1, 1024)); changed = true; }
             changed |= UI::PropertyFloat("Plitka o'lchami", c.TileSize, 0.01f, 0.01f, 100.0f);
             changed |= UI::PropertyColor4("Rang", c.Color);
-            changed |= UI::PropertyInt("Tartib (sorting)", c.SortingOrder);
+            changed |= DrawSortingLayer(c.SortingLayer, c.SortingOrder);
             changed |= UI::PropertyBool("Collision (fizika)", c.Collision);
             InactiveComponentNote(entity, c.Collision ? "Obyekt nofaol: tilemap chizilmaydi, kolliziyasi o'chirilgan (faollashganda qayta quriladi)"
                                                       : "Obyekt nofaol: tilemap chizilmaydi");
@@ -3033,7 +3293,33 @@ namespace Zamin {
             changed |= UI::PropertyBool("Dunyo koordinatalari", c.WorldSpace);
             changed |= UI::PropertyBool("Kameraga qaragan", c.Billboard);
             if (UI::PropertyAssetPath("Tekstura", c.TexturePath, ".png;.jpg;.jpeg", ICON_FA_FILE_IMAGE)) { c.Texture = nullptr; changed = true; }
-            changed |= UI::PropertyInt("Tartib (sorting)", c.SortingOrder);
+            changed |= DrawSortingLayer(c.SortingLayer, c.SortingOrder);
+            return changed;
+        }, true, modified);
+
+        AddSection<ParallaxComponent>(ICON_FA_MOUNTAIN, "Parallax", entity, [&](ParallaxComponent& c) {
+            bool changed = false;
+            changed |= UI::PropertyFloat2("Koeffitsiyent", c.Factor, 0.01f);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Kamera bilan birga qancha siljiydi: 0 - oddiy obyekt, 1 - ekranda qotib turadi (juda uzoq), "
+                            "0.5 - kameradan ikki baravar sekin (uzoq fon), manfiy - qarama-qarshi (yaqin old plan)");
+            changed |= UI::PropertyBool("Gorizontal takrorlash", c.RepeatX);
+            changed |= UI::PropertyBool("Vertikal takrorlash", c.RepeatY);
+            if (c.RepeatX || c.RepeatY)
+            {
+                if (UI::PropertyFloat2("Oraliq (0 = o'lchami)", c.Spacing, 0.05f))
+                {
+                    c.Spacing = glm::max(c.Spacing, glm::vec2(0.0f));
+                    changed = true;
+                }
+                if (!entity.HasComponent<SpriteRendererComponent>())
+                {
+                    UI::PropertyLabel("");
+                    ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Takrorlash Sprite Renderer'ni chizadi");
+                }
+            }
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("O'yin kamerasi bilan ishlaydi (editorda: Ko'rinish > Parallax)");
             return changed;
         }, true, modified);
 

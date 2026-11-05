@@ -9,12 +9,12 @@
 namespace Zamin {
 
     // "Project settings" window: general project info, the input action map (actions and
-    // axes bound to keys / mouse buttons / gamepad, with a live preview) and the game's
-    // SaveData (PlayerPrefs) viewer / editor.
+    // axes bound to keys / mouse buttons / gamepad, with a live preview), the game's
+    // SaveData (PlayerPrefs) viewer / editor, gameplay tags and the 2D sorting layers.
     class ProjectSettingsPanel
     {
     public:
-        enum class Tab { Input = 0, SaveData, Tags, General };
+        enum class Tab { Input = 0, SaveData, Tags, General, SortingLayers };
 
         void OnImGuiRender(bool* show);
 
@@ -50,6 +50,7 @@ namespace Zamin {
         void DrawGeneral(ProjectConfig& config);
         void DrawSaveData();
         void DrawTags(ProjectConfig& config);
+        void DrawSortingLayers(ProjectConfig& config);
         void DrawInputMap(InputActionMap& map);
         bool DrawBindingList(const char* label, std::vector<InputBinding>& bindings, ListKind kind, int entry);
         bool DrawBinding(InputBinding& binding, const ListenTarget& target);
@@ -72,6 +73,10 @@ namespace Zamin {
         int m_RenamingTag = -1;
         std::string m_TagRenameBuffer;
         bool m_FocusTagRename = false;
+        std::string m_NewSortingLayer;
+        uint32_t m_RenamingLayer = ~0u;
+        std::string m_LayerRenameBuffer;
+        bool m_FocusLayerRename = false;
 
         // SaveData tab: new entry
         std::string m_NewSaveKey;

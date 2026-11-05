@@ -152,11 +152,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 128. Audio manba radiusini ko'rsatish
 - [x] 129. Character controller tezlik vektori
 - [x] 130. Navigatsiya yo'llarini chizish (keyingi milestone bilan)
-- [ ] 131. Gizmo o'lchami sozlamasi
-- [ ] 132. Selection outline (shader asosida, sillik kontur)
-- [ ] 133. Hover qilingan obyekt kontur bilan ajratiladi
-- [ ] 134. Bounding box ko'rsatish rejimi
-- [ ] 135. Skelet suyaklarini chizish (animatsiya debug)
+- [x] 131. Gizmo o'lchami sozlamasi
+- [x] 132. Selection outline (shader asosida, sillik kontur)
+- [x] 133. Hover qilingan obyekt kontur bilan ajratiladi
+- [x] 134. Bounding box ko'rsatish rejimi
+- [x] 135. Skelet suyaklarini chizish (animatsiya debug)
 - [ ] 136. Normal vektorlarini ko'rsatish (debug)
 - [ ] 137. FPS grafigi overlay viewport'da
 - [ ] 138. Draw call va uchburchaklar overlay

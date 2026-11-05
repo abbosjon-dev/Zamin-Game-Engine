@@ -185,7 +185,19 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - **Editor gizmolari** (faqat editor viewport'ida, ko'z tugmasining menyusi yoki Ko'rinish > Gizmolar; har biri
   o'chiq / tanlanganda / hammasida, sozlamalar saqlanadi): **kamera frustumi** (perspektiv - 10 birlikkacha aniq piramida,
   far tekisligigacha xira; ortografik - quti; yuqori tomoni uchburchak), **yorug'lik yo'nalishi** (directional: halqa, nurlar
-  va o'q; spot: o'qi bo'ylab o'q; yorug'lik rangida), **audio radiusi** (3D manbalar: Min va Max masofa sferalari)
+  va o'q; spot: o'qi bo'ylab o'q; yorug'lik rangida), **audio radiusi** (3D manbalar: Min va Max masofa sferalari),
+  **chegaralar (bounding box)** - lokal (obyekt bilan aylanadigan quti), dunyo AABB (mesh'lar uchun frustum culling
+  tekshiradigan chegara, skinned model'niki pozasi bilan) yoki ikkalasi, **skelet** (skinned model'lar: ota bo'g'indan
+  bo'g'ingacha suyaklar va bo'g'inlar joriy animatsiya pozasida, mesh ustidan; ixtiyoriy bo'g'in nomlari)
+- **Tanlash konturi** (shader asosida, faqat editor): tanlangan obyektlar chizgan piksellar atrofida bir necha piksel
+  qalinlikdagi silliq (anti-aliasing) kontur - mesh, model (skinned ham), sprite, doira, matn, tilemap. Viewport'ning
+  entity ID rasmi ko'rinadigan piksellarni, tanlangan mesh'larning qaytadan chizilgan siluetlari esa butun shaklni beradi:
+  boshqa obyekt orqasida qolgan qirralar xira chiziladi. Asosiy tanlangan obyekt to'q sariq, ko'p tanlovning qolganlari
+  ochroq, bolalari xiraroq; sichqoncha ostidagi (bosilsa tanlanadigan) obyekt ingichka havorang kontur bilan ajratiladi.
+  Qalinlik, ranglar, yashiringan qismlar, bolalar va hover sozlanadi (ko'z menyusi > Tanlash ko'rinishi); eski uslub -
+  "Quti" (mesh chegaralari sim quti bilan) ham tanlanadi
+- **Gizmo o'lchami**: ko'chirish / aylantirish / masshtab gizmosining ekrandagi o'lchami, chiziqlari qalinligi va viewport
+  ikonkalari o'lchami (tanlash asboblari yonidagi menyu yoki Ko'rinish > Gizmo o'lchami; editor sozlamalarida saqlanadi)
 - **Tilemap**: tileset'dan plitkali darajalar, editor'da chizish (palitra), avtomatik birlashtirilgan collider'lar
 - **3D (spatial) ovoz**: tinglovchi — asosiy kamera, masofaga qarab so'nish
 - **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, 9 ta langar (anchor), `OnClick()`
@@ -245,7 +257,7 @@ Tests/render_tests.sh                            # rendering regressiya testi (d
 
 **Rendering regressiya testi** (`ZaminRenderTests`, `Tests/RenderTests.cpp`): bir nechta etalon sahna (PBR + soyalar +
 nuqtali/spot yorug'lik, materiallar, bir nechta quyosh va osmon, barcha post effektlar, debug ko'rinish, 2D, Showcase3D va
-Platformer2D namunalari) 480x270 o'lchamda offscreen chiziladi va `Tests/Reference/*.png` bilan solishtiriladi: kanal farqi
+Platformer2D namunalari, editor tanlash konturi) 480x270 o'lchamda offscreen chiziladi va `Tests/Reference/*.png` bilan solishtiriladi: kanal farqi
 `--threshold` (standart 8) dan katta piksellar `--max-percent` (standart 0.5%) dan oshsa test yiqiladi va
 `build/RenderTests/` ga yangi rasm hamda farq rasmi (`<nom>.diff.png`, farqlar qizil) yoziladi. Ko'rinish ataylab
 o'zgartirilganda etalonlar `Tests/render_tests.sh --update` yoki `cmake --build build --target update_render_references`

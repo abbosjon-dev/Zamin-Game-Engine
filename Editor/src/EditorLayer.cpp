@@ -520,6 +520,12 @@ namespace Zamin {
             // ZAMIN_EDITOR_PARALLAX=1: the scene view moves parallax layers with the editor camera.
             if (std::getenv("ZAMIN_EDITOR_PARALLAX"))
                 m_PreviewParallax = true;
+            // ZAMIN_EDITOR_TILEMAP="tool=brush|rect|fill|eraser|picker|layer=1|rule=0|tile=5|hover=12,3|drag=2,2>8,5|apply"
+            // (with ZAMIN_EDITOR_SELECT on a tilemap): tile painting on with that tool / layer / auto-tile
+            // rule / tile, the preview at the hover cell (or a rectangle being dragged); "apply" uses
+            // the tool there once.
+            if (const char* tiles = std::getenv("ZAMIN_EDITOR_TILEMAP"))
+                ApplyTilemapAutomation(tiles);
             // ZAMIN_EDITOR_SPRITE_EDITOR="<texture>[|cell=16x16|count=4x3|offset=1,1|padding=2,2|prefix=run|skip|slice|select=3|zoom=4]":
             // the Sprite Editor opens on that texture (path relative to Assets); "slice" cuts it with
             // the given settings (not saved), "save" writes the frames to its .zmeta.
@@ -1162,23 +1168,205 @@ namespace Zamin {
         return true;
     }
 
+    bool EditorLayer::GetTileCellUnderMouse(Entity tilemap, glm::ivec2& cell)
+    {
+        if (m_TileHoverOverride)
+        {
+            cell = m_TileHoverCell;
+            return true;
+        }
+        if (!tilemap || !tilemap.HasComponent<TilemapComponent>())
+            return false;
+        const auto& tm = tilemap.GetComponent<TilemapComponent>();
+        glm::mat4 world = m_ActiveScene->GetWorldTransform(tilemap);
+        glm::vec3 hit;
+        if (!ViewportMouseToPlane(world[3].z, hit) || std::abs(tm.TileSize) < 1e-6f)
+            return false;
+        glm::vec3 local = glm::vec3(glm::inverse(world) * glm::vec4(hit, 1.0f));
+        float fx = std::floor(local.x / tm.TileSize), fy = std::floor(local.y / tm.TileSize);
+        if (!std::isfinite(fx) || !std::isfinite(fy) || std::abs(fx) > 1e6f || std::abs(fy) > 1e6f)
+            return false;
+        cell = { (int)fx, (int)fy };
+        return true;
+    }
+
+    int EditorLayer::ApplyTileTool(Entity e, SceneHierarchyPanel::TileTool tool, glm::ivec2 from, glm::ivec2 cell, bool erase)
+    {
+        using Tool = SceneHierarchyPanel::TileTool;
+        auto& tm = e.GetComponent<TilemapComponent>();
+        tm.EnsureSize();
+        const int layer = std::clamp(m_SceneHierarchyPanel.GetActiveTileLayer(), 0, tm.GetLayerCount() - 1);
+        const AutoTileSet* rules = AutoTileSet::Get(tm.TilesetPath);
+        const AutoTileRule* rule = rules ? rules->Get(m_SceneHierarchyPanel.GetSelectedAutoTileRule()) : nullptr;
+        const int tile = m_SceneHierarchyPanel.GetSelectedTile();
+        erase = erase || tool == Tool::Eraser;
+        auto paint = [&](const std::vector<glm::ivec2>& cells) {
+            if (rule)
+                return AutoTile::Paint(tm, layer, *rule, cells, erase);
+            return TilemapEdit::SetCells(tm, layer, cells, erase ? -1 : tile);
+        };
+        switch (tool)
+        {
+            case Tool::Brush:
+            case Tool::Eraser:
+                return paint(TilemapEdit::LineCells(from, cell));
+            case Tool::Rectangle:
+                return paint(TilemapEdit::RectCells(tm, from, cell));
+            case Tool::Fill:
+            {
+                if (!tm.Contains(cell.x, cell.y))
+                    return 0;
+                if (rule)
+                {
+                    // On the terrain: the connected terrain; elsewhere: the connected cells of that tile.
+                    std::vector<glm::ivec2> region = TilemapEdit::FloodRegion(tm, layer, cell.x, cell.y, rule);
+                    if (!erase && rule->Contains(tm.Get(cell.x, cell.y, layer)))
+                        return 0; // already this terrain
+                    return AutoTile::Paint(tm, layer, *rule, region, erase);
+                }
+                return TilemapEdit::FloodFill(tm, layer, cell.x, cell.y, erase ? -1 : tile);
+            }
+            case Tool::Picker:
+            {
+                int picked = tm.Get(cell.x, cell.y, layer);
+                if (picked >= 0)
+                    m_SceneHierarchyPanel.PickTile(picked, rules ? rules->FindRuleOf(picked) : -1);
+                return 0;
+            }
+        }
+        return 0;
+    }
+
     void EditorLayer::UpdateTilePainting()
     {
-        if (!m_SceneHierarchyPanel.IsTilePainting() || !m_ViewportHovered) return;
-        if (Input::IsKeyPressed(Key::LeftAlt) || !ImGui::IsMouseDown(ImGuiMouseButton_Left)) return;
-        Entity e = m_SceneHierarchyPanel.GetSelectedEntity();
-        auto& tm = e.GetComponent<TilemapComponent>();
-        glm::mat4 world = m_ActiveScene->GetWorldTransform(e);
-        glm::vec3 hit;
-        if (!ViewportMouseToPlane(world[3].z, hit)) return;
-        glm::vec3 local = glm::vec3(glm::inverse(world) * glm::vec4(hit, 1.0f));
-        int x = (int)std::floor(local.x / tm.TileSize), y = (int)std::floor(local.y / tm.TileSize);
-        int tile = Input::IsKeyPressed(Key::LeftShift) ? -1 : m_SceneHierarchyPanel.GetSelectedTile();
-        if (tm.Get(x, y) != tile && x >= 0 && y >= 0 && x < tm.Width && y < tm.Height)
+        using Tool = SceneHierarchyPanel::TileTool;
+        auto& panel = m_SceneHierarchyPanel;
+        if (!panel.IsTilePainting())
         {
-            tm.Set(x, y, tile);
-            MarkDirty();
+            m_TileStroke.Active = false;
+            return;
         }
+        Entity e = panel.GetSelectedEntity();
+        auto& tm = e.GetComponent<TilemapComponent>();
+        tm.EnsureSize();
+        const int layer = std::clamp(panel.GetActiveTileLayer(), 0, tm.GetLayerCount() - 1);
+        const bool mouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        glm::ivec2 cell;
+        const bool hasCell = GetTileCellUnderMouse(e, cell);
+
+        if (m_TileStroke.Active)
+        {
+            // The selection or the layer changed under the stroke: it ends (what was painted stays).
+            if (m_TileStroke.Entity != e.GetUUID() || m_TileStroke.Layer != layer)
+            {
+                m_TileStroke.Active = false;
+                return;
+            }
+            if (mouseDown)
+            {
+                if (hasCell && cell != m_TileStroke.Last)
+                {
+                    if (m_TileStroke.Tool == Tool::Brush || m_TileStroke.Tool == Tool::Eraser)
+                    {
+                        int changed = ApplyTileTool(e, m_TileStroke.Tool, m_TileStroke.Last, cell, m_TileStroke.Erase);
+                        m_TileStroke.Changed += changed;
+                        if (changed) MarkDirty();
+                    }
+                    m_TileStroke.Last = cell;
+                }
+                return;
+            }
+            // Released: the rectangle is filled now. The stroke is one undo step (the snapshot is
+            // taken once the mouse is up).
+            if (m_TileStroke.Tool == Tool::Rectangle)
+            {
+                int changed = ApplyTileTool(e, Tool::Rectangle, m_TileStroke.Start, m_TileStroke.Last, m_TileStroke.Erase);
+                m_TileStroke.Changed += changed;
+                if (changed) MarkDirty();
+            }
+            m_TileStroke.Active = false;
+            return;
+        }
+
+        if (!m_ViewportHovered || Input::IsKeyPressed(Key::LeftAlt) || !ImGui::IsMouseClicked(ImGuiMouseButton_Left) || !hasCell)
+            return;
+        const Tool tool = panel.GetTileTool();
+        const bool erase = Input::IsKeyPressed(Key::LeftShift) || Input::IsKeyPressed(Key::RightShift) || tool == Tool::Eraser;
+        m_TileStroke = TileStroke{ true, e.GetUUID(), layer, tool, cell, cell, erase, 0 };
+        if (tool == Tool::Brush || tool == Tool::Eraser || tool == Tool::Fill || tool == Tool::Picker)
+        {
+            int changed = ApplyTileTool(e, tool, cell, cell, erase);
+            if (changed) MarkDirty();
+            if (tool == Tool::Fill || tool == Tool::Picker)
+                m_TileStroke.Active = false; // one click
+        }
+    }
+
+    void EditorLayer::ApplyTilemapAutomation(std::string_view spec)
+    {
+        using Tool = SceneHierarchyPanel::TileTool;
+        auto& panel = m_SceneHierarchyPanel;
+        Entity e = panel.GetSelectedEntity();
+        if (!e || !e.HasComponent<TilemapComponent>())
+        {
+            ZM_WARN("ZAMIN_EDITOR_TILEMAP: tilemap tanlanmagan (ZAMIN_EDITOR_SELECT bilan tanlang)");
+            return;
+        }
+        panel.SetTilePaint(true);
+        bool apply = false, dragging = false;
+        glm::ivec2 dragFrom(0), dragTo(0);
+        while (!spec.empty())
+        {
+            size_t bar = spec.find('|');
+            std::string_view item = spec.substr(0, bar);
+            spec = bar == std::string_view::npos ? std::string_view() : spec.substr(bar + 1);
+            size_t eq = item.find('=');
+            std::string_view key = item.substr(0, eq), value = eq == std::string_view::npos ? std::string_view() : item.substr(eq + 1);
+            std::string text(value);
+            if (key == "tool")
+                panel.SetTileTool(value == "rect" ? Tool::Rectangle : value == "fill" ? Tool::Fill : value == "eraser" ? Tool::Eraser
+                                : value == "picker" ? Tool::Picker : Tool::Brush);
+            else if (key == "layer")
+                panel.SetActiveTileLayer(std::atoi(text.c_str()));
+            else if (key == "rule")
+                panel.SetSelectedAutoTileRule(std::atoi(text.c_str()));
+            else if (key == "tile")
+                panel.PickTile(std::atoi(text.c_str()), -1);
+            else if (key == "hover")
+            {
+                std::sscanf(text.c_str(), "%d,%d", &m_TileHoverCell.x, &m_TileHoverCell.y);
+                m_TileHoverOverride = true;
+            }
+            else if (key == "drag")
+            {
+                std::sscanf(text.c_str(), "%d,%d>%d,%d", &dragFrom.x, &dragFrom.y, &dragTo.x, &dragTo.y);
+                dragging = true;
+            }
+            else if (key == "apply")
+                apply = true;
+            else
+                ZM_WARN("ZAMIN_EDITOR_TILEMAP: noma'lum kalit '{}'", key);
+        }
+        if (dragging)
+        {
+            // A rectangle being dragged (its preview), or filled at once with "apply".
+            m_TileHoverOverride = true;
+            m_TileHoverCell = dragTo;
+            if (apply)
+            {
+                if (ApplyTileTool(e, Tool::Rectangle, dragFrom, dragTo, false)) MarkDirty();
+                apply = false;
+            }
+            else
+                m_TileStroke = TileStroke{ true, e.GetUUID(), std::clamp(panel.GetActiveTileLayer(), 0, e.GetComponent<TilemapComponent>().GetLayerCount() - 1),
+                                           Tool::Rectangle, dragFrom, dragTo, false, 0 };
+        }
+        if (apply && m_TileHoverOverride)
+            if (int changed = ApplyTileTool(e, panel.GetTileTool(), m_TileHoverCell, m_TileHoverCell, false))
+            {
+                MarkDirty();
+                ZM_INFO("ZAMIN_EDITOR_TILEMAP: {} ta katak o'zgardi", changed);
+            }
     }
 
     static void DrawWireBox(const glm::mat4& transform, const glm::vec4& color)
@@ -1857,16 +2045,60 @@ namespace Zamin {
             glm::vec2 size = { tm.Width * tm.TileSize, tm.Height * tm.TileSize };
             Renderer2D::DrawRect(world * glm::translate(glm::mat4(1.0f), glm::vec3(size * 0.5f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f)),
                                  glm::vec4(0.3f, 0.85f, 1.0f, 0.8f));
-            glm::vec3 hit;
-            if (m_SceneHierarchyPanel.IsTilePainting() && m_ViewportHovered && ViewportMouseToPlane(world[3].z, hit))
+            // The tool's preview: the cell (or the rectangle being dragged, the region a fill would
+            // cover) and, for a plain tile, the tile itself; red when it erases.
+            glm::ivec2 hover;
+            using Tool = SceneHierarchyPanel::TileTool;
+            if (m_SceneHierarchyPanel.IsTilePainting() && (m_ViewportHovered || m_TileHoverOverride) && GetTileCellUnderMouse(selected, hover))
             {
-                glm::vec3 local = glm::vec3(glm::inverse(world) * glm::vec4(hit, 1.0f));
-                int x = (int)std::floor(local.x / tm.TileSize), y = (int)std::floor(local.y / tm.TileSize);
-                if (x >= 0 && y >= 0 && x < tm.Width && y < tm.Height)
+                const Tool tool = m_TileStroke.Active ? m_TileStroke.Tool : m_SceneHierarchyPanel.GetTileTool();
+                const bool erase = m_TileStroke.Active ? m_TileStroke.Erase
+                                 : tool == Tool::Eraser || Input::IsKeyPressed(Key::LeftShift) || Input::IsKeyPressed(Key::RightShift);
+                const int layer = std::clamp(m_SceneHierarchyPanel.GetActiveTileLayer(), 0, tm.GetLayerCount() - 1);
+                const AutoTileSet* rules = AutoTileSet::Get(tm.TilesetPath);
+                const AutoTileRule* rule = rules ? rules->Get(m_SceneHierarchyPanel.GetSelectedAutoTileRule()) : nullptr;
+                const glm::vec4 outline = erase ? glm::vec4(1.0f, 0.3f, 0.3f, 1.0f) : tool == Tool::Picker ? glm::vec4(1.0f, 0.85f, 0.25f, 1.0f)
+                                        : rule ? glm::vec4(0.35f, 1.0f, 0.7f, 1.0f) : glm::vec4(1.0f);
+                auto cellTransform = [&](glm::ivec2 c, glm::vec2 size = glm::vec2(1.0f)) {
+                    return world * glm::translate(glm::mat4(1.0f), { (c.x + size.x * 0.5f) * tm.TileSize, (c.y + size.y * 0.5f) * tm.TileSize, 0.0f })
+                                 * glm::scale(glm::mat4(1.0f), { tm.TileSize * size.x, tm.TileSize * size.y, 1.0f });
+                };
+                if (!tm.Tileset && !tm.TilesetPath.empty())
+                    tm.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(tm.TilesetPath), tm.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+                auto ghost = [&](glm::ivec2 c) {
+                    if (erase || rule || !tm.Tileset || !tm.Contains(c.x, c.y)) return;
+                    int tile = m_SceneHierarchyPanel.GetSelectedTile();
+                    int cols = std::max(1, tm.TilesetColumns), rows = std::max(1, tm.TilesetRows);
+                    glm::vec2 size = { 1.0f / cols, 1.0f / rows };
+                    glm::vec2 uvMin = { (tile % cols) * size.x, 1.0f - (tile / cols + 1) * size.y };
+                    Renderer2D::DrawQuad(cellTransform(c), tm.Tileset, uvMin, uvMin + size, glm::vec4(1.0f, 1.0f, 1.0f, 0.55f));
+                };
+                if (m_TileStroke.Active && tool == Tool::Rectangle)
                 {
-                    glm::mat4 cell = world * glm::translate(glm::mat4(1.0f), { (x + 0.5f) * tm.TileSize, (y + 0.5f) * tm.TileSize, 0.0f })
-                                           * glm::scale(glm::mat4(1.0f), { tm.TileSize, tm.TileSize, 1.0f });
-                    Renderer2D::DrawRect(cell, Input::IsKeyPressed(Key::LeftShift) ? glm::vec4(1, 0.3f, 0.3f, 1) : glm::vec4(1, 1, 1, 1));
+                    std::vector<glm::ivec2> cells = TilemapEdit::RectCells(tm, m_TileStroke.Start, m_TileStroke.Last);
+                    if (cells.size() <= 4096)
+                        for (const glm::ivec2& c : cells)
+                            ghost(c);
+                    if (!cells.empty())
+                    {
+                        glm::ivec2 lo = cells.front(), hi = cells.back();
+                        glm::vec2 size = glm::vec2(hi - lo) + 1.0f;
+                        Renderer2D::DrawQuad(cellTransform(lo, size), glm::vec4(outline.r, outline.g, outline.b, 0.18f));
+                        Renderer2D::DrawRect(cellTransform(lo, size), outline);
+                    }
+                }
+                else if (tool == Tool::Fill && tm.Contains(hover.x, hover.y))
+                {
+                    std::vector<glm::ivec2> region = TilemapEdit::FloodRegion(tm, layer, hover.x, hover.y, rule, 4096);
+                    for (const glm::ivec2& c : region)
+                        Renderer2D::DrawQuad(cellTransform(c), glm::vec4(outline.r, outline.g, outline.b, 0.22f));
+                    Renderer2D::DrawRect(cellTransform(hover), outline);
+                }
+                else if (tm.Contains(hover.x, hover.y))
+                {
+                    if (tool == Tool::Brush)
+                        ghost(hover);
+                    Renderer2D::DrawRect(cellTransform(hover), outline);
                 }
             }
         }
@@ -3536,7 +3768,20 @@ namespace Zamin {
 
             bool flying = Input::IsMouseButtonPressed(MouseButton::Right);
             bool viewportKeys = !flying && (m_ViewportHovered || m_ViewportFocused);
-            if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit)
+            if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit && m_SceneHierarchyPanel.IsTilePainting())
+            {
+                // Tile painting: B brush, R rectangle, G fill, E eraser, I picker; Q / W / Esc leave it.
+                using Tool = SceneHierarchyPanel::TileTool;
+                if (ImGui::IsKeyPressed(ImGuiKey_B, false)) m_SceneHierarchyPanel.SetTileTool(Tool::Brush);
+                if (ImGui::IsKeyPressed(ImGuiKey_R, false)) m_SceneHierarchyPanel.SetTileTool(Tool::Rectangle);
+                if (ImGui::IsKeyPressed(ImGuiKey_G, false)) m_SceneHierarchyPanel.SetTileTool(Tool::Fill);
+                if (ImGui::IsKeyPressed(ImGuiKey_E, false)) m_SceneHierarchyPanel.SetTileTool(Tool::Eraser);
+                if (ImGui::IsKeyPressed(ImGuiKey_I, false)) m_SceneHierarchyPanel.SetTileTool(Tool::Picker);
+                if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) m_SceneHierarchyPanel.SetTilePaint(false);
+                if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) { m_SceneHierarchyPanel.SetTilePaint(false); m_GizmoMode = GizmoMode::None; }
+                if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { m_SceneHierarchyPanel.SetTilePaint(false); m_GizmoMode = GizmoMode::Translate; }
+            }
+            else if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit)
             {
                 if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) m_GizmoMode = GizmoMode::None;
                 if (ImGui::IsKeyPressed(ImGuiKey_W, false)) m_GizmoMode = GizmoMode::Translate;

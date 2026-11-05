@@ -401,9 +401,13 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<TilemapComponent>())
         {
             c->EnsureSize();
+            json layers = json::array();
+            for (const TilemapLayer& layer : c->Layers)
+                layers.push_back({ { "Name", layer.Name }, { "Visible", layer.Visible }, { "Collision", layer.Collision },
+                                   { "SortingOrder", layer.SortingOrder }, { "Opacity", layer.Opacity }, { "Tiles", layer.Tiles } });
             e["Tilemap"] = { { "Tileset", c->TilesetPath }, { "PixelArt", c->PixelArt }, { "TilesetColumns", c->TilesetColumns },
                              { "TilesetRows", c->TilesetRows }, { "Width", c->Width }, { "Height", c->Height }, { "TileSize", c->TileSize },
-                             { "Tiles", c->Tiles }, { "Color", ToJson(c->Color) }, { "SortingOrder", c->SortingOrder },
+                             { "Layers", std::move(layers) }, { "Color", ToJson(c->Color) }, { "SortingOrder", c->SortingOrder },
                              { "Collision", c->Collision }, { "Friction", c->Friction } };
             WriteAssetHandle(e["Tilemap"], "Tileset", c->TilesetPath);
             WriteSortingLayer(e["Tilemap"], c->SortingLayer);
@@ -767,8 +771,43 @@ namespace Zamin {
             c.Width = j.value("Width", 32);
             c.Height = j.value("Height", 12);
             c.TileSize = j.value("TileSize", 1.0f);
-            if (j.contains("Tiles") && j["Tiles"].is_array()) c.Tiles = j["Tiles"].get<std::vector<int>>();
-            c.EnsureSize();
+            // Each layer: { Name, Visible, Collision, SortingOrder, Opacity, Tiles }. Files from before
+            // layers existed have one "Tiles" array: it becomes layer 0 (solid, as it always was).
+            auto readTiles = [&](const json& tiles, std::vector<int>& out) {
+                out.clear();
+                if (!tiles.is_array())
+                    return;
+                out.reserve(tiles.size());
+                for (const json& t : tiles)
+                    out.push_back(t.is_number_integer() ? std::max(-1, t.get<int>()) : -1);
+            };
+            c.Layers.clear();
+            if (j.contains("Layers") && j["Layers"].is_array())
+            {
+                for (const json& l : j["Layers"])
+                {
+                    if (!l.is_object() || (int)c.Layers.size() >= TilemapComponent::MaxLayers)
+                        continue;
+                    TilemapLayer layer;
+                    layer.Name = l.value("Name", std::string());
+                    if (layer.Name.empty() || c.FindLayer(layer.Name) >= 0)
+                        layer.Name = c.MakeUniqueLayerName(layer.Name.empty() ? "Qatlam" : layer.Name);
+                    layer.Visible = l.value("Visible", true);
+                    layer.Collision = l.value("Collision", true);
+                    layer.SortingOrder = l.value("SortingOrder", 0);
+                    layer.Opacity = std::clamp(l.value("Opacity", 1.0f), 0.0f, 1.0f);
+                    if (l.contains("Tiles"))
+                        readTiles(l["Tiles"], layer.Tiles);
+                    c.Layers.push_back(std::move(layer));
+                }
+            }
+            else
+            {
+                c.Layers.emplace_back();
+                if (j.contains("Tiles"))
+                    readTiles(j["Tiles"], c.Layers.back().Tiles);
+            }
+            c.EnsureSize(); // a layer of another size (edited by hand) is cut / padded
             c.Color = Vec(j, "Color", glm::vec4(1.0f));
             c.SortingOrder = j.value("SortingOrder", -1);
             c.SortingLayer = ReadSortingLayer(j);

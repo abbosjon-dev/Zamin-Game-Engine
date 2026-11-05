@@ -232,6 +232,13 @@ namespace Zamin {
         // Picks for m_PendingClickThrough (an extra ID pass into the viewport framebuffer).
         void ResolveClickThrough();
         void UpdateTilePainting();
+        // The cell of the selected tilemap under the mouse (or the automation's hover cell); false
+        // when the mouse does not hit the tilemap's plane. The cell may lie outside the map.
+        bool GetTileCellUnderMouse(Entity tilemap, glm::ivec2& cell);
+        // One use of the current tile tool at `cell` (Rectangle: from `from`). Returns cells changed.
+        int ApplyTileTool(Entity tilemap, SceneHierarchyPanel::TileTool tool, glm::ivec2 from, glm::ivec2 cell, bool erase);
+        // ZAMIN_EDITOR_TILEMAP automation: tool, layer, rule, tile, hover / drag preview, apply.
+        void ApplyTilemapAutomation(std::string_view spec);
         bool ViewportMouseToPlane(float planeZ, glm::vec3& out);
         glm::mat4 OverlayViewProjection();
         // The camera the overlay is drawn with (the editor camera; the game's camera in play
@@ -292,6 +299,20 @@ namespace Zamin {
             int Submesh = -1;               // the part shown (-1 = all)
             bool Active = false;
         } m_MaterialDrag;
+        // A tile tool stroke in progress (mouse held in the viewport): brush / eraser paint along the
+        // way, the rectangle is filled when the button comes up.
+        struct TileStroke
+        {
+            bool Active = false;
+            UUID Entity = 0;
+            int Layer = 0;
+            SceneHierarchyPanel::TileTool Tool = SceneHierarchyPanel::TileTool::Brush;
+            glm::ivec2 Start{ 0 }, Last{ 0 };
+            bool Erase = false;
+            int Changed = 0;
+        } m_TileStroke;
+        bool m_TileHoverOverride = false;   // automation: the preview cell below instead of the mouse
+        glm::ivec2 m_TileHoverCell{ 0 };
         // Shift + drop on a model with several parts: which part gets the material.
         struct MaterialSlotPick
         {

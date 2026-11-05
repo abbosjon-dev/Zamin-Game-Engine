@@ -2145,6 +2145,484 @@ namespace Zamin {
         return changed;
     }
 
+    // ------------------------------------------------------------------ tilemap
+    static const char* TileToolName(SceneHierarchyPanel::TileTool tool)
+    {
+        switch (tool)
+        {
+            case SceneHierarchyPanel::TileTool::Brush: return "Mo'yqalam";
+            case SceneHierarchyPanel::TileTool::Rectangle: return "To'rtburchak";
+            case SceneHierarchyPanel::TileTool::Fill: return "To'ldirish";
+            case SceneHierarchyPanel::TileTool::Eraser: return "O'chirg'ich";
+            case SceneHierarchyPanel::TileTool::Picker: return "Tomizg'ich";
+        }
+        return "";
+    }
+
+    void SceneHierarchyPanel::SetTileTool(TileTool tool)
+    {
+        if (tool == TileTool::Picker && m_TileTool != TileTool::Picker)
+            m_ToolBeforePicker = m_TileTool;
+        m_TileTool = tool;
+        m_TilePaint = true;
+    }
+
+    void SceneHierarchyPanel::PickTile(int tile, int rule)
+    {
+        if (tile < 0)
+            return;
+        m_SelectedTile = tile;
+        m_TileRule = rule;
+        if (m_TileTool == TileTool::Picker)
+            m_TileTool = m_ToolBeforePicker == TileTool::Picker || m_ToolBeforePicker == TileTool::Eraser ? TileTool::Brush : m_ToolBeforePicker;
+    }
+
+    // The 3 x 3 neighbourhood of an auto-tile variant: the cell in the middle, its neighbours of the
+    // same terrain filled.
+    static void DrawAutoTileMask(ImDrawList* draw, ImVec2 min, float size, AutoTileMode mode, int variant)
+    {
+        const float cell = size / 3.0f;
+        const ImU32 on = UI::AccentU32(0.95f), off = ImGui::GetColorU32(ImVec4(1, 1, 1, 0.08f)), center = IM_COL32(240, 240, 240, 255);
+        uint8_t mask8 = 0;
+        if (mode == AutoTileMode::Blob8)
+            mask8 = AutoTile::BlobMask(variant);
+        else
+            mask8 = (uint8_t)(((variant & AutoTile::North) ? AutoTile::N : 0) | ((variant & AutoTile::West) ? AutoTile::W : 0) |
+                              ((variant & AutoTile::East) ? AutoTile::E : 0) | ((variant & AutoTile::South) ? AutoTile::S : 0));
+        // Rows top to bottom: NW N NE / W . E / SW S SE
+        const uint8_t bits[9] = { AutoTile::NW, AutoTile::N, AutoTile::NE, AutoTile::W, 0, AutoTile::E, AutoTile::SW, AutoTile::S, AutoTile::SE };
+        for (int i = 0; i < 9; i++)
+        {
+            ImVec2 a(min.x + (i % 3) * cell + 1.0f, min.y + (i / 3) * cell + 1.0f), b(a.x + cell - 2.0f, a.y + cell - 2.0f);
+            bool corner = i == 0 || i == 2 || i == 6 || i == 8;
+            if (i == 4)
+                draw->AddRectFilled(a, b, center, 1.0f);
+            else if (mode == AutoTileMode::Edges4 && corner)
+                continue;
+            else
+                draw->AddRectFilled(a, b, (mask8 & bits[i]) ? on : off, 1.0f);
+        }
+    }
+
+    bool SceneHierarchyPanel::SaveAutoTiles(const std::string& tilesetPath, const AutoTileSet& set)
+    {
+        AssetRegistry* registry = Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
+        const AssetMetadata* meta = registry ? registry->Find(std::filesystem::path(tilesetPath)) : nullptr;
+        if (!meta)
+        {
+            ZM_ERROR("Auto-tile qoidalari saqlanmadi: '{}' asset registry'da topilmadi", tilesetPath);
+            return false;
+        }
+        AssetImportSettings import = meta->Import; // the texture's own settings and its sprites stay
+        set.WriteTo(import);
+        if (!registry->SetImportSettings(meta->Handle, import))
+        {
+            ZM_ERROR("Auto-tile qoidalari saqlanmadi: {}", tilesetPath);
+            return false;
+        }
+        return true;
+    }
+
+    bool SceneHierarchyPanel::DrawTilemap(Entity entity, TilemapComponent& c)
+    {
+        bool changed = false;
+        if (UI::PropertyAssetPath("Tileset", c.TilesetPath, ".png;.jpg;.jpeg", ICON_FA_FILE_IMAGE)) { c.Tileset = nullptr; changed = true; m_TileRule = -1; }
+        if (UI::PropertyBool("Pixel-art", c.PixelArt)) { c.Tileset = nullptr; changed = true; }
+        changed |= UI::PropertyInt("Tileset ustunlari", c.TilesetColumns);
+        changed |= UI::PropertyInt("Tileset qatorlari", c.TilesetRows);
+        c.TilesetColumns = std::max(1, c.TilesetColumns); c.TilesetRows = std::max(1, c.TilesetRows);
+        int w = c.Width, h = c.Height;
+        bool resized = UI::PropertyInt("Kenglik (plitka)", w);
+        resized |= UI::PropertyInt("Balandlik (plitka)", h);
+        if (resized) { c.Resize(std::clamp(w, 1, 1024), std::clamp(h, 1, 1024)); changed = true; }
+        changed |= UI::PropertyFloat("Plitka o'lchami", c.TileSize, 0.01f, 0.01f, 100.0f);
+        changed |= UI::PropertyColor4("Rang", c.Color);
+        changed |= DrawSortingLayer(c.SortingLayer, c.SortingOrder);
+        changed |= UI::PropertyBool("Collision (fizika)", c.Collision);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Collision belgilangan qatlamlardagi plitkalar qattiq (qo'shni plitkalar bitta to'rtburchakka birlashadi)");
+        InactiveComponentNote(entity, c.Collision ? "Obyekt nofaol: tilemap chizilmaydi, kolliziyasi o'chirilgan (faollashganda qayta quriladi)"
+                                                  : "Obyekt nofaol: tilemap chizilmaydi");
+        changed |= UI::PropertySlider("Ishqalanish", c.Friction, 0.0f, 1.0f);
+        c.EnsureSize();
+
+        // ---- layers
+        m_TileLayer = std::clamp(m_TileLayer, 0, c.GetLayerCount() - 1);
+        UI::PropertyHeader(ICON_FA_LAYER_GROUP "  Qatlamlar", "Har bir qatlamning o'z plitkalari bor. Ro'yxat tartibida chiziladi (birinchisi "
+                                                             "orqada); bo'yash faol (belgilangan) qatlamga tushadi");
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TableSetColumnIndex(1);
+        {
+            const float rowHeight = ImGui::GetFrameHeight();
+            const float listHeight = std::min(6, c.GetLayerCount()) * (rowHeight + ImGui::GetStyle().ItemSpacing.y) + 6.0f;
+            ImGui::BeginChild("##tileLayers", ImVec2(-FLT_MIN, listHeight), ImGuiChildFlags_Border);
+            // Top of the list = the layer drawn last (in front), like image editors.
+            for (int i = c.GetLayerCount() - 1; i >= 0; i--)
+            {
+                TilemapLayer& layer = c.Layers[(size_t)i];
+                ImGui::PushID(i);
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(3, ImGui::GetStyle().FramePadding.y));
+                if (UI::ToolbarButton(layer.Visible ? ICON_FA_EYE : ICON_FA_EYE_SLASH, layer.Visible ? "Ko'rinadi (yashirish)" : "Yashirin (ko'rsatish)"))
+                {
+                    layer.Visible = !layer.Visible;
+                    changed = true;
+                }
+                ImGui::SameLine(0, 2);
+                ImGui::PushStyleColor(ImGuiCol_Text, layer.Collision ? ImGui::GetStyleColorVec4(ImGuiCol_Text) : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                if (UI::ToolbarButton(ICON_FA_VECTOR_SQUARE, layer.Collision ? "Collision: plitkalari qattiq (o'chirish)" : "Collision yo'q (yoqish)"))
+                {
+                    layer.Collision = !layer.Collision;
+                    changed = true;
+                }
+                ImGui::PopStyleColor();
+                ImGui::PopStyleVar();
+                ImGui::SameLine();
+                std::string label = std::format("{}##layer", layer.Name);
+                if (ImGui::Selectable(label.c_str(), m_TileLayer == i, ImGuiSelectableFlags_AllowOverlap, ImVec2(0, rowHeight)))
+                    m_TileLayer = i;
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::CalcTextSize("0000").x);
+                ImGui::TextDisabled("%zu", c.CountTiles(i));
+                ImGui::PopID();
+            }
+            ImGui::EndChild();
+        }
+        UI::PropertyLabel("");
+        {
+            ImGui::BeginDisabled(c.GetLayerCount() >= TilemapComponent::MaxLayers);
+            if (UI::ToolbarButton(ICON_FA_PLUS, "Yangi qatlam (faol qatlam ustiga)"))
+            {
+                int added = c.AddLayer("Qatlam");
+                if (added >= 0)
+                {
+                    // Right above the active one.
+                    int to = std::min(m_TileLayer + 1, c.GetLayerCount() - 1);
+                    c.MoveLayer(added, to);
+                    m_TileLayer = to;
+                    changed = true;
+                }
+            }
+            ImGui::SameLine(0, 2);
+            if (UI::ToolbarButton(ICON_FA_COPY, "Faol qatlamdan nusxa"))
+            {
+                TilemapLayer copy = c.Layers[(size_t)m_TileLayer];
+                int added = c.AddLayer(copy.Name);
+                if (added >= 0)
+                {
+                    std::string name = c.Layers[(size_t)added].Name;
+                    c.Layers[(size_t)added] = std::move(copy);
+                    c.Layers[(size_t)added].Name = name;
+                    int to = std::min(m_TileLayer + 1, c.GetLayerCount() - 1);
+                    c.MoveLayer(added, to);
+                    m_TileLayer = to;
+                    changed = true;
+                }
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine(0, 2);
+            ImGui::BeginDisabled(m_TileLayer >= c.GetLayerCount() - 1);
+            if (UI::ToolbarButton(ICON_FA_ARROW_UP, "Yuqoriga (oldinroq chiziladi)") && c.MoveLayer(m_TileLayer, m_TileLayer + 1))
+            {
+                m_TileLayer++;
+                changed = true;
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine(0, 2);
+            ImGui::BeginDisabled(m_TileLayer <= 0);
+            if (UI::ToolbarButton(ICON_FA_ARROW_DOWN, "Pastga (orqaroq chiziladi)") && c.MoveLayer(m_TileLayer, m_TileLayer - 1))
+            {
+                m_TileLayer--;
+                changed = true;
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine(0, 2);
+            ImGui::BeginDisabled(c.GetLayerCount() <= 1);
+            if (UI::ToolbarButton(ICON_FA_TRASH, "Faol qatlamni o'chirish (plitkalari bilan)") && c.RemoveLayer(m_TileLayer))
+            {
+                m_TileLayer = std::clamp(m_TileLayer, 0, c.GetLayerCount() - 1);
+                changed = true;
+            }
+            ImGui::EndDisabled();
+        }
+        {
+            TilemapLayer& layer = c.Layers[(size_t)m_TileLayer];
+            UI::PropertyLabel("Nomi");
+            std::string name = layer.Name;
+            if (ImGui::InputText("##layerName", &name, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll) || ImGui::IsItemDeactivatedAfterEdit())
+            {
+                int other = c.FindLayer(name);
+                if (!name.empty() && (other < 0 || other == m_TileLayer) && name != layer.Name)
+                {
+                    layer.Name = name;
+                    changed = true;
+                }
+            }
+            UI::PropertyLabel("Shaffoflik", "Qatlam plitkalarining ko'rinishi (tilemap rangining alfasiga ko'paytiriladi)");
+            if (ImGui::SliderFloat("##layerOpacity", &layer.Opacity, 0.0f, 1.0f, "%.2f"))
+            {
+                layer.Opacity = std::clamp(layer.Opacity, 0.0f, 1.0f);
+                changed = true;
+            }
+            UI::PropertyLabel("Tartib (+)", "Tilemap tartibiga qo'shiladi: masalan +2 - sprite'lar (0) oldida chiziladigan old plan qatlami");
+            changed |= ImGui::DragInt("##layerOrder", &layer.SortingOrder, 0.1f, -1000, 1000);
+            changed |= UI::PropertyBool("Ko'rinadi", layer.Visible);
+            changed |= UI::PropertyBool("Collision", layer.Collision);
+            if (layer.Collision && !c.Collision)
+            {
+                UI::PropertyLabel("");
+                ImGui::TextDisabled("Tilemap'ning Collision'i o'chiq");
+            }
+        }
+
+        // ---- paint tools
+        UI::PropertyHeader(ICON_FA_PAINTBRUSH "  Bo'yash", "Viewport'da sichqoncha bilan. B - mo'yqalam, R - to'rtburchak, G - to'ldirish, "
+                                                         "E - o'chirg'ich, I - tomizg'ich, Esc - chiqish. Shift bosilsa o'chiradi. Ctrl+Z - bekor qilish");
+        UI::PropertyLabel("Rejim");
+        ImGui::Checkbox(ICON_FA_PEN "  Viewport'da chizish", &m_TilePaint);
+        UI::PropertyLabel("Asbob");
+        {
+            struct ToolButton { TileTool Tool; const char* Icon; const char* Tip; };
+            static const ToolButton s_Tools[] = {
+                { TileTool::Brush, ICON_FA_PAINTBRUSH, "Mo'yqalam (B): bosib sudrang. Shift - o'chiradi" },
+                { TileTool::Rectangle, ICON_FA_VECTOR_SQUARE, "To'rtburchak (R): burchakdan burchakka sudrang. Shift - o'chiradi" },
+                { TileTool::Fill, ICON_FA_FILL_DRIP, "To'ldirish (G): bir xil qo'shni plitkalar sohasini to'ldiradi. Shift - sohani o'chiradi" },
+                { TileTool::Eraser, ICON_FA_ERASER, "O'chirg'ich (E)" },
+                { TileTool::Picker, ICON_FA_EYEDROPPER, "Tomizg'ich (I): xaritadagi plitkani tanlaydi" },
+            };
+            for (size_t i = 0; i < std::size(s_Tools); i++)
+            {
+                if (i) ImGui::SameLine(0, 2);
+                if (UI::ToolbarButton(s_Tools[i].Icon, s_Tools[i].Tip, m_TilePaint && m_TileTool == s_Tools[i].Tool))
+                    SetTileTool(s_Tools[i].Tool);
+            }
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", TileToolName(m_TileTool));
+        }
+        UI::PropertyLabel("");
+        if (ImGui::Button(ICON_FA_ERASER "  Qatlamni tozalash"))
+        {
+            TilemapLayer& layer = c.Layers[(size_t)m_TileLayer];
+            if (std::any_of(layer.Tiles.begin(), layer.Tiles.end(), [](int t) { return t >= 0; }))
+            {
+                std::fill(layer.Tiles.begin(), layer.Tiles.end(), -1);
+                changed = true;
+            }
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Faol qatlamning hamma plitkalarini o'chiradi (Ctrl+Z bilan qaytadi)");
+
+        // ---- auto-tiles (rules of the tileset, kept in its .zmeta)
+        const AutoTileSet* stored = AutoTileSet::Get(c.TilesetPath);
+        AutoTileSet rules = stored ? *stored : AutoTileSet();
+        if (m_TileRule >= (int)rules.Rules.size())
+            m_TileRule = -1;
+        bool rulesEdited = false;
+        UI::PropertyHeader(ICON_FA_BORDER_ALL "  Auto-tile", "Qoida tanlansa, asboblar plitka o'rniga shu yerni (terrain) chizadi: har bir katak "
+                                                            "qo'shnilariga qarab to'g'ri plitkani oladi, qo'shnilari ham yangilanadi. Qoidalar "
+                                                            "tileset'ning .zmeta faylida saqlanadi (shu tileset'li hamma tilemap'larda)");
+        UI::PropertyLabel("Qoida");
+        {
+            std::string preview = m_TileRule >= 0 ? std::string(ICON_FA_BORDER_ALL "  ") + rules.Rules[(size_t)m_TileRule].Name : std::string("(oddiy plitka)");
+            float buttons = (ImGui::GetFrameHeight() + 2.0f) * 3.0f;
+            ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - buttons));
+            if (ImGui::BeginCombo("##rule", preview.c_str()))
+            {
+                if (ImGui::Selectable("(oddiy plitka)", m_TileRule < 0))
+                    m_TileRule = -1;
+                for (int i = 0; i < (int)rules.Rules.size(); i++)
+                {
+                    const AutoTileRule& r = rules.Rules[(size_t)i];
+                    std::string item = std::format(ICON_FA_BORDER_ALL "  {}  ({})##{}", r.Name, r.Mode == AutoTileMode::Blob8 ? "8 qo'shni, 47" : "4 qo'shni, 16", i);
+                    if (ImGui::Selectable(item.c_str(), m_TileRule == i))
+                    {
+                        m_TileRule = i;
+                        if (m_TileTool == TileTool::Picker) m_TileTool = TileTool::Brush;
+                        m_TilePaint = true;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::SameLine(0, 2);
+            ImGui::BeginDisabled(c.TilesetPath.empty() || !m_SceneEditable);
+            if (UI::ToolbarButton(ICON_FA_PLUS, "Yangi qoida (tanlangan plitkadan boshlab ketma-ket)"))
+            {
+                AutoTileRule rule = AutoTileRule::Sequential(rules.MakeUniqueName("Yer"), AutoTileMode::Edges4, std::max(0, m_SelectedTile));
+                rules.Rules.push_back(std::move(rule));
+                m_TileRule = (int)rules.Rules.size() - 1;
+                m_EditRule = true;
+                m_EditRuleVariant = -1;
+                rulesEdited = true;
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine(0, 2);
+            ImGui::BeginDisabled(m_TileRule < 0);
+            if (UI::ToolbarButton(ICON_FA_PEN, "Qoidani tahrirlash", m_EditRule && m_TileRule >= 0))
+            {
+                m_EditRule = !m_EditRule;
+                m_EditRuleVariant = -1;
+            }
+            ImGui::SameLine(0, 2);
+            if (UI::ToolbarButton(ICON_FA_TRASH, "Qoidani o'chirish (xaritadagi plitkalar qoladi)") && m_TileRule >= 0)
+            {
+                rules.Rules.erase(rules.Rules.begin() + m_TileRule);
+                m_TileRule = -1;
+                m_EditRule = false;
+                rulesEdited = true;
+            }
+            ImGui::EndDisabled();
+        }
+        if (c.TilesetPath.empty())
+        {
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("Avval tileset tanlang");
+        }
+        if (m_TileRule >= 0 && m_EditRule)
+        {
+            AutoTileRule& rule = rules.Rules[(size_t)m_TileRule];
+            UI::PropertyLabel("Nomi");
+            std::string name = rule.Name;
+            if (ImGui::InputText("##ruleName", &name, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll) || ImGui::IsItemDeactivatedAfterEdit())
+                if (!name.empty() && name != rule.Name && rules.Find(name) < 0)
+                {
+                    rule.Name = name;
+                    rulesEdited = true;
+                }
+            const char* modes[] = { "4 qo'shni (16 plitka)", "8 qo'shni, blob (47 plitka)" };
+            int mode = (int)rule.Mode;
+            if (UI::PropertyCombo("Turi", mode, modes, 2))
+            {
+                // A new layout: the tiles from the first one on, in order.
+                int first = rule.HasTiles() ? *std::min_element(rule.Tiles.begin(), rule.Tiles.end(), [](int a, int b) {
+                    return (a < 0 ? INT32_MAX : a) < (b < 0 ? INT32_MAX : b); }) : 0;
+                rule = AutoTileRule::Sequential(rule.Name, (AutoTileMode)mode, first);
+                m_EditRuleVariant = -1;
+                rulesEdited = true;
+            }
+            if (UI::PropertyBool("Chegaradan tashqarisi ham", rule.ConnectOutside))
+                rulesEdited = true;
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Xarita chegarasi tashqarisi shu yer deb hisoblanadi (chetlarida qirra chizilmaydi)");
+            UI::PropertyLabel("Ketma-ket", "Hamma variantlarga shu plitkadan boshlab ketma-ket plitkalarni beradi (tileset shu tartibda chizilgan bo'lsa)");
+            ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4.0f);
+            ImGui::DragInt("##seqFirst", &m_RuleFirstTile, 0.2f, 0, std::max(0, c.TilesetColumns * c.TilesetRows - 1));
+            ImGui::SameLine();
+            if (ImGui::Button("Qo'llash"))
+            {
+                rule = AutoTileRule::Sequential(rule.Name, rule.Mode, m_RuleFirstTile);
+                rulesEdited = true;
+            }
+
+            // The variants: the neighbour pattern and its tile. Click one, then a tile in the palette.
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextDisabled("Variantlar");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Variantni bosing, keyin palitradan plitkani tanlang (keyingi variantga o'tadi). O'ng tugma - tozalash");
+            ImGui::TableSetColumnIndex(1);
+            if (!c.Tileset && !c.TilesetPath.empty())
+                c.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TilesetPath), c.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+            const float thumb = ImGui::GetFontSize() * 1.5f;
+            const float cellWidth = thumb * 2.0f + 6.0f;
+            const int perRow = std::max(1, (int)((ImGui::GetContentRegionAvail().x + 4.0f) / (cellWidth + 4.0f)));
+            const int cols = std::max(1, c.TilesetColumns), rows = std::max(1, c.TilesetRows);
+            ImDrawList* draw = ImGui::GetWindowDrawList();
+            for (int v = 0; v < rule.GetVariantCount(); v++)
+            {
+                if (v % perRow) ImGui::SameLine(0, 4);
+                ImGui::PushID(v);
+                ImVec2 p = ImGui::GetCursorScreenPos();
+                bool clicked = ImGui::InvisibleButton("##variant", ImVec2(cellWidth, thumb + 4.0f));
+                bool hovered = ImGui::IsItemHovered();
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && rule.Tiles[(size_t)v] >= 0)
+                {
+                    rule.Tiles[(size_t)v] = -1;
+                    rulesEdited = true;
+                }
+                if (clicked)
+                    m_EditRuleVariant = m_EditRuleVariant == v ? -1 : v;
+                ImU32 frame = m_EditRuleVariant == v ? UI::AccentU32() : hovered ? ImGui::GetColorU32(ImGuiCol_ButtonHovered) : ImGui::GetColorU32(ImGuiCol_FrameBg);
+                draw->AddRectFilled(p, ImVec2(p.x + cellWidth, p.y + thumb + 4.0f), ImGui::GetColorU32(ImGuiCol_FrameBg), 3.0f);
+                draw->AddRect(p, ImVec2(p.x + cellWidth, p.y + thumb + 4.0f), frame, 3.0f, 0, m_EditRuleVariant == v ? 2.0f : 1.0f);
+                DrawAutoTileMask(draw, ImVec2(p.x + 2.0f, p.y + 2.0f), thumb, rule.Mode, v);
+                int tile = rule.Tiles[(size_t)v];
+                ImVec2 t0(p.x + thumb + 4.0f, p.y + 2.0f), t1(t0.x + thumb, t0.y + thumb);
+                if (tile >= 0 && c.Tileset)
+                {
+                    int tx = tile % cols, ty = tile / cols;
+                    ImVec2 uv0((float)tx / cols, 1.0f - (float)ty / rows), uv1((float)(tx + 1) / cols, 1.0f - (float)(ty + 1) / rows);
+                    draw->AddImage((ImTextureID)(uintptr_t)c.Tileset->GetRendererID(), t0, t1, uv0, uv1);
+                }
+                else
+                    draw->AddText(ImVec2(t0.x + thumb * 0.3f, t0.y + thumb * 0.15f), ImGui::GetColorU32(ImGuiCol_TextDisabled), tile >= 0 ? "#" : "-");
+                if (hovered)
+                    UI::Tooltip(tile >= 0 ? std::format("Variant {}: plitka {}", v, tile).c_str() : std::format("Variant {}: plitka yo'q", v).c_str());
+                ImGui::PopID();
+            }
+        }
+
+        // ---- palette
+        ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0);
+        ImGui::TextDisabled("Palitra");
+        ImGui::TableSetColumnIndex(1);
+        if (!c.Tileset && !c.TilesetPath.empty())
+            c.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TilesetPath), c.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+        if (c.Tileset)
+        {
+            const AutoTileRule* activeRule = m_TileRule >= 0 ? &rules.Rules[(size_t)m_TileRule] : nullptr;
+            const bool assigning = activeRule && m_EditRule && m_EditRuleVariant >= 0;
+            if (assigning)
+                ImGui::TextColored(UI::AccentColor(), ICON_FA_HAND_POINTER "  Variant %d uchun plitkani bosing", m_EditRuleVariant);
+            float cellPx = std::max(20.0f, std::min(40.0f, (ImGui::GetContentRegionAvail().x - 8) / c.TilesetColumns - 4));
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 2));
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1, 1));
+            for (int ty = 0; ty < c.TilesetRows; ty++)
+            {
+                for (int tx = 0; tx < c.TilesetColumns; tx++)
+                {
+                    int index = ty * c.TilesetColumns + tx;
+                    ImVec2 uv0((float)tx / c.TilesetColumns, 1.0f - (float)ty / c.TilesetRows);
+                    ImVec2 uv1((float)(tx + 1) / c.TilesetColumns, 1.0f - (float)(ty + 1) / c.TilesetRows);
+                    ImGui::PushID(index);
+                    bool selected = !activeRule && m_SelectedTile == index;
+                    if (selected) ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentColor());
+                    if (ImGui::ImageButton("##tile", (ImTextureID)(uintptr_t)c.Tileset->GetRendererID(), ImVec2(cellPx, cellPx), uv0, uv1))
+                    {
+                        if (assigning)
+                        {
+                            AutoTileRule& rule = rules.Rules[(size_t)m_TileRule];
+                            rule.Tiles[(size_t)m_EditRuleVariant] = index;
+                            m_EditRuleVariant = m_EditRuleVariant + 1 < rule.GetVariantCount() ? m_EditRuleVariant + 1 : -1;
+                            rulesEdited = true;
+                        }
+                        else
+                        {
+                            m_SelectedTile = index;
+                            m_TileRule = -1;
+                            if (m_TileTool == TileTool::Eraser || m_TileTool == TileTool::Picker)
+                                m_TileTool = TileTool::Brush;
+                            m_TilePaint = true;
+                        }
+                    }
+                    if (selected) ImGui::PopStyleColor();
+                    // The selected rule's tiles are framed.
+                    if (activeRule && activeRule->Contains(index))
+                        ImGui::GetWindowDrawList()->AddRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), UI::AccentU32(0.9f), 2.0f, 0, 2.0f);
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+                        UI::Tooltip(std::format("Plitka {}", index).c_str());
+                    ImGui::PopID();
+                    if (tx + 1 < c.TilesetColumns) ImGui::SameLine();
+                }
+            }
+            ImGui::PopStyleVar(2);
+        }
+        else
+            ImGui::TextDisabled("Tileset teksturasini tanlang");
+
+        if (rulesEdited && !c.TilesetPath.empty())
+            SaveAutoTiles(c.TilesetPath, rules);
+        return changed;
+    }
+
     bool SceneHierarchyPanel::DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c)
     {
         bool changed = DrawEntityRefField("Nishon", c.Target, "Kuzatiladigan obyekt (ierarxiyadan tortib tashlang). O'yin davomida "
@@ -3325,68 +3803,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<TilemapComponent>(ICON_FA_TABLE_CELLS, "Tilemap", entity, [&](TilemapComponent& c) {
-            bool changed = false;
-            if (UI::PropertyAssetPath("Tileset", c.TilesetPath, ".png;.jpg;.jpeg", ICON_FA_FILE_IMAGE)) { c.Tileset = nullptr; changed = true; }
-            if (UI::PropertyBool("Pixel-art", c.PixelArt)) { c.Tileset = nullptr; changed = true; }
-            changed |= UI::PropertyInt("Tileset ustunlari", c.TilesetColumns);
-            changed |= UI::PropertyInt("Tileset qatorlari", c.TilesetRows);
-            c.TilesetColumns = std::max(1, c.TilesetColumns); c.TilesetRows = std::max(1, c.TilesetRows);
-            int w = c.Width, h = c.Height;
-            bool resized = UI::PropertyInt("Kenglik (plitka)", w);
-            resized |= UI::PropertyInt("Balandlik (plitka)", h);
-            if (resized) { c.Resize(std::clamp(w, 1, 1024), std::clamp(h, 1, 1024)); changed = true; }
-            changed |= UI::PropertyFloat("Plitka o'lchami", c.TileSize, 0.01f, 0.01f, 100.0f);
-            changed |= UI::PropertyColor4("Rang", c.Color);
-            changed |= DrawSortingLayer(c.SortingLayer, c.SortingOrder);
-            changed |= UI::PropertyBool("Collision (fizika)", c.Collision);
-            InactiveComponentNote(entity, c.Collision ? "Obyekt nofaol: tilemap chizilmaydi, kolliziyasi o'chirilgan (faollashganda qayta quriladi)"
-                                                      : "Obyekt nofaol: tilemap chizilmaydi");
-            changed |= UI::PropertySlider("Ishqalanish", c.Friction, 0.0f, 1.0f);
-
-            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Bo'yash");
-            UI::PropertyLabel("Rejim");
-            if (ImGui::Checkbox(ICON_FA_PEN "  Viewport'da chizish", &m_TilePaint)) {}
-            UI::PropertyLabel("");
-            ImGui::TextDisabled("LMB: chizish  |  Shift+LMB: o'chirish");
-            UI::PropertyLabel("");
-            if (ImGui::Button(ICON_FA_ERASER "  Hammasini tozalash")) { std::fill(c.Tiles.begin(), c.Tiles.end(), -1); changed = true; }
-
-            // palette
-            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0);
-            ImGui::TextDisabled("Palitra");
-            ImGui::TableSetColumnIndex(1);
-            if (!c.Tileset && !c.TilesetPath.empty())
-                c.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TilesetPath), c.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
-            if (c.Tileset)
-            {
-                float cellPx = std::max(20.0f, std::min(40.0f, (ImGui::GetContentRegionAvail().x - 8) / c.TilesetColumns - 4));
-                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 2));
-                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1, 1));
-                for (int ty = 0; ty < c.TilesetRows; ty++)
-                {
-                    for (int tx = 0; tx < c.TilesetColumns; tx++)
-                    {
-                        int index = ty * c.TilesetColumns + tx;
-                        ImVec2 uv0((float)tx / c.TilesetColumns, 1.0f - (float)ty / c.TilesetRows);
-                        ImVec2 uv1((float)(tx + 1) / c.TilesetColumns, 1.0f - (float)(ty + 1) / c.TilesetRows);
-                        ImGui::PushID(index);
-                        bool selected = m_SelectedTile == index;
-                        if (selected) ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentColor());
-                        if (ImGui::ImageButton("##tile", (ImTextureID)(uintptr_t)c.Tileset->GetRendererID(), ImVec2(cellPx, cellPx), uv0, uv1))
-                        {
-                            m_SelectedTile = index;
-                            m_TilePaint = true;
-                        }
-                        if (selected) ImGui::PopStyleColor();
-                        ImGui::PopID();
-                        if (tx + 1 < c.TilesetColumns) ImGui::SameLine();
-                    }
-                }
-                ImGui::PopStyleVar(2);
-            }
-            else
-                ImGui::TextDisabled("Tileset teksturasini tanlang");
-            return changed;
+            return DrawTilemap(entity, c);
         }, true, modified);
 
         AddSection<ParticleSystemComponent>(ICON_FA_WAND_MAGIC_SPARKLES, "Particle System", entity, [&](ParticleSystemComponent& c) {

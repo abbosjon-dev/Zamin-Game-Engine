@@ -486,7 +486,7 @@ TEST(TilemapCollisionAndResize)
     scene->OnRuntimeStop();
 
     tm.Resize(20, 2);
-    CHECK(tm.Width == 20 && tm.Height == 2 && tm.Tiles.size() == 40);
+    CHECK(tm.Width == 20 && tm.Height == 2 && tm.Layers[0].Tiles.size() == 40);
     CHECK(tm.Get(3, 0) == 1 && tm.Get(15, 0) == -1);
 
     std::string text = SceneSerializer(scene).SerializeToString();
@@ -13660,6 +13660,327 @@ TEST(CameraShakeInScene)
     // A copy (play mode) starts still.
     camera.GetComponent<CameraComponent>().Shake.Add(1.0f, 3.0f, 20.0f);
     CHECK(!Scene::Copy(scene)->FindEntityByName("Camera").GetComponent<CameraComponent>().Shake.IsActive());
+}
+
+// ------------------------------------------------------------------ M08: tilemap layers, auto-tiles, tools
+TEST(TilemapLayersEdit)
+{
+    TilemapComponent tm;
+    tm.Width = 6; tm.Height = 4;
+    tm.EnsureSize();
+    CHECK(tm.GetLayerCount() == 1 && tm.Layers[0].Name == "Asosiy" && tm.Layers[0].Collision && tm.Layers[0].Tiles.size() == 24);
+    int deco = tm.AddLayer("Bezak");
+    int deco2 = tm.AddLayer("Bezak");
+    CHECK(deco == 1 && deco2 == 2 && tm.Layers[2].Name == "Bezak 2" && !tm.Layers[1].Collision && tm.Layers[1].Tiles.size() == 24);
+    CHECK(tm.FindLayer("Bezak 2") == 2 && tm.FindLayer("Yo'q") == -1);
+    tm.Set(1, 1, 5);          // layer 0
+    tm.Set(2, 1, 7, 1);       // decoration
+    tm.Set(3, 1, -9, 1);      // any negative = empty
+    tm.Set(9, 9, 3, 1);       // outside: ignored
+    tm.Set(0, 0, 3, 7);       // no such layer: ignored
+    CHECK(tm.Get(1, 1) == 5 && tm.Get(1, 1, 1) == -1 && tm.Get(2, 1, 1) == 7 && tm.Get(3, 1, 1) == -1 && tm.Get(2, 1, 9) == -1);
+    CHECK(tm.CountTiles(0) == 1 && tm.CountTiles(1) == 1 && tm.CountTiles(2) == 0);
+    // Solid: only the layers with collision.
+    CHECK(tm.IsSolid(1, 1) && !tm.IsSolid(2, 1));
+    tm.Layers[1].Collision = true;
+    CHECK(tm.IsSolid(2, 1));
+    // Order: moving and removing (the last layer stays).
+    CHECK(tm.MoveLayer(2, 0) && tm.Layers[0].Name == "Bezak 2" && tm.Layers[1].Name == "Asosiy" && tm.Get(1, 1, 1) == 5);
+    CHECK(!tm.MoveLayer(0, 5) && !tm.MoveLayer(1, 1));
+    CHECK(tm.RemoveLayer(0) && tm.GetLayerCount() == 2 && tm.Get(1, 1, 0) == 5);
+    CHECK(tm.RemoveLayer(1) && !tm.RemoveLayer(0) && tm.GetLayerCount() == 1);
+    // Resizing keeps every layer anchored at the bottom-left.
+    tm.AddLayer();
+    tm.Set(4, 3, 2, 1);
+    tm.Resize(8, 5);
+    CHECK(tm.Width == 8 && tm.Layers[0].Tiles.size() == 40 && tm.Layers[1].Tiles.size() == 40);
+    CHECK(tm.Get(1, 1, 0) == 5 && tm.Get(4, 3, 1) == 2 && tm.Get(7, 4, 1) == -1);
+    tm.Resize(3, 2);
+    CHECK(tm.Get(1, 1, 0) == 5 && tm.Get(4, 3, 1) == -1 && tm.Layers[1].Tiles.size() == 6);
+    // At most MaxLayers.
+    while (tm.AddLayer() >= 0) {}
+    CHECK(tm.GetLayerCount() == TilemapComponent::MaxLayers);
+    // A component without layers gets one back.
+    TilemapComponent empty;
+    empty.Layers.clear();
+    CHECK(empty.Get(0, 0) == -1);
+    empty.EnsureSize();
+    CHECK(empty.GetLayerCount() == 1);
+}
+
+TEST(TilemapLayersSerializedAndSolid)
+{
+    auto scene = CreateRef<Scene>();
+    Entity map = scene->CreateEntity("Map");
+    map.GetTransform().Translation = { -5.0f, -2.0f, 0.0f };
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = 10; tm.Height = 4;
+    tm.EnsureSize();
+    int fg = tm.AddLayer("Old plan");
+    tm.Layers[(size_t)fg].SortingOrder = 3;
+    tm.Layers[(size_t)fg].Opacity = 0.5f;
+    tm.Layers[(size_t)fg].Visible = false;
+    for (int x = 0; x < 10; x++)
+        tm.Set(x, 0, 1, fg); // a floor that is only decoration (no collision)
+    tm.Set(2, 3, 4, 0);
+
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Layers\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity lm = loaded->FindEntityByName("Map");
+    CHECK(lm && lm.HasComponent<TilemapComponent>());
+    if (lm && lm.HasComponent<TilemapComponent>())
+    {
+        const auto& l = lm.GetComponent<TilemapComponent>();
+        CHECK(l.GetLayerCount() == 2 && l.Layers[0] == tm.Layers[0] && l.Layers[1] == tm.Layers[1]);
+        CHECK(l.Layers[1].Name == "Old plan" && l.Layers[1].SortingOrder == 3 && l.Layers[1].Opacity == 0.5f && !l.Layers[1].Visible &&
+              !l.Layers[1].Collision && l.Get(5, 0, 1) == 1 && l.Get(2, 3) == 4);
+    }
+
+    // A box falls through the decoration floor; with collision on that layer it lands.
+    Entity box = scene->CreateEntity("Box");
+    box.GetTransform().Translation = { 0.0f, 3.0f, 0.0f };
+    box.AddComponent<Rigidbody2DComponent>();
+    box.AddComponent<BoxCollider2DComponent>();
+    {
+        auto play = Scene::Copy(scene);
+        play->OnRuntimeStart();
+        for (int i = 0; i < 120; i++) play->OnUpdateRuntime(1.0f / 60.0f);
+        CHECK(play->FindEntityByName("Box").GetTransform().Translation.y < -3.0f);
+        play->OnRuntimeStop();
+    }
+    tm.Layers[(size_t)fg].Collision = true;
+    {
+        auto play = Scene::Copy(scene);
+        play->OnRuntimeStart();
+        for (int i = 0; i < 180; i++) play->OnUpdateRuntime(1.0f / 60.0f);
+        CHECK_NEAR(play->FindEntityByName("Box").GetTransform().Translation.y, -0.5f, 0.05f);
+        play->OnRuntimeStop();
+    }
+
+    // Older files: one "Tiles" array -> layer 0, solid as before. Odd sizes are padded / cut, bad
+    // entries emptied, repeated layer names made unique.
+    const char* legacy = R"({"Scene":"Old","Entities":[{"Entity":1,"Tag":"Map","Transform":{"Translation":[0,0,0],"Rotation":[0,0,0],"Scale":[1,1,1]},
+        "Tilemap":{"Tileset":"","Width":3,"Height":2,"TileSize":1.0,"Tiles":[0,-1,2,3,"x",5],"Collision":true}},
+        {"Entity":2,"Tag":"Map2","Transform":{"Translation":[0,0,0],"Rotation":[0,0,0],"Scale":[1,1,1]},
+        "Tilemap":{"Width":2,"Height":2,"Layers":[{"Name":"A","Tiles":[1,2,3]},{"Name":"A","Tiles":[4,4,4,4,4,4],"Opacity":7}]}}]})";
+    auto old = CreateRef<Scene>();
+    CHECK(SceneSerializer(old).DeserializeFromString(legacy));
+    Entity om = old->FindEntityByName("Map");
+    CHECK(om && om.HasComponent<TilemapComponent>());
+    if (om && om.HasComponent<TilemapComponent>())
+    {
+        const auto& l = om.GetComponent<TilemapComponent>();
+        CHECK(l.GetLayerCount() == 1 && l.Layers[0].Name == "Asosiy" && l.Layers[0].Collision && l.Layers[0].Visible);
+        CHECK(l.Get(0, 0) == 0 && l.Get(1, 0) == -1 && l.Get(2, 0) == 2 && l.Get(0, 1) == 3 && l.Get(1, 1) == -1 && l.Get(2, 1) == 5);
+    }
+    Entity om2 = old->FindEntityByName("Map2");
+    CHECK(om2 && om2.HasComponent<TilemapComponent>());
+    if (om2 && om2.HasComponent<TilemapComponent>())
+    {
+        const auto& l = om2.GetComponent<TilemapComponent>();
+        CHECK(l.GetLayerCount() == 2 && l.Layers[0].Name == "A" && l.Layers[1].Name == "A 2" && l.Layers[1].Opacity == 1.0f);
+        CHECK(l.Layers[0].Tiles.size() == 4 && l.Get(1, 1, 0) == -1 && l.Get(0, 0, 0) == 1 && l.Layers[1].Tiles.size() == 4);
+    }
+}
+
+TEST(AutoTileMasks)
+{
+    const auto& masks = AutoTile::BlobMasks();
+    CHECK(masks.size() == 47 && masks.front() == 0 && masks.back() == 255);
+    for (size_t i = 1; i < masks.size(); i++)
+        CHECK(masks[i - 1] < masks[i]);
+    int distinct = 0;
+    std::set<uint8_t> seen;
+    for (int m = 0; m < 256; m++)
+    {
+        uint8_t r = AutoTile::ReduceMask8((uint8_t)m);
+        CHECK(AutoTile::ReduceMask8(r) == r);
+        seen.insert(r);
+        CHECK(AutoTile::BlobIndex((uint8_t)m) == AutoTile::BlobIndex(r));
+    }
+    distinct = (int)seen.size();
+    CHECK(distinct == 47);
+    for (int i = 0; i < 47; i++)
+        CHECK(AutoTile::BlobIndex(AutoTile::BlobMask(i)) == i);
+    CHECK(AutoTile::BlobMask(-1) == 0 && AutoTile::BlobMask(47) == 0);
+    // A corner without both of its edges does not count.
+    CHECK(AutoTile::ReduceMask8(AutoTile::NE) == 0);
+    CHECK(AutoTile::ReduceMask8(AutoTile::NE | AutoTile::N) == AutoTile::N);
+    CHECK(AutoTile::ReduceMask8(AutoTile::NE | AutoTile::N | AutoTile::E) == (AutoTile::NE | AutoTile::N | AutoTile::E));
+    CHECK(AutoTile::BlobIndex(0) == 0 && AutoTile::BlobIndex(255) == 46);
+    CHECK(AutoTile::EdgesOf(AutoTile::N | AutoTile::NE | AutoTile::S) == (AutoTile::North | AutoTile::South));
+}
+
+TEST(AutoTilePaintEdges4)
+{
+    TilemapComponent tm;
+    tm.Width = 7; tm.Height = 5;
+    tm.EnsureSize();
+    AutoTileRule rule = AutoTileRule::Sequential("Tosh", AutoTileMode::Edges4, 100); // tile = 100 + mask
+    CHECK(rule.Tiles.size() == 16 && rule.Tiles[15] == 115 && rule.Contains(107) && !rule.Contains(99) && !rule.Contains(-1));
+    // A lone cell: no neighbours.
+    CHECK(AutoTile::Paint(tm, 0, rule, 3, 2) == 1 && tm.Get(3, 2) == 100);
+    // A 3 x 3 block around it: centre all four, corners two, edges three.
+    std::vector<glm::ivec2> block = TilemapEdit::RectCells(tm, { 2, 1 }, { 4, 3 });
+    CHECK(block.size() == 9);
+    AutoTile::Paint(tm, 0, rule, block);
+    using A = AutoTile;
+    CHECK(tm.Get(3, 2) == 100 + 15);
+    CHECK(tm.Get(2, 1) == 100 + (A::North | A::East));        // bottom-left
+    CHECK(tm.Get(4, 3) == 100 + (A::South | A::West));        // top-right
+    CHECK(tm.Get(3, 3) == 100 + (A::West | A::East | A::South)); // top edge
+    CHECK(tm.Get(1, 2) == -1 && tm.Get(5, 2) == -1);          // nothing outside the block
+    // Erasing the centre updates its four neighbours.
+    CHECK(AutoTile::Paint(tm, 0, rule, 3, 2, true) == 5);
+    CHECK(tm.Get(3, 2) == -1 && tm.Get(3, 3) == 100 + (A::West | A::East) && tm.Get(2, 2) == 100 + (A::North | A::South));
+    // The order cells are painted in does not matter.
+    TilemapComponent a = tm, b = tm;
+    std::vector<glm::ivec2> cells = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 6, 4 }, { 5, 4 } };
+    AutoTile::Paint(a, 0, rule, cells);
+    std::reverse(cells.begin(), cells.end());
+    for (const glm::ivec2& c : cells)
+        AutoTile::Paint(b, 0, rule, c.x, c.y);
+    CHECK(a.Layers[0].Tiles == b.Layers[0].Tiles);
+    // Other tiles are not this terrain; erasing with the rule leaves them.
+    tm.Set(6, 0, 3);
+    AutoTile::Paint(tm, 0, rule, 5, 0);
+    CHECK(tm.Get(5, 0) == 100 && tm.Get(6, 0) == 3);
+    CHECK(AutoTile::Paint(tm, 0, rule, 6, 0, true) == 0 && tm.Get(6, 0) == 3);
+    // Painting is per layer; outside cells / a rule without tiles change nothing.
+    tm.AddLayer();
+    CHECK(AutoTile::Paint(tm, 1, rule, 2, 1) == 1 && tm.Get(2, 1, 1) == 100 && tm.Get(2, 1, 0) == 100 + (A::North | A::East));
+    CHECK(AutoTile::Paint(tm, 0, rule, -1, 2) == 0 && AutoTile::Paint(tm, 5, rule, 1, 1) == 0);
+    AutoTileRule none;
+    none.EnsureSize();
+    CHECK(!none.HasTiles() && AutoTile::Paint(tm, 0, none, 0, 4) == 0 && tm.Get(0, 4) == -1);
+    // ConnectOutside: a cell at the map's border has neighbours outside.
+    TilemapComponent edge;
+    edge.Width = 2; edge.Height = 1;
+    edge.EnsureSize();
+    rule.ConnectOutside = true;
+    AutoTile::Paint(edge, 0, rule, TilemapEdit::RectCells(edge, { 0, 0 }, { 1, 0 }));
+    CHECK(edge.Get(0, 0) == 115 && edge.Get(1, 0) == 115);
+}
+
+TEST(AutoTilePaintBlob8AndFallback)
+{
+    TilemapComponent tm;
+    tm.Width = 6; tm.Height = 6;
+    tm.EnsureSize();
+    AutoTileRule rule = AutoTileRule::Sequential("O't", AutoTileMode::Blob8, 16); // tile = 16 + blob index
+    CHECK(rule.Tiles.size() == 47 && rule.GetVariantCount() == 47);
+    AutoTile::Paint(tm, 0, rule, TilemapEdit::RectCells(tm, { 1, 1 }, { 3, 3 }));
+    using A = AutoTile;
+    CHECK(tm.Get(2, 2) == 16 + 46);                                                   // surrounded
+    CHECK(tm.Get(1, 1) == 16 + A::BlobIndex(A::N | A::NE | A::E));                    // bottom-left corner
+    CHECK(tm.Get(2, 3) == 16 + A::BlobIndex(A::W | A::E | A::SW | A::S | A::SE));     // top edge
+    CHECK(A::GetMask(tm, 0, rule, 2, 2) == 255);
+    // A hole in the middle: the ring around it sees the missing centre (inner corners).
+    AutoTile::Paint(tm, 0, rule, 2, 2, true);
+    CHECK(tm.Get(1, 1) == 16 + A::BlobIndex(A::N | A::E));                            // the corner's NE is gone
+    // Refresh repairs any wrong variant; nothing changes when all are right.
+    tm.Set(3, 3, 16);
+    CHECK(AutoTile::Refresh(tm, 0, rule, 0, 0, 5, 5) == 1 && tm.Get(3, 3) == 16 + A::BlobIndex(A::W | A::S)); // its SW is the hole
+    CHECK(AutoTile::Refresh(tm, 0, rule, 5, 5, 0, 0) == 0);
+    // A variant without a tile falls back to the closest one that has one.
+    AutoTileRule sparse;
+    sparse.Mode = AutoTileMode::Blob8;
+    sparse.EnsureSize();
+    sparse.Tiles[46] = 9;  // surrounded
+    sparse.Tiles[0] = 1;   // alone
+    CHECK(sparse.Resolve(255) == 9 && sparse.Resolve(0) == 1);
+    CHECK(sparse.Resolve(A::N | A::NE | A::E | A::SE | A::S | A::SW | A::W) == 9); // one corner away from full
+    CHECK(sparse.Resolve(A::N) == 1);
+    AutoTileRule empty;
+    CHECK(empty.Resolve(0) == -1);
+    // Two terrains do not connect to each other.
+    TilemapComponent two;
+    two.Width = 2; two.Height = 1;
+    two.EnsureSize();
+    AutoTileRule stone = AutoTileRule::Sequential("Tosh", AutoTileMode::Edges4, 200);
+    AutoTile::Paint(two, 0, rule, 0, 0);
+    AutoTile::Paint(two, 0, stone, 1, 0);
+    CHECK(two.Get(0, 0) == 16 && two.Get(1, 0) == 200);
+}
+
+TEST(AutoTileSetStorage)
+{
+    AutoTileSet set;
+    set.Rules.push_back(AutoTileRule::Sequential("Tosh", AutoTileMode::Edges4, 0));
+    set.Rules.push_back(AutoTileRule::Sequential("O't", AutoTileMode::Blob8, 16));
+    set.Rules[1].Tiles[3] = -1;
+    set.Rules[1].ConnectOutside = true;
+    AutoTileSet back;
+    CHECK(AutoTileSet::FromJson(set.ToJson(), back) && back == set);
+    CHECK(back.Find("O't") == 1 && back.Find("Suv") == -1 && back.FindRuleOf(20) == 1 && back.FindRuleOf(5) == 0 && back.FindRuleOf(99) == -1);
+    CHECK(back.MakeUniqueName("Tosh") == "Tosh 2" && back.MakeUniqueName("Suv") == "Suv");
+    // Bad text leaves `out` alone; short / long tile lists are fixed; names are unique and never empty.
+    CHECK(!AutoTileSet::FromJson("salom", back) && back == set);
+    AutoTileSet fixedUp;
+    CHECK(AutoTileSet::FromJson(R"([{"Name":"A","Mode":"Blob8","Tiles":[1,2]},{"Name":"A","Tiles":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]},{"Mode":"x"}])", fixedUp));
+    CHECK(fixedUp.Rules.size() == 3 && fixedUp.Rules[0].Tiles.size() == 47 && fixedUp.Rules[0].Tiles[2] == -1);
+    CHECK(fixedUp.Rules[1].Name == "A 2" && fixedUp.Rules[1].Mode == AutoTileMode::Edges4 && fixedUp.Rules[1].Tiles.size() == 16);
+    CHECK(!fixedUp.Rules[2].Name.empty() && fixedUp.Rules[2].Mode == AutoTileMode::Edges4);
+    // Kept in the texture's import settings next to its other keys (no rules: no key).
+    AssetImportSettings import;
+    import.SetBool("sRGB", true);
+    set.WriteTo(import);
+    CHECK(import.Has("AutoTiles") && import.Has("sRGB") && AutoTileSet::FromImportSettings(import) == set);
+    AutoTileSet().WriteTo(import);
+    CHECK(!import.Has("AutoTiles") && import.Has("sRGB"));
+}
+
+TEST(TilemapFloodFillRectAndLine)
+{
+    TilemapComponent tm;
+    tm.Width = 8; tm.Height = 6;
+    tm.EnsureSize();
+    // A wall splits the map (x = 3), with a diagonal gap only: flood fill is 4-connected.
+    for (int y = 0; y < 6; y++)
+        tm.Set(3, y, 9);
+    tm.Set(3, 2, -1);
+    tm.Set(2, 2, 9); tm.Set(4, 3, 9); // no straight way through the gap
+    std::vector<glm::ivec2> left = TilemapEdit::FloodRegion(tm, 0, 0, 0);
+    CHECK(left.front() == glm::ivec2(0, 0) && left.size() == 3 * 6 - 1);
+    CHECK(TilemapEdit::FloodFill(tm, 0, 0, 0, 1) == 17);
+    CHECK(tm.Get(2, 5) == 1 && tm.Get(4, 0) == -1 && tm.Get(3, 2) == -1);
+    CHECK(TilemapEdit::FloodFill(tm, 0, 1, 1, 1) == 0); // already that tile
+    CHECK(TilemapEdit::FloodFill(tm, 0, 99, 0, 1) == 0 && TilemapEdit::FloodRegion(tm, 3, 0, 0).empty());
+    // The wall is a region of its own; the limit stops early.
+    CHECK(TilemapEdit::FloodRegion(tm, 0, 3, 0).size() == 2);   // (3,0)-(3,1): (3,2) is empty
+    CHECK(TilemapEdit::FloodRegion(tm, 0, 7, 5, nullptr, 5).size() == 5);
+    // Erasing a region.
+    CHECK(TilemapEdit::FloodFill(tm, 0, 0, 0, -1) == 17 && tm.Get(0, 0) == -1);
+    // By terrain: any tile of the rule connects.
+    AutoTileRule rule = AutoTileRule::Sequential("Tosh", AutoTileMode::Edges4, 20);
+    tm.Set(0, 0, 21); tm.Set(1, 0, 25); tm.Set(1, 1, 2);
+    CHECK(TilemapEdit::FloodRegion(tm, 0, 0, 0, &rule).size() == 2);
+    CHECK(TilemapEdit::FloodRegion(tm, 0, 0, 0).size() == 1);
+
+    // Rectangles: any corner order, clipped to the map.
+    CHECK(TilemapEdit::RectCells(tm, { 5, 4 }, { 4, 2 }).size() == 6);
+    CHECK(TilemapEdit::RectCells(tm, { -3, -3 }, { 1, 0 }).size() == 2);
+    CHECK(TilemapEdit::RectCells(tm, { 10, 10 }, { 12, 12 }).empty());
+    TilemapComponent r;
+    r.Width = 4; r.Height = 3;
+    r.EnsureSize();
+    CHECK(TilemapEdit::FillRect(r, 0, { 3, 2 }, { 0, 0 }, 4) == 12 && r.CountTiles(0) == 12);
+    CHECK(TilemapEdit::FillRect(r, 0, { 1, 1 }, { 2, 1 }, 4) == 0);
+    CHECK(TilemapEdit::FillRect(r, 0, { 1, 1 }, { 2, 1 }, -1) == 2 && r.CountTiles(0) == 10);
+    CHECK(TilemapEdit::SetCells(r, 0, { { -1, 0 }, { 0, 0 }, { 0, 0 } }, 7) == 1 && r.Get(0, 0) == 7);
+
+    // Lines: both ends, no gaps (every step moves to a neighbour, diagonals included).
+    std::vector<glm::ivec2> line = TilemapEdit::LineCells({ 0, 0 }, { 7, 3 });
+    CHECK(line.front() == glm::ivec2(0, 0) && line.back() == glm::ivec2(7, 3) && line.size() == 8);
+    for (size_t i = 1; i < line.size(); i++)
+    {
+        glm::ivec2 d = glm::abs(line[i] - line[i - 1]);
+        CHECK(d.x <= 1 && d.y <= 1 && (d.x + d.y) > 0);
+    }
+    CHECK(TilemapEdit::LineCells({ 2, 2 }, { 2, 2 }).size() == 1);
+    CHECK(TilemapEdit::LineCells({ 0, 5 }, { 0, -5 }).size() == 11);
 }
 
 int main()

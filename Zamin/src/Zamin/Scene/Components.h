@@ -447,9 +447,26 @@ namespace Zamin {
     };
 
     // ------------------------------------------------------------------ tilemap (2D)
-    // Grid of tiles from a tileset texture. The entity position is the bottom-left corner.
+    // One layer of a tilemap: its own grid of tiles over the tilemap's Width x Height. Layers draw
+    // in list order (the first at the back) unless their SortingOrder says otherwise.
+    struct TilemapLayer
+    {
+        std::string Name = "Asosiy";
+        std::vector<int> Tiles;   // Width * Height, row-major, y = 0 is the bottom row, -1 = empty
+        bool Visible = true;      // drawn (editor and game)
+        bool Collision = true;    // its tiles are solid (when the tilemap's Collision is on)
+        int SortingOrder = 0;     // added to the tilemap's SortingOrder (e.g. +2: in front of the sprites)
+        float Opacity = 1.0f;     // multiplies the tilemap colour's alpha
+
+        bool operator==(const TilemapLayer&) const = default;
+    };
+
+    // Grid of tiles from a tileset texture. The entity position is the bottom-left corner. Scene
+    // files from before layers existed load as one layer (layer 0).
     struct TilemapComponent
     {
+        static constexpr int MaxLayers = 32;
+
         std::string TilesetPath;
         Ref<Texture2D> Tileset;
         bool PixelArt = true;
@@ -459,41 +476,117 @@ namespace Zamin {
         int Width = 32;
         int Height = 12;
         float TileSize = 1.0f;
-        std::vector<int> Tiles; // Width * Height, row-major, y = 0 is the bottom row, -1 = empty
+        std::vector<TilemapLayer> Layers = std::vector<TilemapLayer>(1); // at least one
         glm::vec4 Color{ 1.0f };
         uint32_t SortingLayer = 0;
         int SortingOrder = -1;
 
-        bool Collision = true;   // every non-empty tile is solid (static 2D physics)
+        bool Collision = true;   // the tiles of the layers with Collision are solid (static 2D physics)
         float Friction = 0.6f;
 
         void* RuntimeBody = nullptr; // b2Body*
 
+        // Width / Height at least 1, at least one layer, every layer's grid Width * Height big.
         void EnsureSize()
         {
             Width = std::max(1, Width); Height = std::max(1, Height);
-            if ((int)Tiles.size() != Width * Height) Tiles.resize((size_t)Width * Height, -1);
+            if (Layers.empty()) Layers.emplace_back();
+            for (TilemapLayer& layer : Layers)
+                if ((int)layer.Tiles.size() != Width * Height) layer.Tiles.resize((size_t)Width * Height, -1);
         }
-        int Get(int x, int y) const
+        int GetLayerCount() const { return (int)Layers.size(); }
+        bool IsValidLayer(int layer) const { return layer >= 0 && layer < (int)Layers.size(); }
+        TilemapLayer* GetLayer(int layer) { return IsValidLayer(layer) ? &Layers[(size_t)layer] : nullptr; }
+        const TilemapLayer* GetLayer(int layer) const { return IsValidLayer(layer) ? &Layers[(size_t)layer] : nullptr; }
+        bool Contains(int x, int y) const { return x >= 0 && y >= 0 && x < Width && y < Height; }
+        // The tile at (x, y) of a layer: -1 for empty cells, cells outside the map and unknown layers.
+        int Get(int x, int y, int layer = 0) const
         {
-            if (x < 0 || y < 0 || x >= Width || y >= Height || (int)Tiles.size() != Width * Height) return -1;
-            return Tiles[(size_t)y * Width + x];
+            const TilemapLayer* l = GetLayer(layer);
+            if (!l || !Contains(x, y) || (int)l->Tiles.size() != Width * Height) return -1;
+            return l->Tiles[(size_t)y * Width + x];
         }
-        void Set(int x, int y, int tile)
+        void Set(int x, int y, int tile, int layer = 0)
         {
             EnsureSize();
-            if (x < 0 || y < 0 || x >= Width || y >= Height) return;
-            Tiles[(size_t)y * Width + x] = tile;
+            if (!IsValidLayer(layer) || !Contains(x, y)) return;
+            Layers[(size_t)layer].Tiles[(size_t)y * Width + x] = tile < 0 ? -1 : tile;
         }
-        // Resize keeping existing tiles anchored at the bottom-left.
+        // A tile on any layer with Collision (what the physics body is built from).
+        bool IsSolid(int x, int y) const
+        {
+            for (int i = 0; i < (int)Layers.size(); i++)
+                if (Layers[(size_t)i].Collision && Get(x, y, i) >= 0) return true;
+            return false;
+        }
+        // Resize keeping existing tiles anchored at the bottom-left (every layer).
         void Resize(int w, int h)
         {
             w = std::max(1, w); h = std::max(1, h);
-            std::vector<int> t((size_t)w * h, -1);
-            for (int y = 0; y < std::min(h, Height); y++)
-                for (int x = 0; x < std::min(w, Width); x++)
-                    t[(size_t)y * w + x] = Get(x, y);
-            Width = w; Height = h; Tiles = std::move(t);
+            if (Layers.empty()) Layers.emplace_back();
+            for (int i = 0; i < (int)Layers.size(); i++)
+            {
+                std::vector<int> t((size_t)w * h, -1);
+                for (int y = 0; y < std::min(h, Height); y++)
+                    for (int x = 0; x < std::min(w, Width); x++)
+                        t[(size_t)y * w + x] = Get(x, y, i);
+                Layers[(size_t)i].Tiles = std::move(t);
+            }
+            Width = w; Height = h;
+        }
+
+        // ---- layers
+        int FindLayer(std::string_view name) const
+        {
+            for (int i = 0; i < (int)Layers.size(); i++)
+                if (Layers[(size_t)i].Name == name) return i;
+            return -1;
+        }
+        // `base`, or "<base> <n>" with the first n no layer uses.
+        std::string MakeUniqueLayerName(std::string_view base) const
+        {
+            std::string name(base.empty() ? std::string_view("Qatlam") : base);
+            if (FindLayer(name) < 0) return name;
+            for (int n = 2;; n++)
+            {
+                std::string candidate = name + " " + std::to_string(n);
+                if (FindLayer(candidate) < 0) return candidate;
+            }
+        }
+        // A new empty layer on top (drawn last), without collision. Returns its index, -1 when the
+        // tilemap has MaxLayers already.
+        int AddLayer(std::string_view name = "Qatlam")
+        {
+            EnsureSize();
+            if ((int)Layers.size() >= MaxLayers) return -1;
+            TilemapLayer layer;
+            layer.Name = MakeUniqueLayerName(name);
+            layer.Collision = false;
+            layer.Tiles.assign((size_t)Width * Height, -1);
+            Layers.push_back(std::move(layer));
+            return (int)Layers.size() - 1;
+        }
+        // Every layer but the last one left can be removed.
+        bool RemoveLayer(int layer)
+        {
+            if (!IsValidLayer(layer) || Layers.size() <= 1) return false;
+            Layers.erase(Layers.begin() + layer);
+            return true;
+        }
+        // Moves the layer at `from` to position `to` (drawing order).
+        bool MoveLayer(int from, int to)
+        {
+            if (!IsValidLayer(from) || !IsValidLayer(to) || from == to) return false;
+            TilemapLayer moved = std::move(Layers[(size_t)from]);
+            Layers.erase(Layers.begin() + from);
+            Layers.insert(Layers.begin() + to, std::move(moved));
+            return true;
+        }
+        // Number of non-empty cells of a layer.
+        size_t CountTiles(int layer) const
+        {
+            const TilemapLayer* l = GetLayer(layer);
+            return l ? (size_t)std::count_if(l->Tiles.begin(), l->Tiles.end(), [](int t) { return t >= 0; }) : 0;
         }
     };
 

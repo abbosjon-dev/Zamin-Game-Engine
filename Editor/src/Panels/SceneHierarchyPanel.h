@@ -92,6 +92,7 @@ namespace Zamin {
         bool IsHierarchyFocused() const { return m_HierarchyFocused; }
 
         // Tilemap painting (used by the viewport)
+        enum class TileTool { Brush = 0, Rectangle, Fill, Eraser, Picker };
         bool IsTilePainting() const
         {
             Entity e = GetSelectedEntity();
@@ -99,7 +100,19 @@ namespace Zamin {
             return m_TilePaint && e && e.HasComponent<TilemapComponent>() &&
                    !e.GetScene()->IsHiddenInEditor(e) && !e.GetScene()->IsLockedInEditor(e);
         }
+        void SetTilePaint(bool paint) { m_TilePaint = paint; }
         int GetSelectedTile() const { return m_SelectedTile; }
+        TileTool GetTileTool() const { return m_TileTool; }
+        // Switches painting on with that tool (the picker remembers the tool to go back to).
+        void SetTileTool(TileTool tool);
+        // The tile layer painted on (clamped to the selected tilemap's layers by the caller).
+        int GetActiveTileLayer() const { return m_TileLayer; }
+        void SetActiveTileLayer(int layer) { m_TileLayer = std::max(0, layer); }
+        // The selected tilemap's tileset auto-tile rule the tools paint with (-1: the selected tile).
+        int GetSelectedAutoTileRule() const { return m_TileRule; }
+        void SetSelectedAutoTileRule(int rule) { m_TileRule = rule; }
+        // The picker found `tile` (of auto-tile rule `rule`, -1 none) on the map: it becomes the brush.
+        void PickTile(int tile, int rule = -1);
 
         std::function<void(Entity)> OnFocusRequested;
         std::function<void()> OnSceneModified;
@@ -197,6 +210,10 @@ namespace Zamin {
         bool DrawSpriteAnimation(Entity entity, SpriteAnimationComponent& c);
         // Camera 2D Follow: target, damping, dead zone, look-ahead, bounds.
         bool DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c);
+        // Tilemap: tileset, layers, paint tools, auto-tile rules, palette.
+        bool DrawTilemap(Entity entity, TilemapComponent& c);
+        // Writes the auto-tile rules into the tileset's .zmeta.
+        bool SaveAutoTiles(const std::string& tilesetPath, const AutoTileSet& set);
         bool MatchesFilter(Entity entity, const std::string& lowerFilter);
         const std::unordered_map<std::string, ScriptFieldValue>& GetScriptDefaults(const std::string& className);
         void MarkModified() { if (OnSceneModified) OnSceneModified(); }
@@ -226,6 +243,12 @@ namespace Zamin {
         bool m_HierarchyFocused = false;
         bool m_TilePaint = false;
         int m_SelectedTile = 0;
+        TileTool m_TileTool = TileTool::Brush, m_ToolBeforePicker = TileTool::Brush;
+        int m_TileLayer = 0;
+        int m_TileRule = -1;          // auto-tile rule of the tileset, -1 = plain tile
+        bool m_EditRule = false;      // the rule's variant editor is open
+        int m_EditRuleVariant = -1;   // the variant the next palette click goes to
+        int m_RuleFirstTile = 0;
         std::unordered_map<std::string, std::unordered_map<std::string, ScriptFieldValue>> m_ScriptDefaults;
 
         // inspector: sections of the entity being drawn, component clipboard, reordering

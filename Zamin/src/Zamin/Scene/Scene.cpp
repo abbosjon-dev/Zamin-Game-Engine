@@ -1891,9 +1891,9 @@ namespace Zamin {
             int x = 0;
             while (x < tm.Width)
             {
-                if (tm.Get(x, y) < 0) { x++; continue; }
+                if (!tm.IsSolid(x, y)) { x++; continue; }
                 int start = x;
-                while (x < tm.Width && tm.Get(x, y) >= 0) x++;
+                while (x < tm.Width && tm.IsSolid(x, y)) x++;
                 float w = (x - start) * sx;
                 b2PolygonShape shape;
                 shape.SetAsBox(w * 0.5f, sy * 0.5f, b2Vec2(start * sx + w * 0.5f, y * sy + sy * 0.5f), 0.0f);
@@ -3576,6 +3576,7 @@ namespace Zamin {
             SortKey2D Key;
             int Kind; // 0 sprite, 1 circle, 2 text, 3 particles, 4 tilemap
             entt::entity Handle;
+            int Layer = 0; // tilemaps: the tile layer (each visible one is sorted on its own)
         };
         std::vector<Item2D> items;
         auto depthOf = [&](entt::entity e) { return (view * world(e)[3]).z; };
@@ -3665,8 +3666,14 @@ namespace Zamin {
         for (auto e : m_Registry.view<TransformComponent, TilemapComponent>())
             if (!notWorld2D(e))
             {
+                // Every visible tile layer: at the tilemap's order plus its own (list order breaks ties).
                 const auto& tm = m_Registry.get<TilemapComponent>(e);
-                items.push_back({ keyOf(e, tm.SortingLayer, tm.SortingOrder), 4, e });
+                for (int layer = 0; layer < (int)tm.Layers.size(); layer++)
+                {
+                    const TilemapLayer& l = tm.Layers[(size_t)layer];
+                    if (l.Visible && l.Opacity > 0.0f)
+                        items.push_back({ keyOf(e, tm.SortingLayer, tm.SortingOrder + l.SortingOrder), 4, e, layer });
+                }
             }
         for (auto e : m_Registry.view<TransformComponent, ParticleSystemComponent>())
         {
@@ -3775,6 +3782,10 @@ namespace Zamin {
             {
                 auto& tm = m_Registry.get<TilemapComponent>(item.Handle);
                 tm.EnsureSize();
+                if (!tm.IsValidLayer(item.Layer))
+                    continue;
+                const TilemapLayer& layer = tm.Layers[(size_t)item.Layer];
+                const glm::vec4 color = layer.Opacity >= 1.0f ? tm.Color : tm.Color * glm::vec4(1.0f, 1.0f, 1.0f, std::max(0.0f, layer.Opacity));
                 if (!tm.Tileset && !tm.TilesetPath.empty())
                     tm.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(tm.TilesetPath), tm.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
                 int cols = std::max(1, tm.TilesetColumns), rows = std::max(1, tm.TilesetRows);
@@ -3788,7 +3799,7 @@ namespace Zamin {
                 for (int y = chunk.Y0; y < chunk.Y1; y++)
                     for (int x = chunk.X0; x < chunk.X1; x++)
                     {
-                        int tile = tm.Tiles[(size_t)y * tm.Width + x];
+                        int tile = layer.Tiles[(size_t)y * tm.Width + x];
                         if (tile < 0) continue;
                         glm::mat4 t = transform * glm::translate(glm::mat4(1.0f), { (x + 0.5f) * tm.TileSize, (y + 0.5f) * tm.TileSize, 0.0f })
                                                 * glm::scale(glm::mat4(1.0f), { tm.TileSize, tm.TileSize, 1.0f });
@@ -3796,10 +3807,10 @@ namespace Zamin {
                         {
                             int tx = tile % cols, ty = tile / cols;
                             glm::vec2 uvMin = { tx * cell.x, 1.0f - (ty + 1) * cell.y };
-                            Renderer2D::DrawQuad(t, tm.Tileset, uvMin + inset, uvMin + cell - inset, tm.Color, id);
+                            Renderer2D::DrawQuad(t, tm.Tileset, uvMin + inset, uvMin + cell - inset, color, id);
                         }
                         else
-                            Renderer2D::DrawQuad(t, tm.Color * glm::vec4(0.6f + 0.05f * (tile % 8), 0.6f, 0.65f, 1.0f), id);
+                            Renderer2D::DrawQuad(t, color * glm::vec4(0.6f + 0.05f * (tile % 8), 0.6f, 0.65f, 1.0f), id);
                     }
             }
             else

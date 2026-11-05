@@ -4272,40 +4272,41 @@ namespace Zamin {
             ImGui::PlotLines("##ft", history, 120, offset, nullptr, 0.0f, 40.0f, ImVec2(-1, 50));
             if (UI::BeginPropertyGrid("stats"))
             {
-                // "drawn / culled" pairs: the culled part dimmed.
+                // "drawn (culled)" pairs: the culled part dimmed.
                 auto drawnCulled = [](uint32_t drawn, uint32_t culled) {
                     ImGui::Text("%u", drawn);
-                    ImGui::SameLine(0.0f, 4.0f);
-                    ImGui::TextDisabled("chizildi  /  %u kesildi", culled);
+                    ImGui::SameLine(0.0f, 6.0f);
+                    ImGui::TextDisabled("(%u kesildi)", culled);
+                };
+                auto instanced = [](uint32_t meshes, uint32_t draws) {
+                    ImGui::Text("%u", meshes);
+                    ImGui::SameLine(0.0f, 6.0f);
+                    ImGui::TextDisabled("/ %u chaqiruv", draws);
                 };
                 UI::PropertyLabel("Draw calls", "GPU'ga yuborilgan chizish buyruqlari (instanced partiya bitta buyruq)");
                 ImGui::Text("%u", stats.DrawCalls);
-                UI::PropertyLabel("Meshlar", "Frustum culling: kamera ko'rmaydigan meshlar (dunyo AABB chegaralari ko'rish hajmidan "
-                                             "tashqarida) chizilmaydi");
+                UI::PropertyLabel("Meshlar", "Chizilgan meshlar (qavsda kesilganlari). Frustum culling: kamera ko'rmaydigan meshlar "
+                                             "(dunyo AABB chegaralari ko'rish hajmidan tashqarida) chizilmaydi");
                 drawnCulled(stats.MeshCount, stats.CulledMeshCount);
                 UI::PropertyLabel("Instanced", "GPU instancing: bir xil mesh va material (skinned emas, opaque/cutout) bitta "
-                                               "chaqiruvda - har nusxa o'z transformi va ID'si bilan chiziladi");
-                ImGui::Text("%u", stats.InstancedMeshCount);
-                ImGui::SameLine(0.0f, 4.0f);
-                ImGui::TextDisabled("mesh  /  %u chaqiruv", stats.InstancedDrawCount);
+                                               "chaqiruvda - har nusxa o'z transformi va ID'si bilan chiziladi. Shu yo'l bilan "
+                                               "chizilgan meshlar / ular olgan chaqiruvlar");
+                instanced(stats.InstancedMeshCount, stats.InstancedDrawCount);
                 UI::PropertyLabel("Shaffof meshlar", "Shaffof (Transparent) sirtlar: ustuvorlik va kameradan uzoqlik bo'yicha "
                                                      "orqadan oldinga saralanib, oxirida chiziladi");
                 ImGui::Text("%u", stats.TransparentCount);
                 UI::PropertyLabel("Uchburchaklar"); ImGui::Text("%u", stats.TriangleCount);
-                UI::PropertyLabel("Soya chizishlari", "Soya tashlovchilar kaskadlarga (kaskadlar bo'yicha yig'indi): kaskad hajmidan "
-                                                      "tashqaridagilari kesiladi, bir xil meshlar instanced chiziladi");
+                UI::PropertyLabel("Soya chizishlari", "Soya tashlovchilar kaskadlarga (kaskadlar bo'yicha yig'indi; qavsda kaskad "
+                                                      "hajmidan tashqarida qolib kesilganlari)");
                 drawnCulled(stats.ShadowCasterCount, stats.CulledShadowCasterCount);
-                if (stats.InstancedShadowCasterCount)
-                {
-                    ImGui::SameLine(0.0f, 4.0f);
-                    ImGui::TextDisabled("/  %u instanced", stats.InstancedShadowCasterCount);
-                    if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip("%u ta instanced chaqiruvda", stats.InstancedShadowDrawCount);
-                }
-                UI::PropertyLabel("2D obyektlar", "Sprite, doira, matn va zarrachalar tizimlari: kamera ko'rmaydiganlari chizilmaydi");
+                UI::PropertyLabel("Soya instanced", "Kaskadlarga bir xil mesh (cutout bo'lsa, bir xil tekstura va chegara) bilan "
+                                                    "instanced chizilgan soya tashlovchilar / chaqiruvlar");
+                instanced(stats.InstancedShadowCasterCount, stats.InstancedShadowDrawCount);
+                UI::PropertyLabel("2D obyektlar", "Sprite, doira, matn va zarrachalar tizimlari (qavsda kesilganlari): kamera "
+                                                  "ko'rmaydiganlari chizilmaydi");
                 drawnCulled(stats.SpriteCount, stats.CulledSpriteCount);
                 UI::PropertyLabel("Tile bo'laklari", "Tilemap'lar 16x16 plitkali bo'laklarda chiziladi: ko'rinmaydigan bo'lak butunlay "
-                                                     "tashlab ketiladi");
+                                                     "tashlab ketiladi (qavsda kesilganlari)");
                 drawnCulled(stats.TileChunkCount, stats.CulledTileChunkCount);
                 UI::PropertyLabel("Quadlar"); ImGui::Text("%u", stats.QuadCount);
                 UI::PropertyLabel("Doiralar"); ImGui::Text("%u", stats.CircleCount);

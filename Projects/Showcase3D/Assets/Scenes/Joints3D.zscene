@@ -322,8 +322,8 @@
         "MaxMotorTorque": 10.0,
         "EnableSpring": true,
         "SpringTargetAngle": 70.0,
-        "SpringFrequency": 0.6,
-        "SpringDamping": 0.15
+        "SpringFrequency": 0.8,
+        "SpringDamping": 0.25
       }
     },
     {

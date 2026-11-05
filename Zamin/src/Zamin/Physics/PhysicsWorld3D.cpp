@@ -582,6 +582,22 @@ namespace Zamin {
             contacts.DebugStep++;
         }
         m_Impl->System->Update(dt, 1, m_Impl->TempAllocator.get(), m_Impl->JobSystem.get());
+        // Jolt puts a body to sleep when it hardly moved for half a second - also at the turning point
+        // of a slow swing: a door on a hinge spring would stop short of its angle. Such a body is woken
+        // while the spring has not got it there (at an angle where nothing holds it against the spring).
+        for (auto& [handle, joint] : m_Impl->Joints)
+        {
+            const PhysicsJoint3DDesc& d = joint.Desc;
+            if (joint.Type != Joint3DType::Hinge || d.EnableMotor || !d.EnableSpring || d.Frequency <= 0.0f)
+                continue;
+            if (m_Impl->BI().IsActive(joint.Body2) || m_Impl->BI().GetMotionType(joint.Body2) != JPH::EMotionType::Dynamic)
+                continue;
+            const auto& hinge = static_cast<const JPH::HingeConstraint&>(*joint.Constraint);
+            float off = hinge.GetCurrentAngle() - hinge.GetTargetAngle();
+            off = std::remainder(off, 2.0f * JPH::JPH_PI);
+            if (std::abs(off) > glm::radians(1.0f) && std::abs(hinge.GetTotalLambdaRotationLimits()) < 1e-6f)
+                m_Impl->BI().ActivateBody(joint.Body2);
+        }
         if (!debug)
             return;
         // A contact this step did not report is gone - unless both bodies sleep (Jolt reports
@@ -662,6 +678,11 @@ namespace Zamin {
     void PhysicsWorld3D::AddImpulse(uint32_t bodyID, const glm::vec3& i) { m_Impl->BI().AddImpulse(ToBodyID(bodyID), ToJolt(i)); }
     void PhysicsWorld3D::AddForce(uint32_t bodyID, const glm::vec3& f) { m_Impl->BI().AddForce(ToBodyID(bodyID), ToJolt(f)); }
     void PhysicsWorld3D::AddTorque(uint32_t bodyID, const glm::vec3& t) { m_Impl->BI().AddTorque(ToBodyID(bodyID), ToJolt(t)); }
+
+    bool PhysicsWorld3D::IsBodyActive(uint32_t bodyID) const
+    {
+        return bodyID != 0xffffffff && m_Impl->HasBody(ToBodyID(bodyID)) && m_Impl->BI().IsActive(ToBodyID(bodyID));
+    }
 
     // ------------------------------------------------------------------ characters
     uint32_t PhysicsWorld3D::CreateCharacter(const CharacterDesc& desc)

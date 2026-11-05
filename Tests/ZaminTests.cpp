@@ -17360,6 +17360,35 @@ TEST(HingeJoint3DPendulumLimitsMotorSpring)
     scene->OnRuntimeStop();
 }
 
+TEST(HingeJoint3DSlowSpringDoesNotSleepShort)
+{
+    // A heavy door on a slow, lightly damped spring: Jolt would put it to sleep at the turning point
+    // of a swing (it hardly moves there for half a second), short of its angle. It is woken until the
+    // spring has got it there.
+    auto scene = CreateRef<Scene>();
+    Entity post = MakeBody3D(scene, "Post", { 0.0f, 1.5f, 0.0f }, Rigidbody3DComponent::BodyType::Static, { 0.15f, 1.5f, 0.15f });
+    Entity door = MakeBody3D(scene, "Door", { 0.95f, 1.5f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic, { 0.8f, 1.4f, 0.06f });
+    door.GetComponent<Rigidbody3DComponent>().Mass = 8.0f;
+    door.GetComponent<Rigidbody3DComponent>().AngularDamping = 0.3f;
+    auto& h = door.AddComponent<HingeJoint3DComponent>();
+    h.ConnectedBody.ID = post.GetUUID();
+    h.Anchor = { -0.8f, 0.0f, 0.0f };
+    h.EnableLimit = true;
+    h.LowerAngle = -90.0f;
+    h.UpperAngle = 90.0f;
+    h.EnableSpring = true;
+    h.SpringTargetAngle = 70.0f;
+    h.SpringFrequency = 0.6f;
+    h.SpringDamping = 0.15f;
+    scene->OnRuntimeStart();
+    RunFrames(scene, 60 * 25);
+    CHECK_NEAR(door.GetComponent<HingeJoint3DComponent>().JointAngle, 70.0f, 1.5f);
+    // At its angle it may sleep for good.
+    RunFrames(scene, 120);
+    CHECK(!scene->GetPhysicsWorld3D()->IsBodyActive(door.GetComponent<Rigidbody3DComponent>().RuntimeBodyID));
+    scene->OnRuntimeStop();
+}
+
 TEST(DistanceJoint3DRodRopeAndSpring)
 {
     auto scene = CreateRef<Scene>();

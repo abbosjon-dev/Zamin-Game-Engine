@@ -142,6 +142,8 @@ namespace Zamin {
         void AddImpulse(uint32_t bodyID, const glm::vec3& impulse);
         void AddForce(uint32_t bodyID, const glm::vec3& force);
         void AddTorque(uint32_t bodyID, const glm::vec3& torque);
+        // Simulated now (false: asleep, static, or not in this world).
+        bool IsBodyActive(uint32_t bodyID) const;
 
         // ---- kinematic character controllers (Jolt CharacterVirtual)
         uint32_t CreateCharacter(const CharacterDesc& desc);

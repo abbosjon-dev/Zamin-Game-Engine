@@ -1816,9 +1816,10 @@ namespace Zamin {
     void EditorLayer::LoadRuntimeScene(const fs::path& path)
     {
         Ref<Scene> next = CreateRef<Scene>();
-        if (!SceneSerializer(next).Deserialize(path))
+        SceneSerializer serializer(next);
+        if (!serializer.Deserialize(path))
         {
-            ZM_ERROR("Sahna topilmadi: {}", path.string());
+            ZM_ERROR("Sahnaga o'tilmadi: {} ({})", Project::GetAssetRelativePath(path), serializer.GetLastError());
             return;
         }
         next->ResolveAssets();

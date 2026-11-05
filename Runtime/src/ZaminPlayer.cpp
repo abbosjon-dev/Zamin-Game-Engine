@@ -33,7 +33,7 @@ namespace Zamin {
             SceneSerializer serializer(m_Scene);
             if (!serializer.Deserialize(scenePath))
             {
-                ZM_CRITICAL("Sahna yuklanmadi: {}", scenePath.string());
+                ZM_CRITICAL("Boshlang'ich sahna yuklanmadi: {} ({})", scenePath.string(), serializer.GetLastError());
                 Application::Get().Close();
                 return;
             }

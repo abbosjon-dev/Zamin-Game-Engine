@@ -225,7 +225,17 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     ko'rinishlar - faqat yorug'lik, normallar, albedo, roughness, metallic (qiymat ko'rinishlari tonemappingsiz)
   - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview)
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
-- **2D fizika** (Box2D): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
+- **2D fizika** (Box2D, `PhysicsWorld2D`): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
+  - **Joint'lar**: Distance (qattiq tayoq, arqon - "faqat maksimal", prujina - chastota/so'nish), Revolute (sharnir:
+    burchak chegarasi, motor), Prismatic (o'q bo'ylab sirpanish: chegara, motor), Weld (payvand, qattiq yoki yumshoq),
+    Wheel (g'ildirak: osma prujinasi, chegara, motor). Umumiy: ulangan jism (boshqa obyektning Rigidbody 2D yoki
+    Tilemap'i; bo'sh - dunyodagi nuqta), langar / ulangan langar (avto), bir-biri bilan to'qnashuv, uzilish kuchi /
+    momenti (`OnJointBreak(joint)`, komponentda `Broken`; `Broken = false` qayta yaratadi). Jism nofaol bo'lsa yoki
+    o'chirilsa joint yo'qoladi, ikkala jism qaytganda qayta yaratiladi; o'yin davomida motor/chegara/prujina o'zgarishi
+    darhol, `ConnectedBody` almashsa joint qayta quriladi. Inspektorda holat (kuch, moment, burchak, siljish), viewport'da
+    langarlar, burchak yoylari va o'qlar (Gizmolar > 2D joint'lar: tanlanganda / hammasi). Duplikat va prefab'da ulangan
+    jism nusxaga qayta bog'lanadi. Namuna: Platformer2D `Scenes/Joints2D.zscene` (ko'prik, lift, mayatnik, arqon,
+    prujina, uziladigan chiroq, yumshoq minora, motorli mashina - A / D)
 - **3D fizika** (Jolt Physics): Rigidbody3D, Box/Sphere/Capsule collider, trigger'lar, to'qnashuvlar
 - **Character Controller 3D** (Jolt CharacterVirtual): qiyaliklar, zinapoyalar, yerni aniqlash, sakrash, harakatlanuvchi platformalarda yurish
 - **Raycast** 2D va 3D
@@ -428,6 +438,7 @@ ZM_REGISTER_SCRIPT(Player,
 | `OnTriggerBegin/End(other)` | Sensor (trigger) collider'ga kirish / chiqish (2D, 3D va Character Controller) |
 | `OnDisable()` | Skript o'chirilganda (`SetEnabled(false)`) va `OnDestroy`'dan oldin |
 | `OnDestroy()` | Obyekt o'chirilganda yoki o'yin to'xtaganda |
+| `OnJointBreak(joint)` | Shu obyektning 2D joint'i uzilganda (`joint.Type`, `joint.ConnectedBody`, `joint.Force`, `joint.Torque`) |
 | `OnClick()` | Shu obyektdagi UI tugma bosilganda |
 | `OnMessage(msg)` | Shu obyektga xabar kelganda (`SendMessage`, `Broadcast` ...) |
 
@@ -447,7 +458,7 @@ Foydali API:
 | Xabarlar | `SendMessage(e, "Damage", 25.0f)`, `SendMessageToChildren(...)`, `SendMessageUpwards(...)`, `Broadcast("GameOver")`, `AddMessageHandler("Damage", fn)`, `msg.Get<float>()`, `msg.Sender` |
 | Hodisalar (event bus) | `Subscribe("CoinCollected", fn)`, `Unsubscribe(id)`, `Emit("CoinCollected", qiymat)`, `EmitDeferred(...)` (kadr oxirida) |
 | Tasodifiy sonlar | `Random::Range(1.0f, 5.0f)`, `Random::Int(1, 6)` (ikkala chegara ham kiradi), `Random::Float()`, `Random::Bool(0.3f)`, `Random::InsideCircle(r)`, `Random::OnSphere(r)`, `Random::InsideSphere(r)`, `Random::Rotation()`, `Random::Pick(v)`, `Random::Shuffle(v)`, `Random::SetSeed(42)`, alohida oqim: `RandomGenerator rng(seed)` |
-| 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `Raycast2D(origin, dir, dist)` |
+| 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `Raycast2D(origin, dir, dist)`; joint'lar: `GetComponent<RevoluteJoint2DComponent>()` → `.MotorSpeed`, `.EnableLimit`, `.JointAngle`, `.ReactionForce`, `.Broken` ... |
 | 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)` |
 | Qahramon | `GetComponent<CharacterController3DComponent>()` → `.Move(velocity)`, `.Jump(speed)`, `.Grounded`, `.Velocity` (oxirgi fizika qadamidagi haqiqiy tezlik) |
 | Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)`, `SetBool`, `SetTrigger` |
@@ -554,7 +565,7 @@ Zamin/src/Zamin/
 ├── Scene/       Scene (EnTT), Entity, Components, SceneSerializer, SceneCamera
 ├── Scripting/   ScriptableEntity, ScriptRegistry, ScriptEngine (.so yuklash, hot reload), EventBus
 ├── Math/        Math (transform), Random (PCG32)
-├── Physics/     PhysicsWorld3D (Jolt), raycast turlari
+├── Physics/     PhysicsWorld2D (Box2D: jismlar, joint'lar, bir tomonlama sirtlar), PhysicsWorld3D (Jolt), raycast turlari
 ├── Audio/       AudioEngine (miniaudio)
 ├── Project/     Project, shablonlar, build fayllari
 ├── ImGui/       ImGuiLayer, tema, ikonkalar

@@ -188,11 +188,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M09 2D fizika II
 
-- [ ] 161. Distance joint 2D
-- [ ] 162. Revolute (hinge) joint 2D (motor, limit)
-- [ ] 163. Prismatic joint 2D
-- [ ] 164. Weld joint 2D
-- [ ] 165. Wheel joint 2D
+- [x] 161. Distance joint 2D
+- [x] 162. Revolute (hinge) joint 2D (motor, limit)
+- [x] 163. Prismatic joint 2D
+- [x] 164. Weld joint 2D
+- [x] 165. Wheel joint 2D
 - [ ] 166. Polygon collider 2D (vertex muharriri)
 - [ ] 167. Edge/Chain collider 2D
 - [ ] 168. Physics material (ishqalanish/sakrash) asset

@@ -58,6 +58,10 @@ namespace Zamin {
         std::function<void(const AssetFiles::MoveResult&)> OnAssetsMoved;
         // m_Settings changed (the editor saves its view settings).
         std::function<void()> OnSettingsModified;
+        // Files were deleted or created here (what refers to what may have changed).
+        std::function<void()> OnFilesChanged;
+        // "Ishlatilmagan assetlarni topish" in the panel's menu.
+        std::function<void()> OnFindUnusedAssets;
 
     private:
         Ref<Texture2D> GetThumbnail(const std::filesystem::path& path);

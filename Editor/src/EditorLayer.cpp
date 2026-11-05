@@ -93,7 +93,33 @@ namespace Zamin {
         m_SceneHierarchyPanel.SetAssetInspector(&m_AssetInspectorPanel);
         m_ContentBrowserPanel.OnAssetSelected = [this](const fs::path& p) {
             m_AssetInspectorPanel.SetAsset(p);
+            m_AssetInspectorPanel.SetSelection(m_ContentBrowserPanel.GetSelection());
             m_SceneHierarchyPanel.AcknowledgeSelection();
+        };
+        m_ContentBrowserPanel.OnFilesChanged = [this]() { m_AssetUsage.MarkDirty(); };
+        m_ContentBrowserPanel.OnFindUnusedAssets = [this]() { m_ShowUnusedAssets = true; };
+
+        // Where assets are used: saved files, and the open scene as it is in the editor.
+        m_AssetUsage.GetOverrides = [this]() {
+            std::unordered_map<std::string, std::string> overrides;
+            if (m_SceneDirty && m_SceneState == SceneState::Edit && m_EditorScene && !m_EditorScenePath.empty())
+                overrides[m_EditorScenePath.string()] = SceneSerializer(m_EditorScene).SerializeToString();
+            return overrides;
+        };
+        m_AssetInspectorPanel.SetUsageCache(&m_AssetUsage);
+        m_AssetInspectorPanel.OnRevealRequested = [this](const fs::path& p) { RevealAsset(p); };
+        m_AssetInspectorPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
+        m_UnusedAssetsPanel.SetUsageCache(&m_AssetUsage);
+        m_UnusedAssetsPanel.OnAssetSelected = [this](const fs::path& p) { RevealAsset(p); };
+        m_UnusedAssetsPanel.OnAssetsDeleted = [this](const std::vector<fs::path>& deleted) {
+            for (const fs::path& p : deleted)
+            {
+                m_ContentBrowserPanel.InvalidateThumbnail(p);
+                if (m_AssetInspectorPanel.GetPath() == p)
+                    m_AssetInspectorPanel.Clear();
+            }
+            m_ContentBrowserPanel.MarkListDirty();
+            m_ContentBrowserPanel.ShowNotice(std::format("{} ta ishlatilmagan asset o'chirildi", deleted.size()));
         };
 
         ScriptEngine::SetBeforeUnloadCallback([this]() {
@@ -160,10 +186,17 @@ namespace Zamin {
             // ZAMIN_EDITOR_ASSET=<path relative to Assets>: the asset inspector shows that file.
             if (const char* asset = std::getenv("ZAMIN_EDITOR_ASSET"))
             {
-                fs::path path = Project::GetAssetFileSystemPath(asset);
+                fs::path path = Project::GetAssetFileSystemPath(asset).lexically_normal();
                 m_ContentBrowserPanel.Reveal({ path });
                 m_AssetInspectorPanel.SetAsset(path);
                 m_SceneHierarchyPanel.AcknowledgeSelection();
+            }
+            // ZAMIN_EDITOR_UNUSED=1 | deep: the unused assets window scans and logs what it found.
+            if (const char* unused = std::getenv("ZAMIN_EDITOR_UNUSED"))
+            {
+                m_ShowUnusedAssets = true;
+                m_UnusedAssetsPanel.SetReachableOnly(std::string_view(unused) == "deep");
+                m_UnusedAssetsPanel.LogNextResult();
             }
             if (const char* pivot = std::getenv("ZAMIN_EDITOR_PIVOT_CENTER"))
                 m_GizmoPivotCenter = std::string_view(pivot) != "0";
@@ -235,6 +268,20 @@ namespace Zamin {
         // ZAMIN_EDITOR_PLAY has started the game), the same path as Alt+Shift+A.
         if (frame == 20 && std::getenv("ZAMIN_EDITOR_TOGGLE_ACTIVE"))
             ToggleSelectionActive();
+
+        // ZAMIN_EDITOR_ASSET_PREVIEW (with ZAMIN_EDITOR_ASSET) at frame 12: "play" starts the sound /
+        // the model's first animation; R, G, B, A or RGB shows that view of a texture.
+        if (frame == 12 && m_AssetInspectorPanel.HasAsset())
+            if (const char* preview = std::getenv("ZAMIN_EDITOR_ASSET_PREVIEW"))
+            {
+                std::string_view v(preview);
+                if (v == "play")
+                    m_AssetInspectorPanel.StartPreviewPlayback();
+                else
+                    m_AssetInspectorPanel.SetTextureChannelView(v == "R" ? ImageChannelView::Red : v == "G" ? ImageChannelView::Green
+                                                               : v == "B" ? ImageChannelView::Blue : v == "A" ? ImageChannelView::Alpha
+                                                               : v == "RGB" ? ImageChannelView::RGB : ImageChannelView::RGBA);
+            }
 
         // ZAMIN_EDITOR_ASSET_IMPORT="Filter=Nearest,sRGB=false" (with ZAMIN_EDITOR_ASSET): edits the
         // inspected asset's import settings at frame 30 and applies them, like the Apply button.
@@ -313,6 +360,7 @@ namespace Zamin {
         if (m_BuildFinished.exchange(false))
         {
             if (m_BuildThread.joinable()) m_BuildThread.join();
+            m_AssetUsage.MarkDirty(); // the C++ code may name other assets now
             if (m_BuildSucceeded)
             {
                 ZM_INFO("Skriptlar muvaffaqiyatli kompilyatsiya qilindi ({:.1f} s)", Platform::GetTime() - m_BuildStartTime);
@@ -817,7 +865,8 @@ namespace Zamin {
         }
         m_SceneHierarchyPanel.OnScriptsReloaded();
         m_ContentBrowserPanel.SetRoot(Project::GetProjectDirectory());
-        m_AssetInspectorPanel.Clear();
+        m_AssetInspectorPanel.Reset();
+        m_AssetUsage.Reset();
 
         auto& config = Project::GetActive()->GetConfig();
         fs::path startScene = Project::GetAssetFileSystemPath(config.StartScene);
@@ -845,7 +894,8 @@ namespace Zamin {
         SaveData::Save();
         Project::SetActive(nullptr);
         m_ContentBrowserPanel.SetRoot({});
-        m_AssetInspectorPanel.Clear();
+        m_AssetInspectorPanel.Reset();
+        m_AssetUsage.Reset();
         NewScene();
         m_ShowLauncher = true;
         UpdateWindowTitle();
@@ -1555,6 +1605,7 @@ namespace Zamin {
         AssetHotReload::Report report = m_AssetHotReload.Update(Project::GetAssetRegistry());
         if (report.IsEmpty())
             return;
+        m_AssetUsage.MarkDirty(); // scenes saved, files added / removed / renamed
 
         for (const std::string& problem : report.Problems)
             ZM_WARN("{}", problem);
@@ -1605,6 +1656,15 @@ namespace Zamin {
             m_ContentBrowserPanel.ShowNotice(std::format("{} ta asset qayta yuklandi", report.Reloaded.size()));
     }
 
+    void EditorLayer::RevealAsset(const fs::path& path)
+    {
+        m_ContentBrowserPanel.Reveal({ path });
+        m_AssetInspectorPanel.SetAsset(path);
+        m_AssetInspectorPanel.SetSelection({ path });
+        m_SceneHierarchyPanel.AcknowledgeSelection();
+        m_ShowInspector = true;
+    }
+
     void EditorLayer::OnAssetsMovedOutside(const std::vector<std::pair<std::string, std::string>>& moves)
     {
         // Renamed / moved in a file manager or by version control, the .zmeta files with them (the
@@ -1634,6 +1694,7 @@ namespace Zamin {
     {
         if (result.Moved.empty())
             return;
+        m_AssetUsage.MarkDirty();
         std::error_code ec;
         fs::path assets = fs::weakly_canonical(Project::GetAssetDirectory(), ec);
 
@@ -1982,6 +2043,11 @@ namespace Zamin {
         m_SceneHierarchyPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         m_SceneHierarchyPanel.OnImGuiRender(&m_ShowHierarchy, &m_ShowInspector);
         m_ContentBrowserPanel.OnImGuiRender(&m_ShowContentBrowser);
+        if (m_ShowUnusedAssets && !m_UnusedAssetsShown)
+            m_UnusedAssetsPanel.Refresh(); // opened: a fresh scan (C++ files are not watched)
+        m_UnusedAssetsShown = m_ShowUnusedAssets;
+        m_UnusedAssetsPanel.OnImGuiRender(&m_ShowUnusedAssets);
+        m_AssetInspectorPanel.DrawPopups();
         m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
         UI_SceneSettings();
         m_ProjectSettingsPanel.SetScene(m_EditorScene); // tag counts / renames apply to the saved scene
@@ -2174,6 +2240,7 @@ namespace Zamin {
             ImGui::MenuItem(ICON_FA_MOUNTAIN_SUN "  Sahna sozlamalari", nullptr, &m_ShowSceneSettings);
             ImGui::MenuItem(ICON_FA_GEAR "  Loyiha sozlamalari", nullptr, &m_ShowProjectSettings);
             ImGui::MenuItem(ICON_FA_CHART_LINE "  Statistika", nullptr, &m_ShowStats);
+            ImGui::MenuItem(ICON_FA_BROOM "  Ishlatilmagan assetlar", nullptr, &m_ShowUnusedAssets, hasProject);
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_BORDER_ALL "  Standart joylashuv")) m_LayoutInitialized = false;
             ImGui::MenuItem("ImGui demo", nullptr, &m_ShowImGuiDemo);

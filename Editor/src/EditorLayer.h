@@ -7,6 +7,8 @@
 #include "Panels/ContentBrowserPanel.h"
 #include "Panels/ConsolePanel.h"
 #include "Panels/ProjectSettingsPanel.h"
+#include "Panels/UnusedAssetsPanel.h"
+#include "AssetUsageCache.h"
 
 #include <atomic>
 #include <filesystem>
@@ -50,7 +52,7 @@ namespace Zamin {
         void SaveSceneAs();
         void SerializeScene(const Ref<Scene>& scene, const std::filesystem::path& path);
         void SetActiveScene(const Ref<Scene>& scene);
-        void MarkDirty() { if (m_SceneState == SceneState::Edit) { m_SceneDirty = true; m_PendingUndo = true; } }
+        void MarkDirty() { if (m_SceneState == SceneState::Edit) { m_SceneDirty = true; m_PendingUndo = true; m_AssetUsage.MarkDirty(); } }
 
         // ---- undo / redo (scene snapshots)
         std::string TakeSnapshot();
@@ -83,6 +85,9 @@ namespace Zamin {
         // textures / fonts are imported again in place, the content browser is refreshed.
         void StartAssetWatcher();
         void ProcessAssetChanges();
+        // Shows a project file in the content browser and the inspector (asset inspector links,
+        // the unused assets window).
+        void RevealAsset(const std::filesystem::path& path);
         void LoadRuntimeScene(const std::filesystem::path& path);
 
         void OnScenePlay();
@@ -219,6 +224,9 @@ namespace Zamin {
         SceneHierarchyPanel m_SceneHierarchyPanel;
         ContentBrowserPanel m_ContentBrowserPanel;
         AssetInspectorPanel m_AssetInspectorPanel; // the Inspector for a file picked in the content browser
+        AssetUsageCache m_AssetUsage;              // who uses which asset (inspector, unused assets window)
+        UnusedAssetsPanel m_UnusedAssetsPanel;
+        bool m_ShowUnusedAssets = false, m_UnusedAssetsShown = false;
         ConsolePanel m_ConsolePanel;
         ProjectSettingsPanel m_ProjectSettingsPanel;
         bool m_ShowHierarchy = true, m_ShowInspector = true, m_ShowContentBrowser = true, m_ShowConsole = true;

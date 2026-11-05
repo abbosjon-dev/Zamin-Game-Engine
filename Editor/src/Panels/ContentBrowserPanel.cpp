@@ -904,6 +904,8 @@ namespace Zamin {
                 Platform::OpenInFileBrowser(m_CurrentDirectory);
             if (ImGui::MenuItem(ICON_FA_ARROWS_ROTATE "  Yangilash"))
                 Refresh();
+            if (ImGui::MenuItem(ICON_FA_BROOM "  Ishlatilmagan assetlarni topish...", nullptr, false, OnFindUnusedAssets != nullptr))
+                OnFindUnusedAssets();
             ImGui::Separator();
             ImGui::TextDisabled(ICON_FA_FILE_IMPORT "  Import: fayllarni oynaga tashlang");
             ImGui::EndPopup();
@@ -931,6 +933,8 @@ namespace Zamin {
                 else if (m_NewKind == 1 && OnNewScene)
                     OnNewScene(m_CurrentDirectory / (m_NewName + ".zscene"));
                 m_ListDirty = true;
+                if (OnFilesChanged)
+                    OnFilesChanged();
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
@@ -996,6 +1000,8 @@ namespace Zamin {
                 m_PendingDelete.clear();
                 m_Selection.clear();
                 m_ListDirty = true;
+                if (OnFilesChanged)
+                    OnFilesChanged();
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();

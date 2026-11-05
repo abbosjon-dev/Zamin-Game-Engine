@@ -2267,7 +2267,8 @@ namespace Zamin {
         ImGui::TableSetColumnIndex(1);
         {
             const float rowHeight = ImGui::GetFrameHeight();
-            const float listHeight = std::min(6, c.GetLayerCount()) * (rowHeight + ImGui::GetStyle().ItemSpacing.y) + 6.0f;
+            const float listHeight = std::min(6, c.GetLayerCount()) * (rowHeight + ImGui::GetStyle().ItemSpacing.y) +
+                                     ImGui::GetStyle().WindowPadding.y * 2.0f;
             ImGui::BeginChild("##tileLayers", ImVec2(-FLT_MIN, listHeight), ImGuiChildFlags_Border);
             // Top of the list = the layer drawn last (in front), like image editors.
             for (int i = c.GetLayerCount() - 1; i >= 0; i--)

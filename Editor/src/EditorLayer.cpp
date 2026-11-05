@@ -2154,7 +2154,8 @@ namespace Zamin {
                     {
                         glm::ivec2 lo = cells.front(), hi = cells.back();
                         glm::vec2 size = glm::vec2(hi - lo) + 1.0f;
-                        Renderer2D::DrawQuad(cellTransform(lo, size), glm::vec4(outline.r, outline.g, outline.b, 0.12f));
+                        if (!m_TilePreview.Valid) // the tiles it would leave show what it covers otherwise
+                            Renderer2D::DrawQuad(cellTransform(lo, size), glm::vec4(outline.r, outline.g, outline.b, 0.12f));
                         Renderer2D::DrawRect(cellTransform(lo, size), outline);
                     }
                 }
@@ -2162,7 +2163,7 @@ namespace Zamin {
                 {
                     std::vector<glm::ivec2> region = TilemapEdit::FloodRegion(tm, layer, hover.x, hover.y, rule, 4096);
                     for (const glm::ivec2& c : region)
-                        Renderer2D::DrawQuad(cellTransform(c), glm::vec4(outline.r, outline.g, outline.b, 0.15f));
+                        Renderer2D::DrawQuad(cellTransform(c), glm::vec4(outline.r, outline.g, outline.b, m_TilePreview.Valid ? 0.06f : 0.15f));
                     Renderer2D::DrawRect(cellTransform(hover), outline);
                 }
                 else if (tm.Contains(hover.x, hover.y))

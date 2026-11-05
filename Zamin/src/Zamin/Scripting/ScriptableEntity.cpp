@@ -300,9 +300,70 @@ namespace Zamin {
         return Project::GetCollisionLayers2D().Find(layerName);
     }
 
-    RaycastHit ScriptableEntity::Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const
+    RaycastHit ScriptableEntity::Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, uint16_t layerMask) const
     {
-        return m_Entity.GetScene()->Raycast3D(origin, direction, maxDistance);
+        return m_Entity.GetScene()->Raycast3D(origin, direction, maxDistance, layerMask);
+    }
+
+    std::vector<RaycastHit> ScriptableEntity::Raycast3DAll(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, uint16_t layerMask,
+                                                           bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->Raycast3DAll(origin, direction, maxDistance, layerMask, includeTriggers);
+    }
+
+    std::vector<Entity> ScriptableEntity::OverlapSphere3D(const glm::vec3& center, float radius, uint16_t layerMask, bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->OverlapSphere3D(center, radius, layerMask, includeTriggers);
+    }
+
+    std::vector<Entity> ScriptableEntity::OverlapBox3D(const glm::vec3& center, const glm::vec3& halfExtents, const glm::quat& rotation,
+                                                       uint16_t layerMask, bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->OverlapBox3D(center, halfExtents, rotation, layerMask, includeTriggers);
+    }
+
+    std::vector<Entity> ScriptableEntity::OverlapCapsule3D(const glm::vec3& point0, const glm::vec3& point1, float radius, uint16_t layerMask,
+                                                           bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->OverlapCapsule3D(point0, point1, radius, layerMask, includeTriggers);
+    }
+
+    RaycastHit ScriptableEntity::SphereCast3D(const glm::vec3& origin, float radius, const glm::vec3& direction, float maxDistance,
+                                              uint16_t layerMask, bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->SphereCast3D(origin, radius, direction, maxDistance, layerMask, includeTriggers);
+    }
+
+    std::vector<RaycastHit> ScriptableEntity::SphereCast3DAll(const glm::vec3& origin, float radius, const glm::vec3& direction, float maxDistance,
+                                                              uint16_t layerMask, bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->SphereCast3DAll(origin, radius, direction, maxDistance, layerMask, includeTriggers);
+    }
+
+    RaycastHit ScriptableEntity::BoxCast3D(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec3& direction,
+                                           const glm::quat& rotation, float maxDistance, uint16_t layerMask, bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->BoxCast3D(center, halfExtents, direction, rotation, maxDistance, layerMask, includeTriggers);
+    }
+
+    std::vector<RaycastHit> ScriptableEntity::BoxCast3DAll(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec3& direction,
+                                                           const glm::quat& rotation, float maxDistance, uint16_t layerMask,
+                                                           bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->BoxCast3DAll(center, halfExtents, direction, rotation, maxDistance, layerMask, includeTriggers);
+    }
+
+    RaycastHit ScriptableEntity::CapsuleCast3D(const glm::vec3& point0, const glm::vec3& point1, float radius, const glm::vec3& direction,
+                                               float maxDistance, uint16_t layerMask, bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->CapsuleCast3D(point0, point1, radius, direction, maxDistance, layerMask, includeTriggers);
+    }
+
+    std::vector<RaycastHit> ScriptableEntity::CapsuleCast3DAll(const glm::vec3& point0, const glm::vec3& point1, float radius,
+                                                               const glm::vec3& direction, float maxDistance, uint16_t layerMask,
+                                                               bool includeTriggers) const
+    {
+        return m_Entity.GetScene()->CapsuleCast3DAll(point0, point1, radius, direction, maxDistance, layerMask, includeTriggers);
     }
 
     glm::vec2 ScriptableEntity::GetMousePosition() const { return m_Entity.GetScene()->GetViewportMouse(); }

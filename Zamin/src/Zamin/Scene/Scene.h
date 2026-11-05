@@ -19,6 +19,7 @@
 
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <map>
 #include <string_view>
@@ -37,6 +38,7 @@ namespace Zamin {
     struct PhysicsJoint2DRef;
     struct PhysicsJoint3DRef;
     struct ConvexHull3D;
+    struct CollisionMesh3D;
     class EventBus;
     class ScriptableEntity;
     struct ScriptMessage;
@@ -407,11 +409,49 @@ namespace Zamin {
         // The convex pieces a polygon collider's outline is made of at this scale (the entity's world
         // scale; what its body gets, and what the editor draws).
         static Polygon2D::Decomposition DecomposePolygonCollider(const struct PolygonCollider2DComponent& collider, const glm::vec2& scale);
-        RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance);
+        // ---- 3D queries. layerMask: the collision layers that count (CollisionLayers2D bits - the same
+        // layers as 2D, e.g. Project::GetCollisionLayers2D().MakeMask({ "Enemy" })); triggers only with
+        // includeTriggers. A ray / swept shape that starts inside a collider does not hit it (the
+        // caster's own body); mesh colliders' triangles are hit from their front side. The hits'
+        // EntityID: Scene::GetEntityByUUID. Nothing outside play / simulate.
+        // The closest 3D collider (not a trigger) along the ray.
+        RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, uint16_t layerMask = 0xFFFF);
+        // Every entity the ray goes through (its first hit), the closest first.
+        std::vector<RaycastHit> Raycast3DAll(const glm::vec3& origin, const glm::vec3& direction, float maxDistance,
+                                             uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
+        // The entities whose 3D colliders (or character controllers) overlap a sphere / a box (half
+        // extents, turned by `rotation`) / a capsule between the centres of its two end spheres. Each
+        // entity once, the one whose body is nearest to the centre first. A shape wholly inside a mesh
+        // collider does not touch it (only its triangles count).
+        std::vector<Entity> OverlapSphere3D(const glm::vec3& center, float radius, uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
+        std::vector<Entity> OverlapBox3D(const glm::vec3& center, const glm::vec3& halfExtents, const glm::quat& rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+                                         uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
+        std::vector<Entity> OverlapCapsule3D(const glm::vec3& point0, const glm::vec3& point1, float radius, uint16_t layerMask = 0xFFFF,
+                                             bool includeTriggers = false);
+        // Shape casts: the shape swept from where it is along `direction` (normalized here) for
+        // `maxDistance`. The hit: Distance - how far the shape went until it touched (the shape is then
+        // at origin + direction * Distance), Point - where it touches, Normal - the surface there.
+        // The *All variants: every entity on the way (its first touch), the closest first.
+        RaycastHit SphereCast3D(const glm::vec3& origin, float radius, const glm::vec3& direction, float maxDistance,
+                                uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
+        std::vector<RaycastHit> SphereCast3DAll(const glm::vec3& origin, float radius, const glm::vec3& direction, float maxDistance,
+                                                uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
+        RaycastHit BoxCast3D(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec3& direction, const glm::quat& rotation,
+                             float maxDistance, uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
+        std::vector<RaycastHit> BoxCast3DAll(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec3& direction,
+                                             const glm::quat& rotation, float maxDistance, uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
+        RaycastHit CapsuleCast3D(const glm::vec3& point0, const glm::vec3& point1, float radius, const glm::vec3& direction, float maxDistance,
+                                 uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
+        std::vector<RaycastHit> CapsuleCast3DAll(const glm::vec3& point0, const glm::vec3& point1, float radius, const glm::vec3& direction,
+                                                 float maxDistance, uint16_t layerMask = 0xFFFF, bool includeTriggers = false);
         // The hull a Convex Hull Collider 3D of `entity` makes (unscaled, in the entity's frame): of its
         // ModelPath, else of the entity's Mesh Renderer (model or primitive). Null - with the reason in
         // `error` - without a source or when the mesh has no volume.
         static Ref<const ConvexHull3D> GetConvexHullCollider(Entity entity, std::string* error = nullptr);
+        // The triangles a Mesh Collider 3D of `entity` is made of (unscaled, in the entity's frame): of
+        // its ModelPath, else of the Mesh Renderer's model or primitive. Null - with the reason - without
+        // a source or triangles.
+        static Ref<const CollisionMesh3D> GetMeshCollider(Entity entity, std::string* error = nullptr);
         // The running worlds (null outside play / simulate).
         PhysicsWorld2D* GetPhysicsWorld2D() { return m_PhysicsWorld.get(); }
         // ---- 2D sleeping (Rigidbody2DComponent::Sleeping, SceneSettings::Physics2D)
@@ -579,6 +619,13 @@ namespace Zamin {
         void OnPhysics2DStart();
         void OnPhysics2DStop();
         void OnPhysics3DStart();
+        // A new 3D world with the project's collision layers.
+        void MakePhysicsWorld3D();
+        // The 3D queries with their debug drawing.
+        std::vector<Entity> Overlap3D(const PhysicsQueryShape3D& shape, const glm::vec3& center, const glm::quat& rotation, uint16_t layerMask,
+                                      bool includeTriggers);
+        std::vector<RaycastHit> ShapeCast3D(const PhysicsQueryShape3D& shape, const glm::vec3& origin, const glm::quat& rotation,
+                                            const glm::vec3& direction, float maxDistance, uint16_t layerMask, bool includeTriggers, bool all);
         void OnPhysics3DStop();
         // The Create* functions do nothing for an entity that is not active in the hierarchy.
         void CreatePhysicsBody(Entity entity);

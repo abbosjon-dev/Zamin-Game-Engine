@@ -311,6 +311,7 @@ namespace Zamin {
         // Convex Hull Collider 3D: the source (Mesh Renderer / model file), the corner limit and what
         // the hull came out as.
         bool DrawConvexHullCollider(Entity entity, ConvexHullCollider3DComponent& c);
+        bool DrawMeshCollider(Entity entity, MeshCollider3DComponent& c);
         bool DrawTintAnimation(Entity entity, TintAnimationComponent& c);
         bool DrawLight2D(Entity entity, Light2DComponent& c);
         bool DrawPixelPerfect(CameraComponent& c);

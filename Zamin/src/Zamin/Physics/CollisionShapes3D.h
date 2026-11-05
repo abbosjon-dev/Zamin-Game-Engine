@@ -66,6 +66,13 @@ namespace Zamin {
         // of the default scene; .obj: MeshLibrary::ReadOBJ), import settings applied.
         static bool ReadModelGeometry(const std::filesystem::path& path, CollisionMesh3D& out, std::string* error = nullptr);
 
+        // The edges of a mesh worth drawing (the editor's collider wireframe): each edge of its
+        // triangles once, corners welded by position, without the ones between two triangles in one
+        // plane (a quad's diagonal) and without degenerate triangles. Cached per mesh while it lives.
+        using EdgeList = std::vector<std::pair<glm::vec3, glm::vec3>>;
+        static EdgeList BuildFeatureEdges(const CollisionMesh3D& mesh);
+        static Ref<const EdgeList> GetFeatureEdges(const Ref<const CollisionMesh3D>& mesh);
+
         // Cached meshes + hulls (tests, tools).
         static size_t GetCacheSize();
         static void Clear();

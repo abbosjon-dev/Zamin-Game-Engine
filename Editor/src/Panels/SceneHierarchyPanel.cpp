@@ -1168,6 +1168,7 @@ namespace Zamin {
             { "WeldJoint2D", "Weld Joint 2D" }, { "WheelJoint2D", "Wheel Joint 2D" },
             { "Rigidbody3D", "Rigidbody 3D" }, { "BoxCollider3D", "Box Collider 3D" }, { "SphereCollider3D", "Sphere Collider 3D" },
             { "CapsuleCollider3D", "Capsule Collider 3D" }, { "ConvexHullCollider3D", "Convex Hull Collider 3D" },
+            { "MeshCollider3D", "Mesh Collider 3D" },
             { "FixedJoint3D", "Fixed Joint 3D" }, { "HingeJoint3D", "Hinge Joint 3D" }, { "DistanceJoint3D", "Distance Joint 3D" },
             { "SliderJoint3D", "Slider Joint 3D" }, { "CharacterController3D", "Character Controller 3D" },
             { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
@@ -4123,6 +4124,40 @@ namespace Zamin {
         return changed;
     }
 
+    bool SceneHierarchyPanel::DrawMeshCollider(Entity entity, MeshCollider3DComponent& c)
+    {
+        bool changed = UI::PropertyAssetPath("Model fayli", c.ModelPath, ".gltf;.glb;.obj", ICON_FA_CUBES);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Collider shu modelning uchburchaklaridan quriladi. Bo'sh - obyektning Mesh Renderer'idagi model yoki primitiv");
+        // What the body gets (cached per model: cheap to ask every frame).
+        std::string error;
+        Ref<const CollisionMesh3D> mesh = Scene::GetMeshCollider(entity, &error);
+        UI::PropertyLabel("Mesh", "Fizik jism oladigan uchburchaklar: viewport'da collider chiziqlari bilan ko'rinadi. Uchburchaklar "
+                                  "old tomonidan (chizilgan tomonidan) qattiq");
+        ImGui::PushTextWrapPos(0.0f);
+        if (mesh)
+            ImGui::TextDisabled(ICON_FA_DRAW_POLYGON "  %zu uchburchak, %zu nuqta", mesh->GetTriangleCount(), mesh->Positions.size());
+        else
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s", error.c_str());
+        ImGui::PopTextWrapPos();
+        const auto* rb = entity.TryGetComponent<Rigidbody3DComponent>();
+        if (!rb)
+        {
+            UI::PropertyLabel("");
+            ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Rigidbody 3D (Statik yoki Kinematik) bilan ishlaydi");
+        }
+        else if (rb->Type == Rigidbody3DComponent::BodyType::Dynamic)
+        {
+            UI::PropertyLabel("");
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Dinamik jism mesh collider'ni hisobga "
+                               "olmaydi: Rigidbody 3D turini Statik yoki Kinematik qiling, harakatlanadigan jism uchun Convex Hull "
+                               "Collider 3D ishlating");
+            ImGui::PopTextWrapPos();
+        }
+        return changed;
+    }
+
     bool SceneHierarchyPanel::DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c)
     {
         bool changed = DrawEntityRefField("Nishon", c.Target, "Kuzatiladigan obyekt (ierarxiyadan tortib tashlang). O'yin davomida "
@@ -4910,6 +4945,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<SphereCollider3DComponent>("Sphere Collider 3D", ICON_FA_CIRCLE);
                 DisplayAddComponentEntry<CapsuleCollider3DComponent>("Capsule Collider 3D", ICON_FA_CAPSULES);
                 DisplayAddComponentEntry<ConvexHullCollider3DComponent>("Convex Hull Collider 3D (modeldan)", ICON_FA_SHAPES);
+                DisplayAddComponentEntry<MeshCollider3DComponent>("Mesh Collider 3D (statik, modeldan)", ICON_FA_DRAW_POLYGON);
                 DisplayAddComponentEntry<FixedJoint3DComponent>("Fixed Joint 3D (mahkam)", ICON_FA_LOCK);
                 DisplayAddComponentEntry<HingeJoint3DComponent>("Hinge Joint 3D (sharnir)", ICON_FA_DOOR_OPEN);
                 DisplayAddComponentEntry<DistanceJoint3DComponent>("Distance Joint 3D (masofa)", ICON_FA_LINK);
@@ -5693,7 +5729,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        AddSection<Rigidbody3DComponent>(ICON_FA_ATOM, "Rigidbody 3D", entity, [](Rigidbody3DComponent& c) {
+        AddSection<Rigidbody3DComponent>(ICON_FA_ATOM, "Rigidbody 3D", entity, [&](Rigidbody3DComponent& c) {
             bool changed = false;
             const char* types[] = { "Statik", "Dinamik", "Kinematik" };
             int type = (int)c.Type;
@@ -5703,6 +5739,10 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Chiziqli so'nish", c.LinearDamping, 0.01f, 0.0f, 100.0f);
             changed |= UI::PropertyFloat("Burchak so'nishi", c.AngularDamping, 0.01f, 0.0f, 100.0f);
             changed |= UI::PropertyBool("Aylanmasin", c.LockRotation);
+            changed |= DrawCollisionLayer("Qatlam", c.Layer, false,
+                                          "Kolliderlarining to'qnashuv qatlami (2D fizika bilan bir xil qatlamlar): qaysi qatlamlarga "
+                                          "tegishi loyiha matritsasida (Loyiha sozlamalari > Fizika qatlamlari). O'yin davomida ham "
+                                          "o'zgartirsa bo'ladi; so'rovlar (Raycast3D, OverlapSphere3D...) qatlam niqobini oladi.");
             return changed;
         }, true, modified);
 
@@ -5732,6 +5772,11 @@ namespace Zamin {
 
         AddSection<ConvexHullCollider3DComponent>(ICON_FA_SHAPES, "Convex Hull Collider 3D", entity, [&](ConvexHullCollider3DComponent& c) {
             bool changed = DrawConvexHullCollider(entity, c);
+            return collider3D(c) || changed;
+        }, true, modified);
+
+        AddSection<MeshCollider3DComponent>(ICON_FA_DRAW_POLYGON, "Mesh Collider 3D", entity, [&](MeshCollider3DComponent& c) {
+            bool changed = DrawMeshCollider(entity, c);
             return collider3D(c) || changed;
         }, true, modified);
 
@@ -5841,6 +5886,9 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Massa", c.Mass, 0.5f, 1.0f, 10000.0f);
             changed |= UI::PropertyFloat("Gravitatsiya", c.GravityScale, 0.05f, 0.0f, 10.0f);
             changed |= UI::PropertyBool("Yerga yopishish", c.StickToFloor);
+            changed |= DrawCollisionLayer("Qatlam", c.Layer, false,
+                                          "Qahramonning to'qnashuv qatlami: qaysi jismlarga urilishi / ustida turishi loyiha "
+                                          "matritsasida (Loyiha sozlamalari > Fizika qatlamlari)");
             UI::PropertyLabel("Holat");
             ImGui::TextDisabled(!entity.IsActiveInHierarchy() ? "Nofaol" : (c.Grounded ? "Yerda" : "Havoda"));
             if (c.RuntimeID != 0xffffffff)

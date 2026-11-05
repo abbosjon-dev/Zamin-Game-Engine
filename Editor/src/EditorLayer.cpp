@@ -2887,6 +2887,26 @@ namespace Zamin {
                 for (const auto& [a, b] : hull->Edges)
                     Renderer2D::DrawLine(p + q * (offset + hull->Points[a] * scale), p + q * (offset + hull->Points[b] * scale), col);
             }
+            // Mesh colliders: the edges of their triangles (flat insides left out; cached per mesh). Dimmed
+            // on a dynamic body, which leaves the mesh out.
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, MeshCollider3DComponent>())
+            {
+                if (hidden.contains(e)) continue;
+                Entity entity{ e, &scene };
+                Ref<const CollisionShapes3D::EdgeList> edges = CollisionShapes3D::GetFeatureEdges(Scene::GetMeshCollider(entity));
+                if (!edges) continue;
+                auto& c = entity.GetComponent<MeshCollider3DComponent>();
+                const auto* rb = entity.TryGetComponent<Rigidbody3DComponent>();
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+                const glm::quat q(r);
+                const glm::vec3 scale = glm::abs(sc), offset = c.Offset * scale;
+                glm::vec4 col = c.IsSensor ? yellow : cyan;
+                if (rb && rb->Type == Rigidbody3DComponent::BodyType::Dynamic)
+                    col.a = 0.3f;
+                for (const auto& [a, b] : *edges)
+                    Renderer2D::DrawLine(p + q * (offset + a * scale), p + q * (offset + b * scale), col);
+            }
         }
 
         // Camera 2D Follow of the selected entity: its dead zone around the view's centre (yellow)

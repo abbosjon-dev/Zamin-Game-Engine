@@ -49,6 +49,7 @@ namespace Zamin {
             MakeTypeInfo<SphereCollider3DComponent>(),
             MakeTypeInfo<CapsuleCollider3DComponent>(),
             MakeTypeInfo<ConvexHullCollider3DComponent>(),
+            MakeTypeInfo<MeshCollider3DComponent>(),
             MakeTypeInfo<FixedJoint3DComponent>(),
             MakeTypeInfo<HingeJoint3DComponent>(),
             MakeTypeInfo<DistanceJoint3DComponent>(),

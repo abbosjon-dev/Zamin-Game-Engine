@@ -271,10 +271,10 @@ namespace Zamin {
         // ---- raycasts (EntityID of the hit can be resolved with GetScene().GetEntityByUUID)
         // layerMask: the 2D collision layers that count (all by default), e.g. LayerMask({ "Ground", "Enemy" }).
         RaycastHit Raycast2D(const glm::vec2& origin, const glm::vec2& direction, float maxDistance = 100.0f, uint16_t layerMask = 0xFFFF) const;
-        // The bits of the project's named 2D collision layers (Project settings > Physics layers);
-        // unknown names are left out.
+        // The bits of the project's named collision layers (Project settings > Physics layers; 2D and
+        // 3D physics share them); unknown names are left out.
         static uint16_t LayerMask(std::initializer_list<std::string_view> layerNames);
-        // The index of a named 2D collision layer, -1 when the project has none of that name.
+        // The index of a named collision layer, -1 when the project has none of that name.
         static int LayerIndex(std::string_view layerName);
         // Every entity along the ray (its first hit), the closest first; triggers with includeTriggers:
         //   for (const RaycastHit& hit : Raycast2DAll(origin, { 1, 0 }, 20.0f, LayerMask({ "Enemy" }))) ...
@@ -288,7 +288,43 @@ namespace Zamin {
         std::vector<Entity> OverlapBox2D(const glm::vec2& center, const glm::vec2& halfExtents, float angleDegrees = 0.0f,
                                          uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
         std::vector<Entity> OverlapPoint2D(const glm::vec2& point, uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
-        RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 100.0f) const;
+        // ---- 3D queries: the same collision layers as 2D (LayerMask) - Rigidbody 3D / Character
+        // Controller 3D pick theirs; triggers only with includeTriggers. A ray or swept shape that
+        // starts inside a collider does not hit it, so one started inside the entity's own body
+        // passes it by; mesh colliders are hit from their front side.
+        //   if (RaycastHit hit = Raycast3D(GetWorldPosition(), { 0, 0, 1 }, 20.0f, LayerMask({ "Enemy" })))
+        //       Hurt(GetScene().GetEntityByUUID(hit.EntityID));
+        RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 100.0f, uint16_t layerMask = 0xFFFF) const;
+        // Every entity along the ray (its first hit), the closest first.
+        std::vector<RaycastHit> Raycast3DAll(const glm::vec3& origin, const glm::vec3& direction, float maxDistance = 100.0f,
+                                             uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
+        // The entities whose 3D colliders / character capsules overlap a sphere, a box (half extents,
+        // turned by `rotation`) or a capsule (the centres of its two end spheres, its radius); the one
+        // nearest to the centre first. The entity itself is found too when it is inside:
+        //   for (Entity e : OverlapSphere3D(GetWorldPosition(), 4.0f, LayerMask({ "Enemy" }))) Hurt(e);
+        std::vector<Entity> OverlapSphere3D(const glm::vec3& center, float radius, uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
+        std::vector<Entity> OverlapBox3D(const glm::vec3& center, const glm::vec3& halfExtents, const glm::quat& rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+                                         uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
+        std::vector<Entity> OverlapCapsule3D(const glm::vec3& point0, const glm::vec3& point1, float radius, uint16_t layerMask = 0xFFFF,
+                                             bool includeTriggers = false) const;
+        // Shape casts: a "thick ray" - the shape swept along `direction` for `maxDistance`. The hit's
+        // Distance is how far the shape went (it is then at origin + direction * Distance), Point where
+        // it touches, Normal the surface there. *All: every entity on the way, the closest first.
+        //   RaycastHit ground = SphereCast3D(GetWorldPosition() + glm::vec3(0, 0.5f, 0), 0.3f, { 0, -1, 0 }, 1.0f);
+        RaycastHit SphereCast3D(const glm::vec3& origin, float radius, const glm::vec3& direction, float maxDistance = 100.0f,
+                                uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
+        std::vector<RaycastHit> SphereCast3DAll(const glm::vec3& origin, float radius, const glm::vec3& direction, float maxDistance = 100.0f,
+                                                uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
+        RaycastHit BoxCast3D(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec3& direction,
+                             const glm::quat& rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f), float maxDistance = 100.0f, uint16_t layerMask = 0xFFFF,
+                             bool includeTriggers = false) const;
+        std::vector<RaycastHit> BoxCast3DAll(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec3& direction,
+                                             const glm::quat& rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f), float maxDistance = 100.0f,
+                                             uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
+        RaycastHit CapsuleCast3D(const glm::vec3& point0, const glm::vec3& point1, float radius, const glm::vec3& direction,
+                                 float maxDistance = 100.0f, uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
+        std::vector<RaycastHit> CapsuleCast3DAll(const glm::vec3& point0, const glm::vec3& point1, float radius, const glm::vec3& direction,
+                                                 float maxDistance = 100.0f, uint16_t layerMask = 0xFFFF, bool includeTriggers = false) const;
 
         // ---- viewport / mouse (pixels, origin top-left of the game view)
         glm::vec2 GetMousePosition() const;

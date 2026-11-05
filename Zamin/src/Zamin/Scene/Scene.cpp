@@ -2894,7 +2894,7 @@ namespace Zamin {
         OnPhysics3DStop();
         if (m_Registry.view<Rigidbody3DComponent>().empty() && m_Registry.view<CharacterController3DComponent>().empty())
             return; // don't spin up Jolt for 2D-only scenes
-        m_PhysicsWorld3D = std::make_unique<PhysicsWorld3D>(m_Settings.Gravity3D);
+        MakePhysicsWorld3D();
         for (auto e : m_Registry.view<Rigidbody3DComponent>())
             CreatePhysicsBody3D({ e, this });
         m_PhysicsWorld3D->OptimizeBroadPhase();
@@ -2905,12 +2905,19 @@ namespace Zamin {
         ReportMissingJointBodies(nullptr);
     }
 
+    void Scene::MakePhysicsWorld3D()
+    {
+        m_PhysicsWorld3D = std::make_unique<PhysicsWorld3D>(m_Settings.Gravity3D);
+        // The project's collision layers (shared with 2D physics); StepPhysics keeps it up to date.
+        m_PhysicsWorld3D->SetCollisionMatrix(Project::GetCollisionLayers2D().Masks);
+    }
+
     void Scene::CreateCharacter3D(Entity entity)
     {
         if (!IsActiveInHierarchy(entity))
             return;
         if (!m_PhysicsWorld3D)
-            m_PhysicsWorld3D = std::make_unique<PhysicsWorld3D>(m_Settings.Gravity3D);
+            MakePhysicsWorld3D();
         auto& cc = entity.GetComponent<CharacterController3DComponent>();
         if (cc.RuntimeID != 0xffffffff) return;
         CharacterDesc desc;
@@ -2920,6 +2927,7 @@ namespace Zamin {
         desc.Height = cc.Height;
         desc.MaxSlopeDegrees = cc.MaxSlope;
         desc.Mass = cc.Mass;
+        desc.Layer = CollisionLayers2D::Clamp(cc.Layer);
         cc.RuntimeID = m_PhysicsWorld3D->CreateCharacter(desc);
         cc.VerticalVelocity = 0.0f;
         cc.Grounded = false;
@@ -2947,7 +2955,7 @@ namespace Zamin {
         if (!IsActiveInHierarchy(entity))
             return;
         if (!m_PhysicsWorld3D)
-            m_PhysicsWorld3D = std::make_unique<PhysicsWorld3D>(m_Settings.Gravity3D);
+            MakePhysicsWorld3D();
 
         auto& rb = entity.GetComponent<Rigidbody3DComponent>();
         if (rb.RuntimeBodyID != 0xffffffff) return;
@@ -2966,6 +2974,7 @@ namespace Zamin {
         desc.AngularDamping = rb.AngularDamping;
         desc.GravityFactor = rb.GravityFactor;
         desc.LockRotation = rb.LockRotation;
+        desc.Layer = CollisionLayers2D::Clamp(rb.Layer);
 
         if (auto* c = entity.TryGetComponent<BoxCollider3DComponent>())
         {
@@ -3011,25 +3020,41 @@ namespace Zamin {
             else
                 ZM_CORE_WARN("'{}': Convex Hull Collider 3D qurilmadi - {}", entity.GetName(), error);
         }
+        if (auto* c = entity.TryGetComponent<MeshCollider3DComponent>())
+        {
+            std::string error;
+            if (rb.Type == Rigidbody3DComponent::BodyType::Dynamic)
+                ZM_CORE_WARN("'{}': Mesh Collider 3D faqat statik yoki kinematik jismda ishlaydi - dinamik jism uni hisobga olmaydi "
+                             "(Convex Hull Collider 3D ishlating)", entity.GetName());
+            else if (Ref<const CollisionMesh3D> mesh = GetMeshCollider(entity, &error))
+            {
+                PhysicsBody3DDesc::Shape s;
+                s.Type = PhysicsBody3DDesc::Shape::Kind::Mesh;
+                s.Mesh = mesh;
+                s.Scale = scale;
+                s.Offset = c->Offset * scale;
+                s.Friction = c->Friction; s.Restitution = c->Restitution; s.IsSensor = c->IsSensor;
+                desc.Shapes.push_back(s);
+            }
+            else
+                ZM_CORE_WARN("'{}': Mesh Collider 3D qurilmadi - {}", entity.GetName(), error);
+        }
         if (desc.Shapes.empty())
         {
-            ZM_CORE_WARN("'{}': Rigidbody3D uchun collider yo'q (Box/Sphere/Capsule/Convex Hull Collider 3D qo'shing)", entity.GetName());
+            if (!entity.HasComponent<MeshCollider3DComponent>())
+                ZM_CORE_WARN("'{}': Rigidbody3D uchun collider yo'q (Box/Sphere/Capsule/Convex Hull/Mesh Collider 3D qo'shing)", entity.GetName());
             return;
         }
         rb.RuntimeBodyID = m_PhysicsWorld3D->CreateBody(desc);
     }
 
-    Ref<const ConvexHull3D> Scene::GetConvexHullCollider(Entity entity, std::string* error)
+    // The model a 3D collider of `entity` is made from: its own ModelPath, else the Mesh Renderer's
+    // model or primitive. False (with the reason) when there is none.
+    static bool GetColliderSource(Entity entity, const std::string& ownModel, std::string& modelPath, PrimitiveMesh& primitive,
+                                  std::string* error)
     {
-        const auto* c = entity ? entity.TryGetComponent<ConvexHullCollider3DComponent>() : nullptr;
-        if (!c)
-        {
-            if (error)
-                *error = "Convex Hull Collider 3D yo'q";
-            return nullptr;
-        }
-        std::string modelPath = c->ModelPath;
-        PrimitiveMesh primitive = PrimitiveMesh::Model;
+        modelPath = ownModel;
+        primitive = PrimitiveMesh::Model;
         if (modelPath.empty())
             if (const auto* mr = entity.TryGetComponent<MeshRendererComponent>())
             {
@@ -3042,9 +3067,41 @@ namespace Zamin {
         {
             if (error)
                 *error = "model yo'q (Mesh Renderer qo'shing yoki model faylini tanlang)";
+            return false;
+        }
+        return true;
+    }
+
+    Ref<const ConvexHull3D> Scene::GetConvexHullCollider(Entity entity, std::string* error)
+    {
+        const auto* c = entity ? entity.TryGetComponent<ConvexHullCollider3DComponent>() : nullptr;
+        if (!c)
+        {
+            if (error)
+                *error = "Convex Hull Collider 3D yo'q";
             return nullptr;
         }
+        std::string modelPath;
+        PrimitiveMesh primitive;
+        if (!GetColliderSource(entity, c->ModelPath, modelPath, primitive, error))
+            return nullptr;
         return CollisionShapes3D::GetConvexHull(modelPath, primitive, c->MaxVertices, error);
+    }
+
+    Ref<const CollisionMesh3D> Scene::GetMeshCollider(Entity entity, std::string* error)
+    {
+        const auto* c = entity ? entity.TryGetComponent<MeshCollider3DComponent>() : nullptr;
+        if (!c)
+        {
+            if (error)
+                *error = "Mesh Collider 3D yo'q";
+            return nullptr;
+        }
+        std::string modelPath;
+        PrimitiveMesh primitive;
+        if (!GetColliderSource(entity, c->ModelPath, modelPath, primitive, error))
+            return nullptr;
+        return CollisionShapes3D::GetMesh(modelPath, primitive, error);
     }
 
     void Scene::CreatePhysicsBodies(Entity entity)
@@ -3326,7 +3383,18 @@ namespace Zamin {
         const float subStep = fixedStep / (float)physics2D.SubSteps;
         const bool debugContacts = DebugDraw::IsShowingContacts();
         if (m_PhysicsWorld3D)
+        {
             m_PhysicsWorld3D->SetDebugContactsEnabled(debugContacts);
+            // The project's layer matrix (Project settings) and the bodies' layers (inspector, scripts)
+            // may change while the game runs.
+            m_PhysicsWorld3D->SetCollisionMatrix(Project::GetCollisionLayers2D().Masks);
+            for (auto e : m_Registry.view<Rigidbody3DComponent>())
+                if (const auto& rb = m_Registry.get<Rigidbody3DComponent>(e); rb.RuntimeBodyID != 0xffffffff)
+                    m_PhysicsWorld3D->SetBodyLayer(rb.RuntimeBodyID, CollisionLayers2D::Clamp(rb.Layer));
+            for (auto e : m_Registry.view<CharacterController3DComponent>())
+                if (const auto& cc = m_Registry.get<CharacterController3DComponent>(e); cc.RuntimeID != 0xffffffff)
+                    m_PhysicsWorld3D->SetCharacterLayer(cc.RuntimeID, CollisionLayers2D::Clamp(cc.Layer));
+        }
 
         // Kinematic/static bodies follow their transforms (lets scripts move them directly).
         if (m_PhysicsWorld)
@@ -3674,12 +3742,140 @@ namespace Zamin {
         return ResolveOverlap(*this, m_PhysicsWorld->OverlapPoint(point, layerMask, includeTriggers), point, {});
     }
 
-    RaycastHit Scene::Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance)
+    RaycastHit Scene::Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, uint16_t layerMask)
     {
-        if (!m_PhysicsWorld3D) return {};
-        RaycastHit hit = m_PhysicsWorld3D->CastRay(origin, direction, maxDistance);
+        if (!m_PhysicsWorld3D || glm::length(direction) == 0.0f) return {};
+        RaycastHit hit = m_PhysicsWorld3D->CastRay(origin, direction, maxDistance, layerMask, false);
         DebugDraw::PhysicsRaycast(origin, direction, maxDistance, hit);
         return hit;
+    }
+
+    std::vector<RaycastHit> Scene::Raycast3DAll(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, uint16_t layerMask,
+                                                bool includeTriggers)
+    {
+        if (!m_PhysicsWorld3D || glm::length(direction) == 0.0f) return {};
+        std::vector<RaycastHit> hits = m_PhysicsWorld3D->CastRayAll(origin, direction, maxDistance, layerMask, includeTriggers);
+        DebugDraw::PhysicsRaycastAll(origin, glm::normalize(direction), maxDistance, hits);
+        return hits;
+    }
+
+    // A capsule between the centres of its two end spheres: its centre, rotation (its Y along the
+    // two points) and shape.
+    static PhysicsQueryShape3D CapsuleBetween(const glm::vec3& point0, const glm::vec3& point1, float radius, glm::vec3& center,
+                                              glm::quat& rotation)
+    {
+        center = (point0 + point1) * 0.5f;
+        rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        const glm::vec3 axis = point1 - point0;
+        const float length = glm::length(axis);
+        if (length > 1e-6f && std::isfinite(length))
+        {
+            const glm::vec3 dir = axis / length;
+            const float cosine = glm::dot(glm::vec3(0.0f, 1.0f, 0.0f), dir);
+            if (cosine < -0.99999f)
+                rotation = glm::angleAxis(glm::pi<float>(), glm::vec3(1.0f, 0.0f, 0.0f));
+            else if (cosine < 0.99999f)
+                rotation = glm::angleAxis(std::acos(std::clamp(cosine, -1.0f, 1.0f)), glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), dir)));
+        }
+        return PhysicsQueryShape3D::Capsule(radius, std::isfinite(length) ? length * 0.5f : 0.0f);
+    }
+
+    std::vector<Entity> Scene::Overlap3D(const PhysicsQueryShape3D& shape, const glm::vec3& center, const glm::quat& rotation, uint16_t layerMask,
+                                         bool includeTriggers)
+    {
+        if (!m_PhysicsWorld3D) return {};
+        std::vector<Entity> out;
+        std::vector<glm::vec3> positions;
+        for (UUID id : m_PhysicsWorld3D->Overlap(shape, center, rotation, layerMask, includeTriggers))
+            if (Entity e = GetEntityByUUID(id))
+            {
+                out.push_back(e);
+                if (DebugDraw::IsShowingRaycasts())
+                    positions.push_back(GetWorldPosition(e));
+            }
+        DebugDraw::PhysicsOverlap3D(shape, center, rotation, positions);
+        return out;
+    }
+
+    std::vector<Entity> Scene::OverlapSphere3D(const glm::vec3& center, float radius, uint16_t layerMask, bool includeTriggers)
+    {
+        return Overlap3D(PhysicsQueryShape3D::Sphere(radius), center, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), layerMask, includeTriggers);
+    }
+
+    std::vector<Entity> Scene::OverlapBox3D(const glm::vec3& center, const glm::vec3& halfExtents, const glm::quat& rotation, uint16_t layerMask,
+                                            bool includeTriggers)
+    {
+        return Overlap3D(PhysicsQueryShape3D::Box(halfExtents), center, rotation, layerMask, includeTriggers);
+    }
+
+    std::vector<Entity> Scene::OverlapCapsule3D(const glm::vec3& point0, const glm::vec3& point1, float radius, uint16_t layerMask,
+                                                bool includeTriggers)
+    {
+        glm::vec3 center;
+        glm::quat rotation;
+        const PhysicsQueryShape3D shape = CapsuleBetween(point0, point1, radius, center, rotation);
+        return Overlap3D(shape, center, rotation, layerMask, includeTriggers);
+    }
+
+    std::vector<RaycastHit> Scene::ShapeCast3D(const PhysicsQueryShape3D& shape, const glm::vec3& origin, const glm::quat& rotation,
+                                               const glm::vec3& direction, float maxDistance, uint16_t layerMask, bool includeTriggers, bool all)
+    {
+        if (!m_PhysicsWorld3D || glm::length(direction) == 0.0f) return {};
+        std::vector<RaycastHit> hits;
+        if (all)
+            hits = m_PhysicsWorld3D->CastShapeAll(shape, origin, rotation, direction, maxDistance, layerMask, includeTriggers);
+        else if (RaycastHit hit = m_PhysicsWorld3D->CastShape(shape, origin, rotation, direction, maxDistance, layerMask, includeTriggers))
+            hits.push_back(hit);
+        DebugDraw::PhysicsShapeCast(shape, origin, rotation, direction, maxDistance, hits);
+        return hits;
+    }
+
+    RaycastHit Scene::SphereCast3D(const glm::vec3& origin, float radius, const glm::vec3& direction, float maxDistance, uint16_t layerMask,
+                                   bool includeTriggers)
+    {
+        std::vector<RaycastHit> hits = ShapeCast3D(PhysicsQueryShape3D::Sphere(radius), origin, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), direction,
+                                                   maxDistance, layerMask, includeTriggers, false);
+        return hits.empty() ? RaycastHit() : hits[0];
+    }
+
+    std::vector<RaycastHit> Scene::SphereCast3DAll(const glm::vec3& origin, float radius, const glm::vec3& direction, float maxDistance,
+                                                   uint16_t layerMask, bool includeTriggers)
+    {
+        return ShapeCast3D(PhysicsQueryShape3D::Sphere(radius), origin, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), direction, maxDistance, layerMask,
+                           includeTriggers, true);
+    }
+
+    RaycastHit Scene::BoxCast3D(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec3& direction, const glm::quat& rotation,
+                                float maxDistance, uint16_t layerMask, bool includeTriggers)
+    {
+        std::vector<RaycastHit> hits = ShapeCast3D(PhysicsQueryShape3D::Box(halfExtents), center, rotation, direction, maxDistance, layerMask,
+                                                   includeTriggers, false);
+        return hits.empty() ? RaycastHit() : hits[0];
+    }
+
+    std::vector<RaycastHit> Scene::BoxCast3DAll(const glm::vec3& center, const glm::vec3& halfExtents, const glm::vec3& direction,
+                                                const glm::quat& rotation, float maxDistance, uint16_t layerMask, bool includeTriggers)
+    {
+        return ShapeCast3D(PhysicsQueryShape3D::Box(halfExtents), center, rotation, direction, maxDistance, layerMask, includeTriggers, true);
+    }
+
+    RaycastHit Scene::CapsuleCast3D(const glm::vec3& point0, const glm::vec3& point1, float radius, const glm::vec3& direction,
+                                    float maxDistance, uint16_t layerMask, bool includeTriggers)
+    {
+        glm::vec3 center;
+        glm::quat rotation;
+        const PhysicsQueryShape3D shape = CapsuleBetween(point0, point1, radius, center, rotation);
+        std::vector<RaycastHit> hits = ShapeCast3D(shape, center, rotation, direction, maxDistance, layerMask, includeTriggers, false);
+        return hits.empty() ? RaycastHit() : hits[0];
+    }
+
+    std::vector<RaycastHit> Scene::CapsuleCast3DAll(const glm::vec3& point0, const glm::vec3& point1, float radius, const glm::vec3& direction,
+                                                    float maxDistance, uint16_t layerMask, bool includeTriggers)
+    {
+        glm::vec3 center;
+        glm::quat rotation;
+        const PhysicsQueryShape3D shape = CapsuleBetween(point0, point1, radius, center, rotation);
+        return ShapeCast3D(shape, center, rotation, direction, maxDistance, layerMask, includeTriggers, true);
     }
 
     // ------------------------------------------------------------------ update

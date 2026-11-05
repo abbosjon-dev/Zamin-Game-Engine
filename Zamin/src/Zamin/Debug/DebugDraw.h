@@ -177,6 +177,9 @@ namespace Zamin {
         {
             WireSphere(center, radius, color, duration, depthTest);
         }
+        // Wire capsule between the centres of its two end spheres (equal points: a sphere).
+        static void WireCapsule(const glm::vec3& point0, const glm::vec3& point1, float radius, const glm::vec4& color = DebugColor::White,
+                                float duration = 0.0f, bool depthTest = true);
         // Circle around `normal` (the plane it lies in faces it).
         static void Circle(const glm::vec3& center, const glm::vec3& normal, float radius, const glm::vec4& color = DebugColor::White,
                            float duration = 0.0f, bool depthTest = true);
@@ -216,6 +219,15 @@ namespace Zamin {
         // An overlap query (OverlapCircle2D / OverlapBox2D / OverlapPoint2D): its outline (empty: a
         // point query at `center`), green when it found something, and the found entities' positions.
         static void PhysicsOverlap(const glm::vec3& center, const std::vector<glm::vec3>& outline, const std::vector<glm::vec3>& found);
+        // A 3D overlap query (OverlapSphere3D / OverlapBox3D / OverlapCapsule3D): its shape, green when
+        // it found something, and the found entities' positions.
+        static void PhysicsOverlap3D(const PhysicsQueryShape3D& shape, const glm::vec3& center, const glm::quat& rotation,
+                                     const std::vector<glm::vec3>& found);
+        // A 3D shape cast (SphereCast3D ... CapsuleCast3D, the *All variants): the shape where it starts,
+        // the way it is swept, where it stops at the first hit (or its full length: a miss in red) and
+        // each hit's point and normal, numbered when there are several.
+        static void PhysicsShapeCast(const PhysicsQueryShape3D& shape, const glm::vec3& origin, const glm::quat& rotation,
+                                     const glm::vec3& direction, float maxDistance, const std::vector<RaycastHit>& hits);
         // A contact point and its normal (shown when ShowContacts is on).
         static void PhysicsContact(const glm::vec3& point, const glm::vec3& normal);
         // A 3D character's velocity (`desired`: what its script asked for) from `center` (shown
@@ -283,6 +295,8 @@ namespace Zamin {
             static void Rect(const glm::vec3&, const glm::vec2&, const glm::vec4& = DebugColor::White, float = 0.0f, bool = true) {}
             static void WireSphere(const glm::vec3&, float, const glm::vec4& = DebugColor::White, float = 0.0f, bool = true) {}
             static void Sphere(const glm::vec3&, float, const glm::vec4& = DebugColor::White, float = 0.0f, bool = true) {}
+            static void WireCapsule(const glm::vec3&, const glm::vec3&, float, const glm::vec4& = DebugColor::White, float = 0.0f,
+                                    bool = true) {}
             static void Circle(const glm::vec3&, const glm::vec3&, float, const glm::vec4& = DebugColor::White, float = 0.0f,
                                bool = true) {}
             static void Circle(const glm::vec3&, float, const glm::vec4& = DebugColor::White, float = 0.0f, bool = true) {}
@@ -296,6 +310,11 @@ namespace Zamin {
                              float = 0.0f) {}
 
             static void PhysicsRaycast(const glm::vec3&, const glm::vec3&, float, const RaycastHit&) {}
+            static void PhysicsRaycastAll(const glm::vec3&, const glm::vec3&, float, const std::vector<RaycastHit>&) {}
+            static void PhysicsOverlap(const glm::vec3&, const std::vector<glm::vec3>&, const std::vector<glm::vec3>&) {}
+            static void PhysicsOverlap3D(const PhysicsQueryShape3D&, const glm::vec3&, const glm::quat&, const std::vector<glm::vec3>&) {}
+            static void PhysicsShapeCast(const PhysicsQueryShape3D&, const glm::vec3&, const glm::quat&, const glm::vec3&, float,
+                                         const std::vector<RaycastHit>&) {}
             static void PhysicsContact(const glm::vec3&, const glm::vec3&) {}
             static void CharacterVelocity(const glm::vec3&, const glm::vec3&, const glm::vec3&) {}
             static void BodyVelocity(const glm::vec3&, const glm::vec3&) {}

@@ -19,6 +19,10 @@
 #include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
 #include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
 #include <Jolt/Physics/Collision/Shape/ScaledShape.h>
+#include <Jolt/Physics/Collision/Shape/MeshShape.h>
+#include <Jolt/Physics/Collision/CollideShape.h>
+#include <Jolt/Physics/Collision/ShapeCast.h>
+#include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/GroupFilter.h>
 #include <Jolt/Physics/Constraints/FixedConstraint.h>
 #include <Jolt/Physics/Constraints/HingeConstraint.h>
@@ -31,6 +35,7 @@
 #include <Jolt/Physics/Collision/ObjectLayer.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cfloat>
 #include <cmath>
@@ -38,16 +43,27 @@
 #include <mutex>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace Zamin {
 
     namespace {
 
+        // Jolt's object layer of a body: its collision layer (0..15, CollisionLayers2D) times two, plus
+        // one for a moving (dynamic / kinematic) body. Static bodies never collide with each other.
         namespace Layers
         {
-            static constexpr JPH::ObjectLayer NON_MOVING = 0;
-            static constexpr JPH::ObjectLayer MOVING = 1;
-            static constexpr JPH::ObjectLayer NUM_LAYERS = 2;
+            static constexpr int Count = 16;
+            static constexpr JPH::ObjectLayer NON_MOVING = 0; // layer 0, static
+            static constexpr JPH::ObjectLayer MOVING = 1;     // layer 0, moving
+            static constexpr JPH::ObjectLayer NUM_LAYERS = Count * 2;
+
+            inline JPH::ObjectLayer Make(int layer, bool moving)
+            {
+                return (JPH::ObjectLayer)((std::clamp(layer, 0, Count - 1) << 1) | (moving ? 1 : 0));
+            }
+            inline bool IsMoving(JPH::ObjectLayer layer) { return (layer & 1) != 0; }
+            inline int Index(JPH::ObjectLayer layer) { return (int)((layer >> 1) & (Count - 1)); }
         }
 
         namespace BroadPhaseLayers
@@ -57,34 +73,37 @@ namespace Zamin {
             static constexpr JPH::uint NUM_LAYERS(2);
         }
 
+        // Which object layers collide: never two static ones, else what the layer matrix says.
+        // Changed only between steps; Jolt's jobs only read it.
         class ObjectLayerPairFilterImpl : public JPH::ObjectLayerPairFilter
         {
         public:
+            std::array<uint16_t, Layers::Count> Masks;
+
+            ObjectLayerPairFilterImpl() { Masks.fill(0xFFFF); }
+
             bool ShouldCollide(JPH::ObjectLayer a, JPH::ObjectLayer b) const override
             {
-                if (a == Layers::NON_MOVING) return b == Layers::MOVING;
-                return true;
+                if (!Layers::IsMoving(a) && !Layers::IsMoving(b))
+                    return false;
+                return ((Masks[(size_t)Layers::Index(a)] >> Layers::Index(b)) & 1u) != 0;
             }
         };
 
         class BPLayerInterfaceImpl final : public JPH::BroadPhaseLayerInterface
         {
         public:
-            BPLayerInterfaceImpl()
-            {
-                m_Map[Layers::NON_MOVING] = BroadPhaseLayers::NON_MOVING;
-                m_Map[Layers::MOVING] = BroadPhaseLayers::MOVING;
-            }
             JPH::uint GetNumBroadPhaseLayers() const override { return BroadPhaseLayers::NUM_LAYERS; }
-            JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer layer) const override { return m_Map[layer]; }
+            JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer layer) const override
+            {
+                return Layers::IsMoving(layer) ? BroadPhaseLayers::MOVING : BroadPhaseLayers::NON_MOVING;
+            }
 #if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
             const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer layer) const override
             {
                 return layer == BroadPhaseLayers::NON_MOVING ? "NON_MOVING" : "MOVING";
             }
 #endif
-        private:
-            JPH::BroadPhaseLayer m_Map[Layers::NUM_LAYERS];
         };
 
         class ObjectVsBroadPhaseLayerFilterImpl : public JPH::ObjectVsBroadPhaseLayerFilter
@@ -92,9 +111,28 @@ namespace Zamin {
         public:
             bool ShouldCollide(JPH::ObjectLayer layer, JPH::BroadPhaseLayer bp) const override
             {
-                if (layer == Layers::NON_MOVING) return bp == BroadPhaseLayers::MOVING;
+                if (!Layers::IsMoving(layer)) return bp == BroadPhaseLayers::MOVING;
                 return true;
             }
+        };
+
+        // ---- query filters: the layers in a mask; sensor bodies only when asked for.
+        class QueryLayerFilter final : public JPH::ObjectLayerFilter
+        {
+        public:
+            explicit QueryLayerFilter(uint16_t mask) : m_Mask(mask) {}
+            bool ShouldCollide(JPH::ObjectLayer layer) const override { return ((m_Mask >> Layers::Index(layer)) & 1u) != 0; }
+        private:
+            uint16_t m_Mask;
+        };
+
+        class QueryBodyFilter final : public JPH::BodyFilter
+        {
+        public:
+            explicit QueryBodyFilter(bool sensors) : m_Sensors(sensors) {}
+            bool ShouldCollideLocked(const JPH::Body& body) const override { return m_Sensors || !body.IsSensor(); }
+        private:
+            bool m_Sensors;
         };
 
         std::mutex s_InitMutex;
@@ -146,6 +184,67 @@ namespace Zamin {
         inline JPH::Quat ToJolt(const glm::quat& q) { return JPH::Quat(q.x, q.y, q.z, q.w); }
         inline glm::vec3 FromJolt(const JPH::Vec3& v) { return { v.GetX(), v.GetY(), v.GetZ() }; }
         inline glm::quat FromJolt(const JPH::Quat& q) { return glm::quat(q.GetW(), q.GetX(), q.GetY(), q.GetZ()); }
+
+        // The Jolt mesh shape of each collision mesh (CollisionShapes3D::GetMesh) in use: building its
+        // tree is the slow part of a mesh collider, so every world shares it, and it outlives the
+        // worlds while the mesh lives (Play / Stop in the editor does not build it again). A mesh
+        // that was read again (its model file changed) is a new one; the old entry goes.
+        struct MeshShapeCache
+        {
+            struct Entry
+            {
+                std::weak_ptr<const CollisionMesh3D> Mesh;
+                JPH::RefConst<JPH::Shape> Shape;
+            };
+            std::mutex Mutex;
+            std::unordered_map<const CollisionMesh3D*, Entry> Entries;
+
+            void Prune()
+            {
+                std::erase_if(Entries, [](const auto& item) { return item.second.Mesh.expired(); });
+            }
+        };
+
+        MeshShapeCache& GetMeshShapeCache()
+        {
+            static MeshShapeCache s_Cache;
+            return s_Cache;
+        }
+
+        // Null (with the reason logged) when the mesh has no usable triangle.
+        JPH::RefConst<JPH::Shape> GetMeshShape(const Ref<const CollisionMesh3D>& mesh)
+        {
+            MeshShapeCache& cache = GetMeshShapeCache();
+            std::lock_guard lock(cache.Mutex);
+            if (auto it = cache.Entries.find(mesh.get()); it != cache.Entries.end() && it->second.Mesh.lock() == mesh)
+                return it->second.Shape;
+            cache.Prune();
+            JPH::VertexList vertices;
+            vertices.reserve(mesh->Positions.size());
+            for (const glm::vec3& p : mesh->Positions)
+                vertices.push_back(JPH::Float3(p.x, p.y, p.z));
+            JPH::IndexedTriangleList triangles;
+            triangles.reserve(mesh->GetTriangleCount());
+            const uint32_t count = (uint32_t)vertices.size();
+            for (size_t i = 0; i + 2 < mesh->Indices.size(); i += 3)
+            {
+                const uint32_t a = mesh->Indices[i], b = mesh->Indices[i + 1], c = mesh->Indices[i + 2];
+                if (a < count && b < count && c < count)
+                    triangles.push_back(JPH::IndexedTriangle(a, b, c, 0));
+            }
+            // Removes the degenerate / duplicate triangles.
+            JPH::MeshShapeSettings settings(std::move(vertices), std::move(triangles));
+            JPH::ShapeSettings::ShapeResult result = settings.Create();
+            if (result.HasError())
+            {
+                // Remembered as well: the bodies made from it later do not log it again.
+                ZM_CORE_ERROR("Mesh collider qurilmadi: {}", result.GetError().c_str());
+                cache.Entries[mesh.get()] = { mesh, nullptr };
+                return nullptr;
+            }
+            cache.Entries[mesh.get()] = { mesh, result.Get() };
+            return result.Get();
+        }
     }
 
     // ------------------------------------------------------------------ contacts
@@ -267,6 +366,7 @@ namespace Zamin {
             JPH::Ref<JPH::CharacterVirtual> Character;
             uint64_t EntityID = 0;
             std::vector<std::pair<uint64_t, bool>> Touching; // (entity id, sensor) from the previous update
+            JPH::ObjectLayer Layer = Layers::MOVING;         // its inner body's, what it collides with
         };
         std::vector<CharacterSlot> Characters;
 
@@ -399,10 +499,26 @@ namespace Zamin {
         if (desc.Shapes.empty())
             return 0xffffffff;
 
-        auto makeShape = [this](const PhysicsBody3DDesc::Shape& s) -> JPH::RefConst<JPH::Shape> {
+        const JPH::EMotionType motion = desc.MotionType == 0 ? JPH::EMotionType::Static :
+                                        desc.MotionType == 2 ? JPH::EMotionType::Kinematic : JPH::EMotionType::Dynamic;
+        auto makeShape = [this, motion](const PhysicsBody3DDesc::Shape& s) -> JPH::RefConst<JPH::Shape> {
             JPH::RefConst<JPH::Shape> shape;
             switch (s.Type)
             {
+                case PhysicsBody3DDesc::Shape::Kind::Mesh:
+                {
+                    // Jolt has no mass / inertia for an open mesh and cannot collide two meshes: static
+                    // and kinematic bodies only.
+                    if (!s.Mesh || motion == JPH::EMotionType::Dynamic)
+                        return nullptr;
+                    shape = GetMeshShape(s.Mesh);
+                    if (!shape)
+                        return nullptr;
+                    glm::vec3 scale = glm::max(glm::abs(s.Scale), glm::vec3(0.001f));
+                    if (glm::any(glm::greaterThan(glm::abs(scale - glm::vec3(1.0f)), glm::vec3(1e-5f))))
+                        shape = new JPH::ScaledShape(shape, ToJolt(scale));
+                    break;
+                }
                 case PhysicsBody3DDesc::Shape::Kind::ConvexHull:
                 {
                     if (!s.Hull || s.Hull->Points.size() < 4)
@@ -448,14 +564,16 @@ namespace Zamin {
             return shape;
         };
 
-        // Shapes that cannot be made (a hull without volume) are left out.
+        // Shapes that cannot be made (a hull without volume, a mesh on a dynamic body) are left out.
         std::vector<JPH::RefConst<JPH::Shape>> parts;
         std::vector<const PhysicsBody3DDesc::Shape*> made;
+        bool hasMesh = false;
         for (const auto& s : desc.Shapes)
             if (JPH::RefConst<JPH::Shape> part = makeShape(s))
             {
                 parts.push_back(part);
                 made.push_back(&s);
+                hasMesh |= s.Type == PhysicsBody3DDesc::Shape::Kind::Mesh;
             }
         if (parts.empty())
             return 0xffffffff;
@@ -476,9 +594,7 @@ namespace Zamin {
             shape = result.Get();
         }
 
-        JPH::EMotionType motion = desc.MotionType == 0 ? JPH::EMotionType::Static :
-                                  desc.MotionType == 2 ? JPH::EMotionType::Kinematic : JPH::EMotionType::Dynamic;
-        JPH::ObjectLayer layer = motion == JPH::EMotionType::Static ? Layers::NON_MOVING : Layers::MOVING;
+        const JPH::ObjectLayer layer = Layers::Make(desc.Layer, motion != JPH::EMotionType::Static);
 
         JPH::BodyCreationSettings settings(shape, JPH::RVec3(desc.Position.x, desc.Position.y, desc.Position.z),
                                            ToJolt(glm::normalize(desc.Rotation)), motion, layer);
@@ -491,6 +607,14 @@ namespace Zamin {
         settings.mUserData = (uint64_t)desc.EntityID;
         if (settings.mIsSensor && motion != JPH::EMotionType::Dynamic)
             settings.mCollideKinematicVsNonDynamic = true;
+        if (motion == JPH::EMotionType::Kinematic && hasMesh)
+        {
+            // A mesh has no volume to weigh: a kinematic body gets a box of its bounds (it is never
+            // pushed, but Jolt wants a mass for every moving body).
+            const glm::vec3 size = glm::max(FromJolt(shape->GetLocalBounds().GetSize()), glm::vec3(0.01f));
+            settings.mOverrideMassProperties = JPH::EOverrideMassProperties::MassAndInertiaProvided;
+            settings.mMassPropertiesOverride.SetMassAndInertiaOfSolidBox(ToJolt(size), std::max(0.001f, desc.Mass) / (size.x * size.y * size.z));
+        }
         if (motion == JPH::EMotionType::Dynamic)
         {
             settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
@@ -696,7 +820,8 @@ namespace Zamin {
         JPH::Ref<JPH::CharacterVirtualSettings> settings = new JPH::CharacterVirtualSettings();
         settings->mShape = shape;
         settings->mInnerBodyShape = shape;
-        settings->mInnerBodyLayer = Layers::MOVING;
+        const JPH::ObjectLayer layer = Layers::Make(desc.Layer, true);
+        settings->mInnerBodyLayer = layer;
         settings->mMaxSlopeAngle = JPH::DegreesToRadians(desc.MaxSlopeDegrees);
         settings->mMass = desc.Mass;
         settings->mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -radius); // feet area counts as support
@@ -710,7 +835,7 @@ namespace Zamin {
             slot++;
         if (slot == m_Impl->Characters.size())
             m_Impl->Characters.push_back({});
-        m_Impl->Characters[slot] = { character, (uint64_t)desc.EntityID, {} };
+        m_Impl->Characters[slot] = { character, (uint64_t)desc.EntityID, {}, layer };
         // Raycasts against the inner body report the entity.
         if (!character->GetInnerBodyID().IsInvalid())
         {
@@ -758,8 +883,8 @@ namespace Zamin {
 
         auto& sys = *m_Impl->System;
         c.ExtendedUpdate(dt, sys.GetGravity(), ext,
-                         sys.GetDefaultBroadPhaseLayerFilter(Layers::MOVING),
-                         sys.GetDefaultLayerFilter(Layers::MOVING),
+                         sys.GetDefaultBroadPhaseLayerFilter(slot.Layer),
+                         sys.GetDefaultLayerFilter(slot.Layer),
                          JPH::IgnoreSingleBodyFilter(c.GetInnerBodyID()), {}, *m_Impl->TempAllocator);
 
         // Contact begin/end events
@@ -812,27 +937,339 @@ namespace Zamin {
         return m_Impl->Characters[id].Character->GetGroundState() == JPH::CharacterBase::EGroundState::OnGround;
     }
 
-    RaycastHit PhysicsWorld3D::CastRay(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const
+    // ------------------------------------------------------------------ collision layers
+    void PhysicsWorld3D::SetCollisionMatrix(const std::array<uint16_t, 16>& masks)
     {
-        RaycastHit hit;
-        glm::vec3 dir = glm::length(direction) > 0.0f ? glm::normalize(direction) : glm::vec3(0, -1, 0);
-        JPH::RRayCast ray(JPH::RVec3(origin.x, origin.y, origin.z), ToJolt(dir * maxDistance));
-        JPH::RayCastResult result;
-        if (m_Impl->System->GetNarrowPhaseQuery().CastRay(ray, result))
+        m_Impl->ObjectPairFilter.Masks = masks;
+    }
+
+    bool PhysicsWorld3D::CanLayersCollide(int a, int b) const
+    {
+        if (a < 0 || a >= Layers::Count || b < 0 || b >= Layers::Count)
+            return false;
+        return m_Impl->ObjectPairFilter.ShouldCollide(Layers::Make(a, true), Layers::Make(b, true));
+    }
+
+    void PhysicsWorld3D::SetBodyLayer(uint32_t bodyID, int layer)
+    {
+        if (bodyID == 0xffffffff)
+            return;
+        // Called for every body every frame: Jolt's lookup (invalid for a body not in the world), not HasBody.
+        auto& bi = m_Impl->BI();
+        const JPH::BodyID id = ToBodyID(bodyID);
+        const JPH::ObjectLayer now = bi.GetObjectLayer(id);
+        if (now == JPH::cObjectLayerInvalid)
+            return;
+        const JPH::ObjectLayer wanted = Layers::Make(layer, Layers::IsMoving(now));
+        if (now == wanted)
+            return;
+        bi.SetObjectLayer(id, wanted);
+        // What it touched may not hold it any more (and it may not hold what rests on it): they wake.
+        bi.ActivateBodiesInAABox(WakeBounds(bi, id), {}, {});
+    }
+
+    int PhysicsWorld3D::GetBodyLayer(uint32_t bodyID) const
+    {
+        if (bodyID == 0xffffffff)
+            return -1;
+        const JPH::ObjectLayer layer = m_Impl->BI().GetObjectLayer(ToBodyID(bodyID));
+        return layer == JPH::cObjectLayerInvalid ? -1 : Layers::Index(layer);
+    }
+
+    void PhysicsWorld3D::SetCharacterLayer(uint32_t id, int layer)
+    {
+        if (id >= m_Impl->Characters.size() || !m_Impl->Characters[id].Character)
+            return;
+        auto& slot = m_Impl->Characters[id];
+        const JPH::ObjectLayer wanted = Layers::Make(layer, true);
+        if (slot.Layer == wanted)
+            return;
+        slot.Layer = wanted;
+        const JPH::BodyID inner = slot.Character->GetInnerBodyID();
+        if (!inner.IsInvalid())
         {
+            m_Impl->BI().SetObjectLayer(inner, wanted);
+            m_Impl->BI().ActivateBodiesInAABox(WakeBounds(m_Impl->BI(), inner), {}, {});
+        }
+    }
+
+    int PhysicsWorld3D::GetCharacterLayer(uint32_t id) const
+    {
+        if (id >= m_Impl->Characters.size() || !m_Impl->Characters[id].Character)
+            return -1;
+        return Layers::Index(m_Impl->Characters[id].Layer);
+    }
+
+    size_t PhysicsWorld3D::GetMeshShapeCacheSize()
+    {
+        MeshShapeCache& cache = GetMeshShapeCache();
+        std::lock_guard lock(cache.Mutex);
+        cache.Prune();
+        return cache.Entries.size();
+    }
+
+    // ------------------------------------------------------------------ queries
+    namespace {
+
+        bool IsFinite(const glm::vec3& v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); }
+
+        // The unit direction of a ray / cast; false for a query that cannot hit anything.
+        bool QueryDirection(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, glm::vec3& dir)
+        {
+            const float length = glm::length(direction);
+            if (!(length > 0.0f) || !std::isfinite(length) || !(maxDistance > 0.0f) || !std::isfinite(maxDistance) || !IsFinite(origin))
+                return false;
+            dir = direction / length;
+            return true;
+        }
+
+        JPH::Quat QueryRotation(const glm::quat& rotation)
+        {
+            const float length = glm::length(rotation);
+            if (!(length > 1e-6f) || !std::isfinite(length))
+                return JPH::Quat::sIdentity();
+            return ToJolt(rotation / length);
+        }
+
+        // The query shape in Jolt (null: a size that makes no shape).
+        JPH::RefConst<JPH::Shape> MakeQueryShape(const PhysicsQueryShape3D& s)
+        {
+            switch (s.Type)
+            {
+                case PhysicsQueryShape3D::Kind::Sphere:
+                    if (!(s.Radius > 0.0f) || !std::isfinite(s.Radius))
+                        return nullptr;
+                    return new JPH::SphereShape(s.Radius);
+                case PhysicsQueryShape3D::Kind::Box:
+                {
+                    const glm::vec3 h = glm::abs(s.HalfExtents);
+                    if (!(h.x > 0.0f && h.y > 0.0f && h.z > 0.0f) || !IsFinite(h))
+                        return nullptr;
+                    return new JPH::BoxShape(ToJolt(h), std::min({ h.x, h.y, h.z, JPH::cDefaultConvexRadius }));
+                }
+                case PhysicsQueryShape3D::Kind::Capsule:
+                {
+                    if (!(s.Radius > 0.0f) || !std::isfinite(s.Radius) || !std::isfinite(s.HalfHeight))
+                        return nullptr;
+                    if (s.HalfHeight <= 1e-5f)
+                        return new JPH::SphereShape(s.Radius); // both ends in one place
+                    return new JPH::CapsuleShape(s.HalfHeight, s.Radius);
+                }
+            }
+            return nullptr;
+        }
+
+        // Shape cast hits: the first (or every) body the shape runs into on its way - not the ones it
+        // starts inside (deeper than touching), nor the ones it only touches at the start while moving
+        // along them (a sphere on the floor cast sideways) or away from them.
+        class ShapeCastHits final : public JPH::CastShapeCollector
+        {
+        public:
+            static constexpr float StartInside = 1.0e-3f; // penetration at the start that counts as "inside"
+            static constexpr float MinApproach = 0.02f;   // cos of the steepest angle a touching start may move at (~89 degrees)
+
+            ShapeCastHits(bool all, const glm::vec3& direction) : m_All(all), m_Direction(ToJolt(direction)) {}
+
+            void AddHit(const JPH::ShapeCastResult& result) override
+            {
+                if (result.mFraction <= 0.0f)
+                {
+                    if (result.mPenetrationDepth > StartInside)
+                        return;
+                    const JPH::Vec3 axis = result.mPenetrationAxis;
+                    if (axis.LengthSq() < 1e-12f || axis.Normalized().Dot(m_Direction) <= MinApproach)
+                        return;
+                }
+                if (m_All)
+                    Hits.push_back(result);
+                else if (Hits.empty() || result.mFraction < Hits[0].mFraction)
+                {
+                    Hits.assign(1, result);
+                    UpdateEarlyOutFraction(result.GetEarlyOutFraction());
+                }
+            }
+
+            std::vector<JPH::ShapeCastResult> Hits;
+
+        private:
+            bool m_All;
+            JPH::Vec3 m_Direction;
+        };
+
+        // Each entity's first hit only, the closest first (ties: by ID).
+        void SortHits(std::vector<RaycastHit>& hits)
+        {
+            std::sort(hits.begin(), hits.end(), [](const RaycastHit& a, const RaycastHit& b) {
+                return a.Distance != b.Distance ? a.Distance < b.Distance : (uint64_t)a.EntityID < (uint64_t)b.EntityID;
+            });
+            std::unordered_set<uint64_t> seen;
+            std::erase_if(hits, [&](const RaycastHit& hit) { return !seen.insert((uint64_t)hit.EntityID).second; });
+        }
+    }
+
+    // Rays: convex shapes are hollow and triangles one-sided, so a ray that starts inside a body
+    // (or behind a mesh's triangle) goes through it.
+    static void CastRayQuery(const JPH::PhysicsSystem& system, const glm::vec3& origin, const glm::vec3& dir, float maxDistance,
+                             uint16_t layerMask, bool includeSensors, bool all, std::vector<RaycastHit>& out)
+    {
+        const JPH::RRayCast ray(JPH::RVec3(origin.x, origin.y, origin.z), ToJolt(dir * maxDistance));
+        JPH::RayCastSettings settings;
+        settings.SetBackFaceMode(JPH::EBackFaceMode::IgnoreBackFaces);
+        settings.mTreatConvexAsSolid = false;
+        const QueryLayerFilter layers(layerMask);
+        const QueryBodyFilter bodies(includeSensors);
+        std::vector<JPH::RayCastResult> results;
+        if (all)
+        {
+            JPH::AllHitCollisionCollector<JPH::CastRayCollector> collector;
+            system.GetNarrowPhaseQuery().CastRay(ray, settings, collector, {}, layers, bodies);
+            results.assign(collector.mHits.begin(), collector.mHits.end());
+        }
+        else
+        {
+            JPH::ClosestHitCollisionCollector<JPH::CastRayCollector> collector;
+            system.GetNarrowPhaseQuery().CastRay(ray, settings, collector, {}, layers, bodies);
+            if (collector.HadHit())
+                results.push_back(collector.mHit);
+        }
+        for (const JPH::RayCastResult& result : results)
+        {
+            JPH::BodyLockRead lock(system.GetBodyLockInterface(), result.mBodyID);
+            if (!lock.Succeeded())
+                continue;
+            const JPH::Body& body = lock.GetBody();
+            RaycastHit hit;
             hit.Hit = true;
             hit.Distance = result.mFraction * maxDistance;
-            JPH::RVec3 p = ray.GetPointOnRay(result.mFraction);
+            const JPH::RVec3 p = ray.GetPointOnRay(result.mFraction);
             hit.Point = { (float)p.GetX(), (float)p.GetY(), (float)p.GetZ() };
-            JPH::BodyLockRead lock(m_Impl->System->GetBodyLockInterface(), result.mBodyID);
-            if (lock.Succeeded())
-            {
-                const JPH::Body& body = lock.GetBody();
-                hit.EntityID = body.GetUserData();
-                hit.Normal = FromJolt(body.GetWorldSpaceSurfaceNormal(result.mSubShapeID2, p));
-            }
+            hit.EntityID = body.GetUserData();
+            hit.Normal = FromJolt(body.GetWorldSpaceSurfaceNormal(result.mSubShapeID2, p));
+            out.push_back(hit);
         }
-        return hit;
+    }
+
+    RaycastHit PhysicsWorld3D::CastRay(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, uint16_t layerMask,
+                                       bool includeSensors) const
+    {
+        glm::vec3 dir;
+        if (!QueryDirection(origin, direction, maxDistance, dir))
+            return {};
+        std::vector<RaycastHit> hits;
+        CastRayQuery(*m_Impl->System, origin, dir, maxDistance, layerMask, includeSensors, false, hits);
+        return hits.empty() ? RaycastHit() : hits[0];
+    }
+
+    std::vector<RaycastHit> PhysicsWorld3D::CastRayAll(const glm::vec3& origin, const glm::vec3& direction, float maxDistance,
+                                                       uint16_t layerMask, bool includeSensors) const
+    {
+        std::vector<RaycastHit> hits;
+        glm::vec3 dir;
+        if (!QueryDirection(origin, direction, maxDistance, dir))
+            return hits;
+        CastRayQuery(*m_Impl->System, origin, dir, maxDistance, layerMask, includeSensors, true, hits);
+        SortHits(hits); // Jolt reports them in no particular order (a body's sub-shapes / triangles each)
+        return hits;
+    }
+
+    std::vector<UUID> PhysicsWorld3D::Overlap(const PhysicsQueryShape3D& shape, const glm::vec3& center, const glm::quat& rotation,
+                                              uint16_t layerMask, bool includeSensors) const
+    {
+        JPH::RefConst<JPH::Shape> query = IsFinite(center) ? MakeQueryShape(shape) : nullptr;
+        if (!query)
+            return {};
+        JPH::CollideShapeSettings settings;
+        // Every triangle it touches counts, from either side.
+        settings.mBackFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
+        settings.mActiveEdgeMode = JPH::EActiveEdgeMode::CollideWithAll;
+        JPH::AllHitCollisionCollector<JPH::CollideShapeCollector> collector;
+        const QueryLayerFilter layers(layerMask);
+        const QueryBodyFilter bodies(includeSensors);
+        const JPH::RMat44 transform = JPH::RMat44::sRotationTranslation(QueryRotation(rotation), JPH::RVec3(center.x, center.y, center.z));
+        m_Impl->System->GetNarrowPhaseQuery().CollideShape(query, JPH::Vec3::sReplicate(1.0f), transform, settings, JPH::RVec3::sZero(), collector, {},
+                                                           layers, bodies);
+        std::unordered_set<uint32_t> seenBodies;
+        std::vector<std::pair<float, uint64_t>> found;
+        const auto& bi = m_Impl->BI();
+        for (const JPH::CollideShapeResult& hit : collector.mHits)
+        {
+            if (!seenBodies.insert(hit.mBodyID2.GetIndexAndSequenceNumber()).second)
+                continue;
+            const uint64_t entity = bi.GetUserData(hit.mBodyID2);
+            if (!entity)
+                continue;
+            const JPH::RVec3 p = bi.GetPosition(hit.mBodyID2);
+            const glm::vec3 position{ (float)p.GetX(), (float)p.GetY(), (float)p.GetZ() };
+            const glm::vec3 d = position - center;
+            found.push_back({ glm::dot(d, d), entity });
+        }
+        std::sort(found.begin(), found.end());
+        std::vector<UUID> out;
+        std::unordered_set<uint64_t> seen;
+        for (const auto& [distance, id] : found)
+            if (seen.insert(id).second)
+                out.push_back(UUID(id));
+        return out;
+    }
+
+    static std::vector<RaycastHit> CastShapeQuery(const JPH::PhysicsSystem& system, const PhysicsQueryShape3D& shape, const glm::vec3& origin,
+                                                  const glm::quat& rotation, const glm::vec3& direction, float maxDistance, uint16_t layerMask,
+                                                  bool includeSensors, bool all)
+    {
+        std::vector<RaycastHit> out;
+        glm::vec3 dir;
+        if (!QueryDirection(origin, direction, maxDistance, dir))
+            return out;
+        JPH::RefConst<JPH::Shape> query = MakeQueryShape(shape);
+        if (!query)
+            return out;
+        const JPH::RMat44 start = JPH::RMat44::sRotationTranslation(QueryRotation(rotation), JPH::RVec3(origin.x, origin.y, origin.z));
+        const JPH::RShapeCast cast = JPH::RShapeCast::sFromWorldTransform(query, JPH::Vec3::sReplicate(1.0f), start, ToJolt(dir * maxDistance));
+        // Only what it runs into: back faces (moving out of a body / behind a triangle) do not count. The
+        // deepest point of a body it starts in gives the depth that tells "inside" from "touching".
+        JPH::ShapeCastSettings settings;
+        settings.mReturnDeepestPoint = true;
+        ShapeCastHits collector(all, dir);
+        const QueryLayerFilter layers(layerMask);
+        const QueryBodyFilter bodies(includeSensors);
+        system.GetNarrowPhaseQuery().CastShape(cast, settings, JPH::RVec3::sZero(), collector, {}, layers, bodies);
+        // The first touch of each body.
+        std::unordered_map<uint32_t, const JPH::ShapeCastResult*> first;
+        for (const JPH::ShapeCastResult& hit : collector.Hits)
+        {
+            auto [it, added] = first.try_emplace(hit.mBodyID2.GetIndexAndSequenceNumber(), &hit);
+            if (!added && hit.mFraction < it->second->mFraction)
+                it->second = &hit;
+        }
+        const auto& bi = system.GetBodyInterface();
+        for (const auto& [body, hit] : first)
+        {
+            RaycastHit result;
+            result.Hit = true;
+            result.EntityID = bi.GetUserData(hit->mBodyID2);
+            result.Distance = std::max(0.0f, hit->mFraction) * maxDistance;
+            result.Point = FromJolt(hit->mContactPointOn2);
+            // The penetration axis points from the cast shape into the body: its surface faces back.
+            const JPH::Vec3 axis = hit->mPenetrationAxis;
+            result.Normal = axis.LengthSq() > 1e-12f ? -FromJolt(axis.Normalized()) : -dir;
+            out.push_back(result);
+        }
+        SortHits(out);
+        return out;
+    }
+
+    RaycastHit PhysicsWorld3D::CastShape(const PhysicsQueryShape3D& shape, const glm::vec3& origin, const glm::quat& rotation,
+                                         const glm::vec3& direction, float maxDistance, uint16_t layerMask, bool includeSensors) const
+    {
+        std::vector<RaycastHit> hits = CastShapeQuery(*m_Impl->System, shape, origin, rotation, direction, maxDistance, layerMask, includeSensors, false);
+        return hits.empty() ? RaycastHit() : hits[0];
+    }
+
+    std::vector<RaycastHit> PhysicsWorld3D::CastShapeAll(const PhysicsQueryShape3D& shape, const glm::vec3& origin, const glm::quat& rotation,
+                                                         const glm::vec3& direction, float maxDistance, uint16_t layerMask,
+                                                         bool includeSensors) const
+    {
+        return CastShapeQuery(*m_Impl->System, shape, origin, rotation, direction, maxDistance, layerMask, includeSensors, true);
     }
 
     // ------------------------------------------------------------------ joints

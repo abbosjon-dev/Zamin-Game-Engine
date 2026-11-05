@@ -529,6 +529,8 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<Rigidbody3DComponent>())
             e["Rigidbody3D"] = { { "BodyType", BodyType3DToString(c->Type) }, { "Mass", c->Mass }, { "LinearDamping", c->LinearDamping },
                                  { "AngularDamping", c->AngularDamping }, { "GravityFactor", c->GravityFactor }, { "LockRotation", c->LockRotation } };
+        if (auto* c = entity.TryGetComponent<Rigidbody3DComponent>(); c && c->Layer != 0)
+            e["Rigidbody3D"]["Layer"] = c->Layer;
         if (auto* c = entity.TryGetComponent<BoxCollider3DComponent>())
             e["BoxCollider3D"] = { { "HalfExtents", ToJson(c->HalfExtents) }, { "Offset", ToJson(c->Offset) }, { "Friction", c->Friction },
                                    { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
@@ -543,6 +545,13 @@ namespace Zamin {
             json& j = e["ConvexHullCollider3D"];
             j = { { "Model", c->ModelPath }, { "MaxVertices", c->MaxVertices }, { "Offset", ToJson(c->Offset) }, { "Friction", c->Friction },
                   { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
+            WriteAssetHandle(j, "Model", c->ModelPath);
+        }
+        if (auto* c = entity.TryGetComponent<MeshCollider3DComponent>())
+        {
+            json& j = e["MeshCollider3D"];
+            j = { { "Model", c->ModelPath }, { "Offset", ToJson(c->Offset) }, { "Friction", c->Friction }, { "Restitution", c->Restitution },
+                  { "IsSensor", c->IsSensor } };
             WriteAssetHandle(j, "Model", c->ModelPath);
         }
         // 3D joints: the connected body by its UUID (0 = a fixed point in the world).
@@ -596,6 +605,8 @@ namespace Zamin {
             e["CharacterController3D"] = { { "Radius", c->Radius }, { "Height", c->Height }, { "MaxSlope", c->MaxSlope },
                                            { "StepHeight", c->StepHeight }, { "Mass", c->Mass }, { "GravityScale", c->GravityScale },
                                            { "StickToFloor", c->StickToFloor } };
+        if (auto* c = entity.TryGetComponent<CharacterController3DComponent>(); c && c->Layer != 0)
+            e["CharacterController3D"]["Layer"] = c->Layer;
         if (auto* c = entity.TryGetComponent<TilemapComponent>())
         {
             c->EnsureSize();
@@ -1138,6 +1149,7 @@ namespace Zamin {
             c.AngularDamping = j.value("AngularDamping", 0.05f);
             c.GravityFactor = j.value("GravityFactor", 1.0f);
             c.LockRotation = j.value("LockRotation", false);
+            c.Layer = CollisionLayers2D::Clamp(j.value("Layer", 0));
         }
         auto read3D = [](const json& j, auto& c) {
             c.Offset = Vec(j, "Offset", glm::vec3(0.0f));
@@ -1171,6 +1183,13 @@ namespace Zamin {
             read3D(j, c);
             c.ModelPath = ReadAssetPath(j, "Model");
             c.MaxVertices = std::clamp(j.value("MaxVertices", c.MaxVertices), CollisionShapes3D::MinHullVertices, CollisionShapes3D::MaxHullVertices);
+        }
+        if (e.contains("MeshCollider3D"))
+        {
+            const json& j = e["MeshCollider3D"];
+            auto& c = entity.AddComponent<MeshCollider3DComponent>();
+            read3D(j, c);
+            c.ModelPath = ReadAssetPath(j, "Model");
         }
         // The same rules as the 2D joints; hinge / slider limits are kept around the start pose.
         auto readJoint3D = [](const json& j, Joint3DComponentBase& c) {
@@ -1240,6 +1259,7 @@ namespace Zamin {
             c.Mass = j.value("Mass", 70.0f);
             c.GravityScale = j.value("GravityScale", 1.0f);
             c.StickToFloor = j.value("StickToFloor", true);
+            c.Layer = CollisionLayers2D::Clamp(j.value("Layer", 0));
         }
         if (e.contains("Tilemap"))
         {

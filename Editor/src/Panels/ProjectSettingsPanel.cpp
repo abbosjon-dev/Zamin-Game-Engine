@@ -482,9 +482,10 @@ namespace Zamin {
     void ProjectSettingsPanel::DrawPhysicsLayers(ProjectConfig& config)
     {
         CollisionLayers2D& layers = config.CollisionLayers;
-        ImGui::TextWrapped("2D fizikaning 16 ta to'qnashuv qatlami. Rigidbody 2D (va xohlasa har bir kollider), tilemap'lar bitta "
-                           "qatlamda bo'ladi; ikki kollider faqat quyidagi jadvalda belgilangan qatlamlar juftligida bir-biriga "
-                           "tegadi (raycast'lar ham qatlam niqobini oladi). O'zgarishlar keyingi Play / Simulate'da qo'llanadi.");
+        ImGui::TextWrapped("Fizikaning 16 ta to'qnashuv qatlami (2D va 3D uchun bir xil). Rigidbody 2D (va xohlasa har bir kollider), "
+                           "tilemap'lar, Rigidbody 3D va Character Controller 3D bitta qatlamda bo'ladi; ikki kollider faqat quyidagi "
+                           "jadvalda belgilangan qatlamlar juftligida bir-biriga tegadi (raycast va overlap so'rovlari ham qatlam "
+                           "niqobini oladi). 2D uchun o'zgarishlar keyingi Play / Simulate'da, 3D uchun darhol qo'llanadi.");
         ImGui::Spacing();
 
         // How many bodies / colliders / tilemaps of the edited scene use each layer.
@@ -502,6 +503,9 @@ namespace Zamin {
             for (auto e : m_Scene->GetAllEntitiesWith<PolygonCollider2DComponent>()) count(m_Scene->GetRegistry().get<PolygonCollider2DComponent>(e).Layer);
             for (auto e : m_Scene->GetAllEntitiesWith<EdgeCollider2DComponent>()) count(m_Scene->GetRegistry().get<EdgeCollider2DComponent>(e).Layer);
             for (auto e : m_Scene->GetAllEntitiesWith<TilemapComponent>()) count(m_Scene->GetRegistry().get<TilemapComponent>(e).CollisionLayer);
+            for (auto e : m_Scene->GetAllEntitiesWith<Rigidbody3DComponent>()) count(m_Scene->GetRegistry().get<Rigidbody3DComponent>(e).Layer);
+            for (auto e : m_Scene->GetAllEntitiesWith<CharacterController3DComponent>())
+                count(m_Scene->GetRegistry().get<CharacterController3DComponent>(e).Layer);
         }
 
         // ---- the matrix of the named layers (a triangle: each pair once)
@@ -609,7 +613,7 @@ namespace Zamin {
         }
 
         ImGui::Spacing();
-        ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Skriptlarda: Raycast2D(..., LayerMask({ \"Ground\" })), LayerIndex(\"Player\")");
+        ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Skriptlarda: Raycast2D / Raycast3D(..., LayerMask({ \"Ground\" })), OverlapSphere3D, LayerIndex(\"Player\")");
     }
 
     void ProjectSettingsPanel::DrawSortingLayers(ProjectConfig& config)

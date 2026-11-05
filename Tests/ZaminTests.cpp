@@ -4323,6 +4323,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<SphereCollider3DComponent>();
     e.AddComponent<CapsuleCollider3DComponent>();
     e.AddComponent<ConvexHullCollider3DComponent>();
+    e.AddComponent<MeshCollider3DComponent>();
     e.AddComponent<FixedJoint3DComponent>();
     e.AddComponent<HingeJoint3DComponent>();
     e.AddComponent<DistanceJoint3DComponent>();
@@ -4338,7 +4339,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 45);
+    CHECK(types.size() == 46);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -17915,6 +17916,437 @@ TEST(Joints3DSampleScene)
         for (Entity e : scene->FindEntitiesByName(name))
             CHECK(e.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff && Pos3D(e).y > 0.0f && Pos3D(e).y < 4.0f);
     CHECK(Pos3D(shrine).y > -0.05f && Pos3D(shrine).y < 3.0f);
+    scene->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ M10: mesh colliders, layers, 3D queries
+static Entity MakeShape3D(Ref<Scene>& scene, const char* name, glm::vec3 position, Rigidbody3DComponent::BodyType type)
+{
+    Entity e = scene->CreateEntity(name);
+    e.GetTransform().Translation = position;
+    e.AddComponent<Rigidbody3DComponent>().Type = type;
+    return e;
+}
+
+static std::vector<std::string> HitNames(Ref<Scene>& scene, const std::vector<RaycastHit>& hits)
+{
+    std::vector<std::string> names;
+    for (const RaycastHit& h : hits)
+    {
+        Entity e = scene->GetEntityByUUID(h.EntityID);
+        names.push_back(e ? e.GetName() : std::string("?"));
+    }
+    return names;
+}
+
+TEST(MeshCollider3DStaticAndCached)
+{
+    // The wireframe of a cube: its 12 sides (the faces' diagonals lie flat and are left out); a plane: its border.
+    Ref<const CollisionMesh3D> cubeMesh = CollisionShapes3D::GetMesh("", PrimitiveMesh::Cube);
+    CHECK(cubeMesh && cubeMesh->GetTriangleCount() == 12);
+    Ref<const CollisionShapes3D::EdgeList> edges = CollisionShapes3D::GetFeatureEdges(cubeMesh);
+    CHECK(edges && edges->size() == 12 && edges == CollisionShapes3D::GetFeatureEdges(cubeMesh));
+    Ref<const CollisionShapes3D::EdgeList> planeEdges = CollisionShapes3D::GetFeatureEdges(CollisionShapes3D::GetMesh("", PrimitiveMesh::Plane));
+    CHECK(planeEdges && planeEdges->size() == 4);
+    CHECK(!CollisionShapes3D::GetFeatureEdges(nullptr));
+
+    // A V-shaped valley (two slopes, open at the top) from a model file: concave, which a hull cannot be.
+    auto dir = MakeTempDir("zamin-meshcollider-");
+    {
+        std::ofstream obj(dir / "valley.obj");
+        obj << "v -2 2 1\nv 0 0 1\nv 0 0 -1\nv -2 2 -1\nv 2 2 1\nv 2 2 -1\n";
+        obj << "f 1 2 3 4\nf 2 5 6 3\n";
+    }
+    const std::string path = (dir / "valley.obj").string();
+
+    auto scene = CreateRef<Scene>();
+    Entity valley = MakeShape3D(scene, "Valley", { 0.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static);
+    valley.AddComponent<MeshCollider3DComponent>().ModelPath = path;
+    Entity hullValley = MakeShape3D(scene, "HullValley", { 10.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static);
+    hullValley.AddComponent<ConvexHullCollider3DComponent>().ModelPath = path;
+    auto ballAt = [&](const char* name, glm::vec3 p) {
+        Entity e = MakeShape3D(scene, name, p, Rigidbody3DComponent::BodyType::Dynamic);
+        e.AddComponent<SphereCollider3DComponent>().Radius = 0.5f;
+        auto& rb = e.GetComponent<Rigidbody3DComponent>();
+        rb.LinearDamping = 1.5f;
+        rb.AngularDamping = 1.5f;
+        return e;
+    };
+    Entity inValley = ballAt("InValley", { 0.3f, 4.0f, 0.0f });
+    Entity onHull = ballAt("OnHull", { 10.3f, 4.0f, 0.0f });
+    // A floor: the Mesh Renderer's plane (no model path), scaled with the transform.
+    Entity floor = MakeShape3D(scene, "Floor", { 0.0f, -5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static);
+    floor.GetTransform().Scale = { 80.0f, 1.0f, 80.0f };
+    floor.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Plane;
+    floor.AddComponent<MeshCollider3DComponent>();
+    Entity crate = MakeBody3D(scene, "Crate", { -10.0f, -2.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic, glm::vec3(0.5f));
+    Entity hero = scene->CreateEntity("Hero");
+    hero.GetTransform().Translation = { -15.0f, -3.0f, 0.0f };
+    hero.AddComponent<CharacterController3DComponent>();
+    // A dynamic body leaves its mesh collider out: with nothing else it gets no body, with a box it is a box.
+    Entity bad = MakeShape3D(scene, "Bad", { 20.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    bad.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Cube;
+    bad.AddComponent<MeshCollider3DComponent>();
+    Entity mixed = MakeBody3D(scene, "Mixed", { -20.0f, -2.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic, glm::vec3(0.5f));
+    mixed.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Sphere;
+    mixed.AddComponent<MeshCollider3DComponent>();
+    // A kinematic mesh carries what lies on it.
+    Entity lift = MakeShape3D(scene, "Lift", { 25.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Kinematic);
+    lift.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Cube;
+    lift.AddComponent<MeshCollider3DComponent>();
+    Entity rider = MakeBody3D(scene, "Rider", { 25.0f, 2.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    // Without a source: no body, and the reason.
+    Entity nothing = MakeShape3D(scene, "Nothing", { 30.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static);
+    nothing.AddComponent<MeshCollider3DComponent>();
+    std::string error;
+    CHECK(!Scene::GetMeshCollider(nothing, &error) && !error.empty());
+    CHECK(Scene::GetMeshCollider(valley) && Scene::GetMeshCollider(valley)->GetTriangleCount() == 4);
+    CHECK(Scene::GetMeshCollider(floor) == CollisionShapes3D::GetMesh("", PrimitiveMesh::Plane));
+
+    scene->OnRuntimeStart();
+    CHECK(valley.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff);
+    CHECK(floor.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff);
+    CHECK(bad.GetComponent<Rigidbody3DComponent>().RuntimeBodyID == 0xffffffff);
+    CHECK(mixed.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff);
+    CHECK(lift.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff);
+    CHECK(nothing.GetComponent<Rigidbody3DComponent>().RuntimeBodyID == 0xffffffff);
+    const size_t shapes = PhysicsWorld3D::GetMeshShapeCacheSize();
+    CHECK(shapes >= 3); // the valley, the plane, the cube
+    RunFrames(scene, 240);
+    // The ball rolls down into the valley's bottom; on the hull of the same file it lies on the flat top.
+    CHECK(Pos3D(inValley).y < 1.2f && std::abs(Pos3D(inValley).x) < 0.6f);
+    CHECK_NEAR(Pos3D(onHull).y, 2.5f, 0.05f);
+    CHECK_NEAR(Pos3D(crate).y, -4.5f, 0.03f);
+    CHECK_NEAR(Pos3D(mixed).y, -4.5f, 0.03f);
+    CHECK_NEAR(Pos3D(hero).y, -5.0f, 0.05f);
+    CHECK(hero.GetComponent<CharacterController3DComponent>().Grounded);
+    CHECK_NEAR(Pos3D(rider).y, 0.75f, 0.03f);
+    // The lift goes up 1.2 units in a second: the rider goes with it.
+    for (int i = 0; i < 60; i++)
+    {
+        lift.GetTransform().Translation.y += 0.02f;
+        RunFrames(scene, 1);
+    }
+    RunFrames(scene, 10);
+    CHECK_NEAR(Pos3D(lift).y, 1.2f, 1e-3f);
+    CHECK_NEAR(Pos3D(rider).y, 1.95f, 0.05f);
+    // Rays: the slope's front side with its normal, the floor from above; from under the floor, through it.
+    RaycastHit slope = scene->Raycast3D({ 1.0f, 10.0f, 0.5f }, { 0.0f, -1.0f, 0.0f }, 20.0f);
+    CHECK(slope && slope.EntityID == valley.GetUUID() && std::abs(slope.Point.y - 1.0f) < 1e-3f);
+    CHECK(slope && std::abs(slope.Normal.x + 0.7071f) < 1e-3f && std::abs(slope.Normal.y - 0.7071f) < 1e-3f);
+    RaycastHit ground = scene->Raycast3D({ 5.0f, 0.0f, 3.0f }, { 0.0f, -1.0f, 0.0f }, 20.0f);
+    CHECK(ground && ground.EntityID == floor.GetUUID() && std::abs(ground.Point.y + 5.0f) < 1e-3f && ground.Normal.y > 0.999f);
+    CHECK(!scene->Raycast3D({ 5.0f, -8.0f, 3.0f }, { 0.0f, 1.0f, 0.0f }, 6.0f));
+    scene->OnRuntimeStop();
+    // Play again: the mesh shapes were not made again (shared while the meshes live).
+    scene->OnRuntimeStart();
+    CHECK(PhysicsWorld3D::GetMeshShapeCacheSize() == shapes);
+    scene->OnRuntimeStop();
+
+    // Saved with the scene.
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+    Entity back = loaded->FindEntityByName("Valley");
+    CHECK(back && back.HasComponent<MeshCollider3DComponent>() && back.GetComponent<MeshCollider3DComponent>().ModelPath == path);
+    CHECK(loaded->FindEntityByName("Floor").HasComponent<MeshCollider3DComponent>() &&
+          loaded->FindEntityByName("Floor").GetComponent<MeshCollider3DComponent>().ModelPath.empty());
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+}
+
+TEST(CollisionLayers3DMatrixAndFiltering)
+{
+    namespace fs = std::filesystem;
+    // The world's matrix on its own.
+    {
+        PhysicsWorld3D world({ 0.0f, -9.81f, 0.0f });
+        std::array<uint16_t, 16> masks;
+        masks.fill(0xFFFF);
+        masks[2] &= (uint16_t)~(1u << 3);
+        masks[3] &= (uint16_t)~(1u << 2);
+        world.SetCollisionMatrix(masks);
+        CHECK(world.CanLayersCollide(1, 3) && !world.CanLayersCollide(2, 3) && !world.CanLayersCollide(3, 2) && world.CanLayersCollide(2, 2));
+        CHECK(!world.CanLayersCollide(-1, 0) && !world.CanLayersCollide(0, 16));
+    }
+
+    fs::path root = MakeTempDir("zamin-layers3d-");
+    auto project = Project::CreateFromTemplate(root, "Layer3DGame");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    CollisionLayers2D& layers = project->GetConfig().CollisionLayers;
+    layers.Names[1] = "Player";
+    layers.Names[2] = "Ghost";
+    layers.Names[3] = "Ground";
+    layers.SetCollision(2, 3, false);
+
+    auto scene = CreateRef<Scene>();
+    Entity ground = MakeBody3D(scene, "Ground", { 0.0f, -0.5f, 0.0f }, Rigidbody3DComponent::BodyType::Static, { 30.0f, 0.5f, 30.0f });
+    ground.GetComponent<Rigidbody3DComponent>().Layer = 3;
+    Entity player = MakeBody3D(scene, "Player", { -3.0f, 3.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    player.GetComponent<Rigidbody3DComponent>().Layer = 1;
+    Entity ghost = MakeBody3D(scene, "Ghost", { 3.0f, 3.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    ghost.GetComponent<Rigidbody3DComponent>().Layer = 2;
+    Entity walker = scene->CreateEntity("Walker");
+    walker.GetTransform().Translation = { -8.0f, 1.0f, 0.0f };
+    walker.AddComponent<CharacterController3DComponent>().Layer = 1;
+    Entity spirit = scene->CreateEntity("Spirit");
+    spirit.GetTransform().Translation = { 8.0f, 1.0f, 0.0f };
+    spirit.AddComponent<CharacterController3DComponent>().Layer = 2;
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    CHECK(world && world->GetBodyLayer(ghost.GetComponent<Rigidbody3DComponent>().RuntimeBodyID) == 2);
+    CHECK(world && world->GetCharacterLayer(spirit.GetComponent<CharacterController3DComponent>().RuntimeID) == 2);
+    CHECK(world && !world->CanLayersCollide(2, 3) && world->CanLayersCollide(1, 3));
+    RunFrames(scene, 90);
+    CHECK_NEAR(Pos3D(player).y, 0.25f, 0.03f);
+    CHECK(Pos3D(ghost).y < -2.0f); // Ghost does not touch Ground
+    CHECK_NEAR(Pos3D(walker).y, 0.0f, 0.05f);
+    CHECK(walker.GetComponent<CharacterController3DComponent>().Grounded);
+    CHECK(Pos3D(spirit).y < -1.0f && !spirit.GetComponent<CharacterController3DComponent>().Grounded);
+    // Queries take a mask: all layers hit the ground, a mask without Ground goes past it.
+    RaycastHit all = scene->Raycast3D({ -12.0f, 5.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 20.0f);
+    CHECK(all && all.EntityID == ground.GetUUID());
+    CHECK(!scene->Raycast3D({ -12.0f, 5.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 20.0f, layers.MakeMask({ "Player" })));
+    CHECK(scene->Raycast3D({ -3.0f, 5.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 20.0f, layers.MakeMask({ "Player" })).EntityID == player.GetUUID());
+    CHECK(EntityNames(scene->OverlapSphere3D({ -3.0f, 0.25f, 0.0f }, 0.5f, layers.MakeMask({ "Player" }))) == std::vector<std::string>{ "Player" });
+    CHECK(EntityNames(scene->OverlapSphere3D({ -3.0f, 0.25f, 0.0f }, 0.5f, layers.MakeMask({ "Ground" }))) == std::vector<std::string>{ "Ground" });
+    // A body moved to another layer while the game runs: the resting player falls through the ground.
+    player.GetComponent<Rigidbody3DComponent>().Layer = 2;
+    walker.GetComponent<CharacterController3DComponent>().Layer = 2;
+    RunFrames(scene, 90);
+    CHECK(world->GetBodyLayer(player.GetComponent<Rigidbody3DComponent>().RuntimeBodyID) == 2);
+    CHECK(Pos3D(player).y < -2.0f);
+    CHECK(Pos3D(walker).y < -1.0f);
+    scene->OnRuntimeStop();
+    // Saved with the scene (layer 0 is left out of the file).
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->FindEntityByName("Ground").GetComponent<Rigidbody3DComponent>().Layer == 3);
+    CHECK(loaded->FindEntityByName("Spirit").GetComponent<CharacterController3DComponent>().Layer == 2);
+    auto plain = CreateRef<Scene>();
+    MakeBody3D(plain, "Plain", glm::vec3(0.0f), Rigidbody3DComponent::BodyType::Dynamic);
+    CHECK(SceneSerializer(plain).SerializeToString().find("\"Layer\"") == std::string::npos);
+
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
+TEST(Overlap3DQueries)
+{
+    auto scene = CreateRef<Scene>();
+    using BT = Rigidbody3DComponent::BodyType;
+    MakeBody3D(scene, "Wall", { 0.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    Entity ball = MakeShape3D(scene, "Ball", { 3.0f, 0.0f, 0.0f }, BT::Static);
+    ball.AddComponent<SphereCollider3DComponent>().Radius = 0.5f;
+    Entity zone = MakeBody3D(scene, "Zone", { 0.0f, 4.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    zone.GetComponent<BoxCollider3DComponent>().IsSensor = true;
+    Entity ghost = MakeBody3D(scene, "Ghost", { 3.0f, 3.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    ghost.GetComponent<Rigidbody3DComponent>().Layer = 2;
+    Entity pill = MakeShape3D(scene, "Pill", { -3.0f, 0.0f, 0.0f }, BT::Static);
+    pill.AddComponent<CapsuleCollider3DComponent>(); // radius 0.5, half height 0.5: from y -1 to 1
+    Entity floor = MakeShape3D(scene, "Floor", { 0.0f, -3.0f, 0.0f }, BT::Static);
+    floor.GetTransform().Scale = { 20.0f, 1.0f, 20.0f };
+    floor.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Plane;
+    floor.AddComponent<MeshCollider3DComponent>();
+    // A compound (two colliders on one body): found once.
+    Entity twin = MakeBody3D(scene, "Twin", { -6.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    twin.AddComponent<SphereCollider3DComponent>().Offset = { 0.0f, 1.0f, 0.0f };
+    Entity hero = scene->CreateEntity("Hero");
+    hero.GetTransform().Translation = { 6.0f, 0.0f, 0.0f };
+    hero.AddComponent<CharacterController3DComponent>();
+
+    CHECK(scene->OverlapSphere3D({ 0.0f, 0.0f, 0.0f }, 0.5f).empty()); // edit mode: no world
+    scene->OnRuntimeStart();
+    CHECK(EntityNames(scene->OverlapSphere3D({ 0.0f, 0.0f, 0.0f }, 0.5f)) == std::vector<std::string>{ "Wall" });
+    // The nearest body first.
+    CHECK(EntityNames(scene->OverlapSphere3D({ 1.8f, 0.0f, 0.0f }, 1.4f)) == (std::vector<std::string>{ "Ball", "Wall" }));
+    CHECK(scene->OverlapSphere3D({ 1.5f, 1.8f, 0.0f }, 0.3f).empty());
+    // Triggers only when asked for.
+    CHECK(scene->OverlapSphere3D({ 0.0f, 4.0f, 0.0f }, 0.2f).empty());
+    CHECK(EntityNames(scene->OverlapSphere3D({ 0.0f, 4.0f, 0.0f }, 0.2f, 0xFFFF, true)) == std::vector<std::string>{ "Zone" });
+    CHECK(EntityNames(scene->OverlapBox3D({ 0.0f, 2.4f, 0.0f }, { 0.2f, 2.0f, 0.2f })) == std::vector<std::string>{ "Wall" });
+    CHECK(EntityNames(scene->OverlapBox3D({ 0.0f, 2.4f, 0.0f }, { 0.2f, 2.0f, 0.2f }, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), 0xFFFF, true)) ==
+          (std::vector<std::string>{ "Zone", "Wall" }));
+    // A thin box between the ball and the ghost finds nothing; turned upright it reaches both. A mask without layer 2: the ball.
+    CHECK(scene->OverlapBox3D({ 3.0f, 1.5f, 0.0f }, { 2.0f, 0.05f, 0.05f }).empty());
+    const glm::quat upright = glm::angleAxis(glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    CHECK(EntityNames(scene->OverlapBox3D({ 3.0f, 1.0f, 0.0f }, { 2.0f, 0.05f, 0.05f }, upright)) == (std::vector<std::string>{ "Ball", "Ghost" }));
+    CHECK(EntityNames(scene->OverlapBox3D({ 3.0f, 1.0f, 0.0f }, { 2.0f, 0.05f, 0.05f }, upright, (uint16_t)~(1u << 2))) ==
+          std::vector<std::string>{ "Ball" });
+    // Capsules between two points: along the pill, and one lying just over its top (y 1.0) or touching it.
+    CHECK(EntityNames(scene->OverlapCapsule3D({ -3.0f, -2.0f, 0.0f }, { -3.0f, 2.0f, 0.0f }, 0.2f)) == std::vector<std::string>{ "Pill" });
+    CHECK(scene->OverlapCapsule3D({ -3.0f, 1.4f, -1.0f }, { -3.0f, 1.4f, 1.0f }, 0.3f).empty());
+    CHECK(EntityNames(scene->OverlapCapsule3D({ -3.0f, 1.2f, -1.0f }, { -3.0f, 1.2f, 1.0f }, 0.3f)) == std::vector<std::string>{ "Pill" });
+    // Two points in one place: a sphere.
+    CHECK(EntityNames(scene->OverlapCapsule3D({ 3.0f, 0.0f, 0.0f }, { 3.0f, 0.0f, 0.0f }, 0.1f)) == std::vector<std::string>{ "Ball" });
+    // A mesh: its triangles count (a sphere through the floor), not the room above them.
+    CHECK(EntityNames(scene->OverlapSphere3D({ 5.0f, -3.0f, 5.0f }, 0.2f)) == std::vector<std::string>{ "Floor" });
+    CHECK(scene->OverlapSphere3D({ 5.0f, -2.0f, 5.0f }, 0.5f).empty());
+    CHECK(EntityNames(scene->OverlapSphere3D({ -6.0f, 0.5f, 0.0f }, 1.2f)) == std::vector<std::string>{ "Twin" });
+    // Character controllers are found by their capsule.
+    CHECK(EntityNames(scene->OverlapSphere3D({ 6.0f, 0.9f, 0.0f }, 0.1f)) == std::vector<std::string>{ "Hero" });
+    // Bad input: nothing.
+    CHECK(scene->OverlapSphere3D({ 0.0f, 0.0f, 0.0f }, 0.0f).empty());
+    CHECK(scene->OverlapBox3D({ 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 1.0f }).empty());
+    CHECK(scene->OverlapSphere3D({ std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f }, 1.0f).empty());
+    CHECK(scene->OverlapCapsule3D({ 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, -1.0f).empty());
+    scene->OnRuntimeStop();
+}
+
+TEST(ShapeCast3DQueries)
+{
+    auto scene = CreateRef<Scene>();
+    using BT = Rigidbody3DComponent::BodyType;
+    Entity wall = MakeBody3D(scene, "Wall", { 5.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    Entity far = MakeBody3D(scene, "Far", { 10.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    Entity zone = MakeBody3D(scene, "Zone", { 7.5f, 0.0f, 0.0f }, BT::Static, { 0.25f, 1.0f, 1.0f });
+    zone.GetComponent<BoxCollider3DComponent>().IsSensor = true;
+    Entity ghost = MakeBody3D(scene, "Ghost", { 13.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    ghost.GetComponent<Rigidbody3DComponent>().Layer = 3;
+    Entity floor = MakeShape3D(scene, "Floor", { 0.0f, -3.0f, -5.0f }, BT::Static);
+    floor.GetTransform().Scale = { 6.0f, 1.0f, 6.0f };
+    floor.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Plane;
+    floor.AddComponent<MeshCollider3DComponent>();
+    Entity hero = scene->CreateEntity("Hero");
+    hero.GetTransform().Translation = { 0.0f, 0.0f, 10.0f };
+    hero.AddComponent<CharacterController3DComponent>();
+    CHECK(!scene->SphereCast3D({ 0.0f, 0.0f, 0.0f }, 0.5f, { 1.0f, 0.0f, 0.0f }, 20.0f)); // edit mode
+    scene->OnRuntimeStart();
+
+    // A sphere: stops where it touches the wall's face.
+    RaycastHit hit = scene->SphereCast3D({ 0.0f, 0.0f, 0.0f }, 0.5f, { 2.0f, 0.0f, 0.0f }, 20.0f);
+    CHECK(hit && hit.EntityID == wall.GetUUID());
+    CHECK_NEAR(hit.Distance, 4.0f, 0.01f);
+    CHECK_NEAR(hit.Point.x, 4.5f, 0.01f);
+    CHECK(hit.Normal.x < -0.99f);
+    // A "thick ray": past the wall's top a ray misses, the sphere does not.
+    CHECK(!scene->Raycast3D({ 0.0f, 0.9f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 20.0f));
+    CHECK(scene->SphereCast3D({ 0.0f, 0.9f, 0.0f }, 0.5f, { 1.0f, 0.0f, 0.0f }, 20.0f).EntityID == wall.GetUUID());
+    CHECK(!scene->SphereCast3D({ 0.0f, 1.2f, 0.0f }, 0.5f, { 1.0f, 0.0f, 0.0f }, 20.0f));
+    // Too short, and starting inside the wall: that one is not hit.
+    CHECK(!scene->SphereCast3D({ 0.0f, 0.0f, 0.0f }, 0.5f, { 1.0f, 0.0f, 0.0f }, 3.9f));
+    RaycastHit fromInside = scene->SphereCast3D({ 5.0f, 0.0f, 0.0f }, 0.3f, { 1.0f, 0.0f, 0.0f }, 20.0f);
+    CHECK(fromInside && fromInside.EntityID == far.GetUUID());
+    CHECK_NEAR(fromInside.Distance, 4.2f, 0.01f);
+    // Every entity on the way: triggers when asked for, a layer mask.
+    CHECK(HitNames(scene, scene->SphereCast3DAll({ 0.0f, 0.0f, 0.0f }, 0.3f, { 1.0f, 0.0f, 0.0f }, 20.0f)) ==
+          (std::vector<std::string>{ "Wall", "Far", "Ghost" }));
+    CHECK(HitNames(scene, scene->SphereCast3DAll({ 0.0f, 0.0f, 0.0f }, 0.3f, { 1.0f, 0.0f, 0.0f }, 20.0f, 0xFFFF, true)) ==
+          (std::vector<std::string>{ "Wall", "Zone", "Far", "Ghost" }));
+    std::vector<RaycastHit> masked = scene->SphereCast3DAll({ 0.0f, 0.0f, 0.0f }, 0.3f, { 1.0f, 0.0f, 0.0f }, 20.0f, (uint16_t)~(1u << 3));
+    CHECK(HitNames(scene, masked) == (std::vector<std::string>{ "Wall", "Far" }));
+    for (size_t i = 1; i < masked.size(); i++)
+        CHECK(masked[i - 1].Distance <= masked[i].Distance);
+    // A box: face first, then turned 45 degrees its edge reaches the wall sooner.
+    RaycastHit box = scene->BoxCast3D({ 0.0f, 0.0f, 0.0f }, glm::vec3(0.5f), { 1.0f, 0.0f, 0.0f }, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), 20.0f);
+    CHECK(box && box.EntityID == wall.GetUUID());
+    CHECK_NEAR(box.Distance, 4.0f, 0.01f);
+    RaycastHit turned = scene->BoxCast3D({ 0.0f, 0.0f, 0.0f }, glm::vec3(0.5f), { 1.0f, 0.0f, 0.0f },
+                                         glm::angleAxis(glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)), 20.0f);
+    CHECK(turned && turned.EntityID == wall.GetUUID());
+    CHECK_NEAR(turned.Distance, 4.5f - 0.7071f, 0.01f);
+    CHECK(HitNames(scene, scene->BoxCast3DAll({ 0.0f, 0.0f, 0.0f }, glm::vec3(0.2f), { 1.0f, 0.0f, 0.0f }, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), 11.0f)) ==
+          (std::vector<std::string>{ "Wall", "Far" }));
+    // An upright capsule between two points.
+    RaycastHit capsule = scene->CapsuleCast3D({ 0.0f, -0.5f, 0.0f }, { 0.0f, 0.5f, 0.0f }, 0.25f, { 1.0f, 0.0f, 0.0f }, 20.0f);
+    CHECK(capsule && capsule.EntityID == wall.GetUUID());
+    CHECK_NEAR(capsule.Distance, 4.25f, 0.01f);
+    // Lying along the way, over the wall: its end sphere still catches the far box's top.
+    CHECK(!scene->CapsuleCast3D({ 0.0f, 1.2f, 0.0f }, { 2.0f, 1.2f, 0.0f }, 0.5f, { 1.0f, 0.0f, 0.0f }, 20.0f));
+    CHECK(HitNames(scene, scene->CapsuleCast3DAll({ 0.0f, 0.8f, 0.0f }, { 2.0f, 0.8f, 0.0f }, 0.5f, { 1.0f, 0.0f, 0.0f }, 20.0f)) ==
+          (std::vector<std::string>{ "Wall", "Far", "Ghost" }));
+    // Down onto a mesh floor: the plane's top with its normal.
+    RaycastHit down = scene->SphereCast3D({ 1.0f, 5.0f, -5.0f }, 0.5f, { 0.0f, -1.0f, 0.0f }, 20.0f);
+    CHECK(down && down.EntityID == floor.GetUUID());
+    CHECK_NEAR(down.Distance, 7.5f, 0.01f);
+    CHECK(down.Normal.y > 0.99f && std::abs(down.Point.y + 3.0f) < 0.01f);
+    // Resting on it (touching, not inside): down it is hit at once, along it or away from it not.
+    RaycastHit resting = scene->SphereCast3D({ 1.0f, -2.5f, -5.0f }, 0.5f, { 0.0f, -1.0f, 0.0f }, 1.0f);
+    CHECK(resting && resting.EntityID == floor.GetUUID() && resting.Distance < 0.01f);
+    CHECK(!scene->SphereCast3D({ 1.0f, -2.5f, -5.0f }, 0.5f, { 1.0f, 0.0f, 0.0f }, 1.0f));
+    CHECK(!scene->SphereCast3D({ 1.0f, -2.5f, -5.0f }, 0.5f, { 0.0f, 1.0f, 0.0f }, 1.0f));
+    // From inside a character's capsule: it passes its own capsule by.
+    const glm::vec3 chest = Pos3D(hero) + glm::vec3(0.0f, 1.2f, 0.0f);
+    CHECK(!scene->SphereCast3D(chest, 0.2f, { 0.0f, 0.0f, 1.0f }, 5.0f));
+    CHECK(scene->SphereCast3D(chest + glm::vec3(0.0f, 0.0f, -3.0f), 0.2f, { 0.0f, 0.0f, 1.0f }, 5.0f).EntityID == hero.GetUUID());
+    // Bad input.
+    CHECK(!scene->SphereCast3D({ 0.0f, 0.0f, 0.0f }, 0.0f, { 1.0f, 0.0f, 0.0f }, 20.0f));
+    CHECK(!scene->SphereCast3D({ 0.0f, 0.0f, 0.0f }, 0.5f, { 0.0f, 0.0f, 0.0f }, 20.0f));
+    CHECK(!scene->BoxCast3D({ 0.0f, 0.0f, 0.0f }, glm::vec3(0.5f), { 1.0f, 0.0f, 0.0f }, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), -1.0f));
+
+    // With "Raycastlar" on, a cast is drawn: the shape at both ends, the sweep, the hit's point and normal.
+    DebugDraw::Clear();
+    const bool showing = DebugDraw::GetSettings().ShowRaycasts;
+    DebugDraw::GetSettings().ShowRaycasts = true;
+    scene->SphereCast3D({ 0.0f, 0.0f, 0.0f }, 0.5f, { 1.0f, 0.0f, 0.0f }, 20.0f);
+    CHECK(DebugDraw::GetLines().size() > 100 && !DebugDraw::GetPoints().empty());
+    const size_t lines = DebugDraw::GetLines().size();
+    scene->OverlapCapsule3D({ 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 0.5f);
+    CHECK(DebugDraw::GetLines().size() > lines);
+    DebugDraw::GetSettings().ShowRaycasts = showing;
+    DebugDraw::Clear();
+    scene->OnRuntimeStop();
+}
+
+TEST(Raycast3DAllOrdering)
+{
+    auto scene = CreateRef<Scene>();
+    using BT = Rigidbody3DComponent::BodyType;
+    // Made out of order along the ray.
+    Entity far = MakeBody3D(scene, "Far", { 8.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    Entity nearest = MakeBody3D(scene, "Near", { 2.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    Entity middle = MakeBody3D(scene, "Middle", { 5.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    Entity trigger = MakeBody3D(scene, "Trigger", { 3.5f, 0.0f, 0.0f }, BT::Static, { 0.25f, 1.0f, 1.0f });
+    trigger.GetComponent<BoxCollider3DComponent>().IsSensor = true;
+    Entity ghost = MakeBody3D(scene, "Ghost", { 6.5f, 0.0f, 0.0f }, BT::Static, { 0.25f, 1.0f, 1.0f });
+    ghost.GetComponent<Rigidbody3DComponent>().Layer = 5;
+    // Two colliders on one body along the ray, and a closed mesh: each hit once, where the ray enters.
+    Entity twin = MakeBody3D(scene, "Twin", { 10.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    twin.AddComponent<SphereCollider3DComponent>().Offset = { 1.5f, 0.0f, 0.0f };
+    Entity plate = MakeShape3D(scene, "Plate", { 14.0f, 0.0f, 0.0f }, BT::Static);
+    plate.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Cube;
+    plate.AddComponent<MeshCollider3DComponent>();
+    CHECK(scene->Raycast3DAll({ -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 20.0f).empty()); // edit mode
+    scene->OnRuntimeStart();
+
+    std::vector<RaycastHit> hits = scene->Raycast3DAll({ -1.0f, 0.0f, 0.0f }, { 3.0f, 0.0f, 0.0f }, 20.0f);
+    CHECK(HitNames(scene, hits) == (std::vector<std::string>{ "Near", "Middle", "Ghost", "Far", "Twin", "Plate" }));
+    for (size_t i = 1; i < hits.size(); i++)
+        CHECK(hits[i - 1].Distance <= hits[i].Distance);
+    if (hits.size() == 6)
+    {
+        CHECK_NEAR(hits[0].Distance, 2.5f, 1e-3f);
+        CHECK_NEAR(hits[0].Point.x, 1.5f, 1e-3f);
+        CHECK_NEAR(hits[0].Normal.x, -1.0f, 1e-3f);
+        CHECK_NEAR(hits[4].Point.x, 9.5f, 1e-3f);
+        CHECK_NEAR(hits[5].Point.x, 13.5f, 1e-3f);
+        CHECK_NEAR(hits[5].Normal.x, -1.0f, 1e-3f);
+        // The closest one is what Raycast3D finds.
+        CHECK(scene->Raycast3D({ -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 20.0f).EntityID == hits[0].EntityID);
+    }
+    // Triggers when asked for, a layer mask, a shorter ray.
+    std::vector<RaycastHit> withTriggers = scene->Raycast3DAll({ -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 20.0f, 0xFFFF, true);
+    CHECK(withTriggers.size() == 7 && withTriggers[1].EntityID == trigger.GetUUID());
+    std::vector<RaycastHit> masked = scene->Raycast3DAll({ -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 20.0f, (uint16_t)~(1u << 5));
+    CHECK(masked.size() == 5);
+    for (const RaycastHit& h : masked)
+        CHECK(h.EntityID != ghost.GetUUID());
+    std::vector<RaycastHit> shortRay = scene->Raycast3DAll({ -1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 6.0f);
+    CHECK(HitNames(scene, shortRay) == (std::vector<std::string>{ "Near", "Middle" }));
+    // Starting inside a collider (a box, the mesh cube): that one is not hit; backwards: the order turns round.
+    std::vector<RaycastHit> inside = scene->Raycast3DAll({ 2.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 7.0f);
+    CHECK(inside.size() == 3 && inside[0].EntityID == middle.GetUUID());
+    CHECK(!scene->Raycast3D({ 2.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, 5.0f));
+    CHECK(scene->Raycast3DAll({ 14.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, 5.0f).empty());
+    std::vector<RaycastHit> back = scene->Raycast3DAll({ 15.0f, 0.0f, 0.0f }, { -1.0f, 0.0f, 0.0f }, 20.0f);
+    CHECK(HitNames(scene, back) == (std::vector<std::string>{ "Plate", "Twin", "Far", "Ghost", "Middle", "Near" }));
+    CHECK(back.size() == 6 && back[0].EntityID == plate.GetUUID() && back.back().EntityID == nearest.GetUUID() && back[2].EntityID == far.GetUUID());
+    // Bad input: nothing.
+    CHECK(scene->Raycast3DAll({ 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, 20.0f).empty());
+    CHECK(scene->Raycast3DAll({ 0.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, std::numeric_limits<float>::infinity()).empty());
     scene->OnRuntimeStop();
 }
 

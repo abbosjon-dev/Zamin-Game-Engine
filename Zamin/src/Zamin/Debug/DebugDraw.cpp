@@ -215,6 +215,51 @@ namespace Zamin {
         PushCircle(center, { 0, 1, 0 }, { 0, 0, 1 }, radius, color, duration, depthTest);
     }
 
+    // The capsule from `a` to `b`: a ring around each end, four lines along its sides and the two
+    // half circles over each end.
+    static void PushCapsule(const glm::vec3& a, const glm::vec3& b, float radius, const glm::vec4& color, float duration, bool depthTest)
+    {
+        const float length = glm::length(b - a);
+        if (length <= 1e-6f)
+        {
+            PushCircle(a, { 1, 0, 0 }, { 0, 1, 0 }, radius, color, duration, depthTest);
+            PushCircle(a, { 1, 0, 0 }, { 0, 0, 1 }, radius, color, duration, depthTest);
+            PushCircle(a, { 0, 1, 0 }, { 0, 0, 1 }, radius, color, duration, depthTest);
+            return;
+        }
+        const glm::vec3 axis = (b - a) / length;
+        glm::vec3 u, v;
+        PerpendicularAxes(axis, u, v);
+        PushCircle(a, u, v, radius, color, duration, depthTest);
+        PushCircle(b, u, v, radius, color, duration, depthTest);
+        for (const glm::vec3& side : { u, -u, v, -v })
+            PushLine(a + side * radius, b + side * radius, color, duration, depthTest);
+        // Half circles: over b (towards +axis) and under a (towards -axis), in the u and v planes.
+        constexpr int half = CircleSegments / 2;
+        for (const glm::vec3& side : { u, v })
+            for (int end = 0; end < 2; end++)
+            {
+                const glm::vec3 center = end ? b : a;
+                const glm::vec3 out = end ? axis : -axis;
+                glm::vec3 prev = center + side * radius;
+                for (int i = 1; i <= half; i++)
+                {
+                    const float t = glm::pi<float>() * (float)i / (float)half;
+                    const glm::vec3 p = center + (side * std::cos(t) + out * std::sin(t)) * radius;
+                    PushLine(prev, p, color, duration, depthTest);
+                    prev = p;
+                }
+            }
+    }
+
+    void DebugDraw::WireCapsule(const glm::vec3& point0, const glm::vec3& point1, float radius, const glm::vec4& color, float duration,
+                                bool depthTest)
+    {
+        if (!State().Settings.Enabled || !(radius > 0.0f) || !std::isfinite(radius))
+            return;
+        PushCapsule(point0, point1, radius, color, duration, depthTest);
+    }
+
     void DebugDraw::Circle(const glm::vec3& center, const glm::vec3& normal, float radius, const glm::vec4& color, float duration,
                            bool depthTest)
     {
@@ -446,6 +491,87 @@ namespace Zamin {
         {
             PushLine(center, p, glm::vec4(color.r, color.g, color.b, 0.35f), duration, false);
             Point(p, DebugColor::Yellow, duration, false);
+        }
+    }
+
+    // A 3D query shape at `center`, turned by `rotation`.
+    static void PushQueryShape(const PhysicsQueryShape3D& shape, const glm::vec3& center, const glm::quat& rotation, const glm::vec4& color,
+                               float duration)
+    {
+        const glm::quat q = glm::length(rotation) > 1e-6f ? glm::normalize(rotation) : glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        switch (shape.Type)
+        {
+            case PhysicsQueryShape3D::Kind::Sphere:
+                if (shape.Radius > 0.0f)
+                    PushCapsule(center, center, shape.Radius, color, duration, false);
+                break;
+            case PhysicsQueryShape3D::Kind::Box:
+            {
+                const glm::vec3 h = glm::abs(shape.HalfExtents);
+                const glm::vec3 axes[3] = { q * glm::vec3(h.x, 0.0f, 0.0f), q * glm::vec3(0.0f, h.y, 0.0f), q * glm::vec3(0.0f, 0.0f, h.z) };
+                PushBox(center, axes, color, duration, false);
+                break;
+            }
+            case PhysicsQueryShape3D::Kind::Capsule:
+            {
+                if (!(shape.Radius > 0.0f))
+                    break;
+                const glm::vec3 half = q * glm::vec3(0.0f, std::max(0.0f, shape.HalfHeight), 0.0f);
+                PushCapsule(center - half, center + half, shape.Radius, color, duration, false);
+                break;
+            }
+        }
+    }
+
+    void DebugDraw::PhysicsOverlap3D(const PhysicsQueryShape3D& shape, const glm::vec3& center, const glm::quat& rotation,
+                                     const std::vector<glm::vec3>& found)
+    {
+        if (!IsShowingRaycasts() || !Finite(center))
+            return;
+        const DebugDrawSettings& s = State().Settings;
+        const float duration = s.RaycastDuration;
+        const glm::vec4 color = found.empty() ? DebugColor::Red : DebugColor::Green;
+        PushQueryShape(shape, center, rotation, color, duration);
+        for (const glm::vec3& p : found)
+        {
+            PushLine(center, p, glm::vec4(color.r, color.g, color.b, 0.35f), duration, false);
+            Point(p, DebugColor::Yellow, duration, false);
+        }
+    }
+
+    void DebugDraw::PhysicsShapeCast(const PhysicsQueryShape3D& shape, const glm::vec3& origin, const glm::quat& rotation,
+                                     const glm::vec3& direction, float maxDistance, const std::vector<RaycastHit>& hits)
+    {
+        if (!IsShowingRaycasts() || !Finite(origin))
+            return;
+        const DebugDrawSettings& s = State().Settings;
+        const float duration = s.RaycastDuration;
+        const float length = glm::length(direction);
+        const glm::vec3 dir = length > 0.0f && std::isfinite(length) ? direction / length : glm::vec3(0.0f, -1.0f, 0.0f);
+        const float range = std::isfinite(maxDistance) ? std::clamp(maxDistance, 0.0f, 10000.0f) : 10000.0f;
+        const glm::vec4 faint(0.75f, 0.78f, 0.8f, 0.3f);
+        // Where it starts (faint), the sweep, where it stops: at the first hit (green) or the end (red).
+        PushQueryShape(shape, origin, rotation, faint, duration);
+        if (hits.empty())
+        {
+            PushLine(origin, origin + dir * range, DebugColor::Red, duration, false);
+            PushQueryShape(shape, origin + dir * range, rotation, DebugColor::Red, duration);
+            return;
+        }
+        const glm::vec3 stop = origin + dir * hits.front().Distance;
+        PushLine(origin, stop, DebugColor::Green, duration, false);
+        if (range > hits.front().Distance + 1e-4f)
+            PushLine(stop, origin + dir * range, faint, duration, false);
+        PushQueryShape(shape, stop, rotation, DebugColor::Green, duration);
+        for (size_t i = 0; i < hits.size(); i++)
+        {
+            const RaycastHit& hit = hits[i];
+            Point(hit.Point, DebugColor::Yellow, duration, false);
+            if (glm::length(hit.Normal) > 0.5f)
+                Arrow(hit.Point, hit.Point + glm::normalize(hit.Normal) * s.NormalLength, DebugColor::Cyan, duration, false,
+                      s.NormalLength * 0.3f);
+            if (hits.size() > 1)
+                Text(hit.Point + glm::vec3(0.0f, s.NormalLength * 0.6f, 0.0f), std::to_string(i + 1), DebugColor::Yellow, duration, false);
         }
     }
 

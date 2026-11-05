@@ -26,6 +26,39 @@ namespace Zamin {
         explicit operator bool() const { return Hit; }
     };
 
+    // The shape of a 3D overlap / shape cast query (Scene::OverlapSphere3D ... CapsuleCast3D), in its
+    // own frame: centred on the query's position, turned by its rotation.
+    struct PhysicsQueryShape3D
+    {
+        enum class Kind { Sphere = 0, Box, Capsule };
+        Kind Type = Kind::Sphere;
+        float Radius = 0.5f;           // sphere, capsule
+        glm::vec3 HalfExtents{ 0.5f }; // box
+        float HalfHeight = 0.5f;       // capsule: from its centre to each end sphere's centre, along its Y
+
+        static PhysicsQueryShape3D Sphere(float radius)
+        {
+            PhysicsQueryShape3D s;
+            s.Radius = radius;
+            return s;
+        }
+        static PhysicsQueryShape3D Box(const glm::vec3& halfExtents)
+        {
+            PhysicsQueryShape3D s;
+            s.Type = Kind::Box;
+            s.HalfExtents = halfExtents;
+            return s;
+        }
+        static PhysicsQueryShape3D Capsule(float radius, float halfHeight)
+        {
+            PhysicsQueryShape3D s;
+            s.Type = Kind::Capsule;
+            s.Radius = radius;
+            s.HalfHeight = halfHeight;
+            return s;
+        }
+    };
+
     // The kinds of 2D joints (DistanceJoint2DComponent ... WheelJoint2DComponent).
     enum class Joint2DType { Distance = 0, Revolute, Prismatic, Weld, Wheel };
 

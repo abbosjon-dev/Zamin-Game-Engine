@@ -6,12 +6,14 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include <array>
 #include <memory>
 #include <vector>
 
 namespace Zamin {
 
     struct ConvexHull3D;
+    struct CollisionMesh3D;
 
     struct PhysicsBody3DDesc
     {
@@ -24,16 +26,22 @@ namespace Zamin {
         float AngularDamping = 0.05f;
         float GravityFactor = 1.0f;
         bool LockRotation = false;
+        // The collision layer (CollisionLayers2D: the project's 16 layers, shared with 2D physics).
+        int Layer = 0;
 
         struct Shape
         {
-            enum class Kind { Box, Sphere, Capsule, ConvexHull } Type = Kind::Box;
+            enum class Kind { Box, Sphere, Capsule, ConvexHull, Mesh } Type = Kind::Box;
             glm::vec3 HalfExtents{ 0.5f };
             float Radius = 0.5f;
             float HalfHeight = 0.5f;
             // ConvexHull: the hull (CollisionShapes3D) in the entity's unscaled frame, times Scale.
             // Each world makes the Jolt shape of a hull once and shares it between its bodies.
             Ref<const ConvexHull3D> Hull;
+            // Mesh: the triangles (CollisionShapes3D::GetMesh) in the entity's unscaled frame, times
+            // Scale - static and kinematic bodies only (a dynamic body leaves it out). The Jolt mesh
+            // shape of a mesh is made once and shared by every world while the mesh lives.
+            Ref<const CollisionMesh3D> Mesh;
             glm::vec3 Scale{ 1.0f };
             glm::vec3 Offset{ 0.0f };
             float Friction = 0.5f;
@@ -107,6 +115,7 @@ namespace Zamin {
         float Height = 1.8f;          // total height (capsule)
         float MaxSlopeDegrees = 50.0f;
         float Mass = 70.0f;
+        int Layer = 0;                // collision layer (CollisionLayers2D)
     };
 
     // 3D rigid body simulation (Jolt Physics). Jolt types are hidden from users.
@@ -157,7 +166,44 @@ namespace Zamin {
         glm::vec3 GetCharacterGroundVelocity(uint32_t id) const;
         bool IsCharacterGrounded(uint32_t id) const;
 
-        RaycastHit CastRay(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const;
+        // ---- collision layers: the project's 16 named layers and their matrix (CollisionLayers2D,
+        // shared with 2D physics). Bit b of masks[a]: bodies on layers a and b collide (symmetric).
+        // Every body / character is on one layer. Takes effect from the next step.
+        void SetCollisionMatrix(const std::array<uint16_t, 16>& masks);
+        bool CanLayersCollide(int a, int b) const;
+        // Moves a body to another layer (nothing when it is on it already).
+        void SetBodyLayer(uint32_t bodyID, int layer);
+        int GetBodyLayer(uint32_t bodyID) const; // -1: not in this world
+        void SetCharacterLayer(uint32_t id, int layer);
+        int GetCharacterLayer(uint32_t id) const;
+
+        // ---- queries. layerMask: the layers that count (bits, CollisionLayers2D::GetCategoryBits);
+        // triggers (sensor bodies) only with includeSensors. A ray / shape that starts inside a
+        // collider does not hit it (its own body, a wall it touches); triangles of mesh colliders
+        // are hit from their front side only.
+        // The closest hit along the ray.
+        RaycastHit CastRay(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, uint16_t layerMask = 0xFFFF,
+                           bool includeSensors = false) const;
+        // Every entity the ray hits (its first hit along the ray), the closest first (ties: by ID).
+        std::vector<RaycastHit> CastRayAll(const glm::vec3& origin, const glm::vec3& direction, float maxDistance,
+                                           uint16_t layerMask = 0xFFFF, bool includeSensors = false) const;
+        // The entities with a body that overlaps the shape (at `center`, turned by `rotation`): exact
+        // shape tests (mesh colliders: their triangles - a shape wholly inside a closed mesh does not
+        // touch it). Each entity once, the nearest body position to `center` first (ties: by ID).
+        std::vector<UUID> Overlap(const PhysicsQueryShape3D& shape, const glm::vec3& center, const glm::quat& rotation,
+                                  uint16_t layerMask = 0xFFFF, bool includeSensors = false) const;
+        // The shape swept from `origin` along `direction` for `maxDistance`: the first body it touches.
+        // Distance: how far the shape went; Point: where it touches the body; Normal: that body's
+        // surface there (pointing back at the shape).
+        RaycastHit CastShape(const PhysicsQueryShape3D& shape, const glm::vec3& origin, const glm::quat& rotation, const glm::vec3& direction,
+                             float maxDistance, uint16_t layerMask = 0xFFFF, bool includeSensors = false) const;
+        // Every entity on the way (its first touch), the closest first (ties: by ID).
+        std::vector<RaycastHit> CastShapeAll(const PhysicsQueryShape3D& shape, const glm::vec3& origin, const glm::quat& rotation,
+                                             const glm::vec3& direction, float maxDistance, uint16_t layerMask = 0xFFFF,
+                                             bool includeSensors = false) const;
+
+        // Jolt mesh shapes alive in the shared cache (mesh colliders; tests).
+        static size_t GetMeshShapeCacheSize();
 
         // ---- joints (Jolt constraints). Handles are never reused: 0 = none.
         // 0 when the description cannot make one (no / the same body, a body not in this world).

@@ -15,8 +15,10 @@
 #include <cmath>
 #include <format>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <set>
+#include <tuple>
 #include <unordered_map>
 
 namespace Zamin {
@@ -46,9 +48,16 @@ namespace Zamin {
             SourceStamp Stamp;
         };
 
+        struct EdgeEntry
+        {
+            std::weak_ptr<const CollisionMesh3D> Mesh;
+            Ref<const CollisionShapes3D::EdgeList> Edges;
+        };
+
         std::mutex s_Mutex;
         std::unordered_map<std::string, MeshEntry> s_Meshes;
         std::unordered_map<std::string, HullEntry> s_Hulls;
+        std::unordered_map<const CollisionMesh3D*, EdgeEntry> s_Edges;
         std::once_flag s_AllocatorOnce;
 
         fs::path ResolveModel(const std::string& modelPath)
@@ -295,6 +304,79 @@ namespace Zamin {
         return !out.Indices.empty() || fail("faylda uchburchakli mesh yo'q");
     }
 
+    // ------------------------------------------------------------------ wireframe
+    CollisionShapes3D::EdgeList CollisionShapes3D::BuildFeatureEdges(const CollisionMesh3D& mesh)
+    {
+        // Corners welded by position: a mesh has a vertex per face corner (seams of normals / UVs).
+        std::map<std::tuple<float, float, float>, uint32_t> welded;
+        std::vector<uint32_t> corner(mesh.Positions.size());
+        std::vector<glm::vec3> points;
+        for (size_t i = 0; i < mesh.Positions.size(); i++)
+        {
+            const glm::vec3& p = mesh.Positions[i];
+            auto [it, added] = welded.try_emplace({ p.x, p.y, p.z }, (uint32_t)points.size());
+            if (added)
+                points.push_back(p);
+            corner[i] = it->second;
+        }
+        // Each edge: the normals of the triangles that share it.
+        struct Shared
+        {
+            glm::vec3 Normal{ 0.0f };
+            int Count = 0;
+            bool Crease = false;
+        };
+        std::map<std::pair<uint32_t, uint32_t>, Shared> edges;
+        for (size_t t = 0; t + 2 < mesh.Indices.size(); t += 3)
+        {
+            uint32_t v[3];
+            bool valid = true;
+            for (int k = 0; k < 3; k++)
+            {
+                valid &= mesh.Indices[t + k] < corner.size();
+                v[k] = valid ? corner[mesh.Indices[t + k]] : 0;
+            }
+            if (!valid || v[0] == v[1] || v[1] == v[2] || v[0] == v[2])
+                continue;
+            const glm::vec3 n = glm::cross(points[v[1]] - points[v[0]], points[v[2]] - points[v[0]]);
+            const float length = glm::length(n);
+            if (!(length > 1e-12f))
+                continue;
+            const glm::vec3 normal = n / length;
+            for (int k = 0; k < 3; k++)
+            {
+                const uint32_t a = v[k], b = v[(k + 1) % 3];
+                Shared& edge = edges[{ std::min(a, b), std::max(a, b) }];
+                if (edge.Count == 0)
+                    edge.Normal = normal;
+                else if (glm::dot(edge.Normal, normal) < 0.9995f)
+                    edge.Crease = true;
+                edge.Count++;
+            }
+        }
+        EdgeList out;
+        for (const auto& [key, edge] : edges)
+            if (edge.Count != 2 || edge.Crease)
+                out.push_back({ points[key.first], points[key.second] });
+        return out;
+    }
+
+    Ref<const CollisionShapes3D::EdgeList> CollisionShapes3D::GetFeatureEdges(const Ref<const CollisionMesh3D>& mesh)
+    {
+        if (!mesh)
+            return nullptr;
+        {
+            std::lock_guard lock(s_Mutex);
+            if (auto it = s_Edges.find(mesh.get()); it != s_Edges.end() && it->second.Mesh.lock() == mesh)
+                return it->second.Edges;
+        }
+        auto edges = CreateRef<const EdgeList>(BuildFeatureEdges(*mesh));
+        std::lock_guard lock(s_Mutex);
+        std::erase_if(s_Edges, [](const auto& item) { return item.second.Mesh.expired(); });
+        s_Edges[mesh.get()] = { mesh, edges };
+        return edges;
+    }
+
     // ------------------------------------------------------------------ cache
     Ref<const CollisionMesh3D> CollisionShapes3D::GetMesh(const std::string& modelPath, PrimitiveMesh primitive, std::string* error)
     {
@@ -352,6 +434,7 @@ namespace Zamin {
         std::lock_guard lock(s_Mutex);
         s_Meshes.clear();
         s_Hulls.clear();
+        s_Edges.clear();
     }
 
 }

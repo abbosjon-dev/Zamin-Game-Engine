@@ -532,6 +532,9 @@ namespace Zamin {
         float Mass = 70.0f;
         float GravityScale = 1.0f;
         bool StickToFloor = true;
+        // Its collision layer (0..15, Project settings > Physics layers - the same layers and matrix
+        // as 2D physics): which bodies it walks into / stands on.
+        int Layer = 0;
 
         // control (set by scripts)
         glm::vec3 MoveVelocity{ 0.0f }; // horizontal, world space
@@ -1085,6 +1088,10 @@ namespace Zamin {
         float AngularDamping = 0.05f;
         float GravityFactor = 1.0f;
         bool LockRotation = false; // keep upright (characters)
+        // The collision layer of its colliders (0..15, Project settings > Physics layers - shared with
+        // 2D physics): which other layers it touches is the project's layer matrix. Raycasts and the
+        // other queries take a mask of layers. May change while the game runs.
+        int Layer = 0;
 
         uint32_t RuntimeBodyID = 0xffffffff; // JPH::BodyID
     };
@@ -1127,6 +1134,22 @@ namespace Zamin {
     {
         std::string ModelPath;   // .gltf / .glb / .obj (relative to assets); "" = the Mesh Renderer's
         int MaxVertices = 32;    // 4..256
+        glm::vec3 Offset = { 0.0f, 0.0f, 0.0f };
+        float Friction = 0.5f;
+        float Restitution = 0.0f;
+        bool IsSensor = false;
+    };
+
+    // A collider that is the mesh itself: every triangle of the entity's Mesh Renderer (its model or
+    // primitive) - or of the model ModelPath names - so stairs, arches, tunnels and rough ground
+    // collide where they are drawn. For static and kinematic Rigidbody 3D bodies only: a dynamic body
+    // leaves it out (use Convex Hull Collider 3D or primitive colliders for those). Triangles are
+    // solid from their front side (as they are drawn). Multiplied by the transform scale like the
+    // other 3D colliders. Each model's triangles and their tree are made once (CollisionShapes3D) and
+    // follow the model file when it changes.
+    struct MeshCollider3DComponent
+    {
+        std::string ModelPath;   // .gltf / .glb / .obj (relative to assets); "" = the Mesh Renderer's
         glm::vec3 Offset = { 0.0f, 0.0f, 0.0f };
         float Friction = 0.5f;
         float Restitution = 0.0f;
@@ -1338,7 +1361,7 @@ namespace Zamin {
         DirectionalLightComponent, PointLightComponent, SpotLightComponent, Light2DComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
-        CapsuleCollider3DComponent, ConvexHullCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
+        CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
         SliderJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;
 

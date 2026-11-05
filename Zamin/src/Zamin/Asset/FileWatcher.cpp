@@ -272,6 +272,8 @@ namespace Zamin {
             for (const auto& [path, entry] : current)
                 if (!Snapshot.contains(path))
                     AddTree(path, entry);
+            // Writes noted for this folder are used up (a new file's write is part of its Added).
+            std::erase_if(Written, [&](const fs::path& p) { return p.parent_path() == directory; });
         }
 
         void RescanAll()

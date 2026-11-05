@@ -57,6 +57,8 @@ namespace Zamin {
         // Sorted by path; only one type when given.
         std::vector<const AssetMetadata*> GetAssets(std::optional<AssetType> type = std::nullopt) const;
 
+        // The form Scan keeps a directory in (absolute, normalized, no trailing separator).
+        static std::filesystem::path NormalizeDirectory(const std::filesystem::path& directory);
         // "Textures/coin.png" for a path inside the asset directory ("" for one outside it).
         std::string ToRelativePath(const std::filesystem::path& path) const;
         std::filesystem::path ToFileSystemPath(std::string_view relativePath) const;

@@ -76,6 +76,10 @@ namespace Zamin {
         // The content browser moved / renamed files: the open scene, its undo history, the
         // clipboard, the scene path, camera bookmarks and the project's start scene follow.
         void OnAssetsMoved(const AssetFiles::MoveResult& result);
+        // Asset folder watcher (started with the project): the registry follows the files, changed
+        // textures / fonts are imported again in place, the content browser is refreshed.
+        void StartAssetWatcher();
+        void ProcessAssetChanges();
         void LoadRuntimeScene(const std::filesystem::path& path);
 
         void OnScenePlay();
@@ -204,6 +208,9 @@ namespace Zamin {
         bool m_ShowIcons = true;
         bool m_2DMode = false;
         bool m_MaximizeOnPlay = false;
+
+        // asset files changed on disk (hot reload)
+        AssetHotReload m_AssetHotReload;
 
         // panels
         SceneHierarchyPanel m_SceneHierarchyPanel;

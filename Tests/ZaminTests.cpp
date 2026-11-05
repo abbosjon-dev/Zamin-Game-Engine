@@ -5269,32 +5269,69 @@ TEST(AssetHotReloadAppliesChanges)
     WriteFile(assets / "Textures" / "coin.png", "png");
     AssetRegistry registry(true);
     registry.Scan(assets);
+    AssetHotReload hotReload;
 
     WriteFile(assets / "Textures" / "new.png", "png");
-    auto report = AssetHotReload::Apply({ { assets / "Textures" / "new.png", FileChangeType::Added, false } }, &registry);
+    auto report = hotReload.Apply({ { assets / "Textures" / "new.png", FileChangeType::Added, false } }, &registry);
     CHECK(report.Added.size() == 1 && report.HasStructureChanges());
     CHECK(registry.GetHandle("Textures/new.png").IsValid() && fs::exists(assets / "Textures" / "new.png.zmeta"));
     CHECK(report.Reloaded.empty() && report.Failed.empty()); // nothing loaded uses it (headless)
 
     // .zmeta files are not asset changes of their own.
-    report = AssetHotReload::Apply({ { assets / "Textures" / "new.png.zmeta", FileChangeType::Added, false } }, &registry);
+    report = hotReload.Apply({ { assets / "Textures" / "new.png.zmeta", FileChangeType::Added, false } }, &registry);
     CHECK(report.IsEmpty());
     // A changed file the registry did not know yet (a missed event) is registered.
     WriteFile(assets / "Audio" / "hit.wav", "wav");
-    report = AssetHotReload::Apply({ { assets / "Audio" / "hit.wav", FileChangeType::Modified, false } }, &registry);
+    report = hotReload.Apply({ { assets / "Audio" / "hit.wav", FileChangeType::Modified, false } }, &registry);
     CHECK(report.Modified.size() == 1 && !report.HasStructureChanges() && registry.GetHandle("Audio/hit.wav").IsValid());
-    report = AssetHotReload::Apply({ { assets / "Textures" / "coin.png", FileChangeType::Removed, false },
+    report = hotReload.Apply({ { assets / "Textures" / "coin.png", FileChangeType::Removed, false },
                                      { assets / "Audio", FileChangeType::Removed, true } }, &registry);
     CHECK(report.Removed.size() == 2 && !registry.Find(fs::path("Textures/coin.png")) && !registry.Find(fs::path("Audio/hit.wav")));
     CHECK(registry.GetCount() == 1);
     // No registry (no project): only reloading.
-    CHECK(AssetHotReload::Apply({ { assets / "Textures" / "new.png", FileChangeType::Modified, false } }, nullptr).Modified.size() == 1);
+    CHECK(hotReload.Apply({ { assets / "Textures" / "new.png", FileChangeType::Modified, false } }, nullptr).Modified.size() == 1);
+    CHECK(!hotReload.IsRunning() && hotReload.Update(&registry).IsEmpty()); // no watcher: nothing
 
     CHECK(AssetHotReload::CanReload("a.png") && AssetHotReload::CanReload("f.TTF") && !AssetHotReload::CanReload("s.zscene"));
     CHECK(!AssetHotReload::IsLoaded(assets / "Textures" / "new.png") && AssetHotReload::ReloadAsset(assets / "Textures" / "new.png") == 0);
 
     std::error_code ec;
     fs::remove_all(root, ec);
+}
+
+TEST(ProjectAssetRegistry)
+{
+    namespace fs = std::filesystem;
+    Project::SetActive(nullptr);
+    CHECK(Project::GetAssetRegistry() == nullptr); // nothing without a project
+
+    fs::path dir = MakeTempDir("zamin-project-assets-");
+    CHECK(Project::CreateFromTemplate(dir, "AssetGame") != nullptr);
+    WriteFile(dir / "Assets" / "Textures" / "hero.png", "png");
+    CHECK(Project::Load(dir / "AssetGame.zproject") != nullptr);
+
+    // Like the player: scanned on first use, nothing written.
+    bool writes = AssetRegistry::GetWriteMetaFilesByDefault();
+    AssetRegistry::SetWriteMetaFilesByDefault(false);
+    AssetRegistry* registry = Project::GetAssetRegistry();
+    CHECK(registry && registry->IsScanned() && registry->GetCount() == 2); // Scenes/Main.zscene + hero.png
+    CHECK(registry->GetAssetDirectory() == AssetRegistry::NormalizeDirectory(Project::GetAssetDirectory()));
+    CHECK(registry->Find(fs::path("Scenes/Main.zscene")) && registry->Find(fs::path("Textures/hero.png")));
+    CHECK(!fs::exists(dir / "Assets" / "Textures" / "hero.png.zmeta"));
+    CHECK(Project::GetAssetRegistry() == registry); // the same registry, not scanned again
+
+    // Like the editor: a project opened with writing on gets its .zmeta files.
+    AssetRegistry::SetWriteMetaFilesByDefault(true);
+    CHECK(Project::Load(dir / "AssetGame.zproject") != nullptr);
+    registry = Project::GetAssetRegistry();
+    CHECK(registry && registry->GetLastScan().CreatedMeta == 2 && fs::exists(dir / "Assets" / "Textures" / "hero.png.zmeta"));
+    AssetHandle hero = registry->GetHandle("Textures/hero.png");
+    CHECK(Project::Load(dir / "AssetGame.zproject") && Project::GetAssetRegistry()->GetHandle("Textures/hero.png") == hero);
+    AssetRegistry::SetWriteMetaFilesByDefault(writes);
+
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
 }
 
 TEST(FileChangeQueueDebounce)
@@ -5395,6 +5432,12 @@ TEST(FileWatcherSeesChanges)
         for (const FileChange& c : changes)
             unique.insert(c.Path.string());
         CHECK(unique.size() == changes.size());
+        // Another file in the same folder later: the new file is not reported again.
+        WriteFile(dir / "Textures" / "other.png", "other");
+        changes = WaitForFileChanges(watcher, [&](const std::vector<FileChange>& c) {
+            return HasFileChange(c, dir / "Textures" / "other.png", FileChangeType::Added);
+        });
+        CHECK(changes.size() == 1 && HasFileChange(changes, dir / "Textures" / "other.png", FileChangeType::Added));
 
         // A folder renamed: its files leave the old place and appear at the new one...
         fs::rename(dir / "Models", dir / "Meshes");

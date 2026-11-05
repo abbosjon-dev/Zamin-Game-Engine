@@ -88,9 +88,7 @@ namespace Zamin {
         Ref<AssetRegistry>& registry = s_ActiveProject->m_AssetRegistry;
         if (!registry)
             registry = CreateRef<AssetRegistry>();
-        std::filesystem::path directory = GetAssetDirectory().lexically_normal();
-        while (!directory.has_filename() && directory.has_relative_path())
-            directory = directory.parent_path(); // "Assets/" -> "Assets", as the registry keeps it
+        std::filesystem::path directory = AssetRegistry::NormalizeDirectory(GetAssetDirectory());
         if (!registry->IsScanned() || registry->GetAssetDirectory() != directory)
         {
             const AssetRegistry::ScanResult& scan = registry->Scan(directory);

@@ -48,25 +48,18 @@ namespace Zamin {
         return sh;
     }
 
-    Ref<EnvironmentMap> EnvironmentMap::Load(const std::filesystem::path& path)
+    bool EnvironmentMap::Build(std::string& error)
     {
-        std::string key = path.string();
-        if (auto it = s_EnvCache.find(key); it != s_EnvCache.end())
-            return it->second;
-
         int w, h, c;
         stbi_set_flip_vertically_on_load(1);
-        float* data = stbi_loadf(key.c_str(), &w, &h, &c, 4); // LDR images are linearized by stb
+        float* data = stbi_loadf(m_Path.string().c_str(), &w, &h, &c, 4); // LDR images are linearized by stb
         if (!data)
         {
-            ZM_CORE_ERROR("Muhit xaritasi yuklanmadi: '{}' ({})", key, stbi_failure_reason());
-            s_EnvCache[key] = nullptr;
-            return nullptr;
+            const char* reason = stbi_failure_reason();
+            error = reason ? reason : "noma'lum xato";
+            return false;
         }
-
-        auto env = CreateRef<EnvironmentMap>();
-        env->m_Path = path;
-        env->m_SH = ComputeIrradianceSH(data, w, h, 4);
+        m_SH = ComputeIrradianceSH(data, w, h, 4);
 
         TextureSpecification spec;
         spec.Width = (uint32_t)w;
@@ -74,14 +67,80 @@ namespace Zamin {
         spec.Format = ImageFormat::RGBA32F;
         spec.GenerateMips = true;
         spec.Wrap = TextureWrap::Repeat;
-        env->m_Texture = Texture2D::Create(spec);
-        env->m_Texture->SetData(data, (uint32_t)(w * h * 16));
-        env->m_MaxLod = std::floor(std::log2((float)std::max(w, h)));
+        m_Texture = Texture2D::Create(spec);
+        m_Texture->SetData(data, (uint32_t)(w * h * 16));
+        m_MaxLod = std::floor(std::log2((float)std::max(w, h)));
         stbi_image_free(data);
+        return true;
+    }
 
-        ZM_CORE_INFO("Muhit xaritasi (IBL) yuklandi: {} ({}x{})", path.filename().string(), w, h);
+    Ref<EnvironmentMap> EnvironmentMap::Load(const std::filesystem::path& path)
+    {
+        std::string key = path.string();
+        if (auto it = s_EnvCache.find(key); it != s_EnvCache.end())
+            return it->second;
+
+        auto env = CreateRef<EnvironmentMap>();
+        env->m_Path = path;
+        std::string error;
+        if (!env->Build(error))
+        {
+            ZM_CORE_ERROR("Muhit xaritasi yuklanmadi: '{}' ({})", key, error);
+            s_EnvCache[key] = nullptr;
+            return nullptr;
+        }
+        ZM_CORE_INFO("Muhit xaritasi (IBL) yuklandi: {} ({}x{})", path.filename().string(),
+                     env->m_Texture->GetWidth(), env->m_Texture->GetHeight());
         s_EnvCache[key] = env;
         return env;
+    }
+
+    bool EnvironmentMap::Reload()
+    {
+        std::string error;
+        if (Build(error))
+            return true;
+        ZM_CORE_ERROR("Muhit xaritasi qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", m_Path.string(), error);
+        return false;
+    }
+
+    static bool SameFile(const std::filesystem::path& a, const std::filesystem::path& b)
+    {
+        std::error_code ea, eb;
+        std::filesystem::path ca = std::filesystem::weakly_canonical(a, ea), cb = std::filesystem::weakly_canonical(b, eb);
+        return (ea ? a : ca) == (eb ? b : cb);
+    }
+
+    size_t EnvironmentMap::ReloadFile(const std::filesystem::path& path, bool* failed)
+    {
+        size_t reloaded = 0;
+        for (auto it = s_EnvCache.begin(); it != s_EnvCache.end();)
+        {
+            if (!SameFile(it->first, path))
+            {
+                ++it;
+                continue;
+            }
+            if (!it->second)
+            {
+                it = s_EnvCache.erase(it); // failed before: the next Load tries again
+                continue;
+            }
+            if (it->second->Reload())
+                reloaded++;
+            else if (failed)
+                *failed = true;
+            ++it;
+        }
+        return reloaded;
+    }
+
+    bool EnvironmentMap::IsFileLoaded(const std::filesystem::path& path)
+    {
+        for (const auto& [key, env] : s_EnvCache)
+            if (env && SameFile(key, path))
+                return true;
+        return false;
     }
 
     void EnvironmentMap::ClearCache() { s_EnvCache.clear(); }

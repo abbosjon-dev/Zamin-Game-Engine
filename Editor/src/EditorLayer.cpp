@@ -50,6 +50,9 @@ namespace Zamin {
 
     void EditorLayer::OnAttach()
     {
+        // The editor gives every asset a .zmeta file (UUID, import settings); the player only reads them.
+        AssetRegistry::SetWriteMetaFilesByDefault(true);
+
         FramebufferSpecification fbSpec;
         fbSpec.Attachments = { FramebufferTextureFormat::RGBA16F, FramebufferTextureFormat::RED_INTEGER, FramebufferTextureFormat::Depth };
         fbSpec.Width = 1280;
@@ -110,6 +113,7 @@ namespace Zamin {
 
     void EditorLayer::OnDetach()
     {
+        m_AssetHotReload.Stop();
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
         m_ProjectSettingsPanel.SaveIfDirty();
@@ -276,6 +280,7 @@ namespace Zamin {
             m_ExportThread.join();
 
         CheckModuleHotReload(ts);
+        ProcessAssetChanges();
 
         m_ActiveScene->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
 
@@ -753,6 +758,7 @@ namespace Zamin {
         m_ProjectSettingsPanel.OnProjectChanged();
         AddRecentProject(projectFile);
         m_ShowLauncher = false;
+        StartAssetWatcher(); // the asset registry first (missing .zmeta files are written), then the watcher
 
         ScriptEngine::UnloadModule();
         fs::path module = Project::GetScriptModulePath();
@@ -783,6 +789,7 @@ namespace Zamin {
 
     void EditorLayer::CloseProject()
     {
+        m_AssetHotReload.Stop();
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
         ScriptEngine::UnloadModule();
@@ -1417,6 +1424,8 @@ namespace Zamin {
                 scripts |= code;
                 ZM_INFO("Import qilindi: {}", code ? file.lexically_relative(fs::weakly_canonical(projectDir)).generic_string()
                                                    : Project::GetAssetRelativePath(file));
+                if (AssetRegistry* registry = Project::GetAssetRegistry(); registry && !code)
+                    registry->OnFileAdded(file); // a handle and a .zmeta right away (the watcher would follow later)
                 imported.push_back(file);
             }
         }
@@ -1471,12 +1480,87 @@ namespace Zamin {
             ShowViewportMessage(std::string(ICON_FA_FILE_IMPORT "  ") + notice);
     }
 
+    void EditorLayer::StartAssetWatcher()
+    {
+        m_AssetHotReload.Stop();
+        AssetRegistry* registry = Project::GetAssetRegistry(); // scans the asset folder (writes missing .zmeta files)
+        fs::path assets = Project::GetAssetDirectory();
+        std::error_code ec;
+        if (!registry || !fs::is_directory(assets, ec))
+            return;
+        if (m_AssetHotReload.Start(assets))
+            ZM_CORE_INFO("Assetlar kuzatilmoqda ({}): o'zgargan rasm, shrift va HDRI fayllar avtomatik qayta yuklanadi",
+                         m_AssetHotReload.GetWatcher().UsesNativeEvents() ? "inotify" : "har soniyada tekshirish");
+        else
+            ZM_WARN("Asset papkasini kuzatib bo'lmadi: {}", assets.string());
+    }
+
+    void EditorLayer::ProcessAssetChanges()
+    {
+        if (!m_AssetHotReload.IsRunning())
+            return;
+        AssetHotReload::Report report = m_AssetHotReload.Update(Project::GetAssetRegistry());
+        if (report.IsEmpty())
+            return;
+
+        for (const std::string& problem : report.Problems)
+            ZM_WARN("{}", problem);
+        for (const auto* list : { &report.Added, &report.Modified, &report.Removed })
+            for (const fs::path& p : *list)
+                m_ContentBrowserPanel.InvalidateThumbnail(p);
+        if (report.HasStructureChanges() || !report.Modified.empty())
+            m_ContentBrowserPanel.MarkListDirty(); // new / gone files, sizes and dates
+
+        // A file that appeared where a scene already points, or one that could not be loaded
+        // before and is fixed now (nothing loaded to update in place): the scenes that use it
+        // look their assets up again.
+        std::vector<Ref<Scene>> scenes;
+        for (const Ref<Scene>& scene : { m_EditorScene, m_ActiveScene })
+            if (scene && std::find(scenes.begin(), scenes.end(), scene) == scenes.end())
+                scenes.push_back(scene);
+        std::vector<std::string> sceneTexts;
+        for (const auto* list : { &report.Added, &report.Modified })
+            for (const fs::path& changed : *list)
+            {
+                AssetType type = AssetFiles::GetType(changed);
+                bool resolvable = type == AssetType::Texture || type == AssetType::Model || type == AssetType::Font ||
+                                  type == AssetType::Environment;
+                if (!resolvable || std::find(report.Reloaded.begin(), report.Reloaded.end(), changed) != report.Reloaded.end() ||
+                    std::find(report.Failed.begin(), report.Failed.end(), changed) != report.Failed.end())
+                    continue;
+                if (sceneTexts.empty())
+                    for (const Ref<Scene>& scene : scenes)
+                        sceneTexts.push_back(SceneSerializer(scene).SerializeToString());
+                std::string needle = "\"" + Project::GetAssetRelativePath(changed) + "\"";
+                for (size_t i = 0; i < scenes.size(); i++)
+                    if (scenes[i] && sceneTexts[i].find(needle) != std::string::npos)
+                    {
+                        scenes[i]->ResolveAssets();
+                        scenes[i] = nullptr; // once is enough
+                    }
+            }
+
+        for (const fs::path& p : report.Reloaded)
+            ZM_INFO("Qayta yuklandi: {}", Project::GetAssetRelativePath(p));
+        if (!report.Failed.empty())
+            m_ContentBrowserPanel.ShowNotice(std::format("'{}' qayta yuklanmadi - konsolni tekshiring", report.Failed.front().filename().string()), true);
+        else if (report.Reloaded.size() == 1)
+            m_ContentBrowserPanel.ShowNotice(std::format("'{}' qayta yuklandi", report.Reloaded.front().filename().string()));
+        else if (report.Reloaded.size() > 1)
+            m_ContentBrowserPanel.ShowNotice(std::format("{} ta asset qayta yuklandi", report.Reloaded.size()));
+    }
+
     void EditorLayer::OnAssetsMoved(const AssetFiles::MoveResult& result)
     {
         if (result.Moved.empty())
             return;
         std::error_code ec;
         fs::path assets = fs::weakly_canonical(Project::GetAssetDirectory(), ec);
+
+        // The registry follows at once (handles stay; the watcher's events for the move are no-ops then).
+        if (AssetRegistry* registry = Project::GetAssetRegistry())
+            for (const auto& m : result.Moved)
+                registry->OnFileMoved(m.From, m.To);
 
         // Asset paths as scenes store them (relative to Assets).
         AssetFiles::PathMoves moves;

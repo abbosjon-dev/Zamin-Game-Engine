@@ -38,6 +38,10 @@ namespace Zamin {
         void ShowNotice(std::string text, bool warning = false);
         // Re-reads the folder (files changed outside the panel).
         void Refresh() { m_ListDirty = true; m_Thumbnails.clear(); }
+        // The listing is read again next frame (thumbnails stay).
+        void MarkListDirty() { m_ListDirty = true; }
+        // A file changed on disk: its thumbnail is looked up again (a broken image may be fixed now).
+        void InvalidateThumbnail(const std::filesystem::path& path) { m_Thumbnails.erase(path.string()); }
 
         std::function<void(const std::filesystem::path&)> OnOpenScene;
         std::function<void()> OnRequestNewScript;  // opens the editor's "new C++ script" dialog

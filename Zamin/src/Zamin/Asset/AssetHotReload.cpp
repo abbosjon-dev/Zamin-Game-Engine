@@ -1,5 +1,6 @@
 #include "Zamin/Asset/AssetHotReload.h"
 #include "Zamin/Asset/AssetRegistry.h"
+#include "Zamin/Renderer/Environment.h"
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/Texture.h"
 
@@ -17,6 +18,7 @@ namespace Zamin {
     void AssetHotReload::Stop()
     {
         m_Watcher.Stop();
+        m_MissingWhileLoaded.clear();
     }
 
     AssetHotReload::Report AssetHotReload::Update(AssetRegistry* registry)
@@ -58,12 +60,19 @@ namespace Zamin {
             switch (change.Type)
             {
                 case FileChangeType::Added:
+                {
                     if (registry)
                         registry->OnFileAdded(change.Path);
                     AddUnique(report.Added, change.Path);
-                    if (!change.IsDirectory)
-                        reload(change.Path); // put back after being deleted while in use
+                    // Put back after being deleted while in use (a brand new file is loaded fresh anyway).
+                    auto missing = std::find(m_MissingWhileLoaded.begin(), m_MissingWhileLoaded.end(), change.Path);
+                    if (missing != m_MissingWhileLoaded.end())
+                    {
+                        m_MissingWhileLoaded.erase(missing);
+                        reload(change.Path);
+                    }
                     break;
+                }
                 case FileChangeType::Modified:
                     if (registry && !registry->Find(change.Path))
                         registry->OnFileAdded(change.Path);
@@ -75,6 +84,8 @@ namespace Zamin {
                     if (registry)
                         registry->OnFileRemoved(change.Path);
                     AddUnique(report.Removed, change.Path);
+                    if (!change.IsDirectory && IsLoaded(change.Path))
+                        AddUnique(m_MissingWhileLoaded, change.Path); // keeps its content until it is back
                     break;
             }
         }
@@ -87,9 +98,10 @@ namespace Zamin {
     {
         switch (AssetTypes::FromPath(path))
         {
-            case AssetType::Texture: return TextureLibrary::Reload(path, failed);
-            case AssetType::Font:    return Font::ReloadFile(path, failed);
-            default:                 return 0;
+            case AssetType::Texture:     return TextureLibrary::Reload(path, failed);
+            case AssetType::Font:        return Font::ReloadFile(path, failed);
+            case AssetType::Environment: return EnvironmentMap::ReloadFile(path, failed);
+            default:                     return 0;
         }
     }
 
@@ -97,16 +109,17 @@ namespace Zamin {
     {
         switch (AssetTypes::FromPath(path))
         {
-            case AssetType::Texture: return TextureLibrary::IsLoaded(path);
-            case AssetType::Font:    return Font::IsFileLoaded(path);
-            default:                 return false;
+            case AssetType::Texture:     return TextureLibrary::IsLoaded(path);
+            case AssetType::Font:        return Font::IsFileLoaded(path);
+            case AssetType::Environment: return EnvironmentMap::IsFileLoaded(path);
+            default:                     return false;
         }
     }
 
     bool AssetHotReload::CanReload(const fs::path& path)
     {
         AssetType type = AssetTypes::FromPath(path);
-        return type == AssetType::Texture || type == AssetType::Font;
+        return type == AssetType::Texture || type == AssetType::Font || type == AssetType::Environment;
     }
 
 }

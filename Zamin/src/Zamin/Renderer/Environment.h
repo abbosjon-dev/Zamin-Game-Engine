@@ -19,11 +19,22 @@ namespace Zamin {
         float GetMaxLod() const { return m_MaxLod; }
         const std::filesystem::path& GetPath() const { return m_Path; }
 
+        // Reads the file again into this map (the same object: scenes that use it show the new
+        // sky and lighting). False - and the old one stays - when it cannot be read.
+        bool Reload();
+
         static Ref<EnvironmentMap> Load(const std::filesystem::path& path);
+        // Re-reads a file into the cached map made from it (one that failed to load is tried again
+        // on the next Load). Returns how many were updated; `failed` is set when it could not be read.
+        static size_t ReloadFile(const std::filesystem::path& path, bool* failed = nullptr);
+        static bool IsFileLoaded(const std::filesystem::path& path);
         static void ClearCache();
 
         // Exposed for tests: projects an RGB float image (w*h*3 linear) onto SH9 irradiance.
         static std::array<glm::vec3, 9> ComputeIrradianceSH(const float* rgb, int width, int height, int channels);
+
+    private:
+        bool Build(std::string& error);
 
     private:
         Ref<Texture2D> m_Texture;

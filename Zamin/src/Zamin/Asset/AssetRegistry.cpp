@@ -18,6 +18,18 @@ namespace Zamin {
     bool AssetRegistry::GetWriteMetaFilesByDefault() { return s_WriteMetaFilesByDefault; }
 
     // ------------------------------------------------------------------ paths
+    fs::path AssetRegistry::NormalizeDirectory(const fs::path& directory)
+    {
+        std::error_code ec;
+        fs::path result = fs::absolute(directory, ec);
+        if (ec)
+            result = directory;
+        result = result.lexically_normal();
+        while (!result.has_filename() && result.has_relative_path())
+            result = result.parent_path(); // "Assets/" -> "Assets"
+        return result;
+    }
+
     std::string AssetRegistry::NormalizeRelative(const fs::path& path)
     {
         std::string rel = path.lexically_normal().generic_string();
@@ -235,11 +247,7 @@ namespace Zamin {
     {
         Clear();
         std::error_code ec;
-        m_AssetDirectory = fs::absolute(assetDirectory, ec).lexically_normal();
-        if (ec)
-            m_AssetDirectory = assetDirectory.lexically_normal();
-        while (!m_AssetDirectory.has_filename() && m_AssetDirectory.has_relative_path())
-            m_AssetDirectory = m_AssetDirectory.parent_path(); // "Assets/" -> "Assets"
+        m_AssetDirectory = NormalizeDirectory(assetDirectory);
         m_CanonicalDirectory = fs::weakly_canonical(m_AssetDirectory, ec);
         if (ec)
             m_CanonicalDirectory = m_AssetDirectory;

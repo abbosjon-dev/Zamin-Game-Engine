@@ -47,6 +47,8 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - Kontent brauzerdan drag & drop (tekstura → sprite, model → model obyekti, ovoz → Audio Source, prefab, `.zscene` → sahnani ochish)
 - **Kontent brauzer**: katakchalar yoki **ro'yxat** ko'rinishi (nomi / turi / hajmi / o'zgartirilgan sanasi bo'yicha saralash), **fayl turi filtri** (sahna, prefab, rasm, model, audio, shrift, HDRI, C++ ...; barcha ichki papkalardan qidiradi), `Ctrl`/`Shift` bilan ko'p fayl tanlash; fayllarni **papkaga sudrab ko'chirish** (papka katakchasi/qatori yoki yuqoridagi yo'l bo'laklariga) va nomini o'zgartirish — sahna/prefab'lardagi yo'llar, glTF modellardagi nisbiy fayl nomlari, ochiq sahna, undo tarixi va boshlang'ich sahna avtomatik yangilanadi (C++ kodidagi eski yo'llar haqida ogohlantiradi)
 - **Tashqaridan import**: fayl yoki papkani editor oynasiga tashlang — `Assets`ga nusxalanadi (kontent brauzer ustiga — ochiq papkaga, aks holda turiga qarab `Textures/`, `Models/`, `Audio/` ...; C++ fayllar `Source/`ga); glTF bog'liq fayllari bilan o'z papkasiga ko'chadi; viewport ustiga tashlansa sahnaga obyekt ham qo'shiladi
+- **Asset tizimi**: har bir asset (sahna, prefab, rasm, model, audio, shrift, HDRI, material) yonida `<fayl>.zmeta` fayli — doimiy **UUID**, turi va import sozlamalari; editor yetishmaganlarini loyiha ochilganda yaratadi (player faqat o'qiydi), kontent brauzerda ko'rinmaydi va asset bilan birga ko'chadi / nomlanadi / o'chiriladi; nusxalangan `.zmeta` yangi UUID oladi. Kontent brauzerda sichqoncha ustida UUID ko'rinadi
+- **Fayl kuzatuvchi va qayta yuklash**: `Assets` papkasi kuzatiladi (Linux'da inotify, aks holda har soniyada tekshiruv); tashqi dasturda o'zgartirilgan **rasm, shrift va HDRI** fayllar editor'da darhol (o'sha obyektning o'zida — sprite, tilemap, model teksturalari, osmon/yorug'lik, eskizlar) yangilanadi; buzilgan fayl xatosi konsolga chiqadi va avvalgi rasm qoladi; yangi / o'chirilgan fayllar ro'yxatga avtomatik tushadi. O'ng tugma → **Qayta yuklash** — qo'lda
 - **Status bar**: tanlangan obyekt nomi, joylashuvi, komponentlar va bolalar soni, yashirin/qulf belgisi (bosish — kamerani yo'naltirish, sichqoncha ustida — batafsil, o'ng tugma — nom/UUID/yo'lni nusxalash); ko'p tanlovda soni va markazi
 - C++ skript maydonlari (`ZM_FIELD`) inspektorda tahrirlanadi, o'yin paytida jonli o'zgartiriladi
 - Loyiha launcher'i: yangi loyiha (shablondan), so'nggi loyihalar, namuna o'yinlar
@@ -148,7 +150,8 @@ MeningOyinim/
 ├── Source/                   # C++ o'yin skriptlari
 │   └── Scripts.cpp
 ├── Assets/                   # sahnalar, teksturalar, ovozlar, modellar
-│   └── Scenes/Main.zscene
+│   ├── Scenes/Main.zscene
+│   └── Scenes/Main.zscene.zmeta  # asset UUID'si va import sozlamalari (versiya nazoratiga qo'shing)
 └── Binaries/libMeningOyinim.so   # kompilyatsiya qilingan skriptlar (avtomatik)
 ```
 

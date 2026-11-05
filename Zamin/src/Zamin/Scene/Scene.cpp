@@ -2444,6 +2444,7 @@ namespace Zamin {
     {
         for (auto e : m_Registry.view<IDComponent>())
             ResolveEntityAssets({ e, this });
+        m_EnvMapPath.clear(); // the environment map is looked up again when the scene is drawn next
     }
 
     void Scene::ResolveEntityAssets(Entity entity)

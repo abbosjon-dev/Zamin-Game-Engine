@@ -49,8 +49,9 @@ namespace Zamin {
 
         // Reads the file again into this texture (same GPU object, so everything that holds it
         // shows the new pixels; the size may change). False - and the old pixels stay - when the
-        // file cannot be read or the texture was not made from a file.
-        virtual bool Reload() = 0;
+        // file cannot be read or the texture was not made from a file: the reason goes to `error`,
+        // or to the log without one.
+        virtual bool Reload(std::string* error = nullptr) = 0;
     };
 
     // Caches textures by absolute path so the same file is only uploaded once.

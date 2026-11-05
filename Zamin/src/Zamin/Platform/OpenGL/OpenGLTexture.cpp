@@ -80,14 +80,20 @@ namespace Zamin {
 
         ~OpenGLTexture2D() override { if (m_RendererID) glDeleteTextures(1, &m_RendererID); }
 
-        bool Reload() override
+        bool Reload(std::string* error) override
         {
             if (!m_FromFile)
+            {
+                if (error) *error = "fayldan yuklanmagan";
                 return false;
+            }
             DecodedImage image;
             if (!Decode(m_Path, image))
             {
-                ZM_CORE_ERROR("Rasm qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", m_Path, image.Error);
+                if (error)
+                    *error = image.Error;
+                else
+                    ZM_CORE_ERROR("Rasm qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", m_Path, image.Error);
                 return false;
             }
             bool resized = !m_RendererID || image.Width != m_Specification.Width || image.Height != m_Specification.Height ||
@@ -251,15 +257,18 @@ namespace Zamin {
     {
         std::string file = CanonicalFile(path);
         size_t reloaded = 0;
+        std::string error;
         for (auto& [key, texture] : s_TextureCache)
         {
             if (texture->GetPath() != file)
                 continue;
-            if (texture->Reload())
+            if (error.empty() && texture->Reload(&error)) // a file that failed once is not read again
                 reloaded++;
             else if (failed)
                 *failed = true;
         }
+        if (!error.empty())
+            ZM_CORE_ERROR("Rasm qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", file, error);
         return reloaded;
     }
 

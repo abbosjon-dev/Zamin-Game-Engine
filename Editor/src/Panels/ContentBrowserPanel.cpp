@@ -27,6 +27,7 @@ namespace Zamin {
             case AssetType::Audio:       color = IM_COL32(220, 120, 200, 255); return ICON_FA_FILE_AUDIO;
             case AssetType::Font:        return ICON_FA_FONT;
             case AssetType::Environment: color = IM_COL32(255, 200, 90, 255); return ICON_FA_GLOBE;
+            case AssetType::Material:    color = IM_COL32(200, 160, 255, 255); return ICON_FA_PALETTE;
             case AssetType::Script:      color = IM_COL32(100, 160, 240, 255); return ICON_FA_FILE_CODE;
             case AssetType::Project:     color = IM_COL32(46, 188, 148, 255); return ICON_FA_GAMEPAD;
             default:                     return ICON_FA_FILE;
@@ -559,6 +560,9 @@ namespace Zamin {
                 tip += "  -  " + AssetFiles::FormatSize(entry.Size);
             if (IsRecursiveListing())
                 tip += "\n" + Project::GetAssetRelativePath(path.parent_path());
+            if (AssetRegistry* registry = entry.IsDirectory ? nullptr : Project::GetAssetRegistry())
+                if (const AssetMetadata* meta = registry->Find(path))
+                    tip += "\nUUID: " + meta->Handle.ToString() + (meta->HasMetaFile ? "" : " (.zmeta yo'q)");
             UI::Tooltip(tip.c_str());
         }
     }
@@ -575,6 +579,25 @@ namespace Zamin {
             Platform::OpenInFileBrowser(path);
         if (ImGui::MenuItem(ICON_FA_COPY "  Yo'lni nusxalash"))
             ImGui::SetClipboardText(Project::GetAssetRelativePath(path).c_str());
+        if (!entry.IsDirectory && AssetHotReload::CanReload(path))
+        {
+            bool loaded = AssetHotReload::IsLoaded(path);
+            if (ImGui::MenuItem(ICON_FA_ARROWS_ROTATE "  Qayta yuklash", nullptr, false, loaded))
+            {
+                bool failed = false;
+                size_t n = AssetHotReload::ReloadAsset(path, &failed);
+                m_Thumbnails.erase(path.string());
+                if (failed)
+                    ShowNotice(std::format("'{}' qayta yuklanmadi - konsolni tekshiring", entry.Name), true);
+                else
+                {
+                    ZM_INFO("Qayta yuklandi: {} ({} ta nusxa)", Project::GetAssetRelativePath(path), n);
+                    ShowNotice(std::format("'{}' qayta yuklandi", entry.Name));
+                }
+            }
+            if (!loaded && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip("Hozir ishlatilmayapti - fayl o'zgarganda avtomatik yangilanadi");
+        }
         ImGui::Separator();
         if (ImGui::MenuItem(ICON_FA_FEATHER "  Nomini o'zgartirish", "F2", false, count == 1 && !IsProtected(path)))
         {
@@ -942,9 +965,11 @@ namespace Zamin {
                         ZM_WARN("'{}' loyiha uchun kerak - o'chirilmadi", p.filename().string());
                         continue;
                     }
-                    std::error_code ec;
-                    fs::remove_all(p, ec);
-                    if (ec) ZM_ERROR("'{}' o'chirilmadi: {}", p.filename().string(), ec.message());
+                    std::string error;
+                    if (!AssetFiles::Remove(p, &error)) // a file goes with its .zmeta
+                        ZM_ERROR("{}", error);
+                    else if (AssetRegistry* registry = Project::GetAssetRegistry())
+                        registry->OnFileRemoved(p);
                     m_Thumbnails.erase(p.string());
                 }
                 m_PendingDelete.clear();

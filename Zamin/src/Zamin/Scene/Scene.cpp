@@ -6,6 +6,7 @@
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Scene/Parallax.h"
 #include "Zamin/Scene/SortingLayers.h"
+#include "Zamin/Scene/TilesetProperties.h"
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/Scripting/ScriptEngine.h"
 #include "Zamin/Scripting/EventBus.h"
@@ -39,13 +40,57 @@
 namespace Zamin {
 
     // ------------------------------------------------------------------ contact listener (2D)
-    class ContactListener2D : public b2ContactListener
+    // Collects the contact events of a physics step for the scripts, and decides the contacts of the
+    // one-way surfaces (OneWay tiles, BoxCollider2D::OneWay): Box2D re-enables every contact each
+    // step and asks PreSolve, which switches it off while the body passes through. Such a contact
+    // is a collision for the scripts only while it is on (Begin when it starts holding the body up,
+    // End when it lets go), so jumping up through a platform reports nothing.
+    class ContactListener2D : public b2ContactListener, public b2DestructionListener
     {
     public:
-        void BeginContact(b2Contact* contact) override { Push(contact, true); }
-        void EndContact(b2Contact* contact) override { Push(contact, false); }
+        void BeginContact(b2Contact* contact) override
+        {
+            if (IsOneWay(contact))
+            {
+                m_OneWayContacts[contact] = false; // reported once PreSolve lets it collide
+                return;
+            }
+            Push(contact, true);
+        }
+        void EndContact(b2Contact* contact) override
+        {
+            if (auto it = m_OneWayContacts.find(contact); it != m_OneWayContacts.end())
+            {
+                if (it->second)
+                    Push(contact, false);
+                m_OneWayContacts.erase(it);
+                return;
+            }
+            Push(contact, false);
+        }
+        void PreSolve(b2Contact* contact, const b2Manifold*) override
+        {
+            auto it = m_OneWayContacts.find(contact);
+            if (it == m_OneWayContacts.end())
+                return;
+            bool collide = ShouldCollide(contact);
+            contact->SetEnabled(collide);
+            if (collide != it->second)
+            {
+                it->second = collide;
+                Push(contact, collide);
+            }
+        }
+
+        // b2DestructionListener: a body's fixtures go with it.
+        void SayGoodbye(b2Joint*) override {}
+        void SayGoodbye(b2Fixture* fixture) override { OneWayFixtures.erase(fixture); }
 
         std::vector<ContactEvent> Events;
+        std::unordered_set<const b2Fixture*> OneWayFixtures;
+        // Entities that fall through one-way surfaces for a while (Scene::DropThroughPlatforms): seconds left.
+        std::unordered_map<uint64_t, float> DropThrough;
+        float StepTime = 1.0f / 60.0f;
 
     private:
         void Push(b2Contact* contact, bool begin)
@@ -57,6 +102,75 @@ namespace Zamin {
             if (a && b)
                 Events.push_back({ a, b, begin, fa->IsSensor() || fb->IsSensor() });
         }
+
+        bool IsOneWay(b2Contact* contact) const
+        {
+            if (OneWayFixtures.empty())
+                return false;
+            const b2Fixture* fa = contact->GetFixtureA();
+            const b2Fixture* fb = contact->GetFixtureB();
+            if (fa->IsSensor() || fb->IsSensor())
+                return false;
+            return OneWayFixtures.contains(fa) || OneWayFixtures.contains(fb);
+        }
+
+        // The extent of a fixture along a world direction.
+        static void Project(const b2Fixture* fixture, const b2Vec2& dir, float& min, float& max)
+        {
+            const b2Transform& xf = fixture->GetBody()->GetTransform();
+            const b2Shape* shape = fixture->GetShape();
+            if (shape->GetType() == b2Shape::e_circle)
+            {
+                const auto* circle = (const b2CircleShape*)shape;
+                float p = b2Dot(b2Mul(xf, circle->m_p), dir);
+                min = p - circle->m_radius;
+                max = p + circle->m_radius;
+                return;
+            }
+            if (shape->GetType() == b2Shape::e_polygon)
+            {
+                const auto* polygon = (const b2PolygonShape*)shape;
+                min = std::numeric_limits<float>::max();
+                max = -std::numeric_limits<float>::max();
+                for (int32 i = 0; i < polygon->m_count; i++)
+                {
+                    float p = b2Dot(b2Mul(xf, polygon->m_vertices[i]), dir);
+                    min = std::min(min, p);
+                    max = std::max(max, p);
+                }
+                return;
+            }
+            const b2AABB& box = fixture->GetAABB(0);
+            min = std::numeric_limits<float>::max();
+            max = -std::numeric_limits<float>::max();
+            for (b2Vec2 corner : { box.lowerBound, box.upperBound, b2Vec2(box.lowerBound.x, box.upperBound.y), b2Vec2(box.upperBound.x, box.lowerBound.y) })
+            {
+                float p = b2Dot(corner, dir);
+                min = std::min(min, p);
+                max = std::max(max, p);
+            }
+        }
+
+        bool ShouldCollide(b2Contact* contact) const
+        {
+            b2Fixture* platform = contact->GetFixtureA();
+            b2Fixture* other = contact->GetFixtureB();
+            if (!OneWayFixtures.contains(platform))
+                std::swap(platform, other);
+            b2Body* platformBody = platform->GetBody();
+            b2Body* body = other->GetBody();
+            if (!DropThrough.empty())
+                if (auto it = DropThrough.find((uint64_t)body->GetUserData().pointer); it != DropThrough.end() && it->second > 0.0f)
+                    return false;
+            const b2Vec2 up = b2Mul(platformBody->GetTransform().q, b2Vec2(0.0f, 1.0f));
+            float platformMin, top, bottom, otherMax;
+            Project(platform, up, platformMin, top);
+            Project(other, up, bottom, otherMax);
+            b2Vec2 relative = body->GetLinearVelocity() - platformBody->GetLinearVelocity();
+            return OneWayPlatform::ShouldCollide(bottom, top, b2Dot(relative, up), StepTime);
+        }
+
+        std::unordered_map<b2Contact*, bool> m_OneWayContacts; // touching one-way contacts: reported as colliding?
     };
 
     static b2BodyType ToBox2DBodyType(Rigidbody2DComponent::BodyType type)
@@ -1536,6 +1650,7 @@ namespace Zamin {
     {
         m_IsRunning = true;
         m_Time = 0.0f;
+        m_AnimationTime = 0.0;
         DebugDraw::Clear(); // the game starts with an empty debug drawing queue
         // Inactive entities start without bodies and without OnEnable.
         EnsureActiveCache();
@@ -1860,6 +1975,7 @@ namespace Zamin {
         m_PhysicsWorld = new b2World({ m_Settings.Gravity.x, m_Settings.Gravity.y });
         m_ContactListener = new ContactListener2D();
         m_PhysicsWorld->SetContactListener(m_ContactListener);
+        m_PhysicsWorld->SetDestructionListener(m_ContactListener);
         m_PhysicsAccumulator = 0.0f;
 
         for (auto e : m_Registry.view<Rigidbody2DComponent>())
@@ -1885,24 +2001,21 @@ namespace Zamin {
         tm.RuntimeBody = body;
 
         float sx = tm.TileSize * std::abs(scale.x), sy = tm.TileSize * std::abs(scale.y);
-        // Merge horizontal runs of solid tiles into single boxes (fewer fixtures, no seams).
-        for (int y = 0; y < tm.Height; y++)
+        // Horizontal runs of solid tiles (and of one-way tiles) are single boxes: fewer fixtures, no seams.
+        // The tileset's per-tile collision decides which tiles count.
+        const TilesetProperties* properties = TilesetProperties::Get(tm.TilesetPath);
+        for (const TileColliderBox& run : TilemapCollision::BuildBoxes(tm, properties))
         {
-            int x = 0;
-            while (x < tm.Width)
-            {
-                if (!tm.IsSolid(x, y)) { x++; continue; }
-                int start = x;
-                while (x < tm.Width && tm.IsSolid(x, y)) x++;
-                float w = (x - start) * sx;
-                b2PolygonShape shape;
-                shape.SetAsBox(w * 0.5f, sy * 0.5f, b2Vec2(start * sx + w * 0.5f, y * sy + sy * 0.5f), 0.0f);
-                b2FixtureDef fd;
-                fd.shape = &shape;
-                fd.friction = tm.Friction;
-                fd.userData.pointer = (uintptr_t)(uint64_t)entity.GetUUID();
-                body->CreateFixture(&fd);
-            }
+            float w = (run.X1 - run.X0) * sx;
+            b2PolygonShape shape;
+            shape.SetAsBox(w * 0.5f, sy * 0.5f, b2Vec2(run.X0 * sx + w * 0.5f, run.Y * sy + sy * 0.5f), 0.0f);
+            b2FixtureDef fd;
+            fd.shape = &shape;
+            fd.friction = tm.Friction;
+            fd.userData.pointer = (uintptr_t)(uint64_t)entity.GetUUID();
+            b2Fixture* fixture = body->CreateFixture(&fd);
+            if (run.Type == TileCollision::OneWay && m_ContactListener)
+                m_ContactListener->OneWayFixtures.insert(fixture);
         }
     }
 
@@ -1957,6 +2070,8 @@ namespace Zamin {
             fixtureDef.isSensor = bc2d->IsSensor;
             fixtureDef.userData.pointer = id;
             bc2d->RuntimeFixture = body->CreateFixture(&fixtureDef);
+            if (bc2d->OneWay && !bc2d->IsSensor && m_ContactListener)
+                m_ContactListener->OneWayFixtures.insert((b2Fixture*)bc2d->RuntimeFixture);
         }
 
         if (auto* cc2d = entity.TryGetComponent<CircleCollider2DComponent>())
@@ -2243,6 +2358,19 @@ namespace Zamin {
         t.Scale = keepScale;
     }
 
+    bool Scene::DropThroughPlatforms(Entity entity, float seconds)
+    {
+        if (!m_PhysicsWorld || !m_ContactListener || !entity || !entity.HasComponent<Rigidbody2DComponent>())
+            return false;
+        float& left = m_ContactListener->DropThrough[(uint64_t)entity.GetUUID()];
+        left = std::max(left, std::max(0.0f, seconds));
+        if (left <= 0.0f)
+            m_ContactListener->DropThrough.erase((uint64_t)entity.GetUUID());
+        if (auto* body = (b2Body*)entity.GetComponent<Rigidbody2DComponent>().RuntimeBody)
+            body->SetAwake(true);
+        return true;
+    }
+
     void Scene::StepPhysics(Timestep ts)
     {
         if (!m_PhysicsWorld && !m_PhysicsWorld3D) return;
@@ -2301,7 +2429,11 @@ namespace Zamin {
             if (m_PhysicsWorld)
             {
                 ZM_PROFILE_SCOPE("Box2D (2D)");
+                if (m_ContactListener)
+                    m_ContactListener->StepTime = fixedStep;
                 m_PhysicsWorld->Step(fixedStep, m_Settings.VelocityIterations, m_Settings.PositionIterations);
+                if (m_ContactListener && !m_ContactListener->DropThrough.empty())
+                    std::erase_if(m_ContactListener->DropThrough, [&](auto& item) { return (item.second -= fixedStep) <= 0.0f; });
             }
             if (m_PhysicsWorld3D)
             {
@@ -2535,6 +2667,7 @@ namespace Zamin {
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
             m_Time += ts;
+            m_AnimationTime += (double)ts;
             // Game time goes on: last frame's one-frame debug shapes go (paused: they stay).
             DebugDraw::Advance(ts);
 
@@ -2628,6 +2761,7 @@ namespace Zamin {
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
             DebugDraw::Advance(ts);
+            m_AnimationTime += (double)ts;
             ApplyActiveChanges(); // flags changed in the inspector while simulating
             StepPhysics(ts);
             UpdateParticles(ts, false);
@@ -2642,6 +2776,7 @@ namespace Zamin {
     {
         m_FrameIndex++;
         DebugDraw::Advance(ts); // the edit scene's time is the editor's
+        m_AnimationTime += (double)ts; // animated tiles play in the scene view
         UpdateParticles(ts, true);
         UpdateAnimators(ts, true);
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
@@ -3789,6 +3924,10 @@ namespace Zamin {
                 const bool previewed = item.Handle == options.TilePreviewEntity && item.Layer == options.TilePreviewLayer &&
                                        options.TilePreviewTiles && options.TilePreviewTiles->size() == layer.Tiles.size();
                 const std::vector<int>& tiles = previewed ? *options.TilePreviewTiles : layer.Tiles;
+                // Animated tiles of the tileset (its .zmeta) show their frame of the scene's clock.
+                const TilesetProperties* tileProperties = tm.TilesetPath.empty() ? nullptr : TilesetProperties::Get(registry(), tm.TilesetPath);
+                if (tileProperties && !tileProperties->HasAnimations())
+                    tileProperties = nullptr;
                 if (!tm.Tileset && !tm.TilesetPath.empty())
                     tm.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(tm.TilesetPath), tm.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
                 int cols = std::max(1, tm.TilesetColumns), rows = std::max(1, tm.TilesetRows);
@@ -3804,6 +3943,8 @@ namespace Zamin {
                     {
                         int tile = tiles[(size_t)y * tm.Width + x];
                         if (tile < 0) continue;
+                        if (tileProperties)
+                            tile = tileProperties->Resolve(tile, m_AnimationTime);
                         glm::mat4 t = transform * glm::translate(glm::mat4(1.0f), { (x + 0.5f) * tm.TileSize, (y + 0.5f) * tm.TileSize, 0.0f })
                                                 * glm::scale(glm::mat4(1.0f), { tm.TileSize, tm.TileSize, 1.0f });
                         if (tm.Tileset)

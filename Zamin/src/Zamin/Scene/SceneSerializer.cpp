@@ -375,9 +375,13 @@ namespace Zamin {
                                  { "GravityScale", c->GravityScale }, { "LinearDamping", c->LinearDamping },
                                  { "AngularDamping", c->AngularDamping }, { "Bullet", c->Bullet } };
         if (auto* c = entity.TryGetComponent<BoxCollider2DComponent>())
+        {
             e["BoxCollider2D"] = { { "Offset", ToJson(c->Offset) }, { "Size", ToJson(c->Size) }, { "Density", c->Density },
                                    { "Friction", c->Friction }, { "Restitution", c->Restitution },
                                    { "RestitutionThreshold", c->RestitutionThreshold }, { "IsSensor", c->IsSensor } };
+            if (c->OneWay)
+                e["BoxCollider2D"]["OneWay"] = true;
+        }
         if (auto* c = entity.TryGetComponent<CircleCollider2DComponent>())
             e["CircleCollider2D"] = { { "Offset", ToJson(c->Offset) }, { "Radius", c->Radius }, { "Density", c->Density },
                                       { "Friction", c->Friction }, { "Restitution", c->Restitution },
@@ -705,6 +709,7 @@ namespace Zamin {
             auto& c = entity.AddComponent<BoxCollider2DComponent>();
             readCollider(e["BoxCollider2D"], c);
             c.Size = Vec(e["BoxCollider2D"], "Size", glm::vec2(0.5f));
+            c.OneWay = e["BoxCollider2D"].value("OneWay", false);
         }
         if (e.contains("CircleCollider2D"))
         {

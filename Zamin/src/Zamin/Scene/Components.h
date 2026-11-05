@@ -713,6 +713,9 @@ namespace Zamin {
         float Restitution = 0.0f;
         float RestitutionThreshold = 0.5f;
         bool IsSensor = false;
+        // A one-way platform: bodies jump up through it from below and land on its top (its up is the
+        // entity's +Y). Scripts can drop through with ScriptableEntity::DropThroughPlatforms.
+        bool OneWay = false;
 
         void* RuntimeFixture = nullptr;
     };

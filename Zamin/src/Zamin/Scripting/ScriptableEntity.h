@@ -146,6 +146,9 @@ namespace Zamin {
         void ApplyImpulse(const glm::vec2& impulse);
         void ApplyForce(const glm::vec2& force);
         void SetPosition2D(const glm::vec2& position); // teleports the physics body too
+        // Falls through one-way platforms (OneWay tiles, one-way box colliders) for `seconds`:
+        //   if (Input::GetAxis("Vertical") < -0.5f && Input::IsActionJustPressed("Jump")) DropThroughPlatforms();
+        bool DropThroughPlatforms(float seconds = 0.35f);
 
         // ---- hierarchy
         Entity GetParent() const;

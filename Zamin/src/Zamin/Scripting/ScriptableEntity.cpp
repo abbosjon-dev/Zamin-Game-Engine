@@ -280,6 +280,8 @@ namespace Zamin {
 
     void ScriptableEntity::StopCameraShake() { m_Entity.GetScene()->StopCameraShake(); }
 
+    bool ScriptableEntity::DropThroughPlatforms(float seconds) { return m_Entity.GetScene()->DropThroughPlatforms(m_Entity, seconds); }
+
     bool ScriptableEntity::SetCameraTarget(Entity target, bool snap)
     {
         Entity camera = m_Entity.GetScene()->GetPrimaryCameraEntity();

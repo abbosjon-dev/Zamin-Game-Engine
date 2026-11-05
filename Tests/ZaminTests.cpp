@@ -14024,6 +14024,250 @@ TEST(TilemapSampleAutoTilesConsistent)
           camera.GetComponent<Camera2DFollowComponent>().UseBounds);
 }
 
+TEST(TilesetPropertiesStorage)
+{
+    TilesetProperties props;
+    CHECK(props.IsEmpty() && props.GetCollision(5) == TileCollision::Solid && props.Resolve(5, 3.0) == 5);
+    props.SetCollision(63, TileCollision::None);
+    props.SetCollision(64, TileCollision::None);
+    props.SetCollision(75, TileCollision::OneWay);
+    props.SetCollision(-3, TileCollision::None);                       // ignored
+    props.SetCollision(TilesetProperties::MaxTile + 1, TileCollision::None);
+    CHECK(props.GetCollision(63) == TileCollision::None && props.GetCollision(75) == TileCollision::OneWay && props.GetCollision(70) == TileCollision::Solid);
+    CHECK(props.GetTilesWith(TileCollision::None) == std::vector<int>({ 63, 64 }) && props.GetTilesWith(TileCollision::OneWay) == std::vector<int>({ 75 }));
+    // Back to Solid: forgotten (an equal set compares equal).
+    props.SetCollision(75, TileCollision::Solid);
+    TilesetProperties none;
+    none.SetCollision(63, TileCollision::None);
+    none.SetCollision(64, TileCollision::None);
+    CHECK(props == none);
+    props.SetCollision(75, TileCollision::OneWay);
+
+    // Animations: frames in turn at FPS, looping; replaced by tile; no frames = removed.
+    TileAnimation water{ 80, { 80, 81, 82, 83 }, 4.0f };
+    CHECK(props.SetAnimation(water) && props.HasAnimations() && props.FindAnimation(80) && !props.FindAnimation(81));
+    CHECK(props.Resolve(80, 0.0) == 80 && props.Resolve(80, 0.26) == 81 && props.Resolve(80, 0.99) == 83 && props.Resolve(80, 1.01) == 80);
+    CHECK(props.Resolve(80, 10.6) == 82 && props.Resolve(81, 0.3) == 81 && props.Resolve(-1, 0.3) == -1);
+    CHECK_NEAR(water.GetDuration(), 1.0f, 1e-5f);
+    TileAnimation still{ 84, { 86, 85 }, 0.0f };   // FPS 0: the first frame
+    CHECK(props.SetAnimation(still) && props.Resolve(84, 5.0) == 86);
+    CHECK(props.SetAnimation({ 2, { 2, 3, -5 }, 2.0f }) && props.GetAnimations().size() == 3 && props.GetAnimations()[0].Tile == 2 &&
+          props.GetAnimations()[0].Frames.size() == 2);   // sorted by tile, bad frames dropped
+    CHECK(props.SetAnimation({ 2, {}, 2.0f }) && !props.FindAnimation(2) && props.GetAnimations().size() == 2);
+    CHECK(!props.SetAnimation({ -1, { 1 }, 2.0f }) && !props.RemoveAnimation(99));
+    TileAnimation many{ 90, std::vector<int>(100, 1), 8.0f };
+    CHECK(props.SetAnimation(many) && props.FindAnimation(90)->Frames.size() == (size_t)TileAnimation::MaxFrames);
+    CHECK(props.RemoveAnimation(90));
+
+    // JSON round trip, bad text leaves `out` alone, unknown names / bad ids are skipped.
+    TilesetProperties back;
+    CHECK(TilesetProperties::FromJson(props.ToJson(), back) && back == props);
+    CHECK(!TilesetProperties::FromJson("[1,2]", back) && back == props);
+    TilesetProperties odd;
+    CHECK(TilesetProperties::FromJson(R"({"Collision":{"OneWay":[3,"x",-2],"Lava":[4],"Solid":[5]},"Animations":[{"Tile":1,"Frames":[1,2],"FPS":"fast"},{"Frames":[1]}]})", odd));
+    CHECK(odd.GetCollision(3) == TileCollision::OneWay && odd.GetCollision(4) == TileCollision::Solid && odd.GetAnimations().size() == 1 &&
+          odd.FindAnimation(1) && odd.FindAnimation(1)->FPS == 6.0f);
+
+    // Kept in the texture's import settings next to its other keys (nothing set: no key).
+    AssetImportSettings import;
+    import.SetBool("sRGB", true);
+    props.WriteTo(import);
+    CHECK(import.Has("TileProperties") && import.Has("sRGB") && TilesetProperties::FromImportSettings(import) == props);
+    TilesetProperties().WriteTo(import);
+    CHECK(!import.Has("TileProperties") && import.Has("sRGB"));
+}
+
+TEST(TilemapCollisionBoxes)
+{
+    TilemapComponent tm;
+    tm.Width = 8; tm.Height = 3;
+    tm.EnsureSize();
+    // Row 0: solid floor with a grass tile (none) in it; row 2: a one-way bridge next to a wall.
+    for (int x = 0; x < 8; x++) tm.Set(x, 0, 0);
+    tm.Set(3, 0, 7);
+    for (int x = 1; x < 5; x++) tm.Set(x, 2, 5);
+    tm.Set(5, 2, 0);
+    TilesetProperties props;
+    props.SetCollision(7, TileCollision::None);
+    props.SetCollision(5, TileCollision::OneWay);
+
+    // Without properties every tile is solid: one box per run.
+    std::vector<TileColliderBox> plain = TilemapCollision::BuildBoxes(tm, nullptr);
+    CHECK(plain.size() == 2 && (plain[0] == TileColliderBox{ 0, 8, 0, TileCollision::Solid }) && (plain[1] == TileColliderBox{ 1, 6, 2, TileCollision::Solid }));
+    std::vector<TileColliderBox> boxes = TilemapCollision::BuildBoxes(tm, &props);
+    CHECK(boxes.size() == 4);
+    if (boxes.size() == 4)
+    {
+        CHECK((boxes[0] == TileColliderBox{ 0, 3, 0, TileCollision::Solid }) && (boxes[1] == TileColliderBox{ 4, 8, 0, TileCollision::Solid }));
+        CHECK((boxes[2] == TileColliderBox{ 1, 5, 2, TileCollision::OneWay }) && (boxes[3] == TileColliderBox{ 5, 6, 2, TileCollision::Solid }));
+    }
+    // Layers: only those with Collision count; Solid wins over OneWay wins over None.
+    int deco = tm.AddLayer("Bezak");
+    tm.Set(3, 1, 0, deco);                       // a solid tile on a layer without collision
+    CHECK(TilemapCollision::GetCell(tm, 3, 1, &props) == TileCollision::None);
+    tm.Layers[(size_t)deco].Collision = true;
+    CHECK(TilemapCollision::GetCell(tm, 3, 1, &props) == TileCollision::Solid);
+    tm.Set(2, 2, 0, deco);                       // solid over the bridge
+    tm.Set(3, 0, 5, deco);                       // one-way over the grass
+    CHECK(TilemapCollision::GetCell(tm, 2, 2, &props) == TileCollision::Solid && TilemapCollision::GetCell(tm, 3, 0, &props) == TileCollision::OneWay);
+    CHECK(TilemapCollision::GetCell(tm, 0, 1, &props) == TileCollision::None && TilemapCollision::GetCell(tm, -1, 0, &props) == TileCollision::None);
+}
+
+TEST(OneWayPlatformDecision)
+{
+    const float dt = 1.0f / 60.0f;
+    // Resting on it, or a little in (solver slop): collides.
+    CHECK(OneWayPlatform::ShouldCollide(1.0f, 1.0f, 0.0f, dt) && OneWayPlatform::ShouldCollide(0.97f, 1.0f, 0.0f, dt));
+    // Moving up (jumping through from below / leaving it): never.
+    CHECK(!OneWayPlatform::ShouldCollide(0.5f, 1.0f, 5.0f, dt) && !OneWayPlatform::ShouldCollide(1.2f, 1.0f, 5.0f, dt));
+    // Under the top (walked in from the side, half way through): falls on through.
+    CHECK(!OneWayPlatform::ShouldCollide(0.6f, 1.0f, 0.0f, dt) && !OneWayPlatform::ShouldCollide(0.6f, 1.0f, -2.0f, dt));
+    // A fast fall sank further in during its last step: still lands.
+    CHECK(OneWayPlatform::ShouldCollide(0.7f, 1.0f, -20.0f, dt) && !OneWayPlatform::ShouldCollide(0.6f, 1.0f, -20.0f, dt));
+    // Slow upward drift (resting jitter) still counts as resting.
+    CHECK(OneWayPlatform::ShouldCollide(1.0f, 1.0f, 0.3f, dt));
+}
+
+static int g_OneWayBegins = 0, g_OneWayEnds = 0;
+static float g_OneWayLaunch = 0.0f;
+class OneWayProbe : public ScriptableEntity
+{
+public:
+    void OnStart() override { if (g_OneWayLaunch != 0.0f) SetVelocity({ 0.0f, g_OneWayLaunch }); }
+    void OnCollisionBegin(Entity) override { g_OneWayBegins++; }
+    void OnCollisionEnd(Entity) override { g_OneWayEnds++; }
+};
+ZM_REGISTER_SCRIPT(OneWayProbe)
+
+TEST(OneWayBoxColliderInScene)
+{
+    auto makeScene = [](bool oneWay, float startY) {
+        auto scene = CreateRef<Scene>();
+        Entity platform = scene->CreateEntity("Platform");
+        platform.GetTransform().Scale = { 4.0f, 0.5f, 1.0f };   // top at y = 0.25
+        platform.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+        platform.AddComponent<BoxCollider2DComponent>().OneWay = oneWay;
+        Entity box = scene->CreateEntity("Box");
+        box.GetTransform().Translation = { 0.0f, startY, 0.0f };
+        box.AddComponent<Rigidbody2DComponent>().FixedRotation = true;
+        box.AddComponent<BoxCollider2DComponent>();              // 1 x 1
+        box.AddComponent<NativeScriptComponent>().ClassName = "OneWayProbe";
+        return scene;
+    };
+    auto run = [](const Ref<Scene>& scene, int frames) { for (int i = 0; i < frames; i++) scene->OnUpdateRuntime(1.0f / 60.0f); };
+
+    // Thrown up from below: passes through (no collision reported), comes down and lands on the top.
+    g_OneWayBegins = g_OneWayEnds = 0;
+    g_OneWayLaunch = 9.0f;
+    {
+        auto scene = makeScene(true, -2.0f);
+        scene->OnRuntimeStart();
+        Entity box = scene->FindEntityByName("Box");
+        float highest = -100.0f;
+        for (int i = 0; i < 240; i++)
+        {
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            highest = std::max(highest, box.GetTransform().Translation.y);
+        }
+        CHECK(highest > 1.5f);
+        CHECK_NEAR(box.GetTransform().Translation.y, 0.75f, 0.05f);
+        CHECK(g_OneWayBegins == 1 && g_OneWayEnds == 0);
+        // Down + jump: it drops through (the collision ends) and keeps falling.
+        CHECK(scene->DropThroughPlatforms(box, 0.3f));
+        run(scene, 60);
+        CHECK(box.GetTransform().Translation.y < -1.0f && g_OneWayEnds == 1 && g_OneWayBegins == 1);
+        scene->OnRuntimeStop();
+        CHECK(!scene->DropThroughPlatforms(box)); // no world any more
+    }
+    // A solid platform stops it from below instead.
+    g_OneWayBegins = g_OneWayEnds = 0;
+    {
+        auto scene = makeScene(false, -2.0f);
+        scene->OnRuntimeStart();
+        run(scene, 120);
+        CHECK(scene->FindEntityByName("Box").GetTransform().Translation.y < -0.7f && g_OneWayBegins >= 1);
+        scene->OnRuntimeStop();
+    }
+    // Dropped from high above (a fast fall): lands, and the flag is saved with the scene.
+    g_OneWayLaunch = 0.0f;
+    {
+        auto scene = makeScene(true, 12.0f);
+        std::string text = SceneSerializer(scene).SerializeToString();
+        CHECK(text.find("\"OneWay\"") != std::string::npos);
+        auto loaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+        CHECK(loaded->FindEntityByName("Platform").GetComponent<BoxCollider2DComponent>().OneWay &&
+              !loaded->FindEntityByName("Box").GetComponent<BoxCollider2DComponent>().OneWay);
+        loaded->OnRuntimeStart();
+        run(loaded, 240);
+        CHECK_NEAR(loaded->FindEntityByName("Box").GetTransform().Translation.y, 0.75f, 0.05f);
+        loaded->OnRuntimeStop();
+    }
+}
+
+TEST(TilemapTilePropertiesInScene)
+{
+    namespace fs = std::filesystem;
+    // A project whose tileset marks tile 1 as grass (no collision) and tile 2 as a one-way plank.
+    fs::path root = MakeTempDir("zamin-tileprops-");
+    auto project = Project::CreateFromTemplate(root, "TileGame");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    WriteFile(root / "Assets" / "Textures" / "tiles.png", "png");
+    WriteFile(root / "Assets" / "Textures" / "tiles.png.zmeta",
+              R"({ "UUID": "00000000000000b7", "Type": "Texture", "Import": { "TileProperties": { "Collision": { "None": [1], "OneWay": [2] },
+                   "Animations": [ { "Tile": 3, "Frames": [3, 4, 5], "FPS": 2 } ] } } })");
+    if (AssetRegistry* registry = Project::GetAssetRegistry())
+        registry->Scan(Project::GetAssetDirectory());
+    const TilesetProperties* props = TilesetProperties::Get("Textures/tiles.png");
+    CHECK(props && props->GetCollision(1) == TileCollision::None && props->GetCollision(2) == TileCollision::OneWay && props->FindAnimation(3));
+
+    auto scene = CreateRef<Scene>();
+    Entity map = scene->CreateEntity("Map");
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.TilesetPath = "Textures/tiles.png";
+    tm.Width = 12; tm.Height = 6;
+    tm.EnsureSize();
+    for (int x = 0; x < 12; x++) tm.Set(x, 0, 0);   // floor (top y = 1)
+    tm.Set(9, 1, 1);                                 // grass on the floor
+    for (int x = 0; x < 6; x++) tm.Set(x, 3, 2);    // one-way planks (top y = 4)
+    auto addBox = [&](const char* name, glm::vec2 position) {
+        Entity box = scene->CreateEntity(name);
+        box.GetTransform().Translation = { position.x, position.y, 0.0f };
+        box.AddComponent<Rigidbody2DComponent>().FixedRotation = true;
+        box.AddComponent<BoxCollider2DComponent>().Size = { 0.4f, 0.4f };
+        return box;
+    };
+    addBox("OnPlanks", { 2.5f, 8.0f });
+    addBox("OnGrass", { 9.5f, 4.0f });
+    addBox("Under", { 4.5f, 1.6f });                  // between the floor and the planks
+    g_OneWayLaunch = 0.0f;
+    scene->OnRuntimeStart();
+    // The animation clock starts with the game and only runs with it.
+    CHECK(scene->GetAnimationTime() == 0.0);
+    for (int i = 0; i < 180; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(scene->GetAnimationTime(), 3.0, 1e-3);
+    CHECK_NEAR(scene->FindEntityByName("OnPlanks").GetTransform().Translation.y, 4.4f, 0.05f);
+    CHECK_NEAR(scene->FindEntityByName("OnGrass").GetTransform().Translation.y, 1.4f, 0.05f);  // grass is not solid
+    CHECK_NEAR(scene->FindEntityByName("Under").GetTransform().Translation.y, 1.4f, 0.05f);
+    // The one under the planks drops through nothing (it is below them); one on them does.
+    CHECK(scene->DropThroughPlatforms(scene->FindEntityByName("OnPlanks")));
+    for (int i = 0; i < 60; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(scene->FindEntityByName("OnPlanks").GetTransform().Translation.y, 1.4f, 0.05f);
+    scene->OnRuntimeStop();
+    // The scene's clock: the editor's scene view advances it too.
+    scene->SetAnimationTime(0.0);
+    CHECK(props && props->Resolve(3, scene->GetAnimationTime() + 0.6) == 4);
+
+    TilesetProperties::ClearCache();
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

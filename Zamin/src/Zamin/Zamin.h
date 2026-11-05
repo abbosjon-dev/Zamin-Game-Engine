@@ -45,6 +45,7 @@
 #include "Zamin/Scene/Parallax.h"
 #include "Zamin/Scene/Camera2D.h"
 #include "Zamin/Scene/TilemapTools.h"
+#include "Zamin/Scene/TilesetProperties.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Debug/MeshNormals.h"

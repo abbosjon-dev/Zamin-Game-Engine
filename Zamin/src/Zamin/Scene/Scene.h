@@ -389,6 +389,11 @@ namespace Zamin {
         // the editor's play-mode overlays).
         glm::mat4 GetCameraViewTransform(Entity camera);
 
+        // ---- one-way platforms (OneWay tiles of a tileset, BoxCollider2D::OneWay)
+        // The entity's 2D body falls through every one-way surface for `seconds` (and for as long as
+        // it is still inside one): "down + jump" in a platformer. False without a running 2D world.
+        bool DropThroughPlatforms(Entity entity, float seconds = 0.35f);
+
         bool IsRunning() const { return m_IsRunning; }
         bool IsPaused() const { return m_IsPaused; }
         void SetPaused(bool paused) { m_IsPaused = paused; }
@@ -401,6 +406,10 @@ namespace Zamin {
         void SetName(const std::string& name) { m_Name = name; }
 
         float GetTime() const { return m_Time; }
+        // The clock of animated tiles (seconds): runs while the game runs (not while paused), while
+        // simulating and in the editor's scene view.
+        double GetAnimationTime() const { return m_AnimationTime; }
+        void SetAnimationTime(double time) { m_AnimationTime = time; }
 
         template<typename... Components>
         auto GetAllEntitiesWith() { return m_Registry.view<Components...>(); }
@@ -597,6 +606,7 @@ namespace Zamin {
         bool m_ScriptsRunning = false;
         int m_StepFrames = 0;
         float m_Time = 0.0f;
+        double m_AnimationTime = 0.0;
         float m_PhysicsAccumulator = 0.0f;
 
         std::string m_Name = "Untitled";

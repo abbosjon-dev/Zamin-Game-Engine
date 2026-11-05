@@ -4103,8 +4103,12 @@ namespace Zamin {
         Ref<const ConvexHull3D> hull = Scene::GetConvexHullCollider(entity, &error);
         UI::PropertyLabel("Qobiq", "Fizik jism oladigan shakl: viewport'da collider chiziqlari bilan ko'rinadi");
         if (hull)
+        {
+            ImGui::PushTextWrapPos(0.0f);
             ImGui::TextDisabled(ICON_FA_SHAPES "  %zu burchak, %zu yuz (%zu nuqtadan)%s", hull->Points.size(), hull->Faces.size(),
                                 hull->SourceVertexCount, hull->Simplified ? ", soddalashtirilgan" : "");
+            ImGui::PopTextWrapPos();
+        }
         else
         {
             ImGui::PushTextWrapPos(0.0f);

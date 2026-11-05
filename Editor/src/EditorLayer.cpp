@@ -7650,10 +7650,10 @@ namespace Zamin {
                 const PhysicsStats2D stats = m_ActiveScene->GetPhysics2DStats();
                 UI::PropertyLabel("Jismlar");
                 ImGui::Text("%d ta (%d harakatlanuvchi)", stats.Bodies, stats.Moving);
-                UI::PropertyLabel("Holat");
-                ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1.0f), ICON_FA_BOLT " %d uyg'oq", stats.Awake);
-                ImGui::SameLine();
-                ImGui::TextColored(ImVec4(0.55f, 0.65f, 0.95f, 1.0f), "  " ICON_FA_MOON " %d uxlayapti", stats.Sleeping);
+                UI::PropertyLabel("Uyg'oq");
+                ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1.0f), ICON_FA_BOLT "  %d ta", stats.Awake);
+                UI::PropertyLabel("Uxlayapti", "Fizik colliderlar ko'rsatilganda uxlayotgan jismlarning chiziqlari ko'kish-kulrang");
+                ImGui::TextColored(ImVec4(0.55f, 0.65f, 0.95f, 1.0f), ICON_FA_MOON "  %d ta", stats.Sleeping);
                 UI::PropertyLabel("Joint / kontakt");
                 ImGui::Text("%d joint, %d kontakt", stats.Joints, stats.Contacts);
                 UI::PropertyLabel("Bu kadrda");

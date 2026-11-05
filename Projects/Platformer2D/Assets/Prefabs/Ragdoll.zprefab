@@ -1,0 +1,956 @@
+{
+  "ZaminEntities": 1,
+  "Entities": [
+    {
+      "Entity": 1,
+      "Tag": "Ragdoll",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 2,
+      "Tag": "Hips",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.38,
+          0.32,
+          1
+        ]
+      },
+      "Parent": 1,
+      "SpriteRenderer": {
+        "Color": [
+          0.22,
+          0.24,
+          0.36,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 3,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.05,
+        "Bullet": false,
+        "Layer": 3
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.5,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 3,
+      "Tag": "Chest",
+      "Transform": {
+        "Translation": [
+          0.0,
+          0.46,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.42,
+          0.62,
+          1
+        ]
+      },
+      "Parent": 1,
+      "SpriteRenderer": {
+        "Color": [
+          0.25,
+          0.55,
+          0.9,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 3,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.05,
+        "Bullet": false,
+        "Layer": 3
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.5,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 2,
+        "Anchor": [
+          0.0,
+          -0.31
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -40.0,
+        "UpperAngle": 25.0,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 0.35
+      }
+    },
+    {
+      "Entity": 4,
+      "Tag": "Head",
+      "Transform": {
+        "Translation": [
+          0.03,
+          1.04,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.54,
+          0.54,
+          1
+        ]
+      },
+      "Parent": 1,
+      "CircleRenderer": {
+        "Color": [
+          0.96,
+          0.78,
+          0.62,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": 5
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.05,
+        "Bullet": false,
+        "Layer": 3
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 1.5,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 3,
+        "Anchor": [
+          -0.03,
+          -0.25
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -40.0,
+        "UpperAngle": 40.0,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 0.15
+      }
+    },
+    {
+      "Entity": 5,
+      "Tag": "Eye",
+      "Transform": {
+        "Translation": [
+          0.42,
+          0.12,
+          0.01
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.17,
+          0.17,
+          1
+        ]
+      },
+      "Parent": 4,
+      "CircleRenderer": {
+        "Color": [
+          0.12,
+          0.1,
+          0.12,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": 6
+      }
+    },
+    {
+      "Entity": 6,
+      "Tag": "Hair",
+      "Transform": {
+        "Translation": [
+          -0.1,
+          0.1,
+          -0.01
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1
+        ]
+      },
+      "Parent": 4,
+      "CircleRenderer": {
+        "Color": [
+          0.36,
+          0.22,
+          0.12,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": 4
+      }
+    },
+    {
+      "Entity": 7,
+      "Tag": "Upper Arm B",
+      "Transform": {
+        "Translation": [
+          -0.05,
+          0.5,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.15,
+          0.44,
+          1
+        ]
+      },
+      "Parent": 1,
+      "SpriteRenderer": {
+        "Color": [
+          0.18,
+          0.396,
+          0.648,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.05,
+        "Bullet": false,
+        "Layer": 4
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.5,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 3,
+        "Anchor": [
+          0.0,
+          0.2
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -70.0,
+        "UpperAngle": 170.0,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 0.06
+      }
+    },
+    {
+      "Entity": 8,
+      "Tag": "Forearm B",
+      "Transform": {
+        "Translation": [
+          -0.05,
+          0.11,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.13,
+          0.4,
+          1
+        ]
+      },
+      "Parent": 1,
+      "SpriteRenderer": {
+        "Color": [
+          0.691,
+          0.562,
+          0.446,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.05,
+        "Bullet": false,
+        "Layer": 4
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.5,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 7,
+        "Anchor": [
+          0.0,
+          0.18
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -2.0,
+        "UpperAngle": 145.0,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 0.04
+      }
+    },
+    {
+      "Entity": 9,
+      "Tag": "Thigh B",
+      "Transform": {
+        "Translation": [
+          -0.05,
+          -0.38,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.18,
+          0.54,
+          1
+        ]
+      },
+      "Parent": 1,
+      "SpriteRenderer": {
+        "Color": [
+          0.182,
+          0.199,
+          0.298,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.05,
+        "Bullet": false,
+        "Layer": 4
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.5,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 2,
+        "Anchor": [
+          0.0,
+          0.26
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -30.0,
+        "UpperAngle": 110.0,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 0.15
+      }
+    },
+    {
+      "Entity": 10,
+      "Tag": "Shin B",
+      "Transform": {
+        "Translation": [
+          -0.05,
+          -0.9,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.16,
+          0.54,
+          1
+        ]
+      },
+      "Parent": 1,
+      "SpriteRenderer": {
+        "Color": [
+          0.158,
+          0.173,
+          0.259,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.05,
+        "Bullet": false,
+        "Layer": 4
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.5,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 9,
+        "Anchor": [
+          0.0,
+          0.26
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -145.0,
+        "UpperAngle": 2.0,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 0.1
+      }
+    },
+    {
+      "Entity": 11,
+      "Tag": "Upper Arm F",
+      "Transform": {
+        "Translation": [
+          0.05,
+          0.5,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.15,
+          0.44,
+          1
+        ]
+      },
+      "Parent": 1,
+      "SpriteRenderer": {
+        "Color": [
+          0.25,
+          0.55,
+          0.9,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 6,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.05,
+        "Bullet": false,
+        "Layer": 4
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.5,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 3,
+        "Anchor": [
+          0.0,
+          0.2
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -70.0,
+        "UpperAngle": 170.0,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 0.06
+      }
+    },
+    {
+      "Entity": 12,
+      "Tag": "Forearm F",
+      "Transform": {
+        "Translation": [
+          0.05,
+          0.11,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.13,
+          0.4,
+          1
+        ]
+      },
+      "Parent": 1,
+      "SpriteRenderer": {
+        "Color": [
+          0.96,
+          0.78,
+          0.62,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 6,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.05,
+        "Bullet": false,
+        "Layer": 4
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.5,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 11,
+        "Anchor": [
+          0.0,
+          0.18
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -2.0,
+        "UpperAngle": 145.0,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 0.04
+      }
+    },
+    {
+      "Entity": 13,
+      "Tag": "Thigh F",
+      "Transform": {
+        "Translation": [
+          0.05,
+          -0.38,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.18,
+          0.54,
+          1
+        ]
+      },
+      "Parent": 1,
+      "SpriteRenderer": {
+        "Color": [
+          0.253,
+          0.276,
+          0.414,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 4,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.05,
+        "Bullet": false,
+        "Layer": 4
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.5,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 2,
+        "Anchor": [
+          0.0,
+          0.26
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -30.0,
+        "UpperAngle": 110.0,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 0.15
+      }
+    },
+    {
+      "Entity": 14,
+      "Tag": "Shin F",
+      "Transform": {
+        "Translation": [
+          0.05,
+          -0.9,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.16,
+          0.54,
+          1
+        ]
+      },
+      "Parent": 1,
+      "SpriteRenderer": {
+        "Color": [
+          0.22,
+          0.24,
+          0.36,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 4,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.05,
+        "Bullet": false,
+        "Layer": 4
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.5,
+        "Friction": 0.7,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 13,
+        "Anchor": [
+          0.0,
+          0.26
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -145.0,
+        "UpperAngle": 2.0,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 0.1
+      }
+    }
+  ]
+}

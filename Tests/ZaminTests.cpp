@@ -16632,6 +16632,467 @@ TEST(CollisionFiltering2D)
     fs::remove_all(root, ec);
 }
 
+// ------------------------------------------------------------------ 2D physics settings, sleeping, joint prefabs, ragdoll (M09)
+static Entity MakeBox2D(Ref<Scene>& scene, const char* name, glm::vec2 position, glm::vec2 half, Rigidbody2DComponent::BodyType type,
+                        float density = 1.0f)
+{
+    Entity e = scene->CreateEntity(name);
+    e.GetTransform().Translation = { position.x, position.y, 0.0f };
+    e.AddComponent<Rigidbody2DComponent>().Type = type;
+    auto& box = e.AddComponent<BoxCollider2DComponent>();
+    box.Size = half;
+    box.Density = density;
+    return e;
+}
+
+// The largest distance between the two anchors of any running joint of `entities` (how far they pulled apart).
+template<typename T>
+static float MaxJointGap(const std::vector<Entity>& entities)
+{
+    float gap = 0.0f;
+    for (Entity e : entities)
+        if (const auto* j = e.TryGetComponent<T>(); j && j->RuntimeJoint)
+        {
+            glm::vec2 a, b;
+            PhysicsWorld2D::GetJointAnchors((const b2Joint*)j->RuntimeJoint, a, b);
+            gap = std::max(gap, glm::length(a - b));
+        }
+    return gap;
+}
+
+TEST(Physics2DStepSettingsAndSubSteps)
+{
+    // Defaults: 60 steps a second, at most 5 a frame, Box2D's 6 / 2 iterations, one sub-step, sleeping after 0.5 s.
+    SceneSettings defaults;
+    CHECK(defaults.PhysicsStep.StepRate == 60 && defaults.PhysicsStep.MaxStepsPerFrame == 5);
+    CHECK(defaults.PhysicsStep.GetFixedStep() == 1.0f / 60.0f);
+    CHECK(defaults.Physics2D.VelocityIterations == 6 && defaults.Physics2D.PositionIterations == 2 && defaults.Physics2D.SubSteps == 1);
+    CHECK(defaults.Physics2D.AllowSleep && defaults.Physics2D.TimeToSleep == PhysicsWorld2D::DefaultTimeToSleep);
+
+    // Saved only when changed (older files stay as they were), read back as they were.
+    auto scene = CreateRef<Scene>();
+    std::string plain = SceneSerializer(scene).SerializeToString();
+    CHECK(plain.find("\"Physics2D\"") == std::string::npos && plain.find("\"PhysicsStep\"") == std::string::npos);
+    auto& s = scene->GetSettings();
+    s.PhysicsStep.StepRate = 120;
+    s.PhysicsStep.MaxStepsPerFrame = 8;
+    s.Physics2D.VelocityIterations = 10;
+    s.Physics2D.PositionIterations = 4;
+    s.Physics2D.SubSteps = 3;
+    s.Physics2D.AllowSleep = false;
+    s.Physics2D.TimeToSleep = 1.5f;
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->GetSettings().PhysicsStep == s.PhysicsStep && loaded->GetSettings().Physics2D == s.Physics2D);
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+    // Hand-edited values out of range are clamped; a scene without them gets the defaults.
+    {
+        std::string edited = text;
+        auto swap = [&](const std::string& from, const std::string& to) {
+            auto at = edited.find(from);
+            CHECK(at != std::string::npos);
+            if (at != std::string::npos)
+                edited.replace(at, from.size(), to);
+        };
+        swap("\"SubSteps\": 3", "\"SubSteps\": 99");
+        swap("\"Rate\": 120", "\"Rate\": 5");
+        swap("\"TimeToSleep\": 1.5", "\"TimeToSleep\": -2.0");
+        swap("\"VelocityIterations\": 10", "\"VelocityIterations\": 0");
+        auto odd = CreateRef<Scene>();
+        CHECK(SceneSerializer(odd).DeserializeFromString(edited));
+        const SceneSettings& o = odd->GetSettings();
+        CHECK(o.Physics2D.SubSteps == SceneSettings::Physics2DSettings::MaxSubSteps && o.PhysicsStep.StepRate == SceneSettings::PhysicsStepSettings::MinRate);
+        CHECK(o.Physics2D.TimeToSleep == 0.05f && o.Physics2D.VelocityIterations == 1 && o.PhysicsStep.MaxStepsPerFrame == 8);
+        CHECK(SceneSerializer(loaded).DeserializeFromString(plain));
+        CHECK(loaded->GetSettings().PhysicsStep == SceneSettings::PhysicsStepSettings() && loaded->GetSettings().Physics2D == SceneSettings::Physics2DSettings());
+    }
+
+    // Box2D steps a frame: fixed steps x sub-steps. A falling ball (no ground) for `frames` frames of `frame` s.
+    struct Run { uint64_t Steps = 0; int LastFrame = 0; float Fallen = 0.0f; };
+    auto run = [](int rate, int subSteps, int maxSteps, float frame, int frames) {
+        auto sc = CreateRef<Scene>();
+        sc->GetSettings().PhysicsStep.StepRate = rate;
+        sc->GetSettings().PhysicsStep.MaxStepsPerFrame = maxSteps;
+        sc->GetSettings().Physics2D.SubSteps = subSteps;
+        Entity ball = MakeBody2D(sc, "Ball", { 0.0f, 10.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+        sc->OnRuntimeStart();
+        for (int i = 0; i < frames; i++)
+            sc->OnUpdateRuntime(frame);
+        Run r;
+        r.Steps = sc->GetPhysics2DStats().Steps;
+        r.LastFrame = sc->GetPhysics2DStepsLastFrame();
+        r.Fallen = 10.0f - Pos2D(ball).y;
+        sc->OnRuntimeStop();
+        return r;
+    };
+    Run one = run(60, 1, 5, 1.0f / 60.0f, 60);
+    CHECK(one.Steps == 60 && one.LastFrame == 1);
+    Run three = run(60, 3, 5, 1.0f / 60.0f, 60);
+    CHECK(three.Steps == 180 && three.LastFrame == 3);
+    Run fast = run(120, 1, 5, 1.0f / 60.0f, 60);
+    CHECK(fast.Steps == 120 && fast.LastFrame == 2);
+    // A frame of 0.25 s at most 2 steps: the rest of the time is dropped.
+    Run slow = run(60, 1, 2, 0.25f, 1);
+    CHECK(slow.Steps == 2 && slow.LastFrame == 2);
+    // 1 s of free fall (0.5 g t^2 = 4.9): shorter steps come closer to it.
+    CHECK_NEAR(one.Fallen, 4.9f, 0.12f);
+    CHECK_NEAR(three.Fallen, 4.9f, 0.12f);
+    CHECK(std::abs(three.Fallen - 4.9f) < std::abs(one.Fallen - 4.9f));
+
+    // A heavy weight on a light chain: sub-steps keep the links together.
+    auto chainGap = [](int subSteps) {
+        auto sc = CreateRef<Scene>();
+        sc->GetSettings().Physics2D.SubSteps = subSteps;
+        std::vector<Entity> links;
+        Entity prev;
+        for (int i = 0; i < 12; i++)
+        {
+            Entity link = MakeBox2D(sc, "Link", { 0.0f, 10.0f - 0.5f * i - 0.25f }, { 0.05f, 0.25f }, Rigidbody2DComponent::BodyType::Dynamic);
+            auto& j = link.AddComponent<RevoluteJoint2DComponent>();
+            j.Anchor = { 0.0f, 0.25f };
+            if (prev)
+                j.ConnectedBody.ID = prev.GetUUID();
+            links.push_back(link);
+            prev = link;
+        }
+        Entity weight = MakeBox2D(sc, "Weight", { 1.5f, 10.0f - 6.0f - 0.4f }, { 0.4f, 0.4f }, Rigidbody2DComponent::BodyType::Dynamic, 20.0f);
+        auto& wj = weight.AddComponent<RevoluteJoint2DComponent>();
+        wj.ConnectedBody.ID = prev.GetUUID();
+        wj.Anchor = { -1.5f, 0.4f }; // the end of the chain, 1.5 to its left: it swings
+        links.push_back(weight);
+        sc->OnRuntimeStart();
+        float gap = 0.0f;
+        for (int i = 0; i < 120; i++)
+        {
+            sc->OnUpdateRuntime(1.0f / 60.0f);
+            gap = std::max(gap, MaxJointGap<RevoluteJoint2DComponent>(links));
+        }
+        CHECK(sc->GetPhysics2DStats().Joints == 13);
+        sc->OnRuntimeStop();
+        return gap;
+    };
+    // (A weight 500 times as heavy as a link: with one step the chain comes apart, with four it holds.)
+    const float gap1 = chainGap(1), gap4 = chainGap(4);
+    CHECK(gap1 > 0.5f && gap4 < 0.06f);
+}
+
+TEST(Physics2DSleeping)
+{
+    using Mode = Rigidbody2DComponent::SleepMode;
+    // A box resting on the ground: frames until it sleeps (-1: not within `frames`).
+    auto framesToSleep = [](float timeToSleep, bool allowSleep, Mode mode, int frames) {
+        auto sc = CreateRef<Scene>();
+        sc->GetSettings().Physics2D.TimeToSleep = timeToSleep;
+        sc->GetSettings().Physics2D.AllowSleep = allowSleep;
+        MakeBox2D(sc, "Ground", { 0.0f, -0.5f }, { 20.0f, 0.5f }, Rigidbody2DComponent::BodyType::Static);
+        Entity box = MakeBox2D(sc, "Box", { 0.0f, 0.52f }, { 0.5f, 0.5f }, Rigidbody2DComponent::BodyType::Dynamic);
+        box.GetComponent<Rigidbody2DComponent>().Sleeping = mode;
+        sc->OnRuntimeStart();
+        int asleep = -1;
+        for (int i = 1; i <= frames && asleep < 0; i++)
+        {
+            sc->OnUpdateRuntime(1.0f / 60.0f);
+            if (sc->IsSleeping2D(box))
+                asleep = i;
+        }
+        sc->OnRuntimeStop();
+        return asleep;
+    };
+    const int quick = framesToSleep(0.2f, true, Mode::StartAwake, 600);
+    const int standard = framesToSleep(0.5f, true, Mode::StartAwake, 600);
+    const int slow = framesToSleep(2.0f, true, Mode::StartAwake, 600);
+    CHECK(quick >= 12 && standard >= 30 && slow >= 120);
+    CHECK(quick < standard && standard < slow && slow < 200);
+    CHECK(framesToSleep(0.5f, false, Mode::StartAwake, 240) == -1); // sleeping off
+    CHECK(framesToSleep(0.5f, true, Mode::NeverSleep, 240) == -1);
+    CHECK(framesToSleep(2.0f, true, Mode::NeverSleep, 240) == -1);  // also with the world's own timing
+    CHECK(framesToSleep(0.5f, true, Mode::StartAsleep, 1) == 1);    // asleep from the start
+
+    auto scene = CreateRef<Scene>();
+    scene->GetSettings().Physics2D.TimeToSleep = 0.8f; // counted by the world: whole islands at once
+    Entity ground = MakeBox2D(scene, "Ground", { 0.0f, -0.5f }, { 30.0f, 0.5f }, Rigidbody2DComponent::BodyType::Static);
+    Entity bottom = MakeBox2D(scene, "Bottom", { 0.0f, 0.5f }, { 0.5f, 0.5f }, Rigidbody2DComponent::BodyType::Dynamic);
+    Entity top = MakeBox2D(scene, "Top", { 0.0f, 1.5f }, { 0.5f, 0.5f }, Rigidbody2DComponent::BodyType::Dynamic);
+    // A box waiting in the air (asleep) and a ball that falls on it.
+    Entity waiting = MakeBox2D(scene, "Waiting", { 8.0f, 5.0f }, { 0.5f, 0.5f }, Rigidbody2DComponent::BodyType::Dynamic);
+    waiting.GetComponent<Rigidbody2DComponent>().Sleeping = Mode::StartAsleep;
+    Entity ball = MakeBody2D(scene, "Ball", { 8.2f, 9.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.3f);
+    Entity restless = MakeBox2D(scene, "Restless", { -8.0f, 0.5f }, { 0.5f, 0.5f }, Rigidbody2DComponent::BodyType::Dynamic);
+    restless.GetComponent<Rigidbody2DComponent>().Sleeping = Mode::NeverSleep;
+    scene->OnRuntimeStart();
+    CHECK(!scene->IsSleeping2D(ground) && !scene->SetAwake2D(ground, false)); // static: neither
+    CHECK(scene->IsSleeping2D(waiting) && !scene->IsSleeping2D(bottom));
+    PhysicsStats2D stats = scene->GetPhysics2DStats();
+    CHECK(stats.Bodies == 6 && stats.Moving == 5 && stats.Sleeping == 1 && stats.Awake == 4 && stats.Joints == 0);
+    int stackAsleep = -1;
+    bool together = true;
+    for (int i = 1; i <= 50; i++)
+    {
+        RunFrames(scene, 1);
+        together &= scene->IsSleeping2D(bottom) == scene->IsSleeping2D(top);
+        if (stackAsleep < 0 && scene->IsSleeping2D(bottom))
+            stackAsleep = i;
+        if (i <= 40)
+            CHECK_NEAR(Pos2D(waiting).y, 5.0f, 1e-6f); // asleep: does not fall until the ball comes
+    }
+    CHECK(together && stackAsleep >= 48 && stackAsleep <= 50); // 0.8 s after they stopped moving
+    RunFrames(scene, 70);
+    CHECK(!scene->IsSleeping2D(waiting) && Pos2D(waiting).y < 4.5f); // hit and falling
+    CHECK(!scene->IsSleeping2D(restless) && scene->IsSleeping2D(top));
+    // A script wakes a body / puts it to sleep: it stops where it is and waits.
+    CHECK(scene->SetAwake2D(top, true) && !scene->IsSleeping2D(top));
+    RunFrames(scene, 200); // everything settles
+    CHECK(scene->IsSleeping2D(ball) || Pos2D(ball).y < 1.0f);
+    Entity drop = MakeBody2D(scene, "Drop", { 15.0f, 10.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    scene->OnEntitiesSpawned({ drop });
+    RunFrames(scene, 20);
+    CHECK(scene->SetAwake2D(drop, false) && scene->IsSleeping2D(drop));
+    const float stopped = Pos2D(drop).y;
+    RunFrames(scene, 30);
+    CHECK(Pos2D(drop).y == stopped && Velocity2D(drop) == glm::vec2(0.0f));
+    scene->SetAwake2D(drop, true);
+    RunFrames(scene, 10);
+    CHECK(Pos2D(drop).y < stopped - 0.05f);
+    // Switching sleeping off while running wakes every body; the mode of one body may change too.
+    stats = scene->GetPhysics2DStats();
+    CHECK(stats.Sleeping >= 3);
+    scene->GetSettings().Physics2D.AllowSleep = false;
+    RunFrames(scene, 1);
+    CHECK(scene->GetPhysics2DStats().Sleeping == 0);
+    scene->GetSettings().Physics2D.AllowSleep = true;
+    scene->GetSettings().Physics2D.TimeToSleep = 0.5f; // Box2D's own timing again
+    restless.GetComponent<Rigidbody2DComponent>().Sleeping = Mode::StartAwake;
+    RunFrames(scene, 120);
+    CHECK(scene->IsSleeping2D(restless) && scene->IsSleeping2D(bottom));
+    scene->OnRuntimeStop();
+    CHECK(!scene->IsSleeping2D(bottom) && scene->GetPhysics2DStats().Bodies == 0);
+
+    // The mode is saved only when it is not the default; unknown names read as the default.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Sleeping\": \"StartAsleep\"") != std::string::npos && text.find("\"Sleeping\": \"NeverSleep\"") == std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->GetEntityByUUID(waiting.GetUUID()).GetComponent<Rigidbody2DComponent>().Sleeping == Mode::StartAsleep);
+    CHECK(loaded->GetEntityByUUID(restless.GetUUID()).GetComponent<Rigidbody2DComponent>().Sleeping == Mode::StartAwake);
+    Entity bare = loaded->CreateEntity("Bare");
+    CHECK(SceneSerializer::DeserializeComponent("{\"ZaminComponent\":\"Rigidbody2D\",\"Data\":{\"Sleeping\":\"NeverSleep\"}}", bare));
+    CHECK(bare.GetComponent<Rigidbody2DComponent>().Sleeping == Mode::NeverSleep);
+    bare.RemoveComponent<Rigidbody2DComponent>();
+    CHECK(SceneSerializer::DeserializeComponent("{\"ZaminComponent\":\"Rigidbody2D\",\"Data\":{\"Sleeping\":\"Banana\"}}", bare));
+    CHECK(bare.GetComponent<Rigidbody2DComponent>().Sleeping == Mode::StartAwake);
+}
+
+TEST(Joint2DPrefabFileAndSpawn)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / ("zamin-joint-prefab-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir);
+    // A rig (a root, a torso and an arm on a limited hinge) whose torso hangs from a hook outside it.
+    auto scene = CreateRef<Scene>();
+    Entity hook = MakeBody2D(scene, "Hook", { 0.0f, 8.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    Entity rig = scene->CreateEntity("Rig");
+    rig.GetTransform().Translation = { 0.0f, 5.0f, 0.0f };
+    Entity torso = MakeBox2D(scene, "Torso", { 0.0f, 0.0f }, { 0.2f, 0.4f }, Rigidbody2DComponent::BodyType::Dynamic);
+    Entity arm = MakeBox2D(scene, "Arm", { 0.0f, 0.1f }, { 0.06f, 0.25f }, Rigidbody2DComponent::BodyType::Dynamic);
+    scene->SetParent(torso, rig, false);
+    scene->SetParent(arm, rig, false);
+    auto& hinge = arm.AddComponent<RevoluteJoint2DComponent>();
+    hinge.ConnectedBody.ID = torso.GetUUID();
+    hinge.Anchor = { 0.0f, 0.22f };
+    hinge.EnableLimit = true;
+    hinge.LowerAngle = -20.0f;
+    hinge.UpperAngle = 90.0f;
+    auto& rope = torso.AddComponent<DistanceJoint2DComponent>();
+    rope.ConnectedBody.ID = hook.GetUUID();
+    rope.Anchor = { 0.0f, 0.4f };
+    rope.MaxDistanceOnly = true;
+    fs::path file = dir / "Rig.zprefab";
+    CHECK(scene->SavePrefab(rig, file));
+    const std::string saved = FileSystem::ReadTextFile(file);
+    CHECK(saved.find("\"RevoluteJoint2D\"") != std::string::npos && saved.find("\"DistanceJoint2D\"") != std::string::npos);
+    CHECK(saved.find(std::to_string((uint64_t)torso.GetUUID())) != std::string::npos);
+    CHECK(saved.find(std::to_string((uint64_t)hook.GetUUID())) != std::string::npos); // the outside reference is kept
+
+    // Another scene: two instances, each arm joined to its own torso; the hook is not there - no rope.
+    auto other = CreateRef<Scene>();
+    other->OnRuntimeStart();
+    Entity a = other->InstantiatePrefab(file), b = other->InstantiatePrefab(file);
+    CHECK(a && b && a != b);
+    if (!a || !b)
+        return;
+    auto parts = [&](Ref<Scene>& sc, Entity root, Entity& t, Entity& r) {
+        t = sc->FindChild(root, "Torso");
+        r = sc->FindChild(root, "Arm");
+        return t && r;
+    };
+    Entity ta, ra, tb, rb;
+    CHECK(parts(other, a, ta, ra) && parts(other, b, tb, rb));
+    if (!ta || !ra || !tb || !rb)
+        return;
+    CHECK(ta.GetUUID() != torso.GetUUID() && ta.GetUUID() != tb.GetUUID());
+    CHECK(ra.GetComponent<RevoluteJoint2DComponent>().ConnectedBody.ID == (uint64_t)ta.GetUUID());
+    CHECK(rb.GetComponent<RevoluteJoint2DComponent>().ConnectedBody.ID == (uint64_t)tb.GetUUID());
+    CHECK(ra.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint && rb.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint);
+    const auto& hr = ra.GetComponent<RevoluteJoint2DComponent>();
+    CHECK(hr.EnableLimit && hr.LowerAngle == -20.0f && hr.UpperAngle == 90.0f && hr.Anchor == glm::vec2(0.0f, 0.22f));
+    CHECK(ta.GetComponent<DistanceJoint2DComponent>().ConnectedBody.ID == (uint64_t)hook.GetUUID());
+    CHECK(!ta.GetComponent<DistanceJoint2DComponent>().RuntimeJoint); // waits for a body that is not in this scene
+    CHECK(other->GetPhysics2DStats().Joints == 2);
+    RunFrames(other, 60);
+    CHECK(MaxJointGap<RevoluteJoint2DComponent>({ ra, rb }) < 0.02f);
+    CHECK(other->GetWorldPosition(ta).y < 3.0f); // nothing holds it up
+    other->OnRuntimeStop();
+
+    // The scene it was made in: the instance's rope finds the hook.
+    scene->OnRuntimeStart();
+    CHECK(scene->GetPhysics2DStats().Joints == 2);
+    Entity c = scene->InstantiatePrefab(file);
+    Entity tc, rc;
+    CHECK(c && parts(scene, c, tc, rc));
+    if (tc)
+    {
+        CHECK(tc.GetComponent<DistanceJoint2DComponent>().RuntimeJoint != nullptr);
+        CHECK(scene->GetPhysics2DStats().Joints == 4);
+        RunFrames(scene, 90);
+        // Hanging from the hook, the rope's length (2.6) below it.
+        CHECK_NEAR(tc.GetComponent<DistanceJoint2DComponent>().Distance, 2.6f, 1e-3f);
+        CHECK_NEAR(scene->GetWorldPosition(tc).y, 5.0f, 0.05f);
+    }
+    scene->OnRuntimeStop();
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(Ragdoll2DSampleScene)
+{
+    namespace fs = std::filesystem;
+    // The Platformer2D sample's Ragdoll2D scene and Ragdoll prefab: 11 parts on 10 limited hinges,
+    // the torso / head / hips on a "Ragdoll" layer that collides with itself, the limbs on
+    // "RagdollLimb" that touches no ragdoll part.
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D";
+    CollisionLayers2D layers;
+    {
+        const std::string text = FileSystem::ReadTextFile(root / "Platformer2D.zproject");
+        size_t at = text.find("\"CollisionLayers2D\"");
+        CHECK(at != std::string::npos);
+        if (at == std::string::npos)
+            return;
+        size_t open = text.find('{', at), depth = 0, close = open;
+        for (; close < text.size(); close++)
+        {
+            depth += text[close] == '{' ? 1 : 0;
+            if (text[close] == '}' && --depth == 0)
+                break;
+        }
+        CHECK(CollisionLayers2D::FromJson(text.substr(open, close - open + 1), layers));
+    }
+    const int body = layers.Find("Ragdoll"), limb = layers.Find("RagdollLimb"), ground = layers.Find("Ground");
+    CHECK(body > 0 && limb > 0 && ground > 0);
+    CHECK(layers.CanCollide(body, body) && !layers.CanCollide(body, limb) && !layers.CanCollide(limb, limb));
+    CHECK(layers.CanCollide(body, 0) && layers.CanCollide(limb, 0) && layers.CanCollide(limb, ground) && layers.CanCollide(body, ground));
+    auto project = Project::New();
+    project->GetConfig().CollisionLayers = layers;
+    Project::SetActive(project);
+
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Ragdoll2D.zscene"));
+    const SceneSettings& s = scene->GetSettings();
+    CHECK(s.Physics2D.SubSteps == 2 && s.Physics2D.VelocityIterations == 8 && s.Physics2D.PositionIterations == 3 && s.Physics2D.TimeToSleep == 1.0f);
+    std::vector<Entity> ragdolls = scene->FindEntitiesByName("Ragdoll");
+    CHECK(ragdolls.size() == 3);
+    Entity spawner = scene->FindEntityByName("Ragdoll Spawner");
+    CHECK(spawner && spawner.GetComponent<NativeScriptComponent>().ClassName == "RagdollSpawner");
+    if (spawner)
+    {
+        auto& fields = spawner.GetComponent<NativeScriptComponent>().Fields;
+        CHECK(fields.count("Prefab") && fields["Prefab"].Get<std::string>() == "Prefabs/Ragdoll.zprefab");
+    }
+    std::vector<Entity> tower = scene->FindEntitiesByName("Tower Crate 1");
+    CHECK(tower.size() == 1 && tower[0].GetComponent<Rigidbody2DComponent>().Sleeping == Rigidbody2DComponent::SleepMode::StartAsleep);
+    // Every ragdoll: 11 bodies, 10 hinges with limits joined inside it; the body parts / limbs on their layers.
+    auto checkRagdoll = [&](Entity r, std::vector<Entity>& hinged) {
+        std::vector<Entity> partsOf = scene->GetChildren(r);
+        std::unordered_set<uint64_t> inside;
+        for (Entity p : partsOf)
+            inside.insert((uint64_t)p.GetUUID());
+        int bodies = 0, hinges = 0;
+        bool layered = true, limited = true, joinedInside = true;
+        for (Entity p : partsOf)
+        {
+            const auto* rb2d = p.TryGetComponent<Rigidbody2DComponent>();
+            if (!rb2d)
+                continue;
+            bodies++;
+            const std::string& name = p.GetName();
+            const bool core = name == "Head" || name == "Chest" || name == "Hips";
+            layered &= rb2d->Layer == (core ? body : limb);
+            if (const auto* j = p.TryGetComponent<RevoluteJoint2DComponent>())
+            {
+                hinges++;
+                hinged.push_back(p);
+                limited &= j->EnableLimit && j->LowerAngle < j->UpperAngle && j->EnableMotor && j->MotorSpeed == 0.0f && j->MaxMotorTorque > 0.0f;
+                joinedInside &= inside.count(j->ConnectedBody.ID) == 1;
+            }
+        }
+        CHECK(bodies == 11 && hinges == 10 && layered && limited && joinedInside);
+    };
+    std::vector<Entity> hinged;
+    for (Entity r : ragdolls)
+        checkRagdoll(r, hinged);
+
+    // Played headless (no primary camera: nothing is drawn, the spawner's script is not loaded).
+    scene->FindEntityByName("Main Camera").GetComponent<CameraComponent>().Primary = false;
+    auto play = Scene::Copy(scene);
+    play->OnRuntimeStart();
+    Entity crate = play->FindEntityByName("Tower Crate 4");
+    CHECK(crate && play->IsSleeping2D(crate)); // the tower waits to be knocked over
+    // A ragdoll from the prefab file, as the spawner makes them (ScriptableEntity::Instantiate: read with new
+    // IDs, the root moved, then spawned; the scene's assets are not resolved - its texts would need a font).
+    std::vector<Entity> spawned = SceneSerializer::DeserializeEntities(*play, FileSystem::ReadTextFile(root / "Assets" / "Prefabs" / "Ragdoll.zprefab"), true);
+    CHECK(spawned.size() == 14 && spawned[0].GetName() == "Ragdoll");
+    if (spawned.empty())
+        return;
+    spawned[0].GetTransform().Translation = { -1.0f, 4.0f, 0.0f };
+    play->OnEntitiesSpawned(spawned);
+    std::vector<Entity> playHinged;
+    for (Entity r : play->FindEntitiesByName("Ragdoll"))
+    {
+        size_t before = playHinged.size();
+        for (Entity p : play->GetChildren(r))
+            if (p.HasComponent<RevoluteJoint2DComponent>())
+                playHinged.push_back(p);
+        CHECK(playHinged.size() - before == 10);
+    }
+    CHECK(playHinged.size() == 40);
+    float worstGap = 0.0f, worstLimit = 0.0f;
+    bool allJoined = true;
+    for (int frame = 0; frame < 300; frame++)
+    {
+        play->OnUpdateRuntime(1.0f / 60.0f);
+        worstGap = std::max(worstGap, MaxJointGap<RevoluteJoint2DComponent>(playHinged));
+        for (Entity p : playHinged)
+        {
+            const auto& j = p.GetComponent<RevoluteJoint2DComponent>();
+            allJoined &= j.RuntimeJoint != nullptr && !j.Broken;
+            worstLimit = std::max(worstLimit, std::max(j.LowerAngle - j.JointAngle, j.JointAngle - j.UpperAngle));
+        }
+    }
+    // (Knocked about by the rotor, thrown on the stairs: the hinges hold, the limits within a few degrees.)
+    CHECK(allJoined && worstGap < 0.12f && worstLimit < 8.0f);
+    // Everything stays between the walls, above the ground; some of it has gone to sleep by now.
+    bool inside = true;
+    for (Entity p : playHinged)
+    {
+        glm::vec2 at = glm::vec2(play->GetWorldPosition(p));
+        inside &= at.x > -16.4f && at.x < 16.4f && at.y > -6.2f && at.y < 12.0f;
+    }
+    CHECK(inside);
+    CHECK(play->GetPhysics2DStats().Sleeping > 0);
+    play->OnRuntimeStop();
+    Project::SetActive(nullptr);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

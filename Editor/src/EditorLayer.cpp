@@ -275,6 +275,13 @@ namespace Zamin {
 
         // ZAMIN_EDITOR_TOGGLE_ACTIVE=1: switches the selection off / on at frame 20 (after
         // ZAMIN_EDITOR_PLAY has started the game), the same path as Alt+Shift+A.
+        // ZAMIN_EDITOR_THUMBNAIL_STATS=<frame>: logs what the content browser's thumbnail cache did by then.
+        if (const char* at = std::getenv("ZAMIN_EDITOR_THUMBNAIL_STATS"); at && frame == std::max(6, std::atoi(at)))
+        {
+            ThumbnailCache::Stats stats = m_ContentBrowserPanel.GetThumbnails().GetStats();
+            ZM_INFO("Thumbnaillar: {} ta xotirada, {} ta kutilmoqda, {} ta diskdan, {} ta yasaldi, {} ta model chizildi, {} ta xato",
+                    stats.Textures, stats.Waiting, stats.FromDisk, stats.Generated, stats.Rendered, stats.Failed);
+        }
         if (frame == 20 && std::getenv("ZAMIN_EDITOR_TOGGLE_ACTIVE"))
             ToggleSelectionActive();
 

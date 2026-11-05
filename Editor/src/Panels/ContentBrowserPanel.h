@@ -2,6 +2,8 @@
 
 #include <Zamin/Zamin.h>
 
+#include "../ThumbnailCache.h"
+
 #include <imgui.h>
 
 #include <filesystem>
@@ -38,12 +40,13 @@ namespace Zamin {
         void Reveal(const std::vector<std::filesystem::path>& paths);
         // Short message in the panel's footer (moves, imports).
         void ShowNotice(std::string text, bool warning = false);
-        // Re-reads the folder (files changed outside the panel).
-        void Refresh() { m_ListDirty = true; m_Thumbnails.clear(); }
+        // Re-reads the folder (files changed outside the panel); thumbnails come back from the disk cache.
+        void Refresh() { m_ListDirty = true; m_Thumbnails.Clear(); }
         // The listing is read again next frame (thumbnails stay).
         void MarkListDirty() { m_ListDirty = true; }
-        // A file changed on disk: its thumbnail is looked up again (a broken image may be fixed now).
-        void InvalidateThumbnail(const std::filesystem::path& path) { m_Thumbnails.erase(path.string()); }
+        // A file changed on disk: its thumbnail is made again (a broken image may be fixed now).
+        void InvalidateThumbnail(const std::filesystem::path& path) { m_Thumbnails.Invalidate(path); }
+        ThumbnailCache& GetThumbnails() { return m_Thumbnails; }
         const std::vector<std::filesystem::path>& GetSelection() const { return m_Selection; }
         // Asks to delete these files / folders (the confirmation lists what still uses them).
         void RequestDelete(std::vector<std::filesystem::path> paths) { m_PendingDelete = std::move(paths); }
@@ -77,7 +80,9 @@ namespace Zamin {
         std::function<void()> OnFindUnusedAssets;
 
     private:
-        Ref<Texture2D> GetThumbnail(const std::filesystem::path& path);
+        Ref<Texture2D> GetThumbnail(const AssetEntry& entry);
+        // The thumbnail fitted into a box (the aspect kept), drawn into the window's draw list.
+        static void DrawThumbnail(const Ref<Texture2D>& texture, ImVec2 min, ImVec2 max, float rounding);
         void NavigateTo(const std::filesystem::path& directory);
         void RefreshEntries();
         bool IsRecursiveListing() const;
@@ -123,7 +128,7 @@ namespace Zamin {
     private:
         std::filesystem::path m_Root;
         std::filesystem::path m_CurrentDirectory;
-        std::unordered_map<std::string, Ref<Texture2D>> m_Thumbnails;
+        ThumbnailCache m_Thumbnails;
         ContentBrowserSettings m_LocalSettings;
         ContentBrowserSettings* m_Settings = &m_LocalSettings;
         std::string m_Search;

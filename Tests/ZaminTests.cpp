@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <functional>
 #include <limits>
 #include <set>
@@ -8724,6 +8725,129 @@ TEST(AssetDeletionWarnings)
     index.Build(sources);
     uses = index.FindUsesOutside({ "Textures/a.png" });
     CHECK(uses.size() == 1 && uses[0].Referrers.size() == 1 && uses[0].GetReferenceCount() == 2);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(AssetThumbnailsAndDiskCache)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-thumbnails-");
+
+    // Downscaling: fits the size, keeps the aspect, averages with alpha weights, never enlarges.
+    std::vector<uint8_t> pixels = {
+        255, 0, 0, 0,     0, 0, 255, 255,   10, 20, 30, 255,  10, 20, 30, 255,
+        0, 0, 255, 255,   0, 0, 255, 255,   50, 60, 70, 255,  30, 40, 50, 255,
+    };
+    ThumbnailImage small = AssetThumbnails::Downscale(pixels.data(), 4, 2, 2);
+    CHECK(small.IsValid() && small.Width == 2 && small.Height == 1);
+    if (small.IsValid())
+    {
+        // Left 2x2: one transparent red pixel and three blue ones -> blue, 3/4 opaque.
+        CHECK(small.Pixels[0] == 0 && small.Pixels[2] == 255 && small.Pixels[3] == 191);
+        CHECK(small.Pixels[4] == 25 && small.Pixels[5] == 35 && small.Pixels[6] == 45 && small.Pixels[7] == 255);
+    }
+    ThumbnailImage same = AssetThumbnails::Downscale(pixels.data(), 4, 2, 128);
+    CHECK(same.Width == 4 && same.Height == 2 && same.Pixels == pixels);
+    CHECK(!AssetThumbnails::Downscale(nullptr, 4, 2, 2).IsValid() && AssetThumbnails::Downscale(pixels.data(), 4, 2, 1).Width == 1);
+
+    // A PNG (top row red, bottom row blue): the picture is top row first whatever another loader
+    // left stb's global flip setting at.
+    std::vector<uint8_t> image(64 * 32 * 4);
+    for (uint32_t y = 0; y < 32; y++)
+        for (uint32_t x = 0; x < 64; x++)
+        {
+            uint8_t* p = &image[(y * 64 + x) * 4];
+            p[0] = y < 16 ? 255 : 0;
+            p[1] = 0;
+            p[2] = y < 16 ? 0 : 255;
+            p[3] = 255;
+        }
+    std::vector<uint8_t> png = Image::EncodePNG(64, 32, 4, image.data());
+    CHECK(!png.empty() && png[1] == 'P' && png[2] == 'N' && png[3] == 'G');
+    fs::path pic = dir / "Textures" / "pic.png";
+    fs::create_directories(pic.parent_path());
+    {
+        std::ofstream out(pic, std::ios::binary);
+        out.write((const char*)png.data(), (std::streamsize)png.size());
+    }
+    // A texture load sets stb to flip rows (its failure is expected: kept off the terminal).
+    WriteFile(dir / "broken.png", "not an image");
+    bool terminal = Log::GetTerminalOutput();
+    Log::SetTerminalOutput(false);
+    CHECK(TextureLibrary::Load(dir / "broken.png") == nullptr);
+    Log::SetTerminalOutput(terminal);
+    AssetImportLog::Clear(dir / "broken.png");
+    ThumbnailImage thumb;
+    std::string error;
+    CHECK(AssetThumbnails::CanGenerate(pic) && AssetThumbnails::Generate(pic, 16, thumb, &error) && error.empty());
+    CHECK(thumb.Width == 16 && thumb.Height == 8 && thumb.IsValid());
+    if (thumb.IsValid())
+        CHECK(thumb.Pixels[0] == 255 && thumb.Pixels[2] == 0 && thumb.Pixels[(7 * 16) * 4 + 2] == 255 && thumb.Pixels[(7 * 16) * 4] == 0);
+    // ... also on another thread (the content browser's worker).
+    ThumbnailImage threaded;
+    std::thread worker([&]() { AssetThumbnails::Generate(pic, 16, threaded); });
+    worker.join();
+    CHECK(threaded.Pixels == thumb.Pixels);
+
+    // An HDR map is tone mapped (1.0 -> 0.5 -> gamma), a font gets "Aa", other files nothing.
+    std::string hdr = "#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 2 +X 4\n";
+    for (int i = 0; i < 8; i++)
+        hdr += std::string("\x80\x80\x80\x81", 4); // RGBE of 1.0
+    WriteFile(dir / "sky.hdr", hdr);
+    CHECK(AssetThumbnails::Generate(dir / "sky.hdr", 128, thumb, &error) && thumb.Width == 4 && thumb.Height == 2);
+    if (thumb.IsValid())
+        CHECK(thumb.Pixels[0] >= 184 && thumb.Pixels[0] <= 188 && thumb.Pixels[3] == 255);
+    fs::path fontFile = Renderer::GetResourcesDirectory() / "fonts" / "Inter-SemiBold.ttf";
+    if (fs::exists(fontFile))
+    {
+        CHECK(AssetThumbnails::Generate(fontFile, 64, thumb, &error) && thumb.Width == 64 && thumb.Height == 64);
+        size_t inked = 0;
+        for (size_t i = 3; i < thumb.Pixels.size(); i += 4)
+            inked += thumb.Pixels[i] > 128;
+        CHECK(inked > 200 && inked < 64 * 64 / 2); // letters, not a filled square
+    }
+    CHECK(!AssetThumbnails::Generate(dir / "broken.png", 64, thumb, &error) && error.find("stb:") != std::string::npos && !thumb.IsValid());
+    CHECK(!AssetThumbnails::Generate(dir / "gone.png", 64, thumb, &error) && error == "fayl topilmadi");
+    WriteFile(dir / "bad.ttf", "nope");
+    CHECK(!AssetThumbnails::Generate(dir / "bad.ttf", 64, thumb, &error) && !error.empty());
+    CHECK(!AssetThumbnails::CanGenerate(dir / "Robot.gltf") && !AssetThumbnails::CanGenerate(dir / "Level.zscene"));
+
+    // Stamps: the file's size and time, and the size made for.
+    std::optional<ThumbnailStamp> stamp = ThumbnailStamp::Read(pic, 128);
+    CHECK(stamp && stamp->Size == png.size() && stamp->MaxSize == 128 && stamp->Time != 0);
+    CHECK(!ThumbnailStamp::Read(dir / "gone.png", 128));
+    CHECK(stamp && *stamp == ThumbnailStamp::From(png.size(), fs::last_write_time(pic), 128));
+
+    // The disk cache: saved and found again for the same version only.
+    ThumbnailDiskCache disabled;
+    CHECK(!disabled.IsEnabled() && !disabled.Save(pic, *stamp, small) && !disabled.Load(pic, *stamp, thumb));
+    ThumbnailDiskCache cache(dir / ".zamin" / "Thumbnails");
+    CHECK(AssetThumbnails::Generate(pic, 32, thumb) && stamp && cache.Save(pic, *stamp, thumb));
+    fs::path cacheFile = cache.GetCacheFile(pic);
+    CHECK(fs::exists(cacheFile) && cacheFile.parent_path() == dir / ".zamin" / "Thumbnails" && cacheFile.extension() == ".zthumb");
+    CHECK(cache.GetCacheFile(dir / "Textures" / "." / "pic.png") == cacheFile && cache.GetCacheFile(dir / "other.png") != cacheFile);
+    ThumbnailImage loaded;
+    CHECK(cache.Load(pic, *stamp, loaded) && loaded.Width == thumb.Width && loaded.Height == thumb.Height && loaded.Pixels == thumb.Pixels);
+    ThumbnailStamp newer = *stamp;
+    newer.Time += 1;
+    CHECK(!cache.Load(pic, newer, loaded));
+    ThumbnailStamp bigger = *stamp;
+    bigger.MaxSize = 256;
+    CHECK(!cache.Load(pic, bigger, loaded) && !cache.Load(dir / "other.png", *stamp, loaded));
+    // Broken cache files are ignored, and pruned with the thumbnails of files that are gone.
+    fs::path hdrStampFile = cache.GetCacheFile(dir / "sky.hdr");
+    CHECK(AssetThumbnails::Generate(dir / "sky.hdr", 32, thumb) && cache.Save(dir / "sky.hdr", *ThumbnailStamp::Read(dir / "sky.hdr", 32), thumb));
+    WriteFile(cache.GetCacheFile(dir / "x.png"), "ZTHB garbage");
+    WriteFile(dir / ".zamin" / "Thumbnails" / "half.zthumb.tmp", "x");
+    CHECK(!cache.Load(dir / "x.png", *stamp, loaded));
+    fs::remove(dir / "sky.hdr");
+    CHECK(cache.Prune() == 3 && fs::exists(cacheFile) && !fs::exists(hdrStampFile));
+    CHECK(cache.Load(pic, *stamp, loaded));
+    cache.Remove(pic);
+    CHECK(!fs::exists(cacheFile) && !cache.Load(pic, *stamp, loaded));
+    CHECK(cache.Save(pic, *stamp, small) && cache.Clear() == 1 && !fs::exists(cacheFile));
+
     std::error_code ec;
     fs::remove_all(dir, ec);
 }

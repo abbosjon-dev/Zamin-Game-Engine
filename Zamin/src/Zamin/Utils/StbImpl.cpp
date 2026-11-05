@@ -12,15 +12,37 @@
 
 #include "Zamin/Utils/Image.h"
 
+#include <mutex>
+
 namespace Zamin {
+
+    // stb_image_write keeps its "flip" option in a global: writers take turns.
+    static std::mutex s_WriteMutex;
 
     bool Image::WritePNG(const std::string& path, uint32_t width, uint32_t height, uint32_t channels,
                          const void* data, bool flipVertically)
     {
+        std::lock_guard lock(s_WriteMutex);
         stbi_flip_vertically_on_write(flipVertically ? 1 : 0);
         int ok = stbi_write_png(path.c_str(), (int)width, (int)height, (int)channels, data, (int)(width * channels));
         stbi_flip_vertically_on_write(0);
         return ok != 0;
+    }
+
+    std::vector<uint8_t> Image::EncodePNG(uint32_t width, uint32_t height, uint32_t channels, const void* data)
+    {
+        std::vector<uint8_t> bytes;
+        if (!data || width == 0 || height == 0 || channels < 1 || channels > 4)
+            return bytes;
+        std::lock_guard lock(s_WriteMutex);
+        stbi_flip_vertically_on_write(0);
+        auto append = [](void* context, void* chunk, int size) {
+            auto* out = (std::vector<uint8_t>*)context;
+            out->insert(out->end(), (const uint8_t*)chunk, (const uint8_t*)chunk + size);
+        };
+        if (!stbi_write_png_to_func(append, &bytes, (int)width, (int)height, (int)channels, data, (int)(width * channels)))
+            bytes.clear();
+        return bytes;
     }
 
     bool Image::Load(const std::string& path, ImageData& out, uint32_t channels, bool flipVertically, std::string* error)

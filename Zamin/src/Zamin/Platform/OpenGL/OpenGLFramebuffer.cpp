@@ -59,6 +59,21 @@ namespace Zamin {
             return pixelData;
         }
 
+        std::vector<uint8_t> ReadColorPixels(uint32_t attachmentIndex) override
+        {
+            std::vector<uint8_t> pixels;
+            if (attachmentIndex >= m_ColorAttachments.size() ||
+                m_ColorAttachmentSpecs[attachmentIndex].TextureFormat != FramebufferTextureFormat::RGBA8)
+                return pixels;
+            pixels.resize((size_t)m_Specification.Width * m_Specification.Height * 4);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, m_RendererID);
+            glReadBuffer(GL_COLOR_ATTACHMENT0 + attachmentIndex);
+            glPixelStorei(GL_PACK_ALIGNMENT, 1);
+            glReadPixels(0, 0, (GLsizei)m_Specification.Width, (GLsizei)m_Specification.Height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            return pixels;
+        }
+
         void ClearAttachment(uint32_t attachmentIndex, int value) override
         {
             if (attachmentIndex >= m_ColorAttachments.size())

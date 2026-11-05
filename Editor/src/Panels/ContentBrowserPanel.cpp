@@ -116,7 +116,8 @@ namespace Zamin {
     void ContentBrowserPanel::SetRoot(const fs::path& root)
     {
         m_Root = root;
-        m_Thumbnails.clear();
+        // Thumbnails are kept in the project's cache folder.
+        m_Thumbnails.SetCacheDirectory(!root.empty() && Project::GetActive() ? Project::GetCacheDirectory() / "Thumbnails" : fs::path());
         NavigateTo(root);
     }
 
@@ -170,20 +171,24 @@ namespace Zamin {
         if (!m_Selection.empty())
             m_Anchor = m_Selection.back();
         m_ScrollToSelection = true;
-        m_Thumbnails.clear();
     }
 
-    Ref<Texture2D> ContentBrowserPanel::GetThumbnail(const fs::path& path)
+    Ref<Texture2D> ContentBrowserPanel::GetThumbnail(const AssetEntry& entry)
     {
-        if (AssetFiles::GetType(path) != AssetType::Texture)
+        if (entry.IsDirectory)
             return nullptr;
-        std::string key = path.string();
-        auto it = m_Thumbnails.find(key);
-        if (it != m_Thumbnails.end())
-            return it->second;
-        Ref<Texture2D> tex = TextureLibrary::Load(path);
-        m_Thumbnails[key] = tex;
-        return tex;
+        return m_Thumbnails.Get(entry.Path, entry.Size, entry.Modified);
+    }
+
+    void ContentBrowserPanel::DrawThumbnail(const Ref<Texture2D>& texture, ImVec2 min, ImVec2 max, float rounding)
+    {
+        float w = (float)std::max(1u, texture->GetWidth()), h = (float)std::max(1u, texture->GetHeight());
+        float boxW = max.x - min.x, boxH = max.y - min.y;
+        float scale = std::min(boxW / w, boxH / h);
+        ImVec2 size(w * scale, h * scale);
+        ImVec2 at(min.x + (boxW - size.x) * 0.5f, min.y + (boxH - size.y) * 0.5f);
+        ImGui::GetWindowDrawList()->AddImageRounded((ImTextureID)(uintptr_t)texture->GetRendererID(), at, ImVec2(at.x + size.x, at.y + size.y),
+                                                    ImVec2(0, 0), ImVec2(1, 1), IM_COL32_WHITE, rounding);
     }
 
     // ------------------------------------------------------------------ listing
@@ -384,7 +389,8 @@ namespace Zamin {
             return;
         }
 
-        m_Thumbnails.clear();
+        for (const auto& m : result.Moved)
+            m_Thumbnails.Invalidate(m.From);
         m_ListDirty = true;
         m_Selection.clear();
         for (const auto& m : result.Moved)
@@ -769,7 +775,7 @@ namespace Zamin {
             {
                 bool failed = false;
                 size_t n = AssetHotReload::ReloadAsset(path, &failed);
-                m_Thumbnails.erase(path.string());
+                m_Thumbnails.Invalidate(path);
                 if (failed)
                     ShowNotice(std::format("'{}' qayta yuklanmadi - konsolni tekshiring", entry.Name), true);
                 else
@@ -832,12 +838,9 @@ namespace Zamin {
             // icon / thumbnail
             ImVec2 iconMin(cursor.x + 6, cursor.y + 6);
             ImVec2 iconMax(cursor.x + size - 6, cursor.y + size - 6);
-            Ref<Texture2D> thumb = entry.IsDirectory ? nullptr : GetThumbnail(path);
+            Ref<Texture2D> thumb = GetThumbnail(entry);
             if (thumb)
-            {
-                dl->AddImageRounded((ImTextureID)(uintptr_t)thumb->GetRendererID(), iconMin, iconMax, ImVec2(0, 1), ImVec2(1, 0),
-                                    IM_COL32_WHITE, 4.0f);
-            }
+                DrawThumbnail(thumb, iconMin, iconMax, 4.0f);
             else
             {
                 ImU32 color;
@@ -981,11 +984,9 @@ namespace Zamin {
 
                 // name: small thumbnail or icon
                 ImDrawList* dl = ImGui::GetWindowDrawList();
-                Ref<Texture2D> thumb = entry.IsDirectory ? nullptr : GetThumbnail(entry.Path);
+                Ref<Texture2D> thumb = GetThumbnail(entry);
                 if (thumb)
-                    dl->AddImageRounded((ImTextureID)(uintptr_t)thumb->GetRendererID(), ImVec2(rowMin.x + 2, rowMin.y + 2),
-                                        ImVec2(rowMin.x + iconWidth - 2, rowMin.y + rowHeight - 2), ImVec2(0, 1), ImVec2(1, 0),
-                                        IM_COL32_WHITE, 3.0f);
+                    DrawThumbnail(thumb, ImVec2(rowMin.x + 2, rowMin.y + 2), ImVec2(rowMin.x + iconWidth - 2, rowMin.y + rowHeight - 2), 3.0f);
                 else
                 {
                     ImU32 color;
@@ -1292,7 +1293,7 @@ namespace Zamin {
                         ZM_ERROR("{}", error);
                     else if (AssetRegistry* registry = Project::GetAssetRegistry())
                         registry->OnFileRemoved(p);
-                    m_Thumbnails.erase(p.string());
+                    m_Thumbnails.Invalidate(p);
                 }
                 if (inUse)
                     ZM_WARN("Ishlatilayotgan {} ta asset o'chirildi - havolalar buzildi", m_DeleteUses.size());
@@ -1327,6 +1328,7 @@ namespace Zamin {
     void ContentBrowserPanel::OnImGuiRender(bool* open)
     {
         m_Visible = false;
+        m_Thumbnails.Update(); // finished thumbnails to the GPU, a few a frame
         // The drag of the previous frames ended (dropped or cancelled).
         if (m_DragStarted && !ImGui::GetDragDropPayload() && !ImGui::IsMouseDown(ImGuiMouseButton_Left))
         {

@@ -544,6 +544,15 @@ namespace Zamin {
         return false;
     }
 
+    bool Model::ReleaseIfUnused(const std::filesystem::path& path)
+    {
+        auto it = s_ModelCache.find(path.string());
+        if (it == s_ModelCache.end() || !it->second || it->second.use_count() > 1)
+            return false; // a failed file stays known (not read again until it changes)
+        s_ModelCache.erase(it);
+        return true;
+    }
+
     void Model::ClearCache() { s_ModelCache.clear(); }
 
 }

@@ -25,6 +25,8 @@ namespace Zamin {
     public:
         static bool WritePNG(const std::string& path, uint32_t width, uint32_t height, uint32_t channels,
                              const void* data, bool flipVertically = false);
+        // The PNG file bytes of the pixels (rows top first), empty on failure. Thread-safe.
+        static std::vector<uint8_t> EncodePNG(uint32_t width, uint32_t height, uint32_t channels, const void* data);
 
         // Decodes png / jpg / bmp / tga / hdr (tone-clamped to 8 bits)... into `channels` channels
         // (1-4). False with the reason in `error` when the file cannot be read.

@@ -75,6 +75,9 @@ namespace Zamin {
         static size_t ReloadFile(const std::filesystem::path& path, bool* failed = nullptr);
         // Whether a cached model was made from this file (or reads it).
         static bool IsFileLoaded(const std::filesystem::path& path);
+        // Drops the cached model of a file when nothing else holds it (it was loaded for a moment,
+        // e.g. for a content browser thumbnail). Returns true when it was dropped.
+        static bool ReleaseIfUnused(const std::filesystem::path& path);
         static void ClearCache();
 
     private:

@@ -205,7 +205,7 @@ namespace Zamin {
         // - UI buttons cannot be hovered, pressed or clicked (a press in progress is cancelled);
         // - cameras do not count: GetPrimaryCameraEntity skips them (also for the audio listener
         //   and ScreenToWorld);
-        // - lights do not count: no light, no shadow, no sun / point light slot (CollectLights);
+        // - lights do not count: no light, no shadow, no sun / point / spot light slot (CollectLights);
         // - a tilemap has no collision body, a character controller is not in the 3D world (no
         //   gravity, Grounded false, Jump refused); bodies resting on a removed body wake up and fall.
         // The flag is saved with the scene and kept by Scene::Copy, duplicates, Instantiate() and
@@ -232,18 +232,23 @@ namespace Zamin {
         // Only lights on entities that are active in the hierarchy count (with the options' editor
         // flags, the subtrees RenderScene skips are left out as well): an inactive light does not
         // light anything, casts no shadow, and takes neither the sun's place nor one of the
-        // Renderer3D::MaxPointLights slots - the next active light gets it.
+        // Renderer3D::MaxLocalLights slots - the next active light gets it.
         struct LightSet
         {
             // The sun: the first directional light that counts, in scene order (as the hierarchy /
             // scene file list them); null: no sun.
             entt::entity Sun = entt::null;
-            // Point lights that light the scene, at most Renderer3D::MaxPointLights: in pool order,
-            // or nearest to the view position first when more than that count.
+            // Point and spot lights that light the scene, at most Renderer3D::MaxLocalLights
+            // together: each in pool order when they all fit, else the most important ones to the
+            // view position (Renderer3D::SelectLights: strength weighted by how near the viewer is
+            // to the lit range), the most important first.
             std::vector<entt::entity> PointLights;
-            uint32_t InactiveLights = 0;     // directional + point lights left out (not active in the hierarchy)
+            std::vector<entt::entity> SpotLights;
+            uint32_t InactiveLights = 0;     // directional, point and spot lights left out (not active in the hierarchy)
             uint32_t ExtraSuns = 0;          // directional lights that count but are not the first one (unused)
-            uint32_t DroppedPointLights = 0; // point lights that count beyond the limit (the farthest ones)
+            uint32_t DroppedLocalLights = 0; // point + spot lights that count beyond the limit (the least important ones)
+
+            size_t GetLocalLightCount() const { return PointLights.size() + SpotLights.size(); }
         };
         LightSet CollectLights(const glm::vec3& viewPosition, const SceneRenderOptions& options = {});
         // The directional light the scene is lit by (the first active one in scene order), or an

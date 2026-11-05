@@ -28,10 +28,15 @@ namespace Zamin {
         float Contrast = 1.0f;
         float Brightness = 0.0f; // -1..1
         glm::vec3 Tint{ 1.0f };
+
+        // Fast approximate anti-aliasing: smooths jagged edges of the final (tonemapped, graded)
+        // picture. FXAASubpixel: how much single-pixel detail (thin lines, speculars) is softened, 0..1.
+        bool FXAA = false;
+        float FXAASubpixel = 0.75f;
     };
 
     // Screen-space effects applied to a rendered color texture:
-    // bloom (threshold + mip-chain blur), vignette, color grading.
+    // bloom (threshold + mip-chain blur), vignette, color grading, then FXAA.
     class PostProcessor
     {
     public:

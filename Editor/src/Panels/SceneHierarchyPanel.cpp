@@ -27,6 +27,7 @@ namespace Zamin {
         if (e.HasComponent<CameraComponent>()) return ICON_FA_CAMERA;
         if (e.HasComponent<DirectionalLightComponent>()) return ICON_FA_SUN;
         if (e.HasComponent<PointLightComponent>()) return ICON_FA_LIGHTBULB;
+        if (e.HasComponent<SpotLightComponent>()) return ICON_FA_BULLHORN;
         if (e.HasComponent<MeshRendererComponent>()) return ICON_FA_CUBE;
         if (e.HasComponent<TextComponent>()) return ICON_FA_FONT;
         if (e.HasComponent<CircleRendererComponent>()) return ICON_FA_CIRCLE;
@@ -430,6 +431,14 @@ namespace Zamin {
             e.GetTransform().Rotation = { -0.9f, 0.6f, 0.0f };
         }
         else if (p == "PointLight") { e = m_Context->CreateEntity("Nuqtali yorug'lik"); e.AddComponent<PointLightComponent>(); e.GetTransform().Translation = { 0, 2, 0 }; }
+        else if (p == "SpotLight")
+        {
+            // Hangs 4 m up, pointing straight down (the light travels along -Z).
+            e = m_Context->CreateEntity("Spot yorug'lik");
+            e.AddComponent<SpotLightComponent>();
+            e.GetTransform().Translation = { 0, 4, 0 };
+            e.GetTransform().Rotation = { -glm::half_pi<float>(), 0.0f, 0.0f };
+        }
         else if (p == "Physics Box")
         {
             e = m_Context->CreateEntity("Fizik quti");
@@ -577,6 +586,7 @@ namespace Zamin {
         {
             if (ImGui::MenuItem(ICON_FA_SUN "  Quyosh (yo'naltirilgan)")) CreateEntityPreset("DirectionalLight");
             if (ImGui::MenuItem(ICON_FA_LIGHTBULB "  Nuqtali")) CreateEntityPreset("PointLight");
+            if (ImGui::MenuItem(ICON_FA_BULLHORN "  Spot (konus)")) CreateEntityPreset("SpotLight");
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu(ICON_FA_CAMERA "  Kamera"))
@@ -1146,7 +1156,7 @@ namespace Zamin {
             { "Transform", "Transform" }, { "Tags", "Teglar" }, { "Camera", "Camera" },
             { "SpriteRenderer", "Sprite Renderer" }, { "SpriteAnimation", "Sprite Animation" },
             { "CircleRenderer", "Circle Renderer" }, { "Text", "Text" }, { "MeshRenderer", "Mesh Renderer" },
-            { "Animator", "Animator" }, { "DirectionalLight", "Directional Light" }, { "PointLight", "Point Light" },
+            { "Animator", "Animator" }, { "DirectionalLight", "Directional Light" }, { "PointLight", "Point Light" }, { "SpotLight", "Spot Light" },
             { "Rigidbody2D", "Rigidbody 2D" }, { "BoxCollider2D", "Box Collider 2D" }, { "CircleCollider2D", "Circle Collider 2D" },
             { "Rigidbody3D", "Rigidbody 3D" }, { "BoxCollider3D", "Box Collider 3D" }, { "SphereCollider3D", "Sphere Collider 3D" },
             { "CapsuleCollider3D", "Capsule Collider 3D" }, { "CharacterController3D", "Character Controller 3D" },
@@ -2517,6 +2527,7 @@ namespace Zamin {
                 ImGui::SeparatorText("Yorug'lik");
                 DisplayAddComponentEntry<DirectionalLightComponent>("Directional Light", ICON_FA_SUN);
                 DisplayAddComponentEntry<PointLightComponent>("Point Light", ICON_FA_LIGHTBULB);
+                DisplayAddComponentEntry<SpotLightComponent>("Spot Light", ICON_FA_BULLHORN);
                 ImGui::SeparatorText("Fizika 2D");
                 DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D", ICON_FA_ATOM);
                 DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D", ICON_FA_VECTOR_SQUARE);
@@ -2768,6 +2779,32 @@ namespace Zamin {
             bool changed = UI::PropertyColor3("Rang", c.Color);
             changed |= UI::PropertyFloat("Kuch", c.Intensity, 0.05f, 0.0f, 1000.0f);
             changed |= UI::PropertyFloat("Radius", c.Radius, 0.05f, 0.0f, 1000.0f);
+            return changed;
+        }, true, modified);
+
+        AddSection<SpotLightComponent>(ICON_FA_BULLHORN, "Spot Light", entity, [&](SpotLightComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: yorug'lik hisobga olinmaydi (yoritmaydi, joy egallamaydi)");
+            bool changed = UI::PropertyColor3("Rang", c.Color);
+            changed |= UI::PropertyFloat("Kuch", c.Intensity, 0.05f, 0.0f, 1000.0f);
+            UI::PropertyLabel("Masofa", "Yorug'lik yetib boradigan masofa: shundan keyin nolga so'nadi (nuqtali yorug'lik radiusi kabi)");
+            changed |= ImGui::DragFloat("##range", &c.Range, 0.05f, 0.0f, 1000.0f, "%.2f");
+            // Angles from the axis; the inner one never exceeds the outer one (and the other way round).
+            UI::PropertyLabel("Tashqi burchak", "Konus o'qidan chetigacha bo'lgan burchak (gradus): bundan tashqarida yorug'lik yo'q");
+            if (ImGui::SliderFloat("##outer", &c.OuterAngle, 1.0f, SpotLightComponent::MaxAngle, "%.1f\xc2\xb0"))
+            {
+                c.OuterAngle = std::clamp(c.OuterAngle, 0.1f, SpotLightComponent::MaxAngle);
+                c.InnerAngle = std::min(c.InnerAngle, c.OuterAngle);
+                changed = true;
+            }
+            UI::PropertyLabel("Ichki burchak", "Shu burchakkacha to'liq yorqinlik; ichki va tashqi burchak orasida yumshoq so'nadi");
+            if (ImGui::SliderFloat("##inner", &c.InnerAngle, 0.0f, SpotLightComponent::MaxAngle, "%.1f\xc2\xb0"))
+            {
+                c.InnerAngle = std::clamp(c.InnerAngle, 0.0f, SpotLightComponent::MaxAngle);
+                c.OuterAngle = std::max(c.OuterAngle, c.InnerAngle);
+                changed = true;
+            }
+            UI::PropertyLabel("");
+            ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Obyektning -Z o'qi bo'ylab nur sochadi");
             return changed;
         }, true, modified);
 

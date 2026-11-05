@@ -119,11 +119,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M06 Rendering I
 
-- [ ] 101. Spot yorug'lik (konus, ichki/tashqi burchak)
-- [ ] 102. Spot yorug'lik inspektori va wireframe ko'rinishi
-- [ ] 103. Point light wireframe radius ko'rinishi editorda
-- [ ] 104. Yorug'liklar sonini oshirish (32) va eng yaqinlarini tanlash
-- [ ] 105. FXAA anti-aliasing
+- [x] 101. Spot yorug'lik (konus, ichki/tashqi burchak)
+- [x] 102. Spot yorug'lik inspektori va wireframe ko'rinishi
+- [x] 103. Point light wireframe radius ko'rinishi editorda
+- [x] 104. Yorug'liklar sonini oshirish (32) va eng yaqinlarini tanlash
+- [x] 105. FXAA anti-aliasing
 - [ ] 106. Render scale (ichki o'lcham koeffitsienti)
 - [ ] 107. Gamma/eksposure avtomatik (auto exposure, oddiy)
 - [ ] 108. Wireframe rejimi (editor)

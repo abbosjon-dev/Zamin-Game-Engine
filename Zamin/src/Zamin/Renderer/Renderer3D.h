@@ -28,6 +28,20 @@ namespace Zamin {
         float Radius = 10.0f;
     };
 
+    // A cone of light: full brightness within InnerAngle of Direction, a smooth fade
+    // (smoothstep of the cosines) to nothing at OuterAngle; Range attenuates like a point light's
+    // radius. Angles in degrees, measured from the axis.
+    struct SpotLight
+    {
+        glm::vec3 Position{ 0.0f };
+        glm::vec3 Direction{ 0.0f, -1.0f, 0.0f }; // direction the light travels
+        glm::vec3 Color{ 1.0f };
+        float Intensity = 20.0f;
+        float Range = 15.0f;
+        float InnerAngle = 20.0f;
+        float OuterAngle = 30.0f;
+    };
+
     struct SceneEnvironment
     {
         bool DrawSky = true;
@@ -39,7 +53,10 @@ namespace Zamin {
 
         bool HasSun = false;
         DirectionalLight Sun;
+        // Local lights: at most Renderer3D::MaxLocalLights point + spot lights together (the
+        // point lights take the slots first).
         std::vector<PointLight> PointLights;
+        std::vector<SpotLight> SpotLights;
         float ShadowDistance = 40.0f;
 
         // Image based lighting / HDRI sky (null = procedural gradient sky)
@@ -82,7 +99,32 @@ namespace Zamin {
     class Renderer3D
     {
     public:
-        static constexpr uint32_t MaxPointLights = 16;
+        // Point and spot lights the shader takes at once (together).
+        static constexpr uint32_t MaxLocalLights = 32;
+
+        // A point or spot light competing for one of the MaxLocalLights slots.
+        struct LightCandidate
+        {
+            glm::vec3 Position{ 0.0f };
+            float Range = 10.0f;     // radius of a point light, range of a spot light
+            float Strength = 1.0f;   // intensity x the brightest color channel
+        };
+        // How much a light matters to a viewer at `viewPosition`: its strength, scaled down by
+        // (range / distance)^2 once the viewer is outside its range (about how much of the view
+        // the lit sphere covers). No GPU needed.
+        static float GetLightImportance(const LightCandidate& light, const glm::vec3& viewPosition);
+        // The lights that get a slot: every one (in the given order) when at most `maxCount`,
+        // else the `maxCount` most important ones - most important first, equal importance the
+        // nearest first, then the given order.
+        static std::vector<size_t> SelectLights(const std::vector<LightCandidate>& lights, const glm::vec3& viewPosition,
+                                                uint32_t maxCount = MaxLocalLights);
+        // The cosines of a spot light's inner / outer angles as the shader uses them (the angles
+        // clamped to (0, 89] degrees, inner <= outer; the inner cosine always a bit larger, so the
+        // fade is well defined).
+        static glm::vec2 GetSpotCosines(float innerAngleDegrees, float outerAngleDegrees);
+        // How bright a spot light is in a direction that makes `angleDegrees` with its axis
+        // (1 inside the inner cone, 0 outside the outer one, a smoothstep in between).
+        static float GetSpotConeFactor(float innerAngleDegrees, float outerAngleDegrees, float angleDegrees);
 
         static void Init();
         static void Shutdown();

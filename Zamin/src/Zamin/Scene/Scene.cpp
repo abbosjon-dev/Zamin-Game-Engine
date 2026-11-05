@@ -1144,23 +1144,40 @@ namespace Zamin {
         for (auto e : m_Registry.view<TransformComponent, PointLightComponent>())
             if (counts(e))
                 set.PointLights.push_back(e);
+        for (auto e : m_Registry.view<TransformComponent, SpotLightComponent>())
+            if (counts(e))
+                set.SpotLights.push_back(e);
 
-        // More than the renderer has slots for: the nearest ones (to the view) light the scene.
-        if (set.PointLights.size() > Renderer3D::MaxPointLights)
+        // More than the renderer has slots for: the ones that matter most to the view (strength
+        // weighted by how near it is to their range) light the scene.
+        if (set.GetLocalLightCount() > Renderer3D::MaxLocalLights)
         {
-            std::vector<std::pair<float, entt::entity>> byDistance;
-            byDistance.reserve(set.PointLights.size());
+            std::vector<Renderer3D::LightCandidate> candidates;
+            std::vector<entt::entity> all;
+            candidates.reserve(set.GetLocalLightCount());
+            all.reserve(set.GetLocalLightCount());
+            auto strength = [](const glm::vec3& color, float intensity) {
+                return std::max(intensity, 0.0f) * std::max({ color.r, color.g, color.b, 0.0f });
+            };
             for (entt::entity e : set.PointLights)
             {
-                glm::vec3 d = GetWorldPosition({ e, this }) - viewPosition;
-                byDistance.emplace_back(glm::dot(d, d), e);
+                const auto& l = m_Registry.get<PointLightComponent>(e);
+                candidates.push_back({ GetWorldPosition({ e, this }), l.Radius, strength(l.Color, l.Intensity) });
+                all.push_back(e);
             }
-            std::stable_sort(byDistance.begin(), byDistance.end(),
-                             [](const auto& a, const auto& b) { return a.first < b.first; });
-            set.DroppedPointLights = (uint32_t)(byDistance.size() - Renderer3D::MaxPointLights);
+            for (entt::entity e : set.SpotLights)
+            {
+                const auto& l = m_Registry.get<SpotLightComponent>(e);
+                candidates.push_back({ GetWorldPosition({ e, this }), l.Range, strength(l.Color, l.Intensity) });
+                all.push_back(e);
+            }
+            std::vector<size_t> picked = Renderer3D::SelectLights(candidates, viewPosition, Renderer3D::MaxLocalLights);
+            set.DroppedLocalLights = (uint32_t)(all.size() - picked.size());
+            size_t pointCount = set.PointLights.size();
             set.PointLights.clear();
-            for (uint32_t i = 0; i < Renderer3D::MaxPointLights; i++)
-                set.PointLights.push_back(byDistance[i].second);
+            set.SpotLights.clear();
+            for (size_t index : picked)
+                (index < pointCount ? set.PointLights : set.SpotLights).push_back(all[index]);
         }
         return set;
     }
@@ -3082,6 +3099,16 @@ namespace Zamin {
         {
             const auto& l = m_Registry.get<PointLightComponent>(e);
             env.PointLights.push_back({ glm::vec3(world(e)[3]), l.Color, l.Intensity, l.Radius });
+        }
+        env.SpotLights.reserve(lights.SpotLights.size());
+        for (entt::entity e : lights.SpotLights)
+        {
+            const auto& l = m_Registry.get<SpotLightComponent>(e);
+            const glm::mat4& t = world(e);
+            glm::vec3 forward = glm::vec3(t * glm::vec4(0, 0, -1, 0));
+            float len = glm::length(forward);
+            env.SpotLights.push_back({ glm::vec3(t[3]), len > 1e-6f ? forward / len : glm::vec3(0, -1, 0), l.Color, l.Intensity,
+                                       l.Range, l.GetInnerAngle(), l.GetOuterAngle() });
         }
 
         ZM_PROFILE_SCOPE("Render");

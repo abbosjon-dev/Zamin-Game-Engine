@@ -57,7 +57,7 @@ in vec3 v_Normal;
 in vec2 v_TexCoord;
 in float v_ViewDepth;
 
-#define MAX_POINT_LIGHTS 16
+#define MAX_LOCAL_LIGHTS 32
 
 uniform vec4 u_Albedo;
 uniform sampler2D u_AlbedoMap;
@@ -120,10 +120,12 @@ vec3 EvalSH(vec3 n)
          + u_SH[7] * 1.092548 * n.x * n.z + u_SH[8] * 0.546274 * (n.x * n.x - n.y * n.y), vec3(0.0));
 }
 
-uniform int u_PointLightCount;
-uniform vec3 u_PointPositions[MAX_POINT_LIGHTS];
-uniform vec3 u_PointRadiance[MAX_POINT_LIGHTS];
-uniform float u_PointRadius[MAX_POINT_LIGHTS];
+// Point and spot lights. Point lights have no direction (zero) and a cone that lets everything
+// through (cosines -2 / -1).
+uniform int u_LocalLightCount;
+uniform vec4 u_LightPosRange[MAX_LOCAL_LIGHTS];  // xyz position, w range
+uniform vec4 u_LightRadiance[MAX_LOCAL_LIGHTS];  // rgb color x intensity, w cos(inner angle)
+uniform vec4 u_LightDirCos[MAX_LOCAL_LIGHTS];    // xyz direction the light travels, w cos(outer angle)
 
 uniform vec3 u_SkyColor;
 uniform vec3 u_HorizonColor;
@@ -316,13 +318,18 @@ void main()
         float shadow = u_ShadowsEnabled == 1 ? ShadowFactor(N, normalize(-u_SunDirection)) : 1.0;
         AddLight(N, V, normalize(-u_SunDirection), u_SunRadiance * shadow, albedo, metallic, roughness, F0, diffuse, specular);
     }
-    for (int i = 0; i < u_PointLightCount; i++)
+    for (int i = 0; i < u_LocalLightCount; i++)
     {
-        vec3 toLight = u_PointPositions[i] - v_WorldPos;
+        vec3 toLight = u_LightPosRange[i].xyz - v_WorldPos;
         float dist = length(toLight);
-        float falloff = clamp(1.0 - pow(dist / max(u_PointRadius[i], 0.001), 4.0), 0.0, 1.0);
+        float falloff = clamp(1.0 - pow(dist / max(u_LightPosRange[i].w, 0.001), 4.0), 0.0, 1.0);
         float attenuation = falloff * falloff / (dist * dist + 1.0);
-        AddLight(N, V, toLight / max(dist, 1e-4), u_PointRadiance[i] * attenuation, albedo, metallic, roughness, F0, diffuse, specular);
+        vec3 L = toLight / max(dist, 1e-4);
+        // spot cone: smooth from the outer angle (0) to the inner one (1)
+        attenuation *= smoothstep(u_LightDirCos[i].w, u_LightRadiance[i].w, dot(-L, u_LightDirCos[i].xyz));
+        if (attenuation <= 0.0)
+            continue;
+        AddLight(N, V, L, u_LightRadiance[i].rgb * attenuation, albedo, metallic, roughness, F0, diffuse, specular);
     }
 
     // Image-based-ish ambient: hemisphere irradiance + sky reflection.
@@ -772,6 +779,41 @@ void main()
         return c;
     }
 
+    // The point + spot lights as the shader's uniform arrays (point lights first, at most
+    // MaxLocalLights together).
+    struct LocalLightArrays
+    {
+        uint32_t Count = 0;
+        glm::vec4 PosRange[Renderer3D::MaxLocalLights];
+        glm::vec4 Radiance[Renderer3D::MaxLocalLights];
+        glm::vec4 DirCos[Renderer3D::MaxLocalLights];
+    };
+
+    static LocalLightArrays PackLocalLights(const SceneEnvironment& env)
+    {
+        LocalLightArrays out;
+        for (const PointLight& pl : env.PointLights)
+        {
+            if (out.Count == Renderer3D::MaxLocalLights) break;
+            out.PosRange[out.Count] = glm::vec4(pl.Position, pl.Radius);
+            out.Radiance[out.Count] = glm::vec4(pl.Color * pl.Intensity, -1.0f);
+            out.DirCos[out.Count] = glm::vec4(0.0f, 0.0f, 0.0f, -2.0f); // no cone
+            out.Count++;
+        }
+        for (const SpotLight& sl : env.SpotLights)
+        {
+            if (out.Count == Renderer3D::MaxLocalLights) break;
+            glm::vec2 cosines = Renderer3D::GetSpotCosines(sl.InnerAngle, sl.OuterAngle);
+            float len = glm::length(sl.Direction);
+            glm::vec3 dir = len > 1e-6f ? sl.Direction / len : glm::vec3(0.0f, -1.0f, 0.0f);
+            out.PosRange[out.Count] = glm::vec4(sl.Position, sl.Range);
+            out.Radiance[out.Count] = glm::vec4(sl.Color * sl.Intensity, cosines.x);
+            out.DirCos[out.Count] = glm::vec4(dir, cosines.y);
+            out.Count++;
+        }
+        return out;
+    }
+
     // One queued mesh with its material (the main pass shader's per-frame uniforms are set).
     // `countMesh`: false for the second draw of a two-sided transparent surface.
     static void DrawQueued(const DrawItem& item, bool mirrored, bool countMesh = true)
@@ -872,6 +914,7 @@ void main()
         // ---------------- main pass
         if (!s_Data->Queue.empty())
         {
+          const LocalLightArrays localLights = PackLocalLights(env);
           for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader })
           {
             shader->Bind();
@@ -908,15 +951,12 @@ void main()
             shader->SetFloat("u_Ambient", env.AmbientIntensity);
             shader->SetFloat("u_Exposure", env.Exposure);
 
-            uint32_t count = std::min<uint32_t>((uint32_t)env.PointLights.size(), MaxPointLights);
-            shader->SetInt("u_PointLightCount", (int)count);
-            for (uint32_t i = 0; i < count; i++)
+            shader->SetInt("u_LocalLightCount", (int)localLights.Count);
+            if (localLights.Count > 0)
             {
-                const auto& pl = env.PointLights[i];
-                std::string idx = "[" + std::to_string(i) + "]";
-                shader->SetFloat3("u_PointPositions" + idx, pl.Position);
-                shader->SetFloat3("u_PointRadiance" + idx, pl.Color * pl.Intensity);
-                shader->SetFloat("u_PointRadius" + idx, pl.Radius);
+                shader->SetFloat4Array("u_LightPosRange", localLights.PosRange, localLights.Count);
+                shader->SetFloat4Array("u_LightRadiance", localLights.Radiance, localLights.Count);
+                shader->SetFloat4Array("u_LightDirCos", localLights.DirCos, localLights.Count);
             }
 
             shader->SetInt("u_AlbedoMap", 0);
@@ -1033,6 +1073,58 @@ void main()
     }
 
     uint64_t Renderer3D::GetEndSceneCount() { return s_Data ? s_Data->EndSceneCount : 0; }
+
+    float Renderer3D::GetLightImportance(const LightCandidate& light, const glm::vec3& viewPosition)
+    {
+        float strength = std::max(light.Strength, 0.0f);
+        float range = std::max(light.Range, 0.0f);
+        glm::vec3 d = light.Position - viewPosition;
+        float dist2 = glm::dot(d, d);
+        // Inside the lit sphere: everything around the viewer is lit, full strength.
+        if (dist2 <= range * range)
+            return strength;
+        return strength * (range * range) / dist2;
+    }
+
+    std::vector<size_t> Renderer3D::SelectLights(const std::vector<LightCandidate>& lights, const glm::vec3& viewPosition, uint32_t maxCount)
+    {
+        std::vector<size_t> order(lights.size());
+        for (size_t i = 0; i < order.size(); i++)
+            order[i] = i;
+        if (lights.size() <= maxCount)
+            return order;
+        std::vector<float> importance(lights.size()), dist2(lights.size());
+        for (size_t i = 0; i < lights.size(); i++)
+        {
+            importance[i] = GetLightImportance(lights[i], viewPosition);
+            glm::vec3 d = lights[i].Position - viewPosition;
+            dist2[i] = glm::dot(d, d);
+        }
+        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+            if (importance[a] != importance[b])
+                return importance[a] > importance[b];
+            return dist2[a] < dist2[b];
+        });
+        order.resize(maxCount);
+        return order;
+    }
+
+    glm::vec2 Renderer3D::GetSpotCosines(float innerAngleDegrees, float outerAngleDegrees)
+    {
+        float outer = std::clamp(outerAngleDegrees, 0.1f, 89.0f);
+        float inner = std::clamp(innerAngleDegrees, 0.0f, outer);
+        float cosOuter = std::cos(glm::radians(outer));
+        float cosInner = std::max(std::cos(glm::radians(inner)), cosOuter + 1e-4f);
+        return { cosInner, cosOuter };
+    }
+
+    float Renderer3D::GetSpotConeFactor(float innerAngleDegrees, float outerAngleDegrees, float angleDegrees)
+    {
+        glm::vec2 c = GetSpotCosines(innerAngleDegrees, outerAngleDegrees);
+        float cd = std::cos(glm::radians(std::clamp(angleDegrees, 0.0f, 180.0f)));
+        float t = std::clamp((cd - c.y) / (c.x - c.y), 0.0f, 1.0f); // GLSL smoothstep
+        return t * t * (3.0f - 2.0f * t);
+    }
 
     const std::vector<Renderer3D::TransparentDrawRecord>& Renderer3D::GetLastTransparentOrder()
     {

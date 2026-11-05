@@ -273,6 +273,10 @@ namespace Zamin {
         ProjectSettingsPanel m_ProjectSettingsPanel;
         bool m_ShowHierarchy = true, m_ShowInspector = true, m_ShowContentBrowser = true, m_ShowConsole = true;
         bool m_ShowSceneSettings = true, m_ShowStats = false, m_ShowImGuiDemo = false;
+        // Automation (ZAMIN_EDITOR_SCENE_SETTINGS): bring the scene settings tab to the front, and
+        // scroll it to a section ("post": post-processing).
+        bool m_FocusSceneSettings = false;
+        std::string m_SceneSettingsScrollTo;
         bool m_ShowProjectSettings = false;
         bool m_ShowLauncher = false;
         bool m_ShowAbout = false;

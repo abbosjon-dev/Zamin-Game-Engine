@@ -296,6 +296,9 @@ namespace Zamin {
             e["DirectionalLight"] = { { "Color", ToJson(c->Color) }, { "Intensity", c->Intensity }, { "CastShadows", c->CastShadows } };
         if (auto* c = entity.TryGetComponent<PointLightComponent>())
             e["PointLight"] = { { "Color", ToJson(c->Color) }, { "Intensity", c->Intensity }, { "Radius", c->Radius } };
+        if (auto* c = entity.TryGetComponent<SpotLightComponent>())
+            e["SpotLight"] = { { "Color", ToJson(c->Color) }, { "Intensity", c->Intensity }, { "Range", c->Range },
+                               { "InnerAngle", c->InnerAngle }, { "OuterAngle", c->OuterAngle } };
         if (auto* c = entity.TryGetComponent<Rigidbody2DComponent>())
             e["Rigidbody2D"] = { { "BodyType", BodyTypeToString(c->Type) }, { "FixedRotation", c->FixedRotation },
                                  { "GravityScale", c->GravityScale }, { "LinearDamping", c->LinearDamping },
@@ -559,6 +562,16 @@ namespace Zamin {
             c.Color = Vec(j, "Color", c.Color);
             c.Intensity = j.value("Intensity", c.Intensity);
             c.Radius = j.value("Radius", c.Radius);
+        }
+        if (e.contains("SpotLight"))
+        {
+            const json& j = e["SpotLight"];
+            auto& c = entity.AddComponent<SpotLightComponent>();
+            c.Color = Vec(j, "Color", c.Color);
+            c.Intensity = j.value("Intensity", c.Intensity);
+            c.Range = j.value("Range", c.Range);
+            c.OuterAngle = std::clamp(j.value("OuterAngle", c.OuterAngle), 0.1f, SpotLightComponent::MaxAngle);
+            c.InnerAngle = std::clamp(j.value("InnerAngle", c.InnerAngle), 0.0f, c.OuterAngle);
         }
         if (e.contains("Rigidbody2D"))
         {
@@ -925,7 +938,7 @@ namespace Zamin {
                 { "SSAO", s.Post.SSAO }, { "SSAORadius", s.Post.SSAORadius }, { "SSAOIntensity", s.Post.SSAOIntensity }, { "SSAOBias", s.Post.SSAOBias }, { "BloomThreshold", s.Post.BloomThreshold }, { "BloomKnee", s.Post.BloomKnee },
                 { "BloomIntensity", s.Post.BloomIntensity }, { "BloomRadius", s.Post.BloomRadius }, { "Vignette", s.Post.Vignette },
                 { "Saturation", s.Post.Saturation }, { "Contrast", s.Post.Contrast }, { "Brightness", s.Post.Brightness },
-                { "Tint", ToJson(s.Post.Tint) } } },
+                { "Tint", ToJson(s.Post.Tint) }, { "FXAA", s.Post.FXAA }, { "FXAASubpixel", s.Post.FXAASubpixel } } },
         };
         WriteAssetHandle(root["Settings"]["Environment"], "Map", s.EnvironmentMap);
 
@@ -1038,6 +1051,8 @@ namespace Zamin {
                     s.Post.Contrast = p.value("Contrast", 1.0f);
                     s.Post.Brightness = p.value("Brightness", 0.0f);
                     s.Post.Tint = Vec(p, "Tint", glm::vec3(1.0f));
+                    s.Post.FXAA = p.value("FXAA", false);
+                    s.Post.FXAASubpixel = std::clamp(p.value("FXAASubpixel", 0.75f), 0.0f, 1.0f);
                 }
             }
 

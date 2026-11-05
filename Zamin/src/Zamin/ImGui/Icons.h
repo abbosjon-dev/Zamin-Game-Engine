@@ -14,6 +14,7 @@
 #define ICON_FA_CUBES "\xef\x86\xb3"
 #define ICON_FA_CAMERA "\xef\x80\xb0"
 #define ICON_FA_LIGHTBULB "\xef\x83\xab"
+#define ICON_FA_BULLHORN "\xef\x82\xa1" // spot light
 #define ICON_FA_SUN "\xef\x86\x85"
 #define ICON_FA_IMAGE "\xef\x80\xbe"
 #define ICON_FA_CIRCLE "\xef\x84\x91"

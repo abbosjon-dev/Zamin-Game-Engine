@@ -313,6 +313,23 @@ namespace Zamin {
         float Radius = 10.0f;
     };
 
+    // A cone of light from the entity's position along its forward axis (-Z, like the directional
+    // light). Angles are measured from the axis in degrees: full brightness inside InnerAngle,
+    // fading smoothly to nothing at OuterAngle. Range attenuates like a point light's radius.
+    struct SpotLightComponent
+    {
+        glm::vec3 Color{ 1.0f };
+        float Intensity = 20.0f;
+        float Range = 15.0f;
+        float InnerAngle = 20.0f;
+        float OuterAngle = 30.0f;
+
+        static constexpr float MaxAngle = 89.0f;
+        // The angles the renderer uses: outer in (0, MaxAngle], inner in [0, outer].
+        float GetOuterAngle() const { return std::clamp(OuterAngle, 0.1f, MaxAngle); }
+        float GetInnerAngle() const { return std::clamp(InnerAngle, 0.0f, GetOuterAngle()); }
+    };
+
     // Capsule character (Jolt CharacterVirtual): walks on slopes/stairs, collides with the world.
     // Scripts set the horizontal velocity with Move() and call Jump(); gravity is applied automatically.
     struct CharacterController3DComponent
@@ -654,7 +671,7 @@ namespace Zamin {
     // Every component that is copied/serialized with an entity (IDComponent & TagComponent are handled separately).
     using AllComponents = ComponentGroup<RelationshipComponent, TagsComponent, TransformComponent, SpriteRendererComponent,
         SpriteAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
-        DirectionalLightComponent, PointLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
+        DirectionalLightComponent, PointLightComponent, SpotLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;

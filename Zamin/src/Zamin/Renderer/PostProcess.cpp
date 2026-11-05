@@ -217,6 +217,122 @@ void main()
 }
 )";
 
+        // FXAA (after Timothy Lottes' FXAA 3.11, quality preset): on the tonemapped, gamma
+        // encoded picture. Finds edges by the contrast of the luma around each pixel, walks along
+        // the edge to both of its ends, and blends across it by how far the pixel is from the
+        // nearer end; a subpixel term softens single-pixel detail.
+        const char* s_FxaaFS = R"(#version 410 core
+layout(location = 0) out vec4 o_Color;
+in vec2 v_UV;
+uniform sampler2D u_Source;
+uniform vec2 u_TexelSize;
+uniform float u_Subpixel;
+
+const float EDGE_THRESHOLD_MIN = 0.0312;
+const float EDGE_THRESHOLD_MAX = 0.125;
+const int ITERATIONS = 12;
+
+float Luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+float Quality(int i) { return i < 5 ? 1.0 : (i == 5 ? 1.5 : (i < 10 ? 2.0 : (i == 10 ? 4.0 : 8.0))); }
+
+void main()
+{
+    vec3 colorCenter = textureLod(u_Source, v_UV, 0.0).rgb;
+    float lumaCenter = Luma(colorCenter);
+    float lumaDown = Luma(textureLodOffset(u_Source, v_UV, 0.0, ivec2(0, -1)).rgb);
+    float lumaUp = Luma(textureLodOffset(u_Source, v_UV, 0.0, ivec2(0, 1)).rgb);
+    float lumaLeft = Luma(textureLodOffset(u_Source, v_UV, 0.0, ivec2(-1, 0)).rgb);
+    float lumaRight = Luma(textureLodOffset(u_Source, v_UV, 0.0, ivec2(1, 0)).rgb);
+    float lumaMin = min(lumaCenter, min(min(lumaDown, lumaUp), min(lumaLeft, lumaRight)));
+    float lumaMax = max(lumaCenter, max(max(lumaDown, lumaUp), max(lumaLeft, lumaRight)));
+    float lumaRange = lumaMax - lumaMin;
+    // flat area: nothing to smooth
+    if (lumaRange < max(EDGE_THRESHOLD_MIN, lumaMax * EDGE_THRESHOLD_MAX))
+    {
+        o_Color = vec4(colorCenter, 1.0);
+        return;
+    }
+
+    float lumaDownLeft = Luma(textureLodOffset(u_Source, v_UV, 0.0, ivec2(-1, -1)).rgb);
+    float lumaUpRight = Luma(textureLodOffset(u_Source, v_UV, 0.0, ivec2(1, 1)).rgb);
+    float lumaUpLeft = Luma(textureLodOffset(u_Source, v_UV, 0.0, ivec2(-1, 1)).rgb);
+    float lumaDownRight = Luma(textureLodOffset(u_Source, v_UV, 0.0, ivec2(1, -1)).rgb);
+    float lumaDownUp = lumaDown + lumaUp;
+    float lumaLeftRight = lumaLeft + lumaRight;
+    float lumaLeftCorners = lumaDownLeft + lumaUpLeft;
+    float lumaDownCorners = lumaDownLeft + lumaDownRight;
+    float lumaRightCorners = lumaDownRight + lumaUpRight;
+    float lumaUpCorners = lumaUpRight + lumaUpLeft;
+
+    // edge direction
+    float edgeHorizontal = abs(-2.0 * lumaLeft + lumaLeftCorners) + abs(-2.0 * lumaCenter + lumaDownUp) * 2.0
+                         + abs(-2.0 * lumaRight + lumaRightCorners);
+    float edgeVertical = abs(-2.0 * lumaUp + lumaUpCorners) + abs(-2.0 * lumaCenter + lumaLeftRight) * 2.0
+                       + abs(-2.0 * lumaDown + lumaDownCorners);
+    bool isHorizontal = edgeHorizontal >= edgeVertical;
+
+    // which side of the pixel the edge is on
+    float luma1 = isHorizontal ? lumaDown : lumaLeft;
+    float luma2 = isHorizontal ? lumaUp : lumaRight;
+    float gradient1 = luma1 - lumaCenter;
+    float gradient2 = luma2 - lumaCenter;
+    bool is1Steepest = abs(gradient1) >= abs(gradient2);
+    float gradientScaled = 0.25 * max(abs(gradient1), abs(gradient2));
+    float stepLength = isHorizontal ? u_TexelSize.y : u_TexelSize.x;
+    float lumaLocalAverage;
+    if (is1Steepest)
+    {
+        stepLength = -stepLength;
+        lumaLocalAverage = 0.5 * (luma1 + lumaCenter);
+    }
+    else
+        lumaLocalAverage = 0.5 * (luma2 + lumaCenter);
+    vec2 currentUV = v_UV;
+    if (isHorizontal) currentUV.y += stepLength * 0.5;
+    else currentUV.x += stepLength * 0.5;
+
+    // walk along the edge in both directions until its contrast is gone
+    vec2 offset = isHorizontal ? vec2(u_TexelSize.x, 0.0) : vec2(0.0, u_TexelSize.y);
+    vec2 uv1 = currentUV - offset, uv2 = currentUV + offset;
+    float lumaEnd1 = Luma(textureLod(u_Source, uv1, 0.0).rgb) - lumaLocalAverage;
+    float lumaEnd2 = Luma(textureLod(u_Source, uv2, 0.0).rgb) - lumaLocalAverage;
+    bool reached1 = abs(lumaEnd1) >= gradientScaled;
+    bool reached2 = abs(lumaEnd2) >= gradientScaled;
+    if (!reached1) uv1 -= offset;
+    if (!reached2) uv2 += offset;
+    for (int i = 2; i < ITERATIONS && !(reached1 && reached2); i++)
+    {
+        if (!reached1) lumaEnd1 = Luma(textureLod(u_Source, uv1, 0.0).rgb) - lumaLocalAverage;
+        if (!reached2) lumaEnd2 = Luma(textureLod(u_Source, uv2, 0.0).rgb) - lumaLocalAverage;
+        reached1 = abs(lumaEnd1) >= gradientScaled;
+        reached2 = abs(lumaEnd2) >= gradientScaled;
+        if (!reached1) uv1 -= offset * Quality(i);
+        if (!reached2) uv2 += offset * Quality(i);
+    }
+
+    float distance1 = isHorizontal ? (v_UV.x - uv1.x) : (v_UV.y - uv1.y);
+    float distance2 = isHorizontal ? (uv2.x - v_UV.x) : (uv2.y - v_UV.y);
+    bool isDirection1 = distance1 < distance2;
+    float distanceFinal = min(distance1, distance2);
+    float edgeLength = distance1 + distance2;
+    float pixelOffset = -distanceFinal / max(edgeLength, 1e-6) + 0.5;
+    bool isLumaCenterSmaller = lumaCenter < lumaLocalAverage;
+    bool correctVariation = ((isDirection1 ? lumaEnd1 : lumaEnd2) < 0.0) != isLumaCenterSmaller;
+    float finalOffset = correctVariation ? pixelOffset : 0.0;
+
+    // subpixel aliasing
+    float lumaAverage = (1.0 / 12.0) * (2.0 * (lumaDownUp + lumaLeftRight) + lumaLeftCorners + lumaRightCorners);
+    float subPixel1 = clamp(abs(lumaAverage - lumaCenter) / lumaRange, 0.0, 1.0);
+    float subPixel2 = (-2.0 * subPixel1 + 3.0) * subPixel1 * subPixel1;
+    finalOffset = max(finalOffset, subPixel2 * subPixel2 * u_Subpixel);
+
+    vec2 finalUV = v_UV;
+    if (isHorizontal) finalUV.y += finalOffset * stepLength;
+    else finalUV.x += finalOffset * stepLength;
+    o_Color = vec4(textureLod(u_Source, finalUV, 0.0).rgb, 1.0);
+}
+)";
+
         // The bloom mip chain of one picture size. A few sizes are kept, so the scene view and small
         // offscreen pictures (material previews, thumbnails) drawn in the same frame do not make each
         // other create their framebuffers again.
@@ -230,10 +346,11 @@ void main()
 
         struct PostData
         {
-            Ref<Shader> Downsample, Upsample, Composite, SSAO, Blur;
+            Ref<Shader> Downsample, Upsample, Composite, SSAO, Blur, Fxaa;
             std::vector<MipChain> Chains;
             uint64_t ChainUses = 0;
             Ref<Framebuffer> AO, AOBlur;
+            Ref<Framebuffer> FxaaInput; // the composited (LDR) picture FXAA reads
         };
         PostData* s_Data = nullptr;
         constexpr int s_MipCount = 6;
@@ -287,6 +404,7 @@ void main()
         s_Data->Composite = Shader::Create("Post_Composite", s_FullscreenVS, s_CompositeFS);
         s_Data->SSAO = Shader::Create("Post_SSAO", s_FullscreenVS, s_SSAOFS);
         s_Data->Blur = Shader::Create("Post_Blur", s_FullscreenVS, s_BlurFS);
+        s_Data->Fxaa = Shader::Create("Post_FXAA", s_FullscreenVS, s_FxaaFS);
     }
 
     void PostProcessor::Shutdown()
@@ -396,9 +514,24 @@ void main()
             bloomTexture = mips[0]->GetColorAttachmentRendererID(0);
         }
 
-        // Composite
+        // Composite: straight into the target, or (FXAA) into an LDR picture FXAA reads.
         RenderCommand::RestoreRenderTarget();
-        if (target)
+        const bool fxaa = settings.FXAA && s_Data->Fxaa && s_Data->Fxaa->IsValid();
+        if (fxaa)
+        {
+            if (!s_Data->FxaaInput)
+            {
+                FramebufferSpecification spec;
+                spec.Width = width;
+                spec.Height = height;
+                spec.Attachments = { FramebufferTextureFormat::RGBA8 }; // linear filtering, clamped
+                s_Data->FxaaInput = Framebuffer::Create(spec);
+            }
+            else if (s_Data->FxaaInput->GetSpecification().Width != width || s_Data->FxaaInput->GetSpecification().Height != height)
+                s_Data->FxaaInput->Resize(width, height);
+            s_Data->FxaaInput->Bind();
+        }
+        else if (target)
             target->Bind();
         RenderCommand::SetBlendMode(BlendMode::None);
         auto& comp = s_Data->Composite;
@@ -420,6 +553,22 @@ void main()
         comp->SetInt("u_Tonemap", (int)settings.Tonemap);
         RenderCommand::DrawArrays(3);
         stats.DrawCalls++;
+
+        // FXAA: the composited picture, anti-aliased into the target.
+        if (fxaa)
+        {
+            RenderCommand::RestoreRenderTarget();
+            if (target)
+                target->Bind();
+            auto& aa = s_Data->Fxaa;
+            aa->Bind();
+            aa->SetInt("u_Source", 0);
+            RenderCommand::BindTextureUnit(0, s_Data->FxaaInput->GetColorAttachmentRendererID(0));
+            aa->SetFloat2("u_TexelSize", { 1.0f / width, 1.0f / height });
+            aa->SetFloat("u_Subpixel", std::clamp(settings.FXAASubpixel, 0.0f, 1.0f));
+            RenderCommand::DrawArrays(3);
+            stats.DrawCalls++;
+        }
 
         RenderCommand::SetBlendMode(BlendMode::Alpha);
         RenderCommand::SetDepthTest(true);

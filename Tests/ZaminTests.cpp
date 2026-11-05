@@ -4302,6 +4302,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<AnimatorComponent>();
     e.AddComponent<DirectionalLightComponent>();
     e.AddComponent<PointLightComponent>();
+    e.AddComponent<SpotLightComponent>();
     e.AddComponent<Rigidbody2DComponent>();
     e.AddComponent<BoxCollider2DComponent>();
     e.AddComponent<CircleCollider2DComponent>();
@@ -4318,7 +4319,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 25);
+    CHECK(types.size() == 26);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -7468,10 +7469,13 @@ TEST(InactiveLightsDoNotCount)
     first.SetActive(true);
     second.SetActive(true);
 
-    // 20 lamps in a row (x = 0, 10, ..., 190) below one group: 16 fit, the nearest to the view.
+    // 36 lamps in a row (x = 0, 10, ..., 350) below one group: 32 fit, the nearest to the view
+    // (equal lamps: the importance falls with the distance).
+    const int lampCount = (int)Renderer3D::MaxLocalLights + 4;
+    const int last = lampCount - 1, firstOut = (int)Renderer3D::MaxLocalLights;
     Entity street = scene->CreateEntity("Street");
     std::vector<Entity> lamps;
-    for (int i = 0; i < 20; i++)
+    for (int i = 0; i < lampCount; i++)
     {
         Entity lamp = scene->CreateEntity("Lamp" + std::to_string(i));
         lamp.AddComponent<PointLightComponent>();
@@ -7483,29 +7487,29 @@ TEST(InactiveLightsDoNotCount)
         return std::find(s.PointLights.begin(), s.PointLights.end(), (entt::entity)lamps[index]) != s.PointLights.end();
     };
     set = scene->CollectLights(glm::vec3(0.0f));
-    CHECK(set.PointLights.size() == Renderer3D::MaxPointLights && set.DroppedPointLights == 4);
-    CHECK(uses(set, 0) && uses(set, 15) && !uses(set, 16) && !uses(set, 19));
+    CHECK(set.PointLights.size() == Renderer3D::MaxLocalLights && set.DroppedLocalLights == 4 && set.SpotLights.empty());
+    CHECK(uses(set, 0) && uses(set, firstOut - 1) && !uses(set, firstOut) && !uses(set, last));
     CHECK(set.PointLights.front() == (entt::entity)lamps[0]); // nearest first
-    set = scene->CollectLights(glm::vec3(190.0f, 0.0f, 0.0f));
-    CHECK(uses(set, 19) && uses(set, 4) && !uses(set, 3) && !uses(set, 0));
+    set = scene->CollectLights(glm::vec3(last * 10.0f, 0.0f, 0.0f));
+    CHECK(uses(set, last) && uses(set, 4) && !uses(set, 3) && !uses(set, 0));
 
     // Switched-off lamps take no slot: the next farther ones light the scene instead.
     lamps[1].SetActive(false);
     lamps[2].SetActive(false);
     lamps[3].SetActive(false);
     set = scene->CollectLights(glm::vec3(0.0f));
-    CHECK(set.PointLights.size() == Renderer3D::MaxPointLights && set.DroppedPointLights == 1 && set.InactiveLights == 3);
-    CHECK(!uses(set, 1) && !uses(set, 2) && !uses(set, 3) && uses(set, 18) && !uses(set, 19));
-    // Up to 16: every one that counts, in pool order (nothing is sorted).
-    for (int i = 10; i < 20; i++)
+    CHECK(set.PointLights.size() == Renderer3D::MaxLocalLights && set.DroppedLocalLights == 1 && set.InactiveLights == 3);
+    CHECK(!uses(set, 1) && !uses(set, 2) && !uses(set, 3) && uses(set, last - 1) && !uses(set, last));
+    // Up to 32: every one that counts, in pool order (nothing is sorted).
+    for (int i = 10; i < lampCount; i++)
         lamps[i].SetActive(false);
     set = scene->CollectLights(glm::vec3(1000.0f, 0.0f, 0.0f));
-    CHECK(set.PointLights.size() == 7 && set.DroppedPointLights == 0 && set.InactiveLights == 13);
+    CHECK(set.PointLights.size() == 7 && set.DroppedLocalLights == 0 && set.InactiveLights == (uint32_t)(lampCount - 10 + 3));
     CHECK(uses(set, 0) && uses(set, 4) && uses(set, 9) && !uses(set, 10));
     // The group switched off: every lamp below it is out, whatever its own flag says.
     street.SetActive(false);
     set = scene->CollectLights(glm::vec3(0.0f));
-    CHECK(set.PointLights.empty() && set.InactiveLights == 20 && set.Sun != entt::null);
+    CHECK(set.PointLights.empty() && set.InactiveLights == (uint32_t)lampCount && set.Sun != entt::null);
     street.SetActive(true);
     for (Entity lamp : lamps)
         lamp.SetActive(true);
@@ -7514,7 +7518,7 @@ TEST(InactiveLightsDoNotCount)
     lamps[0].GetComponent<TagComponent>().Active = false;
     scene->InvalidateActiveCache();
     set = scene->CollectLights(glm::vec3(0.0f));
-    CHECK(!uses(set, 0) && uses(set, 16) && set.InactiveLights == 1);
+    CHECK(!uses(set, 0) && uses(set, firstOut) && set.InactiveLights == 1);
     lamps[0].GetComponent<TagComponent>().Active = true;
     scene->InvalidateActiveCache();
 
@@ -7536,6 +7540,211 @@ TEST(InactiveLightsDoNotCount)
     CHECK(Entity(copied.Sun, runtime.get()).GetName() == second.GetName());
     runtime->FindEntityByName("Lamp5").SetActive(true);
     CHECK(runtime->CollectLights(glm::vec3(0.0f)).InactiveLights == 1 && scene->CollectLights(glm::vec3(0.0f)).InactiveLights == 2);
+}
+
+TEST(SpotLightComponentRoundTrip)
+{
+    auto scene = CreateRef<Scene>();
+    Entity spot = scene->CreateEntity("Spot");
+    auto& c = spot.AddComponent<SpotLightComponent>();
+    c.Color = { 1.0f, 0.5f, 0.25f };
+    c.Intensity = 42.0f;
+    c.Range = 7.5f;
+    c.InnerAngle = 12.0f;
+    c.OuterAngle = 40.0f;
+    spot.GetTransform().Rotation = { -glm::half_pi<float>(), 0.0f, 0.0f };
+
+    // Defaults: the inner cone inside the outer one.
+    SpotLightComponent defaults;
+    CHECK(defaults.InnerAngle < defaults.OuterAngle && defaults.Range > 0.0f && defaults.Intensity > 0.0f);
+
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"SpotLight\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity back = loaded->FindEntityByName("Spot");
+    CHECK(back && back.HasComponent<SpotLightComponent>());
+    const auto& b = back.GetComponent<SpotLightComponent>();
+    CHECK(b.Color == c.Color && b.Intensity == 42.0f && b.Range == 7.5f && b.InnerAngle == 12.0f && b.OuterAngle == 40.0f);
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+
+    // Bad angles in a file are put in order (outer <= 89, inner <= outer).
+    std::string broken = text;
+    size_t at = broken.find("\"InnerAngle\": 12.0");
+    CHECK(at != std::string::npos);
+    broken.replace(at, std::string("\"InnerAngle\": 12.0").size(), "\"InnerAngle\": 75.0");
+    at = broken.find("\"OuterAngle\": 40.0");
+    CHECK(at != std::string::npos);
+    broken.replace(at, std::string("\"OuterAngle\": 40.0").size(), "\"OuterAngle\": 60.0");
+    auto fixed = CreateRef<Scene>();
+    CHECK(SceneSerializer(fixed).DeserializeFromString(broken));
+    const auto& f = fixed->FindEntityByName("Spot").GetComponent<SpotLightComponent>();
+    CHECK(f.OuterAngle == 60.0f && f.InnerAngle == 60.0f);
+    // The renderer's angles are clamped the same way, whatever the component holds.
+    SpotLightComponent wild;
+    wild.OuterAngle = 150.0f;
+    wild.InnerAngle = 120.0f;
+    CHECK(wild.GetOuterAngle() == SpotLightComponent::MaxAngle && wild.GetInnerAngle() == SpotLightComponent::MaxAngle);
+    wild.OuterAngle = -5.0f;
+    CHECK(wild.GetOuterAngle() > 0.0f && wild.GetInnerAngle() <= wild.GetOuterAngle());
+
+    // Copied with the scene (play mode) and through the inspector's component clipboard.
+    auto copy = Scene::Copy(scene);
+    CHECK(copy->FindEntityByName("Spot").GetComponent<SpotLightComponent>().Range == 7.5f);
+    std::string clip = SceneSerializer::SerializeComponent(spot, "SpotLight");
+    CHECK(SceneSerializer::GetSerializedComponentKey(clip) == "SpotLight");
+    Entity other = scene->CreateEntity("Other");
+    CHECK(SceneSerializer::DeserializeComponent(clip, other));
+    CHECK(other.GetComponent<SpotLightComponent>().OuterAngle == 40.0f);
+    CHECK(ComponentRegistry::Find("SpotLight") && ComponentKey<SpotLightComponent>() == "SpotLight");
+
+    // Spot lights count like point lights: inactive ones take no slot.
+    Scene::LightSet set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.SpotLights.size() == 2 && set.PointLights.empty() && set.GetLocalLightCount() == 2);
+    other.SetActive(false);
+    set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.SpotLights.size() == 1 && set.SpotLights[0] == (entt::entity)spot && set.InactiveLights == 1);
+}
+
+TEST(SpotLightCone)
+{
+    // smoothstep(cos outer, cos inner, cos angle): 1 inside the inner cone, 0 outside the outer one.
+    CHECK_NEAR(Renderer3D::GetSpotConeFactor(20.0f, 30.0f, 0.0f), 1.0f, 1e-6f);
+    CHECK_NEAR(Renderer3D::GetSpotConeFactor(20.0f, 30.0f, 19.9f), 1.0f, 1e-6f);
+    CHECK_NEAR(Renderer3D::GetSpotConeFactor(20.0f, 30.0f, 30.1f), 0.0f, 1e-6f);
+    CHECK_NEAR(Renderer3D::GetSpotConeFactor(20.0f, 30.0f, 90.0f), 0.0f, 1e-6f);
+    CHECK_NEAR(Renderer3D::GetSpotConeFactor(20.0f, 30.0f, 180.0f), 0.0f, 1e-6f);
+    float mid = Renderer3D::GetSpotConeFactor(20.0f, 30.0f, 25.0f);
+    CHECK(mid > 0.3f && mid < 0.7f);
+    // Falls smoothly and never rises from the axis outwards.
+    float prev = 1.0f;
+    bool monotonic = true;
+    for (float a = 0.0f; a <= 35.0f; a += 0.25f)
+    {
+        float f = Renderer3D::GetSpotConeFactor(20.0f, 30.0f, a);
+        monotonic = monotonic && f <= prev + 1e-6f && f >= 0.0f && f <= 1.0f;
+        prev = f;
+    }
+    CHECK(monotonic);
+    // Inner == outer (a hard edge) and inner > outer stay well defined (no division by zero).
+    glm::vec2 c = Renderer3D::GetSpotCosines(30.0f, 30.0f);
+    CHECK(c.x > c.y);
+    c = Renderer3D::GetSpotCosines(50.0f, 30.0f);
+    CHECK(c.x > c.y && std::abs(c.y - std::cos(glm::radians(30.0f))) < 1e-5f);
+    CHECK_NEAR(Renderer3D::GetSpotConeFactor(30.0f, 30.0f, 29.0f), 1.0f, 1e-6f);
+    CHECK_NEAR(Renderer3D::GetSpotConeFactor(30.0f, 30.0f, 31.0f), 0.0f, 1e-6f);
+    // Outer angle clamped to 89 degrees (a cone, never a hemisphere).
+    c = Renderer3D::GetSpotCosines(10.0f, 120.0f);
+    CHECK_NEAR(c.y, std::cos(glm::radians(89.0f)), 1e-5f);
+}
+
+TEST(FxaaSceneSetting)
+{
+    // Off by default: existing scenes keep their look.
+    PostProcessSettings defaults;
+    CHECK(!defaults.FXAA && defaults.FXAASubpixel > 0.0f && defaults.FXAASubpixel <= 1.0f);
+    auto scene = CreateRef<Scene>();
+    CHECK(!scene->GetSettings().Post.FXAA);
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto plain = CreateRef<Scene>();
+    CHECK(SceneSerializer(plain).DeserializeFromString(text) && !plain->GetSettings().Post.FXAA);
+
+    // Saved with the scene.
+    scene->GetSettings().Post.FXAA = true;
+    scene->GetSettings().Post.FXAASubpixel = 0.4f;
+    text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"FXAA\": true") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->GetSettings().Post.FXAA);
+    CHECK_NEAR(loaded->GetSettings().Post.FXAASubpixel, 0.4f, 1e-6f);
+    // Kept by the play-mode copy.
+    CHECK(Scene::Copy(scene)->GetSettings().Post.FXAA);
+
+    // A scene file from before the setting (no keys): off; an out-of-range amount is clamped.
+    std::string old = text;
+    size_t at = old.find("\"FXAA\": true");
+    old.replace(at, std::string("\"FXAA\": true").size(), "\"FXAAOld\": true");
+    at = old.find("\"FXAASubpixel\": 0.4");
+    CHECK(at != std::string::npos);
+    std::string wild = old;
+    old.replace(at, old.find(',', at) - at, "\"Unknown\": 1");
+    auto legacy = CreateRef<Scene>();
+    CHECK(SceneSerializer(legacy).DeserializeFromString(old));
+    CHECK(!legacy->GetSettings().Post.FXAA && legacy->GetSettings().Post.FXAASubpixel == 0.75f);
+    wild.replace(at, wild.find(',', at) - at, "\"FXAASubpixel\": 7.5");
+    auto clamped = CreateRef<Scene>();
+    CHECK(SceneSerializer(clamped).DeserializeFromString(wild));
+    CHECK(clamped->GetSettings().Post.FXAASubpixel == 1.0f);
+}
+
+TEST(LocalLightSelection)
+{
+    using Candidate = Renderer3D::LightCandidate;
+    const glm::vec3 eye(0.0f);
+    // Importance: full strength inside the range, (range / distance)^2 of it outside.
+    CHECK_NEAR(Renderer3D::GetLightImportance({ { 3.0f, 0.0f, 0.0f }, 10.0f, 5.0f }, eye), 5.0f, 1e-6f);
+    CHECK_NEAR(Renderer3D::GetLightImportance({ { 20.0f, 0.0f, 0.0f }, 10.0f, 5.0f }, eye), 5.0f * 0.25f, 1e-6f);
+    CHECK_NEAR(Renderer3D::GetLightImportance({ { 20.0f, 0.0f, 0.0f }, 0.0f, 5.0f }, eye), 0.0f, 1e-6f);
+    CHECK_NEAR(Renderer3D::GetLightImportance({ { 20.0f, 0.0f, 0.0f }, 10.0f, -1.0f }, eye), 0.0f, 1e-6f);
+
+    // Up to the limit: every light, in the given order.
+    std::vector<Candidate> few = { { { 50, 0, 0 }, 1.0f, 1.0f }, { { 1, 0, 0 }, 10.0f, 9.0f }, { { 9, 0, 0 }, 2.0f, 1.0f } };
+    std::vector<size_t> picked = Renderer3D::SelectLights(few, eye, 3);
+    CHECK(picked.size() == 3 && picked[0] == 0 && picked[1] == 1 && picked[2] == 2);
+    CHECK(Renderer3D::SelectLights({}, eye).empty());
+
+    // More: the most important first. A strong, wide light far away beats a faint one nearby,
+    // but a light the viewer stands in beats a far one of the same strength.
+    std::vector<Candidate> lights = {
+        { { 5, 0, 0 }, 2.0f, 1.0f },     // 0: faint, small, near:  1 * 4/25    = 0.16
+        { { 60, 0, 0 }, 30.0f, 20.0f },  // 1: strong, wide, far:  20 * 900/3600 = 5
+        { { 2, 0, 0 }, 10.0f, 4.0f },    // 2: viewer inside:       4
+        { { 40, 0, 0 }, 10.0f, 4.0f },   // 3: same light far:      4 * 100/1600 = 0.25
+        { { 0, 0, 30 }, 10.0f, 4.0f },   // 4:                      4 * 100/900  = 0.44
+    };
+    picked = Renderer3D::SelectLights(lights, eye, 3);
+    CHECK(picked.size() == 3 && picked[0] == 1 && picked[1] == 2 && picked[2] == 4);
+    picked = Renderer3D::SelectLights(lights, eye, 4);
+    CHECK(picked.size() == 4 && picked[3] == 3);
+    // Equal importance (both around the viewer): the nearer one first.
+    std::vector<Candidate> inside = { { { 4, 0, 0 }, 10.0f, 1.0f }, { { 1, 0, 0 }, 10.0f, 1.0f }, { { 90, 0, 0 }, 1.0f, 1.0f } };
+    picked = Renderer3D::SelectLights(inside, eye, 2);
+    CHECK(picked.size() == 2 && picked[0] == 1 && picked[1] == 0);
+
+    // In a scene: point and spot lights share the 32 slots.
+    auto scene = CreateRef<Scene>();
+    std::vector<Entity> points, spots;
+    for (int i = 0; i < 20; i++)
+    {
+        Entity p = scene->CreateEntity("P" + std::to_string(i));
+        p.AddComponent<PointLightComponent>();
+        p.GetTransform().Translation = { i * 10.0f, 2.0f, 0.0f };
+        points.push_back(p);
+        Entity sp = scene->CreateEntity("S" + std::to_string(i));
+        auto& spotLight = sp.AddComponent<SpotLightComponent>();
+        spotLight.Range = 10.0f;
+        spotLight.Intensity = 10.0f;
+        sp.GetTransform().Translation = { -i * 10.0f - 5.0f, 2.0f, 0.0f };
+        spots.push_back(sp);
+    }
+    auto has = [](const std::vector<entt::entity>& list, Entity e) {
+        return std::find(list.begin(), list.end(), (entt::entity)e) != list.end();
+    };
+    Scene::LightSet set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.GetLocalLightCount() == Renderer3D::MaxLocalLights && set.DroppedLocalLights == 8);
+    // Spot lights are twice as strong (10 vs 5) with the same range: they get slots farther away
+    // (the 18 nearest spots up to x = -175, the 14 nearest points only up to x = 130).
+    CHECK(set.PointLights.size() == 14 && set.SpotLights.size() == 18);
+    CHECK(has(set.PointLights, points[0]) && has(set.PointLights, points[13]) && !has(set.PointLights, points[14]));
+    CHECK(has(set.SpotLights, spots[0]) && has(set.SpotLights, spots[17]) && !has(set.SpotLights, spots[18]));
+    // A dimmed light drops out first; color counts too (a black light lights nothing).
+    spots[0].GetComponent<SpotLightComponent>().Color = glm::vec3(0.0f);
+    set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(!has(set.SpotLights, spots[0]) && set.DroppedLocalLights == 8);
+    // From the other end of the street the far points win.
+    set = scene->CollectLights(glm::vec3(190.0f, 0.0f, 0.0f));
+    CHECK(has(set.PointLights, points[19]) && !has(set.SpotLights, spots[19]));
 }
 
 TEST(InactiveTilemapCollision)

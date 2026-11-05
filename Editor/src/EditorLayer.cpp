@@ -264,6 +264,21 @@ namespace Zamin {
                 m_ShowTransparentOrder = true;
             if (std::getenv("ZAMIN_EDITOR_FRAME_ALL"))
                 FrameAll();
+            // ZAMIN_EDITOR_CAMERA="x,y,z,distance,pitch,yaw": the editor camera looks at that point from
+            // that distance (degrees; a positive pitch looks down).
+            if (const char* cam = std::getenv("ZAMIN_EDITOR_CAMERA"))
+            {
+                float v[6] = { 0.0f, 0.0f, 0.0f, 10.0f, 30.0f, 0.0f };
+                std::sscanf(cam, "%f,%f,%f,%f,%f,%f", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5]);
+                m_EditorCamera.Focus({ v[0], v[1], v[2] }, std::max(v[3], 0.1f));
+                m_EditorCamera.SetOrientation(glm::radians(v[4]), glm::radians(v[5]));
+            }
+            // ZAMIN_EDITOR_SCENE_SETTINGS=1 | post: the scene settings tab in front (scrolled to post-processing).
+            if (const char* settings = std::getenv("ZAMIN_EDITOR_SCENE_SETTINGS"))
+            {
+                m_ShowSceneSettings = m_FocusSceneSettings = true;
+                m_SceneSettingsScrollTo = settings;
+            }
             // Content browser: folder (relative to the project), list view, type filter ("Texture,Model").
             if (const char* dir = std::getenv("ZAMIN_EDITOR_CB_DIR"))
                 m_ContentBrowserPanel.SetCurrentDirectory(Project::GetProjectDirectory() / dir);
@@ -727,6 +742,64 @@ namespace Zamin {
         }
     }
 
+    // Arc of the circle around `center` in the plane of the unit axes A and B, from angle a0 to a1 (radians, from A towards B).
+    static void DrawWireArc(const glm::vec3& center, const glm::vec3& axisA, const glm::vec3& axisB, float radius, float a0, float a1,
+                            const glm::vec4& color, int segments = 24)
+    {
+        glm::vec3 prev = center + (axisA * std::cos(a0) + axisB * std::sin(a0)) * radius;
+        for (int i = 1; i <= segments; i++)
+        {
+            float t = a0 + (a1 - a0) * i / segments;
+            glm::vec3 p = center + (axisA * std::cos(t) + axisB * std::sin(t)) * radius;
+            Renderer2D::DrawLine(prev, p, color);
+            prev = p;
+        }
+    }
+
+    // Two unit axes perpendicular to `dir` (and to each other).
+    static void PerpendicularAxes(const glm::vec3& dir, glm::vec3& u, glm::vec3& v)
+    {
+        glm::vec3 helper = std::abs(dir.y) < 0.99f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+        u = glm::normalize(glm::cross(dir, helper));
+        v = glm::cross(dir, u);
+    }
+
+    // A point light's range: three circles around it (world axes).
+    static void DrawPointLightRange(const glm::vec3& center, float radius, const glm::vec4& color)
+    {
+        if (radius <= 0.0f) return;
+        DrawWireCircle(center, { 1, 0, 0 }, { 0, 1, 0 }, radius, color);
+        DrawWireCircle(center, { 1, 0, 0 }, { 0, 0, 1 }, radius, color);
+        DrawWireCircle(center, { 0, 1, 0 }, { 0, 0, 1 }, radius, color);
+    }
+
+    // A spot light's cone: the outer cone (edges, the circle where it ends and the cap of its
+    // range sphere) and, fainter, the circle where the inner (full brightness) cone ends.
+    static void DrawSpotLightCone(const glm::vec3& apex, const glm::vec3& direction, float range, float innerDegrees, float outerDegrees,
+                                  const glm::vec4& color)
+    {
+        if (range <= 0.0f || glm::length(direction) < 1e-6f) return;
+        glm::vec3 d = glm::normalize(direction), u, v;
+        PerpendicularAxes(d, u, v);
+        float outer = glm::radians(std::clamp(outerDegrees, 0.1f, SpotLightComponent::MaxAngle));
+        float inner = glm::radians(std::clamp(innerDegrees, 0.0f, glm::degrees(outer)));
+        glm::vec3 baseCenter = apex + d * (range * std::cos(outer));
+        float baseRadius = range * std::sin(outer);
+        DrawWireCircle(baseCenter, u, v, baseRadius, color);
+        for (glm::vec3 side : { u, -u, v, -v })
+            Renderer2D::DrawLine(apex, baseCenter + side * baseRadius, color);
+        // the cap: where the range sphere closes the cone
+        DrawWireArc(apex, d, u, range, -outer, outer, color);
+        DrawWireArc(apex, d, v, range, -outer, outer, color);
+        if (inner > 0.001f && inner < outer - 0.001f)
+        {
+            glm::vec4 faint(color.r, color.g, color.b, color.a * 0.45f);
+            DrawWireCircle(apex + d * (range * std::cos(inner)), u, v, range * std::sin(inner), faint);
+        }
+        // the axis, a short way out
+        Renderer2D::DrawLine(apex, apex + d * std::min(range, 1.0f), color);
+    }
+
     void EditorLayer::OnOverlayRender()
     {
         glm::mat4 viewProj = OverlayViewProjection();
@@ -896,6 +969,13 @@ namespace Zamin {
                     Renderer2D::DrawRect(box, orange);
                 }
             }
+            // Lights: how far they reach (point: a sphere of circles, spot: its cone).
+            const glm::vec4 lightColor = selected == primary ? glm::vec4(1.0f, 0.88f, 0.4f, 1.0f) : glm::vec4(1.0f, 0.9f, 0.55f, 0.6f);
+            if (auto* pl = selected.TryGetComponent<PointLightComponent>())
+                DrawPointLightRange(glm::vec3(transform[3]), pl->Radius, lightColor);
+            if (auto* sl = selected.TryGetComponent<SpotLightComponent>())
+                DrawSpotLightCone(glm::vec3(transform[3]), glm::vec3(transform * glm::vec4(0, 0, -1, 0)), sl->Range, sl->GetInnerAngle(),
+                                  sl->GetOuterAngle(), lightColor);
             // children get a subtle outline too
             for (UUID child : selected.GetComponent<RelationshipComponent>().Children)
                 if (Entity c = scene.GetEntityByUUID(child))
@@ -3604,6 +3684,8 @@ namespace Zamin {
             drawIcon({ e, m_ActiveScene.get() }, ICON_FA_SUN, IM_COL32(255, 210, 90, 255));
         for (auto e : m_ActiveScene->GetAllEntitiesWith<PointLightComponent>())
             drawIcon({ e, m_ActiveScene.get() }, ICON_FA_LIGHTBULB, IM_COL32(255, 230, 140, 255));
+        for (auto e : m_ActiveScene->GetAllEntitiesWith<SpotLightComponent>())
+            drawIcon({ e, m_ActiveScene.get() }, ICON_FA_BULLHORN, IM_COL32(255, 220, 120, 255));
         for (auto e : m_ActiveScene->GetAllEntitiesWith<AudioSourceComponent>())
             drawIcon({ e, m_ActiveScene.get() }, ICON_FA_VOLUME_HIGH, IM_COL32(220, 140, 220, 255));
     }
@@ -3693,6 +3775,11 @@ namespace Zamin {
     {
         if (!m_ShowSceneSettings)
             return;
+        if (m_FocusSceneSettings)
+        {
+            ImGui::SetNextWindowFocus();
+            m_FocusSceneSettings = false;
+        }
         if (!ImGui::Begin(ICON_FA_MOUNTAIN_SUN "  Sahna###SceneSettings", &m_ShowSceneSettings))
         {
             ImGui::End();
@@ -3731,6 +3818,11 @@ namespace Zamin {
         }
 
         ImGui::SeparatorText(ICON_FA_WAND_MAGIC_SPARKLES "  Post-processing");
+        if (m_SceneSettingsScrollTo == "post")
+        {
+            ImGui::SetScrollHereY(0.0f);
+            m_SceneSettingsScrollTo.clear();
+        }
         if (UI::BeginPropertyGrid("post"))
         {
             auto& p = s.Post;
@@ -3755,6 +3847,15 @@ namespace Zamin {
             changed |= UI::PropertySlider("Kontrast", p.Contrast, 0.5f, 2.0f);
             changed |= UI::PropertySlider("Yorqinlik", p.Brightness, -0.5f, 0.5f);
             changed |= UI::PropertyColor3("Rang tuslash", p.Tint);
+            UI::PropertyLabel("FXAA (silliqlash)", "Tez anti-aliasing: tayyor tasvirdagi qirralarning zinapoyasini yumshatadi "
+                                                   "(tonemapping va rang sozlamalaridan keyin)");
+            changed |= ImGui::Checkbox("##fxaa", &p.FXAA);
+            if (p.FXAA)
+            {
+                UI::PropertyLabel("FXAA subpiksel", "Bir pikselli mayda detallar (ingichka chiziqlar, yaltirashlar) qanchalik "
+                                                    "yumshatiladi: 0 - faqat qirralar, 1 - eng yumshoq");
+                changed |= ImGui::SliderFloat("##fxaasub", &p.FXAASubpixel, 0.0f, 1.0f, "%.2f");
+            }
             UI::EndPropertyGrid();
         }
 
@@ -3839,10 +3940,13 @@ namespace Zamin {
                     ImGui::TextUnformatted(lights.Sun != entt::null ? Entity(lights.Sun, m_ActiveScene.get()).GetName().c_str() : "-");
                     if (lights.ExtraSuns && ImGui::IsItemHovered())
                         ImGui::SetTooltip("Yana %u ta faol Directional Light ishlatilmayapti (faqat birinchisi yoritadi)", lights.ExtraSuns);
-                    UI::PropertyLabel("Nuqtali yorug'lik");
-                    ImGui::Text("%zu / %u", lights.PointLights.size(), Renderer3D::MaxPointLights);
-                    if (lights.DroppedPointLights && ImGui::IsItemHovered())
-                        ImGui::SetTooltip("Limitdan oshgan %u tasi ishlatilmayapti (kameradan eng uzoqlari)", lights.DroppedPointLights);
+                    static const std::string localTip = std::format("Nuqtali va spot yorug'liklar birgalikda eng ko'pi bilan {} ta "
+                                                                    "joyni egallaydi", Renderer3D::MaxLocalLights);
+                    UI::PropertyLabel("Nuqtali + spot", localTip.c_str());
+                    ImGui::Text("%zu + %zu / %u", lights.PointLights.size(), lights.SpotLights.size(), Renderer3D::MaxLocalLights);
+                    if (lights.DroppedLocalLights && ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Limitdan oshgan %u tasi ishlatilmayapti (kameraga eng kam ta'sir qiladiganlari: "
+                                          "uzoq, kuchsiz yoki radiusi kichik)", lights.DroppedLocalLights);
                     UI::PropertyLabel("Nofaol yorug'lik");
                     ImGui::Text("%u", lights.InactiveLights);
                     if (ImGui::IsItemHovered())

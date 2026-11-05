@@ -66,7 +66,12 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - ECS arxitektura (EnTT), UUID, JSON sahna formati (`.zscene`)
 - **Renderer** (OpenGL 4.1 core, RHI abstraksiya qatlami orqasida):
   - 2D batch renderer: sprite, tekstura, doira, chiziq, **matn** (UTF-8, lotin/kirill, `oʻ gʻ`)
-  - 3D PBR (metallic/roughness), yo'naltirilgan quyosh + 16 ta nuqtali yorug'lik, gradient osmon, atrof-muhit aksi
+  - 3D PBR (metallic/roughness), yo'naltirilgan quyosh, gradient osmon, atrof-muhit aksi
+  - **Nuqtali va spot yorug'liklar** — birgalikda 32 tagacha: **Spot Light** (obyektning -Z o'qi bo'ylab konus, ichki /
+    tashqi burchak orasida yumshoq so'nish, masofa bo'yicha nuqtali yorug'lik kabi so'nish). Ko'proq bo'lsa kameraga eng
+    ko'p ta'sir qiladiganlari tanlanadi (kuchi x rangi, kamera yorug'lik radiusidan qanchalik uzoqligiga qarab).
+    Editorda tanlangan nuqtali yorug'likning radiusi (3 ta aylana) va spot konusi (ichki konus xiraroq) ko'rinadi,
+    viewport'da spot belgisi bor. Namuna: `Projects/Showcase3D` ichidagi `Scenes/Lights.zscene` (29 ta yorug'lik)
   - **HDRI osmon + IBL**: `.hdr` panorama — diffuz yorug'lik SH9 orqali, aks (specular) mip darajalari bo'yicha
   - **Cascaded Shadow Maps** (3 kaskad, 4096 atlas, PCF, texel snapping), **tuman** (masofa + balandlik)
   - Primitivlar (kub, shar, tekislik, silindr, konus), `.obj` va `.gltf/.glb` modellar
@@ -123,7 +128,8 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
   - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti,
     kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`
-  - **Post-processing**: SSAO (ambient occlusion), bloom, vinyetka, kontrast/to'yinganlik/rang tuslash
+  - **Post-processing**: SSAO (ambient occlusion), bloom, vinyetka, kontrast/to'yinganlik/rang tuslash,
+    **FXAA** anti-aliasing (tonemapping va rang sozlamalaridan keyin; Sahna panelida yoqiladi, subpiksel kuchi bilan)
   - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview)
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
 - **2D fizika** (Box2D): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari

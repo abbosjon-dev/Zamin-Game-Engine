@@ -28,6 +28,10 @@ namespace Zamin {
         void SetFloat2(const std::string& name, const glm::vec2& v) override { glUniform2f(Loc(name), v.x, v.y); }
         void SetFloat3(const std::string& name, const glm::vec3& v) override { glUniform3f(Loc(name), v.x, v.y, v.z); }
         void SetFloat4(const std::string& name, const glm::vec4& v) override { glUniform4f(Loc(name), v.x, v.y, v.z, v.w); }
+        void SetFloat4Array(const std::string& name, const glm::vec4* values, uint32_t count) override
+        {
+            glUniform4fv(Loc(name), (GLsizei)count, glm::value_ptr(values[0]));
+        }
         void SetMat3(const std::string& name, const glm::mat3& m) override { glUniformMatrix3fv(Loc(name), 1, GL_FALSE, glm::value_ptr(m)); }
         void SetMat4(const std::string& name, const glm::mat4& m) override { glUniformMatrix4fv(Loc(name), 1, GL_FALSE, glm::value_ptr(m)); }
 

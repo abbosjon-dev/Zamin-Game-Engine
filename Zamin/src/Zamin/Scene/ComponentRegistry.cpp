@@ -28,6 +28,7 @@ namespace Zamin {
             MakeTypeInfo<AnimatorComponent>(),
             MakeTypeInfo<DirectionalLightComponent>(),
             MakeTypeInfo<PointLightComponent>(),
+            MakeTypeInfo<SpotLightComponent>(),
             MakeTypeInfo<Rigidbody2DComponent>(),
             MakeTypeInfo<BoxCollider2DComponent>(),
             MakeTypeInfo<CircleCollider2DComponent>(),

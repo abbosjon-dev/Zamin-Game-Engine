@@ -1,0 +1,1984 @@
+{
+    "Scene": "Yorug'liklar",
+    "Version": 1,
+    "Settings": {
+        "DrawSky": true,
+        "SkyTop": [
+            0.02,
+            0.03,
+            0.07
+        ],
+        "SkyHorizon": [
+            0.08,
+            0.08,
+            0.13
+        ],
+        "Ground": [
+            0.04,
+            0.04,
+            0.05
+        ],
+        "Ambient": 0.25,
+        "Exposure": 1.0,
+        "ShadowDistance": 50,
+        "Gravity": [
+            0,
+            -9.8
+        ],
+        "Gravity3D": [
+            0,
+            -9.81,
+            0
+        ],
+        "Post": {
+            "Bloom": true,
+            "BloomThreshold": 1.0,
+            "BloomKnee": 0.5,
+            "BloomIntensity": 0.5,
+            "BloomRadius": 1.0,
+            "Vignette": 0.25,
+            "Saturation": 1.05,
+            "Contrast": 1.05,
+            "Brightness": 0.0,
+            "Tint": [
+                1,
+                1,
+                1
+            ],
+            "Tonemap": 1,
+            "SSAO": true,
+            "SSAORadius": 0.6,
+            "SSAOIntensity": 1.2,
+            "SSAOBias": 0.03,
+            "FXAA": true,
+            "FXAASubpixel": 0.75
+        }
+    },
+    "Entities": [
+        {
+            "Entity": 7410000000000001,
+            "Tag": "Main Camera",
+            "Transform": {
+                "Translation": [
+                    0,
+                    8,
+                    17
+                ],
+                "Rotation": [
+                    -0.42,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Camera": {
+                "ProjectionType": 0,
+                "PerspectiveFOV": 0.85,
+                "PerspectiveNear": 0.1,
+                "PerspectiveFar": 500,
+                "OrthographicSize": 10,
+                "OrthographicNear": -100,
+                "OrthographicFar": 100,
+                "Primary": true,
+                "FixedAspectRatio": false,
+                "ClearColor": [
+                    0.02,
+                    0.02,
+                    0.04,
+                    1
+                ]
+            },
+            "NativeScript": {
+                "Class": "OrbitCamera",
+                "Fields": {
+                    "Distance": {
+                        "Type": "Float",
+                        "Value": 18.0
+                    },
+                    "Height": {
+                        "Type": "Float",
+                        "Value": 8.0
+                    },
+                    "Speed": {
+                        "Type": "Float",
+                        "Value": 0.08
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 7410000000000002,
+            "Tag": "Moon",
+            "Transform": {
+                "Translation": [
+                    0,
+                    12,
+                    0
+                ],
+                "Rotation": [
+                    -0.75,
+                    0.6,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "DirectionalLight": {
+                "Color": [
+                    0.55,
+                    0.65,
+                    1.0
+                ],
+                "Intensity": 0.5,
+                "CastShadows": true
+            }
+        },
+        {
+            "Entity": 7410000000000003,
+            "Tag": "Ground",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    34,
+                    1,
+                    34
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Plane",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.62,
+                    0.62,
+                    0.65,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.75,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7410000000000004,
+            "Tag": "Stage",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0.2,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    7,
+                    0.4,
+                    7
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.8,
+                    0.8,
+                    0.82,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.5,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7410000000000005,
+            "Tag": "Hero Sphere",
+            "Transform": {
+                "Translation": [
+                    0,
+                    1.6,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    2.2,
+                    2.2,
+                    2.2
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "Materials/Gold.zmat",
+                "Albedo": [
+                    0.95,
+                    0.75,
+                    0.35,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 1.0,
+                "Roughness": 0.25,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7410000000000006,
+            "Tag": "Cube 1",
+            "Transform": {
+                "Translation": [
+                    5.5,
+                    0.75,
+                    1.5
+                ],
+                "Rotation": [
+                    0,
+                    0.0,
+                    0
+                ],
+                "Scale": [
+                    1.5,
+                    1.5,
+                    1.5
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cube",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.85,
+                    0.85,
+                    0.88,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.45,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7410000000000007,
+            "Tag": "Cylinder 2",
+            "Transform": {
+                "Translation": [
+                    -5.0,
+                    1.0,
+                    2.5
+                ],
+                "Rotation": [
+                    0,
+                    0.4,
+                    0
+                ],
+                "Scale": [
+                    1.2,
+                    2.0,
+                    1.2
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.85,
+                    0.85,
+                    0.88,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.45,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7410000000000008,
+            "Tag": "Cone 3",
+            "Transform": {
+                "Translation": [
+                    -2.5,
+                    0.9,
+                    -5.5
+                ],
+                "Rotation": [
+                    0,
+                    0.8,
+                    0
+                ],
+                "Scale": [
+                    1.4,
+                    1.8,
+                    1.4
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cone",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.85,
+                    0.85,
+                    0.88,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.45,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7410000000000009,
+            "Tag": "Sphere 4",
+            "Transform": {
+                "Translation": [
+                    3.0,
+                    0.8,
+                    -5.0
+                ],
+                "Rotation": [
+                    0,
+                    1.2,
+                    0
+                ],
+                "Scale": [
+                    1.6,
+                    1.6,
+                    1.6
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.85,
+                    0.85,
+                    0.88,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.45,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7410000000000010,
+            "Tag": "Cube 5",
+            "Transform": {
+                "Translation": [
+                    -6.5,
+                    0.6,
+                    -3.5
+                ],
+                "Rotation": [
+                    0,
+                    1.6,
+                    0
+                ],
+                "Scale": [
+                    1.2,
+                    1.2,
+                    1.2
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cube",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.85,
+                    0.85,
+                    0.88,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.45,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7410000000000011,
+            "Tag": "Cylinder 6",
+            "Transform": {
+                "Translation": [
+                    6.5,
+                    0.9,
+                    -3.0
+                ],
+                "Rotation": [
+                    0,
+                    2.0,
+                    0
+                ],
+                "Scale": [
+                    1.0,
+                    1.8,
+                    1.0
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.85,
+                    0.85,
+                    0.88,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.45,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7410000000000012,
+            "Tag": "Spot Oq",
+            "Transform": {
+                "Translation": [
+                    4,
+                    7,
+                    4
+                ],
+                "Rotation": [
+                    -0.76217,
+                    0.7854,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "SpotLight": {
+                "Color": [
+                    1.0,
+                    0.92,
+                    0.8
+                ],
+                "Intensity": 140,
+                "Range": 14,
+                "InnerAngle": 8,
+                "OuterAngle": 14
+            }
+        },
+        {
+            "Entity": 7410000000000013,
+            "Tag": "Spot Pushti",
+            "Transform": {
+                "Translation": [
+                    -4,
+                    6,
+                    6
+                ],
+                "Rotation": [
+                    -1.14897,
+                    1.19029,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "SpotLight": {
+                "Color": [
+                    1.0,
+                    0.25,
+                    0.7
+                ],
+                "Intensity": 160,
+                "Range": 12,
+                "InnerAngle": 14,
+                "OuterAngle": 24
+            }
+        },
+        {
+            "Entity": 7410000000000014,
+            "Tag": "Spot Moviy",
+            "Transform": {
+                "Translation": [
+                    -6,
+                    6,
+                    -4
+                ],
+                "Rotation": [
+                    -1.08575,
+                    -0.32175,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "SpotLight": {
+                "Color": [
+                    0.25,
+                    0.6,
+                    1.0
+                ],
+                "Intensity": 160,
+                "Range": 12,
+                "InnerAngle": 14,
+                "OuterAngle": 24
+            }
+        },
+        {
+            "Entity": 7410000000000015,
+            "Tag": "Spot Sariq",
+            "Transform": {
+                "Translation": [
+                    6,
+                    6,
+                    -4
+                ],
+                "Rotation": [
+                    -1.14897,
+                    -0.38051,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "SpotLight": {
+                "Color": [
+                    1.0,
+                    0.7,
+                    0.2
+                ],
+                "Intensity": 160,
+                "Range": 12,
+                "InnerAngle": 14,
+                "OuterAngle": 24
+            }
+        },
+        {
+            "Entity": 7410000000000016,
+            "Tag": "Spot Tor nur",
+            "Transform": {
+                "Translation": [
+                    5.5,
+                    6,
+                    1.5
+                ],
+                "Rotation": [
+                    -1.5708,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "SpotLight": {
+                "Color": [
+                    0.6,
+                    1.0,
+                    0.5
+                ],
+                "Intensity": 160,
+                "Range": 10,
+                "InnerAngle": 7,
+                "OuterAngle": 12
+            }
+        },
+        {
+            "Entity": 7410000000000017,
+            "Tag": "Chiroqlar",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            }
+        },
+        {
+            "Entity": 7410000000000018,
+            "Tag": "Chiroq 1",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    11.0,
+                    0.5,
+                    0.0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    0.25,
+                    0.25,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    1.0,
+                    0.25,
+                    0.25
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.25,
+                    0.25
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000019,
+            "Tag": "Chiroq 2",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    10.6252,
+                    0.5,
+                    2.847
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    0.4375,
+                    0.25,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    1.0,
+                    0.4375,
+                    0.25
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.438,
+                    0.25
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000020,
+            "Tag": "Chiroq 3",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    9.5263,
+                    0.5,
+                    5.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    0.625,
+                    0.25,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    1.0,
+                    0.625,
+                    0.25
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.625,
+                    0.25
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000021,
+            "Tag": "Chiroq 4",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    7.7782,
+                    0.5,
+                    7.7782
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    0.8125,
+                    0.25,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    1.0,
+                    0.8125,
+                    0.25
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.812,
+                    0.25
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000022,
+            "Tag": "Chiroq 5",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    5.5,
+                    0.5,
+                    9.5263
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    1.0,
+                    0.25,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    1.0,
+                    1.0,
+                    0.25
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    1.0,
+                    0.25
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000023,
+            "Tag": "Chiroq 6",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    2.847,
+                    0.5,
+                    10.6252
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.8125,
+                    1.0,
+                    0.25,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.8125,
+                    1.0,
+                    0.25
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.812,
+                    1.0,
+                    0.25
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000024,
+            "Tag": "Chiroq 7",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    0.0,
+                    0.5,
+                    11.0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.625,
+                    1.0,
+                    0.25,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.625,
+                    1.0,
+                    0.25
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.625,
+                    1.0,
+                    0.25
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000025,
+            "Tag": "Chiroq 8",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -2.847,
+                    0.5,
+                    10.6252
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.4375,
+                    1.0,
+                    0.25,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.4375,
+                    1.0,
+                    0.25
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.438,
+                    1.0,
+                    0.25
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000026,
+            "Tag": "Chiroq 9",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -5.5,
+                    0.5,
+                    9.5263
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.25,
+                    1.0,
+                    0.25,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.25,
+                    1.0,
+                    0.25
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.25,
+                    1.0,
+                    0.25
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000027,
+            "Tag": "Chiroq 10",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -7.7782,
+                    0.5,
+                    7.7782
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.25,
+                    1.0,
+                    0.4375,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.25,
+                    1.0,
+                    0.4375
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.25,
+                    1.0,
+                    0.438
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000028,
+            "Tag": "Chiroq 11",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -9.5263,
+                    0.5,
+                    5.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.25,
+                    1.0,
+                    0.625,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.25,
+                    1.0,
+                    0.625
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.25,
+                    1.0,
+                    0.625
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000029,
+            "Tag": "Chiroq 12",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -10.6252,
+                    0.5,
+                    2.847
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.25,
+                    1.0,
+                    0.8125,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.25,
+                    1.0,
+                    0.8125
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.25,
+                    1.0,
+                    0.812
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000030,
+            "Tag": "Chiroq 13",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -11.0,
+                    0.5,
+                    0.0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.25,
+                    1.0,
+                    1.0,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.25,
+                    1.0,
+                    1.0
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.25,
+                    1.0,
+                    1.0
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000031,
+            "Tag": "Chiroq 14",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -10.6252,
+                    0.5,
+                    -2.847
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.25,
+                    0.8125,
+                    1.0,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.25,
+                    0.8125,
+                    1.0
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.25,
+                    0.812,
+                    1.0
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000032,
+            "Tag": "Chiroq 15",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -9.5263,
+                    0.5,
+                    -5.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.25,
+                    0.625,
+                    1.0,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.25,
+                    0.625,
+                    1.0
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.25,
+                    0.625,
+                    1.0
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000033,
+            "Tag": "Chiroq 16",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -7.7782,
+                    0.5,
+                    -7.7782
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.25,
+                    0.4375,
+                    1.0,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.25,
+                    0.4375,
+                    1.0
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.25,
+                    0.438,
+                    1.0
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000034,
+            "Tag": "Chiroq 17",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -5.5,
+                    0.5,
+                    -9.5263
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.25,
+                    0.25,
+                    1.0,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.25,
+                    0.25,
+                    1.0
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.25,
+                    0.25,
+                    1.0
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000035,
+            "Tag": "Chiroq 18",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -2.847,
+                    0.5,
+                    -10.6252
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.4375,
+                    0.25,
+                    1.0,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.4375,
+                    0.25,
+                    1.0
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.438,
+                    0.25,
+                    1.0
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000036,
+            "Tag": "Chiroq 19",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    -0.0,
+                    0.5,
+                    -11.0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.625,
+                    0.25,
+                    1.0,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.625,
+                    0.25,
+                    1.0
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.625,
+                    0.25,
+                    1.0
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000037,
+            "Tag": "Chiroq 20",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    2.847,
+                    0.5,
+                    -10.6252
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.8125,
+                    0.25,
+                    1.0,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0.8125,
+                    0.25,
+                    1.0
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    0.812,
+                    0.25,
+                    1.0
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000038,
+            "Tag": "Chiroq 21",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    5.5,
+                    0.5,
+                    -9.5263
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    0.25,
+                    1.0,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    1.0,
+                    0.25,
+                    1.0
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.25,
+                    1.0
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000039,
+            "Tag": "Chiroq 22",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    7.7782,
+                    0.5,
+                    -7.7782
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    0.25,
+                    0.8125,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    1.0,
+                    0.25,
+                    0.8125
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.25,
+                    0.812
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000040,
+            "Tag": "Chiroq 23",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    9.5263,
+                    0.5,
+                    -5.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    0.25,
+                    0.625,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    1.0,
+                    0.25,
+                    0.625
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.25,
+                    0.625
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        },
+        {
+            "Entity": 7410000000000041,
+            "Tag": "Chiroq 24",
+            "Parent": 7410000000000017,
+            "Transform": {
+                "Translation": [
+                    10.6252,
+                    0.5,
+                    -2.847
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.3,
+                    0.3,
+                    0.3
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    0.25,
+                    0.4375,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    1.0,
+                    0.25,
+                    0.4375
+                ],
+                "EmissionStrength": 5.0
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.25,
+                    0.438
+                ],
+                "Intensity": 4.0,
+                "Radius": 4.0
+            }
+        }
+    ]
+}

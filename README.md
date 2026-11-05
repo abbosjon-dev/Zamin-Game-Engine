@@ -191,6 +191,9 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   `DebugDraw::NavigationPath(points)`: bo'laklar, yo'nalish uchlari, nuqtalar, boshi yashil va oxirida halqa.
   Editor'da viewport toolbar'idagi hasharot (bug) tugmasi va uning menyusi, player'da loyiha sozlamalari
   (Umumiy > Debug chizish) va `--no-debug-draw` / `--debug-raycasts` / `--debug-contacts` / `--debug-velocities` bayroqlari.
+  Skript ularni o'yin vaqtida o'zgartira oladi (`DebugDraw::SetEnabled(false)`, `DebugDraw::GetSettings().ShowRaycasts = true`):
+  editor'da o'yin viewport sozlamalari bilan boshlanadi, skript o'zgarishi o'yin to'xtaguncha (yoki menyuda biror narsa
+  o'zgartirilguncha) saqlanadi.
   Shipping build'da (`-DZAMIN_SHIPPING=ON`; yoki `-DZAMIN_DEBUG_DRAW=OFF`) barcha chaqiruvlar bo'sh inline funksiyalar -
   skriptlarda qoldirsa bo'ladi. Namuna: `Projects/Showcase3D` > `Scenes/DebugDraw.zscene`
 - **Editor gizmolari** (faqat editor viewport'ida, ko'z tugmasining menyusi yoki Ko'rinish > Gizmolar; har biri

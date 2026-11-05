@@ -79,6 +79,8 @@ namespace Zamin {
 
         // Values out of range (or not finite) back into range.
         void Sanitize();
+
+        bool operator==(const DebugDrawSettings&) const = default;
     };
 
     // What is queued (DebugDraw::GetLines / GetPoints / GetTexts). TimeLeft: seconds of game time
@@ -239,6 +241,10 @@ namespace Zamin {
         static constexpr size_t MaxTexts = 4096;
 
         // ---- settings (runtime toggle)
+        // The player starts with the project's settings (and its command line), the editor with
+        // its viewport's: in the editor, play / simulation starts with them and goes back to them
+        // when it stops. A script's change (SetEnabled, GetSettings().ShowRaycasts = ...) stays
+        // until then - or until the viewport's debug draw settings are changed, which put them back.
         static DebugDrawSettings& GetSettings();
         static bool IsEnabled() { return GetSettings().Enabled; }
         static void SetEnabled(bool enabled) { GetSettings().Enabled = enabled; }

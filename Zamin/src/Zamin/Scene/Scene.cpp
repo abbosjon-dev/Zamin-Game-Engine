@@ -2136,6 +2136,7 @@ namespace Zamin {
             m_PhysicsWorld3D->DestroyCharacter(cc->RuntimeID);
             cc->RuntimeID = 0xffffffff;
             cc->Grounded = false;
+            cc->Velocity = glm::vec3(0.0f); // no body: it does not move
         }
     }
 

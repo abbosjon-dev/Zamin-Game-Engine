@@ -11787,6 +11787,10 @@ TEST(DebugDrawSettingsSaved)
     CHECK(!loaded.DebugDraw.Enabled && loaded.DebugDraw.ShowRaycasts && loaded.DebugDraw.ShowContacts);
     CHECK(loaded.DebugDraw.RaycastDuration == 0.75f && loaded.DebugDraw.LineWidth == 3.5f && loaded.DebugDraw.TextSize == 22.0f);
     CHECK(loaded.DebugDraw.OccludedOpacity == 0.25f);
+    // The editor gives its settings to DebugDraw only when they differ from what it gave last.
+    CHECK(loaded.DebugDraw == view.DebugDraw && !(loaded.DebugDraw == DebugDrawSettings()));
+    loaded.DebugDraw.NormalLength = 0.5f;
+    CHECK(loaded.DebugDraw != view.DebugDraw);
     // Older files without the section keep the defaults.
     EditorViewSettings old;
     CHECK(old.FromJson("{\"ZaminEditorView\": 1}") && old.DebugDraw.Enabled && !old.DebugDraw.ShowRaycasts);
@@ -11908,6 +11912,16 @@ TEST(DebugDrawVelocities)
     CHECK(!DebugDraw::IsShowingBodyVelocities());
     scene->OnUpdateRuntime(1.0f / 60.0f);
     CHECK(lines.empty());
+
+    // Switched off while walking: no body, no velocity (scripts read 0, not the last speed).
+    cc.Move({ 2.0f, 0.0f, 0.0f });
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(cc.Velocity.x > 1.0f);
+    hero.SetActive(false);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(cc.RuntimeID == 0xffffffff && !cc.Grounded);
+    CHECK(cc.Velocity == glm::vec3(0.0f));
     scene->OnRuntimeStop();
     ResetDebugDraw();
 }

@@ -104,22 +104,27 @@ namespace Zamin {
         while (m_Running)
         {
             float time = (float)glfwGetTime();
-            Timestep timestep = time - m_LastFrameTime;
+            const float frameSeconds = time - m_LastFrameTime;
             m_LastFrameTime = time;
+            // The FPS, its frame time and the frame time history all count the real time of the
+            // frames (not the limited timestep below), so they agree on slow frames too. The first
+            // frame (the time since start-up) is left out.
             if (m_FrameCount > 0)
-                m_FrameTimes.Push(timestep.GetMilliseconds());
+            {
+                m_FrameTimes.Push(frameSeconds * 1000.0f);
+                fpsTimer += frameSeconds;
+                fpsFrames++;
+                if (fpsTimer >= 0.5f)
+                {
+                    m_FPS = fpsFrames / fpsTimer;
+                    m_FrameTimeMs = 1000.0f * fpsTimer / fpsFrames;
+                    fpsTimer = 0.0f;
+                    fpsFrames = 0;
+                }
+            }
+            Timestep timestep = frameSeconds;
             if (timestep > 0.1f) // avoid huge steps after stalls (e.g. window drag)
                 timestep = 0.1f;
-
-            fpsTimer += timestep;
-            fpsFrames++;
-            if (fpsTimer >= 0.5f)
-            {
-                m_FPS = fpsFrames / fpsTimer;
-                m_FrameTimeMs = 1000.0f * fpsTimer / fpsFrames;
-                fpsTimer = 0.0f;
-                fpsFrames = 0;
-            }
 
             Profiler::BeginFrame();
             ExecuteMainThreadQueue();

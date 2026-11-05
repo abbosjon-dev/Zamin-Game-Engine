@@ -823,8 +823,11 @@ namespace Zamin {
             m_GizmoAltDrag = m_GizmoAltDuplicatePending = false;
         bool cameraInput = m_ViewportHovered && !m_GizmoAltDrag && !m_GizmoEdit.IsActive();
 
-        // What the viewport shows of DebugDraw: the editor's own settings (the player uses the project's).
-        DebugDraw::GetSettings() = m_ViewSettings.DebugDraw;
+        // What the viewport shows of DebugDraw: the editor's own settings (the player uses the
+        // project's), given to DebugDraw only when they change - a game script's change of the
+        // runtime settings stays (as in the player) until play stops.
+        if (!m_AppliedDebugDraw || *m_AppliedDebugDraw != m_ViewSettings.DebugDraw)
+            ApplyDebugDrawSettings();
 
         // The selection outline's silhouettes (the whole shapes of the outlined meshes, also where
         // they are hidden): the scene keeps this frame's draws of the selected entities, their
@@ -834,7 +837,9 @@ namespace Zamin {
         if (const auto& outline = m_ViewSettings.SelectionOutline; outline.Style == SelectionStyle::Outline)
         {
             std::vector<OutlineEntity> entities = CollectSelectionOutline();
-            if (outline.Hover && m_OutlineHover && m_OutlineHover.GetScene() == m_ActiveScene.get() && m_OutlineHover.IsValid())
+            // The scene is compared first: a hover entity of a scene that is gone (it is also cleared
+            // when the active scene changes) must not be asked whether it is valid.
+            if (outline.Hover && m_OutlineHover.GetScene() == m_ActiveScene.get() && m_OutlineHover.IsValid())
             {
                 AppendOutlineHover(entities, m_OutlineHover);
                 m_OutlineHoverCaptured = m_OutlineHover;
@@ -986,6 +991,8 @@ namespace Zamin {
     void EditorLayer::RenderSelectionOutline()
     {
         const auto& settings = m_ViewSettings.SelectionOutline;
+        // Nothing is marked when no outline is drawn (the next frame keeps no hover silhouettes).
+        m_OutlineHover = {};
         if (settings.Style != SelectionStyle::Outline)
             return;
         // Play mode without a camera: nothing was drawn.
@@ -1652,6 +1659,11 @@ namespace Zamin {
 
     void EditorLayer::OnOverlayRender()
     {
+        // What the gizmos found last frame (joint names over the viewport, the normals' count) does
+        // not stay when nothing is drawn now (play mode without a camera).
+        m_JointLabels.clear();
+        m_NormalLinesDrawn = 0;
+        m_NormalLinesLimited = false;
         glm::mat4 viewProj = OverlayViewProjection();
         if (viewProj == glm::mat4(0.0f))
             return;
@@ -2063,6 +2075,11 @@ namespace Zamin {
         m_ActiveScene = scene;
         m_ActiveScene->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
         m_GizmoEdit.End();
+        // Entities kept from the previous scene (it may be freed right after this: undo, stop):
+        // the next frame's picking finds them again in this one.
+        m_HoveredEntity = {};
+        m_OutlineHover = {};
+        m_OutlineHoverCaptured = {};
         // The brightness adapted to the previous scene (or to play mode) does not carry over:
         // the next frame adapts at once.
         if (newView)
@@ -2207,6 +2224,7 @@ namespace Zamin {
         Ref<Scene> runtime = Scene::Copy(m_EditorScene);
         runtime->ResolveAssets();
         SetActiveScene(runtime);
+        ApplyDebugDrawSettings(); // before the scripts' OnCreate: they may change them
         m_ActiveScene->OnRuntimeStart();
         ImGui::SetWindowFocus("###Viewport");
         UpdateWindowTitle();
@@ -2221,6 +2239,7 @@ namespace Zamin {
         Ref<Scene> sim = Scene::Copy(m_EditorScene);
         sim->ResolveAssets();
         SetActiveScene(sim);
+        ApplyDebugDrawSettings();
         m_ActiveScene->OnSimulationStart();
         UpdateWindowTitle();
     }
@@ -2233,6 +2252,8 @@ namespace Zamin {
             m_ActiveScene->OnSimulationStop();
         m_SceneState = SceneState::Edit;
         SetActiveScene(m_EditorScene);
+        // What the game's scripts changed of the debug drawing does not stay in the editor.
+        ApplyDebugDrawSettings();
         // Shared materials scripts changed while playing (GetSharedMaterial) look as before again.
         std::vector<std::string> restored = MaterialLibrary::RestoreSnapshot(m_PlayMaterials);
         m_PlayMaterials = {};
@@ -4213,14 +4234,12 @@ namespace Zamin {
             ImGui::SameLine();
             // Debug drawing (scripts' DebugDraw shapes, physics raycasts / contacts) + its settings.
             {
-                auto& debug = m_ViewSettings.DebugDraw;
+                // What is shown now (a game script may have changed it while playing).
+                const DebugDrawSettings& debug = DebugDraw::GetSettings();
                 std::string tip = std::format("Debug chizish: {} (o'ng tugma yoki {}: raycastlar, kontakt nuqtalari, qalinlik ...)",
                                               debug.Enabled ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
                 if (UI::ToolbarButton(ICON_FA_BUG, tip.c_str(), debug.Enabled, size))
-                {
-                    debug.Enabled = !debug.Enabled;
-                    MarkViewSettingsDirty();
-                }
+                    ToggleDebugDraw();
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                     ImGui::OpenPopup("##DebugDraw");
                 ImGui::SameLine(0.0f, 0.0f);
@@ -4484,11 +4503,31 @@ namespace Zamin {
         ImGui::PopStyleVar(2);
     }
 
+    void EditorLayer::ApplyDebugDrawSettings()
+    {
+        DebugDraw::GetSettings() = m_ViewSettings.DebugDraw;
+        m_AppliedDebugDraw = m_ViewSettings.DebugDraw;
+    }
+
+    void EditorLayer::ToggleDebugDraw()
+    {
+        m_ViewSettings.DebugDraw.Enabled = !DebugDraw::IsEnabled();
+        MarkViewSettingsDirty();
+        ApplyDebugDrawSettings();
+    }
+
     bool EditorLayer::UI_DebugDrawSettings()
     {
         auto& d = m_ViewSettings.DebugDraw;
         bool changed = false;
         ImGui::TextDisabled(ICON_FA_BUG "  Debug chizish");
+        if (m_SceneState != SceneState::Edit && DebugDraw::GetSettings() != d)
+        {
+            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.3f, 1.0f), ICON_FA_CIRCLE_INFO "  O'yin skripti bu sozlamalarni o'zgartirgan");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Skript DebugDraw::SetEnabled yoki DebugDraw::GetSettings() bilan o'zgartirdi. O'yin to'xtaganda "
+                            "editor sozlamalari qaytadi; bu yerda biror narsani o'zgartirsangiz - darhol qaytadi.");
+        }
         changed |= ImGui::Checkbox("Yoqilgan", &d.Enabled);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Skriptlar va dvigatel chizgan shakllar: DebugDraw::Line, Box, Sphere, Arrow, Text ...\n"
@@ -4876,7 +4915,7 @@ namespace Zamin {
             ImGui::EndMenu();
         }
         ImGui::MenuItem(ICON_FA_VECTOR_SQUARE "  Fizik colliderlar", nullptr, &m_ShowColliders);
-        if (ImGui::MenuItem(ICON_FA_BUG "  Debug chizish", nullptr, &m_ViewSettings.DebugDraw.Enabled)) MarkViewSettingsDirty();
+        if (ImGui::MenuItem(ICON_FA_BUG "  Debug chizish", nullptr, DebugDraw::IsEnabled())) ToggleDebugDraw();
         if (ImGui::BeginMenu(ICON_FA_SLIDERS "  Debug chizish sozlamalari"))
         {
             if (UI_DebugDrawSettings())

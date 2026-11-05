@@ -101,8 +101,9 @@ namespace Zamin {
         // sleeping bodies are kept (Jolt stops reporting them) until a body wakes up or goes.
         void SetDebugContactsEnabled(bool enabled);
         bool IsDebugContactsEnabled() const;
-        // The recorded points (normals point out of the static / kinematic body, else from the
-        // second body to the first) and those of the characters, appended to `out`.
+        // The recorded points and those of the characters, appended to `out`. The normals point out
+        // of the static / kinematic body; between two dynamic bodies they are Jolt's: from the
+        // first body toward the second (the way the second one is pushed out).
         void GetDebugContacts(std::vector<PhysicsContactPoint>& out) const;
 
     private:

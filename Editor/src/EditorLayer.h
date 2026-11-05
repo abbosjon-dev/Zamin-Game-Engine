@@ -167,6 +167,12 @@ namespace Zamin {
         // Debug drawing: the toolbar's popup and the view menu share the settings' widgets.
         void UI_DebugDrawPopup();
         bool UI_DebugDrawSettings();
+        // The viewport's debug draw settings become DebugDraw's (the runtime ones scripts can change
+        // too): when they change, and as play / simulation starts and stops.
+        void ApplyDebugDrawSettings();
+        // The toolbar button / view menu toggle: switches what is shown now (a script may have
+        // turned it off) and applies the viewport's settings.
+        void ToggleDebugDraw();
         // Component visualisations (camera frustums, light directions, audio radii): the icons'
         // toolbar popup and the view menu share the settings' widgets.
         void UI_ComponentGizmosPopup();
@@ -316,6 +322,8 @@ namespace Zamin {
         WireframeMode m_WireframeStyle = WireframeMode::Wire; // what the toolbar's toggle switches on
         bool m_OpenViewModeMenu = false;  // automation (ZAMIN_EDITOR_VIEW_MENU): the menu opens
         bool m_OpenDebugDrawMenu = false; // automation (ZAMIN_EDITOR_DEBUG_DRAW=...,menu): the debug draw popup opens
+        // The viewport's debug draw settings last given to DebugDraw (none yet: the first frame does).
+        std::optional<DebugDrawSettings> m_AppliedDebugDraw;
         bool m_OpenGizmosMenu = false;    // automation (ZAMIN_EDITOR_GIZMOS=...,menu): the gizmos popup opens
         bool m_OpenTransformGizmoMenu = false; // automation (ZAMIN_EDITOR_GIZMO_SIZE=...,menu): the gizmo size popup opens
         bool m_OpenStatsOverlayMenu = false;   // automation (ZAMIN_EDITOR_OVERLAY=...,menu): the overlay's popup opens

@@ -775,7 +775,8 @@ namespace Zamin {
         }
         ImGui::Image((ImTextureID)(uintptr_t)shown->GetRendererID(), size, ImVec2(0, 1), ImVec2(1, 0));
         // The texel under the mouse.
-        if (ImGui::IsItemHovered() && width * height <= 4096.0f * 4096.0f)
+        // (Decoded on the first hover only for images up to 2048 x 2048: a bigger one would stall.)
+        if (ImGui::IsItemHovered() && (m_Pixels || width * height <= 2048.0f * 2048.0f))
         {
             ImVec2 mouse = ImGui::GetMousePos();
             int x = std::clamp((int)((mouse.x - min.x) / size.x * width), 0, (int)width - 1);

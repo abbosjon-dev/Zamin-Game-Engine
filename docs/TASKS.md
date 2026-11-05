@@ -83,11 +83,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 068. Tekstura import sozlamalari inspektori
 - [x] 069. Model import sozlamalari: masshtab, yuqori o'q
 - [x] 070. Asset nomi o'zgarganda havolalarni yangilash (UUID orqali)
-- [ ] 071. Kontent brauzerda asset tanlanganda inspektorda ko'rsatish
-- [ ] 072. Tekstura preview inspektorda (o'lcham, format)
-- [ ] 073. Model preview (submesh, uchburchak, animatsiyalar ro'yxati)
-- [ ] 074. Audio asset preview (davomiylik, ijro tugmasi)
-- [ ] 075. Ishlatilmagan assetlarni topish
+- [x] 071. Kontent brauzerda asset tanlanganda inspektorda ko'rsatish
+- [x] 072. Tekstura preview inspektorda (o'lcham, format)
+- [x] 073. Model preview (submesh, uchburchak, animatsiyalar ro'yxati)
+- [x] 074. Audio asset preview (davomiylik, ijro tugmasi)
+- [x] 075. Ishlatilmagan assetlarni topish
 - [ ] 076. Assetni o'chirishdan oldin ishlatilayotganini ogohlantirish
 - [ ] 077. Assetlarni papkalar bo'yicha qidirish (to'liq yo'l)
 - [ ] 078. Asset registry serializatsiyasi va testlari

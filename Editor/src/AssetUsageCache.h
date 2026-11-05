@@ -32,7 +32,9 @@ namespace Zamin {
         const AssetReferenceIndex& Get(bool force = false)
         {
             double now = ImGui::GetTime();
-            if (m_Dirty && (force || !m_Index.IsBuilt() || now - m_BuildTime >= 0.5))
+            // Not while a mouse button is held (dragging a gizmo / slider marks the scene dirty every frame).
+            bool busy = ImGui::IsAnyMouseDown();
+            if (m_Dirty && (force || !m_Index.IsBuilt() || (now - m_BuildTime >= 0.75 && !busy)))
             {
                 m_Dirty = false;
                 m_BuildTime = now;

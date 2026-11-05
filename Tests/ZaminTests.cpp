@@ -7977,6 +7977,28 @@ TEST(AssetInfoAudio)
     CHECK(highest > 0.15f && lowest < -0.15f); // the tone peaks at 6000 / 32768
     CHECK(highest < 0.2f);
 
+    // The inspector's player: length, position and seeking of a playing sound (no device: the
+    // sound does not advance, but it is loaded and can be moved around in).
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (AudioEngine::IsAvailable())
+    {
+        uint32_t sound = AudioEngine::Play(dir / "tone.wav", 0.8f);
+        CHECK(sound != 0 && AudioEngine::IsPlaying(sound));
+        CHECK_NEAR(AudioEngine::GetLength(sound), 0.5f, 0.01f);
+        CHECK_NEAR(AudioEngine::GetCursor(sound), 0.0f, 0.01f);
+        AudioEngine::Seek(sound, 0.25f);
+        CHECK_NEAR(AudioEngine::GetCursor(sound), 0.25f, 0.01f);
+        AudioEngine::Seek(sound, 9.0f); // past the end: the last frame
+        CHECK(AudioEngine::GetCursor(sound) <= 0.5f && AudioEngine::GetCursor(sound) > 0.45f);
+        AudioEngine::SetVolume(sound, 0.3f);
+        AudioEngine::Stop(sound);
+        CHECK(!AudioEngine::IsPlaying(sound) && AudioEngine::GetCursor(sound) == 0.0f && AudioEngine::GetLength(sound) == 0.0f);
+        CHECK(AudioEngine::GetCursor(12345) == 0.0f);
+    }
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+
     AudioFileInfo broken = AssetInfo::ReadAudio(dir / "broken.wav");
     CHECK(!broken.Valid && !broken.Error.empty());
     CHECK(AssetInfo::ReadAudioWaveform(dir / "broken.wav", 64, &error).empty() && !error.empty());

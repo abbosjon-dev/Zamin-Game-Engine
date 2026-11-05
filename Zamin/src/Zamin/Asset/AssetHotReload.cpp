@@ -1,4 +1,5 @@
 #include "Zamin/Asset/AssetHotReload.h"
+#include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Renderer/Environment.h"
 #include "Zamin/Renderer/Font.h"
@@ -58,6 +59,8 @@ namespace Zamin {
                     reload(AssetMetaFile::GetAssetPath(change.Path));
                 continue;
             }
+            // A new version of the file: its next import error is reported again.
+            AssetImportLog::OnFileChanged(change.Path);
             switch (change.Type)
             {
                 case FileChangeType::Added:

@@ -1,4 +1,5 @@
 #include "Zamin/Scene/Scene.h"
+#include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Scene/SceneSerializer.h"
@@ -462,12 +463,24 @@ namespace Zamin {
 
     Entity Scene::InstantiatePrefab(const std::filesystem::path& path)
     {
+        // A missing / broken prefab is reported once (a script may spawn it every frame).
+        if (std::string unreadable = AssetImportLog::CheckReadable(path); !unreadable.empty())
+        {
+            AssetImportLog::Report(path, unreadable);
+            return {};
+        }
         std::string text = FileSystem::ReadTextFile(path);
-        if (text.empty())
-            return {};
-        std::vector<Entity> entities = SceneSerializer::DeserializeEntities(*this, text, true);
+        std::string error;
+        std::vector<Entity> entities = SceneSerializer::DeserializeEntities(*this, text, true, nullptr, &error);
         if (entities.empty())
+        {
+            AssetImportLog::Report(path, error.empty() ? std::string("prefabda obyekt yo'q") : error);
             return {};
+        }
+        if (!error.empty())
+            AssetImportLog::Report(path, error); // read in part
+        else
+            AssetImportLog::Clear(path);
         ResolveAssets();
         if (m_IsRunning || m_PhysicsWorld || m_PhysicsWorld3D)
             OnEntitiesSpawned(entities);

@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Texture.h"
+#include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetImporter.h"
 
 #include <glad/glad.h>
@@ -47,7 +48,7 @@ namespace Zamin {
             DecodedImage image;
             if (!Decode(path, image))
             {
-                ZM_CORE_ERROR("Rasm yuklanmadi: '{}' ({})", path, image.Error);
+                AssetImportLog::Report(path, image.Error); // once per file version
                 return;
             }
             m_Specification.Width = image.Width;
@@ -57,6 +58,7 @@ namespace Zamin {
             Allocate();
             SetData(image.Pixels, (uint32_t)(image.Width * image.Height * BytesPerPixel(image.Format)));
             m_Loaded = true;
+            AssetImportLog::Clear(path);
         }
 
         OpenGLTexture2D(const void* encoded, size_t size, const std::string& name) : m_Path(name)
@@ -109,7 +111,7 @@ namespace Zamin {
                 if (error)
                     *error = image.Error;
                 else
-                    ZM_CORE_ERROR("Rasm qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", m_Path, image.Error);
+                    AssetImportLog::Report(m_Path, image.Error, true);
                 return false;
             }
             bool resized = !m_RendererID || image.Width != m_Specification.Width || image.Height != m_Specification.Height ||
@@ -125,6 +127,7 @@ namespace Zamin {
                 ApplySampling();  // import settings may have changed
             SetData(image.Pixels, (uint32_t)(image.Width * image.Height * BytesPerPixel(image.Format)));
             m_Loaded = true;
+            AssetImportLog::Clear(m_Path);
             return true;
         }
 
@@ -176,6 +179,11 @@ namespace Zamin {
 
         static bool Decode(const std::string& path, DecodedImage& image)
         {
+            if (std::string unreadable = AssetImportLog::CheckReadable(path); !unreadable.empty())
+            {
+                image.Error = std::move(unreadable);
+                return false;
+            }
             int width, height, channels;
             stbi_set_flip_vertically_on_load(1);
             image.Pixels = stbi_load(path.c_str(), &width, &height, &channels, 0);
@@ -187,8 +195,7 @@ namespace Zamin {
             }
             if (!image.Pixels)
             {
-                const char* reason = stbi_failure_reason();
-                image.Error = reason ? reason : "noma'lum xato";
+                image.Error = AssetImportLog::DescribeImageError(stbi_failure_reason());
                 return false;
             }
             image.Width = (uint32_t)width;
@@ -292,6 +299,10 @@ namespace Zamin {
         auto it = s_TextureCache.find(key);
         if (it != s_TextureCache.end())
             return it->second;
+        // A file that failed and did not change since is not decoded again (tilemaps and particles
+        // ask for their texture every frame while they have none).
+        if (!AssetImportLog::ShouldRetry(file))
+            return nullptr;
 
         Ref<Texture2D> texture = Texture2D::Create(file, GetLoadSettings(file, pixelArt));
         if (!texture->IsLoaded())
@@ -323,7 +334,7 @@ namespace Zamin {
                 *failed = true;
         }
         if (!error.empty())
-            ZM_CORE_ERROR("Rasm qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", file, error);
+            AssetImportLog::Report(file, error, true);
         return reloaded;
     }
 

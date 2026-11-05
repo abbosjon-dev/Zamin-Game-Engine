@@ -70,6 +70,13 @@ namespace Zamin {
         bool IsRecursiveListing() const;
         void MarkSettingsModified() { if (OnSettingsModified) OnSettingsModified(); }
 
+        // Import errors (AssetImportLog) of the listed files, looked up when the log or the listing changed.
+        void RefreshEntryErrors();
+        const std::string* FindEntryError(const std::filesystem::path& path) const;
+        // A path of the log (canonical) as the browser spells paths (under m_Root).
+        std::filesystem::path FromLogPath(const std::filesystem::path& file) const;
+        void DrawImportErrors();
+
         void DrawToolbar();
         void DrawFilterPopup();
         void DrawFilterBar();
@@ -111,6 +118,11 @@ namespace Zamin {
         std::string m_ListKey;
         double m_ListTime = -100.0;
         bool m_ListDirty = true;
+
+        // import errors of listed files (folders: something inside), by entry path
+        std::unordered_map<std::string, std::string> m_EntryErrors;
+        uint64_t m_EntryErrorsRevision = ~0ull;
+        bool m_EntryErrorsDirty = true;
 
         // selection
         std::vector<std::filesystem::path> m_Selection;

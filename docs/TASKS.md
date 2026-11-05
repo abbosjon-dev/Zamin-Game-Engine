@@ -92,7 +92,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [ ] 077. Assetlarni papkalar bo'yicha qidirish (to'liq yo'l)
 - [x] 078. Asset registry serializatsiyasi va testlari
 - [ ] 079. Kontent brauzerda thumbnail keshlash
-- [ ] 080. Asset import xatolarini konsolga chiqarish
+- [x] 080. Asset import xatolarini konsolga chiqarish
 
 ## M05 Materiallar (asset)
 

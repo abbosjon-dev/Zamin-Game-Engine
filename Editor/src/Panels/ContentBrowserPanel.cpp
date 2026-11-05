@@ -155,11 +155,62 @@ namespace Zamin {
         options.Ascending = m_Settings->SortAscending;
         options.Excluded = { m_Root / "Build", m_Root / "Binaries" };
         m_Entries = AssetFiles::List(m_CurrentDirectory, options);
+        m_EntryErrorsDirty = true;
 
         // Selected files that are gone (deleted outside, moved) are forgotten.
         std::erase_if(m_Selection, [&](const fs::path& p) {
             return std::none_of(m_Entries.begin(), m_Entries.end(), [&](const AssetEntry& e) { return e.Path == p; });
         });
+    }
+
+    void ContentBrowserPanel::RefreshEntryErrors()
+    {
+        uint64_t revision = AssetImportLog::GetRevision();
+        if (!m_EntryErrorsDirty && revision == m_EntryErrorsRevision)
+            return;
+        m_EntryErrorsDirty = false;
+        m_EntryErrorsRevision = revision;
+        m_EntryErrors.clear();
+        std::vector<AssetImportError> errors = AssetImportLog::GetErrors();
+        if (errors.empty())
+            return;
+        std::unordered_map<std::string, const AssetImportError*> byFile;
+        for (const AssetImportError& e : errors)
+            byFile[e.File.string()] = &e;
+        // Keys like the log's: the listed folder resolved once, the entries below it.
+        fs::path directory = AssetImportLog::MakeKey(m_CurrentDirectory);
+        for (const AssetEntry& entry : m_Entries)
+        {
+            std::string key = (directory / entry.Path.lexically_relative(m_CurrentDirectory)).lexically_normal().string();
+            if (!entry.IsDirectory)
+            {
+                if (auto it = byFile.find(key); it != byFile.end())
+                    m_EntryErrors[entry.Path.string()] = it->second->Reason;
+                continue;
+            }
+            size_t inside = 0;
+            for (const AssetImportError& e : errors)
+                if (e.File.string().starts_with(key + "/"))
+                    inside++;
+            if (inside > 0)
+                m_EntryErrors[entry.Path.string()] = std::format("ichida {} ta faylda import xatosi bor", inside);
+        }
+    }
+
+    const std::string* ContentBrowserPanel::FindEntryError(const fs::path& path) const
+    {
+        if (m_EntryErrors.empty())
+            return nullptr;
+        auto it = m_EntryErrors.find(path.string());
+        return it != m_EntryErrors.end() ? &it->second : nullptr;
+    }
+
+    fs::path ContentBrowserPanel::FromLogPath(const fs::path& file) const
+    {
+        fs::path rel = file.lexically_relative(AssetImportLog::MakeKey(m_Root));
+        if (rel.empty() || *rel.begin() == "..")
+            return file;
+        return m_Root / rel;
     }
 
     // ------------------------------------------------------------------ selection
@@ -580,6 +631,8 @@ namespace Zamin {
             if (AssetRegistry* registry = entry.IsDirectory ? nullptr : Project::GetAssetRegistry())
                 if (const AssetMetadata* meta = registry->Find(path))
                     tip += "\nUUID: " + meta->Handle.ToString() + (meta->HasMetaFile ? "" : " (.zmeta yo'q)");
+            if (const std::string* error = FindEntryError(path))
+                tip += std::string("\n" ICON_FA_TRIANGLE_EXCLAMATION "  ") + (entry.IsDirectory ? "" : "Import xatosi: ") + *error;
             UI::Tooltip(tip.c_str());
         }
     }
@@ -680,6 +733,17 @@ namespace Zamin {
                 ImVec2 textSize = font->CalcTextSizeA(iconSize, FLT_MAX, 0.0f, icon);
                 ImVec2 pos(cursor.x + (size - textSize.x) * 0.5f, cursor.y + (size - textSize.y) * 0.5f);
                 dl->AddText(font, iconSize, pos, color, icon);
+            }
+
+            if (FindEntryError(path))
+            {
+                // Import error badge (the reason is in the tooltip and the inspector).
+                float r = std::clamp(size * 0.09f, 6.0f, 10.0f);
+                ImVec2 c(iconMax.x - r * 0.5f, iconMin.y + r * 0.5f);
+                dl->AddCircleFilled(c, r, IM_COL32(215, 72, 60, 255));
+                dl->AddCircle(c, r, IM_COL32(25, 27, 32, 255), 0, 1.5f);
+                ImVec2 mark = ImGui::CalcTextSize("!");
+                dl->AddText(ImVec2(c.x - mark.x * 0.5f, c.y - mark.y * 0.5f), IM_COL32_WHITE, "!");
             }
 
             // label (2 lines max, clipped)
@@ -790,6 +854,11 @@ namespace Zamin {
                 }
                 float textY = rowMin.y + (rowHeight - ImGui::GetTextLineHeight()) * 0.5f;
                 dl->AddText(ImVec2(rowMin.x + iconWidth + 6.0f, textY), ImGui::GetColorU32(ImGuiCol_Text), entry.Name.c_str());
+                if (FindEntryError(entry.Path))
+                {
+                    float nameWidth = ImGui::CalcTextSize(entry.Name.c_str()).x;
+                    dl->AddText(ImVec2(rowMin.x + iconWidth + 12.0f + nameWidth, textY), IM_COL32(230, 95, 80, 255), ICON_FA_TRIANGLE_EXCLAMATION);
+                }
 
                 float textOffset = (rowHeight - ImGui::GetTextLineHeight()) * 0.5f;
                 auto cellText = [&](const char* text, bool rightAlign = false) {
@@ -832,6 +901,7 @@ namespace Zamin {
             ImGui::TextDisabled(" |  %zu ta tanlangan%s", m_Selection.size(),
                                 selectedBytes > 0 ? (" (" + AssetFiles::FormatSize(selectedBytes) + ")").c_str() : "");
         }
+        DrawImportErrors();
         double age = ImGui::GetTime() - m_NoticeTime;
         if (!m_Notice.empty() && age < 6.0)
         {
@@ -842,6 +912,62 @@ namespace Zamin {
             ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 16.0f, ImGui::GetWindowContentRegionMax().x - w));
             ImGui::TextColored(color, "%s", text.c_str());
         }
+    }
+
+    void ContentBrowserPanel::DrawImportErrors()
+    {
+        size_t count = AssetImportLog::GetCount();
+        if (count > 0)
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled(" | ");
+            ImGui::SameLine(0, 0);
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.45f, 0.4f, 1.0f));
+            std::string label = std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {} ta import xatosi##importErrors", count);
+            if (ImGui::SmallButton(label.c_str()))
+                ImGui::OpenPopup("##importErrorList");
+            ImGui::PopStyleColor(2);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Yuklanmagan assetlar (sabablari konsolda ham bor)");
+        }
+        if (!ImGui::BeginPopup("##importErrorList"))
+            return;
+        ImGui::TextDisabled(ICON_FA_TRIANGLE_EXCLAMATION "  Yuklanmagan assetlar - faylni ko'rsatish uchun bosing");
+        ImGui::Separator();
+        std::vector<AssetImportError> errors = AssetImportLog::GetErrors();
+        if (errors.empty())
+            ImGui::TextDisabled("Xato yo'q");
+        for (size_t i = 0; i < errors.size() && i < 50; i++)
+        {
+            const AssetImportError& e = errors[i];
+            ImGui::PushID((int)i);
+            ImU32 color;
+            const char* icon = IconFor(e.Type, color);
+            std::string label = std::format("{}  {}", icon, e.Name);
+            if (ImGui::Selectable(label.c_str(), false, 0, ImVec2(520, 0)))
+            {
+                fs::path file = FromLogPath(e.File);
+                std::error_code ec;
+                if (fs::exists(file, ec))
+                {
+                    Reveal({ file });
+                    if (OnAssetSelected)
+                        OnAssetSelected(file);
+                }
+                else if (fs::is_directory(file.parent_path(), ec) && AssetFiles::IsInside(file.parent_path(), m_Root))
+                    NavigateTo(file.parent_path());
+            }
+            ImGui::Indent();
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 500.0f);
+            ImGui::TextColored(ImVec4(0.95f, 0.55f, 0.5f, 1.0f), "%s%s", e.Reload ? "(qayta yuklashda) " : "", e.Reason.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::Unindent();
+            ImGui::PopID();
+        }
+        if (errors.size() > 50)
+            ImGui::TextDisabled("... va yana %zu ta", errors.size() - 50);
+        ImGui::EndPopup();
     }
 
     // ------------------------------------------------------------------ keyboard
@@ -1047,6 +1173,7 @@ namespace Zamin {
         }
 
         RefreshEntries();
+        RefreshEntryErrors();
         DrawToolbar();
         DrawFilterBar();
         ImGui::Separator();

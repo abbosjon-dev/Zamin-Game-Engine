@@ -1,4 +1,5 @@
 #include "Zamin/Audio/AudioEngine.h"
+#include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Core/Log.h"
 
 #define MINIAUDIO_IMPLEMENTATION
@@ -68,12 +69,21 @@ namespace Zamin {
         if (!s_Engine) return 0;
         CleanupFinished();
 
+        // A sound that failed and did not change since is not decoded again (a script may play it
+        // every jump); its error was reported once.
+        if (!AssetImportLog::ShouldRetry(path))
+            return 0;
         auto sound = std::make_unique<ma_sound>();
-        if (ma_sound_init_from_file(s_Engine, path.string().c_str(), MA_SOUND_FLAG_DECODE, nullptr, nullptr, sound.get()) != MA_SUCCESS)
+        ma_result result = ma_sound_init_from_file(s_Engine, path.string().c_str(), MA_SOUND_FLAG_DECODE, nullptr, nullptr, sound.get());
+        if (result != MA_SUCCESS)
         {
-            ZM_CORE_ERROR("Ovoz fayli yuklanmadi: '{}'", path.string());
+            std::string reason = AssetImportLog::CheckReadable(path);
+            if (reason.empty())
+                reason = std::format("audio fayl o'qilmadi - WAV, MP3 yoki FLAC bo'lishi kerak (miniaudio: {})", ma_result_description(result));
+            AssetImportLog::Report(path, reason);
             return 0;
         }
+        AssetImportLog::Clear(path);
         ma_sound_set_volume(sound.get(), volume);
         ma_sound_set_pitch(sound.get(), pitch);
         ma_sound_set_spatialization_enabled(sound.get(), MA_FALSE);

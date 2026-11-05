@@ -8418,6 +8418,169 @@ TEST(AssetReferenceIndexScans)
     fs::remove_all(dir, ec);
 }
 
+// Console error lines that mention `needle` (the asset import log writes each failure once).
+static int CountLoggedErrors(const std::string& needle)
+{
+    int count = 0;
+    Log::ForEach([&](const LogMessage& m) {
+        if (m.Level >= LogLevel::Error && m.Text.find(needle) != std::string::npos)
+            count++;
+    });
+    return count;
+}
+
+TEST(AssetImportLogReportsOnce)
+{
+    namespace fs = std::filesystem;
+    Project::SetActive(nullptr);
+    AssetImportLog::ClearAll();
+    fs::path dir = MakeTempDir("zamin-import-log-");
+    uint64_t logged = AssetImportLog::GetLoggedCount();
+    bool terminal = Log::GetTerminalOutput();
+    Log::SetTerminalOutput(false); // the failures below are expected (they are checked in the log)
+
+    // Readability and stb reasons in words.
+    WriteFile(dir / "empty.png", "");
+    WriteFile(dir / "fine.txt", "x");
+    CHECK(AssetImportLog::CheckReadable(dir / "nothing.png") == "fayl topilmadi");
+    CHECK(AssetImportLog::CheckReadable(dir) == "bu papka, fayl emas");
+    CHECK(AssetImportLog::CheckReadable(dir / "empty.png") == "fayl bo'sh" && AssetImportLog::CheckReadable(dir / "fine.txt").empty());
+    CHECK(AssetImportLog::DescribeImageError("unknown image type").find("stb: unknown image type") != std::string::npos);
+    CHECK(AssetImportLog::DescribeImageError(nullptr).find("stb: unknown") != std::string::npos);
+
+    // Reported once per file and reason, again for a new reason, a reload, after a change or a success.
+    fs::path file = dir / "Textures" / "hero.png";
+    CHECK(AssetImportLog::Report(file, "fayl topilmadi") && AssetImportLog::GetLoggedCount() == logged + 1);
+    uint64_t revision = AssetImportLog::GetRevision();
+    CHECK(!AssetImportLog::Report(file, "fayl topilmadi") && !AssetImportLog::Report(dir / "Textures" / "." / "hero.png", "fayl topilmadi"));
+    CHECK(AssetImportLog::GetRevision() == revision && AssetImportLog::GetLoggedCount() == logged + 1);
+    std::optional<AssetImportError> error = AssetImportLog::Find(file);
+    CHECK(error && error->Reason == "fayl topilmadi" && error->Count == 3 && error->Type == AssetType::Texture && !error->Reload);
+    CHECK(error && error->File == fs::path(AssetImportLog::MakeKey(file)) && error->Name == fs::path(AssetImportLog::MakeKey(file)).generic_string());
+    CHECK(AssetImportLog::GetCount() == 1 && AssetImportLog::HasError(file) && !AssetImportLog::HasError(dir / "other.png"));
+    CHECK(AssetImportLog::Report(file, "rasm buzilgan") && AssetImportLog::GetRevision() != revision);
+    CHECK(AssetImportLog::Report(file, "rasm buzilgan", true) && AssetImportLog::Find(file)->Reload);
+    CHECK(!AssetImportLog::Report(file, "rasm buzilgan", true));
+    AssetImportLog::OnFileChanged(dir / "Textures"); // a folder: everything inside
+    CHECK(AssetImportLog::Report(file, "rasm buzilgan", true));
+    AssetImportLog::Clear(file);
+    CHECK(!AssetImportLog::HasError(file) && AssetImportLog::GetCount() == 0);
+    CHECK(AssetImportLog::Report(file, "rasm buzilgan", true));
+    CHECK(AssetImportLog::GetLoggedCount() == logged + 5 && CountLoggedErrors("hero.png") == 5);
+
+    // A failed file is not loaded again while it stays the same (missing / same size and time).
+    CHECK(!AssetImportLog::ShouldRetry(file)); // still missing
+    CHECK(AssetImportLog::ShouldRetry(dir / "never-failed.png"));
+    WriteFile(file, "now it exists");
+    CHECK(AssetImportLog::ShouldRetry(file));
+    AssetImportLog::Report(file, "rasm buzilgan");
+    CHECK(!AssetImportLog::ShouldRetry(file));
+    WriteFile(file, "written again, longer than before");
+    CHECK(AssetImportLog::ShouldRetry(file));
+    AssetImportLog::Report(file, "rasm buzilgan");
+    AssetImportLog::OnFileChanged(file);
+    CHECK(AssetImportLog::ShouldRetry(file));
+    AssetImportLog::ClearAll();
+    CHECK(AssetImportLog::GetCount() == 0 && AssetImportLog::GetErrors().empty());
+
+    // The loaders (headless: they fail before anything reaches the GPU). Each file is reported once
+    // with its path and reason however often it is asked for.
+    WriteFile(dir / "broken.png", "this is not a png");
+    for (int i = 0; i < 3; i++)
+    {
+        CHECK(TextureLibrary::Load(dir / "missing.png") == nullptr);
+        CHECK(TextureLibrary::Load(dir / "missing.png", TextureFilter::Nearest) == nullptr);
+        CHECK(TextureLibrary::Load(dir / "broken.png") == nullptr);
+    }
+    CHECK(CountLoggedErrors("missing.png") == 1 && CountLoggedErrors("broken.png") == 1);
+    error = AssetImportLog::Find(dir / "missing.png");
+    CHECK(error && error->Reason == "fayl topilmadi" && error->Count == 6);
+    error = AssetImportLog::Find(dir / "broken.png");
+    CHECK(error && error->Reason.find("stb:") != std::string::npos);
+
+    WriteFile(dir / "broken.ttf", "not a font at all");
+    CHECK(Font::Load(dir / "missing.ttf") == nullptr && Font::Load(dir / "missing.ttf") == nullptr);
+    CHECK(Font::Load(dir / "broken.ttf") == nullptr && Font::Load(dir / "broken.ttf") == nullptr);
+    CHECK(CountLoggedErrors("missing.ttf") == 1 && CountLoggedErrors("broken.ttf") == 1);
+    CHECK(AssetImportLog::Find(dir / "missing.ttf")->Reason == "fayl topilmadi");
+    CHECK(AssetImportLog::Find(dir / "broken.ttf")->Reason.find("shrift") != std::string::npos);
+    CHECK(AssetImportLog::Find(dir / "broken.ttf")->Type == AssetType::Font);
+
+    WriteFile(dir / "sky.hdr", "#?RADIANCE but broken");
+    CHECK(EnvironmentMap::Load(dir / "sky.hdr") == nullptr && EnvironmentMap::Load(dir / "nosky.hdr") == nullptr);
+    CHECK(AssetImportLog::Find(dir / "sky.hdr") && AssetImportLog::Find(dir / "sky.hdr")->Reason.find("stb:") != std::string::npos);
+    CHECK(AssetImportLog::Find(dir / "nosky.hdr") && AssetImportLog::Find(dir / "nosky.hdr")->Reason == "fayl topilmadi");
+
+    WriteFile(dir / "Models" / "broken.gltf", "{ not json");
+    CHECK(Model::Load(dir / "Models" / "broken.gltf") == nullptr && Model::Load(dir / "Models" / "absent.gltf") == nullptr);
+    CHECK(AssetImportLog::Find(dir / "Models" / "broken.gltf") && AssetImportLog::Find(dir / "Models" / "absent.gltf"));
+    CHECK(AssetImportLog::Find(dir / "Models" / "absent.gltf")->Reason == "fayl topilmadi");
+
+    // Scenes and prefabs: the reason, with the file's path.
+    WriteFile(dir / "Scenes" / "broken.zscene", "{ \"Scene\": ");
+    WriteFile(dir / "Scenes" / "notascene.zscene", "{ \"Hello\": 1 }");
+    Ref<Scene> scene = CreateRef<Scene>();
+    SceneSerializer serializer(scene);
+    CHECK(!serializer.Deserialize(dir / "Scenes" / "absent.zscene") && serializer.GetLastError() == "fayl topilmadi");
+    CHECK(!serializer.Deserialize(dir / "Scenes" / "broken.zscene") && serializer.GetLastError().starts_with("JSON xatosi"));
+    CHECK(!serializer.Deserialize(dir / "Scenes" / "broken.zscene"));
+    CHECK(!serializer.Deserialize(dir / "Scenes" / "notascene.zscene") && serializer.GetLastError().find("Scene") != std::string::npos);
+    CHECK(CountLoggedErrors("broken.zscene") == 1 && CountLoggedErrors("absent.zscene") == 1 && CountLoggedErrors("notascene.zscene") == 1);
+    CHECK(AssetImportLog::Find(dir / "Scenes" / "broken.zscene")->Type == AssetType::Scene);
+    CHECK(!serializer.DeserializeFromString("[1, 2") && serializer.GetLastError().starts_with("JSON xatosi"));
+    CHECK(serializer.DeserializeFromString("{\"Scene\": \"Ok\", \"Entities\": []}") && serializer.GetLastError().empty());
+    std::string fine = serializer.SerializeToString();
+    WriteFile(dir / "Scenes" / "broken.zscene", fine); // fixed: loads, the error goes away
+    CHECK(serializer.Deserialize(dir / "Scenes" / "broken.zscene") && !AssetImportLog::HasError(dir / "Scenes" / "broken.zscene"));
+
+    WriteFile(dir / "Prefabs" / "bad.zprefab", "{ \"ZaminEntities\": 1 }");
+    for (int i = 0; i < 4; i++)
+    {
+        CHECK(!scene->InstantiatePrefab(dir / "Prefabs" / "gone.zprefab"));
+        CHECK(!scene->InstantiatePrefab(dir / "Prefabs" / "bad.zprefab"));
+    }
+    CHECK(CountLoggedErrors("gone.zprefab") == 1 && CountLoggedErrors("bad.zprefab") == 1);
+    CHECK(AssetImportLog::Find(dir / "Prefabs" / "gone.zprefab")->Reason == "fayl topilmadi");
+    CHECK(AssetImportLog::Find(dir / "Prefabs" / "bad.zprefab")->Reason.find("Entities") != std::string::npos);
+    std::string error2;
+    CHECK(SceneSerializer::DeserializeEntities(*scene, "nope", true, nullptr, &error2).empty() && error2.starts_with("JSON xatosi"));
+
+    // Audio (no device needed): a missing / undecodable sound is reported once, and not decoded again.
+    WriteFile(dir / "Audio" / "broken.wav", "RIFF but not really");
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (AudioEngine::IsAvailable())
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            CHECK(AudioEngine::Play(dir / "Audio" / "nosound.wav") == 0);
+            CHECK(AudioEngine::Play(dir / "Audio" / "broken.wav") == 0);
+        }
+        CHECK(CountLoggedErrors("nosound.wav") == 1 && CountLoggedErrors("broken.wav") == 1);
+        CHECK(AssetImportLog::Find(dir / "Audio" / "nosound.wav")->Reason == "fayl topilmadi");
+        CHECK(AssetImportLog::Find(dir / "Audio" / "broken.wav")->Reason.find("miniaudio") != std::string::npos);
+        CHECK(AssetImportLog::Find(dir / "Audio" / "broken.wav")->Count == 3);
+    }
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+
+    // Sorted by name; with a project the names are relative to its asset folder.
+    std::vector<AssetImportError> errors = AssetImportLog::GetErrors();
+    CHECK(errors.size() >= 10 && std::is_sorted(errors.begin(), errors.end(),
+                                                [](const AssetImportError& a, const AssetImportError& b) { return a.Name < b.Name; }));
+    fs::path projectDir = dir / "Game";
+    CHECK(Project::CreateFromTemplate(projectDir, "ImportGame") != nullptr && Project::Load(projectDir / "ImportGame.zproject"));
+    AssetImportLog::Report(projectDir / "Assets" / "Textures" / "lost.png", "fayl topilmadi");
+    CHECK(AssetImportLog::Find(projectDir / "Assets" / "Textures" / "lost.png")->Name == "Textures/lost.png");
+    CHECK(CountLoggedErrors("'Textures/lost.png' - fayl topilmadi") == 1);
+
+    Log::SetTerminalOutput(terminal);
+    Project::SetActive(nullptr);
+    AssetImportLog::ClearAll();
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Font.h"
+#include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Utils/FileSystem.h"
 
@@ -35,11 +36,11 @@ namespace Zamin {
     {
         const std::filesystem::path& path = m_Path;
         const float pixelHeight = m_PixelHeight;
-        const char* what = reload ? "qayta yuklanmadi" : "yuklanmadi";
         std::vector<uint8_t> ttf = FileSystem::ReadBinaryFile(path);
         if (ttf.empty())
         {
-            ZM_CORE_ERROR("Shrift {}: '{}' (fayl o'qilmadi)", what, path.string());
+            std::string reason = AssetImportLog::CheckReadable(path);
+            AssetImportLog::Report(path, reason.empty() ? "fayl o'qilmadi" : reason, reload);
             return false;
         }
 
@@ -47,7 +48,7 @@ namespace Zamin {
         int offset = stbtt_GetFontOffsetForIndex(ttf.data(), 0);
         if (offset < 0 || !stbtt_InitFont(&info, ttf.data(), offset))
         {
-            ZM_CORE_ERROR("Shrift {}: '{}' (formati noto'g'ri)", what, path.string());
+            AssetImportLog::Report(path, "TrueType / OpenType shrift emas yoki fayl buzilgan", reload);
             return false;
         }
 
@@ -135,6 +136,7 @@ namespace Zamin {
             m_Atlas = Texture2D::Create(spec);
         }
         m_Atlas->SetData(flipped.data(), (uint32_t)flipped.size()); // same atlas object when reloading
+        AssetImportLog::Clear(path);
         return true;
     }
 
@@ -160,6 +162,8 @@ namespace Zamin {
         auto it = cache.find(key);
         if (it != cache.end())
             return it->second;
+        if (!AssetImportLog::ShouldRetry(path))
+            return nullptr; // failed before and not changed since
         auto font = CreateRef<Font>(path);
         if (!font->IsLoaded())
             return nullptr;

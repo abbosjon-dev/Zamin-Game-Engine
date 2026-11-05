@@ -1,4 +1,5 @@
 #include "Zamin/Scene/SceneSerializer.h"
+#include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Scene/ComponentRegistry.h"
@@ -894,14 +895,23 @@ namespace Zamin {
 
     bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
     {
-        std::string text = FileSystem::ReadTextFile(filepath);
-        if (text.empty())
-            return false;
-        if (!DeserializeFromString(text))
+        m_LastError = AssetImportLog::CheckReadable(filepath);
+        std::string text = m_LastError.empty() ? FileSystem::ReadTextFile(filepath) : std::string();
+        if (text.empty() && m_LastError.empty())
+            m_LastError = "fayl o'qilmadi";
+        bool ok = false;
+        if (m_LastError.empty())
         {
-            ZM_CORE_ERROR("Sahna o'qilmadi: '{}'", filepath.string());
+            m_QuietErrors = true;
+            ok = DeserializeFromString(text);
+            m_QuietErrors = false;
+        }
+        if (!ok)
+        {
+            AssetImportLog::Report(filepath, m_LastError);
             return false;
         }
+        AssetImportLog::Clear(filepath);
         if (m_Scene->GetName().empty() || m_Scene->GetName() == "Untitled")
             m_Scene->SetName(filepath.stem().string());
         return true;
@@ -910,16 +920,22 @@ namespace Zamin {
     bool SceneSerializer::DeserializeFromString(const std::string& text)
     {
         m_RepairedReferences.clear();
+        m_LastError.clear();
         AssetReferenceScope assetReferences(&m_RepairedReferences);
+        auto fail = [&](std::string reason) {
+            if (!m_QuietErrors)
+                ZM_CORE_ERROR("{}", reason);
+            m_LastError = std::move(reason);
+            return false;
+        };
         json root;
         try { root = json::parse(text); }
         catch (const std::exception& e)
         {
-            ZM_CORE_ERROR("JSON xatosi: {}", e.what());
-            return false;
+            return fail(std::format("JSON xatosi: {}", e.what()));
         }
-        if (!root.contains("Scene"))
-            return false;
+        if (!root.is_object() || !root.contains("Scene"))
+            return fail("sahna fayli emas (\"Scene\" kaliti yo'q)");
 
         try
         {
@@ -996,8 +1012,7 @@ namespace Zamin {
         }
         catch (const std::exception& ex)
         {
-            ZM_CORE_ERROR("Sahna formati xato: {}", ex.what());
-            return false;
+            return fail(std::format("Sahna formati xato: {}", ex.what()));
         }
         return true;
     }
@@ -1027,15 +1042,26 @@ namespace Zamin {
     }
 
     std::vector<Entity> SceneSerializer::DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs,
-                                                             std::vector<AssetReferenceRepair>* repairs)
+                                                             std::vector<AssetReferenceRepair>* repairs, std::string* error)
     {
         std::vector<Entity> created;
         AssetReferenceScope assetReferences(repairs);
+        if (error)
+            error->clear();
         json root;
         try { root = json::parse(text); }
-        catch (...) { return created; }
-        if (!root.contains("Entities") || !root["Entities"].is_array())
+        catch (const std::exception& e)
+        {
+            if (error)
+                *error = std::format("JSON xatosi: {}", e.what());
             return created;
+        }
+        if (!root.is_object() || !root.contains("Entities") || !root["Entities"].is_array())
+        {
+            if (error)
+                *error = "obyektlar ro'yxati (\"Entities\") yo'q";
+            return created;
+        }
 
         try
         {
@@ -1078,7 +1104,10 @@ namespace Zamin {
         }
         catch (const std::exception& ex)
         {
-            ZM_CORE_ERROR("Entity ma'lumotlari xato: {}", ex.what());
+            if (error)
+                *error = std::format("Entity ma'lumotlari xato: {}", ex.what());
+            else
+                ZM_CORE_ERROR("Entity ma'lumotlari xato: {}", ex.what());
         }
         scene.InvalidateActiveCache(); // flags and parents were written directly
         // Roots first

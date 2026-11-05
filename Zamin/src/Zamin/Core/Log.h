@@ -29,6 +29,9 @@ namespace Zamin {
         static void Clear();
         static size_t GetMessageCount();
         static void SetMinLevel(LogLevel level) { s_MinLevel = level; }
+        // Whether messages are printed to the terminal too (they are always kept for the console).
+        static void SetTerminalOutput(bool enabled) { s_TerminalOutput = enabled; }
+        static bool GetTerminalOutput() { return s_TerminalOutput; }
 
         static const char* LevelToString(LogLevel level);
 
@@ -36,6 +39,7 @@ namespace Zamin {
         static inline std::mutex s_Mutex;
         static inline std::deque<LogMessage> s_Messages;
         static inline LogLevel s_MinLevel = LogLevel::Trace;
+        static inline bool s_TerminalOutput = true;
         static constexpr size_t MaxMessages = 2000;
     };
 

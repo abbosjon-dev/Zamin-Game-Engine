@@ -34,6 +34,9 @@ namespace Zamin {
 
         std::string SerializeToString();
         bool DeserializeFromString(const std::string& text);
+        // Why the last Deserialize / DeserializeFromString call failed ("" after a success). A scene
+        // file that cannot be read is reported once with its path (AssetImportLog).
+        const std::string& GetLastError() const { return m_LastError; }
         // Asset paths the last Deserialize* call took from UUIDs (the scene in memory differs from
         // its file until it is saved).
         const std::vector<AssetReferenceRepair>& GetRepairedReferences() const { return m_RepairedReferences; }
@@ -44,8 +47,9 @@ namespace Zamin {
         static std::string SerializeEntities(Scene& scene, const std::vector<Entity>& entities, bool includeEditorFlags = true);
         // Returns created entities, roots first. generateNewUUIDs = true for prefabs/paste.
         // `repairs` receives the asset paths taken from UUIDs (see above).
+        // `error` (optional) receives why nothing could be read; the reason is logged only without it.
         static std::vector<Entity> DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs,
-                                                       std::vector<AssetReferenceRepair>* repairs = nullptr);
+                                                       std::vector<AssetReferenceRepair>* repairs = nullptr, std::string* error = nullptr);
 
         // Transform clipboard text (inspector Copy / Paste). Deserialize returns false for any
         // text that is not a copied transform.
@@ -66,6 +70,8 @@ namespace Zamin {
     private:
         Ref<Scene> m_Scene;
         std::vector<AssetReferenceRepair> m_RepairedReferences;
+        std::string m_LastError;       // why the last Deserialize* call failed
+        bool m_QuietErrors = false;    // Deserialize(file) reports the error with the file's path
     };
 
 }

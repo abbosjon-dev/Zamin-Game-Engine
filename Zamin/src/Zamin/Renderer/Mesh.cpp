@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Mesh.h"
+#include "Zamin/Asset/AssetImportLog.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -277,10 +278,11 @@ namespace Zamin {
         std::string error;
         if (!ReadOBJ(path, vertices, indices, &error))
         {
-            ZM_CORE_ERROR("OBJ yuklanmadi '{}': {}", key, error);
+            AssetImportLog::Report(path, error);
             s_Models[key] = nullptr;
             return nullptr;
         }
+        AssetImportLog::Clear(path);
         auto mesh = CreateRef<Mesh>(vertices, indices);
         s_Models[key] = mesh;
         ZM_CORE_INFO("Model yuklandi: {} ({} uchburchak)", key, indices.size() / 3);

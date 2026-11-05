@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Environment.h"
+#include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Core/Log.h"
 
 #include <stb_image.h>
@@ -50,13 +51,14 @@ namespace Zamin {
 
     bool EnvironmentMap::Build(std::string& error)
     {
+        if (error = AssetImportLog::CheckReadable(m_Path); !error.empty())
+            return false;
         int w, h, c;
         stbi_set_flip_vertically_on_load(1);
         float* data = stbi_loadf(m_Path.string().c_str(), &w, &h, &c, 4); // LDR images are linearized by stb
         if (!data)
         {
-            const char* reason = stbi_failure_reason();
-            error = reason ? reason : "noma'lum xato";
+            error = AssetImportLog::DescribeImageError(stbi_failure_reason());
             return false;
         }
         m_SH = ComputeIrradianceSH(data, w, h, 4);
@@ -85,10 +87,11 @@ namespace Zamin {
         std::string error;
         if (!env->Build(error))
         {
-            ZM_CORE_ERROR("Muhit xaritasi yuklanmadi: '{}' ({})", key, error);
+            AssetImportLog::Report(path, error);
             s_EnvCache[key] = nullptr;
             return nullptr;
         }
+        AssetImportLog::Clear(path);
         ZM_CORE_INFO("Muhit xaritasi (IBL) yuklandi: {} ({}x{})", path.filename().string(),
                      env->m_Texture->GetWidth(), env->m_Texture->GetHeight());
         s_EnvCache[key] = env;
@@ -99,8 +102,11 @@ namespace Zamin {
     {
         std::string error;
         if (Build(error))
+        {
+            AssetImportLog::Clear(m_Path);
             return true;
-        ZM_CORE_ERROR("Muhit xaritasi qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", m_Path.string(), error);
+        }
+        AssetImportLog::Report(m_Path, error, true);
         return false;
     }
 

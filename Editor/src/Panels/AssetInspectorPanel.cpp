@@ -427,6 +427,7 @@ namespace Zamin {
             DrawFolder();
             return;
         }
+        DrawImportError();
         switch (m_Type)
         {
             case AssetType::Texture:     DrawTexture(meta); break;
@@ -444,6 +445,43 @@ namespace Zamin {
         }
         if (AssetTypes::IsRegistered(m_Type))
             DrawUsage();
+    }
+
+    void AssetInspectorPanel::DrawImportError()
+    {
+        uint64_t revision = AssetImportLog::GetRevision();
+        if (revision != m_ImportErrorRevision || m_ImportErrorPath != m_Path)
+        {
+            m_ImportErrorRevision = revision;
+            m_ImportErrorPath = m_Path;
+            m_ImportError = AssetImportLog::Find(m_Path);
+        }
+        if (!m_ImportError)
+            return;
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.42f, 0.12f, 0.1f, 0.32f));
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.75f, 0.3f, 0.26f, 0.7f));
+        ImGui::BeginChild("##importError", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+        ImGui::TextColored(s_ErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  %s",
+                           m_ImportError->Reload ? "Qayta import qilinmadi - avvalgi holati ishlatilmoqda" : "Import qilinmadi");
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextUnformatted(m_ImportError->Reason.c_str());
+        if (m_ImportError->Count > 1)
+            ImGui::TextDisabled("%u marta yuklashga urinildi (konsolga bir marta yozildi)", m_ImportError->Count);
+        ImGui::PopTextWrapPos();
+        if (ImGui::SmallButton(ICON_FA_ARROWS_ROTATE "  Qayta urinish"))
+        {
+            AssetImportLog::OnFileChanged(m_Path); // loaders try the file again
+            bool failed = false;
+            if (AssetHotReload::CanReload(m_Path)) // also forgets a model that failed (loaded again below)
+                AssetHotReload::ReloadAsset(m_Path, &failed);
+            m_PreviewPath.clear();
+            ResetPreviews();
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Faylni tuzatgandan keyin yana yuklab ko'rish");
+        ImGui::EndChild();
+        ImGui::PopStyleColor(2);
     }
 
     void AssetInspectorPanel::DrawHeader(const AssetMetadata* meta)
@@ -812,7 +850,7 @@ namespace Zamin {
         Ref<Texture2D> texture = GetPreviewTexture();
         if (texture && texture->IsLoaded())
             DrawTexturePreview(texture);
-        else
+        else if (!m_ImportError) // the import error box says why already
         {
             ImGui::TextColored(s_ErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  Rasm o'qilmadi - konsolni tekshiring");
             if (!m_ImageInfo.Error.empty())

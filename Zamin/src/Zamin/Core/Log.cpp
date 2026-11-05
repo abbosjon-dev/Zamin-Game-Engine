@@ -49,8 +49,9 @@ namespace Zamin {
         std::strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", &tm);
 
         std::lock_guard lock(s_Mutex);
-        std::fprintf(level >= LogLevel::Error ? stderr : stdout, "%s[%s] %s: %s\033[0m\n",
-                     LevelColor(level), timeBuf, fromClient ? "APP" : "ZAMIN", text.c_str());
+        if (s_TerminalOutput)
+            std::fprintf(level >= LogLevel::Error ? stderr : stdout, "%s[%s] %s: %s\033[0m\n",
+                         LevelColor(level), timeBuf, fromClient ? "APP" : "ZAMIN", text.c_str());
 
         s_Messages.push_back({ level, fromClient, timeBuf, std::move(text) });
         if (s_Messages.size() > MaxMessages)

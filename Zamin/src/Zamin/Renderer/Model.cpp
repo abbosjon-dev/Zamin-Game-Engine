@@ -1,5 +1,6 @@
 #include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Texture.h"
+#include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Core/Log.h"
 
@@ -453,7 +454,9 @@ namespace Zamin {
         std::string error;
         Ref<Model> model = ModelLoader::LoadFile(path, AssetImporter::GetModelSettings(path), error);
         if (!model)
-            ZM_CORE_ERROR("Model yuklanmadi: '{}' ({})", key, error);
+            AssetImportLog::Report(path, error);
+        else
+            AssetImportLog::Clear(path);
         s_ModelCache[key] = model; // a failed file is not read again until it changes (ReloadFile)
         return model;
     }
@@ -467,10 +470,11 @@ namespace Zamin {
             if (error)
                 *error = reason;
             else
-                ZM_CORE_ERROR("Model qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", m_Path.string(), reason);
+                AssetImportLog::Report(m_Path, reason, true);
             return false;
         }
         ModelLoader::Replace(*this, std::move(*fresh));
+        AssetImportLog::Clear(m_Path);
         return true;
     }
 
@@ -502,7 +506,7 @@ namespace Zamin {
     {
         std::string file = CanonicalModelPath(path);
         size_t reloaded = 0;
-        std::string error;
+        std::string error, failedModel;
         for (auto it = s_ModelCache.begin(); it != s_ModelCache.end();)
         {
             if (!UsesFile(it->first, it->second, file))
@@ -517,12 +521,17 @@ namespace Zamin {
             }
             if (error.empty() && it->second->Reload(&error)) // a file that failed once is not read again
                 reloaded++;
-            else if (failed)
-                *failed = true;
+            else
+            {
+                if (failedModel.empty())
+                    failedModel = it->first; // the model, also when one of its buffers changed
+                if (failed)
+                    *failed = true;
+            }
             ++it;
         }
         if (!error.empty())
-            ZM_CORE_ERROR("Model qayta yuklanmadi: '{}' ({}) - avvalgisi qoldi", path.string(), error);
+            AssetImportLog::Report(failedModel.empty() ? path : fs::path(failedModel), error, true);
         return reloaded;
     }
 

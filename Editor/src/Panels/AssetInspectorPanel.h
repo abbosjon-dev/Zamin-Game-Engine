@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -89,6 +90,8 @@ namespace Zamin {
         void KeepUnappliedEdits();
 
         void DrawHeader(const AssetMetadata* meta);
+        // The file could not be imported: the reason (AssetImportLog) and a retry button.
+        void DrawImportError();
         void DrawUsage();
         void DrawTexture(const AssetMetadata* meta);
         void DrawTexturePreview(const Ref<Texture2D>& texture);
@@ -195,6 +198,11 @@ namespace Zamin {
             uintmax_t Size = 0;
             std::vector<std::pair<AssetType, size_t>> Types;
         } m_FolderSummary;
+
+        // import error of the shown file (looked up again when the log changes)
+        std::optional<AssetImportError> m_ImportError;
+        std::filesystem::path m_ImportErrorPath;
+        uint64_t m_ImportErrorRevision = ~0ull;
 
         // Last apply result shown under the buttons.
         std::string m_Status;

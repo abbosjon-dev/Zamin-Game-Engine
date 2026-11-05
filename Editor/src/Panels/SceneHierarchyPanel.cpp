@@ -3866,6 +3866,8 @@ namespace Zamin {
         Entity other = c.ConnectedBody && m_Context ? m_Context->GetEntityByUUID(c.ConnectedBody.ID) : Entity();
         if (!entity.HasComponent<Rigidbody2DComponent>())
             problem = "Rigidbody 2D kerak: busiz joint yaratilmaydi";
+        else if (c.ConnectedBody && !other)
+            problem = "Ulangan obyekt sahnada yo'q (o'chirilgan, yoki prefab boshqa sahnada yaratilgan): joint yaratilmaydi";
         else if (other && other == entity)
             problem = "Obyekt o'ziga ulana olmaydi";
         else if (other && !other.HasComponent<Rigidbody2DComponent>() && !other.HasComponent<TilemapComponent>())

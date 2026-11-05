@@ -256,7 +256,8 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     o'chirilsa joint yo'qoladi, ikkala jism qaytganda qayta yaratiladi; o'yin davomida motor/chegara/prujina o'zgarishi
     darhol, `ConnectedBody` almashsa joint qayta quriladi. Inspektorda holat (kuch, moment, burchak, siljish), viewport'da
     langarlar, burchak yoylari va o'qlar (Gizmolar > 2D joint'lar: tanlanganda / hammasi). Duplikat va prefab'da ulangan
-    jism nusxaga qayta bog'lanadi. **Viewport'da tahrirlash** ("Langarlarni tahrirlash"): langar (doira), ulangan
+    jism nusxaga qayta bog'lanadi; prefab'dan tashqaridagi jismga ulangan joint saqlashda, sahnada yo'q jismga ulangani
+    o'yin boshida / paydo bo'lganda ogohlantiradi (inspektorda ham ko'rinadi). **Viewport'da tahrirlash** ("Langarlarni tahrirlash"): langar (doira), ulangan
     langar (romb), sirpanish / osma o'qi (kvadrat) va chegaralar (sharnirning burchaklari yoy ustida, sirpanish
     oralig'i o'q yonida) sudraladi, Shift - 0.1 birlik / 5° qadam, Esc - tugatish; har harakat bitta Ctrl+Z. Ulangan
     langarni "Langar turgan joyga" bir bosishda qo'yish. Namuna: Platformer2D `Scenes/Joints2D.zscene` (ko'prik, lift,
@@ -275,6 +276,18 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     (tartib raqamlari bilan) va so'rov shakli ko'rinadi. Namuna: Platformer2D `Scenes/Effectors2D.zscene` (hovuz va
     unda suzayotgan qutilar, yog'och, to'p va cho'kkan toshlar; shamol ustuni va yon shamol; Raycast2DAll skaner nuri;
     sichqoncha bilan portlash - OverlapCircle2D)
+  - **Simulyatsiya sozlamalari** (Sahna > Fizika): qadam chastotasi (2D va 3D, standart 60 Hz), kadrda ko'pi bilan
+    qadam, Box2D **sub-qadamlari** (har qadam shuncha kichik qadamga bo'linadi: og'ir yuk osilgan zanjir va ragdoll'lar
+    cho'zilmaydi; effektorlar va joint uzilishi har sub-qadamda), tezlik / pozitsiya iteratsiyalari. O'yin davomida
+    jismlar, uyg'oq / uxlayotganlar, joint'lar, kontaktlar va kadrdagi Box2D qadamlari soni ko'rinadi
+  - **Uxlash**: qimirlamay qolgan jism (unga tegib / ulanib turganlar bilan birga, Box2D orollari kabi) hisoblanmaydi -
+    sahnada yoqish / o'chirish va qancha vaqtdan keyin (Box2D'niki 0.5 s, boshqasini dvigatel o'zi sanaydi); har
+    Rigidbody 2D: "Uyg'oq boshlanadi", "Uxlab boshlanadi" (urilguncha kutib turadigan minora) yoki "Hech uxlamaydi".
+    Inspektorda holati va "Uyg'otish" tugmasi, colliderlar ko'rinishida uxlayotganlar ko'kish-kulrang; skriptda
+    `IsSleeping()`, `WakeUp()`, `PutToSleep()`. Namuna: Platformer2D `Scenes/Ragdoll2D.zscene` - sichqoncha bilan
+    (yoki R, o'zi ham har 2 soniyada) `Prefabs/Ragdoll.zprefab` tashlanadi: 11 bo'lak, chegarali va ishqalanishli 10 ta
+    sharnir, tana qismlari "Ragdoll", qo'l-oyoqlar "RagdollLimb" qatlamida (o'zaro to'qnashmaydi); zinapoya, chegarali
+    ko'prik, motorli rotor, arg'imchoq, uxlab turgan quti minorasi va zanjirli mayatnik; 2 sub-qadam
 - **3D fizika** (Jolt Physics): Rigidbody3D, Box/Sphere/Capsule collider, trigger'lar, to'qnashuvlar
 - **Character Controller 3D** (Jolt CharacterVirtual): qiyaliklar, zinapoyalar, yerni aniqlash, sakrash, harakatlanuvchi platformalarda yurish
 - **Raycast** 2D va 3D
@@ -497,7 +510,7 @@ Foydali API:
 | Xabarlar | `SendMessage(e, "Damage", 25.0f)`, `SendMessageToChildren(...)`, `SendMessageUpwards(...)`, `Broadcast("GameOver")`, `AddMessageHandler("Damage", fn)`, `msg.Get<float>()`, `msg.Sender` |
 | Hodisalar (event bus) | `Subscribe("CoinCollected", fn)`, `Unsubscribe(id)`, `Emit("CoinCollected", qiymat)`, `EmitDeferred(...)` (kadr oxirida) |
 | Tasodifiy sonlar | `Random::Range(1.0f, 5.0f)`, `Random::Int(1, 6)` (ikkala chegara ham kiradi), `Random::Float()`, `Random::Bool(0.3f)`, `Random::InsideCircle(r)`, `Random::OnSphere(r)`, `Random::InsideSphere(r)`, `Random::Rotation()`, `Random::Pick(v)`, `Random::Shuffle(v)`, `Random::SetSeed(42)`, alohida oqim: `RandomGenerator rng(seed)` |
-| 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `ApplyImpulse(other, impulse)`, `Raycast2D(origin, dir, dist, LayerMask({ "Ground" }))`, `Raycast2DAll(origin, dir, dist, mask, includeTriggers)` (hamma urilishlar, yaqini birinchi), `OverlapCircle2D(center, r, mask)` / `OverlapBox2D(center, halfExtents, angle, mask)` / `OverlapPoint2D(p, mask)` → `std::vector<Entity>`, `LayerIndex("Player")`; joint'lar: `GetComponent<RevoluteJoint2DComponent>()` → `.MotorSpeed`, `.EnableLimit`, `.JointAngle`, `.ReactionForce`, `.Broken` ... |
+| 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `ApplyImpulse(other, impulse)`, `Raycast2D(origin, dir, dist, LayerMask({ "Ground" }))`, `Raycast2DAll(origin, dir, dist, mask, includeTriggers)` (hamma urilishlar, yaqini birinchi), `OverlapCircle2D(center, r, mask)` / `OverlapBox2D(center, halfExtents, angle, mask)` / `OverlapPoint2D(p, mask)` → `std::vector<Entity>`, `LayerIndex("Player")`, uxlash: `IsSleeping()` / `WakeUp()` / `PutToSleep()` (`IsSleeping(other)`, `WakeUp(other)`); joint'lar: `GetComponent<RevoluteJoint2DComponent>()` → `.MotorSpeed`, `.EnableLimit`, `.JointAngle`, `.ReactionForce`, `.Broken` ... |
 | 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)` |
 | Qahramon | `GetComponent<CharacterController3DComponent>()` → `.Move(velocity)`, `.Jump(speed)`, `.Grounded`, `.Velocity` (oxirgi fizika qadamidagi haqiqiy tezlik) |
 | Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)`, `SetBool`, `SetTrigger` |
@@ -605,7 +618,7 @@ Zamin/src/Zamin/
 ├── Scripting/   ScriptableEntity, ScriptRegistry, ScriptEngine (.so yuklash, hot reload), EventBus
 ├── Math/        Math (transform), Random (PCG32)
 ├── Physics/     PhysicsWorld2D (Box2D: jismlar, joint'lar, platformalar, material aralashtirish, effektorlar,
-│                overlap / raycast-all so'rovlari), Polygon2D (qavariq bo'laklarga ajratish, kesish, sprayt konturi),
+│                overlap / raycast-all so'rovlari, uxlash orollari, statistika), Polygon2D (qavariq bo'laklarga ajratish, kesish, sprayt konturi),
 │                PhysicsMaterial (.zphysmat), CollisionLayers, PhysicsWorld3D (Jolt)
 ├── Audio/       AudioEngine (miniaudio)
 ├── Project/     Project, shablonlar, build fayllari

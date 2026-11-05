@@ -203,11 +203,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 173. OverlapCircle/OverlapBox so'rovlari 2D
 - [x] 174. RaycastAll 2D
 - [x] 175. Joint'lar uchun inspektor va wireframe
-- [ ] 176. Joint'lar serializatsiyasi
-- [ ] 177. Fizik ragdoll namunasi (2D)
-- [ ] 178. Box2D sub-step sozlamalari
-- [ ] 179. 2D fizika uchun sleeping sozlamasi
-- [ ] 180. 2D fizika testlari
+- [x] 176. Joint'lar serializatsiyasi
+- [x] 177. Fizik ragdoll namunasi (2D)
+- [x] 178. Box2D sub-step sozlamalari
+- [x] 179. 2D fizika uchun sleeping sozlamasi
+- [x] 180. 2D fizika testlari
 
 ## M10 3D fizika II
 

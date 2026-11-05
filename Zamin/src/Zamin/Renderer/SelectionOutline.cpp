@@ -380,6 +380,8 @@ void main()
             return;
         ZM_PROFILE_SCOPE("SelectionOutline");
 
+        // The caller's target first: making or resizing a framebuffer unbinds it.
+        RenderCommand::SaveRenderTarget();
         UploadLookup(*g, lookup);
         if (!g->MaskTarget)
         {
@@ -392,8 +394,7 @@ void main()
         else if (const auto& spec = g->MaskTarget->GetSpecification(); spec.Width != in.Width || spec.Height != in.Height)
             g->MaskTarget->Resize(in.Width, in.Height);
 
-        // ---- mask: what the entity ID picture shows, then the silhouettes of the selected meshes
-        RenderCommand::SaveRenderTarget();
+        // ---- mask: what the entity ID picture shows, then the silhouettes of the outlined meshes
         g->MaskTarget->Bind();
         RenderCommand::SetDepthTest(false);
         RenderCommand::SetDepthWrite(false);

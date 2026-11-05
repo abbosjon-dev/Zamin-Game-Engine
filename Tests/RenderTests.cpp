@@ -48,6 +48,10 @@ namespace {
         std::string Reference;                 // another case's reference it must match (empty: its own)
         SceneRenderOptions Options;
         bool NoCullingOrInstancing = false;    // drawn without frustum culling and GPU instancing
+        // The editor's selection outline over the picture: these entities (by name, with their
+        // children; the last one is the primary selection) and the one under the mouse.
+        std::vector<std::string> Outline;
+        std::string OutlineHover;
     };
 
     // ------------------------------------------------------------------ scene building helpers
@@ -307,6 +311,14 @@ namespace {
                           ProjectScene("Showcase3D", "Scenes/Showcase.zscene"), LookAt({ 0, 1.5f, 0 }, 22.0f, 22.0f, 20.0f) });
         cases.push_back({ "Platformer2D", "Platformer2D namunasi: tilemap, sprite'lar, matn",
                           ProjectScene("Platformer2D", "Scenes/Level1.zscene"), LookAt({ 8, 3, 0 }, 14.0f, 0.0f, 0.0f, true) });
+        {
+            RenderCase c{ "SelectionOutline", "Editor tanlash konturi: skinned model, boshqa obyekt orqasidagi sfera (xira qismi), "
+                          "ko'p tanlov, hover, matn", ProjectScene("Showcase3D", "Scenes/Showcase.zscene"),
+                          LookAt({ -1.5f, 1.2f, 0.0f }, 15.0f, 16.0f, -38.0f) };
+            c.Outline = { "Tentacle", "Title", "Cube 5", "Sphere 6" }; // Sphere 6 behind the hovered Hero Sphere
+            c.OutlineHover = "Hero Sphere";
+            cases.push_back(c);
+        }
         return cases;
     }
 
@@ -335,6 +347,27 @@ namespace {
         outSpec.Attachments = { FramebufferTextureFormat::RGBA8 };
         Ref<Framebuffer> output = Framebuffer::Create(outSpec);
 
+        // The outlined entities (as the editor collects them) and their meshes' silhouettes.
+        std::vector<OutlineEntity> outline;
+        auto id = [](Entity e) { return (int)(uint32_t)(entt::entity)e; };
+        for (size_t i = 0; i < c.Outline.size(); i++)
+            if (Entity e = scene->FindEntityByName(c.Outline[i]))
+            {
+                outline.push_back({ id(e), i + 1 == c.Outline.size() ? OutlineCategory::Primary : OutlineCategory::Secondary });
+                for (Entity child : scene->GetDescendants(e))
+                    outline.push_back({ id(child), OutlineCategory::Child });
+            }
+        if (!c.OutlineHover.empty())
+            if (Entity e = scene->FindEntityByName(c.OutlineHover))
+                outline.push_back({ id(e), OutlineCategory::None, true });
+        if (!outline.empty())
+        {
+            std::vector<int> ids;
+            for (const OutlineEntity& e : outline)
+                ids.push_back(e.EntityID);
+            Renderer3D::BeginCapture(ids);
+        }
+
         Renderer3D::SetFrustumCulling(!c.NoCullingOrInstancing);
         Renderer3D::SetInstancing(!c.NoCullingOrInstancing);
         Renderer::ResetStats();
@@ -345,6 +378,7 @@ namespace {
         hdr->ClearAttachment(1, -1);
         scene->OnRenderEditor(camera, c.Options);
         hdr->Unbind();
+        Renderer3D::EndCapture();
 
         PostProcessInput input;
         input.ColorTexture = hdr->GetColorAttachmentRendererID(0);
@@ -359,6 +393,21 @@ namespace {
         PostProcessor::Apply(input, post, output);
         Renderer3D::SetFrustumCulling(true);
         Renderer3D::SetInstancing(true);
+        if (!outline.empty())
+        {
+            SelectionOutlineInput selection;
+            selection.EntityIDTexture = hdr->GetColorAttachmentRendererID(1);
+            selection.IDWidth = size.x;
+            selection.IDHeight = size.y;
+            selection.Width = s_Width;
+            selection.Height = s_Height;
+            selection.ViewProjection = scene->GetLastProjection() * scene->GetLastView();
+            selection.Entities = outline;
+            selection.Silhouettes = &Renderer3D::GetCapturedDraws();
+            output->Bind();
+            SelectionOutline::Render(selection, SelectionOutlineSettings());
+            output->Unbind();
+        }
 
         std::vector<uint8_t> pixels = output->ReadColorPixels(0); // bottom row first
         std::vector<uint8_t> flipped(pixels.size());

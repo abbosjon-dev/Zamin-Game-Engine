@@ -2255,15 +2255,17 @@ namespace Zamin {
             ImGui::PushID(i);
             UI::PropertyLabel(i == 0 ? "Kalitlar" : "", "Vaqt (0..1, davomiylikka nisbatan) va rang. Kalitlar orasida rang tekis o'tadi");
             const float button = ImGui::GetFrameHeight();
-            const float avail = ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x * 2.0f;
-            ImGui::SetNextItemWidth(std::max(40.0f, avail * 0.38f));
-            if (ImGui::DragFloat("##time", &k.Time, 0.005f, 0.0f, 1.0f, "%.2f"))
+            const float swatch = ImGui::GetFrameHeight() * 1.8f;
+            const float avail = ImGui::GetContentRegionAvail().x - button - swatch - ImGui::GetStyle().ItemSpacing.x * 2.0f;
+            ImGui::SetNextItemWidth(std::max(40.0f, avail));
+            if (ImGui::DragFloat("##time", &k.Time, 0.005f, 0.0f, 1.0f, "vaqt %.2f"))
                 changed = true;
             if (ImGui::IsItemDeactivatedAfterEdit())
                 sort = true;
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(std::max(40.0f, avail * 0.62f));
-            changed |= ImGui::ColorEdit4("##color", &k.Color.x, ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreviewHalf);
+            // The swatch opens the picker (rgba, the alpha shown over a checkerboard).
+            changed |= ImGui::ColorEdit4("##color", &k.Color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar |
+                                                                ImGuiColorEditFlags_AlphaPreviewHalf);
             ImGui::SameLine();
             ImGui::BeginDisabled(c.Keys.size() <= 1);
             if (ImGui::Button(ICON_FA_TRASH, ImVec2(button, 0)))

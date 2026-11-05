@@ -133,3 +133,5 @@
 #define ICON_FA_REPEAT "\xef\x8d\xa3"
 #define ICON_FA_BROOM "\xef\x94\x9a"
 #define ICON_FA_LINK_SLASH "\xef\x84\xa7"
+#define ICON_FA_CIRCLE_HALF_STROKE "\xef\x81\x82"
+#define ICON_FA_GEM "\xef\x8e\xa5"

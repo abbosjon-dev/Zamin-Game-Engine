@@ -3,6 +3,7 @@
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Renderer/MaterialAsset.h"
+#include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Scene/ComponentRegistry.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -930,7 +931,7 @@ namespace Zamin {
         root["Settings"] = {
             { "DrawSky", s.DrawSky }, { "SkyTop", ToJson(s.SkyTopColor) }, { "SkyHorizon", ToJson(s.SkyHorizonColor) },
             { "Ground", ToJson(s.GroundColor) }, { "Ambient", s.AmbientIntensity }, { "Exposure", s.Exposure },
-            { "ShadowDistance", s.ShadowDistance }, { "Gravity", ToJson(s.Gravity) },
+            { "ShadowDistance", s.ShadowDistance }, { "RenderScale", s.RenderScale }, { "Gravity", ToJson(s.Gravity) },
             { "Environment", { { "Map", s.EnvironmentMap }, { "Intensity", s.EnvironmentIntensity }, { "Rotation", s.EnvironmentRotation } } },
             { "Fog", { { "Enabled", s.FogEnabled }, { "Color", ToJson(s.FogColor) }, { "Density", s.FogDensity }, { "HeightFalloff", s.FogHeightFalloff } } }, { "Gravity3D", ToJson(s.Gravity3D) },
             { "Post", {
@@ -938,7 +939,10 @@ namespace Zamin {
                 { "SSAO", s.Post.SSAO }, { "SSAORadius", s.Post.SSAORadius }, { "SSAOIntensity", s.Post.SSAOIntensity }, { "SSAOBias", s.Post.SSAOBias }, { "BloomThreshold", s.Post.BloomThreshold }, { "BloomKnee", s.Post.BloomKnee },
                 { "BloomIntensity", s.Post.BloomIntensity }, { "BloomRadius", s.Post.BloomRadius }, { "Vignette", s.Post.Vignette },
                 { "Saturation", s.Post.Saturation }, { "Contrast", s.Post.Contrast }, { "Brightness", s.Post.Brightness },
-                { "Tint", ToJson(s.Post.Tint) }, { "FXAA", s.Post.FXAA }, { "FXAASubpixel", s.Post.FXAASubpixel } } },
+                { "Tint", ToJson(s.Post.Tint) }, { "FXAA", s.Post.FXAA }, { "FXAASubpixel", s.Post.FXAASubpixel },
+                { "AutoExposure", s.Post.AutoExposure }, { "AutoExposureCompensation", s.Post.AutoExposureCompensation },
+                { "AutoExposureMinEV", s.Post.AutoExposureMinEV }, { "AutoExposureMaxEV", s.Post.AutoExposureMaxEV },
+                { "AutoExposureSpeed", s.Post.AutoExposureSpeed } } },
         };
         WriteAssetHandle(root["Settings"]["Environment"], "Map", s.EnvironmentMap);
 
@@ -1016,6 +1020,9 @@ namespace Zamin {
                 s.AmbientIntensity = j.value("Ambient", s.AmbientIntensity);
                 s.Exposure = j.value("Exposure", s.Exposure);
                 s.ShadowDistance = j.value("ShadowDistance", s.ShadowDistance);
+                // Older scenes have none: 1 (the picture at the view's own size).
+                float renderScale = j.value("RenderScale", 1.0f);
+                s.RenderScale = std::isfinite(renderScale) ? std::clamp(renderScale, Renderer::MinRenderScale, Renderer::MaxRenderScale) : 1.0f;
                 s.Gravity = Vec(j, "Gravity", s.Gravity);
                 s.Gravity3D = Vec(j, "Gravity3D", s.Gravity3D);
                 if (j.contains("Environment"))
@@ -1053,6 +1060,12 @@ namespace Zamin {
                     s.Post.Tint = Vec(p, "Tint", glm::vec3(1.0f));
                     s.Post.FXAA = p.value("FXAA", false);
                     s.Post.FXAASubpixel = std::clamp(p.value("FXAASubpixel", 0.75f), 0.0f, 1.0f);
+                    s.Post.AutoExposure = p.value("AutoExposure", false);
+                    s.Post.AutoExposureCompensation = p.value("AutoExposureCompensation", 0.0f);
+                    s.Post.AutoExposureMinEV = p.value("AutoExposureMinEV", -4.0f);
+                    s.Post.AutoExposureMaxEV = p.value("AutoExposureMaxEV", 4.0f);
+                    s.Post.AutoExposureSpeed = p.value("AutoExposureSpeed", 2.0f);
+                    s.Post.SanitizeAutoExposure();
                 }
             }
 

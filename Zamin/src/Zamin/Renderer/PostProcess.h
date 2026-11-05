@@ -33,10 +33,72 @@ namespace Zamin {
         // picture. FXAASubpixel: how much single-pixel detail (thin lines, speculars) is softened, 0..1.
         bool FXAA = false;
         float FXAASubpixel = 0.75f;
+
+        // Auto exposure (eye adaptation): the average brightness of the HDR picture (the mean of
+        // log2 luminance, measured on the GPU through a chain of halving downsamples) is brought
+        // to middle grey, smoothly over time. Off by default: only the manual exposure
+        // (SceneSettings::Exposure). The measured brightness is held within MinEV..MaxEV (log2
+        // luminance): darker scenes stay dark, brighter ones stay bright.
+        bool AutoExposure = false;
+        float AutoExposureCompensation = 0.0f; // EV: +1 = twice as bright, -1 = half
+        float AutoExposureMinEV = -4.0f;
+        float AutoExposureMaxEV = 4.0f;
+        float AutoExposureSpeed = 2.0f;        // adaptation rate (1/s): higher = faster
+
+        // Settings that leave the picture as it is (no tonemapping, effects or grading; only the
+        // gamma encoding): debug views that show values (normals, albedo ...).
+        static PostProcessSettings Neutral();
+
+        static constexpr float AutoExposureKey = 0.18f; // middle grey the average is brought to
+        static constexpr float MinAutoExposureEV = -12.0f, MaxAutoExposureEV = 12.0f;
+
+        // The exposure multiplier auto exposure applies when the picture's average luminance
+        // (geometric mean) is 2^averageEV: the key over the clamped average, times the compensation.
+        float GetAutoExposureMultiplier(float averageEV) const;
+        // One adaptation step from `currentEV` towards `targetEV` after `deltaTime` seconds
+        // (exponential: 1 - e^(-dt * speed) of the way; dt <= 0 or speed <= 0: no change, a
+        // non-finite current value: the target at once).
+        static float AdaptExposure(float currentEV, float targetEV, float deltaTime, float speed);
+        // Values out of range (or not finite) back into range: MinEV <= MaxEV, speed > 0.
+        void SanitizeAutoExposure();
     };
 
-    // Screen-space effects applied to a rendered color texture:
-    // bloom (threshold + mip-chain blur), vignette, color grading, then FXAA.
+    // What a view kept from its earlier frames: auto exposure's adapted brightness. One per view
+    // that is post-processed every frame (the editor viewport, the player's screen); a view
+    // without one (a thumbnail, a material preview) measures every picture on its own.
+    class PostProcessHistory
+    {
+    public:
+        // Starts over (the next frame adapts at once instead of fading from the old brightness).
+        void Reset() { m_Valid = false; }
+        // The adapted average brightness (log2 luminance) of the last frame - read back from the
+        // GPU (a small stall, editor display only). False when auto exposure has not run.
+        bool ReadAdaptedEV(float& outEV) const;
+
+    private:
+        friend class PostProcessor;
+        Ref<Framebuffer> m_Adapted[2]; // 1x1, ping-pong: last frame's value -> this frame's
+        int m_Current = 0;
+        bool m_Valid = false;
+    };
+
+    // One picture to post-process (besides the settings).
+    struct PostProcessInput
+    {
+        uint32_t ColorTexture = 0;          // linear HDR scene picture
+        uint32_t Width = 0, Height = 0;     // its size (the render resolution)
+        uint32_t DepthTexture = 0;          // its depth for SSAO (0: no SSAO)
+        glm::mat4 Projection{ 1.0f };       // the camera's projection (SSAO; identity: none)
+        // The size written (the target's, or the bound framebuffer's viewport). 0: the input's
+        // size. Another size scales the picture there (linear filtering) - the render scale.
+        uint32_t OutputWidth = 0, OutputHeight = 0;
+        float DeltaTime = 0.0f;             // seconds since this view's last frame (adaptation)
+        PostProcessHistory* History = nullptr;
+    };
+
+    // Screen-space effects applied to a rendered color texture: SSAO, bloom (threshold +
+    // mip-chain blur), auto exposure, tonemapping, vignette, color grading, then FXAA. The
+    // picture is scaled to the output size in the composite pass.
     class PostProcessor
     {
     public:
@@ -48,6 +110,8 @@ namespace Zamin {
         // depthTexture/projection are needed for SSAO (pass 0 / identity to skip it).
         static void Apply(uint32_t inputTexture, uint32_t width, uint32_t height, const PostProcessSettings& settings,
                           const Ref<Framebuffer>& target, uint32_t depthTexture = 0, const glm::mat4& projection = glm::mat4(1.0f));
+        // The same with an output size of its own (render scale) and a view history (auto exposure).
+        static void Apply(const PostProcessInput& input, const PostProcessSettings& settings, const Ref<Framebuffer>& target);
 
         // Input is linear HDR; output is display (sRGB) color.
     };

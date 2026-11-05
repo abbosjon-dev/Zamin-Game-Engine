@@ -10,6 +10,9 @@
 #include "Zamin/Renderer/PostProcess.h"
 #include "Zamin/Utils/FileSystem.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace Zamin {
 
     void Renderer::Init()
@@ -37,6 +40,18 @@ namespace Zamin {
     void Renderer::OnWindowResize(uint32_t width, uint32_t height)
     {
         RenderCommand::SetViewport(0, 0, width, height);
+    }
+
+    glm::uvec2 Renderer::GetRenderResolution(uint32_t width, uint32_t height, float renderScale)
+    {
+        if (width == 0 || height == 0)
+            return { width, height };
+        float scale = std::isfinite(renderScale) ? std::clamp(renderScale, MinRenderScale, MaxRenderScale) : 1.0f;
+        scale = std::min({ scale, (float)MaxRenderSize / (float)width, (float)MaxRenderSize / (float)height });
+        auto side = [&](uint32_t size) {
+            return (uint32_t)std::clamp(std::lround((double)size * scale), 1l, (long)MaxRenderSize);
+        };
+        return { side(width), side(height) };
     }
 
     std::filesystem::path Renderer::GetResourcesDirectory()

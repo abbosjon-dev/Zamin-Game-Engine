@@ -36,6 +36,26 @@ namespace Zamin {
 
     static std::string Quote(const fs::path& p) { return "\"" + p.string() + "\""; }
 
+    namespace {
+        // The scene view's debug views, in RenderDebugView order.
+        struct DebugViewInfo
+        {
+            const char* Icon;
+            const char* Name;
+            const char* Tooltip;
+        };
+        constexpr DebugViewInfo s_DebugViews[RenderDebugViewCount] = {
+            { ICON_FA_SUN, "Oddiy (yoritilgan)", "Haqiqiy tasvir: materiallar, yorug'lik, soyalar va post-processing" },
+            { ICON_FA_LIGHTBULB, "Faqat yorug'lik", "Hamma sirtlar oq va metall emas: faqat quyosh, nuqtali/spot yorug'liklar, "
+                                                    "soyalar va atrof yorug'ligi ko'rinadi (tonemapping bilan)" },
+            { ICON_FA_COMPASS, "Normallar", "Dunyo koordinatalaridagi normallar rang sifatida (normal xaritalar bilan): "
+                                            "X - qizil, Y - yashil, Z - ko'k" },
+            { ICON_FA_PALETTE, "Albedo", "Asosiy rang (tekstura bilan), yorug'liksiz va tonemappingsiz" },
+            { ICON_FA_CIRCLE_HALF_STROKE, "Roughness", "G'adir-budurlik kulrangda: qora - silliq (oyna), oq - xira" },
+            { ICON_FA_GEM, "Metallic", "Metalliklik kulrangda: qora - metall emas, oq - metall" },
+        };
+    }
+
     EditorLayer::EditorLayer(fs::path startupProject)
         : Layer("EditorLayer"), m_StartupProject(std::move(startupProject)),
           m_EditorCamera(45.0f, 16.0f / 9.0f, 0.1f, 1000.0f)
@@ -273,7 +293,39 @@ namespace Zamin {
                 m_EditorCamera.Focus({ v[0], v[1], v[2] }, std::max(v[3], 0.1f));
                 m_EditorCamera.SetOrientation(glm::radians(v[4]), glm::radians(v[5]));
             }
-            // ZAMIN_EDITOR_SCENE_SETTINGS=1 | post: the scene settings tab in front (scrolled to post-processing).
+            // ZAMIN_EDITOR_VIEW_MODE=lighting|normals|albedo|roughness|metallic: a debug view of the scene view;
+            // ZAMIN_EDITOR_WIREFRAME=1|shaded: wireframe; ZAMIN_EDITOR_VIEW_MENU=1: the view mode menu opens.
+            if (const char* mode = std::getenv("ZAMIN_EDITOR_VIEW_MODE"))
+            {
+                static const std::pair<const char*, RenderDebugView> modes[] = {
+                    { "lit", RenderDebugView::Lit }, { "lighting", RenderDebugView::LightingOnly }, { "normals", RenderDebugView::Normals },
+                    { "albedo", RenderDebugView::Albedo }, { "roughness", RenderDebugView::Roughness }, { "metallic", RenderDebugView::Metallic },
+                };
+                bool found = false;
+                for (const auto& [name, view] : modes)
+                    if (std::string_view(mode) == name)
+                    {
+                        m_DebugView = view;
+                        found = true;
+                    }
+                if (!found)
+                    ZM_WARN("ZAMIN_EDITOR_VIEW_MODE: noma'lum ko'rinish '{}'", mode);
+            }
+            if (const char* wire = std::getenv("ZAMIN_EDITOR_WIREFRAME"))
+                m_Wireframe = m_WireframeStyle = std::string_view(wire) == "shaded" ? WireframeMode::ShadedWire : WireframeMode::Wire;
+            if (std::getenv("ZAMIN_EDITOR_VIEW_MENU"))
+                m_OpenViewModeMenu = true;
+            // ZAMIN_EDITOR_NO_CULLING=1: frustum culling off (to compare the pictures).
+            if (std::getenv("ZAMIN_EDITOR_NO_CULLING"))
+                Renderer3D::SetFrustumCulling(false);
+            // ZAMIN_EDITOR_RENDER_SCALE=<0.5..2> / ZAMIN_EDITOR_AUTO_EXPOSURE=1: the open scene's settings
+            // (not saved unless the scene is).
+            if (const char* scale = std::getenv("ZAMIN_EDITOR_RENDER_SCALE"))
+                m_ActiveScene->GetSettings().RenderScale = std::clamp((float)std::atof(scale), Renderer::MinRenderScale, Renderer::MaxRenderScale);
+            if (std::getenv("ZAMIN_EDITOR_AUTO_EXPOSURE"))
+                m_ActiveScene->GetSettings().Post.AutoExposure = true;
+            // ZAMIN_EDITOR_SCENE_SETTINGS=1 | render | post | exposure: the scene settings tab in front (scrolled
+            // to that section).
             if (const char* settings = std::getenv("ZAMIN_EDITOR_SCENE_SETTINGS"))
             {
                 m_ShowSceneSettings = m_FocusSceneSettings = true;
@@ -565,13 +617,19 @@ namespace Zamin {
 
         m_ActiveScene->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
 
-        if (FramebufferSpecification spec = m_Framebuffer->GetSpecification();
-            m_ViewportSize.x > 0.0f && m_ViewportSize.y > 0.0f &&
-            (spec.Width != (uint32_t)m_ViewportSize.x || spec.Height != (uint32_t)m_ViewportSize.y))
+        // The scene is drawn at the render scale of the viewport's size; post-processing scales it
+        // into the final picture (the viewport's own size, where the overlays are drawn).
+        if (m_ViewportSize.x > 0.0f && m_ViewportSize.y > 0.0f)
         {
-            m_Framebuffer->Resize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
-            m_FinalFramebuffer->Resize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
-            m_EditorCamera.SetViewportSize(m_ViewportSize.x, m_ViewportSize.y);
+            const uint32_t vw = (uint32_t)m_ViewportSize.x, vh = (uint32_t)m_ViewportSize.y;
+            glm::uvec2 renderSize = Renderer::GetRenderResolution(vw, vh, m_ActiveScene->GetSettings().RenderScale);
+            if (const auto& spec = m_Framebuffer->GetSpecification(); spec.Width != renderSize.x || spec.Height != renderSize.y)
+                m_Framebuffer->Resize(renderSize.x, renderSize.y);
+            if (const auto& spec = m_FinalFramebuffer->GetSpecification(); spec.Width != vw || spec.Height != vh)
+            {
+                m_FinalFramebuffer->Resize(vw, vh);
+                m_EditorCamera.SetViewportSize(m_ViewportSize.x, m_ViewportSize.y);
+            }
         }
 
         if (m_PendingClickThrough)
@@ -595,6 +653,8 @@ namespace Zamin {
         options.GridPlane = m_2DMode ? 1 : 0;
         options.Grid = m_ViewSettings.Grid;
         options.SkipEditorHidden = true; // the hierarchy's eye: edit + simulate views only (play draws everything)
+        options.DebugView = m_DebugView;
+        options.Wireframe = m_Wireframe;
         // A material dragged over a mesh is shown on it before the drop.
         if (m_MaterialDrag.Active && m_MaterialDrag.Material && m_SceneState == SceneState::Edit && (uint64_t)m_MaterialDrag.Target)
             if (Entity target = m_ActiveScene->GetEntityByUUID(m_MaterialDrag.Target))
@@ -652,7 +712,8 @@ namespace Zamin {
         int mouseX = (int)mx, mouseY = (int)my;
         if (mouseX >= 0 && mouseY >= 0 && mouseX < (int)viewportSize.x && mouseY < (int)viewportSize.y)
         {
-            int pixel = m_Framebuffer->ReadPixel(1, mouseX, mouseY);
+            glm::ivec2 render = ViewportToRenderPixel({ mouseX, mouseY });
+            int pixel = m_Framebuffer->ReadPixel(1, render.x, render.y);
             m_HoveredEntity = pixel == -1 ? Entity() : Entity((entt::entity)pixel, m_ActiveScene.get());
             if (m_HoveredEntity && !m_HoveredEntity.IsValid())
                 m_HoveredEntity = {};
@@ -664,14 +725,40 @@ namespace Zamin {
             m_HoveredPixel = { -1, -1 };
         }
 
-        // Post-processing into the final target, then editor overlays on top.
+        // Post-processing into the final target (scaled to the viewport's size), then editor
+        // overlays on top. Debug views that show values (normals, albedo ...) skip the effects.
         const auto& spec = m_Framebuffer->GetSpecification();
-        PostProcessor::Apply(m_Framebuffer->GetColorAttachmentRendererID(0), spec.Width, spec.Height,
-                             m_ActiveScene->GetSettings().Post, m_FinalFramebuffer,
-                             m_Framebuffer->GetDepthAttachmentRendererID(), m_ActiveScene->GetLastProjection());
+        PostProcessInput post;
+        post.ColorTexture = m_Framebuffer->GetColorAttachmentRendererID(0);
+        post.Width = spec.Width;
+        post.Height = spec.Height;
+        post.DepthTexture = m_Framebuffer->GetDepthAttachmentRendererID();
+        post.Projection = m_ActiveScene->GetLastProjection();
+        post.OutputWidth = m_FinalFramebuffer->GetSpecification().Width;
+        post.OutputHeight = m_FinalFramebuffer->GetSpecification().Height;
+        post.DeltaTime = ts;
+        post.History = &m_PostHistory;
+        const bool neutralPost = IsDebugViewActive() && !Renderer3D::DebugViewUsesPostProcessing(m_DebugView);
+        PostProcessor::Apply(post, neutralPost ? PostProcessSettings::Neutral() : m_ActiveScene->GetSettings().Post, m_FinalFramebuffer);
         m_FinalFramebuffer->Bind();
         OnOverlayRender();
         m_FinalFramebuffer->Unbind();
+    }
+
+    glm::ivec2 EditorLayer::ViewportToRenderPixel(glm::ivec2 pixel) const
+    {
+        const auto& render = m_Framebuffer->GetSpecification();
+        const auto& view = m_FinalFramebuffer->GetSpecification();
+        if (view.Width == 0 || view.Height == 0 || (render.Width == view.Width && render.Height == view.Height))
+            return pixel;
+        // the render pixel under the viewport pixel's center
+        return { (int)std::floor(((float)pixel.x + 0.5f) * (float)render.Width / (float)view.Width),
+                 (int)std::floor(((float)pixel.y + 0.5f) * (float)render.Height / (float)view.Height) };
+    }
+
+    bool EditorLayer::IsDebugViewActive() const
+    {
+        return m_SceneState != SceneState::Play && m_DebugView != RenderDebugView::Lit;
     }
 
     glm::mat4 EditorLayer::OverlayViewProjection()
@@ -1047,7 +1134,8 @@ namespace Zamin {
             return;
         const auto& spec = m_Framebuffer->GetSpecification();
         Entity picked;
-        if (pick.Pixel.x >= 0 && pick.Pixel.y >= 0 && pick.Pixel.x < (int)spec.Width && pick.Pixel.y < (int)spec.Height)
+        const glm::ivec2 pixel = ViewportToRenderPixel(pick.Pixel);
+        if (pixel.x >= 0 && pixel.y >= 0 && pixel.x < (int)spec.Width && pixel.y < (int)spec.Height)
         {
             // The scene once more from the same camera, without the locked (and hidden)
             // entities; only the entity IDs matter. The frame's real pass clears it all again.
@@ -1059,10 +1147,10 @@ namespace Zamin {
             options.SkipEditorHidden = true;
             options.SkipEditorLocked = true;
             m_ActiveScene->OnRenderEditor(m_EditorCamera, options);
-            int pixel = m_Framebuffer->ReadPixel(1, pick.Pixel.x, pick.Pixel.y);
+            int id = m_Framebuffer->ReadPixel(1, pixel.x, pixel.y);
             m_Framebuffer->Unbind();
-            if (pixel != -1)
-                picked = Entity((entt::entity)pixel, m_ActiveScene.get());
+            if (id != -1)
+                picked = Entity((entt::entity)id, m_ActiveScene.get());
             if (picked && (!picked.IsValid() || m_ActiveScene->IsLockedInEditor(picked)))
                 picked = {};
         }
@@ -3071,6 +3159,20 @@ namespace Zamin {
             if (m_ShowIcons) UI_ViewportIcons();
         }
         if (m_ShowTransparentOrder) UI_TransparentOrder(); // also while playing (the game camera's order)
+        // The view mode, when it is not the real picture (the toolbar's menu changes it).
+        if (m_SceneState != SceneState::Play && (m_DebugView != RenderDebugView::Lit || m_Wireframe != WireframeMode::Off))
+        {
+            const DebugViewInfo& info = s_DebugViews[(int)m_DebugView];
+            std::string label = m_DebugView != RenderDebugView::Lit ? std::format("{}  {}", info.Icon, info.Name) : std::string();
+            if (m_Wireframe != WireframeMode::Off)
+                label += std::format("{}{}  {}", label.empty() ? "" : "   ", ICON_FA_DRAW_POLYGON,
+                                     m_Wireframe == WireframeMode::Wire ? "Wireframe" : "Sirt + wireframe");
+            ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
+            ImVec2 at(m_ViewportBounds[0].x + 12.0f, m_ViewportBounds[1].y - textSize.y - 16.0f);
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            dl->AddRectFilled(ImVec2(at.x - 6, at.y - 4), ImVec2(at.x + textSize.x + 6, at.y + textSize.y + 4), IM_COL32(18, 20, 24, 200), 5.0f);
+            dl->AddText(at, ImGui::GetColorU32(UI::AccentColor()), label.c_str());
+        }
         UI_ViewportToolbar();
         UI_ViewportMessage();
 
@@ -3235,7 +3337,7 @@ namespace Zamin {
         }
 
         // ---- right: camera (frame all, bookmarks) | view options
-        float viewW = buttonSize * 6 + caretWidth + spacing * 6;
+        float viewW = buttonSize * 7 + caretWidth * 2 + spacing * 7;
         ImVec2 viewPos(width - viewW - 10, 10);
         {
             bool cameraTools = m_SceneState != SceneState::Play;
@@ -3271,6 +3373,30 @@ namespace Zamin {
             if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###GridMenu", "Grid sozlamalari: o'lcham, rang, ko'rinish", false, ImVec2(caretWidth, buttonSize)))
                 ImGui::OpenPopup("##GridSettings");
             UI_GridSettingsPopup();
+            ImGui::SameLine();
+            // Wireframe toggle + the view mode menu (debug views of the surfaces).
+            {
+                bool wire = m_Wireframe != WireframeMode::Off;
+                std::string tip = std::format("Wireframe: {} (o'ng tugma yoki {}: ko'rinish rejimlari - yorug'lik, normallar, albedo ...)",
+                                              wire ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
+                if (UI::ToolbarButton(ICON_FA_DRAW_POLYGON, tip.c_str(), wire, size))
+                    m_Wireframe = wire ? WireframeMode::Off : m_WireframeStyle;
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                    ImGui::OpenPopup("##ViewMode");
+                ImGui::SameLine(0.0f, 0.0f);
+                const bool debugView = m_DebugView != RenderDebugView::Lit;
+                if (debugView) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
+                if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###ViewModeMenu", "Ko'rinish rejimi: oddiy, faqat yorug'lik, normallar, albedo, "
+                                      "roughness, metallic; wireframe turi", debugView, ImVec2(caretWidth, buttonSize)))
+                    ImGui::OpenPopup("##ViewMode");
+                if (debugView) ImGui::PopStyleColor();
+                if (m_OpenViewModeMenu)
+                {
+                    ImGui::OpenPopup("##ViewMode");
+                    m_OpenViewModeMenu = false;
+                }
+                UI_ViewModePopup();
+            }
             ImGui::SameLine();
             if (UI::ToolbarButton(ICON_FA_VECTOR_SQUARE, "Fizik colliderlar", m_ShowColliders, size)) m_ShowColliders = !m_ShowColliders;
             ImGui::SameLine();
@@ -3360,6 +3486,44 @@ namespace Zamin {
                 snap.Sanitize();
                 MarkViewSettingsDirty();
             }
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar(2);
+    }
+
+    void EditorLayer::UI_ViewModePopup()
+    {
+        ImGui::SetNextWindowSizeConstraints(ImVec2(290, 0), ImVec2(420, FLT_MAX));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 5));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+        if (ImGui::BeginPopup("##ViewMode"))
+        {
+            ImGui::TextColored(UI::AccentColor(), ICON_FA_EYE "  Ko'rinish rejimi");
+            ImGui::Separator();
+            for (int i = 0; i < RenderDebugViewCount; i++)
+            {
+                std::string label = std::format("{}  {}", s_DebugViews[i].Icon, s_DebugViews[i].Name);
+                if (ImGui::Selectable(label.c_str(), (int)m_DebugView == i, ImGuiSelectableFlags_DontClosePopups))
+                    m_DebugView = (RenderDebugView)i;
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    ImGui::SetTooltip("%s", s_DebugViews[i].Tooltip);
+            }
+            ImGui::SeparatorText(ICON_FA_DRAW_POLYGON "  Wireframe");
+            auto wireOption = [&](const char* label, WireframeMode mode, const char* tooltip) {
+                if (ImGui::RadioButton(label, m_Wireframe == mode))
+                {
+                    m_Wireframe = mode;
+                    if (mode != WireframeMode::Off)
+                        m_WireframeStyle = mode;
+                }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    ImGui::SetTooltip("%s", tooltip);
+            };
+            wireOption("O'chiq", WireframeMode::Off, "Sirtlar odatdagidek to'ldirib chiziladi");
+            wireOption("Faqat qirralar", WireframeMode::Wire, "Meshlar faqat uchburchak qirralari bilan (tanlangan ko'rinish ranglarida)");
+            wireOption("Sirt + qirralar", WireframeMode::ShadedWire, "Odatdagi tasvir ustida uchburchak qirralari");
+            ImGui::Spacing();
+            ImGui::TextDisabled("Faqat sahna ko'rinishida: o'yin kamerasi\n(Play) doim haqiqiy tasvirni ko'rsatadi");
             ImGui::EndPopup();
         }
         ImGui::PopStyleVar(2);
@@ -3817,6 +3981,33 @@ namespace Zamin {
             UI::EndPropertyGrid();
         }
 
+        ImGui::SeparatorText(ICON_FA_EXPAND "  Render");
+        if (m_SceneSettingsScrollTo == "render")
+        {
+            ImGui::SetScrollHereY(0.0f);
+            m_SceneSettingsScrollTo.clear();
+        }
+        if (UI::BeginPropertyGrid("render"))
+        {
+            UI::PropertyLabel("Render masshtabi", "Sahna tasviri ko'rinish o'lchamining shuncha barobarida chiziladi, keyin "
+                                                  "chiziqli filtr bilan ko'rinish o'lchamiga keltiriladi.\n"
+                                                  "1 dan kichik: tezroq, lekin yumshoqroq; 1 dan katta: supersampling (silliqroq, "
+                                                  "sekinroq). Editor viewport'i va o'yin (player) ikkalasida ishlaydi.");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::SliderFloat("##renderscale", &s.RenderScale, Renderer::MinRenderScale, Renderer::MaxRenderScale, "x%.2f"))
+            {
+                s.RenderScale = std::clamp(s.RenderScale, Renderer::MinRenderScale, Renderer::MaxRenderScale);
+                changed = true;
+            }
+            UI::PropertyLabel("");
+            changed |= PresetButtons("renderScalePresets", s.RenderScale, { 0.5f, 0.75f, 1.0f, 1.5f, 2.0f });
+            const auto& fb = m_Framebuffer->GetSpecification();
+            const auto& view = m_FinalFramebuffer->GetSpecification();
+            UI::PropertyLabel("Ichki o'lcham", "Viewport'ning sahna tasviri hozir chizilayotgan o'lcham (ko'rinish o'lchami qavsda)");
+            ImGui::Text("%u x %u  (%u x %u)", fb.Width, fb.Height, view.Width, view.Height);
+            UI::EndPropertyGrid();
+        }
+
         ImGui::SeparatorText(ICON_FA_WAND_MAGIC_SPARKLES "  Post-processing");
         if (m_SceneSettingsScrollTo == "post")
         {
@@ -3855,6 +4046,51 @@ namespace Zamin {
                 UI::PropertyLabel("FXAA subpiksel", "Bir pikselli mayda detallar (ingichka chiziqlar, yaltirashlar) qanchalik "
                                                     "yumshatiladi: 0 - faqat qirralar, 1 - eng yumshoq");
                 changed |= ImGui::SliderFloat("##fxaasub", &p.FXAASubpixel, 0.0f, 1.0f, "%.2f");
+            }
+            if (m_SceneSettingsScrollTo == "exposure")
+            {
+                ImGui::SetScrollHereY(0.25f);
+                m_SceneSettingsScrollTo.clear();
+            }
+            UI::PropertyLabel("Avto ekspozitsiya", "Ko'zning moslashishi: tasvirning o'rtacha yorqinligi (log luminance, GPU'da "
+                                                   "kichraytirish zanjiri bilan) o'lchanadi va vaqt o'tishi bilan o'rta kulrangga "
+                                                   "keltiriladi - qorong'i joyda tasvir yorishadi, yorug'da qorayadi.\n"
+                                                   "O'chiq: faqat qo'lda berilgan ekspozitsiya.");
+            changed |= ImGui::Checkbox("##autoexposure", &p.AutoExposure);
+            if (p.AutoExposure)
+            {
+                float adapted = 0.0f;
+                if (m_PostHistory.ReadAdaptedEV(adapted))
+                {
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("hozir: %+.1f EV, x%.2f", adapted, p.GetAutoExposureMultiplier(adapted));
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Viewport'ning moslashgan o'rtacha yorqinligi (log2 luminance) va u beradigan ko'paytma");
+                }
+                UI::PropertyLabel("Kompensatsiya", "Moslashgan tasvirni yana yorituvchi (+) yoki qoraytiruvchi (-) qo'shimcha, EV'da: "
+                                                   "+1 - ikki barobar yorug'");
+                changed |= ImGui::SliderFloat("##aecomp", &p.AutoExposureCompensation, -4.0f, 4.0f, "%+.1f EV");
+                UI::PropertyLabel("Min EV", "Moslashadigan eng qorong'i o'rtacha yorqinlik (log2 luminance): bundan qorong'i "
+                                            "sahnalar qorong'iligicha qoladi");
+                if (ImGui::SliderFloat("##aemin", &p.AutoExposureMinEV, PostProcessSettings::MinAutoExposureEV,
+                                       PostProcessSettings::MaxAutoExposureEV, "%.1f EV"))
+                {
+                    p.AutoExposureMaxEV = std::max(p.AutoExposureMaxEV, p.AutoExposureMinEV);
+                    changed = true;
+                }
+                UI::PropertyLabel("Max EV", "Moslashadigan eng yorug' o'rtacha yorqinlik: bundan yorug' sahnalar yorug'ligicha qoladi");
+                if (ImGui::SliderFloat("##aemax", &p.AutoExposureMaxEV, PostProcessSettings::MinAutoExposureEV,
+                                       PostProcessSettings::MaxAutoExposureEV, "%.1f EV"))
+                {
+                    p.AutoExposureMinEV = std::min(p.AutoExposureMinEV, p.AutoExposureMaxEV);
+                    changed = true;
+                }
+                UI::PropertyLabel("Moslashish tezligi", "Yangi yorqinlikka qanchalik tez moslashadi (1/s): katta qiymat - tezroq");
+                if (ImGui::SliderFloat("##aespeed", &p.AutoExposureSpeed, 0.1f, 10.0f, "%.1f /s"))
+                {
+                    p.SanitizeAutoExposure();
+                    changed = true;
+                }
             }
             UI::EndPropertyGrid();
         }
@@ -3930,6 +4166,17 @@ namespace Zamin {
                                                      "orqadan oldinga saralanib, oxirida chiziladi");
                 ImGui::Text("%u", stats.TransparentCount);
                 UI::PropertyLabel("Uchburchaklar"); ImGui::Text("%u", stats.TriangleCount);
+                UI::PropertyLabel("Kesilgan mesh", "Frustum culling: kamera ko'rmaydigan meshlar (dunyo AABB chegaralari "
+                                                      "ko'rish hajmidan tashqarida) chizilmadi");
+                ImGui::Text("%u", stats.CulledMeshCount);
+                UI::PropertyLabel("Kesilgan soyalar", "Soya kaskadi hajmidan tashqaridagi soya tashlovchilar shu kaskadga chizilmadi "
+                                                      "(kaskadlar bo'yicha yig'indi)");
+                ImGui::Text("%u", stats.CulledShadowCasterCount);
+                {
+                    const auto& fb = m_Framebuffer->GetSpecification();
+                    UI::PropertyLabel("Render o'lchami", "Sahna tasviri chizilayotgan o'lcham (render masshtabi bilan)");
+                    ImGui::Text("%u x %u  (x%.2f)", fb.Width, fb.Height, m_ActiveScene->GetSettings().RenderScale);
+                }
                 UI::PropertyLabel("Obyektlar"); ImGui::Text("%zu", m_ActiveScene->GetRegistry().view<IDComponent>().size());
                 // Lights that light the scene (inactive ones take no slot).
                 {

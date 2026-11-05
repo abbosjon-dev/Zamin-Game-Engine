@@ -10628,6 +10628,259 @@ TEST(MaterialThumbnailStamp)
     fs::remove_all(dir, ec);
 }
 
+TEST(RenderScaleResolution)
+{
+    // 1: the view's own size; other scales each side rounded.
+    CHECK(Renderer::GetRenderResolution(1600, 900, 1.0f) == glm::uvec2(1600, 900));
+    CHECK(Renderer::GetRenderResolution(1600, 900, 0.5f) == glm::uvec2(800, 450));
+    CHECK(Renderer::GetRenderResolution(1600, 900, 0.75f) == glm::uvec2(1200, 675));
+    CHECK(Renderer::GetRenderResolution(1600, 900, 2.0f) == glm::uvec2(3200, 1800));
+    CHECK(Renderer::GetRenderResolution(3, 3, 0.5f) == glm::uvec2(2, 2));
+    // Clamped to 0.5 .. 2; not finite: 1.
+    CHECK(Renderer::GetRenderResolution(1000, 500, 0.1f) == glm::uvec2(500, 250));
+    CHECK(Renderer::GetRenderResolution(1000, 500, 9.0f) == glm::uvec2(2000, 1000));
+    CHECK(Renderer::GetRenderResolution(1000, 500, std::numeric_limits<float>::quiet_NaN()) == glm::uvec2(1000, 500));
+    // Never below one pixel, never above the largest framebuffer (the aspect ratio kept).
+    CHECK(Renderer::GetRenderResolution(1, 1, 0.5f) == glm::uvec2(1, 1));
+    glm::uvec2 big = Renderer::GetRenderResolution(6000, 3000, 2.0f);
+    CHECK(big.x == Renderer::MaxRenderSize && big.y == Renderer::MaxRenderSize / 2);
+    CHECK(Renderer::GetRenderResolution(0, 0, 1.0f) == glm::uvec2(0, 0));
+}
+
+TEST(RenderScaleSceneSetting)
+{
+    auto scene = CreateRef<Scene>();
+    CHECK(scene->GetSettings().RenderScale == 1.0f); // existing scenes keep their look
+    scene->GetSettings().RenderScale = 0.75f;
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"RenderScale\": 0.75") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK_NEAR(loaded->GetSettings().RenderScale, 0.75f, 1e-6f);
+    CHECK_NEAR(Scene::Copy(scene)->GetSettings().RenderScale, 0.75f, 1e-6f); // play mode keeps it
+
+    // A scene from before the setting: 1; values out of range are clamped.
+    std::string old = text;
+    old.replace(old.find("\"RenderScale\": 0.75"), std::string("\"RenderScale\": 0.75").size(), "\"RenderScaleOld\": 0.75");
+    auto legacy = CreateRef<Scene>();
+    CHECK(SceneSerializer(legacy).DeserializeFromString(old) && legacy->GetSettings().RenderScale == 1.0f);
+    for (auto [value, expected] : { std::pair{ "7.5", 2.0f }, std::pair{ "0.1", 0.5f } })
+    {
+        std::string wild = text;
+        wild.replace(wild.find("\"RenderScale\": 0.75"), std::string("\"RenderScale\": 0.75").size(), std::string("\"RenderScale\": ") + value);
+        auto clamped = CreateRef<Scene>();
+        CHECK(SceneSerializer(clamped).DeserializeFromString(wild));
+        CHECK(clamped->GetSettings().RenderScale == expected);
+    }
+}
+
+TEST(AutoExposureMath)
+{
+    PostProcessSettings s;
+    CHECK(!s.AutoExposure); // off by default: the manual exposure alone
+    // The average brought to middle grey: an average of exactly the key needs no change.
+    CHECK_NEAR(s.GetAutoExposureMultiplier(std::log2(PostProcessSettings::AutoExposureKey)), 1.0f, 1e-5f);
+    CHECK_NEAR(s.GetAutoExposureMultiplier(-3.0f), PostProcessSettings::AutoExposureKey * 8.0f, 1e-5f); // dark: brighter
+    CHECK_NEAR(s.GetAutoExposureMultiplier(1.0f), PostProcessSettings::AutoExposureKey * 0.5f, 1e-6f);  // bright: darker
+    // Compensation in EV: +1 twice as bright.
+    s.AutoExposureCompensation = 1.0f;
+    CHECK_NEAR(s.GetAutoExposureMultiplier(-3.0f), PostProcessSettings::AutoExposureKey * 16.0f, 1e-4f);
+    s.AutoExposureCompensation = 0.0f;
+    // The measured brightness is held within min .. max EV.
+    s.AutoExposureMinEV = -2.0f;
+    s.AutoExposureMaxEV = 3.0f;
+    CHECK_NEAR(s.GetAutoExposureMultiplier(-10.0f), PostProcessSettings::AutoExposureKey * 4.0f, 1e-5f);
+    CHECK_NEAR(s.GetAutoExposureMultiplier(10.0f), PostProcessSettings::AutoExposureKey / 8.0f, 1e-6f);
+    CHECK_NEAR(s.GetAutoExposureMultiplier(std::numeric_limits<float>::infinity()), PostProcessSettings::AutoExposureKey, 1e-6f);
+
+    // Adaptation: exponential, never past the target; dt or speed <= 0: no change.
+    CHECK(PostProcessSettings::AdaptExposure(2.0f, -2.0f, 0.0f, 2.0f) == 2.0f);
+    CHECK(PostProcessSettings::AdaptExposure(2.0f, -2.0f, 0.1f, 0.0f) == 2.0f);
+    CHECK(PostProcessSettings::AdaptExposure(std::numeric_limits<float>::quiet_NaN(), -2.0f, 0.1f, 2.0f) == -2.0f);
+    // Half of the way after ln 2 / speed seconds.
+    CHECK_NEAR(PostProcessSettings::AdaptExposure(0.0f, 4.0f, std::log(2.0f) / 2.0f, 2.0f), 2.0f, 1e-4f);
+    float ev = 0.0f, previous = 0.0f;
+    bool monotonic = true, overshot = false;
+    for (int frame = 0; frame < 600; frame++) // 10 s at 60 fps
+    {
+        ev = PostProcessSettings::AdaptExposure(ev, 4.0f, 1.0f / 60.0f, 2.0f);
+        monotonic &= ev >= previous;
+        overshot |= ev > 4.0f;
+        previous = ev;
+    }
+    CHECK(monotonic && !overshot);
+    CHECK_NEAR(ev, 4.0f, 1e-3f);
+    // Frame-rate independent: the same time in big or small steps ends at the same place.
+    float coarse = PostProcessSettings::AdaptExposure(0.0f, 4.0f, 0.5f, 2.0f);
+    float fine = 0.0f;
+    for (int i = 0; i < 50; i++)
+        fine = PostProcessSettings::AdaptExposure(fine, 4.0f, 0.01f, 2.0f);
+    CHECK_NEAR(coarse, fine, 1e-4f);
+
+    // Sanitizing: swapped limits, values that are not finite.
+    PostProcessSettings wild;
+    wild.AutoExposureMinEV = 5.0f;
+    wild.AutoExposureMaxEV = -1.0f;
+    wild.AutoExposureSpeed = std::numeric_limits<float>::quiet_NaN();
+    wild.AutoExposureCompensation = std::numeric_limits<float>::infinity();
+    wild.SanitizeAutoExposure();
+    CHECK(wild.AutoExposureMinEV == -1.0f && wild.AutoExposureMaxEV == 5.0f);
+    CHECK(wild.AutoExposureSpeed == 2.0f && wild.AutoExposureCompensation == 0.0f);
+    wild.AutoExposureMinEV = -100.0f;
+    wild.AutoExposureSpeed = -3.0f;
+    wild.SanitizeAutoExposure();
+    CHECK(wild.AutoExposureMinEV == PostProcessSettings::MinAutoExposureEV && wild.AutoExposureSpeed > 0.0f);
+}
+
+TEST(AutoExposureSceneSetting)
+{
+    auto scene = CreateRef<Scene>();
+    CHECK(!scene->GetSettings().Post.AutoExposure);
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto plain = CreateRef<Scene>();
+    CHECK(SceneSerializer(plain).DeserializeFromString(text) && !plain->GetSettings().Post.AutoExposure);
+
+    auto& p = scene->GetSettings().Post;
+    p.AutoExposure = true;
+    p.AutoExposureCompensation = -0.5f;
+    p.AutoExposureMinEV = -6.0f;
+    p.AutoExposureMaxEV = 2.5f;
+    p.AutoExposureSpeed = 0.75f;
+    text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& l = loaded->GetSettings().Post;
+    CHECK(l.AutoExposure);
+    CHECK_NEAR(l.AutoExposureCompensation, -0.5f, 1e-6f);
+    CHECK_NEAR(l.AutoExposureMinEV, -6.0f, 1e-6f);
+    CHECK_NEAR(l.AutoExposureMaxEV, 2.5f, 1e-6f);
+    CHECK_NEAR(l.AutoExposureSpeed, 0.75f, 1e-6f);
+    CHECK(Scene::Copy(scene)->GetSettings().Post.AutoExposure);
+
+    // A scene from before the setting: off with the defaults; swapped limits are put in order.
+    std::string old = text;
+    old.replace(old.find("\"AutoExposure\": true"), std::string("\"AutoExposure\": true").size(), "\"AutoExposureOld\": true");
+    auto legacy = CreateRef<Scene>();
+    CHECK(SceneSerializer(legacy).DeserializeFromString(old) && !legacy->GetSettings().Post.AutoExposure);
+    std::string swapped = text;
+    swapped.replace(swapped.find("\"AutoExposureMinEV\": -6.0"), std::string("\"AutoExposureMinEV\": -6.0").size(), "\"AutoExposureMinEV\": 9.0");
+    auto fixed = CreateRef<Scene>();
+    CHECK(SceneSerializer(fixed).DeserializeFromString(swapped));
+    CHECK(fixed->GetSettings().Post.AutoExposureMinEV <= fixed->GetSettings().Post.AutoExposureMaxEV);
+}
+
+TEST(FrustumCullingVolume)
+{
+    // A camera at (0, 0, 10) looking down -Z, 60 degree vertical field of view, near 0.1, far 50.
+    glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 10), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+    glm::mat4 proj = glm::perspective(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 50.0f);
+    Frustum f = Frustum::FromViewProjection(proj * view);
+    for (const glm::vec4& p : f.Planes)
+        CHECK_NEAR(glm::length(glm::vec3(p)), 1.0f, 1e-4f);
+    auto box = [](glm::vec3 center, float half) { return AABB{ center - glm::vec3(half), center + glm::vec3(half) }; };
+    CHECK(f.Intersects(box({ 0, 0, 0 }, 0.5f)));          // in front
+    CHECK(!f.Intersects(box({ 0, 0, 12 }, 0.5f)));        // behind the camera
+    CHECK(!f.Intersects(box({ 0, 0, -45 }, 0.5f)));       // beyond the far plane (55 away)
+    CHECK(f.Intersects(box({ 0, 0, -39.8f }, 0.5f)));     // just inside it
+    CHECK(!f.Intersects(box({ 30, 0, 0 }, 0.5f)));        // far to the right (the view is ~10 wide there)
+    CHECK(!f.Intersects(box({ 0, -12, 0 }, 0.5f)));       // below
+    // Straddling a side plane: partly visible counts as visible.
+    float edgeX = std::tan(glm::radians(30.0f)) * 10.0f * 16.0f / 9.0f; // the right edge at z = 0
+    CHECK(f.Intersects(box({ edgeX + 0.4f, 0, 0 }, 0.5f)));
+    CHECK(!f.Intersects(box({ edgeX + 1.2f, 0, 0 }, 0.5f))); // (the far side of the box is ~0.5 wider)
+    // A flat box (a plane primitive) and an empty one.
+    CHECK(f.Intersects(AABB{ { -5, 0, -5 }, { 5, 0, 5 } }));
+    CHECK(!f.Intersects(AABB{ { 1, 1, 1 }, { 0, 0, 0 } }));
+    CHECK(f.Contains({ 0, 0, 0 }) && !f.Contains({ 0, 0, 11 }));
+
+    // Orthographic (a 2D / shadow cascade camera): a box.
+    glm::mat4 ortho = glm::ortho(-5.0f, 5.0f, -3.0f, 3.0f, 0.1f, 20.0f) * view;
+    Frustum o = Frustum::FromViewProjection(ortho);
+    CHECK(o.Intersects(box({ 4.4f, 2.4f, 0 }, 0.5f)) && !o.Intersects(box({ 6.0f, 0, 0 }, 0.5f)));
+    CHECK(!o.Intersects(box({ 0, 0, -11 }, 0.5f)) && o.Intersects(box({ 0, 0, -9.5f }, 0.5f)));
+}
+
+TEST(CullingBounds)
+{
+    // TransformAABB: the tightest box around the moved box.
+    AABB unit{ glm::vec3(-0.5f), glm::vec3(0.5f) };
+    AABB moved = TransformAABB(unit, glm::translate(glm::mat4(1.0f), { 3, 0, -2 }) * glm::scale(glm::mat4(1.0f), { 2, 1, -1 }));
+    CHECK_NEAR(moved.Min.x, 2.0f, 1e-5f);
+    CHECK_NEAR(moved.Max.x, 4.0f, 1e-5f);
+    CHECK_NEAR(moved.Min.z, -2.5f, 1e-5f);
+    CHECK_NEAR(moved.Max.z, -1.5f, 1e-5f);
+    AABB turned = TransformAABB(unit, glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), { 0, 1, 0 }));
+    CHECK_NEAR(turned.Max.x, std::sqrt(0.5f), 1e-5f);
+    CHECK_NEAR(turned.Max.z, std::sqrt(0.5f), 1e-5f);
+    CHECK_NEAR(turned.Max.y, 0.5f, 1e-5f);
+
+    // Every transformed point of the box lies inside (random rotations, scales, translations).
+    uint32_t seed = 12345;
+    auto rnd = [&]() { seed = seed * 1664525u + 1013904223u; return (float)(seed >> 8) / (float)(1u << 24); };
+    AABB local{ { -1, 0, -2 }, { 2, 3, 1 } };
+    bool inside = true;
+    for (int t = 0; t < 50; t++)
+    {
+        glm::mat4 m = glm::translate(glm::mat4(1.0f), { rnd() * 20 - 10, rnd() * 20 - 10, rnd() * 20 - 10 }) *
+                      glm::rotate(glm::mat4(1.0f), rnd() * 6.28f, glm::normalize(glm::vec3(rnd() - 0.5f, rnd() - 0.5f, rnd() - 0.5f) + 0.01f)) *
+                      glm::scale(glm::mat4(1.0f), { rnd() * 3 + 0.1f, rnd() * 3 + 0.1f, -(rnd() * 3 + 0.1f) });
+        AABB world = TransformAABB(local, m);
+        for (int k = 0; k < 20; k++)
+        {
+            glm::vec3 p = glm::mix(local.Min, local.Max, glm::vec3(rnd(), rnd(), rnd()));
+            glm::vec3 w = glm::vec3(m * glm::vec4(p, 1.0f));
+            inside &= glm::all(glm::greaterThanEqual(w, world.Min - 1e-4f)) && glm::all(glm::lessThanEqual(w, world.Max + 1e-4f));
+        }
+    }
+    CHECK(inside);
+
+    // Skinned meshes: a vertex blended from a few joints stays inside the conservative bounds.
+    std::vector<glm::mat4> joints = {
+        glm::mat4(1.0f),
+        glm::translate(glm::mat4(1.0f), { 0, 2, 0 }) * glm::rotate(glm::mat4(1.0f), 1.2f, glm::vec3(1, 0, 0)),
+        glm::translate(glm::mat4(1.0f), { -3, 0, 1 }) * glm::rotate(glm::mat4(1.0f), -0.7f, glm::vec3(0, 0, 1)),
+        glm::scale(glm::mat4(1.0f), glm::vec3(1.5f)),
+    };
+    AABB skinned = SkinnedBounds(local, joints.data(), joints.size());
+    bool skinInside = true;
+    for (int k = 0; k < 500; k++)
+    {
+        glm::vec3 p = glm::mix(local.Min, local.Max, glm::vec3(rnd(), rnd(), rnd()));
+        glm::vec4 w(rnd(), rnd(), rnd(), rnd());
+        w /= (w.x + w.y + w.z + w.w);
+        glm::mat4 skin = joints[0] * w.x + joints[1] * w.y + joints[2] * w.z + joints[3] * w.w;
+        glm::vec3 q = glm::vec3(skin * glm::vec4(p, 1.0f));
+        skinInside &= glm::all(glm::greaterThanEqual(q, skinned.Min - 1e-4f)) && glm::all(glm::lessThanEqual(q, skinned.Max + 1e-4f));
+    }
+    CHECK(skinInside);
+    // The pose moved a joint away: the bounds follow (the bind bounds alone would miss it).
+    CHECK(skinned.Min.x < local.Min.x - 2.0f && skinned.Max.y > local.Max.y + 1.0f);
+    // No joints: the bind bounds.
+    AABB none = SkinnedBounds(local, nullptr, 0);
+    CHECK(none.Min == local.Min && none.Max == local.Max);
+    // Culling toggles (no renderer here: stays on, the toggle is a no-op).
+    CHECK(Renderer3D::IsFrustumCullingEnabled());
+}
+
+TEST(EditorDebugViews)
+{
+    // Defaults: the real picture (runtime, previews and older code paths keep it).
+    SceneRenderOptions options;
+    CHECK(options.DebugView == RenderDebugView::Lit && options.Wireframe == WireframeMode::Off);
+    SceneEnvironment env;
+    CHECK(env.DebugView == RenderDebugView::Lit && env.Wireframe == WireframeMode::Off);
+    // Which views go through tonemapping and the effects, which are shown as values.
+    CHECK(Renderer3D::DebugViewUsesPostProcessing(RenderDebugView::Lit));
+    CHECK(Renderer3D::DebugViewUsesPostProcessing(RenderDebugView::LightingOnly));
+    for (RenderDebugView v : { RenderDebugView::Normals, RenderDebugView::Albedo, RenderDebugView::Roughness, RenderDebugView::Metallic })
+        CHECK(!Renderer3D::DebugViewUsesPostProcessing(v));
+    CHECK((int)RenderDebugView::Metallic == RenderDebugViewCount - 1);
+    // Neutral post-processing: only the gamma encoding is left.
+    PostProcessSettings n = PostProcessSettings::Neutral();
+    CHECK(n.Tonemap == TonemapMode::None && !n.Bloom && !n.SSAO && !n.FXAA && !n.AutoExposure);
+    CHECK(n.Vignette == 0.0f && n.Saturation == 1.0f && n.Contrast == 1.0f && n.Brightness == 0.0f && n.Tint == glm::vec3(1.0f));
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

@@ -6,6 +6,7 @@
 #include "Zamin/Physics/PhysicsTypes.h"
 #include "Zamin/Renderer/PostProcess.h"
 #include "Zamin/Renderer/MaterialAsset.h"
+#include "Zamin/Renderer/Renderer3D.h"
 
 #include <filesystem>
 #include <memory>
@@ -49,6 +50,11 @@ namespace Zamin {
         float FogDensity = 0.015f;
         float FogHeightFalloff = 0.05f;
 
+        // Render scale: the scene picture is drawn at this many times the view's size and scaled
+        // to it (Renderer::MinRenderScale..MaxRenderScale; below 1 faster and softer, above 1
+        // supersampled). The editor viewport and the player both use it.
+        float RenderScale = 1.0f;
+
         // Post-processing
         PostProcessSettings Post;
 
@@ -75,6 +81,9 @@ namespace Zamin {
         entt::entity MaterialPreviewEntity = entt::null;
         Ref<MaterialAsset> MaterialPreview;
         int MaterialPreviewSubmesh = -1;
+        // Editor view modes (the viewport toolbar): debug views of the 3D surfaces, wireframe.
+        RenderDebugView DebugView = RenderDebugView::Lit;
+        WireframeMode Wireframe = WireframeMode::Off;
     };
 
     class Scene

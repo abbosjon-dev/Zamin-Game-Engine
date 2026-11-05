@@ -66,16 +66,18 @@ namespace Zamin {
             m_Scene->SetViewportMouse(mouse * scale, Input::IsMouseButtonPressed(MouseButton::Left));
 
             const auto& post = m_Scene->GetSettings().Post;
-            // The scene is rendered in linear HDR, then tonemapped to the screen.
+            // The scene is rendered in linear HDR at the render scale of the window's size, then
+            // tonemapped (and scaled) to the screen.
+            const glm::uvec2 renderSize = Renderer::GetRenderResolution(w, h, m_Scene->GetSettings().RenderScale);
             if (!m_Target)
             {
                 FramebufferSpecification spec;
-                spec.Width = w; spec.Height = h;
+                spec.Width = renderSize.x; spec.Height = renderSize.y;
                 spec.Attachments = { FramebufferTextureFormat::RGBA16F, FramebufferTextureFormat::Depth };
                 m_Target = Framebuffer::Create(spec);
             }
-            else if (m_Target->GetSpecification().Width != w || m_Target->GetSpecification().Height != h)
-                m_Target->Resize(w, h);
+            else if (m_Target->GetSpecification().Width != renderSize.x || m_Target->GetSpecification().Height != renderSize.y)
+                m_Target->Resize(renderSize.x, renderSize.y);
             m_Target->Bind();
 
             glm::vec4 clear = m_Scene->GetClearColor();
@@ -86,8 +88,17 @@ namespace Zamin {
             {
                 m_Target->Unbind();
                 RenderCommand::SetViewport(0, 0, w, h);
-                PostProcessor::Apply(m_Target->GetColorAttachmentRendererID(0), w, h, post, nullptr,
-                                     m_Target->GetDepthAttachmentRendererID(), m_Scene->GetLastProjection());
+                PostProcessInput input;
+                input.ColorTexture = m_Target->GetColorAttachmentRendererID(0);
+                input.Width = m_Target->GetSpecification().Width;
+                input.Height = m_Target->GetSpecification().Height;
+                input.DepthTexture = m_Target->GetDepthAttachmentRendererID();
+                input.Projection = m_Scene->GetLastProjection();
+                input.OutputWidth = w;
+                input.OutputHeight = h;
+                input.DeltaTime = ts;
+                input.History = &m_PostHistory;
+                PostProcessor::Apply(input, post, nullptr);
             }
 
             if (!m_Scene->GetPendingSceneLoad().empty())
@@ -123,6 +134,7 @@ namespace Zamin {
         std::string m_SceneOverride;
         Ref<Scene> m_Scene;
         Ref<Framebuffer> m_Target;
+        PostProcessHistory m_PostHistory; // auto exposure: the screen's adapted brightness
     };
 
     class ZaminPlayer : public Application

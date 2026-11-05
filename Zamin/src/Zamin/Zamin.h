@@ -24,6 +24,7 @@
 #include "Zamin/Renderer/Shader.h"
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/Mesh.h"
+#include "Zamin/Renderer/Frustum.h"
 #include "Zamin/Renderer/EditorCamera.h"
 #include "Zamin/Renderer/EditorViewSettings.h"
 #include "Zamin/Renderer/PostProcess.h"

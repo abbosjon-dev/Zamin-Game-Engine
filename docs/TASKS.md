@@ -124,11 +124,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 103. Point light wireframe radius ko'rinishi editorda
 - [x] 104. Yorug'liklar sonini oshirish (32) va eng yaqinlarini tanlash
 - [x] 105. FXAA anti-aliasing
-- [ ] 106. Render scale (ichki o'lcham koeffitsienti)
-- [ ] 107. Gamma/eksposure avtomatik (auto exposure, oddiy)
-- [ ] 108. Wireframe rejimi (editor)
-- [ ] 109. Faqat yorug'lik/normal/albedo debug ko'rinishlari
-- [ ] 110. Frustum culling (meshlar uchun)
+- [x] 106. Render scale (ichki o'lcham koeffitsienti)
+- [x] 107. Gamma/eksposure avtomatik (auto exposure, oddiy)
+- [x] 108. Wireframe rejimi (editor)
+- [x] 109. Faqat yorug'lik/normal/albedo debug ko'rinishlari
+- [x] 110. Frustum culling (meshlar uchun)
 - [ ] 111. Frustum culling (2D sprite'lar uchun)
 - [ ] 112. Mesh instancing (bir xil mesh + material)
 - [ ] 113. Render statistikasi: culled soni

@@ -3082,6 +3082,8 @@ namespace Zamin {
         env.FogColor = m_Settings.FogColor;
         env.FogDensity = m_Settings.FogDensity;
         env.FogHeightFalloff = m_Settings.FogHeightFalloff;
+        env.DebugView = options.DebugView;
+        env.Wireframe = options.Wireframe;
 
         // Only the lights that count: inactive (and skipped) ones take no sun / point light slot.
         const LightSet lights = GatherLights(cameraPosition, hidden);

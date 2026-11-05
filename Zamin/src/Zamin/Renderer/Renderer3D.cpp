@@ -133,6 +133,10 @@ uniform vec3 u_GroundColor;
 uniform float u_Ambient;
 uniform float u_Exposure;
 uniform int u_EntityID;
+// Editor view: 0 lit, 1 lighting only, 2 normals, 3 albedo, 4 roughness, 5 metallic,
+// 6 a flat color (u_DebugColor: the edges of the shaded wireframe view).
+uniform int u_DebugView;
+uniform vec4 u_DebugColor;
 
 const float PI = 3.14159265359;
 
@@ -254,7 +258,7 @@ void Finish(vec3 diffuse, vec3 specular, float alpha)
         color = diffuse + specular;
         alpha = 1.0; // opaque and cutout surfaces cover what is behind them
     }
-    if (u_FogEnabled == 1)
+    if (u_FogEnabled == 1 && u_DebugView == 0)
     {
         float dist = length(u_CameraPos - v_WorldPos);
         float heightFactor = exp(-u_FogHeightFalloff * max(v_WorldPos.y, 0.0));
@@ -262,6 +266,18 @@ void Finish(vec3 diffuse, vec3 specular, float alpha)
         // premultiplied: the fog covers the surface as much as the surface covers the background
         color = mix(color, toLinear(u_FogColor) * u_Exposure * alpha, fog);
     }
+    o_Color = vec4(color, alpha);
+    o_EntityID = u_EntityID;
+}
+
+// A debug view's value (linear; the editor shows it without tonemapping), premultiplied on
+// transparent surfaces like the lit picture.
+void FinishDebug(vec3 color, float alpha)
+{
+    if (u_BlendMode == 2)
+        color *= alpha;
+    else
+        alpha = 1.0;
     o_Color = vec4(color, alpha);
     o_EntityID = u_EntityID;
 }
@@ -277,16 +293,32 @@ void main()
     // nothing left to draw (a fully faded surface that does not keep its highlights)
     if (u_BlendMode == 2 && u_PreserveSpecular == 0 && alpha < 0.002)
         discard;
+    if (u_DebugView == 6)
+    {
+        o_Color = u_DebugColor;
+        o_EntityID = u_EntityID;
+        return;
+    }
     vec3 albedo = toLinear(u_Albedo.rgb) * texLinear;
+    if (u_DebugView == 3)
+    {
+        FinishDebug(albedo, alpha);
+        return;
+    }
     vec3 emission = u_Emission;
     if (u_HasEmissiveMap == 1)
     {
         vec3 emissiveTex = texture(u_EmissiveMap, uv).rgb;
         emission *= u_EmissiveSRGB == 1 ? toLinear(emissiveTex) : emissiveTex;
     }
-    if (u_Unlit == 1)
+    if (u_Unlit == 1 && u_DebugView != 2)
     {
-        Finish(albedo * u_Exposure, emission * u_Exposure, alpha);
+        if (u_DebugView == 1) // no lights: as if fully lit
+            FinishDebug(vec3(u_Exposure), alpha);
+        else if (u_DebugView >= 4) // no surface response
+            FinishDebug(vec3(0.0), alpha);
+        else
+            Finish(albedo * u_Exposure, emission * u_Exposure, alpha);
         return;
     }
     float metallic = clamp(u_Metallic, 0.0, 1.0);
@@ -296,6 +328,11 @@ void main()
         vec4 mr = texture(u_MetalRoughMap, uv);
         roughness = clamp(roughness * mr.g, 0.04, 1.0);
         metallic = clamp(metallic * mr.b, 0.0, 1.0);
+    }
+    if (u_DebugView == 4 || u_DebugView == 5)
+    {
+        FinishDebug(toLinear(vec3(u_DebugView == 4 ? roughness : metallic)), alpha);
+        return;
     }
 
     // Back faces (only drawn on double-sided materials) are lit from their own side.
@@ -308,6 +345,17 @@ void main()
         tn.xy *= u_NormalStrength;
         vec3 V0 = u_CameraPos - v_WorldPos;
         N = normalize(CotangentFrame(N, -V0, uv) * tn);
+    }
+    if (u_DebugView == 2)
+    {
+        FinishDebug(toLinear(N * 0.5 + 0.5), alpha);
+        return;
+    }
+    if (u_DebugView == 1) // the light on a plain white, non-metallic surface
+    {
+        albedo = vec3(1.0);
+        metallic = 0.0;
+        emission = vec3(0.0);
     }
     vec3 V = normalize(u_CameraPos - v_WorldPos);
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
@@ -573,6 +621,7 @@ void main()
             int EntityID;
             bool CastShadows;
             std::vector<glm::mat4> Joints; // skinned meshes only
+            AABB WorldBounds;              // what frustum culling tests
         };
 
         struct Renderer3DData
@@ -598,6 +647,7 @@ void main()
             std::vector<Renderer3D::TransparentDrawRecord> LastTransparent;
             glm::mat4 LastTransparentViewProjection{ 1.0f };
             uint64_t EndSceneCount = 0;
+            bool FrustumCulling = true;
         };
 
         Renderer3DData* s_Data = nullptr;
@@ -687,14 +737,35 @@ void main()
                                 const std::vector<glm::mat4>* joints)
     {
         if (!mesh) return;
-        DrawItem item{ mesh, transform, material, entityID, castShadows, {} };
+        DrawItem item{ mesh, transform, material, entityID, castShadows, {}, {} };
         if (mesh->IsSkinned())
         {
             if (joints && !joints->empty()) item.Joints = *joints;
             item.Joints.resize(MaxJoints, glm::mat4(1.0f));
         }
+        item.WorldBounds = GetWorldBounds(*mesh, transform, mesh->IsSkinned() ? &item.Joints : nullptr);
         s_Data->Queue.push_back(std::move(item));
     }
+
+    AABB Renderer3D::GetWorldBounds(const Mesh& mesh, const glm::mat4& transform, const std::vector<glm::mat4>* joints)
+    {
+        AABB local = mesh.GetBounds();
+        if (mesh.IsSkinned())
+            local = SkinnedBounds(local, joints && !joints->empty() ? joints->data() : nullptr, joints ? joints->size() : 0);
+        return TransformAABB(local, transform);
+    }
+
+    bool Renderer3D::DebugViewUsesPostProcessing(RenderDebugView view)
+    {
+        return view == RenderDebugView::Lit || view == RenderDebugView::LightingOnly;
+    }
+
+    void Renderer3D::SetFrustumCulling(bool enabled)
+    {
+        if (s_Data) s_Data->FrustumCulling = enabled;
+    }
+
+    bool Renderer3D::IsFrustumCullingEnabled() { return !s_Data || s_Data->FrustumCulling; }
 
     struct CascadeData
     {
@@ -865,6 +936,20 @@ void main()
         bool shadows = env.HasSun && env.Sun.CastShadows && !s_Data->Queue.empty();
         CascadeData cascades;
 
+        // Frustum culling: what the camera sees (the shadow casters are culled per cascade below).
+        const bool culling = s_Data->FrustumCulling;
+        std::vector<uint8_t> visible(s_Data->Queue.size(), 1);
+        if (culling)
+        {
+            const Frustum cameraFrustum = Frustum::FromViewProjection(viewProj);
+            for (size_t i = 0; i < s_Data->Queue.size(); i++)
+                if (!cameraFrustum.Intersects(s_Data->Queue[i].WorldBounds))
+                {
+                    visible[i] = 0;
+                    stats.CulledMeshCount++;
+                }
+        }
+
         // ---------------- shadow pass (cascades rendered into a 2x2 atlas)
         if (shadows)
         {
@@ -883,12 +968,19 @@ void main()
                     sh->Bind();
                     sh->SetMat4("u_LightSpace", cascades.LightSpace[c]);
                 }
+                // The cascade's box (the light's orthographic view): casters outside it would be clipped.
+                const Frustum cascadeFrustum = Frustum::FromViewProjection(cascades.LightSpace[c]);
                 for (const auto& item : s_Data->Queue)
                 {
                     // Transparent surfaces let the light through (no shadow of their own); cutout
                     // ones only where they are drawn.
                     SurfaceState state = GetSurfaceState(item.Mat, item.Transform, item.CastShadows);
                     if (!state.CastsShadow) continue;
+                    if (culling && !cascadeFrustum.Intersects(item.WorldBounds))
+                    {
+                        stats.CulledShadowCasterCount++;
+                        continue;
+                    }
                     bool skinned = item.MeshRef->IsSkinned();
                     auto& sh = state.AlphaTestedShadow ? (skinned ? s_Data->SkinnedCutoutShadowShader : s_Data->CutoutShadowShader)
                                                        : (skinned ? s_Data->SkinnedShadowShader : s_Data->ShadowShader);
@@ -959,6 +1051,7 @@ void main()
                 shader->SetFloat4Array("u_LightDirCos", localLights.DirCos, localLights.Count);
             }
 
+            shader->SetInt("u_DebugView", (int)env.DebugView);
             shader->SetInt("u_AlbedoMap", 0);
             shader->SetInt("u_ShadowMap", 1);
             shader->SetInt("u_NormalMap", 2);
@@ -970,14 +1063,18 @@ void main()
 
             // Opaque, then cutout surfaces: they cover what is behind them (no blending needed).
             RenderCommand::SetBlendMode(BlendMode::None);
+            RenderCommand::SetWireframe(env.Wireframe == WireframeMode::Wire);
             for (SurfaceState::Pass pass : { SurfaceState::Pass::Opaque, SurfaceState::Pass::Cutout })
-                for (const auto& item : s_Data->Queue)
+                for (size_t i = 0; i < s_Data->Queue.size(); i++)
                 {
+                    const DrawItem& item = s_Data->Queue[i];
+                    if (!visible[i]) continue;
                     SurfaceState state = GetSurfaceState(item.Mat, item.Transform, item.CastShadows);
                     if (state.Queue != pass) continue;
                     RenderCommand::SetCullMode(state.Cull);
                     DrawQueued(item, state.Mirrored);
                 }
+            RenderCommand::SetWireframe(false);
             RenderCommand::SetCullMode(CullMode::None);
         }
 
@@ -1026,7 +1123,7 @@ void main()
         for (size_t i = 0; i < s_Data->Queue.size(); i++)
         {
             const DrawItem& item = s_Data->Queue[i];
-            if (item.Mat.BlendMode != MaterialBlendMode::Transparent) continue;
+            if (item.Mat.BlendMode != MaterialBlendMode::Transparent || !visible[i]) continue;
             const AABB& bounds = item.MeshRef->GetBounds();
             transparent.push_back(i);
             sortItems.push_back({ glm::vec3(item.Transform * glm::vec4((bounds.Min + bounds.Max) * 0.5f, 1.0f)), item.Mat.SortPriority });
@@ -1035,6 +1132,7 @@ void main()
         {
             RenderCommand::SetBlendMode(BlendMode::Premultiplied);
             RenderCommand::SetDepthWrite(false);
+            RenderCommand::SetWireframe(env.Wireframe == WireframeMode::Wire);
             bool perspective = s_Data->Projection[3][3] == 0.0f;
             glm::vec3 eye = glm::vec3(glm::inverse(s_Data->View)[3]);
             for (size_t order : SortTransparent(s_Data->View, perspective, sortItems))
@@ -1059,7 +1157,33 @@ void main()
                     DrawQueued(item, state.Mirrored);
                 }
             }
+            RenderCommand::SetWireframe(false);
             RenderCommand::SetCullMode(CullMode::None);
+            RenderCommand::SetDepthWrite(true);
+        }
+
+        // ---------------- editor: the triangle edges over the shaded picture (pulled a little
+        // towards the camera so they win the depth test against their own surfaces)
+        if (env.Wireframe == WireframeMode::ShadedWire && !s_Data->Queue.empty())
+        {
+            for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader })
+            {
+                shader->Bind();
+                shader->SetInt("u_DebugView", 6);
+                shader->SetFloat4("u_DebugColor", { 0.0f, 0.0f, 0.0f, 0.6f });
+            }
+            RenderCommand::SetBlendMode(BlendMode::Alpha);
+            RenderCommand::SetDepthWrite(false);
+            RenderCommand::SetWireframe(true, true);
+            for (size_t i = 0; i < s_Data->Queue.size(); i++)
+            {
+                if (!visible[i]) continue;
+                const DrawItem& item = s_Data->Queue[i];
+                SurfaceState state = GetSurfaceState(item.Mat, item.Transform, item.CastShadows);
+                RenderCommand::SetCullMode(state.Cull);
+                DrawQueued(item, state.Mirrored, false);
+            }
+            RenderCommand::SetWireframe(false);
             RenderCommand::SetDepthWrite(true);
         }
 

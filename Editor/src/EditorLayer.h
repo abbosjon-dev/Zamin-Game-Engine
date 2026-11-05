@@ -158,6 +158,7 @@ namespace Zamin {
         void UI_SnapSettingsPopup();
         void UI_GridSettingsPopup();
         void UI_CameraBookmarksPopup();
+        void UI_ViewModePopup();
         void UI_ViewMenu();
         void UI_ViewportMessage();
         void UI_MaximizedGame();
@@ -179,6 +180,11 @@ namespace Zamin {
         void UpdateTilePainting();
         bool ViewportMouseToPlane(float planeZ, glm::vec3& out);
         glm::mat4 OverlayViewProjection();
+        // A pixel of the viewport (bottom-left origin) in the scene framebuffer, which is drawn at
+        // the render scale (SceneSettings::RenderScale) of the viewport's size.
+        glm::ivec2 ViewportToRenderPixel(glm::ivec2 pixel) const;
+        // Whether the scene view shows a debug view / wireframe now (edit + simulate only).
+        bool IsDebugViewActive() const;
         void UpdateWindowTitle();
 
     private:
@@ -205,7 +211,7 @@ namespace Zamin {
         bool m_GizmoAltDrag = false;
         bool m_GizmoAltDuplicatePending = false;
         Entity m_HoveredEntity;
-        glm::ivec2 m_HoveredPixel{ -1, -1 }; // the mouse in the viewport framebuffer (-1 = outside)
+        glm::ivec2 m_HoveredPixel{ -1, -1 }; // the mouse in the viewport (pixels, bottom-left origin; -1 = outside)
         // A click that landed on a locked entity: picked again next frame from an ID pass
         // without the locked entities, so the click goes through to what is behind.
         struct PendingPick
@@ -254,6 +260,13 @@ namespace Zamin {
         std::vector<Renderer3D::TransparentDrawRecord> m_TransparentOrder;
         glm::mat4 m_TransparentOrderViewProjection{ 1.0f };
         bool m_ShowIcons = true;
+        // Scene view modes (toolbar): a debug view of the 3D surfaces and wireframe. Edit and
+        // simulate only: the game camera while playing always shows the real picture.
+        RenderDebugView m_DebugView = RenderDebugView::Lit;
+        WireframeMode m_Wireframe = WireframeMode::Off;
+        WireframeMode m_WireframeStyle = WireframeMode::Wire; // what the toolbar's toggle switches on
+        bool m_OpenViewModeMenu = false;  // automation (ZAMIN_EDITOR_VIEW_MENU): the menu opens
+        PostProcessHistory m_PostHistory; // the viewport's auto exposure (adapted brightness)
         bool m_2DMode = false;
         bool m_MaximizeOnPlay = false;
 

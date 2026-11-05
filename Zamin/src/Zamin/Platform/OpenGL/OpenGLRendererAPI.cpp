@@ -104,6 +104,18 @@ namespace Zamin {
             glCullFace(mode == CullMode::Back ? GL_BACK : GL_FRONT);
         }
 
+        void SetWireframe(bool enabled, bool pullForward) override
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, enabled ? GL_LINE : GL_FILL);
+            if (enabled && pullForward)
+            {
+                glEnable(GL_POLYGON_OFFSET_LINE);
+                glPolygonOffset(-1.0f, -1.0f);
+            }
+            else
+                glDisable(GL_POLYGON_OFFSET_LINE);
+        }
+
         void BindTextureUnit(uint32_t unit, uint32_t rendererID) override
         {
             glActiveTexture(GL_TEXTURE0 + unit);

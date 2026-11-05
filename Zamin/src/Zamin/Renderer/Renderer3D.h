@@ -6,6 +6,7 @@
 #include "Zamin/Renderer/Environment.h"
 #include "Zamin/Renderer/EditorViewSettings.h"
 #include "Zamin/Renderer/RendererAPI.h"
+#include "Zamin/Renderer/Frustum.h"
 
 #include <glm/glm.hpp>
 #include <vector>
@@ -42,6 +43,22 @@ namespace Zamin {
         float OuterAngle = 30.0f;
     };
 
+    // Editor view modes of the 3D scene: what the mesh shader shows instead of the lit picture.
+    enum class RenderDebugView : uint8_t
+    {
+        Lit = 0,       // the normal picture
+        LightingOnly,  // the lights (sun, local, ambient, shadows) on a plain white surface
+        Normals,       // world-space normals (after normal maps) as colors: x red, y green, z blue
+        Albedo,        // the base color (x its map), unlit
+        Roughness,     // grey: 0 black (mirror) .. 1 white (matte)
+        Metallic,      // grey: 0 black (dielectric) .. 1 white (metal)
+    };
+    constexpr int RenderDebugViewCount = 6;
+
+    // Meshes drawn as their triangle edges: Wire - only the edges (in the view's colors),
+    // ShadedWire - the normal picture with dark edges over it.
+    enum class WireframeMode : uint8_t { Off = 0, Wire, ShadedWire };
+
     struct SceneEnvironment
     {
         bool DrawSky = true;
@@ -68,6 +85,10 @@ namespace Zamin {
         glm::vec3 FogColor{ 0.7f, 0.78f, 0.86f };
         float FogDensity = 0.015f;
         float FogHeightFalloff = 0.05f;
+
+        // Editor view (the scene view's toolbar; runtime and previews keep the defaults).
+        RenderDebugView DebugView = RenderDebugView::Lit;
+        WireframeMode Wireframe = WireframeMode::Off;
     };
 
     // How the renderer draws one mesh with its material (the pass, culling, blending, shadow).
@@ -125,6 +146,19 @@ namespace Zamin {
         // How bright a spot light is in a direction that makes `angleDegrees` with its axis
         // (1 inside the inner cone, 0 outside the outer one, a smoothstep in between).
         static float GetSpotConeFactor(float innerAngleDegrees, float outerAngleDegrees, float angleDegrees);
+
+        // Whether a debug view's picture goes through tonemapping and the other effects as it is
+        // (lit, lighting only) or must be shown as it is (normals, albedo, roughness, metallic: the
+        // values themselves, see PostProcessSettings::Neutral).
+        static bool DebugViewUsesPostProcessing(RenderDebugView view);
+
+        // Frustum culling: meshes whose world bounds are outside the camera's view are not drawn,
+        // shadow casters outside a cascade's volume not into it (on by default; off to compare).
+        static void SetFrustumCulling(bool enabled);
+        static bool IsFrustumCullingEnabled();
+        // The world-space bounds a mesh is culled by: its bounds moved by the transform - for a
+        // skinned mesh conservative bounds of every pose the joints can give it (see SkinnedBounds).
+        static AABB GetWorldBounds(const Mesh& mesh, const glm::mat4& transform, const std::vector<glm::mat4>* joints = nullptr);
 
         static void Init();
         static void Shutdown();

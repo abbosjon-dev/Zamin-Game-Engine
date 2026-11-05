@@ -37,6 +37,10 @@ namespace Zamin {
         virtual void SetBlend(bool enabled) = 0;
         virtual void SetBlendMode(BlendMode mode) = 0;
         virtual void SetCullMode(CullMode mode) = 0;
+        // Triangles drawn as their edges (true) or filled. `pullForward`: the edges are moved a
+        // little towards the camera, so they win the depth test against the same surface drawn
+        // filled (wireframe over a shaded picture).
+        virtual void SetWireframe(bool enabled, bool pullForward = false) = 0;
 
         // Remember / restore the currently bound render target + viewport
         // (used by passes such as shadow mapping that render off-screen).

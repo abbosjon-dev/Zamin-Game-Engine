@@ -491,6 +491,24 @@ namespace Zamin {
             m_Impl->World.DestroyJoint(joint);
     }
 
+    void PhysicsWorld2D::ClaimJoint(UUID entity, Joint2DType type, b2Joint*& joint)
+    {
+        b2Joint* keep = nullptr;
+        for (b2Joint* j = m_Impl->World.GetJointList(); j;)
+        {
+            b2Joint* next = j->GetNext();
+            if ((uint64_t)j->GetUserData().pointer == (uint64_t)entity && FromBox2DJointType(j->GetType()) == type)
+            {
+                if (j == joint)
+                    keep = j;
+                else
+                    m_Impl->World.DestroyJoint(j);
+            }
+            j = next;
+        }
+        joint = keep;
+    }
+
     void PhysicsWorld2D::UpdateJoint(b2Joint* joint, const PhysicsJoint2DDesc& d)
     {
         if (!joint)

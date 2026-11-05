@@ -415,6 +415,66 @@ namespace Zamin {
             e["CircleCollider2D"] = { { "Offset", ToJson(c->Offset) }, { "Radius", c->Radius }, { "Density", c->Density },
                                       { "Friction", c->Friction }, { "Restitution", c->Restitution },
                                       { "RestitutionThreshold", c->RestitutionThreshold }, { "IsSensor", c->IsSensor } };
+        // Joints: the connected body by its UUID (0 = a fixed point in the world).
+        auto writeJoint = [](const Joint2DComponentBase& c) {
+            return json{ { "ConnectedBody", c.ConnectedBody.ID }, { "Anchor", ToJson(c.Anchor) }, { "ConnectedAnchor", ToJson(c.ConnectedAnchor) },
+                         { "AutoConfigureConnectedAnchor", c.AutoConfigureConnectedAnchor }, { "CollideConnected", c.CollideConnected },
+                         { "BreakForce", c.BreakForce }, { "BreakTorque", c.BreakTorque } };
+        };
+        if (auto* c = entity.TryGetComponent<DistanceJoint2DComponent>())
+        {
+            json j = writeJoint(*c);
+            j["AutoConfigureDistance"] = c->AutoConfigureDistance;
+            j["Distance"] = c->Distance;
+            j["MaxDistanceOnly"] = c->MaxDistanceOnly;
+            j["Frequency"] = c->Frequency;
+            j["DampingRatio"] = c->DampingRatio;
+            e["DistanceJoint2D"] = std::move(j);
+        }
+        if (auto* c = entity.TryGetComponent<RevoluteJoint2DComponent>())
+        {
+            json j = writeJoint(*c);
+            j["EnableLimit"] = c->EnableLimit;
+            j["LowerAngle"] = c->LowerAngle;
+            j["UpperAngle"] = c->UpperAngle;
+            j["EnableMotor"] = c->EnableMotor;
+            j["MotorSpeed"] = c->MotorSpeed;
+            j["MaxMotorTorque"] = c->MaxMotorTorque;
+            e["RevoluteJoint2D"] = std::move(j);
+        }
+        if (auto* c = entity.TryGetComponent<PrismaticJoint2DComponent>())
+        {
+            json j = writeJoint(*c);
+            j["Axis"] = ToJson(c->Axis);
+            j["EnableLimit"] = c->EnableLimit;
+            j["LowerTranslation"] = c->LowerTranslation;
+            j["UpperTranslation"] = c->UpperTranslation;
+            j["EnableMotor"] = c->EnableMotor;
+            j["MotorSpeed"] = c->MotorSpeed;
+            j["MaxMotorForce"] = c->MaxMotorForce;
+            e["PrismaticJoint2D"] = std::move(j);
+        }
+        if (auto* c = entity.TryGetComponent<WeldJoint2DComponent>())
+        {
+            json j = writeJoint(*c);
+            j["Frequency"] = c->Frequency;
+            j["DampingRatio"] = c->DampingRatio;
+            e["WeldJoint2D"] = std::move(j);
+        }
+        if (auto* c = entity.TryGetComponent<WheelJoint2DComponent>())
+        {
+            json j = writeJoint(*c);
+            j["Axis"] = ToJson(c->Axis);
+            j["Frequency"] = c->Frequency;
+            j["DampingRatio"] = c->DampingRatio;
+            j["EnableLimit"] = c->EnableLimit;
+            j["LowerTranslation"] = c->LowerTranslation;
+            j["UpperTranslation"] = c->UpperTranslation;
+            j["EnableMotor"] = c->EnableMotor;
+            j["MotorSpeed"] = c->MotorSpeed;
+            j["MaxMotorTorque"] = c->MaxMotorTorque;
+            e["WheelJoint2D"] = std::move(j);
+        }
         if (auto* c = entity.TryGetComponent<Rigidbody3DComponent>())
             e["Rigidbody3D"] = { { "BodyType", BodyType3DToString(c->Type) }, { "Mass", c->Mass }, { "LinearDamping", c->LinearDamping },
                                  { "AngularDamping", c->AngularDamping }, { "GravityFactor", c->GravityFactor }, { "LockRotation", c->LockRotation } };
@@ -808,6 +868,78 @@ namespace Zamin {
             auto& c = entity.AddComponent<CircleCollider2DComponent>();
             readCollider(e["CircleCollider2D"], c);
             c.Radius = e["CircleCollider2D"].value("Radius", 0.5f);
+        }
+        // Missing values keep the defaults; limits are put in order, forces / frequencies are not negative.
+        auto readJoint = [](const json& j, Joint2DComponentBase& c) {
+            c.ConnectedBody.ID = j.contains("ConnectedBody") && j["ConnectedBody"].is_number_unsigned() ? j["ConnectedBody"].get<uint64_t>() : 0;
+            c.Anchor = Vec(j, "Anchor", c.Anchor);
+            c.ConnectedAnchor = Vec(j, "ConnectedAnchor", c.ConnectedAnchor);
+            c.AutoConfigureConnectedAnchor = j.value("AutoConfigureConnectedAnchor", c.AutoConfigureConnectedAnchor);
+            c.CollideConnected = j.value("CollideConnected", c.CollideConnected);
+            c.BreakForce = std::max(0.0f, j.value("BreakForce", c.BreakForce));
+            c.BreakTorque = std::max(0.0f, j.value("BreakTorque", c.BreakTorque));
+        };
+        auto readRange = [](const json& j, const char* lowerKey, const char* upperKey, float& lower, float& upper) {
+            lower = j.value(lowerKey, lower);
+            upper = j.value(upperKey, upper);
+            if (lower > upper)
+                std::swap(lower, upper);
+        };
+        if (e.contains("DistanceJoint2D"))
+        {
+            const json& j = e["DistanceJoint2D"];
+            auto& c = entity.AddComponent<DistanceJoint2DComponent>();
+            readJoint(j, c);
+            c.AutoConfigureDistance = j.value("AutoConfigureDistance", c.AutoConfigureDistance);
+            c.Distance = std::max(0.0f, j.value("Distance", c.Distance));
+            c.MaxDistanceOnly = j.value("MaxDistanceOnly", c.MaxDistanceOnly);
+            c.Frequency = std::max(0.0f, j.value("Frequency", c.Frequency));
+            c.DampingRatio = std::max(0.0f, j.value("DampingRatio", c.DampingRatio));
+        }
+        if (e.contains("RevoluteJoint2D"))
+        {
+            const json& j = e["RevoluteJoint2D"];
+            auto& c = entity.AddComponent<RevoluteJoint2DComponent>();
+            readJoint(j, c);
+            c.EnableLimit = j.value("EnableLimit", c.EnableLimit);
+            readRange(j, "LowerAngle", "UpperAngle", c.LowerAngle, c.UpperAngle);
+            c.EnableMotor = j.value("EnableMotor", c.EnableMotor);
+            c.MotorSpeed = j.value("MotorSpeed", c.MotorSpeed);
+            c.MaxMotorTorque = std::max(0.0f, j.value("MaxMotorTorque", c.MaxMotorTorque));
+        }
+        if (e.contains("PrismaticJoint2D"))
+        {
+            const json& j = e["PrismaticJoint2D"];
+            auto& c = entity.AddComponent<PrismaticJoint2DComponent>();
+            readJoint(j, c);
+            c.Axis = Vec(j, "Axis", c.Axis);
+            c.EnableLimit = j.value("EnableLimit", c.EnableLimit);
+            readRange(j, "LowerTranslation", "UpperTranslation", c.LowerTranslation, c.UpperTranslation);
+            c.EnableMotor = j.value("EnableMotor", c.EnableMotor);
+            c.MotorSpeed = j.value("MotorSpeed", c.MotorSpeed);
+            c.MaxMotorForce = std::max(0.0f, j.value("MaxMotorForce", c.MaxMotorForce));
+        }
+        if (e.contains("WeldJoint2D"))
+        {
+            const json& j = e["WeldJoint2D"];
+            auto& c = entity.AddComponent<WeldJoint2DComponent>();
+            readJoint(j, c);
+            c.Frequency = std::max(0.0f, j.value("Frequency", c.Frequency));
+            c.DampingRatio = std::max(0.0f, j.value("DampingRatio", c.DampingRatio));
+        }
+        if (e.contains("WheelJoint2D"))
+        {
+            const json& j = e["WheelJoint2D"];
+            auto& c = entity.AddComponent<WheelJoint2DComponent>();
+            readJoint(j, c);
+            c.Axis = Vec(j, "Axis", c.Axis);
+            c.Frequency = std::max(0.0f, j.value("Frequency", c.Frequency));
+            c.DampingRatio = std::max(0.0f, j.value("DampingRatio", c.DampingRatio));
+            c.EnableLimit = j.value("EnableLimit", c.EnableLimit);
+            readRange(j, "LowerTranslation", "UpperTranslation", c.LowerTranslation, c.UpperTranslation);
+            c.EnableMotor = j.value("EnableMotor", c.EnableMotor);
+            c.MotorSpeed = j.value("MotorSpeed", c.MotorSpeed);
+            c.MaxMotorTorque = std::max(0.0f, j.value("MaxMotorTorque", c.MaxMotorTorque));
         }
         if (e.contains("Rigidbody3D"))
         {

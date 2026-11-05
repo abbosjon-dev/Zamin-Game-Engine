@@ -843,6 +843,112 @@ namespace Zamin {
         void* RuntimeFixture = nullptr;
     };
 
+    // ------------------------------------------------------------------ joints 2D
+    // What every 2D joint has. A joint ties the entity's Rigidbody 2D to the connected body (another
+    // entity's Rigidbody 2D or Tilemap) or, without one, to a fixed point in the world. It is made
+    // while the game runs / simulates once both bodies exist, goes when either of them leaves the
+    // world (inactive, destroyed) and comes back with them. Points are in the bodies' own frames
+    // (body units: not scaled, like the colliders' offsets); angles in degrees.
+    struct Joint2DComponentBase
+    {
+        EntityRef ConnectedBody;           // empty: a fixed point in the world
+        glm::vec2 Anchor{ 0.0f };          // on this body
+        glm::vec2 ConnectedAnchor{ 0.0f }; // on the connected body, or the world point
+        // The connected anchor is where Anchor is when the joint is made (written back then).
+        bool AutoConfigureConnectedAnchor = true;
+        bool CollideConnected = false;     // the two bodies still collide with each other
+        // The joint breaks (goes for good, OnJointBreak) when its reaction force / torque gets
+        // larger than this. 0 = never.
+        float BreakForce = 0.0f;
+        float BreakTorque = 0.0f;
+
+        // runtime state (scripts may read it; Broken = false makes a broken joint again)
+        void* RuntimeJoint = nullptr;  // b2Joint*
+        uint64_t RuntimeConnected = 0; // the ConnectedBody it was made with (changed: made again)
+        bool Broken = false;
+        float ReactionForce = 0.0f;    // after the last physics step
+        float ReactionTorque = 0.0f;
+
+        void ResetRuntime()
+        {
+            RuntimeJoint = nullptr;
+            RuntimeConnected = 0;
+            Broken = false;
+            ReactionForce = ReactionTorque = 0.0f;
+        }
+    };
+
+    // Keeps the two anchors at a distance: a rigid rod, a rope (MaxDistanceOnly) or a spring (Frequency).
+    // Its connected anchor is not auto-configured by default (both ends at one point would be no
+    // distance): the connected body's origin, or the world point.
+    struct DistanceJoint2DComponent : Joint2DComponentBase
+    {
+        DistanceJoint2DComponent() { AutoConfigureConnectedAnchor = false; }
+
+        bool AutoConfigureDistance = true; // Distance = the anchors' distance when the joint is made
+        float Distance = 1.0f;
+        bool MaxDistanceOnly = false;      // a rope: closer is allowed, further is not
+        float Frequency = 0.0f;            // spring oscillations per second (0 = rigid)
+        float DampingRatio = 0.0f;         // 0..1 (1 = no oscillation)
+
+        float CurrentDistance = 0.0f;      // runtime: after the last step
+    };
+
+    // A hinge: the bodies share the anchor point and turn around it, optionally within limits
+    // (relative to the pose the joint was made in) and driven by a motor.
+    struct RevoluteJoint2DComponent : Joint2DComponentBase
+    {
+        bool EnableLimit = false;
+        float LowerAngle = -45.0f; // degrees: this body's rotation relative to the connected body
+        float UpperAngle = 45.0f;
+        bool EnableMotor = false;
+        float MotorSpeed = 0.0f;      // degrees per second (positive: counter-clockwise)
+        float MaxMotorTorque = 10.0f;
+
+        float JointAngle = 0.0f;      // runtime: degrees from the start pose
+        float JointSpeed = 0.0f;      // runtime: degrees per second
+    };
+
+    // A slider: the body moves only along Axis relative to the connected body, without turning.
+    struct PrismaticJoint2DComponent : Joint2DComponentBase
+    {
+        glm::vec2 Axis{ 1.0f, 0.0f }; // in this body's frame (when the joint is made)
+        bool EnableLimit = false;
+        float LowerTranslation = -1.0f; // units along the axis from the start position
+        float UpperTranslation = 1.0f;
+        bool EnableMotor = false;
+        float MotorSpeed = 0.0f;        // units per second
+        float MaxMotorForce = 10.0f;
+
+        float JointTranslation = 0.0f;  // runtime
+        float JointSpeed = 0.0f;        // runtime: units per second
+    };
+
+    // Glues the bodies together (rigid, or springy around the angle with Frequency).
+    struct WeldJoint2DComponent : Joint2DComponentBase
+    {
+        float Frequency = 0.0f;    // angular spring oscillations per second (0 = rigid)
+        float DampingRatio = 0.0f;
+    };
+
+    // A wheel: this body (the wheel) turns freely around the anchor and is held on the connected
+    // body (the chassis) by a suspension spring along Axis; the motor drives the wheel.
+    struct WheelJoint2DComponent : Joint2DComponentBase
+    {
+        glm::vec2 Axis{ 0.0f, 1.0f }; // the suspension direction, in this body's frame (when made)
+        float Frequency = 4.0f;       // suspension oscillations per second (0 = no spring: slides freely)
+        float DampingRatio = 0.7f;
+        bool EnableLimit = false;     // suspension travel
+        float LowerTranslation = -0.25f;
+        float UpperTranslation = 0.25f;
+        bool EnableMotor = false;
+        float MotorSpeed = 0.0f;      // degrees per second (positive: counter-clockwise)
+        float MaxMotorTorque = 10.0f;
+
+        float JointTranslation = 0.0f; // runtime: suspension travel
+        float JointSpeed = 0.0f;       // runtime: the wheel's spin, degrees per second
+    };
+
     // ------------------------------------------------------------------ physics 3D (Jolt)
     struct Rigidbody3DComponent
     {
@@ -978,11 +1084,16 @@ namespace Zamin {
     template<typename... Component>
     struct ComponentGroup {};
 
+    // The 2D joints (each derives from Joint2DComponentBase).
+    using Joint2DComponents = ComponentGroup<DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent,
+        WeldJoint2DComponent, WheelJoint2DComponent>;
+
     // Every component that is copied/serialized with an entity (IDComponent & TagComponent are handled separately).
     using AllComponents = ComponentGroup<RelationshipComponent, TagsComponent, TransformComponent, SpriteRendererComponent,
         SpriteAnimationComponent, TintAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, SpotLightComponent, Light2DComponent, Rigidbody2DComponent, BoxCollider2DComponent,
-        CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
+        CircleCollider2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
+        WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;
 

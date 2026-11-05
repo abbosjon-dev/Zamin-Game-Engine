@@ -70,8 +70,117 @@ namespace Zamin {
         CopyComponentIfExists<Component...>(dst, src);
     }
 
+    // ------------------------------------------------------------------ 2D joint helpers
+    // Calls fn(std::type_identity<T>{}) for every 2D joint component type.
+    template<typename... T, typename Fn>
+    static void ForEachJoint2DType(ComponentGroup<T...>, Fn&& fn)
+    {
+        (fn(std::type_identity<T>{}), ...);
+    }
+
+    template<typename Fn>
+    static void ForEachJoint2DType(Fn&& fn)
+    {
+        ForEachJoint2DType(Joint2DComponents{}, std::forward<Fn>(fn));
+    }
+
+    template<typename T>
+    static constexpr Joint2DType Joint2DTypeOf()
+    {
+        if constexpr (std::is_same_v<T, DistanceJoint2DComponent>) return Joint2DType::Distance;
+        else if constexpr (std::is_same_v<T, RevoluteJoint2DComponent>) return Joint2DType::Revolute;
+        else if constexpr (std::is_same_v<T, PrismaticJoint2DComponent>) return Joint2DType::Prismatic;
+        else if constexpr (std::is_same_v<T, WeldJoint2DComponent>) return Joint2DType::Weld;
+        else return Joint2DType::Wheel;
+    }
+
+    template<typename T>
+    static void ResetJointRuntime(T& joint)
+    {
+        joint.ResetRuntime();
+        if constexpr (std::is_same_v<T, DistanceJoint2DComponent>)
+            joint.CurrentDistance = 0.0f;
+        else if constexpr (std::is_same_v<T, RevoluteJoint2DComponent>)
+            joint.JointAngle = joint.JointSpeed = 0.0f;
+        else if constexpr (std::is_same_v<T, PrismaticJoint2DComponent> || std::is_same_v<T, WheelJoint2DComponent>)
+            joint.JointTranslation = joint.JointSpeed = 0.0f;
+    }
+
+    // The settings of a joint component for the physics world (bodies not filled in).
+    template<typename T>
+    static PhysicsJoint2DDesc MakeJoint2DDesc(const T& c)
+    {
+        PhysicsJoint2DDesc d;
+        d.Type = Joint2DTypeOf<T>();
+        d.Anchor = c.Anchor;
+        d.ConnectedAnchor = c.ConnectedAnchor;
+        d.AutoConfigureConnectedAnchor = c.AutoConfigureConnectedAnchor;
+        d.CollideConnected = c.CollideConnected;
+        if constexpr (std::is_same_v<T, DistanceJoint2DComponent>)
+        {
+            d.Distance = c.Distance;
+            d.AutoConfigureDistance = c.AutoConfigureDistance;
+            d.MaxDistanceOnly = c.MaxDistanceOnly;
+            d.Frequency = c.Frequency;
+            d.DampingRatio = c.DampingRatio;
+        }
+        else if constexpr (std::is_same_v<T, RevoluteJoint2DComponent>)
+        {
+            d.EnableLimit = c.EnableLimit;
+            d.LowerLimit = c.LowerAngle;
+            d.UpperLimit = c.UpperAngle;
+            d.EnableMotor = c.EnableMotor;
+            d.MotorSpeed = c.MotorSpeed;
+            d.MaxMotorForce = c.MaxMotorTorque;
+        }
+        else if constexpr (std::is_same_v<T, PrismaticJoint2DComponent>)
+        {
+            d.Axis = c.Axis;
+            d.EnableLimit = c.EnableLimit;
+            d.LowerLimit = c.LowerTranslation;
+            d.UpperLimit = c.UpperTranslation;
+            d.EnableMotor = c.EnableMotor;
+            d.MotorSpeed = c.MotorSpeed;
+            d.MaxMotorForce = c.MaxMotorForce;
+        }
+        else if constexpr (std::is_same_v<T, WeldJoint2DComponent>)
+        {
+            d.Frequency = c.Frequency;
+            d.DampingRatio = c.DampingRatio;
+        }
+        else
+        {
+            d.Axis = c.Axis;
+            d.Frequency = c.Frequency;
+            d.DampingRatio = c.DampingRatio;
+            d.EnableLimit = c.EnableLimit;
+            d.LowerLimit = c.LowerTranslation;
+            d.UpperLimit = c.UpperTranslation;
+            d.EnableMotor = c.EnableMotor;
+            d.MotorSpeed = c.MotorSpeed;
+            d.MaxMotorForce = c.MaxMotorTorque;
+        }
+        return d;
+    }
+
+    // The 2D body an entity has in the running world: its Rigidbody 2D's, else its tilemap's.
+    static b2Body* GetBody2D(Entity entity, bool tilemap)
+    {
+        if (auto* rb = entity.TryGetComponent<Rigidbody2DComponent>(); rb && rb->RuntimeBody)
+            return (b2Body*)rb->RuntimeBody;
+        if (tilemap)
+            if (auto* tm = entity.TryGetComponent<TilemapComponent>(); tm && tm->RuntimeBody)
+                return (b2Body*)tm->RuntimeBody;
+        return nullptr;
+    }
+
     static void ResetRuntimeData(entt::registry& registry)
     {
+        ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : registry.view<T>())
+                ResetJointRuntime(registry.get<T>(e));
+        });
         for (auto e : registry.view<Rigidbody2DComponent>()) registry.get<Rigidbody2DComponent>(e).RuntimeBody = nullptr;
         for (auto e : registry.view<BoxCollider2DComponent>()) registry.get<BoxCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : registry.view<CircleCollider2DComponent>()) registry.get<CircleCollider2DComponent>(e).RuntimeFixture = nullptr;
@@ -100,6 +209,11 @@ namespace Zamin {
 
     static void ResetRuntimeData(Entity e)
     {
+        ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            if (auto* c = e.TryGetComponent<T>())
+                ResetJointRuntime(*c);
+        });
         if (auto* c = e.TryGetComponent<Rigidbody2DComponent>()) c->RuntimeBody = nullptr;
         if (auto* c = e.TryGetComponent<BoxCollider2DComponent>()) c->RuntimeFixture = nullptr;
         if (auto* c = e.TryGetComponent<CircleCollider2DComponent>()) c->RuntimeFixture = nullptr;
@@ -135,6 +249,11 @@ namespace Zamin {
         m_Registry.on_update<TagComponent>().connect<&Scene::OnNameChanged>(*this);
         m_Registry.on_destroy<TagComponent>().connect<&Scene::OnNameChanged>(*this);
         m_Registry.on_destroy<NativeScriptComponent>().connect<&Scene::OnScriptComponentDestroyed>(*this);
+        ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            m_Registry.on_destroy<T>().template connect<&Scene::OnJoint2DDestroyed<T>>(*this);
+            m_Registry.on_update<T>().template connect<&Scene::OnJoint2DReplaced<T>>(*this);
+        });
     }
 
     Scene::~Scene()
@@ -147,6 +266,11 @@ namespace Zamin {
         m_Registry.on_update<TagComponent>().disconnect(this);
         m_Registry.on_destroy<TagComponent>().disconnect(this);
         m_Registry.on_destroy<NativeScriptComponent>().disconnect(this);
+        ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            m_Registry.on_destroy<T>().disconnect(this);
+            m_Registry.on_update<T>().disconnect(this);
+        });
         DeleteRetiredScripts();
     }
 
@@ -385,6 +509,12 @@ namespace Zamin {
             if (auto* follow = e.TryGetComponent<Camera2DFollowComponent>())
                 if (auto it = oldToNew.find(follow->Target.ID); follow->Target.ID && it != oldToNew.end())
                     follow->Target.ID = it->second;
+            ForEachJoint2DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                if (auto* joint = e.TryGetComponent<T>())
+                    if (auto it = oldToNew.find(joint->ConnectedBody.ID); joint->ConnectedBody.ID && it != oldToNew.end())
+                        joint->ConnectedBody.ID = it->second;
+            });
             auto* nsc = e.TryGetComponent<NativeScriptComponent>();
             if (!nsc) continue;
             for (auto& [name, value] : nsc->Fields)
@@ -413,6 +543,7 @@ namespace Zamin {
                 CreatePhysicsBodies(e);
                 StartEntityEffects(e); // PlayOnStart sounds of active clones
             }
+        SyncJoints2D(); // a spawned ragdoll's joints, once all its bodies exist
         if (m_ScriptsRunning)
         {
             for (Entity e : entities)
@@ -1271,6 +1402,8 @@ namespace Zamin {
                 CreatePhysicsBodies({ e, this }); // nothing when a callback switched it off again
                 StartEntityEffects({ e, this });
             }
+        if (!switchedOn.empty())
+            SyncJoints2D(); // the joints of the bodies that came back
         if (m_ScriptsRunning)
             for (entt::entity e : switchedOn)
                 if (valid(e))
@@ -1880,6 +2013,7 @@ namespace Zamin {
             CreatePhysicsBody({ e, this });
         for (auto e : m_Registry.view<TilemapComponent>())
             CreateTilemapBody({ e, this });
+        SyncJoints2D(); // once every body exists
     }
 
     void Scene::CreateTilemapBody(Entity entity)
@@ -1921,7 +2055,189 @@ namespace Zamin {
         for (auto e : m_Registry.view<BoxCollider2DComponent>()) m_Registry.get<BoxCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : m_Registry.view<CircleCollider2DComponent>()) m_Registry.get<CircleCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : m_Registry.view<TilemapComponent>()) m_Registry.get<TilemapComponent>(e).RuntimeBody = nullptr;
+        ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : m_Registry.view<T>())
+                ResetJointRuntime(m_Registry.get<T>(e));
+        });
+        m_JointBreaks2D.clear();
         m_PhysicsWorld.reset();
+    }
+
+    // ------------------------------------------------------------------ joints 2D
+    template<typename T>
+    void Scene::OnJoint2DDestroyed(entt::registry& registry, entt::entity entity)
+    {
+        auto& joint = registry.get<T>(entity);
+        if (joint.RuntimeJoint && m_PhysicsWorld)
+            m_PhysicsWorld->DestroyJoint((b2Joint*)joint.RuntimeJoint);
+        joint.RuntimeJoint = nullptr;
+    }
+
+    template<typename T>
+    void Scene::OnJoint2DReplaced(entt::registry& registry, entt::entity entity)
+    {
+        if (!m_PhysicsWorld)
+            return;
+        // A new value (a pasted component) brings no joint of its own, or another one's: the joint
+        // the entity had goes and the next sync makes one for the new settings.
+        auto& joint = registry.get<T>(entity);
+        b2Joint* keep = (b2Joint*)joint.RuntimeJoint;
+        m_PhysicsWorld->ClaimJoint(registry.get<IDComponent>(entity).ID, Joint2DTypeOf<T>(), keep);
+        if (keep != joint.RuntimeJoint)
+        {
+            joint.RuntimeJoint = keep;
+            joint.RuntimeConnected = 0;
+        }
+    }
+
+    void Scene::SyncJoints2D()
+    {
+        if (!m_PhysicsWorld)
+            return;
+        ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : m_Registry.view<T>())
+            {
+                Entity entity{ e, this };
+                auto& joint = m_Registry.get<T>(e);
+                if (joint.RuntimeJoint && joint.RuntimeConnected != joint.ConnectedBody.ID)
+                {
+                    // Connected to something else now (a script grabbed another body): made again.
+                    m_PhysicsWorld->DestroyJoint((b2Joint*)joint.RuntimeJoint);
+                    joint.RuntimeJoint = nullptr;
+                }
+                if (joint.RuntimeJoint)
+                {
+                    m_PhysicsWorld->UpdateJoint((b2Joint*)joint.RuntimeJoint, MakeJoint2DDesc(joint));
+                    continue;
+                }
+                if (joint.Broken)
+                    continue;
+                b2Body* body = GetBody2D(entity, false);
+                if (!body)
+                    continue; // no Rigidbody 2D, inactive, or the world is not running it yet
+                b2Body* connected = nullptr;
+                if (joint.ConnectedBody.ID)
+                {
+                    Entity other = GetEntityByUUID(joint.ConnectedBody.ID);
+                    if (!other || other == entity || !(connected = GetBody2D(other, true)))
+                        continue; // waits for the connected body (gone, inactive, without a body)
+                }
+                PhysicsJoint2DDesc desc = MakeJoint2DDesc(joint);
+                desc.EntityID = entity.GetUUID();
+                desc.Body = body;
+                desc.ConnectedBody = connected;
+                joint.RuntimeJoint = m_PhysicsWorld->CreateJoint(desc);
+                joint.RuntimeConnected = joint.ConnectedBody.ID;
+                if (!joint.RuntimeJoint)
+                    continue;
+                // The auto-configured values are shown in the inspector while the game runs.
+                joint.ConnectedAnchor = desc.ConnectedAnchor;
+                if constexpr (std::is_same_v<T, DistanceJoint2DComponent>)
+                    joint.Distance = desc.Distance;
+            }
+        });
+    }
+
+    void Scene::ForgetJoints2D(const std::vector<PhysicsJoint2DRef>& joints)
+    {
+        for (const PhysicsJoint2DRef& ref : joints)
+        {
+            Entity owner = GetEntityByUUID(ref.EntityID);
+            if (!owner)
+                continue;
+            ForEachJoint2DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                if (Joint2DTypeOf<T>() != ref.Type)
+                    return;
+                if (auto* joint = owner.TryGetComponent<T>())
+                {
+                    joint->RuntimeJoint = nullptr;
+                    joint->RuntimeConnected = 0;
+                }
+            });
+        }
+    }
+
+    void Scene::CheckJointBreaks2D(float dt)
+    {
+        if (!m_PhysicsWorld || dt <= 0.0f)
+            return;
+        ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : m_Registry.view<T>())
+            {
+                auto& joint = m_Registry.get<T>(e);
+                if (!joint.RuntimeJoint || (joint.BreakForce <= 0.0f && joint.BreakTorque <= 0.0f))
+                    continue;
+                PhysicsJoint2DState state = PhysicsWorld2D::GetJointState((const b2Joint*)joint.RuntimeJoint, 1.0f / dt);
+                if (!(joint.BreakForce > 0.0f && state.Force > joint.BreakForce) && !(joint.BreakTorque > 0.0f && state.Torque > joint.BreakTorque))
+                    continue;
+                m_PhysicsWorld->DestroyJoint((b2Joint*)joint.RuntimeJoint);
+                joint.RuntimeJoint = nullptr;
+                joint.RuntimeConnected = 0;
+                joint.Broken = true;
+                joint.ReactionForce = state.Force;
+                joint.ReactionTorque = state.Torque;
+                m_JointBreaks2D.push_back({ m_Registry.get<IDComponent>(e).ID, Joint2DTypeOf<T>(), joint.ConnectedBody.ID, state.Force, state.Torque });
+            }
+        });
+    }
+
+    void Scene::UpdateJointStates2D(float dt)
+    {
+        if (!m_PhysicsWorld || dt <= 0.0f)
+            return;
+        ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : m_Registry.view<T>())
+            {
+                auto& joint = m_Registry.get<T>(e);
+                if (!joint.RuntimeJoint)
+                    continue;
+                PhysicsJoint2DState state = PhysicsWorld2D::GetJointState((const b2Joint*)joint.RuntimeJoint, 1.0f / dt);
+                joint.ReactionForce = state.Force;
+                joint.ReactionTorque = state.Torque;
+                if constexpr (std::is_same_v<T, DistanceJoint2DComponent>)
+                    joint.CurrentDistance = state.Translation;
+                else if constexpr (std::is_same_v<T, RevoluteJoint2DComponent>)
+                {
+                    joint.JointAngle = state.Angle;
+                    joint.JointSpeed = state.Speed;
+                }
+                else if constexpr (std::is_same_v<T, PrismaticJoint2DComponent> || std::is_same_v<T, WheelJoint2DComponent>)
+                {
+                    joint.JointTranslation = state.Translation;
+                    joint.JointSpeed = state.Speed;
+                }
+            }
+        });
+    }
+
+    void Scene::DispatchJointBreaks2D()
+    {
+        if (m_JointBreaks2D.empty())
+            return;
+        std::vector<JointBreak2DRecord> breaks = std::move(m_JointBreaks2D);
+        m_JointBreaks2D.clear();
+        if (!m_ScriptsRunning)
+            return;
+        for (const JointBreak2DRecord& record : breaks)
+        {
+            Entity entity = GetEntityByUUID(record.Entity);
+            if (!entity)
+                continue; // destroyed by an earlier callback
+            auto* nsc = entity.TryGetComponent<NativeScriptComponent>();
+            if (!nsc || !nsc->Instance || nsc->Instance->m_Destroying)
+                continue;
+            JointBreak2D info;
+            info.Type = record.Type;
+            info.ConnectedBody = record.Connected ? GetEntityByUUID(record.Connected) : Entity();
+            info.Force = record.Force;
+            info.Torque = record.Torque;
+            nsc->Instance->OnJointBreak(info);
+        }
     }
 
     void Scene::CreatePhysicsBody(Entity entity)
@@ -2109,15 +2425,19 @@ namespace Zamin {
             m_ContactBodiesReplaced.insert((uint64_t)entity.GetUUID());
         if (auto* rb = entity.TryGetComponent<Rigidbody2DComponent>(); rb && rb->RuntimeBody && m_PhysicsWorld)
         {
-            m_PhysicsWorld->DestroyBody((b2Body*)rb->RuntimeBody); // its fixtures go with it
+            std::vector<PhysicsJoint2DRef> joints;
+            m_PhysicsWorld->DestroyBody((b2Body*)rb->RuntimeBody, &joints); // its fixtures and joints go with it
             rb->RuntimeBody = nullptr;
+            ForgetJoints2D(joints);
             if (auto* c = entity.TryGetComponent<BoxCollider2DComponent>()) c->RuntimeFixture = nullptr;
             if (auto* c = entity.TryGetComponent<CircleCollider2DComponent>()) c->RuntimeFixture = nullptr;
         }
         if (auto* tm = entity.TryGetComponent<TilemapComponent>(); tm && tm->RuntimeBody && m_PhysicsWorld)
         {
-            m_PhysicsWorld->DestroyBody((b2Body*)tm->RuntimeBody);
+            std::vector<PhysicsJoint2DRef> joints;
+            m_PhysicsWorld->DestroyBody((b2Body*)tm->RuntimeBody, &joints);
             tm->RuntimeBody = nullptr;
+            ForgetJoints2D(joints);
         }
         if (auto* rb = entity.TryGetComponent<Rigidbody3DComponent>(); rb && rb->RuntimeBodyID != 0xffffffff && m_PhysicsWorld3D)
         {
@@ -2250,6 +2570,8 @@ namespace Zamin {
                     PhysicsWorld2D::SetTransform(body, { p.x, p.y }, angle);
             }
         }
+        // Joints whose bodies appeared since the last frame, live motor / limit settings.
+        SyncJoints2D();
         m_PhysicsAccumulator += ts;
         int stepCount = std::min(5, (int)(m_PhysicsAccumulator / fixedStep));
 
@@ -2285,6 +2607,7 @@ namespace Zamin {
             {
                 ZM_PROFILE_SCOPE("Box2D (2D)");
                 m_PhysicsWorld->Step(fixedStep, m_Settings.VelocityIterations, m_Settings.PositionIterations);
+                CheckJointBreaks2D(fixedStep);
             }
             if (m_PhysicsWorld3D)
             {
@@ -2300,6 +2623,8 @@ namespace Zamin {
         }
         if (steps == 5)
             m_PhysicsAccumulator = 0.0f;
+        if (steps > 0)
+            UpdateJointStates2D(fixedStep);
 
         if (m_PhysicsWorld)
         {
@@ -2347,6 +2672,7 @@ namespace Zamin {
             events.insert(events.end(), e3.begin(), e3.end());
         }
         DispatchContactEvents(events);
+        DispatchJointBreaks2D();
 
         if (debugContacts)
             DrawPhysicsContacts();

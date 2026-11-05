@@ -33,6 +33,7 @@ namespace Zamin {
     struct TilemapComponent;
     class PhysicsWorld2D;
     class PhysicsWorld3D;
+    struct PhysicsJoint2DRef;
     class EventBus;
     class ScriptableEntity;
     struct ScriptMessage;
@@ -515,8 +516,25 @@ namespace Zamin {
         // sleeping bodies where a new body appears are woken (switched on again / spawned).
         void CreatePhysicsBodies(Entity entity);
         // Removes the entity's 2D / tilemap / 3D bodies and its character from the worlds (bodies
-        // resting on them wake up).
+        // resting on them wake up). The 2D joints on them go too (made again when both bodies are back).
         void DestroyPhysicsBodies(Entity entity);
+        // ---- 2D joints (DistanceJoint2D ... WheelJoint2D)
+        // Makes the joints whose bodies both exist (and that are not broken), makes again the ones
+        // whose ConnectedBody changed, and passes the live settings (limits, motors, springs) on.
+        void SyncJoints2D();
+        // The joints a destroyed body took with it: their components let go of them.
+        void ForgetJoints2D(const std::vector<PhysicsJoint2DRef>& joints);
+        // After a physics step of `dt`: the joints pulled harder than their BreakForce / BreakTorque break.
+        void CheckJointBreaks2D(float dt);
+        // The read-outs of the joints (reaction force / torque, angle, translation ...).
+        void UpdateJointStates2D(float dt);
+        // OnJointBreak for the scripts of the joints that broke since the last call.
+        void DispatchJointBreaks2D();
+        // A joint component removed (its joint goes) / replaced (a pasted copy: the old joint goes).
+        template<typename T>
+        void OnJoint2DDestroyed(entt::registry& registry, entt::entity entity);
+        template<typename T>
+        void OnJoint2DReplaced(entt::registry& registry, entt::entity entity);
         // ---- active state cache (IsActiveInHierarchy)
         void EnsureActiveCache();
         void RebuildActiveCache();
@@ -726,6 +744,15 @@ namespace Zamin {
         // destroyed (switched off, maybe on again). The rest of the batch is about the old bodies.
         int m_ContactDispatchDepth = 0;
         std::unordered_set<uint64_t> m_ContactBodiesReplaced;
+        // Joints that broke in the steps of this frame (delivered as OnJointBreak after the contacts).
+        struct JointBreak2DRecord
+        {
+            UUID Entity = 0;
+            Joint2DType Type = Joint2DType::Distance;
+            UUID Connected = 0;
+            float Force = 0.0f, Torque = 0.0f;
+        };
+        std::vector<JointBreak2DRecord> m_JointBreaks2D;
         bool m_ScriptsPendingStart = false;
 
         std::unique_ptr<EventBus> m_EventBus;

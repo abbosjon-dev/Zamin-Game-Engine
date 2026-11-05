@@ -32,6 +32,11 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, Rigidbody2DComponent>) return "Rigidbody2D";
         else if constexpr (std::is_same_v<T, BoxCollider2DComponent>) return "BoxCollider2D";
         else if constexpr (std::is_same_v<T, CircleCollider2DComponent>) return "CircleCollider2D";
+        else if constexpr (std::is_same_v<T, DistanceJoint2DComponent>) return "DistanceJoint2D";
+        else if constexpr (std::is_same_v<T, RevoluteJoint2DComponent>) return "RevoluteJoint2D";
+        else if constexpr (std::is_same_v<T, PrismaticJoint2DComponent>) return "PrismaticJoint2D";
+        else if constexpr (std::is_same_v<T, WeldJoint2DComponent>) return "WeldJoint2D";
+        else if constexpr (std::is_same_v<T, WheelJoint2DComponent>) return "WheelJoint2D";
         else if constexpr (std::is_same_v<T, Rigidbody3DComponent>) return "Rigidbody3D";
         else if constexpr (std::is_same_v<T, BoxCollider3DComponent>) return "BoxCollider3D";
         else if constexpr (std::is_same_v<T, SphereCollider3DComponent>) return "SphereCollider3D";

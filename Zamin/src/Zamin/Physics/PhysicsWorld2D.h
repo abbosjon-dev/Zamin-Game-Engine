@@ -149,6 +149,9 @@ namespace Zamin {
         // anchor, distance) are written back into `desc`.
         b2Joint* CreateJoint(PhysicsJoint2DDesc& desc);
         void DestroyJoint(b2Joint* joint);
+        // Destroys the joints of `entity` of `type` except `joint`, which stays null when it is not one
+        // of them (a component holding a copy of another one's handle).
+        void ClaimJoint(UUID entity, Joint2DType type, b2Joint*& joint);
         // The settings that can change while the joint lives: limits, motor, springs, distance (the
         // anchors and the axis stay as they were made). Bodies wake up only when something changed.
         void UpdateJoint(b2Joint* joint, const PhysicsJoint2DDesc& desc);

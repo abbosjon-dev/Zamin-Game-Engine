@@ -4308,6 +4308,11 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<Rigidbody2DComponent>();
     e.AddComponent<BoxCollider2DComponent>();
     e.AddComponent<CircleCollider2DComponent>();
+    e.AddComponent<DistanceJoint2DComponent>();
+    e.AddComponent<RevoluteJoint2DComponent>();
+    e.AddComponent<PrismaticJoint2DComponent>();
+    e.AddComponent<WeldJoint2DComponent>();
+    e.AddComponent<WheelJoint2DComponent>();
     e.AddComponent<Rigidbody3DComponent>();
     e.AddComponent<BoxCollider3DComponent>();
     e.AddComponent<SphereCollider3DComponent>();
@@ -4323,7 +4328,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 30);
+    CHECK(types.size() == 35);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -15092,6 +15097,482 @@ TEST(TopDown2DSampleScene)
     Lighting2DData near = play->CollectLights2D(glm::vec2(fire.GetTransform().Translation));
     CHECK(!near.Lights.empty() && near.Lights[0].Position == glm::vec2(fire.GetTransform().Translation));
     play->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ 2D joints (M09)
+static Entity MakeBody2D(Ref<Scene>& scene, const char* name, glm::vec2 position, Rigidbody2DComponent::BodyType type, float radius = 0.25f)
+{
+    Entity e = scene->CreateEntity(name);
+    e.GetTransform().Translation = { position.x, position.y, 0.0f };
+    e.AddComponent<Rigidbody2DComponent>().Type = type;
+    if (radius > 0.0f)
+        e.AddComponent<CircleCollider2DComponent>().Radius = radius;
+    return e;
+}
+
+static void RunFrames(Ref<Scene>& scene, int frames)
+{
+    for (int i = 0; i < frames; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+}
+
+static glm::vec2 Pos2D(Entity e) { return glm::vec2(e.GetTransform().Translation); }
+
+TEST(DistanceJoint2DRodRopeAndWorldAnchor)
+{
+    auto scene = CreateRef<Scene>();
+    Entity pivot = MakeBody2D(scene, "Pivot", { 0.0f, 5.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    // A rod: the length the bodies start at, the connected anchor is the pivot's origin.
+    Entity bob = MakeBody2D(scene, "Bob", { 3.0f, 5.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    auto& rod = bob.AddComponent<DistanceJoint2DComponent>();
+    rod.ConnectedBody.ID = pivot.GetUUID();
+    CHECK(!rod.AutoConfigureConnectedAnchor && rod.AutoConfigureDistance);
+    // A rope to a point in the world: may come closer, never further than 2.
+    Entity weight = MakeBody2D(scene, "Weight", { 10.0f, 5.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    auto& rope = weight.AddComponent<DistanceJoint2DComponent>();
+    rope.ConnectedAnchor = { 10.0f, 6.0f }; // world point (no connected body)
+    rope.AutoConfigureDistance = false;
+    rope.Distance = 2.0f;
+    rope.MaxDistanceOnly = true;
+
+    scene->OnRuntimeStart();
+    CHECK(scene->GetPhysicsWorld2D() && scene->GetPhysicsWorld2D()->GetJointCount() == 2);
+    CHECK(bob.GetComponent<DistanceJoint2DComponent>().RuntimeJoint != nullptr);
+    CHECK_NEAR(bob.GetComponent<DistanceJoint2DComponent>().Distance, 3.0f, 1e-4f); // auto-configured
+    float minY = 5.0f;
+    for (int i = 0; i < 90; i++)
+    {
+        RunFrames(scene, 1);
+        CHECK_NEAR(glm::length(Pos2D(bob) - glm::vec2(0.0f, 5.0f)), 3.0f, 0.05f);
+        minY = std::min(minY, Pos2D(bob).y);
+    }
+    CHECK(minY < 3.0f); // it swung down
+    CHECK_NEAR(bob.GetComponent<DistanceJoint2DComponent>().CurrentDistance, 3.0f, 0.05f);
+    CHECK(bob.GetComponent<DistanceJoint2DComponent>().ReactionForce > 0.0f);
+    // The rope let the weight fall until it was taut: 2 below the world point.
+    CHECK_NEAR(Pos2D(weight).x, 10.0f, 1e-3f);
+    CHECK_NEAR(Pos2D(weight).y, 4.0f, 0.05f);
+    scene->OnRuntimeStop();
+    CHECK(bob.GetComponent<DistanceJoint2DComponent>().RuntimeJoint == nullptr);
+}
+
+TEST(DistanceJoint2DSpring)
+{
+    auto scene = CreateRef<Scene>();
+    scene->GetSettings().Gravity = { 0.0f, 0.0f };
+    Entity pivot = MakeBody2D(scene, "Pivot", { 0.0f, 0.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    Entity bob = MakeBody2D(scene, "Bob", { 3.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    auto& spring = bob.AddComponent<DistanceJoint2DComponent>();
+    spring.ConnectedBody.ID = pivot.GetUUID();
+    spring.AutoConfigureDistance = false;
+    spring.Distance = 1.0f;
+    spring.Frequency = 2.0f;
+    spring.DampingRatio = 1.0f;
+    scene->OnRuntimeStart();
+    // Pulled in from 3 to its rest length (critically damped: no overshoot to the other side).
+    RunFrames(scene, 180);
+    CHECK_NEAR(Pos2D(bob).x, 1.0f, 0.05f);
+    scene->OnRuntimeStop();
+}
+
+TEST(RevoluteJoint2DLimitAndMotor)
+{
+    auto scene = CreateRef<Scene>();
+    Entity pivot = MakeBody2D(scene, "Pivot", { 0.0f, 0.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    // An arm hinged at its left end: gravity turns it clockwise until the limit holds it at -30 degrees.
+    Entity arm = scene->CreateEntity("Arm");
+    arm.GetTransform().Translation = { 1.0f, 0.0f, 0.0f };
+    arm.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    arm.AddComponent<BoxCollider2DComponent>().Size = { 1.0f, 0.1f };
+    auto& hinge = arm.AddComponent<RevoluteJoint2DComponent>();
+    hinge.ConnectedBody.ID = pivot.GetUUID();
+    hinge.Anchor = { -1.0f, 0.0f };
+    hinge.EnableLimit = true;
+    hinge.LowerAngle = -30.0f;
+    hinge.UpperAngle = 30.0f;
+    scene->OnRuntimeStart();
+    CHECK(arm.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint != nullptr);
+    CHECK(glm::length(arm.GetComponent<RevoluteJoint2DComponent>().ConnectedAnchor) < 1e-4f); // auto: the pivot's origin
+    RunFrames(scene, 120);
+    auto& h = arm.GetComponent<RevoluteJoint2DComponent>();
+    CHECK_NEAR(h.JointAngle, -30.0f, 1.5f);
+    CHECK_NEAR(glm::degrees(arm.GetTransform().Rotation.z), -30.0f, 1.5f);
+    // The hinge point stays on the pivot: the arm's centre is 1 from it.
+    CHECK_NEAR(glm::length(Pos2D(arm)), 1.0f, 0.02f);
+
+    // A motor (set while it runs) turns it up against gravity and the limit stops it at +30.
+    h.EnableMotor = true;
+    h.MotorSpeed = 90.0f;
+    h.MaxMotorTorque = 1000.0f;
+    RunFrames(scene, 60);
+    CHECK_NEAR(arm.GetComponent<RevoluteJoint2DComponent>().JointAngle, 30.0f, 1.5f);
+    // Without the limit it keeps turning at the motor's speed.
+    arm.GetComponent<RevoluteJoint2DComponent>().EnableLimit = false;
+    RunFrames(scene, 30);
+    CHECK_NEAR(arm.GetComponent<RevoluteJoint2DComponent>().JointSpeed, 90.0f, 2.0f);
+    CHECK(arm.GetComponent<RevoluteJoint2DComponent>().JointAngle > 40.0f);
+    scene->OnRuntimeStop();
+}
+
+TEST(PrismaticJoint2DAxisLimitAndMotor)
+{
+    auto scene = CreateRef<Scene>();
+    // A slider on a 45 degree rail through its start point (anchored to the world).
+    Entity slider = MakeBody2D(scene, "Slider", { 0.0f, 5.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    auto& rail = slider.AddComponent<PrismaticJoint2DComponent>();
+    rail.Axis = { 1.0f, 1.0f };
+    rail.EnableLimit = true;
+    rail.LowerTranslation = -2.0f;
+    rail.UpperTranslation = 1.0f;
+    scene->OnRuntimeStart();
+    CHECK(slider.GetComponent<PrismaticJoint2DComponent>().RuntimeJoint != nullptr);
+    for (int i = 0; i < 90; i++)
+    {
+        RunFrames(scene, 1);
+        glm::vec2 p = Pos2D(slider);
+        CHECK_NEAR(p.x, p.y - 5.0f, 0.01f); // on the rail
+        CHECK_NEAR(slider.GetTransform().Rotation.z, 0.0f, 1e-3f); // does not turn
+    }
+    // Slid down to the lower limit: 2 units along the axis.
+    CHECK_NEAR(slider.GetComponent<PrismaticJoint2DComponent>().JointTranslation, -2.0f, 0.02f);
+    CHECK_NEAR(Pos2D(slider).x, -2.0f / std::sqrt(2.0f), 0.02f);
+    // A motor pushes it up the rail to the upper limit.
+    auto& r = slider.GetComponent<PrismaticJoint2DComponent>();
+    r.EnableMotor = true;
+    r.MotorSpeed = 3.0f;
+    r.MaxMotorForce = 500.0f;
+    RunFrames(scene, 90);
+    CHECK_NEAR(slider.GetComponent<PrismaticJoint2DComponent>().JointTranslation, 1.0f, 0.02f);
+    scene->OnRuntimeStop();
+}
+
+TEST(WeldJoint2DRigidAndSoft)
+{
+    auto scene = CreateRef<Scene>();
+    Entity base = MakeBody2D(scene, "Base", { 0.0f, 0.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    auto beam = [&](const char* name, float y, float frequency) {
+        Entity e = scene->CreateEntity(name);
+        e.GetTransform().Translation = { 1.0f, y, 0.0f };
+        e.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+        e.AddComponent<BoxCollider2DComponent>().Size = { 1.0f, 0.1f };
+        auto& weld = e.AddComponent<WeldJoint2DComponent>();
+        weld.ConnectedBody.ID = base.GetUUID();
+        weld.Anchor = { -1.0f, 0.0f }; // held at its left end (the connected anchor follows: auto)
+        weld.Frequency = frequency;
+        weld.DampingRatio = 0.5f;
+        return e;
+    };
+    Entity rigid = beam("Rigid", 0.0f, 0.0f);
+    Entity soft = beam("Soft", 3.0f, 1.0f);
+    scene->OnRuntimeStart();
+    CHECK(scene->GetPhysicsWorld2D()->GetJointCount() == 2);
+    RunFrames(scene, 60);
+    // The rigid weld holds the beam level (Box2D's solver lets it sag a hair); the soft one bends down.
+    CHECK(std::abs(rigid.GetTransform().Rotation.z) < glm::radians(2.0f));
+    CHECK(soft.GetTransform().Rotation.z < glm::radians(-10.0f));
+    CHECK_NEAR(Pos2D(rigid).x, 1.0f, 0.02f);
+    scene->OnRuntimeStop();
+}
+
+TEST(WheelJoint2DCarDrives)
+{
+    auto scene = CreateRef<Scene>();
+    Entity ground = scene->CreateEntity("Ground");
+    ground.GetTransform().Translation = { 0.0f, -0.5f, 0.0f };
+    ground.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    ground.AddComponent<BoxCollider2DComponent>().Size = { 100.0f, 0.5f };
+    Entity chassis = scene->CreateEntity("Chassis");
+    chassis.GetTransform().Translation = { 0.0f, 1.2f, 0.0f };
+    chassis.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    chassis.AddComponent<BoxCollider2DComponent>().Size = { 1.0f, 0.25f };
+    std::vector<Entity> wheels;
+    for (float x : { -0.8f, 0.8f })
+    {
+        Entity wheel = MakeBody2D(scene, "Wheel", { x, 0.6f }, Rigidbody2DComponent::BodyType::Dynamic, 0.4f);
+        wheel.GetComponent<CircleCollider2DComponent>().Friction = 0.9f;
+        auto& w = wheel.AddComponent<WheelJoint2DComponent>();
+        w.ConnectedBody.ID = chassis.GetUUID();
+        w.EnableMotor = true;
+        w.MotorSpeed = -360.0f; // clockwise: rolls to the right
+        w.MaxMotorTorque = 40.0f;
+        wheels.push_back(wheel);
+    }
+    scene->OnRuntimeStart();
+    CHECK(scene->GetPhysicsWorld2D()->GetJointCount() == 2);
+    RunFrames(scene, 180);
+    CHECK(Pos2D(chassis).x > 2.0f);
+    for (Entity w : wheels)
+    {
+        const auto& joint = w.GetComponent<WheelJoint2DComponent>();
+        CHECK(joint.JointSpeed < -200.0f);           // the wheels spin clockwise
+        CHECK(Pos2D(w).y < Pos2D(chassis).y - 0.3f);  // still below the chassis
+        CHECK(std::abs(joint.JointTranslation) < 0.5f); // on its spring
+    }
+    // The chassis rests on the springs: they gave a little under its weight.
+    CHECK(wheels[0].GetComponent<WheelJoint2DComponent>().JointTranslation > 0.005f);
+    scene->OnRuntimeStop();
+}
+
+static int g_JointBreaks = 0;
+static std::string g_JointBreakOther;
+static Joint2DType g_JointBreakType = Joint2DType::Distance;
+
+class JointBreakProbe : public ScriptableEntity
+{
+public:
+    void OnJointBreak(const JointBreak2D& joint) override
+    {
+        g_JointBreaks++;
+        g_JointBreakType = joint.Type;
+        g_JointBreakOther = joint.ConnectedBody ? joint.ConnectedBody.GetName() : "";
+        CHECK(joint.Force > 25.0f);
+    }
+};
+ZM_REGISTER_SCRIPT(JointBreakProbe)
+
+TEST(Joint2DBreakForceAndScriptCallback)
+{
+    g_JointBreaks = 0;
+    g_JointBreakOther.clear();
+    auto scene = CreateRef<Scene>();
+    Entity hook = MakeBody2D(scene, "Hook", { 0.0f, 5.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    Entity lamp = MakeBody2D(scene, "Lamp", { 0.0f, 3.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.5f);
+    lamp.GetComponent<CircleCollider2DComponent>().Density = 10.0f; // ~77 N
+    auto& j = lamp.AddComponent<RevoluteJoint2DComponent>();
+    j.ConnectedBody.ID = hook.GetUUID();
+    j.Anchor = { 0.0f, 2.0f };    // hangs 2 below the hook
+    j.BreakForce = 25.0f;
+    lamp.AddComponent<NativeScriptComponent>().ClassName = "JointBreakProbe";
+    // A strong one next to it holds.
+    Entity strong = MakeBody2D(scene, "Strong", { 4.0f, 3.0f }, Rigidbody2DComponent::BodyType::Dynamic, 0.5f);
+    auto& sj = strong.AddComponent<RevoluteJoint2DComponent>();
+    sj.ConnectedBody.ID = hook.GetUUID();
+    sj.Anchor = { 0.0f, 2.0f };
+    sj.BreakForce = 1000.0f;
+
+    scene->OnRuntimeStart();
+    CHECK(lamp.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint != nullptr);
+    RunFrames(scene, 10);
+    const auto& broken = lamp.GetComponent<RevoluteJoint2DComponent>();
+    CHECK(broken.Broken && broken.RuntimeJoint == nullptr);
+    CHECK(g_JointBreaks == 1 && g_JointBreakOther == "Hook" && g_JointBreakType == Joint2DType::Revolute);
+    CHECK(scene->GetPhysicsWorld2D()->GetJointCount() == 1);
+    CHECK(strong.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint != nullptr);
+    CHECK(strong.GetComponent<RevoluteJoint2DComponent>().ReactionForce > 1.0f);
+    RunFrames(scene, 20);
+    CHECK(Pos2D(lamp).y < 2.5f);       // falling
+    CHECK(g_JointBreaks == 1);         // broken for good: not made again
+    CHECK_NEAR(Pos2D(strong).y, 3.0f, 0.05f);
+
+    // Clearing the flag (a script repairing it) makes it again where the bodies are now.
+    auto& repaired = lamp.GetComponent<RevoluteJoint2DComponent>();
+    repaired.Broken = false;
+    repaired.BreakForce = 0.0f;
+    RunFrames(scene, 1);
+    CHECK(lamp.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint != nullptr);
+    CHECK(scene->GetPhysicsWorld2D()->GetJointCount() == 2);
+    scene->OnRuntimeStop();
+    CHECK(!lamp.GetComponent<RevoluteJoint2DComponent>().Broken);
+}
+
+TEST(Joint2DFollowsBodiesInAndOut)
+{
+    auto scene = CreateRef<Scene>();
+    Entity a = MakeBody2D(scene, "A", { 0.0f, 0.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    Entity b = MakeBody2D(scene, "B", { 1.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    Entity c = MakeBody2D(scene, "C", { 5.0f, 0.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    Entity map = scene->CreateEntity("Map");
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = 2; tm.Height = 1;
+    tm.EnsureSize();
+    tm.Set(0, 0, 1);
+    b.AddComponent<RevoluteJoint2DComponent>().ConnectedBody.ID = a.GetUUID();
+    // A joint on an entity without a Rigidbody 2D, and one waiting for an inactive body.
+    Entity loose = scene->CreateEntity("Loose");
+    loose.AddComponent<WeldJoint2DComponent>().ConnectedBody.ID = a.GetUUID();
+    Entity sleeper = MakeBody2D(scene, "Sleeper", { 3.0f, 0.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    sleeper.SetActive(false);
+    Entity waiting = MakeBody2D(scene, "Waiting", { 3.0f, 1.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    waiting.AddComponent<DistanceJoint2DComponent>().ConnectedBody.ID = sleeper.GetUUID();
+    // Connected to a tilemap (static level geometry).
+    Entity hanging = MakeBody2D(scene, "Hanging", { 0.5f, -2.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    hanging.AddComponent<DistanceJoint2DComponent>().ConnectedBody.ID = map.GetUUID();
+
+    scene->OnRuntimeStart();
+    PhysicsWorld2D* world = scene->GetPhysicsWorld2D();
+    CHECK(world->GetJointCount() == 2); // B-A and Hanging-Map
+    CHECK(loose.GetComponent<WeldJoint2DComponent>().RuntimeJoint == nullptr);
+    CHECK(waiting.GetComponent<DistanceJoint2DComponent>().RuntimeJoint == nullptr);
+    CHECK(hanging.GetComponent<DistanceJoint2DComponent>().RuntimeJoint != nullptr);
+    // The connected body switched off and on: the joint goes and comes back at once.
+    a.SetActive(false);
+    CHECK(b.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint == nullptr && world->GetJointCount() == 1);
+    a.SetActive(true);
+    CHECK(b.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint != nullptr && world->GetJointCount() == 2);
+    // The joint's own body too.
+    b.SetActive(false);
+    CHECK(b.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint == nullptr && world->GetJointCount() == 1);
+    b.SetActive(true);
+    CHECK(b.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint != nullptr);
+    // The waiting one is made when its body arrives.
+    sleeper.SetActive(true);
+    CHECK(waiting.GetComponent<DistanceJoint2DComponent>().RuntimeJoint != nullptr && world->GetJointCount() == 3);
+    // The tilemap goes away and comes back with its joint.
+    map.SetActive(false);
+    CHECK(hanging.GetComponent<DistanceJoint2DComponent>().RuntimeJoint == nullptr && world->GetJointCount() == 2);
+    map.SetActive(true);
+    CHECK(hanging.GetComponent<DistanceJoint2DComponent>().RuntimeJoint != nullptr && world->GetJointCount() == 3);
+    // Connected to something else while it runs (a script grabbing another body): made again.
+    b.GetComponent<RevoluteJoint2DComponent>().ConnectedBody.ID = c.GetUUID();
+    RunFrames(scene, 1);
+    CHECK(b.GetComponent<RevoluteJoint2DComponent>().RuntimeConnected == (uint64_t)c.GetUUID());
+    CHECK(world->GetJointCount() == 3);
+    // A destroyed connected body takes the joint with it for good.
+    scene->DestroyEntity(c);
+    CHECK(b.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint == nullptr && world->GetJointCount() == 2);
+    RunFrames(scene, 1);
+    CHECK(b.GetComponent<RevoluteJoint2DComponent>().RuntimeJoint == nullptr);
+    // Removing the component removes the joint; a pasted copy (a fresh value) replaces it.
+    waiting.RemoveComponent<DistanceJoint2DComponent>();
+    CHECK(world->GetJointCount() == 1);
+    DistanceJoint2DComponent fresh;
+    fresh.ConnectedBody.ID = map.GetUUID();
+    fresh.AutoConfigureDistance = false;
+    fresh.Distance = 1.5f;
+    hanging.AddOrReplaceComponent<DistanceJoint2DComponent>(fresh);
+    CHECK(world->GetJointCount() == 0);
+    RunFrames(scene, 1);
+    CHECK(world->GetJointCount() == 1 && hanging.GetComponent<DistanceJoint2DComponent>().RuntimeJoint != nullptr);
+    // A spawned copy of a jointed body gets a joint of its own.
+    Entity clone = scene->Instantiate(sleeper);
+    CHECK(clone && world->GetJointCount() == 1); // the clone has no joint itself
+    Entity waitingClone = scene->Instantiate(hanging);
+    CHECK(waitingClone.GetComponent<DistanceJoint2DComponent>().RuntimeJoint != nullptr);
+    CHECK(waitingClone.GetComponent<DistanceJoint2DComponent>().RuntimeJoint != hanging.GetComponent<DistanceJoint2DComponent>().RuntimeJoint);
+    CHECK(world->GetJointCount() == 2);
+    scene->OnRuntimeStop();
+    // Simulation mode makes them too (Hanging and its clone to the map; B's connected body is gone).
+    scene->OnSimulationStart();
+    CHECK(scene->GetPhysicsWorld2D()->GetJointCount() == 2);
+    scene->OnSimulationStop();
+}
+
+TEST(Joint2DSerializeAndRemap)
+{
+    auto scene = CreateRef<Scene>();
+    Entity rig = scene->CreateEntity("Rig");
+    Entity torso = MakeBody2D(scene, "Torso", { 0.0f, 2.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    Entity arm = MakeBody2D(scene, "Arm", { 0.5f, 2.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    Entity world = MakeBody2D(scene, "Outside", { 9.0f, 0.0f }, Rigidbody2DComponent::BodyType::Static);
+    scene->SetParent(torso, rig, false);
+    scene->SetParent(arm, rig, false);
+    auto& hinge = arm.AddComponent<RevoluteJoint2DComponent>();
+    hinge.ConnectedBody.ID = torso.GetUUID();
+    hinge.Anchor = { -0.25f, 0.1f };
+    hinge.ConnectedAnchor = { 0.3f, 0.2f };
+    hinge.AutoConfigureConnectedAnchor = false;
+    hinge.CollideConnected = true;
+    hinge.BreakForce = 120.0f;
+    hinge.BreakTorque = 30.0f;
+    hinge.EnableLimit = true;
+    hinge.LowerAngle = -80.0f;
+    hinge.UpperAngle = 10.0f;
+    hinge.EnableMotor = true;
+    hinge.MotorSpeed = -45.0f;
+    hinge.MaxMotorTorque = 7.5f;
+    hinge.JointAngle = 12.0f; // runtime: not saved
+    auto& rope = torso.AddComponent<DistanceJoint2DComponent>();
+    rope.ConnectedBody.ID = world.GetUUID(); // outside the rig
+    rope.AutoConfigureDistance = false;
+    rope.Distance = 4.5f;
+    rope.MaxDistanceOnly = true;
+    rope.Frequency = 3.0f;
+    rope.DampingRatio = 0.4f;
+    auto& slide = rig.AddComponent<PrismaticJoint2DComponent>();
+    slide.Axis = { 0.0f, 1.0f };
+    slide.EnableLimit = true;
+    slide.LowerTranslation = -0.5f;
+    slide.UpperTranslation = 2.0f;
+    slide.EnableMotor = true;
+    slide.MotorSpeed = 1.5f;
+    slide.MaxMotorForce = 99.0f;
+    auto& weld = world.AddComponent<WeldJoint2DComponent>();
+    weld.Frequency = 5.0f;
+    weld.DampingRatio = 0.9f;
+    weld.ConnectedAnchor = { 1.0f, 2.0f };
+    auto& wheel = arm.AddComponent<WheelJoint2DComponent>();
+    wheel.ConnectedBody.ID = rig.GetUUID();
+    wheel.Axis = { 0.2f, 1.0f };
+    wheel.Frequency = 6.0f;
+    wheel.DampingRatio = 0.3f;
+    wheel.EnableLimit = true;
+    wheel.LowerTranslation = -0.1f;
+    wheel.UpperTranslation = 0.2f;
+    wheel.EnableMotor = true;
+    wheel.MotorSpeed = 720.0f;
+    wheel.MaxMotorTorque = 25.0f;
+
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"RevoluteJoint2D\"") != std::string::npos && text.find("JointAngle") == std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+    Entity la = loaded->GetEntityByUUID(arm.GetUUID());
+    const auto& h = la.GetComponent<RevoluteJoint2DComponent>();
+    CHECK(h.ConnectedBody.ID == (uint64_t)torso.GetUUID());
+    CHECK(h.Anchor == glm::vec2(-0.25f, 0.1f) && h.ConnectedAnchor == glm::vec2(0.3f, 0.2f) && !h.AutoConfigureConnectedAnchor);
+    CHECK(h.CollideConnected && h.BreakForce == 120.0f && h.BreakTorque == 30.0f);
+    CHECK(h.EnableLimit && h.LowerAngle == -80.0f && h.UpperAngle == 10.0f);
+    CHECK(h.EnableMotor && h.MotorSpeed == -45.0f && h.MaxMotorTorque == 7.5f && h.JointAngle == 0.0f);
+    const auto& r = loaded->GetEntityByUUID(torso.GetUUID()).GetComponent<DistanceJoint2DComponent>();
+    CHECK(!r.AutoConfigureDistance && r.Distance == 4.5f && r.MaxDistanceOnly && r.Frequency == 3.0f && r.DampingRatio == 0.4f);
+    CHECK(!r.AutoConfigureConnectedAnchor);
+    const auto& p = loaded->GetEntityByUUID(rig.GetUUID()).GetComponent<PrismaticJoint2DComponent>();
+    CHECK(p.Axis == glm::vec2(0.0f, 1.0f) && p.EnableLimit && p.LowerTranslation == -0.5f && p.UpperTranslation == 2.0f);
+    CHECK(p.EnableMotor && p.MotorSpeed == 1.5f && p.MaxMotorForce == 99.0f && !p.ConnectedBody);
+    const auto& w = loaded->GetEntityByUUID(world.GetUUID()).GetComponent<WeldJoint2DComponent>();
+    CHECK(w.Frequency == 5.0f && w.DampingRatio == 0.9f && w.ConnectedAnchor == glm::vec2(1.0f, 2.0f));
+    const auto& wh = la.GetComponent<WheelJoint2DComponent>();
+    CHECK(wh.ConnectedBody.ID == (uint64_t)rig.GetUUID() && wh.Axis == glm::vec2(0.2f, 1.0f) && wh.Frequency == 6.0f);
+    CHECK(wh.DampingRatio == 0.3f && wh.EnableLimit && wh.LowerTranslation == -0.1f && wh.UpperTranslation == 0.2f);
+    CHECK(wh.EnableMotor && wh.MotorSpeed == 720.0f && wh.MaxMotorTorque == 25.0f);
+
+    // Hand-edited values are put in order; older files without the keys get the defaults.
+    {
+        auto odd = CreateRef<Scene>();
+        std::string edited = text;
+        auto at = edited.find("\"LowerAngle\": -80.0");
+        CHECK(at != std::string::npos);
+        if (at != std::string::npos)
+            edited.replace(at, std::string("\"LowerAngle\": -80.0").size(), "\"LowerAngle\": 50.0");
+        CHECK(SceneSerializer(odd).DeserializeFromString(edited));
+        const auto& oh = odd->GetEntityByUUID(arm.GetUUID()).GetComponent<RevoluteJoint2DComponent>();
+        CHECK(oh.LowerAngle == 10.0f && oh.UpperAngle == 50.0f);
+        Entity bare = odd->CreateEntity("Bare");
+        CHECK(SceneSerializer::DeserializeComponent("{\"ZaminComponent\":\"WheelJoint2D\",\"Data\":{}}", bare));
+        CHECK(bare.HasComponent<WheelJoint2DComponent>() && bare.GetComponent<WheelJoint2DComponent>().Frequency == 4.0f);
+        CHECK(bare.GetComponent<WheelJoint2DComponent>().AutoConfigureConnectedAnchor);
+    }
+
+    // Duplicating the rig: the arm's hinge points at the copied torso, the rope still at the outside body.
+    Entity copy = scene->DuplicateEntity(rig);
+    Entity copyTorso = scene->GetEntityByUUID(copy.GetComponent<RelationshipComponent>().Children[0]);
+    Entity copyArm = scene->GetEntityByUUID(copy.GetComponent<RelationshipComponent>().Children[1]);
+    CHECK(copyArm.GetComponent<RevoluteJoint2DComponent>().ConnectedBody.ID == (uint64_t)copyTorso.GetUUID());
+    CHECK(copyArm.GetComponent<WheelJoint2DComponent>().ConnectedBody.ID == (uint64_t)copy.GetUUID());
+    CHECK(copyTorso.GetComponent<DistanceJoint2DComponent>().ConnectedBody.ID == (uint64_t)world.GetUUID());
+    // Pasted with new IDs (copy / paste, prefabs): the same.
+    std::string clip = SceneSerializer::SerializeEntities(*scene, { rig, torso, arm });
+    std::vector<Entity> pasted = SceneSerializer::DeserializeEntities(*scene, clip, true);
+    CHECK(pasted.size() == 3);
+    Entity pastedTorso, pastedArm;
+    for (Entity e : pasted)
+    {
+        if (e.GetName() == "Torso") pastedTorso = e;
+        if (e.GetName() == "Arm") pastedArm = e;
+    }
+    CHECK(pastedTorso && pastedArm && pastedTorso.GetUUID() != torso.GetUUID());
+    CHECK(pastedArm.GetComponent<RevoluteJoint2DComponent>().ConnectedBody.ID == (uint64_t)pastedTorso.GetUUID());
 }
 
 int main()

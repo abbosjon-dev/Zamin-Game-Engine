@@ -814,6 +814,12 @@ namespace Zamin {
         // The collision layer of its colliders (0..15, Project settings > Physics layers): which other
         // layers it touches is the project's layer matrix. A collider may pick its own (Layer >= 0).
         int Layer = 0;
+        // Sleeping: a body that keeps still for a while (scene settings: Physics 2D > time to sleep),
+        // together with everything touching it, is not simulated until something hits it, a joint
+        // pulls it, a script moves it or wakes it (ScriptableEntity::WakeUp). StartAsleep: it starts
+        // like that (a tower that waits to be knocked over); NeverSleep: it is always simulated.
+        enum class SleepMode { StartAwake = 0, StartAsleep, NeverSleep };
+        SleepMode Sleeping = SleepMode::StartAwake;
 
         void* RuntimeBody = nullptr; // b2Body*
     };

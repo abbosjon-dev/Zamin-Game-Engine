@@ -163,6 +163,16 @@ namespace Zamin {
         // Falls through one-way platforms (OneWay tiles, one-way box colliders) for `seconds`:
         //   if (Input::GetAxis("Vertical") < -0.5f && Input::IsActionJustPressed("Jump")) DropThroughPlatforms();
         bool DropThroughPlatforms(float seconds = 0.35f);
+        // Sleeping (Rigidbody 2D > Sleeping, scene settings > Physics 2D): a body that keeps still
+        // for a while stops being simulated until something touches it. WakeUp brings it back at
+        // once, PutToSleep stops it now (it wakes again when hit); the Entity versions are for another
+        // body:
+        //   if (IsSleeping(crate)) WakeUp(crate);
+        bool IsSleeping() const;
+        void WakeUp();
+        void PutToSleep();
+        bool IsSleeping(Entity other) const;
+        void WakeUp(Entity other);
 
         // ---- hierarchy
         Entity GetParent() const;

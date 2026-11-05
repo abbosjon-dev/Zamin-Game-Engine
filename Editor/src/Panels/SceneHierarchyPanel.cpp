@@ -5099,6 +5099,34 @@ namespace Zamin {
             changed |= DrawCollisionLayer("Qatlam", c.Layer, false,
                                           "Kolliderlarining to'qnashuv qatlami: qaysi qatlamlarga tegishi loyiha matritsasida "
                                           "(Loyiha sozlamalari > Fizika qatlamlari). Kollider o'z qatlamini tanlashi mumkin.");
+            if (c.Type != Rigidbody2DComponent::BodyType::Static)
+            {
+                const char* modes[] = { "Uyg'oq boshlanadi", "Uxlab boshlanadi", "Hech uxlamaydi" };
+                int mode = (int)c.Sleeping;
+                UI::PropertyLabel("Uxlash", "Qimirlamay qolgan jism uxlaydi: tegilmaguncha hisoblanmaydi (Sahna sozlamalari > Fizika). "
+                                            "Uxlab boshlanadi - urilguncha kutib turadigan minora yoki to'plam uchun; Hech uxlamaydi - "
+                                            "doim hisoblanadi");
+                ImGui::PushID("sleep");
+                if (ImGui::Combo("##v", &mode, modes, 3))
+                {
+                    c.Sleeping = (Rigidbody2DComponent::SleepMode)std::clamp(mode, 0, 2);
+                    changed = true;
+                }
+                ImGui::PopID();
+                if (c.RuntimeBody && m_Context)
+                {
+                    // While the game runs: whether it sleeps now, and a button to change that.
+                    const bool sleeping = m_Context->IsSleeping2D(entity);
+                    UI::PropertyLabel("Holati");
+                    if (sleeping)
+                        ImGui::TextColored(ImVec4(0.55f, 0.65f, 0.95f, 1.0f), ICON_FA_MOON "  Uxlayapti");
+                    else
+                        ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1.0f), ICON_FA_BOLT "  Uyg'oq");
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(sleeping ? "Uyg'otish" : "Uxlatish"))
+                        m_Context->SetAwake2D(entity, sleeping);
+                }
+            }
             return changed;
         }, true, modified);
 

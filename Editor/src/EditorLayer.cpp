@@ -2348,6 +2348,11 @@ namespace Zamin {
         if (m_ShowColliders)
         {
             const glm::vec4 green(0.3f, 0.95f, 0.45f, 1.0f), yellow(0.95f, 0.8f, 0.2f, 1.0f);
+            // While the game runs, the colliders of sleeping 2D bodies are blue-grey (as in Box2D's testbed).
+            const glm::vec4 sleepColor(0.5f, 0.6f, 0.95f, 0.85f);
+            auto solid2D = [&](Entity entity, const glm::vec4& color) {
+                return scene.IsSleeping2D(entity) ? sleepColor : color;
+            };
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, BoxCollider2DComponent>())
             {
                 if (hidden.contains(e)) continue;
@@ -2372,7 +2377,7 @@ namespace Zamin {
                     Renderer2D::DrawLine(at(0.0f, 0.35f), at(0.08f, 0.15f), oneWay);
                     continue;
                 }
-                Renderer2D::DrawRect(transform, bc.IsSensor ? yellow : green);
+                Renderer2D::DrawRect(transform, bc.IsSensor ? yellow : solid2D(entity, green));
             }
             // Tilemaps: the boxes their static body is made of (one-way ones magenta, with arrows up).
             const glm::vec4 oneWayColor(0.95f, 0.4f, 0.9f, 1.0f);
@@ -2418,7 +2423,7 @@ namespace Zamin {
                 Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
                 float d = std::abs(sc.x) * cc.Radius * 2.0f;
                 glm::mat4 transform = glm::translate(glm::mat4(1.0f), p + glm::vec3(cc.Offset, 0.001f)) * glm::scale(glm::mat4(1.0f), glm::vec3(d, d, 1.0f));
-                Renderer2D::DrawCircle(transform, cc.IsSensor ? yellow : green, 0.04f);
+                Renderer2D::DrawCircle(transform, cc.IsSensor ? yellow : solid2D(entity, green), 0.04f);
             }
             // Polygons (their convex pieces faint inside the outline) and edges / chains (a one-sided
             // chain's solid side marked with short ticks). Platforms (Platform Effector 2D) magenta.
@@ -2438,7 +2443,7 @@ namespace Zamin {
                 if (hidden.contains(e)) continue;
                 Entity entity{ e, &scene };
                 const auto& pc = entity.GetComponent<PolygonCollider2DComponent>();
-                const glm::vec4 color = pc.IsSensor ? yellow : entity.HasComponent<PlatformEffector2DComponent>() ? platformColor : green;
+                const glm::vec4 color = pc.IsSensor ? yellow : entity.HasComponent<PlatformEffector2DComponent>() ? platformColor : solid2D(entity, green);
                 auto at = colliderFrame(entity, pc.Offset);
                 glm::vec3 p, r, sc;
                 Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
@@ -2457,7 +2462,7 @@ namespace Zamin {
                 if (hidden.contains(e)) continue;
                 Entity entity{ e, &scene };
                 const auto& ec = entity.GetComponent<EdgeCollider2DComponent>();
-                const glm::vec4 color = ec.IsSensor ? yellow : entity.HasComponent<PlatformEffector2DComponent>() ? platformColor : green;
+                const glm::vec4 color = ec.IsSensor ? yellow : entity.HasComponent<PlatformEffector2DComponent>() ? platformColor : solid2D(entity, green);
                 auto at = colliderFrame(entity, ec.Offset);
                 const size_t n = ec.Points.size();
                 const size_t edges = n < 2 ? 0 : (ec.Loop && n >= 3 ? n : n - 1);
@@ -7590,14 +7595,84 @@ namespace Zamin {
             UI::EndPropertyGrid();
         }
 
-        ImGui::SeparatorText(ICON_FA_ATOM "  Fizika 2D");
+        ImGui::SeparatorText(ICON_FA_ATOM "  Fizika");
+        if (m_SceneSettingsScrollTo == "physics")
+        {
+            ImGui::SetScrollHereY(0.0f);
+            m_SceneSettingsScrollTo.clear();
+        }
         if (UI::BeginPropertyGrid("phys"))
         {
             changed |= UI::PropertyFloat2("Gravitatsiya", s.Gravity);
             changed |= UI::PropertyFloat3("Gravitatsiya (3D)", s.Gravity3D);
-            changed |= UI::PropertyInt("Tezlik iteratsiyalari", s.VelocityIterations);
-            changed |= UI::PropertyInt("Pozitsiya iteratsiyalari", s.PositionIterations);
+            auto sliderInt = [&](const char* label, const char* tooltip, int& value, int min, int max, const char* format) {
+                UI::PropertyLabel(label, tooltip);
+                ImGui::PushID(label);
+                if (ImGui::SliderInt("##v", &value, min, max, format, ImGuiSliderFlags_AlwaysClamp))
+                    changed = true;
+                ImGui::PopID();
+            };
+            auto& step = s.PhysicsStep;
+            sliderInt("Qadam chastotasi",
+                      "Fizika (2D va 3D) soniyasiga shuncha qat'iy qadam tashlaydi. Ko'proq - tez jismlar va joint'lar aniqroq, "
+                      "lekin qimmatroq. Standart: 60 Hz",
+                      step.StepRate, SceneSettings::PhysicsStepSettings::MinRate, SceneSettings::PhysicsStepSettings::MaxRate, "%d Hz");
+            sliderInt("Kadrda ko'pi bilan",
+                      "Sekin kadr shuncha qadamdan ortig'ini tashlab yuboradi: o'yin sekinlashadi, lekin orqada qolib ketmaydi. Standart: 5",
+                      step.MaxStepsPerFrame, 1, SceneSettings::PhysicsStepSettings::MaxSteps, "%d qadam");
+
+            auto& p2 = s.Physics2D;
+            UI::PropertyHeader("Box2D (2D)", "2D jismlar simulyatsiyasining aniqligi va uxlash sozlamalari");
+            sliderInt("Sub-qadamlar",
+                      "Har fizika qadami shuncha Box2D qadamiga bo'linadi (har biri 1 / (chastota x sub-qadam) s): tez jismlar, uzun "
+                      "joint zanjirlari va ragdoll'lar barqarorroq. Effektorlar har biridan oldin itaradi, joint uzilishi har biridan "
+                      "keyin tekshiriladi. Standart: 1",
+                      p2.SubSteps, 1, SceneSettings::Physics2DSettings::MaxSubSteps, "%d");
+            sliderInt("Tezlik iteratsiyalari",
+                      "Box2D tezliklarni (urilish, joint kuchlari) har qadamda shuncha marta hal qiladi: ko'proq - qattiqroq to'plamlar "
+                      "va joint'lar. Standart: 6",
+                      p2.VelocityIterations, 1, 50, "%d");
+            sliderInt("Pozitsiya iteratsiyalari",
+                      "Bir-biriga kirib qolgan jismlar va cho'zilgan joint'larni har qadamda shuncha marta to'g'rilaydi. Standart: 2",
+                      p2.PositionIterations, 1, 50, "%d");
+            UI::PropertyLabel("Uxlash", "Bir muddat qimirlamay turgan jismlar (ularga tegib / ulanib turganlar bilan birga) hisoblanmaydi "
+                                        "- biror narsa tegsa, joint tortsa yoki skript uyg'otsa yana harakatlanadi. Har jismniki: "
+                                        "Rigidbody 2D > Uxlash");
+            if (ImGui::Checkbox("##sleep", &p2.AllowSleep))
+                changed = true;
+            ImGui::BeginDisabled(!p2.AllowSleep);
+            UI::PropertyLabel("Uxlashgacha", "Jism (va unga tegib turganlar) shuncha soniya qimirlamasa uxlaydi. Box2D'niki: 0.5 s");
+            if (ImGui::DragFloat("##tts", &p2.TimeToSleep, 0.01f, 0.05f, 60.0f, "%.2f s", ImGuiSliderFlags_AlwaysClamp))
+                changed = true;
+            ImGui::EndDisabled();
+            if (m_ActiveScene->GetPhysicsWorld2D()) // while playing / simulating
+            {
+                const PhysicsStats2D stats = m_ActiveScene->GetPhysics2DStats();
+                UI::PropertyLabel("Jismlar");
+                ImGui::Text("%d ta (%d harakatlanuvchi)", stats.Bodies, stats.Moving);
+                UI::PropertyLabel("Holat");
+                ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1.0f), ICON_FA_BOLT " %d uyg'oq", stats.Awake);
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.55f, 0.65f, 0.95f, 1.0f), "  " ICON_FA_MOON " %d uxlayapti", stats.Sleeping);
+                UI::PropertyLabel("Joint / kontakt");
+                ImGui::Text("%d joint, %d kontakt", stats.Joints, stats.Contacts);
+                UI::PropertyLabel("Bu kadrda");
+                ImGui::Text("%d ta Box2D qadami", m_ActiveScene->GetPhysics2DStepsLastFrame());
+            }
             UI::EndPropertyGrid();
+        }
+        {
+            const bool standard = s.PhysicsStep == SceneSettings::PhysicsStepSettings() && s.Physics2D == SceneSettings::Physics2DSettings();
+            ImGui::BeginDisabled(standard);
+            if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Standart fizika sozlamalari"))
+            {
+                s.PhysicsStep = {};
+                s.Physics2D = {};
+                changed = true;
+            }
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip("Qadam chastotasi 60 Hz, 5 qadam, 1 sub-qadam, 6 / 2 iteratsiya, uxlash 0.5 s dan keyin");
         }
 
         ImGui::SeparatorText(ICON_FA_CAMERA "  Editor kamerasi");

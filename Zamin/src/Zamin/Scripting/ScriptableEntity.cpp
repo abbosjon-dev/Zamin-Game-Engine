@@ -519,6 +519,16 @@ namespace Zamin {
             body->ApplyForceToCenter({ force.x, force.y }, true);
     }
 
+    bool ScriptableEntity::IsSleeping() const { return m_Entity.GetScene()->IsSleeping2D(m_Entity); }
+    void ScriptableEntity::WakeUp() { m_Entity.GetScene()->SetAwake2D(m_Entity, true); }
+    void ScriptableEntity::PutToSleep() { m_Entity.GetScene()->SetAwake2D(m_Entity, false); }
+    bool ScriptableEntity::IsSleeping(Entity other) const { return other && m_Entity.GetScene()->IsSleeping2D(other); }
+    void ScriptableEntity::WakeUp(Entity other)
+    {
+        if (other)
+            m_Entity.GetScene()->SetAwake2D(other, true);
+    }
+
     void ScriptableEntity::SetPosition2D(const glm::vec2& position)
     {
         auto& t = Transform();

@@ -464,6 +464,92 @@ namespace Zamin {
         b2World World;
         b2Body* Ground = nullptr; // anchors joints without a connected body (created on demand)
         uint32_t RandomState = 0x9E3779B9u; // effector variations (xorshift: the same run every time)
+        uint64_t Steps = 0;
+
+        // Sleeping: what the world knows of every body it made (Box2D's own flag is off for all of
+        // them while the sleep time is counted here) and the world's settings.
+        struct BodySleep
+        {
+            bool CanSleep = true;
+            float StillTime = 0.0f; // seconds under the sleep tolerances (own timing only)
+        };
+        std::unordered_map<const b2Body*, BodySleep> Sleep;
+        bool AllowSleep = true;
+        float TimeToSleep = PhysicsWorld2D::DefaultTimeToSleep;
+
+        // The sleep time differs from Box2D's own: this world counts it.
+        bool OwnSleepTiming() const { return std::abs(TimeToSleep - b2_timeToSleep) > 1e-4f; }
+
+        // After a step (own timing): every moving body's time of keeping still, then the islands -
+        // bodies joined by touching contacts (not sensors) or joints, never through static bodies,
+        // as b2World::Solve builds them - whose every awake body has kept still long enough sleep.
+        void SleepIslands(float dt)
+        {
+            const float linear = b2_linearSleepTolerance * b2_linearSleepTolerance;
+            const float angular = b2_angularSleepTolerance * b2_angularSleepTolerance;
+            for (b2Body* b = World.GetBodyList(); b; b = b->GetNext())
+            {
+                if (b->GetType() == b2_staticBody || !b->IsEnabled())
+                    continue;
+                auto it = Sleep.find(b);
+                if (it == Sleep.end())
+                    continue;
+                BodySleep& state = it->second;
+                const b2Vec2 v = b->GetLinearVelocity();
+                const float w = b->GetAngularVelocity();
+                if (!b->IsAwake() || !state.CanSleep || w * w > angular || b2Dot(v, v) > linear)
+                    state.StillTime = 0.0f;
+                else
+                    state.StillTime += dt;
+            }
+            std::unordered_set<const b2Body*> visited;
+            std::vector<b2Body*> stack, island;
+            for (b2Body* seed = World.GetBodyList(); seed; seed = seed->GetNext())
+            {
+                if (seed->GetType() == b2_staticBody || !seed->IsEnabled() || !seed->IsAwake() || visited.count(seed))
+                    continue;
+                island.clear();
+                stack.assign(1, seed);
+                visited.insert(seed);
+                float still = FLT_MAX;
+                while (!stack.empty())
+                {
+                    b2Body* b = stack.back();
+                    stack.pop_back();
+                    island.push_back(b);
+                    if (b->IsAwake()) // a sleeping neighbour wakes with the island: it does not hold it up
+                    {
+                        auto it = Sleep.find(b);
+                        still = std::min(still, it != Sleep.end() ? it->second.StillTime : 0.0f);
+                    }
+                    for (b2ContactEdge* edge = b->GetContactList(); edge; edge = edge->next)
+                    {
+                        b2Contact* contact = edge->contact;
+                        if (!contact->IsEnabled() || !contact->IsTouching() || contact->GetFixtureA()->IsSensor() || contact->GetFixtureB()->IsSensor())
+                            continue;
+                        b2Body* other = edge->other;
+                        if (other->GetType() == b2_staticBody || !other->IsEnabled() || !visited.insert(other).second)
+                            continue;
+                        stack.push_back(other);
+                    }
+                    for (b2JointEdge* edge = b->GetJointList(); edge; edge = edge->next)
+                    {
+                        b2Body* other = edge->other;
+                        if (other->GetType() == b2_staticBody || !other->IsEnabled() || !visited.insert(other).second)
+                            continue;
+                        stack.push_back(other);
+                    }
+                }
+                if (still < TimeToSleep)
+                    continue;
+                for (b2Body* b : island)
+                {
+                    b->SetAwake(false); // velocities and forces cleared, as Box2D does
+                    if (auto it = Sleep.find(b); it != Sleep.end())
+                        it->second.StillTime = 0.0f;
+                }
+            }
+        }
 
         // A random number in [-1, 1].
         float RandomSigned()
@@ -512,8 +598,14 @@ namespace Zamin {
         bodyDef.linearDamping = desc.LinearDamping;
         bodyDef.angularDamping = desc.AngularDamping;
         bodyDef.bullet = desc.Bullet;
+        // Box2D sleeps it by itself only with its own timing (else SleepIslands does); a body never
+        // starts asleep while sleeping is off.
+        bodyDef.allowSleep = desc.CanSleep && !m_Impl->OwnSleepTiming();
+        bodyDef.awake = desc.StartAwake || !m_Impl->AllowSleep;
         bodyDef.userData.pointer = (uintptr_t)(uint64_t)desc.EntityID;
-        return m_Impl->World.CreateBody(&bodyDef);
+        b2Body* body = m_Impl->World.CreateBody(&bodyDef);
+        m_Impl->Sleep[body] = { desc.CanSleep, 0.0f };
+        return body;
     }
 
     b2Fixture* PhysicsWorld2D::AddShape(b2Body* body, const PhysicsShape2DDesc& desc)
@@ -715,6 +807,7 @@ namespace Zamin {
         if (destroyedJoints)
             for (b2JointEdge* edge = body->GetJointList(); edge; edge = edge->next)
                 destroyedJoints->push_back({ UUID((uint64_t)edge->joint->GetUserData().pointer), FromBox2DJointType(edge->joint->GetType()) });
+        m_Impl->Sleep.erase(body);
         m_Impl->World.DestroyBody(body); // its fixtures and joints go with it
     }
 
@@ -756,7 +849,10 @@ namespace Zamin {
     {
         ContactListener2D& listener = m_Impl->Listener;
         listener.StepTime = dt;
-        m_Impl->World.Step(dt, velocityIterations, positionIterations);
+        m_Impl->World.Step(dt, std::max(1, velocityIterations), std::max(1, positionIterations));
+        m_Impl->Steps++;
+        if (m_Impl->AllowSleep && m_Impl->OwnSleepTiming())
+            m_Impl->SleepIslands(dt);
         if (!listener.DropThrough.empty())
             std::erase_if(listener.DropThrough, [&](auto& item) { return (item.second -= dt) <= 0.0f; });
     }
@@ -777,6 +873,86 @@ namespace Zamin {
             dropThrough.erase((uint64_t)entity);
         if (body)
             body->SetAwake(true);
+    }
+
+    // ------------------------------------------------------------------ sleeping
+    void PhysicsWorld2D::SetSleeping(bool allowSleep, float timeToSleep)
+    {
+        Impl& impl = *m_Impl;
+        if (!std::isfinite(timeToSleep))
+            timeToSleep = DefaultTimeToSleep;
+        timeToSleep = std::clamp(timeToSleep, 0.01f, 1000.0f);
+        if (allowSleep != impl.AllowSleep)
+        {
+            impl.AllowSleep = allowSleep;
+            impl.World.SetAllowSleeping(allowSleep); // off: every body wakes up
+        }
+        const bool wasOwn = impl.OwnSleepTiming();
+        impl.TimeToSleep = timeToSleep;
+        if (impl.OwnSleepTiming() == wasOwn)
+            return;
+        // Box2D's own sleeping goes off (own timing) or comes back for the bodies that may sleep.
+        const bool own = impl.OwnSleepTiming();
+        for (b2Body* b = impl.World.GetBodyList(); b; b = b->GetNext())
+        {
+            auto it = impl.Sleep.find(b);
+            if (it == impl.Sleep.end())
+                continue;
+            it->second.StillTime = 0.0f;
+            b->SetSleepingAllowed(!own && it->second.CanSleep);
+            b->SetAwake(true);
+        }
+    }
+
+    bool PhysicsWorld2D::IsSleepingAllowed() const { return m_Impl->AllowSleep; }
+    float PhysicsWorld2D::GetTimeToSleep() const { return m_Impl->TimeToSleep; }
+
+    void PhysicsWorld2D::SetCanSleep(b2Body* body, bool canSleep)
+    {
+        if (!body)
+            return;
+        auto it = m_Impl->Sleep.find(body);
+        if (it == m_Impl->Sleep.end() || it->second.CanSleep == canSleep)
+            return;
+        it->second.CanSleep = canSleep;
+        it->second.StillTime = 0.0f;
+        if (!m_Impl->OwnSleepTiming())
+            body->SetSleepingAllowed(canSleep); // false wakes it
+        else if (!canSleep)
+            body->SetAwake(true);
+    }
+
+    bool PhysicsWorld2D::CanSleep(const b2Body* body) const
+    {
+        auto it = m_Impl->Sleep.find(body);
+        return it != m_Impl->Sleep.end() && it->second.CanSleep;
+    }
+
+    PhysicsStats2D PhysicsWorld2D::GetStats() const
+    {
+        PhysicsStats2D stats;
+        const b2World& world = m_Impl->World;
+        for (const b2Body* b = world.GetBodyList(); b; b = b->GetNext())
+        {
+            if (b == m_Impl->Ground)
+                continue;
+            stats.Bodies++;
+            if (b->GetType() == b2_staticBody)
+                continue;
+            stats.Moving++;
+            if (!b->IsEnabled())
+                continue;
+            if (b->IsAwake())
+                stats.Awake++;
+            else
+                stats.Sleeping++;
+        }
+        stats.Joints = world.GetJointCount();
+        for (const b2Contact* c = world.GetContactList(); c; c = c->GetNext())
+            if (c->IsTouching())
+                stats.Contacts++;
+        stats.Steps = m_Impl->Steps;
+        return stats;
     }
 
     // ------------------------------------------------------------------ joints

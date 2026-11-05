@@ -96,6 +96,19 @@ namespace Zamin {
         else return Joint2DType::Wheel;
     }
 
+    static const char* Joint2DTypeName(Joint2DType type)
+    {
+        switch (type)
+        {
+            case Joint2DType::Distance: return "Distance Joint 2D";
+            case Joint2DType::Revolute: return "Revolute Joint 2D";
+            case Joint2DType::Prismatic: return "Prismatic Joint 2D";
+            case Joint2DType::Weld: return "Weld Joint 2D";
+            case Joint2DType::Wheel: return "Wheel Joint 2D";
+        }
+        return "Joint 2D";
+    }
+
     template<typename T>
     static void ResetJointRuntime(T& joint)
     {
@@ -621,6 +634,8 @@ namespace Zamin {
                 StartEntityEffects(e); // PlayOnStart sounds of active clones
             }
         SyncJoints2D(); // a spawned ragdoll's joints, once all its bodies exist
+        if (m_PhysicsWorld)
+            ReportMissingJointBodies(&entities);
         if (m_ScriptsRunning)
         {
             for (Entity e : entities)
@@ -701,6 +716,22 @@ namespace Zamin {
         if (!root) return false;
         std::vector<Entity> entities;
         CollectSubtree(*this, root, entities);
+        // Joints connected to a body outside the prefab keep the reference: instances spawned in this
+        // scene join the same body, in another scene it is missing and the joint is not made.
+        std::unordered_set<uint64_t> inside;
+        for (Entity e : entities)
+            inside.insert((uint64_t)e.GetUUID());
+        for (Entity e : entities)
+            ForEachJoint2DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                const auto* joint = e.TryGetComponent<T>();
+                if (!joint || !joint->ConnectedBody.ID || inside.count(joint->ConnectedBody.ID))
+                    return;
+                Entity other = GetEntityByUUID(joint->ConnectedBody.ID);
+                ZM_CORE_WARN("Prefab {}: '{}' obyektidagi {} prefabdan tashqaridagi '{}' ga ulangan - boshqa sahnalarda u bo'lmaydi "
+                             "va joint yaratilmaydi", path.filename().string(), e.GetName(), Joint2DTypeName(Joint2DTypeOf<T>()),
+                             other ? other.GetName() : std::string("?"));
+            });
         // Instances should not start hidden / locked in the editor: those flags stay in this scene.
         return FileSystem::WriteTextFile(path, SceneSerializer::SerializeEntities(*this, entities, false));
     }
@@ -2084,7 +2115,10 @@ namespace Zamin {
         if (m_PhysicsWorld)
             OnPhysics2DStop();
         m_PhysicsWorld = std::make_unique<PhysicsWorld2D>(m_Settings.Gravity);
+        m_Settings.Physics2D.Sanitize();
+        m_PhysicsWorld->SetSleeping(m_Settings.Physics2D.AllowSleep, m_Settings.Physics2D.TimeToSleep); // before the bodies
         m_PhysicsAccumulator = 0.0f;
+        m_Physics2DStepsLastFrame = 0;
         m_PhysicsMaterialRevision = PhysicsMaterialLibrary::GetRevision();
 
         for (auto e : m_Registry.view<Rigidbody2DComponent>())
@@ -2092,6 +2126,38 @@ namespace Zamin {
         for (auto e : m_Registry.view<TilemapComponent>())
             CreateTilemapBody({ e, this });
         SyncJoints2D(); // once every body exists
+        m_ReportedMissingJointBodies.clear();
+        ReportMissingJointBodies(nullptr);
+    }
+
+    void Scene::ReportMissingJointBodies(const std::vector<Entity>* entities)
+    {
+        // A connected body that is not in the scene (deleted, or a prefab made in another scene): the
+        // joint waits for it for ever. Said once per missing body while the game runs.
+        auto check = [&](Entity e) {
+            ForEachJoint2DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                const auto* joint = e.TryGetComponent<T>();
+                if (!joint || !joint->ConnectedBody.ID || GetEntityByUUID(joint->ConnectedBody.ID))
+                    return;
+                if (!m_ReportedMissingJointBodies.insert(joint->ConnectedBody.ID).second)
+                    return;
+                ZM_CORE_WARN("'{}' obyektidagi {} ulangan jismi ({:016x}) sahnada yo'q - joint yaratilmaydi", e.GetName(),
+                             Joint2DTypeName(Joint2DTypeOf<T>()), joint->ConnectedBody.ID);
+            });
+        };
+        if (entities)
+        {
+            for (Entity e : *entities)
+                if (e.IsValid())
+                    check(e);
+            return;
+        }
+        ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : m_Registry.view<T>())
+                check({ e, this });
+        });
     }
 
     void Scene::CreateTilemapBody(Entity entity)
@@ -2367,6 +2433,8 @@ namespace Zamin {
         bodyDef.LinearDamping = rb2d.LinearDamping;
         bodyDef.AngularDamping = rb2d.AngularDamping;
         bodyDef.Bullet = rb2d.Bullet;
+        bodyDef.CanSleep = rb2d.Sleeping != Rigidbody2DComponent::SleepMode::NeverSleep;
+        bodyDef.StartAwake = rb2d.Sleeping != Rigidbody2DComponent::SleepMode::StartAsleep;
 
         b2Body* body = m_PhysicsWorld->CreateBody(bodyDef);
         rb2d.RuntimeBody = body;
@@ -2767,6 +2835,44 @@ namespace Zamin {
         }
     }
 
+    // ------------------------------------------------------------------ physics settings, 2D sleeping
+    void SceneSettings::PhysicsStepSettings::Sanitize()
+    {
+        StepRate = std::clamp(StepRate, MinRate, MaxRate);
+        MaxStepsPerFrame = std::clamp(MaxStepsPerFrame, 1, MaxSteps);
+    }
+
+    void SceneSettings::Physics2DSettings::Sanitize()
+    {
+        VelocityIterations = std::clamp(VelocityIterations, 1, MaxIterations);
+        PositionIterations = std::clamp(PositionIterations, 1, MaxIterations);
+        SubSteps = std::clamp(SubSteps, 1, MaxSubSteps);
+        TimeToSleep = std::isfinite(TimeToSleep) ? std::clamp(TimeToSleep, 0.05f, 60.0f) : 0.5f;
+    }
+
+    bool Scene::IsSleeping2D(Entity entity)
+    {
+        const auto* rb = entity ? entity.TryGetComponent<Rigidbody2DComponent>() : nullptr;
+        if (!m_PhysicsWorld || !rb || !rb->RuntimeBody || rb->Type == Rigidbody2DComponent::BodyType::Static)
+            return false;
+        const b2Body* body = (const b2Body*)rb->RuntimeBody;
+        return PhysicsWorld2D::IsEnabled(body) && !PhysicsWorld2D::IsAwake(body);
+    }
+
+    bool Scene::SetAwake2D(Entity entity, bool awake)
+    {
+        auto* rb = entity ? entity.TryGetComponent<Rigidbody2DComponent>() : nullptr;
+        if (!m_PhysicsWorld || !rb || !rb->RuntimeBody || rb->Type == Rigidbody2DComponent::BodyType::Static)
+            return false;
+        PhysicsWorld2D::SetAwake((b2Body*)rb->RuntimeBody, awake);
+        return true;
+    }
+
+    PhysicsStats2D Scene::GetPhysics2DStats() const
+    {
+        return m_PhysicsWorld ? m_PhysicsWorld->GetStats() : PhysicsStats2D();
+    }
+
     bool Scene::DropThroughPlatforms(Entity entity, float seconds)
     {
         if (!m_PhysicsWorld || !entity || !entity.HasComponent<Rigidbody2DComponent>())
@@ -2777,9 +2883,16 @@ namespace Zamin {
 
     void Scene::StepPhysics(Timestep ts)
     {
+        m_Physics2DStepsLastFrame = 0;
         if (!m_PhysicsWorld && !m_PhysicsWorld3D) return;
         ZM_PROFILE_SCOPE("Fizika");
-        constexpr float fixedStep = 1.0f / 60.0f;
+        // The settings may change while the game runs (the editor's scene settings, scripts).
+        m_Settings.PhysicsStep.Sanitize();
+        m_Settings.Physics2D.Sanitize();
+        const float fixedStep = m_Settings.PhysicsStep.GetFixedStep();
+        const int maxSteps = m_Settings.PhysicsStep.MaxStepsPerFrame;
+        const SceneSettings::Physics2DSettings& physics2D = m_Settings.Physics2D;
+        const float subStep = fixedStep / (float)physics2D.SubSteps;
         const bool debugContacts = DebugDraw::IsShowingContacts();
         if (m_PhysicsWorld3D)
             m_PhysicsWorld3D->SetDebugContactsEnabled(debugContacts);
@@ -2787,10 +2900,14 @@ namespace Zamin {
         // Kinematic/static bodies follow their transforms (lets scripts move them directly).
         if (m_PhysicsWorld)
         {
+            m_PhysicsWorld->SetSleeping(physics2D.AllowSleep, physics2D.TimeToSleep);
             for (auto e : m_Registry.view<Rigidbody2DComponent>())
             {
                 auto& rb2d = m_Registry.get<Rigidbody2DComponent>(e);
-                if (!rb2d.RuntimeBody || rb2d.Type == Rigidbody2DComponent::BodyType::Dynamic) continue;
+                if (!rb2d.RuntimeBody)
+                    continue;
+                m_PhysicsWorld->SetCanSleep((b2Body*)rb2d.RuntimeBody, rb2d.Sleeping != Rigidbody2DComponent::SleepMode::NeverSleep);
+                if (rb2d.Type == Rigidbody2DComponent::BodyType::Dynamic) continue;
                 glm::vec3 p = GetWorldPosition({ e, this });
                 float angle = m_Registry.get<TransformComponent>(e).Rotation.z;
                 b2Body* body = (b2Body*)rb2d.RuntimeBody;
@@ -2805,7 +2922,7 @@ namespace Zamin {
         if (m_PhysicsWorld && m_PhysicsMaterialRevision != PhysicsMaterialLibrary::GetRevision())
             ApplyPhysicsMaterials();
         m_PhysicsAccumulator += ts;
-        int stepCount = std::min(5, (int)(m_PhysicsAccumulator / fixedStep));
+        int stepCount = std::min(maxSteps, (int)(m_PhysicsAccumulator / fixedStep));
 
         // Kinematic 3D bodies: velocity is chosen so the target is reached after this frame's steps.
         if (m_PhysicsWorld3D && stepCount > 0)
@@ -2833,14 +2950,18 @@ namespace Zamin {
         }
 
         int steps = 0;
-        while (m_PhysicsAccumulator >= fixedStep && steps < 5)
+        while (m_PhysicsAccumulator >= fixedStep && steps < maxSteps)
         {
             if (m_PhysicsWorld)
             {
                 ZM_PROFILE_SCOPE("Box2D (2D)");
-                ApplyEffectors2D(fixedStep);
-                m_PhysicsWorld->Step(fixedStep, m_Settings.VelocityIterations, m_Settings.PositionIterations);
-                CheckJointBreaks2D(fixedStep);
+                for (int sub = 0; sub < physics2D.SubSteps; sub++)
+                {
+                    ApplyEffectors2D(subStep);
+                    m_PhysicsWorld->Step(subStep, physics2D.VelocityIterations, physics2D.PositionIterations);
+                    CheckJointBreaks2D(subStep);
+                    m_Physics2DStepsLastFrame++;
+                }
             }
             if (m_PhysicsWorld3D)
             {
@@ -2854,10 +2975,10 @@ namespace Zamin {
             m_PhysicsAccumulator -= fixedStep;
             steps++;
         }
-        if (steps == 5)
+        if (steps == maxSteps)
             m_PhysicsAccumulator = 0.0f;
         if (steps > 0)
-            UpdateJointStates2D(fixedStep);
+            UpdateJointStates2D(subStep); // the reaction forces come from the last Box2D step's impulses
 
         if (m_PhysicsWorld)
         {

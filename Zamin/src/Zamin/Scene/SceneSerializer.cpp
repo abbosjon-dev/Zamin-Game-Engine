@@ -406,6 +406,8 @@ namespace Zamin {
                                  { "AngularDamping", c->AngularDamping }, { "Bullet", c->Bullet } };
             if (c->Layer != 0)
                 e["Rigidbody2D"]["Layer"] = c->Layer;
+            if (c->Sleeping != Rigidbody2DComponent::SleepMode::StartAwake)
+                e["Rigidbody2D"]["Sleeping"] = c->Sleeping == Rigidbody2DComponent::SleepMode::StartAsleep ? "StartAsleep" : "NeverSleep";
         }
         // The common collider values; the material and an own layer only when set (older files stay as they were).
         auto writeCollider = [](const auto& c) {
@@ -905,6 +907,10 @@ namespace Zamin {
             c.AngularDamping = j.value("AngularDamping", 0.01f);
             c.Bullet = j.value("Bullet", false);
             c.Layer = CollisionLayers2D::Clamp(j.value("Layer", 0));
+            const std::string sleeping = j.value("Sleeping", std::string("StartAwake"));
+            c.Sleeping = sleeping == "StartAsleep" ? Rigidbody2DComponent::SleepMode::StartAsleep
+                       : sleeping == "NeverSleep" ? Rigidbody2DComponent::SleepMode::NeverSleep
+                       : Rigidbody2DComponent::SleepMode::StartAwake;
         }
         auto readCollider = [](const json& j, auto& c) {
             c.Offset = Vec(j, "Offset", glm::vec2(0.0f));
@@ -1483,6 +1489,14 @@ namespace Zamin {
         if (s.Lighting2D != SceneSettings::Lighting2DSettings())
             root["Settings"]["Lighting2D"] = { { "AmbientColor", ToJson(s.Lighting2D.AmbientColor) },
                                                { "AmbientIntensity", s.Lighting2D.AmbientIntensity } };
+        // Physics step / Box2D settings only when changed (older files stay as they were).
+        if (s.PhysicsStep != SceneSettings::PhysicsStepSettings())
+            root["Settings"]["PhysicsStep"] = { { "Rate", s.PhysicsStep.StepRate }, { "MaxStepsPerFrame", s.PhysicsStep.MaxStepsPerFrame } };
+        if (s.Physics2D != SceneSettings::Physics2DSettings())
+            root["Settings"]["Physics2D"] = { { "VelocityIterations", s.Physics2D.VelocityIterations },
+                                              { "PositionIterations", s.Physics2D.PositionIterations },
+                                              { "SubSteps", s.Physics2D.SubSteps }, { "AllowSleep", s.Physics2D.AllowSleep },
+                                              { "TimeToSleep", s.Physics2D.TimeToSleep } };
 
         json entities = json::array();
         std::vector<Entity> ordered = m_Scene->GetEntitiesInOrder(); // creation order => stable diffs
@@ -1576,6 +1590,25 @@ namespace Zamin {
                 s.RenderScale = std::isfinite(renderScale) ? std::clamp(renderScale, Renderer::MinRenderScale, Renderer::MaxRenderScale) : 1.0f;
                 s.Gravity = Vec(j, "Gravity", s.Gravity);
                 s.Gravity3D = Vec(j, "Gravity3D", s.Gravity3D);
+                // Older scenes have none: 60 steps a second, Box2D's 6 / 2 iterations, one sub-step,
+                // sleeping after 0.5 s. Out-of-range values are clamped.
+                s.PhysicsStep = {};
+                if (auto ps = j.find("PhysicsStep"); ps != j.end() && ps->is_object())
+                {
+                    s.PhysicsStep.StepRate = ps->value("Rate", s.PhysicsStep.StepRate);
+                    s.PhysicsStep.MaxStepsPerFrame = ps->value("MaxStepsPerFrame", s.PhysicsStep.MaxStepsPerFrame);
+                }
+                s.PhysicsStep.Sanitize();
+                s.Physics2D = {};
+                if (auto p2 = j.find("Physics2D"); p2 != j.end() && p2->is_object())
+                {
+                    s.Physics2D.VelocityIterations = p2->value("VelocityIterations", s.Physics2D.VelocityIterations);
+                    s.Physics2D.PositionIterations = p2->value("PositionIterations", s.Physics2D.PositionIterations);
+                    s.Physics2D.SubSteps = p2->value("SubSteps", s.Physics2D.SubSteps);
+                    s.Physics2D.AllowSleep = p2->value("AllowSleep", s.Physics2D.AllowSleep);
+                    s.Physics2D.TimeToSleep = p2->value("TimeToSleep", s.Physics2D.TimeToSleep);
+                }
+                s.Physics2D.Sanitize();
                 // Older scenes have none: white at 1 (Lit renderers look unlit).
                 s.Lighting2D = {};
                 if (auto l2d = j.find("Lighting2D"); l2d != j.end() && l2d->is_object())

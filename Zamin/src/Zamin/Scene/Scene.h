@@ -81,8 +81,40 @@ namespace Zamin {
         // Physics
         glm::vec2 Gravity{ 0.0f, -9.8f };
         glm::vec3 Gravity3D{ 0.0f, -9.81f, 0.0f };
-        int VelocityIterations = 6;
-        int PositionIterations = 2;
+
+        // Both worlds (2D and 3D) advance in fixed steps of 1 / StepRate seconds: a frame takes as
+        // many as its time holds, at most MaxStepsPerFrame - a slower frame drops the rest (the game
+        // slows down instead of falling further and further behind).
+        struct PhysicsStepSettings
+        {
+            static constexpr int MinRate = 20, MaxRate = 240, MaxSteps = 20;
+            int StepRate = 60;
+            int MaxStepsPerFrame = 5;
+            float GetFixedStep() const { return 1.0f / (float)StepRate; }
+            void Sanitize();
+            bool operator==(const PhysicsStepSettings&) const = default;
+        } PhysicsStep;
+
+        // 2D physics (Box2D).
+        struct Physics2DSettings
+        {
+            static constexpr int MaxIterations = 100, MaxSubSteps = 16;
+            // The solver's passes per step: more - stiffer stacks and joints, more time.
+            int VelocityIterations = 6;
+            int PositionIterations = 2;
+            // Box2D steps per fixed step (each 1 / (StepRate x SubSteps) s): fast bodies, long joint
+            // chains and ragdolls hold together better. Effectors push before each of them and joints
+            // are checked for breaking after each.
+            int SubSteps = 1;
+            // Sleeping: a body that keeps still for TimeToSleep seconds together with everything
+            // touching it / joined to it is not simulated until something wakes it (Box2D's own time
+            // is 0.5 s). Off: every body is simulated all the time (Rigidbody2D's Sleeping mode
+            // decides for one body).
+            bool AllowSleep = true;
+            float TimeToSleep = 0.5f;
+            void Sanitize();
+            bool operator==(const Physics2DSettings&) const = default;
+        } Physics2D;
     };
 
     // Tilemaps are drawn (and frustum culled) in square chunks of this many tiles per side.
@@ -376,6 +408,16 @@ namespace Zamin {
         RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance);
         // The running worlds (null outside play / simulate).
         PhysicsWorld2D* GetPhysicsWorld2D() { return m_PhysicsWorld.get(); }
+        // ---- 2D sleeping (Rigidbody2DComponent::Sleeping, SceneSettings::Physics2D)
+        // The entity's running 2D body is dynamic / kinematic and sleeps now.
+        bool IsSleeping2D(Entity entity);
+        // Wakes the entity's 2D body / puts it to sleep (its velocities stop; it wakes again when
+        // something touches it). False without a running dynamic / kinematic body.
+        bool SetAwake2D(Entity entity, bool awake);
+        // The running 2D world's bodies, sleeping ones, joints, contacts, steps (zeros without one).
+        PhysicsStats2D GetPhysics2DStats() const;
+        // Box2D steps the last frame took (fixed steps x sub-steps).
+        int GetPhysics2DStepsLastFrame() const { return m_Physics2DStepsLastFrame; }
         PhysicsWorld3D* GetPhysicsWorld3D() { return m_PhysicsWorld3D.get(); }
 
         // ---- viewport input (set by the host each frame; pixels, origin top-left of the game view)
@@ -545,6 +587,8 @@ namespace Zamin {
         void SyncJoints2D();
         // The joints a destroyed body took with it: their components let go of them.
         void ForgetJoints2D(const std::vector<PhysicsJoint2DRef>& joints);
+        // Warns about joints (of `entities`, else all) whose connected body is not in the scene.
+        void ReportMissingJointBodies(const std::vector<Entity>* entities);
         // Before each physics step of `dt`: the area / buoyancy effectors push the bodies inside them.
         void ApplyEffectors2D(float dt);
         // After a physics step of `dt`: the joints pulled harder than their BreakForce / BreakTorque break.
@@ -719,6 +763,7 @@ namespace Zamin {
         float m_Time = 0.0f;
         double m_AnimationTime = 0.0;
         float m_PhysicsAccumulator = 0.0f;
+        int m_Physics2DStepsLastFrame = 0;
         uint64_t m_PhysicsMaterialRevision = 0; // PhysicsMaterialLibrary::GetRevision() the colliders have
 
         std::string m_Name = "Untitled";
@@ -777,6 +822,7 @@ namespace Zamin {
             float Force = 0.0f, Torque = 0.0f;
         };
         std::vector<JointBreak2DRecord> m_JointBreaks2D;
+        std::unordered_set<uint64_t> m_ReportedMissingJointBodies; // connected bodies already warned about
         bool m_ScriptsPendingStart = false;
 
         std::unique_ptr<EventBus> m_EventBus;

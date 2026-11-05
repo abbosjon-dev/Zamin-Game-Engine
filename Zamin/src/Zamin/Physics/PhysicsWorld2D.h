@@ -26,6 +26,10 @@ namespace Zamin {
         float LinearDamping = 0.0f;
         float AngularDamping = 0.0f;
         bool Bullet = false;
+        // Sleeping (Rigidbody2DComponent::Sleeping): CanSleep false - never sleeps; StartAwake false -
+        // starts asleep (not simulated until something touches it, a joint pulls it or it is woken).
+        bool CanSleep = true;
+        bool StartAwake = true;
     };
 
     // A platform surface (PlatformEffector2DComponent; BoxCollider2D::OneWay / OneWay tiles are the
@@ -215,12 +219,30 @@ namespace Zamin {
         static void SetAwake(b2Body* body, bool awake);
 
         // ---- simulation
+        // One Box2D step of `dt` seconds (Scene: the fixed step / the sub-step count).
         void Step(float dt, int velocityIterations, int positionIterations);
         // Collision begin/end events gathered since the last call.
         std::vector<ContactEvent> TakeEvents();
         // `body` (of `entity`) falls through every one-way surface for `seconds` (and for as long as it
         // is still inside one), counted down by Step.
         void DropThroughPlatforms(UUID entity, b2Body* body, float seconds);
+
+        // ---- sleeping
+        // Box2D's own time a body has to keep still (together with every body touching it or joined
+        // to it, not counting static ones) before it sleeps.
+        static constexpr float DefaultTimeToSleep = 0.5f;
+        // allowSleep false: no body sleeps (the sleeping ones wake up). timeToSleep: the seconds of
+        // keeping still - Box2D counts its own 0.5 s; for any other time this world counts it, island
+        // by island like Box2D (velocities under Box2D's sleep tolerances). Changing between the two
+        // wakes every body.
+        void SetSleeping(bool allowSleep, float timeToSleep);
+        bool IsSleepingAllowed() const;
+        float GetTimeToSleep() const;
+        // Whether the body may sleep (Rigidbody2DComponent::Sleeping); false wakes it.
+        void SetCanSleep(b2Body* body, bool canSleep);
+        bool CanSleep(const b2Body* body) const;
+        // Bodies, sleeping ones, joints, contacts, steps.
+        PhysicsStats2D GetStats() const;
 
         // ---- joints
         // Null when the description cannot make one (no body). The auto-configured values (connected

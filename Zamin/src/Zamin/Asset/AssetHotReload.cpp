@@ -77,8 +77,10 @@ namespace Zamin {
                         reload(change.Path);
                     }
                     // A texture a loaded material names but could not find: the material takes it now.
+                    // (Not one it holds already: the editor wrote the file and loaded it before this
+                    // event came - nothing to reload.)
                     else if (!change.IsDirectory && AssetTypes::FromPath(change.Path) == AssetType::Texture &&
-                             MaterialLibrary::UsesTexture(change.Path))
+                             MaterialLibrary::MissesTexture(change.Path))
                         reload(change.Path);
                     break;
                 }

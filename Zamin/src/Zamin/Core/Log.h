@@ -29,6 +29,7 @@ namespace Zamin {
         static void Clear();
         static size_t GetMessageCount();
         static void SetMinLevel(LogLevel level) { s_MinLevel = level; }
+        static LogLevel GetMinLevel() { return s_MinLevel; }
         // Whether messages are printed to the terminal too (they are always kept for the console).
         static void SetTerminalOutput(bool enabled) { s_TerminalOutput = enabled; }
         static bool GetTerminalOutput() { return s_TerminalOutput; }

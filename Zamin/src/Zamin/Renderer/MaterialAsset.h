@@ -60,12 +60,27 @@ namespace Zamin {
     {
     public:
         static std::string SerializeToString(const MaterialData& data);
+
+        // What reading a material noticed although it was read: values not used as written (a newer
+        // version, unknown names, out-of-range numbers) and texture paths found again by their UUID.
+        struct ReadNotes
+        {
+            std::vector<std::string> Warnings;
+            std::vector<std::string> Infos;
+            bool IsEmpty() const { return Warnings.empty() && Infos.empty(); }
+        };
         // False, with the reason in `error`, when the text is not a material (broken JSON, not an
         // object). Missing keys keep their defaults; an old single number "Tiling" means the same
-        // tiling on both axes; unknown shader / blend mode names fall back to Lit / Opaque.
-        static bool DeserializeFromString(const std::string& text, MaterialData& out, std::string* error = nullptr);
+        // tiling on both axes; unknown shader / blend mode names fall back to Lit / Opaque. What it
+        // noticed goes to `notes`, or to the console without it.
+        static bool DeserializeFromString(const std::string& text, MaterialData& out, std::string* error = nullptr,
+                                          ReadNotes* notes = nullptr);
         static bool Serialize(const MaterialData& data, const std::filesystem::path& path);
-        static bool Deserialize(const std::filesystem::path& path, MaterialData& out, std::string* error = nullptr);
+        // A file's notes are written to the console once (named by the file) and again only when the
+        // file changes on disk: the editor reads a material file over and over (it compares it with
+        // the loaded material), and a hand edited file would flood the console until it is saved.
+        static bool Deserialize(const std::filesystem::path& path, MaterialData& out, std::string* error = nullptr,
+                                ReadNotes* notes = nullptr);
 
         static const char* ShaderToString(MaterialShader shader);
         static std::optional<MaterialShader> ShaderFromString(std::string_view text);
@@ -175,6 +190,9 @@ namespace Zamin {
         static void OnFileMoved(const std::filesystem::path& from, const std::filesystem::path& to);
         // Whether a cached material uses this texture file.
         static bool UsesTexture(const std::filesystem::path& texture);
+        // Whether a cached material names this texture file but holds no texture for it (it was
+        // missing or broken when the material looked it up).
+        static bool MissesTexture(const std::filesystem::path& texture);
         static std::vector<Ref<MaterialAsset>> GetLoaded();
 
         // What the cached materials hold at one moment. The editor takes one when play starts:

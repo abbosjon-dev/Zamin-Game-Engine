@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <format>
+#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -176,7 +178,7 @@ namespace Zamin {
     }
 
     // The texture path stored under `key`, or where its UUID is now when that file is gone.
-    static std::string ReadTexture(const json& j, const char* key)
+    static std::string ReadTexture(const json& j, const char* key, MaterialSerializer::ReadNotes& notes)
     {
         auto it = j.find(key);
         std::string path = it != j.end() && it->is_string() ? it->get<std::string>() : std::string();
@@ -193,7 +195,7 @@ namespace Zamin {
         std::string moved = handle ? registry->GetPath(*handle) : std::string();
         if (moved.empty() || moved == path)
             return path;
-        ZM_CORE_INFO("Material teksturasi UUID orqali topildi: '{}' -> '{}'", path, moved);
+        notes.Infos.push_back(std::format("teksturasi UUID orqali topildi: '{}' -> '{}'", path, moved));
         return moved;
     }
 
@@ -222,8 +224,20 @@ namespace Zamin {
         return j.dump(2) + "\n";
     }
 
-    bool MaterialSerializer::DeserializeFromString(const std::string& text, MaterialData& out, std::string* error)
+    static void LogNotes(const MaterialSerializer::ReadNotes& notes, const std::string& file)
     {
+        std::string prefix = file.empty() ? std::string("Material fayli") : std::format("Material fayli '{}'", file);
+        for (const std::string& warning : notes.Warnings)
+            ZM_CORE_WARN("{}: {}", prefix, warning);
+        for (const std::string& info : notes.Infos)
+            ZM_CORE_INFO("{}: {}", prefix, info);
+    }
+
+    bool MaterialSerializer::DeserializeFromString(const std::string& text, MaterialData& out, std::string* error, ReadNotes* notesOut)
+    {
+        ReadNotes localNotes;
+        ReadNotes& notes = notesOut ? *notesOut : localNotes;
+        notes = {};
         json j = json::parse(text, nullptr, false);
         if (j.is_discarded() || !j.is_object())
         {
@@ -234,20 +248,20 @@ namespace Zamin {
         MaterialData d;
         int version = j.value("Version", 1);
         if (version > MaterialData::CurrentVersion)
-            ZM_CORE_WARN("Material fayli yangiroq versiyada ({} > {}): tanilgan maydonlar o'qiladi", version, MaterialData::CurrentVersion);
+            notes.Warnings.push_back(std::format("yangiroq versiyada ({} > {}): tanilgan maydonlar o'qiladi", version, MaterialData::CurrentVersion));
         if (auto it = j.find("Shader"); it != j.end() && it->is_string())
         {
             if (auto shader = ShaderFromString(it->get<std::string>()))
                 d.Shader = *shader;
             else
-                ZM_CORE_WARN("Noma'lum material shaderi '{}' - Lit ishlatiladi", it->get<std::string>());
+                notes.Warnings.push_back(std::format("noma'lum shader '{}' - Lit ishlatiladi", it->get<std::string>()));
         }
         if (auto it = j.find("BlendMode"); it != j.end() && it->is_string())
         {
             if (auto mode = BlendModeFromString(it->get<std::string>()))
                 d.BlendMode = *mode;
             else
-                ZM_CORE_WARN("Noma'lum aralashtirish rejimi '{}' - Opaque ishlatiladi", it->get<std::string>());
+                notes.Warnings.push_back(std::format("noma'lum aralashtirish rejimi '{}' - Opaque ishlatiladi", it->get<std::string>()));
         }
         d.AlphaCutoff = ReadFloat(j, "AlphaCutoff", d.AlphaCutoff);
         if (auto it = j.find("DoubleSided"); it != j.end() && it->is_boolean())
@@ -255,15 +269,15 @@ namespace Zamin {
         if (auto it = j.find("PreserveSpecular"); it != j.end() && it->is_boolean())
             d.PreserveSpecular = it->get<bool>();
         d.Albedo = ReadVec(j, "Albedo", d.Albedo);
-        d.AlbedoMap = ReadTexture(j, "AlbedoMap");
+        d.AlbedoMap = ReadTexture(j, "AlbedoMap", notes);
         d.Metallic = ReadFloat(j, "Metallic", d.Metallic);
         d.Roughness = ReadFloat(j, "Roughness", d.Roughness);
-        d.MetalRoughMap = ReadTexture(j, "MetalRoughMap");
-        d.NormalMap = ReadTexture(j, "NormalMap");
+        d.MetalRoughMap = ReadTexture(j, "MetalRoughMap", notes);
+        d.NormalMap = ReadTexture(j, "NormalMap", notes);
         d.NormalStrength = ReadFloat(j, "NormalStrength", d.NormalStrength);
         d.Emission = ReadVec(j, "Emission", d.Emission);
         d.EmissionStrength = ReadFloat(j, "EmissionStrength", d.EmissionStrength);
-        d.EmissiveMap = ReadTexture(j, "EmissiveMap");
+        d.EmissiveMap = ReadTexture(j, "EmissiveMap", notes);
         // Tiling was a single number (the same on both axes) before it became a vec2.
         if (auto it = j.find("Tiling"); it != j.end() && it->is_number())
             d.Tiling = glm::vec2(it->get<float>());
@@ -278,7 +292,9 @@ namespace Zamin {
                                                      : 0;
         }
         if (d.Sanitize())
-            ZM_CORE_WARN("Material faylida chegaradan tashqari qiymatlar bor edi - ular to'g'rilandi");
+            notes.Warnings.push_back("chegaradan tashqari qiymatlar bor edi - ular to'g'rilandi (saqlanganda faylga ham yoziladi)");
+        if (!notesOut)
+            LogNotes(notes, {});
         out = d;
         return true;
     }
@@ -291,7 +307,12 @@ namespace Zamin {
         return FileSystem::WriteTextFile(path, SerializeToString(data));
     }
 
-    bool MaterialSerializer::Deserialize(const fs::path& path, MaterialData& out, std::string* error)
+    // The notes last written to the console per file (with the file's write time): written again
+    // only when they change or the file is written again.
+    static std::mutex s_LoggedNotesMutex;
+    static std::unordered_map<std::string, std::string> s_LoggedNotes;
+
+    bool MaterialSerializer::Deserialize(const fs::path& path, MaterialData& out, std::string* error, ReadNotes* notesOut)
     {
         std::string unreadable = AssetImportLog::CheckReadable(path);
         if (!unreadable.empty())
@@ -300,7 +321,34 @@ namespace Zamin {
                 *error = unreadable;
             return false;
         }
-        return DeserializeFromString(FileSystem::ReadTextFile(path), out, error);
+        ReadNotes notes;
+        if (!DeserializeFromString(FileSystem::ReadTextFile(path), out, error, &notes))
+            return false;
+        bool log = false;
+        {
+            std::lock_guard lock(s_LoggedNotesMutex);
+            if (notes.IsEmpty())
+            {
+                if (!s_LoggedNotes.empty()) // mostly empty: no key to work out then
+                    s_LoggedNotes.erase(AssetImportLog::MakeKey(path));
+            }
+            else
+            {
+                std::error_code ec;
+                std::string signature = std::to_string(fs::last_write_time(path, ec).time_since_epoch().count());
+                for (const auto* list : { &notes.Warnings, &notes.Infos })
+                    for (const std::string& note : *list)
+                        signature += "\n" + note;
+                std::string& logged = s_LoggedNotes[AssetImportLog::MakeKey(path)];
+                log = logged != signature;
+                logged = std::move(signature);
+            }
+        }
+        if (log)
+            LogNotes(notes, Project::GetActive() ? Project::GetAssetRelativePath(path) : path.generic_string());
+        if (notesOut)
+            *notesOut = std::move(notes);
+        return true;
     }
 
     // ------------------------------------------------------------------ asset
@@ -569,6 +617,23 @@ namespace Zamin {
         for (const auto& [file, material] : s_MaterialCache)
             if (UsesTextureFile(*material, key))
                 return true;
+        return false;
+    }
+
+    bool MaterialLibrary::MissesTexture(const fs::path& texture)
+    {
+        std::string key = MakeKey(texture);
+        for (const auto& [file, material] : s_MaterialCache)
+        {
+            const MaterialData& d = material->GetData();
+            const Material& m = material->GetMaterial();
+            std::pair<const std::string*, const Ref<Texture2D>*> slots[] = {
+                { &d.AlbedoMap, &m.AlbedoMap }, { &d.MetalRoughMap, &m.MetalRoughMap },
+                { &d.NormalMap, &m.NormalMap }, { &d.EmissiveMap, &m.EmissiveMap } };
+            for (const auto& [path, loaded] : slots)
+                if (!*loaded && !path->empty() && MakeKey(*path) == key)
+                    return true;
+        }
         return false;
     }
 

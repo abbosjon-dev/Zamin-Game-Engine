@@ -268,6 +268,24 @@ namespace Zamin {
             registry->OnFileAdded(file);
     }
 
+    fs::path MaterialPresets::GetSharedFolder()
+    {
+        return Project::GetActive() ? Project::GetAssetDirectory() / "Materials" / "Standart" : fs::path();
+    }
+
+    fs::path MaterialPresets::GetTexturePath(const MaterialPreset& preset, const fs::path& folder)
+    {
+        if (preset.Texture == MaterialPreset::Pattern::None)
+            return {};
+        std::string name = std::format("{}_{}.png", preset.FileName, GetTextureSuffix(preset.Texture));
+        fs::path local = folder / "Textures" / name;
+        fs::path shared = GetSharedFolder();
+        std::error_code ec;
+        if (shared.empty() || fs::exists(local, ec))
+            return local; // one made here before (an older editor wrote one per folder) stays in use
+        return shared / "Textures" / name;
+    }
+
     bool MaterialPresets::Create(const MaterialPreset& preset, const fs::path& folder, bool shared, CreateResult& result, std::string* error)
     {
         result = {};
@@ -293,8 +311,7 @@ namespace Zamin {
         MaterialData data = preset.Data;
         if (preset.Texture != MaterialPreset::Pattern::None)
         {
-            const char* suffix = GetTextureSuffix(preset.Texture);
-            fs::path texture = folder / "Textures" / std::format("{}_{}.png", preset.FileName, suffix);
+            fs::path texture = GetTexturePath(preset, folder);
             if (!fs::exists(texture, ec))
             {
                 PresetTexture image = GenerateTexture(preset.Texture);

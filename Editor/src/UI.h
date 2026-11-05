@@ -65,12 +65,22 @@ namespace Zamin::UI {
     }
 
     // Section title row inside a property grid (accent text + a line across the value column).
-    inline void PropertyHeader(const char* text)
+    // With a tooltip: shown when the title is hovered (a dotted underline hints at it).
+    inline void PropertyHeader(const char* text, const char* tooltip = nullptr)
     {
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::Dummy(ImVec2(0.0f, 2.0f));
         ImGui::TextColored(AccentColor(), "%s", text);
+        if (tooltip && *tooltip)
+        {
+            ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();
+            ImU32 dots = AccentU32(0.6f);
+            for (float x = min.x; x < max.x; x += 3.0f)
+                ImGui::GetWindowDrawList()->AddLine(ImVec2(x, max.y), ImVec2(std::min(x + 1.5f, max.x), max.y), dots);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                ImGui::SetTooltip("%s", tooltip);
+        }
         float y = (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) * 0.5f;
         ImGui::TableSetColumnIndex(1);
         ImGui::Dummy(ImVec2(0.0f, 2.0f));

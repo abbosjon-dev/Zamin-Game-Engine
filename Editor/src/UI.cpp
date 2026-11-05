@@ -179,10 +179,19 @@ namespace Zamin::UI {
             PropertyLabel("Aksni saqlash", "Yoqilgan: aks va yaltirashlar (hamda nurlanish) alfa bilan susaymaydi - faqat sirt rangi "
                                                  "shaffof bo'ladi (shisha, suv). O'chiq: butun sirt alfa bilan so'nadi (obyektni asta yo'qotish).");
             changed |= ImGui::Checkbox("##preserveSpecular", &m.PreserveSpecular);
-            PropertyLabel("Ustuvorlik", "Saralash ustuvorligi. Shaffof sirtlar avval ustuvorlik bo'yicha (kichigi oldin), keyin orqadan oldinga "
-                                                  "(kameradan uzoqligi bo'yicha) chiziladi. Kattaroq ustuvorlik - boshqa shaffoflar ustida "
-                                                  "chiziladi, qayerda bo'lishidan qat'i nazar (suv ichidagi shisha, dog'lar, effektlar). "
-                                                  "Odatda 0.");
+        }
+        // A model's parts keep their own blend mode ("Modelning o'zi"), and its own transparent parts
+        // take a non-zero priority too (Scene::ComposeMeshMaterial) - so it is always shown there.
+        if (m.BlendMode == MaterialBlendMode::Transparent || forModel)
+        {
+            PropertyLabel("Ustuvorlik", forModel ? "Modelning shaffof qismlari uchun saralash ustuvorligi (shaffof bo'lmagan qismlarga ta'sir "
+                                                   "qilmaydi). Shaffof sirtlar avval ustuvorlik bo'yicha (kichigi oldin), keyin orqadan oldinga "
+                                                   "(kameradan uzoqligi bo'yicha) chiziladi. Kattaroq ustuvorlik - boshqa shaffoflar ustida "
+                                                   "chiziladi. 0 - modelning o'zi (o'zgartirilmaydi)."
+                                                 : "Saralash ustuvorligi. Shaffof sirtlar avval ustuvorlik bo'yicha (kichigi oldin), keyin orqadan oldinga "
+                                                   "(kameradan uzoqligi bo'yicha) chiziladi. Kattaroq ustuvorlik - boshqa shaffoflar ustida "
+                                                   "chiziladi, qayerda bo'lishidan qat'i nazar (suv ichidagi shisha, dog'lar, effektlar). "
+                                                   "Odatda 0.");
             changed |= ImGui::DragInt("##sortPriority", &m.SortPriority, 0.2f, MinMaterialSortPriority, MaxMaterialSortPriority, "%d",
                                       ImGuiSliderFlags_AlwaysClamp);
         }

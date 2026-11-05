@@ -9050,6 +9050,14 @@ TEST(MaterialAssetLibraryAndReload)
     CHECK(a->GetMaterial().AlbedoMap && a->GetMaterial().AlbedoMap->GetPath() == gold.AlbedoMap && a->GetMaterial().Metallic == 1.0f);
     CHECK(!a->GetMaterial().NormalMap && loader.Calls == 1); // empty paths never reach the loader
     CHECK(MaterialLibrary::UsesTexture(dir / "Textures" / "gold.png") && !MaterialLibrary::UsesTexture(dir / "Textures" / "x.png"));
+    // Held already: a texture file that "appears" (the editor wrote it, then loaded the material
+    // before the watcher saw it) is not reloaded or reported.
+    CHECK(!MaterialLibrary::MissesTexture(dir / "Textures" / "gold.png") && !MaterialLibrary::MissesTexture(dir / "Textures" / "x.png"));
+    {
+        AssetHotReload watcher;
+        AssetHotReload::Report added = watcher.Apply({ { dir / "Textures" / "gold.png", FileChangeType::Added, false } }, nullptr);
+        CHECK(added.Added.size() == 1 && added.Reloaded.empty() && loader.Calls == 1);
+    }
 
     // Edits: only changed texture paths are looked up again; every change has a new revision.
     uint64_t revision = a->GetRevision();
@@ -9106,7 +9114,7 @@ TEST(MaterialAssetLibraryAndReload)
         withAbsolute.EmissiveMap = (dir / "Textures" / "glow.png").string();
         loader.Missing.insert(withAbsolute.EmissiveMap);
         a->SetData(withAbsolute);
-        CHECK(!a->GetMaterial().EmissiveMap);
+        CHECK(!a->GetMaterial().EmissiveMap && MaterialLibrary::MissesTexture(dir / "Textures" / "glow.png"));
         loader.Missing.clear();
         AssetHotReload watcher;
         AssetHotReload::Report added = watcher.Apply({ { dir / "Textures" / "glow.png", FileChangeType::Added, false } }, nullptr);
@@ -10063,6 +10071,49 @@ TEST(MaterialSerializationRobust)
     CHECK(read.EmissionStrength == 0.0f && read.Emission == glm::vec3(0.0f, 0.5f, 2.0f) && read.Albedo == glm::vec4(0.0f, 2.0f, 0.5f, 1.0f));
     CHECK(read.SortPriority == MaxMaterialSortPriority);
     CHECK(MaterialSerializer::DeserializeFromString(R"({ "SortPriority": -1e300 })", read) && read.SortPriority == MinMaterialSortPriority);
+    {
+        // What reading noticed is handed back (and not logged then)...
+        MaterialSerializer::ReadNotes notes;
+        CHECK(MaterialSerializer::DeserializeFromString(R"({ "Metallic": 2, "Shader": "Toon", "Version": 99 })", read, nullptr, &notes));
+        CHECK(notes.Warnings.size() == 3 && notes.Infos.empty() && read.Metallic == 1.0f);
+        CHECK(MaterialSerializer::DeserializeFromString(R"({ "Metallic": 0.5 })", read, nullptr, &notes) && notes.IsEmpty());
+        // ...and a file's notes go to the console once, named by the file, until the file changes:
+        // the editor reads a material file again and again (thumbnails compare it with the loaded one).
+        fs::path noteDir = MakeTempDir("zamin-material-notes-");
+        fs::path noisy = noteDir / "Noisy.zmat";
+        WriteFile(noisy, R"({ "Metallic": 2, "Roughness": 0.5 })");
+        auto logged = [&]() {
+            int count = 0;
+            Log::ForEach([&](const LogMessage& m) {
+                if (m.Level == LogLevel::Warn && m.Text.find("Noisy.zmat") != std::string::npos &&
+                    m.Text.find("chegaradan tashqari") != std::string::npos)
+                    count++;
+            });
+            return count;
+        };
+        LogLevel minLevel = Log::GetMinLevel();
+        bool terminal = Log::GetTerminalOutput();
+        Log::SetMinLevel(LogLevel::Warn); // counted in the log, kept out of the output
+        Log::SetTerminalOutput(false);
+        int before = logged();
+        for (int i = 0; i < 5; i++)
+            CHECK(MaterialSerializer::Deserialize(noisy, read, nullptr, &notes) && notes.Warnings.size() == 1 && read.Metallic == 1.0f);
+        CHECK(logged() == before + 1);
+        // Written again (still out of range): reported again, once.
+        WriteFile(noisy, R"({ "Metallic": 3 })");
+        fs::last_write_time(noisy, fs::last_write_time(noisy) + std::chrono::seconds(2));
+        CHECK(MaterialSerializer::Deserialize(noisy, read) && MaterialSerializer::Deserialize(noisy, read));
+        CHECK(logged() == before + 2);
+        // Fixed: nothing to say; broken again later: reported again.
+        WriteFile(noisy, R"({ "Metallic": 1 })");
+        CHECK(MaterialSerializer::Deserialize(noisy, read, nullptr, &notes) && notes.IsEmpty() && logged() == before + 2);
+        WriteFile(noisy, R"({ "Metallic": 3 })");
+        CHECK(MaterialSerializer::Deserialize(noisy, read) && logged() == before + 3);
+        Log::SetTerminalOutput(terminal);
+        Log::SetMinLevel(minLevel);
+        std::error_code noteEc;
+        fs::remove_all(noteDir, noteEc);
+    }
     // Numbers JSON holds but a float cannot (infinite as float): the default.
     CHECK(MaterialSerializer::DeserializeFromString(R"({ "Metallic": 1e39, "Roughness": -1e39, "Tiling": [1e40, 2] })", read));
     CHECK(read.Metallic == 0.0f && read.Roughness == 0.5f && read.Tiling == glm::vec2(1.0f, 2.0f));
@@ -10301,6 +10352,27 @@ TEST(MaterialPresetLibrary)
         Ref<MaterialAsset> loaded = MaterialLibrary::Load(inProject.Material);
         CHECK(loaded && loaded->GetMaterial().AlbedoMap && loaded->GetMaterial().Roughness == concrete->Data.Roughness);
     }
+    CHECK(MaterialPresets::GetSharedFolder() == Project::GetAssetDirectory() / "Materials" / "Standart");
+    // A copy elsewhere (the content browser's "Yangi material" in Materials/) uses the shared
+    // texture: no second Textures folder with the same image.
+    fs::path sharedConcrete = Project::GetAssetDirectory() / "Materials" / "Standart" / "Textures" / "Concrete_Albedo.png";
+    CHECK(MaterialPresets::GetTexturePath(*concrete, Project::GetAssetDirectory() / "Materials") == sharedConcrete);
+    MaterialPresets::CreateResult copy;
+    CHECK(MaterialPresets::Create(*concrete, Project::GetAssetDirectory() / "Materials", false, copy, &error));
+    CHECK(copy.Written == std::vector<fs::path>({ Project::GetAssetDirectory() / "Materials" / "Concrete.zmat" }));
+    CHECK(!fs::exists(Project::GetAssetDirectory() / "Materials" / "Textures"));
+    MaterialData copyData;
+    CHECK(MaterialSerializer::Deserialize(copy.Material, copyData) && copyData.AlbedoMap == "Materials/Standart/Textures/Concrete_Albedo.png");
+    // The first copy anywhere writes it there, too.
+    MaterialPresets::CreateResult firstWood;
+    CHECK(MaterialPresets::Create(*wood, Project::GetAssetDirectory() / "Props", false, firstWood, &error));
+    fs::path sharedWood = Project::GetAssetDirectory() / "Materials" / "Standart" / "Textures" / "Wood_Albedo.png";
+    CHECK(firstWood.Written.size() == 2 && firstWood.Written.front() == sharedWood && fs::exists(sharedWood));
+    // One a folder has of its own (an older editor wrote one per folder) stays in use.
+    fs::path oldTexture = Project::GetAssetDirectory() / "Old" / "Textures" / "Wood_Albedo.png";
+    WriteFile(oldTexture, "png");
+    CHECK(MaterialPresets::GetTexturePath(*wood, Project::GetAssetDirectory() / "Old") == oldTexture);
+    CHECK(MaterialPresets::GetTexturePath(*glass, Project::GetAssetDirectory() / "Old").empty()); // no pattern
     AssetRegistry::SetWriteMetaFilesByDefault(writes);
     Project::SetActive(nullptr);
     std::error_code ec;

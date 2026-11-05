@@ -2022,7 +2022,7 @@ namespace Zamin {
         m_SavedRegistryRevision = ~0ull; // another registry: saved whatever its revision
         SaveAssetRegistryCache(true);
         if (m_AssetHotReload.Start(assets))
-            ZM_CORE_INFO("Assetlar kuzatilmoqda ({}): o'zgargan rasm, model, shrift va HDRI fayllar avtomatik qayta yuklanadi",
+            ZM_CORE_INFO("Assetlar kuzatilmoqda ({}): o'zgargan rasm, model, material, shrift va HDRI fayllar avtomatik qayta yuklanadi",
                          m_AssetHotReload.GetWatcher().UsesNativeEvents() ? "inotify" : "har soniyada tekshirish");
         else
             ZM_WARN("Asset papkasini kuzatib bo'lmadi: {}", assets.string());

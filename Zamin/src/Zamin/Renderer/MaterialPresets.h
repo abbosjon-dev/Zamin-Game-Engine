@@ -54,11 +54,19 @@ namespace Zamin {
             std::vector<std::filesystem::path> Written;   // files written now (the texture, the .zmat)
             bool Existed = false;                         // shared: the file was there already (nothing written)
         };
+        // The active project's folder for the shared copies of the presets (Assets/Materials/Standart;
+        // empty without a project). Generated textures go to its Textures folder.
+        static std::filesystem::path GetSharedFolder();
+        // Where a preset's generated texture is used from for a material written into `folder`:
+        // folder/Textures/<FileName>_<suffix>.png when that file is there already (or without a
+        // project), else the project's one copy in GetSharedFolder()/Textures - so the copies of a
+        // preset in different folders share one texture file.
+        static std::filesystem::path GetTexturePath(const MaterialPreset& preset, const std::filesystem::path& folder);
         // Writes the preset as a .zmat into `folder`: under a free name ("Wood.zmat", "Wood_1.zmat"...),
         // or with `shared` exactly "<FileName>.zmat" - an existing one is used as it is (one file a
-        // project shares). A generated texture goes to folder/Textures/<FileName>_<suffix>.png, an
-        // existing one of that name is used as it is. Paths in the .zmat are relative to the asset
-        // folder of the active project (absolute without one); new files get their UUID at once.
+        // project shares). A generated texture goes to GetTexturePath(); an existing one of that name
+        // is used as it is. Paths in the .zmat are relative to the asset folder of the active project
+        // (absolute without one); new files get their UUID at once.
         static bool Create(const MaterialPreset& preset, const std::filesystem::path& folder, bool shared, CreateResult& result,
                            std::string* error = nullptr);
     };

@@ -1501,12 +1501,14 @@ namespace Zamin {
             m_OpenStandardMaterials = false;
             ImGui::OpenPopup("##standardMaterials");
         }
-        // Opens under the button, like a drop-down list.
-        ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 2.0f), ImGuiCond_Appearing);
+        ImVec2 below(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 2.0f);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Dvigatelning standart materiallari (metall, oltin, plastik, yog'och, shisha...). Tanlangani loyihada "
                         "Assets/Materials/Standart/ ichida bir marta yaratiladi va shu mesh'ga biriktiriladi - uni tanlagan "
                         "hamma obyektlar bitta materialni ishlatadi.");
+        // Opens under the button, like a drop-down list. Set after the tooltip: the next Begin
+        // (the tooltip's, on the click frame the button is still hovered) would use it up.
+        ImGui::SetNextWindowPos(below, ImGuiCond_Appearing);
         bool changed = false;
         if (ImGui::BeginPopup("##standardMaterials"))
         {
@@ -1516,10 +1518,9 @@ namespace Zamin {
             {
                 if (!UI::MaterialPresetMenuItem(preset, "Assets/Materials/Standart/ dagi umumiy nusxasi biriktiriladi"))
                     continue;
-                std::filesystem::path folder = Project::GetAssetDirectory() / "Materials" / "Standart";
                 MaterialPresets::CreateResult result;
                 std::string error;
-                if (!MaterialPresets::Create(preset, folder, true, result, &error))
+                if (!MaterialPresets::Create(preset, MaterialPresets::GetSharedFolder(), true, result, &error))
                 {
                     ZM_ERROR("Standart material '{}' yaratilmadi: {}", preset.Name, error);
                     continue;
@@ -1584,10 +1585,13 @@ namespace Zamin {
             size_t overridden = std::count_if(c.SubmeshMaterials.begin(), c.SubmeshMaterials.end(), [](const std::string& p) { return !p.empty(); });
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            std::string title = std::format("Qismlar materiallari ({}/{})###submeshMaterials", overridden, subMeshes.size());
-            bool open = ImGui::TreeNodeEx(title.c_str(), ImGuiTreeNodeFlags_SpanAllColumns);
+            bool open = ImGui::TreeNodeEx("Materiallar###submeshMaterials", ImGuiTreeNodeFlags_SpanAllColumns);
             if (ImGui::IsItemHovered())
-                UI::Tooltip("Har bir submesh uchun alohida material asset. Bo'sh joy: yuqoridagi material asset, u ham bo'lmasa modelning o'z materiali.");
+                UI::Tooltip("Qismlar materiallari: har bir submesh uchun alohida material asset. Bo'sh joy: yuqoridagi material asset, "
+                            "u ham bo'lmasa modelning o'z materiali.");
+            // The count in the value column (the label column is narrow).
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextDisabled("%s", std::format("{}/{} qismda asset", overridden, subMeshes.size()).c_str());
             if (open)
             {
                 for (size_t i = 0; i < subMeshes.size(); i++)
@@ -1625,7 +1629,10 @@ namespace Zamin {
         }
 
         // The inline material (no asset): the component's own values.
-        UI::PropertyHeader(c.Type == PrimitiveMesh::Model ? "Ichki material (tus)" : "Ichki material");
+        UI::PropertyHeader("Ichki material", c.Type == PrimitiveMesh::Model
+                                                 ? "Modelda ichki material tus bo'ladi: rangi modelning o'z ranglariga ko'paytiriladi, "
+                                                   "teksturalari va rejimlari faqat tanlanganda modelnikini almashtiradi."
+                                                 : nullptr);
         changed |= UI::PropertyMaterialSurface(c.Mat, c.Type == PrimitiveMesh::Model);
         changed |= UI::PropertyColor4("Rang (albedo)", c.Mat.Albedo);
         const char* imgExt = ".png;.jpg;.jpeg;.bmp;.tga";
@@ -1661,7 +1668,11 @@ namespace Zamin {
         if (Project::GetActive() && c.Type != PrimitiveMesh::Model)
         {
             UI::PropertyLabel("");
-            if (ImGui::Button(ICON_FA_FLOPPY_DISK "  Material asset sifatida saqlash", ImVec2(-FLT_MIN, 0)))
+            bool save = ImGui::Button(ICON_FA_FLOPPY_DISK "  Asset qilib saqlash", ImVec2(-FLT_MIN, 0));
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Ichki materialni material asset (.zmat) sifatida Assets/Materials/ ga saqlaydi va mesh'ga biriktiradi - "
+                            "keyin uni boshqa obyektlar ham ishlatishi mumkin.");
+            if (save)
             {
                 std::filesystem::path dir = Project::GetAssetDirectory() / "Materials";
                 std::string name = entity.GetName().empty() ? std::string("Material") : entity.GetName();

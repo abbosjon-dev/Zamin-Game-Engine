@@ -67,21 +67,34 @@ namespace Zamin::UI {
             ImGui::SameLine();
             width -= size + spacing;
         }
+        width = std::max(width, 20.0f);
         std::string display = path.empty() ? std::string(icon) + "  (yo'q)" : std::string(icon) + "  " + path;
+        // Too long for the field: the file name (the whole path is in the tooltip).
+        bool shortened = false;
+        if (!path.empty() && ImGui::CalcTextSize(display.c_str()).x > width - ImGui::GetStyle().FramePadding.x * 2.0f)
+        {
+            display = std::string(icon) + "  " + std::filesystem::path(path).filename().string();
+            shortened = true;
+        }
 
         ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
         if (options.Missing && !path.empty())
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.45f, 0.4f, 1.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0f, 0.5f));
-        ImGui::Button(display.c_str(), ImVec2(std::max(width, 20.0f), 0));
+        ImGui::Button(display.c_str(), ImVec2(width, 0));
         ImGui::PopStyleVar();
         if (options.Missing && !path.empty())
             ImGui::PopStyleColor();
         ImGui::PopStyleColor();
         if (ImGui::IsItemHovered())
-            Tooltip(options.Missing && !path.empty() ? "Fayl yuklanmadi (yo'q yoki buzilgan) - konsolni tekshiring.\n"
-                                                       "Content Browser'dan boshqa fayl tortib tashlang"
-                                                     : "Content Browser'dan fayl tortib tashlang");
+        {
+            std::string tip = options.Missing && !path.empty() ? "Fayl yuklanmadi (yo'q yoki buzilgan) - konsolni tekshiring.\n"
+                                                                 "Content Browser'dan boshqa fayl tortib tashlang"
+                                                               : "Content Browser'dan fayl tortib tashlang";
+            if (shortened)
+                tip = path + "\n" + tip;
+            Tooltip(tip.c_str());
+        }
 
         if (ImGui::BeginDragDropTarget())
         {

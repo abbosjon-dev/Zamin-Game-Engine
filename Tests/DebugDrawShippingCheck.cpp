@@ -32,17 +32,22 @@ namespace ShippingCheck {
         DebugDraw::Point(p, DebugColor::Orange, 0.0f, true, 6.0f);
         DebugDraw::Axes(glm::mat4(1.0f), 2.0f);
         DebugDraw::Path({ p, p * 2.0f, p * 3.0f }, DebugColor::Gray, 0.0f, true, true);
+        DebugDraw::NavigationPath({ p, p * 2.0f }, DebugColor::Cyan, 1.0f, false);
         DebugDraw::Text(p, "Shipping", DebugColor::White, 1.0f, true, 20.0f);
+        DebugDraw::CharacterVelocity(p, glm::vec3(1, 0, 0), glm::vec3(2, 0, 0));
+        DebugDraw::BodyVelocity(p, glm::vec3(0, -3, 0));
         DebugDraw::PhysicsRaycast(p, glm::vec3(0, -1, 0), 10.0f, RaycastHit{});
         DebugDraw::PhysicsContact(p, glm::vec3(0, 1, 0));
         DebugDraw::SetEnabled(true);
         DebugDraw::GetSettings().ShowRaycasts = true;
+        DebugDraw::GetSettings().ShowVelocities = true;
         DebugDraw::Advance(1.0f);
         DebugDraw::Render(DebugDrawView{});
         DebugDraw::Clear();
         DebugDraw::Shutdown();
         return (int)(DebugDraw::GetLines().size() + DebugDraw::GetPoints().size() + DebugDraw::GetTexts().size()) +
                (DebugDraw::IsEnabled() ? 1 : 0) + (DebugDraw::IsShowingRaycasts() ? 1 : 0) + (DebugDraw::IsShowingContacts() ? 1 : 0) +
+               (DebugDraw::IsShowingVelocities() ? 1 : 0) + (DebugDraw::IsShowingBodyVelocities() ? 1 : 0) +
                (DebugDraw::GetSettings().Enabled ? 1 : 0) + (int)DebugDraw::MaxLines;
     }
 

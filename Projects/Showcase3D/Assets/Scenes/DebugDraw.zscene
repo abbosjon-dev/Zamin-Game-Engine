@@ -1990,6 +1990,17 @@
         ],
         "Intensity": 4.0,
         "Radius": 7.0
+      },
+      "AudioSource": {
+        "Path": "Audio/ShrineHum.wav",
+        "PathUUID": "7ac997bedc099d50",
+        "Volume": 0.5,
+        "Pitch": 1.0,
+        "Loop": true,
+        "PlayOnStart": true,
+        "Spatial": true,
+        "MinDistance": 2.0,
+        "MaxDistance": 9.0
       }
     },
     {
@@ -2215,6 +2226,145 @@
         "Loop": true,
         "Playing": true,
         "PlayInEditor": true
+      }
+    },
+    {
+      "Entity": 7399000000000000,
+      "Tag": "Patrol",
+      "Transform": {
+        "Translation": [
+          3.5,
+          0,
+          -3.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "CharacterController3D": {
+        "Radius": 0.35,
+        "Height": 1.8,
+        "MaxSlope": 50.0,
+        "StepHeight": 0.35,
+        "Mass": 70.0,
+        "GravityScale": 1.0,
+        "StickToFloor": true
+      },
+      "NativeScript": {
+        "Class": "PatrolWalker",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 3.0
+          },
+          "Width": {
+            "Type": "Float",
+            "Value": 7.0
+          },
+          "Depth": {
+            "Type": "Float",
+            "Value": 2.0
+          },
+          "ShowRoute": {
+            "Type": "Bool",
+            "Value": true
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7399000000000001,
+      "Tag": "Body",
+      "Parent": 7399000000000000,
+      "Transform": {
+        "Translation": [
+          0,
+          0.9,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.7,
+          1.8,
+          0.7
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.55,
+          0.35,
+          0.95,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.4,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7399000000000002,
+      "Tag": "Visor",
+      "Parent": 7399000000000000,
+      "Transform": {
+        "Translation": [
+          0,
+          1.45,
+          -0.33
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.45,
+          0.16,
+          0.12
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.1,
+          0.1,
+          0.12,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.2,
+        "Emission": [
+          0.3,
+          0.9,
+          1.0
+        ],
+        "EmissionStrength": 3.0
       }
     }
   ]

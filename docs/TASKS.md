@@ -147,11 +147,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 123. DebugDraw faqat editor/Development rejimda
 - [x] 124. Raycast natijasini vizualizatsiya qilish
 - [x] 125. Fizika kontakt nuqtalarini ko'rsatish
-- [ ] 126. Kamera frustumini editorda chizish
-- [ ] 127. Yorug'lik yo'nalishini o'q bilan ko'rsatish
-- [ ] 128. Audio manba radiusini ko'rsatish
-- [ ] 129. Character controller tezlik vektori
-- [ ] 130. Navigatsiya yo'llarini chizish (keyingi milestone bilan)
+- [x] 126. Kamera frustumini editorda chizish
+- [x] 127. Yorug'lik yo'nalishini o'q bilan ko'rsatish
+- [x] 128. Audio manba radiusini ko'rsatish
+- [x] 129. Character controller tezlik vektori
+- [x] 130. Navigatsiya yo'llarini chizish (keyingi milestone bilan)
 - [ ] 131. Gizmo o'lchami sozlamasi
 - [ ] 132. Selection outline (shader asosida, sillik kontur)
 - [ ] 133. Hover qilingan obyekt kontur bilan ajratiladi

@@ -111,6 +111,13 @@ namespace Zamin {
         for (auto e : registry.view<BoxCollider2DComponent>()) registry.get<BoxCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : registry.view<CircleCollider2DComponent>()) registry.get<CircleCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : registry.view<Rigidbody3DComponent>()) registry.get<Rigidbody3DComponent>(e).RuntimeBodyID = 0xffffffff;
+        for (auto e : registry.view<CharacterController3DComponent>())
+        {
+            auto& c = registry.get<CharacterController3DComponent>(e);
+            c.RuntimeID = 0xffffffff;
+            c.Grounded = false;
+            c.Velocity = glm::vec3(0.0f);
+        }
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).RuntimeHandle = 0;
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).Clear();
@@ -131,7 +138,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->RuntimeHandle = 0;
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
         if (auto* c = e.TryGetComponent<TilemapComponent>()) c->RuntimeBody = nullptr;
-        if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; }
+        if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; c->Velocity = glm::vec3(0.0f); }
         if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->Clear(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
         if (auto* c = e.TryGetComponent<UIButtonComponent>()) c->Hovered = c->Pressed = c->Clicked = false;
         if (auto* c = e.TryGetComponent<MeshRendererComponent>())
@@ -1956,6 +1963,7 @@ namespace Zamin {
         cc.RuntimeID = m_PhysicsWorld3D->CreateCharacter(desc);
         cc.VerticalVelocity = 0.0f;
         cc.Grounded = false;
+        cc.Velocity = glm::vec3(0.0f);
     }
 
     void Scene::OnPhysics3DStop()
@@ -2308,6 +2316,47 @@ namespace Zamin {
 
         if (debugContacts)
             DrawPhysicsContacts();
+        if (DebugDraw::IsShowingVelocities() || DebugDraw::IsShowingBodyVelocities())
+            DrawPhysicsVelocities();
+    }
+
+    void Scene::DrawPhysicsVelocities()
+    {
+        if (DebugDraw::IsShowingVelocities() && m_PhysicsWorld3D)
+            for (auto e : m_Registry.view<CharacterController3DComponent>())
+            {
+                const auto& cc = m_Registry.get<CharacterController3DComponent>(e);
+                if (cc.RuntimeID == 0xffffffff)
+                    continue;
+                // From the middle of the capsule (the entity stands on its feet).
+                glm::vec3 center = m_PhysicsWorld3D->GetCharacterPosition(cc.RuntimeID) + glm::vec3(0.0f, cc.Height * 0.5f, 0.0f);
+                glm::vec3 desired = cc.MoveVelocity + glm::vec3(0.0f, cc.VerticalVelocity, 0.0f);
+                DebugDraw::CharacterVelocity(center, cc.Velocity, desired);
+            }
+        if (!DebugDraw::IsShowingBodyVelocities())
+            return;
+        if (m_PhysicsWorld)
+            for (auto e : m_Registry.view<Rigidbody2DComponent>())
+            {
+                const auto& rb = m_Registry.get<Rigidbody2DComponent>(e);
+                if (!rb.RuntimeBody || rb.Type != Rigidbody2DComponent::BodyType::Dynamic)
+                    continue;
+                b2Body* body = (b2Body*)rb.RuntimeBody;
+                if (!body->IsEnabled() || !body->IsAwake())
+                    continue;
+                const b2Vec2 c = body->GetWorldCenter(), v = body->GetLinearVelocity();
+                DebugDraw::BodyVelocity({ c.x, c.y, GetWorldPosition({ e, this }).z }, { v.x, v.y, 0.0f });
+            }
+        if (m_PhysicsWorld3D)
+            for (auto e : m_Registry.view<Rigidbody3DComponent>())
+            {
+                const auto& rb = m_Registry.get<Rigidbody3DComponent>(e);
+                if (rb.RuntimeBodyID == 0xffffffff || rb.Type != Rigidbody3DComponent::BodyType::Dynamic)
+                    continue;
+                glm::vec3 p; glm::quat q;
+                m_PhysicsWorld3D->GetTransform(rb.RuntimeBodyID, p, q);
+                DebugDraw::BodyVelocity(p, m_PhysicsWorld3D->GetLinearVelocity(rb.RuntimeBodyID));
+            }
     }
 
     void Scene::DrawPhysicsContacts()
@@ -2358,6 +2407,7 @@ namespace Zamin {
             glm::vec3 wp = GetWorldPosition(entity);
             glm::vec3 cp = m_PhysicsWorld3D->GetCharacterPosition(cc.RuntimeID);
             if (glm::length(wp - cp) > 0.01f) m_PhysicsWorld3D->SetCharacterPosition(cc.RuntimeID, wp);
+            const glm::vec3 start = m_PhysicsWorld3D->GetCharacterPosition(cc.RuntimeID);
 
             bool grounded = m_PhysicsWorld3D->IsCharacterGrounded(cc.RuntimeID);
             if (grounded && cc.VerticalVelocity <= 0.0f)
@@ -2374,6 +2424,7 @@ namespace Zamin {
                 cc.VerticalVelocity = std::min(cc.VerticalVelocity, std::max(0.0f, newVel.y)); // bonked the ceiling
 
             glm::vec3 p = m_PhysicsWorld3D->GetCharacterPosition(cc.RuntimeID);
+            cc.Velocity = dt > 0.0f ? (p - start) / dt : glm::vec3(0.0f);
             if (!GetParent(entity)) m_Registry.get<TransformComponent>(e).Translation = p;
             else
             {

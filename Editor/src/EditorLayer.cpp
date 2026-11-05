@@ -327,7 +327,27 @@ namespace Zamin {
                 d.Enabled = v != "0";
                 if (v.find("raycasts") != std::string_view::npos) d.ShowRaycasts = true;
                 if (v.find("contacts") != std::string_view::npos) d.ShowContacts = true;
+                if (v.find("velocities") != std::string_view::npos) d.ShowVelocities = d.ShowBodyVelocities = true;
                 if (v.find("menu") != std::string_view::npos) m_OpenDebugDrawMenu = true;
+            }
+            // ZAMIN_EDITOR_GIZMOS=off | selected | all | frustums=all,lights=off,audio=selected,menu: the
+            // component visualisations (for this session; not saved unless the settings change).
+            if (const char* gizmos = std::getenv("ZAMIN_EDITOR_GIZMOS"))
+            {
+                std::string_view v(gizmos);
+                auto& g = m_ViewSettings.Gizmos;
+                auto parse = [](std::string_view value) {
+                    if (value.starts_with("all")) return GizmoVisibility::All;
+                    if (value.starts_with("off")) return GizmoVisibility::Off;
+                    return GizmoVisibility::Selected;
+                };
+                if (v.starts_with("all") || v.starts_with("off") || v.starts_with("selected"))
+                    g.CameraFrustums = g.LightDirections = g.AudioRanges = parse(v);
+                for (auto [key, target] : { std::pair<std::string_view, GizmoVisibility*>{ "frustums=", &g.CameraFrustums },
+                                            { "lights=", &g.LightDirections }, { "audio=", &g.AudioRanges } })
+                    if (size_t at = v.find(key); at != std::string_view::npos)
+                        *target = parse(v.substr(at + key.size()));
+                if (v.find("menu") != std::string_view::npos) m_OpenGizmosMenu = true;
             }
             // ZAMIN_EDITOR_NO_CULLING=1 / ZAMIN_EDITOR_NO_INSTANCING=1: frustum culling (3D and 2D) / GPU
             // instancing off (to compare the pictures).
@@ -839,6 +859,21 @@ namespace Zamin {
         return m_EditorCamera.GetViewProjection();
     }
 
+    bool EditorLayer::OverlayCamera(glm::mat4& view, glm::mat4& projection)
+    {
+        if (m_SceneState == SceneState::Play)
+        {
+            Entity camera = m_ActiveScene->GetPrimaryCameraEntity();
+            if (!camera) return false;
+            view = glm::inverse(m_ActiveScene->GetWorldTransform(camera));
+            projection = camera.GetComponent<CameraComponent>().Camera.GetProjection();
+            return true;
+        }
+        view = m_EditorCamera.GetViewMatrix();
+        projection = m_EditorCamera.GetProjection();
+        return true;
+    }
+
     bool EditorLayer::ViewportMouseToPlane(float planeZ, glm::vec3& out)
     {
         ImVec2 mouse = ImGui::GetMousePos();
@@ -918,13 +953,143 @@ namespace Zamin {
         v = glm::cross(dir, u);
     }
 
-    // A point light's range: three circles around it (world axes).
-    static void DrawPointLightRange(const glm::vec3& center, float radius, const glm::vec4& color)
+    // The overlay's camera, for shapes that keep their size on screen and spheres' outlines.
+    struct EditorOverlayView
     {
-        if (radius <= 0.0f) return;
+        glm::mat4 View{ 1.0f }, Projection{ 1.0f };
+        glm::vec3 Position{ 0.0f }, Forward{ 0.0f, 0.0f, -1.0f };
+        float ViewportHeight = 1.0f;
+
+        bool IsPerspective() const { return Projection[3][3] == 0.0f; }
+        // World units one viewport pixel covers at `point`.
+        float PixelSize(const glm::vec3& point) const
+        {
+            float scale = std::abs(Projection[1][1]) * std::max(ViewportHeight, 1.0f);
+            if (!(scale > 1e-9f)) return 0.01f;
+            if (!IsPerspective())
+                return 2.0f / scale;
+            float depth = std::max(-(View * glm::vec4(point, 1.0f)).z, 1e-3f);
+            return 2.0f * depth / scale;
+        }
+    };
+
+    // A wire sphere: three circles around the world axes and its outline as the camera sees it.
+    static void DrawWireSphere(const glm::vec3& center, float radius, const glm::vec4& color, const EditorOverlayView* view = nullptr)
+    {
+        if (!(radius > 0.0f) || !std::isfinite(radius)) return;
         DrawWireCircle(center, { 1, 0, 0 }, { 0, 1, 0 }, radius, color);
         DrawWireCircle(center, { 1, 0, 0 }, { 0, 0, 1 }, radius, color);
         DrawWireCircle(center, { 0, 1, 0 }, { 0, 0, 1 }, radius, color);
+        if (!view) return;
+        glm::vec3 u, v;
+        if (!view->IsPerspective())
+        {
+            PerpendicularAxes(view->Forward, u, v);
+            DrawWireCircle(center, u, v, radius, color);
+            return;
+        }
+        // Seen from distance D the outline is the circle where the sphere's tangent cone touches
+        // it: r * sqrt(D^2 - r^2) / D across, r^2 / D closer to the camera than the centre.
+        glm::vec3 toCamera = view->Position - center;
+        float d = glm::length(toCamera);
+        if (d <= radius * 1.001f) return; // inside: no outline
+        toCamera /= d;
+        PerpendicularAxes(toCamera, u, v);
+        DrawWireCircle(center + toCamera * (radius * radius / d), u, v, radius * std::sqrt(d * d - radius * radius) / d, color);
+    }
+
+    // A point light's range: a sphere of circles around it.
+    static void DrawPointLightRange(const glm::vec3& center, float radius, const glm::vec4& color, const EditorOverlayView& view)
+    {
+        DrawWireSphere(center, radius, color, &view);
+    }
+
+    // A line with a pyramid head of `headSize` at `to`.
+    static void DrawWireArrow(const glm::vec3& from, const glm::vec3& to, float headSize, const glm::vec4& color)
+    {
+        Renderer2D::DrawLine(from, to, color);
+        glm::vec3 d = to - from;
+        float length = glm::length(d);
+        if (!(length > 1e-6f)) return;
+        d /= length;
+        float head = std::min(headSize, length), width = head * 0.4f;
+        glm::vec3 u, v;
+        PerpendicularAxes(d, u, v);
+        glm::vec3 base = to - d * head;
+        const glm::vec3 fins[4] = { base + u * width, base + v * width, base - u * width, base - v * width };
+        for (int i = 0; i < 4; i++)
+        {
+            Renderer2D::DrawLine(to, fins[i], color);
+            Renderer2D::DrawLine(fins[i], fins[(i + 1) % 4], color);
+        }
+    }
+
+    // How far a perspective camera's frustum is drawn solid (world units; on to the far plane faint).
+    static constexpr float CameraFrustumPreviewDistance = 10.0f;
+
+    // A camera's view volume (FrustumCorners). Perspective cameras reach far (hundreds of
+    // units): solid up to `previewDistance` - a rectangle there with a small triangle on top
+    // marking the camera's up side - and faint on to the far plane. Orthographic ones: the box.
+    static void DrawCameraFrustum(const std::array<glm::vec3, 8>& c, const glm::mat4& cameraWorld, bool perspective,
+                                  float previewDistance, const glm::vec4& color)
+    {
+        const glm::vec4 faint(color.r, color.g, color.b, color.a * 0.3f);
+        const glm::vec3 eye(cameraWorld[3]), forward = glm::normalize(-glm::vec3(cameraWorld[2]));
+        // Depth along the view direction is linear along each edge (near corner -> far corner).
+        const float nearDepth = glm::dot(c[0] - eye, forward), farDepth = glm::dot(c[4] - eye, forward);
+        float t = 1.0f;
+        if (perspective && farDepth > previewDistance && farDepth - nearDepth > 1e-6f)
+            t = std::clamp((previewDistance - nearDepth) / (farDepth - nearDepth), 0.0f, 1.0f);
+        std::array<glm::vec3, 4> preview;
+        for (int i = 0; i < 4; i++)
+            preview[i] = glm::mix(c[i], c[i + 4], t);
+
+        const int rect[4][2] = { { 0, 1 }, { 1, 3 }, { 3, 2 }, { 2, 0 } };
+        for (const auto& e : rect)
+        {
+            Renderer2D::DrawLine(c[e[0]], c[e[1]], color);
+            Renderer2D::DrawLine(preview[e[0]], preview[e[1]], color);
+            if (t < 1.0f)
+                Renderer2D::DrawLine(c[e[0] + 4], c[e[1] + 4], faint);
+        }
+        for (int i = 0; i < 4; i++)
+        {
+            Renderer2D::DrawLine(c[i], preview[i], color);
+            if (t < 1.0f)
+                Renderer2D::DrawLine(preview[i], c[i + 4], faint);
+        }
+        // The up marker over the rectangle the camera is drawn up to (the near one of a box).
+        const glm::vec3* r = perspective ? preview.data() : c.data();
+        glm::vec3 up = r[2] - r[0];
+        float height = glm::length(up), width = glm::length(r[3] - r[2]);
+        if (height > 1e-6f)
+        {
+            up /= height;
+            glm::vec3 a = glm::mix(r[2], r[3], 0.35f), b = glm::mix(r[2], r[3], 0.65f);
+            glm::vec3 apex = (r[2] + r[3]) * 0.5f + up * (width * 0.15f);
+            Renderer2D::DrawLine(a, apex, color);
+            Renderer2D::DrawLine(apex, b, color);
+            Renderer2D::DrawLine(b, a, color);
+        }
+    }
+
+    // A directional light: a ring around its position facing the way the light goes, rays along
+    // it from the ring and an arrow from the middle (`pixel`: world units of a screen pixel there).
+    static void DrawDirectionalLightGizmo(const glm::vec3& origin, const glm::vec3& direction, float pixel, const glm::vec4& color)
+    {
+        if (!(glm::length(direction) > 1e-6f)) return;
+        glm::vec3 d = glm::normalize(direction), u, v;
+        PerpendicularAxes(d, u, v);
+        const float ring = 26.0f * pixel, rays = 52.0f * pixel, arrow = 104.0f * pixel;
+        const glm::vec4 faint(color.r, color.g, color.b, color.a * 0.7f);
+        DrawWireCircle(origin, u, v, ring, color);
+        for (int i = 0; i < 8; i++)
+        {
+            float a = glm::two_pi<float>() * (float)i / 8.0f;
+            glm::vec3 p = origin + (u * std::cos(a) + v * std::sin(a)) * ring;
+            Renderer2D::DrawLine(p, p + d * rays, faint);
+        }
+        DrawWireArrow(origin, origin + d * arrow, 18.0f * pixel, color);
     }
 
     // A spot light's cone: the outer cone (edges, the circle where it ends and the cap of its
@@ -954,6 +1119,102 @@ namespace Zamin {
         Renderer2D::DrawLine(apex, apex + d * std::min(range, 1.0f), color);
     }
 
+    void EditorLayer::DrawComponentGizmos(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden)
+    {
+        const EditorGizmoSettings& gizmos = m_ViewSettings.Gizmos;
+        Scene& scene = *m_ActiveScene;
+        // A selected entity gets its visualisation unless the eye hides it (outside play mode);
+        // with "all", every other entity the overlay draws (active, not hidden) too.
+        const bool skipEyeHidden = m_SceneState != SceneState::Play;
+        auto shows = [&](entt::entity e, GizmoVisibility visibility) {
+            if (visibility == GizmoVisibility::Off)
+                return false;
+            Entity entity{ e, &scene };
+            bool selected = m_SceneHierarchyPanel.IsSelected(entity);
+            if (!EditorGizmoSettings::Shows(visibility, selected))
+                return false;
+            return selected ? !(skipEyeHidden && scene.IsHiddenInEditor(entity)) : !hidden.contains(e);
+        };
+        auto tint = [&](entt::entity e, glm::vec4 color) {
+            if (!m_SceneHierarchyPanel.IsSelected({ e, &scene }))
+                color.a *= 0.6f;
+            return color;
+        };
+
+        // Camera frustums (perspective: a pyramid to the far plane, orthographic: a box). Not the
+        // one the game is seen through while playing.
+        if (gizmos.CameraFrustums != GizmoVisibility::Off)
+        {
+            Entity viewing = m_SceneState == SceneState::Play ? scene.GetPrimaryCameraEntity() : Entity();
+            for (auto e : scene.GetAllEntitiesWith<CameraComponent>())
+            {
+                if ((viewing && e == (entt::entity)viewing) || !shows(e, gizmos.CameraFrustums))
+                    continue;
+                Entity entity{ e, &scene };
+                const auto& camera = entity.GetComponent<CameraComponent>();
+                glm::mat4 world = scene.GetWorldTransform(entity);
+                // The transform's scale does not change what the camera sees.
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(world, p, r, sc);
+                glm::mat4 rigid = glm::translate(glm::mat4(1.0f), p) * glm::mat4_cast(glm::quat(r));
+                const bool perspective = camera.Camera.GetProjectionType() == SceneCamera::ProjectionType::Perspective;
+                DrawCameraFrustum(FrustumCorners(camera.Camera.GetProjection(), rigid), rigid, perspective, CameraFrustumPreviewDistance,
+                                  tint(e, camera.Primary ? glm::vec4(0.9f, 0.92f, 1.0f, 1.0f) : glm::vec4(0.7f, 0.8f, 0.95f, 1.0f)));
+            }
+        }
+
+        // Light directions: the sun's rays and arrow, an arrow along a spot light's axis (no
+        // longer than its range). In the light's own colour, brightened.
+        if (gizmos.LightDirections != GizmoVisibility::Off)
+        {
+            auto lightColor = [&](entt::entity e, const glm::vec3& color) {
+                float m = std::max({ color.r, color.g, color.b, 1e-4f });
+                glm::vec3 c = glm::mix(glm::vec3(1.0f, 0.88f, 0.4f), color / m, 0.5f);
+                return tint(e, glm::vec4(c, 1.0f));
+            };
+            for (auto e : scene.GetAllEntitiesWith<DirectionalLightComponent>())
+            {
+                if (!shows(e, gizmos.LightDirections))
+                    continue;
+                Entity entity{ e, &scene };
+                glm::mat4 world = scene.GetWorldTransform(entity);
+                glm::vec3 origin(world[3]);
+                DrawDirectionalLightGizmo(origin, glm::vec3(world * glm::vec4(0, 0, -1, 0)), view.PixelSize(origin),
+                                          lightColor(e, entity.GetComponent<DirectionalLightComponent>().Color));
+            }
+            for (auto e : scene.GetAllEntitiesWith<SpotLightComponent>())
+            {
+                if (!shows(e, gizmos.LightDirections))
+                    continue;
+                Entity entity{ e, &scene };
+                const auto& sl = entity.GetComponent<SpotLightComponent>();
+                glm::mat4 world = scene.GetWorldTransform(entity);
+                glm::vec3 apex(world[3]), dir(world * glm::vec4(0, 0, -1, 0));
+                if (!(glm::length(dir) > 1e-6f) || !(sl.Range > 0.0f))
+                    continue;
+                float pixel = view.PixelSize(apex);
+                float length = std::min(90.0f * pixel, sl.Range);
+                DrawWireArrow(apex, apex + glm::normalize(dir) * length, std::min(18.0f * pixel, length * 0.4f), lightColor(e, sl.Color));
+            }
+        }
+
+        // 3D audio sources: full volume inside the inner sphere (MinDistance), fading out to the
+        // outer one (MaxDistance), silent beyond it.
+        if (gizmos.AudioRanges != GizmoVisibility::Off)
+            for (auto e : scene.GetAllEntitiesWith<AudioSourceComponent>())
+            {
+                Entity entity{ e, &scene };
+                const auto& src = entity.GetComponent<AudioSourceComponent>();
+                if (!src.Spatial || !shows(e, gizmos.AudioRanges))
+                    continue;
+                glm::vec3 center = scene.GetWorldPosition(entity);
+                const glm::vec4 color = tint(e, glm::vec4(0.88f, 0.55f, 0.9f, 1.0f));
+                DrawWireSphere(center, src.MinDistance, color, &view);
+                if (src.MaxDistance > src.MinDistance)
+                    DrawWireSphere(center, src.MaxDistance, glm::vec4(color.r, color.g, color.b, color.a * 0.45f), &view);
+            }
+    }
+
     void EditorLayer::OnOverlayRender()
     {
         glm::mat4 viewProj = OverlayViewProjection();
@@ -968,6 +1229,16 @@ namespace Zamin {
         SceneRenderOptions skipped;
         skipped.SkipEditorHidden = m_SceneState != SceneState::Play;
         std::unordered_set<entt::entity> hidden = scene.CollectRenderSkipped(skipped);
+        EditorOverlayView overlayView;
+        if (OverlayCamera(overlayView.View, overlayView.Projection))
+        {
+            glm::mat4 world = glm::inverse(overlayView.View);
+            overlayView.Position = glm::vec3(world[3]);
+            overlayView.Forward = glm::normalize(-glm::vec3(world[2]));
+        }
+        overlayView.ViewportHeight = m_ViewportBounds[1].y - m_ViewportBounds[0].y;
+
+        DrawComponentGizmos(overlayView, hidden);
 
         if (m_ShowColliders)
         {
@@ -1126,7 +1397,7 @@ namespace Zamin {
             // Lights: how far they reach (point: a sphere of circles, spot: its cone).
             const glm::vec4 lightColor = selected == primary ? glm::vec4(1.0f, 0.88f, 0.4f, 1.0f) : glm::vec4(1.0f, 0.9f, 0.55f, 0.6f);
             if (auto* pl = selected.TryGetComponent<PointLightComponent>())
-                DrawPointLightRange(glm::vec3(transform[3]), pl->Radius, lightColor);
+                DrawPointLightRange(glm::vec3(transform[3]), pl->Radius, lightColor, overlayView);
             if (auto* sl = selected.TryGetComponent<SpotLightComponent>())
                 DrawSpotLightCone(glm::vec3(transform[3]), glm::vec3(transform * glm::vec4(0, 0, -1, 0)), sl->Range, sl->GetInnerAngle(),
                                   sl->GetOuterAngle(), lightColor);
@@ -3408,7 +3679,7 @@ namespace Zamin {
         }
 
         // ---- right: camera (frame all, bookmarks) | view options
-        float viewW = buttonSize * 8 + caretWidth * 3 + spacing * 8;
+        float viewW = buttonSize * 8 + caretWidth * 4 + spacing * 8;
         ImVec2 viewPos(width - viewW - 10, 10);
         {
             bool cameraTools = m_SceneState != SceneState::Play;
@@ -3484,7 +3755,8 @@ namespace Zamin {
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                     ImGui::OpenPopup("##DebugDraw");
                 ImGui::SameLine(0.0f, 0.0f);
-                const bool physicsViews = debug.Enabled && (debug.ShowRaycasts || debug.ShowContacts);
+                const bool physicsViews = debug.Enabled && (debug.ShowRaycasts || debug.ShowContacts || debug.ShowVelocities ||
+                                                            debug.ShowBodyVelocities);
                 if (physicsViews) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
                 if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###DebugDrawMenu", "Debug chizish sozlamalari: raycastlar, kontakt nuqtalari, "
                                       "chiziq qalinligi, matn o'lchami", physicsViews, ImVec2(caretWidth, buttonSize)))
@@ -3501,7 +3773,31 @@ namespace Zamin {
                 UI_DebugDrawPopup();
             }
             ImGui::SameLine();
-            if (UI::ToolbarButton(ICON_FA_EYE, "Ikonkalar", m_ShowIcons, size)) m_ShowIcons = !m_ShowIcons;
+            // Icons + the component visualisations (camera frustums, light directions, audio radii).
+            {
+                std::string tip = std::format("Ikonkalar: {} (o'ng tugma yoki {}: gizmolar - kamera frustumi, yorug'lik yo'nalishi, "
+                                              "audio radiusi)", m_ShowIcons ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
+                if (UI::ToolbarButton(ICON_FA_EYE, tip.c_str(), m_ShowIcons, size)) m_ShowIcons = !m_ShowIcons;
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                    ImGui::OpenPopup("##ComponentGizmos");
+                ImGui::SameLine(0.0f, 0.0f);
+                const auto& g = m_ViewSettings.Gizmos;
+                const bool showingAll = g.CameraFrustums == GizmoVisibility::All || g.LightDirections == GizmoVisibility::All ||
+                                        g.AudioRanges == GizmoVisibility::All;
+                if (showingAll) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
+                if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###ComponentGizmosMenu", "Gizmolar: kamera frustumi, yorug'lik yo'nalishi, "
+                                      "audio radiusi - tanlanganda yoki hammasida", showingAll, ImVec2(caretWidth, buttonSize)))
+                    ImGui::OpenPopup("##ComponentGizmos");
+                if (showingAll) ImGui::PopStyleColor();
+                const ImVec2 popupAnchor(ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + 8.0f);
+                if (m_OpenGizmosMenu)
+                {
+                    ImGui::OpenPopup("##ComponentGizmos");
+                    m_OpenGizmosMenu = false;
+                }
+                ImGui::SetNextWindowPos(popupAnchor, ImGuiCond_Appearing, ImVec2(1.0f, 0.0f));
+                UI_ComponentGizmosPopup();
+            }
             ImGui::SameLine();
             if (UI::ToolbarButton(ICON_FA_GLOBE, m_GizmoLocal ? "Lokal koordinatalar" : "Global koordinatalar", m_GizmoLocal, size))
                 m_GizmoLocal = !m_GizmoLocal;
@@ -3675,6 +3971,22 @@ namespace Zamin {
             ImGui::SetNextItemWidth(150);
             changed |= ImGui::SliderFloat("Normal uzunligi", &d.NormalLength, 0.05f, 2.0f, "%.2f");
         }
+        changed |= ImGui::Checkbox(ICON_FA_PERSON_RUNNING "  Personaj tezligi", &d.ShowVelocities);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("3D character controller'lar: haqiqiy tezlik o'qi (kapsula o'rtasidan, uchida m/s) va xira - skript "
+                        "so'ragan tezlik (devor yoki qiyalik to'sganda farq qiladi). O'yin yoki simulyatsiya paytida");
+        changed |= ImGui::Checkbox(ICON_FA_ARROW_RIGHT "  Jismlar tezligi", &d.ShowBodyVelocities);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Harakatlanayotgan dinamik jismlar (2D va 3D): tezlik vektori o'q bilan");
+        if (d.ShowVelocities || d.ShowBodyVelocities)
+        {
+            ImGui::Indent();
+            ImGui::SetNextItemWidth(150);
+            changed |= ImGui::SliderFloat("O'q uzunligi", &d.VelocityScale, DebugDrawSettings::MinVelocityScale, 2.0f, "%.2f s");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("O'q shuncha soniyalik yo'lni ko'rsatadi: uzunligi = tezlik x vaqt");
+            ImGui::Unindent();
+        }
         ImGui::Spacing();
         ImGui::TextDisabled("Ko'rinish");
         ImGui::SetNextItemWidth(150);
@@ -3695,6 +4007,50 @@ namespace Zamin {
             DebugDraw::Clear();
         if (changed)
             d.Sanitize();
+        return changed;
+    }
+
+    void EditorLayer::UI_ComponentGizmosPopup()
+    {
+        ImGui::SetNextWindowSizeConstraints(ImVec2(300, 0), ImVec2(440, FLT_MAX));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 5));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+        if (ImGui::BeginPopup("##ComponentGizmos"))
+        {
+            ImGui::Checkbox(ICON_FA_EYE "  Ikonkalar", &m_ShowIcons);
+            ImGui::Spacing();
+            if (UI_ComponentGizmoSettings())
+                MarkViewSettingsDirty();
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar(2);
+    }
+
+    bool EditorLayer::UI_ComponentGizmoSettings()
+    {
+        auto& g = m_ViewSettings.Gizmos;
+        bool changed = false;
+        ImGui::TextDisabled(ICON_FA_SHAPES "  Gizmolar (faqat editorda)");
+        auto option = [&](const char* label, GizmoVisibility& value, const char* tooltip) {
+            static const char* items[] = { "O'chiq", "Tanlanganda", "Hammasida" };
+            int current = (int)value;
+            ImGui::SetNextItemWidth(130);
+            if (ImGui::Combo(label, &current, items, IM_ARRAYSIZE(items)))
+            {
+                value = (GizmoVisibility)current;
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(tooltip);
+        };
+        option(ICON_FA_CAMERA "  Kamera frustumi", g.CameraFrustums,
+               "Kamera ko'radigan hajm: perspektiv - 10 birlikkacha aniq piramida, undan far tekisligigacha xira; ortografik - "
+               "quti. Yuqori tomoni uchburchak bilan belgilangan. O'yin paytida ko'rib turilgan kamera chizilmaydi");
+        option(ICON_FA_SUN "  Yorug'lik yo'nalishi", g.LightDirections,
+               "Directional light: halqa, nurlar va o'q; spot light: o'qi bo'ylab o'q (range'dan uzun emas). Yorug'lik rangida");
+        option(ICON_FA_VOLUME_HIGH "  Audio radiusi", g.AudioRanges,
+               "3D (spatial) audio manbalar: ichki sfera - Min masofa (to'liq ovoz), tashqi xira sfera - Max masofa (undan "
+               "uzoqda eshitilmaydi)");
         return changed;
     }
 
@@ -3859,6 +4215,12 @@ namespace Zamin {
             ImGui::EndMenu();
         }
         ImGui::MenuItem(ICON_FA_EYE "  Ikonkalar", nullptr, &m_ShowIcons);
+        if (ImGui::BeginMenu(ICON_FA_SHAPES "  Gizmolar"))
+        {
+            if (UI_ComponentGizmoSettings())
+                MarkViewSettingsDirty();
+            ImGui::EndMenu();
+        }
         ImGui::MenuItem(ICON_FA_LAYER_GROUP "  Shaffoflar tartibi", nullptr, &m_ShowTransparentOrder);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Shaffof sirtlar qaysi tartibda chizilayotgani: har birining ustida raqami (1 - birinchi, eng orqadagi), "

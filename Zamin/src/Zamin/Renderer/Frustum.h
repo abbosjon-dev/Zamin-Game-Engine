@@ -4,6 +4,7 @@
 
 #include <glm/glm.hpp>
 
+#include <array>
 #include <cstddef>
 
 namespace Zamin {
@@ -24,6 +25,12 @@ namespace Zamin {
         bool Intersects(const AABB& box) const;
         bool Contains(const glm::vec3& point) const;
     };
+
+    // The eight corners of a camera's view volume in world space: `projection` (perspective or
+    // orthographic, OpenGL clip space) seen from `cameraWorld` (the camera's world transform; its
+    // inverse is the view matrix). Index bits: 1 = right (else left), 2 = top (else bottom),
+    // 4 = far (else near). A projection that cannot be inverted gives the camera's position 8 times.
+    std::array<glm::vec3, 8> FrustumCorners(const glm::mat4& projection, const glm::mat4& cameraWorld);
 
     // The axis-aligned box around `box` after `transform` (each corner transformed; exact for
     // the box, the tightest axis-aligned box around the rotated one).

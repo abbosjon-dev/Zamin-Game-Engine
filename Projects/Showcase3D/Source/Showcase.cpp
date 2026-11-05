@@ -247,3 +247,60 @@ private:
 };
 ZM_REGISTER_SCRIPT(DebugDrawDemo, ZM_FIELD(DebugDrawDemo, Rays), ZM_FIELD(DebugDrawDemo, Spread), ZM_FIELD(DebugDrawDemo, SweepSpeed),
                    ZM_FIELD(DebugDrawDemo, Range))
+
+// A character (CharacterController3D) walking round a rectangle of waypoints. The route ahead is
+// drawn with DebugDraw::NavigationPath; with "Personaj tezligi" on (debug drawing) the engine
+// draws its velocity, and the inspector shows it.
+class PatrolWalker : public ScriptableEntity
+{
+public:
+    float Speed = 3.0f;
+    float Width = 7.0f;     // the rectangle, from the start towards -X ...
+    float Depth = 2.0f;     // ... and -Z
+    bool ShowRoute = true;
+
+    void OnStart() override
+    {
+        const glm::vec3 s = GetWorldPosition();
+        m_Route = { s, s + glm::vec3(0.0f, 0.0f, -Depth), s + glm::vec3(-Width, 0.0f, -Depth), s + glm::vec3(-Width, 0.0f, 0.0f) };
+        m_Next = 1;
+    }
+
+    void OnUpdate(Timestep) override
+    {
+        auto* cc = TryGetComponent<CharacterController3DComponent>();
+        if (!cc)
+            return;
+        const glm::vec3 p = GetWorldPosition();
+        glm::vec3 to = m_Route[m_Next] - p;
+        to.y = 0.0f;
+        if (glm::length(to) < 0.25f)
+        {
+            m_Next = (m_Next + 1) % m_Route.size();
+            to = m_Route[m_Next] - p;
+            to.y = 0.0f;
+        }
+        if (glm::length(to) > 1e-4f)
+        {
+            glm::vec3 dir = glm::normalize(to);
+            cc->Move(dir * Speed);
+            Transform().Rotation.y = std::atan2(-dir.x, -dir.z); // -Z (the visor) faces the way
+        }
+        if (ShowRoute)
+        {
+            // One lap ahead, a little above the ground.
+            std::vector<glm::vec3> path{ p };
+            for (size_t k = 0; k < m_Route.size(); k++)
+                path.push_back(m_Route[(m_Next + k) % m_Route.size()]);
+            for (glm::vec3& point : path)
+                point.y += 0.05f;
+            DebugDraw::NavigationPath(path, DebugColor::Cyan);
+        }
+    }
+
+private:
+    std::vector<glm::vec3> m_Route;
+    size_t m_Next = 1;
+};
+ZM_REGISTER_SCRIPT(PatrolWalker, ZM_FIELD(PatrolWalker, Speed), ZM_FIELD(PatrolWalker, Width), ZM_FIELD(PatrolWalker, Depth),
+                   ZM_FIELD(PatrolWalker, ShowRoute))

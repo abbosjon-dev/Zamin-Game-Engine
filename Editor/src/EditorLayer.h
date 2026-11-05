@@ -14,8 +14,11 @@
 #include <filesystem>
 #include <optional>
 #include <thread>
+#include <unordered_set>
 
 namespace Zamin {
+
+    struct EditorOverlayView;
 
     class EditorLayer : public Layer
     {
@@ -164,6 +167,10 @@ namespace Zamin {
         // Debug drawing: the toolbar's popup and the view menu share the settings' widgets.
         void UI_DebugDrawPopup();
         bool UI_DebugDrawSettings();
+        // Component visualisations (camera frustums, light directions, audio radii): the icons'
+        // toolbar popup and the view menu share the settings' widgets.
+        void UI_ComponentGizmosPopup();
+        bool UI_ComponentGizmoSettings();
         void UI_ViewMenu();
         void UI_ViewportMessage();
         void UI_MaximizedGame();
@@ -180,6 +187,10 @@ namespace Zamin {
         void UI_BuildDefaultLayout(unsigned int dockspaceID);
 
         void OnOverlayRender();
+        // The overlay's camera frustums, light direction arrows and audio source radii (the view
+        // settings' Gizmos) seen through `view`; `hidden`: entities the overlay skips unless they
+        // are selected.
+        void DrawComponentGizmos(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden);
         // DebugDraw's queue into the final viewport picture (depth tested against the scene).
         void RenderDebugDraw();
         // Picks for m_PendingClickThrough (an extra ID pass into the viewport framebuffer).
@@ -187,6 +198,9 @@ namespace Zamin {
         void UpdateTilePainting();
         bool ViewportMouseToPlane(float planeZ, glm::vec3& out);
         glm::mat4 OverlayViewProjection();
+        // The camera the overlay is drawn with (the editor camera; the game's camera in play
+        // mode). False: none (play mode without a camera).
+        bool OverlayCamera(glm::mat4& view, glm::mat4& projection);
         // A pixel of the viewport (bottom-left origin) in the scene framebuffer, which is drawn at
         // the render scale (SceneSettings::RenderScale) of the viewport's size.
         glm::ivec2 ViewportToRenderPixel(glm::ivec2 pixel) const;
@@ -274,6 +288,7 @@ namespace Zamin {
         WireframeMode m_WireframeStyle = WireframeMode::Wire; // what the toolbar's toggle switches on
         bool m_OpenViewModeMenu = false;  // automation (ZAMIN_EDITOR_VIEW_MENU): the menu opens
         bool m_OpenDebugDrawMenu = false; // automation (ZAMIN_EDITOR_DEBUG_DRAW=...,menu): the debug draw popup opens
+        bool m_OpenGizmosMenu = false;    // automation (ZAMIN_EDITOR_GIZMOS=...,menu): the gizmos popup opens
         PostProcessHistory m_PostHistory; // the viewport's auto exposure (adapted brightness)
         bool m_2DMode = false;
         bool m_MaximizeOnPlay = false;

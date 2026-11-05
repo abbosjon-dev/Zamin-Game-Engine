@@ -11779,8 +11779,11 @@ TEST(DebugDrawSettingsSaved)
     view.DebugDraw.LineWidth = 3.5f;
     view.DebugDraw.TextSize = 22.0f;
     view.DebugDraw.OccludedOpacity = 0.25f;
+    view.DebugDraw.ShowVelocities = true;
+    view.DebugDraw.VelocityScale = 0.5f;
     EditorViewSettings loaded;
     CHECK(loaded.FromJson(view.ToJson()));
+    CHECK(loaded.DebugDraw.ShowVelocities && !loaded.DebugDraw.ShowBodyVelocities && loaded.DebugDraw.VelocityScale == 0.5f);
     CHECK(!loaded.DebugDraw.Enabled && loaded.DebugDraw.ShowRaycasts && loaded.DebugDraw.ShowContacts);
     CHECK(loaded.DebugDraw.RaycastDuration == 0.75f && loaded.DebugDraw.LineWidth == 3.5f && loaded.DebugDraw.TextSize == 22.0f);
     CHECK(loaded.DebugDraw.OccludedOpacity == 0.25f);
@@ -11798,13 +11801,216 @@ TEST(DebugDrawSettingsSaved)
     project->GetConfig().DebugDraw.Enabled = false;
     project->GetConfig().DebugDraw.ShowContacts = true;
     project->GetConfig().DebugDraw.LineWidth = 4.0f;
+    project->GetConfig().DebugDraw.ShowBodyVelocities = true;
+    project->GetConfig().DebugDraw.VelocityScale = 1.5f;
     CHECK(ProjectSerializer(project).Serialize(dir / "Test.zproject"));
     auto read = Project::New();
     CHECK(ProjectSerializer(read).Deserialize(dir / "Test.zproject"));
+    CHECK(read->GetConfig().DebugDraw.ShowBodyVelocities && !read->GetConfig().DebugDraw.ShowVelocities);
+    CHECK(read->GetConfig().DebugDraw.VelocityScale == 1.5f);
+    // Out of range scales come back into range.
+    DebugDrawSettings wild;
+    wild.VelocityScale = std::numeric_limits<float>::quiet_NaN();
+    wild.Sanitize();
+    CHECK(wild.VelocityScale == 0.25f);
+    wild.VelocityScale = 100.0f;
+    wild.Sanitize();
+    CHECK(wild.VelocityScale == DebugDrawSettings::MaxVelocityScale);
     CHECK(!read->GetConfig().DebugDraw.Enabled && read->GetConfig().DebugDraw.ShowContacts && !read->GetConfig().DebugDraw.ShowRaycasts);
     CHECK(read->GetConfig().DebugDraw.LineWidth == 4.0f);
     Project::SetActive(previous);
     fs::remove_all(dir);
+}
+
+TEST(DebugDrawVelocities)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return; // a Shipping build: nothing is queued (DebugDrawShippingCheck.cpp)
+    ResetDebugDraw();
+    auto scene = CreateRef<Scene>();
+    Entity floor = scene->CreateEntity("Floor");
+    floor.GetTransform().Translation = { 0, -0.5f, 0 };
+    floor.GetTransform().Scale = { 40, 1, 40 };
+    floor.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    floor.AddComponent<BoxCollider3DComponent>();
+    Entity wall = scene->CreateEntity("Wall"); // its face at z = -2.5
+    wall.GetTransform().Translation = { 0, 1, -3 };
+    wall.GetTransform().Scale = { 10, 2, 1 };
+    wall.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    wall.AddComponent<BoxCollider3DComponent>();
+    Entity hero = scene->CreateEntity("Hero");
+    hero.GetTransform().Translation = { 0, 0.05f, 0 };
+    auto& cc = hero.AddComponent<CharacterController3DComponent>();
+    // Bodies falling far away: a 2D crate and a 3D ball.
+    Entity crate = scene->CreateEntity("Crate");
+    crate.GetTransform().Translation = { 100, 50, 0 };
+    crate.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    crate.AddComponent<BoxCollider2DComponent>();
+    Entity ball = scene->CreateEntity("Ball");
+    ball.GetTransform().Translation = { 50, 200, 0 };
+    ball.AddComponent<Rigidbody3DComponent>();
+    ball.AddComponent<SphereCollider3DComponent>();
+
+    scene->OnRuntimeStart();
+    const auto& lines = DebugDraw::GetLines();
+    const auto& points = DebugDraw::GetPoints();
+    const auto& texts = DebugDraw::GetTexts();
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(cc.Grounded);
+    CHECK(lines.empty() && points.empty() && texts.empty()); // off by default
+
+    // Walking: a dot in the middle of the capsule, the velocity's arrow from it (0.25 s of the
+    // movement long) and the speed at its tip.
+    DebugDraw::GetSettings().ShowVelocities = true;
+    CHECK(DebugDraw::IsShowingVelocities() && !DebugDraw::IsShowingBodyVelocities());
+    cc.Move({ 2.0f, 0.0f, 0.0f });
+    for (int i = 0; i < 20; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    const glm::vec3 center = scene->GetWorldPosition(hero) + glm::vec3(0.0f, cc.Height * 0.5f, 0.0f);
+    CHECK(points.size() == 1 && lines.size() == 9 && texts.size() == 1);
+    CHECK(glm::length(points[0].Position - center) < 1e-3f);
+    CHECK(glm::length(lines[0].From - center) < 1e-3f && !lines[0].DepthTest && lines[0].Color.a == 1.0f);
+    CHECK_NEAR(lines[0].To.x - lines[0].From.x, 0.5f, 0.02f);
+    CHECK_NEAR(lines[0].To.y - lines[0].From.y, 0.0f, 0.02f);
+    CHECK(texts.size() == 1 && texts[0].Text == "2.0 m/s");
+    CHECK_NEAR(cc.Velocity.x, 2.0f, 0.02f); // what scripts read, too
+
+    // Into the wall: the world stops it - what the script asks for is drawn faint.
+    cc.Move({ 0.0f, 0.0f, -2.0f });
+    for (int i = 0; i < 90; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(scene->GetWorldPosition(hero).z > -2.5f);
+    CHECK(glm::length(cc.Velocity) < 0.05f);
+    CHECK(!lines.empty() && lines[0].Color.a < 0.5f);
+    CHECK_NEAR(lines[0].To.z - lines[0].From.z, -0.5f, 1e-3f);
+
+    // The dynamic bodies' velocities (the character's not): both fall.
+    DebugDraw::GetSettings().ShowVelocities = false;
+    DebugDraw::GetSettings().ShowBodyVelocities = true;
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(points.empty() && texts.empty() && lines.size() == 18);
+    for (size_t i : { (size_t)0, (size_t)9 })
+        if (i < lines.size())
+        {
+            CHECK(lines[i].To.y < lines[i].From.y - 0.5f && std::abs(lines[i].To.x - lines[i].From.x) < 1e-3f);
+            CHECK(lines[i].Color == DebugColor::Cyan);
+        }
+    CHECK(lines.size() == 18 && (std::abs(lines[0].From.x - 100.0f) < 1.0f || std::abs(lines[9].From.x - 100.0f) < 1.0f));
+
+    // Paused: nothing new, the last frame's arrows stay.
+    scene->SetPaused(true);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(lines.size() == 18);
+    scene->SetPaused(false);
+    // Debug drawing off: no velocities either.
+    DebugDraw::SetEnabled(false);
+    CHECK(!DebugDraw::IsShowingBodyVelocities());
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(lines.empty());
+    scene->OnRuntimeStop();
+    ResetDebugDraw();
+}
+
+TEST(DebugDrawNavigationPath)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return; // a Shipping build: nothing is queued (DebugDrawShippingCheck.cpp)
+    ResetDebugDraw();
+    const auto& lines = DebugDraw::GetLines();
+    const auto& points = DebugDraw::GetPoints();
+    // On the ground: 2 segments, a head (4 fins) on each, a waypoint dot, the start and the end,
+    // a ring lying flat around the end.
+    DebugDraw::NavigationPath({ { 0, 0, 0 }, { 4, 0, 0 }, { 4, 0, 3 } }, DebugColor::Yellow, 2.0f, false);
+    CHECK(lines.size() == 2 + 8 + 40 && points.size() == 3);
+    CHECK(lines[0].From == glm::vec3(0, 0, 0) && lines[0].To == glm::vec3(4, 0, 0));
+    // The head points the way: its tip a little past the middle, the fins behind it.
+    CHECK(glm::length(lines[1].From - glm::vec3(2.175f, 0, 0)) < 1e-4f && lines[1].To.x < lines[1].From.x);
+    for (const DebugDrawLine& l : lines)
+        CHECK(l.TimeLeft == 2.0f && !l.DepthTest);
+    CHECK(points[0].Position == glm::vec3(4, 0, 0) && points[1].Color == DebugColor::Green && points[2].Position == glm::vec3(4, 0, 3));
+    for (size_t i = lines.size() - 40; i < lines.size(); i++)
+        CHECK(std::abs(lines[i].From.y) < 1e-5f && std::abs(glm::length(lines[i].From - glm::vec3(4, 0, 3)) - 0.3f) < 1e-4f);
+
+    // A 2D path (the XY plane): the ring in that plane.
+    DebugDraw::Clear();
+    DebugDraw::NavigationPath({ { 0, 0, 0 }, { 1, 2, 0 }, { 3, 2, 0 } });
+    CHECK(lines.size() == 50);
+    for (const DebugDrawLine& l : lines)
+        CHECK(l.From.z == 0.0f && l.Color == DebugColor::Cyan && l.DepthTest && l.TimeLeft == 0.0f);
+    // A straight line along X could be either: both rings.
+    DebugDraw::Clear();
+    DebugDraw::NavigationPath({ { 0, 0, 0 }, { 2, 0, 0 } });
+    CHECK(lines.size() == 1 + 4 + 80 && points.size() == 2);
+    // Fewer than 2 points: nothing.
+    DebugDraw::Clear();
+    DebugDraw::NavigationPath({ { 1, 1, 1 } });
+    DebugDraw::NavigationPath({});
+    CHECK(lines.empty() && points.empty());
+    ResetDebugDraw();
+}
+
+TEST(FrustumCornersCamera)
+{
+    // Perspective, 90 degrees, square: from z = 5 looking down -Z, near 1 / far 10.
+    SceneCamera camera;
+    camera.SetPerspective(glm::radians(90.0f), 1.0f, 10.0f);
+    camera.SetViewportSize(100, 100);
+    glm::mat4 world = glm::translate(glm::mat4(1.0f), { 0, 0, 5 });
+    auto c = FrustumCorners(camera.GetProjection(), world);
+    CHECK_NEAR(c[0].x, -1.0f, 1e-4f);
+    CHECK_NEAR(c[0].y, -1.0f, 1e-4f);
+    CHECK_NEAR(c[0].z, 4.0f, 1e-4f);
+    CHECK_NEAR(c[3].x, 1.0f, 1e-4f);
+    CHECK_NEAR(c[3].y, 1.0f, 1e-4f);
+    CHECK_NEAR(c[4].x, -10.0f, 1e-3f);
+    CHECK_NEAR(c[7].x, 10.0f, 1e-3f);
+    CHECK_NEAR(c[7].y, 10.0f, 1e-3f);
+    CHECK_NEAR(c[7].z, -5.0f, 1e-3f);
+    // Turned to look down -X: the far rectangle at x = -10.
+    c = FrustumCorners(camera.GetProjection(), glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0, 1, 0)));
+    for (int i = 4; i < 8; i++)
+        CHECK_NEAR(c[i].x, -10.0f, 1e-3f);
+    // Wider than high: the corners follow the aspect ratio.
+    camera.SetViewportSize(200, 100);
+    c = FrustumCorners(camera.GetProjection(), glm::mat4(1.0f));
+    CHECK_NEAR(c[7].x, 20.0f, 1e-3f);
+    CHECK_NEAR(c[7].y, 10.0f, 1e-3f);
+
+    // Orthographic: size 4 (the height), aspect 2, near -1 / far 3 - a box.
+    camera.SetOrthographic(4.0f, -1.0f, 3.0f);
+    c = FrustumCorners(camera.GetProjection(), glm::mat4(1.0f));
+    CHECK(glm::length(c[0] - glm::vec3(-4, -2, 1)) < 1e-4f);
+    CHECK(glm::length(c[7] - glm::vec3(4, 2, -3)) < 1e-4f);
+    CHECK(glm::length(c[5] - glm::vec3(4, -2, -3)) < 1e-4f);
+
+    // A projection that cannot be inverted: the camera's position.
+    c = FrustumCorners(glm::mat4(0.0f), world);
+    for (const glm::vec3& p : c)
+        CHECK(p == glm::vec3(0, 0, 5));
+}
+
+TEST(EditorGizmoSettingsSaved)
+{
+    EditorViewSettings view;
+    CHECK(view.Gizmos.CameraFrustums == GizmoVisibility::Selected && view.Gizmos.LightDirections == GizmoVisibility::Selected &&
+          view.Gizmos.AudioRanges == GizmoVisibility::Selected);
+    CHECK(EditorGizmoSettings::Shows(GizmoVisibility::Selected, true) && !EditorGizmoSettings::Shows(GizmoVisibility::Selected, false));
+    CHECK(EditorGizmoSettings::Shows(GizmoVisibility::All, false) && !EditorGizmoSettings::Shows(GizmoVisibility::Off, true));
+    view.Gizmos.CameraFrustums = GizmoVisibility::All;
+    view.Gizmos.LightDirections = GizmoVisibility::Off;
+    view.Gizmos.AudioRanges = GizmoVisibility::All;
+    EditorViewSettings loaded;
+    CHECK(loaded.FromJson(view.ToJson()));
+    CHECK(loaded.Gizmos.CameraFrustums == GizmoVisibility::All && loaded.Gizmos.LightDirections == GizmoVisibility::Off &&
+          loaded.Gizmos.AudioRanges == GizmoVisibility::All);
+    // Unknown values keep what was there; files without the section keep the defaults.
+    EditorViewSettings odd;
+    CHECK(odd.FromJson(R"({"ZaminEditorView": 1, "Gizmos": {"CameraFrustums": "Sometimes", "AudioRanges": 3, "LightDirections": "All"}})"));
+    CHECK(odd.Gizmos.CameraFrustums == GizmoVisibility::Selected && odd.Gizmos.AudioRanges == GizmoVisibility::Selected &&
+          odd.Gizmos.LightDirections == GizmoVisibility::All);
+    EditorViewSettings old;
+    CHECK(old.FromJson("{\"ZaminEditorView\": 1}") && old.Gizmos.CameraFrustums == GizmoVisibility::Selected);
 }
 
 TEST(ImageCompare)

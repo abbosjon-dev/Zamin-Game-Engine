@@ -48,6 +48,26 @@ namespace Zamin {
         void Sanitize();
     };
 
+    // For which entities an editor viewport visualisation is drawn.
+    enum class GizmoVisibility { Off = 0, Selected = 1, All = 2 };
+
+    // The editor viewport's visualisations of components (never in the player): camera frustums,
+    // the direction of directional / spot lights, the radii of 3D audio sources.
+    struct EditorGizmoSettings
+    {
+        GizmoVisibility CameraFrustums = GizmoVisibility::Selected;
+        GizmoVisibility LightDirections = GizmoVisibility::Selected;
+        GizmoVisibility AudioRanges = GizmoVisibility::Selected;
+
+        // Whether an entity (selected or not) gets the visualisation.
+        static bool Shows(GizmoVisibility visibility, bool selected)
+        {
+            return visibility == GizmoVisibility::All || (visibility == GizmoVisibility::Selected && selected);
+        }
+        static const char* GetKey(GizmoVisibility visibility);           // "Off" / "Selected" / "All"
+        static GizmoVisibility FromKey(const std::string& key, GizmoVisibility fallback);
+    };
+
     // Where the editor camera looks from (EditorCamera::GetViewState / SetViewState).
     struct EditorCameraState
     {
@@ -115,7 +135,7 @@ namespace Zamin {
         void Sanitize();
     };
 
-    // Per-user viewport preferences of the editor: snapping, grid, debug drawing, the camera
+    // Per-user viewport preferences of the editor: snapping, grid, debug drawing, gizmos, the camera
     // bookmarks of every scene (keyed by the scene file path), the inspector's open / collapsed
     // component headers and the content browser's view. Stored as JSON in the editor config directory.
     struct EditorViewSettings
@@ -124,6 +144,7 @@ namespace Zamin {
         GridSettings Grid;
         // What the viewport shows of DebugDraw (scripts' shapes, physics raycasts / contacts).
         DebugDrawSettings DebugDraw;
+        EditorGizmoSettings Gizmos;
         std::map<std::string, CameraBookmarks> Bookmarks;
         InspectorFoldState Inspector;
         ContentBrowserSettings ContentBrowser;

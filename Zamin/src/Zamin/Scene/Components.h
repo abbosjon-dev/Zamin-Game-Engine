@@ -348,6 +348,9 @@ namespace Zamin {
 
         // runtime (read by scripts)
         bool Grounded = false;
+        // How fast it really moved in the last physics step (after collisions, stairs, sticking
+        // to the floor): the change of its position / the step.
+        glm::vec3 Velocity{ 0.0f };
         uint32_t RuntimeID = 0xffffffff;
 
         void Move(const glm::vec3& velocity) { MoveVelocity = { velocity.x, 0.0f, velocity.z }; }

@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
 
 namespace Zamin {
 
@@ -25,6 +26,7 @@ namespace Zamin {
     {
         ClampSetting(RaycastDuration, 0.0f, 0.0f, MaxRaycastDuration);
         ClampSetting(NormalLength, 0.4f, 0.01f, 100.0f);
+        ClampSetting(VelocityScale, 0.25f, MinVelocityScale, MaxVelocityScale);
         ClampSetting(LineWidth, 2.0f, MinLineWidth, MaxLineWidth);
         ClampSetting(PointSize, 8.0f, MinPointSize, MaxPointSize);
         ClampSetting(TextSize, 17.0f, MinTextSize, MaxTextSize);
@@ -266,6 +268,48 @@ namespace Zamin {
             PushLine(points.back(), points.front(), color, duration, depthTest);
     }
 
+    void DebugDraw::NavigationPath(const std::vector<glm::vec3>& points, const glm::vec4& color, float duration, bool depthTest)
+    {
+        DebugDrawState& s = State();
+        if (!s.Settings.Enabled || points.size() < 2)
+            return;
+        const float pointSize = s.Settings.PointSize;
+        for (size_t i = 1; i < points.size(); i++)
+        {
+            const glm::vec3 a = points[i - 1], b = points[i];
+            PushLine(a, b, color, duration, depthTest);
+            glm::vec3 d = b - a;
+            float length = glm::length(d);
+            if (!(length > 1e-5f) || !std::isfinite(length))
+                continue;
+            d /= length;
+            // A head in the middle of the segment: four fins back from its tip (seen from any side).
+            float head = std::min(length * 0.3f, 0.35f);
+            glm::vec3 tip = (a + b) * 0.5f + d * (head * 0.5f), u, v;
+            PerpendicularAxes(d, u, v);
+            glm::vec3 base = tip - d * head;
+            for (const glm::vec3& side : { u, v, -u, -v })
+                PushLine(tip, base + side * (head * 0.45f), color, duration, depthTest);
+        }
+        // The waypoints between, the start, the end (a dot and a ring around it facing up).
+        for (size_t i = 1; i + 1 < points.size(); i++)
+            Point(points[i], color, duration, depthTest, pointSize * 0.75f);
+        Point(points.front(), DebugColor::Green, duration, depthTest, pointSize * 1.1f);
+        Point(points.back(), color, duration, depthTest, pointSize * 1.1f);
+        // The ring lies flat (3D ground paths); a path in the XY plane (2D games) gets it in that
+        // plane; a straight line along X could be either: both.
+        bool sameY = true, sameZ = true;
+        for (const glm::vec3& p : points)
+        {
+            sameY &= std::abs(p.y - points.front().y) < 1e-5f;
+            sameZ &= std::abs(p.z - points.front().z) < 1e-5f;
+        }
+        if (!sameZ || sameY)
+            Circle(points.back(), glm::vec3(0, 1, 0), 0.3f, color, duration, depthTest);
+        if (sameZ)
+            Circle(points.back(), glm::vec3(0, 0, 1), 0.3f, color, duration, depthTest);
+    }
+
     void DebugDraw::Text(const glm::vec3& position, std::string_view text, const glm::vec4& color, float duration, bool depthTest,
                          float sizePixels)
     {
@@ -287,6 +331,43 @@ namespace Zamin {
     {
         const DebugDrawSettings& s = State().Settings;
         return s.Enabled && s.ShowContacts;
+    }
+
+    bool DebugDraw::IsShowingVelocities()
+    {
+        const DebugDrawSettings& s = State().Settings;
+        return s.Enabled && s.ShowVelocities;
+    }
+
+    bool DebugDraw::IsShowingBodyVelocities()
+    {
+        const DebugDrawSettings& s = State().Settings;
+        return s.Enabled && s.ShowBodyVelocities;
+    }
+
+    void DebugDraw::CharacterVelocity(const glm::vec3& center, const glm::vec3& velocity, const glm::vec3& desired)
+    {
+        if (!IsShowingVelocities() || !Finite(center) || !Finite(velocity))
+            return;
+        const DebugDrawSettings& s = State().Settings;
+        const glm::vec4 color(0.75f, 0.45f, 1.0f, 1.0f);
+        // What the script asked for, when the world did not let it happen (a wall, a slope).
+        if (Finite(desired) && glm::length(desired) > 0.01f && glm::length(desired - velocity) > 0.05f)
+            Arrow(center, center + desired * s.VelocityScale, glm::vec4(color.r, color.g, color.b, 0.35f), 0.0f, false);
+        float speed = glm::length(velocity);
+        Point(center, color, 0.0f, false, s.PointSize * 0.6f);
+        if (speed < 0.01f)
+            return;
+        glm::vec3 tip = center + velocity * s.VelocityScale;
+        Arrow(center, tip, color, 0.0f, false);
+        Text(tip + glm::vec3(0.0f, 0.25f, 0.0f), std::format("{:.1f} m/s", speed), color, 0.0f, false, s.TextSize * 0.8f);
+    }
+
+    void DebugDraw::BodyVelocity(const glm::vec3& center, const glm::vec3& velocity)
+    {
+        if (!IsShowingBodyVelocities() || !Finite(center) || !Finite(velocity) || glm::length(velocity) < 0.05f)
+            return;
+        Arrow(center, center + velocity * State().Settings.VelocityScale, DebugColor::Cyan, 0.0f, false);
     }
 
     void DebugDraw::PhysicsRaycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, const RaycastHit& hit)

@@ -255,6 +255,15 @@ namespace Zamin {
         changed |= UI::PropertyBool("Kontakt nuqtalari", d.ShowContacts);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Fizik jismlar tegib turgan nuqtalar va normallari (2D va 3D)");
+        changed |= UI::PropertyBool("Personaj tezligi", d.ShowVelocities);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("3D character controller'larning tezlik vektori (o'q va tezlik, m/s); --debug-velocities bayrog'i ham yoqadi");
+        changed |= UI::PropertyBool("Jismlar tezligi", d.ShowBodyVelocities);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Harakatlanayotgan dinamik jismlarning (2D va 3D) tezlik vektori");
+        if (d.ShowVelocities || d.ShowBodyVelocities)
+            changed |= UI::PropertyFloat("Tezlik o'qi (s)", d.VelocityScale, 0.01f, DebugDrawSettings::MinVelocityScale,
+                                         DebugDrawSettings::MaxVelocityScale, "%.2f");
         changed |= UI::PropertyFloat("Chiziq qalinligi (px)", d.LineWidth, 0.05f, DebugDrawSettings::MinLineWidth, DebugDrawSettings::MaxLineWidth, "%.1f");
         changed |= UI::PropertyFloat("Matn o'lchami (px)", d.TextSize, 0.1f, DebugDrawSettings::MinTextSize, DebugDrawSettings::MaxTextSize, "%.0f");
         ImGui::EndDisabled();

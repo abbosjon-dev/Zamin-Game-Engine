@@ -2919,6 +2919,13 @@ namespace Zamin {
             changed |= UI::PropertyBool("Yerga yopishish", c.StickToFloor);
             UI::PropertyLabel("Holat");
             ImGui::TextDisabled(!entity.IsActiveInHierarchy() ? "Nofaol" : (c.Grounded ? "Yerda" : "Havoda"));
+            if (c.RuntimeID != 0xffffffff)
+            {
+                // The velocity it really moves with (the viewport's debug drawing shows it as an arrow).
+                UI::PropertyLabel("Tezlik", "Oxirgi fizika qadamidagi haqiqiy tezlik (to'qnashuvlardan keyin). Viewport'da o'q bilan: "
+                                            "Debug chizish > Personaj tezligi");
+                ImGui::TextDisabled("%.2f m/s  (%.1f, %.1f, %.1f)", glm::length(c.Velocity), c.Velocity.x, c.Velocity.y, c.Velocity.z);
+            }
             return changed;
         }, true, modified);
 

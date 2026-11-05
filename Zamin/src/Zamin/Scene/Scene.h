@@ -453,6 +453,8 @@ namespace Zamin {
         void StepPhysics(Timestep ts);
         // DebugDraw: the 2D / 3D contact points with their normals (ShowContacts).
         void DrawPhysicsContacts();
+        // DebugDraw: the velocities of the characters and dynamic bodies (ShowVelocities / ShowBodyVelocities).
+        void DrawPhysicsVelocities();
         void StartScripts();
         void StopScripts();
         void CreateScriptInstance(Entity entity);

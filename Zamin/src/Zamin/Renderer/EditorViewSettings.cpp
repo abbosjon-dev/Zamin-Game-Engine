@@ -192,6 +192,24 @@ namespace Zamin {
         out = v;
     }
 
+    const char* EditorGizmoSettings::GetKey(GizmoVisibility visibility)
+    {
+        switch (visibility)
+        {
+            case GizmoVisibility::Off: return "Off";
+            case GizmoVisibility::All: return "All";
+            default: return "Selected";
+        }
+    }
+
+    GizmoVisibility EditorGizmoSettings::FromKey(const std::string& key, GizmoVisibility fallback)
+    {
+        for (GizmoVisibility v : { GizmoVisibility::Off, GizmoVisibility::Selected, GizmoVisibility::All })
+            if (key == GetKey(v))
+                return v;
+        return fallback;
+    }
+
     std::string EditorViewSettings::ToJson() const
     {
         json j;
@@ -221,6 +239,14 @@ namespace Zamin {
             { "PointSize", Num(DebugDraw.PointSize) },
             { "TextSize", Num(DebugDraw.TextSize) },
             { "OccludedOpacity", Num(DebugDraw.OccludedOpacity) },
+            { "Velocities", DebugDraw.ShowVelocities },
+            { "BodyVelocities", DebugDraw.ShowBodyVelocities },
+            { "VelocityScale", Num(DebugDraw.VelocityScale) },
+        };
+        j["Gizmos"] = {
+            { "CameraFrustums", EditorGizmoSettings::GetKey(Gizmos.CameraFrustums) },
+            { "LightDirections", EditorGizmoSettings::GetKey(Gizmos.LightDirections) },
+            { "AudioRanges", EditorGizmoSettings::GetKey(Gizmos.AudioRanges) },
         };
         json scenes = json::object();
         for (const auto& [scene, bookmarks] : Bookmarks)
@@ -295,7 +321,20 @@ namespace Zamin {
             Read(*it, "PointSize", DebugDraw.PointSize);
             Read(*it, "TextSize", DebugDraw.TextSize);
             Read(*it, "OccludedOpacity", DebugDraw.OccludedOpacity);
+            Read(*it, "Velocities", DebugDraw.ShowVelocities);
+            Read(*it, "BodyVelocities", DebugDraw.ShowBodyVelocities);
+            Read(*it, "VelocityScale", DebugDraw.VelocityScale);
             DebugDraw.Sanitize();
+        }
+        if (auto it = j.find("Gizmos"); it != j.end() && it->is_object())
+        {
+            auto readVisibility = [&](const char* key, GizmoVisibility& out) {
+                if (auto v = it->find(key); v != it->end() && v->is_string())
+                    out = EditorGizmoSettings::FromKey(v->get<std::string>(), out);
+            };
+            readVisibility("CameraFrustums", Gizmos.CameraFrustums);
+            readVisibility("LightDirections", Gizmos.LightDirections);
+            readVisibility("AudioRanges", Gizmos.AudioRanges);
         }
         if (auto it = j.find("CameraBookmarks"); it != j.end() && it->is_object())
         {

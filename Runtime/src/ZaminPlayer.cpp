@@ -1,6 +1,6 @@
 // Zamin Player: runs an exported / development game project fullscreen-ready.
 //   ZaminPlayer [path/to/Game.zproject] [--scene Scenes/Level.zscene] [--fullscreen] [--width W --height H]
-//               [--no-debug-draw] [--debug-raycasts] [--debug-contacts]
+//               [--no-debug-draw] [--debug-raycasts] [--debug-contacts] [--debug-velocities]
 #include <Zamin/Zamin.h>
 #include <Zamin/Core/EntryPoint.h>
 
@@ -16,7 +16,7 @@ namespace Zamin {
         // Command line overrides of the project's debug drawing settings.
         struct DebugDrawFlags
         {
-            bool Disable = false, Raycasts = false, Contacts = false;
+            bool Disable = false, Raycasts = false, Contacts = false, Velocities = false;
         };
 
         RuntimeLayer(std::filesystem::path project, std::string scene, DebugDrawFlags debugDraw)
@@ -39,6 +39,7 @@ namespace Zamin {
             if (m_DebugDrawFlags.Disable) debugDraw.Enabled = false;
             if (m_DebugDrawFlags.Raycasts) debugDraw.ShowRaycasts = true;
             if (m_DebugDrawFlags.Contacts) debugDraw.ShowContacts = true;
+            if (m_DebugDrawFlags.Velocities) debugDraw.ShowVelocities = debugDraw.ShowBodyVelocities = true;
 
             if (auto module = Project::GetScriptModulePath(); !module.empty())
                 ScriptEngine::LoadModule(module);
@@ -232,6 +233,7 @@ namespace Zamin {
             else if (!std::strcmp(args[i], "--no-debug-draw")) debugDraw.Disable = true;
             else if (!std::strcmp(args[i], "--debug-raycasts")) debugDraw.Raycasts = true;
             else if (!std::strcmp(args[i], "--debug-contacts")) debugDraw.Contacts = true;
+            else if (!std::strcmp(args[i], "--debug-velocities")) debugDraw.Velocities = true;
             else projectArg = args[i];
         }
 

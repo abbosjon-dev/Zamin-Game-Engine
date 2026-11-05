@@ -56,6 +56,14 @@ namespace Zamin {
         bool ShowContacts = false;
         // Length of the normals drawn at hit points and contact points (world units).
         float NormalLength = 0.4f;
+        // Velocity arrows while the game runs / simulates, every frame: ShowVelocities - the 3D
+        // character controllers (their velocity after the collisions, from the middle of the
+        // capsule, with the speed written at the tip; fainter, the velocity the script asked for
+        // when it differs); ShowBodyVelocities - the moving dynamic rigid bodies (2D and 3D). An
+        // arrow is VelocityScale seconds of the movement long (velocity x scale).
+        bool ShowVelocities = false;
+        bool ShowBodyVelocities = false;
+        float VelocityScale = 0.25f;
 
         float LineWidth = 2.0f;   // pixels
         float PointSize = 8.0f;   // pixels (DebugDraw::Point with size 0)
@@ -67,6 +75,7 @@ namespace Zamin {
         static constexpr float MinPointSize = 2.0f, MaxPointSize = 32.0f;
         static constexpr float MinTextSize = 8.0f, MaxTextSize = 48.0f;
         static constexpr float MaxRaycastDuration = 10.0f;
+        static constexpr float MinVelocityScale = 0.01f, MaxVelocityScale = 10.0f;
 
         // Values out of range (or not finite) back into range.
         void Sanitize();
@@ -182,6 +191,11 @@ namespace Zamin {
         // Lines through the points in order (closed: back to the first one).
         static void Path(const std::vector<glm::vec3>& points, const glm::vec4& color = DebugColor::White, float duration = 0.0f,
                          bool depthTest = true, bool closed = false);
+        // A route to follow (navigation / AI paths): its segments, a head in the middle of each
+        // one pointing the way, a dot at every waypoint, the start in green and a ring around the
+        // end. Fewer than 2 points: nothing.
+        static void NavigationPath(const std::vector<glm::vec3>& points, const glm::vec4& color = DebugColor::Cyan,
+                                   float duration = 0.0f, bool depthTest = true);
         // A label facing the screen, centred on `position` (several lines with '\n'). depthTest:
         // hidden while the point is behind a surface.
         static void Text(const glm::vec3& position, std::string_view text, const glm::vec4& color = DebugColor::White,
@@ -192,8 +206,15 @@ namespace Zamin {
         static void PhysicsRaycast(const glm::vec3& origin, const glm::vec3& direction, float maxDistance, const RaycastHit& hit);
         // A contact point and its normal (shown when ShowContacts is on).
         static void PhysicsContact(const glm::vec3& point, const glm::vec3& normal);
+        // A 3D character's velocity (`desired`: what its script asked for) from `center` (shown
+        // when ShowVelocities is on).
+        static void CharacterVelocity(const glm::vec3& center, const glm::vec3& velocity, const glm::vec3& desired);
+        // A dynamic rigid body's velocity (shown when ShowBodyVelocities is on).
+        static void BodyVelocity(const glm::vec3& center, const glm::vec3& velocity);
         static bool IsShowingRaycasts();
         static bool IsShowingContacts();
+        static bool IsShowingVelocities();
+        static bool IsShowingBodyVelocities();
 
         // ---- the queue
         // Game time went on by `deltaTime` seconds (Scene: every frame that is not paused, the
@@ -248,13 +269,18 @@ namespace Zamin {
             static void Axes(const glm::mat4&, float = 1.0f, float = 0.0f, bool = true) {}
             static void Path(const std::vector<glm::vec3>&, const glm::vec4& = DebugColor::White, float = 0.0f, bool = true,
                              bool = false) {}
+            static void NavigationPath(const std::vector<glm::vec3>&, const glm::vec4& = DebugColor::Cyan, float = 0.0f, bool = true) {}
             static void Text(const glm::vec3&, std::string_view, const glm::vec4& = DebugColor::White, float = 0.0f, bool = false,
                              float = 0.0f) {}
 
             static void PhysicsRaycast(const glm::vec3&, const glm::vec3&, float, const RaycastHit&) {}
             static void PhysicsContact(const glm::vec3&, const glm::vec3&) {}
+            static void CharacterVelocity(const glm::vec3&, const glm::vec3&, const glm::vec3&) {}
+            static void BodyVelocity(const glm::vec3&, const glm::vec3&) {}
             static bool IsShowingRaycasts() { return false; }
             static bool IsShowingContacts() { return false; }
+            static bool IsShowingVelocities() { return false; }
+            static bool IsShowingBodyVelocities() { return false; }
 
             static void Advance(float) {}
             static void Clear() {}

@@ -333,14 +333,16 @@ namespace Zamin {
 
     void AssetReferenceIndex::Build(const Sources& sources)
     {
+        Sources copy = sources; // `sources` may be m_Sources itself
         Clear();
-        m_Sources = sources;
+        m_Sources = std::move(copy);
         // Overrides by normalized absolute path.
-        m_Sources.Overrides.clear();
-        for (const auto& [path, text] : sources.Overrides)
-            m_Sources.Overrides[ToKey(path)] = text;
-        m_AssetDirectory = Absolute(sources.AssetDirectory);
-        m_ProjectDirectory = sources.ProjectDirectory.empty() ? m_AssetDirectory.parent_path() : Absolute(sources.ProjectDirectory);
+        std::unordered_map<std::string, std::string> overrides;
+        for (auto& [path, text] : m_Sources.Overrides)
+            overrides[ToKey(path)] = std::move(text);
+        m_Sources.Overrides = std::move(overrides);
+        m_AssetDirectory = Absolute(m_Sources.AssetDirectory);
+        m_ProjectDirectory = m_Sources.ProjectDirectory.empty() ? m_AssetDirectory.parent_path() : Absolute(m_Sources.ProjectDirectory);
         m_Built = true;
         std::error_code ec;
         if (m_AssetDirectory.empty() || !fs::is_directory(m_AssetDirectory, ec))
@@ -370,9 +372,9 @@ namespace Zamin {
             files.push_back(it->path());
         }
 
-        if (sources.Registry)
+        if (m_Sources.Registry)
         {
-            for (const AssetMetadata* meta : sources.Registry->GetAssets())
+            for (const AssetMetadata* meta : m_Sources.Registry->GetAssets())
                 m_AssetList.push_back(meta->RelativePath);
         }
         else
@@ -396,15 +398,15 @@ namespace Zamin {
                 continue;
             m_ScannedFiles++;
         }
-        if (!sources.ProjectFile.empty() && fs::is_regular_file(sources.ProjectFile, ec))
+        if (!m_Sources.ProjectFile.empty() && fs::is_regular_file(m_Sources.ProjectFile, ec))
         {
-            ScanJson(sources.ProjectFile, ReadText(sources.ProjectFile));
-            m_Roots.insert(ToKey(sources.ProjectFile));
+            ScanJson(m_Sources.ProjectFile, ReadText(m_Sources.ProjectFile));
+            m_Roots.insert(ToKey(m_Sources.ProjectFile));
             m_ScannedFiles++;
         }
-        if (!sources.SourceDirectory.empty() && fs::is_directory(sources.SourceDirectory, ec))
+        if (!m_Sources.SourceDirectory.empty() && fs::is_directory(m_Sources.SourceDirectory, ec))
         {
-            for (fs::recursive_directory_iterator it(sources.SourceDirectory, fs::directory_options::skip_permission_denied, ec), end;
+            for (fs::recursive_directory_iterator it(m_Sources.SourceDirectory, fs::directory_options::skip_permission_denied, ec), end;
                  !ec && it != end; it.increment(ec))
             {
                 std::error_code fec;

@@ -198,11 +198,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 168. Physics material (ishqalanish/sakrash) asset
 - [x] 169. Collision qatlamlari va maskalar (2D)
 - [x] 170. One-way platform effektori
-- [ ] 171. Area effector (shamol/suv)
-- [ ] 172. Collision filtrlash testi
-- [ ] 173. OverlapCircle/OverlapBox so'rovlari 2D
-- [ ] 174. RaycastAll 2D
-- [ ] 175. Joint'lar uchun inspektor va wireframe
+- [x] 171. Area effector (shamol/suv)
+- [x] 172. Collision filtrlash testi
+- [x] 173. OverlapCircle/OverlapBox so'rovlari 2D
+- [x] 174. RaycastAll 2D
+- [x] 175. Joint'lar uchun inspektor va wireframe
 - [ ] 176. Joint'lar serializatsiyasi
 - [ ] 177. Fizik ragdoll namunasi (2D)
 - [ ] 178. Box2D sub-step sozlamalari

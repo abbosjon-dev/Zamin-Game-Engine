@@ -643,6 +643,18 @@ namespace Zamin {
             if (const char* hover = std::getenv("ZAMIN_EDITOR_COLLIDER_HOVER"))
                 m_ColliderHoverOverride = hover;
         }
+        // ZAMIN_EDITOR_JOINT_EDIT=distance|revolute|prismatic|weld|wheel (with ZAMIN_EDITOR_SELECT): that
+        // joint's anchors are edited in the viewport from frame 12; ZAMIN_EDITOR_JOINT_HOVER=anchor |
+        // connected | axis | lower | upper pins the hovered handle (screenshots).
+        if (const char* edit = std::getenv("ZAMIN_EDITOR_JOINT_EDIT"); edit && frame == 12)
+        {
+            const std::string_view kind(edit);
+            const int type = kind == "revolute" ? (int)Joint2DType::Revolute : kind == "prismatic" ? (int)Joint2DType::Prismatic
+                           : kind == "weld" ? (int)Joint2DType::Weld : kind == "wheel" ? (int)Joint2DType::Wheel : (int)Joint2DType::Distance;
+            m_SceneHierarchyPanel.SetJointAnchorEdit(type);
+            if (const char* hover = std::getenv("ZAMIN_EDITOR_JOINT_HOVER"))
+                m_JointHoverOverride = hover;
+        }
         // ZAMIN_EDITOR_FIT_SPRITE=1: the selected polygon collider follows its sprite (the inspector's
         // "Spraytga moslash") at frame 10.
         if (frame == 10 && std::getenv("ZAMIN_EDITOR_FIT_SPRITE") && m_SceneState == SceneState::Edit)
@@ -1100,7 +1112,7 @@ namespace Zamin {
         // over the gizmo or with a popup open; a locked entity is clicked through.
         if (m_SceneState == SceneState::Play || !m_ViewportHovered || !m_HoveredEntity || !m_HoveredEntity.IsValid())
             return {};
-        if (m_ActiveScene->IsLockedInEditor(m_HoveredEntity) || m_SceneHierarchyPanel.IsTilePainting() || IsColliderPointEditing() || m_MaterialDrag.Active ||
+        if (m_ActiveScene->IsLockedInEditor(m_HoveredEntity) || m_SceneHierarchyPanel.IsTilePainting() || IsViewportHandleEditing() || m_MaterialDrag.Active ||
             m_GizmoEdit.IsActive() || m_GizmoHovered || m_EditorCamera.IsFlying())
             return {};
         for (ImGuiMouseButton button : { ImGuiMouseButton_Left, ImGuiMouseButton_Right, ImGuiMouseButton_Middle })
@@ -2508,6 +2520,108 @@ namespace Zamin {
                 Renderer2D::DrawLine(tip, tip - dir * head - side * head * 0.6f, platformColor);
             }
 
+            // Area effectors: arrows along their force over the colliders' area. Buoyancy effectors: the
+            // fluid below the surface (faint), the surface line and the flow. Brighter when selected.
+            auto colliderBounds = [&](Entity entity, glm::vec2& lo, glm::vec2& hi) {
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+                const glm::vec2 s(std::abs(sc.x), std::abs(sc.y));
+                const float c = std::cos(r.z), sn = std::sin(r.z);
+                lo = glm::vec2(FLT_MAX);
+                hi = glm::vec2(-FLT_MAX);
+                auto world = [&](const glm::vec2& l) { return glm::vec2(p.x + c * l.x - sn * l.y, p.y + sn * l.x + c * l.y); };
+                auto add = [&](const glm::vec2& w, float pad) {
+                    lo = glm::min(lo, w - glm::vec2(pad));
+                    hi = glm::max(hi, w + glm::vec2(pad));
+                };
+                if (const auto* b = entity.TryGetComponent<BoxCollider2DComponent>())
+                    for (glm::vec2 corner : { glm::vec2(-1, -1), glm::vec2(1, -1), glm::vec2(1, 1), glm::vec2(-1, 1) })
+                        add(world(b->Offset + corner * b->Size * s), 0.0f);
+                if (const auto* cc = entity.TryGetComponent<CircleCollider2DComponent>())
+                    add(world(cc->Offset), cc->Radius * s.x);
+                if (const auto* pc = entity.TryGetComponent<PolygonCollider2DComponent>())
+                    for (const glm::vec2& q : pc->Points)
+                        add(world(pc->Offset + q * s), 0.0f);
+                return lo.x <= hi.x && lo.y <= hi.y;
+            };
+            auto arrow2D = [](const glm::vec3& from, const glm::vec3& to, float head, const glm::vec4& color) {
+                Renderer2D::DrawLine(from, to, color);
+                glm::vec2 d(to - from);
+                const float l = glm::length(d);
+                if (l < 1e-4f)
+                    return;
+                d /= l;
+                const glm::vec3 back(-d * head, 0.0f), side(-d.y * head * 0.55f, d.x * head * 0.55f, 0.0f);
+                Renderer2D::DrawLine(to, to + back + side, color);
+                Renderer2D::DrawLine(to, to + back - side, color);
+            };
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, AreaEffector2DComponent>())
+            {
+                if (hidden.contains(e)) continue;
+                Entity entity{ e, &scene };
+                const auto& ae = entity.GetComponent<AreaEffector2DComponent>();
+                glm::vec2 lo, hi;
+                if (!colliderBounds(entity, lo, hi) || ae.ForceMagnitude == 0.0f)
+                    continue;
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+                const float angle = glm::radians(ae.ForceAngle) + (ae.UseGlobalAngle ? 0.0f : r.z);
+                const glm::vec2 dir = glm::vec2(std::cos(angle), std::sin(angle)) * (ae.ForceMagnitude < 0.0f ? -1.0f : 1.0f);
+                const glm::vec2 size = hi - lo;
+                const float spacing = std::clamp(std::min(size.x, size.y) * 0.5f, 0.6f, 2.5f);
+                const int cols = std::clamp((int)(size.x / spacing), 1, 6), rows = std::clamp((int)(size.y / spacing), 1, 6);
+                const float length = std::min(size.x / cols, size.y / rows) * 0.6f;
+                const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
+                const glm::vec4 windColor(0.55f, 0.88f, 1.0f, selected ? 0.95f : 0.45f);
+                for (int y = 0; y < rows; y++)
+                    for (int x = 0; x < cols; x++)
+                    {
+                        const glm::vec2 center = lo + size * glm::vec2((x + 0.5f) / cols, (y + 0.5f) / rows);
+                        arrow2D(glm::vec3(center - dir * length * 0.5f, p.z + 0.002f), glm::vec3(center + dir * length * 0.5f, p.z + 0.002f),
+                                length * 0.3f, windColor);
+                    }
+            }
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, BuoyancyEffector2DComponent>())
+            {
+                if (hidden.contains(e)) continue;
+                Entity entity{ e, &scene };
+                const auto& be = entity.GetComponent<BuoyancyEffector2DComponent>();
+                glm::vec2 lo, hi;
+                if (!colliderBounds(entity, lo, hi))
+                    continue;
+                const glm::vec3 p = scene.GetWorldPosition(entity);
+                const float z = p.z + 0.002f;
+                const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
+                const glm::vec4 waterColor(0.35f, 0.68f, 1.0f, selected ? 1.0f : 0.55f);
+                const float surface = p.y + be.SurfaceLevel;
+                const float top = std::min(surface, hi.y);
+                if (top > lo.y)
+                {
+                    // The fluid (faint), the surface as a small wave when it is inside the colliders.
+                    Renderer2D::DrawQuad(glm::translate(glm::mat4(1.0f), glm::vec3((lo.x + hi.x) * 0.5f, (lo.y + top) * 0.5f, z)) *
+                                             glm::scale(glm::mat4(1.0f), glm::vec3(hi.x - lo.x, top - lo.y, 1.0f)),
+                                         glm::vec4(0.25f, 0.55f, 1.0f, selected ? 0.16f : 0.08f));
+                    const int segments = std::clamp((int)((hi.x - lo.x) / 0.25f), 4, 200);
+                    glm::vec3 previous(lo.x, top, z);
+                    for (int i = 1; i <= segments; i++)
+                    {
+                        const float t = (float)i / (float)segments;
+                        const float wave = surface <= hi.y ? std::sin(t * segments * 1.5708f) * 0.05f : 0.0f;
+                        const glm::vec3 q(lo.x + (hi.x - lo.x) * t, top + wave, z);
+                        Renderer2D::DrawLine(previous, q, waterColor);
+                        previous = q;
+                    }
+                }
+                if (be.FlowMagnitude != 0.0f && top > lo.y)
+                {
+                    const float a = glm::radians(be.FlowAngle);
+                    const glm::vec2 dir = glm::vec2(std::cos(a), std::sin(a)) * (be.FlowMagnitude < 0.0f ? -1.0f : 1.0f);
+                    const float length = std::clamp((hi.x - lo.x) * 0.3f, 0.5f, 2.5f);
+                    const glm::vec2 center((lo.x + hi.x) * 0.5f, (lo.y + top) * 0.5f);
+                    arrow2D(glm::vec3(center - dir * length * 0.5f, z), glm::vec3(center + dir * length * 0.5f, z), length * 0.25f, waterColor);
+                }
+            }
+
             const glm::vec4 cyan(0.3f, 0.85f, 1.0f, 1.0f);
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, BoxCollider3DComponent>())
             {
@@ -2768,7 +2882,7 @@ namespace Zamin {
                 m_GizmoAltDrag = true;
                 m_GizmoAltDuplicatePending = true;
             }
-            if (!alt && !overGizmo && !m_SceneHierarchyPanel.IsTilePainting() && !IsColliderPointEditing())
+            if (!alt && !overGizmo && !m_SceneHierarchyPanel.IsTilePainting() && !IsViewportHandleEditing())
             {
                 // Ctrl+click toggles, Shift+click adds to the selection. A click on a locked
                 // entity goes through it: the next frame picks again without the locked ones
@@ -4304,7 +4418,7 @@ namespace Zamin {
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) { m_SceneState == SceneState::Edit ? OnScenePlay() : OnSceneStop(); }
             // (While collider points are edited, Delete removes the point under the mouse instead.)
             if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) && (m_ViewportFocused || m_SceneHierarchyPanel.IsHierarchyFocused()) &&
-                !(IsColliderPointEditing() && m_ViewportHovered))
+                !(IsViewportHandleEditing() && m_ViewportHovered))
                 DeleteSelectedEntity();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_A, false) &&
                 (m_SceneHierarchyPanel.IsHierarchyFocused() || (m_ViewportFocused && m_SceneState != SceneState::Play)))
@@ -4346,6 +4460,13 @@ namespace Zamin {
                 if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_Q, false))
                     m_SceneHierarchyPanel.SetColliderPointEdit(Kind::None);
                 if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { m_SceneHierarchyPanel.SetColliderPointEdit(Kind::None); m_GizmoMode = GizmoMode::Translate; }
+            }
+            else if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit && IsJointAnchorEditing())
+            {
+                // Joint anchors: Esc / Q / W leave the editing as well.
+                if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_Q, false))
+                    m_SceneHierarchyPanel.SetJointAnchorEdit(-1);
+                if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { m_SceneHierarchyPanel.SetJointAnchorEdit(-1); m_GizmoMode = GizmoMode::Translate; }
             }
             else if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit)
             {
@@ -4887,6 +5008,7 @@ namespace Zamin {
             if (m_ShowIcons) UI_ViewportIcons();
         }
         UI_ColliderPointEditor();
+        UI_JointAnchorEditor();
         if (m_ShowTransparentOrder) UI_TransparentOrder(); // also while playing (the game camera's order)
         if (!m_JointLabels.empty()) UI_JointLabels();
         // The view mode, when it is not the real picture (the toolbar's menu changes it).
@@ -6026,6 +6148,368 @@ namespace Zamin {
         return m_SceneState == SceneState::Edit && m_SceneHierarchyPanel.GetColliderPointEdit() != SceneHierarchyPanel::ColliderPointKind::None;
     }
 
+    bool EditorLayer::IsJointAnchorEditing() const
+    {
+        return m_SceneState == SceneState::Edit && m_SceneHierarchyPanel.GetJointAnchorEdit() >= 0;
+    }
+
+    void EditorLayer::UI_JointAnchorEditor()
+    {
+        const int typeIndex = m_SceneState == SceneState::Edit ? m_SceneHierarchyPanel.GetJointAnchorEdit() : -1;
+        if (typeIndex < 0)
+        {
+            m_JointDrag = m_JointHover = -1;
+            return;
+        }
+        enum Handle { AnchorHandle = 0, ConnectedHandle, AxisHandle, LowerHandle, UpperHandle, HandleCount };
+        const Joint2DType type = (Joint2DType)typeIndex;
+        Entity e = m_SceneHierarchyPanel.GetSelectedEntity();
+        Scene& scene = *m_ActiveScene;
+        Joint2DComponentBase* joint = nullptr;
+        glm::vec2* axis = nullptr;          // prismatic / wheel
+        bool* limited = nullptr;
+        float* lower = nullptr;             // revolute: degrees; prismatic / wheel: units
+        float* upper = nullptr;
+        const char* typeName = "";
+        switch (type)
+        {
+            case Joint2DType::Distance:
+                joint = &e.GetComponent<DistanceJoint2DComponent>();
+                typeName = "Distance";
+                break;
+            case Joint2DType::Revolute:
+            {
+                auto& c = e.GetComponent<RevoluteJoint2DComponent>();
+                joint = &c;
+                limited = &c.EnableLimit;
+                lower = &c.LowerAngle;
+                upper = &c.UpperAngle;
+                typeName = "Revolute";
+                break;
+            }
+            case Joint2DType::Prismatic:
+            {
+                auto& c = e.GetComponent<PrismaticJoint2DComponent>();
+                joint = &c;
+                axis = &c.Axis;
+                limited = &c.EnableLimit;
+                lower = &c.LowerTranslation;
+                upper = &c.UpperTranslation;
+                typeName = "Prismatic";
+                break;
+            }
+            case Joint2DType::Weld:
+                joint = &e.GetComponent<WeldJoint2DComponent>();
+                typeName = "Weld";
+                break;
+            case Joint2DType::Wheel:
+            {
+                auto& c = e.GetComponent<WheelJoint2DComponent>();
+                joint = &c;
+                axis = &c.Axis;
+                limited = &c.EnableLimit;
+                lower = &c.LowerTranslation;
+                upper = &c.UpperTranslation;
+                typeName = "Wheel";
+                break;
+            }
+        }
+
+        // The frames: this body's (position, rotation; joint points are not scaled) and the connected
+        // body's (or the world).
+        auto rotate = [](const glm::vec2& v, float a) { const float c = std::cos(a), s = std::sin(a); return glm::vec2(c * v.x - s * v.y, s * v.x + c * v.y); };
+        glm::vec3 p, r, sc;
+        Math::DecomposeTransform(scene.GetWorldTransform(e), p, r, sc);
+        const glm::vec2 origin(p);
+        Entity other = joint->ConnectedBody ? scene.GetEntityByUUID(joint->ConnectedBody.ID) : Entity();
+        const bool connected = other && other != e;
+        glm::vec2 otherOrigin(0.0f);
+        float otherAngle = 0.0f;
+        if (connected)
+        {
+            glm::vec3 op, orot, osc;
+            Math::DecomposeTransform(scene.GetWorldTransform(other), op, orot, osc);
+            otherOrigin = glm::vec2(op);
+            otherAngle = orot.z;
+        }
+        auto connectedToWorld = [&](const glm::vec2& l) { return connected ? otherOrigin + rotate(l, otherAngle) : l; };
+        auto worldToConnected = [&](const glm::vec2& w) { return connected ? rotate(w - otherOrigin, -otherAngle) : w; };
+        const glm::vec2 anchor = origin + rotate(joint->Anchor, r.z);
+        const bool autoConnected = joint->AutoConfigureConnectedAnchor;
+
+        const glm::mat4 viewProjection = OverlayViewProjection();
+        const glm::vec2 viewport = m_ViewportBounds[1] - m_ViewportBounds[0];
+        auto toScreen = [&](const glm::vec2& w, bool& visible) {
+            glm::vec4 clip = viewProjection * glm::vec4(w, p.z, 1.0f);
+            visible = clip.w > 0.0f;
+            glm::vec2 ndc = visible ? glm::vec2(clip) / clip.w : glm::vec2(0.0f);
+            return ImVec2(m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * viewport.x, m_ViewportBounds[0].y + (0.5f - ndc.y * 0.5f) * viewport.y);
+        };
+        bool visible = true, visible2 = true;
+        const ImVec2 a0 = toScreen(anchor, visible), a1 = toScreen(anchor + glm::vec2(1.0f, 0.0f), visible2);
+        if (!visible || !visible2)
+            return;
+        const float pixelsPerUnit = std::max(1e-3f, std::hypot(a1.x - a0.x, a1.y - a0.y));
+
+        // Where the handles are.
+        glm::vec2 handles[HandleCount];
+        bool present[HandleCount] = {};
+        handles[AnchorHandle] = anchor;
+        present[AnchorHandle] = true;
+        handles[ConnectedHandle] = autoConnected ? anchor : connectedToWorld(joint->ConnectedAnchor);
+        present[ConnectedHandle] = !autoConnected;
+        glm::vec2 dir(1.0f, 0.0f);
+        if (axis)
+        {
+            dir = glm::length(*axis) > 1e-5f ? glm::normalize(rotate(*axis, r.z)) : glm::vec2(1.0f, 0.0f);
+            handles[AxisHandle] = anchor + dir * (70.0f / pixelsPerUnit);
+            present[AxisHandle] = true;
+        }
+        // Revolute limits: on the arc the body's centre sweeps (as the joint gizmo draws it).
+        const glm::vec2 arm = origin - anchor;
+        const float radius = glm::length(arm) > 0.1f ? glm::length(arm) : 0.5f;
+        const float base = glm::length(arm) > 0.1f ? std::atan2(arm.y, arm.x) : r.z;
+        if (limited && *limited)
+        {
+            if (type == Joint2DType::Revolute)
+            {
+                handles[LowerHandle] = anchor + glm::vec2(std::cos(base + glm::radians(*lower)), std::sin(base + glm::radians(*lower))) * radius;
+                handles[UpperHandle] = anchor + glm::vec2(std::cos(base + glm::radians(*upper)), std::sin(base + glm::radians(*upper))) * radius;
+            }
+            else
+            {
+                // Beside the axis (a limit of 0 would sit on the anchor): dragging goes along it.
+                const glm::vec2 side = glm::vec2(-dir.y, dir.x) * (16.0f / pixelsPerUnit);
+                handles[LowerHandle] = anchor + dir * *lower + side;
+                handles[UpperHandle] = anchor + dir * *upper + side;
+            }
+            present[LowerHandle] = present[UpperHandle] = true;
+        }
+        ImVec2 screen[HandleCount];
+        for (int i = 0; i < HandleCount; i++)
+            if (present[i])
+            {
+                screen[i] = toScreen(handles[i], visible);
+                present[i] = visible;
+            }
+
+        // Hover: the nearest handle within 9 px (later ones win ties: limits over the anchor).
+        const ImVec2 mouse = ImGui::GetMousePos();
+        int hover = -1;
+        if (!m_JointHoverOverride.empty())
+        {
+            static const char* names[HandleCount] = { "anchor", "connected", "axis", "lower", "upper" };
+            for (int i = 0; i < HandleCount; i++)
+                if (m_JointHoverOverride == names[i] && present[i])
+                    hover = i;
+        }
+        else if (m_ViewportHovered && m_JointDrag < 0)
+        {
+            float best = 9.0f;
+            for (int i = 0; i < HandleCount; i++)
+                if (present[i])
+                    if (float d = std::hypot(screen[i].x - mouse.x, screen[i].y - mouse.y); d <= best)
+                    {
+                        best = d;
+                        hover = i;
+                    }
+        }
+        m_JointHover = hover;
+
+        // Dragging.
+        const ImGuiIO& io = ImGui::GetIO();
+        bool changed = false;
+        if (m_JointDrag >= 0)
+        {
+            if (!present[m_JointDrag] || !ImGui::IsMouseDown(ImGuiMouseButton_Left))
+                m_JointDrag = -1;
+            else if (glm::vec3 hit; ViewportMouseToPlane(p.z, hit))
+            {
+                const glm::vec2 w = glm::vec2(hit) + m_JointDragOffset;
+                auto snap = [&](float v, float step) { return io.KeyShift ? std::round(v / step) * step : v; };
+                auto set = [&](float& field, float value) {
+                    if (field != value)
+                    {
+                        field = value;
+                        changed = true;
+                    }
+                };
+                switch (m_JointDrag)
+                {
+                    case AnchorHandle:
+                    {
+                        const glm::vec2 l = rotate(w - origin, -r.z);
+                        set(joint->Anchor.x, snap(l.x, 0.1f));
+                        set(joint->Anchor.y, snap(l.y, 0.1f));
+                        break;
+                    }
+                    case ConnectedHandle:
+                    {
+                        const glm::vec2 l = worldToConnected(w);
+                        set(joint->ConnectedAnchor.x, snap(l.x, 0.1f));
+                        set(joint->ConnectedAnchor.y, snap(l.y, 0.1f));
+                        break;
+                    }
+                    case AxisHandle:
+                    {
+                        const glm::vec2 d = w - anchor;
+                        if (glm::length(d) > 1e-4f)
+                        {
+                            const float local = snap(glm::degrees(std::atan2(d.y, d.x) - r.z), 5.0f);
+                            set(axis->x, std::cos(glm::radians(local)));
+                            set(axis->y, std::sin(glm::radians(local)));
+                        }
+                        break;
+                    }
+                    case LowerHandle:
+                    case UpperHandle:
+                    {
+                        float& field = m_JointDrag == LowerHandle ? *lower : *upper;
+                        float value;
+                        if (type == Joint2DType::Revolute)
+                        {
+                            // Continuous: past +-180 the angle goes on (the limits may span more than a turn).
+                            const glm::vec2 d = w - anchor;
+                            float delta = glm::degrees(std::atan2(d.y, d.x) - base) - field;
+                            delta = std::remainder(delta, 360.0f);
+                            value = std::clamp(snap(field + delta, 5.0f), -360.0f, 360.0f);
+                        }
+                        else
+                            value = snap(glm::dot(w - anchor, dir), 0.1f);
+                        // Lower stays below upper (the handle stops at the other one).
+                        value = m_JointDrag == LowerHandle ? std::min(value, *upper) : std::max(value, *lower);
+                        set(field, value);
+                        break;
+                    }
+                }
+            }
+        }
+        else if (hover >= 0 && m_ViewportHovered && m_JointHoverOverride.empty() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt &&
+                 !ImGui::IsMouseDown(ImGuiMouseButton_Right))
+        {
+            glm::vec3 hit;
+            m_JointDrag = hover;
+            m_JointDragOffset = ViewportMouseToPlane(p.z, hit) ? handles[hover] - glm::vec2(hit) : glm::vec2(0.0f);
+        }
+        if (changed)
+        {
+            MarkDirty();
+            return; // drawn where it is now next frame
+        }
+
+        // Drawing: the lines between the handles, the handles, a label for the hovered / dragged one, a hint.
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->PushClipRect(ImVec2(m_ViewportBounds[0].x, m_ViewportBounds[0].y), ImVec2(m_ViewportBounds[1].x, m_ViewportBounds[1].y), true);
+        const ImU32 shadow = IM_COL32(10, 12, 16, 170), cyan = IM_COL32(90, 220, 255, 235), purple = IM_COL32(190, 140, 255, 240);
+        const ImU32 orange = IM_COL32(255, 170, 70, 240), yellow = IM_COL32(255, 215, 80, 240);
+        auto line = [&](const ImVec2& from, const ImVec2& to, ImU32 color) {
+            dl->AddLine(from, to, shadow, 4.0f);
+            dl->AddLine(from, to, color, 2.0f);
+        };
+        if (present[ConnectedHandle])
+            line(screen[AnchorHandle], screen[ConnectedHandle], purple);
+        if (present[AxisHandle])
+            line(screen[AnchorHandle], screen[AxisHandle], orange);
+        if (present[LowerHandle] && type != Joint2DType::Revolute)
+        {
+            // The slide range beside the axis, with stems to where the limits are on it.
+            line(screen[LowerHandle], screen[UpperHandle], yellow);
+            for (int i : { LowerHandle, UpperHandle })
+            {
+                bool shown = true;
+                const float t = i == LowerHandle ? *lower : *upper;
+                dl->AddLine(screen[i], toScreen(anchor + dir * t, shown), yellow, 1.5f);
+            }
+        }
+        for (int i = 0; i < HandleCount; i++)
+        {
+            if (!present[i])
+                continue;
+            const bool hovered = i == hover, dragged = i == m_JointDrag;
+            const float size = hovered || dragged ? 7.5f : 6.0f;
+            const ImVec2 c = screen[i];
+            const ImU32 fill = dragged ? IM_COL32(255, 160, 60, 255) : hovered ? IM_COL32(255, 235, 140, 255) : IM_COL32(240, 248, 255, 255);
+            switch (i)
+            {
+                case AnchorHandle:
+                    dl->AddCircleFilled(c, size + 1.5f, shadow);
+                    dl->AddCircleFilled(c, size, fill);
+                    dl->AddCircle(c, size, cyan, 0, 2.0f);
+                    break;
+                case ConnectedHandle:
+                {
+                    const ImVec2 q[4] = { ImVec2(c.x + size + 1, c.y), ImVec2(c.x, c.y - size - 1), ImVec2(c.x - size - 1, c.y), ImVec2(c.x, c.y + size + 1) };
+                    dl->AddConvexPolyFilled(q, 4, fill);
+                    dl->AddPolyline(q, 4, purple, ImDrawFlags_Closed, 2.0f);
+                    break;
+                }
+                case AxisHandle:
+                    dl->AddRectFilled(ImVec2(c.x - size + 1, c.y - size + 1), ImVec2(c.x + size - 1, c.y + size - 1), fill, 2.0f);
+                    dl->AddRect(ImVec2(c.x - size + 1, c.y - size + 1), ImVec2(c.x + size - 1, c.y + size - 1), orange, 2.0f, 0, 2.0f);
+                    break;
+                default:
+                    dl->AddCircleFilled(c, size - 0.5f, fill);
+                    dl->AddCircle(c, size - 0.5f, yellow, 0, 2.0f);
+                    dl->AddText(ImVec2(c.x - 3.5f, c.y - 7.0f), IM_COL32(30, 30, 30, 255), i == LowerHandle ? "-" : "+");
+                    break;
+            }
+        }
+        if (const int shown = m_JointDrag >= 0 ? m_JointDrag : hover; shown >= 0)
+        {
+            std::string label;
+            switch (shown)
+            {
+                case AnchorHandle: label = std::format("Langar  ({:.2f}, {:.2f})", joint->Anchor.x, joint->Anchor.y); break;
+                case ConnectedHandle:
+                    label = std::format("{}  ({:.2f}, {:.2f})", connected ? "Ulangan langar" : "Dunyodagi nuqta", joint->ConnectedAnchor.x, joint->ConnectedAnchor.y);
+                    break;
+                case AxisHandle: label = std::format("O'q  {:.1f}\xc2\xb0", glm::degrees(std::atan2(axis->y, axis->x))); break;
+                case LowerHandle:
+                    label = type == Joint2DType::Revolute ? std::format("Pastki burchak  {:.1f}\xc2\xb0", *lower) : std::format("Pastki chegara  {:.2f}", *lower);
+                    break;
+                default:
+                    label = type == Joint2DType::Revolute ? std::format("Yuqori burchak  {:.1f}\xc2\xb0", *upper) : std::format("Yuqori chegara  {:.2f}", *upper);
+                    break;
+            }
+            const ImVec2 at(screen[shown].x + 12.0f, screen[shown].y - 24.0f);
+            const ImVec2 size = ImGui::CalcTextSize(label.c_str());
+            dl->AddRectFilled(ImVec2(at.x - 4.0f, at.y - 2.0f), ImVec2(at.x + size.x + 4.0f, at.y + size.y + 2.0f), IM_COL32(14, 16, 20, 215), 3.0f);
+            dl->AddText(at, IM_COL32(235, 240, 245, 255), label.c_str());
+        }
+        // The hint: what the handles are, in as many lines as the viewport's width needs.
+        std::vector<std::string> parts = { std::format(ICON_FA_ANCHOR "  {} joint:  doira - langar", typeName),
+                                           autoConnected ? "ulangan langar avtomatik" : "romb - ulangan langar" };
+        if (axis)
+            parts.push_back("kvadrat - o'q");
+        if (limited && *limited)
+            parts.push_back("+/- - chegaralar");
+        parts.push_back("Shift - mayda qadam");
+        parts.push_back("Esc - tugatish");
+        std::vector<std::string> lines(1);
+        for (const std::string& part : parts)
+        {
+            std::string joined = lines.back().empty() ? part : lines.back() + "  |  " + part;
+            if (!lines.back().empty() && ImGui::CalcTextSize(joined.c_str()).x > viewport.x - 60.0f)
+                lines.push_back(part);
+            else
+                lines.back() = std::move(joined);
+        }
+        float hintY = m_ViewportBounds[0].y + 52.0f;
+        float width = 0.0f;
+        for (const std::string& l : lines)
+            width = std::max(width, ImGui::CalcTextSize(l.c_str()).x);
+        const float lineHeight = ImGui::GetTextLineHeightWithSpacing();
+        const float hintX = m_ViewportBounds[0].x + (viewport.x - width) * 0.5f;
+        dl->AddRectFilled(ImVec2(hintX - 10.0f, hintY - 5.0f), ImVec2(hintX + width + 10.0f, hintY + lineHeight * lines.size() + 3.0f),
+                          IM_COL32(16, 20, 26, 215), 6.0f);
+        for (const std::string& l : lines)
+        {
+            dl->AddText(ImVec2(m_ViewportBounds[0].x + (viewport.x - ImGui::CalcTextSize(l.c_str()).x) * 0.5f, hintY), IM_COL32(150, 225, 255, 255), l.c_str());
+            hintY += lineHeight;
+        }
+        dl->PopClipRect();
+    }
+
     void EditorLayer::UI_ColliderPointEditor()
     {
         using Kind = SceneHierarchyPanel::ColliderPointKind;
@@ -6648,7 +7132,7 @@ namespace Zamin {
     {
         m_GizmoHovered = false;
         Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
-        if (!primary || !primary.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting() || IsColliderPointEditing())
+        if (!primary || !primary.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting() || IsViewportHandleEditing())
         {
             m_GizmoEdit.End();
             return;

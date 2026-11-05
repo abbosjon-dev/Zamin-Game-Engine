@@ -1163,6 +1163,7 @@ namespace Zamin {
             { "Animator", "Animator" }, { "DirectionalLight", "Directional Light" }, { "PointLight", "Point Light" }, { "SpotLight", "Spot Light" },
             { "Rigidbody2D", "Rigidbody 2D" }, { "BoxCollider2D", "Box Collider 2D" }, { "CircleCollider2D", "Circle Collider 2D" },
             { "PolygonCollider2D", "Polygon Collider 2D" }, { "EdgeCollider2D", "Edge Collider 2D" }, { "PlatformEffector2D", "Platform Effector 2D" },
+            { "AreaEffector2D", "Area Effector 2D" }, { "BuoyancyEffector2D", "Buoyancy Effector 2D" },
             { "DistanceJoint2D", "Distance Joint 2D" }, { "RevoluteJoint2D", "Revolute Joint 2D" }, { "PrismaticJoint2D", "Prismatic Joint 2D" },
             { "WeldJoint2D", "Weld Joint 2D" }, { "WheelJoint2D", "Wheel Joint 2D" },
             { "Rigidbody3D", "Rigidbody 3D" }, { "BoxCollider3D", "Box Collider 3D" }, { "SphereCollider3D", "Sphere Collider 3D" },
@@ -2041,6 +2042,111 @@ namespace Zamin {
         return changed;
     }
 
+    bool SceneHierarchyPanel::DrawLayerMask(const char* label, uint16_t& mask, const char* tooltip)
+    {
+        bool changed = false;
+        const CollisionLayers2D& layers = Project::GetCollisionLayers2D();
+        const std::vector<int> named = layers.GetNamedLayers();
+        uint16_t namedBits = 0;
+        for (int l : named)
+            namedBits |= CollisionLayers2D::GetCategoryBits(l);
+        const uint16_t unnamedBits = (uint16_t)~namedBits;
+        // "Hammasi", "Hech biri", or the names (the unnamed ones as one).
+        std::string preview;
+        if (mask == CollisionLayers2D::AllLayers)
+            preview = "Hammasi";
+        else if (mask == 0)
+            preview = "Hech biri";
+        else
+        {
+            for (int l : named)
+                if (mask & CollisionLayers2D::GetCategoryBits(l))
+                    preview += (preview.empty() ? "" : ", ") + layers.GetName(l);
+            if (mask & unnamedBits)
+                preview += preview.empty() ? "nomsiz qatlamlar" : " + nomsiz";
+        }
+        UI::PropertyLabel(label, tooltip);
+        ImGui::PushID(label);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::BeginCombo("##layerMask", (ICON_FA_LAYER_GROUP "  " + preview).c_str()))
+        {
+            if (ImGui::SmallButton("Hammasi"))
+            {
+                changed = mask != CollisionLayers2D::AllLayers;
+                mask = CollisionLayers2D::AllLayers;
+            }
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Hech biri"))
+            {
+                changed = mask != 0;
+                mask = 0;
+            }
+            ImGui::Separator();
+            for (int l : named)
+            {
+                ImGui::PushID(l);
+                bool on = (mask & CollisionLayers2D::GetCategoryBits(l)) != 0;
+                if (ImGui::Checkbox(std::format("{}  {}", l, layers.GetName(l)).c_str(), &on))
+                {
+                    mask = on ? (uint16_t)(mask | CollisionLayers2D::GetCategoryBits(l)) : (uint16_t)(mask & ~CollisionLayers2D::GetCategoryBits(l));
+                    changed = true;
+                }
+                ImGui::PopID();
+            }
+            if (unnamedBits)
+            {
+                bool on = (mask & unnamedBits) == unnamedBits;
+                if (ImGui::Checkbox("Nomsiz qatlamlar", &on))
+                {
+                    mask = on ? (uint16_t)(mask | unnamedBits) : (uint16_t)(mask & ~unnamedBits);
+                    changed = true;
+                }
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Loyiha sozlamalarida nomi berilmagan qatlamlar (hammasi birga)");
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopID();
+        return changed;
+    }
+
+    void SceneHierarchyPanel::DrawEffectorNotes(Entity entity, bool fluid)
+    {
+        // The colliders that make the effector's area: box, circle and polygon ones (edges have no inside).
+        int areaColliders = 0, triggers = 0;
+        auto count = [&](const auto* c) {
+            if (!c)
+                return;
+            areaColliders++;
+            triggers += c->IsSensor ? 1 : 0;
+        };
+        count(entity.TryGetComponent<BoxCollider2DComponent>());
+        count(entity.TryGetComponent<CircleCollider2DComponent>());
+        count(entity.TryGetComponent<PolygonCollider2DComponent>());
+        const char* warning = nullptr;
+        const char* info = nullptr;
+        if (!entity.HasComponent<Rigidbody2DComponent>())
+            warning = "Rigidbody 2D (odatda statik) va kollider kerak: effektor shu kolliderlar ichidagi jismlarga ta'sir qiladi";
+        else if (areaColliders == 0)
+            warning = "Box / Circle / Polygon Collider 2D kerak: effektor maydoni shu kolliderlar";
+        else if (triggers < areaColliders)
+        {
+            if (fluid)
+                warning = "Suv kollideri trigger bo'lishi kerak ('Trigger (sensor)' ni yoqing): aks holda jismlar ichiga kira olmaydi";
+            else
+                info = "Kollider trigger emas: faqat unga tegib turgan jismlar itariladi";
+        }
+        if (!warning && !info)
+            return;
+        UI::PropertyLabel("");
+        ImGui::PushTextWrapPos(0.0f);
+        if (warning)
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s", warning);
+        else
+            ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  %s", info);
+        ImGui::PopTextWrapPos();
+    }
+
     bool SceneHierarchyPanel::DrawPhysicsMaterialField(Entity entity, std::string& path, const PhysicsMaterialData& own, bool& active)
     {
         bool changed = false, edit = false;
@@ -2119,7 +2225,10 @@ namespace Zamin {
         {
             m_ColliderPointEdit = editing ? ColliderPointKind::None : kind;
             if (!editing)
+            {
                 m_TilePaint = false;
+                m_JointAnchorEdit = -1;
+            }
         }
         if (editing)
             ImGui::PopStyleColor();
@@ -3747,7 +3856,7 @@ namespace Zamin {
         ImGui::End();
     }
 
-    bool SceneHierarchyPanel::DrawJoint2DCommon(Entity entity, Joint2DComponentBase& c)
+    bool SceneHierarchyPanel::DrawJoint2DCommon(Entity entity, Joint2DComponentBase& c, Joint2DType type)
     {
         bool changed = DrawEntityRefField("Ulangan jism", c.ConnectedBody,
                                           "Boshqa obyektning Rigidbody 2D yoki Tilemap'i (ierarxiyadan tortib tashlang). "
@@ -3770,6 +3879,19 @@ namespace Zamin {
         }
         InactiveComponentNote(entity, "Obyekt nofaol: joint yo'q (faollashganda qayta yaratiladi)");
 
+        // The anchors (and the axis / limits) dragged in the viewport.
+        const bool editing = m_JointAnchorEdit == (int)type;
+        UI::PropertyLabel("Viewportda", "Langarlarni sahnada sudrab qo'yish: langar (doira), ulangan langar (romb), sirpanish / osma o'qi "
+                                        "va chegaralari. Shift - mayda qadam (0.1 birlik / 5\xc2\xb0). Esc yoki tugma qayta bosilsa - tugaydi");
+        ImGui::BeginDisabled(!m_SceneEditable);
+        if (editing)
+            ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentColor());
+        if (ImGui::Button(editing ? ICON_FA_CHECK "  Tahrirlashni tugatish" : ICON_FA_ANCHOR "  Langarlarni tahrirlash", ImVec2(-FLT_MIN, 0)))
+            SetJointAnchorEdit(editing ? -1 : (int)type);
+        if (editing)
+            ImGui::PopStyleColor();
+        ImGui::EndDisabled();
+
         changed |= UI::PropertyFloat2("Langar", c.Anchor, 0.01f);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
             UI::Tooltip("Shu jismdagi bog'lanish nuqtasi - jismning o'z koordinatalarida (masshtabsiz, collider siljishi kabi)");
@@ -3782,6 +3904,30 @@ namespace Zamin {
             UI::Tooltip(c.ConnectedBody ? "Ulangan jismdagi nuqta, uning o'z koordinatalarida"
                                         : "Ulangan jism yo'q: joint dunyodagi shu nuqtaga bog'lanadi");
         ImGui::EndDisabled();
+        if (!c.AutoConfigureConnectedAnchor && m_SceneEditable && m_Context && (!other || other != entity))
+        {
+            UI::PropertyLabel("");
+            if (ImGui::SmallButton(ICON_FA_LOCATION_CROSSHAIRS "  Langar turgan joyga"))
+            {
+                // Where this body's anchor is now, in the connected body's frame (or the world).
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(m_Context->GetWorldTransform(entity), p, r, sc);
+                const float cs = std::cos(r.z), sn = std::sin(r.z);
+                glm::vec2 world(p.x + cs * c.Anchor.x - sn * c.Anchor.y, p.y + sn * c.Anchor.x + cs * c.Anchor.y);
+                if (other)
+                {
+                    glm::vec3 op, orot, osc;
+                    Math::DecomposeTransform(m_Context->GetWorldTransform(other), op, orot, osc);
+                    const glm::vec2 d = world - glm::vec2(op);
+                    const float oc = std::cos(orot.z), os = std::sin(orot.z);
+                    world = glm::vec2(oc * d.x + os * d.y, -os * d.x + oc * d.y);
+                }
+                c.ConnectedAnchor = world;
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Ulangan langarni hozir shu jismning langari turgan nuqtaga qo'yadi (ulangan jism koordinatalarida)");
+        }
         changed |= UI::PropertyBool("Bir-biri bilan to'qnashsin", c.CollideConnected);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
             UI::Tooltip("O'chiq bo'lsa ulangan ikki jism bir-biridan o'tib ketadi (ragdoll bo'g'imlari uchun qulay)");
@@ -4607,6 +4753,8 @@ namespace Zamin {
                 DisplayAddComponentEntry<PolygonCollider2DComponent>("Polygon Collider 2D (ko'pburchak)", ICON_FA_DRAW_POLYGON);
                 DisplayAddComponentEntry<EdgeCollider2DComponent>("Edge Collider 2D (chiziq/zanjir)", ICON_FA_CHART_LINE);
                 DisplayAddComponentEntry<PlatformEffector2DComponent>("Platform Effector 2D (bir tomonlama)", ICON_FA_TURN_UP);
+                DisplayAddComponentEntry<AreaEffector2DComponent>("Area Effector 2D (shamol)", ICON_FA_WIND);
+                DisplayAddComponentEntry<BuoyancyEffector2DComponent>("Buoyancy Effector 2D (suv)", ICON_FA_WATER);
                 DisplayAddComponentEntry<DistanceJoint2DComponent>("Distance Joint 2D (masofa)", ICON_FA_LINK);
                 DisplayAddComponentEntry<RevoluteJoint2DComponent>("Revolute Joint 2D (sharnir)", ICON_FA_ARROWS_ROTATE);
                 DisplayAddComponentEntry<PrismaticJoint2DComponent>("Prismatic Joint 2D (sirpanish)", ICON_FA_ARROWS_LEFT_RIGHT);
@@ -5129,6 +5277,114 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
+        // ---- area / buoyancy effectors
+        auto angleField = [](const char* label, const char* tooltip, float& v) {
+            UI::PropertyLabel(label, tooltip);
+            ImGui::PushID(label);
+            bool edited = ImGui::DragFloat("##angle", &v, 0.5f, -360.0f, 360.0f, "%.1f\xc2\xb0");
+            ImGui::PopID();
+            if (edited)
+                v = std::clamp(v, -360.0f, 360.0f);
+            return edited;
+        };
+        auto nonNegative = [](const char* label, const char* tooltip, float& v, float speed, const char* fmt) {
+            UI::PropertyLabel(label, tooltip);
+            ImGui::PushID(label);
+            bool edited = ImGui::DragFloat("##v", &v, speed, 0.0f, 1e6f, fmt);
+            ImGui::PopID();
+            if (edited)
+                v = std::max(0.0f, v);
+            return edited;
+        };
+        const bool physicsRunning = m_Context && (m_Context->IsRunning() || m_Context->IsSimulating());
+
+        AddSection<AreaEffector2DComponent>(ICON_FA_WIND, "Area Effector 2D", entity, [&](AreaEffector2DComponent& c) {
+            bool changed = false;
+            DrawEffectorNotes(entity, false);
+            UI::PropertyHeader("Kuch", "Har fizika qadamida kollider ichidagi har bir dinamik jismga beriladi (shamol, oqim, puflagich)");
+            changed |= angleField("Yo'nalish", "Kuch burchagi: 0 - o'ngga (+X), 90 - yuqoriga", c.ForceAngle);
+            changed |= UI::PropertyBool("Dunyo burchagi", c.UseGlobalAngle);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Yoqiq: burchak dunyoda. O'chiq: obyekt bilan birga buriladi");
+            UI::PropertyLabel("Kattaligi", c.ScaleWithMass ? "N / kg: har bir jism massasidan qat'i nazar shuncha tezlanadi"
+                                                           : "Nyuton: yengil jismlar ko'proq, og'irlari kamroq tezlanadi. Manfiy - teskari tomonga");
+            changed |= ImGui::DragFloat("##magnitude", &c.ForceMagnitude, 0.1f, -1e5f, 1e5f, c.ScaleWithMass ? "%.2f N/kg" : "%.2f N");
+            changed |= nonNegative("Tasodifiy o'zgarish", "Har qadamda kuchga +- shuncha gacha tasodifiy qo'shiladi (shamol shiddati)",
+                                   c.ForceVariation, 0.05f, "%.2f");
+            changed |= UI::PropertyBool("Massaga ko'paytirish", c.ScaleWithMass);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Kuch jism massasiga ko'paytiriladi: hamma jism bir xil tezlanadi (gravitatsiya kabi)");
+            UI::PropertyHeader("Qarshilik", "Ichidagi jismlarning tezligi shu tezlikda so'nadi (1/s, Rigidbody 2D so'nishi kabi)");
+            changed |= nonNegative("Chiziqli", "Harakat tezligining so'nishi (1/s)", c.Drag, 0.02f, "%.2f");
+            changed |= nonNegative("Burchak", "Aylanishning so'nishi (1/s)", c.AngularDrag, 0.02f, "%.2f");
+            changed |= DrawLayerMask("Qatlamlar", c.ColliderMask, "Faqat shu to'qnashuv qatlamlaridagi jismlarga ta'sir qiladi (qatlam matritsasi "
+                                                               "ham ruxsat berishi kerak)");
+            if (physicsRunning)
+            {
+                UI::PropertyLabel("Holati");
+                ImGui::TextDisabled(ICON_FA_WIND "  %d ta jismga ta'sir qilyapti", c.AffectedBodies);
+            }
+            return changed;
+        }, true, modified);
+
+        AddSection<BuoyancyEffector2DComponent>(ICON_FA_WATER, "Buoyancy Effector 2D", entity, [&](BuoyancyEffector2DComponent& c) {
+            bool changed = false;
+            DrawEffectorNotes(entity, true);
+            UI::PropertyHeader("Suyuqlik", "Kollider ichi sirtgacha suyuqlik: jism siqib chiqargan suyuqlik og'irligi uni yuqoriga itaradi "
+                                           "(zichlik x botgan yuza x gravitatsiya)");
+            UI::PropertyLabel("Sirt balandligi", "Suv sirti obyekt joylashuvidan shuncha birlik yuqorida (dunyo birliklarida, gorizontal)");
+            const float button = ImGui::GetFrameHeight();
+            ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
+            changed |= ImGui::DragFloat("##surface", &c.SurfaceLevel, 0.01f, -1e5f, 1e5f, "%.2f");
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!m_SceneEditable);
+            if (ImGui::Button(ICON_FA_ANGLES_UP "##surfaceTop", ImVec2(button, 0)))
+            {
+                // The top of the entity's colliders (as the physics makes them: sizes scaled, offsets not).
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(entity.GetScene()->GetWorldTransform(entity), p, r, sc);
+                const glm::vec2 scale = glm::abs(glm::vec2(sc));
+                const float cs = std::cos(r.z), sn = std::sin(r.z);
+                float top = -FLT_MAX;
+                auto add = [&](const glm::vec2& local) { top = std::max(top, sn * local.x + cs * local.y); };
+                if (auto* b = entity.TryGetComponent<BoxCollider2DComponent>())
+                    for (glm::vec2 corner : { glm::vec2(-1, -1), glm::vec2(1, -1), glm::vec2(1, 1), glm::vec2(-1, 1) })
+                        add(b->Offset + corner * b->Size * scale);
+                if (auto* cc = entity.TryGetComponent<CircleCollider2DComponent>())
+                    top = std::max(top, sn * cc->Offset.x + cs * cc->Offset.y + cc->Radius * scale.x);
+                if (auto* pc = entity.TryGetComponent<PolygonCollider2DComponent>())
+                    for (const glm::vec2& q : pc->Points)
+                        add(pc->Offset + q * scale);
+                if (top > -FLT_MAX)
+                {
+                    c.SurfaceLevel = top;
+                    changed = true;
+                }
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Sirtni kolliderning eng yuqori nuqtasiga qo'yish (to'la suv)");
+            ImGui::EndDisabled();
+            changed |= nonNegative("Zichlik", "Suyuqlik zichligi. Kollideri (Density) shundan kichik jism suzadi, kattasi cho'kadi. "
+                                              "Kolliderlarning odatiy zichligi - 1", c.Density, 0.01f, "%.2f");
+            UI::PropertyHeader("Qarshilik", "Suv ichidagi jism tezligining so'nishi, qanchalik botganiga qarab (1/s)");
+            changed |= nonNegative("Chiziqli", "To'la botgan jism uchun (1/s)", c.LinearDrag, 0.02f, "%.2f");
+            changed |= nonNegative("Burchak", "Aylanishning so'nishi, to'la botgan jism uchun (1/s)", c.AngularDrag, 0.02f, "%.2f");
+            UI::PropertyHeader("Oqim", "Suvdagi jismlarni shu yo'nalishda olib ketadi (daryo oqimi), botgan qismiga qarab");
+            changed |= angleField("Yo'nalish", "Dunyodagi burchak: 0 - o'ngga (+X), 90 - yuqoriga", c.FlowAngle);
+            UI::PropertyLabel("Kuch", "To'la botgan jismga beriladigan kuch (N). 0 - oqim yo'q");
+            changed |= ImGui::DragFloat("##flow", &c.FlowMagnitude, 0.05f, -1e5f, 1e5f, "%.2f N");
+            changed |= nonNegative("Tasodifiy o'zgarish", "Har qadamda oqim kuchiga +- shuncha gacha tasodifiy qo'shiladi (to'lqinlar)",
+                                   c.FlowVariation, 0.05f, "%.2f");
+            changed |= DrawLayerMask("Qatlamlar", c.ColliderMask, "Faqat shu to'qnashuv qatlamlaridagi jismlar suzadi (qatlam matritsasi "
+                                                               "ham ruxsat berishi kerak)");
+            if (physicsRunning)
+            {
+                UI::PropertyLabel("Holati");
+                ImGui::TextDisabled(ICON_FA_WATER "  %d ta jism suvda, botgan yuza %.2f", c.AffectedBodies, c.SubmergedArea);
+            }
+            return changed;
+        }, true, modified);
+
         // ---- 2D joints
         auto degrees = [](const char* label, const char* tooltip, float& v, float min, float max) {
             UI::PropertyLabel(label, tooltip);
@@ -5175,7 +5431,7 @@ namespace Zamin {
         };
 
         AddSection<DistanceJoint2DComponent>(ICON_FA_LINK, "Distance Joint 2D", entity, [&](DistanceJoint2DComponent& c) {
-            bool changed = DrawJoint2DCommon(entity, c);
+            bool changed = DrawJoint2DCommon(entity, c, Joint2DType::Distance);
             UI::PropertyHeader("Masofa", "Ikki langar orasidagi masofa: qattiq tayoq, arqon yoki prujina");
             changed |= UI::PropertyBool("Avto masofa", c.AutoConfigureDistance);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -5192,7 +5448,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<RevoluteJoint2DComponent>(ICON_FA_ARROWS_ROTATE, "Revolute Joint 2D", entity, [&](RevoluteJoint2DComponent& c) {
-            bool changed = DrawJoint2DCommon(entity, c);
+            bool changed = DrawJoint2DCommon(entity, c, Joint2DType::Revolute);
             UI::PropertyHeader("Burchak chegarasi", "Shu jismning ulangan jismga nisbatan burilishi, joint yaratilgandagi holatdan (gradus)");
             changed |= UI::PropertyBool("Cheklash", c.EnableLimit);
             ImGui::BeginDisabled(!c.EnableLimit);
@@ -5209,7 +5465,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<PrismaticJoint2DComponent>(ICON_FA_ARROWS_LEFT_RIGHT, "Prismatic Joint 2D", entity, [&](PrismaticJoint2DComponent& c) {
-            bool changed = DrawJoint2DCommon(entity, c);
+            bool changed = DrawJoint2DCommon(entity, c, Joint2DType::Prismatic);
             UI::PropertyHeader("Sirpanish", "Jism ulangan jismga nisbatan faqat shu o'q bo'ylab siljiydi va aylanmaydi");
             changed |= UI::PropertyFloat2("O'q", c.Axis, 0.01f);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -5229,7 +5485,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<WeldJoint2DComponent>(ICON_FA_HAMMER, "Weld Joint 2D", entity, [&](WeldJoint2DComponent& c) {
-            bool changed = DrawJoint2DCommon(entity, c);
+            bool changed = DrawJoint2DCommon(entity, c, Joint2DType::Weld);
             UI::PropertyHeader("Qattiqlik", "0 Hz - jismlar bir butun; chastota bilan burchak bo'yicha prujinadek egiladi");
             changed |= spring(c.Frequency, c.DampingRatio, "qattiq");
             DrawJoint2DStatus(c, nullptr);
@@ -5237,7 +5493,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<WheelJoint2DComponent>(ICON_FA_GEAR, "Wheel Joint 2D", entity, [&](WheelJoint2DComponent& c) {
-            bool changed = DrawJoint2DCommon(entity, c);
+            bool changed = DrawJoint2DCommon(entity, c, Joint2DType::Wheel);
             UI::PropertyHeader("Osma", "Shu obyekt - g'ildirak, ulangan jism - kuzov: g'ildirak erkin aylanadi va o'q bo'ylab "
                                        "prujinada yuradi");
             changed |= UI::PropertyFloat2("O'q", c.Axis, 0.01f);

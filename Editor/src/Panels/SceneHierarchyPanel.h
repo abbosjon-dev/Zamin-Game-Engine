@@ -118,7 +118,42 @@ namespace Zamin {
                 return ColliderPointKind::None;
             return m_ColliderPointEdit;
         }
-        void SetColliderPointEdit(ColliderPointKind kind) { m_ColliderPointEdit = kind; }
+        void SetColliderPointEdit(ColliderPointKind kind)
+        {
+            m_ColliderPointEdit = kind;
+            if (kind != ColliderPointKind::None)
+                m_JointAnchorEdit = -1;
+        }
+        // The 2D joint of the selected entity whose anchors / axis / limits are dragged in the viewport
+        // (a Joint2DType), -1 when none (or the entity has no such joint, or is hidden / locked).
+        int GetJointAnchorEdit() const
+        {
+            Entity e = GetSelectedEntity();
+            if (m_JointAnchorEdit < 0 || !e || e.GetScene()->IsHiddenInEditor(e) || e.GetScene()->IsLockedInEditor(e))
+                return -1;
+            return HasJoint2D(e, (Joint2DType)m_JointAnchorEdit) ? m_JointAnchorEdit : -1;
+        }
+        void SetJointAnchorEdit(int type)
+        {
+            m_JointAnchorEdit = type;
+            if (type >= 0)
+            {
+                m_ColliderPointEdit = ColliderPointKind::None;
+                m_TilePaint = false;
+            }
+        }
+        static bool HasJoint2D(Entity e, Joint2DType type)
+        {
+            switch (type)
+            {
+                case Joint2DType::Distance: return e.HasComponent<DistanceJoint2DComponent>();
+                case Joint2DType::Revolute: return e.HasComponent<RevoluteJoint2DComponent>();
+                case Joint2DType::Prismatic: return e.HasComponent<PrismaticJoint2DComponent>();
+                case Joint2DType::Weld: return e.HasComponent<WeldJoint2DComponent>();
+                case Joint2DType::Wheel: return e.HasComponent<WheelJoint2DComponent>();
+            }
+            return false;
+        }
         // The points of a polygon collider follow the opaque outline of the entity's sprite (its
         // current frame); without a picture, the sprite's rectangle. False when it has no sprite.
         static bool FitPolygonToSprite(Entity entity, PolygonCollider2DComponent& c, int maxVertices = 12);
@@ -253,7 +288,14 @@ namespace Zamin {
         bool DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c);
         // 2D joints: the connected body (with what keeps the joint from being made), the anchors and
         // the break limits; the type's own settings follow in its section, then the live read-outs.
-        bool DrawJoint2DCommon(Entity entity, Joint2DComponentBase& c);
+        // `type`: which joint it is (the viewport editing toggle).
+        bool DrawJoint2DCommon(Entity entity, Joint2DComponentBase& c, Joint2DType type);
+        // A mask of the project's 2D collision layers: a check box per named layer (and one for the
+        // unnamed ones together), "all" / "none".
+        bool DrawLayerMask(const char* label, uint16_t& mask, const char* tooltip);
+        // What an area / buoyancy effector needs: a Rigidbody 2D with colliders that have an area
+        // (fluid: triggers). Notes / warnings, nothing to edit.
+        void DrawEffectorNotes(Entity entity, bool fluid);
         // A 2D collision layer of the project (inherit: -1 = "the Rigidbody 2D's" is offered too).
         bool DrawCollisionLayer(const char* label, int& layer, bool inherit, const char* tooltip);
         // A physics material asset (.zphysmat) field: open / create one from `own` values.
@@ -319,6 +361,7 @@ namespace Zamin {
         bool m_HierarchyFocused = false;
         bool m_TilePaint = false;
         ColliderPointKind m_ColliderPointEdit = ColliderPointKind::None;
+        int m_JointAnchorEdit = -1;   // Joint2DType edited in the viewport, -1 = none
         TileTool m_TileTool = TileTool::Brush, m_ToolBeforePicker = TileTool::Brush;
         int m_TileLayer = 0;
         int m_TileRule = -1;          // auto-tile rule of the tileset, -1 = plain tile

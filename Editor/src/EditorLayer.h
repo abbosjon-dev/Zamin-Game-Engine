@@ -187,6 +187,9 @@ namespace Zamin {
         // The selected Polygon / Edge collider 2D's points in the viewport: drag, add on an edge,
         // Ctrl + click / Delete removes (Inspector: "Nuqtalarni tahrirlash").
         void UI_ColliderPointEditor();
+        // The selected entity's 2D joint in the viewport (Inspector: "Langarlarni tahrirlash"): drag its
+        // anchor, connected anchor, a prismatic / wheel axis and the limits (revolute angles, slide range).
+        void UI_JointAnchorEditor();
         void UI_ViewMenu();
         void UI_ViewportMessage();
         void UI_MaximizedGame();
@@ -236,6 +239,10 @@ namespace Zamin {
         void ResolveClickThrough();
         void UpdateTilePainting();
         bool IsColliderPointEditing() const;
+        bool IsJointAnchorEditing() const;
+        // Collider points or joint anchors are being edited: viewport clicks go to their handles (no
+        // picking, no transform gizmo, Delete does not delete the entity).
+        bool IsViewportHandleEditing() const { return IsColliderPointEditing() || IsJointAnchorEditing(); }
         // The cell of the selected tilemap under the mouse (or the automation's hover cell); false
         // when the mouse does not hit the tilemap's plane. The cell may lie outside the map.
         bool GetTileCellUnderMouse(Entity tilemap, glm::ivec2& cell);
@@ -313,6 +320,12 @@ namespace Zamin {
         glm::vec2 m_ColliderDragOffset{ 0.0f };
         int m_ColliderHoverVertex = -1, m_ColliderHoverEdge = -1;
         std::string m_ColliderHoverOverride;
+        // Joint anchor editing: the handle dragged / hovered (0 anchor, 1 connected anchor, 2 axis,
+        // 3 lower limit, 4 upper limit; -1 none), where the mouse grabbed it (automation pins the
+        // hovered one: ZAMIN_EDITOR_JOINT_HOVER).
+        int m_JointDrag = -1, m_JointHover = -1;
+        glm::vec2 m_JointDragOffset{ 0.0f };
+        std::string m_JointHoverOverride;
         struct TileStroke
         {
             bool Active = false;

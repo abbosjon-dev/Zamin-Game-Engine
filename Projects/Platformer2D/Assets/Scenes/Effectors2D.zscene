@@ -1,0 +1,1603 @@
+{
+    "Scene": "Effectors2D",
+    "Version": 1,
+    "Settings": {
+        "DrawSky": false,
+        "Gravity": [
+            0,
+            -9.8
+        ],
+        "Gravity3D": [
+            0,
+            -9.81,
+            0
+        ],
+        "Ambient": 0.6,
+        "Exposure": 1.0,
+        "Post": {
+            "Bloom": false,
+            "Vignette": 0.18,
+            "Saturation": 1.05,
+            "Contrast": 1.03,
+            "Brightness": 0.0,
+            "Tint": [
+                1,
+                1,
+                1
+            ],
+            "Tonemap": 0
+        }
+    },
+    "Entities": [
+        {
+            "Entity": 8500000000000001,
+            "Tag": "Main Camera",
+            "Transform": {
+                "Translation": [
+                    0,
+                    1.2,
+                    10
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Camera": {
+                "ProjectionType": 1,
+                "PerspectiveFOV": 0.7854,
+                "PerspectiveNear": 0.1,
+                "PerspectiveFar": 1000,
+                "OrthographicSize": 18.5,
+                "OrthographicNear": -100,
+                "OrthographicFar": 100,
+                "Primary": true,
+                "FixedAspectRatio": false,
+                "ClearColor": [
+                    0.52,
+                    0.74,
+                    0.93,
+                    1
+                ]
+            }
+        },
+        {
+            "Entity": 8500000000000002,
+            "Tag": "Far Mountains",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0.5,
+                    -8
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    44,
+                    18,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/mountains.png",
+                "Tiling": 1.0,
+                "SortingOrder": 0,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false,
+                "TextureUUID": "a5aec7978306d03b",
+                "SortingLayer": 1,
+                "SortingLayerName": "Fon"
+            }
+        },
+        {
+            "Entity": 8500000000000003,
+            "Tag": "Hills",
+            "Transform": {
+                "Translation": [
+                    0,
+                    -4.5,
+                    -6
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    36,
+                    9,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/hills.png",
+                "Tiling": 1.0,
+                "SortingOrder": 10,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false,
+                "TextureUUID": "f3f49249dc28ff90",
+                "SortingLayer": 1,
+                "SortingLayerName": "Fon"
+            }
+        },
+        {
+            "Entity": 8500000000000004,
+            "Tag": "Title",
+            "Transform": {
+                "Translation": [
+                    0,
+                    9.4,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.72,
+                    0.72,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "2D fizika: effektorlar va so'rovlar",
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    0.92
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8500000000000005,
+            "Tag": "Ground",
+            "Transform": {
+                "Translation": [
+                    0,
+                    -7.75,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    33,
+                    1,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.36,
+                    0.52,
+                    0.27,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 1,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false,
+                "Layer": 1
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.7,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            }
+        },
+        {
+            "Entity": 8500000000000006,
+            "Tag": "Pool Wall L",
+            "Transform": {
+                "Translation": [
+                    -14.25,
+                    -4.75,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.5,
+                    5,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.56,
+                    0.56,
+                    0.62,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 1,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false,
+                "Layer": 1
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            }
+        },
+        {
+            "Entity": 8500000000000007,
+            "Tag": "Pool Wall R",
+            "Transform": {
+                "Translation": [
+                    -1.75,
+                    -4.75,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.5,
+                    5,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.56,
+                    0.56,
+                    0.62,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 1,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false,
+                "Layer": 1
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            }
+        },
+        {
+            "Entity": 8500000000000008,
+            "Tag": "Water",
+            "Transform": {
+                "Translation": [
+                    -8,
+                    -4.85,
+                    0.2
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    12,
+                    4.8,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.18,
+                    0.48,
+                    0.95,
+                    0.42
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 6,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": true,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            },
+            "BuoyancyEffector2D": {
+                "SurfaceLevel": 2.4,
+                "Density": 2.0,
+                "LinearDrag": 1.5,
+                "AngularDrag": 1.0,
+                "FlowAngle": 0.0,
+                "FlowMagnitude": 1.2,
+                "FlowVariation": 0.8,
+                "ColliderMask": 65535
+            }
+        },
+        {
+            "Entity": 8500000000000009,
+            "Tag": "Yozuv: Suv",
+            "Transform": {
+                "Translation": [
+                    -8,
+                    -1.0,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.42,
+                    0.42,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "Suv (Buoyancy Effector 2D): zichligi kichigi suzadi",
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    0.92
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8500000000000010,
+            "Tag": "Crate",
+            "Transform": {
+                "Translation": [
+                    -11.5,
+                    -2.8,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.9,
+                    0.9,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.78,
+                    0.55,
+                    0.28,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 2,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 0.8,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            }
+        },
+        {
+            "Entity": 8500000000000011,
+            "Tag": "Heavy Crate",
+            "Transform": {
+                "Translation": [
+                    -8.6,
+                    -2.8,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.9,
+                    0.9,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.62,
+                    0.42,
+                    0.22,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 2,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.5,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            }
+        },
+        {
+            "Entity": 8500000000000012,
+            "Tag": "Log",
+            "Transform": {
+                "Translation": [
+                    -5.2,
+                    -2.4,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.3
+                ],
+                "Scale": [
+                    2.8,
+                    0.44,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.6,
+                    0.4,
+                    0.2,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 2,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 0.6,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            }
+        },
+        {
+            "Entity": 8500000000000013,
+            "Tag": "Ball",
+            "Transform": {
+                "Translation": [
+                    -3.3,
+                    -2.0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.8,
+                    0.8,
+                    1
+                ]
+            },
+            "CircleRenderer": {
+                "Color": [
+                    1.0,
+                    0.55,
+                    0.2,
+                    1
+                ],
+                "Thickness": 1.0,
+                "Fade": 0.02,
+                "SortingOrder": 2
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "CircleCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 0.5,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Radius": 0.5
+            }
+        },
+        {
+            "Entity": 8500000000000014,
+            "Tag": "Stone",
+            "Transform": {
+                "Translation": [
+                    -9.8,
+                    -6.4,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1.5,
+                    1.25,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/boulder.png",
+                "Tiling": 1.0,
+                "SortingOrder": 2,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "PolygonCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 3.0,
+                "Friction": 0.7,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Points": [
+                    [
+                        -0.42,
+                        -0.35
+                    ],
+                    [
+                        -0.15,
+                        -0.5
+                    ],
+                    [
+                        0.25,
+                        -0.46
+                    ],
+                    [
+                        0.47,
+                        -0.2
+                    ],
+                    [
+                        0.42,
+                        0.22
+                    ],
+                    [
+                        0.12,
+                        0.5
+                    ],
+                    [
+                        -0.25,
+                        0.42
+                    ],
+                    [
+                        -0.5,
+                        0.05
+                    ]
+                ]
+            }
+        },
+        {
+            "Entity": 8500000000000015,
+            "Tag": "Fan",
+            "Transform": {
+                "Translation": [
+                    8,
+                    -6.9,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    3.8,
+                    0.7,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.3,
+                    0.33,
+                    0.38,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 1,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false,
+                "Layer": 1
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            }
+        },
+        {
+            "Entity": 8500000000000016,
+            "Tag": "Wind",
+            "Transform": {
+                "Translation": [
+                    8,
+                    -0.5,
+                    0.1
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    3.6,
+                    12.2,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.8,
+                    0.95,
+                    1.0,
+                    0.14
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 0,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": true,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            },
+            "AreaEffector2D": {
+                "ForceAngle": 90.0,
+                "UseGlobalAngle": false,
+                "ForceMagnitude": 13.0,
+                "ForceVariation": 2.5,
+                "ScaleWithMass": true,
+                "Drag": 0.6,
+                "AngularDrag": 0.5,
+                "ColliderMask": 65535
+            }
+        },
+        {
+            "Entity": 8500000000000017,
+            "Tag": "Crosswind",
+            "Transform": {
+                "Translation": [
+                    2.75,
+                    7.0,
+                    0.1
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    11.5,
+                    2.2,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.85,
+                    0.95,
+                    1.0,
+                    0.1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 0,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": true,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            },
+            "AreaEffector2D": {
+                "ForceAngle": 180.0,
+                "UseGlobalAngle": true,
+                "ForceMagnitude": 7.0,
+                "ForceVariation": 1.0,
+                "ScaleWithMass": true,
+                "Drag": 0.2,
+                "AngularDrag": 0.2,
+                "ColliderMask": 65535
+            }
+        },
+        {
+            "Entity": 8500000000000018,
+            "Tag": "Yozuv: Shamol",
+            "Transform": {
+                "Translation": [
+                    12.6,
+                    3.2,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.42,
+                    0.42,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "Shamol (Area Effector 2D)",
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    0.92
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8500000000000019,
+            "Tag": "Yozuv: Yon shamol",
+            "Transform": {
+                "Translation": [
+                    2.75,
+                    7.0,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.36,
+                    0.36,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "<- yon shamol",
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    0.7
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8500000000000020,
+            "Tag": "Shablonlar",
+            "Transform": {
+                "Translation": [
+                    0,
+                    30,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Active": false
+        },
+        {
+            "Entity": 8500000000000021,
+            "Tag": "Crate",
+            "Transform": {
+                "Translation": [
+                    4,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.9,
+                    0.9,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.78,
+                    0.55,
+                    0.28,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 2,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 0.7,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            },
+            "Parent": 8500000000000020
+        },
+        {
+            "Entity": 8500000000000022,
+            "Tag": "Log",
+            "Transform": {
+                "Translation": [
+                    6,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    2.4,
+                    0.4,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.6,
+                    0.4,
+                    0.2,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 2,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 0.6,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            },
+            "Parent": 8500000000000020
+        },
+        {
+            "Entity": 8500000000000023,
+            "Tag": "Ball",
+            "Transform": {
+                "Translation": [
+                    8,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.7,
+                    0.7,
+                    1
+                ]
+            },
+            "CircleRenderer": {
+                "Color": [
+                    1.0,
+                    0.55,
+                    0.2,
+                    1
+                ],
+                "Thickness": 1.0,
+                "Fade": 0.02,
+                "SortingOrder": 2
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "CircleCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 0.4,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Material": "Physics/Bouncy.zphysmat",
+                "Radius": 0.5
+            },
+            "Parent": 8500000000000020
+        },
+        {
+            "Entity": 8500000000000024,
+            "Tag": "Stone",
+            "Parent": 8500000000000020,
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1.1,
+                    0.95,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/boulder.png",
+                "Tiling": 1.0,
+                "SortingOrder": 2,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "PolygonCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 3.0,
+                "Friction": 0.7,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Points": [
+                    [
+                        -0.42,
+                        -0.35
+                    ],
+                    [
+                        -0.15,
+                        -0.5
+                    ],
+                    [
+                        0.25,
+                        -0.46
+                    ],
+                    [
+                        0.47,
+                        -0.2
+                    ],
+                    [
+                        0.42,
+                        0.22
+                    ],
+                    [
+                        0.12,
+                        0.5
+                    ],
+                    [
+                        -0.25,
+                        0.42
+                    ],
+                    [
+                        -0.5,
+                        0.05
+                    ]
+                ]
+            }
+        },
+        {
+            "Entity": 8500000000000025,
+            "Tag": "Spawner",
+            "Transform": {
+                "Translation": [
+                    -8,
+                    10.2,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "NativeScript": {
+                "Class": "ShapeSpawner",
+                "Fields": {
+                    "Boulder": {
+                        "Type": "Entity",
+                        "Value": 8500000000000024
+                    },
+                    "Crystal": {
+                        "Type": "Entity",
+                        "Value": 8500000000000022
+                    },
+                    "Crate": {
+                        "Type": "Entity",
+                        "Value": 8500000000000021
+                    },
+                    "Ball": {
+                        "Type": "Entity",
+                        "Value": 8500000000000023
+                    },
+                    "Ghost": {
+                        "Type": "Entity",
+                        "Value": 0
+                    },
+                    "Interval": {
+                        "Type": "Float",
+                        "Value": 1.1
+                    },
+                    "Width": {
+                        "Type": "Float",
+                        "Value": 9.0
+                    },
+                    "MaxShapes": {
+                        "Type": "Int",
+                        "Value": 26
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 8500000000000026,
+            "Tag": "Launcher",
+            "Transform": {
+                "Translation": [
+                    8,
+                    -5.6,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "NativeScript": {
+                "Class": "ShapeLauncher",
+                "Fields": {
+                    "Template": {
+                        "Type": "Entity",
+                        "Value": 8500000000000021
+                    },
+                    "Interval": {
+                        "Type": "Float",
+                        "Value": 1.6
+                    },
+                    "Velocity": {
+                        "Type": "Vec2",
+                        "Value": [
+                            0.0,
+                            3.0
+                        ]
+                    },
+                    "MaxShapes": {
+                        "Type": "Int",
+                        "Value": 8
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 8500000000000027,
+            "Tag": "Yozuv: Nur",
+            "Transform": {
+                "Translation": [
+                    12.6,
+                    -3.6,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.4,
+                    0.4,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "Raycast2DAll: 0 ta obyekt",
+                "Color": [
+                    1.0,
+                    0.85,
+                    0.75,
+                    0.95
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8500000000000028,
+            "Tag": "Laser",
+            "Transform": {
+                "Translation": [
+                    15.6,
+                    -1.5,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.6,
+                    0.6,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.85,
+                    0.22,
+                    0.2,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 3,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "NativeScript": {
+                "Class": "LaserScanner",
+                "Fields": {
+                    "Length": {
+                        "Type": "Float",
+                        "Value": 30.0
+                    },
+                    "MinAngle": {
+                        "Type": "Float",
+                        "Value": 166.0
+                    },
+                    "MaxAngle": {
+                        "Type": "Float",
+                        "Value": 192.0
+                    },
+                    "SweepSpeed": {
+                        "Type": "Float",
+                        "Value": 0.2
+                    },
+                    "Label": {
+                        "Type": "Entity",
+                        "Value": 8500000000000027
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 8500000000000029,
+            "Tag": "Blast",
+            "Transform": {
+                "Translation": [
+                    -8,
+                    1.8,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "NativeScript": {
+                "Class": "BlastOnClick",
+                "Fields": {
+                    "Radius": {
+                        "Type": "Float",
+                        "Value": 3.0
+                    },
+                    "Strength": {
+                        "Type": "Float",
+                        "Value": 7.0
+                    },
+                    "AutoInterval": {
+                        "Type": "Float",
+                        "Value": 3.0
+                    },
+                    "AutoCenter": {
+                        "Type": "Vec2",
+                        "Value": [
+                            -8.0,
+                            -3.2
+                        ]
+                    },
+                    "AutoSpread": {
+                        "Type": "Vec2",
+                        "Value": [
+                            4.0,
+                            0.3
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 8500000000000030,
+            "Tag": "Yozuv: Portlash",
+            "Transform": {
+                "Translation": [
+                    -8,
+                    0.4,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.36,
+                    0.36,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "Sichqoncha: portlash (OverlapCircle2D)",
+                "Color": [
+                    1,
+                    0.85,
+                    0.6,
+                    0.9
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        }
+    ]
+}

@@ -33,6 +33,7 @@
 #include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Renderer/MaterialPreview.h"
 #include "Zamin/Renderer/MaterialPresets.h"
+#include "Zamin/Renderer/SpriteSheet.h"
 
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/Entity.h"
@@ -40,6 +41,8 @@
 #include "Zamin/Scene/ComponentRegistry.h"
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Scene/EntitySelection.h"
+#include "Zamin/Scene/SortingLayers.h"
+#include "Zamin/Scene/Parallax.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Debug/MeshNormals.h"

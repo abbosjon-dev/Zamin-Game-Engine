@@ -92,6 +92,12 @@ namespace Zamin {
         return true;
     }
 
+    const SortingLayerList& Project::GetSortingLayers()
+    {
+        static const SortingLayerList s_Default;
+        return s_ActiveProject ? s_ActiveProject->m_Config.SortingLayers : s_Default;
+    }
+
     AssetRegistry* Project::GetAssetRegistry()
     {
         if (!s_ActiveProject)
@@ -246,6 +252,45 @@ namespace Zamin {
 
     std::string ProjectSerializer::InputMapToString(const InputActionMap& map) { return InputMapToJson(map).dump(4); }
 
+    static json SortingLayersToJson(const SortingLayerList& layers)
+    {
+        json list = json::array();
+        for (const SortingLayer& l : layers.GetLayers())
+            list.push_back({ { "ID", l.ID }, { "Name", l.Name } });
+        return list;
+    }
+
+    static void SortingLayersFromJson(const json& j, SortingLayerList& out)
+    {
+        std::vector<SortingLayer> layers;
+        if (j.is_array())
+            for (const json& item : j)
+            {
+                if (!item.is_object())
+                    continue;
+                auto id = item.find("ID");
+                auto name = item.find("Name");
+                if (id == item.end() || !id->is_number_unsigned() || name == item.end() || !name->is_string())
+                {
+                    ZM_CORE_WARN("Noto'g'ri saralash qatlami e'tiborsiz qoldirildi: {}", item.dump());
+                    continue;
+                }
+                layers.push_back({ id->get<uint32_t>(), name->get<std::string>() });
+            }
+        out.Assign(layers);
+    }
+
+    std::string ProjectSerializer::SortingLayersToString(const SortingLayerList& layers) { return SortingLayersToJson(layers).dump(4); }
+
+    bool ProjectSerializer::SortingLayersFromString(const std::string& text, SortingLayerList& out)
+    {
+        json j = json::parse(text, nullptr, false);
+        if (j.is_discarded() || !j.is_array())
+            return false;
+        SortingLayersFromJson(j, out);
+        return true;
+    }
+
     bool ProjectSerializer::InputMapFromString(const std::string& text, InputActionMap& out)
     {
         try
@@ -283,6 +328,9 @@ namespace Zamin {
             j["Project"]["StartSceneUUID"] = c.StartSceneHandle.ToString();
         j["InputActions"] = InputMapToJson(c.InputActions);
         j["Tags"] = c.Tags;
+        // Written once there is more than the Default layer (older files stay as they were).
+        if (!(c.SortingLayers == SortingLayerList()))
+            j["SortingLayers"] = SortingLayersToJson(c.SortingLayers);
         j["DebugDraw"] = {
             { "Enabled", c.DebugDraw.Enabled },
             { "Raycasts", c.DebugDraw.ShowRaycasts },
@@ -330,6 +378,10 @@ namespace Zamin {
             }
             else
                 c.Tags = ProjectConfig::DefaultTags();
+            // Sorting layers (older projects: only Default).
+            c.SortingLayers = SortingLayerList();
+            if (auto it = j.find("SortingLayers"); it != j.end())
+                SortingLayersFromJson(*it, c.SortingLayers);
             // Debug drawing in the player (older projects: on, no physics views).
             c.DebugDraw = DebugDrawSettings();
             if (auto it = j.find("DebugDraw"); it != j.end() && it->is_object())

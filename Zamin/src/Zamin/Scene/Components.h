@@ -7,6 +7,7 @@
 #include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Font.h"
+#include "Zamin/Renderer/SpriteSheet.h"
 #include "Zamin/Scene/SceneCamera.h"
 #include "Zamin/Scripting/ScriptField.h"
 
@@ -103,22 +104,41 @@ namespace Zamin {
     };
 
     // ------------------------------------------------------------------ rendering
+    // 2D renderers draw back to front by sorting layer (Project settings > Sorting layers: the
+    // layer's position in that list; its ID is stored here, 0 = "Default"), then by SortingOrder
+    // inside the layer, then by the distance from the camera.
     struct SpriteRendererComponent
     {
         glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };
         Ref<Texture2D> Texture;
         std::string TexturePath; // relative to project assets
-        float TilingFactor = 1.0f;
-        int SortingOrder = 0;
+        // A named frame of the texture's sprite sheet (Sprite Editor, kept in the texture's .zmeta);
+        // "" = the whole texture. A name the sheet does not have draws the whole texture as well.
+        std::string SpriteName;
+        float TilingFactor = 1.0f;     // Simple mode with the whole texture: repeats it N times
+        uint32_t SortingLayer = 0;     // SortingLayerList ID
+        int SortingOrder = 0;          // order inside the sorting layer
         bool PixelArt = false;   // nearest filtering (crisp pixels)
         bool FlipX = false;
         bool FlipY = false;
+        // Simple: the picture on the unit quad (sized by the transform's scale). Sliced (9-slice) /
+        // Tiled: the picture fills Size (local units, the scale applies on top) keeping its borders:
+        // corners are SliceBorder px / PixelsPerUnit big. All four borders 0 = the frame's border
+        // (Sprite Editor). Screen-space UI sprites: Size is the UI rect and 1 px = 1 unit.
+        SpriteDrawMode DrawMode = SpriteDrawMode::Simple;
+        glm::vec2 Size{ 1.0f };
+        glm::vec4 SliceBorder{ 0.0f };  // px: left, right, top, bottom
+        float PixelsPerUnit = 100.0f;
 
         SpriteRendererComponent() = default;
         SpriteRendererComponent(const glm::vec4& color) : Color(color) {}
+
+        bool HasSliceBorder() const { return SliceBorder.x > 0.0f || SliceBorder.y > 0.0f || SliceBorder.z > 0.0f || SliceBorder.w > 0.0f; }
     };
 
-    // Plays frames from a sprite sheet (grid) on the SpriteRenderer texture.
+    // Plays frames on the SpriteRenderer texture: cells of a grid (Columns x Rows, numbered left to
+    // right, top to bottom) or, when Frames is set, named frames of the texture's sprite sheet
+    // (StartFrame / FrameCount then pick from that list).
     struct SpriteAnimationComponent
     {
         int Columns = 4;
@@ -128,6 +148,7 @@ namespace Zamin {
         float FPS = 10.0f;
         bool Loop = true;
         bool Playing = true;
+        std::vector<std::string> Frames; // sprite sheet frame names ("" list = the grid)
 
         // runtime
         float Time = 0.0f;
@@ -136,6 +157,21 @@ namespace Zamin {
         {
             if (StartFrame == startFrame && FrameCount == frameCount && Playing) return;
             StartFrame = startFrame; FrameCount = frameCount; FPS = fps; Loop = loop; Playing = true; Time = 0.0f;
+        }
+        // Plays a list of sprite sheet frames (e.g. SpriteSheet::FindSequence("run")).
+        void PlayFrames(const std::vector<std::string>& frames, float fps = 10.0f, bool loop = true)
+        {
+            if (Frames == frames && StartFrame == 0 && FrameCount == (int)frames.size() && Playing) return;
+            Frames = frames; StartFrame = 0; FrameCount = std::max(1, (int)frames.size());
+            FPS = fps; Loop = loop; Playing = true; Time = 0.0f;
+        }
+        bool UsesFrameList() const { return !Frames.empty(); }
+        // The frame name shown now ("" for a grid animation).
+        const std::string& GetCurrentFrameName() const
+        {
+            static const std::string s_None;
+            if (Frames.empty()) return s_None;
+            return Frames[(size_t)std::clamp(GetCurrentFrame(), 0, (int)Frames.size() - 1)];
         }
 
         int GetCurrentFrame() const
@@ -154,6 +190,7 @@ namespace Zamin {
         glm::vec4 Color{ 1.0f, 1.0f, 1.0f, 1.0f };
         float Thickness = 1.0f;
         float Fade = 0.005f;
+        uint32_t SortingLayer = 0;
         int SortingOrder = 0;
     };
 
@@ -166,6 +203,8 @@ namespace Zamin {
         bool Centered = false;
         std::string FontPath; // empty = default engine font
         Ref<Font> FontAsset;
+        uint32_t SortingLayer = 0;
+        int SortingOrder = 1000; // text draws over the sprites of its layer unless told otherwise
     };
 
     struct MeshRendererComponent
@@ -378,6 +417,7 @@ namespace Zamin {
         float TileSize = 1.0f;
         std::vector<int> Tiles; // Width * Height, row-major, y = 0 is the bottom row, -1 = empty
         glm::vec4 Color{ 1.0f };
+        uint32_t SortingLayer = 0;
         int SortingOrder = -1;
 
         bool Collision = true;   // every non-empty tile is solid (static 2D physics)
@@ -411,6 +451,23 @@ namespace Zamin {
                     t[(size_t)y * w + x] = Get(x, y);
             Width = w; Height = h; Tiles = std::move(t);
         }
+    };
+
+    // ------------------------------------------------------------------ parallax (2D)
+    // Moves the entity (and its children) with the game camera when the scene is drawn: Factor 0 =
+    // an ordinary world object, 1 = fixed on the screen (infinitely far), 0.5 = half as fast as the
+    // camera (a far background); negative values move against the camera (a near foreground). It is
+    // where it was placed while the camera is at its position. RepeatX / RepeatY draw its sprite
+    // again every Spacing units (0 = the sprite's own size) so it fills the view endlessly.
+    // Only the game camera moves it (the editor's scene view shows it as placed, unless View >
+    // Parallax preview is on); the transform itself never changes, so physics and scripts are not
+    // affected.
+    struct ParallaxComponent
+    {
+        glm::vec2 Factor{ 0.5f, 0.5f };
+        bool RepeatX = false;
+        bool RepeatY = false;
+        glm::vec2 Spacing{ 0.0f };
     };
 
     // ------------------------------------------------------------------ particles
@@ -457,6 +514,7 @@ namespace Zamin {
         bool Billboard = true;       // face the camera (3D)
         std::string TexturePath;
         Ref<Texture2D> Texture;
+        uint32_t SortingLayer = 0;
         int SortingOrder = 0;
 
         // runtime
@@ -676,7 +734,7 @@ namespace Zamin {
         SpriteAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, SpotLightComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
-        CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
+        CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;
 
 }

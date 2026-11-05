@@ -4312,6 +4312,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<CapsuleCollider3DComponent>();
     e.AddComponent<CharacterController3DComponent>();
     e.AddComponent<TilemapComponent>();
+    e.AddComponent<ParallaxComponent>();
     e.AddComponent<ParticleSystemComponent>();
     e.AddComponent<UITransformComponent>();
     e.AddComponent<UIButtonComponent>();
@@ -4319,7 +4320,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 26);
+    CHECK(types.size() == 27);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());

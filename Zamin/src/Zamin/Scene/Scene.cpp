@@ -1,8 +1,11 @@
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Asset/AssetImportLog.h"
+#include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Scene/SceneSerializer.h"
+#include "Zamin/Scene/Parallax.h"
+#include "Zamin/Scene/SortingLayers.h"
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/Scripting/ScriptEngine.h"
 #include "Zamin/Scripting/EventBus.h"
@@ -1371,7 +1374,15 @@ namespace Zamin {
             else
                 add(glm::vec3(-0.5f), glm::vec3(0.5f));
         }
-        if (entity.HasComponent<SpriteRendererComponent>() || entity.HasComponent<CircleRendererComponent>())
+        if (auto* sprite = entity.TryGetComponent<SpriteRendererComponent>())
+        {
+            // The unit quad - or the rectangle of a sliced / tiled sprite or an off-centre frame.
+            const AssetRegistry* registry = Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
+            glm::mat4 rect = Scene::GetSpriteRectTransform(*sprite, entity.TryGetComponent<SpriteAnimationComponent>(), registry);
+            glm::vec3 c = glm::vec3(rect[3]), h = glm::vec3(rect[0][0], rect[1][1], 0.0f) * 0.5f;
+            add(c - glm::abs(h), c + glm::abs(h));
+        }
+        else if (entity.HasComponent<CircleRendererComponent>())
             add({ -0.5f, -0.5f, 0.0f }, { 0.5f, 0.5f, 0.0f }); // unit quad
         if (auto* text = entity.TryGetComponent<TextComponent>(); text && text->FontAsset)
         {
@@ -2594,7 +2605,9 @@ namespace Zamin {
             return;
         auto& camera = cameraEntity.GetComponent<CameraComponent>();
         glm::mat4 cameraWorld = GetWorldTransform(cameraEntity);
-        RenderScene(glm::inverse(cameraWorld), camera.Camera.GetProjection(), glm::vec3(cameraWorld[3]), {});
+        SceneRenderOptions options;
+        options.Parallax = true; // the game camera moves the parallax layers
+        RenderScene(glm::inverse(cameraWorld), camera.Camera.GetProjection(), glm::vec3(cameraWorld[3]), options);
     }
 
     void Scene::OnUpdateSimulation(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options)
@@ -2663,6 +2676,113 @@ namespace Zamin {
                 : TextureLibrary::Load(Project::GetAssetFileSystemPath(tm->TilesetPath), tm->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
         if (auto* text = entity.TryGetComponent<TextComponent>())
             text->FontAsset = text->FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(text->FontPath));
+    }
+
+    // ------------------------------------------------------------------ sprites
+    SpriteRegion Scene::GetSpriteRegion(const SpriteRendererComponent& sprite, const SpriteAnimationComponent* animation,
+                                        const AssetRegistry* registry)
+    {
+        uint32_t width = sprite.Texture ? sprite.Texture->GetWidth() : 1;
+        uint32_t height = sprite.Texture ? sprite.Texture->GetHeight() : 1;
+        const SpriteSheet* sheet = nullptr;
+        bool sheetLooked = false;
+        auto findFrame = [&](const std::string& name) -> const SpriteFrame* {
+            if (name.empty())
+                return nullptr;
+            if (!sheetLooked)
+            {
+                sheet = SpriteSheet::Get(registry, sprite.TexturePath);
+                sheetLooked = true;
+            }
+            return sheet ? sheet->Find(name) : nullptr;
+        };
+        if (animation)
+        {
+            if (!animation->UsesFrameList())
+                return SpriteRegion::GridCell(animation->Columns, animation->Rows, animation->GetCurrentFrame(), width, height);
+            if (const SpriteFrame* frame = findFrame(animation->GetCurrentFrameName()))
+                return SpriteRegion::FromFrame(*frame, width, height);
+            // a frame the sheet does not have: the renderer's own frame / the whole texture
+        }
+        if (const SpriteFrame* frame = findFrame(sprite.SpriteName))
+            return SpriteRegion::FromFrame(*frame, width, height);
+        return SpriteRegion::WholeTexture(width, height);
+    }
+
+    SpriteGeometry Scene::GetSpriteGeometry(const SpriteRendererComponent& sprite, const SpriteRegion& region, const glm::vec2* uiSize)
+    {
+        SpriteGeometry g;
+        g.Mode = sprite.DrawMode;
+        g.Size = uiSize ? *uiSize : sprite.Size;
+        g.Pivot = region.Pivot;
+        g.UVMin = region.UVMin;
+        g.UVMax = region.UVMax;
+        g.RegionPixels = region.Pixels;
+        g.Border = sprite.HasSliceBorder() ? sprite.SliceBorder : region.Border;
+        g.PixelsPerUnit = uiSize ? 1.0f : sprite.PixelsPerUnit;
+        if (!sprite.Texture && g.Mode != SpriteDrawMode::Simple)
+        {
+            // No picture: one plain rectangle of that size.
+            g.Mode = SpriteDrawMode::Sliced;
+            g.Border = glm::vec4(0.0f);
+        }
+        return g;
+    }
+
+    void Scene::DrawSprite(const glm::mat4& transform, const SpriteRendererComponent& s, const SpriteAnimationComponent* animation,
+                           const glm::vec4& color, int entityID, const AssetRegistry* registry, const glm::vec2* uiSize)
+    {
+        const bool frames = !s.SpriteName.empty() || (animation && animation->UsesFrameList());
+        if (s.DrawMode == SpriteDrawMode::Simple && !frames)
+        {
+            // The quad itself: the whole texture (repeated TilingFactor times) or a grid cell.
+            if (!s.Texture)
+                Renderer2D::DrawQuad(transform, color, entityID);
+            else if (animation)
+            {
+                SpriteRegion cell = SpriteRegion::GridCell(animation->Columns, animation->Rows, animation->GetCurrentFrame(),
+                                                           s.Texture->GetWidth(), s.Texture->GetHeight());
+                Renderer2D::DrawQuad(transform, s.Texture, cell.UVMin, cell.UVMax, color, entityID);
+            }
+            else
+                Renderer2D::DrawQuad(transform, s.Texture, s.TilingFactor, color, entityID);
+            return;
+        }
+        SpriteRegion region = s.Texture ? GetSpriteRegion(s, animation, registry) : SpriteRegion();
+        if (s.DrawMode == SpriteDrawMode::Simple && region.Whole)
+        {
+            // A frame name the sheet does not (yet) have: the whole picture, as before.
+            if (s.Texture)
+                Renderer2D::DrawQuad(transform, s.Texture, s.TilingFactor, color, entityID);
+            else
+                Renderer2D::DrawQuad(transform, color, entityID);
+            return;
+        }
+        static thread_local std::vector<SpriteQuad> quads;
+        quads.clear();
+        GetSpriteGeometry(s, region, uiSize).Build(quads);
+        for (const SpriteQuad& q : quads)
+        {
+            glm::vec2 center = (q.Min + q.Max) * 0.5f, size = q.Max - q.Min;
+            glm::mat4 m = transform * glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+            if (s.Texture)
+                Renderer2D::DrawQuad(m, s.Texture, q.UVMin, q.UVMax, color, entityID);
+            else
+                Renderer2D::DrawQuad(m, color, entityID);
+        }
+    }
+
+    glm::mat4 Scene::GetSpriteRectTransform(const SpriteRendererComponent& sprite, const SpriteAnimationComponent* animation,
+                                            const AssetRegistry* registry)
+    {
+        const bool frames = !sprite.SpriteName.empty() || (animation && animation->UsesFrameList());
+        if (sprite.DrawMode == SpriteDrawMode::Simple && !frames)
+            return glm::mat4(1.0f);
+        SpriteRegion region = sprite.Texture ? GetSpriteRegion(sprite, animation, registry) : SpriteRegion();
+        glm::vec2 min, max;
+        GetSpriteGeometry(sprite, region).GetBounds(min, max);
+        glm::vec2 size = glm::max(max - min, glm::vec2(1e-4f));
+        return glm::translate(glm::mat4(1.0f), glm::vec3((min + max) * 0.5f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
     }
 
     void Scene::UpdateAnimators(Timestep ts, bool editor)
@@ -3218,6 +3338,8 @@ namespace Zamin {
     void Scene::RenderScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                             const SceneRenderOptions& options)
     {
+        // Parallax layers move with the camera that draws (their children with them).
+        const bool parallax = options.Parallax && !m_Registry.view<ParallaxComponent>().empty();
         // World transforms (memoized for this frame).
         std::unordered_map<entt::entity, glm::mat4> worldCache;
         worldCache.reserve(m_Registry.view<TransformComponent>().size());
@@ -3232,6 +3354,12 @@ namespace Zamin {
                 if (pit != m_EntityMap.end() && m_Registry.valid(pit->second))
                     local = world(pit->second) * local;
             }
+            if (parallax)
+                if (const auto* p = m_Registry.try_get<ParallaxComponent>(e))
+                {
+                    glm::vec2 offset = ParallaxMath::GetOffset(glm::vec2(cameraPosition), glm::vec2(local[3]), p->Factor);
+                    local = glm::translate(glm::mat4(1.0f), glm::vec3(offset, 0.0f)) * local;
+                }
             return worldCache.emplace(e, local).first->second;
         };
 
@@ -3366,13 +3494,36 @@ namespace Zamin {
         ZM_PROFILE_SCOPE("2D va UI");
         struct Item2D
         {
-            int Order;
-            float Depth;
-            int Kind; // 0 sprite, 1 circle, 2 text
+            SortKey2D Key;
+            int Kind; // 0 sprite, 1 circle, 2 text, 3 particles, 4 tilemap
             entt::entity Handle;
         };
         std::vector<Item2D> items;
         auto depthOf = [&](entt::entity e) { return (view * world(e)[3]).z; };
+        const SortingLayerList& sortingLayers = Project::GetSortingLayers();
+        auto keyOf = [&](entt::entity e, uint32_t layer, int order) {
+            return SortKey2D{ sortingLayers.GetIndex(layer), order, depthOf(e) };
+        };
+        // Sprite sheet frames are looked up in the asset registry (only when a sprite uses one).
+        const AssetRegistry* assetRegistry = nullptr;
+        bool assetRegistryLooked = false;
+        auto registry = [&]() {
+            if (!assetRegistryLooked)
+            {
+                assetRegistry = Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
+                assetRegistryLooked = true;
+            }
+            return assetRegistry;
+        };
+        auto needsRegistry = [](const SpriteRendererComponent& s, const SpriteAnimationComponent* anim) {
+            return !s.SpriteName.empty() || (anim && anim->UsesFrameList());
+        };
+        // Parallax sprites that repeat fill the view with copies (never culled as one quad).
+        auto repeats = [&](entt::entity e) -> const ParallaxComponent* {
+            if (!parallax) return nullptr;
+            const auto* p = m_Registry.try_get<ParallaxComponent>(e);
+            return p && (p->RepeatX || p->RepeatY) ? p : nullptr;
+        };
 
         // Screen-space UI is drawn by RenderUI; hidden / inactive entities not at all.
         auto notWorld2D = [&](entt::entity e) { return m_Registry.all_of<UITransformComponent>(e) || skip(e); };
@@ -3388,11 +3539,26 @@ namespace Zamin {
             return false;
         };
         for (auto e : m_Registry.view<TransformComponent, SpriteRendererComponent>())
-            if (!notWorld2D(e) && seen(Renderer2D::GetQuadBounds(world(e))))
-                items.push_back({ m_Registry.get<SpriteRendererComponent>(e).SortingOrder, depthOf(e), 0, e });
+        {
+            if (notWorld2D(e))
+                continue;
+            const auto& s = m_Registry.get<SpriteRendererComponent>(e);
+            if (!repeats(e))
+            {
+                const auto* anim = m_Registry.try_get<SpriteAnimationComponent>(e);
+                glm::mat4 rect = s.DrawMode == SpriteDrawMode::Simple && !needsRegistry(s, anim)
+                               ? world(e) : world(e) * GetSpriteRectTransform(s, anim, needsRegistry(s, anim) ? registry() : nullptr);
+                if (!seen(Renderer2D::GetQuadBounds(rect)))
+                    continue;
+            }
+            items.push_back({ keyOf(e, s.SortingLayer, s.SortingOrder), 0, e });
+        }
         for (auto e : m_Registry.view<TransformComponent, CircleRendererComponent>())
             if (!notWorld2D(e) && seen(Renderer2D::GetQuadBounds(world(e))))
-                items.push_back({ m_Registry.get<CircleRendererComponent>(e).SortingOrder, depthOf(e), 1, e });
+            {
+                const auto& c = m_Registry.get<CircleRendererComponent>(e);
+                items.push_back({ keyOf(e, c.SortingLayer, c.SortingOrder), 1, e });
+            }
         for (auto e : m_Registry.view<TransformComponent, TextComponent>())
         {
             if (notWorld2D(e)) continue;
@@ -3415,10 +3581,14 @@ namespace Zamin {
                 if (!seen(TransformAABB(local, t)))
                     continue;
             }
-            items.push_back({ 1000, depthOf(e), 2, e });
+            items.push_back({ keyOf(e, text.SortingLayer, text.SortingOrder), 2, e });
         }
         for (auto e : m_Registry.view<TransformComponent, TilemapComponent>())
-            if (!notWorld2D(e)) items.push_back({ m_Registry.get<TilemapComponent>(e).SortingOrder, depthOf(e), 4, e });
+            if (!notWorld2D(e))
+            {
+                const auto& tm = m_Registry.get<TilemapComponent>(e);
+                items.push_back({ keyOf(e, tm.SortingLayer, tm.SortingOrder), 4, e });
+            }
         for (auto e : m_Registry.view<TransformComponent, ParticleSystemComponent>())
         {
             const auto& ps = m_Registry.get<ParticleSystemComponent>(e);
@@ -3441,7 +3611,7 @@ namespace Zamin {
                 if (!seen(box))
                     continue;
             }
-            items.push_back({ ps.SortingOrder, depthOf(e), 3, e });
+            items.push_back({ keyOf(e, ps.SortingLayer, ps.SortingOrder), 3, e });
         }
         for (const Item2D& item : items)
             if (item.Kind != 4)
@@ -3459,9 +3629,9 @@ namespace Zamin {
         {
 
         std::stable_sort(items.begin(), items.end(), [](const Item2D& a, const Item2D& b) {
-            if (a.Order != b.Order) return a.Order < b.Order;
-            return a.Depth < b.Depth; // more negative = farther away
+            return SortKey2D::Less(a.Key, b.Key); // layer, order in the layer, then farther first
         });
+        const glm::mat4 viewProjection = projection * view;
 
         Renderer2D::BeginScene(projection * view);
         for (const auto& item : items)
@@ -3474,24 +3644,35 @@ namespace Zamin {
                 glm::mat4 t = transform;
                 if (s.FlipX || s.FlipY)
                     t = t * glm::scale(glm::mat4(1.0f), { s.FlipX ? -1.0f : 1.0f, s.FlipY ? -1.0f : 1.0f, 1.0f });
-
-                if (s.Texture)
+                const auto* anim = m_Registry.try_get<SpriteAnimationComponent>(item.Handle);
+                const AssetRegistry* sheets = needsRegistry(s, anim) ? registry() : nullptr;
+                const ParallaxComponent* repeat = repeats(item.Handle);
+                if (!repeat)
                 {
-                    if (auto* anim = m_Registry.try_get<SpriteAnimationComponent>(item.Handle))
-                    {
-                        int cols = std::max(1, anim->Columns), rows = std::max(1, anim->Rows);
-                        int frame = std::clamp(anim->GetCurrentFrame(), 0, cols * rows - 1);
-                        int cx = frame % cols, cy = frame / cols;
-                        glm::vec2 cell = { 1.0f / cols, 1.0f / rows };
-                        // Frames are numbered left-to-right, top-to-bottom (texture v is flipped).
-                        glm::vec2 uvMin = { cx * cell.x, 1.0f - (cy + 1) * cell.y };
-                        Renderer2D::DrawQuad(t, s.Texture, uvMin, uvMin + cell, s.Color, id);
-                    }
-                    else
-                        Renderer2D::DrawQuad(t, s.Texture, s.TilingFactor, s.Color, id);
+                    DrawSprite(t, s, anim, s.Color, id, sheets);
+                    continue;
                 }
-                else
-                    Renderer2D::DrawQuad(t, s.Color, id);
+                // An endless parallax background: copies side by side (and / or above each other)
+                // wherever the camera sees the sprite's plane.
+                AABB box = Renderer2D::GetQuadBounds(t * GetSpriteRectTransform(s, anim, sheets));
+                glm::vec2 size = glm::vec2(box.Max - box.Min);
+                glm::vec2 spacing = { repeat->Spacing.x > 0.0f ? repeat->Spacing.x : size.x, repeat->Spacing.y > 0.0f ? repeat->Spacing.y : size.y };
+                glm::vec2 center = glm::vec2(box.Min + box.Max) * 0.5f;
+                glm::vec2 viewMin, viewMax;
+                int x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+                if (ParallaxMath::GetViewRectAtDepth(viewProjection, (box.Min.z + box.Max.z) * 0.5f, viewMin, viewMax))
+                {
+                    if (repeat->RepeatX && !ParallaxMath::GetRepeatRange(center.x, size.x, spacing.x, viewMin.x, viewMax.x, x0, x1, 128))
+                        continue; // no copy in view
+                    if (repeat->RepeatY && !ParallaxMath::GetRepeatRange(center.y, size.y, spacing.y, viewMin.y, viewMax.y, y0, y1, 128))
+                        continue;
+                }
+                for (int ky = y0; ky <= y1; ky++)
+                    for (int kx = x0; kx <= x1; kx++)
+                    {
+                        glm::mat4 copy = glm::translate(glm::mat4(1.0f), { kx * spacing.x, ky * spacing.y, 0.0f }) * t;
+                        DrawSprite(copy, s, anim, s.Color, id, sheets);
+                    }
             }
             else if (item.Kind == 1)
             {
@@ -3611,8 +3792,11 @@ namespace Zamin {
             if (auto* s = m_Registry.try_get<SpriteRendererComponent>(e))
             {
                 glm::vec4 c = s->Color * tint;
-                if (s->Texture) Renderer2D::DrawQuad(rect, s->Texture, s->TilingFactor, c, id);
-                else Renderer2D::DrawQuad(rect, c, id);
+                const AssetRegistry* sheets = !s->SpriteName.empty() && Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
+                if (s->DrawMode == SpriteDrawMode::Simple)
+                    DrawSprite(rect, *s, nullptr, c, id, sheets);
+                else // 9-slice / tiled panels: borders in screen px
+                    DrawSprite(glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)), *s, nullptr, c, id, sheets, &t.Size);
             }
             else if (m_Registry.all_of<UIButtonComponent>(e))
                 Renderer2D::DrawQuad(rect, tint, id);

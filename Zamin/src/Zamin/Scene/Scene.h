@@ -7,6 +7,7 @@
 #include "Zamin/Renderer/PostProcess.h"
 #include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Renderer/Renderer3D.h"
+#include "Zamin/Renderer/SpriteSheet.h"
 
 #include <filesystem>
 #include <memory>
@@ -26,6 +27,7 @@ class b2World;
 namespace Zamin {
 
     class Entity;
+    class AssetRegistry;
     struct TilemapComponent;
     class ContactListener2D;
     class PhysicsWorld3D;
@@ -102,6 +104,9 @@ namespace Zamin {
         // Editor view modes (the viewport toolbar): debug views of the 3D surfaces, wireframe.
         RenderDebugView DebugView = RenderDebugView::Lit;
         WireframeMode Wireframe = WireframeMode::Off;
+        // Parallax layers (ParallaxComponent) move with the rendering camera. The game camera
+        // always does this (OnUpdateRuntime); the editor's scene view only as a preview.
+        bool Parallax = false;
     };
 
     class Scene
@@ -540,6 +545,26 @@ namespace Zamin {
         static bool HasMaterialInstances(const struct MeshRendererComponent& mr);
         // Back to the shared materials.
         static void ClearMaterialInstances(struct MeshRendererComponent& mr);
+
+        // ---- sprites (2D)
+        // The part of its texture a sprite shows now: the animation's frame (a grid cell, or a
+        // named frame of the texture's sprite sheet), else the renderer's SpriteName frame, else
+        // the whole texture. Frames come from `registry` (the texture's .zmeta); without one, or
+        // for a name the sheet does not have, the whole texture.
+        static SpriteRegion GetSpriteRegion(const struct SpriteRendererComponent& sprite, const struct SpriteAnimationComponent* animation,
+                                            const AssetRegistry* registry);
+        // How it is laid out: draw mode, size, pivot, 9-slice borders (the renderer's, else the
+        // frame's). `uiSize`: a screen-space UI sprite that many px big (1 px = 1 unit).
+        static SpriteGeometry GetSpriteGeometry(const struct SpriteRendererComponent& sprite, const SpriteRegion& region,
+                                                const glm::vec2* uiSize = nullptr);
+        // Draws it into the open Renderer2D batch (FlipX / FlipY are part of `transform`).
+        static void DrawSprite(const glm::mat4& transform, const struct SpriteRendererComponent& sprite,
+                               const struct SpriteAnimationComponent* animation, const glm::vec4& color, int entityID,
+                               const AssetRegistry* registry, const glm::vec2* uiSize = nullptr);
+        // The rectangle a sprite covers in its own space as a transform of the unit quad (identity
+        // for a Simple sprite of a whole texture or a centred frame).
+        static glm::mat4 GetSpriteRectTransform(const struct SpriteRendererComponent& sprite, const struct SpriteAnimationComponent* animation,
+                                                const AssetRegistry* registry);
     private:
         void RenderScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                          const SceneRenderOptions& options);

@@ -103,6 +103,49 @@ namespace Zamin {
         return moved;
     }
 
+    // ------------------------------------------------------------------ 2D sorting
+    // The sorting layer of a 2D renderer: its ID and, for people reading the file and for a scene
+    // opened in another project, its name. Nothing is written for the Default layer.
+    static void WriteSortingLayer(json& j, uint32_t id)
+    {
+        if (id == SortingLayerList::DefaultID)
+            return;
+        j["SortingLayer"] = id;
+        if (const SortingLayer* layer = Project::GetSortingLayers().Find(id))
+            j["SortingLayerName"] = layer->Name;
+    }
+
+    static uint32_t ReadSortingLayer(const json& j)
+    {
+        uint32_t id = SortingLayerList::DefaultID;
+        if (auto it = j.find("SortingLayer"); it != j.end() && it->is_number_unsigned())
+            id = it->get<uint32_t>();
+        std::string name;
+        if (auto it = j.find("SortingLayerName"); it != j.end() && it->is_string())
+            name = it->get<std::string>();
+        if (id == SortingLayerList::DefaultID && name.empty())
+            return id;
+        return Project::GetSortingLayers().Resolve(id, name);
+    }
+
+    static const char* SpriteDrawModeToString(SpriteDrawMode mode)
+    {
+        switch (mode)
+        {
+            case SpriteDrawMode::Simple: return "Simple";
+            case SpriteDrawMode::Sliced: return "Sliced";
+            case SpriteDrawMode::Tiled:  return "Tiled";
+        }
+        return "Simple";
+    }
+
+    static SpriteDrawMode SpriteDrawModeFromString(const std::string& s)
+    {
+        if (s == "Sliced") return SpriteDrawMode::Sliced;
+        if (s == "Tiled")  return SpriteDrawMode::Tiled;
+        return SpriteDrawMode::Simple;
+    }
+
     static const char* BodyTypeToString(Rigidbody2DComponent::BodyType t)
     {
         switch (t)
@@ -222,20 +265,43 @@ namespace Zamin {
         }
         if (auto* c = entity.TryGetComponent<SpriteRendererComponent>())
         {
-            e["SpriteRenderer"] = { { "Color", ToJson(c->Color) }, { "Texture", c->TexturePath }, { "Tiling", c->TilingFactor },
-                                    { "SortingOrder", c->SortingOrder }, { "PixelArt", c->PixelArt }, { "FlipX", c->FlipX }, { "FlipY", c->FlipY } };
-            WriteAssetHandle(e["SpriteRenderer"], "Texture", c->TexturePath);
+            json& j = e["SpriteRenderer"];
+            j = { { "Color", ToJson(c->Color) }, { "Texture", c->TexturePath }, { "Tiling", c->TilingFactor },
+                  { "SortingOrder", c->SortingOrder }, { "PixelArt", c->PixelArt }, { "FlipX", c->FlipX }, { "FlipY", c->FlipY } };
+            WriteAssetHandle(j, "Texture", c->TexturePath);
+            // Newer settings only when used (older files stay unchanged).
+            if (!c->SpriteName.empty())
+                j["Sprite"] = c->SpriteName;
+            if (c->DrawMode != SpriteDrawMode::Simple)
+                j["DrawMode"] = SpriteDrawModeToString(c->DrawMode);
+            if (c->Size != glm::vec2(1.0f))
+                j["Size"] = ToJson(c->Size);
+            if (c->HasSliceBorder())
+                j["SliceBorder"] = ToJson(c->SliceBorder);
+            if (c->PixelsPerUnit != 100.0f)
+                j["PixelsPerUnit"] = c->PixelsPerUnit;
+            WriteSortingLayer(j, c->SortingLayer);
         }
         if (auto* c = entity.TryGetComponent<SpriteAnimationComponent>())
+        {
             e["SpriteAnimation"] = { { "Columns", c->Columns }, { "Rows", c->Rows }, { "StartFrame", c->StartFrame },
                                      { "FrameCount", c->FrameCount }, { "FPS", c->FPS }, { "Loop", c->Loop }, { "Playing", c->Playing } };
+            if (!c->Frames.empty())
+                e["SpriteAnimation"]["Frames"] = c->Frames;
+        }
         if (auto* c = entity.TryGetComponent<CircleRendererComponent>())
+        {
             e["CircleRenderer"] = { { "Color", ToJson(c->Color) }, { "Thickness", c->Thickness }, { "Fade", c->Fade }, { "SortingOrder", c->SortingOrder } };
+            WriteSortingLayer(e["CircleRenderer"], c->SortingLayer);
+        }
         if (auto* c = entity.TryGetComponent<TextComponent>())
         {
             e["Text"] = { { "Text", c->Text }, { "Color", ToJson(c->Color) }, { "Kerning", c->Kerning }, { "LineSpacing", c->LineSpacing },
                           { "Centered", c->Centered }, { "Font", c->FontPath } };
             WriteAssetHandle(e["Text"], "Font", c->FontPath);
+            if (c->SortingOrder != 1000)
+                e["Text"]["SortingOrder"] = c->SortingOrder;
+            WriteSortingLayer(e["Text"], c->SortingLayer);
         }
         if (auto* c = entity.TryGetComponent<MeshRendererComponent>())
         {
@@ -336,7 +402,11 @@ namespace Zamin {
                              { "Tiles", c->Tiles }, { "Color", ToJson(c->Color) }, { "SortingOrder", c->SortingOrder },
                              { "Collision", c->Collision }, { "Friction", c->Friction } };
             WriteAssetHandle(e["Tilemap"], "Tileset", c->TilesetPath);
+            WriteSortingLayer(e["Tilemap"], c->SortingLayer);
         }
+        if (auto* c = entity.TryGetComponent<ParallaxComponent>())
+            e["Parallax"] = { { "Factor", ToJson(c->Factor) }, { "RepeatX", c->RepeatX }, { "RepeatY", c->RepeatY },
+                              { "Spacing", ToJson(c->Spacing) } };
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
             e["ParticleSystem"] = {
                 { "Playing", c->Playing }, { "Looping", c->Looping }, { "PlayInEditor", c->PlayInEditor },
@@ -351,7 +421,10 @@ namespace Zamin {
                 { "Billboard", c->Billboard }, { "Texture", c->TexturePath }, { "SortingOrder", c->SortingOrder },
             };
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
+        {
             WriteAssetHandle(e["ParticleSystem"], "Texture", c->TexturePath);
+            WriteSortingLayer(e["ParticleSystem"], c->SortingLayer);
+        }
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
             e["UITransform"] = { { "Anchor", (int)c->Anchor }, { "Position", ToJson(c->Position) }, { "Size", ToJson(c->Size) }, { "FontSize", c->FontSize }, { "Order", c->Order } };
         if (auto* c = entity.TryGetComponent<UIButtonComponent>())
@@ -437,6 +510,12 @@ namespace Zamin {
             c.PixelArt = j.value("PixelArt", false);
             c.FlipX = j.value("FlipX", false);
             c.FlipY = j.value("FlipY", false);
+            c.SpriteName = j.value("Sprite", std::string());
+            c.DrawMode = SpriteDrawModeFromString(j.value("DrawMode", std::string("Simple")));
+            c.Size = glm::max(Vec(j, "Size", glm::vec2(1.0f)), glm::vec2(0.0f));
+            c.SliceBorder = glm::max(Vec(j, "SliceBorder", glm::vec4(0.0f)), glm::vec4(0.0f));
+            c.PixelsPerUnit = std::max(0.001f, j.value("PixelsPerUnit", 100.0f));
+            c.SortingLayer = ReadSortingLayer(j);
         }
         if (e.contains("SpriteAnimation"))
         {
@@ -449,6 +528,10 @@ namespace Zamin {
             c.FPS = j.value("FPS", 10.0f);
             c.Loop = j.value("Loop", true);
             c.Playing = j.value("Playing", true);
+            if (auto it = j.find("Frames"); it != j.end() && it->is_array())
+                for (const json& name : *it)
+                    if (name.is_string())
+                        c.Frames.push_back(name.get<std::string>());
         }
         if (e.contains("CircleRenderer"))
         {
@@ -458,6 +541,7 @@ namespace Zamin {
             c.Thickness = j.value("Thickness", 1.0f);
             c.Fade = j.value("Fade", 0.005f);
             c.SortingOrder = j.value("SortingOrder", 0);
+            c.SortingLayer = ReadSortingLayer(j);
         }
         if (e.contains("Text"))
         {
@@ -469,6 +553,8 @@ namespace Zamin {
             c.LineSpacing = j.value("LineSpacing", 0.0f);
             c.Centered = j.value("Centered", false);
             c.FontPath = ReadAssetPath(j, "Font");
+            c.SortingOrder = j.value("SortingOrder", 1000);
+            c.SortingLayer = ReadSortingLayer(j);
         }
         if (e.contains("MeshRenderer"))
         {
@@ -668,8 +754,18 @@ namespace Zamin {
             c.EnsureSize();
             c.Color = Vec(j, "Color", glm::vec4(1.0f));
             c.SortingOrder = j.value("SortingOrder", -1);
+            c.SortingLayer = ReadSortingLayer(j);
             c.Collision = j.value("Collision", true);
             c.Friction = j.value("Friction", 0.6f);
+        }
+        if (e.contains("Parallax"))
+        {
+            const json& j = e["Parallax"];
+            auto& c = entity.AddComponent<ParallaxComponent>();
+            c.Factor = Vec(j, "Factor", glm::vec2(0.5f));
+            c.RepeatX = j.value("RepeatX", false);
+            c.RepeatY = j.value("RepeatY", false);
+            c.Spacing = glm::max(Vec(j, "Spacing", glm::vec2(0.0f)), glm::vec2(0.0f));
         }
         if (e.contains("ParticleSystem"))
         {
@@ -703,6 +799,7 @@ namespace Zamin {
             c.Billboard = j.value("Billboard", true);
             c.TexturePath = ReadAssetPath(j, "Texture");
             c.SortingOrder = j.value("SortingOrder", 0);
+            c.SortingLayer = ReadSortingLayer(j);
         }
         if (e.contains("UITransform"))
         {

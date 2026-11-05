@@ -36,6 +36,7 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, CapsuleCollider3DComponent>) return "CapsuleCollider3D";
         else if constexpr (std::is_same_v<T, CharacterController3DComponent>) return "CharacterController3D";
         else if constexpr (std::is_same_v<T, TilemapComponent>) return "Tilemap";
+        else if constexpr (std::is_same_v<T, ParallaxComponent>) return "Parallax";
         else if constexpr (std::is_same_v<T, ParticleSystemComponent>) return "ParticleSystem";
         else if constexpr (std::is_same_v<T, UITransformComponent>) return "UITransform";
         else if constexpr (std::is_same_v<T, UIButtonComponent>) return "UIButton";

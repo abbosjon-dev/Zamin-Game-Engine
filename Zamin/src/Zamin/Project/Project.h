@@ -4,6 +4,7 @@
 #include "Zamin/Core/Base.h"
 #include "Zamin/Core/InputActions.h"
 #include "Zamin/Debug/DebugDraw.h"
+#include "Zamin/Scene/SortingLayers.h"
 
 #include <filesystem>
 #include <string>
@@ -33,6 +34,9 @@ namespace Zamin {
         // shapes are shown (the player's --no-debug-draw turns it off) and the physics debug views.
         // Shipping builds have no debug drawing at all. The editor viewport has its own toggles.
         DebugDrawSettings DebugDraw;
+        // Named 2D sorting layers, back to front (Project settings > Sorting layers). Projects
+        // without a "SortingLayers" section have only "Default".
+        SortingLayerList SortingLayers;
 
         static std::vector<std::string> DefaultTags() { return { "Player", "Enemy", "Pickup" }; }
     };
@@ -59,6 +63,8 @@ namespace Zamin {
         // Adds a tag to the active project's tag list. Returns true when it was added
         // (false: no project, empty name or already listed).
         static bool RegisterTag(const std::string& tag);
+        // Sorting layers of the active project (only "Default" when no project is open).
+        static const SortingLayerList& GetSortingLayers();
 
         // Every asset of the active project with its handle (nullptr without a project). Read from
         // the asset folder on first use (with the snapshot in the cache folder: files moved while the
@@ -105,6 +111,9 @@ namespace Zamin {
         // The "InputActions" section on its own (JSON), used by tests and the editor.
         static std::string InputMapToString(const InputActionMap& map);
         static bool InputMapFromString(const std::string& text, InputActionMap& out);
+        // The "SortingLayers" section on its own (JSON array of { "ID", "Name" }).
+        static std::string SortingLayersToString(const SortingLayerList& layers);
+        static bool SortingLayersFromString(const std::string& text, SortingLayerList& out);
     private:
         Ref<Project> m_Project;
     };

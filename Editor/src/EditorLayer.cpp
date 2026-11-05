@@ -358,8 +358,8 @@ namespace Zamin {
                 }
                 s.Shadows.Sanitize();
             }
-            // ZAMIN_EDITOR_SCENE_SETTINGS=1 | render | shadows | post | exposure: the scene settings tab in front
-            // (scrolled to that section).
+            // ZAMIN_EDITOR_SCENE_SETTINGS=1 | sky | render | shadows | post | bloom | lens | exposure: the scene
+            // settings tab in front (scrolled to that section).
             if (const char* settings = std::getenv("ZAMIN_EDITOR_SCENE_SETTINGS"))
             {
                 m_ShowSceneSettings = m_FocusSceneSettings = true;
@@ -4014,6 +4014,67 @@ namespace Zamin {
             UI::EndPropertyGrid();
         }
 
+        ImGui::SeparatorText(ICON_FA_SUN "  Osmon gradienti va quyosh");
+        if (m_SceneSettingsScrollTo == "sky")
+        {
+            ImGui::SetScrollHereY(0.0f);
+            m_SceneSettingsScrollTo.clear();
+        }
+        if (UI::BeginPropertyGrid("sky"))
+        {
+            SkySettings& sky = s.Sky;
+            if (!s.EnvironmentMap.empty())
+            {
+                UI::PropertyLabel("");
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  HDRI tanlangan: osmon HDRI'dan chiziladi, gradient va quyosh diski "
+                                    "ko'rinmaydi");
+                ImGui::PopTextWrapPos();
+            }
+            UI::PropertyLabel("Zenit egriligi", "Ufqdan tepaga (zenit) rang qanday o'tadi: kichik qiymat - tepa rangi pastgacha "
+                                                "tushadi (keng ko'k osmon), katta - ufq rangi balandroq ko'tariladi");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            changed |= ImGui::SliderFloat("##skycurve", &sky.Curve, 0.05f, 3.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            UI::PropertyLabel("Yerga o'tish", "Ufqdan pastda yer rangi qanchalik tez boshlanadi: katta qiymat - ingichka ufq "
+                                              "chizig'i, kichik - keng, yumshoq o'tish");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            changed |= ImGui::SliderFloat("##groundfade", &sky.GroundFade, 0.25f, 20.0f, "%.2f",
+                                          ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
+            UI::PropertyLabel("Quyosh diski", "Osmonda asosiy Directional Light (soya beradigan quyosh) yo'nalishida disk va "
+                                              "uning nur gardishi chiziladi; rangi quyosh rangidan olinadi");
+            changed |= ImGui::Checkbox("##sundisc", &sky.SunDisc);
+            if (sky.SunDisc)
+            {
+                if (!m_ActiveScene->GetSunEntity())
+                {
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("(sahnada Directional Light yo'q)");
+                }
+                UI::PropertyLabel("Disk o'lchami", "Disk markazidan yorqinligi yarmiga tushadigan burchak (gradus). Haqiqiy quyosh "
+                                                   "~0.27 gradus; o'yinlarda kattaroq disk chiroyliroq ko'rinadi");
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                changed |= ImGui::SliderFloat("##sunsize", &sky.SunSize, SkySettings::MinSunSize, SkySettings::MaxSunSize, "%.2f deg",
+                                              ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
+                UI::PropertyLabel("Disk yorqinligi", "Disk qanchalik yorqin (quyosh rangiga ko'paytiriladi; 1 dan katta qiymat "
+                                                     "HDR - bloom yoqilgan bo'lsa porlaydi)");
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                changed |= ImGui::SliderFloat("##sunintensity", &sky.SunIntensity, 0.0f, 50.0f, "%.2f",
+                                              ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
+                UI::PropertyLabel("Nur gardishi", "Disk atrofidagi keng, xira yorug'lik (halo) kuchi");
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                changed |= ImGui::SliderFloat("##sunglow", &sky.SunGlow, 0.0f, 2.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            }
+            UI::PropertyLabel("");
+            if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Standart osmon"))
+            {
+                sky = SkySettings();
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Gradient egriliklari va quyosh diski standart qiymatlarga qaytadi (ranglar o'zgarmaydi)");
+            UI::EndPropertyGrid();
+        }
+
         ImGui::SeparatorText(ICON_FA_EXPAND "  Render");
         if (m_SceneSettingsScrollTo == "render")
         {
@@ -4141,14 +4202,46 @@ namespace Zamin {
                 changed |= UI::PropertySlider("SSAO radiusi", p.SSAORadius, 0.05f, 3.0f);
                 changed |= UI::PropertySlider("SSAO kuchi", p.SSAOIntensity, 0.2f, 4.0f);
             }
+            if (m_SceneSettingsScrollTo == "bloom")
+            {
+                ImGui::SetScrollHereY(0.1f);
+                m_SceneSettingsScrollTo.clear();
+            }
             changed |= UI::PropertyBool("Bloom (yorqinlik)", p.Bloom);
             if (p.Bloom)
             {
                 changed |= UI::PropertySlider("Bloom chegarasi", p.BloomThreshold, 0.0f, 1.0f);
                 changed |= UI::PropertySlider("Bloom kuchi", p.BloomIntensity, 0.0f, 3.0f);
                 changed |= UI::PropertySlider("Bloom radiusi", p.BloomRadius, 0.5f, 3.0f);
+                UI::PropertyLabel("Bloom rangi", "Porlash shu rangga ko'paytiriladi: oq - yorug'lik o'z rangida porlaydi, iliq rang - "
+                                                 "oltinrang, sovuq - zangori porlash");
+                changed |= ImGui::ColorEdit3("##bloomtint", &p.BloomTint.x, ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+                UI::PropertyLabel("Linza changi", "Yorqin yorug'liklarning keng porlashi ifloslangan linzadagi dog' va changlarni "
+                                                  "ko'rsatadi (kamera ob'ektiviga quyosh tushgandagidek). 0 - o'chiq");
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                changed |= ImGui::SliderFloat("##bloomdirt", &p.BloomDirt, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
             }
             changed |= UI::PropertySlider("Vinyetka", p.Vignette, 0.0f, 1.0f);
+            if (m_SceneSettingsScrollTo == "lens")
+            {
+                ImGui::SetScrollHereY(0.1f);
+                m_SceneSettingsScrollTo.clear();
+            }
+            UI::PropertyLabel("Xromatik aberratsiya", "Tasvir chetlariga tomon qizil va ko'k ranglar bir-biridan siljiydi (arzon "
+                                                      "linzadagi rangli hoshiya). 0 - o'chiq");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            changed |= ImGui::SliderFloat("##chromatic", &p.ChromaticAberration, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            UI::PropertyLabel("Plyonka donasi", "Tayyor tasvir ustidagi har kadr o'zgaradigan shovqin (kino plyonkasi donadorligi), "
+                                                "o'rta tonlarda eng kuchli. 0 - o'chiq");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            changed |= ImGui::SliderFloat("##grain", &p.FilmGrain, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            if (p.FilmGrain > 0.0f)
+            {
+                UI::PropertyLabel("Dona o'lchami", "Bitta donaning o'lchami, chiqish pikselida (1 - eng mayda)");
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                changed |= ImGui::SliderFloat("##grainsize", &p.FilmGrainSize, 1.0f, PostProcessSettings::MaxFilmGrainSize, "%.1f px",
+                                              ImGuiSliderFlags_AlwaysClamp);
+            }
             changed |= UI::PropertySlider("To'yinganlik", p.Saturation, 0.0f, 2.0f);
             changed |= UI::PropertySlider("Kontrast", p.Contrast, 0.5f, 2.0f);
             changed |= UI::PropertySlider("Yorqinlik", p.Brightness, -0.5f, 0.5f);
@@ -4322,10 +4415,27 @@ namespace Zamin {
                     SceneRenderOptions view;
                     view.SkipEditorHidden = m_SceneState != SceneState::Play;
                     Scene::LightSet lights = m_ActiveScene->CollectLights(m_EditorCamera.GetPosition(), view);
-                    UI::PropertyLabel("Quyosh");
-                    ImGui::TextUnformatted(lights.Sun != entt::null ? Entity(lights.Sun, m_ActiveScene.get()).GetName().c_str() : "-");
-                    if (lights.ExtraSuns && ImGui::IsItemHovered())
-                        ImGui::SetTooltip("Yana %u ta faol Directional Light ishlatilmayapti (faqat birinchisi yoritadi)", lights.ExtraSuns);
+                    UI::PropertyLabel("Quyosh", "Asosiy Directional Light: sahna tartibida 'Soyalar' yoqilgan birinchisi (bo'lmasa "
+                                                "birinchisi). Soyani faqat u beradi, osmondagi quyosh diski unga ergashadi.");
+                    if (lights.Sun == entt::null)
+                        ImGui::TextUnformatted("-");
+                    else if (lights.DirectionalLights.size() > 1)
+                        ImGui::Text("%s  +%zu", Entity(lights.Sun, m_ActiveScene.get()).GetName().c_str(),
+                                    lights.DirectionalLights.size() - 1);
+                    else
+                        ImGui::TextUnformatted(Entity(lights.Sun, m_ActiveScene.get()).GetName().c_str());
+                    if (lights.DirectionalLights.size() > 1 && ImGui::IsItemHovered())
+                    {
+                        std::string others;
+                        for (entt::entity e : lights.DirectionalLights)
+                            if (e != lights.Sun)
+                                others += std::format("\n  - {}", Entity(e, m_ActiveScene.get()).GetName());
+                        std::string dropped = lights.DroppedDirectionalLights
+                            ? std::format("\nLimitdan ({} ta) oshgan {} tasi yoritmaydi.", Renderer3D::MaxDirectionalLights,
+                                          lights.DroppedDirectionalLights)
+                            : std::string();
+                        ImGui::SetTooltip("Yana yoritadigan (soyasiz) quyoshlar:%s%s", others.c_str(), dropped.c_str());
+                    }
                     static const std::string localTip = std::format("Nuqtali va spot yorug'liklar birgalikda eng ko'pi bilan {} ta "
                                                                     "joyni egallaydi", Renderer3D::MaxLocalLights);
                     UI::PropertyLabel("Nuqtali + spot", localTip.c_str());

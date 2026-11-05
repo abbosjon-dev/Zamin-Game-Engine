@@ -134,11 +134,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 113. Render statistikasi: culled soni
 - [x] 114. Soyalar sifati sozlamalari (atlas o'lchami, PCF)
 - [x] 115. Shadow bias sozlamalari sahna sozlamalarida
-- [ ] 116. Directional light soyasi bilan bir nechta quyosh (faqat biri soya)
-- [ ] 117. Sky gradient + quyosh diskini sozlash
-- [ ] 118. Chromatic aberration va film grain effekti
-- [ ] 119. Bloom'ni yorug'lik bo'yicha tint qilish
-- [ ] 120. Rendering regressiya testi (headless skrinshot solishtirish)
+- [x] 116. Directional light soyasi bilan bir nechta quyosh (faqat biri soya)
+- [x] 117. Sky gradient + quyosh diskini sozlash
+- [x] 118. Chromatic aberration va film grain effekti
+- [x] 119. Bloom'ni yorug'lik bo'yicha tint qilish
+- [x] 120. Rendering regressiya testi (headless skrinshot solishtirish)
 
 ## M07 Debug draw va vizualizatsiya
 

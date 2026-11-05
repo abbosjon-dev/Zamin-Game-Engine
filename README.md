@@ -67,6 +67,15 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - **Renderer** (OpenGL 4.1 core, RHI abstraksiya qatlami orqasida):
   - 2D batch renderer: sprite, tekstura, doira, chiziq, **matn** (UTF-8, lotin/kirill, `oʻ gʻ`)
   - 3D PBR (metallic/roughness), yo'naltirilgan quyosh, gradient osmon, atrof-muhit aksi
+  - **Bir nechta quyosh**: barcha faol Directional Light'lar (bir vaqtda 4 tagacha) sahnani yoritadi, soyani esa faqat
+    bittasi beradi — sahna tartibida "Soyalar" yoqilgan birinchisi (asosiy quyosh; osmondagi quyosh diski ham unga
+    ergashadi). Inspektorda har bir quyoshning roli yoziladi ("Soya bermaydi: soyani '...' beradi"), Statistika panelida
+    asosiy quyosh va soyasiz quyoshlar soni
+  - **Osmon gradienti va quyosh diski** (HDRI bo'lmaganda; Sahna panelining "Osmon gradienti va quyosh" bo'limi, sahnada
+    saqlanadi): zenit / ufq / yer ranglari, zenit egriligi (tepa rangi qanchalik pastga tushadi), yerga o'tish (ufq
+    chizig'ining kengligi), quyosh diski (o'lchami gradusda, yorqinligi, nur gardishi) — asosiy quyosh yo'nalishida va
+    rangida. Gradient atrof yorug'lik va akslarda ham ishlatiladi. Namuna: `Showcase3D` ichidagi `Scenes/Sunset.zscene`
+    (3 ta quyosh, quyosh botishi osmoni, bloom rangi, linza changi, xromatik aberratsiya, plyonka donasi)
   - **Nuqtali va spot yorug'liklar** — birgalikda 32 tagacha: **Spot Light** (obyektning -Z o'qi bo'ylab konus, ichki /
     tashqi burchak orasida yumshoq so'nish, masofa bo'yicha nuqtali yorug'lik kabi so'nish). Ko'proq bo'lsa kameraga eng
     ko'p ta'sir qiladiganlari tanlanadi (kuchi x rangi, kamera yorug'lik radiusidan qanchalik uzoqligiga qarab).
@@ -131,7 +140,11 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
   - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti,
     kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`
-  - **Post-processing**: SSAO (ambient occlusion), bloom, vinyetka, kontrast/to'yinganlik/rang tuslash,
+  - **Post-processing**: SSAO (ambient occlusion), bloom (**rangi** — porlash shu rangga ko'paytiriladi; **linza changi** —
+    yorqin yorug'likning keng porlashi protsedural chang/dog' teksturasini yoritadi), vinyetka, kontrast/to'yinganlik/rang
+    tuslash, **xromatik aberratsiya** (chetlarga tomon qizil va ko'k siljiydi), **plyonka donasi** (har kadr o'zgaradigan
+    shovqin, o'rta tonlarda kuchli, dona o'lchami bilan; FXAA yoqilgan bo'lsa undan keyin qo'shiladi) — yangi effektlar
+    standart holatda o'chiq,
     **FXAA** anti-aliasing (tonemapping va rang sozlamalaridan keyin; Sahna panelida yoqiladi, subpiksel kuchi bilan),
     **avto ekspozitsiya** (ko'z moslashishi: o'rtacha log yorqinlik GPU'da kichraytirish zanjiri bilan o'lchanadi, vaqt
     bo'yicha moslashish tezligi, min/max EV, kompensatsiya; standart holatda o'chiq - qo'lda ekspozitsiya)
@@ -208,7 +221,17 @@ Boshqa barcha kutubxonalar (GLFW, GLM, EnTT, ImGui, ImGuizmo, Box2D, Jolt, nlohm
 ./build/bin/ZaminEditor Projects/Adventure3D     # uchinchi shaxs 3D o'yin
 ./build/bin/ZaminPlayer Projects/Platformer2D    # o'yinni editor'siz ishga tushirish
 ctest --test-dir build                           # unit testlar
+Tests/render_tests.sh                            # rendering regressiya testi (display kerak; yo'q bo'lsa xvfb-run)
 ```
+
+**Rendering regressiya testi** (`ZaminRenderTests`, `Tests/RenderTests.cpp`): bir nechta etalon sahna (PBR + soyalar +
+nuqtali/spot yorug'lik, materiallar, bir nechta quyosh va osmon, barcha post effektlar, debug ko'rinish, 2D, Showcase3D va
+Platformer2D namunalari) 480x270 o'lchamda offscreen chiziladi va `Tests/Reference/*.png` bilan solishtiriladi: kanal farqi
+`--threshold` (standart 8) dan katta piksellar `--max-percent` (standart 0.5%) dan oshsa test yiqiladi va
+`build/RenderTests/` ga yangi rasm hamda farq rasmi (`<nom>.diff.png`, farqlar qizil) yoziladi. Ko'rinish ataylab
+o'zgartirilganda etalonlar `Tests/render_tests.sh --update` yoki `cmake --build build --target update_render_references`
+bilan qayta yaratiladi; `--filter`, `--list` ham bor. `render_tests` CMake target'i testni ishga tushiradi. Unit testlar
+(`ZaminTests`) GPU'siz qoladi.
 
 ---
 

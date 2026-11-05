@@ -4,6 +4,7 @@
 #include "Zamin/Renderer/Framebuffer.h"
 
 #include <glm/glm.hpp>
+#include <vector>
 
 namespace Zamin {
 
@@ -17,6 +18,12 @@ namespace Zamin {
         float BloomKnee = 0.5f;
         float BloomIntensity = 0.6f;
         float BloomRadius = 1.0f;
+        // The glow's colour: the bloom (which has the colour of the light it comes from) is
+        // multiplied by it - white keeps it as it is, a warm tint gives a golden glow.
+        glm::vec3 BloomTint{ 1.0f };
+        // Lens dirt: the wide glow of bright lights also lights up smudges and specks of a dirty
+        // lens (a texture made once, procedurally) - 0 none .. 1 strong.
+        float BloomDirt = 0.0f;
 
         bool SSAO = false;       // screen-space ambient occlusion (3D)
         float SSAORadius = 0.6f;
@@ -24,6 +31,13 @@ namespace Zamin {
         float SSAOBias = 0.03f;
 
         float Vignette = 0.0f;   // 0..1
+        // Chromatic aberration: red and blue are split apart towards the edges of the picture, like
+        // the colour fringes of a cheap lens (0 off .. 1 strong).
+        float ChromaticAberration = 0.0f;
+        // Film grain: animated noise over the final picture, strongest in the mid tones (0 off ..
+        // 1 strong); FilmGrainSize: the size of a grain in output pixels (1 .. 4).
+        float FilmGrain = 0.0f;
+        float FilmGrainSize = 1.0f;
         float Saturation = 1.0f;
         float Contrast = 1.0f;
         float Brightness = 0.0f; // -1..1
@@ -61,6 +75,10 @@ namespace Zamin {
         static float AdaptExposure(float currentEV, float targetEV, float deltaTime, float speed);
         // Values out of range (or not finite) back into range: MinEV <= MaxEV, speed > 0.
         void SanitizeAutoExposure();
+        // Chromatic aberration, film grain, bloom tint and lens dirt brought into range (anything not
+        // finite to its default, the tint not negative).
+        void SanitizeLensEffects();
+        static constexpr float MaxFilmGrainSize = 4.0f;
     };
 
     // What a view kept from its earlier frames: auto exposure's adapted brightness. One per view
@@ -80,6 +98,7 @@ namespace Zamin {
         Ref<Framebuffer> m_Adapted[2]; // 1x1, ping-pong: last frame's value -> this frame's
         int m_Current = 0;
         bool m_Valid = false;
+        uint32_t m_Frame = 0;          // frames post-processed: film grain changes every frame
     };
 
     // One picture to post-process (besides the settings).
@@ -112,6 +131,11 @@ namespace Zamin {
                           const Ref<Framebuffer>& target, uint32_t depthTexture = 0, const glm::mat4& projection = glm::mat4(1.0f));
         // The same with an output size of its own (render scale) and a view history (auto exposure).
         static void Apply(const PostProcessInput& input, const PostProcessSettings& settings, const Ref<Framebuffer>& target);
+
+        // The lens dirt the bloom lights up: `size` x `size` RGBA8 texels (rows top first), soft
+        // specks and smudges of several sizes on black, the same for the same seed. No GPU needed.
+        static std::vector<uint8_t> GenerateLensDirt(uint32_t size, uint32_t seed = 1);
+        static constexpr uint32_t LensDirtSize = 512;
 
         // Input is linear HDR; output is display (sRGB) color.
     };

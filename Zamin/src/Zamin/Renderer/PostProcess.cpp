@@ -2,6 +2,7 @@
 #include "Zamin/Renderer/RenderCommand.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Renderer/Shader.h"
+#include "Zamin/Renderer/Texture.h"
 #include "Zamin/Core/Profiler.h"
 
 #include <algorithm>
@@ -168,15 +169,71 @@ void main()
 }
 )";
 
+        // Film grain, shared by the last pass of the picture (the composite, or FXAA after it):
+        // value noise of hashed lattice points, a new pattern every frame (u_GrainSeed).
+        const char* s_GrainGLSL = R"(
+uniform float u_FilmGrain;     // 0: no grain
+uniform float u_GrainSize;     // output pixels per grain
+uniform int u_GrainSeed;
+
+uint GrainHash(uint x)
+{
+    x ^= x >> 16; x *= 0x7feb352dU;
+    x ^= x >> 15; x *= 0x846ca68bU;
+    x ^= x >> 16;
+    return x;
+}
+float GrainLattice(ivec2 p, uint seed)
+{
+    return float(GrainHash(uint(p.x) + GrainHash(uint(p.y) + seed)) & 0xffffffU) / 16777215.0;
+}
+float GrainValue(vec2 p, uint seed)
+{
+    vec2 i = floor(p), f = p - i;
+    f = f * f * (3.0 - 2.0 * f);
+    ivec2 c = ivec2(i);
+    float a = GrainLattice(c, seed), b = GrainLattice(c + ivec2(1, 0), seed);
+    float d = GrainLattice(c + ivec2(0, 1), seed), e = GrainLattice(c + ivec2(1, 1), seed);
+    return mix(mix(a, b, f.x), mix(d, e, f.x), f.y);
+}
+// Display colour with grain over it: two noise values (a softer, triangular spread), strongest in
+// the mid tones (dark and bright parts keep their black and white).
+vec3 ApplyGrain(vec3 color, vec2 fragCoord)
+{
+    if (u_FilmGrain <= 0.0)
+        return color;
+    vec2 p = (fragCoord - 0.5) / max(u_GrainSize, 1.0);
+    uint seed = GrainHash(uint(u_GrainSeed) * 2u + 1u);
+    float n = GrainValue(p, seed) + GrainValue(p + vec2(17.31, 41.87), seed ^ 0x9e3779b9U) - 1.0;
+    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    float response = 1.0 - 0.7 * pow(abs(luma * 2.0 - 1.0), 2.0);
+    return clamp(color + n * (u_FilmGrain * 0.16 * response), 0.0, 1.0);
+}
+)";
+
+        // Inserts the grain functions after the #version line of a fragment shader.
+        std::string WithGrain(const char* src)
+        {
+            std::string s(src);
+            size_t eol = s.find('\n');
+            return s.substr(0, eol + 1) + s_GrainGLSL + s.substr(eol + 1);
+        }
+
         const char* s_CompositeFS = R"(#version 410 core
 layout(location = 0) out vec4 o_Color;
 in vec2 v_UV;
 uniform sampler2D u_Scene;
 uniform sampler2D u_Bloom;
+uniform sampler2D u_BloomWide;     // a wider level of the glow (what the lens dirt is lit by)
+uniform sampler2D u_DirtMap;
 uniform sampler2D u_AO;
 uniform int u_AOEnabled;
 uniform int u_BloomEnabled;
 uniform float u_BloomIntensity;
+uniform vec3 u_BloomTint;
+uniform float u_BloomDirt;
+uniform float u_ChromaticAberration;
+uniform int u_ApplyGrain;          // 1: this pass writes the final picture (no FXAA after it)
 uniform float u_Vignette;
 uniform float u_Saturation;
 uniform float u_Contrast;
@@ -195,11 +252,26 @@ vec3 ACES(vec3 x)
 
 void main()
 {
-    vec3 color = max(texture(u_Scene, v_UV).rgb, vec3(0.0));
+    vec3 color;
+    if (u_ChromaticAberration > 0.0)
+    {
+        // red and blue taken from a little further out / further in, more towards the edges
+        vec2 d = v_UV - 0.5;
+        vec2 shift = d * dot(d, d) * (0.06 * u_ChromaticAberration);
+        color = vec3(texture(u_Scene, v_UV - shift).r, texture(u_Scene, v_UV).g, texture(u_Scene, v_UV + shift).b);
+        color = max(color, vec3(0.0));
+    }
+    else
+        color = max(texture(u_Scene, v_UV).rgb, vec3(0.0));
     if (u_AOEnabled == 1)
         color *= texture(u_AO, v_UV).r;
     if (u_BloomEnabled == 1)
-        color += texture(u_Bloom, v_UV).rgb * u_BloomIntensity;
+    {
+        vec3 glow = texture(u_Bloom, v_UV).rgb;
+        if (u_BloomDirt > 0.0)
+            glow += texture(u_BloomWide, v_UV).rgb * texture(u_DirtMap, v_UV).rgb * (u_BloomDirt * 6.0);
+        color += glow * u_BloomIntensity * u_BloomTint;
+    }
     if (u_AutoExposure == 1)
         color *= u_ExposureScale / exp2(texelFetch(u_Exposure, ivec2(0), 0).r);
 
@@ -219,7 +291,10 @@ void main()
         float v = smoothstep(0.85, 0.25, length(d) * (0.6 + u_Vignette));
         color *= mix(1.0, v, u_Vignette);
     }
-    o_Color = vec4(clamp(color, 0.0, 1.0), 1.0);
+    color = clamp(color, 0.0, 1.0);
+    if (u_ApplyGrain == 1)
+        color = ApplyGrain(color, gl_FragCoord.xy);
+    o_Color = vec4(color, 1.0);
 }
 )";
 
@@ -255,7 +330,7 @@ void main()
     // flat area: nothing to smooth
     if (lumaRange < max(EDGE_THRESHOLD_MIN, lumaMax * EDGE_THRESHOLD_MAX))
     {
-        o_Color = vec4(colorCenter, 1.0);
+        o_Color = vec4(ApplyGrain(colorCenter, gl_FragCoord.xy), 1.0);
         return;
     }
 
@@ -335,7 +410,7 @@ void main()
     vec2 finalUV = v_UV;
     if (isHorizontal) finalUV.y += finalOffset * stepLength;
     else finalUV.x += finalOffset * stepLength;
-    o_Color = vec4(textureLod(u_Source, finalUV, 0.0).rgb, 1.0);
+    o_Color = vec4(ApplyGrain(textureLod(u_Source, finalUV, 0.0).rgb, gl_FragCoord.xy), 1.0);
 }
 )";
 
@@ -413,6 +488,8 @@ void main()
             uint64_t ChainUses = 0;
             Ref<Framebuffer> AO, AOBlur;
             Ref<Framebuffer> FxaaInput; // the composited (LDR) picture FXAA reads
+            Ref<Texture2D> LensDirt;    // made the first time a scene uses it
+            Ref<Texture2D> Black;       // bound where a texture is not used
         };
         PostData* s_Data = nullptr;
         constexpr int s_MipCount = 6;
@@ -529,13 +606,21 @@ void main()
         s_Data = new PostData();
         s_Data->Downsample = Shader::Create("Post_Downsample", s_FullscreenVS, s_DownsampleFS);
         s_Data->Upsample = Shader::Create("Post_Upsample", s_FullscreenVS, s_UpsampleFS);
-        s_Data->Composite = Shader::Create("Post_Composite", s_FullscreenVS, s_CompositeFS);
+        s_Data->Composite = Shader::Create("Post_Composite", s_FullscreenVS, WithGrain(s_CompositeFS));
         s_Data->SSAO = Shader::Create("Post_SSAO", s_FullscreenVS, s_SSAOFS);
         s_Data->Blur = Shader::Create("Post_Blur", s_FullscreenVS, s_BlurFS);
-        s_Data->Fxaa = Shader::Create("Post_FXAA", s_FullscreenVS, s_FxaaFS);
+        s_Data->Fxaa = Shader::Create("Post_FXAA", s_FullscreenVS, WithGrain(s_FxaaFS));
         s_Data->LogLuminance = Shader::Create("Post_LogLuminance", s_FullscreenVS, s_LogLuminanceFS);
         s_Data->Halve = Shader::Create("Post_Halve", s_FullscreenVS, s_HalveFS);
         s_Data->Adapt = Shader::Create("Post_Adapt", s_FullscreenVS, s_AdaptFS);
+
+        TextureSpecification black;
+        black.GenerateMips = false;
+        black.SRGB = false;
+        black.Wrap = TextureWrap::ClampToEdge;
+        s_Data->Black = Texture2D::Create(black);
+        uint32_t zero = 0xff000000;
+        s_Data->Black->SetData(&zero, 4);
     }
 
     void PostProcessor::Shutdown()
@@ -557,7 +642,69 @@ void main()
         s.Tint = glm::vec3(1.0f);
         s.FXAA = false;
         s.AutoExposure = false;
+        s.ChromaticAberration = 0.0f;
+        s.FilmGrain = 0.0f;
+        s.BloomTint = glm::vec3(1.0f);
+        s.BloomDirt = 0.0f;
         return s;
+    }
+
+    void PostProcessSettings::SanitizeLensEffects()
+    {
+        auto finiteOr = [](float v, float fallback) { return std::isfinite(v) ? v : fallback; };
+        ChromaticAberration = std::clamp(finiteOr(ChromaticAberration, 0.0f), 0.0f, 1.0f);
+        FilmGrain = std::clamp(finiteOr(FilmGrain, 0.0f), 0.0f, 1.0f);
+        FilmGrainSize = std::clamp(finiteOr(FilmGrainSize, 1.0f), 1.0f, MaxFilmGrainSize);
+        BloomDirt = std::clamp(finiteOr(BloomDirt, 0.0f), 0.0f, 1.0f);
+        for (int i = 0; i < 3; i++)
+            BloomTint[i] = std::clamp(finiteOr(BloomTint[i], 1.0f), 0.0f, 10.0f);
+    }
+
+    std::vector<uint8_t> PostProcessor::GenerateLensDirt(uint32_t size, uint32_t seed)
+    {
+        size = std::clamp(size, 16u, 4096u);
+        std::vector<float> value((size_t)size * size, 0.0f);
+        uint32_t state = seed ? seed * 747796405u + 2891336453u : 0x9e3779b9u;
+        auto next = [&]() { // xorshift32 in 0..1
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            return (state >> 8) * (1.0f / 16777216.0f);
+        };
+        const float scale = size / 512.0f;
+        // A soft disc (or a ring, like an out-of-focus speck) added into the picture.
+        auto disc = [&](float cx, float cy, float radius, float alpha, float softness, bool ring) {
+            int x0 = std::max(0, (int)std::floor(cx - radius)), x1 = std::min((int)size - 1, (int)std::ceil(cx + radius));
+            int y0 = std::max(0, (int)std::floor(cy - radius)), y1 = std::min((int)size - 1, (int)std::ceil(cy + radius));
+            for (int y = y0; y <= y1; y++)
+                for (int x = x0; x <= x1; x++)
+                {
+                    float d = std::sqrt((x + 0.5f - cx) * (x + 0.5f - cx) + (y + 0.5f - cy) * (y + 0.5f - cy)) / radius;
+                    if (d >= 1.0f) continue;
+                    float edge = std::clamp((1.0f - d) / std::max(softness, 1e-3f), 0.0f, 1.0f);
+                    edge = edge * edge * (3.0f - 2.0f * edge);
+                    float shape = ring ? 0.45f + 0.55f * d * d : 1.0f; // brighter rim
+                    value[(size_t)y * size + x] += alpha * edge * shape;
+                }
+        };
+        // Big faint smudges, out-of-focus specks, then fine dust.
+        for (int i = 0; i < 10; i++)
+            disc(next() * size, next() * size, (60.0f + next() * 110.0f) * scale, 0.04f + next() * 0.06f, 0.9f, false);
+        for (int i = 0; i < 36; i++)
+            disc(next() * size, next() * size, (8.0f + next() * 24.0f) * scale, 0.06f + next() * 0.16f, 0.25f, next() < 0.6f);
+        for (int i = 0; i < 160; i++)
+            disc(next() * size, next() * size, (0.8f + next() * 2.0f) * scale + 0.5f, 0.1f + next() * 0.35f, 0.6f, false);
+        std::vector<uint8_t> rgba((size_t)size * size * 4);
+        for (size_t i = 0; i < value.size(); i++)
+        {
+            float v = std::clamp(value[i], 0.0f, 1.0f);
+            // a slightly warm grey (dust and grease scatter light a little warmer)
+            rgba[i * 4 + 0] = (uint8_t)std::lround(v * 255.0f);
+            rgba[i * 4 + 1] = (uint8_t)std::lround(v * 0.96f * 255.0f);
+            rgba[i * 4 + 2] = (uint8_t)std::lround(v * 0.9f * 255.0f);
+            rgba[i * 4 + 3] = 255;
+        }
+        return rgba;
     }
 
     float PostProcessSettings::GetAutoExposureMultiplier(float averageEV) const
@@ -674,7 +821,7 @@ void main()
             stats.DrawCalls += 2;
         }
 
-        uint32_t bloomTexture = 0;
+        uint32_t bloomTexture = 0, bloomWideTexture = 0;
         if (settings.Bloom)
         {
             // The same glow at every render scale: one level more for each doubling of the picture
@@ -724,6 +871,7 @@ void main()
                 stats.DrawCalls++;
             }
             bloomTexture = mips[0]->GetColorAttachmentRendererID(0);
+            bloomWideTexture = mips[std::min<size_t>(2, mips.size() - 1)]->GetColorAttachmentRendererID(0);
         }
 
         // Auto exposure: this view's adapted brightness (views without a history: measured fresh).
@@ -738,6 +886,22 @@ void main()
                                                  history.m_Adapted);
         else
             history.Reset(); // switched on later: adapts at once, not from a stale value
+
+        // The lens dirt, made the first time it is used (before the composite's textures are
+        // bound: making a texture binds it to the active unit).
+        PostProcessSettings lens = settings;
+        lens.SanitizeLensEffects();
+        const bool dirt = settings.Bloom && lens.BloomDirt > 0.0f;
+        if (dirt && !s_Data->LensDirt)
+        {
+            TextureSpecification spec;
+            spec.Width = spec.Height = PostProcessor::LensDirtSize;
+            spec.Wrap = TextureWrap::ClampToEdge;
+            spec.SRGB = false;
+            s_Data->LensDirt = Texture2D::Create(spec);
+            std::vector<uint8_t> texels = GenerateLensDirt(PostProcessor::LensDirtSize);
+            s_Data->LensDirt->SetData(texels.data(), (uint32_t)texels.size());
+        }
 
         // Composite: straight into the target, or (FXAA) into an LDR picture FXAA reads.
         RenderCommand::RestoreRenderTarget();
@@ -759,6 +923,8 @@ void main()
         else if (target)
             target->Bind();
         RenderCommand::SetBlendMode(BlendMode::None);
+        // Grain: a new pattern every frame of a view with a history (a still one otherwise).
+        const uint32_t grainFrame = input.History ? input.History->m_Frame++ : 0u;
         auto& comp = s_Data->Composite;
         comp->Bind();
         comp->SetInt("u_Scene", 0);
@@ -770,6 +936,23 @@ void main()
         comp->SetInt("u_AOEnabled", ssao ? 1 : 0);
         comp->SetInt("u_BloomEnabled", settings.Bloom ? 1 : 0);
         comp->SetFloat("u_BloomIntensity", settings.BloomIntensity);
+        comp->SetFloat3("u_BloomTint", lens.BloomTint);
+        comp->SetInt("u_BloomWide", 4);
+        comp->SetInt("u_DirtMap", 5);
+        comp->SetFloat("u_BloomDirt", dirt ? lens.BloomDirt : 0.0f);
+        RenderCommand::BindTextureUnit(4, bloomWideTexture);
+        (dirt ? s_Data->LensDirt : s_Data->Black)->Bind(5);
+        comp->SetFloat("u_ChromaticAberration", lens.ChromaticAberration);
+        // Grain on the last pass (FXAA would smooth it away).
+        comp->SetInt("u_ApplyGrain", fxaa ? 0 : 1);
+        for (auto* sh : { comp.get(), s_Data->Fxaa.get() })
+        {
+            sh->Bind();
+            sh->SetFloat("u_FilmGrain", lens.FilmGrain);
+            sh->SetFloat("u_GrainSize", lens.FilmGrainSize);
+            sh->SetInt("u_GrainSeed", (int)(grainFrame & 0x7fffffff));
+        }
+        comp->Bind();
         comp->SetFloat("u_Vignette", settings.Vignette);
         comp->SetFloat("u_Saturation", settings.Saturation);
         comp->SetFloat("u_Contrast", settings.Contrast);

@@ -2755,19 +2755,44 @@ namespace Zamin {
 
         AddSection<DirectionalLightComponent>(ICON_FA_SUN, "Directional Light", entity, [&](DirectionalLightComponent& c) {
             InactiveComponentNote(entity, "Obyekt nofaol: quyosh hisobga olinmaydi (yorug'lik ham, soya ham yo'q)");
-            // Only the first active directional light is the sun; say which one when it is another.
+            // Several directional lights all light the scene; only the main one (the first with
+            // shadows on, in scene order) casts shadows. Say which role this one has.
             if (entity.IsActiveInHierarchy())
-                if (Entity sun = m_Context->GetSunEntity(); sun && sun != entity)
-                {
+            {
+                Scene::LightSet lights = m_Context->CollectLights(glm::vec3(0.0f));
+                const bool lit = std::find(lights.DirectionalLights.begin(), lights.DirectionalLights.end(), (entt::entity)entity) !=
+                                 lights.DirectionalLights.end();
+                Entity sun = lights.Sun != entt::null ? Entity(lights.Sun, m_Context.get()) : Entity();
+                const ImVec4 info(0.55f, 0.78f, 0.95f, 1.0f), warn(0.95f, 0.75f, 0.3f, 1.0f);
+                auto note = [&](const ImVec4& color, const std::string& text, const char* tooltip, bool selectSun) {
                     UI::PropertyLabel("");
                     ImGui::PushTextWrapPos(0.0f);
-                    ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_CIRCLE_INFO "  Ishlatilmaydi: quyosh '%s'", sun.GetName().c_str());
+                    ImGui::TextColored(color, "%s", text.c_str());
                     ImGui::PopTextWrapPos();
                     if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                        ImGui::SetTooltip("Sahnani faqat birinchi faol Directional Light yoritadi. Bosing: uni tanlash");
-                    if (ImGui::IsItemClicked())
+                        ImGui::SetTooltip("%s", tooltip);
+                    if (selectSun && sun && ImGui::IsItemClicked())
                         SetSelectedEntity(sun);
+                };
+                static const char* rule = "Barcha faol Directional Light'lar sahnani yoritadi. Soyani faqat bittasi beradi: sahna "
+                                          "tartibida 'Soyalar' yoqilgan birinchisi (asosiy quyosh); osmondagi quyosh diski ham unga "
+                                          "ergashadi.";
+                if (!lit)
+                    note(warn, std::format(ICON_FA_CIRCLE_INFO "  Yoritmaydi: {} tadan ortiq quyosh", Renderer3D::MaxDirectionalLights),
+                         std::format("Bir vaqtda ko'pi bilan {} ta Directional Light yoritadi (asosiy quyosh va sahna tartibida "
+                                     "birinchilari)", Renderer3D::MaxDirectionalLights).c_str(),
+                         false);
+                else if (sun == entity && lights.DirectionalLights.size() > 1)
+                    note(info, c.CastShadows ? ICON_FA_SUN "  Asosiy quyosh: soya shu yorug'likdan" : ICON_FA_SUN "  Asosiy quyosh (soyasiz)",
+                         rule, false);
+                else if (sun && sun != entity)
+                {
+                    std::string text = c.CastShadows
+                        ? std::format(ICON_FA_CIRCLE_INFO "  Soya bermaydi: soyani '{}' beradi", sun.GetName())
+                        : std::format(ICON_FA_CIRCLE_INFO "  Qo'shimcha quyosh: yoritadi, soyasiz (asosiy: '{}')", sun.GetName());
+                    note(c.CastShadows ? warn : info, text, std::format("{}\nBosing: asosiy quyoshni tanlash", rule).c_str(), true);
                 }
+            }
             bool changed = UI::PropertyColor3("Rang", c.Color);
             changed |= UI::PropertyFloat("Kuch", c.Intensity, 0.05f, 0.0f, 100.0f);
             changed |= UI::PropertyBool("Soyalar", c.CastShadows);

@@ -113,6 +113,11 @@ uniform vec3 u_CameraPos;
 uniform int u_HasSun;
 uniform vec3 u_SunDirection;
 uniform vec3 u_SunRadiance;
+// More directional lights (no shadows): xyz the direction they travel / their radiance.
+#define MAX_EXTRA_SUNS 3
+uniform int u_ExtraSunCount;
+uniform vec4 u_ExtraSunDirection[MAX_EXTRA_SUNS];
+uniform vec4 u_ExtraSunRadiance[MAX_EXTRA_SUNS];
 uniform int u_ShadowsEnabled;
 uniform sampler2DShadow u_ShadowMap;
 uniform float u_ShadowTexel;     // atlas texel size (uv)
@@ -162,6 +167,8 @@ uniform vec4 u_LightDirCos[MAX_LOCAL_LIGHTS];    // xyz direction the light trav
 uniform vec3 u_SkyColor;
 uniform vec3 u_HorizonColor;
 uniform vec3 u_GroundColor;
+uniform float u_SkyCurve;      // the gradient: horizon -> zenith exponent
+uniform float u_GroundFade;    // the gradient: how fast the ground colour takes over below the horizon
 uniform float u_Ambient;
 uniform float u_Exposure;
 // Editor view: 0 lit, 1 lighting only, 2 normals, 3 albedo, 4 roughness, 5 metallic,
@@ -284,8 +291,8 @@ vec3 SkyRadiance(vec3 dir, float roughness)
 {
     float y = dir.y;
     vec3 top = toLinear(u_SkyColor), horizon = toLinear(u_HorizonColor), ground = toLinear(u_GroundColor);
-    vec3 c = y > 0.0 ? mix(horizon, top, pow(clamp(y, 0.0, 1.0), 0.6))
-                     : mix(horizon, ground, pow(clamp(-y * 3.0, 0.0, 1.0), 0.5));
+    vec3 c = y > 0.0 ? mix(horizon, top, pow(clamp(y, 0.0, 1.0), u_SkyCurve))
+                     : mix(horizon, ground, pow(clamp(-y * u_GroundFade, 0.0, 1.0), 0.5));
     vec3 avg = (top + horizon * 2.0 + ground) * 0.25;
     return mix(c, avg, roughness * roughness);
 }
@@ -423,6 +430,8 @@ void main()
         float shadow = u_ShadowsEnabled == 1 ? ShadowFactor(N, normalize(-u_SunDirection)) : 1.0;
         AddLight(N, V, normalize(-u_SunDirection), u_SunRadiance * shadow, albedo, metallic, roughness, F0, diffuse, specular);
     }
+    for (int i = 0; i < u_ExtraSunCount; i++)
+        AddLight(N, V, normalize(-u_ExtraSunDirection[i].xyz), u_ExtraSunRadiance[i].rgb, albedo, metallic, roughness, F0, diffuse, specular);
     for (int i = 0; i < u_LocalLightCount; i++)
     {
         vec3 toLight = u_LightPosRange[i].xyz - v_WorldPos;
@@ -552,6 +561,12 @@ uniform vec3 u_Ground;
 uniform int u_HasSun;
 uniform vec3 u_SunDirection;
 uniform vec3 u_SunColor;
+uniform float u_SkyCurve;
+uniform float u_GroundFade;
+uniform int u_SunDisc;
+uniform float u_SunExponent;
+uniform float u_SunIntensity;
+uniform float u_SunGlow;
 uniform int u_FogEnabled;
 uniform vec3 u_FogColor;
 uniform float u_FogDensity;
@@ -575,12 +590,13 @@ void main()
         return;
     }
     float y = dir.y;
-    vec3 color = y > 0.0 ? mix(u_Horizon, u_Top, pow(clamp(y, 0.0, 1.0), 0.6))
-                         : mix(u_Horizon, u_Ground, pow(clamp(-y * 3.0, 0.0, 1.0), 0.5));
-    if (u_HasSun == 1)
+    vec3 color = y > 0.0 ? mix(u_Horizon, u_Top, pow(clamp(y, 0.0, 1.0), u_SkyCurve))
+                         : mix(u_Horizon, u_Ground, pow(clamp(-y * u_GroundFade, 0.0, 1.0), 0.5));
+    // the sun disc and its halo, where the main directional light shines from
+    if (u_HasSun == 1 && u_SunDisc == 1)
     {
         float d = max(dot(dir, normalize(-u_SunDirection)), 0.0);
-        color += u_SunColor * (pow(d, 900.0) * 4.0 + pow(d, 12.0) * 0.18);
+        color += u_SunColor * (pow(d, u_SunExponent) * u_SunIntensity + pow(d, 12.0) * u_SunGlow);
     }
     if (u_FogEnabled == 1)
     {
@@ -948,6 +964,34 @@ void main()
         NormalBias = std::isfinite(NormalBias) ? std::clamp(NormalBias, 0.0f, MaxNormalBias) : 1.0f;
     }
 
+    void SkySettings::Sanitize()
+    {
+        auto finiteOr = [](float v, float fallback) { return std::isfinite(v) ? v : fallback; };
+        Curve = std::clamp(finiteOr(Curve, 0.6f), 0.05f, 5.0f);
+        GroundFade = std::clamp(finiteOr(GroundFade, 3.0f), 0.1f, 50.0f);
+        SunSize = std::clamp(finiteOr(SunSize, DefaultSunSize), MinSunSize, MaxSunSize);
+        SunIntensity = std::clamp(finiteOr(SunIntensity, 4.0f), 0.0f, 100.0f);
+        SunGlow = std::clamp(finiteOr(SunGlow, 0.18f), 0.0f, 10.0f);
+    }
+
+    float SkySettings::GetSunDiscExponent() const
+    {
+        // pow(cos a, e) is about exp(-e a^2 / 2): a disc twice as wide needs a quarter of the exponent.
+        float size = std::isfinite(SunSize) ? std::clamp(SunSize, MinSunSize, MaxSunSize) : DefaultSunSize;
+        float ratio = DefaultSunSize / size;
+        return 900.0f * ratio * ratio;
+    }
+
+    float SkySettings::GetSunBrightness(float angleDegrees) const
+    {
+        if (!SunDisc)
+            return 0.0f;
+        SkySettings s = *this;
+        s.Sanitize();
+        float d = std::max(std::cos(glm::radians(std::clamp(angleDegrees, 0.0f, 180.0f))), 0.0f);
+        return std::pow(d, s.GetSunDiscExponent()) * s.SunIntensity + std::pow(d, 12.0f) * s.SunGlow;
+    }
+
     std::vector<float> Renderer3D::GetCascadeSplits(float nearDepth, float farDepth, int count, float split)
     {
         count = std::clamp(count, 1, ShadowSettings::MaxCascades);
@@ -1087,6 +1131,29 @@ void main()
         return out;
     }
 
+    // The directional lights besides the sun as the shader's uniform arrays (no shadows).
+    struct ExtraSunArrays
+    {
+        uint32_t Count = 0;
+        glm::vec4 Direction[Renderer3D::MaxDirectionalLights - 1];
+        glm::vec4 Radiance[Renderer3D::MaxDirectionalLights - 1];
+    };
+
+    static ExtraSunArrays PackExtraSuns(const SceneEnvironment& env)
+    {
+        ExtraSunArrays out;
+        for (const DirectionalLight& light : env.ExtraSuns)
+        {
+            if (out.Count == Renderer3D::MaxDirectionalLights - 1) break;
+            float len = glm::length(light.Direction);
+            glm::vec3 dir = len > 1e-6f ? light.Direction / len : glm::vec3(0.0f, -1.0f, 0.0f);
+            out.Direction[out.Count] = glm::vec4(dir, 0.0f);
+            out.Radiance[out.Count] = glm::vec4(light.Color * light.Intensity, 0.0f);
+            out.Count++;
+        }
+        return out;
+    }
+
     // The material's uniforms of the mesh shader (and its textures bound).
     static void ApplyMaterial(Shader& shader, const Material& m, bool mirrored)
     {
@@ -1187,6 +1254,8 @@ void main()
         const glm::mat4 viewProj = s_Data->Projection * s_Data->View;
         ShadowSettings shadowSettings = env.Shadows;
         shadowSettings.Sanitize();
+        SkySettings skySettings = env.Sky;
+        skySettings.Sanitize();
 
         bool shadows = env.HasSun && env.Sun.CastShadows && !s_Data->Queue.empty();
         CascadeData cascades;
@@ -1308,6 +1377,7 @@ void main()
         if (!s_Data->Queue.empty())
         {
           const LocalLightArrays localLights = PackLocalLights(env);
+          const ExtraSunArrays extraSuns = PackExtraSuns(env);
           for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->InstancedMeshShader })
           {
             shader->Bind();
@@ -1340,11 +1410,19 @@ void main()
             shader->SetInt("u_HasSun", env.HasSun ? 1 : 0);
             shader->SetFloat3("u_SunDirection", glm::normalize(env.Sun.Direction));
             shader->SetFloat3("u_SunRadiance", env.Sun.Color * env.Sun.Intensity);
+            shader->SetInt("u_ExtraSunCount", (int)extraSuns.Count);
+            if (extraSuns.Count > 0)
+            {
+                shader->SetFloat4Array("u_ExtraSunDirection", extraSuns.Direction, extraSuns.Count);
+                shader->SetFloat4Array("u_ExtraSunRadiance", extraSuns.Radiance, extraSuns.Count);
+            }
             shader->SetInt("u_ShadowsEnabled", shadows ? 1 : 0);
             shader->SetFloat("u_ShadowTexel", 1.0f / (float)s_Data->ShadowMapSize);
             shader->SetFloat3("u_SkyColor", env.SkyTopColor);
             shader->SetFloat3("u_HorizonColor", env.SkyHorizonColor);
             shader->SetFloat3("u_GroundColor", env.GroundColor);
+            shader->SetFloat("u_SkyCurve", skySettings.Curve);
+            shader->SetFloat("u_GroundFade", skySettings.GroundFade);
             shader->SetFloat("u_Ambient", env.AmbientIntensity);
             shader->SetFloat("u_Exposure", env.Exposure);
 
@@ -1412,6 +1490,12 @@ void main()
             sky->SetInt("u_HasSun", env.HasSun ? 1 : 0);
             sky->SetFloat3("u_SunDirection", glm::normalize(env.Sun.Direction));
             sky->SetFloat3("u_SunColor", env.Sun.Color);
+            sky->SetFloat("u_SkyCurve", skySettings.Curve);
+            sky->SetFloat("u_GroundFade", skySettings.GroundFade);
+            sky->SetInt("u_SunDisc", skySettings.SunDisc ? 1 : 0);
+            sky->SetFloat("u_SunExponent", skySettings.GetSunDiscExponent());
+            sky->SetFloat("u_SunIntensity", skySettings.SunIntensity);
+            sky->SetFloat("u_SunGlow", skySettings.SunGlow);
             sky->SetInt("u_UseIBL", env.EnvMap ? 1 : 0);
             sky->SetInt("u_EnvMap", 5);
             if (env.EnvMap)

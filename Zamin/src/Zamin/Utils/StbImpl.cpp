@@ -12,6 +12,8 @@
 
 #include "Zamin/Utils/Image.h"
 
+#include <algorithm>
+#include <cstdlib>
 #include <mutex>
 
 namespace Zamin {
@@ -70,6 +72,56 @@ namespace Zamin {
         out.Pixels.assign(data, data + (size_t)width * (size_t)height * channels);
         stbi_image_free(data);
         return true;
+    }
+
+    ImageDiff Image::Compare(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b, uint32_t width, uint32_t height,
+                             int threshold, bool diffImage)
+    {
+        ImageDiff diff;
+        diff.Width = width;
+        diff.Height = height;
+        const size_t pixels = (size_t)width * height;
+        if (a.size() != pixels * 4 || b.size() != pixels * 4)
+        {
+            diff.DifferentPixels = pixels;
+            diff.MaxDelta = pixels ? 255 : 0;
+            diff.MeanDelta = pixels ? 255.0 : 0.0;
+            return diff;
+        }
+        if (diffImage)
+            diff.DiffPixels.resize(pixels * 4);
+        uint64_t sum = 0;
+        for (size_t i = 0; i < pixels; i++)
+        {
+            const uint8_t* pa = &a[i * 4];
+            const uint8_t* pb = &b[i * 4];
+            int delta = 0;
+            for (int c = 0; c < 3; c++)
+                delta = std::max(delta, std::abs((int)pa[c] - (int)pb[c]));
+            sum += (uint64_t)delta;
+            diff.MaxDelta = std::max(diff.MaxDelta, delta);
+            const bool differs = delta > threshold;
+            if (differs)
+                diff.DifferentPixels++;
+            if (diffImage)
+            {
+                uint8_t* out = &diff.DiffPixels[i * 4];
+                if (differs)
+                {
+                    // red, brighter with the difference (a small one still clearly visible)
+                    out[0] = (uint8_t)std::min(255, 120 + delta * 135 / 255 * 2);
+                    out[1] = out[2] = 0;
+                }
+                else
+                {
+                    int grey = (pa[0] * 54 + pa[1] * 183 + pa[2] * 19) >> 8; // luma
+                    out[0] = out[1] = out[2] = (uint8_t)(grey / 3);
+                }
+                out[3] = 255;
+            }
+        }
+        diff.MeanDelta = pixels ? (double)sum / (double)pixels : 0.0;
+        return diff;
     }
 
     std::vector<uint8_t> Image::MakeChannelView(const std::vector<uint8_t>& rgba, ImageChannelView view)

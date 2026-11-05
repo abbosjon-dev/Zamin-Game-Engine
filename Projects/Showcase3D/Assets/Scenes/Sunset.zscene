@@ -1,0 +1,832 @@
+{
+    "Scene": "Quyosh botishi",
+    "Version": 1,
+    "Settings": {
+        "DrawSky": true,
+        "SkyTop": [
+            0.16,
+            0.2,
+            0.42
+        ],
+        "SkyHorizon": [
+            1.0,
+            0.6,
+            0.36
+        ],
+        "Ground": [
+            0.3,
+            0.22,
+            0.2
+        ],
+        "Sky": {
+            "Curve": 0.42,
+            "GroundFade": 6.0,
+            "SunDisc": true,
+            "SunSize": 2.6,
+            "SunIntensity": 5.0,
+            "SunGlow": 0.4
+        },
+        "Ambient": 0.45,
+        "Exposure": 1.0,
+        "ShadowDistance": 60,
+        "Gravity": [
+            0,
+            -9.8
+        ],
+        "Gravity3D": [
+            0,
+            -9.81,
+            0
+        ],
+        "Post": {
+            "Tonemap": 1,
+            "Bloom": true,
+            "BloomThreshold": 1.0,
+            "BloomKnee": 0.5,
+            "BloomIntensity": 0.7,
+            "BloomRadius": 1.2,
+            "BloomTint": [
+                1.0,
+                0.84,
+                0.66
+            ],
+            "BloomDirt": 0.6,
+            "Vignette": 0.3,
+            "Saturation": 1.05,
+            "Contrast": 1.05,
+            "Brightness": 0.0,
+            "Tint": [
+                1,
+                1,
+                1
+            ],
+            "SSAO": true,
+            "SSAORadius": 0.6,
+            "SSAOIntensity": 1.2,
+            "SSAOBias": 0.03,
+            "ChromaticAberration": 0.25,
+            "FilmGrain": 0.12,
+            "FilmGrainSize": 1.0,
+            "FXAA": true,
+            "FXAASubpixel": 0.75
+        }
+    },
+    "Entities": [
+        {
+            "Entity": 7420000000000001,
+            "Tag": "Main Camera",
+            "Transform": {
+                "Translation": [
+                    0,
+                    4,
+                    16
+                ],
+                "Rotation": [
+                    -0.18,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Camera": {
+                "ProjectionType": 0,
+                "PerspectiveFOV": 0.85,
+                "PerspectiveNear": 0.1,
+                "PerspectiveFar": 800,
+                "OrthographicSize": 10,
+                "OrthographicNear": -100,
+                "OrthographicFar": 100,
+                "Primary": true,
+                "FixedAspectRatio": false,
+                "ClearColor": [
+                    0.1,
+                    0.08,
+                    0.12,
+                    1
+                ]
+            },
+            "NativeScript": {
+                "Class": "OrbitCamera",
+                "Fields": {
+                    "Distance": {
+                        "Type": "Float",
+                        "Value": 16.0
+                    },
+                    "Height": {
+                        "Type": "Float",
+                        "Value": 4.0
+                    },
+                    "Speed": {
+                        "Type": "Float",
+                        "Value": 0.05
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 7420000000000002,
+            "Tag": "Quyosh (soya)",
+            "Transform": {
+                "Translation": [
+                    0,
+                    10,
+                    -20
+                ],
+                "Rotation": [
+                    -0.26,
+                    3.3,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "DirectionalLight": {
+                "Color": [
+                    1.0,
+                    0.66,
+                    0.4
+                ],
+                "Intensity": 3.2,
+                "CastShadows": true
+            }
+        },
+        {
+            "Entity": 7420000000000003,
+            "Tag": "Osmon nuri (soyasiz)",
+            "Transform": {
+                "Translation": [
+                    0,
+                    10,
+                    10
+                ],
+                "Rotation": [
+                    -0.9,
+                    0.5,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "DirectionalLight": {
+                "Color": [
+                    0.45,
+                    0.55,
+                    1.0
+                ],
+                "Intensity": 0.9,
+                "CastShadows": false
+            }
+        },
+        {
+            "Entity": 7420000000000004,
+            "Tag": "Yon nur (soya bermaydi)",
+            "Transform": {
+                "Translation": [
+                    -10,
+                    10,
+                    0
+                ],
+                "Rotation": [
+                    -0.45,
+                    -1.4,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "DirectionalLight": {
+                "Color": [
+                    1.0,
+                    0.45,
+                    0.55
+                ],
+                "Intensity": 0.7,
+                "CastShadows": true
+            }
+        },
+        {
+            "Entity": 7420000000000005,
+            "Tag": "Yer",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    240,
+                    1,
+                    240
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Plane",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.55,
+                    0.5,
+                    0.47,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.9,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000006,
+            "Tag": "Supa",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0.2,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    6,
+                    0.4,
+                    6
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.8,
+                    0.78,
+                    0.75,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.5,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000007,
+            "Tag": "Oltin shar",
+            "Transform": {
+                "Translation": [
+                    0,
+                    1.5,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    2,
+                    2,
+                    2
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "Materials/Gold.zmat",
+                "Albedo": [
+                    0.95,
+                    0.75,
+                    0.35,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 1.0,
+                "Roughness": 0.25,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000008,
+            "Tag": "Shisha",
+            "Transform": {
+                "Translation": [
+                    -3.2,
+                    1.1,
+                    2.2
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1.4,
+                    1.4,
+                    1.4
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "Materials/Glass.zmat",
+                "Albedo": [
+                    0.6,
+                    0.8,
+                    1.0,
+                    0.25
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.5,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000009,
+            "Tag": "Ustun 1",
+            "Transform": {
+                "Translation": [
+                    -9,
+                    1.25,
+                    -6
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.8,
+                    2.5,
+                    0.8
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.86,
+                    0.84,
+                    0.8,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000010,
+            "Tag": "Ustun 2",
+            "Transform": {
+                "Translation": [
+                    -6,
+                    1.85,
+                    -8
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.8,
+                    3.7,
+                    0.8
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.86,
+                    0.84,
+                    0.8,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000011,
+            "Tag": "Ustun 3",
+            "Transform": {
+                "Translation": [
+                    -3,
+                    2.45,
+                    -6
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.8,
+                    4.9,
+                    0.8
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.86,
+                    0.84,
+                    0.8,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000012,
+            "Tag": "Ustun 4",
+            "Transform": {
+                "Translation": [
+                    3,
+                    1.25,
+                    -8
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.8,
+                    2.5,
+                    0.8
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.86,
+                    0.84,
+                    0.8,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000013,
+            "Tag": "Ustun 5",
+            "Transform": {
+                "Translation": [
+                    6,
+                    1.85,
+                    -6
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.8,
+                    3.7,
+                    0.8
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.86,
+                    0.84,
+                    0.8,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000014,
+            "Tag": "Ustun 6",
+            "Transform": {
+                "Translation": [
+                    9,
+                    2.45,
+                    -8
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.8,
+                    4.9,
+                    0.8
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.86,
+                    0.84,
+                    0.8,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000015,
+            "Tag": "Kub 1",
+            "Transform": {
+                "Translation": [
+                    3.5,
+                    0.75,
+                    2.5
+                ],
+                "Rotation": [
+                    0,
+                    0.6,
+                    0
+                ],
+                "Scale": [
+                    1.5,
+                    1.5,
+                    1.5
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cube",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.75,
+                    0.3,
+                    0.25,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.45,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000016,
+            "Tag": "Kub 2",
+            "Transform": {
+                "Translation": [
+                    5.2,
+                    0.5,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0.2,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cube",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.3,
+                    0.55,
+                    0.8,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.5,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000017,
+            "Tag": "Konus",
+            "Transform": {
+                "Translation": [
+                    -5.5,
+                    0.75,
+                    -1.0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1.5,
+                    1.5,
+                    1.5
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cone",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.4,
+                    0.75,
+                    0.35,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.5,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7420000000000018,
+            "Tag": "Chiroq",
+            "Transform": {
+                "Translation": [
+                    -1.8,
+                    0.9,
+                    3.6
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.5,
+                    0.5,
+                    0.5
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    0.7,
+                    0.35,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.6,
+                "Emission": [
+                    1.0,
+                    0.7,
+                    0.35
+                ],
+                "EmissionStrength": 8.0
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.7,
+                    0.35
+                ],
+                "Intensity": 6.0,
+                "Radius": 5.0
+            }
+        }
+    ]
+}

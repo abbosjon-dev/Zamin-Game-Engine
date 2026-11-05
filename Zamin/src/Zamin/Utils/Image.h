@@ -17,6 +17,22 @@ namespace Zamin {
         bool IsValid() const { return Width > 0 && Height > 0 && !Pixels.empty(); }
     };
 
+    // How two pictures of the same size differ (Image::Compare).
+    struct ImageDiff
+    {
+        uint32_t Width = 0, Height = 0;
+        uint64_t DifferentPixels = 0;   // pixels where some channel differs by more than the threshold
+        int MaxDelta = 0;               // the largest channel difference (0..255)
+        double MeanDelta = 0.0;         // the mean of every pixel's largest channel difference
+        // RGBA8, rows as the inputs: the first picture dimmed to grey, the differing pixels over
+        // it in red (brighter = larger difference). Empty unless asked for.
+        std::vector<uint8_t> DiffPixels;
+
+        uint64_t GetPixelCount() const { return (uint64_t)Width * Height; }
+        // The share of differing pixels, in percent.
+        double GetDifferentPercent() const { return GetPixelCount() ? 100.0 * (double)DifferentPixels / (double)GetPixelCount() : 0.0; }
+    };
+
     // What an image preview shows of RGBA pixels.
     enum class ImageChannelView { RGBA = 0, RGB, Red, Green, Blue, Alpha };
 
@@ -36,6 +52,12 @@ namespace Zamin {
         // RGBA8 pixels showing one part of RGBA8 pixels: RGB = colors without transparency, a single
         // channel as gray (opaque). RGBA returns the pixels unchanged.
         static std::vector<uint8_t> MakeChannelView(const std::vector<uint8_t>& rgba, ImageChannelView view);
+
+        // Compares two RGBA8 pictures of width x height pixels (alpha ignored): a pixel differs when
+        // one of its colour channels differs by more than `threshold`. `diffImage`: also make
+        // ImageDiff::DiffPixels. Inputs of the wrong size count every pixel as different.
+        static ImageDiff Compare(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b, uint32_t width, uint32_t height,
+                                 int threshold = 0, bool diffImage = false);
     };
 
 }

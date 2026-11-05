@@ -7448,9 +7448,9 @@ TEST(InactiveLightsDoNotCount)
     Entity sunB = scene->CreateEntity("SunB");
     sunB.AddComponent<DirectionalLightComponent>();
 
-    // The first sun in scene order lights the scene; the other one is extra (unused).
+    // Both light the scene; the first in scene order (both cast shadows) is the sun.
     Scene::LightSet set = scene->CollectLights(glm::vec3(0.0f));
-    CHECK(set.Sun == (entt::entity)sunA && set.ExtraSuns == 1 && set.InactiveLights == 0 && set.PointLights.empty());
+    CHECK(set.Sun == (entt::entity)sunA && set.DirectionalLights.size() == 2 && set.InactiveLights == 0 && set.PointLights.empty());
     Entity first = sunA, second = sunB;
     CHECK(scene->GetSunEntity() == first);
     // Scene order, not creation order of the light components: moved first, SunB is the sun.
@@ -7461,7 +7461,7 @@ TEST(InactiveLightsDoNotCount)
     // Switched off: the other one takes its place; both off: no sun.
     first.SetActive(false);
     set = scene->CollectLights(glm::vec3(0.0f));
-    CHECK(set.Sun == (entt::entity)second && set.ExtraSuns == 0 && set.InactiveLights == 1);
+    CHECK(set.Sun == (entt::entity)second && set.DirectionalLights.size() == 1 && set.InactiveLights == 1);
     CHECK(scene->GetSunEntity() == second);
     second.SetActive(false);
     set = scene->CollectLights(glm::vec3(0.0f));
@@ -11159,6 +11159,220 @@ TEST(RenderStatsSummary)
     Renderer::GetStats() = stats;
     Renderer::ResetStats();
     CHECK(Renderer::GetStats().CulledSpriteCount == 0 && Renderer::GetStats().InstancedMeshCount == 0);
+}
+
+TEST(MultipleDirectionalLights)
+{
+    auto scene = CreateRef<Scene>();
+    auto addSun = [&](const char* name, bool shadows) {
+        Entity e = scene->CreateEntity(name);
+        e.AddComponent<DirectionalLightComponent>().CastShadows = shadows;
+        return e;
+    };
+    auto has = [](const std::vector<entt::entity>& list, Entity e) {
+        return std::find(list.begin(), list.end(), (entt::entity)e) != list.end();
+    };
+    // Every one lights the scene; the first in scene order with shadows is the sun (the only one
+    // that casts shadows, the one the sky's disc follows).
+    Entity fill = addSun("Fill", false);
+    Entity key = addSun("Key", true);
+    Entity rim = addSun("Rim", true);
+    Scene::LightSet set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.Sun == (entt::entity)key && set.DirectionalLights.size() == 3 && set.DroppedDirectionalLights == 0);
+    CHECK(set.DirectionalLights[0] == (entt::entity)fill && set.DirectionalLights[2] == (entt::entity)rim); // scene order
+    CHECK(scene->GetSunEntity() == key);
+    // Its shadows switched off: the next one with shadows takes over; none with shadows: the first.
+    key.GetComponent<DirectionalLightComponent>().CastShadows = false;
+    CHECK(scene->CollectLights(glm::vec3(0.0f)).Sun == (entt::entity)rim && scene->GetSunEntity() == rim);
+    rim.GetComponent<DirectionalLightComponent>().CastShadows = false;
+    CHECK(scene->CollectLights(glm::vec3(0.0f)).Sun == (entt::entity)fill && scene->GetSunEntity() == fill);
+    // Scene order, not creation order: moved to the front, a shadow caster becomes the sun.
+    rim.GetComponent<DirectionalLightComponent>().CastShadows = true;
+    key.GetComponent<DirectionalLightComponent>().CastShadows = true;
+    CHECK(scene->MoveEntityNextTo(rim, fill, false));
+    set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.Sun == (entt::entity)rim && set.DirectionalLights[0] == (entt::entity)rim);
+    // An inactive one does not count (neither as the sun nor as a light).
+    rim.SetActive(false);
+    set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.Sun == (entt::entity)key && set.DirectionalLights.size() == 2 && !has(set.DirectionalLights, rim));
+    CHECK(set.InactiveLights == 1 && scene->GetSunEntity() == key);
+    rim.SetActive(true);
+
+    // More than Renderer3D::MaxDirectionalLights: the sun and the first others in scene order -
+    // also when the sun comes last.
+    for (Entity e : { fill, key, rim })
+        e.GetComponent<DirectionalLightComponent>().CastShadows = false;
+    std::vector<Entity> extra;
+    for (int i = 0; i < 4; i++)
+        extra.push_back(addSun("Extra", false));
+    Entity last = addSun("Last (shadows)", true);
+    set = scene->CollectLights(glm::vec3(0.0f));
+    CHECK(set.Sun == (entt::entity)last && set.DirectionalLights.size() == Renderer3D::MaxDirectionalLights);
+    CHECK(set.DroppedDirectionalLights == 8 - Renderer3D::MaxDirectionalLights);
+    CHECK(has(set.DirectionalLights, last) && has(set.DirectionalLights, rim) && has(set.DirectionalLights, fill));
+    CHECK(has(set.DirectionalLights, key) && !has(set.DirectionalLights, extra[0]) && !has(set.DirectionalLights, extra[3]));
+    // The play-mode copy picks the same sun.
+    auto runtime = Scene::Copy(scene);
+    Scene::LightSet copied = runtime->CollectLights(glm::vec3(0.0f));
+    CHECK(copied.Sun != entt::null && Entity(copied.Sun, runtime.get()).GetName() == "Last (shadows)");
+    CHECK(copied.DirectionalLights.size() == Renderer3D::MaxDirectionalLights);
+    // The shader takes the sun plus the others without shadows.
+    SceneEnvironment env;
+    CHECK(env.ExtraSuns.empty() && Renderer3D::MaxDirectionalLights >= 2);
+}
+
+TEST(SkySettingsSceneSetting)
+{
+    // The defaults are the original sky: a disc exponent of 900, x4 disc and a 0.18 halo.
+    SkySettings sky;
+    CHECK(sky.SunDisc && sky.Curve == 0.6f && sky.GroundFade == 3.0f);
+    CHECK_NEAR(sky.GetSunDiscExponent(), 900.0f, 1e-3f);
+    CHECK_NEAR(sky.GetSunBrightness(0.0f), 4.0f + 0.18f, 1e-4f);
+    // SunSize is where the disc is at half brightness (the halo aside).
+    float disc = sky.GetSunBrightness(sky.SunSize) - std::pow(std::cos(glm::radians(sky.SunSize)), 12.0f) * sky.SunGlow;
+    CHECK_NEAR(disc, 2.0f, 0.02f);
+    SkySettings big = sky;
+    big.SunSize = sky.SunSize * 2.0f;
+    CHECK_NEAR(big.GetSunDiscExponent(), 225.0f, 1e-2f); // twice as wide: a quarter of the exponent
+    CHECK(big.GetSunBrightness(3.0f) > sky.GetSunBrightness(3.0f));
+    SkySettings off = sky;
+    off.SunDisc = false;
+    CHECK(off.GetSunBrightness(0.0f) == 0.0f);
+    // Out of range or not finite: back into range.
+    SkySettings wild;
+    wild.Curve = -1.0f;
+    wild.GroundFade = std::numeric_limits<float>::quiet_NaN();
+    wild.SunSize = 500.0f;
+    wild.SunIntensity = -3.0f;
+    wild.SunGlow = std::numeric_limits<float>::infinity();
+    wild.Sanitize();
+    CHECK(wild.Curve > 0.0f && wild.GroundFade == 3.0f && wild.SunSize == SkySettings::MaxSunSize);
+    CHECK(wild.SunIntensity == 0.0f && wild.SunGlow == 0.18f);
+
+    // Saved with the scene, kept by the play-mode copy; older scenes load the defaults.
+    auto scene = CreateRef<Scene>();
+    CHECK(scene->GetSettings().Sky.SunDisc && scene->GetSettings().Sky.SunSize == SkySettings::DefaultSunSize);
+    auto& s = scene->GetSettings().Sky;
+    s.Curve = 0.3f;
+    s.GroundFade = 9.0f;
+    s.SunDisc = false;
+    s.SunSize = 6.5f;
+    s.SunIntensity = 12.0f;
+    s.SunGlow = 0.7f;
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Sky\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const SkySettings& l = loaded->GetSettings().Sky;
+    CHECK(!l.SunDisc);
+    CHECK_NEAR(l.Curve, 0.3f, 1e-6f);
+    CHECK_NEAR(l.GroundFade, 9.0f, 1e-6f);
+    CHECK_NEAR(l.SunSize, 6.5f, 1e-6f);
+    CHECK_NEAR(l.SunIntensity, 12.0f, 1e-6f);
+    CHECK_NEAR(l.SunGlow, 0.7f, 1e-6f);
+    CHECK(Scene::Copy(scene)->GetSettings().Sky.SunSize == 6.5f);
+    std::string old = text;
+    old.replace(old.find("\"Sky\""), std::string("\"Sky\"").size(), "\"SkyOld\"");
+    auto legacy = CreateRef<Scene>();
+    legacy->GetSettings().Sky.SunSize = 9.0f; // whatever it had: a loaded scene has the file's (default) sky
+    CHECK(SceneSerializer(legacy).DeserializeFromString(old));
+    CHECK(legacy->GetSettings().Sky.SunDisc && legacy->GetSettings().Sky.SunSize == SkySettings::DefaultSunSize);
+    std::string wildText = text;
+    size_t at = wildText.find("\"SunSize\": 6.5");
+    CHECK(at != std::string::npos);
+    wildText.replace(at, std::string("\"SunSize\": 6.5").size(), "\"SunSize\": 0.001");
+    auto clamped = CreateRef<Scene>();
+    CHECK(SceneSerializer(clamped).DeserializeFromString(wildText));
+    CHECK(clamped->GetSettings().Sky.SunSize == SkySettings::MinSunSize);
+}
+
+TEST(LensEffectsSceneSetting)
+{
+    // Off by default (existing scenes keep their look), off in the neutral (debug view) settings.
+    PostProcessSettings defaults;
+    CHECK(defaults.ChromaticAberration == 0.0f && defaults.FilmGrain == 0.0f && defaults.BloomDirt == 0.0f);
+    CHECK(defaults.BloomTint == glm::vec3(1.0f) && defaults.FilmGrainSize == 1.0f);
+    PostProcessSettings lens;
+    lens.ChromaticAberration = 0.5f;
+    lens.FilmGrain = 0.4f;
+    lens.BloomDirt = 0.3f;
+    lens.BloomTint = { 1.0f, 0.5f, 0.2f };
+    PostProcessSettings neutral = PostProcessSettings::Neutral();
+    CHECK(neutral.ChromaticAberration == 0.0f && neutral.FilmGrain == 0.0f && neutral.BloomDirt == 0.0f);
+    // Out of range: brought into it.
+    PostProcessSettings wild;
+    wild.ChromaticAberration = 4.0f;
+    wild.FilmGrain = -1.0f;
+    wild.FilmGrainSize = 40.0f;
+    wild.BloomDirt = std::numeric_limits<float>::quiet_NaN();
+    wild.BloomTint = { -1.0f, 2.0f, std::numeric_limits<float>::infinity() };
+    wild.SanitizeLensEffects();
+    CHECK(wild.ChromaticAberration == 1.0f && wild.FilmGrain == 0.0f && wild.FilmGrainSize == PostProcessSettings::MaxFilmGrainSize);
+    CHECK(wild.BloomDirt == 0.0f && wild.BloomTint == glm::vec3(0.0f, 2.0f, 1.0f));
+
+    // Saved with the scene; scenes from before load them off.
+    auto scene = CreateRef<Scene>();
+    auto& p = scene->GetSettings().Post;
+    p.ChromaticAberration = 0.35f;
+    p.FilmGrain = 0.2f;
+    p.FilmGrainSize = 2.0f;
+    p.BloomTint = { 1.0f, 0.8f, 0.6f };
+    p.BloomDirt = 0.45f;
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const PostProcessSettings& l = loaded->GetSettings().Post;
+    CHECK_NEAR(l.ChromaticAberration, 0.35f, 1e-6f);
+    CHECK_NEAR(l.FilmGrain, 0.2f, 1e-6f);
+    CHECK_NEAR(l.FilmGrainSize, 2.0f, 1e-6f);
+    CHECK_NEAR(l.BloomTint.g, 0.8f, 1e-6f);
+    CHECK_NEAR(l.BloomDirt, 0.45f, 1e-6f);
+    CHECK(Scene::Copy(scene)->GetSettings().Post.FilmGrain == 0.2f);
+    std::string old = text;
+    for (const char* key : { "\"ChromaticAberration\"", "\"FilmGrain\"", "\"BloomTint\"", "\"BloomDirt\"" })
+        old.replace(old.find(key), std::strlen(key), std::string(key).insert(1, "Old"));
+    auto legacy = CreateRef<Scene>();
+    CHECK(SceneSerializer(legacy).DeserializeFromString(old));
+    const PostProcessSettings& lg = legacy->GetSettings().Post;
+    CHECK(lg.ChromaticAberration == 0.0f && lg.FilmGrain == 0.0f && lg.BloomDirt == 0.0f && lg.BloomTint == glm::vec3(1.0f));
+
+    // The lens dirt texture: the same for the same seed, mostly dark with lit specks.
+    std::vector<uint8_t> dirt = PostProcessor::GenerateLensDirt(128, 7);
+    CHECK(dirt.size() == 128u * 128u * 4u);
+    CHECK(dirt == PostProcessor::GenerateLensDirt(128, 7) && dirt != PostProcessor::GenerateLensDirt(128, 8));
+    size_t dark = 0, lit = 0;
+    for (size_t i = 0; i < dirt.size(); i += 4)
+    {
+        CHECK(dirt[i + 3] == 255 && dirt[i] >= dirt[i + 2]); // opaque, a slightly warm grey
+        if (dirt[i] < 24) dark++;
+        if (dirt[i] > 40) lit++;
+    }
+    CHECK(dark > dirt.size() / 4 / 3 && lit > 0);
+}
+
+TEST(ImageCompare)
+{
+    const uint32_t w = 8, h = 4;
+    std::vector<uint8_t> a(w * h * 4, 100), b = a;
+    ImageDiff same = Image::Compare(a, b, w, h, 0, true);
+    CHECK(same.DifferentPixels == 0 && same.MaxDelta == 0 && same.MeanDelta == 0.0 && same.GetDifferentPercent() == 0.0);
+    CHECK(same.DiffPixels.size() == a.size() && same.DiffPixels[0] == same.DiffPixels[1]); // grey copy
+    // Two pixels differ: one by 5 (under a threshold of 8), one by 60; alpha does not count.
+    b[0] = 105;
+    b[4 * 9 + 2] = 40;
+    b[4 * 20 + 3] = 0;
+    ImageDiff d = Image::Compare(a, b, w, h, 8, true);
+    CHECK(d.DifferentPixels == 1 && d.MaxDelta == 60);
+    CHECK_NEAR((float)d.GetDifferentPercent(), 100.0f / 32.0f, 1e-4f);
+    CHECK_NEAR((float)d.MeanDelta, 65.0f / 32.0f, 1e-4f);
+    CHECK(d.DiffPixels[4 * 9] > 100 && d.DiffPixels[4 * 9 + 1] == 0); // red where it differs
+    CHECK(d.DiffPixels[0] == d.DiffPixels[1]);                        // under the threshold: grey
+    CHECK(Image::Compare(a, b, w, h, 0).DifferentPixels == 2 && Image::Compare(a, b, w, h, 0).DiffPixels.empty());
+    // Pictures of the wrong size: everything differs.
+    std::vector<uint8_t> small(4 * 4, 0);
+    ImageDiff wrong = Image::Compare(a, small, w, h);
+    CHECK(wrong.DifferentPixels == w * h && wrong.MaxDelta == 255);
 }
 
 int main()

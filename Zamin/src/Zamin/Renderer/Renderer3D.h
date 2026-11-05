@@ -92,17 +92,48 @@ namespace Zamin {
         int GetAtlasTiles() const { return CascadeCount <= 1 ? 1 : 2; }
     };
 
+    // The gradient sky (scenes without an HDRI): how its zenith / horizon / ground colours blend,
+    // and the sun disc drawn where the sun (the main directional light) shines from. The image
+    // based lighting of such scenes (ambient, reflections) uses the same gradient. The defaults are
+    // the renderer's original look.
+    struct SkySettings
+    {
+        static constexpr float DefaultSunSize = 2.25f;
+        static constexpr float MinSunSize = 0.25f, MaxSunSize = 20.0f;
+
+        float Curve = 0.6f;        // above the horizon: exponent of the horizon -> zenith blend (smaller: the zenith colour reaches lower)
+        float GroundFade = 3.0f;   // below the horizon: how fast the ground colour takes over (larger: a thinner horizon band)
+        bool SunDisc = true;
+        float SunSize = DefaultSunSize; // degrees from the sun's centre where the disc is at half brightness
+        float SunIntensity = 4.0f; // the disc's brightness (x the sun's colour)
+        float SunGlow = 0.18f;     // the wide halo around it (x the sun's colour)
+
+        // Values from a file or a script brought into range (anything not finite to its default).
+        void Sanitize();
+        // The exponent of the disc's falloff, pow(cos angle, e): 900 at the default size, ~ 1 / size^2.
+        float GetSunDiscExponent() const;
+        // How bright the sky's sun is (x the sun's colour, disc + halo) `angleDegrees` from its
+        // centre - what the sky shader adds. No GPU needed.
+        float GetSunBrightness(float angleDegrees) const;
+    };
+
     struct SceneEnvironment
     {
         bool DrawSky = true;
         glm::vec3 SkyTopColor{ 0.32f, 0.52f, 0.85f };
         glm::vec3 SkyHorizonColor{ 0.78f, 0.86f, 0.95f };
         glm::vec3 GroundColor{ 0.36f, 0.33f, 0.30f };
+        SkySettings Sky;
         float AmbientIntensity = 0.6f;
         float Exposure = 1.0f;
 
+        // The sun: the main directional light. It casts the shadows (when its CastShadows is on)
+        // and the gradient sky's sun disc follows it.
         bool HasSun = false;
         DirectionalLight Sun;
+        // More directional lights: they light the scene like the sun but cast no shadow (at most
+        // Renderer3D::MaxDirectionalLights - 1; their CastShadows is not looked at).
+        std::vector<DirectionalLight> ExtraSuns;
         // Local lights: at most Renderer3D::MaxLocalLights point + spot lights together (the
         // point lights take the slots first).
         std::vector<PointLight> PointLights;
@@ -156,6 +187,9 @@ namespace Zamin {
     public:
         // Point and spot lights the shader takes at once (together).
         static constexpr uint32_t MaxLocalLights = 32;
+        // Directional lights the shader takes at once: the sun (SceneEnvironment::Sun) and up to
+        // three more without shadows (SceneEnvironment::ExtraSuns).
+        static constexpr uint32_t MaxDirectionalLights = 4;
 
         // A point or spot light competing for one of the MaxLocalLights slots.
         struct LightCandidate

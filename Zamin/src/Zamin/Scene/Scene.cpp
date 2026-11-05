@@ -1124,24 +1124,23 @@ namespace Zamin {
                 set.InactiveLights++;
             return false;
         };
-        // The sun: the first directional light in scene order (as the hierarchy and the scene
-        // file list them), not in the pool's order.
-        const auto& ids = m_Registry.storage<IDComponent>();
-        auto earlier = [&](entt::entity a, entt::entity b) {
-            return ids.contains(a) && ids.contains(b) && ids.index(a) < ids.index(b);
-        };
+        // Directional lights in scene order (as the hierarchy and the scene file list them), not
+        // in the pool's order. The sun is the first one with shadows (else the first one).
         for (auto e : m_Registry.view<TransformComponent, DirectionalLightComponent>())
+            if (counts(e))
+                set.DirectionalLights.push_back(e);
+        SortInSceneOrder(set.DirectionalLights);
+        set.Sun = PickSun(set.DirectionalLights);
+        if (set.DirectionalLights.size() > Renderer3D::MaxDirectionalLights)
         {
-            if (!counts(e))
-                continue;
-            if (set.Sun == entt::null)
-                set.Sun = e;
-            else
-            {
-                set.ExtraSuns++;
-                if (earlier(e, set.Sun))
-                    set.Sun = e;
-            }
+            // The sun and the first others in scene order.
+            std::vector<entt::entity> kept;
+            uint32_t others = 0;
+            for (entt::entity e : set.DirectionalLights)
+                if (e == set.Sun || others++ < Renderer3D::MaxDirectionalLights - 1)
+                    kept.push_back(e);
+            set.DroppedDirectionalLights = (uint32_t)(set.DirectionalLights.size() - kept.size());
+            set.DirectionalLights = std::move(kept);
         }
         for (auto e : m_Registry.view<TransformComponent, PointLightComponent>())
             if (counts(e))
@@ -1195,13 +1194,28 @@ namespace Zamin {
     Entity Scene::GetSunEntity()
     {
         EnsureActiveCache();
-        const auto& ids = m_Registry.storage<IDComponent>();
-        entt::entity sun = entt::null;
+        std::vector<entt::entity> lights;
         for (auto e : m_Registry.view<TransformComponent, DirectionalLightComponent>())
-            if ((m_InactiveInHierarchy.empty() || !m_InactiveInHierarchy.contains(e)) && ids.contains(e)
-                && (sun == entt::null || ids.index(e) < ids.index(sun)))
-                sun = e;
+            if (m_InactiveInHierarchy.empty() || !m_InactiveInHierarchy.contains(e))
+                lights.push_back(e);
+        SortInSceneOrder(lights);
+        entt::entity sun = PickSun(lights);
         return sun == entt::null ? Entity() : Entity(sun, this);
+    }
+
+    void Scene::SortInSceneOrder(std::vector<entt::entity>& entities)
+    {
+        const auto& ids = m_Registry.storage<IDComponent>();
+        std::erase_if(entities, [&](entt::entity e) { return !ids.contains(e); });
+        std::sort(entities.begin(), entities.end(), [&](entt::entity a, entt::entity b) { return ids.index(a) < ids.index(b); });
+    }
+
+    entt::entity Scene::PickSun(const std::vector<entt::entity>& directionalLights)
+    {
+        for (entt::entity e : directionalLights)
+            if (m_Registry.get<DirectionalLightComponent>(e).CastShadows)
+                return e;
+        return directionalLights.empty() ? entt::null : directionalLights.front();
     }
 
     bool Scene::ShouldScriptBeEnabled(Entity entity, const NativeScriptComponent& nsc)
@@ -3094,6 +3108,7 @@ namespace Zamin {
         env.SkyTopColor = m_Settings.SkyTopColor;
         env.SkyHorizonColor = m_Settings.SkyHorizonColor;
         env.GroundColor = m_Settings.GroundColor;
+        env.Sky = m_Settings.Sky;
         env.AmbientIntensity = m_Settings.AmbientIntensity;
         env.Exposure = m_Settings.Exposure;
         env.ShadowDistance = m_Settings.ShadowDistance;
@@ -3123,6 +3138,18 @@ namespace Zamin {
             env.Sun.Color = l.Color;
             env.Sun.Intensity = l.Intensity;
             env.Sun.CastShadows = l.CastShadows;
+        }
+        // The other directional lights light the scene without shadows.
+        for (entt::entity e : lights.DirectionalLights)
+        {
+            if (e == lights.Sun) continue;
+            const auto& l = m_Registry.get<DirectionalLightComponent>(e);
+            DirectionalLight extra;
+            extra.Direction = glm::normalize(glm::vec3(world(e) * glm::vec4(0, 0, -1, 0)));
+            extra.Color = l.Color;
+            extra.Intensity = l.Intensity;
+            extra.CastShadows = false;
+            env.ExtraSuns.push_back(extra);
         }
         env.PointLights.reserve(lights.PointLights.size());
         for (entt::entity e : lights.PointLights)

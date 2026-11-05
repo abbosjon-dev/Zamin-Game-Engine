@@ -40,6 +40,8 @@ namespace Zamin {
         glm::vec3 SkyTopColor{ 0.32f, 0.52f, 0.85f };
         glm::vec3 SkyHorizonColor{ 0.78f, 0.86f, 0.95f };
         glm::vec3 GroundColor{ 0.36f, 0.33f, 0.30f };
+        // The gradient's blend and the sun disc (scenes without an HDRI).
+        SkySettings Sky;
         float AmbientIntensity = 0.6f;
         float Exposure = 1.0f;
         float ShadowDistance = 40.0f;
@@ -260,9 +262,14 @@ namespace Zamin {
         // Renderer3D::MaxLocalLights slots - the next active light gets it.
         struct LightSet
         {
-            // The sun: the first directional light that counts, in scene order (as the hierarchy /
-            // scene file list them); null: no sun.
+            // The sun: the main directional light - in scene order (as the hierarchy / scene file
+            // list them) the first one that counts with CastShadows on, else the first one that
+            // counts; null: no directional light. It is the only one that casts shadows, and the
+            // sky's sun disc follows it.
             entt::entity Sun = entt::null;
+            // Every directional light that lights the scene, in scene order, the sun among them: at
+            // most Renderer3D::MaxDirectionalLights (the sun and the first others in scene order).
+            std::vector<entt::entity> DirectionalLights;
             // Point and spot lights that light the scene, at most Renderer3D::MaxLocalLights
             // together: each in pool order when they all fit, else the most important ones to the
             // view position (Renderer3D::SelectLights: strength weighted by how near the viewer is
@@ -270,14 +277,14 @@ namespace Zamin {
             std::vector<entt::entity> PointLights;
             std::vector<entt::entity> SpotLights;
             uint32_t InactiveLights = 0;     // directional, point and spot lights left out (not active in the hierarchy)
-            uint32_t ExtraSuns = 0;          // directional lights that count but are not the first one (unused)
+            uint32_t DroppedDirectionalLights = 0; // directional lights that count beyond the limit (the last ones in scene order)
             uint32_t DroppedLocalLights = 0; // point + spot lights that count beyond the limit (the least important ones)
 
             size_t GetLocalLightCount() const { return PointLights.size() + SpotLights.size(); }
         };
         LightSet CollectLights(const glm::vec3& viewPosition, const SceneRenderOptions& options = {});
-        // The directional light the scene is lit by (the first active one in scene order), or an
-        // invalid entity.
+        // The main directional light (LightSet::Sun: the first active one in scene order that casts
+        // shadows, else the first active one), or an invalid entity.
         Entity GetSunEntity();
 
         glm::mat4 GetWorldTransform(Entity entity);
@@ -459,6 +466,10 @@ namespace Zamin {
         void RenderUI(const std::unordered_set<entt::entity>* skip);
         // CollectLights with the set of entities to leave out given (RenderScene has it already).
         LightSet GatherLights(const glm::vec3& viewPosition, const std::unordered_set<entt::entity>& skipped);
+        // Entities by their scene order (the order of the ID pool, as the hierarchy lists them).
+        void SortInSceneOrder(std::vector<entt::entity>& entities);
+        // The main directional light of these (in scene order): the first that casts shadows, else the first.
+        entt::entity PickSun(const std::vector<entt::entity>& directionalLights);
 
         void OnNameChanged(entt::registry&, entt::entity) { m_NameCacheDirty = true; }
         void RebuildNameCache();

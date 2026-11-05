@@ -931,6 +931,8 @@ namespace Zamin {
         root["Settings"] = {
             { "DrawSky", s.DrawSky }, { "SkyTop", ToJson(s.SkyTopColor) }, { "SkyHorizon", ToJson(s.SkyHorizonColor) },
             { "Ground", ToJson(s.GroundColor) }, { "Ambient", s.AmbientIntensity }, { "Exposure", s.Exposure },
+            { "Sky", { { "Curve", s.Sky.Curve }, { "GroundFade", s.Sky.GroundFade }, { "SunDisc", s.Sky.SunDisc },
+                       { "SunSize", s.Sky.SunSize }, { "SunIntensity", s.Sky.SunIntensity }, { "SunGlow", s.Sky.SunGlow } } },
             { "ShadowDistance", s.ShadowDistance }, { "RenderScale", s.RenderScale }, { "Gravity", ToJson(s.Gravity) },
             { "Environment", { { "Map", s.EnvironmentMap }, { "Intensity", s.EnvironmentIntensity }, { "Rotation", s.EnvironmentRotation } } },
             { "Fog", { { "Enabled", s.FogEnabled }, { "Color", ToJson(s.FogColor) }, { "Density", s.FogDensity }, { "HeightFalloff", s.FogHeightFalloff } } }, { "Gravity3D", ToJson(s.Gravity3D) },
@@ -939,7 +941,10 @@ namespace Zamin {
             { "Post", {
                 { "Tonemap", (int)s.Post.Tonemap }, { "Bloom", s.Post.Bloom },
                 { "SSAO", s.Post.SSAO }, { "SSAORadius", s.Post.SSAORadius }, { "SSAOIntensity", s.Post.SSAOIntensity }, { "SSAOBias", s.Post.SSAOBias }, { "BloomThreshold", s.Post.BloomThreshold }, { "BloomKnee", s.Post.BloomKnee },
-                { "BloomIntensity", s.Post.BloomIntensity }, { "BloomRadius", s.Post.BloomRadius }, { "Vignette", s.Post.Vignette },
+                { "BloomIntensity", s.Post.BloomIntensity }, { "BloomRadius", s.Post.BloomRadius },
+                { "BloomTint", ToJson(s.Post.BloomTint) }, { "BloomDirt", s.Post.BloomDirt }, { "Vignette", s.Post.Vignette },
+                { "ChromaticAberration", s.Post.ChromaticAberration }, { "FilmGrain", s.Post.FilmGrain },
+                { "FilmGrainSize", s.Post.FilmGrainSize },
                 { "Saturation", s.Post.Saturation }, { "Contrast", s.Post.Contrast }, { "Brightness", s.Post.Brightness },
                 { "Tint", ToJson(s.Post.Tint) }, { "FXAA", s.Post.FXAA }, { "FXAASubpixel", s.Post.FXAASubpixel },
                 { "AutoExposure", s.Post.AutoExposure }, { "AutoExposureCompensation", s.Post.AutoExposureCompensation },
@@ -1019,6 +1024,19 @@ namespace Zamin {
                 s.SkyTopColor = Vec(j, "SkyTop", s.SkyTopColor);
                 s.SkyHorizonColor = Vec(j, "SkyHorizon", s.SkyHorizonColor);
                 s.GroundColor = Vec(j, "Ground", s.GroundColor);
+                // Older scenes have none: the original gradient and sun disc.
+                s.Sky = {};
+                if (j.contains("Sky") && j["Sky"].is_object())
+                {
+                    const json& sky = j["Sky"];
+                    s.Sky.Curve = sky.value("Curve", s.Sky.Curve);
+                    s.Sky.GroundFade = sky.value("GroundFade", s.Sky.GroundFade);
+                    s.Sky.SunDisc = sky.value("SunDisc", s.Sky.SunDisc);
+                    s.Sky.SunSize = sky.value("SunSize", s.Sky.SunSize);
+                    s.Sky.SunIntensity = sky.value("SunIntensity", s.Sky.SunIntensity);
+                    s.Sky.SunGlow = sky.value("SunGlow", s.Sky.SunGlow);
+                    s.Sky.Sanitize();
+                }
                 s.AmbientIntensity = j.value("Ambient", s.AmbientIntensity);
                 s.Exposure = j.value("Exposure", s.Exposure);
                 s.ShadowDistance = j.value("ShadowDistance", s.ShadowDistance);
@@ -1069,6 +1087,12 @@ namespace Zamin {
                     s.Post.BloomKnee = p.value("BloomKnee", 0.5f);
                     s.Post.BloomIntensity = p.value("BloomIntensity", 0.6f);
                     s.Post.BloomRadius = p.value("BloomRadius", 1.0f);
+                    s.Post.BloomTint = Vec(p, "BloomTint", glm::vec3(1.0f));
+                    s.Post.BloomDirt = p.value("BloomDirt", 0.0f);
+                    s.Post.ChromaticAberration = p.value("ChromaticAberration", 0.0f);
+                    s.Post.FilmGrain = p.value("FilmGrain", 0.0f);
+                    s.Post.FilmGrainSize = p.value("FilmGrainSize", 1.0f);
+                    s.Post.SanitizeLensEffects();
                     s.Post.Vignette = p.value("Vignette", 0.0f);
                     s.Post.Saturation = p.value("Saturation", 1.0f);
                     s.Post.Contrast = p.value("Contrast", 1.0f);

@@ -1510,18 +1510,20 @@ namespace Zamin {
         {
             // Play mode: a script made its own copy (GetMaterial) - that is what is drawn.
             UI::PropertyLabel("");
-            ImGui::TextColored(ImVec4(0.55f, 0.8f, 1.0f, 1.0f), ICON_FA_CODE "  Skript material instansiyasi ishlatilmoqda");
+            if (c.MaterialInstance)
+            {
+                const glm::vec4& color = c.MaterialInstance->GetData().Albedo;
+                ImGui::ColorButton("##instanceColor", ImVec4(color.r, color.g, color.b, color.a),
+                                   ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_AlphaPreviewHalf,
+                                   ImVec2(ImGui::GetFrameHeight(), ImGui::GetFrameHeight()));
+                ImGui::SameLine();
+            }
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.8f, 1.0f, 1.0f));
+            ImGui::TextWrapped(ICON_FA_CODE "  Skriptning material nusxasi (instansiya) chizilmoqda");
+            ImGui::PopStyleColor();
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Skript GetMaterial() bilan shu obyekt uchun materialning o'z nusxasini yaratgan: uning o'zgarishlari faqat shu "
                             "obyektda ko'rinadi, umumiy .zmat va boshqa obyektlar o'zgarmaydi. O'yin to'xtaganda nusxa yo'qoladi.");
-            if (c.MaterialInstance && c.MaterialInstance->GetData().Albedo != (c.MaterialRef ? c.MaterialRef->GetData() : Scene::GetInlineMaterialData(c)).Albedo)
-            {
-                const glm::vec4& color = c.MaterialInstance->GetData().Albedo;
-                ImGui::SameLine();
-                ImGui::ColorButton("##instanceColor", ImVec4(color.r, color.g, color.b, color.a),
-                                   ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_AlphaPreviewHalf,
-                                   ImVec2(ImGui::GetTextLineHeight(), ImGui::GetTextLineHeight()));
-            }
         }
 
         // Models: a material asset per submesh (overrides the one above for that part).

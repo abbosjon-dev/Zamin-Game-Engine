@@ -90,6 +90,19 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     yorug'lik va soya ta'sir qilmaydi. glTF `alphaMode` (MASK / BLEND), `alphaCutoff`, `doubleSided` va
     `KHR_materials_unlit` o'qiladi; eski sahnalarda alfasi 1 dan kichik rang avtomatik Transparent bo'ladi. Namuna:
     `Projects/Showcase3D` ichidagi `Scenes/MaterialGallery.zscene`
+  - **Materiallar bilan ishlash**: kontent brauzerda o'ng tugma — **Yangi material** (standart `.zmat` takrorlanmas nom bilan
+    yaratiladi, tanlanadi va inspektorda ochiladi). `.zmat`ni viewport'dagi mesh ustiga sudrash — qo'yishdan oldin material
+    o'sha meshda ko'rinadi (ko'k ramka va yorliq), qo'yilsa Mesh Renderer'ga yoziladi (bitta undo qadami); ko'p qismli
+    modelga **Shift** bilan qo'yilsa qaysi qism (submesh) olishini so'raydi. Ierarxiya qatoriga yoki Material asset maydoniga
+    ham tashlash mumkin (faqat mos fayl qabul qilinadi). Model inspektorida **.zmat ga eksport qilish**: glTF materiallari
+    `<model>_Materials` papkasiga `.zmat` bo'lib yoziladi, fayl ichidagi (.glb / data URI) rasmlar PNG/JPG bo'lib chiqariladi;
+    Mesh Renderer'dagi **Modeldan .zmat yaratib biriktirish** ularni har bir qismga biriktiradi
+  - **Material instansiyalari (skript)**: `GetMaterial()->SetColor(...)` — obyektning materialdan o'z nusxasi (birinchi
+    chaqiriqda yaratiladi), o'zgarishi faqat shu obyektda ko'rinadi, umumiy `.zmat` va boshqa obyektlar o'zgarmaydi; o'yin
+    to'xtaganda yo'qoladi. `GetMaterial(qism)`, `GetSharedMaterial()` (umumiy asset — o'zgartirilsa hammasi o'zgaradi, editorda
+    o'yin to'xtaganda asl holiga qaytadi), `SetSharedMaterial("Materials/Red.zmat")`, `ResetMaterial()`. Tezkor tahrirlar:
+    `SetColor`, `SetOpacity`, `SetEmission`, `SetMetallic`, `SetRoughness`, `SetTiling`, `SetOffset`, `SetAlbedoMap`.
+    Namuna: Showcase3D minorasidagi har bir g'isht `Clay.zmat`ning o'z nusxasini qavatiga qarab bo'yaydi
   - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
   - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti,
     kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`

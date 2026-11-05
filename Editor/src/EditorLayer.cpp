@@ -202,7 +202,9 @@ namespace Zamin {
         {
             if (const char* scene = std::getenv("ZAMIN_EDITOR_SCENE"))
                 OpenScene(Project::GetAssetFileSystemPath(scene));
-            if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT")) // "Name" or "A,B,C" (multi-selection, the last is primary)
+            // "Name" or "A,B,C" (multi-selection, the last is primary); ZAMIN_EDITOR_SELECT_FRAME=<n>: at
+            // frame n instead (e.g. an entity a script spawns after ZAMIN_EDITOR_PLAY).
+            if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT"); sel && !std::getenv("ZAMIN_EDITOR_SELECT_FRAME"))
             {
                 if (Entity e = m_ActiveScene->FindEntityByName(sel))
                     m_SceneHierarchyPanel.SetSelectedEntity(e);
@@ -321,13 +323,25 @@ namespace Zamin {
         if (frame == 20 && std::getenv("ZAMIN_EDITOR_TOGGLE_ACTIVE"))
             ToggleSelectionActive();
 
+        if (const char* at = std::getenv("ZAMIN_EDITOR_SELECT_FRAME"); at && frame == std::max(6, std::atoi(at)))
+            if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT"))
+            {
+                if (Entity e = m_ActiveScene->FindEntityByName(sel))
+                    m_SceneHierarchyPanel.SetSelectedEntity(e);
+                else
+                    ZM_WARN("ZAMIN_EDITOR_SELECT: '{}' topilmadi", sel);
+            }
         // ZAMIN_EDITOR_NEW_MATERIAL=1: "Yangi material" of the content browser's menu at frame 8.
         if (frame == 8 && std::getenv("ZAMIN_EDITOR_NEW_MATERIAL"))
             m_ContentBrowserPanel.CreateMaterial();
         // ZAMIN_EDITOR_EXPORT_MATERIALS=1 (with ZAMIN_EDITOR_ASSET on a glTF model): its materials
         // are exported as .zmat files at frame 12, like the inspector's button.
         if (frame == 12 && std::getenv("ZAMIN_EDITOR_EXPORT_MATERIALS"))
-            m_AssetInspectorPanel.ExportModelMaterials();
+        {
+            if (m_AssetInspectorPanel.ExportModelMaterials()) // the content browser shows what was written
+                m_ContentBrowserPanel.SetCurrentDirectory(m_AssetInspectorPanel.GetLastMaterialExport().OutputDirectory);
+            m_AssetInspectorPanel.RevealModelMaterials();
+        }
         // ZAMIN_EDITOR_MATERIAL_DROP="Materials/Gold.zmat>Entity" (or "...>Entity#2" for part 2 of a
         // model): the material is dropped onto that entity at frame 30, like a viewport drop.
         if (const char* drop = std::getenv("ZAMIN_EDITOR_MATERIAL_DROP"); drop && frame == 30)
@@ -1777,6 +1791,8 @@ namespace Zamin {
         {
             ImGui::OpenPopup("##materialSlots");
             m_MaterialSlotPick.Open = false;
+            if (m_MaterialSlotPick.At.x >= 0.0f)
+                ImGui::SetNextWindowPos(ImVec2(m_MaterialSlotPick.At.x, m_MaterialSlotPick.At.y));
         }
         if (!ImGui::BeginPopup("##materialSlots"))
             return;
@@ -1802,7 +1818,7 @@ namespace Zamin {
         for (size_t i = 0; i < subMeshes.size(); i++)
         {
             ImGui::PushID((int)i);
-            std::string label = std::format("#{}  {}", i, subMeshes[i].Name);
+            std::string label = std::format(ICON_FA_CUBE "  #{}  {}", i, subMeshes[i].Name);
             std::string current = i < mr->SubmeshMaterials.size() && !mr->SubmeshMaterials[i].empty() ? shown(mr->SubmeshMaterials[i]) : std::string();
             if (ImGui::MenuItem(label.c_str(), current.c_str()))
                 ApplyMaterialToEntity(target, m_MaterialSlotPick.Path, (int)i);
@@ -2903,7 +2919,36 @@ namespace Zamin {
                 }
             }
         }
+        // ZAMIN_EDITOR_MATERIAL_SLOTS="Materials/Gold.zmat>Model": the part menu of a Shift+drop on
+        // that model opens once (at the model on screen).
+        static bool slotsShown = false;
+        if (const char* slots = std::getenv("ZAMIN_EDITOR_MATERIAL_SLOTS"); slots && !slotsShown && m_SceneState == SceneState::Edit &&
+                                                                        ImGui::GetFrameCount() > 20)
+        {
+            slotsShown = true;
+            std::string_view v(slots);
+            size_t arrow = v.find('>');
+            if (Entity target = arrow == std::string_view::npos ? Entity() : m_ActiveScene->FindEntityByName(v.substr(arrow + 1)))
+            {
+                glm::vec4 clip = OverlayViewProjection() * glm::vec4(m_ActiveScene->GetWorldPosition(target), 1.0f);
+                glm::vec2 at(-1.0f);
+                if (clip.w > 0.0f)
+                {
+                    glm::vec2 ndc = glm::vec2(clip) / clip.w;
+                    at = { m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * m_ViewportSize.x,
+                           m_ViewportBounds[0].y + (0.5f - ndc.y * 0.5f) * m_ViewportSize.y };
+                }
+                m_MaterialSlotPick = { std::string(v.substr(0, arrow)), target.GetUUID(), true, at };
+            }
+        }
         UI_MaterialSlotPopup();
+        // The drag is over (dropped elsewhere or cancelled): the material is not held any more.
+        if (!m_MaterialDrag.Active && !ImGui::GetDragDropPayload() && !ImGui::IsPopupOpen("##materialSlots"))
+        {
+            m_MaterialDrag.Material = nullptr;
+            m_MaterialDrag.Path.clear();
+            m_MaterialDrag.Target = 0;
+        }
 
         if (m_SceneState != SceneState::Play)
         {

@@ -58,6 +58,10 @@ namespace Zamin {
         // Models: writes the file's materials as .zmat files (Model::ExportMaterials) into the
         // default folder next to it. False when nothing could be exported (the reason is shown).
         bool ExportModelMaterials();
+        // Automation: the model's Materials section is opened and scrolled to.
+        void RevealModelMaterials() { m_ExportScrollTo = true; }
+        // The last export of the shown model (OutputDirectory empty = none).
+        const ModelMaterialExport& GetLastMaterialExport() const { return m_Export; }
 
         // Edited import settings that are not applied yet.
         bool HasUnappliedChanges() const;
@@ -195,6 +199,8 @@ namespace Zamin {
         std::filesystem::path m_ExportModel;  // which model m_Export is about (empty = none yet)
         ModelMaterialExport m_Export;
         std::string m_ExportError;
+        bool m_ExportOpenSection = false;     // open the Materials section once (the result is shown there)
+        bool m_ExportScrollTo = false;
 
         // material: the library's shared object (edits show in the scene at once)
         Ref<MaterialAsset> m_Material;

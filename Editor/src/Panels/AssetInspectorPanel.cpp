@@ -1285,9 +1285,19 @@ namespace Zamin {
         }
 
         // ---- materials of the file (and writing them out as .zmat assets)
-        if (file.Valid && !file.Materials.empty() &&
-            ImGui::CollapsingHeader(std::format(ICON_FA_PALETTE "  Materiallar ({})###materials", file.Materials.size()).c_str(),
-                                    m_ExportModel == m_Path ? ImGuiTreeNodeFlags_DefaultOpen : 0))
+        if (file.Valid && !file.Materials.empty() && (m_ExportOpenSection || m_ExportScrollTo))
+        {
+            ImGui::SetNextItemOpen(true);
+            m_ExportOpenSection = false;
+        }
+        bool materialsOpen = file.Valid && !file.Materials.empty() &&
+                             ImGui::CollapsingHeader(std::format(ICON_FA_PALETTE "  Materiallar ({})###materials", file.Materials.size()).c_str());
+        if (materialsOpen && m_ExportScrollTo)
+        {
+            ImGui::SetScrollHereY(0.1f);
+            m_ExportScrollTo = false;
+        }
+        if (materialsOpen)
         {
             for (size_t i = 0; i < file.Materials.size(); i++)
             {
@@ -1451,6 +1461,7 @@ namespace Zamin {
         options.Overwrite = m_ExportOverwrite;
         m_ExportModel = m_Path;
         m_ExportError.clear();
+        m_ExportOpenSection = true;
         if (!Model::ExportMaterials(m_Path, options, m_Export, &m_ExportError))
         {
             ZM_ERROR("Model materiallari eksport qilinmadi: {} - {}", m_Path.filename().string(), m_ExportError);

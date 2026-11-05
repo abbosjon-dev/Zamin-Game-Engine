@@ -106,11 +106,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 088. Ikki tomonlama (double-sided) bayroq
 - [x] 089. Unlit shader rejimi
 - [x] 090. Tekstura tiling va offset (vec2)
-- [ ] 091. Materialni kontent brauzerdan mesh'ga sudrab qo'yish
-- [ ] 092. Yangi material yaratish (kontent brauzer menyusi)
+- [x] 091. Materialni kontent brauzerdan mesh'ga sudrab qo'yish
+- [x] 092. Yangi material yaratish (kontent brauzer menyusi)
 - [x] 093. Material o'zgarishlari hot reload
-- [ ] 094. glTF materiallarini .zmat ga eksport qilish
-- [ ] 095. Material instansiyalari (skriptdan rangni o'zgartirish, umumiy assetni buzmasdan)
+- [x] 094. glTF materiallarini .zmat ga eksport qilish
+- [x] 095. Material instansiyalari (skriptdan rangni o'zgartirish, umumiy assetni buzmasdan)
 - [ ] 096. Shaffof obyektlarni orqadan oldinga saralash
 - [ ] 097. Emissive intensivlik va rang materialda
 - [ ] 098. Material serializatsiya testlari

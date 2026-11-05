@@ -233,6 +233,7 @@ namespace Zamin {
             std::string Path;
             UUID Target = 0;
             bool Open = false;
+            glm::vec2 At{ -1.0f };          // where the menu opens (screen; < 0 = at the mouse)
         } m_MaterialSlotPick;
         // Shared materials as they were when play started: edits scripts make to them
         // (GetSharedMaterial) are taken back on stop, like everything else changed while playing.

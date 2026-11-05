@@ -1497,7 +1497,8 @@
         "Mesh": "Cube",
         "Model": "",
         "CastShadows": true,
-        "Material": "",
+        "Material": "Materials/Clay.zmat",
+        "MaterialUUID": "fca2c532cce0ce3e",
         "Albedo": [
           0.86,
           0.42,

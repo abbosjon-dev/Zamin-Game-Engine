@@ -138,12 +138,15 @@ public:
 };
 ZM_REGISTER_SCRIPT(Lifetime, ZM_FIELD(Lifetime, Seconds))
 
-// Kub minorasini yaratadi (3D fizika demo).
+// Kub minorasini yaratadi (3D fizika demo). Har bir g'isht umumiy Clay.zmat materialining o'z
+// nusxasini (GetMaterial) qavatiga qarab bo'yaydi - umumiy asset va boshqa obyektlar o'zgarmaydi.
 class TowerBuilder : public ScriptableEntity
 {
 public:
     int Levels = 5;
     float Size = 0.9f;
+    glm::vec3 BottomColor{ 0.86f, 0.42f, 0.3f };
+    glm::vec3 TopColor{ 0.98f, 0.8f, 0.36f };
 
     void OnCreate() override
     {
@@ -154,9 +157,16 @@ public:
             for (int i = 0; i < Levels - level; i++)
             {
                 glm::vec3 p = base + glm::vec3((i - (Levels - level - 1) * 0.5f) * Size * 1.02f, 0.5f * Size + level * Size, 0.0f);
-                Instantiate(brick, p);
+                Entity clone = Instantiate(brick, p);
+                // Per-brick material instance: only this brick changes colour.
+                if (Ref<MaterialAsset> material = GetMaterial(clone))
+                {
+                    float t = Levels > 1 ? (float)level / (float)(Levels - 1) : 0.0f;
+                    material->SetColor(glm::mix(BottomColor, TopColor, t) * Random::Range(0.92f, 1.06f));
+                }
             }
         Destroy(brick); // template is not needed anymore
     }
 };
-ZM_REGISTER_SCRIPT(TowerBuilder, ZM_FIELD(TowerBuilder, Levels), ZM_FIELD(TowerBuilder, Size))
+ZM_REGISTER_SCRIPT(TowerBuilder, ZM_FIELD(TowerBuilder, Levels), ZM_FIELD(TowerBuilder, Size), ZM_FIELD_COLOR(TowerBuilder, BottomColor),
+                   ZM_FIELD_COLOR(TowerBuilder, TopColor))

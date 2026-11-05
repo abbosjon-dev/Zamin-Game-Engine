@@ -100,12 +100,26 @@ namespace Zamin {
         m_ContentBrowserPanel.SetUsageCache(&m_AssetUsage); // deleting warns about assets in use
         m_ContentBrowserPanel.OnFindUnusedAssets = [this]() { m_ShowUnusedAssets = true; };
 
-        // Where assets are used: saved files, and the open scene as it is in the editor.
+        // Where assets are used: saved files, and the open scene as it is in the editor (also while
+        // the game runs on a copy of it). Anything that changes that state marks the cache dirty.
         m_AssetUsage.GetOverrides = [this]() {
             std::unordered_map<std::string, std::string> overrides;
-            if (m_SceneDirty && m_SceneState == SceneState::Edit && m_EditorScene && !m_EditorScenePath.empty())
+            if (m_SceneDirty && m_EditorScene && !m_EditorScenePath.empty())
                 overrides[m_EditorScenePath.string()] = SceneSerializer(m_EditorScene).SerializeToString();
             return overrides;
+        };
+        // A new scene that was never saved has no file to read: it counts under a name of its own.
+        m_AssetUsage.GetUnsaved = [this]() {
+            std::vector<AssetReferenceIndex::UnsavedFile> unsaved;
+            if (m_EditorScene && m_EditorScenePath.empty() && Project::GetActive())
+            {
+                AssetReferenceIndex::UnsavedFile scene;
+                scene.File = Project::GetCacheDirectory() / "Unsaved" / "open-scene.zscene"; // made up, never written
+                scene.Name = std::format("{} (ochiq sahna, saqlanmagan)", m_EditorScene->GetName());
+                scene.Text = SceneSerializer(m_EditorScene).SerializeToString();
+                unsaved.push_back(std::move(scene));
+            }
+            return unsaved;
         };
         m_AssetInspectorPanel.SetUsageCache(&m_AssetUsage);
         m_AssetInspectorPanel.OnRevealRequested = [this](const fs::path& p) { RevealAsset(p); };
@@ -279,8 +293,9 @@ namespace Zamin {
         if (const char* at = std::getenv("ZAMIN_EDITOR_THUMBNAIL_STATS"); at && frame == std::max(6, std::atoi(at)))
         {
             ThumbnailCache::Stats stats = m_ContentBrowserPanel.GetThumbnails().GetStats();
-            ZM_INFO("Thumbnaillar: {} ta xotirada, {} ta kutilmoqda, {} ta diskdan, {} ta yasaldi, {} ta model chizildi, {} ta xato",
-                    stats.Textures, stats.Waiting, stats.FromDisk, stats.Generated, stats.Rendered, stats.Failed);
+            ZM_INFO("Thumbnaillar: {} ta xotirada, {} ta kutilmoqda, {} ta diskdan, {} ta yasaldi, {} ta model chizildi, {} ta xato, "
+                    "{} ta model teksturasi bo'shatildi",
+                    stats.Textures, stats.Waiting, stats.FromDisk, stats.Generated, stats.Rendered, stats.Failed, stats.ReleasedTextures);
         }
         if (frame == 20 && std::getenv("ZAMIN_EDITOR_TOGGLE_ACTIVE"))
             ToggleSelectionActive();
@@ -939,6 +954,7 @@ namespace Zamin {
         m_EditorScenePath.clear();
         m_ViewSettings.Bookmarks.erase(std::string()); // bookmarks of the previous unsaved scene
         m_SceneDirty = false;
+        m_AssetUsage.MarkDirty(); // the previous scene's unsaved state no longer counts
         ResetUndoHistory();
         UpdateWindowTitle();
     }
@@ -973,6 +989,7 @@ namespace Zamin {
         // Asset paths found again by UUID (files renamed outside the editor): the scene in memory
         // is newer than its file until it is saved.
         m_SceneDirty = !serializer.GetRepairedReferences().empty();
+        m_AssetUsage.MarkDirty(); // the previous scene's unsaved state no longer counts
         if (m_SceneDirty)
             m_ContentBrowserPanel.ShowNotice(std::format("Sahnada {} ta asset havolasi UUID orqali tiklandi - saqlang",
                                                          serializer.GetRepairedReferences().size()));
@@ -1009,6 +1026,7 @@ namespace Zamin {
         }
         SerializeScene(m_EditorScene, m_EditorScenePath);
         m_SceneDirty = false;
+        m_AssetUsage.MarkDirty(); // the file says it now (a first save: it has a path at last)
         if (auto project = Project::GetActive(); project && project->GetConfig().StartScene.empty())
         {
             project->GetConfig().StartScene = Project::GetAssetRelativePath(m_EditorScenePath);
@@ -1324,6 +1342,7 @@ namespace Zamin {
         m_EditorScene = scene;
         SetActiveScene(m_EditorScene);
         m_SceneDirty = true;
+        m_AssetUsage.MarkDirty(); // undo / redo brings back (or takes away) what used assets
         UpdateWindowTitle();
     }
 

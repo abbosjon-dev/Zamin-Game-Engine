@@ -51,6 +51,7 @@ namespace Zamin {
             size_t Textures = 0;      // in memory
             size_t Waiting = 0;       // asked for, not done yet
             uint64_t FromDisk = 0, Generated = 0, Rendered = 0, Failed = 0;
+            uint64_t ReleasedTextures = 0; // loaded with a model for its picture only, freed again
         };
         Stats GetStats() const;
 

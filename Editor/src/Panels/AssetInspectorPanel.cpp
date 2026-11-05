@@ -605,7 +605,7 @@ namespace Zamin {
                 ImGui::SameLine();
                 std::string label = r.AssetPath.empty() ? r.Name : r.AssetPath;
                 if (ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick,
-                                      ImVec2(std::max(40.0f, ImGui::GetContentRegionAvail().x - 120.0f), 0)))
+                                      ImVec2(std::max(40.0f, ImGui::GetContentRegionAvail().x - 120.0f), 0)) && !r.Unsaved)
                 {
                     if (!r.AssetPath.empty() && OnRevealRequested)
                         OnRevealRequested(r.File);
@@ -614,7 +614,8 @@ namespace Zamin {
                 }
                 if (ImGui::IsItemHovered())
                     UI::Tooltip(std::format("{}\n{} ta havola{}", r.Name, r.Count,
-                                            r.AssetPath.empty() ? "\nIkki marta bosing: tizimda ochish" : "\nBosing: kontent brauzerda ko'rsatish").c_str());
+                                            r.Unsaved ? "\nTahrirlanayotgan sahna - hali faylga saqlanmagan"
+                                            : r.AssetPath.empty() ? "\nIkki marta bosing: tizimda ochish" : "\nBosing: kontent brauzerda ko'rsatish").c_str());
                 if (r.Has(AssetReferenceKind::Path)) Tag("yo'l", IM_COL32(60, 90, 120, 255));
                 if (r.Has(AssetReferenceKind::UUID)) Tag("UUID", IM_COL32(70, 110, 80, 255));
                 if (r.Has(AssetReferenceKind::ModelFile)) Tag("model", IM_COL32(130, 85, 50, 255));

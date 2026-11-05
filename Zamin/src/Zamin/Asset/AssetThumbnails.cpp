@@ -225,7 +225,7 @@ namespace Zamin {
         bool ok = false;
         if (reason.empty())
         {
-            stbi_set_flip_vertically_on_load_thread(0); // top row first, whatever another thread wants
+            stbi_set_flip_vertically_on_load_thread(0); // top row first (every loader sets its own thread's flag)
             switch (AssetTypes::FromPath(path))
             {
                 case AssetType::Texture:     ok = GenerateImage(path, maxSize, out, reason); break;

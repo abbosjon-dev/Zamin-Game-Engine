@@ -54,7 +54,7 @@ namespace Zamin {
         if (error = AssetImportLog::CheckReadable(m_Path); !error.empty())
             return false;
         int w, h, c;
-        stbi_set_flip_vertically_on_load(1);
+        stbi_set_flip_vertically_on_load_thread(1); // per thread (see Image::Load)
         float* data = stbi_loadf(m_Path.string().c_str(), &w, &h, &c, 4); // LDR images are linearized by stb
         if (!data)
         {

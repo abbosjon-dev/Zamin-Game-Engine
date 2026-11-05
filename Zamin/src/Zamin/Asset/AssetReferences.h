@@ -30,6 +30,7 @@ namespace Zamin {
         std::string AssetPath;        // the referring file inside the asset folder ("Scenes/Level1.zscene"; "" outside it)
         uint32_t Count = 0;           // references to the asset in the file
         uint8_t Kinds = 0;            // AssetReferenceKind bits
+        bool Unsaved = false;         // not a file: an open scene that was never saved (File is made up)
 
         bool Has(AssetReferenceKind kind) const { return (Kinds & (uint8_t)kind) != 0; }
     };
@@ -40,6 +41,7 @@ namespace Zamin {
         std::filesystem::path File;   // the referring file (absolute)
         std::string Name;             // its name relative to the project folder
         std::string Path;             // the asset path it names
+        bool Unsaved = false;         // named by an open scene that has no file yet
     };
 
     // An asset that is about to go (deleted) and the files that would be left referring to it.
@@ -64,6 +66,16 @@ namespace Zamin {
     class AssetReferenceIndex
     {
     public:
+        // Something open in the editor that has no file yet (a new scene never saved): scanned
+        // like a scene. `File` is a made-up absolute path where no file is - it only tells the
+        // referrer apart -, `Name` is what the lists show for it.
+        struct UnsavedFile
+        {
+            std::filesystem::path File;
+            std::string Name;
+            std::string Text;
+        };
+
         struct Sources
         {
             std::filesystem::path AssetDirectory;
@@ -75,12 +87,13 @@ namespace Zamin {
             const AssetRegistry* Registry = nullptr;
             // Text to read instead of a file on disk, by absolute path (an open scene with unsaved changes).
             std::unordered_map<std::string, std::string> Overrides;
+            std::vector<UnsavedFile> Unsaved;
         };
 
         // Reads every file that can refer to assets (replaces what was built before).
         void Build(const Sources& sources);
         // The same for the active project (its registry included); false without a project.
-        bool BuildForActiveProject(std::unordered_map<std::string, std::string> overrides = {});
+        bool BuildForActiveProject(std::unordered_map<std::string, std::string> overrides = {}, std::vector<UnsavedFile> unsaved = {});
         void Clear();
         bool IsBuilt() const { return m_Built; }
 
@@ -115,6 +128,8 @@ namespace Zamin {
         bool AssetExists(const std::string& relativePath) const;
         void AddReference(const std::filesystem::path& file, const std::string& asset, AssetReferenceKind kind);
         void AddMissing(const std::filesystem::path& file, const std::string& path);
+        // A referring file's name in the lists (relative to the project folder; an unsaved one's own).
+        std::string GetReferrerName(const std::string& key, bool* unsaved = nullptr) const;
         std::string ReadText(const std::filesystem::path& file) const;
 
         void ScanJson(const std::filesystem::path& file, const std::string& text);
@@ -130,6 +145,7 @@ namespace Zamin {
         std::unordered_map<std::string, std::vector<AssetReferrer>> m_Referrers;  // asset -> files
         std::unordered_map<std::string, std::vector<std::string>> m_Outgoing;     // file key -> assets
         std::unordered_set<std::string> m_Roots;            // file keys: the project file, C++ files
+        std::unordered_map<std::string, std::string> m_UnsavedNames; // file key -> name (Sources::Unsaved)
         std::vector<MissingAssetReference> m_Missing;
         size_t m_ScannedFiles = 0;
         size_t m_ReferenceCount = 0;

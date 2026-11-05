@@ -64,7 +64,7 @@ namespace Zamin {
         OpenGLTexture2D(const void* encoded, size_t size, const std::string& name) : m_Path(name)
         {
             int width, height, channels;
-            stbi_set_flip_vertically_on_load(1); // same convention as file textures (glTF V is flipped in the mesh)
+            stbi_set_flip_vertically_on_load_thread(1); // same convention as file textures (glTF V is flipped in the mesh)
             stbi_uc* data = stbi_load_from_memory((const stbi_uc*)encoded, (int)size, &width, &height, &channels, 4);
             if (!data)
             {
@@ -185,7 +185,7 @@ namespace Zamin {
                 return false;
             }
             int width, height, channels;
-            stbi_set_flip_vertically_on_load(1);
+            stbi_set_flip_vertically_on_load_thread(1); // per thread (see Image::Load)
             image.Pixels = stbi_load(path.c_str(), &width, &height, &channels, 0);
             if (image.Pixels && channels == 2) // grey + alpha: expand to RGBA
             {
@@ -274,7 +274,13 @@ namespace Zamin {
     }
 
     // ---------------------------------------------------------------- TextureLibrary
-    static std::unordered_map<std::string, Ref<Texture2D>> s_TextureCache;
+    struct CachedTexture
+    {
+        Ref<Texture2D> Texture;
+        uint64_t Serial = 0;  // when it was loaded (s_LoadSerial)
+    };
+    static std::unordered_map<std::string, CachedTexture> s_TextureCache;
+    static uint64_t s_LoadSerial = 0;
 
     static std::string CanonicalFile(const std::filesystem::path& path);
 
@@ -298,7 +304,7 @@ namespace Zamin {
         std::string key = pixelArt ? file + std::string(s_PixelArtSuffix) : file;
         auto it = s_TextureCache.find(key);
         if (it != s_TextureCache.end())
-            return it->second;
+            return it->second.Texture;
         // A file that failed and did not change since is not decoded again (tilemaps and particles
         // ask for their texture every frame while they have none).
         if (!AssetImportLog::ShouldRetry(file))
@@ -307,7 +313,7 @@ namespace Zamin {
         Ref<Texture2D> texture = Texture2D::Create(file, GetLoadSettings(file, pixelArt));
         if (!texture->IsLoaded())
             return nullptr;
-        s_TextureCache[key] = texture;
+        s_TextureCache[key] = { texture, ++s_LoadSerial };
         return texture;
     }
 
@@ -323,8 +329,9 @@ namespace Zamin {
         std::string file = CanonicalFile(path);
         size_t reloaded = 0;
         std::string error;
-        for (auto& [key, texture] : s_TextureCache)
+        for (auto& [key, cached] : s_TextureCache)
         {
+            const Ref<Texture2D>& texture = cached.Texture;
             if (texture->GetPath() != file)
                 continue;
             bool pixelArt = key.ends_with(s_PixelArtSuffix);
@@ -341,10 +348,19 @@ namespace Zamin {
     bool TextureLibrary::IsLoaded(const std::filesystem::path& path)
     {
         std::string file = CanonicalFile(path);
-        for (const auto& [key, texture] : s_TextureCache)
-            if (texture->GetPath() == file)
+        for (const auto& [key, cached] : s_TextureCache)
+            if (cached.Texture->GetPath() == file)
                 return true;
         return false;
+    }
+
+    uint64_t TextureLibrary::GetLoadSerial() { return s_LoadSerial; }
+
+    size_t TextureLibrary::ReleaseUnused(uint64_t since)
+    {
+        return std::erase_if(s_TextureCache, [&](const auto& item) {
+            return item.second.Serial > since && item.second.Texture.use_count() == 1; // only the cache has it
+        });
     }
 
     void TextureLibrary::Clear() { s_TextureCache.clear(); }

@@ -213,7 +213,7 @@ namespace Zamin {
         return true;
     }
 
-    bool AssetSearch::Matches(std::string_view relativePath, AssetType type) const
+    bool AssetSearch::Matches(std::string_view relativePath, AssetType type, bool skipTopFolder) const
     {
         if (m_HasTypes && std::find(m_Types.begin(), m_Types.end(), type) == m_Types.end())
             return false;
@@ -231,9 +231,14 @@ namespace Zamin {
                 segments.push_back(std::string_view(path).substr(p, slash - p));
             p = slash + 1;
         }
+        // What plain words see: the path below its first folder (a top folder alone is a name).
+        std::string_view plain = path;
+        if (size_t slash = path.find('/'); skipTopFolder && slash != std::string::npos && slash + 1 < path.size())
+            plain = std::string_view(path).substr(slash + 1);
         for (const Term& term : m_Terms)
         {
-            if (MatchPattern(path, term.Text))
+            bool hasSlash = term.Text.find('/') != std::string::npos;
+            if (MatchPattern(hasSlash ? std::string_view(path) : plain, term.Text))
                 continue; // a part of the whole path ("textures/co", "*.png")
             if (term.Parts.size() < 2)
                 return false;
@@ -276,6 +281,9 @@ namespace Zamin {
         bool recursive = !search.IsEmpty() || options.Filter.IsActive();
         fs::path searchRoot = (options.SearchRoot.empty() ? directory : options.SearchRoot).lexically_normal();
         fs::path listed = directory.lexically_normal();
+        // Only for paths that do start at the root (not the listed folder's own fallback below).
+        fs::path listedFromRoot = listed.lexically_relative(searchRoot);
+        bool skipTopFolder = options.SkipTopFolder && !listedFromRoot.empty() && *listedFromRoot.begin() != "..";
         auto searchPath = [&](const fs::path& p) {
             fs::path n = p.lexically_normal();
             fs::path rel = n.lexically_relative(searchRoot);
@@ -293,7 +301,7 @@ namespace Zamin {
             if (!isDir && AssetMetaFile::IsMetaFile(e.path()))
                 return true; // .zmeta files go with their asset, they are not shown on their own
             AssetType type = GetType(e.path(), isDir);
-            if (!search.IsEmpty() && !search.Matches(searchPath(e.path()), type))
+            if (!search.IsEmpty() && !search.Matches(searchPath(e.path()), type, skipTopFolder))
                 return true;
             if (!options.Filter.Matches(type))
                 return true;

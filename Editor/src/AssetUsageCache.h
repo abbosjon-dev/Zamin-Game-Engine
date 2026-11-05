@@ -7,6 +7,7 @@
 #include <functional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace Zamin {
 
@@ -18,6 +19,8 @@ namespace Zamin {
     public:
         // Unsaved state that should count instead of the files on disk (the open scene), by path.
         std::function<std::unordered_map<std::string, std::string>()> GetOverrides;
+        // Open things that have no file yet (a new scene that was never saved).
+        std::function<std::vector<AssetReferenceIndex::UnsavedFile>()> GetUnsaved;
 
         void MarkDirty() { m_Dirty = true; }
         void Reset()
@@ -38,7 +41,8 @@ namespace Zamin {
             {
                 m_Dirty = false;
                 m_BuildTime = now;
-                if (m_Index.BuildForActiveProject(GetOverrides ? GetOverrides() : std::unordered_map<std::string, std::string>{}))
+                if (m_Index.BuildForActiveProject(GetOverrides ? GetOverrides() : std::unordered_map<std::string, std::string>{},
+                                                  GetUnsaved ? GetUnsaved() : std::vector<AssetReferenceIndex::UnsavedFile>{}))
                     m_Revision++;
             }
             return m_Index;

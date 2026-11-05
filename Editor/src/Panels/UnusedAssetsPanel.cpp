@@ -240,7 +240,7 @@ namespace Zamin {
         {
             ImGui::PushID(&m);
             if (ImGui::Selectable(m.Name.c_str(), false, ImGuiSelectableFlags_None, ImVec2(ImGui::GetContentRegionAvail().x * 0.45f, 0)) &&
-                OnAssetSelected)
+                OnAssetSelected && !m.Unsaved) // the open scene, never saved: no file to show
                 OnAssetSelected(m.File);
             ImGui::SameLine();
             ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.4f, 1.0f), ICON_FA_ARROW_RIGHT "  %s", m.Path.c_str());

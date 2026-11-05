@@ -93,6 +93,20 @@ namespace Zamin {
         return FileSystem::ReadTextFile(file);
     }
 
+    std::string AssetReferenceIndex::GetReferrerName(const std::string& key, bool* unsaved) const
+    {
+        if (auto it = m_UnsavedNames.find(key); it != m_UnsavedNames.end())
+        {
+            if (unsaved)
+                *unsaved = true;
+            return it->second;
+        }
+        if (unsaved)
+            *unsaved = false;
+        std::string name = fs::path(key).lexically_relative(m_ProjectDirectory).generic_string();
+        return name.empty() || name.starts_with("..") ? key : name;
+    }
+
     void AssetReferenceIndex::AddReference(const fs::path& file, const std::string& asset, AssetReferenceKind kind)
     {
         std::string key = ToKey(file);
@@ -105,10 +119,9 @@ namespace Zamin {
         {
             AssetReferrer referrer;
             referrer.File = key;
-            referrer.Name = fs::path(key).lexically_relative(m_ProjectDirectory).generic_string();
-            if (referrer.Name.empty() || referrer.Name.starts_with(".."))
-                referrer.Name = key;
-            referrer.AssetPath = ToAssetPath(file);
+            referrer.Name = GetReferrerName(key, &referrer.Unsaved);
+            if (!referrer.Unsaved)
+                referrer.AssetPath = ToAssetPath(file);
             referrers.push_back(std::move(referrer));
             it = referrers.end() - 1;
         }
@@ -127,7 +140,7 @@ namespace Zamin {
                 return;
         MissingAssetReference missing;
         missing.File = key;
-        missing.Name = fs::path(key).lexically_relative(m_ProjectDirectory).generic_string();
+        missing.Name = GetReferrerName(key, &missing.Unsaved);
         missing.Path = path;
         m_Missing.push_back(std::move(missing));
     }
@@ -325,6 +338,7 @@ namespace Zamin {
         m_Referrers.clear();
         m_Outgoing.clear();
         m_Roots.clear();
+        m_UnsavedNames.clear();
         m_Missing.clear();
         m_ScannedFiles = 0;
         m_ReferenceCount = 0;
@@ -398,6 +412,17 @@ namespace Zamin {
                 continue;
             m_ScannedFiles++;
         }
+        // Open, never saved: like a scene of the project (a path where a file is would count twice).
+        for (const UnsavedFile& unsaved : m_Sources.Unsaved)
+        {
+            std::error_code uec;
+            std::string key = ToKey(unsaved.File);
+            if (unsaved.File.empty() || fs::exists(unsaved.File, uec) || m_UnsavedNames.count(key))
+                continue;
+            m_UnsavedNames[key] = unsaved.Name.empty() ? key : unsaved.Name;
+            ScanJson(unsaved.File, unsaved.Text);
+            m_ScannedFiles++;
+        }
         if (!m_Sources.ProjectFile.empty() && fs::is_regular_file(m_Sources.ProjectFile, ec))
         {
             ScanJson(m_Sources.ProjectFile, ReadText(m_Sources.ProjectFile));
@@ -432,7 +457,7 @@ namespace Zamin {
         });
     }
 
-    bool AssetReferenceIndex::BuildForActiveProject(std::unordered_map<std::string, std::string> overrides)
+    bool AssetReferenceIndex::BuildForActiveProject(std::unordered_map<std::string, std::string> overrides, std::vector<UnsavedFile> unsaved)
     {
         if (!Project::GetActive())
         {
@@ -446,6 +471,7 @@ namespace Zamin {
         sources.SourceDirectory = Project::GetSourceDirectory();
         sources.Registry = Project::GetAssetRegistry();
         sources.Overrides = std::move(overrides);
+        sources.Unsaved = std::move(unsaved);
         Build(sources);
         return true;
     }

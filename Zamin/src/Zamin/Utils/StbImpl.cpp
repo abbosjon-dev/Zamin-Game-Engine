@@ -49,10 +49,11 @@ namespace Zamin {
     {
         out = {};
         channels = channels < 1 ? 1 : channels > 4 ? 4 : channels;
-        stbi_set_flip_vertically_on_load(flipVertically ? 1 : 0);
+        // Per thread: a loader on another thread (thumbnails) cannot change it in the middle, and
+        // once a thread has set it, stb ignores the global setting there.
+        stbi_set_flip_vertically_on_load_thread(flipVertically ? 1 : 0);
         int width = 0, height = 0, fileChannels = 0;
         stbi_uc* data = stbi_load(path.c_str(), &width, &height, &fileChannels, (int)channels);
-        stbi_set_flip_vertically_on_load(0);
         if (!data)
         {
             if (error)

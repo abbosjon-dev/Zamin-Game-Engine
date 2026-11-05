@@ -96,6 +96,11 @@ namespace Zamin {
         static size_t Reload(const std::filesystem::path& path, bool* failed = nullptr);
         // Whether a texture of this file is in the cache.
         static bool IsLoaded(const std::filesystem::path& path);
+        // Grows with every texture the cache takes in. ReleaseUnused(since) drops the ones taken
+        // in after GetLoadSerial() returned `since` that nothing else holds any more (loaded for
+        // a moment only - a model drawn into a thumbnail); returns how many.
+        static uint64_t GetLoadSerial();
+        static size_t ReleaseUnused(uint64_t since);
         static void Clear();
     };
 

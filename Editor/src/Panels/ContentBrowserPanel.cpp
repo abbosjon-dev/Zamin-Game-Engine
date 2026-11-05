@@ -80,6 +80,14 @@ namespace Zamin {
                 ImU32 referrerColor;
                 const char* referrerIcon = IconFor(AssetFiles::GetType(referrer.File), referrerColor);
                 std::string label = std::format("{}  {}{}##ref{}", referrerIcon, referrer.Name, tags, r);
+                if (referrer.Unsaved)
+                {
+                    // The open scene, never saved: no file to show.
+                    ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_Disabled);
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                        UI::Tooltip("Tahrirlanayotgan sahna - hali faylga saqlanmagan");
+                    continue;
+                }
                 if (ImGui::Selectable(label.c_str()))
                 {
                     if (clicked)
@@ -96,6 +104,40 @@ namespace Zamin {
         }
         ImGui::EndChild();
         return result;
+    }
+
+    // Start of the UTF-8 character before `at` (names are not always ASCII).
+    static size_t PreviousCharacter(const std::string& text, size_t at)
+    {
+        if (at == 0)
+            return 0;
+        at--;
+        while (at > 0 && ((unsigned char)text[at] & 0xC0) == 0x80)
+            at--;
+        return at;
+    }
+
+    // A name that fits `width` on one line: the middle gives way to an ellipsis so the start and
+    // the end with the extension stay readable ("bricks_n...l.png"); when that leaves too little
+    // of the start, only the start is kept. The full name is in the tooltip.
+    static std::string FitName(const std::string& name, float width)
+    {
+        auto fits = [&](const std::string& text) { return ImGui::CalcTextSize(text.c_str()).x <= width; };
+        if (fits(name))
+            return name;
+        // U+2026 when the font has it (the editor font does), otherwise three dots.
+        const std::string ellipsis = ImGui::GetFont()->FindGlyphNoFallback((ImWchar)0x2026) ? "\xE2\x80\xA6" : "...";
+        size_t dot = name.rfind('.');
+        size_t tail = dot != std::string::npos && dot > 0 && name.size() - dot <= 9 ? dot : name.size(); // ".zprefab"...
+        tail = PreviousCharacter(name, tail); // one letter before the extension, too
+        constexpr size_t minHead = 3;
+        for (size_t head = PreviousCharacter(name, tail); head >= minHead; head = PreviousCharacter(name, head))
+            if (std::string shown = name.substr(0, head) + ellipsis + name.substr(tail); fits(shown))
+                return shown;
+        for (size_t head = PreviousCharacter(name, name.size()); head > 0; head = PreviousCharacter(name, head))
+            if (std::string shown = name.substr(0, head) + ellipsis; fits(shown))
+                return shown;
+        return ellipsis;
     }
 
     static std::string FormatTime(fs::file_time_type time)
@@ -215,6 +257,7 @@ namespace Zamin {
         AssetListOptions options;
         options.Search = m_Search;
         options.SearchRoot = m_Root;
+        options.SkipTopFolder = true; // "a" must not find everything in "Assets/"
         options.Filter = m_Settings->Filter;
         options.SortBy = m_Settings->SortBy;
         options.Ascending = m_Settings->SortAscending;
@@ -865,13 +908,15 @@ namespace Zamin {
 
             if (recursive)
             {
-                // A search / filter result: the name on one line, the folder it is in below it.
+                // A search / filter result: the name on one line (shortened in the middle when it is
+                // too long; tiles out of view keep it whole), the folder it is in below it.
                 float line = ImGui::GetTextLineHeight();
                 ImVec4 nameClip(cursor.x + 2, cursor.y + size, tileMax.x - 2, cursor.y + size + line);
-                float nameWidth = ImGui::CalcTextSize(entry.Name.c_str()).x;
+                std::string name = ImGui::IsRectVisible(cursor, tileMax) ? FitName(entry.Name, size - 4) : entry.Name;
+                float nameWidth = ImGui::CalcTextSize(name.c_str()).x;
                 float nx = cursor.x + std::max(2.0f, (size - std::min(nameWidth, size - 4)) * 0.5f);
                 dl->AddText(ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(nx, cursor.y + size), ImGui::GetColorU32(ImGuiCol_Text),
-                            entry.Name.c_str(), nullptr, 0.0f, &nameClip);
+                            name.c_str(), nullptr, 0.0f, &nameClip);
                 std::string where = path.parent_path().lexically_relative(m_ListDirectory).generic_string();
                 if (where == ".")
                     where.clear();

@@ -6109,6 +6109,16 @@ TEST(AssetSearchByPath)
     CHECK(many.HasTypeFilter() && std::find(many.GetTypes().begin(), many.GetTypes().end(), AssetType::Scene) != many.GetTypes().end() &&
           std::find(many.GetTypes().begin(), many.GetTypes().end(), AssetType::Font) != many.GetTypes().end()); // "Shrift"
     CHECK(!match("t:xyz", "a.png") && AssetSearch("t:").IsEmpty() && AssetSearch("   ").IsEmpty() && !AssetSearch("a").IsEmpty());
+    // Skipping the top folder (paths from the project folder): plain words do not match "Assets/"
+    // or "Source/", words with '/' and the top folder's own name still do.
+    auto top = [](const char* query, const char* path, AssetType type = AssetType::Texture) {
+        return AssetSearch(query).Matches(path, type, true);
+    };
+    CHECK(match("a", "Assets/Textures/coin.png") && !top("a", "Assets/Textures/coin.png") && !top("set", "Assets/Textures/coin.png"));
+    CHECK(top("tex", "Assets/Textures/coin.png") && top("coin", "Assets/Textures/coin.png") && top("*.png", "Assets/Textures/coin.png"));
+    CHECK(top("assets/tex", "Assets/Textures/coin.png") && top("Assets/", "Assets/Textures/coin.png") && top("as/co", "Assets/Textures/coin.png"));
+    CHECK(top("assets", "Assets", AssetType::Folder) && top("ou", "Source", AssetType::Folder) && !top("ou", "Source/CoinScript.cpp", AssetType::Script));
+    CHECK(top("project", "Game.zproject", AssetType::Other) && top("script", "Source/CoinScript.cpp", AssetType::Script));
 
     // The content browser's listing: every sub folder, paths matched from the search root.
     fs::path root = MakeTempDir("zamin-search-");
@@ -6143,6 +6153,20 @@ TEST(AssetSearchByPath)
     CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "CoinScript.cpp" }));
     std::vector<AssetEntry> found = AssetFiles::List(root, options);
     CHECK(found.size() == 1 && found[0].Path == root / "Source" / "CoinScript.cpp" && found[0].Type == AssetType::Script);
+    // As the editor searches: "as" or "ou" do not find every file below "Assets" / "Source".
+    options.Search = "as";
+    CHECK(names(AssetFiles::List(root, options)).size() >= 5); // all of Assets/
+    options.SkipTopFolder = true;
+    CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "Assets" }));
+    options.Search = "ou";
+    CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "Source" }));
+    options.Search = "coin";
+    CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "CoinScript.cpp", "coin.png", "gold_coin.png" }));
+    options.Search = "assets/textures/";
+    CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "Items", "coin.png", "gold_coin.png" }));
+    options.Search = "textures";
+    CHECK(names(AssetFiles::List(root / "Assets", options)) == std::vector<std::string>({ "Items", "Textures", "coin.png", "gold_coin.png" }));
+    options.SkipTopFolder = false;
     // Without a search root the paths start at the listed folder.
     options.SearchRoot.clear();
     options.Search = "assets/";
@@ -8725,6 +8749,38 @@ TEST(AssetDeletionWarnings)
     index.Build(sources);
     uses = index.FindUsesOutside({ "Textures/a.png" });
     CHECK(uses.size() == 1 && uses[0].Referrers.size() == 1 && uses[0].GetReferenceCount() == 2);
+
+    // A new scene that was never saved counts too, under its own name (no file to read or show).
+    CHECK(index.FindUsesOutside({ "Textures/unused.png" }).empty());
+    AssetReferenceIndex::UnsavedFile open;
+    open.File = dir / ".zamin" / "Unsaved" / "open-scene.zscene";
+    open.Name = "Yangi sahna (ochiq sahna, saqlanmagan)";
+    open.Text = R"({ "Scene": "Yangi sahna", "Entities": [
+        { "Tag": "U", "SpriteRenderer": { "Texture": "Textures/unused.png" } },
+        { "Tag": "M", "SpriteRenderer": { "Texture": "Textures/missing.png" } } ] })";
+    sources.Unsaved = { open };
+    index.Build(sources);
+    uses = index.FindUsesOutside({ "Textures/unused.png" });
+    CHECK(uses.size() == 1 && uses[0].Referrers.size() == 1 && uses[0].GetReferenceCount() == 1);
+    if (uses.size() == 1 && uses[0].Referrers.size() == 1)
+    {
+        const AssetReferrer& r = uses[0].Referrers[0];
+        CHECK(r.Unsaved && r.Name == open.Name && r.AssetPath.empty() && r.Has(AssetReferenceKind::Path));
+    }
+    CHECK(!index.GetReferrers("Textures/a.png").empty() && !index.GetReferrers("Textures/a.png")[0].Unsaved);
+    bool missingFromOpen = false;
+    for (const MissingAssetReference& m : index.GetMissing())
+        missingFromOpen |= m.Unsaved && m.Name == open.Name && m.Path == "Textures/missing.png";
+    CHECK(missingFromOpen);
+    std::vector<UnusedAsset> unused = index.FindUnused();
+    CHECK(std::none_of(unused.begin(), unused.end(), [](const UnusedAsset& u) { return u.Path == "Textures/unused.png"; }));
+    // A path where a file is would be read twice: it is not taken as an unsaved one.
+    sources.Unsaved[0].File = assets / "Scenes" / "Main.zscene";
+    index.Build(sources);
+    CHECK(index.FindUsesOutside({ "Textures/unused.png" }).empty());
+    sources.Unsaved.clear();
+    index.Build(sources);
+    CHECK(index.FindUsesOutside({ "Textures/unused.png" }).empty() && index.GetMissing().empty());
     std::error_code ec;
     fs::remove_all(dir, ec);
 }
@@ -8789,6 +8845,13 @@ TEST(AssetThumbnailsAndDiskCache)
     std::thread worker([&]() { AssetThumbnails::Generate(pic, 16, threaded); });
     worker.join();
     CHECK(threaded.Pixels == thumb.Pixels);
+    // Made on this thread, too: the loaders after it still flip when they ask for it (stb's
+    // per-thread setting would otherwise hide the global one from now on).
+    ImageData flippedPic, plainPic;
+    CHECK(Image::Load(pic.string(), flippedPic, 4, true) && Image::Load(pic.string(), plainPic, 4, false));
+    CHECK(flippedPic.Pixels.size() == image.size() && flippedPic.Pixels[0] == 0 && flippedPic.Pixels[2] == 255); // bottom (blue) row first
+    CHECK(plainPic.Pixels == image);
+    CHECK(AssetThumbnails::Generate(pic, 16, threaded) && threaded.Pixels == thumb.Pixels);
 
     // An HDR map is tone mapped (1.0 -> 0.5 -> gamma), a font gets "Aa", other files nothing.
     std::string hdr = "#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 2 +X 4\n";

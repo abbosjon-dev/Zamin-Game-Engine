@@ -58,7 +58,9 @@ namespace Zamin {
 
         bool IsEmpty() const { return m_Terms.empty() && !m_HasTypes; }
         // `relativePath`: generic, relative to where the search starts ("Assets/Textures/coin.png").
-        bool Matches(std::string_view relativePath, AssetType type) const;
+        // skipTopFolder: words without '/' do not match the path's first folder (see
+        // AssetListOptions::SkipTopFolder); words with one still do ("assets/tex", "Source/").
+        bool Matches(std::string_view relativePath, AssetType type, bool skipTopFolder = false) const;
         // Whether the words contain t: tokens (and the types they allow).
         bool HasTypeFilter() const { return m_HasTypes; }
         const std::vector<AssetType>& GetTypes() const { return m_Types; }
@@ -85,6 +87,10 @@ namespace Zamin {
         // Where the paths the search matches start ("" = the listed folder): the editor passes the
         // project folder, so "Assets/Textures/..." and "Source/..." can be searched from anywhere.
         std::filesystem::path SearchRoot;
+        // Words without '/' leave out the first folder of the paths matched from the search root:
+        // from the project folder every asset is in "Assets/" and every script in "Source/", so "a",
+        // "set" or "ou" would find all of them. The top folders themselves still match by name.
+        bool SkipTopFolder = false;
         // Active: every sub folder is searched and only files of these types are listed.
         AssetTypeFilter Filter;
         // Folders left out together with everything inside them (Build, Binaries...).

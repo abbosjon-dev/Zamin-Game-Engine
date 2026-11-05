@@ -238,6 +238,10 @@ namespace Zamin {
                 entry.Status = State::Ready;
                 (result.FromDisk ? m_Stats.FromDisk : m_Stats.Generated)++;
                 uploads++;
+                // Decoded from the file just now (the same decoders the loaders use): a failure
+                // reported for an earlier version is over, also when nothing has the file loaded.
+                if (!result.FromDisk)
+                    AssetImportLog::Clear(entry.Path);
             }
             else
             {
@@ -308,9 +312,22 @@ namespace Zamin {
     bool ThumbnailCache::RenderModel(const fs::path& path, ThumbnailImage& out)
     {
         bool wasLoaded = Model::IsFileLoaded(path);
+        uint64_t textureSerial = TextureLibrary::GetLoadSerial();
         Ref<Model> model = Model::Load(path); // a failure is reported once (AssetImportLog)
+        // Loaded for the picture only: the model and the textures it brought into the texture
+        // cache (full size, on the GPU) go again unless something else took them meanwhile.
+        auto release = [&]() {
+            model.reset();
+            if (wasLoaded)
+                return;
+            Model::ReleaseIfUnused(path);
+            m_Stats.ReleasedTextures += TextureLibrary::ReleaseUnused(textureSerial);
+        };
         if (!model || model->GetSubMeshes().empty())
+        {
+            release();
             return false;
+        }
 
         if (!m_ModelTarget)
         {
@@ -359,10 +376,7 @@ namespace Zamin {
         std::vector<uint8_t> pixels = m_ModelFinal->ReadColorPixels(0);
         m_ModelFinal->Unbind(); // Apply leaves its target bound
         Renderer::GetStats() = stats;
-
-        model.reset();
-        if (!wasLoaded)
-            Model::ReleaseIfUnused(path); // loaded for the picture only
+        release();
 
         if (pixels.size() != (size_t)Size * Size * 4)
             return false;

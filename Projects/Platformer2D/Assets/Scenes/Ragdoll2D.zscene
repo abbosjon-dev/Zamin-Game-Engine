@@ -1848,7 +1848,7 @@
       "Tag": "Tower Crate 1",
       "Transform": {
         "Translation": [
-          12.4,
+          13.5,
           -5.55,
           0
         ],
@@ -1907,7 +1907,7 @@
       "Tag": "Tower Crate 2",
       "Transform": {
         "Translation": [
-          12.4,
+          13.5,
           -4.65,
           0
         ],
@@ -1966,7 +1966,7 @@
       "Tag": "Tower Crate 3",
       "Transform": {
         "Translation": [
-          12.4,
+          13.5,
           -3.75,
           0
         ],
@@ -2025,7 +2025,7 @@
       "Tag": "Tower Crate 4",
       "Transform": {
         "Translation": [
-          12.4,
+          13.5,
           -2.85,
           0
         ],
@@ -2084,7 +2084,7 @@
       "Tag": "Yozuv: Uxlab turgan minora",
       "Transform": {
         "Translation": [
-          12.4,
+          13.5,
           -1.7,
           0.5
         ],
@@ -4639,8 +4639,8 @@
       "Tag": "Ragdoll",
       "Transform": {
         "Translation": [
-          9.6,
-          0.5,
+          4.6,
+          2.2,
           0.0
         ],
         "Rotation": [
@@ -4667,7 +4667,7 @@
         "Rotation": [
           0,
           0,
-          1.2
+          0.4
         ],
         "Scale": [
           0.38,
@@ -4720,14 +4720,14 @@
       "Tag": "Chest",
       "Transform": {
         "Translation": [
-          -0.4287,
-          0.1667,
+          -0.1791,
+          0.4237,
           0.0
         ],
         "Rotation": [
           0,
           0,
-          1.2
+          0.4
         ],
         "Scale": [
           0.42,
@@ -4801,14 +4801,14 @@
       "Tag": "Head",
       "Transform": {
         "Translation": [
-          -0.9584,
-          0.4048,
+          -0.3774,
+          0.9696,
           0.0
         ],
         "Rotation": [
           0,
           0,
-          1.2
+          0.4
         ],
         "Scale": [
           0.54,
@@ -4942,14 +4942,14 @@
       "Tag": "Upper Arm B",
       "Transform": {
         "Translation": [
-          -0.4841,
-          0.1346,
+          -0.2408,
+          0.4411,
           0.0
         ],
         "Rotation": [
           0,
           0,
-          1.2
+          0.4
         ],
         "Scale": [
           0.15,
@@ -5023,14 +5023,14 @@
       "Tag": "Forearm B",
       "Transform": {
         "Translation": [
-          -0.1206,
-          -0.0067,
+          -0.0889,
+          0.0818,
           0.0
         ],
         "Rotation": [
           0,
           0,
-          1.2
+          0.4
         ],
         "Scale": [
           0.13,
@@ -5104,14 +5104,14 @@
       "Tag": "Thigh B",
       "Transform": {
         "Translation": [
-          0.3361,
-          -0.1843,
+          0.1019,
+          -0.3695,
           0.0
         ],
         "Rotation": [
           0,
           0,
-          1.2
+          0.4
         ],
         "Scale": [
           0.18,
@@ -5185,14 +5185,14 @@
       "Tag": "Shin B",
       "Transform": {
         "Translation": [
-          0.8207,
-          -0.3727,
+          0.3044,
+          -0.8484,
           0.0
         ],
         "Rotation": [
           0,
           0,
-          1.2
+          0.4
         ],
         "Scale": [
           0.16,
@@ -5266,14 +5266,14 @@
       "Tag": "Upper Arm F",
       "Transform": {
         "Translation": [
-          -0.4479,
-          0.2278,
+          -0.1487,
+          0.48,
           0.0
         ],
         "Rotation": [
           0,
           0,
-          1.2
+          0.4
         ],
         "Scale": [
           0.15,
@@ -5347,14 +5347,14 @@
       "Tag": "Forearm F",
       "Transform": {
         "Translation": [
-          -0.0844,
-          0.0865,
+          0.0032,
+          0.1208,
           0.0
         ],
         "Rotation": [
           0,
           0,
-          1.2
+          0.4
         ],
         "Scale": [
           0.13,
@@ -5428,14 +5428,14 @@
       "Tag": "Thigh F",
       "Transform": {
         "Translation": [
-          0.3723,
-          -0.0911,
+          0.194,
+          -0.3305,
           0.0
         ],
         "Rotation": [
           0,
           0,
-          1.2
+          0.4
         ],
         "Scale": [
           0.18,
@@ -5509,14 +5509,14 @@
       "Tag": "Shin F",
       "Transform": {
         "Translation": [
-          0.857,
-          -0.2795,
+          0.3965,
+          -0.8095,
           0.0
         ],
         "Rotation": [
           0,
           0,
-          1.2
+          0.4
         ],
         "Scale": [
           0.16,

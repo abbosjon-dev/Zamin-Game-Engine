@@ -42,6 +42,10 @@ namespace Zamin {
         Entity GetAnchor() const { return m_Anchor; }
         // In the order they were picked.
         const std::vector<Entity>& GetEntities() const { return m_Entities; }
+        // Counts picks: every Select / Add / Remove / Toggle / SelectRange / Set / Clear, even one
+        // that leaves the same entities selected (Prune and Remap do not count). The editor's
+        // inspector goes back from an asset to the entities when it changes.
+        uint64_t GetRevision() const { return m_Revision; }
 
         // Forgets destroyed entities; the primary falls back to the most recently picked one left.
         void Prune();
@@ -57,6 +61,7 @@ namespace Zamin {
         std::unordered_set<entt::entity> m_Lookup;
         Scene* m_Scene = nullptr; // every selected entity belongs to this scene
         Entity m_Primary, m_Anchor;
+        uint64_t m_Revision = 0;
     };
 
     // What the editor's status bar shows about the selection.

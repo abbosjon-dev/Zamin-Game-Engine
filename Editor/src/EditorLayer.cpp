@@ -89,6 +89,12 @@ namespace Zamin {
         m_ContentBrowserPanel.SetSettings(&m_ViewSettings.ContentBrowser); // grid / list, filter, sorting: per user
         m_ContentBrowserPanel.OnSettingsModified = [this]() { MarkViewSettingsDirty(); };
         m_ContentBrowserPanel.OnAssetsMoved = [this](const AssetFiles::MoveResult& result) { OnAssetsMoved(result); };
+        // A file picked in the content browser takes the Inspector until an entity is picked again.
+        m_SceneHierarchyPanel.SetAssetInspector(&m_AssetInspectorPanel);
+        m_ContentBrowserPanel.OnAssetSelected = [this](const fs::path& p) {
+            m_AssetInspectorPanel.SetAsset(p);
+            m_SceneHierarchyPanel.AcknowledgeSelection();
+        };
 
         ScriptEngine::SetBeforeUnloadCallback([this]() {
             if (m_SceneState != SceneState::Edit)
@@ -150,6 +156,14 @@ namespace Zamin {
                     }
                     m_SceneHierarchyPanel.GetSelection().Set(picked);
                 }
+            }
+            // ZAMIN_EDITOR_ASSET=<path relative to Assets>: the asset inspector shows that file.
+            if (const char* asset = std::getenv("ZAMIN_EDITOR_ASSET"))
+            {
+                fs::path path = Project::GetAssetFileSystemPath(asset);
+                m_ContentBrowserPanel.Reveal({ path });
+                m_AssetInspectorPanel.SetAsset(path);
+                m_SceneHierarchyPanel.AcknowledgeSelection();
             }
             if (const char* pivot = std::getenv("ZAMIN_EDITOR_PIVOT_CENTER"))
                 m_GizmoPivotCenter = std::string_view(pivot) != "0";
@@ -221,6 +235,38 @@ namespace Zamin {
         // ZAMIN_EDITOR_PLAY has started the game), the same path as Alt+Shift+A.
         if (frame == 20 && std::getenv("ZAMIN_EDITOR_TOGGLE_ACTIVE"))
             ToggleSelectionActive();
+
+        // ZAMIN_EDITOR_ASSET_IMPORT="Filter=Nearest,sRGB=false" (with ZAMIN_EDITOR_ASSET): edits the
+        // inspected asset's import settings at frame 30 and applies them, like the Apply button.
+        if (frame == 30 && m_AssetInspectorPanel.HasAsset())
+            if (const char* edits = std::getenv("ZAMIN_EDITOR_ASSET_IMPORT"))
+            {
+                AssetImportSettings import;
+                AssetImporter::WriteTextureSettings(m_AssetInspectorPanel.GetEditedTextureSettings(), import);
+                AssetImporter::WriteModelSettings(m_AssetInspectorPanel.GetEditedModelSettings(), import);
+                std::string_view rest(edits);
+                while (!rest.empty())
+                {
+                    size_t comma = rest.find(',');
+                    std::string_view pair = rest.substr(0, comma);
+                    rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
+                    size_t eq = pair.find('=');
+                    if (eq == std::string_view::npos)
+                        continue;
+                    std::string key(pair.substr(0, eq)), value(pair.substr(eq + 1));
+                    char* end = nullptr;
+                    double number = std::strtod(value.c_str(), &end);
+                    if (value == "true" || value == "false")
+                        import.SetBool(key, value == "true");
+                    else if (end && *end == '\0' && !value.empty())
+                        import.SetNumber(key, number);
+                    else
+                        import.SetString(key, value);
+                }
+                m_AssetInspectorPanel.GetEditedTextureSettings() = AssetImporter::ReadTextureSettings(import);
+                m_AssetInspectorPanel.GetEditedModelSettings() = AssetImporter::ReadModelSettings(import);
+                m_AssetInspectorPanel.Apply();
+            }
 
         // Simulated file drops (no drag & drop source in CI): ZAMIN_EDITOR_DROP="a.png;b.wav" at frame
         // ZAMIN_EDITOR_DROP_FRAME (30), or a request file ZAMIN_EDITOR_DROP_FILE whose lines are the
@@ -771,6 +817,7 @@ namespace Zamin {
         }
         m_SceneHierarchyPanel.OnScriptsReloaded();
         m_ContentBrowserPanel.SetRoot(Project::GetProjectDirectory());
+        m_AssetInspectorPanel.Clear();
 
         auto& config = Project::GetActive()->GetConfig();
         fs::path startScene = Project::GetAssetFileSystemPath(config.StartScene);
@@ -798,6 +845,7 @@ namespace Zamin {
         SaveData::Save();
         Project::SetActive(nullptr);
         m_ContentBrowserPanel.SetRoot({});
+        m_AssetInspectorPanel.Clear();
         NewScene();
         m_ShowLauncher = true;
         UpdateWindowTitle();

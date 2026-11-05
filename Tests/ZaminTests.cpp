@@ -3636,14 +3636,20 @@ TEST(EntitySelectionModel)
 
     // Same entities in a copy of the scene (play mode / undo snapshot).
     auto copy = Scene::Copy(scene);
+    uint64_t revision = sel.GetRevision();
+    sel.Prune();
     sel.Remap(copy.get());
+    CHECK(sel.GetRevision() == revision); // not a new pick: the inspector stays where it is
     CHECK(sel.Size() == 2 && sel.GetPrimary() && sel.GetPrimary().GetScene() == copy.get());
     CHECK(sel.GetPrimary().GetUUID() == c.GetUUID());
     CHECK(!sel.Contains(a) && sel.Contains(copy->GetEntityByUUID(a.GetUUID())));
     sel.Remap(nullptr);
-    CHECK(sel.IsEmpty());
+    CHECK(sel.IsEmpty() && sel.GetRevision() == revision);
     sel.Select(Entity());
-    CHECK(sel.IsEmpty());
+    CHECK(sel.IsEmpty() && sel.GetRevision() > revision); // a pick, even of nothing
+    revision = sel.GetRevision();
+    sel.Clear();
+    CHECK(sel.GetRevision() > revision);
 }
 
 TEST(GroupTransformEditing)

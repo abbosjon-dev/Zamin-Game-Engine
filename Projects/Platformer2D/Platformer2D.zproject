@@ -78,6 +78,7 @@
     "Project": {
         "Name": "Platformer2D",
         "StartScene": "Scenes/Level1.zscene",
+        "StartSceneUUID": "b42a5d091a0b27d2",
         "AssetDirectory": "Assets",
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libPlatformer2D.so",

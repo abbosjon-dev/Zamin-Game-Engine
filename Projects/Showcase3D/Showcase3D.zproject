@@ -2,6 +2,7 @@
     "Project": {
         "Name": "Showcase3D",
         "StartScene": "Scenes/Showcase.zscene",
+        "StartSceneUUID": "0b9bead1ce490683",
         "AssetDirectory": "Assets",
         "SourceDirectory": "Source",
         "ScriptModulePath": "Binaries/libShowcase3D.so",

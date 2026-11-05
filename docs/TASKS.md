@@ -80,8 +80,8 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 065. Teksturalarni qayta yuklash (hot reload) editor'da
 - [x] 066. Modellarni qayta yuklash
 - [x] 067. Tekstura import sozlamalari: filtr, wrap, mipmap, sRGB
-- [ ] 068. Tekstura import sozlamalari inspektori
-- [ ] 069. Model import sozlamalari: masshtab, yuqori o'q
+- [x] 068. Tekstura import sozlamalari inspektori
+- [x] 069. Model import sozlamalari: masshtab, yuqori o'q
 - [x] 070. Asset nomi o'zgarganda havolalarni yangilash (UUID orqali)
 - [ ] 071. Kontent brauzerda asset tanlanganda inspektorda ko'rsatish
 - [ ] 072. Tekstura preview inspektorda (o'lcham, format)

@@ -3,6 +3,7 @@
 #include <Zamin/Zamin.h>
 
 #include "Panels/SceneHierarchyPanel.h"
+#include "Panels/AssetInspectorPanel.h"
 #include "Panels/ContentBrowserPanel.h"
 #include "Panels/ConsolePanel.h"
 #include "Panels/ProjectSettingsPanel.h"
@@ -217,6 +218,7 @@ namespace Zamin {
         // panels
         SceneHierarchyPanel m_SceneHierarchyPanel;
         ContentBrowserPanel m_ContentBrowserPanel;
+        AssetInspectorPanel m_AssetInspectorPanel; // the Inspector for a file picked in the content browser
         ConsolePanel m_ConsolePanel;
         ProjectSettingsPanel m_ProjectSettingsPanel;
         bool m_ShowHierarchy = true, m_ShowInspector = true, m_ShowContentBrowser = true, m_ShowConsole = true;

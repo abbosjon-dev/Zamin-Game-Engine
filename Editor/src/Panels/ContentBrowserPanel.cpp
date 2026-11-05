@@ -34,6 +34,15 @@ namespace Zamin {
         }
     }
 
+    const char* ContentBrowserPanel::GetTypeIcon(AssetType type, ImU32* color)
+    {
+        ImU32 c;
+        const char* icon = IconFor(type, c);
+        if (color)
+            *color = c;
+        return icon;
+    }
+
     static std::string FormatTime(fs::file_time_type time)
     {
         if (time == fs::file_time_type{})
@@ -510,6 +519,7 @@ namespace Zamin {
         bool hovered = ImGui::IsItemHovered();
         ImGuiIO& io = ImGui::GetIO();
 
+        bool clicked = false;
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
         {
             if (io.KeyCtrl || io.KeyShift)
@@ -518,9 +528,16 @@ namespace Zamin {
                 SelectOnly(path);
             else
                 m_ClickedSelected = path; // maybe the start of dragging the whole selection
+            clicked = true;
         }
-        if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && !IsSelected(path))
-            SelectOnly(path);
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+        {
+            if (!IsSelected(path))
+                SelectOnly(path);
+            clicked = true;
+        }
+        if (clicked && OnAssetSelected) // Ctrl+click on a selected item: the last one left
+            OnAssetSelected(IsSelected(path) ? path : m_Selection.empty() ? fs::path() : m_Selection.back());
 
         if (ImGui::BeginDragDropSource())
         {
@@ -841,8 +858,12 @@ namespace Zamin {
             if (!m_Selection.empty())
                 m_Anchor = m_Selection.front();
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && !m_Selection.empty())
+        {
             m_Selection.clear();
+            if (OnAssetSelected)
+                OnAssetSelected({});
+        }
         if (ImGui::IsKeyPressed(ImGuiKey_Backspace, false) && m_CurrentDirectory != m_Root)
             NavigateTo(m_CurrentDirectory.parent_path());
         if (m_Selection.empty())
@@ -1058,7 +1079,12 @@ namespace Zamin {
         }
         // A click on empty space clears the selection.
         if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyCtrl && !io.KeyShift)
+        {
+            bool had = !m_Selection.empty();
             m_Selection.clear();
+            if (had && OnAssetSelected)
+                OnAssetSelected({});
+        }
 
         HandleKeyboard();
         DrawContextMenu();

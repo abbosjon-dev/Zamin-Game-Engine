@@ -1,4 +1,5 @@
 #include "SceneHierarchyPanel.h"
+#include "AssetInspectorPanel.h"
 #include "../UI.h"
 
 #include <imgui_stdlib.h>
@@ -361,11 +362,20 @@ namespace Zamin {
                 DrawHierarchy();
             ImGui::End();
         }
+        // An entity picked (hierarchy, viewport, menus) after the asset: the inspector shows entities again.
+        if (m_AssetInspector && m_Selection.GetRevision() != m_SeenSelectionRevision)
+        {
+            m_SeenSelectionRevision = m_Selection.GetRevision();
+            m_AssetInspector->Clear();
+        }
         if (*showInspector)
         {
             if (ImGui::Begin(ICON_FA_SLIDERS "  Inspektor###Inspector", showInspector))
             {
-                DrawInspector();
+                if (m_AssetInspector && m_AssetInspector->HasAsset())
+                    m_AssetInspector->OnImGuiRender();
+                else
+                    DrawInspector();
                 if (m_ScrollInspectorFrames > 0) // automation: show the last components
                 {
                     ImGui::SetScrollY(ImGui::GetScrollMaxY());

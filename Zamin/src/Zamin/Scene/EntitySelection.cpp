@@ -17,6 +17,7 @@ namespace Zamin {
 
     void EntitySelection::Add(Entity entity, bool makePrimary)
     {
+        m_Revision++;
         if (!entity) return;
         if (m_Scene && entity.GetScene() != m_Scene)
             Clear(); // one scene at a time
@@ -32,6 +33,7 @@ namespace Zamin {
 
     void EntitySelection::Remove(Entity entity)
     {
+        m_Revision++;
         if (!m_Scene || entity.GetScene() != m_Scene || !m_Lookup.erase((entt::entity)entity))
             return;
         std::erase(m_Entities, entity);
@@ -88,6 +90,7 @@ namespace Zamin {
 
     void EntitySelection::Clear()
     {
+        m_Revision++;
         m_Entities.clear();
         m_Lookup.clear();
         m_Primary = {};
@@ -131,7 +134,9 @@ namespace Zamin {
                 ids.push_back(e.GetUUID());
         UUID primary = m_Primary.IsValid() ? m_Primary.GetUUID() : UUID(0);
         UUID anchor = m_Anchor.IsValid() ? m_Anchor.GetUUID() : UUID(0);
+        uint64_t revision = m_Revision; // the same picks in another scene: not a new pick
         Clear();
+        m_Revision = revision;
         if (!scene) return;
         for (UUID id : ids)
             if (Entity e = scene->GetEntityByUUID(id))
@@ -144,6 +149,7 @@ namespace Zamin {
         m_Anchor = (uint64_t)anchor ? scene->GetEntityByUUID(anchor) : Entity();
         if (!m_Anchor)
             m_Anchor = m_Primary;
+        m_Revision = revision;
     }
 
     // ------------------------------------------------------------------ group transform

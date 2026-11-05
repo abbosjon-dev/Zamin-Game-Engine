@@ -42,8 +42,15 @@ namespace Zamin {
         void MarkListDirty() { m_ListDirty = true; }
         // A file changed on disk: its thumbnail is looked up again (a broken image may be fixed now).
         void InvalidateThumbnail(const std::filesystem::path& path) { m_Thumbnails.erase(path.string()); }
+        const std::vector<std::filesystem::path>& GetSelection() const { return m_Selection; }
+
+        // Icon (and color) the browser shows for a type of file.
+        static const char* GetTypeIcon(AssetType type, ImU32* color = nullptr);
 
         std::function<void(const std::filesystem::path&)> OnOpenScene;
+        // An item was clicked: the file or folder the selection is about now (empty when the
+        // click / Escape cleared it). The editor shows the file in the inspector.
+        std::function<void(const std::filesystem::path&)> OnAssetSelected;
         std::function<void()> OnRequestNewScript;  // opens the editor's "new C++ script" dialog
         std::function<void(const std::filesystem::path&)> OnNewScene;
         // Files / folders were moved or renamed. The files on disk that refer to them are already

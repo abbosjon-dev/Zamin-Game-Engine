@@ -11,10 +11,17 @@
 
 namespace Zamin {
 
+    class AssetInspectorPanel;
+
     // Hierarchy (entity list) + Inspector (component editor).
     class SceneHierarchyPanel
     {
     public:
+        // The Inspector shows this panel's asset (a file picked in the content browser) instead of
+        // the entities until the entity selection changes (AcknowledgeSelection: picked now).
+        void SetAssetInspector(AssetInspectorPanel* panel) { m_AssetInspector = panel; }
+        void AcknowledgeSelection() { m_SeenSelectionRevision = m_Selection.GetRevision(); }
+
         SceneHierarchyPanel() = default;
 
         // keepSelection: the same entities (by UUID) stay selected in the new scene (play mode, undo).
@@ -178,6 +185,8 @@ namespace Zamin {
         std::string m_NewTagBuffer;
         entt::entity m_RenamingEntity = entt::null;
         int m_ScrollInspectorFrames = 0;
+        AssetInspectorPanel* m_AssetInspector = nullptr;
+        uint64_t m_SeenSelectionRevision = 0;
         std::string m_RenameBuffer;
         bool m_PendingDelete = false, m_PendingDuplicate = false;
         int m_RowIndex = 0;

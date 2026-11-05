@@ -1,0 +1,1438 @@
+{
+    "Scene": "Shapes2D",
+    "Version": 1,
+    "Settings": {
+        "DrawSky": false,
+        "Gravity": [
+            0,
+            -9.8
+        ],
+        "Gravity3D": [
+            0,
+            -9.81,
+            0
+        ],
+        "Ambient": 0.6,
+        "Exposure": 1.0,
+        "Post": {
+            "Bloom": false,
+            "Vignette": 0.18,
+            "Saturation": 1.05,
+            "Contrast": 1.03,
+            "Brightness": 0.0,
+            "Tint": [
+                1,
+                1,
+                1
+            ],
+            "Tonemap": 0
+        }
+    },
+    "Entities": [
+        {
+            "Entity": 8300000000000001,
+            "Tag": "Main Camera",
+            "Transform": {
+                "Translation": [
+                    0,
+                    1.2,
+                    10
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Camera": {
+                "ProjectionType": 1,
+                "PerspectiveFOV": 0.7854,
+                "PerspectiveNear": 0.1,
+                "PerspectiveFar": 1000,
+                "OrthographicSize": 18.5,
+                "OrthographicNear": -100,
+                "OrthographicFar": 100,
+                "Primary": true,
+                "FixedAspectRatio": false,
+                "ClearColor": [
+                    0.47,
+                    0.72,
+                    0.94,
+                    1
+                ]
+            }
+        },
+        {
+            "Entity": 8300000000000002,
+            "Tag": "Far Mountains",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0.5,
+                    -8
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    44,
+                    18,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/mountains.png",
+                "Tiling": 1.0,
+                "SortingOrder": 0,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false,
+                "TextureUUID": "a5aec7978306d03b",
+                "SortingLayer": 1,
+                "SortingLayerName": "Fon"
+            }
+        },
+        {
+            "Entity": 8300000000000003,
+            "Tag": "Hills",
+            "Transform": {
+                "Translation": [
+                    0,
+                    -4.5,
+                    -6
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    36,
+                    9,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/hills.png",
+                "Tiling": 1.0,
+                "SortingOrder": 10,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false,
+                "TextureUUID": "f3f49249dc28ff90",
+                "SortingLayer": 1,
+                "SortingLayerName": "Fon"
+            }
+        },
+        {
+            "Entity": 8300000000000004,
+            "Tag": "Title",
+            "Transform": {
+                "Translation": [
+                    0,
+                    9.0,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.75,
+                    0.75,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "2D fizika: shakllar, materiallar, qatlamlar",
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    0.92
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8300000000000005,
+            "Tag": "Terrain",
+            "Transform": {
+                "Translation": [
+                    0,
+                    -6.5,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    33,
+                    5,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/hills_terrain.png",
+                "Tiling": 1.0,
+                "SortingOrder": 0,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false,
+                "Layer": 1
+            },
+            "EdgeCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.7,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Points": [
+                    [
+                        -0.5,
+                        1.6
+                    ],
+                    [
+                        -0.5,
+                        0.1379
+                    ],
+                    [
+                        -0.4697,
+                        0.1565
+                    ],
+                    [
+                        -0.4394,
+                        0.2532
+                    ],
+                    [
+                        -0.4091,
+                        0.3829
+                    ],
+                    [
+                        -0.3788,
+                        0.4489
+                    ],
+                    [
+                        -0.3485,
+                        0.3939
+                    ],
+                    [
+                        -0.3182,
+                        0.2565
+                    ],
+                    [
+                        -0.2879,
+                        0.1348
+                    ],
+                    [
+                        -0.2576,
+                        0.0949
+                    ],
+                    [
+                        -0.2273,
+                        0.1137
+                    ],
+                    [
+                        -0.197,
+                        0.1118
+                    ],
+                    [
+                        -0.1667,
+                        0.0415
+                    ],
+                    [
+                        -0.1364,
+                        -0.06
+                    ],
+                    [
+                        -0.1061,
+                        -0.106
+                    ],
+                    [
+                        -0.0758,
+                        -0.047
+                    ],
+                    [
+                        -0.0455,
+                        0.0786
+                    ],
+                    [
+                        -0.0152,
+                        0.1813
+                    ],
+                    [
+                        0.0152,
+                        0.2056
+                    ],
+                    [
+                        0.0455,
+                        0.1787
+                    ],
+                    [
+                        0.0758,
+                        0.1737
+                    ],
+                    [
+                        0.1061,
+                        0.2277
+                    ],
+                    [
+                        0.1364,
+                        0.297
+                    ],
+                    [
+                        0.1667,
+                        0.2975
+                    ],
+                    [
+                        0.197,
+                        0.192
+                    ],
+                    [
+                        0.2273,
+                        0.0363
+                    ],
+                    [
+                        0.2576,
+                        -0.0644
+                    ],
+                    [
+                        0.2879,
+                        -0.0489
+                    ],
+                    [
+                        0.3182,
+                        0.0477
+                    ],
+                    [
+                        0.3485,
+                        0.1342
+                    ],
+                    [
+                        0.3788,
+                        0.154
+                    ],
+                    [
+                        0.4091,
+                        0.1371
+                    ],
+                    [
+                        0.4394,
+                        0.1614
+                    ],
+                    [
+                        0.4697,
+                        0.2635
+                    ],
+                    [
+                        0.5,
+                        0.3918
+                    ],
+                    [
+                        0.5,
+                        1.6
+                    ]
+                ],
+                "Loop": false,
+                "OneSided": true
+            }
+        },
+        {
+            "Entity": 8300000000000006,
+            "Tag": "Yozuv: Edge",
+            "Transform": {
+                "Translation": [
+                    -6.5,
+                    -2.2,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.42,
+                    0.42,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "Edge Collider 2D (bir tomonlama zanjir)",
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    0.92
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8300000000000007,
+            "Tag": "Rock Arch",
+            "Transform": {
+                "Translation": [
+                    0.5,
+                    -3.75,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    8,
+                    4,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/rock_arch.png",
+                "Tiling": 1.0,
+                "SortingOrder": 1,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "PolygonCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.8,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Points": [
+                    [
+                        -0.5,
+                        -0.5
+                    ],
+                    [
+                        -0.3,
+                        -0.5
+                    ],
+                    [
+                        -0.23,
+                        -0.18
+                    ],
+                    [
+                        -0.12,
+                        0.0
+                    ],
+                    [
+                        0.0,
+                        0.04
+                    ],
+                    [
+                        0.12,
+                        0.0
+                    ],
+                    [
+                        0.23,
+                        -0.18
+                    ],
+                    [
+                        0.3,
+                        -0.5
+                    ],
+                    [
+                        0.5,
+                        -0.5
+                    ],
+                    [
+                        0.47,
+                        -0.05
+                    ],
+                    [
+                        0.36,
+                        0.28
+                    ],
+                    [
+                        0.18,
+                        0.46
+                    ],
+                    [
+                        -0.05,
+                        0.5
+                    ],
+                    [
+                        -0.26,
+                        0.4
+                    ],
+                    [
+                        -0.42,
+                        0.16
+                    ]
+                ]
+            }
+        },
+        {
+            "Entity": 8300000000000008,
+            "Tag": "Yozuv: Polygon",
+            "Transform": {
+                "Translation": [
+                    0.5,
+                    -0.9,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.42,
+                    0.42,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "Polygon Collider 2D (botiq -> qavariq bo'laklar)",
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    0.92
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8300000000000009,
+            "Tag": "Ice Ramp",
+            "Transform": {
+                "Translation": [
+                    -10.5,
+                    1.2,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    -0.36
+                ],
+                "Scale": [
+                    7.5,
+                    0.6,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.74,
+                    0.92,
+                    1.0,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 1,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false,
+                "Layer": 1
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.5,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Material": "Physics/Ice.zphysmat",
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            }
+        },
+        {
+            "Entity": 8300000000000010,
+            "Tag": "Yozuv: Muz",
+            "Transform": {
+                "Translation": [
+                    -11.2,
+                    3.3,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.42,
+                    0.42,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "Muz (fizik material)",
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    0.92
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8300000000000011,
+            "Tag": "Bounce Pad",
+            "Transform": {
+                "Translation": [
+                    12.4,
+                    -5.35,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    2.6,
+                    0.4,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1.0,
+                    0.42,
+                    0.62,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 1,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false,
+                "Layer": 1
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.8,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Material": "Physics/Bouncy.zphysmat",
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            }
+        },
+        {
+            "Entity": 8300000000000012,
+            "Tag": "One-way Platform",
+            "Transform": {
+                "Translation": [
+                    11.6,
+                    0.6,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.85,
+                    1.0,
+                    0.8,
+                    1
+                ],
+                "Texture": "Textures/ui_atlas.png",
+                "Tiling": 1.0,
+                "SortingOrder": 1,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false,
+                "Sprite": "platform",
+                "DrawMode": "Tiled",
+                "Size": [
+                    5.0,
+                    0.5
+                ],
+                "PixelsPerUnit": 16
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false,
+                "Layer": 1
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    2.5,
+                    0.25
+                ]
+            },
+            "PlatformEffector2D": {
+                "OneWay": true,
+                "SurfaceArc": 160.0,
+                "RotationOffset": 0.0,
+                "UseSideFriction": false,
+                "UseSideBounce": false,
+                "SideArc": 1.0
+            }
+        },
+        {
+            "Entity": 8300000000000013,
+            "Tag": "One-way Platform",
+            "Transform": {
+                "Translation": [
+                    7.6,
+                    -1.9,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.85,
+                    1.0,
+                    0.8,
+                    1
+                ],
+                "Texture": "Textures/ui_atlas.png",
+                "Tiling": 1.0,
+                "SortingOrder": 1,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false,
+                "Sprite": "platform",
+                "DrawMode": "Tiled",
+                "Size": [
+                    3.5,
+                    0.5
+                ],
+                "PixelsPerUnit": 16
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false,
+                "Layer": 1
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    1.75,
+                    0.25
+                ]
+            },
+            "PlatformEffector2D": {
+                "OneWay": true,
+                "SurfaceArc": 180.0,
+                "RotationOffset": 0.0,
+                "UseSideFriction": false,
+                "UseSideBounce": false,
+                "SideArc": 1.0
+            }
+        },
+        {
+            "Entity": 8300000000000014,
+            "Tag": "Yozuv: Effector",
+            "Transform": {
+                "Translation": [
+                    11.0,
+                    3.4,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.42,
+                    0.42,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "Platform Effector 2D (bir tomonlama)",
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    0.92
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8300000000000015,
+            "Tag": "Yozuv: Rezina",
+            "Transform": {
+                "Translation": [
+                    12.4,
+                    -3.9,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.38,
+                    0.38,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "Rezina (sakrash)",
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    0.92
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8300000000000016,
+            "Tag": "Shablonlar",
+            "Active": false,
+            "Transform": {
+                "Translation": [
+                    0,
+                    30,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            }
+        },
+        {
+            "Entity": 8300000000000017,
+            "Tag": "Boulder",
+            "Parent": 8300000000000016,
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1.5,
+                    1.25,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/boulder.png",
+                "Tiling": 1.0,
+                "SortingOrder": 2,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "PolygonCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 2.0,
+                "Friction": 0.7,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Points": [
+                    [
+                        -0.42,
+                        -0.35
+                    ],
+                    [
+                        -0.15,
+                        -0.5
+                    ],
+                    [
+                        0.25,
+                        -0.46
+                    ],
+                    [
+                        0.47,
+                        -0.2
+                    ],
+                    [
+                        0.42,
+                        0.22
+                    ],
+                    [
+                        0.12,
+                        0.5
+                    ],
+                    [
+                        -0.25,
+                        0.42
+                    ],
+                    [
+                        -0.5,
+                        0.05
+                    ]
+                ]
+            }
+        },
+        {
+            "Entity": 8300000000000018,
+            "Tag": "Crystal",
+            "Parent": 8300000000000016,
+            "Transform": {
+                "Translation": [
+                    2,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.75,
+                    1.25,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/crystal.png",
+                "Tiling": 1.0,
+                "SortingOrder": 2,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "PolygonCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.5,
+                "Friction": 0.4,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Points": [
+                    [
+                        0.0,
+                        -0.5
+                    ],
+                    [
+                        0.32,
+                        -0.32
+                    ],
+                    [
+                        0.5,
+                        0.12
+                    ],
+                    [
+                        0.12,
+                        0.5
+                    ],
+                    [
+                        -0.12,
+                        0.5
+                    ],
+                    [
+                        -0.5,
+                        0.12
+                    ],
+                    [
+                        -0.32,
+                        -0.32
+                    ]
+                ]
+            }
+        },
+        {
+            "Entity": 8300000000000019,
+            "Tag": "Crate",
+            "Parent": 8300000000000016,
+            "Transform": {
+                "Translation": [
+                    4,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.9,
+                    0.9,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.78,
+                    0.55,
+                    0.28,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 2,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 0.8,
+                "Friction": 0.6,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Size": [
+                    0.5,
+                    0.5
+                ]
+            }
+        },
+        {
+            "Entity": 8300000000000020,
+            "Tag": "Rubber Ball",
+            "Parent": 8300000000000016,
+            "Transform": {
+                "Translation": [
+                    6,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.8,
+                    0.8,
+                    1
+                ]
+            },
+            "CircleRenderer": {
+                "Color": [
+                    1.0,
+                    0.55,
+                    0.2,
+                    1
+                ],
+                "Thickness": 1.0,
+                "Fade": 0.02,
+                "SortingOrder": 2
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false
+            },
+            "CircleCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 1.0,
+                "Friction": 0.8,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Material": "Physics/Bouncy.zphysmat",
+                "Radius": 0.5
+            }
+        },
+        {
+            "Entity": 8300000000000021,
+            "Tag": "Ghost Ball",
+            "Parent": 8300000000000016,
+            "Transform": {
+                "Translation": [
+                    8,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.9,
+                    0.9,
+                    1
+                ]
+            },
+            "CircleRenderer": {
+                "Color": [
+                    0.55,
+                    0.75,
+                    1.0,
+                    0.55
+                ],
+                "Thickness": 1.0,
+                "Fade": 0.05,
+                "SortingOrder": 3
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic",
+                "FixedRotation": false,
+                "GravityScale": 1.0,
+                "LinearDamping": 0.0,
+                "AngularDamping": 0.05,
+                "Bullet": false,
+                "Layer": 2
+            },
+            "CircleCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Density": 0.5,
+                "Friction": 0.5,
+                "Restitution": 0.0,
+                "RestitutionThreshold": 0.5,
+                "IsSensor": false,
+                "Radius": 0.5
+            }
+        },
+        {
+            "Entity": 8300000000000022,
+            "Tag": "Spawner",
+            "Transform": {
+                "Translation": [
+                    -2.0,
+                    11.5,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "NativeScript": {
+                "Class": "ShapeSpawner",
+                "Fields": {
+                    "Boulder": {
+                        "Type": "Entity",
+                        "Value": 8300000000000017
+                    },
+                    "Crystal": {
+                        "Type": "Entity",
+                        "Value": 8300000000000018
+                    },
+                    "Crate": {
+                        "Type": "Entity",
+                        "Value": 8300000000000019
+                    },
+                    "Ball": {
+                        "Type": "Entity",
+                        "Value": 8300000000000020
+                    },
+                    "Ghost": {
+                        "Type": "Entity",
+                        "Value": 8300000000000021
+                    },
+                    "Interval": {
+                        "Type": "Float",
+                        "Value": 0.45
+                    },
+                    "Width": {
+                        "Type": "Float",
+                        "Value": 24.0
+                    },
+                    "MaxShapes": {
+                        "Type": "Int",
+                        "Value": 70
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 8300000000000023,
+            "Tag": "Launcher",
+            "Transform": {
+                "Translation": [
+                    12.0,
+                    -4.6,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "NativeScript": {
+                "Class": "ShapeLauncher",
+                "Fields": {
+                    "Template": {
+                        "Type": "Entity",
+                        "Value": 8300000000000020
+                    },
+                    "Interval": {
+                        "Type": "Float",
+                        "Value": 1.7
+                    },
+                    "Velocity": {
+                        "Type": "Vec2",
+                        "Value": [
+                            -1.0,
+                            13.5
+                        ]
+                    },
+                    "MaxShapes": {
+                        "Type": "Int",
+                        "Value": 10
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 8300000000000024,
+            "Tag": "Yozuv: Qatlamlar",
+            "Transform": {
+                "Translation": [
+                    -1.0,
+                    7.6,
+                    0.5
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.0
+                ],
+                "Scale": [
+                    0.4,
+                    0.4,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "Ko'k sharlar - Ghost qatlami: faqat Ground bilan to'qnashadi",
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    0.92
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        }
+    ]
+}

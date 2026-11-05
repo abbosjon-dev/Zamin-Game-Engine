@@ -226,6 +226,28 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview)
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
 - **2D fizika** (Box2D, `PhysicsWorld2D`): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
+  - **Polygon Collider 2D**: istalgan ko'pburchak (obyekt masshtabi bilan); botiq yoki 8 tadan ko'p burchakli shakl
+    quloq kesish (ear clipping) bilan uchburchaklarga bo'linib, ko'pi bilan 8 burchakli qavariq bo'laklarga qayta
+    birlashtiriladi (Hertel-Mehlhorn, `Polygon2D::Decompose`), o'zini kesib o'tgani qavariq qobiq bilan. Inspektorda
+    nuqtalar ro'yxati va holat (nechta bo'lak), **viewport'da tahrirlash** ("Nuqtalarni tahrirlash": sudrash, chiziqqa
+    bosish - yangi nuqta, Ctrl + bosish / Delete - o'chirish, Shift - 0.1 qadam, Esc - tugatish; har bir harakat bitta
+    Ctrl+Z) va **"Spraytga moslash"** (sprayt kadrining shaffof bo'lmagan qismi chetidan ko'pi bilan 12 nuqtali kontur)
+  - **Edge Collider 2D**: nuqtalar orqali chiziq yoki yopiq halqa (yer, qiyaliklar); ikki tomonlama yoki **bir tomonlama
+    silliq zanjir** (Box2D chain: bo'g'inlarga ilinmaydi; qattiq tomoni nuqtalar yo'nalishining chap tomonida, viewport'da
+    chiziqchalar bilan ko'rsatiladi). Nuqtalar xuddi shunday viewport'da tahrirlanadi
+  - **Fizik material** (`.zphysmat` asset, Kontent > "Yangi fizik material": muz, rezina, metall...): ishqalanish,
+    sakrash, sakrash chegarasi, zichlik va **qo'shilish usullari** (O'rtacha / Eng kichigi / Ko'paytma / Eng kattasi /
+    Box2D standarti). Box / Circle / Polygon / Edge collider va Tilemap tanlaydi (bo'sh - o'z qiymatlari); inspektorda
+    tahrirlanadi, fayl o'zgarsa o'yin davomida ham darhol qo'llanadi (hot reload)
+  - **To'qnashuv qatlamlari**: loyihada 16 ta nomli qatlam va qaysi juftliklar to'qnashishi (Loyiha sozlamalari >
+    Fizika qatlamlari: burchakli sarlavhali matritsa). Rigidbody 2D, har bir kollider (o'z qatlami yoki jismniki) va
+    Tilemap qatlam tanlaydi (Box2D category/mask); `Raycast2D(..., LayerMask({ "Ground" }))`
+  - **Platform Effector 2D**: obyektning barcha kolliderlari (yoki tilemap plitkalari) platforma - bir tomonlama, sirt
+    yoyi (180 - oddiy, kichigi burchaklardan ham o'tkazadi, kattasi yondan ham ushlaydi), burilish, yon tomonda
+    ishqalanish / sakrashni o'chirish (devorga yopishib qolmaslik). Box Collider 2D'ning "Bir tomonlama" belgisi avvalgidek
+    ishlaydi (bir bosishda effektorga o'tkaziladi). Namuna: Platformer2D `Scenes/Shapes2D.zscene` (tepalikli Edge yer,
+    botiq tosh ko'prik, yog'ayotgan polygon toshlar va kristallar, muz qiyalik, rezina to'shak, bir tomonlama
+    platformalar, faqat yerga tegadigan "Ghost" qatlamidagi sharlar)
   - **Joint'lar**: Distance (qattiq tayoq, arqon - "faqat maksimal", prujina - chastota/so'nish), Revolute (sharnir:
     burchak chegarasi, motor), Prismatic (o'q bo'ylab sirpanish: chegara, motor), Weld (payvand, qattiq yoki yumshoq),
     Wheel (g'ildirak: osma prujinasi, chegara, motor). Umumiy: ulangan jism (boshqa obyektning Rigidbody 2D yoki
@@ -458,7 +480,7 @@ Foydali API:
 | Xabarlar | `SendMessage(e, "Damage", 25.0f)`, `SendMessageToChildren(...)`, `SendMessageUpwards(...)`, `Broadcast("GameOver")`, `AddMessageHandler("Damage", fn)`, `msg.Get<float>()`, `msg.Sender` |
 | Hodisalar (event bus) | `Subscribe("CoinCollected", fn)`, `Unsubscribe(id)`, `Emit("CoinCollected", qiymat)`, `EmitDeferred(...)` (kadr oxirida) |
 | Tasodifiy sonlar | `Random::Range(1.0f, 5.0f)`, `Random::Int(1, 6)` (ikkala chegara ham kiradi), `Random::Float()`, `Random::Bool(0.3f)`, `Random::InsideCircle(r)`, `Random::OnSphere(r)`, `Random::InsideSphere(r)`, `Random::Rotation()`, `Random::Pick(v)`, `Random::Shuffle(v)`, `Random::SetSeed(42)`, alohida oqim: `RandomGenerator rng(seed)` |
-| 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `Raycast2D(origin, dir, dist)`; joint'lar: `GetComponent<RevoluteJoint2DComponent>()` → `.MotorSpeed`, `.EnableLimit`, `.JointAngle`, `.ReactionForce`, `.Broken` ... |
+| 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `Raycast2D(origin, dir, dist, LayerMask({ "Ground" }))`, `LayerIndex("Player")`; joint'lar: `GetComponent<RevoluteJoint2DComponent>()` → `.MotorSpeed`, `.EnableLimit`, `.JointAngle`, `.ReactionForce`, `.Broken` ... |
 | 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)` |
 | Qahramon | `GetComponent<CharacterController3DComponent>()` → `.Move(velocity)`, `.Jump(speed)`, `.Grounded`, `.Velocity` (oxirgi fizika qadamidagi haqiqiy tezlik) |
 | Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)`, `SetBool`, `SetTrigger` |
@@ -565,7 +587,8 @@ Zamin/src/Zamin/
 ├── Scene/       Scene (EnTT), Entity, Components, SceneSerializer, SceneCamera
 ├── Scripting/   ScriptableEntity, ScriptRegistry, ScriptEngine (.so yuklash, hot reload), EventBus
 ├── Math/        Math (transform), Random (PCG32)
-├── Physics/     PhysicsWorld2D (Box2D: jismlar, joint'lar, bir tomonlama sirtlar), PhysicsWorld3D (Jolt), raycast turlari
+├── Physics/     PhysicsWorld2D (Box2D: jismlar, joint'lar, platformalar, material aralashtirish), Polygon2D (qavariq
+│                bo'laklarga ajratish, sprayt konturi), PhysicsMaterial (.zphysmat), CollisionLayers, PhysicsWorld3D (Jolt)
 ├── Audio/       AudioEngine (miniaudio)
 ├── Project/     Project, shablonlar, build fayllari
 ├── ImGui/       ImGuiLayer, tema, ikonkalar

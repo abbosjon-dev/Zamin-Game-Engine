@@ -643,6 +643,15 @@ namespace Zamin {
             if (const char* hover = std::getenv("ZAMIN_EDITOR_COLLIDER_HOVER"))
                 m_ColliderHoverOverride = hover;
         }
+        // ZAMIN_EDITOR_FIT_SPRITE=1: the selected polygon collider follows its sprite (the inspector's
+        // "Spraytga moslash") at frame 10.
+        if (frame == 10 && std::getenv("ZAMIN_EDITOR_FIT_SPRITE") && m_SceneState == SceneState::Edit)
+            if (Entity e = m_SceneHierarchyPanel.GetSelectedEntity(); e && e.HasComponent<PolygonCollider2DComponent>())
+                if (SceneHierarchyPanel::FitPolygonToSprite(e, e.GetComponent<PolygonCollider2DComponent>()))
+                {
+                    ZM_INFO("Polygon collider spraytga moslandi: {} ta nuqta", e.GetComponent<PolygonCollider2DComponent>().Points.size());
+                    MarkDirty();
+                }
 
         if (const char* at = std::getenv("ZAMIN_EDITOR_SELECT_FRAME"); at && frame == std::max(6, std::atoi(at)))
             if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT"))

@@ -504,45 +504,6 @@ namespace Zamin {
             for (auto e : m_Scene->GetAllEntitiesWith<TilemapComponent>()) count(m_Scene->GetRegistry().get<TilemapComponent>(e).CollisionLayer);
         }
 
-        // ---- names
-        ImGui::SeparatorText("Qatlamlar");
-        if (ImGui::BeginTable("##physicsLayerNames", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH))
-        {
-            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 26.0f);
-            ImGui::TableSetupColumn("Nomi", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("Sahnada", ImGuiTableColumnFlags_WidthFixed, 70.0f);
-            ImGui::TableHeadersRow();
-            for (int i = 0; i < CollisionLayers2D::Count; i++)
-            {
-                ImGui::PushID(i);
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::AlignTextToFramePadding();
-                ImGui::TextDisabled("%d", i);
-                ImGui::TableSetColumnIndex(1);
-                ImGui::SetNextItemWidth(-FLT_MIN);
-                if (i == 0)
-                {
-                    ImGui::BeginDisabled();
-                    std::string name = layers.Names[0];
-                    ImGui::InputText("##name", &name);
-                    ImGui::EndDisabled();
-                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                        UI::Tooltip("Asosiy qatlam: hamma narsa avval shu qatlamda");
-                }
-                else if (ImGui::InputTextWithHint("##name", std::format("(Qatlam {})", i).c_str(), &layers.Names[(size_t)i]))
-                    m_Dirty = true;
-                ImGui::TableSetColumnIndex(2);
-                ImGui::AlignTextToFramePadding();
-                if (usage[(size_t)i] > 0)
-                    ImGui::Text("%d", usage[(size_t)i]);
-                else
-                    ImGui::TextDisabled("-");
-                ImGui::PopID();
-            }
-            ImGui::EndTable();
-        }
-
         // ---- the matrix of the named layers (a triangle: each pair once)
         ImGui::SeparatorText("Qaysi qatlamlar to'qnashadi");
         std::vector<int> named = layers.GetNamedLayers();
@@ -607,6 +568,46 @@ namespace Zamin {
             }
             ImGui::EndTable();
         }
+        ImGui::Spacing();
+        // ---- names
+        ImGui::SeparatorText("Qatlamlar");
+        if (ImGui::BeginTable("##physicsLayerNames", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH))
+        {
+            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 26.0f);
+            ImGui::TableSetupColumn("Nomi", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Sahnada", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+            ImGui::TableHeadersRow();
+            for (int i = 0; i < CollisionLayers2D::Count; i++)
+            {
+                ImGui::PushID(i);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled("%d", i);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                if (i == 0)
+                {
+                    ImGui::BeginDisabled();
+                    std::string name = layers.Names[0];
+                    ImGui::InputText("##name", &name);
+                    ImGui::EndDisabled();
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                        UI::Tooltip("Asosiy qatlam: hamma narsa avval shu qatlamda");
+                }
+                else if (ImGui::InputTextWithHint("##name", std::format("(Qatlam {})", i).c_str(), &layers.Names[(size_t)i]))
+                    m_Dirty = true;
+                ImGui::TableSetColumnIndex(2);
+                ImGui::AlignTextToFramePadding();
+                if (usage[(size_t)i] > 0)
+                    ImGui::Text("%d", usage[(size_t)i]);
+                else
+                    ImGui::TextDisabled("-");
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+
         ImGui::Spacing();
         ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Skriptlarda: Raycast2D(..., LayerMask({ \"Ground\" })), LayerIndex(\"Player\")");
     }

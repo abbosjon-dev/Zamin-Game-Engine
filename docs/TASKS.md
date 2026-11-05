@@ -193,11 +193,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 163. Prismatic joint 2D
 - [x] 164. Weld joint 2D
 - [x] 165. Wheel joint 2D
-- [ ] 166. Polygon collider 2D (vertex muharriri)
-- [ ] 167. Edge/Chain collider 2D
-- [ ] 168. Physics material (ishqalanish/sakrash) asset
-- [ ] 169. Collision qatlamlari va maskalar (2D)
-- [ ] 170. One-way platform effektori
+- [x] 166. Polygon collider 2D (vertex muharriri)
+- [x] 167. Edge/Chain collider 2D
+- [x] 168. Physics material (ishqalanish/sakrash) asset
+- [x] 169. Collision qatlamlari va maskalar (2D)
+- [x] 170. One-way platform effektori
 - [ ] 171. Area effector (shamol/suv)
 - [ ] 172. Collision filtrlash testi
 - [ ] 173. OverlapCircle/OverlapBox so'rovlari 2D

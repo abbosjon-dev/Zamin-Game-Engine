@@ -1117,6 +1117,121 @@ namespace Zamin {
         bool IsSensor = false;
     };
 
+    // A convex collider shaped like a mesh: the convex hull of the vertices of the entity's Mesh
+    // Renderer (its model or primitive) - or of the model ModelPath names - with at most MaxVertices
+    // corners (a mesh with more gets a simpler hull through its outermost points: cheaper, a little
+    // smaller). Hollows and holes are filled in (a cup is a solid block); for those use several
+    // colliders. Multiplied by the transform scale like the other 3D colliders. Hulls are made once per
+    // model asset and limit (CollisionShapes3D) and follow the model file when it changes.
+    struct ConvexHullCollider3DComponent
+    {
+        std::string ModelPath;   // .gltf / .glb / .obj (relative to assets); "" = the Mesh Renderer's
+        int MaxVertices = 32;    // 4..256
+        glm::vec3 Offset = { 0.0f, 0.0f, 0.0f };
+        float Friction = 0.5f;
+        float Restitution = 0.0f;
+        bool IsSensor = false;
+    };
+
+    // ------------------------------------------------------------------ joints 3D
+    // What every 3D joint has (Jolt constraints). Like the 2D joints: a joint ties the entity's
+    // Rigidbody 3D to the connected body (another entity's Rigidbody 3D) or, without one, to a fixed
+    // point in the world. It is made while the game runs / simulates once both bodies exist, in the
+    // pose they have then (a hinge's angle 0, a slider's position 0), goes when either of them leaves
+    // the world (inactive, destroyed) and comes back with them. Points are in the entities' own frames
+    // (scaled with them, like the 3D colliders' offsets), axes in this entity's frame, angles in
+    // degrees.
+    struct Joint3DComponentBase
+    {
+        EntityRef ConnectedBody;           // empty: a fixed point in the world
+        glm::vec3 Anchor{ 0.0f };          // on this body
+        glm::vec3 ConnectedAnchor{ 0.0f }; // on the connected body, or the world point
+        // The connected anchor is where Anchor is when the joint is made (written back then).
+        bool AutoConfigureConnectedAnchor = true;
+        bool CollideConnected = false;     // the two bodies still collide with each other
+        // The joint breaks (goes for good, OnJointBreak3D) when its reaction force / torque gets larger
+        // than this. 0 = never.
+        float BreakForce = 0.0f;
+        float BreakTorque = 0.0f;
+
+        // runtime state (scripts may read it; Broken = false makes a broken joint again)
+        uint32_t RuntimeJoint = 0;     // PhysicsWorld3D joint handle (0 = none)
+        uint64_t RuntimeConnected = 0; // the ConnectedBody it was made with (changed: made again)
+        bool Broken = false;
+        float ReactionForce = 0.0f;    // after the last physics step
+        float ReactionTorque = 0.0f;
+
+        void ResetRuntime()
+        {
+            RuntimeJoint = 0;
+            RuntimeConnected = 0;
+            Broken = false;
+            ReactionForce = ReactionTorque = 0.0f;
+        }
+    };
+
+    // Glues the bodies together: they move as one (until it breaks).
+    struct FixedJoint3DComponent : Joint3DComponentBase
+    {
+    };
+
+    // A hinge (door, wheel, elbow): the bodies share the anchor point and this body turns only around
+    // Axis, optionally within limits (relative to the pose the joint was made in), driven by a motor
+    // or pulled towards an angle by a spring.
+    struct HingeJoint3DComponent : Joint3DComponentBase
+    {
+        glm::vec3 Axis{ 0.0f, 1.0f, 0.0f }; // in this body's frame (when the joint is made)
+        bool EnableLimit = false;
+        float LowerAngle = -45.0f;    // -180..0 degrees (0 is the start pose)
+        float UpperAngle = 45.0f;     // 0..180
+        bool EnableMotor = false;
+        float MotorSpeed = 0.0f;      // degrees per second (positive: counter-clockwise around Axis)
+        float MaxMotorTorque = 10.0f; // N*m
+        // A spring towards SpringTargetAngle (while the motor is off): a door that swings shut.
+        bool EnableSpring = false;
+        float SpringTargetAngle = 0.0f;
+        float SpringFrequency = 2.0f; // oscillations per second
+        float SpringDamping = 0.5f;   // 0..1 (1 = no oscillation)
+
+        float JointAngle = 0.0f;      // runtime: degrees from the start pose
+        float JointSpeed = 0.0f;      // runtime: degrees per second
+    };
+
+    // Keeps the two anchors between MinDistance and MaxDistance apart: a rigid rod (equal), a rope
+    // (MaxDistanceOnly: closer is allowed) or a range; Frequency makes the ends soft (a spring).
+    // Its connected anchor is not auto-configured by default (both ends at one point would be no
+    // distance): the connected body's origin, or the world point.
+    struct DistanceJoint3DComponent : Joint3DComponentBase
+    {
+        DistanceJoint3DComponent() { AutoConfigureConnectedAnchor = false; }
+
+        // MaxDistance (and MinDistance unless MaxDistanceOnly) = the anchors' distance when the joint is made.
+        bool AutoConfigureDistance = true;
+        float MinDistance = 1.0f;
+        float MaxDistance = 1.0f;
+        bool MaxDistanceOnly = false;  // a rope: MinDistance is 0
+        float Frequency = 0.0f;        // spring oscillations per second (0 = rigid)
+        float DampingRatio = 0.0f;     // 0..1
+
+        float CurrentDistance = 0.0f;  // runtime: after the last step
+    };
+
+    // A slider: the body moves only along Axis relative to the connected body, without turning;
+    // optionally within limits (around the start position) and driven by a motor.
+    struct SliderJoint3DComponent : Joint3DComponentBase
+    {
+        glm::vec3 Axis{ 1.0f, 0.0f, 0.0f }; // in this body's frame (when the joint is made)
+        bool EnableLimit = false;
+        float LowerTranslation = -1.0f; // <= 0: units along the axis from the start position
+        float UpperTranslation = 1.0f;  // >= 0
+        bool EnableMotor = false;
+        float MotorSpeed = 0.0f;        // units per second
+        float MaxMotorForce = 10.0f;    // N
+
+        float JointTranslation = 0.0f;  // runtime
+        float JointSpeed = 0.0f;        // runtime: units per second
+    };
+
     // ------------------------------------------------------------------ audio
     struct AudioSourceComponent
     {
@@ -1214,13 +1329,17 @@ namespace Zamin {
     using Joint2DComponents = ComponentGroup<DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent,
         WeldJoint2DComponent, WheelJoint2DComponent>;
 
+    // The 3D joints (each derives from Joint3DComponentBase).
+    using Joint3DComponents = ComponentGroup<FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent, SliderJoint3DComponent>;
+
     // Every component that is copied/serialized with an entity (IDComponent & TagComponent are handled separately).
     using AllComponents = ComponentGroup<RelationshipComponent, TagsComponent, TransformComponent, SpriteRendererComponent,
         SpriteAnimationComponent, TintAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, SpotLightComponent, Light2DComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
-        CapsuleCollider3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
+        CapsuleCollider3DComponent, ConvexHullCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
+        SliderJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;
 
 }

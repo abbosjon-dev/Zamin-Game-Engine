@@ -211,11 +211,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M10 3D fizika II
 
-- [ ] 181. Fixed joint 3D
-- [ ] 182. Hinge joint 3D (motor, limit)
-- [ ] 183. Distance joint 3D
-- [ ] 184. Slider joint 3D
-- [ ] 185. Convex hull collider (modeldan)
+- [x] 181. Fixed joint 3D
+- [x] 182. Hinge joint 3D (motor, limit)
+- [x] 183. Distance joint 3D
+- [x] 184. Slider joint 3D
+- [x] 185. Convex hull collider (modeldan)
 - [ ] 186. Statik triangle mesh collider (modeldan)
 - [ ] 187. Collision qatlamlari va maskalar (3D)
 - [ ] 188. OverlapSphere/OverlapBox so'rovlari 3D

@@ -1789,6 +1789,12 @@ namespace Zamin {
         ForEachJoint2DType(Joint2DComponents{}, std::forward<Fn>(fn));
     }
 
+    template<typename Fn>
+    static void ForEachJoint3DType(Fn&& fn)
+    {
+        ForEachJoint2DType(Joint3DComponents{}, std::forward<Fn>(fn));
+    }
+
     // fn(joint, type, component) for each 2D joint component the entity has.
     template<typename Fn>
     static void ForEachJointComponent(Entity entity, Fn&& fn)
@@ -1946,6 +1952,176 @@ namespace Zamin {
         });
     }
 
+    // fn(joint, type, component) for each 3D joint component the entity has.
+    template<typename Fn>
+    static void ForEachJoint3DComponent(Entity entity, Fn&& fn)
+    {
+        if (auto* c = entity.TryGetComponent<FixedJoint3DComponent>()) fn(*c, Joint3DType::Fixed, (const void*)c);
+        if (auto* c = entity.TryGetComponent<HingeJoint3DComponent>()) fn(*c, Joint3DType::Hinge, (const void*)c);
+        if (auto* c = entity.TryGetComponent<DistanceJoint3DComponent>()) fn(*c, Joint3DType::Distance, (const void*)c);
+        if (auto* c = entity.TryGetComponent<SliderJoint3DComponent>()) fn(*c, Joint3DType::Slider, (const void*)c);
+    }
+
+    // The 3D joints of an entity: its anchor (a small ball), the connected anchor (an octahedron) and
+    // what the joint allows - a hinge's axis and angle range (the arc the body's centre sweeps, around
+    // the axis), a slider's axis with its limits, a distance joint's rod with its shortest length. While
+    // the game runs the running joint's own frame is drawn (anchors on the bodies, the reference pose).
+    static void DrawJoints3D(Scene& scene, Entity entity, const glm::vec4& color, float pixel)
+    {
+        const glm::mat4 world = scene.GetWorldTransform(entity);
+        glm::vec3 p, r, sc;
+        Math::DecomposeTransform(world, p, r, sc);
+        const glm::quat q(r);
+        const float size = std::clamp(pixel * 7.0f, 0.03f, 0.25f); // markers about 7 pixels big
+        const glm::vec4 faint(color.r, color.g, color.b, color.a * 0.4f);
+        const glm::vec4 connectedColor(0.75f, 0.55f, 1.0f, color.a);
+        const glm::vec4 limitColor(1.0f, 0.85f, 0.3f, color.a);
+        auto ball = [&](const glm::vec3& c, const glm::vec4& col) {
+            DrawWireCircle(c, { 1, 0, 0 }, { 0, 1, 0 }, size, col);
+            DrawWireCircle(c, { 1, 0, 0 }, { 0, 0, 1 }, size, col);
+            DrawWireCircle(c, { 0, 1, 0 }, { 0, 0, 1 }, size, col);
+        };
+        auto octahedron = [&](const glm::vec3& c, const glm::vec4& col) {
+            const glm::vec3 axes[3] = { { size, 0, 0 }, { 0, size, 0 }, { 0, 0, size } };
+            for (int i = 0; i < 3; i++)
+                for (int j = 0; j < 3; j++)
+                    if (i != j)
+                        for (float si : { -1.0f, 1.0f })
+                            for (float sj : { -1.0f, 1.0f })
+                                if (i < j)
+                                    Renderer2D::DrawLine(c + axes[i] * si, c + axes[j] * sj, col);
+        };
+        PhysicsWorld3D* physics = scene.GetPhysicsWorld3D();
+
+        ForEachJoint3DComponent(entity, [&](const Joint3DComponentBase& joint, Joint3DType type, const void* component) {
+            glm::vec3 anchor = glm::vec3(world * glm::vec4(joint.Anchor, 1.0f));
+            Entity other = joint.ConnectedBody ? scene.GetEntityByUUID(joint.ConnectedBody.ID) : Entity();
+            if (other == entity)
+                other = {};
+            // The connected anchor: in the connected body's frame, else a world point; auto-configured
+            // ones are where the anchor is until the joint is made.
+            glm::vec3 connected = anchor;
+            if (!joint.AutoConfigureConnectedAnchor || joint.RuntimeJoint)
+                connected = other ? glm::vec3(scene.GetWorldTransform(other) * glm::vec4(joint.ConnectedAnchor, 1.0f)) : joint.ConnectedAnchor;
+            glm::vec3 axis(0.0f, 1.0f, 0.0f);
+            if (type == Joint3DType::Hinge)
+                axis = ((const HingeJoint3DComponent*)component)->Axis;
+            else if (type == Joint3DType::Slider)
+                axis = ((const SliderJoint3DComponent*)component)->Axis;
+            axis = glm::length(axis) > 1e-5f ? glm::normalize(q * axis) : glm::vec3(0.0f, 1.0f, 0.0f);
+            if (joint.RuntimeJoint && physics)
+            {
+                glm::vec3 a, b, ax;
+                if (physics->GetJointFrame(joint.RuntimeJoint, a, b, ax))
+                {
+                    anchor = a;
+                    connected = b;
+                    axis = glm::length(ax) > 1e-5f ? glm::normalize(ax) : axis;
+                }
+            }
+
+            if (joint.Broken)
+            {
+                // A broken joint holds nothing: only where it was attached, crossed out in red.
+                const glm::vec4 red(0.95f, 0.35f, 0.3f, color.a);
+                ball(anchor, red);
+                for (glm::vec3 d : { glm::vec3(1, 1, 0), glm::vec3(1, -1, 0), glm::vec3(0, 1, 1), glm::vec3(0, 1, -1) })
+                    Renderer2D::DrawLine(anchor - d * size * 1.4f, anchor + d * size * 1.4f, red);
+                return;
+            }
+            Renderer2D::DrawLine(p, anchor, faint);
+            if (other)
+                Renderer2D::DrawLine(scene.GetWorldPosition(other), connected, glm::vec4(connectedColor.r, connectedColor.g, connectedColor.b, 0.4f));
+            ball(anchor, color);
+            octahedron(connected, connectedColor);
+            // A frame at right angles to the axis.
+            const glm::vec3 helper = std::abs(axis.y) < 0.9f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+            const glm::vec3 side = glm::normalize(glm::cross(axis, helper)), up = glm::cross(side, axis);
+
+            switch (type)
+            {
+                case Joint3DType::Fixed:
+                {
+                    for (glm::vec3 d : { glm::vec3(1, 1, 0), glm::vec3(1, -1, 0), glm::vec3(0, 1, 1), glm::vec3(0, 1, -1) })
+                        Renderer2D::DrawLine(anchor - d * size * 1.6f, anchor + d * size * 1.6f, color);
+                    break;
+                }
+                case Joint3DType::Hinge:
+                {
+                    const auto& j = *(const HingeJoint3DComponent*)component;
+                    // The axis through the anchor, and the arc the body's centre may sweep around it.
+                    const float axisLength = std::max(0.4f, size * 8.0f);
+                    Renderer2D::DrawLine(anchor - axis * axisLength, anchor + axis * axisLength, color);
+                    glm::vec3 arm = p - anchor;
+                    arm -= axis * glm::dot(arm, axis);
+                    const float radius = glm::length(arm) > 0.05f ? glm::length(arm) : 0.5f;
+                    glm::vec3 a = glm::length(arm) > 0.05f ? arm / glm::length(arm) : side;
+                    if (j.RuntimeJoint)
+                        a = glm::angleAxis(glm::radians(-j.JointAngle), axis) * a; // from the pose it was made in
+                    const glm::vec3 b = glm::cross(axis, a);
+                    if (j.EnableLimit)
+                    {
+                        const float lo = glm::radians(std::min(j.LowerAngle, j.UpperAngle)), hi = glm::radians(std::max(j.LowerAngle, j.UpperAngle));
+                        DrawWireArc(anchor, a, b, radius, lo, hi, limitColor, std::max(4, (int)((hi - lo) / glm::radians(6.0f))));
+                        Renderer2D::DrawLine(anchor, anchor + (a * std::cos(lo) + b * std::sin(lo)) * radius, limitColor);
+                        Renderer2D::DrawLine(anchor, anchor + (a * std::cos(hi) + b * std::sin(hi)) * radius, limitColor);
+                    }
+                    else
+                        DrawWireCircle(anchor, a, b, radius, faint);
+                    if (j.EnableMotor && j.MotorSpeed != 0.0f)
+                    {
+                        // Which way the motor turns: a short arrow along the circle.
+                        const float dir = j.MotorSpeed > 0.0f ? 1.0f : -1.0f, t = 0.6f * dir;
+                        const glm::vec3 tip = anchor + (a * std::cos(t) + b * std::sin(t)) * radius * 0.6f;
+                        DrawWireArc(anchor, a, b, radius * 0.6f, 0.0f, t, color, 8);
+                        const glm::vec3 tangent = (-a * std::sin(t) + b * std::cos(t)) * dir;
+                        Renderer2D::DrawLine(tip, tip - tangent * size * 2.0f + (anchor - tip) * 0.15f, color);
+                    }
+                    break;
+                }
+                case Joint3DType::Slider:
+                {
+                    const auto& j = *(const SliderJoint3DComponent*)component;
+                    const glm::vec3 base = anchor - axis * (j.RuntimeJoint ? j.JointTranslation : 0.0f);
+                    float lower = j.LowerTranslation, upper = j.UpperTranslation;
+                    if (!j.EnableLimit)
+                    {
+                        lower = -2.0f;
+                        upper = 2.0f;
+                    }
+                    Renderer2D::DrawLine(base + axis * lower, base + axis * upper, j.EnableLimit ? limitColor : faint);
+                    if (j.EnableLimit)
+                        for (float t : { lower, upper })
+                        {
+                            Renderer2D::DrawLine(base + axis * t - side * size * 1.5f, base + axis * t + side * size * 1.5f, limitColor);
+                            Renderer2D::DrawLine(base + axis * t - up * size * 1.5f, base + axis * t + up * size * 1.5f, limitColor);
+                        }
+                    Renderer2D::DrawLine(anchor, anchor + axis * std::max(0.35f, size * 6.0f), color); // which way is +
+                    break;
+                }
+                case Joint3DType::Distance:
+                {
+                    const auto& d = *(const DistanceJoint3DComponent*)component;
+                    const glm::vec3 between = anchor - connected;
+                    const float now = glm::length(between);
+                    const glm::vec3 dir = now > 1e-4f ? between / now : glm::vec3(0.0f, -1.0f, 0.0f);
+                    const float maxLength = d.AutoConfigureDistance && !d.RuntimeJoint ? now : d.MaxDistance;
+                    const float minLength = d.MaxDistanceOnly ? 0.0f : (d.AutoConfigureDistance && !d.RuntimeJoint ? now : d.MinDistance);
+                    // The rod / rope from the connected anchor as long as the joint lets it be; the
+                    // shortest length is marked with a ring.
+                    Renderer2D::DrawLine(connected, connected + dir * maxLength, color);
+                    if (minLength > 1e-3f && minLength < maxLength - 1e-3f)
+                        DrawWireCircle(connected + dir * minLength, glm::normalize(glm::cross(dir, helper)),
+                                       glm::normalize(glm::cross(dir, glm::normalize(glm::cross(dir, helper)))), size * 1.2f, limitColor);
+                    DrawWireCircle(connected + dir * maxLength, glm::normalize(glm::cross(dir, helper)),
+                                   glm::normalize(glm::cross(dir, glm::normalize(glm::cross(dir, helper)))), size * 1.5f,
+                                   d.MaxDistanceOnly ? faint : color);
+                    break;
+                }
+            }
+        });
+    }
+
     static void DrawLight2DRange(const glm::vec3& center, const glm::vec2& axis, const Light2DComponent& light, const glm::vec4& color)
     {
         if (light.Radius <= 0.0f) return;
@@ -2083,7 +2259,7 @@ namespace Zamin {
                     DrawWireSphere(center, src.MaxDistance, glm::vec4(color.r, color.g, color.b, color.a * 0.45f), &view);
             }
 
-        // 2D joints: anchors, connected anchors and limits.
+        // 2D and 3D joints: anchors, connected anchors and limits (one setting for both).
         if (gizmos.Joints2D != GizmoVisibility::Off)
         {
             std::unordered_set<entt::entity> drawn;
@@ -2092,6 +2268,16 @@ namespace Zamin {
                 for (auto e : scene.GetAllEntitiesWith<T>())
                     if (shows(e, gizmos.Joints2D) && drawn.insert(e).second)
                         DrawJoints2D(scene, { e, &scene }, tint(e, glm::vec4(0.35f, 0.9f, 1.0f, 1.0f)));
+            });
+            drawn.clear();
+            ForEachJoint3DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                for (auto e : scene.GetAllEntitiesWith<T>())
+                    if (shows(e, gizmos.Joints2D) && drawn.insert(e).second)
+                    {
+                        Entity entity{ e, &scene };
+                        DrawJoints3D(scene, entity, tint(e, glm::vec4(0.35f, 0.9f, 1.0f, 1.0f)), view.PixelSize(scene.GetWorldPosition(entity)));
+                    }
             });
         }
 
@@ -2684,6 +2870,22 @@ namespace Zamin {
                     Renderer2D::DrawLine(center + up * half + side * radius, center - up * half + side * radius, col);
                 DrawWireCircle(center + up * half, right, up, radius, col);
                 DrawWireCircle(center - up * half, right, up, radius, col);
+            }
+            // Convex hulls: the edges of the hull the body gets (cached per model: cheap every frame).
+            for (auto e : scene.GetAllEntitiesWith<TransformComponent, ConvexHullCollider3DComponent>())
+            {
+                if (hidden.contains(e)) continue;
+                Entity entity{ e, &scene };
+                Ref<const ConvexHull3D> hull = Scene::GetConvexHullCollider(entity);
+                if (!hull) continue;
+                auto& c = entity.GetComponent<ConvexHullCollider3DComponent>();
+                glm::vec3 p, r, sc;
+                Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+                const glm::quat q(r);
+                const glm::vec3 scale = glm::abs(sc), offset = c.Offset * scale;
+                const glm::vec4 col = c.IsSensor ? yellow : cyan;
+                for (const auto& [a, b] : hull->Edges)
+                    Renderer2D::DrawLine(p + q * (offset + hull->Points[a] * scale), p + q * (offset + hull->Points[b] * scale), col);
             }
         }
 
@@ -5714,9 +5916,9 @@ namespace Zamin {
             changed |= ImGui::Checkbox("Bo'g'in nomlari", &g.JointNames);
             ImGui::Unindent();
         }
-        option(ICON_FA_LINK "  2D joint'lar", g.Joints2D,
-               "Joint langari (doira), ulangan langar (romb, binafsha) va chegaralar: sharnirning burchak yoyi, sirpanish / "
-               "osma o'qi, masofa tayog'i. O'yin paytida joint yaratilgandagi holatga nisbatan. Uzilgan joint qizil");
+        option(ICON_FA_LINK "  Joint'lar (2D / 3D)", g.Joints2D,
+               "Joint langari (doira / shar), ulangan langar (romb / oktaedr, binafsha) va chegaralar: sharnirning o'qi va burchak "
+               "yoyi, sirpanish / osma o'qi, masofa tayog'i. O'yin paytida joint yaratilgandagi holatga nisbatan. Uzilgan joint qizil");
         option(ICON_FA_ARROW_UP_LONG "  Normallar", g.Normals,
                "Mesh va model vertekslarining normallari: har verteksdan normali bo'ylab chiziq (skinned model'larda joriy "
                "pozada). Teskari yoki noto'g'ri normallarni topish uchun");

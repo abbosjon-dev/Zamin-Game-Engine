@@ -46,6 +46,11 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, BoxCollider3DComponent>) return "BoxCollider3D";
         else if constexpr (std::is_same_v<T, SphereCollider3DComponent>) return "SphereCollider3D";
         else if constexpr (std::is_same_v<T, CapsuleCollider3DComponent>) return "CapsuleCollider3D";
+        else if constexpr (std::is_same_v<T, ConvexHullCollider3DComponent>) return "ConvexHullCollider3D";
+        else if constexpr (std::is_same_v<T, FixedJoint3DComponent>) return "FixedJoint3D";
+        else if constexpr (std::is_same_v<T, HingeJoint3DComponent>) return "HingeJoint3D";
+        else if constexpr (std::is_same_v<T, DistanceJoint3DComponent>) return "DistanceJoint3D";
+        else if constexpr (std::is_same_v<T, SliderJoint3DComponent>) return "SliderJoint3D";
         else if constexpr (std::is_same_v<T, CharacterController3DComponent>) return "CharacterController3D";
         else if constexpr (std::is_same_v<T, TilemapComponent>) return "Tilemap";
         else if constexpr (std::is_same_v<T, ParallaxComponent>) return "Parallax";

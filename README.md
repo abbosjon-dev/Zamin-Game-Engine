@@ -291,6 +291,22 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     sharnir, tana qismlari "Ragdoll", qo'l-oyoqlar "RagdollLimb" qatlamida (o'zaro to'qnashmaydi); zinapoya, chegarali
     ko'prik, motorli rotor, arg'imchoq, uxlab turgan quti minorasi va zanjirli mayatnik; 2 sub-qadam
 - **3D fizika** (Jolt Physics): Rigidbody3D, Box/Sphere/Capsule collider, trigger'lar, to'qnashuvlar
+  - **Convex Hull Collider 3D**: obyektning Mesh Renderer'idagi model / primitiv (yoki tanlangan `.gltf/.glb/.obj`)
+    vertekslaridan qavariq qobiq, ko'pi bilan "Maks. burchaklar" (4..256) - ko'proq bo'lsa eng chetdagi nuqtalar
+    olinadi (soddalashtirilgan qobiq). Qobiq har model va chegara uchun bir marta quriladi (`CollisionShapes3D`,
+    GPU'siz o'qiladi) va fayl yoki uning `.zmeta` import sozlamalari o'zgarsa qayta quriladi; transform masshtabi bilan
+    ko'payadi. Inspektorda burchak / yuz soni, viewport'da qobiq qirralari (Fizik colliderlar)
+  - **Joint'lar 3D** (Jolt constraint'lar): Fixed (mahkam), Hinge (sharnir: o'q, chegaralar -180..0 / 0..180, motor -
+    tezlik va maks. moment, prujina - nishon burchakka tortadi), Distance (minimal / maksimal masofa, arqon - "faqat
+    maksimal", yumshoq uchlar - chastota / so'nish), Slider (o'q bo'ylab sirpanish, chegaralar, motor). 2D joint'lar
+    kabi: ulangan jism (bo'sh - dunyodagi nuqta), langar / avto ulangan langar (obyektning o'z koordinatalarida,
+    masshtab bilan), "Bir-biri bilan to'qnashsin" (o'chiq - ulangan jismlar bir-biridan o'tadi), uzilish kuchi / momenti
+    (`OnJointBreak3D(joint)`, `Broken`), jism nofaol / o'chirilganda yo'qolib qaytishi, o'yin davomida sozlamalar
+    darhol, duplikat / prefab'da qayta bog'lanish, serializatsiya UUID orqali. Inspektorda holat (kuch, moment,
+    burchak, siljish, masofa), viewport'da langarlar, sharnir o'qi va burchak yoyi, sirpanish chegaralari, masofa
+    tayog'i (Gizmolar > Joint'lar). Namuna: Showcase3D `Scenes/Joints3D.zscene` (prujinali eshik, sharlar zanjiri,
+    lift - `SliderShuttle` skripti, motorli tegirmon parragi, payvandlangan L, qiyalikdan dumalaydigan konus /
+    silindr / kristall ziyoratgoh qobiqlari)
 - **Character Controller 3D** (Jolt CharacterVirtual): qiyaliklar, zinapoyalar, yerni aniqlash, sakrash, harakatlanuvchi platformalarda yurish
 - **Raycast** 2D va 3D
 - **Debug chizish** (`DebugDraw`, `Zamin/Debug/DebugDraw.h`): skriptlardan va dvigateldan dunyo fazosida chiziq, nur, o'q,
@@ -493,6 +509,7 @@ ZM_REGISTER_SCRIPT(Player,
 | `OnDisable()` | Skript o'chirilganda (`SetEnabled(false)`) va `OnDestroy`'dan oldin |
 | `OnDestroy()` | Obyekt o'chirilganda yoki o'yin to'xtaganda |
 | `OnJointBreak(joint)` | Shu obyektning 2D joint'i uzilganda (`joint.Type`, `joint.ConnectedBody`, `joint.Force`, `joint.Torque`) |
+| `OnJointBreak3D(joint)` | Shu obyektning 3D joint'i uzilganda (`joint.Type` - `Joint3DType::Fixed/Hinge/Distance/Slider`, `joint.ConnectedBody`, `joint.Force`, `joint.Torque`) |
 | `OnClick()` | Shu obyektdagi UI tugma bosilganda |
 | `OnMessage(msg)` | Shu obyektga xabar kelganda (`SendMessage`, `Broadcast` ...) |
 
@@ -513,7 +530,7 @@ Foydali API:
 | Hodisalar (event bus) | `Subscribe("CoinCollected", fn)`, `Unsubscribe(id)`, `Emit("CoinCollected", qiymat)`, `EmitDeferred(...)` (kadr oxirida) |
 | Tasodifiy sonlar | `Random::Range(1.0f, 5.0f)`, `Random::Int(1, 6)` (ikkala chegara ham kiradi), `Random::Float()`, `Random::Bool(0.3f)`, `Random::InsideCircle(r)`, `Random::OnSphere(r)`, `Random::InsideSphere(r)`, `Random::Rotation()`, `Random::Pick(v)`, `Random::Shuffle(v)`, `Random::SetSeed(42)`, alohida oqim: `RandomGenerator rng(seed)` |
 | 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `ApplyImpulse(other, impulse)`, `Raycast2D(origin, dir, dist, LayerMask({ "Ground" }))`, `Raycast2DAll(origin, dir, dist, mask, includeTriggers)` (hamma urilishlar, yaqini birinchi), `OverlapCircle2D(center, r, mask)` / `OverlapBox2D(center, halfExtents, angle, mask)` / `OverlapPoint2D(p, mask)` → `std::vector<Entity>`, `LayerIndex("Player")`, uxlash: `IsSleeping()` / `WakeUp()` / `PutToSleep()` (`IsSleeping(other)`, `WakeUp(other)`); joint'lar: `GetComponent<RevoluteJoint2DComponent>()` → `.MotorSpeed`, `.EnableLimit`, `.JointAngle`, `.ReactionForce`, `.Broken` ... |
-| 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)` |
+| 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)`; joint'lar: `GetComponent<HingeJoint3DComponent>()` → `.MotorSpeed`, `.EnableSpring`, `.SpringTargetAngle`, `.JointAngle`, `.ReactionForce`, `.Broken`; `SliderJoint3DComponent` → `.MotorSpeed`, `.JointTranslation` ... |
 | Qahramon | `GetComponent<CharacterController3DComponent>()` → `.Move(velocity)`, `.Jump(speed)`, `.Grounded`, `.Velocity` (oxirgi fizika qadamidagi haqiqiy tezlik) |
 | Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)`, `SetBool`, `SetTrigger` |
 | Input harakatlari | `Input::IsActionPressed("Fire")`, `IsActionJustPressed("Jump")`, `IsActionJustReleased(...)`, `GetAxis("Horizontal")`, `GetAxis2D("Horizontal", "Vertical")` |
@@ -621,7 +638,8 @@ Zamin/src/Zamin/
 ├── Math/        Math (transform), Random (PCG32)
 ├── Physics/     PhysicsWorld2D (Box2D: jismlar, joint'lar, platformalar, material aralashtirish, effektorlar,
 │                overlap / raycast-all so'rovlari, uxlash orollari, statistika), Polygon2D (qavariq bo'laklarga ajratish, kesish, sprayt konturi),
-│                PhysicsMaterial (.zphysmat), CollisionLayers, PhysicsWorld3D (Jolt)
+│                PhysicsMaterial (.zphysmat), CollisionLayers, PhysicsWorld3D (Jolt: jismlar, joint'lar, qahramonlar),
+│                CollisionShapes3D (meshdan qavariq qobiq, kesh)
 ├── Audio/       AudioEngine (miniaudio)
 ├── Project/     Project, shablonlar, build fayllari
 ├── ImGui/       ImGuiLayer, tema, ikonkalar

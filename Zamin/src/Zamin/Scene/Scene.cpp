@@ -14,6 +14,7 @@
 #include "Zamin/Physics/PhysicsMaterial.h"
 #include "Zamin/Physics/Polygon2D.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
+#include "Zamin/Physics/CollisionShapes3D.h"
 #include "Zamin/Renderer/Renderer2D.h"
 #include "Zamin/Renderer/Renderer3D.h"
 #include "Zamin/Renderer/RenderCommand.h"
@@ -178,6 +179,92 @@ namespace Zamin {
         return d;
     }
 
+    // ------------------------------------------------------------------ 3D joint helpers
+    // Calls fn(std::type_identity<T>{}) for every 3D joint component type.
+    template<typename... T, typename Fn>
+    static void ForEachJoint3DType(ComponentGroup<T...>, Fn&& fn)
+    {
+        (fn(std::type_identity<T>{}), ...);
+    }
+
+    template<typename Fn>
+    static void ForEachJoint3DType(Fn&& fn)
+    {
+        ForEachJoint3DType(Joint3DComponents{}, std::forward<Fn>(fn));
+    }
+
+    template<typename T>
+    static constexpr Joint3DType Joint3DTypeOf()
+    {
+        if constexpr (std::is_same_v<T, FixedJoint3DComponent>) return Joint3DType::Fixed;
+        else if constexpr (std::is_same_v<T, HingeJoint3DComponent>) return Joint3DType::Hinge;
+        else if constexpr (std::is_same_v<T, DistanceJoint3DComponent>) return Joint3DType::Distance;
+        else return Joint3DType::Slider;
+    }
+
+    static const char* Joint3DTypeName(Joint3DType type)
+    {
+        switch (type)
+        {
+            case Joint3DType::Fixed: return "Fixed Joint 3D";
+            case Joint3DType::Hinge: return "Hinge Joint 3D";
+            case Joint3DType::Distance: return "Distance Joint 3D";
+            case Joint3DType::Slider: return "Slider Joint 3D";
+        }
+        return "Joint 3D";
+    }
+
+    template<typename T>
+    static void ResetJoint3DRuntime(T& joint)
+    {
+        joint.ResetRuntime();
+        if constexpr (std::is_same_v<T, HingeJoint3DComponent>)
+            joint.JointAngle = joint.JointSpeed = 0.0f;
+        else if constexpr (std::is_same_v<T, DistanceJoint3DComponent>)
+            joint.CurrentDistance = 0.0f;
+        else if constexpr (std::is_same_v<T, SliderJoint3DComponent>)
+            joint.JointTranslation = joint.JointSpeed = 0.0f;
+    }
+
+    // The settings of a 3D joint component for the physics world (bodies, points and axis not filled in).
+    template<typename T>
+    static PhysicsJoint3DDesc MakeJoint3DDesc(const T& c)
+    {
+        PhysicsJoint3DDesc d;
+        d.Type = Joint3DTypeOf<T>();
+        d.CollideConnected = c.CollideConnected;
+        if constexpr (std::is_same_v<T, HingeJoint3DComponent>)
+        {
+            d.EnableLimit = c.EnableLimit;
+            d.LowerLimit = c.LowerAngle;
+            d.UpperLimit = c.UpperAngle;
+            d.EnableMotor = c.EnableMotor;
+            d.MotorSpeed = c.MotorSpeed;
+            d.MaxMotorForce = c.MaxMotorTorque;
+            d.EnableSpring = c.EnableSpring;
+            d.SpringTarget = c.SpringTargetAngle;
+            d.Frequency = c.SpringFrequency;
+            d.DampingRatio = c.SpringDamping;
+        }
+        else if constexpr (std::is_same_v<T, DistanceJoint3DComponent>)
+        {
+            d.MinDistance = c.MaxDistanceOnly ? 0.0f : c.MinDistance;
+            d.MaxDistance = c.MaxDistance;
+            d.Frequency = c.Frequency;
+            d.DampingRatio = c.DampingRatio;
+        }
+        else if constexpr (std::is_same_v<T, SliderJoint3DComponent>)
+        {
+            d.EnableLimit = c.EnableLimit;
+            d.LowerLimit = c.LowerTranslation;
+            d.UpperLimit = c.UpperTranslation;
+            d.EnableMotor = c.EnableMotor;
+            d.MotorSpeed = c.MotorSpeed;
+            d.MaxMotorForce = c.MaxMotorForce;
+        }
+        return d;
+    }
+
     // ------------------------------------------------------------------ 2D collider shapes
     // Which component of an entity a fixture came from (PhysicsWorld2D::SetShapeMaterial).
     enum : int { ShapeTagBox = 1, ShapeTagCircle, ShapeTagPolygon, ShapeTagEdge, ShapeTagTilemap };
@@ -253,6 +340,11 @@ namespace Zamin {
             for (auto e : registry.view<T>())
                 ResetJointRuntime(registry.get<T>(e));
         });
+        ForEachJoint3DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : registry.view<T>())
+                ResetJoint3DRuntime(registry.get<T>(e));
+        });
         for (auto e : registry.view<Rigidbody2DComponent>()) registry.get<Rigidbody2DComponent>(e).RuntimeBody = nullptr;
         for (auto e : registry.view<BoxCollider2DComponent>()) registry.get<BoxCollider2DComponent>(e).RuntimeFixture = nullptr;
         for (auto e : registry.view<CircleCollider2DComponent>()) registry.get<CircleCollider2DComponent>(e).RuntimeFixture = nullptr;
@@ -300,6 +392,11 @@ namespace Zamin {
             if (auto* c = e.TryGetComponent<T>())
                 ResetJointRuntime(*c);
         });
+        ForEachJoint3DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            if (auto* c = e.TryGetComponent<T>())
+                ResetJoint3DRuntime(*c);
+        });
         if (auto* c = e.TryGetComponent<Rigidbody2DComponent>()) c->RuntimeBody = nullptr;
         if (auto* c = e.TryGetComponent<BoxCollider2DComponent>()) c->RuntimeFixture = nullptr;
         if (auto* c = e.TryGetComponent<CircleCollider2DComponent>()) c->RuntimeFixture = nullptr;
@@ -344,6 +441,11 @@ namespace Zamin {
             m_Registry.on_destroy<T>().template connect<&Scene::OnJoint2DDestroyed<T>>(*this);
             m_Registry.on_update<T>().template connect<&Scene::OnJoint2DReplaced<T>>(*this);
         });
+        ForEachJoint3DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            m_Registry.on_destroy<T>().template connect<&Scene::OnJoint3DDestroyed<T>>(*this);
+            m_Registry.on_update<T>().template connect<&Scene::OnJoint3DReplaced<T>>(*this);
+        });
     }
 
     Scene::~Scene()
@@ -357,6 +459,11 @@ namespace Zamin {
         m_Registry.on_destroy<TagComponent>().disconnect(this);
         m_Registry.on_destroy<NativeScriptComponent>().disconnect(this);
         ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            m_Registry.on_destroy<T>().disconnect(this);
+            m_Registry.on_update<T>().disconnect(this);
+        });
+        ForEachJoint3DType([&](auto type) {
             using T = typename decltype(type)::type;
             m_Registry.on_destroy<T>().disconnect(this);
             m_Registry.on_update<T>().disconnect(this);
@@ -605,6 +712,12 @@ namespace Zamin {
                     if (auto it = oldToNew.find(joint->ConnectedBody.ID); joint->ConnectedBody.ID && it != oldToNew.end())
                         joint->ConnectedBody.ID = it->second;
             });
+            ForEachJoint3DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                if (auto* joint = e.TryGetComponent<T>())
+                    if (auto it = oldToNew.find(joint->ConnectedBody.ID); joint->ConnectedBody.ID && it != oldToNew.end())
+                        joint->ConnectedBody.ID = it->second;
+            });
             auto* nsc = e.TryGetComponent<NativeScriptComponent>();
             if (!nsc) continue;
             for (auto& [name, value] : nsc->Fields)
@@ -634,7 +747,8 @@ namespace Zamin {
                 StartEntityEffects(e); // PlayOnStart sounds of active clones
             }
         SyncJoints2D(); // a spawned ragdoll's joints, once all its bodies exist
-        if (m_PhysicsWorld)
+        SyncJoints3D();
+        if (m_PhysicsWorld || m_PhysicsWorld3D)
             ReportMissingJointBodies(&entities);
         if (m_ScriptsRunning)
         {
@@ -730,6 +844,17 @@ namespace Zamin {
                 Entity other = GetEntityByUUID(joint->ConnectedBody.ID);
                 ZM_CORE_WARN("Prefab {}: '{}' obyektidagi {} prefabdan tashqaridagi '{}' ga ulangan - boshqa sahnalarda u bo'lmaydi "
                              "va joint yaratilmaydi", path.filename().string(), e.GetName(), Joint2DTypeName(Joint2DTypeOf<T>()),
+                             other ? other.GetName() : std::string("?"));
+            });
+        for (Entity e : entities)
+            ForEachJoint3DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                const auto* joint = e.TryGetComponent<T>();
+                if (!joint || !joint->ConnectedBody.ID || inside.count(joint->ConnectedBody.ID))
+                    return;
+                Entity other = GetEntityByUUID(joint->ConnectedBody.ID);
+                ZM_CORE_WARN("Prefab {}: '{}' obyektidagi {} prefabdan tashqaridagi '{}' ga ulangan - boshqa sahnalarda u bo'lmaydi "
+                             "va joint yaratilmaydi", path.filename().string(), e.GetName(), Joint3DTypeName(Joint3DTypeOf<T>()),
                              other ? other.GetName() : std::string("?"));
             });
         // Instances should not start hidden / locked in the editor: those flags stay in this scene.
@@ -1511,7 +1636,10 @@ namespace Zamin {
                 StartEntityEffects({ e, this });
             }
         if (!switchedOn.empty())
+        {
             SyncJoints2D(); // the joints of the bodies that came back
+            SyncJoints3D();
+        }
         if (m_ScriptsRunning)
             for (entt::entity e : switchedOn)
                 if (valid(e))
@@ -2140,12 +2268,22 @@ namespace Zamin {
             ForEachJoint2DType([&](auto type) {
                 using T = typename decltype(type)::type;
                 const auto* joint = e.TryGetComponent<T>();
-                if (!joint || !joint->ConnectedBody.ID || GetEntityByUUID(joint->ConnectedBody.ID))
+                if (!m_PhysicsWorld || !joint || !joint->ConnectedBody.ID || GetEntityByUUID(joint->ConnectedBody.ID))
                     return;
                 if (!m_ReportedMissingJointBodies.insert(joint->ConnectedBody.ID).second)
                     return;
                 ZM_CORE_WARN("'{}' obyektidagi {} ulangan jismi ({:016x}) sahnada yo'q - joint yaratilmaydi", e.GetName(),
                              Joint2DTypeName(Joint2DTypeOf<T>()), joint->ConnectedBody.ID);
+            });
+            ForEachJoint3DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                const auto* joint = e.TryGetComponent<T>();
+                if (!m_PhysicsWorld3D || !joint || !joint->ConnectedBody.ID || GetEntityByUUID(joint->ConnectedBody.ID))
+                    return;
+                if (!m_ReportedMissingJointBodies.insert(joint->ConnectedBody.ID).second)
+                    return;
+                ZM_CORE_WARN("'{}' obyektidagi {} ulangan jismi ({:016x}) sahnada yo'q - joint yaratilmaydi", e.GetName(),
+                             Joint3DTypeName(Joint3DTypeOf<T>()), joint->ConnectedBody.ID);
             });
         };
         if (entities)
@@ -2156,6 +2294,11 @@ namespace Zamin {
             return;
         }
         ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : m_Registry.view<T>())
+                check({ e, this });
+        });
+        ForEachJoint3DType([&](auto type) {
             using T = typename decltype(type)::type;
             for (auto e : m_Registry.view<T>())
                 check({ e, this });
@@ -2419,6 +2562,207 @@ namespace Zamin {
         }
     }
 
+    // ------------------------------------------------------------------ joints 3D
+    template<typename T>
+    void Scene::OnJoint3DDestroyed(entt::registry& registry, entt::entity entity)
+    {
+        auto& joint = registry.get<T>(entity);
+        if (joint.RuntimeJoint && m_PhysicsWorld3D)
+            m_PhysicsWorld3D->DestroyJoint(joint.RuntimeJoint);
+        joint.RuntimeJoint = 0;
+    }
+
+    template<typename T>
+    void Scene::OnJoint3DReplaced(entt::registry& registry, entt::entity entity)
+    {
+        if (!m_PhysicsWorld3D)
+            return;
+        // A new value (a pasted component) brings no joint of its own, or another one's: the joint
+        // the entity had goes and the next sync makes one for the new settings.
+        auto& joint = registry.get<T>(entity);
+        uint32_t keep = joint.RuntimeJoint;
+        m_PhysicsWorld3D->ClaimJoint(registry.get<IDComponent>(entity).ID, Joint3DTypeOf<T>(), keep);
+        if (keep != joint.RuntimeJoint)
+        {
+            joint.RuntimeJoint = keep;
+            joint.RuntimeConnected = 0;
+        }
+    }
+
+    void Scene::SyncJoints3D()
+    {
+        if (!m_PhysicsWorld3D)
+            return;
+        auto bodyOf = [](Entity e) -> uint32_t {
+            const auto* rb = e.TryGetComponent<Rigidbody3DComponent>();
+            return rb ? rb->RuntimeBodyID : PhysicsJoint3DDesc::NoBody;
+        };
+        ForEachJoint3DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : m_Registry.view<T>())
+            {
+                Entity entity{ e, this };
+                auto& joint = m_Registry.get<T>(e);
+                if (joint.RuntimeJoint && joint.RuntimeConnected != joint.ConnectedBody.ID)
+                {
+                    // Connected to something else now (a script grabbed another body): made again.
+                    m_PhysicsWorld3D->DestroyJoint(joint.RuntimeJoint);
+                    joint.RuntimeJoint = 0;
+                }
+                if (joint.RuntimeJoint)
+                {
+                    m_PhysicsWorld3D->UpdateJoint(joint.RuntimeJoint, MakeJoint3DDesc(joint));
+                    continue;
+                }
+                if (joint.Broken)
+                    continue;
+                const uint32_t body = bodyOf(entity);
+                if (body == PhysicsJoint3DDesc::NoBody)
+                    continue; // no Rigidbody 3D, inactive, or the world is not running it yet
+                Entity other;
+                uint32_t connected = PhysicsJoint3DDesc::NoBody;
+                if (joint.ConnectedBody.ID)
+                {
+                    other = GetEntityByUUID(joint.ConnectedBody.ID);
+                    if (!other || other == entity || (connected = bodyOf(other)) == PhysicsJoint3DDesc::NoBody)
+                        continue; // waits for the connected body (gone, inactive, without a body)
+                }
+                // The points in the world as the entities are now (their bodies were made there).
+                const glm::mat4 own = GetWorldTransform(entity);
+                const glm::mat4 otherTransform = other ? GetWorldTransform(other) : glm::mat4(1.0f);
+                const glm::vec3 worldAnchor = glm::vec3(own * glm::vec4(joint.Anchor, 1.0f));
+                if (joint.AutoConfigureConnectedAnchor)
+                    joint.ConnectedAnchor = other ? glm::vec3(glm::inverse(otherTransform) * glm::vec4(worldAnchor, 1.0f)) : worldAnchor;
+                const glm::vec3 worldConnected = glm::vec3(otherTransform * glm::vec4(joint.ConnectedAnchor, 1.0f));
+
+                PhysicsJoint3DDesc desc = MakeJoint3DDesc(joint);
+                desc.EntityID = entity.GetUUID();
+                desc.Body = body;
+                desc.ConnectedBody = connected;
+                desc.Anchor = worldAnchor;
+                desc.ConnectedAnchor = worldConnected;
+                if constexpr (std::is_same_v<T, HingeJoint3DComponent> || std::is_same_v<T, SliderJoint3DComponent>)
+                {
+                    glm::vec3 p, r, sc;
+                    Math::DecomposeTransform(own, p, r, sc);
+                    desc.Axis = glm::quat(r) * joint.Axis;
+                }
+                if constexpr (std::is_same_v<T, DistanceJoint3DComponent>)
+                    if (joint.AutoConfigureDistance)
+                    {
+                        // The distance they are at now (written back: the inspector shows it while it runs).
+                        const float current = glm::length(worldAnchor - worldConnected);
+                        joint.MaxDistance = current;
+                        joint.MinDistance = joint.MaxDistanceOnly ? 0.0f : current;
+                        desc.MinDistance = joint.MinDistance;
+                        desc.MaxDistance = joint.MaxDistance;
+                    }
+                joint.RuntimeJoint = m_PhysicsWorld3D->CreateJoint(desc);
+                joint.RuntimeConnected = joint.ConnectedBody.ID;
+            }
+        });
+    }
+
+    void Scene::ForgetJoints3D(const std::vector<PhysicsJoint3DRef>& joints)
+    {
+        for (const PhysicsJoint3DRef& ref : joints)
+        {
+            Entity owner = GetEntityByUUID(ref.EntityID);
+            if (!owner)
+                continue;
+            ForEachJoint3DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                if (Joint3DTypeOf<T>() != ref.Type)
+                    return;
+                if (auto* joint = owner.TryGetComponent<T>())
+                {
+                    joint->RuntimeJoint = 0;
+                    joint->RuntimeConnected = 0;
+                }
+            });
+        }
+    }
+
+    void Scene::CheckJointBreaks3D(float dt)
+    {
+        if (!m_PhysicsWorld3D || dt <= 0.0f)
+            return;
+        ForEachJoint3DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : m_Registry.view<T>())
+            {
+                auto& joint = m_Registry.get<T>(e);
+                if (!joint.RuntimeJoint || (joint.BreakForce <= 0.0f && joint.BreakTorque <= 0.0f))
+                    continue;
+                PhysicsJoint3DState state = m_PhysicsWorld3D->GetJointState(joint.RuntimeJoint, 1.0f / dt);
+                if (!(joint.BreakForce > 0.0f && state.Force > joint.BreakForce) && !(joint.BreakTorque > 0.0f && state.Torque > joint.BreakTorque))
+                    continue;
+                m_PhysicsWorld3D->DestroyJoint(joint.RuntimeJoint);
+                joint.RuntimeJoint = 0;
+                joint.RuntimeConnected = 0;
+                joint.Broken = true;
+                joint.ReactionForce = state.Force;
+                joint.ReactionTorque = state.Torque;
+                m_JointBreaks3D.push_back({ m_Registry.get<IDComponent>(e).ID, Joint3DTypeOf<T>(), joint.ConnectedBody.ID, state.Force, state.Torque });
+            }
+        });
+    }
+
+    void Scene::UpdateJointStates3D(float dt)
+    {
+        if (!m_PhysicsWorld3D || dt <= 0.0f)
+            return;
+        ForEachJoint3DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : m_Registry.view<T>())
+            {
+                auto& joint = m_Registry.get<T>(e);
+                if (!joint.RuntimeJoint)
+                    continue;
+                PhysicsJoint3DState state = m_PhysicsWorld3D->GetJointState(joint.RuntimeJoint, 1.0f / dt);
+                joint.ReactionForce = state.Force;
+                joint.ReactionTorque = state.Torque;
+                if constexpr (std::is_same_v<T, HingeJoint3DComponent>)
+                {
+                    joint.JointAngle = state.Angle;
+                    joint.JointSpeed = state.Speed;
+                }
+                else if constexpr (std::is_same_v<T, DistanceJoint3DComponent>)
+                    joint.CurrentDistance = state.Translation;
+                else if constexpr (std::is_same_v<T, SliderJoint3DComponent>)
+                {
+                    joint.JointTranslation = state.Translation;
+                    joint.JointSpeed = state.Speed;
+                }
+            }
+        });
+    }
+
+    void Scene::DispatchJointBreaks3D()
+    {
+        if (m_JointBreaks3D.empty())
+            return;
+        std::vector<JointBreak3DRecord> breaks = std::move(m_JointBreaks3D);
+        m_JointBreaks3D.clear();
+        if (!m_ScriptsRunning)
+            return;
+        for (const JointBreak3DRecord& record : breaks)
+        {
+            Entity entity = GetEntityByUUID(record.Entity);
+            if (!entity)
+                continue; // destroyed by an earlier callback
+            auto* nsc = entity.TryGetComponent<NativeScriptComponent>();
+            if (!nsc || !nsc->Instance || nsc->Instance->m_Destroying)
+                continue;
+            JointBreak3D info;
+            info.Type = record.Type;
+            info.ConnectedBody = record.Connected ? GetEntityByUUID(record.Connected) : Entity();
+            info.Force = record.Force;
+            info.Torque = record.Torque;
+            nsc->Instance->OnJointBreak3D(info);
+        }
+    }
+
     void Scene::CreatePhysicsBody(Entity entity)
     {
         auto& rb2d = entity.GetComponent<Rigidbody2DComponent>();
@@ -2556,6 +2900,9 @@ namespace Zamin {
         m_PhysicsWorld3D->OptimizeBroadPhase();
         for (auto e : m_Registry.view<CharacterController3DComponent>())
             CreateCharacter3D({ e, this });
+        m_JointBreaks3D.clear();
+        SyncJoints3D(); // once every body exists
+        ReportMissingJointBodies(nullptr);
     }
 
     void Scene::CreateCharacter3D(Entity entity)
@@ -2586,6 +2933,12 @@ namespace Zamin {
             m_Registry.get<CharacterController3DComponent>(e).RuntimeID = 0xffffffff;
         for (auto e : m_Registry.view<Rigidbody3DComponent>())
             m_Registry.get<Rigidbody3DComponent>(e).RuntimeBodyID = 0xffffffff;
+        ForEachJoint3DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            for (auto e : m_Registry.view<T>())
+                ResetJoint3DRuntime(m_Registry.get<T>(e));
+        });
+        m_JointBreaks3D.clear();
         m_PhysicsWorld3D.reset();
     }
 
@@ -2642,12 +2995,56 @@ namespace Zamin {
             s.Friction = c->Friction; s.Restitution = c->Restitution; s.IsSensor = c->IsSensor;
             desc.Shapes.push_back(s);
         }
+        if (auto* c = entity.TryGetComponent<ConvexHullCollider3DComponent>())
+        {
+            std::string error;
+            if (Ref<const ConvexHull3D> hull = GetConvexHullCollider(entity, &error))
+            {
+                PhysicsBody3DDesc::Shape s;
+                s.Type = PhysicsBody3DDesc::Shape::Kind::ConvexHull;
+                s.Hull = hull;
+                s.Scale = scale;
+                s.Offset = c->Offset * scale;
+                s.Friction = c->Friction; s.Restitution = c->Restitution; s.IsSensor = c->IsSensor;
+                desc.Shapes.push_back(s);
+            }
+            else
+                ZM_CORE_WARN("'{}': Convex Hull Collider 3D qurilmadi - {}", entity.GetName(), error);
+        }
         if (desc.Shapes.empty())
         {
-            ZM_CORE_WARN("'{}': Rigidbody3D uchun collider yo'q (Box/Sphere/Capsule Collider 3D qo'shing)", entity.GetName());
+            ZM_CORE_WARN("'{}': Rigidbody3D uchun collider yo'q (Box/Sphere/Capsule/Convex Hull Collider 3D qo'shing)", entity.GetName());
             return;
         }
         rb.RuntimeBodyID = m_PhysicsWorld3D->CreateBody(desc);
+    }
+
+    Ref<const ConvexHull3D> Scene::GetConvexHullCollider(Entity entity, std::string* error)
+    {
+        const auto* c = entity ? entity.TryGetComponent<ConvexHullCollider3DComponent>() : nullptr;
+        if (!c)
+        {
+            if (error)
+                *error = "Convex Hull Collider 3D yo'q";
+            return nullptr;
+        }
+        std::string modelPath = c->ModelPath;
+        PrimitiveMesh primitive = PrimitiveMesh::Model;
+        if (modelPath.empty())
+            if (const auto* mr = entity.TryGetComponent<MeshRendererComponent>())
+            {
+                if (mr->Type == PrimitiveMesh::Model)
+                    modelPath = mr->ModelPath;
+                else
+                    primitive = mr->Type;
+            }
+        if (modelPath.empty() && primitive == PrimitiveMesh::Model)
+        {
+            if (error)
+                *error = "model yo'q (Mesh Renderer qo'shing yoki model faylini tanlang)";
+            return nullptr;
+        }
+        return CollisionShapes3D::GetConvexHull(modelPath, primitive, c->MaxVertices, error);
     }
 
     void Scene::CreatePhysicsBodies(Entity entity)
@@ -2697,8 +3094,10 @@ namespace Zamin {
         }
         if (auto* rb = entity.TryGetComponent<Rigidbody3DComponent>(); rb && rb->RuntimeBodyID != 0xffffffff && m_PhysicsWorld3D)
         {
-            m_PhysicsWorld3D->DestroyBody(rb->RuntimeBodyID);
+            std::vector<PhysicsJoint3DRef> joints;
+            m_PhysicsWorld3D->DestroyBody(rb->RuntimeBodyID, &joints); // its joints go with it
             rb->RuntimeBodyID = 0xffffffff;
+            ForgetJoints3D(joints);
         }
         if (auto* cc = entity.TryGetComponent<CharacterController3DComponent>(); cc && cc->RuntimeID != 0xffffffff && m_PhysicsWorld3D)
         {
@@ -2956,6 +3355,7 @@ namespace Zamin {
         }
         // Joints whose bodies appeared since the last frame, live motor / limit settings.
         SyncJoints2D();
+        SyncJoints3D();
         // Physics material assets edited / reloaded since the last frame.
         if (m_PhysicsWorld && m_PhysicsMaterialRevision != PhysicsMaterialLibrary::GetRevision())
             ApplyPhysicsMaterials();
@@ -3020,6 +3420,7 @@ namespace Zamin {
                 {
                     ZM_PROFILE_SCOPE("Jolt (3D)");
                     m_PhysicsWorld3D->Step(fixedStep);
+                    CheckJointBreaks3D(fixedStep);
                 }
                 ZM_PROFILE_SCOPE("Personajlar (3D)");
                 StepCharacters(fixedStep);
@@ -3032,6 +3433,7 @@ namespace Zamin {
         if (steps > 0)
         {
             UpdateJointStates2D(subStep); // the reaction forces come from the last Box2D step's impulses
+            UpdateJointStates3D(fixedStep);
             // The frames' script forces have acted; forces applied during the steps (joint break
             // callbacks) wait for the next frame.
             m_ScriptForceTime2D = 0.0f;
@@ -3088,6 +3490,7 @@ namespace Zamin {
         }
         DispatchContactEvents(events);
         DispatchJointBreaks2D();
+        DispatchJointBreaks3D();
 
         if (debugContacts)
             DrawPhysicsContacts();

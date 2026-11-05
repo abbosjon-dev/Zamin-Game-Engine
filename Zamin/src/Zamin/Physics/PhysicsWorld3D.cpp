@@ -1,4 +1,5 @@
 #include "Zamin/Physics/PhysicsWorld3D.h"
+#include "Zamin/Physics/CollisionShapes3D.h"
 #include "Zamin/Core/Log.h"
 
 #include <Jolt/Jolt.h>
@@ -16,6 +17,13 @@
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
+#include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
+#include <Jolt/Physics/Collision/Shape/ScaledShape.h>
+#include <Jolt/Physics/Collision/GroupFilter.h>
+#include <Jolt/Physics/Constraints/FixedConstraint.h>
+#include <Jolt/Physics/Constraints/HingeConstraint.h>
+#include <Jolt/Physics/Constraints/DistanceConstraint.h>
+#include <Jolt/Physics/Constraints/SliderConstraint.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
@@ -24,6 +32,8 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cfloat>
+#include <cmath>
 #include <map>
 #include <mutex>
 #include <thread>
@@ -111,6 +121,26 @@ namespace Zamin {
                 JPH::Factory::sInstance = nullptr;
             }
         }
+
+        // Pairs of bodies (their collision group IDs are their body IDs) that a joint keeps from
+        // colliding (CollideConnected off), counted: several joints may link the same two bodies.
+        // Changed only between steps; Jolt's jobs only read it.
+        class JointCollisionFilter final : public JPH::GroupFilter
+        {
+        public:
+            std::unordered_map<uint64_t, int> Pairs;
+
+            static uint64_t Key(uint32_t a, uint32_t b)
+            {
+                if (a > b) std::swap(a, b);
+                return ((uint64_t)a << 32) | b;
+            }
+
+            bool CanCollide(const JPH::CollisionGroup& a, const JPH::CollisionGroup& b) const override
+            {
+                return Pairs.empty() || !Pairs.contains(Key(a.GetGroupID(), b.GetGroupID()));
+            }
+        };
 
         inline JPH::Vec3 ToJolt(const glm::vec3& v) { return JPH::Vec3(v.x, v.y, v.z); }
         inline JPH::Quat ToJolt(const glm::quat& q) { return JPH::Quat(q.x, q.y, q.z, q.w); }
@@ -240,6 +270,75 @@ namespace Zamin {
         };
         std::vector<CharacterSlot> Characters;
 
+        // ---- joints
+        struct JointSlot
+        {
+            JPH::Ref<JPH::TwoBodyConstraint> Constraint;
+            Joint3DType Type = Joint3DType::Fixed;
+            uint64_t EntityID = 0;
+            JPH::BodyID Body1, Body2;                   // Body1 invalid: the world
+            glm::vec3 LocalPoint1{ 0.0f }, LocalPoint2{ 0.0f }; // in the bodies' frames (no Body1: a world point)
+            glm::vec3 LocalAxis2{ 0.0f, 1.0f, 0.0f };  // the hinge / slider axis in Body2's frame
+            bool NoCollision = false;                  // its pair is in JointFilter
+            PhysicsJoint3DDesc Desc;                   // the settings it has now
+        };
+        std::map<uint32_t, JointSlot> Joints;
+        uint32_t NextJoint = 1;
+        JPH::Ref<JointCollisionFilter> JointFilter; // made once Jolt's allocator is there
+
+        // The Jolt shape of each convex hull used by a body of this world (the hull is kept alive with it).
+        struct HullShape
+        {
+            Ref<const ConvexHull3D> Hull;
+            JPH::RefConst<JPH::Shape> Shape;
+        };
+        std::unordered_map<const ConvexHull3D*, HullShape> HullShapes;
+
+        bool HasBody(JPH::BodyID id) const { return std::find(Bodies.begin(), Bodies.end(), id) != Bodies.end(); }
+
+        void SetPairCollision(const JointSlot& joint, bool add)
+        {
+            const uint64_t key = JointCollisionFilter::Key(joint.Body1.GetIndexAndSequenceNumber(), joint.Body2.GetIndexAndSequenceNumber());
+            auto& pairs = JointFilter->Pairs;
+            if (add)
+                pairs[key]++;
+            else if (auto it = pairs.find(key); it != pairs.end() && --it->second <= 0)
+                pairs.erase(it);
+        }
+
+        void WakeJointBodies(const JointSlot& joint)
+        {
+            for (JPH::BodyID id : { joint.Body1, joint.Body2 })
+                if (!id.IsInvalid() && BI().GetMotionType(id) != JPH::EMotionType::Static)
+                    BI().ActivateBody(id);
+        }
+
+        void RemoveJoint(std::map<uint32_t, JointSlot>::iterator it)
+        {
+            JointSlot& joint = it->second;
+            System->RemoveConstraint(joint.Constraint);
+            if (joint.NoCollision)
+                SetPairCollision(joint, false);
+            WakeJointBodies(joint); // a body that hung from it falls
+            Joints.erase(it);
+        }
+
+        // A body's frame (its origin, not its centre of mass) in the world.
+        void GetFrame(JPH::BodyID id, glm::vec3& position, glm::quat& rotation) const
+        {
+            if (id.IsInvalid())
+            {
+                position = glm::vec3(0.0f);
+                rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+                return;
+            }
+            JPH::RVec3 p;
+            JPH::Quat q;
+            BI().GetPositionAndRotation(id, p, q);
+            position = { (float)p.GetX(), (float)p.GetY(), (float)p.GetZ() };
+            rotation = glm::quat(q.GetW(), q.GetX(), q.GetY(), q.GetZ());
+        }
+
         // The entity's body (or character) left the world: no character touches it any more.
         // Scene::EndContactsOf has told the scripts already. Without this, a body recreated
         // before the next update (switched off and on in one frame) would still be in the list,
@@ -261,6 +360,7 @@ namespace Zamin {
     PhysicsWorld3D::PhysicsWorld3D(const glm::vec3& gravity) : m_Impl(std::make_unique<Impl>())
     {
         JoltAcquire();
+        m_Impl->JointFilter = new JointCollisionFilter();
         m_Impl->TempAllocator = std::make_unique<JPH::TempAllocatorImpl>(16 * 1024 * 1024);
         int threads = std::max(1, (int)std::thread::hardware_concurrency() - 1);
         m_Impl->JobSystem = std::make_unique<JPH::JobSystemThreadPool>(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, std::min(threads, 8));
@@ -276,6 +376,9 @@ namespace Zamin {
     PhysicsWorld3D::~PhysicsWorld3D()
     {
         m_Impl->Characters.clear();
+        for (auto& [id, joint] : m_Impl->Joints)
+            m_Impl->System->RemoveConstraint(joint.Constraint);
+        m_Impl->Joints.clear();
         auto& bi = m_Impl->BI();
         for (const JPH::BodyID& id : m_Impl->Bodies)
         {
@@ -283,6 +386,7 @@ namespace Zamin {
             bi.DestroyBody(id);
         }
         m_Impl->Bodies.clear();
+        m_Impl->HullShapes.clear();
         m_Impl->System.reset();
         m_Impl->JobSystem.reset();
         m_Impl->TempAllocator.reset();
@@ -295,10 +399,36 @@ namespace Zamin {
         if (desc.Shapes.empty())
             return 0xffffffff;
 
-        auto makeShape = [](const PhysicsBody3DDesc::Shape& s) -> JPH::RefConst<JPH::Shape> {
+        auto makeShape = [this](const PhysicsBody3DDesc::Shape& s) -> JPH::RefConst<JPH::Shape> {
             JPH::RefConst<JPH::Shape> shape;
             switch (s.Type)
             {
+                case PhysicsBody3DDesc::Shape::Kind::ConvexHull:
+                {
+                    if (!s.Hull || s.Hull->Points.size() < 4)
+                        return nullptr;
+                    auto it = m_Impl->HullShapes.find(s.Hull.get());
+                    if (it == m_Impl->HullShapes.end())
+                    {
+                        JPH::Array<JPH::Vec3> points;
+                        points.reserve(s.Hull->Points.size());
+                        for (const glm::vec3& p : s.Hull->Points)
+                            points.push_back(ToJolt(p));
+                        JPH::ConvexHullShapeSettings settings(points, JPH::cDefaultConvexRadius);
+                        JPH::ShapeSettings::ShapeResult result = settings.Create();
+                        if (result.HasError())
+                        {
+                            ZM_CORE_ERROR("Jolt konveks qobiq xatosi: {}", result.GetError().c_str());
+                            return nullptr;
+                        }
+                        it = m_Impl->HullShapes.emplace(s.Hull.get(), Impl::HullShape{ s.Hull, result.Get() }).first;
+                    }
+                    shape = it->second.Shape;
+                    glm::vec3 scale = glm::max(glm::abs(s.Scale), glm::vec3(0.001f));
+                    if (glm::any(glm::greaterThan(glm::abs(scale - glm::vec3(1.0f)), glm::vec3(1e-5f))))
+                        shape = new JPH::ScaledShape(shape, ToJolt(scale));
+                    break;
+                }
                 case PhysicsBody3DDesc::Shape::Kind::Box:
                 {
                     glm::vec3 h = glm::max(s.HalfExtents, glm::vec3(0.01f));
@@ -318,14 +448,25 @@ namespace Zamin {
             return shape;
         };
 
+        // Shapes that cannot be made (a hull without volume) are left out.
+        std::vector<JPH::RefConst<JPH::Shape>> parts;
+        std::vector<const PhysicsBody3DDesc::Shape*> made;
+        for (const auto& s : desc.Shapes)
+            if (JPH::RefConst<JPH::Shape> part = makeShape(s))
+            {
+                parts.push_back(part);
+                made.push_back(&s);
+            }
+        if (parts.empty())
+            return 0xffffffff;
         JPH::RefConst<JPH::Shape> shape;
-        if (desc.Shapes.size() == 1)
-            shape = makeShape(desc.Shapes[0]);
+        if (parts.size() == 1)
+            shape = parts[0];
         else
         {
             JPH::StaticCompoundShapeSettings compound;
-            for (const auto& s : desc.Shapes)
-                compound.AddShape(JPH::Vec3::sZero(), JPH::Quat::sIdentity(), makeShape(s));
+            for (const auto& part : parts)
+                compound.AddShape(JPH::Vec3::sZero(), JPH::Quat::sIdentity(), part);
             auto result = compound.Create();
             if (result.HasError())
             {
@@ -341,9 +482,9 @@ namespace Zamin {
 
         JPH::BodyCreationSettings settings(shape, JPH::RVec3(desc.Position.x, desc.Position.y, desc.Position.z),
                                            ToJolt(glm::normalize(desc.Rotation)), motion, layer);
-        settings.mFriction = desc.Shapes[0].Friction;
-        settings.mRestitution = desc.Shapes[0].Restitution;
-        settings.mIsSensor = std::all_of(desc.Shapes.begin(), desc.Shapes.end(), [](auto& s) { return s.IsSensor; });
+        settings.mFriction = made[0]->Friction;
+        settings.mRestitution = made[0]->Restitution;
+        settings.mIsSensor = std::all_of(made.begin(), made.end(), [](auto* s) { return s->IsSensor; });
         settings.mLinearDamping = desc.LinearDamping;
         settings.mAngularDamping = desc.AngularDamping;
         settings.mGravityFactor = desc.GravityFactor;
@@ -366,6 +507,8 @@ namespace Zamin {
             return 0xffffffff;
         }
         JPH::BodyID id = body->GetID();
+        // Its group is its own ID: joints with CollideConnected off filter the pair (JointFilter).
+        body->SetCollisionGroup(JPH::CollisionGroup(m_Impl->JointFilter, id.GetIndexAndSequenceNumber(), 0));
         bi.AddBody(id, motion == JPH::EMotionType::Static ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
         m_Impl->Bodies.push_back(id);
         {
@@ -384,13 +527,25 @@ namespace Zamin {
         return box;
     }
 
-    void PhysicsWorld3D::DestroyBody(uint32_t bodyID)
+    void PhysicsWorld3D::DestroyBody(uint32_t bodyID, std::vector<PhysicsJoint3DRef>* destroyedJoints)
     {
         if (bodyID == 0xffffffff) return;
         JPH::BodyID id = ToBodyID(bodyID);
         auto& bi = m_Impl->BI();
         auto it = std::find(m_Impl->Bodies.begin(), m_Impl->Bodies.end(), id);
         if (it == m_Impl->Bodies.end()) return;
+        // Its joints first: a Jolt constraint keeps pointers to its bodies.
+        for (auto j = m_Impl->Joints.begin(); j != m_Impl->Joints.end();)
+        {
+            auto next = std::next(j);
+            if (j->second.Body1 == id || j->second.Body2 == id)
+            {
+                if (destroyedJoints)
+                    destroyedJoints->push_back({ UUID(j->second.EntityID), j->second.Type });
+                m_Impl->RemoveJoint(j);
+            }
+            j = next;
+        }
         // Jolt does not wake the bodies that were resting on this one: a sleeping crate would stay
         // in the air where the floor was.
         JPH::AABox around = WakeBounds(bi, id);
@@ -657,6 +812,404 @@ namespace Zamin {
             }
         }
         return hit;
+    }
+
+    // ------------------------------------------------------------------ joints
+    namespace {
+
+        glm::vec3 SafeAxis(const glm::vec3& axis, const glm::vec3& fallback)
+        {
+            const float length = glm::length(axis);
+            return length > 1e-6f && std::isfinite(length) ? axis / length : fallback;
+        }
+
+        // A unit vector at right angles to `axis` (the hinge's / slider's normal axis).
+        glm::vec3 Perpendicular(const glm::vec3& axis)
+        {
+            glm::vec3 other = std::abs(axis.y) < 0.9f ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
+            return glm::normalize(glm::cross(axis, other));
+        }
+
+        // Jolt wants a hinge's limits around the start pose (-180..0, 0..180 degrees, in radians) and
+        // a slider's around its start position (lower <= 0 <= upper).
+        void HingeLimits(const PhysicsJoint3DDesc& d, float& lower, float& upper)
+        {
+            if (!d.EnableLimit)
+            {
+                lower = -JPH::JPH_PI;
+                upper = JPH::JPH_PI;
+                return;
+            }
+            float lo = std::min(d.LowerLimit, d.UpperLimit), hi = std::max(d.LowerLimit, d.UpperLimit);
+            lower = glm::radians(std::clamp(lo, -180.0f, 0.0f));
+            upper = glm::radians(std::clamp(hi, 0.0f, 180.0f));
+        }
+
+        void SliderLimits(const PhysicsJoint3DDesc& d, float& lower, float& upper)
+        {
+            if (!d.EnableLimit)
+            {
+                lower = -FLT_MAX;
+                upper = FLT_MAX;
+                return;
+            }
+            lower = std::min(0.0f, std::min(d.LowerLimit, d.UpperLimit));
+            upper = std::max(0.0f, std::max(d.LowerLimit, d.UpperLimit));
+        }
+
+        void DistanceRange(const PhysicsJoint3DDesc& d, float& minDistance, float& maxDistance)
+        {
+            minDistance = std::max(0.0f, std::min(d.MinDistance, d.MaxDistance));
+            maxDistance = std::max(minDistance, std::max(d.MinDistance, d.MaxDistance));
+        }
+
+        JPH::SpringSettings MakeSpring(float frequency, float damping)
+        {
+            return JPH::SpringSettings(JPH::ESpringMode::FrequencyAndDamping, std::max(0.0f, frequency), std::max(0.0f, damping));
+        }
+
+        // The motor / spring of a hinge or slider as the description asks (settings that only change
+        // what the solver does next step).
+        void ApplyDrive(JPH::TwoBodyConstraint& constraint, Joint3DType type, const PhysicsJoint3DDesc& d)
+        {
+            if (type == Joint3DType::Hinge)
+            {
+                auto& hinge = static_cast<JPH::HingeConstraint&>(constraint);
+                JPH::MotorSettings& motor = hinge.GetMotorSettings();
+                if (d.EnableMotor)
+                {
+                    motor.SetTorqueLimit(std::max(0.0f, d.MaxMotorForce));
+                    hinge.SetTargetAngularVelocity(glm::radians(d.MotorSpeed));
+                    hinge.SetMotorState(JPH::EMotorState::Velocity);
+                }
+                else if (d.EnableSpring && d.Frequency > 0.0f)
+                {
+                    motor.SetTorqueLimit(FLT_MAX);
+                    motor.mSpringSettings = MakeSpring(d.Frequency, d.DampingRatio);
+                    hinge.SetTargetAngle(glm::radians(std::clamp(d.SpringTarget, -180.0f, 180.0f)));
+                    hinge.SetMotorState(JPH::EMotorState::Position);
+                }
+                else
+                    hinge.SetMotorState(JPH::EMotorState::Off);
+            }
+            else if (type == Joint3DType::Slider)
+            {
+                auto& slider = static_cast<JPH::SliderConstraint&>(constraint);
+                if (d.EnableMotor)
+                {
+                    slider.GetMotorSettings().SetForceLimit(std::max(0.0f, d.MaxMotorForce));
+                    slider.SetTargetVelocity(d.MotorSpeed);
+                    slider.SetMotorState(JPH::EMotorState::Velocity);
+                }
+                else
+                    slider.SetMotorState(JPH::EMotorState::Off);
+            }
+        }
+    }
+
+    static constexpr JPH::uint JointVelocitySteps = 16, JointPositionSteps = 6;
+
+    uint32_t PhysicsWorld3D::CreateJoint(const PhysicsJoint3DDesc& d)
+    {
+        if (d.Body == PhysicsJoint3DDesc::NoBody)
+            return 0;
+        const JPH::BodyID id2 = ToBodyID(d.Body);
+        const JPH::BodyID id1 = d.ConnectedBody == PhysicsJoint3DDesc::NoBody ? JPH::BodyID() : ToBodyID(d.ConnectedBody);
+        if (!m_Impl->HasBody(id2) || id1 == id2 || (!id1.IsInvalid() && !m_Impl->HasBody(id1)))
+            return 0;
+        // Outside the step nothing else touches the bodies: no locks needed.
+        const JPH::BodyLockInterface& locks = m_Impl->System->GetBodyLockInterfaceNoLock();
+        JPH::Body* body2 = locks.TryGetBody(id2);
+        JPH::Body* body1 = id1.IsInvalid() ? &JPH::Body::sFixedToWorld : locks.TryGetBody(id1);
+        if (!body1 || !body2)
+            return 0;
+
+        const JPH::RVec3 point1(d.ConnectedAnchor.x, d.ConnectedAnchor.y, d.ConnectedAnchor.z);
+        const JPH::RVec3 point2(d.Anchor.x, d.Anchor.y, d.Anchor.z);
+        const glm::vec3 axis = SafeAxis(d.Axis, d.Type == Joint3DType::Slider ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(0.0f, 1.0f, 0.0f));
+        const glm::vec3 normal = Perpendicular(axis);
+        JPH::Ref<JPH::TwoBodyConstraintSettings> settings;
+        switch (d.Type)
+        {
+            case Joint3DType::Fixed:
+            {
+                // The world-space frames are the same for both bodies: they stay as they are now.
+                auto* s = new JPH::FixedConstraintSettings();
+                s->mSpace = JPH::EConstraintSpace::WorldSpace;
+                s->mPoint1 = point1;
+                s->mPoint2 = point2;
+                settings = s;
+                break;
+            }
+            case Joint3DType::Hinge:
+            {
+                auto* s = new JPH::HingeConstraintSettings();
+                s->mSpace = JPH::EConstraintSpace::WorldSpace;
+                s->mPoint1 = point1;
+                s->mPoint2 = point2;
+                s->mHingeAxis1 = s->mHingeAxis2 = ToJolt(axis);
+                s->mNormalAxis1 = s->mNormalAxis2 = ToJolt(normal);
+                HingeLimits(d, s->mLimitsMin, s->mLimitsMax);
+                settings = s;
+                break;
+            }
+            case Joint3DType::Distance:
+            {
+                auto* s = new JPH::DistanceConstraintSettings();
+                s->mSpace = JPH::EConstraintSpace::WorldSpace;
+                s->mPoint1 = point1;
+                s->mPoint2 = point2;
+                DistanceRange(d, s->mMinDistance, s->mMaxDistance);
+                s->mLimitsSpringSettings = MakeSpring(d.Frequency, d.DampingRatio);
+                settings = s;
+                break;
+            }
+            case Joint3DType::Slider:
+            {
+                auto* s = new JPH::SliderConstraintSettings();
+                s->mSpace = JPH::EConstraintSpace::WorldSpace;
+                s->mAutoDetectPoint = false;
+                s->mPoint1 = point1;
+                s->mPoint2 = point2;
+                s->mSliderAxis1 = s->mSliderAxis2 = ToJolt(axis);
+                s->mNormalAxis1 = s->mNormalAxis2 = ToJolt(normal);
+                SliderLimits(d, s->mLimitsMin, s->mLimitsMax);
+                settings = s;
+                break;
+            }
+        }
+        // Jointed bodies (chains, ragdolls) get more solver iterations than Jolt's defaults (10 / 2):
+        // a long chain hardly stretches. Only the islands with a joint pay for it.
+        settings->mNumVelocityStepsOverride = JointVelocitySteps;
+        settings->mNumPositionStepsOverride = JointPositionSteps;
+        JPH::Ref<JPH::TwoBodyConstraint> constraint = settings->Create(*body1, *body2);
+        if (!constraint)
+            return 0;
+        ApplyDrive(*constraint, d.Type, d);
+        m_Impl->System->AddConstraint(constraint);
+
+        Impl::JointSlot joint;
+        joint.Constraint = constraint;
+        joint.Type = d.Type;
+        joint.EntityID = (uint64_t)d.EntityID;
+        joint.Body1 = id1;
+        joint.Body2 = id2;
+        glm::vec3 p1, p2;
+        glm::quat q1, q2;
+        m_Impl->GetFrame(id1, p1, q1);
+        m_Impl->GetFrame(id2, p2, q2);
+        joint.LocalPoint1 = glm::inverse(q1) * (d.ConnectedAnchor - p1);
+        joint.LocalPoint2 = glm::inverse(q2) * (d.Anchor - p2);
+        joint.LocalAxis2 = glm::inverse(q2) * axis;
+        joint.Desc = d;
+        joint.NoCollision = !d.CollideConnected && !id1.IsInvalid();
+        if (joint.NoCollision)
+            m_Impl->SetPairCollision(joint, true);
+        m_Impl->WakeJointBodies(joint);
+        const uint32_t handle = m_Impl->NextJoint++;
+        m_Impl->Joints.emplace(handle, std::move(joint));
+        return handle;
+    }
+
+    void PhysicsWorld3D::DestroyJoint(uint32_t joint)
+    {
+        if (auto it = m_Impl->Joints.find(joint); it != m_Impl->Joints.end())
+            m_Impl->RemoveJoint(it);
+    }
+
+    void PhysicsWorld3D::ClaimJoint(UUID entity, Joint3DType type, uint32_t& joint)
+    {
+        uint32_t keep = 0;
+        for (auto it = m_Impl->Joints.begin(); it != m_Impl->Joints.end();)
+        {
+            auto next = std::next(it);
+            if (it->second.EntityID == (uint64_t)entity && it->second.Type == type)
+            {
+                if (it->first == joint)
+                    keep = joint;
+                else
+                    m_Impl->RemoveJoint(it);
+            }
+            it = next;
+        }
+        joint = keep;
+    }
+
+    void PhysicsWorld3D::UpdateJoint(uint32_t handle, const PhysicsJoint3DDesc& d)
+    {
+        auto it = m_Impl->Joints.find(handle);
+        if (it == m_Impl->Joints.end())
+            return;
+        Impl::JointSlot& joint = it->second;
+        PhysicsJoint3DDesc& old = joint.Desc;
+        bool changed = false;
+        if (!joint.Body1.IsInvalid() && d.CollideConnected != old.CollideConnected)
+        {
+            joint.NoCollision = !d.CollideConnected;
+            m_Impl->SetPairCollision(joint, joint.NoCollision);
+            old.CollideConnected = d.CollideConnected;
+            changed = true;
+        }
+        switch (joint.Type)
+        {
+            case Joint3DType::Hinge:
+            {
+                auto& hinge = static_cast<JPH::HingeConstraint&>(*joint.Constraint);
+                if (d.EnableLimit != old.EnableLimit || d.LowerLimit != old.LowerLimit || d.UpperLimit != old.UpperLimit)
+                {
+                    float lower, upper;
+                    HingeLimits(d, lower, upper);
+                    hinge.SetLimits(lower, upper);
+                    changed = true;
+                }
+                if (d.EnableMotor != old.EnableMotor || d.MotorSpeed != old.MotorSpeed || d.MaxMotorForce != old.MaxMotorForce ||
+                    d.EnableSpring != old.EnableSpring || d.SpringTarget != old.SpringTarget || d.Frequency != old.Frequency ||
+                    d.DampingRatio != old.DampingRatio)
+                {
+                    ApplyDrive(hinge, joint.Type, d);
+                    changed = true;
+                }
+                break;
+            }
+            case Joint3DType::Distance:
+            {
+                auto& distance = static_cast<JPH::DistanceConstraint&>(*joint.Constraint);
+                if (d.MinDistance != old.MinDistance || d.MaxDistance != old.MaxDistance)
+                {
+                    float lower, upper;
+                    DistanceRange(d, lower, upper);
+                    distance.SetDistance(lower, upper);
+                    changed = true;
+                }
+                if (d.Frequency != old.Frequency || d.DampingRatio != old.DampingRatio)
+                {
+                    distance.SetLimitsSpringSettings(MakeSpring(d.Frequency, d.DampingRatio));
+                    changed = true;
+                }
+                break;
+            }
+            case Joint3DType::Slider:
+            {
+                auto& slider = static_cast<JPH::SliderConstraint&>(*joint.Constraint);
+                if (d.EnableLimit != old.EnableLimit || d.LowerLimit != old.LowerLimit || d.UpperLimit != old.UpperLimit)
+                {
+                    float lower, upper;
+                    SliderLimits(d, lower, upper);
+                    slider.SetLimits(lower, upper);
+                    changed = true;
+                }
+                if (d.EnableMotor != old.EnableMotor || d.MotorSpeed != old.MotorSpeed || d.MaxMotorForce != old.MaxMotorForce)
+                {
+                    ApplyDrive(slider, joint.Type, d);
+                    changed = true;
+                }
+                break;
+            }
+            case Joint3DType::Fixed:
+                break;
+        }
+        if (!changed)
+            return;
+        // The anchors and the axis stay as the joint was made.
+        const glm::vec3 anchor = old.Anchor, connectedAnchor = old.ConnectedAnchor, axis = old.Axis;
+        const uint32_t body = old.Body, connected = old.ConnectedBody;
+        old = d;
+        old.Anchor = anchor;
+        old.ConnectedAnchor = connectedAnchor;
+        old.Axis = axis;
+        old.Body = body;
+        old.ConnectedBody = connected;
+        m_Impl->WakeJointBodies(joint);
+    }
+
+    PhysicsJoint3DState PhysicsWorld3D::GetJointState(uint32_t handle, float invDt) const
+    {
+        PhysicsJoint3DState state;
+        auto it = m_Impl->Joints.find(handle);
+        if (it == m_Impl->Joints.end())
+            return state;
+        const Impl::JointSlot& joint = it->second;
+        auto length2 = [](const JPH::Vector<2>& v) { return std::sqrt(v[0] * v[0] + v[1] * v[1]); };
+        float force = 0.0f, torque = 0.0f;
+        glm::vec3 p2;
+        glm::quat q2;
+        m_Impl->GetFrame(joint.Body2, p2, q2);
+        const glm::vec3 axis = q2 * joint.LocalAxis2;
+        auto relative = [&](bool angular) {
+            const auto& bi = m_Impl->BI();
+            glm::vec3 v2 = FromJolt(angular ? bi.GetAngularVelocity(joint.Body2) : bi.GetLinearVelocity(joint.Body2));
+            glm::vec3 v1 = joint.Body1.IsInvalid() ? glm::vec3(0.0f)
+                                                   : FromJolt(angular ? bi.GetAngularVelocity(joint.Body1) : bi.GetLinearVelocity(joint.Body1));
+            return v2 - v1;
+        };
+        switch (joint.Type)
+        {
+            case Joint3DType::Fixed:
+            {
+                const auto& c = static_cast<const JPH::FixedConstraint&>(*joint.Constraint);
+                force = c.GetTotalLambdaPosition().Length();
+                torque = c.GetTotalLambdaRotation().Length();
+                break;
+            }
+            case Joint3DType::Hinge:
+            {
+                const auto& c = static_cast<const JPH::HingeConstraint&>(*joint.Constraint);
+                force = c.GetTotalLambdaPosition().Length();
+                const float rotation = length2(c.GetTotalLambdaRotation()), limits = c.GetTotalLambdaRotationLimits();
+                torque = std::sqrt(rotation * rotation + limits * limits);
+                state.Angle = glm::degrees(c.GetCurrentAngle());
+                state.Speed = glm::degrees(glm::dot(relative(true), axis));
+                break;
+            }
+            case Joint3DType::Distance:
+            {
+                const auto& c = static_cast<const JPH::DistanceConstraint&>(*joint.Constraint);
+                force = std::abs(c.GetTotalLambdaPosition());
+                glm::vec3 anchor, connectedAnchor, unused;
+                GetJointFrame(handle, anchor, connectedAnchor, unused);
+                state.Translation = glm::length(anchor - connectedAnchor);
+                break;
+            }
+            case Joint3DType::Slider:
+            {
+                const auto& c = static_cast<const JPH::SliderConstraint&>(*joint.Constraint);
+                const float position = length2(c.GetTotalLambdaPosition()), limits = c.GetTotalLambdaPositionLimits();
+                force = std::sqrt(position * position + limits * limits);
+                torque = c.GetTotalLambdaRotation().Length();
+                state.Translation = c.GetCurrentPosition();
+                state.Speed = glm::dot(relative(false), axis);
+                break;
+            }
+        }
+        state.Force = force * invDt;
+        state.Torque = torque * invDt;
+        return state;
+    }
+
+    bool PhysicsWorld3D::GetJointFrame(uint32_t handle, glm::vec3& anchor, glm::vec3& connectedAnchor, glm::vec3& axis) const
+    {
+        auto it = m_Impl->Joints.find(handle);
+        if (it == m_Impl->Joints.end())
+            return false;
+        const Impl::JointSlot& joint = it->second;
+        glm::vec3 p1, p2;
+        glm::quat q1, q2;
+        m_Impl->GetFrame(joint.Body1, p1, q1);
+        m_Impl->GetFrame(joint.Body2, p2, q2);
+        anchor = p2 + q2 * joint.LocalPoint2;
+        connectedAnchor = p1 + q1 * joint.LocalPoint1;
+        axis = q2 * joint.LocalAxis2;
+        return true;
+    }
+
+    bool PhysicsWorld3D::IsJoint(uint32_t joint) const { return m_Impl->Joints.contains(joint); }
+
+    size_t PhysicsWorld3D::GetJointCount() const { return m_Impl->Joints.size(); }
+
+    bool PhysicsWorld3D::CanBodiesCollide(uint32_t bodyA, uint32_t bodyB) const
+    {
+        JPH::CollisionGroup a(m_Impl->JointFilter, bodyA, 0), b(m_Impl->JointFilter, bodyB, 0);
+        return a.CanCollide(b);
     }
 
     std::vector<ContactEvent> PhysicsWorld3D::TakeEvents()

@@ -4322,6 +4322,11 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<BoxCollider3DComponent>();
     e.AddComponent<SphereCollider3DComponent>();
     e.AddComponent<CapsuleCollider3DComponent>();
+    e.AddComponent<ConvexHullCollider3DComponent>();
+    e.AddComponent<FixedJoint3DComponent>();
+    e.AddComponent<HingeJoint3DComponent>();
+    e.AddComponent<DistanceJoint3DComponent>();
+    e.AddComponent<SliderJoint3DComponent>();
     e.AddComponent<CharacterController3DComponent>();
     e.AddComponent<TilemapComponent>();
     e.AddComponent<ParallaxComponent>();
@@ -4333,7 +4338,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 40);
+    CHECK(types.size() == 45);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -17247,6 +17252,641 @@ TEST(Ragdoll2DSampleScene)
     CHECK(inside);
     CHECK(play->GetPhysics2DStats().Sleeping > 0);
     play->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ 3D joints and convex hulls (M10)
+static Entity MakeBody3D(Ref<Scene>& scene, const char* name, glm::vec3 position, Rigidbody3DComponent::BodyType type,
+                         glm::vec3 half = glm::vec3(0.25f))
+{
+    Entity e = scene->CreateEntity(name);
+    e.GetTransform().Translation = position;
+    e.AddComponent<Rigidbody3DComponent>().Type = type;
+    if (half.x > 0.0f)
+        e.AddComponent<BoxCollider3DComponent>().HalfExtents = half;
+    return e;
+}
+
+static glm::vec3 Pos3D(Entity e) { return e.GetTransform().Translation; }
+
+TEST(FixedJoint3DHoldsAndWelds)
+{
+    auto scene = CreateRef<Scene>();
+    // Fixed to the world where it is: it hangs in the air, unturned.
+    Entity held = MakeBody3D(scene, "Held", { 0.0f, 5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    held.AddComponent<FixedJoint3DComponent>();
+    // Two dynamic bodies welded together fall as one.
+    Entity a = MakeBody3D(scene, "A", { 3.0f, 5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    Entity b = MakeBody3D(scene, "B", { 3.6f, 5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    b.GetComponent<Rigidbody3DComponent>().Mass = 3.0f; // heavier on one side: it still does not bend
+    b.AddComponent<FixedJoint3DComponent>().ConnectedBody.ID = a.GetUUID();
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    CHECK(world && world->GetJointCount() == 2);
+    CHECK(held.GetComponent<FixedJoint3DComponent>().RuntimeJoint != 0);
+    // The connected anchor was configured: where B's anchor (its centre) is, in A's frame.
+    CHECK(glm::length(b.GetComponent<FixedJoint3DComponent>().ConnectedAnchor - glm::vec3(0.6f, 0.0f, 0.0f)) < 1e-4f);
+    RunFrames(scene, 45);
+    CHECK_NEAR(Pos3D(held).y, 5.0f, 0.02f);
+    CHECK(glm::length(held.GetTransform().Rotation) < 0.02f);
+    CHECK(Pos3D(a).y < 3.0f); // falling
+    CHECK_NEAR(glm::length(Pos3D(b) - Pos3D(a)), 0.6f, 0.02f);
+    CHECK_NEAR(Pos3D(b).y, Pos3D(a).y, 0.03f);
+    CHECK(held.GetComponent<FixedJoint3DComponent>().ReactionForce > 5.0f); // holds its weight (~9.8 N)
+    scene->OnRuntimeStop();
+    CHECK(held.GetComponent<FixedJoint3DComponent>().RuntimeJoint == 0);
+}
+
+TEST(HingeJoint3DPendulumLimitsMotorSpring)
+{
+    auto scene = CreateRef<Scene>();
+    // A pendulum: the bob turns around the world point one unit to its left (around Z).
+    Entity bob = MakeBody3D(scene, "Bob", { 1.0f, 5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    auto& pendulum = bob.AddComponent<HingeJoint3DComponent>();
+    pendulum.Anchor = { -1.0f, 0.0f, 0.0f };
+    pendulum.Axis = { 0.0f, 0.0f, 1.0f };
+    // The same, limited to +-30 degrees.
+    Entity limited = MakeBody3D(scene, "Limited", { 5.0f, 5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    auto& lim = limited.AddComponent<HingeJoint3DComponent>();
+    lim.Anchor = { -1.0f, 0.0f, 0.0f };
+    lim.Axis = { 0.0f, 0.0f, 1.0f };
+    lim.EnableLimit = true;
+    lim.LowerAngle = -30.0f;
+    lim.UpperAngle = 30.0f;
+    // A wheel turned by its motor around Y (no gravity).
+    Entity wheel = MakeBody3D(scene, "Wheel", { 10.0f, 5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    wheel.GetComponent<Rigidbody3DComponent>().GravityFactor = 0.0f;
+    auto& motor = wheel.AddComponent<HingeJoint3DComponent>();
+    motor.EnableMotor = true;
+    motor.MotorSpeed = 90.0f;
+    motor.MaxMotorTorque = 100.0f;
+    // A door pulled to 60 degrees by its spring.
+    Entity door = MakeBody3D(scene, "Door", { 15.0f, 5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic, { 0.5f, 1.0f, 0.05f });
+    door.GetComponent<Rigidbody3DComponent>().GravityFactor = 0.0f;
+    auto& spring = door.AddComponent<HingeJoint3DComponent>();
+    spring.Anchor = { -0.5f, 0.0f, 0.0f };
+    spring.EnableSpring = true;
+    spring.SpringTargetAngle = 60.0f;
+    spring.SpringFrequency = 2.0f;
+    spring.SpringDamping = 1.0f;
+
+    scene->OnRuntimeStart();
+    CHECK(scene->GetPhysicsWorld3D()->GetJointCount() == 4);
+    float lowest = 0.0f, limitedLowest = 0.0f, worstGap = 0.0f;
+    for (int i = 0; i < 90; i++)
+    {
+        RunFrames(scene, 1);
+        lowest = std::min(lowest, bob.GetComponent<HingeJoint3DComponent>().JointAngle);
+        limitedLowest = std::min(limitedLowest, limited.GetComponent<HingeJoint3DComponent>().JointAngle);
+        worstGap = std::max(worstGap, std::abs(glm::length(Pos3D(bob) - glm::vec3(0.0f, 5.0f, 0.0f)) - 1.0f));
+    }
+    // It swung down (clockwise around +Z: a negative angle), on its circle, in its plane.
+    CHECK(lowest < -60.0f);
+    CHECK(worstGap < 0.03f);
+    CHECK(std::abs(Pos3D(bob).z) < 0.01f);
+    CHECK(limitedLowest > -33.0f && limitedLowest < -25.0f);
+    // The motor: +90 degrees per second around +Y (counter-clockwise seen from above).
+    const auto& m = wheel.GetComponent<HingeJoint3DComponent>();
+    CHECK_NEAR(m.JointSpeed, 90.0f, 3.0f);
+    CHECK(m.JointAngle > 45.0f);
+    CHECK_NEAR(scene->GetPhysicsWorld3D()->GetAngularVelocity(wheel.GetComponent<Rigidbody3DComponent>().RuntimeBodyID).y, glm::radians(90.0f), 0.05f);
+    CHECK_NEAR(Pos3D(wheel).y, 5.0f, 0.01f);
+    CHECK_NEAR(door.GetComponent<HingeJoint3DComponent>().JointAngle, 60.0f, 3.0f);
+    // Live settings: the motor turns the other way, the spring goes to -45.
+    wheel.GetComponent<HingeJoint3DComponent>().MotorSpeed = -90.0f;
+    door.GetComponent<HingeJoint3DComponent>().SpringTargetAngle = -45.0f;
+    RunFrames(scene, 90);
+    CHECK_NEAR(wheel.GetComponent<HingeJoint3DComponent>().JointSpeed, -90.0f, 3.0f);
+    CHECK_NEAR(door.GetComponent<HingeJoint3DComponent>().JointAngle, -45.0f, 3.0f);
+    scene->OnRuntimeStop();
+}
+
+TEST(DistanceJoint3DRodRopeAndSpring)
+{
+    auto scene = CreateRef<Scene>();
+    // A rod to the world point above: its length is the distance when made (written back).
+    Entity rod = MakeBody3D(scene, "Rod", { 0.0f, 3.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    rod.AddComponent<DistanceJoint3DComponent>().ConnectedAnchor = { 0.0f, 5.0f, 0.0f };
+    // A rope of 3 from one unit below its hook: it falls until the rope is tight.
+    Entity rope = MakeBody3D(scene, "Rope", { 4.0f, 4.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    auto& r = rope.AddComponent<DistanceJoint3DComponent>();
+    r.ConnectedAnchor = { 4.0f, 5.0f, 0.0f };
+    r.AutoConfigureDistance = false;
+    r.MaxDistanceOnly = true;
+    r.MinDistance = 2.5f; // ignored for a rope
+    r.MaxDistance = 3.0f;
+    // A spring: soft ends, it stretches under the weight.
+    Entity springy = MakeBody3D(scene, "Spring", { 8.0f, 4.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    auto& sp = springy.AddComponent<DistanceJoint3DComponent>();
+    sp.ConnectedAnchor = { 8.0f, 5.0f, 0.0f };
+    sp.Frequency = 1.0f;
+    sp.DampingRatio = 0.2f;
+    // Hanging from another body's origin (its own frame).
+    Entity hook = MakeBody3D(scene, "Hook", { 12.0f, 5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static);
+    Entity hanging = MakeBody3D(scene, "Hanging", { 12.0f, 3.5f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    hanging.AddComponent<DistanceJoint3DComponent>().ConnectedBody.ID = hook.GetUUID();
+
+    scene->OnRuntimeStart();
+    const auto& rd = rod.GetComponent<DistanceJoint3DComponent>();
+    CHECK_NEAR(rd.MinDistance, 2.0f, 1e-4f);
+    CHECK_NEAR(rd.MaxDistance, 2.0f, 1e-4f);
+    CHECK(rope.GetComponent<DistanceJoint3DComponent>().MaxDistance == 3.0f);
+    float stretched = 0.0f;
+    for (int i = 0; i < 90; i++)
+    {
+        RunFrames(scene, 1);
+        stretched = std::max(stretched, springy.GetComponent<DistanceJoint3DComponent>().CurrentDistance);
+    }
+    CHECK_NEAR(rd.CurrentDistance, 2.0f, 0.02f);
+    CHECK_NEAR(Pos3D(rod).y, 3.0f, 0.02f);
+    CHECK_NEAR(rope.GetComponent<DistanceJoint3DComponent>().CurrentDistance, 3.0f, 0.05f);
+    CHECK_NEAR(Pos3D(rope).y, 2.0f, 0.05f);
+    CHECK(stretched > 1.1f && stretched < 2.0f);
+    CHECK_NEAR(hanging.GetComponent<DistanceJoint3DComponent>().CurrentDistance, 1.5f, 0.02f);
+    // Live distance: the rod gets longer.
+    rod.GetComponent<DistanceJoint3DComponent>().MinDistance = 2.5f;
+    rod.GetComponent<DistanceJoint3DComponent>().MaxDistance = 2.5f;
+    RunFrames(scene, 60);
+    CHECK_NEAR(Pos3D(rod).y, 2.5f, 0.03f);
+    scene->OnRuntimeStop();
+}
+
+TEST(SliderJoint3DAxisLimitsAndMotor)
+{
+    auto scene = CreateRef<Scene>();
+    // Along X only: gravity cannot pull it down.
+    Entity cart = MakeBody3D(scene, "Cart", { 0.0f, 2.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    cart.AddComponent<SliderJoint3DComponent>();
+    // Its motor drives it along +X at 1 unit per second.
+    Entity driven = MakeBody3D(scene, "Driven", { 0.0f, 5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    auto& d = driven.AddComponent<SliderJoint3DComponent>();
+    d.EnableMotor = true;
+    d.MotorSpeed = 1.0f;
+    d.MaxMotorForce = 100.0f;
+    // The same, stopped half a unit on.
+    Entity stopped = MakeBody3D(scene, "Stopped", { 0.0f, 8.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    auto& st = stopped.AddComponent<SliderJoint3DComponent>();
+    st.EnableMotor = true;
+    st.MotorSpeed = 2.0f;
+    st.MaxMotorForce = 100.0f;
+    st.EnableLimit = true;
+    st.LowerTranslation = -0.5f;
+    st.UpperTranslation = 0.5f;
+    // Turned 90 degrees around Z: its X axis points up; it falls one unit and stops at the limit.
+    Entity tilted = MakeBody3D(scene, "Tilted", { 5.0f, 5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    tilted.GetTransform().Rotation = { 0.0f, 0.0f, glm::radians(90.0f) };
+    auto& tl = tilted.AddComponent<SliderJoint3DComponent>();
+    tl.EnableLimit = true;
+    tl.LowerTranslation = -1.0f;
+    tl.UpperTranslation = 0.0f;
+
+    scene->OnRuntimeStart();
+    RunFrames(scene, 60);
+    CHECK_NEAR(Pos3D(cart).y, 2.0f, 0.02f);
+    CHECK_NEAR(Pos3D(cart).x, 0.0f, 0.02f);
+    CHECK_NEAR(Pos3D(driven).x, 1.0f, 0.1f);
+    CHECK_NEAR(Pos3D(driven).y, 5.0f, 0.02f);
+    CHECK_NEAR(driven.GetComponent<SliderJoint3DComponent>().JointTranslation, Pos3D(driven).x, 0.01f);
+    CHECK_NEAR(driven.GetComponent<SliderJoint3DComponent>().JointSpeed, 1.0f, 0.05f);
+    CHECK_NEAR(Pos3D(stopped).x, 0.5f, 0.03f);
+    CHECK_NEAR(Pos3D(tilted).y, 4.0f, 0.03f);
+    CHECK_NEAR(Pos3D(tilted).x, 5.0f, 0.02f);
+    CHECK_NEAR(tilted.GetComponent<SliderJoint3DComponent>().JointTranslation, -1.0f, 0.03f);
+    // Live: the motor reverses past the start, the limit is widened.
+    auto& live = stopped.GetComponent<SliderJoint3DComponent>();
+    live.MotorSpeed = -2.0f;
+    live.LowerTranslation = -1.5f;
+    RunFrames(scene, 90);
+    CHECK_NEAR(Pos3D(stopped).x, -1.5f, 0.03f);
+    scene->OnRuntimeStop();
+}
+
+static int g_JointBreaks3D = 0;
+static std::string g_JointBreakOther3D;
+static Joint3DType g_JointBreakType3D = Joint3DType::Fixed;
+class JointBreak3DProbe : public ScriptableEntity
+{
+public:
+    void OnJointBreak3D(const JointBreak3D& joint) override
+    {
+        g_JointBreaks3D++;
+        g_JointBreakType3D = joint.Type;
+        g_JointBreakOther3D = joint.ConnectedBody ? joint.ConnectedBody.GetName() : "";
+        CHECK(joint.Force > 50.0f);
+    }
+};
+ZM_REGISTER_SCRIPT(JointBreak3DProbe)
+
+TEST(Joint3DBreakForceAndScriptCallback)
+{
+    g_JointBreaks3D = 0;
+    g_JointBreakOther3D.clear();
+    auto scene = CreateRef<Scene>();
+    Entity hook = MakeBody3D(scene, "Hook", { 0.0f, 5.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static);
+    Entity lamp = MakeBody3D(scene, "Lamp", { 0.0f, 3.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    lamp.GetComponent<Rigidbody3DComponent>().Mass = 10.0f; // ~98 N
+    auto& j = lamp.AddComponent<HingeJoint3DComponent>();
+    j.ConnectedBody.ID = hook.GetUUID();
+    j.Anchor = { 0.0f, 2.0f, 0.0f }; // hangs 2 below the hook
+    j.BreakForce = 50.0f;
+    lamp.AddComponent<NativeScriptComponent>().ClassName = "JointBreak3DProbe";
+    Entity strong = MakeBody3D(scene, "Strong", { 4.0f, 3.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    strong.GetComponent<Rigidbody3DComponent>().Mass = 10.0f;
+    auto& sj = strong.AddComponent<HingeJoint3DComponent>();
+    sj.ConnectedBody.ID = hook.GetUUID();
+    sj.Anchor = { 0.0f, 2.0f, 0.0f };
+    sj.BreakForce = 1000.0f;
+
+    scene->OnRuntimeStart();
+    CHECK(lamp.GetComponent<HingeJoint3DComponent>().RuntimeJoint != 0);
+    RunFrames(scene, 10);
+    const auto& broken = lamp.GetComponent<HingeJoint3DComponent>();
+    CHECK(broken.Broken && broken.RuntimeJoint == 0);
+    CHECK(g_JointBreaks3D == 1 && g_JointBreakOther3D == "Hook" && g_JointBreakType3D == Joint3DType::Hinge);
+    CHECK(scene->GetPhysicsWorld3D()->GetJointCount() == 1);
+    CHECK_NEAR(strong.GetComponent<HingeJoint3DComponent>().ReactionForce, 98.1f, 10.0f);
+    RunFrames(scene, 20);
+    CHECK(Pos3D(lamp).y < 2.5f);       // falling
+    CHECK(g_JointBreaks3D == 1);       // broken for good
+    CHECK_NEAR(Pos3D(strong).y, 3.0f, 0.03f);
+    // Clearing the flag makes it again where the bodies are now.
+    auto& repaired = lamp.GetComponent<HingeJoint3DComponent>();
+    repaired.Broken = false;
+    repaired.BreakForce = 0.0f;
+    RunFrames(scene, 1);
+    CHECK(lamp.GetComponent<HingeJoint3DComponent>().RuntimeJoint != 0);
+    CHECK(scene->GetPhysicsWorld3D()->GetJointCount() == 2);
+    scene->OnRuntimeStop();
+    CHECK(!lamp.GetComponent<HingeJoint3DComponent>().Broken);
+}
+
+TEST(Joint3DFollowsBodiesInAndOut)
+{
+    auto scene = CreateRef<Scene>();
+    Entity a = MakeBody3D(scene, "A", { 0.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static);
+    Entity b = MakeBody3D(scene, "B", { 1.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    Entity c = MakeBody3D(scene, "C", { 5.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static);
+    b.AddComponent<HingeJoint3DComponent>().ConnectedBody.ID = a.GetUUID();
+    // A joint on an entity without a Rigidbody 3D, and one waiting for an inactive body.
+    Entity loose = scene->CreateEntity("Loose");
+    loose.AddComponent<FixedJoint3DComponent>().ConnectedBody.ID = a.GetUUID();
+    Entity sleeper = MakeBody3D(scene, "Sleeper", { 3.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    sleeper.SetActive(false);
+    Entity waiting = MakeBody3D(scene, "Waiting", { 3.0f, 1.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    waiting.AddComponent<DistanceJoint3DComponent>().ConnectedBody.ID = sleeper.GetUUID();
+    Entity hanging = MakeBody3D(scene, "Hanging", { 0.0f, -2.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    hanging.AddComponent<SliderJoint3DComponent>().ConnectedBody.ID = a.GetUUID();
+
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    CHECK(world->GetJointCount() == 2); // B-A and Hanging-A
+    CHECK(loose.GetComponent<FixedJoint3DComponent>().RuntimeJoint == 0);
+    CHECK(waiting.GetComponent<DistanceJoint3DComponent>().RuntimeJoint == 0);
+    // The connected body switched off and on: its joints go and come back at once.
+    a.SetActive(false);
+    CHECK(b.GetComponent<HingeJoint3DComponent>().RuntimeJoint == 0 && world->GetJointCount() == 0);
+    a.SetActive(true);
+    CHECK(b.GetComponent<HingeJoint3DComponent>().RuntimeJoint != 0 && world->GetJointCount() == 2);
+    // The joint's own body too.
+    b.SetActive(false);
+    CHECK(b.GetComponent<HingeJoint3DComponent>().RuntimeJoint == 0 && world->GetJointCount() == 1);
+    b.SetActive(true);
+    CHECK(b.GetComponent<HingeJoint3DComponent>().RuntimeJoint != 0);
+    // The waiting one is made when its body arrives.
+    sleeper.SetActive(true);
+    CHECK(waiting.GetComponent<DistanceJoint3DComponent>().RuntimeJoint != 0 && world->GetJointCount() == 3);
+    // Connected to something else while it runs: made again.
+    b.GetComponent<HingeJoint3DComponent>().ConnectedBody.ID = c.GetUUID();
+    RunFrames(scene, 1);
+    CHECK(b.GetComponent<HingeJoint3DComponent>().RuntimeConnected == (uint64_t)c.GetUUID());
+    CHECK(world->GetJointCount() == 3);
+    // A destroyed connected body takes the joint with it for good.
+    scene->DestroyEntity(c);
+    CHECK(b.GetComponent<HingeJoint3DComponent>().RuntimeJoint == 0 && world->GetJointCount() == 2);
+    RunFrames(scene, 1);
+    CHECK(b.GetComponent<HingeJoint3DComponent>().RuntimeJoint == 0);
+    // Removing the component removes the joint; a pasted copy (a fresh value) replaces it.
+    waiting.RemoveComponent<DistanceJoint3DComponent>();
+    CHECK(world->GetJointCount() == 1);
+    SliderJoint3DComponent fresh;
+    fresh.ConnectedBody.ID = a.GetUUID();
+    fresh.Axis = { 0.0f, 0.0f, 1.0f };
+    hanging.AddOrReplaceComponent<SliderJoint3DComponent>(fresh);
+    CHECK(world->GetJointCount() == 0);
+    RunFrames(scene, 1);
+    CHECK(world->GetJointCount() == 1 && hanging.GetComponent<SliderJoint3DComponent>().RuntimeJoint != 0);
+    // A spawned copy of a jointed body gets a joint of its own.
+    Entity clone = scene->Instantiate(hanging);
+    CHECK(clone.GetComponent<SliderJoint3DComponent>().RuntimeJoint != 0);
+    CHECK(clone.GetComponent<SliderJoint3DComponent>().RuntimeJoint != hanging.GetComponent<SliderJoint3DComponent>().RuntimeJoint);
+    CHECK(world->GetJointCount() == 2);
+    scene->OnRuntimeStop();
+    CHECK(hanging.GetComponent<SliderJoint3DComponent>().RuntimeJoint == 0);
+    // Simulation mode makes them too (Hanging and its clone to A).
+    scene->OnSimulationStart();
+    CHECK(scene->GetPhysicsWorld3D() && scene->GetPhysicsWorld3D()->GetJointCount() == 2);
+    scene->OnSimulationStop();
+}
+
+TEST(Joint3DCollideConnected)
+{
+    auto scene = CreateRef<Scene>();
+    // A small box inside a floor, tied to it by a rope of 3: with CollideConnected off the floor does
+    // not push it out - it falls through to the end of the rope.
+    Entity floorA = MakeBody3D(scene, "FloorA", { 0.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static, { 2.0f, 0.5f, 2.0f });
+    Entity ghost = MakeBody3D(scene, "Ghost", { 0.0f, 0.3f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    auto& gr = ghost.AddComponent<DistanceJoint3DComponent>();
+    gr.ConnectedBody.ID = floorA.GetUUID();
+    gr.AutoConfigureDistance = false;
+    gr.MaxDistanceOnly = true;
+    gr.MaxDistance = 3.0f;
+    // The same with CollideConnected on: pushed out on top, it rests there.
+    Entity floorB = MakeBody3D(scene, "FloorB", { 8.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static, { 2.0f, 0.5f, 2.0f });
+    Entity solid = MakeBody3D(scene, "Solid", { 8.0f, 0.3f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    auto& sr = solid.AddComponent<DistanceJoint3DComponent>();
+    sr = gr;
+    sr.ConnectedBody.ID = floorB.GetUUID();
+    sr.CollideConnected = true;
+
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    const uint32_t fa = floorA.GetComponent<Rigidbody3DComponent>().RuntimeBodyID, g = ghost.GetComponent<Rigidbody3DComponent>().RuntimeBodyID;
+    const uint32_t fb = floorB.GetComponent<Rigidbody3DComponent>().RuntimeBodyID, so = solid.GetComponent<Rigidbody3DComponent>().RuntimeBodyID;
+    CHECK(!world->CanBodiesCollide(fa, g) && world->CanBodiesCollide(fb, so) && world->CanBodiesCollide(fa, so));
+    RunFrames(scene, 120);
+    CHECK_NEAR(Pos3D(ghost).y, -3.0f, 0.1f);
+    CHECK_NEAR(Pos3D(solid).y, 0.75f, 0.05f);
+    // Switched on while it runs; the joint going lets them collide again.
+    ghost.GetComponent<DistanceJoint3DComponent>().CollideConnected = true;
+    RunFrames(scene, 1);
+    CHECK(world->CanBodiesCollide(fa, g));
+    solid.GetComponent<DistanceJoint3DComponent>().CollideConnected = false;
+    RunFrames(scene, 1);
+    CHECK(!world->CanBodiesCollide(fb, so));
+    solid.RemoveComponent<DistanceJoint3DComponent>();
+    CHECK(world->CanBodiesCollide(fb, so));
+    scene->OnRuntimeStop();
+}
+
+TEST(Joint3DSerializeAndRemap)
+{
+    auto scene = CreateRef<Scene>();
+    Entity rig = scene->CreateEntity("Rig");
+    Entity torso = MakeBody3D(scene, "Torso", { 0.0f, 2.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    Entity arm = MakeBody3D(scene, "Arm", { 0.5f, 2.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic);
+    Entity outside = MakeBody3D(scene, "Outside", { 9.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static);
+    scene->SetParent(torso, rig, false);
+    scene->SetParent(arm, rig, false);
+    auto& hinge = arm.AddComponent<HingeJoint3DComponent>();
+    hinge.ConnectedBody.ID = torso.GetUUID();
+    hinge.Anchor = { -0.25f, 0.1f, 0.05f };
+    hinge.ConnectedAnchor = { 0.3f, 0.2f, -0.1f };
+    hinge.AutoConfigureConnectedAnchor = false;
+    hinge.CollideConnected = true;
+    hinge.BreakForce = 120.0f;
+    hinge.BreakTorque = 30.0f;
+    hinge.Axis = { 1.0f, 0.0f, 0.0f };
+    hinge.EnableLimit = true;
+    hinge.LowerAngle = -80.0f;
+    hinge.UpperAngle = 10.0f;
+    hinge.EnableMotor = true;
+    hinge.MotorSpeed = -45.0f;
+    hinge.MaxMotorTorque = 7.5f;
+    hinge.EnableSpring = true;
+    hinge.SpringTargetAngle = 20.0f;
+    hinge.SpringFrequency = 3.0f;
+    hinge.SpringDamping = 0.25f;
+    hinge.JointAngle = 12.0f; // runtime: not saved
+    auto& rope = torso.AddComponent<DistanceJoint3DComponent>();
+    rope.ConnectedBody.ID = outside.GetUUID(); // outside the rig
+    rope.AutoConfigureDistance = false;
+    rope.MinDistance = 1.5f;
+    rope.MaxDistance = 4.5f;
+    rope.MaxDistanceOnly = true;
+    rope.Frequency = 3.0f;
+    rope.DampingRatio = 0.4f;
+    auto& slide = rig.AddComponent<SliderJoint3DComponent>();
+    slide.Axis = { 0.0f, 1.0f, 0.0f };
+    slide.EnableLimit = true;
+    slide.LowerTranslation = -0.5f;
+    slide.UpperTranslation = 2.0f;
+    slide.EnableMotor = true;
+    slide.MotorSpeed = 1.5f;
+    slide.MaxMotorForce = 99.0f;
+    auto& weld = outside.AddComponent<FixedJoint3DComponent>();
+    weld.ConnectedAnchor = { 1.0f, 2.0f, 3.0f };
+    weld.AutoConfigureConnectedAnchor = false;
+    auto& hull = outside.AddComponent<ConvexHullCollider3DComponent>();
+    hull.ModelPath = "Models/Rock.gltf";
+    hull.MaxVertices = 24;
+    hull.Offset = { 0.0f, 0.5f, 0.0f };
+    hull.Friction = 0.8f;
+    hull.Restitution = 0.25f;
+    hull.IsSensor = true;
+    auto& armWeld = arm.AddComponent<FixedJoint3DComponent>();
+    armWeld.ConnectedBody.ID = rig.GetUUID();
+
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"HingeJoint3D\"") != std::string::npos && text.find("JointAngle") == std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+    const auto& h = loaded->GetEntityByUUID(arm.GetUUID()).GetComponent<HingeJoint3DComponent>();
+    CHECK(h.ConnectedBody.ID == (uint64_t)torso.GetUUID());
+    CHECK(h.Anchor == glm::vec3(-0.25f, 0.1f, 0.05f) && h.ConnectedAnchor == glm::vec3(0.3f, 0.2f, -0.1f) && !h.AutoConfigureConnectedAnchor);
+    CHECK(h.CollideConnected && h.BreakForce == 120.0f && h.BreakTorque == 30.0f && h.Axis == glm::vec3(1.0f, 0.0f, 0.0f));
+    CHECK(h.EnableLimit && h.LowerAngle == -80.0f && h.UpperAngle == 10.0f);
+    CHECK(h.EnableMotor && h.MotorSpeed == -45.0f && h.MaxMotorTorque == 7.5f && h.JointAngle == 0.0f);
+    CHECK(h.EnableSpring && h.SpringTargetAngle == 20.0f && h.SpringFrequency == 3.0f && h.SpringDamping == 0.25f);
+    const auto& r = loaded->GetEntityByUUID(torso.GetUUID()).GetComponent<DistanceJoint3DComponent>();
+    CHECK(!r.AutoConfigureDistance && r.MinDistance == 1.5f && r.MaxDistance == 4.5f && r.MaxDistanceOnly);
+    CHECK(r.Frequency == 3.0f && r.DampingRatio == 0.4f && !r.AutoConfigureConnectedAnchor);
+    const auto& p = loaded->GetEntityByUUID(rig.GetUUID()).GetComponent<SliderJoint3DComponent>();
+    CHECK(p.Axis == glm::vec3(0.0f, 1.0f, 0.0f) && p.EnableLimit && p.LowerTranslation == -0.5f && p.UpperTranslation == 2.0f);
+    CHECK(p.EnableMotor && p.MotorSpeed == 1.5f && p.MaxMotorForce == 99.0f && !p.ConnectedBody);
+    Entity lo = loaded->GetEntityByUUID(outside.GetUUID());
+    CHECK(lo.GetComponent<FixedJoint3DComponent>().ConnectedAnchor == glm::vec3(1.0f, 2.0f, 3.0f));
+    const auto& lh = lo.GetComponent<ConvexHullCollider3DComponent>();
+    CHECK(lh.ModelPath == "Models/Rock.gltf" && lh.MaxVertices == 24 && lh.Offset == glm::vec3(0.0f, 0.5f, 0.0f));
+    CHECK(lh.Friction == 0.8f && lh.Restitution == 0.25f && lh.IsSensor);
+    // Out-of-range values are put in range: the hinge's limits around 0, the hull's corner limit.
+    auto odd = CreateRef<Scene>();
+    CHECK(SceneSerializer(odd).DeserializeFromString(
+        R"({"Scene":"Odd","Entities":[{"Entity":42,"Tag":"X","HingeJoint3D":{"LowerAngle":20.0,"UpperAngle":300.0},)"
+        R"("SliderJoint3D":{"LowerTranslation":0.5,"UpperTranslation":2.0},"ConvexHullCollider3D":{"MaxVertices":1000}}]})"));
+    Entity x = odd->GetEntityByUUID(42);
+    CHECK(x && x.GetComponent<HingeJoint3DComponent>().LowerAngle == 0.0f && x.GetComponent<HingeJoint3DComponent>().UpperAngle == 180.0f);
+    CHECK(x && x.GetComponent<SliderJoint3DComponent>().LowerTranslation == 0.0f && x.GetComponent<ConvexHullCollider3DComponent>().MaxVertices == 256);
+
+    // A copy of the rig: its joints point inside the copy, the rope still to the outside body.
+    Entity copy = scene->DuplicateEntity(rig);
+    Entity copyTorso, copyArm;
+    for (UUID child : copy.GetComponent<RelationshipComponent>().Children)
+    {
+        Entity e = scene->GetEntityByUUID(child);
+        (e.GetName() == "Torso" ? copyTorso : copyArm) = e;
+    }
+    CHECK(copyTorso && copyArm);
+    CHECK(copyArm.GetComponent<HingeJoint3DComponent>().ConnectedBody.ID == (uint64_t)copyTorso.GetUUID());
+    CHECK(copyArm.GetComponent<FixedJoint3DComponent>().ConnectedBody.ID == (uint64_t)copy.GetUUID());
+    CHECK(copyTorso.GetComponent<DistanceJoint3DComponent>().ConnectedBody.ID == (uint64_t)outside.GetUUID());
+}
+
+TEST(ConvexHullBuildAndCache)
+{
+    // A cube's corners plus points inside and on its faces: the hull is the eight corners.
+    std::vector<glm::vec3> points;
+    for (int i = 0; i < 8; i++)
+        points.push_back({ i & 1 ? 0.5f : -0.5f, i & 2 ? 0.5f : -0.5f, i & 4 ? 0.5f : -0.5f });
+    points.push_back({ 0.0f, 0.0f, 0.0f });
+    points.push_back({ 0.5f, 0.1f, 0.2f });
+    points.push_back({ 0.5f, 0.5f, 0.5f }); // a duplicate
+    std::string error;
+    Ref<const ConvexHull3D> cube = CollisionShapes3D::BuildConvexHull(points, 64, &error);
+    CHECK(cube && cube->Points.size() == 8 && cube->SourceVertexCount == 10 && !cube->Simplified);
+    CHECK(cube && cube->Faces.size() == 6 && cube->GetEdges().size() == 12 && cube->Edges == cube->GetEdges());
+    CHECK(cube && cube->BoundsMin == glm::vec3(-0.5f) && cube->BoundsMax == glm::vec3(0.5f));
+    // Faces turn counter-clockwise seen from outside: their normals point away from the centre.
+    bool outward = cube != nullptr;
+    for (size_t f = 0; cube && f < cube->Faces.size(); f++)
+    {
+        const auto& face = cube->Faces[f];
+        glm::vec3 a = cube->Points[face[0]], b = cube->Points[face[1]], c = cube->Points[face[2]];
+        outward &= glm::dot(glm::cross(b - a, c - a), (a + b + c) / 3.0f) > 0.0f;
+    }
+    CHECK(outward);
+    // Too few / flat points make no hull.
+    CHECK(!CollisionShapes3D::BuildConvexHull({ { 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 } }, 32, &error) && !error.empty());
+    error.clear();
+    CHECK(!CollisionShapes3D::BuildConvexHull({ { 0, 0, 0 }, { 1, 0, 0 }, { 0, 0, 1 }, { 1, 0, 1 }, { 0.5f, 0, 0.5f } }, 32, &error) && !error.empty());
+
+    // Primitives: cached, a sphere simplified to the corner limit.
+    CollisionShapes3D::Clear();
+    Ref<const ConvexHull3D> unit = CollisionShapes3D::GetConvexHull("", PrimitiveMesh::Cube, 32);
+    CHECK(unit && unit->Points.size() == 8 && unit == CollisionShapes3D::GetConvexHull("", PrimitiveMesh::Cube, 32));
+    Ref<const ConvexHull3D> coarse = CollisionShapes3D::GetConvexHull("", PrimitiveMesh::Sphere, 12);
+    Ref<const ConvexHull3D> fine = CollisionShapes3D::GetConvexHull("", PrimitiveMesh::Sphere, 256);
+    CHECK(coarse && coarse->Points.size() <= 12 && coarse->Points.size() >= 6 && coarse->Simplified);
+    CHECK(fine && fine->Points.size() > 100);
+    // Its corners are the sphere's own points, spread around it (not all on one side).
+    CHECK(coarse && glm::all(glm::lessThanEqual(coarse->BoundsMax, glm::vec3(0.5001f))) &&
+          glm::all(glm::greaterThan(coarse->BoundsMax - coarse->BoundsMin, glm::vec3(0.6f))));
+    CHECK(!CollisionShapes3D::GetConvexHull("", PrimitiveMesh::Plane, 32, &error) && !error.empty());
+    CHECK(CollisionShapes3D::GetCacheSize() >= 4);
+
+    // A model file: read without the GPU, a new hull when the file changes.
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-hull-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    auto writeCube = [&](float h) {
+        std::ofstream obj(dir / "box.obj");
+        for (int i = 0; i < 8; i++)
+            obj << "v " << (i & 1 ? h : -h) << ' ' << (i & 2 ? h : -h) << ' ' << (i & 4 ? h : -h) << "\n";
+        obj << "v 0 0 0\n"; // a vertex inside
+        obj << "f 1 2 4 3\nf 5 7 8 6\nf 1 5 6 2\nf 3 4 8 7\nf 1 3 7 5\nf 2 6 8 4\nf 1 2 9\n";
+    };
+    writeCube(1.0f);
+    const std::string path = (dir / "box.obj").string();
+    CollisionMesh3D mesh;
+    CHECK(CollisionShapes3D::ReadModelGeometry(path, mesh) && mesh.Positions.size() >= 9 && mesh.GetTriangleCount() >= 13);
+    Ref<const ConvexHull3D> fromFile = CollisionShapes3D::GetConvexHull(path, PrimitiveMesh::Model, 32);
+    CHECK(fromFile && fromFile->Points.size() == 8 && fromFile->BoundsMax == glm::vec3(1.0f));
+    writeCube(2.0f);
+    std::filesystem::last_write_time(dir / "box.obj", std::filesystem::last_write_time(dir / "box.obj") + std::chrono::seconds(2));
+    Ref<const ConvexHull3D> changed = CollisionShapes3D::GetConvexHull(path, PrimitiveMesh::Model, 32);
+    CHECK(changed && changed != fromFile && changed->BoundsMax == glm::vec3(2.0f));
+    CHECK(!CollisionShapes3D::GetConvexHull((dir / "missing.obj").string(), PrimitiveMesh::Model, 32, &error) && !error.empty());
+
+    // Bodies: a hull of the Mesh Renderer's cube rests on the floor like a box would, scaled with the
+    // transform; one of the model file; a cone stands on its base.
+    auto scene = CreateRef<Scene>();
+    MakeBody3D(scene, "Floor", { 0.0f, -0.5f, 0.0f }, Rigidbody3DComponent::BodyType::Static, { 20.0f, 0.5f, 20.0f });
+    auto hullBody = [&](const char* name, glm::vec3 position, PrimitiveMesh mesh) {
+        Entity e = MakeBody3D(scene, name, position, Rigidbody3DComponent::BodyType::Dynamic, glm::vec3(0.0f));
+        e.AddComponent<MeshRendererComponent>().Type = mesh;
+        e.AddComponent<ConvexHullCollider3DComponent>();
+        return e;
+    };
+    Entity crate = hullBody("Crate", { 0.0f, 2.0f, 0.0f }, PrimitiveMesh::Cube);
+    Entity big = hullBody("Big", { 4.0f, 3.0f, 0.0f }, PrimitiveMesh::Cube);
+    big.GetTransform().Scale = glm::vec3(2.0f);
+    Entity cone = hullBody("Cone", { 8.0f, 2.0f, 0.0f }, PrimitiveMesh::Cone);
+    Entity file = hullBody("File", { 12.0f, 3.0f, 0.0f }, PrimitiveMesh::Cube);
+    file.GetComponent<ConvexHullCollider3DComponent>().ModelPath = path; // overrides the Mesh Renderer's
+    Entity nothing = MakeBody3D(scene, "Nothing", { 16.0f, 3.0f, 0.0f }, Rigidbody3DComponent::BodyType::Dynamic, glm::vec3(0.0f));
+    nothing.AddComponent<ConvexHullCollider3DComponent>();
+    CHECK(!Scene::GetConvexHullCollider(nothing, &error) && !error.empty());
+    CHECK(Scene::GetConvexHullCollider(file)->BoundsMax == glm::vec3(2.0f));
+
+    scene->OnRuntimeStart();
+    CHECK(nothing.GetComponent<Rigidbody3DComponent>().RuntimeBodyID == 0xffffffff);
+    RunFrames(scene, 150);
+    CHECK_NEAR(Pos3D(crate).y, 0.5f, 0.03f);
+    CHECK_NEAR(Pos3D(big).y, 1.0f, 0.03f);
+    CHECK_NEAR(Pos3D(file).y, 2.0f, 0.03f);
+    RaycastHit top = scene->Raycast3D({ 0.0f, 10.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 20.0f);
+    CHECK(top && top.EntityID == crate.GetUUID() && std::abs(top.Point.y - 1.0f) < 0.02f);
+    top = scene->Raycast3D({ 4.0f, 10.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 20.0f);
+    CHECK(top && top.EntityID == big.GetUUID() && std::abs(top.Point.y - 2.0f) < 0.02f);
+    // The cone stands upright on its base (centre half its height up), its tip on top.
+    CHECK_NEAR(Pos3D(cone).y, 0.5f, 0.03f);
+    CHECK(std::abs(cone.GetTransform().Rotation.x) < 0.05f && std::abs(cone.GetTransform().Rotation.z) < 0.05f);
+    top = scene->Raycast3D({ 8.0f, 10.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 20.0f);
+    CHECK(top && top.EntityID == cone.GetUUID() && std::abs(top.Point.y - 1.0f) < 0.08f);
+    top = scene->Raycast3D({ 8.4f, 10.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 20.0f); // the slope near the rim
+    CHECK(top && top.EntityID == cone.GetUUID() && top.Point.y < 0.4f);
+    scene->OnRuntimeStop();
+    std::filesystem::remove_all(dir);
+}
+
+TEST(Joints3DSampleScene)
+{
+    namespace fs = std::filesystem;
+    // The Showcase3D sample's Joints3D scene: a sprung door, a chain of balls, a lift on a slider, a
+    // motor-driven windmill blade, a welded L and convex hulls (cones, cylinders, the shrine model).
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D";
+    auto project = Project::Load(root / "Showcase3D.zproject");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    Project::SetActive(project);
+    ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Joints3D.zscene"));
+    Entity door = scene->FindEntityByName("Eshik"), lift = scene->FindEntityByName("Lift"), blade = scene->FindEntityByName("Tegirmon parragi");
+    Entity shrine = scene->FindEntityByName("Kristall ziyoratgoh"), la = scene->FindEntityByName("L qismi A"), lb = scene->FindEntityByName("L qismi B");
+    std::vector<Entity> links = scene->FindEntitiesByName("Zanjir halqasi");
+    links.push_back(scene->FindEntityByName("Zanjir yuki"));
+    CHECK(door && lift && blade && shrine && la && lb && links.size() == 7);
+    if (!(door && lift && blade && shrine && la && lb && links.size() == 7))
+        return;
+    // Headless: without a primary camera nothing is drawn.
+    scene->DestroyEntity(scene->FindEntityByName("Main Camera"));
+    std::string error;
+    Ref<const ConvexHull3D> hull = Scene::GetConvexHullCollider(shrine, &error);
+    CHECK(hull && hull->Points.size() <= 16 && hull->BoundsMax.y > 2.0f); // the shrine model's crystal reaches 2.3 up
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    CHECK(world && world->GetJointCount() == 11); // door, 7 chain rods, lift, blade, L
+    CHECK(shrine.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff);
+    const float weld = glm::length(Pos3D(lb) - Pos3D(la));
+    float worstRod = 0.0f;
+    for (int i = 0; i < 240; i++)
+    {
+        RunFrames(scene, 1);
+        for (Entity link : links)
+            worstRod = std::max(worstRod, std::abs(link.GetComponent<DistanceJoint3DComponent>().CurrentDistance - 0.5f));
+    }
+    CHECK(worstRod < 0.04f); // the rods hardly stretch, even swinging down with the weight at the end
+    const float doorAngle = door.GetComponent<HingeJoint3DComponent>().JointAngle;
+    CHECK(doorAngle > 20.0f && doorAngle <= 91.0f);
+    CHECK_NEAR(blade.GetComponent<HingeJoint3DComponent>().JointSpeed, -120.0f, 5.0f);
+    // Without the script module (no SliderShuttle) the lift's motor takes it up to its limit.
+    CHECK_NEAR(lift.GetComponent<SliderJoint3DComponent>().JointTranslation, 2.6f, 0.05f);
+    CHECK_NEAR(glm::length(Pos3D(lb) - Pos3D(la)), weld, 0.03f);
+    for (const char* name : { "Konus", "Silindr" })
+        for (Entity e : scene->FindEntitiesByName(name))
+            CHECK(e.GetComponent<Rigidbody3DComponent>().RuntimeBodyID != 0xffffffff && Pos3D(e).y > 0.0f && Pos3D(e).y < 4.0f);
+    CHECK(Pos3D(shrine).y > -0.05f && Pos3D(shrine).y < 3.0f);
+    scene->OnRuntimeStop();
 }
 
 int main()

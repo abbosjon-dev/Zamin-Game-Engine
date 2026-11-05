@@ -28,6 +28,16 @@ namespace Zamin {
         float Torque = 0.0f;
     };
 
+    // A 3D joint of the script's entity that broke (BreakForce / BreakTorque exceeded): it is gone
+    // for good (its component's Broken flag is set; clearing it makes the joint again).
+    struct JointBreak3D
+    {
+        Joint3DType Type = Joint3DType::Fixed;
+        Entity ConnectedBody;  // invalid: the joint held the body to a point in the world
+        float Force = 0.0f;    // the reaction force / torque that broke it
+        float Torque = 0.0f;
+    };
+
     // Base class for C++ gameplay scripts.
     //
     //   class Player : public Zamin::ScriptableEntity
@@ -84,6 +94,8 @@ namespace Zamin {
         virtual void OnTriggerEnd(Entity /*other*/) {}
         // A 2D joint of this entity broke (after the physics step; also reaches disabled scripts).
         virtual void OnJointBreak(const JointBreak2D& /*joint*/) {}
+        // A 3D joint of this entity broke (after the physics step; also reaches disabled scripts).
+        virtual void OnJointBreak3D(const JointBreak3D& /*joint*/) {}
         // Called when a UIButton on this entity is clicked.
         virtual void OnClick() {}
         // Called for every message sent to this entity (SendMessage, Broadcast ...),

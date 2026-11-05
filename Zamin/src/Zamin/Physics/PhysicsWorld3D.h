@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/Core/Base.h"
 #include "Zamin/Physics/PhysicsTypes.h"
 
 #include <glm/glm.hpp>
@@ -9,6 +10,8 @@
 #include <vector>
 
 namespace Zamin {
+
+    struct ConvexHull3D;
 
     struct PhysicsBody3DDesc
     {
@@ -24,16 +27,76 @@ namespace Zamin {
 
         struct Shape
         {
-            enum class Kind { Box, Sphere, Capsule } Type = Kind::Box;
+            enum class Kind { Box, Sphere, Capsule, ConvexHull } Type = Kind::Box;
             glm::vec3 HalfExtents{ 0.5f };
             float Radius = 0.5f;
             float HalfHeight = 0.5f;
+            // ConvexHull: the hull (CollisionShapes3D) in the entity's unscaled frame, times Scale.
+            // Each world makes the Jolt shape of a hull once and shares it between its bodies.
+            Ref<const ConvexHull3D> Hull;
+            glm::vec3 Scale{ 1.0f };
             glm::vec3 Offset{ 0.0f };
             float Friction = 0.5f;
             float Restitution = 0.0f;
             bool IsSensor = false;
         };
         std::vector<Shape> Shapes;
+    };
+
+    // A joint between a body (Jolt's body 2: the entity the joint component belongs to) and a
+    // connected body (body 1) or a fixed point in the world, made where the bodies are now: that pose
+    // is the hinge's angle 0 and the slider's position 0. Points and axes in world space, angles in
+    // degrees.
+    struct PhysicsJoint3DDesc
+    {
+        static constexpr uint32_t NoBody = 0xffffffff;
+
+        Joint3DType Type = Joint3DType::Fixed;
+        UUID EntityID = 0;                  // the joint's entity (reported when a body goes)
+        uint32_t Body = NoBody;
+        uint32_t ConnectedBody = NoBody;    // NoBody: anchored to the world
+        glm::vec3 Anchor{ 0.0f };           // the point on Body
+        glm::vec3 ConnectedAnchor{ 0.0f };  // the point on ConnectedBody (or in the world) it is held to
+        glm::vec3 Axis{ 0.0f, 1.0f, 0.0f }; // hinge: what it turns around; slider: where it moves along
+        bool CollideConnected = false;
+
+        // Limits: hinge (degrees, lower in -180..0 and upper in 0..180), slider (units along the
+        // axis, lower <= 0 <= upper). The other values are clamped to that.
+        bool EnableLimit = false;
+        float LowerLimit = 0.0f;
+        float UpperLimit = 0.0f;
+        // Motors: hinge (degrees per second, max torque N*m), slider (units per second, max force N).
+        // Positive turns Body counter-clockwise around the axis (right hand) / moves it along +Axis.
+        bool EnableMotor = false;
+        float MotorSpeed = 0.0f;
+        float MaxMotorForce = 0.0f;
+        // Hinge spring (used while the motor is off): pulls Body towards SpringTarget (degrees).
+        bool EnableSpring = false;
+        float SpringTarget = 0.0f;
+        // Spring oscillations per second and damping ratio (1 = critical): the hinge's spring, the
+        // distance joint's soft ends (0 Hz: rigid).
+        float Frequency = 0.0f;
+        float DampingRatio = 0.0f;
+        // Distance: the anchors are kept from MinDistance to MaxDistance apart.
+        float MinDistance = 0.0f;
+        float MaxDistance = 1.0f;
+    };
+
+    // What a 3D joint does now (inspector read-outs, breaking).
+    struct PhysicsJoint3DState
+    {
+        float Force = 0.0f;       // the reaction force's magnitude (N), motors not counted
+        float Torque = 0.0f;      // the reaction torque's magnitude (N*m), motors not counted
+        float Angle = 0.0f;       // hinge: degrees from the start pose
+        float Translation = 0.0f; // slider: units along the axis; distance: the anchors' distance
+        float Speed = 0.0f;       // hinge: degrees per second; slider: units per second
+    };
+
+    // A joint taken down together with a body (DestroyBody): which component it belonged to.
+    struct PhysicsJoint3DRef
+    {
+        UUID EntityID = 0;
+        Joint3DType Type = Joint3DType::Fixed;
     };
 
     struct CharacterDesc
@@ -58,8 +121,9 @@ namespace Zamin {
 
         // Returns the body id (0xffffffff on failure).
         uint32_t CreateBody(const PhysicsBody3DDesc& desc);
-        // Sleeping bodies that rested on it wake up (and fall when nothing else holds them).
-        void DestroyBody(uint32_t bodyID);
+        // Sleeping bodies that rested on it wake up (and fall when nothing else holds them). Its joints
+        // go with it; they are added to `destroyedJoints` (when given).
+        void DestroyBody(uint32_t bodyID, std::vector<PhysicsJoint3DRef>* destroyedJoints = nullptr);
         // Wakes the sleeping bodies around this body (one that just appeared where they rest:
         // Jolt would leave them inside it until something else wakes them).
         void WakeBodiesAround(uint32_t bodyID);
@@ -92,6 +156,28 @@ namespace Zamin {
         bool IsCharacterGrounded(uint32_t id) const;
 
         RaycastHit CastRay(const glm::vec3& origin, const glm::vec3& direction, float maxDistance) const;
+
+        // ---- joints (Jolt constraints). Handles are never reused: 0 = none.
+        // 0 when the description cannot make one (no / the same body, a body not in this world).
+        // Both bodies wake up.
+        uint32_t CreateJoint(const PhysicsJoint3DDesc& desc);
+        void DestroyJoint(uint32_t joint);
+        // Destroys the joints of `entity` of `type` except `joint`, which becomes 0 when it is not one
+        // of them (a component holding a copy of another one's handle).
+        void ClaimJoint(UUID entity, Joint3DType type, uint32_t& joint);
+        // The settings that can change while the joint lives: limits, motor, spring, distances (the
+        // anchors and the axis stay as they were made). Bodies wake up only when something changed.
+        void UpdateJoint(uint32_t joint, const PhysicsJoint3DDesc& desc);
+        // `invDt`: 1 / the last step's time (the reaction forces come from its impulses).
+        PhysicsJoint3DState GetJointState(uint32_t joint, float invDt) const;
+        // Where the two anchors are now (the joint's own body first) and the hinge / slider axis in the
+        // world. False for an unknown handle.
+        bool GetJointFrame(uint32_t joint, glm::vec3& anchor, glm::vec3& connectedAnchor, glm::vec3& axis) const;
+        bool IsJoint(uint32_t joint) const;
+        size_t GetJointCount() const;
+        // Whether the two bodies' shapes may touch (false while a joint between them has
+        // CollideConnected off).
+        bool CanBodiesCollide(uint32_t bodyA, uint32_t bodyB) const;
 
         // Collision begin/end events gathered since the last call.
         std::vector<ContactEvent> TakeEvents();

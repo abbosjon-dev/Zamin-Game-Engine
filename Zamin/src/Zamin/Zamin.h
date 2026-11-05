@@ -54,6 +54,7 @@
 #include "Zamin/Physics/PhysicsWorld2D.h"
 #include "Zamin/Physics/Polygon2D.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
+#include "Zamin/Physics/CollisionShapes3D.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Debug/MeshNormals.h"
 

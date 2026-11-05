@@ -35,6 +35,8 @@ namespace Zamin {
     class PhysicsWorld2D;
     class PhysicsWorld3D;
     struct PhysicsJoint2DRef;
+    struct PhysicsJoint3DRef;
+    struct ConvexHull3D;
     class EventBus;
     class ScriptableEntity;
     struct ScriptMessage;
@@ -406,6 +408,10 @@ namespace Zamin {
         // scale; what its body gets, and what the editor draws).
         static Polygon2D::Decomposition DecomposePolygonCollider(const struct PolygonCollider2DComponent& collider, const glm::vec2& scale);
         RaycastHit Raycast3D(const glm::vec3& origin, const glm::vec3& direction, float maxDistance);
+        // The hull a Convex Hull Collider 3D of `entity` makes (unscaled, in the entity's frame): of its
+        // ModelPath, else of the entity's Mesh Renderer (model or primitive). Null - with the reason in
+        // `error` - without a source or when the mesh has no volume.
+        static Ref<const ConvexHull3D> GetConvexHullCollider(Entity entity, std::string* error = nullptr);
         // The running worlds (null outside play / simulate).
         PhysicsWorld2D* GetPhysicsWorld2D() { return m_PhysicsWorld.get(); }
         // ---- 2D sleeping (Rigidbody2DComponent::Sleeping, SceneSettings::Physics2D)
@@ -610,6 +616,16 @@ namespace Zamin {
         void OnJoint2DDestroyed(entt::registry& registry, entt::entity entity);
         template<typename T>
         void OnJoint2DReplaced(entt::registry& registry, entt::entity entity);
+        // ---- 3D joints (FixedJoint3D ... SliderJoint3D): the same as the 2D ones, in the 3D world
+        void SyncJoints3D();
+        void ForgetJoints3D(const std::vector<PhysicsJoint3DRef>& joints);
+        void CheckJointBreaks3D(float dt);
+        void UpdateJointStates3D(float dt);
+        void DispatchJointBreaks3D();
+        template<typename T>
+        void OnJoint3DDestroyed(entt::registry& registry, entt::entity entity);
+        template<typename T>
+        void OnJoint3DReplaced(entt::registry& registry, entt::entity entity);
         // ---- active state cache (IsActiveInHierarchy)
         void EnsureActiveCache();
         void RebuildActiveCache();
@@ -840,6 +856,14 @@ namespace Zamin {
             float Force = 0.0f, Torque = 0.0f;
         };
         std::vector<JointBreak2DRecord> m_JointBreaks2D;
+        struct JointBreak3DRecord
+        {
+            UUID Entity = 0;
+            Joint3DType Type = Joint3DType::Fixed;
+            UUID Connected = 0;
+            float Force = 0.0f, Torque = 0.0f;
+        };
+        std::vector<JointBreak3DRecord> m_JointBreaks3D;
         std::unordered_set<uint64_t> m_ReportedMissingJointBodies; // connected bodies already warned about
         bool m_ScriptsPendingStart = false;
 

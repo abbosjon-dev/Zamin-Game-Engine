@@ -304,6 +304,13 @@ namespace Zamin {
         // The points of a polygon / edge collider: a list (drag, add, remove) and the viewport edit toggle.
         bool DrawColliderPoints(std::vector<glm::vec2>& points, ColliderPointKind kind, int minPoints);
         void DrawJoint2DStatus(const Joint2DComponentBase& c, const char* readout);
+        // 3D joints: the same as the 2D ones (connected body and what keeps the joint from being made,
+        // anchors, collisions, break limits) and their live read-outs.
+        bool DrawJoint3DCommon(Entity entity, Joint3DComponentBase& c);
+        void DrawJoint3DStatus(const Joint3DComponentBase& c, const char* readout);
+        // Convex Hull Collider 3D: the source (Mesh Renderer / model file), the corner limit and what
+        // the hull came out as.
+        bool DrawConvexHullCollider(Entity entity, ConvexHullCollider3DComponent& c);
         bool DrawTintAnimation(Entity entity, TintAnimationComponent& c);
         bool DrawLight2D(Entity entity, Light2DComponent& c);
         bool DrawPixelPerfect(CameraComponent& c);

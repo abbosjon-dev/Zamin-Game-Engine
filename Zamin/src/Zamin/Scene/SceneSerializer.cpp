@@ -1,6 +1,7 @@
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
+#include "Zamin/Physics/CollisionShapes3D.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Renderer/Renderer.h"
@@ -537,6 +538,60 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<CapsuleCollider3DComponent>())
             e["CapsuleCollider3D"] = { { "Radius", c->Radius }, { "HalfHeight", c->HalfHeight }, { "Offset", ToJson(c->Offset) },
                                        { "Friction", c->Friction }, { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
+        if (auto* c = entity.TryGetComponent<ConvexHullCollider3DComponent>())
+        {
+            json& j = e["ConvexHullCollider3D"];
+            j = { { "Model", c->ModelPath }, { "MaxVertices", c->MaxVertices }, { "Offset", ToJson(c->Offset) }, { "Friction", c->Friction },
+                  { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
+            WriteAssetHandle(j, "Model", c->ModelPath);
+        }
+        // 3D joints: the connected body by its UUID (0 = a fixed point in the world).
+        auto writeJoint3D = [](const Joint3DComponentBase& c) {
+            return json{ { "ConnectedBody", c.ConnectedBody.ID }, { "Anchor", ToJson(c.Anchor) }, { "ConnectedAnchor", ToJson(c.ConnectedAnchor) },
+                         { "AutoConfigureConnectedAnchor", c.AutoConfigureConnectedAnchor }, { "CollideConnected", c.CollideConnected },
+                         { "BreakForce", c.BreakForce }, { "BreakTorque", c.BreakTorque } };
+        };
+        if (auto* c = entity.TryGetComponent<FixedJoint3DComponent>())
+            e["FixedJoint3D"] = writeJoint3D(*c);
+        if (auto* c = entity.TryGetComponent<HingeJoint3DComponent>())
+        {
+            json j = writeJoint3D(*c);
+            j["Axis"] = ToJson(c->Axis);
+            j["EnableLimit"] = c->EnableLimit;
+            j["LowerAngle"] = c->LowerAngle;
+            j["UpperAngle"] = c->UpperAngle;
+            j["EnableMotor"] = c->EnableMotor;
+            j["MotorSpeed"] = c->MotorSpeed;
+            j["MaxMotorTorque"] = c->MaxMotorTorque;
+            j["EnableSpring"] = c->EnableSpring;
+            j["SpringTargetAngle"] = c->SpringTargetAngle;
+            j["SpringFrequency"] = c->SpringFrequency;
+            j["SpringDamping"] = c->SpringDamping;
+            e["HingeJoint3D"] = std::move(j);
+        }
+        if (auto* c = entity.TryGetComponent<DistanceJoint3DComponent>())
+        {
+            json j = writeJoint3D(*c);
+            j["AutoConfigureDistance"] = c->AutoConfigureDistance;
+            j["MinDistance"] = c->MinDistance;
+            j["MaxDistance"] = c->MaxDistance;
+            j["MaxDistanceOnly"] = c->MaxDistanceOnly;
+            j["Frequency"] = c->Frequency;
+            j["DampingRatio"] = c->DampingRatio;
+            e["DistanceJoint3D"] = std::move(j);
+        }
+        if (auto* c = entity.TryGetComponent<SliderJoint3DComponent>())
+        {
+            json j = writeJoint3D(*c);
+            j["Axis"] = ToJson(c->Axis);
+            j["EnableLimit"] = c->EnableLimit;
+            j["LowerTranslation"] = c->LowerTranslation;
+            j["UpperTranslation"] = c->UpperTranslation;
+            j["EnableMotor"] = c->EnableMotor;
+            j["MotorSpeed"] = c->MotorSpeed;
+            j["MaxMotorForce"] = c->MaxMotorForce;
+            e["SliderJoint3D"] = std::move(j);
+        }
         if (auto* c = entity.TryGetComponent<CharacterController3DComponent>())
             e["CharacterController3D"] = { { "Radius", c->Radius }, { "Height", c->Height }, { "MaxSlope", c->MaxSlope },
                                            { "StepHeight", c->StepHeight }, { "Mass", c->Mass }, { "GravityScale", c->GravityScale },
@@ -1108,6 +1163,71 @@ namespace Zamin {
             read3D(e["CapsuleCollider3D"], c);
             c.Radius = e["CapsuleCollider3D"].value("Radius", 0.5f);
             c.HalfHeight = e["CapsuleCollider3D"].value("HalfHeight", 0.5f);
+        }
+        if (e.contains("ConvexHullCollider3D"))
+        {
+            const json& j = e["ConvexHullCollider3D"];
+            auto& c = entity.AddComponent<ConvexHullCollider3DComponent>();
+            read3D(j, c);
+            c.ModelPath = ReadAssetPath(j, "Model");
+            c.MaxVertices = std::clamp(j.value("MaxVertices", c.MaxVertices), CollisionShapes3D::MinHullVertices, CollisionShapes3D::MaxHullVertices);
+        }
+        // The same rules as the 2D joints; hinge / slider limits are kept around the start pose.
+        auto readJoint3D = [](const json& j, Joint3DComponentBase& c) {
+            c.ConnectedBody.ID = j.contains("ConnectedBody") && j["ConnectedBody"].is_number_unsigned() ? j["ConnectedBody"].get<uint64_t>() : 0;
+            c.Anchor = Vec(j, "Anchor", c.Anchor);
+            c.ConnectedAnchor = Vec(j, "ConnectedAnchor", c.ConnectedAnchor);
+            c.AutoConfigureConnectedAnchor = j.value("AutoConfigureConnectedAnchor", c.AutoConfigureConnectedAnchor);
+            c.CollideConnected = j.value("CollideConnected", c.CollideConnected);
+            c.BreakForce = std::max(0.0f, j.value("BreakForce", c.BreakForce));
+            c.BreakTorque = std::max(0.0f, j.value("BreakTorque", c.BreakTorque));
+        };
+        if (e.contains("FixedJoint3D"))
+            readJoint3D(e["FixedJoint3D"], entity.AddComponent<FixedJoint3DComponent>());
+        if (e.contains("HingeJoint3D"))
+        {
+            const json& j = e["HingeJoint3D"];
+            auto& c = entity.AddComponent<HingeJoint3DComponent>();
+            readJoint3D(j, c);
+            c.Axis = Vec(j, "Axis", c.Axis);
+            c.EnableLimit = j.value("EnableLimit", c.EnableLimit);
+            readRange(j, "LowerAngle", "UpperAngle", c.LowerAngle, c.UpperAngle);
+            c.LowerAngle = std::clamp(c.LowerAngle, -180.0f, 0.0f);
+            c.UpperAngle = std::clamp(c.UpperAngle, 0.0f, 180.0f);
+            c.EnableMotor = j.value("EnableMotor", c.EnableMotor);
+            c.MotorSpeed = j.value("MotorSpeed", c.MotorSpeed);
+            c.MaxMotorTorque = std::max(0.0f, j.value("MaxMotorTorque", c.MaxMotorTorque));
+            c.EnableSpring = j.value("EnableSpring", c.EnableSpring);
+            c.SpringTargetAngle = std::clamp(j.value("SpringTargetAngle", c.SpringTargetAngle), -180.0f, 180.0f);
+            c.SpringFrequency = std::max(0.0f, j.value("SpringFrequency", c.SpringFrequency));
+            c.SpringDamping = std::max(0.0f, j.value("SpringDamping", c.SpringDamping));
+        }
+        if (e.contains("DistanceJoint3D"))
+        {
+            const json& j = e["DistanceJoint3D"];
+            auto& c = entity.AddComponent<DistanceJoint3DComponent>();
+            readJoint3D(j, c);
+            c.AutoConfigureDistance = j.value("AutoConfigureDistance", c.AutoConfigureDistance);
+            readRange(j, "MinDistance", "MaxDistance", c.MinDistance, c.MaxDistance);
+            c.MinDistance = std::max(0.0f, c.MinDistance);
+            c.MaxDistance = std::max(c.MinDistance, c.MaxDistance);
+            c.MaxDistanceOnly = j.value("MaxDistanceOnly", c.MaxDistanceOnly);
+            c.Frequency = std::max(0.0f, j.value("Frequency", c.Frequency));
+            c.DampingRatio = std::max(0.0f, j.value("DampingRatio", c.DampingRatio));
+        }
+        if (e.contains("SliderJoint3D"))
+        {
+            const json& j = e["SliderJoint3D"];
+            auto& c = entity.AddComponent<SliderJoint3DComponent>();
+            readJoint3D(j, c);
+            c.Axis = Vec(j, "Axis", c.Axis);
+            c.EnableLimit = j.value("EnableLimit", c.EnableLimit);
+            readRange(j, "LowerTranslation", "UpperTranslation", c.LowerTranslation, c.UpperTranslation);
+            c.LowerTranslation = std::min(0.0f, c.LowerTranslation);
+            c.UpperTranslation = std::max(0.0f, c.UpperTranslation);
+            c.EnableMotor = j.value("EnableMotor", c.EnableMotor);
+            c.MotorSpeed = j.value("MotorSpeed", c.MotorSpeed);
+            c.MaxMotorForce = std::max(0.0f, j.value("MaxMotorForce", c.MaxMotorForce));
         }
         if (e.contains("CharacterController3D"))
         {

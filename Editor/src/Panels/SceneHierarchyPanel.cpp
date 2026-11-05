@@ -1167,7 +1167,9 @@ namespace Zamin {
             { "DistanceJoint2D", "Distance Joint 2D" }, { "RevoluteJoint2D", "Revolute Joint 2D" }, { "PrismaticJoint2D", "Prismatic Joint 2D" },
             { "WeldJoint2D", "Weld Joint 2D" }, { "WheelJoint2D", "Wheel Joint 2D" },
             { "Rigidbody3D", "Rigidbody 3D" }, { "BoxCollider3D", "Box Collider 3D" }, { "SphereCollider3D", "Sphere Collider 3D" },
-            { "CapsuleCollider3D", "Capsule Collider 3D" }, { "CharacterController3D", "Character Controller 3D" },
+            { "CapsuleCollider3D", "Capsule Collider 3D" }, { "ConvexHullCollider3D", "Convex Hull Collider 3D" },
+            { "FixedJoint3D", "Fixed Joint 3D" }, { "HingeJoint3D", "Hinge Joint 3D" }, { "DistanceJoint3D", "Distance Joint 3D" },
+            { "SliderJoint3D", "Slider Joint 3D" }, { "CharacterController3D", "Character Controller 3D" },
             { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
             { "UIButton", "UI Button" }, { "AudioSource", "Audio Source" }, { "NativeScript", "C++ Skript" },
         };
@@ -3981,6 +3983,142 @@ namespace Zamin {
         }
     }
 
+    bool SceneHierarchyPanel::DrawJoint3DCommon(Entity entity, Joint3DComponentBase& c)
+    {
+        bool changed = DrawEntityRefField("Ulangan jism", c.ConnectedBody,
+                                          "Boshqa obyektning Rigidbody 3D'si (ierarxiyadan tortib tashlang). "
+                                          "Bo'sh - jism dunyodagi qo'zg'almas nuqtaga bog'lanadi");
+        // What keeps the joint from being made (it waits for it while the game runs).
+        const char* problem = nullptr;
+        Entity other = c.ConnectedBody && m_Context ? m_Context->GetEntityByUUID(c.ConnectedBody.ID) : Entity();
+        if (!entity.HasComponent<Rigidbody3DComponent>())
+            problem = "Rigidbody 3D kerak: busiz joint yaratilmaydi";
+        else if (c.ConnectedBody && !other)
+            problem = "Ulangan obyekt sahnada yo'q (o'chirilgan, yoki prefab boshqa sahnada yaratilgan): joint yaratilmaydi";
+        else if (other && other == entity)
+            problem = "Obyekt o'ziga ulana olmaydi";
+        else if (other && !other.HasComponent<Rigidbody3DComponent>())
+            problem = "Ulangan obyektda Rigidbody 3D yo'q";
+        if (problem)
+        {
+            UI::PropertyLabel("");
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s", problem);
+            ImGui::PopTextWrapPos();
+        }
+        InactiveComponentNote(entity, "Obyekt nofaol: joint yo'q (faollashganda qayta yaratiladi)");
+
+        changed |= UI::PropertyFloat3("Langar", c.Anchor, 0.01f);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Shu jismdagi bog'lanish nuqtasi - obyektning o'z koordinatalarida (masshtab bilan, 3D collider siljishi kabi)");
+        changed |= UI::PropertyBool("Avto ulangan langar", c.AutoConfigureConnectedAnchor);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Ulangan langar joint yaratilganda \"Langar\" turgan nuqtaga qo'yiladi (o'yin davomida shu yerda ko'rinadi)");
+        ImGui::BeginDisabled(c.AutoConfigureConnectedAnchor);
+        changed |= UI::PropertyFloat3(c.ConnectedBody ? "Ulangan langar" : "Dunyodagi nuqta", c.ConnectedAnchor, 0.01f);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip(c.ConnectedBody ? "Ulangan jismdagi nuqta, uning o'z koordinatalarida"
+                                        : "Ulangan jism yo'q: joint dunyodagi shu nuqtaga bog'lanadi");
+        ImGui::EndDisabled();
+        if (!c.AutoConfigureConnectedAnchor && m_SceneEditable && m_Context && (!other || other != entity))
+        {
+            UI::PropertyLabel("");
+            if (ImGui::SmallButton(ICON_FA_LOCATION_CROSSHAIRS "  Langar turgan joyga"))
+            {
+                // Where this body's anchor is now, in the connected body's frame (or the world).
+                glm::vec3 world = glm::vec3(m_Context->GetWorldTransform(entity) * glm::vec4(c.Anchor, 1.0f));
+                if (other)
+                    world = glm::vec3(glm::inverse(m_Context->GetWorldTransform(other)) * glm::vec4(world, 1.0f));
+                c.ConnectedAnchor = world;
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Ulangan langarni hozir shu jismning langari turgan nuqtaga qo'yadi (ulangan jism koordinatalarida)");
+        }
+        changed |= UI::PropertyBool("Bir-biri bilan to'qnashsin", c.CollideConnected);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("O'chiq bo'lsa ulangan ikki jism bir-biridan o'tib ketadi (ragdoll bo'g'imlari, zanjir halqalari uchun qulay)");
+
+        UI::PropertyHeader("Uzilish", "Joint tortish kuchi yoki momenti shundan oshsa uziladi: yo'qoladi va skriptga "
+                                      "OnJointBreak3D keladi. 0 - hech qachon uzilmaydi");
+        UI::PropertyLabel("Kuch chegarasi", "Nyuton (N). 0 - cheksiz");
+        if (ImGui::DragFloat("##breakForce", &c.BreakForce, 1.0f, 0.0f, 1e7f, c.BreakForce > 0.0f ? "%.1f N" : "cheksiz"))
+        {
+            c.BreakForce = std::max(0.0f, c.BreakForce);
+            changed = true;
+        }
+        UI::PropertyLabel("Moment chegarasi", "N*m. 0 - cheksiz");
+        if (ImGui::DragFloat("##breakTorque", &c.BreakTorque, 1.0f, 0.0f, 1e7f, c.BreakTorque > 0.0f ? "%.1f N*m" : "cheksiz"))
+        {
+            c.BreakTorque = std::max(0.0f, c.BreakTorque);
+            changed = true;
+        }
+        return changed;
+    }
+
+    void SceneHierarchyPanel::DrawJoint3DStatus(const Joint3DComponentBase& c, const char* readout)
+    {
+        if (!m_Context || (!m_Context->IsRunning() && !m_Context->IsSimulating()))
+            return;
+        UI::PropertyHeader("Holati", "O'yin davomidagi qiymatlar (har fizika qadamidan keyin)");
+        UI::PropertyLabel("Joint");
+        if (c.Broken)
+            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), ICON_FA_LINK_SLASH "  Uzilgan (%.1f N, %.1f N*m)", c.ReactionForce, c.ReactionTorque);
+        else if (c.RuntimeJoint)
+            ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), ICON_FA_LINK "  Ishlayapti");
+        else
+            ImGui::TextDisabled(ICON_FA_LINK "  Kutmoqda (jismlar yo'q)");
+        if (!c.RuntimeJoint)
+            return;
+        UI::PropertyLabel("Kuch / moment");
+        ImGui::TextDisabled("%.1f N   %.1f N*m", c.ReactionForce, c.ReactionTorque);
+        for (std::string_view rest = readout ? readout : ""; !rest.empty();)
+        {
+            size_t end = rest.find('\n');
+            std::string_view line = rest.substr(0, end);
+            rest = end == std::string_view::npos ? std::string_view() : rest.substr(end + 1);
+            size_t colon = line.find(':');
+            if (colon == std::string_view::npos)
+                continue;
+            UI::PropertyLabel(std::string(line.substr(0, colon)).c_str());
+            ImGui::TextDisabled("%s", std::string(line.substr(colon + 1 + (colon + 1 < line.size() && line[colon + 1] == ' ' ? 1 : 0))).c_str());
+        }
+    }
+
+    bool SceneHierarchyPanel::DrawConvexHullCollider(Entity entity, ConvexHullCollider3DComponent& c)
+    {
+        bool changed = UI::PropertyAssetPath("Model fayli", c.ModelPath, ".gltf;.glb;.obj", ICON_FA_CUBES);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Qobiq shu modeldan quriladi. Bo'sh - obyektning Mesh Renderer'idagi model yoki primitiv");
+        UI::PropertyLabel("Maks. burchaklar", "Qobiq ko'pi bilan shuncha burchakka ega bo'ladi (4..256). Kam - tezroq, lekin qobiq "
+                                              "meshdan biroz kichikroq: eng chetdagi nuqtalar olinadi");
+        int maxVertices = c.MaxVertices;
+        if (ImGui::SliderInt("##maxVertices", &maxVertices, CollisionShapes3D::MinHullVertices, CollisionShapes3D::MaxHullVertices))
+        {
+            c.MaxVertices = std::clamp(maxVertices, CollisionShapes3D::MinHullVertices, CollisionShapes3D::MaxHullVertices);
+            changed = true;
+        }
+        // What the hull came out as (cached per model: cheap to ask every frame).
+        std::string error;
+        Ref<const ConvexHull3D> hull = Scene::GetConvexHullCollider(entity, &error);
+        UI::PropertyLabel("Qobiq", "Fizik jism oladigan shakl: viewport'da collider chiziqlari bilan ko'rinadi");
+        if (hull)
+            ImGui::TextDisabled(ICON_FA_SHAPES "  %zu burchak, %zu yuz (%zu nuqtadan)%s", hull->Points.size(), hull->Faces.size(),
+                                hull->SourceVertexCount, hull->Simplified ? ", soddalashtirilgan" : "");
+        else
+        {
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s", error.c_str());
+            ImGui::PopTextWrapPos();
+        }
+        if (!entity.HasComponent<Rigidbody3DComponent>())
+        {
+            UI::PropertyLabel("");
+            ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Rigidbody 3D bilan ishlaydi");
+        }
+        return changed;
+    }
+
     bool SceneHierarchyPanel::DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c)
     {
         bool changed = DrawEntityRefField("Nishon", c.Target, "Kuzatiladigan obyekt (ierarxiyadan tortib tashlang). O'yin davomida "
@@ -4767,6 +4905,11 @@ namespace Zamin {
                 DisplayAddComponentEntry<BoxCollider3DComponent>("Box Collider 3D", ICON_FA_CUBE);
                 DisplayAddComponentEntry<SphereCollider3DComponent>("Sphere Collider 3D", ICON_FA_CIRCLE);
                 DisplayAddComponentEntry<CapsuleCollider3DComponent>("Capsule Collider 3D", ICON_FA_CAPSULES);
+                DisplayAddComponentEntry<ConvexHullCollider3DComponent>("Convex Hull Collider 3D (modeldan)", ICON_FA_SHAPES);
+                DisplayAddComponentEntry<FixedJoint3DComponent>("Fixed Joint 3D (mahkam)", ICON_FA_LOCK);
+                DisplayAddComponentEntry<HingeJoint3DComponent>("Hinge Joint 3D (sharnir)", ICON_FA_DOOR_OPEN);
+                DisplayAddComponentEntry<DistanceJoint3DComponent>("Distance Joint 3D (masofa)", ICON_FA_LINK);
+                DisplayAddComponentEntry<SliderJoint3DComponent>("Slider Joint 3D (sirpanish)", ICON_FA_ARROWS_LEFT_RIGHT);
                 DisplayAddComponentEntry<CharacterController3DComponent>("Character Controller 3D", ICON_FA_PERSON_RUNNING);
                 ImGui::SeparatorText("Effektlar va UI");
                 DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
@@ -5581,6 +5724,108 @@ namespace Zamin {
             bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.001f, 1000.0f);
             changed |= UI::PropertyFloat("Yarim balandlik", c.HalfHeight, 0.01f, 0.0f, 1000.0f);
             return collider3D(c) || changed;
+        }, true, modified);
+
+        AddSection<ConvexHullCollider3DComponent>(ICON_FA_SHAPES, "Convex Hull Collider 3D", entity, [&](ConvexHullCollider3DComponent& c) {
+            bool changed = DrawConvexHullCollider(entity, c);
+            return collider3D(c) || changed;
+        }, true, modified);
+
+        // ---- 3D joints
+        AddSection<FixedJoint3DComponent>(ICON_FA_LOCK, "Fixed Joint 3D", entity, [&](FixedJoint3DComponent& c) {
+            bool changed = DrawJoint3DCommon(entity, c);
+            DrawJoint3DStatus(c, nullptr);
+            return changed;
+        }, true, modified);
+
+        AddSection<HingeJoint3DComponent>(ICON_FA_DOOR_OPEN, "Hinge Joint 3D", entity, [&](HingeJoint3DComponent& c) {
+            bool changed = DrawJoint3DCommon(entity, c);
+            UI::PropertyHeader("O'q", "Jism langar atrofida faqat shu o'q bo'ylab aylanadi");
+            changed |= UI::PropertyFloat3("O'q", c.Axis, 0.01f);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Aylanish o'qi shu obyektning o'z koordinatalarida (joint yaratilgandagi holatda). Eshik uchun (0, 1, 0)");
+            UI::PropertyHeader("Burchak chegarasi", "Ulangan jismga nisbatan burilish, joint yaratilgandagi holatdan (gradus). "
+                                                    "0 doim oraliq ichida: pastki -180..0, yuqori 0..180");
+            changed |= UI::PropertyBool("Cheklash", c.EnableLimit);
+            ImGui::BeginDisabled(!c.EnableLimit);
+            changed |= degrees("Pastki burchak", "-180..0 gradus", c.LowerAngle, -180.0f, 0.0f);
+            changed |= degrees("Yuqori burchak", "0..180 gradus", c.UpperAngle, 0.0f, 180.0f);
+            ImGui::EndDisabled();
+            UI::PropertyHeader("Motor", "Jismni o'q atrofida aylantiradi (musbat - o'q uchidan qaraganda soat miliga teskari)");
+            changed |= UI::PropertyBool("Motor", c.EnableMotor);
+            ImGui::BeginDisabled(!c.EnableMotor);
+            changed |= degrees("Tezlik", "Gradus / soniya", c.MotorSpeed, -1e5f, 1e5f);
+            changed |= positive("Maks. moment", "Motor bera oladigan eng katta moment (N*m)", c.MaxMotorTorque, "%.1f N*m");
+            ImGui::EndDisabled();
+            UI::PropertyHeader("Prujina", "Motor o'chiq bo'lsa jismni nishon burchakka tortadi (o'z-o'zidan yopiladigan eshik)");
+            changed |= UI::PropertyBool("Prujina", c.EnableSpring);
+            ImGui::BeginDisabled(!c.EnableSpring || c.EnableMotor);
+            changed |= degrees("Nishon burchak", "Prujina tortadigan burchak (gradus, joint yaratilgandagi holatdan)", c.SpringTargetAngle, -180.0f, 180.0f);
+            changed |= spring(c.SpringFrequency, c.SpringDamping, "o'chiq");
+            ImGui::EndDisabled();
+            DrawJoint3DStatus(c, std::format("Burchak: {:.1f}\xc2\xb0\nAylanish tezligi: {:.1f}\xc2\xb0/s", c.JointAngle, c.JointSpeed).c_str());
+            return changed;
+        }, true, modified);
+
+        AddSection<DistanceJoint3DComponent>(ICON_FA_LINK, "Distance Joint 3D", entity, [&](DistanceJoint3DComponent& c) {
+            bool changed = DrawJoint3DCommon(entity, c);
+            UI::PropertyHeader("Masofa", "Langarlar orasidagi masofa shu oraliqda qoladi: teng - qattiq tayoq, arqon - faqat maksimal");
+            changed |= UI::PropertyBool("Avto masofa", c.AutoConfigureDistance);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Masofa joint yaratilgandagi langarlar orasidagi masofaga teng bo'ladi (arqon: maksimal shu)");
+            ImGui::BeginDisabled(c.AutoConfigureDistance);
+            ImGui::BeginDisabled(c.MaxDistanceOnly);
+            if (UI::PropertyFloat("Minimal masofa", c.MinDistance, 0.01f, 0.0f, 1e5f))
+            {
+                c.MinDistance = std::max(0.0f, c.MinDistance);
+                c.MaxDistance = std::max(c.MaxDistance, c.MinDistance);
+                changed = true;
+            }
+            ImGui::EndDisabled();
+            if (UI::PropertyFloat("Maksimal masofa", c.MaxDistance, 0.01f, 0.0f, 1e5f))
+            {
+                c.MaxDistance = std::max(0.0f, c.MaxDistance);
+                c.MinDistance = std::min(c.MinDistance, c.MaxDistance);
+                changed = true;
+            }
+            ImGui::EndDisabled();
+            changed |= UI::PropertyBool("Faqat maksimal (arqon)", c.MaxDistanceOnly);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Arqon kabi: jismlar yaqinlashishi mumkin, uzoqlasha olmaydi");
+            changed |= spring(c.Frequency, c.DampingRatio, "qattiq");
+            DrawJoint3DStatus(c, std::format("Hozirgi masofa: {:.3f}", c.CurrentDistance).c_str());
+            return changed;
+        }, true, modified);
+
+        AddSection<SliderJoint3DComponent>(ICON_FA_ARROWS_LEFT_RIGHT, "Slider Joint 3D", entity, [&](SliderJoint3DComponent& c) {
+            bool changed = DrawJoint3DCommon(entity, c);
+            UI::PropertyHeader("Sirpanish", "Jism ulangan jismga nisbatan faqat shu o'q bo'ylab siljiydi va aylanmaydi");
+            changed |= UI::PropertyFloat3("O'q", c.Axis, 0.01f);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Harakat yo'nalishi shu obyektning o'z koordinatalarida (joint yaratilgandagi holatda)");
+            changed |= UI::PropertyBool("Cheklash", c.EnableLimit);
+            ImGui::BeginDisabled(!c.EnableLimit);
+            UI::PropertyLabel("Pastki chegara", "Boshlang'ich joydan orqaga (<= 0)");
+            if (ImGui::DragFloat("##lowerSlide", &c.LowerTranslation, 0.01f, -1e5f, 0.0f, "%.2f"))
+            {
+                c.LowerTranslation = std::min(0.0f, c.LowerTranslation);
+                changed = true;
+            }
+            UI::PropertyLabel("Yuqori chegara", "Boshlang'ich joydan o'q yo'nalishida (>= 0)");
+            if (ImGui::DragFloat("##upperSlide", &c.UpperTranslation, 0.01f, 0.0f, 1e5f, "%.2f"))
+            {
+                c.UpperTranslation = std::max(0.0f, c.UpperTranslation);
+                changed = true;
+            }
+            ImGui::EndDisabled();
+            UI::PropertyHeader("Motor", "Jismni o'q bo'ylab suradi (musbat - o'q yo'nalishida)");
+            changed |= UI::PropertyBool("Motor", c.EnableMotor);
+            ImGui::BeginDisabled(!c.EnableMotor);
+            changed |= UI::PropertyFloat("Tezlik (birlik/s)", c.MotorSpeed, 0.05f);
+            changed |= positive("Maks. kuch", "Motor bera oladigan eng katta kuch (N)", c.MaxMotorForce, "%.1f N");
+            ImGui::EndDisabled();
+            DrawJoint3DStatus(c, std::format("Siljish: {:.3f}\nTezlik: {:.2f} birlik/s", c.JointTranslation, c.JointSpeed).c_str());
+            return changed;
         }, true, modified);
 
         AddSection<CharacterController3DComponent>(ICON_FA_PERSON_RUNNING, "Character Controller 3D", entity, [&](CharacterController3DComponent& c) {

@@ -1,4 +1,5 @@
 #include "Zamin/Asset/AssetHotReload.h"
+#include "Zamin/Physics/CollisionShapes3D.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Physics/PhysicsMaterial.h"
@@ -122,10 +123,18 @@ namespace Zamin {
             }
             case AssetType::Material:    return MaterialLibrary::ReloadFile(path, failed);
             case AssetType::PhysicsMaterial: return PhysicsMaterialLibrary::ReloadFile(path, failed);
-            case AssetType::Model:       return Model::ReloadFile(path, failed);
+            case AssetType::Model:
+                CollisionShapes3D::Clear(); // convex hull colliders are made from the new geometry
+                return Model::ReloadFile(path, failed);
             case AssetType::Font:        return Font::ReloadFile(path, failed);
             case AssetType::Environment: return EnvironmentMap::ReloadFile(path, failed);
-            case AssetType::Other:       return Model::ReloadFile(path, failed); // a model's .bin buffer
+            case AssetType::Other:
+            {
+                size_t reloaded = Model::ReloadFile(path, failed); // a model's .bin buffer
+                if (reloaded)
+                    CollisionShapes3D::Clear();
+                return reloaded;
+            }
             default:                     return 0;
         }
     }

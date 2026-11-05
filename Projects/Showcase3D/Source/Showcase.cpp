@@ -63,6 +63,39 @@ private:
 };
 ZM_REGISTER_SCRIPT(OrbitCamera, ZM_FIELD(OrbitCamera, Distance), ZM_FIELD(OrbitCamera, Height), ZM_FIELD(OrbitCamera, Speed))
 
+// Slider Joint 3D motorini chegaralar orasida yuqoriga-pastga yuritadi (lift platformasi): har
+// chetda Pause sekund kutadi, keyin orqaga qaytadi.
+class SliderShuttle : public ScriptableEntity
+{
+public:
+    float Speed = 1.0f;  // birlik / sekund
+    float Pause = 0.6f;  // har chetda kutish (sekund)
+    void OnUpdate(Timestep ts) override
+    {
+        auto* slider = TryGetComponent<SliderJoint3DComponent>();
+        if (!slider || !slider->RuntimeJoint)
+            return;
+        slider->EnableMotor = true;
+        if (m_Wait > 0.0f)
+        {
+            m_Wait -= (float)ts;
+            slider->MotorSpeed = 0.0f; // joyida ushlab turadi
+            return;
+        }
+        const float target = m_Up ? slider->UpperTranslation : slider->LowerTranslation;
+        slider->MotorSpeed = m_Up ? Speed : -Speed;
+        if (std::abs(slider->JointTranslation - target) < 0.03f)
+        {
+            m_Up = !m_Up;
+            m_Wait = Pause;
+        }
+    }
+private:
+    bool m_Up = true;
+    float m_Wait = 0.0f;
+};
+ZM_REGISTER_SCRIPT(SliderShuttle, ZM_FIELD(SliderShuttle, Speed), ZM_FIELD(SliderShuttle, Pause))
+
 // WASD bilan yuradigan kub; Space bilan sakraydi.
 class PlayerMover3D : public ScriptableEntity
 {

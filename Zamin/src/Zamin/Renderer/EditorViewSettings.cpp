@@ -272,6 +272,52 @@ namespace Zamin {
         return fallback;
     }
 
+    void EditorGizmoSettings::Sanitize()
+    {
+        NormalLength = std::isfinite(NormalLength) ? std::clamp(NormalLength, MinNormalLength, MaxNormalLength) : 0.1f;
+        for (GizmoVisibility* v : { &CameraFrustums, &LightDirections, &AudioRanges, &Bounds, &Skeletons, &Normals })
+            if ((int)*v < (int)GizmoVisibility::Off || (int)*v > (int)GizmoVisibility::All)
+                *v = GizmoVisibility::Selected;
+        if ((int)BoundsMode < (int)BoundsSpace::Local || (int)BoundsMode > (int)BoundsSpace::Both)
+            BoundsMode = BoundsSpace::Local;
+    }
+
+    // ------------------------------------------------------------------ statistics overlay
+    int ViewportStatsOverlaySettings::Rate(float milliseconds) const
+    {
+        const float budget = GetBudgetMilliseconds();
+        if (!(milliseconds <= budget * 1.05f))
+            return milliseconds <= budget * 2.0f ? 1 : 2;
+        return 0;
+    }
+
+    const char* ViewportStatsOverlaySettings::GetCornerKey(OverlayCorner corner)
+    {
+        switch (corner)
+        {
+            case OverlayCorner::TopLeft: return "TopLeft";
+            case OverlayCorner::BottomLeft: return "BottomLeft";
+            case OverlayCorner::BottomRight: return "BottomRight";
+            default: return "TopRight";
+        }
+    }
+
+    OverlayCorner ViewportStatsOverlaySettings::CornerFromKey(const std::string& key, OverlayCorner fallback)
+    {
+        for (OverlayCorner c : { OverlayCorner::TopLeft, OverlayCorner::TopRight, OverlayCorner::BottomLeft, OverlayCorner::BottomRight })
+            if (key == GetCornerKey(c))
+                return c;
+        return fallback;
+    }
+
+    void ViewportStatsOverlaySettings::Sanitize()
+    {
+        TargetFPS = std::isfinite(TargetFPS) ? std::clamp(TargetFPS, MinTargetFPS, MaxTargetFPS) : 60.0f;
+        Opacity = std::isfinite(Opacity) ? std::clamp(Opacity, MinOpacity, 1.0f) : 0.85f;
+        if ((int)Corner < (int)OverlayCorner::TopLeft || (int)Corner > (int)OverlayCorner::BottomRight)
+            Corner = OverlayCorner::TopRight;
+    }
+
     std::string EditorViewSettings::ToJson() const
     {
         json j;
@@ -329,6 +375,20 @@ namespace Zamin {
             { "BoundsSpace", EditorGizmoSettings::GetBoundsKey(Gizmos.BoundsMode) },
             { "Skeletons", EditorGizmoSettings::GetKey(Gizmos.Skeletons) },
             { "JointNames", Gizmos.JointNames },
+            { "Normals", EditorGizmoSettings::GetKey(Gizmos.Normals) },
+            { "NormalLength", Num(Gizmos.NormalLength) },
+            { "NormalsFacingOnly", Gizmos.NormalsFacingOnly },
+            { "NormalsByDirection", Gizmos.NormalsByDirection },
+        };
+        j["StatsOverlay"] = {
+            { "Visible", StatsOverlay.Visible },
+            { "FrameGraph", StatsOverlay.FrameGraph },
+            { "DrawCalls", StatsOverlay.DrawCalls },
+            { "Culling", StatsOverlay.Culling },
+            { "Hotspots", StatsOverlay.Hotspots },
+            { "Corner", ViewportStatsOverlaySettings::GetCornerKey(StatsOverlay.Corner) },
+            { "Opacity", Num(StatsOverlay.Opacity) },
+            { "TargetFPS", Num(StatsOverlay.TargetFPS) },
         };
         json scenes = json::object();
         for (const auto& [scene, bookmarks] : Bookmarks)
@@ -441,9 +501,28 @@ namespace Zamin {
             readVisibility("AudioRanges", Gizmos.AudioRanges);
             readVisibility("Bounds", Gizmos.Bounds);
             readVisibility("Skeletons", Gizmos.Skeletons);
+            readVisibility("Normals", Gizmos.Normals);
+            Read(*it, "NormalLength", Gizmos.NormalLength);
+            Read(*it, "NormalsFacingOnly", Gizmos.NormalsFacingOnly);
+            Read(*it, "NormalsByDirection", Gizmos.NormalsByDirection);
             if (auto v = it->find("BoundsSpace"); v != it->end() && v->is_string())
                 Gizmos.BoundsMode = EditorGizmoSettings::BoundsFromKey(v->get<std::string>(), Gizmos.BoundsMode);
             Read(*it, "JointNames", Gizmos.JointNames);
+            Gizmos.Sanitize();
+        }
+        if (auto it = j.find("StatsOverlay"); it != j.end() && it->is_object())
+        {
+            auto& o = StatsOverlay;
+            Read(*it, "Visible", o.Visible);
+            Read(*it, "FrameGraph", o.FrameGraph);
+            Read(*it, "DrawCalls", o.DrawCalls);
+            Read(*it, "Culling", o.Culling);
+            Read(*it, "Hotspots", o.Hotspots);
+            if (auto c = it->find("Corner"); c != it->end() && c->is_string())
+                o.Corner = ViewportStatsOverlaySettings::CornerFromKey(c->get<std::string>(), o.Corner);
+            Read(*it, "Opacity", o.Opacity);
+            Read(*it, "TargetFPS", o.TargetFPS);
+            o.Sanitize();
         }
         if (auto it = j.find("CameraBookmarks"); it != j.end() && it->is_object())
         {

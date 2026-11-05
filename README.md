@@ -58,7 +58,17 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - **Status bar**: tanlangan obyekt nomi, joylashuvi, komponentlar va bolalar soni, yashirin/qulf belgisi (bosish — kamerani yo'naltirish, sichqoncha ustida — batafsil, o'ng tugma — nom/UUID/yo'lni nusxalash); ko'p tanlovda soni va markazi
 - C++ skript maydonlari (`ZM_FIELD`) inspektorda tahrirlanadi, o'yin paytida jonli o'zgartiriladi
 - Loyiha launcher'i: yangi loyiha (shablondan), so'nggi loyihalar, namuna o'yinlar
-- **Profiler**: har bir tizim (skriptlar, fizika, animatsiya, render, post-processing, UI) uchun CPU vaqti
+- **Profiler** (ierarxik): har bir tizim (skriptlar, fizika, animatsiya, render, post-processing, UI) uchun CPU vaqti.
+  Ichma-ich `ZM_PROFILE_SCOPE` bo'limlari daraxt bo'lib yig'iladi: Statistika panelida yoki Oyna > Profiler oynasida
+  har bo'limning jami vaqti, o'z vaqti (ichki bo'limlarsiz), chaqiruvlar soni va kadrdagi ulushi; o'rtacha (silliqlangan)
+  yoki oxirgi kadr, **Muzlatish** bilan bir kadrni ushlab ko'rish. Bir xil nomli bo'lim bir ota ostida bitta tugun,
+  boshqa ota ostida alohida. `Profiler::Find("Kadr/Layer'lar (update)/Sahna")`, `GetHotspots`, `FormatTree`;
+  `ZAMIN_EDITOR_STATS=1` / `ZAMIN_PLAYER_STATS=1` daraxtni logga ham yozadi
+- **Statistika overlay** (viewport ustida, faqat editor; toolbar'dagi spidometr tugmasi yoki Ko'rinish > Statistika
+  overlay): FPS va kadr vaqti, so'nggi 240 kadr grafigi (maqsad FPS chiziqlari, ranglar: yashil - sig'di, sariq - ikki
+  baravarigacha, qizil - sekinroq), eng sekin 1% kadrlar, draw call'lar (sahna va editor alohida), uchburchaklar,
+  meshlar / instanced, soyalar, 2D obyektlar, culling kesganlari (ulushi bilan) va eng sekin profiler bo'limlari.
+  Burchagi, foni, bo'limlari va maqsad FPS sozlanadi (o'ng tugma yoki menyu), editor sozlamalarida saqlanadi
 - **Maximize on Play**: o'yin rejimida viewport butun oynaga yoyiladi
 - **O'yinni build qilish**: bitta tugma bilan mustaqil papkaga eksport (`./MeningOyinim.sh`)
 
@@ -172,7 +182,8 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - **Raycast** 2D va 3D
 - **Debug chizish** (`DebugDraw`, `Zamin/Debug/DebugDraw.h`): skriptlardan va dvigateldan dunyo fazosida chiziq, nur, o'q,
   quti (AABB va burilgan), sfera, aylana, krest, nuqta, o'qlar, yo'l (path) va ekranga qaragan matn - rang, davomiylik
-  (0 = bir kadr, > 0 = o'yin vaqtida soniyalar; pauzada to'xtaydi) va chuqurlik testi bilan. Sahna chizilgandan keyin
+  (0 = bir kadr, > 0 = o'yin vaqtida soniyalar; pauzada to'xtaydi - oxirgi o'yin kadrining shakllari ekranda qoladi,
+  pauza paytida boshqa kod chizgan bir kadrlik shakllar esa yig'ilib qolmaydi) va chuqurlik testi bilan. Sahna chizilgandan keyin
   post-processingdan o'tgan tasvir ustiga (aniq ranglar, silliq qalin chiziqlar) sahna chuqurligiga qarab chiziladi.
   Fizika ko'rinishlari: **raycast so'rovlari** (nur, tegish nuqtasi, normal; tegmasa qizil), **kontakt nuqtalari**
   (2D, 3D, personajlar; normallari bilan) va **tezlik vektorlari** (3D personajlarning haqiqiy tezligi o'q va m/s bilan,
@@ -188,7 +199,10 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   va o'q; spot: o'qi bo'ylab o'q; yorug'lik rangida), **audio radiusi** (3D manbalar: Min va Max masofa sferalari),
   **chegaralar (bounding box)** - lokal (obyekt bilan aylanadigan quti), dunyo AABB (mesh'lar uchun frustum culling
   tekshiradigan chegara, skinned model'niki pozasi bilan) yoki ikkalasi, **skelet** (skinned model'lar: ota bo'g'indan
-  bo'g'ingacha suyaklar va bo'g'inlar joriy animatsiya pozasida, mesh ustidan; ixtiyoriy bo'g'in nomlari)
+  bo'g'ingacha suyaklar va bo'g'inlar joriy animatsiya pozasida, mesh ustidan; ixtiyoriy bo'g'in nomlari), **normallar**
+  (mesh va model vertekslarining normallari - har verteksdan chiziq, skinned model'larda joriy pozada; uzunligi, faqat
+  kameraga qaraganlar, yo'nalish bo'yicha rang sozlanadi; kadrda ko'pi bilan 60000 ta, ko'p bo'lsa vertekslar namunasi.
+  Dvigatelda: `Mesh::GetGeometry()` (vertekslar GPU'dan bir marta o'qiladi) va `AppendNormalLines`)
 - **Tanlash konturi** (shader asosida, faqat editor): tanlangan obyektlar chizgan piksellar atrofida bir necha piksel
   qalinlikdagi silliq (anti-aliasing) kontur - mesh, model (skinned ham), sprite, doira, matn, tilemap. Viewport'ning
   entity ID rasmi ko'rinadigan piksellarni, tanlangan mesh'larning qaytadan chizilgan siluetlari esa butun shaklni beradi:

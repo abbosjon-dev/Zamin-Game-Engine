@@ -70,7 +70,10 @@ namespace Zamin {
         void OnDetach() override
         {
             if (std::getenv("ZAMIN_PLAYER_STATS"))
+            {
                 ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
+                ZM_INFO("Profiler (oxirgi kadr, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
+            }
             if (m_Scene)
             {
                 m_Scene->OnRuntimeStop();

@@ -12307,6 +12307,461 @@ TEST(ImageCompare)
     CHECK(wrong.DifferentPixels == w * h && wrong.MaxDelta == 255);
 }
 
+// ------------------------------------------------------------------ M07: profiler tree, overlay, normals, queue
+static const Profiler::Entry* FindEntry(const std::vector<Profiler::Entry>& entries, const char* name, int parent)
+{
+    for (const auto& e : entries)
+        if (e.Parent == parent && std::strcmp(e.Name, name) == 0)
+            return &e;
+    return nullptr;
+}
+
+TEST(ProfilerHierarchy)
+{
+    Profiler::Reset();
+    CHECK(Profiler::IsEnabled());
+    // Kadr { Update { Fizika, Skriptlar { Timer }, Fizika again }, Render { Fizika }, Update again { AI }, Audio } and Oyna.
+    auto kadr = Profiler::BeginScope("Kadr");
+    auto update = Profiler::BeginScope("Update");
+    auto physics = Profiler::BeginScope("Fizika");
+    Profiler::EndScope(physics, 2.0f);
+    auto scripts = Profiler::BeginScope("Skriptlar");
+    Profiler::Record("Timer", 0.25f);
+    Profiler::EndScope(scripts, 1.0f);
+    std::string sameName = "Fizika"; // another pointer, the same name: the same node
+    auto physics2 = Profiler::BeginScope(sameName.c_str());
+    Profiler::EndScope(physics2, 0.5f);
+    Profiler::EndScope(update, 4.0f);
+    auto render = Profiler::BeginScope("Render");
+    auto physicsInRender = Profiler::BeginScope("Fizika"); // the same name under another parent: a node of its own
+    Profiler::EndScope(physicsInRender, 0.1f);
+    Profiler::EndScope(render, 3.0f);
+    auto updateAgain = Profiler::BeginScope("Update");
+    auto ai = Profiler::BeginScope("AI");
+    Profiler::EndScope(ai, 0.6f);
+    Profiler::EndScope(updateAgain, 1.0f);
+    Profiler::Record("Audio", 0.5f);
+    Profiler::EndScope(kadr, 9.0f);
+    auto swap = Profiler::BeginScope("Oyna");
+    Profiler::EndScope(swap, 6.0f);
+    CHECK(Profiler::GetLastFrame().empty()); // nothing finished yet
+    Profiler::BeginFrame();
+
+    const auto& entries = Profiler::GetLastFrame();
+    // Depth-first: AI (made after Render) is listed under Update, before Render.
+    const char* order[] = { "Kadr", "Update", "Fizika", "Skriptlar", "Timer", "AI", "Render", "Fizika", "Audio", "Oyna" };
+    const int depths[] = { 0, 1, 2, 2, 3, 2, 1, 2, 1, 0 };
+    CHECK(entries.size() == 10);
+    for (size_t i = 0; i < entries.size() && i < 10; i++)
+        CHECK(std::strcmp(entries[i].Name, order[i]) == 0 && entries[i].Depth == depths[i]);
+    if (entries.size() != 10)
+        return;
+    CHECK(entries[0].Parent == -1 && entries[0].End == 9 && entries[9].Parent == -1 && entries[9].End == 10);
+    CHECK(entries[1].Parent == 0 && entries[1].End == 6 && entries[1].Calls == 2);
+    CHECK(entries[2].Parent == 1 && entries[2].Calls == 2 && entries[7].Parent == 6 && entries[7].Calls == 1);
+    CHECK(entries[4].Parent == 3 && entries[5].Parent == 1 && entries[8].Parent == 0);
+    CHECK_NEAR(entries[0].Milliseconds, 9.0f, 1e-5f);
+    CHECK_NEAR(entries[0].ChildMilliseconds, 5.0f + 3.0f + 0.5f, 1e-5f);
+    CHECK_NEAR(entries[0].GetSelfMilliseconds(), 0.5f, 1e-5f);
+    CHECK_NEAR(entries[1].Milliseconds, 5.0f, 1e-5f);                  // both calls
+    CHECK_NEAR(entries[1].GetSelfMilliseconds(), 5.0f - 2.5f - 1.0f - 0.6f, 1e-5f);
+    CHECK_NEAR(entries[2].Milliseconds, 2.5f, 1e-5f);
+    CHECK_NEAR(entries[3].GetSelfMilliseconds(), 0.75f, 1e-5f);
+    CHECK_NEAR(entries[4].GetSelfMilliseconds(), 0.25f, 1e-5f);        // a leaf: all its own
+    CHECK_NEAR(Profiler::GetLastFrameTotal(), 9.0f, 1e-5f);
+
+    // Paths and children.
+    const Profiler::Entry* found = Profiler::Find("Kadr/Update/Fizika");
+    CHECK(found == &entries[2]);
+    CHECK(Profiler::Find("Kadr/Render/Fizika") == &entries[7]);
+    CHECK(Profiler::Find("Kadr/Fizika") == nullptr && Profiler::Find("Fizika") == nullptr && Profiler::Find("Kadr/Yo'q") == nullptr);
+    CHECK(Profiler::Find("Oyna") == &entries[9] && Profiler::Find("Kadr") == &entries[0]);
+    CHECK((Profiler::GetChildren(entries, -1) == std::vector<int>{ 0, 9 }));
+    CHECK((Profiler::GetChildren(entries, 1) == std::vector<int>{ 2, 3, 5 }));
+    CHECK((Profiler::GetChildren(entries, 0) == std::vector<int>{ 1, 6, 8 }));
+    CHECK(Profiler::GetChildren(entries, 4).empty() && Profiler::GetChildren(entries, 99).empty());
+
+    // Where the time goes: the largest self times.
+    CHECK((Profiler::GetHotspots(entries, 3) == std::vector<int>{ 9, 6, 2 })); // Oyna 6, Render 2.9, Fizika 2.5
+    CHECK(Profiler::GetHotspots(entries, 50).size() == entries.size());
+
+    // The log's text: indented by depth, self time and calls where they say something.
+    std::string tree = Profiler::FormatTree(entries);
+    CHECK(tree.find("Kadr 9.00 ms (o'zi 0.50 ms)\n") == 0);
+    CHECK(tree.find("\n  Update 5.00 ms (o'zi 0.90 ms, 2x)\n") != std::string::npos);
+    CHECK(tree.find("\n    Fizika 2.50 ms (2x)\n") != std::string::npos);
+    CHECK(tree.find("\n      Timer 0.25 ms\n") != std::string::npos);
+    std::string slow = Profiler::FormatTree(entries, 1.0f); // small nodes (and what is inside them) left out
+    CHECK(slow.find("Timer") == std::string::npos && slow.find("AI") == std::string::npos && slow.find("Audio") == std::string::npos);
+    CHECK(slow.find("Skriptlar") != std::string::npos && slow.find("Oyna") != std::string::npos);
+    CHECK(std::count(slow.begin(), slow.end(), '\n') == 6); // Kadr, Update, Fizika, Skriptlar, Render, Oyna
+
+    // A scope still open when the frame ends: dropped from the new frame (its end records
+    // nothing), and what opens next is not counted inside it.
+    auto open = Profiler::BeginScope("Uzun");
+    Profiler::BeginFrame();
+    CHECK(Profiler::GetLastFrame().size() == 1 && Profiler::GetLastFrame()[0].Calls == 0);
+    Profiler::EndScope(open, 50.0f);
+    auto next = Profiler::BeginScope("Yangi");
+    Profiler::EndScope(next, 1.0f);
+    Profiler::BeginFrame();
+    CHECK(Profiler::GetLastFrame().size() == 1 && Profiler::GetLastFrame()[0].Parent == -1);
+    CHECK(std::strcmp(Profiler::GetLastFrame()[0].Name, "Yangi") == 0 && Profiler::GetLastFrameTotal() == 0.0f);
+
+    // Off: nothing is recorded.
+    Profiler::SetEnabled(false);
+    auto off = Profiler::BeginScope("Off");
+    CHECK(off.Index == -1);
+    Profiler::EndScope(off, 1.0f);
+    Profiler::Record("Off", 1.0f);
+    Profiler::BeginFrame();
+    CHECK(Profiler::GetLastFrame().empty());
+    Profiler::SetEnabled(true);
+    Profiler::Reset();
+}
+
+TEST(ProfilerScopedTimersAndAverages)
+{
+    Profiler::Reset();
+    {
+        ZM_PROFILE_SCOPE("Tashqi");
+        {
+            ZM_PROFILE_SCOPE("Ichki");
+            std::this_thread::sleep_for(std::chrono::milliseconds(3));
+        }
+        ZM_PROFILE_SCOPE("Keyingi");
+    }
+    Profiler::BeginFrame();
+    const auto& entries = Profiler::GetLastFrame();
+    const Profiler::Entry* outer = FindEntry(entries, "Tashqi", -1);
+    CHECK(outer && entries.size() == 3);
+    if (!outer || entries.size() != 3)
+        return;
+    const Profiler::Entry* inner = FindEntry(entries, "Ichki", 0);
+    const Profiler::Entry* after = FindEntry(entries, "Keyingi", 0);
+    CHECK(inner && after && inner->Milliseconds >= 2.5f && outer->Milliseconds >= inner->Milliseconds);
+    CHECK(outer->ChildMilliseconds >= inner->Milliseconds && outer->GetSelfMilliseconds() >= 0.0f);
+
+    // Averages follow the same path from frame to frame (a new or returning path starts afresh).
+    Profiler::Reset();
+    auto frame = [](float ms) {
+        auto t = Profiler::BeginScope("Kadr");
+        auto x = Profiler::BeginScope("X");
+        Profiler::EndScope(x, ms);
+        Profiler::EndScope(t, ms + 1.0f);
+        Profiler::BeginFrame();
+    };
+    frame(10.0f);
+    CHECK_NEAR(Profiler::Find("Kadr/X")->AverageMilliseconds, 10.0f, 1e-5f);
+    frame(0.0f);
+    CHECK_NEAR(Profiler::Find("Kadr/X")->AverageMilliseconds, 10.0f * (1.0f - Profiler::AverageWeight), 1e-4f);
+    CHECK(Profiler::Find("Kadr/X")->Milliseconds == 0.0f && Profiler::Find("Kadr/X")->Calls == 1);
+    frame(0.0f);
+    CHECK_NEAR(Profiler::Find("Kadr/X")->AverageMilliseconds, 10.0f * 0.81f, 1e-4f);
+    // A frame without X, then X again: its average starts over.
+    auto t = Profiler::BeginScope("Kadr");
+    Profiler::EndScope(t, 1.0f);
+    Profiler::BeginFrame();
+    CHECK(Profiler::Find("Kadr/X") == nullptr);
+    frame(4.0f);
+    CHECK_NEAR(Profiler::Find("Kadr/X")->AverageMilliseconds, 4.0f, 1e-5f);
+    // Hotspots on the averages.
+    CHECK(!Profiler::GetHotspots(Profiler::GetLastFrame(), 1, true).empty() && Profiler::GetHotspots(Profiler::GetLastFrame(), 1, true)[0] == 1);
+    Profiler::Reset();
+}
+
+TEST(FrameTimeHistoryStats)
+{
+    FrameTimeHistory h;
+    CHECK(h.Empty() && h.Latest() == 0.0f && h.Summarize().Average == 0.0f);
+    for (int i = 1; i <= 10; i++)
+        h.Push((float)i);
+    h.Push(std::numeric_limits<float>::quiet_NaN());
+    h.Push(-1.0f);
+    CHECK(h.Size() == 10 && h.Get(0) == 1.0f && h.Latest() == 10.0f && h.Get(99) == 0.0f);
+    FrameTimeHistory::Summary s = h.Summarize();
+    CHECK_NEAR(s.Average, 5.5f, 1e-5f);
+    CHECK(s.Min == 1.0f && s.Max == 10.0f && s.Worst1Percent == 10.0f); // 1% of 10 frames: the slowest one
+    CHECK_NEAR(s.AverageFPS, 1000.0f / 5.5f, 1e-2f);
+    CHECK_NEAR(s.Low1PercentFPS, 100.0f, 1e-3f);
+    FrameTimeHistory::Summary last4 = h.Summarize(4);
+    CHECK_NEAR(last4.Average, 8.5f, 1e-5f);
+    CHECK(last4.Min == 7.0f);
+    // Full: the oldest frames go; 1% of 240 = the slowest 2.
+    for (int i = 0; i < 300; i++)
+        h.Push(i == 290 ? 50.0f : i == 295 ? 30.0f : 16.0f);
+    CHECK(h.Size() == FrameTimeHistory::Capacity && h.Latest() == 16.0f && h.Get(FrameTimeHistory::Capacity - 10) == 50.0f);
+    s = h.Summarize();
+    CHECK(s.Max == 50.0f && s.Min == 16.0f);
+    CHECK_NEAR(s.Worst1Percent, 40.0f, 1e-5f);
+    CHECK_NEAR(s.Low1PercentFPS, 25.0f, 1e-3f);
+    h.Clear();
+    CHECK(h.Empty() && h.Size() == 0);
+}
+
+TEST(StatsOverlaySettingsSaved)
+{
+    EditorViewSettings view;
+    CHECK(!view.StatsOverlay.Visible && view.StatsOverlay.FrameGraph && view.StatsOverlay.Corner == OverlayCorner::TopRight);
+    view.StatsOverlay.Visible = true;
+    view.StatsOverlay.Culling = false;
+    view.StatsOverlay.Hotspots = true;
+    view.StatsOverlay.Corner = OverlayCorner::BottomLeft;
+    view.StatsOverlay.Opacity = 0.5f;
+    view.StatsOverlay.TargetFPS = 144.0f;
+    view.Gizmos.Normals = GizmoVisibility::All;
+    view.Gizmos.NormalLength = 0.25f;
+    view.Gizmos.NormalsFacingOnly = false;
+    view.Gizmos.NormalsByDirection = true;
+    EditorViewSettings loaded;
+    CHECK(loaded.FromJson(view.ToJson()));
+    const auto& o = loaded.StatsOverlay;
+    CHECK(o.Visible && o.FrameGraph && o.DrawCalls && !o.Culling && o.Hotspots && o.Corner == OverlayCorner::BottomLeft);
+    CHECK(o.Opacity == 0.5f && o.TargetFPS == 144.0f);
+    CHECK(loaded.Gizmos.Normals == GizmoVisibility::All && loaded.Gizmos.NormalLength == 0.25f);
+    CHECK(!loaded.Gizmos.NormalsFacingOnly && loaded.Gizmos.NormalsByDirection);
+    // Older files: the defaults (normals off, overlay hidden).
+    EditorViewSettings old;
+    CHECK(old.FromJson("{\"ZaminEditorView\": 1, \"Gizmos\": {\"Bounds\": \"All\"}}"));
+    CHECK(old.Gizmos.Normals == GizmoVisibility::Off && old.Gizmos.NormalLength == 0.1f && !old.StatsOverlay.Visible);
+    // Out of range values come back into range.
+    EditorViewSettings wild;
+    CHECK(wild.FromJson("{\"ZaminEditorView\": 1, \"StatsOverlay\": {\"TargetFPS\": 5000, \"Opacity\": 0, \"Corner\": \"Middle\"},"
+                        " \"Gizmos\": {\"NormalLength\": -3, \"Normals\": \"Sometimes\"}}"));
+    CHECK(wild.StatsOverlay.TargetFPS == ViewportStatsOverlaySettings::MaxTargetFPS);
+    CHECK(wild.StatsOverlay.Opacity == ViewportStatsOverlaySettings::MinOpacity && wild.StatsOverlay.Corner == OverlayCorner::TopRight);
+    CHECK(wild.Gizmos.NormalLength == EditorGizmoSettings::MinNormalLength && wild.Gizmos.Normals == GizmoVisibility::Off);
+    EditorGizmoSettings g;
+    g.NormalLength = std::numeric_limits<float>::quiet_NaN();
+    g.Sanitize();
+    CHECK(g.NormalLength == 0.1f);
+    g.NormalLength = 1e9f;
+    g.Sanitize();
+    CHECK(g.NormalLength == EditorGizmoSettings::MaxNormalLength);
+
+    // Frame times against the target: within it (5% slack), up to twice it, slower.
+    ViewportStatsOverlaySettings rate;
+    CHECK_NEAR(rate.GetBudgetMilliseconds(), 16.6667f, 1e-3f);
+    CHECK(rate.Rate(8.0f) == 0 && rate.Rate(17.4f) == 0 && rate.Rate(20.0f) == 1 && rate.Rate(33.3f) == 1 && rate.Rate(40.0f) == 2);
+    CHECK(rate.Rate(std::numeric_limits<float>::quiet_NaN()) == 2);
+    rate.TargetFPS = 30.0f;
+    CHECK(rate.Rate(20.0f) == 0 && rate.Rate(40.0f) == 1);
+
+    // Short counts for the overlay.
+    CHECK(RenderStatistics::FormatCount(0) == "0" && RenderStatistics::FormatCount(999) == "999");
+    CHECK(RenderStatistics::FormatCount(1000) == "1.00K" && RenderStatistics::FormatCount(1234) == "1.23K");
+    CHECK(RenderStatistics::FormatCount(12345) == "12.3K" && RenderStatistics::FormatCount(123456) == "123K");
+    CHECK(RenderStatistics::FormatCount(999999) == "1.00M" && RenderStatistics::FormatCount(1240000) == "1.24M");
+    CHECK(RenderStatistics::FormatCount(2100000000ull) == "2.10B");
+}
+
+TEST(VertexNormalLines)
+{
+    std::vector<MeshVertex> vertices;
+    std::vector<uint32_t> indices;
+    MeshLibrary::GeneratePrimitive(PrimitiveMesh::Cube, vertices, indices);
+    const MeshGeometry cube = MeshGeometry::FromVertices(vertices);
+    CHECK(cube.GetVertexCount() == vertices.size() && !cube.IsSkinned() && cube.Normals.size() == vertices.size());
+
+    // Every vertex: a line along its normal, Length long.
+    std::vector<NormalLine> lines;
+    NormalLineOptions options;
+    options.Length = 0.2f;
+    CHECK(AppendNormalLines(cube, glm::mat4(1.0f), nullptr, options, lines) == vertices.size());
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        CHECK(lines[i].From == vertices[i].Position);
+        CHECK_NEAR(glm::length(lines[i].To - lines[i].From), 0.2f, 1e-5f);
+        CHECK(glm::length(lines[i].Normal - vertices[i].Normal) < 1e-5f);
+    }
+
+    // Placed by the transform: positions moved and scaled, normals by the inverse transpose.
+    MeshGeometry slope;
+    slope.Positions = { { 1, 0, 0 } };
+    slope.Normals = { glm::normalize(glm::vec3(1, 1, 0)) };
+    lines.clear();
+    const glm::mat4 transform = glm::translate(glm::mat4(1.0f), { 0, 5, 0 }) * glm::scale(glm::mat4(1.0f), { 2, 1, 1 });
+    CHECK(AppendNormalLines(slope, transform, nullptr, options, lines) == 1);
+    CHECK(glm::length(lines[0].From - glm::vec3(2, 5, 0)) < 1e-5f);
+    CHECK(glm::length(lines[0].Normal - glm::normalize(glm::vec3(0.5f, 1.0f, 0.0f))) < 1e-5f); // the stretched slope is flatter
+    CHECK_NEAR(glm::length(lines[0].To - lines[0].From), 0.2f, 1e-5f);
+
+    // Facing the camera only: a camera in front of the +Z face sees its normals only.
+    size_t front = 0;
+    for (const MeshVertex& v : vertices)
+        if (v.Normal.z > 0.5f)
+            front++;
+    lines.clear();
+    options.FacingOnly = true;
+    options.CameraPosition = { 0, 0, 5 };
+    CHECK(AppendNormalLines(cube, glm::mat4(1.0f), nullptr, options, lines) == front && front > 0);
+    for (const NormalLine& l : lines)
+        CHECK(l.Normal.z > 0.99f);
+    // Orthographic: by the view direction alone.
+    lines.clear();
+    options.Orthographic = true;
+    options.CameraPosition = { 0, 0, -100 }; // ignored
+    options.CameraForward = { 0, 0, -1 };
+    CHECK(AppendNormalLines(cube, glm::mat4(1.0f), nullptr, options, lines) == front);
+    options.FacingOnly = options.Orthographic = false;
+
+    // At most MaxLines in `out`: an even sample of the vertices.
+    lines.assign(3, NormalLine{});
+    options.MaxLines = 8;
+    size_t added = AppendNormalLines(cube, glm::mat4(1.0f), nullptr, options, lines);
+    CHECK(added > 0 && added <= 5 && lines.size() <= 8);
+    CHECK(AppendNormalLines(cube, glm::mat4(1.0f), nullptr, options, lines) == 0 || lines.size() <= 8);
+    options.MaxLines = 50000;
+
+    // Skinned: posed like the mesh shader (weighted joint matrices); no matrices: the mesh as it is.
+    MeshGeometry skinned;
+    skinned.Positions = { { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 } };
+    skinned.Normals = { { 1, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 } };
+    skinned.Joints = { { 0, 0, 0, 0 }, { 0, 1, 0, 0 }, { 7, 0, 0, 0 } };
+    skinned.Weights = { { 1, 0, 0, 0 }, { 0.5f, 0.5f, 0, 0 }, { 1, 0, 0, 0 } };
+    CHECK(skinned.IsSkinned());
+    const std::vector<glm::mat4> joints = { glm::translate(glm::mat4(1.0f), { 0, 1, 0 }),
+                                            glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0, 0, 1)) };
+    lines.clear();
+    CHECK(AppendNormalLines(skinned, glm::mat4(1.0f), &joints, options, lines) == 3);
+    CHECK(glm::length(lines[0].From - glm::vec3(1, 1, 0)) < 1e-5f && glm::length(lines[0].Normal - glm::vec3(1, 0, 0)) < 1e-5f);
+    CHECK(glm::length(lines[1].From - glm::vec3(0.5f, 1.0f, 0.0f)) < 1e-5f);                          // halfway between
+    CHECK(glm::length(lines[1].Normal - glm::normalize(glm::vec3(1, 1, 0))) < 1e-5f);
+    CHECK(glm::length(lines[2].From - glm::vec3(1, 0, 0)) < 1e-5f);                                   // joint 7 missing: identity
+    lines.clear();
+    CHECK(AppendNormalLines(skinned, glm::mat4(1.0f), nullptr, options, lines) == 3);
+    CHECK(glm::length(lines[1].From - glm::vec3(1, 0, 0)) < 1e-5f);
+
+    // Nothing that cannot be drawn: zero or broken normals, positions that are not finite, no length.
+    MeshGeometry broken;
+    broken.Positions = { { 0, 0, 0 }, { std::numeric_limits<float>::infinity(), 0, 0 }, { 0, 0, 0 } };
+    broken.Normals = { { 0, 0, 0 }, { 0, 1, 0 }, { std::numeric_limits<float>::quiet_NaN(), 0, 0 } };
+    lines.clear();
+    CHECK(AppendNormalLines(broken, glm::mat4(1.0f), nullptr, options, lines) == 0 && lines.empty());
+    options.Length = 0.0f;
+    CHECK(AppendNormalLines(cube, glm::mat4(1.0f), nullptr, options, lines) == 0);
+}
+
+TEST(DebugDrawPausedFramesDoNotPileUp)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return; // a Shipping build: nothing is queued (DebugDrawShippingCheck.cpp)
+    ResetDebugDraw();
+    const auto& lines = DebugDraw::GetLines();
+    const auto& points = DebugDraw::GetPoints();
+    // A game frame: a one-frame shape and one for a second.
+    DebugDraw::Advance(0.1f);
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 }, DebugColor::Green);
+    DebugDraw::Line({ 0, 0, 0 }, { 0, 1, 0 }, DebugColor::Red, 1.0f);
+    const uint64_t frame = DebugDraw::GetFrame();
+    // Paused frames: both stay (the timed one does not count down); a one-frame shape some tool
+    // queues while paused lasts its own frame only.
+    for (int i = 0; i < 5; i++)
+    {
+        DebugDraw::Hold();
+        CHECK(DebugDraw::GetFrame() == frame + (uint64_t)i + 1);
+        CHECK(lines.size() == 2 && lines[0].Color == DebugColor::Green && lines[1].Color == DebugColor::Red);
+        DebugDraw::Line({ 0, 0, 0 }, { 0, 0, 1 }, DebugColor::Blue);
+        CHECK(lines.size() == 3 && lines[2].Frame == DebugDraw::GetFrame());
+    }
+    CHECK(lines[1].TimeLeft == 1.0f);
+    DebugDraw::Point({ 0, 0, 0 }, DebugColor::White, 0.5f); // a timed shape queued while paused keeps its time
+    DebugDraw::Hold();
+    CHECK(lines.size() == 2 && points.size() == 1 && points[0].TimeLeft == 0.5f);
+    // Game time again: every one-frame shape goes, the timed ones count down.
+    DebugDraw::Advance(0.25f);
+    CHECK(lines.size() == 1 && points.size() == 1);
+    CHECK_NEAR(lines[0].TimeLeft, 0.75f, 1e-5f);
+    CHECK_NEAR(points[0].TimeLeft, 0.25f, 1e-5f);
+    ResetDebugDraw();
+
+    // Through a paused scene: code outside the scripts drawing every frame does not pile up; a
+    // step of three frames runs the game (and the queue's clock) three frames on.
+    DebugDrawTestScript::Frames = 0;
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Drawer");
+    e.AddComponent<NativeScriptComponent>().ClassName = "DebugDrawTestScript";
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(0.1f);
+    const size_t gameShapes = lines.size(); // the script's line and its 0.5 s sphere
+    CHECK(DebugDrawTestScript::Frames == 1 && gameShapes > 60);
+    scene->SetPaused(true);
+    for (int i = 0; i < 30; i++)
+    {
+        scene->OnUpdateRuntime(0.1f);
+        DebugDraw::Line({ 0, 0, 0 }, { 0, 0, 1 }, DebugColor::Magenta);
+        CHECK(lines.size() == gameShapes + 1);
+    }
+    // The sphere's time left (its lines are the only timed ones).
+    auto sphereTime = [&]() {
+        float t = 0.0f;
+        for (const auto& l : lines)
+            t = std::max(t, l.TimeLeft);
+        return t;
+    };
+    CHECK(DebugDrawTestScript::Frames == 1);
+    CHECK_NEAR(sphereTime(), 0.5f, 1e-5f); // its clock stood still
+    scene->Step(3);
+    for (int i = 0; i < 3; i++)
+        scene->OnUpdateRuntime(0.1f);
+    CHECK(DebugDrawTestScript::Frames == 4 && lines.size() == gameShapes);
+    CHECK_NEAR(sphereTime(), 0.2f, 1e-4f);
+    scene->OnUpdateRuntime(0.1f); // paused again
+    CHECK(DebugDrawTestScript::Frames == 4 && lines.size() == gameShapes);
+    CHECK_NEAR(sphereTime(), 0.2f, 1e-4f);
+    scene->OnRuntimeStop();
+    CHECK(lines.empty());
+    ResetDebugDraw();
+}
+
+TEST(DebugDrawQueueLimitsAndShortDurations)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return; // a Shipping build: nothing is queued (DebugDrawShippingCheck.cpp)
+    ResetDebugDraw();
+    const auto& lines = DebugDraw::GetLines();
+    // Shorter than a frame: still drawn in the frame it was queued in (the queue is drawn before
+    // the next frame's Advance), gone after it.
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 }, DebugColor::White, 0.001f);
+    CHECK(lines.size() == 1 && lines[0].TimeLeft == 0.001f);
+    DebugDraw::Advance(1.0f / 60.0f);
+    CHECK(lines.empty());
+    // One second at 60 frames per second: drawn in 60 frames.
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 }, DebugColor::White, 1.0f);
+    for (int i = 0; i < 59; i++)
+        DebugDraw::Advance(1.0f / 60.0f);
+    CHECK(lines.size() == 1);
+    DebugDraw::Advance(1.0f / 60.0f);
+    CHECK(lines.empty());
+    // A frame without game time ages nothing but the one-frame shapes.
+    DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 }, DebugColor::White, 0.5f);
+    DebugDraw::Advance(0.0f);
+    CHECK(lines.size() == 1 && lines[0].TimeLeft == 0.5f);
+    DebugDraw::Clear();
+
+    // Full queues drop what does not fit (lines and points; texts: DebugDrawDurations); Clear
+    // makes room again.
+    for (size_t i = 0; i < DebugDraw::MaxLines + 10; i++)
+        DebugDraw::Line({ 0, 0, 0 }, { 1, 0, 0 }, DebugColor::White, 5.0f);
+    CHECK(lines.size() == DebugDraw::MaxLines);
+    DebugDraw::Box({ 0, 0, 0 }, { 1, 1, 1 });
+    CHECK(lines.size() == DebugDraw::MaxLines);
+    for (size_t i = 0; i < DebugDraw::MaxPoints + 3; i++)
+        DebugDraw::Point({ 0, 0, 0 });
+    CHECK(DebugDraw::GetPoints().size() == DebugDraw::MaxPoints);
+    DebugDraw::Clear();
+    DebugDraw::Box({ 0, 0, 0 }, { 1, 1, 1 });
+    DebugDraw::Point({ 0, 0, 0 });
+    CHECK(lines.size() == 12 && DebugDraw::GetPoints().size() == 1);
+    // One-frame and timed shapes mixed: only the one-frame ones go at the next frame, in order.
+    DebugDraw::Clear();
+    for (int i = 0; i < 6; i++)
+        DebugDraw::Line({ (float)i, 0, 0 }, { (float)i, 1, 0 }, DebugColor::White, i % 2 ? 1.0f : 0.0f);
+    DebugDraw::Advance(0.1f);
+    CHECK(lines.size() == 3 && lines[0].From.x == 1.0f && lines[1].From.x == 3.0f && lines[2].From.x == 5.0f);
+    ResetDebugDraw();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

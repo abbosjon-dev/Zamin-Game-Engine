@@ -44,6 +44,8 @@ namespace Zamin {
             std::vector<DebugDrawText> Texts;
             DebugDrawSettings Settings;
             bool WarnedFull = false;
+            uint64_t Frame = 1;     // the frame shapes are queued in now
+            uint64_t GameFrame = 1; // the last frame Advance started (with game time)
         };
 
         DebugDrawState& State()
@@ -75,7 +77,7 @@ namespace Zamin {
             DebugDrawState& s = State();
             if (!s.Settings.Enabled || !Finite(a) || !Finite(b) || !HasRoom(s.Lines.size(), DebugDraw::MaxLines))
                 return;
-            s.Lines.push_back({ a, b, color, Duration(duration), depthTest });
+            s.Lines.push_back({ a, b, color, Duration(duration), depthTest, s.Frame });
         }
 
         // Two unit axes perpendicular to `dir` (and to each other).
@@ -240,7 +242,7 @@ namespace Zamin {
         if (!s.Settings.Enabled || !Finite(position) || !HasRoom(s.Points.size(), MaxPoints))
             return;
         float size = std::isfinite(sizePixels) && sizePixels > 0.0f ? sizePixels : 0.0f;
-        s.Points.push_back({ position, color, size, Duration(duration), depthTest });
+        s.Points.push_back({ position, color, size, Duration(duration), depthTest, s.Frame });
     }
 
     void DebugDraw::Axes(const glm::mat4& transform, float size, float duration, bool depthTest)
@@ -317,7 +319,7 @@ namespace Zamin {
         if (!s.Settings.Enabled || text.empty() || !Finite(position) || !HasRoom(s.Texts.size(), MaxTexts))
             return;
         float size = std::isfinite(sizePixels) && sizePixels > 0.0f ? sizePixels : 0.0f;
-        s.Texts.push_back({ position, std::string(text), color, size, Duration(duration), depthTest });
+        s.Texts.push_back({ position, std::string(text), color, size, Duration(duration), depthTest, s.Frame });
     }
 
     // ------------------------------------------------------------------ physics
@@ -434,7 +436,26 @@ namespace Zamin {
         AgeItems(s.Lines, dt);
         AgeItems(s.Points, dt);
         AgeItems(s.Texts, dt);
+        s.GameFrame = ++s.Frame;
     }
+
+    // One-frame shapes not queued in the last game frame go; everything else stays as it is.
+    template<typename T>
+    static void DropPausedFrameItems(std::vector<T>& items, uint64_t gameFrame)
+    {
+        std::erase_if(items, [&](const T& item) { return item.TimeLeft <= 0.0f && item.Frame != gameFrame; });
+    }
+
+    void DebugDraw::Hold()
+    {
+        DebugDrawState& s = State();
+        DropPausedFrameItems(s.Lines, s.GameFrame);
+        DropPausedFrameItems(s.Points, s.GameFrame);
+        DropPausedFrameItems(s.Texts, s.GameFrame);
+        s.Frame++;
+    }
+
+    uint64_t DebugDraw::GetFrame() { return State().Frame; }
 
     void DebugDraw::Clear()
     {

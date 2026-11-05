@@ -2,6 +2,7 @@
 
 #include "Zamin/Core/Base.h"
 #include "Zamin/Core/Layer.h"
+#include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/Window.h"
 
 #include <filesystem>
@@ -49,6 +50,9 @@ namespace Zamin {
         const ApplicationSpecification& GetSpecification() const { return m_Specification; }
         float GetFPS() const { return m_FPS; }
         float GetFrameTime() const { return m_FrameTimeMs; }
+        // The real time of each of the last frames (ms, not limited like the timestep): the
+        // editor viewport's FPS graph.
+        const FrameTimeHistory& GetFrameTimeHistory() const { return m_FrameTimes; }
 
         // Run a function on the main thread at the start of the next frame.
         void SubmitToMainThread(const std::function<void()>& fn);
@@ -73,6 +77,7 @@ namespace Zamin {
         float m_FPS = 0.0f;
         float m_FrameTimeMs = 0.0f;
         uint64_t m_FrameCount = 0;
+        FrameTimeHistory m_FrameTimes;
 
         std::vector<std::function<void()>> m_MainThreadQueue;
         std::mutex m_MainThreadQueueMutex;

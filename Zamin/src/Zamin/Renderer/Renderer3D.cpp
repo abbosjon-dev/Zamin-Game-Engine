@@ -1,4 +1,5 @@
 #include "Zamin/Renderer/Renderer3D.h"
+#include "Zamin/Core/Profiler.h"
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Renderer/Shader.h"
 #include "Zamin/Renderer/Framebuffer.h"
@@ -1289,6 +1290,7 @@ void main()
         // ---------------- shadow pass (cascades rendered into tiles of the atlas)
         if (shadows)
         {
+            ZM_PROFILE_SCOPE("Soyalar");
             if (s_Data->ShadowMapSize != shadowSettings.AtlasSize)
             {
                 s_Data->ShadowMapSize = shadowSettings.AtlasSize;
@@ -1382,6 +1384,7 @@ void main()
         // ---------------- main pass
         if (!s_Data->Queue.empty())
         {
+          ZM_PROFILE_SCOPE("Asosiy o'tish (opaque)");
           const LocalLightArrays localLights = PackLocalLights(env);
           const ExtraSunArrays extraSuns = PackExtraSuns(env);
           for (auto& shader : { s_Data->MeshShader, s_Data->SkinnedMeshShader, s_Data->InstancedMeshShader })
@@ -1516,6 +1519,7 @@ void main()
         // ---------------- sky (drawn behind everything, depth = far plane)
         if (env.DrawSky)
         {
+            ZM_PROFILE_SCOPE("Osmon");
             RenderCommand::SetDepthWrite(false);
             auto& sky = s_Data->SkyShader;
             sky->Bind();
@@ -1564,6 +1568,7 @@ void main()
         // ---------------- transparent surfaces: over the opaque scene and the sky, by priority and
         // back to front (by the center of their bounds), depth tested but not written (what is
         // behind them stays visible). Output is premultiplied by alpha.
+        ZM_PROFILE_SCOPE("Shaffof sirtlar");
         std::vector<TransparentSortItem> sortItems;
         std::vector<size_t> transparent;
         s_Data->LastTransparent.clear();

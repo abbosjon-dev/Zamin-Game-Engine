@@ -120,6 +120,14 @@ namespace Zamin {
         BoundsSpace BoundsMode = BoundsSpace::Local;
         GizmoVisibility Skeletons = GizmoVisibility::Selected;
         bool JointNames = false;                           // the joints' names next to them
+        // Vertex normals of meshes and models (skinned ones in their pose): a line from each
+        // vertex along its normal, NormalLength world units long.
+        GizmoVisibility Normals = GizmoVisibility::Off;
+        float NormalLength = 0.1f;
+        bool NormalsFacingOnly = true;                     // only the normals on the side facing the camera
+        bool NormalsByDirection = false;                   // coloured by direction (as the normals view) instead of blue
+
+        static constexpr float MinNormalLength = 0.001f, MaxNormalLength = 100.0f;
 
         static const char* GetBoundsKey(BoundsSpace space);  // "Local" / "World" / "Both"
         static BoundsSpace BoundsFromKey(const std::string& key, BoundsSpace fallback);
@@ -131,6 +139,37 @@ namespace Zamin {
         }
         static const char* GetKey(GizmoVisibility visibility);           // "Off" / "Selected" / "All"
         static GizmoVisibility FromKey(const std::string& key, GizmoVisibility fallback);
+        // NormalLength brought into range (not finite: the default).
+        void Sanitize();
+    };
+
+    // Where an overlay sits in the editor viewport.
+    enum class OverlayCorner { TopLeft = 0, TopRight, BottomLeft, BottomRight };
+
+    // The statistics overlay over the editor viewport (never in the player): the frame rate and a
+    // graph of the last frames' times, what the scene drew (draw calls, triangles, meshes, 2D
+    // objects), what frustum culling skipped and the slowest profiler scopes.
+    struct ViewportStatsOverlaySettings
+    {
+        bool Visible = false;
+        bool FrameGraph = true;
+        bool DrawCalls = true;
+        bool Culling = true;
+        bool Hotspots = false;          // the profiler scopes that took the most time themselves
+        OverlayCorner Corner = OverlayCorner::TopRight;
+        float Opacity = 0.85f;          // of the background
+        float TargetFPS = 60.0f;        // the graph's budget line and the colours of the numbers
+
+        static constexpr float MinTargetFPS = 10.0f, MaxTargetFPS = 360.0f;
+        static constexpr float MinOpacity = 0.2f;
+
+        // The frame time the target allows (ms).
+        float GetBudgetMilliseconds() const { return 1000.0f / TargetFPS; }
+        // How a frame time compares to the budget: 0 within it (5% slack), 1 up to twice it, 2 slower.
+        int Rate(float milliseconds) const;
+        static const char* GetCornerKey(OverlayCorner corner); // "TopLeft" ...
+        static OverlayCorner CornerFromKey(const std::string& key, OverlayCorner fallback);
+        void Sanitize();
     };
 
     // Where the editor camera looks from (EditorCamera::GetViewState / SetViewState).
@@ -201,7 +240,7 @@ namespace Zamin {
     };
 
     // Per-user viewport preferences of the editor: snapping, grid, the transform gizmo's size, the
-    // selection outline, debug drawing, gizmos, the camera bookmarks of every scene (keyed by the
+    // selection outline, debug drawing, gizmos, the statistics overlay, the camera bookmarks of every scene (keyed by the
     // scene file path), the inspector's open / collapsed component headers and the content
     // browser's view. Stored as JSON in the editor config directory.
     struct EditorViewSettings
@@ -213,6 +252,7 @@ namespace Zamin {
         // What the viewport shows of DebugDraw (scripts' shapes, physics raycasts / contacts).
         DebugDrawSettings DebugDraw;
         EditorGizmoSettings Gizmos;
+        ViewportStatsOverlaySettings StatsOverlay;
         std::map<std::string, CameraBookmarks> Bookmarks;
         InspectorFoldState Inspector;
         ContentBrowserSettings ContentBrowser;

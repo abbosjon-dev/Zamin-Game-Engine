@@ -157,11 +157,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 133. Hover qilingan obyekt kontur bilan ajratiladi
 - [x] 134. Bounding box ko'rsatish rejimi
 - [x] 135. Skelet suyaklarini chizish (animatsiya debug)
-- [ ] 136. Normal vektorlarini ko'rsatish (debug)
-- [ ] 137. FPS grafigi overlay viewport'da
-- [ ] 138. Draw call va uchburchaklar overlay
-- [ ] 139. Profiler'da ichki bo'limlar (ierarxik)
-- [ ] 140. Debug draw testlari
+- [x] 136. Normal vektorlarini ko'rsatish (debug)
+- [x] 137. FPS grafigi overlay viewport'da
+- [x] 138. Draw call va uchburchaklar overlay
+- [x] 139. Profiler'da ichki bo'limlar (ierarxik)
+- [x] 140. Debug draw testlari
 
 ## M08 2D yaxshilanishlar
 

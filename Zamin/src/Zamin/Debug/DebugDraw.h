@@ -82,13 +82,14 @@ namespace Zamin {
     };
 
     // What is queued (DebugDraw::GetLines / GetPoints / GetTexts). TimeLeft: seconds of game time
-    // still to go; 0 = only until the game's next frame.
+    // still to go; 0 = only until the game's next frame. Frame: the queue's frame it was added in.
     struct DebugDrawLine
     {
         glm::vec3 From{ 0.0f }, To{ 0.0f };
         glm::vec4 Color{ 1.0f };
         float TimeLeft = 0.0f;
         bool DepthTest = true;
+        uint64_t Frame = 0;
     };
 
     struct DebugDrawPoint
@@ -98,6 +99,7 @@ namespace Zamin {
         float Size = 0.0f; // pixels (0: DebugDrawSettings::PointSize)
         float TimeLeft = 0.0f;
         bool DepthTest = true;
+        uint64_t Frame = 0;
     };
 
     struct DebugDrawText
@@ -108,6 +110,7 @@ namespace Zamin {
         float Size = 0.0f; // pixels (0: DebugDrawSettings::TextSize)
         float TimeLeft = 0.0f;
         bool DepthTest = false;
+        uint64_t Frame = 0;
     };
 
     // The view the queue is drawn into (DebugDraw::Render).
@@ -220,6 +223,12 @@ namespace Zamin {
         // Game time went on by `deltaTime` seconds (Scene: every frame that is not paused, the
         // edit scene every frame): one-frame shapes from the frame before go, the others count down.
         static void Advance(float deltaTime);
+        // A frame without game time (the game is paused): what the last game frame drew stays on
+        // screen (one-frame shapes too, the others do not count down), while one-frame shapes
+        // queued in an earlier paused frame (tools, UI code) go - they do not pile up.
+        static void Hold();
+        // Frames the queue has seen (Advance and Hold each start one).
+        static uint64_t GetFrame();
         static void Clear();
         static const std::vector<DebugDrawLine>& GetLines();
         static const std::vector<DebugDrawPoint>& GetPoints();
@@ -283,6 +292,8 @@ namespace Zamin {
             static bool IsShowingBodyVelocities() { return false; }
 
             static void Advance(float) {}
+            static void Hold() {}
+            static uint64_t GetFrame() { return 0; }
             static void Clear() {}
             static const std::vector<DebugDrawLine>& GetLines() { static const std::vector<DebugDrawLine> none; return none; }
             static const std::vector<DebugDrawPoint>& GetPoints() { static const std::vector<DebugDrawPoint> none; return none; }

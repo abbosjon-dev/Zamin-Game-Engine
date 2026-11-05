@@ -46,6 +46,18 @@ namespace Zamin {
         const BufferLayout& GetLayout() const override { return m_Layout; }
         void SetLayout(const BufferLayout& layout) override { m_Layout = layout; }
 
+        uint32_t GetSize() const override { return m_Size; }
+
+        bool GetData(void* out, uint32_t size, uint32_t offset) const override
+        {
+            if (!out || (uint64_t)offset + size > m_Size)
+                return false;
+            // GL_ARRAY_BUFFER is not part of a vertex array's state: binding it changes no VAO.
+            glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
+            glGetBufferSubData(GL_ARRAY_BUFFER, offset, size, out);
+            return true;
+        }
+
     private:
         uint32_t m_RendererID = 0;
         uint32_t m_Size = 0;

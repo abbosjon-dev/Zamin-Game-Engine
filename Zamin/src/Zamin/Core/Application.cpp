@@ -106,6 +106,8 @@ namespace Zamin {
             float time = (float)glfwGetTime();
             Timestep timestep = time - m_LastFrameTime;
             m_LastFrameTime = time;
+            if (m_FrameCount > 0)
+                m_FrameTimes.Push(timestep.GetMilliseconds());
             if (timestep > 0.1f) // avoid huge steps after stalls (e.g. window drag)
                 timestep = 0.1f;
 
@@ -137,15 +139,23 @@ namespace Zamin {
                 {
                     ZM_PROFILE_SCOPE("UI (ImGui)");
                     m_ImGuiLayer->Begin();
-                    for (Layer* layer : m_LayerStack)
-                        layer->OnImGuiRender();
+                    {
+                        ZM_PROFILE_SCOPE("Layer'lar (UI)");
+                        for (Layer* layer : m_LayerStack)
+                            layer->OnImGuiRender();
+                    }
+                    ZM_PROFILE_SCOPE("ImGui chizish");
                     m_ImGuiLayer->End();
                 }
             }
 
             m_FrameCount++;
             HandleAutomation();
-            m_Window->OnUpdate();
+            {
+                // Swapping the buffers (waits for vsync) and the window's events.
+                ZM_PROFILE_SCOPE("Oyna (swap, hodisalar)");
+                m_Window->OnUpdate();
+            }
         }
     }
 

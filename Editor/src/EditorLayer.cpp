@@ -207,7 +207,10 @@ namespace Zamin {
     {
         // ZAMIN_EDITOR_STATS: the last frame's numbers in the log as well (automation / CI).
         if (std::getenv("ZAMIN_EDITOR_STATS"))
+        {
             ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
+            ZM_INFO("Profiler (oxirgi kadr, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
+        }
         m_AssetHotReload.Stop();
         SaveAssetRegistryCache(true);
         if (m_SceneState != SceneState::Edit)
@@ -331,8 +334,8 @@ namespace Zamin {
                 if (v.find("menu") != std::string_view::npos) m_OpenDebugDrawMenu = true;
             }
             // ZAMIN_EDITOR_GIZMOS=off | selected | all | frustums=all,lights=off,audio=selected,bounds=all,
-            // space=local|world|both,skeleton=all,names,menu: the component visualisations (for this session;
-            // not saved unless the settings change).
+            // space=local|world|both,skeleton=all,names,normals=selected,normallength=0.2,bydirection,bothsides,
+            // menu: the component visualisations (for this session; not saved unless the settings change).
             if (const char* gizmos = std::getenv("ZAMIN_EDITOR_GIZMOS"))
             {
                 std::string_view v(gizmos);
@@ -346,9 +349,14 @@ namespace Zamin {
                     g.CameraFrustums = g.LightDirections = g.AudioRanges = parse(v);
                 for (auto [key, target] : { std::pair<std::string_view, GizmoVisibility*>{ "frustums=", &g.CameraFrustums },
                                             { "lights=", &g.LightDirections }, { "audio=", &g.AudioRanges },
-                                            { "bounds=", &g.Bounds }, { "skeleton=", &g.Skeletons } })
+                                            { "bounds=", &g.Bounds }, { "skeleton=", &g.Skeletons }, { "normals=", &g.Normals } })
                     if (size_t at = v.find(key); at != std::string_view::npos)
                         *target = parse(v.substr(at + key.size()));
+                if (size_t at = v.find("normallength="); at != std::string_view::npos)
+                    g.NormalLength = (float)std::atof(std::string(v.substr(at + 13)).c_str());
+                if (v.find("bydirection") != std::string_view::npos) g.NormalsByDirection = true;
+                if (v.find("bothsides") != std::string_view::npos) g.NormalsFacingOnly = false;
+                g.Sanitize();
                 if (size_t at = v.find("space="); at != std::string_view::npos)
                 {
                     std::string_view space = v.substr(at + 6);
@@ -397,6 +405,35 @@ namespace Zamin {
                 o.Sanitize();
                 if (v.find("menu") != std::string_view::npos) m_OpenGizmosMenu = true;
             }
+            // ZAMIN_EDITOR_OVERLAY=0 | 1 | graph=0,calls=0,culling=0,hotspots,corner=tl|tr|bl|br,target=144,menu:
+            // the viewport's statistics overlay (for this session; not saved unless the settings change).
+            if (const char* overlay = std::getenv("ZAMIN_EDITOR_OVERLAY"))
+            {
+                std::string_view v(overlay);
+                auto& o = m_ViewSettings.StatsOverlay;
+                o.Visible = v != "0";
+                auto flag = [&](std::string_view key, bool& out) {
+                    if (size_t at = v.find(key); at != std::string_view::npos)
+                        out = v.substr(at + key.size()).substr(0, 1) != "0";
+                };
+                flag("graph=", o.FrameGraph);
+                flag("calls=", o.DrawCalls);
+                flag("culling=", o.Culling);
+                if (v.find("hotspots") != std::string_view::npos) o.Hotspots = true;
+                if (size_t at = v.find("corner="); at != std::string_view::npos)
+                {
+                    std::string_view c = v.substr(at + 7, 2);
+                    o.Corner = c == "tl" ? OverlayCorner::TopLeft : c == "bl" ? OverlayCorner::BottomLeft
+                             : c == "br" ? OverlayCorner::BottomRight : OverlayCorner::TopRight;
+                }
+                if (size_t at = v.find("target="); at != std::string_view::npos)
+                    o.TargetFPS = (float)std::atof(std::string(v.substr(at + 7)).c_str());
+                o.Sanitize();
+                if (v.find("menu") != std::string_view::npos) m_OpenStatsOverlayMenu = true;
+            }
+            // ZAMIN_EDITOR_PROFILER=1: the profiler's own window opens.
+            if (const char* profiler = std::getenv("ZAMIN_EDITOR_PROFILER"))
+                m_ShowProfiler = std::string_view(profiler) != "0";
             // ZAMIN_EDITOR_HOVER=<entity name>: the hover outline marks it as if the mouse were over it.
             if (const char* hover = std::getenv("ZAMIN_EDITOR_HOVER"))
                 m_ForcedHover = hover;
@@ -814,21 +851,26 @@ namespace Zamin {
         }
 
         uint64_t scenesDrawn = Renderer3D::GetEndSceneCount();
-        switch (m_SceneState)
         {
-            case SceneState::Edit:
-                UpdateTilePainting();
-                m_EditorCamera.OnUpdate(ts, cameraInput);
-                m_ActiveScene->OnUpdateEditor(ts, m_EditorCamera, options);
-                break;
-            case SceneState::Simulate:
-                m_EditorCamera.OnUpdate(ts, cameraInput);
-                m_ActiveScene->OnUpdateSimulation(ts, m_EditorCamera, options);
-                break;
-            case SceneState::Play:
-                m_ActiveScene->OnUpdateRuntime(ts);
-                break;
+            ZM_PROFILE_SCOPE("Sahna");
+            switch (m_SceneState)
+            {
+                case SceneState::Edit:
+                    UpdateTilePainting();
+                    m_EditorCamera.OnUpdate(ts, cameraInput);
+                    m_ActiveScene->OnUpdateEditor(ts, m_EditorCamera, options);
+                    break;
+                case SceneState::Simulate:
+                    m_EditorCamera.OnUpdate(ts, cameraInput);
+                    m_ActiveScene->OnUpdateSimulation(ts, m_EditorCamera, options);
+                    break;
+                case SceneState::Play:
+                    m_ActiveScene->OnUpdateRuntime(ts);
+                    break;
+            }
         }
+        // What the scene drew (the overlay shows it apart from the editor's own drawing on top).
+        m_SceneStats = Renderer::GetStats();
         if (m_OutlineCaptured)
             Renderer3D::EndCapture();
         // The order the scene's transparent surfaces were just drawn in (the overlay shows it);
@@ -857,6 +899,7 @@ namespace Zamin {
         int mouseX = (int)mx, mouseY = (int)my;
         if (mouseX >= 0 && mouseY >= 0 && mouseX < (int)viewportSize.x && mouseY < (int)viewportSize.y)
         {
+            ZM_PROFILE_SCOPE("ID o'qish (sichqoncha)");
             glm::ivec2 render = ViewportToRenderPixel({ mouseX, mouseY });
             int pixel = m_Framebuffer->ReadPixel(1, render.x, render.y);
             m_HoveredEntity = pixel == -1 ? Entity() : Entity((entt::entity)pixel, m_ActiveScene.get());
@@ -888,7 +931,10 @@ namespace Zamin {
         m_FinalFramebuffer->Bind();
         RenderSelectionOutline();
         RenderDebugDraw();
-        OnOverlayRender();
+        {
+            ZM_PROFILE_SCOPE("Editor overlay (gizmolar)");
+            OnOverlayRender();
+        }
         m_FinalFramebuffer->Unbind();
     }
 
@@ -1385,6 +1431,7 @@ namespace Zamin {
             }
 
         DrawBoundingBoxes(hidden);
+        DrawVertexNormals(view, hidden);
         DrawSkeletons(view, hidden);
     }
 
@@ -1524,6 +1571,83 @@ namespace Zamin {
                                           skeleton.Joints[i].Name, selected });
             }
         }
+    }
+
+    // The most vertex normals drawn in a frame (all entities together): a mesh with more vertices
+    // than are left gets an even sample of them.
+    static constexpr size_t MaxVertexNormalLines = 60000;
+
+    void EditorLayer::DrawVertexNormals(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden)
+    {
+        m_NormalLinesDrawn = 0;
+        m_NormalLinesLimited = false;
+        const EditorGizmoSettings& gizmos = m_ViewSettings.Gizmos;
+        if (gizmos.Normals == GizmoVisibility::Off)
+            return;
+        Scene& scene = *m_ActiveScene;
+        NormalLineOptions options;
+        options.Length = gizmos.NormalLength;
+        options.MaxLines = MaxVertexNormalLines;
+        options.FacingOnly = gizmos.NormalsFacingOnly;
+        options.Orthographic = !view.IsPerspective();
+        options.CameraPosition = view.Position;
+        options.CameraForward = view.Forward;
+        std::vector<NormalLine> lines;
+        std::vector<glm::mat4> bindPose;
+        size_t vertices = 0;
+        for (auto e : scene.GetAllEntitiesWith<MeshRendererComponent>())
+        {
+            if (!ShowsGizmo(e, gizmos.Normals, hidden))
+                continue;
+            Entity entity{ e, &scene };
+            const auto& mr = entity.GetComponent<MeshRendererComponent>();
+            const glm::mat4 world = scene.GetWorldTransform(entity);
+            const size_t first = lines.size();
+            if (mr.Type == PrimitiveMesh::Model)
+            {
+                if (!mr.ModelAsset)
+                    continue;
+                // The pose the model was drawn in: its animator's, else the bind pose (as the scene draws it).
+                const std::vector<glm::mat4>* joints = nullptr;
+                if (mr.ModelAsset->IsSkinned())
+                {
+                    const auto* anim = entity.TryGetComponent<AnimatorComponent>();
+                    if (anim && !anim->JointMatrices.empty())
+                        joints = &anim->JointMatrices;
+                    else
+                    {
+                        EvaluatePose(mr.ModelAsset->GetSkeleton(), nullptr, 0.0f, bindPose);
+                        joints = &bindPose;
+                    }
+                }
+                for (const auto& sub : mr.ModelAsset->GetSubMeshes())
+                    if (sub.MeshRef)
+                    {
+                        const MeshGeometry& geometry = sub.MeshRef->GetGeometry();
+                        vertices += geometry.GetVertexCount();
+                        AppendNormalLines(geometry, world, sub.MeshRef->IsSkinned() ? joints : nullptr, options, lines);
+                    }
+            }
+            else
+            {
+                Ref<Mesh> mesh = mr.MeshAsset ? mr.MeshAsset : MeshLibrary::GetPrimitive(mr.Type);
+                if (!mesh)
+                    continue;
+                const MeshGeometry& geometry = mesh->GetGeometry();
+                vertices += geometry.GetVertexCount();
+                AppendNormalLines(geometry, world, nullptr, options, lines);
+            }
+            // Selected: full colour; the others ("all") fainter.
+            const float alpha = m_SceneHierarchyPanel.IsSelected(entity) ? 0.95f : 0.5f;
+            for (size_t i = first; i < lines.size(); i++)
+            {
+                const NormalLine& l = lines[i];
+                const glm::vec3 rgb = gizmos.NormalsByDirection ? l.Normal * 0.5f + 0.5f : glm::vec3(0.35f, 0.62f, 1.0f);
+                Renderer2D::DrawLine(l.From, l.To, glm::vec4(rgb, alpha));
+            }
+        }
+        m_NormalLinesDrawn = lines.size();
+        m_NormalLinesLimited = vertices > MaxVertexNormalLines; // some meshes got a sample of their vertices
     }
 
     void EditorLayer::OnOverlayRender()
@@ -3344,6 +3468,7 @@ namespace Zamin {
         m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
         UI_Stats();
+        UI_ProfilerWindow();
         UI_Viewport();
         if (m_MaximizeOnPlay && m_SceneState == SceneState::Play)
             UI_MaximizedGame();
@@ -3530,6 +3655,7 @@ namespace Zamin {
             ImGui::MenuItem(ICON_FA_MOUNTAIN_SUN "  Sahna sozlamalari", nullptr, &m_ShowSceneSettings);
             ImGui::MenuItem(ICON_FA_GEAR "  Loyiha sozlamalari", nullptr, &m_ShowProjectSettings);
             ImGui::MenuItem(ICON_FA_CHART_LINE "  Statistika", nullptr, &m_ShowStats);
+            ImGui::MenuItem(ICON_FA_STOPWATCH "  Profiler", nullptr, &m_ShowProfiler);
             ImGui::MenuItem(ICON_FA_BROOM "  Ishlatilmagan assetlar", nullptr, &m_ShowUnusedAssets, hasProject);
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_BORDER_ALL "  Standart joylashuv")) m_LayoutInitialized = false;
@@ -3837,6 +3963,7 @@ namespace Zamin {
             dl->AddRectFilled(ImVec2(at.x - 6, at.y - 4), ImVec2(at.x + textSize.x + 6, at.y + textSize.y + 4), IM_COL32(18, 20, 24, 200), 5.0f);
             dl->AddText(at, ImGui::GetColorU32(UI::AccentColor()), label.c_str());
         }
+        UI_StatsOverlay();
         UI_ViewportToolbar();
         UI_ViewportMessage();
 
@@ -3884,6 +4011,7 @@ namespace Zamin {
         m_ViewportHovered = ImGui::IsItemHovered();
         Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
 
+        UI_StatsOverlay();
         // small stop button + hint
         ImGui::SetCursorPos(ImVec2(size.x * 0.5f - 40, 10));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.4f, 0.4f, 1));
@@ -4020,7 +4148,7 @@ namespace Zamin {
         }
 
         // ---- right: camera (frame all, bookmarks) | view options
-        float viewW = buttonSize * 8 + caretWidth * 4 + spacing * 8;
+        float viewW = buttonSize * 9 + caretWidth * 5 + spacing * 9;
         ImVec2 viewPos(width - viewW - 10, 10);
         {
             bool cameraTools = m_SceneState != SceneState::Play;
@@ -4114,6 +4242,32 @@ namespace Zamin {
                 UI_DebugDrawPopup();
             }
             ImGui::SameLine();
+            // The statistics overlay (FPS graph, draw calls, triangles, culling) + its settings.
+            {
+                auto& overlay = m_ViewSettings.StatsOverlay;
+                std::string tip = std::format("Statistika overlay: {} (o'ng tugma yoki {}: FPS grafigi, draw call, uchburchaklar, "
+                                              "culling, burchak)", overlay.Visible ? "yoqilgan" : "o'chiq", ICON_FA_CARET_DOWN);
+                if (UI::ToolbarButton(ICON_FA_GAUGE_HIGH, tip.c_str(), overlay.Visible, size))
+                {
+                    overlay.Visible = !overlay.Visible;
+                    MarkViewSettingsDirty();
+                }
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                    ImGui::OpenPopup("##StatsOverlay");
+                ImGui::SameLine(0.0f, 0.0f);
+                if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###StatsOverlayMenu", "Statistika overlay sozlamalari", false,
+                                      ImVec2(caretWidth, buttonSize)))
+                    ImGui::OpenPopup("##StatsOverlay");
+                const ImVec2 popupAnchor(ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + 8.0f);
+                if (m_OpenStatsOverlayMenu)
+                {
+                    ImGui::OpenPopup("##StatsOverlay");
+                    m_OpenStatsOverlayMenu = false;
+                }
+                ImGui::SetNextWindowPos(popupAnchor, ImGuiCond_Appearing, ImVec2(1.0f, 0.0f));
+                UI_StatsOverlayPopup();
+            }
+            ImGui::SameLine();
             // Icons + the component visualisations (camera frustums, light directions, audio radii).
             {
                 std::string tip = std::format("Ikonkalar: {} (o'ng tugma yoki {}: gizmolar - kamera frustumi, yorug'lik yo'nalishi, "
@@ -4125,7 +4279,7 @@ namespace Zamin {
                 const auto& g = m_ViewSettings.Gizmos;
                 const bool showingAll = g.CameraFrustums == GizmoVisibility::All || g.LightDirections == GizmoVisibility::All ||
                                         g.AudioRanges == GizmoVisibility::All || g.Bounds == GizmoVisibility::All ||
-                                        g.Skeletons == GizmoVisibility::All;
+                                        g.Skeletons == GizmoVisibility::All || g.Normals != GizmoVisibility::Off;
                 if (showingAll) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
                 if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###ComponentGizmosMenu", "Gizmolar: kamera frustumi, yorug'lik yo'nalishi, "
                                       "audio radiusi, chegaralar, skelet - tanlanganda yoki hammasida; tanlash konturi",
@@ -4474,6 +4628,38 @@ namespace Zamin {
             changed |= ImGui::Checkbox("Bo'g'in nomlari", &g.JointNames);
             ImGui::Unindent();
         }
+        option(ICON_FA_ARROW_UP_LONG "  Normallar", g.Normals,
+               "Mesh va model vertekslarining normallari: har verteksdan normali bo'ylab chiziq (skinned model'larda joriy "
+               "pozada). Teskari yoki noto'g'ri normallarni topish uchun");
+        if (g.Normals != GizmoVisibility::Off)
+        {
+            ImGui::Indent();
+            ImGui::SetNextItemWidth(130);
+            if (ImGui::DragFloat("Uzunligi", &g.NormalLength, std::max(0.0005f, g.NormalLength * 0.01f), EditorGizmoSettings::MinNormalLength,
+                                 EditorGizmoSettings::MaxNormalLength, "%.3g m", ImGuiSliderFlags_Logarithmic))
+            {
+                g.Sanitize();
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Normal chizig'ining uzunligi (dunyo birliklarida)");
+            ImGui::SameLine();
+            changed |= PresetButtons("normalLength", g.NormalLength, { 0.05f, 0.1f, 0.25f, 0.5f });
+            changed |= ImGui::Checkbox("Faqat kameraga qaraganlar", &g.NormalsFacingOnly);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Kameradan teskari tomonga qaragan normallar chizilmaydi (ularni odatda sirtning o'zi to'sadi)");
+            changed |= ImGui::Checkbox("Yo'nalish bo'yicha rang", &g.NormalsByDirection);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Rang normal yo'nalishidan: X - qizil, Y - yashil, Z - ko'k (normallar ko'rinish rejimidagidek)");
+            if (m_NormalLinesDrawn > 0 || m_NormalLinesLimited)
+            {
+                std::string info = std::format("{} ta chiziq", RenderStatistics::FormatCount(m_NormalLinesDrawn));
+                if (m_NormalLinesLimited)
+                    info += std::format(" (cheklov {}: vertekslar namunasi)", RenderStatistics::FormatCount(MaxVertexNormalLines));
+                ImGui::TextDisabled("%s", info.c_str());
+            }
+            ImGui::Unindent();
+        }
         return changed;
     }
 
@@ -4716,6 +4902,15 @@ namespace Zamin {
                 MarkViewSettingsDirty();
             ImGui::EndMenu();
         }
+        if (ImGui::MenuItem(ICON_FA_GAUGE_HIGH "  Statistika overlay", nullptr, &m_ViewSettings.StatsOverlay.Visible)) MarkViewSettingsDirty();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Viewport ustida: FPS grafigi va kadr vaqti, draw call'lar, uchburchaklar, culling kesganlari");
+        if (ImGui::BeginMenu(ICON_FA_SLIDERS "  Overlay sozlamalari"))
+        {
+            if (UI_StatsOverlaySettings())
+                MarkViewSettingsDirty();
+            ImGui::EndMenu();
+        }
         ImGui::MenuItem(ICON_FA_LAYER_GROUP "  Shaffoflar tartibi", nullptr, &m_ShowTransparentOrder);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Shaffof sirtlar qaysi tartibda chizilayotgani: har birining ustida raqami (1 - birinchi, eng orqadagi), "
@@ -4859,6 +5054,338 @@ namespace Zamin {
             dl->AddText(at, IM_COL32(255, 222, 140, alpha + 40), label.Name.c_str());
         }
         dl->PopClipRect();
+    }
+
+    // Colours of a frame time against the overlay's budget (ViewportStatsOverlaySettings::Rate).
+    static ImVec4 FrameRateColor(int rate)
+    {
+        switch (rate)
+        {
+            case 0: return ImVec4(0.42f, 0.85f, 0.52f, 1.0f);
+            case 1: return ImVec4(0.95f, 0.78f, 0.3f, 1.0f);
+            default: return ImVec4(0.96f, 0.4f, 0.36f, 1.0f);
+        }
+    }
+
+    void EditorLayer::UI_StatsOverlay()
+    {
+        const ViewportStatsOverlaySettings& o = m_ViewSettings.StatsOverlay;
+        const glm::vec2 viewport = m_ViewportBounds[1] - m_ViewportBounds[0];
+        if (!o.Visible || viewport.x < 260.0f || viewport.y < 160.0f)
+            return;
+        const Application& app = Application::Get();
+        const FrameTimeHistory& history = app.GetFrameTimeHistory();
+        const float fontSize = ImGui::GetFontSize();
+        const float width = std::min(std::floor(fontSize * 18.5f), viewport.x - 24.0f);
+        // Below the toolbar at the top, above the bottom edge (the last frame's height places it).
+        static float s_Height = 220.0f;
+        const float toolbar = ImGui::GetFrameHeight() + 4.0f + 26.0f;
+        const bool left = o.Corner == OverlayCorner::TopLeft || o.Corner == OverlayCorner::BottomLeft;
+        const bool top = o.Corner == OverlayCorner::TopLeft || o.Corner == OverlayCorner::TopRight;
+        ImVec2 pos(left ? m_ViewportBounds[0].x + 12.0f : m_ViewportBounds[1].x - width - 12.0f,
+                   top ? m_ViewportBounds[0].y + toolbar : m_ViewportBounds[1].y - s_Height - 14.0f);
+        // Bottom left: above the view mode's label.
+        if (!top && left && (m_DebugView != RenderDebugView::Lit || m_Wireframe != WireframeMode::Off || m_ShowTransparentOrder))
+            pos.y -= ImGui::GetTextLineHeight() + 22.0f;
+        pos.y = std::max(pos.y, m_ViewportBounds[0].y + toolbar);
+
+        ImGui::SetCursorScreenPos(pos);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 8.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 7.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 3.0f));
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.07f, 0.08f, 0.095f, o.Opacity));
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(1.0f, 1.0f, 1.0f, 0.08f * o.Opacity));
+        if (ImGui::BeginChild("##StatsOverlay", ImVec2(width, 0.0f),
+                              ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_Borders,
+                              ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings))
+        {
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            const float inner = ImGui::GetContentRegionAvail().x;
+            // ---- frame rate: the half-second average (steady to read) and its frame time
+            const float fps = app.GetFPS(), frameMs = app.GetFrameTime();
+            const ImVec4 rateColor = FrameRateColor(o.Rate(frameMs));
+            if (ImFont* title = ImGuiLayer::GetTitleFont())
+                ImGui::PushFont(title);
+            ImGui::TextColored(rateColor, "%.0f", fps);
+            if (ImGuiLayer::GetTitleFont())
+                ImGui::PopFont();
+            ImGui::SameLine(0.0f, 5.0f);
+            ImGui::BeginGroup();
+            ImGui::TextDisabled("FPS");
+            ImGui::Text("%.2f ms", frameMs);
+            ImGui::EndGroup();
+            if (!history.Empty())
+            {
+                const FrameTimeHistory::Summary sum = history.Summarize();
+                ImGui::SameLine();
+                ImGui::BeginGroup();
+                const float column = ImGui::GetCursorPosX();
+                auto right = [&](const std::string& text, const ImVec4& color) {
+                    float w = ImGui::CalcTextSize(text.c_str()).x;
+                    ImGui::SetCursorPosX(std::max(column, ImGui::GetWindowContentRegionMax().x - w));
+                    ImGui::TextColored(color, "%s", text.c_str());
+                };
+                const ImVec4 dim = ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+                right(std::format("maks {:.1f} ms", sum.Max), sum.Max > o.GetBudgetMilliseconds() * 2.0f ? FrameRateColor(2) : dim);
+                right(std::format("1% past {:.0f} FPS", sum.Low1PercentFPS), FrameRateColor(o.Rate(sum.Worst1Percent)));
+                ImGui::EndGroup();
+            }
+
+            // ---- frame time graph: one bar per frame (newest on the right), the budget lines
+            if (o.FrameGraph)
+            {
+                const float graphHeight = std::floor(fontSize * 3.6f);
+                const ImVec2 a = ImGui::GetCursorScreenPos(), b(a.x + inner, a.y + graphHeight);
+                ImGui::InvisibleButton("##frameGraph", ImVec2(inner, graphHeight));
+                const bool hovered = ImGui::IsItemHovered();
+                dl->AddRectFilled(a, b, IM_COL32(0, 0, 0, (int)(110 * o.Opacity)), 4.0f);
+                const float budget = o.GetBudgetMilliseconds();
+                const size_t n = history.Size();
+                // The scale: what most frames take (a few spikes - loading, a hitch - reach the
+                // top, cut), at least room for twice the budget.
+                float maxValue = budget * 2.4f;
+                if (n > 0)
+                {
+                    std::vector<float> sorted(n);
+                    for (size_t i = 0; i < n; i++)
+                        sorted[i] = history.Get(i);
+                    const size_t at = std::min(n - 1, (size_t)((float)n * 0.97f));
+                    std::nth_element(sorted.begin(), sorted.begin() + (std::ptrdiff_t)at, sorted.end());
+                    maxValue = std::clamp(sorted[at] * 1.25f, maxValue, 250.0f);
+                }
+                const float barWidth = inner / (float)FrameTimeHistory::Capacity;
+                auto yOf = [&](float ms) { return b.y - std::min(ms / maxValue, 1.0f) * (graphHeight - 2.0f); };
+                for (size_t i = 0; i < n; i++)
+                {
+                    const float ms = history.Get(i);
+                    const float x1 = b.x - (float)(n - 1 - i) * barWidth, x0 = x1 - barWidth;
+                    ImVec4 color = FrameRateColor(o.Rate(ms));
+                    color.w = 0.85f;
+                    dl->AddRectFilled(ImVec2(x0, yOf(ms)), ImVec2(std::max(x1 - 0.15f, x0 + 0.6f), b.y), ImGui::GetColorU32(color));
+                }
+                // The budget (target FPS) and twice it, labelled with their FPS where there is room.
+                float lastLabel = b.y + fontSize * 2.0f;
+                for (float line : { budget, budget * 2.0f })
+                {
+                    if (line >= maxValue)
+                        continue;
+                    const float y = std::round(yOf(line)) + 0.5f;
+                    for (float x = a.x; x < b.x; x += 6.0f)
+                        dl->AddLine(ImVec2(x, y), ImVec2(std::min(x + 3.0f, b.x), y), IM_COL32(255, 255, 255, 90));
+                    if (lastLabel - y < fontSize || y - fontSize - 1.0f < a.y)
+                        continue;
+                    std::string label = std::format("{:.0f} FPS", 1000.0f / line);
+                    const ImVec2 textAt(a.x + 4.0f, y - fontSize - 1.0f);
+                    const ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
+                    dl->AddRectFilled(ImVec2(textAt.x - 2.0f, textAt.y), ImVec2(textAt.x + textSize.x + 2.0f, textAt.y + textSize.y),
+                                      IM_COL32(10, 12, 14, 150), 3.0f);
+                    dl->AddText(textAt, IM_COL32(255, 255, 255, 150), label.c_str());
+                    lastLabel = y;
+                }
+                if (hovered && n > 0)
+                {
+                    const float mx = ImGui::GetMousePos().x;
+                    const int fromRight = (int)std::floor((b.x - mx) / barWidth);
+                    if (fromRight >= 0 && (size_t)fromRight < n)
+                    {
+                        const size_t i = n - 1 - (size_t)fromRight;
+                        const float ms = history.Get(i);
+                        dl->AddLine(ImVec2(mx, a.y), ImVec2(mx, b.y), IM_COL32(255, 255, 255, 110));
+                        ImGui::SetTooltip("%d kadr oldin: %.2f ms (%.0f FPS)", fromRight, ms, ms > 0.0f ? 1000.0f / ms : 0.0f);
+                    }
+                }
+                if (!history.Empty())
+                {
+                    const FrameTimeHistory::Summary sum = history.Summarize();
+                    ImGui::TextDisabled("o'rtacha %.1f ms   eng tez %.1f ms", sum.Average, sum.Min);
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip(std::format("So'nggi {} kadr: o'rtacha {:.2f} ms ({:.0f} FPS), eng tezi {:.2f} ms, eng sekini {:.2f} ms; "
+                                                "eng sekin 1% kadrlar o'rtacha {:.2f} ms", history.Size(), sum.Average, sum.AverageFPS,
+                                                sum.Min, sum.Max, sum.Worst1Percent).c_str());
+                }
+            }
+
+            // ---- what the scene drew, what culling skipped
+            const RenderStatistics& scene = m_SceneStats;
+            const RenderStatistics& total = Renderer::GetStats();
+            auto row = [&](const char* label, const std::string& value, const char* extra = nullptr, const char* tip = nullptr) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextDisabled("%s", label);
+                if (tip && ImGui::IsItemHovered())
+                    UI::Tooltip(tip);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(value.c_str());
+                if (extra && *extra)
+                {
+                    ImGui::SameLine(0.0f, 5.0f);
+                    ImGui::TextDisabled("%s", extra);
+                }
+            };
+            auto table = [&](const char* id) {
+                return ImGui::BeginTable(id, 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoSavedSettings);
+            };
+            if (o.DrawCalls)
+            {
+                ImGui::Separator();
+                if (table("##overlayDraw"))
+                {
+                    ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                    ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch, 1.25f);
+                    const uint32_t editorCalls = total.DrawCalls > scene.DrawCalls ? total.DrawCalls - scene.DrawCalls : 0;
+                    const std::string editorText = editorCalls ? std::format("+{} editor", editorCalls) : std::string();
+                    row("Draw call", std::to_string(scene.DrawCalls), editorText.c_str(),
+                        "Sahna yuborgan chizish buyruqlari (instanced partiya - bitta). +editor: kontur, gizmolar, debug chizish");
+                    // A 2D scene: no 3D rows (they would only say 0).
+                    const bool only2D = scene.MeshCount == 0 && scene.TriangleCount == 0 && scene.CulledMeshCount == 0 &&
+                                        (scene.SpriteCount || scene.CulledSpriteCount || scene.TileChunkCount || scene.QuadCount);
+                    if (!only2D)
+                    {
+                        row("Uchburchak", RenderStatistics::FormatCount(scene.TriangleCount), nullptr, "Chizilgan 3D uchburchaklar (soyalarsiz)");
+                        const std::string instanced = scene.InstancedMeshCount ? std::format("{} instanced", scene.InstancedMeshCount) : std::string();
+                        row("Meshlar", RenderStatistics::FormatCount(scene.MeshCount), instanced.c_str());
+                    }
+                    if (scene.ShadowCasterCount)
+                        row("Soyalar", RenderStatistics::FormatCount(scene.ShadowCasterCount), nullptr,
+                            "Soya kaskadlariga chizilgan meshlar (kaskadlar bo'yicha yig'indi)");
+                    if (scene.SpriteCount || scene.TileChunkCount || scene.QuadCount)
+                        row("2D obyektlar", RenderStatistics::FormatCount(scene.SpriteCount),
+                            scene.TileChunkCount ? std::format("+{} tile bo'lak", scene.TileChunkCount).c_str() : nullptr,
+                            "Sprite, doira, matn va zarrachalar tizimlari");
+                    ImGui::EndTable();
+                }
+            }
+            if (o.Culling)
+            {
+                ImGui::Separator();
+                ImGui::TextDisabled(ICON_FA_SCISSORS "  Culling (kesildi)");
+                if (table("##overlayCulling"))
+                {
+                    ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                    ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch, 1.25f);
+                    auto culled = [&](const char* label, uint32_t drawn, uint32_t skipped) {
+                        const uint32_t all = drawn + skipped;
+                        if (all == 0)
+                            return; // nothing of that kind in view or out of it
+                        std::string share = all ? std::format("{:.0f}%", 100.0 * skipped / all) : std::string("-");
+                        std::string of = std::format("/ {}", RenderStatistics::FormatCount(all));
+                        row(label, RenderStatistics::FormatCount(skipped), all ? (of + "  " + share).c_str() : nullptr);
+                    };
+                    culled("Meshlar", scene.MeshCount, scene.CulledMeshCount);
+                    culled("Soyalar", scene.ShadowCasterCount, scene.CulledShadowCasterCount);
+                    culled("2D obyektlar", scene.SpriteCount, scene.CulledSpriteCount);
+                    culled("Tile bo'laklar", scene.TileChunkCount, scene.CulledTileChunkCount);
+                    if (scene.MeshCount + scene.CulledMeshCount + scene.ShadowCasterCount + scene.CulledShadowCasterCount + scene.SpriteCount +
+                        scene.CulledSpriteCount + scene.TileChunkCount + scene.CulledTileChunkCount == 0)
+                        row("-", "chizilgan narsa yo'q");
+                    ImGui::EndTable();
+                }
+                if (!Renderer3D::IsFrustumCullingEnabled())
+                    ImGui::TextColored(FrameRateColor(1), ICON_FA_TRIANGLE_EXCLAMATION "  Frustum culling o'chirilgan");
+            }
+
+            // ---- where the CPU time goes: the scopes that took the most time themselves
+            if (o.Hotspots)
+            {
+                ImGui::Separator();
+                ImGui::TextDisabled(ICON_FA_STOPWATCH "  Eng sekin bo'limlar (CPU)");
+                const auto& entries = Profiler::GetLastFrame();
+                if (table("##overlayHotspots"))
+                {
+                    ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthStretch, 1.6f);
+                    ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch, 0.65f);
+                    for (int index : Profiler::GetHotspots(entries, 4, true))
+                    {
+                        const Profiler::Entry& e = entries[(size_t)index];
+                        float self = e.AverageMilliseconds;
+                        for (int child : Profiler::GetChildren(entries, index))
+                            self -= entries[(size_t)child].AverageMilliseconds;
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted(e.Name);
+                        if (ImGui::IsItemHovered())
+                            UI::Tooltip(e.Parent >= 0 ? std::format("{}\n{} ichida", e.Name, entries[(size_t)e.Parent].Name).c_str() : e.Name);
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.2f ms", std::max(0.0f, self));
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            // Right click: the overlay's settings.
+            if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && ImGui::IsMouseReleased(ImGuiMouseButton_Right))
+                ImGui::OpenPopup("##StatsOverlayContext");
+            if (ImGui::BeginPopup("##StatsOverlayContext"))
+            {
+                if (UI_StatsOverlaySettings())
+                    MarkViewSettingsDirty();
+                ImGui::EndPopup();
+            }
+            s_Height = ImGui::GetWindowHeight();
+        }
+        ImGui::EndChild();
+        ImGui::PopStyleColor(2);
+        ImGui::PopStyleVar(3);
+    }
+
+    bool EditorLayer::UI_StatsOverlaySettings()
+    {
+        auto& o = m_ViewSettings.StatsOverlay;
+        bool changed = false;
+        ImGui::TextDisabled(ICON_FA_GAUGE_HIGH "  Statistika overlay (faqat editorda)");
+        changed |= ImGui::Checkbox("Ko'rsatish", &o.Visible);
+        ImGui::BeginDisabled(!o.Visible);
+        changed |= ImGui::Checkbox(ICON_FA_CHART_LINE "  FPS grafigi", &o.FrameGraph);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("So'nggi 240 kadrning har biri qancha vaqt olgani (o'ngda eng yangisi), maqsad FPS chiziqlari bilan");
+        changed |= ImGui::Checkbox(ICON_FA_CUBES "  Draw call va uchburchaklar", &o.DrawCalls);
+        changed |= ImGui::Checkbox(ICON_FA_SCISSORS "  Culling (kesilganlar)", &o.Culling);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Frustum culling kamera ko'rmagani uchun chizmagan meshlar, soya tashlovchilar, 2D obyektlar va tile bo'laklari");
+        changed |= ImGui::Checkbox(ICON_FA_STOPWATCH "  Eng sekin bo'limlar", &o.Hotspots);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Profiler bo'limlaridan o'zi (ichki bo'limlarsiz) eng ko'p vaqt olgan 4 tasi, o'rtacha");
+        static const char* corners[] = { "Yuqori chap", "Yuqori o'ng", "Pastki chap", "Pastki o'ng" };
+        int corner = (int)o.Corner;
+        ImGui::SetNextItemWidth(150);
+        if (ImGui::Combo("Burchak", &corner, corners, IM_ARRAYSIZE(corners)))
+        {
+            o.Corner = (OverlayCorner)corner;
+            changed = true;
+        }
+        ImGui::SetNextItemWidth(150);
+        changed |= ImGui::SliderFloat("Fon", &o.Opacity, ViewportStatsOverlaySettings::MinOpacity, 1.0f, "%.2f");
+        ImGui::SetNextItemWidth(150);
+        changed |= ImGui::DragFloat("Maqsad FPS", &o.TargetFPS, 1.0f, ViewportStatsOverlaySettings::MinTargetFPS,
+                                    ViewportStatsOverlaySettings::MaxTargetFPS, "%.0f");
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Grafikdagi chiziq va ranglar: shu FPS uchun kadr vaqtiga sig'gan - yashil, ikki baravarigacha - sariq, "
+                        "undan sekin - qizil");
+        changed |= PresetButtons("targetFps", o.TargetFPS, { 30.0f, 60.0f, 120.0f, 144.0f });
+        ImGui::EndDisabled();
+        if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Standart"))
+        {
+            const bool visible = o.Visible;
+            o = ViewportStatsOverlaySettings();
+            o.Visible = visible;
+            changed = true;
+        }
+        if (changed)
+            o.Sanitize();
+        return changed;
+    }
+
+    void EditorLayer::UI_StatsOverlayPopup()
+    {
+        ImGui::SetNextWindowSizeConstraints(ImVec2(280, 0), ImVec2(420, FLT_MAX));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 5));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+        if (ImGui::BeginPopup("##StatsOverlay"))
+        {
+            if (UI_StatsOverlaySettings())
+                MarkViewSettingsDirty();
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar(2);
     }
 
     void EditorLayer::UI_ViewportIcons()
@@ -5398,12 +5925,26 @@ namespace Zamin {
         if (ImGui::Begin(ICON_FA_CHART_LINE "  Statistika###Stats", &m_ShowStats))
         {
             auto& stats = Renderer::GetStats();
-            static float history[120] = {};
-            static int offset = 0;
-            history[offset] = Application::Get().GetFrameTime();
-            offset = (offset + 1) % 120;
+            // The real time of each recent frame (the viewport overlay draws the same history).
+            const FrameTimeHistory& frameTimes = Application::Get().GetFrameTimeHistory();
+            float history[FrameTimeHistory::Capacity] = {};
+            for (size_t i = 0; i < frameTimes.Size(); i++)
+                history[i] = frameTimes.Get(i);
             ImGui::Text("FPS: %.0f   Kadr: %.2f ms", Application::Get().GetFPS(), Application::Get().GetFrameTime());
-            ImGui::PlotLines("##ft", history, 120, offset, nullptr, 0.0f, 40.0f, ImVec2(-1, 50));
+            ImGui::PlotLines("##ft", history, (int)std::max<size_t>(1, frameTimes.Size()), 0, nullptr, 0.0f, 40.0f, ImVec2(-1, 50));
+            // ZAMIN_EDITOR_STATS=profiler (automation): the render numbers start folded, the profiler shows.
+            static const bool profilerFirst = [] {
+                const char* v = std::getenv("ZAMIN_EDITOR_STATS");
+                return v && std::string_view(v).find("profiler") != std::string_view::npos;
+            }();
+            if (profilerFirst && ImGui::IsWindowAppearing())
+                ImGui::SetNextItemOpen(false);
+            if (!ImGui::CollapsingHeader(ICON_FA_CUBES "  Render statistikasi", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                UI_ProfilerTree(true);
+                ImGui::End();
+                return;
+            }
             // The label column as wide as the longest label (they would run into the values).
             float statsLabelWidth = 0.0f;
             for (const char* label : { "Soya chizishlari", "Soya instanced", "Shaffof meshlar", "Render o'lchami", "Nofaol yorug'lik",
@@ -5500,25 +6041,132 @@ namespace Zamin {
                 UI::EndPropertyGrid();
             }
 
-            ImGui::SeparatorText(ICON_FA_CHART_LINE "  Profiler (CPU, ms)");
-            const auto& entries = Profiler::GetLastFrame();
-            float total = std::max(0.001f, Profiler::GetLastFrameTotal());
-            if (ImGui::BeginTable("##prof", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
-            {
-                for (const auto& e : entries)
-                {
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted(e.Name);
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::Text("%.2f", e.Milliseconds);
-                    ImGui::TableSetColumnIndex(2);
-                    ImGui::ProgressBar(std::min(1.0f, e.Milliseconds / total), ImVec2(-1, ImGui::GetTextLineHeight()), "");
-                }
-                ImGui::EndTable();
-            }
+            UI_ProfilerTree(true);
         }
         ImGui::End();
+    }
+
+    void EditorLayer::UI_ProfilerWindow()
+    {
+        if (!m_ShowProfiler)
+            return;
+        const ImGuiViewport* vp = ImGui::GetMainViewport();
+        ImGui::SetNextWindowSize(ImVec2(520, 640), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + vp->WorkSize.y * 0.5f), ImGuiCond_FirstUseEver,
+                                ImVec2(0.5f, 0.5f));
+        if (ImGui::Begin(ICON_FA_STOPWATCH "  Profiler###Profiler", &m_ShowProfiler))
+            UI_ProfilerTree(false);
+        ImGui::End();
+    }
+
+    void EditorLayer::UI_ProfilerTree(bool header)
+    {
+        if (header)
+        {
+            const bool open = ImGui::CollapsingHeader(ICON_FA_STOPWATCH "  Profiler (CPU, ms)", ImGuiTreeNodeFlags_DefaultOpen |
+                                                      ImGuiTreeNodeFlags_AllowOverlap);
+            ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight());
+            if (UI::ToolbarButton(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER "###profilerWindow", "Profiler'ni alohida oynada ochish",
+                                  m_ShowProfiler, ImVec2(ImGui::GetFrameHeight(), ImGui::GetFrameHeight())))
+                m_ShowProfiler = !m_ShowProfiler;
+            if (!open)
+                return;
+        }
+        ImGui::Checkbox("O'rtacha", &m_ProfilerAverage);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Har bo'limning vaqti so'nggi kadrlar bo'yicha silliqlangan (aks holda faqat oxirgi kadr - sakraydi)");
+        ImGui::SameLine();
+        if (ImGui::Checkbox(ICON_FA_SNOWFLAKE "  Muzlatish", &m_ProfilerFrozen) && m_ProfilerFrozen)
+            m_ProfilerFrozenFrame = Profiler::GetLastFrame();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Joriy kadrni ushlab qoladi: daraxtni bemalol ko'rib chiqish uchun");
+        const std::vector<Profiler::Entry>& entries = m_ProfilerFrozen ? m_ProfilerFrozenFrame : Profiler::GetLastFrame();
+        const bool average = m_ProfilerAverage;
+        auto timeOf = [&](const Profiler::Entry& e) { return average ? e.AverageMilliseconds : e.Milliseconds; };
+        // The averaged self time: the node's average minus its direct children's averages.
+        std::vector<float> self(entries.size());
+        for (size_t i = 0; i < entries.size(); i++)
+            self[i] = timeOf(entries[i]);
+        for (const auto& e : entries)
+            if (e.Parent >= 0)
+                self[(size_t)e.Parent] -= timeOf(e);
+        // The bars: share of the frame (the "Kadr" scope; the slowest top scope when there is none).
+        float total = 0.0f;
+        for (const auto& e : entries)
+            if (e.Parent < 0 && std::strcmp(e.Name, "Kadr") == 0)
+                total = timeOf(e);
+        if (total <= 0.0f)
+            for (const auto& e : entries)
+                if (e.Parent < 0)
+                    total = std::max(total, timeOf(e));
+        total = std::max(0.001f, total);
+        if (entries.empty())
+        {
+            ImGui::TextDisabled("Profiler yozuvlari yo'q");
+            return;
+        }
+        const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable |
+                                      ImGuiTableFlags_SizingStretchProp;
+        if (!ImGui::BeginTable("##profilerTree", 3, flags))
+            return;
+        const float digits = ImGui::CalcTextSize("00.00").x + ImGui::GetStyle().CellPadding.x;
+        ImGui::TableSetupColumn("Bo'lim", ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoHide);
+        ImGui::TableSetupColumn("ms", ImGuiTableColumnFlags_WidthFixed, digits);
+        ImGui::TableSetupColumn("O'zi", ImGuiTableColumnFlags_WidthFixed, digits);
+        ImGui::TableHeadersRow();
+        ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, std::floor(ImGui::GetFontSize() * 0.85f));
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        auto drawNode = [&](auto& draw, size_t index) -> void {
+            const Profiler::Entry& e = entries[index];
+            const bool leaf = (size_t)e.End <= index + 1;
+            const float ms = timeOf(e);
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            // Behind the name: its share of the frame (deeper scopes in a cooler colour).
+            {
+                const ImVec2 cell = ImGui::GetCursorScreenPos(); // after the tree's indentation: a flame graph
+                const float width = ImGui::GetContentRegionAvail().x * std::clamp(ms / total, 0.0f, 1.0f);
+                const float depthTint = std::min(1.0f, e.Depth * 0.25f);
+                const ImU32 color = ImGui::GetColorU32(ImVec4(0.18f + 0.12f * depthTint, 0.62f - 0.14f * depthTint, 0.52f + 0.35f * depthTint, 0.34f));
+                if (width >= 1.0f)
+                    dl->AddRectFilled(cell, ImVec2(cell.x + width, cell.y + ImGui::GetTextLineHeight() + 2.0f), color, 2.0f);
+            }
+            ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_SpanAllColumns | ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_FramePadding;
+            if (leaf)
+                nodeFlags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(ImGui::GetStyle().FramePadding.x, 1.0f));
+            const bool open = ImGui::TreeNodeEx(e.Name, nodeFlags);
+            ImGui::PopStyleVar();
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(std::format("{}\nJami: {:.3f} ms (oxirgi kadr {:.3f}, o'rtacha {:.3f})\nO'zi (ichki bo'limlarsiz): {:.3f} ms\n"
+                                        "Chaqiruvlar: {}\nKadrdagi ulushi: {:.0f}%", e.Name, ms, e.Milliseconds, e.AverageMilliseconds,
+                                        std::max(0.0f, self[index]), e.Calls, 100.0f * std::clamp(ms / total, 0.0f, 1.0f)).c_str());
+            if (e.Calls > 1)
+            {
+                ImGui::SameLine(0.0f, 4.0f);
+                ImGui::TextDisabled("x%d", e.Calls);
+            }
+            // Two decimals below 100 ms (the column's width), one above.
+            auto number = [](float value) { value >= 99.995f ? ImGui::Text("%.1f", value) : ImGui::Text("%.2f", value); };
+            ImGui::TableSetColumnIndex(1);
+            number(ms);
+            ImGui::TableSetColumnIndex(2);
+            if (leaf)
+                ImGui::TextDisabled("-");
+            else
+                number(std::max(0.0f, self[index]));
+            if (open && !leaf)
+            {
+                for (size_t child = index + 1; child < (size_t)e.End && child < entries.size();
+                     child = std::max(child + 1, (size_t)entries[child].End))
+                    draw(draw, child);
+                ImGui::TreePop();
+            }
+        };
+        for (size_t i = 0; i < entries.size(); i = std::max(i + 1, (size_t)entries[i].End))
+            drawNode(drawNode, i);
+        ImGui::PopStyleVar();
+        ImGui::EndTable();
     }
 
     void EditorLayer::UI_Modals()

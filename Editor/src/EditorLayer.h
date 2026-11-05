@@ -183,6 +183,15 @@ namespace Zamin {
         void UI_Gizmos();
         void UI_SceneSettings();
         void UI_Stats();
+        // The profiler: the last frame's scopes as a tree (nested scopes inside), in the Stats panel
+        // (`header`: under a collapsing header) and in a window of its own.
+        void UI_ProfilerTree(bool header);
+        void UI_ProfilerWindow();
+        // The statistics overlay over the viewport (FPS graph, draw calls, triangles, culling):
+        // the overlay itself, the toolbar's popup and the view menu sharing its settings' widgets.
+        void UI_StatsOverlay();
+        void UI_StatsOverlayPopup();
+        bool UI_StatsOverlaySettings();
         void UI_StatusBar();
         // Selected entity info in the status bar (name, position, components...) up to `maxX`.
         void UI_StatusBarSelection(float maxX);
@@ -201,6 +210,8 @@ namespace Zamin {
         void DrawBoundingBoxes(const std::unordered_set<entt::entity>& hidden);
         // Gizmos.Skeletons: the bones (parent joint -> joint) and joints of skinned models.
         void DrawSkeletons(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden);
+        // Gizmos.Normals: the vertex normals of meshes and models (skinned ones posed).
+        void DrawVertexNormals(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden);
         // The selection outline: who gets it (the selection, its children, the entity under the
         // mouse) and the pass over the viewport picture after post-processing.
         std::vector<OutlineEntity> CollectSelectionOutline();
@@ -307,6 +318,16 @@ namespace Zamin {
         bool m_OpenDebugDrawMenu = false; // automation (ZAMIN_EDITOR_DEBUG_DRAW=...,menu): the debug draw popup opens
         bool m_OpenGizmosMenu = false;    // automation (ZAMIN_EDITOR_GIZMOS=...,menu): the gizmos popup opens
         bool m_OpenTransformGizmoMenu = false; // automation (ZAMIN_EDITOR_GIZMO_SIZE=...,menu): the gizmo size popup opens
+        bool m_OpenStatsOverlayMenu = false;   // automation (ZAMIN_EDITOR_OVERLAY=...,menu): the overlay's popup opens
+        // What the scene drew this frame (the overlay shows the editor's own drawing on top apart).
+        RenderStatistics m_SceneStats;
+        // The vertex normals drawn last frame (Gizmos.Normals) and whether the limit cut them.
+        size_t m_NormalLinesDrawn = 0;
+        bool m_NormalLinesLimited = false;
+        // The Stats panel's profiler: averaged or the last frame's times, and a frozen frame.
+        bool m_ProfilerAverage = true;
+        bool m_ProfilerFrozen = false;
+        std::vector<Profiler::Entry> m_ProfilerFrozenFrame;
         bool m_OutlineCaptured = false;   // the outlined meshes' draws were kept for their silhouettes
         Entity m_OutlineHover;            // the entity the hover outline marked (last frame)
         Entity m_OutlineHoverCaptured;    // the hover entity whose draws this frame's scene kept
@@ -338,7 +359,7 @@ namespace Zamin {
         ConsolePanel m_ConsolePanel;
         ProjectSettingsPanel m_ProjectSettingsPanel;
         bool m_ShowHierarchy = true, m_ShowInspector = true, m_ShowContentBrowser = true, m_ShowConsole = true;
-        bool m_ShowSceneSettings = true, m_ShowStats = false, m_ShowImGuiDemo = false;
+        bool m_ShowSceneSettings = true, m_ShowStats = false, m_ShowImGuiDemo = false, m_ShowProfiler = false;
         // Automation (ZAMIN_EDITOR_SCENE_SETTINGS): bring the scene settings tab to the front, and
         // scroll it to a section ("post": post-processing).
         bool m_FocusSceneSettings = false;

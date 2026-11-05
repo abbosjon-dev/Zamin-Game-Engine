@@ -136,3 +136,8 @@
 #define ICON_FA_CIRCLE_HALF_STROKE "\xef\x81\x82"
 #define ICON_FA_GEM "\xef\x8e\xa5"
 #define ICON_FA_MOON "\xef\x86\x86"
+#define ICON_FA_ARROW_UP_LONG "\xef\x85\xb6"
+#define ICON_FA_GAUGE_HIGH "\xef\x98\xa5"
+#define ICON_FA_STOPWATCH "\xef\x8b\xb2"
+#define ICON_FA_SNOWFLAKE "\xef\x8b\x9c"
+#define ICON_FA_SCISSORS "\xef\x83\x84"

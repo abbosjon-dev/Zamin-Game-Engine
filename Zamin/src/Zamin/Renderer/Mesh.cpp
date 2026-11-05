@@ -64,6 +64,58 @@ namespace Zamin {
         }
     }
 
+    MeshGeometry MeshGeometry::FromVertices(const std::vector<MeshVertex>& vertices)
+    {
+        MeshGeometry g;
+        g.Positions.reserve(vertices.size());
+        g.Normals.reserve(vertices.size());
+        for (const MeshVertex& v : vertices)
+        {
+            g.Positions.push_back(v.Position);
+            g.Normals.push_back(v.Normal);
+        }
+        return g;
+    }
+
+    MeshGeometry MeshGeometry::FromVertices(const std::vector<SkinnedVertex>& vertices)
+    {
+        MeshGeometry g;
+        g.Positions.reserve(vertices.size());
+        g.Normals.reserve(vertices.size());
+        g.Joints.reserve(vertices.size());
+        g.Weights.reserve(vertices.size());
+        for (const SkinnedVertex& v : vertices)
+        {
+            g.Positions.push_back(v.Position);
+            g.Normals.push_back(v.Normal);
+            g.Joints.push_back(v.Joints);
+            g.Weights.push_back(v.Weights);
+        }
+        return g;
+    }
+
+    const MeshGeometry& Mesh::GetGeometry() const
+    {
+        if (m_Geometry)
+            return *m_Geometry;
+        m_Geometry = CreateScope<MeshGeometry>();
+        if (!m_VertexBuffer || m_VertexCount == 0)
+            return *m_Geometry;
+        if (m_Skinned)
+        {
+            std::vector<SkinnedVertex> vertices(m_VertexCount);
+            if (m_VertexBuffer->GetData(vertices.data(), (uint32_t)(vertices.size() * sizeof(SkinnedVertex))))
+                *m_Geometry = MeshGeometry::FromVertices(vertices);
+        }
+        else
+        {
+            std::vector<MeshVertex> vertices(m_VertexCount);
+            if (m_VertexBuffer->GetData(vertices.data(), (uint32_t)(vertices.size() * sizeof(MeshVertex))))
+                *m_Geometry = MeshGeometry::FromVertices(vertices);
+        }
+        return *m_Geometry;
+    }
+
     const Ref<VertexArray>& Mesh::GetInstancedVertexArray(const Ref<VertexBuffer>& instanceBuffer) const
     {
         if (!m_InstancedVertexArray || m_InstanceBuffer != instanceBuffer)

@@ -42,13 +42,14 @@ namespace ShippingCheck {
         DebugDraw::GetSettings().ShowRaycasts = true;
         DebugDraw::GetSettings().ShowVelocities = true;
         DebugDraw::Advance(1.0f);
+        DebugDraw::Hold();
         DebugDraw::Render(DebugDrawView{});
         DebugDraw::Clear();
         DebugDraw::Shutdown();
         return (int)(DebugDraw::GetLines().size() + DebugDraw::GetPoints().size() + DebugDraw::GetTexts().size()) +
                (DebugDraw::IsEnabled() ? 1 : 0) + (DebugDraw::IsShowingRaycasts() ? 1 : 0) + (DebugDraw::IsShowingContacts() ? 1 : 0) +
                (DebugDraw::IsShowingVelocities() ? 1 : 0) + (DebugDraw::IsShowingBodyVelocities() ? 1 : 0) +
-               (DebugDraw::GetSettings().Enabled ? 1 : 0) + (int)DebugDraw::MaxLines;
+               (DebugDraw::GetSettings().Enabled ? 1 : 0) + (int)DebugDraw::MaxLines + (int)DebugDraw::GetFrame();
     }
 
 }

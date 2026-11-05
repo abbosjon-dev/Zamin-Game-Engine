@@ -31,6 +31,8 @@ namespace Zamin {
         // One line for logs (ZAMIN_EDITOR_STATS / ZAMIN_PLAYER_STATS): what was drawn, culled
         // and instanced.
         std::string Format() const;
+        // A count short enough for an overlay: 950, 12.3K, 1.24M, 2.1B.
+        static std::string FormatCount(uint64_t value);
     };
 
     class Renderer

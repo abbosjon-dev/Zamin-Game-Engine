@@ -110,6 +110,11 @@ namespace Zamin {
         virtual const BufferLayout& GetLayout() const = 0;
         virtual void SetLayout(const BufferLayout& layout) = 0;
 
+        virtual uint32_t GetSize() const = 0; // bytes
+        // Copies `size` bytes from `offset` back from the GPU (slow: for debug views and tools).
+        // False when the range is outside the buffer.
+        virtual bool GetData(void* out, uint32_t size, uint32_t offset = 0) const = 0;
+
         static Ref<VertexBuffer> Create(uint32_t size);                  // dynamic
         static Ref<VertexBuffer> Create(const void* vertices, uint32_t size); // static
     };

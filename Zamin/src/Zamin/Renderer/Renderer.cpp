@@ -59,6 +59,23 @@ namespace Zamin {
         return { side(width), side(height) };
     }
 
+    std::string RenderStatistics::FormatCount(uint64_t value)
+    {
+        if (value < 1000)
+            return std::to_string(value);
+        static const char* suffixes[] = { "K", "M", "B", "T" };
+        double v = (double)value;
+        int unit = -1;
+        while (v >= 999.5 && unit < 3)
+        {
+            v /= 1000.0;
+            unit++;
+        }
+        // Three significant digits: 1.24M, 12.3K, 456K.
+        std::string text = v < 9.995 ? std::format("{:.2f}", v) : v < 99.95 ? std::format("{:.1f}", v) : std::format("{:.0f}", v);
+        return text + suffixes[unit];
+    }
+
     std::string RenderStatistics::Format() const
     {
         return std::format("draw call {}, uchburchak {} | mesh: {} chizildi, {} kesildi, {} instanced ({} chaqiruv), {} shaffof | "

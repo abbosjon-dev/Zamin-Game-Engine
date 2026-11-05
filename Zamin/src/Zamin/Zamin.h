@@ -42,6 +42,7 @@
 #include "Zamin/Scene/EntitySelection.h"
 #include "Zamin/Physics/PhysicsWorld3D.h"
 #include "Zamin/Debug/DebugDraw.h"
+#include "Zamin/Debug/MeshNormals.h"
 
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/Scripting/ScriptEngine.h"

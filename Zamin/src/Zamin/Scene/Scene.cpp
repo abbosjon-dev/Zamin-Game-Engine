@@ -2280,10 +2280,17 @@ namespace Zamin {
         while (m_PhysicsAccumulator >= fixedStep && steps < 5)
         {
             if (m_PhysicsWorld)
+            {
+                ZM_PROFILE_SCOPE("Box2D (2D)");
                 m_PhysicsWorld->Step(fixedStep, m_Settings.VelocityIterations, m_Settings.PositionIterations);
+            }
             if (m_PhysicsWorld3D)
             {
-                m_PhysicsWorld3D->Step(fixedStep);
+                {
+                    ZM_PROFILE_SCOPE("Jolt (3D)");
+                    m_PhysicsWorld3D->Step(fixedStep);
+                }
+                ZM_PROFILE_SCOPE("Personajlar (3D)");
                 StepCharacters(fixedStep);
             }
             m_PhysicsAccumulator -= fixedStep;
@@ -2578,6 +2585,8 @@ namespace Zamin {
             FlushDestroyQueue();
             DeleteRetiredScripts();
         }
+        else
+            DebugDraw::Hold(); // paused: the last game frame's shapes stay, nothing piles up
 
         Entity cameraEntity = GetPrimaryCameraEntity();
         if (!cameraEntity)
@@ -2598,6 +2607,8 @@ namespace Zamin {
             UpdateParticles(ts, false);
             UpdateAnimators(ts, false);
         }
+        else
+            DebugDraw::Hold();
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
     }
 
@@ -3345,9 +3356,13 @@ namespace Zamin {
         }
         if (options.ShowGrid)
             Renderer3D::SubmitGrid(options.GridPlane, options.Grid); // under the transparent surfaces
-        Renderer3D::EndScene();
+        {
+            ZM_PROFILE_SCOPE("3D");
+            Renderer3D::EndScene();
+        }
 
         // ---------------- 2D (sorted back-to-front for correct blending)
+        ZM_PROFILE_SCOPE("2D va UI");
         struct Item2D
         {
             int Order;

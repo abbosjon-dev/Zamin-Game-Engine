@@ -31,6 +31,21 @@ namespace Zamin {
         glm::vec3 Max{ 0.0f };
     };
 
+    // A mesh's vertices on the CPU: their positions and normals, for a skinned mesh also the
+    // joints and weights they follow (debug views, tools).
+    struct MeshGeometry
+    {
+        std::vector<glm::vec3> Positions;
+        std::vector<glm::vec3> Normals;
+        std::vector<glm::ivec4> Joints;  // skinned meshes only
+        std::vector<glm::vec4> Weights;
+
+        size_t GetVertexCount() const { return Positions.size(); }
+        bool IsSkinned() const { return !Joints.empty() && Joints.size() == Positions.size() && Weights.size() == Positions.size(); }
+        static MeshGeometry FromVertices(const std::vector<MeshVertex>& vertices);
+        static MeshGeometry FromVertices(const std::vector<SkinnedVertex>& vertices);
+    };
+
     class Mesh
     {
     public:
@@ -47,6 +62,8 @@ namespace Zamin {
         uint32_t GetVertexCount() const { return m_VertexCount; }
         uint32_t GetTriangleCount() const { return m_IndexCount / 3; }
         const AABB& GetBounds() const { return m_Bounds; }
+        // The vertices on the CPU: read back from the GPU on the first call (slow), then kept.
+        const MeshGeometry& GetGeometry() const;
 
     private:
         Ref<VertexArray> m_VertexArray;
@@ -58,6 +75,7 @@ namespace Zamin {
         uint32_t m_VertexCount = 0;
         AABB m_Bounds;
         bool m_Skinned = false;
+        mutable Scope<MeshGeometry> m_Geometry;
     };
 
     enum class PrimitiveMesh { Cube = 0, Sphere, Plane, Cylinder, Cone, Model };

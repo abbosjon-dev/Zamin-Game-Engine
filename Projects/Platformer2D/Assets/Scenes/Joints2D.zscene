@@ -1,0 +1,2742 @@
+{
+  "Scene": "Joints2D",
+  "Version": 1,
+  "Settings": {
+    "DrawSky": false,
+    "Gravity": [
+      0,
+      -9.8
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ],
+    "Ambient": 0.6,
+    "Exposure": 1.0,
+    "Post": {
+      "Bloom": false,
+      "Vignette": 0.18,
+      "Saturation": 1.05,
+      "Contrast": 1.03,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "Tonemap": 0
+    }
+  },
+  "Entities": [
+    {
+      "Entity": 8200000000000001,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0,
+          1.2,
+          10
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 1,
+        "PerspectiveFOV": 0.7854,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 1000,
+        "OrthographicSize": 18.5,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.47,
+          0.72,
+          0.94,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 8200000000000002,
+      "Tag": "Far Mountains",
+      "Transform": {
+        "Translation": [
+          0,
+          0.5,
+          -8
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          44,
+          18,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/mountains.png",
+        "Tiling": 1.0,
+        "SortingOrder": 0,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false,
+        "TextureUUID": "a5aec7978306d03b",
+        "SortingLayer": 1,
+        "SortingLayerName": "Fon"
+      }
+    },
+    {
+      "Entity": 8200000000000003,
+      "Tag": "Hills",
+      "Transform": {
+        "Translation": [
+          0,
+          -4.5,
+          -6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          36,
+          9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/hills.png",
+        "Tiling": 1.0,
+        "SortingOrder": 10,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false,
+        "TextureUUID": "f3f49249dc28ff90",
+        "SortingLayer": 1,
+        "SortingLayerName": "Fon"
+      }
+    },
+    {
+      "Entity": 8200000000000004,
+      "Tag": "Ground",
+      "Transform": {
+        "Translation": [
+          0,
+          -6.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Tiling": 1.0,
+        "SortingOrder": 0,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "ground",
+        "DrawMode": "Tiled",
+        "Size": [
+          44,
+          1
+        ],
+        "PixelsPerUnit": 16
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          22,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8200000000000005,
+      "Tag": "Title",
+      "Transform": {
+        "Translation": [
+          0,
+          9.0,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.85,
+          0.85,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "2D joint'lar",
+        "Color": [
+          1,
+          1,
+          1,
+          0.95
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8200000000000006,
+      "Tag": "Bridge Post L",
+      "Transform": {
+        "Translation": [
+          -15.6,
+          -4.0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.6,
+          4.0,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.32,
+          0.24,
+          0.18,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8200000000000007,
+      "Tag": "Bridge Post R",
+      "Transform": {
+        "Translation": [
+          -7.4,
+          -4.0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.6,
+          4.0,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.32,
+          0.24,
+          0.18,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Static",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 8200000000000015,
+        "Anchor": [
+          -0.3,
+          1.9
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": false,
+        "LowerAngle": -45.0,
+        "UpperAngle": 45.0,
+        "EnableMotor": false,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 10.0
+      }
+    },
+    {
+      "Entity": 8200000000000008,
+      "Tag": "Plank 1",
+      "Transform": {
+        "Translation": [
+          -14.825,
+          -2.1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.8900000000000001,
+          0.2,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.72,
+          0.5,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 8200000000000006,
+        "Anchor": [
+          -0.475,
+          0.0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -35.0,
+        "UpperAngle": 35.0,
+        "EnableMotor": false,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 10.0
+      }
+    },
+    {
+      "Entity": 8200000000000009,
+      "Tag": "Plank 2",
+      "Transform": {
+        "Translation": [
+          -13.875,
+          -2.1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.8900000000000001,
+          0.2,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.72,
+          0.5,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 8200000000000008,
+        "Anchor": [
+          -0.475,
+          0.0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -35.0,
+        "UpperAngle": 35.0,
+        "EnableMotor": false,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 10.0
+      }
+    },
+    {
+      "Entity": 8200000000000010,
+      "Tag": "Plank 3",
+      "Transform": {
+        "Translation": [
+          -12.925,
+          -2.1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.8900000000000001,
+          0.2,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.72,
+          0.5,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 8200000000000009,
+        "Anchor": [
+          -0.475,
+          0.0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -35.0,
+        "UpperAngle": 35.0,
+        "EnableMotor": false,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 10.0
+      }
+    },
+    {
+      "Entity": 8200000000000011,
+      "Tag": "Plank 4",
+      "Transform": {
+        "Translation": [
+          -11.975,
+          -2.1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.8900000000000001,
+          0.2,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.72,
+          0.5,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 8200000000000010,
+        "Anchor": [
+          -0.475,
+          0.0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -35.0,
+        "UpperAngle": 35.0,
+        "EnableMotor": false,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 10.0
+      }
+    },
+    {
+      "Entity": 8200000000000012,
+      "Tag": "Plank 5",
+      "Transform": {
+        "Translation": [
+          -11.025,
+          -2.1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.8900000000000001,
+          0.2,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.72,
+          0.5,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 8200000000000011,
+        "Anchor": [
+          -0.475,
+          0.0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -35.0,
+        "UpperAngle": 35.0,
+        "EnableMotor": false,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 10.0
+      }
+    },
+    {
+      "Entity": 8200000000000013,
+      "Tag": "Plank 6",
+      "Transform": {
+        "Translation": [
+          -10.075,
+          -2.1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.8900000000000001,
+          0.2,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.72,
+          0.5,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 8200000000000012,
+        "Anchor": [
+          -0.475,
+          0.0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -35.0,
+        "UpperAngle": 35.0,
+        "EnableMotor": false,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 10.0
+      }
+    },
+    {
+      "Entity": 8200000000000014,
+      "Tag": "Plank 7",
+      "Transform": {
+        "Translation": [
+          -9.125,
+          -2.1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.8900000000000001,
+          0.2,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.72,
+          0.5,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 8200000000000013,
+        "Anchor": [
+          -0.475,
+          0.0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -35.0,
+        "UpperAngle": 35.0,
+        "EnableMotor": false,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 10.0
+      }
+    },
+    {
+      "Entity": 8200000000000015,
+      "Tag": "Plank 8",
+      "Transform": {
+        "Translation": [
+          -8.175,
+          -2.1,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.8900000000000001,
+          0.2,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.72,
+          0.5,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 8200000000000014,
+        "Anchor": [
+          -0.475,
+          0.0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": true,
+        "LowerAngle": -35.0,
+        "UpperAngle": 35.0,
+        "EnableMotor": false,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 10.0
+      }
+    },
+    {
+      "Entity": 8200000000000016,
+      "Tag": "Crate",
+      "Transform": {
+        "Translation": [
+          -11.2,
+          1.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.78,
+          0.55,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 0.8,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8200000000000017,
+      "Tag": "Yozuv: Ko'prik (Revolute)",
+      "Transform": {
+        "Translation": [
+          -11.5,
+          4.2,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.55,
+          0.55,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Ko'prik (Revolute)",
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8200000000000018,
+      "Tag": "Lift Rail",
+      "Transform": {
+        "Translation": [
+          -6.25,
+          -2.75,
+          -0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.12,
+          6.5,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.55,
+          0.6,
+          0.68,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 8200000000000019,
+      "Tag": "Lift Rail",
+      "Transform": {
+        "Translation": [
+          -3.75,
+          -2.75,
+          -0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.12,
+          6.5,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.55,
+          0.6,
+          0.68,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 8200000000000020,
+      "Tag": "Lift",
+      "Transform": {
+        "Translation": [
+          -5.0,
+          -5.6,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          2.4,
+          0.3,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.85,
+          0.75,
+          0.3,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 2.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "PrismaticJoint2D": {
+        "ConnectedBody": 0,
+        "Anchor": [
+          0,
+          0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "Axis": [
+          0.0,
+          1.0
+        ],
+        "EnableLimit": true,
+        "LowerTranslation": 0.0,
+        "UpperTranslation": 5.0,
+        "EnableMotor": true,
+        "MotorSpeed": 1.6,
+        "MaxMotorForce": 600.0
+      },
+      "NativeScript": {
+        "Class": "JointMotorPingPong",
+        "Fields": {
+          "Period": {
+            "Type": "Float",
+            "Value": 3.6
+          }
+        }
+      }
+    },
+    {
+      "Entity": 8200000000000021,
+      "Tag": "Crate",
+      "Transform": {
+        "Translation": [
+          -5.0,
+          -4.95,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.78,
+          0.55,
+          0.28,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 0.8,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8200000000000022,
+      "Tag": "Yozuv: Lift (Prismatic)",
+      "Transform": {
+        "Translation": [
+          -5.0,
+          1.6,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.55,
+          0.55,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Lift (Prismatic)",
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8200000000000023,
+      "Tag": "Pendulum Arm",
+      "Transform": {
+        "Translation": [
+          0.8926,
+          6.4249,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.95993
+        ],
+        "Scale": [
+          0.14,
+          3.4,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.55,
+          0.6,
+          0.68,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 0.5,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 0,
+        "Anchor": [
+          0.0,
+          1.7
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": false,
+        "LowerAngle": -45.0,
+        "UpperAngle": 45.0,
+        "EnableMotor": false,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 10.0
+      }
+    },
+    {
+      "Entity": 8200000000000024,
+      "Tag": "Pendulum Bob",
+      "Transform": {
+        "Translation": [
+          2.2851,
+          5.4498,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.9,
+          0.35,
+          0.3,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.5,
+        "Density": 3.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "WeldJoint2D": {
+        "ConnectedBody": 8200000000000023,
+        "Anchor": [
+          0,
+          0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "Frequency": 0.0,
+        "DampingRatio": 0.0
+      }
+    },
+    {
+      "Entity": 8200000000000025,
+      "Tag": "Pivot",
+      "Transform": {
+        "Translation": [
+          -0.5,
+          7.4,
+          -0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.3,
+          0.3,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.2,
+          0.2,
+          0.25,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 3
+      }
+    },
+    {
+      "Entity": 8200000000000026,
+      "Tag": "Yozuv: Mayatnik (Revolute + Weld)",
+      "Transform": {
+        "Translation": [
+          -0.5,
+          8.3,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.55,
+          0.55,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Mayatnik (Revolute + Weld)",
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8200000000000027,
+      "Tag": "Rope Hook",
+      "Transform": {
+        "Translation": [
+          4.2,
+          7.6,
+          -0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.25,
+          0.25,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.2,
+          0.2,
+          0.25,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 3
+      }
+    },
+    {
+      "Entity": 8200000000000028,
+      "Tag": "Rope Weight",
+      "Transform": {
+        "Translation": [
+          5.9,
+          5.6,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.8,
+          0.8,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.45,
+          0.5,
+          0.6,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 2.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "DistanceJoint2D": {
+        "ConnectedBody": 0,
+        "Anchor": [
+          0,
+          0
+        ],
+        "ConnectedAnchor": [
+          4.2,
+          7.6
+        ],
+        "AutoConfigureConnectedAnchor": false,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "AutoConfigureDistance": true,
+        "Distance": 1.0,
+        "MaxDistanceOnly": true,
+        "Frequency": 0.0,
+        "DampingRatio": 0.0
+      }
+    },
+    {
+      "Entity": 8200000000000029,
+      "Tag": "Spring Hook",
+      "Transform": {
+        "Translation": [
+          7.6,
+          7.6,
+          -0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.25,
+          0.25,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.2,
+          0.2,
+          0.25,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 3
+      }
+    },
+    {
+      "Entity": 8200000000000030,
+      "Tag": "Spring Ball",
+      "Transform": {
+        "Translation": [
+          7.6,
+          6.2,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.35,
+          0.75,
+          0.45,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.4,
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "DistanceJoint2D": {
+        "ConnectedBody": 0,
+        "Anchor": [
+          0,
+          0
+        ],
+        "ConnectedAnchor": [
+          7.6,
+          7.6
+        ],
+        "AutoConfigureConnectedAnchor": false,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "AutoConfigureDistance": false,
+        "Distance": 2.6,
+        "MaxDistanceOnly": false,
+        "Frequency": 1.2,
+        "DampingRatio": 0.08
+      }
+    },
+    {
+      "Entity": 8200000000000031,
+      "Tag": "Yozuv: Arqon va prujina (Distance)",
+      "Transform": {
+        "Translation": [
+          5.9,
+          8.3,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.55,
+          0.55,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Arqon va prujina (Distance)",
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8200000000000032,
+      "Tag": "Lamp Hook",
+      "Transform": {
+        "Translation": [
+          11.0,
+          7.8,
+          -0.05
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.25,
+          0.25,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.2,
+          0.2,
+          0.25,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.02,
+        "SortingOrder": 3
+      }
+    },
+    {
+      "Entity": 8200000000000033,
+      "Tag": "Lamp",
+      "Transform": {
+        "Translation": [
+          11.0,
+          6.4,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.9,
+          0.6,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.0,
+          0.85,
+          0.35,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "RevoluteJoint2D": {
+        "ConnectedBody": 0,
+        "Anchor": [
+          0.0,
+          1.4
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 40.0,
+        "BreakTorque": 0.0,
+        "EnableLimit": false,
+        "LowerAngle": -45.0,
+        "UpperAngle": 45.0,
+        "EnableMotor": false,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 10.0
+      },
+      "NativeScript": {
+        "Class": "BreakableJoint",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 8200000000000034,
+      "Tag": "Heavy Ball",
+      "Transform": {
+        "Translation": [
+          11.15,
+          14.0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.25,
+          0.25,
+          0.3,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": 2
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.35,
+        "Density": 12.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 8200000000000035,
+      "Tag": "Yozuv: Uziladigan (Break Force)",
+      "Transform": {
+        "Translation": [
+          11.0,
+          8.6,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.55,
+          0.55,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Uziladigan (Break Force)",
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8200000000000036,
+      "Tag": "Tower Block 1",
+      "Transform": {
+        "Translation": [
+          14.0,
+          -5.55,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.4,
+          0.55,
+          0.85,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 0.6,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "WeldJoint2D": {
+        "ConnectedBody": 8200000000000004,
+        "Anchor": [
+          0.0,
+          -0.46
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "Frequency": 2.5,
+        "DampingRatio": 0.2
+      }
+    },
+    {
+      "Entity": 8200000000000037,
+      "Tag": "Tower Block 2",
+      "Transform": {
+        "Translation": [
+          14.0,
+          -4.63,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.52,
+          0.55,
+          0.75,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 0.6,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "WeldJoint2D": {
+        "ConnectedBody": 8200000000000036,
+        "Anchor": [
+          0.0,
+          -0.46
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "Frequency": 2.5,
+        "DampingRatio": 0.2
+      }
+    },
+    {
+      "Entity": 8200000000000038,
+      "Tag": "Tower Block 3",
+      "Transform": {
+        "Translation": [
+          14.0,
+          -3.71,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.64,
+          0.55,
+          0.6499999999999999,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 0.6,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "WeldJoint2D": {
+        "ConnectedBody": 8200000000000037,
+        "Anchor": [
+          0.0,
+          -0.46
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "Frequency": 2.5,
+        "DampingRatio": 0.2
+      }
+    },
+    {
+      "Entity": 8200000000000039,
+      "Tag": "Tower Block 4",
+      "Transform": {
+        "Translation": [
+          14.0,
+          -2.79,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.9,
+          0.9,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.76,
+          0.55,
+          0.5499999999999999,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 1,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 0.6,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "WeldJoint2D": {
+        "ConnectedBody": 8200000000000038,
+        "Anchor": [
+          0.0,
+          -0.46
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "Frequency": 2.5,
+        "DampingRatio": 0.2
+      }
+    },
+    {
+      "Entity": 8200000000000040,
+      "Tag": "Yozuv: Minora (yumshoq Weld)",
+      "Transform": {
+        "Translation": [
+          14.0,
+          -1.0,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.55,
+          0.55,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Minora (yumshoq Weld)",
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8200000000000041,
+      "Tag": "Car",
+      "Transform": {
+        "Translation": [
+          2.0,
+          -4.75,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          2.6,
+          0.55,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.85,
+          0.3,
+          0.25,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "BoxCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Size": [
+          0.5,
+          0.5
+        ],
+        "Density": 1.0,
+        "Friction": 0.6,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "NativeScript": {
+        "Class": "CarController",
+        "Fields": {
+          "RearWheel": {
+            "Type": "Entity",
+            "Value": 8200000000000043
+          },
+          "FrontWheel": {
+            "Type": "Entity",
+            "Value": 8200000000000045
+          },
+          "MaxSpeed": {
+            "Type": "Float",
+            "Value": 720.0
+          },
+          "Torque": {
+            "Type": "Float",
+            "Value": 60.0
+          },
+          "AutoDrive": {
+            "Type": "Bool",
+            "Value": true
+          }
+        }
+      }
+    },
+    {
+      "Entity": 8200000000000042,
+      "Tag": "Car Cabin",
+      "Transform": {
+        "Translation": [
+          0.0192,
+          1.3636,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.17307692307692307,
+          2.0,
+          1
+        ]
+      },
+      "Parent": 8200000000000041,
+      "SpriteRenderer": {
+        "Color": [
+          0.95,
+          0.55,
+          0.45,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 2,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 8200000000000043,
+      "Tag": "Rear Wheel",
+      "Transform": {
+        "Translation": [
+          1.15,
+          -5.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.15,
+          0.15,
+          0.18,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": 3
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.45,
+        "Density": 1.0,
+        "Friction": 0.95,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "WheelJoint2D": {
+        "ConnectedBody": 8200000000000041,
+        "Anchor": [
+          0,
+          0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "Axis": [
+          0.0,
+          1.0
+        ],
+        "Frequency": 4.0,
+        "DampingRatio": 0.7,
+        "EnableLimit": false,
+        "LowerTranslation": -0.25,
+        "UpperTranslation": 0.25,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 30.0
+      }
+    },
+    {
+      "Entity": 8200000000000044,
+      "Tag": "Hub",
+      "Transform": {
+        "Translation": [
+          0.22,
+          0.0,
+          0.01
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.18,
+          0.18,
+          1
+        ]
+      },
+      "Parent": 8200000000000043,
+      "SpriteRenderer": {
+        "Color": [
+          0.85,
+          0.85,
+          0.9,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 4,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 8200000000000045,
+      "Tag": "Front Wheel",
+      "Transform": {
+        "Translation": [
+          2.85,
+          -5.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "CircleRenderer": {
+        "Color": [
+          0.15,
+          0.15,
+          0.18,
+          1
+        ],
+        "Thickness": 1.0,
+        "Fade": 0.01,
+        "SortingOrder": 3
+      },
+      "Rigidbody2D": {
+        "BodyType": "Dynamic",
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0,
+        "AngularDamping": 0.01,
+        "Bullet": false
+      },
+      "CircleCollider2D": {
+        "Offset": [
+          0,
+          0
+        ],
+        "Radius": 0.45,
+        "Density": 1.0,
+        "Friction": 0.95,
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "IsSensor": false
+      },
+      "WheelJoint2D": {
+        "ConnectedBody": 8200000000000041,
+        "Anchor": [
+          0,
+          0
+        ],
+        "ConnectedAnchor": [
+          0,
+          0
+        ],
+        "AutoConfigureConnectedAnchor": true,
+        "CollideConnected": false,
+        "BreakForce": 0.0,
+        "BreakTorque": 0.0,
+        "Axis": [
+          0.0,
+          1.0
+        ],
+        "Frequency": 4.0,
+        "DampingRatio": 0.7,
+        "EnableLimit": false,
+        "LowerTranslation": -0.25,
+        "UpperTranslation": 0.25,
+        "EnableMotor": true,
+        "MotorSpeed": 0.0,
+        "MaxMotorTorque": 30.0
+      }
+    },
+    {
+      "Entity": 8200000000000046,
+      "Tag": "Hub",
+      "Transform": {
+        "Translation": [
+          0.22,
+          0.0,
+          0.01
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.18,
+          0.18,
+          1
+        ]
+      },
+      "Parent": 8200000000000045,
+      "SpriteRenderer": {
+        "Color": [
+          0.85,
+          0.85,
+          0.9,
+          1
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 4,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 8200000000000047,
+      "Tag": "Yozuv: Mashina (Wheel): A / D",
+      "Transform": {
+        "Translation": [
+          2.0,
+          -2.6,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0.0
+        ],
+        "Scale": [
+          0.55,
+          0.55,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Mashina (Wheel): A / D",
+        "Color": [
+          1,
+          1,
+          1,
+          0.92
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    }
+  ]
+}

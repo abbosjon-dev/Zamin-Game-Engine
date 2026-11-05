@@ -1160,6 +1160,8 @@ namespace Zamin {
             { "CircleRenderer", "Circle Renderer" }, { "Text", "Text" }, { "MeshRenderer", "Mesh Renderer" },
             { "Animator", "Animator" }, { "DirectionalLight", "Directional Light" }, { "PointLight", "Point Light" }, { "SpotLight", "Spot Light" },
             { "Rigidbody2D", "Rigidbody 2D" }, { "BoxCollider2D", "Box Collider 2D" }, { "CircleCollider2D", "Circle Collider 2D" },
+            { "DistanceJoint2D", "Distance Joint 2D" }, { "RevoluteJoint2D", "Revolute Joint 2D" }, { "PrismaticJoint2D", "Prismatic Joint 2D" },
+            { "WeldJoint2D", "Weld Joint 2D" }, { "WheelJoint2D", "Wheel Joint 2D" },
             { "Rigidbody3D", "Rigidbody 3D" }, { "BoxCollider3D", "Box Collider 3D" }, { "SphereCollider3D", "Sphere Collider 3D" },
             { "CapsuleCollider3D", "Capsule Collider 3D" }, { "CharacterController3D", "Character Controller 3D" },
             { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
@@ -3524,6 +3526,85 @@ namespace Zamin {
         ImGui::End();
     }
 
+    bool SceneHierarchyPanel::DrawJoint2DCommon(Entity entity, Joint2DComponentBase& c)
+    {
+        bool changed = DrawEntityRefField("Ulangan jism", c.ConnectedBody,
+                                          "Boshqa obyektning Rigidbody 2D yoki Tilemap'i (ierarxiyadan tortib tashlang). "
+                                          "Bo'sh - jism dunyodagi qo'zg'almas nuqtaga bog'lanadi");
+        // What keeps the joint from being made (it waits for it while the game runs).
+        const char* problem = nullptr;
+        Entity other = c.ConnectedBody && m_Context ? m_Context->GetEntityByUUID(c.ConnectedBody.ID) : Entity();
+        if (!entity.HasComponent<Rigidbody2DComponent>())
+            problem = "Rigidbody 2D kerak: busiz joint yaratilmaydi";
+        else if (other && other == entity)
+            problem = "Obyekt o'ziga ulana olmaydi";
+        else if (other && !other.HasComponent<Rigidbody2DComponent>() && !other.HasComponent<TilemapComponent>())
+            problem = "Ulangan obyektda Rigidbody 2D (yoki Tilemap) yo'q";
+        if (problem)
+        {
+            UI::PropertyLabel("");
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s", problem);
+            ImGui::PopTextWrapPos();
+        }
+        InactiveComponentNote(entity, "Obyekt nofaol: joint yo'q (faollashganda qayta yaratiladi)");
+
+        changed |= UI::PropertyFloat2("Langar", c.Anchor, 0.01f);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Shu jismdagi bog'lanish nuqtasi - jismning o'z koordinatalarida (masshtabsiz, collider siljishi kabi)");
+        changed |= UI::PropertyBool("Avto ulangan langar", c.AutoConfigureConnectedAnchor);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Ulangan langar joint yaratilganda \"Langar\" turgan nuqtaga qo'yiladi (o'yin davomida shu yerda ko'rinadi)");
+        ImGui::BeginDisabled(c.AutoConfigureConnectedAnchor);
+        changed |= UI::PropertyFloat2(c.ConnectedBody ? "Ulangan langar" : "Dunyodagi nuqta", c.ConnectedAnchor, 0.01f);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip(c.ConnectedBody ? "Ulangan jismdagi nuqta, uning o'z koordinatalarida"
+                                        : "Ulangan jism yo'q: joint dunyodagi shu nuqtaga bog'lanadi");
+        ImGui::EndDisabled();
+        changed |= UI::PropertyBool("Bir-biri bilan to'qnashsin", c.CollideConnected);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("O'chiq bo'lsa ulangan ikki jism bir-biridan o'tib ketadi (ragdoll bo'g'imlari uchun qulay)");
+
+        UI::PropertyHeader("Uzilish", "Joint tortish kuchi yoki momenti shundan oshsa uziladi: yo'qoladi va skriptga "
+                                      "OnJointBreak keladi. 0 - hech qachon uzilmaydi");
+        UI::PropertyLabel("Kuch chegarasi", "Nyuton (N). 0 - cheksiz");
+        if (ImGui::DragFloat("##breakForce", &c.BreakForce, 1.0f, 0.0f, 1e7f, c.BreakForce > 0.0f ? "%.1f N" : "cheksiz"))
+        {
+            c.BreakForce = std::max(0.0f, c.BreakForce);
+            changed = true;
+        }
+        UI::PropertyLabel("Moment chegarasi", "N*m. 0 - cheksiz");
+        if (ImGui::DragFloat("##breakTorque", &c.BreakTorque, 1.0f, 0.0f, 1e7f, c.BreakTorque > 0.0f ? "%.1f N*m" : "cheksiz"))
+        {
+            c.BreakTorque = std::max(0.0f, c.BreakTorque);
+            changed = true;
+        }
+        return changed;
+    }
+
+    void SceneHierarchyPanel::DrawJoint2DStatus(const Joint2DComponentBase& c, const char* readout)
+    {
+        if (!m_Context || (!m_Context->IsRunning() && !m_Context->IsSimulating()))
+            return;
+        UI::PropertyHeader("Holati", "O'yin davomidagi qiymatlar (har fizika qadamidan keyin)");
+        UI::PropertyLabel("Joint");
+        if (c.Broken)
+            ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.35f, 1.0f), ICON_FA_LINK_SLASH "  Uzilgan (%.1f N, %.1f N*m)", c.ReactionForce, c.ReactionTorque);
+        else if (c.RuntimeJoint)
+            ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), ICON_FA_LINK "  Ishlayapti");
+        else
+            ImGui::TextDisabled(ICON_FA_LINK "  Kutmoqda (jismlar yo'q)");
+        if (!c.RuntimeJoint)
+            return;
+        UI::PropertyLabel("Kuch / moment");
+        ImGui::TextDisabled("%.1f N   %.1f N*m", c.ReactionForce, c.ReactionTorque);
+        if (readout && *readout)
+        {
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("%s", readout);
+        }
+    }
+
     bool SceneHierarchyPanel::DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c)
     {
         bool changed = DrawEntityRefField("Nishon", c.Target, "Kuzatiladigan obyekt (ierarxiyadan tortib tashlang). O'yin davomida "
@@ -4295,6 +4376,11 @@ namespace Zamin {
                 DisplayAddComponentEntry<Rigidbody2DComponent>("Rigidbody 2D", ICON_FA_ATOM);
                 DisplayAddComponentEntry<BoxCollider2DComponent>("Box Collider 2D", ICON_FA_VECTOR_SQUARE);
                 DisplayAddComponentEntry<CircleCollider2DComponent>("Circle Collider 2D", ICON_FA_CIRCLE_NODES);
+                DisplayAddComponentEntry<DistanceJoint2DComponent>("Distance Joint 2D (masofa)", ICON_FA_LINK);
+                DisplayAddComponentEntry<RevoluteJoint2DComponent>("Revolute Joint 2D (sharnir)", ICON_FA_ARROWS_ROTATE);
+                DisplayAddComponentEntry<PrismaticJoint2DComponent>("Prismatic Joint 2D (sirpanish)", ICON_FA_ARROWS_LEFT_RIGHT);
+                DisplayAddComponentEntry<WeldJoint2DComponent>("Weld Joint 2D (payvand)", ICON_FA_HAMMER);
+                DisplayAddComponentEntry<WheelJoint2DComponent>("Wheel Joint 2D (g'ildirak)", ICON_FA_GEAR);
                 ImGui::SeparatorText("Fizika 3D");
                 DisplayAddComponentEntry<Rigidbody3DComponent>("Rigidbody 3D", ICON_FA_ATOM);
                 DisplayAddComponentEntry<BoxCollider3DComponent>("Box Collider 3D", ICON_FA_CUBE);
@@ -4660,6 +4746,135 @@ namespace Zamin {
             bool changed = UI::PropertyFloat2("Siljish", c.Offset);
             changed |= UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.0f, 1000.0f);
             changed |= colliderCommon(c);
+            return changed;
+        }, true, modified);
+
+        // ---- 2D joints
+        auto degrees = [](const char* label, const char* tooltip, float& v, float min, float max) {
+            UI::PropertyLabel(label, tooltip);
+            ImGui::PushID(label);
+            bool edited = ImGui::DragFloat("##deg", &v, 0.5f, min, max, "%.1f\xc2\xb0");
+            ImGui::PopID();
+            if (edited)
+                v = std::clamp(v, min, max);
+            return edited;
+        };
+        auto range = [](const char* lowerLabel, const char* upperLabel, float& lower, float& upper, float speed, const char* fmt) {
+            UI::PropertyLabel(lowerLabel);
+            ImGui::PushID(lowerLabel);
+            bool edited = ImGui::DragFloat("##lower", &lower, speed, -1e6f, upper, fmt);
+            ImGui::PopID();
+            UI::PropertyLabel(upperLabel);
+            ImGui::PushID(upperLabel);
+            edited |= ImGui::DragFloat("##upper", &upper, speed, lower, 1e6f, fmt);
+            ImGui::PopID();
+            if (edited && lower > upper)
+                std::swap(lower, upper);
+            return edited;
+        };
+        auto spring = [](float& frequency, float& damping, const char* zeroText) {
+            UI::PropertyLabel("Chastota", "Prujina tebranishlari soniyada (Hz). Kattaroq - qattiqroq");
+            bool edited = ImGui::DragFloat("##frequency", &frequency, 0.05f, 0.0f, 120.0f, frequency > 0.0f ? "%.2f Hz" : zeroText);
+            UI::PropertyLabel("So'nish nisbati", "0 - uzoq tebranadi, 1 - tebranmasdan joyiga keladi");
+            edited |= ImGui::SliderFloat("##damping", &damping, 0.0f, 2.0f, "%.2f");
+            if (edited)
+            {
+                frequency = std::max(0.0f, frequency);
+                damping = std::max(0.0f, damping);
+            }
+            return edited;
+        };
+        auto positive = [](const char* label, const char* tooltip, float& v, const char* fmt) {
+            UI::PropertyLabel(label, tooltip);
+            ImGui::PushID(label);
+            bool edited = ImGui::DragFloat("##v", &v, 0.5f, 0.0f, 1e7f, fmt);
+            ImGui::PopID();
+            if (edited)
+                v = std::max(0.0f, v);
+            return edited;
+        };
+
+        AddSection<DistanceJoint2DComponent>(ICON_FA_LINK, "Distance Joint 2D", entity, [&](DistanceJoint2DComponent& c) {
+            bool changed = DrawJoint2DCommon(entity, c);
+            UI::PropertyHeader("Masofa", "Ikki langar orasidagi masofa: qattiq tayoq, arqon yoki prujina");
+            changed |= UI::PropertyBool("Avto masofa", c.AutoConfigureDistance);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Masofa joint yaratilgandagi langarlar orasidagi masofaga teng bo'ladi");
+            ImGui::BeginDisabled(c.AutoConfigureDistance);
+            changed |= UI::PropertyFloat("Masofa", c.Distance, 0.01f, 0.0f, 1e5f);
+            ImGui::EndDisabled();
+            changed |= UI::PropertyBool("Faqat maksimal (arqon)", c.MaxDistanceOnly);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Arqon kabi: jismlar yaqinlashishi mumkin, uzoqlasha olmaydi");
+            changed |= spring(c.Frequency, c.DampingRatio, "qattiq");
+            DrawJoint2DStatus(c, std::format("Hozirgi masofa: {:.3f}", c.CurrentDistance).c_str());
+            return changed;
+        }, true, modified);
+
+        AddSection<RevoluteJoint2DComponent>(ICON_FA_ARROWS_ROTATE, "Revolute Joint 2D", entity, [&](RevoluteJoint2DComponent& c) {
+            bool changed = DrawJoint2DCommon(entity, c);
+            UI::PropertyHeader("Burchak chegarasi", "Shu jismning ulangan jismga nisbatan burilishi, joint yaratilgandagi holatdan (gradus)");
+            changed |= UI::PropertyBool("Cheklash", c.EnableLimit);
+            ImGui::BeginDisabled(!c.EnableLimit);
+            changed |= range("Pastki burchak", "Yuqori burchak", c.LowerAngle, c.UpperAngle, 0.5f, "%.1f\xc2\xb0");
+            ImGui::EndDisabled();
+            UI::PropertyHeader("Motor", "Jismni anchor atrofida aylantiradi (musbat - soat miliga teskari)");
+            changed |= UI::PropertyBool("Motor", c.EnableMotor);
+            ImGui::BeginDisabled(!c.EnableMotor);
+            changed |= degrees("Tezlik", "Gradus / soniya", c.MotorSpeed, -1e5f, 1e5f);
+            changed |= positive("Maks. moment", "Motor bera oladigan eng katta moment (N*m)", c.MaxMotorTorque, "%.1f N*m");
+            ImGui::EndDisabled();
+            DrawJoint2DStatus(c, std::format("Burchak: {:.1f}\xc2\xb0   tezlik: {:.1f}\xc2\xb0/s", c.JointAngle, c.JointSpeed).c_str());
+            return changed;
+        }, true, modified);
+
+        AddSection<PrismaticJoint2DComponent>(ICON_FA_ARROWS_LEFT_RIGHT, "Prismatic Joint 2D", entity, [&](PrismaticJoint2DComponent& c) {
+            bool changed = DrawJoint2DCommon(entity, c);
+            UI::PropertyHeader("Sirpanish", "Jism ulangan jismga nisbatan faqat shu o'q bo'ylab siljiydi va aylanmaydi");
+            changed |= UI::PropertyFloat2("O'q", c.Axis, 0.01f);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Harakat yo'nalishi shu jismning o'z koordinatalarida (joint yaratilgandagi holatda)");
+            changed |= UI::PropertyBool("Cheklash", c.EnableLimit);
+            ImGui::BeginDisabled(!c.EnableLimit);
+            changed |= range("Pastki chegara", "Yuqori chegara", c.LowerTranslation, c.UpperTranslation, 0.01f, "%.2f");
+            ImGui::EndDisabled();
+            UI::PropertyHeader("Motor", "Jismni o'q bo'ylab suradi (musbat - o'q yo'nalishida)");
+            changed |= UI::PropertyBool("Motor", c.EnableMotor);
+            ImGui::BeginDisabled(!c.EnableMotor);
+            changed |= UI::PropertyFloat("Tezlik (birlik/s)", c.MotorSpeed, 0.05f);
+            changed |= positive("Maks. kuch", "Motor bera oladigan eng katta kuch (N)", c.MaxMotorForce, "%.1f N");
+            ImGui::EndDisabled();
+            DrawJoint2DStatus(c, std::format("Siljish: {:.3f}   tezlik: {:.2f}/s", c.JointTranslation, c.JointSpeed).c_str());
+            return changed;
+        }, true, modified);
+
+        AddSection<WeldJoint2DComponent>(ICON_FA_HAMMER, "Weld Joint 2D", entity, [&](WeldJoint2DComponent& c) {
+            bool changed = DrawJoint2DCommon(entity, c);
+            UI::PropertyHeader("Qattiqlik", "0 Hz - jismlar bir butun; chastota bilan burchak bo'yicha prujinadek egiladi");
+            changed |= spring(c.Frequency, c.DampingRatio, "qattiq");
+            DrawJoint2DStatus(c, nullptr);
+            return changed;
+        }, true, modified);
+
+        AddSection<WheelJoint2DComponent>(ICON_FA_GEAR, "Wheel Joint 2D", entity, [&](WheelJoint2DComponent& c) {
+            bool changed = DrawJoint2DCommon(entity, c);
+            UI::PropertyHeader("Osma", "Shu obyekt - g'ildirak, ulangan jism - kuzov: g'ildirak erkin aylanadi va o'q bo'ylab "
+                                       "prujinada yuradi");
+            changed |= UI::PropertyFloat2("O'q", c.Axis, 0.01f);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Osma yo'nalishi shu jismning o'z koordinatalarida (joint yaratilgandagi holatda; odatda yuqoriga)");
+            changed |= spring(c.Frequency, c.DampingRatio, "prujinasiz");
+            changed |= UI::PropertyBool("Cheklash", c.EnableLimit);
+            ImGui::BeginDisabled(!c.EnableLimit);
+            changed |= range("Pastki chegara", "Yuqori chegara", c.LowerTranslation, c.UpperTranslation, 0.01f, "%.2f");
+            ImGui::EndDisabled();
+            UI::PropertyHeader("Motor", "G'ildirakni aylantiradi (musbat - soat miliga teskari)");
+            changed |= UI::PropertyBool("Motor", c.EnableMotor);
+            ImGui::BeginDisabled(!c.EnableMotor);
+            changed |= degrees("Tezlik", "Gradus / soniya (360 - soniyasiga bir aylanish)", c.MotorSpeed, -1e5f, 1e5f);
+            changed |= positive("Maks. moment", "Motor bera oladigan eng katta moment (N*m)", c.MaxMotorTorque, "%.1f N*m");
+            ImGui::EndDisabled();
+            DrawJoint2DStatus(c, std::format("Osma: {:.3f}   aylanish: {:.0f}\xc2\xb0/s", c.JointTranslation, c.JointSpeed).c_str());
             return changed;
         }, true, modified);
 

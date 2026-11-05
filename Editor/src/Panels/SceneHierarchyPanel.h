@@ -230,6 +230,10 @@ namespace Zamin {
         bool DrawSpriteAnimation(Entity entity, SpriteAnimationComponent& c);
         // Camera 2D Follow: target, damping, dead zone, look-ahead, bounds.
         bool DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c);
+        // 2D joints: the connected body (with what keeps the joint from being made), the anchors and
+        // the break limits; the type's own settings follow in its section, then the live read-outs.
+        bool DrawJoint2DCommon(Entity entity, Joint2DComponentBase& c);
+        void DrawJoint2DStatus(const Joint2DComponentBase& c, const char* readout);
         bool DrawTintAnimation(Entity entity, TintAnimationComponent& c);
         bool DrawLight2D(Entity entity, Light2DComponent& c);
         bool DrawPixelPerfect(CameraComponent& c);

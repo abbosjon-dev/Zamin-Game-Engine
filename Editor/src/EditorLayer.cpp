@@ -364,7 +364,8 @@ namespace Zamin {
                     g.CameraFrustums = g.LightDirections = g.AudioRanges = parse(v);
                 for (auto [key, target] : { std::pair<std::string_view, GizmoVisibility*>{ "frustums=", &g.CameraFrustums },
                                             { "lights=", &g.LightDirections }, { "audio=", &g.AudioRanges },
-                                            { "bounds=", &g.Bounds }, { "skeleton=", &g.Skeletons }, { "normals=", &g.Normals } })
+                                            { "bounds=", &g.Bounds }, { "skeleton=", &g.Skeletons }, { "normals=", &g.Normals },
+                                            { "joints=", &g.Joints2D } })
                     if (size_t at = v.find(key); at != std::string_view::npos)
                         *target = parse(v.substr(at + key.size()));
                 if (size_t at = v.find("normallength="); at != std::string_view::npos)
@@ -1732,6 +1733,167 @@ namespace Zamin {
 
     // A 2D light in the XY plane: the circle it reaches, fainter the inner (full brightness) one;
     // a spot light: its cone's edges and the arc where it ends.
+    // fn(std::type_identity<T>{}) for each 2D joint component type.
+    template<typename... T, typename Fn>
+    static void ForEachJoint2DType(ComponentGroup<T...>, Fn&& fn)
+    {
+        (fn(std::type_identity<T>{}), ...);
+    }
+
+    template<typename Fn>
+    static void ForEachJoint2DType(Fn&& fn)
+    {
+        ForEachJoint2DType(Joint2DComponents{}, std::forward<Fn>(fn));
+    }
+
+    // fn(joint, type, component) for each 2D joint component the entity has.
+    template<typename Fn>
+    static void ForEachJointComponent(Entity entity, Fn&& fn)
+    {
+        if (auto* c = entity.TryGetComponent<DistanceJoint2DComponent>()) fn(*c, Joint2DType::Distance, (const void*)c);
+        if (auto* c = entity.TryGetComponent<RevoluteJoint2DComponent>()) fn(*c, Joint2DType::Revolute, (const void*)c);
+        if (auto* c = entity.TryGetComponent<PrismaticJoint2DComponent>()) fn(*c, Joint2DType::Prismatic, (const void*)c);
+        if (auto* c = entity.TryGetComponent<WeldJoint2DComponent>()) fn(*c, Joint2DType::Weld, (const void*)c);
+        if (auto* c = entity.TryGetComponent<WheelJoint2DComponent>()) fn(*c, Joint2DType::Wheel, (const void*)c);
+    }
+
+    // The 2D joints of a selected entity: its anchor (circle), the connected anchor (diamond) and
+    // what the joint allows - a revolute's angle range (the arc the body's centre sweeps), the slide
+    // axis of a prismatic / the suspension of a wheel with their limits, a distance's rod. While the
+    // game runs the drawing follows the joint's reference pose (angle / translation from the start).
+    static void DrawJoints2D(Scene& scene, Entity entity, const glm::vec4& color)
+    {
+        glm::vec3 p, r, sc;
+        Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
+        const float z = p.z;
+        auto rotate = [](const glm::vec2& v, float angle) {
+            float c = std::cos(angle), s = std::sin(angle);
+            return glm::vec2(c * v.x - s * v.y, s * v.x + c * v.y);
+        };
+        const glm::vec4 faint(color.r, color.g, color.b, color.a * 0.4f);
+        const glm::vec4 connectedColor(0.75f, 0.55f, 1.0f, color.a);
+        const glm::vec4 limitColor(1.0f, 0.85f, 0.3f, color.a);
+        auto at = [&](const glm::vec2& v) { return glm::vec3(v, z); };
+        auto diamond = [&](const glm::vec2& c, float size, const glm::vec4& col) {
+            glm::vec2 corners[4] = { c + glm::vec2(size, 0), c + glm::vec2(0, size), c - glm::vec2(size, 0), c - glm::vec2(0, size) };
+            for (int i = 0; i < 4; i++)
+                Renderer2D::DrawLine(at(corners[i]), at(corners[(i + 1) % 4]), col);
+        };
+        auto arc = [&](const glm::vec2& center, float radius, float from, float to, const glm::vec4& col) {
+            const int segments = std::max(4, (int)(std::abs(to - from) / glm::radians(6.0f)));
+            glm::vec2 previous = center + glm::vec2(std::cos(from), std::sin(from)) * radius;
+            Renderer2D::DrawLine(at(center), at(previous), col);
+            for (int i = 1; i <= segments; i++)
+            {
+                float a = from + (to - from) * (float)i / (float)segments;
+                glm::vec2 q = center + glm::vec2(std::cos(a), std::sin(a)) * radius;
+                Renderer2D::DrawLine(at(previous), at(q), col);
+                previous = q;
+            }
+            Renderer2D::DrawLine(at(center), at(previous), col);
+        };
+        // A line along `dir` through `base` from `lower` to `upper` (ticks at the ends).
+        auto axisLine = [&](const glm::vec2& base, const glm::vec2& dir, float lower, float upper, bool limited, const glm::vec4& col) {
+            glm::vec2 side(-dir.y, dir.x);
+            Renderer2D::DrawLine(at(base + dir * lower), at(base + dir * upper), limited ? col : faint);
+            if (limited)
+                for (float t : { lower, upper })
+                    Renderer2D::DrawLine(at(base + dir * t - side * 0.12f), at(base + dir * t + side * 0.12f), col);
+        };
+
+        ForEachJointComponent(entity, [&](const Joint2DComponentBase& joint, Joint2DType type, const void* component) {
+            const glm::vec2 origin(p);
+            const glm::vec2 anchor = origin + rotate(joint.Anchor, r.z);
+            // The connected anchor: in the connected body's frame, else a world point; auto-configured
+            // ones are where the anchor is until the joint is made.
+            Entity other = joint.ConnectedBody ? scene.GetEntityByUUID(joint.ConnectedBody.ID) : Entity();
+            glm::vec2 connected = anchor;
+            glm::vec2 otherOrigin = anchor;
+            if (other && other != entity)
+            {
+                glm::vec3 op, orot, osc;
+                Math::DecomposeTransform(scene.GetWorldTransform(other), op, orot, osc);
+                otherOrigin = glm::vec2(op);
+                if (!joint.AutoConfigureConnectedAnchor || joint.RuntimeJoint)
+                    connected = otherOrigin + rotate(joint.ConnectedAnchor, orot.z);
+            }
+            else if (!joint.AutoConfigureConnectedAnchor || joint.RuntimeJoint)
+                connected = joint.ConnectedAnchor;
+
+            const glm::vec4 col = joint.Broken ? glm::vec4(0.95f, 0.35f, 0.3f, color.a) : color;
+            Renderer2D::DrawLine(at(origin), at(anchor), faint);
+            if (other && other != entity)
+                Renderer2D::DrawLine(at(otherOrigin), at(connected), glm::vec4(connectedColor.r, connectedColor.g, connectedColor.b, 0.4f));
+            Renderer2D::DrawCircle(glm::translate(glm::mat4(1.0f), at(anchor)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.16f, 0.16f, 1.0f)), col, 0.2f);
+            diamond(connected, 0.11f, connectedColor);
+
+            switch (type)
+            {
+                case Joint2DType::Distance:
+                {
+                    const auto& d = *(const DistanceJoint2DComponent*)component;
+                    // The rod / rope from the connected anchor, as long as the joint keeps it.
+                    float length = d.AutoConfigureDistance && !d.RuntimeJoint ? glm::length(anchor - connected) : d.Distance;
+                    glm::vec2 dir = glm::length(anchor - connected) > 1e-4f ? glm::normalize(anchor - connected) : glm::vec2(0.0f, -1.0f);
+                    Renderer2D::DrawLine(at(connected), at(connected + dir * length), col);
+                    if (d.MaxDistanceOnly)
+                        arc(connected, length, std::atan2(dir.y, dir.x) - 0.35f, std::atan2(dir.y, dir.x) + 0.35f, faint);
+                    break;
+                }
+                case Joint2DType::Revolute:
+                {
+                    const auto& j = *(const RevoluteJoint2DComponent*)component;
+                    glm::vec2 arm = origin - anchor;
+                    float radius = glm::length(arm) > 0.1f ? glm::length(arm) : 0.5f;
+                    float base = glm::length(arm) > 0.1f ? std::atan2(arm.y, arm.x) : r.z;
+                    if (j.RuntimeJoint)
+                        base -= glm::radians(j.JointAngle); // from the pose it was made in
+                    if (j.EnableLimit)
+                        arc(anchor, radius, base + glm::radians(j.LowerAngle), base + glm::radians(j.UpperAngle), limitColor);
+                    else
+                        DrawWireCircle(at(anchor), { 1, 0, 0 }, { 0, 1, 0 }, radius, faint);
+                    break;
+                }
+                case Joint2DType::Prismatic:
+                case Joint2DType::Wheel:
+                {
+                    glm::vec2 axis;
+                    bool limited;
+                    float lower, upper, translation;
+                    if (type == Joint2DType::Prismatic)
+                    {
+                        const auto& j = *(const PrismaticJoint2DComponent*)component;
+                        axis = j.Axis; limited = j.EnableLimit; lower = j.LowerTranslation; upper = j.UpperTranslation;
+                        translation = j.RuntimeJoint ? j.JointTranslation : 0.0f;
+                    }
+                    else
+                    {
+                        const auto& j = *(const WheelJoint2DComponent*)component;
+                        axis = j.Axis; limited = j.EnableLimit; lower = j.LowerTranslation; upper = j.UpperTranslation;
+                        translation = j.RuntimeJoint ? j.JointTranslation : 0.0f;
+                        DrawWireCircle(at(anchor), { 1, 0, 0 }, { 0, 1, 0 }, 0.3f, faint); // the wheel turns freely
+                    }
+                    glm::vec2 dir = glm::length(axis) > 1e-5f ? glm::normalize(rotate(axis, r.z)) : glm::vec2(1.0f, 0.0f);
+                    glm::vec2 base = anchor - dir * translation;
+                    if (!limited)
+                    {
+                        lower = type == Joint2DType::Wheel ? -0.5f : -2.0f;
+                        upper = -lower;
+                    }
+                    axisLine(base, dir, lower, upper, limited, limited ? limitColor : col);
+                    Renderer2D::DrawLine(at(anchor), at(anchor + dir * 0.35f), col); // which way is +
+                    break;
+                }
+                case Joint2DType::Weld:
+                {
+                    Renderer2D::DrawLine(at(anchor + glm::vec2(-0.12f, -0.12f)), at(anchor + glm::vec2(0.12f, 0.12f)), col);
+                    Renderer2D::DrawLine(at(anchor + glm::vec2(-0.12f, 0.12f)), at(anchor + glm::vec2(0.12f, -0.12f)), col);
+                    break;
+                }
+            }
+        });
+    }
+
     static void DrawLight2DRange(const glm::vec3& center, const glm::vec2& axis, const Light2DComponent& light, const glm::vec4& color)
     {
         if (light.Radius <= 0.0f) return;
@@ -1868,6 +2030,18 @@ namespace Zamin {
                 if (src.MaxDistance > src.MinDistance)
                     DrawWireSphere(center, src.MaxDistance, glm::vec4(color.r, color.g, color.b, color.a * 0.45f), &view);
             }
+
+        // 2D joints: anchors, connected anchors and limits.
+        if (gizmos.Joints2D != GizmoVisibility::Off)
+        {
+            std::unordered_set<entt::entity> drawn;
+            ForEachJoint2DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                for (auto e : scene.GetAllEntitiesWith<T>())
+                    if (shows(e, gizmos.Joints2D) && drawn.insert(e).second)
+                        DrawJoints2D(scene, { e, &scene }, tint(e, glm::vec4(0.35f, 0.9f, 1.0f, 1.0f)));
+            });
+        }
 
         DrawBoundingBoxes(hidden);
         DrawVertexNormals(view, hidden);
@@ -4888,7 +5062,8 @@ namespace Zamin {
                 const auto& g = m_ViewSettings.Gizmos;
                 const bool showingAll = g.CameraFrustums == GizmoVisibility::All || g.LightDirections == GizmoVisibility::All ||
                                         g.AudioRanges == GizmoVisibility::All || g.Bounds == GizmoVisibility::All ||
-                                        g.Skeletons == GizmoVisibility::All || g.Normals != GizmoVisibility::Off;
+                                        g.Skeletons == GizmoVisibility::All || g.Normals != GizmoVisibility::Off ||
+                                        g.Joints2D == GizmoVisibility::All;
                 if (showingAll) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
                 if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###ComponentGizmosMenu", "Gizmolar: kamera frustumi, yorug'lik yo'nalishi, "
                                       "audio radiusi, chegaralar, skelet - tanlanganda yoki hammasida; tanlash konturi",
@@ -5257,6 +5432,9 @@ namespace Zamin {
             changed |= ImGui::Checkbox("Bo'g'in nomlari", &g.JointNames);
             ImGui::Unindent();
         }
+        option(ICON_FA_LINK "  2D joint'lar", g.Joints2D,
+               "Joint langari (doira), ulangan langar (romb, binafsha) va chegaralar: sharnirning burchak yoyi, sirpanish / "
+               "osma o'qi, masofa tayog'i. O'yin paytida joint yaratilgandagi holatga nisbatan. Uzilgan joint qizil");
         option(ICON_FA_ARROW_UP_LONG "  Normallar", g.Normals,
                "Mesh va model vertekslarining normallari: har verteksdan normali bo'ylab chiziq (skinned model'larda joriy "
                "pozada). Teskari yoki noto'g'ri normallarni topish uchun");

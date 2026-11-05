@@ -110,7 +110,7 @@ namespace Zamin {
 
     // The editor viewport's visualisations of components (never in the player): camera frustums,
     // the direction of directional / spot lights, the radii of 3D audio sources, bounding boxes,
-    // the skeletons of skinned models.
+    // the skeletons of skinned models, 2D joints.
     struct EditorGizmoSettings
     {
         GizmoVisibility CameraFrustums = GizmoVisibility::Selected;
@@ -126,6 +126,8 @@ namespace Zamin {
         float NormalLength = 0.1f;
         bool NormalsFacingOnly = true;                     // only the normals on the side facing the camera
         bool NormalsByDirection = false;                   // coloured by direction (as the normals view) instead of blue
+        // 2D joints: anchors, connected anchors and limits (revolute arcs, slide / suspension axes).
+        GizmoVisibility Joints2D = GizmoVisibility::Selected;
 
         static constexpr float MinNormalLength = 0.001f, MaxNormalLength = 100.0f;
 

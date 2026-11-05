@@ -275,7 +275,7 @@ namespace Zamin {
     void EditorGizmoSettings::Sanitize()
     {
         NormalLength = std::isfinite(NormalLength) ? std::clamp(NormalLength, MinNormalLength, MaxNormalLength) : 0.1f;
-        for (GizmoVisibility* v : { &CameraFrustums, &LightDirections, &AudioRanges, &Bounds, &Skeletons, &Normals })
+        for (GizmoVisibility* v : { &CameraFrustums, &LightDirections, &AudioRanges, &Bounds, &Skeletons, &Normals, &Joints2D })
             if ((int)*v < (int)GizmoVisibility::Off || (int)*v > (int)GizmoVisibility::All)
                 *v = GizmoVisibility::Selected;
         if ((int)BoundsMode < (int)BoundsSpace::Local || (int)BoundsMode > (int)BoundsSpace::Both)
@@ -379,6 +379,7 @@ namespace Zamin {
             { "NormalLength", Num(Gizmos.NormalLength) },
             { "NormalsFacingOnly", Gizmos.NormalsFacingOnly },
             { "NormalsByDirection", Gizmos.NormalsByDirection },
+            { "Joints2D", EditorGizmoSettings::GetKey(Gizmos.Joints2D) },
         };
         j["StatsOverlay"] = {
             { "Visible", StatsOverlay.Visible },
@@ -502,6 +503,7 @@ namespace Zamin {
             readVisibility("Bounds", Gizmos.Bounds);
             readVisibility("Skeletons", Gizmos.Skeletons);
             readVisibility("Normals", Gizmos.Normals);
+            readVisibility("Joints2D", Gizmos.Joints2D);
             Read(*it, "NormalLength", Gizmos.NormalLength);
             Read(*it, "NormalsFacingOnly", Gizmos.NormalsFacingOnly);
             Read(*it, "NormalsByDirection", Gizmos.NormalsByDirection);

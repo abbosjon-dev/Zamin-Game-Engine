@@ -507,12 +507,11 @@ namespace Zamin {
         int moveFrom = -1, moveTo = -1;
         uint32_t remove = ~0u;
         const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX;
-        if (ImGui::BeginTable("##sortingLayers", 4, flags))
+        if (ImGui::BeginTable("##sortingLayers", 3, flags))
         {
             const float buttons = 4.0f * (ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x);
             ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 1.2f);
-            ImGui::TableSetupColumn("Qatlam", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("Sahnada", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 4.0f);
+            ImGui::TableSetupColumn("Qatlam (sahnada)", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, buttons);
             ImGui::TableHeadersRow();
             const auto& list = layers.GetLayers();
@@ -546,24 +545,25 @@ namespace Zamin {
                 {
                     ImGui::AlignTextToFramePadding();
                     ImGui::Text(ICON_FA_LAYER_GROUP "  %s", layer.Name.c_str());
-                    if (layer.ID == SortingLayerList::DefaultID)
+                    if (ImGui::IsItemHovered())
                     {
-                        ImGui::SameLine();
-                        ImGui::TextDisabled("(asosiy)");
+                        if (ImGui::IsMouseDoubleClicked(0))
+                        {
+                            m_RenamingLayer = layer.ID;
+                            m_LayerRenameBuffer = layer.Name;
+                            m_FocusLayerRename = true;
+                        }
+                        UI::Tooltip(layer.ID == SortingLayerList::DefaultID ? "Asosiy qatlam (o'chirib bo'lmaydi). Ikki marta bosing: qayta nomlash"
+                                                                            : "Ikki marta bosing: qayta nomlash");
                     }
-                    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
-                    {
-                        m_RenamingLayer = layer.ID;
-                        m_LayerRenameBuffer = layer.Name;
-                        m_FocusLayerRename = true;
-                    }
+                    auto it = used.find(layer.ID);
+                    ImGui::SameLine();
+                    if (it != used.end() && it->second > 0)
+                        ImGui::TextDisabled("%zu", it->second);
+                    else
+                        ImGui::TextDisabled("-");
                 }
                 ImGui::TableSetColumnIndex(2);
-                ImGui::AlignTextToFramePadding();
-                auto it = used.find(layer.ID);
-                if (it != used.end() && it->second > 0) ImGui::Text("%zu ta", it->second);
-                else ImGui::TextDisabled("-");
-                ImGui::TableSetColumnIndex(3);
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
                 ImGui::BeginDisabled(i == 0);
                 if (ImGui::Button(ICON_FA_ARROW_UP)) { moveFrom = i; moveTo = i - 1; }

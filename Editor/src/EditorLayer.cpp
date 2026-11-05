@@ -192,6 +192,9 @@ namespace Zamin {
                 m_AssetInspectorPanel.SetAsset(path);
                 m_SceneHierarchyPanel.AcknowledgeSelection();
             }
+            // ZAMIN_EDITOR_SEARCH=<text>: the content browser searches for it (and logs the results).
+            if (const char* search = std::getenv("ZAMIN_EDITOR_SEARCH"))
+                m_ContentBrowserPanel.SetSearch(search);
             // ZAMIN_EDITOR_UNUSED=1 | deep: the unused assets window scans and logs what it found.
             if (const char* unused = std::getenv("ZAMIN_EDITOR_UNUSED"))
             {

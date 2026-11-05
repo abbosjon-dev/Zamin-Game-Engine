@@ -105,6 +105,8 @@ namespace Zamin {
         AssetTypeFilter Filter;
         AssetSortColumn SortBy = AssetSortColumn::Name;
         bool SortAscending = true;
+        // The search looks through the whole project (false: the open folder and its sub folders).
+        bool SearchEverywhere = true;
 
         static constexpr float MinThumbnailSize = 48.0f;
         static constexpr float MaxThumbnailSize = 160.0f;

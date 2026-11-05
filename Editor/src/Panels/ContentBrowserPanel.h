@@ -43,6 +43,9 @@ namespace Zamin {
         // A file changed on disk: its thumbnail is looked up again (a broken image may be fixed now).
         void InvalidateThumbnail(const std::filesystem::path& path) { m_Thumbnails.erase(path.string()); }
         const std::vector<std::filesystem::path>& GetSelection() const { return m_Selection; }
+        // The search text (AssetSearch syntax); the listing follows next frame.
+        void SetSearch(std::string text) { m_Search = std::move(text); m_ListDirty = true; }
+        const std::string& GetSearch() const { return m_Search; }
 
         // Icon (and color) the browser shows for a type of file.
         static const char* GetTypeIcon(AssetType type, ImU32* color = nullptr);
@@ -80,6 +83,8 @@ namespace Zamin {
         void DrawToolbar();
         void DrawFilterPopup();
         void DrawFilterBar();
+        // What is being searched for and where, with the number of results.
+        void DrawSearchBar();
         void DrawGrid();
         void DrawList();
         void DrawFooter();
@@ -115,6 +120,8 @@ namespace Zamin {
 
         // listing (re-read when something changes, at most once a second otherwise)
         std::vector<AssetEntry> m_Entries;
+        std::filesystem::path m_ListDirectory;   // where the listing starts (the project folder for a project-wide search)
+        bool m_SearchActive = false;             // m_Search has something to look for
         std::string m_ListKey;
         double m_ListTime = -100.0;
         bool m_ListDirty = true;

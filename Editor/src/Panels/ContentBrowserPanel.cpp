@@ -134,12 +134,16 @@ namespace Zamin {
     // ------------------------------------------------------------------ listing
     bool ContentBrowserPanel::IsRecursiveListing() const
     {
-        return !m_Search.empty() || m_Settings->Filter.IsActive();
+        return m_SearchActive || m_Settings->Filter.IsActive();
     }
 
     void ContentBrowserPanel::RefreshEntries()
     {
-        std::string key = std::format("{}|{}|{}|{}|{}", m_CurrentDirectory.string(), m_Search, m_Settings->Filter.Mask,
+        m_SearchActive = !AssetSearch(m_Search).IsEmpty();
+        // A search looks through the whole project (paths matched from the project folder) unless
+        // it is set to the open folder.
+        fs::path directory = m_SearchActive && m_Settings->SearchEverywhere ? m_Root : m_CurrentDirectory;
+        std::string key = std::format("{}|{}|{}|{}|{}", directory.string(), m_Search, m_Settings->Filter.Mask,
                                       (int)m_Settings->SortBy, m_Settings->SortAscending);
         double now = ImGui::GetTime();
         if (!m_ListDirty && key == m_ListKey && now - m_ListTime < 1.0)
@@ -150,11 +154,13 @@ namespace Zamin {
 
         AssetListOptions options;
         options.Search = m_Search;
+        options.SearchRoot = m_Root;
         options.Filter = m_Settings->Filter;
         options.SortBy = m_Settings->SortBy;
         options.Ascending = m_Settings->SortAscending;
         options.Excluded = { m_Root / "Build", m_Root / "Binaries" };
-        m_Entries = AssetFiles::List(m_CurrentDirectory, options);
+        m_ListDirectory = directory;
+        m_Entries = AssetFiles::List(directory, options);
         m_EntryErrorsDirty = true;
 
         // Selected files that are gone (deleted outside, moved) are forgotten.
@@ -178,10 +184,11 @@ namespace Zamin {
         for (const AssetImportError& e : errors)
             byFile[e.File.string()] = &e;
         // Keys like the log's: the listed folder resolved once, the entries below it.
-        fs::path directory = AssetImportLog::MakeKey(m_CurrentDirectory);
+        const fs::path& listed = m_ListDirectory.empty() ? m_CurrentDirectory : m_ListDirectory;
+        fs::path directory = AssetImportLog::MakeKey(listed);
         for (const AssetEntry& entry : m_Entries)
         {
-            std::string key = (directory / entry.Path.lexically_relative(m_CurrentDirectory)).lexically_normal().string();
+            std::string key = (directory / entry.Path.lexically_relative(listed)).lexically_normal().string();
             if (!entry.IsDirectory)
             {
                 if (auto it = byFile.find(key); it != byFile.end())
@@ -474,8 +481,8 @@ namespace Zamin {
         ImGuiStyle& style = ImGui::GetStyle();
         float button = ImGui::GetFrameHeight();
         bool grid = !m_Settings->ListView;
-        float searchWidth = 190.0f, sliderWidth = grid ? 90.0f : 0.0f;
-        float right = button * 3 + searchWidth + sliderWidth + style.ItemSpacing.x * (grid ? 5 : 4) + 8.0f;
+        float searchWidth = 220.0f, sliderWidth = grid ? 90.0f : 0.0f;
+        float right = button * 4 + searchWidth + sliderWidth + style.ItemSpacing.x * (grid ? 5 : 4) + 2.0f + 8.0f;
         ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 10.0f, ImGui::GetWindowContentRegionMax().x - right));
 
         auto& filter = m_Settings->Filter;
@@ -485,9 +492,31 @@ namespace Zamin {
             ImGui::OpenPopup("##cbfilter");
         DrawFilterPopup();
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(searchWidth);
-        if (ImGui::InputTextWithHint("##cbsearch", ICON_FA_MAGNIFYING_GLASS "  Qidirish", &m_Search))
+        bool everywhere = m_Settings->SearchEverywhere;
+        if (UI::ToolbarButton(everywhere ? ICON_FA_FOLDER_TREE : ICON_FA_FOLDER_OPEN,
+                              everywhere ? "Qidiruv: butun loyihada (bosing - faqat ochiq papkada)"
+                                         : "Qidiruv: ochiq papka va uning ichidagilarda (bosing - butun loyihada)",
+                              everywhere, ImVec2(button, button)))
+        {
+            m_Settings->SearchEverywhere = !everywhere;
             m_ListDirty = true;
+            MarkSettingsModified();
+        }
+        ImGui::SameLine(0, 2);
+        ImGui::SetNextItemWidth(searchWidth);
+        // Ctrl+F while the panel has focus.
+        if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F, false))
+            ImGui::SetKeyboardFocusHere();
+        if (ImGui::InputTextWithHint("##cbsearch", ICON_FA_MAGNIFYING_GLASS "  Qidirish (yo'l, *.png, t:rasm)", &m_Search))
+            m_ListDirty = true;
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal) && !ImGui::IsItemActive())
+            UI::Tooltip("Butun yo'l bo'yicha qidiradi (papka nomlari ham hisobga olinadi). Hamma so'zlar mos kelishi kerak:\n"
+                        "  coin          nomida yoki papkasida 'coin'\n"
+                        "  tex/coin      papkalar va nom shu tartibda (Textures/Items/coin.png)\n"
+                        "  Textures/     'Textures' papkasidagi hamma narsa\n"
+                        "  *.png         '*' - istalgan matn\n"
+                        "  t:rasm        fayl turi (t:model, t:audio, t:sahna, t:prefab...)\n"
+                        "Ctrl+F - qidiruvga o'tish");
         ImGui::SameLine();
         if (UI::ToolbarButton(ICON_FA_TABLE_CELLS_LARGE, "Katakchalar", grid, ImVec2(button, button)) && !grid)
         {
@@ -546,6 +575,35 @@ namespace Zamin {
         {
             filter.Clear();
             MarkSettingsModified();
+        }
+        ImGui::PopStyleColor();
+    }
+
+    void ContentBrowserPanel::DrawSearchBar()
+    {
+        if (!m_SearchActive)
+            return;
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(UI::AccentColor(), ICON_FA_MAGNIFYING_GLASS);
+        ImGui::SameLine();
+        bool everywhere = m_ListDirectory == m_Root;
+        std::string where = everywhere ? std::string("butun loyihada")
+                                       : std::format("'{}' papkasida", m_CurrentDirectory.filename().string());
+        ImGui::TextDisabled("'%s' - %zu ta natija %s", m_Search.c_str(), m_Entries.size(), where.c_str());
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+        if (!everywhere && ImGui::SmallButton("Butun loyihada qidirish"))
+        {
+            m_Settings->SearchEverywhere = true;
+            m_ListDirty = true;
+            MarkSettingsModified();
+        }
+        if (!everywhere)
+            ImGui::SameLine();
+        if (ImGui::SmallButton(ICON_FA_XMARK "  Tozalash##search"))
+        {
+            m_Search.clear();
+            m_ListDirty = true;
         }
         ImGui::PopStyleColor();
     }
@@ -627,7 +685,7 @@ namespace Zamin {
             if (!entry.IsDirectory)
                 tip += "  -  " + AssetFiles::FormatSize(entry.Size);
             if (IsRecursiveListing())
-                tip += "\n" + Project::GetAssetRelativePath(path.parent_path());
+                tip += "\n" ICON_FA_FOLDER "  " + path.parent_path().lexically_relative(m_Root).generic_string();
             if (AssetRegistry* registry = entry.IsDirectory ? nullptr : Project::GetAssetRegistry())
                 if (const AssetMetadata* meta = registry->Find(path))
                     tip += "\nUUID: " + meta->Handle.ToString() + (meta->HasMetaFile ? "" : " (.zmeta yo'q)");
@@ -695,6 +753,7 @@ namespace Zamin {
             return;
 
         ImU32 accent = UI::AccentU32();
+        bool recursive = IsRecursiveListing();
         for (const AssetEntry& entry : m_Entries)
         {
             ImGui::TableNextColumn();
@@ -746,12 +805,39 @@ namespace Zamin {
                 dl->AddText(ImVec2(c.x - mark.x * 0.5f, c.y - mark.y * 0.5f), IM_COL32_WHITE, "!");
             }
 
-            // label (2 lines max, clipped)
-            ImVec4 clip(cursor.x + 2, cursor.y + size, tileMax.x - 2, tileMax.y);
-            ImVec2 labelSize = ImGui::CalcTextSize(entry.Name.c_str(), nullptr, false, size - 4);
-            float lx = cursor.x + std::max(2.0f, (size - std::min(labelSize.x, size - 4)) * 0.5f);
-            dl->AddText(ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(lx, cursor.y + size), ImGui::GetColorU32(ImGuiCol_Text),
-                        entry.Name.c_str(), nullptr, size - 4, &clip);
+            if (recursive)
+            {
+                // A search / filter result: the name on one line, the folder it is in below it.
+                float line = ImGui::GetTextLineHeight();
+                ImVec4 nameClip(cursor.x + 2, cursor.y + size, tileMax.x - 2, cursor.y + size + line);
+                float nameWidth = ImGui::CalcTextSize(entry.Name.c_str()).x;
+                float nx = cursor.x + std::max(2.0f, (size - std::min(nameWidth, size - 4)) * 0.5f);
+                dl->AddText(ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(nx, cursor.y + size), ImGui::GetColorU32(ImGuiCol_Text),
+                            entry.Name.c_str(), nullptr, 0.0f, &nameClip);
+                std::string where = path.parent_path().lexically_relative(m_ListDirectory).generic_string();
+                if (where == ".")
+                    where.clear();
+                while (ImGui::CalcTextSize(where.c_str()).x > size - 4 && where.find('/') != std::string::npos)
+                {
+                    size_t slash = where.find('/', where.starts_with(".../") ? 4 : 0);
+                    if (slash == std::string::npos)
+                        break;
+                    where = ".../" + where.substr(slash + 1); // the end of a long path
+                }
+                ImVec4 whereClip(cursor.x + 2, cursor.y + size + line, tileMax.x - 2, tileMax.y);
+                float wx = cursor.x + std::max(2.0f, (size - std::min(ImGui::CalcTextSize(where.c_str()).x, size - 4)) * 0.5f);
+                dl->AddText(ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(wx, cursor.y + size + line),
+                            ImGui::GetColorU32(ImGuiCol_TextDisabled), where.c_str(), nullptr, 0.0f, &whereClip);
+            }
+            else
+            {
+                // label (2 lines max, clipped)
+                ImVec4 clip(cursor.x + 2, cursor.y + size, tileMax.x - 2, tileMax.y);
+                ImVec2 labelSize = ImGui::CalcTextSize(entry.Name.c_str(), nullptr, false, size - 4);
+                float lx = cursor.x + std::max(2.0f, (size - std::min(labelSize.x, size - 4)) * 0.5f);
+                dl->AddText(ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(lx, cursor.y + size), ImGui::GetColorU32(ImGuiCol_Text),
+                            entry.Name.c_str(), nullptr, size - 4, &clip);
+            }
 
             HandleItemInteraction(entry);
             ImGui::PopID();
@@ -877,7 +963,7 @@ namespace Zamin {
                 if (recursive)
                 {
                     ImGui::TableSetColumnIndex(4);
-                    fs::path where = entry.Path.parent_path().lexically_relative(m_CurrentDirectory);
+                    fs::path where = entry.Path.parent_path().lexically_relative(m_ListDirectory);
                     cellText(where == "." ? "." : where.generic_string().c_str());
                 }
                 ImGui::PopID();
@@ -1175,6 +1261,7 @@ namespace Zamin {
         RefreshEntries();
         RefreshEntryErrors();
         DrawToolbar();
+        DrawSearchBar();
         DrawFilterBar();
         ImGui::Separator();
 

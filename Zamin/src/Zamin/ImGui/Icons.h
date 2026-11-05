@@ -122,6 +122,7 @@
 #define ICON_FA_CIRCLE_CHECK "\xef\x81\x98"
 #define ICON_FA_SQUARE_CHECK "\xef\x85\x8a"
 #define ICON_FA_SITEMAP "\xef\x83\xa8"
+#define ICON_FA_FOLDER_TREE "\xef\xa0\x82"
 #define ICON_FA_POWER_OFF "\xef\x80\x91"
 #define ICON_FA_TOGGLE_ON "\xef\x88\x85"
 #define ICON_FA_TOGGLE_OFF "\xef\x88\x84"

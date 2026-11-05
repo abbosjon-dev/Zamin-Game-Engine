@@ -44,10 +44,47 @@ namespace Zamin {
 
     enum class AssetSortColumn : int { Name = 0, Type, Size, Modified };
 
+    // A content browser search: words separated by spaces, every one of which must match (any case).
+    //   coin        part of the path - folders count, so "textures" finds everything in a Textures folder
+    //   tex/coin    '/' separated parts that match folders and the name in this order
+    //               ("Assets/Textures/Items/coin.png"); "Textures/" = everything inside a "...Textures" folder
+    //   *.png  a*b  '*' stands for anything
+    //   t:model     files of a type, by key or name (t:texture, t:rasm, t:sahna, t:audio...); several = any
+    class AssetSearch
+    {
+    public:
+        AssetSearch() = default;
+        explicit AssetSearch(std::string_view text);
+
+        bool IsEmpty() const { return m_Terms.empty() && !m_HasTypes; }
+        // `relativePath`: generic, relative to where the search starts ("Assets/Textures/coin.png").
+        bool Matches(std::string_view relativePath, AssetType type) const;
+        // Whether the words contain t: tokens (and the types they allow).
+        bool HasTypeFilter() const { return m_HasTypes; }
+        const std::vector<AssetType>& GetTypes() const { return m_Types; }
+
+        // '*' wildcards, otherwise a part of `text` (both lower case already).
+        static bool MatchPattern(std::string_view text, std::string_view pattern);
+
+    private:
+        struct Term
+        {
+            std::string Text;                 // the whole word, lower case
+            std::vector<std::string> Parts;   // its '/' separated non-empty parts
+            bool Inside = false;              // ends with '/': only what is inside a matching folder
+        };
+        std::vector<Term> m_Terms;
+        std::vector<AssetType> m_Types;
+        bool m_HasTypes = false;
+    };
+
     struct AssetListOptions
     {
-        // Part of the name (any case). Not empty: every sub folder is searched, too.
+        // An AssetSearch text. Not empty: every sub folder is searched, too.
         std::string Search;
+        // Where the paths the search matches start ("" = the listed folder): the editor passes the
+        // project folder, so "Assets/Textures/..." and "Source/..." can be searched from anywhere.
+        std::filesystem::path SearchRoot;
         // Active: every sub folder is searched and only files of these types are listed.
         AssetTypeFilter Filter;
         // Folders left out together with everything inside them (Build, Binaries...).

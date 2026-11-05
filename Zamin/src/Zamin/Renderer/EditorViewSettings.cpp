@@ -243,6 +243,7 @@ namespace Zamin {
             { "Filter", std::move(filter) },
             { "SortBy", SortColumnKey(ContentBrowser.SortBy) },
             { "Ascending", ContentBrowser.SortAscending },
+            { "SearchScope", ContentBrowser.SearchEverywhere ? "Project" : "Folder" },
         };
         return j.dump(2);
     }
@@ -328,6 +329,8 @@ namespace Zamin {
                         cb.SortBy = c;
             }
             Read(*it, "Ascending", cb.SortAscending);
+            if (auto scope = it->find("SearchScope"); scope != it->end() && scope->is_string())
+                cb.SearchEverywhere = scope->get<std::string>() != "Folder";
             cb.Sanitize();
         }
         return true;

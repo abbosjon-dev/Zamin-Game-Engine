@@ -132,6 +132,131 @@ namespace Zamin {
         });
     }
 
+    // ------------------------------------------------------------------ search
+    AssetSearch::AssetSearch(std::string_view text)
+    {
+        size_t i = 0;
+        while (i < text.size())
+        {
+            while (i < text.size() && std::isspace((unsigned char)text[i]))
+                i++;
+            size_t start = i;
+            while (i < text.size() && !std::isspace((unsigned char)text[i]))
+                i++;
+            if (start == i)
+                break;
+            std::string word = Lower(std::string(text.substr(start, i - start)));
+            std::replace(word.begin(), word.end(), '\\', '/');
+
+            // t:<type> / tur:<type>
+            std::string_view typeName;
+            if (word.starts_with("t:"))
+                typeName = std::string_view(word).substr(2);
+            else if (word.starts_with("tur:"))
+                typeName = std::string_view(word).substr(4);
+            if (word.starts_with("t:") || word.starts_with("tur:"))
+            {
+                if (typeName.empty())
+                    continue; // still being typed
+                m_HasTypes = true;
+                for (size_t t = 0; t < (size_t)AssetType::Count; t++)
+                {
+                    AssetType type = (AssetType)t;
+                    // The key or a word of the name ("t:skript" finds "C++ skript", "t:hdr" "HDRI muhit").
+                    bool matches = Lower(AssetTypes::GetKey(type)).starts_with(typeName);
+                    std::string name = Lower(AssetTypes::GetName(type));
+                    for (size_t w = 0; !matches && w < name.size(); w++)
+                        if (w == 0 || name[w - 1] == ' ')
+                            matches = std::string_view(name).substr(w).starts_with(typeName);
+                    if (matches && std::find(m_Types.begin(), m_Types.end(), type) == m_Types.end())
+                        m_Types.push_back(type);
+                }
+                continue;
+            }
+
+            Term term;
+            term.Text = word;
+            term.Inside = word.size() > 1 && word.back() == '/';
+            size_t p = 0;
+            while (p <= word.size())
+            {
+                size_t slash = word.find('/', p);
+                if (slash == std::string::npos)
+                    slash = word.size();
+                if (slash > p)
+                    term.Parts.push_back(word.substr(p, slash - p));
+                p = slash + 1;
+            }
+            if (!term.Parts.empty())
+                m_Terms.push_back(std::move(term));
+        }
+    }
+
+    bool AssetSearch::MatchPattern(std::string_view text, std::string_view pattern)
+    {
+        size_t at = 0, p = 0;
+        while (p <= pattern.size())
+        {
+            size_t star = pattern.find('*', p);
+            if (star == std::string_view::npos)
+                star = pattern.size();
+            std::string_view piece = pattern.substr(p, star - p);
+            if (!piece.empty())
+            {
+                size_t found = text.find(piece, at);
+                if (found == std::string_view::npos)
+                    return false;
+                at = found + piece.size();
+            }
+            p = star + 1;
+        }
+        return true;
+    }
+
+    bool AssetSearch::Matches(std::string_view relativePath, AssetType type) const
+    {
+        if (m_HasTypes && std::find(m_Types.begin(), m_Types.end(), type) == m_Types.end())
+            return false;
+        if (m_Terms.empty())
+            return true;
+        std::string path = Lower(std::string(relativePath));
+        std::replace(path.begin(), path.end(), '\\', '/');
+        std::vector<std::string_view> segments;
+        for (size_t p = 0; p <= path.size();)
+        {
+            size_t slash = path.find('/', p);
+            if (slash == std::string::npos)
+                slash = path.size();
+            if (slash > p)
+                segments.push_back(std::string_view(path).substr(p, slash - p));
+            p = slash + 1;
+        }
+        for (const Term& term : m_Terms)
+        {
+            if (MatchPattern(path, term.Text))
+                continue; // a part of the whole path ("textures/co", "*.png")
+            if (term.Parts.size() < 2)
+                return false;
+            // Parts in order over the folders and the name: "tex/coin" ~ "assets/textures/items/coin.png".
+            size_t next = 0;
+            bool all = true;
+            for (const std::string& part : term.Parts)
+            {
+                while (next < segments.size() && !MatchPattern(segments[next], part))
+                    next++;
+                if (next == segments.size())
+                {
+                    all = false;
+                    break;
+                }
+                next++;
+            }
+            if (!all || (term.Inside && next >= segments.size()))
+                return false; // "Textures/": something inside the folder, not the folder itself
+        }
+        return true;
+    }
+
     std::vector<AssetEntry> AssetFiles::List(const fs::path& directory, const AssetListOptions& options)
     {
         std::vector<AssetEntry> entries;
@@ -147,8 +272,17 @@ namespace Zamin {
             return std::find(excluded.begin(), excluded.end(), n) != excluded.end();
         };
 
-        std::string search = Lower(options.Search);
-        bool recursive = !search.empty() || options.Filter.IsActive();
+        AssetSearch search(options.Search);
+        bool recursive = !search.IsEmpty() || options.Filter.IsActive();
+        fs::path searchRoot = (options.SearchRoot.empty() ? directory : options.SearchRoot).lexically_normal();
+        fs::path listed = directory.lexically_normal();
+        auto searchPath = [&](const fs::path& p) {
+            fs::path n = p.lexically_normal();
+            fs::path rel = n.lexically_relative(searchRoot);
+            if (rel.empty() || *rel.begin() == "..")
+                rel = n.lexically_relative(listed); // the listed folder is not inside the root
+            return rel.generic_string();
+        };
         // Returns false for a folder that must not be entered.
         auto consider = [&](const fs::directory_entry& e) {
             std::error_code fec;
@@ -159,7 +293,7 @@ namespace Zamin {
             if (!isDir && AssetMetaFile::IsMetaFile(e.path()))
                 return true; // .zmeta files go with their asset, they are not shown on their own
             AssetType type = GetType(e.path(), isDir);
-            if (!search.empty() && Lower(name).find(search) == std::string::npos)
+            if (!search.IsEmpty() && !search.Matches(searchPath(e.path()), type))
                 return true;
             if (!options.Filter.Matches(type))
                 return true;

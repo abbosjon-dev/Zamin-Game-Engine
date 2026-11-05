@@ -4682,11 +4682,14 @@ TEST(AssetListingAndSorting)
     options.Filter.Set(AssetType::Model, true);
     CHECK(AssetFiles::List(root, options).size() == 5);
 
-    // Search: the whole subtree too, folders included; combined with the filter.
+    // Search: the whole subtree too, folders included (a folder's name matches what is inside it);
+    // combined with the filter.
     options.Filter.Clear();
     options.Search = "DEEP";
     entries = AssetFiles::List(root, options);
-    CHECK(entries.size() == 1 && entries[0].IsDirectory && entries[0].Name == "Deep");
+    CHECK(entries.size() == 2 && entries[0].IsDirectory && entries[0].Name == "Deep" && entries[1].Name == "floor.png");
+    options.Search = "floor";
+    CHECK((names(AssetFiles::List(root, options)) == std::vector<std::string>{ "floor.png" }));
     options.Search = "l";
     options.Filter.Set(AssetType::Scene, true);
     CHECK((names(AssetFiles::List(root, options)) == std::vector<std::string>{ "Level2.zscene", "Level10.zscene" }));
@@ -6075,6 +6078,78 @@ TEST(AssetMovesOutsideEditorAreDetected)
     fs::remove_all(root, ec);
 }
 
+TEST(AssetSearchByPath)
+{
+    namespace fs = std::filesystem;
+    auto match = [](const char* query, const char* path, AssetType type = AssetType::Texture) {
+        return AssetSearch(query).Matches(path, type);
+    };
+    // A part of the whole path, any case; folders count.
+    CHECK(match("coin", "Assets/Textures/coin.png") && match("COIN", "Assets/Textures/Coin.PNG"));
+    CHECK(!match("coin", "Assets/Textures/wall.png"));
+    CHECK(match("textures", "Assets/Textures/wall.png") && match("textures", "Assets/Textures", AssetType::Folder));
+    CHECK(match("Textures/", "Assets/Textures/wall.png") && !match("Textures/", "Assets/Textures", AssetType::Folder));
+    CHECK(match("textures/wa", "Assets/Textures/wall.png") && match("Textures\\wall", "Assets/Textures/wall.png"));
+    // '/' separated parts over folders and the name, in order.
+    CHECK(match("tex/coin", "Assets/Textures/Items/coin.png") && match("as/it/co", "Assets/Textures/Items/coin.png"));
+    CHECK(!match("coin/tex", "Assets/Textures/Items/coin.png") && !match("tex/gold", "Assets/Textures/Items/coin.png"));
+    CHECK(match("/textures//coin", "Assets/Textures/coin.png") && match("ass/tex/", "Assets/Textures/coin.png"));
+    CHECK(!match("ass/tex/", "Assets/Textures", AssetType::Folder) && !match("tex/coin/", "Assets/Textures/coin.png"));
+    // Wildcards; every word must match.
+    CHECK(match("*.png", "Assets/a.png") && !match("*.png", "Assets/a.jpg") && match("c*n", "Assets/coin.png"));
+    CHECK(match("tex coin", "Assets/Textures/coin.png") && !match("tex gold", "Assets/Textures/coin.png"));
+    CHECK(match("*", "anything") && AssetSearch::MatchPattern("abc", "a*c") && !AssetSearch::MatchPattern("abc", "c*a"));
+    // Types by key or name; several t: words = any of them.
+    CHECK(match("t:rasm", "a.png") && match("t:texture", "a.png") && match("t:TEX", "a.png") && !match("t:model", "a.png"));
+    CHECK(match("t:model robot", "Models/Robot.gltf", AssetType::Model) && !match("t:model robot", "Models/Robot.png"));
+    CHECK(match("t:audio t:model", "x.wav", AssetType::Audio) && match("tur:sahna", "L.zscene", AssetType::Scene));
+    CHECK(match("t:skript", "P.cpp", AssetType::Script) && match("t:hdr", "sky.hdr", AssetType::Environment) && match("t:muhit", "s.hdr", AssetType::Environment));
+    AssetSearch many("t:s");
+    CHECK(many.HasTypeFilter() && std::find(many.GetTypes().begin(), many.GetTypes().end(), AssetType::Scene) != many.GetTypes().end() &&
+          std::find(many.GetTypes().begin(), many.GetTypes().end(), AssetType::Font) != many.GetTypes().end()); // "Shrift"
+    CHECK(!match("t:xyz", "a.png") && AssetSearch("t:").IsEmpty() && AssetSearch("   ").IsEmpty() && !AssetSearch("a").IsEmpty());
+
+    // The content browser's listing: every sub folder, paths matched from the search root.
+    fs::path root = MakeTempDir("zamin-search-");
+    WriteFile(root / "Assets" / "Textures" / "coin.png", "x");
+    WriteFile(root / "Assets" / "Textures" / "Items" / "gold_coin.png", "x");
+    WriteFile(root / "Assets" / "Textures" / "Items" / "gold_coin.png.zmeta", "{}");
+    WriteFile(root / "Assets" / "Models" / "Robot.gltf", "{}");
+    WriteFile(root / "Source" / "CoinScript.cpp", "//");
+    WriteFile(root / "Build" / "coin.png", "x");
+    auto names = [](const std::vector<AssetEntry>& entries) {
+        std::vector<std::string> out;
+        for (const AssetEntry& e : entries)
+            out.push_back(e.Name);
+        std::sort(out.begin(), out.end());
+        return out;
+    };
+    AssetListOptions options;
+    options.SearchRoot = root;
+    options.Excluded = { root / "Build" };
+    options.Search = "coin";
+    CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "CoinScript.cpp", "coin.png", "gold_coin.png" }));
+    CHECK(AssetFiles::List(root / "Assets" / "Models", options).empty()); // only below the listed folder
+    options.Search = "assets/textures/";
+    CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "Items", "coin.png", "gold_coin.png" }));
+    options.Search = "Textures/Items/";
+    CHECK(names(AssetFiles::List(root / "Assets", options)) == std::vector<std::string>({ "gold_coin.png" }));
+    options.Search = "t:rasm";
+    CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "coin.png", "gold_coin.png" }));
+    options.Search = "src/coin t:skript";
+    CHECK(names(AssetFiles::List(root, options)).empty()); // "Source" does not contain "src"
+    options.Search = "sou/coin t:skript";
+    CHECK(names(AssetFiles::List(root, options)) == std::vector<std::string>({ "CoinScript.cpp" }));
+    std::vector<AssetEntry> found = AssetFiles::List(root, options);
+    CHECK(found.size() == 1 && found[0].Path == root / "Source" / "CoinScript.cpp" && found[0].Type == AssetType::Script);
+    // Without a search root the paths start at the listed folder.
+    options.SearchRoot.clear();
+    options.Search = "assets/";
+    CHECK(AssetFiles::List(root / "Assets", options).empty() && AssetFiles::List(root, options).size() >= 5);
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
 TEST(ContentBrowserSettingsJson)
 {
     EditorViewSettings settings;
@@ -6085,12 +6160,14 @@ TEST(ContentBrowserSettingsJson)
     settings.ContentBrowser.Filter.Set(AssetType::Audio, true);
     settings.ContentBrowser.SortBy = AssetSortColumn::Modified;
     settings.ContentBrowser.SortAscending = false;
+    CHECK(settings.ContentBrowser.SearchEverywhere); // the whole project by default
+    settings.ContentBrowser.SearchEverywhere = false;
     std::string text = settings.ToJson();
     CHECK(text.find("\"Texture\"") != std::string::npos && text.find("\"List\"") != std::string::npos);
 
     EditorViewSettings loaded;
     CHECK(loaded.FromJson(text));
-    CHECK(loaded.ContentBrowser.ListView && loaded.ContentBrowser.ThumbnailSize == 120.0f);
+    CHECK(loaded.ContentBrowser.ListView && loaded.ContentBrowser.ThumbnailSize == 120.0f && !loaded.ContentBrowser.SearchEverywhere);
     CHECK(loaded.ContentBrowser.Filter.Mask == settings.ContentBrowser.Filter.Mask);
     CHECK(loaded.ContentBrowser.SortBy == AssetSortColumn::Modified && !loaded.ContentBrowser.SortAscending);
 

@@ -1198,6 +1198,34 @@ namespace Zamin {
         }
     }
 
+    fs::path ContentBrowserPanel::CreateMaterial()
+    {
+        if (!Project::GetActive())
+            return {};
+        fs::path assets = Project::GetAssetDirectory();
+        // Asset paths only reach files inside the asset folder.
+        fs::path dir = !m_CurrentDirectory.empty() && AssetFiles::IsInside(m_CurrentDirectory, assets) ? m_CurrentDirectory : assets / "Materials";
+        fs::path file = AssetFiles::MakeUniquePath(dir, "NewMaterial.zmat");
+        if (!MaterialSerializer::Serialize(MaterialData{}, file)) // makes the folder
+        {
+            ShowNotice(std::format("Material yaratilmadi: {}", file.filename().string()), true);
+            ZM_ERROR("Material fayli yozilmadi: {}", file.string());
+            return {};
+        }
+        if (AssetRegistry* registry = Project::GetAssetRegistry())
+            registry->OnFileAdded(file); // its UUID at once (scenes write it next to the path)
+        ZM_INFO("Yangi material yaratildi: {}", Project::GetAssetRelativePath(file));
+        m_ListDirty = true;
+        if (OnFilesChanged)
+            OnFilesChanged();
+        m_Selection.clear();
+        Reveal({ file });
+        if (OnAssetSelected)
+            OnAssetSelected(file);
+        ShowNotice(std::format("Yangi material: {}  (F2 - nomini o'zgartirish)", file.filename().string()));
+        return file;
+    }
+
     // ------------------------------------------------------------------ menus / popups
     void ContentBrowserPanel::DrawContextMenu()
     {
@@ -1206,6 +1234,10 @@ namespace Zamin {
             if (ImGui::MenuItem(ICON_FA_FOLDER "  Yangi papka")) { m_NewKind = 0; m_NewName = "NewFolder"; m_OpenNewPopup = true; }
             if (ImGui::MenuItem(ICON_FA_EARTH_ASIA "  Yangi sahna")) { m_NewKind = 1; m_NewName = "NewScene"; m_OpenNewPopup = true; }
             if (ImGui::MenuItem(ICON_FA_FILE_CODE "  Yangi C++ skript...") && OnRequestNewScript) OnRequestNewScript();
+            if (ImGui::MenuItem(ICON_FA_PALETTE "  Yangi material", nullptr, false, Project::GetActive() != nullptr))
+                CreateMaterial();
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Standart qiymatli material asset (.zmat) shu papkada yaratiladi va inspektorda ochiladi");
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A", false, !m_Entries.empty()))
             {

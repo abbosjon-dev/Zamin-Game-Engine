@@ -10,6 +10,7 @@
 #include "Zamin/Renderer/Renderer2D.h"
 #include "Zamin/Renderer/Renderer3D.h"
 #include "Zamin/Renderer/RenderCommand.h"
+#include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Math/Math.h"
@@ -110,6 +111,7 @@ namespace Zamin {
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).RuntimeHandle = 0;
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).Clear();
+        for (auto e : registry.view<MeshRendererComponent>()) Scene::ClearMaterialInstances(registry.get<MeshRendererComponent>(e));
         for (auto e : registry.view<UIButtonComponent>())
         {
             auto& b = registry.get<UIButtonComponent>(e);
@@ -129,6 +131,15 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; }
         if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->Clear(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
         if (auto* c = e.TryGetComponent<UIButtonComponent>()) c->Hovered = c->Pressed = c->Clicked = false;
+        if (auto* c = e.TryGetComponent<MeshRendererComponent>())
+        {
+            // A copy (Instantiate) looks like its original did, with material instances of its own.
+            if (c->MaterialInstance)
+                c->MaterialInstance = c->MaterialInstance->Clone();
+            for (Ref<MaterialAsset>& instance : c->SubmeshMaterialInstances)
+                if (instance)
+                    instance = instance->Clone();
+        }
     }
 
     // ------------------------------------------------------------------ scene
@@ -2872,34 +2883,129 @@ namespace Zamin {
         return mr.MaterialRef;
     }
 
+    MaterialData Scene::GetInlineMaterialData(const MeshRendererComponent& mr)
+    {
+        MaterialData data = MaterialData::FromMaterial(mr.Mat);
+        data.AlbedoMap = mr.AlbedoPath;
+        data.NormalMap = mr.NormalPath;
+        data.MetalRoughMap = mr.MetalRoughPath;
+        data.EmissiveMap = mr.EmissivePath;
+        return data;
+    }
+
+    bool Scene::SetMeshMaterial(MeshRendererComponent& mr, const std::string& assetPath, int submesh)
+    {
+        if (!assetPath.empty() && AssetFiles::GetType(assetPath) != AssetType::Material)
+            return false;
+        if (submesh < 0)
+            mr.MaterialPath = assetPath;
+        else
+        {
+            if (mr.SubmeshMaterials.size() <= (size_t)submesh)
+                mr.SubmeshMaterials.resize((size_t)submesh + 1);
+            mr.SubmeshMaterials[(size_t)submesh] = assetPath;
+            while (!mr.SubmeshMaterials.empty() && mr.SubmeshMaterials.back().empty())
+                mr.SubmeshMaterials.pop_back(); // nothing kept for the parts without one
+        }
+        ClearMaterialInstances(mr); // copies of what it used before
+        ResolveMeshMaterials(mr);
+        return true;
+    }
+
+    Ref<MaterialAsset> Scene::GetMaterialInstance(MeshRendererComponent& mr)
+    {
+        if (!mr.MaterialInstance)
+            mr.MaterialInstance = mr.MaterialRef ? mr.MaterialRef->Clone() : MaterialAsset::CreateInstance(GetInlineMaterialData(mr), mr.Mat);
+        return mr.MaterialInstance;
+    }
+
+    Ref<MaterialAsset> Scene::GetMaterialInstance(MeshRendererComponent& mr, size_t submesh)
+    {
+        if (mr.Type != PrimitiveMesh::Model)
+            return GetMaterialInstance(mr);
+        const Material* modelMaterial = nullptr;
+        if (mr.ModelAsset)
+        {
+            const auto& subMeshes = mr.ModelAsset->GetSubMeshes();
+            if (submesh >= subMeshes.size())
+                return nullptr;
+            modelMaterial = &subMeshes[submesh].Mat;
+        }
+        if (mr.SubmeshMaterialInstances.size() <= submesh)
+            mr.SubmeshMaterialInstances.resize(submesh + 1);
+        Ref<MaterialAsset>& instance = mr.SubmeshMaterialInstances[submesh];
+        if (instance)
+            return instance;
+        // A copy of what the part shows now: its slot's asset, the renderer's material (asset or
+        // its instance), or the model's own material with the (instance of the) inline tint.
+        Ref<MaterialAsset> slot = submesh < mr.SubmeshMaterialRefs.size() ? mr.SubmeshMaterialRefs[submesh] : nullptr;
+        if (slot)
+            instance = slot->Clone();
+        else if (mr.MaterialRef)
+            instance = (mr.MaterialInstance ? mr.MaterialInstance : mr.MaterialRef)->Clone();
+        else
+        {
+            Material composed = ComposeMeshMaterial(mr, modelMaterial, submesh);
+            MaterialData data = MaterialData::FromMaterial(composed);
+            // Texture paths of the inline maps that replaced the model's (the model's own have none).
+            MaterialData tint = mr.MaterialInstance ? mr.MaterialInstance->GetData() : GetInlineMaterialData(mr);
+            const Material& tintMaterial = mr.MaterialInstance ? mr.MaterialInstance->GetMaterial() : mr.Mat;
+            if (tintMaterial.AlbedoMap || !modelMaterial) data.AlbedoMap = tint.AlbedoMap;
+            if (tintMaterial.NormalMap || !modelMaterial) data.NormalMap = tint.NormalMap;
+            if (tintMaterial.MetalRoughMap || !modelMaterial) data.MetalRoughMap = tint.MetalRoughMap;
+            if (tintMaterial.EmissiveMap || !modelMaterial) data.EmissiveMap = tint.EmissiveMap;
+            instance = MaterialAsset::CreateInstance(data, composed);
+        }
+        return instance;
+    }
+
+    bool Scene::HasMaterialInstances(const MeshRendererComponent& mr)
+    {
+        return mr.MaterialInstance || std::any_of(mr.SubmeshMaterialInstances.begin(), mr.SubmeshMaterialInstances.end(),
+                                                  [](const Ref<MaterialAsset>& m) { return m != nullptr; });
+    }
+
+    void Scene::ClearMaterialInstances(MeshRendererComponent& mr)
+    {
+        mr.MaterialInstance = nullptr;
+        mr.SubmeshMaterialInstances.clear();
+    }
+
     Material Scene::ComposeMeshMaterial(const MeshRendererComponent& mr, const Material* modelMaterial, size_t submesh)
     {
-        if (Ref<MaterialAsset> asset = GetMeshMaterialAsset(mr, modelMaterial ? submesh : 0))
-            return asset->GetMaterial();
+        // A part's own instance, then its slot's asset (more specific than the renderer's material).
+        if (modelMaterial && submesh < mr.SubmeshMaterialInstances.size() && mr.SubmeshMaterialInstances[submesh])
+            return mr.SubmeshMaterialInstances[submesh]->GetMaterial();
+        if (modelMaterial && submesh < mr.SubmeshMaterialRefs.size() && mr.SubmeshMaterialRefs[submesh])
+            return mr.SubmeshMaterialRefs[submesh]->GetMaterial();
+        // The renderer's material asset (or a script's instance of it).
+        if (mr.MaterialRef)
+            return (mr.MaterialInstance ? mr.MaterialInstance : mr.MaterialRef)->GetMaterial();
+        const Material& inlineMat = mr.MaterialInstance ? mr.MaterialInstance->GetMaterial() : mr.Mat;
         if (!modelMaterial)
-            return mr.Mat;
+            return inlineMat;
         // The model's own material with the inline material as tint / overrides.
         Material m = *modelMaterial;
-        m.Albedo *= mr.Mat.Albedo;
-        if (mr.Mat.AlbedoMap) m.AlbedoMap = mr.Mat.AlbedoMap;
-        if (mr.Mat.NormalMap) m.NormalMap = mr.Mat.NormalMap;
-        if (mr.Mat.MetalRoughMap) m.MetalRoughMap = mr.Mat.MetalRoughMap;
-        if (mr.Mat.EmissiveMap) m.EmissiveMap = mr.Mat.EmissiveMap;
-        m.Emission = m.Emission * m.EmissionStrength + mr.Mat.Emission * mr.Mat.EmissionStrength;
+        m.Albedo *= inlineMat.Albedo;
+        if (inlineMat.AlbedoMap) m.AlbedoMap = inlineMat.AlbedoMap;
+        if (inlineMat.NormalMap) m.NormalMap = inlineMat.NormalMap;
+        if (inlineMat.MetalRoughMap) m.MetalRoughMap = inlineMat.MetalRoughMap;
+        if (inlineMat.EmissiveMap) m.EmissiveMap = inlineMat.EmissiveMap;
+        m.Emission = m.Emission * m.EmissionStrength + inlineMat.Emission * inlineMat.EmissionStrength;
         m.EmissionStrength = 1.0f;
-        m.Tiling *= mr.Mat.Tiling;
-        m.Offset = m.Offset * mr.Mat.Tiling + mr.Mat.Offset;
-        m.NormalStrength *= mr.Mat.NormalStrength;
+        m.Tiling *= inlineMat.Tiling;
+        m.Offset = m.Offset * inlineMat.Tiling + inlineMat.Offset;
+        m.NormalStrength *= inlineMat.NormalStrength;
         // Modes: the model's own unless the inline material asks for something else.
-        if (mr.Mat.Shader != MaterialShader::Lit)
-            m.Shader = mr.Mat.Shader;
-        if (mr.Mat.BlendMode != MaterialBlendMode::Opaque)
+        if (inlineMat.Shader != MaterialShader::Lit)
+            m.Shader = inlineMat.Shader;
+        if (inlineMat.BlendMode != MaterialBlendMode::Opaque)
         {
-            m.BlendMode = mr.Mat.BlendMode;
-            m.AlphaCutoff = mr.Mat.AlphaCutoff;
-            m.PreserveSpecular = mr.Mat.PreserveSpecular;
+            m.BlendMode = inlineMat.BlendMode;
+            m.AlphaCutoff = inlineMat.AlphaCutoff;
+            m.PreserveSpecular = inlineMat.PreserveSpecular;
         }
-        m.DoubleSided = m.DoubleSided || mr.Mat.DoubleSided;
+        m.DoubleSided = m.DoubleSided || inlineMat.DoubleSided;
         return m;
     }
 
@@ -2988,10 +3094,12 @@ namespace Zamin {
             if (mr.Type == PrimitiveMesh::Model && mr.ModelAsset)
             {
                 const auto& subMeshes = mr.ModelAsset->GetSubMeshes();
+                bool preview = options.MaterialPreview && e == options.MaterialPreviewEntity;
                 for (size_t index = 0; index < subMeshes.size(); index++)
                 {
                     const auto& sub = subMeshes[index];
-                    Material m = ComposeMeshMaterial(mr, &sub.Mat, index);
+                    Material m = preview && (options.MaterialPreviewSubmesh < 0 || (size_t)options.MaterialPreviewSubmesh == index)
+                               ? options.MaterialPreview->GetMaterial() : ComposeMeshMaterial(mr, &sub.Mat, index);
                     const std::vector<glm::mat4>* joints = nullptr;
                     if (sub.MeshRef->IsSkinned())
                         if (auto* anim = m_Registry.try_get<AnimatorComponent>(e); anim && !anim->JointMatrices.empty())
@@ -3007,8 +3115,13 @@ namespace Zamin {
                 }
             }
             else if (mr.MeshAsset)
-                Renderer3D::SubmitMesh(mr.MeshAsset, world(e), mr.MaterialRef ? mr.MaterialRef->GetMaterial() : mr.Mat, (int)(uint32_t)e,
-                                       mr.CastShadows);
+            {
+                // The material asset (or a script's instance), else the inline material.
+                const Material& m = options.MaterialPreview && e == options.MaterialPreviewEntity ? options.MaterialPreview->GetMaterial()
+                                  : mr.MaterialInstance ? mr.MaterialInstance->GetMaterial()
+                                  : mr.MaterialRef ? mr.MaterialRef->GetMaterial() : mr.Mat;
+                Renderer3D::SubmitMesh(mr.MeshAsset, world(e), m, (int)(uint32_t)e, mr.CastShadows);
+            }
         }
         if (options.ShowGrid)
             Renderer3D::SubmitGrid(options.GridPlane, options.Grid); // under the transparent surfaces

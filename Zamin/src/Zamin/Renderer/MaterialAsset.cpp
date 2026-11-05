@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace Zamin {
 
@@ -259,9 +260,89 @@ namespace Zamin {
         Touch();
     }
 
+    Ref<MaterialAsset> MaterialAsset::CreateInstance(const MaterialData& data, const Material& material, fs::path path)
+    {
+        Ref<MaterialAsset> instance = CreateRef<MaterialAsset>();
+        instance->m_Data = data;
+        instance->m_Material = material; // its textures as they are
+        instance->m_Data.ApplyValuesTo(instance->m_Material);
+        instance->m_Path = std::move(path);
+        instance->m_Instance = true;
+        instance->Touch();
+        return instance;
+    }
+
     void MaterialAsset::Touch()
     {
         m_Revision = ++s_MaterialRevision;
+    }
+
+    // ---- quick edits
+    void MaterialAsset::SetColor(const glm::vec4& color)
+    {
+        MaterialData d = m_Data;
+        d.Albedo = color;
+        SetData(d);
+    }
+
+    void MaterialAsset::SetColor(const glm::vec3& color)
+    {
+        SetColor(glm::vec4(color, m_Data.Albedo.a));
+    }
+
+    void MaterialAsset::SetOpacity(float alpha)
+    {
+        SetColor(glm::vec4(glm::vec3(m_Data.Albedo), std::clamp(alpha, 0.0f, 1.0f)));
+    }
+
+    void MaterialAsset::SetEmission(const glm::vec3& color, float strength)
+    {
+        MaterialData d = m_Data;
+        d.Emission = color;
+        d.EmissionStrength = std::max(strength, 0.0f);
+        SetData(d);
+    }
+
+    void MaterialAsset::SetMetallic(float metallic)
+    {
+        MaterialData d = m_Data;
+        d.Metallic = std::clamp(metallic, 0.0f, 1.0f);
+        SetData(d);
+    }
+
+    void MaterialAsset::SetRoughness(float roughness)
+    {
+        MaterialData d = m_Data;
+        d.Roughness = std::clamp(roughness, 0.0f, 1.0f);
+        SetData(d);
+    }
+
+    void MaterialAsset::SetTiling(const glm::vec2& tiling)
+    {
+        MaterialData d = m_Data;
+        d.Tiling = tiling;
+        SetData(d);
+    }
+
+    void MaterialAsset::SetOffset(const glm::vec2& offset)
+    {
+        MaterialData d = m_Data;
+        d.Offset = offset;
+        SetData(d);
+    }
+
+    void MaterialAsset::SetAlbedoMap(const std::string& assetPath)
+    {
+        MaterialData d = m_Data;
+        d.AlbedoMap = assetPath;
+        SetData(d);
+    }
+
+    void MaterialAsset::SetEmissiveMap(const std::string& assetPath)
+    {
+        MaterialData d = m_Data;
+        d.EmissiveMap = assetPath;
+        SetData(d);
     }
 
     void MaterialAsset::SetData(const MaterialData& data)
@@ -291,7 +372,8 @@ namespace Zamin {
 
     bool MaterialAsset::Reload(std::string* error)
     {
-        std::string reason = m_Path.empty() ? "materialning fayli yo'q" : std::string();
+        std::string reason = m_Instance ? "material instansiyasi faylga bog'lanmagan"
+                           : m_Path.empty() ? "materialning fayli yo'q" : std::string();
         MaterialData data;
         if (reason.empty() && MaterialSerializer::Deserialize(m_Path, data, &reason))
         {
@@ -309,6 +391,12 @@ namespace Zamin {
 
     bool MaterialAsset::Save() const
     {
+        if (m_Instance)
+        {
+            // A script's copy: writing it would put one entity's runtime look into the shared file.
+            ZM_CORE_WARN("Material instansiyasi faylga saqlanmaydi: {}", m_Path.empty() ? std::string("(xotirada)") : m_Path.filename().string());
+            return false;
+        }
         return !m_Path.empty() && MaterialSerializer::Serialize(m_Data, m_Path);
     }
 
@@ -317,6 +405,7 @@ namespace Zamin {
         if (!MaterialSerializer::Serialize(m_Data, path))
             return false;
         m_Path = path;
+        m_Instance = false;
         return true;
     }
 
@@ -326,6 +415,7 @@ namespace Zamin {
         copy->m_Data = m_Data;
         copy->m_Material = m_Material; // same texture objects
         copy->m_Path = m_Path;
+        copy->m_Instance = true;
         copy->Touch();
         return copy;
     }
@@ -467,6 +557,44 @@ namespace Zamin {
             list.push_back(material);
         std::sort(list.begin(), list.end(), [](const Ref<MaterialAsset>& a, const Ref<MaterialAsset>& b) { return a->GetPath() < b->GetPath(); });
         return list;
+    }
+
+    MaterialLibrary::Snapshot MaterialLibrary::TakeSnapshot()
+    {
+        Snapshot snapshot;
+        for (const Ref<MaterialAsset>& material : GetLoaded())
+            snapshot.Materials.push_back({ material, material->GetData(), material->GetRevision() });
+        return snapshot;
+    }
+
+    std::vector<std::string> MaterialLibrary::RestoreSnapshot(const Snapshot& snapshot)
+    {
+        std::vector<std::string> restored;
+        for (const Snapshot::Entry& entry : snapshot.Materials)
+        {
+            const Ref<MaterialAsset>& material = entry.Asset;
+            if (!material || material->GetRevision() == entry.Revision || material->GetData() == entry.Data)
+                continue;
+            // Saved meanwhile, or its file changed and was read again: the file is what counts.
+            MaterialData onDisk;
+            if (!material->GetPath().empty() && MaterialSerializer::Deserialize(material->GetPath(), onDisk) && onDisk == material->GetData())
+                continue;
+            material->SetData(entry.Data);
+            restored.push_back(Project::GetActive() ? Project::GetAssetRelativePath(material->GetPath()) : material->GetPath().generic_string());
+        }
+        // Loaded after the snapshot (a script switched to it) and changed since: as its file says.
+        std::unordered_set<const MaterialAsset*> known;
+        for (const Snapshot::Entry& entry : snapshot.Materials)
+            known.insert(entry.Asset.get());
+        for (const Ref<MaterialAsset>& material : GetLoaded())
+        {
+            MaterialData onDisk;
+            if (known.contains(material.get()) || !MaterialSerializer::Deserialize(material->GetPath(), onDisk) || onDisk == material->GetData())
+                continue;
+            material->SetData(onDisk);
+            restored.push_back(Project::GetActive() ? Project::GetAssetRelativePath(material->GetPath()) : material->GetPath().generic_string());
+        }
+        return restored;
     }
 
     bool MaterialLibrary::ReleaseIfUnused(const fs::path& path)

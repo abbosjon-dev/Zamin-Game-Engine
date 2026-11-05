@@ -237,6 +237,32 @@ namespace Zamin {
         glm::vec2 GetMouseWorldPosition() const;
         glm::vec3 ScreenToWorld(const glm::vec2& screen, float depthZ = 0.0f) const;
 
+        // ---- materials (requires MeshRendererComponent)
+        // This entity's own copy of its material, made on the first call - of the material asset,
+        // or of the inline material without one (models: the inline material is the tint of every
+        // part) - and the same object after that. Its edits change only this entity: the shared
+        // .zmat and the other entities using it stay as they are. Runtime only: gone when play
+        // stops (a copy made with Instantiate gets a copy of it). nullptr without a MeshRenderer.
+        //   GetMaterial()->SetColor({ 1.0f, 0.2f, 0.2f, 1.0f });
+        //   GetMaterial()->SetEmission({ 1.0f, 0.5f, 0.1f }, 4.0f);
+        Ref<MaterialAsset> GetMaterial();
+        // Part `submesh` of a model: a copy of that part's whole material (primitives: GetMaterial()).
+        Ref<MaterialAsset> GetMaterial(size_t submesh);
+        Ref<MaterialAsset> GetMaterial(Entity other, int submesh = -1);
+        // The shared material asset this entity uses (submesh: a model part's slot, else the
+        // renderer's), nullptr with an inline material. Its edits change EVERY entity using it;
+        // in the editor they are taken back when play stops.
+        Ref<MaterialAsset> GetSharedMaterial(int submesh = -1) const;
+        Ref<MaterialAsset> GetSharedMaterial(Entity other, int submesh = -1) const;
+        // Another material asset (path relative to Assets, "" = back to the inline material) for
+        // the whole renderer or one model part; the entity's instances are dropped. False without
+        // a MeshRenderer or when the path is not a .zmat.
+        bool SetSharedMaterial(const std::string& assetPath, int submesh = -1);
+        bool SetSharedMaterial(Entity other, const std::string& assetPath, int submesh = -1);
+        // Drops this entity's instances: it shows the shared material again.
+        void ResetMaterial();
+        void ResetMaterial(Entity other);
+
         // ---- particles
         void EmitParticles(int count); // requires ParticleSystemComponent; nothing while inactive
 

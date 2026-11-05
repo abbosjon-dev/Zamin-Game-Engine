@@ -182,6 +182,13 @@ namespace Zamin {
         std::vector<std::string> SubmeshMaterials;
         Ref<MaterialAsset> MaterialRef;                     // runtime cache of MaterialPath
         std::vector<Ref<MaterialAsset>> SubmeshMaterialRefs; // runtime cache of SubmeshMaterials
+        // Runtime only (never saved; cleared when play starts and stops): this entity's own copies
+        // made by scripts (ScriptableEntity::GetMaterial), so their edits leave the shared asset
+        // and every other entity alone. MaterialInstance takes the place of the main material -
+        // the material asset, or without one the inline material (models: the tint of every part);
+        // SubmeshMaterialInstances[i] takes the place of part i's whole material.
+        Ref<MaterialAsset> MaterialInstance;
+        std::vector<Ref<MaterialAsset>> SubmeshMaterialInstances;
         Material Mat;             // inline material: primitives: the material; models: tint/overrides
         std::string AlbedoPath;   // texture paths relative to assets
         std::string NormalPath;

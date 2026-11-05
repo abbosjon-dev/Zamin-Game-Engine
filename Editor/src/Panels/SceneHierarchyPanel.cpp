@@ -9,6 +9,7 @@
 #include <cctype>
 #include <cmath>
 #include <format>
+#include <set>
 
 namespace Zamin {
 
@@ -850,7 +851,15 @@ namespace Zamin {
                 }
             }
         }
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+        if (active && active->IsDataType("CONTENT_BROWSER_ITEM") && AssetFiles::GetType((const char*)active->Data) == AssetType::Material)
+        {
+            // A material onto a row: that entity's mesh renderer uses it (only rows that have one light up).
+            if (entity.HasComponent<MeshRendererComponent>())
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+                    if (OnMaterialDropped)
+                        OnMaterialDropped((const char*)payload->Data, entity);
+        }
+        else if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
         {
             std::filesystem::path path((const char*)payload->Data);
             if (path.extension() == ".zprefab" && OnPrefabDropped)
@@ -1407,17 +1416,6 @@ namespace Zamin {
         }
     }
 
-    // A material asset made of a mesh renderer's inline material (values and texture paths).
-    static MaterialData InlineMaterialData(const MeshRendererComponent& c)
-    {
-        MaterialData data = MaterialData::FromMaterial(c.Mat);
-        data.AlbedoMap = c.AlbedoPath;
-        data.NormalMap = c.NormalPath;
-        data.MetalRoughMap = c.MetalRoughPath;
-        data.EmissiveMap = c.EmissivePath;
-        return data;
-    }
-
     // One line about a material asset: its color, shader, blend mode and textures.
     static void DrawMaterialSummary(const Ref<MaterialAsset>& asset)
     {
@@ -1437,6 +1435,59 @@ namespace Zamin {
             UI::Tooltip(Project::GetAssetRelativePath(asset->GetPath()).c_str());
     }
 
+    bool SceneHierarchyPanel::DrawExtractModelMaterials(MeshRendererComponent& c)
+    {
+        std::string ext = std::filesystem::path(c.ModelPath).extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) { return (char)std::tolower(ch); });
+        if (!Project::GetActive() || (ext != ".gltf" && ext != ".glb"))
+            return false;
+        UI::PropertyLabel("");
+        bool clicked = ImGui::Button(ICON_FA_FILE_EXPORT "  Modeldan .zmat yaratib biriktirish", ImVec2(-FLT_MIN, 0));
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Modelning glTF materiallari .zmat fayllar bo'lib yoziladi (model yonidagi <nom>_Materials papkasiga, "
+                        "fayl ichidagi rasmlar bilan) va har bir qism o'z materialiga biriktiriladi. Oldin eksport qilinganlari "
+                        "qayta yozilmaydi - ular ishlatiladi.");
+        if (!clicked || !c.ModelAsset)
+            return false;
+        ModelMaterialExport result;
+        std::string error;
+        std::filesystem::path modelFile = Project::GetAssetFileSystemPath(c.ModelPath);
+        if (!Model::ExportMaterials(modelFile, {}, result, &error))
+        {
+            ZM_ERROR("Model materiallari eksport qilinmadi: {} - {}", c.ModelPath, error);
+            return false;
+        }
+        for (const std::string& warning : result.Warnings)
+            ZM_WARN("{}: {}", c.ModelPath, warning);
+        // One material for every part: the renderer's material asset; else a slot per part.
+        const auto& subMeshes = c.ModelAsset->GetSubMeshes();
+        std::vector<std::string> slots(subMeshes.size());
+        std::set<int> used;
+        for (size_t i = 0; i < subMeshes.size(); i++)
+        {
+            int index = subMeshes[i].MaterialIndex;
+            if (index >= 0 && (size_t)index < result.Materials.size())
+            {
+                slots[i] = Project::GetAssetRelativePath(result.Materials[(size_t)index]);
+                used.insert(index);
+            }
+        }
+        if (used.size() == 1 && std::none_of(slots.begin(), slots.end(), [](const std::string& p) { return p.empty(); }))
+        {
+            c.SubmeshMaterials.clear();
+            Scene::SetMeshMaterial(c, slots.front());
+        }
+        else
+        {
+            c.SubmeshMaterials = slots;
+            Scene::SetMeshMaterial(c, c.MaterialPath); // trims empty slots, looks them up
+        }
+        ZM_INFO("Model materiallari biriktirildi: {} ({} ta material, {} ta qism)", c.ModelPath, result.Materials.size(), subMeshes.size());
+        if (OnFilesCreated && !result.Written.empty())
+            OnFilesCreated(result.Written);
+        return true;
+    }
+
     bool SceneHierarchyPanel::DrawMeshMaterial(Entity entity, MeshRendererComponent& c)
     {
         bool changed = false;
@@ -1448,15 +1499,30 @@ namespace Zamin {
         options.Missing = !c.MaterialPath.empty() && !c.MaterialRef;
         options.Tooltip = "Material asset (.zmat). Tanlansa mesh (modelning barcha qismlari) shu material bilan chiziladi va "
                           "quyidagi ichki material ishlatilmaydi. Bitta material ko'p obyektda ishlatiladi: uni o'zgartirsangiz, hammasi o'zgaradi.";
-        if (UI::PropertyAssetPath("Material asset", c.MaterialPath, ".zmat", ICON_FA_PALETTE, options))
-        {
-            Scene::ResolveMeshMaterials(c);
-            changed = true;
-        }
+        std::string materialPath = c.MaterialPath;
+        if (UI::PropertyAssetPath("Material asset", materialPath, ".zmat", ICON_FA_PALETTE, options))
+            changed |= Scene::SetMeshMaterial(c, materialPath);
         if (edit && OnAssetEditRequested)
             OnAssetEditRequested(Project::GetAssetFileSystemPath(c.MaterialPath));
         if (c.MaterialRef)
             DrawMaterialSummary(c.MaterialRef);
+        if (Scene::HasMaterialInstances(c))
+        {
+            // Play mode: a script made its own copy (GetMaterial) - that is what is drawn.
+            UI::PropertyLabel("");
+            ImGui::TextColored(ImVec4(0.55f, 0.8f, 1.0f, 1.0f), ICON_FA_CODE "  Skript material instansiyasi ishlatilmoqda");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Skript GetMaterial() bilan shu obyekt uchun materialning o'z nusxasini yaratgan: uning o'zgarishlari faqat shu "
+                            "obyektda ko'rinadi, umumiy .zmat va boshqa obyektlar o'zgarmaydi. O'yin to'xtaganda nusxa yo'qoladi.");
+            if (c.MaterialInstance && c.MaterialInstance->GetData().Albedo != (c.MaterialRef ? c.MaterialRef->GetData() : Scene::GetInlineMaterialData(c)).Albedo)
+            {
+                const glm::vec4& color = c.MaterialInstance->GetData().Albedo;
+                ImGui::SameLine();
+                ImGui::ColorButton("##instanceColor", ImVec4(color.r, color.g, color.b, color.a),
+                                   ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_AlphaPreviewHalf,
+                                   ImVec2(ImGui::GetTextLineHeight(), ImGui::GetTextLineHeight()));
+            }
+        }
 
         // Models: a material asset per submesh (overrides the one above for that part).
         if (c.Type == PrimitiveMesh::Model && c.ModelAsset && !c.ModelAsset->GetSubMeshes().empty())
@@ -1483,19 +1549,12 @@ namespace Zamin {
                     slotOptions.ActionClicked = &editSlot;
                     slotOptions.Missing = !path.empty() && (i >= c.SubmeshMaterialRefs.size() || !c.SubmeshMaterialRefs[i]);
                     if (UI::PropertyAssetPath(label.c_str(), path, ".zmat", ICON_FA_PALETTE, slotOptions))
-                    {
-                        if (c.SubmeshMaterials.size() <= i)
-                            c.SubmeshMaterials.resize(i + 1);
-                        c.SubmeshMaterials[i] = path;
-                        while (!c.SubmeshMaterials.empty() && c.SubmeshMaterials.back().empty())
-                            c.SubmeshMaterials.pop_back(); // nothing kept for the parts without one
-                        Scene::ResolveMeshMaterials(c);
-                        changed = true;
-                    }
+                        changed |= Scene::SetMeshMaterial(c, path, (int)i);
                     if (editSlot && OnAssetEditRequested)
                         OnAssetEditRequested(Project::GetAssetFileSystemPath(path));
                     ImGui::PopID();
                 }
+                changed |= DrawExtractModelMaterials(c);
                 ImGui::TreePop();
             }
         }
@@ -1552,7 +1611,7 @@ namespace Zamin {
                     if (std::string_view("/\\:*?\"<>|").find(ch) != std::string_view::npos)
                         ch = '_';
                 std::filesystem::path file = AssetFiles::MakeUniquePath(dir, name + ".zmat");
-                if (MaterialSerializer::Serialize(InlineMaterialData(c), file))
+                if (MaterialSerializer::Serialize(Scene::GetInlineMaterialData(c), file))
                 {
                     if (AssetRegistry* registry = Project::GetAssetRegistry())
                         registry->OnFileAdded(file); // a UUID at once (written next to the path in the scene)

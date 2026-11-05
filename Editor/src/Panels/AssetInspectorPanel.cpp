@@ -1284,9 +1284,10 @@ namespace Zamin {
             }
         }
 
-        // ---- materials of the file
+        // ---- materials of the file (and writing them out as .zmat assets)
         if (file.Valid && !file.Materials.empty() &&
-            ImGui::CollapsingHeader(std::format(ICON_FA_PALETTE "  Materiallar ({})###materials", file.Materials.size()).c_str()))
+            ImGui::CollapsingHeader(std::format(ICON_FA_PALETTE "  Materiallar ({})###materials", file.Materials.size()).c_str(),
+                                    m_ExportModel == m_Path ? ImGuiTreeNodeFlags_DefaultOpen : 0))
         {
             for (size_t i = 0; i < file.Materials.size(); i++)
             {
@@ -1302,6 +1303,52 @@ namespace Zamin {
                 ImGui::SameLine();
                 ImGui::TextDisabled("%s", details.c_str());
                 ImGui::PopID();
+            }
+            if (file.Format != "OBJ")
+            {
+                ImGui::Spacing();
+                if (ImGui::Button(ICON_FA_FILE_EXPORT "  .zmat ga eksport qilish"))
+                    ExportModelMaterials();
+                if (ImGui::IsItemHovered())
+                {
+                    std::string folder = Project::GetAssetRelativePath(Model::GetDefaultMaterialExportDirectory(m_Path));
+                    UI::Tooltip(std::format("Har bir material {} papkasiga .zmat fayl bo'lib yoziladi: ranglar, metall/g'adirlik, nurlanish, "
+                                            "shaffoflik va teksturalar bilan. Fayl ichidagi (.glb, data URI) rasmlar ularning yoniga PNG/JPG bo'lib "
+                                            "chiqariladi. Keyin ularni tahrirlash va boshqa obyektlarda ishlatish mumkin.", folder).c_str());
+                }
+                ImGui::SameLine();
+                ImGui::Checkbox("Ustidan yozish", &m_ExportOverwrite);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Oldingi eksportdan qolgan bir xil nomli fayllar qayta yoziladi (o'chirilsa: ular o'zgarmaydi va ishlatiladi)");
+
+                if (m_ExportModel == m_Path)
+                {
+                    if (!m_ExportError.empty())
+                        ImGui::TextColored(s_ErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  %s", m_ExportError.c_str());
+                    else
+                    {
+                        size_t images = 0;
+                        for (const fs::path& written : m_Export.Written)
+                            if (AssetFiles::GetType(written) == AssetType::Texture)
+                                images++;
+                        size_t materials = m_Export.Written.size() - images;
+                        std::string summary = std::format("{} ta material yozildi", materials);
+                        if (images > 0)
+                            summary += std::format(", {} ta rasm chiqarildi", images);
+                        if (!m_Export.Kept.empty())
+                            summary += std::format(", {} ta mavjud fayl o'zgarmadi", m_Export.Kept.size());
+                        ImGui::TextColored(s_OkColor, ICON_FA_CIRCLE_CHECK "  %s", summary.c_str());
+                        ImGui::TextDisabled(ICON_FA_FOLDER "  %s", Project::GetAssetRelativePath(m_Export.OutputDirectory).c_str());
+                        if (!m_Export.Materials.empty() && OnRevealRequested)
+                        {
+                            ImGui::SameLine();
+                            if (ImGui::SmallButton(ICON_FA_ARROW_RIGHT "  Ko'rsatish"))
+                                OnRevealRequested(m_Export.Materials.front());
+                        }
+                        for (const std::string& warning : m_Export.Warnings)
+                            ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  %s", warning.c_str());
+                    }
+                }
             }
         }
 
@@ -1394,6 +1441,28 @@ namespace Zamin {
                     ImGui::Text(ICON_FA_FILE "  %s", name.c_str());
             }
         }
+    }
+
+    bool AssetInspectorPanel::ExportModelMaterials()
+    {
+        if (m_Type != AssetType::Model)
+            return false;
+        ModelMaterialExportOptions options;
+        options.Overwrite = m_ExportOverwrite;
+        m_ExportModel = m_Path;
+        m_ExportError.clear();
+        if (!Model::ExportMaterials(m_Path, options, m_Export, &m_ExportError))
+        {
+            ZM_ERROR("Model materiallari eksport qilinmadi: {} - {}", m_Path.filename().string(), m_ExportError);
+            return false;
+        }
+        for (const std::string& warning : m_Export.Warnings)
+            ZM_WARN("{}: {}", m_Path.filename().string(), warning);
+        if (OnFilesCreated && !m_Export.Written.empty())
+            OnFilesCreated(m_Export.Written);
+        if (m_Usage)
+            m_Usage->MarkDirty();
+        return true;
     }
 
     void AssetInspectorPanel::DrawModel(const AssetMetadata* meta)

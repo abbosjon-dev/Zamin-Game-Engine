@@ -70,6 +70,11 @@ namespace Zamin {
         // Editor picking pass (a click on a locked entity goes through it): locked entities and
         // their subtrees are not drawn either, so the entity ID buffer shows what is behind them.
         bool SkipEditorLocked = false;
+        // Editor: a material dragged over a mesh is shown on it before it is dropped (nothing in
+        // the scene changes). MaterialPreviewSubmesh < 0: every part, else only that part.
+        entt::entity MaterialPreviewEntity = entt::null;
+        Ref<MaterialAsset> MaterialPreview;
+        int MaterialPreviewSubmesh = -1;
     };
 
     class Scene
@@ -463,8 +468,28 @@ namespace Zamin {
         // inline Unlit shader / Cutout or Transparent blend mode replaces the model's, an inline
         // double-sided flag makes every part double-sided).
         static Material ComposeMeshMaterial(const struct MeshRendererComponent& mr, const Material* modelMaterial, size_t submesh = 0);
-        // The material asset submesh `submesh` (or the primitive) is drawn with (null = none).
+        // The material asset submesh `submesh` (or the primitive) is drawn with (null = none). The
+        // shared one: an instance a script made (GetMaterialInstance) is not counted.
         static Ref<MaterialAsset> GetMeshMaterialAsset(const struct MeshRendererComponent& mr, size_t submesh = 0);
+        // The inline material as material asset data: its values and texture paths.
+        static MaterialData GetInlineMaterialData(const struct MeshRendererComponent& mr);
+        // Sets the material asset (path relative to Assets, "" = the inline material) of the whole
+        // renderer (submesh < 0) or of one part of a model (its slot in SubmeshMaterials; "" clears
+        // the slot), looks it up and drops the renderer's material instances. False when the path
+        // names a file that is not a .zmat.
+        static bool SetMeshMaterial(struct MeshRendererComponent& mr, const std::string& assetPath, int submesh = -1);
+
+        // ---- material instances (runtime, MeshRendererComponent::MaterialInstance)
+        // The renderer's own copy of its main material, made on the first call - of the material
+        // asset, or of the inline material without one (a model's inline material is the tint of
+        // all its parts) - and the same object after that. Edits of it change only this renderer.
+        static Ref<MaterialAsset> GetMaterialInstance(struct MeshRendererComponent& mr);
+        // Part `submesh` of a model: a copy of the whole material that part is drawn with now
+        // (primitives: the main instance). nullptr for a part the loaded model does not have.
+        static Ref<MaterialAsset> GetMaterialInstance(struct MeshRendererComponent& mr, size_t submesh);
+        static bool HasMaterialInstances(const struct MeshRendererComponent& mr);
+        // Back to the shared materials.
+        static void ClearMaterialInstances(struct MeshRendererComponent& mr);
     private:
         void RenderScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                          const SceneRenderOptions& options);

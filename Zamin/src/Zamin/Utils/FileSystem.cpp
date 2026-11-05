@@ -41,6 +41,23 @@ namespace Zamin {
         return true;
     }
 
+    bool FileSystem::WriteBinaryFile(const std::filesystem::path& path, const void* data, size_t size)
+    {
+        if (path.has_parent_path())
+        {
+            std::error_code ec;
+            std::filesystem::create_directories(path.parent_path(), ec);
+        }
+        std::ofstream out(path, std::ios::out | std::ios::binary | std::ios::trunc);
+        if (!out)
+        {
+            ZM_CORE_ERROR("Faylga yozib bo'lmadi: '{}'", path.string());
+            return false;
+        }
+        out.write((const char*)data, (std::streamsize)size);
+        return (bool)out;
+    }
+
     std::vector<uint8_t> FileSystem::ReadBinaryFile(const std::filesystem::path& path)
     {
         std::ifstream in(path, std::ios::binary | std::ios::ate);

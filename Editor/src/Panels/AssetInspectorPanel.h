@@ -52,6 +52,12 @@ namespace Zamin {
         // A file of the list was clicked: the editor shows it in the content browser (and here).
         std::function<void(const std::filesystem::path&)> OnRevealRequested;
         std::function<void(const std::filesystem::path&)> OnOpenScene;
+        // Files were written here (a model's materials exported): the content browser lists them.
+        std::function<void(const std::vector<std::filesystem::path>&)> OnFilesCreated;
+
+        // Models: writes the file's materials as .zmat files (Model::ExportMaterials) into the
+        // default folder next to it. False when nothing could be exported (the reason is shown).
+        bool ExportModelMaterials();
 
         // Edited import settings that are not applied yet.
         bool HasUnappliedChanges() const;
@@ -184,6 +190,11 @@ namespace Zamin {
         float m_ClipTime = 0.0f;
         double m_LastPreviewTime = -1.0;
         std::vector<glm::mat4> m_Joints;
+        // the last "export materials" of the shown model
+        bool m_ExportOverwrite = false;
+        std::filesystem::path m_ExportModel;  // which model m_Export is about (empty = none yet)
+        ModelMaterialExport m_Export;
+        std::string m_ExportError;
 
         // material: the library's shared object (edits show in the scene at once)
         Ref<MaterialAsset> m_Material;

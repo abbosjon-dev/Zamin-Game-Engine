@@ -79,6 +79,7 @@ namespace Zamin {
         m_SceneHierarchyPanel.OnFoldStateModified = [this]() { MarkViewSettingsDirty(); };
         m_ProjectSettingsPanel.OnSceneModified = [this]() { MarkDirty(); };
         m_SceneHierarchyPanel.OnPrefabDropped = [this](const fs::path& p, Entity parent) { InstantiatePrefabInEditor(p, parent); };
+        m_SceneHierarchyPanel.OnMaterialDropped = [this](const std::string& p, Entity target) { ApplyMaterialToEntity(target, p); };
         m_ContentBrowserPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
         m_ContentBrowserPanel.OnRequestNewScript = [this]() { m_NewScriptName = "MyScript"; m_OpenNewScriptPopup = true; };
         m_ContentBrowserPanel.OnNewScene = [this](const fs::path& p) {
@@ -135,6 +136,15 @@ namespace Zamin {
             return settings.Environment != nullptr;
         };
         m_AssetInspectorPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
+        // Files written from the inspector (a model's materials exported): listed at once.
+        auto filesCreated = [this](const std::vector<fs::path>& files) {
+            for (const fs::path& file : files)
+                m_ContentBrowserPanel.InvalidateThumbnail(file);
+            m_ContentBrowserPanel.MarkListDirty();
+            m_AssetUsage.MarkDirty();
+        };
+        m_AssetInspectorPanel.OnFilesCreated = filesCreated;
+        m_SceneHierarchyPanel.OnFilesCreated = filesCreated;
         m_UnusedAssetsPanel.SetUsageCache(&m_AssetUsage);
         m_UnusedAssetsPanel.OnAssetSelected = [this](const fs::path& p) { RevealAsset(p); };
         m_UnusedAssetsPanel.OnAssetsDeleted = [this](const std::vector<fs::path>& deleted) {
@@ -310,6 +320,35 @@ namespace Zamin {
         }
         if (frame == 20 && std::getenv("ZAMIN_EDITOR_TOGGLE_ACTIVE"))
             ToggleSelectionActive();
+
+        // ZAMIN_EDITOR_NEW_MATERIAL=1: "Yangi material" of the content browser's menu at frame 8.
+        if (frame == 8 && std::getenv("ZAMIN_EDITOR_NEW_MATERIAL"))
+            m_ContentBrowserPanel.CreateMaterial();
+        // ZAMIN_EDITOR_EXPORT_MATERIALS=1 (with ZAMIN_EDITOR_ASSET on a glTF model): its materials
+        // are exported as .zmat files at frame 12, like the inspector's button.
+        if (frame == 12 && std::getenv("ZAMIN_EDITOR_EXPORT_MATERIALS"))
+            m_AssetInspectorPanel.ExportModelMaterials();
+        // ZAMIN_EDITOR_MATERIAL_DROP="Materials/Gold.zmat>Entity" (or "...>Entity#2" for part 2 of a
+        // model): the material is dropped onto that entity at frame 30, like a viewport drop.
+        if (const char* drop = std::getenv("ZAMIN_EDITOR_MATERIAL_DROP"); drop && frame == 30)
+        {
+            std::string_view v(drop);
+            size_t arrow = v.find('>');
+            if (arrow != std::string_view::npos)
+            {
+                std::string target(v.substr(arrow + 1));
+                int submesh = -1;
+                if (size_t hash = target.rfind('#'); hash != std::string::npos)
+                {
+                    submesh = std::atoi(target.c_str() + hash + 1);
+                    target.resize(hash);
+                }
+                if (Entity e = m_ActiveScene->FindEntityByName(target))
+                    ApplyMaterialToEntity(e, std::string(v.substr(0, arrow)), submesh);
+                else
+                    ZM_WARN("ZAMIN_EDITOR_MATERIAL_DROP: '{}' obyekti topilmadi", target);
+            }
+        }
 
         // ZAMIN_EDITOR_ASSET_PREVIEW (with ZAMIN_EDITOR_ASSET) at frame 12: "play" starts the sound /
         // the model's first animation; R, G, B, A or RGB shows that view of a texture.
@@ -508,6 +547,14 @@ namespace Zamin {
         options.GridPlane = m_2DMode ? 1 : 0;
         options.Grid = m_ViewSettings.Grid;
         options.SkipEditorHidden = true; // the hierarchy's eye: edit + simulate views only (play draws everything)
+        // A material dragged over a mesh is shown on it before the drop.
+        if (m_MaterialDrag.Active && m_MaterialDrag.Material && m_SceneState == SceneState::Edit && (uint64_t)m_MaterialDrag.Target)
+            if (Entity target = m_ActiveScene->GetEntityByUUID(m_MaterialDrag.Target))
+            {
+                options.MaterialPreviewEntity = (entt::entity)target;
+                options.MaterialPreview = m_MaterialDrag.Material;
+                options.MaterialPreviewSubmesh = m_MaterialDrag.Submesh;
+            }
 
         // The camera does not take a mouse drag that belongs to the gizmo (Alt + drag on the
         // gizmo duplicates instead of orbiting; Alt pressed in the middle of a gizmo drag).
@@ -761,6 +808,19 @@ namespace Zamin {
                 }
             }
         }
+
+        // The mesh a dragged material would go to (only the part when one is picked).
+        if (m_MaterialDrag.Active && m_SceneState == SceneState::Edit && (uint64_t)m_MaterialDrag.Target)
+            if (Entity target = scene.GetEntityByUUID(m_MaterialDrag.Target))
+                if (auto* mr = target.TryGetComponent<MeshRendererComponent>(); mr && (mr->MeshAsset || mr->ModelAsset))
+                {
+                    const AABB* b = mr->ModelAsset ? &mr->ModelAsset->GetBounds() : &mr->MeshAsset->GetBounds();
+                    if (mr->ModelAsset && m_MaterialDrag.Submesh >= 0 && (size_t)m_MaterialDrag.Submesh < mr->ModelAsset->GetSubMeshes().size())
+                        b = &mr->ModelAsset->GetSubMeshes()[(size_t)m_MaterialDrag.Submesh].MeshRef->GetBounds();
+                    glm::vec3 size = glm::max(b->Max - b->Min, glm::vec3(0.001f));
+                    DrawWireBox(scene.GetWorldTransform(target) * glm::translate(glm::mat4(1.0f), (b->Min + b->Max) * 0.5f) *
+                                glm::scale(glm::mat4(1.0f), size * 1.02f), glm::vec4(0.35f, 0.8f, 1.0f, 1.0f));
+                }
 
         // Selection outline: the primary entity orange, the rest of a multi-selection yellow. A
         // selected inactive entity keeps its outline (it shows where the switched-off entity is);
@@ -1145,6 +1205,7 @@ namespace Zamin {
         if (m_SceneState == SceneState::Simulate)
             OnSceneStop();
         m_SceneState = SceneState::Play;
+        m_PlayMaterials = MaterialLibrary::TakeSnapshot();
         Ref<Scene> runtime = Scene::Copy(m_EditorScene);
         runtime->ResolveAssets();
         SetActiveScene(runtime);
@@ -1158,6 +1219,7 @@ namespace Zamin {
         if (m_SceneState == SceneState::Play)
             OnSceneStop();
         m_SceneState = SceneState::Simulate;
+        m_PlayMaterials = MaterialLibrary::TakeSnapshot();
         Ref<Scene> sim = Scene::Copy(m_EditorScene);
         sim->ResolveAssets();
         SetActiveScene(sim);
@@ -1173,6 +1235,16 @@ namespace Zamin {
             m_ActiveScene->OnSimulationStop();
         m_SceneState = SceneState::Edit;
         SetActiveScene(m_EditorScene);
+        // Shared materials scripts changed while playing (GetSharedMaterial) look as before again.
+        std::vector<std::string> restored = MaterialLibrary::RestoreSnapshot(m_PlayMaterials);
+        m_PlayMaterials = {};
+        if (!restored.empty())
+        {
+            std::string names;
+            for (const std::string& name : restored)
+                names += (names.empty() ? "" : ", ") + name;
+            ZM_INFO("O'yin vaqtida o'zgartirilgan umumiy materiallar asl holiga qaytarildi: {}", names);
+        }
         UpdateWindowTitle();
     }
 
@@ -1555,6 +1627,202 @@ namespace Zamin {
         if (e)
             e.SetName(path.stem().string());
         return e;
+    }
+
+    // ================================================================== materials onto meshes
+    Entity EditorLayer::GetMeshUnderMouse()
+    {
+        Entity e = m_HoveredEntity;
+        if (!e || !e.IsValid() || e.GetScene() != m_ActiveScene.get() || !e.HasComponent<MeshRendererComponent>())
+            return {};
+        if (m_ActiveScene->IsLockedInEditor(e)) // locked: not changed from the viewport
+            return {};
+        return e;
+    }
+
+    bool EditorLayer::ApplyMaterialToEntity(Entity entity, const std::string& assetPath, int submesh)
+    {
+        if (m_SceneState != SceneState::Edit || !entity || !entity.IsValid())
+            return false;
+        auto* mr = entity.TryGetComponent<MeshRendererComponent>();
+        if (!mr)
+        {
+            ShowViewportMessage(std::format(ICON_FA_CIRCLE_INFO "  '{}' da Mesh Renderer yo'q - material qo'yilmadi", entity.GetName()));
+            return false;
+        }
+        size_t parts = mr->Type == PrimitiveMesh::Model && mr->ModelAsset ? mr->ModelAsset->GetSubMeshes().size() : 0;
+        if (submesh >= 0 && (size_t)submesh >= parts)
+            submesh = -1;
+        std::string where = entity.GetName();
+        if (submesh >= 0)
+            where += std::format(" / #{} {}", submesh, mr->ModelAsset->GetSubMeshes()[(size_t)submesh].Name);
+        std::string file = fs::path(assetPath).filename().string();
+        const std::string& current = submesh < 0 ? mr->MaterialPath
+                                   : (size_t)submesh < mr->SubmeshMaterials.size() ? mr->SubmeshMaterials[(size_t)submesh] : std::string();
+        if (current == assetPath)
+        {
+            ShowViewportMessage(std::format(ICON_FA_PALETTE "  {}: {} allaqachon shu material", where, file));
+            return true;
+        }
+        if (!Scene::SetMeshMaterial(*mr, assetPath, submesh))
+            return false;
+        MarkDirty();
+        bool loaded = submesh < 0 ? mr->MaterialRef != nullptr : Scene::GetMeshMaterialAsset(*mr, (size_t)submesh) != nullptr;
+        if (!loaded)
+        {
+            ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {}: {} yuklanmadi - konsolni tekshiring", where, file));
+            return true;
+        }
+        std::string text = std::format(ICON_FA_PALETTE "  {}: {}", where, file);
+        size_t own = submesh < 0 ? (size_t)std::count_if(mr->SubmeshMaterials.begin(), mr->SubmeshMaterials.end(),
+                                                         [](const std::string& p) { return !p.empty(); }) : 0;
+        if (own > 0)
+            text += std::format("  ({} ta qismning o'z materiali bor)", own);
+        ShowViewportMessage(text);
+        ZM_INFO("Material qo'llandi: {} -> {}", assetPath, where);
+        return true;
+    }
+
+    void EditorLayer::UpdateMaterialDrag(const std::string& assetPath)
+    {
+        ImVec2 mouse = ImGui::GetMousePos();
+        ImVec2 labelAt(mouse.x + 18.0f, mouse.y + 34.0f); // under the drag tooltip
+        if (m_SceneState != SceneState::Edit)
+        {
+            m_MaterialDrag.Path.clear();
+            m_MaterialDrag.Target = 0;
+            DrawMaterialDragLabel(labelAt, {});
+            return; // not accepted: nothing changes while the game runs
+        }
+        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM",
+                                                                   ImGuiDragDropFlags_AcceptBeforeDelivery | ImGuiDragDropFlags_AcceptNoDrawDefaultRect);
+        if (!payload)
+            return;
+        if (m_MaterialDrag.Path != assetPath)
+        {
+            m_MaterialDrag.Path = assetPath;
+            m_MaterialDrag.Material = MaterialLibrary::Load(Project::GetAssetFileSystemPath(assetPath));
+        }
+        Entity target = GetMeshUnderMouse();
+        m_MaterialDrag.Target = target ? target.GetUUID() : UUID(0);
+        m_MaterialDrag.Submesh = -1;
+        m_MaterialDrag.Active = true;
+        DrawMaterialDragLabel(labelAt, target);
+        if (!payload->IsDelivery())
+            return;
+
+        m_MaterialDrag.Active = false;
+        if (!target)
+            ShowViewportMessage(ICON_FA_CIRCLE_INFO "  Materialni mesh (Mesh Renderer) ustiga tashlang");
+        else if (!m_MaterialDrag.Material)
+            ShowViewportMessage(std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {} yuklanmadi - konsolni tekshiring", fs::path(assetPath).filename().string()));
+        else
+        {
+            auto& mr = target.GetComponent<MeshRendererComponent>();
+            size_t parts = mr.Type == PrimitiveMesh::Model && mr.ModelAsset ? mr.ModelAsset->GetSubMeshes().size() : 0;
+            if (ImGui::GetIO().KeyShift && parts > 1)
+                m_MaterialSlotPick = { assetPath, target.GetUUID(), true };
+            else
+                ApplyMaterialToEntity(target, assetPath);
+        }
+    }
+
+    void EditorLayer::DrawMaterialDragLabel(ImVec2 at, Entity target)
+    {
+        std::string file = fs::path(m_MaterialDrag.Path).filename().string();
+        std::string title, hint;
+        ImU32 accent = IM_COL32(90, 200, 255, 255);
+        if (m_SceneState != SceneState::Edit)
+        {
+            title = ICON_FA_CIRCLE_INFO "  O'yin vaqtida material o'zgartirilmaydi";
+            accent = IM_COL32(150, 150, 150, 255);
+        }
+        else if (!target)
+        {
+            title = ICON_FA_CIRCLE_INFO "  Mesh ustiga olib boring";
+            hint = "Material obyektning Mesh Renderer'iga qo'yiladi";
+            accent = IM_COL32(150, 150, 150, 255);
+        }
+        else if (!m_MaterialDrag.Material)
+        {
+            title = std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {} yuklanmadi", file);
+            accent = IM_COL32(240, 110, 100, 255);
+        }
+        else
+        {
+            title = std::format(ICON_FA_PALETTE "  {}  " ICON_FA_ARROW_RIGHT "  {}", file, target.GetName());
+            auto& mr = target.GetComponent<MeshRendererComponent>();
+            size_t parts = mr.Type == PrimitiveMesh::Model && mr.ModelAsset ? mr.ModelAsset->GetSubMeshes().size() : 0;
+            hint = parts > 1 ? std::format("Butun model ({} qism) - Shift bilan qo'yilsa: qismni tanlash", parts)
+                             : std::string("Qo'yib yuboring - material qo'llanadi");
+        }
+        ImDrawList* dl = ImGui::GetForegroundDrawList();
+        const ImVec2 pad(8.0f, 5.0f);
+        ImVec2 titleSize = ImGui::CalcTextSize(title.c_str());
+        ImVec2 hintSize = hint.empty() ? ImVec2(0, 0) : ImGui::CalcTextSize(hint.c_str());
+        float lineGap = hint.empty() ? 0.0f : 3.0f;
+        ImVec2 size(std::max(titleSize.x, hintSize.x) + pad.x * 2.0f, titleSize.y + hintSize.y + lineGap + pad.y * 2.0f);
+        ImVec2 max(at.x + size.x, at.y + size.y);
+        dl->AddRectFilled(at, max, IM_COL32(24, 26, 32, 235), 5.0f);
+        dl->AddRect(at, max, accent, 5.0f, 0, 1.5f);
+        dl->AddRectFilled(at, ImVec2(at.x + 3.0f, max.y), accent, 5.0f, ImDrawFlags_RoundCornersLeft);
+        dl->AddText(ImVec2(at.x + pad.x, at.y + pad.y), IM_COL32(235, 238, 245, 255), title.c_str());
+        if (!hint.empty())
+            dl->AddText(ImVec2(at.x + pad.x, at.y + pad.y + titleSize.y + lineGap), IM_COL32(160, 168, 182, 255), hint.c_str());
+    }
+
+    void EditorLayer::UI_MaterialSlotPopup()
+    {
+        if (m_MaterialSlotPick.Open)
+        {
+            ImGui::OpenPopup("##materialSlots");
+            m_MaterialSlotPick.Open = false;
+        }
+        if (!ImGui::BeginPopup("##materialSlots"))
+            return;
+        Entity target = m_SceneState == SceneState::Edit ? m_ActiveScene->GetEntityByUUID(m_MaterialSlotPick.Target) : Entity();
+        auto* mr = target ? target.TryGetComponent<MeshRendererComponent>() : nullptr;
+        if (!mr || !mr->ModelAsset)
+        {
+            ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+            return;
+        }
+        std::string file = fs::path(m_MaterialSlotPick.Path).filename().string();
+        auto shown = [](const std::string& path) { return path.empty() ? std::string("-") : fs::path(path).filename().string(); };
+        ImGui::TextDisabled(ICON_FA_PALETTE "  %s  " ICON_FA_ARROW_RIGHT "  %s", file.c_str(), target.GetName().c_str());
+        ImGui::Separator();
+        int hovered = -2;
+        if (ImGui::MenuItem(ICON_FA_CUBES "  Butun model", shown(mr->MaterialPath).c_str()))
+            ApplyMaterialToEntity(target, m_MaterialSlotPick.Path);
+        if (ImGui::IsItemHovered())
+            hovered = -1;
+        ImGui::Separator();
+        const auto& subMeshes = mr->ModelAsset->GetSubMeshes();
+        for (size_t i = 0; i < subMeshes.size(); i++)
+        {
+            ImGui::PushID((int)i);
+            std::string label = std::format("#{}  {}", i, subMeshes[i].Name);
+            std::string current = i < mr->SubmeshMaterials.size() && !mr->SubmeshMaterials[i].empty() ? shown(mr->SubmeshMaterials[i]) : std::string();
+            if (ImGui::MenuItem(label.c_str(), current.c_str()))
+                ApplyMaterialToEntity(target, m_MaterialSlotPick.Path, (int)i);
+            if (ImGui::IsItemHovered())
+                hovered = (int)i;
+            ImGui::PopID();
+        }
+        // The choice under the mouse is shown on the model before it is picked.
+        if (hovered >= -1)
+        {
+            if (m_MaterialDrag.Path != m_MaterialSlotPick.Path)
+            {
+                m_MaterialDrag.Path = m_MaterialSlotPick.Path;
+                m_MaterialDrag.Material = MaterialLibrary::Load(Project::GetAssetFileSystemPath(m_MaterialSlotPick.Path));
+            }
+            m_MaterialDrag.Target = target.GetUUID();
+            m_MaterialDrag.Submesh = hovered;
+            m_MaterialDrag.Active = true;
+        }
+        ImGui::EndPopup();
     }
 
     // ================================================================== project files
@@ -2595,13 +2863,47 @@ namespace Zamin {
         m_ViewportHovered = ImGui::IsItemHovered();
         Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
 
-        // Drop scenes / prefabs / images / models / sounds onto the viewport
+        // Drop scenes / prefabs / images / models / sounds onto the viewport; a material onto the
+        // mesh under the mouse (shown on it while it is dragged there).
+        m_MaterialDrag.Active = false;
         if (ImGui::BeginDragDropTarget())
         {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+            const ImGuiPayload* active = ImGui::GetDragDropPayload();
+            if (active && active->IsDataType("CONTENT_BROWSER_ITEM") && AssetFiles::GetType((const char*)active->Data) == AssetType::Material)
+                UpdateMaterialDrag((const char*)active->Data);
+            else if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
                 DropAssetOnViewport((const char*)payload->Data);
             ImGui::EndDragDropTarget();
         }
+        // Screenshots / CI (no drag source): ZAMIN_EDITOR_MATERIAL_DRAG="Materials/Gold.zmat>Entity"
+        // shows that material dragged over that entity, the label at the entity's screen position.
+        if (const char* drag = std::getenv("ZAMIN_EDITOR_MATERIAL_DRAG"); drag && m_SceneState == SceneState::Edit)
+        {
+            std::string_view v(drag);
+            size_t arrow = v.find('>');
+            Entity target = arrow == std::string_view::npos ? Entity() : m_ActiveScene->FindEntityByName(v.substr(arrow + 1));
+            if (target && target.HasComponent<MeshRendererComponent>())
+            {
+                std::string path(v.substr(0, arrow));
+                if (m_MaterialDrag.Path != path)
+                {
+                    m_MaterialDrag.Path = path;
+                    m_MaterialDrag.Material = MaterialLibrary::Load(Project::GetAssetFileSystemPath(path));
+                }
+                m_MaterialDrag.Target = target.GetUUID();
+                m_MaterialDrag.Submesh = -1;
+                m_MaterialDrag.Active = true;
+                glm::vec4 clip = OverlayViewProjection() * glm::vec4(m_ActiveScene->GetWorldPosition(target), 1.0f);
+                if (clip.w > 0.0f)
+                {
+                    glm::vec2 ndc = glm::vec2(clip) / clip.w;
+                    ImVec2 at(m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * m_ViewportSize.x,
+                              m_ViewportBounds[0].y + (0.5f - ndc.y * 0.5f) * m_ViewportSize.y);
+                    DrawMaterialDragLabel(at, target);
+                }
+            }
+        }
+        UI_MaterialSlotPopup();
 
         if (m_SceneState != SceneState::Play)
         {

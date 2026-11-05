@@ -54,6 +54,56 @@ namespace Zamin {
         return IsEnabled() && IsActiveInHierarchy();
     }
 
+    // ---- materials
+    static MeshRendererComponent* MeshRendererOf(Entity owner, Entity e)
+    {
+        // Entities of the script's own scene only.
+        if (!e.IsValid() || !owner.IsValid() || e.GetScene() != owner.GetScene())
+            return nullptr;
+        return e.TryGetComponent<MeshRendererComponent>();
+    }
+
+    Ref<MaterialAsset> ScriptableEntity::GetMaterial() { return GetMaterial(m_Entity, -1); }
+    Ref<MaterialAsset> ScriptableEntity::GetMaterial(size_t submesh) { return GetMaterial(m_Entity, (int)submesh); }
+
+    Ref<MaterialAsset> ScriptableEntity::GetMaterial(Entity other, int submesh)
+    {
+        MeshRendererComponent* mr = MeshRendererOf(m_Entity, other);
+        if (!mr)
+            return nullptr;
+        return submesh < 0 ? Scene::GetMaterialInstance(*mr) : Scene::GetMaterialInstance(*mr, (size_t)submesh);
+    }
+
+    Ref<MaterialAsset> ScriptableEntity::GetSharedMaterial(int submesh) const { return GetSharedMaterial(m_Entity, submesh); }
+
+    Ref<MaterialAsset> ScriptableEntity::GetSharedMaterial(Entity other, int submesh) const
+    {
+        MeshRendererComponent* mr = MeshRendererOf(m_Entity, other);
+        if (!mr)
+            return nullptr;
+        return submesh < 0 ? mr->MaterialRef : Scene::GetMeshMaterialAsset(*mr, (size_t)submesh);
+    }
+
+    bool ScriptableEntity::SetSharedMaterial(const std::string& assetPath, int submesh) { return SetSharedMaterial(m_Entity, assetPath, submesh); }
+
+    bool ScriptableEntity::SetSharedMaterial(Entity other, const std::string& assetPath, int submesh)
+    {
+        MeshRendererComponent* mr = MeshRendererOf(m_Entity, other);
+        if (!mr || !Scene::SetMeshMaterial(*mr, assetPath, submesh))
+            return false;
+        if (!assetPath.empty() && !(submesh < 0 ? mr->MaterialRef : Scene::GetMeshMaterialAsset(*mr, (size_t)submesh)))
+            ZM_WARN("Material yuklanmadi: {} ({})", assetPath, other.GetName());
+        return true;
+    }
+
+    void ScriptableEntity::ResetMaterial() { ResetMaterial(m_Entity); }
+
+    void ScriptableEntity::ResetMaterial(Entity other)
+    {
+        if (MeshRendererComponent* mr = MeshRendererOf(m_Entity, other))
+            Scene::ClearMaterialInstances(*mr);
+    }
+
     Entity ScriptableEntity::FindEntity(std::string_view name) const { return m_Entity.GetScene()->FindEntityByName(name); }
     std::vector<Entity> ScriptableEntity::FindEntities(std::string_view name) const { return m_Entity.GetScene()->FindEntitiesByName(name); }
     std::vector<Entity> ScriptableEntity::FindEntitiesWithTag(std::string_view tag) const { return m_Entity.GetScene()->FindEntitiesWithTag(tag); }

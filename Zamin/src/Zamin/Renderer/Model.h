@@ -29,6 +29,27 @@ namespace Zamin {
     // are joint-local, stay as they are).
     void ApplyImportTransform(Skeleton& skeleton, const glm::mat4& transform);
 
+    // How the materials of a model file are written out as material assets (Model::ExportMaterials).
+    struct ModelMaterialExportOptions
+    {
+        // Where the .zmat files (and the images taken out of the file) go; empty = the default,
+        // "<model folder>/<model name>_Materials" (GetDefaultMaterialExportDirectory).
+        std::filesystem::path OutputDirectory;
+        // Files of the same names that are already there (an earlier export) are written again;
+        // false: they are kept as they are and used.
+        bool Overwrite = false;
+    };
+
+    struct ModelMaterialExport
+    {
+        std::filesystem::path OutputDirectory;          // absolute
+        // Per material of the file, in its order: its .zmat (absolute) - written, or kept.
+        std::vector<std::filesystem::path> Materials;
+        std::vector<std::filesystem::path> Written;      // files written: materials and extracted images
+        std::vector<std::filesystem::path> Kept;         // files that were there and were left alone
+        std::vector<std::string> Warnings;              // images that could not be taken out (missing, unknown format)
+    };
+
     // A model asset made of several meshes, each with its own material (glTF / OBJ).
     class Model
     {
@@ -38,6 +59,7 @@ namespace Zamin {
             Ref<Mesh> MeshRef;
             Material Mat;
             std::string Name;
+            int MaterialIndex = -1; // the file's material it was made with (-1 = none; .obj: 0)
         };
 
         const std::vector<SubMesh>& GetSubMeshes() const { return m_SubMeshes; }
@@ -75,6 +97,17 @@ namespace Zamin {
         // default material). Reads no buffers or images and needs no GPU. False, with the reason
         // in `error`, when the file cannot be read.
         static bool ReadMaterials(const std::filesystem::path& path, std::vector<Material>& out, std::string* error = nullptr);
+        // Writes the materials of a glTF file (.gltf / .glb) as material assets (.zmat) with what
+        // ReadMaterials reads plus their textures: image files the model uses are referred to
+        // where they are (copied next to the materials when they are outside the asset folder),
+        // images inside the file (.glb buffers, data URIs) are taken out as files (.png / .jpg as
+        // they are stored) next to the materials. Names come from the file's materials / images
+        // (made safe for file names, unique within the export). With an active project the new
+        // files get UUIDs at once (written next to the texture paths). Needs no GPU. False, with
+        // the reason in `error`, when the file cannot be read, is not glTF or has no materials.
+        static bool ExportMaterials(const std::filesystem::path& path, const ModelMaterialExportOptions& options,
+                                    ModelMaterialExport& result, std::string* error = nullptr);
+        static std::filesystem::path GetDefaultMaterialExportDirectory(const std::filesystem::path& modelPath);
         // Every cached model made from this file (or reading it as a buffer) is read again in
         // place. Returns how many were updated; `failed` is set when the file could not be read.
         // A file that could not be loaded before is forgotten, so the next Load tries again.

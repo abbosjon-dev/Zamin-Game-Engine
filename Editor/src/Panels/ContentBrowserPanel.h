@@ -50,6 +50,10 @@ namespace Zamin {
         const std::vector<std::filesystem::path>& GetSelection() const { return m_Selection; }
         // Asks to delete these files / folders (the confirmation lists what still uses them).
         void RequestDelete(std::vector<std::filesystem::path> paths) { m_PendingDelete = std::move(paths); }
+        // "Yangi material": a material asset with default values under a free name ("NewMaterial",
+        // "NewMaterial_1"...) in the open folder - Assets/Materials when the open folder is outside
+        // the asset folder - selected and shown in the inspector. Returns the file (empty on failure).
+        std::filesystem::path CreateMaterial();
         // The search text (AssetSearch syntax); the listing follows next frame.
         void SetSearch(std::string text) { m_Search = std::move(text); m_ListDirty = true; }
         const std::string& GetSearch() const { return m_Search; }

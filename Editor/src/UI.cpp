@@ -98,15 +98,18 @@ namespace Zamin::UI {
 
         if (ImGui::BeginDragDropTarget())
         {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
-            {
-                std::string dropped((const char*)payload->Data);
-                if (HasExtension(dropped, extensions))
+            // Only a file of the right type lights the field up (and can be dropped).
+            const ImGuiPayload* active = ImGui::GetDragDropPayload();
+            if (active && active->IsDataType("CONTENT_BROWSER_ITEM") && HasExtension((const char*)active->Data, extensions))
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
                 {
-                    path = dropped;
-                    changed = true;
+                    std::string dropped((const char*)payload->Data);
+                    if (dropped != path)
+                    {
+                        path = dropped;
+                        changed = true;
+                    }
                 }
-            }
             ImGui::EndDragDropTarget();
         }
 

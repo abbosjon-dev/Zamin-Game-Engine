@@ -105,6 +105,10 @@ namespace Zamin {
         // An asset (absolute path) is to be edited in the inspector (a mesh renderer's material).
         std::function<void(const std::filesystem::path&)> OnAssetEditRequested;
         std::function<void(const std::filesystem::path&, Entity parent)> OnPrefabDropped;
+        // A material asset (.zmat, path relative to Assets) was dropped onto an entity's row.
+        std::function<void(const std::string&, Entity target)> OnMaterialDropped;
+        // Files were written from the inspector (a model's materials): the content browser lists them.
+        std::function<void(const std::vector<std::filesystem::path>&)> OnFilesCreated;
         // The project's tag list changed (a new tag was typed in the inspector).
         std::function<void()> OnProjectSettingsModified;
         // The fold state (SetFoldState) changed: the editor saves its view settings.
@@ -121,6 +125,9 @@ namespace Zamin {
         // The Material part of the Mesh Renderer section: the material asset (and per-submesh ones)
         // or the inline material. True when something changed.
         bool DrawMeshMaterial(Entity entity, struct MeshRendererComponent& c);
+        // Models: the button that writes the model's glTF materials as .zmat files and gives each
+        // part its own (Model::ExportMaterials). True when the slots changed.
+        bool DrawExtractModelMaterials(struct MeshRendererComponent& c);
         // Inspector sections are collected first (AddSection) and then drawn in the entity's
         // component order (ComponentRegistry::GetOrderedKeys).
         struct InspectorSection { std::string_view Key; std::function<void()> Draw; };

@@ -70,6 +70,18 @@ namespace Zamin {
         // A content browser item (asset-relative path) dropped onto the viewport: a scene opens,
         // an image / model / sound / prefab becomes an entity (edit mode). Returns that entity.
         Entity DropAssetOnViewport(const std::string& assetPath);
+        // ---- materials dragged from the content browser (edit mode)
+        // The material asset (path relative to Assets) for an entity's mesh renderer - the whole
+        // renderer (submesh < 0) or one part of a model - as one undo step, with a viewport notice.
+        bool ApplyMaterialToEntity(Entity entity, const std::string& assetPath, int submesh = -1);
+        // The mesh the mouse is over in the viewport (not locked; null without a mesh renderer).
+        Entity GetMeshUnderMouse();
+        // A .zmat dragged over the viewport this frame: shown on the mesh under the mouse, applied
+        // on drop (Shift on a model with several parts: a menu asks which part gets it).
+        void UpdateMaterialDrag(const std::string& assetPath);
+        // The label next to the mouse while a material is dragged over the viewport.
+        void DrawMaterialDragLabel(ImVec2 at, Entity target);
+        void UI_MaterialSlotPopup();
 
         // ---- project files
         // Files dropped onto the window from outside: a project opens; files from outside the
@@ -205,6 +217,26 @@ namespace Zamin {
         // Files dropped onto the window this frame (handled in OnImGuiRender) and where.
         std::vector<std::string> m_PendingFileDrop;
         glm::vec2 m_PendingFileDropPos{ 0.0f };
+        // A material dragged over the viewport: set by the UI each frame it is there, drawn on the
+        // target mesh by the next render (nothing in the scene changes until it is dropped).
+        struct MaterialDrag
+        {
+            std::string Path;               // asset-relative
+            Ref<MaterialAsset> Material;
+            UUID Target = 0;                // the mesh under the mouse (0 = none)
+            int Submesh = -1;               // the part shown (-1 = all)
+            bool Active = false;
+        } m_MaterialDrag;
+        // Shift + drop on a model with several parts: which part gets the material.
+        struct MaterialSlotPick
+        {
+            std::string Path;
+            UUID Target = 0;
+            bool Open = false;
+        } m_MaterialSlotPick;
+        // Shared materials as they were when play started: edits scripts make to them
+        // (GetSharedMaterial) are taken back on stop, like everything else changed while playing.
+        MaterialLibrary::Snapshot m_PlayMaterials;
 
         bool m_ViewportFocused = false, m_ViewportHovered = false;
         glm::vec2 m_ViewportSize = { 0.0f, 0.0f };

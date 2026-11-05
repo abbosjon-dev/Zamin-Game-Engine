@@ -76,9 +76,30 @@ namespace Zamin {
         MaterialAsset() { Touch(); }
         explicit MaterialAsset(const MaterialData& data, std::filesystem::path path = {});
 
+        // A material instance (IsInstance) of exactly this renderer material: `data` is what
+        // GetData() returns (values and texture paths), what is drawn is `material` with the values
+        // of `data` and the textures `material` already holds (nothing is loaded; textures that came
+        // from elsewhere - a model file - have no path in `data`).
+        static Ref<MaterialAsset> CreateInstance(const MaterialData& data, const Material& material, std::filesystem::path path = {});
+
         const MaterialData& GetData() const { return m_Data; }
         // New values (an edit): only the textures whose paths changed are looked up again.
         void SetData(const MaterialData& data);
+
+        // ---- quick edits (scripts): SetData with one value changed.
+        //   GetMaterial()->SetColor({ 1.0f, 0.2f, 0.2f, 1.0f });
+        const glm::vec4& GetColor() const { return m_Data.Albedo; }
+        void SetColor(const glm::vec4& color);
+        void SetColor(const glm::vec3& color);      // the opacity stays
+        void SetOpacity(float alpha);               // the albedo color's alpha (Transparent / Cutout materials)
+        void SetEmission(const glm::vec3& color, float strength);
+        void SetMetallic(float metallic);
+        void SetRoughness(float roughness);
+        void SetTiling(const glm::vec2& tiling);
+        void SetOffset(const glm::vec2& offset);
+        // Texture paths relative to the asset folder ("" = none).
+        void SetAlbedoMap(const std::string& assetPath);
+        void SetEmissiveMap(const std::string& assetPath);
         // What the renderer draws with.
         const Material& GetMaterial() const { return m_Material; }
 
@@ -88,18 +109,24 @@ namespace Zamin {
         // Changes with every change of the data (SetData, Reload): editors and previews notice
         // edits made elsewhere. Unique across all material objects.
         uint64_t GetRevision() const { return m_Revision; }
+        // A runtime copy (Clone, CreateInstance) - a script's per-entity material: it is never
+        // cached, never read from or written to its file (Reload / Save refuse); GetPath() still
+        // names the asset it was copied from.
+        bool IsInstance() const { return m_Instance; }
 
         // Reads the file again into this object. False - the old content stays - when it cannot be
-        // read; the reason goes to `error`, or to the log without one.
+        // read (or this is an instance); the reason goes to `error`, or to the log without one.
         bool Reload(std::string* error = nullptr);
-        // Writes the data to its file. False without a path or when the file cannot be written.
+        // Writes the data to its file. False without a path, for an instance, or when the file
+        // cannot be written.
         bool Save() const;
-        // Writes to another file, which becomes this material's file.
+        // Writes to another file, which becomes this material's file (an instance saved this way
+        // is a file's material from then on - not the cached one, see MaterialLibrary::Load).
         bool SaveAs(const std::filesystem::path& path);
         // Looks every texture up again (a texture file appeared, or one that failed was fixed).
         void ResolveTextures();
         // An independent copy with the same data and textures (not cached, same path): a material
-        // instance whose edits leave the shared asset alone.
+        // instance (IsInstance) whose edits leave the shared asset alone.
         Ref<MaterialAsset> Clone() const;
 
     private:
@@ -110,6 +137,7 @@ namespace Zamin {
         Material m_Material;
         std::filesystem::path m_Path;
         uint64_t m_Revision = 0;
+        bool m_Instance = false;
     };
 
     // Caches material assets by file, so all mesh renderers using one .zmat share one object.
@@ -135,6 +163,26 @@ namespace Zamin {
         // Whether a cached material uses this texture file.
         static bool UsesTexture(const std::filesystem::path& texture);
         static std::vector<Ref<MaterialAsset>> GetLoaded();
+
+        // What the cached materials hold at one moment. The editor takes one when play starts:
+        // scripts may edit shared materials (ScriptableEntity::GetSharedMaterial) and those edits
+        // are taken back when play stops, like every other change made while playing.
+        struct Snapshot
+        {
+            struct Entry
+            {
+                Ref<MaterialAsset> Asset;
+                MaterialData Data;
+                uint64_t Revision = 0;
+            };
+            std::vector<Entry> Materials;
+        };
+        static Snapshot TakeSnapshot();
+        // Every material of the snapshot that changed since gets the data it had back - except one
+        // that now holds exactly what its file holds (saved, or read again from a changed file, in
+        // the meantime); a material loaded after the snapshot that no longer holds what its file
+        // holds is set to the file's content. Returns the paths (asset-relative) of the restored ones.
+        static std::vector<std::string> RestoreSnapshot(const Snapshot& snapshot);
         // Drops the cached material of a file when nothing else holds it. True when it was dropped.
         static bool ReleaseIfUnused(const std::filesystem::path& path);
         static void Clear();

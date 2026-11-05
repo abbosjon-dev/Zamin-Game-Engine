@@ -3,6 +3,11 @@
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Core/Log.h"
+#include "Zamin/Asset/AssetRegistry.h"
+#include "Zamin/Project/AssetFiles.h"
+#include "Zamin/Project/Project.h"
+#include "Zamin/Renderer/MaterialAsset.h"
+#include "Zamin/Utils/FileSystem.h"
 
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
@@ -13,6 +18,7 @@
 #include <cstring>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace Zamin {
 
@@ -175,6 +181,253 @@ namespace Zamin {
         for (cgltf_size i = 0; i < data->materials_count; i++)
             ReadGLTFMaterial(data->materials[i], out[i]);
         cgltf_free(data);
+        return true;
+    }
+
+    // ------------------------------------------------------------------ material export
+    fs::path Model::GetDefaultMaterialExportDirectory(const fs::path& modelPath)
+    {
+        return modelPath.parent_path() / (modelPath.stem().string() + "_Materials");
+    }
+
+    // A name that is safe as a file name on every system (letters, digits, '_', '-', '.', ' ').
+    static std::string SafeFileName(std::string_view name, std::string_view fallback)
+    {
+        std::string safe;
+        for (unsigned char c : name)
+            safe += (std::isalnum(c) || c == '_' || c == '-' || c == '.' || c == ' ' || c >= 0x80) ? (char)c : '_';
+        while (!safe.empty() && (safe.back() == '.' || safe.back() == ' '))
+            safe.pop_back();
+        size_t start = safe.find_first_not_of(" .");
+        safe = start == std::string::npos ? std::string() : safe.substr(start);
+        return safe.empty() ? std::string(fallback) : safe;
+    }
+
+    // ".png" / ".jpg" from the image's bytes (or its MIME type); "" when it is neither.
+    static std::string ImageExtension(const uint8_t* bytes, size_t size, const char* mimeType)
+    {
+        if (size >= 8 && bytes[0] == 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G')
+            return ".png";
+        if (size >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF)
+            return ".jpg";
+        std::string_view mime = mimeType ? mimeType : "";
+        if (mime == "image/png") return ".png";
+        if (mime == "image/jpeg") return ".jpg";
+        return {};
+    }
+
+    bool Model::ExportMaterials(const fs::path& path, const ModelMaterialExportOptions& options, ModelMaterialExport& result,
+                                std::string* error)
+    {
+        result = {};
+        auto fail = [&](std::string reason) {
+            if (error) *error = std::move(reason);
+            return false;
+        };
+        std::string ext = path.extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+        if (ext != ".gltf" && ext != ".glb")
+            return fail("faqat glTF (.gltf, .glb) modellarining materiallari eksport qilinadi");
+
+        cgltf_options cgltfOptions{};
+        cgltf_data* data = nullptr;
+        std::string file = path.string();
+        if (cgltf_result r = cgltf_parse_file(&cgltfOptions, file.c_str(), &data); r != cgltf_result_success)
+            return fail(CgltfResultText(r));
+        if (data->materials_count == 0)
+        {
+            cgltf_free(data);
+            return fail("modelda material yo'q");
+        }
+        // Buffers hold the images of a .glb; without them the values are still exported.
+        bool buffers = cgltf_load_buffers(&cgltfOptions, data, file.c_str()) == cgltf_result_success;
+        if (!buffers)
+            result.Warnings.push_back("model buferlari o'qilmadi - fayl ichidagi rasmlar eksport qilinmaydi");
+
+        const fs::path modelDir = path.parent_path();
+        const fs::path outDir = (options.OutputDirectory.empty() ? GetDefaultMaterialExportDirectory(path) : options.OutputDirectory).lexically_normal();
+        result.OutputDirectory = outDir;
+        std::error_code ec;
+        fs::create_directories(outDir, ec);
+        if (!fs::is_directory(outDir, ec))
+        {
+            cgltf_free(data);
+            return fail(std::format("papka yaratilmadi: {}", outDir.string()));
+        }
+
+        const bool project = Project::GetActive() != nullptr;
+        AssetRegistry* registry = project ? Project::GetAssetRegistry() : nullptr;
+        const fs::path assetDir = project ? Project::GetAssetDirectory() : fs::path();
+        // Paths in .zmat files: relative to the asset folder (absolute without a project).
+        auto materialPath = [&](const fs::path& p) {
+            return project && AssetFiles::IsInside(p, assetDir) ? Project::GetAssetRelativePath(p) : p.lexically_normal().generic_string();
+        };
+        auto registered = [&](const fs::path& p) {
+            if (registry && AssetFiles::IsInside(p, assetDir))
+                registry->OnFileAdded(p); // a UUID at once: written next to the path
+        };
+        std::unordered_set<std::string> usedNames; // file names of this export (lower case)
+        auto claimName = [&](const std::string& stem, const std::string& extension) {
+            std::string name = stem + extension;
+            auto lower = [](std::string text) {
+                std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+                return text;
+            };
+            for (int i = 1; !usedNames.insert(lower(name)).second; i++)
+                name = std::format("{}_{}{}", stem, i, extension);
+            return outDir / name;
+        };
+        // Writes bytes as `target`, or keeps a file already there (an earlier export).
+        auto writeFile = [&](const fs::path& target, const void* bytes, size_t size) {
+            if (fs::exists(target, ec) && !options.Overwrite)
+            {
+                result.Kept.push_back(target);
+                return true;
+            }
+            if (!FileSystem::WriteBinaryFile(target, bytes, size))
+                return false;
+            result.Written.push_back(target);
+            registered(target);
+            return true;
+        };
+
+        std::unordered_map<const cgltf_image*, std::string> imagePaths; // what each image became ("" = nothing)
+        auto exportImage = [&](const cgltf_texture_view& view, const std::string& materialName, const char* role) -> std::string {
+            if (!view.texture || !view.texture->image)
+                return {};
+            const cgltf_image* image = view.texture->image;
+            if (auto it = imagePaths.find(image); it != imagePaths.end())
+                return it->second;
+            std::string& out = imagePaths[image];
+            const std::string label = image->name && *image->name ? image->name
+                                    : image->uri && !std::string_view(image->uri).starts_with("data:") ? fs::path(image->uri).stem().string()
+                                    : materialName + "_" + role;
+
+            if (image->uri && !std::string_view(image->uri).starts_with("data:"))
+            {
+                // A file next to the model: used where it is, or copied when it is outside the assets.
+                std::string uri = image->uri;
+                cgltf_decode_uri(uri.data());
+                uri.resize(std::strlen(uri.c_str()));
+                fs::path source = (modelDir / uri).lexically_normal();
+                if (!fs::is_regular_file(source, ec))
+                {
+                    result.Warnings.push_back(std::format("rasm topilmadi: {}", uri));
+                    return out;
+                }
+                if (!project || AssetFiles::IsInside(source, assetDir))
+                    return out = materialPath(source);
+                fs::path target = claimName(SafeFileName(source.stem().string(), "texture"), source.extension().string());
+                if (fs::exists(target, ec) && !options.Overwrite)
+                    result.Kept.push_back(target);
+                else if (fs::copy_file(source, target, fs::copy_options::overwrite_existing, ec))
+                {
+                    result.Written.push_back(target);
+                    registered(target);
+                }
+                else
+                {
+                    result.Warnings.push_back(std::format("rasm nusxalanmadi: {}", uri));
+                    return out;
+                }
+                return out = materialPath(target);
+            }
+
+            // Inside the file: a .glb buffer view or a base64 data URI.
+            std::vector<uint8_t> bytes;
+            if (image->buffer_view)
+            {
+                const cgltf_buffer_view* bv = image->buffer_view;
+                if (!bv->buffer || !bv->buffer->data || bv->offset + bv->size > bv->buffer->size)
+                {
+                    result.Warnings.push_back(std::format("'{}' rasmi o'qilmadi (bufer yo'q)", label));
+                    return out;
+                }
+                const uint8_t* begin = (const uint8_t*)bv->buffer->data + bv->offset;
+                bytes.assign(begin, begin + bv->size);
+            }
+            else if (image->uri)
+            {
+                const char* comma = std::strchr(image->uri, ',');
+                std::string_view header(image->uri, comma ? (size_t)(comma - image->uri) : 0);
+                if (comma && header.ends_with(";base64"))
+                {
+                    std::string b64 = comma + 1;
+                    size_t padding = (b64.size() >= 1 && b64.back() == '=') + (b64.size() >= 2 && b64[b64.size() - 2] == '=');
+                    size_t size = 3 * b64.size() / 4 - padding;
+                    void* decoded = nullptr;
+                    cgltf_options base64Options{};
+                    if (cgltf_load_buffer_base64(&base64Options, size, b64.c_str(), &decoded) == cgltf_result_success)
+                    {
+                        bytes.assign((const uint8_t*)decoded, (const uint8_t*)decoded + size);
+                        std::free(decoded);
+                    }
+                }
+                if (bytes.empty())
+                {
+                    result.Warnings.push_back(std::format("'{}' rasmi o'qilmadi (data URI)", label));
+                    return out;
+                }
+            }
+            std::string extension = ImageExtension(bytes.data(), bytes.size(), image->mime_type);
+            if (extension.empty())
+            {
+                result.Warnings.push_back(std::format("'{}' rasmi PNG ham, JPEG ham emas - eksport qilinmadi", label));
+                return out;
+            }
+            fs::path target = claimName(SafeFileName(label, "texture"), extension);
+            if (!writeFile(target, bytes.data(), bytes.size()))
+            {
+                result.Warnings.push_back(std::format("rasm yozilmadi: {}", target.string()));
+                return out;
+            }
+            return out = materialPath(target);
+        };
+
+        // Images first (their UUIDs go into the materials), then one .zmat per material.
+        std::vector<MaterialData> materials(data->materials_count);
+        std::vector<fs::path> targets(data->materials_count);
+        std::string modelName = SafeFileName(path.stem().string(), "Model");
+        for (cgltf_size i = 0; i < data->materials_count; i++)
+        {
+            const cgltf_material& m = data->materials[i];
+            std::string name = SafeFileName(m.name ? m.name : "", std::format("{}_Material{}", modelName, i));
+            targets[i] = claimName(name, ".zmat");
+            Material values;
+            ReadGLTFMaterial(m, values);
+            MaterialData& d = materials[i];
+            d = MaterialData::FromMaterial(values);
+            std::string stem = targets[i].stem().string();
+            if (m.has_pbr_metallic_roughness)
+            {
+                d.AlbedoMap = exportImage(m.pbr_metallic_roughness.base_color_texture, stem, "BaseColor");
+                d.MetalRoughMap = exportImage(m.pbr_metallic_roughness.metallic_roughness_texture, stem, "MetalRough");
+            }
+            d.NormalMap = exportImage(m.normal_texture, stem, "Normal");
+            d.EmissiveMap = exportImage(m.emissive_texture, stem, "Emissive");
+            if (!d.NormalMap.empty() && m.normal_texture.scale > 0.0f)
+                d.NormalStrength = m.normal_texture.scale;
+        }
+        cgltf_free(data);
+
+        for (size_t i = 0; i < materials.size(); i++)
+        {
+            const fs::path& target = targets[i];
+            if (fs::exists(target, ec) && !options.Overwrite)
+                result.Kept.push_back(target);
+            else if (MaterialSerializer::Serialize(materials[i], target))
+            {
+                result.Written.push_back(target);
+                registered(target);
+                if (MaterialLibrary::Find(target))
+                    MaterialLibrary::ReloadFile(target); // an earlier export is in use: show the new one
+            }
+            else
+                return fail(std::format("material yozilmadi: {}", target.string()));
+            result.Materials.push_back(target);
+        }
+        ZM_CORE_INFO("Model materiallari eksport qilindi: {} -> {} ({} material, {} fayl yozildi)", path.filename().string(),
+                     materialPath(outDir), result.Materials.size(), result.Written.size());
         return true;
     }
 
@@ -394,6 +647,7 @@ namespace Zamin {
                 sub.MeshRef = CreateRef<Mesh>(vertices, indices);
             if (const cgltf_material* m = prim.material)
             {
+                sub.MaterialIndex = (int)cgltf_material_index(data, m);
                 ReadGLTFMaterial(*m, sub.Mat);
                 if (m->has_pbr_metallic_roughness)
                 {
@@ -476,7 +730,7 @@ namespace Zamin {
         auto model = CreateRef<Model>();
         model->m_Path = path;
         model->m_ImportSettings = settings;
-        model->m_SubMeshes.push_back({ mesh, Material{}, path.stem().string() });
+        model->m_SubMeshes.push_back({ mesh, Material{}, path.stem().string(), 0 });
         model->m_Bounds = mesh->GetBounds();
         ZM_CORE_INFO("Model yuklandi: {} ({} uchburchak)", path.filename().string(), indices.size() / 3);
         return model;

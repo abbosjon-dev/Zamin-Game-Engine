@@ -9499,6 +9499,328 @@ TEST(InlineMaterialModesRoundtrip)
     CHECK(Scene::ComposeMeshMaterial(model, &own, 0).DoubleSided);
 }
 
+// A script that tints its own copy of the material (task 095).
+class MaterialTintScript : public ScriptableEntity
+{
+public:
+    Ref<MaterialAsset> Mine, MineAgain, Shared, OfOther, OfNothing;
+    void OnStart() override
+    {
+        Mine = GetMaterial();
+        Mine->SetColor(glm::vec3(1.0f, 0.0f, 0.0f));
+        MineAgain = GetMaterial();
+        Shared = GetSharedMaterial();
+        OfOther = GetMaterial(FindEntity("Other"));
+        OfNothing = GetMaterial(FindEntity("Empty"));
+    }
+};
+ZM_REGISTER_SCRIPT(MaterialTintScript)
+
+TEST(MaterialInstancesCopyOnWrite)
+{
+    namespace fs = std::filesystem;
+    Project::SetActive(nullptr);
+    FakeTextureLoader loader;
+    fs::path dir = MakeTempDir("zamin-material-instances-");
+    const std::string goldFile = (dir / "Gold.zmat").string(), redFile = (dir / "Red.zmat").string();
+    MaterialData gold;
+    gold.Albedo = { 1.0f, 0.8f, 0.3f, 1.0f };
+    gold.Metallic = 1.0f;
+    gold.AlbedoMap = (dir / "gold.png").string();
+    MaterialData red;
+    red.Albedo = { 1.0f, 0.0f, 0.0f, 1.0f };
+    CHECK(MaterialSerializer::Serialize(gold, goldFile) && MaterialSerializer::Serialize(red, redFile));
+
+    auto scene = CreateRef<Scene>();
+    Entity a = scene->CreateEntity("A"), b = scene->CreateEntity("B"), plain = scene->CreateEntity("Plain"), statue = scene->CreateEntity("Statue");
+    a.AddComponent<MeshRendererComponent>();
+    b.AddComponent<MeshRendererComponent>();
+    plain.AddComponent<MeshRendererComponent>();
+    statue.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Model;
+    auto& ma = a.GetComponent<MeshRendererComponent>();
+    auto& mb = b.GetComponent<MeshRendererComponent>();
+    // Setting a material asset: only .zmat files; the shared library object.
+    CHECK(!Scene::SetMeshMaterial(ma, "Textures/wood.png"));
+    CHECK(Scene::SetMeshMaterial(ma, goldFile) && Scene::SetMeshMaterial(mb, goldFile));
+    Ref<MaterialAsset> shared = MaterialLibrary::Find(goldFile);
+    CHECK(shared && ma.MaterialRef == shared && mb.MaterialRef == shared && !shared->IsInstance());
+    std::string savedText = SceneSerializer(scene).SerializeToString();
+
+    // The first GetMaterialInstance makes the copy, later ones return it.
+    CHECK(!Scene::HasMaterialInstances(ma));
+    Ref<MaterialAsset> instance = Scene::GetMaterialInstance(ma);
+    CHECK(instance && instance != shared && instance->IsInstance() && Scene::GetMaterialInstance(ma) == instance);
+    CHECK(Scene::HasMaterialInstances(ma) && !Scene::HasMaterialInstances(mb));
+    CHECK(instance->GetData() == shared->GetData() && instance->GetMaterial().AlbedoMap == shared->GetMaterial().AlbedoMap);
+    CHECK(instance->GetPath() == shared->GetPath() && MaterialLibrary::Find(goldFile) == shared); // not cached
+    // Its edits change this renderer only: not the asset, not the other renderer, not the file.
+    instance->SetColor(glm::vec3(0.0f, 0.0f, 1.0f));
+    CHECK(instance->GetColor() == glm::vec4(0.0f, 0.0f, 1.0f, 1.0f) && shared->GetColor() == gold.Albedo);
+    CHECK(Scene::ComposeMeshMaterial(ma, nullptr).Albedo == glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    CHECK(Scene::ComposeMeshMaterial(mb, nullptr).Albedo == gold.Albedo);
+    CHECK(Scene::GetMeshMaterialAsset(ma) == shared); // the shared one
+    CHECK(!instance->Save());
+    std::string error;
+    CHECK(!instance->Reload(&error) && !error.empty());
+    MaterialData onDisk;
+    CHECK(MaterialSerializer::Deserialize(goldFile, onDisk) && onDisk == gold);
+    // Quick edits clamp what has a range; a new texture path is looked up.
+    int calls = loader.Calls;
+    instance->SetMetallic(2.0f);
+    instance->SetRoughness(-1.0f);
+    instance->SetOpacity(0.25f);
+    instance->SetEmission({ 1.0f, 0.5f, 0.0f }, -3.0f);
+    instance->SetTiling({ 2.0f, 3.0f });
+    instance->SetOffset({ 0.5f, 0.0f });
+    instance->SetAlbedoMap("Textures/blue.png");
+    const Material& im = instance->GetMaterial();
+    CHECK(im.Metallic == 1.0f && im.Roughness == 0.0f && im.Albedo.a == 0.25f && im.EmissionStrength == 0.0f);
+    CHECK(im.Emission == glm::vec3(1.0f, 0.5f, 0.0f) && im.Tiling == glm::vec2(2.0f, 3.0f) && im.Offset == glm::vec2(0.5f, 0.0f));
+    CHECK(loader.Calls == calls + 1 && im.AlbedoMap && im.AlbedoMap->GetPath() == "Textures/blue.png");
+    CHECK(shared->GetData() == gold);
+    // Runtime only: the scene saves what it saved before.
+    CHECK(SceneSerializer(scene).SerializeToString() == savedText);
+
+    // The inline material: an instance of it, its textures as they are (nothing loaded again).
+    auto& mp = plain.GetComponent<MeshRendererComponent>();
+    mp.Mat.Albedo = { 0.0f, 1.0f, 0.0f, 1.0f };
+    mp.AlbedoPath = "Textures/wood.png";
+    Scene::ResolveMeshMaterials(mp);
+    calls = loader.Calls;
+    Ref<MaterialAsset> inlineInstance = Scene::GetMaterialInstance(mp);
+    CHECK(inlineInstance && inlineInstance->IsInstance() && loader.Calls == calls);
+    CHECK(inlineInstance->GetData().AlbedoMap == "Textures/wood.png" && inlineInstance->GetMaterial().AlbedoMap == mp.Mat.AlbedoMap);
+    inlineInstance->SetColor(glm::vec4(0.2f, 0.2f, 0.2f, 1.0f));
+    CHECK(Scene::ComposeMeshMaterial(mp, nullptr).Albedo == glm::vec4(0.2f, 0.2f, 0.2f, 1.0f) && mp.Mat.Albedo == glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    CHECK(inlineInstance->GetMaterial().AlbedoMap == mp.Mat.AlbedoMap); // a value edit keeps the texture
+
+    // Models: the main instance is the tint of every part; a part's instance is its whole material.
+    auto& ms = statue.GetComponent<MeshRendererComponent>();
+    CHECK(Scene::SetMeshMaterial(ms, redFile, 1) && ms.SubmeshMaterials == std::vector<std::string>({ "", redFile }));
+    Ref<MaterialAsset> redShared = MaterialLibrary::Find(redFile);
+    Material modelMaterial;
+    modelMaterial.Albedo = { 0.5f, 0.5f, 0.5f, 1.0f };
+    Scene::GetMaterialInstance(ms)->SetColor(glm::vec3(1.0f, 0.0f, 0.0f));
+    CHECK(Scene::ComposeMeshMaterial(ms, &modelMaterial, 0).Albedo == glm::vec4(0.5f, 0.0f, 0.0f, 1.0f));
+    CHECK(Scene::ComposeMeshMaterial(ms, &modelMaterial, 1).Albedo == red.Albedo); // the slot's asset
+    Ref<MaterialAsset> part1 = Scene::GetMaterialInstance(ms, 1);
+    CHECK(part1 && part1 != redShared && part1->GetData() == redShared->GetData());
+    part1->SetColor(glm::vec3(0.0f, 1.0f, 0.0f));
+    CHECK(Scene::ComposeMeshMaterial(ms, &modelMaterial, 1).Albedo == glm::vec4(0.0f, 1.0f, 0.0f, 1.0f) && redShared->GetColor() == red.Albedo);
+    // A part without a slot: a copy of what it shows (the model's material with the tint; no model
+    // is loaded here, so the tint alone).
+    Ref<MaterialAsset> part0 = Scene::GetMaterialInstance(ms, 0);
+    CHECK(part0 && part0 != ms.MaterialInstance && part0->GetColor() == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    part0->SetMetallic(0.7f);
+    CHECK(Scene::ComposeMeshMaterial(ms, &modelMaterial, 0).Metallic == 0.7f);
+    // Setting a material drops the copies of the old one; Clear goes back to the shared ones.
+    CHECK(Scene::SetMeshMaterial(ms, goldFile) && !Scene::HasMaterialInstances(ms));
+    CHECK(Scene::ComposeMeshMaterial(ms, &modelMaterial, 0).Albedo == gold.Albedo && Scene::ComposeMeshMaterial(ms, &modelMaterial, 1).Albedo == red.Albedo);
+    CHECK(Scene::SetMeshMaterial(ms, "", 1) && ms.SubmeshMaterials.empty());
+    Scene::ClearMaterialInstances(mp);
+    CHECK(Scene::ComposeMeshMaterial(mp, nullptr).Albedo == glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+
+    // Play starts on a copy of the scene: no instances there. A duplicate (Instantiate) gets its own.
+    Ref<Scene> copy = Scene::Copy(scene);
+    if (Entity c = copy->FindEntityByName("A"))
+        CHECK(!Scene::HasMaterialInstances(c.GetComponent<MeshRendererComponent>()));
+    Entity dup = scene->DuplicateEntity(a);
+    auto& md = dup.GetComponent<MeshRendererComponent>();
+    Ref<MaterialAsset> original = Scene::GetMaterialInstance(a.GetComponent<MeshRendererComponent>());
+    CHECK(md.MaterialInstance && md.MaterialInstance != original && md.MaterialInstance->GetColor() == original->GetColor());
+    md.MaterialInstance->SetColor(glm::vec3(1.0f));
+    CHECK(original->GetColor() == glm::vec4(0.0f, 0.0f, 1.0f, 0.25f));
+
+    // Through the script API in a running game.
+    {
+        auto game = CreateRef<Scene>();
+        Entity hero = game->CreateEntity("Hero"), other = game->CreateEntity("Other");
+        game->CreateEntity("Empty");
+        hero.AddComponent<MeshRendererComponent>().MaterialPath = goldFile;
+        other.AddComponent<MeshRendererComponent>().MaterialPath = goldFile;
+        hero.AddComponent<NativeScriptComponent>().ClassName = "MaterialTintScript";
+        Scene::ResolveMeshMaterials(hero.GetComponent<MeshRendererComponent>()); // no GPU mesh
+        Scene::ResolveMeshMaterials(other.GetComponent<MeshRendererComponent>());
+        game->OnRuntimeStart();
+        game->OnUpdateRuntime(0.016f);
+        auto* script = ScriptableEntity::GetScript<MaterialTintScript>(hero);
+        CHECK(script != nullptr);
+        if (script)
+        {
+            CHECK(script->Mine && script->Mine == script->MineAgain && script->Mine->IsInstance() && script->Shared == shared);
+            CHECK(script->OfOther && script->OfOther != script->Mine && !script->OfNothing);
+            CHECK(Scene::ComposeMeshMaterial(hero.GetComponent<MeshRendererComponent>(), nullptr).Albedo == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+            CHECK(Scene::ComposeMeshMaterial(other.GetComponent<MeshRendererComponent>(), nullptr).Albedo == gold.Albedo);
+            CHECK(shared->GetColor() == gold.Albedo);
+            // Another shared material: the copies go.
+            CHECK(script->SetSharedMaterial(redFile) && !Scene::HasMaterialInstances(hero.GetComponent<MeshRendererComponent>()));
+            CHECK(script->GetSharedMaterial() == redShared && !script->SetSharedMaterial("Textures/x.png"));
+            script->GetMaterial()->SetColor(glm::vec3(0.0f));
+            script->ResetMaterial();
+            CHECK(Scene::ComposeMeshMaterial(hero.GetComponent<MeshRendererComponent>(), nullptr).Albedo == red.Albedo);
+            script->Mine = script->MineAgain = script->Shared = script->OfOther = nullptr;
+        }
+        game->OnRuntimeStop();
+    }
+
+    // Shared materials changed while playing are taken back when play stops (the editor's snapshot).
+    MaterialLibrary::Snapshot snapshot = MaterialLibrary::TakeSnapshot();
+    CHECK(snapshot.Materials.size() == 2);
+    shared->SetColor(glm::vec3(0.1f, 0.2f, 0.3f));
+    std::vector<std::string> restored = MaterialLibrary::RestoreSnapshot(snapshot);
+    CHECK(restored.size() == 1 && shared->GetData() == gold);
+    CHECK(MaterialLibrary::RestoreSnapshot(snapshot).empty()); // nothing changed since
+    // Saved meanwhile: the file is what counts, the edit stays.
+    shared->SetMetallic(0.3f);
+    CHECK(shared->Save() && MaterialLibrary::RestoreSnapshot(snapshot).empty() && shared->GetData().Metallic == 0.3f);
+    // Loaded while playing and changed: read again from its file.
+    MaterialData blue;
+    blue.Albedo = { 0.0f, 0.0f, 1.0f, 1.0f };
+    CHECK(MaterialSerializer::Serialize(blue, dir / "Blue.zmat"));
+    Ref<MaterialAsset> blueShared = MaterialLibrary::Load(dir / "Blue.zmat");
+    CHECK(blueShared);
+    if (blueShared)
+    {
+        blueShared->SetColor(glm::vec3(1.0f));
+        restored = MaterialLibrary::RestoreSnapshot(snapshot);
+        CHECK(restored.size() == 1 && blueShared->GetData() == blue);
+    }
+
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+// A binary glTF: the JSON chunk and one BIN chunk (images in buffer views).
+static std::string MakeGLB(std::string json, std::string bin)
+{
+    while (json.size() % 4) json += ' ';
+    while (bin.size() % 4) bin += '\0';
+    auto u32 = [](uint32_t v) { return std::string((const char*)&v, 4); };
+    std::string glb = u32(0x46546C67) + u32(2) + u32((uint32_t)(12 + 8 + json.size() + 8 + bin.size()));
+    glb += u32((uint32_t)json.size()) + u32(0x4E4F534A) + json;
+    glb += u32((uint32_t)bin.size()) + u32(0x004E4942) + bin;
+    return glb;
+}
+
+TEST(GLTFMaterialExport)
+{
+    namespace fs = std::filesystem;
+    Project::SetActive(nullptr);
+    FakeTextureLoader loader;
+    fs::path dir = MakeTempDir("zamin-gltf-export-");
+    const std::string png = std::string("\x89PNG\r\n\x1a\n", 8) + "fake image bytes";
+    WriteFile(dir / "tex a.png", "normal map");
+    WriteFile(dir / "robot.gltf", R"({ "asset": { "version": "2.0" },
+        "images": [ { "uri": "data:image/png;base64,)" + Base64(png) + R"(" }, { "uri": "tex%20a.png" } ],
+        "textures": [ { "source": 0 }, { "source": 1 } ],
+        "materials": [
+          { "name": "Metal/Shiny:1", "emissiveFactor": [1, 0.5, 0], "normalTexture": { "index": 1, "scale": 0.5 },
+            "pbrMetallicRoughness": { "baseColorFactor": [0.5, 0.25, 1.0, 1.0], "metallicFactor": 1.0, "roughnessFactor": 0.2,
+                                      "baseColorTexture": { "index": 0 } } },
+          { "name": "Glass", "alphaMode": "BLEND", "doubleSided": true, "pbrMetallicRoughness": { "baseColorFactor": [1, 1, 1, 0.3] } },
+          { "name": "Glass", "alphaMode": "MASK", "alphaCutoff": 0.3, "normalTexture": { "index": 1 } },
+          { }
+        ] })");
+
+    ModelMaterialExport result;
+    std::string error;
+    CHECK(Model::ExportMaterials(dir / "robot.gltf", {}, result, &error));
+    fs::path out = dir / "robot_Materials";
+    CHECK(result.OutputDirectory == out && Model::GetDefaultMaterialExportDirectory(dir / "robot.gltf") == out);
+    CHECK(result.Materials == std::vector<fs::path>({ out / "Metal_Shiny_1.zmat", out / "Glass.zmat", out / "Glass_1.zmat", out / "robot_Material3.zmat" }));
+    CHECK(result.Written.size() == 5 && result.Kept.empty() && result.Warnings.empty());
+    // The embedded image comes out byte for byte; the file next to the model is used where it is.
+    fs::path extracted = out / "Metal_Shiny_1_BaseColor.png";
+    std::vector<uint8_t> bytes = FileSystem::ReadBinaryFile(extracted);
+    CHECK(std::string(bytes.begin(), bytes.end()) == png);
+    MaterialData metal, glass, cutout, plain;
+    CHECK(MaterialSerializer::Deserialize(out / "Metal_Shiny_1.zmat", metal));
+    CHECK(MaterialSerializer::Deserialize(out / "Glass.zmat", glass));
+    CHECK(MaterialSerializer::Deserialize(out / "Glass_1.zmat", cutout));
+    CHECK(MaterialSerializer::Deserialize(out / "robot_Material3.zmat", plain));
+    CHECK(metal.AlbedoMap == extracted.generic_string() && metal.NormalMap == (dir / "tex a.png").generic_string());
+    CHECK_NEAR(metal.Albedo.r, std::pow(0.5f, 1.0f / 2.2f), 1e-5f);
+    CHECK(metal.Metallic == 1.0f && metal.Emission == glm::vec3(1.0f, 0.5f, 0.0f) && metal.EmissionStrength == 1.0f);
+    CHECK_NEAR(metal.Roughness, 0.2f, 1e-6f);
+    CHECK_NEAR(metal.NormalStrength, 0.5f, 1e-6f);
+    CHECK(glass.BlendMode == MaterialBlendMode::Transparent && glass.DoubleSided && !glass.PreserveSpecular && glass.AlbedoMap.empty());
+    CHECK_NEAR(glass.Albedo.a, 0.3f, 1e-6f);
+    CHECK(cutout.BlendMode == MaterialBlendMode::Cutout && cutout.NormalMap == metal.NormalMap);
+    CHECK_NEAR(cutout.AlphaCutoff, 0.3f, 1e-6f);
+    CHECK(plain == MaterialData{});
+    // The exported material loads with its texture.
+    Ref<MaterialAsset> loaded = MaterialLibrary::Load(out / "Metal_Shiny_1.zmat");
+    CHECK(loaded && loaded->GetMaterial().AlbedoMap && loaded->GetMaterial().NormalMap);
+
+    // Again: what is there is kept (and still listed); with Overwrite it is written again, and a
+    // material in use shows the new content.
+    MaterialData edited = metal;
+    edited.Roughness = 0.9f;
+    CHECK(MaterialSerializer::Serialize(edited, out / "Metal_Shiny_1.zmat"));
+    CHECK(Model::ExportMaterials(dir / "robot.gltf", {}, result, &error));
+    CHECK(result.Written.empty() && result.Kept.size() == 5 && result.Materials.size() == 4);
+    MaterialData kept;
+    CHECK(MaterialSerializer::Deserialize(out / "Metal_Shiny_1.zmat", kept) && kept == edited); // not written over
+    ModelMaterialExportOptions overwrite;
+    overwrite.Overwrite = true;
+    if (loaded)
+        loaded->SetData(edited);
+    CHECK(Model::ExportMaterials(dir / "robot.gltf", overwrite, result, &error) && result.Written.size() == 5 && result.Kept.empty());
+    MaterialData rewritten;
+    CHECK(MaterialSerializer::Deserialize(out / "Metal_Shiny_1.zmat", rewritten) && rewritten == metal);
+    CHECK(!loaded || loaded->GetData() == metal);
+    // Another folder.
+    ModelMaterialExportOptions elsewhere;
+    elsewhere.OutputDirectory = dir / "Mats";
+    CHECK(Model::ExportMaterials(dir / "robot.gltf", elsewhere, result, &error) && fs::exists(dir / "Mats" / "Glass.zmat"));
+
+    // A missing image is reported, the material is still written.
+    WriteFile(dir / "broken.gltf", R"({ "asset": { "version": "2.0" }, "images": [ { "uri": "nope.png" } ], "textures": [ { "source": 0 } ],
+        "materials": [ { "name": "Skin", "pbrMetallicRoughness": { "baseColorTexture": { "index": 0 } } } ] })");
+    CHECK(Model::ExportMaterials(dir / "broken.gltf", {}, result, &error) && result.Warnings.size() == 1 && result.Materials.size() == 1);
+    // Nothing to export / not glTF / unreadable.
+    WriteFile(dir / "empty.gltf", R"({ "asset": { "version": "2.0" } })");
+    CHECK(!Model::ExportMaterials(dir / "empty.gltf", {}, result, &error) && !error.empty());
+    WriteFile(dir / "cube.obj", "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+    CHECK(!Model::ExportMaterials(dir / "cube.obj", {}, result, &error));
+    CHECK(!Model::ExportMaterials(dir / "none.glb", {}, result, &error));
+
+    // A .glb in a project: images from the binary chunk, paths relative to Assets with UUIDs.
+    fs::path projectDir = dir / "Game";
+    CHECK(Project::CreateFromTemplate(projectDir, "ExportGame") != nullptr);
+    bool writes = AssetRegistry::GetWriteMetaFilesByDefault();
+    AssetRegistry::SetWriteMetaFilesByDefault(true);
+    CHECK(Project::Load(projectDir / "ExportGame.zproject") != nullptr);
+    fs::path assets = Project::GetAssetDirectory();
+    std::string jpeg = std::string("\xFF\xD8\xFF\xE0", 4) + "jpeg data";
+    std::string glbJson = std::format(R"({{ "asset": {{ "version": "2.0" }}, "buffers": [ {{ "byteLength": {} }} ],
+        "bufferViews": [ {{ "buffer": 0, "byteOffset": 0, "byteLength": {} }} ],
+        "images": [ {{ "bufferView": 0, "mimeType": "image/jpeg", "name": "Skin Color" }} ], "textures": [ {{ "source": 0 }} ],
+        "materials": [ {{ "name": "Body", "pbrMetallicRoughness": {{ "baseColorTexture": {{ "index": 0 }}, "metallicFactor": 0.25 }} }} ] }})",
+        jpeg.size(), jpeg.size());
+    std::string glb = MakeGLB(glbJson, jpeg);
+    fs::create_directories(assets / "Models");
+    CHECK(FileSystem::WriteBinaryFile(assets / "Models" / "robot.glb", glb.data(), glb.size()));
+    CHECK(Model::ExportMaterials(assets / "Models" / "robot.glb", {}, result, &error));
+    CHECK(result.Materials.size() == 1 && result.Written.size() == 2 && result.Warnings.empty());
+    fs::path body = assets / "Models" / "robot_Materials" / "Body.zmat";
+    std::vector<uint8_t> jpegBack = FileSystem::ReadBinaryFile(assets / "Models" / "robot_Materials" / "Skin Color.jpg");
+    CHECK(std::string(jpegBack.begin(), jpegBack.end()) == jpeg);
+    MaterialData bodyData;
+    CHECK(MaterialSerializer::Deserialize(body, bodyData) && bodyData.AlbedoMap == "Models/robot_Materials/Skin Color.jpg");
+    CHECK(bodyData.Metallic == 0.25f);
+    AssetRegistry* registry = Project::GetAssetRegistry();
+    CHECK(registry && registry->GetHandle("Models/robot_Materials/Body.zmat") && registry->GetHandle("Models/robot_Materials/Skin Color.jpg"));
+    if (registry)
+        CHECK(FileSystem::ReadTextFile(body).find("\"AlbedoMapUUID\": \"" + registry->GetHandle("Models/robot_Materials/Skin Color.jpg").ToString()) !=
+              std::string::npos);
+
+    AssetRegistry::SetWriteMetaFilesByDefault(writes);
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

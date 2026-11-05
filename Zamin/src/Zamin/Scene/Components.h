@@ -137,8 +137,9 @@ namespace Zamin {
 
         // Effects (drawn by the sprite shader). Hit flash: FlashAmount 0..1 mixes the picture toward
         // FlashColor (Flash() plays one that fades out). Outline: a border OutlineThickness texture
-        // pixels wide around the opaque pixels, in OutlineColor (Simple mode; Sliced / Tiled sprites
-        // and repeated textures get the flash only).
+        // pixels wide around the opaque pixels, in OutlineColor (sprites drawn as one piece: Simple,
+        // or Sliced / Tiled without borders and repeats - see Scene::CanDrawOutline; the others and
+        // repeated textures get the flash only).
         glm::vec4 FlashColor{ 1.0f };
         float FlashAmount = 0.0f;
         glm::vec4 OutlineColor{ 1.0f, 1.0f, 1.0f, 1.0f };

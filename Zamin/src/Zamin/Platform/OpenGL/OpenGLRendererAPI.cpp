@@ -131,6 +131,12 @@ namespace Zamin {
             glColorMaski(attachment, on, on, on, on);
         }
 
+        void SetColorWriteMask(uint32_t attachment, bool color, bool alpha) override
+        {
+            GLboolean rgb = color ? GL_TRUE : GL_FALSE;
+            glColorMaski(attachment, rgb, rgb, rgb, alpha ? GL_TRUE : GL_FALSE);
+        }
+
         void ClearDepth() override { glClear(GL_DEPTH_BUFFER_BIT); }
 
         void BindTextureUnit(uint32_t unit, uint32_t rendererID) override

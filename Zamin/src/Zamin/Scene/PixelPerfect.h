@@ -55,6 +55,12 @@ namespace Zamin {
         static glm::mat4 GetProjection(const PixelPerfectView& view, float nearClip, float farClip, bool renderTarget);
         // `p` on the grid of `unit` world units (nearest; a unit of 0 leaves it as it is).
         static glm::vec2 Snap(const glm::vec2& p, float unit);
+        // The camera's position moved so the render target's edges lie on the world's pixel grid
+        // (SnapUnit). An even size puts the centre on the grid too; an odd one half a pixel off it,
+        // so that every render-target pixel's centre still falls in the middle of an art pixel
+        // (snapping the centre would put them on art pixels' edges, where the texel picked depends
+        // on rounding).
+        static glm::vec2 SnapCamera(const PixelPerfectView& view, const glm::vec2& position);
         // Upscaling: the render-target pixel a view pixel shows (the picture is centred: the
         // render target may be up to one art pixel bigger than the view / zoom).
         static glm::ivec2 ViewToRenderPixel(const glm::ivec2& viewPixel, const PixelPerfectView& view);

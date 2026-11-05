@@ -558,6 +558,10 @@ namespace Zamin {
         for (Entity e : entities)
             if (e.IsValid())
             {
+                // Tint animations start (PlayOnStart) from their first colour, as at the start of
+                // the game: a prefab file's entities arrive with the saved settings only.
+                if (auto* tint = e.TryGetComponent<TintAnimationComponent>())
+                    tint->ResetRuntime();
                 CreatePhysicsBodies(e);
                 StartEntityEffects(e); // PlayOnStart sounds of active clones
             }
@@ -1726,6 +1730,7 @@ namespace Zamin {
 
     void Scene::OnSimulationStart()
     {
+        m_IsSimulating = true;
         DebugDraw::Clear();
         for (auto e : m_Registry.view<TintAnimationComponent>())
             m_Registry.get<TintAnimationComponent>(e).ResetRuntime();
@@ -1737,6 +1742,7 @@ namespace Zamin {
 
     void Scene::OnSimulationStop()
     {
+        m_IsSimulating = false;
         for (auto e : m_Registry.view<TintAnimationComponent>())
             m_Registry.get<TintAnimationComponent>(e).ResetRuntime();
         OnPhysics2DStop();
@@ -2945,24 +2951,47 @@ namespace Zamin {
         return g;
     }
 
+    bool Scene::CanDrawOutline(const SpriteRendererComponent& s, const SpriteAnimationComponent* animation,
+                               const AssetRegistry* registry, const glm::vec2* uiSize)
+    {
+        if (!s.Texture)
+            return false;
+        const bool frames = !s.SpriteName.empty() || (animation && animation->UsesFrameList());
+        SpriteRegion region = frames || s.DrawMode != SpriteDrawMode::Simple ? GetSpriteRegion(s, animation, registry) : SpriteRegion();
+        if (s.DrawMode == SpriteDrawMode::Simple && (!frames || region.Whole))
+            return (animation && !animation->UsesFrameList()) || s.TilingFactor == 1.0f; // a grid cell, or the texture once
+        // One quad with the region's whole picture: the outline grows it by its width, so the
+        // picture's edge has to be the quad's (a cut tile or a 9-slice piece would be outlined inside).
+        static thread_local std::vector<SpriteQuad> quads;
+        quads.clear();
+        GetSpriteGeometry(s, region, uiSize).Build(quads, 2);
+        if (quads.size() != 1)
+            return false;
+        auto same = [](const glm::vec2& a, const glm::vec2& b) { return glm::all(glm::lessThanEqual(glm::abs(a - b), glm::vec2(1e-5f))); };
+        const SpriteQuad& q = quads[0];
+        return same(glm::min(q.UVMin, q.UVMax), glm::min(region.UVMin, region.UVMax)) &&
+               same(glm::max(q.UVMin, q.UVMax), glm::max(region.UVMin, region.UVMax));
+    }
+
     void Scene::DrawSprite(const glm::mat4& transform, const SpriteRendererComponent& s, const SpriteAnimationComponent* animation,
                            const glm::vec4& color, int entityID, const AssetRegistry* registry, const glm::vec2* uiSize)
     {
         const bool frames = !s.SpriteName.empty() || (animation && animation->UsesFrameList());
         if (s.HasEffects())
         {
-            // The same quads as below, drawn with the hit flash / outline. The outline grows a Simple
-            // sprite's quad by its width (the picture is not cut at its edge); Sliced / Tiled sprites
-            // and repeated textures get the flash only.
+            // The same quads as below, drawn with the hit flash / outline. The outline grows the
+            // sprite's quad by its width (the picture is not cut at its edge); sprites drawn in
+            // several pieces (9-slice borders, tiles, a repeated texture) get the flash only.
             Renderer2D::SpriteEffect effect;
             effect.FlashAmount = s.GetFlashAmount();
             effect.FlashColor = glm::vec4(s.GetFlashColor(), 1.0f);
             effect.OutlineColor = s.OutlineColor;
             effect.OutlineThickness = s.OutlineThickness;
+            if (effect.HasOutline() && !CanDrawOutline(s, animation, registry, uiSize))
+                effect.OutlineThickness = 0.0f;
             static thread_local std::vector<SpriteQuad> effectQuads;
             effectQuads.clear();
             glm::vec2 pixels(1.0f);
-            bool canOutline = s.Texture && s.DrawMode == SpriteDrawMode::Simple;
             SpriteRegion region = s.Texture && (frames || s.DrawMode != SpriteDrawMode::Simple) ? GetSpriteRegion(s, animation, registry) : SpriteRegion();
             if (s.DrawMode == SpriteDrawMode::Simple && (!frames || region.Whole))
             {
@@ -2979,7 +3008,6 @@ namespace Zamin {
                 {
                     q.UVMax = glm::vec2(s.TilingFactor); // the texture repeats
                     pixels = glm::vec2((float)s.Texture->GetWidth(), (float)s.Texture->GetHeight());
-                    canOutline = canOutline && s.TilingFactor == 1.0f;
                 }
                 effectQuads.push_back(q);
             }
@@ -2988,8 +3016,6 @@ namespace Zamin {
                 GetSpriteGeometry(s, region, uiSize).Build(effectQuads);
                 pixels = region.Pixels;
             }
-            if (!canOutline || effectQuads.size() != 1)
-                effect.OutlineThickness = 0.0f;
             for (const SpriteQuad& quad : effectQuads)
             {
                 glm::vec4 rect;
@@ -3487,11 +3513,11 @@ namespace Zamin {
         auto* c = camera.TryGetComponent<CameraComponent>();
         if (c && c->Shake.IsActive())
             world = world * c->Shake.GetMatrix();
-        // Pixel perfect: the view moves in whole pixels.
+        // Pixel perfect: the view moves in whole pixels (its edges on the pixel grid).
         if (c && c->IsPixelPerfect() && c->PixelPerfect.SnapCamera && m_ViewportWidth > 0 && m_ViewportHeight > 0)
         {
             PixelPerfectView view = PixelPerfect::Compute(c->PixelPerfect, m_ViewportWidth, m_ViewportHeight);
-            glm::vec2 snapped = PixelPerfect::Snap(glm::vec2(world[3]), view.SnapUnit);
+            glm::vec2 snapped = PixelPerfect::SnapCamera(view, glm::vec2(world[3]));
             world[3].x = snapped.x;
             world[3].y = snapped.y;
         }
@@ -4157,8 +4183,13 @@ namespace Zamin {
                     tm.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(tm.TilesetPath), tm.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
                 int cols = std::max(1, tm.TilesetColumns), rows = std::max(1, tm.TilesetRows);
                 glm::vec2 cell = { 1.0f / cols, 1.0f / rows };
-                // tiny inset avoids bleeding between neighbouring tiles
-                glm::vec2 inset = tm.Tileset ? glm::vec2(0.5f / tm.Tileset->GetWidth(), 0.5f / tm.Tileset->GetHeight()) : glm::vec2(0.0f);
+                // The UVs are moved in a little, so a neighbouring tile of the tileset never shows at
+                // an edge: half a texel when filtered (linear filtering reads the texels around), a
+                // hair with nearest filtering (pixel art) - there half a texel would squeeze a tile's
+                // texels into one fewer and draw its first and last ones narrower (or, under a
+                // pixel-perfect camera, one texel twice and another not at all).
+                const float insetTexels = tm.Tileset && tm.Tileset->GetSpecification().Filter == TextureFilter::Nearest ? 1.0f / 256.0f : 0.5f;
+                glm::vec2 inset = tm.Tileset ? glm::vec2(insetTexels / tm.Tileset->GetWidth(), insetTexels / tm.Tileset->GetHeight()) : glm::vec2(0.0f);
                 const std::vector<TilemapChunk> chunks =
                     GetVisibleTilemapChunks(tm, transform, culling2D ? &frustum2D : nullptr, &stats.CulledTileChunkCount);
                 stats.TileChunkCount += (uint32_t)chunks.size();
@@ -4225,9 +4256,13 @@ namespace Zamin {
         if (!m_UIDeferred)
             return;
         EnsureActiveCache();
+        // The finished picture stays opaque: blending the UI's alpha into the target's alpha would
+        // leave see-through holes under translucent panels (the editor's viewport image, screenshots).
+        RenderCommand::SetColorWriteMask(0, true, false);
         Renderer2D::SetDisplayOutput(true);
         RenderUI(m_InactiveInHierarchy.empty() ? nullptr : &m_InactiveInHierarchy);
-        Renderer2D::SetDisplayOutput(false);
+        Renderer2D::SetDisplayOutput(false); // draws what is pending
+        RenderCommand::SetColorWriteMask(0, true, true);
     }
 
     Lighting2DData Scene::GatherLights2D(const std::function<const glm::mat4&(entt::entity)>& world, const glm::vec2& viewCenter,

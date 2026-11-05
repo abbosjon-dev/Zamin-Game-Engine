@@ -109,7 +109,9 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - **Hit flash va kontur** (Sprite Renderer > Effektlar): `FlashAmount` rasmni `FlashColor` rangiga aralashtiradi,
     skriptdan `Flash(rang, soniya)` — darhol to'liq, so'ng so'nib boradi (pauzada kutadi); `OutlineThickness` (tekstura
     pikseli) — rasmning ko'rinadigan piksellari atrofida `OutlineColor` chegarasi (shader qo'shni alfalarni tekshiradi,
-    quad kontur kengligicha kattalashadi, atlas kadridan tashqariga chiqmaydi; Simple rejimda), `SetOutline(rang, qalinlik)`.
+    quad kontur kengligicha kattalashadi, atlas kadridan tashqariga chiqmaydi; bitta bo'lak bo'lib chiziladigan sprite'larda:
+    Simple, chegarasiz Sliced/Tiled ham), `SetOutline(rang, qalinlik)`.
+    Ekran UI sprite'larida ham ishlaydi; sozlanmagan sprite'lar avvalgidek chiziladi
   - **Tint animatsiyasi** (Tint Animation komponenti): renderer rangi (Sprite, Circle, Text, Tilemap va Light 2D) x gradiyent
     rangi — kalitlar (vaqt 0..1 + rang), davomiylik, Bir marta / Takror / Borib-qaytish, easing, sikllar soni, boshlanish
     siljishi; renderer'ning o'z rangi o'zgarmaydi. Inspektorda gradiyent chizig'i va "Sahnada ko'rish". Skriptdan:
@@ -123,7 +125,6 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     va aniq piksellar bilan kattalashtiriladi (UI esa ekran o'lchamida, tiniq); kamera (ixtiyoriy sprite'lar ham) piksel
     to'rida. Namuna: Platformer2D `Scenes/TopDown2D.zscene` — tungi qishloq: Y bo'yicha saralash, fonarlar, gulxan va
     kristallar yorug'ligi, tint animatsiyalar, auto-tile yo'lak, 9-slice HUD, pixel-perfect kamera (WASD)
-    Ekran UI sprite'larida ham ishlaydi; sozlanmagan sprite'lar avvalgidek chiziladi
   - 3D PBR (metallic/roughness), yo'naltirilgan quyosh, gradient osmon, atrof-muhit aksi
   - **Bir nechta quyosh**: barcha faol Directional Light'lar (bir vaqtda 4 tagacha) sahnani yoritadi, soyani esa faqat
     bittasi beradi — sahna tartibida "Soyalar" yoqilgan birinchisi (asosiy quyosh; osmondagi quyosh diski ham unga

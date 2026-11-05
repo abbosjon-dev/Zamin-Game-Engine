@@ -445,6 +445,9 @@ namespace Zamin {
         bool DropThroughPlatforms(Entity entity, float seconds = 0.35f);
 
         bool IsRunning() const { return m_IsRunning; }
+        // Between OnSimulationStart and OnSimulationStop (the editor's Simulate: physics and
+        // animations without scripts).
+        bool IsSimulating() const { return m_IsSimulating; }
         bool IsPaused() const { return m_IsPaused; }
         void SetPaused(bool paused) { m_IsPaused = paused; }
         void Step(int frames = 1) { m_StepFrames = frames; }
@@ -647,6 +650,11 @@ namespace Zamin {
         // frame's). `uiSize`: a screen-space UI sprite that many px big (1 px = 1 unit).
         static SpriteGeometry GetSpriteGeometry(const struct SpriteRendererComponent& sprite, const SpriteRegion& region,
                                                 const glm::vec2* uiSize = nullptr);
+        // Whether its outline (OutlineThickness) can be drawn: a texture drawn as one quad that shows
+        // the whole picture - Simple without repeating, or Sliced / Tiled when the picture comes out
+        // as one stretched piece (no borders, or exactly one tile). Several pieces get the flash only.
+        static bool CanDrawOutline(const struct SpriteRendererComponent& sprite, const struct SpriteAnimationComponent* animation,
+                                   const AssetRegistry* registry, const glm::vec2* uiSize = nullptr);
         // Draws it into the open Renderer2D batch (FlipX / FlipY are part of `transform`).
         static void DrawSprite(const glm::mat4& transform, const struct SpriteRendererComponent& sprite,
                                const struct SpriteAnimationComponent* animation, const glm::vec4& color, int entityID,
@@ -663,6 +671,7 @@ namespace Zamin {
         entt::registry m_Registry;
         uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
         bool m_IsRunning = false;
+        bool m_IsSimulating = false;
         bool m_IsPaused = false;
         bool m_ScriptsRunning = false;
         int m_StepFrames = 0;

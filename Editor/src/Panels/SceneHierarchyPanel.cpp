@@ -2183,10 +2183,18 @@ namespace Zamin {
             c.OutlineThickness = std::clamp(c.OutlineThickness, 0.0f, 64.0f);
             changed = true;
         }
-        if (c.OutlineThickness > 0.0f && (c.DrawMode != SpriteDrawMode::Simple || !c.Texture || (c.TilingFactor != 1.0f && c.SpriteName.empty())))
+        if (c.OutlineThickness > 0.0f)
         {
-            UI::PropertyLabel("");
-            ImGui::TextDisabled(!c.Texture ? "Kontur uchun tekstura kerak" : "Kontur faqat Simple rejimda (takrorlashsiz)");
+            // The renderer's own rule (a screen UI sprite in a sized mode is laid out in its UI rect).
+            const auto* ui = entity.TryGetComponent<UITransformComponent>();
+            const glm::vec2* uiSize = ui && c.DrawMode != SpriteDrawMode::Simple ? &ui->Size : nullptr;
+            if (!Scene::CanDrawOutline(c, ui ? nullptr : entity.TryGetComponent<SpriteAnimationComponent>(),
+                                       Project::GetActive() ? Project::GetAssetRegistry() : nullptr, uiSize))
+            {
+                UI::PropertyLabel("");
+                ImGui::TextDisabled(!c.Texture ? "Kontur uchun tekstura kerak"
+                                               : "Kontur faqat bitta bo'lak bo'lib chiziladigan sprite'da (chegarasiz, takrorlashsiz)");
+            }
         }
         return changed;
     }
@@ -2351,9 +2359,9 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("O'yin boshlanganda (yoki obyekt paydo bo'lganda) o'zi boshlanadi. Skriptdan: PlayTint() / StopTint()");
 
-        // ---- preview (scene view) / play controls (game)
+        // ---- preview (scene view) / play controls (game, and Simulate: it plays the tints too)
         UI::PropertyLabel("");
-        const bool running = m_Context && m_Context->IsRunning();
+        const bool running = m_Context && (m_Context->IsRunning() || m_Context->IsSimulating());
         if (running)
         {
             if (ImGui::Button(c.Playing ? ICON_FA_STOP "  To'xtatish" : ICON_FA_PLAY "  Boshlash"))

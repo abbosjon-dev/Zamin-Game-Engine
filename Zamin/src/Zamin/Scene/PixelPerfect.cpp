@@ -63,6 +63,17 @@ namespace Zamin {
         return { std::round(p.x / unit) * unit, std::round(p.y / unit) * unit };
     }
 
+    glm::vec2 PixelPerfect::SnapCamera(const PixelPerfectView& view, const glm::vec2& position)
+    {
+        const float unit = view.SnapUnit;
+        if (!(unit > 0.0f) || !std::isfinite(unit))
+            return position;
+        // Half the render target is a whole number of pixels on an even axis, that and a half on
+        // an odd one: only the half pixel moves the grid the centre is snapped to.
+        const glm::vec2 half(view.RenderSize.x % 2u ? unit * 0.5f : 0.0f, view.RenderSize.y % 2u ? unit * 0.5f : 0.0f);
+        return Snap(position - half, unit) + half;
+    }
+
     glm::ivec2 PixelPerfect::GetUpscaleOffset(const PixelPerfectView& view)
     {
         if (!view.Upscale)

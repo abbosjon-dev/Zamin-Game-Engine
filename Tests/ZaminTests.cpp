@@ -14431,6 +14431,43 @@ TEST(SpriteFlashAndOutline)
     CHECK(as.FlashAmount == 0.4f && as.FlashColor == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) && as.OutlineThickness == 0.0f);
 }
 
+// Where the outline is drawn: sprites that come out as one quad with their whole picture - Simple
+// ones, and Sliced / Tiled ones without borders or repeats (a sprite sized with Size, as the
+// TopDown2D sample's are). 9-slice pieces, cut or repeated tiles: the flash only.
+TEST(SpriteOutlineDrawModes)
+{
+    SpriteRendererComponent s;
+    s.OutlineThickness = 1.0f;
+    CHECK(!Scene::CanDrawOutline(s, nullptr, nullptr)); // no texture
+    s.Texture = CreateRef<FakeTexture>("hero.png");      // 1 x 1 px
+    CHECK(Scene::CanDrawOutline(s, nullptr, nullptr));
+    s.TilingFactor = 3.0f;
+    CHECK(!Scene::CanDrawOutline(s, nullptr, nullptr)); // repeated
+    SpriteAnimationComponent grid;
+    grid.Columns = 4;
+    CHECK(Scene::CanDrawOutline(s, &grid, nullptr)); // a grid cell: tiling does not apply
+    s.TilingFactor = 1.0f;
+
+    // Sliced: stretched to Size as one piece without borders; nine pieces with them.
+    s.DrawMode = SpriteDrawMode::Sliced;
+    s.Size = { 0.75f, 1.125f };
+    s.PixelsPerUnit = 1.0f;
+    CHECK(Scene::CanDrawOutline(s, nullptr, nullptr) && Scene::CanDrawOutline(s, &grid, nullptr));
+    s.SliceBorder = glm::vec4(0.25f);
+    CHECK(!Scene::CanDrawOutline(s, nullptr, nullptr));
+    s.SliceBorder = glm::vec4(0.0f);
+    glm::vec2 ui(200.0f, 60.0f); // a screen UI panel (1 px = 1 unit)
+    CHECK(Scene::CanDrawOutline(s, nullptr, nullptr, &ui));
+    // Tiled: exactly one whole tile (1 px at 1 px per unit) is one piece; a cut or repeated one is not.
+    s.DrawMode = SpriteDrawMode::Tiled;
+    s.Size = { 1.0f, 1.0f };
+    CHECK(Scene::CanDrawOutline(s, nullptr, nullptr));
+    s.Size = { 0.5f, 1.0f };
+    CHECK(!Scene::CanDrawOutline(s, nullptr, nullptr));
+    s.Size = { 3.0f, 1.0f };
+    CHECK(!Scene::CanDrawOutline(s, nullptr, nullptr));
+}
+
 // ------------------------------------------------------------------ M08: tint animation, 2D lights, pixel perfect, Y-sort
 static bool NearColor(const glm::vec4& a, const glm::vec4& b, float eps = 1e-4f)
 {
@@ -14583,6 +14620,61 @@ TEST(TintAnimationInScene)
     const auto& lb = loaded->FindEntityByName("Blinker").GetComponent<TintAnimationComponent>();
     CHECK(lb.Cycles == 3 && lb.Duration == 0.1f && lb.Keys.size() == 2 && lb.Keys[1].Color.a == 0.0f);
     CHECK(!loaded->FindEntityByName("Idle").GetComponent<TintAnimationComponent>().PlayOnStart);
+}
+
+// Entities spawned while the game runs (an in-scene template, a prefab file from the scene or from a
+// script) or while simulating: their PlayOnStart tints play from the first colour, the others wait.
+TEST(TintAnimationOnSpawnedEntities)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-tint-spawn-");
+    auto scene = CreateRef<Scene>();
+    Entity gem = scene->CreateEntity("Gem");
+    gem.AddComponent<SpriteRendererComponent>();
+    auto& tint = gem.AddComponent<TintAnimationComponent>();
+    tint.Keys = { { 0.0f, glm::vec4(1.0f) }, { 1.0f, { 1.0f, 0.0f, 0.0f, 1.0f } } };
+    tint.Easing = Ease::Linear;
+    tint.Duration = 1.0f;
+    Entity idle = scene->CreateEntity("Idle");
+    idle.AddComponent<CircleRendererComponent>();
+    idle.AddComponent<TintAnimationComponent>().PlayOnStart = false;
+    fs::path gemPrefab = dir / "Gem.zprefab", idlePrefab = dir / "Idle.zprefab";
+    CHECK(scene->SavePrefab(gem, gemPrefab) && scene->SavePrefab(idle, idlePrefab));
+
+    scene->OnRuntimeStart();
+    Entity spawner = AddLifeScript(*scene, "Spawner");
+    scene->OnEntitiesSpawned({ spawner });
+    auto* script = ScriptableEntity::GetScript<LifeScript>(spawner);
+    CHECK(script != nullptr);
+    for (int f = 0; f < 15; f++) // the scene's own gem is a quarter of the way already
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    std::vector<Entity> spawned = { scene->Instantiate(gem), scene->InstantiatePrefab(gemPrefab) };
+    if (script)
+        spawned.push_back(script->Instantiate(gemPrefab.string(), glm::vec3(3.0f, 0.0f, 0.0f)));
+    Entity idleCopy = scene->InstantiatePrefab(idlePrefab);
+    CHECK(spawned.size() == 3 && idleCopy);
+    for (Entity e : spawned)
+        CHECK(e && e.GetComponent<TintAnimationComponent>().Playing && e.GetComponent<TintAnimationComponent>().Elapsed == 0.0f);
+    CHECK(idleCopy && !idleCopy.GetComponent<TintAnimationComponent>().Playing);
+    for (int f = 0; f < 30; f++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    // Half a second on: the copies are half way, the scene's gem three quarters, the idle one white.
+    for (Entity e : spawned)
+        CHECK(e && NearColor(Scene::GetTint(e), { 1.0f, 0.5f, 0.5f, 1.0f }, 1e-3f));
+    CHECK(NearColor(Scene::GetTint(gem), { 1.0f, 0.25f, 0.25f, 1.0f }, 1e-3f));
+    CHECK(idleCopy && Scene::GetTint(idleCopy) == glm::vec4(1.0f));
+    scene->OnRuntimeStop();
+
+    // Simulating (no scripts): a prefab dropped in plays as well.
+    auto sim = Scene::Copy(scene);
+    CHECK(!sim->IsSimulating() && !sim->IsRunning());
+    sim->OnSimulationStart();
+    CHECK(sim->IsSimulating() && !sim->IsRunning()); // the inspector shows the play controls then
+    Entity simGem = sim->InstantiatePrefab(gemPrefab);
+    CHECK(simGem && simGem.GetComponent<TintAnimationComponent>().Playing);
+    sim->OnSimulationStop();
+    CHECK(!sim->IsSimulating());
+    fs::remove_all(dir);
 }
 
 TEST(Light2DMathAndGathering)
@@ -14784,6 +14876,66 @@ TEST(PixelPerfectCamera)
     auto plain = CreateRef<Scene>();
     plain->CreateEntity("C").AddComponent<CameraComponent>();
     CHECK(SceneSerializer(plain).SerializeToString().find("PixelPerfect") == std::string::npos);
+}
+
+// Odd render-target sizes (1440 x 900 at 320 x 180 and 16 px per unit: 360 x 225 art pixels): the
+// snapped camera puts every render-target pixel's centre in the middle of an art pixel (on an even
+// axis as before), never on the edge between two of them.
+TEST(PixelPerfectCameraOddSizes)
+{
+    PixelPerfectSettings s;
+    s.Enabled = true;
+    s.PixelsPerUnit = 16.0f;
+    s.ReferenceResolution = { 320, 180 };
+    // Every render-target pixel's centre in the middle of a grid cell (SnapUnit: an art pixel when
+    // upscaling, a screen pixel otherwise - art pixels' edges are lines of that grid too).
+    auto centresInCells = [](const PixelPerfectView& v, const glm::vec2& camera) {
+        for (int axis = 0; axis < 2; axis++)
+        {
+            const int size = (int)v.RenderSize[axis];
+            for (int i = 0; i < size; i++)
+            {
+                double cell = ((double)camera[axis] + ((double)i + 0.5 - size * 0.5) * v.SnapUnit) / v.SnapUnit;
+                if (std::abs(cell - std::floor(cell) - 0.5) > 1e-3)
+                    return false;
+            }
+        }
+        return true;
+    };
+    PixelPerfectView v = PixelPerfect::Compute(s, 1440, 900);
+    CHECK(v.Upscale && v.Zoom == 4 && v.RenderSize == glm::uvec2(360, 225));
+    for (glm::vec2 p : { glm::vec2(0.0f), glm::vec2(1.03f, 2.01f), glm::vec2(-7.77f, 13.3f), glm::vec2(100.49f, -0.02f) })
+    {
+        glm::vec2 snapped = PixelPerfect::SnapCamera(v, p);
+        CHECK(centresInCells(v, snapped));
+        CHECK(glm::all(glm::lessThanEqual(glm::abs(snapped - p), glm::vec2(v.SnapUnit * 0.5f + 1e-5f)))); // the nearest such place
+        // Snapping the centre itself: on an odd axis the pixel centres are art-pixel edges.
+        CHECK(!centresInCells(v, PixelPerfect::Snap(p, v.SnapUnit)));
+    }
+    // Even on both axes: the same place as snapping the centre.
+    PixelPerfectView even = PixelPerfect::Compute(s, 1600, 900);
+    CHECK(PixelPerfect::SnapCamera(even, { 1.03f, 2.01f }) == PixelPerfect::Snap({ 1.03f, 2.01f }, even.SnapUnit));
+    CHECK(PixelPerfect::SnapCamera(PixelPerfectView(), { 1.03f, 2.01f }) == glm::vec2(1.03f, 2.01f)); // no unit: unchanged
+    // Without upscaling the screen pixels snap: an odd view's pixel centres stay off the screen-pixel
+    // grid, so never on an art pixel's edge (every 4th line of that grid at zoom 4).
+    PixelPerfectSettings full = s;
+    full.UpscaleRenderTarget = false;
+    PixelPerfectView f = PixelPerfect::Compute(full, 1441, 901);
+    CHECK(!f.Upscale && f.Zoom == 4 && f.RenderSize == glm::uvec2(1441, 901));
+    CHECK(centresInCells(f, PixelPerfect::SnapCamera(f, { 3.3f, -1.7f })));
+
+    // In a scene: the camera's view transform is snapped that way.
+    auto scene = CreateRef<Scene>();
+    Entity cam = scene->CreateEntity("Camera");
+    auto& cc = cam.AddComponent<CameraComponent>();
+    cc.Camera.SetProjectionType(SceneCamera::ProjectionType::Orthographic);
+    cc.PixelPerfect = s;
+    cam.GetTransform().Translation = { 1.03f, 2.01f, 10.0f };
+    scene->OnViewportResize(1440, 900);
+    glm::vec3 view = glm::vec3(scene->GetCameraViewTransform(cam)[3]);
+    CHECK_NEAR(view.x, 1.0f, 1e-6f);
+    CHECK_NEAR(view.y, 2.0f + 1.0f / 32.0f, 1e-6f); // half an art pixel off the grid: 225 rows
+    CHECK(view.z == 10.0f);
 }
 
 TEST(YSortedSortingLayers)

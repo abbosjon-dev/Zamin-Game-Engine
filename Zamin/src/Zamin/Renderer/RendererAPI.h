@@ -46,6 +46,9 @@ namespace Zamin {
         // Whether draws write into the bound framebuffer's colour attachment `attachment` (all
         // channels); the other attachments keep their own setting.
         virtual void SetColorWrite(uint32_t attachment, bool enabled) = 0;
+        // The same with the colour (RGB) and the alpha channel apart, e.g. a layer drawn over a
+        // finished picture that keeps its alpha (opaque) whatever the layer's own transparency.
+        virtual void SetColorWriteMask(uint32_t attachment, bool color, bool alpha) = 0;
         // Clears only the depth of the bound framebuffer (depth writes must be on).
         virtual void ClearDepth() = 0;
 

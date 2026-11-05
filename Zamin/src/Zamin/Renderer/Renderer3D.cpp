@@ -76,8 +76,10 @@ uniform float u_Metallic;
 uniform float u_Roughness;
 uniform vec3 u_Emission;
 uniform int u_Unlit;          // 1: albedo (x map) + emission only, no lights
-uniform int u_BlendMode;      // 0 opaque, 1 cutout, 2 transparent
+uniform int u_BlendMode;      // 0 opaque (alpha ignored), 1 cutout, 2 transparent (premultiplied output)
 uniform float u_AlphaCutoff;  // cutout: alpha below this is not drawn
+uniform int u_PreserveSpecular; // transparent: highlights, reflections and emission do not fade with alpha
+uniform int u_Mirrored;       // the transform has a negative scale: the mesh's front faces wind the other way
 
 uniform vec3 u_CameraPos;
 uniform int u_HasSun;
@@ -160,16 +162,20 @@ vec3 FresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-vec3 BRDF(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float metallic, float roughness, vec3 F0)
+// Direct light from one source, split into its diffuse and specular parts (transparent surfaces
+// fade only the diffuse part when they preserve specular).
+void AddLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float metallic, float roughness, vec3 F0,
+              inout vec3 diffuse, inout vec3 specular)
 {
     vec3 H = normalize(V + L);
     float NDF = DistributionGGX(N, H, roughness);
     float G = GeometrySmith(N, V, L, roughness);
     vec3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
-    vec3 specular = (NDF * G * F) / (4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001);
+    vec3 spec = (NDF * G * F) / (4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001);
     vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);
     float NdotL = max(dot(N, L), 0.0);
-    return (kD * albedo / PI + specular) * radiance * NdotL;
+    diffuse += kD * albedo / PI * radiance * NdotL;
+    specular += spec * radiance * NdotL;
 }
 
 float ShadowFactor(vec3 N, vec3 L)
@@ -233,15 +239,26 @@ mat3 CotangentFrame(vec3 N, vec3 p, vec2 uv)
     return mat3(T * invmax, B * invmax, N);
 }
 
-// Fog, then the outputs (linear HDR - tonemapping & gamma happen in post-processing).
-void Finish(vec3 color, float alpha)
+// Fog, then the outputs (linear HDR - tonemapping & gamma happen in post-processing). `diffuse`
+// fades with alpha on transparent surfaces; `specular` (highlights, reflections, emission) too
+// unless the material preserves specular. Transparent output is premultiplied by alpha.
+void Finish(vec3 diffuse, vec3 specular, float alpha)
 {
+    vec3 color;
+    if (u_BlendMode == 2)
+        color = u_PreserveSpecular == 1 ? diffuse * alpha + specular : (diffuse + specular) * alpha;
+    else
+    {
+        color = diffuse + specular;
+        alpha = 1.0; // opaque and cutout surfaces cover what is behind them
+    }
     if (u_FogEnabled == 1)
     {
         float dist = length(u_CameraPos - v_WorldPos);
         float heightFactor = exp(-u_FogHeightFalloff * max(v_WorldPos.y, 0.0));
-        float fog = 1.0 - exp(-dist * u_FogDensity * heightFactor);
-        color = mix(color, toLinear(u_FogColor) * u_Exposure, clamp(fog, 0.0, 1.0));
+        float fog = clamp(1.0 - exp(-dist * u_FogDensity * heightFactor), 0.0, 1.0);
+        // premultiplied: the fog covers the surface as much as the surface covers the background
+        color = mix(color, toLinear(u_FogColor) * u_Exposure * alpha, fog);
     }
     o_Color = vec4(color, alpha);
     o_EntityID = u_EntityID;
@@ -252,9 +269,11 @@ void main()
     vec2 uv = v_TexCoord * u_Tiling + u_Offset;
     vec4 texColor = texture(u_AlbedoMap, uv);
     vec3 texLinear = u_AlbedoSRGB == 1 ? toLinear(texColor.rgb) : texColor.rgb;
-    vec4 baseColor = u_Albedo * vec4(texLinear, texColor.a);
-    float cutoff = u_BlendMode == 1 ? u_AlphaCutoff : (u_BlendMode == 2 ? 0.003 : 0.05);
-    if (baseColor.a < cutoff)
+    float alpha = clamp(u_Albedo.a * texColor.a, 0.0, 1.0);
+    if (u_BlendMode == 1 && alpha < u_AlphaCutoff)
+        discard;
+    // nothing left to draw (a fully faded surface that does not keep its highlights)
+    if (u_BlendMode == 2 && u_PreserveSpecular == 0 && alpha < 0.002)
         discard;
     vec3 albedo = toLinear(u_Albedo.rgb) * texLinear;
     vec3 emission = u_Emission;
@@ -263,10 +282,9 @@ void main()
         vec3 emissiveTex = texture(u_EmissiveMap, uv).rgb;
         emission *= u_EmissiveSRGB == 1 ? toLinear(emissiveTex) : emissiveTex;
     }
-    float alpha = u_BlendMode == 1 ? 1.0 : baseColor.a;
     if (u_Unlit == 1)
     {
-        Finish((albedo + emission) * u_Exposure, alpha);
+        Finish(albedo * u_Exposure, emission * u_Exposure, alpha);
         return;
     }
     float metallic = clamp(u_Metallic, 0.0, 1.0);
@@ -278,8 +296,10 @@ void main()
         metallic = clamp(metallic * mr.b, 0.0, 1.0);
     }
 
+    // Back faces (only drawn on double-sided materials) are lit from their own side.
+    bool frontFacing = gl_FrontFacing != (u_Mirrored == 1);
     vec3 N = normalize(v_Normal);
-    if (!gl_FrontFacing) N = -N;
+    if (!frontFacing) N = -N;
     if (u_HasNormalMap == 1)
     {
         vec3 tn = texture(u_NormalMap, uv).xyz * 2.0 - 1.0;
@@ -290,11 +310,11 @@ void main()
     vec3 V = normalize(u_CameraPos - v_WorldPos);
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
-    vec3 Lo = vec3(0.0);
+    vec3 diffuse = vec3(0.0), specular = vec3(0.0);
     if (u_HasSun == 1)
     {
         float shadow = u_ShadowsEnabled == 1 ? ShadowFactor(N, normalize(-u_SunDirection)) : 1.0;
-        Lo += BRDF(N, V, normalize(-u_SunDirection), u_SunRadiance, albedo, metallic, roughness, F0) * shadow;
+        AddLight(N, V, normalize(-u_SunDirection), u_SunRadiance * shadow, albedo, metallic, roughness, F0, diffuse, specular);
     }
     for (int i = 0; i < u_PointLightCount; i++)
     {
@@ -302,7 +322,7 @@ void main()
         float dist = length(toLight);
         float falloff = clamp(1.0 - pow(dist / max(u_PointRadius[i], 0.001), 4.0), 0.0, 1.0);
         float attenuation = falloff * falloff / (dist * dist + 1.0);
-        Lo += BRDF(N, V, toLight / max(dist, 1e-4), u_PointRadiance[i] * attenuation, albedo, metallic, roughness, F0);
+        AddLight(N, V, toLight / max(dist, 1e-4), u_PointRadiance[i] * attenuation, albedo, metallic, roughness, F0, diffuse, specular);
     }
 
     // Image-based-ish ambient: hemisphere irradiance + sky reflection.
@@ -327,13 +347,20 @@ void main()
         irradiance = mix(toLinear(u_GroundColor), mix(toLinear(u_HorizonColor), toLinear(u_SkyColor), 0.5), N.y * 0.5 + 0.5);
         specularEnv = SkyRadiance(R, roughness) * F * mix(1.0, 0.35, roughness);
     }
-    vec3 ambient = (kD * albedo * irradiance + specularEnv) * u_Ambient;
-    Finish((ambient + Lo + emission) * u_Exposure, alpha);
+    diffuse += kD * albedo * irradiance * u_Ambient;
+    specular += specularEnv * u_Ambient + emission;
+    Finish(diffuse * u_Exposure, specular * u_Exposure, alpha);
 }
 )";
 
         const char* s_ShadowVS = R"(#version 410 core
 layout(location = 0) in vec3 a_Position;
+#ifdef ALPHA_TEST
+layout(location = 2) in vec2 a_TexCoord;
+uniform vec2 u_Tiling;
+uniform vec2 u_Offset;
+out vec2 v_TexCoord;
+#endif
 #ifdef SKINNED
 layout(location = 3) in ivec4 a_Joints;
 layout(location = 4) in vec4 a_Weights;
@@ -349,20 +376,39 @@ void main()
               + a_Weights.z * u_Joints[a_Joints.z] + a_Weights.w * u_Joints[a_Joints.w];
     p = skin * p;
 #endif
+#ifdef ALPHA_TEST
+    v_TexCoord = a_TexCoord * u_Tiling + u_Offset;
+#endif
     gl_Position = u_LightSpace * u_Model * p;
 }
 )";
 
-        std::string Variant(const char* src, bool skinned)
+        // Shader source with the variant's defines after the #version line.
+        std::string Variant(const char* src, bool skinned, bool alphaTest = false)
         {
             std::string s(src);
             size_t eol = s.find('\n');
-            std::string defs = "\n#define MAX_JOINTS " + std::to_string(MaxJoints) + "\n" + (skinned ? "#define SKINNED\n" : "");
+            std::string defs = "\n#define MAX_JOINTS " + std::to_string(MaxJoints) + "\n" + (skinned ? "#define SKINNED\n" : "") +
+                               (alphaTest ? "#define ALPHA_TEST\n" : "");
             return s.substr(0, eol) + defs + s.substr(eol + 1);
         }
 
+        // Depth only; cutout casters drop the texels a cutout surface does not draw (the shadow has
+        // the same holes as the surface).
         const char* s_ShadowFS = R"(#version 410 core
-void main() { }
+#ifdef ALPHA_TEST
+in vec2 v_TexCoord;
+uniform sampler2D u_AlbedoMap;
+uniform float u_AlbedoAlpha;
+uniform float u_AlphaCutoff;
+#endif
+void main()
+{
+#ifdef ALPHA_TEST
+    if (u_AlbedoAlpha * texture(u_AlbedoMap, v_TexCoord).a < u_AlphaCutoff)
+        discard;
+#endif
+}
 )";
 
         const char* s_SkyVS = R"(#version 410 core
@@ -526,6 +572,7 @@ void main()
         {
             Ref<Shader> MeshShader, SkinnedMeshShader;
             Ref<Shader> ShadowShader, SkinnedShadowShader;
+            Ref<Shader> CutoutShadowShader, SkinnedCutoutShadowShader; // alpha tested casters
             Ref<Shader> SkyShader;
             Ref<Shader> GridShader;
             Ref<Texture2D> WhiteTexture;
@@ -536,6 +583,10 @@ void main()
             glm::vec3 CameraPosition{ 0.0f };
             SceneEnvironment Environment;
             std::vector<DrawItem> Queue;
+
+            bool GridSubmitted = false;
+            int GridPlane = 0;
+            GridSettings Grid;
         };
 
         Renderer3DData* s_Data = nullptr;
@@ -548,6 +599,10 @@ void main()
         s_Data->SkinnedMeshShader = Shader::Create("Renderer3D_PBR_Skinned", Variant(s_MeshVS, true), s_MeshFS);
         s_Data->ShadowShader = Shader::Create("Renderer3D_Shadow", Variant(s_ShadowVS, false), s_ShadowFS);
         s_Data->SkinnedShadowShader = Shader::Create("Renderer3D_Shadow_Skinned", Variant(s_ShadowVS, true), s_ShadowFS);
+        s_Data->CutoutShadowShader = Shader::Create("Renderer3D_Shadow_Cutout", Variant(s_ShadowVS, false, true),
+                                                    Variant(s_ShadowFS, false, true));
+        s_Data->SkinnedCutoutShadowShader = Shader::Create("Renderer3D_Shadow_Cutout_Skinned", Variant(s_ShadowVS, true, true),
+                                                           Variant(s_ShadowFS, true, true));
         s_Data->SkyShader = Shader::Create("Renderer3D_Sky", s_SkyVS, s_SkyFS);
         s_Data->GridShader = Shader::Create("Editor_Grid", s_GridVS, s_GridFS);
 
@@ -579,6 +634,42 @@ void main()
         s_Data->CameraPosition = cameraPosition;
         s_Data->Environment = environment;
         s_Data->Queue.clear();
+        s_Data->GridSubmitted = false;
+    }
+
+    void Renderer3D::SubmitGrid(int plane, const GridSettings& settings)
+    {
+        s_Data->GridSubmitted = true;
+        s_Data->GridPlane = plane;
+        s_Data->Grid = settings;
+    }
+
+    SurfaceState Renderer3D::GetSurfaceState(const Material& material, const glm::mat4& transform, bool castShadows)
+    {
+        SurfaceState state;
+        state.Mirrored = glm::determinant(glm::mat3(transform)) < 0.0f;
+        state.Cull = material.DoubleSided ? CullMode::None : (state.Mirrored ? CullMode::Front : CullMode::Back);
+        switch (material.BlendMode)
+        {
+            case MaterialBlendMode::Opaque:
+                state.Queue = SurfaceState::Pass::Opaque;
+                break;
+            case MaterialBlendMode::Cutout:
+                state.Queue = SurfaceState::Pass::Cutout;
+                state.AlphaTestedShadow = true;
+                break;
+            case MaterialBlendMode::Transparent:
+                state.Queue = SurfaceState::Pass::Transparent;
+                state.Blend = BlendMode::Premultiplied;
+                state.DepthWrite = false;
+                state.TwoSidedBlend = material.DoubleSided;
+                castShadows = false;
+                break;
+        }
+        state.CastsShadow = castShadows;
+        if (!castShadows)
+            state.AlphaTestedShadow = false;
+        return state;
     }
 
     void Renderer3D::SubmitMesh(const Ref<Mesh>& mesh, const glm::mat4& transform, const Material& material, int entityID, bool castShadows,
@@ -678,7 +769,8 @@ void main()
     }
 
     // One queued mesh with its material (the main pass shader's per-frame uniforms are set).
-    static void DrawQueued(const DrawItem& item)
+    // `countMesh`: false for the second draw of a two-sided transparent surface.
+    static void DrawQueued(const DrawItem& item, bool mirrored, bool countMesh = true)
     {
         auto& stats = Renderer::GetStats();
         const Material& m = item.Mat;
@@ -707,9 +799,13 @@ void main()
         shader->SetInt("u_Unlit", m.Shader == MaterialShader::Unlit ? 1 : 0);
         shader->SetInt("u_BlendMode", (int)m.BlendMode);
         shader->SetFloat("u_AlphaCutoff", m.AlphaCutoff);
+        shader->SetInt("u_PreserveSpecular", m.PreserveSpecular ? 1 : 0);
+        shader->SetInt("u_Mirrored", mirrored ? 1 : 0);
         shader->SetInt("u_EntityID", item.EntityID);
         RenderCommand::DrawIndexed(item.MeshRef->GetVertexArray(), item.MeshRef->GetIndexCount());
         stats.DrawCalls++;
+        if (!countMesh)
+            return;
         stats.MeshCount++;
         stats.TriangleCount += item.MeshRef->GetIndexCount() / 3;
     }
@@ -735,20 +831,33 @@ void main()
             for (int c = 0; c < cascades.Count; c++)
             {
                 RenderCommand::SetViewport((c % 2) * half, (c / 2) * half, half, half);
-                for (auto& sh : { s_Data->ShadowShader, s_Data->SkinnedShadowShader })
+                for (auto& sh : { s_Data->ShadowShader, s_Data->SkinnedShadowShader, s_Data->CutoutShadowShader,
+                                  s_Data->SkinnedCutoutShadowShader })
                 {
                     sh->Bind();
                     sh->SetMat4("u_LightSpace", cascades.LightSpace[c]);
                 }
                 for (const auto& item : s_Data->Queue)
                 {
-                    // Transparent surfaces let the light through (no shadow of their own).
-                    if (!item.CastShadows || item.Mat.BlendMode == MaterialBlendMode::Transparent) continue;
+                    // Transparent surfaces let the light through (no shadow of their own); cutout
+                    // ones only where they are drawn.
+                    SurfaceState state = GetSurfaceState(item.Mat, item.Transform, item.CastShadows);
+                    if (!state.CastsShadow) continue;
                     bool skinned = item.MeshRef->IsSkinned();
-                    auto& sh = skinned ? s_Data->SkinnedShadowShader : s_Data->ShadowShader;
+                    auto& sh = state.AlphaTestedShadow ? (skinned ? s_Data->SkinnedCutoutShadowShader : s_Data->CutoutShadowShader)
+                                                       : (skinned ? s_Data->SkinnedShadowShader : s_Data->ShadowShader);
                     sh->Bind();
                     if (skinned) sh->SetMat4Array("u_Joints", item.Joints.data(), (uint32_t)item.Joints.size());
                     sh->SetMat4("u_Model", item.Transform);
+                    if (state.AlphaTestedShadow)
+                    {
+                        (item.Mat.AlbedoMap ? item.Mat.AlbedoMap : s_Data->WhiteTexture)->Bind(0);
+                        sh->SetInt("u_AlbedoMap", 0);
+                        sh->SetFloat("u_AlbedoAlpha", item.Mat.Albedo.a);
+                        sh->SetFloat("u_AlphaCutoff", item.Mat.AlphaCutoff);
+                        sh->SetFloat2("u_Tiling", item.Mat.Tiling);
+                        sh->SetFloat2("u_Offset", item.Mat.Offset);
+                    }
                     RenderCommand::DrawIndexed(item.MeshRef->GetVertexArray(), item.MeshRef->GetIndexCount());
                     stats.DrawCalls++;
                 }
@@ -815,10 +924,17 @@ void main()
             RenderCommand::BindTextureUnit(1, s_Data->ShadowMap->GetDepthAttachmentRendererID());
             (env.EnvMap ? env.EnvMap->GetTexture() : s_Data->WhiteTexture)->Bind(5);
 
+            // Opaque, then cutout surfaces: they cover what is behind them (no blending needed).
+            RenderCommand::SetBlendMode(BlendMode::None);
+            for (SurfaceState::Pass pass : { SurfaceState::Pass::Opaque, SurfaceState::Pass::Cutout })
+                for (const auto& item : s_Data->Queue)
+                {
+                    SurfaceState state = GetSurfaceState(item.Mat, item.Transform, item.CastShadows);
+                    if (state.Queue != pass) continue;
+                    RenderCommand::SetCullMode(state.Cull);
+                    DrawQueued(item, state.Mirrored);
+                }
             RenderCommand::SetCullMode(CullMode::None);
-            for (const auto& item : s_Data->Queue)
-                if (item.Mat.BlendMode != MaterialBlendMode::Transparent)
-                    DrawQueued(item);
         }
 
         // ---------------- sky (drawn behind everything, depth = far plane)
@@ -851,26 +967,56 @@ void main()
             stats.DrawCalls++;
         }
 
-        // ---------------- transparent surfaces: over the opaque scene and the sky, back to front,
-        // depth tested but not written (what is behind them stays visible)
+        // ---------------- editor grid (blended over the opaque scene, under the transparent one)
+        RenderCommand::SetBlendMode(BlendMode::Alpha);
+        if (s_Data->GridSubmitted)
+            DrawGrid(s_Data->View, s_Data->Projection, s_Data->CameraPosition, s_Data->GridPlane, s_Data->Grid);
+
+        // ---------------- transparent surfaces: over the opaque scene and the sky, back to front
+        // (by the center of their bounds), depth tested but not written (what is behind them stays
+        // visible). Output is premultiplied by alpha.
         std::vector<glm::vec3> positions;
         std::vector<size_t> transparent;
         for (size_t i = 0; i < s_Data->Queue.size(); i++)
-            if (s_Data->Queue[i].Mat.BlendMode == MaterialBlendMode::Transparent)
-            {
-                transparent.push_back(i);
-                positions.push_back(glm::vec3(s_Data->Queue[i].Transform[3]));
-            }
+        {
+            const DrawItem& item = s_Data->Queue[i];
+            if (item.Mat.BlendMode != MaterialBlendMode::Transparent) continue;
+            const AABB& bounds = item.MeshRef->GetBounds();
+            transparent.push_back(i);
+            positions.push_back(glm::vec3(item.Transform * glm::vec4((bounds.Min + bounds.Max) * 0.5f, 1.0f)));
+        }
         if (!transparent.empty())
         {
-            RenderCommand::SetBlendMode(BlendMode::Alpha);
+            RenderCommand::SetBlendMode(BlendMode::Premultiplied);
             RenderCommand::SetDepthWrite(false);
             for (size_t order : SortBackToFront(s_Data->View, positions))
-                DrawQueued(s_Data->Queue[transparent[order]]);
+            {
+                const DrawItem& item = s_Data->Queue[transparent[order]];
+                SurfaceState state = GetSurfaceState(item.Mat, item.Transform, item.CastShadows);
+                if (state.TwoSidedBlend)
+                {
+                    // the far (inner) side first, then the near one over it
+                    RenderCommand::SetCullMode(state.Mirrored ? CullMode::Back : CullMode::Front);
+                    DrawQueued(item, state.Mirrored);
+                    RenderCommand::SetCullMode(state.Mirrored ? CullMode::Front : CullMode::Back);
+                    DrawQueued(item, state.Mirrored, false);
+                }
+                else
+                {
+                    RenderCommand::SetCullMode(state.Cull);
+                    DrawQueued(item, state.Mirrored);
+                }
+            }
+            RenderCommand::SetCullMode(CullMode::None);
             RenderCommand::SetDepthWrite(true);
         }
 
+        // the defaults everything else (2D, overlays, ImGui) expects
+        RenderCommand::SetBlendMode(BlendMode::Alpha);
+        RenderCommand::SetCullMode(CullMode::None);
+        RenderCommand::SetDepthWrite(true);
         s_Data->Queue.clear();
+        s_Data->GridSubmitted = false;
     }
 
     std::vector<size_t> Renderer3D::SortBackToFront(const glm::mat4& view, const std::vector<glm::vec3>& positions)
@@ -892,6 +1038,7 @@ void main()
         GridSettings gs = settings;
         gs.Sanitize();
         glm::mat4 viewProj = projection * view;
+        RenderCommand::SetBlendMode(BlendMode::Alpha);
         RenderCommand::SetDepthWrite(false);
         auto& grid = s_Data->GridShader;
         grid->Bind();

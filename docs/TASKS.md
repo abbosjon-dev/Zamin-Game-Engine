@@ -101,10 +101,10 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 083. MeshRenderer'da material asset havolasi
 - [x] 084. Material muharriri inspektorda
 - [x] 085. Material preview sharchasi (render-to-texture)
-- [ ] 086. Shaffof (alpha blend) rejim
-- [ ] 087. Alpha cutout rejimi (threshold)
-- [ ] 088. Ikki tomonlama (double-sided) bayroq
-- [ ] 089. Unlit shader rejimi
+- [x] 086. Shaffof (alpha blend) rejim
+- [x] 087. Alpha cutout rejimi (threshold)
+- [x] 088. Ikki tomonlama (double-sided) bayroq
+- [x] 089. Unlit shader rejimi
 - [x] 090. Tekstura tiling va offset (vec2)
 - [ ] 091. Materialni kontent brauzerdan mesh'ga sudrab qo'yish
 - [ ] 092. Yangi material yaratish (kontent brauzer menyusi)

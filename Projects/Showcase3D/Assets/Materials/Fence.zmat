@@ -1,0 +1,36 @@
+{
+  "Albedo": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "AlbedoMap": "Textures/fence.png",
+  "AlbedoMapUUID": "aab73ecd42a68d02",
+  "AlphaCutoff": 0.5,
+  "BlendMode": "Cutout",
+  "DoubleSided": true,
+  "Emission": [
+    0,
+    0,
+    0
+  ],
+  "EmissionStrength": 0.0,
+  "EmissiveMap": "",
+  "MetalRoughMap": "",
+  "Metallic": 0.0,
+  "NormalMap": "",
+  "NormalStrength": 1.0,
+  "Offset": [
+    0,
+    0
+  ],
+  "PreserveSpecular": true,
+  "Roughness": 0.85,
+  "Shader": "Lit",
+  "Tiling": [
+    1,
+    1
+  ],
+  "Version": 1
+}

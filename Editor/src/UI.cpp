@@ -130,6 +130,61 @@ namespace Zamin::UI {
         return changed;
     }
 
+    bool PropertyMaterialSurface(const MaterialSurfaceRefs& m, bool forModel)
+    {
+        bool changed = false;
+        int shader = (int)m.Shader;
+        const char* shaders[] = { forModel ? "Modelning o'zi" : "Lit (yoritilgan, PBR)", "Unlit (yoritilmagan)" };
+        PropertyLabel("Shader", forModel ? "Modelning o'zi: glTF materialidagi shader (odatda Lit). "
+                                           "Unlit: faqat rang (x tekstura) va nurlanish - yorug'lik, soya va osmon ta'sir qilmaydi."
+                                         : "Lit: quyosh, nuqtali chiroqlar, soyalar va osmon bilan yoritiladi (PBR). "
+                                           "Unlit: faqat rang (x tekstura) va nurlanish - yorug'lik, soya va osmon ta'sir qilmaydi "
+                                           "(UI belgilari, gologrammalar, ekranlar).");
+        ImGui::PushID("##materialSurface");
+        if (ImGui::Combo("##shader", &shader, shaders, 2))
+        {
+            m.Shader = (MaterialShader)shader;
+            changed = true;
+        }
+
+        int blend = (int)m.BlendMode;
+        const char* blends[] = { forModel ? "Modelning o'zi" : "Opaque (shaffof emas)", "Cutout (kesish)", "Transparent (shaffof)" };
+        PropertyLabel("Aralashtirish", "Opaque: orqasini to'liq yopadi, alfa e'tiborga olinmaydi. "
+                                       "Cutout: alfa chegaradan past piksellar chizilmaydi, qolgani shaffof emas - soyada ham teshiklar bo'ladi "
+                                       "(barglar, panjaralar, o't). "
+                                       "Transparent: alfa bo'yicha orqasidagi bilan aralashadi, orqadan oldinga saralanib chiziladi va soya "
+                                       "tashlamaydi (shisha, suv, tutun).");
+        if (ImGui::Combo("##blend", &blend, blends, 3))
+        {
+            m.BlendMode = (MaterialBlendMode)blend;
+            changed = true;
+        }
+        if (m.BlendMode != MaterialBlendMode::Opaque)
+        {
+            PropertyLabel("Noshaffoflik", "Rangning alfa qiymati: tekstura alfasi bilan ko'paytiriladi. 0 - ko'rinmas, 1 - to'liq");
+            changed |= ImGui::SliderFloat("##opacity", &m.Opacity, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+        }
+        if (m.BlendMode == MaterialBlendMode::Cutout)
+        {
+            PropertyLabel("Alfa chegarasi", "Alfasi (rang x tekstura) shundan past piksellar chizilmaydi va soya tashlamaydi");
+            changed |= ImGui::SliderFloat("##cutoff", &m.AlphaCutoff, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+        }
+        if (m.BlendMode == MaterialBlendMode::Transparent)
+        {
+            PropertyLabel("Aksni saqlash", "Yoqilgan: aks va yaltirashlar (hamda nurlanish) alfa bilan susaymaydi - faqat sirt rangi "
+                                                 "shaffof bo'ladi (shisha, suv). O'chiq: butun sirt alfa bilan so'nadi (obyektni asta yo'qotish).");
+            changed |= ImGui::Checkbox("##preserveSpecular", &m.PreserveSpecular);
+        }
+        PropertyLabel("Ikki tomonlama", forModel ? "Yoqilgan: modelning barcha qismlari ikki tomonlama chiziladi (orqa tomoni teskari "
+                                                   "normal bilan yoritiladi). O'chiq: har qism glTF faylidagi doubleSided bayrog'iga ko'ra."
+                                                 : "Yoqilgan: sirtning ikkala tomoni chiziladi, orqa tomoni o'z tomonidan (teskari normal bilan) "
+                                                   "yoritiladi - barglar, mato, yupqa devorlar. O'chiq: orqa tomonlar chizilmaydi (yopiq jismlar "
+                                                   "uchun tezroq).");
+        changed |= ImGui::Checkbox("##doubleSided", &m.DoubleSided);
+        ImGui::PopID();
+        return changed;
+    }
+
     bool PropertyCombo(const char* label, int& current, const char* const* items, int count)
     {
         PropertyLabel(label);

@@ -9297,6 +9297,208 @@ TEST(TransparentSortBackToFront)
     CHECK(Renderer3D::SortBackToFront(view, { { 0, 0, 20 }, { 0, 0, 0 } }) == std::vector<size_t>({ 1, 0 }));
 }
 
+TEST(MaterialSurfaceStates)
+{
+    // Opaque single-sided: its own pass, back faces culled, no blending, casts a plain shadow.
+    Material opaque;
+    SurfaceState s = Renderer3D::GetSurfaceState(opaque, glm::mat4(1.0f));
+    CHECK(s.Queue == SurfaceState::Pass::Opaque && s.Cull == CullMode::Back && !s.Mirrored && !s.TwoSidedBlend);
+    CHECK(s.Blend == BlendMode::None && s.DepthWrite && s.CastsShadow && !s.AlphaTestedShadow);
+    CHECK(!Renderer3D::GetSurfaceState(opaque, glm::mat4(1.0f), false).CastsShadow); // MeshRenderer.CastShadows off
+    // Unlit changes the lighting, not the pass.
+    Material unlit;
+    unlit.Shader = MaterialShader::Unlit;
+    CHECK(Renderer3D::GetSurfaceState(unlit, glm::mat4(1.0f)).Queue == SurfaceState::Pass::Opaque);
+
+    // Cutout: drawn after the opaque pass, the shadow is alpha tested (same holes).
+    Material cutout;
+    cutout.BlendMode = MaterialBlendMode::Cutout;
+    s = Renderer3D::GetSurfaceState(cutout, glm::mat4(1.0f));
+    CHECK(s.Queue == SurfaceState::Pass::Cutout && s.CastsShadow && s.AlphaTestedShadow && s.DepthWrite && s.Blend == BlendMode::None);
+    s = Renderer3D::GetSurfaceState(cutout, glm::mat4(1.0f), false);
+    CHECK(!s.CastsShadow && !s.AlphaTestedShadow);
+
+    // Transparent: premultiplied blending, no depth write, never a shadow (even when asked).
+    Material glass;
+    glass.BlendMode = MaterialBlendMode::Transparent;
+    s = Renderer3D::GetSurfaceState(glass, glm::mat4(1.0f), true);
+    CHECK(s.Queue == SurfaceState::Pass::Transparent && s.Blend == BlendMode::Premultiplied && !s.DepthWrite);
+    CHECK(!s.CastsShadow && !s.AlphaTestedShadow && s.Cull == CullMode::Back && !s.TwoSidedBlend);
+    glass.DoubleSided = true; // inner faces first, then the outer ones
+    s = Renderer3D::GetSurfaceState(glass, glm::mat4(1.0f));
+    CHECK(s.Cull == CullMode::None && s.TwoSidedBlend);
+
+    // Double-sided: nothing culled. A mirroring transform (odd number of negative scales) turns
+    // the winding around: the front faces are culled instead of the back ones.
+    Material leaf;
+    leaf.DoubleSided = true;
+    CHECK(Renderer3D::GetSurfaceState(leaf, glm::mat4(1.0f)).Cull == CullMode::None);
+    glm::mat4 mirror = glm::scale(glm::mat4(1.0f), glm::vec3(-1.0f, 1.0f, 1.0f));
+    s = Renderer3D::GetSurfaceState(opaque, mirror);
+    CHECK(s.Mirrored && s.Cull == CullMode::Front);
+    s = Renderer3D::GetSurfaceState(leaf, mirror);
+    CHECK(s.Mirrored && s.Cull == CullMode::None);
+    CHECK(!Renderer3D::GetSurfaceState(opaque, glm::scale(glm::mat4(1.0f), glm::vec3(-1.0f, -1.0f, 1.0f))).Mirrored);
+    glm::mat4 turned = glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 1.0f, -2.0f)) *
+                       glm::rotate(glm::mat4(1.0f), 2.5f, glm::normalize(glm::vec3(1.0f, 2.0f, 0.5f))) * glm::scale(glm::mat4(1.0f), glm::vec3(2.0f));
+    s = Renderer3D::GetSurfaceState(opaque, turned);
+    CHECK(!s.Mirrored && s.Cull == CullMode::Back);
+}
+
+TEST(PrimitiveWindingFacesOutward)
+{
+    // Back faces are culled on single-sided materials: every primitive triangle must wind
+    // counter-clockwise seen from the side its normals point to.
+    for (PrimitiveMesh type : { PrimitiveMesh::Cube, PrimitiveMesh::Sphere, PrimitiveMesh::Plane, PrimitiveMesh::Cylinder, PrimitiveMesh::Cone })
+    {
+        std::vector<MeshVertex> vertices;
+        std::vector<uint32_t> indices;
+        MeshLibrary::GeneratePrimitive(type, vertices, indices);
+        CHECK(!vertices.empty() && indices.size() % 3 == 0 && indices.size() >= 6);
+        int inward = 0, checked = 0;
+        for (size_t i = 0; i + 2 < indices.size(); i += 3)
+        {
+            const MeshVertex &a = vertices[indices[i]], &b = vertices[indices[i + 1]], &c = vertices[indices[i + 2]];
+            glm::vec3 face = glm::cross(b.Position - a.Position, c.Position - a.Position);
+            if (glm::length(face) < 1e-7f) continue; // degenerate (sphere poles)
+            checked++;
+            if (glm::dot(face, a.Normal + b.Normal + c.Normal) <= 0.0f)
+                inward++;
+        }
+        CHECK(checked > 0 && inward == 0);
+    }
+}
+
+TEST(GLTFMaterialModes)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-gltf-modes-");
+    // alphaMode / alphaCutoff / doubleSided / KHR_materials_unlit -> blend mode, cutoff, double-sided, shader
+    WriteFile(dir / "Garden.gltf", R"({
+  "asset": { "version": "2.0" },
+  "extensionsUsed": [ "KHR_materials_unlit" ],
+  "materials": [
+    { "name": "Plain" },
+    { "name": "Leaves", "alphaMode": "MASK", "alphaCutoff": 0.3, "doubleSided": true },
+    { "name": "Fence", "alphaMode": "MASK" },
+    { "name": "Glass", "alphaMode": "BLEND", "pbrMetallicRoughness": { "baseColorFactor": [ 1, 1, 1, 0.25 ], "roughnessFactor": 0.05 } },
+    { "name": "Sign", "extensions": { "KHR_materials_unlit": {} }, "emissiveFactor": [ 1, 0.5, 0 ] }
+  ]
+})");
+    std::vector<Material> materials;
+    std::string error;
+    CHECK(Model::ReadMaterials(dir / "Garden.gltf", materials, &error));
+    CHECK(materials.size() == 5);
+    if (materials.size() == 5)
+    {
+        const Material &plain = materials[0], &leaves = materials[1], &fence = materials[2], &glass = materials[3], &sign = materials[4];
+        CHECK(plain.BlendMode == MaterialBlendMode::Opaque && plain.Shader == MaterialShader::Lit && !plain.DoubleSided);
+        CHECK(leaves.BlendMode == MaterialBlendMode::Cutout && leaves.DoubleSided);
+        CHECK_NEAR(leaves.AlphaCutoff, 0.3f, 1e-6f);
+        CHECK(fence.BlendMode == MaterialBlendMode::Cutout && !fence.DoubleSided);
+        CHECK_NEAR(fence.AlphaCutoff, 0.5f, 1e-6f); // the glTF default
+        // glTF BLEND composites the whole surface by alpha (no preserved highlights)
+        CHECK(glass.BlendMode == MaterialBlendMode::Transparent && !glass.PreserveSpecular);
+        CHECK_NEAR(glass.Albedo.a, 0.25f, 1e-6f);
+        CHECK_NEAR(glass.Roughness, 0.05f, 1e-6f);
+        CHECK(sign.Shader == MaterialShader::Unlit && sign.BlendMode == MaterialBlendMode::Opaque);
+        CHECK(sign.EmissionStrength == 1.0f && sign.Emission == glm::vec3(1.0f, 0.5f, 0.0f));
+        CHECK(!plain.AlbedoMap && !glass.AlbedoMap); // no textures (no GPU)
+    }
+    // Unreadable files fail with a reason; .obj files have one default material.
+    WriteFile(dir / "Broken.gltf", "{ not json");
+    error.clear();
+    CHECK(!Model::ReadMaterials(dir / "Broken.gltf", materials, &error) && !error.empty() && materials.empty());
+    CHECK(!Model::ReadMaterials(dir / "Missing.glb", materials, &error));
+    WriteFile(dir / "Crate.obj", "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
+    CHECK(Model::ReadMaterials(dir / "Crate.obj", materials) && materials.size() == 1 &&
+          materials[0].BlendMode == MaterialBlendMode::Opaque && !materials[0].DoubleSided);
+    fs::remove_all(dir);
+}
+
+TEST(InlineMaterialModesRoundtrip)
+{
+    // The inline material's shader, blend mode, cutoff, double-sided and preserve-specular
+    // settings round trip through a scene.
+    auto scene = CreateRef<Scene>();
+    auto& glass = scene->CreateEntity("Glass").AddComponent<MeshRendererComponent>();
+    glass.Type = PrimitiveMesh::Sphere;
+    glass.Mat.BlendMode = MaterialBlendMode::Transparent;
+    glass.Mat.Albedo.a = 0.3f;
+    glass.Mat.PreserveSpecular = false;
+    glass.Mat.DoubleSided = true;
+    auto& leaf = scene->CreateEntity("Leaf").AddComponent<MeshRendererComponent>();
+    leaf.Type = PrimitiveMesh::Plane;
+    leaf.Mat.BlendMode = MaterialBlendMode::Cutout;
+    leaf.Mat.AlphaCutoff = 0.35f;
+    leaf.Mat.DoubleSided = true;
+    auto& sign = scene->CreateEntity("Sign").AddComponent<MeshRendererComponent>();
+    sign.Mat.Shader = MaterialShader::Unlit;
+    scene->CreateEntity("Box").AddComponent<MeshRendererComponent>();
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"BlendMode\": \"Transparent\"") != std::string::npos && text.find("\"Shader\": \"Unlit\"") != std::string::npos);
+
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const Material& g = loaded->FindEntityByName("Glass").GetComponent<MeshRendererComponent>().Mat;
+    const Material& l = loaded->FindEntityByName("Leaf").GetComponent<MeshRendererComponent>().Mat;
+    const Material& u = loaded->FindEntityByName("Sign").GetComponent<MeshRendererComponent>().Mat;
+    const Material& b = loaded->FindEntityByName("Box").GetComponent<MeshRendererComponent>().Mat;
+    CHECK(g.BlendMode == MaterialBlendMode::Transparent && !g.PreserveSpecular && g.DoubleSided && g.Shader == MaterialShader::Lit);
+    CHECK_NEAR(g.Albedo.a, 0.3f, 1e-6f);
+    CHECK(l.BlendMode == MaterialBlendMode::Cutout && l.DoubleSided && l.PreserveSpecular);
+    CHECK_NEAR(l.AlphaCutoff, 0.35f, 1e-6f);
+    CHECK(u.Shader == MaterialShader::Unlit && u.BlendMode == MaterialBlendMode::Opaque && !u.DoubleSided);
+    CHECK(b.Shader == MaterialShader::Lit && b.BlendMode == MaterialBlendMode::Opaque && !b.DoubleSided && b.PreserveSpecular);
+
+    // Scenes from before blend modes: a see-through color stays see-through (the whole surface
+    // fades, as it was drawn then); everything else is opaque and single-sided.
+    const char* legacy = R"({ "Scene": "Old", "Version": 1, "Entities": [
+      { "Entity": 11, "Tag": "Ghost", "Transform": { "Translation": [0, 0, 0], "Rotation": [0, 0, 0], "Scale": [1, 1, 1] },
+        "MeshRenderer": { "Mesh": "Sphere", "Albedo": [1, 1, 1, 0.4], "Tiling": 2 } },
+      { "Entity": 12, "Tag": "Wall", "Transform": { "Translation": [0, 0, 0], "Rotation": [0, 0, 0], "Scale": [1, 1, 1] },
+        "MeshRenderer": { "Mesh": "Cube", "Albedo": [0.5, 0.5, 0.5, 1] } } ] })";
+    auto old = CreateRef<Scene>();
+    CHECK(SceneSerializer(old).DeserializeFromString(legacy));
+    const Material& ghost = old->FindEntityByName("Ghost").GetComponent<MeshRendererComponent>().Mat;
+    const Material& wall = old->FindEntityByName("Wall").GetComponent<MeshRendererComponent>().Mat;
+    CHECK(ghost.BlendMode == MaterialBlendMode::Transparent && !ghost.PreserveSpecular && ghost.Tiling == glm::vec2(2.0f));
+    CHECK(wall.BlendMode == MaterialBlendMode::Opaque && !wall.DoubleSided && wall.Shader == MaterialShader::Lit);
+    CHECK_NEAR(wall.AlphaCutoff, 0.5f, 1e-6f);
+
+    // .zmat: PreserveSpecular round trips; files without it keep it on.
+    MaterialData data;
+    CHECK(data.PreserveSpecular);
+    data.BlendMode = MaterialBlendMode::Transparent;
+    data.PreserveSpecular = false;
+    MaterialData read;
+    CHECK(MaterialSerializer::DeserializeFromString(MaterialSerializer::SerializeToString(data), read) && read == data);
+    CHECK(MaterialSerializer::DeserializeFromString(R"({ "BlendMode": "Transparent" })", read) && read.PreserveSpecular);
+    Material applied;
+    data.ApplyValuesTo(applied);
+    CHECK(!applied.PreserveSpecular && !MaterialData::FromMaterial(applied).PreserveSpecular);
+
+    // A model's own modes stay unless the inline material asks for others.
+    MeshRendererComponent model;
+    model.Type = PrimitiveMesh::Model;
+    Material own;
+    own.BlendMode = MaterialBlendMode::Cutout;
+    own.AlphaCutoff = 0.2f;
+    Material composed = Scene::ComposeMeshMaterial(model, &own, 0);
+    CHECK(composed.BlendMode == MaterialBlendMode::Cutout && composed.Shader == MaterialShader::Lit && !composed.DoubleSided);
+    CHECK_NEAR(composed.AlphaCutoff, 0.2f, 1e-6f);
+    model.Mat.BlendMode = MaterialBlendMode::Transparent;
+    model.Mat.PreserveSpecular = false;
+    model.Mat.Shader = MaterialShader::Unlit;
+    model.Mat.DoubleSided = true;
+    composed = Scene::ComposeMeshMaterial(model, &own, 0);
+    CHECK(composed.BlendMode == MaterialBlendMode::Transparent && !composed.PreserveSpecular);
+    CHECK(composed.Shader == MaterialShader::Unlit && composed.DoubleSided);
+    own.DoubleSided = true; // the model's double-sided parts stay double-sided
+    model.Mat = Material{};
+    CHECK(Scene::ComposeMeshMaterial(model, &own, 0).DoubleSided);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

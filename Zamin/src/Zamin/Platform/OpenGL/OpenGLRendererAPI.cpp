@@ -92,6 +92,7 @@ namespace Zamin {
             {
                 case BlendMode::None:     glDisable(GL_BLEND); break;
                 case BlendMode::Alpha:    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); break;
+                case BlendMode::Premultiplied: glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); break;
                 case BlendMode::Additive: glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE); break;
             }
         }

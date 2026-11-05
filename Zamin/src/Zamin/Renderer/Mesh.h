@@ -60,6 +60,9 @@ namespace Zamin {
     {
     public:
         static Ref<Mesh> GetPrimitive(PrimitiveMesh type);
+        // The geometry of a primitive (no GPU): unit size, centered, counter-clockwise front faces
+        // seen from outside (single-sided materials cull the others).
+        static void GeneratePrimitive(PrimitiveMesh type, std::vector<MeshVertex>& vertices, std::vector<uint32_t>& indices);
         static Ref<Mesh> LoadOBJ(const std::filesystem::path& path);
         // The triangles of an .obj file (flat normals where it has none). False, with the reason in
         // `error`, when it cannot be read or holds no faces.

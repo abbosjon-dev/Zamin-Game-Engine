@@ -29,6 +29,9 @@ namespace Zamin {
             float EnvironmentRotation = 0.0f;
             bool Background = true;            // the sky behind the object (false: a dark backdrop)
             bool Sun = true;                   // a key light from the upper left
+            // Cutout / transparent materials: a checkered wall behind the object shows what they
+            // let through (opaque materials never get it).
+            bool Checker = true;
         };
 
         // Renders into its framebuffer (resized to width x height when needed). Returns the color
@@ -44,6 +47,7 @@ namespace Zamin {
 
     private:
         Ref<Framebuffer> m_Target, m_Final;
+        Ref<Texture2D> m_CheckerTexture;
     };
 
 }

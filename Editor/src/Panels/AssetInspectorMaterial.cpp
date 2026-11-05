@@ -155,6 +155,12 @@ namespace Zamin {
         toggle(ICON_FA_ROTATE "##materialRotate", m_MaterialAutoRotate, "Avtomatik aylantirish");
         ImGui::SameLine();
         toggle(ICON_FA_IMAGE "##materialBackground", m_MaterialView.Background, "Orqa fon (osmon)");
+        if (m_Material->GetMaterial().BlendMode != MaterialBlendMode::Opaque)
+        {
+            ImGui::SameLine();
+            toggle(ICON_FA_CHESS_BOARD "##materialChecker", m_MaterialView.Checker,
+                   "Shaxmat devor: obyekt orqasida - shaffof va kesilgan joylar yaxshi ko'rinadi");
+        }
 
         ImGui::SameLine();
         ImGui::SetNextItemWidth(std::clamp(ImGui::GetContentRegionAvail().x * 0.4f, 70.0f, 110.0f));
@@ -200,33 +206,8 @@ namespace Zamin {
         if (!UI::BeginPropertyGrid("##materialFields"))
             return false;
 
-        UI::PropertyHeader("Shader");
-        int shader = (int)d.Shader;
-        const char* shaders[] = { "Lit (yoritilgan, PBR)", "Unlit (yoritilmagan)" };
-        UI::PropertyLabel("Shader", "Lit: quyosh, nuqtali chiroqlar, soyalar va osmon bilan yoritiladi. "
-                                    "Unlit: faqat rang (x tekstura) va nurlanish - yorug'lik ta'sir qilmaydi.");
-        if (ImGui::Combo("##shader", &shader, shaders, 2))
-        {
-            d.Shader = (MaterialShader)shader;
-            changed = true;
-        }
-        int blend = (int)d.BlendMode;
-        const char* blends[] = { "Opaque (shaffof emas)", "Cutout (kesish)", "Transparent (shaffof)" };
-        UI::PropertyLabel("Aralashtirish", "Opaque: orqasini to'liq yopadi. Cutout: alfa chegaradan past piksellar chizilmaydi "
-                                           "(barglar, panjaralar). Transparent: alfa bo'yicha orqasidagi bilan aralashadi (shisha).");
-        if (ImGui::Combo("##blend", &blend, blends, 3))
-        {
-            d.BlendMode = (MaterialBlendMode)blend;
-            changed = true;
-        }
-        if (d.BlendMode == MaterialBlendMode::Cutout)
-        {
-            UI::PropertyLabel("Alfa chegarasi", "Shundan past alfa (rang x tekstura) bo'lgan piksellar chizilmaydi");
-            changed |= ImGui::SliderFloat("##cutoff", &d.AlphaCutoff, 0.0f, 1.0f, "%.2f");
-        }
-        UI::PropertyLabel("Ikki tomonlama", "Sirtning ikkala tomoni ham chiziladi (orqa tomoni teskari normal bilan yoritiladi): "
-                                            "barglar, mato, yupqa devorlar");
-        changed |= ImGui::Checkbox("##doubleSided", &d.DoubleSided);
+        UI::PropertyHeader("Sirt turi");
+        changed |= UI::PropertyMaterialSurface(d);
 
         UI::PropertyHeader("Asosiy rang");
         changed |= UI::PropertyColor4("Rang (albedo)", d.Albedo);

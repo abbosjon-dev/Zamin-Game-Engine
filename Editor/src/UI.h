@@ -2,6 +2,7 @@
 
 #include <Zamin/ImGui/Icons.h>
 #include <Zamin/ImGui/ImGuiLayer.h>
+#include <Zamin/Renderer/Material.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -177,6 +178,29 @@ namespace Zamin::UI {
     bool PropertyAssetPath(const char* label, std::string& path, const char* extensions, const char* icon, const AssetPathOptions& options);
 
     bool PropertyCombo(const char* label, int& current, const char* const* items, int count);
+
+    // The surface settings of a material - shader, blend mode (with the opacity, the alpha cutoff
+    // or "preserve specular" where they apply) and double-sided - as property rows. `forModel`:
+    // the inline material of a model, whose Lit / Opaque mean "the model's own" (see
+    // Scene::ComposeMeshMaterial). Returns true when something changed.
+    struct MaterialSurfaceRefs
+    {
+        MaterialShader& Shader;
+        MaterialBlendMode& BlendMode;
+        float& AlphaCutoff;
+        bool& DoubleSided;
+        bool& PreserveSpecular;
+        float& Opacity; // the albedo color's alpha
+    };
+    bool PropertyMaterialSurface(const MaterialSurfaceRefs& surface, bool forModel = false);
+    // Material and MaterialData have the same field names.
+    template<typename T>
+    bool PropertyMaterialSurface(T& material, bool forModel = false)
+    {
+        return PropertyMaterialSurface(MaterialSurfaceRefs{ material.Shader, material.BlendMode, material.AlphaCutoff,
+                                                            material.DoubleSided, material.PreserveSpecular, material.Albedo.a },
+                                       forModel);
+    }
 
     // Transform-style vec3 control with colored X/Y/Z buttons (click = reset).
     bool Vec3Control(const char* label, glm::vec3& values, float resetValue = 0.0f, float speed = 0.05f);

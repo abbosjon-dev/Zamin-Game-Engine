@@ -5,6 +5,7 @@
 #include "Zamin/Renderer/Animation.h"
 #include "Zamin/Renderer/Environment.h"
 #include "Zamin/Renderer/EditorViewSettings.h"
+#include "Zamin/Renderer/RendererAPI.h"
 
 #include <glm/glm.hpp>
 #include <vector>
@@ -52,9 +53,31 @@ namespace Zamin {
         float FogHeightFalloff = 0.05f;
     };
 
-    // Forward PBR mesh renderer with directional shadow map and gradient sky. Materials: Lit or
-    // Unlit; opaque and cutout (alpha tested) surfaces first, then the sky, then transparent ones
-    // (alpha blended, sorted back to front, no depth write, no shadows).
+    // How the renderer draws one mesh with its material (the pass, culling, blending, shadow).
+    struct SurfaceState
+    {
+        enum class Pass : uint8_t { Opaque = 0, Cutout, Transparent };
+
+        Pass Queue = Pass::Opaque;
+        // Faces culled in the main pass. Double-sided: none (a double-sided transparent surface
+        // is drawn twice, back faces first, see TwoSidedBlend). Single-sided: the back faces - the
+        // front ones when the transform mirrors the mesh (negative scale turns its winding around).
+        CullMode Cull = CullMode::Back;
+        bool Mirrored = false;
+        bool TwoSidedBlend = false;    // transparent + double-sided: inner (back) faces, then the outer ones
+        BlendMode Blend = BlendMode::None;
+        bool DepthWrite = true;
+        bool CastsShadow = true;       // transparent surfaces never cast (the light goes through)
+        bool AlphaTestedShadow = false; // cutout: the shadow has the same holes as the surface
+    };
+
+    // Forward PBR mesh renderer with cascaded directional shadows and a gradient / HDRI sky.
+    // Materials are Lit or Unlit. Order of a frame: shadow casters (cutout ones alpha tested),
+    // opaque surfaces, cutout surfaces (alpha tested), the sky, the editor grid, then transparent
+    // surfaces - sorted back to front by the center of their bounds, depth tested but not written,
+    // premultiplied alpha blending (Material::PreserveSpecular keeps highlights at full strength).
+    // Single-sided materials cull their back faces; double-sided ones draw both, lit from the
+    // side that is seen.
     class Renderer3D
     {
     public:
@@ -67,14 +90,20 @@ namespace Zamin {
                                const SceneEnvironment& environment);
         static void SubmitMesh(const Ref<Mesh>& mesh, const glm::mat4& transform, const Material& material,
                                int entityID = -1, bool castShadows = true, const std::vector<glm::mat4>* joints = nullptr);
+        // The editor grid, drawn by EndScene after the opaque surfaces and the sky and before the
+        // transparent ones (so it shows through glass instead of being drawn over it).
+        static void SubmitGrid(int plane = 0, const GridSettings& settings = {});
         static void EndScene();
 
-        // Editor-only infinite grid. plane: 0 = XZ (3D), 1 = XY (2D). settings.Visible is not
-        // checked here (the caller decides whether to draw).
+        // Editor-only infinite grid, drawn at once. plane: 0 = XZ (3D), 1 = XY (2D). settings.Visible
+        // is not checked here (the caller decides whether to draw).
         static void DrawGrid(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition, int plane = 0,
                              const GridSettings& settings = {});
 
         static uint32_t GetShadowMapRendererID();
+
+        // How a mesh with this material and world transform is drawn (no GPU needed).
+        static SurfaceState GetSurfaceState(const Material& material, const glm::mat4& transform, bool castShadows = true);
 
         // The order transparent surfaces at these world positions are drawn in: back to front
         // (the farthest from the camera first; equal depths keep their order).

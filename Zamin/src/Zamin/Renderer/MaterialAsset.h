@@ -21,6 +21,7 @@ namespace Zamin {
         MaterialBlendMode BlendMode = MaterialBlendMode::Opaque;
         float AlphaCutoff = 0.5f;
         bool DoubleSided = false;
+        bool PreserveSpecular = true;      // Transparent: highlights / reflections do not fade with alpha
 
         glm::vec4 Albedo{ 1.0f };          // sRGB color, alpha = opacity
         std::string AlbedoMap;

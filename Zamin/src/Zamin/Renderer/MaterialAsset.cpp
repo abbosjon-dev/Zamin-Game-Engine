@@ -32,6 +32,7 @@ namespace Zamin {
         m.BlendMode = BlendMode;
         m.AlphaCutoff = AlphaCutoff;
         m.DoubleSided = DoubleSided;
+        m.PreserveSpecular = PreserveSpecular;
         m.Albedo = Albedo;
         m.Metallic = Metallic;
         m.Roughness = Roughness;
@@ -49,6 +50,7 @@ namespace Zamin {
         d.BlendMode = m.BlendMode;
         d.AlphaCutoff = m.AlphaCutoff;
         d.DoubleSided = m.DoubleSided;
+        d.PreserveSpecular = m.PreserveSpecular;
         d.Albedo = m.Albedo;
         d.Metallic = m.Metallic;
         d.Roughness = m.Roughness;
@@ -157,6 +159,7 @@ namespace Zamin {
         j["BlendMode"] = BlendModeToString(d.BlendMode);
         j["AlphaCutoff"] = d.AlphaCutoff;
         j["DoubleSided"] = d.DoubleSided;
+        j["PreserveSpecular"] = d.PreserveSpecular;
         j["Albedo"] = ToJson(d.Albedo);
         WriteTexture(j, "AlbedoMap", d.AlbedoMap);
         j["Metallic"] = d.Metallic;
@@ -202,6 +205,8 @@ namespace Zamin {
         d.AlphaCutoff = std::clamp(ReadFloat(j, "AlphaCutoff", d.AlphaCutoff), 0.0f, 1.0f);
         if (auto it = j.find("DoubleSided"); it != j.end() && it->is_boolean())
             d.DoubleSided = it->get<bool>();
+        if (auto it = j.find("PreserveSpecular"); it != j.end() && it->is_boolean())
+            d.PreserveSpecular = it->get<bool>();
         d.Albedo = ReadVec(j, "Albedo", d.Albedo);
         d.AlbedoMap = ReadTexture(j, "AlbedoMap");
         d.Metallic = ReadFloat(j, "Metallic", d.Metallic);

@@ -8,6 +8,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
+#include <cmath>
 
 namespace Zamin {
 
@@ -91,6 +92,33 @@ namespace Zamin {
         env.EnvIntensity = settings.EnvironmentIntensity;
         env.EnvRotation = settings.EnvironmentRotation;
         Renderer3D::BeginScene(view, projection, eye, env);
+        if (settings.Checker && material.BlendMode != MaterialBlendMode::Opaque)
+        {
+            // An unlit checkered wall behind the object, filling the view.
+            if (!m_CheckerTexture)
+            {
+                TextureSpecification spec;
+                spec.Width = spec.Height = 2;
+                spec.Filter = TextureFilter::Nearest;
+                spec.GenerateMips = false;
+                spec.SRGB = false;
+                m_CheckerTexture = Texture2D::Create(spec);
+                const uint32_t dark = 0xff1a1a1a, light = 0xff4d4d4d; // ABGR, linear
+                uint32_t texels[4] = { dark, light, light, dark };
+                m_CheckerTexture->SetData(texels, sizeof(texels));
+            }
+            Material wall;
+            wall.Shader = MaterialShader::Unlit;
+            wall.AlbedoMap = m_CheckerTexture;
+            const float depth = 2.0f; // behind the object
+            float halfHeight = std::tan(fov * 0.5f) * (distance + depth);
+            float size = halfHeight * 2.0f * std::max(aspect, 1.0f) * 1.05f;
+            wall.Tiling = glm::vec2(size * 2.0f); // squares of a quarter unit
+            glm::mat4 wallTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -depth)) *
+                                      glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
+                                      glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f, size));
+            Renderer3D::SubmitMesh(MeshLibrary::GetPrimitive(PrimitiveMesh::Plane), wallTransform, wall, -1, false);
+        }
         Renderer3D::SubmitMesh(mesh, model, material, -1, false);
         Renderer3D::EndScene();
         m_Target->Unbind();

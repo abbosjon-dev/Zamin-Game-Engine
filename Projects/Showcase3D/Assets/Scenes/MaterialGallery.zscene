@@ -1,0 +1,660 @@
+{
+  "Scene": "MaterialGallery",
+  "Version": 1,
+  "Settings": {
+    "DrawSky": true,
+    "SkyTop": [
+      0.26,
+      0.46,
+      0.82
+    ],
+    "SkyHorizon": [
+      0.82,
+      0.86,
+      0.92
+    ],
+    "Ground": [
+      0.33,
+      0.31,
+      0.28
+    ],
+    "Ambient": 0.55,
+    "Exposure": 1.05,
+    "ShadowDistance": 40,
+    "Gravity": [
+      0,
+      -9.8
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ],
+    "Post": {
+      "Bloom": true,
+      "BloomThreshold": 1.0,
+      "BloomKnee": 0.5,
+      "BloomIntensity": 0.6,
+      "BloomRadius": 1.0,
+      "Vignette": 0.3,
+      "Saturation": 1.08,
+      "Contrast": 1.05,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "Tonemap": 1,
+      "SSAO": false,
+      "SSAORadius": 0.6,
+      "SSAOIntensity": 1.3,
+      "SSAOBias": 0.03
+    },
+    "Environment": {
+      "Map": "Textures/sunset.hdr",
+      "Intensity": 0.85,
+      "Rotation": 0.0
+    }
+  },
+  "Entities": [
+    {
+      "Entity": 7360000000000001,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0,
+          3.3,
+          10.5
+        ],
+        "Rotation": [
+          -0.22,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 0,
+        "PerspectiveFOV": 0.85,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 500,
+        "OrthographicSize": 10,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.1,
+          0.1,
+          0.12,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7360000000007920,
+      "Tag": "Sun",
+      "Transform": {
+        "Translation": [
+          0,
+          10,
+          0
+        ],
+        "Rotation": [
+          -0.9,
+          -2.6,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "DirectionalLight": {
+        "Color": [
+          1.0,
+          0.92,
+          0.82
+        ],
+        "Intensity": 3.0,
+        "CastShadows": true
+      }
+    },
+    {
+      "Entity": 7360000000015839,
+      "Tag": "Ground",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          26,
+          1,
+          18
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Plane",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.62,
+          0.6,
+          0.57,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.85,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7360000000023758,
+      "Tag": "Wall",
+      "Transform": {
+        "Translation": [
+          0,
+          2,
+          -4.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          16,
+          4,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.9,
+          0.9,
+          0.9,
+          1
+        ],
+        "AlbedoMap": "Textures/bricks.png",
+        "Tiling": [
+          8,
+          2
+        ],
+        "Metallic": 0,
+        "Roughness": 0.9,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "NormalMap": "Textures/bricks_normal.png",
+        "NormalStrength": 1.0,
+        "AlbedoMapUUID": "a606cee7830b630a",
+        "NormalMapUUID": "e8216642a50d789a"
+      }
+    },
+    {
+      "Entity": 7360000000031677,
+      "Tag": "Neon",
+      "Transform": {
+        "Translation": [
+          0,
+          3.55,
+          -4.18
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          9,
+          0.12,
+          0.08
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "Materials/Neon.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "e1d36c1e9480c6f6"
+      }
+    },
+    {
+      "Entity": 7360000000039596,
+      "Tag": "Fence",
+      "Transform": {
+        "Translation": [
+          -5.0,
+          1.1,
+          0.4
+        ],
+        "Rotation": [
+          1.5708,
+          0.25,
+          0
+        ],
+        "Scale": [
+          3.2,
+          1,
+          2.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Plane",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Fence.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "4e11d2b3d52839bc"
+      }
+    },
+    {
+      "Entity": 7360000000047515,
+      "Tag": "Leaves A",
+      "Transform": {
+        "Translation": [
+          -2.1,
+          1.25,
+          2.3
+        ],
+        "Rotation": [
+          1.5708,
+          0.785,
+          0
+        ],
+        "Scale": [
+          1.6,
+          1,
+          2.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Plane",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Leaves.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "1037927ad8800c95"
+      }
+    },
+    {
+      "Entity": 7360000000055434,
+      "Tag": "Leaves B",
+      "Transform": {
+        "Translation": [
+          -2.1,
+          1.25,
+          2.3
+        ],
+        "Rotation": [
+          1.5708,
+          -0.785,
+          0
+        ],
+        "Scale": [
+          1.6,
+          1,
+          2.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Plane",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Leaves.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "1037927ad8800c95"
+      }
+    },
+    {
+      "Entity": 7360000000063353,
+      "Tag": "Glass Sphere",
+      "Transform": {
+        "Translation": [
+          0.4,
+          1.2,
+          0.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.3,
+          2.3,
+          2.3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Glass.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "b1b23139b925b4ae"
+      }
+    },
+    {
+      "Entity": 7360000000071272,
+      "Tag": "Inner Cube",
+      "Transform": {
+        "Translation": [
+          0.4,
+          1.2,
+          0.0
+        ],
+        "Rotation": [
+          0.6,
+          0.8,
+          0.3
+        ],
+        "Scale": [
+          0.75,
+          0.75,
+          0.75
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.95,
+          0.45,
+          0.12,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.35,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7360000000079191,
+      "Tag": "Ghost",
+      "Transform": {
+        "Translation": [
+          2.9,
+          0.8,
+          2.0
+        ],
+        "Rotation": [
+          0,
+          0.5,
+          0
+        ],
+        "Scale": [
+          1.5,
+          1.5,
+          1.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Ghost.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "40dbe86002a297de"
+      }
+    },
+    {
+      "Entity": 7360000000087110,
+      "Tag": "Hologram Base",
+      "Transform": {
+        "Translation": [
+          5.2,
+          0.12,
+          0.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.8,
+          0.24,
+          1.8
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.18,
+          0.2,
+          0.24,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.8,
+        "Roughness": 0.3,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7360000000095029,
+      "Tag": "Hologram",
+      "Transform": {
+        "Translation": [
+          5.2,
+          1.4,
+          0.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.3,
+          2.3,
+          1.3
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "Materials/Hologram.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "67cd5726f37c459d"
+      },
+      "PointLight": {
+        "Color": [
+          0.25,
+          0.8,
+          1.0
+        ],
+        "Intensity": 3.0,
+        "Radius": 5.0
+      }
+    },
+    {
+      "Entity": 7360000000102948,
+      "Tag": "Title",
+      "Transform": {
+        "Translation": [
+          0,
+          5.0,
+          -4.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "Text": {
+        "Text": "Materiallar: Cutout \u00b7 Transparent \u00b7 Unlit \u00b7 Ikki tomonlama",
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    }
+  ]
+}

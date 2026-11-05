@@ -1,0 +1,35 @@
+{
+  "Albedo": [
+    1.0,
+    0.25,
+    0.75,
+    1
+  ],
+  "AlbedoMap": "",
+  "AlphaCutoff": 0.5,
+  "BlendMode": "Opaque",
+  "DoubleSided": false,
+  "Emission": [
+    1.0,
+    0.25,
+    0.75
+  ],
+  "EmissionStrength": 2.5,
+  "EmissiveMap": "",
+  "MetalRoughMap": "",
+  "Metallic": 0.0,
+  "NormalMap": "",
+  "NormalStrength": 1.0,
+  "Offset": [
+    0,
+    0
+  ],
+  "PreserveSpecular": true,
+  "Roughness": 0.5,
+  "Shader": "Unlit",
+  "Tiling": [
+    1,
+    1
+  ],
+  "Version": 1
+}

@@ -2,6 +2,7 @@
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Project/Project.h"
+#include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Scene/ComponentRegistry.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -248,6 +249,10 @@ namespace Zamin {
                 { "MetalRoughMap", c->MetalRoughPath }, { "EmissiveMap", c->EmissivePath },
                 { "Metallic", c->Mat.Metallic }, { "Roughness", c->Mat.Roughness },
                 { "Emission", ToJson(c->Mat.Emission) }, { "EmissionStrength", c->Mat.EmissionStrength },
+                { "Shader", MaterialSerializer::ShaderToString(c->Mat.Shader) },
+                { "BlendMode", MaterialSerializer::BlendModeToString(c->Mat.BlendMode) },
+                { "AlphaCutoff", c->Mat.AlphaCutoff }, { "DoubleSided", c->Mat.DoubleSided },
+                { "PreserveSpecular", c->Mat.PreserveSpecular },
             };
             WriteAssetHandle(j, "Material", c->MaterialPath);
             if (std::any_of(c->SubmeshMaterials.begin(), c->SubmeshMaterials.end(), [](const std::string& p) { return !p.empty(); }))
@@ -487,6 +492,20 @@ namespace Zamin {
             c.Mat.Roughness = j.value("Roughness", 0.5f);
             c.Mat.Emission = Vec(j, "Emission", glm::vec3(0.0f));
             c.Mat.EmissionStrength = j.value("EmissionStrength", 0.0f);
+            if (auto it = j.find("Shader"); it != j.end() && it->is_string())
+                c.Mat.Shader = MaterialSerializer::ShaderFromString(it->get<std::string>()).value_or(MaterialShader::Lit);
+            if (auto it = j.find("BlendMode"); it != j.end() && it->is_string())
+                c.Mat.BlendMode = MaterialSerializer::BlendModeFromString(it->get<std::string>()).value_or(MaterialBlendMode::Opaque);
+            else if (c.Mat.Albedo.a < 1.0f)
+            {
+                // Scenes from before blend modes: a color with alpha below 1 was drawn see-through
+                // (the whole surface faded) - it stays that way.
+                c.Mat.BlendMode = MaterialBlendMode::Transparent;
+                c.Mat.PreserveSpecular = false;
+            }
+            c.Mat.AlphaCutoff = std::clamp(j.value("AlphaCutoff", 0.5f), 0.0f, 1.0f);
+            c.Mat.DoubleSided = j.value("DoubleSided", false);
+            c.Mat.PreserveSpecular = j.value("PreserveSpecular", c.Mat.PreserveSpecular);
         }
         if (e.contains("Animator"))
         {

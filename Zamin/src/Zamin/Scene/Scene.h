@@ -459,7 +459,9 @@ namespace Zamin {
         // What a mesh renderer draws with. A primitive (modelMaterial = null): its material asset,
         // or the inline material. Submesh `submesh` of a model: the slot's material asset, then the
         // component's material asset, else the model's own material tinted / overridden by the
-        // inline material (albedo multiplied, inline maps replace the model's, emission added).
+        // inline material (albedo multiplied, inline maps replace the model's, emission added; an
+        // inline Unlit shader / Cutout or Transparent blend mode replaces the model's, an inline
+        // double-sided flag makes every part double-sided).
         static Material ComposeMeshMaterial(const struct MeshRendererComponent& mr, const Material* modelMaterial, size_t submesh = 0);
         // The material asset submesh `submesh` (or the primitive) is drawn with (null = none).
         static Ref<MaterialAsset> GetMeshMaterialAsset(const struct MeshRendererComponent& mr, size_t submesh = 0);

@@ -1,0 +1,36 @@
+{
+  "Albedo": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "AlbedoMap": "Textures/leaves.png",
+  "AlbedoMapUUID": "7a56d9e0f4015eab",
+  "AlphaCutoff": 0.4,
+  "BlendMode": "Cutout",
+  "DoubleSided": true,
+  "Emission": [
+    0,
+    0,
+    0
+  ],
+  "EmissionStrength": 0.0,
+  "EmissiveMap": "",
+  "MetalRoughMap": "",
+  "Metallic": 0.0,
+  "NormalMap": "",
+  "NormalStrength": 1.0,
+  "Offset": [
+    0,
+    0
+  ],
+  "PreserveSpecular": true,
+  "Roughness": 0.7,
+  "Shader": "Lit",
+  "Tiling": [
+    1,
+    1
+  ],
+  "Version": 1
+}

@@ -11,8 +11,10 @@ namespace Zamin {
     // How a material is lit. Unlit: albedo (x map) + emission only, no lights, shadows or sky.
     enum class MaterialShader : uint8_t { Lit = 0, Unlit };
 
-    // How a material covers what is behind it. Cutout: pixels whose alpha is below AlphaCutoff are
-    // dropped (leaves, fences); Transparent: alpha blended over the opaque scene.
+    // How a material covers what is behind it. Opaque: alpha is ignored; Cutout: pixels whose alpha
+    // is below AlphaCutoff are dropped (leaves, fences), the rest is opaque and the shadow has the
+    // same holes; Transparent: alpha blended over the opaque scene (sorted back to front, no depth
+    // write, no shadow of its own).
     enum class MaterialBlendMode : uint8_t { Opaque = 0, Cutout, Transparent };
 
     // Simple metallic/roughness PBR material (what the renderer draws with: values + textures).
@@ -36,7 +38,10 @@ namespace Zamin {
         MaterialShader Shader = MaterialShader::Lit;
         MaterialBlendMode BlendMode = MaterialBlendMode::Opaque;
         float AlphaCutoff = 0.5f;     // Cutout: alpha below this is not drawn
-        bool DoubleSided = false;     // both faces drawn (back faces lit with the flipped normal)
+        bool DoubleSided = false;     // both faces drawn (back faces lit with the flipped normal); else back faces are culled
+        // Transparent: reflections and highlights keep their full strength, only the diffuse part
+        // fades with alpha (glass, water). false: the whole surface fades (fading objects out).
+        bool PreserveSpecular = true;
     };
 
 }

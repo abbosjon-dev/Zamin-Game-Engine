@@ -62,6 +62,7 @@
 #define ICON_FA_ERASER "\xef\x84\xad"
 #define ICON_FA_VECTOR_SQUARE "\xef\x97\x8b"
 #define ICON_FA_BORDER_ALL "\xef\xa1\x8c"
+#define ICON_FA_CHESS_BOARD "\xef\x90\xbc"
 #define ICON_FA_MOUNTAIN_SUN "\xee\x94\xaf"
 #define ICON_FA_CLOUD "\xef\x83\x82"
 #define ICON_FA_FEATHER "\xef\x94\xad"

@@ -69,6 +69,12 @@ namespace Zamin {
         // .gltf / .glb (meshes, node transforms, PBR materials + textures) or .obj, imported with
         // the file's .zmeta settings (AssetImporter::GetModelSettings). Cached by path.
         static Ref<Model> Load(const std::filesystem::path& path);
+        // The materials of a model file as the importer makes them - values and modes (glTF
+        // alphaMode OPAQUE / MASK -> Cutout with alphaCutoff / BLEND -> Transparent, doubleSided,
+        // KHR_materials_unlit) without their textures, in the file's material order (.obj: one
+        // default material). Reads no buffers or images and needs no GPU. False, with the reason
+        // in `error`, when the file cannot be read.
+        static bool ReadMaterials(const std::filesystem::path& path, std::vector<Material>& out, std::string* error = nullptr);
         // Every cached model made from this file (or reading it as a buffer) is read again in
         // place. Returns how many were updated; `failed` is set when the file could not be read.
         // A file that could not be loaded before is forgotten, so the next Load tries again.

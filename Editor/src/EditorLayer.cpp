@@ -405,6 +405,8 @@ namespace Zamin {
                     else if (key == "Shader") d.Shader = value == "Unlit" ? MaterialShader::Unlit : MaterialShader::Lit;
                     else if (key == "BlendMode")
                         d.BlendMode = MaterialSerializer::BlendModeFromString(value).value_or(MaterialBlendMode::Opaque);
+                    else if (key == "DoubleSided") d.DoubleSided = value == "true" || value == "1";
+                    else if (key == "PreserveSpecular") d.PreserveSpecular = value == "true" || value == "1";
                     else
                         ZM_WARN("ZAMIN_EDITOR_MATERIAL_EDIT: noma'lum maydon '{}'", key);
                 }

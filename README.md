@@ -80,6 +80,16 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     yuklanadi. Inspektorda **material muharriri**: aylanadigan preview (shar / kub / tekislik / silindr, osmon gradienti
     yoki sahna HDRI'si bilan), o'zgarishlar sahnada darhol ko'rinadi, **Saqlash** / **Bekor qilish**, saqlanmagan belgisi.
     Ichki materialni bir tugma bilan `.zmat`ga aylantirish mumkin
+  - **Sirt turlari** (material asset va ichki materialda): **Opaque** — alfa e'tiborga olinmaydi; **Cutout** — alfasi
+    (rang x tekstura) chegaradan past piksellar chizilmaydi, soyada ham shu teshiklar bo'ladi (barglar, panjaralar);
+    **Transparent** — shaffof sirtlar opaque sahna va osmondan keyin, chegaralari markazi bo'yicha orqadan oldinga saralanib,
+    chuqurlik yozmasdan premultiplied alfa bilan chiziladi, soya tashlamaydi; **Aksni saqlash** yoqilsa aks va yaltirashlar
+    alfa bilan susaymaydi (shisha), o'chirilsa butun sirt so'nadi. **Ikki tomonlama**: ikkala tomon chiziladi, orqa tomon
+    teskari normal bilan yoritiladi (ikki tomonlama shaffof sirt — avval ichki, keyin tashqi tomoni); bayroq o'chiq bo'lsa
+    orqa tomonlar kesiladi (manfiy masshtabli ko'zgu obyektlarda ham to'g'ri). **Unlit**: faqat rang x tekstura + nurlanish,
+    yorug'lik va soya ta'sir qilmaydi. glTF `alphaMode` (MASK / BLEND), `alphaCutoff`, `doubleSided` va
+    `KHR_materials_unlit` o'qiladi; eski sahnalarda alfasi 1 dan kichik rang avtomatik Transparent bo'ladi. Namuna:
+    `Projects/Showcase3D` ichidagi `Scenes/MaterialGallery.zscene`
   - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
   - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti,
     kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`

@@ -114,6 +114,70 @@ namespace Zamin {
         return tex;
     }
 
+    // The values and modes of a glTF material (its textures are loaded separately). glTF factors
+    // are linear; our material colors are sRGB-authored.
+    static void ReadGLTFMaterial(const cgltf_material& m, Material& out)
+    {
+        if (m.has_pbr_metallic_roughness)
+        {
+            const auto& pbr = m.pbr_metallic_roughness;
+            out.Albedo = { std::pow(pbr.base_color_factor[0], 1.0f / 2.2f), std::pow(pbr.base_color_factor[1], 1.0f / 2.2f),
+                           std::pow(pbr.base_color_factor[2], 1.0f / 2.2f), pbr.base_color_factor[3] };
+            out.Metallic = pbr.metallic_factor;
+            out.Roughness = pbr.roughness_factor;
+        }
+        out.Emission = { m.emissive_factor[0], m.emissive_factor[1], m.emissive_factor[2] };
+        if (glm::length(out.Emission) > 0.0f)
+            out.EmissionStrength = m.has_emissive_strength ? m.emissive_strength.emissive_strength : 1.0f;
+        switch (m.alpha_mode)
+        {
+            case cgltf_alpha_mode_mask:
+                out.BlendMode = MaterialBlendMode::Cutout;
+                out.AlphaCutoff = std::clamp(m.alpha_cutoff, 0.0f, 1.0f);
+                break;
+            case cgltf_alpha_mode_blend:
+                out.BlendMode = MaterialBlendMode::Transparent;
+                out.PreserveSpecular = false; // glTF BLEND: the whole surface is composited "over" by alpha
+                break;
+            default:
+                out.BlendMode = MaterialBlendMode::Opaque;
+                break;
+        }
+        out.DoubleSided = m.double_sided;
+        out.Shader = m.unlit ? MaterialShader::Unlit : MaterialShader::Lit; // KHR_materials_unlit
+    }
+
+    bool Model::ReadMaterials(const fs::path& path, std::vector<Material>& out, std::string* error)
+    {
+        out.clear();
+        std::string ext = path.extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return (char)std::tolower(c); });
+        if (ext == ".obj")
+        {
+            std::error_code ec;
+            if (!fs::exists(path, ec))
+            {
+                if (error) *error = "fayl topilmadi";
+                return false;
+            }
+            out.emplace_back(); // .obj: one default material
+            return true;
+        }
+        cgltf_options options{};
+        cgltf_data* data = nullptr;
+        std::string file = path.string();
+        if (cgltf_result result = cgltf_parse_file(&options, file.c_str(), &data); result != cgltf_result_success)
+        {
+            if (error) *error = CgltfResultText(result);
+            return false;
+        }
+        out.resize(data->materials_count);
+        for (cgltf_size i = 0; i < data->materials_count; i++)
+            ReadGLTFMaterial(data->materials[i], out[i]);
+        cgltf_free(data);
+        return true;
+    }
+
     Ref<Model> ModelLoader::LoadGLTF(const fs::path& path, const ModelImportSettings& settings, std::string& error)
     {
         cgltf_options options{};
@@ -285,6 +349,12 @@ namespace Zamin {
                 for (cgltf_size i = 0; i < pos->count; i++) indices[i] = (uint32_t)i;
             }
 
+            // A mirroring transform (negative scale) baked into the vertices turns the triangles
+            // inside out: the winding is reversed so the front faces stay front faces.
+            if (glm::determinant(glm::mat3(transform)) < 0.0f)
+                for (size_t i = 0; i + 2 < indices.size(); i += 3)
+                    std::swap(indices[i + 1], indices[i + 2]);
+
             if (!nrm) // flat normals
             {
                 for (size_t i = 0; i + 2 < indices.size(); i += 3)
@@ -324,22 +394,14 @@ namespace Zamin {
                 sub.MeshRef = CreateRef<Mesh>(vertices, indices);
             if (const cgltf_material* m = prim.material)
             {
+                ReadGLTFMaterial(*m, sub.Mat);
                 if (m->has_pbr_metallic_roughness)
                 {
-                    const auto& pbr = m->pbr_metallic_roughness;
-                    // glTF factors are linear; our material colors are sRGB-authored.
-                    sub.Mat.Albedo = { std::pow(pbr.base_color_factor[0], 1.0f / 2.2f), std::pow(pbr.base_color_factor[1], 1.0f / 2.2f),
-                                       std::pow(pbr.base_color_factor[2], 1.0f / 2.2f), pbr.base_color_factor[3] };
-                    sub.Mat.Metallic = pbr.metallic_factor;
-                    sub.Mat.Roughness = pbr.roughness_factor;
-                    sub.Mat.AlbedoMap = LoadGLTFTexture(pbr.base_color_texture, baseDir, textureCache);
-                    sub.Mat.MetalRoughMap = LoadGLTFTexture(pbr.metallic_roughness_texture, baseDir, textureCache);
+                    sub.Mat.AlbedoMap = LoadGLTFTexture(m->pbr_metallic_roughness.base_color_texture, baseDir, textureCache);
+                    sub.Mat.MetalRoughMap = LoadGLTFTexture(m->pbr_metallic_roughness.metallic_roughness_texture, baseDir, textureCache);
                 }
                 sub.Mat.NormalMap = LoadGLTFTexture(m->normal_texture, baseDir, textureCache);
                 sub.Mat.EmissiveMap = LoadGLTFTexture(m->emissive_texture, baseDir, textureCache);
-                sub.Mat.Emission = { m->emissive_factor[0], m->emissive_factor[1], m->emissive_factor[2] };
-                if (glm::length(sub.Mat.Emission) > 0.0f)
-                    sub.Mat.EmissionStrength = m->has_emissive_strength ? m->emissive_strength.emissive_strength : 1.0f;
             }
 
             const AABB& b = sub.MeshRef->GetBounds();
@@ -406,6 +468,9 @@ namespace Zamin {
                 if (settings.FlipUVs)
                     v.TexCoord.y = 1.0f - v.TexCoord.y;
             }
+            if (glm::determinant(glm::mat3(transform)) < 0.0f) // mirrored: keep the front faces in front
+                for (size_t i = 0; i + 2 < indices.size(); i += 3)
+                    std::swap(indices[i + 1], indices[i + 2]);
         }
         auto mesh = CreateRef<Mesh>(vertices, indices);
         auto model = CreateRef<Model>();

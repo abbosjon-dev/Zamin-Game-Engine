@@ -2890,6 +2890,16 @@ namespace Zamin {
         m.Tiling *= mr.Mat.Tiling;
         m.Offset = m.Offset * mr.Mat.Tiling + mr.Mat.Offset;
         m.NormalStrength *= mr.Mat.NormalStrength;
+        // Modes: the model's own unless the inline material asks for something else.
+        if (mr.Mat.Shader != MaterialShader::Lit)
+            m.Shader = mr.Mat.Shader;
+        if (mr.Mat.BlendMode != MaterialBlendMode::Opaque)
+        {
+            m.BlendMode = mr.Mat.BlendMode;
+            m.AlphaCutoff = mr.Mat.AlphaCutoff;
+            m.PreserveSpecular = mr.Mat.PreserveSpecular;
+        }
+        m.DoubleSided = m.DoubleSided || mr.Mat.DoubleSided;
         return m;
     }
 
@@ -3000,10 +3010,9 @@ namespace Zamin {
                 Renderer3D::SubmitMesh(mr.MeshAsset, world(e), mr.MaterialRef ? mr.MaterialRef->GetMaterial() : mr.Mat, (int)(uint32_t)e,
                                        mr.CastShadows);
         }
-        Renderer3D::EndScene();
-
         if (options.ShowGrid)
-            Renderer3D::DrawGrid(view, projection, cameraPosition, options.GridPlane, options.Grid);
+            Renderer3D::SubmitGrid(options.GridPlane, options.Grid); // under the transparent surfaces
+        Renderer3D::EndScene();
 
         // ---------------- 2D (sorted back-to-front for correct blending)
         struct Item2D

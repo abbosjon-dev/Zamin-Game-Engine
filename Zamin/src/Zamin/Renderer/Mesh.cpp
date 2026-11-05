@@ -85,10 +85,9 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------ primitives
-    static Ref<Mesh> CreateCube()
+    // The primitives' geometry (counter-clockwise front faces seen from outside, like glTF).
+    static void GenerateCube(std::vector<MeshVertex>& v, std::vector<uint32_t>& idx)
     {
-        std::vector<MeshVertex> v;
-        std::vector<uint32_t> idx;
         const glm::vec3 normals[6] = { {0,0,1}, {0,0,-1}, {1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0} };
         for (const auto& n : normals)
         {
@@ -102,13 +101,10 @@ namespace Zamin {
             v.push_back({ c - right * 0.5f + up * 0.5f, n, { 0, 1 } });
             idx.insert(idx.end(), { base, base + 1, base + 2, base + 2, base + 3, base });
         }
-        return CreateRef<Mesh>(v, idx);
     }
 
-    static Ref<Mesh> CreateSphere(uint32_t segments = 48, uint32_t rings = 24)
+    static void GenerateSphere(std::vector<MeshVertex>& v, std::vector<uint32_t>& idx, uint32_t segments = 48, uint32_t rings = 24)
     {
-        std::vector<MeshVertex> v;
-        std::vector<uint32_t> idx;
         for (uint32_t r = 0; r <= rings; r++)
         {
             float phi = glm::pi<float>() * r / rings;
@@ -126,27 +122,23 @@ namespace Zamin {
                 uint32_t b = a + segments + 1;
                 idx.insert(idx.end(), { a, a + 1, b, b, a + 1, b + 1 });
             }
-        return CreateRef<Mesh>(v, idx);
     }
 
-    static Ref<Mesh> CreatePlane()
+    static void GeneratePlane(std::vector<MeshVertex>& v, std::vector<uint32_t>& idx)
     {
-        std::vector<MeshVertex> v = {
+        v = {
             { { -0.5f, 0.0f,  0.5f }, { 0, 1, 0 }, { 0, 0 } },
             { {  0.5f, 0.0f,  0.5f }, { 0, 1, 0 }, { 1, 0 } },
             { {  0.5f, 0.0f, -0.5f }, { 0, 1, 0 }, { 1, 1 } },
             { { -0.5f, 0.0f, -0.5f }, { 0, 1, 0 }, { 0, 1 } },
         };
-        std::vector<uint32_t> idx = { 0, 1, 2, 2, 3, 0 };
-        return CreateRef<Mesh>(v, idx);
+        idx = { 0, 1, 2, 2, 3, 0 };
     }
 
     // Cylinder (topRadius = bottomRadius) or cone (topRadius = 0), height 1, centered.
-    static Ref<Mesh> CreateCylinder(float topRadius, uint32_t segments = 40)
+    static void GenerateCylinder(std::vector<MeshVertex>& v, std::vector<uint32_t>& idx, float topRadius, uint32_t segments = 40)
     {
         const float bottomRadius = 0.5f;
-        std::vector<MeshVertex> v;
-        std::vector<uint32_t> idx;
         float slope = (bottomRadius - topRadius); // over height 1
         for (uint32_t s = 0; s <= segments; s++)
         {
@@ -179,7 +171,20 @@ namespace Zamin {
         };
         cap(0.5f, topRadius, 1.0f);
         cap(-0.5f, bottomRadius, -1.0f);
-        return CreateRef<Mesh>(v, idx);
+    }
+
+    void MeshLibrary::GeneratePrimitive(PrimitiveMesh type, std::vector<MeshVertex>& vertices, std::vector<uint32_t>& indices)
+    {
+        vertices.clear();
+        indices.clear();
+        switch (type)
+        {
+            case PrimitiveMesh::Sphere:   GenerateSphere(vertices, indices); break;
+            case PrimitiveMesh::Plane:    GeneratePlane(vertices, indices); break;
+            case PrimitiveMesh::Cylinder: GenerateCylinder(vertices, indices, 0.5f); break;
+            case PrimitiveMesh::Cone:     GenerateCylinder(vertices, indices, 0.0f); break;
+            default:                      GenerateCube(vertices, indices); break;
+        }
     }
 
     static std::unordered_map<int, Ref<Mesh>> s_Primitives;
@@ -191,15 +196,10 @@ namespace Zamin {
         if (it != s_Primitives.end())
             return it->second;
 
-        Ref<Mesh> mesh;
-        switch (type)
-        {
-            case PrimitiveMesh::Sphere:   mesh = CreateSphere(); break;
-            case PrimitiveMesh::Plane:    mesh = CreatePlane(); break;
-            case PrimitiveMesh::Cylinder: mesh = CreateCylinder(0.5f); break;
-            case PrimitiveMesh::Cone:     mesh = CreateCylinder(0.0f); break;
-            default:                      mesh = CreateCube(); break;
-        }
+        std::vector<MeshVertex> vertices;
+        std::vector<uint32_t> indices;
+        GeneratePrimitive(type, vertices, indices);
+        Ref<Mesh> mesh = CreateRef<Mesh>(vertices, indices);
         s_Primitives[(int)type] = mesh;
         return mesh;
     }

@@ -1427,9 +1427,9 @@ namespace Zamin {
                            ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_AlphaPreviewHalf, ImVec2(ImGui::GetFrameHeight(), ImGui::GetFrameHeight()));
         ImGui::SameLine();
         size_t maps = d.GetTexturePaths().size();
-        std::string text = std::format("{} · {} · metall {:.2f} · g'adir {:.2f}{}", MaterialSerializer::ShaderToString(d.Shader),
-                                       MaterialSerializer::BlendModeToString(d.BlendMode), d.Metallic, d.Roughness,
-                                       maps ? std::format(" · {} tekstura", maps) : std::string());
+        std::string text = std::format("{} · {}{} · metall {:.2f} · g'adir {:.2f}{}", MaterialSerializer::ShaderToString(d.Shader),
+                                       MaterialSerializer::BlendModeToString(d.BlendMode), d.DoubleSided ? " · ikki tomonlama" : "",
+                                       d.Metallic, d.Roughness, maps ? std::format(" · {} tekstura", maps) : std::string());
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
         ImGui::TextWrapped("%s", text.c_str());
         ImGui::PopStyleColor();
@@ -1511,13 +1511,19 @@ namespace Zamin {
 
         // The inline material (no asset): the component's own values.
         UI::PropertyHeader(c.Type == PrimitiveMesh::Model ? "Ichki material (tus)" : "Ichki material");
+        changed |= UI::PropertyMaterialSurface(c.Mat, c.Type == PrimitiveMesh::Model);
         changed |= UI::PropertyColor4("Rang (albedo)", c.Mat.Albedo);
         const char* imgExt = ".png;.jpg;.jpeg;.bmp;.tga";
+        // Unlit primitives use neither lighting values nor their maps (a model's parts may be Lit).
+        bool lit = c.Mat.Shader == MaterialShader::Lit || c.Type == PrimitiveMesh::Model;
         bool maps = UI::PropertyAssetPath("Tekstura", c.AlbedoPath, imgExt, ICON_FA_FILE_IMAGE);
-        maps |= UI::PropertyAssetPath("Normal map", c.NormalPath, imgExt, ICON_FA_FILE_IMAGE);
-        if (!c.NormalPath.empty())
-            changed |= UI::PropertySlider("Normal kuchi", c.Mat.NormalStrength, 0.0f, 3.0f);
-        maps |= UI::PropertyAssetPath("Metal/Roughness", c.MetalRoughPath, imgExt, ICON_FA_FILE_IMAGE);
+        if (lit)
+        {
+            maps |= UI::PropertyAssetPath("Normal map", c.NormalPath, imgExt, ICON_FA_FILE_IMAGE);
+            if (!c.NormalPath.empty())
+                changed |= UI::PropertySlider("Normal kuchi", c.Mat.NormalStrength, 0.0f, 3.0f);
+            maps |= UI::PropertyAssetPath("Metal/Roughness", c.MetalRoughPath, imgExt, ICON_FA_FILE_IMAGE);
+        }
         maps |= UI::PropertyAssetPath("Nurlanish map", c.EmissivePath, imgExt, ICON_FA_FILE_IMAGE);
         if (maps)
         {
@@ -1526,8 +1532,11 @@ namespace Zamin {
         }
         changed |= UI::PropertyFloat2("Takrorlash", c.Mat.Tiling, 0.05f);
         changed |= UI::PropertyFloat2("Siljish", c.Mat.Offset, 0.01f);
-        changed |= UI::PropertySlider("Metallik", c.Mat.Metallic, 0.0f, 1.0f);
-        changed |= UI::PropertySlider("G'adir-budurlik", c.Mat.Roughness, 0.0f, 1.0f);
+        if (lit)
+        {
+            changed |= UI::PropertySlider("Metallik", c.Mat.Metallic, 0.0f, 1.0f);
+            changed |= UI::PropertySlider("G'adir-budurlik", c.Mat.Roughness, 0.0f, 1.0f);
+        }
         changed |= UI::PropertyColor3("Nurlanish", c.Mat.Emission);
         changed |= UI::PropertyFloat("Nurlanish kuchi", c.Mat.EmissionStrength, 0.05f, 0.0f, 100.0f);
 

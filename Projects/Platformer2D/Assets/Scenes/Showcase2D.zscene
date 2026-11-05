@@ -152,7 +152,7 @@
       "Transform": {
         "Translation": [
           0,
-          -4.5,
+          -5,
           -6
         ],
         "Rotation": [
@@ -186,7 +186,7 @@
       "Parallax": {
         "Factor": [
           0.55,
-          0.35
+          0.3
         ],
         "RepeatX": true,
         "RepeatY": false,
@@ -3160,8 +3160,8 @@
       "Tag": "Sign",
       "Transform": {
         "Translation": [
-          3.2,
-          4.6,
+          0.5,
+          2.9,
           0.3
         ],
         "Rotation": [

@@ -67,6 +67,7 @@ namespace Zamin {
         SpriteSliceSettings m_Slice;
         bool m_SliceReplace = true;
         bool m_ShowSlicePreview = true;
+        int m_SliceSectionRequest = -1;       // open (1) / close (0) the slice settings once (-1: as they are)
         int m_Selected = -1;
         std::unique_ptr<ImageData> m_Pixels;  // rows top first (SkipEmpty)
         bool m_PixelsFailed = false;

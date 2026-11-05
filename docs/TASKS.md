@@ -165,11 +165,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M08 2D yaxshilanishlar
 
-- [ ] 141. Sprite sheet slicer (grid bo'yicha kesish, editor oynasi)
-- [ ] 142. Sprite atlas asset (nomlangan kadrlar)
-- [ ] 143. 9-slice sprite rendering
-- [ ] 144. Sorting layer'lar (nomlangan qatlamlar)
-- [ ] 145. Parallax qatlamlar komponenti
+- [x] 141. Sprite sheet slicer (grid bo'yicha kesish, editor oynasi)
+- [x] 142. Sprite atlas asset (nomlangan kadrlar)
+- [x] 143. 9-slice sprite rendering
+- [x] 144. Sorting layer'lar (nomlangan qatlamlar)
+- [x] 145. Parallax qatlamlar komponenti
 - [ ] 146. 2D kamera chegaralari (bounds) va silliq kuzatish komponenti
 - [ ] 147. Kamera silkinishi (camera shake) API
 - [ ] 148. Tilemap: bir nechta qatlam

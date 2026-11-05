@@ -126,6 +126,9 @@ namespace Zamin {
         }
         m_Edit = m_Saved;
         m_Selected = m_Edit.Frames.empty() ? -1 : 0;
+        // The would-be grid and the slice settings only help before the texture is cut.
+        m_ShowSlicePreview = m_Edit.Frames.empty();
+        m_SliceSectionRequest = m_Edit.Frames.empty() ? 1 : 0;
         // Frames are named after the file by default ("player_0", "player_1", ...).
         m_Slice.NamePrefix = std::filesystem::path(texturePath).stem().string();
     }
@@ -254,7 +257,7 @@ namespace Zamin {
             ImGui::SetNextWindowFocus();
             m_FocusRequested = false;
         }
-        ImGui::SetNextWindowSize(ImVec2(1100, 680), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(1180, 720), ImGuiCond_FirstUseEver);
         bool open = true;
         std::string title = HasUnsavedChanges() ? ICON_FA_SCISSORS "  Sprite muharriri *###SpriteEditor" : ICON_FA_SCISSORS "  Sprite muharriri###SpriteEditor";
         if (!ImGui::Begin(title.c_str(), &open))
@@ -442,6 +445,11 @@ namespace Zamin {
     void SpriteEditorPanel::DrawSliceSettings()
     {
         ImGui::Spacing();
+        if (m_SliceSectionRequest >= 0)
+        {
+            ImGui::SetNextItemOpen(m_SliceSectionRequest == 1);
+            m_SliceSectionRequest = -1;
+        }
         if (!ImGui::CollapsingHeader(ICON_FA_SCISSORS "  Grid bo'yicha kesish", ImGuiTreeNodeFlags_DefaultOpen))
             return;
         if (!UI::BeginPropertyGrid("##slice"))
@@ -688,7 +696,9 @@ namespace Zamin {
             if (b.x - a.x > 34.0f && b.y - a.y > 16.0f)
             {
                 ImGui::PushClipRect(a, b, true);
-                dl->AddText(ImVec2(a.x + 3.0f, a.y + 2.0f), IM_COL32(255, 255, 255, 170), f.Name.c_str());
+                ImVec2 size = ImGui::CalcTextSize(f.Name.c_str());
+                dl->AddRectFilled(ImVec2(a.x + 1.0f, a.y + 1.0f), ImVec2(a.x + size.x + 6.0f, a.y + size.y + 3.0f), IM_COL32(16, 18, 22, 150), 2.0f);
+                dl->AddText(ImVec2(a.x + 3.0f, a.y + 2.0f), IM_COL32(255, 255, 255, 200), f.Name.c_str());
                 ImGui::PopClipRect();
             }
         }

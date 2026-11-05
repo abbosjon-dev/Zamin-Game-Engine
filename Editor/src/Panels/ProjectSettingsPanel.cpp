@@ -509,10 +509,11 @@ namespace Zamin {
         const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX;
         if (ImGui::BeginTable("##sortingLayers", 4, flags))
         {
-            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 2.0f);
+            const float buttons = 4.0f * (ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x);
+            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 1.2f);
             ImGui::TableSetupColumn("Qatlam", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableSetupColumn("Sahnada", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 7.0f);
-            ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() * 4.6f);
+            ImGui::TableSetupColumn("Sahnada", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 4.0f);
+            ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, buttons);
             ImGui::TableHeadersRow();
             const auto& list = layers.GetLayers();
             for (int i = 0; i < (int)list.size(); i++)

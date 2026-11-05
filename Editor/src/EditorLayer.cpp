@@ -2735,7 +2735,11 @@ namespace Zamin {
         if (m_ViewportMessage.empty() || age < 0.0 || age > duration)
             return;
         float alpha = age > duration - fadeOut ? (float)((duration - age) / fadeOut) : 1.0f;
-        banner(m_ViewportMessage.c_str(), alpha, max.y - 44.0f);
+        // The "no (active) primary camera" warning (UI_Viewport) takes the bottom line while
+        // playing: the banner goes above it so both stay readable.
+        const bool cameraWarning = m_SceneState == SceneState::Play && !m_ActiveScene->GetPrimaryCameraEntity();
+        const float lift = cameraWarning ? ImGui::GetTextLineHeight() + 20.0f : 0.0f;
+        banner(m_ViewportMessage.c_str(), alpha, max.y - 44.0f - lift);
     }
 
     void EditorLayer::UI_ViewportIcons()

@@ -192,6 +192,18 @@ namespace Zamin {
         };
         std::vector<CharacterSlot> Characters;
 
+        // The entity's body (or character) left the world: no character touches it any more.
+        // Scene::EndContactsOf has told the scripts already. Without this, a body recreated
+        // before the next update (switched off and on in one frame) would still be in the list,
+        // and the characters would never report a new Begin for it (the inner body is
+        // kinematic: a static ground gives it no Jolt contact to make up for that either).
+        void ForgetTouching(uint64_t entityID)
+        {
+            if (!entityID) return;
+            for (CharacterSlot& slot : Characters)
+                std::erase_if(slot.Touching, [&](const std::pair<uint64_t, bool>& t) { return t.first == entityID; });
+        }
+
         JPH::BodyInterface& BI() { return System->GetBodyInterface(); }
         const JPH::BodyInterface& BI() const { return System->GetBodyInterface(); }
     };
@@ -339,7 +351,11 @@ namespace Zamin {
         m_Impl->Bodies.erase(it);
         bi.ActivateBodiesInAABox(around, {}, {});
         std::lock_guard lock(m_Impl->Contacts.Mutex);
-        m_Impl->Contacts.BodyToEntity.erase(bodyID);
+        if (auto owner = m_Impl->Contacts.BodyToEntity.find(bodyID); owner != m_Impl->Contacts.BodyToEntity.end())
+        {
+            m_Impl->ForgetTouching(owner->second);
+            m_Impl->Contacts.BodyToEntity.erase(owner);
+        }
     }
 
     void PhysicsWorld3D::WakeBodiesAround(uint32_t bodyID)
@@ -439,6 +455,8 @@ namespace Zamin {
             m_Impl->Contacts.BodyToEntity.erase(inner.GetIndexAndSequenceNumber());
         }
         slot.Character = nullptr; // releases the CharacterVirtual, which removes its inner body
+        // Other characters touching its capsule (inner body) forget it as well.
+        m_Impl->ForgetTouching(slot.EntityID);
         slot.EntityID = 0;
         slot.Touching.clear();
         if (around.IsValid())

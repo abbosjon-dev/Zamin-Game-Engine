@@ -6501,6 +6501,131 @@ TEST(InactiveCharacterControllers)
     scene->OnSimulationStop();
 }
 
+// Something a character touches is switched off and on again before the next physics step (a
+// "reset", or an inspector click while paused): the scripts hear the contact end at once, then
+// begin again with the new body, and the later real end is heard as well.
+TEST(CharacterContactsSwitchedOffAndOnInOneFrame)
+{
+    g_Contacts.clear();
+    auto scene = CreateRef<Scene>();
+    Entity ground = scene->CreateEntity("Ground");
+    ground.GetTransform().Translation = { 0.0f, -0.5f, 0.0f };
+    ground.GetTransform().Scale = { 6.0f, 1.0f, 6.0f }; // x in [-3, 3]
+    ground.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    ground.AddComponent<BoxCollider3DComponent>();
+    AddContactLog(ground);
+    Entity zone = scene->CreateEntity("Zone");
+    zone.GetTransform().Translation = { 0.0f, 1.0f, 0.0f };
+    zone.GetTransform().Scale = { 2.0f, 2.0f, 2.0f }; // x in [-1, 1]
+    zone.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    zone.AddComponent<BoxCollider3DComponent>().IsSensor = true;
+    AddContactLog(zone);
+    Entity hero = scene->CreateEntity("Hero");
+    hero.GetTransform().Translation = { 0.0f, 0.05f, 0.0f };
+    auto& cc = hero.AddComponent<CharacterController3DComponent>();
+    AddContactLog(hero);
+
+    scene->OnRuntimeStart();
+    auto run = [&](int frames) {
+        for (int i = 0; i < frames; i++)
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+    };
+    run(30);
+    CHECK(cc.Grounded);
+    CHECK(CountContact("Hero:CollisionBegin:Ground") == 1 && CountContact("Hero:TriggerBegin:Zone") == 1);
+
+    for (Entity e : { ground, zone })
+    {
+        const std::string kind = e == ground ? "Collision" : "Trigger";
+        g_Contacts.clear();
+        e.SetActive(false);
+        e.SetActive(true);
+        CHECK((g_Contacts == std::vector<std::string>{ "Hero:" + kind + "End:" + e.GetName() }));
+        g_Contacts.clear();
+        run(30);
+        CHECK(cc.Grounded);
+        CHECK(CountContact("Hero:" + kind + "Begin:" + e.GetName()) == 1);
+        CHECK(CountContact(e.GetName() + ":" + kind + "Begin:Hero") == 1);
+        CHECK(g_Contacts.size() == 2);
+    }
+
+    // The real end (walking out of the zone and off the ground's edge) is heard too.
+    g_Contacts.clear();
+    cc.Move({ 4.0f, 0.0f, 0.0f });
+    run(120);
+    CHECK(!cc.Grounded && scene->GetWorldPosition(hero).x > 3.0f);
+    CHECK(CountContact("Hero:CollisionEnd:Ground") == 1 && CountContact("Ground:CollisionEnd:Hero") == 1);
+    CHECK(CountContact("Hero:TriggerEnd:Zone") == 1 && CountContact("Zone:TriggerEnd:Hero") == 1);
+    CHECK(CountContact("Hero:CollisionBegin:Ground") == 0 && CountContact("Hero:TriggerBegin:Zone") == 0);
+    scene->OnRuntimeStop();
+}
+
+// Logs like ContactLogScript. On the first Begin it hears it switches the entities named in
+// g_SwitchOnContact (except the one it touched) off and on again - inside the dispatch of a
+// batch that may still hold events of their old bodies.
+static std::vector<std::string> g_SwitchOnContact;
+class SwitchOnContactScript : public ContactLogScript
+{
+public:
+    void OnCollisionBegin(Entity other) override { ContactLogScript::OnCollisionBegin(other); Switch(other); }
+    void OnTriggerBegin(Entity other) override { ContactLogScript::OnTriggerBegin(other); Switch(other); }
+private:
+    void Switch(Entity other)
+    {
+        if (m_Done) return;
+        m_Done = true;
+        for (const std::string& name : g_SwitchOnContact)
+            if (Entity e = FindEntity(name); e && e != other)
+            {
+                e.SetActive(false);
+                e.SetActive(true);
+            }
+    }
+    bool m_Done = false;
+};
+ZM_REGISTER_SCRIPT(SwitchOnContactScript)
+
+TEST(ContactsOfBodiesReplacedDuringDispatch)
+{
+    // The hero lands in a trigger zone on the ground: both Begins come in one batch. The first
+    // one heard switches the other entity off and on: the rest of the batch is about its old
+    // body and is dropped; its new body begins once, and the end is heard once when leaving.
+    g_Contacts.clear();
+    g_SwitchOnContact = { "Ground", "Zone" };
+    auto scene = CreateRef<Scene>();
+    Entity ground = scene->CreateEntity("Ground");
+    ground.GetTransform().Translation = { 0.0f, -0.5f, 0.0f };
+    ground.GetTransform().Scale = { 6.0f, 1.0f, 6.0f };
+    ground.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    ground.AddComponent<BoxCollider3DComponent>();
+    AddContactLog(ground);
+    Entity zone = scene->CreateEntity("Zone");
+    zone.GetTransform().Translation = { 0.0f, 1.0f, 0.0f };
+    zone.GetTransform().Scale = { 2.0f, 2.0f, 2.0f };
+    zone.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    zone.AddComponent<BoxCollider3DComponent>().IsSensor = true;
+    AddContactLog(zone);
+    Entity hero = scene->CreateEntity("Hero");
+    auto& cc = hero.AddComponent<CharacterController3DComponent>();
+    hero.AddComponent<NativeScriptComponent>().ClassName = "SwitchOnContactScript";
+
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(cc.Grounded);
+    CHECK(CountContact("Hero:CollisionBegin:Ground") == 1 && CountContact("Hero:TriggerBegin:Zone") == 1);
+    CHECK(CountContact("Ground:CollisionBegin:Hero") == 1 && CountContact("Zone:TriggerBegin:Hero") == 1);
+    g_Contacts.clear();
+    cc.Move({ 4.0f, 0.0f, 0.0f });
+    for (int i = 0; i < 120; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!cc.Grounded);
+    CHECK(CountContact("Hero:CollisionEnd:Ground") == 1 && CountContact("Ground:CollisionEnd:Hero") == 1);
+    CHECK(CountContact("Hero:TriggerEnd:Zone") == 1 && CountContact("Zone:TriggerEnd:Hero") == 1);
+    scene->OnRuntimeStop();
+    g_SwitchOnContact.clear();
+}
+
 TEST(PrefabInstancesKeepActiveState)
 {
     g_Life.clear();
@@ -6649,6 +6774,54 @@ TEST(PrefabInstancesKeepActiveState)
     }
     scene->OnRuntimeStop();
     std::filesystem::remove_all(dir);
+}
+
+// A template in a rotated and scaled, switched-off group: the root clone has the template's
+// world rotation and scale whether a position is given or not (only the position differs).
+TEST(InstantiateFromTransformedInactiveGroup)
+{
+    auto scene = CreateRef<Scene>();
+    Entity group = scene->CreateEntity("Templates");
+    group.GetTransform().Translation = { 10.0f, 0.0f, 0.0f };
+    group.GetTransform().Rotation = { 0.0f, 0.0f, 0.5f };
+    group.GetTransform().Scale = { 2.0f, 2.0f, 2.0f };
+    group.SetActive(false);
+    Entity crate = scene->CreateEntity("Crate");
+    scene->SetParent(crate, group, false);
+    crate.GetTransform().Translation = { 1.0f, 0.0f, 0.0f };
+    crate.GetTransform().Rotation = { 0.0f, 0.0f, 0.25f };
+    crate.GetTransform().Scale = { 1.5f, 1.5f, 1.5f };
+    Entity child = scene->CreateEntity("Lid"); // keeps its local transform below the clone
+    scene->SetParent(child, crate, false);
+    child.GetTransform().Translation = { 0.0f, 1.0f, 0.0f };
+    const glm::vec3 templateWorld = scene->GetWorldPosition(crate);
+    const glm::vec3 lidOffset = scene->GetWorldPosition(child) - templateWorld;
+
+    scene->OnRuntimeStart();
+    Entity here = scene->Instantiate(crate);
+    Entity placed = scene->Instantiate(crate, glm::vec3(-4.0f, 3.0f, 0.0f));
+    CHECK(here && placed && !scene->GetParent(here) && !scene->GetParent(placed));
+    for (Entity e : { here, placed })
+    {
+        const auto& t = e.GetTransform();
+        CHECK_NEAR(t.Rotation.z, 0.75f, 1e-4f);
+        CHECK_NEAR(t.Rotation.x, 0.0f, 1e-4f);
+        CHECK_NEAR(t.Scale.x, 3.0f, 1e-4f);
+        CHECK_NEAR(t.Scale.y, 3.0f, 1e-4f);
+        CHECK_NEAR(t.Scale.z, 3.0f, 1e-4f);
+        Entity lid = scene->FindChild(e, "Lid");
+        CHECK(lid && lid.GetTransform().Translation == glm::vec3(0.0f, 1.0f, 0.0f));
+        if (lid)
+        {
+            glm::vec3 offset = scene->GetWorldPosition(lid) - scene->GetWorldPosition(e);
+            CHECK_NEAR(offset.x, lidOffset.x, 1e-4f);
+            CHECK_NEAR(offset.y, lidOffset.y, 1e-4f);
+        }
+    }
+    CHECK_NEAR(here.GetTransform().Translation.x, templateWorld.x, 1e-4f);
+    CHECK_NEAR(here.GetTransform().Translation.y, templateWorld.y, 1e-4f);
+    CHECK(placed.GetTransform().Translation == glm::vec3(-4.0f, 3.0f, 0.0f));
+    scene->OnRuntimeStop();
 }
 
 // Activity across hierarchy, physics and scripts at once: random switching / reparenting while

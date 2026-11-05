@@ -666,9 +666,8 @@ namespace Zamin {
     void SceneHierarchyPanel::DrawEntityNode(Entity entity, int depth)
     {
         entt::entity handle = entity;
-        const std::string& tag = entity.GetName();
-        const auto& children = entity.GetComponent<RelationshipComponent>().Children;
-        bool hasChildren = !children.empty() && m_Filter.empty();
+        const std::string& tag = entity.GetName(); // not used after the context menu (see below)
+        bool hasChildren = !entity.GetComponent<RelationshipComponent>().Children.empty() && m_Filter.empty();
         bool selected = IsSelected(entity);
         bool primary = selected && GetSelectedEntity() == entity;
         bool hiddenInView = m_Context->IsHiddenInEditor(entity);
@@ -778,14 +777,19 @@ namespace Zamin {
         }
         DrawRowDropTarget(entity, open, hasChildren);
 
+        // The menu can switch entities off / on while playing: script callbacks may then destroy
+        // entities (even this one), so component references from above are not used after it.
         DrawEntityContextMenu(entity);
-        DrawRowToggles(entity, rowMin, rowMax);
+        const bool alive = entity.IsValid();
+        if (alive)
+            DrawRowToggles(entity, rowMin, rowMax);
 
         if (open)
         {
-            if (hasChildren)
+            if (hasChildren && alive)
             {
-                std::vector<UUID> copy = children; // may be modified by drag & drop
+                // A copy: may be modified by drag & drop.
+                std::vector<UUID> copy = entity.GetComponent<RelationshipComponent>().Children;
                 for (UUID child : copy)
                     if (Entity c = m_Context->GetEntityByUUID(child))
                         DrawEntityNode(c, depth + 1);
@@ -1869,9 +1873,15 @@ namespace Zamin {
             }
             if (c.Instance)
             {
+                // What the script gets right now: an inactive entity's script is paused whatever
+                // its own flag says (no OnUpdate, timers stopped).
+                const bool entityActive = entity.IsActiveInHierarchy();
                 ImGui::SameLine();
-                ImGui::TextDisabled(c.Instance->HasStarted() ? "ishlayapti" : enabled ? "OnStart kutilmoqda" : "o'chirilgan");
+                ImGui::TextDisabled(!enabled ? "o'chirilgan"
+                                    : !entityActive ? "to'xtab turibdi"
+                                    : c.Instance->HasStarted() ? "ishlayapti" : "OnStart kutilmoqda");
             }
+            InactiveComponentNote(entity, "Obyekt nofaol: skript OnUpdate olmaydi, taymerlari to'xtaydi (faollashganda OnEnable chaqiriladi)");
 
             UI::PropertyLabel("Klass");
             bool exists = ScriptRegistry::Find(c.ClassName) != nullptr;
@@ -2117,11 +2127,13 @@ namespace Zamin {
 
         // ---- header: name + add component
         {
-            auto& tag = entity.GetComponent<TagComponent>().Tag;
             // Active checkbox first (like the script header's "Faol" box), then icon and name.
             DrawActiveToggle(entity);
             if (!entity.IsValid())
                 return; // a script's OnDisable destroyed it
+            // Fetched after the toggle: its OnDisable / OnEnable callbacks may destroy other
+            // entities, and the component storage then moves tags around.
+            auto& tag = entity.GetComponent<TagComponent>().Tag;
             ImGui::SameLine();
             const bool inactive = !entity.GetScene()->IsActiveInHierarchy(entity);
             ImGui::PushFont(ImGuiLayer::GetBoldFont());

@@ -439,9 +439,10 @@ namespace Zamin {
         Entity e = DuplicateEntity(prefab);
         // The copies keep their own active flags. Below a switched-off parent (a template parked
         // in an inactive group) the clone would be switched off as well, whatever the template's
-        // own flag says: it becomes a root instead, where the template is in the world.
+        // own flag says: it becomes a root instead, where the template is in the world - with the
+        // group's rotation and scale, also when a position is given (only the position changes).
         if (Entity parent = GetParent(e); parent && !IsActiveInHierarchy(parent))
-            SetParent(e, {}, position == nullptr);
+            SetParent(e, {}, true);
         if (position)
             e.GetComponent<TransformComponent>().Translation = *position;
         std::vector<Entity> spawned;
@@ -2014,6 +2015,8 @@ namespace Zamin {
 
     void Scene::DestroyPhysicsBodies(Entity entity)
     {
+        if (m_ContactDispatchDepth > 0)
+            m_ContactBodiesReplaced.insert((uint64_t)entity.GetUUID());
         if (auto* rb = entity.TryGetComponent<Rigidbody2DComponent>(); rb && rb->RuntimeBody && m_PhysicsWorld)
         {
             m_PhysicsWorld->DestroyBody((b2Body*)rb->RuntimeBody); // its fixtures go with it
@@ -2052,10 +2055,15 @@ namespace Zamin {
     void Scene::DispatchContactEvents(const std::vector<ContactEvent>& events)
     {
         if (!m_ScriptsRunning) return;
+        m_ContactDispatchDepth++;
         for (const auto& ev : events)
         {
             uint64_t idA = (uint64_t)ev.A, idB = (uint64_t)ev.B;
             if (idA == idB) continue;
+            // An earlier callback of this batch switched one of them off (and maybe on again):
+            // its contacts were ended then (EndContactsOf) and a new body reports its own.
+            if (!m_ContactBodiesReplaced.empty() && (m_ContactBodiesReplaced.contains(idA) || m_ContactBodiesReplaced.contains(idB)))
+                continue;
             Entity a = GetEntityByUUID(ev.A), b = GetEntityByUUID(ev.B);
             if (!a || !b) continue;
 
@@ -2078,6 +2086,8 @@ namespace Zamin {
             DeliverContact(a, b, ev.Begin, ev.Sensor);
             DeliverContact(b, a, ev.Begin, ev.Sensor);
         }
+        if (--m_ContactDispatchDepth == 0)
+            m_ContactBodiesReplaced.clear();
     }
 
     void Scene::EndContactsOf(Entity entity)

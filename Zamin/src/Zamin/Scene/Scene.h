@@ -346,7 +346,8 @@ namespace Zamin {
         // itself is.
         Entity Instantiate(Entity prefab);
         // The same with the copy's position set before its bodies are created: local to the
-        // template's parent, or the world position when the copy is a root.
+        // template's parent, or the world position when the copy is a root (which keeps the
+        // world rotation and scale the template has in its group).
         Entity Instantiate(Entity prefab, const glm::vec3& position);
         void OnEntitiesSpawned(const std::vector<Entity>& entities); // creates runtime state
         void DestroyEntityDeferred(Entity entity);
@@ -507,6 +508,10 @@ namespace Zamin {
         // number of physics contacts. Scripts hear one Begin/End per entity pair even when
         // several fixtures / shapes (or a character and its inner body) touch.
         std::map<std::tuple<uint64_t, uint64_t, bool>, int> m_ActiveContacts;
+        // While a batch of contact events is dispatched: entities whose bodies a callback
+        // destroyed (switched off, maybe on again). The rest of the batch is about the old bodies.
+        int m_ContactDispatchDepth = 0;
+        std::unordered_set<uint64_t> m_ContactBodiesReplaced;
         bool m_ScriptsPendingStart = false;
 
         std::unique_ptr<EventBus> m_EventBus;

@@ -35,8 +35,15 @@ namespace Zamin {
         std::string EmissiveMap;
         glm::vec2 Tiling{ 1.0f };
         glm::vec2 Offset{ 0.0f };
+        int SortPriority = 0;              // Transparent: higher = drawn later, over the others
 
         bool operator==(const MaterialData&) const = default;
+
+        // Puts every value into its range: colors and strengths not negative, metallic / roughness /
+        // alpha cutoff / opacity 0..1, the sort priority -100..100; a value that is not a number
+        // (NaN, infinite) gets its default. Returns true when something had to change. Files are
+        // read through it, so a hand edited .zmat cannot make the renderer draw garbage.
+        bool Sanitize();
 
         // The texture paths that are set, in the order AlbedoMap, MetalRoughMap, NormalMap, EmissiveMap.
         std::vector<std::string> GetTexturePaths() const;
@@ -93,11 +100,17 @@ namespace Zamin {
         void SetColor(const glm::vec3& color);      // the opacity stays
         void SetOpacity(float alpha);               // the albedo color's alpha (Transparent / Cutout materials)
         void SetEmission(const glm::vec3& color, float strength);
+        void SetEmissionColor(const glm::vec3& color);   // the strength stays
+        void SetEmissionStrength(float strength);       // HDR: above 1 glows with bloom
+        const glm::vec3& GetEmissionColor() const { return m_Data.Emission; }
+        float GetEmissionStrength() const { return m_Data.EmissionStrength; }
+        void SetSortPriority(int priority);             // transparent surfaces drawn over lower ones
         void SetMetallic(float metallic);
         void SetRoughness(float roughness);
         void SetTiling(const glm::vec2& tiling);
         void SetOffset(const glm::vec2& offset);
-        // Texture paths relative to the asset folder ("" = none).
+        // Texture paths relative to the asset folder ("" = none). An emissive map on a material
+        // without emission turns the emission on (white x 1, see EnableEmissionForMap).
         void SetAlbedoMap(const std::string& assetPath);
         void SetEmissiveMap(const std::string& assetPath);
         // What the renderer draws with.

@@ -111,11 +111,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 093. Material o'zgarishlari hot reload
 - [x] 094. glTF materiallarini .zmat ga eksport qilish
 - [x] 095. Material instansiyalari (skriptdan rangni o'zgartirish, umumiy assetni buzmasdan)
-- [ ] 096. Shaffof obyektlarni orqadan oldinga saralash
-- [ ] 097. Emissive intensivlik va rang materialda
-- [ ] 098. Material serializatsiya testlari
-- [ ] 099. Standart materiallar kutubxonasi (metall, plastik, yog'och, shisha)
-- [ ] 100. Material asset uchun thumbnail
+- [x] 096. Shaffof obyektlarni orqadan oldinga saralash
+- [x] 097. Emissive intensivlik va rang materialda
+- [x] 098. Material serializatsiya testlari
+- [x] 099. Standart materiallar kutubxonasi (metall, plastik, yog'och, shisha)
+- [x] 100. Material asset uchun thumbnail
 
 ## M06 Rendering I
 

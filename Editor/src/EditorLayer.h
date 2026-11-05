@@ -161,6 +161,7 @@ namespace Zamin {
         void UI_ViewMenu();
         void UI_ViewportMessage();
         void UI_MaximizedGame();
+        void UI_TransparentOrder();
         void UI_ViewportIcons();
         void UI_Gizmos();
         void UI_SceneSettings();
@@ -249,6 +250,9 @@ namespace Zamin {
         std::string m_ViewportMessage;
         double m_ViewportMessageTime = -100.0;
         bool m_ShowColliders = true;
+        bool m_ShowTransparentOrder = false;     // numbers over transparent surfaces: their drawing order
+        std::vector<Renderer3D::TransparentDrawRecord> m_TransparentOrder;
+        glm::mat4 m_TransparentOrderViewProjection{ 1.0f };
         bool m_ShowIcons = true;
         bool m_2DMode = false;
         bool m_MaximizeOnPlay = false;

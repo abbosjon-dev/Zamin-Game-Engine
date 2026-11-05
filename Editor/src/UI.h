@@ -3,6 +3,7 @@
 #include <Zamin/ImGui/Icons.h>
 #include <Zamin/ImGui/ImGuiLayer.h>
 #include <Zamin/Renderer/Material.h>
+#include <Zamin/Renderer/MaterialPresets.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -169,6 +170,7 @@ namespace Zamin::UI {
     struct AssetPathOptions
     {
         uint32_t PreviewTexture = 0;        // a small picture before the path (GPU texture id, 0 = none)
+        bool PreviewTopRowFirst = false;    // its rows are stored top first (thumbnails), not bottom first (loaded textures)
         const char* ActionIcon = nullptr;   // an extra button before the clear button (e.g. edit)...
         const char* ActionTooltip = nullptr;
         bool* ActionClicked = nullptr;      // ...that sets this when pressed (disabled while the path is empty)
@@ -191,6 +193,7 @@ namespace Zamin::UI {
         bool& DoubleSided;
         bool& PreserveSpecular;
         float& Opacity; // the albedo color's alpha
+        int& SortPriority;
     };
     bool PropertyMaterialSurface(const MaterialSurfaceRefs& surface, bool forModel = false);
     // Material and MaterialData have the same field names.
@@ -198,9 +201,18 @@ namespace Zamin::UI {
     bool PropertyMaterialSurface(T& material, bool forModel = false)
     {
         return PropertyMaterialSurface(MaterialSurfaceRefs{ material.Shader, material.BlendMode, material.AlphaCutoff,
-                                                            material.DoubleSided, material.PreserveSpecular, material.Albedo.a },
+                                                            material.DoubleSided, material.PreserveSpecular, material.Albedo.a,
+                                                            material.SortPriority },
                                        forModel);
     }
+
+    // A material's emission on one row: the color, the strength (x) and a badge - "HDR" when the
+    // light given off (color x strength) is above 1, so it glows with the scene's bloom.
+    bool PropertyEmission(const char* label, glm::vec3& color, float& strength, const char* tooltip = nullptr);
+
+    // A menu item of a standard material (MaterialPresets) with a swatch of its look before the
+    // name and its description as the tooltip. `tooltipExtra`: a line added to the tooltip.
+    bool MaterialPresetMenuItem(const MaterialPreset& preset, const char* tooltipExtra = nullptr);
 
     // Transform-style vec3 control with colored X/Y/Z buttons (click = reset).
     bool Vec3Control(const char* label, glm::vec3& values, float resetValue = 0.0f, float speed = 0.05f);

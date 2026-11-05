@@ -39,6 +39,40 @@ namespace Zamin {
         return From(size, time, maxSize);
     }
 
+    ThumbnailStamp ThumbnailStamp::WithDependencies(const std::vector<fs::path>& dependencies) const
+    {
+        // FNV-1a over each dependency (its path and version), summed so the order does not count.
+        auto fnv = [](uint64_t h, const void* data, size_t size) {
+            const auto* bytes = (const uint8_t*)data;
+            for (size_t i = 0; i < size; i++)
+                h = (h ^ bytes[i]) * 0x100000001B3ull;
+            return h;
+        };
+        uint64_t sum = 0;
+        for (const fs::path& dependency : dependencies)
+        {
+            std::string key = ThumbnailDiskCache::MakeKey(dependency);
+            uint64_t h = fnv(0xCBF29CE484222325ull, key.data(), key.size());
+            std::error_code ec;
+            uintmax_t size = fs::file_size(dependency, ec);
+            int64_t time = 0;
+            if (!ec)
+            {
+                fs::file_time_type t = fs::last_write_time(dependency, ec);
+                time = ec ? 0 : (int64_t)t.time_since_epoch().count();
+            }
+            else
+                size = ~(uintmax_t)0; // missing: differs from any file that is there
+            h = fnv(h, &size, sizeof(size));
+            h = fnv(h, &time, sizeof(time));
+            sum += h;
+        }
+        ThumbnailStamp stamp = *this;
+        if (!dependencies.empty())
+            stamp.Time = (int64_t)((uint64_t)Time ^ (sum * 0x9E3779B97F4A7C15ull + dependencies.size()));
+        return stamp;
+    }
+
     // ------------------------------------------------------------------ generating
     bool AssetThumbnails::CanGenerate(const fs::path& path)
     {

@@ -4,6 +4,7 @@
 #include "Zamin/Renderer/Shader.h"
 #include "Zamin/Core/Profiler.h"
 
+#include <algorithm>
 #include <glm/glm.hpp>
 #include <vector>
 
@@ -216,35 +217,65 @@ void main()
 }
 )";
 
+        // The bloom mip chain of one picture size. A few sizes are kept, so the scene view and small
+        // offscreen pictures (material previews, thumbnails) drawn in the same frame do not make each
+        // other create their framebuffers again.
+        struct MipChain
+        {
+            uint32_t Width = 0, Height = 0;
+            uint64_t LastUsed = 0;
+            std::vector<Ref<Framebuffer>> Mips;
+        };
+        constexpr size_t s_MaxMipChains = 4;
+
         struct PostData
         {
             Ref<Shader> Downsample, Upsample, Composite, SSAO, Blur;
-            std::vector<Ref<Framebuffer>> Mips;
+            std::vector<MipChain> Chains;
+            uint64_t ChainUses = 0;
             Ref<Framebuffer> AO, AOBlur;
-            uint32_t Width = 0, Height = 0;
         };
         PostData* s_Data = nullptr;
         constexpr int s_MipCount = 6;
+        constexpr uint32_t s_MinMipSize = 8;
 
-        void EnsureMips(uint32_t width, uint32_t height)
+        std::vector<Ref<Framebuffer>>& EnsureMips(uint32_t width, uint32_t height)
         {
-            if (s_Data->Width == width && s_Data->Height == height && !s_Data->Mips.empty())
-                return;
-            s_Data->Width = width;
-            s_Data->Height = height;
-            s_Data->Mips.clear();
+            s_Data->ChainUses++;
+            for (MipChain& chain : s_Data->Chains)
+                if (chain.Width == width && chain.Height == height && !chain.Mips.empty())
+                {
+                    chain.LastUsed = s_Data->ChainUses;
+                    return chain.Mips;
+                }
+            // A new size: a free slot, else the one used least recently.
+            MipChain* slot = nullptr;
+            if (s_Data->Chains.size() < s_MaxMipChains)
+                slot = &s_Data->Chains.emplace_back();
+            else
+                slot = &*std::min_element(s_Data->Chains.begin(), s_Data->Chains.end(),
+                                          [](const MipChain& a, const MipChain& b) { return a.LastUsed < b.LastUsed; });
+            slot->Width = width;
+            slot->Height = height;
+            slot->LastUsed = s_Data->ChainUses;
+            slot->Mips.clear();
+            // Down to s_MipCount halvings, but not below a few pixels: in a small picture (a material
+            // preview) the last levels would spread the glow over all of it.
             uint32_t w = width, h = height;
             for (int i = 0; i < s_MipCount; i++)
             {
+                if (i > 0 && std::min(w, h) / 2 < s_MinMipSize)
+                    break;
                 w = std::max(1u, w / 2);
                 h = std::max(1u, h / 2);
                 FramebufferSpecification spec;
                 spec.Width = w;
                 spec.Height = h;
                 spec.Attachments = { FramebufferTextureFormat::RGBA16F };
-                s_Data->Mips.push_back(Framebuffer::Create(spec));
+                slot->Mips.push_back(Framebuffer::Create(spec));
                 if (w == 1 && h == 1) break;
             }
+            return slot->Mips;
         }
     }
 
@@ -321,7 +352,7 @@ void main()
         uint32_t bloomTexture = 0;
         if (settings.Bloom)
         {
-            EnsureMips(width, height);
+            std::vector<Ref<Framebuffer>>& mips = EnsureMips(width, height);
             RenderCommand::SetBlendMode(BlendMode::None);
 
             // Downsample chain (first pass with threshold)
@@ -332,9 +363,9 @@ void main()
             down->SetFloat("u_Knee", std::max(0.001f, settings.BloomKnee));
             uint32_t source = inputTexture;
             uint32_t srcW = width, srcH = height;
-            for (size_t i = 0; i < s_Data->Mips.size(); i++)
+            for (size_t i = 0; i < mips.size(); i++)
             {
-                auto& mip = s_Data->Mips[i];
+                auto& mip = mips[i];
                 mip->Bind();
                 RenderCommand::BindTextureUnit(0, source);
                 down->SetFloat2("u_TexelSize", { 1.0f / srcW, 1.0f / srcH });
@@ -352,17 +383,17 @@ void main()
             up->SetInt("u_Source", 0);
             up->SetFloat("u_Radius", settings.BloomRadius);
             RenderCommand::SetBlendMode(BlendMode::Additive);
-            for (int i = (int)s_Data->Mips.size() - 1; i > 0; i--)
+            for (int i = (int)mips.size() - 1; i > 0; i--)
             {
-                auto& small = s_Data->Mips[i];
-                auto& large = s_Data->Mips[i - 1];
+                auto& small = mips[i];
+                auto& large = mips[i - 1];
                 large->Bind();
                 RenderCommand::BindTextureUnit(0, small->GetColorAttachmentRendererID(0));
                 up->SetFloat2("u_TexelSize", { 1.0f / small->GetSpecification().Width, 1.0f / small->GetSpecification().Height });
                 RenderCommand::DrawArrays(3);
                 stats.DrawCalls++;
             }
-            bloomTexture = s_Data->Mips[0]->GetColorAttachmentRendererID(0);
+            bloomTexture = mips[0]->GetColorAttachmentRendererID(0);
         }
 
         // Composite

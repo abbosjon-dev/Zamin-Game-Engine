@@ -14,6 +14,7 @@ namespace Zamin {
         uint32_t LineCount = 0;
         uint32_t MeshCount = 0;
         uint32_t TriangleCount = 0;
+        uint32_t TransparentCount = 0; // meshes drawn in the sorted transparent pass (also in MeshCount)
     };
 
     class Renderer

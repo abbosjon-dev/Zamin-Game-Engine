@@ -71,6 +71,7 @@
 #define ICON_FA_ATOM "\xef\x97\x92"
 #define ICON_FA_SHAPES "\xef\x98\x9f"
 #define ICON_FA_PALETTE "\xef\x94\xbf"
+#define ICON_FA_SWATCHBOOK "\xef\x97\x83"
 #define ICON_FA_ROCKET "\xef\x84\xb5"
 #define ICON_FA_CIRCLE_NODES "\xee\x93\xa2"
 #define ICON_FA_VOLUME_HIGH "\xef\x80\xa8"

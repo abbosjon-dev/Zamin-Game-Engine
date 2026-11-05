@@ -53,7 +53,12 @@ namespace Zamin {
         // "Yangi material": a material asset with default values under a free name ("NewMaterial",
         // "NewMaterial_1"...) in the open folder - Assets/Materials when the open folder is outside
         // the asset folder - selected and shown in the inspector. Returns the file (empty on failure).
-        std::filesystem::path CreateMaterial();
+        // With a preset (the built-in library: metal, wood, glass...): a copy of it ("Wood.zmat",
+        // its generated texture in Textures/ next to it).
+        std::filesystem::path CreateMaterial(const MaterialPreset* preset = nullptr);
+        // The "Yangi material" menu items: an empty material and the standard library. Returns true
+        // when one was chosen.
+        bool DrawNewMaterialMenu();
         // The search text (AssetSearch syntax); the listing follows next frame.
         void SetSearch(std::string text) { m_Search = std::move(text); m_ListDirty = true; }
         const std::string& GetSearch() const { return m_Search; }

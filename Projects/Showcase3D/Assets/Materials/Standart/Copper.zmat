@@ -1,0 +1,36 @@
+{
+  "Albedo": [
+    0.949999988079071,
+    0.6399999856948853,
+    0.5400000214576721,
+    1.0
+  ],
+  "AlbedoMap": "",
+  "AlphaCutoff": 0.5,
+  "BlendMode": "Opaque",
+  "DoubleSided": false,
+  "Emission": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "EmissionStrength": 0.0,
+  "EmissiveMap": "",
+  "MetalRoughMap": "",
+  "Metallic": 1.0,
+  "NormalMap": "",
+  "NormalStrength": 1.0,
+  "Offset": [
+    0.0,
+    0.0
+  ],
+  "PreserveSpecular": true,
+  "Roughness": 0.3199999928474426,
+  "Shader": "Lit",
+  "SortPriority": 0,
+  "Tiling": [
+    1.0,
+    1.0
+  ],
+  "Version": 1
+}

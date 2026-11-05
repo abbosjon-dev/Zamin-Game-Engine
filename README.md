@@ -82,8 +82,11 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     Ichki materialni bir tugma bilan `.zmat`ga aylantirish mumkin
   - **Sirt turlari** (material asset va ichki materialda): **Opaque** — alfa e'tiborga olinmaydi; **Cutout** — alfasi
     (rang x tekstura) chegaradan past piksellar chizilmaydi, soyada ham shu teshiklar bo'ladi (barglar, panjaralar);
-    **Transparent** — shaffof sirtlar opaque sahna va osmondan keyin, chegaralari markazi bo'yicha orqadan oldinga saralanib,
-    chuqurlik yozmasdan premultiplied alfa bilan chiziladi, soya tashlamaydi; **Aksni saqlash** yoqilsa aks va yaltirashlar
+    **Transparent** — shaffof sirtlar opaque sahna va osmondan keyin, avval materialning **ustuvorligi** (Sort Priority,
+    -100..100: kattasi boshqalar ustida chiziladi), keyin chegaralari markazining kameradan uzoqligi bo'yicha (ortografik
+    kamerada — ko'rish yo'nalishi bo'yicha) orqadan oldinga saralanib, chuqurlik yozmasdan premultiplied alfa bilan
+    chiziladi, soya tashlamaydi. Ko'rinish menyusidagi **Shaffoflar tartibi** viewport'da har bir shaffof sirt ustiga uning
+    chizilish raqami, uzoqligi va ustuvorligini yozadi (o'yin rejimida ham), Statistika panelida — shaffof meshlar soni; **Aksni saqlash** yoqilsa aks va yaltirashlar
     alfa bilan susaymaydi (shisha), o'chirilsa butun sirt so'nadi. **Ikki tomonlama**: ikkala tomon chiziladi, orqa tomon
     teskari normal bilan yoritiladi (ikki tomonlama shaffof sirt — avval ichki, keyin tashqi tomoni); bayroq o'chiq bo'lsa
     orqa tomonlar kesiladi (manfiy masshtabli ko'zgu obyektlarda ham to'g'ri). **Unlit**: faqat rang x tekstura + nurlanish,
@@ -102,7 +105,20 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     to'xtaganda yo'qoladi. `GetMaterial(qism)`, `GetSharedMaterial()` (umumiy asset — o'zgartirilsa hammasi o'zgaradi, editorda
     o'yin to'xtaganda asl holiga qaytadi), `SetSharedMaterial("Materials/Red.zmat")`, `ResetMaterial()`. Tezkor tahrirlar:
     `SetColor`, `SetOpacity`, `SetEmission`, `SetMetallic`, `SetRoughness`, `SetTiling`, `SetOffset`, `SetAlbedoMap`.
+    `SetEmissionColor`, `SetEmissionStrength`, `SetSortPriority`.
     Namuna: Showcase3D minorasidagi har bir g'isht `Clay.zmat`ning o'z nusxasini qavatiga qarab bo'yaydi
+  - **Nurlanish (emissive)**: material rangi x kuchi (x nurlanish teksturasi) — HDR: 1 dan katta natija bloom yoqilgan sahnada
+    porlaydi. Inspektorda bitta qatorda rang, kuch va **HDR / LDR** belgisi; nurlanishi o'chiq materialga nurlanish teksturasi
+    berilsa nurlanish oq x 1 bo'ladi (aks holda tekstura ko'rinmasdi). Material preview va thumbnaillarda ham bloom bor;
+    glTF `emissiveFactor` va `KHR_materials_emissive_strength` o'qiladi
+  - **Standart materiallar kutubxonasi** (`MaterialPresets`): metall, cho'tkalangan metall, oltin, mis, plastik, rezina,
+    yog'och, shisha, keramika, beton, neon, suv. Yog'och, beton va cho'tkalangan metall teksturalari protsedural
+    (CPU'da, choksiz takrorlanadi) va material yonidagi `Textures/` ga PNG bo'lib yoziladi. Kontent brauzerda
+    **Yangi material** menyusidan tanlanganining nusxasi shu papkada yaratiladi; Mesh Renderer'dagi **Standart material...**
+    loyihadagi umumiy nusxasini (`Assets/Materials/Standart/`) biriktiradi. Namuna: `MaterialGallery` sahnasidagi sharlar qatori
+  - **Material thumbnaillari**: kontent brauzerda va Material asset maydonlarida `.zmat` shar ustida (yoritilgan, shaffof /
+    kesilganlari shaxmat fon bilan, nurlilari bloom bilan) ko'rinadi; teksturasi o'zgarsa ham yangilanadi, ochiq material
+    tahrir qilinayotganda jonli kuzatiladi, diskdagi keshga faqat fayldagiga mos holati yoziladi
   - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
   - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti,
     kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`

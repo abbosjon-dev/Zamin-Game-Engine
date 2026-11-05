@@ -1198,23 +1198,47 @@ namespace Zamin {
         }
     }
 
-    fs::path ContentBrowserPanel::CreateMaterial()
+    fs::path ContentBrowserPanel::CreateMaterial(const MaterialPreset* preset)
     {
         if (!Project::GetActive())
             return {};
         fs::path assets = Project::GetAssetDirectory();
         // Asset paths only reach files inside the asset folder.
         fs::path dir = !m_CurrentDirectory.empty() && AssetFiles::IsInside(m_CurrentDirectory, assets) ? m_CurrentDirectory : assets / "Materials";
-        fs::path file = AssetFiles::MakeUniquePath(dir, "NewMaterial.zmat");
-        if (!MaterialSerializer::Serialize(MaterialData{}, file)) // makes the folder
+        fs::path file;
+        std::vector<fs::path> written;
+        if (preset)
         {
-            ShowNotice(std::format("Material yaratilmadi: {}", file.filename().string()), true);
-            ZM_ERROR("Material fayli yozilmadi: {}", file.string());
-            return {};
+            MaterialPresets::CreateResult result;
+            std::string error;
+            if (!MaterialPresets::Create(*preset, dir, false, result, &error))
+            {
+                ShowNotice(std::format("Material yaratilmadi: {}", preset->Name), true);
+                ZM_ERROR("Standart material '{}' yaratilmadi: {}", preset->Name, error);
+                return {};
+            }
+            file = result.Material;
+            written = result.Written;
         }
-        if (AssetRegistry* registry = Project::GetAssetRegistry())
-            registry->OnFileAdded(file); // its UUID at once (scenes write it next to the path)
-        ZM_INFO("Yangi material yaratildi: {}", Project::GetAssetRelativePath(file));
+        else
+        {
+            file = AssetFiles::MakeUniquePath(dir, "NewMaterial.zmat");
+            if (!MaterialSerializer::Serialize(MaterialData{}, file)) // makes the folder
+            {
+                ShowNotice(std::format("Material yaratilmadi: {}", file.filename().string()), true);
+                ZM_ERROR("Material fayli yozilmadi: {}", file.string());
+                return {};
+            }
+            if (AssetRegistry* registry = Project::GetAssetRegistry())
+                registry->OnFileAdded(file); // its UUID at once (scenes write it next to the path)
+            written.push_back(file);
+        }
+        if (preset)
+            ZM_INFO("Standart material yaratildi ({}): {}", preset->Name, Project::GetAssetRelativePath(file));
+        else
+            ZM_INFO("Yangi material yaratildi: {}", Project::GetAssetRelativePath(file));
+        for (const fs::path& p : written)
+            m_Thumbnails.Invalidate(p);
         m_ListDirty = true;
         if (OnFilesChanged)
             OnFilesChanged();
@@ -1226,6 +1250,31 @@ namespace Zamin {
         return file;
     }
 
+    bool ContentBrowserPanel::DrawNewMaterialMenu()
+    {
+        bool chosen = false;
+        if (ImGui::MenuItem(ICON_FA_FILE "  Bo'sh material"))
+        {
+            CreateMaterial();
+            chosen = true;
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Standart qiymatli material asset (.zmat) shu papkada yaratiladi va inspektorda ochiladi");
+        ImGui::Separator();
+        ImGui::TextDisabled("Standart materiallar");
+        for (const MaterialPreset& preset : MaterialPresets::GetAll())
+        {
+            std::string where = std::format("{}.zmat shu papkada yaratiladi{}", preset.FileName,
+                                            preset.Texture != MaterialPreset::Pattern::None ? " (teksturasi Textures/ ichida)" : "");
+            if (UI::MaterialPresetMenuItem(preset, where.c_str()))
+            {
+                CreateMaterial(&preset);
+                chosen = true;
+            }
+        }
+        return chosen;
+    }
+
     // ------------------------------------------------------------------ menus / popups
     void ContentBrowserPanel::DrawContextMenu()
     {
@@ -1234,10 +1283,11 @@ namespace Zamin {
             if (ImGui::MenuItem(ICON_FA_FOLDER "  Yangi papka")) { m_NewKind = 0; m_NewName = "NewFolder"; m_OpenNewPopup = true; }
             if (ImGui::MenuItem(ICON_FA_EARTH_ASIA "  Yangi sahna")) { m_NewKind = 1; m_NewName = "NewScene"; m_OpenNewPopup = true; }
             if (ImGui::MenuItem(ICON_FA_FILE_CODE "  Yangi C++ skript...") && OnRequestNewScript) OnRequestNewScript();
-            if (ImGui::MenuItem(ICON_FA_PALETTE "  Yangi material", nullptr, false, Project::GetActive() != nullptr))
-                CreateMaterial();
-            if (ImGui::IsItemHovered())
-                UI::Tooltip("Standart qiymatli material asset (.zmat) shu papkada yaratiladi va inspektorda ochiladi");
+            if (ImGui::BeginMenu(ICON_FA_PALETTE "  Yangi material", Project::GetActive() != nullptr))
+            {
+                DrawNewMaterialMenu();
+                ImGui::EndMenu();
+            }
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A", false, !m_Entries.empty()))
             {

@@ -28,6 +28,10 @@ namespace Zamin {
         // Nothing when the file cannot be read.
         static std::optional<ThumbnailStamp> Read(const std::filesystem::path& file, uint32_t maxSize);
         static ThumbnailStamp From(uintmax_t size, std::filesystem::file_time_type time, uint32_t maxSize);
+        // This stamp with the versions of the files the picture also shows (a material's textures)
+        // mixed into Time: when one of them changes, is added, removed or goes missing, the result
+        // changes. The order of `dependencies` does not matter.
+        ThumbnailStamp WithDependencies(const std::vector<std::filesystem::path>& dependencies) const;
     };
 
     // Thumbnails made on the CPU (any thread): images, HDR environment maps (tone mapped) and fonts

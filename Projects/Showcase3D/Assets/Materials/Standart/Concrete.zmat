@@ -1,0 +1,37 @@
+{
+  "Albedo": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "AlbedoMap": "Materials/Standart/Textures/Concrete_Albedo.png",
+  "AlbedoMapUUID": "cd346ab7ca4978e4",
+  "AlphaCutoff": 0.5,
+  "BlendMode": "Opaque",
+  "DoubleSided": false,
+  "Emission": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "EmissionStrength": 0.0,
+  "EmissiveMap": "",
+  "MetalRoughMap": "",
+  "Metallic": 0.0,
+  "NormalMap": "",
+  "NormalStrength": 1.0,
+  "Offset": [
+    0.0,
+    0.0
+  ],
+  "PreserveSpecular": true,
+  "Roughness": 0.8999999761581421,
+  "Shader": "Lit",
+  "SortPriority": 0,
+  "Tiling": [
+    1.0,
+    1.0
+  ],
+  "Version": 1
+}

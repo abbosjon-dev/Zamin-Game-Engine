@@ -17,6 +17,11 @@ namespace Zamin {
     // write, no shadow of its own).
     enum class MaterialBlendMode : uint8_t { Opaque = 0, Cutout, Transparent };
 
+    // Transparent surfaces are drawn by priority (lower first, so a higher one ends up over the
+    // others wherever they are), then back to front. Range of Material::SortPriority.
+    constexpr int MinMaterialSortPriority = -100;
+    constexpr int MaxMaterialSortPriority = 100;
+
     // Simple metallic/roughness PBR material (what the renderer draws with: values + textures).
     // Materials stored as assets (.zmat) are MaterialAsset objects that hold one of these.
     struct Material
@@ -42,6 +47,30 @@ namespace Zamin {
         // Transparent: reflections and highlights keep their full strength, only the diffuse part
         // fades with alpha (glass, water). false: the whole surface fades (fading objects out).
         bool PreserveSpecular = true;
+        // Transparent: drawn after the transparent surfaces of a lower priority (over them), before
+        // those of a higher one; equal priorities are sorted back to front. For surfaces that
+        // overlap where sorting by distance cannot tell (water and the glass in it, decals, UI).
+        int SortPriority = 0;
+
+        // The light the surface gives off (linear HDR): Emission x EmissionStrength (x EmissiveMap).
+        // Above 1 it glows with the scene's bloom.
+        glm::vec3 GetEmissionRadiance() const { return Emission * EmissionStrength; }
     };
+
+    // An emissive map multiplies the emission color x strength: with no emission set (black, or a
+    // strength of 0) a newly given map would show nothing, so the emission becomes white x 1.
+    // Returns true when it changed something. For Material and MaterialData (same field names).
+    template<typename T>
+    bool EnableEmissionForMap(T& material)
+    {
+        bool black = material.Emission.r <= 0.0f && material.Emission.g <= 0.0f && material.Emission.b <= 0.0f;
+        if (!black && material.EmissionStrength > 0.0f)
+            return false;
+        if (black)
+            material.Emission = glm::vec3(1.0f);
+        if (material.EmissionStrength <= 0.0f)
+            material.EmissionStrength = 1.0f;
+        return true;
+    }
 
 }

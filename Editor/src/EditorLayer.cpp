@@ -125,6 +125,10 @@ namespace Zamin {
         m_AssetInspectorPanel.SetUsageCache(&m_AssetUsage);
         m_AssetInspectorPanel.OnRevealRequested = [this](const fs::path& p) { RevealAsset(p); };
         m_SceneHierarchyPanel.OnAssetEditRequested = [this](const fs::path& p) { RevealAsset(p); };
+        m_SceneHierarchyPanel.GetAssetThumbnail = [this](const fs::path& p) -> uint32_t {
+            Ref<Texture2D> thumbnail = m_ContentBrowserPanel.GetThumbnails().GetForFile(p);
+            return thumbnail ? thumbnail->GetRendererID() : 0;
+        };
         // The material preview's "scene" lighting: the open scene's HDRI.
         m_AssetInspectorPanel.GetSceneLighting = [this](MaterialPreview::Settings& settings) {
             const SceneSettings* scene = m_ActiveScene ? &m_ActiveScene->GetSettings() : nullptr;
@@ -256,6 +260,8 @@ namespace Zamin {
                 m_ShowStats = true;
             if (const char* colliders = std::getenv("ZAMIN_EDITOR_COLLIDERS")) // 0: collider outlines off
                 m_ShowColliders = std::string_view(colliders) != "0";
+            if (std::getenv("ZAMIN_EDITOR_TRANSPARENT_ORDER")) // the transparent order overlay on
+                m_ShowTransparentOrder = true;
             if (std::getenv("ZAMIN_EDITOR_FRAME_ALL"))
                 FrameAll();
             // Content browser: folder (relative to the project), list view, type filter ("Texture,Model").
@@ -318,9 +324,10 @@ namespace Zamin {
         if (const char* at = std::getenv("ZAMIN_EDITOR_THUMBNAIL_STATS"); at && frame == std::max(6, std::atoi(at)))
         {
             ThumbnailCache::Stats stats = m_ContentBrowserPanel.GetThumbnails().GetStats();
-            ZM_INFO("Thumbnaillar: {} ta xotirada, {} ta kutilmoqda, {} ta diskdan, {} ta yasaldi, {} ta model chizildi, {} ta xato, "
-                    "{} ta model teksturasi bo'shatildi",
-                    stats.Textures, stats.Waiting, stats.FromDisk, stats.Generated, stats.Rendered, stats.Failed, stats.ReleasedTextures);
+            ZM_INFO("Thumbnaillar: {} ta xotirada, {} ta kutilmoqda, {} ta diskdan, {} ta yasaldi, {} ta model chizildi, "
+                    "{} ta material chizildi, {} ta xato, {} ta model/material teksturasi bo'shatildi",
+                    stats.Textures, stats.Waiting, stats.FromDisk, stats.Generated, stats.Rendered, stats.MaterialsRendered, stats.Failed,
+                    stats.ReleasedTextures);
         }
         if (frame == 20 && std::getenv("ZAMIN_EDITOR_TOGGLE_ACTIVE"))
             ToggleSelectionActive();
@@ -333,9 +340,15 @@ namespace Zamin {
                 else
                     ZM_WARN("ZAMIN_EDITOR_SELECT: '{}' topilmadi", sel);
             }
-        // ZAMIN_EDITOR_NEW_MATERIAL=1: "Yangi material" of the content browser's menu at frame 8.
-        if (frame == 8 && std::getenv("ZAMIN_EDITOR_NEW_MATERIAL"))
-            m_ContentBrowserPanel.CreateMaterial();
+        // ZAMIN_EDITOR_NEW_MATERIAL=1: "Yangi material" of the content browser's menu at frame 8;
+        // a standard material's id instead of 1 ("wood", "glass"...) makes a copy of that one.
+        if (const char* preset = std::getenv("ZAMIN_EDITOR_NEW_MATERIAL"); preset && frame == 8)
+        {
+            const MaterialPreset* chosen = MaterialPresets::Find(preset);
+            if (!chosen && std::string_view(preset) != "1")
+                ZM_WARN("ZAMIN_EDITOR_NEW_MATERIAL: '{}' standart material topilmadi", preset);
+            m_ContentBrowserPanel.CreateMaterial(chosen);
+        }
         // ZAMIN_EDITOR_EXPORT_MATERIALS=1 (with ZAMIN_EDITOR_ASSET on a glTF model): its materials
         // are exported as .zmat files at frame 12, like the inspector's button.
         if (frame == 12 && std::getenv("ZAMIN_EDITOR_EXPORT_MATERIALS"))
@@ -462,6 +475,7 @@ namespace Zamin {
                         d.BlendMode = MaterialSerializer::BlendModeFromString(value).value_or(MaterialBlendMode::Opaque);
                     else if (key == "DoubleSided") d.DoubleSided = value == "true" || value == "1";
                     else if (key == "PreserveSpecular") d.PreserveSpecular = value == "true" || value == "1";
+                    else if (key == "SortPriority") d.SortPriority = (int)at(0);
                     else
                         ZM_WARN("ZAMIN_EDITOR_MATERIAL_EDIT: noma'lum maydon '{}'", key);
                 }
@@ -578,6 +592,7 @@ namespace Zamin {
             m_GizmoAltDrag = m_GizmoAltDuplicatePending = false;
         bool cameraInput = m_ViewportHovered && !m_GizmoAltDrag && !m_GizmoEdit.IsActive();
 
+        uint64_t scenesDrawn = Renderer3D::GetEndSceneCount();
         switch (m_SceneState)
         {
             case SceneState::Edit:
@@ -593,6 +608,15 @@ namespace Zamin {
                 m_ActiveScene->OnUpdateRuntime(ts);
                 break;
         }
+        // The order the scene's transparent surfaces were just drawn in (the overlay shows it);
+        // nothing when the scene was not drawn (no camera).
+        if (Renderer3D::GetEndSceneCount() != scenesDrawn)
+        {
+            m_TransparentOrder = Renderer3D::GetLastTransparentOrder();
+            m_TransparentOrderViewProjection = Renderer3D::GetLastTransparentViewProjection();
+        }
+        else
+            m_TransparentOrder.clear();
 
         if (m_SceneState == SceneState::Play && !m_ActiveScene->GetPendingSceneLoad().empty())
         {
@@ -2963,6 +2987,7 @@ namespace Zamin {
             UI_Gizmos();
             if (m_ShowIcons) UI_ViewportIcons();
         }
+        if (m_ShowTransparentOrder) UI_TransparentOrder(); // also while playing (the game camera's order)
         UI_ViewportToolbar();
         UI_ViewportMessage();
 
@@ -3411,6 +3436,10 @@ namespace Zamin {
         }
         ImGui::MenuItem(ICON_FA_VECTOR_SQUARE "  Fizik colliderlar", nullptr, &m_ShowColliders);
         ImGui::MenuItem(ICON_FA_EYE "  Ikonkalar", nullptr, &m_ShowIcons);
+        ImGui::MenuItem(ICON_FA_LAYER_GROUP "  Shaffoflar tartibi", nullptr, &m_ShowTransparentOrder);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Shaffof sirtlar qaysi tartibda chizilayotgani: har birining ustida raqami (1 - birinchi, eng orqadagi), "
+                        "ustuvorligi va kameradan uzoqligi");
         ImGui::Separator();
         if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Tanlanganga fokus", "F", false, camera && m_SceneHierarchyPanel.GetSelectedEntity())) FrameSelection();
         if (ImGui::MenuItem(ICON_FA_EXPAND "  Hammasini ko'rsatish", "Shift+F", false, camera)) FrameAll();
@@ -3467,6 +3496,71 @@ namespace Zamin {
         const bool cameraWarning = m_SceneState == SceneState::Play && !m_ActiveScene->GetPrimaryCameraEntity();
         const float lift = cameraWarning ? ImGui::GetTextLineHeight() + 20.0f : 0.0f;
         banner(m_ViewportMessage.c_str(), alpha, max.y - 44.0f - lift);
+    }
+
+    void EditorLayer::UI_TransparentOrder()
+    {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        glm::vec2 size = m_ViewportBounds[1] - m_ViewportBounds[0];
+        // A legend in the bottom left corner.
+        {
+            std::string legend = m_TransparentOrder.empty()
+                ? std::string(ICON_FA_LAYER_GROUP "  Shaffoflar tartibi: shaffof sirt chizilmadi")
+                : std::format(ICON_FA_LAYER_GROUP "  Shaffoflar tartibi: {} ta - 1 birinchi chiziladi (eng orqada), keyingilari ustiga", m_TransparentOrder.size());
+            ImVec2 ts = ImGui::CalcTextSize(legend.c_str());
+            ImVec2 a(m_ViewportBounds[0].x + 10.0f, m_ViewportBounds[1].y - ts.y - 22.0f);
+            dl->AddRectFilled(a, ImVec2(a.x + ts.x + 20.0f, a.y + ts.y + 12.0f), IM_COL32(18, 20, 24, 210), 6.0f);
+            dl->AddText(ImVec2(a.x + 10.0f, a.y + 6.0f), IM_COL32(230, 234, 240, 255), legend.c_str());
+        }
+        // Labels are pushed down until they do not cover one another (several surfaces are often
+        // close together on screen - that is when the order matters).
+        std::vector<std::pair<ImVec2, ImVec2>> placed;
+        auto overlaps = [&](ImVec2 a, ImVec2 b) {
+            for (const auto& [pa, pb] : placed)
+                if (a.x < pb.x && b.x > pa.x && a.y < pb.y && b.y > pa.y)
+                    return true;
+            return false;
+        };
+        for (size_t i = 0; i < m_TransparentOrder.size(); i++)
+        {
+            const Renderer3D::TransparentDrawRecord& record = m_TransparentOrder[i];
+            glm::vec4 clip = m_TransparentOrderViewProjection * glm::vec4(record.Center, 1.0f);
+            if (clip.w <= 0.0f)
+                continue;
+            glm::vec3 ndc = glm::vec3(clip) / clip.w;
+            if (std::abs(ndc.x) > 1.05f || std::abs(ndc.y) > 1.05f)
+                continue;
+            ImVec2 anchor(m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * size.x,
+                          m_ViewportBounds[0].y + (1.0f - (ndc.y * 0.5f + 0.5f)) * size.y);
+            std::string name;
+            if (record.EntityID >= 0)
+            {
+                Entity e((entt::entity)record.EntityID, m_ActiveScene.get());
+                if (e.IsValid())
+                    name = e.GetName();
+            }
+            std::string number = std::to_string(i + 1);
+            std::string detail = std::format("{}{}{:.1f} m{}", name, name.empty() ? "" : "  ·  ", record.Distance,
+                                             record.Priority != 0 ? std::format("  ·  ustuvorlik {}", record.Priority) : std::string());
+            ImVec2 numberSize = ImGui::CalcTextSize(number.c_str());
+            ImVec2 detailSize = ImGui::CalcTextSize(detail.c_str());
+            float r = std::max(numberSize.x, numberSize.y) * 0.5f + 5.0f;
+            float height = std::max(r * 2.0f, detailSize.y + 6.0f) + 2.0f;
+            float width = r * 2.0f + 4.0f + detailSize.x + 12.0f;
+            ImVec2 p = anchor;
+            for (int tries = 0; tries < 12 && overlaps(ImVec2(p.x - r, p.y - height * 0.5f), ImVec2(p.x - r + width, p.y + height * 0.5f)); tries++)
+                p.y += height;
+            placed.emplace_back(ImVec2(p.x - r, p.y - height * 0.5f), ImVec2(p.x - r + width, p.y + height * 0.5f));
+            if (p.y != anchor.y) // moved: a line back to where the surface is
+                dl->AddLine(anchor, p, IM_COL32(255, 255, 255, 140), 1.5f);
+            ImU32 fill = record.Priority != 0 ? IM_COL32(230, 150, 40, 235) : IM_COL32(40, 150, 220, 235);
+            dl->AddCircleFilled(p, r, fill, 20);
+            dl->AddCircle(p, r, IM_COL32(255, 255, 255, 200), 20, 1.5f);
+            dl->AddText(ImVec2(p.x - numberSize.x * 0.5f, p.y - numberSize.y * 0.5f), IM_COL32(255, 255, 255, 255), number.c_str());
+            ImVec2 a(p.x + r + 4.0f, p.y - detailSize.y * 0.5f - 3.0f);
+            dl->AddRectFilled(a, ImVec2(a.x + detailSize.x + 12.0f, a.y + detailSize.y + 6.0f), IM_COL32(18, 20, 24, 200), 5.0f);
+            dl->AddText(ImVec2(a.x + 6.0f, a.y + 3.0f), IM_COL32(230, 234, 240, 255), detail.c_str());
+        }
     }
 
     void EditorLayer::UI_ViewportIcons()
@@ -3728,6 +3822,9 @@ namespace Zamin {
                 UI::PropertyLabel("Doiralar"); ImGui::Text("%u", stats.CircleCount);
                 UI::PropertyLabel("Chiziqlar"); ImGui::Text("%u", stats.LineCount);
                 UI::PropertyLabel("Meshlar"); ImGui::Text("%u", stats.MeshCount);
+                UI::PropertyLabel("Shaffof meshlar", "Shaffof (Transparent) sirtlar: ustuvorlik va kameradan uzoqlik bo'yicha "
+                                                     "orqadan oldinga saralanib, oxirida chiziladi");
+                ImGui::Text("%u", stats.TransparentCount);
                 UI::PropertyLabel("Uchburchaklar"); ImGui::Text("%u", stats.TriangleCount);
                 UI::PropertyLabel("Obyektlar"); ImGui::Text("%zu", m_ActiveScene->GetRegistry().view<IDComponent>().size());
                 // Lights that light the scene (inactive ones take no slot).

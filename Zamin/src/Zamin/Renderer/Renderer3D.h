@@ -74,7 +74,8 @@ namespace Zamin {
     // Forward PBR mesh renderer with cascaded directional shadows and a gradient / HDRI sky.
     // Materials are Lit or Unlit. Order of a frame: shadow casters (cutout ones alpha tested),
     // opaque surfaces, cutout surfaces (alpha tested), the sky, the editor grid, then transparent
-    // surfaces - sorted back to front by the center of their bounds, depth tested but not written,
+    // surfaces - by Material::SortPriority, then back to front by the center of their bounds (the
+    // distance from the camera; along the view direction for orthographic cameras), depth tested but not written,
     // premultiplied alpha blending (Material::PreserveSpecular keeps highlights at full strength).
     // Single-sided materials cull their back faces; double-sided ones draw both, lit from the
     // side that is seen.
@@ -106,8 +107,36 @@ namespace Zamin {
         static SurfaceState GetSurfaceState(const Material& material, const glm::mat4& transform, bool castShadows = true);
 
         // The order transparent surfaces at these world positions are drawn in: back to front
-        // (the farthest from the camera first; equal depths keep their order).
+        // along the view direction (the farthest first; equal depths keep their order).
         static std::vector<size_t> SortBackToFront(const glm::mat4& view, const std::vector<glm::vec3>& positions);
+
+        // One transparent surface to sort: the center of its bounds (world space) and its
+        // material's Material::SortPriority.
+        struct TransparentSortItem
+        {
+            glm::vec3 Center{ 0.0f };
+            int Priority = 0;
+        };
+        // The order transparent surfaces are drawn in: by priority (lower first), then back to front -
+        // `perspective`: by the distance from the camera position (turning the camera in place does
+        // not change the order), orthographic: along the view direction. Equal keys keep their order.
+        static std::vector<size_t> SortTransparent(const glm::mat4& view, bool perspective, const std::vector<TransparentSortItem>& items);
+
+        // One transparent surface of the last EndScene, in the order it was drawn (the editor's
+        // "transparent order" overlay): its entity, the center it was sorted by, its priority and
+        // its sort distance.
+        struct TransparentDrawRecord
+        {
+            int EntityID = -1;
+            glm::vec3 Center{ 0.0f };
+            int Priority = 0;
+            float Distance = 0.0f;
+        };
+        static const std::vector<TransparentDrawRecord>& GetLastTransparentOrder();
+        // The camera of that EndScene (projection x view).
+        static const glm::mat4& GetLastTransparentViewProjection();
+        // How many times EndScene ran (tells whether a scene was drawn in between).
+        static uint64_t GetEndSceneCount();
     };
 
 }

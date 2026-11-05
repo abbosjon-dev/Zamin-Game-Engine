@@ -1425,9 +1425,12 @@ namespace Zamin {
                            ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_AlphaPreviewHalf, ImVec2(ImGui::GetFrameHeight(), ImGui::GetFrameHeight()));
         ImGui::SameLine();
         size_t maps = d.GetTexturePaths().size();
-        std::string text = std::format("{} · {}{} · metall {:.2f} · g'adir {:.2f}{}", MaterialSerializer::ShaderToString(d.Shader),
+        glm::vec3 radiance = d.Emission * d.EmissionStrength;
+        float glow = std::max({ radiance.r, radiance.g, radiance.b });
+        std::string text = std::format("{} · {}{} · metall {:.2f} · g'adir {:.2f}{}{}", MaterialSerializer::ShaderToString(d.Shader),
                                        MaterialSerializer::BlendModeToString(d.BlendMode), d.DoubleSided ? " · ikki tomonlama" : "",
-                                       d.Metallic, d.Roughness, maps ? std::format(" · {} tekstura", maps) : std::string());
+                                       d.Metallic, d.Roughness, glow > 0.0f ? std::format(" · nurlanish x{:.2f}", d.EmissionStrength) : std::string(),
+                                       maps ? std::format(" · {} tekstura", maps) : std::string());
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
         ImGui::TextWrapped("%s", text.c_str());
         ImGui::PopStyleColor();
@@ -1488,6 +1491,45 @@ namespace Zamin {
         return true;
     }
 
+    bool SceneHierarchyPanel::DrawStandardMaterialPicker(MeshRendererComponent& c)
+    {
+        if (!Project::GetActive())
+            return false;
+        UI::PropertyLabel("");
+        if (ImGui::Button(ICON_FA_SWATCHBOOK "  Standart material...", ImVec2(-FLT_MIN, 0)))
+            ImGui::OpenPopup("##standardMaterials");
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Dvigatelning standart materiallari (metall, oltin, plastik, yog'och, shisha...). Tanlangani loyihada "
+                        "Assets/Materials/Standart/ ichida bir marta yaratiladi va shu mesh'ga biriktiriladi - uni tanlagan "
+                        "hamma obyektlar bitta materialni ishlatadi.");
+        bool changed = false;
+        if (ImGui::BeginPopup("##standardMaterials"))
+        {
+            ImGui::TextDisabled("Standart materiallar");
+            ImGui::Separator();
+            for (const MaterialPreset& preset : MaterialPresets::GetAll())
+            {
+                if (!UI::MaterialPresetMenuItem(preset, "Assets/Materials/Standart/ dagi umumiy nusxasi biriktiriladi"))
+                    continue;
+                std::filesystem::path folder = Project::GetAssetDirectory() / "Materials" / "Standart";
+                MaterialPresets::CreateResult result;
+                std::string error;
+                if (!MaterialPresets::Create(preset, folder, true, result, &error))
+                {
+                    ZM_ERROR("Standart material '{}' yaratilmadi: {}", preset.Name, error);
+                    continue;
+                }
+                if (!result.Existed)
+                    ZM_INFO("Standart material yaratildi: {}", Project::GetAssetRelativePath(result.Material));
+                if (OnFilesCreated && !result.Written.empty())
+                    OnFilesCreated(result.Written);
+                changed |= Scene::SetMeshMaterial(c, Project::GetAssetRelativePath(result.Material));
+            }
+            ImGui::EndPopup();
+        }
+        return changed;
+    }
+
     bool SceneHierarchyPanel::DrawMeshMaterial(Entity entity, MeshRendererComponent& c)
     {
         bool changed = false;
@@ -1497,6 +1539,9 @@ namespace Zamin {
         options.ActionTooltip = "Materialni tahrirlash (inspektorda ochiladi)";
         options.ActionClicked = &edit;
         options.Missing = !c.MaterialPath.empty() && !c.MaterialRef;
+        if (c.MaterialRef && GetAssetThumbnail)
+            options.PreviewTexture = GetAssetThumbnail(Project::GetAssetFileSystemPath(c.MaterialPath));
+        options.PreviewTopRowFirst = true;
         options.Tooltip = "Material asset (.zmat). Tanlansa mesh (modelning barcha qismlari) shu material bilan chiziladi va "
                           "quyidagi ichki material ishlatilmaydi. Bitta material ko'p obyektda ishlatiladi: uni o'zgartirsangiz, hammasi o'zgaradi.";
         std::string materialPath = c.MaterialPath;
@@ -1506,6 +1551,7 @@ namespace Zamin {
             OnAssetEditRequested(Project::GetAssetFileSystemPath(c.MaterialPath));
         if (c.MaterialRef)
             DrawMaterialSummary(c.MaterialRef);
+        changed |= DrawStandardMaterialPicker(c);
         if (Scene::HasMaterialInstances(c))
         {
             // Play mode: a script made its own copy (GetMaterial) - that is what is drawn.
@@ -1550,6 +1596,9 @@ namespace Zamin {
                     slotOptions.ActionTooltip = "Materialni tahrirlash";
                     slotOptions.ActionClicked = &editSlot;
                     slotOptions.Missing = !path.empty() && (i >= c.SubmeshMaterialRefs.size() || !c.SubmeshMaterialRefs[i]);
+                    if (!path.empty() && !slotOptions.Missing && GetAssetThumbnail)
+                        slotOptions.PreviewTexture = GetAssetThumbnail(Project::GetAssetFileSystemPath(path));
+                    slotOptions.PreviewTopRowFirst = true;
                     if (UI::PropertyAssetPath(label.c_str(), path, ".zmat", ICON_FA_PALETTE, slotOptions))
                         changed |= Scene::SetMeshMaterial(c, path, (int)i);
                     if (editSlot && OnAssetEditRequested)
@@ -1585,7 +1634,10 @@ namespace Zamin {
                 changed |= UI::PropertySlider("Normal kuchi", c.Mat.NormalStrength, 0.0f, 3.0f);
             maps |= UI::PropertyAssetPath("Metal/Roughness", c.MetalRoughPath, imgExt, ICON_FA_FILE_IMAGE);
         }
+        bool hadEmissiveMap = !c.EmissivePath.empty();
         maps |= UI::PropertyAssetPath("Nurlanish map", c.EmissivePath, imgExt, ICON_FA_FILE_IMAGE);
+        if (!hadEmissiveMap && !c.EmissivePath.empty())
+            EnableEmissionForMap(c.Mat); // else the new map would show nothing
         if (maps)
         {
             Scene::ResolveMeshMaterials(c);
@@ -1598,8 +1650,7 @@ namespace Zamin {
             changed |= UI::PropertySlider("Metallik", c.Mat.Metallic, 0.0f, 1.0f);
             changed |= UI::PropertySlider("G'adir-budurlik", c.Mat.Roughness, 0.0f, 1.0f);
         }
-        changed |= UI::PropertyColor3("Nurlanish", c.Mat.Emission);
-        changed |= UI::PropertyFloat("Nurlanish kuchi", c.Mat.EmissionStrength, 0.05f, 0.0f, 100.0f);
+        changed |= UI::PropertyEmission("Nurlanish", c.Mat.Emission, c.Mat.EmissionStrength);
 
         // Turns the inline material into a material asset the mesh then uses (and others can share).
         if (Project::GetActive() && c.Type != PrimitiveMesh::Model)

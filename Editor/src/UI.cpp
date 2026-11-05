@@ -57,11 +57,13 @@ namespace Zamin::UI {
         {
             // A small picture of the asset (a texture) before its path.
             float size = ImGui::GetFrameHeight();
-            ImGui::Image((ImTextureID)(uintptr_t)options.PreviewTexture, ImVec2(size, size), ImVec2(0, 1), ImVec2(1, 0));
+            ImVec2 uv0 = options.PreviewTopRowFirst ? ImVec2(0, 0) : ImVec2(0, 1);
+            ImVec2 uv1 = options.PreviewTopRowFirst ? ImVec2(1, 1) : ImVec2(1, 0);
+            ImGui::Image((ImTextureID)(uintptr_t)options.PreviewTexture, ImVec2(size, size), uv0, uv1);
             if (ImGui::IsItemHovered())
             {
                 ImGui::BeginTooltip();
-                ImGui::Image((ImTextureID)(uintptr_t)options.PreviewTexture, ImVec2(128, 128), ImVec2(0, 1), ImVec2(1, 0));
+                ImGui::Image((ImTextureID)(uintptr_t)options.PreviewTexture, ImVec2(128, 128), uv0, uv1);
                 ImGui::EndTooltip();
             }
             ImGui::SameLine();
@@ -177,6 +179,12 @@ namespace Zamin::UI {
             PropertyLabel("Aksni saqlash", "Yoqilgan: aks va yaltirashlar (hamda nurlanish) alfa bilan susaymaydi - faqat sirt rangi "
                                                  "shaffof bo'ladi (shisha, suv). O'chiq: butun sirt alfa bilan so'nadi (obyektni asta yo'qotish).");
             changed |= ImGui::Checkbox("##preserveSpecular", &m.PreserveSpecular);
+            PropertyLabel("Ustuvorlik", "Saralash ustuvorligi. Shaffof sirtlar avval ustuvorlik bo'yicha (kichigi oldin), keyin orqadan oldinga "
+                                                  "(kameradan uzoqligi bo'yicha) chiziladi. Kattaroq ustuvorlik - boshqa shaffoflar ustida "
+                                                  "chiziladi, qayerda bo'lishidan qat'i nazar (suv ichidagi shisha, dog'lar, effektlar). "
+                                                  "Odatda 0.");
+            changed |= ImGui::DragInt("##sortPriority", &m.SortPriority, 0.2f, MinMaterialSortPriority, MaxMaterialSortPriority, "%d",
+                                      ImGuiSliderFlags_AlwaysClamp);
         }
         PropertyLabel("Ikki tomonlama", forModel ? "Yoqilgan: modelning barcha qismlari ikki tomonlama chiziladi (orqa tomoni teskari "
                                                    "normal bilan yoritiladi). O'chiq: har qism glTF faylidagi doubleSided bayrog'iga ko'ra."
@@ -186,6 +194,76 @@ namespace Zamin::UI {
         changed |= ImGui::Checkbox("##doubleSided", &m.DoubleSided);
         ImGui::PopID();
         return changed;
+    }
+
+    bool PropertyEmission(const char* label, glm::vec3& color, float& strength, const char* tooltip)
+    {
+        PropertyLabel(label, tooltip ? tooltip
+                                     : "Sirt o'zi chiqaradigan yorug'lik: rang x kuch (nurlanish teksturasi bo'lsa, u bilan ham ko'paytiriladi). "
+                                       "Rang chiziqli (linear). 1 dan katta natija HDR: sahnada bloom yoqilgan bo'lsa porlaydi. "
+                                       "Yorug'lik, soya va tuman unga ta'sir qilmaydi.");
+        ImGui::PushID(label);
+        bool changed = ImGui::ColorEdit3("##color", &color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_Float);
+        if (ImGui::IsItemHovered())
+            Tooltip("Nurlanish rangi");
+        ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
+        glm::vec3 radiance = color * strength;
+        float peak = std::max({ radiance.r, radiance.g, radiance.b });
+        const char* badge = peak > 1.0f ? "HDR" : peak > 0.0f ? "LDR" : "o'chiq";
+        float badgeWidth = ImGui::CalcTextSize("o'chiq").x + ImGui::GetStyle().ItemInnerSpacing.x * 2.0f;
+        ImGui::SetNextItemWidth(std::max(40.0f, ImGui::GetContentRegionAvail().x - badgeWidth - ImGui::GetStyle().ItemInnerSpacing.x));
+        changed |= ImGui::DragFloat("##strength", &strength, strength < 2.0f ? 0.01f : 0.05f, 0.0f, 100.0f, "x %.2f",
+                                    ImGuiSliderFlags_AlwaysClamp);
+        if (ImGui::IsItemHovered())
+            Tooltip("Nurlanish kuchi (intensivlik): rang shunga ko'paytiriladi. 0 - nurlanish yo'q");
+        ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
+        ImVec4 badgeColor = peak > 1.0f ? ImVec4(1.0f, 0.72f, 0.3f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(badgeColor, "%s", badge);
+        if (ImGui::IsItemHovered())
+            Tooltip(peak > 1.0f ? "Chiqarilayotgan yorug'lik 1 dan katta (HDR): bloom yoqilgan sahnada atrofga nur sochadi"
+                    : peak > 0.0f ? "Chiqarilayotgan yorug'lik 1 gacha: sirt yorqinroq ko'rinadi, lekin bloom bilan porlamaydi"
+                                  : "Nurlanish yo'q (rang qora yoki kuch 0)");
+        ImGui::PopID();
+        return changed;
+    }
+
+    bool MaterialPresetMenuItem(const MaterialPreset& preset, const char* tooltipExtra)
+    {
+        ImGui::PushID(preset.Id.c_str());
+        // A swatch of the color (the reflection's for metals, the glow's for emissive ones).
+        const MaterialData& d = preset.Data;
+        glm::vec3 glow = d.Emission * d.EmissionStrength;
+        glm::vec3 swatch = std::max({ glow.r, glow.g, glow.b }) > 0.0f ? d.Emission : glm::vec3(d.Albedo);
+        if (preset.Texture == MaterialPreset::Pattern::Wood)
+            swatch = { 0.66f, 0.47f, 0.28f };
+        else if (preset.Texture == MaterialPreset::Pattern::Concrete)
+            swatch = { 0.52f, 0.51f, 0.49f };
+        float h = ImGui::GetTextLineHeight();
+        ImVec2 at = ImGui::GetCursorScreenPos();
+        std::string label = "      " + preset.Name; // room for the swatch
+        bool clicked = ImGui::MenuItem(label.c_str());
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        ImVec2 min(at.x + 1.0f, at.y + 1.0f), max(at.x + h - 1.0f, at.y + h - 1.0f);
+        ImU32 color = ImGui::GetColorU32(ImVec4(swatch.r, swatch.g, swatch.b, 1.0f));
+        if (d.BlendMode == MaterialBlendMode::Transparent)
+        {
+            draw->AddRectFilled(min, max, ImGui::GetColorU32(ImVec4(swatch.r, swatch.g, swatch.b, 0.25f)), 3.0f);
+            draw->AddRect(min, max, color, 3.0f, 0, 1.5f);
+        }
+        else
+            draw->AddRectFilled(min, max, color, 3.0f);
+        if (d.Metallic > 0.5f) // a highlight on metals
+            draw->AddCircleFilled(ImVec2(min.x + h * 0.32f, min.y + h * 0.32f), h * 0.14f, IM_COL32(255, 255, 255, 170));
+        if (ImGui::IsItemHovered())
+        {
+            std::string text = preset.Description;
+            if (tooltipExtra)
+                text += std::string("\n") + tooltipExtra;
+            Tooltip(text.c_str());
+        }
+        ImGui::PopID();
+        return clicked;
     }
 
     bool PropertyCombo(const char* label, int& current, const char* const* items, int count)

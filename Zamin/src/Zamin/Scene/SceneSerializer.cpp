@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <cmath>
 
 namespace Zamin {
 
@@ -252,7 +253,7 @@ namespace Zamin {
                 { "Shader", MaterialSerializer::ShaderToString(c->Mat.Shader) },
                 { "BlendMode", MaterialSerializer::BlendModeToString(c->Mat.BlendMode) },
                 { "AlphaCutoff", c->Mat.AlphaCutoff }, { "DoubleSided", c->Mat.DoubleSided },
-                { "PreserveSpecular", c->Mat.PreserveSpecular },
+                { "PreserveSpecular", c->Mat.PreserveSpecular }, { "SortPriority", c->Mat.SortPriority },
             };
             WriteAssetHandle(j, "Material", c->MaterialPath);
             if (std::any_of(c->SubmeshMaterials.begin(), c->SubmeshMaterials.end(), [](const std::string& p) { return !p.empty(); }))
@@ -506,6 +507,13 @@ namespace Zamin {
             c.Mat.AlphaCutoff = std::clamp(j.value("AlphaCutoff", 0.5f), 0.0f, 1.0f);
             c.Mat.DoubleSided = j.value("DoubleSided", false);
             c.Mat.PreserveSpecular = j.value("PreserveSpecular", c.Mat.PreserveSpecular);
+            if (auto it = j.find("SortPriority"); it != j.end() && it->is_number())
+            {
+                double priority = it->get<double>();
+                c.Mat.SortPriority = std::isfinite(priority) ? (int)std::lround(std::clamp(priority, (double)MinMaterialSortPriority,
+                                                                                           (double)MaxMaterialSortPriority))
+                                                             : 0;
+            }
         }
         if (e.contains("Animator"))
         {

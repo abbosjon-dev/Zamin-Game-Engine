@@ -587,6 +587,10 @@ void main()
             bool GridSubmitted = false;
             int GridPlane = 0;
             GridSettings Grid;
+
+            std::vector<Renderer3D::TransparentDrawRecord> LastTransparent;
+            glm::mat4 LastTransparentViewProjection{ 1.0f };
+            uint64_t EndSceneCount = 0;
         };
 
         Renderer3DData* s_Data = nullptr;
@@ -972,26 +976,34 @@ void main()
         if (s_Data->GridSubmitted)
             DrawGrid(s_Data->View, s_Data->Projection, s_Data->CameraPosition, s_Data->GridPlane, s_Data->Grid);
 
-        // ---------------- transparent surfaces: over the opaque scene and the sky, back to front
-        // (by the center of their bounds), depth tested but not written (what is behind them stays
-        // visible). Output is premultiplied by alpha.
-        std::vector<glm::vec3> positions;
+        // ---------------- transparent surfaces: over the opaque scene and the sky, by priority and
+        // back to front (by the center of their bounds), depth tested but not written (what is
+        // behind them stays visible). Output is premultiplied by alpha.
+        std::vector<TransparentSortItem> sortItems;
         std::vector<size_t> transparent;
+        s_Data->LastTransparent.clear();
+        s_Data->LastTransparentViewProjection = viewProj;
         for (size_t i = 0; i < s_Data->Queue.size(); i++)
         {
             const DrawItem& item = s_Data->Queue[i];
             if (item.Mat.BlendMode != MaterialBlendMode::Transparent) continue;
             const AABB& bounds = item.MeshRef->GetBounds();
             transparent.push_back(i);
-            positions.push_back(glm::vec3(item.Transform * glm::vec4((bounds.Min + bounds.Max) * 0.5f, 1.0f)));
+            sortItems.push_back({ glm::vec3(item.Transform * glm::vec4((bounds.Min + bounds.Max) * 0.5f, 1.0f)), item.Mat.SortPriority });
         }
         if (!transparent.empty())
         {
             RenderCommand::SetBlendMode(BlendMode::Premultiplied);
             RenderCommand::SetDepthWrite(false);
-            for (size_t order : SortBackToFront(s_Data->View, positions))
+            bool perspective = s_Data->Projection[3][3] == 0.0f;
+            glm::vec3 eye = glm::vec3(glm::inverse(s_Data->View)[3]);
+            for (size_t order : SortTransparent(s_Data->View, perspective, sortItems))
             {
                 const DrawItem& item = s_Data->Queue[transparent[order]];
+                stats.TransparentCount++;
+                const TransparentSortItem& key = sortItems[order];
+                float distance = perspective ? glm::length(key.Center - eye) : -(s_Data->View * glm::vec4(key.Center, 1.0f)).z;
+                s_Data->LastTransparent.push_back({ item.EntityID, key.Center, key.Priority, distance });
                 SurfaceState state = GetSurfaceState(item.Mat, item.Transform, item.CastShadows);
                 if (state.TwoSidedBlend)
                 {
@@ -1017,18 +1029,54 @@ void main()
         RenderCommand::SetDepthWrite(true);
         s_Data->Queue.clear();
         s_Data->GridSubmitted = false;
+        s_Data->EndSceneCount++;
+    }
+
+    uint64_t Renderer3D::GetEndSceneCount() { return s_Data ? s_Data->EndSceneCount : 0; }
+
+    const std::vector<Renderer3D::TransparentDrawRecord>& Renderer3D::GetLastTransparentOrder()
+    {
+        static const std::vector<TransparentDrawRecord> s_None;
+        return s_Data ? s_Data->LastTransparent : s_None;
+    }
+
+    const glm::mat4& Renderer3D::GetLastTransparentViewProjection()
+    {
+        static const glm::mat4 s_Identity(1.0f);
+        return s_Data ? s_Data->LastTransparentViewProjection : s_Identity;
     }
 
     std::vector<size_t> Renderer3D::SortBackToFront(const glm::mat4& view, const std::vector<glm::vec3>& positions)
     {
-        std::vector<float> depth(positions.size());
+        std::vector<TransparentSortItem> items(positions.size());
         for (size_t i = 0; i < positions.size(); i++)
-            depth[i] = -(view * glm::vec4(positions[i], 1.0f)).z; // distance in front of the camera
-        std::vector<size_t> order(positions.size());
+            items[i].Center = positions[i];
+        return SortTransparent(view, false, items);
+    }
+
+    std::vector<size_t> Renderer3D::SortTransparent(const glm::mat4& view, bool perspective, const std::vector<TransparentSortItem>& items)
+    {
+        // How far behind the camera's near side each surface is (larger = farther = drawn earlier).
+        std::vector<float> depth(items.size());
+        glm::vec3 eye = glm::vec3(glm::inverse(view)[3]);
+        for (size_t i = 0; i < items.size(); i++)
+        {
+            float along = -(view * glm::vec4(items[i].Center, 1.0f)).z; // distance in front of the camera
+            if (!perspective)
+                depth[i] = along;
+            else
+                // Behind the camera counts as nearest (negative), like along the view direction.
+                depth[i] = along < 0.0f ? along : glm::length(items[i].Center - eye);
+        }
+        std::vector<size_t> order(items.size());
         for (size_t i = 0; i < order.size(); i++)
             order[i] = i;
-        // Farthest first; equal depths keep the submission order (stable).
-        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) { return depth[a] > depth[b]; });
+        // Lower priority first; then the farthest first; equal keys keep the submission order (stable).
+        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+            if (items[a].Priority != items[b].Priority)
+                return items[a].Priority < items[b].Priority;
+            return depth[a] > depth[b];
+        });
         return order;
     }
 

@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -42,6 +43,7 @@ namespace Zamin {
         m.EmissionStrength = EmissionStrength;
         m.Tiling = Tiling;
         m.Offset = Offset;
+        m.SortPriority = SortPriority;
     }
 
     MaterialData MaterialData::FromMaterial(const Material& m)
@@ -60,7 +62,50 @@ namespace Zamin {
         d.EmissionStrength = m.EmissionStrength;
         d.Tiling = m.Tiling;
         d.Offset = m.Offset;
+        d.SortPriority = m.SortPriority;
         return d;
+    }
+
+    bool MaterialData::Sanitize()
+    {
+        const MaterialData defaults;
+        bool changed = false;
+        auto fix = [&](float& value, float fallback, float lo, float hi) {
+            float fixedValue = std::isfinite(value) ? std::clamp(value, lo, hi) : fallback;
+            if (fixedValue != value || std::isnan(value))
+                changed = true;
+            value = fixedValue;
+        };
+        constexpr float big = 1.0e6f;
+        for (int i = 0; i < 3; i++)
+            fix(Albedo[i], defaults.Albedo[i], 0.0f, big);
+        fix(Albedo.a, defaults.Albedo.a, 0.0f, 1.0f);
+        fix(AlphaCutoff, defaults.AlphaCutoff, 0.0f, 1.0f);
+        fix(Metallic, defaults.Metallic, 0.0f, 1.0f);
+        fix(Roughness, defaults.Roughness, 0.0f, 1.0f);
+        fix(NormalStrength, defaults.NormalStrength, 0.0f, 10.0f);
+        for (int i = 0; i < 3; i++)
+            fix(Emission[i], defaults.Emission[i], 0.0f, big);
+        fix(EmissionStrength, defaults.EmissionStrength, 0.0f, big);
+        for (int i = 0; i < 2; i++)
+        {
+            fix(Tiling[i], defaults.Tiling[i], -big, big);
+            fix(Offset[i], defaults.Offset[i], -big, big);
+        }
+        int priority = std::clamp(SortPriority, MinMaterialSortPriority, MaxMaterialSortPriority);
+        changed |= priority != SortPriority;
+        SortPriority = priority;
+        if ((uint8_t)Shader > (uint8_t)MaterialShader::Unlit)
+        {
+            Shader = defaults.Shader;
+            changed = true;
+        }
+        if ((uint8_t)BlendMode > (uint8_t)MaterialBlendMode::Transparent)
+        {
+            BlendMode = defaults.BlendMode;
+            changed = true;
+        }
+        return changed;
     }
 
     // ------------------------------------------------------------------ serializer
@@ -173,6 +218,7 @@ namespace Zamin {
         WriteTexture(j, "EmissiveMap", d.EmissiveMap);
         j["Tiling"] = ToJson(d.Tiling);
         j["Offset"] = ToJson(d.Offset);
+        j["SortPriority"] = d.SortPriority;
         return j.dump(2) + "\n";
     }
 
@@ -203,7 +249,7 @@ namespace Zamin {
             else
                 ZM_CORE_WARN("Noma'lum aralashtirish rejimi '{}' - Opaque ishlatiladi", it->get<std::string>());
         }
-        d.AlphaCutoff = std::clamp(ReadFloat(j, "AlphaCutoff", d.AlphaCutoff), 0.0f, 1.0f);
+        d.AlphaCutoff = ReadFloat(j, "AlphaCutoff", d.AlphaCutoff);
         if (auto it = j.find("DoubleSided"); it != j.end() && it->is_boolean())
             d.DoubleSided = it->get<bool>();
         if (auto it = j.find("PreserveSpecular"); it != j.end() && it->is_boolean())
@@ -224,6 +270,15 @@ namespace Zamin {
         else
             d.Tiling = ReadVec(j, "Tiling", d.Tiling);
         d.Offset = ReadVec(j, "Offset", d.Offset);
+        if (auto it = j.find("SortPriority"); it != j.end() && it->is_number())
+        {
+            double priority = it->get<double>();
+            d.SortPriority = std::isfinite(priority) ? (int)std::lround(std::clamp(priority, (double)MinMaterialSortPriority,
+                                                                                   (double)MaxMaterialSortPriority))
+                                                     : 0;
+        }
+        if (d.Sanitize())
+            ZM_CORE_WARN("Material faylida chegaradan tashqari qiymatlar bor edi - ular to'g'rilandi");
         out = d;
         return true;
     }
@@ -303,6 +358,23 @@ namespace Zamin {
         SetData(d);
     }
 
+    void MaterialAsset::SetEmissionColor(const glm::vec3& color)
+    {
+        SetEmission(color, m_Data.EmissionStrength);
+    }
+
+    void MaterialAsset::SetEmissionStrength(float strength)
+    {
+        SetEmission(m_Data.Emission, strength);
+    }
+
+    void MaterialAsset::SetSortPriority(int priority)
+    {
+        MaterialData d = m_Data;
+        d.SortPriority = std::clamp(priority, MinMaterialSortPriority, MaxMaterialSortPriority);
+        SetData(d);
+    }
+
     void MaterialAsset::SetMetallic(float metallic)
     {
         MaterialData d = m_Data;
@@ -341,6 +413,8 @@ namespace Zamin {
     void MaterialAsset::SetEmissiveMap(const std::string& assetPath)
     {
         MaterialData d = m_Data;
+        if (!assetPath.empty() && d.EmissiveMap.empty())
+            EnableEmissionForMap(d); // else the new map would show nothing
         d.EmissiveMap = assetPath;
         SetData(d);
     }

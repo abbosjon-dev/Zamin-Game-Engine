@@ -109,6 +109,9 @@ namespace Zamin {
         std::function<void(const std::string&, Entity target)> OnMaterialDropped;
         // Files were written from the inspector (a model's materials): the content browser lists them.
         std::function<void(const std::vector<std::filesystem::path>&)> OnFilesCreated;
+        // The content browser's thumbnail of an asset file (0 = none yet): shown in front of the
+        // material fields (a sphere of the material).
+        std::function<uint32_t(const std::filesystem::path&)> GetAssetThumbnail;
         // The project's tag list changed (a new tag was typed in the inspector).
         std::function<void()> OnProjectSettingsModified;
         // The fold state (SetFoldState) changed: the editor saves its view settings.
@@ -125,6 +128,9 @@ namespace Zamin {
         // The Material part of the Mesh Renderer section: the material asset (and per-submesh ones)
         // or the inline material. True when something changed.
         bool DrawMeshMaterial(Entity entity, struct MeshRendererComponent& c);
+        // "Standart material...": a built-in material (MaterialPresets) as the mesh's material asset
+        // - one shared file per project under Assets/Materials/Standart. True when it changed.
+        bool DrawStandardMaterialPicker(struct MeshRendererComponent& c);
         // Models: the button that writes the model's glTF materials as .zmat files and gives each
         // part its own (Model::ExportMaterials). True when the slots changed.
         bool DrawExtractModelMaterials(struct MeshRendererComponent& c);

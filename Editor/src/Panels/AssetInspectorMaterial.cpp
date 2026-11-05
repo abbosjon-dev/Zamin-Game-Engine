@@ -226,10 +226,12 @@ namespace Zamin {
         }
 
         UI::PropertyHeader("Nurlanish");
-        changed |= UI::PropertyColor3("Nurlanish rangi", d.Emission);
-        UI::PropertyLabel("Nurlanish kuchi", "Nurlanish = rang x kuch (x tekstura). 1 dan katta qiymatlar HDR: bloom bilan porlaydi");
-        changed |= ImGui::DragFloat("##emissionStrength", &d.EmissionStrength, 0.05f, 0.0f, 100.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
-        texture("Nurlanish map", d.EmissiveMap, live.EmissiveMap, "Nurlanish rangi shu tekstura bilan ko'paytiriladi");
+        changed |= UI::PropertyEmission("Nurlanish", d.Emission, d.EmissionStrength);
+        bool hadEmissiveMap = !d.EmissiveMap.empty();
+        texture("Nurlanish map", d.EmissiveMap, live.EmissiveMap, "Nurlanish rangi x kuch shu tekstura bilan ko'paytiriladi "
+                                                                  "(nurlanish o'chiq bo'lsa, tekstura berilganda oq x 1 bo'ladi)");
+        if (!hadEmissiveMap && !d.EmissiveMap.empty())
+            EnableEmissionForMap(d); // else the new map would show nothing
 
         UI::PropertyHeader("UV");
         changed |= UI::PropertyFloat2("Takrorlash", d.Tiling, 0.05f);

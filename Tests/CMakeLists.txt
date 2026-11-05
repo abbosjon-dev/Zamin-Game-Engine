@@ -1,5 +1,7 @@
 add_executable(ZaminTests ZaminTests.cpp)
 target_link_libraries(ZaminTests PRIVATE Zamin)
+# The sample projects are read by some tests (their assets must stay valid).
+target_compile_definitions(ZaminTests PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 set_target_properties(ZaminTests PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
 add_test(NAME ZaminTests COMMAND ZaminTests)
 

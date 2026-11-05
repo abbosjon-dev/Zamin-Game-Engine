@@ -1,0 +1,37 @@
+{
+  "Albedo": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "AlbedoMap": "Materials/Standart/Textures/Wood_Albedo.png",
+  "AlbedoMapUUID": "a8a00e30cde93260",
+  "AlphaCutoff": 0.5,
+  "BlendMode": "Opaque",
+  "DoubleSided": false,
+  "Emission": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "EmissionStrength": 0.0,
+  "EmissiveMap": "",
+  "MetalRoughMap": "",
+  "Metallic": 0.0,
+  "NormalMap": "",
+  "NormalStrength": 1.0,
+  "Offset": [
+    0.0,
+    0.0
+  ],
+  "PreserveSpecular": true,
+  "Roughness": 0.6200000047683716,
+  "Shader": "Lit",
+  "SortPriority": 0,
+  "Tiling": [
+    1.0,
+    1.0
+  ],
+  "Version": 1
+}

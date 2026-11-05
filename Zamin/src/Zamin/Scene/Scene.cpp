@@ -3006,6 +3006,8 @@ namespace Zamin {
             m.PreserveSpecular = inlineMat.PreserveSpecular;
         }
         m.DoubleSided = m.DoubleSided || inlineMat.DoubleSided;
+        if (inlineMat.SortPriority != 0)
+            m.SortPriority = inlineMat.SortPriority;
         return m;
     }
 

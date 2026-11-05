@@ -32,6 +32,9 @@ namespace Zamin {
             // Cutout / transparent materials: a checkered wall behind the object shows what they
             // let through (opaque materials never get it).
             bool Checker = true;
+            // Emissive materials: HDR bloom (threshold 1, like a scene's default), so emission above
+            // 1 glows here as it does in a scene with bloom on.
+            bool Bloom = true;
         };
 
         // Renders into its framebuffer (resized to width x height when needed). Returns the color

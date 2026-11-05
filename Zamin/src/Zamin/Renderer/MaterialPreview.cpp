@@ -125,6 +125,9 @@ namespace Zamin {
 
         PostProcessSettings post;
         post.Tonemap = TonemapMode::ACES;
+        glm::vec3 emission = material.GetEmissionRadiance();
+        post.Bloom = settings.Bloom && std::max({ emission.r, emission.g, emission.b }) > 0.0f;
+        post.BloomIntensity = 0.35f; // the object fills the picture: a scene's 0.6 would wash it out
         PostProcessor::Apply(m_Target->GetColorAttachmentRendererID(0), width, height, post, m_Final);
         m_Final->Unbind(); // Apply leaves its target bound
         Renderer::GetStats() = stats;

@@ -655,6 +655,681 @@
         "Centered": true,
         "Font": ""
       }
+    },
+    {
+      "Entity": 7360000000200017,
+      "Tag": "Standart: Metall",
+      "Transform": {
+        "Translation": [
+          -4.35,
+          0.34,
+          3.15
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/Metal.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "90fce6225e0b6c25"
+      }
+    },
+    {
+      "Entity": 7360000000200034,
+      "Tag": "Standart: Cho'tkalangan metall",
+      "Transform": {
+        "Translation": [
+          -3.49,
+          0.34,
+          3.15
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/BrushedMetal.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "4c2bec90913a5ae7"
+      }
+    },
+    {
+      "Entity": 7360000000200051,
+      "Tag": "Standart: Oltin",
+      "Transform": {
+        "Translation": [
+          -2.63,
+          0.34,
+          3.15
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/Gold.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "8d29094120a870b9"
+      }
+    },
+    {
+      "Entity": 7360000000200068,
+      "Tag": "Standart: Mis",
+      "Transform": {
+        "Translation": [
+          -1.77,
+          0.34,
+          3.15
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/Copper.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "57bc0c63c631da4a"
+      }
+    },
+    {
+      "Entity": 7360000000200085,
+      "Tag": "Standart: Plastik",
+      "Transform": {
+        "Translation": [
+          -0.91,
+          0.34,
+          3.15
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/Plastic.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "bd5c8b04e509a53a"
+      }
+    },
+    {
+      "Entity": 7360000000200102,
+      "Tag": "Standart: Rezina",
+      "Transform": {
+        "Translation": [
+          -0.05,
+          0.34,
+          3.15
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/Rubber.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "420cb7d77c1fae2e"
+      }
+    },
+    {
+      "Entity": 7360000000200119,
+      "Tag": "Standart: Yog'och",
+      "Transform": {
+        "Translation": [
+          -3.92,
+          0.34,
+          4.45
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/Wood.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "d84ad007c4b607e3"
+      }
+    },
+    {
+      "Entity": 7360000000200136,
+      "Tag": "Standart: Shisha",
+      "Transform": {
+        "Translation": [
+          -3.06,
+          0.34,
+          4.45
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/Glass.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "66b1034c4ff33e06"
+      }
+    },
+    {
+      "Entity": 7360000000200153,
+      "Tag": "Standart: Keramika",
+      "Transform": {
+        "Translation": [
+          -2.2,
+          0.34,
+          4.45
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/Ceramic.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "3dcf4bedad5a5d05"
+      }
+    },
+    {
+      "Entity": 7360000000200170,
+      "Tag": "Standart: Beton",
+      "Transform": {
+        "Translation": [
+          -1.34,
+          0.34,
+          4.45
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/Concrete.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "dbe0cb955b5edb7c"
+      }
+    },
+    {
+      "Entity": 7360000000200187,
+      "Tag": "Standart: Neon",
+      "Transform": {
+        "Translation": [
+          -0.48,
+          0.34,
+          4.45
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/Neon.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "d4d4795c4c9431c1"
+      }
+    },
+    {
+      "Entity": 7360000000200204,
+      "Tag": "Standart: Suv",
+      "Transform": {
+        "Translation": [
+          0.38,
+          0.34,
+          4.45
+        ],
+        "Rotation": [
+          0,
+          0.6,
+          0
+        ],
+        "Scale": [
+          0.66,
+          0.66,
+          0.66
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "Materials/Standart/Water.zmat",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "MaterialUUID": "4a5a09cd661822df"
+      }
+    },
+    {
+      "Entity": 7360000000200221,
+      "Tag": "Pane Red",
+      "Transform": {
+        "Translation": [
+          3.25,
+          0.75,
+          2.9
+        ],
+        "Rotation": [
+          0,
+          -0.45,
+          0
+        ],
+        "Scale": [
+          1.15,
+          1.5,
+          0.04
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.12,
+          0.1,
+          0.55
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.15,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Transparent",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 7360000000200238,
+      "Tag": "Pane Green",
+      "Transform": {
+        "Translation": [
+          2.65,
+          0.75,
+          3.7
+        ],
+        "Rotation": [
+          0,
+          -0.45,
+          0
+        ],
+        "Scale": [
+          1.15,
+          1.5,
+          0.04
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.1,
+          0.9,
+          0.2,
+          0.55
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.15,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Transparent",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
+    },
+    {
+      "Entity": 7360000000200255,
+      "Tag": "Pane Blue",
+      "Transform": {
+        "Translation": [
+          2.05,
+          0.75,
+          4.5
+        ],
+        "Rotation": [
+          0,
+          -0.45,
+          0
+        ],
+        "Scale": [
+          1.15,
+          1.5,
+          0.04
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.12,
+          0.3,
+          1.0,
+          0.55
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0,
+        "Roughness": 0.15,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Lit",
+        "BlendMode": "Transparent",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": false,
+        "SortPriority": 0
+      }
     }
   ]
 }

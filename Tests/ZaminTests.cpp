@@ -9821,6 +9821,532 @@ TEST(GLTFMaterialExport)
     fs::remove_all(dir, ec);
 }
 
+// ---------------------------------------------------------------- M05: tasks 096-100
+TEST(TransparentSortPriority)
+{
+    using Item = Renderer3D::TransparentSortItem;
+    glm::vec3 eye(0.0f, 0.0f, 10.0f);
+    glm::mat4 view = glm::lookAt(eye, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    // Priority first (lower drawn first, so a higher one ends up over the others), then back to front.
+    std::vector<Item> items = { { { 0, 0, 5 }, 1 }, { { 0, 0, -5 }, 0 }, { { 0, 0, 0 }, 1 }, { { 0, 0, -20 }, -1 } };
+    CHECK(Renderer3D::SortTransparent(view, true, items) == std::vector<size_t>({ 3, 1, 2, 0 }));
+    CHECK(Renderer3D::SortTransparent(view, false, items) == std::vector<size_t>({ 3, 1, 2, 0 }));
+    // Without priorities: SortBackToFront is the view-direction order.
+    std::vector<glm::vec3> centers = { { 0, 0, 0 }, { 0, 0, -5 }, { 0, 0, 5 }, { 3, 0, 0 } };
+    std::vector<Item> plain;
+    for (const glm::vec3& c : centers)
+        plain.push_back({ c, 0 });
+    CHECK(Renderer3D::SortTransparent(view, false, plain) == Renderer3D::SortBackToFront(view, centers));
+    CHECK(Renderer3D::SortTransparent(view, true, {}).empty());
+
+    // Perspective: by the distance from the camera. A surface far out to the side is farther from
+    // the eye than one straight ahead, though nearer along the view direction.
+    std::vector<Item> side = { { { 0, 0, 0 }, 0 }, { { 9, 0, 1 }, 0 } };
+    CHECK(Renderer3D::SortTransparent(view, false, side) == std::vector<size_t>({ 0, 1 })); // depth 10 vs 9
+    CHECK(Renderer3D::SortTransparent(view, true, side) == std::vector<size_t>({ 1, 0 }));  // distance 10 vs 12.7
+    // Turning the camera in place keeps the perspective order (along the view direction it flips).
+    glm::mat4 turned = glm::lookAt(eye, eye + glm::vec3(std::sin(0.6f), 0.0f, -std::cos(0.6f)), glm::vec3(0.0f, 1.0f, 0.0f));
+    CHECK(Renderer3D::SortTransparent(turned, true, side) == Renderer3D::SortTransparent(view, true, side));
+    CHECK(Renderer3D::SortTransparent(turned, false, side) == std::vector<size_t>({ 1, 0 }));
+    // Equal keys keep the submission order; behind the camera is drawn last (nearest).
+    std::vector<Item> ties = { { { 1, 0, 0 }, 0 }, { { -1, 0, 0 }, 0 }, { { 0, 0, 30 }, 0 }, { { 0, 0, -1 }, 0 } };
+    CHECK(Renderer3D::SortTransparent(view, true, ties) == std::vector<size_t>({ 3, 0, 1, 2 }));
+
+    // The priority is a material value: .zmat, scenes, instances and model tints carry it; it does
+    // not change how the surface is drawn, only when.
+    Material glass;
+    glass.BlendMode = MaterialBlendMode::Transparent;
+    SurfaceState before = Renderer3D::GetSurfaceState(glass, glm::mat4(1.0f));
+    glass.SortPriority = 5;
+    SurfaceState after = Renderer3D::GetSurfaceState(glass, glm::mat4(1.0f));
+    CHECK(before.Queue == after.Queue && before.Blend == after.Blend && before.DepthWrite == after.DepthWrite);
+    MaterialData data = MaterialData::FromMaterial(glass);
+    CHECK(data.SortPriority == 5);
+    Material applied;
+    data.ApplyValuesTo(applied);
+    CHECK(applied.SortPriority == 5);
+    MeshRendererComponent mr;
+    mr.Type = PrimitiveMesh::Model;
+    mr.Mat.SortPriority = -3;
+    Material modelPart;
+    modelPart.BlendMode = MaterialBlendMode::Transparent;
+    modelPart.SortPriority = 2;
+    CHECK(Scene::ComposeMeshMaterial(mr, &modelPart, 0).SortPriority == -3);
+    mr.Mat.SortPriority = 0; // 0: the model's own
+    CHECK(Scene::ComposeMeshMaterial(mr, &modelPart, 0).SortPriority == 2);
+    auto asset = CreateRef<MaterialAsset>(MaterialData{});
+    asset->SetSortPriority(1000);
+    CHECK(asset->GetData().SortPriority == MaxMaterialSortPriority && asset->GetMaterial().SortPriority == MaxMaterialSortPriority);
+    asset->SetSortPriority(-4);
+    CHECK(asset->GetMaterial().SortPriority == -4);
+}
+
+TEST(MaterialEmission)
+{
+    Material m;
+    CHECK(m.GetEmissionRadiance() == glm::vec3(0.0f));
+    m.Emission = { 1.0f, 0.5f, 0.25f };
+    m.EmissionStrength = 4.0f;
+    CHECK(m.GetEmissionRadiance() == glm::vec3(4.0f, 2.0f, 1.0f)); // HDR: above 1 blooms
+    // A map on a material without emission turns it on (white x 1); with emission set it stays.
+    Material dark;
+    CHECK(EnableEmissionForMap(dark) && dark.Emission == glm::vec3(1.0f) && dark.EmissionStrength == 1.0f);
+    CHECK(!EnableEmissionForMap(dark) && !EnableEmissionForMap(m) && m.EmissionStrength == 4.0f);
+    Material colored;
+    colored.Emission = { 1.0f, 0.0f, 0.0f }; // a color but no strength: the color stays
+    CHECK(EnableEmissionForMap(colored) && colored.Emission == glm::vec3(1.0f, 0.0f, 0.0f) && colored.EmissionStrength == 1.0f);
+    MaterialData strong;
+    strong.EmissionStrength = 3.0f; // a strength but black: white, the strength stays
+    CHECK(EnableEmissionForMap(strong) && strong.Emission == glm::vec3(1.0f) && strong.EmissionStrength == 3.0f);
+
+    // Quick edits (scripts).
+    FakeTextureLoader loader;
+    auto asset = CreateRef<MaterialAsset>(MaterialData{});
+    asset->SetEmissiveMap("Textures/glow.png");
+    CHECK(asset->GetData().Emission == glm::vec3(1.0f) && asset->GetData().EmissionStrength == 1.0f && asset->GetMaterial().EmissiveMap);
+    asset->SetEmissionColor({ 0.0f, 1.0f, 0.0f });
+    CHECK(asset->GetEmissionColor() == glm::vec3(0.0f, 1.0f, 0.0f) && asset->GetEmissionStrength() == 1.0f);
+    asset->SetEmissionStrength(8.0f);
+    CHECK(asset->GetMaterial().GetEmissionRadiance() == glm::vec3(0.0f, 8.0f, 0.0f));
+    asset->SetEmissionStrength(-2.0f);
+    CHECK(asset->GetEmissionStrength() == 0.0f);
+    asset->SetEmissionStrength(0.5f);
+    asset->SetEmissiveMap("Textures/other.png"); // already had a map: the emission is left as it is
+    CHECK(asset->GetEmissionStrength() == 0.5f && asset->GetEmissionColor() == glm::vec3(0.0f, 1.0f, 0.0f));
+    asset->SetEmissiveMap("");
+    CHECK(!asset->GetMaterial().EmissiveMap && asset->GetEmissionStrength() == 0.5f);
+
+    // HDR values round trip: .zmat and the inline material of a scene.
+    MaterialData hdr;
+    hdr.Emission = { 2.0f, 1.0f, 0.5f };
+    hdr.EmissionStrength = 250.0f;
+    MaterialData back;
+    CHECK(MaterialSerializer::DeserializeFromString(MaterialSerializer::SerializeToString(hdr), back) && back == hdr);
+    auto scene = CreateRef<Scene>();
+    auto& lamp = scene->CreateEntity("Lamp").AddComponent<MeshRendererComponent>();
+    lamp.Mat.Emission = hdr.Emission;
+    lamp.Mat.EmissionStrength = hdr.EmissionStrength;
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+    if (Entity e = loaded->FindEntityByName("Lamp"))
+        CHECK(e.GetComponent<MeshRendererComponent>().Mat.GetEmissionRadiance() == glm::vec3(500.0f, 250.0f, 125.0f));
+
+    // An instance's emission is its own (a script making one entity glow).
+    auto shared = CreateRef<MaterialAsset>(hdr);
+    Ref<MaterialAsset> instance = shared->Clone();
+    instance->SetEmissionStrength(1.0f);
+    CHECK(shared->GetEmissionStrength() == 250.0f && instance->GetMaterial().EmissionStrength == 1.0f);
+    // Models: the model's emission and the inline one add up (as light does).
+    MeshRendererComponent mr;
+    mr.Type = PrimitiveMesh::Model;
+    mr.Mat.Emission = { 0.0f, 0.0f, 1.0f };
+    mr.Mat.EmissionStrength = 2.0f;
+    Material part;
+    part.Emission = { 1.0f, 0.0f, 0.0f };
+    part.EmissionStrength = 3.0f;
+    CHECK(Scene::ComposeMeshMaterial(mr, &part, 0).GetEmissionRadiance() == glm::vec3(3.0f, 0.0f, 2.0f));
+}
+
+TEST(MaterialSerializationFields)
+{
+    namespace fs = std::filesystem;
+    Project::SetActive(nullptr);
+    // Every field away from its default, through a file and back.
+    MaterialData d;
+    d.Shader = MaterialShader::Unlit;
+    d.BlendMode = MaterialBlendMode::Transparent;
+    d.AlphaCutoff = 0.2f;
+    d.DoubleSided = true;
+    d.PreserveSpecular = false;
+    d.Albedo = { 0.1f, 0.2f, 0.3f, 0.4f };
+    d.AlbedoMap = "Teksturalar/O'zbek g\xCA\xBBisht.png"; // a space, an apostrophe, a non-ASCII letter
+    d.Metallic = 0.6f;
+    d.Roughness = 0.7f;
+    d.MetalRoughMap = "Textures/mr.png";
+    d.NormalMap = "Textures/n.png";
+    d.NormalStrength = 2.5f;
+    d.Emission = { 0.9f, 0.8f, 0.7f };
+    d.EmissionStrength = 12.5f;
+    d.EmissiveMap = "Textures/glow.png";
+    d.Tiling = { 3.0f, -2.0f };
+    d.Offset = { 0.25f, 0.75f };
+    d.SortPriority = -7;
+    MaterialData copy = d;
+    CHECK(!copy.Sanitize() && copy == d); // all in range: nothing changes
+    fs::path dir = MakeTempDir("zamin-material-fields-");
+    fs::path file = dir / "Sub folder" / "Every field.zmat";
+    CHECK(MaterialSerializer::Serialize(d, file)); // makes the folders
+    MaterialData back;
+    CHECK(MaterialSerializer::Deserialize(file, back) && back == d);
+    // Writing what was read gives the same bytes (stable key order, nothing drifts).
+    std::string text = FileSystem::ReadTextFile(file);
+    CHECK(MaterialSerializer::SerializeToString(back) == text);
+    // The keys of the format (renaming one would break every existing file).
+    for (const char* key : { "Version", "Shader", "BlendMode", "AlphaCutoff", "DoubleSided", "PreserveSpecular", "Albedo", "AlbedoMap",
+                             "Metallic", "Roughness", "MetalRoughMap", "NormalMap", "NormalStrength", "Emission", "EmissionStrength",
+                             "EmissiveMap", "Tiling", "Offset", "SortPriority" })
+        CHECK(text.find(std::string("\"") + key + "\":") != std::string::npos);
+    CHECK(text.find("\"SortPriority\": -7") != std::string::npos && text.find("\"Shader\": \"Unlit\"") != std::string::npos);
+    // Without a project there is no registry: no UUIDs next to the paths.
+    CHECK(text.find("UUID") == std::string::npos);
+    // The default material: every key written, read back as the default.
+    std::string defaults = MaterialSerializer::SerializeToString(MaterialData{});
+    CHECK(MaterialSerializer::DeserializeFromString(defaults, back) && back == MaterialData{});
+    CHECK(defaults.find("\"SortPriority\": 0") != std::string::npos && defaults.find("\"Tiling\": [") != std::string::npos);
+
+    // One key alone sets exactly that field (everything else keeps its default).
+    auto only = [](const char* json, const std::function<void(MaterialData&)>& set) {
+        MaterialData expected, read;
+        set(expected);
+        return MaterialSerializer::DeserializeFromString(json, read) && read == expected;
+    };
+    CHECK(only(R"({ "Metallic": 0.25 })", [](MaterialData& m) { m.Metallic = 0.25f; }));
+    CHECK(only(R"({ "Roughness": 1 })", [](MaterialData& m) { m.Roughness = 1.0f; }));
+    CHECK(only(R"({ "Albedo": [0.5, 0.25, 0.125, 0.5] })", [](MaterialData& m) { m.Albedo = { 0.5f, 0.25f, 0.125f, 0.5f }; }));
+    CHECK(only(R"({ "Emission": [2, 0, 1], "EmissionStrength": 3 })", [](MaterialData& m) { m.Emission = { 2, 0, 1 }; m.EmissionStrength = 3; }));
+    CHECK(only(R"({ "BlendMode": "Cutout", "AlphaCutoff": 0.75 })", [](MaterialData& m) { m.BlendMode = MaterialBlendMode::Cutout; m.AlphaCutoff = 0.75f; }));
+    CHECK(only(R"({ "DoubleSided": true })", [](MaterialData& m) { m.DoubleSided = true; }));
+    CHECK(only(R"({ "PreserveSpecular": false })", [](MaterialData& m) { m.PreserveSpecular = false; }));
+    CHECK(only(R"({ "NormalMap": "a/b.png", "NormalStrength": 0.5 })", [](MaterialData& m) { m.NormalMap = "a/b.png"; m.NormalStrength = 0.5f; }));
+    CHECK(only(R"({ "Offset": [1, 2] })", [](MaterialData& m) { m.Offset = { 1, 2 }; }));
+    CHECK(only(R"({ "Tiling": 3 })", [](MaterialData& m) { m.Tiling = glm::vec2(3.0f); })); // before tiling was a vec2
+    CHECK(only(R"({ "SortPriority": 12 })", [](MaterialData& m) { m.SortPriority = 12; }));
+    CHECK(only(R"({ "SortPriority": -2.6 })", [](MaterialData& m) { m.SortPriority = -3; })); // rounded
+    CHECK(only(R"({ "Shader": "Unlit" })", [](MaterialData& m) { m.Shader = MaterialShader::Unlit; }));
+
+    // Files written by the first version of the format (no SortPriority / PreserveSpecular keys).
+    const char* v1 = R"({ "Version": 1, "Shader": "Lit", "BlendMode": "Transparent", "AlphaCutoff": 0.5, "DoubleSided": false,
+        "Albedo": [1, 1, 1, 0.3], "AlbedoMap": "", "Metallic": 0, "Roughness": 0.1, "MetalRoughMap": "", "NormalMap": "",
+        "NormalStrength": 1, "Emission": [0, 0, 0], "EmissionStrength": 0, "EmissiveMap": "", "Tiling": [1, 1], "Offset": [0, 0] })";
+    CHECK(MaterialSerializer::DeserializeFromString(v1, back));
+    CHECK(back.SortPriority == 0 && back.PreserveSpecular && back.BlendMode == MaterialBlendMode::Transparent);
+    CHECK_NEAR(back.Albedo.a, 0.3f, 1e-6f);
+
+    // The Showcase sample's materials (with the standard library's copies in Materials/Standart)
+    // read cleanly and write back unchanged in their values.
+    fs::path samples = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Materials";
+    int checked = 0;
+    std::error_code ec;
+    for (const auto& entry : fs::recursive_directory_iterator(samples, ec))
+    {
+        if (entry.path().extension() != ".zmat")
+            continue;
+        MaterialData sample, again;
+        std::string error;
+        CHECK(MaterialSerializer::Deserialize(entry.path(), sample, &error));
+        MaterialData sanitized = sample;
+        CHECK(!sanitized.Sanitize());
+        CHECK(MaterialSerializer::DeserializeFromString(MaterialSerializer::SerializeToString(sample), again) && again == sample);
+        checked++;
+    }
+    CHECK(checked >= 9 + (int)MaterialPresets::GetAll().size());
+    fs::remove_all(dir, ec);
+}
+
+TEST(MaterialSerializationRobust)
+{
+    namespace fs = std::filesystem;
+    MaterialData read;
+    std::string error;
+    // Wrong types: those keys keep their defaults, the rest is read.
+    CHECK(MaterialSerializer::DeserializeFromString(R"({ "Metallic": "shiny", "Roughness": 0.25, "DoubleSided": 1, "Albedo": "red",
+        "Tiling": [2, "x"], "Shader": 5, "AlbedoMap": 12, "SortPriority": "top", "Emission": { "r": 1 } })", read));
+    CHECK(read.Metallic == 0.0f && read.Roughness == 0.25f && !read.DoubleSided && read.Albedo == glm::vec4(1.0f));
+    CHECK(read.Tiling == glm::vec2(2.0f, 1.0f) && read.Shader == MaterialShader::Lit && read.AlbedoMap.empty() && read.SortPriority == 0);
+    CHECK(read.Emission == glm::vec3(0.0f));
+    CHECK(MaterialSerializer::DeserializeFromString(R"({ "Metallic": null, "Emission": null, "NormalMap": null, "BlendMode": null })", read));
+    CHECK(read == MaterialData{});
+    // Out of range: put into range.
+    CHECK(MaterialSerializer::DeserializeFromString(R"({ "Metallic": 2, "Roughness": -1, "AlphaCutoff": -0.5, "NormalStrength": 50,
+        "EmissionStrength": -3, "Emission": [-1, 0.5, 2], "Albedo": [-0.5, 2, 0.5, 1.5], "SortPriority": 1000 })", read));
+    CHECK(read.Metallic == 1.0f && read.Roughness == 0.0f && read.AlphaCutoff == 0.0f && read.NormalStrength == 10.0f);
+    CHECK(read.EmissionStrength == 0.0f && read.Emission == glm::vec3(0.0f, 0.5f, 2.0f) && read.Albedo == glm::vec4(0.0f, 2.0f, 0.5f, 1.0f));
+    CHECK(read.SortPriority == MaxMaterialSortPriority);
+    CHECK(MaterialSerializer::DeserializeFromString(R"({ "SortPriority": -1e300 })", read) && read.SortPriority == MinMaterialSortPriority);
+    // Numbers JSON holds but a float cannot (infinite as float): the default.
+    CHECK(MaterialSerializer::DeserializeFromString(R"({ "Metallic": 1e39, "Roughness": -1e39, "Tiling": [1e40, 2] })", read));
+    CHECK(read.Metallic == 0.0f && read.Roughness == 0.5f && read.Tiling == glm::vec2(1.0f, 2.0f));
+
+    // Sanitize itself: NaN / infinite values get their defaults, enum values outside the enum too;
+    // a second pass changes nothing.
+    MaterialData bad;
+    bad.Roughness = std::numeric_limits<float>::quiet_NaN();
+    bad.Tiling.x = std::numeric_limits<float>::infinity();
+    bad.Offset.y = -std::numeric_limits<float>::infinity();
+    bad.Albedo.a = std::numeric_limits<float>::quiet_NaN();
+    bad.SortPriority = -500;
+    bad.Shader = (MaterialShader)7;
+    bad.BlendMode = (MaterialBlendMode)9;
+    CHECK(bad.Sanitize());
+    CHECK(bad.Roughness == 0.5f && bad.Tiling == glm::vec2(1.0f) && bad.Offset == glm::vec2(0.0f) && bad.Albedo.a == 1.0f);
+    CHECK(bad.SortPriority == MinMaterialSortPriority && bad.Shader == MaterialShader::Lit && bad.BlendMode == MaterialBlendMode::Opaque);
+    CHECK(!bad.Sanitize());
+
+    // Unknown keys (a newer editor) are skipped; a UTF-8 BOM (some text editors) is fine.
+    CHECK(MaterialSerializer::DeserializeFromString(R"({ "Version": 7, "Metallic": 0.5, "Anisotropy": 0.3, "Layers": [1, 2] })", read));
+    CHECK(read.Metallic == 0.5f);
+    CHECK(MaterialSerializer::DeserializeFromString("\xEF\xBB\xBF{ \"Roughness\": 0.75 }", read) && read.Roughness == 0.75f);
+    // Not a material: fails with a reason, and what `out` held stays.
+    MaterialData keep;
+    keep.Metallic = 0.5f;
+    for (const char* text : { "", "{", "null", "\"text\"", "[1, 2]", "42" })
+    {
+        error.clear();
+        CHECK(!MaterialSerializer::DeserializeFromString(text, keep, &error) && !error.empty());
+    }
+    CHECK(keep.Metallic == 0.5f);
+    fs::path dir = MakeTempDir("zamin-material-robust-");
+    CHECK(!MaterialSerializer::Deserialize(dir, read, &error) && !error.empty());           // a folder
+    CHECK(!MaterialSerializer::Deserialize(dir / "none.zmat", read, &error) && !error.empty()); // missing
+    WriteFile(dir / "empty.zmat", "");
+    CHECK(!MaterialSerializer::Deserialize(dir / "empty.zmat", read, &error));
+    // A broken file in the library: reported once, nullptr, the next good version loads.
+    WriteFile(dir / "broken.zmat", "{ \"Metallic\": ");
+    CHECK(!MaterialLibrary::Load(dir / "broken.zmat"));
+    WriteFile(dir / "broken.zmat", "{ \"Metallic\": 1 }");
+    MaterialLibrary::ReloadFile(dir / "broken.zmat");
+    Ref<MaterialAsset> fixedAsset = MaterialLibrary::Load(dir / "broken.zmat");
+    CHECK(fixedAsset && fixedAsset->GetData().Metallic == 1.0f);
+    // Saving to a place that cannot be written fails (nothing half written is left behind as success).
+    CHECK(!MaterialSerializer::Serialize(MaterialData{}, dir / "empty.zmat" / "inside.zmat"));
+    MaterialLibrary::Clear();
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(MaterialSceneSerialization)
+{
+    // The inline material: every field (with its texture paths) round trips through a scene.
+    auto scene = CreateRef<Scene>();
+    auto& full = scene->CreateEntity("Full").AddComponent<MeshRendererComponent>();
+    full.Type = PrimitiveMesh::Sphere;
+    full.CastShadows = false;
+    full.Mat.Shader = MaterialShader::Unlit;
+    full.Mat.BlendMode = MaterialBlendMode::Transparent;
+    full.Mat.AlphaCutoff = 0.3f;
+    full.Mat.DoubleSided = true;
+    full.Mat.PreserveSpecular = false;
+    full.Mat.Albedo = { 0.1f, 0.2f, 0.3f, 0.4f };
+    full.Mat.Metallic = 0.6f;
+    full.Mat.Roughness = 0.7f;
+    full.Mat.NormalStrength = 1.5f;
+    full.Mat.Emission = { 0.9f, 0.8f, 0.7f };
+    full.Mat.EmissionStrength = 6.0f;
+    full.Mat.Tiling = { 2.0f, 5.0f };
+    full.Mat.Offset = { 0.5f, -0.5f };
+    full.Mat.SortPriority = 9;
+    full.AlbedoPath = "Textures/a.png";
+    full.NormalPath = "Textures/n.png";
+    full.MetalRoughPath = "Textures/mr.png";
+    full.EmissivePath = "Textures/e.png";
+    // A renderer using material assets (the inline material stays as it is underneath).
+    auto& linked = scene->CreateEntity("Linked").AddComponent<MeshRendererComponent>();
+    linked.Type = PrimitiveMesh::Model;
+    linked.ModelPath = "Models/robot.gltf";
+    linked.MaterialPath = "Materials/Gold.zmat";
+    linked.SubmeshMaterials = { "Materials/Glass.zmat", "", "Materials/Wood.zmat" };
+    linked.Mat.Albedo = { 1.0f, 0.5f, 0.5f, 1.0f };
+    scene->CreateEntity("Default").AddComponent<MeshRendererComponent>();
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"SortPriority\": 9") != std::string::npos);
+
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity f = loaded->FindEntityByName("Full"), l = loaded->FindEntityByName("Linked"), d = loaded->FindEntityByName("Default");
+    CHECK(f && l && d);
+    if (f && l && d)
+    {
+        auto& f2 = f.GetComponent<MeshRendererComponent>();
+        auto& l2 = l.GetComponent<MeshRendererComponent>();
+        CHECK(Scene::GetInlineMaterialData(f2) == Scene::GetInlineMaterialData(full));
+        CHECK(f2.Type == PrimitiveMesh::Sphere && !f2.CastShadows && f2.MaterialPath.empty() && f2.SubmeshMaterials.empty());
+        CHECK(l2.MaterialPath == linked.MaterialPath && l2.SubmeshMaterials == linked.SubmeshMaterials && l2.ModelPath == linked.ModelPath);
+        CHECK(l2.Mat.Albedo == linked.Mat.Albedo);
+        CHECK(Scene::GetInlineMaterialData(d.GetComponent<MeshRendererComponent>()) == MaterialData{});
+        // Saved again: the same text (nothing drifts from load to save).
+        CHECK(SceneSerializer(loaded).SerializeToString() == text);
+    }
+
+    // The inline material as a .zmat (the inspector's "save as material asset") and back.
+    MaterialData asAsset = Scene::GetInlineMaterialData(full);
+    MaterialData fromFile;
+    CHECK(MaterialSerializer::DeserializeFromString(MaterialSerializer::SerializeToString(asAsset), fromFile) && fromFile == asAsset);
+    CHECK(fromFile.AlbedoMap == "Textures/a.png" && fromFile.SortPriority == 9);
+    Material drawn;
+    fromFile.ApplyValuesTo(drawn);
+    CHECK(MaterialData::FromMaterial(drawn).SortPriority == 9 && drawn.EmissionStrength == 6.0f);
+
+    // Older scenes: no SortPriority (0); an out of range one is clamped; trailing slots kept empty.
+    auto old = CreateRef<Scene>();
+    CHECK(SceneSerializer(old).DeserializeFromString(R"({ "Scene": "Old", "Entities": [
+        { "Entity": 1, "Tag": "A", "MeshRenderer": { "Mesh": "Cube", "BlendMode": "Transparent", "Albedo": [1, 1, 1, 0.5] } },
+        { "Entity": 2, "Tag": "B", "MeshRenderer": { "Mesh": "Cube", "SortPriority": 400 } },
+        { "Entity": 3, "Tag": "C", "MeshRenderer": { "Mesh": "Cube", "Material": "Materials/X.zmat",
+                                                     "SubmeshMaterials": [ { "Material": "" }, "Materials/Y.zmat" ] } } ] })"));
+    if (Entity a = old->FindEntityByName("A"))
+        CHECK(a.GetComponent<MeshRendererComponent>().Mat.SortPriority == 0);
+    if (Entity b = old->FindEntityByName("B"))
+        CHECK(b.GetComponent<MeshRendererComponent>().Mat.SortPriority == MaxMaterialSortPriority);
+    if (Entity c = old->FindEntityByName("C"))
+    {
+        auto& mr = c.GetComponent<MeshRendererComponent>();
+        CHECK(mr.MaterialPath == "Materials/X.zmat" && mr.SubmeshMaterials == std::vector<std::string>({ "", "Materials/Y.zmat" }));
+    }
+}
+
+TEST(MaterialPresetLibrary)
+{
+    namespace fs = std::filesystem;
+    const auto& presets = MaterialPresets::GetAll();
+    CHECK(presets.size() >= 10);
+    std::set<std::string> ids, files;
+    for (const MaterialPreset& preset : presets)
+    {
+        CHECK(!preset.Id.empty() && !preset.Name.empty() && !preset.FileName.empty() && !preset.Description.empty());
+        ids.insert(preset.Id);
+        files.insert(preset.FileName);
+        MaterialData data = preset.Data;
+        CHECK(!data.Sanitize() && data.GetTexturePaths().empty()); // valid values, textures come from the pattern
+        CHECK(MaterialPresets::Find(preset.Id) == &preset);
+    }
+    CHECK(ids.size() == presets.size() && files.size() == presets.size());
+    const MaterialPreset* metal = MaterialPresets::Find("metal");
+    const MaterialPreset* plastic = MaterialPresets::Find("plastic");
+    const MaterialPreset* wood = MaterialPresets::Find("wood");
+    const MaterialPreset* glass = MaterialPresets::Find("glass");
+    const MaterialPreset* brushed = MaterialPresets::Find("brushed-metal");
+    const MaterialPreset* neon = MaterialPresets::Find("neon");
+    CHECK(metal && plastic && wood && glass && brushed && neon && !MaterialPresets::Find("unobtainium"));
+    if (!metal || !plastic || !wood || !glass || !brushed || !neon)
+        return;
+    CHECK(metal->Data.Metallic == 1.0f && plastic->Data.Metallic == 0.0f && wood->Texture == MaterialPreset::Pattern::Wood);
+    CHECK(glass->Data.BlendMode == MaterialBlendMode::Transparent && glass->Data.Albedo.a < 0.5f && glass->Data.PreserveSpecular);
+    CHECK(neon->Data.GetTexturePaths().empty() && neon->Data.Emission.b * neon->Data.EmissionStrength > 1.0f); // HDR glow
+
+    // Generated textures: the same every time, not flat, and they tile without a seam.
+    for (MaterialPreset::Pattern pattern : { MaterialPreset::Pattern::Wood, MaterialPreset::Pattern::Concrete, MaterialPreset::Pattern::BrushedMetal })
+    {
+        PresetTexture a = MaterialPresets::GenerateTexture(pattern, 64), b = MaterialPresets::GenerateTexture(pattern, 64);
+        CHECK(a.IsValid() && a.Width == 64 && a.Height == 64 && a.Pixels == b.Pixels);
+        int channel = pattern == MaterialPreset::Pattern::BrushedMetal ? 1 : 0; // roughness is in G
+        auto at = [&](uint32_t x, uint32_t y) { return (int)a.Pixels[((size_t)y * 64 + x) * 4 + channel]; };
+        int lo = 255, hi = 0;
+        double inner = 0.0, seamX = 0.0, seamY = 0.0;
+        for (uint32_t y = 0; y < 64; y++)
+            for (uint32_t x = 0; x < 64; x++)
+            {
+                lo = std::min(lo, at(x, y));
+                hi = std::max(hi, at(x, y));
+                if (x + 1 < 64)
+                    inner += std::abs(at(x + 1, y) - at(x, y)) + std::abs(at(y % 64, x + 1) - at(y % 64, x));
+            }
+        for (uint32_t i = 0; i < 64; i++)
+        {
+            seamX += std::abs(at(63, i) - at(0, i));
+            seamY += std::abs(at(i, 63) - at(i, 0));
+        }
+        inner /= 2.0 * 63.0 * 64.0;
+        CHECK(hi - lo > 20);
+        CHECK(seamX / 64.0 < inner * 3.0 + 2.0 && seamY / 64.0 < inner * 3.0 + 2.0);
+        for (size_t i = 3; i < a.Pixels.size(); i += 4)
+            if (a.Pixels[i] != 255) { CHECK(false); break; }
+    }
+    CHECK(!MaterialPresets::GenerateTexture(MaterialPreset::Pattern::None).IsValid());
+    CHECK(MaterialPresets::GenerateTexture(MaterialPreset::Pattern::Wood, 2).Width == 16); // at least 16
+
+    // Made into files: free names; a texture of the same name and a shared file are used as they are.
+    Project::SetActive(nullptr);
+    fs::path dir = MakeTempDir("zamin-presets-");
+    MaterialPresets::CreateResult r1, r2, r3, r4, r5;
+    std::string error;
+    CHECK(MaterialPresets::Create(*wood, dir, false, r1, &error));
+    fs::path woodTexture = dir / "Textures" / "Wood_Albedo.png";
+    CHECK(r1.Material == dir / "Wood.zmat" && r1.Written == std::vector<fs::path>({ woodTexture, dir / "Wood.zmat" }) && !r1.Existed);
+    MaterialData woodData, expected = wood->Data;
+    expected.AlbedoMap = woodTexture.generic_string(); // absolute without a project
+    CHECK(MaterialSerializer::Deserialize(r1.Material, woodData) && woodData == expected);
+    ImageData image;
+    CHECK(Image::Load(woodTexture.string(), image, 4) && image.Width == 256 && image.Height == 256);
+    CHECK(image.Pixels == MaterialPresets::GenerateTexture(MaterialPreset::Pattern::Wood, 256).Pixels);
+    CHECK(MaterialPresets::Create(*wood, dir, false, r2, &error) && r2.Material == dir / "Wood_1.zmat" && r2.Written.size() == 1);
+    CHECK(MaterialPresets::Create(*glass, dir, true, r3, &error) && r3.Material == dir / "Glass.zmat" && !r3.Existed);
+    MaterialData glassData;
+    CHECK(MaterialSerializer::Deserialize(r3.Material, glassData) && glassData == glass->Data);
+    CHECK(MaterialPresets::Create(*glass, dir, true, r4, &error) && r4.Existed && r4.Written.empty() && r4.Material == r3.Material);
+    CHECK(MaterialPresets::Create(*brushed, dir, false, r5, &error));
+    MaterialData brushedData;
+    CHECK(MaterialSerializer::Deserialize(r5.Material, brushedData) && brushedData.AlbedoMap.empty() &&
+          brushedData.MetalRoughMap == (dir / "Textures" / "BrushedMetal_MetalRough.png").generic_string());
+    CHECK(!MaterialPresets::Create(*wood, fs::path(), false, r1, &error) && !error.empty());
+
+    // In a project: paths relative to Assets with UUIDs next to them; the material loads.
+    fs::path projectDir = dir / "Game";
+    CHECK(Project::CreateFromTemplate(projectDir, "PresetGame") != nullptr);
+    bool writes = AssetRegistry::GetWriteMetaFilesByDefault();
+    AssetRegistry::SetWriteMetaFilesByDefault(true);
+    CHECK(Project::Load(projectDir / "PresetGame.zproject") != nullptr);
+    const MaterialPreset* concrete = MaterialPresets::Find("concrete");
+    MaterialPresets::CreateResult inProject;
+    CHECK(concrete && MaterialPresets::Create(*concrete, Project::GetAssetDirectory() / "Materials" / "Standart", true, inProject, &error));
+    MaterialData concreteData;
+    CHECK(MaterialSerializer::Deserialize(inProject.Material, concreteData) &&
+          concreteData.AlbedoMap == "Materials/Standart/Textures/Concrete_Albedo.png");
+    AssetRegistry* registry = Project::GetAssetRegistry();
+    CHECK(registry && registry->GetHandle("Materials/Standart/Concrete.zmat") && registry->GetHandle("Materials/Standart/Textures/Concrete_Albedo.png"));
+    if (registry)
+        CHECK(FileSystem::ReadTextFile(inProject.Material).find("\"AlbedoMapUUID\": \"" +
+              registry->GetHandle("Materials/Standart/Textures/Concrete_Albedo.png").ToString()) != std::string::npos);
+    {
+        FakeTextureLoader loader;
+        Ref<MaterialAsset> loaded = MaterialLibrary::Load(inProject.Material);
+        CHECK(loaded && loaded->GetMaterial().AlbedoMap && loaded->GetMaterial().Roughness == concrete->Data.Roughness);
+    }
+    AssetRegistry::SetWriteMetaFilesByDefault(writes);
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(MaterialThumbnailStamp)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-material-thumbs-");
+    WriteFile(dir / "a.png", "aaaa");
+    WriteFile(dir / "b.png", "bbbbbb");
+    WriteFile(dir / "m.zmat", "{}");
+    std::optional<ThumbnailStamp> base = ThumbnailStamp::Read(dir / "m.zmat", 128);
+    CHECK(base.has_value());
+    if (!base)
+        return;
+    ThumbnailStamp both = base->WithDependencies({ dir / "a.png", dir / "b.png" });
+    CHECK(both == base->WithDependencies({ dir / "b.png", dir / "a.png" })); // the order does not count
+    CHECK(!(both == *base) && base->WithDependencies({}) == *base);
+    CHECK(both.Size == base->Size && both.MaxSize == base->MaxSize);
+    CHECK(!(both == base->WithDependencies({ dir / "a.png" })));            // a texture more or less
+    // A texture changes: so does the stamp.
+    WriteFile(dir / "a.png", "a changed texture");
+    ThumbnailStamp changed = base->WithDependencies({ dir / "a.png", dir / "b.png" });
+    CHECK(!(changed == both));
+    // A missing texture differs from one that is there, and from none.
+    ThumbnailStamp missing = base->WithDependencies({ dir / "c.png" });
+    CHECK(!(missing == *base));
+    WriteFile(dir / "c.png", "");
+    CHECK(!(base->WithDependencies({ dir / "c.png" }) == missing));
+    // The disk cache keeps a picture under the combined stamp: an older version does not load.
+    ThumbnailDiskCache disk(dir / "cache");
+    ThumbnailImage image;
+    image.Width = image.Height = 2;
+    image.Pixels.assign(16, 200);
+    CHECK(disk.Save(dir / "m.zmat", changed, image));
+    ThumbnailImage out;
+    CHECK(disk.Load(dir / "m.zmat", changed, out) && out.Pixels == image.Pixels);
+    CHECK(!disk.Load(dir / "m.zmat", both, out) && !disk.Load(dir / "m.zmat", *base, out));
+    // Material files are an asset type of their own (the editor renders them on a sphere).
+    CHECK(AssetTypes::FromPath(dir / "m.zmat") == AssetType::Material && !AssetThumbnails::CanGenerate(dir / "m.zmat"));
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

@@ -17,6 +17,14 @@ namespace Zamin {
     // Jobs nobody asked for in this many frames (scrolled away, another folder) are dropped.
     static constexpr uint64_t s_ForgetAfterFrames = 90;
 
+    // Bump when material thumbnails are drawn differently (saved ones are made again).
+    static constexpr int64_t s_MaterialThumbnailVersion = 3;
+
+    static double NowSeconds()
+    {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
+
     ThumbnailCache::ThumbnailCache()
     {
         m_Thread = std::thread([this]() { WorkerLoop(); });
@@ -36,7 +44,8 @@ namespace Zamin {
 
     bool ThumbnailCache::CanHaveThumbnail(const fs::path& path)
     {
-        return AssetThumbnails::CanGenerate(path) || AssetTypes::FromPath(path) == AssetType::Model;
+        AssetType type = AssetTypes::FromPath(path);
+        return AssetThumbnails::CanGenerate(path) || type == AssetType::Model || type == AssetType::Material;
     }
 
     void ThumbnailCache::SetCacheDirectory(const fs::path& directory)
@@ -77,18 +86,89 @@ namespace Zamin {
             entry.Path = path;
             entry.Stamp = stamp;
             entry.Status = State::Waiting;
+            entry.Material = AssetTypes::FromPath(path) == AssetType::Material;
             Request(key, entry);
         }
+        else if (entry.Material)
+            FollowLiveMaterial(key, entry);
         return entry.Texture; // the previous version's picture while a new one is made
+    }
+
+    Ref<Texture2D> ThumbnailCache::GetForFile(const fs::path& path)
+    {
+        if (!CanHaveThumbnail(path))
+            return nullptr;
+        std::error_code ec;
+        uintmax_t size = fs::file_size(path, ec);
+        if (ec)
+            return nullptr;
+        fs::file_time_type time = fs::last_write_time(path, ec);
+        if (ec)
+            return nullptr;
+        return Get(path, size, time);
+    }
+
+    void ThumbnailCache::FollowLiveMaterial(const std::string& key, Entry& entry)
+    {
+        if (entry.Status == State::Waiting || entry.Redraw)
+            return;
+        Ref<MaterialAsset> live = entry.Live.lock();
+        // Something may have loaded the material since it was drawn (the inspector, a scene): look
+        // now and then (finding it is a few file system calls).
+        if (!live && m_Frame >= entry.LiveCheckFrame)
+        {
+            entry.LiveCheckFrame = m_Frame + 30;
+            live = MaterialLibrary::Find(entry.Path);
+            entry.Live = live;
+            if (live && live->GetRevision() != entry.RenderedRevision)
+            {
+                // Not what was drawn (the picture came from the disk cache or another load): drawn
+                // again only when it differs from its file - unsaved edits.
+                MaterialData onDisk;
+                if (MaterialSerializer::Deserialize(entry.Path, onDisk) && onDisk == live->GetData())
+                    entry.RenderedRevision = live->GetRevision();
+            }
+        }
+        if (!live || live->GetRevision() == entry.RenderedRevision)
+            return;
+        // Edited (or reloaded): drawn again, a few times a second at most while it keeps changing.
+        double now = NowSeconds();
+        if (entry.LastRenderTime >= 0.0 && now - entry.LastRenderTime < 0.15)
+            return;
+        entry.Redraw = true;
+        if (std::find(m_RenderQueue.begin(), m_RenderQueue.end(), key) == m_RenderQueue.end())
+            m_RenderQueue.push_back(key);
     }
 
     void ThumbnailCache::Request(const std::string& key, Entry& entry)
     {
+        entry.DiskStamp = entry.Stamp;
+        entry.Redraw = false;
+        if (entry.Material)
+        {
+            // A material's picture also shows its textures: their versions are part of the stamp
+            // the disk cache checks (the .zmat is small, read here on the main thread because its
+            // texture paths may be looked up in the asset registry).
+            entry.Dependencies.clear();
+            std::vector<fs::path> textures;
+            MaterialData data;
+            if (MaterialSerializer::Deserialize(entry.Path, data))
+                for (const std::string& texture : data.GetTexturePaths())
+                {
+                    fs::path file = Project::GetAssetFileSystemPath(texture);
+                    textures.push_back(file);
+                    entry.Dependencies.push_back(ThumbnailDiskCache::MakeKey(file));
+                }
+            entry.DiskStamp = entry.Stamp.WithDependencies(textures);
+            // How materials are drawn is part of it, too: a new look makes saved pictures out of date.
+            entry.DiskStamp.Time ^= (int64_t)s_MaterialThumbnailVersion * 0x5BD1E995;
+        }
         Job job;
         job.Key = key;
         job.Path = entry.Path;
         job.Stamp = entry.Stamp;
-        job.Model = AssetTypes::FromPath(entry.Path) == AssetType::Model;
+        job.DiskStamp = entry.DiskStamp;
+        job.Render = AssetTypes::FromPath(entry.Path) == AssetType::Model || entry.Material;
         {
             std::lock_guard lock(m_Mutex);
             std::erase_if(m_Jobs, [&](const Job& j) { return j.Key == key && j.Save.Pixels.empty(); }); // an older version's
@@ -101,9 +181,16 @@ namespace Zamin {
     {
         std::string key = path.string();
         std::string prefix = key + "/";
+        std::string fileKey = ThumbnailDiskCache::MakeKey(path);
+        std::string filePrefix = fileKey + "/";
         std::vector<std::string> gone;
         for (auto& [k, entry] : m_Entries)
         {
+            // A texture of a material (or a folder holding one) changed: the material is drawn again.
+            if (entry.Material && std::any_of(entry.Dependencies.begin(), entry.Dependencies.end(), [&](const std::string& d) {
+                    return d == fileKey || d.starts_with(filePrefix);
+                }))
+                entry.Stamp = {};
             if (k != key && !k.starts_with(prefix))
                 continue;
             std::error_code ec;
@@ -153,16 +240,16 @@ namespace Zamin {
             }
             if (!job.Save.Pixels.empty())
             {
-                disk.Save(job.Path, job.Stamp, job.Save);
+                disk.Save(job.Path, job.DiskStamp, job.Save);
                 continue;
             }
 
             Result result;
             result.Key = job.Key;
             result.Stamp = job.Stamp;
-            if (disk.Load(job.Path, job.Stamp, result.Image))
+            if (disk.Load(job.Path, job.DiskStamp, result.Image))
                 result.FromDisk = true;
-            else if (job.Model)
+            else if (job.Render)
                 result.NeedsRender = true;
             else if (AssetThumbnails::Generate(job.Path, Size, result.Image, &result.Error))
                 disk.Save(job.Path, job.Stamp, result.Image);
@@ -253,38 +340,38 @@ namespace Zamin {
             }
         }
 
-        // One model a frame: loaded (if nothing had it yet), rendered, read back, saved in the background.
+        // One model or material a frame: loaded (if nothing had it yet), rendered, read back, saved
+        // in the background.
         while (!m_RenderQueue.empty())
         {
             std::string key = std::move(m_RenderQueue.front());
             m_RenderQueue.pop_front();
             auto it = m_Entries.find(key);
-            if (it == m_Entries.end() || it->second.Status != State::Waiting)
+            if (it == m_Entries.end() || (it->second.Status != State::Waiting && !it->second.Redraw))
                 continue;
             Entry& entry = it->second;
             if (m_Frame - entry.LastUsed > s_ForgetAfterFrames)
             {
-                entry.Stamp = {}; // not on screen any more: asked for again when it is
+                if (entry.Redraw)
+                    entry.Redraw = false; // asked for again when it is on screen
+                else
+                    entry.Stamp = {}; // not on screen any more: asked for again when it is
                 continue;
             }
             ThumbnailImage image;
-            if (RenderModel(entry.Path, image))
+            bool save = true;
+            bool rendered = entry.Material ? RenderMaterial(entry, image, save) : RenderModel(entry.Path, image);
+            bool redraw = entry.Redraw;
+            entry.Redraw = false;
+            if (rendered)
             {
                 Upload(entry, image);
                 entry.Status = State::Ready;
-                m_Stats.Rendered++;
-                Job save;
-                save.Key = key;
-                save.Path = entry.Path;
-                save.Stamp = entry.Stamp;
-                save.Save = std::move(image);
-                {
-                    std::lock_guard lock(m_Mutex);
-                    m_Jobs.insert(m_Jobs.begin(), std::move(save)); // after what is on screen
-                }
-                m_Wake.notify_one();
+                (entry.Material ? m_Stats.MaterialsRendered : m_Stats.Rendered)++;
+                if (save)
+                    SaveToDisk(key, entry, std::move(image));
             }
-            else
+            else if (!redraw)
             {
                 entry.Status = State::Failed;
                 m_Stats.Failed++;
@@ -307,6 +394,64 @@ namespace Zamin {
         size_t excess = m_Entries.size() - s_MaxTextures;
         for (size_t i = 0; i < byAge.size() && i < excess; i++)
             m_Entries.erase(byAge[i].second);
+    }
+
+    void ThumbnailCache::SaveToDisk(const std::string& key, const Entry& entry, ThumbnailImage image)
+    {
+        Job save;
+        save.Key = key;
+        save.Path = entry.Path;
+        save.Stamp = entry.Stamp;
+        save.DiskStamp = entry.DiskStamp;
+        save.Save = std::move(image);
+        {
+            std::lock_guard lock(m_Mutex);
+            m_Jobs.insert(m_Jobs.begin(), std::move(save)); // after what is on screen
+        }
+        m_Wake.notify_one();
+    }
+
+    bool ThumbnailCache::RenderMaterial(Entry& entry, ThumbnailImage& out, bool& matchesFile)
+    {
+        // The material something already has loaded (with its unsaved edits) - else loaded for the
+        // picture only and released again with the textures it brought.
+        Ref<MaterialAsset> material = MaterialLibrary::Find(entry.Path);
+        bool wasLoaded = material != nullptr;
+        uint64_t textureSerial = TextureLibrary::GetLoadSerial();
+        if (!material)
+            material = MaterialLibrary::Load(entry.Path); // a failure is reported once (AssetImportLog)
+        if (!material)
+            return false;
+        matchesFile = true;
+        if (wasLoaded)
+        {
+            MaterialData onDisk;
+            matchesFile = MaterialSerializer::Deserialize(entry.Path, onDisk) && onDisk == material->GetData();
+        }
+
+        // A sphere on a dark backdrop, lit by the sky gradient and a sun; cutout and transparent
+        // materials get the checkered wall behind, emissive ones bloom.
+        MaterialPreview::Settings settings;
+        settings.PreviewShape = MaterialPreview::Shape::Sphere;
+        settings.Background = false;
+        settings.Yaw = 0.6f;
+        settings.Pitch = 0.25f;
+        settings.Zoom = 0.9f;
+        bool drawn = m_MaterialPreview.Render(material->GetMaterial(), Size, Size, settings) != 0;
+        std::vector<uint8_t> pixels = drawn ? m_MaterialPreview.ReadPixels() : std::vector<uint8_t>();
+        entry.RenderedRevision = material->GetRevision();
+        entry.LastRenderTime = NowSeconds();
+        entry.Live = wasLoaded ? material : Ref<MaterialAsset>();
+        entry.LiveCheckFrame = m_Frame + 30;
+        material.reset();
+        if (!wasLoaded && MaterialLibrary::ReleaseIfUnused(entry.Path))
+            m_Stats.ReleasedTextures += TextureLibrary::ReleaseUnused(textureSerial);
+
+        if (pixels.size() != (size_t)Size * Size * 4)
+            return false;
+        out.Width = out.Height = Size;
+        out.Pixels = std::move(pixels); // ReadPixels gives the top row first
+        return true;
     }
 
     bool ThumbnailCache::RenderModel(const fs::path& path, ThumbnailImage& out)

@@ -2797,6 +2797,7 @@ namespace Zamin {
         else
             DebugDraw::Hold(); // paused: the last game frame's shapes stay, nothing piles up
 
+        m_UIDeferred = false;
         Entity cameraEntity = GetPrimaryCameraEntity();
         if (!cameraEntity)
             return;
@@ -2814,12 +2815,8 @@ namespace Zamin {
         // debug drawing, ScreenToWorld) is what the view shows of it.
         if (camera.PixelPerfect.SnapSprites)
             options.PixelSnap = pixel.SnapUnit;
-        if (pixel.Upscale)
-        {
-            glm::vec2 offset = glm::vec2(PixelPerfect::GetUpscaleOffset(pixel));
-            glm::vec2 covered = glm::vec2(pixel.RenderSize) * (float)pixel.Zoom;
-            options.UIViewRect = { -offset.x, covered.x - offset.x, -offset.y, covered.y - offset.y };
-        }
+        // Upscaling: the UI is drawn by the host at the screen's resolution (crisp text).
+        options.DeferUI = m_UIDeferred = pixel.Upscale;
         const float nearClip = camera.Camera.GetOrthographicNearClip(), farClip = camera.Camera.GetOrthographicFarClip();
         RenderScene(glm::inverse(cameraWorld), PixelPerfect::GetProjection(pixel, nearClip, farClip, true), glm::vec3(cameraWorld[3]), options);
         m_LastProjection = PixelPerfect::GetProjection(pixel, nearClip, farClip, false);
@@ -4219,7 +4216,18 @@ namespace Zamin {
         Renderer2D::EndScene();
         }
 
-        RenderUI(hidden.empty() ? nullptr : &hidden, options.UIViewRect);
+        if (!options.DeferUI)
+            RenderUI(hidden.empty() ? nullptr : &hidden);
+    }
+
+    void Scene::RenderDeferredUI()
+    {
+        if (!m_UIDeferred)
+            return;
+        EnsureActiveCache();
+        Renderer2D::SetDisplayOutput(true);
+        RenderUI(m_InactiveInHierarchy.empty() ? nullptr : &m_InactiveInHierarchy);
+        Renderer2D::SetDisplayOutput(false);
     }
 
     Lighting2DData Scene::GatherLights2D(const std::function<const glm::mat4&(entt::entity)>& world, const glm::vec2& viewCenter,
@@ -4299,7 +4307,7 @@ namespace Zamin {
         return GatherLights2D(world, viewCenter, nullptr, m_InactiveInHierarchy);
     }
 
-    void Scene::RenderUI(const std::unordered_set<entt::entity>* skip, const glm::vec4& viewRect)
+    void Scene::RenderUI(const std::unordered_set<entt::entity>* skip)
     {
         // ---------------- screen-space UI (pixels, bottom-left origin)
         auto uiView = m_Registry.view<UITransformComponent>();
@@ -4318,10 +4326,7 @@ namespace Zamin {
 
         RenderCommand::SetDepthTest(false);
         Renderer2D::SetLit(false);
-        if (viewRect != glm::vec4(0.0f))
-            Renderer2D::BeginScene(glm::ortho(viewRect.x, viewRect.y, viewRect.z, viewRect.w, -1.0f, 1.0f));
-        else
-            Renderer2D::BeginScene(glm::ortho(0.0f, viewport.x, 0.0f, viewport.y, -1.0f, 1.0f));
+        Renderer2D::BeginScene(glm::ortho(0.0f, viewport.x, 0.0f, viewport.y, -1.0f, 1.0f));
         for (auto e : ui)
         {
             const auto& t = m_Registry.get<UITransformComponent>(e);

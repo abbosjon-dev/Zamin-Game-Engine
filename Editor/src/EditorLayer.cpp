@@ -1022,6 +1022,9 @@ namespace Zamin {
         const bool neutralPost = IsDebugViewActive() && !Renderer3D::DebugViewUsesPostProcessing(m_DebugView);
         PostProcessor::Apply(post, neutralPost ? PostProcessSettings::Neutral() : m_ActiveScene->GetSettings().Post, m_FinalFramebuffer);
         m_FinalFramebuffer->Bind();
+        // A pixel-perfect game's UI: over the finished picture, at the viewport's resolution.
+        if (m_SceneState == SceneState::Play && m_ActiveScene->HasDeferredUI())
+            m_ActiveScene->RenderDeferredUI();
         RenderSelectionOutline();
         RenderDebugDraw();
         {

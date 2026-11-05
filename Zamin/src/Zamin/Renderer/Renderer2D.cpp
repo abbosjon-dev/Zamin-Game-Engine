@@ -74,6 +74,7 @@ in vec2 v_WorldPos;
 
 uniform sampler2D u_Textures[16];
 uniform int u_LinearTextures; // bit per slot: the texture holds linear values (import setting sRGB off)
+uniform int u_DisplayOutput;  // 1: written as display (sRGB) colour - drawn over the finished picture
 
 // 2D lights (Light2DMath does the same on the CPU)
 const int MAX_LIGHTS_2D = 32;
@@ -229,7 +230,7 @@ void main()
     }
     if (alpha < 0.01)
         discard;
-    o_Color = vec4(rgb, alpha);
+    o_Color = vec4(u_DisplayOutput == 1 ? pow(max(rgb, vec3(0.0)), vec3(1.0 / 2.2)) : rgb, alpha);
     o_EntityID = v_EntityID;
 }
 )";
@@ -270,6 +271,7 @@ in vec4 v_Color;
 in float v_Thickness;
 in float v_Fade;
 flat in int v_EntityID;
+uniform int u_DisplayOutput; // 1: display (sRGB) colour
 
 void main()
 {
@@ -278,7 +280,7 @@ void main()
     circle *= smoothstep(v_Thickness + v_Fade, v_Thickness, distance);
     if (circle == 0.0)
         discard;
-    o_Color = vec4(pow(v_Color.rgb, vec3(2.2)), v_Color.a * circle);
+    o_Color = vec4(u_DisplayOutput == 1 ? v_Color.rgb : pow(v_Color.rgb, vec3(2.2)), v_Color.a * circle);
     o_EntityID = v_EntityID;
 }
 )";
@@ -307,10 +309,11 @@ layout(location = 1) out int o_EntityID;
 
 in vec4 v_Color;
 flat in int v_EntityID;
+uniform int u_DisplayOutput; // 1: display (sRGB) colour
 
 void main()
 {
-    o_Color = vec4(pow(v_Color.rgb, vec3(2.2)), v_Color.a);
+    o_Color = vec4(u_DisplayOutput == 1 ? v_Color.rgb : pow(v_Color.rgb, vec3(2.2)), v_Color.a);
     o_EntityID = v_EntityID;
 }
 )";
@@ -380,6 +383,8 @@ void main()
             LineVertex* LineVertexBufferPtr = nullptr;
 
             float LineWidth = 2.0f;
+
+            int DisplayOutput = 0; // 1: display (sRGB) colours, see SetDisplayOutput
 
             // 2D lighting: what lit quads get (uploaded with the next quad draw that follows a change)
             float CurrentLit = 0.0f;
@@ -558,6 +563,7 @@ void main()
         s_Data->QuadShader->Bind();
         s_Data->QuadShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
         s_Data->QuadShader->SetInt("u_LinearTextures", linearTextures);
+        s_Data->QuadShader->SetInt("u_DisplayOutput", s_Data->DisplayOutput);
         if (s_Data->LightingDirty)
             UploadLighting();
         RenderCommand::DrawIndexed(s_Data->QuadVertexArray, s_Data->QuadIndexCount);
@@ -575,6 +581,7 @@ void main()
         s_Data->CircleVertexBuffer->SetData(s_Data->CircleVertexBufferBase, dataSize);
         s_Data->CircleShader->Bind();
         s_Data->CircleShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
+        s_Data->CircleShader->SetInt("u_DisplayOutput", s_Data->DisplayOutput);
         RenderCommand::DrawIndexed(s_Data->CircleVertexArray, s_Data->CircleIndexCount);
         Renderer::GetStats().DrawCalls++;
         s_Data->CircleIndexCount = 0;
@@ -589,6 +596,7 @@ void main()
         s_Data->LineVertexBuffer->SetData(s_Data->LineVertexBufferBase, dataSize);
         s_Data->LineShader->Bind();
         s_Data->LineShader->SetMat4("u_ViewProjection", s_Data->ViewProjection);
+        s_Data->LineShader->SetInt("u_DisplayOutput", s_Data->DisplayOutput);
         RenderCommand::SetLineWidth(s_Data->LineWidth);
         RenderCommand::DrawLines(s_Data->LineVertexArray, s_Data->LineVertexCount);
         Renderer::GetStats().DrawCalls++;
@@ -811,6 +819,14 @@ void main()
     const Lighting2DData& Renderer2D::GetLighting() { return s_Data->Lighting; }
 
     void Renderer2D::SetLit(bool lit) { s_Data->CurrentLit = lit ? 1.0f : 0.0f; }
+
+    void Renderer2D::SetDisplayOutput(bool display)
+    {
+        if ((s_Data->DisplayOutput == 1) == display)
+            return;
+        Flush(); // what is pending was meant for the other output
+        s_Data->DisplayOutput = display ? 1 : 0;
+    }
     bool Renderer2D::IsLit() { return s_Data->CurrentLit > 0.5f; }
 
     float Renderer2D::GetLineWidth() { return s_Data->LineWidth; }

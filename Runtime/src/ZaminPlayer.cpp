@@ -135,6 +135,9 @@ namespace Zamin {
                     input.PixelOffset = PixelPerfect::GetUpscaleOffset(pixel);
                 }
                 PostProcessor::Apply(input, post, nullptr);
+                // A pixel-perfect game's UI: over the finished picture, at the screen's resolution.
+                if (m_Scene->HasDeferredUI())
+                    m_Scene->RenderDeferredUI();
 
                 // Debug drawing over the finished picture, depth tested against the scene.
                 if (m_Scene->GetPrimaryCameraEntity())

@@ -128,9 +128,9 @@ namespace Zamin {
         // Pixel-perfect camera (SnapSprites): sprites and tilemaps are drawn at the nearest multiple
         // of this many world units (0: where they are).
         float PixelSnap = 0.0f;
-        // Screen-space UI: the viewport pixels (left, right, bottom, top) the render target spans
-        // (a pixel-perfect camera's upscaled picture is centred); all 0: the viewport itself.
-        glm::vec4 UIViewRect{ 0.0f };
+        // Screen-space UI is left out of the scene picture: the host draws it over the finished one
+        // (Scene::RenderDeferredUI) - a pixel-perfect camera's low-resolution picture gets crisp UI.
+        bool DeferUI = false;
     };
 
     class Scene
@@ -379,6 +379,11 @@ namespace Zamin {
         // camera's render target (upscaling: the art's resolution; otherwise the view's own size),
         // else the render scale's (Renderer::GetRenderResolution).
         glm::uvec2 GetRuntimeRenderResolution(uint32_t width, uint32_t height);
+        // The last game frame left its screen-space UI out (a pixel-perfect camera that upscales):
+        // the host draws it with RenderDeferredUI over the finished (post-processed) picture, at the
+        // view's resolution, into the bound target (display colours, not tonemapped).
+        bool HasDeferredUI() const { return m_UIDeferred; }
+        void RenderDeferredUI();
 
         // ---- particles (nothing is emitted for an entity that is not active in the hierarchy)
         void EmitParticles(Entity entity, int count);
@@ -558,7 +563,7 @@ namespace Zamin {
         void UpdateParticles(Timestep ts, bool editor);
         void UpdateUI();
 
-        void RenderUI(const std::unordered_set<entt::entity>* skip, const glm::vec4& viewRect = glm::vec4(0.0f));
+        void RenderUI(const std::unordered_set<entt::entity>* skip);
         // The Light 2D lights the view sees (culled by `frustum` when given; the nearest to
         // `viewCenter` first, at most Light2DMath::MaxLights) and the scene's 2D ambient light.
         Lighting2DData GatherLights2D(const std::function<const glm::mat4&(entt::entity)>& world, const glm::vec2& viewCenter,
@@ -678,6 +683,7 @@ namespace Zamin {
         Ref<class EnvironmentMap> m_EnvMap;
         std::string m_EnvMapPath;
         bool m_MouseDown = false, m_MouseWasDown = false;
+        bool m_UIDeferred = false;
         entt::entity m_PressedButton = entt::null;
 
         std::unordered_map<UUID, entt::entity> m_EntityMap;

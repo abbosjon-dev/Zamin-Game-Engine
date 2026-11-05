@@ -92,6 +92,10 @@ namespace Zamin {
         static const Lighting2DData& GetLighting();
         static void SetLit(bool lit);
         static bool IsLit();
+        // Off (default): linear colours for the HDR scene picture that post-processing finishes.
+        // On: display (sRGB) colours, for drawing over the finished picture (a pixel-perfect game's
+        // screen-space UI at the screen's resolution).
+        static void SetDisplayOutput(bool display);
 
         static float GetLineWidth();
         static void SetLineWidth(float width);

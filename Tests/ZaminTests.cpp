@@ -14861,6 +14861,87 @@ TEST(YSortedSortingLayers)
     fs::remove_all(dir, ec);
 }
 
+TEST(TopDown2DSampleScene)
+{
+    namespace fs = std::filesystem;
+    // The Platformer2D sample's TopDown2D scene: a Y-sorted "Obyektlar" layer, Lit sprites and a Lit
+    // tilemap under 2D lights at night, tint animations, a pixel-perfect camera following the hero and
+    // an auto-tiled path. The project file is only read (its sorting layers).
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D";
+    SortingLayerList layers;
+    {
+        std::ifstream in(root / "Platformer2D.zproject");
+        std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        size_t at = text.find("\"SortingLayers\"");
+        CHECK(at != std::string::npos);
+        size_t open = text.find('[', at), close = text.find(']', open);
+        CHECK(ProjectSerializer::SortingLayersFromString(text.substr(open, close - open + 1), layers));
+    }
+    const SortingLayer* objects = layers.FindByName("Obyektlar");
+    CHECK(objects && objects->YSort && layers.GetIndex(objects->ID) > layers.GetIndex(SortingLayerList::DefaultID));
+    CHECK(!layers.IsYSorted(SortingLayerList::DefaultID));
+
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "TopDown2D.zscene"));
+    Entity player = scene->FindEntityByName("Player"), camera = scene->FindEntityByName("Main Camera"), ground = scene->FindEntityByName("Zamin");
+    CHECK(player && camera && ground);
+    if (!player || !camera || !ground || !objects)
+        return;
+    // The hero: on the Y-sorted layer, its shadow a part of it (sorted at its feet, under it).
+    CHECK(player.GetComponent<SpriteRendererComponent>().SortingLayer == objects->ID && player.GetComponent<SpriteRendererComponent>().Lit);
+    Entity shadow = scene->FindChild(player, "Soya");
+    CHECK(shadow && scene->GetSortRoot(shadow, objects->ID) == player && !shadow.GetComponent<SpriteRendererComponent>().Lit);
+    CHECK(player.GetComponent<Rigidbody2DComponent>().GravityScale == 0.0f && scene->GetSettings().Gravity == glm::vec2(0.0f));
+    // The camera: pixel perfect (16 px per unit, 320 x 180), following the hero inside the map.
+    const auto& cc = camera.GetComponent<CameraComponent>();
+    CHECK(cc.IsPixelPerfect() && cc.PixelPerfect.PixelsPerUnit == 16.0f && cc.PixelPerfect.ReferenceResolution == glm::ivec2(320, 180) &&
+          cc.PixelPerfect.UpscaleRenderTarget);
+    CHECK(camera.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)player.GetUUID() && camera.GetComponent<Camera2DFollowComponent>().UseBounds);
+    // The ground: Lit, three layers, the path painted with the tileset's auto-tile rule.
+    auto& tm = ground.GetComponent<TilemapComponent>();
+    CHECK(tm.Lit && tm.GetLayerCount() == 3 && tm.FindLayer("Yo'lak") == 1 && !tm.Collision);
+    std::optional<AssetMetadata> meta = AssetMetaFile::Read(root / "Assets" / "Textures" / "topdown.png");
+    AutoTileSet rules = meta ? AutoTileSet::FromImportSettings(meta->Import) : AutoTileSet();
+    CHECK(rules.Rules.size() == 1 && rules.Rules[0].Mode == AutoTileMode::Blob8);
+    if (rules.Rules.size() == 1)
+    {
+        CHECK(AutoTile::Refresh(tm, 1, rules.Rules[0], 0, 0, tm.Width - 1, tm.Height - 1) == 0);
+        size_t path = std::count_if(tm.Layers[1].Tiles.begin(), tm.Layers[1].Tiles.end(), [&](int t) { return rules.Rules[0].Contains(t); });
+        CHECK(path > 150);
+    }
+    // Lights at night: a dark ambient, many lights, Lit sprites; tints on the crystals and the fire.
+    CHECK(scene->GetSettings().Lighting2D.AmbientIntensity < 0.5f);
+    size_t lights = 0, lit = 0, tints = 0, ySorted = 0;
+    for (auto e : scene->GetAllEntitiesWith<Light2DComponent>()) { (void)e; lights++; }
+    for (auto e : scene->GetAllEntitiesWith<TintAnimationComponent>()) { (void)e; tints++; }
+    for (auto e : scene->GetAllEntitiesWith<SpriteRendererComponent>())
+    {
+        const auto& s = Entity(e, scene.get()).GetComponent<SpriteRendererComponent>();
+        lit += s.Lit ? 1 : 0;
+        ySorted += s.SortingLayer == objects->ID ? 1 : 0;
+    }
+    CHECK(lights >= 12 && lit > 50 && tints == 6 && ySorted > 60);
+
+    // Played headless (the camera made not primary: nothing is drawn): the crystals pulse out of step,
+    // the hero stands still without input (no gravity), the lights near the fire include it.
+    camera.GetComponent<CameraComponent>().Primary = false;
+    auto play = Scene::Copy(scene);
+    play->OnViewportResize(1600, 900);
+    play->OnRuntimeStart();
+    glm::vec3 start = play->FindEntityByName("Player").GetTransform().Translation;
+    for (int k = 0; k < 40; k++)
+        play->OnUpdateRuntime(1.0f / 60.0f);
+    std::vector<Entity> crystals = play->FindEntitiesByName("Kristall");
+    CHECK(crystals.size() == 5);
+    if (crystals.size() == 5)
+        CHECK(Scene::GetTint(crystals[0]) != Scene::GetTint(crystals[1]) && crystals[0].GetComponent<TintAnimationComponent>().Playing);
+    CHECK(glm::length(play->FindEntityByName("Player").GetTransform().Translation - start) < 1e-3f);
+    Entity fire = play->FindEntityByName("Gulxan");
+    Lighting2DData near = play->CollectLights2D(glm::vec2(fire.GetTransform().Translation));
+    CHECK(!near.Lights.empty() && near.Lights[0].Position == glm::vec2(fire.GetTransform().Translation));
+    play->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

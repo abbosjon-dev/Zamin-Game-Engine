@@ -90,7 +90,9 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - **Saralash qatlamlari** (Loyiha sozlamalari > Saralash qatlamlari): nomlangan qatlamlar ro'yxati (tartibi — chizish
     tartibi), sprite, doira, matn, tilemap va particle'larda qatlam + qatlamdagi tartib; chizish tartibi: qatlam, tartib,
     keyin kameradan uzoqlik. Obyektlar qatlamni ID bilan eslaydi (qayta nomlash/surish buzmaydi, boshqa loyihadan kelgan
-    sahna nom bo'yicha topadi)
+    sahna nom bo'yicha topadi). **Y bo'yicha saralash** (qatlamning "Y" belgisi, top-down o'yinlar): qatlam ichida avval Y —
+    yuqoriroqdagi orqada; saralash nuqtasi pivot (oyoqlar), shu qatlamdagi ota-obyekt ostidagi qismlar (soya, qalpoq)
+    otaning Y'i bilan birga, o'zaro tartib bo'yicha chiziladi
   - **Parallax** komponenti: obyekt (bolalari bilan) o'yin kamerasi bilan `Factor` (0 — oddiy, 1 — ekranda qotgan, manfiy —
     old plan) bo'yicha siljiydi, `RepeatX`/`RepeatY` bilan sprite ko'rinadigan joyni cheksiz to'ldiradi. Transform
     o'zgarmaydi (fizika va skriptlarga ta'sir qilmaydi); editorda Ko'rinish > Parallax bilan editor kamerasida ham.
@@ -108,6 +110,19 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     skriptdan `Flash(rang, soniya)` — darhol to'liq, so'ng so'nib boradi (pauzada kutadi); `OutlineThickness` (tekstura
     pikseli) — rasmning ko'rinadigan piksellari atrofida `OutlineColor` chegarasi (shader qo'shni alfalarni tekshiradi,
     quad kontur kengligicha kattalashadi, atlas kadridan tashqariga chiqmaydi; Simple rejimda), `SetOutline(rang, qalinlik)`.
+  - **Tint animatsiyasi** (Tint Animation komponenti): renderer rangi (Sprite, Circle, Text, Tilemap va Light 2D) x gradiyent
+    rangi — kalitlar (vaqt 0..1 + rang), davomiylik, Bir marta / Takror / Borib-qaytish, easing, sikllar soni, boshlanish
+    siljishi; renderer'ning o'z rangi o'zgarmaydi. Inspektorda gradiyent chizig'i va "Sahnada ko'rish". Skriptdan:
+    `PlayTint(rang, soniya, rejim, sikllar)` (masalan miltillash), `StopTint()`, `TweenColor(rang, soniya)`, `FadeTo(alfa, soniya)`
+  - **2D yorug'lik** (Light 2D komponenti): nuqta yoki konus (obyektning +X o'qi bo'ylab), rang, kuch, radius, ichki radius,
+    so'nish darajasi, miltillash (mash'al); sahnaning 2D muhit yorug'ligi (Sahna sozlamalari > 2D yorug'lik). Faqat "Lit"
+    belgilangan sprite va tilemap'lar yoritiladi (shader ichida, eng yaqin 32 ta yorug'lik qo'shiladi) — eski sahnalar
+    o'zgarmaydi. Editorda tanlanganda radius/konus chiziladi
+  - **Pixel-perfect kamera** (ortografik kamera > Pixel-perfect): piksel/birlik va asosiy o'lcham (masalan 320x180) —
+    kattalashtirish shu o'lcham sig'adigan eng katta butun son; "past o'lchamda chizish" — sahna art o'lchamida chiziladi
+    va aniq piksellar bilan kattalashtiriladi (UI esa ekran o'lchamida, tiniq); kamera (ixtiyoriy sprite'lar ham) piksel
+    to'rida. Namuna: Platformer2D `Scenes/TopDown2D.zscene` — tungi qishloq: Y bo'yicha saralash, fonarlar, gulxan va
+    kristallar yorug'ligi, tint animatsiyalar, auto-tile yo'lak, 9-slice HUD, pixel-perfect kamera (WASD)
     Ekran UI sprite'larida ham ishlaydi; sozlanmagan sprite'lar avvalgidek chiziladi
   - 3D PBR (metallic/roughness), yo'naltirilgan quyosh, gradient osmon, atrof-muhit aksi
   - **Bir nechta quyosh**: barcha faol Directional Light'lar (bir vaqtda 4 tagacha) sahnani yoritadi, soyani esa faqat

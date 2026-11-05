@@ -180,11 +180,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 153. Tilemap: animatsiyali plitkalar
 - [x] 154. Tilemap: kattalashtirish/kichraytirishda palitra
 - [x] 155. Sprite outline/flash effekti (hit flash)
-- [ ] 156. Sprite rang tint animatsiyasi
-- [ ] 157. 2D yorug'lik (oddiy point light 2D, additive)
-- [ ] 158. Pixel-perfect kamera rejimi
-- [ ] 159. Sprite'larni Y bo'yicha saralash (top-down o'yinlar)
-- [ ] 160. 2D testlari
+- [x] 156. Sprite rang tint animatsiyasi
+- [x] 157. 2D yorug'lik (oddiy point light 2D, additive)
+- [x] 158. Pixel-perfect kamera rejimi
+- [x] 159. Sprite'larni Y bo'yicha saralash (top-down o'yinlar)
+- [x] 160. 2D testlari
 
 ## M09 2D fizika II
 

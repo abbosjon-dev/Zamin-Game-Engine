@@ -100,6 +100,11 @@
             "Name": "Default"
         },
         {
+            "ID": 3,
+            "Name": "Obyektlar",
+            "YSort": true
+        },
+        {
             "ID": 2,
             "Name": "Oldingi plan"
         }

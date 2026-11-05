@@ -5321,8 +5321,8 @@ namespace Zamin {
                                                                "ham ruxsat berishi kerak)");
             if (physicsRunning)
             {
-                UI::PropertyLabel("Holati");
-                ImGui::TextDisabled(ICON_FA_WIND "  %d ta jismga ta'sir qilyapti", c.AffectedBodies);
+                UI::PropertyLabel("Itarilayotgan", "Oxirgi fizika qadamida ta'sir qilgan jismlar");
+                ImGui::TextDisabled(ICON_FA_WIND "  %d ta jism", c.AffectedBodies);
             }
             return changed;
         }, true, modified);
@@ -5379,8 +5379,10 @@ namespace Zamin {
                                                                "ham ruxsat berishi kerak)");
             if (physicsRunning)
             {
-                UI::PropertyLabel("Holati");
-                ImGui::TextDisabled(ICON_FA_WATER "  %d ta jism suvda, botgan yuza %.2f", c.AffectedBodies, c.SubmergedArea);
+                UI::PropertyLabel("Suvdagi jismlar", "Oxirgi fizika qadamida suyuqlik ichida bo'lgan jismlar");
+                ImGui::TextDisabled(ICON_FA_WATER "  %d ta", c.AffectedBodies);
+                UI::PropertyLabel("Botgan yuza", "Ularning sirt ostidagi umumiy yuzasi (kvadrat birlik)");
+                ImGui::TextDisabled("%.2f", c.SubmergedArea);
             }
             return changed;
         }, true, modified);

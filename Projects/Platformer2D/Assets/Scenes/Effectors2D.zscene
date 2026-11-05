@@ -417,8 +417,8 @@
                 "LinearDrag": 1.5,
                 "AngularDrag": 1.0,
                 "FlowAngle": 0.0,
-                "FlowMagnitude": 1.2,
-                "FlowVariation": 0.8,
+                "FlowMagnitude": 0.6,
+                "FlowVariation": 0.6,
                 "ColliderMask": 65535
             }
         },
@@ -1459,7 +1459,7 @@
             "Transform": {
                 "Translation": [
                     15.6,
-                    -1.5,
+                    -1.0,
                     0
                 ],
                 "Rotation": [
@@ -1496,7 +1496,7 @@
                     },
                     "MinAngle": {
                         "Type": "Float",
-                        "Value": 166.0
+                        "Value": 172.0
                     },
                     "MaxAngle": {
                         "Type": "Float",

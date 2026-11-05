@@ -46,9 +46,9 @@ private:
             ApplyImpulse(e, (d + glm::vec2(0.0f, 0.35f)) * Strength * falloff);
         }
         // What it reached: the circle for a moment.
-        DebugDraw::Circle({ center, 0.5f }, Radius, glm::vec4(1.0f, 0.6f, 0.25f, 0.9f), 0.25f, false);
-        DebugDraw::Text({ center + glm::vec2(0.0f, Radius + 0.3f), 0.5f }, std::format("{} ta jism", found.size()),
-                        glm::vec4(1.0f, 0.8f, 0.4f, 1.0f), 0.6f);
+        DebugDraw::Circle({ center, 0.5f }, Radius, glm::vec4(1.0f, 0.6f, 0.25f, 0.9f), 0.9f, false);
+        DebugDraw::Text({ center + glm::vec2(0.0f, Radius + 0.3f), 0.5f }, std::format("OverlapCircle2D: {} ta jism", found.size()),
+                        glm::vec4(1.0f, 0.8f, 0.4f, 1.0f), 0.9f);
     }
 
     float m_Time = 0.0f;
@@ -88,7 +88,8 @@ public:
         const glm::vec3 last = hits.empty() ? to : glm::vec3(glm::vec2(hits.back().Point), z);
         DebugDraw::Line(from, last, glm::vec4(1.0f, 0.25f, 0.2f, 0.95f), 0.0f, false);
         DebugDraw::Line(last, to, glm::vec4(1.0f, 0.3f, 0.25f, 0.25f), 0.0f, false);
-        for (size_t i = 0; i < hits.size(); i++)
+        // (With the debug view of the queries on, the engine numbers the hits itself.)
+        for (size_t i = 0; i < hits.size() && !DebugDraw::IsShowingRaycasts(); i++)
         {
             const glm::vec3 p(glm::vec2(hits[i].Point), z);
             DebugDraw::Point(p, glm::vec4(1.0f, 0.9f, 0.3f, 1.0f), 0.0f, false, 10.0f);

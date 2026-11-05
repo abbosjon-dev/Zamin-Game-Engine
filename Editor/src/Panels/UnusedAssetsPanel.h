@@ -54,6 +54,7 @@ namespace Zamin {
         AssetTypeFilter m_Filter;
         bool m_LogResult = false;
         std::vector<std::string> m_PendingDelete;
+        std::vector<AssetInUse> m_DeleteUses;   // other files that still name what is being deleted
         bool m_OpenDeletePopup = false;
     };
 

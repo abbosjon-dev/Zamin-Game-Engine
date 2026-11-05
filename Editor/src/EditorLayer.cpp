@@ -97,6 +97,7 @@ namespace Zamin {
             m_SceneHierarchyPanel.AcknowledgeSelection();
         };
         m_ContentBrowserPanel.OnFilesChanged = [this]() { m_AssetUsage.MarkDirty(); };
+        m_ContentBrowserPanel.SetUsageCache(&m_AssetUsage); // deleting warns about assets in use
         m_ContentBrowserPanel.OnFindUnusedAssets = [this]() { m_ShowUnusedAssets = true; };
 
         // Where assets are used: saved files, and the open scene as it is in the editor.
@@ -192,7 +193,11 @@ namespace Zamin {
                 m_AssetInspectorPanel.SetAsset(path);
                 m_SceneHierarchyPanel.AcknowledgeSelection();
             }
-            // ZAMIN_EDITOR_SEARCH=<text>: the content browser searches for it (and logs the results).
+            // ZAMIN_EDITOR_DELETE_PROMPT=<path relative to Assets>: the content browser asks to delete
+            // it (the confirmation only; nothing is deleted without a click).
+            if (const char* prompt = std::getenv("ZAMIN_EDITOR_DELETE_PROMPT"))
+                m_ContentBrowserPanel.RequestDelete({ Project::GetAssetFileSystemPath(prompt).lexically_normal() });
+            // ZAMIN_EDITOR_SEARCH=<text>: the content browser searches for it.
             if (const char* search = std::getenv("ZAMIN_EDITOR_SEARCH"))
                 m_ContentBrowserPanel.SetSearch(search);
             // ZAMIN_EDITOR_UNUSED=1 | deep: the unused assets window scans and logs what it found.

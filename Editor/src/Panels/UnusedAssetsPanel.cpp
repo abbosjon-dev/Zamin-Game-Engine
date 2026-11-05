@@ -254,6 +254,13 @@ namespace Zamin {
         {
             ImGui::OpenPopup("###DeleteUnused");
             m_OpenDeletePopup = false;
+            // Unused in the deep sense can still be named by files nothing opens (an old scene).
+            m_DeleteUses.clear();
+            if (m_Usage)
+            {
+                std::vector<fs::path> paths(m_PendingDelete.begin(), m_PendingDelete.end());
+                m_DeleteUses = m_Usage->Get(true).FindUsesOutside(paths);
+            }
         }
         if (!ImGui::BeginPopupModal(ICON_FA_TRASH "  Ishlatilmagan assetlarni o'chirish###DeleteUnused", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             return;
@@ -265,6 +272,15 @@ namespace Zamin {
             ImGui::BulletText("%s", m_PendingDelete[i].c_str());
         if (m_PendingDelete.size() > 10)
             ImGui::TextDisabled("... va yana %zu ta", m_PendingDelete.size() - 10);
+        bool reveal = false;
+        fs::path clicked;
+        if (!m_DeleteUses.empty())
+        {
+            ImGui::Spacing();
+            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %zu tasi hali ham boshqa fayllarda tilga olingan "
+                               "(ishlatilmaydigan sahna / prefablarda):", m_DeleteUses.size());
+            reveal = ContentBrowserPanel::DrawAssetsInUse(m_DeleteUses, &clicked);
+        }
         ImGui::TextDisabled("Fayllar .zmeta bilan birga o'chadi. Bu amalni qaytarib bo'lmaydi.");
         ImGui::Spacing();
         if (ImGui::Button(ICON_FA_TRASH "  O'chirish", ImVec2(140, 0)))
@@ -297,10 +313,12 @@ namespace Zamin {
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Bekor qilish", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+        if (ImGui::Button("Bekor qilish", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false) || reveal)
         {
             m_PendingDelete.clear();
             ImGui::CloseCurrentPopup();
+            if (reveal && OnAssetSelected)
+                OnAssetSelected(clicked);
         }
         ImGui::EndPopup();
     }

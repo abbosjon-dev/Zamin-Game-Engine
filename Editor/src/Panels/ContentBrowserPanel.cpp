@@ -1,4 +1,5 @@
 #include "ContentBrowserPanel.h"
+#include "../AssetUsageCache.h"
 #include "../UI.h"
 
 #include <imgui_stdlib.h>
@@ -41,6 +42,60 @@ namespace Zamin {
         if (color)
             *color = c;
         return icon;
+    }
+
+    bool ContentBrowserPanel::DrawAssetsInUse(const std::vector<AssetInUse>& uses, fs::path* clicked)
+    {
+        bool result = false;
+        constexpr size_t maxReferrers = 8;
+        size_t rows = 0;
+        for (const AssetInUse& use : uses)
+            rows += 1 + std::min(use.Referrers.size(), maxReferrers + 1);
+        float height = std::min(250.0f, ImGui::GetTextLineHeightWithSpacing() * (float)rows + ImGui::GetStyle().WindowPadding.y * 2.0f + 2.0f);
+        ImGui::BeginChild("##assetsInUse", ImVec2(480.0f, height), ImGuiChildFlags_Borders);
+        for (size_t i = 0; i < uses.size(); i++)
+        {
+            const AssetInUse& use = uses[i];
+            ImGui::PushID((int)i);
+            ImU32 color;
+            const char* icon = IconFor(use.Type, color);
+            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(color), "%s", icon);
+            ImGui::SameLine();
+            ImGui::PushFont(ImGuiLayer::GetBoldFont());
+            ImGui::TextUnformatted(use.Path.c_str());
+            ImGui::PopFont();
+            ImGui::SameLine();
+            ImGui::TextDisabled("- %zu ta faylda, %u ta havola", use.Referrers.size(), use.GetReferenceCount());
+            ImGui::Indent();
+            for (size_t r = 0; r < use.Referrers.size() && r < maxReferrers; r++)
+            {
+                const AssetReferrer& referrer = use.Referrers[r];
+                std::string tags;
+                if (referrer.Has(AssetReferenceKind::UUID) && !referrer.Has(AssetReferenceKind::Path))
+                    tags += "  [UUID]";
+                if (referrer.Has(AssetReferenceKind::ModelFile))
+                    tags += "  [model fayli]";
+                if (referrer.Has(AssetReferenceKind::Code))
+                    tags += "  [C++ kod]";
+                ImU32 referrerColor;
+                const char* referrerIcon = IconFor(AssetFiles::GetType(referrer.File), referrerColor);
+                std::string label = std::format("{}  {}{}##ref{}", referrerIcon, referrer.Name, tags, r);
+                if (ImGui::Selectable(label.c_str()))
+                {
+                    if (clicked)
+                        *clicked = referrer.File;
+                    result = true;
+                }
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Kontent brauzerda ko'rsatish (o'chirish bekor qilinadi)");
+            }
+            if (use.Referrers.size() > maxReferrers)
+                ImGui::TextDisabled("... va yana %zu ta fayl", use.Referrers.size() - maxReferrers);
+            ImGui::Unindent();
+            ImGui::PopID();
+        }
+        ImGui::EndChild();
+        return result;
     }
 
     static std::string FormatTime(fs::file_time_type time)
@@ -1179,7 +1234,13 @@ namespace Zamin {
         }
 
         if (!m_PendingDelete.empty() && !ImGui::IsPopupOpen("###ConfirmDelete"))
+        {
             ImGui::OpenPopup("###ConfirmDelete");
+            // What still uses them (saved files and the open scene as it is in the editor).
+            m_DeleteUses.clear();
+            if (m_Usage && Project::GetActive())
+                m_DeleteUses = m_Usage->Get(true).FindUsesOutside(m_PendingDelete);
+        }
         if (ImGui::BeginPopupModal(ICON_FA_TRASH "  O'chirish###ConfirmDelete", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             if (m_PendingDelete.size() == 1)
@@ -1192,8 +1253,32 @@ namespace Zamin {
                 if (m_PendingDelete.size() > 8)
                     ImGui::TextDisabled("... va yana %zu ta", m_PendingDelete.size() - 8);
             }
+            bool inUse = !m_DeleteUses.empty();
+            bool reveal = false;
+            fs::path clicked;
+            if (inUse)
+            {
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s",
+                                   m_DeleteUses.size() == 1 ? "Bu asset ishlatilmoqda:"
+                                                            : std::format("{} ta asset ishlatilmoqda:", m_DeleteUses.size()).c_str());
+                reveal = DrawAssetsInUse(m_DeleteUses, &clicked);
+                ImGui::PushTextWrapPos(480.0f);
+                ImGui::TextDisabled("O'chirilsa, bu fayllardagi havolalar buziladi: sahnalarda rasm, model yoki ovoz yo'qoladi, "
+                                    "kod esa faylni topa olmaydi.");
+                ImGui::PopTextWrapPos();
+            }
             ImGui::TextDisabled("Bu amalni qaytarib bo'lmaydi.");
-            if (ImGui::Button(ICON_FA_TRASH "  O'chirish", ImVec2(140, 0)))
+            if (inUse)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.2f, 0.17f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.26f, 0.22f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.85f, 0.3f, 0.25f, 1.0f));
+            }
+            bool confirm = ImGui::Button(inUse ? ICON_FA_TRASH "  Baribir o'chirish" : ICON_FA_TRASH "  O'chirish", ImVec2(inUse ? 170.0f : 140.0f, 0));
+            if (inUse)
+                ImGui::PopStyleColor(3);
+            if (confirm)
             {
                 for (const fs::path& p : m_PendingDelete)
                 {
@@ -1209,7 +1294,10 @@ namespace Zamin {
                         registry->OnFileRemoved(p);
                     m_Thumbnails.erase(p.string());
                 }
+                if (inUse)
+                    ZM_WARN("Ishlatilayotgan {} ta asset o'chirildi - havolalar buzildi", m_DeleteUses.size());
                 m_PendingDelete.clear();
+                m_DeleteUses.clear();
                 m_Selection.clear();
                 m_ListDirty = true;
                 if (OnFilesChanged)
@@ -1217,10 +1305,19 @@ namespace Zamin {
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
-            if (ImGui::Button("Bekor qilish", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+            if (inUse && ImGui::IsWindowAppearing())
+                ImGui::SetKeyboardFocusHere(); // Enter cancels when something would break
+            if (ImGui::Button("Bekor qilish", ImVec2(120, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape, false) || reveal)
             {
                 m_PendingDelete.clear();
+                m_DeleteUses.clear();
                 ImGui::CloseCurrentPopup();
+                if (reveal)
+                {
+                    Reveal({ clicked });
+                    if (OnAssetSelected)
+                        OnAssetSelected(clicked);
+                }
             }
             ImGui::EndPopup();
         }

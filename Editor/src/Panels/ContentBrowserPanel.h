@@ -12,6 +12,8 @@
 
 namespace Zamin {
 
+    class AssetUsageCache;
+
     // Project files as tiles or a sortable list, with search and a file type filter. Files are
     // selected with Ctrl / Shift like the hierarchy and moved by dragging them onto a folder (a
     // folder tile / row or a breadcrumb); scenes and prefabs that use them are updated.
@@ -43,12 +45,20 @@ namespace Zamin {
         // A file changed on disk: its thumbnail is looked up again (a broken image may be fixed now).
         void InvalidateThumbnail(const std::filesystem::path& path) { m_Thumbnails.erase(path.string()); }
         const std::vector<std::filesystem::path>& GetSelection() const { return m_Selection; }
+        // Asks to delete these files / folders (the confirmation lists what still uses them).
+        void RequestDelete(std::vector<std::filesystem::path> paths) { m_PendingDelete = std::move(paths); }
         // The search text (AssetSearch syntax); the listing follows next frame.
         void SetSearch(std::string text) { m_Search = std::move(text); m_ListDirty = true; }
         const std::string& GetSearch() const { return m_Search; }
 
         // Icon (and color) the browser shows for a type of file.
         static const char* GetTypeIcon(AssetType type, ImU32* color = nullptr);
+        // The assets about to be deleted that other files use, with those files (a scrolling list).
+        // Returns true when a file was clicked (`clicked` is set to it).
+        static bool DrawAssetsInUse(const std::vector<AssetInUse>& uses, std::filesystem::path* clicked);
+
+        // Where "who uses this" comes from (deleting warns about assets in use). Owned by the editor.
+        void SetUsageCache(AssetUsageCache* cache) { m_Usage = cache; }
 
         std::function<void(const std::filesystem::path&)> OnOpenScene;
         // An item was clicked: the file or folder the selection is about now (empty when the
@@ -159,6 +169,8 @@ namespace Zamin {
         int m_NewKind = 0; // 0 folder, 1 scene
         bool m_OpenNewPopup = false;
         std::vector<std::filesystem::path> m_PendingDelete;
+        std::vector<AssetInUse> m_DeleteUses;      // what the pending delete would break
+        AssetUsageCache* m_Usage = nullptr;
         std::filesystem::path m_RenameTarget;
         std::string m_RenameBuffer;
         bool m_OpenRenamePopup = false;

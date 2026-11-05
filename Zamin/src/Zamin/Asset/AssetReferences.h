@@ -42,6 +42,15 @@ namespace Zamin {
         std::string Path;             // the asset path it names
     };
 
+    // An asset that is about to go (deleted) and the files that would be left referring to it.
+    struct AssetInUse
+    {
+        std::string Path;                       // relative to the asset folder
+        AssetType Type = AssetType::Other;
+        std::vector<AssetReferrer> Referrers;   // by name; none of them is being deleted itself
+        uint32_t GetReferenceCount() const;
+    };
+
     struct UnusedAsset
     {
         std::string Path;             // relative to the asset folder
@@ -79,6 +88,10 @@ namespace Zamin {
         // naming itself (a scene that reloads itself) does not count.
         const std::vector<AssetReferrer>& GetReferrers(const std::filesystem::path& asset) const;
         bool IsReferenced(const std::filesystem::path& asset) const { return !GetReferrers(asset).empty(); }
+        // What deleting `paths` (files or folders, absolute or asset-relative) would break: the
+        // assets among them that other files refer to, sorted by path. Files that are deleted
+        // together (a model and its buffer, a folder of scenes using each other) do not count.
+        std::vector<AssetInUse> FindUsesOutside(const std::vector<std::filesystem::path>& paths) const;
         // Assets a file (absolute or asset-relative) refers to, as asset-relative paths, sorted.
         std::vector<std::string> GetReferences(const std::filesystem::path& file) const;
         // Asset paths that lead nowhere, by referring file.

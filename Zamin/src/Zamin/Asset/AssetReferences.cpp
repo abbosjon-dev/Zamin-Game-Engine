@@ -459,6 +459,59 @@ namespace Zamin {
         return it != m_Referrers.end() ? it->second : s_None;
     }
 
+    uint32_t AssetInUse::GetReferenceCount() const
+    {
+        uint32_t count = 0;
+        for (const AssetReferrer& r : Referrers)
+            count += r.Count;
+        return count;
+    }
+
+    std::vector<AssetInUse> AssetReferenceIndex::FindUsesOutside(const std::vector<fs::path>& paths) const
+    {
+        std::vector<AssetInUse> uses;
+        if (!m_Built || paths.empty())
+            return uses;
+        // What goes: asset-relative paths (to find the assets) and absolute keys (to leave out
+        // referrers that go with them).
+        std::vector<std::string> relatives, keys;
+        auto trim = [](std::string text) {
+            while (text.size() > 1 && text.back() == '/')
+                text.pop_back(); // "Textures/" = the folder
+            return text;
+        };
+        for (const fs::path& p : paths)
+        {
+            fs::path absolute = p.is_absolute() ? p : m_AssetDirectory / p;
+            keys.push_back(trim(ToKey(absolute)));
+            if (std::string rel = trim(ToAssetPath(absolute)); !rel.empty() && rel != ".")
+                relatives.push_back(std::move(rel));
+        }
+        auto inside = [](const std::string& path, const std::vector<std::string>& roots) {
+            for (const std::string& root : roots)
+                if (path == root || (path.size() > root.size() && path.starts_with(root) && path[root.size()] == '/'))
+                    return true;
+            return false;
+        };
+        if (relatives.empty())
+            return uses;
+        for (const auto& [asset, referrers] : m_Referrers)
+        {
+            if (!inside(asset, relatives))
+                continue;
+            AssetInUse use;
+            use.Path = asset;
+            use.Type = AssetTypes::FromPath(asset);
+            for (const AssetReferrer& r : referrers)
+                if (!inside(ToKey(r.File), keys))
+                    use.Referrers.push_back(r);
+            if (!use.Referrers.empty())
+                uses.push_back(std::move(use));
+        }
+        std::sort(uses.begin(), uses.end(), [](const AssetInUse& a, const AssetInUse& b) { return a.Path < b.Path; });
+        return uses;
+    }
+
     std::vector<std::string> AssetReferenceIndex::GetReferences(const fs::path& file) const
     {
         std::string key = ToKey(file.is_absolute() ? file : m_AssetDirectory / file);

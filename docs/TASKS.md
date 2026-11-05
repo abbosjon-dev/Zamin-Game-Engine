@@ -88,7 +88,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 073. Model preview (submesh, uchburchak, animatsiyalar ro'yxati)
 - [x] 074. Audio asset preview (davomiylik, ijro tugmasi)
 - [x] 075. Ishlatilmagan assetlarni topish
-- [ ] 076. Assetni o'chirishdan oldin ishlatilayotganini ogohlantirish
+- [x] 076. Assetni o'chirishdan oldin ishlatilayotganini ogohlantirish
 - [x] 077. Assetlarni papkalar bo'yicha qidirish (to'liq yo'l)
 - [x] 078. Asset registry serializatsiyasi va testlari
 - [ ] 079. Kontent brauzerda thumbnail keshlash

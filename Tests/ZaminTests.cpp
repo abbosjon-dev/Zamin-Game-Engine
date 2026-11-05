@@ -8658,6 +8658,76 @@ TEST(AssetImportLogReportsOnce)
     fs::remove_all(dir, ec);
 }
 
+TEST(AssetDeletionWarnings)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-delete-warn-");
+    fs::path assets = dir / "Assets";
+    for (const char* name : { "a.png", "b.png", "unused.png" })
+        WriteFile(assets / "Textures" / name, "png");
+    WriteFile(assets / "Audio" / "x.wav", "wav");
+    WriteFile(assets / "Models" / "m.bin", "bin");
+    WriteFile(assets / "Models" / "m.gltf", R"({ "asset": { "version": "2.0" },
+        "buffers": [ { "uri": "m.bin", "byteLength": 3 } ], "images": [ { "uri": "../Textures/b.png" } ] })");
+    WriteFile(assets / "Prefabs" / "p.zprefab", R"({ "Entities": [ { "Tag": "P", "MeshRenderer": { "Model": "Models/m.gltf" } } ] })");
+    WriteFile(assets / "Scenes" / "Main.zscene", R"({ "Scene": "Main", "Entities": [
+        { "Tag": "A", "SpriteRenderer": { "Texture": "Textures/a.png" } },
+        { "Tag": "A2", "SpriteRenderer": { "Texture": "Textures/a.png" } },
+        { "Tag": "B", "Prefab": { "Source": "Prefabs/p.zprefab" } } ] })");
+    WriteFile(assets / "Scenes" / "Other.zscene", R"({ "Scene": "Other", "Entities": [
+        { "Tag": "A", "SpriteRenderer": { "Texture": "Textures/a.png" } } ] })");
+    WriteFile(dir / "Source" / "Game.cpp", "void Jump() { PlaySound(\"Audio/x.wav\"); }\n");
+
+    AssetReferenceIndex index;
+    CHECK(index.FindUsesOutside({ assets / "Textures" / "a.png" }).empty()); // not built yet
+    AssetReferenceIndex::Sources sources;
+    sources.AssetDirectory = assets;
+    sources.ProjectDirectory = dir;
+    sources.SourceDirectory = dir / "Source";
+    index.Build(sources);
+
+    // Nothing uses it: no warning.
+    CHECK(index.FindUsesOutside({ "Textures/unused.png" }).empty());
+    // A texture two scenes use (one of them twice), by absolute or relative path.
+    std::vector<AssetInUse> uses = index.FindUsesOutside({ assets / "Textures" / "a.png" });
+    std::vector<AssetInUse> byRelative = index.FindUsesOutside({ "Textures/a.png" });
+    CHECK(uses.size() == 1 && byRelative.size() == 1 && byRelative[0].Referrers.size() == uses[0].Referrers.size());
+    if (uses.size() == 1)
+    {
+        CHECK(uses[0].Path == "Textures/a.png" && uses[0].Type == AssetType::Texture && uses[0].Referrers.size() == 2);
+        CHECK(uses[0].GetReferenceCount() == 3 && uses[0].Referrers[0].Name == "Assets/Scenes/Main.zscene");
+    }
+    // A folder: what is used from outside it counts, what only its own files use does not (the
+    // model's buffer); the texture a model in it uses is not being deleted.
+    uses = index.FindUsesOutside({ assets / "Models" });
+    CHECK(uses.size() == 1 && uses[0].Path == "Models/m.gltf" && uses[0].Referrers.size() == 1 &&
+          uses[0].Referrers[0].AssetPath == "Prefabs/p.zprefab");
+    CHECK(index.FindUsesOutside({ "Models/" }).size() == 1);
+    uses = index.FindUsesOutside({ "Models/m.bin" });
+    CHECK(uses.size() == 1 && uses[0].Referrers.size() == 1 && uses[0].Referrers[0].Has(AssetReferenceKind::ModelFile));
+    // Deleted together with what uses them: only the prefab, which the main scene uses, is left.
+    uses = index.FindUsesOutside({ "Models", "Prefabs/p.zprefab" });
+    CHECK(uses.size() == 1 && uses[0].Path == "Prefabs/p.zprefab" && uses[0].Referrers[0].AssetPath == "Scenes/Main.zscene");
+    CHECK(index.FindUsesOutside({ "Models", "Prefabs", "Scenes" }).empty());
+    // Several at once, sorted; code that names a file counts too.
+    uses = index.FindUsesOutside({ "Textures", "Audio/x.wav" });
+    CHECK(uses.size() == 3 && uses[0].Path == "Audio/x.wav" && uses[1].Path == "Textures/a.png" && uses[2].Path == "Textures/b.png");
+    if (uses.size() == 3)
+        CHECK(uses[0].Referrers.size() == 1 && uses[0].Referrers[0].Has(AssetReferenceKind::Code) &&
+              uses[0].Referrers[0].Name == "Source/Game.cpp" && uses[0].Referrers[0].AssetPath.empty());
+    // A scene deleted together with its only user is fine; a C++ file outside the assets is not an asset.
+    CHECK(index.FindUsesOutside({ "Textures/a.png", "Scenes" }).empty());
+    CHECK(index.FindUsesOutside({ dir / "Source" / "Game.cpp" }).empty() && index.FindUsesOutside({}).empty());
+
+    // The open scene's unsaved state counts instead of its file (the editor passes it).
+    sources.Overrides[(assets / "Scenes" / "Other.zscene").string()] = R"({ "Scene": "Other", "Entities": [] })";
+    index.Build(sources);
+    uses = index.FindUsesOutside({ "Textures/a.png" });
+    CHECK(uses.size() == 1 && uses[0].Referrers.size() == 1 && uses[0].GetReferenceCount() == 2);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

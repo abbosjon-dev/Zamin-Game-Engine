@@ -424,4 +424,20 @@ namespace Zamin {
         return out.size() - before;
     }
 
+    SpriteQuad GrowSpriteQuad(const SpriteQuad& quad, glm::vec2 pixels, float grow, glm::vec4& uvRect)
+    {
+        uvRect = glm::vec4(glm::min(quad.UVMin, quad.UVMax), glm::max(quad.UVMin, quad.UVMax));
+        if (!(grow > 0.0f))
+            return quad;
+        pixels = glm::max(glm::abs(pixels), glm::vec2(1e-4f));
+        const glm::vec2 unitsPerPixel = (quad.Max - quad.Min) / pixels;   // signed: a mirrored quad stays mirrored
+        const glm::vec2 uvPerPixel = (quad.UVMax - quad.UVMin) / pixels;
+        SpriteQuad out = quad;
+        out.Min = quad.Min - unitsPerPixel * grow;
+        out.Max = quad.Max + unitsPerPixel * grow;
+        out.UVMin = quad.UVMin - uvPerPixel * grow;
+        out.UVMax = quad.UVMax + uvPerPixel * grow;
+        return out;
+    }
+
 }

@@ -131,10 +131,49 @@ namespace Zamin {
         glm::vec4 SliceBorder{ 0.0f };  // px: left, right, top, bottom
         float PixelsPerUnit = 100.0f;
 
+        // Effects (drawn by the sprite shader). Hit flash: FlashAmount 0..1 mixes the picture toward
+        // FlashColor (Flash() plays one that fades out). Outline: a border OutlineThickness texture
+        // pixels wide around the opaque pixels, in OutlineColor (Simple mode; Sliced / Tiled sprites
+        // and repeated textures get the flash only).
+        glm::vec4 FlashColor{ 1.0f };
+        float FlashAmount = 0.0f;
+        glm::vec4 OutlineColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+        float OutlineThickness = 0.0f;
+        // runtime: the flash Flash() started (cleared when play starts / stops)
+        glm::vec4 FlashPlayingColor{ 1.0f };
+        float FlashTime = 0.0f, FlashDuration = 0.0f;
+
         SpriteRendererComponent() = default;
         SpriteRendererComponent(const glm::vec4& color) : Color(color) {}
 
         bool HasSliceBorder() const { return SliceBorder.x > 0.0f || SliceBorder.y > 0.0f || SliceBorder.z > 0.0f || SliceBorder.w > 0.0f; }
+
+        // Starts a flash: the sprite turns `color` (its alpha: how strongly) at once and fades back
+        // over `duration` seconds (the game's time: it waits while paused).
+        void Flash(const glm::vec4& color = glm::vec4(1.0f), float duration = 0.15f)
+        {
+            FlashPlayingColor = color;
+            FlashDuration = std::max(0.0f, duration);
+            FlashTime = FlashDuration;
+        }
+        bool IsFlashing() const { return FlashTime > 0.0f && FlashDuration > 0.0f; }
+        void StopFlash() { FlashTime = FlashDuration = 0.0f; }
+        // Advances the playing flash.
+        void UpdateFlash(float dt) { if (FlashTime > 0.0f) FlashTime = std::max(0.0f, FlashTime - dt); }
+        // What is drawn now: the playing flash (fading out) while it is stronger, else the constant one.
+        float GetFlashAmount() const
+        {
+            float constant = std::clamp(FlashAmount, 0.0f, 1.0f) * FlashColor.a;
+            float playing = IsFlashing() ? std::clamp(FlashTime / FlashDuration, 0.0f, 1.0f) * FlashPlayingColor.a : 0.0f;
+            return std::max(constant, playing);
+        }
+        glm::vec3 GetFlashColor() const
+        {
+            float constant = std::clamp(FlashAmount, 0.0f, 1.0f) * FlashColor.a;
+            float playing = IsFlashing() ? std::clamp(FlashTime / FlashDuration, 0.0f, 1.0f) * FlashPlayingColor.a : 0.0f;
+            return playing > constant ? glm::vec3(FlashPlayingColor) : glm::vec3(FlashColor);
+        }
+        bool HasEffects() const { return GetFlashAmount() > 0.0f || (OutlineThickness > 0.0f && OutlineColor.a > 0.0f); }
     };
 
     // Plays frames on the SpriteRenderer texture: cells of a grid (Columns x Rows, numbered left to

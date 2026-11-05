@@ -144,4 +144,9 @@ namespace Zamin {
         size_t Build(std::vector<SpriteQuad>& out, size_t maxQuads = 4096) const;
     };
 
+    // `quad` (its picture `pixels` texture pixels big) grown by `grow` pixels on every side - corners
+    // and UVs alike - so an outline around the picture is not cut at its edge. `uvRect` gets the UV
+    // rectangle of the picture itself (min.xy, max.xy). grow <= 0: the quad as it is.
+    SpriteQuad GrowSpriteQuad(const SpriteQuad& quad, glm::vec2 pixels, float grow, glm::vec4& uvRect);
+
 }

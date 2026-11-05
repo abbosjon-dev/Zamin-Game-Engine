@@ -237,6 +237,7 @@ namespace Zamin {
         }
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).RuntimeHandle = 0;
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
+        for (auto e : registry.view<SpriteRendererComponent>()) registry.get<SpriteRendererComponent>(e).StopFlash();
         for (auto e : registry.view<CameraComponent>()) registry.get<CameraComponent>(e).Shake.ResetRuntime();
         for (auto e : registry.view<Camera2DFollowComponent>()) registry.get<Camera2DFollowComponent>(e).ResetRuntime();
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).Clear();
@@ -256,6 +257,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<Rigidbody3DComponent>()) c->RuntimeBodyID = 0xffffffff;
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->RuntimeHandle = 0;
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
+        if (auto* c = e.TryGetComponent<SpriteRendererComponent>()) c->StopFlash();
         if (auto* c = e.TryGetComponent<TilemapComponent>()) c->RuntimeBody = nullptr;
         if (auto* c = e.TryGetComponent<CameraComponent>()) c->Shake.ResetRuntime();
         if (auto* c = e.TryGetComponent<Camera2DFollowComponent>()) c->ResetRuntime();
@@ -2668,6 +2670,10 @@ namespace Zamin {
         {
             m_Time += ts;
             m_AnimationTime += (double)ts;
+            // Hit flashes fade with the game's time (paused: they wait).
+            for (auto e : m_Registry.view<SpriteRendererComponent>())
+                if (auto& sprite = m_Registry.get<SpriteRendererComponent>(e); sprite.FlashTime > 0.0f)
+                    sprite.UpdateFlash(ts);
             // Game time goes on: last frame's one-frame debug shapes go (paused: they stay).
             DebugDraw::Advance(ts);
 
@@ -2880,6 +2886,57 @@ namespace Zamin {
                            const glm::vec4& color, int entityID, const AssetRegistry* registry, const glm::vec2* uiSize)
     {
         const bool frames = !s.SpriteName.empty() || (animation && animation->UsesFrameList());
+        if (s.HasEffects())
+        {
+            // The same quads as below, drawn with the hit flash / outline. The outline grows a Simple
+            // sprite's quad by its width (the picture is not cut at its edge); Sliced / Tiled sprites
+            // and repeated textures get the flash only.
+            Renderer2D::SpriteEffect effect;
+            effect.FlashAmount = s.GetFlashAmount();
+            effect.FlashColor = glm::vec4(s.GetFlashColor(), 1.0f);
+            effect.OutlineColor = s.OutlineColor;
+            effect.OutlineThickness = s.OutlineThickness;
+            static thread_local std::vector<SpriteQuad> effectQuads;
+            effectQuads.clear();
+            glm::vec2 pixels(1.0f);
+            bool canOutline = s.Texture && s.DrawMode == SpriteDrawMode::Simple;
+            SpriteRegion region = s.Texture && (frames || s.DrawMode != SpriteDrawMode::Simple) ? GetSpriteRegion(s, animation, registry) : SpriteRegion();
+            if (s.DrawMode == SpriteDrawMode::Simple && (!frames || region.Whole))
+            {
+                SpriteQuad q{ { -0.5f, -0.5f }, { 0.5f, 0.5f }, { 0.0f, 0.0f }, { 1.0f, 1.0f } };
+                if (s.Texture && animation && !animation->UsesFrameList())
+                {
+                    SpriteRegion cell = SpriteRegion::GridCell(animation->Columns, animation->Rows, animation->GetCurrentFrame(),
+                                                               s.Texture->GetWidth(), s.Texture->GetHeight());
+                    q.UVMin = cell.UVMin;
+                    q.UVMax = cell.UVMax;
+                    pixels = cell.Pixels;
+                }
+                else if (s.Texture)
+                {
+                    q.UVMax = glm::vec2(s.TilingFactor); // the texture repeats
+                    pixels = glm::vec2((float)s.Texture->GetWidth(), (float)s.Texture->GetHeight());
+                    canOutline = canOutline && s.TilingFactor == 1.0f;
+                }
+                effectQuads.push_back(q);
+            }
+            else
+            {
+                GetSpriteGeometry(s, region, uiSize).Build(effectQuads);
+                pixels = region.Pixels;
+            }
+            if (!canOutline || effectQuads.size() != 1)
+                effect.OutlineThickness = 0.0f;
+            for (const SpriteQuad& quad : effectQuads)
+            {
+                glm::vec4 rect;
+                SpriteQuad q = GrowSpriteQuad(quad, pixels, effect.HasOutline() ? effect.OutlineThickness : 0.0f, rect);
+                glm::vec2 center = (q.Min + q.Max) * 0.5f, size = q.Max - q.Min;
+                glm::mat4 m = transform * glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+                Renderer2D::DrawQuad(m, s.Texture, q.UVMin, q.UVMax, color, effect, rect, entityID);
+            }
+            return;
+        }
         if (s.DrawMode == SpriteDrawMode::Simple && !frames)
         {
             // The quad itself: the whole texture (repeated TilingFactor times) or a grid cell.

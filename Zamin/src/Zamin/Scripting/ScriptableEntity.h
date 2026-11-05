@@ -282,6 +282,15 @@ namespace Zamin {
 
         // ---- sprites (2D)
         // The named frames of the Sprite Renderer's texture (Sprite Editor); nullptr when it has none.
+        // ---- sprite effects (requires SpriteRendererComponent)
+        // A hit flash: the sprite turns `color` at once (its alpha: how strongly) and fades back over
+        // `duration` seconds.
+        //   Flash();                                  // white, 0.15 s
+        //   Flash({ 1.0f, 0.25f, 0.2f, 1.0f }, 0.3f); // red
+        bool Flash(const glm::vec4& color = glm::vec4(1.0f), float duration = 0.15f);
+        // A border `thickness` texture pixels wide around the sprite's picture (0: off).
+        bool SetOutline(const glm::vec4& color, float thickness = 1.0f);
+
         const SpriteSheet* GetSpriteSheet() const;
         // Shows one named frame of the texture ("" = the whole texture). False without a Sprite
         // Renderer or when the sheet has no such frame (the frame is set anyway).

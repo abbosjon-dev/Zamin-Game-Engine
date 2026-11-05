@@ -14309,6 +14309,110 @@ TEST(TileBrushStamp)
     CHECK(tm.Get(10, 7) == b.At({ 10, 7 }, origin) && tm.Get(1, 4) == 10);
 }
 
+class FlashProbe : public ScriptableEntity
+{
+public:
+    void OnStart() override
+    {
+        Flash({ 1.0f, 0.25f, 0.2f, 1.0f }, 0.3f);
+        SetOutline({ 0.0f, 0.0f, 0.0f, 1.0f }, 1.5f);
+    }
+};
+ZM_REGISTER_SCRIPT(FlashProbe)
+
+TEST(SpriteFlashAndOutline)
+{
+    SpriteRendererComponent s;
+    CHECK(!s.HasEffects() && s.GetFlashAmount() == 0.0f && !s.IsFlashing());
+    // A flash starts full and fades out linearly.
+    s.Flash({ 1.0f, 0.2f, 0.2f, 1.0f }, 0.5f);
+    CHECK(s.IsFlashing() && s.GetFlashAmount() == 1.0f && s.GetFlashColor() == glm::vec3(1.0f, 0.2f, 0.2f) && s.HasEffects());
+    s.UpdateFlash(0.25f);
+    CHECK_NEAR(s.GetFlashAmount(), 0.5f, 1e-5f);
+    s.UpdateFlash(1.0f);
+    CHECK(!s.IsFlashing() && s.GetFlashAmount() == 0.0f && !s.HasEffects());
+    // A constant flash: the stronger of the two shows; the colour's alpha scales them.
+    s.FlashAmount = 0.3f;
+    s.FlashColor = { 0.0f, 0.0f, 1.0f, 1.0f };
+    CHECK_NEAR(s.GetFlashAmount(), 0.3f, 1e-6f);
+    CHECK(s.GetFlashColor() == glm::vec3(0.0f, 0.0f, 1.0f));
+    s.Flash(glm::vec4(1.0f), 1.0f);
+    CHECK(s.GetFlashColor() == glm::vec3(1.0f) && s.GetFlashAmount() == 1.0f);
+    s.UpdateFlash(0.8f); // 0.2 left: weaker than the constant 0.3
+    CHECK_NEAR(s.GetFlashAmount(), 0.3f, 1e-5f);
+    CHECK(s.GetFlashColor() == glm::vec3(0.0f, 0.0f, 1.0f));
+    s.StopFlash();
+    s.FlashAmount = 0.0f;
+    s.Flash({ 1.0f, 1.0f, 1.0f, 0.5f }, 1.0f);
+    CHECK_NEAR(s.GetFlashAmount(), 0.5f, 1e-6f);
+    s.Flash(glm::vec4(1.0f), 0.0f); // no duration: nothing plays
+    CHECK(!s.IsFlashing() && !s.HasEffects());
+    s.OutlineThickness = 2.0f;
+    CHECK(s.HasEffects());
+    s.OutlineColor.a = 0.0f;
+    CHECK(!s.HasEffects());
+
+    // A grown quad: corners and UVs out by the width, the picture's own UV rectangle kept.
+    SpriteQuad q{ { -0.5f, -0.5f }, { 0.5f, 0.5f }, { 0.25f, 0.5f }, { 0.5f, 1.0f } }; // a 16 x 32 px cell of a 64 x 64 texture
+    glm::vec4 rect;
+    SpriteQuad g = GrowSpriteQuad(q, { 16.0f, 32.0f }, 2.0f, rect);
+    CHECK(rect == glm::vec4(0.25f, 0.5f, 0.5f, 1.0f));
+    CHECK_NEAR(g.Min.x, -0.5f - 2.0f / 16.0f, 1e-5f);
+    CHECK_NEAR(g.Max.y, 0.5f + 2.0f / 32.0f, 1e-5f);
+    CHECK_NEAR(g.UVMin.x, 0.25f - 2.0f / 64.0f, 1e-6f);
+    CHECK_NEAR(g.UVMax.y, 1.0f + 2.0f / 64.0f, 1e-6f);
+    // UVs running the other way (a frame stored top-down) stay that way; no width: unchanged.
+    SpriteQuad flipped{ { 0.0f, 0.0f }, { 1.0f, 2.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f } };
+    SpriteQuad gf = GrowSpriteQuad(flipped, { 10.0f, 20.0f }, 1.0f, rect);
+    CHECK(rect == glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    CHECK_NEAR(gf.UVMin.y, 1.05f, 1e-5f);
+    CHECK_NEAR(gf.UVMax.y, -0.05f, 1e-5f);
+    CHECK_NEAR(gf.Min.y, -0.1f, 1e-5f);
+    SpriteQuad same = GrowSpriteQuad(q, { 16.0f, 32.0f }, 0.0f, rect);
+    CHECK(same.Min == q.Min && same.Max == q.Max && same.UVMin == q.UVMin && same.UVMax == q.UVMax);
+
+    // In a running scene: a script's Flash() fades with the game's time (paused: it waits), a copy
+    // of the scene (play mode) starts without it; the settings are saved only when used.
+    auto scene = CreateRef<Scene>();
+    Entity hero = scene->CreateEntity("Hero");
+    hero.AddComponent<SpriteRendererComponent>();
+    hero.AddComponent<NativeScriptComponent>().ClassName = "FlashProbe";
+    CHECK(SceneSerializer(scene).SerializeToString().find("\"Outline\"") == std::string::npos);
+    auto play = Scene::Copy(scene);
+    play->OnRuntimeStart();
+    play->OnUpdateRuntime(1.0f / 60.0f); // OnStart: the flash starts
+    Entity h = play->FindEntityByName("Hero");
+    auto& sprite = h.GetComponent<SpriteRendererComponent>();
+    CHECK(sprite.IsFlashing() && sprite.OutlineThickness == 1.5f && sprite.GetFlashColor() == glm::vec3(1.0f, 0.25f, 0.2f));
+    for (int i = 0; i < 6; i++)
+        play->OnUpdateRuntime(1.0f / 60.0f);
+    float amount = sprite.GetFlashAmount();
+    CHECK(amount > 0.5f && amount < 0.9f);
+    play->SetPaused(true);
+    for (int i = 0; i < 30; i++)
+        play->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(sprite.GetFlashAmount(), amount, 1e-6f);
+    play->SetPaused(false);
+    for (int i = 0; i < 30; i++)
+        play->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!sprite.IsFlashing() && sprite.GetFlashAmount() == 0.0f);
+    sprite.Flash();
+    std::string text = SceneSerializer(play).SerializeToString();
+    CHECK(text.find("\"Outline\"") != std::string::npos && text.find("\"Flash\"") == std::string::npos);
+    CHECK(!Scene::Copy(play)->FindEntityByName("Hero").GetComponent<SpriteRendererComponent>().IsFlashing()); // a copy starts without it
+    play->OnRuntimeStop();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& ls = loaded->FindEntityByName("Hero").GetComponent<SpriteRendererComponent>();
+    CHECK(ls.OutlineThickness == 1.5f && ls.OutlineColor == glm::vec4(0.0f, 0.0f, 0.0f, 1.0f) && ls.FlashAmount == 0.0f && !ls.IsFlashing());
+    hero.GetComponent<SpriteRendererComponent>().FlashAmount = 0.4f;
+    hero.GetComponent<SpriteRendererComponent>().FlashColor = { 1.0f, 0.0f, 0.0f, 1.0f };
+    auto again = CreateRef<Scene>();
+    CHECK(SceneSerializer(again).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+    const auto& as = again->FindEntityByName("Hero").GetComponent<SpriteRendererComponent>();
+    CHECK(as.FlashAmount == 0.4f && as.FlashColor == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) && as.OutlineThickness == 0.0f);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

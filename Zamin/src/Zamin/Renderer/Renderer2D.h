@@ -21,6 +21,19 @@ namespace Zamin {
     class Renderer2D
     {
     public:
+        // Per-quad shader effects of a sprite (SpriteRendererComponent: hit flash, outline).
+        struct SpriteEffect
+        {
+            glm::vec4 FlashColor{ 1.0f };   // rgb; FlashAmount 0..1 mixes the picture toward it
+            float FlashAmount = 0.0f;
+            glm::vec4 OutlineColor{ 1.0f };
+            float OutlineThickness = 0.0f;  // texture pixels around the opaque pixels (0: none)
+
+            bool HasFlash() const { return FlashAmount > 0.0f; }
+            bool HasOutline() const { return OutlineThickness > 0.0f && OutlineColor.a > 0.0f; }
+            bool IsActive() const { return HasFlash() || HasOutline(); }
+        };
+
         static void Init();
         static void Shutdown();
 
@@ -41,6 +54,12 @@ namespace Zamin {
         // Sub-region of a texture (sprite sheets). uvMin/uvMax in [0,1].
         static void DrawQuad(const glm::mat4& transform, const Ref<Texture2D>& texture, const glm::vec2& uvMin,
                              const glm::vec2& uvMax, const glm::vec4& tintColor = glm::vec4(1.0f), int entityID = -1);
+
+        // A sprite quad with effects. `uvRect` (min.xy, max.xy): the picture's own UV rectangle - nothing
+        // outside it is sampled, and an outline needs the quad grown beyond it (GrowSpriteQuad) so
+        // it is not cut at the picture's edge. A null texture: a plain quad (flash only).
+        static void DrawQuad(const glm::mat4& transform, const Ref<Texture2D>& texture, const glm::vec2& uvMin, const glm::vec2& uvMax,
+                             const glm::vec4& tintColor, const SpriteEffect& effect, const glm::vec4& uvRect, int entityID = -1);
 
         static void DrawCircle(const glm::mat4& transform, const glm::vec4& color, float thickness = 1.0f, float fade = 0.005f, int entityID = -1);
 

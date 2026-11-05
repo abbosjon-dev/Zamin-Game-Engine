@@ -296,6 +296,27 @@ namespace Zamin {
     }
     void ScriptableEntity::EmitParticles(int count) { m_Entity.GetScene()->EmitParticles(m_Entity, count); }
 
+    bool ScriptableEntity::Flash(const glm::vec4& color, float duration)
+    {
+        Entity entity = m_Entity;
+        auto* sprite = entity.TryGetComponent<SpriteRendererComponent>();
+        if (!sprite)
+            return false;
+        sprite->Flash(color, duration);
+        return true;
+    }
+
+    bool ScriptableEntity::SetOutline(const glm::vec4& color, float thickness)
+    {
+        Entity entity = m_Entity;
+        auto* sprite = entity.TryGetComponent<SpriteRendererComponent>();
+        if (!sprite)
+            return false;
+        sprite->OutlineColor = color;
+        sprite->OutlineThickness = std::clamp(thickness, 0.0f, 64.0f);
+        return true;
+    }
+
     const SpriteSheet* ScriptableEntity::GetSpriteSheet() const
     {
         Entity entity = m_Entity;

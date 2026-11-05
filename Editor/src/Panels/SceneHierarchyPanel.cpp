@@ -2142,6 +2142,46 @@ namespace Zamin {
         }
         changed |= UI::PropertyBool("Gorizontal aks (Flip X)", c.FlipX);
         changed |= UI::PropertyBool("Vertikal aks (Flip Y)", c.FlipY);
+
+        // ---- effects: hit flash, outline
+        ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Effektlar");
+        UI::PropertyLabel("Flash rangi", "Rasm shu rangga aralashadi (oq - urilish chaqnashi). Skriptdan: Flash(rang, soniya)");
+        changed |= ImGui::ColorEdit4("##flashColor", &c.FlashColor.x, ImGuiColorEditFlags_AlphaBar);
+        UI::PropertyLabel("Flash", "0 - o'chiq, 1 - butunlay flash rangida. Skriptdagi Flash() buning ustidan so'nib boradigan flash o'ynaydi");
+        if (ImGui::SliderFloat("##flashAmount", &c.FlashAmount, 0.0f, 1.0f, "%.2f"))
+        {
+            c.FlashAmount = std::clamp(c.FlashAmount, 0.0f, 1.0f);
+            changed = true;
+        }
+        {
+            const bool running = m_Context && m_Context->IsRunning();
+            UI::PropertyLabel("");
+            ImGui::BeginDisabled(!running);
+            if (ImGui::Button(ICON_FA_BOLT "  Sinash"))
+                c.Flash(glm::vec4(glm::vec3(c.FlashColor), 1.0f), 0.3f);
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip(running ? "Flash rangida 0.3 soniyalik chaqnash" : "O'yin rejimida sinab ko'ring");
+            if (running && c.IsFlashing())
+            {
+                ImGui::SameLine();
+                ImGui::TextDisabled("%.2f", c.GetFlashAmount());
+            }
+        }
+        UI::PropertyLabel("Kontur rangi");
+        changed |= ImGui::ColorEdit4("##outlineColor", &c.OutlineColor.x, ImGuiColorEditFlags_AlphaBar);
+        UI::PropertyLabel("Kontur (px)", "Rasmning ko'rinadigan piksellari atrofidagi chegara, tekstura pikselida (0 - o'chiq). "
+                                         "Skriptdan: SetOutline(rang, qalinlik)");
+        if (ImGui::DragFloat("##outlineThickness", &c.OutlineThickness, 0.05f, 0.0f, 16.0f, "%.1f"))
+        {
+            c.OutlineThickness = std::clamp(c.OutlineThickness, 0.0f, 64.0f);
+            changed = true;
+        }
+        if (c.OutlineThickness > 0.0f && (c.DrawMode != SpriteDrawMode::Simple || !c.Texture || (c.TilingFactor != 1.0f && c.SpriteName.empty())))
+        {
+            UI::PropertyLabel("");
+            ImGui::TextDisabled(!c.Texture ? "Kontur uchun tekstura kerak" : "Kontur faqat Simple rejimda (takrorlashsiz)");
+        }
         return changed;
     }
 

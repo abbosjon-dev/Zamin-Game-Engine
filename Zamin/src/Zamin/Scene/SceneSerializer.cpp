@@ -284,6 +284,10 @@ namespace Zamin {
                 j["SliceBorder"] = ToJson(c->SliceBorder);
             if (c->PixelsPerUnit != 100.0f)
                 j["PixelsPerUnit"] = c->PixelsPerUnit;
+            if (c->FlashAmount > 0.0f || c->FlashColor != glm::vec4(1.0f))
+                j["Flash"] = { { "Color", ToJson(c->FlashColor) }, { "Amount", c->FlashAmount } };
+            if (c->OutlineThickness > 0.0f || c->OutlineColor != glm::vec4(1.0f))
+                j["Outline"] = { { "Color", ToJson(c->OutlineColor) }, { "Thickness", c->OutlineThickness } };
             WriteSortingLayer(j, c->SortingLayer);
         }
         if (auto* c = entity.TryGetComponent<SpriteAnimationComponent>())
@@ -540,6 +544,16 @@ namespace Zamin {
             c.Size = glm::max(Vec(j, "Size", glm::vec2(1.0f)), glm::vec2(0.0f));
             c.SliceBorder = glm::max(Vec(j, "SliceBorder", glm::vec4(0.0f)), glm::vec4(0.0f));
             c.PixelsPerUnit = std::max(0.001f, j.value("PixelsPerUnit", 100.0f));
+            if (auto flash = j.find("Flash"); flash != j.end() && flash->is_object())
+            {
+                c.FlashColor = Vec(*flash, "Color", glm::vec4(1.0f));
+                c.FlashAmount = std::clamp(flash->value("Amount", 0.0f), 0.0f, 1.0f);
+            }
+            if (auto outline = j.find("Outline"); outline != j.end() && outline->is_object())
+            {
+                c.OutlineColor = Vec(*outline, "Color", glm::vec4(1.0f));
+                c.OutlineThickness = std::clamp(outline->value("Thickness", 0.0f), 0.0f, 64.0f);
+            }
             c.SortingLayer = ReadSortingLayer(j);
         }
         if (e.contains("SpriteAnimation"))

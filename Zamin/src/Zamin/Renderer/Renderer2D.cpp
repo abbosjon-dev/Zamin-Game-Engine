@@ -19,6 +19,10 @@ layout(location = 2) in vec2 a_TexCoord;
 layout(location = 3) in float a_TexIndex;
 layout(location = 4) in float a_TilingFactor;
 layout(location = 5) in int a_EntityID;
+layout(location = 6) in vec4 a_Flash;         // rgb + amount
+layout(location = 7) in vec4 a_OutlineColor;
+layout(location = 8) in vec4 a_UVRect;        // the picture's own UV rectangle (min, max)
+layout(location = 9) in float a_OutlineWidth; // texture pixels (0: no outline)
 
 uniform mat4 u_ViewProjection;
 
@@ -27,6 +31,10 @@ out vec2 v_TexCoord;
 flat out float v_TexIndex;
 out float v_TilingFactor;
 flat out int v_EntityID;
+flat out vec4 v_Flash;
+flat out vec4 v_OutlineColor;
+flat out vec4 v_UVRect;
+flat out float v_OutlineWidth;
 
 void main()
 {
@@ -35,6 +43,10 @@ void main()
     v_TexIndex = a_TexIndex;
     v_TilingFactor = a_TilingFactor;
     v_EntityID = a_EntityID;
+    v_Flash = a_Flash;
+    v_OutlineColor = a_OutlineColor;
+    v_UVRect = a_UVRect;
+    v_OutlineWidth = a_OutlineWidth;
     gl_Position = u_ViewProjection * vec4(a_Position, 1.0);
 }
 )";
@@ -48,41 +60,130 @@ in vec2 v_TexCoord;
 flat in float v_TexIndex;
 in float v_TilingFactor;
 flat in int v_EntityID;
+flat in vec4 v_Flash;
+flat in vec4 v_OutlineColor;
+flat in vec4 v_UVRect;
+flat in float v_OutlineWidth;
 
 uniform sampler2D u_Textures[16];
 uniform int u_LinearTextures; // bit per slot: the texture holds linear values (import setting sRGB off)
 
+vec4 SampleTexture(int index, vec2 uv)
+{
+    switch (index)
+    {
+        case  0: return texture(u_Textures[ 0], uv);
+        case  1: return texture(u_Textures[ 1], uv);
+        case  2: return texture(u_Textures[ 2], uv);
+        case  3: return texture(u_Textures[ 3], uv);
+        case  4: return texture(u_Textures[ 4], uv);
+        case  5: return texture(u_Textures[ 5], uv);
+        case  6: return texture(u_Textures[ 6], uv);
+        case  7: return texture(u_Textures[ 7], uv);
+        case  8: return texture(u_Textures[ 8], uv);
+        case  9: return texture(u_Textures[ 9], uv);
+        case 10: return texture(u_Textures[10], uv);
+        case 11: return texture(u_Textures[11], uv);
+        case 12: return texture(u_Textures[12], uv);
+        case 13: return texture(u_Textures[13], uv);
+        case 14: return texture(u_Textures[14], uv);
+        case 15: return texture(u_Textures[15], uv);
+    }
+    return vec4(1.0);
+}
+
+vec4 SampleTextureLod(int index, vec2 uv)
+{
+    switch (index)
+    {
+        case  0: return textureLod(u_Textures[ 0], uv, 0.0);
+        case  1: return textureLod(u_Textures[ 1], uv, 0.0);
+        case  2: return textureLod(u_Textures[ 2], uv, 0.0);
+        case  3: return textureLod(u_Textures[ 3], uv, 0.0);
+        case  4: return textureLod(u_Textures[ 4], uv, 0.0);
+        case  5: return textureLod(u_Textures[ 5], uv, 0.0);
+        case  6: return textureLod(u_Textures[ 6], uv, 0.0);
+        case  7: return textureLod(u_Textures[ 7], uv, 0.0);
+        case  8: return textureLod(u_Textures[ 8], uv, 0.0);
+        case  9: return textureLod(u_Textures[ 9], uv, 0.0);
+        case 10: return textureLod(u_Textures[10], uv, 0.0);
+        case 11: return textureLod(u_Textures[11], uv, 0.0);
+        case 12: return textureLod(u_Textures[12], uv, 0.0);
+        case 13: return textureLod(u_Textures[13], uv, 0.0);
+        case 14: return textureLod(u_Textures[14], uv, 0.0);
+        case 15: return textureLod(u_Textures[15], uv, 0.0);
+    }
+    return vec4(1.0);
+}
+
+vec2 TextureSize(int index)
+{
+    switch (index)
+    {
+        case  0: return vec2(textureSize(u_Textures[ 0], 0));
+        case  1: return vec2(textureSize(u_Textures[ 1], 0));
+        case  2: return vec2(textureSize(u_Textures[ 2], 0));
+        case  3: return vec2(textureSize(u_Textures[ 3], 0));
+        case  4: return vec2(textureSize(u_Textures[ 4], 0));
+        case  5: return vec2(textureSize(u_Textures[ 5], 0));
+        case  6: return vec2(textureSize(u_Textures[ 6], 0));
+        case  7: return vec2(textureSize(u_Textures[ 7], 0));
+        case  8: return vec2(textureSize(u_Textures[ 8], 0));
+        case  9: return vec2(textureSize(u_Textures[ 9], 0));
+        case 10: return vec2(textureSize(u_Textures[10], 0));
+        case 11: return vec2(textureSize(u_Textures[11], 0));
+        case 12: return vec2(textureSize(u_Textures[12], 0));
+        case 13: return vec2(textureSize(u_Textures[13], 0));
+        case 14: return vec2(textureSize(u_Textures[14], 0));
+        case 15: return vec2(textureSize(u_Textures[15], 0));
+    }
+    return vec2(1.0);
+}
+
+bool InsideRect(vec2 p) { return all(greaterThanEqual(p, v_UVRect.xy)) && all(lessThanEqual(p, v_UVRect.zw)); }
+
 void main()
 {
+    int index = int(v_TexIndex);
     vec2 uv = v_TexCoord * v_TilingFactor;
-    vec4 texColor;
-    switch (int(v_TexIndex))
-    {
-        case  0: texColor = texture(u_Textures[ 0], uv); break;
-        case  1: texColor = texture(u_Textures[ 1], uv); break;
-        case  2: texColor = texture(u_Textures[ 2], uv); break;
-        case  3: texColor = texture(u_Textures[ 3], uv); break;
-        case  4: texColor = texture(u_Textures[ 4], uv); break;
-        case  5: texColor = texture(u_Textures[ 5], uv); break;
-        case  6: texColor = texture(u_Textures[ 6], uv); break;
-        case  7: texColor = texture(u_Textures[ 7], uv); break;
-        case  8: texColor = texture(u_Textures[ 8], uv); break;
-        case  9: texColor = texture(u_Textures[ 9], uv); break;
-        case 10: texColor = texture(u_Textures[10], uv); break;
-        case 11: texColor = texture(u_Textures[11], uv); break;
-        case 12: texColor = texture(u_Textures[12], uv); break;
-        case 13: texColor = texture(u_Textures[13], uv); break;
-        case 14: texColor = texture(u_Textures[14], uv); break;
-        case 15: texColor = texture(u_Textures[15], uv); break;
-        default: texColor = vec4(1.0); break;
-    }
-    bool linearTexture = ((u_LinearTextures >> int(v_TexIndex)) & 1) != 0;
+    vec4 texColor = SampleTexture(index, uv);
+    bool outline = v_OutlineWidth > 0.0;
+    if (outline && !InsideRect(v_TexCoord))
+        texColor = vec4(0.0); // the quad grew by the outline: no picture out here
+    bool linearTexture = ((u_LinearTextures >> index) & 1) != 0;
     vec4 color = texColor * v_Color;
-    if (color.a < 0.01)
-        discard;
     // Sprites are authored in sRGB; the scene buffer is linear HDR.
-    o_Color = linearTexture ? vec4(pow(v_Color.rgb, vec3(2.2)) * texColor.rgb, color.a)
-                            : vec4(pow(color.rgb, vec3(2.2)), color.a);
+    vec3 rgb = linearTexture ? pow(v_Color.rgb, vec3(2.2)) * texColor.rgb : pow(color.rgb, vec3(2.2));
+    float alpha = color.a;
+    // Hit flash: the picture toward the flash colour.
+    if (v_Flash.a > 0.0)
+        rgb = mix(rgb, pow(v_Flash.rgb, vec3(2.2)), clamp(v_Flash.a, 0.0, 1.0));
+    // Outline: the most opaque neighbour within the width (rings of samples), under the picture.
+    if (outline && texColor.a < 0.999)
+    {
+        vec2 texel = 1.0 / max(TextureSize(index), vec2(1.0));
+        float around = 0.0;
+        int rings = int(clamp(ceil(v_OutlineWidth), 1.0, 4.0));
+        for (int r = 1; r <= rings; r++)
+        {
+            float radius = v_OutlineWidth * float(r) / float(rings);
+            for (int k = 0; k < 12; k++)
+            {
+                float angle = float(k) * 0.5235988;
+                vec2 p = v_TexCoord + vec2(cos(angle), sin(angle)) * radius * texel;
+                if (InsideRect(p))
+                    around = max(around, SampleTextureLod(index, p).a);
+            }
+        }
+        float outlineAlpha = around * v_OutlineColor.a * v_Color.a;
+        float total = alpha + outlineAlpha * (1.0 - alpha);
+        if (total > 0.0)
+            rgb = (rgb * alpha + pow(v_OutlineColor.rgb, vec3(2.2)) * outlineAlpha * (1.0 - alpha)) / total;
+        alpha = total;
+    }
+    if (alpha < 0.01)
+        discard;
+    o_Color = vec4(rgb, alpha);
     o_EntityID = v_EntityID;
 }
 )";
@@ -176,6 +277,10 @@ void main()
             float TexIndex;
             float TilingFactor;
             int EntityID;
+            glm::vec4 Flash;        // rgb + amount (0: none)
+            glm::vec4 OutlineColor;
+            glm::vec4 UVRect;       // min.xy, max.xy
+            float OutlineWidth;     // texture pixels (0: none)
         };
 
         struct CircleVertex
@@ -255,6 +360,10 @@ void main()
             { ShaderDataType::Float,  "a_TexIndex" },
             { ShaderDataType::Float,  "a_TilingFactor" },
             { ShaderDataType::Int,    "a_EntityID" },
+            { ShaderDataType::Float4, "a_Flash" },
+            { ShaderDataType::Float4, "a_OutlineColor" },
+            { ShaderDataType::Float4, "a_UVRect" },
+            { ShaderDataType::Float,  "a_OutlineWidth" },
         });
         s_Data->QuadVertexArray->AddVertexBuffer(s_Data->QuadVertexBuffer);
         s_Data->QuadVertexBufferBase = new QuadVertex[Renderer2DData::MaxVertices];
@@ -455,9 +564,13 @@ void main()
     }
 
     static void SubmitQuad(const glm::mat4& transform, const glm::vec4& color, float texIndex, float tiling,
-                           const glm::vec2* texCoords, int entityID)
+                           const glm::vec2* texCoords, int entityID, const Renderer2D::SpriteEffect* effect = nullptr,
+                           const glm::vec4& uvRect = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f))
     {
         BeginQuads();
+        const glm::vec4 flash = effect && effect->HasFlash() ? glm::vec4(glm::vec3(effect->FlashColor), std::min(1.0f, effect->FlashAmount * effect->FlashColor.a))
+                                                             : glm::vec4(0.0f);
+        const bool outline = effect && effect->HasOutline();
         for (int i = 0; i < 4; i++)
         {
             s_Data->QuadVertexBufferPtr->Position = transform * s_Data->QuadVertexPositions[i];
@@ -466,6 +579,10 @@ void main()
             s_Data->QuadVertexBufferPtr->TexIndex = texIndex;
             s_Data->QuadVertexBufferPtr->TilingFactor = tiling;
             s_Data->QuadVertexBufferPtr->EntityID = entityID;
+            s_Data->QuadVertexBufferPtr->Flash = flash;
+            s_Data->QuadVertexBufferPtr->OutlineColor = outline ? effect->OutlineColor : glm::vec4(0.0f);
+            s_Data->QuadVertexBufferPtr->UVRect = uvRect;
+            s_Data->QuadVertexBufferPtr->OutlineWidth = outline ? effect->OutlineThickness : 0.0f;
             s_Data->QuadVertexBufferPtr++;
         }
         s_Data->QuadIndexCount += 6;
@@ -520,6 +637,19 @@ void main()
         float texIndex = GetTextureIndex(texture);
         const glm::vec2 coords[4] = { { uvMin.x, uvMin.y }, { uvMax.x, uvMin.y }, { uvMax.x, uvMax.y }, { uvMin.x, uvMax.y } };
         SubmitQuad(transform, tintColor, texIndex, 1.0f, coords, entityID);
+    }
+
+    void Renderer2D::DrawQuad(const glm::mat4& transform, const Ref<Texture2D>& texture, const glm::vec2& uvMin, const glm::vec2& uvMax,
+                              const glm::vec4& tintColor, const SpriteEffect& effect, const glm::vec4& uvRect, int entityID)
+    {
+        if (s_Data->QuadIndexCount >= Renderer2DData::MaxIndices)
+            NextBatch();
+        float texIndex = GetTextureIndex(texture);
+        const glm::vec2 coords[4] = { { uvMin.x, uvMin.y }, { uvMax.x, uvMin.y }, { uvMax.x, uvMax.y }, { uvMin.x, uvMax.y } };
+        SpriteEffect e = effect;
+        if (!texture)
+            e.OutlineThickness = 0.0f; // a plain quad has no picture to outline
+        SubmitQuad(transform, tintColor, texIndex, 1.0f, coords, entityID, &e, uvRect);
     }
 
     // ------------------------------------------------------------------ circles
@@ -635,6 +765,10 @@ void main()
                     s_Data->QuadVertexBufferPtr->TexIndex = texIndex;
                     s_Data->QuadVertexBufferPtr->TilingFactor = 1.0f;
                     s_Data->QuadVertexBufferPtr->EntityID = entityID;
+                    s_Data->QuadVertexBufferPtr->Flash = glm::vec4(0.0f);
+                    s_Data->QuadVertexBufferPtr->OutlineColor = glm::vec4(0.0f);
+                    s_Data->QuadVertexBufferPtr->UVRect = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+                    s_Data->QuadVertexBufferPtr->OutlineWidth = 0.0f;
                     s_Data->QuadVertexBufferPtr++;
                 }
                 s_Data->QuadIndexCount += 6;

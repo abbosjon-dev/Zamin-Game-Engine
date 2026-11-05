@@ -26,6 +26,7 @@ namespace ShippingCheck {
         DebugDraw::Rect(p, glm::vec2(2.0f, 1.0f));
         DebugDraw::WireSphere(p, 2.0f, DebugColor::Yellow, 3.0f);
         DebugDraw::Sphere(p, 1.0f);
+        DebugDraw::WireCapsule(p, p * 2.0f, 0.5f, DebugColor::Green, 1.0f, false);
         DebugDraw::Circle(p, glm::vec3(0, 1, 0), 1.0f);
         DebugDraw::Circle(p, 1.0f, DebugColor::Magenta);
         DebugDraw::Cross(p, 0.5f);

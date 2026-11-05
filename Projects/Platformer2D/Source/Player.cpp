@@ -12,6 +12,7 @@ public:
     float MoveSpeed = 7.0f;
     float JumpImpulse = 9.0f;
     float FallLimit = -15.0f;
+    float LandShake = 0.0f; // 0 = o'chiq; shundan tez qo'nsa kamera silkinadi (birlik/s)
 
     void OnCreate() override
     {
@@ -24,6 +25,7 @@ public:
         float dir = Input::GetAxis("Horizontal");
 
         glm::vec2 velocity = GetVelocity();
+        m_FallSpeed = std::max(0.0f, -velocity.y); // before this frame's physics step: the speed we land with
         // Smooth horizontal acceleration
         float target = dir * MoveSpeed;
         velocity.x += (target - velocity.x) * std::min(1.0f, 12.0f * (float)ts);
@@ -56,20 +58,32 @@ public:
             SetPosition2D({ m_Spawn.x, m_Spawn.y });
             SetVelocity({ 0.0f, 0.0f });
             SendMessage(FindEntity("GameManager"), "PlayerFell");
+            if (LandShake > 0.0f)
+                ShakeCamera(0.6f, 0.5f, 18.0f);
         }
     }
 
     // Faqat qattiq to'qnashuvlar (yer, platformalar). Tangalar va bayroq sensor - ular
     // OnTriggerBegin/End bo'lib keladi, shuning uchun bu yerda alohida tekshirish shart emas.
-    void OnCollisionBegin(Entity) override { m_GroundContacts++; }
+    void OnCollisionBegin(Entity) override
+    {
+        m_GroundContacts++;
+        // Hard landing: the camera shakes (the faster, the stronger).
+        if (LandShake > 0.0f && m_FallSpeed > LandShake)
+            ShakeCamera(std::clamp(0.25f + (m_FallSpeed - LandShake) * 0.06f, 0.0f, 0.8f), 0.35f, 22.0f);
+        m_FallSpeed = 0.0f;
+    }
     void OnCollisionEnd(Entity) override { m_GroundContacts = std::max(0, m_GroundContacts - 1); }
 
 private:
     glm::vec3 m_Spawn{ 0.0f };
     int m_GroundContacts = 0;
+    float m_FallSpeed = 0.0f;
 };
 
 ZM_REGISTER_SCRIPT(PlayerController,
     ZM_FIELD_RANGE(PlayerController, MoveSpeed, 0.0f, 20.0f).Header("Harakat").Tooltip("Yurish tezligi (birlik/sekund)"),
     ZM_FIELD_RANGE(PlayerController, JumpImpulse, 0.0f, 30.0f).Tooltip("Sakrash kuchi (impuls)"),
-    ZM_FIELD(PlayerController, FallLimit).Tooltip("Shu balandlikdan pastga tushsa, o'yinchi boshlang'ich joyga qaytadi"))
+    ZM_FIELD(PlayerController, FallLimit).Tooltip("Shu balandlikdan pastga tushsa, o'yinchi boshlang'ich joyga qaytadi"),
+    ZM_FIELD_RANGE(PlayerController, LandShake, 0.0f, 40.0f).Header("Kamera")
+        .Tooltip("Shundan tezroq tushib qo'nsa (birlik/s) kamera silkinadi; yiqilganda ham. 0 - o'chiq"))

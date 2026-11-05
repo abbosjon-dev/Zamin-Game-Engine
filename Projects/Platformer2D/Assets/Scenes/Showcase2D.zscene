@@ -86,14 +86,36 @@
           1
         ]
       },
-      "NativeScript": {
-        "Class": "CameraFollow",
-        "Fields": {
-          "Smoothness": {
-            "Type": "Float",
-            "Value": 5.0
-          }
-        }
+      "Camera2DFollow": {
+        "Target": 7340000792311788,
+        "Offset": [
+          0,
+          1.5
+        ],
+        "Damping": [
+          0.2,
+          0.25
+        ],
+        "DeadZone": [
+          1.0,
+          1.5
+        ],
+        "LookAhead": [
+          2.0,
+          0
+        ],
+        "LookAheadDamping": 0.6,
+        "LookAheadMinSpeed": 0.5,
+        "UseBounds": true,
+        "BoundsMin": [
+          -12.5,
+          -9
+        ],
+        "BoundsMax": [
+          66,
+          30
+        ],
+        "SnapOnStart": true
       }
     },
     {
@@ -2785,6 +2807,10 @@
           "JumpImpulse": {
             "Type": "Float",
             "Value": 9.5
+          },
+          "LandShake": {
+            "Type": "Float",
+            "Value": 12.0
           }
         }
       }

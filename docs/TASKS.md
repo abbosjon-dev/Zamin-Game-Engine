@@ -170,11 +170,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 143. 9-slice sprite rendering
 - [x] 144. Sorting layer'lar (nomlangan qatlamlar)
 - [x] 145. Parallax qatlamlar komponenti
-- [ ] 146. 2D kamera chegaralari (bounds) va silliq kuzatish komponenti
-- [ ] 147. Kamera silkinishi (camera shake) API
-- [ ] 148. Tilemap: bir nechta qatlam
-- [ ] 149. Tilemap: auto-tile qoidalari (4/8 qo'shni)
-- [ ] 150. Tilemap: to'rtburchak va to'ldirish (flood fill) asboblari
+- [x] 146. 2D kamera chegaralari (bounds) va silliq kuzatish komponenti
+- [x] 147. Kamera silkinishi (camera shake) API
+- [x] 148. Tilemap: bir nechta qatlam
+- [x] 149. Tilemap: auto-tile qoidalari (4/8 qo'shni)
+- [x] 150. Tilemap: to'rtburchak va to'ldirish (flood fill) asboblari
 - [ ] 151. Tilemap: plitka bo'yicha collision bayroqlari
 - [ ] 152. Tilemap: one-way platformalar
 - [ ] 153. Tilemap: animatsiyali plitkalar

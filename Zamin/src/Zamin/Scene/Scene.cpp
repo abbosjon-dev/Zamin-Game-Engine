@@ -3786,6 +3786,9 @@ namespace Zamin {
                     continue;
                 const TilemapLayer& layer = tm.Layers[(size_t)item.Layer];
                 const glm::vec4 color = layer.Opacity >= 1.0f ? tm.Color : tm.Color * glm::vec4(1.0f, 1.0f, 1.0f, std::max(0.0f, layer.Opacity));
+                const bool previewed = item.Handle == options.TilePreviewEntity && item.Layer == options.TilePreviewLayer &&
+                                       options.TilePreviewTiles && options.TilePreviewTiles->size() == layer.Tiles.size();
+                const std::vector<int>& tiles = previewed ? *options.TilePreviewTiles : layer.Tiles;
                 if (!tm.Tileset && !tm.TilesetPath.empty())
                     tm.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(tm.TilesetPath), tm.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
                 int cols = std::max(1, tm.TilesetColumns), rows = std::max(1, tm.TilesetRows);
@@ -3799,7 +3802,7 @@ namespace Zamin {
                 for (int y = chunk.Y0; y < chunk.Y1; y++)
                     for (int x = chunk.X0; x < chunk.X1; x++)
                     {
-                        int tile = layer.Tiles[(size_t)y * tm.Width + x];
+                        int tile = tiles[(size_t)y * tm.Width + x];
                         if (tile < 0) continue;
                         glm::mat4 t = transform * glm::translate(glm::mat4(1.0f), { (x + 0.5f) * tm.TileSize, (y + 0.5f) * tm.TileSize, 0.0f })
                                                 * glm::scale(glm::mat4(1.0f), { tm.TileSize, tm.TileSize, 1.0f });

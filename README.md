@@ -95,6 +95,15 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     old plan) bo'yicha siljiydi, `RepeatX`/`RepeatY` bilan sprite ko'rinadigan joyni cheksiz to'ldiradi. Transform
     o'zgarmaydi (fizika va skriptlarga ta'sir qilmaydi); editorda Ko'rinish > Parallax bilan editor kamerasida ham.
     Namuna: Platformer2D `Scenes/Showcase2D.zscene`
+  - **Camera 2D Follow** komponenti: obyekt (odatda kamera) nishon ortidan fizika va skriptlardan keyin silliq yuradi —
+    `Offset`, x/y bo'yicha alohida silliqlik (soniyada, kadr tezligiga bog'liq emas), o'lik zona (nishon uning ichida yursa
+    kamera qimirlamaydi), harakat yo'nalishi bo'yicha oldinga qarash (`LookAhead`), dunyo chegaralari (kameraning butun
+    ko'rinishi to'rtburchakdan chiqmaydi), boshida nishonga sakrash va `Snap()`. Editorda tanlanganda o'lik zona va
+    chegaralar chiziladi; skriptdan `SetCameraTarget(entity)`
+  - **Kamera silkinishi**: `ShakeCamera(kuch, davomiylik, chastota)` (skriptdan yoki `Scene::ShakeCamera`) — trauma
+    modeli: kuch qo'shiladi (eng ko'pi 1), davomiylik ichida so'nadi, siljish = kuch^daraja × `MaxOffset` / `MaxAngle`
+    (kamera komponentida sozlanadi), silliq shovqin bo'yicha; faqat tasvir silkinadi — transform, kuzatish, fizika
+    o'zgarmaydi; bir xil seed bilan aynan takrorlanadi. Inspektorda o'yin paytida "Sinash" tugmasi
   - 3D PBR (metallic/roughness), yo'naltirilgan quyosh, gradient osmon, atrof-muhit aksi
   - **Bir nechta quyosh**: barcha faol Directional Light'lar (bir vaqtda 4 tagacha) sahnani yoritadi, soyani esa faqat
     bittasi beradi — sahna tartibida "Soyalar" yoqilgan birinchisi (asosiy quyosh; osmondagi quyosh diski ham unga
@@ -235,6 +244,15 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - **Gizmo o'lchami**: ko'chirish / aylantirish / masshtab gizmosining ekrandagi o'lchami, chiziqlari qalinligi va viewport
   ikonkalari o'lchami (tanlash asboblari yonidagi menyu yoki Ko'rinish > Gizmo o'lchami; editor sozlamalarida saqlanadi)
 - **Tilemap**: tileset'dan plitkali darajalar, editor'da chizish (palitra), avtomatik birlashtirilgan collider'lar
+  - **Qatlamlar**: har bir qatlamning nomi, ko'rinishi, collision bayrog'i (faqat shu qatlamlar qattiq), tartibi (tilemap
+    tartibiga qo'shiladi — masalan, o'yinchi oldidagi old plan) va shaffofligi; inspektorda qatlamlar ro'yxati (qo'shish,
+    nusxa, surish, o'chirish), bo'yash faol qatlamga tushadi. Eski sahna fayllari 0-qatlam bo'lib ochiladi
+  - **Auto-tile qoidalari**: 4 qo'shni (16 plitka) va 8 qo'shni blob (47 plitka) — katak qo'shnilariga qarab to'g'ri
+    plitkani oladi, qo'shnilari ham yangilanadi. Qoidalar tileset'ning `.zmeta` faylida (`"AutoTiles"`) saqlanadi va
+    inspektorda tuziladi: variantlar to'ri (qo'shnilik naqshi + plitka), palitradan bosib tayinlash, ketma-ket to'ldirish
+  - **Asboblar**: mo'yqalam (B), to'rtburchak (R), to'ldirish (G, 4 qo'shnili flood fill), o'chirg'ich (E), tomizg'ich (I);
+    Shift — o'chirish, auto-tile qoidasi bilan ham ishlaydi; viewport'da natija oldindan ko'rinadi (auto-tile variantlari
+    bilan), har bir chiziq/to'rtburchak bitta Ctrl+Z qadami. Namuna: Platformer2D `Scenes/Tilemap2D.zscene`
 - **3D (spatial) ovoz**: tinglovchi — asosiy kamera, masofaga qarab so'nish
 - **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, 9 ta langar (anchor), `OnClick()`
 - **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash

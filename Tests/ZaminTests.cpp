@@ -13983,6 +13983,47 @@ TEST(TilemapFloodFillRectAndLine)
     CHECK(TilemapEdit::LineCells({ 0, 5 }, { 0, -5 }).size() == 11);
 }
 
+TEST(TilemapSampleAutoTilesConsistent)
+{
+    namespace fs = std::filesystem;
+    // The Platformer2D sample's Tilemap2D scene was painted with its tileset's auto-tile rules (kept in
+    // terrain.png.zmeta): refreshing every terrain cell changes nothing, the layers load as saved and the
+    // camera follows the player inside the map.
+    fs::path assets = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D" / "Assets";
+    std::optional<AssetMetadata> meta = AssetMetaFile::Read(assets / "Textures" / "terrain.png");
+    CHECK(meta.has_value());
+    AutoTileSet rules = meta ? AutoTileSet::FromImportSettings(meta->Import) : AutoTileSet();
+    CHECK(rules.Rules.size() == 2);
+    CHECK(rules.Find("Tosh") == 0 && rules.Rules[0].Mode == AutoTileMode::Edges4 && rules.Find("O't") == 1 && rules.Rules[1].Mode == AutoTileMode::Blob8);
+
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(assets / "Scenes" / "Tilemap2D.zscene"));
+    Entity level = scene->FindEntityByName("Level");
+    CHECK(level && level.HasComponent<TilemapComponent>());
+    if (!level || !level.HasComponent<TilemapComponent>())
+        return;
+    auto& tm = level.GetComponent<TilemapComponent>();
+    CHECK(tm.GetLayerCount() == 3 && tm.FindLayer("Asosiy") == 1 && tm.Layers[1].Collision && !tm.Layers[0].Collision && !tm.Layers[2].Collision);
+    CHECK(tm.Layers[2].SortingOrder > 0 && tm.Layers[2].Opacity < 1.0f);
+    const int main = tm.FindLayer("Asosiy");
+    size_t terrain = 0;
+    for (const AutoTileRule& rule : rules.Rules)
+    {
+        CHECK(AutoTile::Refresh(tm, main, rule, 0, 0, tm.Width - 1, tm.Height - 1) == 0);
+        for (int t : tm.Layers[(size_t)main].Tiles)
+            terrain += rule.Contains(t) ? 1 : 0;
+    }
+    CHECK(terrain > 300);
+    // Every variant of the grass blob is drawn somewhere in its tileset (47 distinct tiles).
+    CHECK(std::set<int>(rules.Rules[1].Tiles.begin(), rules.Rules[1].Tiles.end()).size() == 47);
+
+    Entity camera = scene->FindEntityByName("Main Camera");
+    Entity player = scene->FindEntityByName("Player");
+    CHECK(camera && player && camera.HasComponent<Camera2DFollowComponent>() &&
+          camera.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)player.GetUUID() &&
+          camera.GetComponent<Camera2DFollowComponent>().UseBounds);
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

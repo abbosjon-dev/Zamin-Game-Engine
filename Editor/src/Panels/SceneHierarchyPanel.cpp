@@ -381,7 +381,7 @@ namespace Zamin {
                     DrawInspector();
                 if (m_ScrollInspectorFrames > 0) // automation: show the last components
                 {
-                    ImGui::SetScrollY(ImGui::GetScrollMaxY());
+                    ImGui::SetScrollY(m_ScrollInspectorY < 0.0f ? ImGui::GetScrollMaxY() : std::min(m_ScrollInspectorY, ImGui::GetScrollMaxY()));
                     m_ScrollInspectorFrames--;
                 }
             }
@@ -2226,6 +2226,18 @@ namespace Zamin {
     bool SceneHierarchyPanel::DrawTilemap(Entity entity, TilemapComponent& c)
     {
         bool changed = false;
+        // Another tilemap: its own tileset's rules, from its first layer (the paint tool stays).
+        if ((uint64_t)entity.GetUUID() != m_TileEntity)
+        {
+            if (m_TileEntity)
+            {
+                m_TileRule = -1;
+                m_EditRule = false;
+                m_EditRuleVariant = -1;
+                m_TileLayer = std::max(0, c.FindLayer("Asosiy"));
+            }
+            m_TileEntity = (uint64_t)entity.GetUUID();
+        }
         if (UI::PropertyAssetPath("Tileset", c.TilesetPath, ".png;.jpg;.jpeg", ICON_FA_FILE_IMAGE)) { c.Tileset = nullptr; changed = true; m_TileRule = -1; }
         if (UI::PropertyBool("Pixel-art", c.PixelArt)) { c.Tileset = nullptr; changed = true; }
         changed |= UI::PropertyInt("Tileset ustunlari", c.TilesetColumns);
@@ -2279,10 +2291,11 @@ namespace Zamin {
                 ImGui::PopStyleVar();
                 ImGui::SameLine();
                 std::string label = std::format("{}##layer", layer.Name);
-                if (ImGui::Selectable(label.c_str(), m_TileLayer == i, ImGuiSelectableFlags_AllowOverlap, ImVec2(0, rowHeight)))
+                if (ImGui::Selectable(label.c_str(), m_TileLayer == i, ImGuiSelectableFlags_None, ImVec2(0, rowHeight)))
                     m_TileLayer = i;
-                ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::CalcTextSize("0000").x);
-                ImGui::TextDisabled("%zu", c.CountTiles(i));
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    UI::Tooltip(std::format("{}: {} ta plitka{}{}", layer.Name, c.CountTiles(i), layer.Collision ? ", qattiq" : "",
+                                            layer.SortingOrder ? std::format(", tartib {:+}", layer.SortingOrder) : std::string()).c_str());
                 ImGui::PopID();
             }
             ImGui::EndChild();
@@ -2367,6 +2380,8 @@ namespace Zamin {
             changed |= ImGui::DragInt("##layerOrder", &layer.SortingOrder, 0.1f, -1000, 1000);
             changed |= UI::PropertyBool("Ko'rinadi", layer.Visible);
             changed |= UI::PropertyBool("Collision", layer.Collision);
+            UI::PropertyLabel("Plitkalar");
+            ImGui::TextDisabled("%zu / %d", c.CountTiles(m_TileLayer), c.Width * c.Height);
             if (layer.Collision && !c.Collision)
             {
                 UI::PropertyLabel("");
@@ -2423,8 +2438,6 @@ namespace Zamin {
         UI::PropertyLabel("Qoida");
         {
             std::string preview = m_TileRule >= 0 ? std::string(ICON_FA_BORDER_ALL "  ") + rules.Rules[(size_t)m_TileRule].Name : std::string("(oddiy plitka)");
-            float buttons = (ImGui::GetFrameHeight() + 2.0f) * 3.0f;
-            ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - buttons));
             if (ImGui::BeginCombo("##rule", preview.c_str()))
             {
                 if (ImGui::Selectable("(oddiy plitka)", m_TileRule < 0))
@@ -2442,7 +2455,7 @@ namespace Zamin {
                 }
                 ImGui::EndCombo();
             }
-            ImGui::SameLine(0, 2);
+            UI::PropertyLabel("");
             ImGui::BeginDisabled(c.TilesetPath.empty() || !m_SceneEditable);
             if (UI::ToolbarButton(ICON_FA_PLUS, "Yangi qoida (tanlangan plitkadan boshlab ketma-ket)"))
             {
@@ -2521,7 +2534,7 @@ namespace Zamin {
             ImGui::TableSetColumnIndex(1);
             if (!c.Tileset && !c.TilesetPath.empty())
                 c.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TilesetPath), c.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
-            const float thumb = ImGui::GetFontSize() * 1.5f;
+            const float thumb = std::max(14.0f, ImGui::GetFontSize() * 1.1f);
             const float cellWidth = thumb * 2.0f + 6.0f;
             const int perRow = std::max(1, (int)((ImGui::GetContentRegionAvail().x + 4.0f) / (cellWidth + 4.0f)));
             const int cols = std::max(1, c.TilesetColumns), rows = std::max(1, c.TilesetRows);

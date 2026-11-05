@@ -284,8 +284,13 @@ namespace Zamin {
                 m_GizmoPivotCenter = std::string_view(pivot) != "0";
             if (const char* filter = std::getenv("ZAMIN_EDITOR_FILTER")) // e.g. "#Coin"
                 m_SceneHierarchyPanel.SetFilter(filter);
-            if (std::getenv("ZAMIN_EDITOR_INSPECTOR_BOTTOM"))
-                m_SceneHierarchyPanel.ScrollInspectorToBottom();
+            // ZAMIN_EDITOR_INSPECTOR_BOTTOM=1: the inspector scrolled to its end; a larger number: that many px down.
+            if (const char* bottom = std::getenv("ZAMIN_EDITOR_INSPECTOR_BOTTOM"))
+            {
+                float y = (float)std::atof(bottom);
+                if (y > 1.0f) m_SceneHierarchyPanel.ScrollInspectorTo(y);
+                else m_SceneHierarchyPanel.ScrollInspectorToBottom();
+            }
             if (std::getenv("ZAMIN_EDITOR_PLAY"))
                 OnScenePlay();
             if (std::getenv("ZAMIN_EDITOR_STATS"))
@@ -520,7 +525,7 @@ namespace Zamin {
             // ZAMIN_EDITOR_PARALLAX=1: the scene view moves parallax layers with the editor camera.
             if (std::getenv("ZAMIN_EDITOR_PARALLAX"))
                 m_PreviewParallax = true;
-            // ZAMIN_EDITOR_TILEMAP="tool=brush|rect|fill|eraser|picker|layer=1|rule=0|tile=5|hover=12,3|drag=2,2>8,5|apply"
+            // ZAMIN_EDITOR_TILEMAP="tool=brush|rect|fill|eraser|picker|layer=1|rule=0|tile=5|hover=12,3|drag=2,2>8,5|apply|editrule=3"
             // (with ZAMIN_EDITOR_SELECT on a tilemap): tile painting on with that tool / layer / auto-tile
             // rule / tile, the preview at the hover cell (or a rectangle being dragged); "apply" uses
             // the tool there once.
@@ -595,6 +600,15 @@ namespace Zamin {
             }
         }
 
+        // ZAMIN_EDITOR_CAMERA_SHAKE="intensity,duration,frequency[,frame]": the game camera shakes at that
+        // frame (30; after ZAMIN_EDITOR_PLAY has started the game), the same call as a script's ShakeCamera.
+        if (const char* shake = std::getenv("ZAMIN_EDITOR_CAMERA_SHAKE"))
+        {
+            float v[4] = { 0.7f, 1.0f, 20.0f, 30.0f };
+            std::sscanf(shake, "%f,%f,%f,%f", &v[0], &v[1], &v[2], &v[3]);
+            if (frame == std::max(6, (int)v[3]) && !m_ActiveScene->ShakeCamera(v[0], v[1], v[2]))
+                ZM_WARN("ZAMIN_EDITOR_CAMERA_SHAKE: asosiy kamera yo'q");
+        }
         // ZAMIN_EDITOR_TOGGLE_ACTIVE=1: switches the selection off / on at frame 20 (after
         // ZAMIN_EDITOR_PLAY has started the game), the same path as Alt+Shift+A.
         // ZAMIN_EDITOR_THUMBNAIL_STATS=<frame>: logs what the content browser's thumbnail cache did by then.
@@ -920,6 +934,7 @@ namespace Zamin {
             {
                 case SceneState::Edit:
                     UpdateTilePainting();
+                    UpdateTilePreview(options);
                     m_EditorCamera.OnUpdate(ts, cameraInput);
                     m_ActiveScene->OnUpdateEditor(ts, m_EditorCamera, options);
                     break;
@@ -1250,7 +1265,7 @@ namespace Zamin {
         auto& tm = e.GetComponent<TilemapComponent>();
         tm.EnsureSize();
         const int layer = std::clamp(panel.GetActiveTileLayer(), 0, tm.GetLayerCount() - 1);
-        const bool mouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        const bool mouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Left) || m_TileDragHeld;
         glm::ivec2 cell;
         const bool hasCell = GetTileCellUnderMouse(e, cell);
 
@@ -1302,6 +1317,65 @@ namespace Zamin {
         }
     }
 
+    void EditorLayer::UpdateTilePreview(SceneRenderOptions& options)
+    {
+        using Tool = SceneHierarchyPanel::TileTool;
+        m_TilePreview.Valid = false;
+        m_TilePreview.Erased.clear();
+        auto& panel = m_SceneHierarchyPanel;
+        glm::ivec2 hover;
+        if (!panel.IsTilePainting() || !(m_ViewportHovered || m_TileHoverOverride))
+            return;
+        Entity e = panel.GetSelectedEntity();
+        if (!GetTileCellUnderMouse(e, hover))
+            return;
+        auto& tm = e.GetComponent<TilemapComponent>();
+        tm.EnsureSize();
+        if ((size_t)tm.Width * tm.Height > (1u << 20))
+            return; // huge maps: no live preview (painting still works)
+        const int layer = std::clamp(panel.GetActiveTileLayer(), 0, tm.GetLayerCount() - 1);
+        const Tool tool = m_TileStroke.Active ? m_TileStroke.Tool : panel.GetTileTool();
+        const bool erase = m_TileStroke.Active ? m_TileStroke.Erase
+                         : tool == Tool::Eraser || Input::IsKeyPressed(Key::LeftShift) || Input::IsKeyPressed(Key::RightShift);
+        const AutoTileSet* rules = AutoTileSet::Get(tm.TilesetPath);
+        const AutoTileRule* rule = rules ? rules->Get(panel.GetSelectedAutoTileRule()) : nullptr;
+
+        std::vector<glm::ivec2> cells;
+        if (m_TileStroke.Active && tool == Tool::Rectangle)
+            cells = TilemapEdit::RectCells(tm, m_TileStroke.Start, m_TileStroke.Last);
+        else if (tool == Tool::Fill && tm.Contains(hover.x, hover.y))
+        {
+            if (!rule || erase || !rule->Contains(tm.Get(hover.x, hover.y, layer)))
+                cells = TilemapEdit::FloodRegion(tm, layer, hover.x, hover.y, rule);
+        }
+        else if ((tool == Tool::Brush || tool == Tool::Eraser) && tm.Contains(hover.x, hover.y))
+            cells = { hover };
+        if (cells.empty())
+            return;
+
+        // The tool on a copy of the layer.
+        TilemapComponent trial;
+        trial.Width = tm.Width;
+        trial.Height = tm.Height;
+        trial.Layers = { tm.Layers[(size_t)layer] };
+        if (rule)
+            AutoTile::Paint(trial, 0, *rule, cells, erase);
+        else
+            TilemapEdit::SetCells(trial, 0, cells, erase ? -1 : panel.GetSelectedTile());
+        const std::vector<int>& before = tm.Layers[(size_t)layer].Tiles;
+        std::vector<int>& after = trial.Layers[0].Tiles;
+        for (size_t i = 0; i < after.size(); i++)
+            if (after[i] < 0 && before[i] >= 0)
+                m_TilePreview.Erased.push_back({ (int)(i % (size_t)tm.Width), (int)(i / (size_t)tm.Width) });
+        m_TilePreview.Valid = true;
+        m_TilePreview.Entity = e.GetUUID();
+        m_TilePreview.Layer = layer;
+        m_TilePreview.Tiles = std::move(after);
+        options.TilePreviewEntity = (entt::entity)e;
+        options.TilePreviewLayer = layer;
+        options.TilePreviewTiles = &m_TilePreview.Tiles;
+    }
+
     void EditorLayer::ApplyTilemapAutomation(std::string_view spec)
     {
         using Tool = SceneHierarchyPanel::TileTool;
@@ -1344,6 +1418,8 @@ namespace Zamin {
             }
             else if (key == "apply")
                 apply = true;
+            else if (key == "editrule") // the selected rule's variant editor; "editrule=5": variant 5 picked
+                panel.SetAutoTileRuleEditor(true, value.empty() ? -1 : std::atoi(text.c_str()));
             else
                 ZM_WARN("ZAMIN_EDITOR_TILEMAP: noma'lum kalit '{}'", key);
         }
@@ -1358,8 +1434,11 @@ namespace Zamin {
                 apply = false;
             }
             else
+            {
                 m_TileStroke = TileStroke{ true, e.GetUUID(), std::clamp(panel.GetActiveTileLayer(), 0, e.GetComponent<TilemapComponent>().GetLayerCount() - 1),
                                            Tool::Rectangle, dragFrom, dragTo, false, 0 };
+                m_TileDragHeld = true; // as if the button were still down: only the preview
+            }
         }
         if (apply && m_TileHoverOverride)
             if (int changed = ApplyTileTool(e, panel.GetTileTool(), m_TileHoverCell, m_TileHoverCell, false))
@@ -2046,7 +2125,7 @@ namespace Zamin {
             Renderer2D::DrawRect(world * glm::translate(glm::mat4(1.0f), glm::vec3(size * 0.5f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f)),
                                  glm::vec4(0.3f, 0.85f, 1.0f, 0.8f));
             // The tool's preview: the cell (or the rectangle being dragged, the region a fill would
-            // cover) and, for a plain tile, the tile itself; red when it erases.
+            // cover) with the tiles it would leave (an auto-tile rule's variants included); red: erased.
             glm::ivec2 hover;
             using Tool = SceneHierarchyPanel::TileTool;
             if (m_SceneHierarchyPanel.IsTilePainting() && (m_ViewportHovered || m_TileHoverOverride) && GetTileCellUnderMouse(selected, hover))
@@ -2063,27 +2142,19 @@ namespace Zamin {
                     return world * glm::translate(glm::mat4(1.0f), { (c.x + size.x * 0.5f) * tm.TileSize, (c.y + size.y * 0.5f) * tm.TileSize, 0.0f })
                                  * glm::scale(glm::mat4(1.0f), { tm.TileSize * size.x, tm.TileSize * size.y, 1.0f });
                 };
-                if (!tm.Tileset && !tm.TilesetPath.empty())
-                    tm.Tileset = TextureLibrary::Load(Project::GetAssetFileSystemPath(tm.TilesetPath), tm.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
-                auto ghost = [&](glm::ivec2 c) {
-                    if (erase || rule || !tm.Tileset || !tm.Contains(c.x, c.y)) return;
-                    int tile = m_SceneHierarchyPanel.GetSelectedTile();
-                    int cols = std::max(1, tm.TilesetColumns), rows = std::max(1, tm.TilesetRows);
-                    glm::vec2 size = { 1.0f / cols, 1.0f / rows };
-                    glm::vec2 uvMin = { (tile % cols) * size.x, 1.0f - (tile / cols + 1) * size.y };
-                    Renderer2D::DrawQuad(cellTransform(c), tm.Tileset, uvMin, uvMin + size, glm::vec4(1.0f, 1.0f, 1.0f, 0.55f));
-                };
+                // The tiles the tool would leave are drawn by the scene view (m_TilePreview); here
+                // the cells it would empty.
+                if (m_TilePreview.Valid && m_TilePreview.Entity == selected.GetUUID())
+                    for (const glm::ivec2& c : m_TilePreview.Erased)
+                        Renderer2D::DrawQuad(cellTransform(c), glm::vec4(1.0f, 0.25f, 0.25f, 0.4f));
                 if (m_TileStroke.Active && tool == Tool::Rectangle)
                 {
                     std::vector<glm::ivec2> cells = TilemapEdit::RectCells(tm, m_TileStroke.Start, m_TileStroke.Last);
-                    if (cells.size() <= 4096)
-                        for (const glm::ivec2& c : cells)
-                            ghost(c);
                     if (!cells.empty())
                     {
                         glm::ivec2 lo = cells.front(), hi = cells.back();
                         glm::vec2 size = glm::vec2(hi - lo) + 1.0f;
-                        Renderer2D::DrawQuad(cellTransform(lo, size), glm::vec4(outline.r, outline.g, outline.b, 0.18f));
+                        Renderer2D::DrawQuad(cellTransform(lo, size), glm::vec4(outline.r, outline.g, outline.b, 0.12f));
                         Renderer2D::DrawRect(cellTransform(lo, size), outline);
                     }
                 }
@@ -2091,13 +2162,11 @@ namespace Zamin {
                 {
                     std::vector<glm::ivec2> region = TilemapEdit::FloodRegion(tm, layer, hover.x, hover.y, rule, 4096);
                     for (const glm::ivec2& c : region)
-                        Renderer2D::DrawQuad(cellTransform(c), glm::vec4(outline.r, outline.g, outline.b, 0.22f));
+                        Renderer2D::DrawQuad(cellTransform(c), glm::vec4(outline.r, outline.g, outline.b, 0.15f));
                     Renderer2D::DrawRect(cellTransform(hover), outline);
                 }
                 else if (tm.Contains(hover.x, hover.y))
                 {
-                    if (tool == Tool::Brush)
-                        ghost(hover);
                     Renderer2D::DrawRect(cellTransform(hover), outline);
                 }
             }

@@ -107,6 +107,11 @@ namespace Zamin {
         // Parallax layers (ParallaxComponent) move with the rendering camera. The game camera
         // always does this (OnUpdateRuntime); the editor's scene view only as a preview.
         bool Parallax = false;
+        // Editor tile painting: layer TilePreviewLayer of the tilemap TilePreviewEntity is drawn with
+        // these tiles instead of its own (what the tool would leave; nothing in the scene changes).
+        entt::entity TilePreviewEntity = entt::null;
+        int TilePreviewLayer = 0;
+        const std::vector<int>* TilePreviewTiles = nullptr;
     };
 
     class Scene

@@ -237,6 +237,8 @@ namespace Zamin {
         bool GetTileCellUnderMouse(Entity tilemap, glm::ivec2& cell);
         // One use of the current tile tool at `cell` (Rectangle: from `from`). Returns cells changed.
         int ApplyTileTool(Entity tilemap, SceneHierarchyPanel::TileTool tool, glm::ivec2 from, glm::ivec2 cell, bool erase);
+        // What the tile tool would leave at the mouse now (m_TilePreview), handed to the scene view.
+        void UpdateTilePreview(SceneRenderOptions& options);
         // ZAMIN_EDITOR_TILEMAP automation: tool, layer, rule, tile, hover / drag preview, apply.
         void ApplyTilemapAutomation(std::string_view spec);
         bool ViewportMouseToPlane(float planeZ, glm::vec3& out);
@@ -312,6 +314,17 @@ namespace Zamin {
             int Changed = 0;
         } m_TileStroke;
         bool m_TileHoverOverride = false;   // automation: the preview cell below instead of the mouse
+        bool m_TileDragHeld = false;        // automation: a rectangle stroke stays held (its preview shows)
+        // The tiles of the painted layer as the tool would leave them (drawn by the scene view in
+        // place of the layer's own), and the cells it would empty (tinted red by the overlay).
+        struct TilePreview
+        {
+            bool Valid = false;
+            UUID Entity = 0;
+            int Layer = 0;
+            std::vector<int> Tiles;
+            std::vector<glm::ivec2> Erased;
+        } m_TilePreview;
         glm::ivec2 m_TileHoverCell{ 0 };
         // Shift + drop on a model with several parts: which part gets the material.
         struct MaterialSlotPick

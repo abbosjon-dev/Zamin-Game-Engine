@@ -74,7 +74,9 @@ namespace Zamin {
         // Hierarchy search text ("#tag" filters by gameplay tag).
         void SetFilter(const std::string& filter) { m_Filter = filter; }
         // Keeps the inspector scrolled to its end for a few frames (screenshots / automation).
-        void ScrollInspectorToBottom() { m_ScrollInspectorFrames = 30; }
+        void ScrollInspectorToBottom() { m_ScrollInspectorFrames = 30; m_ScrollInspectorY = -1.0f; }
+        // Automation: the inspector scrolled `y` px down (at most to the bottom).
+        void ScrollInspectorTo(float y) { m_ScrollInspectorFrames = 30; m_ScrollInspectorY = y; }
         // Automation: the Mesh Renderer's "Standart material..." list opens (selected entity).
         void OpenStandardMaterialPicker() { m_OpenStandardMaterials = true; }
 
@@ -111,6 +113,8 @@ namespace Zamin {
         // The selected tilemap's tileset auto-tile rule the tools paint with (-1: the selected tile).
         int GetSelectedAutoTileRule() const { return m_TileRule; }
         void SetSelectedAutoTileRule(int rule) { m_TileRule = rule; }
+        // The selected rule's variant editor (open / closed); `variant`: the one palette clicks fill.
+        void SetAutoTileRuleEditor(bool open, int variant = -1) { m_EditRule = open; m_EditRuleVariant = variant; }
         // The picker found `tile` (of auto-tile rule `rule`, -1 none) on the map: it becomes the brush.
         void PickTile(int tile, int rule = -1);
 
@@ -234,6 +238,7 @@ namespace Zamin {
         std::string m_NewTagBuffer;
         entt::entity m_RenamingEntity = entt::null;
         int m_ScrollInspectorFrames = 0;
+        float m_ScrollInspectorY = -1.0f; // < 0: the bottom
         bool m_OpenStandardMaterials = false;
         AssetInspectorPanel* m_AssetInspector = nullptr;
         uint64_t m_SeenSelectionRevision = 0;
@@ -249,6 +254,7 @@ namespace Zamin {
         bool m_EditRule = false;      // the rule's variant editor is open
         int m_EditRuleVariant = -1;   // the variant the next palette click goes to
         int m_RuleFirstTile = 0;
+        uint64_t m_TileEntity = 0;    // the tilemap the tile state above belongs to
         std::unordered_map<std::string, std::unordered_map<std::string, ScriptFieldValue>> m_ScriptDefaults;
 
         // inspector: sections of the entity being drawn, component clipboard, reordering

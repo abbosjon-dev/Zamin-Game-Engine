@@ -5340,6 +5340,222 @@ TEST(ProjectAssetRegistry)
     fs::remove_all(dir, ec);
 }
 
+TEST(AssetRegistrySnapshots)
+{
+    namespace fs = std::filesystem;
+    fs::path root = MakeTempDir("zamin-registry-snapshot-");
+    fs::path assets = root / "Assets";
+    WriteFile(assets / "Textures" / "coin.png", "coin-png");
+    WriteFile(assets / "Textures" / "wall.jpg", "wall-jpeg-data");
+    WriteFile(assets / "Models" / "Robot.gltf", "{}");
+    WriteFile(assets / "Scenes" / "Level1.zscene", "{}");
+
+    AssetRegistry editor(true);
+    editor.Scan(assets);
+    AssetHandle coin = editor.GetHandle("Textures/coin.png"), wall = editor.GetHandle("Textures/wall.jpg");
+    AssetImportSettings nearest;
+    nearest.SetString("Filter", "Nearest");
+    nearest.SetBool("Mipmaps", false);
+    nearest.SetNumber("Scale", 0.5);
+    nearest.Set("Future", AssetImportSettings::Json{ "[1,2]" });
+    uint64_t revision = editor.GetRevision();
+    CHECK(editor.SetImportSettings(coin, nearest) && editor.GetRevision() != revision);
+
+    // The registry as one document and back: sorted by path, every field kept, the same text again.
+    std::string text = editor.Serialize();
+    AssetRegistry::Snapshot snapshot;
+    std::string error = "x";
+    CHECK(AssetRegistry::Deserialize(text, snapshot, &error) && error.empty() && snapshot.size() == 4);
+    CHECK(snapshot == editor.GetSnapshot());
+    CHECK(snapshot.size() == 4 && snapshot[0].Path == "Models/Robot.gltf" && snapshot[1].Path == "Scenes/Level1.zscene");
+    if (snapshot.size() == 4)
+    {
+        const AssetRegistry::SnapshotEntry& c = snapshot[2];
+        CHECK(c.Path == "Textures/coin.png" && c.Handle == coin && c.Type == AssetType::Texture && c.HasMetaFile);
+        CHECK(c.Size == 8 && c.Time != 0 && c.Import == nearest && snapshot[3].Import.IsEmpty() && snapshot[1].Type == AssetType::Scene);
+    }
+    CHECK(AssetRegistry::SerializeSnapshot(snapshot) == text);
+    CHECK(text.find("\"Version\": 1") != std::string::npos && text.find("\"Future\"") != std::string::npos);
+
+    // Text that is not a registry document; entries without a UUID / path or repeating one are skipped.
+    CHECK(!AssetRegistry::Deserialize("not json", snapshot, &error) && !error.empty());
+    CHECK(!AssetRegistry::Deserialize("{\"Assets\": []}", snapshot, &error) && !error.empty());
+    CHECK(!AssetRegistry::Deserialize("{\"Version\": 99, \"Assets\": []}", snapshot, &error));
+    CHECK(!AssetRegistry::Deserialize("{\"Version\": 1}", snapshot, &error));
+    size_t skipped = 0;
+    CHECK(AssetRegistry::Deserialize(R"({"Version": 1, "Assets": [
+        {"UUID": "zz", "Path": "a.png"}, {"UUID": "00000000000000aa", "Path": "../x.png"},
+        {"UUID": "00000000000000ab", "Path": "b.png", "Type": "Model", "Size": 5, "Time": 7, "Meta": true, "Import": {"sRGB": false}},
+        {"UUID": "00000000000000ab", "Path": "c.png"}, {"UUID": "00000000000000ac", "Path": "./b.png"}, 5,
+        {"UUID": "00000000000000ad", "Path": "Data/level.bin", "Type": "Model"}]})", snapshot, &error, &skipped));
+    CHECK(snapshot.size() == 2 && skipped == 5);
+    if (snapshot.size() == 2)
+    {
+        // The extension decides the type of a registered kind of file; others keep the stored one.
+        CHECK(snapshot[0].Path == "b.png" && snapshot[0].Handle == AssetHandle(0xab) && snapshot[0].Type == AssetType::Texture);
+        CHECK(snapshot[0].Size == 5 && snapshot[0].Time == 7 && snapshot[0].HasMetaFile && !snapshot[0].Import.GetBool("sRGB", true));
+        CHECK(snapshot[1].Type == AssetType::Model);
+    }
+
+    // Saved to a file (not rewritten when it holds the same text) and read back.
+    fs::path cache = root / ".zamin" / "AssetRegistry.json";
+    CHECK(editor.SaveSnapshot(cache) && fs::exists(cache));
+    auto savedTime = fs::last_write_time(cache);
+    CHECK(editor.SaveSnapshot(cache) && fs::last_write_time(cache) == savedTime);
+    std::optional<AssetRegistry::Snapshot> before = AssetRegistry::LoadSnapshot(cache, &error);
+    CHECK(before && *before == editor.GetSnapshot());
+    CHECK(!AssetRegistry::LoadSnapshot(root / "missing.json", &error) && error.empty());
+    WriteFile(root / "broken.json", "{");
+    CHECK(!AssetRegistry::LoadSnapshot(root / "broken.json", &error) && !error.empty());
+
+    // A player loads it without reading (or writing) .zmeta files.
+    fs::path wallMeta = assets / "Textures" / "wall.jpg.zmeta";
+    fs::remove(wallMeta);
+    AssetRegistry player(false);
+    CHECK(before && player.Load(assets, *before) && player.IsScanned() && player.GetCount() == 4);
+    CHECK(player.GetHandle("Textures/wall.jpg") == wall && player.Find(coin) && player.Find(coin)->Import == nearest);
+    CHECK(player.GetAssetDirectory() == AssetRegistry::NormalizeDirectory(assets) && !fs::exists(wallMeta));
+    // A file of the snapshot is missing: nothing loaded (the folder changed), unless not verified.
+    AssetRegistry::Snapshot stale = before ? *before : AssetRegistry::Snapshot{};
+    AssetRegistry::SnapshotEntry gone;
+    gone.Handle = AssetHandle(77);
+    gone.Type = AssetType::Texture;
+    gone.Path = "Textures/gone.png";
+    stale.push_back(gone);
+    CHECK(!player.Load(assets, stale) && !player.IsScanned() && player.GetCount() == 0);
+    CHECK(player.Load(assets, stale, false) && player.GetCount() == 5 && player.GetPath(AssetHandle(77)) == "Textures/gone.png");
+    editor.OnMetaFileChanged(wallMeta); // deleted by hand: written again with the same UUID
+    CHECK(fs::exists(wallMeta) && AssetMetaFile::Read(assets / "Textures" / "wall.jpg")->Handle == wall);
+
+    // Moved while no registry watched (the editor was closed): with its .zmeta (the UUID is found at
+    // the new path), and without it (same type, size and time as the asset that is gone; the .zmeta
+    // left behind is removed).
+    fs::create_directories(assets / "Items");
+    fs::rename(assets / "Textures" / "coin.png", assets / "Items" / "gold.png");
+    fs::rename(assets / "Textures" / "coin.png.zmeta", assets / "Items" / "gold.png.zmeta");
+    fs::rename(assets / "Textures" / "wall.jpg", assets / "Textures" / "stone.jpg");
+    {
+        AssetRegistry blind(false); // without the snapshot: the .zmeta-less file is a stranger
+        const AssetRegistry::ScanResult& scan = blind.Scan(assets);
+        CHECK(blind.GetHandle("Items/gold.png") == coin && blind.GetHandle("Textures/stone.jpg") != wall);
+        CHECK(scan.MovedOutside == 0 && scan.OrphanMeta == 1 && blind.TakeDetectedMoves().empty());
+    }
+    AssetRegistry reopened(true);
+    const AssetRegistry::ScanResult& scan = reopened.Scan(assets, before ? &*before : nullptr);
+    CHECK(scan.MovedOutside == 2 && scan.RecoveredMeta == 1 && scan.OrphanMeta == 0 && scan.CreatedMeta == 0);
+    CHECK(reopened.GetHandle("Items/gold.png") == coin && reopened.GetHandle("Textures/stone.jpg") == wall);
+    CHECK(reopened.Find(wall) && reopened.Find(wall)->HasMetaFile && reopened.Find(coin)->Import == nearest);
+    CHECK(fs::exists(assets / "Textures" / "stone.jpg.zmeta") && !fs::exists(wallMeta));
+    CHECK(AssetMetaFile::Read(assets / "Textures" / "stone.jpg")->Handle == wall);
+    std::vector<AssetRegistry::PathMove> moves = reopened.TakeDetectedMoves();
+    std::sort(moves.begin(), moves.end());
+    CHECK(moves.size() == 2 && moves[0] == AssetRegistry::PathMove("Textures/coin.png", "Items/gold.png") &&
+          moves[1] == AssetRegistry::PathMove("Textures/wall.jpg", "Textures/stone.jpg"));
+    CHECK(reopened.TakeDetectedMoves().empty());
+
+    // No guessing: two files that look the same renamed without their .zmeta, or a copy (the
+    // original is still there) keep / get identities of their own.
+    WriteFile(assets / "Audio" / "a.wav", "same");
+    WriteFile(assets / "Audio" / "b.wav", "same");
+    auto when = fs::last_write_time(assets / "Audio" / "a.wav");
+    fs::last_write_time(assets / "Audio" / "b.wav", when);
+    CHECK(reopened.OnFileAdded(assets / "Audio") == 2);
+    AssetRegistry::Snapshot withAudio = reopened.GetSnapshot();
+    fs::rename(assets / "Audio" / "a.wav", assets / "Audio" / "c.wav");
+    fs::rename(assets / "Audio" / "b.wav", assets / "Audio" / "d.wav");
+    fs::copy_file(assets / "Items" / "gold.png", assets / "Items" / "gold2.png");
+    fs::last_write_time(assets / "Items" / "gold2.png", fs::last_write_time(assets / "Items" / "gold.png"));
+    {
+        AssetRegistry third(false);
+        const AssetRegistry::ScanResult& again = third.Scan(assets, &withAudio);
+        AssetHandle c = third.GetHandle("Audio/c.wav"), d = third.GetHandle("Audio/d.wav");
+        CHECK(c && d && !reopened.Contains(c) && !reopened.Contains(d) && again.RecoveredMeta == 0 && again.MovedOutside == 0);
+        CHECK(third.GetHandle("Items/gold2.png") && third.GetHandle("Items/gold2.png") != coin && third.GetHandle("Items/gold.png") == coin);
+    }
+    fs::remove(assets / "Items" / "gold2.png");
+
+    // While the editor runs (file watcher events): renamed without its .zmeta, the asset keeps its
+    // identity whichever event comes first; its old .zmeta goes away.
+    AssetRegistry live(true);
+    live.Scan(assets);
+    CHECK(live.GetHandle("Textures/stone.jpg") == wall);
+    fs::rename(assets / "Textures" / "stone.jpg", assets / "Textures" / "rock.jpg");
+    CHECK(live.OnFileRemoved(assets / "Textures" / "stone.jpg") == 1);
+    CHECK(live.OnFileAdded(assets / "Textures" / "rock.jpg") == 1 && live.GetHandle("Textures/rock.jpg") == wall);
+    CHECK(fs::exists(assets / "Textures" / "rock.jpg.zmeta") && !fs::exists(assets / "Textures" / "stone.jpg.zmeta"));
+    moves = live.TakeDetectedMoves();
+    CHECK(moves.size() == 1 && moves[0] == AssetRegistry::PathMove("Textures/stone.jpg", "Textures/rock.jpg"));
+    fs::rename(assets / "Textures" / "rock.jpg", assets / "Textures" / "pebble.jpg");
+    CHECK(live.OnFileAdded(assets / "Textures" / "pebble.jpg") == 1 && live.GetHandle("Textures/pebble.jpg") == wall);
+    CHECK(!live.Find(fs::path("Textures/rock.jpg")) && live.OnFileRemoved(assets / "Textures" / "rock.jpg") == 0);
+    moves = live.TakeDetectedMoves();
+    CHECK(moves.size() == 1 && moves[0] == AssetRegistry::PathMove("Textures/rock.jpg", "Textures/pebble.jpg"));
+    // A rewritten file is followed (its new size), so a later rename is still recognized.
+    WriteFile(assets / "Textures" / "pebble.jpg", "a bigger pebble");
+    CHECK(live.OnFileModified(assets / "Textures" / "pebble.jpg") && live.Find(wall)->FileSize == 15);
+    CHECK(!live.OnFileModified(assets / "Textures" / "nothing.jpg"));
+    fs::rename(assets / "Textures" / "pebble.jpg", assets / "Textures" / "boulder.jpg");
+    live.OnFileRemoved(assets / "Textures" / "pebble.jpg");
+    CHECK(live.OnFileAdded(assets / "Textures" / "boulder.jpg") == 1 && live.GetHandle("Textures/boulder.jpg") == wall);
+    // A brand new file is not mistaken for anything.
+    WriteFile(assets / "Textures" / "new.png", "brand new");
+    CHECK(live.OnFileAdded(assets / "Textures" / "new.png") == 1 && live.GetHandle("Textures/new.png") != wall);
+    CHECK(live.TakeDetectedMoves().size() == 1); // boulder only
+
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
+TEST(ProjectAssetRegistryCache)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = MakeTempDir("zamin-project-registry-cache-");
+    CHECK(Project::CreateFromTemplate(dir, "CacheGame") != nullptr);
+    CHECK(FileSystem::ReadTextFile(dir / ".gitignore").find(".zamin/") != std::string::npos);
+    fs::path textures = dir / "Assets" / "Textures";
+    WriteFile(textures / "hero.png", "hero-png");
+    bool writes = AssetRegistry::GetWriteMetaFilesByDefault();
+
+    // The editor: scanned, then the snapshot goes to the cache folder.
+    AssetRegistry::SetWriteMetaFilesByDefault(true);
+    CHECK(Project::Load(dir / "CacheGame.zproject") != nullptr);
+    CHECK(Project::GetCacheDirectory() == fs::absolute(dir) / ".zamin");
+    CHECK(Project::GetAssetRegistryCachePath() == Project::GetCacheDirectory() / "AssetRegistry.json");
+    AssetRegistry* registry = Project::GetAssetRegistry();
+    AssetHandle hero = registry ? registry->GetHandle("Textures/hero.png") : AssetHandle();
+    CHECK(hero && Project::SaveAssetRegistryCache() && fs::exists(dir / ".zamin" / "AssetRegistry.json"));
+
+    // Renamed without its .zmeta while the editor was closed: found again at the next open.
+    fs::rename(textures / "hero.png", textures / "player.png");
+    CHECK(Project::Load(dir / "CacheGame.zproject") != nullptr);
+    registry = Project::GetAssetRegistry();
+    CHECK(registry && registry->GetHandle("Textures/player.png") == hero && registry->GetLastScan().MovedOutside == 1);
+    CHECK(fs::exists(textures / "player.png.zmeta") && !fs::exists(textures / "hero.png.zmeta"));
+    std::vector<AssetRegistry::PathMove> moves = registry ? registry->TakeDetectedMoves() : std::vector<AssetRegistry::PathMove>{};
+    CHECK(moves.size() == 1 && moves[0] == AssetRegistry::PathMove("Textures/hero.png", "Textures/player.png"));
+
+    // An exported game reads the registry file next to its .zproject (no .zmeta needed) ...
+    CHECK(registry && registry->SaveSnapshot(dir / Project::BuildAssetRegistryFile));
+    for (const fs::path& meta : { textures / "player.png.zmeta", dir / "Assets" / "Scenes" / "Main.zscene.zmeta" })
+        fs::remove(meta);
+    AssetRegistry::SetWriteMetaFilesByDefault(false);
+    CHECK(Project::Load(dir / "CacheGame.zproject") != nullptr);
+    registry = Project::GetAssetRegistry();
+    CHECK(registry && registry->GetCount() == 2 && registry->GetHandle("Textures/player.png") == hero);
+    CHECK(registry && registry->Find(hero)->HasMetaFile && !fs::exists(textures / "player.png.zmeta"));
+    // ... unless it is out of date: then the folder is read (session handles for files without .zmeta).
+    fs::rename(textures / "player.png", textures / "player2.png");
+    CHECK(Project::Load(dir / "CacheGame.zproject") != nullptr);
+    registry = Project::GetAssetRegistry();
+    CHECK(registry && registry->GetCount() == 2 && registry->Find(fs::path("Textures/player2.png")) && !fs::exists(textures / "player2.png.zmeta"));
+    AssetRegistry::SetWriteMetaFilesByDefault(writes);
+
+    Project::SetActive(nullptr);
+    CHECK(Project::GetCacheDirectory().empty() && !Project::SaveAssetRegistryCache());
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
 TEST(FileChangeQueueDebounce)
 {
     FileChangeQueue queue;

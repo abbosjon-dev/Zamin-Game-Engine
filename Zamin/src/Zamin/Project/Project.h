@@ -56,8 +56,19 @@ namespace Zamin {
         static bool RegisterTag(const std::string& tag);
 
         // Every asset of the active project with its handle (nullptr without a project). Read from
-        // the asset folder on first use; the editor keeps it up to date while it runs.
+        // the asset folder on first use (with the snapshot in the cache folder: files moved while the
+        // editor was closed keep their handles); the editor keeps it up to date while it runs. An
+        // exported game reads the registry file the editor put next to its .zproject instead.
         static AssetRegistry* GetAssetRegistry();
+        // The project's cache folder "<project>/.zamin": editor data that can be made again (the
+        // asset registry snapshot, thumbnails). Not meant for version control.
+        static std::filesystem::path GetCacheDirectory();
+        // The asset registry snapshot in the cache folder ("" without a project).
+        static std::filesystem::path GetAssetRegistryCachePath();
+        // Name of the registry file of an exported game (next to its .zproject).
+        static constexpr const char* BuildAssetRegistryFile = "AssetRegistry.zreg";
+        // Saves the registry snapshot to the cache folder (a file holding it already is not touched).
+        static bool SaveAssetRegistryCache();
 
         // Relative asset path -> absolute file system path (works without a project, too).
         static std::filesystem::path GetAssetFileSystemPath(const std::filesystem::path& path);

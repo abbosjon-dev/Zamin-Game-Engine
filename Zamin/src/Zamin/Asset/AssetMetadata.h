@@ -2,6 +2,7 @@
 
 #include "Zamin/Asset/AssetTypes.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <map>
@@ -46,6 +47,11 @@ namespace Zamin {
         const std::map<std::string, Value, std::less<>>& GetValues() const { return m_Values; }
         bool operator==(const AssetImportSettings&) const = default;
 
+        // The settings as a JSON object ("{}" when empty), as the "Import" object of a .zmeta file.
+        std::string ToJson() const;
+        // Replaces `out` with the values of a JSON object. False for other text (`out` untouched).
+        static bool FromJson(std::string_view text, AssetImportSettings& out);
+
     private:
         std::map<std::string, Value, std::less<>> m_Values;
     };
@@ -60,6 +66,10 @@ namespace Zamin {
         // The handle is stored in the asset's .zmeta file (false: it was made up for this session
         // only - a player that found no .zmeta does not write one).
         bool HasMetaFile = false;
+        // The file's size and modification time (file clock ticks) when it was last seen: a file
+        // moved without its .zmeta is recognized by them (not stored in the .zmeta).
+        uintmax_t FileSize = 0;
+        int64_t FileTime = 0;
     };
 
     // The sidecar file every asset has: "<file>.zmeta" next to it, e.g. "coin.png.zmeta":

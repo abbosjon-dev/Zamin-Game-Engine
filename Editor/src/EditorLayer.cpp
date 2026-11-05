@@ -146,6 +146,7 @@ namespace Zamin {
     void EditorLayer::OnDetach()
     {
         m_AssetHotReload.Stop();
+        SaveAssetRegistryCache(true);
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
         m_ProjectSettingsPanel.SaveIfDirty();
@@ -844,6 +845,7 @@ namespace Zamin {
 
         m_ProjectSettingsPanel.SaveIfDirty();
         SaveData::Save(); // the previous project's game data
+        SaveAssetRegistryCache(true);
         if (!Project::Load(projectFile))
         {
             ZM_ERROR("Loyiha ochilmadi: {}", path.string());
@@ -886,6 +888,7 @@ namespace Zamin {
     void EditorLayer::CloseProject()
     {
         m_AssetHotReload.Stop();
+        SaveAssetRegistryCache(true);
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
         ScriptEngine::UnloadModule();
@@ -1591,6 +1594,12 @@ namespace Zamin {
         std::error_code ec;
         if (!registry || !fs::is_directory(assets, ec))
             return;
+        // Moved / renamed while the editor was closed (found through the last session's snapshot):
+        // the scenes, prefabs and models that name the old paths are updated before anything opens.
+        if (std::vector<AssetRegistry::PathMove> moves = registry->TakeDetectedMoves(); !moves.empty())
+            OnAssetsMovedOutside(moves);
+        m_SavedRegistryRevision = ~0ull; // another registry: saved whatever its revision
+        SaveAssetRegistryCache(true);
         if (m_AssetHotReload.Start(assets))
             ZM_CORE_INFO("Assetlar kuzatilmoqda ({}): o'zgargan rasm, model, shrift va HDRI fayllar avtomatik qayta yuklanadi",
                          m_AssetHotReload.GetWatcher().UsesNativeEvents() ? "inotify" : "har soniyada tekshirish");
@@ -1598,10 +1607,25 @@ namespace Zamin {
             ZM_WARN("Asset papkasini kuzatib bo'lmadi: {}", assets.string());
     }
 
+    void EditorLayer::SaveAssetRegistryCache(bool now)
+    {
+        AssetRegistry* registry = Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
+        if (!registry || registry->GetRevision() == m_SavedRegistryRevision)
+            return;
+        double time = ImGui::GetTime();
+        if (!now && time - m_RegistrySaveTime < 3.0)
+            return;
+        m_RegistrySaveTime = time;
+        m_SavedRegistryRevision = registry->GetRevision();
+        if (!Project::SaveAssetRegistryCache())
+            ZM_CORE_WARN("Asset registry keshi saqlanmadi: {}", Project::GetAssetRegistryCachePath().string());
+    }
+
     void EditorLayer::ProcessAssetChanges()
     {
         if (!m_AssetHotReload.IsRunning())
             return;
+        SaveAssetRegistryCache(false);
         AssetHotReload::Report report = m_AssetHotReload.Update(Project::GetAssetRegistry());
         if (report.IsEmpty())
             return;
@@ -1923,6 +1947,10 @@ namespace Zamin {
         fs::path moduleRel = project->GetConfig().ScriptModulePath;
         fs::path assetRel = project->GetConfig().AssetDirectory;
         fs::path exeDir = FileSystem::GetExecutableDirectory();
+        // The exported game reads its asset registry from one file (made here, on this thread).
+        std::string registryText;
+        if (AssetRegistry* registry = Project::GetAssetRegistry())
+            registryText = registry->Serialize();
 
         if (m_ExportThread.joinable()) m_ExportThread.join();
         m_Exporting = true;
@@ -1947,6 +1975,8 @@ namespace Zamin {
             copy(exeDir / "Resources", outputDirectory / "Resources");
             copy(projectFile, outputDirectory / "Game" / projectFile.filename());
             copy(projectDir / assetRel, outputDirectory / "Game" / assetRel);
+            if (!registryText.empty() && !FileSystem::WriteTextFile(outputDirectory / "Game" / Project::BuildAssetRegistryFile, registryText))
+                ok = false;
             if (!modulePath.empty())
             {
                 if (fs::exists(modulePath)) copy(modulePath, outputDirectory / "Game" / moduleRel);

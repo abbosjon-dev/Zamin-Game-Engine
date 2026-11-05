@@ -85,6 +85,9 @@ namespace Zamin {
         // textures / fonts are imported again in place, the content browser is refreshed.
         void StartAssetWatcher();
         void ProcessAssetChanges();
+        // Writes the asset registry snapshot to the project's cache folder when it changed (at most
+        // every few seconds unless `now`): files moved while the editor is closed are found again.
+        void SaveAssetRegistryCache(bool now);
         // Shows a project file in the content browser and the inspector (asset inspector links,
         // the unused assets window).
         void RevealAsset(const std::filesystem::path& path);
@@ -219,6 +222,8 @@ namespace Zamin {
 
         // asset files changed on disk (hot reload)
         AssetHotReload m_AssetHotReload;
+        uint64_t m_SavedRegistryRevision = 0;
+        double m_RegistrySaveTime = -100.0;
 
         // panels
         SceneHierarchyPanel m_SceneHierarchyPanel;

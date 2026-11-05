@@ -75,7 +75,7 @@ namespace Zamin {
                     break;
                 }
                 case FileChangeType::Modified:
-                    if (registry && !registry->Find(change.Path))
+                    if (registry && !registry->OnFileModified(change.Path))
                         registry->OnFileAdded(change.Path);
                     AddUnique(report.Modified, change.Path);
                     if (!change.IsDirectory)

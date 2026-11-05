@@ -102,10 +102,36 @@ namespace Zamin {
         std::filesystem::path directory = AssetRegistry::NormalizeDirectory(GetAssetDirectory());
         if (!registry->IsScanned() || registry->GetAssetDirectory() != directory)
         {
-            const AssetRegistry::ScanResult& scan = registry->Scan(directory);
+            std::string error;
+            // An exported game: the registry the editor wrote at export (no .zmeta file is read).
+            if (!registry->GetWriteMetaFiles())
+            {
+                std::filesystem::path file = s_ActiveProject->m_ProjectDirectory / BuildAssetRegistryFile;
+                if (auto snapshot = AssetRegistry::LoadSnapshot(file, &error))
+                {
+                    if (registry->Load(directory, *snapshot, true))
+                    {
+                        ZM_CORE_INFO("Assetlar: {} ta ({} faylidan)", registry->GetCount(), BuildAssetRegistryFile);
+                        return registry.get();
+                    }
+                    ZM_CORE_WARN("{} eskirgan (unda bor fayl topilmadi) - asset papkasi o'qiladi", BuildAssetRegistryFile);
+                }
+                else if (!error.empty())
+                    ZM_CORE_WARN("{} o'qilmadi ({}) - asset papkasi o'qiladi", BuildAssetRegistryFile, error);
+            }
+
+            // The snapshot of the last session: what moved since then keeps its handle.
+            std::optional<AssetRegistry::Snapshot> previous = AssetRegistry::LoadSnapshot(GetAssetRegistryCachePath(), &error);
+            if (!previous && !error.empty())
+                ZM_CORE_WARN("Asset registry keshi o'qilmadi ({}) - e'tiborsiz qoldirildi", error);
+            const AssetRegistry::ScanResult& scan = registry->Scan(directory, previous ? &*previous : nullptr);
             ZM_CORE_INFO("Assetlar: {} ta{}{}", scan.Assets,
                          scan.CreatedMeta ? std::format(", {} ta yangi .zmeta yaratildi", scan.CreatedMeta) : std::string(),
                          scan.OrphanMeta ? std::format(", {} ta egasiz .zmeta", scan.OrphanMeta) : std::string());
+            if (scan.MovedOutside > 0)
+                ZM_CORE_INFO("{} ta asset oxirgi ochilgandan beri ko'chirilgan yoki nomi o'zgargan{}", scan.MovedOutside,
+                             scan.RecoveredMeta ? std::format(" ({} tasi .zmeta faylisiz - UUID va sozlamalari tiklandi)", scan.RecoveredMeta)
+                                                : std::string());
             size_t shown = 0;
             for (const std::string& problem : scan.Problems)
                 if (shown++ < 10)
@@ -114,6 +140,23 @@ namespace Zamin {
                 ZM_CORE_WARN("... va yana {} ta .zmeta muammosi", scan.Problems.size() - 10);
         }
         return registry.get();
+    }
+
+    std::filesystem::path Project::GetCacheDirectory()
+    {
+        return s_ActiveProject ? s_ActiveProject->m_ProjectDirectory / ".zamin" : std::filesystem::path();
+    }
+
+    std::filesystem::path Project::GetAssetRegistryCachePath()
+    {
+        return s_ActiveProject ? GetCacheDirectory() / "AssetRegistry.json" : std::filesystem::path();
+    }
+
+    bool Project::SaveAssetRegistryCache()
+    {
+        if (!s_ActiveProject || !s_ActiveProject->m_AssetRegistry || !s_ActiveProject->m_AssetRegistry->IsScanned())
+            return false;
+        return s_ActiveProject->m_AssetRegistry->SaveSnapshot(GetAssetRegistryCachePath());
     }
 
     std::filesystem::path Project::GetAssetFileSystemPath(const std::filesystem::path& path)
@@ -346,7 +389,7 @@ zamin_add_game_module({0} ${{GAME_SOURCES}})
         WriteBuildFiles(directory, name);
         if (!std::filesystem::exists(directory / "Source" / "Scripts.cpp"))
             FileSystem::WriteTextFile(directory / "Source" / "Scripts.cpp", ScriptTemplate::GenerateProjectStarter());
-        FileSystem::WriteTextFile(directory / ".gitignore", "Build/\nBinaries/\n");
+        FileSystem::WriteTextFile(directory / ".gitignore", "Build/\nBinaries/\n.zamin/\n");
 
         // Default scene
         Ref<Scene> scene = CreateRef<Scene>();

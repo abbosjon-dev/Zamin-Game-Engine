@@ -90,7 +90,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 075. Ishlatilmagan assetlarni topish
 - [ ] 076. Assetni o'chirishdan oldin ishlatilayotganini ogohlantirish
 - [ ] 077. Assetlarni papkalar bo'yicha qidirish (to'liq yo'l)
-- [ ] 078. Asset registry serializatsiyasi va testlari
+- [x] 078. Asset registry serializatsiyasi va testlari
 - [ ] 079. Kontent brauzerda thumbnail keshlash
 - [ ] 080. Asset import xatolarini konsolga chiqarish
 

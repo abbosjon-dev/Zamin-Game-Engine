@@ -56,6 +56,60 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ meta files
+    static ordered_json ImportToJson(const AssetImportSettings& settings)
+    {
+        ordered_json import = ordered_json::object();
+        for (const auto& [key, value] : settings.GetValues())
+        {
+            if (const bool* b = std::get_if<bool>(&value))
+                import[key] = *b;
+            else if (const double* d = std::get_if<double>(&value))
+            {
+                // Whole numbers without ".0" (a scale of 2 reads "2").
+                if (*d == (double)(int64_t)*d && *d > -1e15 && *d < 1e15)
+                    import[key] = (int64_t)*d;
+                else
+                    import[key] = *d;
+            }
+            else if (const std::string* s = std::get_if<std::string>(&value))
+                import[key] = *s;
+            else if (const auto* raw = std::get_if<AssetImportSettings::Json>(&value))
+            {
+                ordered_json parsed = ordered_json::parse(raw->Text, nullptr, false);
+                import[key] = parsed.is_discarded() ? ordered_json(nullptr) : parsed;
+            }
+        }
+        return import;
+    }
+
+    static void ImportFromJson(const ordered_json& import, AssetImportSettings& out)
+    {
+        out.Clear();
+        for (auto it = import.begin(); it != import.end(); ++it)
+        {
+            const ordered_json& v = it.value();
+            if (v.is_boolean())
+                out.SetBool(it.key(), v.get<bool>());
+            else if (v.is_number())
+                out.SetNumber(it.key(), v.get<double>());
+            else if (v.is_string())
+                out.SetString(it.key(), v.get<std::string>());
+            else
+                out.Set(it.key(), AssetImportSettings::Json{ v.dump() });
+        }
+    }
+
+    std::string AssetImportSettings::ToJson() const { return ImportToJson(*this).dump(); }
+
+    bool AssetImportSettings::FromJson(std::string_view text, AssetImportSettings& out)
+    {
+        ordered_json j = ordered_json::parse(text.begin(), text.end(), nullptr, false);
+        if (j.is_discarded() || !j.is_object())
+            return false;
+        ImportFromJson(j, out);
+        return true;
+    }
+
     bool AssetMetaFile::IsMetaFile(const fs::path& path)
     {
         std::string ext = path.extension().string();
@@ -88,27 +142,7 @@ namespace Zamin {
         ordered_json j;
         j["UUID"] = metadata.Handle.ToString();
         j["Type"] = AssetTypes::GetKey(metadata.Type);
-        ordered_json import = ordered_json::object();
-        for (const auto& [key, value] : metadata.Import.GetValues())
-        {
-            if (const bool* b = std::get_if<bool>(&value))
-                import[key] = *b;
-            else if (const double* d = std::get_if<double>(&value))
-            {
-                // Whole numbers without ".0" (a scale of 2 reads "2").
-                if (*d == (double)(int64_t)*d && *d > -1e15 && *d < 1e15)
-                    import[key] = (int64_t)*d;
-                else
-                    import[key] = *d;
-            }
-            else if (const std::string* s = std::get_if<std::string>(&value))
-                import[key] = *s;
-            else if (const auto* raw = std::get_if<AssetImportSettings::Json>(&value))
-            {
-                ordered_json parsed = ordered_json::parse(raw->Text, nullptr, false);
-                import[key] = parsed.is_discarded() ? ordered_json(nullptr) : parsed;
-            }
-        }
+        ordered_json import = ImportToJson(metadata.Import);
         j["Import"] = std::move(import);
         return j.dump(4) + "\n";
     }
@@ -142,20 +176,7 @@ namespace Zamin {
 
         out.Import.Clear();
         if (auto import = j.find("Import"); import != j.end() && import->is_object())
-        {
-            for (auto it = import->begin(); it != import->end(); ++it)
-            {
-                const ordered_json& v = it.value();
-                if (v.is_boolean())
-                    out.Import.SetBool(it.key(), v.get<bool>());
-                else if (v.is_number())
-                    out.Import.SetNumber(it.key(), v.get<double>());
-                else if (v.is_string())
-                    out.Import.SetString(it.key(), v.get<std::string>());
-                else
-                    out.Import.Set(it.key(), AssetImportSettings::Json{ v.dump() });
-            }
-        }
+            ImportFromJson(*import, out.Import);
         if (error)
             error->clear();
         return true;

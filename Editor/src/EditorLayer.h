@@ -171,6 +171,10 @@ namespace Zamin {
         // toolbar popup and the view menu share the settings' widgets.
         void UI_ComponentGizmosPopup();
         bool UI_ComponentGizmoSettings();
+        void UI_TransformGizmoPopup();
+        bool UI_TransformGizmoSettings();
+        bool UI_SelectionOutlineSettings();
+        void UI_JointLabels();
         void UI_ViewMenu();
         void UI_ViewportMessage();
         void UI_MaximizedGame();
@@ -191,6 +195,18 @@ namespace Zamin {
         // settings' Gizmos) seen through `view`; `hidden`: entities the overlay skips unless they
         // are selected.
         void DrawComponentGizmos(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden);
+        // Whether an entity gets a visualisation of `visibility` (its selection, the eye, inactive).
+        bool ShowsGizmo(entt::entity e, GizmoVisibility visibility, const std::unordered_set<entt::entity>& hidden);
+        // Gizmos.Bounds: the boxes around what entities draw (local and / or world).
+        void DrawBoundingBoxes(const std::unordered_set<entt::entity>& hidden);
+        // Gizmos.Skeletons: the bones (parent joint -> joint) and joints of skinned models.
+        void DrawSkeletons(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden);
+        // The selection outline: who gets it (the selection, its children, the entity under the
+        // mouse) and the pass over the viewport picture after post-processing.
+        std::vector<OutlineEntity> CollectSelectionOutline();
+        Entity GetOutlineHoverEntity();
+        void AppendOutlineHover(std::vector<OutlineEntity>& entities, Entity hovered);
+        void RenderSelectionOutline();
         // DebugDraw's queue into the final viewport picture (depth tested against the scene).
         void RenderDebugDraw();
         // Picks for m_PendingClickThrough (an extra ID pass into the viewport framebuffer).
@@ -229,6 +245,7 @@ namespace Zamin {
         // Alt pressed over the gizmo: the drag moves copies of the selection (the camera does
         // not orbit while the button is held); the copies are made once, when the gizmo first
         // really moves (a plain Alt+click on the gizmo copies nothing).
+        bool m_GizmoHovered = false;      // the mouse is over the transform gizmo (last UI pass)
         bool m_GizmoAltDrag = false;
         bool m_GizmoAltDuplicatePending = false;
         Entity m_HoveredEntity;
@@ -289,6 +306,19 @@ namespace Zamin {
         bool m_OpenViewModeMenu = false;  // automation (ZAMIN_EDITOR_VIEW_MENU): the menu opens
         bool m_OpenDebugDrawMenu = false; // automation (ZAMIN_EDITOR_DEBUG_DRAW=...,menu): the debug draw popup opens
         bool m_OpenGizmosMenu = false;    // automation (ZAMIN_EDITOR_GIZMOS=...,menu): the gizmos popup opens
+        bool m_OpenTransformGizmoMenu = false; // automation (ZAMIN_EDITOR_GIZMO_SIZE=...,menu): the gizmo size popup opens
+        bool m_OutlineCaptured = false;   // the outlined meshes' draws were kept for their silhouettes
+        Entity m_OutlineHover;            // the entity the hover outline marked (last frame)
+        Entity m_OutlineHoverCaptured;    // the hover entity whose draws this frame's scene kept
+        std::string m_ForcedHover;        // automation (ZAMIN_EDITOR_HOVER=<name>): the hover outline's entity
+        // Joint names of the drawn skeletons (Gizmos.JointNames), in viewport pixels, for the UI pass.
+        struct JointLabel
+        {
+            glm::vec2 Position{ 0.0f };
+            std::string Name;
+            bool Selected = false;
+        };
+        std::vector<JointLabel> m_JointLabels;
         PostProcessHistory m_PostHistory; // the viewport's auto exposure (adapted brightness)
         bool m_2DMode = false;
         bool m_MaximizeOnPlay = false;

@@ -1347,30 +1347,32 @@ namespace Zamin {
         }
     }
 
-    bool Scene::GetEntityBounds(Entity entity, AABB& out)
+    // The boxes around what an entity draws, in its own space: mesh / model, sprite, circle, text,
+    // tilemap. Returns false when it draws none of these.
+    template<typename Fn>
+    static bool ForEachLocalBox(Entity entity, Fn&& fn)
     {
-        if (!entity.IsValid() || entity.HasComponent<UITransformComponent>())
-            return false;
-        const glm::mat4 world = GetWorldTransform(entity);
-        AABB box;
         bool any = false;
-
+        auto add = [&](const glm::vec3& min, const glm::vec3& max) {
+            fn(min, max);
+            any = true;
+        };
         if (auto* mr = entity.TryGetComponent<MeshRendererComponent>())
         {
             if (mr->Type == PrimitiveMesh::Model)
             {
                 if (mr->ModelAsset)
-                    ExpandBounds(box, any, world, mr->ModelAsset->GetBounds().Min, mr->ModelAsset->GetBounds().Max);
+                    add(mr->ModelAsset->GetBounds().Min, mr->ModelAsset->GetBounds().Max);
             }
             else if (mr->MeshAsset)
-                ExpandBounds(box, any, world, mr->MeshAsset->GetBounds().Min, mr->MeshAsset->GetBounds().Max);
+                add(mr->MeshAsset->GetBounds().Min, mr->MeshAsset->GetBounds().Max);
             else if (mr->Type == PrimitiveMesh::Plane) // every primitive fits the unit cube
-                ExpandBounds(box, any, world, { -0.5f, 0.0f, -0.5f }, { 0.5f, 0.0f, 0.5f });
+                add({ -0.5f, 0.0f, -0.5f }, { 0.5f, 0.0f, 0.5f });
             else
-                ExpandBounds(box, any, world, glm::vec3(-0.5f), glm::vec3(0.5f));
+                add(glm::vec3(-0.5f), glm::vec3(0.5f));
         }
         if (entity.HasComponent<SpriteRendererComponent>() || entity.HasComponent<CircleRendererComponent>())
-            ExpandBounds(box, any, world, { -0.5f, -0.5f, 0.0f }, { 0.5f, 0.5f, 0.0f }); // unit quad
+            add({ -0.5f, -0.5f, 0.0f }, { 0.5f, 0.5f, 0.0f }); // unit quad
         if (auto* text = entity.TryGetComponent<TextComponent>(); text && text->FontAsset)
         {
             // Same box as Renderer2D::DrawString lays the text out (see the editor's selection outline).
@@ -1378,15 +1380,40 @@ namespace Zamin {
             float ascent = text->FontAsset->GetAscent();
             glm::vec2 center = text->Centered ? glm::vec2(0.0f) : glm::vec2(size.x * 0.5f, ascent - size.y * 0.5f);
             glm::vec2 half = size * 0.5f;
-            ExpandBounds(box, any, world, glm::vec3(center - half, 0.0f), glm::vec3(center + half, 0.0f));
+            add(glm::vec3(center - half, 0.0f), glm::vec3(center + half, 0.0f));
         }
         if (auto* tm = entity.TryGetComponent<TilemapComponent>()) // the position is the bottom-left corner
-            ExpandBounds(box, any, world, glm::vec3(0.0f), glm::vec3(tm->Width * tm->TileSize, tm->Height * tm->TileSize, 0.0f));
+            add(glm::vec3(0.0f), glm::vec3(tm->Width * tm->TileSize, tm->Height * tm->TileSize, 0.0f));
+        return any;
+    }
 
+    bool Scene::GetEntityBounds(Entity entity, AABB& out)
+    {
+        if (!entity.IsValid() || entity.HasComponent<UITransformComponent>())
+            return false;
+        const glm::mat4 world = GetWorldTransform(entity);
+        AABB box;
+        bool any = false;
+        ForEachLocalBox(entity, [&](const glm::vec3& min, const glm::vec3& max) { ExpandBounds(box, any, world, min, max); });
         if (!any)
             ExpandBounds(box, any, glm::vec3(world[3]));
         out = box;
         return true;
+    }
+
+    bool Scene::GetEntityLocalBounds(Entity entity, AABB& out)
+    {
+        if (!entity.IsValid() || entity.GetScene() != this || entity.HasComponent<UITransformComponent>())
+            return false;
+        AABB box;
+        bool any = false;
+        ForEachLocalBox(entity, [&](const glm::vec3& min, const glm::vec3& max) {
+            ExpandBounds(box, any, min);
+            ExpandBounds(box, any, max);
+        });
+        if (any)
+            out = box;
+        return any;
     }
 
     bool Scene::ComputeBounds(const std::vector<Entity>& entities, AABB& out, bool includeChildren)

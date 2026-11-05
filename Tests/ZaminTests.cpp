@@ -12013,6 +12013,276 @@ TEST(EditorGizmoSettingsSaved)
     CHECK(old.FromJson("{\"ZaminEditorView\": 1}") && old.Gizmos.CameraFrustums == GizmoVisibility::Selected);
 }
 
+TEST(TransformGizmoSettingsSaved)
+{
+    EditorViewSettings view;
+    CHECK(view.TransformGizmo.Size == 1.0f && view.TransformGizmo.LineThickness == 1.0f && view.TransformGizmo.IconSize == 1.0f);
+    CHECK_NEAR(view.TransformGizmo.GetClipSpaceSize(), 0.1f, 1e-6f); // ImGuizmo's own default
+    CHECK_NEAR(view.TransformGizmo.GetIconRadius(), 14.0f, 1e-6f);
+    view.TransformGizmo.Size = 1.75f;
+    view.TransformGizmo.LineThickness = 2.0f;
+    view.TransformGizmo.IconSize = 1.5f;
+    EditorViewSettings loaded;
+    CHECK(loaded.FromJson(view.ToJson()));
+    CHECK_NEAR(loaded.TransformGizmo.Size, 1.75f, 1e-5f);
+    CHECK_NEAR(loaded.TransformGizmo.LineThickness, 2.0f, 1e-5f);
+    CHECK_NEAR(loaded.TransformGizmo.IconSize, 1.5f, 1e-5f);
+    CHECK_NEAR(loaded.TransformGizmo.GetClipSpaceSize(), 0.175f, 1e-5f);
+    CHECK_NEAR(loaded.TransformGizmo.GetIconRadius(), 21.0f, 1e-4f);
+    // Out of range: clamped; not a number: the field keeps its value; files without it: the defaults.
+    EditorViewSettings odd;
+    CHECK(odd.FromJson(R"({"ZaminEditorView": 1, "TransformGizmo": {"Size": 50, "LineThickness": 0.01, "IconSize": "big"}})"));
+    CHECK(odd.TransformGizmo.Size == TransformGizmoSettings::MaxSize);
+    CHECK(odd.TransformGizmo.LineThickness == TransformGizmoSettings::MinThickness);
+    CHECK(odd.TransformGizmo.IconSize == 1.0f);
+    TransformGizmoSettings broken;
+    broken.Size = std::numeric_limits<float>::quiet_NaN();
+    broken.IconSize = -3.0f;
+    broken.Sanitize();
+    CHECK(broken.Size == 1.0f && broken.IconSize == TransformGizmoSettings::MinIconSize);
+    EditorViewSettings old;
+    CHECK(old.FromJson("{\"ZaminEditorView\": 1}") && old.TransformGizmo.Size == 1.0f);
+}
+
+TEST(SelectionOutlineSettingsSaved)
+{
+    EditorViewSettings view;
+    const SelectionOutlineSettings& d = view.SelectionOutline;
+    CHECK(d.Style == SelectionStyle::Outline && d.Width == 2.0f && d.ShowOccluded && d.Children && d.Hover);
+    CHECK(d.HoverWidth < d.Width); // the hover contour is the thinner one
+    // The rest of a multi-selection: lighter; the children: fainter.
+    CHECK(d.GetSecondaryColor().g > d.Color.g && d.GetSecondaryColor().b > d.Color.b);
+    CHECK(d.GetChildColor().a < d.GetSecondaryColor().a && d.GetChildColor().a < d.Color.a);
+
+    auto& o = view.SelectionOutline;
+    o.Style = SelectionStyle::Box;
+    o.Width = 3.5f;
+    o.Color = { 0.2f, 0.9f, 0.4f, 0.8f };
+    o.ShowOccluded = false;
+    o.OccludedOpacity = 0.5f;
+    o.Children = false;
+    o.Hover = false;
+    o.HoverWidth = 2.5f;
+    o.HoverColor = { 1.0f, 1.0f, 1.0f, 0.5f };
+    EditorViewSettings loaded;
+    CHECK(loaded.FromJson(view.ToJson()));
+    const auto& l = loaded.SelectionOutline;
+    CHECK(l.Style == SelectionStyle::Box && !l.ShowOccluded && !l.Children && !l.Hover);
+    CHECK_NEAR(l.Width, 3.5f, 1e-5f);
+    CHECK_NEAR(l.OccludedOpacity, 0.5f, 1e-5f);
+    CHECK_NEAR(l.HoverWidth, 2.5f, 1e-5f);
+    CHECK(glm::length(l.Color - glm::vec4(0.2f, 0.9f, 0.4f, 0.8f)) < 1e-4f);
+    CHECK(glm::length(l.HoverColor - glm::vec4(1.0f, 1.0f, 1.0f, 0.5f)) < 1e-4f);
+
+    // Unknown style: the outline; widths and opacity clamped, colours clamped to 0..1.
+    EditorViewSettings odd;
+    CHECK(odd.FromJson(R"({"ZaminEditorView": 1, "SelectionOutline": {"Style": "Glow", "Width": 99, "HoverWidth": -1,
+                           "OccludedOpacity": 7, "Color": [2, -1, 0.5, 1]}})"));
+    CHECK(odd.SelectionOutline.Style == SelectionStyle::Outline);
+    CHECK(odd.SelectionOutline.Width == SelectionOutlineSettings::MaxWidth && odd.SelectionOutline.HoverWidth == SelectionOutlineSettings::MinWidth);
+    CHECK(odd.SelectionOutline.OccludedOpacity == 1.0f);
+    CHECK(odd.SelectionOutline.Color == glm::vec4(1.0f, 0.0f, 0.5f, 1.0f));
+    SelectionOutlineSettings broken;
+    broken.Width = std::numeric_limits<float>::infinity();
+    broken.HoverColor.r = std::numeric_limits<float>::quiet_NaN();
+    broken.Sanitize();
+    CHECK(broken.Width == 2.0f && broken.HoverColor == SelectionOutlineSettings().HoverColor);
+}
+
+TEST(EditorBoundsAndSkeletonGizmosSaved)
+{
+    EditorViewSettings view;
+    CHECK(view.Gizmos.Bounds == GizmoVisibility::Off && view.Gizmos.BoundsMode == BoundsSpace::Local);
+    CHECK(view.Gizmos.Skeletons == GizmoVisibility::Selected && !view.Gizmos.JointNames);
+    view.Gizmos.Bounds = GizmoVisibility::All;
+    view.Gizmos.BoundsMode = BoundsSpace::Both;
+    view.Gizmos.Skeletons = GizmoVisibility::Off;
+    view.Gizmos.JointNames = true;
+    EditorViewSettings loaded;
+    CHECK(loaded.FromJson(view.ToJson()));
+    CHECK(loaded.Gizmos.Bounds == GizmoVisibility::All && loaded.Gizmos.BoundsMode == BoundsSpace::Both);
+    CHECK(loaded.Gizmos.Skeletons == GizmoVisibility::Off && loaded.Gizmos.JointNames);
+    for (BoundsSpace space : { BoundsSpace::Local, BoundsSpace::World, BoundsSpace::Both })
+        CHECK(EditorGizmoSettings::BoundsFromKey(EditorGizmoSettings::GetBoundsKey(space), BoundsSpace::Local) == space);
+    CHECK(EditorGizmoSettings::BoundsFromKey("Sideways", BoundsSpace::World) == BoundsSpace::World);
+    EditorViewSettings odd;
+    CHECK(odd.FromJson(R"({"ZaminEditorView": 1, "Gizmos": {"Bounds": "Selected", "BoundsSpace": 4, "Skeletons": "Never"}})"));
+    CHECK(odd.Gizmos.Bounds == GizmoVisibility::Selected && odd.Gizmos.BoundsMode == BoundsSpace::Local &&
+          odd.Gizmos.Skeletons == GizmoVisibility::Selected);
+}
+
+TEST(SelectionOutlineLookup)
+{
+    auto id = [](uint32_t index, uint32_t version) { return (int)(index | (version << OutlineLookup::IndexBits)); };
+    CHECK(OutlineLookup::Build({}).IsEmpty());
+    CHECK(OutlineLookup::Build({ { 4, OutlineCategory::None, false }, { -1, OutlineCategory::Primary, false } }).IsEmpty());
+
+    std::vector<OutlineEntity> entities = {
+        { id(3, 0), OutlineCategory::Primary, false },
+        { id(1500, 2), OutlineCategory::Secondary, false },
+        { id(5, 1), OutlineCategory::Child, false },
+        { id(5, 1), OutlineCategory::Secondary, false },   // listed twice: the higher category
+        { id(3, 0), OutlineCategory::Child, false },       // a lower one does not lower it
+        { id(7, 0), OutlineCategory::None, true },         // under the mouse
+        { id(3, 0), OutlineCategory::None, true },         // hovered but selected: no hover outline
+    };
+    OutlineLookup lookup = OutlineLookup::Build(entities);
+    CHECK(!lookup.IsEmpty() && lookup.Height == 1500 / OutlineLookup::Width + 1);
+    CHECK(lookup.Texels.size() == (size_t)OutlineLookup::Width * lookup.Height * 4);
+    CHECK(lookup.GetCategory(id(3, 0)) == OutlineCategory::Primary && !lookup.IsHovered(id(3, 0)));
+    CHECK(lookup.GetCategory(id(1500, 2)) == OutlineCategory::Secondary);
+    CHECK(lookup.GetCategory(id(5, 1)) == OutlineCategory::Secondary);
+    CHECK(lookup.GetCategory(id(7, 0)) == OutlineCategory::None && lookup.IsHovered(id(7, 0)));
+    // Another version of an index is another entity; nothing (-1), unlisted and far indices: nothing.
+    CHECK(lookup.GetCategory(id(1500, 1)) == OutlineCategory::None && lookup.GetCategory(id(5, 0)) == OutlineCategory::None);
+    CHECK(lookup.GetCategory(-1) == OutlineCategory::None && lookup.GetCategory(id(4, 0)) == OutlineCategory::None);
+    CHECK(lookup.GetCategory(id(9000, 0)) == OutlineCategory::None && !lookup.IsHovered(id(9000, 0)));
+
+    // Real EnTT entities: a destroyed entity's index comes back with a new version.
+    entt::registry registry;
+    entt::entity first = registry.create();
+    registry.destroy(first);
+    entt::entity second = registry.create();
+    CHECK(entt::to_entity(first) == entt::to_entity(second) && first != second);
+    OutlineLookup recycled = OutlineLookup::Build({ { (int)(uint32_t)second, OutlineCategory::Primary, false } });
+    CHECK(recycled.GetCategory((int)(uint32_t)second) == OutlineCategory::Primary);
+    CHECK(recycled.GetCategory((int)(uint32_t)first) == OutlineCategory::None);
+    CHECK(entt::to_entity(second) == ((uint32_t)second & OutlineLookup::IndexMask));
+}
+
+TEST(SelectionOutlineCoverage)
+{
+    // Full strength up to the outline's width, a one pixel wide soft edge, nothing beyond.
+    for (float width : { 0.5f, 1.0f, 2.0f, 3.5f, 6.0f })
+    {
+        CHECK(SelectionOutline::Coverage(1.0f, std::max(width, 1.0f)) == 1.0f);
+        CHECK(SelectionOutline::Coverage(width, width) == 1.0f);
+        CHECK_NEAR(SelectionOutline::Coverage(width + 0.5f, width), 0.5f, 1e-5f);
+        CHECK(SelectionOutline::Coverage(width + 1.0f, width) == 0.0f);
+        float previous = 1.0f;
+        for (float d = 0.0f; d < width + 2.0f; d += 0.25f)
+        {
+            float c = SelectionOutline::Coverage(d, width);
+            CHECK(c >= 0.0f && c <= 1.0f && c <= previous);
+            previous = c;
+        }
+        // The search reaches every pixel the outline can cover.
+        int radius = SelectionOutline::GetSearchRadius(width, 0.5f);
+        CHECK((float)radius >= width + 1.0f - 1e-5f && radius <= (int)std::ceil(width) + 1);
+    }
+    CHECK_NEAR(SelectionOutline::Coverage(std::sqrt(5.0f), 2.0f), 3.0f - std::sqrt(5.0f), 1e-5f); // a diagonal neighbour
+    CHECK(SelectionOutline::GetSearchRadius(2.0f, 1.5f) == 3);
+    CHECK(SelectionOutline::GetSearchRadius(1.0f, 4.0f) == 5); // the hover outline can be the wider one
+    CHECK(SelectionOutline::GetSearchRadius(100.0f, 0.0f) == (int)SelectionOutlineSettings::MaxWidth + 1);
+    CHECK(SelectionOutline::GetSearchRadius(std::numeric_limits<float>::quiet_NaN(), 1.0f) == (int)SelectionOutlineSettings::MaxWidth + 1);
+}
+
+TEST(SkeletonJointTransforms)
+{
+    // Root at (0, 1, 0); joint 1 two up from it, turned 90 degrees around Z; joint 2 one along
+    // joint 1's X (so straight up in the rest pose). The whole skeleton moved 5 along Z.
+    Skeleton skeleton;
+    skeleton.RootTransform = glm::translate(glm::mat4(1.0f), { 0, 0, 5 });
+    Joint root, arm, hand;
+    root.Name = "Root";
+    root.RestTranslation = { 0, 1, 0 };
+    arm.Name = "Arm";
+    arm.Parent = 0;
+    arm.RestTranslation = { 0, 2, 0 };
+    arm.RestRotation = glm::angleAxis(glm::half_pi<float>(), glm::vec3(0, 0, 1));
+    hand.Name = "Hand";
+    hand.Parent = 1;
+    hand.RestTranslation = { 1, 0, 0 };
+    skeleton.Joints = { root, arm, hand };
+    // The inverse bind matrices of the rest pose (as a glTF file has them).
+    std::vector<glm::mat4> rest;
+    GetJointTransforms(skeleton, {}, rest);
+    CHECK(rest.size() == 3);
+    CHECK(glm::length(glm::vec3(rest[0][3]) - glm::vec3(0, 1, 5)) < 1e-5f);
+    CHECK(glm::length(glm::vec3(rest[1][3]) - glm::vec3(0, 3, 5)) < 1e-5f);
+    CHECK(glm::length(glm::vec3(rest[2][3]) - glm::vec3(0, 4, 5)) < 1e-5f);
+    for (size_t i = 0; i < 3; i++)
+        skeleton.Joints[i].InverseBind = glm::inverse(rest[i]);
+
+    // EvaluatePose's skinning matrices give the joints back: the rest pose ...
+    std::vector<glm::mat4> skinning, globals;
+    EvaluatePose(skeleton, nullptr, 0.0f, skinning);
+    GetJointTransforms(skeleton, skinning, globals);
+    for (size_t i = 0; i < 3; i++)
+        CHECK(glm::length(glm::vec3(globals[i][3]) - glm::vec3(rest[i][3])) < 1e-4f);
+    // ... and an animated one: the root turned 90 degrees around Z swings the arm to -X.
+    AnimationClip clip;
+    clip.Duration = 1.0f;
+    AnimationChannel channel;
+    channel.JointIndex = 0;
+    channel.Target = AnimationChannel::Path::Rotation;
+    glm::quat q = glm::angleAxis(glm::half_pi<float>(), glm::vec3(0, 0, 1));
+    channel.Times = { 0.0f };
+    channel.Values = { glm::vec4(q.x, q.y, q.z, q.w) };
+    clip.Channels = { channel };
+    EvaluatePose(skeleton, &clip, 0.0f, skinning);
+    GetJointTransforms(skeleton, skinning, globals);
+    CHECK(glm::length(glm::vec3(globals[0][3]) - glm::vec3(0, 1, 5)) < 1e-4f);
+    CHECK(glm::length(glm::vec3(globals[1][3]) - glm::vec3(-2, 1, 5)) < 1e-4f);
+    CHECK(glm::length(glm::vec3(globals[2][3]) - glm::vec3(-3, 1, 5)) < 1e-4f);
+    // Matrices that do not fit the skeleton: the rest pose.
+    GetJointTransforms(skeleton, std::vector<glm::mat4>(2, glm::mat4(2.0f)), globals);
+    CHECK(globals.size() == 3 && glm::length(glm::vec3(globals[2][3]) - glm::vec3(0, 4, 5)) < 1e-5f);
+    Skeleton empty;
+    GetJointTransforms(empty, skinning, globals);
+    CHECK(globals.empty());
+}
+
+TEST(EntityLocalBounds)
+{
+    Ref<Scene> scene = CreateRef<Scene>();
+    // A primitive (not loaded headless: the unit cube every primitive fits), turned and scaled.
+    Entity cube = scene->CreateEntity("Cube");
+    cube.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Cube;
+    auto& t = cube.GetTransform();
+    t.Translation = { 10, 0, 0 };
+    t.Scale = { 2, 1, 1 };
+    t.Rotation = { 0, glm::half_pi<float>(), 0 };
+    AABB local, world;
+    CHECK(scene->GetEntityLocalBounds(cube, local));
+    CHECK(local.Min == glm::vec3(-0.5f) && local.Max == glm::vec3(0.5f));
+    CHECK(scene->GetEntityBounds(cube, world));
+    CHECK_NEAR(world.Min.x, 9.5f, 1e-4f);
+    CHECK_NEAR(world.Max.x, 10.5f, 1e-4f);
+    CHECK_NEAR(world.Min.z, -1.0f, 1e-4f); // the 2 wide side now along Z
+    CHECK_NEAR(world.Max.z, 1.0f, 1e-4f);
+
+    Entity plane = scene->CreateEntity("Plane");
+    plane.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Plane;
+    CHECK(scene->GetEntityLocalBounds(plane, local) && local.Min.y == 0.0f && local.Max.y == 0.0f && local.Max.x == 0.5f);
+
+    Entity sprite = scene->CreateEntity("Sprite");
+    sprite.AddComponent<SpriteRendererComponent>();
+    CHECK(scene->GetEntityLocalBounds(sprite, local));
+    CHECK(local.Min == glm::vec3(-0.5f, -0.5f, 0.0f) && local.Max == glm::vec3(0.5f, 0.5f, 0.0f));
+
+    Entity map = scene->CreateEntity("Map");
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = 4;
+    tm.Height = 3;
+    tm.TileSize = 0.5f;
+    CHECK(scene->GetEntityLocalBounds(map, local) && local.Min == glm::vec3(0.0f) && local.Max == glm::vec3(2.0f, 1.5f, 0.0f));
+
+    // A sprite and a tilemap on one entity: the box around both.
+    map.AddComponent<SpriteRendererComponent>();
+    CHECK(scene->GetEntityLocalBounds(map, local) && local.Min == glm::vec3(-0.5f, -0.5f, 0.0f) && local.Max == glm::vec3(2.0f, 1.5f, 0.0f));
+
+    // Nothing drawn (a light, an empty group) or screen-space UI: no box of its own.
+    Entity empty = scene->CreateEntity("Empty");
+    empty.GetTransform().Translation = { 1, 2, 3 };
+    CHECK(!scene->GetEntityLocalBounds(empty, local));
+    CHECK(scene->GetEntityBounds(empty, world) && world.Min == glm::vec3(1, 2, 3)); // framing still sees its position
+    Entity ui = scene->CreateEntity("UI");
+    ui.AddComponent<UITransformComponent>();
+    ui.AddComponent<SpriteRendererComponent>();
+    CHECK(!scene->GetEntityLocalBounds(ui, local) && !scene->GetEntityLocalBounds(Entity(), local));
+}
+
 TEST(ImageCompare)
 {
     const uint32_t w = 8, h = 4;

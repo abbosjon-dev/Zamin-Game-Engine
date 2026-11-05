@@ -330,8 +330,9 @@ namespace Zamin {
                 if (v.find("velocities") != std::string_view::npos) d.ShowVelocities = d.ShowBodyVelocities = true;
                 if (v.find("menu") != std::string_view::npos) m_OpenDebugDrawMenu = true;
             }
-            // ZAMIN_EDITOR_GIZMOS=off | selected | all | frustums=all,lights=off,audio=selected,menu: the
-            // component visualisations (for this session; not saved unless the settings change).
+            // ZAMIN_EDITOR_GIZMOS=off | selected | all | frustums=all,lights=off,audio=selected,bounds=all,
+            // space=local|world|both,skeleton=all,names,menu: the component visualisations (for this session;
+            // not saved unless the settings change).
             if (const char* gizmos = std::getenv("ZAMIN_EDITOR_GIZMOS"))
             {
                 std::string_view v(gizmos);
@@ -344,11 +345,61 @@ namespace Zamin {
                 if (v.starts_with("all") || v.starts_with("off") || v.starts_with("selected"))
                     g.CameraFrustums = g.LightDirections = g.AudioRanges = parse(v);
                 for (auto [key, target] : { std::pair<std::string_view, GizmoVisibility*>{ "frustums=", &g.CameraFrustums },
-                                            { "lights=", &g.LightDirections }, { "audio=", &g.AudioRanges } })
+                                            { "lights=", &g.LightDirections }, { "audio=", &g.AudioRanges },
+                                            { "bounds=", &g.Bounds }, { "skeleton=", &g.Skeletons } })
                     if (size_t at = v.find(key); at != std::string_view::npos)
                         *target = parse(v.substr(at + key.size()));
+                if (size_t at = v.find("space="); at != std::string_view::npos)
+                {
+                    std::string_view space = v.substr(at + 6);
+                    g.BoundsMode = space.starts_with("world") ? BoundsSpace::World : space.starts_with("both") ? BoundsSpace::Both
+                                                                                                             : BoundsSpace::Local;
+                }
+                if (v.find("names") != std::string_view::npos) g.JointNames = true;
                 if (v.find("menu") != std::string_view::npos) m_OpenGizmosMenu = true;
             }
+            // ZAMIN_EDITOR_GIZMO_SIZE=<size> | size=1.5,thickness=2,icons=1.2,menu: the transform gizmo's size
+            // factors (for this session), "menu" opens its popup.
+            if (const char* gizmoSize = std::getenv("ZAMIN_EDITOR_GIZMO_SIZE"))
+            {
+                std::string_view v(gizmoSize);
+                auto& tg = m_ViewSettings.TransformGizmo;
+                auto number = [&](std::string_view key, float& out) {
+                    if (size_t at = v.find(key); at != std::string_view::npos)
+                        out = (float)std::atof(std::string(v.substr(at + key.size())).c_str());
+                };
+                if (!v.empty() && (std::isdigit((unsigned char)v[0]) || v[0] == '.'))
+                    tg.Size = (float)std::atof(gizmoSize);
+                number("size=", tg.Size);
+                number("thickness=", tg.LineThickness);
+                number("icons=", tg.IconSize);
+                tg.Sanitize();
+                if (v.find("menu") != std::string_view::npos) m_OpenTransformGizmoMenu = true;
+            }
+            // ZAMIN_EDITOR_OUTLINE=box | outline | width=3,occluded=0,children=0,hover=0,menu: the selection's
+            // look (for this session); "menu" opens the gizmos popup (where its settings are).
+            if (const char* outline = std::getenv("ZAMIN_EDITOR_OUTLINE"))
+            {
+                std::string_view v(outline);
+                auto& o = m_ViewSettings.SelectionOutline;
+                if (v.starts_with("box")) o.Style = SelectionStyle::Box;
+                if (v.starts_with("outline")) o.Style = SelectionStyle::Outline;
+                auto value = [&](std::string_view key) -> std::optional<float> {
+                    if (size_t at = v.find(key); at != std::string_view::npos)
+                        return (float)std::atof(std::string(v.substr(at + key.size())).c_str());
+                    return std::nullopt;
+                };
+                if (auto w = value("width=")) o.Width = *w;
+                if (auto w = value("hoverwidth=")) o.HoverWidth = *w;
+                if (auto f = value("occluded=")) o.ShowOccluded = *f != 0.0f;
+                if (auto f = value("children=")) o.Children = *f != 0.0f;
+                if (auto f = value("hover=")) o.Hover = *f != 0.0f;
+                o.Sanitize();
+                if (v.find("menu") != std::string_view::npos) m_OpenGizmosMenu = true;
+            }
+            // ZAMIN_EDITOR_HOVER=<entity name>: the hover outline marks it as if the mouse were over it.
+            if (const char* hover = std::getenv("ZAMIN_EDITOR_HOVER"))
+                m_ForcedHover = hover;
             // ZAMIN_EDITOR_NO_CULLING=1 / ZAMIN_EDITOR_NO_INSTANCING=1: frustum culling (3D and 2D) / GPU
             // instancing off (to compare the pictures).
             if (std::getenv("ZAMIN_EDITOR_NO_CULLING"))
@@ -738,6 +789,30 @@ namespace Zamin {
         // What the viewport shows of DebugDraw: the editor's own settings (the player uses the project's).
         DebugDraw::GetSettings() = m_ViewSettings.DebugDraw;
 
+        // The selection outline's silhouettes (the whole shapes of the outlined meshes, also where
+        // they are hidden): the scene keeps this frame's draws of the selected entities, their
+        // children and the entity the hover outline marked last frame.
+        m_OutlineCaptured = false;
+        m_OutlineHoverCaptured = {};
+        if (const auto& outline = m_ViewSettings.SelectionOutline; outline.Style == SelectionStyle::Outline)
+        {
+            std::vector<OutlineEntity> entities = CollectSelectionOutline();
+            if (outline.Hover && m_OutlineHover && m_OutlineHover.GetScene() == m_ActiveScene.get() && m_OutlineHover.IsValid())
+            {
+                AppendOutlineHover(entities, m_OutlineHover);
+                m_OutlineHoverCaptured = m_OutlineHover;
+            }
+            if (!entities.empty())
+            {
+                std::vector<int> ids;
+                ids.reserve(entities.size());
+                for (const OutlineEntity& e : entities)
+                    ids.push_back(e.EntityID);
+                Renderer3D::BeginCapture(std::move(ids));
+                m_OutlineCaptured = true;
+            }
+        }
+
         uint64_t scenesDrawn = Renderer3D::GetEndSceneCount();
         switch (m_SceneState)
         {
@@ -754,6 +829,8 @@ namespace Zamin {
                 m_ActiveScene->OnUpdateRuntime(ts);
                 break;
         }
+        if (m_OutlineCaptured)
+            Renderer3D::EndCapture();
         // The order the scene's transparent surfaces were just drawn in (the overlay shows it);
         // nothing when the scene was not drawn (no camera).
         if (Renderer3D::GetEndSceneCount() != scenesDrawn)
@@ -809,9 +886,99 @@ namespace Zamin {
         const bool neutralPost = IsDebugViewActive() && !Renderer3D::DebugViewUsesPostProcessing(m_DebugView);
         PostProcessor::Apply(post, neutralPost ? PostProcessSettings::Neutral() : m_ActiveScene->GetSettings().Post, m_FinalFramebuffer);
         m_FinalFramebuffer->Bind();
+        RenderSelectionOutline();
         RenderDebugDraw();
         OnOverlayRender();
         m_FinalFramebuffer->Unbind();
+    }
+
+    std::vector<OutlineEntity> EditorLayer::CollectSelectionOutline()
+    {
+        std::vector<OutlineEntity> entities;
+        Scene& scene = *m_ActiveScene;
+        const bool children = m_ViewSettings.SelectionOutline.Children;
+        const Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
+        auto id = [](Entity e) { return (int)(uint32_t)(entt::entity)e; };
+        for (Entity selected : m_SceneHierarchyPanel.GetSelection().GetEntities())
+        {
+            if (!selected.IsValid() || selected.GetScene() != &scene)
+                continue;
+            entities.push_back({ id(selected), selected == primary ? OutlineCategory::Primary : OutlineCategory::Secondary });
+            if (children)
+                for (Entity child : scene.GetDescendants(selected))
+                    entities.push_back({ id(child), OutlineCategory::Child });
+        }
+        return entities;
+    }
+
+    void EditorLayer::AppendOutlineHover(std::vector<OutlineEntity>& entities, Entity hovered)
+    {
+        entities.push_back({ (int)(uint32_t)(entt::entity)hovered, OutlineCategory::None, true });
+        for (Entity child : m_ActiveScene->GetDescendants(hovered))
+            entities.push_back({ (int)(uint32_t)(entt::entity)child, OutlineCategory::None, true });
+    }
+
+    Entity EditorLayer::GetOutlineHoverEntity()
+    {
+        if (!m_ForcedHover.empty())
+            return m_ActiveScene->FindEntityByName(m_ForcedHover);
+        // What a left click would select now: nothing while playing, dragging, flying, painting,
+        // over the gizmo or with a popup open; a locked entity is clicked through.
+        if (m_SceneState == SceneState::Play || !m_ViewportHovered || !m_HoveredEntity || !m_HoveredEntity.IsValid())
+            return {};
+        if (m_ActiveScene->IsLockedInEditor(m_HoveredEntity) || m_SceneHierarchyPanel.IsTilePainting() || m_MaterialDrag.Active ||
+            m_GizmoEdit.IsActive() || m_GizmoHovered || m_EditorCamera.IsFlying())
+            return {};
+        for (ImGuiMouseButton button : { ImGuiMouseButton_Left, ImGuiMouseButton_Right, ImGuiMouseButton_Middle })
+            if (ImGui::IsMouseDown(button))
+                return {};
+        if (ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId))
+            return {};
+        return m_HoveredEntity;
+    }
+
+    void EditorLayer::RenderSelectionOutline()
+    {
+        const auto& settings = m_ViewSettings.SelectionOutline;
+        if (settings.Style != SelectionStyle::Outline)
+            return;
+        // Play mode without a camera: nothing was drawn.
+        if (m_SceneState == SceneState::Play && !m_ActiveScene->GetPrimaryCameraEntity())
+            return;
+        std::vector<OutlineEntity> entities = CollectSelectionOutline();
+        // The hover outline follows the mesh silhouettes kept from this frame's scene: an entity the
+        // mouse just moved onto is marked from the next frame on (its draws are kept then) - else
+        // the edges of everything in front of it would be outlined for a frame.
+        Entity hovered = settings.Hover ? GetOutlineHoverEntity() : Entity();
+        if (hovered && !hovered.IsValid())
+            hovered = {};
+        m_OutlineHover = hovered;
+        if (hovered)
+        {
+            bool meshes = false;
+            if (hovered != m_OutlineHoverCaptured)
+            {
+                meshes = hovered.HasComponent<MeshRendererComponent>();
+                for (Entity child : m_ActiveScene->GetDescendants(hovered))
+                    meshes = meshes || child.HasComponent<MeshRendererComponent>();
+            }
+            if (!meshes)
+                AppendOutlineHover(entities, hovered);
+        }
+        if (entities.empty())
+            return;
+        const auto& render = m_Framebuffer->GetSpecification();
+        const auto& output = m_FinalFramebuffer->GetSpecification();
+        SelectionOutlineInput input;
+        input.EntityIDTexture = m_Framebuffer->GetColorAttachmentRendererID(1);
+        input.IDWidth = render.Width;
+        input.IDHeight = render.Height;
+        input.Width = output.Width;
+        input.Height = output.Height;
+        input.ViewProjection = m_ActiveScene->GetLastProjection() * m_ActiveScene->GetLastView();
+        input.Entities = std::move(entities);
+        input.Silhouettes = m_OutlineCaptured ? &Renderer3D::GetCapturedDraws() : nullptr;
+        SelectionOutline::Render(input, settings);
     }
 
     void EditorLayer::RenderDebugDraw()
@@ -1119,22 +1286,25 @@ namespace Zamin {
         Renderer2D::DrawLine(apex, apex + d * std::min(range, 1.0f), color);
     }
 
+    bool EditorLayer::ShowsGizmo(entt::entity e, GizmoVisibility visibility, const std::unordered_set<entt::entity>& hidden)
+    {
+        // A selected entity gets its visualisation unless the eye hides it (outside play mode);
+        // with "all", every other entity the overlay draws (active, not hidden) too.
+        if (visibility == GizmoVisibility::Off)
+            return false;
+        Scene& scene = *m_ActiveScene;
+        Entity entity{ e, &scene };
+        bool selected = m_SceneHierarchyPanel.IsSelected(entity);
+        if (!EditorGizmoSettings::Shows(visibility, selected))
+            return false;
+        return selected ? !(m_SceneState != SceneState::Play && scene.IsHiddenInEditor(entity)) : !hidden.contains(e);
+    }
+
     void EditorLayer::DrawComponentGizmos(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden)
     {
         const EditorGizmoSettings& gizmos = m_ViewSettings.Gizmos;
         Scene& scene = *m_ActiveScene;
-        // A selected entity gets its visualisation unless the eye hides it (outside play mode);
-        // with "all", every other entity the overlay draws (active, not hidden) too.
-        const bool skipEyeHidden = m_SceneState != SceneState::Play;
-        auto shows = [&](entt::entity e, GizmoVisibility visibility) {
-            if (visibility == GizmoVisibility::Off)
-                return false;
-            Entity entity{ e, &scene };
-            bool selected = m_SceneHierarchyPanel.IsSelected(entity);
-            if (!EditorGizmoSettings::Shows(visibility, selected))
-                return false;
-            return selected ? !(skipEyeHidden && scene.IsHiddenInEditor(entity)) : !hidden.contains(e);
-        };
+        auto shows = [&](entt::entity e, GizmoVisibility visibility) { return ShowsGizmo(e, visibility, hidden); };
         auto tint = [&](entt::entity e, glm::vec4 color) {
             if (!m_SceneHierarchyPanel.IsSelected({ e, &scene }))
                 color.a *= 0.6f;
@@ -1213,6 +1383,147 @@ namespace Zamin {
                 if (src.MaxDistance > src.MinDistance)
                     DrawWireSphere(center, src.MaxDistance, glm::vec4(color.r, color.g, color.b, color.a * 0.45f), &view);
             }
+
+        DrawBoundingBoxes(hidden);
+        DrawSkeletons(view, hidden);
+    }
+
+    void EditorLayer::DrawBoundingBoxes(const std::unordered_set<entt::entity>& hidden)
+    {
+        const EditorGizmoSettings& gizmos = m_ViewSettings.Gizmos;
+        if (gizmos.Bounds == GizmoVisibility::Off)
+            return;
+        Scene& scene = *m_ActiveScene;
+        const bool local = gizmos.BoundsMode != BoundsSpace::World, world = gizmos.BoundsMode != BoundsSpace::Local;
+        auto box = [](const glm::vec3& min, const glm::vec3& max) {
+            return glm::translate(glm::mat4(1.0f), (min + max) * 0.5f) * glm::scale(glm::mat4(1.0f), glm::max(max - min, glm::vec3(1e-4f)));
+        };
+        for (auto e : scene.GetAllEntitiesWith<TransformComponent>())
+        {
+            if (!ShowsGizmo(e, gizmos.Bounds, hidden))
+                continue;
+            Entity entity{ e, &scene };
+            AABB bounds;
+            if (!scene.GetEntityLocalBounds(entity, bounds))
+                continue; // lights, cameras, empty groups: nothing drawn, no box
+            const float alpha = m_SceneHierarchyPanel.IsSelected(entity) ? 1.0f : 0.55f;
+            const glm::mat4 transform = scene.GetWorldTransform(entity);
+            // Local: the box in the entity's own space, turned and scaled with it.
+            if (local)
+                DrawWireBox(transform * box(bounds.Min, bounds.Max), glm::vec4(0.35f, 0.82f, 1.0f, alpha));
+            if (!world)
+                continue;
+            // World: axis aligned. A mesh's is the one frustum culling tests (a skinned model's
+            // grows with its pose), the others' the corners of the local box.
+            AABB worldBounds;
+            bool any = false;
+            if (auto* mr = entity.TryGetComponent<MeshRendererComponent>())
+            {
+                auto add = [&](const AABB& b) {
+                    worldBounds.Min = any ? glm::min(worldBounds.Min, b.Min) : b.Min;
+                    worldBounds.Max = any ? glm::max(worldBounds.Max, b.Max) : b.Max;
+                    any = true;
+                };
+                if (mr->Type == PrimitiveMesh::Model && mr->ModelAsset)
+                {
+                    const auto* anim = entity.TryGetComponent<AnimatorComponent>();
+                    for (const auto& sub : mr->ModelAsset->GetSubMeshes())
+                        if (sub.MeshRef)
+                            add(Renderer3D::GetWorldBounds(*sub.MeshRef, transform,
+                                                           sub.MeshRef->IsSkinned() && anim && !anim->JointMatrices.empty() ? &anim->JointMatrices : nullptr));
+                }
+                else if (mr->MeshAsset)
+                    add(Renderer3D::GetWorldBounds(*mr->MeshAsset, transform));
+            }
+            if (!any && !scene.GetEntityBounds(entity, worldBounds))
+                continue;
+            DrawWireBox(box(worldBounds.Min, worldBounds.Max), glm::vec4(0.78f, 1.0f, 0.42f, alpha * 0.9f));
+        }
+    }
+
+    // A bone from `head` (the parent joint) to `tail` (the joint): a thin double pyramid, widest
+    // a fifth of the way along (`pixel`: world units of a viewport pixel at the head).
+    static void DrawBone(const glm::vec3& head, const glm::vec3& tail, float pixel, const glm::vec4& color)
+    {
+        glm::vec3 d = tail - head;
+        float length = glm::length(d);
+        if (!(length > 1e-6f))
+            return;
+        d /= length;
+        glm::vec3 u, v;
+        PerpendicularAxes(d, u, v);
+        const float width = std::clamp(length * 0.1f, pixel * 2.0f, std::max(pixel * 2.0f, length * 0.25f));
+        const glm::vec3 waist = head + d * (length * 0.2f);
+        const glm::vec3 ring[4] = { waist + u * width, waist + v * width, waist - u * width, waist - v * width };
+        for (int i = 0; i < 4; i++)
+        {
+            Renderer2D::DrawLine(head, ring[i], color);
+            Renderer2D::DrawLine(ring[i], tail, color);
+            Renderer2D::DrawLine(ring[i], ring[(i + 1) % 4], color);
+        }
+    }
+
+    // A round dot that faces the camera, `diameter` world units across.
+    static void DrawScreenDot(const glm::vec3& center, float diameter, const glm::vec4& color, const EditorOverlayView& view)
+    {
+        glm::mat4 facing = glm::mat4(glm::transpose(glm::mat3(view.View))); // the camera's rotation
+        facing[3] = glm::vec4(center, 1.0f);
+        Renderer2D::DrawCircle(facing * glm::scale(glm::mat4(1.0f), glm::vec3(diameter)), color, 1.0f, 0.08f);
+    }
+
+    void EditorLayer::DrawSkeletons(const EditorOverlayView& view, const std::unordered_set<entt::entity>& hidden)
+    {
+        m_JointLabels.clear();
+        const EditorGizmoSettings& gizmos = m_ViewSettings.Gizmos;
+        if (gizmos.Skeletons == GizmoVisibility::Off)
+            return;
+        Scene& scene = *m_ActiveScene;
+        const glm::mat4 viewProjection = view.Projection * view.View;
+        const glm::vec2 viewportSize = m_ViewportBounds[1] - m_ViewportBounds[0];
+        static const std::vector<glm::mat4> s_RestPose;
+        std::vector<glm::mat4> globals;
+        std::vector<glm::vec3> joints;
+        for (auto e : scene.GetAllEntitiesWith<MeshRendererComponent>())
+        {
+            Entity entity{ e, &scene };
+            const auto& mr = entity.GetComponent<MeshRendererComponent>();
+            if (mr.Type != PrimitiveMesh::Model || !mr.ModelAsset || !mr.ModelAsset->IsSkinned() || !ShowsGizmo(e, gizmos.Skeletons, hidden))
+                continue;
+            // The pose the model was drawn in: its animator's, else the rest pose.
+            const Skeleton& skeleton = mr.ModelAsset->GetSkeleton();
+            const auto* anim = entity.TryGetComponent<AnimatorComponent>();
+            GetJointTransforms(skeleton, anim ? anim->JointMatrices : s_RestPose, globals);
+            const glm::mat4 world = scene.GetWorldTransform(entity);
+            joints.resize(globals.size());
+            for (size_t i = 0; i < globals.size(); i++)
+                joints[i] = glm::vec3(world * globals[i][3]);
+
+            const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
+            const float alpha = selected ? 1.0f : 0.55f;
+            const glm::vec4 boneColor(0.55f, 0.86f, 1.0f, alpha), jointColor(1.0f, 0.82f, 0.32f, alpha), shadow(0.05f, 0.06f, 0.08f, 0.8f * alpha);
+            for (size_t i = 0; i < joints.size(); i++)
+            {
+                const int parent = skeleton.Joints[i].Parent;
+                if (parent >= 0 && (size_t)parent < joints.size())
+                    DrawBone(joints[parent], joints[i], view.PixelSize(joints[parent]), boneColor);
+            }
+            for (size_t i = 0; i < joints.size(); i++)
+            {
+                const float pixel = view.PixelSize(joints[i]);
+                DrawScreenDot(joints[i], pixel * 9.0f, shadow, view);
+                DrawScreenDot(joints[i], pixel * 6.0f, jointColor, view);
+                if (!gizmos.JointNames)
+                    continue;
+                glm::vec4 clip = viewProjection * glm::vec4(joints[i], 1.0f);
+                if (clip.w <= 0.0f)
+                    continue;
+                glm::vec3 ndc = glm::vec3(clip) / clip.w;
+                if (std::abs(ndc.x) > 1.0f || std::abs(ndc.y) > 1.0f)
+                    continue;
+                m_JointLabels.push_back({ { (ndc.x * 0.5f + 0.5f) * viewportSize.x, (0.5f - ndc.y * 0.5f) * viewportSize.y },
+                                          skeleton.Joints[i].Name, selected });
+            }
+        }
     }
 
     void EditorLayer::OnOverlayRender()
@@ -1363,35 +1674,44 @@ namespace Zamin {
                                 glm::scale(glm::mat4(1.0f), size * 1.02f), glm::vec4(0.35f, 0.8f, 1.0f, 1.0f));
                 }
 
-        // Selection outline: the primary entity orange, the rest of a multi-selection yellow. A
-        // selected inactive entity keeps its outline (it shows where the switched-off entity is);
-        // one hidden with the eye does not.
+        // The selection in the Box style: the primary entity orange, the rest of a multi-selection
+        // yellow (meshes: their bounds, 2D shapes and texts: their rectangles) and lines to the
+        // children. The Outline style is drawn by RenderSelectionOutline from what the entities
+        // draw; a selected inactive entity draws nothing, so it gets a faint box here in both
+        // styles (it shows where the switched-off entity is). One hidden with the eye gets none.
+        const bool boxStyle = m_ViewSettings.SelectionOutline.Style == SelectionStyle::Box;
         Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
         for (Entity selected : m_SceneHierarchyPanel.GetSelection().GetEntities())
         {
             if (!selected.IsValid() || selected.GetScene() != &scene) continue;
             if (skipped.SkipEditorHidden && scene.IsHiddenInEditor(selected)) continue;
-            const glm::vec4 orange = selected == primary ? glm::vec4(1.0f, 0.6f, 0.1f, 1.0f) : glm::vec4(1.0f, 0.85f, 0.35f, 0.85f);
+            glm::vec4 orange = selected == primary ? glm::vec4(1.0f, 0.6f, 0.1f, 1.0f) : glm::vec4(1.0f, 0.85f, 0.35f, 0.85f);
+            const bool inactive = !scene.IsActiveInHierarchy(selected);
+            if (!boxStyle && inactive)
+                orange.a *= 0.5f;
             glm::mat4 transform = scene.GetWorldTransform(selected);
-            if (auto* mr = selected.TryGetComponent<MeshRendererComponent>(); mr && (mr->MeshAsset || mr->ModelAsset))
+            if (boxStyle || inactive)
             {
-                const AABB& b = mr->ModelAsset ? mr->ModelAsset->GetBounds() : mr->MeshAsset->GetBounds();
-                glm::vec3 size = glm::max(b.Max - b.Min, glm::vec3(0.001f));
-                DrawWireBox(transform * glm::translate(glm::mat4(1.0f), (b.Min + b.Max) * 0.5f) * glm::scale(glm::mat4(1.0f), size), orange);
-            }
-            else if (selected.HasComponent<SpriteRendererComponent>() || selected.HasComponent<CircleRendererComponent>())
-            {
-                Renderer2D::DrawRect(transform, orange);
-            }
-            else if (auto* text = selected.TryGetComponent<TextComponent>())
-            {
-                if (text->FontAsset)
+                if (auto* mr = selected.TryGetComponent<MeshRendererComponent>(); mr && (mr->MeshAsset || mr->ModelAsset))
                 {
-                    glm::vec2 size = Renderer2D::MeasureString(text->Text, text->FontAsset, { text->Color, text->Kerning, text->LineSpacing });
-                    float asc = text->FontAsset->GetAscent();
-                    glm::vec2 center = text->Centered ? glm::vec2(0.0f) : glm::vec2(size.x * 0.5f, asc - size.y * 0.5f);
-                    glm::mat4 box = transform * glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
-                    Renderer2D::DrawRect(box, orange);
+                    const AABB& b = mr->ModelAsset ? mr->ModelAsset->GetBounds() : mr->MeshAsset->GetBounds();
+                    glm::vec3 size = glm::max(b.Max - b.Min, glm::vec3(0.001f));
+                    DrawWireBox(transform * glm::translate(glm::mat4(1.0f), (b.Min + b.Max) * 0.5f) * glm::scale(glm::mat4(1.0f), size), orange);
+                }
+                else if (selected.HasComponent<SpriteRendererComponent>() || selected.HasComponent<CircleRendererComponent>())
+                {
+                    Renderer2D::DrawRect(transform, orange);
+                }
+                else if (auto* text = selected.TryGetComponent<TextComponent>())
+                {
+                    if (text->FontAsset)
+                    {
+                        glm::vec2 size = Renderer2D::MeasureString(text->Text, text->FontAsset, { text->Color, text->Kerning, text->LineSpacing });
+                        float asc = text->FontAsset->GetAscent();
+                        glm::vec2 center = text->Centered ? glm::vec2(0.0f) : glm::vec2(size.x * 0.5f, asc - size.y * 0.5f);
+                        glm::mat4 box = transform * glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+                        Renderer2D::DrawRect(box, orange);
+                    }
                 }
             }
             // Lights: how far they reach (point: a sphere of circles, spot: its cone).
@@ -1401,10 +1721,11 @@ namespace Zamin {
             if (auto* sl = selected.TryGetComponent<SpotLightComponent>())
                 DrawSpotLightCone(glm::vec3(transform[3]), glm::vec3(transform * glm::vec4(0, 0, -1, 0)), sl->Range, sl->GetInnerAngle(),
                                   sl->GetOuterAngle(), lightColor);
-            // children get a subtle outline too
-            for (UUID child : selected.GetComponent<RelationshipComponent>().Children)
-                if (Entity c = scene.GetEntityByUUID(child))
-                    Renderer2D::DrawLine(glm::vec3(transform[3]), scene.GetWorldPosition(c), glm::vec4(orange.r, orange.g, orange.b, 0.5f));
+            // children get a subtle line in the Box style (the outline marks them itself)
+            if (boxStyle)
+                for (UUID child : selected.GetComponent<RelationshipComponent>().Children)
+                    if (Entity c = scene.GetEntityByUUID(child))
+                        Renderer2D::DrawLine(glm::vec3(transform[3]), scene.GetWorldPosition(c), glm::vec4(orange.r, orange.g, orange.b, 0.5f));
         }
 
         Renderer2D::EndScene();
@@ -3501,6 +3822,7 @@ namespace Zamin {
             if (m_ShowIcons) UI_ViewportIcons();
         }
         if (m_ShowTransparentOrder) UI_TransparentOrder(); // also while playing (the game camera's order)
+        if (!m_JointLabels.empty()) UI_JointLabels();
         // The view mode, when it is not the real picture (the toolbar's menu changes it).
         if (m_SceneState != SceneState::Play && (m_DebugView != RenderDebugView::Lit || m_Wireframe != WireframeMode::Off))
         {
@@ -3604,7 +3926,7 @@ namespace Zamin {
         float leftEnd = 10.0f;
         {
             ImVec2 pos(10, 10);
-            float w = buttonSize * 5 + spacing * 4;
+            float w = buttonSize * 5 + spacing * 4 + caretWidth;
             beginPanel(pos, w);
             if (UI::ToolbarButton(ICON_FA_ARROW_POINTER, "Tanlash (Q)", m_GizmoMode == GizmoMode::None, size)) m_GizmoMode = GizmoMode::None;
             ImGui::SameLine();
@@ -3619,6 +3941,25 @@ namespace Zamin {
                                                      : "Gizmo: asosiy obyektda (bosing: tanlov markazida)",
                                   m_GizmoPivotCenter, size))
                 m_GizmoPivotCenter = !m_GizmoPivotCenter;
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+                ImGui::OpenPopup("##TransformGizmo");
+            ImGui::SameLine(0.0f, 0.0f);
+            // The gizmo's size on screen (and its handles' thickness, the icons' size).
+            const auto& tg = m_ViewSettings.TransformGizmo;
+            const bool resized = tg.Size != 1.0f || tg.LineThickness != 1.0f || tg.IconSize != 1.0f;
+            if (resized) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
+            std::string tip = std::format("Gizmo o'lchami: x{:.2g} (chiziqlar x{:.2g}, ikonkalar x{:.2g})", tg.Size, tg.LineThickness, tg.IconSize);
+            if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###TransformGizmoMenu", tip.c_str(), resized, ImVec2(caretWidth, buttonSize)))
+                ImGui::OpenPopup("##TransformGizmo");
+            if (resized) ImGui::PopStyleColor();
+            if (m_OpenTransformGizmoMenu)
+            {
+                ImGui::OpenPopup("##TransformGizmo");
+                m_OpenTransformGizmoMenu = false;
+            }
+            // below the caret, its left edge under the caret's
+            ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 8.0f), ImGuiCond_Appearing);
+            UI_TransformGizmoPopup();
             leftEnd = pos.x + w;
         }
         {
@@ -3783,10 +4124,12 @@ namespace Zamin {
                 ImGui::SameLine(0.0f, 0.0f);
                 const auto& g = m_ViewSettings.Gizmos;
                 const bool showingAll = g.CameraFrustums == GizmoVisibility::All || g.LightDirections == GizmoVisibility::All ||
-                                        g.AudioRanges == GizmoVisibility::All;
+                                        g.AudioRanges == GizmoVisibility::All || g.Bounds == GizmoVisibility::All ||
+                                        g.Skeletons == GizmoVisibility::All;
                 if (showingAll) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
                 if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###ComponentGizmosMenu", "Gizmolar: kamera frustumi, yorug'lik yo'nalishi, "
-                                      "audio radiusi - tanlanganda yoki hammasida", showingAll, ImVec2(caretWidth, buttonSize)))
+                                      "audio radiusi, chegaralar, skelet - tanlanganda yoki hammasida; tanlash konturi",
+                                      showingAll, ImVec2(caretWidth, buttonSize)))
                     ImGui::OpenPopup("##ComponentGizmos");
                 if (showingAll) ImGui::PopStyleColor();
                 const ImVec2 popupAnchor(ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + 8.0f);
@@ -3836,6 +4179,53 @@ namespace Zamin {
             if (current) ImGui::PopStyleColor();
         }
         ImGui::PopID();
+        return changed;
+    }
+
+    void EditorLayer::UI_TransformGizmoPopup()
+    {
+        ImGui::SetNextWindowSizeConstraints(ImVec2(330, 0), ImVec2(440, FLT_MAX));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 5));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+        if (ImGui::BeginPopup("##TransformGizmo"))
+        {
+            ImGui::TextColored(UI::AccentColor(), ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT "  Gizmo o'lchami");
+            ImGui::SameLine();
+            ImGui::TextDisabled("(ekranda, standartga ko'paytma)");
+            if (UI_TransformGizmoSettings())
+                MarkViewSettingsDirty();
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar(2);
+    }
+
+    bool EditorLayer::UI_TransformGizmoSettings()
+    {
+        auto& tg = m_ViewSettings.TransformGizmo;
+        bool changed = false;
+        ImGui::SetNextItemWidth(150);
+        changed |= ImGui::SliderFloat("O'lcham", &tg.Size, TransformGizmoSettings::MinSize, TransformGizmoSettings::MaxSize, "x%.2f");
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Ko'chirish / aylantirish / masshtab gizmosi ekranda qancha joy egallaydi (x1 - viewport balandligining "
+                        "taxminan o'ndan biri). Kamera uzoqligiga bog'liq emas");
+        changed |= PresetButtons("gizmosize", tg.Size, { 0.5f, 0.75f, 1.0f, 1.5f, 2.0f }, "x");
+        ImGui::SetNextItemWidth(150);
+        changed |= ImGui::SliderFloat("Chiziq qalinligi", &tg.LineThickness, TransformGizmoSettings::MinThickness,
+                                      TransformGizmoSettings::MaxThickness, "x%.2f");
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Gizmo o'qlari, uchidagi strelka va doiralar, aylantirish halqalarining qalinligi");
+        ImGui::SetNextItemWidth(150);
+        changed |= ImGui::SliderFloat("Ikonkalar", &tg.IconSize, TransformGizmoSettings::MinIconSize, TransformGizmoSettings::MaxIconSize,
+                                      "x%.2f");
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Viewport'dagi kamera, yorug'lik va audio manba ikonkalarining o'lchami");
+        if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Standart o'lchamlar"))
+        {
+            tg = TransformGizmoSettings();
+            changed = true;
+        }
+        if (changed)
+            tg.Sanitize();
         return changed;
     }
 
@@ -4019,7 +4409,11 @@ namespace Zamin {
         {
             ImGui::Checkbox(ICON_FA_EYE "  Ikonkalar", &m_ShowIcons);
             ImGui::Spacing();
-            if (UI_ComponentGizmoSettings())
+            bool changed = UI_ComponentGizmoSettings();
+            ImGui::Spacing();
+            ImGui::Separator();
+            changed |= UI_SelectionOutlineSettings();
+            if (changed)
                 MarkViewSettingsDirty();
             ImGui::EndPopup();
         }
@@ -4051,6 +4445,95 @@ namespace Zamin {
         option(ICON_FA_VOLUME_HIGH "  Audio radiusi", g.AudioRanges,
                "3D (spatial) audio manbalar: ichki sfera - Min masofa (to'liq ovoz), tashqi xira sfera - Max masofa (undan "
                "uzoqda eshitilmaydi)");
+        option(ICON_FA_BOX "  Chegaralar (bounding box)", g.Bounds,
+               "Obyekt chizadigan narsa atrofidagi quti: mesh / model, sprite, doira, matn, tilemap. Yorug'lik, kamera va bo'sh "
+               "guruhlarda quti yo'q");
+        if (g.Bounds != GizmoVisibility::Off)
+        {
+            ImGui::Indent();
+            int space = (int)g.BoundsMode;
+            changed |= ImGui::RadioButton("Lokal", &space, (int)BoundsSpace::Local);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Obyektning o'z koordinatalaridagi quti - u bilan birga aylanadi va masshtablanadi (havorang)");
+            ImGui::SameLine();
+            changed |= ImGui::RadioButton("Dunyo (AABB)", &space, (int)BoundsSpace::World);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Dunyo o'qlari bo'yicha quti (yashil): mesh'lar uchun frustum culling tekshiradigan chegara - skinned "
+                            "model'niki pozasi bilan o'zgaradi");
+            ImGui::SameLine();
+            changed |= ImGui::RadioButton("Ikkalasi", &space, (int)BoundsSpace::Both);
+            g.BoundsMode = (BoundsSpace)space;
+            ImGui::Unindent();
+        }
+        option(ICON_FA_BONE "  Skelet", g.Skeletons,
+               "Skinned model'larning suyaklari (ota bo'g'indan bo'g'ingacha) va bo'g'inlari - joriy animatsiya pozasida, mesh "
+               "ustidan ko'rinadi");
+        if (g.Skeletons != GizmoVisibility::Off)
+        {
+            ImGui::Indent();
+            changed |= ImGui::Checkbox("Bo'g'in nomlari", &g.JointNames);
+            ImGui::Unindent();
+        }
+        return changed;
+    }
+
+    bool EditorLayer::UI_SelectionOutlineSettings()
+    {
+        auto& o = m_ViewSettings.SelectionOutline;
+        bool changed = false;
+        ImGui::TextDisabled(ICON_FA_DRAW_POLYGON "  Tanlash ko'rinishi");
+        int style = (int)o.Style;
+        changed |= ImGui::RadioButton("Kontur", &style, (int)SelectionStyle::Outline);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Tanlangan obyektlar chizgan piksellar atrofida silliq kontur (shader): mesh, model (skinned ham), "
+                        "sprite, doira, matn, tilemap");
+        ImGui::SameLine();
+        changed |= ImGui::RadioButton("Quti (eski)", &style, (int)SelectionStyle::Box);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Mesh'lar chegarasi sim quti bilan, 2D shakllar va matn to'rtburchak bilan, bolalarga chiziq");
+        o.Style = (SelectionStyle)style;
+        ImGui::BeginDisabled(o.Style != SelectionStyle::Outline);
+        ImGui::SetNextItemWidth(150);
+        changed |= ImGui::SliderFloat("Qalinlik", &o.Width, SelectionOutlineSettings::MinWidth, SelectionOutlineSettings::MaxWidth, "%.1f px");
+        ImGui::SameLine();
+        changed |= ImGui::ColorEdit4("##outlinecolor", &o.Color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Asosiy tanlangan obyekt rangi (qolgan tanlanganlar - ochroq, bolalari - xiraroq)");
+        changed |= ImGui::Checkbox("Yashiringan qismlar", &o.ShowOccluded);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Tanlangan mesh boshqa obyekt orqasida qolgan joyda ham konturi xira chiziladi");
+        if (o.ShowOccluded)
+        {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(90);
+            changed |= ImGui::SliderFloat("##occluded", &o.OccludedOpacity, 0.05f, 1.0f, "%.2f");
+        }
+        changed |= ImGui::Checkbox("Bolalari ham", &o.Children);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Tanlangan obyektning ichidagi (bola) obyektlar xiraroq kontur oladi");
+        changed |= ImGui::Checkbox(ICON_FA_HAND_POINTER "  Sichqoncha ostidagi", &o.Hover);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Bosilsa tanlanadigan obyekt (sichqoncha ostida) ingichka va xira kontur bilan ajratiladi");
+        if (o.Hover)
+        {
+            ImGui::Indent();
+            ImGui::SetNextItemWidth(150);
+            changed |= ImGui::SliderFloat("Hover qalinligi", &o.HoverWidth, SelectionOutlineSettings::MinWidth,
+                                          SelectionOutlineSettings::MaxWidth, "%.1f px");
+            ImGui::SameLine();
+            changed |= ImGui::ColorEdit4("##hovercolor", &o.HoverColor.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
+            ImGui::Unindent();
+        }
+        if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Standart kontur"))
+        {
+            SelectionStyle keep = o.Style;
+            o = SelectionOutlineSettings();
+            o.Style = keep;
+            changed = true;
+        }
+        ImGui::EndDisabled();
+        if (changed)
+            o.Sanitize();
         return changed;
     }
 
@@ -4221,6 +4704,18 @@ namespace Zamin {
                 MarkViewSettingsDirty();
             ImGui::EndMenu();
         }
+        if (ImGui::BeginMenu(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT "  Gizmo o'lchami"))
+        {
+            if (UI_TransformGizmoSettings())
+                MarkViewSettingsDirty();
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu(ICON_FA_DRAW_POLYGON "  Tanlash ko'rinishi"))
+        {
+            if (UI_SelectionOutlineSettings())
+                MarkViewSettingsDirty();
+            ImGui::EndMenu();
+        }
         ImGui::MenuItem(ICON_FA_LAYER_GROUP "  Shaffoflar tartibi", nullptr, &m_ShowTransparentOrder);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Shaffof sirtlar qaysi tartibda chizilayotgani: har birining ustida raqami (1 - birinchi, eng orqadagi), "
@@ -4348,6 +4843,24 @@ namespace Zamin {
         }
     }
 
+    void EditorLayer::UI_JointLabels()
+    {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const ImVec2 origin(m_ViewportBounds[0].x, m_ViewportBounds[0].y);
+        dl->PushClipRect(origin, ImVec2(m_ViewportBounds[1].x, m_ViewportBounds[1].y), true);
+        for (const JointLabel& label : m_JointLabels)
+        {
+            if (label.Name.empty())
+                continue;
+            const ImVec2 size = ImGui::CalcTextSize(label.Name.c_str());
+            const ImVec2 at(origin.x + label.Position.x + 7.0f, origin.y + label.Position.y - size.y * 0.5f - 7.0f);
+            const int alpha = label.Selected ? 215 : 140;
+            dl->AddRectFilled(ImVec2(at.x - 3.0f, at.y - 1.0f), ImVec2(at.x + size.x + 3.0f, at.y + size.y + 1.0f), IM_COL32(14, 16, 20, alpha * 3 / 4), 3.0f);
+            dl->AddText(at, IM_COL32(255, 222, 140, alpha + 40), label.Name.c_str());
+        }
+        dl->PopClipRect();
+    }
+
     void EditorLayer::UI_ViewportIcons()
     {
         ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -4359,6 +4872,11 @@ namespace Zamin {
         SceneRenderOptions skipped;
         skipped.SkipEditorHidden = true;
         std::unordered_set<entt::entity> hidden = m_ActiveScene->CollectRenderSkipped(skipped);
+        // Their size: the view settings' factor (the glyph scales with the circle).
+        const float iconScale = m_ViewSettings.TransformGizmo.IconSize;
+        const float iconRadius = m_ViewSettings.TransformGizmo.GetIconRadius();
+        ImFont* font = ImGui::GetFont();
+        const float fontSize = ImGui::GetFontSize() * iconScale;
         auto drawIcon = [&](Entity e, const char* icon, ImU32 color) {
             if (hidden.contains(e)) return;
             glm::vec4 clip = viewProj * glm::vec4(m_ActiveScene->GetWorldPosition(e), 1.0f);
@@ -4366,16 +4884,16 @@ namespace Zamin {
             glm::vec3 ndc = glm::vec3(clip) / clip.w;
             if (std::abs(ndc.x) > 1.1f || std::abs(ndc.y) > 1.1f) return;
             ImVec2 p(m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * size.x, m_ViewportBounds[0].y + (1.0f - (ndc.y * 0.5f + 0.5f)) * size.y);
-            float r = 14.0f;
+            const float r = iconRadius;
             const bool locked = m_ActiveScene->IsLockedInEditor(e);
             bool hovered = !locked && (mouse.x - p.x) * (mouse.x - p.x) + (mouse.y - p.y) * (mouse.y - p.y) < r * r;
             bool isSelected = m_SceneHierarchyPanel.IsSelected(e);
             if (locked)
                 color = (color & ~IM_COL32_A_MASK) | IM_COL32(0, 0, 0, 110);
             dl->AddCircleFilled(p, r, isSelected ? IM_COL32(30, 140, 110, 230) : (hovered ? IM_COL32(50, 55, 65, 230) : IM_COL32(20, 22, 26, 200)));
-            dl->AddCircle(p, r, color, 0, 1.5f);
-            ImVec2 ts = ImGui::CalcTextSize(icon);
-            dl->AddText(ImVec2(p.x - ts.x * 0.5f, p.y - ts.y * 0.5f), color, icon);
+            dl->AddCircle(p, r, color, 0, 1.5f * std::max(1.0f, iconScale * 0.8f));
+            ImVec2 ts = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, icon);
+            dl->AddText(font, fontSize, ImVec2(p.x - ts.x * 0.5f, p.y - ts.y * 0.5f), color, icon);
             if (hovered && m_ViewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGuizmo::IsOver())
                 m_SceneHierarchyPanel.SelectWithModifiers(e, ImGui::GetIO().KeyCtrl, ImGui::GetIO().KeyShift);
         };
@@ -4394,6 +4912,7 @@ namespace Zamin {
 
     void EditorLayer::UI_Gizmos()
     {
+        m_GizmoHovered = false;
         Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
         if (!primary || !primary.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting())
         {
@@ -4413,6 +4932,22 @@ namespace Zamin {
 
         ImGuizmo::SetOrthographic(m_EditorCamera.IsOrthographic());
         ImGuizmo::SetDrawlist();
+        // The gizmo's size on screen and the thickness of its handles (the view settings).
+        {
+            const TransformGizmoSettings& size = m_ViewSettings.TransformGizmo;
+            ImGuizmo::SetGizmoSizeClipSpace(size.GetClipSpaceSize());
+            static const ImGuizmo::Style defaults;
+            ImGuizmo::Style& style = ImGuizmo::GetStyle();
+            const float t = size.LineThickness;
+            style.TranslationLineThickness = defaults.TranslationLineThickness * t;
+            style.TranslationLineArrowSize = defaults.TranslationLineArrowSize * t;
+            style.RotationLineThickness = defaults.RotationLineThickness * t;
+            style.RotationOuterLineThickness = defaults.RotationOuterLineThickness * t;
+            style.ScaleLineThickness = defaults.ScaleLineThickness * t;
+            style.ScaleLineCircleSize = defaults.ScaleLineCircleSize * t;
+            style.HatchedAxisLineThickness = defaults.HatchedAxisLineThickness * t;
+            style.CenterCircleSize = defaults.CenterCircleSize * t;
+        }
         ImGuizmo::SetRect(m_ViewportBounds[0].x, m_ViewportBounds[0].y,
                           m_ViewportBounds[1].x - m_ViewportBounds[0].x, m_ViewportBounds[1].y - m_ViewportBounds[0].y);
 
@@ -4440,6 +4975,7 @@ namespace Zamin {
         glm::mat4 transform = pivot;
         ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), op, mode, glm::value_ptr(transform),
                              nullptr, snap ? snapValues : nullptr);
+        m_GizmoHovered = ImGuizmo::IsOver();
 
         if (ImGuizmo::IsUsing())
         {

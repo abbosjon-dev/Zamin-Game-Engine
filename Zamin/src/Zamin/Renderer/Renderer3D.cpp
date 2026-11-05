@@ -739,6 +739,10 @@ void main()
             uint64_t EndSceneCount = 0;
             bool FrustumCulling = true;
             bool Instancing = true;
+
+            bool Capturing = false;
+            std::unordered_set<int> CaptureIDs;
+            std::vector<Renderer3D::CapturedDraw> Captured;
         };
 
         Renderer3DData* s_Data = nullptr;
@@ -1635,9 +1639,50 @@ void main()
         RenderCommand::SetBlendMode(BlendMode::Alpha);
         RenderCommand::SetCullMode(CullMode::None);
         RenderCommand::SetDepthWrite(true);
+        if (s_Data->Capturing && !s_Data->CaptureIDs.empty())
+            for (const DrawItem& item : s_Data->Queue)
+            {
+                if (!s_Data->CaptureIDs.contains(item.EntityID))
+                    continue;
+                CapturedDraw draw;
+                draw.MeshRef = item.MeshRef;
+                draw.Transform = item.Transform;
+                draw.EntityID = item.EntityID;
+                draw.Joints = item.Joints;
+                if (item.Mat.BlendMode == MaterialBlendMode::Cutout)
+                {
+                    draw.AlphaMap = item.Mat.AlbedoMap;
+                    draw.AlbedoAlpha = item.Mat.Albedo.a;
+                    draw.AlphaCutoff = item.Mat.AlphaCutoff;
+                    draw.Tiling = item.Mat.Tiling;
+                    draw.Offset = item.Mat.Offset;
+                }
+                s_Data->Captured.push_back(std::move(draw));
+            }
         s_Data->Queue.clear();
         s_Data->GridSubmitted = false;
         s_Data->EndSceneCount++;
+    }
+
+    void Renderer3D::BeginCapture(std::vector<int> entityIDs)
+    {
+        if (!s_Data) return;
+        s_Data->Captured.clear();
+        s_Data->CaptureIDs = std::unordered_set<int>(entityIDs.begin(), entityIDs.end());
+        s_Data->Capturing = true;
+    }
+
+    void Renderer3D::EndCapture()
+    {
+        if (!s_Data) return;
+        s_Data->Capturing = false;
+        s_Data->CaptureIDs.clear();
+    }
+
+    const std::vector<Renderer3D::CapturedDraw>& Renderer3D::GetCapturedDraws()
+    {
+        static const std::vector<CapturedDraw> s_None;
+        return s_Data ? s_Data->Captured : s_None;
     }
 
     uint64_t Renderer3D::GetEndSceneCount() { return s_Data ? s_Data->EndSceneCount : 0; }

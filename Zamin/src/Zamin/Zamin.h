@@ -28,6 +28,7 @@
 #include "Zamin/Renderer/EditorCamera.h"
 #include "Zamin/Renderer/EditorViewSettings.h"
 #include "Zamin/Renderer/PostProcess.h"
+#include "Zamin/Renderer/SelectionOutline.h"
 #include "Zamin/Renderer/Environment.h"
 #include "Zamin/Renderer/MaterialAsset.h"
 #include "Zamin/Renderer/MaterialPreview.h"

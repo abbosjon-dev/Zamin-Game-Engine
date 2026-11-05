@@ -297,6 +297,9 @@ namespace Zamin {
         // tilemap. Without any of these it is just the entity's position. False for screen-space
         // UI entities (they are not in the world).
         bool GetEntityBounds(Entity entity, AABB& out);
+        // The box around what the entity draws in its own space (before its world transform; a
+        // model's bounds in its bind pose). False when it draws nothing of the above or is UI.
+        bool GetEntityLocalBounds(Entity entity, AABB& out);
         // Union over `entities` (with their descendants when includeChildren). False when none counted.
         bool ComputeBounds(const std::vector<Entity>& entities, AABB& out, bool includeChildren = true);
         // The whole scene as the editor's scene view shows it (Shift+F): entities hidden in the

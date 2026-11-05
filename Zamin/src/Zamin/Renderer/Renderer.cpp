@@ -9,6 +9,7 @@
 #include "Zamin/Renderer/Environment.h"
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Renderer/PostProcess.h"
+#include "Zamin/Renderer/SelectionOutline.h"
 #include "Zamin/Utils/FileSystem.h"
 
 #include <algorithm>
@@ -34,6 +35,7 @@ namespace Zamin {
         MeshLibrary::Clear();
         TextureLibrary::Clear();
         DebugDraw::Shutdown();
+        SelectionOutline::Shutdown();
         PostProcessor::Shutdown();
         Renderer3D::Shutdown();
         Renderer2D::Shutdown();

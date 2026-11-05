@@ -10,8 +10,8 @@ namespace Zamin {
 
     enum class CullMode { None, Back, Front };
     // Alpha: src * a + dst * (1 - a); Premultiplied: src + dst * (1 - a) (the color is already
-    // multiplied by its alpha); Additive: src * a + dst.
-    enum class BlendMode { None, Alpha, Premultiplied, Additive };
+    // multiplied by its alpha); Additive: src * a + dst; Max: the larger of src and dst per channel.
+    enum class BlendMode { None, Alpha, Premultiplied, Additive, Max };
 
     // Low-level graphics API abstraction. Today only OpenGL is implemented;
     // Vulkan / Metal / GLES backends can be added behind this interface.

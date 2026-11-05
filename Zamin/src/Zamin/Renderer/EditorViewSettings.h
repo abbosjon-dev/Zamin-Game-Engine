@@ -48,16 +48,81 @@ namespace Zamin {
         void Sanitize();
     };
 
+    // The editor's transform gizmo (move / rotate / scale handles) and the viewport's icons
+    // (cameras, lights, audio sources): how big they are on screen, as factors of their defaults.
+    struct TransformGizmoSettings
+    {
+        float Size = 1.0f;          // x the default size (ImGuizmo: 0.1 of the viewport in clip space)
+        float LineThickness = 1.0f; // x the default thickness of the handles' lines, arrows and circles
+        float IconSize = 1.0f;      // x the default size of the viewport icons (14 px radius)
+
+        static constexpr float DefaultClipSpaceSize = 0.1f;
+        static constexpr float DefaultIconRadius = 14.0f;
+        static constexpr float MinSize = 0.25f, MaxSize = 3.0f;
+        static constexpr float MinThickness = 0.5f, MaxThickness = 3.0f;
+        static constexpr float MinIconSize = 0.5f, MaxIconSize = 2.5f;
+
+        // What ImGuizmo::SetGizmoSizeClipSpace takes.
+        float GetClipSpaceSize() const { return DefaultClipSpaceSize * Size; }
+        float GetIconRadius() const { return DefaultIconRadius * IconSize; }
+        // Factors brought into their ranges (anything not finite to 1).
+        void Sanitize();
+    };
+
+    // How the editor viewport marks the selected entities: Outline - a smooth contour around what
+    // they draw (shader based), Box - the wireframe bounds of meshes and rectangles of 2D shapes.
+    enum class SelectionStyle { Outline = 0, Box };
+
+    // The selection outline: a contour `Width` pixels wide around the pixels the selected entities
+    // draw (found in the viewport's entity ID picture), anti-aliased on its outer edge. Where a
+    // selected mesh is hidden behind something else its silhouette's edge is drawn faintly. The
+    // primary selection gets `Color`, the rest of a multi-selection a lighter version of it and the
+    // selection's children a fainter one; the entity under the mouse (that a click would select) a
+    // thinner `HoverColor` contour. Editor only.
+    struct SelectionOutlineSettings
+    {
+        SelectionStyle Style = SelectionStyle::Outline;
+        float Width = 2.0f;                               // pixels
+        glm::vec4 Color{ 1.0f, 0.55f, 0.1f, 1.0f };
+        bool ShowOccluded = true;                         // the hidden parts of selected meshes, faint
+        float OccludedOpacity = 0.35f;                    // x the outline's opacity there
+        bool Children = true;                             // the selection's descendants are outlined too
+        bool Hover = true;
+        float HoverWidth = 1.5f;                          // pixels
+        glm::vec4 HoverColor{ 0.62f, 0.84f, 1.0f, 0.7f };
+
+        static constexpr float MinWidth = 0.5f, MaxWidth = 6.0f;
+
+        // The rest of a multi-selection: lighter. The selection's children: fainter.
+        glm::vec4 GetSecondaryColor() const;
+        glm::vec4 GetChildColor() const;
+        // Widths and opacities brought into range, colours clamped to 0..1.
+        void Sanitize();
+    };
+
     // For which entities an editor viewport visualisation is drawn.
     enum class GizmoVisibility { Off = 0, Selected = 1, All = 2 };
 
+    // Which bounding boxes are drawn: Local - the box around what an entity draws in its own space,
+    // turned and scaled with it; World - the axis-aligned box around that in the world (what the
+    // view's culling and the camera framing use); Both.
+    enum class BoundsSpace { Local = 0, World, Both };
+
     // The editor viewport's visualisations of components (never in the player): camera frustums,
-    // the direction of directional / spot lights, the radii of 3D audio sources.
+    // the direction of directional / spot lights, the radii of 3D audio sources, bounding boxes,
+    // the skeletons of skinned models.
     struct EditorGizmoSettings
     {
         GizmoVisibility CameraFrustums = GizmoVisibility::Selected;
         GizmoVisibility LightDirections = GizmoVisibility::Selected;
         GizmoVisibility AudioRanges = GizmoVisibility::Selected;
+        GizmoVisibility Bounds = GizmoVisibility::Off;
+        BoundsSpace BoundsMode = BoundsSpace::Local;
+        GizmoVisibility Skeletons = GizmoVisibility::Selected;
+        bool JointNames = false;                           // the joints' names next to them
+
+        static const char* GetBoundsKey(BoundsSpace space);  // "Local" / "World" / "Both"
+        static BoundsSpace BoundsFromKey(const std::string& key, BoundsSpace fallback);
 
         // Whether an entity (selected or not) gets the visualisation.
         static bool Shows(GizmoVisibility visibility, bool selected)
@@ -135,13 +200,16 @@ namespace Zamin {
         void Sanitize();
     };
 
-    // Per-user viewport preferences of the editor: snapping, grid, debug drawing, gizmos, the camera
-    // bookmarks of every scene (keyed by the scene file path), the inspector's open / collapsed
-    // component headers and the content browser's view. Stored as JSON in the editor config directory.
+    // Per-user viewport preferences of the editor: snapping, grid, the transform gizmo's size, the
+    // selection outline, debug drawing, gizmos, the camera bookmarks of every scene (keyed by the
+    // scene file path), the inspector's open / collapsed component headers and the content
+    // browser's view. Stored as JSON in the editor config directory.
     struct EditorViewSettings
     {
         SnapSettings Snap;
         GridSettings Grid;
+        TransformGizmoSettings TransformGizmo;
+        SelectionOutlineSettings SelectionOutline;
         // What the viewport shows of DebugDraw (scripts' shapes, physics raycasts / contacts).
         DebugDrawSettings DebugDraw;
         EditorGizmoSettings Gizmos;

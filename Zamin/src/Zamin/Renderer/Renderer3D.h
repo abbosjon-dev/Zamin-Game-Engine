@@ -9,6 +9,7 @@
 #include "Zamin/Renderer/Frustum.h"
 
 #include <glm/glm.hpp>
+#include <unordered_set>
 #include <vector>
 
 namespace Zamin {
@@ -320,6 +321,26 @@ namespace Zamin {
         static const glm::mat4& GetLastTransparentViewProjection();
         // How many times EndScene ran (tells whether a scene was drawn in between).
         static uint64_t GetEndSceneCount();
+
+        // One mesh drawn by a scene, kept for the editor's selection outline (it draws the
+        // silhouettes of the selected meshes again, also where they are hidden behind others).
+        struct CapturedDraw
+        {
+            Ref<Mesh> MeshRef;
+            glm::mat4 Transform{ 1.0f };
+            int EntityID = -1;
+            std::vector<glm::mat4> Joints;  // skinned meshes: the pose they were drawn in
+            // Cutout materials: the albedo alpha is tested like the surface does (AlphaCutoff < 0: no test).
+            Ref<Texture2D> AlphaMap;
+            float AlbedoAlpha = 1.0f;
+            float AlphaCutoff = -1.0f;
+            glm::vec2 Tiling{ 1.0f }, Offset{ 0.0f };
+        };
+        // From BeginCapture to EndCapture every EndScene keeps the meshes it draws of these
+        // entities (their IDs); BeginCapture forgets what an earlier capture kept.
+        static void BeginCapture(std::vector<int> entityIDs);
+        static void EndCapture();
+        static const std::vector<CapturedDraw>& GetCapturedDraws();
     };
 
 }

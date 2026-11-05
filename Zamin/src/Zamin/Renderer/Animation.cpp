@@ -81,6 +81,27 @@ namespace Zamin {
         ComposePose(skeleton, pose, out);
     }
 
+    void GetJointTransforms(const Skeleton& skeleton, const std::vector<glm::mat4>& jointMatrices, std::vector<glm::mat4>& outGlobal)
+    {
+        const size_t n = skeleton.Joints.size();
+        if (jointMatrices.size() != n)
+        {
+            // the rest pose, composed like ComposePose does
+            outGlobal.resize(n);
+            for (size_t i = 0; i < n; i++)
+            {
+                const Joint& j = skeleton.Joints[i];
+                glm::mat4 local = glm::translate(glm::mat4(1.0f), j.RestTranslation) * glm::toMat4(j.RestRotation) *
+                                  glm::scale(glm::mat4(1.0f), j.RestScale);
+                outGlobal[i] = (j.Parent >= 0 && (size_t)j.Parent < i ? outGlobal[j.Parent] : skeleton.RootTransform) * local;
+            }
+            return;
+        }
+        outGlobal.resize(n);
+        for (size_t i = 0; i < n; i++)
+            outGlobal[i] = jointMatrices[i] * glm::inverse(skeleton.Joints[i].InverseBind);
+    }
+
     void EvaluatePoseBlended(const Skeleton& skeleton, const AnimationClip* clipA, float timeA,
                              const AnimationClip* clipB, float timeB, float weight, std::vector<glm::mat4>& out)
     {

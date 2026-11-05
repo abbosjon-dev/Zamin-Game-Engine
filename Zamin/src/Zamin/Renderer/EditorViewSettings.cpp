@@ -48,6 +48,50 @@ namespace Zamin {
         MajorColor = glm::clamp(MajorColor, glm::vec4(0.0f), glm::vec4(1.0f));
     }
 
+    // ------------------------------------------------------------------ transform gizmo
+    static float SanitizeFactor(float value, float minimum, float maximum)
+    {
+        if (!std::isfinite(value)) return 1.0f;
+        return std::clamp(value, minimum, maximum);
+    }
+
+    void TransformGizmoSettings::Sanitize()
+    {
+        Size = SanitizeFactor(Size, MinSize, MaxSize);
+        LineThickness = SanitizeFactor(LineThickness, MinThickness, MaxThickness);
+        IconSize = SanitizeFactor(IconSize, MinIconSize, MaxIconSize);
+    }
+
+    // ------------------------------------------------------------------ selection outline
+    static glm::vec4 SanitizeColor(const glm::vec4& color, const glm::vec4& fallback)
+    {
+        for (int i = 0; i < 4; i++)
+            if (!std::isfinite(color[i])) return fallback;
+        return glm::clamp(color, glm::vec4(0.0f), glm::vec4(1.0f));
+    }
+
+    glm::vec4 SelectionOutlineSettings::GetSecondaryColor() const
+    {
+        return glm::vec4(glm::mix(glm::vec3(Color), glm::vec3(1.0f), 0.4f), Color.a * 0.9f);
+    }
+
+    glm::vec4 SelectionOutlineSettings::GetChildColor() const
+    {
+        return glm::vec4(glm::mix(glm::vec3(Color), glm::vec3(1.0f), 0.15f), Color.a * 0.5f);
+    }
+
+    void SelectionOutlineSettings::Sanitize()
+    {
+        if ((int)Style < (int)SelectionStyle::Outline || (int)Style > (int)SelectionStyle::Box)
+            Style = SelectionStyle::Outline;
+        Width = std::isfinite(Width) ? std::clamp(Width, MinWidth, MaxWidth) : 2.0f;
+        HoverWidth = std::isfinite(HoverWidth) ? std::clamp(HoverWidth, MinWidth, MaxWidth) : 1.5f;
+        OccludedOpacity = std::isfinite(OccludedOpacity) ? std::clamp(OccludedOpacity, 0.0f, 1.0f) : 0.35f;
+        SelectionOutlineSettings defaults;
+        Color = SanitizeColor(Color, defaults.Color);
+        HoverColor = SanitizeColor(HoverColor, defaults.HoverColor);
+    }
+
     // ------------------------------------------------------------------ camera bookmarks
     void CameraBookmarks::Set(int slot, const EditorCameraState& state)
     {
@@ -210,6 +254,24 @@ namespace Zamin {
         return fallback;
     }
 
+    const char* EditorGizmoSettings::GetBoundsKey(BoundsSpace space)
+    {
+        switch (space)
+        {
+            case BoundsSpace::World: return "World";
+            case BoundsSpace::Both: return "Both";
+            default: return "Local";
+        }
+    }
+
+    BoundsSpace EditorGizmoSettings::BoundsFromKey(const std::string& key, BoundsSpace fallback)
+    {
+        for (BoundsSpace space : { BoundsSpace::Local, BoundsSpace::World, BoundsSpace::Both })
+            if (key == GetBoundsKey(space))
+                return space;
+        return fallback;
+    }
+
     std::string EditorViewSettings::ToJson() const
     {
         json j;
@@ -229,6 +291,22 @@ namespace Zamin {
             { "ShowAxes", Grid.ShowAxes },
             { "FadeDistance", Num(Grid.FadeDistance) },
         };
+        j["TransformGizmo"] = {
+            { "Size", Num(TransformGizmo.Size) },
+            { "LineThickness", Num(TransformGizmo.LineThickness) },
+            { "IconSize", Num(TransformGizmo.IconSize) },
+        };
+        j["SelectionOutline"] = {
+            { "Style", SelectionOutline.Style == SelectionStyle::Box ? "Box" : "Outline" },
+            { "Width", Num(SelectionOutline.Width) },
+            { "Color", Vec(SelectionOutline.Color) },
+            { "ShowOccluded", SelectionOutline.ShowOccluded },
+            { "OccludedOpacity", Num(SelectionOutline.OccludedOpacity) },
+            { "Children", SelectionOutline.Children },
+            { "Hover", SelectionOutline.Hover },
+            { "HoverWidth", Num(SelectionOutline.HoverWidth) },
+            { "HoverColor", Vec(SelectionOutline.HoverColor) },
+        };
         j["DebugDraw"] = {
             { "Enabled", DebugDraw.Enabled },
             { "Raycasts", DebugDraw.ShowRaycasts },
@@ -247,6 +325,10 @@ namespace Zamin {
             { "CameraFrustums", EditorGizmoSettings::GetKey(Gizmos.CameraFrustums) },
             { "LightDirections", EditorGizmoSettings::GetKey(Gizmos.LightDirections) },
             { "AudioRanges", EditorGizmoSettings::GetKey(Gizmos.AudioRanges) },
+            { "Bounds", EditorGizmoSettings::GetKey(Gizmos.Bounds) },
+            { "BoundsSpace", EditorGizmoSettings::GetBoundsKey(Gizmos.BoundsMode) },
+            { "Skeletons", EditorGizmoSettings::GetKey(Gizmos.Skeletons) },
+            { "JointNames", Gizmos.JointNames },
         };
         json scenes = json::object();
         for (const auto& [scene, bookmarks] : Bookmarks)
@@ -310,6 +392,28 @@ namespace Zamin {
             Read(*it, "FadeDistance", Grid.FadeDistance);
             Grid.Sanitize();
         }
+        if (auto it = j.find("TransformGizmo"); it != j.end() && it->is_object())
+        {
+            Read(*it, "Size", TransformGizmo.Size);
+            Read(*it, "LineThickness", TransformGizmo.LineThickness);
+            Read(*it, "IconSize", TransformGizmo.IconSize);
+            TransformGizmo.Sanitize();
+        }
+        if (auto it = j.find("SelectionOutline"); it != j.end() && it->is_object())
+        {
+            auto& o = SelectionOutline;
+            if (auto style = it->find("Style"); style != it->end() && style->is_string())
+                o.Style = style->get<std::string>() == "Box" ? SelectionStyle::Box : SelectionStyle::Outline;
+            Read(*it, "Width", o.Width);
+            ReadVec(*it, "Color", o.Color);
+            Read(*it, "ShowOccluded", o.ShowOccluded);
+            Read(*it, "OccludedOpacity", o.OccludedOpacity);
+            Read(*it, "Children", o.Children);
+            Read(*it, "Hover", o.Hover);
+            Read(*it, "HoverWidth", o.HoverWidth);
+            ReadVec(*it, "HoverColor", o.HoverColor);
+            o.Sanitize();
+        }
         if (auto it = j.find("DebugDraw"); it != j.end() && it->is_object())
         {
             Read(*it, "Enabled", DebugDraw.Enabled);
@@ -335,6 +439,11 @@ namespace Zamin {
             readVisibility("CameraFrustums", Gizmos.CameraFrustums);
             readVisibility("LightDirections", Gizmos.LightDirections);
             readVisibility("AudioRanges", Gizmos.AudioRanges);
+            readVisibility("Bounds", Gizmos.Bounds);
+            readVisibility("Skeletons", Gizmos.Skeletons);
+            if (auto v = it->find("BoundsSpace"); v != it->end() && v->is_string())
+                Gizmos.BoundsMode = EditorGizmoSettings::BoundsFromKey(v->get<std::string>(), Gizmos.BoundsMode);
+            Read(*it, "JointNames", Gizmos.JointNames);
         }
         if (auto it = j.find("CameraBookmarks"); it != j.end() && it->is_object())
         {

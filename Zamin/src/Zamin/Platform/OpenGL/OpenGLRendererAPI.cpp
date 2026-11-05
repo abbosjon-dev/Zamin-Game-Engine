@@ -95,12 +95,14 @@ namespace Zamin {
 
         void SetBlendMode(BlendMode mode) override
         {
+            glBlendEquation(mode == BlendMode::Max ? GL_MAX : GL_FUNC_ADD);
             switch (mode)
             {
                 case BlendMode::None:     glDisable(GL_BLEND); break;
                 case BlendMode::Alpha:    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); break;
                 case BlendMode::Premultiplied: glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); break;
                 case BlendMode::Additive: glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE); break;
+                case BlendMode::Max:      glEnable(GL_BLEND); glBlendFunc(GL_ONE, GL_ONE); break; // the factors do not apply to GL_MAX
             }
         }
 

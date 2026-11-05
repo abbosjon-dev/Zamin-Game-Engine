@@ -51,4 +51,10 @@ namespace Zamin {
     void EvaluatePoseBlended(const Skeleton& skeleton, const AnimationClip* clipA, float timeA,
                              const AnimationClip* clipB, float timeB, float weight, std::vector<glm::mat4>& outJointMatrices);
 
+    // Where the joints of a pose are: each joint's global transform in the model's space (the
+    // space the skinned mesh is drawn in, before the entity's transform), from the skinning
+    // matrices EvaluatePose made (joint matrix x inverse bind). `jointMatrices` that do not fit
+    // the skeleton (empty, another count) give the rest pose.
+    void GetJointTransforms(const Skeleton& skeleton, const std::vector<glm::mat4>& jointMatrices, std::vector<glm::mat4>& outGlobal);
+
 }

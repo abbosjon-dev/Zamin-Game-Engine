@@ -745,6 +745,13 @@ namespace Zamin {
     bool ScriptableEntity::SetAudioTime(Entity other, float seconds) { return m_Entity.GetScene()->SetAudioTime(other, seconds); }
 
     float ScriptableEntity::GetTime() const { return m_Entity.GetScene()->GetTime(); }
+    void ScriptableEntity::SetTimeScale(float scale) { m_Entity.GetScene()->SetTimeScale(scale); }
+    float ScriptableEntity::GetTimeScale() const { return m_Entity.GetScene()->GetTimeScale(); }
+    void ScriptableEntity::PauseGame() { m_Entity.GetScene()->SetGamePaused(true); }
+    void ScriptableEntity::ResumeGame() { m_Entity.GetScene()->SetGamePaused(false); }
+    bool ScriptableEntity::IsGamePaused() const { return m_Entity.GetScene()->IsGamePaused(); }
+    float ScriptableEntity::GetUnscaledDeltaTime() const { return m_Entity.GetScene()->GetUnscaledDeltaTime(); }
+    void ScriptableEntity::QuitGame() { m_Entity.GetScene()->RequestQuit(); }
 
     void ScriptableEntity::Invoke(float delay, std::function<void()> callback)
     {

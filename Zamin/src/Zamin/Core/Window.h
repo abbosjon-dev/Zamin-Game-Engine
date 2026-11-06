@@ -37,6 +37,9 @@ namespace Zamin {
         virtual void SetEventCallback(const EventCallbackFn& callback) = 0;
         virtual void SetVSync(bool enabled) = 0;
         virtual bool IsVSync() const = 0;
+        // The whole primary monitor at its own resolution / back to the window it was.
+        virtual void SetFullscreen(bool fullscreen) = 0;
+        virtual bool IsFullscreen() const = 0;
         virtual void SetTitle(const std::string& title) = 0;
         virtual void SetCursorLocked(bool locked) = 0;
 

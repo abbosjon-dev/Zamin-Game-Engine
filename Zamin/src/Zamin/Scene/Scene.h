@@ -16,6 +16,7 @@
 #include "Zamin/UI/UILayout.h"
 #include "Zamin/UI/UIWidgets.h"
 
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <functional>
@@ -777,6 +778,25 @@ namespace Zamin {
         bool IsSimulating() const { return m_IsSimulating; }
         bool IsPaused() const { return m_IsPaused; }
         void SetPaused(bool paused) { m_IsPaused = paused; }
+        // ---- game time (a pause menu, slow motion): the game's clock runs TimeScale times as fast as
+        // real time - OnUpdate / OnLateUpdate get the scaled time, timers, physics, animations and
+        // particles follow it. At 0 the game is paused: nothing of it moves and only the scripts that
+        // asked for it (ScriptableEntity::SetUpdateWhenPaused) get OnUpdate / OnLateUpdate (with 0).
+        // The UI (widgets, UI tweens, navigation) always runs on real time. Back to 1 when play starts
+        // and stops. Not the editor's pause (SetPaused), which stops everything.
+        void SetTimeScale(float scale) { m_TimeScale = std::max(0.0f, scale); }
+        float GetTimeScale() const { return m_TimeScale; }
+        // Time scale 0 (paused) and back to the scale it had before.
+        void SetGamePaused(bool paused);
+        bool IsGamePaused() const { return m_TimeScale <= 0.0f; }
+        // The frame's real time (seconds, not scaled) and the real time since play started.
+        float GetUnscaledDeltaTime() const { return m_UnscaledDeltaTime; }
+        float GetUnscaledTime() const { return m_UnscaledTime; }
+        // ---- quitting: the game asks to end (its menu's Quit). The player closes its window; the
+        // editor stops Play. Cleared when play starts.
+        void RequestQuit() { m_QuitRequested = true; }
+        bool IsQuitRequested() const { return m_QuitRequested; }
+        void ClearQuitRequest() { m_QuitRequested = false; }
         void Step(int frames = 1) { m_StepFrames = frames; }
 
         SceneSettings& GetSettings() { return m_Settings; }
@@ -939,6 +959,8 @@ namespace Zamin {
         void SyncScriptEnabled(Entity entity);
         // OnStart for every enabled script that has not started yet (before the frame's OnUpdate).
         void StartPendingScripts();
+        // A frame while the game is paused (time scale 0): the scripts that run while it is.
+        void UpdatePausedScripts();
         // OnCollisionEnd / OnTriggerEnd for everything still touching `entity` (it is being destroyed).
         void EndContactsOf(Entity entity);
         void DeliverContact(Entity self, Entity other, bool begin, bool sensor);
@@ -1194,6 +1216,11 @@ namespace Zamin {
         bool m_IsRunning = false;
         bool m_IsSimulating = false;
         bool m_IsPaused = false;
+        float m_TimeScale = 1.0f;
+        float m_TimeScaleBeforePause = 1.0f;
+        float m_UnscaledDeltaTime = 0.0f;
+        float m_UnscaledTime = 0.0f;
+        bool m_QuitRequested = false;
         bool m_ScriptsRunning = false;
         int m_StepFrames = 0;
         float m_Time = 0.0f;

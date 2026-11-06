@@ -1,5 +1,7 @@
 #include "Zamin/Platform/GLFW/GlfwWindow.h"
 
+#include <algorithm>
+
 #include <GLFW/glfw3.h>
 
 namespace Zamin {
@@ -170,6 +172,31 @@ namespace Zamin {
     {
         glfwSwapInterval(enabled ? 1 : 0);
         m_Data.VSync = enabled;
+    }
+
+    bool GlfwWindow::IsFullscreen() const { return glfwGetWindowMonitor(m_Window) != nullptr; }
+
+    void GlfwWindow::SetFullscreen(bool fullscreen)
+    {
+        if (fullscreen == IsFullscreen())
+            return;
+        if (fullscreen)
+        {
+            GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+            const GLFWvidmode* mode = monitor ? glfwGetVideoMode(monitor) : nullptr;
+            if (!mode)
+            {
+                ZM_CORE_WARN("To'liq ekran: monitor topilmadi");
+                return;
+            }
+            glfwGetWindowPos(m_Window, &m_WindowedX, &m_WindowedY);
+            glfwGetWindowSize(m_Window, &m_WindowedWidth, &m_WindowedHeight);
+            glfwSetWindowMonitor(m_Window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+        }
+        else
+            glfwSetWindowMonitor(m_Window, nullptr, m_WindowedX, m_WindowedY, std::max(1, m_WindowedWidth), std::max(1, m_WindowedHeight), 0);
+        SetVSync(m_Data.VSync); // some drivers forget the swap interval with the mode
+        ZM_CORE_INFO("Oyna: {}", fullscreen ? "to'liq ekran" : "oynali rejim");
     }
 
     void GlfwWindow::SetTitle(const std::string& title)

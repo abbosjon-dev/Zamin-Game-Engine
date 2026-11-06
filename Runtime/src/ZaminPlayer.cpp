@@ -15,6 +15,9 @@
 
 namespace Zamin {
 
+    // --fullscreen / --no-vsync were given: they win over the display options the game saved.
+    static bool s_DisplayFromCommandLine = false;
+
     class RuntimeLayer : public Layer
     {
     public:
@@ -40,6 +43,11 @@ namespace Zamin {
             // The player's own audio settings (the game's options menu saved them) over the project's mixer.
             if (Audio::LoadSettings())
                 ZM_INFO("Saqlangan ovoz sozlamalari yuklandi");
+            // The game's display options change this window (fullscreen, vsync); saved ones come back.
+            Display::BindWindow(&Application::Get().GetWindow());
+            if (!s_DisplayFromCommandLine && Display::LoadSettings())
+                ZM_INFO("Saqlangan ekran sozlamalari yuklandi (to'liq ekran: {}, VSync: {})", Display::IsFullscreen() ? "ha" : "yo'q",
+                        Display::IsVSync() ? "ha" : "yo'q");
 
             // Debug drawing: the project's settings, then the command line (Shipping: compiled out).
             DebugDrawSettings& debugDraw = DebugDraw::GetSettings();
@@ -155,6 +163,7 @@ namespace Zamin {
                 m_Scene.reset();
             }
             ScriptEngine::UnloadModule();
+            Display::BindWindow(nullptr);
         }
 
         void OnUpdate(Timestep ts) override
@@ -236,6 +245,13 @@ namespace Zamin {
                 }
             }
 
+            if (m_Scene->IsQuitRequested())
+            {
+                ZM_INFO("O'yin chiqishni so'radi");
+                m_Scene->ClearQuitRequest();
+                Application::Get().Close();
+                return;
+            }
             if (!m_Scene->GetPendingSceneLoad().empty())
             {
                 std::filesystem::path next = Project::GetAssetFileSystemPath(m_Scene->GetPendingSceneLoad());
@@ -328,11 +344,15 @@ namespace Zamin {
         RuntimeLayer::DebugDrawFlags debugDraw;
         for (int i = 1; i < args.Count; i++)
         {
-            if (!std::strcmp(args[i], "--fullscreen")) spec.Window.Fullscreen = true;
+            if (!std::strcmp(args[i], "--fullscreen")) spec.Window.Fullscreen = s_DisplayFromCommandLine = true;
             else if (!std::strcmp(args[i], "--scene") && i + 1 < args.Count) scene = args[++i];
             else if (!std::strcmp(args[i], "--width") && i + 1 < args.Count) spec.Window.Width = (uint32_t)std::atoi(args[++i]);
             else if (!std::strcmp(args[i], "--height") && i + 1 < args.Count) spec.Window.Height = (uint32_t)std::atoi(args[++i]);
-            else if (!std::strcmp(args[i], "--no-vsync")) spec.Window.VSync = false;
+            else if (!std::strcmp(args[i], "--no-vsync"))
+            {
+                spec.Window.VSync = false;
+                s_DisplayFromCommandLine = true;
+            }
             else if (!std::strcmp(args[i], "--no-debug-draw")) debugDraw.Disable = true;
             else if (!std::strcmp(args[i], "--debug-raycasts")) debugDraw.Raycasts = true;
             else if (!std::strcmp(args[i], "--debug-contacts")) debugDraw.Contacts = true;

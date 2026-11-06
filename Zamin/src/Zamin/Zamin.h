@@ -10,6 +10,7 @@
 #include "Zamin/Core/Input.h"
 #include "Zamin/Core/InputActions.h"
 #include "Zamin/Core/SaveData.h"
+#include "Zamin/Core/Display.h"
 #include "Zamin/Core/KeyCodes.h"
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Core/UUID.h"

@@ -3316,6 +3316,2984 @@
             "Value": "Scenes/Level2.zscene"
           }
         }
+      },
+      "UINavigation": {
+        "Mode": "None",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000001,
+      "Tag": "Pause Menu",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0,
+          0
+        ],
+        "FontSize": 0.0,
+        "Order": 100
+      },
+      "UICanvas": {
+        "ScaleMode": "ScaleWithScreenSize",
+        "ScaleFactor": 1.0,
+        "ReferenceResolution": [
+          1920,
+          1080
+        ],
+        "MatchMode": "MatchWidthOrHeight",
+        "Match": 0.5
+      },
+      "NativeScript": {
+        "Class": "PauseMenu",
+        "Fields": {
+          "Overlay": {
+            "Type": "Entity",
+            "Value": 7722000000000002
+          },
+          "MainPanel": {
+            "Type": "Entity",
+            "Value": 7722000000000003
+          },
+          "SettingsPanel": {
+            "Type": "Entity",
+            "Value": 7722000000000010
+          },
+          "ResumeButton": {
+            "Type": "Entity",
+            "Value": 7722000000000007
+          },
+          "SettingsButton": {
+            "Type": "Entity",
+            "Value": 7722000000000008
+          },
+          "SettingsScroll": {
+            "Type": "Entity",
+            "Value": 7722000000000014
+          },
+          "MasterSlider": {
+            "Type": "Entity",
+            "Value": 7722000000000018
+          },
+          "MusicSlider": {
+            "Type": "Entity",
+            "Value": 7722000000000022
+          },
+          "SfxSlider": {
+            "Type": "Entity",
+            "Value": 7722000000000026
+          },
+          "UiSlider": {
+            "Type": "Entity",
+            "Value": 7722000000000030
+          },
+          "MasterValue": {
+            "Type": "Entity",
+            "Value": 7722000000000019
+          },
+          "MusicValue": {
+            "Type": "Entity",
+            "Value": 7722000000000023
+          },
+          "SfxValue": {
+            "Type": "Entity",
+            "Value": 7722000000000027
+          },
+          "UiValue": {
+            "Type": "Entity",
+            "Value": 7722000000000031
+          },
+          "FullscreenToggle": {
+            "Type": "Entity",
+            "Value": 7722000000000033
+          },
+          "VSyncToggle": {
+            "Type": "Entity",
+            "Value": 7722000000000034
+          },
+          "MusicMuffle": {
+            "Type": "Float",
+            "Value": 900.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7722000000000002,
+      "Tag": "Overlay",
+      "Active": false,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000001,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0,
+          0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          0.02,
+          0.03,
+          0.06,
+          0.66
+        ],
+        "Type": "Simple",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "Texture": ""
+      },
+      "UIAnimation": {
+        "Show": "Fade",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.2,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutQuad",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 7722000000000003,
+      "Tag": "Main Panel",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000002,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          560,
+          420
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "panel",
+        "BorderScale": 4.0
+      },
+      "UILayoutGroup": {
+        "Type": "Vertical",
+        "Padding": [
+          40,
+          40,
+          34,
+          40
+        ],
+        "Alignment": 1,
+        "FitWidth": false,
+        "FitHeight": true,
+        "Spacing": 18,
+        "Reverse": false,
+        "ControlWidth": true,
+        "ControlHeight": false,
+        "ExpandWidth": true,
+        "ExpandHeight": false
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 7722000000000004,
+      "Tag": "Backdrop",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          -20,
+          -20
+        ],
+        "FontSize": 0.0,
+        "Order": -1
+      },
+      "UIImage": {
+        "Color": [
+          0.08,
+          0.1,
+          0.15,
+          1.0
+        ],
+        "Type": "Simple",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": false,
+        "Texture": ""
+      },
+      "UILayoutElement": {
+        "IgnoreLayout": true,
+        "Min": [
+          -1,
+          -1
+        ],
+        "Preferred": [
+          -1,
+          -1
+        ],
+        "Flexible": [
+          -1,
+          -1
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000005,
+      "Tag": "Pause Title",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          480,
+          76
+        ],
+        "FontSize": 56,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Pauza",
+        "Color": [
+          1.0,
+          0.93,
+          0.62,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000006,
+      "Tag": "Pause Hint",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          480,
+          34
+        ],
+        "FontSize": 24,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "O'yin to'xtatildi",
+        "Color": [
+          0.78,
+          0.82,
+          0.9,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000007,
+      "Tag": "Resume Button",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          480,
+          76
+        ],
+        "FontSize": 32,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "Hover": [
+          0.7,
+          1.0,
+          0.9,
+          1
+        ],
+        "Pressed": [
+          0.4,
+          0.75,
+          0.62,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Resume",
+        "ClickTarget": 7722000000000001
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "Davom etish",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 7722000000000008,
+      "Tag": "Settings Button",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          480,
+          76
+        ],
+        "FontSize": 32,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.75,
+          0.84,
+          1.0,
+          1
+        ],
+        "Hover": [
+          0.86,
+          0.92,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.58,
+          0.68,
+          0.86,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Settings",
+        "ClickTarget": 7722000000000001
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "Sozlamalar",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 7722000000000009,
+      "Tag": "Quit Button",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          480,
+          76
+        ],
+        "FontSize": 32,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          1.0,
+          0.62,
+          0.55,
+          1
+        ],
+        "Hover": [
+          1.0,
+          0.75,
+          0.68,
+          1
+        ],
+        "Pressed": [
+          0.82,
+          0.46,
+          0.4,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Quit",
+        "ClickTarget": 7722000000000001
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "Chiqish",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UINavigation": {
+        "Mode": "Vertical",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 7722000000000010,
+      "Tag": "Settings Panel",
+      "Active": false,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000002,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          760,
+          700
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "panel",
+        "BorderScale": 4.0
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 7722000000000011,
+      "Tag": "Backdrop",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000010,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          -20,
+          -20
+        ],
+        "FontSize": 0.0,
+        "Order": -1
+      },
+      "UIImage": {
+        "Color": [
+          0.08,
+          0.1,
+          0.15,
+          1.0
+        ],
+        "Type": "Simple",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": false,
+        "Texture": ""
+      },
+      "UILayoutElement": {
+        "IgnoreLayout": true,
+        "Min": [
+          -1,
+          -1
+        ],
+        "Preferred": [
+          -1,
+          -1
+        ],
+        "Flexible": [
+          -1,
+          -1
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000012,
+      "Tag": "Settings Title",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000010,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          1.0
+        ],
+        "AnchorMax": [
+          0.5,
+          1.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          -58
+        ],
+        "Size": [
+          600,
+          70
+        ],
+        "FontSize": 48,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Sozlamalar",
+        "Color": [
+          1.0,
+          0.93,
+          0.62,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000014,
+      "Tag": "Settings Scroll",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000010,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          6.0
+        ],
+        "Size": [
+          -72,
+          -220
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          0.04,
+          0.05,
+          0.08,
+          1.0
+        ],
+        "Type": "Simple",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "Texture": ""
+      },
+      "UIMask": {
+        "ShowGraphic": true,
+        "Padding": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "UIScrollView": {
+        "Content": 7722000000000013,
+        "Viewport": 0,
+        "Horizontal": false,
+        "Vertical": true,
+        "Movement": "Elastic",
+        "Elasticity": 0.1,
+        "Inertia": true,
+        "DecelerationRate": 0.135,
+        "ScrollSensitivity": 60.0,
+        "Draggable": true,
+        "Scrollbars": "AutoHide",
+        "ScrollbarWidth": 12.0,
+        "ScrollbarInset": 4.0,
+        "TrackColor": [
+          0.0,
+          0.0,
+          0.0,
+          0.35
+        ],
+        "HandleColor": [
+          0.55,
+          0.95,
+          0.8,
+          0.85
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000013,
+      "Tag": "Settings List",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000014,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          1
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          0,
+          600
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UILayoutGroup": {
+        "Type": "Vertical",
+        "Padding": [
+          22,
+          22,
+          16,
+          20
+        ],
+        "Alignment": 0,
+        "FitWidth": false,
+        "FitHeight": true,
+        "Spacing": 12,
+        "Reverse": false,
+        "ControlWidth": true,
+        "ControlHeight": false,
+        "ExpandWidth": true,
+        "ExpandHeight": false
+      }
+    },
+    {
+      "Entity": 7722000000000015,
+      "Tag": "Ovoz Header",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          44
+        ],
+        "FontSize": 28,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Ovoz",
+        "Color": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000016,
+      "Tag": "Umumiy ovoz",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          60
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      }
+    },
+    {
+      "Entity": 7722000000000017,
+      "Tag": "Umumiy ovoz Label",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000016,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          230,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Umumiy ovoz",
+        "Color": [
+          0.94,
+          0.96,
+          1.0,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000018,
+      "Tag": "Umumiy ovoz Slider",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000016,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          70,
+          0
+        ],
+        "Size": [
+          -340,
+          -28
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UISlider": {
+        "Min": 0.0,
+        "Max": 1.0,
+        "Value": 1.0,
+        "WholeNumbers": false,
+        "Direction": "LeftToRight",
+        "Interactable": true,
+        "TrackThickness": 10.0,
+        "HandleSize": 30.0,
+        "Rounded": true,
+        "TrackColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "FillColor": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "HandleColor": [
+          1.0,
+          0.97,
+          0.9,
+          1
+        ]
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": true,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000019,
+      "Tag": "Umumiy ovoz Value",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000016,
+      "UITransform": {
+        "AnchorMin": [
+          1,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          1,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          90,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "100%",
+        "Color": [
+          0.78,
+          0.82,
+          0.9,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000020,
+      "Tag": "Musiqa",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          60
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      }
+    },
+    {
+      "Entity": 7722000000000021,
+      "Tag": "Musiqa Label",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000020,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          230,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Musiqa",
+        "Color": [
+          0.94,
+          0.96,
+          1.0,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000022,
+      "Tag": "Musiqa Slider",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000020,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          70,
+          0
+        ],
+        "Size": [
+          -340,
+          -28
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UISlider": {
+        "Min": 0.0,
+        "Max": 1.0,
+        "Value": 1.0,
+        "WholeNumbers": false,
+        "Direction": "LeftToRight",
+        "Interactable": true,
+        "TrackThickness": 10.0,
+        "HandleSize": 30.0,
+        "Rounded": true,
+        "TrackColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "FillColor": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "HandleColor": [
+          1.0,
+          0.97,
+          0.9,
+          1
+        ]
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000023,
+      "Tag": "Musiqa Value",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000020,
+      "UITransform": {
+        "AnchorMin": [
+          1,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          1,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          90,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "100%",
+        "Color": [
+          0.78,
+          0.82,
+          0.9,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000024,
+      "Tag": "Effektlar",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          60
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      }
+    },
+    {
+      "Entity": 7722000000000025,
+      "Tag": "Effektlar Label",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000024,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          230,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Effektlar",
+        "Color": [
+          0.94,
+          0.96,
+          1.0,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000026,
+      "Tag": "Effektlar Slider",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000024,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          70,
+          0
+        ],
+        "Size": [
+          -340,
+          -28
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UISlider": {
+        "Min": 0.0,
+        "Max": 1.0,
+        "Value": 1.0,
+        "WholeNumbers": false,
+        "Direction": "LeftToRight",
+        "Interactable": true,
+        "TrackThickness": 10.0,
+        "HandleSize": 30.0,
+        "Rounded": true,
+        "TrackColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "FillColor": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "HandleColor": [
+          1.0,
+          0.97,
+          0.9,
+          1
+        ]
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000027,
+      "Tag": "Effektlar Value",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000024,
+      "UITransform": {
+        "AnchorMin": [
+          1,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          1,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          90,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "100%",
+        "Color": [
+          0.78,
+          0.82,
+          0.9,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000028,
+      "Tag": "Interfeys",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          60
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      }
+    },
+    {
+      "Entity": 7722000000000029,
+      "Tag": "Interfeys Label",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000028,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          0,
+          1
+        ],
+        "Pivot": [
+          0,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          230,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Interfeys",
+        "Color": [
+          0.94,
+          0.96,
+          1.0,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000030,
+      "Tag": "Interfeys Slider",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000028,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          70,
+          0
+        ],
+        "Size": [
+          -340,
+          -28
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UISlider": {
+        "Min": 0.0,
+        "Max": 1.0,
+        "Value": 1.0,
+        "WholeNumbers": false,
+        "Direction": "LeftToRight",
+        "Interactable": true,
+        "TrackThickness": 10.0,
+        "HandleSize": 30.0,
+        "Rounded": true,
+        "TrackColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "FillColor": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "HandleColor": [
+          1.0,
+          0.97,
+          0.9,
+          1
+        ]
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000031,
+      "Tag": "Interfeys Value",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000028,
+      "UITransform": {
+        "AnchorMin": [
+          1,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          1,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          90,
+          0
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "100%",
+        "Color": [
+          0.78,
+          0.82,
+          0.9,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000032,
+      "Tag": "Ekran Header",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          44
+        ],
+        "FontSize": 28,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Ekran",
+        "Color": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000033,
+      "Tag": "To'liq ekran",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          52
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "UIToggle": {
+        "IsOn": false,
+        "Interactable": true,
+        "Style": "Switch",
+        "Mark": "Check",
+        "BoxSize": 34.0,
+        "LabelSpacing": 16.0,
+        "Group": "",
+        "AllowSwitchOff": false,
+        "BoxColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "OnColor": [
+          0.2,
+          0.68,
+          0.55,
+          1
+        ],
+        "MarkColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "To'liq ekran",
+        "Color": [
+          0.94,
+          0.96,
+          1.0,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000034,
+      "Tag": "Vertikal sinxronlash (VSync)",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          52
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "UIToggle": {
+        "IsOn": true,
+        "Interactable": true,
+        "Style": "Switch",
+        "Mark": "Check",
+        "BoxSize": 34.0,
+        "LabelSpacing": 16.0,
+        "Group": "",
+        "AllowSwitchOff": false,
+        "BoxColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "OnColor": [
+          0.2,
+          0.68,
+          0.55,
+          1
+        ],
+        "MarkColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Vertikal sinxronlash (VSync)",
+        "Color": [
+          0.94,
+          0.96,
+          1.0,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 7722000000000035,
+      "Tag": "Boshqaruv Header",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          44
+        ],
+        "FontSize": 28,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Boshqaruv",
+        "Color": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000036,
+      "Tag": "Controls Info",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          120
+        ],
+        "FontSize": 22,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Esc / Start - pauza. Strelkalar / D-pad - tanlash, Enter / A - bosish, Esc / B - orqaga. Ro'yxatni sichqoncha g'ildiragi bilan yoki sudrab aylantiring.",
+        "Color": [
+          0.78,
+          0.82,
+          0.9,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Top",
+        "Font": "",
+        "WordWrap": true
+      }
+    },
+    {
+      "Entity": 7722000000000037,
+      "Tag": "Back Button",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000010,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.0
+        ],
+        "AnchorMax": [
+          0.5,
+          0.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          -150,
+          64
+        ],
+        "Size": [
+          260,
+          68
+        ],
+        "FontSize": 28,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.75,
+          0.84,
+          1.0,
+          1
+        ],
+        "Hover": [
+          0.86,
+          0.92,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.58,
+          0.68,
+          0.86,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Back",
+        "ClickTarget": 7722000000000001
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "Orqaga",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 7722000000000038,
+      "Tag": "Reset Button",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000010,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.0
+        ],
+        "AnchorMax": [
+          0.5,
+          0.0
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          150,
+          64
+        ],
+        "Size": [
+          260,
+          68
+        ],
+        "FontSize": 28,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.75,
+          0.84,
+          1.0,
+          1
+        ],
+        "Hover": [
+          0.86,
+          0.92,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.58,
+          0.68,
+          0.86,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "ResetSettings",
+        "ClickTarget": 7722000000000001
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "Standart",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
       }
     }
   ]

@@ -24902,3 +24902,267 @@ TEST(UIScrollViewScrollbarAndNavigation)
     CHECK(c.Content.ID == copyContent.GetUUID() && c.Horizontal && c.Movement == UIScrollMovement::Clamped &&
           c.Scrollbars == UIScrollbarVisibility::Hidden && c.ScrollSensitivity == 25.0f);
 }
+
+// ------------------------------------------------------------------ M12: game time (pause menus), display options
+struct TimeProbeLog
+{
+    int Updates = 0, LateUpdates = 0, PausedUpdates = 0, Timers = 0;
+    float Time = 0.0f, PausedTime = 0.0f, Unscaled = 0.0f;
+};
+static TimeProbeLog g_TimeProbe;
+
+class GameTimeProbe : public ScriptableEntity
+{
+public:
+    void OnStart() override { InvokeRepeating(0.1f, 0.1f, []() { g_TimeProbe.Timers++; }); }
+    void OnUpdate(Timestep ts) override
+    {
+        g_TimeProbe.Updates++;
+        g_TimeProbe.Time += ts;
+    }
+    void OnLateUpdate(Timestep) override { g_TimeProbe.LateUpdates++; }
+};
+ZM_REGISTER_SCRIPT(GameTimeProbe)
+
+class PausedTimeProbe : public ScriptableEntity
+{
+public:
+    void OnCreate() override { SetUpdateWhenPaused(true); }
+    void OnUpdate(Timestep ts) override
+    {
+        if (IsGamePaused())
+        {
+            g_TimeProbe.PausedUpdates++;
+            g_TimeProbe.PausedTime += ts;
+            g_TimeProbe.Unscaled += GetUnscaledDeltaTime();
+        }
+    }
+};
+ZM_REGISTER_SCRIPT(PausedTimeProbe)
+
+TEST(GameTimeScaleAndPause)
+{
+    g_TimeProbe = {};
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    Entity body = scene->CreateEntity("Body");
+    body.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+    body.AddComponent<BoxCollider2DComponent>();
+    body.AddComponent<NativeScriptComponent>().ClassName = "GameTimeProbe";
+    Entity menu = scene->CreateEntity("Menu");
+    menu.AddComponent<NativeScriptComponent>().ClassName = "PausedTimeProbe";
+    Entity button = MakeUIRect(scene, "Resume", UITransformComponent::AnchorPoint::Center, { 0.0f, 0.0f }, { 200.0f, 60.0f });
+    button.AddComponent<UIButtonComponent>();
+    int clicks = 0;
+
+    scene->OnRuntimeStart();
+    scene->GetEventBus().Subscribe("UIClick", [&](const ScriptMessage&) { clicks++; });
+    CHECK(scene->GetTimeScale() == 1.0f && !scene->IsGamePaused());
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(0.02f);
+    CHECK(g_TimeProbe.Updates == 10 && std::abs(g_TimeProbe.Time - 0.2f) < 1e-4f && g_TimeProbe.Timers == 2);
+    CHECK_NEAR(scene->GetTime(), 0.2f, 1e-4f);
+    CHECK(body.GetTransform().Translation.y < 0.0f); // it falls
+
+    // Slow motion: the scripts, the clock and the timers get half the time; real time goes on.
+    scene->SetTimeScale(0.5f);
+    for (int i = 0; i < 11; i++)
+        scene->OnUpdateRuntime(0.02f);
+    CHECK(std::abs(g_TimeProbe.Time - 0.31f) < 1e-4f && g_TimeProbe.Timers == 3);
+    CHECK_NEAR(scene->GetTime(), 0.31f, 1e-4f);
+    CHECK_NEAR(scene->GetUnscaledDeltaTime(), 0.02f, 1e-6f);
+    CHECK_NEAR(scene->GetUnscaledTime(), 0.42f, 1e-4f);
+
+    // Paused: nothing of the game moves; the script that asked for it still runs (with 0); the UI works.
+    scene->SetGamePaused(true);
+    CHECK(scene->IsGamePaused() && scene->GetTimeScale() == 0.0f);
+    const glm::vec3 frozen = body.GetTransform().Translation;
+    const int updates = g_TimeProbe.Updates, late = g_TimeProbe.LateUpdates;
+    for (int i = 0; i < 20; i++)
+    {
+        scene->SetViewportMouse({ 400.0f, 300.0f }, i == 5);
+        scene->OnUpdateRuntime(0.02f);
+    }
+    CHECK(g_TimeProbe.Updates == updates && g_TimeProbe.LateUpdates == late && g_TimeProbe.Timers == 3);
+    CHECK(body.GetTransform().Translation == frozen);
+    CHECK_NEAR(scene->GetTime(), 0.31f, 1e-4f);
+    CHECK(g_TimeProbe.PausedUpdates == 20 && g_TimeProbe.PausedTime == 0.0f && std::abs(g_TimeProbe.Unscaled - 0.4f) < 1e-4f);
+    CHECK(clicks == 1); // the button was clicked while the game was paused
+    // Back at the scale it had.
+    scene->SetGamePaused(false);
+    CHECK(scene->GetTimeScale() == 0.5f && !scene->IsGamePaused());
+    scene->OnUpdateRuntime(0.02f);
+    CHECK(g_TimeProbe.Updates == updates + 1 && body.GetTransform().Translation != frozen);
+    // The editor's pause still stops everything, the paused script too.
+    scene->SetGamePaused(true);
+    scene->SetPaused(true);
+    const int paused = g_TimeProbe.PausedUpdates;
+    scene->OnUpdateRuntime(0.02f);
+    CHECK(g_TimeProbe.PausedUpdates == paused);
+    scene->SetPaused(false);
+
+    // Quitting is a request the host answers; play stops / starts with the clock running.
+    scene->RequestQuit();
+    CHECK(scene->IsQuitRequested());
+    scene->OnRuntimeStop();
+    CHECK(scene->GetTimeScale() == 1.0f);
+    scene->OnRuntimeStart();
+    CHECK(!scene->IsQuitRequested() && scene->GetTimeScale() == 1.0f && scene->GetUnscaledTime() == 0.0f);
+    scene->OnRuntimeStop();
+}
+
+TEST(DisplaySettingsAreSaved)
+{
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-display-" + std::to_string((uint64_t)UUID()));
+    SaveData::SetFilePath(dir / "save.json");
+    ScopeExit restore{ [dir]() {
+        Display::ClearSavedSettings();
+        Display::SetFullscreen(false);
+        Display::SetVSync(true);
+        SaveData::Save();
+        SaveData::SetFilePath({});
+        std::error_code ec;
+        std::filesystem::remove_all(dir, ec);
+    } };
+    // Without a window (tests, the editor's Play) the options are only kept.
+    CHECK(!Display::HasWindow());
+    CHECK(!Display::HasSavedSettings() && !Display::LoadSettings());
+    Display::SetFullscreen(true);
+    Display::SetVSync(false);
+    CHECK(Display::IsFullscreen() && !Display::IsVSync());
+    CHECK(Display::SaveSettings() && Display::HasSavedSettings());
+    Display::SetFullscreen(false);
+    Display::SetVSync(true);
+    CHECK(SaveData::Reload());
+    CHECK(Display::LoadSettings());
+    CHECK(Display::IsFullscreen() && !Display::IsVSync());
+    CHECK(SaveData::GetBool(std::string(Display::SettingsKey) + ".Fullscreen"));
+    Display::ClearSavedSettings();
+    CHECK(!Display::HasSavedSettings());
+}
+
+// The Platformer2D levels' pause menu, with the game's script module when it was built.
+TEST(PauseMenuSampleScene)
+{
+    namespace fs = std::filesystem;
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D";
+    auto project = Project::Load(root / "Platformer2D.zproject");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    Project::SetActive(project);
+    ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Level1.zscene"));
+    auto find = [&](const char* name) { return scene->FindEntityByName(name); };
+    Entity menu = find("Pause Menu"), overlay = find("Overlay"), main = find("Main Panel"), settings = find("Settings Panel");
+    Entity resume = find("Resume Button"), settingsButton = find("Settings Button"), quit = find("Quit Button"), back = find("Back Button");
+    Entity scroll = find("Settings Scroll"), list = find("Settings List"), music = find("Musiqa Slider"), fullscreen = find("To'liq ekran");
+    Entity restart = find("Restart Button"), player = find("Player");
+    CHECK(menu && overlay && main && settings && resume && settingsButton && quit && back && scroll && list && music && fullscreen && restart && player);
+    if (!(menu && overlay && main && settings && resume && settingsButton && quit && back && scroll && list && music && fullscreen && restart && player))
+        return;
+    CHECK(menu.GetComponent<NativeScriptComponent>().ClassName == "PauseMenu");
+    CHECK(!overlay.IsActive() && !settings.IsActive() && main.IsActive());
+    CHECK(scroll.HasComponent<UIMaskComponent>() && scene->GetScrollContent(scroll) == list);
+    CHECK(resume.GetComponent<UIButtonComponent>().ClickMessage == "Resume" && resume.GetComponent<UIButtonComponent>().ClickTarget.ID == menu.GetUUID());
+    CHECK(restart.GetComponent<UINavigationComponent>().NavigationMode == UINavigationComponent::Mode::None); // the HUD button stays out of the menu
+    if (Entity camera = find("Main Camera"))
+        camera.GetComponent<CameraComponent>().Primary = false; // headless: nothing is drawn
+    scene->OnViewportResize(1600, 900);
+    // The settings list is longer than its view: it scrolls, with a scrollbar.
+    CHECK(scene->GetUIRect(list).GetHeight() > scene->GetScrollViewRect(scroll).GetHeight() + 100.0f);
+    CHECK(scroll.GetComponent<UIScrollViewComponent>().ShowVerticalBar);
+
+    // Live, with the game's scripts (skipped when the module was not built).
+    const fs::path module = Project::GetScriptModulePath();
+    if (module.empty() || !fs::exists(module))
+    {
+        std::printf("    (Platformer2D skript moduli topilmadi - jonli qism o'tkazib yuborildi)\n");
+        return;
+    }
+    const bool audioWas = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    auto dir = fs::temp_directory_path() / ("zamin-pause-" + std::to_string((uint64_t)UUID()));
+    SaveData::SetFilePath(dir / "save.json");
+    CHECK(ScriptEngine::LoadModule(module));
+    ScopeExit cleanup{ [&]() {
+        ScriptEngine::UnloadModule();
+        Display::ClearSavedSettings();
+        Display::SetFullscreen(false);
+        Display::SetVSync(true);
+        Audio::ClearSavedSettings();
+        SaveData::Save();
+        SaveData::SetFilePath({});
+        if (!audioWas)
+            AudioEngine::Shutdown();
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+        Input::ResetState();
+    } };
+    Input::ResetState();
+    Log::SetMinLevel(LogLevel::Warn); // the scripts' own messages
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(0.016f);
+    CHECK(!scene->IsGamePaused());
+    // Esc: the game stops, the menu opens with "Davom etish" selected.
+    UIKeyFrame(scene, { Key::Escape });
+    CHECK(scene->IsGamePaused() && overlay.IsActive() && main.IsActive());
+    CHECK(scene->GetSelectedUI() == resume);
+    const float time = scene->GetTime();
+    const glm::vec3 at = player.GetTransform().Translation;
+    for (int i = 0; i < 20; i++)
+        scene->OnUpdateRuntime(0.016f);
+    CHECK(scene->GetTime() == time && player.GetTransform().Translation == at);
+    // Down, Enter: the settings; their first slider is selected.
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == settingsButton);
+    UIKeyFrame(scene, { Key::Enter });
+    CHECK(settings.IsActive() && !main.IsActive());
+    CHECK(scene->GetSelectedUI() == find("Umumiy ovoz Slider"));
+    // The music slider: three steps left (a tenth each) -> the Music group at 70%.
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == music);
+    for (int i = 0; i < 3; i++)
+        UIKeyFrame(scene, { Key::Left });
+    CHECK_NEAR(music.GetComponent<UISliderComponent>().Value, 0.7f, 1e-4f);
+    CHECK_NEAR(Audio::GetGroupVolume("Music"), 0.7f, 1e-4f);
+    CHECK(find("Musiqa Value").GetComponent<TextComponent>().Text == "70%");
+    // Down to the fullscreen switch (Enter switches it), then to VSync below the view: the list
+    // scrolls to show it.
+    for (int i = 0; i < 3; i++)
+        UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == fullscreen);
+    UIKeyFrame(scene, { Key::Enter });
+    CHECK(fullscreen.GetComponent<UIToggleComponent>().IsOn && Display::IsFullscreen());
+    Entity vsync = find("Vertikal sinxronlash (VSync)");
+    CHECK(scene->GetScrollPosition(scroll).y == 1.0f);
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(vsync && scene->GetSelectedUI() == vsync);
+    for (int i = 0; i < 40; i++)
+        scene->OnUpdateRuntime(0.016f);
+    const UIRect shown = scene->GetUIRect(vsync), view = scene->GetScrollViewRect(scroll);
+    CHECK(shown.Min.y >= view.Min.y - 1e-2f && shown.Max.y <= view.Max.y + 1e-2f);
+    CHECK(scene->GetScrollPosition(scroll).y < 1.0f);
+    UIKeyFrame(scene, { Key::Enter });
+    CHECK(!Display::IsVSync());
+    // Esc: back to the menu - the settings are saved (SaveData); Esc again: the game goes on.
+    UIKeyFrame(scene, { Key::Escape });
+    CHECK(!settings.IsActive() && main.IsActive() && scene->IsGamePaused());
+    CHECK(scene->GetSelectedUI() == settingsButton);
+    CHECK(SaveData::HasKey(Audio::SettingsKey) && Display::HasSavedSettings());
+    UIKeyFrame(scene, { Key::Escape });
+    CHECK(!overlay.IsActive() && !scene->IsGamePaused());
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(scene->GetTime() > time);
+    // Quit: asked of the host.
+    UIKeyFrame(scene, { Key::Escape });
+    UIKeyFrame(scene, { Key::Down });
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == quit);
+    UIKeyFrame(scene, { Key::Enter });
+    CHECK(scene->IsQuitRequested() && !scene->IsGamePaused() && !overlay.IsActive());
+    scene->OnRuntimeStop();
+    Log::SetMinLevel(LogLevel::Error);
+}

@@ -25,6 +25,8 @@ namespace Zamin {
         void SetEventCallback(const EventCallbackFn& callback) override { m_Data.EventCallback = callback; }
         void SetVSync(bool enabled) override;
         bool IsVSync() const override { return m_Data.VSync; }
+        void SetFullscreen(bool fullscreen) override;
+        bool IsFullscreen() const override;
         void SetTitle(const std::string& title) override;
         void SetCursorLocked(bool locked) override;
 
@@ -33,6 +35,7 @@ namespace Zamin {
     private:
         GLFWwindow* m_Window = nullptr;
         Scope<GraphicsContext> m_Context;
+        int m_WindowedX = 100, m_WindowedY = 100, m_WindowedWidth = 1600, m_WindowedHeight = 900; // before going fullscreen
 
         struct WindowData
         {

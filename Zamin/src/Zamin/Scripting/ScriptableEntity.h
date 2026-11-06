@@ -575,6 +575,22 @@ namespace Zamin {
 
         // ---- time
         float GetTime() const;
+        // The game's clock (Scene::SetTimeScale): 1 normal, 0.5 slow motion, 0 paused - OnUpdate's
+        // time, timers, physics and animations follow it; the UI does not.
+        void SetTimeScale(float scale);
+        float GetTimeScale() const;
+        // Pauses the game (time scale 0) / goes on at the scale it had: a pause menu.
+        void PauseGame();
+        void ResumeGame();
+        bool IsGamePaused() const;
+        // This frame's real time (seconds): for what moves while the game is paused or slowed.
+        float GetUnscaledDeltaTime() const;
+        // This script still gets OnUpdate / OnLateUpdate (with 0) while the game is paused - the
+        // one that opens and closes the pause menu. Off by default (set it in OnCreate).
+        void SetUpdateWhenPaused(bool enabled) { m_UpdateWhenPaused = enabled; }
+        bool IsUpdateWhenPaused() const { return m_UpdateWhenPaused; }
+        // Ends the game (its menu's Quit): the player closes, the editor stops Play.
+        void QuitGame();
 
         // ---- timers (run on the main thread after OnUpdate; safe to call from inside callbacks)
         void Invoke(float delay, std::function<void()> callback);
@@ -685,6 +701,7 @@ namespace Zamin {
         int m_EnableDepth = 0;        // nested SetEnabled calls from inside OnEnable / OnDisable
         int m_EnableTransitions = 0;  // OnEnable/OnDisable delivered by the current (nested) sync
         bool IsActiveForUpdate() const { return m_EnabledState && m_Started && !m_Destroying; }
+        bool m_UpdateWhenPaused = false; // OnUpdate also while the game is paused (SetUpdateWhenPaused)
 
         Entity m_Entity;
         std::string m_ClassName;

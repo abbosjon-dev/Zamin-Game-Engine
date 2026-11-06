@@ -1095,6 +1095,13 @@ namespace Zamin {
         else
             m_TransparentOrder.clear();
 
+        if (m_SceneState == SceneState::Play && m_ActiveScene->IsQuitRequested())
+        {
+            // The game's Quit: in the editor Play stops.
+            ZM_INFO("O'yin chiqishni so'radi: Play to'xtatildi");
+            m_ActiveScene->ClearQuitRequest();
+            OnSceneStop();
+        }
         if (m_SceneState == SceneState::Play && !m_ActiveScene->GetPendingSceneLoad().empty())
         {
             fs::path next = Project::GetAssetFileSystemPath(m_ActiveScene->GetPendingSceneLoad());
@@ -3659,6 +3666,8 @@ namespace Zamin {
         // mixer, for this run (the mixer is the project's again when play stops).
         if (Audio::LoadSettings())
             ZM_INFO("O'yinda saqlangan ovoz sozlamalari yuklandi (SaveData)");
+        // The display options too (no window of its own: the editor's stays as it is, the game sees them).
+        Display::LoadSettings();
         AudioEngine::ResetProfileCounters(); // the audio profiler counts this run
         m_ActiveScene->OnRuntimeStart();
         ImGui::SetWindowFocus("###Viewport");

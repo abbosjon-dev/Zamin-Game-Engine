@@ -2006,6 +2006,9 @@ namespace Zamin {
     {
         m_IsRunning = true;
         m_Time = 0.0f;
+        m_TimeScale = m_TimeScaleBeforePause = 1.0f; // the game's clock runs
+        m_UnscaledTime = m_UnscaledDeltaTime = 0.0f;
+        m_QuitRequested = false;
         m_AnimationTime = 0.0;
         DebugDraw::Clear(); // the game starts with an empty debug drawing queue
         // Tint animations start (PlayOnStart) from their first colour.
@@ -2056,9 +2059,23 @@ namespace Zamin {
         StartScripts();
     }
 
+    void Scene::SetGamePaused(bool paused)
+    {
+        if (paused == IsGamePaused())
+            return;
+        if (paused)
+        {
+            m_TimeScaleBeforePause = m_TimeScale;
+            m_TimeScale = 0.0f;
+        }
+        else
+            m_TimeScale = m_TimeScaleBeforePause > 0.0f ? m_TimeScaleBeforePause : 1.0f;
+    }
+
     void Scene::OnRuntimeStop()
     {
         m_IsRunning = false;
+        m_TimeScale = m_TimeScaleBeforePause = 1.0f;
         StopScripts();
         OnPhysics2DStop();
         OnPhysics3DStop();
@@ -4200,13 +4217,65 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ update
+    void Scene::UpdatePausedScripts()
+    {
+        ZM_PROFILE_SCOPE("Skriptlar");
+        ApplyActiveChanges();
+        std::vector<entt::entity> scripted;
+        auto collectScripted = [&]() {
+            scripted.clear();
+            for (auto e : m_Registry.view<NativeScriptComponent>())
+                scripted.push_back(e);
+            std::reverse(scripted.begin(), scripted.end());
+        };
+        if (m_ScriptsRunning)
+        {
+            collectScripted();
+            for (auto e : scripted)
+                if (auto* nsc = m_Registry.valid(e) ? m_Registry.try_get<NativeScriptComponent>(e) : nullptr;
+                    nsc && nsc->Instance && nsc->Instance->m_EnabledState != ShouldScriptBeEnabled({ e, this }, *nsc))
+                    SyncScriptEnabled({ e, this });
+            StartPendingScripts();
+        }
+        collectScripted();
+        // Only the scripts that asked to run while the game is paused; the game's time is 0.
+        auto active = [&](entt::entity e) -> ScriptableEntity* {
+            auto* nsc = m_Registry.valid(e) ? m_Registry.try_get<NativeScriptComponent>(e) : nullptr;
+            return nsc && nsc->Instance && nsc->Instance->IsActiveForUpdate() && nsc->Instance->m_UpdateWhenPaused &&
+                           IsActiveInHierarchy({ e, this })
+                       ? nsc->Instance
+                       : nullptr;
+        };
+        for (auto e : scripted)
+            if (auto* inst = active(e))
+                inst->OnUpdate(Timestep(0.0f));
+        for (auto e : scripted)
+            if (auto* inst = active(e))
+                inst->OnLateUpdate(Timestep(0.0f));
+        m_EventBus->Flush();
+        FlushDestroyQueue();
+        DeleteRetiredScripts();
+    }
+
     void Scene::OnUpdateRuntime(Timestep ts)
     {
         m_FrameIndex++;
         DeleteRetiredScripts(); // destroyed between frames (editor, other code)
-        UpdateUI(ts);
-        if (!m_IsPaused || m_StepFrames-- > 0)
+        UpdateUI(ts); // real time: the UI works while the game is paused
+        const bool advance = !m_IsPaused || m_StepFrames-- > 0; // the editor's pause / step
+        if (advance)
         {
+            m_UnscaledDeltaTime = ts;
+            m_UnscaledTime += ts;
+        }
+        if (advance && IsGamePaused())
+        {
+            // The game is paused (time scale 0): only the scripts that run while it is (a pause menu).
+            UpdatePausedScripts();
+        }
+        else if (advance)
+        {
+            ts = Timestep((float)ts * m_TimeScale); // the game's time
             m_Time += ts;
             m_AnimationTime += (double)ts;
             // Hit flashes fade with the game's time (paused: they wait).

@@ -155,6 +155,20 @@ namespace Zamin {
             const UILayoutNode& node = GetUINode(e);
             return node.ToLayout(mouse / std::max(node.Scale, 1e-6f));
         };
+        // The press became a drag (of the content or of a scrollbar's handle): what it went down on -
+        // a widget in the view, or the view itself (its background, its scrollbar) - is let go without
+        // a click.
+        auto letGoOfPress = [&]() {
+            if (m_PressedUI != entt::null && m_Registry.valid(m_PressedUI))
+            {
+                UIChangeEvent up{ m_PressedUI, UIChange::PointerUp };
+                up.Target = hovered;
+                up.Screen = mouse;
+                up.On = false;
+                changes.push_back(up);
+            }
+            m_PressedUI = entt::null;
+        };
         for (auto sv : view)
         {
             auto& s = m_Registry.get<UIScrollViewComponent>(sv);
@@ -188,6 +202,7 @@ namespace Zamin {
                     s.Velocity = glm::vec2(0.0f);
                     s.Revealing = false;
                     m_ScrollPress = hovered;
+                    m_ScrollPressPoint = mouse;
                 }
             if (m_ScrollPress == entt::null)
             {
@@ -232,6 +247,8 @@ namespace Zamin {
             {
                 // The scrollbar's handle follows the mouse; the content follows the handle.
                 const int bar = s.DraggedBar;
+                if (m_PressedUI != entt::null && glm::length(mouse - m_ScrollPressPoint) >= s_ScrollDragThreshold)
+                    letGoOfPress();
                 const ScrollbarGeometry g = GetScrollbars(sv);
                 if (g.Show[bar])
                 {
@@ -250,16 +267,7 @@ namespace Zamin {
                     s.Velocity = glm::vec2(0.0f);
                     s.Revealing = false;
                     m_ScrollContentStart = m_Registry.get<UITransformComponent>(content).Position;
-                    // The press became a drag: the widget it went down on is let go without a click.
-                    if (m_PressedUI != entt::null && m_PressedUI != sv && m_Registry.valid(m_PressedUI))
-                    {
-                        UIChangeEvent up{ m_PressedUI, UIChange::PointerUp };
-                        up.Target = hovered;
-                        up.Screen = mouse;
-                        up.On = false;
-                        changes.push_back(up);
-                        m_PressedUI = entt::null;
-                    }
+                    letGoOfPress();
                 }
                 if (m_ScrollDragging)
                 {

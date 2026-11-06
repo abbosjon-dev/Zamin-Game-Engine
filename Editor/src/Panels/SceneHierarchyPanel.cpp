@@ -5647,9 +5647,11 @@ namespace Zamin {
                 }
             }
             {
-                const char* items[] = { "Yuqori", "O'rta", "Past", "Tayanch" };
-                const char* tips[] = { "Matn bloki yuqori chetga (dunyoda: boshi nuqtadan pastga)", "Vertikal markazga", "Pastki chetga",
-                                       "Birinchi qatorning tayanch chizig'i obyekt nuqtasida (dunyo matni; UI'da - yuqori kabi)" };
+                // Short labels: four of them share the value column (the tooltips say it in full).
+                const char* items[] = { "Tepa", "O'rta", "Past", "Asos" };
+                const char* tips[] = { "Yuqoriga: matn bloki yuqori chetga (dunyoda: boshi nuqtadan pastga)", "O'rtaga: vertikal markazga",
+                                       "Pastga: pastki chetga",
+                                       "Tayanch chiziq: birinchi qatorning tayanch chizig'i obyekt nuqtasida (dunyo matni; UI'da - yuqori kabi)" };
                 int v = (int)c.AlignV;
                 if (UI::PropertySegmented("Vertikal", v, items, ui ? 3 : 4, tips))
                 {

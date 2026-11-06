@@ -294,11 +294,19 @@ namespace Zamin::UI {
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, AccentU32(1.0f));
             }
             ImGui::PushID(i);
+            // A label wider than the button's inside: less padding at its sides, so more of it shows.
+            const ImVec2 padding = ImGui::GetStyle().FramePadding;
+            const float text = ImGui::CalcTextSize(items[i], nullptr, true).x;
+            const bool tight = text + padding.x * 2.0f > width;
+            if (tight)
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(std::max(1.0f, (width - text) * 0.5f), padding.y));
             if (ImGui::Button(items[i], ImVec2(width, 0.0f)) && !active)
             {
                 current = i;
                 changed = true;
             }
+            if (tight)
+                ImGui::PopStyleVar();
             if (tooltips && tooltips[i] && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                 ImGui::SetTooltip("%s", tooltips[i]);
             ImGui::PopID();

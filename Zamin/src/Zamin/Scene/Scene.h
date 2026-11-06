@@ -782,8 +782,10 @@ namespace Zamin {
         // real time - OnUpdate / OnLateUpdate get the scaled time, timers, physics, animations and
         // particles follow it. At 0 the game is paused: nothing of it moves and only the scripts that
         // asked for it (ScriptableEntity::SetUpdateWhenPaused) get OnUpdate / OnLateUpdate (with 0).
-        // The UI (widgets, UI tweens, navigation) always runs on real time. Back to 1 when play starts
-        // and stops. Not the editor's pause (SetPaused), which stops everything.
+        // The UI (widgets, UI tweens, navigation) always runs on real time. A pause from the UI (its
+        // click / submit handlers) takes effect in the same frame; a resume from it in the next one, so
+        // the press that closed a pause menu is not also a press for the game. Back to 1 when play
+        // starts and stops. Not the editor's pause (SetPaused), which stops everything.
         void SetTimeScale(float scale) { m_TimeScale = std::max(0.0f, scale); }
         float GetTimeScale() const { return m_TimeScale; }
         // Time scale 0 (paused) and back to the scale it had before.

@@ -23887,6 +23887,17 @@ TEST(UILayoutSampleScene)
     CHECK_NEAR(scene->GetUIRect(inventory).GetWidth(), 4 * 132.0f + 3 * 16.0f + 56.0f, 1e-3f);           // fits its grid
     CHECK_NEAR(scene->GetUIRect(inventory).Max.x, 1872.0f, 1e-3f);
     CHECK_NEAR(scene->GetUIRect(coins).Max.x, 1920.0f - 24.0f - 36.0f, 1e-3f);                        // pinned to the bar's right end
+    // The news panel between the menu and the inventory, apart from both (16:9 and 16:10).
+    Entity news = scene->FindEntityByName("Yangiliklar");
+    CHECK(news);
+    if (news)
+        for (glm::uvec2 size : { glm::uvec2(1600, 900), glm::uvec2(1920, 1200) })
+        {
+            scene->OnViewportResize(size.x, size.y);
+            const UIRect panel = scene->GetUIRect(news);
+            CHECK(panel.Min.x > scene->GetUIRect(menu).Max.x + 4.0f && panel.Max.x < scene->GetUIRect(inventory).Min.x - 4.0f);
+        }
+    scene->OnViewportResize(1600, 900);
     CHECK(scene->IsUILayoutDriven(start) && scene->IsUILayoutDriven(slot) && !scene->IsUILayoutDriven(menu));
     // The menu's first button is selected at the start; Down goes to the next one.
     scene->OnRuntimeStart();
@@ -24904,6 +24915,153 @@ TEST(UIScrollViewScrollbarAndNavigation)
           c.Scrollbars == UIScrollbarVisibility::Hidden && c.ScrollSensitivity == 25.0f);
 }
 
+// A scroll view with a Viewport of its own (a header above it in the scroll view): the view, the
+// scroll range and the mask's clip are the Viewport's; the scrollbar runs along the scroll view.
+TEST(UIScrollViewWithAViewport)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    Entity view = MakeUIRect(scene, "Scroll", UITransformComponent::AnchorPoint::Center, { 0.0f, 0.0f }, { 300.0f, 200.0f }); // 250..550, 200..400
+    view.AddComponent<UIImageComponent>();
+    view.AddComponent<UIMaskComponent>();
+    auto& s = view.AddComponent<UIScrollViewComponent>();
+    s.Inertia = false;
+    Entity header = scene->CreateEntity("Header"); // the top 40 of the scroll view
+    auto& ht = header.AddComponent<UITransformComponent>();
+    ht.AnchorMin = { 0.0f, 1.0f };
+    ht.AnchorMax = { 1.0f, 1.0f };
+    ht.Pivot = { 0.5f, 1.0f };
+    ht.Position = { 0.0f, 0.0f };
+    ht.Size = { 0.0f, 40.0f };
+    scene->SetParent(header, view, false);
+    Entity viewport = scene->CreateEntity("Viewport"); // the rest below it
+    auto& vt = viewport.AddComponent<UITransformComponent>();
+    vt.AnchorMin = { 0.0f, 0.0f };
+    vt.AnchorMax = { 1.0f, 1.0f };
+    vt.Pivot = { 0.5f, 0.0f };
+    vt.Position = { 0.0f, 0.0f };
+    vt.Size = { 0.0f, -40.0f };
+    scene->SetParent(viewport, view, false);
+    Entity content = scene->CreateEntity("Content");
+    auto& ct = content.AddComponent<UITransformComponent>();
+    ct.AnchorMin = { 0.0f, 1.0f };
+    ct.AnchorMax = { 1.0f, 1.0f };
+    ct.Pivot = { 0.5f, 1.0f };
+    ct.Position = { 0.0f, 0.0f };
+    ct.Size = { 0.0f, 100.0f };
+    auto& group = content.AddComponent<UILayoutGroupComponent>();
+    group.Type = UILayoutType::Vertical;
+    group.Spacing = 0.0f;
+    group.ControlChildWidth = group.ChildForceExpandWidth = true;
+    group.FitHeight = true;
+    scene->SetParent(content, viewport, false);
+    std::vector<Entity> rows;
+    for (int i = 0; i < 10; i++)
+    {
+        Entity row = MakeUIRect(scene, std::format("Row{}", i), UITransformComponent::AnchorPoint::Center, { 0.0f, 0.0f }, { 100.0f, 40.0f });
+        row.AddComponent<UIButtonComponent>();
+        scene->SetParent(row, content, false);
+        rows.push_back(row);
+    }
+    s.Content.ID = content.GetUUID();
+    s.Viewport.ID = viewport.GetUUID();
+
+    // The view: the Viewport left of the scrollbar (the content, 400 high, does not fit its 160).
+    CHECK(RectNear(scene->GetScrollViewRect(view), { { 250.0f, 200.0f }, { 534.0f, 360.0f } }));
+    CHECK(s.ShowVerticalBar && !s.ShowHorizontalBar);
+    CHECK(RectNear(scene->GetUIRect(content), { { 250.0f, -40.0f }, { 534.0f, 360.0f } }));
+    CHECK(scene->GetScrollPosition(view) == glm::vec2(0.0f, 1.0f));
+    // The scroll view's mask clips to the view, not to the scroll view's whole rectangle.
+    UIRect clip;
+    CHECK(scene->GetUIClipRect(rows[0], clip) && RectNear(clip, { { 250.0f, 200.0f }, { 534.0f, 360.0f } }));
+    CHECK(scene->GetUIClipRect(header, clip) && RectNear(clip, { { 250.0f, 200.0f }, { 534.0f, 360.0f } }));
+    // Scrolled down by a row: the first row is in the header's place - hidden there, and the mouse
+    // finds the scroll view, not it; the second row is at the view's top.
+    CHECK(scene->ScrollBy(view, { 0.0f, 40.0f }, false));
+    CHECK(RectNear(scene->GetUIRect(rows[0]), { { 250.0f, 360.0f }, { 534.0f, 400.0f } }));
+    CHECK(scene->PickUI({ 400.0f, 380.0f }) == view);
+    CHECK(scene->PickUI({ 400.0f, 340.0f }) == rows[1]);
+    CHECK_NEAR(scene->GetScrollPosition(view).y, 1.0f - 40.0f / 240.0f, 1e-4f); // 240 = 400 - 160 to scroll
+    // The scrollbar: along the scroll view's right edge (its track 203..397), the handle sized by the view.
+    scene->OnRuntimeStart();
+    auto frame = [&](float x, float yUp, bool down) {
+        scene->SetViewportMouse({ x, 600.0f - yUp }, down);
+        scene->OnUpdateRuntime(0.016f);
+    };
+    frame(542.0f, 390.0f, false);
+    CHECK(s.HoveredBar == 1 && scene->GetHoveredUI() == view);
+    frame(542.0f, 205.0f, true); // low on the track: the handle jumps to the bottom
+    frame(542.0f, 205.0f, false);
+    CHECK(scene->GetScrollPosition(view).y == 0.0f);
+    CHECK_NEAR(scene->GetUIRect(rows[9]).Min.y, 200.0f, 1e-3f); // the last row at the view's bottom
+    CHECK(scene->PickUI({ 400.0f, 210.0f }) == rows[9]);
+    scene->OnRuntimeStop();
+}
+
+// A scroll view's references and runtime state in copies of it: Play's copy of the scene, a
+// duplicate, a clone made while the game runs.
+TEST(UIScrollViewCopiesAndClones)
+{
+    ScrollFixture f = MakeScrollFixture();
+    auto& editor = f.SceneRef;
+    Entity viewport = editor->CreateEntity("Viewport"); // fills the view; the content moves in it
+    viewport.AddComponent<UITransformComponent>().SetStretch();
+    editor->SetParent(viewport, f.View, false);
+    editor->SetParent(f.Content, viewport, false);
+    f.View.GetComponent<UIScrollViewComponent>().Viewport.ID = viewport.GetUUID();
+    const glm::vec2 editorPosition = f.Content.GetComponent<UITransformComponent>().Position;
+
+    // Play: the copy scrolls, the editor's scene stays where it was.
+    Ref<Scene> play = Scene::Copy(editor);
+    Entity view = play->GetEntityByUUID(f.View.GetUUID()), content = play->GetEntityByUUID(f.Content.GetUUID());
+    CHECK(view && content);
+    if (!(view && content))
+        return;
+    auto& s = view.GetComponent<UIScrollViewComponent>();
+    CHECK(s.Viewport.ID == viewport.GetUUID() && s.Content.ID == f.Content.GetUUID());
+    play->OnRuntimeStart();
+    play->SetViewportMouse({ 400.0f, 300.0f }, false);
+    play->SetViewportScroll({ 0.0f, -2.0f }); // two notches down: 80 units
+    play->OnUpdateRuntime(0.016f);
+    CHECK_NEAR(content.GetComponent<UITransformComponent>().Position.y, editorPosition.y + 80.0f, 1e-3f);
+    CHECK(f.Content.GetComponent<UITransformComponent>().Position == editorPosition);
+    CHECK(!f.View.GetComponent<UIScrollViewComponent>().PositionKnown);
+    // Moving: gliding to show a row (and with the speed inertia leaves).
+    CHECK(play->ScrollIntoView(play->GetEntityByUUID(f.Rows[9].GetUUID()), true));
+    s.Velocity = { 0.0f, 120.0f };
+    CHECK(s.Revealing && s.PositionKnown);
+    auto isReset = [](const UIScrollViewComponent& c) {
+        return c.Velocity == glm::vec2(0.0f) && !c.Revealing && !c.PositionKnown && !c.Dragging && c.DraggedBar == -1 &&
+               c.NormalizedPosition == glm::vec2(0.0f, 1.0f);
+    };
+
+    // A clone made while it runs: its references point into its own subtree, its runtime state is fresh.
+    Entity clone = play->Instantiate(view);
+    CHECK(clone && clone != view);
+    if (clone)
+    {
+        const auto& c = clone.GetComponent<UIScrollViewComponent>();
+        Entity cloneViewport = play->GetEntityByUUID(c.Viewport.ID), cloneContent = play->GetEntityByUUID(c.Content.ID);
+        CHECK(cloneViewport && cloneContent && cloneViewport != play->GetEntityByUUID(viewport.GetUUID()) && cloneContent != content);
+        CHECK(cloneViewport && play->GetParent(cloneViewport) == clone);
+        CHECK(cloneContent && play->GetParent(cloneContent) == cloneViewport);
+        CHECK(isReset(c));
+        CHECK(s.Revealing && s.Velocity.y == 120.0f); // the original goes on
+    }
+    // Play's copy of a running scene starts it afresh too.
+    Ref<Scene> again = Scene::Copy(play);
+    CHECK(isReset(again->GetEntityByUUID(f.View.GetUUID()).GetComponent<UIScrollViewComponent>()));
+    play->OnRuntimeStop();
+
+    // A duplicate in the editor: the same.
+    Entity duplicate = editor->DuplicateEntity(f.View);
+    const auto& d = duplicate.GetComponent<UIScrollViewComponent>();
+    Entity dupViewport = editor->GetEntityByUUID(d.Viewport.ID), dupContent = editor->GetEntityByUUID(d.Content.ID);
+    CHECK(dupViewport && dupViewport != viewport && editor->GetParent(dupViewport) == duplicate);
+    CHECK(dupContent && dupContent != f.Content && editor->GetParent(dupContent) == dupViewport);
+    CHECK(editor->GetScrollContent(duplicate) == dupContent);
+}
+
 // ------------------------------------------------------------------ M12: game time (pause menus), display options
 struct TimeProbeLog
 {
@@ -25157,6 +25315,38 @@ TEST(PauseMenuSampleScene)
     CHECK(!overlay.IsActive() && !scene->IsGamePaused());
     scene->OnUpdateRuntime(0.016f);
     CHECK(scene->GetTime() > time);
+    // Gamepad: Start opens the menu, A on "Davom etish" closes it. A is also the game's Jump: the
+    // game goes on from the next frame, so the press that closed the menu does not make the player jump.
+    for (int i = 0; i < 120; i++)
+        scene->OnUpdateRuntime(0.016f); // the player stands on the ground
+    const float groundY = player.GetTransform().Translation.y;
+    Input::SimulateGamepadConnected(0, true);
+    auto padFrame = [&](GamepadButton button, bool pressed) {
+        Input::SimulateGamepadButton(0, button, pressed);
+        Input::Update();
+        scene->OnUpdateRuntime(0.016f);
+    };
+    padFrame(GamepadButton::Start, true);
+    padFrame(GamepadButton::Start, false);
+    CHECK(scene->IsGamePaused() && overlay.IsActive() && scene->GetSelectedUI() == resume);
+    const float pausedAt = scene->GetTime();
+    padFrame(GamepadButton::A, true);
+    CHECK(!scene->IsGamePaused() && !overlay.IsActive());
+    CHECK(scene->GetTime() == pausedAt); // the frame of the press was still the menu's
+    for (int i = 0; i < 10; i++)
+        padFrame(GamepadButton::A, true); // held: not a new press
+    padFrame(GamepadButton::A, false);
+    CHECK(scene->GetTime() > pausedAt);
+    CHECK(player.GetTransform().Translation.y < groundY + 0.05f);
+    // ... while a press during the game is a jump.
+    padFrame(GamepadButton::A, true);
+    for (int i = 0; i < 10; i++)
+        padFrame(GamepadButton::A, false);
+    CHECK(player.GetTransform().Translation.y > groundY + 0.5f);
+    Input::SimulateGamepadConnected(0, false);
+    Input::Update();
+    for (int i = 0; i < 120; i++)
+        scene->OnUpdateRuntime(0.016f); // back on the ground
     // Quit: asked of the host.
     UIKeyFrame(scene, { Key::Escape });
     UIKeyFrame(scene, { Key::Down });
@@ -25204,6 +25394,54 @@ TEST(UIEventOrderInScrollViews)
     // The wheel scrolls the scroll view under the mouse.
     frame(370.0f, false, 1.0f);
     CHECK(JoinEvents(g_UIPointer) == "Scroll:scroll=1.00");
+    scene->OnRuntimeStop();
+}
+
+// A press on the scroll view itself (its background, its scrollbar) that becomes a drag is no click
+// of it either; a press that stays where it went down is.
+TEST(UIScrollViewDragOfItsBackgroundIsNoClick)
+{
+    ScrollFixture f = MakeScrollFixture();
+    auto& scene = f.SceneRef;
+    auto& group = f.Content.GetComponent<UILayoutGroupComponent>();
+    group.ControlChildWidth = group.ChildForceExpandWidth = false; // the rows are 100 wide: room beside them
+    f.View.AddComponent<NativeScriptComponent>().ClassName = "UIPointerProbe";
+    f.View.GetComponent<UIScrollViewComponent>().Inertia = false;
+    scene->OnRuntimeStart();
+    int clicks = 0;
+    scene->GetEventBus().Subscribe("UIPointerClick", [&](const ScriptMessage& m) {
+        if (m.Sender == f.View)
+            clicks++;
+    });
+    auto frame = [&](float x, float yUp, bool down) {
+        scene->SetViewportMouse({ x, 600.0f - yUp }, down);
+        scene->OnUpdateRuntime(0.016f);
+    };
+    frame(480.0f, 300.0f, false);
+    CHECK(scene->GetHoveredUI() == f.View); // beside the rows: the view's background
+    g_UIPointer.clear();
+    // A press that stays: a click of the view.
+    frame(480.0f, 300.0f, true);
+    frame(480.0f, 300.0f, false);
+    CHECK(JoinEvents(g_UIPointer) == "Scroll:down Scroll:up(in) Scroll:pclick");
+    CHECK(clicks == 1);
+    // A drag from the background: the content moves, the view is let go when the drag begins.
+    frame(480.0f, 300.0f, true);
+    frame(480.0f, 340.0f, true);
+    frame(480.0f, 340.0f, false);
+    CHECK(JoinEvents(g_UIPointer) == "Scroll:down Scroll:up(out) Scroll:scroll=0.80");
+    CHECK(clicks == 1);
+    CHECK(scene->GetScrollPosition(f.View).y < 1.0f);
+    // A drag of the scrollbar's handle: no click either.
+    const float before = scene->GetScrollPosition(f.View).y;
+    frame(542.0f, 360.0f, false);
+    g_UIPointer.clear();
+    frame(542.0f, 360.0f, true);
+    frame(542.0f, 310.0f, true);
+    frame(542.0f, 310.0f, false);
+    CHECK(JoinEvents(g_UIPointer) == "Scroll:down Scroll:up(out) Scroll:scroll=0.28");
+    CHECK(clicks == 1);
+    CHECK(scene->GetScrollPosition(f.View).y < before);
     scene->OnRuntimeStop();
 }
 

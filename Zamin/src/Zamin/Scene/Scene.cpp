@@ -4261,6 +4261,7 @@ namespace Zamin {
     {
         m_FrameIndex++;
         DeleteRetiredScripts(); // destroyed between frames (editor, other code)
+        const bool gamePausedBeforeUI = IsGamePaused();
         UpdateUI(ts); // real time: the UI works while the game is paused
         const bool advance = !m_IsPaused || m_StepFrames-- > 0; // the editor's pause / step
         if (advance)
@@ -4268,7 +4269,10 @@ namespace Zamin {
             m_UnscaledDeltaTime = ts;
             m_UnscaledTime += ts;
         }
-        if (advance && IsGamePaused())
+        // A pause from the UI stops the game at once; a resume from it (a pause menu's button) lets it
+        // go on from the next frame: this frame's input was the menu's - the gamepad A that pressed
+        // "Resume" is often also the game's Jump, and the game's scripts must not see it as a new press.
+        if (advance && (gamePausedBeforeUI || IsGamePaused()))
         {
             // The game is paused (time scale 0): only the scripts that run while it is (a pause menu);
             // the last game frame's debug shapes stay.

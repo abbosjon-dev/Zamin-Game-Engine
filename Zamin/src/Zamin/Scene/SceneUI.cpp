@@ -149,6 +149,15 @@ namespace Zamin {
             node.HitClip = parentLook->ChildHitClip;
         }
         auto* scroll = m_Registry.try_get<UIScrollViewComponent>(e);
+        const auto* mask = m_Registry.try_get<UIMaskComponent>(e);
+        // The mask's clip of `area` (UI units) drawn with the look s, o: in view px, Padding in from
+        // its edges (through the look, per axis, and the canvas scale), inside the outer clip.
+        auto maskClip = [&](const UIRect& area, const glm::vec2& s, const glm::vec2& o, const UIRect& outer) {
+            const glm::vec2 k = glm::abs(s) * scale;
+            const glm::vec4 padding{ mask->Padding.x * k.x, mask->Padding.y * k.x, mask->Padding.z * k.y, mask->Padding.w * k.y };
+            const UIRect px = box(area, s, o);
+            return UIScroll::MaskClip({ px.Min * scale, px.Max * scale }, padding, node.Clipped, outer);
+        };
         // Its children's space (a scroll view's: without its scrollbars) and its own mask's clip for them.
         auto prepareChildren = [&]() {
             node.ChildArea = scroll ? UIScroll::GetChildArea(rect, scroll->ShowHorizontalBar, scroll->ShowVerticalBar, scroll->ScrollbarWidth,
@@ -157,18 +166,12 @@ namespace Zamin {
             node.ChildClipped = node.Clipped;
             node.ChildVisClip = node.VisClip;
             node.ChildHitClip = node.HitClip;
-            if (const auto* mask = m_Registry.try_get<UIMaskComponent>(e))
+            if (mask)
             {
+                // A scroll view's: its view (with a Viewport: the Viewport's, set below once it is laid out).
                 const UIRect area = scroll && !scroll->Viewport ? node.ChildArea : rect;
-                // Padding in view px through the look (per axis) and the canvas scale.
-                auto clip = [&](const glm::vec2& s, const glm::vec2& o, const UIRect& outer) {
-                    const glm::vec2 k = glm::abs(s) * scale;
-                    const glm::vec4 padding{ mask->Padding.x * k.x, mask->Padding.y * k.x, mask->Padding.z * k.y, mask->Padding.w * k.y };
-                    const UIRect px = box(area, s, o);
-                    return UIScroll::MaskClip({ px.Min * scale, px.Max * scale }, padding, node.Clipped, outer);
-                };
-                node.ChildVisClip = clip(node.VisScale, node.VisOffset, node.VisClip);
-                node.ChildHitClip = clip(node.HitScale, node.HitOffset, node.HitClip);
+                node.ChildVisClip = maskClip(area, node.VisScale, node.VisOffset, node.VisClip);
+                node.ChildHitClip = maskClip(area, node.HitScale, node.HitOffset, node.HitClip);
                 node.ChildClipped = true;
             }
         };
@@ -227,13 +230,27 @@ namespace Zamin {
                 showV = scroll->Vertical && contentRect.GetHeight() > view.GetHeight() + 0.5f;
             }
         }
-        if (showH == scroll->ShowHorizontalBar && showV == scroll->ShowVerticalBar)
-            return;
-        scroll->ShowHorizontalBar = showH;
-        scroll->ShowVerticalBar = showV;
-        prepareChildren();
-        m_UILayout[e] = node;
-        layoutChildren();
+        if (showH != scroll->ShowHorizontalBar || showV != scroll->ShowVerticalBar)
+        {
+            scroll->ShowHorizontalBar = showH;
+            scroll->ShowVerticalBar = showV;
+            prepareChildren();
+            m_UILayout[e] = node;
+            layoutChildren();
+        }
+        // A mask on a scroll view with a Viewport clips to the view: the Viewport's rectangle as it is
+        // drawn, known once the children are laid out - they are laid out again inside that clip.
+        if (mask && scroll->Viewport)
+            if (auto vp = m_EntityMap.find(scroll->Viewport.ID); vp != m_EntityMap.end() && vp->second != e)
+                if (auto it = m_UILayout.find(vp->second); it != m_UILayout.end())
+                {
+                    const UILayoutNode viewport = it->second;
+                    node.ChildVisClip = maskClip(viewport.Rect, viewport.VisScale, viewport.VisOffset, node.VisClip);
+                    node.ChildHitClip = maskClip(viewport.Rect, viewport.HitScale, viewport.HitOffset, node.HitClip);
+                    node.ChildClipped = true;
+                    m_UILayout[e] = node;
+                    layoutChildren();
+                }
     }
 
     void Scene::LayoutUI()

@@ -1160,7 +1160,8 @@ namespace Zamin {
     // negative: out). A mask inside a mask shows only what both let through (a list in a scrolled
     // panel). ShowGraphic off: the mask's own picture (image, sprite, button colour) is not drawn -
     // it only clips. Rectangles only (the scissor test): a round picture does not round the clip.
-    // On a scroll view without a viewport of its own it clips to the view (its scrollbars stay out).
+    // On a scroll view it clips to the view: its Viewport's rectangle (as drawn), else its own without
+    // its scrollbars (they stay out).
     struct UIMaskComponent
     {
         bool ShowGraphic = true;

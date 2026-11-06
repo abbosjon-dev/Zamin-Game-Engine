@@ -308,11 +308,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 263. Tezlik umr bo'yi o'zgarishi
 - [x] 264. Tekstura sheet animatsiyasi (flipbook)
 - [x] 265. Konus emitter shakli
-- [ ] 266. Mesh sirtidan emitter
-- [ ] 267. Sub-emitter (o'lganda portlash)
-- [ ] 268. Yer tekisligi bilan to'qnashuv (bounce)
-- [ ] 269. Shovqin (noise) turbulentlik
-- [ ] 270. Trail (iz) rendering
+- [x] 266. Mesh sirtidan emitter
+- [x] 267. Sub-emitter (o'lganda portlash)
+- [x] 268. Yer tekisligi bilan to'qnashuv (bounce)
+- [x] 269. Shovqin (noise) turbulentlik
+- [x] 270. Trail (iz) rendering
 - [ ] 271. Particle'larni GPU'ga ko'proq batch qilish
 - [ ] 272. Particle sorting (kameraga masofa)
 - [ ] 273. Prewarm (boshidan to'ldirilgan holat)

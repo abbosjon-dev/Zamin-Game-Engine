@@ -1,0 +1,1719 @@
+{
+    "Scene": "ParticlesII",
+    "Version": 1,
+    "Settings": {
+        "DrawSky": true,
+        "SkyTop": [
+            0.01,
+            0.015,
+            0.04
+        ],
+        "SkyHorizon": [
+            0.05,
+            0.05,
+            0.1
+        ],
+        "Ground": [
+            0.03,
+            0.03,
+            0.04
+        ],
+        "Ambient": 0.22,
+        "Exposure": 1.0,
+        "ShadowDistance": 40,
+        "Gravity": [
+            0,
+            -9.8
+        ],
+        "Gravity3D": [
+            0,
+            -9.81,
+            0
+        ],
+        "Post": {
+            "Bloom": true,
+            "BloomThreshold": 1.0,
+            "BloomKnee": 0.5,
+            "BloomIntensity": 0.7,
+            "BloomRadius": 1.0,
+            "Vignette": 0.3,
+            "Saturation": 1.05,
+            "Contrast": 1.05,
+            "Brightness": 0.0,
+            "Tint": [
+                1,
+                1,
+                1
+            ],
+            "Tonemap": 1,
+            "SSAO": true,
+            "SSAORadius": 0.6,
+            "SSAOIntensity": 1.2,
+            "SSAOBias": 0.03,
+            "FXAA": true,
+            "FXAASubpixel": 0.75
+        }
+    },
+    "Entities": [
+        {
+            "Entity": 8150000000000001,
+            "Tag": "Main Camera",
+            "Transform": {
+                "Translation": [
+                    0,
+                    4.6,
+                    13.5
+                ],
+                "Rotation": [
+                    -0.24,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Camera": {
+                "ProjectionType": 0,
+                "PerspectiveFOV": 0.8,
+                "PerspectiveNear": 0.1,
+                "PerspectiveFar": 300,
+                "OrthographicSize": 10,
+                "OrthographicNear": -100,
+                "OrthographicFar": 100,
+                "Primary": true,
+                "FixedAspectRatio": false,
+                "ClearColor": [
+                    0.02,
+                    0.02,
+                    0.04,
+                    1
+                ]
+            }
+        },
+        {
+            "Entity": 8150000000000002,
+            "Tag": "Oy",
+            "Transform": {
+                "Translation": [
+                    0,
+                    12,
+                    0
+                ],
+                "Rotation": [
+                    -0.8,
+                    0.5,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "DirectionalLight": {
+                "Color": [
+                    0.55,
+                    0.65,
+                    1.0
+                ],
+                "Intensity": 0.35,
+                "CastShadows": true
+            }
+        },
+        {
+            "Entity": 8150000000000003,
+            "Tag": "Yer",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    40,
+                    1,
+                    24
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Plane",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.16,
+                    0.17,
+                    0.2,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.9,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 8150000000000004,
+            "Tag": "Supa 1",
+            "Transform": {
+                "Translation": [
+                    -6.6,
+                    0.25,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    2.2,
+                    0.5,
+                    2.2
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.32,
+                    0.33,
+                    0.37,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.55,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 8150000000000005,
+            "Tag": "Mesh kub (qirralar)",
+            "Transform": {
+                "Translation": [
+                    -6.6,
+                    1.55,
+                    0
+                ],
+                "Rotation": [
+                    0.55,
+                    0.65,
+                    0.0
+                ],
+                "Scale": [
+                    1.15,
+                    1.15,
+                    1.15
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cube",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.04,
+                    0.05,
+                    0.07,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.1,
+                "Roughness": 0.7,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            },
+            "ParticleSystem": {
+                "Playing": true,
+                "Looping": true,
+                "PlayInEditor": true,
+                "EmissionRate": 200,
+                "Burst": 0,
+                "MaxParticles": 800,
+                "Shape": 6,
+                "ShapeRadius": 0.5,
+                "ShapeExtents": [
+                    0.5,
+                    0.5,
+                    0.5
+                ],
+                "LifetimeMin": 0.8,
+                "LifetimeMax": 1.2,
+                "SpeedMin": 0.02,
+                "SpeedMax": 0.08,
+                "Direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "Spread": 10,
+                "Gravity": [
+                    0,
+                    0,
+                    0
+                ],
+                "Drag": 0.0,
+                "AngularVelocityMax": 0.0,
+                "StartColor": [
+                    0.3,
+                    1.2,
+                    1.9,
+                    1
+                ],
+                "EndColor": [
+                    0.1,
+                    0.5,
+                    1.4,
+                    0
+                ],
+                "StartSize": 0.08,
+                "EndSize": 0.01,
+                "RenderAsCircle": true,
+                "Additive": true,
+                "WorldSpace": true,
+                "Billboard": true,
+                "Texture": "",
+                "SortingOrder": 0,
+                "MeshSource": "Renderer",
+                "MeshPrimitive": "Sphere",
+                "MeshModel": "",
+                "MeshMode": "Edge",
+                "MeshAlongNormal": true,
+                "MeshNormalOffset": 0.01
+            }
+        },
+        {
+            "Entity": 8150000000000006,
+            "Tag": "Mesh sfera (sirt)",
+            "Transform": {
+                "Translation": [
+                    -6.6,
+                    1.55,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    2.1,
+                    2.1,
+                    2.1
+                ]
+            },
+            "ParticleSystem": {
+                "Playing": true,
+                "Looping": true,
+                "PlayInEditor": true,
+                "EmissionRate": 110,
+                "Burst": 0,
+                "MaxParticles": 400,
+                "Shape": 6,
+                "ShapeRadius": 0.5,
+                "ShapeExtents": [
+                    0.5,
+                    0.5,
+                    0.5
+                ],
+                "LifetimeMin": 0.7,
+                "LifetimeMax": 1.1,
+                "SpeedMin": 0.25,
+                "SpeedMax": 0.45,
+                "Direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "Spread": 5,
+                "Gravity": [
+                    0,
+                    0,
+                    0
+                ],
+                "Drag": 0.0,
+                "AngularVelocityMax": 0.0,
+                "StartColor": [
+                    2.4,
+                    0.8,
+                    2.8,
+                    1.0
+                ],
+                "EndColor": [
+                    0.9,
+                    0.3,
+                    2.2,
+                    0
+                ],
+                "StartSize": 0.08,
+                "EndSize": 0.0,
+                "RenderAsCircle": true,
+                "Additive": true,
+                "WorldSpace": true,
+                "Billboard": true,
+                "Texture": "",
+                "SortingOrder": 0,
+                "MeshSource": "Primitive",
+                "MeshPrimitive": "Sphere",
+                "MeshModel": "",
+                "MeshMode": "Triangle",
+                "MeshAlongNormal": true,
+                "MeshNormalOffset": 0.0
+            }
+        },
+        {
+            "Entity": 8150000000000007,
+            "Tag": "Mesh nuri",
+            "Transform": {
+                "Translation": [
+                    -6.6,
+                    3.4,
+                    1.8
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "PointLight": {
+                "Color": [
+                    0.35,
+                    0.7,
+                    1.0
+                ],
+                "Intensity": 1.2,
+                "Radius": 4.5
+            }
+        },
+        {
+            "Entity": 8150000000000008,
+            "Tag": "Yozuv 1",
+            "Transform": {
+                "Translation": [
+                    -6.6,
+                    0.45,
+                    1.9
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.34,
+                    0.34,
+                    0.34
+                ]
+            },
+            "Text": {
+                "Text": "Mesh: qirra + sirt",
+                "Color": [
+                    0.55,
+                    0.85,
+                    1.0,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8150000000000009,
+            "Tag": "Supa 2",
+            "Transform": {
+                "Translation": [
+                    -2.2,
+                    0.25,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    2.2,
+                    0.5,
+                    2.2
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.32,
+                    0.33,
+                    0.37,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.55,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 8150000000000010,
+            "Tag": "Shovqin (pashshalar)",
+            "Transform": {
+                "Translation": [
+                    -2.2,
+                    1.55,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "ParticleSystem": {
+                "Playing": true,
+                "Looping": true,
+                "PlayInEditor": true,
+                "EmissionRate": 22,
+                "Burst": 0,
+                "MaxParticles": 200,
+                "Shape": 3,
+                "ShapeRadius": 0.5,
+                "ShapeExtents": [
+                    0.9,
+                    0.6,
+                    0.9
+                ],
+                "LifetimeMin": 3.0,
+                "LifetimeMax": 5.0,
+                "SpeedMin": 0.05,
+                "SpeedMax": 0.15,
+                "Direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "Spread": 180,
+                "Gravity": [
+                    0,
+                    0,
+                    0
+                ],
+                "Drag": 0.0,
+                "AngularVelocityMax": 0.0,
+                "StartColor": [
+                    1,
+                    0.85,
+                    0.35,
+                    1
+                ],
+                "EndColor": [
+                    1,
+                    0.25,
+                    0.05,
+                    0
+                ],
+                "StartSize": 0.09,
+                "EndSize": 0.09,
+                "RenderAsCircle": true,
+                "Additive": true,
+                "WorldSpace": true,
+                "Billboard": true,
+                "Texture": "",
+                "SortingOrder": 0,
+                "ColorOverLifetime": {
+                    "Enabled": true,
+                    "Gradient": {
+                        "Stops": [
+                            [
+                                0.0,
+                                1.2,
+                                1.6,
+                                0.3,
+                                0.0
+                            ],
+                            [
+                                0.15,
+                                1.3,
+                                1.8,
+                                0.35,
+                                1.0
+                            ],
+                            [
+                                0.8,
+                                0.9,
+                                1.6,
+                                0.25,
+                                0.9
+                            ],
+                            [
+                                1.0,
+                                0.5,
+                                1.2,
+                                0.2,
+                                0.0
+                            ]
+                        ]
+                    },
+                    "RandomBetweenTwo": true,
+                    "GradientB": {
+                        "Stops": [
+                            [
+                                0.0,
+                                1.8,
+                                1.2,
+                                0.3,
+                                0.0
+                            ],
+                            [
+                                0.15,
+                                1.9,
+                                1.3,
+                                0.35,
+                                1.0
+                            ],
+                            [
+                                0.8,
+                                1.5,
+                                0.9,
+                                0.2,
+                                0.9
+                            ],
+                            [
+                                1.0,
+                                1.2,
+                                0.5,
+                                0.1,
+                                0.0
+                            ]
+                        ]
+                    }
+                },
+                "Noise": {
+                    "Enabled": true,
+                    "Strength": [
+                        1.3,
+                        1.0,
+                        1.3
+                    ],
+                    "StrengthCurve": [
+                        {
+                            "Time": 0.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        },
+                        {
+                            "Time": 1.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        }
+                    ],
+                    "Frequency": 0.9,
+                    "ScrollSpeed": 0.35,
+                    "Octaves": 2,
+                    "OctaveMultiplier": 0.45,
+                    "Seed": 7
+                },
+                "Trails": {
+                    "Enabled": true,
+                    "Ratio": 1.0,
+                    "Lifetime": 0.45,
+                    "MinVertexDistance": 0.03,
+                    "MaxPoints": 32,
+                    "Width": 0.5,
+                    "WidthFromSize": true,
+                    "WidthCurve": [
+                        {
+                            "Time": 0.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        },
+                        {
+                            "Time": 1.0,
+                            "Value": 0.0,
+                            "Interpolation": "Linear"
+                        }
+                    ],
+                    "Gradient": {
+                        "Stops": [
+                            [
+                                0.0,
+                                1,
+                                1,
+                                1,
+                                0.8
+                            ],
+                            [
+                                1.0,
+                                1,
+                                1,
+                                1,
+                                0.0
+                            ]
+                        ]
+                    },
+                    "InheritColor": true
+                }
+            }
+        },
+        {
+            "Entity": 8150000000000011,
+            "Tag": "Shovqin nuri",
+            "Transform": {
+                "Translation": [
+                    -2.2,
+                    2.0,
+                    1.0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "PointLight": {
+                "Color": [
+                    0.7,
+                    1.0,
+                    0.3
+                ],
+                "Intensity": 2.0,
+                "Radius": 4.5
+            }
+        },
+        {
+            "Entity": 8150000000000012,
+            "Tag": "Yozuv 2",
+            "Transform": {
+                "Translation": [
+                    -2.2,
+                    0.45,
+                    1.9
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.34,
+                    0.34,
+                    0.34
+                ]
+            },
+            "Text": {
+                "Text": "Shovqin (noise)",
+                "Color": [
+                    0.75,
+                    1.0,
+                    0.45,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8150000000000013,
+            "Tag": "Urilish chaqnashi",
+            "Transform": {
+                "Translation": [
+                    2.2,
+                    0.0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "ParticleSystem": {
+                "Playing": true,
+                "Looping": true,
+                "PlayInEditor": true,
+                "EmissionRate": 0,
+                "Burst": 0,
+                "MaxParticles": 600,
+                "Shape": 0,
+                "ShapeRadius": 0.5,
+                "ShapeExtents": [
+                    0.5,
+                    0.5,
+                    0.5
+                ],
+                "LifetimeMin": 0.12,
+                "LifetimeMax": 0.25,
+                "SpeedMin": 0.6,
+                "SpeedMax": 1.6,
+                "Direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "Spread": 75,
+                "Gravity": [
+                    0,
+                    0,
+                    0
+                ],
+                "Drag": 0.0,
+                "AngularVelocityMax": 0.0,
+                "StartColor": [
+                    1.6,
+                    1.3,
+                    0.8,
+                    1
+                ],
+                "EndColor": [
+                    1.2,
+                    0.45,
+                    0.1,
+                    0
+                ],
+                "StartSize": 0.07,
+                "EndSize": 0.0,
+                "RenderAsCircle": true,
+                "Additive": true,
+                "WorldSpace": true,
+                "Billboard": true,
+                "Texture": "",
+                "SortingOrder": 0
+            }
+        },
+        {
+            "Entity": 8150000000000014,
+            "Tag": "Uchqunlar (to'qnashuv)",
+            "Transform": {
+                "Translation": [
+                    2.2,
+                    1.5,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "ParticleSystem": {
+                "Playing": true,
+                "Looping": true,
+                "PlayInEditor": true,
+                "EmissionRate": 45,
+                "Burst": 0,
+                "MaxParticles": 500,
+                "Shape": 0,
+                "ShapeRadius": 0.5,
+                "ShapeExtents": [
+                    0.5,
+                    0.5,
+                    0.5
+                ],
+                "LifetimeMin": 2.2,
+                "LifetimeMax": 3.0,
+                "SpeedMin": 3.0,
+                "SpeedMax": 4.6,
+                "Direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "Spread": 38,
+                "Gravity": [
+                    0,
+                    -9.8,
+                    0
+                ],
+                "Drag": 0.0,
+                "AngularVelocityMax": 0.0,
+                "StartColor": [
+                    2.4,
+                    1.7,
+                    0.7,
+                    1
+                ],
+                "EndColor": [
+                    1.6,
+                    0.35,
+                    0.05,
+                    0
+                ],
+                "StartSize": 0.08,
+                "EndSize": 0.03,
+                "RenderAsCircle": true,
+                "Additive": true,
+                "WorldSpace": true,
+                "Billboard": true,
+                "Texture": "",
+                "SortingOrder": 0,
+                "Collision": {
+                    "Enabled": true,
+                    "Type": "Plane",
+                    "PlaneNormal": [
+                        0,
+                        1,
+                        0
+                    ],
+                    "PlaneOffset": 0.0,
+                    "PlaneEntity": 0,
+                    "Bounce": 0.55,
+                    "Dampen": 0.25,
+                    "LifetimeLoss": 0.0,
+                    "MinKillSpeed": 0.0,
+                    "RadiusScale": 1.0,
+                    "CollidesWith": 65535
+                },
+                "SubEmitters": {
+                    "Enabled": true,
+                    "Emitters": [
+                        {
+                            "Trigger": "Collision",
+                            "Emitter": 8150000000000013,
+                            "Count": 4,
+                            "Probability": 0.6,
+                            "InheritVelocity": 0.0,
+                            "InheritColor": false,
+                            "InheritSize": false
+                        }
+                    ]
+                },
+                "Trails": {
+                    "Enabled": true,
+                    "Ratio": 1.0,
+                    "Lifetime": 0.2,
+                    "MinVertexDistance": 0.03,
+                    "MaxPoints": 16,
+                    "Width": 0.9,
+                    "WidthFromSize": true,
+                    "WidthCurve": [
+                        {
+                            "Time": 0.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        },
+                        {
+                            "Time": 1.0,
+                            "Value": 0.0,
+                            "Interpolation": "Linear"
+                        }
+                    ],
+                    "Gradient": {
+                        "Stops": [
+                            [
+                                0.0,
+                                1,
+                                1,
+                                1,
+                                1.0
+                            ],
+                            [
+                                1.0,
+                                1,
+                                0.6,
+                                0.3,
+                                0.0
+                            ]
+                        ]
+                    },
+                    "InheritColor": true
+                }
+            }
+        },
+        {
+            "Entity": 8150000000000015,
+            "Tag": "Uchqun nuri",
+            "Transform": {
+                "Translation": [
+                    2.2,
+                    0.8,
+                    1.0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.6,
+                    0.25
+                ],
+                "Intensity": 3.5,
+                "Radius": 5.0
+            }
+        },
+        {
+            "Entity": 8150000000000016,
+            "Tag": "Yozuv 3",
+            "Transform": {
+                "Translation": [
+                    2.2,
+                    0.45,
+                    1.9
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.34,
+                    0.34,
+                    0.34
+                ]
+            },
+            "Text": {
+                "Text": "To'qnashuv + sachrash",
+                "Color": [
+                    1.0,
+                    0.75,
+                    0.45,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8150000000000017,
+            "Tag": "Supa 4",
+            "Transform": {
+                "Translation": [
+                    6.6,
+                    0.25,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    2.2,
+                    0.5,
+                    2.2
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.32,
+                    0.33,
+                    0.37,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.55,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 8150000000000018,
+            "Tag": "Spiral izlar",
+            "Transform": {
+                "Translation": [
+                    6.6,
+                    0.75,
+                    0
+                ],
+                "Rotation": [
+                    -1.5708,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "ParticleSystem": {
+                "Playing": true,
+                "Looping": true,
+                "PlayInEditor": true,
+                "EmissionRate": 7,
+                "Burst": 0,
+                "MaxParticles": 60,
+                "Shape": 1,
+                "ShapeRadius": 0.85,
+                "ShapeExtents": [
+                    0.5,
+                    0.5,
+                    0.5
+                ],
+                "LifetimeMin": 3.0,
+                "LifetimeMax": 3.0,
+                "SpeedMin": 0.55,
+                "SpeedMax": 0.65,
+                "Direction": [
+                    0,
+                    0,
+                    1
+                ],
+                "Spread": 0,
+                "Gravity": [
+                    0,
+                    0,
+                    0
+                ],
+                "Drag": 0.0,
+                "AngularVelocityMax": 0.0,
+                "StartColor": [
+                    1,
+                    0.85,
+                    0.35,
+                    1
+                ],
+                "EndColor": [
+                    1,
+                    0.25,
+                    0.05,
+                    0
+                ],
+                "StartSize": 0.13,
+                "EndSize": 0.13,
+                "RenderAsCircle": true,
+                "Additive": true,
+                "WorldSpace": true,
+                "Billboard": true,
+                "Texture": "",
+                "SortingOrder": 0,
+                "ShapeThickness": 0.0,
+                "ColorOverLifetime": {
+                    "Enabled": true,
+                    "Gradient": {
+                        "Stops": [
+                            [
+                                0.0,
+                                1.8,
+                                0.5,
+                                1.9,
+                                0.0
+                            ],
+                            [
+                                0.1,
+                                1.8,
+                                0.5,
+                                1.9,
+                                1.0
+                            ],
+                            [
+                                0.6,
+                                0.5,
+                                1.2,
+                                2.0,
+                                1.0
+                            ],
+                            [
+                                1.0,
+                                0.3,
+                                0.9,
+                                1.8,
+                                0.0
+                            ]
+                        ]
+                    },
+                    "RandomBetweenTwo": false,
+                    "GradientB": {
+                        "Stops": [
+                            [
+                                0.0,
+                                1,
+                                1,
+                                1,
+                                1
+                            ],
+                            [
+                                1.0,
+                                1,
+                                1,
+                                1,
+                                0
+                            ]
+                        ]
+                    }
+                },
+                "VelocityOverLifetime": {
+                    "Enabled": true,
+                    "Linear": [
+                        0,
+                        0,
+                        0
+                    ],
+                    "LinearCurve": [
+                        {
+                            "Time": 0.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        },
+                        {
+                            "Time": 1.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        }
+                    ],
+                    "World": false,
+                    "Orbital": [
+                        0,
+                        0,
+                        2.2
+                    ],
+                    "Radial": 0.0,
+                    "SpeedModifier": [
+                        {
+                            "Time": 0.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        },
+                        {
+                            "Time": 1.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        }
+                    ]
+                },
+                "Trails": {
+                    "Enabled": true,
+                    "Ratio": 1.0,
+                    "Lifetime": 0.9,
+                    "MinVertexDistance": 0.05,
+                    "MaxPoints": 48,
+                    "Width": 0.16,
+                    "WidthFromSize": false,
+                    "WidthCurve": [
+                        {
+                            "Time": 0.0,
+                            "Value": 1.0,
+                            "Interpolation": "Bezier"
+                        },
+                        {
+                            "Time": 1.0,
+                            "Value": 0.0,
+                            "Interpolation": "Bezier"
+                        }
+                    ],
+                    "Gradient": {
+                        "Stops": [
+                            [
+                                0.0,
+                                1,
+                                1,
+                                1,
+                                0.9
+                            ],
+                            [
+                                0.5,
+                                0.8,
+                                0.9,
+                                1,
+                                0.45
+                            ],
+                            [
+                                1.0,
+                                0.5,
+                                0.7,
+                                1,
+                                0.0
+                            ]
+                        ]
+                    },
+                    "InheritColor": true
+                }
+            }
+        },
+        {
+            "Entity": 8150000000000019,
+            "Tag": "Iz nuri",
+            "Transform": {
+                "Translation": [
+                    6.6,
+                    2.0,
+                    1.0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "PointLight": {
+                "Color": [
+                    0.8,
+                    0.4,
+                    1.0
+                ],
+                "Intensity": 3.0,
+                "Radius": 5.0
+            }
+        },
+        {
+            "Entity": 8150000000000020,
+            "Tag": "Yozuv 4",
+            "Transform": {
+                "Translation": [
+                    6.6,
+                    0.45,
+                    1.9
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.34,
+                    0.34,
+                    0.34
+                ]
+            },
+            "Text": {
+                "Text": "Iz (trail)",
+                "Color": [
+                    0.85,
+                    0.6,
+                    1.0,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 8150000000000021,
+            "Tag": "Mushak portlashi",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    -7
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "ParticleSystem": {
+                "Playing": true,
+                "Looping": true,
+                "PlayInEditor": true,
+                "EmissionRate": 0,
+                "Burst": 0,
+                "MaxParticles": 3000,
+                "Shape": 2,
+                "ShapeRadius": 0.05,
+                "ShapeExtents": [
+                    0.5,
+                    0.5,
+                    0.5
+                ],
+                "LifetimeMin": 1.1,
+                "LifetimeMax": 1.7,
+                "SpeedMin": 2.6,
+                "SpeedMax": 3.4,
+                "Direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "Spread": 180,
+                "Gravity": [
+                    0,
+                    -1.6,
+                    0
+                ],
+                "Drag": 0.9,
+                "AngularVelocityMax": 0.0,
+                "StartColor": [
+                    2.2,
+                    2.2,
+                    2.2,
+                    1
+                ],
+                "EndColor": [
+                    1.4,
+                    1.4,
+                    1.4,
+                    0
+                ],
+                "StartSize": 0.11,
+                "EndSize": 0.0,
+                "RenderAsCircle": true,
+                "Additive": true,
+                "WorldSpace": true,
+                "Billboard": true,
+                "Texture": "",
+                "SortingOrder": 0,
+                "SizeOverLifetime": {
+                    "Enabled": true,
+                    "Curve": [
+                        {
+                            "Time": 0.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        },
+                        {
+                            "Time": 0.7,
+                            "Value": 0.8,
+                            "Interpolation": "Linear"
+                        },
+                        {
+                            "Time": 1.0,
+                            "Value": 0.0,
+                            "Interpolation": "Linear"
+                        }
+                    ],
+                    "RandomBetweenTwo": false,
+                    "CurveB": [
+                        {
+                            "Time": 0.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        },
+                        {
+                            "Time": 1.0,
+                            "Value": 0.5,
+                            "Interpolation": "Linear"
+                        }
+                    ]
+                },
+                "Trails": {
+                    "Enabled": true,
+                    "Ratio": 1.0,
+                    "Lifetime": 0.3,
+                    "MinVertexDistance": 0.06,
+                    "MaxPoints": 16,
+                    "Width": 0.9,
+                    "WidthFromSize": true,
+                    "WidthCurve": [
+                        {
+                            "Time": 0.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        },
+                        {
+                            "Time": 1.0,
+                            "Value": 0.0,
+                            "Interpolation": "Linear"
+                        }
+                    ],
+                    "Gradient": {
+                        "Stops": [
+                            [
+                                0.0,
+                                1,
+                                1,
+                                1,
+                                0.9
+                            ],
+                            [
+                                1.0,
+                                1,
+                                1,
+                                1,
+                                0.0
+                            ]
+                        ]
+                    },
+                    "InheritColor": true
+                }
+            }
+        },
+        {
+            "Entity": 8150000000000022,
+            "Tag": "Mushak raketalari",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0.3,
+                    -7
+                ],
+                "Rotation": [
+                    -1.5708,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "ParticleSystem": {
+                "Playing": true,
+                "Looping": true,
+                "PlayInEditor": true,
+                "EmissionRate": 1.3,
+                "Burst": 0,
+                "MaxParticles": 20,
+                "Shape": 1,
+                "ShapeRadius": 2.5,
+                "ShapeExtents": [
+                    0.5,
+                    0.5,
+                    0.5
+                ],
+                "LifetimeMin": 0.95,
+                "LifetimeMax": 1.15,
+                "SpeedMin": 5.4,
+                "SpeedMax": 6.0,
+                "Direction": [
+                    0,
+                    0,
+                    1
+                ],
+                "Spread": 16,
+                "Gravity": [
+                    0,
+                    -3.0,
+                    0
+                ],
+                "Drag": 0.0,
+                "AngularVelocityMax": 0.0,
+                "StartColor": [
+                    1,
+                    0.85,
+                    0.35,
+                    1
+                ],
+                "EndColor": [
+                    1,
+                    0.25,
+                    0.05,
+                    0
+                ],
+                "StartSize": 0.12,
+                "EndSize": 0.08,
+                "RenderAsCircle": true,
+                "Additive": true,
+                "WorldSpace": true,
+                "Billboard": true,
+                "Texture": "",
+                "SortingOrder": 0,
+                "ColorOverLifetime": {
+                    "Enabled": true,
+                    "Gradient": {
+                        "Stops": [
+                            [
+                                0.0,
+                                2.4,
+                                0.5,
+                                0.3,
+                                1.0
+                            ],
+                            [
+                                1.0,
+                                2.4,
+                                0.9,
+                                0.3,
+                                1.0
+                            ]
+                        ]
+                    },
+                    "RandomBetweenTwo": true,
+                    "GradientB": {
+                        "Stops": [
+                            [
+                                0.0,
+                                0.4,
+                                1.4,
+                                2.6,
+                                1.0
+                            ],
+                            [
+                                1.0,
+                                0.5,
+                                2.2,
+                                1.2,
+                                1.0
+                            ]
+                        ]
+                    }
+                },
+                "SubEmitters": {
+                    "Enabled": true,
+                    "Emitters": [
+                        {
+                            "Trigger": "Death",
+                            "Emitter": 8150000000000021,
+                            "Count": 70,
+                            "Probability": 1.0,
+                            "InheritVelocity": 0.15,
+                            "InheritColor": true,
+                            "InheritSize": false
+                        }
+                    ]
+                },
+                "Trails": {
+                    "Enabled": true,
+                    "Ratio": 1.0,
+                    "Lifetime": 0.35,
+                    "MinVertexDistance": 0.08,
+                    "MaxPoints": 24,
+                    "Width": 0.7,
+                    "WidthFromSize": true,
+                    "WidthCurve": [
+                        {
+                            "Time": 0.0,
+                            "Value": 1.0,
+                            "Interpolation": "Linear"
+                        },
+                        {
+                            "Time": 1.0,
+                            "Value": 0.0,
+                            "Interpolation": "Linear"
+                        }
+                    ],
+                    "Gradient": {
+                        "Stops": [
+                            [
+                                0.0,
+                                1,
+                                0.9,
+                                0.7,
+                                0.8
+                            ],
+                            [
+                                1.0,
+                                1,
+                                0.5,
+                                0.2,
+                                0.0
+                            ]
+                        ]
+                    },
+                    "InheritColor": true
+                }
+            }
+        },
+        {
+            "Entity": 8150000000000023,
+            "Tag": "Yozuv 5",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0.45,
+                    -6.0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.34,
+                    0.34,
+                    0.34
+                ]
+            },
+            "Text": {
+                "Text": "Mushak: sub-emitter + iz",
+                "Color": [
+                    1.0,
+                    0.9,
+                    0.6,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "Centered": true,
+                "Font": ""
+            }
+        }
+    ]
+}

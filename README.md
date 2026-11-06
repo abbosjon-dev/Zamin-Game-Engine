@@ -294,14 +294,24 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     ko'rinishlar - faqat yorug'lik, normallar, albedo, roughness, metallic (qiymat ko'rinishlari tonemappingsiz)
   - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview). Simulyatsiya sahnadan
     alohida (`ParticleSimulation`, `Scene/ParticleSystem.h`). Emitter shakllari: nuqta, doira, sfera, quti, **konus**
-    (asos radiusi, burchak, asosdan / hajmidan, 2D tekis yelpig'ich), **chiziq** (2D, lokal X bo'ylab); qalinlik (faqat
-    cheti / sirti) va "markazdan tashqariga" yo'nalish. Ixtiyoriy modullar (inspektorda yoqiladigan bo'limlar):
+    (asos radiusi, burchak, asosdan / hajmidan, 2D tekis yelpig'ich), **chiziq** (2D, lokal X bo'ylab), **mesh sirti**
+    (primitiv, model fayli yoki obyektning Mesh Renderer'i; uchburchaklar yuzasiga qarab / qirralar / uchlar, normal
+    bo'ylab yoki Yo'nalish bo'ylab); qalinlik (faqat cheti / sirti) va "markazdan tashqariga" yo'nalish. Ixtiyoriy
+    modullar (inspektorda yoqiladigan bo'limlar):
     **Rang (umr bo'yi)** - ko'p nuqtali gradient (ikki gradient orasida tasodifiy), **O'lcham (umr bo'yi)** - egri chiziq
     (animatsiya kalitlari: pog'onali / chiziqli / Bezier; ikki egri chiziq orasida), **Tezlik (umr bo'yi)** - chiziqli
     (egri chiziq bilan, emitter yoki dunyo o'qlarida), orbita, radial, tezlik ko'paytuvchisi, **Tezlik chegarasi**
-    (so'ndirish bilan), **Tekstura sheet (flipbook)** - ustun x qator panjara yoki sprite kadrlari (.zmeta, prefiks),
-    umr bo'yi (sikllar) yoki FPS bilan, boshlang'ich / tasodifiy kadr, tasodifiy qator. Viewport'da emitter shakli gizmo
-    bilan (Gizmolar > Particle shakli). Namuna: Showcase3D `Scenes/Particles.zscene`
+    (so'ndirish bilan), **Shovqin** - silliq 3D gradient shovqin maydoni (o'qlar bo'yicha kuch, egri chiziq, chastota,
+    siljish tezligi, oktavalar, seed - deterministik), **To'qnashuv** - yer tekisligi (normal + masofa yoki obyekt orqali)
+    yoki 3D / 2D fizika colliderlari (raycast, qatlamlar, o'yin / simulyatsiyada): sakrash, so'ndirish, umr yo'qotish,
+    o'ldirish tezligi, radius; sirtda tinch yotadi, **Sub-emitterlar** - particle tug'ilganda / o'lganda / urilganda /
+    umr bo'yi boshqa obyektning Particle System'i o'sha joyda particle chiqaradi (soni, ehtimollik, tezlik / rang /
+    o'lcham merosi; "Yangi shablon" tugmasi bola obyekt yaratadi) - mushak, yomg'ir sachrashi, **Tekstura sheet
+    (flipbook)** - ustun x qator panjara yoki sprite kadrlari (.zmeta, prefiks), umr bo'yi (sikllar) yoki FPS bilan,
+    boshlang'ich / tasodifiy kadr, tasodifiy qator, **Iz (trail)** - kameraga qaragan lenta (ulushi, umri, nuqta
+    oralig'i, kenglik egri chizig'i, rang gradienti, particle rangida). Viewport'da emitter shakli (mesh qirralari ham)
+    va to'qnashuv tekisligi gizmo bilan (Gizmolar > Particle shakli). Namunalar: Showcase3D `Scenes/Particles.zscene`,
+    `Scenes/ParticlesII.zscene` (mesh, shovqin, to'qnashuv + sachrash, spiral izlar, mushaklar)
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
 - **2D fizika** (Box2D, `PhysicsWorld2D`): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
   - **Polygon Collider 2D**: istalgan ko'pburchak (obyekt masshtabi bilan); botiq yoki 8 tadan ko'p burchakli shakl

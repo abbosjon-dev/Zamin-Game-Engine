@@ -1575,12 +1575,22 @@ namespace Zamin {
         m_Sound = 0;
     }
 
+    uint32_t AssetInspectorPanel::PlayPreviewSound()
+    {
+        // Past the mixer: the game's group volumes / mutes do not change how the file sounds here.
+        SoundParams params;
+        params.Volume = m_Volume;
+        params.Loop = m_Loop;
+        params.Group.clear();
+        return AudioEngine::Play(m_Path, params);
+    }
+
     void AssetInspectorPanel::StartPreviewPlayback()
     {
         if (m_Type == AssetType::Audio)
         {
             StopAudio();
-            m_Sound = AudioEngine::Play(m_Path, m_Volume, 1.0f, m_Loop);
+            m_Sound = PlayPreviewSound();
             if (m_Sound)
                 ZM_INFO("Ovoz ko'rib chiqilmoqda: {}", m_Path.filename().string());
         }
@@ -1672,7 +1682,7 @@ namespace Zamin {
                 if (!playing)
                 {
                     StopAudio();
-                    m_Sound = AudioEngine::Play(m_Path, m_Volume, 1.0f, m_Loop);
+                    m_Sound = PlayPreviewSound();
                 }
                 if (m_Sound)
                     AudioEngine::Seek(m_Sound, t);
@@ -1712,7 +1722,7 @@ namespace Zamin {
             // Applied by starting again from where it is.
             float at = AudioEngine::GetCursor(m_Sound);
             StopAudio();
-            m_Sound = AudioEngine::Play(m_Path, m_Volume, 1.0f, m_Loop);
+            m_Sound = PlayPreviewSound();
             AudioEngine::Seek(m_Sound, at);
         }
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))

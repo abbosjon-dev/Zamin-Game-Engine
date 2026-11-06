@@ -79,6 +79,7 @@ namespace Zamin {
         // Audio: plays the sound; model: plays its first animation.
         void StartPreviewPlayback();
         void StopAudio();
+        uint32_t PlayPreviewSound();
 
         // The shown material's values as edited (null when no material is shown). After changing
         // them, ApplyMaterialEdit shows them on the material (what the editor fields do).

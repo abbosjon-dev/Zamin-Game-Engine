@@ -4337,10 +4337,11 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<UITransformComponent>();
     e.AddComponent<UIButtonComponent>();
     e.AddComponent<AudioSourceComponent>();
+    e.AddComponent<AudioListenerComponent>();
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 47);
+    CHECK(types.size() == 48);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -7291,6 +7292,387 @@ TEST(InactiveAudioSourcesStop)
     if (!wasAvailable)
         AudioEngine::Shutdown();
     std::filesystem::remove_all(dir);
+}
+
+TEST(AudioMixerGroupMath)
+{
+    AudioSettings mixer;
+    CHECK(mixer.IsDefault() && mixer.Groups.size() == 4 && mixer.Groups[0].Name == "Master");
+    CHECK(AudioSettings::IsBuiltIn("SFX") && !AudioSettings::IsBuiltIn("Voices"));
+    CHECK(mixer.AddGroup("Steps", "SFX") && mixer.AddGroup("Voices", "Nope")); // unknown parent: Master
+    CHECK(!mixer.AddGroup("Steps", "UI") && !mixer.AddGroup("", "SFX"));
+    CHECK(mixer.Find("Voices")->Parent == "Master" && mixer.IsDescendantOf("Steps", "Master") && mixer.IsDescendantOf("Steps", "SFX"));
+    CHECK(!mixer.IsDescendantOf("SFX", "Steps") && !mixer.IsDefault());
+    // No loops, Master stays the root.
+    CHECK(!mixer.SetParent("SFX", "Steps") && !mixer.SetParent("Master", "SFX") && !mixer.SetParent("SFX", "SFX"));
+    CHECK(mixer.SetParent("Voices", "SFX") && mixer.Find("Voices")->Parent == "SFX");
+    auto order = mixer.GetTreeOrder();
+    CHECK(order.size() == 6 && order[0] == std::make_pair(std::string("Master"), 0));
+    CHECK(order[2].first == "SFX" && order[3] == std::make_pair(std::string("Steps"), 2) && order[4].first == "Voices" && order[5].first == "UI");
+
+    // Volumes multiply down the tree.
+    mixer.Find("Master")->Volume = 0.5f;
+    mixer.Find("SFX")->Volume = 0.8f;
+    mixer.Find("Steps")->Volume = 0.25f;
+    CHECK_NEAR(mixer.GetEffectiveGain("Steps"), 0.5f * 0.8f * 0.25f, 1e-6f);
+    CHECK_NEAR(mixer.GetEffectiveGain("Music"), 0.5f, 1e-6f);
+    CHECK(mixer.GetEffectiveGain("Nope") == 0.0f && mixer.GetLocalGain("Nope") == 0.0f);
+    // A muted parent silences its children.
+    mixer.Find("SFX")->Muted = true;
+    CHECK(mixer.GetLocalGain("SFX") == 0.0f && mixer.GetEffectiveGain("Steps") == 0.0f && mixer.GetEffectiveGain("Music") > 0.0f);
+    mixer.Find("SFX")->Muted = false;
+    // Solo: the soloed group, its children and its parents are heard, everything else is not.
+    mixer.Find("SFX")->Solo = true;
+    CHECK(mixer.AnySolo());
+    CHECK(mixer.GetEffectiveGain("SFX") > 0.0f && mixer.GetEffectiveGain("Steps") > 0.0f && mixer.GetLocalGain("Master") == 0.5f);
+    CHECK(mixer.GetEffectiveGain("Music") == 0.0f && mixer.GetEffectiveGain("UI") == 0.0f);
+    mixer.Find("UI")->Solo = true; // two soloed groups
+    CHECK(mixer.GetEffectiveGain("UI") > 0.0f && mixer.GetEffectiveGain("Music") == 0.0f);
+    mixer.Find("UI")->Solo = mixer.Find("SFX")->Solo = false;
+    mixer.Find("Steps")->Solo = true; // a child soloed: its parents pass it, its siblings are silent
+    CHECK(mixer.GetEffectiveGain("Steps") > 0.0f && mixer.GetEffectiveGain("Voices") == 0.0f && mixer.GetLocalGain("SFX") == 0.8f);
+    mixer.Find("Steps")->Solo = false;
+
+    // Removing a group: its children move to its parent; built-ins stay.
+    CHECK(mixer.AddGroup("Footsteps", "Steps"));
+    CHECK(mixer.RemoveGroup("Steps") && !mixer.Find("Steps") && mixer.Find("Footsteps")->Parent == "SFX");
+    CHECK(!mixer.RemoveGroup("Music") && !mixer.RemoveGroup("Nope"));
+
+    // JSON: Solo is not saved, broken lists are put right.
+    mixer.Find("Voices")->Solo = true;
+    mixer.Find("UI")->Muted = true;
+    mixer.StreamThresholdMB = 2.5f;
+    AudioSettings read;
+    CHECK(AudioSettings::FromJson(mixer.ToJson(), read));
+    CHECK(read.EqualsIgnoringSolo(mixer) && !read.Find("Voices")->Solo && read.Find("UI")->Muted && read.StreamThresholdMB == 2.5f);
+    CHECK(!AudioSettings::FromJson("[1,2", read));
+    AudioSettings broken;
+    CHECK(AudioSettings::FromJson(R"({"Groups":[{"Name":"A","Parent":"B","Volume":9},{"Name":"B","Parent":"A"},{"Name":"A"},{"Name":"SFX","Parent":"SFX"}],"StreamThresholdMB":-3})", broken));
+    CHECK(broken.Groups[0].Name == "Master" && broken.Groups[0].Parent.empty() && broken.Find("Music") && broken.Find("UI"));
+    CHECK(broken.Find("SFX")->Parent == "Master" && broken.Find("A")->Volume == AudioSettings::MaxVolume);
+    CHECK(!broken.IsDescendantOf("A", "A") && (broken.Find("A")->Parent == "Master" || broken.Find("B")->Parent == "Master"));
+    CHECK(broken.StreamThresholdMB > 0.0f && broken.Groups.size() == 6);
+
+    CHECK_NEAR(AudioGain::ToDecibels(0.5f), -6.0206f, 1e-3f);
+    CHECK(AudioGain::ToDecibels(0.0f) == AudioGain::MinDecibels && AudioGain::FromDecibels(-80.0f) == 0.0f);
+    CHECK_NEAR(AudioGain::FromDecibels(6.0206f), 2.0f, 1e-3f);
+}
+
+TEST(AudioMixerGroupsDeviceless)
+{
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    CHECK(AudioEngine::IsAvailable() && !AudioEngine::HasDevice());
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-mixer-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    std::filesystem::path wav = dir / "tone.wav";
+    WriteTestWav(wav, 1.0f);
+
+    AudioSettings mixer;
+    mixer.AddGroup("Steps", "SFX");
+    AudioEngine::SetMixerSettings(mixer);
+    CHECK(AudioEngine::HasGroup("Steps") && AudioEngine::HasGroup("Master") && !AudioEngine::HasGroup("Nope"));
+
+    // Sounds play in their group; an unknown one plays in SFX, "" past the mixer.
+    SoundParams params;
+    params.Loop = true;
+    params.Group = "Steps";
+    uint32_t steps = AudioEngine::Play(wav, params);
+    params.Group = "Nope";
+    uint32_t lost = AudioEngine::Play(wav, params);
+    params.Group = "";
+    uint32_t direct = AudioEngine::Play(wav, params);
+    uint32_t sfx = AudioEngine::Play(wav, 0.5f, 1.0f, true);
+    CHECK(steps && lost && direct && sfx);
+    CHECK(AudioEngine::GetSoundGroup(steps) == "Steps" && AudioEngine::GetSoundGroup(lost) == "SFX");
+    CHECK(AudioEngine::GetSoundGroup(direct).empty() && AudioEngine::GetSoundGroup(sfx) == "SFX");
+    CHECK(AudioEngine::GetGroupVoiceCount("SFX") == 2 && AudioEngine::GetGroupVoiceCount("Steps") == 1 && AudioEngine::GetGroupVoiceCount("Music") == 0);
+    CHECK_NEAR(AudioEngine::GetVolume(sfx), 0.5f, 1e-6f);
+
+    // Faders, mute and solo through the engine.
+    CHECK(AudioEngine::SetGroupVolume("SFX", 0.5f) && AudioEngine::SetGroupVolume("Steps", 0.5f));
+    CHECK(!AudioEngine::SetGroupVolume("Nope", 0.5f) && AudioEngine::GetGroupVolume("Nope") == 0.0f);
+    CHECK_NEAR(AudioEngine::GetGroupEffectiveVolume("Steps"), 0.25f, 1e-6f);
+    CHECK(AudioEngine::SetGroupVolume("Master", 5.0f) && AudioEngine::GetGroupVolume("Master") == AudioSettings::MaxVolume); // clamped
+    AudioEngine::SetGroupVolume("Master", 1.0f);
+    CHECK(AudioEngine::SetGroupMuted("SFX", true) && AudioEngine::IsGroupMuted("SFX") && AudioEngine::GetGroupEffectiveVolume("Steps") == 0.0f);
+    AudioEngine::SetGroupMuted("SFX", false);
+    CHECK(AudioEngine::SetGroupSolo("Music", true) && AudioEngine::GetGroupEffectiveVolume("SFX") == 0.0f);
+    AudioEngine::SetGroupSolo("Music", false);
+
+    // The meters see what each group sends on (mixed offline: nothing is heard).
+    AudioEngine::SetGroupVolume("SFX", 1.0f);
+    AudioEngine::Stop(direct);
+    AudioEngine::RenderOffline(0.1f);
+    AudioEngine::Update(0.0f);
+    AudioLevel sfxLevel = AudioEngine::GetGroupLevel("SFX"), master = AudioEngine::GetGroupLevel("Master");
+    CHECK(sfxLevel.Left > 0.01f && sfxLevel.Right > 0.01f && sfxLevel.Hold >= sfxLevel.Left);
+    CHECK(master.Left > 0.01f && AudioEngine::GetGroupLevel("Steps").Left > 0.0f);
+    CHECK(AudioEngine::GetGroupLevel("Music").Left == 0.0f && AudioEngine::GetGroupLevel("Nope").Left == 0.0f);
+    // Muted: the level falls away (and Master's with it, nothing else plays).
+    AudioEngine::SetGroupMuted("SFX", true);
+    AudioEngine::RenderOffline(0.1f);
+    AudioEngine::Update(10.0f);
+    CHECK(AudioEngine::GetGroupLevel("SFX").Left == 0.0f && AudioEngine::GetGroupLevel("Master").Left == 0.0f);
+    CHECK(AudioEngine::GetGroupLevel("Steps").Left > 0.0f); // before SFX's fader
+    AudioEngine::SetGroupMuted("SFX", false);
+    CHECK(AudioEngine::IsPlaying(sfx) && AudioEngine::GetCursor(sfx) > 0.15f); // rendering advanced it
+
+    // A group that goes away: its sounds move to SFX and keep playing.
+    AudioEngine::SetMixerSettings(AudioSettings());
+    CHECK(!AudioEngine::HasGroup("Steps") && AudioEngine::GetSoundGroup(steps) == "SFX" && AudioEngine::IsPlaying(steps));
+    CHECK(AudioEngine::GetGroupEffectiveVolume("SFX") == 1.0f);
+
+    // Streaming: by flag, or over the size threshold.
+    CHECK(!AudioEngine::IsStreaming(sfx) && !AudioEngine::ShouldStream(wav, false) && AudioEngine::ShouldStream(wav, true));
+    params = SoundParams();
+    params.Stream = true;
+    uint32_t streamed = AudioEngine::Play(wav, params);
+    CHECK(streamed && AudioEngine::IsStreaming(streamed) && AudioEngine::IsPlaying(streamed));
+    AudioSettings small;
+    small.StreamThresholdMB = 0.01f; // 10 KB: the 44 KB tone is "large"
+    AudioEngine::SetMixerSettings(small);
+    CHECK(AudioEngine::ShouldStream(wav, false));
+    uint32_t big = AudioEngine::Play(wav);
+    CHECK(big && AudioEngine::IsStreaming(big));
+    AudioEngine::RenderOffline(0.05f);
+    CHECK(AudioEngine::GetLength(big) > 0.9f);
+
+    // An Audio Source's Output and Stream.
+    AudioEngine::SetMixerSettings(AudioSettings());
+    auto scene = CreateRef<Scene>();
+    Entity source = scene->CreateEntity("Music");
+    auto& a = source.AddComponent<AudioSourceComponent>();
+    a.Path = wav.string();
+    a.Loop = true;
+    a.Output = "Music";
+    a.Stream = true;
+    Entity ui = scene->CreateEntity("Click");
+    auto& b = ui.AddComponent<AudioSourceComponent>();
+    b.Path = wav.string();
+    b.Output = "Gone"; // not in the mixer: SFX
+    scene->OnRuntimeStart();
+    CHECK(AudioEngine::GetSoundGroup(a.RuntimeHandle) == "Music" && AudioEngine::IsStreaming(a.RuntimeHandle));
+    CHECK(AudioEngine::GetSoundGroup(b.RuntimeHandle) == "SFX" && !AudioEngine::IsStreaming(b.RuntimeHandle));
+    scene->OnRuntimeStop();
+    CHECK(AudioEngine::GetPlayingCount() == 0);
+
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
+TEST(AudioMusicCrossfade)
+{
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    AudioEngine::StopAll();
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-music-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    std::filesystem::path calm = dir / "calm.wav", battle = dir / "battle.wav";
+    WriteTestWav(calm, 1.0f);
+    WriteTestWav(battle, 1.0f);
+    const float half = std::sin(glm::quarter_pi<float>()); // equal power: 0.707 each in the middle
+
+    CHECK(!AudioEngine::IsMusicPlaying() && AudioEngine::GetMusic().empty() && AudioEngine::GetMusicHandle() == 0);
+    CHECK(AudioEngine::PlayMusic(calm, 0.0f));
+    uint32_t a = AudioEngine::GetMusicHandle();
+    CHECK(a && AudioEngine::IsPlaying(a) && AudioEngine::IsMusicPlaying() && AudioEngine::GetMusic() == calm);
+    CHECK(AudioEngine::GetSoundGroup(a) == "Music" && AudioEngine::IsStreaming(a)); // music always streams
+    CHECK_NEAR(AudioEngine::GetVolume(a), 1.0f, 1e-5f);
+    CHECK(AudioEngine::PlayMusic(calm, 2.0f) && AudioEngine::GetMusicHandle() == a); // the same track goes on
+    CHECK(!AudioEngine::PlayMusic(dir / "missing.wav") && AudioEngine::GetMusicHandle() == a); // the current one stays
+
+    // Crossfade: both heard, then only the new one.
+    CHECK(AudioEngine::CrossfadeMusic(battle, 2.0f));
+    uint32_t b = AudioEngine::GetMusicHandle();
+    CHECK(b && b != a && AudioEngine::GetMusicVoiceCount() == 2 && AudioEngine::GetMusic() == battle);
+    CHECK(AudioEngine::GetVolume(b) == 0.0f);
+    AudioEngine::Update(1.0f);
+    CHECK_NEAR(AudioEngine::GetVolume(a), half, 1e-3f);
+    CHECK_NEAR(AudioEngine::GetVolume(b), half, 1e-3f);
+    AudioEngine::Update(1.0f);
+    CHECK(!AudioEngine::IsPlaying(a) && AudioEngine::GetMusicVoiceCount() == 1);
+    CHECK_NEAR(AudioEngine::GetVolume(b), 1.0f, 1e-5f);
+
+    // Back to a track while it is still fading out: it returns from where it is.
+    CHECK(AudioEngine::CrossfadeMusic(calm, 2.0f));
+    uint32_t c = AudioEngine::GetMusicHandle();
+    AudioEngine::Update(0.5f);
+    CHECK(AudioEngine::CrossfadeMusic(battle, 2.0f));
+    CHECK(AudioEngine::GetMusicHandle() == b && AudioEngine::GetMusicVoiceCount() == 2 && AudioEngine::IsPlaying(c));
+    AudioEngine::Update(2.0f);
+    CHECK(!AudioEngine::IsPlaying(c) && AudioEngine::GetMusicVoiceCount() == 1 && AudioEngine::GetVolume(b) > 0.999f);
+
+    // PlayMusic: the old track fades out first, then the new one fades in.
+    CHECK(AudioEngine::PlayMusic(calm, 1.0f));
+    CHECK(AudioEngine::IsMusicPlaying() && AudioEngine::GetMusic() == calm && AudioEngine::GetMusicHandle() == 0); // waiting
+    CHECK(AudioEngine::PlayMusic(calm, 1.0f)); // asked again while it waits: nothing changes
+    AudioEngine::Update(0.5f);
+    CHECK_NEAR(AudioEngine::GetVolume(b), half, 1e-3f);
+    CHECK(AudioEngine::GetMusicHandle() == 0);
+    AudioEngine::Update(0.5f);
+    uint32_t d = AudioEngine::GetMusicHandle();
+    CHECK(d && !AudioEngine::IsPlaying(b) && AudioEngine::GetVolume(d) == 0.0f);
+    AudioEngine::Update(0.5f);
+    CHECK_NEAR(AudioEngine::GetVolume(d), half, 1e-3f);
+    AudioEngine::Update(0.6f);
+    CHECK_NEAR(AudioEngine::GetVolume(d), 1.0f, 1e-5f);
+
+    // Music volume, pause (no fades, not released), resume.
+    AudioEngine::SetMusicVolume(0.5f);
+    CHECK_NEAR(AudioEngine::GetVolume(d), 0.5f, 1e-5f);
+    AudioEngine::PauseMusic();
+    CHECK(AudioEngine::IsMusicPaused() && !AudioEngine::IsPlaying(d) && AudioEngine::IsMusicPlaying());
+    AudioEngine::StopMusic(1.0f);
+    AudioEngine::Update(5.0f);
+    CHECK(AudioEngine::GetMusicVoiceCount() == 1 && !AudioEngine::IsMusicPlaying()); // paused: the fade waits
+    AudioEngine::ResumeMusic();
+    CHECK(AudioEngine::IsPlaying(d));
+    AudioEngine::Update(1.0f);
+    CHECK(AudioEngine::GetMusicVoiceCount() == 0 && !AudioEngine::IsPlaying(d) && AudioEngine::GetMusic().empty());
+    AudioEngine::SetMusicVolume(1.0f);
+
+    // The music belongs to the game: a scene stopping leaves it playing, StopAll does not.
+    auto scene = CreateRef<Scene>();
+    scene->OnRuntimeStart();
+    CHECK(Audio::PlayMusic(calm.string(), 0.0f));
+    Entity hum = scene->CreateEntity("Hum");
+    hum.AddComponent<AudioSourceComponent>().Path = calm.string();
+    CHECK(scene->PlayAudio(hum));
+    scene->OnRuntimeStop();
+    CHECK(Audio::IsMusicPlaying() && AudioEngine::GetPlayingCount() == 1 && !scene->IsAudioPlaying(hum));
+    CHECK(Audio::CrossfadeTo(battle.string(), 0.0f) && AudioEngine::GetMusicVoiceCount() == 1);
+    AudioEngine::StopAll();
+    CHECK(!Audio::IsMusicPlaying() && AudioEngine::GetPlayingCount() == 0);
+    CHECK(!Audio::PlayMusic("") && !Audio::CrossfadeTo(""));
+
+    // Through the Audio API: groups.
+    CHECK(Audio::SetGroupVolume("Music", 0.25f) && Audio::GetGroupVolume("Music") == 0.25f && Audio::HasGroup("UI"));
+    CHECK(Audio::SetGroupMuted("UI", true) && Audio::IsGroupMuted("UI") && !Audio::SetGroupMuted("Nope", true));
+    Audio::ResetMixer(); // the project's (no project: the defaults)
+    CHECK(Audio::GetGroupVolume("Music") == 1.0f && !Audio::IsGroupMuted("UI"));
+
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
+TEST(AudioListenerSelection)
+{
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto scene = CreateRef<Scene>();
+    Entity camera = scene->CreateEntity("Camera");
+    camera.AddComponent<CameraComponent>().Primary = true;
+    camera.GetTransform().Translation = { 0.0f, 2.0f, 10.0f };
+    // Without a listener the primary camera listens.
+    CHECK(!scene->GetActiveAudioListener() && scene->GetAudioListenerEntity() == camera);
+    scene->OnRuntimeStart();
+    CHECK(glm::length(AudioEngine::GetListenerPosition() - glm::vec3(0.0f, 2.0f, 10.0f)) < 1e-4f);
+    scene->OnRuntimeStop();
+
+    Entity head = scene->CreateEntity("Head");
+    head.AddComponent<AudioListenerComponent>();
+    head.GetTransform().Translation = { 3.0f, 1.0f, 0.0f };
+    Entity other = scene->CreateEntity("Other");
+    other.AddComponent<AudioListenerComponent>();
+    CHECK(scene->GetAudioListenerEntity() == head); // a tie: the one created first
+    other.GetComponent<AudioListenerComponent>().Priority = 5;
+    CHECK(scene->GetAudioListenerEntity() == other);
+    other.GetComponent<AudioListenerComponent>().Enabled = false;
+    CHECK(scene->GetAudioListenerEntity() == head);
+    scene->OnRuntimeStart();
+    CHECK(glm::length(AudioEngine::GetListenerPosition() - glm::vec3(3.0f, 1.0f, 0.0f)) < 1e-4f);
+    head.SetActive(false); // inactive: the camera again
+    CHECK(scene->GetAudioListenerEntity() == camera);
+    head.SetActive(true);
+    scene->OnRuntimeStop();
+
+    // Velocity from movement (Doppler), only with TrackVelocity. (No camera: the scene does not render.)
+    camera.GetComponent<CameraComponent>().Primary = false;
+    auto& listener = head.GetComponent<AudioListenerComponent>();
+    listener.TrackVelocity = true;
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(0.5f);
+    head.GetTransform().Translation.x += 1.0f;
+    scene->OnUpdateRuntime(0.5f);
+    CHECK(glm::length(listener.Velocity - glm::vec3(2.0f, 0.0f, 0.0f)) < 1e-3f);
+    CHECK(glm::length(AudioEngine::GetListenerVelocity() - glm::vec3(2.0f, 0.0f, 0.0f)) < 1e-3f);
+    CHECK(glm::length(AudioEngine::GetListenerPosition() - glm::vec3(4.0f, 1.0f, 0.0f)) < 1e-4f);
+    listener.TrackVelocity = false;
+    scene->OnUpdateRuntime(0.5f);
+    CHECK(listener.Velocity == glm::vec3(0.0f) && AudioEngine::GetListenerVelocity() == glm::vec3(0.0f));
+    scene->OnRuntimeStop();
+
+    // Runtime data does not travel into a copy; the settings do (and through the scene file).
+    listener.TrackVelocity = true;
+    listener.Priority = 3;
+    listener.Velocity = { 1.0f, 2.0f, 3.0f };
+    Ref<Scene> copy = Scene::Copy(scene);
+    auto& copied = copy->FindEntityByName("Head").GetComponent<AudioListenerComponent>();
+    CHECK(copied.Priority == 3 && copied.TrackVelocity && copied.Velocity == glm::vec3(0.0f) && !copied.HasLastPosition);
+    auto& src = head.AddComponent<AudioSourceComponent>();
+    src.Output = "UI";
+    src.Stream = true;
+    std::string text = SceneSerializer(scene).SerializeToString();
+    Ref<Scene> loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity loadedHead = loaded->FindEntityByName("Head");
+    CHECK(loadedHead && loadedHead.GetComponent<AudioListenerComponent>().Priority == 3 && loadedHead.GetComponent<AudioListenerComponent>().TrackVelocity);
+    CHECK(!loaded->FindEntityByName("Other").GetComponent<AudioListenerComponent>().Enabled);
+    CHECK(loadedHead.GetComponent<AudioSourceComponent>().Output == "UI" && loadedHead.GetComponent<AudioSourceComponent>().Stream);
+    // Older files: SFX, not streamed.
+    Ref<Scene> old = CreateRef<Scene>();
+    CHECK(SceneSerializer(old).DeserializeFromString(R"({"Scene":"Old","Entities":[{"Entity":1,"Tag":"S","AudioSource":{"Path":"a.wav"}}]})"));
+    CHECK(old->FindEntityByName("S").GetComponent<AudioSourceComponent>().Output == "SFX" && !old->FindEntityByName("S").GetComponent<AudioSourceComponent>().Stream);
+
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+}
+
+TEST(ProjectAudioSettings)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / ("zamin-audio-project-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir);
+    Ref<Project> previous = Project::GetActive();
+    auto project = Project::New();
+    CHECK(project->GetConfig().Audio.IsDefault());
+    CHECK(ProjectSerializer(project).Serialize(dir / "Plain.zproject"));
+    CHECK(FileSystem::ReadTextFile(dir / "Plain.zproject").find("\"Audio\"") == std::string::npos); // defaults: not written
+
+    AudioSettings& audio = project->GetConfig().Audio;
+    audio.AddGroup("Ambience", "SFX");
+    audio.Find("Music")->Volume = 0.6f;
+    audio.Find("Ambience")->Muted = true;
+    audio.Find("SFX")->Solo = true; // never saved
+    audio.StreamThresholdMB = 8.0f;
+    CHECK(ProjectSerializer(project).Serialize(dir / "Mixer.zproject"));
+    Ref<Project> loaded = Project::Load(dir / "Mixer.zproject");
+    CHECK(loaded);
+    if (loaded)
+    {
+        const AudioSettings& read = loaded->GetConfig().Audio;
+        CHECK(read.EqualsIgnoringSolo(audio) && !read.Find("SFX")->Solo && read.Find("Ambience")->Parent == "SFX");
+        // Loading applied it to the engine's mixer.
+        CHECK(AudioEngine::GetMixerSettings().EqualsIgnoringSolo(read) && AudioEngine::HasGroup("Ambience"));
+        CHECK_NEAR(AudioEngine::GetGroupVolume("Music"), 0.6f, 1e-6f);
+        CHECK(Audio::SetGroupVolume("Music", 1.0f) && Audio::GetGroupVolume("Music") == 1.0f);
+        Audio::ResetMixer(); // back to the project's defaults
+        CHECK_NEAR(Audio::GetGroupVolume("Music"), 0.6f, 1e-6f);
+    }
+    Project::SetActive(previous);
+    AudioEngine::SetMixerSettings(previous ? previous->GetConfig().Audio : AudioSettings());
+    fs::remove_all(dir);
 }
 
 TEST(InactiveAnimatorsPause)

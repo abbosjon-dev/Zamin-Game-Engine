@@ -1,4 +1,5 @@
 #include "Zamin/Scripting/ScriptableEntity.h"
+#include "Zamin/Audio/Audio.h"
 #include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Scene/SceneSerializer.h"
@@ -620,14 +621,15 @@ namespace Zamin {
         }
     }
 
-    void ScriptableEntity::PlaySound(const std::string& assetPath, float volume, float pitch)
+    void ScriptableEntity::PlaySound(const std::string& assetPath, float volume, float pitch, const std::string& group)
     {
-        AudioEngine::Play(Project::GetAssetFileSystemPath(assetPath), volume, pitch, false);
+        Audio::PlaySound(assetPath, volume, pitch, group);
     }
 
-    void ScriptableEntity::PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume, float pitch)
+    void ScriptableEntity::PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume, float pitch,
+                                       const std::string& group)
     {
-        AudioEngine::PlaySpatial(Project::GetAssetFileSystemPath(assetPath), position, volume, pitch, false);
+        Audio::PlaySoundAt(assetPath, position, volume, pitch, group);
     }
 
     bool ScriptableEntity::PlayAudio() { return m_Entity.GetScene()->PlayAudio(m_Entity); }

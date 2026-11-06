@@ -130,6 +130,8 @@ namespace Zamin {
             ExecuteMainThreadQueue();
             // Snapshot keyboard / mouse / gamepads once per frame (JustPressed, actions, axes).
             Input::Update();
+            // Music fades, level meters, finished sounds (also while minimized: fades go on).
+            AudioEngine::Update(timestep);
 
             if (!m_Minimized)
             {

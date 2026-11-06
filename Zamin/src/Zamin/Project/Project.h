@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Asset/AssetTypes.h"
+#include "Zamin/Audio/AudioMixer.h"
 #include "Zamin/Core/Base.h"
 #include "Zamin/Core/InputActions.h"
 #include "Zamin/Debug/DebugDraw.h"
@@ -41,6 +42,10 @@ namespace Zamin {
         // Named 2D collision layers and which of them collide (Project settings > Physics layers).
         // Projects without a "CollisionLayers2D" section: only "Default", everything collides.
         CollisionLayers2D CollisionLayers;
+        // The audio mixer's groups and their defaults, and when sounds stream (Audio Mixer window).
+        // Projects without an "Audio" section: Master > Music, SFX, UI at full volume. Applied to
+        // the audio engine when the project is loaded; the game may change it while it runs.
+        AudioSettings Audio;
 
         static std::vector<std::string> DefaultTags() { return { "Player", "Enemy", "Pickup" }; }
     };

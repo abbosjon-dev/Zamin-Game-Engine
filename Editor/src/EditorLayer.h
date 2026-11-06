@@ -4,6 +4,7 @@
 
 #include "Panels/SceneHierarchyPanel.h"
 #include "Panels/AssetInspectorPanel.h"
+#include "Panels/AudioMixerPanel.h"
 #include "Panels/ContentBrowserPanel.h"
 #include "Panels/ConsolePanel.h"
 #include "Panels/ProjectSettingsPanel.h"
@@ -442,6 +443,8 @@ namespace Zamin {
         bool m_ShowUnusedAssets = false, m_UnusedAssetsShown = false;
         ConsolePanel m_ConsolePanel;
         ProjectSettingsPanel m_ProjectSettingsPanel;
+        AudioMixerPanel m_AudioMixerPanel;
+        bool m_ShowAudioMixer = false;
         bool m_ShowHierarchy = true, m_ShowInspector = true, m_ShowContentBrowser = true, m_ShowConsole = true;
         bool m_ShowSceneSettings = true, m_ShowStats = false, m_ShowImGuiDemo = false, m_ShowProfiler = false;
         // Automation (ZAMIN_EDITOR_SCENE_SETTINGS): bring the scene settings tab to the front, and

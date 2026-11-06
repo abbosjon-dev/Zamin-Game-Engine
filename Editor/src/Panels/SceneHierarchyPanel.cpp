@@ -37,6 +37,7 @@ namespace Zamin {
         if (e.HasComponent<CircleRendererComponent>()) return ICON_FA_CIRCLE;
         if (e.HasComponent<SpriteRendererComponent>()) return ICON_FA_IMAGE;
         if (e.HasComponent<AudioSourceComponent>()) return ICON_FA_VOLUME_HIGH;
+        if (e.HasComponent<AudioListenerComponent>()) return ICON_FA_EAR_LISTEN;
         if (e.HasComponent<ParticleSystemComponent>()) return ICON_FA_WAND_MAGIC_SPARKLES;
         if (e.HasComponent<UIButtonComponent>()) return ICON_FA_HAND_POINTER;
         if (e.HasComponent<UITransformComponent>()) return ICON_FA_TABLE_CELLS;
@@ -1172,7 +1173,7 @@ namespace Zamin {
             { "FixedJoint3D", "Fixed Joint 3D" }, { "HingeJoint3D", "Hinge Joint 3D" }, { "DistanceJoint3D", "Distance Joint 3D" },
             { "SliderJoint3D", "Slider Joint 3D" }, { "ConeJoint3D", "Cone Joint 3D" }, { "CharacterController3D", "Character Controller 3D" },
             { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
-            { "UIButton", "UI Button" }, { "AudioSource", "Audio Source" }, { "NativeScript", "C++ Skript" },
+            { "UIButton", "UI Button" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "NativeScript", "C++ Skript" },
         };
         for (const auto& [k, name] : s_Names)
             if (k == key)
@@ -1959,6 +1960,56 @@ namespace Zamin {
             ImGui::Separator();
             ImGui::TextDisabled("Bufer bo'sh: avval 'Nusxalash'ni bosing");
         }
+        return changed;
+    }
+
+    // ------------------------------------------------------------------ audio
+    bool SceneHierarchyPanel::DrawAudioOutput(std::string& output)
+    {
+        bool changed = false;
+        const AudioSettings& mixer = AudioEngine::GetMixerSettings();
+        UI::PropertyLabel("Chiqish guruhi", "Ovoz mixerning qaysi guruhida ijro etiladi: guruh balandligi, o'chirish (mute) "
+                                            "va solo unga va ota guruhlariga ta'sir qiladi (Oyna > Audio Mixer).");
+        ImGui::PushID("audioOutput");
+        const bool known = mixer.Find(output) != nullptr;
+        std::string preview = known ? std::format(ICON_FA_SLIDERS "  {}", output)
+                                    : std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {} (yo'q - SFX)", output);
+        const float button = ImGui::GetFrameHeight();
+        ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
+        if (ImGui::BeginCombo("##group", preview.c_str()))
+        {
+            for (const auto& [name, depth] : mixer.GetTreeOrder())
+            {
+                std::string label = std::string((size_t)depth * 3, ' ') + name;
+                float gain = mixer.GetEffectiveGain(name);
+                if (ImGui::Selectable(label.c_str(), name == output))
+                {
+                    output = name;
+                    changed = true;
+                }
+                ImGui::SameLine(ImGui::GetContentRegionAvail().x * 0.6f);
+                if (gain <= 0.0f)
+                    ImGui::TextDisabled(ICON_FA_VOLUME_XMARK "  jim");
+                else
+                    ImGui::TextDisabled("%.1f dB", AudioGain::ToDecibels(gain));
+            }
+            ImGui::EndCombo();
+        }
+        if (ImGui::IsItemHovered())
+        {
+            if (!known)
+                UI::Tooltip("Bu guruh mixerda yo'q (o'chirilgan): ovoz SFX guruhida ijro etiladi");
+            else if (float gain = mixer.GetEffectiveGain(output); gain <= 0.0f)
+                UI::Tooltip("Guruh yoki uning ota guruhi o'chirilgan (mute / solo): ovoz eshitilmaydi");
+            else
+                UI::Tooltip(std::format("Mixerdan keyingi balandlik: {:.1f} dB", AudioGain::ToDecibels(gain)).c_str());
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_SLIDERS, ImVec2(button, 0)) && OnAudioMixerRequested)
+            OnAudioMixerRequested();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Audio Mixer oynasini ochish");
+        ImGui::PopID();
         return changed;
     }
 
@@ -4985,6 +5036,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<UIButtonComponent>("UI Button", ICON_FA_HAND_POINTER);
                 ImGui::SeparatorText("Boshqa");
                 DisplayAddComponentEntry<AudioSourceComponent>("Audio Source", ICON_FA_VOLUME_HIGH);
+                DisplayAddComponentEntry<AudioListenerComponent>("Audio Listener (tinglovchi)", ICON_FA_EAR_LISTEN);
                 DisplayAddComponentEntry<NativeScriptComponent>("C++ Script", ICON_FA_CODE);
                 DisplayAddComponentEntry<TagsComponent>("Teglar (Tags)", ICON_FA_TAGS);
                 ImGui::EndPopup();
@@ -6118,12 +6170,68 @@ namespace Zamin {
                 changed |= UI::PropertyFloat("Min masofa", c.MinDistance, 0.05f, 0.01f, 1000.0f);
                 changed |= UI::PropertyFloat("Max masofa", c.MaxDistance, 0.1f, 0.1f, 10000.0f);
             }
+            changed |= DrawAudioOutput(c.Output);
+            UI::PropertyLabel("Streaming", "Fayl o'ynayotganda diskdan oqim bilan o'qiladi (xotiraga butunlay yuklanmaydi): "
+                                           "uzun musiqa va fon ovozlari uchun. Loyiha chegarasidan katta fayllar "
+                                           "(Audio Mixer > Sozlamalar) har doim oqim bilan o'qiladi.");
+            ImGui::PushID("stream");
+            changed |= ImGui::Checkbox("##v", &c.Stream);
+            if (!c.Stream && !c.Path.empty() && AudioEngine::ShouldStream(Project::GetAssetFileSystemPath(c.Path), false))
+            {
+                ImGui::SameLine();
+                ImGui::TextDisabled("(katta fayl: baribir oqim)");
+            }
+            ImGui::PopID();
             UI::PropertyLabel("");
             if (ImGui::Button(ICON_FA_PLAY "  Eshitish") && !c.Path.empty())
-                AudioEngine::Play(Project::GetAssetFileSystemPath(c.Path), c.Volume, c.Pitch, false);
+            {
+                SoundParams params;
+                params.Volume = c.Volume;
+                params.Pitch = c.Pitch;
+                params.Group = c.Output;
+                params.Stream = c.Stream;
+                AudioEngine::Play(Project::GetAssetFileSystemPath(c.Path), params);
+            }
             ImGui::SameLine();
             if (ImGui::Button(ICON_FA_STOP))
-                AudioEngine::StopAll();
+                AudioEngine::StopAllExceptMusic();
+            return changed;
+        }, true, modified);
+
+        AddSection<AudioListenerComponent>(ICON_FA_EAR_LISTEN, "Audio Listener", entity, [&](AudioListenerComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: tinglamaydi (boshqa listener yoki asosiy kamera tinglaydi)");
+            bool changed = UI::PropertyBool("Yoqilgan", c.Enabled);
+            UI::PropertyLabel("Ustuvorlik", "Bir nechta faol listener bo'lsa eng katta ustuvorlikdagisi tinglaydi "
+                                            "(teng bo'lsa - birinchi yaratilgani).");
+            ImGui::PushID("priority");
+            changed |= ImGui::DragInt("##v", &c.Priority, 0.1f);
+            ImGui::PopID();
+            UI::PropertyLabel("Tezlikni kuzatish", "Listener tezligi harakatidan o'lchanadi: harakatlanayotgan "
+                                                   "3D ovozlarda Doppler effekti (ton o'zgarishi) uchun.");
+            ImGui::PushID("trackVelocity");
+            changed |= ImGui::Checkbox("##v", &c.TrackVelocity);
+            ImGui::PopID();
+            UI::PropertyLabel("Holat");
+            if (m_Context && m_Context->IsRunning())
+            {
+                bool listening = m_Context->GetAudioListenerEntity() == entity;
+                if (listening)
+                    ImGui::TextColored(UI::AccentColor(), ICON_FA_EAR_LISTEN "  Tinglayapti");
+                else
+                    ImGui::TextDisabled("Tinglamayapti (boshqasi faol)");
+                if (c.TrackVelocity)
+                    ImGui::TextDisabled("Tezlik: %.1f m/s", glm::length(c.Velocity));
+            }
+            else
+            {
+                Entity active = m_Context ? m_Context->GetActiveAudioListener() : Entity();
+                if (active == entity)
+                    ImGui::TextDisabled("O'yinda shu listener tinglaydi (kamera o'rniga)");
+                else if (active)
+                    ImGui::TextDisabled("O'yinda '%s' tinglaydi", active.GetName().c_str());
+                else
+                    ImGui::TextDisabled("Nofaol: o'yinda asosiy kamera tinglaydi");
+            }
             return changed;
         }, true, modified);
 

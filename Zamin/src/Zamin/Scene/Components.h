@@ -1307,11 +1307,40 @@ namespace Zamin {
         float Pitch = 1.0f;
         bool Loop = false;
         bool PlayOnStart = true;
-        bool Spatial = false;      // 3D sound: volume/pan depend on the listener (primary camera)
+        bool Spatial = false;      // 3D sound: volume/pan depend on the listener (Audio Listener / primary camera)
         float MinDistance = 1.0f;
         float MaxDistance = 30.0f;
+        // The mixer group it plays in (Audio Mixer window; an unknown name plays in SFX).
+        std::string Output = "SFX";
+        // Streamed from disk while it plays instead of decoded into memory first (long music /
+        // ambience). Files larger than the project's threshold always stream.
+        bool Stream = false;
 
         uint32_t RuntimeHandle = 0;
+    };
+
+    // Where the 3D sounds are heard from (instead of the primary camera), e.g. the player's head
+    // in a third-person game. Of several, the enabled one active in the hierarchy with the
+    // highest Priority listens (ties: the one created first); without one, the primary camera.
+    struct AudioListenerComponent
+    {
+        bool Enabled = true;
+        int Priority = 0;
+        // The listener's velocity is measured from how it moves, for the Doppler effect of moving
+        // sounds (off: a still listener).
+        bool TrackVelocity = false;
+
+        // Runtime.
+        glm::vec3 Velocity{ 0.0f };     // units per second (TrackVelocity)
+        glm::vec3 LastPosition{ 0.0f };
+        bool HasLastPosition = false;
+
+        void ResetRuntime()
+        {
+            Velocity = glm::vec3(0.0f);
+            LastPosition = glm::vec3(0.0f);
+            HasLastPosition = false;
+        }
     };
 
     // ------------------------------------------------------------------ scripting (C++)
@@ -1408,6 +1437,6 @@ namespace Zamin {
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
         SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
-        AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;
+        AudioSourceComponent, AudioListenerComponent, NativeScriptComponent, EditorMetadataComponent>;
 
 }

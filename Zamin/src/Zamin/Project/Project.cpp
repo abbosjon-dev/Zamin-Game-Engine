@@ -1,5 +1,6 @@
 #include "Zamin/Project/Project.h"
 #include "Zamin/Asset/AssetRegistry.h"
+#include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Scripting/ScriptTemplate.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/SceneSerializer.h"
@@ -16,6 +17,7 @@ namespace Zamin {
     Ref<Project> Project::New()
     {
         s_ActiveProject = CreateRef<Project>();
+        AudioEngine::SetMixerSettings(s_ActiveProject->m_Config.Audio);
         return s_ActiveProject;
     }
 
@@ -28,6 +30,7 @@ namespace Zamin {
         project->m_ProjectFile = std::filesystem::absolute(path);
         project->m_ProjectDirectory = project->m_ProjectFile.parent_path();
         s_ActiveProject = project;
+        AudioEngine::SetMixerSettings(project->m_Config.Audio);
         ZM_CORE_INFO("Loyiha ochildi: {} ({})", project->m_Config.Name, project->m_ProjectDirectory.string());
 
         // The start scene was renamed / moved outside the editor: found again by its UUID.
@@ -346,6 +349,9 @@ namespace Zamin {
         // Written once something differs from the defaults (older files stay as they were).
         if (!c.CollisionLayers.IsDefault())
             j["CollisionLayers2D"] = json::parse(c.CollisionLayers.ToJson());
+        // Written once the mixer differs from the defaults (older files stay as they were).
+        if (!c.Audio.IsDefault())
+            j["Audio"] = json::parse(c.Audio.ToJson());
         j["DebugDraw"] = {
             { "Enabled", c.DebugDraw.Enabled },
             { "Raycasts", c.DebugDraw.ShowRaycasts },
@@ -403,6 +409,10 @@ namespace Zamin {
             c.CollisionLayers = CollisionLayers2D();
             if (auto it = j.find("CollisionLayers2D"); it != j.end() && it->is_object())
                 CollisionLayers2D::FromJson(it->dump(), c.CollisionLayers);
+            // Audio mixer (older projects: Master > Music, SFX, UI).
+            c.Audio = AudioSettings();
+            if (auto it = j.find("Audio"); it != j.end() && it->is_object())
+                AudioSettings::FromJson(it->dump(), c.Audio);
             // Debug drawing in the player (older projects: on, no physics views).
             c.DebugDraw = DebugDrawSettings();
             if (auto it = j.find("DebugDraw"); it != j.end() && it->is_object())

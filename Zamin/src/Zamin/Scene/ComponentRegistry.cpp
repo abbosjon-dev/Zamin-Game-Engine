@@ -63,6 +63,7 @@ namespace Zamin {
             MakeTypeInfo<UITransformComponent>(),
             MakeTypeInfo<UIButtonComponent>(),
             MakeTypeInfo<AudioSourceComponent>(),
+            MakeTypeInfo<AudioListenerComponent>(),
             MakeTypeInfo<NativeScriptComponent>(),
         };
         return s_Types;

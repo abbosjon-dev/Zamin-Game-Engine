@@ -200,6 +200,8 @@ namespace Zamin {
         static void RemapEntityReferences(const std::vector<Entity>& entities, const std::unordered_map<uint64_t, uint64_t>& oldToNew);
 
         void OnRuntimeStart();
+        // Stops the scripts, physics and the scene's sounds; the music (AudioEngine::PlayMusic)
+        // goes on, it belongs to the game (the editor stops it when play mode ends).
         void OnRuntimeStop();
         void OnSimulationStart();
         void OnSimulationStop();
@@ -530,6 +532,11 @@ namespace Zamin {
         bool PlayAudio(Entity entity);
         void StopAudio(Entity entity);
         bool IsAudioPlaying(Entity entity);
+        // The Audio Listener that listens: enabled, active in the hierarchy, the highest Priority
+        // (ties: the one created first). Empty when there is none.
+        Entity GetActiveAudioListener();
+        // Where the 3D sounds are heard from: the active Audio Listener, else the primary camera.
+        Entity GetAudioListenerEntity();
 
         // ---- script messages (delivered immediately to live script instances:
         // handlers added with ScriptableEntity::AddMessageHandler, then OnMessage)
@@ -712,7 +719,9 @@ namespace Zamin {
         void StepCharacters(float dt);
         // Camera2DFollowComponent: the followers move after their targets (game time `dt`).
         void UpdateCameraFollow(float dt);
-        void UpdateAudio();
+        void UpdateAudio(float ts);
+        // The listener's place / direction (and velocity) for the audio engine.
+        void UpdateAudioListener(float ts);
         void UpdateAnimators(Timestep ts, bool editor);
         // TintAnimationComponent: the playing ones advance (editor: only the inspector's previews).
         void UpdateTintAnimations(Timestep ts, bool editor);

@@ -712,9 +712,14 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<AudioSourceComponent>())
         {
             e["AudioSource"] = { { "Path", c->Path }, { "Volume", c->Volume }, { "Pitch", c->Pitch }, { "Loop", c->Loop }, { "PlayOnStart", c->PlayOnStart },
-                                 { "Spatial", c->Spatial }, { "MinDistance", c->MinDistance }, { "MaxDistance", c->MaxDistance } };
+                                 { "Spatial", c->Spatial }, { "MinDistance", c->MinDistance }, { "MaxDistance", c->MaxDistance },
+                                 { "Output", c->Output } };
+            if (c->Stream)
+                e["AudioSource"]["Stream"] = true; // only when on: older files stay the same
             WriteAssetHandle(e["AudioSource"], "Path", c->Path);
         }
+        if (auto* c = entity.TryGetComponent<AudioListenerComponent>())
+            e["AudioListener"] = { { "Enabled", c->Enabled }, { "Priority", c->Priority }, { "TrackVelocity", c->TrackVelocity } };
         if (auto* c = entity.TryGetComponent<NativeScriptComponent>())
         {
             json fields = json::object();
@@ -1474,6 +1479,18 @@ namespace Zamin {
             c.Spatial = j.value("Spatial", false);
             c.MinDistance = j.value("MinDistance", 1.0f);
             c.MaxDistance = j.value("MaxDistance", 30.0f);
+            c.Output = j.value("Output", std::string("SFX"));
+            if (c.Output.empty())
+                c.Output = "SFX";
+            c.Stream = j.value("Stream", false);
+        }
+        if (e.contains("AudioListener"))
+        {
+            const json& j = e["AudioListener"];
+            auto& c = entity.AddComponent<AudioListenerComponent>();
+            c.Enabled = j.value("Enabled", true);
+            c.Priority = j.value("Priority", 0);
+            c.TrackVelocity = j.value("TrackVelocity", false);
         }
         if (e.contains("NativeScript"))
         {

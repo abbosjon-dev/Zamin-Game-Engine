@@ -158,3 +158,7 @@
 #define ICON_FA_WATER "\xef\x9d\xb3" // buoyancy effector 2D
 #define ICON_FA_ANCHOR "\xef\x84\xbd" // joint anchors in the viewport
 #define ICON_FA_LOCATION_CROSSHAIRS "\xef\x98\x81"
+#define ICON_FA_EAR_LISTEN "\xef\x8a\xa2" // audio listener
+#define ICON_FA_VOLUME_XMARK "\xef\x9a\xa9" // muted
+#define ICON_FA_HEADPHONES "\xef\x80\xa5" // solo / audio mixer
+#define ICON_FA_WAVE_SQUARE "\xef\xa0\xbe" // streaming

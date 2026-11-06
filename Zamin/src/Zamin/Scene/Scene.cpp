@@ -397,6 +397,7 @@ namespace Zamin {
             c.Velocity = glm::vec3(0.0f);
         }
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).RuntimeHandle = 0;
+        for (auto e : registry.view<AudioListenerComponent>()) registry.get<AudioListenerComponent>(e).ResetRuntime();
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
         for (auto e : registry.view<SpriteRendererComponent>()) registry.get<SpriteRendererComponent>(e).StopFlash();
         for (auto e : registry.view<TintAnimationComponent>()) registry.get<TintAnimationComponent>(e).ResetRuntime();
@@ -432,6 +433,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<BuoyancyEffector2DComponent>()) { c->AffectedBodies = 0; c->SubmergedArea = 0.0f; }
         if (auto* c = e.TryGetComponent<Rigidbody3DComponent>()) c->RuntimeBodyID = 0xffffffff;
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->RuntimeHandle = 0;
+        if (auto* c = e.TryGetComponent<AudioListenerComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
         if (auto* c = e.TryGetComponent<SpriteRendererComponent>()) c->StopFlash();
         if (auto* c = e.TryGetComponent<TintAnimationComponent>()) c->ResetRuntime();
@@ -1949,6 +1951,7 @@ namespace Zamin {
         OnPhysics3DStart();
 
         // Sources on inactive entities start when they are switched on.
+        UpdateAudioListener(0.0f); // the 3D sounds start where the listener is
         std::vector<entt::entity> sources;
         for (auto e : m_Registry.view<AudioSourceComponent>())
             sources.push_back(e);
@@ -1966,7 +1969,7 @@ namespace Zamin {
         OnPhysics2DStop();
         OnPhysics3DStop();
         m_AppliedInactive.clear();
-        AudioEngine::StopAll();
+        AudioEngine::StopAllExceptMusic(); // the music is the game's: it goes on into the next scene
         SaveData::Save(); // flush what the scripts stored (no-op when nothing changed)
         DebugDraw::Clear(); // nothing the game drew stays in the editor's view
     }
@@ -4180,7 +4183,7 @@ namespace Zamin {
             UpdateTintAnimations(ts, false);
             UpdateParticles(ts, false);
             UpdateAnimators(ts, false);
-            UpdateAudio();
+            UpdateAudio(ts);
 
             FlushDestroyQueue();
             DeleteRetiredScripts();
@@ -4600,10 +4603,17 @@ namespace Zamin {
             return false;
         if (audio->RuntimeHandle)
             AudioEngine::Stop(audio->RuntimeHandle);
-        auto path = Project::GetAssetFileSystemPath(audio->Path);
-        audio->RuntimeHandle = audio->Spatial
-            ? AudioEngine::PlaySpatial(path, GetWorldPosition(entity), audio->Volume, audio->Pitch, audio->Loop, audio->MinDistance, audio->MaxDistance)
-            : AudioEngine::Play(path, audio->Volume, audio->Pitch, audio->Loop);
+        SoundParams params;
+        params.Volume = audio->Volume;
+        params.Pitch = audio->Pitch;
+        params.Loop = audio->Loop;
+        params.Group = audio->Output.empty() ? std::string(AudioSettings::SFX) : audio->Output;
+        params.Stream = audio->Stream;
+        params.Spatial = audio->Spatial;
+        params.Position = GetWorldPosition(entity);
+        params.MinDistance = audio->MinDistance;
+        params.MaxDistance = audio->MaxDistance;
+        audio->RuntimeHandle = AudioEngine::Play(Project::GetAssetFileSystemPath(audio->Path), params);
         return audio->RuntimeHandle != 0;
     }
 
@@ -4626,14 +4636,66 @@ namespace Zamin {
         return audio && audio->RuntimeHandle && AudioEngine::IsPlaying(audio->RuntimeHandle);
     }
 
-    void Scene::UpdateAudio()
+    Entity Scene::GetActiveAudioListener()
     {
-        if (!AudioEngine::IsAvailable()) return;
-        if (Entity cam = GetPrimaryCameraEntity())
+        Entity best;
+        int bestPriority = 0;
+        // The view runs from the newest to the oldest: ">=" lets the oldest win a tie.
+        for (auto e : m_Registry.view<AudioListenerComponent>())
         {
-            glm::mat4 w = GetWorldTransform(cam);
-            AudioEngine::SetListener(glm::vec3(w[3]), -glm::normalize(glm::vec3(w[2])), glm::normalize(glm::vec3(w[1])));
+            const auto& listener = m_Registry.get<AudioListenerComponent>(e);
+            Entity entity{ e, this };
+            if (!listener.Enabled || !IsActiveInHierarchy(entity))
+                continue;
+            if (!best || listener.Priority >= bestPriority)
+            {
+                best = entity;
+                bestPriority = listener.Priority;
+            }
         }
+        return best;
+    }
+
+    Entity Scene::GetAudioListenerEntity()
+    {
+        if (Entity listener = GetActiveAudioListener())
+            return listener;
+        return GetPrimaryCameraEntity();
+    }
+
+    void Scene::UpdateAudioListener(float ts)
+    {
+        // Listeners measure how they move every frame (also those not listening right now: one that
+        // takes over has its velocity at once).
+        for (auto e : m_Registry.view<AudioListenerComponent>())
+        {
+            auto& listener = m_Registry.get<AudioListenerComponent>(e);
+            glm::vec3 position = GetWorldPosition({ e, this });
+            if (listener.TrackVelocity && listener.HasLastPosition && ts > 0.0f)
+                listener.Velocity = (position - listener.LastPosition) / ts;
+            else if (!listener.TrackVelocity)
+                listener.Velocity = glm::vec3(0.0f);
+            listener.LastPosition = position;
+            listener.HasLastPosition = true;
+        }
+        if (!AudioEngine::IsAvailable())
+            return;
+        Entity entity = GetAudioListenerEntity();
+        if (!entity)
+            return;
+        glm::mat4 w = GetWorldTransform(entity);
+        glm::vec3 forward = glm::vec3(w[2]), up = glm::vec3(w[1]);
+        forward = glm::length(forward) > 1e-6f ? -glm::normalize(forward) : glm::vec3(0.0f, 0.0f, -1.0f);
+        up = glm::length(up) > 1e-6f ? glm::normalize(up) : glm::vec3(0.0f, 1.0f, 0.0f);
+        AudioEngine::SetListener(glm::vec3(w[3]), forward, up);
+        const auto* listener = entity.TryGetComponent<AudioListenerComponent>();
+        AudioEngine::SetListenerVelocity(listener ? listener->Velocity : glm::vec3(0.0f));
+    }
+
+    void Scene::UpdateAudio(float ts)
+    {
+        UpdateAudioListener(ts);
+        if (!AudioEngine::IsAvailable()) return;
         for (auto e : m_Registry.view<AudioSourceComponent>())
         {
             auto& a = m_Registry.get<AudioSourceComponent>(e);

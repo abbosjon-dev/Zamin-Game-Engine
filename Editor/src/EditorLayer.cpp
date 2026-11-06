@@ -98,6 +98,11 @@ namespace Zamin {
         m_SceneHierarchyPanel.SetFoldState(&m_ViewSettings.Inspector); // open / collapsed inspector headers, per user
         m_SceneHierarchyPanel.OnFoldStateModified = [this]() { MarkViewSettingsDirty(); };
         m_ProjectSettingsPanel.OnSceneModified = [this]() { MarkDirty(); };
+        m_AudioMixerPanel.OnProjectModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
+        m_SceneHierarchyPanel.OnAudioMixerRequested = [this]() {
+            m_ShowAudioMixer = true;
+            m_AudioMixerPanel.Focus();
+        };
         m_SceneHierarchyPanel.OnPrefabDropped = [this](const fs::path& p, Entity parent) { InstantiatePrefabInEditor(p, parent); };
         m_SceneHierarchyPanel.OnMaterialDropped = [this](const std::string& p, Entity target) { ApplyMaterialToEntity(target, p); };
         m_ContentBrowserPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
@@ -458,6 +463,12 @@ namespace Zamin {
                     o.TargetFPS = (float)std::atof(std::string(v.substr(at + 7)).c_str());
                 o.Sanitize();
                 if (v.find("menu") != std::string_view::npos) m_OpenStatsOverlayMenu = true;
+            }
+            // ZAMIN_EDITOR_AUDIO_MIXER=1: the Audio Mixer window opens (in front).
+            if (const char* mixer = std::getenv("ZAMIN_EDITOR_AUDIO_MIXER"); mixer && std::string_view(mixer) != "0")
+            {
+                m_ShowAudioMixer = true;
+                m_AudioMixerPanel.Focus();
             }
             // ZAMIN_EDITOR_PROFILER=1: the profiler's own window opens.
             if (const char* profiler = std::getenv("ZAMIN_EDITOR_PROFILER"))
@@ -3540,6 +3551,11 @@ namespace Zamin {
         SetActiveScene(m_EditorScene);
         // What the game's scripts changed of the debug drawing does not stay in the editor.
         ApplyDebugDrawSettings();
+        // The game's music stops with it, and the mixer is the project's again (what the game or the
+        // mixer window changed while it ran goes, unless it was saved as the defaults).
+        AudioEngine::StopAll();
+        if (Ref<Project> project = Project::GetActive())
+            AudioEngine::SetMixerSettings(project->GetConfig().Audio);
         // Shared materials scripts changed while playing (GetSharedMaterial) look as before again.
         std::vector<std::string> restored = MaterialLibrary::RestoreSnapshot(m_PlayMaterials);
         m_PlayMaterials = {};
@@ -4828,6 +4844,8 @@ namespace Zamin {
         m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
         m_SpriteEditorPanel.OnImGuiRender(&m_ShowSpriteEditor);
+        m_AudioMixerPanel.SetPlaying(m_SceneState == SceneState::Play);
+        m_AudioMixerPanel.OnImGuiRender(&m_ShowAudioMixer);
         m_SceneHierarchyPanel.DrawTilePaletteWindow(&m_ShowTilePalette);
         UI_Stats();
         UI_ProfilerWindow();
@@ -4884,6 +4902,7 @@ namespace Zamin {
         ImGui::DockBuilderDockWindow("###ContentBrowser", bottom);
         ImGui::DockBuilderDockWindow("###Console", bottom);
         ImGui::DockBuilderDockWindow("###TilePalette", bottom);
+        ImGui::DockBuilderDockWindow("###AudioMixer", bottom);
         ImGui::DockBuilderDockWindow("###Stats", left);
         ImGui::DockBuilderDockWindow("###Viewport", main);
         ImGui::DockBuilderFinish(dockspaceID);
@@ -5019,6 +5038,7 @@ namespace Zamin {
             ImGui::MenuItem(ICON_FA_GEAR "  Loyiha sozlamalari", nullptr, &m_ShowProjectSettings);
             ImGui::MenuItem(ICON_FA_CHART_LINE "  Statistika", nullptr, &m_ShowStats);
             ImGui::MenuItem(ICON_FA_STOPWATCH "  Profiler", nullptr, &m_ShowProfiler);
+            ImGui::MenuItem(ICON_FA_SLIDERS "  Audio Mixer", nullptr, &m_ShowAudioMixer);
             ImGui::MenuItem(ICON_FA_BROOM "  Ishlatilmagan assetlar", nullptr, &m_ShowUnusedAssets, hasProject);
             if (ImGui::MenuItem(ICON_FA_SCISSORS "  Sprite muharriri", nullptr, m_ShowSpriteEditor, hasProject))
             {

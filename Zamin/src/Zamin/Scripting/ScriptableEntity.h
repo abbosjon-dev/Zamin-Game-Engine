@@ -429,10 +429,12 @@ namespace Zamin {
         // ---- scenes: switch to another scene at the end of the frame (path relative to Assets)
         void LoadScene(const std::string& scenePath);
 
-        // ---- audio
-        void PlaySound(const std::string& assetPath, float volume = 1.0f, float pitch = 1.0f);
-        // 3D positional sound (heard relative to the primary camera)
-        void PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume = 1.0f, float pitch = 1.0f);
+        // ---- audio (music and the mixer groups: the Audio class, e.g. Audio::CrossfadeTo("Audio/boss.ogg"))
+        // A one-shot sound in a mixer group (SFX, UI, ... ; an unknown name: SFX).
+        void PlaySound(const std::string& assetPath, float volume = 1.0f, float pitch = 1.0f, const std::string& group = "SFX");
+        // 3D positional sound (heard relative to the Audio Listener / primary camera)
+        void PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume = 1.0f, float pitch = 1.0f,
+                         const std::string& group = "SFX");
         // This entity's AudioSourceComponent: (re)start it from the beginning / stop it. PlayAudio
         // returns false while the entity is inactive (its sound stops when it is switched off and
         // a PlayOnStart source starts again when it is switched back on).

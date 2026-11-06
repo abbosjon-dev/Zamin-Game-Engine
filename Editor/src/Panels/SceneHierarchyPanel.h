@@ -240,6 +240,8 @@ namespace Zamin {
         std::function<void(const std::string&)> OnSpriteEditorRequested;
         // Project settings > Sorting layers is to open.
         std::function<void()> OnSortingLayersRequested;
+        // The Audio Source's mixer button: the Audio Mixer window opens.
+        std::function<void()> OnAudioMixerRequested;
         // Project settings > Physics layers is to open.
         std::function<void()> OnPhysicsLayersRequested;
 
@@ -311,6 +313,8 @@ namespace Zamin {
         bool DrawTagsComponent(TagsComponent& c);
         // 2D renderers: the sorting layer (from the project's list) and the order inside it.
         bool DrawSortingLayer(uint32_t& layer, int& order);
+        // Audio Source: the mixer group it plays in (from the mixer's groups) + a button to the mixer.
+        bool DrawAudioOutput(std::string& output);
         // Sprite Renderer: texture, sprite sheet frame, draw mode (Simple / Sliced / Tiled) ...
         bool DrawSpriteRenderer(Entity entity, SpriteRendererComponent& c);
         // Sprite Animation: grid cells or a list of sprite sheet frames.

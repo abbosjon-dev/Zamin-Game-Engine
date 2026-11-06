@@ -495,7 +495,38 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   to'xtatilgan / ijro etilmagan, daraja); viewport statistika overlay'ida **Audio** bo'limi (o'ng tugma > Audio).
   Hisoblagichlar Play boshlanganda nollanadi. API: `AudioEngine::GetProfile()`, `ResetProfileCounters()`,
   `GetVoiceHistory()`; player `ZAMIN_PLAYER_STATS=1` bilan chiqishda va F11 bilan audio profilini log'ga yozadi
-- **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, 9 ta langar (anchor), `OnClick()`
+- **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, `OnClick()`
+  - **UI ierarxiyasi** (RectTransform modeli): UI obyektning bolasi ota to'rtburchagiga nisbatan joylashadi (oddiy obyekt
+    ostidagisi — ekranga). **Langar min/max** (0..1): bitta nuqtaga bog'lash (9 ta tayyor nuqta) yoki **cho'zish** —
+    chapdan o'ngga, pastdan yuqoriga, butun ota (yuqori/pastki panel, fon); cho'zilgan o'qda inspektor Chap | O'ng
+    (Past | Yuqori) chekkalarini ko'rsatadi; **pivot** (o'z to'rtburchagining nuqtasi). Langar yoki pivot o'zgarsa obyekt
+    joyida qoladi (Shift bilan — langarga joylashadi). Bolalar otasidan keyin (ustida) chiziladi, aka-ukalar orasida —
+    Tartib bo'yicha. Eski sahnalarning 9 nuqtali langari o'zi o'giriladi. API: `GetScene().GetUIRect(e)`,
+    `GetUIScreenRect`, `GetUIParentRect`, `SetUIRect`, `SetUIAnchors(e, min, max, joyidaQolsin)`, `SetUIPivot`
+  - **UI Canvas** — ekranga moslashuvchi masshtab: UI mo'ljal o'lcham (masalan 1920 x 1080) uchun yasaladi va ekran
+    bilan birga kattalashadi / kichrayadi (kenglik yoki balandlikka moslash, ikkalasi orasi — logarifmik; "kengaytirish" —
+    doim sig'adi, "qisqartirish" — doim to'ldiradi) yoki doimiy piksel koeffitsiyenti. Butun pastki daraxtga ta'sir qiladi
+    (ichki canvas tashqisinikini oladi); `GetScene().GetUIScale(e)`. Obyekt > UI (ekran) > Canvas
+  - **Layout guruhlari** (UI Layout Group): bolalarni ierarxiya tartibida **qator** (gorizontal), **ustun** (vertikal)
+    yoki **panjara** (grid) qilib joylaydi: ichki chekka, oraliq, tekislash (9 nuqta), teskari tartib, bolalar
+    kengligi/balandligini boshqarish va ortgan joyni bo'lish; panjara — katak o'lchami, oraliq, boshlanish burchagi,
+    avval qator/ustun, ustunlar yoki qatorlar soni. "Mazmunga mos" — guruh o'lchami bolalariga qarab o'zgaradi (o'sib
+    boruvchi ro'yxat). Ichma-ich guruhlar (ro'yxat ichida qator) afzal o'lchamni bolalaridan oladi. **UI Layout
+    Element** — minimal / afzal / moslashuvchan o'lcham yoki guruhdan chiqarish. Nofaol bolalar tashlab ketiladi
+  - **UI hodisalari**: `OnPointerEnter` / `OnPointerExit` (sichqoncha ustiga keldi / ketdi — bolasi ustida bo'lsa ota
+    UI obyektga ham), `OnPointerDown` / `OnPointerUp` (`event.Inside`) / `OnPointerClick`; event bus: `"UIPointerEnter"` ...
+    `"UIPointerClick"` (payload `UIPointerEvent`: `Target`, `Position`, `ScreenPosition`), `"UIClick"`. UI Button'ning
+    **"Xabar nomi"** — bosilganda shu nomdagi skript xabari qabul qiluvchiga (bo'sh — `Broadcast`) yuboriladi:
+    `AddMessageHandler("Resume", ...)`
+  - **Klaviatura / gamepad navigatsiyasi**: tanlangan vidjetdan strelkalar / D-pad / chap stik (ushlab turilsa
+    takrorlanadi) eng yaqin vidjetga o'tadi, gorizontal slayder chap/o'ng bilan qiymatini o'zgartiradi; Tab / Shift+Tab —
+    keyingi/oldingi (matn maydoniga kirsa yozish boshlanadi), Enter / A — bosish (tugma, belgilash, maydonni tahrirlash),
+    Esc / B — `OnCancel()`. Tanlangan vidjet ramka bilan ko'rinadi. **UI Navigation** komponenti: avtomatik / faqat
+    gorizontal / faqat vertikal / aniq (har yo'nalishga vidjet) / yo'q, "faollashganda tanlash" (menyuning birinchi
+    tugmasi), ramka rangi. `OnSelect()` / `OnDeselect()`, `GetScene().SetSelectedUI(e)`, `NavigateUI`, `SubmitUI`,
+    `CancelUI`. Hech narsa tanlanmagan bo'lsa strelkalar o'yinniki (sichqoncha bosgan vidjet tanlanadi). Namuna:
+    Platformer2D `Scenes/UILayout.zscene` (`UILayoutDemo`); player'da `ZAMIN_PLAYER_INPUT="10:Down;18:Enter;24:mouse=x,y"`
+    bilan avtomatik kiritish
 - **UI vidjetlari** (Obyekt > UI (ekran) menyusi, Komponent qo'shish > Effektlar va UI):
   - **UI Image** — tekstura yoki uning sprite kadri (atlas), rang; turi: oddiy (nisbatni saqlash bilan), **9-slice**
     (burchaklar ekran pikselida, chegara masshtabi), plitka, **to'ldirilgan** (gorizontal / vertikal / radial 360°,
@@ -664,7 +695,10 @@ ZM_REGISTER_SCRIPT(Player,
 | `OnJointBreak(joint)` | Shu obyektning 2D joint'i uzilganda (`joint.Type`, `joint.ConnectedBody`, `joint.Force`, `joint.Torque`) |
 | `OnJointBreak3D(joint)` | Shu obyektning 3D joint'i uzilganda (`joint.Type` - `Joint3DType::Fixed/Hinge/Distance/Slider`, `joint.ConnectedBody`, `joint.Force`, `joint.Torque`) |
 | `OnSoundFinished(sound)` | Shu obyektning ovozi o'zi tugaganda: Audio Source'ning takrorlanmaydigan ovozi yoki skriptning `PlaySound` / `PlaySoundAt` ovozi oxirigacha chalinsa, yoki ovozlar limiti uni to'xtatsa (`sound.Stolen`); `sound.Handle`, `sound.Clip`, `sound.FromAudioSource`. Asosiy oqimda, kadr skriptlaridan keyin; `StopAudio` bilan to'xtatilganda kelmaydi. Sahna event bus'ida ham `"SoundFinished"` (payload `SoundFinished`) |
-| `OnClick()` | Shu obyektdagi UI tugma bosilganda |
+| `OnClick()` | Shu obyektdagi UI tugma bosilganda (sichqoncha, yoki tanlangan paytda Enter / gamepad A) |
+| `OnPointerEnter/Exit(e)` | Sichqoncha shu UI obyekt (yoki uning UI bolasi) ustiga keldi / ketdi (`e.Target`, `e.Position`) |
+| `OnPointerDown/Up(e)` / `OnPointerClick(e)` | Shu UI obyektda sichqoncha bosildi / qo'yib yuborildi (`e.Inside`) / bosib qo'yildi |
+| `OnSelect()` / `OnDeselect()` / `OnCancel()` | Klaviatura / gamepad navigatsiyasi: vidjet tanlandi / tanlov ketdi / Esc yoki B |
 | `OnValueChanged(value)` | Shu obyektdagi UI Slider o'yinchi tomonidan surilganda (yangi qiymat) |
 | `OnToggleChanged(isOn)` | Shu obyektdagi UI Toggle bosilganda (yoki guruhdagi boshqasi yoqilib, bu o'chganda) |
 | `OnTextChanged(text)` / `OnTextSubmit(text)` / `OnTextEndEdit(text)` | Shu obyektdagi UI Input Field: matn o'zgardi / Enter bosildi / tahrir tugadi (Enter, Escape, boshqa joy bosildi) |

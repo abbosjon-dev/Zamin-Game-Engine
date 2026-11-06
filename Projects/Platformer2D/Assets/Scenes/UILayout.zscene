@@ -1,0 +1,2880 @@
+{
+  "Scene": "UILayout",
+  "Version": 1,
+  "Settings": {
+    "DrawSky": false,
+    "SkyTop": [
+      0.32,
+      0.52,
+      0.85
+    ],
+    "SkyHorizon": [
+      0.78,
+      0.86,
+      0.95
+    ],
+    "Ground": [
+      0.36,
+      0.33,
+      0.3
+    ],
+    "Ambient": 0.6,
+    "Exposure": 1.0,
+    "ShadowDistance": 40,
+    "Gravity": [
+      0,
+      -9.81
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ],
+    "Post": {
+      "Bloom": false,
+      "BloomThreshold": 0.95,
+      "BloomKnee": 0.3,
+      "BloomIntensity": 0.45,
+      "BloomRadius": 1.0,
+      "Vignette": 0.0,
+      "Saturation": 1.0,
+      "Contrast": 1.0,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "Tonemap": 0
+    }
+  },
+  "Entities": [
+    {
+      "Entity": 7700000000000001,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          10
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 1,
+        "PerspectiveFOV": 0.7854,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 1000,
+        "OrthographicSize": 12.0,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.05,
+          0.07,
+          0.12,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7700000000000002,
+      "Tag": "Tog'lar",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          26,
+          13,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.55,
+          0.62,
+          0.85,
+          1
+        ],
+        "Texture": "Textures/mountains.png",
+        "TextureUUID": "a5aec7978306d03b",
+        "Tiling": 1.0,
+        "SortingOrder": 0,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 7700000000000003,
+      "Tag": "Canvas",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          0,
+          0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UICanvas": {
+        "ScaleMode": "ScaleWithScreenSize",
+        "ScaleFactor": 1.0,
+        "ReferenceResolution": [
+          1920,
+          1080
+        ],
+        "MatchMode": "MatchWidthOrHeight",
+        "Match": 0.5
+      },
+      "NativeScript": {
+        "Class": "UILayoutDemo",
+        "Fields": {
+          "Status": {
+            "Type": "Entity",
+            "Value": 7700000000000037
+          },
+          "Info": {
+            "Type": "Entity",
+            "Value": 7700000000000007
+          },
+          "Coins": {
+            "Type": "Entity",
+            "Value": 7700000000000006
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7700000000000004,
+      "Tag": "Yuqori panel",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          1
+        ],
+        "Position": [
+          0,
+          -24
+        ],
+        "Size": [
+          -48,
+          96
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "panel",
+        "BorderScale": 4.0
+      }
+    },
+    {
+      "Entity": 7700000000000005,
+      "Tag": "Sarlavha",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000004,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0.5
+        ],
+        "AnchorMax": [
+          0,
+          0.5
+        ],
+        "Pivot": [
+          0,
+          0.5
+        ],
+        "Position": [
+          36,
+          0
+        ],
+        "Size": [
+          900,
+          56
+        ],
+        "FontSize": 42,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "UI layout va navigatsiya",
+        "Color": [
+          1.0,
+          0.93,
+          0.62,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000006,
+      "Tag": "Tangalar",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000004,
+      "UITransform": {
+        "AnchorMin": [
+          1,
+          0.5
+        ],
+        "AnchorMax": [
+          1,
+          0.5
+        ],
+        "Pivot": [
+          1,
+          0.5
+        ],
+        "Position": [
+          -36,
+          0
+        ],
+        "Size": [
+          300,
+          48
+        ],
+        "FontSize": 34,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Tangalar: 120",
+        "Color": [
+          1.0,
+          0.85,
+          0.4,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000007,
+      "Tag": "Masshtab",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          1
+        ],
+        "AnchorMax": [
+          0.5,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          1
+        ],
+        "Position": [
+          0,
+          -140
+        ],
+        "Size": [
+          1700,
+          34
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.7,
+          0.76,
+          0.86,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000008,
+      "Tag": "Menyu",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0.5
+        ],
+        "AnchorMax": [
+          0,
+          0.5
+        ],
+        "Pivot": [
+          0,
+          0.5
+        ],
+        "Position": [
+          48,
+          10
+        ],
+        "Size": [
+          460,
+          0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "panel",
+        "BorderScale": 4.0
+      },
+      "UILayoutGroup": {
+        "Type": "Vertical",
+        "Padding": [
+          28,
+          28,
+          28,
+          28
+        ],
+        "Alignment": 1,
+        "FitWidth": false,
+        "FitHeight": true,
+        "Spacing": 18,
+        "Reverse": false,
+        "ControlWidth": true,
+        "ControlHeight": false,
+        "ExpandWidth": true,
+        "ExpandHeight": false
+      }
+    },
+    {
+      "Entity": 7700000000000009,
+      "Tag": "Menyu sarlavhasi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000008,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          100,
+          48
+        ],
+        "FontSize": 36,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Menyu",
+        "Color": [
+          1.0,
+          0.93,
+          0.62,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000010,
+      "Tag": "O'yinni boshlash",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000008,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          100,
+          76
+        ],
+        "FontSize": 30,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "Hover": [
+          0.7,
+          1.0,
+          0.9,
+          1
+        ],
+        "Pressed": [
+          0.4,
+          0.75,
+          0.62,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Start",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "O'yinni boshlash",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": true,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      }
+    },
+    {
+      "Entity": 7700000000000011,
+      "Tag": "Davom etish",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000008,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          100,
+          76
+        ],
+        "FontSize": 30,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "Hover": [
+          0.7,
+          1.0,
+          0.9,
+          1
+        ],
+        "Pressed": [
+          0.4,
+          0.75,
+          0.62,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Continue",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "Davom etish",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000012,
+      "Tag": "Sozlamalar",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000008,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          100,
+          76
+        ],
+        "FontSize": 30,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "Hover": [
+          0.7,
+          1.0,
+          0.9,
+          1
+        ],
+        "Pressed": [
+          0.4,
+          0.75,
+          0.62,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Settings",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "Sozlamalar",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000013,
+      "Tag": "Yutuqlar",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000008,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          100,
+          76
+        ],
+        "FontSize": 30,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "Hover": [
+          0.7,
+          1.0,
+          0.9,
+          1
+        ],
+        "Pressed": [
+          0.4,
+          0.75,
+          0.62,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Achievements",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "Yutuqlar",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000014,
+      "Tag": "Chiqish",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000008,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          100,
+          76
+        ],
+        "FontSize": 30,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "Hover": [
+          0.7,
+          1.0,
+          0.9,
+          1
+        ],
+        "Pressed": [
+          0.4,
+          0.75,
+          0.62,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Quit",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "Chiqish",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000015,
+      "Tag": "Inventar",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          1,
+          0.5
+        ],
+        "AnchorMax": [
+          1,
+          0.5
+        ],
+        "Pivot": [
+          1,
+          0.5
+        ],
+        "Position": [
+          -48,
+          10
+        ],
+        "Size": [
+          0,
+          0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "panel",
+        "BorderScale": 4.0
+      },
+      "UILayoutGroup": {
+        "Type": "Vertical",
+        "Padding": [
+          28,
+          28,
+          28,
+          28
+        ],
+        "Alignment": 1,
+        "FitWidth": true,
+        "FitHeight": true,
+        "Spacing": 16,
+        "Reverse": false,
+        "ControlWidth": true,
+        "ControlHeight": false,
+        "ExpandWidth": true,
+        "ExpandHeight": false
+      }
+    },
+    {
+      "Entity": 7700000000000016,
+      "Tag": "Inventar sarlavhasi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000015,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          200,
+          48
+        ],
+        "FontSize": 36,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Inventar (panjara)",
+        "Color": [
+          1.0,
+          0.93,
+          0.62,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000017,
+      "Tag": "Uyalar",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000015,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          0,
+          0
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UILayoutGroup": {
+        "Type": "Grid",
+        "Padding": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "Alignment": 1,
+        "FitWidth": false,
+        "FitHeight": true,
+        "CellSize": [
+          132,
+          132
+        ],
+        "GridSpacing": [
+          16,
+          16
+        ],
+        "StartCorner": 0,
+        "StartAxisVertical": false,
+        "Constraint": "FixedColumnCount",
+        "ConstraintCount": 4
+      }
+    },
+    {
+      "Entity": 7700000000000018,
+      "Tag": "1-uya",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000017,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          132,
+          132
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.62,
+          0.68,
+          0.85,
+          1
+        ],
+        "Hover": [
+          0.8,
+          0.86,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.45,
+          0.5,
+          0.65,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Slot",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      }
+    },
+    {
+      "Entity": 7700000000000019,
+      "Tag": "Belgi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000018,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          -52,
+          -52
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/crystal.png",
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": true,
+        "RaycastTarget": false,
+        "TextureUUID": "9ac80625d7d84a9d"
+      }
+    },
+    {
+      "Entity": 7700000000000020,
+      "Tag": "2-uya",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000017,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          132,
+          132
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.62,
+          0.68,
+          0.85,
+          1
+        ],
+        "Hover": [
+          0.8,
+          0.86,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.45,
+          0.5,
+          0.65,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Slot",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      }
+    },
+    {
+      "Entity": 7700000000000021,
+      "Tag": "Belgi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000020,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          -52,
+          -52
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/crystal.png",
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": true,
+        "RaycastTarget": false,
+        "TextureUUID": "9ac80625d7d84a9d"
+      }
+    },
+    {
+      "Entity": 7700000000000022,
+      "Tag": "3-uya",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000017,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          132,
+          132
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.62,
+          0.68,
+          0.85,
+          1
+        ],
+        "Hover": [
+          0.8,
+          0.86,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.45,
+          0.5,
+          0.65,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Slot",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      }
+    },
+    {
+      "Entity": 7700000000000023,
+      "Tag": "Belgi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000022,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          -52,
+          -52
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/boulder.png",
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": true,
+        "RaycastTarget": false,
+        "TextureUUID": "fdea186c26a9b1a3"
+      }
+    },
+    {
+      "Entity": 7700000000000024,
+      "Tag": "4-uya",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000017,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          132,
+          132
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.62,
+          0.68,
+          0.85,
+          1
+        ],
+        "Hover": [
+          0.8,
+          0.86,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.45,
+          0.5,
+          0.65,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Slot",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      }
+    },
+    {
+      "Entity": 7700000000000025,
+      "Tag": "Belgi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000024,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          -52,
+          -52
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/crystal.png",
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": true,
+        "RaycastTarget": false,
+        "TextureUUID": "9ac80625d7d84a9d"
+      }
+    },
+    {
+      "Entity": 7700000000000026,
+      "Tag": "5-uya",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000017,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          132,
+          132
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.62,
+          0.68,
+          0.85,
+          1
+        ],
+        "Hover": [
+          0.8,
+          0.86,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.45,
+          0.5,
+          0.65,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Slot",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      }
+    },
+    {
+      "Entity": 7700000000000027,
+      "Tag": "6-uya",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000017,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          132,
+          132
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.62,
+          0.68,
+          0.85,
+          1
+        ],
+        "Hover": [
+          0.8,
+          0.86,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.45,
+          0.5,
+          0.65,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Slot",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      }
+    },
+    {
+      "Entity": 7700000000000028,
+      "Tag": "Belgi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000027,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          -52,
+          -52
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/boulder.png",
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": true,
+        "RaycastTarget": false,
+        "TextureUUID": "fdea186c26a9b1a3"
+      }
+    },
+    {
+      "Entity": 7700000000000029,
+      "Tag": "7-uya",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000017,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          132,
+          132
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.62,
+          0.68,
+          0.85,
+          1
+        ],
+        "Hover": [
+          0.8,
+          0.86,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.45,
+          0.5,
+          0.65,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Slot",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      }
+    },
+    {
+      "Entity": 7700000000000030,
+      "Tag": "Belgi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000029,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          -52,
+          -52
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/crystal.png",
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": true,
+        "RaycastTarget": false,
+        "TextureUUID": "9ac80625d7d84a9d"
+      }
+    },
+    {
+      "Entity": 7700000000000031,
+      "Tag": "8-uya",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000017,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          132,
+          132
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.62,
+          0.68,
+          0.85,
+          1
+        ],
+        "Hover": [
+          0.8,
+          0.86,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.45,
+          0.5,
+          0.65,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "Slot",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      }
+    },
+    {
+      "Entity": 7700000000000032,
+      "Tag": "Pastki panel",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          0
+        ],
+        "Pivot": [
+          0.5,
+          0
+        ],
+        "Position": [
+          0,
+          24
+        ],
+        "Size": [
+          -48,
+          110
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "panel",
+        "BorderScale": 4.0
+      },
+      "UILayoutGroup": {
+        "Type": "Horizontal",
+        "Padding": [
+          32,
+          32,
+          22,
+          22
+        ],
+        "Alignment": 3,
+        "FitWidth": false,
+        "FitHeight": false,
+        "Spacing": 28,
+        "Reverse": false,
+        "ControlWidth": true,
+        "ControlHeight": true,
+        "ExpandWidth": true,
+        "ExpandHeight": true
+      }
+    },
+    {
+      "Entity": 7700000000000033,
+      "Tag": "Ovoz",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000032,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          220,
+          40
+        ],
+        "FontSize": 30,
+        "Order": 0
+      },
+      "UIToggle": {
+        "IsOn": true,
+        "Interactable": true,
+        "Style": "Switch",
+        "Mark": "Check",
+        "BoxSize": 36.0,
+        "LabelSpacing": 14.0,
+        "Group": "",
+        "AllowSwitchOff": false,
+        "BoxColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "OnColor": [
+          0.2,
+          0.68,
+          0.55,
+          1
+        ],
+        "MarkColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Ovoz",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000034,
+      "Tag": "Musiqa",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000032,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          220,
+          40
+        ],
+        "FontSize": 30,
+        "Order": 0
+      },
+      "UIToggle": {
+        "IsOn": true,
+        "Interactable": true,
+        "Style": "Switch",
+        "Mark": "Check",
+        "BoxSize": 36.0,
+        "LabelSpacing": 14.0,
+        "Group": "",
+        "AllowSwitchOff": false,
+        "BoxColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "OnColor": [
+          0.2,
+          0.68,
+          0.55,
+          1
+        ],
+        "MarkColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Musiqa",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000035,
+      "Tag": "Titrash",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000032,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          220,
+          40
+        ],
+        "FontSize": 30,
+        "Order": 0
+      },
+      "UIToggle": {
+        "IsOn": false,
+        "Interactable": true,
+        "Style": "Checkbox",
+        "Mark": "Check",
+        "BoxSize": 36.0,
+        "LabelSpacing": 14.0,
+        "Group": "",
+        "AllowSwitchOff": false,
+        "BoxColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "OnColor": [
+          0.2,
+          0.68,
+          0.55,
+          1
+        ],
+        "MarkColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Titrash",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000036,
+      "Tag": "Yorqinlik",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000032,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          300,
+          40
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UISlider": {
+        "Min": 0.0,
+        "Max": 1.0,
+        "Value": 0.65,
+        "WholeNumbers": false,
+        "Direction": "LeftToRight",
+        "Interactable": true,
+        "TrackThickness": 10.0,
+        "HandleSize": 34.0,
+        "Rounded": true,
+        "TrackColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "FillColor": [
+          0.95,
+          0.62,
+          0.22,
+          1
+        ],
+        "HandleColor": [
+          1.0,
+          0.95,
+          0.85,
+          1
+        ]
+      },
+      "UILayoutElement": {
+        "IgnoreLayout": false,
+        "Min": [
+          -1,
+          -1
+        ],
+        "Preferred": [
+          -1,
+          -1
+        ],
+        "Flexible": [
+          2,
+          -1
+        ]
+      }
+    },
+    {
+      "Entity": 7700000000000037,
+      "Tag": "Holat",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0
+        ],
+        "AnchorMax": [
+          0.5,
+          0
+        ],
+        "Pivot": [
+          0.5,
+          0
+        ],
+        "Position": [
+          0,
+          160
+        ],
+        "Size": [
+          1700,
+          40
+        ],
+        "FontSize": 30,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          0.95,
+          0.96,
+          1.0,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000038,
+      "Tag": "Yordam",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0
+        ],
+        "AnchorMax": [
+          0.5,
+          0
+        ],
+        "Pivot": [
+          0.5,
+          0
+        ],
+        "Position": [
+          0,
+          208
+        ],
+        "Size": [
+          1700,
+          34
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Strelkalar / D-pad - tanlash    Enter / A - bosish    Tab - keyingisi    Esc / B - bekor qilish",
+        "Color": [
+          0.62,
+          0.68,
+          0.8,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    }
+  ]
+}

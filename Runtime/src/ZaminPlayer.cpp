@@ -6,8 +6,12 @@
 #include <Zamin/Core/EntryPoint.h>
 
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace Zamin {
 
@@ -71,6 +75,58 @@ namespace Zamin {
                 Renderer3D::SetFrustumCulling(false);
             if (std::getenv("ZAMIN_PLAYER_NO_INSTANCING"))
                 Renderer3D::SetInstancing(false);
+            // ZAMIN_PLAYER_INPUT="<frame>:<action>;..." plays input in (screenshots, CI): a key name
+            // ("Down", "Enter", "Tab": pressed in that frame, released in the next), "mouse=x,y" (the
+            // game's mouse at window px from the top-left from then on) or "click" (the left button for
+            // one frame).
+            if (const char* input = std::getenv("ZAMIN_PLAYER_INPUT"))
+            {
+                std::string_view rest = input;
+                while (!rest.empty())
+                {
+                    const size_t end = rest.find(';');
+                    std::string_view item = rest.substr(0, end);
+                    rest = end == std::string_view::npos ? std::string_view() : rest.substr(end + 1);
+                    const size_t colon = item.find(':');
+                    if (colon == std::string_view::npos)
+                        continue;
+                    m_ScriptedInput.push_back({ std::atoi(std::string(item.substr(0, colon)).c_str()), std::string(item.substr(colon + 1)) });
+                }
+            }
+        }
+
+        // Plays the scripted input of this frame (seen by the next Input::Update).
+        void PlayScriptedInput()
+        {
+            for (Key key : m_ReleaseKeys)
+                Input::OnKeyEvent(key, false);
+            m_ReleaseKeys.clear();
+            m_ScriptedClick = false;
+            for (const auto& [frame, action] : m_ScriptedInput)
+            {
+                if (frame != m_Frame)
+                    continue;
+                Key key{};
+                if (action.starts_with("mouse="))
+                {
+                    float x = 0.0f, y = 0.0f;
+                    if (std::sscanf(action.c_str() + 6, "%f,%f", &x, &y) == 2)
+                    {
+                        m_ScriptedMouse = { x, y };
+                        m_HasScriptedMouse = true;
+                    }
+                }
+                else if (action == "click")
+                    m_ScriptedClick = true;
+                else if (KeyFromString(action, key))
+                {
+                    Input::OnKeyEvent(key, true);
+                    m_ReleaseKeys.push_back(key);
+                }
+                else
+                    ZM_WARN("ZAMIN_PLAYER_INPUT: noma'lum amal '{}'", action);
+            }
+            m_Frame++;
         }
 
         void OnDetach() override
@@ -92,6 +148,8 @@ namespace Zamin {
         void OnUpdate(Timestep ts) override
         {
             if (!m_Scene) return;
+            if (!m_ScriptedInput.empty())
+                PlayScriptedInput();
             // The audio engine is shut down before OnDetach: its profile is kept from the last frame.
             static const bool logStats = std::getenv("ZAMIN_PLAYER_STATS") != nullptr;
             if (logStats)
@@ -101,9 +159,9 @@ namespace Zamin {
             m_Scene->OnViewportResize(w, h);
 
             Renderer::ResetStats();
-            glm::vec2 mouse = Input::GetMousePosition();
+            glm::vec2 mouse = m_HasScriptedMouse ? m_ScriptedMouse : Input::GetMousePosition();
             float scale = window.GetWidth() > 0 ? (float)w / (float)window.GetWidth() : 1.0f;
-            m_Scene->SetViewportMouse(mouse * scale, Input::IsMouseButtonPressed(MouseButton::Left));
+            m_Scene->SetViewportMouse(mouse * scale, Input::IsMouseButtonPressed(MouseButton::Left) || m_ScriptedClick);
 
             const auto& post = m_Scene->GetSettings().Post;
             // The scene is rendered in linear HDR at the render scale of the window's size, then
@@ -202,6 +260,12 @@ namespace Zamin {
         Ref<Scene> m_Scene;
         Ref<Framebuffer> m_Target;
         PostProcessHistory m_PostHistory; // auto exposure: the screen's adapted brightness
+        // ZAMIN_PLAYER_INPUT
+        std::vector<std::pair<int, std::string>> m_ScriptedInput;
+        std::vector<Key> m_ReleaseKeys;
+        glm::vec2 m_ScriptedMouse{ 0.0f };
+        bool m_HasScriptedMouse = false, m_ScriptedClick = false;
+        int m_Frame = 0;
     };
 
     class ZaminPlayer : public Application

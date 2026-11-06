@@ -22991,3 +22991,904 @@ TEST(UIWidgetsSampleScene)
     CHECK(scene->PickUI(scene->GetUIRect(panel).Min + glm::vec2(5.0f)) == panel);
     scene->OnRuntimeStop();
 }
+
+// ------------------------------------------------------------------ M12: UI layout, canvas, layout groups, events, navigation (226-230, 236)
+TEST(UIRectLayoutMath)
+{
+    const float eps = 1e-3f;
+    const UIRect parent{ { 100.0f, 50.0f }, { 500.0f, 350.0f } }; // 400 x 300
+    // A point anchor (top-right) with the pivot at the element's own top-right corner: 10 px in from the corner.
+    UIRect r = UILayout::ComputeRect(parent, { 1.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 1.0f }, { -10.0f, -10.0f }, { 100.0f, 50.0f });
+    CHECK_NEAR(r.Max.x, 490.0f, eps);
+    CHECK_NEAR(r.Max.y, 340.0f, eps);
+    CHECK_NEAR(r.Min.x, 390.0f, eps);
+    CHECK_NEAR(r.Min.y, 290.0f, eps);
+    // Centre pivot and a point anchor: the old model (anchor point + position = the centre).
+    r = UILayout::ComputeRect(parent, glm::vec2(0.5f), glm::vec2(0.5f), glm::vec2(0.5f), { 20.0f, -30.0f }, { 60.0f, 40.0f });
+    CHECK_NEAR(r.GetCenter().x, 320.0f, eps);
+    CHECK_NEAR(r.GetCenter().y, 170.0f, eps);
+    CHECK_NEAR(r.GetWidth(), 60.0f, eps);
+    // Stretched across the top: 8 px in on each side, 40 high under the top edge.
+    r = UILayout::ComputeRect(parent, { 0.0f, 1.0f }, { 1.0f, 1.0f }, { 0.5f, 1.0f }, { 0.0f, 0.0f }, { -16.0f, 40.0f });
+    CHECK_NEAR(r.Min.x, 108.0f, eps);
+    CHECK_NEAR(r.Max.x, 492.0f, eps);
+    CHECK_NEAR(r.Max.y, 350.0f, eps);
+    CHECK_NEAR(r.Min.y, 310.0f, eps);
+    // Stretched over the whole parent with insets (left, right, top, bottom).
+    UITransformComponent t;
+    t.SetStretch({ 10.0f, 20.0f, 30.0f, 40.0f });
+    CHECK(t.IsStretchedX() && t.IsStretchedY() && t.GetAnchorPreset() == -1);
+    r = t.ComputeRect(parent);
+    CHECK_NEAR(r.Min.x, 110.0f, eps);
+    CHECK_NEAR(r.Max.x, 480.0f, eps);
+    CHECK_NEAR(r.Max.y, 320.0f, eps);
+    CHECK_NEAR(r.Min.y, 90.0f, eps);
+    CHECK_NEAR(t.GetOffsetMin().x, 10.0f, eps);
+    CHECK_NEAR(t.GetOffsetMax().x, -20.0f, eps);
+    // The parent grows: a stretched element grows with it, keeping its insets.
+    r = t.ComputeRect({ { 0.0f, 0.0f }, { 1000.0f, 500.0f } });
+    CHECK_NEAR(r.Max.x, 980.0f, eps);
+    CHECK_NEAR(r.Min.y, 40.0f, eps);
+    // Position / Size for a wanted rectangle, with uneven anchors and pivot.
+    UITransformComponent odd;
+    odd.AnchorMin = { 0.25f, 0.0f };
+    odd.AnchorMax = { 0.75f, 0.5f };
+    odd.Pivot = { 0.2f, 0.9f };
+    const UIRect want{ { 150.0f, 60.0f }, { 420.0f, 200.0f } };
+    odd.SetRect(parent, want);
+    r = odd.ComputeRect(parent);
+    CHECK_NEAR(r.Min.x, want.Min.x, eps);
+    CHECK_NEAR(r.Min.y, want.Min.y, eps);
+    CHECK_NEAR(r.Max.x, want.Max.x, eps);
+    CHECK_NEAR(r.Max.y, want.Max.y, eps);
+    // Presets (reading order, y up) and alignments (y down).
+    CHECK(UILayout::PresetPoint(0) == glm::vec2(0.0f, 1.0f) && UILayout::PresetPoint(4) == glm::vec2(0.5f) && UILayout::PresetPoint(8) == glm::vec2(1.0f, 0.0f));
+    CHECK(UILayout::AlignmentOf(0) == glm::vec2(0.0f) && UILayout::AlignmentOf(5) == glm::vec2(1.0f, 0.5f) && UILayout::AlignmentOf(8) == glm::vec2(1.0f));
+    UITransformComponent point;
+    point.SetAnchor(UITransformComponent::AnchorPoint::Right);
+    CHECK(point.GetAnchorPreset() == 5 && point.AnchorMin == glm::vec2(1.0f, 0.5f) && !point.IsStretchedX());
+    point.AnchorMax.x = 0.9f;
+    CHECK(point.GetAnchorPreset() == -1);
+    // The default UI Transform is the old default (top-left anchor, 100 / -60 to the centre).
+    const UITransformComponent def;
+    r = def.ComputeRect({ { 0.0f, 0.0f }, { 800.0f, 600.0f } });
+    CHECK_NEAR(r.GetCenter().x, 100.0f, eps);
+    CHECK_NEAR(r.GetCenter().y, 540.0f, eps);
+}
+
+TEST(UICanvasScaleMath)
+{
+    const float eps = 1e-4f;
+    const glm::vec2 reference{ 1920.0f, 1080.0f };
+    using M = UIScreenMatchMode;
+    auto scale = [&](glm::vec2 screen, M mode, float match) {
+        return UILayout::CanvasScale(screen, UIScaleMode::ScaleWithScreenSize, 1.0f, reference, mode, match);
+    };
+    CHECK_NEAR(scale({ 960.0f, 1000.0f }, M::MatchWidthOrHeight, 0.0f), 0.5f, eps);  // the width counts
+    CHECK_NEAR(scale({ 3000.0f, 540.0f }, M::MatchWidthOrHeight, 1.0f), 0.5f, eps);  // the height counts
+    CHECK_NEAR(scale({ 3840.0f, 1080.0f }, M::MatchWidthOrHeight, 0.5f), std::sqrt(2.0f), eps); // halfway in log space
+    CHECK_NEAR(scale({ 1920.0f, 1080.0f }, M::MatchWidthOrHeight, 0.5f), 1.0f, eps);
+    CHECK_NEAR(scale({ 3840.0f, 1080.0f }, M::Expand, 0.0f), 1.0f, eps);             // always fits inside
+    CHECK_NEAR(scale({ 3840.0f, 1080.0f }, M::Shrink, 0.0f), 2.0f, eps);             // always fills it
+    CHECK_NEAR(UILayout::CanvasScale({ 800.0f, 600.0f }, UIScaleMode::ConstantPixelSize, 1.5f, reference, M::Expand, 0.0f), 1.5f, eps);
+    CHECK_NEAR(UILayout::CanvasScale({ 0.0f, 0.0f }, UIScaleMode::ScaleWithScreenSize, 1.0f, reference, M::Expand, 0.0f), 1.0f, eps);
+    CHECK(UILayout::CanvasScale({ 800.0f, 600.0f }, UIScaleMode::ConstantPixelSize, 0.0f, reference, M::Expand, 0.0f) >= 0.01f);
+    UICanvasComponent canvas;
+    canvas.MatchWidthOrHeight = 1.0f;
+    CHECK_NEAR(canvas.ComputeScale({ 1280.0f, 720.0f }), 720.0f / 1080.0f, eps);
+}
+
+// A UI entity anchored at a preset point of its parent (or of the view), `position` from it to its centre.
+static Entity MakeUIRect(const Ref<Scene>& scene, const std::string& name, UITransformComponent::AnchorPoint anchor, const glm::vec2& position,
+                         const glm::vec2& size)
+{
+    Entity e = scene->CreateEntity(name);
+    auto& ui = e.AddComponent<UITransformComponent>();
+    ui.SetAnchor(anchor);
+    ui.Position = position;
+    ui.Size = size;
+    return e;
+}
+
+static bool RectNear(const UIRect& a, const UIRect& b, float eps = 1e-3f)
+{
+    return std::abs(a.Min.x - b.Min.x) < eps && std::abs(a.Min.y - b.Min.y) < eps && std::abs(a.Max.x - b.Max.x) < eps && std::abs(a.Max.y - b.Max.y) < eps;
+}
+
+TEST(UIHierarchyLayout)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    using A = UITransformComponent::AnchorPoint;
+    Entity panel = MakeUIRect(scene, "Panel", A::Center, { 100.0f, 0.0f }, { 400.0f, 300.0f }); // x 300..700, y 150..450
+    Entity close = MakeUIRect(scene, "Close", A::TopRight, { -10.0f, -10.0f }, { 40.0f, 40.0f });
+    close.GetComponent<UITransformComponent>().Pivot = { 1.0f, 1.0f };
+    scene->SetParent(close, panel, false);
+    Entity bar = scene->CreateEntity("Bar");
+    {
+        auto& t = bar.AddComponent<UITransformComponent>();
+        t.AnchorMin = { 0.0f, 1.0f };
+        t.AnchorMax = { 1.0f, 1.0f };
+        t.Pivot = { 0.5f, 1.0f };
+        t.Position = { 0.0f, -50.0f };
+        t.Size = { -20.0f, 30.0f };
+    }
+    scene->SetParent(bar, panel, false);
+    Entity fill = scene->CreateEntity("Fill");
+    fill.AddComponent<UITransformComponent>().SetStretch({ 2.0f, 2.0f, 2.0f, 2.0f });
+    scene->SetParent(fill, bar, false);
+
+    CHECK(RectNear(scene->GetUIRect(panel), { { 300.0f, 150.0f }, { 700.0f, 450.0f } }));
+    CHECK(RectNear(scene->GetUIRect(close), { { 650.0f, 400.0f }, { 690.0f, 440.0f } })); // in the panel's top-right corner
+    CHECK(RectNear(scene->GetUIRect(bar), { { 310.0f, 370.0f }, { 690.0f, 400.0f } }));   // across the panel, 50 below its top
+    CHECK(RectNear(scene->GetUIRect(fill), { { 312.0f, 372.0f }, { 688.0f, 398.0f } }));  // a child of a child
+    CHECK(RectNear(scene->GetUIParentRect(close), scene->GetUIRect(panel)));
+    CHECK(RectNear(scene->GetUIParentRect(panel), { { 0.0f, 0.0f }, { 800.0f, 600.0f } }));
+    CHECK(!scene->IsUILayoutDriven(close) && scene->GetUIScale(close) == 1.0f);
+
+    // The panel moves and grows: the corner button stays in its corner, the bar stretches.
+    panel.GetComponent<UITransformComponent>().Position.x = 0.0f;
+    panel.GetComponent<UITransformComponent>().Size.x = 600.0f; // x 100..700
+    CHECK(RectNear(scene->GetUIRect(close), { { 650.0f, 400.0f }, { 690.0f, 440.0f } }));
+    CHECK(RectNear(scene->GetUIRect(bar), { { 110.0f, 370.0f }, { 690.0f, 400.0f } }));
+    // The view grows: the panel stays centred.
+    scene->OnViewportResize(1000, 600);
+    CHECK(RectNear(scene->GetUIRect(panel), { { 200.0f, 150.0f }, { 800.0f, 450.0f } }));
+    CHECK(RectNear(scene->GetUIRect(close), { { 750.0f, 400.0f }, { 790.0f, 440.0f } }));
+    scene->OnViewportResize(800, 600);
+
+    // New anchors / pivot keep it where it is (Position and Size follow); SetUIRect places it.
+    const UIRect before = scene->GetUIRect(close);
+    scene->SetUIAnchors(close, { 0.0f, 0.0f }, { 0.0f, 0.0f });
+    CHECK(RectNear(scene->GetUIRect(close), before));
+    CHECK(close.GetComponent<UITransformComponent>().AnchorMin == glm::vec2(0.0f));
+    scene->SetUIPivot(close, { 0.0f, 0.0f });
+    CHECK(RectNear(scene->GetUIRect(close), before));
+    CHECK_NEAR(close.GetComponent<UITransformComponent>().Position.x, 550.0f, 1e-3f); // its left edge from the panel's (100)
+    scene->SetUIAnchors(close, { 0.0f, 0.0f }, { 1.0f, 1.0f }); // stretched now: it still has the same rect
+    CHECK(RectNear(scene->GetUIRect(close), before));
+    scene->SetUIRect(close, { { 120.0f, 160.0f }, { 220.0f, 200.0f } });
+    CHECK(RectNear(scene->GetUIRect(close), { { 120.0f, 160.0f }, { 220.0f, 200.0f } }));
+
+    // A UI entity under a plain entity is laid out in the view (as before the hierarchy counted).
+    Entity folder = scene->CreateEntity("Folder");
+    Entity label = MakeUIRect(scene, "Label", A::Center, { 0.0f, 0.0f }, { 100.0f, 20.0f });
+    scene->SetParent(label, folder, false);
+    CHECK(RectNear(scene->GetUIRect(label), { { 350.0f, 290.0f }, { 450.0f, 310.0f } }));
+
+    // Drawn depth-first: a parent below its children whatever their Order; siblings by Order.
+    close.GetComponent<UITransformComponent>().Order = 5;
+    bar.GetComponent<UITransformComponent>().Order = -5;
+    panel.GetComponent<UITransformComponent>().Order = 2;
+    std::vector<entt::entity> order = scene->GetUIDrawOrder();
+    auto at = [&](Entity e) { return std::find(order.begin(), order.end(), (entt::entity)e) - order.begin(); };
+    CHECK(order.size() == 5);
+    CHECK(at(label) < at(panel) && at(panel) < at(bar) && at(bar) < at(fill) && at(fill) < at(close));
+    // `skip` leaves an entity out, not its children.
+    std::unordered_set<entt::entity> skip{ (entt::entity)bar };
+    order = scene->GetUIDrawOrder(&skip);
+    CHECK(order.size() == 4 && std::find(order.begin(), order.end(), (entt::entity)fill) != order.end());
+
+    // Picking: a child is drawn over its parent.
+    panel.AddComponent<UIImageComponent>();
+    close.AddComponent<UIButtonComponent>();
+    CHECK(scene->PickUI({ 170.0f, 180.0f }) == close);
+    CHECK(scene->PickUI({ 400.0f, 250.0f }) == panel);
+    CHECK(!scene->PickUI({ 50.0f, 50.0f }));
+}
+
+TEST(UICanvasScalesTheUI)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(960, 540);
+    using A = UITransformComponent::AnchorPoint;
+    Entity canvas = scene->CreateEntity("Canvas");
+    canvas.AddComponent<UITransformComponent>().SetStretch();
+    auto& scaler = canvas.AddComponent<UICanvasComponent>(); // 1920 x 1080, width and height halfway
+    Entity button = MakeUIRect(scene, "Play", A::Center, { 0.0f, 0.0f }, { 400.0f, 100.0f });
+    button.AddComponent<UIButtonComponent>();
+    button.AddComponent<NativeScriptComponent>().ClassName = "ClickCountScript";
+    scene->SetParent(button, canvas, false);
+    Entity score = MakeUIRect(scene, "Score", A::TopRight, { -20.0f, -20.0f }, { 200.0f, 50.0f });
+    score.GetComponent<UITransformComponent>().Pivot = { 1.0f, 1.0f };
+    scene->SetParent(score, canvas, false);
+    Entity plain = MakeUIRect(scene, "Plain", A::BottomLeft, { 50.0f, 25.0f }, { 100.0f, 50.0f }); // no canvas: px
+
+    // Half the reference size: everything at half size, laid out in reference units.
+    CHECK_NEAR(scene->GetUIScale(button), 0.5f, 1e-5f);
+    CHECK(RectNear(scene->GetUIRect(canvas), { { 0.0f, 0.0f }, { 1920.0f, 1080.0f } }));
+    CHECK(RectNear(scene->GetUIRect(button), { { 760.0f, 490.0f }, { 1160.0f, 590.0f } }));
+    CHECK(RectNear(scene->GetUIScreenRect(button), { { 380.0f, 245.0f }, { 580.0f, 295.0f } }));
+    CHECK(RectNear(scene->GetUIScreenRect(score), { { 850.0f, 505.0f }, { 950.0f, 530.0f } })); // 10 screen px from the corner
+    CHECK(scene->GetUIScale(plain) == 1.0f && RectNear(scene->GetUIRect(plain), { { 0.0f, 0.0f }, { 100.0f, 50.0f } }));
+    CHECK_NEAR(scaler.CurrentScale, 0.5f, 1e-5f);
+    // Picking works in screen px.
+    CHECK(scene->PickUI({ 390.0f, 270.0f }) == button);
+    CHECK(!scene->PickUI({ 370.0f, 270.0f }));
+
+    // Clicked at its scaled place.
+    g_ButtonClicks = 0;
+    scene->OnRuntimeStart();
+    for (bool down : { false, true, false })
+    {
+        scene->SetViewportMouse({ 575.0f, 540.0f - 250.0f }, down);
+        scene->OnUpdateRuntime(0.016f);
+    }
+    CHECK(g_ButtonClicks == 1);
+    scene->OnRuntimeStop();
+
+    // At the reference size: 1:1; twice as wide (match 0.5): sqrt(2).
+    scene->OnViewportResize(1920, 1080);
+    CHECK_NEAR(scene->GetUIScale(button), 1.0f, 1e-5f);
+    CHECK(RectNear(scene->GetUIScreenRect(button), { { 760.0f, 490.0f }, { 1160.0f, 590.0f } }));
+    scene->OnViewportResize(3840, 1080);
+    CHECK_NEAR(scene->GetUIScale(button), std::sqrt(2.0f), 1e-4f);
+    CHECK_NEAR(scene->GetUIScreenRect(button).GetCenter().x, 1920.0f, 1e-2f); // still centred
+    CHECK_NEAR(scene->GetUIScreenRect(score).Max.x, 3840.0f - 20.0f * std::sqrt(2.0f), 1e-2f);
+
+    // A canvas on a plain entity scales the UI roots below it; constant pixel size.
+    Entity hud = scene->CreateEntity("HUD");
+    auto& constant = hud.AddComponent<UICanvasComponent>();
+    constant.ScaleMode = UIScaleMode::ConstantPixelSize;
+    constant.ScaleFactor = 2.0f;
+    scene->SetParent(plain, hud, false);
+    CHECK_NEAR(scene->GetUIScale(plain), 2.0f, 1e-5f);
+    CHECK(RectNear(scene->GetUIScreenRect(plain), { { 0.0f, 0.0f }, { 200.0f, 100.0f } }));
+    // Only the outermost canvas counts.
+    button.AddComponent<UICanvasComponent>().ScaleMode = UIScaleMode::ConstantPixelSize;
+    CHECK_NEAR(scene->GetUIScale(button), std::sqrt(2.0f), 1e-4f);
+}
+
+TEST(UILayoutGroupMath)
+{
+    const float eps = 1e-3f;
+    std::vector<UIRect> out;
+    auto item = [](glm::vec2 size, glm::vec2 min = glm::vec2(0.0f), glm::vec2 flexible = glm::vec2(0.0f)) {
+        UILayoutItem i;
+        i.Size = size;
+        i.Min = min;
+        i.Preferred = size;
+        i.Flexible = flexible;
+        return i;
+    };
+    const std::vector<UILayoutItem> column = { item({ 100.0f, 50.0f }), item({ 150.0f, 40.0f }), item({ 80.0f, 30.0f }) };
+    UILayoutGroupSettings g;
+    g.Type = UILayoutType::Vertical;
+    g.Padding = glm::vec4(10.0f);
+    g.Spacing = 5.0f;
+    const UIRect rect{ { 0.0f, 0.0f }, { 200.0f, 300.0f } };
+    // Stacked from the top-left, each at its own size.
+    UILayout::Arrange(rect, g, column, out);
+    CHECK(out.size() == 3);
+    CHECK(RectNear(out[0], { { 10.0f, 240.0f }, { 110.0f, 290.0f } }));
+    CHECK(RectNear(out[1], { { 10.0f, 195.0f }, { 160.0f, 235.0f } }));
+    CHECK(RectNear(out[2], { { 10.0f, 160.0f }, { 90.0f, 190.0f } }));
+    UILayoutSizes sizes = UILayout::CalcSizes(g, column, rect.GetSize());
+    CHECK_NEAR(sizes.Preferred.x, 170.0f, eps); // padding + the widest
+    CHECK_NEAR(sizes.Preferred.y, 150.0f, eps); // padding + all + spacing
+    // Centred: the column in the middle, each child centred across.
+    g.ChildAlignment = 4;
+    UILayout::Arrange(rect, g, column, out);
+    CHECK(RectNear(out[0], { { 50.0f, 165.0f }, { 150.0f, 215.0f } }));
+    CHECK_NEAR(out[1].Min.x, 25.0f, eps);
+    g.ChildAlignment = 0;
+    // The group sets the width (filling it) and shares the extra height.
+    g.ControlChildWidth = g.ChildForceExpandWidth = true;
+    g.ControlChildHeight = g.ChildForceExpandHeight = true;
+    UILayout::Arrange(rect, g, column, out);
+    CHECK(RectNear(out[0], { { 10.0f, 190.0f }, { 190.0f, 290.0f } })); // 50 + 150 / 3
+    CHECK(RectNear(out[1], { { 10.0f, 95.0f }, { 190.0f, 185.0f } }));
+    CHECK(RectNear(out[2], { { 10.0f, 10.0f }, { 190.0f, 90.0f } }));
+    // Too little room: from preferred towards min (20 each).
+    g.ChildForceExpandHeight = false;
+    const std::vector<UILayoutItem> squeezed = { item({ 100.0f, 50.0f }, { 0.0f, 20.0f }), item({ 150.0f, 40.0f }, { 0.0f, 20.0f }),
+                                                 item({ 80.0f, 30.0f }, { 0.0f, 20.0f }) };
+    UILayout::Arrange({ { 0.0f, 0.0f }, { 200.0f, 100.0f } }, g, squeezed, out);
+    CHECK_NEAR(out[0].GetHeight(), 25.0f, eps);
+    CHECK_NEAR(out[1].GetHeight(), 20.0f + 20.0f / 6.0f, eps);
+    CHECK_NEAR(out[2].Min.y, 10.0f, eps); // it ends exactly at the bottom padding
+    // Reversed: the last child at the top.
+    g = UILayoutGroupSettings{};
+    g.ReverseArrangement = true;
+    g.Spacing = 0.0f;
+    UILayout::Arrange(rect, g, column, out);
+    CHECK_NEAR(out[2].Max.y, 300.0f, eps);
+    CHECK_NEAR(out[0].Min.y, 300.0f - 120.0f, eps);
+
+    // A row whose children share the space by their flexible sizes (1 and 2; the third none).
+    UILayoutGroupSettings row;
+    row.Type = UILayoutType::Horizontal;
+    row.Spacing = 0.0f;
+    row.ControlChildWidth = true;
+    const std::vector<UILayoutItem> parts = { item({ 50.0f, 40.0f }, glm::vec2(0.0f), { 1.0f, 0.0f }), item({ 50.0f, 20.0f }, glm::vec2(0.0f), { 2.0f, 0.0f }),
+                                              item({ 50.0f, 30.0f }) };
+    UILayout::Arrange({ { 0.0f, 0.0f }, { 300.0f, 40.0f } }, row, parts, out);
+    CHECK(RectNear(out[0], { { 0.0f, 0.0f }, { 100.0f, 40.0f } }));
+    CHECK(RectNear(out[1], { { 100.0f, 20.0f }, { 250.0f, 40.0f } })); // its own height, at the top
+    CHECK(RectNear(out[2], { { 250.0f, 10.0f }, { 300.0f, 40.0f } }));
+    sizes = UILayout::CalcSizes(row, parts, { 300.0f, 40.0f });
+    CHECK_NEAR(sizes.Preferred.x, 150.0f, eps);
+    CHECK_NEAR(sizes.Flexible.x, 3.0f, eps);
+    CHECK_NEAR(sizes.Preferred.y, 40.0f, eps);
+
+    // A grid: as many 100 px columns as fit (3 in 330), rows from the top-left.
+    UILayoutGroupSettings grid;
+    grid.Type = UILayoutType::Grid;
+    grid.CellSize = { 100.0f, 100.0f };
+    grid.GridSpacing = { 10.0f, 10.0f };
+    const std::vector<UILayoutItem> five(5, item({ 10.0f, 10.0f }));
+    const UIRect area{ { 0.0f, 0.0f }, { 330.0f, 300.0f } };
+    UILayout::Arrange(area, grid, five, out);
+    CHECK(RectNear(out[0], { { 0.0f, 200.0f }, { 100.0f, 300.0f } }));
+    CHECK(RectNear(out[2], { { 220.0f, 200.0f }, { 320.0f, 300.0f } }));
+    CHECK(RectNear(out[3], { { 0.0f, 90.0f }, { 100.0f, 190.0f } }));
+    CHECK(RectNear(out[4], { { 110.0f, 90.0f }, { 210.0f, 190.0f } }));
+    sizes = UILayout::CalcSizes(grid, five, area.GetSize());
+    CHECK_NEAR(sizes.Preferred.x, 320.0f, eps); // ceil(sqrt(5)) = 3 columns
+    CHECK_NEAR(sizes.Min.x, 100.0f, eps);
+    CHECK_NEAR(sizes.Preferred.y, 210.0f, eps); // 2 rows in this width
+    // From the top-right corner; centred; a fixed column count; columns first.
+    grid.StartCorner = 1;
+    UILayout::Arrange(area, grid, five, out);
+    CHECK_NEAR(out[0].Min.x, 220.0f, eps);
+    grid.StartCorner = 0;
+    grid.ChildAlignment = 4;
+    UILayout::Arrange(area, grid, five, out);
+    CHECK(RectNear(out[0], { { 5.0f, 155.0f }, { 105.0f, 255.0f } }));
+    grid.ChildAlignment = 0;
+    grid.Constraint = UIGridConstraint::FixedColumnCount;
+    grid.ConstraintCount = 2;
+    UILayout::Arrange(area, grid, five, out);
+    CHECK(RectNear(out[2], { { 0.0f, 90.0f }, { 100.0f, 190.0f } }));
+    CHECK_NEAR(UILayout::CalcSizes(grid, five, area.GetSize()).Preferred.y, 320.0f, eps); // 3 rows
+    grid.Constraint = UIGridConstraint::Flexible;
+    grid.StartAxisVertical = true; // 2 rows fit in 300: down first, then the next column
+    UILayout::Arrange(area, grid, five, out);
+    CHECK(RectNear(out[1], { { 0.0f, 90.0f }, { 100.0f, 190.0f } }));
+    CHECK(RectNear(out[2], { { 110.0f, 200.0f }, { 210.0f, 300.0f } }));
+}
+
+TEST(UILayoutGroupsInTheScene)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    using A = UITransformComponent::AnchorPoint;
+    Entity panel = MakeUIRect(scene, "List", A::Center, { 0.0f, 0.0f }, { 300.0f, 100.0f });
+    auto& group = panel.AddComponent<UILayoutGroupComponent>();
+    group.Type = UILayoutType::Vertical;
+    group.Padding = glm::vec4(10.0f);
+    group.Spacing = 10.0f;
+    group.ChildAlignment = 1;
+    group.ControlChildWidth = group.ChildForceExpandWidth = true;
+    group.FitHeight = true; // grows with its items
+    std::vector<Entity> items;
+    for (const char* name : { "A", "B", "C" })
+    {
+        Entity e = MakeUIRect(scene, name, A::TopLeft, { 999.0f, 999.0f }, { 100.0f, 40.0f }); // its own position does not count
+        scene->SetParent(e, panel, false);
+        items.push_back(e);
+    }
+    items[2].SetActive(false); // left out
+    Entity badge = MakeUIRect(scene, "Badge", A::TopRight, { 0.0f, 0.0f }, { 20.0f, 20.0f });
+    badge.AddComponent<UILayoutElementComponent>().IgnoreLayout = true; // placed by its own UI Transform
+    scene->SetParent(badge, panel, false);
+
+    // 10 + 40 + 10 + 40 + 10 = 110 high, centred.
+    CHECK(RectNear(scene->GetUIRect(panel), { { 250.0f, 245.0f }, { 550.0f, 355.0f } }));
+    CHECK(RectNear(scene->GetUIRect(items[0]), { { 260.0f, 305.0f }, { 540.0f, 345.0f } }));
+    CHECK(RectNear(scene->GetUIRect(items[1]), { { 260.0f, 255.0f }, { 540.0f, 295.0f } }));
+    CHECK(scene->IsUILayoutDriven(items[0]) && !scene->IsUILayoutDriven(badge));
+    CHECK(RectNear(scene->GetUIRect(badge), { { 540.0f, 345.0f }, { 560.0f, 365.0f } }));
+    // Switched on: it joins the list, which grows (around its centre pivot).
+    items[2].SetActive(true);
+    CHECK(RectNear(scene->GetUIRect(panel), { { 250.0f, 220.0f }, { 550.0f, 380.0f } }));
+    CHECK_NEAR(scene->GetUIRect(items[2]).Min.y, 230.0f, 1e-3f);
+    // Hierarchy order is the list's order.
+    scene->SetSiblingIndex(items[2], 0);
+    CHECK_NEAR(scene->GetUIRect(items[2]).Max.y, 370.0f, 1e-3f);
+    CHECK_NEAR(scene->GetUIRect(items[0]).Max.y, 320.0f, 1e-3f);
+
+    // A row inside the list: its preferred size comes from its own children.
+    Entity row = MakeUIRect(scene, "Row", A::Center, { 0.0f, 0.0f }, { 10.0f, 10.0f });
+    auto& rowGroup = row.AddComponent<UILayoutGroupComponent>();
+    rowGroup.Type = UILayoutType::Horizontal;
+    rowGroup.Spacing = 5.0f;
+    rowGroup.FitHeight = true;
+    scene->SetParent(row, panel, false);
+    Entity left = MakeUIRect(scene, "Left", A::Center, { 0.0f, 0.0f }, { 50.0f, 30.0f });
+    Entity right = MakeUIRect(scene, "Right", A::Center, { 0.0f, 0.0f }, { 70.0f, 30.0f });
+    scene->SetParent(left, row, false);
+    scene->SetParent(right, row, false);
+    // List: 10 + 3 x 40 + 30 + 3 x 10 + 10 = 200 high.
+    CHECK_NEAR(scene->GetUIRect(panel).GetHeight(), 200.0f, 1e-3f);
+    const UIRect rowRect = scene->GetUIRect(row);
+    CHECK_NEAR(rowRect.GetWidth(), 280.0f, 1e-3f); // the list sets its width
+    CHECK_NEAR(rowRect.GetHeight(), 30.0f, 1e-3f); // fitted to its content
+    CHECK(RectNear(scene->GetUIRect(left), { { rowRect.Min.x, rowRect.Min.y }, { rowRect.Min.x + 50.0f, rowRect.Max.y } }));
+    CHECK_NEAR(scene->GetUIRect(right).Min.x, rowRect.Min.x + 55.0f, 1e-3f);
+    // A layout element asks for more: preferred height 60.
+    left.AddComponent<UILayoutElementComponent>().PreferredSize = { -1.0f, 60.0f };
+    rowGroup.ControlChildHeight = true;
+    CHECK_NEAR(scene->GetUIRect(row).GetHeight(), 60.0f, 1e-3f);
+    CHECK_NEAR(scene->GetUIRect(left).GetHeight(), 60.0f, 1e-3f);
+}
+
+static std::vector<std::string> g_UIPointer; // "<entity>:<what>" in the order they came
+
+class UIPointerProbe : public ScriptableEntity
+{
+public:
+    void OnPointerEnter(const UIPointerEvent& e) override { g_UIPointer.push_back(std::format("{}:enter({})", GetName(), e.Target ? e.Target.GetName() : "-")); }
+    void OnPointerExit(const UIPointerEvent& e) override { g_UIPointer.push_back(std::format("{}:exit({})", GetName(), e.Target ? e.Target.GetName() : "-")); }
+    void OnPointerDown(const UIPointerEvent& e) override
+    {
+        g_UIPointer.push_back(std::format("{}:down", GetName()));
+        LastPosition = e.Position;
+    }
+    void OnPointerUp(const UIPointerEvent& e) override { g_UIPointer.push_back(std::format("{}:up({})", GetName(), e.Inside ? "in" : "out")); }
+    void OnPointerClick(const UIPointerEvent&) override { g_UIPointer.push_back(std::format("{}:pclick", GetName())); }
+    void OnClick() override { g_UIPointer.push_back(std::format("{}:click", GetName())); }
+    void OnSelect() override { g_UIPointer.push_back(std::format("{}:select", GetName())); }
+    void OnDeselect() override { g_UIPointer.push_back(std::format("{}:deselect", GetName())); }
+    void OnCancel() override { g_UIPointer.push_back(std::format("{}:cancel", GetName())); }
+    void OnToggleChanged(bool isOn) override { g_UIPointer.push_back(std::format("{}:toggle={}", GetName(), isOn ? 1 : 0)); }
+    void OnValueChanged(float value) override { g_UIPointer.push_back(std::format("{}:slider={}", GetName(), value)); }
+    void OnMessage(const ScriptMessage& m) override { g_UIPointer.push_back(std::format("{}:msg={}", GetName(), m.Name)); }
+
+    glm::vec2 LastPosition{ -1.0f };
+};
+ZM_REGISTER_SCRIPT(UIPointerProbe)
+
+static std::string JoinEvents(std::vector<std::string>& events)
+{
+    std::string out;
+    for (const auto& e : events)
+        out += (out.empty() ? "" : " ") + e;
+    events.clear();
+    return out;
+}
+
+TEST(UIPointerEventsReachScripts)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    using A = UITransformComponent::AnchorPoint;
+    Entity panel = MakeUIRect(scene, "Panel", A::Center, { 0.0f, 0.0f }, { 400.0f, 300.0f }); // x 200..600, y 150..450
+    panel.AddComponent<UIImageComponent>(); // catches the mouse
+    panel.AddComponent<NativeScriptComponent>().ClassName = "UIPointerProbe";
+    Entity button = MakeUIRect(scene, "Button", A::Center, { 0.0f, 0.0f }, { 200.0f, 60.0f }); // x 300..500, y 270..330
+    auto& b = button.AddComponent<UIButtonComponent>();
+    b.ClickMessage = "Play";
+    b.ClickTarget.ID = panel.GetUUID();
+    button.AddComponent<NativeScriptComponent>().ClassName = "UIPointerProbe";
+    scene->SetParent(button, panel, false);
+    Entity other = MakeUIRect(scene, "Other", A::BottomLeft, { 50.0f, 50.0f }, { 60.0f, 60.0f });
+    other.AddComponent<NativeScriptComponent>().ClassName = "UIPointerProbe"; // hears broadcasts only
+
+    auto frame = [&](float x, float yUp, bool down) {
+        scene->SetViewportMouse({ x, 600.0f - yUp }, down);
+        scene->OnUpdateRuntime(0.016f);
+    };
+    scene->OnRuntimeStart();
+    int bus = 0;
+    Entity clickedOnBus;
+    scene->GetEventBus().Subscribe("UIPointerEnter", [&](const ScriptMessage& m) { bus++; CHECK(m.Is<UIPointerEvent>()); });
+    scene->GetEventBus().Subscribe("UIClick", [&](const ScriptMessage& m) { clickedOnBus = m.Sender; });
+    g_UIPointer.clear();
+    frame(700.0f, 50.0f, false);
+    CHECK(JoinEvents(g_UIPointer).empty());
+    frame(250.0f, 300.0f, false); // over the panel only
+    CHECK(JoinEvents(g_UIPointer) == "Panel:enter(Panel)");
+    frame(400.0f, 300.0f, false); // onto its button: the panel is still entered
+    CHECK(JoinEvents(g_UIPointer) == "Button:enter(Button)");
+    CHECK(scene->GetHoveredUI() == button && bus == 2);
+    frame(700.0f, 50.0f, false); // off both: the deepest first
+    CHECK(JoinEvents(g_UIPointer) == "Button:exit(Button) Panel:exit(Button)");
+    frame(400.0f, 300.0f, false); // straight onto the button: the outermost first
+    CHECK(JoinEvents(g_UIPointer) == "Panel:enter(Button) Button:enter(Button)");
+
+    // Down, up, click (its message to the panel); a press selects the widget.
+    frame(410.0f, 305.0f, true);
+    CHECK(JoinEvents(g_UIPointer) == "Button:down Button:select");
+    CHECK(static_cast<UIPointerProbe*>(button.GetComponent<NativeScriptComponent>().Instance)->LastPosition == glm::vec2(410.0f, 305.0f));
+    CHECK(scene->GetSelectedUI() == button && !scene->IsUISelectionHighlighted());
+    frame(410.0f, 305.0f, false);
+    CHECK(JoinEvents(g_UIPointer) == "Button:up(in) Button:pclick Button:click Panel:msg=Play");
+    CHECK(clickedOnBus == button && b.Clicked);
+    // Pressed, dragged off and released: no click.
+    frame(400.0f, 300.0f, true);
+    frame(250.0f, 300.0f, true);
+    frame(250.0f, 300.0f, false);
+    CHECK(JoinEvents(g_UIPointer) == "Button:down Button:exit(Button) Button:up(out)");
+    // A press on the panel (not a widget) selects nothing; the panel gets its own down / up / click.
+    frame(250.0f, 300.0f, true);
+    frame(250.0f, 300.0f, false);
+    CHECK(JoinEvents(g_UIPointer) == "Panel:down Button:deselect Panel:up(in) Panel:pclick");
+    CHECK(!scene->GetSelectedUI());
+    // Without a target the click message goes to every running script.
+    b.ClickTarget = {};
+    frame(400.0f, 300.0f, true);
+    frame(400.0f, 300.0f, false);
+    const std::string broadcast = JoinEvents(g_UIPointer);
+    CHECK(broadcast.find("Panel:msg=Play") != std::string::npos && broadcast.find("Button:msg=Play") != std::string::npos &&
+          broadcast.find("Other:msg=Play") != std::string::npos);
+    // Switched off while hovered: it is left (exit), nothing more.
+    button.SetActive(false);
+    frame(400.0f, 300.0f, false);
+    CHECK(JoinEvents(g_UIPointer) == "Button:deselect Button:exit(Button)");
+    scene->OnRuntimeStop();
+}
+
+// One frame of simulated keys / gamepad: presses this frame, then the scene's update.
+static void UIKeyFrame(const Ref<Scene>& scene, std::initializer_list<Key> keys, bool shift = false)
+{
+    if (shift) Input::OnKeyEvent(Key::LeftShift, true);
+    for (Key k : keys) Input::OnKeyEvent(k, true);
+    Input::Update();
+    scene->OnUpdateRuntime(0.016f);
+    for (Key k : keys) Input::OnKeyEvent(k, false);
+    if (shift) Input::OnKeyEvent(Key::LeftShift, false);
+    Input::Update();
+    scene->OnUpdateRuntime(0.016f);
+}
+
+TEST(UIKeyboardAndGamepadNavigation)
+{
+    // The pure part: the nearest one ahead, straight ahead counting more.
+    const UIRect from{ { 0.0f, 0.0f }, { 100.0f, 50.0f } };
+    const std::vector<UIRect> rects = { { { 200.0f, 0.0f }, { 300.0f, 50.0f } },     // right
+                                        { { 0.0f, -150.0f }, { 100.0f, -100.0f } },  // below
+                                        { { 120.0f, 300.0f }, { 220.0f, 350.0f } },  // far up-right
+                                        { { 400.0f, 10.0f }, { 500.0f, 60.0f } } };  // further right
+    CHECK(UILayout::FindInDirection(from, UINavDirection::Right, rects) == 0);
+    CHECK(UILayout::FindInDirection(from, UINavDirection::Down, rects) == 1);
+    CHECK(UILayout::FindInDirection(from, UINavDirection::Up, rects) == 2);
+    CHECK(UILayout::FindInDirection(from, UINavDirection::Left, rects) == -1);
+
+    Input::ResetState();
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    using A = UITransformComponent::AnchorPoint;
+    auto widget = [&](const std::string& name, glm::vec2 pos, glm::vec2 size) {
+        Entity e = MakeUIRect(scene, name, A::Center, pos, size);
+        e.AddComponent<NativeScriptComponent>().ClassName = "UIPointerProbe";
+        return e;
+    };
+    Entity a = widget("A", { -100.0f, 100.0f }, { 150.0f, 60.0f });
+    Entity b = widget("B", { 100.0f, 100.0f }, { 150.0f, 60.0f });
+    Entity c = widget("C", { -100.0f, 0.0f }, { 150.0f, 60.0f });
+    Entity d = widget("D", { 100.0f, 0.0f }, { 150.0f, 60.0f });
+    for (Entity e : { a, b, c, d })
+        e.AddComponent<UIButtonComponent>();
+    Entity s = widget("S", { 0.0f, -100.0f }, { 300.0f, 30.0f });
+    auto& slider = s.AddComponent<UISliderComponent>();
+    slider.MaxValue = 10.0f;
+    slider.Value = 5.0f;
+    slider.WholeNumbers = true;
+    Entity t = widget("T", { 0.0f, -180.0f }, { 200.0f, 30.0f });
+    t.AddComponent<UIToggleComponent>();
+    Entity label = MakeUIRect(scene, "Label", A::Center, { 0.0f, 250.0f }, { 300.0f, 30.0f }); // not a widget
+    (void)label;
+
+    scene->SetViewportMouse({ -1.0f, -1.0f }, false);
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(0.016f);
+    g_UIPointer.clear();
+    // Nothing selected: arrows do nothing (they may be the game's own keys).
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(!scene->GetSelectedUI() && g_UIPointer.empty());
+    // Tab: the first widget, with its highlight.
+    UIKeyFrame(scene, { Key::Tab });
+    CHECK(scene->GetSelectedUI() == a && scene->IsUISelectionHighlighted());
+    CHECK(JoinEvents(g_UIPointer) == "A:select");
+    UIKeyFrame(scene, { Key::Right });
+    CHECK(scene->GetSelectedUI() == b);
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == d);
+    UIKeyFrame(scene, { Key::Left });
+    CHECK(scene->GetSelectedUI() == c);
+    CHECK(JoinEvents(g_UIPointer) == "A:deselect B:select B:deselect D:select D:deselect C:select");
+    UIKeyFrame(scene, { Key::Left }); // nothing there: it stays
+    CHECK(scene->GetSelectedUI() == c);
+    // Down to the slider: left / right change its value (whole numbers: 1).
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == s);
+    g_UIPointer.clear();
+    UIKeyFrame(scene, { Key::Right });
+    UIKeyFrame(scene, { Key::Left });
+    UIKeyFrame(scene, { Key::Left });
+    CHECK(slider.Value == 4.0f && scene->GetSelectedUI() == s);
+    CHECK(JoinEvents(g_UIPointer) == "S:slider=6 S:slider=5 S:slider=4");
+    // Down to the toggle, Enter switches it.
+    UIKeyFrame(scene, { Key::Down });
+    UIKeyFrame(scene, { Key::Enter });
+    CHECK(scene->GetSelectedUI() == t && t.GetComponent<UIToggleComponent>().IsOn);
+    CHECK(JoinEvents(g_UIPointer) == "S:deselect T:select T:toggle=1");
+    // Shift+Tab: the one before (draw order); Tab wraps around.
+    UIKeyFrame(scene, { Key::Tab }, true);
+    CHECK(scene->GetSelectedUI() == s);
+    UIKeyFrame(scene, { Key::Tab });
+    UIKeyFrame(scene, { Key::Tab });
+    CHECK(scene->GetSelectedUI() == a);
+    // Enter clicks a button, Escape cancels.
+    g_UIPointer.clear();
+    UIKeyFrame(scene, { Key::Enter });
+    UIKeyFrame(scene, { Key::Escape });
+    CHECK(JoinEvents(g_UIPointer) == "A:click A:cancel");
+
+    // Explicit: right from A goes to D; None: D is not reached by navigation.
+    auto& nav = a.AddComponent<UINavigationComponent>();
+    nav.NavigationMode = UINavigationComponent::Mode::Explicit;
+    nav.Right.ID = d.GetUUID();
+    CHECK(scene->FindUINavigationTarget(a, UINavDirection::Right) == d);
+    CHECK(!scene->FindUINavigationTarget(a, UINavDirection::Down)); // not set: nowhere
+    d.AddComponent<UINavigationComponent>().NavigationMode = UINavigationComponent::Mode::None;
+    CHECK(!scene->FindUINavigationTarget(a, UINavDirection::Right));
+    CHECK(scene->FindUINavigationTarget(c, UINavDirection::Right) == b); // past D
+    CHECK(!scene->IsUISelectable(d) && scene->IsUISelectable(c));
+    a.GetComponent<UINavigationComponent>().NavigationMode = UINavigationComponent::Mode::Vertical;
+    CHECK(!scene->FindUINavigationTarget(a, UINavDirection::Right) && scene->FindUINavigationTarget(a, UINavDirection::Down) == c);
+
+    // Gamepad: the D-pad moves (held: it repeats), A submits, B cancels.
+    Input::SimulateGamepadConnected(0, true);
+    scene->SetSelectedUI(c);
+    g_UIPointer.clear();
+    Input::SimulateGamepadButton(0, GamepadButton::DPadUp, true);
+    Input::Update();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(scene->GetSelectedUI() == a);
+    for (int i = 0; i < 10; i++) // held for 0.16 s: no repeat yet
+    {
+        Input::Update();
+        scene->OnUpdateRuntime(0.016f);
+    }
+    CHECK(scene->GetSelectedUI() == a);
+    Input::SimulateGamepadButton(0, GamepadButton::DPadUp, false);
+    Input::SimulateGamepadButton(0, GamepadButton::DPadDown, true);
+    Input::Update();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(scene->GetSelectedUI() == c);
+    for (int i = 0; i < 30; i++) // held for 0.48 s: it repeats (down to the slider)
+    {
+        Input::Update();
+        scene->OnUpdateRuntime(0.016f);
+    }
+    CHECK(scene->GetSelectedUI() == s);
+    Input::SimulateGamepadButton(0, GamepadButton::DPadDown, false);
+    scene->SetSelectedUI(b);
+    Input::SimulateGamepadButton(0, GamepadButton::A, true);
+    Input::Update();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(b.GetComponent<UIButtonComponent>().Clicked);
+    Input::SimulateGamepadButton(0, GamepadButton::A, false);
+    Input::SimulateGamepadButton(0, GamepadButton::B, true);
+    Input::Update();
+    scene->OnUpdateRuntime(0.016f);
+    Input::SimulateGamepadButton(0, GamepadButton::B, false);
+    Input::Update();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(JoinEvents(g_UIPointer).find("B:click B:cancel") != std::string::npos);
+
+    // The selected widget switched off: nothing is selected. SelectOnEnable: a menu's first button
+    // is selected when the menu comes on.
+    b.SetActive(false);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!scene->GetSelectedUI());
+    b.SetActive(true);
+    Entity menu = MakeUIRect(scene, "Menu", A::Center, { 0.0f, 0.0f }, { 300.0f, 200.0f });
+    Entity resume = widget("Resume", { 0.0f, 0.0f }, { 200.0f, 50.0f });
+    resume.AddComponent<UIButtonComponent>();
+    resume.AddComponent<UINavigationComponent>().SelectOnEnable = true;
+    scene->SetParent(resume, menu, false);
+    menu.SetActive(false);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!scene->GetSelectedUI());
+    menu.SetActive(true);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(scene->GetSelectedUI() == resume && scene->IsUISelectionHighlighted());
+    // A mouse press on nothing selects nothing.
+    scene->SetViewportMouse({ 10.0f, 10.0f }, true);
+    scene->OnUpdateRuntime(0.016f);
+    scene->SetViewportMouse({ 10.0f, 10.0f }, false);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!scene->GetSelectedUI());
+    // From code (navigation keys need no window): NavigateUI / SubmitUI / CancelUI.
+    scene->SetSelectedUI(c);
+    CHECK(scene->NavigateUI(UINavDirection::Up) && scene->GetSelectedUI() == a);
+    g_UIPointer.clear();
+    CHECK(scene->SubmitUI() && scene->CancelUI());
+    CHECK(JoinEvents(g_UIPointer) == "A:click A:cancel");
+    scene->SetSelectedUI(label); // not a widget: nothing
+    CHECK(!scene->GetSelectedUI());
+    Input::SimulateGamepadConnected(0, false);
+    scene->OnRuntimeStop();
+    Input::ResetState();
+}
+
+TEST(UINavigationIntoInputFields)
+{
+    Input::ResetState();
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    using A = UITransformComponent::AnchorPoint;
+    Entity name = MakeUIRect(scene, "Name", A::Center, { 0.0f, 50.0f }, { 300.0f, 40.0f });
+    auto& field = name.AddComponent<UIInputFieldComponent>();
+    Entity save = MakeUIRect(scene, "Save", A::Center, { 0.0f, -50.0f }, { 200.0f, 40.0f });
+    save.AddComponent<UIButtonComponent>();
+    save.AddComponent<NativeScriptComponent>().ClassName = "UIPointerProbe";
+    scene->SetViewportMouse({ -1.0f, -1.0f }, false);
+    scene->OnRuntimeStart();
+    g_UIPointer.clear();
+    // Tab into the field: typing goes to it.
+    UIKeyFrame(scene, { Key::Tab });
+    CHECK(scene->GetSelectedUI() == name && scene->GetFocusedInputField() == name);
+    Input::OnCharEvent('o');
+    Input::OnCharEvent(0x02BB); // oʻ
+    Input::Update();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(field.Text == "o\xCA\xBB");
+    // The arrows stay in the field while it is edited.
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == name && field.Focused);
+    // Enter submits it (editing ends; the same Enter does not start it again).
+    UIKeyFrame(scene, { Key::Enter });
+    CHECK(!field.Focused && scene->GetSelectedUI() == name);
+    // Now the arrows navigate; Enter on the field starts editing again.
+    UIKeyFrame(scene, { Key::Enter });
+    CHECK(field.Focused);
+    UIKeyFrame(scene, { Key::Escape });
+    CHECK(!field.Focused && field.Text == "o\xCA\xBB" && g_UIPointer.empty()); // Escape was the field's, not a cancel
+    UIKeyFrame(scene, { Key::Down });
+    CHECK(scene->GetSelectedUI() == save);
+    // Tab out of an edited field: editing ends, the next widget is selected.
+    scene->SetSelectedUI(name);
+    scene->FocusInputField(name);
+    UIKeyFrame(scene, { Key::Tab });
+    CHECK(!field.Focused && scene->GetSelectedUI() == save);
+    scene->OnRuntimeStop();
+    Input::ResetState();
+}
+
+TEST(UILayoutSerialization)
+{
+    // Older scenes: the 9-point anchor and the position of the rect's centre.
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    const std::string legacy = R"({ "Scene": "Old", "Version": 1, "Entities": [
+        { "Entity": 1001, "Tag": "Panel", "Transform": { "Translation": [0,0,0], "Rotation": [0,0,0], "Scale": [1,1,1] },
+          "UITransform": { "Anchor": 4, "Position": [0, 100], "Size": [300, 60], "FontSize": 0.0, "Order": 1 } },
+        { "Entity": 1002, "Tag": "Corner", "Transform": { "Translation": [0,0,0], "Rotation": [0,0,0], "Scale": [1,1,1] },
+          "UITransform": { "Anchor": 8, "Position": [-60, 40], "Size": [100, 50], "FontSize": 20.0, "Order": 0 } } ] })";
+    SceneSerializer serializer(scene);
+    CHECK(serializer.DeserializeFromString(legacy));
+    Entity panel = scene->FindEntityByName("Panel"), corner = scene->FindEntityByName("Corner");
+    CHECK(panel && corner);
+    if (!panel || !corner)
+        return;
+    const auto& pt = panel.GetComponent<UITransformComponent>();
+    CHECK(pt.AnchorMin == glm::vec2(0.5f) && pt.AnchorMax == glm::vec2(0.5f) && pt.Pivot == glm::vec2(0.5f) && pt.Order == 1);
+    CHECK(RectNear(scene->GetUIRect(panel), { { 250.0f, 370.0f }, { 550.0f, 430.0f } })); // exactly where it was
+    CHECK(RectNear(scene->GetUIRect(corner), { { 690.0f, 15.0f }, { 790.0f, 65.0f } }));
+    CHECK(corner.GetComponent<UITransformComponent>().GetAnchorPreset() == 8 && corner.GetComponent<UITransformComponent>().FontSize == 20.0f);
+
+    // The new components round-trip.
+    Entity root = scene->CreateEntity("Root");
+    auto& t = root.AddComponent<UITransformComponent>();
+    t.AnchorMin = { 0.0f, 0.25f };
+    t.AnchorMax = { 1.0f, 0.75f };
+    t.Pivot = { 0.3f, 0.6f };
+    t.Position = { 5.0f, -7.0f };
+    t.Size = { -40.0f, 12.0f };
+    auto& canvas = root.AddComponent<UICanvasComponent>();
+    canvas.ReferenceResolution = { 1280.0f, 720.0f };
+    canvas.MatchMode = UIScreenMatchMode::Expand;
+    canvas.MatchWidthOrHeight = 0.25f;
+    auto& group = root.AddComponent<UILayoutGroupComponent>();
+    group.Type = UILayoutType::Grid;
+    group.CellSize = { 64.0f, 32.0f };
+    group.GridSpacing = { 4.0f, 6.0f };
+    group.StartCorner = 3;
+    group.Constraint = UIGridConstraint::FixedRowCount;
+    group.ConstraintCount = 3;
+    group.Padding = { 1.0f, 2.0f, 3.0f, 4.0f };
+    group.ChildAlignment = 7;
+    group.FitWidth = true;
+    auto& element = root.AddComponent<UILayoutElementComponent>();
+    element.MinSize = { 10.0f, -1.0f };
+    element.FlexibleSize = { 2.0f, 1.0f };
+    auto& nav = root.AddComponent<UINavigationComponent>();
+    nav.NavigationMode = UINavigationComponent::Mode::Explicit;
+    nav.Up.ID = panel.GetUUID();
+    nav.SelectOnEnable = true;
+    nav.HighlightColor = { 0.1f, 0.2f, 0.3f, 0.4f };
+    auto& button = root.AddComponent<UIButtonComponent>();
+    button.ClickMessage = "Resume";
+    button.ClickTarget.ID = corner.GetUUID();
+    Entity column = scene->CreateEntity("Column");
+    auto& cg = column.AddComponent<UILayoutGroupComponent>();
+    cg.Type = UILayoutType::Horizontal;
+    cg.Spacing = 3.0f;
+    cg.ReverseArrangement = cg.ControlChildHeight = cg.ChildForceExpandWidth = true;
+
+    const std::string text = serializer.SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    SceneSerializer reader(loaded);
+    CHECK(reader.DeserializeFromString(text));
+    Entity r = loaded->FindEntityByName("Root");
+    CHECK(r && r.HasComponent<UICanvasComponent>() && r.HasComponent<UILayoutGroupComponent>() && r.HasComponent<UILayoutElementComponent>() &&
+          r.HasComponent<UINavigationComponent>());
+    if (!r)
+        return;
+    const auto& lt = r.GetComponent<UITransformComponent>();
+    CHECK(lt.AnchorMin == t.AnchorMin && lt.AnchorMax == t.AnchorMax && lt.Pivot == t.Pivot && lt.Position == t.Position && lt.Size == t.Size);
+    const auto& lc = r.GetComponent<UICanvasComponent>();
+    CHECK(lc.ScaleMode == UIScaleMode::ScaleWithScreenSize && lc.ReferenceResolution == glm::vec2(1280.0f, 720.0f) &&
+          lc.MatchMode == UIScreenMatchMode::Expand && lc.MatchWidthOrHeight == 0.25f);
+    const auto& lg = r.GetComponent<UILayoutGroupComponent>();
+    CHECK(lg.Type == UILayoutType::Grid && lg.CellSize == glm::vec2(64.0f, 32.0f) && lg.GridSpacing == glm::vec2(4.0f, 6.0f) && lg.StartCorner == 3 &&
+          lg.Constraint == UIGridConstraint::FixedRowCount && lg.ConstraintCount == 3 && lg.Padding == glm::vec4(1.0f, 2.0f, 3.0f, 4.0f) &&
+          lg.ChildAlignment == 7 && lg.FitWidth && !lg.FitHeight);
+    const auto& le = r.GetComponent<UILayoutElementComponent>();
+    CHECK(le.MinSize == glm::vec2(10.0f, -1.0f) && le.PreferredSize == glm::vec2(-1.0f) && le.FlexibleSize == glm::vec2(2.0f, 1.0f));
+    const auto& ln = r.GetComponent<UINavigationComponent>();
+    CHECK(ln.NavigationMode == UINavigationComponent::Mode::Explicit && ln.Up.ID == (uint64_t)panel.GetUUID() && !ln.Down && ln.SelectOnEnable &&
+          ln.HighlightColor == glm::vec4(0.1f, 0.2f, 0.3f, 0.4f));
+    const auto& lb = r.GetComponent<UIButtonComponent>();
+    CHECK(lb.ClickMessage == "Resume" && lb.ClickTarget.ID == (uint64_t)corner.GetUUID());
+    const auto& lcg = loaded->FindEntityByName("Column").GetComponent<UILayoutGroupComponent>();
+    CHECK(lcg.Type == UILayoutType::Horizontal && lcg.Spacing == 3.0f && lcg.ReverseArrangement && lcg.ControlChildHeight &&
+          lcg.ChildForceExpandWidth && !lcg.ControlChildWidth);
+
+    // Duplicated: references inside the copy point to the copy.
+    Entity rootCopy = loaded->DuplicateEntity(r);
+    (void)rootCopy;
+    Entity holder = loaded->CreateEntity("Holder");
+    Entity child = loaded->CreateEntity("Child");
+    loaded->SetParent(child, holder, false);
+    auto& hb = holder.AddComponent<UIButtonComponent>();
+    hb.ClickMessage = "Go";
+    hb.ClickTarget.ID = child.GetUUID();
+    holder.AddComponent<UINavigationComponent>().Down.ID = child.GetUUID();
+    Entity copy = loaded->DuplicateEntity(holder);
+    const uint64_t copiedChild = (uint64_t)loaded->GetChildren(copy).front().GetUUID();
+    CHECK(copy.GetComponent<UIButtonComponent>().ClickTarget.ID == copiedChild && copy.GetComponent<UINavigationComponent>().Down.ID == copiedChild);
+}
+
+TEST(UILayoutSampleScene)
+{
+    namespace fs = std::filesystem;
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D";
+    auto project = Project::Load(root / "Platformer2D.zproject");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    Project::SetActive(project);
+    ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "UILayout.zscene"));
+    Entity canvas = scene->FindEntityByName("Canvas"), menu = scene->FindEntityByName("Menyu"), start = scene->FindEntityByName("O'yinni boshlash");
+    Entity next = scene->FindEntityByName("Davom etish"), bottom = scene->FindEntityByName("Pastki panel"), inventory = scene->FindEntityByName("Inventar");
+    Entity slot = scene->FindEntityByName("3-uya"), coins = scene->FindEntityByName("Tangalar");
+    CHECK(canvas && menu && start && next && bottom && inventory && slot && coins);
+    if (!(canvas && menu && start && next && bottom && inventory && slot && coins))
+        return;
+    CHECK(canvas.GetComponent<NativeScriptComponent>().ClassName == "UILayoutDemo");
+    if (Entity camera = scene->FindEntityByName("Main Camera"))
+        camera.GetComponent<CameraComponent>().Primary = false; // headless: nothing is drawn
+    scene->OnViewportResize(1600, 900);
+    // The canvas scales 1920 x 1080 to the screen; the panels are where the scene says.
+    CHECK_NEAR(scene->GetUIScale(menu), 1600.0f / 1920.0f, 1e-4f);
+    CHECK(RectNear(scene->GetUIRect(bottom), { { 24.0f, 24.0f }, { 1896.0f, 134.0f } }));           // stretched from left to right
+    CHECK_NEAR(scene->GetUIRect(menu).GetHeight(), 28.0f + 48.0f + 5 * 76.0f + 5 * 18.0f + 28.0f, 1e-3f); // fits its buttons
+    CHECK_NEAR(scene->GetUIRect(inventory).GetWidth(), 4 * 132.0f + 3 * 16.0f + 56.0f, 1e-3f);           // fits its grid
+    CHECK_NEAR(scene->GetUIRect(inventory).Max.x, 1872.0f, 1e-3f);
+    CHECK_NEAR(scene->GetUIRect(coins).Max.x, 1920.0f - 24.0f - 36.0f, 1e-3f);                        // pinned to the bar's right end
+    CHECK(scene->IsUILayoutDriven(start) && scene->IsUILayoutDriven(slot) && !scene->IsUILayoutDriven(menu));
+    // The menu's first button is selected at the start; Down goes to the next one.
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(scene->GetSelectedUI() == start && scene->IsUISelectionHighlighted());
+    CHECK(scene->NavigateUI(UINavDirection::Down) && scene->GetSelectedUI() == next);
+    CHECK(next.GetComponent<UIButtonComponent>().ClickMessage == "Continue");
+    scene->OnRuntimeStop();
+}

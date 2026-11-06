@@ -262,17 +262,17 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 223. UI Toggle (checkbox)
 - [x] 224. UI Progress bar
 - [x] 225. UI matn kiritish (input field)
-- [ ] 226. Vertikal/gorizontal layout guruhlari
-- [ ] 227. Stretch anchor'lar (chapdan-o'ngga cho'zilish)
-- [ ] 228. Ekran o'lchamiga moslashuvchi masshtab (reference resolution)
-- [ ] 229. UI hodisalari: OnHover/OnPress/OnRelease
-- [ ] 230. UI uchun klaviatura/gamepad navigatsiyasi
+- [x] 226. Vertikal/gorizontal layout guruhlari
+- [x] 227. Stretch anchor'lar (chapdan-o'ngga cho'zilish)
+- [x] 228. Ekran o'lchamiga moslashuvchi masshtab (reference resolution)
+- [x] 229. UI hodisalari: OnHover/OnPress/OnRelease
+- [x] 230. UI uchun klaviatura/gamepad navigatsiyasi
 - [ ] 231. UI animatsiyalari (tween bilan)
 - [ ] 232. Bir nechta shrift o'lchamlari (atlas sifati)
 - [ ] 233. Matnni tekislash (chap/markaz/o'ng, yuqori/o'rta/past)
 - [ ] 234. Matn o'rash (word wrap) kenglik bo'yicha
 - [ ] 235. UI editorda tanlash va ko'chirish (2D gizmo)
-- [ ] 236. UI ierarxiyasi (ota UITransform'ga nisbatan)
+- [x] 236. UI ierarxiyasi (ota UITransform'ga nisbatan)
 - [ ] 237. UI mask/clip (scroll view)
 - [ ] 238. Scroll view
 - [ ] 239. Dialog/menyu namunasi (pause menu)

@@ -874,14 +874,18 @@ namespace Zamin {
     {
         if (m_SelectedUI == entt::null || !IsUISelectable({ m_SelectedUI, this }))
             return false;
-        m_UISelectionHighlight = true;
         // A slider takes the keys along its track.
         if (auto* s = m_Registry.try_get<UISliderComponent>(m_SelectedUI); s && s->Interactable)
         {
             const bool horizontalKey = direction == UINavDirection::Left || direction == UINavDirection::Right;
             if (UIMath::IsHorizontal(s->Direction) == horizontalKey)
+            {
+                m_UISelectionHighlight = true;
                 return StepSlider(m_SelectedUI, direction, changes);
+            }
         }
+        // Nowhere to go: nothing changes (a lone HUD button clicked with the mouse does not light up
+        // while the arrows move the player).
         Entity target = FindUINavigationTarget({ m_SelectedUI, this }, direction);
         if (!target)
             return false;

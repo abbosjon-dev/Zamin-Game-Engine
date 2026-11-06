@@ -50,6 +50,10 @@ namespace Zamin {
         float DopplerFactor = 1.0f;
         glm::vec3 Velocity{ 0.0f };
 
+        // 3D sound: the way it faces and its directional cone (off: the same all around).
+        glm::vec3 Direction{ 0.0f, 0.0f, -1.0f };
+        AudioConeSettings Cone;
+
         // Starts silent and fades in over this many seconds (0 = at full volume at once).
         float FadeIn = 0.0f;
         // Low-pass / high-pass on this sound alone (its group's filter comes on top).
@@ -71,7 +75,8 @@ namespace Zamin {
         float Volume = 1.0f;    // as asked (SetVolume / SoundParams::Volume)
         float VolumeVariation = 1.0f; // the random factor it got when it started
         float GroupGain = 1.0f;       // its mixer group with the parents (mute / solo included)
-        float Attenuation = 1.0f;     // distance from the listener (3D; 1 for 2D sounds)
+        float Attenuation = 1.0f;     // distance from the listener and the cone (3D; 1 for 2D sounds)
+        float ConeGain = 1.0f;        // the directional cone's part of Attenuation (1: no cone / inside it)
         float AudibleVolume = 1.0f;   // Volume x VolumeVariation x ClipGain x Fade x GroupGain x Attenuation
         float Pitch = 1.0f;           // as asked
         float PitchVariation = 1.0f;  // the random factor it got when it started
@@ -87,6 +92,8 @@ namespace Zamin {
         bool Stopping = false;        // fading out: released once silent
         bool Preloaded = false;       // its file is kept decoded in memory (AudioEngine::Preload)
         AudioFilterSettings Filter;   // the sound's own filter (not its group's)
+        AudioConeSettings Cone;       // 3D: its directional cone
+        glm::vec3 Direction{ 0.0f, 0.0f, -1.0f }; // 3D: the way it faces
     };
 
     // The voice limit at work (AudioEngine::GetVoiceStats).
@@ -191,6 +198,14 @@ namespace Zamin {
         // its own Doppler factor (x AudioSettings::DopplerFactor).
         static void SetSoundVelocity(uint32_t handle, const glm::vec3& velocity);
         static void SetSoundDopplerFactor(uint32_t handle, float factor);
+        // 3D sound: the way it faces (Scene: its entity's forward, -Z) and its directional cone.
+        static void SetSoundDirection(uint32_t handle, const glm::vec3& direction);
+        static void SetSoundCone(uint32_t handle, const AudioConeSettings& cone);
+        static AudioConeSettings GetSoundCone(uint32_t handle);
+        // The cone's gain for a listener at `listenerPosition` and a sound at `sourcePosition` facing
+        // `sourceDirection` (what miniaudio applies; 1 without a cone or at the same point).
+        static float ComputeConeGain(const AudioConeSettings& cone, const glm::vec3& sourcePosition, const glm::vec3& sourceDirection,
+                                     const glm::vec3& listenerPosition);
         static bool IsPlaying(uint32_t handle);
         // Playback position and length of a playing sound, in seconds (0 for an unknown handle).
         static float GetCursor(uint32_t handle);

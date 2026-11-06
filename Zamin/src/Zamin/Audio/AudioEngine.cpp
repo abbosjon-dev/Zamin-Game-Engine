@@ -130,6 +130,8 @@ namespace Zamin {
             bool Stopping = false; // fading out: released once silent
             AudioFilterSettings FilterSettings;
             std::unique_ptr<FilterNode> Filter; // made when the sound first gets a filter
+            AudioConeSettings Cone;              // 3D: its directional cone
+            glm::vec3 Direction{ 0.0f, 0.0f, -1.0f };
         };
 
         // A music track and its fade. Position runs 0..1 along the fade, the track is heard at
@@ -417,22 +419,49 @@ namespace Zamin {
             return { p.x, p.y, p.z };
         }
 
-        // How much the distance from the listener lowers a 3D sound (miniaudio's inverse model).
-        float Attenuation(const Voice& voice, float* distanceOut = nullptr)
+        // How much the distance from the listener (miniaudio's inverse model) and the directional
+        // cone lower a 3D sound.
+        float Attenuation(const Voice& voice, float* distanceOut = nullptr, float* coneOut = nullptr)
         {
             if (distanceOut)
                 *distanceOut = 0.0f;
+            if (coneOut)
+                *coneOut = 1.0f;
             if (!voice.Spatial)
                 return 1.0f;
             const ma_sound* sound = voice.Sound.get();
-            float distance = glm::length(SoundPosition(voice) - ListenerPosition());
+            const glm::vec3 position = SoundPosition(voice), listener = ListenerPosition();
+            float distance = glm::length(position - listener);
             if (distanceOut)
                 *distanceOut = distance;
             float minDistance = ma_sound_get_min_distance(sound), maxDistance = ma_sound_get_max_distance(sound);
             float gain = 1.0f;
             if (minDistance < maxDistance)
                 gain = minDistance / (minDistance + ma_sound_get_rolloff(sound) * (std::clamp(distance, minDistance, maxDistance) - minDistance));
-            return std::clamp(gain, ma_sound_get_min_gain(sound), ma_sound_get_max_gain(sound));
+            const float cone = AudioEngine::ComputeConeGain(voice.Cone, position, voice.Direction, listener);
+            if (coneOut)
+                *coneOut = cone;
+            return std::clamp(gain * cone, ma_sound_get_min_gain(sound), ma_sound_get_max_gain(sound));
+        }
+
+        // The sound's cone and direction to miniaudio (no cone: all around).
+        void ApplyCone(Voice& voice)
+        {
+            ma_sound* sound = voice.Sound.get();
+            if (voice.Cone.IsActive())
+            {
+                constexpr float toRadians = 0.017453292519943295f;
+                ma_sound_set_cone(sound, voice.Cone.InnerAngle * toRadians, voice.Cone.OuterAngle * toRadians, voice.Cone.OuterGain);
+            }
+            else
+                ma_sound_set_cone(sound, 6.283185307f, 6.283185307f, 1.0f);
+            ma_sound_set_direction(sound, voice.Direction.x, voice.Direction.y, voice.Direction.z);
+        }
+
+        glm::vec3 SafeDirection(const glm::vec3& direction)
+        {
+            const float length = glm::length(direction);
+            return std::isfinite(length) && length > 1e-6f ? direction / length : glm::vec3(0.0f, 0.0f, -1.0f);
         }
 
         float GroupGain(const Voice& voice)
@@ -783,6 +812,10 @@ namespace Zamin {
                 ma_sound_set_min_distance(sound, std::max(0.01f, params.MinDistance));
                 ma_sound_set_max_distance(sound, std::max(params.MinDistance, params.MaxDistance));
                 ma_sound_set_position(sound, params.Position.x, params.Position.y, params.Position.z);
+                voice.Cone = params.Cone;
+                voice.Cone.Sanitize();
+                voice.Direction = SafeDirection(params.Direction);
+                ApplyCone(voice);
                 ma_vec3f listenerVelocity = ma_engine_listener_get_velocity(s_Engine, 0);
                 voice.DopplerPitch = AudioEngine::ComputeDopplerPitch(params.Position, voice.Velocity, ListenerPosition(),
                                                                       { listenerVelocity.x, listenerVelocity.y, listenerVelocity.z },
@@ -1143,6 +1176,49 @@ namespace Zamin {
             v->DopplerFactor = std::isfinite(factor) ? std::clamp(factor, 0.0f, AudioSettings::MaxDopplerFactor) : 1.0f;
     }
 
+    void AudioEngine::SetSoundDirection(uint32_t handle, const glm::vec3& direction)
+    {
+        Voice* v = FindVoice(handle);
+        if (!v || !v->Spatial)
+            return;
+        const glm::vec3 d = SafeDirection(direction);
+        if (d == v->Direction)
+            return;
+        v->Direction = d;
+        ma_sound_set_direction(v->Sound.get(), d.x, d.y, d.z);
+    }
+
+    void AudioEngine::SetSoundCone(uint32_t handle, const AudioConeSettings& cone)
+    {
+        Voice* v = FindVoice(handle);
+        if (!v || !v->Spatial)
+            return;
+        AudioConeSettings settings = cone;
+        settings.Sanitize();
+        if (settings == v->Cone)
+            return;
+        v->Cone = settings;
+        ApplyCone(*v);
+    }
+
+    AudioConeSettings AudioEngine::GetSoundCone(uint32_t handle)
+    {
+        Voice* v = FindVoice(handle);
+        return v ? v->Cone : AudioConeSettings();
+    }
+
+    float AudioEngine::ComputeConeGain(const AudioConeSettings& cone, const glm::vec3& sourcePosition, const glm::vec3& sourceDirection,
+                                       const glm::vec3& listenerPosition)
+    {
+        if (!cone.IsActive())
+            return 1.0f;
+        const glm::vec3 toListener = listenerPosition - sourcePosition;
+        const float distance = glm::length(toListener);
+        if (!std::isfinite(distance) || distance <= 0.001f)
+            return 1.0f; // right on the listener: no angle
+        return cone.GetGain(glm::dot(SafeDirection(sourceDirection), toListener / distance));
+    }
+
     bool AudioEngine::IsPlaying(uint32_t handle)
     {
         Voice* v = FindVoice(handle);
@@ -1302,7 +1378,9 @@ namespace Zamin {
         out.Volume = v->Volume;
         out.VolumeVariation = v->VolumeVariation;
         out.GroupGain = GroupGain(*v);
-        out.Attenuation = Attenuation(*v, &out.Distance);
+        out.Attenuation = Attenuation(*v, &out.Distance, &out.ConeGain);
+        out.Cone = v->Cone;
+        out.Direction = v->Direction;
         out.ClipGain = v->ClipGain;
         out.Fade = v->Fade;
         out.FadeTarget = v->FadeTarget;

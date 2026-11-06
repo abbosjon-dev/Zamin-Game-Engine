@@ -40,6 +40,30 @@ namespace Zamin {
         bool operator==(const AudioFilterSettings&) const = default;
     };
 
+    // A 3D sound's directional cone (a loudspeaker, a megaphone, a TV, someone talking): heard at
+    // full volume inside InnerAngle around the direction the sound faces (its entity's forward,
+    // -Z), at OuterGain outside OuterAngle, blended between the two. Angles are the cone's full
+    // opening in degrees; 360 = every direction (no cone). On top of the distance attenuation.
+    struct AudioConeSettings
+    {
+        bool Enabled = false;
+        float InnerAngle = 90.0f;   // degrees, 0..360
+        float OuterAngle = 240.0f;  // degrees, InnerAngle..360
+        float OuterGain = 0.2f;     // 0..1: behind the sound
+
+        // On, and narrower than all around.
+        bool IsActive() const { return Enabled && InnerAngle < 360.0f; }
+        // The gain for a listener `cosAngle` (the cosine of the angle between the sound's direction
+        // and the way to the listener) off its axis: 1 inside the inner cone, OuterGain outside the
+        // outer one, linear in the cosine between (as miniaudio mixes it). 1 when not active.
+        float GetGain(float cosAngle) const;
+        // Angles in 0..360 (outer not below inner), gain in 0..1 (not a number: the default).
+        void Sanitize();
+        bool IsDefault() const { return *this == AudioConeSettings(); }
+
+        bool operator==(const AudioConeSettings&) const = default;
+    };
+
     // One mixer group (bus): the sounds routed to it and its child groups are mixed, multiplied by
     // its fader and passed on to its parent. Master is the root every group ends up in.
     struct AudioGroupSettings

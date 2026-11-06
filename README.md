@@ -469,6 +469,13 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   FadeOut, high-pass 700 Hz + low-pass 3.5 kHz; R — yoqish / o'chirish, T — filtr, G — pasaytirish), **suv havzasi**
   (tinglovchi kirsa SFX va Music guruhlari low-pass bilan bo'g'iladi), **sozlamalar** (- / = Music balandligi, N — SFX
   mute, 9 — saqlash, 0 — tozalash)
+- **Yo'nalish konusi (3D)**: Audio Source'da **Yo'nalish konusi** — ichki burchak (to'liq balandlik), tashqi burchak va
+  orqadagi balandlik (`AudioConeSettings`, miniaudio `ma_sound_set_cone`): ovoz obyektning oldi tomoniga (-Z) qarab
+  baland, orqasida past — karnay, televizor, gapirayotgan odam; obyekt burilsa ovoz ham buriladi. Sahnada tanlangan
+  manbaning konusi (ichki — to'q, tashqi — xira) va yo'nalish o'qi chiziladi, o'yin davomida inspektorda konus
+  ko'paytuvchisi ko'rinadi. API: `SoundParams::Cone` / `Direction`, `AudioEngine::SetSoundCone`, `SetSoundDirection`,
+  `ComputeConeGain`. Namuna: `Scenes/Audio.zscene` — ustundagi **karnay** (-X tomonga qaragan): tinglovchi uning oldidan
+  o'tganda baland, orqasiga o'tganda past eshitiladi
 - **Audio profiler**: Statistika oynasida faol ovozlar soni / limit (rang: to'lishiga qarab), so'nggi 240 kadr grafigi
   (limit chizig'i bilan), cho'qqi, ovoz turlari (ijroda / pauza / so'nmoqda, 3D, oqim, filtrli, musiqa, ko'rib chiqish,
   oldindan yuklangan fayllar) va **mixer guruhlari bo'yicha** jadval (o'zida / bola guruhlari bilan, limit sababli

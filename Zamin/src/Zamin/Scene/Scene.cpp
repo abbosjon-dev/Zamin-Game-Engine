@@ -4639,6 +4639,8 @@ namespace Zamin {
         params.Velocity = audio->HasLastPosition ? audio->Velocity : glm::vec3(0.0f);
         params.FadeIn = std::isfinite(fadeInSeconds) && fadeInSeconds >= 0.0f ? fadeInSeconds : audio->FadeIn;
         params.Filter = audio->Filter;
+        params.Cone = audio->Cone;
+        params.Direction = glm::vec3(GetWorldTransform(entity) * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
         audio->RuntimeHandle = AudioEngine::Play(Project::GetAssetFileSystemPath(audio->Path), params);
         return audio->RuntimeHandle != 0;
     }
@@ -4869,6 +4871,9 @@ namespace Zamin {
                     AudioEngine::SetSoundVelocity(a.RuntimeHandle, a.Velocity);
                     AudioEngine::SetSoundDopplerFactor(a.RuntimeHandle, a.DopplerFactor);
                     AudioEngine::SetSoundDistances(a.RuntimeHandle, a.MinDistance, a.MaxDistance);
+                    AudioEngine::SetSoundCone(a.RuntimeHandle, a.Cone);
+                    if (a.Cone.IsActive())
+                        AudioEngine::SetSoundDirection(a.RuntimeHandle, glm::vec3(GetWorldTransform({ e, this }) * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f)));
                 }
             }
             else

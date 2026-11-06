@@ -1842,6 +1842,34 @@ namespace Zamin {
         Renderer2D::DrawLine(apex, apex + d * std::min(range, 1.0f), color);
     }
 
+    // A 3D sound's directional cone (AudioConeSettings, full angles in degrees) out to `length`:
+    // the outer cone faint, the inner one solid, an arrow along the way it faces. A cone wider
+    // than 180 degrees opens backwards (its rim is behind the source).
+    static void DrawAudioCone(const glm::vec3& apex, const glm::vec3& direction, float length, const AudioConeSettings& cone,
+                              const glm::vec4& color)
+    {
+        if (!(length > 0.0f) || !(glm::length(direction) > 1e-6f))
+            return;
+        glm::vec3 d = glm::normalize(direction), u, v;
+        PerpendicularAxes(d, u, v);
+        auto drawCone = [&](float fullDegrees, const glm::vec4& c) {
+            const float half = glm::radians(std::clamp(fullDegrees, 0.0f, 360.0f) * 0.5f);
+            if (half >= glm::pi<float>() - 1e-3f)
+                return; // all around: no cone to draw
+            const glm::vec3 rimCenter = apex + d * (length * std::cos(half));
+            const float rimRadius = length * std::sin(half);
+            DrawWireCircle(rimCenter, u, v, rimRadius, c);
+            for (glm::vec3 side : { u, -u, v, -v })
+                Renderer2D::DrawLine(apex, rimCenter + side * rimRadius, c);
+            // The cap on the sphere of `length`.
+            DrawWireArc(apex, d, u, length, -half, half, c);
+            DrawWireArc(apex, d, v, length, -half, half, c);
+        };
+        drawCone(cone.OuterAngle, glm::vec4(color.r, color.g, color.b, color.a * 0.4f));
+        drawCone(cone.InnerAngle, color);
+        DrawWireArrow(apex, apex + d * length * 1.15f, length * 0.18f, color);
+    }
+
     // A 2D light in the XY plane: the circle it reaches, fainter the inner (full brightness) one;
     // a spot light: its cone's edges and the arc where it ends.
     // fn(std::type_identity<T>{}) for each 2D joint component type.
@@ -2371,6 +2399,13 @@ namespace Zamin {
                 DrawWireSphere(center, src.MinDistance, color, &view);
                 if (src.MaxDistance > src.MinDistance)
                     DrawWireSphere(center, src.MaxDistance, glm::vec4(color.r, color.g, color.b, color.a * 0.45f), &view);
+                // The directional cone: out to the inner sphere, at least ~80 pixels long.
+                if (src.Cone.IsActive())
+                {
+                    const glm::vec3 forward(scene.GetWorldTransform(entity) * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
+                    const float length = std::min(std::max(src.MinDistance, 80.0f * view.PixelSize(center)), std::max(src.MaxDistance, 0.1f));
+                    DrawAudioCone(center, forward, length, src.Cone, tint(e, glm::vec4(1.0f, 0.7f, 0.35f, 1.0f)));
+                }
             }
 
         // 2D and 3D joints: anchors, connected anchors and limits (one setting for both).

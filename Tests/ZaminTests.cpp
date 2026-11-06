@@ -8957,6 +8957,142 @@ TEST(AudioWaveformViewAndLoopRegion)
     fs::remove_all(dir, ec);
 }
 
+TEST(AudioDirectionalCone)
+{
+    // ---- the gain across the cone (miniaudio's math: linear in the cosine between the cones)
+    AudioConeSettings cone;
+    CHECK(!cone.IsActive() && cone.IsDefault() && cone.GetGain(-1.0f) == 1.0f); // off
+    cone.Enabled = true;
+    cone.InnerAngle = 90.0f;
+    cone.OuterAngle = 180.0f;
+    cone.OuterGain = 0.25f;
+    CHECK(cone.IsActive() && !cone.IsDefault());
+    auto at = [&](float degrees) { return cone.GetGain(std::cos(glm::radians(degrees))); };
+    CHECK(at(0.0f) == 1.0f && at(30.0f) == 1.0f);            // inside the inner cone (45 degrees off the axis)
+    CHECK_NEAR(at(90.0f), 0.25f, 1e-5f);                       // the outer cone's edge
+    CHECK_NEAR(at(180.0f), 0.25f, 1e-6f);                      // behind
+    CHECK_NEAR(at(67.5f), 0.25f + 0.75f * std::cos(glm::radians(67.5f)) / std::cos(glm::radians(45.0f)), 1e-4f);
+    CHECK(at(60.0f) < 1.0f && at(60.0f) > at(75.0f));          // falls off between the two
+    cone.InnerAngle = 360.0f;
+    CHECK(!cone.IsActive() && at(180.0f) == 1.0f);             // all around
+    // Sanitized: angles 0..360 (outer not narrower than inner), gain 0..1.
+    AudioConeSettings odd;
+    odd.InnerAngle = -20.0f;
+    odd.OuterAngle = 500.0f;
+    odd.OuterGain = 3.0f;
+    odd.Sanitize();
+    CHECK(odd.InnerAngle == 0.0f && odd.OuterAngle == 360.0f && odd.OuterGain == 1.0f);
+    odd.InnerAngle = 200.0f;
+    odd.OuterAngle = 100.0f;
+    odd.OuterGain = std::nanf("");
+    odd.Sanitize();
+    CHECK(odd.OuterAngle == 200.0f && odd.OuterGain == 0.2f);
+
+    // ---- where the listener is: in front, to the side, behind
+    cone.InnerAngle = 90.0f;
+    const glm::vec3 source(0.0f, 0.0f, -5.0f);
+    CHECK(AudioEngine::ComputeConeGain(cone, source, { 0, 0, 1 }, glm::vec3(0.0f)) == 1.0f);   // facing the listener
+    CHECK_NEAR(AudioEngine::ComputeConeGain(cone, source, { 0, 0, -1 }, glm::vec3(0.0f)), 0.25f, 1e-6f); // facing away
+    CHECK_NEAR(AudioEngine::ComputeConeGain(cone, source, { 0, 0, 7 }, glm::vec3(0.0f)), 1.0f, 1e-6f);   // any length
+    CHECK_NEAR(AudioEngine::ComputeConeGain(cone, source, { 1, 0, 0 }, glm::vec3(0.0f)), 0.25f, 1e-5f);  // side on: the outer edge
+    CHECK(AudioEngine::ComputeConeGain(cone, source, { 0, 0, -1 }, source) == 1.0f);            // on the listener: no angle
+    CHECK(AudioEngine::ComputeConeGain(AudioConeSettings(), source, { 0, 0, -1 }, glm::vec3(0.0f)) == 1.0f);
+
+    // ---- saved with the Audio Source (only when it differs from the default)
+    {
+        auto scene = CreateRef<Scene>();
+        Entity tv = scene->CreateEntity("TV");
+        auto& a = tv.AddComponent<AudioSourceComponent>();
+        a.Spatial = true;
+        a.Cone = cone;
+        Entity plain = scene->CreateEntity("Plain");
+        plain.AddComponent<AudioSourceComponent>();
+        std::string text = SceneSerializer(scene).SerializeToString();
+        CHECK(text.find("\"Cone\"") != std::string::npos && text.find("\"Cone\"") == text.rfind("\"Cone\""));
+        auto loaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+        const auto& b = loaded->FindEntityByName("TV").GetComponent<AudioSourceComponent>();
+        CHECK(b.Cone == cone && loaded->FindEntityByName("Plain").GetComponent<AudioSourceComponent>().Cone.IsDefault());
+    }
+
+    // ---- heard: the engine applies it; a source follows its entity's forward (-Z)
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = MakeTempDir("zamin-audio-cone-");
+    std::filesystem::path tone = dir / "tone.wav";
+    WriteToneWav(tone, 1.0f, 440.0f, 0.5f);
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+    AudioEngine::SetListener(glm::vec3(0.0f), { 0, 0, -1 }, { 0, 1, 0 });
+    auto level = [](float seconds) {
+        AudioEngine::Update(100.0f);
+        AudioEngine::RenderOffline(seconds);
+        AudioEngine::Update(100.0f);
+        AudioLevel l = AudioEngine::GetGroupLevel("SFX");
+        return std::max(l.Left, l.Right);
+    };
+    SoundParams params;
+    params.Loop = true;
+    params.Spatial = true;
+    params.Position = source;
+    params.MinDistance = 10.0f; // no distance attenuation at 5 m
+    params.MaxDistance = 50.0f;
+    params.Cone = cone;
+    params.Direction = { 0, 0, 1 }; // towards the listener
+    uint32_t h = AudioEngine::Play(tone, params);
+    CHECK(h != 0);
+    level(0.1f);
+    const float front = level(0.1f);
+    CHECK(front > 0.05f);
+    SoundInfo info;
+    CHECK(AudioEngine::GetSoundInfo(h, info) && info.ConeGain == 1.0f && info.Cone == cone && info.Direction == glm::vec3(0, 0, 1));
+    // Turned away: OuterGain of it (after miniaudio's short gain smoothing).
+    AudioEngine::SetSoundDirection(h, { 0, 0, -1 });
+    level(0.1f);
+    const float back = level(0.1f);
+    CHECK_NEAR(back / front, 0.25f, 0.03f);
+    CHECK(AudioEngine::GetSoundInfo(h, info) && std::abs(info.ConeGain - 0.25f) < 1e-5f && std::abs(info.Attenuation - 0.25f) < 1e-5f);
+    // The cone switched off: the same all around.
+    AudioEngine::SetSoundCone(h, AudioConeSettings());
+    level(0.1f);
+    CHECK_NEAR(level(0.1f) / front, 1.0f, 0.03f);
+    CHECK(!AudioEngine::GetSoundCone(h).IsActive());
+    AudioEngine::Stop(h);
+
+    // An Audio Source: the cone around its entity's forward, turned with it.
+    auto scene = CreateRef<Scene>();
+    Entity speaker = scene->CreateEntity("Speaker");
+    speaker.GetComponent<TransformComponent>().Translation = source;
+    speaker.GetComponent<TransformComponent>().Rotation = glm::vec3(0.0f, glm::pi<float>(), 0.0f); // -Z turned to +Z: facing the listener
+    auto& a = speaker.AddComponent<AudioSourceComponent>();
+    a.Path = tone.string();
+    a.Loop = true;
+    a.Spatial = true;
+    a.MinDistance = 10.0f;
+    a.MaxDistance = 50.0f;
+    a.Cone = cone;
+    scene->OnRuntimeStart();
+    CHECK(a.RuntimeHandle && AudioEngine::GetSoundInfo(a.RuntimeHandle, info));
+    CHECK(info.ConeGain > 0.999f && info.Direction.z > 0.999f);
+    speaker.GetComponent<TransformComponent>().Rotation = glm::vec3(0.0f);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(AudioEngine::GetSoundInfo(a.RuntimeHandle, info) && info.Direction.z < -0.999f && std::abs(info.ConeGain - 0.25f) < 1e-4f);
+    // Edited during play (the inspector): followed the next frame.
+    a.Cone.OuterGain = 0.5f;
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(AudioEngine::GetSoundCone(a.RuntimeHandle).OuterGain == 0.5f && AudioEngine::GetSoundInfo(a.RuntimeHandle, info));
+    CHECK_NEAR(info.ConeGain, 0.5f, 1e-4f);
+    scene->OnRuntimeStop();
+
+    AudioEngine::StopAll();
+    AudioEngine::SetListener(glm::vec3(0.0f), { 0, 0, -1 }, { 0, 1, 0 });
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
 TEST(InactiveAnimatorsPause)
 {
     auto scene = CreateRef<Scene>();
@@ -21594,6 +21730,17 @@ TEST(AudioSampleScene)
     AudioClipSettings radioSettings = AssetImporter::GetAudioSettings(radioClip);
     CHECK(radioSettings.LoadMode == AudioLoadMode::Decompress && radioSettings.Preload && std::abs(radioSettings.Volume - 0.9f) < 1e-6f);
     CHECK(radioSettings.LoopStart == 4.0f && radioSettings.LoopEnd == 0.0f); // a 4 s intro, then the second phrase loops
+    // The loudspeaker: a directional cone facing -X (its horn a child mesh).
+    Entity speaker = scene->FindEntityByName("Karnay");
+    CHECK(speaker && speaker.HasComponent<AudioSourceComponent>() && scene->FindEntityByName("Karnay shoxi"));
+    if (speaker)
+    {
+        const auto& pa = speaker.GetComponent<AudioSourceComponent>();
+        CHECK(pa.Spatial && pa.Cone.IsActive() && pa.Cone.InnerAngle == 80.0f && pa.Cone.OuterAngle == 210.0f && pa.Path == "Audio/PaChime.wav");
+        const glm::vec3 forward(scene->GetWorldTransform(speaker) * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
+        CHECK(forward.x < -0.99f);
+        CHECK_NEAR(Audio::GetClipLength("Audio/PaChime.wav"), 2.6f, 1e-3f);
+    }
     CHECK(AssetImporter::GetAudioSettings(Project::GetAssetFileSystemPath("Audio/MusicCalm.wav")).LoadMode == AudioLoadMode::Stream);
     CHECK(AssetImporter::GetAudioSettings(Project::GetAssetFileSystemPath("Audio/Chime.wav")).Preload);
     CHECK_NEAR(Audio::GetClipLength("Audio/RadioTune.wav"), 8.0f, 1e-3f);

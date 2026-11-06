@@ -2094,7 +2094,7 @@ namespace Zamin {
 
         // What is heard: the sound's volume after its variation, the mixer and the distance.
         UI::PropertyLabel("Eshitilishi", "Balandlik x tasodifiy ko'paytuvchi x fayl balandligi x so'nish x mixer guruhi (ota guruhlari "
-                                         "bilan) x masofa (3D)");
+                                         "bilan) x masofa va yo'nalish konusi (3D)");
         {
             float db = AudioGain::ToDecibels(info.AudibleVolume);
             float fraction = std::clamp((db - AudioGain::MinDecibels) / (6.0f - AudioGain::MinDecibels), 0.0f, 1.0f);
@@ -2110,7 +2110,16 @@ namespace Zamin {
                 UI::Tooltip("Manbaning balandligi, bu ijroda olgan tasodifiy ko'paytuvchisi va faylning o'z balandligi (import sozlamasi)");
             ImGui::TextDisabled("guruh %s %s", info.Group.empty() ? "-" : info.Group.c_str(),
                                 info.GroupGain <= 0.0f ? "jim" : std::format("{:+.1f} dB", AudioGain::ToDecibels(info.GroupGain)).c_str());
-            if (info.Spatial)
+            if (info.Spatial && info.Cone.IsActive())
+            {
+                ImGui::TextDisabled("masofa %.1f m x%.2f  konus x%.2f", info.Distance, info.Attenuation / std::max(info.ConeGain, 1e-6f),
+                                    info.ConeGain);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(info.ConeGain >= 0.999f ? "Tinglovchi ichki konus ichida (oldida): to'liq balandlik"
+                                : info.ConeGain <= info.Cone.OuterGain + 1e-4f ? "Tinglovchi tashqi konusdan tashqarida (orqada)"
+                                                                               : "Tinglovchi ichki va tashqi konus orasida");
+            }
+            else if (info.Spatial)
                 ImGui::TextDisabled("masofa %.1f m x%.2f", info.Distance, info.Attenuation);
         }
 
@@ -6332,6 +6341,51 @@ namespace Zamin {
                 ImGui::TextDisabled("(katta fayl: baribir oqim)");
             }
             ImGui::PopID();
+
+            if (c.Spatial)
+            {
+                UI::PropertyHeader(ICON_FA_BULLHORN "  Yo'nalish konusi", "3D ovoz obyektning oldi tomoniga (-Z, sahnada konus bilan "
+                                                                         "ko'rsatiladi) qarab baland, orqasida past eshitiladi: "
+                                                                         "karnay, televizor, gapirayotgan odam. Masofa so'nishi ustiga "
+                                                                         "qo'shiladi.");
+                UI::PropertyLabel("Yoqilgan");
+                ImGui::PushID("coneEnabled");
+                changed |= ImGui::Checkbox("##v", &c.Cone.Enabled);
+                ImGui::PopID();
+                if (c.Cone.Enabled)
+                {
+                    UI::PropertyLabel("Ichki burchak", "Konusning to'liq ochilishi (gradus): uning ichida ovoz to'liq balandlikda");
+                    ImGui::PushID("coneInner");
+                    if (ImGui::SliderFloat("##v", &c.Cone.InnerAngle, 0.0f, 360.0f, "%.0f°", ImGuiSliderFlags_AlwaysClamp))
+                    {
+                        c.Cone.OuterAngle = std::max(c.Cone.OuterAngle, c.Cone.InnerAngle);
+                        changed = true;
+                    }
+                    ImGui::PopID();
+                    UI::PropertyLabel("Tashqi burchak", "Undan tashqarida ovoz 'Orqada' balandligida; ichki va tashqi konus "
+                                                        "orasida silliq o'tadi");
+                    ImGui::PushID("coneOuter");
+                    if (ImGui::SliderFloat("##v", &c.Cone.OuterAngle, 0.0f, 360.0f, "%.0f°", ImGuiSliderFlags_AlwaysClamp))
+                    {
+                        c.Cone.InnerAngle = std::min(c.Cone.InnerAngle, c.Cone.OuterAngle);
+                        changed = true;
+                    }
+                    ImGui::PopID();
+                    UI::PropertyLabel("Orqada", "Tashqi konusdan tashqarida (orqa tomonda) qancha eshitiladi: 0 - jim, 1 - "
+                                                "o'zgarmaydi");
+                    ImGui::PushID("coneGain");
+                    std::string gainText = c.Cone.OuterGain <= 0.0f ? std::string("jim")
+                                                                    : std::format("{:.2f} ({:+.1f} dB)", c.Cone.OuterGain,
+                                                                                  AudioGain::ToDecibels(c.Cone.OuterGain));
+                    changed |= ImGui::SliderFloat("##v", &c.Cone.OuterGain, 0.0f, 1.0f, gainText.c_str(), ImGuiSliderFlags_AlwaysClamp);
+                    ImGui::PopID();
+                    if (c.Cone.InnerAngle >= 360.0f)
+                    {
+                        UI::PropertyLabel("");
+                        ImGui::TextDisabled("360°: hamma tomonga bir xil (konus ta'sir qilmaydi)");
+                    }
+                }
+            }
 
             UI::PropertyHeader(ICON_FA_CHART_LINE "  So'nish (fade)", "Ovoz boshlanganda jimdan asta balandlashadi, to'xtatilganda "
                                                                     "(StopAudio, obyekt o'chirilsa yoki yo'q qilinsa) birdan uzilmay asta "

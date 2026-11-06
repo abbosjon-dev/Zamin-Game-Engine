@@ -737,6 +737,9 @@ namespace Zamin {
             if (!c->Filter.IsDefault())
                 a["Filter"] = { { "LowPass", c->Filter.LowPass }, { "LowPassCutoff", c->Filter.LowPassCutoff },
                                 { "HighPass", c->Filter.HighPass }, { "HighPassCutoff", c->Filter.HighPassCutoff } };
+            if (!c->Cone.IsDefault())
+                a["Cone"] = { { "Enabled", c->Cone.Enabled }, { "InnerAngle", c->Cone.InnerAngle }, { "OuterAngle", c->Cone.OuterAngle },
+                              { "OuterGain", c->Cone.OuterGain } };
             WriteAssetHandle(a, "Path", c->Path);
         }
         if (auto* c = entity.TryGetComponent<AudioListenerComponent>())
@@ -1527,6 +1530,15 @@ namespace Zamin {
                 c.Filter.HighPass = f.value("HighPass", false);
                 c.Filter.HighPassCutoff = f.value("HighPassCutoff", c.Filter.HighPassCutoff);
                 c.Filter.Sanitize();
+            }
+            if (j.contains("Cone") && j["Cone"].is_object())
+            {
+                const json& cone = j["Cone"];
+                c.Cone.Enabled = cone.value("Enabled", false);
+                c.Cone.InnerAngle = cone.value("InnerAngle", c.Cone.InnerAngle);
+                c.Cone.OuterAngle = cone.value("OuterAngle", c.Cone.OuterAngle);
+                c.Cone.OuterGain = cone.value("OuterGain", c.Cone.OuterGain);
+                c.Cone.Sanitize();
             }
         }
         if (e.contains("AudioListener"))

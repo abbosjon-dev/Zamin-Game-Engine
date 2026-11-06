@@ -27,6 +27,29 @@ namespace Zamin {
         HighPassCutoff = std::isfinite(HighPassCutoff) ? std::clamp(HighPassCutoff, MinCutoff, MaxCutoff) : 300.0f;
     }
 
+    // ------------------------------------------------------------------ cone
+    float AudioConeSettings::GetGain(float cosAngle) const
+    {
+        if (!IsActive() || !std::isfinite(cosAngle))
+            return 1.0f;
+        constexpr float degreesToRadians = 0.017453292519943295f;
+        const float inner = std::clamp(InnerAngle, 0.0f, 360.0f), outer = std::clamp(OuterAngle, inner, 360.0f);
+        const float gain = std::clamp(std::isfinite(OuterGain) ? OuterGain : 0.0f, 0.0f, 1.0f);
+        const float cutoffInner = std::cos(inner * 0.5f * degreesToRadians), cutoffOuter = std::cos(outer * 0.5f * degreesToRadians);
+        if (cosAngle > cutoffInner)
+            return 1.0f;
+        if (cosAngle > cutoffOuter && cutoffInner > cutoffOuter)
+            return gain + (1.0f - gain) * (cosAngle - cutoffOuter) / (cutoffInner - cutoffOuter);
+        return gain;
+    }
+
+    void AudioConeSettings::Sanitize()
+    {
+        InnerAngle = std::isfinite(InnerAngle) ? std::clamp(InnerAngle, 0.0f, 360.0f) : 90.0f;
+        OuterAngle = std::isfinite(OuterAngle) ? std::clamp(OuterAngle, InnerAngle, 360.0f) : std::max(InnerAngle, 240.0f);
+        OuterGain = std::isfinite(OuterGain) ? std::clamp(OuterGain, 0.0f, 1.0f) : 0.2f;
+    }
+
     // ------------------------------------------------------------------ groups
     std::vector<AudioGroupSettings> AudioSettings::DefaultGroups()
     {

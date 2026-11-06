@@ -806,6 +806,120 @@
         "Class": "AudioOptions",
         "Fields": {}
       }
+    },
+    {
+      "Entity": 8110000000000110,
+      "Tag": "Karnay ustuni",
+      "Transform": {
+        "Translation": [
+          -3.5,
+          1.0,
+          -1.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.12,
+          2.0,
+          0.12
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.42,
+          0.44,
+          0.48,
+          1
+        ],
+        "Roughness": 0.45,
+        "Metallic": 0.7
+      }
+    },
+    {
+      "Entity": 8110000000000111,
+      "Tag": "Karnay",
+      "Transform": {
+        "Translation": [
+          -3.5,
+          2.05,
+          -1.4
+        ],
+        "Rotation": [
+          0,
+          1.5708,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "AudioSource": {
+        "Path": "Audio/PaChime.wav",
+        "Volume": 1.0,
+        "Pitch": 1.0,
+        "Loop": true,
+        "PlayOnStart": true,
+        "Spatial": true,
+        "MinDistance": 3.0,
+        "MaxDistance": 24.0,
+        "Output": "SFX",
+        "Priority": 150,
+        "Cone": {
+          "Enabled": true,
+          "InnerAngle": 80.0,
+          "OuterAngle": 210.0,
+          "OuterGain": 0.12
+        }
+      }
+    },
+    {
+      "Entity": 8110000000000112,
+      "Tag": "Karnay shoxi",
+      "Parent": 8110000000000111,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          1.5708,
+          0,
+          0
+        ],
+        "Scale": [
+          0.55,
+          0.7,
+          0.55
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cone",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.92,
+          0.9,
+          0.86,
+          1
+        ],
+        "Roughness": 0.4,
+        "Metallic": 0.2,
+        "Emission": [
+          1.0,
+          0.7,
+          0.35
+        ],
+        "EmissionStrength": 0.25
+      }
     }
   ]
 }

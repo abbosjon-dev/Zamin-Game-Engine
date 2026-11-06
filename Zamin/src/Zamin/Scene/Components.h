@@ -1341,6 +1341,9 @@ namespace Zamin {
         // Low-pass / high-pass on this source alone (e.g. a radio behind a wall); its mixer group
         // may filter on top. Changes while it plays glide there.
         AudioFilterSettings Filter;
+        // 3D sound: a directional cone around the entity's forward (-Z) - full volume in front,
+        // OuterGain behind (a loudspeaker, a TV, someone talking).
+        AudioConeSettings Cone;
 
         // Runtime.
         uint32_t RuntimeHandle = 0;

@@ -920,6 +920,50 @@
         ],
         "EmissionStrength": 0.25
       }
+    },
+    {
+      "Entity": 8110000000000115,
+      "Tag": "O'rmon shovqini",
+      "Transform": {
+        "Translation": [
+          -6.8,
+          1.5,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "AmbientZone": {
+        "Path": "Audio/ForestAmbience.wav",
+        "Volume": 0.8,
+        "Pitch": 1.0,
+        "Output": "Ambience",
+        "Shape": "Box",
+        "BlendDistance": 3.0,
+        "FadeTime": 0.6,
+        "Size": [
+          8.0,
+          4.0,
+          9.0
+        ]
+      },
+      "NativeScript": {
+        "Class": "AmbientZoneLabel",
+        "Fields": {
+          "Title": {
+            "Type": "String",
+            "Value": "O'rmon (Ambient Zone)"
+          }
+        }
+      }
     }
   ]
 }

@@ -44,6 +44,7 @@ namespace Zamin {
     struct ScriptMessage;
     struct SoundInfo;
     struct AudioSourceComponent;
+    struct AmbientZoneComponent;
     struct AudioFilterSettings;
 
     struct SceneSettings
@@ -568,6 +569,15 @@ namespace Zamin {
         Entity GetActiveAudioListener();
         // Where the 3D sounds are heard from: the active Audio Listener, else the primary camera.
         Entity GetAudioListenerEntity();
+        // ---- ambient zones (AmbientZoneComponent)
+        // How far `point` is outside the zone's volume (0 inside), in world units, for the zone on
+        // an entity with the world transform `world`.
+        static float GetAmbientZoneDistance(const AmbientZoneComponent& zone, const glm::mat4& world, const glm::vec3& point);
+        // How much of the zone is heard at `point`: 1 inside, falling smoothly to 0 at BlendDistance
+        // outside (before the FadeTime smoothing).
+        static float GetAmbientZoneWeight(const AmbientZoneComponent& zone, const glm::mat4& world, const glm::vec3& point);
+        // The zone's level heard now, 0..1 (0: no zone, not running).
+        float GetAmbientZoneLevel(Entity entity);
 
         // ---- script messages (delivered immediately to live script instances:
         // handlers added with ScriptableEntity::AddMessageHandler, then OnMessage)
@@ -755,6 +765,8 @@ namespace Zamin {
         AudioSourceComponent* GetAudioSource(Entity entity);
         // The listener's place / direction (and velocity) for the audio engine.
         void UpdateAudioListener(float ts);
+        // Ambient zones follow the listener: their levels, their sounds started / stopped.
+        void UpdateAmbientZones(float ts);
         void UpdateAnimators(Timestep ts, bool editor);
         // TintAnimationComponent: the playing ones advance (editor: only the inspector's previews).
         void UpdateTintAnimations(Timestep ts, bool editor);

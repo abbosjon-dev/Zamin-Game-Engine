@@ -2408,6 +2408,46 @@ namespace Zamin {
                 }
             }
 
+        // Ambient zones: the volume (full inside) and, fainter, where the blend outside ends.
+        if (gizmos.AudioRanges != GizmoVisibility::Off)
+            for (auto e : scene.GetAllEntitiesWith<AmbientZoneComponent>())
+            {
+                if (!shows(e, gizmos.AudioRanges))
+                    continue;
+                Entity entity{ e, &scene };
+                const auto& zone = entity.GetComponent<AmbientZoneComponent>();
+                const glm::mat4 world = scene.GetWorldTransform(entity);
+                const glm::vec3 center(world[3]);
+                // While playing: brighter with the level heard.
+                const float lit = m_SceneState == SceneState::Play ? zone.Level : 0.0f;
+                const glm::vec4 color = tint(e, glm::mix(glm::vec4(0.45f, 0.85f, 0.55f, 0.85f), glm::vec4(0.6f, 1.0f, 0.7f, 1.0f), lit));
+                const glm::vec4 faint(color.r, color.g, color.b, color.a * 0.35f);
+                if (zone.Shape == AmbientZoneComponent::ZoneShape::Sphere)
+                {
+                    const float scale = std::max({ glm::length(glm::vec3(world[0])), glm::length(glm::vec3(world[1])), glm::length(glm::vec3(world[2])) });
+                    const float radius = std::max(0.0f, zone.Radius) * scale;
+                    DrawWireSphere(center, radius, color, &view);
+                    if (zone.BlendDistance > 0.0f)
+                        DrawWireSphere(center, radius + zone.BlendDistance, faint, &view);
+                    continue;
+                }
+                // The box along the entity's turned axes; the blend shell grows each face outwards.
+                glm::mat4 box(1.0f), shell(1.0f);
+                for (int i = 0; i < 3; i++)
+                {
+                    const glm::vec3 axis(world[i]);
+                    const float length = glm::length(axis);
+                    const glm::vec3 unit = length > 1e-6f ? axis / length : glm::vec3(i == 0, i == 1, i == 2);
+                    const float size = std::max(0.0f, zone.Size[i]) * length;
+                    box[i] = glm::vec4(unit * size, 0.0f);
+                    shell[i] = glm::vec4(unit * (size + 2.0f * std::max(0.0f, zone.BlendDistance)), 0.0f);
+                }
+                box[3] = shell[3] = glm::vec4(center, 1.0f);
+                DrawWireBox(box, color);
+                if (zone.BlendDistance > 0.0f)
+                    DrawWireBox(shell, faint);
+            }
+
         // 2D and 3D joints: anchors, connected anchors and limits (one setting for both).
         if (gizmos.Joints2D != GizmoVisibility::Off)
         {
@@ -8283,6 +8323,8 @@ namespace Zamin {
             drawIcon({ e, m_ActiveScene.get() }, ICON_FA_FIRE, IM_COL32(255, 190, 90, 255));
         for (auto e : m_ActiveScene->GetAllEntitiesWith<AudioSourceComponent>())
             drawIcon({ e, m_ActiveScene.get() }, ICON_FA_VOLUME_HIGH, IM_COL32(220, 140, 220, 255));
+        for (auto e : m_ActiveScene->GetAllEntitiesWith<AmbientZoneComponent>())
+            drawIcon({ e, m_ActiveScene.get() }, ICON_FA_TREE, IM_COL32(120, 220, 140, 255));
     }
 
     void EditorLayer::UI_Gizmos()

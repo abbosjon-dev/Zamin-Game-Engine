@@ -4338,10 +4338,11 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<UIButtonComponent>();
     e.AddComponent<AudioSourceComponent>();
     e.AddComponent<AudioListenerComponent>();
+    e.AddComponent<AmbientZoneComponent>();
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 48);
+    CHECK(types.size() == 49);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -9088,6 +9089,161 @@ TEST(AudioDirectionalCone)
 
     AudioEngine::StopAll();
     AudioEngine::SetListener(glm::vec3(0.0f), { 0, 0, -1 }, { 0, 1, 0 });
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
+TEST(AudioAmbientZones)
+{
+    // ---- the volume: how far outside, how much is heard
+    AmbientZoneComponent box;
+    box.Size = { 10.0f, 4.0f, 10.0f };
+    box.BlendDistance = 4.0f;
+    const glm::mat4 identity(1.0f);
+    CHECK(Scene::GetAmbientZoneDistance(box, identity, glm::vec3(0.0f)) == 0.0f && Scene::GetAmbientZoneWeight(box, identity, glm::vec3(0.0f)) == 1.0f);
+    CHECK(Scene::GetAmbientZoneWeight(box, identity, { 4.9f, 1.9f, -4.9f }) == 1.0f); // inside, near a corner
+    CHECK_NEAR(Scene::GetAmbientZoneDistance(box, identity, { 7.0f, 0.0f, 0.0f }), 2.0f, 1e-5f);
+    CHECK_NEAR(Scene::GetAmbientZoneWeight(box, identity, { 7.0f, 0.0f, 0.0f }), 0.5f, 1e-5f); // half way out: smoothstep 0.5
+    CHECK(Scene::GetAmbientZoneWeight(box, identity, { 6.0f, 0.0f, 0.0f }) > 0.8f);
+    CHECK(Scene::GetAmbientZoneWeight(box, identity, { 9.0f, 0.0f, 0.0f }) == 0.0f && Scene::GetAmbientZoneWeight(box, identity, { 0.0f, 50.0f, 0.0f }) == 0.0f);
+    CHECK_NEAR(Scene::GetAmbientZoneDistance(box, identity, { 6.0f, 3.0f, 0.0f }), std::sqrt(2.0f), 1e-5f); // past an edge
+    // Turned and scaled with its entity: local X (x2) now runs along world -Z.
+    const glm::mat4 turned = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 0.0f, 0.0f)) *
+                             glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0.0f, 1.0f, 0.0f)) *
+                             glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 1.0f, 1.0f));
+    AmbientZoneComponent hall;
+    hall.Size = { 4.0f, 2.0f, 2.0f };
+    hall.BlendDistance = 0.0f;
+    CHECK(Scene::GetAmbientZoneDistance(hall, turned, { 10.0f, 0.0f, -3.9f }) == 0.0f);          // 4 along world Z
+    CHECK_NEAR(Scene::GetAmbientZoneDistance(hall, turned, { 10.0f, 0.0f, -5.0f }), 1.0f, 1e-4f);
+    CHECK_NEAR(Scene::GetAmbientZoneDistance(hall, turned, { 11.5f, 0.0f, 0.0f }), 0.5f, 1e-4f); // 1 along world X
+    CHECK(Scene::GetAmbientZoneWeight(hall, turned, { 11.5f, 0.0f, 0.0f }) == 0.0f);              // no blend: silent outside
+    // A sphere: the largest scale.
+    AmbientZoneComponent cave;
+    cave.Shape = AmbientZoneComponent::ZoneShape::Sphere;
+    cave.Radius = 3.0f;
+    cave.BlendDistance = 2.0f;
+    const glm::mat4 scaled = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 2.0f, 1.0f));
+    CHECK(Scene::GetAmbientZoneWeight(cave, scaled, { 5.9f, 0.0f, 0.0f }) == 1.0f);
+    CHECK_NEAR(Scene::GetAmbientZoneDistance(cave, scaled, { 0.0f, 0.0f, 7.0f }), 1.0f, 1e-5f);
+    CHECK_NEAR(Scene::GetAmbientZoneWeight(cave, scaled, { 0.0f, 0.0f, 7.0f }), 0.5f, 1e-5f);
+
+    // ---- saved with the scene (the shape's own size only)
+    {
+        auto scene = CreateRef<Scene>();
+        Entity forest = scene->CreateEntity("Forest");
+        auto& z = forest.AddComponent<AmbientZoneComponent>();
+        z.Path = "Audio/forest.wav";
+        z.Volume = 0.7f;
+        z.Output = "Ambience";
+        z.Size = { 20.0f, 6.0f, 12.0f };
+        z.BlendDistance = 5.0f;
+        z.FadeTime = 1.5f;
+        z.Priority = 90;
+        z.Level = 0.5f; // runtime: not saved
+        Entity cavern = scene->CreateEntity("Cave");
+        auto& c = cavern.AddComponent<AmbientZoneComponent>();
+        c.Shape = AmbientZoneComponent::ZoneShape::Sphere;
+        c.Radius = 8.0f;
+        c.Stream = true;
+        std::string text = SceneSerializer(scene).SerializeToString();
+        auto loaded = CreateRef<Scene>();
+        CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+        const auto& a = loaded->FindEntityByName("Forest").GetComponent<AmbientZoneComponent>();
+        CHECK(a.Path == "Audio/forest.wav" && a.Volume == 0.7f && a.Output == "Ambience" && a.Size == glm::vec3(20.0f, 6.0f, 12.0f));
+        CHECK(a.BlendDistance == 5.0f && a.FadeTime == 1.5f && a.Priority == 90 && a.Shape == AmbientZoneComponent::ZoneShape::Box && a.Level == 0.0f);
+        const auto& b = loaded->FindEntityByName("Cave").GetComponent<AmbientZoneComponent>();
+        CHECK(b.Shape == AmbientZoneComponent::ZoneShape::Sphere && b.Radius == 8.0f && b.Stream && b.Priority == 128);
+        CHECK(text.find("\"Radius\"") != std::string::npos && ComponentRegistry::Find("AmbientZone") != nullptr);
+        // Copies (play mode, prefabs) carry it.
+        Ref<Scene> copy = Scene::Copy(scene);
+        CHECK(copy->FindEntityByName("Forest").GetComponent<AmbientZoneComponent>().Size == glm::vec3(20.0f, 6.0f, 12.0f));
+    }
+
+    // ---- played: it fades in as the listener comes, plays without a position, fades out and stops
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = MakeTempDir("zamin-audio-zone-");
+    std::filesystem::path wav = dir / "forest.wav";
+    WriteTestWav(wav, 1.0f);
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+    auto scene = CreateRef<Scene>();
+    Entity listener = scene->CreateEntity("Listener");
+    listener.AddComponent<AudioListenerComponent>();
+    listener.GetComponent<TransformComponent>().Translation = { 0.0f, 0.0f, 20.0f }; // far away
+    Entity forest = scene->CreateEntity("Forest");
+    auto& zone = forest.AddComponent<AmbientZoneComponent>();
+    zone.Path = wav.string();
+    zone.Volume = 0.8f;
+    zone.Size = { 10.0f, 4.0f, 10.0f };
+    zone.BlendDistance = 4.0f;
+    zone.FadeTime = 0.5f;
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(zone.Target == 0.0f && zone.Level == 0.0f && zone.RuntimeHandle == 0 && AudioEngine::GetPlayingCount() == 0); // not started far away
+    CHECK_NEAR(zone.Distance, 15.0f, 1e-4f);
+    // Walks in: the level climbs at most 1 / FadeTime per second.
+    listener.GetComponent<TransformComponent>().Translation = { 0.0f, 0.0f, 0.0f };
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(zone.Target == 1.0f && std::abs(zone.Level - 0.2f) < 1e-5f && zone.RuntimeHandle != 0);
+    SoundInfo info;
+    CHECK(AudioEngine::GetSoundInfo(zone.RuntimeHandle, info) && !info.Spatial && info.Looping && info.Group == "SFX");
+    CHECK_NEAR(info.Volume, 0.16f, 1e-5f);
+    CHECK_NEAR(scene->GetAmbientZoneLevel(forest), 0.2f, 1e-5f);
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(0.1f);
+    CHECK(zone.Level == 1.0f && AudioEngine::GetVolume(zone.RuntimeHandle) == 0.8f);
+    // In the blend: part of it.
+    listener.GetComponent<TransformComponent>().Translation = { 7.0f, 0.0f, 0.0f };
+    scene->OnUpdateRuntime(1.0f);
+    CHECK_NEAR(zone.Target, 0.5f, 1e-5f);
+    CHECK_NEAR(zone.Level, 0.5f, 1e-5f);
+    CHECK_NEAR(AudioEngine::GetVolume(zone.RuntimeHandle), 0.4f, 1e-5f);
+    const uint32_t handle = zone.RuntimeHandle;
+    // Out: it fades away, then the sound stops.
+    listener.GetComponent<TransformComponent>().Translation = { 30.0f, 0.0f, 0.0f };
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(std::abs(zone.Level - 0.3f) < 1e-5f && zone.RuntimeHandle == handle);
+    scene->OnUpdateRuntime(0.2f);
+    CHECK(zone.Level == 0.0f && zone.RuntimeHandle == 0 && !AudioEngine::IsPlaying(handle));
+    // No smoothing: at once.
+    zone.FadeTime = 0.0f;
+    listener.GetComponent<TransformComponent>().Translation = { 1.0f, 0.0f, 1.0f };
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(zone.Level == 1.0f && zone.RuntimeHandle != 0);
+    // Switched off: the sound stops (fading as set), on again: fades in anew.
+    zone.FadeTime = 0.5f;
+    const uint32_t before = zone.RuntimeHandle;
+    forest.SetActive(false);
+    CHECK(zone.RuntimeHandle == 0 && zone.Level == 0.0f && AudioEngine::IsStopping(before));
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(zone.Level == 0.0f && zone.RuntimeHandle == 0);
+    forest.SetActive(true);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(std::abs(zone.Level - 0.2f) < 1e-5f && zone.RuntimeHandle != 0 && zone.RuntimeHandle != before);
+    // Several zones play together (a forest with a river in it).
+    Entity river = scene->CreateEntity("River");
+    auto& water = river.AddComponent<AmbientZoneComponent>();
+    water.Path = wav.string();
+    water.Shape = AmbientZoneComponent::ZoneShape::Sphere;
+    water.Radius = 2.0f;
+    water.FadeTime = 0.0f;
+    water.Output = "Music";
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(water.Level == 1.0f && AudioEngine::GetSoundGroup(water.RuntimeHandle) == "Music" && zone.RuntimeHandle != 0);
+    // Destroyed: its sound goes too; play stops: everything is reset.
+    const uint32_t riverHandle = water.RuntimeHandle;
+    scene->DestroyEntity(river);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!AudioEngine::IsPlaying(riverHandle));
+    scene->OnRuntimeStop();
+    CHECK(zone.RuntimeHandle == 0 && zone.Level == 0.0f && AudioEngine::GetPlayingCount() == 0);
+
+    AudioEngine::StopAll();
     if (!wasAvailable)
         AudioEngine::Shutdown();
     std::filesystem::remove_all(dir);
@@ -21740,6 +21896,17 @@ TEST(AudioSampleScene)
         const glm::vec3 forward(scene->GetWorldTransform(speaker) * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
         CHECK(forward.x < -0.99f);
         CHECK_NEAR(Audio::GetClipLength("Audio/PaChime.wav"), 2.6f, 1e-3f);
+    }
+    // The forest ambience: a box over the calm (green) zone, in Ambience; the listener starts inside it.
+    Entity forest = scene->FindEntityByName("O'rmon shovqini");
+    CHECK(forest && forest.HasComponent<AmbientZoneComponent>());
+    if (forest)
+    {
+        const auto& zone = forest.GetComponent<AmbientZoneComponent>();
+        CHECK(zone.Path == "Audio/ForestAmbience.wav" && zone.Output == "Ambience" && zone.Shape == AmbientZoneComponent::ZoneShape::Box);
+        CHECK(Scene::GetAmbientZoneWeight(zone, scene->GetWorldTransform(forest), scene->GetWorldPosition(listener)) == 1.0f);
+        CHECK(forest.GetComponent<NativeScriptComponent>().ClassName == "AmbientZoneLabel");
+        CHECK_NEAR(Audio::GetClipLength("Audio/ForestAmbience.wav"), 8.0f, 1e-3f);
     }
     CHECK(AssetImporter::GetAudioSettings(Project::GetAssetFileSystemPath("Audio/MusicCalm.wav")).LoadMode == AudioLoadMode::Stream);
     CHECK(AssetImporter::GetAudioSettings(Project::GetAssetFileSystemPath("Audio/Chime.wav")).Preload);

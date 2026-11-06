@@ -399,6 +399,7 @@ namespace Zamin {
         }
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).ResetRuntime();
         for (auto e : registry.view<AudioListenerComponent>()) registry.get<AudioListenerComponent>(e).ResetRuntime();
+        for (auto e : registry.view<AmbientZoneComponent>()) registry.get<AmbientZoneComponent>(e).ResetRuntime();
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
         for (auto e : registry.view<SpriteRendererComponent>()) registry.get<SpriteRendererComponent>(e).StopFlash();
         for (auto e : registry.view<TintAnimationComponent>()) registry.get<TintAnimationComponent>(e).ResetRuntime();
@@ -435,6 +436,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<Rigidbody3DComponent>()) c->RuntimeBodyID = 0xffffffff;
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<AudioListenerComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<AmbientZoneComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
         if (auto* c = e.TryGetComponent<SpriteRendererComponent>()) c->StopFlash();
         if (auto* c = e.TryGetComponent<TintAnimationComponent>()) c->ResetRuntime();
@@ -645,6 +647,8 @@ namespace Zamin {
             m_ActiveCacheDirty = true; // keep the cache free of dead handles
         if (auto* audio = entity.TryGetComponent<AudioSourceComponent>(); audio && audio->RuntimeHandle)
             AudioEngine::Stop(audio->RuntimeHandle, audio->FadeOut); // a fade goes on without the entity
+        if (auto* zone = entity.TryGetComponent<AmbientZoneComponent>(); zone && zone->RuntimeHandle)
+            AudioEngine::Stop(zone->RuntimeHandle, zone->FadeTime * zone->Level);
 
         m_EntityMap.erase(entity.GetUUID());
         // Normally already the last one (PrepareDestroyOrder); a script callback above may
@@ -1683,6 +1687,12 @@ namespace Zamin {
                 AudioEngine::Stop(audio->RuntimeHandle, audio->FadeOut); // fades out by itself
             audio->ResetRuntime();
         }
+        if (auto* zone = entity.TryGetComponent<AmbientZoneComponent>())
+        {
+            if (zone->RuntimeHandle)
+                AudioEngine::Stop(zone->RuntimeHandle, zone->FadeTime * zone->Level); // from where it is, as it would have faded
+            zone->ResetRuntime(); // switched on again: fades in anew
+        }
         if (auto* ps = entity.TryGetComponent<ParticleSystemComponent>())
             ps->Clear(); // starts over (Burst included) when the entity comes back
         if (auto* button = entity.TryGetComponent<UIButtonComponent>())
@@ -1968,6 +1978,17 @@ namespace Zamin {
                     preloads.push_back(file);
             }
         }
+        for (auto e : m_Registry.view<AmbientZoneComponent>())
+        {
+            auto& zone = m_Registry.get<AmbientZoneComponent>(e);
+            zone.ResetRuntime(); // the zones fade in from silence where the listener is
+            if (!zone.Path.empty())
+            {
+                std::filesystem::path file = Project::GetAssetFileSystemPath(zone.Path);
+                if (AssetImporter::GetAudioSettings(file).Preload && std::find(preloads.begin(), preloads.end(), file) == preloads.end())
+                    preloads.push_back(file);
+            }
+        }
         AudioEngine::SetScenePreloads(preloads);
         std::reverse(sources.begin(), sources.end()); // scene order
         for (auto e : sources)
@@ -1986,6 +2007,8 @@ namespace Zamin {
         AudioEngine::StopAllExceptMusic(); // the music is the game's: it goes on into the next scene
         for (auto e : m_Registry.view<AudioSourceComponent>())
             m_Registry.get<AudioSourceComponent>(e).ResetRuntime();
+        for (auto e : m_Registry.view<AmbientZoneComponent>())
+            m_Registry.get<AmbientZoneComponent>(e).ResetRuntime();
         SaveData::Save(); // flush what the scripts stored (no-op when nothing changed)
         DebugDraw::Clear(); // nothing the game drew stays in the editor's view
     }
@@ -4842,10 +4865,119 @@ namespace Zamin {
         AudioEngine::SetListenerVelocity(listener ? listener->Velocity : glm::vec3(0.0f));
     }
 
+    float Scene::GetAmbientZoneDistance(const AmbientZoneComponent& zone, const glm::mat4& world, const glm::vec3& point)
+    {
+        const glm::vec3 offset = point - glm::vec3(world[3]);
+        if (zone.Shape == AmbientZoneComponent::ZoneShape::Sphere)
+        {
+            const float scale = std::max({ glm::length(glm::vec3(world[0])), glm::length(glm::vec3(world[1])), glm::length(glm::vec3(world[2])) });
+            const float radius = std::isfinite(zone.Radius) ? std::max(0.0f, zone.Radius) * scale : 0.0f;
+            return std::max(0.0f, glm::length(offset) - radius);
+        }
+        // The box: how far the point is outside each face, along the entity's (scaled, turned) axes.
+        glm::vec3 outside(0.0f);
+        for (int i = 0; i < 3; i++)
+        {
+            const glm::vec3 axis(world[i]);
+            const float length = glm::length(axis);
+            const float size = std::isfinite(zone.Size[i]) ? std::max(0.0f, zone.Size[i]) : 0.0f;
+            const float along = length > 1e-6f ? glm::dot(offset, axis / length) : offset[i];
+            outside[i] = std::max(0.0f, std::abs(along) - size * 0.5f * length);
+        }
+        return glm::length(outside);
+    }
+
+    float Scene::GetAmbientZoneWeight(const AmbientZoneComponent& zone, const glm::mat4& world, const glm::vec3& point)
+    {
+        const float distance = GetAmbientZoneDistance(zone, world, point);
+        if (distance <= 0.0f)
+            return 1.0f;
+        if (!(zone.BlendDistance > 0.0f) || !std::isfinite(distance))
+            return 0.0f;
+        // Smooth at both ends of the blend: no step at the edge, a soft start far out.
+        const float t = std::clamp(distance / zone.BlendDistance, 0.0f, 1.0f);
+        return 1.0f - t * t * (3.0f - 2.0f * t);
+    }
+
+    float Scene::GetAmbientZoneLevel(Entity entity)
+    {
+        if (!entity.IsValid() || entity.GetScene() != this)
+            return 0.0f;
+        const auto* zone = entity.TryGetComponent<AmbientZoneComponent>();
+        return zone ? zone->Level : 0.0f;
+    }
+
+    void Scene::UpdateAmbientZones(float ts)
+    {
+        auto view = m_Registry.view<AmbientZoneComponent>();
+        if (view.size() == 0)
+            return;
+        Entity listenerEntity = GetAudioListenerEntity();
+        const glm::vec3 listener = listenerEntity ? GetWorldPosition(listenerEntity) : glm::vec3(0.0f);
+        const bool engine = AudioEngine::IsAvailable();
+        ts = std::isfinite(ts) ? std::max(0.0f, ts) : 0.0f;
+        for (auto e : view)
+        {
+            auto& zone = view.get<AmbientZoneComponent>(e);
+            Entity entity{ e, this };
+            const bool on = listenerEntity && !zone.Path.empty() && IsActiveInHierarchy(entity);
+            if (on)
+            {
+                const glm::mat4 world = GetWorldTransform(entity);
+                zone.Distance = GetAmbientZoneDistance(zone, world, listener);
+                zone.Target = GetAmbientZoneWeight(zone, world, listener);
+            }
+            else
+                zone.Target = 0.0f;
+            // The level follows: at most from silent to full in FadeTime.
+            if (zone.FadeTime > 0.0f && std::isfinite(zone.FadeTime))
+            {
+                const float step = ts / zone.FadeTime;
+                zone.Level = zone.Level < zone.Target ? std::min(zone.Target, zone.Level + step) : std::max(zone.Target, zone.Level - step);
+            }
+            else
+                zone.Level = zone.Target;
+            zone.RetryIn = std::max(0.0f, zone.RetryIn - ts);
+            if (!engine)
+                continue;
+            // Gone by itself (the voice limit took its place): started again while it is heard.
+            if (zone.RuntimeHandle && !AudioEngine::IsPlaying(zone.RuntimeHandle) && !AudioEngine::IsPaused(zone.RuntimeHandle))
+                zone.RuntimeHandle = 0;
+            const float volume = std::max(0.0f, zone.Volume) * zone.Level;
+            if (zone.Level > 0.0f)
+            {
+                if (!zone.RuntimeHandle && zone.RetryIn <= 0.0f)
+                {
+                    SoundParams params;
+                    params.Volume = volume;
+                    params.Pitch = zone.Pitch;
+                    params.Loop = true;
+                    params.Group = zone.Output.empty() ? std::string(AudioSettings::SFX) : zone.Output;
+                    params.Stream = zone.Stream;
+                    params.Priority = zone.Priority;
+                    zone.RuntimeHandle = AudioEngine::Play(Project::GetAssetFileSystemPath(zone.Path), params);
+                    if (!zone.RuntimeHandle)
+                        zone.RetryIn = 0.5f; // no room (or a bad file): not every frame
+                }
+                if (zone.RuntimeHandle)
+                {
+                    AudioEngine::SetVolume(zone.RuntimeHandle, volume);
+                    AudioEngine::SetPitch(zone.RuntimeHandle, zone.Pitch);
+                }
+            }
+            else if (zone.RuntimeHandle)
+            {
+                AudioEngine::Stop(zone.RuntimeHandle);
+                zone.RuntimeHandle = 0;
+            }
+        }
+    }
+
     void Scene::UpdateAudio(float ts)
     {
         ZM_PROFILE_SCOPE("Audio");
         UpdateAudioListener(ts);
+        UpdateAmbientZones(ts);
         // A jump faster than this is a teleport (respawn, a moved spawn point), not movement: it
         // gives no Doppler sweep.
         constexpr float teleportSpeed = 150.0f;

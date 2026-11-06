@@ -165,3 +165,4 @@
 #define ICON_FA_WAVE_SQUARE "\xef\xa0\xbe" // streaming
 #define ICON_FA_SHUFFLE "\xef\x81\xb4"    // random variation
 #define ICON_FA_DICE "\xef\x94\xa2"
+#define ICON_FA_TREE "\xef\x86\xbb"         // ambient zone

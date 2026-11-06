@@ -64,6 +64,7 @@ namespace Zamin {
             MakeTypeInfo<UIButtonComponent>(),
             MakeTypeInfo<AudioSourceComponent>(),
             MakeTypeInfo<AudioListenerComponent>(),
+            MakeTypeInfo<AmbientZoneComponent>(),
             MakeTypeInfo<NativeScriptComponent>(),
         };
         return s_Types;

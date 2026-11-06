@@ -476,6 +476,14 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   ko'paytuvchisi ko'rinadi. API: `SoundParams::Cone` / `Direction`, `AudioEngine::SetSoundCone`, `SetSoundDirection`,
   `ComputeConeGain`. Namuna: `Scenes/Audio.zscene` — ustundagi **karnay** (-X tomonga qaragan): tinglovchi uning oldidan
   o'tganda baland, orqasiga o'tganda past eshitiladi
+- **Ambient zona** (`AmbientZoneComponent`, "Ambient Zone"): hajm ichida eshitiladigan takrorlanuvchi fon ovozi — o'rmon,
+  g'or, yomg'ir, olomon. Quti (obyekt masshtabi va aylanishi bilan) yoki shar; tinglovchi ichida bo'lsa ovoz to'liq va
+  joylashuvsiz, chetdan tashqarida **aralashish masofasida** silliq so'nadi, **so'nish vaqti** sakrashlarni (teleport,
+  zona yoqilishi / o'chirilishi) silliqlaydi; ovoz eshitila boshlaganda ishga tushadi, so'nganda to'xtaydi (ovozlar
+  limitini egallamaydi). Chiqish guruhi, ustuvorlik, streaming; bir nechta zona birga eshitiladi. Sahnada hajm va
+  aralashish chegarasi chiziladi, inspektorda jonli daraja. API: `Scene::GetAmbientZoneLevel(entity)`,
+  `Scene::GetAmbientZoneWeight(...)`. Namuna: `Scenes/Audio.zscene` — yashil zona ustidagi **o'rmon shovqini** (shamol va
+  qushlar, Ambience guruhida)
 - **Audio profiler**: Statistika oynasida faol ovozlar soni / limit (rang: to'lishiga qarab), so'nggi 240 kadr grafigi
   (limit chizig'i bilan), cho'qqi, ovoz turlari (ijroda / pauza / so'nmoqda, 3D, oqim, filtrli, musiqa, ko'rib chiqish,
   oldindan yuklangan fayllar) va **mixer guruhlari bo'yicha** jadval (o'zida / bola guruhlari bilan, limit sababli

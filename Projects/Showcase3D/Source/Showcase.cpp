@@ -1146,6 +1146,29 @@ ZM_REGISTER_SCRIPT(UnderwaterZone,
     ZM_FIELD_RANGE(UnderwaterZone, Cutoff, 50.0f, 20000.0f).Tooltip("Suv ostida SFX guruhining low-pass chastotasi, Hz"),
     ZM_FIELD_RANGE(UnderwaterZone, MusicCutoff, 50.0f, 20000.0f).Tooltip("Suv ostida Music guruhining low-pass chastotasi, Hz"))
 
+// Ambient zona yozuvi: zona (AmbientZoneComponent) ustida uning nomi va hozir eshitilayotgan darajasi - tinglovchi
+// hajm ichida bo'lsa to'liq, chetidan tashqarida aralashish masofasida asta so'nadi.
+class AmbientZoneLabel : public ScriptableEntity
+{
+public:
+    std::string Title = "O'rmon (Ambient Zone)";
+
+    void OnUpdate(Timestep) override
+    {
+        const auto* zone = GetEntity().TryGetComponent<AmbientZoneComponent>();
+        if (!zone)
+            return;
+        std::string state = zone->Target >= 1.0f ? std::string("ichida")
+                          : zone->Target > 0.0f  ? std::format("chetdan {:.1f} m", zone->Distance)
+                                                 : std::string("uzoqda");
+        float top = zone->Shape == AmbientZoneComponent::ZoneShape::Box ? zone->Size.y * 0.5f : zone->Radius;
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, top + 0.3f, 0.0f),
+                        std::format("{}: {:.0f}%  ({})", Title, GetEntity().GetScene()->GetAmbientZoneLevel(GetEntity()) * 100.0f, state),
+                        glm::mix(glm::vec4(0.6f, 0.75f, 0.6f, 1.0f), glm::vec4(0.55f, 1.0f, 0.6f, 1.0f), zone->Level));
+    }
+};
+ZM_REGISTER_SCRIPT(AmbientZoneLabel, ZM_FIELD(AmbientZoneLabel, Title).Tooltip("Zona ustidagi yozuv"))
+
 // O'yinchi ovoz sozlamalari: - / = Music guruhini 3 dB pasaytirish / ko'tarish, N - SFX'ni o'chirish (mute),
 // 9 - saqlash (Audio::SaveSettings: SaveData'ga, loyiha standartidan alohida), 0 - saqlanganini o'chirish.
 // Saqlangan sozlamalar o'yin boshlanganda (player va editorda Play) avtomatik yuklanadi.

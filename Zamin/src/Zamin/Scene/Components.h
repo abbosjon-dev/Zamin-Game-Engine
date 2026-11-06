@@ -1384,6 +1384,42 @@ namespace Zamin {
         }
     };
 
+    // A looping sound heard everywhere inside a volume - a forest, a cave, rain, a crowd, a river
+    // bank. Inside it plays without a position (the same in both ears); as the listener (Audio
+    // Listener / primary camera) comes up to it, it fades in over BlendDistance outside the edge,
+    // and FadeTime smooths changes (a teleport, the zone switched on or off). The volume is a box
+    // (Size in the entity's space: its scale and rotation apply) or a sphere (Radius x the largest
+    // scale). The sound starts when it can first be heard and stops when it fades out.
+    struct AmbientZoneComponent
+    {
+        enum class ZoneShape { Box = 0, Sphere };
+
+        std::string Path;            // relative to assets; loops
+        float Volume = 1.0f;
+        float Pitch = 1.0f;
+        std::string Output = "SFX";  // the mixer group (an unknown name plays in SFX)
+        bool Stream = false;         // streamed from disk (long ambience)
+        int Priority = 128;          // the voice limit (AudioSourceComponent::Priority)
+        ZoneShape Shape = ZoneShape::Box;
+        glm::vec3 Size{ 10.0f, 4.0f, 10.0f }; // box, full size in local units
+        float Radius = 5.0f;         // sphere, local units
+        float BlendDistance = 4.0f;  // outside the edge: full at the edge, silent this far out
+        float FadeTime = 0.5f;       // seconds the level takes at most from silent to full (0: at once)
+
+        // Runtime.
+        uint32_t RuntimeHandle = 0;
+        float Target = 0.0f;         // where the listener is: 1 inside, 0 beyond the blend
+        float Level = 0.0f;          // what is heard now (Target, smoothed over FadeTime)
+        float Distance = 0.0f;       // the listener's distance outside the volume (0: inside)
+        float RetryIn = 0.0f;        // the voice limit refused it: tried again after this
+
+        void ResetRuntime()
+        {
+            RuntimeHandle = 0;
+            Target = Level = Distance = RetryIn = 0.0f;
+        }
+    };
+
     // ------------------------------------------------------------------ scripting (C++)
     struct NativeScriptComponent
     {
@@ -1478,6 +1514,6 @@ namespace Zamin {
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
         SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
-        AudioSourceComponent, AudioListenerComponent, NativeScriptComponent, EditorMetadataComponent>;
+        AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, NativeScriptComponent, EditorMetadataComponent>;
 
 }

@@ -744,6 +744,21 @@ namespace Zamin {
         }
         if (auto* c = entity.TryGetComponent<AudioListenerComponent>())
             e["AudioListener"] = { { "Enabled", c->Enabled }, { "Priority", c->Priority }, { "TrackVelocity", c->TrackVelocity } };
+        if (auto* c = entity.TryGetComponent<AmbientZoneComponent>())
+        {
+            json& z = e["AmbientZone"];
+            z = { { "Path", c->Path }, { "Volume", c->Volume }, { "Pitch", c->Pitch }, { "Output", c->Output },
+                  { "Shape", c->Shape == AmbientZoneComponent::ZoneShape::Sphere ? "Sphere" : "Box" }, { "BlendDistance", c->BlendDistance },
+                  { "FadeTime", c->FadeTime } };
+            if (c->Shape == AmbientZoneComponent::ZoneShape::Sphere)
+                z["Radius"] = c->Radius;
+            else
+                z["Size"] = ToJson(c->Size);
+            if (c->Stream)
+                z["Stream"] = true;
+            if (c->Priority != 128)
+                z["Priority"] = c->Priority;
+        }
         if (auto* c = entity.TryGetComponent<NativeScriptComponent>())
         {
             json fields = json::object();
@@ -1548,6 +1563,25 @@ namespace Zamin {
             c.Enabled = j.value("Enabled", true);
             c.Priority = j.value("Priority", 0);
             c.TrackVelocity = j.value("TrackVelocity", false);
+        }
+        if (e.contains("AmbientZone") && e["AmbientZone"].is_object())
+        {
+            const json& j = e["AmbientZone"];
+            auto& c = entity.AddComponent<AmbientZoneComponent>();
+            auto finite = [](float v, float lo, float hi, float fallback) { return std::isfinite(v) ? std::clamp(v, lo, hi) : fallback; };
+            c.Path = j.value("Path", std::string());
+            c.Volume = finite(j.value("Volume", 1.0f), 0.0f, AudioSettings::MaxVolume, 1.0f);
+            c.Pitch = finite(j.value("Pitch", 1.0f), 0.01f, 10.0f, 1.0f);
+            c.Output = j.value("Output", std::string(AudioSettings::SFX));
+            c.Stream = j.value("Stream", false);
+            c.Priority = std::clamp(j.value("Priority", 128), 0, 255);
+            c.Shape = j.value("Shape", std::string("Box")) == "Sphere" ? AmbientZoneComponent::ZoneShape::Sphere : AmbientZoneComponent::ZoneShape::Box;
+            glm::vec3 size = Vec(j, "Size", c.Size);
+            for (int i = 0; i < 3; i++)
+                c.Size[i] = finite(size[i], 0.0f, 1e6f, 10.0f);
+            c.Radius = finite(j.value("Radius", c.Radius), 0.0f, 1e6f, 5.0f);
+            c.BlendDistance = finite(j.value("BlendDistance", c.BlendDistance), 0.0f, 1e6f, 4.0f);
+            c.FadeTime = finite(j.value("FadeTime", c.FadeTime), 0.0f, 600.0f, 0.5f);
         }
         if (e.contains("NativeScript"))
         {

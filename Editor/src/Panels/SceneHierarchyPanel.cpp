@@ -38,6 +38,7 @@ namespace Zamin {
         if (e.HasComponent<SpriteRendererComponent>()) return ICON_FA_IMAGE;
         if (e.HasComponent<AudioSourceComponent>()) return ICON_FA_VOLUME_HIGH;
         if (e.HasComponent<AudioListenerComponent>()) return ICON_FA_EAR_LISTEN;
+        if (e.HasComponent<AmbientZoneComponent>()) return ICON_FA_TREE;
         if (e.HasComponent<ParticleSystemComponent>()) return ICON_FA_WAND_MAGIC_SPARKLES;
         if (e.HasComponent<UIButtonComponent>()) return ICON_FA_HAND_POINTER;
         if (e.HasComponent<UITransformComponent>()) return ICON_FA_TABLE_CELLS;
@@ -1173,7 +1174,8 @@ namespace Zamin {
             { "FixedJoint3D", "Fixed Joint 3D" }, { "HingeJoint3D", "Hinge Joint 3D" }, { "DistanceJoint3D", "Distance Joint 3D" },
             { "SliderJoint3D", "Slider Joint 3D" }, { "ConeJoint3D", "Cone Joint 3D" }, { "CharacterController3D", "Character Controller 3D" },
             { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
-            { "UIButton", "UI Button" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "NativeScript", "C++ Skript" },
+            { "UIButton", "UI Button" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "AmbientZone", "Ambient Zone" },
+            { "NativeScript", "C++ Skript" },
         };
         for (const auto& [k, name] : s_Names)
             if (k == key)
@@ -5189,6 +5191,7 @@ namespace Zamin {
                 ImGui::SeparatorText("Boshqa");
                 DisplayAddComponentEntry<AudioSourceComponent>("Audio Source", ICON_FA_VOLUME_HIGH);
                 DisplayAddComponentEntry<AudioListenerComponent>("Audio Listener (tinglovchi)", ICON_FA_EAR_LISTEN);
+                DisplayAddComponentEntry<AmbientZoneComponent>("Ambient Zone (hajmdagi fon ovozi)", ICON_FA_TREE);
                 DisplayAddComponentEntry<NativeScriptComponent>("C++ Script", ICON_FA_CODE);
                 DisplayAddComponentEntry<TagsComponent>("Teglar (Tags)", ICON_FA_TAGS);
                 ImGui::EndPopup();
@@ -6519,6 +6522,76 @@ namespace Zamin {
                 else
                     ImGui::TextDisabled("Nofaol: o'yinda asosiy kamera tinglaydi");
             }
+            return changed;
+        }, true, modified);
+
+        AddSection<AmbientZoneComponent>(ICON_FA_TREE, "Ambient Zone", entity, [&](AmbientZoneComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: zona eshitilmaydi (ovozi so'nadi)");
+            bool changed = UI::PropertyAssetPath("Ovoz fayli", c.Path, ".wav;.mp3;.flac;.ogg", ICON_FA_FILE_AUDIO);
+            changed |= UI::PropertySlider("Balandlik", c.Volume, 0.0f, 2.0f);
+            changed |= UI::PropertySlider("Ton (pitch)", c.Pitch, 0.1f, 3.0f);
+            changed |= DrawAudioOutput(c.Output);
+            UI::PropertyLabel("Streaming", "Uzun fon ovozi diskdan oqim bilan o'qiladi (xotiraga butunlay yuklanmaydi)");
+            ImGui::PushID("stream");
+            changed |= ImGui::Checkbox("##v", &c.Stream);
+            ImGui::PopID();
+
+            UI::PropertyHeader(ICON_FA_VECTOR_SQUARE "  Hajm", "Tinglovchi (Audio Listener yoki asosiy kamera) hajm ichida bo'lsa ovoz "
+                                                              "to'liq va joylashuvsiz (ikki quloqqa bir xil) eshitiladi; tashqarida "
+                                                              "'Aralashish masofasi' ichida asta so'nadi. Obyektning masshtabi va "
+                                                              "aylanishi hajmga ta'sir qiladi.");
+            {
+                static const char* shapes[] = { "Quti (box)", "Shar (sphere)" };
+                int shape = (int)c.Shape;
+                UI::PropertyLabel("Shakl");
+                ImGui::PushID("shape");
+                if (ImGui::Combo("##v", &shape, shapes, 2))
+                {
+                    c.Shape = (AmbientZoneComponent::ZoneShape)std::clamp(shape, 0, 1);
+                    changed = true;
+                }
+                ImGui::PopID();
+            }
+            if (c.Shape == AmbientZoneComponent::ZoneShape::Box)
+            {
+                changed |= UI::PropertyFloat3("O'lcham", c.Size, 0.05f);
+                c.Size = glm::max(c.Size, glm::vec3(0.0f));
+            }
+            else
+                changed |= UI::PropertyFloat("Radius", c.Radius, 0.05f, 0.0f, 100000.0f);
+            UI::PropertyLabel("Aralashish masofasi", "Hajm chetidan tashqarida shu masofada (m) ovoz to'liqdan jimgacha silliq so'nadi "
+                                                     "(0 - chegarada birdan)");
+            ImGui::PushID("blend");
+            changed |= ImGui::DragFloat("##v", &c.BlendDistance, 0.05f, 0.0f, 1000.0f, "%.2f m", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::PopID();
+            UI::PropertyLabel("So'nish vaqti", "Daraja jimdan to'liqgacha eng tez shuncha sekundda o'zgaradi: teleport, zona "
+                                               "yoqilishi yoki o'chirilishi silliq eshitiladi (0 - darhol)");
+            ImGui::PushID("fade");
+            changed |= ImGui::DragFloat("##v", &c.FadeTime, 0.01f, 0.0f, 60.0f, c.FadeTime > 0.0f ? "%.2f s" : "darhol", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::PopID();
+            UI::PropertyLabel("Ustuvorlik", "Ovozlar limiti to'lganda (Audio Source'dagidek): 0..255");
+            ImGui::PushID("priority");
+            changed |= ImGui::SliderInt("##v", &c.Priority, 0, 255, "%d", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::PopID();
+
+            UI::PropertyLabel("Holat");
+            if (m_Context && m_Context->IsRunning())
+            {
+                std::string text = c.Level <= 0.0f ? std::string("jim") : std::format("{:.0f}%", c.Level * 100.0f);
+                ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.35f, 0.78f, 0.5f, 1.0f));
+                ImGui::ProgressBar(std::clamp(c.Level, 0.0f, 1.0f), ImVec2(-FLT_MIN, 0.0f), text.c_str());
+                ImGui::PopStyleColor();
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Hozir eshitilayotgan daraja (So'nish vaqti bilan silliqlangan)");
+                if (c.Target >= 1.0f)
+                    ImGui::TextColored(UI::AccentColor(), ICON_FA_EAR_LISTEN "  Tinglovchi zona ichida");
+                else if (c.Target > 0.0f)
+                    ImGui::TextDisabled("Tinglovchi chetdan %.1f m tashqarida (%.0f%%)", c.Distance, c.Target * 100.0f);
+                else
+                    ImGui::TextDisabled("Tinglovchi uzoqda (%.1f m)", c.Distance);
+            }
+            else
+                ImGui::TextDisabled("O'yinda: tinglovchi yaqinlashsa asta eshitiladi");
             return changed;
         }, true, modified);
 

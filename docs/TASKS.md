@@ -252,7 +252,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 216. Audio profiler (faol ovozlar soni)
 - [x] 217. Editorda audio preview to'lqin shakli
 - [x] 218. 3D ovoz uchun yo'nalishli konus
-- [ ] 219. Ambient zona (hajm ichida ovoz)
+- [x] 219. Ambient zona (hajm ichida ovoz)
 - [ ] 220. Audio hodisalar (OnSoundFinished)
 
 ## M12 UI tizimi

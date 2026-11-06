@@ -1942,10 +1942,13 @@ namespace Zamin {
                 const float dir = edge == 0 ? 1.0f : -1.0f;
                 dl->AddTriangleFilled(ImVec2(x, min.y), ImVec2(x + dir * 9.0f, min.y), ImVec2(x, min.y + 9.0f), color);
             }
+            // Its name, where it does not run into the time in the corner.
             const char* label = ICON_FA_REPEAT " takrorlash";
             const ImVec2 size = ImGui::CalcTextSize(label);
-            if (loopEndX - loopStartX > size.x + 24.0f)
-                dl->AddText(ImVec2(std::max(loopStartX, min.x) + 12.0f, min.y + 2.0f), UI::AccentU32(0.85f), label);
+            const float labelX = std::max(loopStartX, min.x) + 12.0f;
+            const float timeWidth = ImGui::CalcTextSize("x00.0   00.000 s / 00.000 s").x + 12.0f;
+            if (loopEndX - loopStartX > size.x + 24.0f && labelX + size.x < max.x - timeWidth)
+                dl->AddText(ImVec2(labelX, min.y + 2.0f), UI::AccentU32(0.85f), label);
         }
         if (progress >= 0.0)
         {

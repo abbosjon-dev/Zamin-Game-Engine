@@ -146,5 +146,77 @@
             65531,
             65531
         ]
-    }
+    },
+    "BuildScenes": [
+        {
+            "Enabled": true,
+            "Path": "Scenes/Menu.zscene",
+            "UUID": "3c8e51a07d24f9b6"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/Loading.zscene",
+            "UUID": "91d4b6e2c03a7f58"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/Level1.zscene",
+            "UUID": "b42a5d091a0b27d2"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/Level2.zscene",
+            "UUID": "f95b683b7161d553"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/Level3.zscene",
+            "UUID": "f8543f4fabe92e16"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/Effectors2D.zscene",
+            "UUID": "c3e90bb5e064170c"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/Joints2D.zscene",
+            "UUID": "e86765ce41dbcd73"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/Ragdoll2D.zscene",
+            "UUID": "095566f41547357c"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/Shapes2D.zscene",
+            "UUID": "690106e61927bedc"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/Showcase2D.zscene",
+            "UUID": "e512148239292d22"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/Tilemap2D.zscene",
+            "UUID": "d2a64f0e93b71c55"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/TopDown2D.zscene",
+            "UUID": "a47c2e9105d83b6f"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/UILayout.zscene",
+            "UUID": "77a1c3e5b2d94f60"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/UIWidgets.zscene",
+            "UUID": "7669f945ac64809f"
+        }
+    ]
 }

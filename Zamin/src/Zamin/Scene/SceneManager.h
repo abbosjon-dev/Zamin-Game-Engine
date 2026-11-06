@@ -259,8 +259,8 @@ namespace Zamin {
             FadePhase Phase = FadePhase::None;
             SceneTransition Transition;
             Ref<AsyncOperation> Operation;
-            float Time = 0.0f;
             float Alpha = 0.0f;
+            float PreviousFadeIn = 0.0f; // Waiting: the cover of the transition before goes at its rate
             bool CoverShown = false; // the full cover was drawn (the switch may happen behind it)
         };
         struct Request

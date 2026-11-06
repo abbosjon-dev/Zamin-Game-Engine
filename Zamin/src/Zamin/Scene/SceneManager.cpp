@@ -320,44 +320,48 @@ namespace Zamin {
 
     void SceneManager::UpdateFade(float dt)
     {
+        // The cover moves at the transition's rates from wherever it is (a new transition can take
+        // over while the last one still fades in).
         FadeState& f = m_Fade;
+        auto fadeIn = [&](float seconds) { f.Alpha = seconds > 0.0f ? std::max(0.0f, f.Alpha - dt / seconds) : 0.0f; };
         switch (f.Phase)
         {
             case FadePhase::None:
                 f.Alpha = 0.0f;
                 return;
             case FadePhase::Waiting:
-                // The screen starts to fade once the load may come in (it goes on loading meanwhile).
-                f.Alpha = 0.0f;
-                if (!f.Operation || f.Operation->GetAllowSceneActivation() || f.Operation->IsDone())
+                // The screen starts to fade once the load may come in (it goes on loading meanwhile);
+                // the cover of the transition before this one goes away meanwhile.
+                if (f.Operation && f.Operation->HasFailed())
                 {
-                    f.Phase = FadePhase::Out;
-                    f.Time = 0.0f;
-                }
-                else
+                    f.Phase = FadePhase::In; // nothing will come: no fade out for it
+                    f.Transition.FadeIn = f.PreviousFadeIn;
+                    fadeIn(f.Transition.FadeIn);
                     return;
+                }
+                if (!f.Operation || f.Operation->GetAllowSceneActivation() || f.Operation->IsDone())
+                    f.Phase = FadePhase::Out;
+                else
+                {
+                    fadeIn(f.PreviousFadeIn);
+                    return;
+                }
                 [[fallthrough]];
             case FadePhase::Out:
-                f.Time += dt;
-                f.Alpha = f.Transition.FadeOut > 0.0f ? std::min(1.0f, f.Time / f.Transition.FadeOut) : 1.0f;
+                f.Alpha = f.Transition.FadeOut > 0.0f ? std::min(1.0f, f.Alpha + dt / f.Transition.FadeOut) : 1.0f;
                 if (f.Alpha < 1.0f)
                     return;
                 f.Phase = FadePhase::Covered;
-                f.Time = 0.0f;
                 [[fallthrough]];
             case FadePhase::Covered:
                 f.Alpha = 1.0f;
                 // Drawn in full this frame: the switch at its end happens behind it.
                 f.CoverShown = true;
                 if (f.Operation && f.Operation->HasFailed())
-                {
                     f.Phase = FadePhase::In; // nothing to switch to: back to the old scene
-                    f.Time = 0.0f;
-                }
                 return;
             case FadePhase::In:
-                f.Time += dt;
-                f.Alpha = f.Transition.FadeIn > 0.0f ? std::max(0.0f, 1.0f - f.Time / f.Transition.FadeIn) : 0.0f;
+                fadeIn(f.Transition.FadeIn);
                 if (f.Alpha <= 0.0f)
                     f = {};
                 return;
@@ -405,17 +409,23 @@ namespace Zamin {
         Ref<AsyncOperation> op = CreateRef<AsyncOperation>(fs::path(ToAssetRelative(path)), mode, transition);
         if (!transition.IsNone())
         {
-            if (m_Fade.Phase != FadePhase::None)
+            // A transition that still covers the screen for its switch keeps it; one that only fades
+            // in (its scene is in: a loading screen starting the next load) hands the cover over.
+            if (m_Fade.Phase == FadePhase::Waiting || m_Fade.Phase == FadePhase::Out || m_Fade.Phase == FadePhase::Covered)
             {
                 ZM_CORE_WARN("Oldingi sahna o'tishi hali tugamagan: '{}' o'tishsiz yuklanadi", op->GetPath().generic_string());
                 op->m_Transition = {};
             }
             else
             {
+                const float alpha = m_Fade.Phase == FadePhase::In ? m_Fade.Alpha : 0.0f;
+                const float previousFadeIn = m_Fade.Transition.FadeIn;
                 m_Fade = {};
                 m_Fade.Phase = FadePhase::Waiting;
                 m_Fade.Transition = transition;
                 m_Fade.Operation = op;
+                m_Fade.Alpha = alpha;
+                m_Fade.PreviousFadeIn = previousFadeIn;
             }
         }
         op->StartReading(file);
@@ -520,7 +530,6 @@ namespace Zamin {
         if (m_Fade.Operation == op)
         {
             m_Fade.Phase = FadePhase::In;
-            m_Fade.Time = 0.0f;
             m_Fade.Operation.reset();
         }
     }

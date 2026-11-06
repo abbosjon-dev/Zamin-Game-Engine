@@ -721,6 +721,18 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   `--no-vsync` ustun). Player avtomatlashtirish: `ZAMIN_PLAYER_INPUT` da `down` / `up` (sudrash) va `scroll=dy`
 - **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash
 - Skriptlardan **sahna almashtirish** (`LoadScene`), prefab'larni `Instantiate` qilish
+- **Sahna boshqaruvi** (`SceneManager`, editorning o'yin rejimi va player): bir vaqtda bir nechta sahna — **additive**
+  yuklash (`LoadScene(path, LoadSceneMode::Additive)`, `UnloadScene`, `SetActiveScene`; har birining o'z obyektlari,
+  skriptlari va fizika dunyosi, hammasi bitta kadrda ishlaydi va faol sahna kamerasi orqali birga chiziladi, hodisalar
+  shinasi va o'yin soati umumiy; `FindEntity` / `Resolve(EntityRef)` boshqa yuklangan sahnalarda ham qidiradi);
+  **`DontDestroyOnLoad(entity)`** — obyekt (bolalari bilan) doimiy sahnaga o'tadi: skript nusxasi, qiymatlari,
+  obunalari va ijro etilayotgan ovozi saqlanadi (editor ierarxiyasida alohida bo'lim); **fonda yuklash**
+  (`LoadSceneAsync` → `AsyncOperation`: fayl o'qish, JSON va rasmlarni ochish ishchi oqimda, obyektlar va GPU yuklash
+  asosiy oqimda har kadr bir bo'lak, `GetProgress()`, `SetAllowSceneActivation`); **o'tishlar**
+  (`SceneTransition::Fade(0.5f)` — rangga so'nib, almashib, ochiladi); **build sahnalar ro'yxati** (Loyiha sozlamalari →
+  Build sahnalar: tartib, yoqish/o'chirish, sudrash, ochiq sahnani qo'shish, boshlang'ich sahna; `LoadScene(1)` yoki
+  `LoadScene("Level2")`; eksportga faqat ro'yxatdagi sahnalar kiradi). Namuna: Platformer2D `Scenes/Menu.zscene` →
+  `Scenes/Loading.zscene` (progress bar) → 1-daraja, `GameSession` (DontDestroyOnLoad: musiqa va jami tangalar)
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime
@@ -907,7 +919,8 @@ Foydali API:
 | Audio manba | `PlayAudio()` (obyektning `AudioSourceComponent`'ini boshidan chaladi; obyekt nofaol bo'lsa yoki ovozlar limiti rad etsa `false`), `StopAudio()`, `PauseAudio()` / `ResumeAudio()`, `IsAudioPlaying()` / `IsAudioPaused()`, `SetAudioVolume(v)`, `SetAudioPitch(p)`, `GetAudioTime()` / `SetAudioTime(s)`, `GetAudioLength()`; so'nish bilan — `PlayAudio(fadeIn)`, `StopAudio(fadeOut)`, `FadeAudio(volume, sekund)`, `GetAudioFade()`; filtr — `SetAudioLowPass(hz)`, `SetAudioHighPass(hz)`; boshqa obyektniki — `PauseAudio(entity)` va h.k.; `PlaySound(path, SoundParams)` — tasodifiy oraliq, ustuvorlik, nusxalar limiti, 3D o'rni, FadeIn, filtr bilan |
 | Musiqa va mixer | `Audio::PlayMusic("Audio/theme.ogg", 1.0f)`, `Audio::CrossfadeTo("Audio/boss.ogg", 2.0f)`, `Audio::StopMusic(fade)`, `PauseMusic()` / `ResumeMusic()`, `GetMusic()`, `SetMusicVolume(v)`; `Audio::SetGroupVolume("SFX", 0.5f)`, `SetGroupMuted("Music", true)`, `SetGroupLowPass("SFX", 500)`, `ResetMixer()`; `Audio::SaveSettings()` / `LoadSettings()` — o'yinchi sozlamalari (SaveData); `Audio::GetClipLength(path)`, `Audio::Preload(path)`; `PlaySound(path, vol, pitch, "UI")` — guruh bilan |
 | Debug chizish | `DebugDraw::Line(a, b, DebugColor::Red)`, `Ray(o, dir)`, `Arrow(a, b)`, `Box(center, half)` / `Box(center, half, quat)` / `Box(worldTransform)`, `Bounds(aabb)`, `Rect(c, size)`, `WireSphere(c, r)`, `Circle(c, normal, r)`, `Cross(p, size)`, `Point(p)`, `Axes(transform)`, `Path(points)`, `NavigationPath(points)`, `Text(p, "matn")` — oxirgi parametrlar: rang, `duration` (soniya, 0 = bir kadr), `depthTest` |
-| Boshqa | `LoadScene("Scenes/Level2.zscene")`, `EmitParticles(n)`, `OnParticlesFinished()`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
+| Sahnalar | `LoadScene("Scenes/Level2.zscene")`, `LoadScene(path, LoadSceneMode::Additive)`, `LoadScene(path, SceneTransition::Fade(0.5f))`, `LoadScene(2)` (build indeksi), `auto op = LoadSceneAsync(path)` → `op->GetProgress()`, `op->SetAllowSceneActivation(false)`, `op->IsReady()`; `UnloadScene("HUD")`, `DontDestroyOnLoad()` / `DontDestroyOnLoad(entity)`, `GetSceneManager()` (`GetActiveScene`, `GetLoadedScenes`, `FindEntityByName`) |
+| Boshqa | `EmitParticles(n)`, `OnParticlesFinished()`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
 
 `ZM_FIELD` turlari: `float`, `int`, `bool`, `glm::vec2`, `glm::vec3`, `glm::vec4`, `std::string`, istalgan `enum` / `enum class` (har qanday asosiy tur: `uint8_t` ... `int64_t`), `EntityRef` (boshqa obyektga havola: inspektorda ierarxiyadan tortib tashlanadi yoki ro'yxatdan tanlanadi; nusxalash/prefab'da ichki havolalar yangi nusxaga moslashadi).
 

@@ -30204,6 +30204,37 @@ TEST(SceneManagerFadeTransition)
     CHECK(framesToCover >= 9 && framesToCover <= 11);          // 0.2 s at 0.02 s a frame
     CHECK(framesAfter >= 14 && framesAfter <= 16);             // 0.3 s back
     CHECK(!m.IsTransitioning() && m.GetTransitionAlpha() == 0.0f && m.GetActiveScene()->GetName() == "Second");
+    // A loading screen starts the next load while the cover still fades in: the new transition
+    // takes the cover over (no warning, the cover keeps fading in while the load waits).
+    m.LoadScene(f.Path("First"), LoadSceneMode::Single, SceneTransition::Fade(0.1f, 0.5f));
+    for (int frame = 0; frame < 2000 && m.GetActiveScene()->GetName() != "First"; frame++)
+    {
+        m.OnUpdate(0.02f);
+        m.ProcessRequests();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(m.GetActiveScene()->GetName() == "First" && m.IsTransitioning() && m.GetTransitionAlpha() == 1.0f);
+    m.OnUpdate(0.1f);
+    CHECK(m.IsTransitioning() && m.GetTransitionAlpha() > 0.5f && m.GetTransitionAlpha() < 1.0f); // fading in over 0.5 s
+    Ref<AsyncOperation> next = m.LoadSceneAsync(f.Path("Second"), LoadSceneMode::Single, SceneTransition::Fade(0.2f));
+    CHECK(next && !next->GetTransition().IsNone());
+    next->SetAllowSceneActivation(false);
+    const float handedOver = m.GetTransitionAlpha();
+    m.OnUpdate(0.1f);
+    CHECK(m.IsTransitioning() && m.GetTransitionAlpha() < handedOver); // still clearing at the old rate
+    for (int frame = 0; frame < 20; frame++)
+        m.OnUpdate(0.1f);
+    CHECK(m.IsTransitioning() && m.GetTransitionAlpha() == 0.0f);      // cleared; the new fade waits for activation
+    next->SetAllowSceneActivation(true);
+    for (int frame = 0; frame < 2000 && m.GetActiveScene()->GetName() != "Second"; frame++)
+    {
+        m.OnUpdate(0.02f);
+        m.ProcessRequests();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(m.GetActiveScene()->GetName() == "Second" && next->IsDone());
+    for (int frame = 0; frame < 50 && m.IsTransitioning(); frame++)
+        m.OnUpdate(0.1f);
     // A transition to a missing scene does nothing (and leaves no cover behind).
     m.LoadScene(f.Path("Nope"), LoadSceneMode::Single, SceneTransition::Fade(0.1f));
     CHECK(!m.IsTransitioning() && m.GetActiveScene()->GetName() == "Second");

@@ -114,6 +114,7 @@ public:
     std::string NextScene = "Scenes/Level2.zscene";
     float Delay = 0.6f;
     glm::vec4 ReachedColor = { 1.0f, 0.85f, 0.2f, 1.0f };
+    float FadeSeconds = 0.0f; // > 0: the next level comes in with a fade (SceneTransition)
 
     void OnTriggerBegin(Entity other) override
     {
@@ -131,7 +132,12 @@ public:
         if (m_Timer < 0.0f) return;
         m_Timer -= ts;
         if (m_Timer <= 0.0f)
-            LoadScene(NextScene);
+        {
+            if (FadeSeconds > 0.0f)
+                LoadScene(NextScene, SceneTransition::Fade(FadeSeconds));
+            else
+                LoadScene(NextScene);
+        }
     }
 
 private:
@@ -139,7 +145,8 @@ private:
 };
 ZM_REGISTER_SCRIPT(LevelGoal, ZM_FIELD_TOOLTIP(LevelGoal, NextScene, "Keyingi daraja sahnasi (Assets ichidagi yo'l)"),
                    ZM_FIELD_RANGE(LevelGoal, Delay, 0.0f, 5.0f).Tooltip("O'tishdan oldingi kutish (sekund)"),
-                   ZM_FIELD_COLOR(LevelGoal, ReachedColor).Tooltip("O'yinchi yetib kelganda bayroq rangi"))
+                   ZM_FIELD_COLOR(LevelGoal, ReachedColor).Tooltip("O'yinchi yetib kelganda bayroq rangi"),
+                   ZM_FIELD_RANGE(LevelGoal, FadeSeconds, 0.0f, 2.0f).Tooltip("0 dan katta bo'lsa keyingi darajaga so'nib o'tadi (sekund)"))
 
 // N soniyadan keyin obyektni o'chiradi (effektlar uchun).
 class AutoDestroy : public ScriptableEntity

@@ -1,0 +1,851 @@
+{
+    "Scene": "Menu",
+    "Version": 1,
+    "Settings": {
+        "DrawSky": false,
+        "SkyTop": [
+            0.32,
+            0.52,
+            0.85
+        ],
+        "SkyHorizon": [
+            0.78,
+            0.86,
+            0.95
+        ],
+        "Ground": [
+            0.36,
+            0.33,
+            0.3
+        ],
+        "Ambient": 0.6,
+        "Exposure": 1.0,
+        "ShadowDistance": 40,
+        "Gravity": [
+            0,
+            -20
+        ],
+        "Gravity3D": [
+            0,
+            -9.81,
+            0
+        ],
+        "Post": {
+            "Bloom": false,
+            "Vignette": 0.25,
+            "Saturation": 1.05,
+            "Contrast": 1.05,
+            "Brightness": 0.0,
+            "Tint": [
+                1,
+                1,
+                1
+            ],
+            "Tonemap": 0
+        }
+    },
+    "Entities": [
+        {
+            "Entity": 7815000000000001,
+            "Tag": "Main Camera",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    10
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Camera": {
+                "ProjectionType": 1,
+                "PerspectiveFOV": 0.7854,
+                "PerspectiveNear": 0.1,
+                "PerspectiveFar": 1000,
+                "OrthographicSize": 12,
+                "OrthographicNear": -100,
+                "OrthographicFar": 100,
+                "Primary": true,
+                "FixedAspectRatio": false,
+                "ClearColor": [
+                    0.05,
+                    0.07,
+                    0.12,
+                    1
+                ]
+            }
+        },
+        {
+            "Entity": 7815000000000002,
+            "Tag": "Tog'lar",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    -1
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    26,
+                    13,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.55,
+                    0.62,
+                    0.85,
+                    1
+                ],
+                "Texture": "Textures/mountains.png",
+                "TextureUUID": "a5aec7978306d03b",
+                "Tiling": 1.0,
+                "SortingOrder": 0,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            }
+        },
+        {
+            "Entity": 7815000000000003,
+            "Tag": "O'yinchi",
+            "Transform": {
+                "Translation": [
+                    -7.2,
+                    -3.6,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    2.2,
+                    2.2,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/player.png",
+                "Tiling": 1.0,
+                "SortingOrder": 3,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "SpriteAnimation": {
+                "Columns": 4,
+                "Rows": 3,
+                "StartFrame": 0,
+                "FrameCount": 2,
+                "FPS": 3,
+                "Loop": true,
+                "Playing": true
+            }
+        },
+        {
+            "Entity": 7815000000000004,
+            "Tag": "Tanga",
+            "Transform": {
+                "Translation": [
+                    7.0,
+                    -3.2,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1.4,
+                    1.4,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/coin.png",
+                "Tiling": 1.0,
+                "SortingOrder": 3,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "SpriteAnimation": {
+                "Columns": 4,
+                "Rows": 1,
+                "StartFrame": 0,
+                "FrameCount": 4,
+                "FPS": 8,
+                "Loop": true,
+                "Playing": true
+            }
+        },
+        {
+            "Entity": 7815000000000010,
+            "Tag": "Bosh menyu",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "UITransform": {
+                "AnchorMin": [
+                    0,
+                    0
+                ],
+                "AnchorMax": [
+                    1,
+                    1
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ],
+                "Position": [
+                    0,
+                    0
+                ],
+                "Size": [
+                    0,
+                    0
+                ],
+                "FontSize": 0.0,
+                "Order": 0
+            },
+            "UICanvas": {
+                "ScaleMode": "ScaleWithScreenSize",
+                "ScaleFactor": 1.0,
+                "ReferenceResolution": [
+                    1920,
+                    1080
+                ],
+                "MatchMode": "MatchWidthOrHeight",
+                "Match": 0.5
+            },
+            "NativeScript": {
+                "Class": "MainMenu",
+                "Fields": {
+                    "Title": {
+                        "Type": "Entity",
+                        "Value": 7815000000000012
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 7815000000000011,
+            "Tag": "Panel",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Parent": 7815000000000010,
+            "UITransform": {
+                "AnchorMin": [
+                    0.5,
+                    0.5
+                ],
+                "AnchorMax": [
+                    0.5,
+                    0.5
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ],
+                "Position": [
+                    0,
+                    -10
+                ],
+                "Size": [
+                    900,
+                    600
+                ],
+                "FontSize": 0.0,
+                "Order": 0
+            },
+            "UIImage": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Type": "Sliced",
+                "PreserveAspect": false,
+                "PixelArt": true,
+                "RaycastTarget": true,
+                "Texture": "Textures/ui_atlas.png",
+                "TextureUUID": "f38b2ffc80a4df5a",
+                "Sprite": "panel",
+                "BorderScale": 4.0
+            }
+        },
+        {
+            "Entity": 7815000000000013,
+            "Tag": "Panel foni",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Parent": 7815000000000011,
+            "UITransform": {
+                "AnchorMin": [
+                    0,
+                    0
+                ],
+                "AnchorMax": [
+                    1,
+                    1
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ],
+                "Position": [
+                    0,
+                    0
+                ],
+                "Size": [
+                    -20,
+                    -20
+                ],
+                "FontSize": 0.0,
+                "Order": -1
+            },
+            "UIImage": {
+                "Color": [
+                    0.08,
+                    0.1,
+                    0.15,
+                    1.0
+                ],
+                "Type": "Simple",
+                "PreserveAspect": false,
+                "PixelArt": true,
+                "RaycastTarget": false,
+                "Texture": ""
+            }
+        },
+        {
+            "Entity": 7815000000000012,
+            "Tag": "Sarlavha",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Parent": 7815000000000011,
+            "UITransform": {
+                "AnchorMin": [
+                    0.5,
+                    0.5
+                ],
+                "AnchorMax": [
+                    0.5,
+                    0.5
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ],
+                "Position": [
+                    0,
+                    180
+                ],
+                "Size": [
+                    820,
+                    100
+                ],
+                "FontSize": 80,
+                "Order": 1
+            },
+            "Text": {
+                "Text": "Zamin Platformer",
+                "Color": [
+                    1.0,
+                    0.93,
+                    0.62,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "AlignH": "Center",
+                "AlignV": "Middle",
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 7815000000000014,
+            "Tag": "Izoh",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Parent": 7815000000000011,
+            "UITransform": {
+                "AnchorMin": [
+                    0.5,
+                    0.5
+                ],
+                "AnchorMax": [
+                    0.5,
+                    0.5
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ],
+                "Position": [
+                    0,
+                    92
+                ],
+                "Size": [
+                    820,
+                    40
+                ],
+                "FontSize": 28,
+                "Order": 1
+            },
+            "Text": {
+                "Text": "Bosh menyu  ->  yuklanish ekrani  ->  1-daraja",
+                "Color": [
+                    0.72,
+                    0.78,
+                    0.9,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "AlignH": "Center",
+                "AlignV": "Middle",
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 7815000000000015,
+            "Tag": "Boshlash",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Parent": 7815000000000011,
+            "UITransform": {
+                "AnchorMin": [
+                    0.5,
+                    0.5
+                ],
+                "AnchorMax": [
+                    0.5,
+                    0.5
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ],
+                "Position": [
+                    0,
+                    -20
+                ],
+                "Size": [
+                    440,
+                    92
+                ],
+                "FontSize": 42,
+                "Order": 2
+            },
+            "UIButton": {
+                "Normal": [
+                    0.55,
+                    0.95,
+                    0.8,
+                    1
+                ],
+                "Hover": [
+                    0.7,
+                    1.0,
+                    0.9,
+                    1
+                ],
+                "Pressed": [
+                    0.4,
+                    0.75,
+                    0.62,
+                    1
+                ],
+                "Interactable": true,
+                "ClickMessage": "Start",
+                "ClickTarget": 7815000000000010
+            },
+            "UIImage": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Type": "Sliced",
+                "PreserveAspect": false,
+                "PixelArt": true,
+                "RaycastTarget": true,
+                "Texture": "Textures/ui_atlas.png",
+                "TextureUUID": "f38b2ffc80a4df5a",
+                "Sprite": "button",
+                "BorderScale": 4.0
+            },
+            "Text": {
+                "Text": "Boshlash",
+                "Color": [
+                    0.08,
+                    0.12,
+                    0.16,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "AlignH": "Center",
+                "AlignV": "Middle",
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 7815000000000016,
+            "Tag": "Maslahat",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Parent": 7815000000000011,
+            "UITransform": {
+                "AnchorMin": [
+                    0.5,
+                    0.5
+                ],
+                "AnchorMax": [
+                    0.5,
+                    0.5
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ],
+                "Position": [
+                    0,
+                    -130
+                ],
+                "Size": [
+                    820,
+                    34
+                ],
+                "FontSize": 24,
+                "Order": 1
+            },
+            "Text": {
+                "Text": "Space / Enter yoki tugmani bosing",
+                "Color": [
+                    0.6,
+                    0.66,
+                    0.78,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "AlignH": "Center",
+                "AlignV": "Middle",
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 7815000000000017,
+            "Tag": "Sessiya izohi",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Parent": 7815000000000011,
+            "UITransform": {
+                "AnchorMin": [
+                    0.5,
+                    0.5
+                ],
+                "AnchorMax": [
+                    0.5,
+                    0.5
+                ],
+                "Pivot": [
+                    0.5,
+                    0.5
+                ],
+                "Position": [
+                    0,
+                    -205
+                ],
+                "Size": [
+                    820,
+                    60
+                ],
+                "FontSize": 21,
+                "Order": 1
+            },
+            "Text": {
+                "Text": "GameSession (DontDestroyOnLoad) musiqa va jami tangalarni\nhamma darajalarda saqlaydi",
+                "Color": [
+                    0.5,
+                    0.56,
+                    0.66,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "AlignH": "Center",
+                "AlignV": "Middle",
+                "Font": ""
+            }
+        },
+        {
+            "Entity": 7815000000000030,
+            "Tag": "GameSession",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "AudioSource": {
+                "Path": "Audio/SessionTheme.wav",
+                "PathUUID": "5e7f0c3a9b2d4e61",
+                "Volume": 0.45,
+                "Pitch": 1.0,
+                "Loop": true,
+                "PlayOnStart": true,
+                "Spatial": false,
+                "MinDistance": 1.0,
+                "MaxDistance": 30.0,
+                "Output": "Music"
+            },
+            "NativeScript": {
+                "Class": "GameSession",
+                "Fields": {
+                    "Hud": {
+                        "Type": "Entity",
+                        "Value": 7815000000000031
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 7815000000000031,
+            "Tag": "Sessiya HUD",
+            "Active": false,
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Parent": 7815000000000030,
+            "UITransform": {
+                "AnchorMin": [
+                    0,
+                    0
+                ],
+                "AnchorMax": [
+                    0,
+                    0
+                ],
+                "Pivot": [
+                    0,
+                    0
+                ],
+                "Position": [
+                    24,
+                    24
+                ],
+                "Size": [
+                    640,
+                    48
+                ],
+                "FontSize": 24,
+                "Order": 50
+            },
+            "UIImage": {
+                "Color": [
+                    0.04,
+                    0.06,
+                    0.1,
+                    0.62
+                ],
+                "Type": "Simple",
+                "PreserveAspect": false,
+                "PixelArt": true,
+                "RaycastTarget": false,
+                "Texture": ""
+            },
+            "Text": {
+                "Text": "Sessiya: 0 tanga",
+                "Color": [
+                    1.0,
+                    0.93,
+                    0.62,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "AlignH": "Center",
+                "AlignV": "Middle",
+                "Font": ""
+            }
+        }
+    ]
+}

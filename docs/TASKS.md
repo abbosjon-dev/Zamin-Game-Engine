@@ -326,11 +326,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M15 Sahna boshqaruvi
 
-- [ ] 281. Additive sahnalar (bir vaqtda bir nechta)
-- [ ] 282. DontDestroyOnLoad (persistent obyektlar)
-- [ ] 283. Asinxron sahna yuklash (loading screen)
-- [ ] 284. Sahna o'tishlari (fade in/out)
-- [ ] 285. Build sahnalar ro'yxati (loyiha sozlamalarida)
+- [x] 281. Additive sahnalar (bir vaqtda bir nechta)
+- [x] 282. DontDestroyOnLoad (persistent obyektlar)
+- [x] 283. Asinxron sahna yuklash (loading screen)
+- [x] 284. Sahna o'tishlari (fade in/out)
+- [x] 285. Build sahnalar ro'yxati (loyiha sozlamalarida)
 - [ ] 286. LoadScene indeks bo'yicha
 - [ ] 287. Sahna yuklanganda/yopilganda hodisalar
 - [ ] 288. Sahna ichida qidirish API'lari tezlashtirish

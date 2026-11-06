@@ -4270,7 +4270,9 @@ namespace Zamin {
         }
         if (advance && IsGamePaused())
         {
-            // The game is paused (time scale 0): only the scripts that run while it is (a pause menu).
+            // The game is paused (time scale 0): only the scripts that run while it is (a pause menu);
+            // the last game frame's debug shapes stay.
+            DebugDraw::Hold();
             UpdatePausedScripts();
         }
         else if (advance)

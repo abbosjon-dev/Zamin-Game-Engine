@@ -13,6 +13,8 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <cctype>
+#include <chrono>
 #include <cmath>
 
 namespace Zamin {
@@ -2898,6 +2900,163 @@ namespace Zamin {
         return true;
     }
 
+    // ------------------------------------------------------------------ scene files in steps
+    // The scene's name and settings ("Scene", "Settings").
+    static void DeserializeSceneSettings(const json& root, Scene& scene)
+    {
+        scene.SetName(root.value("Scene", "Untitled"));
+        if (root.contains("Settings"))
+        {
+            const json& j = root["Settings"];
+            auto& s = scene.GetSettings();
+            s.DrawSky = j.value("DrawSky", s.DrawSky);
+            s.SkyTopColor = Vec(j, "SkyTop", s.SkyTopColor);
+            s.SkyHorizonColor = Vec(j, "SkyHorizon", s.SkyHorizonColor);
+            s.GroundColor = Vec(j, "Ground", s.GroundColor);
+            // Older scenes have none: the original gradient and sun disc.
+            s.Sky = {};
+            if (j.contains("Sky") && j["Sky"].is_object())
+            {
+                const json& sky = j["Sky"];
+                s.Sky.Curve = sky.value("Curve", s.Sky.Curve);
+                s.Sky.GroundFade = sky.value("GroundFade", s.Sky.GroundFade);
+                s.Sky.SunDisc = sky.value("SunDisc", s.Sky.SunDisc);
+                s.Sky.SunSize = sky.value("SunSize", s.Sky.SunSize);
+                s.Sky.SunIntensity = sky.value("SunIntensity", s.Sky.SunIntensity);
+                s.Sky.SunGlow = sky.value("SunGlow", s.Sky.SunGlow);
+                s.Sky.Sanitize();
+            }
+            s.AmbientIntensity = j.value("Ambient", s.AmbientIntensity);
+            s.Exposure = j.value("Exposure", s.Exposure);
+            s.ShadowDistance = j.value("ShadowDistance", s.ShadowDistance);
+            // Older scenes have none: 1 (the picture at the view's own size).
+            float renderScale = j.value("RenderScale", 1.0f);
+            s.RenderScale = std::isfinite(renderScale) ? std::clamp(renderScale, Renderer::MinRenderScale, Renderer::MaxRenderScale) : 1.0f;
+            s.Gravity = Vec(j, "Gravity", s.Gravity);
+            s.Gravity3D = Vec(j, "Gravity3D", s.Gravity3D);
+            // Older scenes have none: 60 steps a second, Box2D's 6 / 2 iterations, one sub-step,
+            // sleeping after 0.5 s. Out-of-range values are clamped.
+            s.PhysicsStep = {};
+            if (auto ps = j.find("PhysicsStep"); ps != j.end() && ps->is_object())
+            {
+                s.PhysicsStep.StepRate = ps->value("Rate", s.PhysicsStep.StepRate);
+                s.PhysicsStep.MaxStepsPerFrame = ps->value("MaxStepsPerFrame", s.PhysicsStep.MaxStepsPerFrame);
+            }
+            s.PhysicsStep.Sanitize();
+            s.Physics2D = {};
+            if (auto p2 = j.find("Physics2D"); p2 != j.end() && p2->is_object())
+            {
+                s.Physics2D.VelocityIterations = p2->value("VelocityIterations", s.Physics2D.VelocityIterations);
+                s.Physics2D.PositionIterations = p2->value("PositionIterations", s.Physics2D.PositionIterations);
+                s.Physics2D.SubSteps = p2->value("SubSteps", s.Physics2D.SubSteps);
+                s.Physics2D.AllowSleep = p2->value("AllowSleep", s.Physics2D.AllowSleep);
+                s.Physics2D.TimeToSleep = p2->value("TimeToSleep", s.Physics2D.TimeToSleep);
+            }
+            s.Physics2D.Sanitize();
+            s.Physics3D = {};
+            if (auto p3 = j.find("Physics3D"); p3 != j.end() && p3->is_object())
+            {
+                s.Physics3D.AllowSleep = p3->value("AllowSleep", s.Physics3D.AllowSleep);
+                s.Physics3D.TimeToSleep = p3->value("TimeToSleep", s.Physics3D.TimeToSleep);
+            }
+            s.Physics3D.Sanitize();
+            // Older scenes have none: white at 1 (Lit renderers look unlit).
+            s.Lighting2D = {};
+            if (auto l2d = j.find("Lighting2D"); l2d != j.end() && l2d->is_object())
+            {
+                s.Lighting2D.AmbientColor = glm::max(Vec(*l2d, "AmbientColor", glm::vec3(1.0f)), glm::vec3(0.0f));
+                s.Lighting2D.AmbientIntensity = std::max(0.0f, l2d->value("AmbientIntensity", 1.0f));
+            }
+            if (j.contains("Environment"))
+            {
+                const json& en = j["Environment"];
+                s.EnvironmentMap = ReadAssetPath(en, "Map");
+                s.EnvironmentIntensity = en.value("Intensity", 1.0f);
+                s.EnvironmentRotation = en.value("Rotation", 0.0f);
+            }
+            if (j.contains("Fog"))
+            {
+                const json& f = j["Fog"];
+                s.FogEnabled = f.value("Enabled", false);
+                s.FogColor = Vec(f, "Color", s.FogColor);
+                s.FogDensity = f.value("Density", 0.015f);
+                s.FogHeightFalloff = f.value("HeightFalloff", 0.05f);
+            }
+            // Older scenes have none: the renderer's original fixed quality.
+            s.Shadows = {};
+            if (j.contains("Shadows") && j["Shadows"].is_object())
+            {
+                const json& sh = j["Shadows"];
+                s.Shadows.AtlasSize = sh.value("AtlasSize", s.Shadows.AtlasSize);
+                int filter = sh.value("Filter", (int)s.Shadows.Filter);
+                s.Shadows.Filter = filter >= 0 && filter < ShadowFilterCount ? (ShadowFilter)filter : ShadowFilter::PCF3x3;
+                s.Shadows.CascadeCount = sh.value("Cascades", s.Shadows.CascadeCount);
+                s.Shadows.CascadeSplit = sh.value("CascadeSplit", s.Shadows.CascadeSplit);
+                s.Shadows.DepthBias = sh.value("DepthBias", s.Shadows.DepthBias);
+                s.Shadows.NormalBias = sh.value("NormalBias", s.Shadows.NormalBias);
+                s.Shadows.Sanitize();
+            }
+            if (j.contains("Post"))
+            {
+                const json& p = j["Post"];
+                s.Post.Tonemap = (TonemapMode)p.value("Tonemap", 1);
+                s.Post.Bloom = p.value("Bloom", false);
+                s.Post.SSAO = p.value("SSAO", false);
+                s.Post.SSAORadius = p.value("SSAORadius", 0.6f);
+                s.Post.SSAOIntensity = p.value("SSAOIntensity", 1.0f);
+                s.Post.SSAOBias = p.value("SSAOBias", 0.03f);
+                s.Post.BloomThreshold = p.value("BloomThreshold", 1.0f);
+                s.Post.BloomKnee = p.value("BloomKnee", 0.5f);
+                s.Post.BloomIntensity = p.value("BloomIntensity", 0.6f);
+                s.Post.BloomRadius = p.value("BloomRadius", 1.0f);
+                s.Post.BloomTint = Vec(p, "BloomTint", glm::vec3(1.0f));
+                s.Post.BloomDirt = p.value("BloomDirt", 0.0f);
+                s.Post.ChromaticAberration = p.value("ChromaticAberration", 0.0f);
+                s.Post.FilmGrain = p.value("FilmGrain", 0.0f);
+                s.Post.FilmGrainSize = p.value("FilmGrainSize", 1.0f);
+                s.Post.SanitizeLensEffects();
+                s.Post.Vignette = p.value("Vignette", 0.0f);
+                s.Post.Saturation = p.value("Saturation", 1.0f);
+                s.Post.Contrast = p.value("Contrast", 1.0f);
+                s.Post.Brightness = p.value("Brightness", 0.0f);
+                s.Post.Tint = Vec(p, "Tint", glm::vec3(1.0f));
+                s.Post.FXAA = p.value("FXAA", false);
+                s.Post.FXAASubpixel = std::clamp(p.value("FXAASubpixel", 0.75f), 0.0f, 1.0f);
+                s.Post.AutoExposure = p.value("AutoExposure", false);
+                s.Post.AutoExposureCompensation = p.value("AutoExposureCompensation", 0.0f);
+                s.Post.AutoExposureMinEV = p.value("AutoExposureMinEV", -4.0f);
+                s.Post.AutoExposureMaxEV = p.value("AutoExposureMaxEV", 4.0f);
+                s.Post.AutoExposureSpeed = p.value("AutoExposureSpeed", 2.0f);
+                s.Post.SanitizeAutoExposure();
+            }
+        }
+    }
+
+    // One entity of a scene file's "Entities" (its parent is linked when every entity exists).
+    static void DeserializeSceneEntity(const json& e, Scene& scene, std::vector<std::pair<Entity, uint64_t>>& parents)
+    {
+        uint64_t uuid = e.value("Entity", (uint64_t)0);
+        Entity entity = scene.CreateEntityWithUUID(uuid ? UUID(uuid) : UUID(), e.value("Tag", "Entity"));
+        DeserializeEntityComponents(e, entity);
+        parents.emplace_back(entity, e.value("Parent", (uint64_t)0));
+    }
+
+    // Parents and children of the entities made from `entityList` (in its order).
+    static void LinkSceneHierarchy(Scene& scene, std::vector<std::pair<Entity, uint64_t>>& parents, const json& entityList)
+    {
+        for (auto& [entity, parent] : parents)
+        {
+            if (!parent) continue;
+            Entity p = scene.GetEntityByUUID(parent);
+            if (!p) continue;
+            entity.GetComponent<RelationshipComponent>().Parent = parent;
+            p.GetComponent<RelationshipComponent>().Children.push_back(entity.GetUUID());
+        }
+        for (size_t i = 0; i < parents.size() && i < entityList.size(); i++)
+            ApplyChildOrder(parents[i].first, entityList[i], nullptr);
+        scene.InvalidateActiveCache(); // flags and parents were written directly
+    }
+
     bool SceneSerializer::DeserializeFromString(const std::string& text)
     {
         m_RepairedReferences.clear();
@@ -2920,157 +3079,179 @@ namespace Zamin {
 
         try
         {
-            m_Scene->SetName(root.value("Scene", "Untitled"));
-            if (root.contains("Settings"))
-            {
-                const json& j = root["Settings"];
-                auto& s = m_Scene->GetSettings();
-                s.DrawSky = j.value("DrawSky", s.DrawSky);
-                s.SkyTopColor = Vec(j, "SkyTop", s.SkyTopColor);
-                s.SkyHorizonColor = Vec(j, "SkyHorizon", s.SkyHorizonColor);
-                s.GroundColor = Vec(j, "Ground", s.GroundColor);
-                // Older scenes have none: the original gradient and sun disc.
-                s.Sky = {};
-                if (j.contains("Sky") && j["Sky"].is_object())
-                {
-                    const json& sky = j["Sky"];
-                    s.Sky.Curve = sky.value("Curve", s.Sky.Curve);
-                    s.Sky.GroundFade = sky.value("GroundFade", s.Sky.GroundFade);
-                    s.Sky.SunDisc = sky.value("SunDisc", s.Sky.SunDisc);
-                    s.Sky.SunSize = sky.value("SunSize", s.Sky.SunSize);
-                    s.Sky.SunIntensity = sky.value("SunIntensity", s.Sky.SunIntensity);
-                    s.Sky.SunGlow = sky.value("SunGlow", s.Sky.SunGlow);
-                    s.Sky.Sanitize();
-                }
-                s.AmbientIntensity = j.value("Ambient", s.AmbientIntensity);
-                s.Exposure = j.value("Exposure", s.Exposure);
-                s.ShadowDistance = j.value("ShadowDistance", s.ShadowDistance);
-                // Older scenes have none: 1 (the picture at the view's own size).
-                float renderScale = j.value("RenderScale", 1.0f);
-                s.RenderScale = std::isfinite(renderScale) ? std::clamp(renderScale, Renderer::MinRenderScale, Renderer::MaxRenderScale) : 1.0f;
-                s.Gravity = Vec(j, "Gravity", s.Gravity);
-                s.Gravity3D = Vec(j, "Gravity3D", s.Gravity3D);
-                // Older scenes have none: 60 steps a second, Box2D's 6 / 2 iterations, one sub-step,
-                // sleeping after 0.5 s. Out-of-range values are clamped.
-                s.PhysicsStep = {};
-                if (auto ps = j.find("PhysicsStep"); ps != j.end() && ps->is_object())
-                {
-                    s.PhysicsStep.StepRate = ps->value("Rate", s.PhysicsStep.StepRate);
-                    s.PhysicsStep.MaxStepsPerFrame = ps->value("MaxStepsPerFrame", s.PhysicsStep.MaxStepsPerFrame);
-                }
-                s.PhysicsStep.Sanitize();
-                s.Physics2D = {};
-                if (auto p2 = j.find("Physics2D"); p2 != j.end() && p2->is_object())
-                {
-                    s.Physics2D.VelocityIterations = p2->value("VelocityIterations", s.Physics2D.VelocityIterations);
-                    s.Physics2D.PositionIterations = p2->value("PositionIterations", s.Physics2D.PositionIterations);
-                    s.Physics2D.SubSteps = p2->value("SubSteps", s.Physics2D.SubSteps);
-                    s.Physics2D.AllowSleep = p2->value("AllowSleep", s.Physics2D.AllowSleep);
-                    s.Physics2D.TimeToSleep = p2->value("TimeToSleep", s.Physics2D.TimeToSleep);
-                }
-                s.Physics2D.Sanitize();
-                s.Physics3D = {};
-                if (auto p3 = j.find("Physics3D"); p3 != j.end() && p3->is_object())
-                {
-                    s.Physics3D.AllowSleep = p3->value("AllowSleep", s.Physics3D.AllowSleep);
-                    s.Physics3D.TimeToSleep = p3->value("TimeToSleep", s.Physics3D.TimeToSleep);
-                }
-                s.Physics3D.Sanitize();
-                // Older scenes have none: white at 1 (Lit renderers look unlit).
-                s.Lighting2D = {};
-                if (auto l2d = j.find("Lighting2D"); l2d != j.end() && l2d->is_object())
-                {
-                    s.Lighting2D.AmbientColor = glm::max(Vec(*l2d, "AmbientColor", glm::vec3(1.0f)), glm::vec3(0.0f));
-                    s.Lighting2D.AmbientIntensity = std::max(0.0f, l2d->value("AmbientIntensity", 1.0f));
-                }
-                if (j.contains("Environment"))
-                {
-                    const json& en = j["Environment"];
-                    s.EnvironmentMap = ReadAssetPath(en, "Map");
-                    s.EnvironmentIntensity = en.value("Intensity", 1.0f);
-                    s.EnvironmentRotation = en.value("Rotation", 0.0f);
-                }
-                if (j.contains("Fog"))
-                {
-                    const json& f = j["Fog"];
-                    s.FogEnabled = f.value("Enabled", false);
-                    s.FogColor = Vec(f, "Color", s.FogColor);
-                    s.FogDensity = f.value("Density", 0.015f);
-                    s.FogHeightFalloff = f.value("HeightFalloff", 0.05f);
-                }
-                // Older scenes have none: the renderer's original fixed quality.
-                s.Shadows = {};
-                if (j.contains("Shadows") && j["Shadows"].is_object())
-                {
-                    const json& sh = j["Shadows"];
-                    s.Shadows.AtlasSize = sh.value("AtlasSize", s.Shadows.AtlasSize);
-                    int filter = sh.value("Filter", (int)s.Shadows.Filter);
-                    s.Shadows.Filter = filter >= 0 && filter < ShadowFilterCount ? (ShadowFilter)filter : ShadowFilter::PCF3x3;
-                    s.Shadows.CascadeCount = sh.value("Cascades", s.Shadows.CascadeCount);
-                    s.Shadows.CascadeSplit = sh.value("CascadeSplit", s.Shadows.CascadeSplit);
-                    s.Shadows.DepthBias = sh.value("DepthBias", s.Shadows.DepthBias);
-                    s.Shadows.NormalBias = sh.value("NormalBias", s.Shadows.NormalBias);
-                    s.Shadows.Sanitize();
-                }
-                if (j.contains("Post"))
-                {
-                    const json& p = j["Post"];
-                    s.Post.Tonemap = (TonemapMode)p.value("Tonemap", 1);
-                    s.Post.Bloom = p.value("Bloom", false);
-                    s.Post.SSAO = p.value("SSAO", false);
-                    s.Post.SSAORadius = p.value("SSAORadius", 0.6f);
-                    s.Post.SSAOIntensity = p.value("SSAOIntensity", 1.0f);
-                    s.Post.SSAOBias = p.value("SSAOBias", 0.03f);
-                    s.Post.BloomThreshold = p.value("BloomThreshold", 1.0f);
-                    s.Post.BloomKnee = p.value("BloomKnee", 0.5f);
-                    s.Post.BloomIntensity = p.value("BloomIntensity", 0.6f);
-                    s.Post.BloomRadius = p.value("BloomRadius", 1.0f);
-                    s.Post.BloomTint = Vec(p, "BloomTint", glm::vec3(1.0f));
-                    s.Post.BloomDirt = p.value("BloomDirt", 0.0f);
-                    s.Post.ChromaticAberration = p.value("ChromaticAberration", 0.0f);
-                    s.Post.FilmGrain = p.value("FilmGrain", 0.0f);
-                    s.Post.FilmGrainSize = p.value("FilmGrainSize", 1.0f);
-                    s.Post.SanitizeLensEffects();
-                    s.Post.Vignette = p.value("Vignette", 0.0f);
-                    s.Post.Saturation = p.value("Saturation", 1.0f);
-                    s.Post.Contrast = p.value("Contrast", 1.0f);
-                    s.Post.Brightness = p.value("Brightness", 0.0f);
-                    s.Post.Tint = Vec(p, "Tint", glm::vec3(1.0f));
-                    s.Post.FXAA = p.value("FXAA", false);
-                    s.Post.FXAASubpixel = std::clamp(p.value("FXAASubpixel", 0.75f), 0.0f, 1.0f);
-                    s.Post.AutoExposure = p.value("AutoExposure", false);
-                    s.Post.AutoExposureCompensation = p.value("AutoExposureCompensation", 0.0f);
-                    s.Post.AutoExposureMinEV = p.value("AutoExposureMinEV", -4.0f);
-                    s.Post.AutoExposureMaxEV = p.value("AutoExposureMaxEV", 4.0f);
-                    s.Post.AutoExposureSpeed = p.value("AutoExposureSpeed", 2.0f);
-                    s.Post.SanitizeAutoExposure();
-                }
-            }
-
+            DeserializeSceneSettings(root, *m_Scene);
             std::vector<std::pair<Entity, uint64_t>> parents;
-            const json entityList = root.value("Entities", json::array());
+            static const json s_NoEntities = json::array();
+            auto list = root.find("Entities");
+            const json& entityList = list != root.end() && list->is_array() ? *list : s_NoEntities;
+            parents.reserve(entityList.size());
             for (const json& e : entityList)
-            {
-                uint64_t uuid = e.value("Entity", (uint64_t)0);
-                Entity entity = m_Scene->CreateEntityWithUUID(uuid ? UUID(uuid) : UUID(), e.value("Tag", "Entity"));
-                DeserializeEntityComponents(e, entity);
-                parents.emplace_back(entity, e.value("Parent", (uint64_t)0));
-            }
-            for (auto& [entity, parent] : parents)
-            {
-                if (!parent) continue;
-                Entity p = m_Scene->GetEntityByUUID(parent);
-                if (!p) continue;
-                entity.GetComponent<RelationshipComponent>().Parent = parent;
-                p.GetComponent<RelationshipComponent>().Children.push_back(entity.GetUUID());
-            }
-            for (size_t i = 0; i < parents.size() && i < entityList.size(); i++)
-                ApplyChildOrder(parents[i].first, entityList[i], nullptr);
-            m_Scene->InvalidateActiveCache(); // flags and parents were written directly
+                DeserializeSceneEntity(e, *m_Scene, parents);
+            LinkSceneHierarchy(*m_Scene, parents, entityList);
         }
         catch (const std::exception& ex)
         {
             return fail(std::format("Sahna formati xato: {}", ex.what()));
+        }
+        return true;
+    }
+
+    // ------------------------------------------------------------------ SceneLoadJob
+    struct SceneLoadJob::Data
+    {
+        json Root;
+        std::filesystem::path File;
+        std::string Error;
+        enum class Phase { Empty = 0, Parsed, Settings, Entities, Hierarchy, Built } Step = Phase::Empty;
+        size_t Next = 0;
+        std::vector<std::pair<Entity, uint64_t>> Parents;
+        std::vector<SceneSerializer::AssetReferenceRepair> Repairs;
+
+        const json& Entities() const
+        {
+            static const json s_None = json::array();
+            auto it = Root.find("Entities");
+            return it != Root.end() && it->is_array() ? *it : s_None;
+        }
+    };
+
+    SceneLoadJob::SceneLoadJob() : m_Data(std::make_unique<Data>()) {}
+    SceneLoadJob::~SceneLoadJob() = default;
+
+    bool SceneLoadJob::Parse(const std::filesystem::path& path)
+    {
+        m_Data->File = path;
+        std::string error = AssetImportLog::CheckReadable(path);
+        std::string text = error.empty() ? FileSystem::ReadTextFile(path) : std::string();
+        if (text.empty() && error.empty())
+            error = "fayl o'qilmadi";
+        if (!error.empty())
+        {
+            m_Data->Error = std::move(error);
+            return false;
+        }
+        return ParseString(text);
+    }
+
+    bool SceneLoadJob::ParseString(const std::string& text)
+    {
+        m_Data->Error.clear();
+        try { m_Data->Root = json::parse(text); }
+        catch (const std::exception& e)
+        {
+            m_Data->Error = std::format("JSON xatosi: {}", e.what());
+            return false;
+        }
+        if (!m_Data->Root.is_object() || !m_Data->Root.contains("Scene"))
+        {
+            m_Data->Error = "sahna fayli emas (\"Scene\" kaliti yo'q)";
+            return false;
+        }
+        m_Data->Step = Data::Phase::Parsed;
+        return true;
+    }
+
+    static bool IsImageFileName(std::string_view s)
+    {
+        const size_t dot = s.find_last_of('.');
+        if (dot == std::string_view::npos || s.size() - dot > 5)
+            return false;
+        std::string ext(s.substr(dot));
+        for (char& c : ext)
+            c = (char)std::tolower((unsigned char)c);
+        return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".tga" || ext == ".bmp" || ext == ".psd" || ext == ".gif";
+    }
+
+    static void CollectImageStrings(const json& j, std::vector<std::string>& out)
+    {
+        if (j.is_string())
+        {
+            const std::string& s = j.get_ref<const std::string&>();
+            if (IsImageFileName(s) && std::find(out.begin(), out.end(), s) == out.end())
+                out.push_back(s);
+        }
+        else if (j.is_object() || j.is_array())
+            for (const json& child : j)
+                CollectImageStrings(child, out);
+    }
+
+    std::vector<std::string> SceneLoadJob::CollectImagePaths() const
+    {
+        std::vector<std::string> images;
+        if (m_Data->Step != Data::Phase::Empty)
+            CollectImageStrings(m_Data->Entities(), images);
+        return images;
+    }
+
+    size_t SceneLoadJob::GetEntityCount() const { return m_Data->Step == Data::Phase::Empty ? 0 : m_Data->Entities().size(); }
+    const std::string& SceneLoadJob::GetError() const { return m_Data->Error; }
+    bool SceneLoadJob::IsBuilt() const { return m_Data->Step == Data::Phase::Built; }
+    const std::vector<SceneSerializer::AssetReferenceRepair>& SceneLoadJob::GetRepairedReferences() const { return m_Data->Repairs; }
+
+    float SceneLoadJob::GetBuildProgress() const
+    {
+        switch (m_Data->Step)
+        {
+            case Data::Phase::Empty:
+            case Data::Phase::Parsed:
+            case Data::Phase::Settings: return 0.0f;
+            case Data::Phase::Entities:
+            {
+                const size_t count = m_Data->Entities().size();
+                return count ? 0.95f * (float)m_Data->Next / (float)count : 0.95f;
+            }
+            case Data::Phase::Hierarchy: return 0.95f;
+            case Data::Phase::Built: return 1.0f;
+        }
+        return 0.0f;
+    }
+
+    bool SceneLoadJob::Build(Scene& scene, double budgetMs)
+    {
+        Data& d = *m_Data;
+        if (d.Step == Data::Phase::Empty || d.Step == Data::Phase::Built || !d.Error.empty())
+            return true;
+        const auto start = std::chrono::steady_clock::now();
+        auto elapsed = [&]() { return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count(); };
+        AssetReferenceScope assetReferences(&d.Repairs);
+        try
+        {
+            if (d.Step == Data::Phase::Parsed)
+                d.Step = Data::Phase::Settings;
+            if (d.Step == Data::Phase::Settings)
+            {
+                DeserializeSceneSettings(d.Root, scene);
+                d.Parents.reserve(d.Entities().size());
+                d.Step = Data::Phase::Entities;
+            }
+            if (d.Step == Data::Phase::Entities)
+            {
+                const json& list = d.Entities();
+                while (d.Next < list.size())
+                {
+                    DeserializeSceneEntity(list[d.Next], scene, d.Parents);
+                    d.Next++;
+                    // The clock is looked at every few entities (it costs more than a plain entity).
+                    if ((d.Next & 7) == 0 && elapsed() >= budgetMs)
+                        return false;
+                }
+                d.Step = Data::Phase::Hierarchy;
+                if (elapsed() >= budgetMs)
+                    return false;
+            }
+            if (d.Step == Data::Phase::Hierarchy)
+            {
+                LinkSceneHierarchy(scene, d.Parents, d.Entities());
+                if (scene.GetName().empty() || scene.GetName() == "Untitled")
+                    scene.SetName(d.File.empty() ? std::string("Untitled") : d.File.stem().string());
+                d.Parents.clear();
+                d.Root = json(); // the parsed file is not needed any more
+                d.Step = Data::Phase::Built;
+            }
+        }
+        catch (const std::exception& ex)
+        {
+            d.Error = std::format("Sahna formati xato: {}", ex.what());
         }
         return true;
     }

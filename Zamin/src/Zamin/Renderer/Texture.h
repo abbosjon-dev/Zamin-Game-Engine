@@ -3,6 +3,7 @@
 #include "Zamin/Core/Base.h"
 
 #include <filesystem>
+#include <vector>
 #include <string>
 
 namespace Zamin {
@@ -100,6 +101,12 @@ namespace Zamin {
         // in after GetLoadSerial() returned `since` that nothing else holds any more (loaded for
         // a moment only - a model drawn into a thumbnail); returns how many.
         static uint64_t GetLoadSerial();
+        // ---- decoding ahead (SceneManager's async scene loading): Predecode reads and decodes the
+        // file's pixels on the calling thread - any thread, nothing of the GPU - and keeps them until
+        // the next Load of the file only uploads them. DropPredecoded lets go of pixels no Load took.
+        static bool Predecode(const std::filesystem::path& path);
+        static void DropPredecoded(const std::vector<std::filesystem::path>& paths);
+        static size_t GetPredecodedCount();
         static size_t ReleaseUnused(uint64_t since);
         static void Clear();
     };

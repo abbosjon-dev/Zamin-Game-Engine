@@ -92,6 +92,14 @@ namespace Zamin {
         LoadViewSettings();
 
         m_SceneHierarchyPanel.OnFocusRequested = [this](Entity e) { FocusEntity(e); };
+        // Play mode with several scenes: the hierarchy shows the one picked there.
+        m_SceneHierarchyPanel.OnRuntimeSceneSelected = [this](const Ref<Scene>& scene) {
+            if (m_SceneState == SceneState::Play && m_RuntimeScenes && m_RuntimeScenes->IsLoaded(scene.get()) && scene != m_ActiveScene)
+            {
+                m_SceneHierarchyPanel.SetSelectedEntity({});
+                SetActiveScene(scene, false);
+            }
+        };
         m_SceneHierarchyPanel.OnSceneModified = [this]() { MarkDirty(); };
         m_SceneHierarchyPanel.OnSavePrefabRequested = [this](Entity e) { SavePrefab(e); };
         m_SceneHierarchyPanel.OnProjectSettingsModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
@@ -1066,6 +1074,8 @@ namespace Zamin {
         ProcessAssetChanges();
 
         m_ActiveScene->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
+        if (m_RuntimeScenes)
+            m_RuntimeScenes->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
 
         // The scene is drawn at the render scale of the viewport's size; post-processing scales it
         // into the final picture (the viewport's own size, where the overlays are drawn).
@@ -1073,7 +1083,7 @@ namespace Zamin {
         {
             const uint32_t vw = (uint32_t)m_ViewportSize.x, vh = (uint32_t)m_ViewportSize.y;
             // Play: the game camera's size (a pixel-perfect camera draws at the art's resolution).
-            glm::uvec2 renderSize = m_SceneState == SceneState::Play ? m_ActiveScene->GetRuntimeRenderResolution(vw, vh)
+            glm::uvec2 renderSize = m_SceneState == SceneState::Play ? GetViewScene().GetRuntimeRenderResolution(vw, vh)
                                                                      : Renderer::GetRenderResolution(vw, vh, m_ActiveScene->GetSettings().RenderScale);
             if (const auto& spec = m_Framebuffer->GetSpecification(); spec.Width != renderSize.x || spec.Height != renderSize.y)
                 m_Framebuffer->Resize(renderSize.x, renderSize.y);
@@ -1089,21 +1099,31 @@ namespace Zamin {
 
         Renderer::ResetStats();
         m_Framebuffer->Bind();
-        glm::vec4 clear = m_ActiveScene->GetSettings().DrawSky ? glm::vec4(0.1f, 0.1f, 0.12f, 1.0f) : m_ActiveScene->GetClearColor();
+        glm::vec4 clear = GetViewScene().GetSettings().DrawSky ? glm::vec4(0.1f, 0.1f, 0.12f, 1.0f) : GetViewScene().GetClearColor();
         RenderCommand::SetClearColor({ std::pow(clear.r, 2.2f), std::pow(clear.g, 2.2f), std::pow(clear.b, 2.2f), clear.a }); // linear
         RenderCommand::Clear();
         m_Framebuffer->ClearAttachment(1, -1);
 
         {
             ImVec2 mouse = ImGui::GetMousePos();
-            m_ActiveScene->SetViewportMouse({ mouse.x - m_ViewportBounds[0].x, mouse.y - m_ViewportBounds[0].y },
-                                            m_ViewportHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left));
+            const glm::vec2 gameMouse{ mouse.x - m_ViewportBounds[0].x, mouse.y - m_ViewportBounds[0].y };
+            const bool gameButton = m_ViewportHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+            m_ActiveScene->SetViewportMouse(gameMouse, gameButton);
             // Typing reaches the game's input fields only while the game view has the focus.
-            m_ActiveScene->SetUIKeyboardEnabled(m_ViewportFocused && !ImGui::GetIO().WantTextInput);
+            const bool gameKeyboard = m_ViewportFocused && !ImGui::GetIO().WantTextInput;
+            m_ActiveScene->SetUIKeyboardEnabled(gameKeyboard);
             // The wheel over the game view scrolls the game's scroll views.
             const ImGuiIO& io = ImGui::GetIO();
-            m_ActiveScene->SetViewportScroll(m_ViewportHovered && m_SceneState == SceneState::Play ? glm::vec2(io.MouseWheelH, io.MouseWheel)
-                                                                                                  : glm::vec2(0.0f));
+            const glm::vec2 gameWheel = m_ViewportHovered && m_SceneState == SceneState::Play ? glm::vec2(io.MouseWheelH, io.MouseWheel)
+                                                                                             : glm::vec2(0.0f);
+            m_ActiveScene->SetViewportScroll(gameWheel);
+            // Play mode: every scene of the game hears the same input.
+            if (m_RuntimeScenes)
+            {
+                m_RuntimeScenes->SetViewportMouse(gameMouse, gameButton);
+                m_RuntimeScenes->SetUIKeyboardEnabled(gameKeyboard);
+                m_RuntimeScenes->SetViewportScroll(gameWheel);
+            }
         }
 
         SceneRenderOptions options;
@@ -1181,7 +1201,11 @@ namespace Zamin {
                     m_ActiveScene->OnUpdateSimulation(ts, m_EditorCamera, options);
                     break;
                 case SceneState::Play:
-                    m_ActiveScene->OnUpdateRuntime(ts);
+                    // Every loaded scene's frame (additive ones, DontDestroyOnLoad), drawn together.
+                    if (m_RuntimeScenes)
+                        m_RuntimeScenes->OnUpdate(ts);
+                    else
+                        m_ActiveScene->OnUpdateRuntime(ts);
                     break;
             }
         }
@@ -1199,18 +1223,12 @@ namespace Zamin {
         else
             m_TransparentOrder.clear();
 
-        if (m_SceneState == SceneState::Play && m_ActiveScene->IsQuitRequested())
+        if (m_SceneState == SceneState::Play && m_RuntimeScenes && m_RuntimeScenes->IsQuitRequested())
         {
             // The game's Quit: in the editor Play stops.
             ZM_INFO("O'yin chiqishni so'radi: Play to'xtatildi");
-            m_ActiveScene->ClearQuitRequest();
+            m_RuntimeScenes->ClearQuitRequest();
             OnSceneStop();
-        }
-        if (m_SceneState == SceneState::Play && !m_ActiveScene->GetPendingSceneLoad().empty())
-        {
-            fs::path next = Project::GetAssetFileSystemPath(m_ActiveScene->GetPendingSceneLoad());
-            m_ActiveScene->ClearPendingSceneLoad();
-            LoadRuntimeScene(next);
         }
 
         // Mouse picking
@@ -1244,13 +1262,13 @@ namespace Zamin {
         post.Width = spec.Width;
         post.Height = spec.Height;
         post.DepthTexture = m_Framebuffer->GetDepthAttachmentRendererID();
-        post.Projection = m_ActiveScene->GetLastProjection();
+        post.Projection = GetViewScene().GetLastProjection();
         post.OutputWidth = m_FinalFramebuffer->GetSpecification().Width;
         post.OutputHeight = m_FinalFramebuffer->GetSpecification().Height;
         post.DeltaTime = ts;
         post.History = &m_PostHistory;
         m_PlayPixelZoom = {};
-        if (PixelPerfectView pixel; m_SceneState == SceneState::Play && m_ActiveScene->GetPixelPerfectView(pixel) && pixel.Upscale &&
+        if (PixelPerfectView pixel; m_SceneState == SceneState::Play && GetViewScene().GetPixelPerfectView(pixel) && pixel.Upscale &&
                                     pixel.RenderSize == glm::uvec2(spec.Width, spec.Height))
         {
             post.PixelZoom = pixel.Zoom;
@@ -1258,18 +1276,53 @@ namespace Zamin {
             m_PlayPixelZoom = pixel;
         }
         const bool neutralPost = IsDebugViewActive() && !Renderer3D::DebugViewUsesPostProcessing(m_DebugView);
-        PostProcessor::Apply(post, neutralPost ? PostProcessSettings::Neutral() : m_ActiveScene->GetSettings().Post, m_FinalFramebuffer);
+        PostProcessor::Apply(post, neutralPost ? PostProcessSettings::Neutral() : GetViewScene().GetSettings().Post, m_FinalFramebuffer);
         m_FinalFramebuffer->Bind();
         // A pixel-perfect game's UI: over the finished picture, at the viewport's resolution.
-        if (m_SceneState == SceneState::Play && m_ActiveScene->HasDeferredUI())
-            m_ActiveScene->RenderDeferredUI();
+        if (m_SceneState == SceneState::Play && m_RuntimeScenes)
+            m_RuntimeScenes->RenderDeferredUI();
         RenderSelectionOutline();
         RenderDebugDraw();
         {
             ZM_PROFILE_SCOPE("Editor overlay (gizmolar)");
             OnOverlayRender();
         }
+        // A fade between the game's scenes covers the game view (the editor's overlays too).
+        if (m_SceneState == SceneState::Play && m_RuntimeScenes)
+            m_RuntimeScenes->RenderTransition(m_FinalFramebuffer->GetSpecification().Width, m_FinalFramebuffer->GetSpecification().Height);
         m_FinalFramebuffer->Unbind();
+
+        // The game's scene switches of this frame (LoadScene, async activations, DontDestroyOnLoad):
+        // after its picture is finished, as the player does them.
+        if (m_SceneState == SceneState::Play && m_RuntimeScenes)
+        {
+            m_RuntimeScenes->ProcessRequests();
+            SyncRuntimeScenes();
+        }
+    }
+
+    Scene& EditorLayer::GetViewScene()
+    {
+        if (m_SceneState == SceneState::Play && m_RuntimeScenes)
+            if (Scene* scene = m_RuntimeScenes->GetRenderScene())
+                return *scene;
+        return *m_ActiveScene;
+    }
+
+    void EditorLayer::SyncRuntimeScenes()
+    {
+        if (!m_RuntimeScenes)
+            return;
+        // The game switched its active scene: the hierarchy follows it. While the scene it shows is
+        // still loaded (another additive scene, DontDestroyOnLoad picked in the hierarchy) it stays.
+        const bool switched = m_RuntimeScenes->GetActiveSceneSerial() != m_RuntimeActiveSerial;
+        m_RuntimeActiveSerial = m_RuntimeScenes->GetActiveSceneSerial();
+        const bool shownLoaded = m_RuntimeScenes->IsLoaded(m_ActiveScene.get());
+        if ((switched || !shownLoaded) && m_RuntimeScenes->GetActiveScene() && m_RuntimeScenes->GetActiveScene() != m_ActiveScene)
+        {
+            SetActiveScene(m_RuntimeScenes->GetActiveScene());
+            ZM_INFO("Sahna almashtirildi: {}", m_ActiveScene->GetName());
+        }
     }
 
     std::vector<OutlineEntity> EditorLayer::CollectSelectionOutline()
@@ -1327,7 +1380,7 @@ namespace Zamin {
         if (settings.Style != SelectionStyle::Outline)
             return;
         // Play mode without a camera: nothing was drawn.
-        if (m_SceneState == SceneState::Play && !m_ActiveScene->GetPrimaryCameraEntity())
+        if (m_SceneState == SceneState::Play && !GetViewScene().GetPrimaryCameraEntity())
             return;
         std::vector<OutlineEntity> entities = CollectSelectionOutline();
         // The hover outline follows the mesh silhouettes kept from this frame's scene: an entity the
@@ -1359,7 +1412,7 @@ namespace Zamin {
         input.IDHeight = render.Height;
         input.Width = output.Width;
         input.Height = output.Height;
-        input.ViewProjection = m_ActiveScene->GetLastProjection() * m_ActiveScene->GetLastView();
+        input.ViewProjection = GetViewScene().GetLastProjection() * GetViewScene().GetLastView();
         input.Entities = std::move(entities);
         input.Silhouettes = m_OutlineCaptured ? &Renderer3D::GetCapturedDraws() : nullptr;
         SelectionOutline::Render(input, settings);
@@ -1368,13 +1421,13 @@ namespace Zamin {
     void EditorLayer::RenderDebugDraw()
     {
         // Play mode without a camera: nothing was drawn (the last view would be a stale one).
-        if (m_SceneState == SceneState::Play && !m_ActiveScene->GetPrimaryCameraEntity())
+        if (m_SceneState == SceneState::Play && !GetViewScene().GetPrimaryCameraEntity())
             return;
         const auto& render = m_Framebuffer->GetSpecification();
         const auto& output = m_FinalFramebuffer->GetSpecification();
         DebugDrawView view;
-        view.View = m_ActiveScene->GetLastView();
-        view.Projection = m_ActiveScene->GetLastProjection();
+        view.View = GetViewScene().GetLastView();
+        view.Projection = GetViewScene().GetLastProjection();
         view.Width = output.Width;
         view.Height = output.Height;
         view.DepthTexture = m_Framebuffer->GetDepthAttachmentRendererID();
@@ -1406,10 +1459,11 @@ namespace Zamin {
     {
         if (m_SceneState == SceneState::Play)
         {
-            Entity camera = m_ActiveScene->GetPrimaryCameraEntity();
+            Scene& viewScene = GetViewScene();
+            Entity camera = viewScene.GetPrimaryCameraEntity();
             if (!camera) return glm::mat4(0.0f);
             // What the game view shows: the camera with its shake (and its pixel-perfect view).
-            return m_ActiveScene->GetCameraProjection(camera) * glm::inverse(m_ActiveScene->GetCameraViewTransform(camera));
+            return viewScene.GetCameraProjection(camera) * glm::inverse(viewScene.GetCameraViewTransform(camera));
         }
         return m_EditorCamera.GetViewProjection();
     }
@@ -1418,10 +1472,11 @@ namespace Zamin {
     {
         if (m_SceneState == SceneState::Play)
         {
-            Entity camera = m_ActiveScene->GetPrimaryCameraEntity();
+            Scene& viewScene = GetViewScene();
+            Entity camera = viewScene.GetPrimaryCameraEntity();
             if (!camera) return false;
-            view = glm::inverse(m_ActiveScene->GetCameraViewTransform(camera));
-            projection = m_ActiveScene->GetCameraProjection(camera);
+            view = glm::inverse(viewScene.GetCameraViewTransform(camera));
+            projection = viewScene.GetCameraProjection(camera);
             return true;
         }
         view = m_EditorCamera.GetViewMatrix();
@@ -3942,7 +3997,13 @@ namespace Zamin {
         // The display options too (no window of its own: the editor's stays as it is, the game sees them).
         Display::LoadSettings();
         AudioEngine::ResetProfileCounters(); // the audio profiler counts this run
-        m_ActiveScene->OnRuntimeStart();
+        // The game runs in a scene manager (additive scenes, DontDestroyOnLoad, async loads, fades),
+        // as in the player.
+        m_RuntimeScenes = std::make_unique<SceneManager>();
+        m_RuntimeScenes->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
+        m_RuntimeScenes->Start(m_ActiveScene, m_EditorScenePath.empty() ? fs::path() : fs::path(Project::GetAssetRelativePath(m_EditorScenePath)));
+        m_RuntimeActiveSerial = m_RuntimeScenes->GetActiveSceneSerial();
+        m_SceneHierarchyPanel.SetSceneManager(m_RuntimeScenes.get());
         ImGui::SetWindowFocus("###Viewport");
         UpdateWindowTitle();
     }
@@ -3964,12 +4025,19 @@ namespace Zamin {
 
     void EditorLayer::OnSceneStop()
     {
-        if (m_SceneState == SceneState::Play)
+        if (m_SceneState == SceneState::Play && m_RuntimeScenes)
+        {
+            // Every scene of the game stops (the persistent one too).
+            m_RuntimeScenes->Stop();
+        }
+        else if (m_SceneState == SceneState::Play)
             m_ActiveScene->OnRuntimeStop();
         else if (m_SceneState == SceneState::Simulate)
             m_ActiveScene->OnSimulationStop();
         m_SceneState = SceneState::Edit;
         SetActiveScene(m_EditorScene);
+        m_SceneHierarchyPanel.SetSceneManager(nullptr);
+        m_RuntimeScenes.reset(); // the game's scenes go (the hierarchy shows the edit scene again)
         // What the game's scripts changed of the debug drawing does not stay in the editor.
         ApplyDebugDrawSettings();
         // The game's music stops with it, and the mixer is the project's again (what the game or the
@@ -3994,7 +4062,10 @@ namespace Zamin {
     void EditorLayer::OnScenePause()
     {
         if (m_SceneState == SceneState::Edit) return;
-        m_ActiveScene->SetPaused(!m_ActiveScene->IsPaused());
+        if (m_RuntimeScenes && m_SceneState == SceneState::Play)
+            m_RuntimeScenes->SetPaused(!m_RuntimeScenes->IsPaused());
+        else
+            m_ActiveScene->SetPaused(!m_ActiveScene->IsPaused());
     }
 
     void EditorLayer::DuplicateSelectedEntity()
@@ -4957,22 +5028,6 @@ namespace Zamin {
         }
     }
 
-    void EditorLayer::LoadRuntimeScene(const fs::path& path)
-    {
-        Ref<Scene> next = CreateRef<Scene>();
-        SceneSerializer serializer(next);
-        if (!serializer.Deserialize(path))
-        {
-            ZM_ERROR("Sahnaga o'tilmadi: {} ({})", Project::GetAssetRelativePath(path), serializer.GetLastError());
-            return;
-        }
-        next->ResolveAssets();
-        m_ActiveScene->OnRuntimeStop();
-        SetActiveScene(next);
-        m_ActiveScene->OnRuntimeStart();
-        ZM_INFO("Sahna almashtirildi: {}", path.filename().string());
-    }
-
     // ================================================================== scripts
     void EditorLayer::BuildScripts(bool reloadAfter)
     {
@@ -5844,11 +5899,11 @@ namespace Zamin {
                                                 ImVec2(m_ViewportBounds[1].x, m_ViewportBounds[1].y), col, 0.0f, 0, 2.0f);
         }
 
-        if (!m_ActiveScene->GetPrimaryCameraEntity() && m_SceneState == SceneState::Play)
+        if (m_SceneState == SceneState::Play && !GetViewScene().GetPrimaryCameraEntity())
         {
             ImGui::SetCursorPos(ImVec2(regionMin.x + 20, regionMax.y - 40));
             // An inactive primary camera does not count: say so instead of "there is none".
-            if (Entity inactive = m_ActiveScene->GetPrimaryCameraEntity(true))
+            if (Entity inactive = GetViewScene().GetPrimaryCameraEntity(true))
                 ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.3f, 1), ICON_FA_TRIANGLE_EXCLAMATION "  Asosiy kamera nofaol: '%s' (boshqa faol asosiy kamera yo'q)",
                                    inactive.GetName().c_str());
             else
@@ -6007,11 +6062,17 @@ namespace Zamin {
             ImGui::SameLine();
 
             ImGui::BeginDisabled(editing);
-            bool paused = !editing && m_ActiveScene->IsPaused();
+            bool paused = !editing && (m_RuntimeScenes && m_SceneState == SceneState::Play ? m_RuntimeScenes->IsPaused() : m_ActiveScene->IsPaused());
             if (UI::ToolbarButton(ICON_FA_PAUSE, "Pauza", paused, size)) OnScenePause();
             ImGui::SameLine();
             ImGui::BeginDisabled(!paused);
-            if (UI::ToolbarButton(ICON_FA_FORWARD_STEP, "Bir kadr oldinga", false, size)) m_ActiveScene->Step(1);
+            if (UI::ToolbarButton(ICON_FA_FORWARD_STEP, "Bir kadr oldinga", false, size))
+            {
+                if (m_RuntimeScenes && m_SceneState == SceneState::Play)
+                    m_RuntimeScenes->Step(1);
+                else
+                    m_ActiveScene->Step(1);
+            }
             ImGui::EndDisabled();
             ImGui::EndDisabled();
         }
@@ -6886,7 +6947,7 @@ namespace Zamin {
         float alpha = age > duration - fadeOut ? (float)((duration - age) / fadeOut) : 1.0f;
         // The "no (active) primary camera" warning (UI_Viewport) takes the bottom line while
         // playing: the banner goes above it so both stay readable.
-        const bool cameraWarning = m_SceneState == SceneState::Play && !m_ActiveScene->GetPrimaryCameraEntity();
+        const bool cameraWarning = m_SceneState == SceneState::Play && !GetViewScene().GetPrimaryCameraEntity();
         const float lift = cameraWarning ? ImGui::GetTextLineHeight() + 20.0f : 0.0f;
         banner(m_ViewportMessage.c_str(), alpha, max.y - 44.0f - lift);
     }

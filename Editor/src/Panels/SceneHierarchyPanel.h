@@ -27,6 +27,12 @@ namespace Zamin {
 
         // keepSelection: the same entities (by UUID) stay selected in the new scene (play mode, undo).
         void SetContext(const Ref<Scene>& scene, bool keepSelection = false);
+        // Play mode: the game's scene manager (null otherwise). With more than one scene loaded the
+        // hierarchy lists every loaded scene (the active one marked, DontDestroyOnLoad apart): the
+        // shown scene's tree as usual, the others folded below it (read-only); a click on one of them
+        // asks for it to be shown (OnRuntimeSceneSelected).
+        void SetSceneManager(SceneManager* manager) { m_SceneManager = manager; }
+        std::function<void(const Ref<Scene>&)> OnRuntimeSceneSelected;
         void OnImGuiRender(bool* showHierarchy, bool* showInspector);
         void DrawHierarchy();
         void DrawInspector();
@@ -419,6 +425,10 @@ namespace Zamin {
 
     private:
         Ref<Scene> m_Context;
+        SceneManager* m_SceneManager = nullptr;
+        // The other loaded scenes of play mode, folded below the shown scene's tree.
+        void DrawRuntimeSceneHeader();
+        void DrawOtherRuntimeScenes();
         EntitySelection m_Selection;
         std::vector<Entity> m_VisibleRows;   // hierarchy rows in display order (Shift+click ranges)
         PendingClick m_PendingClick;

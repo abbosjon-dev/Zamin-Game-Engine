@@ -43,7 +43,65 @@ namespace Zamin {
                     ZM_CORE_INFO("Boshlang'ich sahna UUID orqali topildi: '{}' -> '{}'", config.StartScene.generic_string(), moved);
                     config.StartScene = moved;
                 }
+        // Build scenes the same way.
+        for (BuildSceneEntry& entry : config.BuildScenes)
+            if (!entry.Path.empty() && entry.Handle && !std::filesystem::exists(GetAssetFileSystemPath(entry.Path), ec))
+                if (AssetRegistry* registry = GetAssetRegistry())
+                    if (std::string moved = registry->GetPath(entry.Handle); !moved.empty())
+                    {
+                        ZM_CORE_INFO("Build sahnasi UUID orqali topildi: '{}' -> '{}'", entry.Path.generic_string(), moved);
+                        entry.Path = moved;
+                    }
         return s_ActiveProject;
+    }
+
+    std::vector<std::filesystem::path> Project::GetBuildScenes()
+    {
+        std::vector<std::filesystem::path> scenes;
+        if (s_ActiveProject)
+            for (const BuildSceneEntry& entry : s_ActiveProject->m_Config.BuildScenes)
+                if (entry.Enabled && !entry.Path.empty())
+                    scenes.push_back(entry.Path);
+        return scenes;
+    }
+
+    std::filesystem::path Project::GetBuildScenePath(int buildIndex)
+    {
+        std::vector<std::filesystem::path> scenes = GetBuildScenes();
+        return buildIndex >= 0 && buildIndex < (int)scenes.size() ? scenes[(size_t)buildIndex] : std::filesystem::path();
+    }
+
+    int Project::GetBuildIndex(const std::filesystem::path& scene)
+    {
+        const std::string wanted = scene.lexically_normal().generic_string();
+        std::vector<std::filesystem::path> scenes = GetBuildScenes();
+        for (size_t i = 0; i < scenes.size(); i++)
+            if (scenes[i].lexically_normal().generic_string() == wanted)
+                return (int)i;
+        return -1;
+    }
+
+    std::filesystem::path Project::FindBuildScene(std::string_view name)
+    {
+        for (const std::filesystem::path& scene : GetBuildScenes())
+            if (scene.stem().string() == name)
+                return scene;
+        return {};
+    }
+
+    bool Project::AddBuildScene(const std::filesystem::path& scene)
+    {
+        if (!s_ActiveProject || scene.empty() || scene.extension() != ".zscene")
+            return false;
+        auto& list = s_ActiveProject->m_Config.BuildScenes;
+        const std::string wanted = scene.lexically_normal().generic_string();
+        for (const BuildSceneEntry& entry : list)
+            if (entry.Path.lexically_normal().generic_string() == wanted)
+                return false;
+        BuildSceneEntry entry;
+        entry.Path = wanted;
+        list.push_back(entry);
+        return true;
     }
 
     bool Project::SaveActive(const std::filesystem::path& path)
@@ -341,6 +399,26 @@ namespace Zamin {
         };
         if (c.StartSceneHandle && !c.StartScene.empty())
             j["Project"]["StartSceneUUID"] = c.StartSceneHandle.ToString();
+        // The build scenes with their UUIDs (from the registry of the project being saved).
+        if (!c.BuildScenes.empty())
+        {
+            AssetRegistry* registry = m_Project == Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
+            json list = json::array();
+            for (BuildSceneEntry& entry : c.BuildScenes)
+            {
+                if (registry)
+                {
+                    const AssetMetadata* meta = registry->Find(entry.Path);
+                    if (meta && meta->HasMetaFile)
+                        entry.Handle = meta->Handle;
+                }
+                json item = { { "Path", entry.Path.generic_string() }, { "Enabled", entry.Enabled } };
+                if (entry.Handle)
+                    item["UUID"] = entry.Handle.ToString();
+                list.push_back(item);
+            }
+            j["BuildScenes"] = list;
+        }
         j["InputActions"] = InputMapToJson(c.InputActions);
         j["Tags"] = c.Tags;
         // Written once there is more than the Default layer (older files stay as they were).
@@ -385,6 +463,24 @@ namespace Zamin {
             c.AssetDirectory = p.value("AssetDirectory", "Assets");
             c.SourceDirectory = p.value("SourceDirectory", "Source");
             c.ScriptModulePath = p.value("ScriptModulePath", "");
+            // Build scenes (older projects: none - every scene, no build indices).
+            c.BuildScenes.clear();
+            if (auto it = j.find("BuildScenes"); it != j.end() && it->is_array())
+                for (const json& item : *it)
+                {
+                    BuildSceneEntry entry;
+                    if (item.is_string())
+                        entry.Path = item.get<std::string>();
+                    else if (item.is_object())
+                    {
+                        entry.Path = item.value("Path", std::string());
+                        entry.Enabled = item.value("Enabled", true);
+                        if (auto uuid = item.find("UUID"); uuid != item.end() && uuid->is_string())
+                            entry.Handle = AssetHandle::FromString(uuid->get<std::string>()).value_or(AssetHandle());
+                    }
+                    if (!entry.Path.empty())
+                        c.BuildScenes.push_back(entry);
+                }
             // Older projects have no input section: keep the defaults.
             if (j.contains("InputActions") && j["InputActions"].is_object())
                 c.InputActions = InputMapFromJson(j["InputActions"]);

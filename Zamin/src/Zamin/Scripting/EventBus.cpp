@@ -83,6 +83,13 @@ namespace Zamin {
         return removed;
     }
 
+    void EventBus::ForgetSender(const Scene* scene)
+    {
+        for (ScriptMessage& message : m_Queue)
+            if (message.Sender.GetScene() == scene)
+                message.Sender = {};
+    }
+
     void EventBus::Clear()
     {
         m_Pending.clear();

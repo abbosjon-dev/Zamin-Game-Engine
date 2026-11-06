@@ -5,6 +5,7 @@
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/Components.h"
 #include "Zamin/Scene/SceneSerializer.h"
+#include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Scene/Parallax.h"
 #include "Zamin/Scene/SortingLayers.h"
 #include "Zamin/Scene/TilesetProperties.h"
@@ -505,9 +506,35 @@ namespace Zamin {
         }
     }
 
+    // The running physics of an entity (bodies, fixtures, joints, characters): an entity moved into
+    // another scene gets them made again in that scene's worlds.
+    static void ResetPhysicsRuntimeData(Entity e)
+    {
+        ForEachJoint2DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            if (auto* c = e.TryGetComponent<T>())
+                ResetJointRuntime(*c);
+        });
+        ForEachJoint3DType([&](auto type) {
+            using T = typename decltype(type)::type;
+            if (auto* c = e.TryGetComponent<T>())
+                ResetJoint3DRuntime(*c);
+        });
+        if (auto* c = e.TryGetComponent<Rigidbody2DComponent>()) c->RuntimeBody = nullptr;
+        if (auto* c = e.TryGetComponent<BoxCollider2DComponent>()) c->RuntimeFixture = nullptr;
+        if (auto* c = e.TryGetComponent<CircleCollider2DComponent>()) c->RuntimeFixture = nullptr;
+        if (auto* c = e.TryGetComponent<PolygonCollider2DComponent>()) { c->RuntimeFixture = nullptr; c->RuntimePieces = 0; }
+        if (auto* c = e.TryGetComponent<EdgeCollider2DComponent>()) c->RuntimeFixture = nullptr;
+        if (auto* c = e.TryGetComponent<AreaEffector2DComponent>()) c->AffectedBodies = 0;
+        if (auto* c = e.TryGetComponent<BuoyancyEffector2DComponent>()) { c->AffectedBodies = 0; c->SubmergedArea = 0.0f; }
+        if (auto* c = e.TryGetComponent<Rigidbody3DComponent>()) c->RuntimeBodyID = 0xffffffff;
+        if (auto* c = e.TryGetComponent<TilemapComponent>()) c->RuntimeBody = nullptr;
+        if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; }
+    }
+
     // ------------------------------------------------------------------ scene
     Scene::Scene()
-        : m_EventBus(std::make_unique<EventBus>())
+        : m_EventBus(std::make_shared<EventBus>())
     {
         // Every way of adding / replacing / removing a name goes through these signals
         // (Entity::SetName uses patch -> on_update), so the name cache knows when to rebuild.
@@ -873,6 +900,114 @@ namespace Zamin {
         for (UUID child : root.GetComponent<RelationshipComponent>().Children)
             if (Entity c = scene.GetEntityByUUID(child))
                 CollectSubtree(scene, c, out);
+    }
+
+    Entity Scene::MoveEntityToScene(Entity entity, Scene& target)
+    {
+        if (!entity.IsValid() || !entity.HasComponent<IDComponent>())
+            return {};
+        Scene& source = *entity.GetScene();
+        if (&source == &target)
+            return entity;
+        // It leaves its parent behind: a root of the target, where it is in the world.
+        if (source.GetParent(entity))
+            source.SetParent(entity, {}, true);
+        std::vector<Entity> subtree;
+        CollectSubtree(source, entity, subtree);
+        for (Entity e : subtree)
+            if (target.GetEntityByUUID(e.GetUUID()))
+            {
+                ZM_CORE_WARN("'{}' boshqa sahnaga ko'chirilmadi: '{}' sahnasida shu UUID ({}) bilan obyekt bor", entity.GetName(),
+                             target.GetName(), (uint64_t)e.GetUUID());
+                return {};
+            }
+        const UUID rootID = entity.GetUUID();
+        std::vector<UUID> ids;
+        ids.reserve(subtree.size());
+        for (Entity e : subtree)
+            ids.push_back(e.GetUUID());
+
+        // What touches them in the source hears OnCollisionEnd / OnTriggerEnd (they left), then their
+        // bodies leave its worlds. A callback may destroy some of them.
+        for (UUID id : ids)
+            if (Entity e = source.GetEntityByUUID(id))
+                source.EndContactsOf(e);
+        for (UUID id : ids)
+            if (Entity e = source.GetEntityByUUID(id))
+            {
+                source.DestroyPhysicsBodies(e);
+                source.m_ScriptForces2D.erase((entt::entity)e);
+                if (source.m_FocusedInput == (entt::entity)e)
+                    source.EndInputEdit(nullptr);
+                for (entt::entity* ui : { &source.m_PressedUI, &source.m_HoveredUI, &source.m_SelectedUI, &source.m_ScrollPress })
+                    if (*ui == (entt::entity)e)
+                        *ui = entt::null;
+            }
+        if (!source.GetEntityByUUID(rootID))
+            return {};
+
+        // The copies: parents before children, the same UUIDs, every component as it is now.
+        bool pendingStart = false;
+        std::vector<Entity> moved;
+        moved.reserve(ids.size());
+        for (UUID id : ids)
+        {
+            Entity e = source.GetEntityByUUID(id);
+            if (!e)
+                continue;
+            Entity copy = target.CreateEntityWithUUID(id, e.GetName());
+            CopyComponentIfExists(AllComponents{}, copy, e);
+            copy.GetComponent<TagComponent>().Active = e.GetComponent<TagComponent>().Active;
+            ResetPhysicsRuntimeData(copy);
+            // The running script goes along: no OnDisable / OnDestroy here, no OnCreate there.
+            if (auto* nsc = e.TryGetComponent<NativeScriptComponent>(); nsc && nsc->Instance)
+            {
+                ScriptableEntity* instance = nsc->Instance;
+                nsc->Instance = nullptr;
+                copy.GetComponent<NativeScriptComponent>().Instance = instance;
+                instance->m_Entity = copy;
+                if (!instance->m_Started)
+                    pendingStart = true;
+                if (source.m_EventBus != target.m_EventBus)
+                {
+                    // Separate buses (not one SceneManager): the subscriptions cannot follow.
+                    if (source.m_EventBus->UnsubscribeOwner(instance->m_OwnerID) > 0)
+                        ZM_CORE_WARN("'{}' skriptining hodisa obunalari boshqa sahnaga o'tmadi", e.GetName());
+                }
+            }
+            // Its sounds play on (the source must not stop them when the old entity goes).
+            if (auto* a = e.TryGetComponent<AudioSourceComponent>())
+                a->RuntimeHandle = 0;
+            if (auto* zone = e.TryGetComponent<AmbientZoneComponent>())
+                zone->RuntimeHandle = 0;
+            moved.push_back(copy);
+        }
+        for (auto it = source.m_SoundOwners.begin(); it != source.m_SoundOwners.end();)
+        {
+            if (std::find(ids.begin(), ids.end(), it->second.Entity) != ids.end())
+            {
+                target.m_SoundOwners[it->first] = it->second;
+                it = source.m_SoundOwners.erase(it);
+            }
+            else
+                ++it;
+        }
+        source.DestroyEntity(source.GetEntityByUUID(rootID));
+        target.m_ActiveCacheDirty = true;
+        target.ApplyActiveChanges();
+
+        // Bodies in the target's worlds (while it runs physics), then the joints among them.
+        if (target.m_PhysicsWorld || target.m_PhysicsWorld3D)
+        {
+            for (Entity e : moved)
+                if (e.IsValid())
+                    target.CreatePhysicsBodies(e);
+            target.SyncJoints2D();
+            target.SyncJoints3D();
+        }
+        if (pendingStart && target.m_ScriptsRunning)
+            target.m_ScriptsPendingStart = true;
+        return target.GetEntityByUUID(rootID);
     }
 
     Entity Scene::Instantiate(Entity prefab) { return InstantiateCopy(prefab, nullptr); }
@@ -2101,7 +2236,8 @@ namespace Zamin {
         m_UnscaledTime = m_UnscaledDeltaTime = 0.0f;
         m_QuitRequested = false;
         m_AnimationTime = 0.0;
-        DebugDraw::Clear(); // the game starts with an empty debug drawing queue
+        if (!m_SceneManager)
+            DebugDraw::Clear(); // the game starts with an empty debug drawing queue (SceneManager: when it starts)
         // Tint animations start (PlayOnStart) from their first colour.
         for (auto e : m_Registry.view<TintAnimationComponent>())
             m_Registry.get<TintAnimationComponent>(e).ResetRuntime();
@@ -2115,33 +2251,21 @@ namespace Zamin {
         // Sources on inactive entities start when they are switched on.
         UpdateAudioListener(0.0f); // the 3D sounds start where the listener is
         std::vector<entt::entity> sources;
-        std::vector<std::filesystem::path> preloads; // clips set to Preload (inactive sources' too: they may start later)
         for (auto e : m_Registry.view<AudioSourceComponent>())
         {
-            auto& a = m_Registry.get<AudioSourceComponent>(e);
-            a.ResetRuntime(); // nothing left from an earlier run
+            m_Registry.get<AudioSourceComponent>(e).ResetRuntime(); // nothing left from an earlier run
             sources.push_back(e);
-            if (!a.Path.empty())
-            {
-                std::filesystem::path file = Project::GetAssetFileSystemPath(a.Path);
-                if (AssetImporter::GetAudioSettings(file).Preload && std::find(preloads.begin(), preloads.end(), file) == preloads.end())
-                    preloads.push_back(file);
-            }
         }
         for (auto e : m_Registry.view<AmbientZoneComponent>())
+            m_Registry.get<AmbientZoneComponent>(e).ResetRuntime(); // the zones fade in from silence where the listener is
+        // A scene of a SceneManager: the manager keeps the clips of every loaded scene preloaded and
+        // takes the finished sounds for all of them.
+        if (!m_SceneManager)
         {
-            auto& zone = m_Registry.get<AmbientZoneComponent>(e);
-            zone.ResetRuntime(); // the zones fade in from silence where the listener is
-            if (!zone.Path.empty())
-            {
-                std::filesystem::path file = Project::GetAssetFileSystemPath(zone.Path);
-                if (AssetImporter::GetAudioSettings(file).Preload && std::find(preloads.begin(), preloads.end(), file) == preloads.end())
-                    preloads.push_back(file);
-            }
+            AudioEngine::SetScenePreloads(CollectAudioPreloads());
+            // Sounds that ended before this run (an earlier scene, the editor's previews) are not its.
+            AudioEngine::TakeFinishedSounds();
         }
-        AudioEngine::SetScenePreloads(preloads);
-        // Sounds that ended before this run (an earlier scene, the editor's previews) are not its.
-        AudioEngine::TakeFinishedSounds();
         m_SoundOwners.clear();
         std::reverse(sources.begin(), sources.end()); // scene order
         for (auto e : sources)
@@ -2171,7 +2295,12 @@ namespace Zamin {
         OnPhysics2DStop();
         OnPhysics3DStop();
         m_AppliedInactive.clear();
-        AudioEngine::StopAllExceptMusic(); // the music is the game's: it goes on into the next scene
+        // The music is the game's: it goes on into the next scene. A scene of a SceneManager stops
+        // only its own sounds (the other loaded scenes - a persistent one - play on).
+        if (m_SceneManager)
+            StopOwnSounds();
+        else
+            AudioEngine::StopAllExceptMusic();
         for (auto e : m_Registry.view<AudioSourceComponent>())
             m_Registry.get<AudioSourceComponent>(e).ResetRuntime();
         for (auto e : m_Registry.view<AmbientZoneComponent>())
@@ -2179,7 +2308,40 @@ namespace Zamin {
         m_SoundOwners.clear();
         ResetUIRuntime();
         SaveData::Save(); // flush what the scripts stored (no-op when nothing changed)
-        DebugDraw::Clear(); // nothing the game drew stays in the editor's view
+        if (!m_SceneManager)
+            DebugDraw::Clear(); // nothing the game drew stays in the editor's view (SceneManager: when it stops)
+    }
+
+    std::vector<std::filesystem::path> Scene::CollectAudioPreloads()
+    {
+        // Clips set to Preload (inactive sources' too: they may start later).
+        std::vector<std::filesystem::path> preloads;
+        auto add = [&](const std::string& path) {
+            if (path.empty())
+                return;
+            std::filesystem::path file = Project::GetAssetFileSystemPath(path);
+            if (AssetImporter::GetAudioSettings(file).Preload && std::find(preloads.begin(), preloads.end(), file) == preloads.end())
+                preloads.push_back(file);
+        };
+        for (auto e : m_Registry.view<AudioSourceComponent>())
+            add(m_Registry.get<AudioSourceComponent>(e).Path);
+        for (auto e : m_Registry.view<AmbientZoneComponent>())
+            add(m_Registry.get<AmbientZoneComponent>(e).Path);
+        return preloads;
+    }
+
+    void Scene::StopOwnSounds()
+    {
+        for (auto e : m_Registry.view<AudioSourceComponent>())
+            if (auto& a = m_Registry.get<AudioSourceComponent>(e); a.RuntimeHandle)
+                AudioEngine::Stop(a.RuntimeHandle);
+        for (auto e : m_Registry.view<AmbientZoneComponent>())
+            if (auto& zone = m_Registry.get<AmbientZoneComponent>(e); zone.RuntimeHandle)
+                AudioEngine::Stop(zone.RuntimeHandle);
+        // One-shots of its scripts (PlaySound) and of its Audio Sources that were restarted.
+        for (const auto& [handle, owner] : m_SoundOwners)
+            if (AudioEngine::IsPlaying(handle) || AudioEngine::IsPaused(handle))
+                AudioEngine::Stop(handle);
     }
 
     void Scene::OnSimulationStart()
@@ -2395,8 +2557,10 @@ namespace Zamin {
             if (m_Registry.valid(e))
                 DestroyScriptInstance({ e, this });
         // Anything left (unowned handlers, queued payloads) may point into the script
-        // module, which can be unloaded / reloaded after this.
-        m_EventBus->Clear();
+        // module, which can be unloaded / reloaded after this. A bus shared with the other scenes
+        // of a SceneManager is the manager's to clear (its owners' handlers went above).
+        if (!m_SharedEventBus)
+            m_EventBus->Clear();
         m_ActiveContacts.clear();
         m_ScriptsPendingStart = false;
         DeleteRetiredScripts();
@@ -4350,6 +4514,12 @@ namespace Zamin {
 
     void Scene::OnUpdateRuntime(Timestep ts)
     {
+        UpdateRuntime(ts);
+        RenderRuntime();
+    }
+
+    void Scene::UpdateRuntime(Timestep ts)
+    {
         m_FrameIndex++;
         DeleteRetiredScripts(); // destroyed between frames (editor, other code)
         const bool gamePausedBeforeUI = IsGamePaused();
@@ -4367,7 +4537,8 @@ namespace Zamin {
         {
             // The game is paused (time scale 0): only the scripts that run while it is (a pause menu);
             // the last game frame's debug shapes stay.
-            DebugDraw::Hold();
+            if (!m_FrameFollower)
+                DebugDraw::Hold();
             UpdatePausedScripts();
         }
         else if (advance)
@@ -4379,8 +4550,10 @@ namespace Zamin {
             for (auto e : m_Registry.view<SpriteRendererComponent>())
                 if (auto& sprite = m_Registry.get<SpriteRendererComponent>(e); sprite.FlashTime > 0.0f)
                     sprite.UpdateFlash(ts);
-            // Game time goes on: last frame's one-frame debug shapes go (paused: they stay).
-            DebugDraw::Advance(ts);
+            // Game time goes on: last frame's one-frame debug shapes go (paused: they stay). With
+            // several scenes (SceneManager) the first one of the frame does it.
+            if (!m_FrameFollower)
+                DebugDraw::Advance(ts);
 
             std::vector<entt::entity> scripted;
             auto collectScripted = [&]() {
@@ -4452,32 +4625,56 @@ namespace Zamin {
             FlushDestroyQueue();
             DeleteRetiredScripts();
         }
-        else
+        else if (!m_FrameFollower)
             DebugDraw::Hold(); // paused: the last game frame's shapes stay, nothing piles up
-
         m_UIDeferred = false;
+    }
+
+    bool Scene::GetRuntimeView(RuntimeView& out)
+    {
         Entity cameraEntity = GetPrimaryCameraEntity();
         if (!cameraEntity)
-            return;
+            return false;
         auto& camera = cameraEntity.GetComponent<CameraComponent>();
         glm::mat4 cameraWorld = GetCameraViewTransform(cameraEntity); // with its shake (pixel perfect: on the pixel grid)
-        SceneRenderOptions options;
-        options.Parallax = true; // the game camera moves the parallax layers
+        out = {};
+        out.View = glm::inverse(cameraWorld);
+        out.Position = glm::vec3(cameraWorld[3]);
         PixelPerfectView pixel;
         if (!GetPixelPerfectView(pixel))
         {
-            RenderScene(glm::inverse(cameraWorld), camera.Camera.GetProjection(), glm::vec3(cameraWorld[3]), options);
-            return;
+            out.Projection = out.ViewProjection = camera.Camera.GetProjection();
+            return true;
         }
         // Pixel perfect: drawn over the whole render target; the screen <-> world mapping (overlays,
         // debug drawing, ScreenToWorld) is what the view shows of it.
         if (camera.PixelPerfect.SnapSprites)
-            options.PixelSnap = pixel.SnapUnit;
+            out.PixelSnap = pixel.SnapUnit;
         // Upscaling: the UI is drawn by the host at the screen's resolution (crisp text).
-        options.DeferUI = m_UIDeferred = pixel.Upscale;
+        out.DeferUI = pixel.Upscale;
         const float nearClip = camera.Camera.GetOrthographicNearClip(), farClip = camera.Camera.GetOrthographicFarClip();
-        RenderScene(glm::inverse(cameraWorld), PixelPerfect::GetProjection(pixel, nearClip, farClip, true), glm::vec3(cameraWorld[3]), options);
-        m_LastProjection = PixelPerfect::GetProjection(pixel, nearClip, farClip, false);
+        out.Projection = PixelPerfect::GetProjection(pixel, nearClip, farClip, true);
+        out.ViewProjection = PixelPerfect::GetProjection(pixel, nearClip, farClip, false);
+        return true;
+    }
+
+    void Scene::RenderRuntime()
+    {
+        m_UIDeferred = false;
+        RuntimeView view;
+        if (GetRuntimeView(view))
+            RenderRuntime(view, false);
+    }
+
+    void Scene::RenderRuntime(const RuntimeView& view, bool overlay)
+    {
+        SceneRenderOptions options;
+        options.Parallax = true; // the game camera moves the parallax layers
+        options.PixelSnap = view.PixelSnap;
+        options.DeferUI = m_UIDeferred = view.DeferUI;
+        options.Overlay = overlay;
+        RenderScene(view.View, view.Projection, view.Position, options);
+        m_LastProjection = view.ViewProjection;
     }
 
     void Scene::OnUpdateSimulation(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options)
@@ -5808,7 +6005,8 @@ namespace Zamin {
             listener.LastPosition = position;
             listener.HasLastPosition = true;
         }
-        if (!AudioEngine::IsAvailable())
+        // SceneManager: one of the loaded scenes places the listener (the one whose camera draws the game).
+        if (!AudioEngine::IsAvailable() || !m_PlacesAudioListener)
             return;
         Entity entity = GetAudioListenerEntity();
         if (!entity)
@@ -5986,7 +6184,8 @@ namespace Zamin {
 
     void Scene::DispatchFinishedSounds()
     {
-        std::vector<FinishedSound> finished = AudioEngine::TakeFinishedSounds();
+        // SceneManager: taken once a frame for every scene it runs (each looks for its own sounds).
+        std::vector<FinishedSound> finished = m_SceneManager ? m_SceneManager->GetFrameFinishedSounds() : AudioEngine::TakeFinishedSounds();
         // Sounds stopped on purpose never report back: their entries are dropped now and then. Only
         // here, right after the queue was taken: an entry whose sound ended but waits there (this
         // frame's scripts ran in between) must not go before it is dispatched.
@@ -6447,7 +6646,7 @@ namespace Zamin {
 
         // ---------------- 3D
         SceneEnvironment env;
-        env.DrawSky = m_Settings.DrawSky;
+        env.DrawSky = m_Settings.DrawSky && !options.Overlay; // an additive scene adds to the active one's picture
         env.SkyTopColor = m_Settings.SkyTopColor;
         env.SkyHorizonColor = m_Settings.SkyHorizonColor;
         env.GroundColor = m_Settings.GroundColor;

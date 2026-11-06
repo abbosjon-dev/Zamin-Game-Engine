@@ -5,6 +5,8 @@
 #include <glad/glad.h>
 #include <stb_image.h>
 
+#include <memory>
+#include <mutex>
 #include <unordered_map>
 
 namespace Zamin {
@@ -33,6 +35,67 @@ namespace Zamin {
         }
     }
 
+    struct GLDecodedImage
+    {
+        stbi_uc* Pixels = nullptr;
+        uint32_t Width = 0, Height = 0;
+        ImageFormat Format = ImageFormat::RGBA8;
+        std::string Error;
+
+        GLDecodedImage() = default;
+        GLDecodedImage(const GLDecodedImage&) = delete;
+        GLDecodedImage& operator=(const GLDecodedImage&) = delete;
+        ~GLDecodedImage() { if (Pixels) stbi_image_free(Pixels); }
+    };
+
+    static bool Decode(const std::string& path, GLDecodedImage& image)
+    {
+        if (std::string unreadable = AssetImportLog::CheckReadable(path); !unreadable.empty())
+        {
+            image.Error = std::move(unreadable);
+            return false;
+        }
+        int width, height, channels;
+        stbi_set_flip_vertically_on_load_thread(1); // per thread (see Image::Load)
+        image.Pixels = stbi_load(path.c_str(), &width, &height, &channels, 0);
+        if (image.Pixels && channels == 2) // grey + alpha: expand to RGBA
+        {
+            stbi_image_free(image.Pixels);
+            image.Pixels = stbi_load(path.c_str(), &width, &height, &channels, 4);
+            channels = 4;
+        }
+        if (!image.Pixels)
+        {
+            image.Error = AssetImportLog::DescribeImageError(stbi_failure_reason());
+            return false;
+        }
+        image.Width = (uint32_t)width;
+        image.Height = (uint32_t)height;
+        image.Format = channels == 3 ? ImageFormat::RGB8 : channels == 1 ? ImageFormat::R8 : ImageFormat::RGBA8;
+        return true;
+    }
+
+    // Pixels decoded ahead of their upload (TextureLibrary::Predecode, any thread), by canonical file.
+    static std::mutex s_PredecodeMutex;
+    static std::unordered_map<std::string, std::unique_ptr<GLDecodedImage>> s_Predecoded;
+
+    // The file's predecoded pixels move into `image` (false when there are none).
+    static bool TakePredecoded(const std::string& path, GLDecodedImage& image)
+    {
+        std::lock_guard lock(s_PredecodeMutex);
+        auto it = s_Predecoded.find(path);
+        if (it == s_Predecoded.end())
+            return false;
+        GLDecodedImage& ready = *it->second;
+        image.Pixels = ready.Pixels;
+        image.Width = ready.Width;
+        image.Height = ready.Height;
+        image.Format = ready.Format;
+        ready.Pixels = nullptr;
+        s_Predecoded.erase(it);
+        return true;
+    }
+
     class OpenGLTexture2D : public Texture2D
     {
     public:
@@ -45,8 +108,9 @@ namespace Zamin {
         OpenGLTexture2D(const std::string& path, const TextureImportSettings& settings) : m_Path(path), m_FromFile(true)
         {
             ApplySettings(settings);
-            DecodedImage image;
-            if (!Decode(path, image))
+            GLDecodedImage image;
+            // Decoded ahead on a loading thread (an async scene load): only the upload is left.
+            if (!TakePredecoded(path, image) && !Decode(path, image))
             {
                 AssetImportLog::Report(path, image.Error); // once per file version
                 return;
@@ -105,7 +169,7 @@ namespace Zamin {
                 if (error) *error = "fayldan yuklanmagan";
                 return false;
             }
-            DecodedImage image;
+            GLDecodedImage image;
             if (!Decode(m_Path, image))
             {
                 if (error)
@@ -164,46 +228,6 @@ namespace Zamin {
         bool operator==(const Texture& other) const override { return m_RendererID == other.GetRendererID(); }
 
     private:
-        struct DecodedImage
-        {
-            stbi_uc* Pixels = nullptr;
-            uint32_t Width = 0, Height = 0;
-            ImageFormat Format = ImageFormat::RGBA8;
-            std::string Error;
-
-            DecodedImage() = default;
-            DecodedImage(const DecodedImage&) = delete;
-            DecodedImage& operator=(const DecodedImage&) = delete;
-            ~DecodedImage() { if (Pixels) stbi_image_free(Pixels); }
-        };
-
-        static bool Decode(const std::string& path, DecodedImage& image)
-        {
-            if (std::string unreadable = AssetImportLog::CheckReadable(path); !unreadable.empty())
-            {
-                image.Error = std::move(unreadable);
-                return false;
-            }
-            int width, height, channels;
-            stbi_set_flip_vertically_on_load_thread(1); // per thread (see Image::Load)
-            image.Pixels = stbi_load(path.c_str(), &width, &height, &channels, 0);
-            if (image.Pixels && channels == 2) // grey + alpha: expand to RGBA
-            {
-                stbi_image_free(image.Pixels);
-                image.Pixels = stbi_load(path.c_str(), &width, &height, &channels, 4);
-                channels = 4;
-            }
-            if (!image.Pixels)
-            {
-                image.Error = AssetImportLog::DescribeImageError(stbi_failure_reason());
-                return false;
-            }
-            image.Width = (uint32_t)width;
-            image.Height = (uint32_t)height;
-            image.Format = channels == 3 ? ImageFormat::RGB8 : channels == 1 ? ImageFormat::R8 : ImageFormat::RGBA8;
-            return true;
-        }
-
         void ApplySettings(const TextureImportSettings& settings)
         {
             m_Specification.Filter = settings.Filter;
@@ -355,6 +379,39 @@ namespace Zamin {
     }
 
     uint64_t TextureLibrary::GetLoadSerial() { return s_LoadSerial; }
+
+    bool TextureLibrary::Predecode(const std::filesystem::path& path)
+    {
+        const std::string file = CanonicalFile(path);
+        {
+            std::lock_guard lock(s_PredecodeMutex);
+            if (s_Predecoded.contains(file))
+                return true;
+        }
+        auto image = std::make_unique<GLDecodedImage>();
+        if (!Decode(file, *image))
+            return false; // the upload decodes it again and reports why it cannot be read
+        std::lock_guard lock(s_PredecodeMutex);
+        s_Predecoded.try_emplace(file, std::move(image));
+        return true;
+    }
+
+    void TextureLibrary::DropPredecoded(const std::vector<std::filesystem::path>& paths)
+    {
+        std::vector<std::string> files;
+        files.reserve(paths.size());
+        for (const auto& path : paths)
+            files.push_back(CanonicalFile(path));
+        std::lock_guard lock(s_PredecodeMutex);
+        for (const std::string& file : files)
+            s_Predecoded.erase(file);
+    }
+
+    size_t TextureLibrary::GetPredecodedCount()
+    {
+        std::lock_guard lock(s_PredecodeMutex);
+        return s_Predecoded.size();
+    }
 
     size_t TextureLibrary::ReleaseUnused(uint64_t since)
     {

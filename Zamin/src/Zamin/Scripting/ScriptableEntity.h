@@ -3,6 +3,7 @@
 #include "Zamin/Math/Easing.h"
 #include "Zamin/Scene/TintAnimation.h"
 #include "Zamin/Scene/Entity.h"
+#include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Core/Input.h"
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Math/Random.h"
@@ -230,7 +231,8 @@ namespace Zamin {
         const std::string& GetName() const { return m_Entity.GetName(); }
         void SetName(const std::string& name) { m_Entity.SetName(name); }
 
-        // First entity with this name (cached hash lookup, cheap enough to call every frame).
+        // First entity with this name (cached hash lookup, cheap enough to call every frame): in this
+        // script's scene, else in the other loaded scenes (the active one first, the persistent last).
         Entity FindEntity(std::string_view name) const;
         std::vector<Entity> FindEntities(std::string_view name) const;
 
@@ -238,6 +240,7 @@ namespace Zamin {
         bool HasTag(std::string_view tag) const { return m_Entity.HasTag(tag); }
         bool AddTag(std::string_view tag) { return m_Entity.AddTag(tag); }
         bool RemoveTag(std::string_view tag) { return m_Entity.RemoveTag(tag); }
+        // This scene's first, then the other loaded scenes'.
         std::vector<Entity> FindEntitiesWithTag(std::string_view tag) const;
         Entity FindEntityWithTag(std::string_view tag) const;
         // Copy an existing entity (a "prefab") into the running scene. The copies keep their
@@ -538,8 +541,37 @@ namespace Zamin {
         // The name of the sprite clip playing ("" = none).
         std::string GetSpriteClip() const;
 
-        // ---- scenes: switch to another scene at the end of the frame (path relative to Assets)
+        // ---- scenes (SceneManager; paths relative to Assets, or a build scene's name: "Level2").
+        // The switch happens at the end of the frame. Single: every loaded scene goes and this one
+        // comes (objects given to DontDestroyOnLoad stay); Additive: it is loaded next to them.
+        //   LoadScene("Scenes/Level2.zscene");
+        //   LoadScene("Scenes/Level2.zscene", SceneTransition::Fade(0.5f));   // fade out to black, in again
+        //   LoadScene("Scenes/HUD.zscene", LoadSceneMode::Additive);
+        //   LoadScene(2);                                                      // build index (Project settings)
         void LoadScene(const std::string& scenePath);
+        void LoadScene(const std::string& scenePath, LoadSceneMode mode, const SceneTransition& transition = {});
+        void LoadScene(const std::string& scenePath, const SceneTransition& transition);
+        // False when the build list has no such index.
+        bool LoadScene(int buildIndex, LoadSceneMode mode = LoadSceneMode::Single, const SceneTransition& transition = {});
+        // In the background (a loading screen): the file is read, parsed and its textures decoded on a
+        // worker thread, the rest a slice per frame; GetProgress() 0..1 (0.9: loaded, waiting for
+        // activation). SetAllowSceneActivation(false) holds it until the screen is ready. Null without
+        // a scene manager (a scene running on its own) or when the file is missing.
+        //   m_Load = LoadSceneAsync("Scenes/Level1.zscene");
+        //   m_Load->SetAllowSceneActivation(false);
+        //   ... bar.Value = m_Load->GetProgress() / 0.9f; if (m_Load->IsReady()) m_Load->SetAllowSceneActivation(true);
+        Ref<AsyncOperation> LoadSceneAsync(const std::string& scenePath, LoadSceneMode mode = LoadSceneMode::Single,
+                                           const SceneTransition& transition = {});
+        // Unloads a loaded scene (its name or path) at the end of the frame (not the last one).
+        bool UnloadScene(const std::string& nameOrPath);
+        // `entity` (this one without an argument; a child leaves its parent) with its descendants moves
+        // to the persistent DontDestroyOnLoad scene at the end of the frame: it survives every scene
+        // switch, its script goes on with its values and subscriptions, its sounds keep playing.
+        //   void OnCreate() override { DontDestroyOnLoad(); }  // a game manager with the music
+        void DontDestroyOnLoad();
+        void DontDestroyOnLoad(Entity entity);
+        // The game's scene manager (null for a scene running on its own: tests, the editor's simulate).
+        SceneManager* GetSceneManager() const { return m_Entity.GetScene() ? m_Entity.GetScene()->GetSceneManager() : nullptr; }
 
         // ---- audio (music and the mixer groups: the Audio class, e.g. Audio::CrossfadeTo("Audio/boss.ogg"))
         // A one-shot sound in a mixer group (SFX, UI, ... ; an unknown name: SFX). The PlaySound
@@ -608,7 +640,8 @@ namespace Zamin {
         // ---- time
         float GetTime() const;
         // The game's clock (Scene::SetTimeScale): 1 normal, 0.5 slow motion, 0 paused - OnUpdate's
-        // time, timers, physics and animations follow it; the UI does not.
+        // time, timers, physics and animations follow it; the UI does not. Every loaded scene runs on
+        // the same clock (a persistent pause menu pauses the level too).
         void SetTimeScale(float scale);
         float GetTimeScale() const;
         // Pauses the game (time scale 0) / goes on at the scale it had: a pause menu.
@@ -639,7 +672,8 @@ namespace Zamin {
         void CancelTweens();
         bool IsTweening() const;
 
-        // ---- entity references (EntityRef fields)
+        // ---- entity references (EntityRef fields): in this scene, else in the other loaded scenes
+        // (an entity moved to DontDestroyOnLoad keeps its UUID).
         Entity Resolve(const EntityRef& ref) const;
 
         // ---- messages: delivered immediately to the target's script

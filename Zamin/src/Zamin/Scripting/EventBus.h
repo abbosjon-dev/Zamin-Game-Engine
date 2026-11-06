@@ -84,6 +84,9 @@ namespace Zamin {
         int UnsubscribeOwner(uint64_t owner);
         // Removes all subscriptions and queued events.
         void Clear();
+        // Queued (EmitDeferred) events sent by entities of `scene` lose their sender: the scene is
+        // going away (SceneManager unloading it while the bus lives on).
+        void ForgetSender(const Scene* scene);
 
         // Calls every handler subscribed to message.Name, in subscription order.
         // Returns the number of handlers called.

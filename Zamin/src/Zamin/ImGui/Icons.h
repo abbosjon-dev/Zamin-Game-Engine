@@ -198,3 +198,8 @@
 #define ICON_FA_SWATCHBOOK "\xef\x97\x83" // particle presets
 #define ICON_FA_CLOUD_RAIN "\xef\x9c\xbd" // rain / weather around the camera
 #define ICON_FA_SMOG "\xef\x9d\x9f"       // dust
+// scene management (M15): loaded scenes, build list
+#define ICON_FA_STAR "\xef\x80\x85"          // the active scene / the start scene
+#define ICON_FA_THUMBTACK "\xef\x82\x8d"     // DontDestroyOnLoad (persistent) scene
+#define ICON_FA_GRIP_LINES "\xef\x9e\xa4"    // drag handle (build scenes)
+#define ICON_FA_LIST_OL "\xef\x83\x8b"       // build scenes list

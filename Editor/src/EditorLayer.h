@@ -16,6 +16,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <thread>
 #include <unordered_set>
@@ -114,7 +115,12 @@ namespace Zamin {
         void RevealAsset(const std::filesystem::path& path);
         // Shows the Sprite Editor for a texture (path relative to Assets).
         void OpenSpriteEditor(const std::string& texturePath);
-        void LoadRuntimeScene(const std::filesystem::path& path);
+        // Play mode: after the scene manager's switches (end of the frame) the editor follows its
+        // active scene (the hierarchy, the inspector).
+        void SyncRuntimeScenes();
+        // The scene whose picture the viewport shows: in play mode the scene manager's render scene
+        // (its camera, sky and post-processing), else the active scene.
+        Scene& GetViewScene();
 
         void OnScenePlay();
         void OnSceneSimulate();
@@ -297,6 +303,10 @@ namespace Zamin {
         Ref<Framebuffer> m_FinalFramebuffer; // after post-processing + overlays
         Ref<Scene> m_ActiveScene;
         Ref<Scene> m_EditorScene;
+        // Play mode: every scene of the running game (additive ones, DontDestroyOnLoad); the hierarchy
+        // shows one of them at a time (m_ActiveScene).
+        std::unique_ptr<SceneManager> m_RuntimeScenes;
+        uint64_t m_RuntimeActiveSerial = 0;
         std::filesystem::path m_EditorScenePath;
         bool m_SceneDirty = false;
 

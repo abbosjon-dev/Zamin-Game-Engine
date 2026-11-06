@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -62,19 +63,25 @@ namespace Zamin {
             if (auto module = Project::GetScriptModulePath(); !module.empty())
                 ScriptEngine::LoadModule(module);
 
-            std::filesystem::path scenePath = Project::GetAssetFileSystemPath(m_SceneOverride.empty() ? config.StartScene : std::filesystem::path(m_SceneOverride));
-            m_Scene = CreateRef<Scene>();
-            SceneSerializer serializer(m_Scene);
-            if (!serializer.Deserialize(scenePath))
+            // The start scene: --scene, else the project's start scene, else the first build scene.
+            std::filesystem::path start = m_SceneOverride.empty() ? config.StartScene : std::filesystem::path(m_SceneOverride);
+            if (start.empty())
+                start = Project::GetBuildScenePath(0);
+            std::filesystem::path scenePath = Project::GetAssetFileSystemPath(start);
+            // Every scene of the game runs in the scene manager: additive scenes, DontDestroyOnLoad,
+            // background loading and fades between scenes.
+            m_Scenes = std::make_unique<SceneManager>();
+            auto& window = Application::Get().GetWindow();
+            m_Scenes->OnViewportResize(window.GetFramebufferWidth(), window.GetFramebufferHeight());
+            std::string error;
+            if (!m_Scenes->Start(scenePath, &error))
             {
-                ZM_CRITICAL("Boshlang'ich sahna yuklanmadi: {} ({})", scenePath.string(), serializer.GetLastError());
+                ZM_CRITICAL("Boshlang'ich sahna yuklanmadi: {} ({})", scenePath.string(), error);
+                m_Scenes.reset();
                 Application::Get().Close();
                 return;
             }
-            m_Scene->ResolveAssets();
-            auto& window = Application::Get().GetWindow();
-            m_Scene->OnViewportResize(window.GetFramebufferWidth(), window.GetFramebufferHeight());
-            m_Scene->OnRuntimeStart();
+            m_ActiveSerial = m_Scenes->GetActiveSceneSerial();
 
             // Automation (comparisons, CI): ZAMIN_PLAYER_NO_CULLING=1 / ZAMIN_PLAYER_NO_INSTANCING=1 turn the
             // renderer's frustum culling / GPU instancing off; ZAMIN_PLAYER_STATS=1 logs the last frame's
@@ -157,10 +164,10 @@ namespace Zamin {
                 ZM_INFO("Profiler (oxirgi kadr, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
                 ZM_INFO("Audio profili (oxirgi kadr): {}", m_LastAudioProfile);
             }
-            if (m_Scene)
+            if (m_Scenes)
             {
-                m_Scene->OnRuntimeStop();
-                m_Scene.reset();
+                m_Scenes->Stop();
+                m_Scenes.reset();
             }
             ScriptEngine::UnloadModule();
             Display::BindWindow(nullptr);
@@ -168,7 +175,7 @@ namespace Zamin {
 
         void OnUpdate(Timestep ts) override
         {
-            if (!m_Scene) return;
+            if (!m_Scenes) return;
             if (!m_ScriptedInput.empty())
                 PlayScriptedInput();
             // The audio engine is shut down before OnDetach: its profile is kept from the last frame.
@@ -177,19 +184,21 @@ namespace Zamin {
                 m_LastAudioProfile = AudioEngine::GetProfile().Format();
             auto& window = Application::Get().GetWindow();
             uint32_t w = window.GetFramebufferWidth(), h = window.GetFramebufferHeight();
-            m_Scene->OnViewportResize(w, h);
+            m_Scenes->OnViewportResize(w, h);
 
             Renderer::ResetStats();
             glm::vec2 mouse = m_HasScriptedMouse ? m_ScriptedMouse : Input::GetMousePosition();
             float scale = window.GetWidth() > 0 ? (float)w / (float)window.GetWidth() : 1.0f;
-            m_Scene->SetViewportMouse(mouse * scale, Input::IsMouseButtonPressed(MouseButton::Left) || m_ScriptedClick || m_ScriptedHold);
-            m_Scene->SetViewportScroll(Input::GetMouseScrollDelta() + m_ScriptedScroll);
+            m_Scenes->SetViewportMouse(mouse * scale, Input::IsMouseButtonPressed(MouseButton::Left) || m_ScriptedClick || m_ScriptedHold);
+            m_Scenes->SetViewportScroll(Input::GetMouseScrollDelta() + m_ScriptedScroll);
 
-            const auto& post = m_Scene->GetSettings().Post;
+            // The scene whose camera draws the game: its picture settings (render size, post-processing).
+            Scene* view = m_Scenes->GetRenderScene();
+            const auto& post = view->GetSettings().Post;
             // The scene is rendered in linear HDR at the render scale of the window's size, then
             // tonemapped (and scaled) to the screen.
             // (A pixel-perfect camera: the art's resolution, blown up with sharp pixels.)
-            const glm::uvec2 renderSize = m_Scene->GetRuntimeRenderResolution(w, h);
+            const glm::uvec2 renderSize = view->GetRuntimeRenderResolution(w, h);
             if (!m_Target)
             {
                 FramebufferSpecification spec;
@@ -201,10 +210,11 @@ namespace Zamin {
                 m_Target->Resize(renderSize.x, renderSize.y);
             m_Target->Bind();
 
-            glm::vec4 clear = m_Scene->GetClearColor();
+            glm::vec4 clear = view->GetClearColor();
             RenderCommand::SetClearColor({ std::pow(clear.r, 2.2f), std::pow(clear.g, 2.2f), std::pow(clear.b, 2.2f), clear.a });
             RenderCommand::Clear();
-            m_Scene->OnUpdateRuntime(ts);
+            m_Scenes->OnUpdate(ts);
+            view = m_Scenes->GetRenderScene(); // its frame may have switched its camera off
 
             {
                 m_Target->Unbind();
@@ -214,12 +224,12 @@ namespace Zamin {
                 input.Width = m_Target->GetSpecification().Width;
                 input.Height = m_Target->GetSpecification().Height;
                 input.DepthTexture = m_Target->GetDepthAttachmentRendererID();
-                input.Projection = m_Scene->GetLastProjection();
+                input.Projection = view->GetLastProjection();
                 input.OutputWidth = w;
                 input.OutputHeight = h;
                 input.DeltaTime = ts;
                 input.History = &m_PostHistory;
-                if (PixelPerfectView pixel; m_Scene->GetPixelPerfectView(pixel) && pixel.Upscale &&
+                if (PixelPerfectView pixel; view->GetPixelPerfectView(pixel) && pixel.Upscale &&
                                             pixel.RenderSize == glm::uvec2(input.Width, input.Height))
                 {
                     input.PixelZoom = pixel.Zoom;
@@ -227,47 +237,38 @@ namespace Zamin {
                 }
                 PostProcessor::Apply(input, post, nullptr);
                 // A pixel-perfect game's UI: over the finished picture, at the screen's resolution.
-                if (m_Scene->HasDeferredUI())
-                    m_Scene->RenderDeferredUI();
+                m_Scenes->RenderDeferredUI();
 
                 // Debug drawing over the finished picture, depth tested against the scene.
-                if (m_Scene->GetPrimaryCameraEntity())
+                if (view->GetPrimaryCameraEntity())
                 {
-                    DebugDrawView view;
-                    view.View = m_Scene->GetLastView();
-                    view.Projection = m_Scene->GetLastProjection();
-                    view.Width = w;
-                    view.Height = h;
-                    view.DepthTexture = m_Target->GetDepthAttachmentRendererID();
-                    view.DepthWidth = m_Target->GetSpecification().Width;
-                    view.DepthHeight = m_Target->GetSpecification().Height;
-                    DebugDraw::Render(view);
+                    DebugDrawView debugView;
+                    debugView.View = view->GetLastView();
+                    debugView.Projection = view->GetLastProjection();
+                    debugView.Width = w;
+                    debugView.Height = h;
+                    debugView.DepthTexture = m_Target->GetDepthAttachmentRendererID();
+                    debugView.DepthWidth = m_Target->GetSpecification().Width;
+                    debugView.DepthHeight = m_Target->GetSpecification().Height;
+                    DebugDraw::Render(debugView);
                 }
+                // A fade between scenes covers everything.
+                m_Scenes->RenderTransition(w, h);
             }
 
-            if (m_Scene->IsQuitRequested())
+            if (m_Scenes->IsQuitRequested())
             {
                 ZM_INFO("O'yin chiqishni so'radi");
-                m_Scene->ClearQuitRequest();
+                m_Scenes->ClearQuitRequest();
                 Application::Get().Close();
                 return;
             }
-            if (!m_Scene->GetPendingSceneLoad().empty())
+            // Scene switches asked for in this frame (LoadScene, async activations, DontDestroyOnLoad).
+            m_Scenes->ProcessRequests();
+            if (m_Scenes->GetActiveSceneSerial() != m_ActiveSerial)
             {
-                std::filesystem::path next = Project::GetAssetFileSystemPath(m_Scene->GetPendingSceneLoad());
-                m_Scene->ClearPendingSceneLoad();
-                Ref<Scene> scene = CreateRef<Scene>();
-                if (SceneSerializer(scene).Deserialize(next))
-                {
-                    m_Scene->OnRuntimeStop();
-                    scene->ResolveAssets();
-                    scene->OnViewportResize(w, h);
-                    m_Scene = scene;
-                    m_Scene->OnRuntimeStart();
-                    m_PostHistory.Reset(); // the new level adapts at once (not from the last one's brightness)
-                }
-                else
-                    ZM_ERROR("Sahna yuklanmadi: {}", next.string());
+                m_ActiveSerial = m_Scenes->GetActiveSceneSerial();
+                m_PostHistory.Reset(); // the new level adapts at once (not from the last one's brightness)
             }
         }
 
@@ -286,7 +287,8 @@ namespace Zamin {
         std::string m_SceneOverride;
         DebugDrawFlags m_DebugDrawFlags;
         std::string m_LastAudioProfile = "-";
-        Ref<Scene> m_Scene;
+        std::unique_ptr<SceneManager> m_Scenes;
+        uint64_t m_ActiveSerial = 0;
         Ref<Framebuffer> m_Target;
         PostProcessHistory m_PostHistory; // auto exposure: the screen's adapted brightness
         // ZAMIN_PLAYER_INPUT

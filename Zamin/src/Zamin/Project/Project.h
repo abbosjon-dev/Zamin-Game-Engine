@@ -10,11 +10,24 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace Zamin {
 
     class AssetRegistry;
+
+    // A scene of the game's build list (Project settings > Build scenes).
+    struct BuildSceneEntry
+    {
+        std::filesystem::path Path;   // relative to AssetDirectory
+        // UUID of the scene ("UUID"): finds it when it was renamed / moved outside the editor.
+        AssetHandle Handle;
+        // A disabled scene keeps its place in the list but has no build index and is not exported.
+        bool Enabled = true;
+
+        bool operator==(const BuildSceneEntry& other) const { return Path == other.Path && Enabled == other.Enabled; }
+    };
 
     struct ProjectConfig
     {
@@ -46,6 +59,10 @@ namespace Zamin {
         // Projects without an "Audio" section: Master > Music, SFX, UI at full volume. Applied to
         // the audio engine when the project is loaded; the game may change it while it runs.
         AudioSettings Audio;
+        // The scenes the game is built from, in order (Project settings > Build scenes): the enabled
+        // ones get the build indices 0, 1, 2 ... (SceneManager::LoadScene(int)); an export with a
+        // list takes only these scenes (and the start scene). Empty: every scene, no indices.
+        std::vector<BuildSceneEntry> BuildScenes;
 
         static std::vector<std::string> DefaultTags() { return { "Player", "Enemy", "Pickup" }; }
     };
@@ -76,6 +93,17 @@ namespace Zamin {
         static const SortingLayerList& GetSortingLayers();
         // 2D collision layers of the active project (the defaults when no project is open).
         static const CollisionLayers2D& GetCollisionLayers2D();
+        // ---- build scenes (ProjectConfig::BuildScenes of the active project)
+        // The enabled build scenes in order: index i is build index i.
+        static std::vector<std::filesystem::path> GetBuildScenes();
+        // The scene with this build index ("" when there is none).
+        static std::filesystem::path GetBuildScenePath(int buildIndex);
+        // The build index of a scene (relative to the assets); -1 when it is not an enabled build scene.
+        static int GetBuildIndex(const std::filesystem::path& scene);
+        // The enabled build scene with this name (its file name without .zscene; "" when none).
+        static std::filesystem::path FindBuildScene(std::string_view name);
+        // Adds the scene to the end of the list (false: no project, already listed, not a .zscene).
+        static bool AddBuildScene(const std::filesystem::path& scene);
 
         // Every asset of the active project with its handle (nullptr without a project). Read from
         // the asset folder on first use (with the snapshot in the cache folder: files moved while the

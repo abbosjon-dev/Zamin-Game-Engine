@@ -105,10 +105,37 @@ namespace Zamin {
             Scene::ClearMaterialInstances(*mr);
     }
 
-    Entity ScriptableEntity::FindEntity(std::string_view name) const { return m_Entity.GetScene()->FindEntityByName(name); }
+    Entity ScriptableEntity::FindEntity(std::string_view name) const
+    {
+        Scene* scene = m_Entity.GetScene();
+        if (Entity e = scene->FindEntityByName(name))
+            return e;
+        SceneManager* manager = scene->GetSceneManager();
+        return manager ? manager->FindEntityByName(name) : Entity();
+    }
+
     std::vector<Entity> ScriptableEntity::FindEntities(std::string_view name) const { return m_Entity.GetScene()->FindEntitiesByName(name); }
-    std::vector<Entity> ScriptableEntity::FindEntitiesWithTag(std::string_view tag) const { return m_Entity.GetScene()->FindEntitiesWithTag(tag); }
-    Entity ScriptableEntity::FindEntityWithTag(std::string_view tag) const { return m_Entity.GetScene()->FindEntityWithTag(tag); }
+
+    std::vector<Entity> ScriptableEntity::FindEntitiesWithTag(std::string_view tag) const
+    {
+        Scene* scene = m_Entity.GetScene();
+        std::vector<Entity> found = scene->FindEntitiesWithTag(tag);
+        if (SceneManager* manager = scene->GetSceneManager())
+            for (Entity e : manager->FindEntitiesWithTag(tag))
+                if (e.GetScene() != scene)
+                    found.push_back(e);
+        return found;
+    }
+
+    Entity ScriptableEntity::FindEntityWithTag(std::string_view tag) const
+    {
+        Scene* scene = m_Entity.GetScene();
+        if (Entity e = scene->FindEntityWithTag(tag))
+            return e;
+        SceneManager* manager = scene->GetSceneManager();
+        std::vector<Entity> found = manager ? manager->FindEntitiesWithTag(tag) : std::vector<Entity>();
+        return found.empty() ? Entity() : found.front();
+    }
 
     Entity ScriptableEntity::Instantiate(Entity prefab) { return m_Entity.GetScene()->Instantiate(prefab); }
 
@@ -625,7 +652,61 @@ namespace Zamin {
 
     void ScriptableEntity::LoadScene(const std::string& scenePath)
     {
-        m_Entity.GetScene()->RequestLoadScene(scenePath);
+        LoadScene(scenePath, LoadSceneMode::Single);
+    }
+
+    void ScriptableEntity::LoadScene(const std::string& scenePath, const SceneTransition& transition)
+    {
+        LoadScene(scenePath, LoadSceneMode::Single, transition);
+    }
+
+    void ScriptableEntity::LoadScene(const std::string& scenePath, LoadSceneMode mode, const SceneTransition& transition)
+    {
+        if (SceneManager* manager = GetSceneManager())
+            manager->LoadScene(scenePath, mode, transition);
+        else if (mode == LoadSceneMode::Single)
+            m_Entity.GetScene()->RequestLoadScene(scenePath); // a scene on its own: the host switches
+        else
+            ZM_CORE_WARN("'{}': qo'shimcha sahna yuklash uchun SceneManager kerak (o'yin rejimi / player)", scenePath);
+    }
+
+    bool ScriptableEntity::LoadScene(int buildIndex, LoadSceneMode mode, const SceneTransition& transition)
+    {
+        if (SceneManager* manager = GetSceneManager())
+            return manager->LoadScene(buildIndex, mode, transition);
+        std::filesystem::path path = Project::GetBuildScenePath(buildIndex);
+        if (path.empty())
+        {
+            ZM_CORE_ERROR("Build ro'yxatida {} indeksli sahna yo'q", buildIndex);
+            return false;
+        }
+        LoadScene(path.generic_string(), mode, transition);
+        return true;
+    }
+
+    Ref<AsyncOperation> ScriptableEntity::LoadSceneAsync(const std::string& scenePath, LoadSceneMode mode, const SceneTransition& transition)
+    {
+        if (SceneManager* manager = GetSceneManager())
+            return manager->LoadSceneAsync(scenePath, mode, transition);
+        ZM_CORE_WARN("'{}': fonda yuklash uchun SceneManager kerak (o'yin rejimi / player)", scenePath);
+        return nullptr;
+    }
+
+    bool ScriptableEntity::UnloadScene(const std::string& nameOrPath)
+    {
+        SceneManager* manager = GetSceneManager();
+        return manager && manager->UnloadScene(nameOrPath);
+    }
+
+    void ScriptableEntity::DontDestroyOnLoad() { DontDestroyOnLoad(m_Entity); }
+
+    void ScriptableEntity::DontDestroyOnLoad(Entity entity)
+    {
+        if (SceneManager* manager = entity.GetScene() ? entity.GetScene()->GetSceneManager() : nullptr)
+            manager->DontDestroyOnLoad(entity);
+        else
+            ZM_CORE_WARN("DontDestroyOnLoad('{}'): sahna SceneManager'siz ishlayapti - hech narsa qilinmadi",
+                         entity.IsValid() ? entity.GetName() : std::string("?"));
     }
 
     void ScriptableEntity::Destroy(Entity entity) { m_Entity.GetScene()->DestroyEntityDeferred(entity); }
@@ -757,10 +838,29 @@ namespace Zamin {
     bool ScriptableEntity::SetAudioTime(Entity other, float seconds) { return m_Entity.GetScene()->SetAudioTime(other, seconds); }
 
     float ScriptableEntity::GetTime() const { return m_Entity.GetScene()->GetTime(); }
-    void ScriptableEntity::SetTimeScale(float scale) { m_Entity.GetScene()->SetTimeScale(scale); }
+    // Every scene of a SceneManager runs on one clock.
+    void ScriptableEntity::SetTimeScale(float scale)
+    {
+        if (SceneManager* manager = GetSceneManager())
+            manager->SetTimeScale(scale);
+        else
+            m_Entity.GetScene()->SetTimeScale(scale);
+    }
     float ScriptableEntity::GetTimeScale() const { return m_Entity.GetScene()->GetTimeScale(); }
-    void ScriptableEntity::PauseGame() { m_Entity.GetScene()->SetGamePaused(true); }
-    void ScriptableEntity::ResumeGame() { m_Entity.GetScene()->SetGamePaused(false); }
+    void ScriptableEntity::PauseGame()
+    {
+        if (SceneManager* manager = GetSceneManager())
+            manager->SetGamePaused(true);
+        else
+            m_Entity.GetScene()->SetGamePaused(true);
+    }
+    void ScriptableEntity::ResumeGame()
+    {
+        if (SceneManager* manager = GetSceneManager())
+            manager->SetGamePaused(false);
+        else
+            m_Entity.GetScene()->SetGamePaused(false);
+    }
     bool ScriptableEntity::IsGamePaused() const { return m_Entity.GetScene()->IsGamePaused(); }
     float ScriptableEntity::GetUnscaledDeltaTime() const { return m_Entity.GetScene()->GetUnscaledDeltaTime(); }
     void ScriptableEntity::QuitGame() { m_Entity.GetScene()->RequestQuit(); }
@@ -880,7 +980,13 @@ namespace Zamin {
 
     Entity ScriptableEntity::Resolve(const EntityRef& ref) const
     {
-        return ref.ID ? m_Entity.GetScene()->GetEntityByUUID(ref.ID) : Entity();
+        if (!ref.ID)
+            return {};
+        Scene* scene = m_Entity.GetScene();
+        if (Entity e = scene->GetEntityByUUID(ref.ID))
+            return e;
+        SceneManager* manager = scene->GetSceneManager();
+        return manager ? manager->FindEntityByUUID(ref.ID) : Entity();
     }
 
     // ------------------------------------------------------------------ messages

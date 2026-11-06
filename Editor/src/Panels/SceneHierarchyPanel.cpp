@@ -1080,6 +1080,100 @@ namespace Zamin {
             ZM_WARN("Obyektni o'zining ichiga ko'chirib bo'lmaydi: {}", dragged.GetName());
     }
 
+    // ------------------------------------------------------------------ play mode: several scenes
+    void SceneHierarchyPanel::DrawRuntimeSceneHeader()
+    {
+        if (!m_SceneManager || m_SceneManager->GetAllScenes().size() <= 1)
+            return;
+        const bool persistent = m_SceneManager->IsDontDestroyOnLoadScene(m_Context.get());
+        const bool active = m_SceneManager->GetActiveScene() == m_Context;
+        ImGui::SameLine();
+        if (persistent)
+        {
+            ImGui::TextColored(ImVec4(0.96f, 0.72f, 0.32f, 1.0f), ICON_FA_THUMBTACK);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("DontDestroyOnLoad: bu obyektlar sahna almashganda saqlanadi");
+        }
+        else if (active)
+        {
+            ImGui::TextColored(UI::AccentColor(), ICON_FA_STAR);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Faol sahna: yangi obyektlar shu yerda yaratiladi, kamerasi o'yinni ko'rsatadi");
+        }
+        else
+        {
+            ImGui::TextDisabled(ICON_FA_LAYER_GROUP);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Qo'shimcha (additive) yuklangan sahna");
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("%zu sahna", m_SceneManager->GetAllScenes().size());
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("O'yinda bir nechta sahna yuklangan: boshqalari daraxt ostida (ko'rish uchun " ICON_FA_EYE " tugmasi)");
+    }
+
+    void SceneHierarchyPanel::DrawOtherRuntimeScenes()
+    {
+        if (!m_SceneManager)
+            return;
+        std::vector<Ref<Scene>> scenes = m_SceneManager->GetAllScenes();
+        if (scenes.size() <= 1)
+            return;
+        ImGui::Spacing();
+        for (const Ref<Scene>& scene : scenes)
+        {
+            if (scene == m_Context)
+                continue;
+            ImGui::PushID(scene.get());
+            const bool persistent = m_SceneManager->IsDontDestroyOnLoadScene(scene.get());
+            const bool active = m_SceneManager->GetActiveScene() == scene;
+            const size_t count = scene->GetRegistry().view<IDComponent>().size();
+            std::string label = std::format("{}  {}{}  ({})###scene", persistent ? ICON_FA_THUMBTACK : ICON_FA_LAYER_GROUP, scene->GetName(),
+                                            active ? "  " ICON_FA_STAR : "", count);
+            ImGui::PushStyleColor(ImGuiCol_Header, persistent ? ImVec4(0.32f, 0.24f, 0.10f, 0.85f) : ImVec4(0.16f, 0.20f, 0.26f, 0.85f));
+            const bool open = ImGui::CollapsingHeader(label.c_str(), ImGuiTreeNodeFlags_AllowOverlap | (persistent ? ImGuiTreeNodeFlags_DefaultOpen : 0));
+            ImGui::PopStyleColor();
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(persistent ? "DontDestroyOnLoad sahnasi: sahna almashganda ham saqlanadigan obyektlar.\nIkki marta bosing: ierarxiyada ko'rish"
+                                       : "Qo'shimcha yuklangan sahna. Ikki marta bosing: ierarxiyada ko'rish");
+            bool show = ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+            ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight());
+            if (UI::ToolbarButton(ICON_FA_EYE, "Ierarxiyada ko'rish (inspektor bilan)", false, ImVec2(ImGui::GetFrameHeight(), 0)))
+                show = true;
+            if (open)
+            {
+                // Read-only: the scene's entities as a plain tree (this panel edits the shown scene only).
+                constexpr size_t MaxRows = 200;
+                size_t rows = 0;
+                ImGui::Indent(ImGui::GetFrameHeight() * 0.6f);
+                for (Entity e : scene->GetEntitiesInHierarchyOrder())
+                {
+                    if (rows++ >= MaxRows)
+                    {
+                        ImGui::TextDisabled("... (yana %zu ta)", count - MaxRows);
+                        break;
+                    }
+                    int depth = 0;
+                    for (Entity p = scene->GetParent(e); p && depth < 32; p = scene->GetParent(p))
+                        depth++;
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (float)depth * 14.0f);
+                    const bool on = scene->IsActiveInHierarchy(e);
+                    ImGui::PushStyleColor(ImGuiCol_Text, on ? ImVec4(0.78f, 0.81f, 0.86f, 1.0f) : ImVec4(0.48f, 0.50f, 0.54f, 1.0f));
+                    ImGui::TextUnformatted(std::format("{}  {}", e.HasComponent<NativeScriptComponent>() ? ICON_FA_CODE : ICON_FA_CUBE, e.GetName()).c_str());
+                    ImGui::PopStyleColor();
+                    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                        show = true;
+                }
+                if (count == 0)
+                    ImGui::TextDisabled("(bo'sh)");
+                ImGui::Unindent(ImGui::GetFrameHeight() * 0.6f);
+            }
+            if (show && OnRuntimeSceneSelected)
+                OnRuntimeSceneSelected(scene);
+            ImGui::PopID();
+        }
+    }
+
     void SceneHierarchyPanel::DrawHierarchy()
     {
         m_HierarchyFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
@@ -1093,6 +1187,7 @@ namespace Zamin {
         ImGui::SameLine();
         ImGui::TextUnformatted(m_Context->GetName().c_str());
         ImGui::PopFont();
+        DrawRuntimeSceneHeader();
         if (m_Selection.Size() > 1)
         {
             ImGui::SameLine();
@@ -1162,6 +1257,7 @@ namespace Zamin {
         }
         ImGui::Unindent(gutterWidth);
         ImGui::PopStyleVar(2);
+        DrawOtherRuntimeScenes();
 
         // Empty area: drop to un-parent (to the end of the root list) / instantiate prefabs;
         // click to deselect

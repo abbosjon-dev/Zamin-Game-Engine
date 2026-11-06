@@ -3,6 +3,7 @@
 #include "Zamin/Scene/Scene.h"
 
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -72,6 +73,37 @@ namespace Zamin {
         std::vector<AssetReferenceRepair> m_RepairedReferences;
         std::string m_LastError;       // why the last Deserialize* call failed
         bool m_QuietErrors = false;    // Deserialize(file) reports the error with the file's path
+    };
+
+    // A scene file loaded in steps (SceneManager's asynchronous loading): Parse on any thread - it
+    // only reads and parses the file - then Build on the main thread a slice at a time (settings,
+    // the entities, then the hierarchy). The result is what SceneSerializer::Deserialize makes.
+    class SceneLoadJob
+    {
+    public:
+        SceneLoadJob();
+        ~SceneLoadJob();
+        SceneLoadJob(const SceneLoadJob&) = delete;
+        SceneLoadJob& operator=(const SceneLoadJob&) = delete;
+
+        // Any thread. False with GetError() when the file cannot be read or is not a scene.
+        bool Parse(const std::filesystem::path& path);
+        bool ParseString(const std::string& text);
+        // Any thread, after Parse: the image files the entities name (as written: relative to the
+        // assets), each once - decoded ahead of the main thread's texture uploads.
+        std::vector<std::string> CollectImagePaths() const;
+        size_t GetEntityCount() const;
+        // Main thread: makes the scene into `scene` for about `budgetMs` milliseconds. True once it is
+        // finished (or failed: GetError()); call again until then.
+        bool Build(Scene& scene, double budgetMs);
+        bool IsBuilt() const;
+        float GetBuildProgress() const; // 0..1
+        const std::string& GetError() const;
+        const std::vector<SceneSerializer::AssetReferenceRepair>& GetRepairedReferences() const;
+
+    private:
+        struct Data;
+        std::unique_ptr<Data> m_Data;
     };
 
 }

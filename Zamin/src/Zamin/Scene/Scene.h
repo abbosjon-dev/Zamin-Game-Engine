@@ -48,6 +48,7 @@ namespace Zamin {
     struct ConvexHull3D;
     struct CollisionMesh3D;
     class EventBus;
+    class SceneManager;
     class ScriptableEntity;
     struct ScriptMessage;
     struct SoundInfo;
@@ -193,6 +194,9 @@ namespace Zamin {
         // Screen-space UI is left out of the scene picture: the host draws it over the finished one
         // (Scene::RenderDeferredUI) - a pixel-perfect camera's low-resolution picture gets crisp UI.
         bool DeferUI = false;
+        // Drawn over another scene's picture through that scene's camera (SceneManager: additively
+        // loaded scenes): no sky - only what this scene has is added to the picture.
+        bool Overlay = false;
     };
 
     class Scene
@@ -220,6 +224,25 @@ namespace Zamin {
         void OnSimulationStop();
 
         void OnUpdateRuntime(Timestep ts);
+        // OnUpdateRuntime in its two halves: the game's frame (scripts, physics, animation, audio)
+        // and drawing it through the primary camera. SceneManager runs several scenes' frames, then
+        // draws them all through one camera.
+        void UpdateRuntime(Timestep ts);
+        void RenderRuntime();
+        // The view the primary camera draws the game with this frame (false without one).
+        struct RuntimeView
+        {
+            glm::mat4 View{ 1.0f };
+            glm::mat4 Projection{ 1.0f };       // drawn with (pixel perfect: the whole render target)
+            glm::mat4 ViewProjection{ 1.0f };   // what GetLastProjection reports (pixel perfect: the view's part)
+            glm::vec3 Position{ 0.0f };
+            float PixelSnap = 0.0f;
+            bool DeferUI = false;               // pixel perfect upscaling: the host draws the UI (RenderDeferredUI)
+        };
+        bool GetRuntimeView(RuntimeView& out);
+        // Draws the game through `view` (another scene's camera; `overlay`: no sky, see
+        // SceneRenderOptions::Overlay).
+        void RenderRuntime(const RuntimeView& view, bool overlay);
         void OnUpdateSimulation(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options = {});
         void OnUpdateEditor(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options = {});
         // What OnUpdateEditor animates before it draws: sprite / tint animations, particles and
@@ -785,7 +808,24 @@ namespace Zamin {
         static constexpr int MaxMessageDepth = 32;
 
         // ---- publish / subscribe events shared by all scripts (cleared when play mode stops)
+        // SceneManager: every scene it runs shares one bus (a persistent manager hears the level's events).
         EventBus& GetEventBus() { return *m_EventBus; }
+
+        // ---- running together with other scenes (SceneManager: additive scenes, DontDestroyOnLoad)
+        // The manager this scene runs in (null: on its own - the editor's edit scene, tests).
+        SceneManager* GetSceneManager() const { return m_SceneManager; }
+        // Moves `entity` with all its descendants into `target` while both run: the same UUIDs and
+        // components (runtime state included - a playing sound plays on, particles and animators go
+        // on), the running script instances go along (their member values, timers, tweens and event
+        // bus subscriptions stay; no OnDisable / OnDestroy / OnCreate), physics bodies are made again
+        // in the target's worlds where the entities are (at rest). The entity becomes a root of
+        // `target` (its world transform kept). Returns it in `target` (invalid when nothing moved).
+        // Not from inside a callback of a moved script: SceneManager::DontDestroyOnLoad defers it to
+        // the end of the frame.
+        static Entity MoveEntityToScene(Entity entity, Scene& target);
+        // The audio clips set to Preload that this scene's sources and zones play (SceneManager keeps
+        // the clips of every loaded scene preloaded).
+        std::vector<std::filesystem::path> CollectAudioPreloads();
 
         // ---- scene switching (handled by the host: editor / player)
         void RequestLoadScene(const std::filesystem::path& path) { m_PendingSceneLoad = path; }
@@ -1435,7 +1475,15 @@ namespace Zamin {
         std::unordered_set<uint64_t> m_ReportedMissingJointBodies; // connected bodies already warned about
         bool m_ScriptsPendingStart = false;
 
-        std::unique_ptr<EventBus> m_EventBus;
+        std::shared_ptr<EventBus> m_EventBus;
+        bool m_SharedEventBus = false;        // the manager's bus: not cleared when this scene stops
+        // SceneManager (see GetSceneManager): another of its scenes did this frame's global work
+        // (DebugDraw's frame) / this scene places the audio listener.
+        SceneManager* m_SceneManager = nullptr;
+        bool m_FrameFollower = false;
+        bool m_PlacesAudioListener = true;
+        // The sounds this scene's entities play (sources, zones, scripts' one-shots) stop with it.
+        void StopOwnSounds();
         std::vector<ScriptableEntity*> m_RetiredScripts;
         int m_MessageDepth = 0;
         bool m_MessageDepthWarned = false;
@@ -1443,6 +1491,7 @@ namespace Zamin {
         friend class Entity;
         friend class SceneSerializer;
         friend class SceneHierarchyPanel;
+        friend class SceneManager;
     };
 
 }

@@ -8,6 +8,7 @@
 
 #include <glm/glm.hpp>
 #include <string>
+#include <string_view>
 
 namespace Zamin {
 
@@ -75,16 +76,21 @@ namespace Zamin {
 
         using TextParams = Zamin::TextParams;
         // Text is laid out with 1 unit = 1 line height, starting at the transform origin (baseline of the first line).
-        static void DrawString(const std::string& text, const Ref<Font>& font, const glm::mat4& transform,
+        // The glyphs come from the font's atlas baked nearest the size one em of the text has on the
+        // target (GetTextPixelSize), so text stays crisp at any size.
+        static void DrawString(std::string_view text, const Ref<Font>& font, const glm::mat4& transform,
                                const TextParams& params, int entityID = -1);
-        static glm::vec2 MeasureString(const std::string& text, const Ref<Font>& font, const TextParams& params = TextParams());
+        static glm::vec2 MeasureString(std::string_view text, const Ref<Font>& font, const TextParams& params = TextParams());
+        // Pixels of the target one text unit (1 em) placed by `transform` covers with the current
+        // scene's camera (0: unknown - no target size, or behind the camera).
+        static float GetTextPixelSize(const glm::mat4& transform);
 
         // Frustum culling helpers (no GPU): the world-space boxes of what the draws cover.
         // The unit quad (-0.5 .. 0.5 in x and y: a sprite, a circle, a tile) moved by `transform`.
         static AABB GetQuadBounds(const glm::mat4& transform);
         // The box around every glyph quad DrawString lays out for `text`, in the text's own space
         // (before its transform); empty (Min > Max) when nothing would be drawn.
-        static AABB GetStringBounds(const std::string& text, const Ref<Font>& font, const TextParams& params = TextParams());
+        static AABB GetStringBounds(std::string_view text, const Ref<Font>& font, const TextParams& params = TextParams());
 
         // Draws only inside a rectangle of the viewport (min01 / max01: 0..1 of it, origin bottom-left)
         // from now on - UI clipping; what is pending is drawn first. Off: everywhere again.

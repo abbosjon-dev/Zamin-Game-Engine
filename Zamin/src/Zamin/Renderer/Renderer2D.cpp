@@ -1,11 +1,14 @@
 #include "Zamin/Renderer/Renderer2D.h"
 #include "Zamin/Renderer/Renderer.h"
+#include "Zamin/Renderer/RenderCommand.h"
 #include "Zamin/Renderer/Shader.h"
 #include "Zamin/Renderer/VertexArray.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <limits>
 
 namespace Zamin {
@@ -396,6 +399,7 @@ void main()
 
             glm::vec4 QuadVertexPositions[4];
             glm::mat4 ViewProjection = glm::mat4(1.0f);
+            glm::vec2 ViewportSize{ 0.0f }; // of the target when the scene began (text picks its atlas by its size on it)
         };
 
         Renderer2DData* s_Data = nullptr;
@@ -506,6 +510,8 @@ void main()
     void Renderer2D::BeginScene(const glm::mat4& viewProjection)
     {
         s_Data->ViewProjection = viewProjection;
+        const glm::ivec4 viewport = RenderCommand::GetViewport();
+        s_Data->ViewportSize = glm::vec2((float)std::max(0, viewport.z), (float)std::max(0, viewport.w));
         StartBatch();
     }
 
@@ -865,13 +871,36 @@ void main()
     void Renderer2D::SetLineWidth(float width) { s_Data->LineWidth = width; }
 
     // ------------------------------------------------------------------ text
-    void Renderer2D::DrawString(const std::string& text, const Ref<Font>& font, const glm::mat4& transform,
+    float Renderer2D::GetTextPixelSize(const glm::mat4& transform)
+    {
+        // One em of the text (its local unit square) through the camera onto the target: the
+        // geometric mean of its two sides there, in pixels.
+        const glm::vec2 viewport = s_Data->ViewportSize;
+        if (viewport.x <= 0.0f || viewport.y <= 0.0f)
+            return 0.0f;
+        const glm::mat4 m = s_Data->ViewProjection * transform;
+        const glm::vec4 o = m * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        const glm::vec4 x = m * glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        const glm::vec4 y = m * glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
+        if (o.w <= 1e-6f || x.w <= 1e-6f || y.w <= 1e-6f)
+            return 0.0f; // behind the camera
+        const glm::vec2 po = glm::vec2(o) / o.w;
+        const glm::vec2 half = viewport * 0.5f;
+        const float sx = glm::length((glm::vec2(x) / x.w - po) * half);
+        const float sy = glm::length((glm::vec2(y) / y.w - po) * half);
+        return std::sqrt(sx * sy);
+    }
+
+    void Renderer2D::DrawString(std::string_view text, const Ref<Font>& font, const glm::mat4& transform,
                                 const TextParams& params, int entityID)
     {
         if (!font || !font->IsLoaded())
             return;
         BeginQuads();
-        const Ref<Texture2D>& atlas = font->GetAtlasTexture();
+        // Glyph pictures from the atlas baked nearest the size the text has on the target; the
+        // layout (advances) always from the font's metrics, so it does not depend on the size.
+        const FontAtlas& sized = font->GetAtlas(GetTextPixelSize(transform));
+        const Ref<Texture2D>& atlas = sized.Texture;
 
         float x = 0.0f, y = 0.0f;
         const float lineAdvance = font->GetLineHeight() + params.LineSpacing;
@@ -886,20 +915,22 @@ void main()
 
             const Glyph* g = font->GetGlyph(cp);
             if (!g) continue;
+            const Glyph* q = sized.Find(cp);
+            if (!q) q = g;
 
-            if (g->X1 > g->X0)
+            if (q->X1 > q->X0)
             {
                 if (s_Data->QuadIndexCount >= Renderer2DData::MaxIndices)
                     NextBatch();
                 float texIndex = GetTextureIndex(atlas);
 
                 glm::vec4 corners[4] = {
-                    { x + g->X0, y + g->Y0, 0.0f, 1.0f },
-                    { x + g->X1, y + g->Y0, 0.0f, 1.0f },
-                    { x + g->X1, y + g->Y1, 0.0f, 1.0f },
-                    { x + g->X0, y + g->Y1, 0.0f, 1.0f },
+                    { x + q->X0, y + q->Y0, 0.0f, 1.0f },
+                    { x + q->X1, y + q->Y0, 0.0f, 1.0f },
+                    { x + q->X1, y + q->Y1, 0.0f, 1.0f },
+                    { x + q->X0, y + q->Y1, 0.0f, 1.0f },
                 };
-                glm::vec2 uvs[4] = { { g->U0, g->V0 }, { g->U1, g->V0 }, { g->U1, g->V1 }, { g->U0, g->V1 } };
+                glm::vec2 uvs[4] = { { q->U0, q->V0 }, { q->U1, q->V0 }, { q->U1, q->V1 }, { q->U0, q->V1 } };
                 for (int k = 0; k < 4; k++)
                 {
                     s_Data->QuadVertexBufferPtr->Position = transform * corners[k];
@@ -927,7 +958,7 @@ void main()
         return TransformAABB(AABB{ { -0.5f, -0.5f, 0.0f }, { 0.5f, 0.5f, 0.0f } }, transform);
     }
 
-    AABB Renderer2D::GetStringBounds(const std::string& text, const Ref<Font>& font, const TextParams& params)
+    AABB Renderer2D::GetStringBounds(std::string_view text, const Ref<Font>& font, const TextParams& params)
     {
         AABB box{ glm::vec3(std::numeric_limits<float>::max()), glm::vec3(-std::numeric_limits<float>::max()) };
         if (!font || !font->IsLoaded())
@@ -954,7 +985,7 @@ void main()
         return box;
     }
 
-    glm::vec2 Renderer2D::MeasureString(const std::string& text, const Ref<Font>& font, const TextParams& params)
+    glm::vec2 Renderer2D::MeasureString(std::string_view text, const Ref<Font>& font, const TextParams& params)
     {
         if (!font) return { 0.0f, 0.0f };
         float x = 0.0f, maxX = 0.0f;

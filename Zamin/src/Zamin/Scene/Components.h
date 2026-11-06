@@ -15,6 +15,7 @@
 #include "Zamin/Scene/SceneCamera.h"
 #include "Zamin/Scripting/ScriptField.h"
 #include "Zamin/UI/TextEdit.h"
+#include "Zamin/UI/TextLayout.h"
 #include "Zamin/UI/UILayout.h"
 #include "Zamin/UI/UIWidgets.h"
 
@@ -281,17 +282,43 @@ namespace Zamin {
         int SortingOrder = 0;
     };
 
+    // Text. With a UI Transform it is placed in the UI rectangle (its font size: the UI Transform's
+    // FontSize, else the rectangle's height); in the world it is placed around the entity's origin
+    // (1 unit = the font size; MaxWidth: the box it wraps / is cut in).
     struct TextComponent
     {
         std::string Text = "Matn";
         glm::vec4 Color{ 1.0f };
-        float Kerning = 0.0f;
-        float LineSpacing = 0.0f;
-        bool Centered = false;
+        float Kerning = 0.0f;       // em added after every character
+        float LineSpacing = 0.0f;   // em added to every line's height
+        TextAlignH AlignH = TextAlignH::Left;
+        TextAlignV AlignV = TextAlignV::Middle;
+        bool WordWrap = false;      // lines break between words at the rectangle's width (world: MaxWidth)
+        TextOverflow Overflow = TextOverflow::Overflow; // what does not fit the rectangle (world: MaxWidth)
+        float MaxWidth = 0.0f;      // world-space text: the box's width in text units (0: none)
         std::string FontPath; // empty = default engine font
         Ref<Font> FontAsset;
         uint32_t SortingLayer = 0;
         int SortingOrder = 1000; // text draws over the sprites of its layer unless told otherwise
+
+        TextLayoutSettings GetLayoutSettings() const { return { AlignH, AlignV, WordWrap, Overflow, Kerning, LineSpacing }; }
+        // Laid out in a UI rectangle, `px` high.
+        TextLayoutResult Layout(const UIRect& rect, float px) const
+        {
+            return TextLayout::Layout(Text, TextMetrics::Of(FontAsset.get()), px, rect, GetLayoutSettings());
+        }
+        // In the world: around the origin, in text units (1 = the font size); MaxWidth wide when set
+        // (starting at the origin, centred on it or ending there - AlignH).
+        TextLayoutResult LayoutWorld() const
+        {
+            UIRect box;
+            if (MaxWidth > 0.0f)
+            {
+                const float x0 = AlignH == TextAlignH::Left ? 0.0f : AlignH == TextAlignH::Center ? -MaxWidth * 0.5f : -MaxWidth;
+                box = { { x0, 0.0f }, { x0 + MaxWidth, 0.0f } };
+            }
+            return TextLayout::Layout(Text, TextMetrics::Of(FontAsset.get()), 1.0f, box, GetLayoutSettings());
+        }
     };
 
     struct MeshRendererComponent

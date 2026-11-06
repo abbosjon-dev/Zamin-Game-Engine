@@ -249,7 +249,9 @@ namespace {
         Entity text = scene->CreateEntity("Text");
         text.GetTransform().Translation = { -4.0f, -3.6f, 0.0f };
         text.GetTransform().Scale = { 0.8f, 0.8f, 1.0f };
-        text.AddComponent<TextComponent>().Text = "Zamin 2D: sprite, doira, matn";
+        auto& label = text.AddComponent<TextComponent>();
+        label.Text = "Zamin 2D: sprite, doira, matn";
+        label.AlignV = TextAlignV::Baseline; // starts on its first baseline (world text before alignment)
         return scene;
     }
 

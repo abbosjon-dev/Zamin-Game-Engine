@@ -13,6 +13,7 @@
 #include "Zamin/Scripting/EventBus.h"
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/UI/TextEdit.h"
+#include "Zamin/UI/TextLayout.h"
 #include "Zamin/UI/UIWidgets.h"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -345,6 +346,11 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ input field text layout
+    float Scene::GetUITextSize(const UITransformComponent& t, const UIRect& rect, bool toggleLabel)
+    {
+        return std::max(1.0f, t.FontSize > 0.0f ? t.FontSize : rect.GetHeight() * (toggleLabel ? 0.55f : 1.0f));
+    }
+
     // The font size (px) of a widget's own text: the UI Transform's, else `share` of its height.
     static float WidgetFontSize(const UITransformComponent& t, const UIRect& rect, float share)
     {
@@ -1736,17 +1742,10 @@ namespace Zamin {
                 if (!text->FontAsset) text->FontAsset = Font::GetDefault();
                 Renderer2D::TextParams params{ text->Color * animated, text->Kerning, text->LineSpacing };
                 // A toggle's label goes right of its box.
-                UIRect textRect = toggle ? UIMath::GetToggleLabel(uiRect, toggle->BoxSize, toggle->Style, toggle->LabelSpacing) : uiRect;
-                const glm::vec2 textCenter = textRect.GetCenter();
-                const float textWidth = textRect.GetWidth();
-                float scale = std::max(1.0f, t.FontSize > 0.0f ? t.FontSize : toggle ? uiRect.GetHeight() * 0.55f : uiSize.y);
-                glm::mat4 tm = glm::translate(glm::mat4(1.0f), glm::vec3(textCenter, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(scale, scale, 1.0f));
-                glm::vec2 size = Renderer2D::MeasureString(text->Text, text->FontAsset, params);
-                float asc = text->FontAsset ? text->FontAsset->GetAscent() : 0.8f;
-                // Text is vertically centered on the rect; horizontally centered or left-aligned.
-                float x = text->Centered ? -size.x * 0.5f : -textWidth * 0.5f / scale;
-                tm = tm * glm::translate(glm::mat4(1.0f), { x, size.y * 0.5f - asc, 0.0f });
-                Renderer2D::DrawString(text->Text, text->FontAsset, tm, params, id);
+                const UIRect textRect = toggle ? UIMath::GetToggleLabel(uiRect, toggle->BoxSize, toggle->Style, toggle->LabelSpacing) : uiRect;
+                const float px = GetUITextSize(t, uiRect, toggle != nullptr);
+                // Aligned / wrapped / cut in its rectangle; lines on whole screen pixels.
+                TextLayout::Draw(text->Text, text->Layout(textRect, px), text->FontAsset, px, glm::mat4(1.0f), params, id, node.Scale);
             }
         }
 

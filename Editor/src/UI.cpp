@@ -275,6 +275,41 @@ namespace Zamin::UI {
         return clicked;
     }
 
+    bool PropertySegmented(const char* label, int& current, const char* const* items, int count, const char* const* tooltips)
+    {
+        PropertyLabel(label);
+        ImGui::PushID(label);
+        bool changed = false;
+        const float spacing = 2.0f;
+        const float width = std::max(1.0f, (ImGui::GetContentRegionAvail().x - spacing * (float)(count - 1)) / (float)std::max(1, count));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, ImGui::GetStyle().ItemSpacing.y));
+        for (int i = 0; i < count; i++)
+        {
+            if (i > 0)
+                ImGui::SameLine();
+            const bool active = current == i;
+            if (active)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Button, AccentU32(0.85f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, AccentU32(1.0f));
+            }
+            ImGui::PushID(i);
+            if (ImGui::Button(items[i], ImVec2(width, 0.0f)) && !active)
+            {
+                current = i;
+                changed = true;
+            }
+            if (tooltips && tooltips[i] && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                ImGui::SetTooltip("%s", tooltips[i]);
+            ImGui::PopID();
+            if (active)
+                ImGui::PopStyleColor(2);
+        }
+        ImGui::PopStyleVar();
+        ImGui::PopID();
+        return changed;
+    }
+
     bool PropertyCombo(const char* label, int& current, const char* const* items, int count)
     {
         PropertyLabel(label);

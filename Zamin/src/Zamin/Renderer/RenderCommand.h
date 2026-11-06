@@ -11,6 +11,7 @@ namespace Zamin {
         static void Shutdown() { s_API.reset(); }
 
         static void SetViewport(uint32_t x, uint32_t y, uint32_t w, uint32_t h) { s_API->SetViewport(x, y, w, h); }
+        static glm::ivec4 GetViewport() { return s_API ? s_API->GetViewport() : glm::ivec4(0); }
         static void SetClearColor(const glm::vec4& color) { s_API->SetClearColor(color); }
         static void Clear() { s_API->Clear(); }
 

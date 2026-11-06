@@ -24,6 +24,8 @@ namespace Zamin {
 
         virtual void Init() = 0;
         virtual void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) = 0;
+        // The current viewport: x, y, width, height (pixels of the bound target).
+        virtual glm::ivec4 GetViewport() const = 0;
         virtual void SetClearColor(const glm::vec4& color) = 0;
         virtual void Clear() = 0;
 

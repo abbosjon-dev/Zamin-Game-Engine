@@ -23892,3 +23892,233 @@ TEST(UILayoutSampleScene)
     CHECK(next.GetComponent<UIButtonComponent>().ClickMessage == "Continue");
     scene->OnRuntimeStop();
 }
+
+// ------------------------------------------------------------------ M12: text layout, font atlases
+// Headless metrics: every character 0.55 em, ascent 0.8, line height 1.2.
+static std::string LineText(const std::string& text, const TextLine& line)
+{
+    return text.substr(line.Begin, line.End - line.Begin);
+}
+
+TEST(TextLayoutAlignment)
+{
+    const TextMetrics m = TextMetrics::Of(nullptr);
+    const std::string text = "abc";
+    const UIRect box{ { 0.0f, 0.0f }, { 100.0f, 50.0f } };
+    TextLayoutSettings s;
+    auto layout = [&](TextAlignH h, TextAlignV v) {
+        s.AlignH = h;
+        s.AlignV = v;
+        return TextLayout::Layout(text, m, 10.0f, box, s);
+    };
+    // Horizontally: start, centre, end of the box (the line is 3 x 5.5 = 16.5 px).
+    CHECK_NEAR(layout(TextAlignH::Left, TextAlignV::Middle).Lines[0].X, 0.0f, 1e-4f);
+    CHECK_NEAR(layout(TextAlignH::Center, TextAlignV::Middle).Lines[0].X, 50.0f - 8.25f, 1e-4f);
+    CHECK_NEAR(layout(TextAlignH::Right, TextAlignV::Middle).Lines[0].X, 100.0f - 16.5f, 1e-4f);
+    CHECK_NEAR(layout(TextAlignH::Left, TextAlignV::Middle).Lines[0].Width, 16.5f, 1e-4f);
+    // Vertically (one line is 12 px; the baseline 8 px under its top).
+    CHECK_NEAR(layout(TextAlignH::Left, TextAlignV::Top).Lines[0].Baseline, 42.0f, 1e-4f);
+    CHECK_NEAR(layout(TextAlignH::Left, TextAlignV::Middle).Lines[0].Baseline, 31.0f - 8.0f, 1e-4f);
+    CHECK_NEAR(layout(TextAlignH::Left, TextAlignV::Bottom).Lines[0].Baseline, 4.0f, 1e-4f);
+    CHECK_NEAR(layout(TextAlignH::Left, TextAlignV::Baseline).Lines[0].Baseline, 42.0f, 1e-4f); // in a rectangle: like Top
+    // Several lines: each one aligned on its own; the block centred as a whole.
+    s.AlignH = TextAlignH::Right;
+    s.AlignV = TextAlignV::Middle;
+    TextLayoutResult two = TextLayout::Layout("ab\nabcd", m, 10.0f, box, s);
+    CHECK(two.Lines.size() == 2);
+    CHECK_NEAR(two.Lines[0].X, 100.0f - 11.0f, 1e-4f);
+    CHECK_NEAR(two.Lines[1].X, 100.0f - 22.0f, 1e-4f);
+    CHECK_NEAR(two.Lines[0].Baseline - two.Lines[1].Baseline, 12.0f, 1e-4f);
+    CHECK_NEAR(two.Top, 25.0f + 12.0f, 1e-4f);
+    CHECK(RectNear(two.GetBounds(), { { 78.0f, 13.0f }, { 100.0f, 37.0f } }));
+    // Line spacing (em) and kerning (em per character).
+    s.LineSpacing = 0.5f;
+    s.Kerning = 0.1f;
+    TextLayoutResult spaced = TextLayout::Layout("ab\nab", m, 10.0f, box, s);
+    CHECK_NEAR(spaced.Lines[0].Baseline - spaced.Lines[1].Baseline, 17.0f, 1e-4f);
+    CHECK_NEAR(spaced.Lines[0].Width, 2 * 6.5f, 1e-4f);
+    CHECK_NEAR(TextLayout::MeasureWidth("ab", m, 10.0f, 0.1f), 13.0f, 1e-4f);
+
+    // World text: no box - aligned on the origin (Baseline: the first baseline on it).
+    TextLayoutSettings w;
+    w.AlignH = TextAlignH::Left;
+    w.AlignV = TextAlignV::Baseline;
+    TextLayoutResult world = TextLayout::Layout(text, m, 1.0f, UIRect{}, w);
+    CHECK_NEAR(world.Lines[0].X, 0.0f, 1e-5f);
+    CHECK_NEAR(world.Lines[0].Baseline, 0.0f, 1e-5f);
+    w.AlignH = TextAlignH::Center;
+    w.AlignV = TextAlignV::Middle;
+    world = TextLayout::Layout(text, m, 1.0f, UIRect{}, w);
+    CHECK_NEAR(world.Lines[0].X, -0.825f, 1e-5f);
+    CHECK_NEAR(world.Lines[0].Baseline, 0.6f - 0.8f, 1e-5f);
+    w.AlignH = TextAlignH::Right;
+    w.AlignV = TextAlignV::Top;
+    world = TextLayout::Layout(text, m, 1.0f, UIRect{}, w);
+    CHECK_NEAR(world.Lines[0].X, -1.65f, 1e-5f);
+    CHECK_NEAR(world.Lines[0].Baseline, -0.8f, 1e-5f);
+}
+
+TEST(TextLayoutWordWrap)
+{
+    const TextMetrics m = TextMetrics::Of(nullptr);
+    TextLayoutSettings s;
+    s.WordWrap = true;
+    s.AlignV = TextAlignV::Top;
+    auto lines = [&](const std::string& text, float width) {
+        std::vector<std::string> out;
+        for (const TextLine& l : TextLayout::Layout(text, m, 10.0f, { { 0.0f, 0.0f }, { width, 200.0f } }, s).Lines)
+            out.push_back(LineText(text, l));
+        return out;
+    };
+    // Between words, the spaces at a break left out (5.5 px a character).
+    CHECK((lines("salom dunyo bu matn", 60.0f) == std::vector<std::string>{ "salom", "dunyo bu", "matn" }));
+    CHECK((lines("salom dunyo bu matn", 1000.0f) == std::vector<std::string>{ "salom dunyo bu matn" }));
+    // UTF-8: oʻ / gʻ are one character each and the apostrophe stays inside its word.
+    CHECK((lines("oʻzbek gʻalaba", 50.0f) == std::vector<std::string>{ "oʻzbek", "gʻalaba" }));
+    CHECK((lines("Oʻzbekiston — Тошкент шаҳри", 70.0f) == std::vector<std::string>{ "Oʻzbekiston", "— Тошкент", "шаҳри" }));
+    // A word longer than the line is broken where it no longer fits.
+    CHECK((lines("abcdefghij", 20.0f) == std::vector<std::string>{ "abc", "def", "ghi", "j" }));
+    // After a hyphen.
+    CHECK((lines("yarim-orol", 40.0f) == std::vector<std::string>{ "yarim-", "orol" }));
+    // '\n' always breaks; an empty line stays.
+    CHECK((lines("a\n\nb", 100.0f) == std::vector<std::string>{ "a", "", "b" }));
+    // Even narrower than one character: one per line, no endless loop.
+    CHECK((lines("ab", 1.0f) == std::vector<std::string>{ "a", "b" }));
+    // Without wrapping a long line stays one line (and overflows).
+    s.WordWrap = false;
+    TextLayoutResult one = TextLayout::Layout("salom dunyo", m, 10.0f, { { 0.0f, 0.0f }, { 20.0f, 50.0f } }, s);
+    CHECK(one.Lines.size() == 1 && !one.Truncated);
+    CHECK_NEAR(one.Lines[0].Width, 11 * 5.5f, 1e-4f);
+    // Centred wrapped lines: each centred by its own width (trailing spaces not counted).
+    s.WordWrap = true;
+    s.AlignH = TextAlignH::Center;
+    TextLayoutResult centred = TextLayout::Layout("salom dunyo bu matn", m, 10.0f, { { 0.0f, 0.0f }, { 60.0f, 200.0f } }, s);
+    CHECK(centred.Lines.size() == 3);
+    CHECK_NEAR(centred.Lines[0].X, 30.0f - 27.5f * 0.5f, 1e-4f);
+    CHECK_NEAR(centred.Lines[1].X, 30.0f - 44.0f * 0.5f, 1e-4f);
+}
+
+TEST(TextLayoutOverflowModes)
+{
+    const TextMetrics m = TextMetrics::Of(nullptr);
+    TextLayoutSettings s;
+    s.AlignV = TextAlignV::Top;
+    const std::string text = "salom dunyo bu matn";
+    const UIRect small{ { 0.0f, 0.0f }, { 60.0f, 25.0f } }; // two lines of 12 px fit
+    s.WordWrap = true;
+    // Overflow: every line, past the bottom.
+    TextLayoutResult all = TextLayout::Layout(text, m, 10.0f, small, s);
+    CHECK(all.Lines.size() == 3 && !all.Truncated);
+    // Truncate: only the lines that fit.
+    s.Overflow = TextOverflow::Truncate;
+    TextLayoutResult cut = TextLayout::Layout(text, m, 10.0f, small, s);
+    CHECK(cut.Lines.size() == 2 && cut.Truncated && !cut.Lines[1].Ellipsis);
+    CHECK(LineText(text, cut.Lines[1]) == "dunyo bu");
+    // Ellipsis: the last line that fits ends with "…".
+    s.Overflow = TextOverflow::Ellipsis;
+    TextLayoutResult dots = TextLayout::Layout(text, m, 10.0f, small, s);
+    CHECK(dots.Lines.size() == 2 && dots.Truncated && dots.Lines[1].Ellipsis && !dots.Lines[0].Ellipsis);
+    CHECK(LineText(text, dots.Lines[1]) == "dunyo bu");
+    CHECK_NEAR(dots.EllipsisWidth, 5.5f, 1e-4f);
+    CHECK(TextLayout::GetEllipsis(m) == "\xE2\x80\xA6");
+    // A rectangle lower than one line keeps one line.
+    TextLayoutResult low = TextLayout::Layout(text, m, 10.0f, { { 0.0f, 0.0f }, { 60.0f, 5.0f } }, s);
+    CHECK(low.Lines.size() == 1 && low.Lines[0].Ellipsis);
+
+    // One line too wide (no wrapping): cut at whole characters - with the dots inside the width.
+    s.WordWrap = false;
+    const UIRect narrow{ { 0.0f, 0.0f }, { 20.0f, 50.0f } };
+    s.Overflow = TextOverflow::Truncate;
+    TextLayoutResult chars = TextLayout::Layout("abcdefghij", m, 10.0f, narrow, s);
+    CHECK(chars.Lines.size() == 1 && chars.Truncated && LineText("abcdefghij", chars.Lines[0]) == "abc");
+    s.Overflow = TextOverflow::Ellipsis;
+    chars = TextLayout::Layout("abcdefghij", m, 10.0f, narrow, s);
+    CHECK(LineText("abcdefghij", chars.Lines[0]) == "ab" && chars.Lines[0].Ellipsis);
+    CHECK(chars.Size.x <= 20.0f + 1e-4f);
+    // The space before the cut goes too ("ab…", not "ab …"); UTF-8 is cut between characters.
+    chars = TextLayout::Layout("ab cdef", m, 10.0f, narrow, s);
+    CHECK(LineText("ab cdef", chars.Lines[0]) == "ab");
+    const std::string uz = "gʻgʻgʻgʻ";
+    chars = TextLayout::Layout(uz, m, 10.0f, narrow, s);
+    CHECK(LineText(uz, chars.Lines[0]) == "gʻ");
+    // Text that fits is left alone.
+    TextLayoutResult fits = TextLayout::Layout("ab", m, 10.0f, narrow, s);
+    CHECK(!fits.Truncated && !fits.Lines[0].Ellipsis && LineText("ab", fits.Lines[0]) == "ab");
+}
+
+TEST(TextComponentAlignmentSerialization)
+{
+    // Before alignment: "Centered" (both ways); UI text otherwise left + middle, world text on its baseline.
+    auto scene = CreateRef<Scene>();
+    const std::string legacy = R"({ "Scene": "Old", "Version": 1, "Entities": [
+        { "Entity": 2001, "Tag": "Title", "Transform": { "Translation": [0,0,0], "Rotation": [0,0,0], "Scale": [1,1,1] },
+          "Text": { "Text": "A", "Centered": true } },
+        { "Entity": 2002, "Tag": "Sign", "Transform": { "Translation": [0,0,0], "Rotation": [0,0,0], "Scale": [1,1,1] },
+          "Text": { "Text": "B", "Centered": false } },
+        { "Entity": 2003, "Tag": "Hud", "Transform": { "Translation": [0,0,0], "Rotation": [0,0,0], "Scale": [1,1,1] },
+          "Text": { "Text": "C" }, "UITransform": { "Anchor": 0, "Position": [10, -10], "Size": [100, 20] } } ] })";
+    SceneSerializer serializer(scene);
+    CHECK(serializer.DeserializeFromString(legacy));
+    Entity title = scene->FindEntityByName("Title"), sign = scene->FindEntityByName("Sign"), hud = scene->FindEntityByName("Hud");
+    CHECK(title && sign && hud);
+    if (!title || !sign || !hud)
+        return;
+    CHECK(title.GetComponent<TextComponent>().AlignH == TextAlignH::Center && title.GetComponent<TextComponent>().AlignV == TextAlignV::Middle);
+    CHECK(sign.GetComponent<TextComponent>().AlignH == TextAlignH::Left && sign.GetComponent<TextComponent>().AlignV == TextAlignV::Baseline);
+    CHECK(hud.GetComponent<TextComponent>().AlignH == TextAlignH::Left && hud.GetComponent<TextComponent>().AlignV == TextAlignV::Middle);
+
+    // The new settings round-trip (by name).
+    auto& t = sign.GetComponent<TextComponent>();
+    t.AlignH = TextAlignH::Right;
+    t.AlignV = TextAlignV::Bottom;
+    t.WordWrap = true;
+    t.Overflow = TextOverflow::Ellipsis;
+    t.MaxWidth = 7.5f;
+    t.LineSpacing = 0.25f;
+    const std::string text = serializer.SerializeToString();
+    CHECK(text.find("\"Ellipsis\"") != std::string::npos && text.find("\"Bottom\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    SceneSerializer reader(loaded);
+    CHECK(reader.DeserializeFromString(text));
+    Entity back = loaded->FindEntityByName("Sign");
+    CHECK(back && back.HasComponent<TextComponent>());
+    if (!back)
+        return;
+    const auto& b = back.GetComponent<TextComponent>();
+    CHECK(b.AlignH == TextAlignH::Right && b.AlignV == TextAlignV::Bottom && b.WordWrap && b.Overflow == TextOverflow::Ellipsis);
+    CHECK_NEAR(b.MaxWidth, 7.5f, 1e-6f);
+    CHECK_NEAR(b.LineSpacing, 0.25f, 1e-6f);
+    // World text wraps at MaxWidth, aligned in that box around the origin.
+    TextComponent world;
+    world.Text = "salom dunyo";
+    world.WordWrap = true;
+    world.MaxWidth = 4.0f; // 7 characters of 0.55
+    world.AlignH = TextAlignH::Center;
+    TextLayoutResult layout = world.LayoutWorld();
+    CHECK(layout.Lines.size() == 2);
+    CHECK_NEAR(layout.Lines[0].X, -5 * 0.55f * 0.5f, 1e-5f);
+}
+
+TEST(FontAtlasSizeLadder)
+{
+    // Text is drawn from an atlas baked near its size on screen - never one much smaller (blurred
+    // by magnification) and never more than ~1/6 bigger.
+    CHECK(Font::AreSizedAtlasesEnabled());
+    CHECK(Font::GetAtlasPixelSize(0.0f) == 0.0f);   // unknown: the main atlas
+    CHECK(Font::GetAtlasPixelSize(3.0f) == 0.0f);   // tiny / far: the mipmapped main atlas
+    CHECK(Font::GetAtlasPixelSize(-5.0f) == 0.0f);
+    CHECK(Font::GetAtlasPixelSize(std::numeric_limits<float>::quiet_NaN()) == 0.0f);
+    CHECK(Font::GetAtlasPixelSize(12.0f) == 12.0f);
+    CHECK(Font::GetAtlasPixelSize(24.3f) == 24.0f);
+    CHECK(Font::GetAtlasPixelSize(25.0f) == 26.0f);
+    CHECK(Font::GetAtlasPixelSize(500.0f) == Font::MaxAtlasPixelSize);
+    for (float px = Font::MinAtlasPixelSize; px <= Font::MaxAtlasPixelSize; px += 0.37f)
+    {
+        const float size = Font::GetAtlasPixelSize(px);
+        CHECK(size >= px * 0.98f - 1e-4f);
+        CHECK(size <= px * 1.2f + 1.0f);
+    }
+    Font::SetSizedAtlasesEnabled(false);
+    CHECK(Font::GetAtlasPixelSize(24.0f) == 0.0f);
+    Font::SetSizedAtlasesEnabled(true);
+}

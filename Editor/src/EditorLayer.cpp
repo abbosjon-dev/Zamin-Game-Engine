@@ -3242,10 +3242,16 @@ namespace Zamin {
                 {
                     if (text->FontAsset)
                     {
-                        glm::vec2 size = Renderer2D::MeasureString(text->Text, text->FontAsset, { text->Color, text->Kerning, text->LineSpacing });
-                        float asc = text->FontAsset->GetAscent();
-                        glm::vec2 center = text->Centered ? glm::vec2(0.0f) : glm::vec2(size.x * 0.5f, asc - size.y * 0.5f);
-                        glm::mat4 box = transform * glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
+                        // The laid-out lines; a wrap width shows as the box's width.
+                        UIRect r = text->LayoutWorld().GetBounds();
+                        if (text->MaxWidth > 0.0f)
+                        {
+                            const float x0 = text->AlignH == TextAlignH::Left ? 0.0f : text->AlignH == TextAlignH::Center ? -text->MaxWidth * 0.5f : -text->MaxWidth;
+                            r.Min.x = std::min(r.Min.x, x0);
+                            r.Max.x = std::max(r.Max.x, x0 + text->MaxWidth);
+                        }
+                        glm::mat4 box = transform * glm::translate(glm::mat4(1.0f), glm::vec3(r.GetCenter(), 0.0f)) *
+                                        glm::scale(glm::mat4(1.0f), glm::vec3(glm::max(r.GetSize(), glm::vec2(0.01f)), 1.0f));
                         Renderer2D::DrawRect(box, orange);
                     }
                 }

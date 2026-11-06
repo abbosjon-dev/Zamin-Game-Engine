@@ -48,6 +48,7 @@ namespace Zamin {
     struct AudioSourceComponent;
     struct AmbientZoneComponent;
     struct AudioFilterSettings;
+    struct UITransformComponent;
 
     struct SceneSettings
     {
@@ -507,6 +508,9 @@ namespace Zamin {
         glm::vec2 GetViewportSize() const { return { (float)m_ViewportWidth, (float)m_ViewportHeight }; }
         // ---- screen-space UI (UITransformComponent). UI units are view pixels unless a UI Canvas
         // scales them (UICanvasComponent: then px = units x GetUIScale); origin bottom-left of the view.
+        // The font size (UI units) of a UI element's Text: the UI Transform's FontSize, else the
+        // rectangle's height (a toggle's label: 0.55 of it).
+        static float GetUITextSize(const UITransformComponent& t, const UIRect& rect, bool toggleLabel = false);
         // The entity's UI rectangle in the current view, in its UI units (empty without a UITransform):
         // laid out in its UI parent's rectangle (else the view's) - or placed by the parent's layout group.
         UIRect GetUIRect(Entity entity);

@@ -598,7 +598,7 @@ namespace Zamin {
                 button.AddComponent<UIButtonComponent>();
                 auto& t = button.AddComponent<TextComponent>();
                 t.Text = labels[i];
-                t.Centered = true;
+                t.AlignH = TextAlignH::Center;
                 t.FontAsset = Font::GetDefault();
                 if (i == 0)
                     button.AddComponent<UINavigationComponent>().SelectOnEnable = true;
@@ -612,7 +612,7 @@ namespace Zamin {
             ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 220, 56 };
             e.AddComponent<UIButtonComponent>();
             auto& t = e.AddComponent<TextComponent>();
-            t.Text = "Boshlash"; t.Centered = true;
+            t.Text = "Boshlash"; t.AlignH = TextAlignH::Center;
             t.FontAsset = Font::GetDefault();
             ui.FontSize = 26.0f;
         }
@@ -5579,7 +5579,54 @@ namespace Zamin {
             changed |= UI::PropertyColor4("Rang", c.Color);
             changed |= UI::PropertyFloat("Harf oralig'i", c.Kerning, 0.005f);
             changed |= UI::PropertyFloat("Qator oralig'i", c.LineSpacing, 0.01f);
-            changed |= UI::PropertyBool("Markazlash", c.Centered);
+            // Alignment: in the UI rectangle, or around the origin in the world.
+            const bool ui = entity.HasComponent<UITransformComponent>();
+            {
+                const char* items[] = { ICON_FA_ALIGN_LEFT, ICON_FA_ALIGN_CENTER, ICON_FA_ALIGN_RIGHT };
+                const char* tips[] = { "Chapga", "Markazga", "O'ngga" };
+                int h = (int)c.AlignH;
+                if (UI::PropertySegmented("Gorizontal", h, items, 3, tips))
+                {
+                    c.AlignH = (TextAlignH)h;
+                    changed = true;
+                }
+            }
+            {
+                const char* items[] = { "Yuqori", "O'rta", "Past", "Tayanch" };
+                const char* tips[] = { "Matn bloki yuqori chetga (dunyoda: boshi nuqtadan pastga)", "Vertikal markazga", "Pastki chetga",
+                                       "Birinchi qatorning tayanch chizig'i obyekt nuqtasida (dunyo matni; UI'da - yuqori kabi)" };
+                int v = (int)c.AlignV;
+                if (UI::PropertySegmented("Vertikal", v, items, ui ? 3 : 4, tips))
+                {
+                    c.AlignV = (TextAlignV)v;
+                    changed = true;
+                }
+            }
+            if (!ui)
+                changed |= UI::PropertyFloat("Kenglik (o'rash)", c.MaxWidth, 0.05f, 0.0f, 1.0e6f);
+            if (ui || c.MaxWidth > 0.0f)
+            {
+                changed |= UI::PropertyBool("So'z bo'yicha o'rash", c.WordWrap);
+                const char* overflows[] = { "Chiqib ketadi", "Kesiladi", "Kesiladi + ..." };
+                const char* tips[] = { "Sig'magan matn chegaradan tashqarida ham chiziladi", "Sig'magan belgilar va qatorlar chizilmaydi",
+                                       "Kesilgan joyga \"...\" (uch nuqta) qo'yiladi" };
+                int o = (int)c.Overflow;
+                if (UI::PropertySegmented("Sig'masa", o, overflows, 3, tips))
+                {
+                    c.Overflow = (TextOverflow)o;
+                    changed = true;
+                }
+                if (ui && m_Context && (c.WordWrap || c.Overflow != TextOverflow::Overflow))
+                {
+                    // How it came out in the rectangle now.
+                    const UIRect rect = m_Context->GetUIRect(entity);
+                    const auto& t = entity.GetComponent<UITransformComponent>();
+                    const float px = std::max(1.0f, t.FontSize > 0.0f ? t.FontSize : rect.GetHeight());
+                    const TextLayoutResult layout = c.Layout(rect, px);
+                    UI::PropertyLabel("Natija");
+                    ImGui::TextDisabled("%zu qator%s", layout.Lines.size(), layout.Truncated ? ", kesilgan" : "");
+                }
+            }
             if (UI::PropertyAssetPath("Shrift", c.FontPath, ".ttf;.otf", ICON_FA_FONT))
             {
                 c.FontAsset = c.FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(c.FontPath));

@@ -1821,12 +1821,9 @@ namespace Zamin {
             add({ -0.5f, -0.5f, 0.0f }, { 0.5f, 0.5f, 0.0f }); // unit quad
         if (auto* text = entity.TryGetComponent<TextComponent>(); text && text->FontAsset)
         {
-            // Same box as Renderer2D::DrawString lays the text out (see the editor's selection outline).
-            glm::vec2 size = Renderer2D::MeasureString(text->Text, text->FontAsset, { text->Color, text->Kerning, text->LineSpacing });
-            float ascent = text->FontAsset->GetAscent();
-            glm::vec2 center = text->Centered ? glm::vec2(0.0f) : glm::vec2(size.x * 0.5f, ascent - size.y * 0.5f);
-            glm::vec2 half = size * 0.5f;
-            add(glm::vec3(center - half, 0.0f), glm::vec3(center + half, 0.0f));
+            // The lines as the text is laid out (see the editor's selection outline).
+            const UIRect box = text->LayoutWorld().GetBounds();
+            add(glm::vec3(box.Min, 0.0f), glm::vec3(box.Max, 0.0f));
         }
         if (auto* tm = entity.TryGetComponent<TilemapComponent>()) // the position is the bottom-left corner
             add(glm::vec3(0.0f), glm::vec3(tm->Width * tm->TileSize, tm->Height * tm->TileSize, 0.0f));
@@ -5808,18 +5805,11 @@ namespace Zamin {
                 text.FontAsset = Font::GetDefault();
             if (culling2D)
             {
-                // The glyphs' box, placed as the draw below places it.
-                Renderer2D::TextParams params{ text.Color, text.Kerning, text.LineSpacing };
-                AABB local = Renderer2D::GetStringBounds(text.Text, text.FontAsset, params);
-                if (local.Min.x > local.Max.x)
-                    continue; // no glyph to draw
-                glm::mat4 t = world(e);
-                if (text.Centered)
-                {
-                    glm::vec2 size = Renderer2D::MeasureString(text.Text, text.FontAsset, params);
-                    t = t * glm::translate(glm::mat4(1.0f), { -size.x * 0.5f, size.y * 0.5f - text.FontAsset->GetAscent(), 0.0f });
-                }
-                if (!seen(TransformAABB(local, t)))
+                // The lines' box, as the draw below lays them out.
+                if (text.Text.empty())
+                    continue; // nothing to draw
+                const UIRect box = text.LayoutWorld().GetBounds();
+                if (!seen(TransformAABB(AABB{ glm::vec3(box.Min, 0.0f), glm::vec3(box.Max, 0.0f) }, world(e))))
                     continue;
             }
             items.push_back({ keyOf(e, text.SortingLayer, text.SortingOrder), 2, e });
@@ -5961,14 +5951,7 @@ namespace Zamin {
             {
                 auto& text = m_Registry.get<TextComponent>(item.Handle);
                 Renderer2D::TextParams params{ text.Color * tintOf(item.Handle), text.Kerning, text.LineSpacing };
-                glm::mat4 t = transform;
-                if (text.Centered)
-                {
-                    glm::vec2 size = Renderer2D::MeasureString(text.Text, text.FontAsset, params);
-                    float firstLine = text.FontAsset->GetAscent();
-                    t = t * glm::translate(glm::mat4(1.0f), { -size.x * 0.5f, size.y * 0.5f - firstLine, 0.0f });
-                }
-                Renderer2D::DrawString(text.Text, text.FontAsset, t, params, id);
+                TextLayout::Draw(text.Text, text.LayoutWorld(), text.FontAsset, 1.0f, transform, params, id);
             }
             else if (item.Kind == 4)
             {

@@ -222,6 +222,9 @@ namespace Zamin::UI {
     bool PropertyAssetPath(const char* label, std::string& path, const char* extensions, const char* icon, const AssetPathOptions& options);
 
     bool PropertyCombo(const char* label, int& current, const char* const* items, int count);
+    // A row of buttons that share the value column, the current one highlighted (alignment,
+    // small enums). `tooltips`: one per button, or null.
+    bool PropertySegmented(const char* label, int& current, const char* const* items, int count, const char* const* tooltips = nullptr);
 
     // The surface settings of a material - shader, blend mode (with the opacity, the alpha cutoff
     // or "preserve specular" where they apply) and double-sided - as property rows. `forModel`:

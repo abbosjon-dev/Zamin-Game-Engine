@@ -159,6 +159,9 @@ namespace Zamin {
     static const char* const s_UILayoutTypes[] = { "Horizontal", "Vertical", "Grid" };
     static const char* const s_UIGridConstraints[] = { "Flexible", "FixedColumnCount", "FixedRowCount" };
     static const char* const s_UINavigationModes[] = { "Automatic", "Horizontal", "Vertical", "Explicit", "None" };
+    static const char* const s_TextAlignH[] = { "Left", "Center", "Right" };
+    static const char* const s_TextAlignV[] = { "Top", "Middle", "Bottom", "Baseline" };
+    static const char* const s_TextOverflows[] = { "Overflow", "Truncate", "Ellipsis" };
 
     template<typename E, size_t N>
     static const char* EnumName(E value, const char* const (&names)[N])
@@ -369,7 +372,14 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<TextComponent>())
         {
             e["Text"] = { { "Text", c->Text }, { "Color", ToJson(c->Color) }, { "Kerning", c->Kerning }, { "LineSpacing", c->LineSpacing },
-                          { "Centered", c->Centered }, { "Font", c->FontPath } };
+                          { "AlignH", EnumName(c->AlignH, s_TextAlignH) }, { "AlignV", EnumName(c->AlignV, s_TextAlignV) },
+                          { "Font", c->FontPath } };
+            if (c->WordWrap)
+                e["Text"]["WordWrap"] = true;
+            if (c->Overflow != TextOverflow::Overflow)
+                e["Text"]["Overflow"] = EnumName(c->Overflow, s_TextOverflows);
+            if (c->MaxWidth > 0.0f)
+                e["Text"]["MaxWidth"] = c->MaxWidth;
             WriteAssetHandle(e["Text"], "Font", c->FontPath);
             if (c->SortingOrder != 1000)
                 e["Text"]["SortingOrder"] = c->SortingOrder;
@@ -1058,7 +1068,22 @@ namespace Zamin {
             c.Color = Vec(j, "Color", glm::vec4(1.0f));
             c.Kerning = j.value("Kerning", 0.0f);
             c.LineSpacing = j.value("LineSpacing", 0.0f);
-            c.Centered = j.value("Centered", false);
+            if (j.contains("AlignH") || j.contains("AlignV"))
+            {
+                c.AlignH = EnumFromJson(j, "AlignH", s_TextAlignH, TextAlignH::Left);
+                c.AlignV = EnumFromJson(j, "AlignV", s_TextAlignV, TextAlignV::Middle);
+            }
+            else
+            {
+                // Before alignment: "Centered" centred it both ways; otherwise UI text sat at the
+                // left, vertically centred, and world text started on its first baseline.
+                const bool centered = j.value("Centered", false);
+                c.AlignH = centered ? TextAlignH::Center : TextAlignH::Left;
+                c.AlignV = centered || e.contains("UITransform") ? TextAlignV::Middle : TextAlignV::Baseline;
+            }
+            c.WordWrap = j.value("WordWrap", false);
+            c.Overflow = EnumFromJson(j, "Overflow", s_TextOverflows, TextOverflow::Overflow);
+            c.MaxWidth = j.value("MaxWidth", 0.0f);
             c.FontPath = ReadAssetPath(j, "Font");
             c.SortingOrder = j.value("SortingOrder", 1000);
             c.SortingLayer = ReadSortingLayer(j);

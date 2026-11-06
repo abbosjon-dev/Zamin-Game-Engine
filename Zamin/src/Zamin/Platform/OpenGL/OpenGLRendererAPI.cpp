@@ -40,6 +40,12 @@ namespace Zamin {
         }
 
         void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) override { glViewport(x, y, width, height); }
+        glm::ivec4 GetViewport() const override
+        {
+            GLint v[4] = { 0, 0, 0, 0 };
+            glGetIntegerv(GL_VIEWPORT, v);
+            return { v[0], v[1], v[2], v[3] };
+        }
         void SetClearColor(const glm::vec4& c) override { glClearColor(c.r, c.g, c.b, c.a); }
         void Clear() override { glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); }
 

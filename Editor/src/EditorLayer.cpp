@@ -705,6 +705,15 @@ namespace Zamin {
             if (const char* hover = std::getenv("ZAMIN_EDITOR_JOINT_HOVER"))
                 m_JointHoverOverride = hover;
         }
+        // ZAMIN_EDITOR_UI_HOVER=<handle>: the UI rect gizmo shows that handle hovered ("right",
+        // "top-left", "pivot", "anchor-tr", "move" ...); ZAMIN_EDITOR_UI_DRAG="<handle>:<dx>,<dy>" drags
+        // the selected UI element's handle by view px at frame 20.
+        if (frame == 5)
+            if (const char* hover = std::getenv("ZAMIN_EDITOR_UI_HOVER"))
+                m_UIRect.HoverOverride = hover;
+        if (frame == 20 && m_SceneState == SceneState::Edit)
+            if (const char* drag = std::getenv("ZAMIN_EDITOR_UI_DRAG"))
+                ApplyUIRectAutomation(drag);
         // ZAMIN_EDITOR_FIT_SPRITE=1: the selected polygon collider follows its sprite (the inspector's
         // "Spraytga moslash") at frame 10.
         if (frame == 10 && std::getenv("ZAMIN_EDITOR_FIT_SPRITE") && m_SceneState == SceneState::Edit)
@@ -1014,7 +1023,7 @@ namespace Zamin {
         // gizmo duplicates instead of orbiting; Alt pressed in the middle of a gizmo drag).
         if (m_GizmoAltDrag && !Input::IsMouseButtonPressed(MouseButton::Left))
             m_GizmoAltDrag = m_GizmoAltDuplicatePending = false;
-        bool cameraInput = m_ViewportHovered && !m_GizmoAltDrag && !m_GizmoEdit.IsActive();
+        bool cameraInput = m_ViewportHovered && !m_GizmoAltDrag && !m_GizmoEdit.IsActive() && m_UIRect.Drag < 0;
 
         // What the viewport shows of DebugDraw: the editor's own settings (the player uses the
         // project's), given to DebugDraw only when they change - a game script's change of the
@@ -1190,7 +1199,9 @@ namespace Zamin {
                 return {};
         if (ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId))
             return {};
-        return m_HoveredEntity;
+        if (m_UIRect.Hover >= 0 && m_UIRect.Hover != 0)
+            return {}; // on a handle of the UI rect gizmo
+        return m_HoveredUIElement ? m_HoveredUIElement : m_HoveredEntity;
     }
 
     void EditorLayer::RenderSelectionOutline()
@@ -3305,6 +3316,9 @@ namespace Zamin {
         {
             bool alt = Input::IsKeyPressed(Key::LeftAlt) || Input::IsKeyPressed(Key::RightAlt);
             bool overGizmo = m_SceneHierarchyPanel.GetSelectedEntity() && ImGuizmo::IsOver() && m_GizmoMode != GizmoMode::None;
+            // A press on the UI rect gizmo is its own (inside it: a click selects when the button comes up).
+            if (IsUIRectGizmoHovered())
+                return false;
             if (alt && overGizmo && m_SceneState == SceneState::Edit && !m_SceneHierarchyPanel.IsTilePainting())
             {
                 // Alt + drag on the gizmo: drag copies of the selection, the originals stay.
@@ -3318,7 +3332,8 @@ namespace Zamin {
                 // (hidden ones are not drawn at all).
                 bool ctrl = Input::IsKeyPressed(Key::LeftControl) || Input::IsKeyPressed(Key::RightControl);
                 bool shift = Input::IsKeyPressed(Key::LeftShift) || Input::IsKeyPressed(Key::RightShift);
-                Entity picked = m_HoveredEntity;
+                // Screen-space UI over the scene: picked by its rectangle (also where it is see-through).
+                Entity picked = m_HoveredUIElement ? m_HoveredUIElement : m_HoveredEntity;
                 if (picked && m_ActiveScene->IsLockedInEditor(picked) && m_HoveredPixel.x >= 0)
                     m_PendingClickThrough = PendingPick{ m_HoveredPixel, ctrl, shift, m_ActiveScene.get() };
                 else
@@ -5460,6 +5475,7 @@ namespace Zamin {
             UI_Gizmos();
             if (m_ShowIcons) UI_ViewportIcons();
         }
+        UI_UIRectGizmo(); // the selected UI element's rect gizmo; the UI element under the mouse
         UI_ColliderPointEditor();
         UI_JointAnchorEditor();
         UI_Joint3DAnchorEditor();
@@ -6439,6 +6455,10 @@ namespace Zamin {
             ImGui::EndMenu();
         }
         ImGui::MenuItem(ICON_FA_EYE "  Ikonkalar", nullptr, &m_ShowIcons);
+        ImGui::MenuItem(ICON_FA_HAND_POINTER "  UI elementlarini tanlash (to'rtburchagi bo'yicha)", nullptr, &m_PickUIInViewport);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Viewport'da bosilganda ekran UI'si (matn, rasm, tugma...) to'rtburchagi bo'yicha tanlanadi - shaffof joyidan ham. "
+                        "O'chiq bo'lsa faqat chizilgan piksellari tanlanadi");
         ImGui::MenuItem(ICON_FA_MOUNTAIN "  Parallax (editor kamerasi bilan)", nullptr, &m_PreviewParallax);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Parallax qatlamlari sahna ko'rinishida ham editor kamerasi bilan siljiydi (o'yinda doim)");

@@ -267,11 +267,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 228. Ekran o'lchamiga moslashuvchi masshtab (reference resolution)
 - [x] 229. UI hodisalari: OnHover/OnPress/OnRelease
 - [x] 230. UI uchun klaviatura/gamepad navigatsiyasi
-- [ ] 231. UI animatsiyalari (tween bilan)
-- [ ] 232. Bir nechta shrift o'lchamlari (atlas sifati)
-- [ ] 233. Matnni tekislash (chap/markaz/o'ng, yuqori/o'rta/past)
-- [ ] 234. Matn o'rash (word wrap) kenglik bo'yicha
-- [ ] 235. UI editorda tanlash va ko'chirish (2D gizmo)
+- [x] 231. UI animatsiyalari (tween bilan)
+- [x] 232. Bir nechta shrift o'lchamlari (atlas sifati)
+- [x] 233. Matnni tekislash (chap/markaz/o'ng, yuqori/o'rta/past)
+- [x] 234. Matn o'rash (word wrap) kenglik bo'yicha
+- [x] 235. UI editorda tanlash va ko'chirish (2D gizmo)
 - [x] 236. UI ierarxiyasi (ota UITransform'ga nisbatan)
 - [ ] 237. UI mask/clip (scroll view)
 - [ ] 238. Scroll view

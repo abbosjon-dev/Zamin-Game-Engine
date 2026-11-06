@@ -523,6 +523,15 @@ namespace Zamin {
         UIRect GetUIVisualRect(Entity entity);
         // Its alpha times its UI ancestors' (what it is drawn with).
         float GetUIAlpha(Entity entity);
+        // A point in the entity's layout units <-> view pixels (origin bottom-left): through its
+        // canvas scale and its look (the editor's rect gizmo draws / drags the layout rectangle there).
+        glm::vec2 UILayoutToView(Entity entity, const glm::vec2& point);
+        glm::vec2 UIViewToLayout(Entity entity, const glm::vec2& pixel);
+        // The topmost UI element whose rectangle (as drawn) holds `point` (view px, bottom-left) -
+        // any that draws something (image, sprite, circle, text) or is a widget, not only those
+        // that take the mouse (the editor selects UI in the viewport with it). Inactive and faded
+        // out ones are skipped; `accept` filters the rest (the editor: hidden / locked ones).
+        Entity PickUIRect(const glm::vec2& point, const std::function<bool(Entity)>& accept = {});
         // View pixels per UI unit of the entity's UI (its outermost UI Canvas's scale; 1 without one).
         float GetUIScale(Entity entity);
         // The rectangle the entity is laid out in (UI units): its UI parent's, else the whole view.

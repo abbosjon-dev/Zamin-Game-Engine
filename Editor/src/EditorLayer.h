@@ -201,6 +201,17 @@ namespace Zamin {
         void UI_TransparentOrder();
         void UI_ViewportIcons();
         void UI_Gizmos();
+        // ---- screen-space UI in the viewport (EditorLayerUIRect.cpp): the selected UI element's rect
+        // gizmo (move / resize handles, pivot, anchors in its parent's rectangle) and picking UI
+        // elements by their rectangles (`viewPixel`: view px, origin bottom-left).
+        void UI_UIRectGizmo();
+        Entity PickUIElement(const glm::vec2& viewPixel);
+        // The rect gizmo's `handle` dragged to `mouse` (the element's layout units) from where the
+        // drag began (m_UIRect): keepAspect (Shift, corners), symmetric (Alt), snapping (10 units).
+        void ApplyUIRectDrag(Entity entity, int handle, const glm::vec2& mouse, bool keepAspect, bool symmetric, bool snapping);
+        // ZAMIN_EDITOR_UI_DRAG="<handle>:<dx>,<dy>": a drag of the selected element's handle by view px.
+        void ApplyUIRectAutomation(const char* spec);
+        bool IsUIRectGizmoHovered() const { return m_UIRect.Hover >= 0; }
         void UI_SceneSettings();
         void UI_Stats();
         // The profiler: the last frame's scopes as a tree (nested scopes inside), in the Stats panel
@@ -336,6 +347,26 @@ namespace Zamin {
         int m_JointDrag = -1, m_JointHover = -1;
         glm::vec2 m_JointDragOffset{ 0.0f };
         std::string m_JointHoverOverride;
+        // The UI rect gizmo: the handle hovered / dragged (-1: none; see EditorLayerUIRect.cpp), the
+        // element and where the drag began; a press inside it that does not move it is a click
+        // (it selects what is under the mouse when the button comes up); the magnet's guide lines.
+        struct UIRectGizmoState
+        {
+            int Hover = -1, Drag = -1;
+            uint64_t Entity = 0;
+            UIRect StartRect;
+            glm::vec2 StartMouse{ 0.0f };
+            glm::vec2 StartScreen{ 0.0f };
+            glm::vec2 StartAnchorMin{ 0.0f }, StartAnchorMax{ 0.0f };
+            UITransformComponent StartTransform;
+            bool Moved = false, ClickPending = false, Ctrl = false, Shift = false;
+            bool GuideX = false, GuideY = false;
+            float GuideXValue = 0.0f, GuideYValue = 0.0f;
+            std::string HoverOverride; // automation: ZAMIN_EDITOR_UI_HOVER=<handle>
+        };
+        UIRectGizmoState m_UIRect;
+        bool m_PickUIInViewport = true;   // clicks in the viewport select UI elements by their rectangles
+        Entity m_HoveredUIElement;        // the UI element under the mouse (rect picking)
         // 3D joint anchor editing: the same, plus 5 the cone's swing angle; the picked point (anchor /
         // connected anchor with a translate gizmo) and the joint it belongs to; the drag's plane point.
         int m_Joint3DDrag = -1, m_Joint3DHover = -1, m_Joint3DPicked = -1, m_Joint3DType = -1;

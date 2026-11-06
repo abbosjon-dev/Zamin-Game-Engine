@@ -527,6 +527,31 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     `CancelUI`. Hech narsa tanlanmagan bo'lsa strelkalar o'yinniki (sichqoncha bosgan vidjet tanlanadi). Namuna:
     Platformer2D `Scenes/UILayout.zscene` (`UILayoutDemo`); player'da `ZAMIN_PLAYER_INPUT="10:Down;18:Enter;24:mouse=x,y"`
     bilan avtomatik kiritish
+  - **UI animatsiyalari** (tween): UI Transform'ning **ko'rinishi** — masshtab (pivot atrofida), siljish, shaffoflik —
+    layout'ni o'zgartirmaydi, UI bolalari ham birga kattalashadi / suriladi / so'nadi, sichqoncha chizilgan joyga tegadi
+    (shaffoflik 0 — bosilmaydi). `GetScene().TweenUI(e, UITweenProperty::Alpha, glm::vec4(0.0f), 0.3f, { .Easing = ...,
+    .Delay = ..., .Loop = UITweenLoop::PingPong, .Loops = 4, .From = ..., .OnComplete = ... })` — masshtab / alpha /
+    siljish / pozitsiya / o'lcham / rasm rangi; bitta xususiyatga bitta tween; UI vaqtida (o'yin pauzada ham ishlaydi).
+    Skriptda: `UIScaleTo`, `UIFadeTo`, `UIMoveTo`, `UIPunchScale` (hisoblagich "sakraydi"), `CancelUITweens`,
+    `ShowUI(panel)` / `HideUI(panel)`. **UI Animation** komponenti: faollashganda (boshlanishda ham) **ko'rinish**
+    animatsiyasi — paydo bo'lish, kattalashib chiqish (pop), chapdan / o'ngdan / yuqoridan / pastdan surilib chiqish,
+    kechikish (ketma-ket chiquvchi menyu), egri chiziq; **yashirish** (`HideUI` o'ynab bo'lgach o'chiradi); tugma /
+    belgilash / slayder / matn maydoni ustiga kelganda kattalashadi, bosilganda kichrayadi (bosilish javobi; bosilgan
+    joy sichqoncha ostidan qochmaydi)
+  - **Matn**: to'rtburchak ichida **tekislash** — chap / markaz / o'ng va yuqori / o'rta / past (dunyo matni obyekt nuqtasi
+    atrofida, "tayanch" — birinchi qator chizig'i nuqtada); **so'z bo'yicha o'rash** (UTF-8: oʻ, gʻ, sh, kirill — bitta
+    belgi, apostrof so'z ichida qoladi; uzun so'z sig'magan joyidan, defisdan keyin ham bo'linadi; dunyo matni —
+    "Kenglik" bo'yicha); sig'maganda: **chiqib ketadi**, **kesiladi** (butun belgi va qatorlar) yoki **uch nuqta** (…);
+    qator oralig'i. Shriftlar har bir o'lcham uchun alohida atlasda (ekrandagi o'lchamiga yaqin — kichik matn ham, katta
+    sarlavha ham tiniq; UI matni butun piksellarga joylanadi). `TextLayout::Layout(...)` — sof hisob (testlar uchun ham).
+    Eski sahnalarning "Centered" belgisi o'zi o'giriladi
+  - **Editorda**: viewport'da UI obyektlari to'rtburchagi bo'yicha tanlanadi (shaffof joyidan ham; 2D va 3D sahnalarda —
+    UI ekran ustida; Ko'rinish menyusida o'chiriladi), sichqoncha ostidagisi ingichka ramka bilan ko'rinadi. Tanlangan UI
+    obyektning **to'rtburchak gizmo'si**: ichidan sudrash — ko'chirish (ota chetlari / markaziga yopishadi), 8 ta
+    tutqich — o'lchamni o'zgartirish (Shift — nisbatni saqlash, Alt — markaz atrofida, magnit / Ctrl — 10 birlik qadam),
+    pivot halqasi, ota to'rtburchagidagi **langarlar** (uchburchaklar, sudrab o'zgartiriladi, 0 / 0.5 / 1 ga yopishadi)
+    va ulardan burchaklarga chiziqlar, o'lcham yozuvi; Esc — bekor qilish, Ctrl+Z — qaytarish. Layout guruhi
+    joylashtirgan obyektda tutqichlar yo'q (yozuvi aytadi). `ZAMIN_EDITOR_UI_DRAG="bottom-right:60,-30"` — avtomatik sudrash
 - **UI vidjetlari** (Obyekt > UI (ekran) menyusi, Komponent qo'shish > Effektlar va UI):
   - **UI Image** — tekstura yoki uning sprite kadri (atlas), rang; turi: oddiy (nisbatni saqlash bilan), **9-slice**
     (burchaklar ekran pikselida, chegara masshtabi), plitka, **to'ldirilgan** (gorizontal / vertikal / radial 360°,
@@ -731,6 +756,7 @@ Foydali API:
 | Faollik | `SetActive(bool)`, `SetActive(entity, bool)`, `IsActive()` (o'z belgisi), `IsActiveInHierarchy()` (ota-onalari bilan), `IsActiveAndEnabled()`; `entity.SetActive(bool)`, `entity.IsActive()`, `entity.IsActiveInHierarchy()`, `GetScene().SetActive(entity, bool)` |
 | Taymerlar | `Invoke(sekund, fn)`, `InvokeRepeating(kechikish, interval, fn)`, `CancelInvokes()`, `IsInvoking()` |
 | Tween | `Tween(davomiylik, [](float t){...}, Ease::OutBack, onComplete)`, `TweenPosition(target, sek, ease, onComplete)`, `TweenScale(...)`, `CancelTweens()`, `ApplyEase(ease, t)` |
+| UI animatsiya | `UIScaleTo({1.1f, 1.1f}, 0.2f)`, `UIFadeTo(0.0f, 0.3f, Ease::OutQuad, onComplete)`, `UIMoveTo({0, 40}, 0.4f)`, `UIPunchScale(0.2f)`, `TweenUI(UITweenProperty::Color, rang, sek, { .Loop = UITweenLoop::PingPong })`, `CancelUITweens()`, `ShowUI(panel)`, `HideUI(panel)` |
 | Havolalar | `EntityRef Target;` maydoni + `Resolve(Target)` → `Entity` |
 | Audio manba | `PlayAudio()` (obyektning `AudioSourceComponent`'ini boshidan chaladi; obyekt nofaol bo'lsa yoki ovozlar limiti rad etsa `false`), `StopAudio()`, `PauseAudio()` / `ResumeAudio()`, `IsAudioPlaying()` / `IsAudioPaused()`, `SetAudioVolume(v)`, `SetAudioPitch(p)`, `GetAudioTime()` / `SetAudioTime(s)`, `GetAudioLength()`; so'nish bilan — `PlayAudio(fadeIn)`, `StopAudio(fadeOut)`, `FadeAudio(volume, sekund)`, `GetAudioFade()`; filtr — `SetAudioLowPass(hz)`, `SetAudioHighPass(hz)`; boshqa obyektniki — `PauseAudio(entity)` va h.k.; `PlaySound(path, SoundParams)` — tasodifiy oraliq, ustuvorlik, nusxalar limiti, 3D o'rni, FadeIn, filtr bilan |
 | Musiqa va mixer | `Audio::PlayMusic("Audio/theme.ogg", 1.0f)`, `Audio::CrossfadeTo("Audio/boss.ogg", 2.0f)`, `Audio::StopMusic(fade)`, `PauseMusic()` / `ResumeMusic()`, `GetMusic()`, `SetMusicVolume(v)`; `Audio::SetGroupVolume("SFX", 0.5f)`, `SetGroupMuted("Music", true)`, `SetGroupLowPass("SFX", 500)`, `ResetMixer()`; `Audio::SaveSettings()` / `LoadSettings()` — o'yinchi sozlamalari (SaveData); `Audio::GetClipLength(path)`, `Audio::Preload(path)`; `PlaySound(path, vol, pitch, "UI")` — guruh bilan |

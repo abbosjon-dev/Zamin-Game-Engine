@@ -256,6 +256,45 @@ namespace Zamin {
         return GetUINode(entity).Alpha;
     }
 
+    glm::vec2 Scene::UILayoutToView(Entity entity, const glm::vec2& point)
+    {
+        if (!HasUITransform(entity, this))
+            return point;
+        LayoutUI();
+        const UILayoutNode& node = GetUINode(entity);
+        return (point * node.HitScale + node.HitOffset) * node.Scale;
+    }
+
+    glm::vec2 Scene::UIViewToLayout(Entity entity, const glm::vec2& pixel)
+    {
+        if (!HasUITransform(entity, this))
+            return pixel;
+        LayoutUI();
+        const UILayoutNode& node = GetUINode(entity);
+        return node.ToLayout(pixel / std::max(node.Scale, 1e-6f));
+    }
+
+    Entity Scene::PickUIRect(const glm::vec2& point, const std::function<bool(Entity)>& accept)
+    {
+        LayoutUI();
+        std::vector<entt::entity> order = GetUIDrawOrder();
+        for (auto it = order.rbegin(); it != order.rend(); ++it)
+        {
+            const entt::entity e = *it;
+            const bool draws = m_Registry.any_of<SpriteRendererComponent, UIImageComponent, CircleRendererComponent, TextComponent>(e) ||
+                               m_Registry.any_of<UIButtonComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent>(e);
+            if (!draws || !IsActiveInHierarchy({ e, this }))
+                continue;
+            const UILayoutNode& node = GetUINode(e);
+            if (node.Alpha <= 0.001f || !node.HitRect.Contains(point / node.Scale))
+                continue;
+            if (accept && !accept({ e, this }))
+                continue;
+            return { e, this };
+        }
+        return {};
+    }
+
     float Scene::GetUIScale(Entity entity)
     {
         if (!HasUITransform(entity, this))

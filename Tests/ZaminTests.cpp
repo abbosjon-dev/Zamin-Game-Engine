@@ -24403,3 +24403,73 @@ TEST(UIAnimationSerialization)
     const auto& pb = plainBack.GetComponent<UITransformComponent>();
     CHECK(pb.Scale == glm::vec2(1.0f) && pb.VisualOffset == glm::vec2(0.0f) && pb.Alpha == 1.0f);
 }
+
+// ------------------------------------------------------------------ M12: editor UI picking (rect) and its coordinates
+TEST(UIRectPickingForTheEditor)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    // A canvas at half scale (1600 x 1200 reference), a panel, a label in it and a plain group.
+    Entity canvas = scene->CreateEntity("Canvas");
+    canvas.AddComponent<UITransformComponent>().SetStretch();
+    auto& c = canvas.AddComponent<UICanvasComponent>();
+    c.ReferenceResolution = { 1600.0f, 1200.0f };
+    Entity panel = scene->CreateEntity("Panel");
+    auto& pt = panel.AddComponent<UITransformComponent>();
+    pt.SetAnchor(UITransformComponent::AnchorPoint::Center);
+    pt.Position = { 0.0f, 0.0f };
+    pt.Size = { 400.0f, 200.0f };
+    panel.AddComponent<UIImageComponent>();
+    scene->SetParent(panel, canvas, false);
+    Entity label = scene->CreateEntity("Label");
+    auto& lt = label.AddComponent<UITransformComponent>();
+    lt.SetAnchor(UITransformComponent::AnchorPoint::TopLeft);
+    lt.Pivot = { 0.0f, 1.0f };
+    lt.Position = { 20.0f, -20.0f };
+    lt.Size = { 200.0f, 40.0f };
+    label.AddComponent<TextComponent>().Text = "Salom";
+    scene->SetParent(label, panel, false);
+    Entity group = scene->CreateEntity("Group");
+    auto& gt = group.AddComponent<UITransformComponent>();
+    gt.SetStretch();
+    scene->SetParent(group, panel, false);
+
+    CHECK_NEAR(scene->GetUIScale(panel), 0.5f, 1e-5f);
+    // Panel: 400 x 200 units in the middle of 1600 x 1200 -> view px 300..500 x 250..350.
+    CHECK(RectNear(scene->GetUIRect(panel), { { 600.0f, 500.0f }, { 1000.0f, 700.0f } }));
+    // The label is text (no widget): the game's mouse does not stop at it, the editor's picking does.
+    const glm::vec2 onLabel{ 320.0f, 335.0f };
+    CHECK(scene->PickUIRect(onLabel) == label);
+    CHECK(scene->PickUI(onLabel) != label); // the game's mouse: the panel's image catches it, not the text
+    CHECK(scene->PickUIRect({ 450.0f, 270.0f }) == panel); // the plain group draws nothing: the panel under it
+    CHECK(!scene->PickUIRect({ 100.0f, 100.0f }));         // outside everything (the canvas draws nothing)
+    // A filter (the editor: hidden / locked ones) and inactive / faded ones are passed over.
+    CHECK(scene->PickUIRect(onLabel, [&](Entity e) { return e != label; }) == panel);
+    label.SetActive(false);
+    CHECK(scene->PickUIRect(onLabel) == panel);
+    label.SetActive(true);
+    pt.Alpha = 0.0f;
+    CHECK(!scene->PickUIRect(onLabel));
+    pt.Alpha = 1.0f;
+
+    // Layout units <-> view px: through the canvas scale and the look.
+    CHECK(glm::length(scene->UILayoutToView(panel, { 600.0f, 500.0f }) - glm::vec2(300.0f, 250.0f)) < 1e-3f);
+    CHECK(glm::length(scene->UIViewToLayout(panel, { 300.0f, 250.0f }) - glm::vec2(600.0f, 500.0f)) < 1e-3f);
+    pt.Scale = { 2.0f, 2.0f };          // drawn twice as big around its centre (800, 600)
+    pt.VisualOffset = { 10.0f, 0.0f };
+    const glm::vec2 view = scene->UILayoutToView(label, { 620.0f, 680.0f });
+    CHECK(glm::length(view - glm::vec2((800.0f + (620.0f - 800.0f) * 2.0f + 10.0f) * 0.5f, (600.0f + 80.0f * 2.0f) * 0.5f)) < 1e-3f);
+    CHECK(glm::length(scene->UIViewToLayout(label, view) - glm::vec2(620.0f, 680.0f)) < 1e-3f);
+    CHECK(scene->PickUIRect(view + glm::vec2(1.0f, -1.0f)) == label); // picked where it is drawn
+
+    // The editor's gizmo moves it in layout units: SetUIRect keeps anchors and pivot.
+    pt.Scale = { 1.0f, 1.0f };
+    pt.VisualOffset = { 0.0f, 0.0f };
+    scene->SetUIRect(label, { { 640.0f, 640.0f }, { 900.0f, 690.0f } });
+    CHECK(lt.Position == glm::vec2(40.0f, -10.0f) && lt.Size == glm::vec2(260.0f, 50.0f));
+    scene->SetUIPivot(label, { 0.5f, 0.5f }, true);
+    CHECK(RectNear(scene->GetUIRect(label), { { 640.0f, 640.0f }, { 900.0f, 690.0f } }));
+    scene->SetUIAnchors(label, { 0.0f, 0.0f }, { 1.0f, 1.0f }, true);
+    CHECK(RectNear(scene->GetUIRect(label), { { 640.0f, 640.0f }, { 900.0f, 690.0f } }));
+    CHECK(lt.IsStretchedX() && lt.IsStretchedY());
+}

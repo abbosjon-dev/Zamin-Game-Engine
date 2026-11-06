@@ -5614,12 +5614,15 @@ namespace Zamin {
                 changed |= UI::PropertyFloat("Kenglik (o'rash)", c.MaxWidth, 0.05f, 0.0f, 1.0e6f);
             if (ui || c.MaxWidth > 0.0f)
             {
-                changed |= UI::PropertyBool("So'z bo'yicha o'rash", c.WordWrap);
-                const char* overflows[] = { "Chiqib ketadi", "Kesiladi", "Kesiladi + ..." };
+                changed |= UI::PropertyBool("O'rash", c.WordWrap);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(ui ? "So'z bo'yicha o'rash: qator to'rtburchak kengligiga sig'maganda keyingi qatorga o'tadi"
+                                   : "So'z bo'yicha o'rash: qator kenglikka sig'maganda keyingi qatorga o'tadi");
+                const char* overflows[] = { "Chiqadi", "Kesish", "..." };
                 const char* tips[] = { "Sig'magan matn chegaradan tashqarida ham chiziladi", "Sig'magan belgilar va qatorlar chizilmaydi",
                                        "Kesilgan joyga \"...\" (uch nuqta) qo'yiladi" };
                 int o = (int)c.Overflow;
-                if (UI::PropertySegmented("Sig'masa", o, overflows, 3, tips))
+                if (UI::PropertySegmented("Sig'maganda", o, overflows, 3, tips))
                 {
                     c.Overflow = (TextOverflow)o;
                     changed = true;

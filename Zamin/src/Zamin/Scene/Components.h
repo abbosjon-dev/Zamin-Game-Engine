@@ -805,6 +805,10 @@ namespace Zamin {
         // from its end). False when there is no such clip.
         bool Play(std::string_view clip = {}, float speed = 1.0f);
         bool Play(int index, float speed = 1.0f);
+        // Plays a clip from `seconds` into it (clamped) in the direction of `speed`: a door that
+        // starts closing while half open turns round where it is. The events right at `seconds`
+        // do not fire (it is there already).
+        bool PlayFrom(std::string_view clip, float seconds, float speed = 1.0f);
         // Stops where it is (the values stay); Resume goes on from there.
         void Stop() { Playing = false; }
         void Resume() { if (Current >= 0) { Playing = true; Cursor.Finished = false; } }

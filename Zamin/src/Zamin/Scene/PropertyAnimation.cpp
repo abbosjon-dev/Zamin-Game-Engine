@@ -997,6 +997,15 @@ namespace Zamin {
         return true;
     }
 
+    bool AnimationPlayerComponent::PlayFrom(std::string_view clip, float seconds, float speed)
+    {
+        if (!Play(clip, speed))
+            return false;
+        Cursor.Time = std::clamp(std::isfinite(seconds) ? seconds : 0.0f, 0.0f, GetDuration());
+        Cursor.AtStart = false;
+        return true;
+    }
+
     void AnimationPlayerComponent::SetTime(float seconds)
     {
         const float duration = GetDuration();

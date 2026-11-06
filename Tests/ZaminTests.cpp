@@ -27257,3 +27257,63 @@ TEST(AnimationEventsExactlyOnceInScene)
     PropertyClipLibrary::Clear();
     std::filesystem::remove_all(dir);
 }
+
+// The Adventure3D gate (259): a door clip played forwards to open and backwards to close, turned
+// round where it is; its events say which way they belong to.
+TEST(AnimationPlayerPlayFromTurnsRound)
+{
+    auto dir = MakeTempDir("zamin-gate-");
+    PropertyClip gate;
+    gate.Duration = 1.6f;
+    gate.Wrap = AnimationWrap::Once;
+    AnimationTrack& hinge = gate.GetOrAddTrack("Hinge", AnimatedProperty::Rotation);
+    hinge.SetKey(0.0f, glm::vec4(0.0f));
+    hinge.SetKey(1.6f, glm::vec4(0.0f, 96.0f, 0.0f, 0.0f));
+    gate.Events = { { 0.0f, "Thud", "" }, { 0.05f, "Squeak", "open" }, { 1.5f, "Squeak2", "close" }, { 1.6f, "Opened", "" } };
+    CHECK(PropertyClipSerializer::Serialize(gate, dir / "Gate.zanim"));
+
+    auto scene = CreateRef<Scene>();
+    Entity door = scene->CreateEntity("Door");
+    Entity h = scene->CreateEntity("Hinge");
+    scene->SetParent(h, door, false);
+    door.AddComponent<NativeScriptComponent>().ClassName = "AnimEventProbe";
+    auto& player = door.AddComponent<AnimationPlayerComponent>();
+    player.Clips = { (dir / "Gate.zanim").string() };
+    player.PlayOnStart = false;
+    scene->OnRuntimeStart();
+    auto* probe = ScriptableEntity::GetScript<AnimEventProbe>(door);
+    auto& p = door.GetComponent<AnimationPlayerComponent>();
+    auto angle = [&]() { return glm::degrees(h.GetComponent<TransformComponent>().Rotation.y); };
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(!p.IsPlaying() && probe->Heard.empty() && angle() == 0.0f); // PlayOnStart off: closed, silent
+
+    // Open from the start: the thud right at 0 does not fire (it is there already).
+    CHECK(p.PlayFrom("Gate", 0.0f, 1.0f) && !p.PlayFrom("Nope", 0.0f));
+    for (int i = 0; i < 20; i++)
+        scene->OnUpdateRuntime(0.1f);
+    CHECK(probe->Heard == std::vector<std::string>({ "Gate:Squeak", "Gate:Squeak2", "Gate:Opened" }));
+    CHECK(!p.IsPlaying() && std::abs(angle() - 96.0f) < 1e-3f);
+    // Close from the end: "Opened" does not fire again; the closing creak, then the thud at 0.
+    probe->Heard.clear();
+    CHECK(p.PlayFrom("Gate", p.GetTime(), -1.0f));
+    for (int i = 0; i < 20; i++)
+        scene->OnUpdateRuntime(0.1f);
+    CHECK(probe->Heard == std::vector<std::string>({ "Gate:Squeak2", "Gate:Squeak", "Gate:Thud" }));
+    CHECK(std::abs(angle()) < 1e-3f);
+    // Half open, then back: it turns round where it is (no jump to an end).
+    probe->Heard.clear();
+    p.PlayFrom("Gate", 0.0f, 1.0f);
+    for (int i = 0; i < 8; i++)
+        scene->OnUpdateRuntime(0.1f);
+    const float halfway = angle();
+    CHECK(std::abs(halfway - 48.0f) < 0.1f);
+    p.PlayFrom("Gate", p.GetTime(), -1.0f);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(std::abs(angle() - (halfway - 6.0f)) < 0.1f);
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(0.1f);
+    CHECK(probe->Heard == std::vector<std::string>({ "Gate:Squeak", "Gate:Squeak", "Gate:Thud" }));
+    scene->OnRuntimeStop();
+    PropertyClipLibrary::Clear();
+    std::filesystem::remove_all(dir);
+}

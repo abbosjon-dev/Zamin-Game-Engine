@@ -2909,7 +2909,7 @@
         "Translation": [
           0,
           1.2,
-          -12
+          -14.2
         ],
         "Rotation": [
           0,
@@ -3750,6 +3750,449 @@
         "LineSpacing": 0.0,
         "Centered": true,
         "Font": ""
+      }
+    },
+    {
+      "Entity": 7394000000001000,
+      "Tag": "Darvoza",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -12
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "AnimationPlayer": {
+        "Clips": [
+          {
+            "Path": "Animations/DarvozaOchilishi.zanim"
+          }
+        ],
+        "Speed": 1.0,
+        "PlayOnStart": false,
+        "Wrap": "Clip"
+      },
+      "NativeScript": {
+        "Class": "ProximityDoor",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 7394000000001001,
+      "Tag": "ChapOshiq",
+      "Parent": 7394000000001000,
+      "Transform": {
+        "Translation": [
+          -2.5,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7394000000001002,
+      "Tag": "ChapTabaqa",
+      "Parent": 7394000000001001,
+      "Transform": {
+        "Translation": [
+          1.24,
+          1.85,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.44,
+          3.7,
+          0.16
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.48,
+          0.3,
+          0.17,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Kinematic",
+        "Mass": 1,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7394000000001003,
+      "Tag": "ChapTasma",
+      "Parent": 7394000000001001,
+      "Transform": {
+        "Translation": [
+          1.24,
+          2.9,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.3,
+          0.18,
+          0.05
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.25,
+          0.25,
+          0.27,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.8,
+        "Roughness": 0.35,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7394000000001004,
+      "Tag": "ChapTasma",
+      "Parent": 7394000000001001,
+      "Transform": {
+        "Translation": [
+          1.24,
+          0.8,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.3,
+          0.18,
+          0.05
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.25,
+          0.25,
+          0.27,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.8,
+        "Roughness": 0.35,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7394000000001005,
+      "Tag": "OngOshiq",
+      "Parent": 7394000000001000,
+      "Transform": {
+        "Translation": [
+          2.5,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7394000000001006,
+      "Tag": "OngTabaqa",
+      "Parent": 7394000000001005,
+      "Transform": {
+        "Translation": [
+          -1.24,
+          1.85,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.44,
+          3.7,
+          0.16
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.48,
+          0.3,
+          0.17,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.8,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Rigidbody3D": {
+        "BodyType": "Kinematic",
+        "Mass": 1,
+        "LinearDamping": 0.05,
+        "AngularDamping": 0.05,
+        "GravityFactor": 1,
+        "LockRotation": false
+      },
+      "BoxCollider3D": {
+        "HalfExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "Friction": 0.5,
+        "Restitution": 0.0,
+        "IsSensor": false
+      }
+    },
+    {
+      "Entity": 7394000000001007,
+      "Tag": "OngTasma",
+      "Parent": 7394000000001005,
+      "Transform": {
+        "Translation": [
+          -1.24,
+          2.9,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.3,
+          0.18,
+          0.05
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.25,
+          0.25,
+          0.27,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.8,
+        "Roughness": 0.35,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7394000000001008,
+      "Tag": "OngTasma",
+      "Parent": 7394000000001005,
+      "Transform": {
+        "Translation": [
+          -1.24,
+          0.8,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          2.3,
+          0.18,
+          0.05
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.25,
+          0.25,
+          0.27,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.8,
+        "Roughness": 0.35,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 7394000000001009,
+      "Tag": "Chiroq",
+      "Parent": 7394000000001000,
+      "Transform": {
+        "Translation": [
+          0,
+          3.62,
+          0.72
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.32,
+          0.32,
+          0.32
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.15,
+          0.1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.3,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0,
+        "Shader": "Unlit"
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.15,
+          0.1
+        ],
+        "Intensity": 2.5,
+        "Radius": 7.0
       }
     }
   ]

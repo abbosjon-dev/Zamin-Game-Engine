@@ -292,7 +292,16 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     `ZAMIN_PLAYER_NO_...`) solishtirish uchun o'chiradi
   - **Editor ko'rinish rejimlari** (viewport toolbar'i): wireframe (faqat qirralar yoki sirt + qirralar) va debug
     ko'rinishlar - faqat yorug'lik, normallar, albedo, roughness, metallic (qiymat ko'rinishlari tonemappingsiz)
-  - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview)
+  - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview). Simulyatsiya sahnadan
+    alohida (`ParticleSimulation`, `Scene/ParticleSystem.h`). Emitter shakllari: nuqta, doira, sfera, quti, **konus**
+    (asos radiusi, burchak, asosdan / hajmidan, 2D tekis yelpig'ich), **chiziq** (2D, lokal X bo'ylab); qalinlik (faqat
+    cheti / sirti) va "markazdan tashqariga" yo'nalish. Ixtiyoriy modullar (inspektorda yoqiladigan bo'limlar):
+    **Rang (umr bo'yi)** - ko'p nuqtali gradient (ikki gradient orasida tasodifiy), **O'lcham (umr bo'yi)** - egri chiziq
+    (animatsiya kalitlari: pog'onali / chiziqli / Bezier; ikki egri chiziq orasida), **Tezlik (umr bo'yi)** - chiziqli
+    (egri chiziq bilan, emitter yoki dunyo o'qlarida), orbita, radial, tezlik ko'paytuvchisi, **Tezlik chegarasi**
+    (so'ndirish bilan), **Tekstura sheet (flipbook)** - ustun x qator panjara yoki sprite kadrlari (.zmeta, prefiks),
+    umr bo'yi (sikllar) yoki FPS bilan, boshlang'ich / tasodifiy kadr, tasodifiy qator. Viewport'da emitter shakli gizmo
+    bilan (Gizmolar > Particle shakli). Namuna: Showcase3D `Scenes/Particles.zscene`
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
 - **2D fizika** (Box2D, `PhysicsWorld2D`): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
   - **Polygon Collider 2D**: istalgan ko'pburchak (obyekt masshtabi bilan); botiq yoki 8 tadan ko'p burchakli shakl

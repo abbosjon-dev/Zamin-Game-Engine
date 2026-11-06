@@ -166,6 +166,10 @@ namespace Zamin {
     static const char* const s_UIScrollMovements[] = { "Unrestricted", "Elastic", "Clamped" };
     static const char* const s_UIScrollbarVisibilities[] = { "Permanent", "AutoHide", "Hidden" };
 
+    static const char* const s_ConeEmitFrom[] = { "Base", "Volume" };
+    static const char* const s_SheetSources[] = { "Grid", "Sprites" };
+    static const char* const s_SheetTimeModes[] = { "Lifetime", "FrameRate" };
+
     template<typename E, size_t N>
     static const char* EnumName(E value, const char* const (&names)[N])
     {
@@ -194,6 +198,184 @@ namespace Zamin {
             return i >= 0 && i < (int)N ? (E)i : fallback;
         }
         return fallback;
+    }
+
+    // ------------------------------------------------------------------ particle curves / gradients
+    static float Number(const json& j, const char* key, float fallback)
+    {
+        auto it = j.find(key);
+        return it != j.end() && it->is_number() && std::isfinite(it->get<float>()) ? it->get<float>() : fallback;
+    }
+
+    // [{ "Time", "Value", "Interpolation"[, "Tangent"[, "In", "Out"]] }] - the keys of the animation clips, one value.
+    static json ParticleCurveToJson(const ParticleCurve& curve)
+    {
+        json keys = json::array();
+        for (const AnimationKey& k : curve.Keys)
+        {
+            json key = { { "Time", k.Time }, { "Value", k.Value.x }, { "Interpolation", PropertyAnimation::InterpolationToString(k.Interpolation) } };
+            if (k.TangentMode != KeyTangentMode::Auto)
+                key["Tangent"] = PropertyAnimation::TangentModeToString(k.TangentMode);
+            if (k.TangentMode == KeyTangentMode::Free)
+            {
+                key["In"] = k.InTangent.x;
+                key["Out"] = k.OutTangent.x;
+            }
+            keys.push_back(std::move(key));
+        }
+        return keys;
+    }
+
+    static ParticleCurve ParticleCurveFromJson(const json& j, const char* name, const ParticleCurve& fallback)
+    {
+        auto it = j.find(name);
+        if (it == j.end() || !it->is_array())
+            return fallback;
+        ParticleCurve curve;
+        for (const json& k : *it)
+        {
+            if (!k.is_object())
+                continue;
+            AnimationKey key;
+            key.Time = std::clamp(Number(k, "Time", 0.0f), 0.0f, 1.0f);
+            key.Value.x = Number(k, "Value", 1.0f);
+            if (auto i = k.find("Interpolation"); i != k.end() && i->is_string())
+                key.Interpolation = PropertyAnimation::InterpolationFromString(i->get<std::string>()).value_or(KeyInterpolation::Linear);
+            if (auto i = k.find("Tangent"); i != k.end() && i->is_string())
+                key.TangentMode = PropertyAnimation::TangentModeFromString(i->get<std::string>()).value_or(KeyTangentMode::Auto);
+            if (key.TangentMode == KeyTangentMode::Free)
+            {
+                key.InTangent.x = Number(k, "In", 0.0f);
+                key.OutTangent.x = Number(k, "Out", 0.0f);
+            }
+            curve.Keys.push_back(key);
+        }
+        curve.Sort();
+        return curve;
+    }
+
+    // { "Fixed", "Stops": [[time, r, g, b, a], ...] }
+    static json ParticleGradientToJson(const ParticleGradient& gradient)
+    {
+        json stops = json::array();
+        for (const auto& stop : gradient.Stops)
+            stops.push_back(json::array({ stop.Time, stop.Color.r, stop.Color.g, stop.Color.b, stop.Color.a }));
+        json j = { { "Stops", std::move(stops) } };
+        if (gradient.Fixed)
+            j["Fixed"] = true;
+        return j;
+    }
+
+    static ParticleGradient ParticleGradientFromJson(const json& j, const char* name, const ParticleGradient& fallback)
+    {
+        auto it = j.find(name);
+        if (it == j.end() || !it->is_object() || !it->contains("Stops") || !(*it)["Stops"].is_array())
+            return fallback;
+        ParticleGradient gradient;
+        gradient.Fixed = it->value("Fixed", false);
+        for (const json& stop : (*it)["Stops"])
+        {
+            if (!stop.is_array() || stop.size() < 5)
+                continue;
+            float v[5];
+            bool valid = true;
+            for (int i = 0; i < 5; i++)
+            {
+                valid &= stop[i].is_number() && std::isfinite(stop[i].get<float>());
+                v[i] = valid ? stop[i].get<float>() : 0.0f;
+            }
+            if (valid)
+                gradient.Stops.push_back({ std::clamp(v[0], 0.0f, 1.0f), glm::vec4(v[1], v[2], v[3], v[4]) });
+        }
+        if (gradient.Stops.empty())
+            return fallback;
+        gradient.Sort();
+        return gradient;
+    }
+
+    // The modules of a particle system that are on or not at their defaults (the others are left out).
+    static void WriteParticleModules(json& j, const ParticleSystemComponent& c)
+    {
+        using PS = ParticleSystemComponent;
+        if (const auto& m = c.ColorOverLifetime; m.Enabled || !(m == PS::ColorOverLifetimeModule{}))
+            j["ColorOverLifetime"] = { { "Enabled", m.Enabled }, { "Gradient", ParticleGradientToJson(m.Gradient) },
+                                       { "RandomBetweenTwo", m.RandomBetweenTwo }, { "GradientB", ParticleGradientToJson(m.GradientB) } };
+        if (const auto& m = c.SizeOverLifetime; m.Enabled || !(m == PS::SizeOverLifetimeModule{}))
+            j["SizeOverLifetime"] = { { "Enabled", m.Enabled }, { "Curve", ParticleCurveToJson(m.Curve) },
+                                      { "RandomBetweenTwo", m.RandomBetweenTwo }, { "CurveB", ParticleCurveToJson(m.CurveB) } };
+        if (const auto& m = c.VelocityOverLifetime; m.Enabled || !(m == PS::VelocityOverLifetimeModule{}))
+            j["VelocityOverLifetime"] = { { "Enabled", m.Enabled }, { "Linear", ToJson(m.Linear) }, { "LinearCurve", ParticleCurveToJson(m.LinearCurve) },
+                                          { "World", m.World }, { "Orbital", ToJson(m.Orbital) }, { "Radial", m.Radial },
+                                          { "SpeedModifier", ParticleCurveToJson(m.SpeedModifier) } };
+        if (const auto& m = c.LimitVelocity; m.Enabled || !(m == PS::LimitVelocityModule{}))
+            j["LimitVelocity"] = { { "Enabled", m.Enabled }, { "MaxSpeed", m.MaxSpeed }, { "MaxSpeedCurve", ParticleCurveToJson(m.MaxSpeedCurve) },
+                                   { "Dampen", m.Dampen } };
+        if (const auto& m = c.TextureSheet; m.Enabled || !(m == PS::TextureSheetModule{}))
+            j["TextureSheet"] = { { "Enabled", m.Enabled }, { "Source", EnumName(m.Source, s_SheetSources) }, { "Columns", m.Columns },
+                                  { "Rows", m.Rows }, { "FrameCount", m.FrameCount }, { "SpritePrefix", m.SpritePrefix },
+                                  { "Mode", EnumName(m.Mode, s_SheetTimeModes) }, { "Cycles", m.Cycles }, { "FrameRate", m.FrameRate },
+                                  { "StartFrame", m.StartFrame }, { "RandomStartFrame", m.RandomStartFrame }, { "RandomRow", m.RandomRow } };
+    }
+
+    static void ReadParticleModules(const json& j, ParticleSystemComponent& c)
+    {
+        using PS = ParticleSystemComponent;
+        if (auto it = j.find("ColorOverLifetime"); it != j.end() && it->is_object())
+        {
+            auto& m = c.ColorOverLifetime;
+            const PS::ColorOverLifetimeModule d;
+            m.Enabled = it->value("Enabled", false);
+            m.Gradient = ParticleGradientFromJson(*it, "Gradient", d.Gradient);
+            m.RandomBetweenTwo = it->value("RandomBetweenTwo", false);
+            m.GradientB = ParticleGradientFromJson(*it, "GradientB", d.GradientB);
+        }
+        if (auto it = j.find("SizeOverLifetime"); it != j.end() && it->is_object())
+        {
+            auto& m = c.SizeOverLifetime;
+            const PS::SizeOverLifetimeModule d;
+            m.Enabled = it->value("Enabled", false);
+            m.Curve = ParticleCurveFromJson(*it, "Curve", d.Curve);
+            m.RandomBetweenTwo = it->value("RandomBetweenTwo", false);
+            m.CurveB = ParticleCurveFromJson(*it, "CurveB", d.CurveB);
+        }
+        if (auto it = j.find("VelocityOverLifetime"); it != j.end() && it->is_object())
+        {
+            auto& m = c.VelocityOverLifetime;
+            const PS::VelocityOverLifetimeModule d;
+            m.Enabled = it->value("Enabled", false);
+            m.Linear = Vec(*it, "Linear", d.Linear);
+            m.LinearCurve = ParticleCurveFromJson(*it, "LinearCurve", d.LinearCurve);
+            m.World = it->value("World", false);
+            m.Orbital = Vec(*it, "Orbital", d.Orbital);
+            m.Radial = Number(*it, "Radial", 0.0f);
+            m.SpeedModifier = ParticleCurveFromJson(*it, "SpeedModifier", d.SpeedModifier);
+        }
+        if (auto it = j.find("LimitVelocity"); it != j.end() && it->is_object())
+        {
+            auto& m = c.LimitVelocity;
+            const PS::LimitVelocityModule d;
+            m.Enabled = it->value("Enabled", false);
+            m.MaxSpeed = std::max(0.0f, Number(*it, "MaxSpeed", d.MaxSpeed));
+            m.MaxSpeedCurve = ParticleCurveFromJson(*it, "MaxSpeedCurve", d.MaxSpeedCurve);
+            m.Dampen = std::clamp(Number(*it, "Dampen", d.Dampen), 0.0f, 1.0f);
+        }
+        if (auto it = j.find("TextureSheet"); it != j.end() && it->is_object())
+        {
+            auto& m = c.TextureSheet;
+            const PS::TextureSheetModule d;
+            m.Enabled = it->value("Enabled", false);
+            m.Source = EnumFromJson(*it, "Source", s_SheetSources, d.Source);
+            m.Columns = std::clamp(it->value("Columns", d.Columns), 1, 256);
+            m.Rows = std::clamp(it->value("Rows", d.Rows), 1, 256);
+            m.FrameCount = std::max(0, it->value("FrameCount", 0));
+            m.SpritePrefix = it->value("SpritePrefix", std::string());
+            m.Mode = EnumFromJson(*it, "Mode", s_SheetTimeModes, d.Mode);
+            m.Cycles = std::max(0.0f, Number(*it, "Cycles", d.Cycles));
+            m.FrameRate = std::max(0.0f, Number(*it, "FrameRate", d.FrameRate));
+            m.StartFrame = std::max(0, it->value("StartFrame", 0));
+            m.RandomStartFrame = it->value("RandomStartFrame", false);
+            m.RandomRow = it->value("RandomRow", false);
+        }
     }
 
     static const char* BodyTypeToString(Rigidbody2DComponent::BodyType t)
@@ -852,8 +1034,24 @@ namespace Zamin {
             };
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
         {
-            WriteAssetHandle(e["ParticleSystem"], "Texture", c->TexturePath);
-            WriteSortingLayer(e["ParticleSystem"], c->SortingLayer);
+            json& j = e["ParticleSystem"];
+            WriteAssetHandle(j, "Texture", c->TexturePath);
+            WriteSortingLayer(j, c->SortingLayer);
+            // The newer shape settings only when they are used or changed.
+            const ParticleSystemComponent d;
+            if (c->ShapeThickness != d.ShapeThickness) j["ShapeThickness"] = c->ShapeThickness;
+            if (c->AlignToShape) j["AlignToShape"] = true;
+            if (c->Shape == ParticleSystemComponent::EmitterShape::Cone || c->ConeAngle != d.ConeAngle || c->ConeLength != d.ConeLength ||
+                c->ConeFrom != d.ConeFrom || c->ConeFlat)
+            {
+                j["ConeAngle"] = c->ConeAngle;
+                j["ConeLength"] = c->ConeLength;
+                j["ConeFrom"] = EnumName(c->ConeFrom, s_ConeEmitFrom);
+                j["ConeFlat"] = c->ConeFlat;
+            }
+            if (c->Shape == ParticleSystemComponent::EmitterShape::Edge || c->EdgeLength != d.EdgeLength)
+                j["EdgeLength"] = c->EdgeLength;
+            WriteParticleModules(j, *c);
         }
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
         {
@@ -1869,9 +2067,16 @@ namespace Zamin {
             c.EmissionRate = j.value("EmissionRate", 30.0f);
             c.Burst = j.value("Burst", 0);
             c.MaxParticles = j.value("MaxParticles", 1000);
-            c.Shape = (ParticleSystemComponent::EmitterShape)j.value("Shape", 0);
+            c.Shape = (ParticleSystemComponent::EmitterShape)std::clamp(j.value("Shape", 0), 0, (int)ParticleSystemComponent::EmitterShape::Edge);
             c.ShapeRadius = j.value("ShapeRadius", 0.5f);
             c.ShapeExtents = Vec(j, "ShapeExtents", glm::vec3(0.5f));
+            c.ShapeThickness = std::clamp(Number(j, "ShapeThickness", 1.0f), 0.0f, 1.0f);
+            c.AlignToShape = j.value("AlignToShape", false);
+            c.ConeAngle = std::clamp(Number(j, "ConeAngle", c.ConeAngle), 0.0f, 89.0f);
+            c.ConeLength = std::max(0.0f, Number(j, "ConeLength", c.ConeLength));
+            c.ConeFrom = EnumFromJson(j, "ConeFrom", s_ConeEmitFrom, c.ConeFrom);
+            c.ConeFlat = j.value("ConeFlat", false);
+            c.EdgeLength = std::max(0.0f, Number(j, "EdgeLength", c.EdgeLength));
             c.LifetimeMin = j.value("LifetimeMin", 0.8f);
             c.LifetimeMax = j.value("LifetimeMax", 1.6f);
             c.SpeedMin = j.value("SpeedMin", 1.0f);
@@ -1892,6 +2097,7 @@ namespace Zamin {
             c.TexturePath = ReadAssetPath(j, "Texture");
             c.SortingOrder = j.value("SortingOrder", 0);
             c.SortingLayer = ReadSortingLayer(j);
+            ReadParticleModules(j, c);
         }
         if (e.contains("UITransform"))
         {

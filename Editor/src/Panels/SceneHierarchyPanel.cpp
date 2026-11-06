@@ -7283,46 +7283,8 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<ParticleSystemComponent>(ICON_FA_WAND_MAGIC_SPARKLES, "Particle System", entity, [&](ParticleSystemComponent& c) {
-            bool changed = false;
             InactiveComponentNote(entity, "Obyekt nofaol: particle'lar to'xtatilgan");
-            UI::PropertyLabel("");
-            if (ImGui::Button(c.Playing ? ICON_FA_PAUSE "  Pauza" : ICON_FA_PLAY "  Ijro")) { c.Playing = !c.Playing; }
-            ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_ARROWS_ROTATE "  Qayta")) c.Clear();
-            ImGui::SameLine();
-            ImGui::TextDisabled("%zu", c.Particles.size());
-            changed |= UI::PropertyBool("Takrorlash", c.Looping);
-            changed |= UI::PropertyBool("Editorda ko'rsatish", c.PlayInEditor);
-            changed |= UI::PropertyFloat("Chiqarish (1/s)", c.EmissionRate, 0.5f, 0.0f, 10000.0f);
-            changed |= UI::PropertyInt("Portlash (burst)", c.Burst);
-            changed |= UI::PropertyInt("Maksimal soni", c.MaxParticles);
-            const char* shapes[] = { "Nuqta", "Doira", "Sfera", "Quti" };
-            int shape = (int)c.Shape;
-            if (UI::PropertyCombo("Shakl", shape, shapes, 4)) { c.Shape = (ParticleSystemComponent::EmitterShape)shape; changed = true; }
-            if (c.Shape == ParticleSystemComponent::EmitterShape::Box) changed |= UI::PropertyFloat3("O'lchami", c.ShapeExtents);
-            else if (c.Shape != ParticleSystemComponent::EmitterShape::Point) changed |= UI::PropertyFloat("Radius", c.ShapeRadius, 0.01f, 0.0f, 1000.0f);
-            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Harakat");
-            changed |= UI::PropertyFloat("Umr (min)", c.LifetimeMin, 0.01f, 0.01f, 100.0f);
-            changed |= UI::PropertyFloat("Umr (max)", c.LifetimeMax, 0.01f, 0.01f, 100.0f);
-            changed |= UI::PropertyFloat("Tezlik (min)", c.SpeedMin, 0.05f);
-            changed |= UI::PropertyFloat("Tezlik (max)", c.SpeedMax, 0.05f);
-            changed |= UI::PropertyFloat3("Yo'nalish", c.Direction);
-            changed |= UI::PropertySlider("Tarqalish (°)", c.Spread, 0.0f, 180.0f);
-            changed |= UI::PropertyFloat3("Gravitatsiya", c.Gravity);
-            changed |= UI::PropertyFloat("Qarshilik", c.Drag, 0.01f, 0.0f, 50.0f);
-            changed |= UI::PropertyFloat("Aylanish (max)", c.AngularVelocityMax, 0.05f, 0.0f, 100.0f);
-            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Ko'rinish");
-            changed |= UI::PropertyColor4("Boshlang'ich rang", c.StartColor);
-            changed |= UI::PropertyColor4("Oxirgi rang", c.EndColor);
-            changed |= UI::PropertyFloat("Boshlang'ich o'lcham", c.StartSize, 0.01f, 0.0f, 100.0f);
-            changed |= UI::PropertyFloat("Oxirgi o'lcham", c.EndSize, 0.01f, 0.0f, 100.0f);
-            changed |= UI::PropertyBool("Doira shaklida", c.RenderAsCircle);
-            changed |= UI::PropertyBool("Qo'shimcha yorqinlik (additive)", c.Additive);
-            changed |= UI::PropertyBool("Dunyo koordinatalari", c.WorldSpace);
-            changed |= UI::PropertyBool("Kameraga qaragan", c.Billboard);
-            if (UI::PropertyAssetPath("Tekstura", c.TexturePath, ".png;.jpg;.jpeg", ICON_FA_FILE_IMAGE)) { c.Texture = nullptr; changed = true; }
-            changed |= DrawSortingLayer(c.SortingLayer, c.SortingOrder);
-            return changed;
+            return DrawParticleSystem(entity, c);
         }, true, modified);
 
         AddSection<ParallaxComponent>(ICON_FA_MOUNTAIN, "Parallax", entity, [&](ParallaxComponent& c) {

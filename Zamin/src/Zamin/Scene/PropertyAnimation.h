@@ -50,6 +50,8 @@ namespace Zamin {
         // b.Value - b.InTangent * dt / 3 and b.Value (dt = b.Time - a.Time).
         glm::vec4 InTangent{ 0.0f };
         glm::vec4 OutTangent{ 0.0f };
+
+        bool operator==(const AnimationKey&) const = default;
     };
 
     // The keys of one property of one entity.
@@ -129,6 +131,11 @@ namespace Zamin {
 
         // The value between two keys `t` seconds after `a` (b follows a).
         static glm::vec4 Interpolate(const AnimationKey& a, const AnimationKey& b, float t);
+        // The value of keys sorted by time at `time` (held before the first / after the last; 0
+        // without keys). Every curve uses it: tracks, particle curves.
+        static glm::vec4 Evaluate(const std::vector<AnimationKey>& keys, float time);
+        // The tangents of the Auto and Flat keys of keys sorted by time (Free ones stay).
+        static void UpdateTangents(std::vector<AnimationKey>& keys);
     };
 
     class PropertyClipSerializer

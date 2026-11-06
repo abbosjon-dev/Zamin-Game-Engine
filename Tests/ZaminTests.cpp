@@ -519,6 +519,509 @@ TEST(ParticlesSimulate)
     scene->OnRuntimeStop();
 }
 
+// The particle simulation moved out of Scene.cpp (ParticleSimulation) without changing a number:
+// the same emitters give the same particles as before (the sum below was taken before the move).
+// The newer settings at their defaults draw no extra random numbers.
+TEST(ParticleSimulationUnchanged)
+{
+    auto scene = CreateRef<Scene>();
+    double sum = 0.0;
+    for (int shape = 0; shape < 4; shape++)
+    {
+        Entity e = scene->CreateEntity("Fx" + std::to_string(shape));
+        e.GetTransform().Translation = { 1.0f + shape, 2.0f, -1.0f };
+        e.GetTransform().Rotation = { 0.3f, 0.2f * shape, 0.1f };
+        auto& ps = e.AddComponent<ParticleSystemComponent>();
+        ps.Shape = (ParticleSystemComponent::EmitterShape)shape;
+        ps.EmissionRate = 40.0f;
+        ps.Burst = 7;
+        ps.Gravity = { 0, -3, 0.5f };
+        ps.Drag = 0.4f;
+        ps.AngularVelocityMax = 2.0f;
+        ps.WorldSpace = shape % 2 == 0;
+        ps.Direction = { 0.2f, 1.0f, 0.3f };
+        ps.Spread = 40.0f;
+    }
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 90; i++) scene->OnUpdateRuntime(1.0f / 60.0f);
+    for (auto ent : scene->GetAllEntitiesWith<ParticleSystemComponent>())
+    {
+        auto& ps = Entity(ent, scene.get()).GetComponent<ParticleSystemComponent>();
+        for (const auto& p : ps.Particles)
+            sum += p.Position.x * 1.1 + p.Position.y * 1.3 + p.Position.z * 1.7 + p.Velocity.x + p.Velocity.y * 0.5 + p.Rotation * 0.1 + p.Life;
+        sum += (double)ps.Particles.size() * 1000.0;
+    }
+    CHECK_NEAR(sum, 197726.707590503, 0.05);
+    scene->OnRuntimeStop();
+}
+
+TEST(ParticleGradientStops)
+{
+    ParticleGradient g;
+    CHECK(g.Evaluate(0.3f) == glm::vec4(1.0f)); // no stops: white
+    g.Stops = { { 1.0f, { 0, 0, 1, 0 } }, { 0.0f, { 1, 0, 0, 1 } }, { 0.5f, { 0, 1, 0, 1 } } };
+    g.Sort();
+    CHECK(g.Stops[0].Time == 0.0f && g.Stops[1].Time == 0.5f && g.Stops[2].Time == 1.0f);
+    CHECK(g.Evaluate(-1.0f) == glm::vec4(1, 0, 0, 1) && g.Evaluate(2.0f) == glm::vec4(0, 0, 1, 0));
+    glm::vec4 a = g.Evaluate(0.25f);
+    CHECK_NEAR(a.r, 0.5f, 1e-5f);
+    CHECK_NEAR(a.g, 0.5f, 1e-5f);
+    glm::vec4 b = g.Evaluate(0.75f);
+    CHECK_NEAR(b.g, 0.5f, 1e-5f);
+    CHECK_NEAR(b.b, 0.5f, 1e-5f);
+    CHECK_NEAR(b.a, 0.5f, 1e-5f);
+    g.Fixed = true; // each stop holds until the next one
+    CHECK(g.Evaluate(0.25f) == glm::vec4(1, 0, 0, 1) && g.Evaluate(0.75f) == glm::vec4(0, 1, 0, 1));
+    g.Fixed = false;
+    int i = g.AddStop(0.25f); // takes the colour the gradient has there
+    CHECK(i == 1 && g.Stops.size() == 4);
+    CHECK_NEAR(g.Stops[1].Color.r, 0.5f, 1e-5f);
+    CHECK_NEAR(g.Evaluate(0.25f).g, 0.5f, 1e-5f);
+
+    // The component: without the module Start -> End colour, with it the gradient; RandomBetweenTwo
+    // blends each particle's own way between two gradients (the same every frame).
+    ParticleSystemComponent ps;
+    Particle p;
+    p.Lifetime = 2.0f;
+    p.Life = 1.0f; // half way
+    glm::vec4 legacy = ParticleSimulation::GetColor(ps, p);
+    CHECK(legacy == glm::mix(ps.StartColor, ps.EndColor, 0.5f));
+    ps.ColorOverLifetime.Enabled = true;
+    ps.ColorOverLifetime.Gradient = g;
+    CHECK(ParticleSimulation::GetColor(ps, p) == g.Evaluate(0.5f));
+    ps.ColorOverLifetime.RandomBetweenTwo = true;
+    ps.ColorOverLifetime.Gradient = ParticleGradient::TwoStops({ 0, 0, 0, 1 }, { 0, 0, 0, 1 });
+    ps.ColorOverLifetime.GradientB = ParticleGradient::TwoStops({ 1, 1, 1, 1 }, { 1, 1, 1, 1 });
+    float lo = 1.0f, hi = 0.0f;
+    for (uint32_t seed = 1; seed < 200; seed++)
+    {
+        p.Seed = seed * 7919u;
+        float v = ParticleSimulation::GetColor(ps, p).r;
+        CHECK(v >= 0.0f && v <= 1.0f && ParticleSimulation::GetColor(ps, p).r == v);
+        lo = std::min(lo, v);
+        hi = std::max(hi, v);
+    }
+    CHECK(lo < 0.1f && hi > 0.9f); // spread over the whole range
+}
+
+TEST(ParticleCurvesAndSize)
+{
+    ParticleCurve none;
+    CHECK(none.Evaluate(0.4f) == 1.0f);
+    ParticleCurve lin = ParticleCurve::Linear(2.0f, 0.0f);
+    CHECK_NEAR(lin.Evaluate(0.25f), 1.5f, 1e-5f);
+    CHECK(lin.GetMax() == 2.0f && lin.GetMin() == 0.0f);
+    ParticleCurve step = ParticleCurve::Linear(1.0f, 3.0f);
+    step.Keys[0].Interpolation = KeyInterpolation::Step;
+    CHECK(step.Evaluate(0.9f) == 1.0f && step.Evaluate(1.0f) == 3.0f);
+    // A smooth (Bezier) bump through three keys: passes through them, no overshoot with auto tangents.
+    ParticleCurve bump = ParticleCurve::Linear(0.0f, 0.0f);
+    int k = bump.AddKey(0.5f);
+    CHECK(k == 1 && bump.Keys.size() == 3);
+    bump.Keys[1].Value.x = 1.0f;
+    for (auto& key : bump.Keys) key.Interpolation = KeyInterpolation::Bezier;
+    bump.Sort();
+    CHECK_NEAR(bump.Evaluate(0.5f), 1.0f, 1e-5f);
+    CHECK(bump.Evaluate(0.25f) > 0.3f && bump.Evaluate(0.25f) < 0.8f);
+    CHECK(bump.GetMax() <= 1.0f + 1e-4f);
+    // A free tangent overshoots: GetMax samples between the keys.
+    ParticleCurve wild = ParticleCurve::Linear(0.0f, 0.0f);
+    wild.Keys[0].Interpolation = KeyInterpolation::Bezier;
+    wild.Keys[0].TangentMode = KeyTangentMode::Free;
+    wild.Keys[0].OutTangent.x = 8.0f;
+    CHECK(wild.GetMax() > 0.5f);
+
+    ParticleSystemComponent ps;
+    ps.StartSize = 2.0f;
+    ps.EndSize = 0.5f;
+    Particle p;
+    p.Lifetime = 1.0f;
+    p.Life = 0.75f; // a quarter of the way
+    CHECK_NEAR(ParticleSimulation::GetSize(ps, p), glm::mix(2.0f, 0.5f, 0.25f), 1e-5f);
+    CHECK_NEAR(ParticleSimulation::GetMaxSize(ps), 2.0f, 1e-6f);
+    ps.SizeOverLifetime.Enabled = true;
+    ps.SizeOverLifetime.Curve = bump; // grows to StartSize at half its life, gone at the end
+    p.Life = 0.5f;
+    CHECK_NEAR(ParticleSimulation::GetSize(ps, p), 2.0f, 1e-4f);
+    p.Life = 1.0f;
+    CHECK_NEAR(ParticleSimulation::GetSize(ps, p), 0.0f, 1e-5f);
+    CHECK_NEAR(ParticleSimulation::GetMaxSize(ps), 2.0f, 1e-3f);
+    ps.SizeOverLifetime.RandomBetweenTwo = true;
+    ps.SizeOverLifetime.CurveB = ParticleCurve::Constant(3.0f);
+    CHECK_NEAR(ParticleSimulation::GetMaxSize(ps), 6.0f, 1e-4f); // culling bounds cover the bigger curve
+    p.Life = 0.5f;
+    for (uint32_t seed = 1; seed < 50; seed++)
+    {
+        p.Seed = seed * 104729u;
+        float s = ParticleSimulation::GetSize(ps, p);
+        CHECK(s >= 2.0f - 1e-4f && s <= 6.0f + 1e-4f);
+    }
+}
+
+TEST(ParticleVelocityOverLifetime)
+{
+    auto run = [](ParticleSystemComponent& ps, const glm::mat4& emitter, int steps) {
+        for (int i = 0; i < steps; i++)
+            ParticleSimulation::Integrate(ps, emitter, 0.01f);
+    };
+    // Linear velocity (emitter axes): a particle at rest drifts with it; its own velocity stays 0.
+    ParticleSystemComponent ps;
+    ps.WorldSpace = true;
+    Particle p;
+    p.Lifetime = p.Life = 10.0f;
+    ps.Particles = { p };
+    ps.VelocityOverLifetime.Enabled = true;
+    ps.VelocityOverLifetime.Linear = { 1.0f, 0.0f, 0.0f };
+    const glm::mat4 turned = glm::rotate(glm::mat4(1.0f), glm::half_pi<float>(), glm::vec3(0, 0, 1)); // emitter X = world Y
+    run(ps, turned, 100);
+    CHECK_NEAR(ps.Particles[0].Position.y, 1.0f, 1e-3f);
+    CHECK_NEAR(ps.Particles[0].Position.x, 0.0f, 1e-3f);
+    CHECK(ps.Particles[0].Velocity == glm::vec3(0.0f));
+    ps.VelocityOverLifetime.World = true; // now along the world's X
+    run(ps, turned, 100);
+    CHECK_NEAR(ps.Particles[0].Position.x, 1.0f, 1e-3f);
+    // LinearCurve 0: no drift.
+    ps.VelocityOverLifetime.LinearCurve = ParticleCurve::Constant(0.0f);
+    glm::vec3 before = ps.Particles[0].Position;
+    run(ps, turned, 50);
+    CHECK(glm::length(ps.Particles[0].Position - before) < 1e-5f);
+
+    // Speed modifier 0.5: half the distance with its own velocity.
+    ParticleSystemComponent slow;
+    Particle q;
+    q.Lifetime = q.Life = 10.0f;
+    q.Velocity = { 0.0f, 2.0f, 0.0f };
+    slow.Particles = { q };
+    slow.VelocityOverLifetime.Enabled = true;
+    slow.VelocityOverLifetime.SpeedModifier = ParticleCurve::Constant(0.5f);
+    run(slow, glm::mat4(1.0f), 100);
+    CHECK_NEAR(slow.Particles[0].Position.y, 1.0f, 1e-3f);
+    CHECK_NEAR(slow.Particles[0].Velocity.y, 2.0f, 1e-6f);
+
+    // Radial: away from the emitter's centre; orbital: around it at the same distance.
+    ParticleSystemComponent radial;
+    Particle r;
+    r.Lifetime = r.Life = 10.0f;
+    r.Position = { 3.0f, 1.0f, 0.0f }; // emitter at (2, 1, 0): 1 to its right
+    radial.Particles = { r };
+    radial.VelocityOverLifetime.Enabled = true;
+    radial.VelocityOverLifetime.Radial = 2.0f;
+    const glm::mat4 moved = glm::translate(glm::mat4(1.0f), { 2.0f, 1.0f, 0.0f });
+    run(radial, moved, 50);
+    CHECK_NEAR(radial.Particles[0].Position.x, 4.0f, 1e-3f);
+    CHECK_NEAR(radial.Particles[0].Position.y, 1.0f, 1e-4f);
+    radial.VelocityOverLifetime.Radial = 0.0f;
+    radial.VelocityOverLifetime.Orbital = { 0.0f, 0.0f, glm::half_pi<float>() }; // a quarter turn / s around Z
+    run(radial, moved, 100);
+    glm::vec3 offset = radial.Particles[0].Position - glm::vec3(2.0f, 1.0f, 0.0f);
+    CHECK_NEAR(glm::length(offset), 2.0f, 1e-3f);
+    CHECK_NEAR(offset.x, 0.0f, 1e-2f);
+    CHECK_NEAR(offset.y, 2.0f, 1e-2f); // counter-clockwise: from +X to +Y
+
+    // Speed limit: dampen 1 clamps at once, 0.5 halves the excess every 1/60 s.
+    ParticleSystemComponent limited;
+    Particle f;
+    f.Lifetime = f.Life = 10.0f;
+    f.Velocity = { 10.0f, 0.0f, 0.0f };
+    limited.Particles = { f };
+    limited.LimitVelocity.Enabled = true;
+    limited.LimitVelocity.MaxSpeed = 2.0f;
+    limited.LimitVelocity.Dampen = 1.0f;
+    ParticleSimulation::Integrate(limited, glm::mat4(1.0f), 0.01f);
+    CHECK_NEAR(glm::length(limited.Particles[0].Velocity), 2.0f, 1e-4f);
+    limited.Particles[0].Velocity = { 10.0f, 0.0f, 0.0f };
+    limited.LimitVelocity.Dampen = 0.5f;
+    ParticleSimulation::Integrate(limited, glm::mat4(1.0f), 1.0f / 60.0f);
+    CHECK_NEAR(limited.Particles[0].Velocity.x, 6.0f, 1e-3f);
+    // The limit over the life: MaxSpeedCurve 0 at the end stops them.
+    limited.LimitVelocity.Dampen = 1.0f;
+    limited.LimitVelocity.MaxSpeedCurve = ParticleCurve::Linear(1.0f, 0.0f);
+    limited.Particles[0].Life = 0.5f; // 95 % of its life
+    ParticleSimulation::Integrate(limited, glm::mat4(1.0f), 0.01f);
+    CHECK(glm::length(limited.Particles[0].Velocity) <= 2.0f * 0.06f);
+}
+
+TEST(ParticleTextureSheetFrames)
+{
+    ParticleSystemComponent ps;
+    auto& sheet = ps.TextureSheet;
+    Particle p;
+    p.Lifetime = 2.0f;
+    p.Life = 2.0f;
+    CHECK(ParticleSimulation::GetSheetFrame(ps, p, 16) == 0); // module off
+    sheet.Enabled = true;
+    sheet.Columns = 4;
+    sheet.Rows = 2;
+    CHECK(ParticleSimulation::GetGridFrameCount(ps) == 8);
+    sheet.FrameCount = 6;
+    CHECK(ParticleSimulation::GetGridFrameCount(ps) == 6);
+    sheet.FrameCount = 50;
+    CHECK(ParticleSimulation::GetGridFrameCount(ps) == 8);
+    sheet.FrameCount = 0;
+    // Over the life: 8 frames once from birth to death.
+    CHECK(ParticleSimulation::GetSheetFrame(ps, p, 8) == 0);
+    p.Life = 1.0f;
+    CHECK(ParticleSimulation::GetSheetFrame(ps, p, 8) == 4);
+    p.Life = 0.001f;
+    CHECK(ParticleSimulation::GetSheetFrame(ps, p, 8) == 7);
+    sheet.Cycles = 2.0f; // twice through
+    p.Life = 1.0f;
+    CHECK(ParticleSimulation::GetSheetFrame(ps, p, 8) == 0);
+    p.Life = 1.5f; // a quarter: 2 cycles x 8 frames x 0.25
+    CHECK(ParticleSimulation::GetSheetFrame(ps, p, 8) == 4);
+    sheet.StartFrame = 3;
+    CHECK(ParticleSimulation::GetSheetFrame(ps, p, 8) == 7);
+    // Frames per second: 0.75 s at 10 fps = frame 7, wrapping (+3 start = 10 -> 2).
+    sheet.Mode = ParticleSystemComponent::TextureSheetModule::TimeMode::FrameRate;
+    sheet.FrameRate = 10.0f;
+    p.Life = 1.25f;
+    CHECK(ParticleSimulation::GetSheetFrame(ps, p, 8) == 2);
+    sheet.StartFrame = 0;
+    // A random start frame: each particle its own, the same every frame, all within range.
+    sheet.RandomStartFrame = true;
+    p.Life = 2.0f;
+    std::set<int> starts;
+    for (uint32_t seed = 1; seed < 100; seed++)
+    {
+        p.Seed = seed * 2654435761u;
+        int f = ParticleSimulation::GetSheetFrame(ps, p, 8);
+        CHECK(f >= 0 && f < 8 && ParticleSimulation::GetSheetFrame(ps, p, 8) == f);
+        starts.insert(f);
+    }
+    CHECK(starts.size() >= 6);
+    // A random row: every frame of a particle stays in one row of 4.
+    sheet.RandomStartFrame = false;
+    sheet.RandomRow = true;
+    std::set<int> rows;
+    for (uint32_t seed = 1; seed < 40; seed++)
+    {
+        p.Seed = seed * 40503u;
+        int row = -1;
+        for (float life = 2.0f; life > 0.0f; life -= 0.05f)
+        {
+            p.Life = life;
+            int f = ParticleSimulation::GetSheetFrame(ps, p, 8);
+            CHECK(f >= 0 && f < 8);
+            if (row < 0) row = f / 4;
+            CHECK(f / 4 == row);
+        }
+        rows.insert(row);
+    }
+    CHECK(rows.size() == 2);
+}
+
+TEST(ParticleConeAndEdgeShapes)
+{
+    using Shape = ParticleSystemComponent::EmitterShape;
+    ParticleSystemComponent ps;
+    ps.Shape = Shape::Cone;
+    ps.Direction = { 0.0f, 0.0f, 2.0f }; // the axis (normalized)
+    ps.ShapeRadius = 1.0f;
+    ps.ConeAngle = 30.0f;
+    uint32_t rng = 12345u;
+    const float cos30 = std::cos(glm::radians(30.0f));
+    float widest = 1.0f;
+    for (int i = 0; i < 500; i++)
+    {
+        glm::vec3 pos, dir;
+        ParticleSimulation::SampleShape(ps, rng, pos, dir);
+        CHECK_NEAR(glm::length(dir), 1.0f, 1e-4f);
+        CHECK(dir.z >= cos30 - 1e-4f);              // within the cone's angle
+        CHECK(std::abs(pos.z) < 1e-5f);             // on the base disc ...
+        CHECK(glm::length(pos) <= 1.0f + 1e-4f);    // ... within its radius
+        // Rays lean outwards with the distance from the axis (through a common apex).
+        if (glm::length(pos) > 1e-3f)
+            CHECK(glm::dot(glm::normalize(glm::vec2(pos)), glm::normalize(glm::vec2(dir))) > 0.999f);
+        widest = std::min(widest, dir.z);
+    }
+    CHECK(widest < std::cos(glm::radians(25.0f))); // reaches near the rim's angle
+    // Only the rim (thickness 0); from the volume (length 2): up to 2 deep.
+    ps.ShapeThickness = 0.0f;
+    for (int i = 0; i < 100; i++)
+    {
+        glm::vec3 pos, dir;
+        ParticleSimulation::SampleShape(ps, rng, pos, dir);
+        CHECK_NEAR(glm::length(pos), 1.0f, 1e-4f);
+        CHECK_NEAR(dir.z, cos30, 1e-4f);
+    }
+    ps.ShapeThickness = 1.0f;
+    ps.ConeFrom = ParticleSystemComponent::ConeEmitFrom::Volume;
+    ps.ConeLength = 2.0f;
+    float deepest = 0.0f;
+    for (int i = 0; i < 300; i++)
+    {
+        glm::vec3 pos, dir;
+        ParticleSimulation::SampleShape(ps, rng, pos, dir);
+        CHECK(pos.z >= -1e-5f && pos.z <= 2.0f + 1e-4f);
+        // Inside the cone: the radius there grows with the depth.
+        CHECK(glm::length(glm::vec2(pos)) <= 1.0f + pos.z * std::tan(glm::radians(30.0f)) + 1e-3f);
+        deepest = std::max(deepest, pos.z);
+    }
+    CHECK(deepest > 1.5f);
+    // Flat (2D): everything in the XY plane, a fan around the axis.
+    ps.ConeFrom = ParticleSystemComponent::ConeEmitFrom::Base;
+    ps.ConeFlat = true;
+    ps.Direction = { 0.0f, 1.0f, 0.0f };
+    bool left = false, right = false;
+    for (int i = 0; i < 200; i++)
+    {
+        glm::vec3 pos, dir;
+        ParticleSimulation::SampleShape(ps, rng, pos, dir);
+        CHECK(pos.z == 0.0f && dir.z == 0.0f && std::abs(pos.y) < 1e-5f);
+        CHECK(dir.y >= cos30 - 1e-4f && std::abs(pos.x) <= 1.0f + 1e-4f);
+        CHECK(pos.x * dir.x >= -1e-6f); // leans to its own side
+        left |= pos.x < -0.5f;
+        right |= pos.x > 0.5f;
+    }
+    CHECK(left && right);
+    // Edge: a line along local X, directions from Direction + Spread.
+    ps.Shape = Shape::Edge;
+    ps.EdgeLength = 4.0f;
+    ps.Spread = 0.0f;
+    float minX = 0.0f, maxX = 0.0f;
+    for (int i = 0; i < 200; i++)
+    {
+        glm::vec3 pos, dir;
+        ParticleSimulation::SampleShape(ps, rng, pos, dir);
+        CHECK(pos.y == 0.0f && pos.z == 0.0f && std::abs(pos.x) <= 2.0f);
+        CHECK_NEAR(dir.y, 1.0f, 1e-4f);
+        minX = std::min(minX, pos.x);
+        maxX = std::max(maxX, pos.x);
+    }
+    CHECK(minX < -1.8f && maxX > 1.8f);
+    // Sphere shell, outward: particles start on the surface and fly away from the centre.
+    ps.Shape = Shape::Sphere;
+    ps.ShapeRadius = 2.0f;
+    ps.ShapeThickness = 0.0f;
+    ps.AlignToShape = true;
+    ps.Spread = 0.0f;
+    for (int i = 0; i < 100; i++)
+    {
+        glm::vec3 pos, dir;
+        ParticleSimulation::SampleShape(ps, rng, pos, dir);
+        CHECK_NEAR(glm::length(pos), 2.0f, 1e-3f);
+        CHECK(glm::dot(dir, glm::normalize(pos)) > 0.999f);
+    }
+    // A cone emitter in a running scene: particles fly up inside the cone.
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Fountain");
+    auto& c = e.AddComponent<ParticleSystemComponent>();
+    c.Shape = Shape::Cone;
+    c.ConeAngle = 20.0f;
+    c.ShapeRadius = 0.2f;
+    c.EmissionRate = 200.0f;
+    c.SpeedMin = c.SpeedMax = 5.0f;
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 20; i++) scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(c.Particles.size() > 40);
+    for (const auto& p : c.Particles)
+        CHECK(glm::normalize(p.Velocity).y >= std::cos(glm::radians(20.0f)) - 1e-3f);
+    scene->OnRuntimeStop();
+}
+
+TEST(ParticleModulesSerialization)
+{
+    auto scene = CreateRef<Scene>();
+    // A plain system writes none of the newer keys (older engines and diffs stay as they were).
+    scene->CreateEntity("Plain").AddComponent<ParticleSystemComponent>();
+    Entity fx = scene->CreateEntity("Fx");
+    auto& ps = fx.AddComponent<ParticleSystemComponent>();
+    ps.Shape = ParticleSystemComponent::EmitterShape::Cone;
+    ps.ConeAngle = 33.0f;
+    ps.ConeLength = 2.5f;
+    ps.ConeFrom = ParticleSystemComponent::ConeEmitFrom::Volume;
+    ps.ConeFlat = true;
+    ps.ShapeThickness = 0.25f;
+    ps.EdgeLength = 3.0f;
+    ps.AlignToShape = true;
+    ps.ColorOverLifetime.Enabled = true;
+    ps.ColorOverLifetime.Gradient.Stops = { { 0.0f, { 1, 0, 0, 1 } }, { 0.3f, { 0, 1, 0, 0.5f } }, { 1.0f, { 0, 0, 1, 0 } } };
+    ps.ColorOverLifetime.Gradient.Fixed = true;
+    ps.ColorOverLifetime.RandomBetweenTwo = true;
+    ps.SizeOverLifetime.Enabled = true;
+    ps.SizeOverLifetime.Curve = ParticleCurve::Linear(0.2f, 1.5f);
+    ps.SizeOverLifetime.Curve.AddKey(0.4f);
+    ps.SizeOverLifetime.Curve.Keys[1].Value.x = 2.0f;
+    ps.SizeOverLifetime.Curve.Keys[1].Interpolation = KeyInterpolation::Bezier;
+    ps.SizeOverLifetime.Curve.Keys[1].TangentMode = KeyTangentMode::Free;
+    ps.SizeOverLifetime.Curve.Keys[1].InTangent.x = 1.25f;
+    ps.SizeOverLifetime.Curve.Keys[1].OutTangent.x = -0.5f;
+    ps.SizeOverLifetime.Curve.Sort();
+    ps.VelocityOverLifetime.Enabled = true;
+    ps.VelocityOverLifetime.Linear = { 1, 2, 3 };
+    ps.VelocityOverLifetime.World = true;
+    ps.VelocityOverLifetime.Orbital = { 0, 1.5f, 0 };
+    ps.VelocityOverLifetime.Radial = -0.75f;
+    ps.VelocityOverLifetime.SpeedModifier = ParticleCurve::Linear(1.0f, 0.25f);
+    ps.LimitVelocity.MaxSpeed = 7.0f; // off but changed: still written
+    ps.LimitVelocity.Dampen = 0.2f;
+    ps.TextureSheet.Enabled = true;
+    ps.TextureSheet.Source = ParticleSystemComponent::TextureSheetModule::FrameSource::Sprites;
+    ps.TextureSheet.Columns = 8;
+    ps.TextureSheet.Rows = 3;
+    ps.TextureSheet.FrameCount = 20;
+    ps.TextureSheet.SpritePrefix = "flame";
+    ps.TextureSheet.Mode = ParticleSystemComponent::TextureSheetModule::TimeMode::FrameRate;
+    ps.TextureSheet.FrameRate = 24.0f;
+    ps.TextureSheet.Cycles = 3.0f;
+    ps.TextureSheet.StartFrame = 2;
+    ps.TextureSheet.RandomStartFrame = true;
+    ps.TextureSheet.RandomRow = true;
+
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& plain = loaded->FindEntityByName("Plain").GetComponent<ParticleSystemComponent>();
+    CHECK(plain.ColorOverLifetime == ParticleSystemComponent::ColorOverLifetimeModule{} && !plain.SizeOverLifetime.Enabled &&
+          plain.Shape == ParticleSystemComponent::EmitterShape::Point && plain.ShapeThickness == 1.0f);
+    const auto& l = loaded->FindEntityByName("Fx").GetComponent<ParticleSystemComponent>();
+    CHECK(l.Shape == ps.Shape && l.ConeAngle == 33.0f && l.ConeLength == 2.5f && l.ConeFrom == ps.ConeFrom && l.ConeFlat);
+    CHECK(l.ShapeThickness == 0.25f && l.EdgeLength == 3.0f && l.AlignToShape);
+    CHECK(l.ColorOverLifetime == ps.ColorOverLifetime);
+    CHECK(l.SizeOverLifetime == ps.SizeOverLifetime);
+    CHECK(l.SizeOverLifetime.Curve.Keys.size() == 3 && l.SizeOverLifetime.Curve.Keys[1].OutTangent.x == -0.5f);
+    CHECK(l.VelocityOverLifetime == ps.VelocityOverLifetime);
+    CHECK(l.LimitVelocity == ps.LimitVelocity && !l.LimitVelocity.Enabled);
+    CHECK(l.TextureSheet == ps.TextureSheet);
+    CHECK(SceneSerializer(loaded).SerializeToString() == text); // stable
+
+    // The plain system's JSON has none of the newer keys.
+    {
+        auto only = CreateRef<Scene>();
+        only->CreateEntity("Plain").AddComponent<ParticleSystemComponent>();
+        const std::string plainText = SceneSerializer(only).SerializeToString();
+        for (const char* key : { "ColorOverLifetime", "SizeOverLifetime", "VelocityOverLifetime", "LimitVelocity", "TextureSheet",
+                                 "ConeAngle", "EdgeLength", "ShapeThickness", "AlignToShape" })
+            CHECK(plainText.find(key) == std::string::npos);
+    }
+    // An older scene (no module keys, shape as a number) loads with the modules off.
+    const std::string legacy = R"({ "Scene": "Old", "Entities": [ { "Entity": 7, "Tag": "Torch",
+        "ParticleSystem": { "EmissionRate": 12.0, "Shape": 1, "ShapeRadius": 0.3, "StartColor": [1,0,0,1], "EndColor": [0,0,1,0],
+                            "StartSize": 0.5, "EndSize": 0.1 } } ] })";
+    auto old = CreateRef<Scene>();
+    CHECK(SceneSerializer(old).DeserializeFromString(legacy));
+    Entity torch = old->FindEntityByName("Torch");
+    CHECK(torch && torch.HasComponent<ParticleSystemComponent>());
+    if (torch)
+    {
+        const auto& t = torch.GetComponent<ParticleSystemComponent>();
+        CHECK(t.Shape == ParticleSystemComponent::EmitterShape::Circle && t.ShapeRadius == 0.3f && t.EmissionRate == 12.0f);
+        CHECK(!t.ColorOverLifetime.Enabled && !t.SizeOverLifetime.Enabled && !t.VelocityOverLifetime.Enabled &&
+              !t.LimitVelocity.Enabled && !t.TextureSheet.Enabled && t.ShapeThickness == 1.0f && !t.AlignToShape);
+        Particle p;
+        p.Lifetime = 1.0f;
+        p.Life = 0.5f;
+        CHECK(ParticleSimulation::GetColor(t, p) == glm::vec4(0.5f, 0.0f, 0.5f, 0.5f));
+        CHECK_NEAR(ParticleSimulation::GetSize(t, p), 0.3f, 1e-6f);
+    }
+    // An unknown shape number is clamped to a known one.
+    std::string odd = legacy;
+    odd.replace(odd.find("\"Shape\": 1"), 10, "\"Shape\": 42");
+    auto oddScene = CreateRef<Scene>();
+    CHECK(SceneSerializer(oddScene).DeserializeFromString(odd));
+    CHECK((int)oddScene->FindEntityByName("Torch").GetComponent<ParticleSystemComponent>().Shape <= (int)ParticleSystemComponent::EmitterShape::Edge);
+}
+
 TEST(SkeletalPoseEvaluation)
 {
     Skeleton sk;

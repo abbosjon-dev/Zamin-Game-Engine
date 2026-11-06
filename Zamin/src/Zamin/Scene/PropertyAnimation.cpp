@@ -148,18 +148,23 @@ namespace Zamin {
 
     int AnimationTrack::GetComponentCount() const { return PropertyAnimation::GetComponentCount(Property); }
 
-    glm::vec4 AnimationTrack::Evaluate(float time) const
+    glm::vec4 PropertyAnimation::Evaluate(const std::vector<AnimationKey>& keys, float time)
     {
-        if (Keys.empty())
+        if (keys.empty())
             return glm::vec4(0.0f);
-        if (Keys.size() == 1 || time <= Keys.front().Time)
-            return Keys.front().Value;
-        if (time >= Keys.back().Time)
-            return Keys.back().Value;
-        auto it = std::upper_bound(Keys.begin(), Keys.end(), time, [](float t, const AnimationKey& k) { return t < k.Time; });
+        if (keys.size() == 1 || time <= keys.front().Time)
+            return keys.front().Value;
+        if (time >= keys.back().Time)
+            return keys.back().Value;
+        auto it = std::upper_bound(keys.begin(), keys.end(), time, [](float t, const AnimationKey& k) { return t < k.Time; });
         const AnimationKey& b = *it;
         const AnimationKey& a = *(it - 1);
-        return PropertyAnimation::Interpolate(a, b, time - a.Time);
+        return Interpolate(a, b, time - a.Time);
+    }
+
+    glm::vec4 AnimationTrack::Evaluate(float time) const
+    {
+        return PropertyAnimation::Evaluate(Keys, time);
     }
 
     float AnimationTrack::EvaluateComponent(int component, float time) const
@@ -175,10 +180,15 @@ namespace Zamin {
 
     void AnimationTrack::UpdateTangents()
     {
-        const size_t n = Keys.size();
+        PropertyAnimation::UpdateTangents(Keys);
+    }
+
+    void PropertyAnimation::UpdateTangents(std::vector<AnimationKey>& keys)
+    {
+        const size_t n = keys.size();
         for (size_t i = 0; i < n; i++)
         {
-            AnimationKey& k = Keys[i];
+            AnimationKey& k = keys[i];
             if (k.TangentMode == KeyTangentMode::Free)
                 continue;
             if (k.TangentMode == KeyTangentMode::Flat || i == 0 || i + 1 == n)
@@ -186,8 +196,8 @@ namespace Zamin {
                 k.InTangent = k.OutTangent = glm::vec4(0.0f);
                 continue;
             }
-            const AnimationKey& p = Keys[i - 1];
-            const AnimationKey& q = Keys[i + 1];
+            const AnimationKey& p = keys[i - 1];
+            const AnimationKey& q = keys[i + 1];
             const float dl = k.Time - p.Time, dr = q.Time - k.Time;
             glm::vec4 slope(0.0f);
             if (dl > 0.0f && dr > 0.0f)

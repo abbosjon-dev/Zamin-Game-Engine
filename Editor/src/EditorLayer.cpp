@@ -479,7 +479,7 @@ namespace Zamin {
                 for (auto [key, target] : { std::pair<std::string_view, GizmoVisibility*>{ "frustums=", &g.CameraFrustums },
                                             { "lights=", &g.LightDirections }, { "audio=", &g.AudioRanges },
                                             { "bounds=", &g.Bounds }, { "skeleton=", &g.Skeletons }, { "normals=", &g.Normals },
-                                            { "joints=", &g.Joints2D } })
+                                            { "joints=", &g.Joints2D }, { "particles=", &g.ParticleShapes } })
                     if (size_t at = v.find(key); at != std::string_view::npos)
                         *target = parse(v.substr(at + key.size()));
                 if (size_t at = v.find("normallength="); at != std::string_view::npos)
@@ -1998,6 +1998,94 @@ namespace Zamin {
         DrawWireArrow(apex, apex + d * length * 1.15f, length * 0.18f, color);
     }
 
+    // A Particle System's emitter shape in its local space (`world`: the emitter's transform):
+    // circle / sphere / box outlines (the inner edge too when only an outer shell emits), the cone
+    // with its rim rays out to its length, the edge line, and the emission direction.
+    static void DrawParticleShapeGizmo(const glm::mat4& world, const ParticleSystemComponent& ps, const glm::vec4& color, float pixel)
+    {
+        using Shape = ParticleSystemComponent::EmitterShape;
+        auto toWorld = [&](const glm::vec3& p) { return glm::vec3(world * glm::vec4(p, 1.0f)); };
+        auto line = [&](const glm::vec3& a, const glm::vec3& b, const glm::vec4& c) { Renderer2D::DrawLine(toWorld(a), toWorld(b), c); };
+        auto circle = [&](const glm::vec3& center, const glm::vec3& a, const glm::vec3& b, float radius, const glm::vec4& c) {
+            const int segments = 40;
+            glm::vec3 prev = center + a * radius;
+            for (int i = 1; i <= segments; i++)
+            {
+                const float t = glm::two_pi<float>() * i / segments;
+                const glm::vec3 p = center + (a * std::cos(t) + b * std::sin(t)) * radius;
+                line(prev, p, c);
+                prev = p;
+            }
+        };
+        const glm::vec4 faint(color.r, color.g, color.b, color.a * 0.45f);
+        const float inner = 1.0f - std::clamp(ps.ShapeThickness, 0.0f, 1.0f);
+        const glm::vec3 axis = glm::length(ps.Direction) > 0.0f ? glm::normalize(ps.Direction) : glm::vec3(0, 1, 0);
+        // About 60 px long on screen (in the emitter's units: its scale counts).
+        const float scale = std::max(1e-6f, glm::length(glm::vec3(world * glm::vec4(axis, 0.0f))));
+        const float arrow = 60.0f * pixel / scale;
+        switch (ps.Shape)
+        {
+            case Shape::Circle:
+                circle(glm::vec3(0.0f), { 1, 0, 0 }, { 0, 1, 0 }, ps.ShapeRadius, color);
+                if (inner > 0.0f)
+                    circle(glm::vec3(0.0f), { 1, 0, 0 }, { 0, 1, 0 }, ps.ShapeRadius * inner, faint);
+                break;
+            case Shape::Sphere:
+                circle(glm::vec3(0.0f), { 1, 0, 0 }, { 0, 1, 0 }, ps.ShapeRadius, color);
+                circle(glm::vec3(0.0f), { 1, 0, 0 }, { 0, 0, 1 }, ps.ShapeRadius, color);
+                circle(glm::vec3(0.0f), { 0, 1, 0 }, { 0, 0, 1 }, ps.ShapeRadius, color);
+                if (inner > 0.0f)
+                    circle(glm::vec3(0.0f), { 1, 0, 0 }, { 0, 1, 0 }, ps.ShapeRadius * inner, faint);
+                break;
+            case Shape::Box:
+                DrawWireBox(world * glm::scale(glm::mat4(1.0f), ps.ShapeExtents * 2.0f), color);
+                break;
+            case Shape::Edge:
+                line({ -ps.EdgeLength * 0.5f, 0.0f, 0.0f }, { ps.EdgeLength * 0.5f, 0.0f, 0.0f }, color);
+                for (float x : { -0.5f, 0.5f })
+                    line({ ps.EdgeLength * x, -arrow * 0.08f, 0.0f }, { ps.EdgeLength * x, arrow * 0.08f, 0.0f }, color);
+                break;
+            case Shape::Cone:
+            {
+                glm::vec3 u, v;
+                if (ps.ConeFlat)
+                {
+                    const glm::vec3 side(axis.y, -axis.x, 0.0f);
+                    u = glm::length(side) > 1e-6f ? glm::normalize(side) : glm::vec3(1, 0, 0);
+                    v = glm::vec3(0.0f);
+                }
+                else
+                    PerpendicularAxes(axis, u, v);
+                const float tanAngle = std::tan(glm::radians(std::clamp(ps.ConeAngle, 0.0f, 89.0f)));
+                const float length = ps.ConeFrom == ParticleSystemComponent::ConeEmitFrom::Volume ? std::max(ps.ConeLength, 1e-3f)
+                                                                                                    : std::max(arrow, ps.ShapeRadius);
+                const float far = ps.ShapeRadius + length * tanAngle;
+                const glm::vec4& farColor = ps.ConeFrom == ParticleSystemComponent::ConeEmitFrom::Volume ? color : faint;
+                if (ps.ConeFlat)
+                {
+                    line(-u * ps.ShapeRadius, u * ps.ShapeRadius, color);
+                    line(axis * length - u * far, axis * length + u * far, farColor);
+                    for (float side : { -1.0f, 1.0f })
+                        line(u * (ps.ShapeRadius * side), axis * length + u * (far * side), color);
+                }
+                else
+                {
+                    circle(glm::vec3(0.0f), u, v, ps.ShapeRadius, color);
+                    if (inner > 0.0f)
+                        circle(glm::vec3(0.0f), u, v, ps.ShapeRadius * inner, faint);
+                    circle(axis * length, u, v, far, farColor);
+                    for (glm::vec3 side : { u, -u, v, -v })
+                        line(side * ps.ShapeRadius, axis * length + side * far, color);
+                }
+                break;
+            }
+            default: break;
+        }
+        // The direction (the cone's axis).
+        const glm::vec3 from = toWorld(glm::vec3(0.0f)), to = toWorld(axis * arrow);
+        DrawWireArrow(from, to, glm::length(to - from) * 0.2f, faint);
+    }
+
     // A 2D light in the XY plane: the circle it reaches, fainter the inner (full brightness) one;
     // a spot light: its cone's edges and the arc where it ends.
     // fn(std::type_identity<T>{}) for each 2D joint component type.
@@ -2574,6 +2662,18 @@ namespace Zamin {
                 DrawWireBox(box, color);
                 if (zone.BlendDistance > 0.0f)
                     DrawWireBox(shell, faint);
+            }
+
+        // Particle System emitters: the shape they emit from.
+        if (gizmos.ParticleShapes != GizmoVisibility::Off)
+            for (auto e : scene.GetAllEntitiesWith<ParticleSystemComponent>())
+            {
+                if (!shows(e, gizmos.ParticleShapes))
+                    continue;
+                Entity entity{ e, &scene };
+                const glm::mat4 world = scene.GetWorldTransform(entity);
+                DrawParticleShapeGizmo(world, entity.GetComponent<ParticleSystemComponent>(), tint(e, glm::vec4(0.55f, 0.75f, 1.0f, 0.9f)),
+                                       view.PixelSize(glm::vec3(world[3])));
             }
 
         // 2D and 3D joints: anchors, connected anchors and limits (one setting for both).
@@ -5973,7 +6073,7 @@ namespace Zamin {
                 const bool showingAll = g.CameraFrustums == GizmoVisibility::All || g.LightDirections == GizmoVisibility::All ||
                                         g.AudioRanges == GizmoVisibility::All || g.Bounds == GizmoVisibility::All ||
                                         g.Skeletons == GizmoVisibility::All || g.Normals != GizmoVisibility::Off ||
-                                        g.Joints2D == GizmoVisibility::All;
+                                        g.Joints2D == GizmoVisibility::All || g.ParticleShapes == GizmoVisibility::All;
                 if (showingAll) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
                 if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###ComponentGizmosMenu", "Gizmolar: kamera frustumi, yorug'lik yo'nalishi, "
                                       "audio radiusi, chegaralar, skelet - tanlanganda yoki hammasida; tanlash konturi",
@@ -6359,6 +6459,9 @@ namespace Zamin {
             changed |= ImGui::Checkbox("Bo'g'in nomlari", &g.JointNames);
             ImGui::Unindent();
         }
+        option(ICON_FA_WAND_MAGIC_SPARKLES "  Particle shakli", g.ParticleShapes,
+               "Particle System emitteri: doira, sfera, quti, konus (chetidagi nurlari bilan) yoki chiziq - particle'lar qayerdan "
+               "chiqadi, va yo'nalish o'qi");
         option(ICON_FA_LINK "  Joint'lar (2D / 3D)", g.Joints2D,
                "Joint langari (doira / shar), ulangan langar (romb / oktaedr, binafsha) va chegaralar: sharnirning o'qi va burchak "
                "yoyi, sirpanish / osma o'qi, masofa tayog'i. O'yin paytida joint yaratilgandagi holatga nisbatan. Uzilgan joint qizil");

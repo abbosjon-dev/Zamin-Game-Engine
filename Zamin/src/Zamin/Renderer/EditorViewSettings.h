@@ -128,6 +128,8 @@ namespace Zamin {
         bool NormalsByDirection = false;                   // coloured by direction (as the normals view) instead of blue
         // 2D joints: anchors, connected anchors and limits (revolute arcs, slide / suspension axes).
         GizmoVisibility Joints2D = GizmoVisibility::Selected;
+        // Particle System emitters: their shape (circle, sphere, box, cone, edge) and direction.
+        GizmoVisibility ParticleShapes = GizmoVisibility::Selected;
 
         static constexpr float MinNormalLength = 0.001f, MaxNormalLength = 100.0f;
 

@@ -1263,6 +1263,13 @@ namespace Zamin {
         // as one stretched piece (no borders, or exactly one tile). Several pieces get the flash only.
         static bool CanDrawOutline(const struct SpriteRendererComponent& sprite, const struct SpriteAnimationComponent* animation,
                                    const AssetRegistry* registry, const glm::vec2* uiSize = nullptr);
+        // A particle system's particles into the open Renderer2D batch (flushed around them: no depth
+        // writes, its blend mode); `transform` is the emitter's, `billboard` the camera's rotation
+        // (SceneParticles.cpp).
+        static void DrawParticleSystem(struct ParticleSystemComponent& ps, const glm::mat4& transform, const glm::mat4& billboard, int entityID,
+                                       const AssetRegistry* registry);
+        // The box around a system's particles at their largest (any rotation, facing the camera or not).
+        static AABB GetParticleBounds(const struct ParticleSystemComponent& ps, const glm::mat4& emitter);
         // Draws it into the open Renderer2D batch (FlipX / FlipY are part of `transform`).
         static void DrawSprite(const glm::mat4& transform, const struct SpriteRendererComponent& sprite,
                                const struct SpriteAnimationComponent* animation, const glm::vec4& color, int entityID,

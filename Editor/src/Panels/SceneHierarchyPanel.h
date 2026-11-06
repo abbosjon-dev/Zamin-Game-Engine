@@ -365,6 +365,9 @@ namespace Zamin {
         bool DrawTintAnimation(Entity entity, TintAnimationComponent& c);
         bool DrawLight2D(Entity entity, Light2DComponent& c);
         bool DrawPixelPerfect(CameraComponent& c);
+        // Particle System: playback, emission, shape, motion, look and the optional modules
+        // (colour / size / velocity over lifetime, speed limit, texture sheet) - SceneHierarchyParticles.cpp.
+        bool DrawParticleSystem(Entity entity, ParticleSystemComponent& c);
         // Tilemap: tileset, layers, paint tools, auto-tile rules, palette.
         bool DrawTilemap(Entity entity, TilemapComponent& c);
         // Writes the auto-tile rules into the tileset's .zmeta.

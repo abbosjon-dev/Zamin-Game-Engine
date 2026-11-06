@@ -6009,125 +6009,6 @@ namespace Zamin {
         }
     }
 
-    // ------------------------------------------------------------------ particles
-    static float Rand01(uint32_t& state)
-    {
-        state ^= state << 13; state ^= state >> 17; state ^= state << 5;
-        return (state & 0xFFFFFF) / float(0x1000000);
-    }
-
-    static glm::vec3 RandomInCone(const glm::vec3& direction, float spreadDegrees, uint32_t& rng)
-    {
-        glm::vec3 dir = glm::length(direction) > 0.0f ? glm::normalize(direction) : glm::vec3(0, 1, 0);
-        float spread = glm::radians(std::clamp(spreadDegrees, 0.0f, 180.0f));
-        float cosTheta = 1.0f - Rand01(rng) * (1.0f - std::cos(spread));
-        float sinTheta = std::sqrt(std::max(0.0f, 1.0f - cosTheta * cosTheta));
-        float phi = Rand01(rng) * glm::two_pi<float>();
-        glm::vec3 up = std::abs(dir.y) < 0.99f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
-        glm::vec3 t = glm::normalize(glm::cross(up, dir));
-        glm::vec3 b = glm::cross(dir, t);
-        return glm::normalize(t * (std::cos(phi) * sinTheta) + b * (std::sin(phi) * sinTheta) + dir * cosTheta);
-    }
-
-    static void SpawnParticles(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, int count)
-    {
-        uint32_t& rng = ps.RandomState;
-        for (int i = 0; i < count && (int)ps.Particles.size() < ps.MaxParticles; i++)
-        {
-            Particle p;
-            glm::vec3 local(0.0f);
-            switch (ps.Shape)
-            {
-                case ParticleSystemComponent::EmitterShape::Circle:
-                {
-                    float a = Rand01(rng) * glm::two_pi<float>(), r = std::sqrt(Rand01(rng)) * ps.ShapeRadius;
-                    local = { std::cos(a) * r, std::sin(a) * r, 0.0f };
-                    break;
-                }
-                case ParticleSystemComponent::EmitterShape::Sphere:
-                    local = RandomInCone({ 0, 1, 0 }, 180.0f, rng) * (std::cbrt(Rand01(rng)) * ps.ShapeRadius);
-                    break;
-                case ParticleSystemComponent::EmitterShape::Box:
-                    local = (glm::vec3(Rand01(rng), Rand01(rng), Rand01(rng)) * 2.0f - 1.0f) * ps.ShapeExtents;
-                    break;
-                default: break;
-            }
-            glm::vec3 dir = RandomInCone(ps.Direction, ps.Spread, rng);
-            float speed = ps.SpeedMin + (ps.SpeedMax - ps.SpeedMin) * Rand01(rng);
-            if (ps.WorldSpace)
-            {
-                p.Position = glm::vec3(emitterWorld * glm::vec4(local, 1.0f));
-                p.Velocity = glm::normalize(glm::vec3(emitterWorld * glm::vec4(dir, 0.0f))) * speed;
-            }
-            else
-            {
-                p.Position = local;
-                p.Velocity = dir * speed;
-            }
-            p.Lifetime = p.Life = std::max(0.01f, ps.LifetimeMin + (ps.LifetimeMax - ps.LifetimeMin) * Rand01(rng));
-            p.Rotation = Rand01(rng) * glm::two_pi<float>();
-            p.AngularVelocity = (Rand01(rng) * 2.0f - 1.0f) * ps.AngularVelocityMax;
-            ps.Particles.push_back(p);
-        }
-    }
-
-    void Scene::UpdateParticles(Timestep ts, bool editor)
-    {
-        ZM_PROFILE_SCOPE("Particle'lar");
-        for (auto e : m_Registry.view<ParticleSystemComponent>())
-        {
-            auto& ps = m_Registry.get<ParticleSystemComponent>(e);
-            Entity entity{ e, this };
-            // Not previewed in the editor, or inactive in the hierarchy: stopped and empty, so it
-            // starts over (Burst included) when it plays again. Edit mode and direct writes to
-            // TagComponent::Active end up here; at runtime SetActive already cleared it.
-            if ((editor && !ps.PlayInEditor) || !IsActiveInHierarchy(entity))
-            {
-                if (!ps.Particles.empty() || ps.BurstDone || ps.EmitAccumulator != 0.0f)
-                    ps.Clear();
-                continue;
-            }
-            glm::mat4 world = GetWorldTransform(entity);
-
-            if (ps.Playing)
-            {
-                if (!ps.BurstDone)
-                {
-                    SpawnParticles(ps, world, ps.Burst);
-                    ps.BurstDone = true;
-                }
-                if (ps.Looping || !editor)
-                {
-                    ps.EmitAccumulator += ps.EmissionRate * ts;
-                    int count = (int)ps.EmitAccumulator;
-                    ps.EmitAccumulator -= count;
-                    if (count > 0) SpawnParticles(ps, world, count);
-                }
-                if (!ps.Looping && ps.BurstDone && ps.EmissionRate <= 0.0f && ps.Particles.empty() && editor)
-                    ps.BurstDone = false; // keep previewing bursts in the editor
-            }
-
-            float drag = std::max(0.0f, 1.0f - ps.Drag * ts);
-            for (auto& p : ps.Particles)
-            {
-                p.Velocity += ps.Gravity * (float)ts;
-                p.Velocity *= drag;
-                p.Position += p.Velocity * (float)ts;
-                p.Rotation += p.AngularVelocity * ts;
-                p.Life -= ts;
-            }
-            std::erase_if(ps.Particles, [](const Particle& p) { return p.Life <= 0.0f; });
-        }
-    }
-
-    void Scene::EmitParticles(Entity entity, int count)
-    {
-        if (!entity.IsValid() || entity.GetScene() != this || !IsActiveInHierarchy(entity))
-            return;
-        if (auto* ps = entity.TryGetComponent<ParticleSystemComponent>())
-            SpawnParticles(*ps, GetWorldTransform(entity), count);
-    }
-
     // ------------------------------------------------------------------ cameras (2D follow, shake)
     void Scene::UpdateCameraFollow(float dt)
     {
@@ -6784,24 +6665,8 @@ namespace Zamin {
         {
             const auto& ps = m_Registry.get<ParticleSystemComponent>(e);
             if (ps.Particles.empty() || skip(e)) continue;
-            if (culling2D)
-            {
-                // Every particle quad (any rotation, billboarded or not) fits in a sphere of half
-                // its diagonal around its position.
-                const glm::mat4& emitter = world(e);
-                float radius = std::max(std::abs(ps.StartSize), std::abs(ps.EndSize)) * 0.70711f;
-                AABB box{ glm::vec3(std::numeric_limits<float>::max()), glm::vec3(-std::numeric_limits<float>::max()) };
-                for (const auto& p : ps.Particles)
-                {
-                    glm::vec3 pos = ps.WorldSpace ? p.Position : glm::vec3(emitter * glm::vec4(p.Position, 1.0f));
-                    box.Min = glm::min(box.Min, pos);
-                    box.Max = glm::max(box.Max, pos);
-                }
-                box.Min -= glm::vec3(radius);
-                box.Max += glm::vec3(radius);
-                if (!seen(box))
-                    continue;
-            }
+            if (culling2D && !seen(GetParticleBounds(ps, world(e))))
+                continue;
             items.push_back({ keyOf(e, ps.SortingLayer, ps.SortingOrder), 3, e });
         }
         for (const Item2D& item : items)
@@ -6959,34 +6824,7 @@ namespace Zamin {
                     }
             }
             else
-            {
-                auto& ps = m_Registry.get<ParticleSystemComponent>(item.Handle);
-                // What came before is drawn with depth writes; the particles without them.
-                Renderer2D::Flush();
-                if (ps.Additive) Renderer2D::SetBlendMode(BlendMode::Additive);
-                RenderCommand::SetDepthWrite(false);
-                if (!ps.TexturePath.empty() && !ps.Texture)
-                    ps.Texture = TextureLibrary::Load(Project::GetAssetFileSystemPath(ps.TexturePath));
-                for (const auto& p : ps.Particles)
-                {
-                    float t = 1.0f - p.Life / p.Lifetime;
-                    glm::vec4 color = glm::mix(ps.StartColor, ps.EndColor, t);
-                    float size = glm::mix(ps.StartSize, ps.EndSize, t);
-                    glm::vec3 pos = ps.WorldSpace ? p.Position : glm::vec3(transform * glm::vec4(p.Position, 1.0f));
-                    glm::mat4 m = glm::translate(glm::mat4(1.0f), pos);
-                    if (ps.Billboard) m = m * billboard;
-                    m = m * glm::rotate(glm::mat4(1.0f), p.Rotation, glm::vec3(0, 0, 1)) * glm::scale(glm::mat4(1.0f), glm::vec3(size));
-                    if (ps.Texture)
-                        Renderer2D::DrawQuad(m, ps.Texture, 1.0f, color, id);
-                    else if (ps.RenderAsCircle)
-                        Renderer2D::DrawCircle(m, color, 1.0f, 0.6f, id);
-                    else
-                        Renderer2D::DrawQuad(m, color, id);
-                }
-                Renderer2D::Flush();
-                RenderCommand::SetDepthWrite(true);
-                if (ps.Additive) Renderer2D::SetBlendMode(BlendMode::Alpha);
-            }
+                DrawParticleSystem(m_Registry.get<ParticleSystemComponent>(item.Handle), transform, billboard, id, registry());
         }
         Renderer2D::SetLit(false);
         Renderer2D::EndScene();

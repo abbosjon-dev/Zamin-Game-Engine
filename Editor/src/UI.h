@@ -5,6 +5,7 @@
 #include <Zamin/ImGui/ImGuiLayer.h>
 #include <Zamin/Renderer/Material.h>
 #include <Zamin/Renderer/MaterialPresets.h>
+#include <Zamin/Scene/ParticleSystem.h>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -272,5 +273,19 @@ namespace Zamin::UI {
 
     // Searchable text field with icon.
     bool SearchBox(const char* id, std::string& text, const char* hint = "Qidirish...");
+
+    // ---- curves and gradients over 0..1 (a particle's life) - UICurves.cpp
+    // A colour gradient across the available width: the bar with a marker under each stop and the
+    // selected stop's colour / position / remove button below it. Click a marker: select it,
+    // drag: move it, double-click the bar: a new stop there, right-click a marker: remove it (one
+    // always stays).
+    bool GradientEditor(const char* id, ParticleGradient& gradient);
+    // A curve across the available width: drag the keys (between their neighbours), double-click:
+    // a new key, right-click a key: its interpolation / remove, right-click elsewhere: ready-made
+    // shapes; the selected key's time and value below it. The view spans valueMin..valueMax at
+    // least (more when the curve goes beyond).
+    bool CurveEditor(const char* id, ParticleCurve& curve, float valueMin = 0.0f, float valueMax = 1.0f);
+    bool PropertyGradient(const char* label, ParticleGradient& gradient, const char* tooltip = nullptr);
+    bool PropertyCurve(const char* label, ParticleCurve& curve, float valueMin = 0.0f, float valueMax = 1.0f, const char* tooltip = nullptr);
 
 }

@@ -303,11 +303,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M14 Particle II
 
-- [ ] 261. Rang gradienti (ko'p nuqtali)
-- [ ] 262. O'lcham egri chizig'i (curve)
-- [ ] 263. Tezlik umr bo'yi o'zgarishi
-- [ ] 264. Tekstura sheet animatsiyasi (flipbook)
-- [ ] 265. Konus emitter shakli
+- [x] 261. Rang gradienti (ko'p nuqtali)
+- [x] 262. O'lcham egri chizig'i (curve)
+- [x] 263. Tezlik umr bo'yi o'zgarishi
+- [x] 264. Tekstura sheet animatsiyasi (flipbook)
+- [x] 265. Konus emitter shakli
 - [ ] 266. Mesh sirtidan emitter
 - [ ] 267. Sub-emitter (o'lganda portlash)
 - [ ] 268. Yer tekisligi bilan to'qnashuv (bounce)

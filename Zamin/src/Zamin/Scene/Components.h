@@ -10,6 +10,7 @@
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/SpriteSheet.h"
 #include "Zamin/Scene/Camera2D.h"
+#include "Zamin/Scene/ParticleSystem.h"
 #include "Zamin/Scene/PixelPerfect.h"
 #include "Zamin/Scene/PropertyAnimation.h"
 #include "Zamin/Scene/SpriteClip.h"
@@ -1160,19 +1161,18 @@ namespace Zamin {
     };
 
     // ------------------------------------------------------------------ particles
-    struct Particle
-    {
-        glm::vec3 Position{ 0.0f };
-        glm::vec3 Velocity{ 0.0f };
-        float Rotation = 0.0f;
-        float AngularVelocity = 0.0f;
-        float Life = 0.0f;      // remaining
-        float Lifetime = 1.0f;  // total
-    };
-
+    // A particle emitter: the settings of a system simulated by the scene (ParticleSystem.h:
+    // ParticleSimulation) and drawn as camera-facing quads / circles. The optional modules
+    // (ColorOverLifetime, SizeOverLifetime, VelocityOverLifetime, LimitVelocity, TextureSheet) do
+    // nothing until Enabled; without them a particle goes from StartColor / StartSize to EndColor /
+    // EndSize over its life.
     struct ParticleSystemComponent
     {
-        enum class EmitterShape { Point = 0, Circle, Sphere, Box };
+        // Point; Circle (local XY disc); Sphere; Box (half size ShapeExtents); Cone (around
+        // Direction: from a disc of ShapeRadius, ConeAngle wide at its rim); Edge (a line of
+        // EdgeLength along local X).
+        enum class EmitterShape { Point = 0, Circle, Sphere, Box, Cone, Edge };
+        enum class ConeEmitFrom { Base = 0, Volume };
 
         bool Playing = true;
         bool Looping = true;
@@ -1182,13 +1182,24 @@ namespace Zamin {
         int MaxParticles = 1000;
 
         EmitterShape Shape = EmitterShape::Point;
-        float ShapeRadius = 0.5f;
-        glm::vec3 ShapeExtents{ 0.5f };
+        float ShapeRadius = 0.5f;          // Circle, Sphere, Cone (its base)
+        glm::vec3 ShapeExtents{ 0.5f };    // Box
+        // Circle / Sphere / Cone: how much of the radius emits, from the rim inwards (1: all of
+        // it, 0: only the rim / the surface).
+        float ShapeThickness = 1.0f;
+        float ConeAngle = 25.0f;           // degrees from the axis at the rim of the base (0: a straight beam)
+        float ConeLength = 1.0f;           // Volume: how far into the cone particles start
+        ConeEmitFrom ConeFrom = ConeEmitFrom::Base;
+        bool ConeFlat = false;             // 2D: the base is a line across the axis, everything in the XY plane
+        float EdgeLength = 1.0f;
+        // Circle / Sphere / Box: particles fly away from the centre (Spread around that) instead
+        // of along Direction.
+        bool AlignToShape = false;
 
         float LifetimeMin = 0.8f, LifetimeMax = 1.6f;
         float SpeedMin = 1.0f, SpeedMax = 3.0f;
-        glm::vec3 Direction{ 0.0f, 1.0f, 0.0f };
-        float Spread = 25.0f;        // degrees
+        glm::vec3 Direction{ 0.0f, 1.0f, 0.0f }; // also the cone's axis
+        float Spread = 25.0f;        // degrees (not for Cone: its angle spreads)
         glm::vec3 Gravity{ 0.0f, 0.0f, 0.0f };
         float Drag = 0.0f;
         float AngularVelocityMax = 0.0f; // radians / second
@@ -1196,6 +1207,79 @@ namespace Zamin {
         glm::vec4 StartColor{ 1.0f, 0.85f, 0.35f, 1.0f };
         glm::vec4 EndColor{ 1.0f, 0.25f, 0.05f, 0.0f };
         float StartSize = 0.35f, EndSize = 0.05f;
+
+        // ---- modules
+        // The colour over a particle's life: a gradient of any number of stops (instead of Start /
+        // End colour); each particle somewhere between two gradients when RandomBetweenTwo.
+        struct ColorOverLifetimeModule
+        {
+            bool Enabled = false;
+            ParticleGradient Gradient = ParticleGradient::TwoStops({ 1.0f, 0.85f, 0.35f, 1.0f }, { 1.0f, 0.25f, 0.05f, 0.0f });
+            bool RandomBetweenTwo = false;
+            ParticleGradient GradientB = ParticleGradient::TwoStops({ 1.0f, 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f, 1.0f, 0.0f });
+            bool operator==(const ColorOverLifetimeModule&) const = default;
+        } ColorOverLifetime;
+
+        // The size over a particle's life: StartSize times the curve (instead of Start / End size).
+        struct SizeOverLifetimeModule
+        {
+            bool Enabled = false;
+            ParticleCurve Curve = ParticleCurve::Linear(1.0f, 0.0f);
+            bool RandomBetweenTwo = false;
+            ParticleCurve CurveB = ParticleCurve::Linear(1.0f, 0.5f);
+            bool operator==(const SizeOverLifetimeModule&) const = default;
+        } SizeOverLifetime;
+
+        // Motion added over a particle's life (it does not change the particle's own velocity):
+        // Linear (units / s) times LinearCurve, in the emitter's axes (World: the world's);
+        // Orbital (radians / s around the emitter's X, Y, Z axes through its centre); Radial
+        // (units / s away from the centre, negative: towards it). The particle's own velocity is
+        // multiplied by SpeedModifier.
+        struct VelocityOverLifetimeModule
+        {
+            bool Enabled = false;
+            glm::vec3 Linear{ 0.0f };
+            ParticleCurve LinearCurve = ParticleCurve::Constant(1.0f);
+            bool World = false;
+            glm::vec3 Orbital{ 0.0f };
+            float Radial = 0.0f;
+            ParticleCurve SpeedModifier = ParticleCurve::Constant(1.0f);
+            bool operator==(const VelocityOverLifetimeModule&) const = default;
+        } VelocityOverLifetime;
+
+        // A speed limit over a particle's life (MaxSpeed times MaxSpeedCurve): the speed above it
+        // goes by Dampen every 1/60 s (1: at once).
+        struct LimitVelocityModule
+        {
+            bool Enabled = false;
+            float MaxSpeed = 2.0f;
+            ParticleCurve MaxSpeedCurve = ParticleCurve::Constant(1.0f);
+            float Dampen = 0.5f;
+            bool operator==(const LimitVelocityModule&) const = default;
+        } LimitVelocity;
+
+        // Flipbook: the texture is a sheet of frames - a grid of Columns x Rows cells (left to
+        // right, top to bottom; at most FrameCount, 0: all) or the named frames of its sprite
+        // sheet (.zmeta; SpritePrefix: only the numbered "<prefix>_<n>" ones in order). A particle
+        // goes through them Cycles times over its life, or at FrameRate frames / s; starting at
+        // StartFrame (or a random one). RandomRow (grid): each particle plays one random row.
+        struct TextureSheetModule
+        {
+            enum class FrameSource { Grid = 0, Sprites };
+            enum class TimeMode { Lifetime = 0, FrameRate };
+            bool Enabled = false;
+            FrameSource Source = FrameSource::Grid;
+            int Columns = 4, Rows = 4;
+            int FrameCount = 0;
+            std::string SpritePrefix;
+            TimeMode Mode = TimeMode::Lifetime;
+            float Cycles = 1.0f;
+            float FrameRate = 12.0f;
+            int StartFrame = 0;
+            bool RandomStartFrame = false;
+            bool RandomRow = false;
+            bool operator==(const TextureSheetModule&) const = default;
+        } TextureSheet;
 
         bool RenderAsCircle = true;
         bool Additive = true;

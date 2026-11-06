@@ -96,11 +96,13 @@ namespace Zamin {
         uint32_t ConnectedBody = NoBody;    // NoBody: anchored to the world
         glm::vec3 Anchor{ 0.0f };           // the point on Body
         glm::vec3 ConnectedAnchor{ 0.0f };  // the point on ConnectedBody (or in the world) it is held to
-        glm::vec3 Axis{ 0.0f, 1.0f, 0.0f }; // hinge: what it turns around; slider: where it moves along
+        // hinge: what it turns around; slider: where it moves along; cone: what it twists around
+        glm::vec3 Axis{ 0.0f, 1.0f, 0.0f };
         bool CollideConnected = false;
 
         // Limits: hinge (degrees, lower in -180..0 and upper in 0..180), slider (units along the
-        // axis, lower <= 0 <= upper). The other values are clamped to that.
+        // axis, lower <= 0 <= upper), cone (the twist: degrees like the hinge's, always on). The other
+        // values are clamped to that.
         bool EnableLimit = false;
         float LowerLimit = 0.0f;
         float UpperLimit = 0.0f;
@@ -119,6 +121,10 @@ namespace Zamin {
         // Distance: the anchors are kept from MinDistance to MaxDistance apart.
         float MinDistance = 0.0f;
         float MaxDistance = 1.0f;
+        // Cone: how far (degrees, 0..180) the axis may swing away from where it was made; the torque
+        // (N*m) that resists turning.
+        float SwingLimit = 45.0f;
+        float FrictionTorque = 0.0f;
     };
 
     // What a 3D joint does now (inspector read-outs, breaking).
@@ -126,9 +132,10 @@ namespace Zamin {
     {
         float Force = 0.0f;       // the reaction force's magnitude (N), motors not counted
         float Torque = 0.0f;      // the reaction torque's magnitude (N*m), motors not counted
-        float Angle = 0.0f;       // hinge: degrees from the start pose
+        float Angle = 0.0f;       // hinge: degrees from the start pose; cone: degrees the axis swung
+        float Twist = 0.0f;       // cone: degrees of twist around the axis
         float Translation = 0.0f; // slider: units along the axis; distance: the anchors' distance
-        float Speed = 0.0f;       // hinge: degrees per second; slider: units per second
+        float Speed = 0.0f;       // hinge: degrees per second; slider: units per second; cone: degrees per second
     };
 
     // A joint taken down together with a body (DestroyBody): which component it belonged to.
@@ -286,9 +293,11 @@ namespace Zamin {
         void UpdateJoint(uint32_t joint, const PhysicsJoint3DDesc& desc);
         // `invDt`: 1 / the last step's time (the reaction forces come from its impulses).
         PhysicsJoint3DState GetJointState(uint32_t joint, float invDt) const;
-        // Where the two anchors are now (the joint's own body first) and the hinge / slider axis in the
-        // world. False for an unknown handle.
-        bool GetJointFrame(uint32_t joint, glm::vec3& anchor, glm::vec3& connectedAnchor, glm::vec3& axis) const;
+        // Where the two anchors are now (the joint's own body first) and the hinge / slider / cone axis in
+        // the world. `connectedAxis`: that axis as it was made, turning with the connected body (a cone's
+        // middle). False for an unknown handle.
+        bool GetJointFrame(uint32_t joint, glm::vec3& anchor, glm::vec3& connectedAnchor, glm::vec3& axis,
+                           glm::vec3* connectedAxis = nullptr) const;
         bool IsJoint(uint32_t joint) const;
         size_t GetJointCount() const;
         // Whether the two bodies' shapes may touch (false while a joint between them has

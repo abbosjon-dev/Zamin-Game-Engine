@@ -649,9 +649,27 @@ namespace Zamin {
         if (const char* edit = std::getenv("ZAMIN_EDITOR_JOINT_EDIT"); edit && frame == 12)
         {
             const std::string_view kind(edit);
-            const int type = kind == "revolute" ? (int)Joint2DType::Revolute : kind == "prismatic" ? (int)Joint2DType::Prismatic
-                           : kind == "weld" ? (int)Joint2DType::Weld : kind == "wheel" ? (int)Joint2DType::Wheel : (int)Joint2DType::Distance;
-            m_SceneHierarchyPanel.SetJointAnchorEdit(type);
+            if (kind.ends_with("3d"))
+            {
+                // fixed3d | hinge3d | distance3d | slider3d | cone3d; ZAMIN_EDITOR_JOINT_PICK=anchor | connected:
+                // that point is picked (its translate gizmo shows).
+                const int type = kind.starts_with("hinge") ? (int)Joint3DType::Hinge : kind.starts_with("distance") ? (int)Joint3DType::Distance
+                               : kind.starts_with("slider") ? (int)Joint3DType::Slider : kind.starts_with("cone") ? (int)Joint3DType::Cone
+                                                                                                    : (int)Joint3DType::Fixed;
+                m_SceneHierarchyPanel.SetJoint3DAnchorEdit(type);
+                if (const char* pick = std::getenv("ZAMIN_EDITOR_JOINT_PICK"))
+                {
+                    m_Joint3DEntity = (uint64_t)m_SceneHierarchyPanel.GetSelectedEntity().GetUUID();
+                    m_Joint3DType = type;
+                    m_Joint3DPicked = std::string_view(pick) == "connected" ? 1 : 0;
+                }
+            }
+            else
+            {
+                const int type = kind == "revolute" ? (int)Joint2DType::Revolute : kind == "prismatic" ? (int)Joint2DType::Prismatic
+                               : kind == "weld" ? (int)Joint2DType::Weld : kind == "wheel" ? (int)Joint2DType::Wheel : (int)Joint2DType::Distance;
+                m_SceneHierarchyPanel.SetJointAnchorEdit(type);
+            }
             if (const char* hover = std::getenv("ZAMIN_EDITOR_JOINT_HOVER"))
                 m_JointHoverOverride = hover;
         }
@@ -1960,11 +1978,13 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<HingeJoint3DComponent>()) fn(*c, Joint3DType::Hinge, (const void*)c);
         if (auto* c = entity.TryGetComponent<DistanceJoint3DComponent>()) fn(*c, Joint3DType::Distance, (const void*)c);
         if (auto* c = entity.TryGetComponent<SliderJoint3DComponent>()) fn(*c, Joint3DType::Slider, (const void*)c);
+        if (auto* c = entity.TryGetComponent<ConeJoint3DComponent>()) fn(*c, Joint3DType::Cone, (const void*)c);
     }
 
     // The 3D joints of an entity: its anchor (a small ball), the connected anchor (an octahedron) and
     // what the joint allows - a hinge's axis and angle range (the arc the body's centre sweeps, around
-    // the axis), a slider's axis with its limits, a distance joint's rod with its shortest length. While
+    // the axis), a slider's axis with its limits, a distance joint's rod with its shortest length, a cone
+    // joint's swing cone (around where its axis started) with the axis now and the twist range. While
     // the game runs the running joint's own frame is drawn (anchors on the bodies, the reference pose).
     static void DrawJoints3D(Scene& scene, Entity entity, const glm::vec4& color, float pixel)
     {
@@ -2008,15 +2028,19 @@ namespace Zamin {
                 axis = ((const HingeJoint3DComponent*)component)->Axis;
             else if (type == Joint3DType::Slider)
                 axis = ((const SliderJoint3DComponent*)component)->Axis;
+            else if (type == Joint3DType::Cone)
+                axis = ((const ConeJoint3DComponent*)component)->Axis;
             axis = glm::length(axis) > 1e-5f ? glm::normalize(q * axis) : glm::vec3(0.0f, 1.0f, 0.0f);
+            glm::vec3 startAxis = axis; // a cone's middle: where the axis was when the joint was made
             if (joint.RuntimeJoint && physics)
             {
-                glm::vec3 a, b, ax;
-                if (physics->GetJointFrame(joint.RuntimeJoint, a, b, ax))
+                glm::vec3 a, b, ax, ax1;
+                if (physics->GetJointFrame(joint.RuntimeJoint, a, b, ax, &ax1))
                 {
                     anchor = a;
                     connected = b;
                     axis = glm::length(ax) > 1e-5f ? glm::normalize(ax) : axis;
+                    startAxis = glm::length(ax1) > 1e-5f ? glm::normalize(ax1) : axis;
                 }
             }
 
@@ -2097,6 +2121,46 @@ namespace Zamin {
                             Renderer2D::DrawLine(base + axis * t - up * size * 1.5f, base + axis * t + up * size * 1.5f, limitColor);
                         }
                     Renderer2D::DrawLine(anchor, anchor + axis * std::max(0.35f, size * 6.0f), color); // which way is +
+                    break;
+                }
+                case Joint3DType::Cone:
+                {
+                    const auto& j = *(const ConeJoint3DComponent*)component;
+                    // The cone the axis may swing in (its rim on a sphere around the anchor), the axis
+                    // now and the twist range around it.
+                    const float length = std::max(0.45f, size * 9.0f);
+                    const glm::vec3 helper2 = std::abs(startAxis.y) < 0.9f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+                    const glm::vec3 u = glm::normalize(glm::cross(startAxis, helper2)), v = glm::cross(u, startAxis);
+                    const float swing = glm::radians(std::clamp(j.SwingLimit, 0.0f, 180.0f));
+                    if (swing < glm::radians(179.0f))
+                    {
+                        const glm::vec3 rim = anchor + startAxis * (length * std::cos(swing));
+                        DrawWireCircle(rim, u, v, length * std::sin(swing), limitColor);
+                        for (int i = 0; i < 4; i++)
+                        {
+                            const float t = glm::half_pi<float>() * (float)i;
+                            const glm::vec3 side2 = u * std::cos(t) + v * std::sin(t);
+                            Renderer2D::DrawLine(anchor, anchor + (startAxis * std::cos(swing) + side2 * std::sin(swing)) * length, limitColor);
+                        }
+                    }
+                    else
+                        DrawWireCircle(anchor, u, v, length, faint); // free: any direction
+                    Renderer2D::DrawLine(anchor, anchor + startAxis * length, faint);
+                    Renderer2D::DrawLine(anchor, anchor + axis * length * 1.15f, color);
+                    // The twist range: an arc around the axis, from the reference side.
+                    const glm::vec3 h3 = std::abs(axis.y) < 0.9f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+                    glm::vec3 a = glm::normalize(glm::cross(axis, h3));
+                    if (j.RuntimeJoint)
+                        a = glm::angleAxis(glm::radians(-j.TwistAngle), axis) * a;
+                    const glm::vec3 b = glm::cross(axis, a);
+                    const glm::vec3 at = anchor + axis * length * 0.55f;
+                    const float lo = glm::radians(std::min(j.TwistLower, 0.0f)), hi = glm::radians(std::max(j.TwistUpper, 0.0f));
+                    const float radius = length * 0.3f;
+                    DrawWireArc(at, a, b, radius, lo, hi, limitColor, std::max(4, (int)((hi - lo) / glm::radians(8.0f))));
+                    Renderer2D::DrawLine(at, at + (a * std::cos(lo) + b * std::sin(lo)) * radius, limitColor);
+                    Renderer2D::DrawLine(at, at + (a * std::cos(hi) + b * std::sin(hi)) * radius, limitColor);
+                    if (j.RuntimeJoint)
+                        Renderer2D::DrawLine(at, at + a * radius * 1.2f, color); // the twist now (0 = the reference side)
                     break;
                 }
                 case Joint3DType::Distance:
@@ -4693,12 +4757,20 @@ namespace Zamin {
                     m_SceneHierarchyPanel.SetColliderPointEdit(Kind::None);
                 if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { m_SceneHierarchyPanel.SetColliderPointEdit(Kind::None); m_GizmoMode = GizmoMode::Translate; }
             }
-            else if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit && IsJointAnchorEditing())
+            else if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit && (IsJointAnchorEditing() || IsJoint3DAnchorEditing()))
             {
                 // Joint anchors: Esc / Q / W leave the editing as well.
                 if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_Q, false))
+                {
                     m_SceneHierarchyPanel.SetJointAnchorEdit(-1);
-                if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { m_SceneHierarchyPanel.SetJointAnchorEdit(-1); m_GizmoMode = GizmoMode::Translate; }
+                    m_SceneHierarchyPanel.SetJoint3DAnchorEdit(-1);
+                }
+                if (ImGui::IsKeyPressed(ImGuiKey_W, false))
+                {
+                    m_SceneHierarchyPanel.SetJointAnchorEdit(-1);
+                    m_SceneHierarchyPanel.SetJoint3DAnchorEdit(-1);
+                    m_GizmoMode = GizmoMode::Translate;
+                }
             }
             else if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit)
             {
@@ -5241,6 +5313,7 @@ namespace Zamin {
         }
         UI_ColliderPointEditor();
         UI_JointAnchorEditor();
+        UI_Joint3DAnchorEditor();
         if (m_ShowTransparentOrder) UI_TransparentOrder(); // also while playing (the game camera's order)
         if (!m_JointLabels.empty()) UI_JointLabels();
         // The view mode, when it is not the real picture (the toolbar's menu changes it).
@@ -6715,6 +6788,590 @@ namespace Zamin {
             parts.push_back("kvadrat - o'q");
         if (limited && *limited)
             parts.push_back("+/- - chegaralar");
+        parts.push_back("Shift - mayda qadam");
+        parts.push_back("Esc - tugatish");
+        std::vector<std::string> lines(1);
+        for (const std::string& part : parts)
+        {
+            std::string joined = lines.back().empty() ? part : lines.back() + "  |  " + part;
+            if (!lines.back().empty() && ImGui::CalcTextSize(joined.c_str()).x > viewport.x - 60.0f)
+                lines.push_back(part);
+            else
+                lines.back() = std::move(joined);
+        }
+        float hintY = m_ViewportBounds[0].y + 52.0f;
+        float width = 0.0f;
+        for (const std::string& l : lines)
+            width = std::max(width, ImGui::CalcTextSize(l.c_str()).x);
+        const float lineHeight = ImGui::GetTextLineHeightWithSpacing();
+        const float hintX = m_ViewportBounds[0].x + (viewport.x - width) * 0.5f;
+        dl->AddRectFilled(ImVec2(hintX - 10.0f, hintY - 5.0f), ImVec2(hintX + width + 10.0f, hintY + lineHeight * lines.size() + 3.0f),
+                          IM_COL32(16, 20, 26, 215), 6.0f);
+        for (const std::string& l : lines)
+        {
+            dl->AddText(ImVec2(m_ViewportBounds[0].x + (viewport.x - ImGui::CalcTextSize(l.c_str()).x) * 0.5f, hintY), IM_COL32(150, 225, 255, 255), l.c_str());
+            hintY += lineHeight;
+        }
+        dl->PopClipRect();
+    }
+
+    bool EditorLayer::IsJoint3DAnchorEditing() const
+    {
+        return m_SceneState == SceneState::Edit && m_SceneHierarchyPanel.GetJoint3DAnchorEdit() >= 0;
+    }
+
+    bool EditorLayer::ViewportMouseRay(glm::vec3& origin, glm::vec3& direction)
+    {
+        const ImVec2 mouse = ImGui::GetMousePos();
+        const glm::vec2 size = m_ViewportBounds[1] - m_ViewportBounds[0];
+        if (size.x <= 0 || size.y <= 0)
+            return false;
+        const glm::vec2 ndc = { (mouse.x - m_ViewportBounds[0].x) / size.x * 2.0f - 1.0f, 1.0f - (mouse.y - m_ViewportBounds[0].y) / size.y * 2.0f };
+        const glm::mat4 inv = glm::inverse(m_EditorCamera.GetViewProjection());
+        const glm::vec4 n = inv * glm::vec4(ndc, -1.0f, 1.0f), f = inv * glm::vec4(ndc, 1.0f, 1.0f);
+        origin = glm::vec3(n) / n.w;
+        const glm::vec3 d = glm::vec3(f) / f.w - origin;
+        if (glm::length(d) < 1e-8f)
+            return false;
+        direction = glm::normalize(d);
+        return true;
+    }
+
+    void EditorLayer::UI_Joint3DAnchorEditor()
+    {
+        const int typeIndex = m_SceneState == SceneState::Edit ? m_SceneHierarchyPanel.GetJoint3DAnchorEdit() : -1;
+        Entity e = m_SceneHierarchyPanel.GetSelectedEntity();
+        if (typeIndex < 0 || (uint64_t)e.GetUUID() != m_Joint3DEntity || typeIndex != m_Joint3DType)
+        {
+            // Another joint (or none): nothing is held or picked from before.
+            m_Joint3DDrag = m_Joint3DHover = m_Joint3DPicked = -1;
+            m_Joint3DEntity = typeIndex >= 0 ? (uint64_t)e.GetUUID() : 0;
+            m_Joint3DType = typeIndex;
+            if (typeIndex < 0)
+                return;
+        }
+        enum Handle { AnchorHandle = 0, ConnectedHandle, AxisHandle, LowerHandle, UpperHandle, SwingHandle, HandleCount };
+        const Joint3DType type = (Joint3DType)typeIndex;
+        Scene& scene = *m_ActiveScene;
+        Joint3DComponentBase* joint = nullptr;
+        glm::vec3* axis = nullptr;  // hinge / slider / cone
+        bool* limited = nullptr;    // hinge / slider (a cone's twist is always limited)
+        float* lower = nullptr;     // hinge / cone twist: degrees; slider: units; distance: the shortest length
+        float* upper = nullptr;     // ... distance: the longest length
+        float* swing = nullptr;     // cone
+        DistanceJoint3DComponent* distance = nullptr;
+        const char* typeName = "";
+        switch (type)
+        {
+            case Joint3DType::Fixed:
+                joint = &e.GetComponent<FixedJoint3DComponent>();
+                typeName = "Fixed";
+                break;
+            case Joint3DType::Hinge:
+            {
+                auto& c = e.GetComponent<HingeJoint3DComponent>();
+                joint = &c;
+                axis = &c.Axis;
+                limited = &c.EnableLimit;
+                lower = &c.LowerAngle;
+                upper = &c.UpperAngle;
+                typeName = "Hinge";
+                break;
+            }
+            case Joint3DType::Distance:
+            {
+                auto& c = e.GetComponent<DistanceJoint3DComponent>();
+                joint = distance = &c;
+                if (!c.AutoConfigureDistance)
+                {
+                    lower = &c.MinDistance;
+                    upper = &c.MaxDistance;
+                }
+                typeName = "Distance";
+                break;
+            }
+            case Joint3DType::Slider:
+            {
+                auto& c = e.GetComponent<SliderJoint3DComponent>();
+                joint = &c;
+                axis = &c.Axis;
+                limited = &c.EnableLimit;
+                lower = &c.LowerTranslation;
+                upper = &c.UpperTranslation;
+                typeName = "Slider";
+                break;
+            }
+            case Joint3DType::Cone:
+            {
+                auto& c = e.GetComponent<ConeJoint3DComponent>();
+                joint = &c;
+                axis = &c.Axis;
+                lower = &c.TwistLower;
+                upper = &c.TwistUpper;
+                swing = &c.SwingLimit;
+                typeName = "Cone";
+                break;
+            }
+        }
+        const bool angles = type == Joint3DType::Hinge || type == Joint3DType::Cone;
+        const bool hasLimits = lower && (!limited || *limited);
+
+        // The frames: this entity's (anchors scaled with it, axes turned with it) and the connected
+        // body's (or the world).
+        const glm::mat4 world = scene.GetWorldTransform(e);
+        glm::vec3 p, r, sc;
+        Math::DecomposeTransform(world, p, r, sc);
+        const glm::quat q(r);
+        Entity other = joint->ConnectedBody ? scene.GetEntityByUUID(joint->ConnectedBody.ID) : Entity();
+        const bool connected = other && other != e;
+        const glm::mat4 otherWorld = connected ? scene.GetWorldTransform(other) : glm::mat4(1.0f);
+        glm::quat otherRotation(1.0f, 0.0f, 0.0f, 0.0f);
+        if (connected)
+        {
+            glm::vec3 op, orot, osc;
+            Math::DecomposeTransform(otherWorld, op, orot, osc);
+            otherRotation = glm::quat(orot);
+        }
+        const bool autoConnected = joint->AutoConfigureConnectedAnchor;
+        const glm::vec3 anchor = glm::vec3(world * glm::vec4(joint->Anchor, 1.0f));
+        const glm::vec3 connectedPoint = autoConnected ? anchor : glm::vec3(otherWorld * glm::vec4(joint->ConnectedAnchor, 1.0f));
+        const glm::vec3 dir = axis && glm::length(*axis) > 1e-5f ? glm::normalize(q * *axis)
+                                                                  : (type == Joint3DType::Slider ? q * glm::vec3(1, 0, 0) : q * glm::vec3(0, 1, 0));
+
+        const glm::mat4 viewProjection = m_EditorCamera.GetViewProjection();
+        const glm::vec2 viewport = m_ViewportBounds[1] - m_ViewportBounds[0];
+        auto toScreen = [&](const glm::vec3& w, bool& visible) {
+            const glm::vec4 clip = viewProjection * glm::vec4(w, 1.0f);
+            visible = clip.w > 1e-5f;
+            const glm::vec2 ndc = visible ? glm::vec2(clip) / clip.w : glm::vec2(0.0f);
+            return ImVec2(m_ViewportBounds[0].x + (ndc.x * 0.5f + 0.5f) * viewport.x, m_ViewportBounds[0].y + (0.5f - ndc.y * 0.5f) * viewport.y);
+        };
+        // World units per pixel at the anchor (handles keep their size on screen).
+        const glm::vec3 viewDir = glm::normalize(m_EditorCamera.GetForwardDirection());
+        const glm::vec3 screenRight = glm::normalize(glm::vec3(glm::inverse(m_EditorCamera.GetViewMatrix())[0]));
+        bool visible = true, visible2 = true;
+        const ImVec2 a0 = toScreen(anchor, visible), a1 = toScreen(anchor + screenRight, visible2);
+        if (!visible || !visible2)
+            return;
+        const float pixel = 1.0f / std::max(1e-3f, std::hypot(a1.x - a0.x, a1.y - a0.y));
+
+        // Where the handles are (the same places as the joint gizmo's shapes).
+        glm::vec3 handles[HandleCount];
+        bool present[HandleCount] = {};
+        handles[AnchorHandle] = anchor;
+        present[AnchorHandle] = true;
+        handles[ConnectedHandle] = connectedPoint;
+        present[ConnectedHandle] = !autoConnected;
+        if (axis)
+        {
+            handles[AxisHandle] = anchor + dir * (type == Joint3DType::Cone ? std::max(0.45f, 9.0f * std::clamp(pixel * 7.0f, 0.03f, 0.25f)) * 1.15f
+                                                                             : 80.0f * pixel);
+            present[AxisHandle] = true;
+        }
+        // A frame at right angles to the axis, as the gizmo draws it.
+        const glm::vec3 helper = std::abs(dir.y) < 0.9f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+        const glm::vec3 side = glm::normalize(glm::cross(dir, helper));
+        // Hinge: the arc the body's centre sweeps around the axis.
+        glm::vec3 arcA = side, arcB = glm::cross(dir, side);
+        float arcRadius = 0.5f;
+        glm::vec3 arcCenter = anchor;
+        if (type == Joint3DType::Hinge)
+        {
+            glm::vec3 arm = p - anchor;
+            arm -= dir * glm::dot(arm, dir);
+            if (glm::length(arm) > 0.05f)
+            {
+                arcRadius = glm::length(arm);
+                arcA = arm / arcRadius;
+            }
+            arcB = glm::cross(dir, arcA);
+        }
+        // Cone: the twist arc around the axis, and the swing handle on the cone's rim in the plane that
+        // faces the camera best.
+        const float coneLength = std::max(0.45f, std::clamp(pixel * 7.0f, 0.03f, 0.25f) * 9.0f);
+        glm::vec3 swingSide = glm::cross(dir, viewDir);
+        swingSide = glm::length(swingSide) > 1e-3f ? glm::normalize(swingSide) : side;
+        if (type == Joint3DType::Cone)
+        {
+            arcCenter = anchor + dir * coneLength * 0.55f;
+            arcRadius = coneLength * 0.3f;
+            arcA = side;
+            arcB = glm::cross(dir, side);
+            const float s = glm::radians(std::clamp(*swing, 0.0f, 180.0f));
+            handles[SwingHandle] = anchor + (dir * std::cos(s) + swingSide * std::sin(s)) * coneLength;
+            present[SwingHandle] = true;
+        }
+        // Distance: along the rod from the connected anchor.
+        glm::vec3 rod = anchor - connectedPoint;
+        rod = glm::length(rod) > 1e-4f ? glm::normalize(rod) : glm::vec3(0.0f, -1.0f, 0.0f);
+        const glm::vec3 rodSide = [&]() {
+            glm::vec3 s = glm::cross(rod, viewDir);
+            return glm::length(s) > 1e-3f ? glm::normalize(s) : glm::normalize(glm::cross(rod, std::abs(rod.y) < 0.9f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0)));
+        }();
+        const glm::vec3 slideSide = [&]() {
+            glm::vec3 s = glm::cross(dir, viewDir);
+            return glm::length(s) > 1e-3f ? glm::normalize(s) : side;
+        }();
+        if (hasLimits)
+        {
+            switch (type)
+            {
+                case Joint3DType::Hinge:
+                case Joint3DType::Cone:
+                    for (int i : { LowerHandle, UpperHandle })
+                    {
+                        const float t = glm::radians(i == LowerHandle ? *lower : *upper);
+                        handles[i] = arcCenter + (arcA * std::cos(t) + arcB * std::sin(t)) * arcRadius;
+                        present[i] = true;
+                    }
+                    break;
+                case Joint3DType::Slider:
+                    // Beside the axis (a limit of 0 would sit on the anchor): dragging goes along it.
+                    handles[LowerHandle] = anchor + dir * *lower + slideSide * (16.0f * pixel);
+                    handles[UpperHandle] = anchor + dir * *upper + slideSide * (16.0f * pixel);
+                    present[LowerHandle] = present[UpperHandle] = true;
+                    break;
+                case Joint3DType::Distance:
+                    handles[UpperHandle] = connectedPoint + rod * *upper;
+                    present[UpperHandle] = true;
+                    if (!distance->MaxDistanceOnly)
+                    {
+                        handles[LowerHandle] = connectedPoint + rod * *lower + rodSide * (16.0f * pixel);
+                        present[LowerHandle] = true;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        ImVec2 screen[HandleCount];
+        for (int i = 0; i < HandleCount; i++)
+            if (present[i])
+            {
+                screen[i] = toScreen(handles[i], visible);
+                present[i] &= visible;
+            }
+        if (m_Joint3DPicked >= 0 && !present[m_Joint3DPicked])
+            m_Joint3DPicked = -1;
+
+        const ImGuiIO& io = ImGui::GetIO();
+        bool changed = false;
+        auto set = [&](float& field, float value) {
+            if (field != value)
+            {
+                field = value;
+                changed = true;
+            }
+        };
+        auto setVec = [&](glm::vec3& field, const glm::vec3& value) {
+            for (int i = 0; i < 3; i++)
+                set(field[i], value[i]);
+        };
+        auto snap = [&](float v, float step) { return io.KeyShift ? std::round(v / step) * step : v; };
+        auto snapVec = [&](glm::vec3 v, float step) { return glm::vec3(snap(v.x, step), snap(v.y, step), snap(v.z, step)); };
+        // A point of this body / the connected body (or the world) from a world position.
+        auto setPoint = [&](int handle, const glm::vec3& w) {
+            if (handle == AnchorHandle)
+                setVec(joint->Anchor, snapVec(glm::vec3(glm::inverse(world) * glm::vec4(w, 1.0f)), 0.1f));
+            else
+                setVec(joint->ConnectedAnchor, snapVec(connected ? glm::vec3(glm::inverse(otherWorld) * glm::vec4(w, 1.0f)) : w, 0.1f));
+        };
+
+        // The picked point (anchor / connected anchor) also gets a translate gizmo: along its frame's axes.
+        bool gizmoOver = false;
+        if (m_Joint3DPicked == AnchorHandle || m_Joint3DPicked == ConnectedHandle)
+        {
+            ImGuizmo::SetOrthographic(m_EditorCamera.IsOrthographic());
+            ImGuizmo::SetDrawlist();
+            ImGuizmo::SetRect(m_ViewportBounds[0].x, m_ViewportBounds[0].y, viewport.x, viewport.y);
+            const glm::quat frame = m_Joint3DPicked == AnchorHandle ? q : otherRotation;
+            glm::mat4 transform = glm::translate(glm::mat4(1.0f), handles[m_Joint3DPicked]) * glm::mat4_cast(frame);
+            glm::mat4 view = m_EditorCamera.GetViewMatrix();
+            ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(m_EditorCamera.GetProjection()), ImGuizmo::TRANSLATE, ImGuizmo::LOCAL,
+                                 glm::value_ptr(transform));
+            gizmoOver = ImGuizmo::IsOver() || ImGuizmo::IsUsing();
+            if (ImGuizmo::IsUsing())
+                setPoint(m_Joint3DPicked, glm::vec3(transform[3]));
+        }
+
+        // Hover: the nearest handle within 9 px (later ones win ties: limits over the anchor).
+        const ImVec2 mouse = ImGui::GetMousePos();
+        int hover = -1;
+        if (!m_JointHoverOverride.empty())
+        {
+            static const char* names[HandleCount] = { "anchor", "connected", "axis", "lower", "upper", "swing" };
+            for (int i = 0; i < HandleCount; i++)
+                if (m_JointHoverOverride == names[i] && present[i])
+                    hover = i;
+        }
+        else if (m_ViewportHovered && m_Joint3DDrag < 0 && !gizmoOver)
+        {
+            float best = 9.0f;
+            for (int i = 0; i < HandleCount; i++)
+                if (present[i])
+                    if (float d = std::hypot(screen[i].x - mouse.x, screen[i].y - mouse.y); d <= best)
+                    {
+                        best = d;
+                        hover = i;
+                    }
+        }
+        m_Joint3DHover = hover;
+
+        // Where the mouse ray meets a plane (false: it runs along it or away from it).
+        auto rayPlane = [&](const glm::vec3& point, const glm::vec3& normal, glm::vec3& hit) {
+            glm::vec3 o, d;
+            if (!ViewportMouseRay(o, d))
+                return false;
+            const float denom = glm::dot(d, normal);
+            if (std::abs(denom) < 1e-4f)
+                return false;
+            const float t = glm::dot(point - o, normal) / denom;
+            if (t < 0.0f)
+                return false;
+            hit = o + d * t;
+            return true;
+        };
+        // How far along a line (point + dir * t) the mouse ray passes closest to it.
+        auto rayLine = [&](const glm::vec3& point, const glm::vec3& lineDir, float& t) {
+            glm::vec3 o, d;
+            if (!ViewportMouseRay(o, d))
+                return false;
+            const glm::vec3 w = point - o;
+            const float b = glm::dot(lineDir, d), denom = 1.0f - b * b;
+            if (denom < 1e-5f)
+                return false;
+            t = (b * glm::dot(d, w) - glm::dot(lineDir, w)) / denom;
+            return true;
+        };
+        // The angle (degrees) of the mouse around `axisDir` from `from` (the arc's 0), on the arc's plane.
+        auto arcAngle = [&](const glm::vec3& center, const glm::vec3& axisDir, const glm::vec3& from, const glm::vec3& from90, float& degrees) {
+            glm::vec3 hit;
+            if (!rayPlane(center, axisDir, hit))
+                return false;
+            const glm::vec3 d = hit - center;
+            if (glm::length(d) < 1e-5f)
+                return false;
+            degrees = glm::degrees(std::atan2(glm::dot(d, from90), glm::dot(d, from)));
+            return true;
+        };
+
+        // Dragging.
+        if (m_Joint3DDrag >= 0)
+        {
+            if (!present[m_Joint3DDrag] || !ImGui::IsMouseDown(ImGuiMouseButton_Left))
+                m_Joint3DDrag = -1;
+            else
+                switch (m_Joint3DDrag)
+                {
+                    case AnchorHandle:
+                    case ConnectedHandle:
+                    {
+                        // In the plane facing the camera through where the point was grabbed.
+                        glm::vec3 hit;
+                        if (rayPlane(m_Joint3DDragPlane, viewDir, hit))
+                            setPoint(m_Joint3DDrag, hit + m_Joint3DDragOffset);
+                        break;
+                    }
+                    case AxisHandle:
+                    {
+                        // The tip follows the mouse in the plane facing the camera through the anchor;
+                        // Shift: the nearest of the entity's own axes.
+                        glm::vec3 hit;
+                        if (rayPlane(anchor, viewDir, hit) && glm::length(hit - anchor) > 1e-4f)
+                        {
+                            glm::vec3 local = glm::normalize(glm::inverse(q) * glm::normalize(hit - anchor));
+                            if (io.KeyShift)
+                            {
+                                int best = 0;
+                                for (int i = 1; i < 3; i++)
+                                    if (std::abs(local[i]) > std::abs(local[best]))
+                                        best = i;
+                                glm::vec3 snapped(0.0f);
+                                snapped[best] = local[best] < 0.0f ? -1.0f : 1.0f;
+                                local = snapped;
+                            }
+                            else
+                                local = glm::round(local * 1000.0f) / 1000.0f;
+                            if (glm::length(local) > 1e-4f)
+                                setVec(*axis, local);
+                        }
+                        break;
+                    }
+                    case LowerHandle:
+                    case UpperHandle:
+                    {
+                        float& field = m_Joint3DDrag == LowerHandle ? *lower : *upper;
+                        float value = field;
+                        bool ok = false;
+                        if (angles)
+                        {
+                            float a;
+                            if ((ok = arcAngle(arcCenter, dir, arcA, arcB, a)))
+                            {
+                                // Continuous near +-180: the side the field is on wins.
+                                value = snap(field + std::remainder(a - field, 360.0f), 5.0f);
+                                value = m_Joint3DDrag == LowerHandle ? std::clamp(value, -180.0f, 0.0f) : std::clamp(value, 0.0f, 180.0f);
+                            }
+                        }
+                        else if (type == Joint3DType::Slider)
+                        {
+                            float t;
+                            if ((ok = rayLine(anchor, dir, t)))
+                            {
+                                value = snap(t, 0.1f);
+                                value = m_Joint3DDrag == LowerHandle ? std::min(value, 0.0f) : std::max(value, 0.0f);
+                            }
+                        }
+                        else if (type == Joint3DType::Distance)
+                        {
+                            float t;
+                            if ((ok = rayLine(connectedPoint, rod, t)))
+                            {
+                                value = std::max(0.0f, snap(t, 0.1f));
+                                value = m_Joint3DDrag == LowerHandle ? std::min(value, *upper) : std::max(value, distance->MaxDistanceOnly ? 0.0f : *lower);
+                            }
+                        }
+                        if (ok)
+                            set(field, value);
+                        break;
+                    }
+                    case SwingHandle:
+                    {
+                        glm::vec3 hit;
+                        if (rayPlane(anchor, glm::cross(dir, swingSide), hit) && glm::length(hit - anchor) > 1e-4f)
+                        {
+                            const glm::vec3 d = hit - anchor;
+                            const float a = glm::degrees(std::atan2(std::abs(glm::dot(d, swingSide)), glm::dot(d, dir)));
+                            set(*swing, std::clamp(snap(a, 5.0f), 0.0f, 180.0f));
+                        }
+                        break;
+                    }
+                }
+        }
+        else if (hover >= 0 && m_ViewportHovered && m_JointHoverOverride.empty() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt &&
+                 !ImGui::IsMouseDown(ImGuiMouseButton_Right))
+        {
+            m_Joint3DDrag = hover;
+            m_Joint3DPicked = hover == AnchorHandle || hover == ConnectedHandle ? hover : m_Joint3DPicked;
+            m_Joint3DDragPlane = handles[hover];
+            glm::vec3 hit;
+            m_Joint3DDragOffset = rayPlane(handles[hover], viewDir, hit) ? handles[hover] - hit : glm::vec3(0.0f);
+        }
+        else if (hover < 0 && !gizmoOver && m_ViewportHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt)
+            m_Joint3DPicked = -1; // a click beside the handles lets the picked point go
+        if (changed)
+        {
+            MarkDirty();
+            return; // drawn where it is now next frame
+        }
+
+        // Drawing: the lines between the handles, the handles, a label for the hovered / dragged one, a hint.
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->PushClipRect(ImVec2(m_ViewportBounds[0].x, m_ViewportBounds[0].y), ImVec2(m_ViewportBounds[1].x, m_ViewportBounds[1].y), true);
+        const ImU32 shadow = IM_COL32(10, 12, 16, 170), cyan = IM_COL32(90, 220, 255, 235), purple = IM_COL32(190, 140, 255, 240);
+        const ImU32 orange = IM_COL32(255, 170, 70, 240), yellow = IM_COL32(255, 215, 80, 240);
+        auto line = [&](const ImVec2& from, const ImVec2& to, ImU32 color) {
+            dl->AddLine(from, to, shadow, 4.0f);
+            dl->AddLine(from, to, color, 2.0f);
+        };
+        if (present[ConnectedHandle])
+            line(screen[AnchorHandle], screen[ConnectedHandle], purple);
+        if (present[AxisHandle])
+            line(screen[AnchorHandle], screen[AxisHandle], orange);
+        if (present[LowerHandle] && type == Joint3DType::Slider)
+        {
+            // The slide range beside the axis, with stems to where the limits are on it.
+            line(screen[LowerHandle], screen[UpperHandle], yellow);
+            for (int i : { LowerHandle, UpperHandle })
+            {
+                bool shown = true;
+                dl->AddLine(screen[i], toScreen(anchor + dir * (i == LowerHandle ? *lower : *upper), shown), yellow, 1.5f);
+            }
+        }
+        if (present[LowerHandle] && type == Joint3DType::Distance)
+        {
+            bool shown = true;
+            dl->AddLine(screen[LowerHandle], toScreen(connectedPoint + rod * *lower, shown), yellow, 1.5f);
+        }
+        if (present[SwingHandle])
+            line(screen[AnchorHandle], screen[SwingHandle], yellow);
+        for (int i = 0; i < HandleCount; i++)
+        {
+            if (!present[i])
+                continue;
+            const bool hovered = i == hover, dragged = i == m_Joint3DDrag, picked = i == m_Joint3DPicked;
+            const float size = hovered || dragged ? 7.5f : 6.0f;
+            const ImVec2 c = screen[i];
+            const ImU32 fill = dragged ? IM_COL32(255, 160, 60, 255) : hovered ? IM_COL32(255, 235, 140, 255)
+                             : picked ? IM_COL32(255, 200, 110, 255) : IM_COL32(240, 248, 255, 255);
+            switch (i)
+            {
+                case AnchorHandle:
+                    dl->AddCircleFilled(c, size + 1.5f, shadow);
+                    dl->AddCircleFilled(c, size, fill);
+                    dl->AddCircle(c, size, cyan, 0, 2.0f);
+                    break;
+                case ConnectedHandle:
+                {
+                    const ImVec2 v[4] = { ImVec2(c.x + size + 1, c.y), ImVec2(c.x, c.y - size - 1), ImVec2(c.x - size - 1, c.y), ImVec2(c.x, c.y + size + 1) };
+                    dl->AddConvexPolyFilled(v, 4, fill);
+                    dl->AddPolyline(v, 4, purple, ImDrawFlags_Closed, 2.0f);
+                    break;
+                }
+                case AxisHandle:
+                    dl->AddRectFilled(ImVec2(c.x - size + 1, c.y - size + 1), ImVec2(c.x + size - 1, c.y + size - 1), fill, 2.0f);
+                    dl->AddRect(ImVec2(c.x - size + 1, c.y - size + 1), ImVec2(c.x + size - 1, c.y + size - 1), orange, 2.0f, 0, 2.0f);
+                    break;
+                case SwingHandle:
+                {
+                    const ImVec2 v[3] = { ImVec2(c.x, c.y - size - 1), ImVec2(c.x + size + 1, c.y + size), ImVec2(c.x - size - 1, c.y + size) };
+                    dl->AddConvexPolyFilled(v, 3, fill);
+                    dl->AddPolyline(v, 3, yellow, ImDrawFlags_Closed, 2.0f);
+                    break;
+                }
+                default:
+                    dl->AddCircleFilled(c, size - 0.5f, fill);
+                    dl->AddCircle(c, size - 0.5f, yellow, 0, 2.0f);
+                    dl->AddText(ImVec2(c.x - 3.5f, c.y - 7.0f), IM_COL32(30, 30, 30, 255), i == LowerHandle ? "-" : "+");
+                    break;
+            }
+        }
+        if (const int shown = m_Joint3DDrag >= 0 ? m_Joint3DDrag : hover >= 0 ? hover : m_Joint3DPicked; shown >= 0)
+        {
+            auto vec = [](const glm::vec3& v) { return std::format("({:.2f}, {:.2f}, {:.2f})", v.x, v.y, v.z); };
+            std::string label;
+            switch (shown)
+            {
+                case AnchorHandle: label = "Langar  " + vec(joint->Anchor); break;
+                case ConnectedHandle: label = std::string(connected ? "Ulangan langar  " : "Dunyodagi nuqta  ") + vec(joint->ConnectedAnchor); break;
+                case AxisHandle: label = "O'q  " + vec(*axis); break;
+                case SwingHandle: label = std::format("Konus burchagi  {:.1f}\xc2\xb0", *swing); break;
+                case LowerHandle:
+                    label = angles ? std::format("{}  {:.1f}\xc2\xb0", type == Joint3DType::Cone ? "Buralish (pastki)" : "Pastki burchak", *lower)
+                          : type == Joint3DType::Distance ? std::format("Minimal masofa  {:.2f}", *lower)
+                                                          : std::format("Pastki chegara  {:.2f}", *lower);
+                    break;
+                default:
+                    label = angles ? std::format("{}  {:.1f}\xc2\xb0", type == Joint3DType::Cone ? "Buralish (yuqori)" : "Yuqori burchak", *upper)
+                          : type == Joint3DType::Distance ? std::format("Maksimal masofa  {:.2f}", *upper)
+                                                          : std::format("Yuqori chegara  {:.2f}", *upper);
+                    break;
+            }
+            const ImVec2 at(screen[shown].x + 12.0f, screen[shown].y - 24.0f);
+            const ImVec2 size = ImGui::CalcTextSize(label.c_str());
+            dl->AddRectFilled(ImVec2(at.x - 4.0f, at.y - 2.0f), ImVec2(at.x + size.x + 4.0f, at.y + size.y + 2.0f), IM_COL32(14, 16, 20, 215), 3.0f);
+            dl->AddText(at, IM_COL32(235, 240, 245, 255), label.c_str());
+        }
+        // The hint: what the handles are, in as many lines as the viewport's width needs.
+        std::vector<std::string> parts = { std::format(ICON_FA_ANCHOR "  {} Joint 3D:  doira - langar", typeName),
+                                           autoConnected ? "ulangan langar avtomatik" : "romb - ulangan langar" };
+        if (axis)
+            parts.push_back("kvadrat - o'q");
+        if (present[SwingHandle])
+            parts.push_back("uchburchak - konus");
+        if (present[LowerHandle] || present[UpperHandle])
+            parts.push_back(type == Joint3DType::Distance ? "+/- - masofa" : type == Joint3DType::Cone ? "+/- - buralish" : "+/- - chegaralar");
+        parts.push_back("bosilgan langarda - o'qlar bo'ylab gizmo");
         parts.push_back("Shift - mayda qadam");
         parts.push_back("Esc - tugatish");
         std::vector<std::string> lines(1);

@@ -62,8 +62,8 @@ namespace Zamin {
     // The kinds of 2D joints (DistanceJoint2DComponent ... WheelJoint2DComponent).
     enum class Joint2DType { Distance = 0, Revolute, Prismatic, Weld, Wheel };
 
-    // The kinds of 3D joints (FixedJoint3DComponent ... SliderJoint3DComponent).
-    enum class Joint3DType { Fixed = 0, Hinge, Distance, Slider };
+    // The kinds of 3D joints (FixedJoint3DComponent ... ConeJoint3DComponent).
+    enum class Joint3DType { Fixed = 0, Hinge, Distance, Slider, Cone };
 
     // What a running 2D world holds now (the editor's scene settings, tests).
     struct PhysicsStats2D

@@ -1170,7 +1170,7 @@ namespace Zamin {
             { "CapsuleCollider3D", "Capsule Collider 3D" }, { "ConvexHullCollider3D", "Convex Hull Collider 3D" },
             { "MeshCollider3D", "Mesh Collider 3D" },
             { "FixedJoint3D", "Fixed Joint 3D" }, { "HingeJoint3D", "Hinge Joint 3D" }, { "DistanceJoint3D", "Distance Joint 3D" },
-            { "SliderJoint3D", "Slider Joint 3D" }, { "CharacterController3D", "Character Controller 3D" },
+            { "SliderJoint3D", "Slider Joint 3D" }, { "ConeJoint3D", "Cone Joint 3D" }, { "CharacterController3D", "Character Controller 3D" },
             { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
             { "UIButton", "UI Button" }, { "AudioSource", "Audio Source" }, { "NativeScript", "C++ Skript" },
         };
@@ -2239,7 +2239,7 @@ namespace Zamin {
             if (!editing)
             {
                 m_TilePaint = false;
-                m_JointAnchorEdit = -1;
+                m_JointAnchorEdit = m_Joint3DAnchorEdit = -1;
             }
         }
         if (editing)
@@ -3993,7 +3993,7 @@ namespace Zamin {
         }
     }
 
-    bool SceneHierarchyPanel::DrawJoint3DCommon(Entity entity, Joint3DComponentBase& c)
+    bool SceneHierarchyPanel::DrawJoint3DCommon(Entity entity, Joint3DComponentBase& c, Joint3DType type)
     {
         bool changed = DrawEntityRefField("Ulangan jism", c.ConnectedBody,
                                           "Boshqa obyektning Rigidbody 3D'si (ierarxiyadan tortib tashlang). "
@@ -4017,6 +4017,21 @@ namespace Zamin {
             ImGui::PopTextWrapPos();
         }
         InactiveComponentNote(entity, "Obyekt nofaol: joint yo'q (faollashganda qayta yaratiladi)");
+
+        // The anchors (and the axis / limits) dragged in the viewport.
+        const bool editing = m_Joint3DAnchorEdit == (int)type;
+        UI::PropertyLabel("Viewportda", "Langarlarni sahnada sudrab qo'yish: langar (doira), ulangan langar (romb), o'q (kvadrat), "
+                                        "chegaralar (+/-). Nuqta ekran tekisligida suriladi; tanlangan nuqtada ko'chirish gizmosi "
+                                        "ham chiqadi. Shift - mayda qadam (0.1 birlik / 5\xc2\xb0, o'q - asosiy o'qlarga). Esc yoki "
+                                        "tugma qayta bosilsa - tugaydi");
+        ImGui::BeginDisabled(!m_SceneEditable);
+        if (editing)
+            ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentColor());
+        if (ImGui::Button(editing ? ICON_FA_CHECK "  Tahrirlashni tugatish" : ICON_FA_ANCHOR "  Langarlarni tahrirlash", ImVec2(-FLT_MIN, 0)))
+            SetJoint3DAnchorEdit(editing ? -1 : (int)type);
+        if (editing)
+            ImGui::PopStyleColor();
+        ImGui::EndDisabled();
 
         changed |= UI::PropertyFloat3("Langar", c.Anchor, 0.01f);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -4959,6 +4974,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<HingeJoint3DComponent>("Hinge Joint 3D (sharnir)", ICON_FA_DOOR_OPEN);
                 DisplayAddComponentEntry<DistanceJoint3DComponent>("Distance Joint 3D (masofa)", ICON_FA_LINK);
                 DisplayAddComponentEntry<SliderJoint3DComponent>("Slider Joint 3D (sirpanish)", ICON_FA_ARROWS_LEFT_RIGHT);
+                DisplayAddComponentEntry<ConeJoint3DComponent>("Cone Joint 3D (yelka, son: konus)", ICON_FA_BONE);
                 DisplayAddComponentEntry<CharacterController3DComponent>("Character Controller 3D", ICON_FA_PERSON_RUNNING);
                 ImGui::SeparatorText("Effektlar va UI");
                 DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
@@ -5843,13 +5859,13 @@ namespace Zamin {
 
         // ---- 3D joints
         AddSection<FixedJoint3DComponent>(ICON_FA_LOCK, "Fixed Joint 3D", entity, [&](FixedJoint3DComponent& c) {
-            bool changed = DrawJoint3DCommon(entity, c);
+            bool changed = DrawJoint3DCommon(entity, c, Joint3DType::Fixed);
             DrawJoint3DStatus(c, nullptr);
             return changed;
         }, true, modified);
 
         AddSection<HingeJoint3DComponent>(ICON_FA_DOOR_OPEN, "Hinge Joint 3D", entity, [&](HingeJoint3DComponent& c) {
-            bool changed = DrawJoint3DCommon(entity, c);
+            bool changed = DrawJoint3DCommon(entity, c, Joint3DType::Hinge);
             UI::PropertyHeader("O'q", "Jism langar atrofida faqat shu o'q bo'ylab aylanadi");
             changed |= UI::PropertyFloat3("O'q", c.Axis, 0.01f);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -5878,7 +5894,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<DistanceJoint3DComponent>(ICON_FA_LINK, "Distance Joint 3D", entity, [&](DistanceJoint3DComponent& c) {
-            bool changed = DrawJoint3DCommon(entity, c);
+            bool changed = DrawJoint3DCommon(entity, c, Joint3DType::Distance);
             UI::PropertyHeader("Masofa", "Langarlar orasidagi masofa shu oraliqda qoladi: teng - qattiq tayoq, arqon - faqat maksimal");
             changed |= UI::PropertyBool("Avto masofa", c.AutoConfigureDistance);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -5908,7 +5924,7 @@ namespace Zamin {
         }, true, modified);
 
         AddSection<SliderJoint3DComponent>(ICON_FA_ARROWS_LEFT_RIGHT, "Slider Joint 3D", entity, [&](SliderJoint3DComponent& c) {
-            bool changed = DrawJoint3DCommon(entity, c);
+            bool changed = DrawJoint3DCommon(entity, c, Joint3DType::Slider);
             UI::PropertyHeader("Sirpanish", "Jism ulangan jismga nisbatan faqat shu o'q bo'ylab siljiydi va aylanmaydi");
             changed |= UI::PropertyFloat3("O'q", c.Axis, 0.01f);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
@@ -5935,6 +5951,24 @@ namespace Zamin {
             changed |= positive("Maks. kuch", "Motor bera oladigan eng katta kuch (N)", c.MaxMotorForce, "%.1f N");
             ImGui::EndDisabled();
             DrawJoint3DStatus(c, std::format("Siljish: {:.3f}\nTezlik: {:.2f} birlik/s", c.JointTranslation, c.JointSpeed).c_str());
+            return changed;
+        }, true, modified);
+
+        AddSection<ConeJoint3DComponent>(ICON_FA_BONE, "Cone Joint 3D", entity, [&](ConeJoint3DComponent& c) {
+            bool changed = DrawJoint3DCommon(entity, c, Joint3DType::Cone);
+            UI::PropertyHeader("O'q", "Sharsimon sharnir: jismlar langar nuqtasida tutashadi, jism o'qi konus ichida "
+                                      "og'adi va o'z atrofida chegaralangan burchakka buraladi (yelka, son, bo'yin)");
+            changed |= UI::PropertyFloat3("O'q", c.Axis, 0.01f);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Buralish o'qi shu obyektning o'z koordinatalarida (joint yaratilgandagi holatda) - qo'l yoki oyoq bo'ylab. "
+                            "Konus shu o'q joint yaratilgandagi yo'nalish atrofida");
+            UI::PropertyHeader("Chegaralar", "Joint yaratilgandagi holatdan (gradus): u konus o'rtasi va buralish 0");
+            changed |= degrees("Konus burchagi", "O'q boshlang'ich yo'nalishidan shuncha og'a oladi (0..180, 180 - erkin)", c.SwingLimit, 0.0f, 180.0f);
+            changed |= degrees("Buralish (pastki)", "-180..0 gradus", c.TwistLower, -180.0f, 0.0f);
+            changed |= degrees("Buralish (yuqori)", "0..180 gradus", c.TwistUpper, 0.0f, 180.0f);
+            changed |= positive("Ishqalanish momenti", "Aylanishga qarshilik (N*m): ragdoll qo'l-oyoqlari erkin silkinmaydi. 0 - yo'q",
+                                c.FrictionTorque, c.FrictionTorque > 0.0f ? "%.2f N*m" : "yo'q");
+            DrawJoint3DStatus(c, std::format("Og'ish: {:.1f}\xc2\xb0\nBuralish: {:.1f}\xc2\xb0", c.SwingAngle, c.TwistAngle).c_str());
             return changed;
         }, true, modified);
 

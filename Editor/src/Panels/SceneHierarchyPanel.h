@@ -122,7 +122,7 @@ namespace Zamin {
         {
             m_ColliderPointEdit = kind;
             if (kind != ColliderPointKind::None)
-                m_JointAnchorEdit = -1;
+                m_JointAnchorEdit = m_Joint3DAnchorEdit = -1;
         }
         // The 2D joint of the selected entity whose anchors / axis / limits are dragged in the viewport
         // (a Joint2DType), -1 when none (or the entity has no such joint, or is hidden / locked).
@@ -139,8 +139,39 @@ namespace Zamin {
             if (type >= 0)
             {
                 m_ColliderPointEdit = ColliderPointKind::None;
+                m_Joint3DAnchorEdit = -1;
                 m_TilePaint = false;
             }
+        }
+        // The same for a 3D joint of the selected entity (a Joint3DType), -1 when none.
+        int GetJoint3DAnchorEdit() const
+        {
+            Entity e = GetSelectedEntity();
+            if (m_Joint3DAnchorEdit < 0 || !e || e.GetScene()->IsHiddenInEditor(e) || e.GetScene()->IsLockedInEditor(e))
+                return -1;
+            return HasJoint3D(e, (Joint3DType)m_Joint3DAnchorEdit) ? m_Joint3DAnchorEdit : -1;
+        }
+        void SetJoint3DAnchorEdit(int type)
+        {
+            m_Joint3DAnchorEdit = type;
+            if (type >= 0)
+            {
+                m_ColliderPointEdit = ColliderPointKind::None;
+                m_JointAnchorEdit = -1;
+                m_TilePaint = false;
+            }
+        }
+        static bool HasJoint3D(Entity e, Joint3DType type)
+        {
+            switch (type)
+            {
+                case Joint3DType::Fixed: return e.HasComponent<FixedJoint3DComponent>();
+                case Joint3DType::Hinge: return e.HasComponent<HingeJoint3DComponent>();
+                case Joint3DType::Distance: return e.HasComponent<DistanceJoint3DComponent>();
+                case Joint3DType::Slider: return e.HasComponent<SliderJoint3DComponent>();
+                case Joint3DType::Cone: return e.HasComponent<ConeJoint3DComponent>();
+            }
+            return false;
         }
         static bool HasJoint2D(Entity e, Joint2DType type)
         {
@@ -307,7 +338,7 @@ namespace Zamin {
         void DrawJoint2DStatus(const Joint2DComponentBase& c, const char* readout);
         // 3D joints: the same as the 2D ones (connected body and what keeps the joint from being made,
         // anchors, collisions, break limits) and their live read-outs.
-        bool DrawJoint3DCommon(Entity entity, Joint3DComponentBase& c);
+        bool DrawJoint3DCommon(Entity entity, Joint3DComponentBase& c, Joint3DType type);
         void DrawJoint3DStatus(const Joint3DComponentBase& c, const char* readout);
         // Convex Hull Collider 3D: the source (Mesh Renderer / model file), the corner limit and what
         // the hull came out as.
@@ -371,6 +402,7 @@ namespace Zamin {
         bool m_TilePaint = false;
         ColliderPointKind m_ColliderPointEdit = ColliderPointKind::None;
         int m_JointAnchorEdit = -1;   // Joint2DType edited in the viewport, -1 = none
+        int m_Joint3DAnchorEdit = -1; // Joint3DType edited in the viewport, -1 = none
         TileTool m_TileTool = TileTool::Brush, m_ToolBeforePicker = TileTool::Brush;
         int m_TileLayer = 0;
         int m_TileRule = -1;          // auto-tile rule of the tileset, -1 = plain tile

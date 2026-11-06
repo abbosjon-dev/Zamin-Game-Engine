@@ -4328,6 +4328,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<HingeJoint3DComponent>();
     e.AddComponent<DistanceJoint3DComponent>();
     e.AddComponent<SliderJoint3DComponent>();
+    e.AddComponent<ConeJoint3DComponent>();
     e.AddComponent<CharacterController3DComponent>();
     e.AddComponent<TilemapComponent>();
     e.AddComponent<ParallaxComponent>();
@@ -4339,7 +4340,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 46);
+    CHECK(types.size() == 47);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -17655,6 +17656,122 @@ TEST(Joint3DCollideConnected)
     solid.RemoveComponent<DistanceJoint3DComponent>();
     CHECK(world->CanBodiesCollide(fb, so));
     scene->OnRuntimeStop();
+}
+
+TEST(ConeJoint3DSwingTwistAndFriction)
+{
+    auto scene = CreateRef<Scene>();
+    // Limbs hanging from world points by their top ends (a shoulder each), axis along the limb.
+    auto limb = [&](const char* name, glm::vec3 at) {
+        Entity e = MakeBody3D(scene, name, at, Rigidbody3DComponent::BodyType::Dynamic, { 0.1f, 0.5f, 0.1f });
+        auto& j = e.AddComponent<ConeJoint3DComponent>();
+        j.Anchor = { 0.0f, 0.5f, 0.0f };
+        j.SwingLimit = 30.0f;
+        return e;
+    };
+    // Kicked sideways: it swings up to the cone's edge, not past it.
+    Entity kicked = limb("Kicked", { 0.0f, 4.0f, 0.0f });
+    // Free (a cone of 180 degrees): kicked the same way it swings up much further.
+    Entity free = limb("Free", { 3.0f, 4.0f, 0.0f });
+    free.GetComponent<ConeJoint3DComponent>().SwingLimit = 180.0f;
+    // Spun around its own axis: the twist stops at its limits.
+    Entity spun = limb("Spun", { 6.0f, 4.0f, 0.0f });
+    spun.GetComponent<ConeJoint3DComponent>().TwistLower = -20.0f;
+    spun.GetComponent<ConeJoint3DComponent>().TwistUpper = 40.0f;
+    // Two free limbs started at 60 degrees out to the side (the axis turned with them), one with friction.
+    auto tilted = [&](const char* name, glm::vec3 shoulder, float friction) {
+        const float a = glm::radians(60.0f);
+        const glm::vec3 down(std::sin(a), -std::cos(a), 0.0f);
+        Entity e = limb(name, shoulder + down * 0.5f);
+        e.GetTransform().Rotation = { 0.0f, 0.0f, a };
+        auto& j = e.GetComponent<ConeJoint3DComponent>();
+        j.ConnectedAnchor = shoulder;
+        j.AutoConfigureConnectedAnchor = false;
+        j.SwingLimit = 180.0f;
+        j.FrictionTorque = friction;
+        return e;
+    };
+    Entity loose = tilted("Loose", { 9.0f, 4.0f, 0.0f }, 0.0f);
+    Entity stiff = tilted("Stiff", { 12.0f, 4.0f, 0.0f }, 3.0f);
+
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    CHECK(world->GetJointCount() == 5);
+    auto body = [](Entity e) { return e.GetComponent<Rigidbody3DComponent>().RuntimeBodyID; };
+    world->SetLinearVelocity(body(kicked), { 6.0f, 0.0f, 0.0f });
+    world->SetLinearVelocity(body(free), { 6.0f, 0.0f, 0.0f });
+    world->SetAngularVelocity(body(spun), { 0.0f, 12.0f, 0.0f });
+    float kickedMax = 0.0f, freeMax = 0.0f, twistMin = 0.0f, twistMax = 0.0f, worstGap = 0.0f, looseSpeed = 0.0f, stiffSpeed = 0.0f;
+    for (int i = 0; i < 60; i++)
+    {
+        RunFrames(scene, 1);
+        kickedMax = std::max(kickedMax, kicked.GetComponent<ConeJoint3DComponent>().SwingAngle);
+        freeMax = std::max(freeMax, free.GetComponent<ConeJoint3DComponent>().SwingAngle);
+        twistMin = std::min(twistMin, spun.GetComponent<ConeJoint3DComponent>().TwistAngle);
+        twistMax = std::max(twistMax, spun.GetComponent<ConeJoint3DComponent>().TwistAngle);
+        // The top end stays at its shoulder.
+        const glm::vec3 top = glm::vec3(scene->GetWorldTransform(kicked) * glm::vec4(0.0f, 0.5f, 0.0f, 1.0f));
+        worstGap = std::max(worstGap, glm::length(top - glm::vec3(0.0f, 4.5f, 0.0f)));
+        if (i == 20)
+        {
+            looseSpeed = glm::length(world->GetAngularVelocity(body(loose)));
+            stiffSpeed = glm::length(world->GetAngularVelocity(body(stiff)));
+        }
+    }
+    CHECK(kickedMax > 25.0f && kickedMax < 33.0f);
+    CHECK(freeMax > 50.0f);
+    CHECK(worstGap < 0.03f);
+    CHECK(twistMax > 30.0f && twistMax < 43.0f && twistMin > -23.0f);
+    CHECK(spun.GetComponent<ConeJoint3DComponent>().ReactionTorque >= 0.0f);
+    // Friction slows the fall towards hanging straight down.
+    CHECK(looseSpeed > 1.0f && stiffSpeed < looseSpeed * 0.8f);
+    CHECK(loose.GetComponent<ConeJoint3DComponent>().SwingAngle >= 0.0f);
+    // Live: a narrower cone pulls the kicked limb in.
+    kicked.GetComponent<ConeJoint3DComponent>().SwingLimit = 10.0f;
+    world->SetLinearVelocity(body(kicked), { 0.0f, 0.0f, 5.0f });
+    float narrowMax = 0.0f;
+    for (int i = 0; i < 60; i++)
+    {
+        RunFrames(scene, 1);
+        if (i > 30) // (once it has been pulled in from the old edge)
+            narrowMax = std::max(narrowMax, kicked.GetComponent<ConeJoint3DComponent>().SwingAngle);
+    }
+    CHECK(narrowMax > 5.0f && narrowMax < 12.0f);
+    scene->OnRuntimeStop();
+    CHECK(kicked.GetComponent<ConeJoint3DComponent>().RuntimeJoint == 0 && kicked.GetComponent<ConeJoint3DComponent>().SwingAngle == 0.0f);
+
+    // Saved and read back (runtime values are not saved; limits are kept around the start pose).
+    auto& c = stiff.GetComponent<ConeJoint3DComponent>();
+    c.Axis = { 0.0f, 0.0f, 1.0f };
+    c.TwistLower = -15.0f;
+    c.TwistUpper = 25.0f;
+    c.BreakTorque = 12.0f;
+    c.SwingAngle = 7.0f;
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"ConeJoint3D\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity back = loaded->FindEntityByName("Stiff");
+    CHECK(back && back.HasComponent<ConeJoint3DComponent>());
+    if (back)
+    {
+        const auto& b = back.GetComponent<ConeJoint3DComponent>();
+        CHECK(b.Axis == glm::vec3(0.0f, 0.0f, 1.0f) && b.SwingLimit == 180.0f && b.TwistLower == -15.0f && b.TwistUpper == 25.0f);
+        CHECK(b.FrictionTorque == 3.0f && b.BreakTorque == 12.0f && !b.AutoConfigureConnectedAnchor && b.SwingAngle == 0.0f);
+        CHECK(b.ConnectedAnchor == glm::vec3(12.0f, 4.0f, 0.0f));
+    }
+    // Out-of-range values in a file are clamped.
+    std::string bad = text;
+    for (const char* key : { "\"SwingLimit\":180.0", "\"TwistLower\":-15.0" })
+        if (size_t at = bad.find(key); at != std::string::npos)
+            bad.replace(at, std::strlen(key), std::string(key).substr(0, std::string(key).find(':') + 1) + "500.0");
+    auto clamped = CreateRef<Scene>();
+    CHECK(SceneSerializer(clamped).DeserializeFromString(bad));
+    if (Entity e = clamped->FindEntityByName("Stiff"))
+    {
+        const auto& b = e.GetComponent<ConeJoint3DComponent>();
+        CHECK(b.SwingLimit == 180.0f && b.TwistLower <= 0.0f && b.TwistUpper >= 0.0f);
+    }
 }
 
 TEST(Joint3DSerializeAndRemap)

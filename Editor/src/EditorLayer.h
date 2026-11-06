@@ -190,6 +190,10 @@ namespace Zamin {
         // The selected entity's 2D joint in the viewport (Inspector: "Langarlarni tahrirlash"): drag its
         // anchor, connected anchor, a prismatic / wheel axis and the limits (revolute angles, slide range).
         void UI_JointAnchorEditor();
+        // The same for a 3D joint: anchors dragged in the plane facing the camera (a picked anchor also
+        // gets a translate gizmo), the hinge / slider / cone axis, hinge / cone twist angles, slider
+        // limits, distance lengths and the cone's swing angle.
+        void UI_Joint3DAnchorEditor();
         void UI_ViewMenu();
         void UI_ViewportMessage();
         void UI_MaximizedGame();
@@ -240,9 +244,10 @@ namespace Zamin {
         void UpdateTilePainting();
         bool IsColliderPointEditing() const;
         bool IsJointAnchorEditing() const;
+        bool IsJoint3DAnchorEditing() const;
         // Collider points or joint anchors are being edited: viewport clicks go to their handles (no
         // picking, no transform gizmo, Delete does not delete the entity).
-        bool IsViewportHandleEditing() const { return IsColliderPointEditing() || IsJointAnchorEditing(); }
+        bool IsViewportHandleEditing() const { return IsColliderPointEditing() || IsJointAnchorEditing() || IsJoint3DAnchorEditing(); }
         // The cell of the selected tilemap under the mouse (or the automation's hover cell); false
         // when the mouse does not hit the tilemap's plane. The cell may lie outside the map.
         bool GetTileCellUnderMouse(Entity tilemap, glm::ivec2& cell);
@@ -253,6 +258,8 @@ namespace Zamin {
         // ZAMIN_EDITOR_TILEMAP automation: tool, layer, rule, tile, hover / drag preview, apply.
         void ApplyTilemapAutomation(std::string_view spec);
         bool ViewportMouseToPlane(float planeZ, glm::vec3& out);
+        // The editor camera's ray through the mouse (direction normalised); false outside a sized viewport.
+        bool ViewportMouseRay(glm::vec3& origin, glm::vec3& direction);
         glm::mat4 OverlayViewProjection();
         // The camera the overlay is drawn with (the editor camera; the game's camera in play
         // mode). False: none (play mode without a camera).
@@ -326,6 +333,11 @@ namespace Zamin {
         int m_JointDrag = -1, m_JointHover = -1;
         glm::vec2 m_JointDragOffset{ 0.0f };
         std::string m_JointHoverOverride;
+        // 3D joint anchor editing: the same, plus 5 the cone's swing angle; the picked point (anchor /
+        // connected anchor with a translate gizmo) and the joint it belongs to; the drag's plane point.
+        int m_Joint3DDrag = -1, m_Joint3DHover = -1, m_Joint3DPicked = -1, m_Joint3DType = -1;
+        uint64_t m_Joint3DEntity = 0;
+        glm::vec3 m_Joint3DDragOffset{ 0.0f }, m_Joint3DDragPlane{ 0.0f };
         struct TileStroke
         {
             bool Active = false;

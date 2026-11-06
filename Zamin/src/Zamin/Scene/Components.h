@@ -1283,6 +1283,22 @@ namespace Zamin {
         float JointSpeed = 0.0f;        // runtime: units per second
     };
 
+    // A ball-and-socket joint (shoulder, hip, neck, a lamp on a chain): the bodies share the anchor
+    // point; this body may swing its Axis within a cone of SwingLimit degrees around where the axis was
+    // when the joint was made, and twist around it between TwistLower and TwistUpper. FrictionTorque
+    // resists turning (a ragdoll's limbs do not flail).
+    struct ConeJoint3DComponent : Joint3DComponentBase
+    {
+        glm::vec3 Axis{ 0.0f, 1.0f, 0.0f }; // the twist axis in this body's frame (along a limb)
+        float SwingLimit = 45.0f;    // 0..180 degrees: the cone's half angle (180 = free)
+        float TwistLower = -30.0f;   // -180..0 degrees
+        float TwistUpper = 30.0f;    // 0..180
+        float FrictionTorque = 0.0f; // N*m
+
+        float SwingAngle = 0.0f;     // runtime: degrees between the axis now and where it started
+        float TwistAngle = 0.0f;     // runtime: degrees of twist around the axis
+    };
+
     // ------------------------------------------------------------------ audio
     struct AudioSourceComponent
     {
@@ -1381,7 +1397,8 @@ namespace Zamin {
         WeldJoint2DComponent, WheelJoint2DComponent>;
 
     // The 3D joints (each derives from Joint3DComponentBase).
-    using Joint3DComponents = ComponentGroup<FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent, SliderJoint3DComponent>;
+    using Joint3DComponents =
+        ComponentGroup<FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent, SliderJoint3DComponent, ConeJoint3DComponent>;
 
     // Every component that is copied/serialized with an entity (IDComponent & TagComponent are handled separately).
     using AllComponents = ComponentGroup<RelationshipComponent, TagsComponent, TransformComponent, SpriteRendererComponent,
@@ -1390,7 +1407,7 @@ namespace Zamin {
         CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
-        SliderJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
+        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
         AudioSourceComponent, NativeScriptComponent, EditorMetadataComponent>;
 
 }

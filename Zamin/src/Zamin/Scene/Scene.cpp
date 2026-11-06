@@ -199,7 +199,8 @@ namespace Zamin {
         if constexpr (std::is_same_v<T, FixedJoint3DComponent>) return Joint3DType::Fixed;
         else if constexpr (std::is_same_v<T, HingeJoint3DComponent>) return Joint3DType::Hinge;
         else if constexpr (std::is_same_v<T, DistanceJoint3DComponent>) return Joint3DType::Distance;
-        else return Joint3DType::Slider;
+        else if constexpr (std::is_same_v<T, SliderJoint3DComponent>) return Joint3DType::Slider;
+        else return Joint3DType::Cone;
     }
 
     static const char* Joint3DTypeName(Joint3DType type)
@@ -210,6 +211,7 @@ namespace Zamin {
             case Joint3DType::Hinge: return "Hinge Joint 3D";
             case Joint3DType::Distance: return "Distance Joint 3D";
             case Joint3DType::Slider: return "Slider Joint 3D";
+            case Joint3DType::Cone: return "Cone Joint 3D";
         }
         return "Joint 3D";
     }
@@ -224,6 +226,8 @@ namespace Zamin {
             joint.CurrentDistance = 0.0f;
         else if constexpr (std::is_same_v<T, SliderJoint3DComponent>)
             joint.JointTranslation = joint.JointSpeed = 0.0f;
+        else if constexpr (std::is_same_v<T, ConeJoint3DComponent>)
+            joint.SwingAngle = joint.TwistAngle = 0.0f;
     }
 
     // The settings of a 3D joint component for the physics world (bodies, points and axis not filled in).
@@ -261,6 +265,14 @@ namespace Zamin {
             d.EnableMotor = c.EnableMotor;
             d.MotorSpeed = c.MotorSpeed;
             d.MaxMotorForce = c.MaxMotorForce;
+        }
+        else if constexpr (std::is_same_v<T, ConeJoint3DComponent>)
+        {
+            d.EnableLimit = true;
+            d.LowerLimit = c.TwistLower;
+            d.UpperLimit = c.TwistUpper;
+            d.SwingLimit = c.SwingLimit;
+            d.FrictionTorque = c.FrictionTorque;
         }
         return d;
     }
@@ -2655,7 +2667,8 @@ namespace Zamin {
                 desc.ConnectedBody = connected;
                 desc.Anchor = worldAnchor;
                 desc.ConnectedAnchor = worldConnected;
-                if constexpr (std::is_same_v<T, HingeJoint3DComponent> || std::is_same_v<T, SliderJoint3DComponent>)
+                if constexpr (std::is_same_v<T, HingeJoint3DComponent> || std::is_same_v<T, SliderJoint3DComponent> ||
+                              std::is_same_v<T, ConeJoint3DComponent>)
                 {
                     glm::vec3 p, r, sc;
                     Math::DecomposeTransform(own, p, r, sc);
@@ -2747,6 +2760,11 @@ namespace Zamin {
                 {
                     joint.JointTranslation = state.Translation;
                     joint.JointSpeed = state.Speed;
+                }
+                else if constexpr (std::is_same_v<T, ConeJoint3DComponent>)
+                {
+                    joint.SwingAngle = state.Angle;
+                    joint.TwistAngle = state.Twist;
                 }
             }
         });

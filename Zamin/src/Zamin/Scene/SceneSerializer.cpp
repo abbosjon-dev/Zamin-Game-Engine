@@ -628,6 +628,16 @@ namespace Zamin {
             j["MaxMotorForce"] = c->MaxMotorForce;
             e["SliderJoint3D"] = std::move(j);
         }
+        if (auto* c = entity.TryGetComponent<ConeJoint3DComponent>())
+        {
+            json j = writeJoint3D(*c);
+            j["Axis"] = ToJson(c->Axis);
+            j["SwingLimit"] = c->SwingLimit;
+            j["TwistLower"] = c->TwistLower;
+            j["TwistUpper"] = c->TwistUpper;
+            j["FrictionTorque"] = c->FrictionTorque;
+            e["ConeJoint3D"] = std::move(j);
+        }
         if (auto* c = entity.TryGetComponent<CharacterController3DComponent>())
             e["CharacterController3D"] = { { "Radius", c->Radius }, { "Height", c->Height }, { "MaxSlope", c->MaxSlope },
                                            { "StepHeight", c->StepHeight }, { "Mass", c->Mass }, { "GravityScale", c->GravityScale },
@@ -1288,6 +1298,18 @@ namespace Zamin {
             c.EnableMotor = j.value("EnableMotor", c.EnableMotor);
             c.MotorSpeed = j.value("MotorSpeed", c.MotorSpeed);
             c.MaxMotorForce = std::max(0.0f, j.value("MaxMotorForce", c.MaxMotorForce));
+        }
+        if (e.contains("ConeJoint3D"))
+        {
+            const json& j = e["ConeJoint3D"];
+            auto& c = entity.AddComponent<ConeJoint3DComponent>();
+            readJoint3D(j, c);
+            c.Axis = Vec(j, "Axis", c.Axis);
+            c.SwingLimit = std::clamp(j.value("SwingLimit", c.SwingLimit), 0.0f, 180.0f);
+            readRange(j, "TwistLower", "TwistUpper", c.TwistLower, c.TwistUpper);
+            c.TwistLower = std::clamp(c.TwistLower, -180.0f, 0.0f);
+            c.TwistUpper = std::clamp(c.TwistUpper, 0.0f, 180.0f);
+            c.FrictionTorque = std::max(0.0f, j.value("FrictionTorque", c.FrictionTorque));
         }
         if (e.contains("CharacterController3D"))
         {

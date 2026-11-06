@@ -30,6 +30,7 @@
 #include <Jolt/Physics/Constraints/HingeConstraint.h>
 #include <Jolt/Physics/Constraints/DistanceConstraint.h>
 #include <Jolt/Physics/Constraints/SliderConstraint.h>
+#include <Jolt/Physics/Constraints/SwingTwistConstraint.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
@@ -703,7 +704,8 @@ namespace Zamin {
             uint64_t EntityID = 0;
             JPH::BodyID Body1, Body2;                   // Body1 invalid: the world
             glm::vec3 LocalPoint1{ 0.0f }, LocalPoint2{ 0.0f }; // in the bodies' frames (no Body1: a world point)
-            glm::vec3 LocalAxis2{ 0.0f, 1.0f, 0.0f };  // the hinge / slider axis in Body2's frame
+            glm::vec3 LocalAxis1{ 0.0f, 1.0f, 0.0f };  // the axis in Body1's frame (as it was made)
+            glm::vec3 LocalAxis2{ 0.0f, 1.0f, 0.0f };  // the hinge / slider / cone axis in Body2's frame
             bool NoCollision = false;                  // its pair is in JointFilter
             PhysicsJoint3DDesc Desc;                   // the settings it has now
         };
@@ -1921,6 +1923,16 @@ namespace Zamin {
             upper = std::max(0.0f, std::max(d.LowerLimit, d.UpperLimit));
         }
 
+        // A cone joint's swing cone (its half angle) and twist range, in radians: like a hinge's limits
+        // the start pose stays inside them.
+        void ConeLimits(const PhysicsJoint3DDesc& d, float& swing, float& twistMin, float& twistMax)
+        {
+            swing = glm::radians(std::clamp(d.SwingLimit, 0.0f, 180.0f));
+            const float lo = std::min(d.LowerLimit, d.UpperLimit), hi = std::max(d.LowerLimit, d.UpperLimit);
+            twistMin = glm::radians(std::clamp(lo, -180.0f, 0.0f));
+            twistMax = glm::radians(std::clamp(hi, 0.0f, 180.0f));
+        }
+
         void DistanceRange(const PhysicsJoint3DDesc& d, float& minDistance, float& maxDistance)
         {
             minDistance = std::max(0.0f, std::min(d.MinDistance, d.MaxDistance));
@@ -2041,6 +2053,23 @@ namespace Zamin {
                 settings = s;
                 break;
             }
+            case Joint3DType::Cone:
+            {
+                // Both frames the same in the world: the start pose is the middle of the cone, twist 0.
+                auto* s = new JPH::SwingTwistConstraintSettings();
+                s->mSpace = JPH::EConstraintSpace::WorldSpace;
+                s->mPosition1 = point1;
+                s->mPosition2 = point2;
+                s->mTwistAxis1 = s->mTwistAxis2 = ToJolt(axis);
+                s->mPlaneAxis1 = s->mPlaneAxis2 = ToJolt(normal);
+                s->mSwingType = JPH::ESwingType::Cone;
+                float swing;
+                ConeLimits(d, swing, s->mTwistMinAngle, s->mTwistMaxAngle);
+                s->mNormalHalfConeAngle = s->mPlaneHalfConeAngle = swing;
+                s->mMaxFrictionTorque = std::max(0.0f, d.FrictionTorque);
+                settings = s;
+                break;
+            }
         }
         // Jointed bodies (chains, ragdolls) get more solver iterations than Jolt's defaults (10 / 2):
         // a long chain hardly stretches. Only the islands with a joint pay for it.
@@ -2064,6 +2093,7 @@ namespace Zamin {
         m_Impl->GetFrame(id2, p2, q2);
         joint.LocalPoint1 = glm::inverse(q1) * (d.ConnectedAnchor - p1);
         joint.LocalPoint2 = glm::inverse(q2) * (d.Anchor - p2);
+        joint.LocalAxis1 = glm::inverse(q1) * axis;
         joint.LocalAxis2 = glm::inverse(q2) * axis;
         joint.Desc = d;
         joint.NoCollision = !d.CollideConnected && !id1.IsInvalid();
@@ -2169,6 +2199,26 @@ namespace Zamin {
                 }
                 break;
             }
+            case Joint3DType::Cone:
+            {
+                auto& cone = static_cast<JPH::SwingTwistConstraint&>(*joint.Constraint);
+                if (d.SwingLimit != old.SwingLimit || d.LowerLimit != old.LowerLimit || d.UpperLimit != old.UpperLimit)
+                {
+                    float swing, twistMin, twistMax;
+                    ConeLimits(d, swing, twistMin, twistMax);
+                    cone.SetNormalHalfConeAngle(swing);
+                    cone.SetPlaneHalfConeAngle(swing);
+                    cone.SetTwistMinAngle(twistMin);
+                    cone.SetTwistMaxAngle(twistMax);
+                    changed = true;
+                }
+                if (d.FrictionTorque != old.FrictionTorque)
+                {
+                    cone.SetMaxFrictionTorque(std::max(0.0f, d.FrictionTorque));
+                    changed = true;
+                }
+                break;
+            }
             case Joint3DType::Fixed:
                 break;
         }
@@ -2244,13 +2294,29 @@ namespace Zamin {
                 state.Speed = glm::dot(relative(false), axis);
                 break;
             }
+            case Joint3DType::Cone:
+            {
+                const auto& c = static_cast<const JPH::SwingTwistConstraint&>(*joint.Constraint);
+                force = c.GetTotalLambdaPosition().Length();
+                const float twist = c.GetTotalLambdaTwist(), swingY = c.GetTotalLambdaSwingY(), swingZ = c.GetTotalLambdaSwingZ();
+                torque = std::sqrt(twist * twist + swingY * swingY + swingZ * swingZ);
+                // The rotation from the start pose: a swing of the twist axis (X in constraint space)
+                // and a twist around it.
+                JPH::Quat swingRotation, twistRotation;
+                c.GetRotationInConstraintSpace().GetSwingTwist(swingRotation, twistRotation);
+                state.Angle = glm::degrees(2.0f * std::acos(std::clamp(std::abs(swingRotation.GetW()), 0.0f, 1.0f)));
+                state.Twist = glm::degrees(std::remainder(2.0f * std::atan2(twistRotation.GetX(), twistRotation.GetW()), 2.0f * JPH::JPH_PI));
+                state.Speed = glm::degrees(glm::length(relative(true)));
+                break;
+            }
         }
         state.Force = force * invDt;
         state.Torque = torque * invDt;
         return state;
     }
 
-    bool PhysicsWorld3D::GetJointFrame(uint32_t handle, glm::vec3& anchor, glm::vec3& connectedAnchor, glm::vec3& axis) const
+    bool PhysicsWorld3D::GetJointFrame(uint32_t handle, glm::vec3& anchor, glm::vec3& connectedAnchor, glm::vec3& axis,
+                                       glm::vec3* connectedAxis) const
     {
         auto it = m_Impl->Joints.find(handle);
         if (it == m_Impl->Joints.end())
@@ -2263,6 +2329,8 @@ namespace Zamin {
         anchor = p2 + q2 * joint.LocalPoint2;
         connectedAnchor = p1 + q1 * joint.LocalPoint1;
         axis = q2 * joint.LocalAxis2;
+        if (connectedAxis)
+            *connectedAxis = q1 * joint.LocalAxis1;
         return true;
     }
 

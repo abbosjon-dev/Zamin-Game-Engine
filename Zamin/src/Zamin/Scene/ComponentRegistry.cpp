@@ -54,6 +54,7 @@ namespace Zamin {
             MakeTypeInfo<HingeJoint3DComponent>(),
             MakeTypeInfo<DistanceJoint3DComponent>(),
             MakeTypeInfo<SliderJoint3DComponent>(),
+            MakeTypeInfo<ConeJoint3DComponent>(),
             MakeTypeInfo<CharacterController3DComponent>(),
             MakeTypeInfo<TilemapComponent>(),
             MakeTypeInfo<ParallaxComponent>(),

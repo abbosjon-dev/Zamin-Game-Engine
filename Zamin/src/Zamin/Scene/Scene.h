@@ -244,6 +244,26 @@ namespace Zamin {
         };
         const NameCacheStats& GetNameCacheStats() const { return m_NameCacheStats; }
 
+        // ---- animation work of the last Animator update (the editor's statistics, profiling)
+        struct AnimationStats
+        {
+            uint32_t Animators = 0;      // updated (active in the hierarchy)
+            uint32_t Posed = 0;          // skeletons / blend shapes posed
+            uint32_t Unchanged = 0;      // made from the same inputs as last frame: the last pose kept
+            uint32_t Culled = 0;         // off screen: not posed (CullPose) or not updated at all (CullCompletely)
+            uint32_t CachedSamples = 0;  // clip poses read from pose caches (CachePoses)
+            uint32_t ClipSamples = 0;    // clip poses sampled from the clips' keys
+            size_t CacheBytes = 0;       // the memory of every pose cache (all models)
+            float Milliseconds = 0.0f;   // the whole update
+        };
+        const AnimationStats& GetAnimationStats() const { return m_AnimationStats; }
+        // The animators (with a model) a camera of this view x projection sees are marked as seen
+        // after the last update; RenderScene does it for each view it draws (the game's camera, the
+        // editor's). An Animator with Culling on that no view saw is off screen in the next update -
+        // as long as the scene was drawn at all since the last one (a scene nobody draws, a headless
+        // run: nothing is culled).
+        void MarkVisibleAnimators(const glm::mat4& viewProjection);
+
         Entity GetEntityByUUID(UUID uuid);
         // Entities in creation order (stable, used by UI & serialization).
         std::vector<Entity> GetEntitiesInOrder();
@@ -1341,6 +1361,9 @@ namespace Zamin {
         uint64_t m_FrameIndex = 0;
         uint64_t m_NameCacheFrame = ~0ull; // frame of the last validation / rebuild
         NameCacheStats m_NameCacheStats;
+        AnimationStats m_AnimationStats;
+        uint64_t m_AnimationUpdate = 0;           // UpdateAnimators calls
+        uint64_t m_AnimationViewUpdate = ~0ull;   // the update after which a view was last drawn
 
         // Entities not active in the hierarchy: as a set and depth-first (a parent before its
         // children, subtrees in scene order). Rebuilt when dirty and once per frame.

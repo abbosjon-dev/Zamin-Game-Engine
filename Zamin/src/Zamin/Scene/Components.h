@@ -490,6 +490,14 @@ namespace Zamin {
     // weight; Additive - what the clip changes from its first frame is added on top (a nod, breathing).
     enum class AnimatorLayerBlend : uint8_t { Override = 0, Additive };
 
+    // What an Animator does while its model is off screen - in none of the views the scene was drawn
+    // in last frame (its mesh's posed bounds outside every camera's view):
+    // - AlwaysAnimate: everything as usual;
+    // - CullPose: time, the state machine, events and root motion go on, the skeleton is not posed
+    //   (nobody sees it) - it is posed again the frame after it comes into view;
+    // - CullCompletely: nothing advances until it is seen again (it waits where it was).
+    enum class AnimatorCulling : uint8_t { AlwaysAnimate = 0, CullPose, CullCompletely };
+
     // An Animator layer: a clip of its own played over the base animation (the state machine or
     // Clip) on the bones of its mask only - e.g. the upper body (mask "Spine") waving while the
     // legs walk. Scripts: AnimatorComponent::PlayLayer / SetLayerWeight.
@@ -602,6 +610,20 @@ namespace Zamin {
         // transform. The editor's preview stays in place.
         bool ApplyRootMotion = false;
         std::string RootMotionBone;                // joint name ("" = the first animated root joint)
+
+        // ---- performance
+        AnimatorCulling Culling = AnimatorCulling::AlwaysAnimate;
+        // Clips are read from poses cached at PoseCacheRate frames per second (made once per clip
+        // of the model, shared by all its animators): cheaper for clips with many keys and bones,
+        // a little less exact between the cached frames (step keys stay exact).
+        bool CachePoses = false;
+        float PoseCacheRate = 30.0f;
+        // runtime: the update the model was last seen after (Scene::MarkVisibleAnimators), whether
+        // the last update found it off screen, and what its last pose was made from - an update
+        // with the same inputs (paused, a finished clip, speed 0) keeps that pose.
+        uint64_t VisibleFrame = 0;
+        bool Culled = false;
+        std::vector<uint32_t> PoseSignature;
         glm::vec3 RootMotionVelocity{ 0.0f };      // runtime: the last frame's root motion (world units / s)
         float RootMotionTurnRate = 0.0f;           // runtime: radians / s
 
@@ -739,6 +761,9 @@ namespace Zamin {
             EditorPreview = {};
             RootMotionVelocity = glm::vec3(0.0f);
             RootMotionTurnRate = 0.0f;
+            VisibleFrame = 0;
+            Culled = false;
+            PoseSignature.clear();
             for (auto& l : Layers)
                 l.ResetRuntime();
         }

@@ -113,6 +113,32 @@ namespace Zamin {
     void ApplyMorphTargets(const MorphTargetData& data, const float* weights, size_t count, std::vector<MeshVertex>& out);
     void ApplyMorphTargets(const MorphTargetData& data, const float* weights, size_t count, std::vector<SkinnedVertex>& out);
 
+    // One skin of a model file (glTF "skins"): the joints the vertices of its meshes are weighted to,
+    // each with its inverse bind matrix. The model's skeleton holds the joints of every skin (one
+    // joint per node, parents first), so one Animator poses all of them - a body, its clothes and a
+    // second creature in the same file - and each skin picks its own joints out of that pose.
+    struct ModelSkin
+    {
+        std::string Name;
+        std::vector<int> Joints;              // skin joint k -> joint of the model's skeleton
+        std::vector<glm::mat4> InverseBind;   // per skin joint (the import transform applied)
+        // true: its vertices refer to the skeleton's joints themselves (every joint's inverse bind
+        // is the skeleton's and its index is under MaxJoints): drawn with the skeleton's matrices.
+        // false: they refer to the skin's own joints, drawn with the palette GetSkinMatrices makes.
+        bool Direct = true;
+        std::vector<glm::mat4> Correction;    // !Direct: inverse(the skeleton joint's inverse bind) x InverseBind
+    };
+
+    // Decides how a skin is drawn with `skeleton` (Direct) and prepares its palette (Correction).
+    // keepMode: Direct stays as it is (the vertices were made for it); only Correction is updated.
+    void PrepareModelSkin(ModelSkin& skin, const Skeleton& skeleton, bool keepMode = false);
+    // The skinning matrices of a skin's vertices from the skeleton's (an Animator's JointMatrices,
+    // EvaluatePose): `skeletonMatrices` themselves for a Direct skin, else its palette built in
+    // `scratch` (joint k: the skeleton joint's matrix x Correction[k] = its global x the skin's
+    // inverse bind; at most MaxJoints).
+    const std::vector<glm::mat4>& GetSkinMatrices(const ModelSkin& skin, const std::vector<glm::mat4>& skeletonMatrices,
+                                                  std::vector<glm::mat4>& scratch);
+
     class Model;
     // The weights `clip` gives the morph groups it animates at `time` seconds, written into the
     // model's flat list `weights` (resized to it; the groups the clip does not animate keep theirs).
@@ -131,6 +157,7 @@ namespace Zamin {
             int MaterialIndex = -1; // the file's material it was made with (-1 = none; .obj: 0)
             // Morph targets (glTF blend shapes): MeshRef shows them at the group's default weights.
             Ref<MorphTargetData> Morph;
+            int Skin = -1;          // skinned meshes: index into GetSkins()
         };
 
         const std::vector<SubMesh>& GetSubMeshes() const { return m_SubMeshes; }
@@ -143,12 +170,27 @@ namespace Zamin {
         // (ModelImportSettings::Clips; the editor's clip settings preview these).
         const std::vector<AnimationClip>& GetSourceAnimations() const { return m_ClipsCut ? m_SourceAnimations : m_Animations; }
         bool IsSkinned() const { return !m_Skeleton.Empty(); }
+        // The file's skins (glTF: one per skinned mesh node, often several in one file).
+        const std::vector<ModelSkin>& GetSkins() const { return m_Skins; }
+        // The skinning matrices to draw submesh `index` with, from the skeleton's (an Animator's
+        // JointMatrices, EvaluatePose): those themselves, or its skin's palette in `scratch`.
+        const std::vector<glm::mat4>& GetSubMeshJoints(size_t index, const std::vector<glm::mat4>& skeletonMatrices,
+                                                       std::vector<glm::mat4>& scratch) const;
+        // Models made in code (tests, procedural rigs): the skins their submeshes refer to.
+        void SetSkins(std::vector<ModelSkin> skins) { m_Skins = std::move(skins); }
         int FindAnimation(const std::string& name) const
         {
             for (size_t i = 0; i < m_Animations.size(); i++)
                 if (m_Animations[i].Name == name) return (int)i;
             return -1;
         }
+
+        // The pose cache of one of its clips at `rate` frames per second (baked when first asked for;
+        // nullptr for a clip that is not one of GetAnimations()). Dropped when the file is read again.
+        const BakedClip* GetBakedClip(const AnimationClip& clip, float rate) const;
+        // Goes up each time the file is read again (Reload / Reimport): what was made from the old
+        // skeleton and clips is out of date.
+        uint64_t GetRevision() const { return m_Revision; }
 
         // ---- morph targets (blend shapes)
         const std::vector<MorphGroup>& GetMorphGroups() const { return m_MorphGroups; }
@@ -191,6 +233,11 @@ namespace Zamin {
         // default material). Reads no buffers or images and needs no GPU. False, with the reason
         // in `error`, when the file cannot be read.
         static bool ReadMaterials(const std::filesystem::path& path, std::vector<Material>& out, std::string* error = nullptr);
+        // The skeleton and skins of a glTF file as Load makes them (every skin's joints, the import
+        // settings' transform applied) - reads no meshes or images and needs no GPU. False, with
+        // the reason in `error`, when the file cannot be read.
+        static bool ReadSkins(const std::filesystem::path& path, Skeleton& skeleton, std::vector<ModelSkin>& skins,
+                              std::string* error = nullptr);
         // Writes the materials of a glTF file (.gltf / .glb) as material assets (.zmat) with what
         // ReadMaterials reads plus their textures: image files the model uses are referred to
         // where they are (copied next to the materials when they are outside the asset folder),
@@ -218,12 +265,15 @@ namespace Zamin {
         AABB m_Bounds;
         std::filesystem::path m_Path;
         Skeleton m_Skeleton;
+        std::vector<ModelSkin> m_Skins;
         std::vector<AnimationClip> m_Animations;
         std::vector<AnimationClip> m_SourceAnimations; // only when the import settings cut clips (m_ClipsCut)
         bool m_ClipsCut = false;
         std::vector<MorphGroup> m_MorphGroups;
         ModelImportSettings m_ImportSettings;
         std::vector<std::filesystem::path> m_Dependencies;
+        mutable std::vector<Ref<BakedClip>> m_PoseCache; // per clip of m_Animations (GetBakedClip)
+        uint64_t m_Revision = 0;
         friend class ModelLoader;
     };
 

@@ -221,6 +221,238 @@ namespace Zamin {
         out.Shader = m.unlit ? MaterialShader::Unlit : MaterialShader::Lit; // KHR_materials_unlit
     }
 
+    // ------------------------------------------------------------------ skins
+    static bool NearlyEqual(const glm::mat4& a, const glm::mat4& b)
+    {
+        for (int c = 0; c < 4; c++)
+            for (int r = 0; r < 4; r++)
+                if (std::abs(a[c][r] - b[c][r]) > 1e-5f * std::max(1.0f, std::max(std::abs(a[c][r]), std::abs(b[c][r]))))
+                    return false;
+        return true;
+    }
+
+    void PrepareModelSkin(ModelSkin& skin, const Skeleton& skeleton, bool keepMode)
+    {
+        skin.InverseBind.resize(skin.Joints.size(), glm::mat4(1.0f));
+        const size_t n = skeleton.Joints.size();
+        if (!keepMode)
+        {
+            skin.Direct = true;
+            for (size_t k = 0; k < skin.Joints.size() && skin.Direct; k++)
+            {
+                const int u = skin.Joints[k];
+                skin.Direct = u >= 0 && (size_t)u < n && u < MaxJoints && NearlyEqual(skin.InverseBind[k], skeleton.Joints[(size_t)u].InverseBind);
+            }
+        }
+        skin.Correction.clear();
+        if (skin.Direct)
+            return;
+        skin.Correction.resize(skin.Joints.size(), glm::mat4(1.0f));
+        for (size_t k = 0; k < skin.Joints.size(); k++)
+        {
+            const int u = skin.Joints[k];
+            if (u >= 0 && (size_t)u < n)
+                skin.Correction[k] = glm::inverse(skeleton.Joints[(size_t)u].InverseBind) * skin.InverseBind[k];
+        }
+    }
+
+    const std::vector<glm::mat4>& GetSkinMatrices(const ModelSkin& skin, const std::vector<glm::mat4>& skeletonMatrices,
+                                                  std::vector<glm::mat4>& scratch)
+    {
+        if (skin.Direct || skin.Correction.size() != skin.Joints.size())
+            return skeletonMatrices;
+        const size_t count = std::min(skin.Joints.size(), (size_t)MaxJoints);
+        scratch.resize(count);
+        for (size_t k = 0; k < count; k++)
+        {
+            const int u = skin.Joints[k];
+            const glm::mat4& joint = u >= 0 && (size_t)u < skeletonMatrices.size() ? skeletonMatrices[(size_t)u] : glm::mat4(1.0f);
+            scratch[k] = joint * skin.Correction[k];
+        }
+        return scratch;
+    }
+
+    const std::vector<glm::mat4>& Model::GetSubMeshJoints(size_t index, const std::vector<glm::mat4>& skeletonMatrices,
+                                                          std::vector<glm::mat4>& scratch) const
+    {
+        if (index >= m_SubMeshes.size())
+            return skeletonMatrices;
+        const int skin = m_SubMeshes[index].Skin;
+        if (skin < 0 || (size_t)skin >= m_Skins.size())
+            return skeletonMatrices;
+        return GetSkinMatrices(m_Skins[(size_t)skin], skeletonMatrices, scratch);
+    }
+
+    // The joints of every skin of a glTF file as one skeleton (each node once, parents before their
+    // children, the skins' joints in their order) and each skin's own joint list. Root joints whose
+    // (non-joint) parents are placed differently - two armatures - take those parents into the
+    // skeleton as joints of their own (weighted by no vertex), so every root stays where the file
+    // puts it; when they share the placement it is the skeleton's RootTransform, as with one skin.
+    static void BuildGLTFSkeleton(const cgltf_data* data, Skeleton& sk, std::vector<ModelSkin>& skins,
+                                  std::unordered_map<const cgltf_node*, int>& jointIndex)
+    {
+        sk = {};
+        skins.clear();
+        jointIndex.clear();
+        std::unordered_set<const cgltf_node*> members;
+        for (cgltf_size s = 0; s < data->skins_count; s++)
+            for (cgltf_size i = 0; i < data->skins[s].joints_count; i++)
+                if (data->skins[s].joints[i])
+                    members.insert(data->skins[s].joints[i]);
+        if (members.empty())
+            return;
+        auto memberParent = [&](const cgltf_node* n) -> const cgltf_node* {
+            for (const cgltf_node* p = n->parent; p; p = p->parent)
+                if (members.count(p))
+                    return p;
+            return nullptr;
+        };
+        auto parentWorld = [](const cgltf_node* n) {
+            if (!n->parent)
+                return glm::mat4(1.0f);
+            float m[16];
+            cgltf_node_transform_world(n->parent, m);
+            return glm::make_mat4(m);
+        };
+        std::vector<const cgltf_node*> roots;
+        for (cgltf_size s = 0; s < data->skins_count; s++)
+            for (cgltf_size i = 0; i < data->skins[s].joints_count; i++)
+            {
+                const cgltf_node* n = data->skins[s].joints[i];
+                if (n && !memberParent(n) && std::find(roots.begin(), roots.end(), n) == roots.end())
+                    roots.push_back(n);
+            }
+        glm::mat4 rootWorld = roots.empty() ? glm::mat4(1.0f) : parentWorld(roots[0]);
+        bool shared = true;
+        for (const cgltf_node* r : roots)
+            shared &= NearlyEqual(parentWorld(r), rootWorld);
+        if (!shared)
+        {
+            for (const cgltf_node* r : roots)
+                for (const cgltf_node* p = r->parent; p; p = p->parent)
+                    members.insert(p);
+            rootWorld = glm::mat4(1.0f);
+        }
+
+        // Parents first; the skins' joints in their order.
+        std::vector<const cgltf_node*> ordered;
+        std::unordered_set<const cgltf_node*> placed;
+        std::function<void(const cgltf_node*)> add = [&](const cgltf_node* n) {
+            if (placed.count(n))
+                return;
+            if (const cgltf_node* p = memberParent(n))
+                add(p);
+            placed.insert(n);
+            ordered.push_back(n);
+        };
+        for (cgltf_size s = 0; s < data->skins_count; s++)
+            for (cgltf_size i = 0; i < data->skins[s].joints_count; i++)
+                if (data->skins[s].joints[i])
+                    add(data->skins[s].joints[i]);
+        for (size_t i = 0; i < ordered.size(); i++)
+            jointIndex[ordered[i]] = (int)i;
+
+        sk.Joints.resize(ordered.size());
+        for (size_t i = 0; i < ordered.size(); i++)
+        {
+            const cgltf_node* n = ordered[i];
+            Joint& j = sk.Joints[i];
+            j.Name = n->name ? n->name : ("joint" + std::to_string(i));
+            const cgltf_node* p = memberParent(n);
+            j.Parent = p ? jointIndex[p] : -1;
+            if (n->has_translation) j.RestTranslation = { n->translation[0], n->translation[1], n->translation[2] };
+            if (n->has_rotation) j.RestRotation = glm::quat(n->rotation[3], n->rotation[0], n->rotation[1], n->rotation[2]);
+            if (n->has_scale) j.RestScale = { n->scale[0], n->scale[1], n->scale[2] };
+            if (n->has_matrix)
+            {
+                // A node placed by a matrix (armature nodes often are): its translation, rotation
+                // and scale are what the joint rests at.
+                const glm::mat4 m = glm::make_mat4(n->matrix);
+                glm::vec3 scale(glm::length(glm::vec3(m[0])), glm::length(glm::vec3(m[1])), glm::length(glm::vec3(m[2])));
+                glm::mat3 rotation(1.0f);
+                for (int c = 0; c < 3; c++)
+                    rotation[c] = scale[c] > 1e-8f ? glm::vec3(m[c]) / scale[c] : glm::vec3(0.0f);
+                if (glm::determinant(rotation) < 0.0f) // mirrored: the flip goes into the scale
+                {
+                    scale.x = -scale.x;
+                    rotation[0] = -rotation[0];
+                }
+                j.RestTranslation = glm::vec3(m[3]);
+                j.RestRotation = glm::normalize(glm::quat_cast(rotation));
+                j.RestScale = scale;
+            }
+        }
+        sk.RootTransform = rootWorld;
+
+        // Each skin: its joints; the skeleton's inverse binds are the first skin's that lists the joint.
+        std::vector<bool> bound(ordered.size(), false);
+        for (cgltf_size s = 0; s < data->skins_count; s++)
+        {
+            const cgltf_skin& skin = data->skins[s];
+            ModelSkin out;
+            out.Name = skin.name && *skin.name ? skin.name : std::format("Skin {}", s);
+            for (cgltf_size i = 0; i < skin.joints_count; i++)
+            {
+                const int u = skin.joints[i] ? jointIndex[skin.joints[i]] : 0;
+                float m[16];
+                glm::mat4 inverseBind(1.0f);
+                if (skin.inverse_bind_matrices && cgltf_accessor_read_float(skin.inverse_bind_matrices, i, m, 16))
+                    inverseBind = glm::make_mat4(m);
+                out.Joints.push_back(u);
+                out.InverseBind.push_back(inverseBind);
+                if (!bound[(size_t)u])
+                {
+                    sk.Joints[(size_t)u].InverseBind = inverseBind;
+                    bound[(size_t)u] = true;
+                }
+            }
+            skins.push_back(std::move(out));
+        }
+        for (ModelSkin& skin : skins)
+            PrepareModelSkin(skin, sk);
+    }
+
+    // The import transform for the skeleton and the skins (see ApplyImportTransform); the skins'
+    // palettes are made again from the moved inverse binds.
+    static void FinishGLTFSkins(Skeleton& sk, std::vector<ModelSkin>& skins, const glm::mat4& importTransform)
+    {
+        if (sk.Empty())
+            return;
+        ApplyImportTransform(sk, importTransform);
+        const glm::mat4 inverse = glm::inverse(importTransform);
+        for (ModelSkin& skin : skins)
+        {
+            for (glm::mat4& m : skin.InverseBind)
+                m = m * inverse;
+            PrepareModelSkin(skin, sk, true);
+        }
+    }
+
+    bool Model::ReadSkins(const fs::path& path, Skeleton& skeleton, std::vector<ModelSkin>& skins, std::string* error)
+    {
+        skeleton = {};
+        skins.clear();
+        cgltf_options options{};
+        cgltf_data* data = nullptr;
+        std::string file = path.string();
+        if (cgltf_result result = cgltf_parse_file(&options, file.c_str(), &data); result != cgltf_result_success)
+        {
+            if (error) *error = CgltfResultText(result);
+            return false;
+        }
+        if (cgltf_result result = cgltf_load_buffers(&options, data, file.c_str()); result != cgltf_result_success)
+        {
+            if (error) *error = std::format("buferlar yuklanmadi - {}", CgltfResultText(result));
+            cgltf_free(data);
+            return false;
+        }
+        std::unordered_map<const cgltf_node*, int> jointIndex;
+        BuildGLTFSkeleton(data, skeleton, skins, jointIndex);
+        FinishGLTFSkins(skeleton, skins, AssetImporter::GetModelSettings(path).GetTransform());
+        cgltf_free(data);
+        return true;
+    }
+
     bool Model::ReadMaterials(const fs::path& path, std::vector<Material>& out, std::string* error)
     {
         out.clear();
@@ -535,52 +767,13 @@ namespace Zamin {
         std::unordered_map<const cgltf_image*, Ref<Texture2D>> textureCache;
         bool first = true;
 
-        // ---- skeleton (first skin)
+        // ---- skeleton: the joints of every skin, and each skin's own list of them
         std::unordered_map<const cgltf_node*, int> jointIndex;
-        const cgltf_skin* skin = data->skins_count ? &data->skins[0] : nullptr;
-        if (skin)
-        {
-            // Order joints so that parents precede children.
-            std::vector<const cgltf_node*> ordered;
-            std::function<void(const cgltf_node*)> addOrdered = [&](const cgltf_node* n) {
-                for (const cgltf_node* p = n->parent; p; p = p->parent)
-                    if (std::find(skin->joints, skin->joints + skin->joints_count, p) != skin->joints + skin->joints_count &&
-                        std::find(ordered.begin(), ordered.end(), p) == ordered.end())
-                    { addOrdered(p); break; }
-                if (std::find(ordered.begin(), ordered.end(), n) == ordered.end()) ordered.push_back(n);
-            };
-            for (cgltf_size i = 0; i < skin->joints_count; i++) addOrdered(skin->joints[i]);
-            for (size_t i = 0; i < ordered.size(); i++) jointIndex[ordered[i]] = (int)i;
-
-            auto& sk = model->m_Skeleton;
-            sk.Joints.resize(ordered.size());
-            for (size_t i = 0; i < ordered.size(); i++)
-            {
-                const cgltf_node* n = ordered[i];
-                Joint& j = sk.Joints[i];
-                j.Name = n->name ? n->name : ("joint" + std::to_string(i));
-                j.Parent = -1;
-                for (const cgltf_node* p = n->parent; p; p = p->parent)
-                    if (auto it = jointIndex.find(p); it != jointIndex.end()) { j.Parent = it->second; break; }
-                if (n->has_translation) j.RestTranslation = { n->translation[0], n->translation[1], n->translation[2] };
-                if (n->has_rotation) j.RestRotation = glm::quat(n->rotation[3], n->rotation[0], n->rotation[1], n->rotation[2]);
-                if (n->has_scale) j.RestScale = { n->scale[0], n->scale[1], n->scale[2] };
-            }
-            // inverse bind matrices are indexed by skin joint order
-            for (cgltf_size i = 0; i < skin->joints_count; i++)
-            {
-                float m[16];
-                if (skin->inverse_bind_matrices && cgltf_accessor_read_float(skin->inverse_bind_matrices, i, m, 16))
-                    sk.Joints[jointIndex[skin->joints[i]]].InverseBind = glm::make_mat4(m);
-            }
-            // world transform of the root joint's non-joint ancestors
-            if (!ordered.empty() && ordered[0]->parent)
-            {
-                float m[16];
-                cgltf_node_transform_world(ordered[0]->parent, m);
-                sk.RootTransform = glm::make_mat4(m);
-            }
-        }
+        BuildGLTFSkeleton(data, model->m_Skeleton, model->m_Skins, jointIndex);
+        for (const ModelSkin& s : model->m_Skins)
+            if (!s.Direct && s.Joints.size() > (size_t)MaxJoints)
+                ZM_CORE_WARN("{}: '{}' skinida {} suyak bor - GPU {} tasini oladi, qolganlari birinchisiga bog'lanadi",
+                             path.filename().string(), s.Name, s.Joints.size(), MaxJoints);
 
         // Morph groups: one per mesh node with targets (its weights are the node's / mesh's).
         std::unordered_map<const cgltf_node*, int> nodeMorphGroup;
@@ -621,7 +814,10 @@ namespace Zamin {
                 else if (a.type == cgltf_attribute_type_weights && a.index == 0) weights = a.data;
             }
             if (!pos) return;
-            bool skinned = primSkin == skin && skin && joints && weights;
+            // Its node's skin (any of the file's): which of the skeleton's joints its vertices follow.
+            const int skinIndex = primSkin ? (int)cgltf_skin_index(data, primSkin) : -1;
+            const ModelSkin* modelSkin = skinIndex >= 0 && (size_t)skinIndex < model->m_Skins.size() ? &model->m_Skins[(size_t)skinIndex] : nullptr;
+            bool skinned = modelSkin && !modelSkin->Joints.empty() && joints && weights;
             // glTF: the node transform of a skinned mesh is ignored (joints place it). The import
             // transform (scale, up axis) comes on top; the skeleton gets it too (see below).
             glm::mat4 transform = importTransform * (skinned ? glm::mat4(1.0f) : transformIn);
@@ -740,8 +936,10 @@ namespace Zamin {
                     float sum = w[0] + w[1] + w[2] + w[3];
                     for (int k = 0; k < 4; k++)
                     {
-                        // skin-local joint index -> our ordered skeleton index
-                        int idx = j[k] < skin->joints_count ? jointIndex[skin->joints[j[k]]] : 0;
+                        // A direct skin: skin-local joint index -> the skeleton's; else the skin's own
+                        // (its palette, GetSkinMatrices).
+                        const size_t local = j[k] < modelSkin->Joints.size() ? (size_t)j[k] : 0;
+                        int idx = modelSkin->Direct ? modelSkin->Joints[local] : (int)local;
                         sv[i].Joints[k] = std::min(idx, MaxJoints - 1);
                         sv[i].Weights[k] = sum > 0.0f ? w[k] / sum : (k == 0 ? 1.0f : 0.0f);
                     }
@@ -755,6 +953,7 @@ namespace Zamin {
                         ApplyMorphTargets(*morph, defaults->data(), defaults->size(), sv);
                 }
                 sub.MeshRef = CreateRef<Mesh>(sv, indices);
+                sub.Skin = skinIndex;
             }
             else
             {
@@ -889,8 +1088,7 @@ namespace Zamin {
                 ZM_CORE_WARN("{}: {}", path.filename().string(), w);
         }
 
-        if (!model->m_Skeleton.Empty())
-            ApplyImportTransform(model->m_Skeleton, importTransform);
+        FinishGLTFSkins(model->m_Skeleton, model->m_Skins, importTransform);
 
         size_t triangles = 0;
         for (auto& s : model->m_SubMeshes) triangles += s.MeshRef->GetIndexCount() / 3;
@@ -900,13 +1098,13 @@ namespace Zamin {
             error = "faylda uchburchakli mesh yo'q";
             return nullptr;
         }
+        std::string extra;
+        if (model->m_Skins.size() > 1)
+            extra += std::format(", {} skin", model->m_Skins.size());
         if (model->HasMorphTargets())
-            ZM_CORE_INFO("glTF yuklandi: {} ({} qism, {} uchburchak, {} suyak, {} animatsiya, {} morph target)", path.filename().string(),
-                         model->m_SubMeshes.size(), triangles, model->m_Skeleton.Joints.size(), model->m_Animations.size(),
-                         model->GetMorphWeightCount());
-        else
-            ZM_CORE_INFO("glTF yuklandi: {} ({} qism, {} uchburchak, {} suyak, {} animatsiya)", path.filename().string(),
-                         model->m_SubMeshes.size(), triangles, model->m_Skeleton.Joints.size(), model->m_Animations.size());
+            extra += std::format(", {} morph target", model->GetMorphWeightCount());
+        ZM_CORE_INFO("glTF yuklandi: {} ({} qism, {} uchburchak, {} suyak, {} animatsiya{})", path.filename().string(),
+                     model->m_SubMeshes.size(), triangles, model->m_Skeleton.Joints.size(), model->m_Animations.size(), extra);
         return model;
     }
 
@@ -965,12 +1163,15 @@ namespace Zamin {
         to.m_SubMeshes = std::move(from.m_SubMeshes);
         to.m_Bounds = from.m_Bounds;
         to.m_Skeleton = std::move(from.m_Skeleton);
+        to.m_Skins = std::move(from.m_Skins);
         to.m_Animations = std::move(from.m_Animations);
         to.m_SourceAnimations = std::move(from.m_SourceAnimations);
         to.m_ClipsCut = from.m_ClipsCut;
         to.m_MorphGroups = std::move(from.m_MorphGroups);
         to.m_ImportSettings = from.m_ImportSettings;
         to.m_Dependencies = std::move(from.m_Dependencies);
+        to.m_PoseCache.clear();
+        to.m_Revision++;
     }
 
     // ------------------------------------------------------------------ morph targets
@@ -1086,6 +1287,25 @@ namespace Zamin {
             offset += g.GetCount();
         }
         m_MorphGroups = std::move(groups);
+    }
+
+    const BakedClip* Model::GetBakedClip(const AnimationClip& clip, float rate) const
+    {
+        if (m_Animations.empty() || &clip < m_Animations.data() || &clip >= m_Animations.data() + m_Animations.size())
+            return nullptr;
+        const size_t index = (size_t)(&clip - m_Animations.data());
+        if (m_PoseCache.size() != m_Animations.size())
+            m_PoseCache.resize(m_Animations.size());
+        if (!std::isfinite(rate) || rate < 1.0f)
+            rate = 1.0f;
+        Ref<BakedClip>& baked = m_PoseCache[index];
+        if (!baked || baked->Rate != rate || baked->Joints != m_Skeleton.Joints.size())
+        {
+            if (!baked)
+                baked = CreateRef<BakedClip>();
+            BakeClip(m_Skeleton, clip, rate, *baked);
+        }
+        return baked.get();
     }
 
     Ref<Model> Model::CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations)

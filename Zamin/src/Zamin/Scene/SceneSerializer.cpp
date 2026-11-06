@@ -501,6 +501,12 @@ namespace Zamin {
                 e["Animator"]["ApplyRootMotion"] = true;
             if (!c->RootMotionBone.empty())
                 e["Animator"]["RootMotionBone"] = c->RootMotionBone;
+            if (c->Culling != AnimatorCulling::AlwaysAnimate)
+                e["Animator"]["Culling"] = c->Culling == AnimatorCulling::CullPose ? "Pose" : "Complete";
+            if (c->CachePoses)
+                e["Animator"]["CachePoses"] = true;
+            if (c->PoseCacheRate != 30.0f)
+                e["Animator"]["PoseCacheRate"] = c->PoseCacheRate;
         }
         if (auto* c = entity.TryGetComponent<AnimationPlayerComponent>())
         {
@@ -1343,6 +1349,13 @@ namespace Zamin {
                                              ev.value("Name", std::string()), ev.value("Parameter", std::string()) });
             c.ApplyRootMotion = j.value("ApplyRootMotion", false);
             c.RootMotionBone = j.value("RootMotionBone", std::string());
+            const std::string culling = j.value("Culling", std::string());
+            c.Culling = culling == "Pose" ? AnimatorCulling::CullPose : culling == "Complete" ? AnimatorCulling::CullCompletely
+                                                                                           : AnimatorCulling::AlwaysAnimate;
+            c.CachePoses = j.value("CachePoses", false);
+            c.PoseCacheRate = j.value("PoseCacheRate", 30.0f);
+            if (!std::isfinite(c.PoseCacheRate) || c.PoseCacheRate < 1.0f)
+                c.PoseCacheRate = 30.0f;
         }
         if (e.contains("AnimationPlayer"))
         {

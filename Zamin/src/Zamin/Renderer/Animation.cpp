@@ -7,6 +7,7 @@
 #include <glm/gtx/quaternion.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <glm/gtc/constants.hpp>
 
@@ -331,6 +332,108 @@ namespace Zamin {
             return;
         }
         ComposePose(skeleton, pose, out);
+    }
+
+    // ---- pose cache
+    static std::atomic<size_t> s_BakedBytes{ 0 };
+
+    BakedClip::~BakedClip()
+    {
+        s_BakedBytes -= m_Bytes;
+    }
+
+    size_t GetBakedClipMemory()
+    {
+        return s_BakedBytes.load();
+    }
+
+    void BakeClip(const Skeleton& skeleton, const AnimationClip& clip, float rate, BakedClip& out)
+    {
+        s_BakedBytes -= out.m_Bytes;
+        const size_t n = skeleton.Joints.size();
+        if (!std::isfinite(rate) || rate < 1.0f)
+            rate = 1.0f;
+        out.Duration = std::max(0.0f, clip.Duration);
+        out.Rate = rate;
+        out.Frames = std::max<uint32_t>(2, (uint32_t)std::ceil(out.Duration * rate - 1e-4f) + 1);
+        out.Step = out.Duration / (float)(out.Frames - 1);
+        out.Joints = n;
+        out.FromClip.assign(n, 0);
+        for (const auto& ch : clip.Channels)
+            if (ch.Step && ch.JointIndex >= 0 && ch.JointIndex < (int)n)
+                out.FromClip[(size_t)ch.JointIndex] = 1;
+        out.T.resize((size_t)out.Frames * n);
+        out.S.resize((size_t)out.Frames * n);
+        out.R.resize((size_t)out.Frames * n);
+        LocalPose pose;
+        for (uint32_t f = 0; f < out.Frames; f++)
+        {
+            const float t = f + 1 == out.Frames ? out.Duration : (float)f * out.Step;
+            SamplePose(skeleton, &clip, t, pose);
+            std::copy(pose.T.begin(), pose.T.end(), out.T.begin() + (std::ptrdiff_t)(f * n));
+            std::copy(pose.S.begin(), pose.S.end(), out.S.begin() + (std::ptrdiff_t)(f * n));
+            std::copy(pose.R.begin(), pose.R.end(), out.R.begin() + (std::ptrdiff_t)(f * n));
+        }
+        out.m_Bytes = out.T.size() * sizeof(glm::vec3) * 2 + out.R.size() * sizeof(glm::quat) + out.FromClip.size();
+        s_BakedBytes += out.m_Bytes;
+    }
+
+    void SampleBakedPose(const Skeleton& skeleton, const AnimationClip& clip, const BakedClip& baked, float time, LocalPose& out,
+                         int rootMotionJoint)
+    {
+        const size_t n = skeleton.Joints.size();
+        if (baked.Joints != n || baked.Frames < 2 || baked.T.size() != (size_t)baked.Frames * n)
+        {
+            SampleLocalPose(skeleton, &clip, time, out, rootMotionJoint);
+            return;
+        }
+        out.T.resize(n); out.S.resize(n); out.R.resize(n);
+        if (!std::isfinite(time))
+            time = 0.0f;
+        const float x = baked.Step > 0.0f ? std::clamp(time, 0.0f, baked.Duration) / baked.Step : 0.0f;
+        const uint32_t a = std::min((uint32_t)x, baked.Frames - 2);
+        const float f = std::clamp(x - (float)a, 0.0f, 1.0f);
+        const size_t ia = (size_t)a * n, ib = ia + n;
+        for (size_t i = 0; i < n; i++)
+        {
+            out.T[i] = glm::mix(baked.T[ia + i], baked.T[ib + i], f);
+            out.S[i] = glm::mix(baked.S[ia + i], baked.S[ib + i], f);
+            const glm::quat& qa = baked.R[ia + i];
+            glm::quat qb = baked.R[ib + i];
+            if (glm::dot(qa, qb) < 0.0f)
+                qb = -qb;
+            // Frames are close: a normalized linear mix is as good as slerp there (and cheaper).
+            out.R[i] = glm::normalize(glm::quat(qa.w + (qb.w - qa.w) * f, qa.x + (qb.x - qa.x) * f, qa.y + (qb.y - qa.y) * f,
+                                                qa.z + (qb.z - qa.z) * f));
+        }
+        // Joints with step keys: from the clip itself.
+        bool any = false;
+        for (uint8_t v : baked.FromClip)
+            any |= v != 0;
+        if (any)
+        {
+            for (size_t i = 0; i < n; i++)
+                if (baked.FromClip[i])
+                {
+                    out.T[i] = skeleton.Joints[i].RestTranslation;
+                    out.R[i] = skeleton.Joints[i].RestRotation;
+                    out.S[i] = skeleton.Joints[i].RestScale;
+                }
+            for (const auto& ch : clip.Channels)
+            {
+                if (ch.JointIndex < 0 || ch.JointIndex >= (int)n || !baked.FromClip[(size_t)ch.JointIndex])
+                    continue;
+                const glm::vec4 v = Sample(ch, time);
+                switch (ch.Target)
+                {
+                    case AnimationChannel::Path::Translation: out.T[(size_t)ch.JointIndex] = glm::vec3(v); break;
+                    case AnimationChannel::Path::Scale:       out.S[(size_t)ch.JointIndex] = glm::vec3(v); break;
+                    case AnimationChannel::Path::Rotation:    out.R[(size_t)ch.JointIndex] = glm::normalize(glm::quat(v.w, v.x, v.y, v.z)); break;
+                }
+            }
+        }
+        if (rootMotionJoint >= 0 && rootMotionJoint < (int)n)
+            StripRootMotion(skeleton, &clip, rootMotionJoint, out.T[(size_t)rootMotionJoint], out.R[(size_t)rootMotionJoint]);
     }
 
     void ComputeBlend1DWeights(const std::vector<float>& thresholds, float value, std::vector<float>& out)

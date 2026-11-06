@@ -6357,6 +6357,42 @@ namespace Zamin {
                 }
             }
 
+            // ---- performance: off-screen culling and the pose cache
+            UI::PropertyHeader("Samaradorlik", "Ekrandan tashqaridagi modellar va keshlangan pozalar. Bir xil kirishlar bilan (pauza, tezlik 0, "
+                                                "tugagan klip) poza qaytadan hisoblanmaydi - bu doim ishlaydi");
+            {
+                static const char* cullingItems[] = { "Doim", "Pozasiz", "To'liq" };
+                static const char* cullingTips[] = {
+                    "Ekrandan tashqarida ham to'liq yangilanadi",
+                    "Hech bir kamera ko'rmasa: vaqt, holat mashinasi, event'lar va root motion davom etadi, skelet pozasi hisoblanmaydi",
+                    "Hech bir kamera ko'rmasa: hech narsa yangilanmaydi - ko'ringanda turgan joyidan davom etadi" };
+                int culling = (int)c.Culling;
+                // What happens while no view (the game's camera, the editor's) sees the model -
+                // also when only its shadow is in view.
+                if (UI::PropertySegmented("Ko'rinmasa", culling, cullingItems, 3, cullingTips))
+                {
+                    c.Culling = (AnimatorCulling)culling;
+                    changed = true;
+                }
+                changed |= UI::PropertyBool("Pozalarni keshlash", c.CachePoses);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Klip oldindan belgilangan tezlikda (kadr/s) namuna olinib saqlanadi: har kadr ikki saqlangan kadr "
+                                "aralashtiriladi. Ko'p suyakli va ko'p kalitli kliplar uchun arzonroq; step kalitlar aniq qoladi");
+                if (c.CachePoses)
+                {
+                    changed |= UI::PropertyFloat("Kesh tezligi (kadr/s)", c.PoseCacheRate, 1.0f, 1.0f, 240.0f, "%.0f");
+                    c.PoseCacheRate = std::clamp(c.PoseCacheRate, 1.0f, 240.0f);
+                }
+                if (!m_SceneEditable || c.Culled)
+                {
+                    UI::PropertyLabel("Hozir");
+                    if (c.Culled)
+                        ImGui::TextColored(UI::AccentColor(), ICON_FA_EYE_SLASH "  ekrandan tashqarida (kesilgan)");
+                    else
+                        ImGui::TextDisabled(ICON_FA_EYE "  ko'rinmoqda");
+                }
+            }
+
             // ---- events
             UI::PropertyHeader("Hodisalar (event)", "Klipning shu nuqtasidan o'tilganda (0..1 - klip boshidan oxirigacha) obyekt skripti "
                                                     "OnAnimationEvent(nom) oladi; event bus'da \"AnimationEvent\". O'yin rejimida");

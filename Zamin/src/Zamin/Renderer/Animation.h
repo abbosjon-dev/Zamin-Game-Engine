@@ -118,6 +118,39 @@ namespace Zamin {
     // Skinning matrices (global x inverse bind) of a local pose.
     void ComposeJointMatrices(const Skeleton& skeleton, const LocalPose& pose, std::vector<glm::mat4>& outJointMatrices);
 
+    // ---- pose cache: a clip sampled ahead of time at a fixed rate (Animator::CachePoses). Reading
+    // a pose is then two cached frames mixed per joint instead of searching every channel's keys.
+    // Joints with step keys are read from the clip itself (their jumps stay where they are).
+    struct BakedClip
+    {
+        float Duration = 0.0f;
+        float Rate = 0.0f;                      // frames per second asked for
+        float Step = 0.0f;                      // seconds between frames (Duration / (Frames - 1); <= 1 / Rate)
+        uint32_t Frames = 0;
+        size_t Joints = 0;
+        std::vector<glm::vec3> T, S;            // Frames x Joints, frame after frame
+        std::vector<glm::quat> R;
+        std::vector<uint8_t> FromClip;          // per joint: 1 = read from the clip (step keys)
+
+        BakedClip() = default;
+        BakedClip(const BakedClip&) = delete;
+        BakedClip& operator=(const BakedClip&) = delete;
+        ~BakedClip();
+        size_t GetMemory() const { return m_Bytes; }
+
+    private:
+        size_t m_Bytes = 0;
+        friend void BakeClip(const Skeleton&, const AnimationClip&, float, BakedClip&);
+    };
+    // Samples `clip` for `skeleton` at `rate` frames per second (at least 1; both ends exact).
+    void BakeClip(const Skeleton& skeleton, const AnimationClip& clip, float rate, BakedClip& out);
+    // The pose at `time` seconds from the cached frames (clamped to the clip; as SampleLocalPose
+    // otherwise, root motion included). `baked` made for another skeleton: sampled from the clip.
+    void SampleBakedPose(const Skeleton& skeleton, const AnimationClip& clip, const BakedClip& baked, float time, LocalPose& out,
+                         int rootMotionJoint = -1);
+    // The memory of every cached clip there is (bytes).
+    size_t GetBakedClipMemory();
+
     // ---- 1D blend trees
     // The weights of motions placed at `thresholds` (in any order) for the parameter `value`: the
     // two nearest on either side share it linearly; at or below the lowest / at or above the

@@ -26732,3 +26732,356 @@ TEST(FootstepsFromAnimationEvents)
     CHECK(lc.Sounds == f.Sounds && lc.EventName == "Step" && lc.ReferenceSpeed == 2.5f && !lc.Spatial && lc.Output == "SFX");
     CHECK(lc.PitchRandom == f.PitchRandom && lc.MinInterval == f.MinInterval);
 }
+
+// ------------------------------------------------------------------ M13: multiple skins, pose cache, culling
+static std::string MatricesBytes(const std::vector<glm::mat4>& mats)
+{
+    std::string bytes;
+    for (const glm::mat4& m : mats)
+        bytes.append((const char*)&m[0][0], sizeof(glm::mat4));
+    return bytes;
+}
+
+static bool NearMat(const glm::mat4& a, const glm::mat4& b, float eps = 1e-4f)
+{
+    for (int c = 0; c < 4; c++)
+        for (int r = 0; r < 4; r++)
+            if (std::abs(a[c][r] - b[c][r]) > eps)
+                return false;
+    return true;
+}
+
+TEST(MultipleSkinsInOneGLTF)
+{
+    auto dir = MakeTempDir("zamin-skins-");
+    // Two armatures (placed differently: the right one turned around) with a two-joint chain each;
+    // skin 0 = the left chain, skin 1 = the right chain listed backwards, skin 2 = a rope between
+    // the two tips whose vertices are in its own node's space (2 m up): other inverse binds.
+    const glm::mat4 armA = glm::translate(glm::mat4(1.0f), { -1.0f, 0.0f, 0.0f });
+    const glm::mat4 armB = glm::translate(glm::mat4(1.0f), { 1.0f, 0.0f, 0.0f }) * glm::rotate(glm::mat4(1.0f), glm::pi<float>(), glm::vec3(0, 1, 0));
+    const glm::mat4 up1 = glm::translate(glm::mat4(1.0f), { 0.0f, 1.0f, 0.0f });
+    const glm::mat4 ropeNode = glm::translate(glm::mat4(1.0f), { 0.0f, 2.0f, 0.0f });
+    const glm::mat4 a0 = armA, a1 = armA * up1, b0 = armB, b1 = armB * up1;
+    const std::string buffer = MatricesBytes({ glm::inverse(a0), glm::inverse(a1), glm::inverse(b1), glm::inverse(b0),
+                                               glm::inverse(a1) * ropeNode, glm::inverse(b1) * ropeNode });
+    auto gltf = [&](const std::string& skins) {
+        return std::string(R"({ "asset": { "version": "2.0" }, "scene": 0, "scenes": [ { "nodes": [ 0, 3 ] } ],
+  "nodes": [ { "name": "ArmA", "translation": [ -1, 0, 0 ], "children": [ 1 ] }, { "name": "A0", "children": [ 2 ] },
+             { "name": "A1", "translation": [ 0, 1, 0 ] },
+             { "name": "ArmB", "translation": [ 1, 0, 0 ], "rotation": [ 0, 1, 0, 0 ], "children": [ 4 ] }, { "name": "B0", "children": [ 5 ] },
+             { "name": "B1", "translation": [ 0, 1, 0 ] } ],
+  "skins": [ )") + skins + R"( ],
+  "accessors": [ { "bufferView": 0, "componentType": 5126, "count": 2, "type": "MAT4" },
+                 { "bufferView": 1, "componentType": 5126, "count": 2, "type": "MAT4" },
+                 { "bufferView": 2, "componentType": 5126, "count": 2, "type": "MAT4" } ],
+  "bufferViews": [ { "buffer": 0, "byteOffset": 0, "byteLength": 128 }, { "buffer": 0, "byteOffset": 128, "byteLength": 128 },
+                   { "buffer": 0, "byteOffset": 256, "byteLength": 128 } ],
+  "buffers": [ { "byteLength": 384, "uri": "data:application/octet-stream;base64,)" + Base64(buffer) + R"(" } ] })";
+    };
+    {
+        std::ofstream(dir / "Pair.gltf") << gltf(R"({ "name": "Left", "joints": [ 1, 2 ], "inverseBindMatrices": 0 },
+                    { "joints": [ 5, 4 ], "inverseBindMatrices": 1 }, { "name": "Rope", "joints": [ 2, 5 ], "inverseBindMatrices": 2 })");
+        std::ofstream(dir / "Single.gltf") << gltf(R"({ "name": "Left", "joints": [ 1, 2 ], "inverseBindMatrices": 0 })");
+    }
+
+    Skeleton sk;
+    std::vector<ModelSkin> skins;
+    std::string error;
+    CHECK(Model::ReadSkins(dir / "Pair.gltf", sk, skins, &error));
+    // Every skin's joints in one skeleton, parents first; the armatures (placed differently) are
+    // joints too, so the root transform is the identity.
+    CHECK(sk.Joints.size() == 6 && skins.size() == 3);
+    std::vector<std::string> names;
+    for (const Joint& j : sk.Joints)
+        names.push_back(j.Name);
+    CHECK((names == std::vector<std::string>{ "ArmA", "A0", "A1", "ArmB", "B0", "B1" }));
+    CHECK(sk.Joints[1].Parent == 0 && sk.Joints[2].Parent == 1 && sk.Joints[3].Parent == -1 && sk.Joints[5].Parent == 4);
+    CHECK(NearMat(sk.RootTransform, glm::mat4(1.0f)));
+    CHECK(skins[0].Name == "Left" && skins[1].Name == "Skin 1" && skins[2].Name == "Rope");
+    CHECK((skins[0].Joints == std::vector<int>{ 1, 2 }) && (skins[1].Joints == std::vector<int>{ 5, 4 }) && (skins[2].Joints == std::vector<int>{ 2, 5 }));
+    // The first two share the skeleton's inverse binds (their vertices use its joints directly);
+    // the rope's differ, so it is drawn with a palette of its own.
+    CHECK(skins[0].Direct && skins[1].Direct && !skins[2].Direct && skins[2].Correction.size() == 2);
+
+    // Bind pose: the chains' matrices are the identity; the rope's palette takes its vertices from
+    // its node's space to where they are (2 m up).
+    std::vector<glm::mat4> pose, palette;
+    EvaluatePose(sk, nullptr, 0.0f, pose);
+    CHECK(pose.size() == 6 && NearMat(pose[2], glm::mat4(1.0f)) && NearMat(pose[5], glm::mat4(1.0f)));
+    CHECK(&GetSkinMatrices(skins[0], pose, palette) == &pose);
+    const std::vector<glm::mat4>& rope = GetSkinMatrices(skins[2], pose, palette);
+    CHECK(&rope == &palette && rope.size() == 2 && NearMat(rope[0], ropeNode) && NearMat(rope[1], ropeNode));
+    // Turn A0 90 degrees about Z: the left tip (and the rope's end on it) swings to (-2, 0, 0);
+    // the right end stays at the right tip (1, 1, 0).
+    LocalPose local;
+    SampleLocalPose(sk, nullptr, 0.0f, local);
+    local.R[1] = glm::angleAxis(glm::half_pi<float>(), glm::vec3(0, 0, 1));
+    ComposeJointMatrices(sk, local, pose);
+    const std::vector<glm::mat4>& bent = GetSkinMatrices(skins[2], pose, palette);
+    const glm::vec3 leftEnd = glm::vec3(bent[0] * glm::vec4(-1.0f, -1.0f, 0.0f, 1.0f)); // rope space: the left tip
+    const glm::vec3 rightEnd = glm::vec3(bent[1] * glm::vec4(1.0f, -1.0f, 0.0f, 1.0f));
+    CHECK(glm::length(leftEnd - glm::vec3(-2.0f, 0.0f, 0.0f)) < 1e-4f);
+    CHECK(glm::length(rightEnd - glm::vec3(1.0f, 1.0f, 0.0f)) < 1e-4f);
+    // ... the same as the glTF formula: the joint's world transform x the skin's inverse bind.
+    std::vector<glm::mat4> global;
+    GetJointTransforms(sk, pose, global);
+    CHECK(NearMat(bent[0], global[2] * skins[2].InverseBind[0]));
+
+    // One skin: as before - only its joints, the armature as the root transform.
+    CHECK(Model::ReadSkins(dir / "Single.gltf", sk, skins, &error));
+    CHECK(sk.Joints.size() == 2 && skins.size() == 1 && skins[0].Direct && sk.Joints[0].Name == "A0" && sk.Joints[0].Parent == -1);
+    CHECK(NearMat(sk.RootTransform, armA));
+    EvaluatePose(sk, nullptr, 0.0f, pose);
+    CHECK(NearMat(pose[1], glm::mat4(1.0f)));
+    CHECK(!Model::ReadSkins(dir / "Missing.gltf", sk, skins, &error) && !error.empty());
+
+    // A skin whose joints lie past the GPU's limit gets a palette of its own (at most MaxJoints).
+    Skeleton big;
+    big.Joints.resize(MaxJoints + 10);
+    ModelSkin far;
+    far.Joints = { MaxJoints + 5, 3 };
+    far.InverseBind = { glm::mat4(1.0f), glm::mat4(1.0f) };
+    PrepareModelSkin(far, big);
+    CHECK(!far.Direct && NearMat(far.Correction[0], glm::mat4(1.0f)));
+    std::vector<glm::mat4> bigPose(big.Joints.size(), glm::mat4(1.0f));
+    bigPose[MaxJoints + 5] = glm::translate(glm::mat4(1.0f), { 0.0f, 7.0f, 0.0f });
+    CHECK(NearMat(GetSkinMatrices(far, bigPose, palette)[0], bigPose[MaxJoints + 5]));
+    // keepMode: the vertices were made for a palette - it stays one even when it would fit now.
+    ModelSkin kept = far;
+    kept.Joints = { 1 };
+    kept.InverseBind = { glm::mat4(1.0f) };
+    PrepareModelSkin(kept, big, true);
+    CHECK(!kept.Direct && kept.Correction.size() == 1);
+    // A model made in code without submeshes: its submesh joints are the skeleton's.
+    Ref<Model> model = Model::CreateSkeletal(big, {});
+    CHECK(&model->GetSubMeshJoints(0, bigPose, palette) == &bigPose && model->GetSkins().empty());
+    std::filesystem::remove_all(dir);
+}
+
+TEST(AnimationPoseCache)
+{
+    // Root -> Arm. The arm swings (unevenly spaced keys), the root moves; the root's scale jumps
+    // (a step key at 0.51 s).
+    Skeleton sk;
+    sk.Joints.resize(2);
+    sk.Joints[0].Name = "Root";
+    sk.Joints[1].Name = "Arm";
+    sk.Joints[1].Parent = 0;
+    sk.Joints[1].RestTranslation = { 0.0f, 1.0f, 0.0f };
+    AnimationClip clip;
+    clip.Name = "Swing";
+    clip.Duration = 1.0f;
+    AnimationChannel rot;
+    rot.JointIndex = 1;
+    rot.Target = AnimationChannel::Path::Rotation;
+    rot.Times = { 0.0f, 0.37f, 1.0f };
+    for (float a : { 0.0f, 1.2f, -0.4f })
+    {
+        glm::quat q = glm::angleAxis(a, glm::vec3(0, 0, 1));
+        rot.Values.push_back({ q.x, q.y, q.z, q.w });
+    }
+    AnimationChannel move;
+    move.JointIndex = 0;
+    move.Target = AnimationChannel::Path::Translation;
+    move.Times = { 0.0f, 1.0f };
+    move.Values = { glm::vec4(0.0f), glm::vec4(2.0f, 0.0f, 0.0f, 0.0f) };
+    AnimationChannel scale;
+    scale.JointIndex = 0;
+    scale.Target = AnimationChannel::Path::Scale;
+    scale.Step = true;
+    scale.Times = { 0.0f, 0.51f };
+    scale.Values = { glm::vec4(1.0f), glm::vec4(2.0f) };
+    clip.Channels = { rot, move, scale };
+
+    const size_t memory0 = GetBakedClipMemory();
+    {
+        BakedClip baked;
+        BakeClip(sk, clip, 30.0f, baked);
+        CHECK(baked.Frames == 31 && baked.Joints == 2 && std::abs(baked.Step - 1.0f / 30.0f) < 1e-6f);
+        CHECK(baked.FromClip[0] == 1 && baked.FromClip[1] == 0); // the root has a step key
+        CHECK(baked.GetMemory() > 0 && GetBakedClipMemory() == memory0 + baked.GetMemory());
+        LocalPose direct, cached;
+        // On the cached frames: the same pose as sampling the clip.
+        bool same = true;
+        for (int f = 0; f <= 30; f++)
+        {
+            const float t = f / 30.0f;
+            SampleLocalPose(sk, &clip, t, direct);
+            SampleBakedPose(sk, clip, baked, t, cached);
+            for (size_t j = 0; j < 2; j++)
+                same &= glm::length(direct.T[j] - cached.T[j]) < 1e-5f && std::abs(std::abs(glm::dot(direct.R[j], cached.R[j])) - 1.0f) < 1e-5f &&
+                        glm::length(direct.S[j] - cached.S[j]) < 1e-5f;
+        }
+        CHECK(same);
+        // Between them: close (frames 1/30 s apart).
+        SampleLocalPose(sk, &clip, 0.355f, direct);
+        SampleBakedPose(sk, clip, baked, 0.355f, cached);
+        CHECK(std::abs(glm::dot(direct.R[1], cached.R[1])) > 0.9999f && glm::length(direct.T[0] - cached.T[0]) < 1e-4f);
+        // The step key jumps where it is, not at a cached frame; outside the clip: its ends.
+        SampleBakedPose(sk, clip, baked, 0.509f, cached);
+        CHECK(cached.S[0] == glm::vec3(1.0f));
+        SampleBakedPose(sk, clip, baked, 0.511f, cached);
+        CHECK(cached.S[0] == glm::vec3(2.0f));
+        SampleBakedPose(sk, clip, baked, 5.0f, cached);
+        CHECK(glm::length(cached.T[0] - glm::vec3(2.0f, 0.0f, 0.0f)) < 1e-5f);
+        // Root motion is taken out the same way.
+        SampleLocalPose(sk, &clip, 0.5f, direct, 0);
+        SampleBakedPose(sk, clip, baked, 0.5f, cached, 0);
+        CHECK(glm::length(direct.T[0] - cached.T[0]) < 1e-5f && std::abs(cached.T[0].x) < 1e-5f);
+        // A cache made for another skeleton: sampled from the clip.
+        Skeleton other = sk;
+        other.Joints.push_back({});
+        SampleBakedPose(other, clip, baked, 0.355f, cached);
+        CHECK(cached.Size() == 3);
+    }
+    CHECK(GetBakedClipMemory() == memory0); // freed with it
+
+    // Models keep one cache per clip (and rate); clips that are not theirs have none.
+    Ref<Model> model = Model::CreateSkeletal(sk, { clip });
+    const BakedClip* b30 = model->GetBakedClip(model->GetAnimations()[0], 30.0f);
+    CHECK(b30 && model->GetBakedClip(model->GetAnimations()[0], 30.0f) == b30 && GetBakedClipMemory() > memory0);
+    const BakedClip* b60 = model->GetBakedClip(model->GetAnimations()[0], 60.0f);
+    CHECK(b60 && b60->Rate == 60.0f && b60->Frames == 61);
+    CHECK(!model->GetBakedClip(clip, 30.0f));
+
+    // An Animator reading the cache: the same pose (on a frame time), counted in the scene's stats.
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Arm");
+    auto& mr = e.AddComponent<MeshRendererComponent>();
+    mr.Type = PrimitiveMesh::Model;
+    mr.ModelAsset = model;
+    auto& a = e.AddComponent<AnimatorComponent>();
+    a.Clip = "Swing";
+    a.CachePoses = true;
+    a.PoseCacheRate = 20.0f;
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(0.25f);
+    const Scene::AnimationStats& stats = scene->GetAnimationStats();
+    CHECK(stats.Animators == 1 && stats.Posed == 1 && stats.CachedSamples == 1 && stats.ClipSamples == 0 && stats.CacheBytes > 0);
+    std::vector<glm::mat4> expected;
+    EvaluatePose(sk, &model->GetAnimations()[0], 0.25f, expected);
+    CHECK(a.JointMatrices.size() == 2 && NearMat(a.JointMatrices[1], expected[1], 1e-4f));
+    a.CachePoses = false;
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(scene->GetAnimationStats().ClipSamples == 1 && scene->GetAnimationStats().CachedSamples == 0);
+    scene->OnRuntimeStop();
+}
+
+TEST(AnimatorSkipsUnchangedAndCulledPoses)
+{
+    Skeleton skeleton;
+    skeleton.Joints.resize(1);
+    skeleton.Joints[0].Name = "Root";
+    Ref<Model> model = Model::CreateSkeletal(skeleton, { MakeRiseClip("Rise", 1.0f, 1.0f), MakeRiseClip("High", 1.0f, 5.0f) });
+    auto scene = CreateRef<Scene>();
+    Entity hero = scene->CreateEntity("Hero");
+    auto& mr = hero.AddComponent<MeshRendererComponent>();
+    mr.Type = PrimitiveMesh::Model;
+    mr.ModelAsset = model;
+    auto& a0 = hero.AddComponent<AnimatorComponent>();
+    a0.Clip = "Rise";
+    a0.Loop = false;
+    a0.Events = { { "Rise", 0.5f, "Tick", "" } };
+    hero.AddComponent<NativeScriptComponent>().ClassName = "AnimEventProbe";
+
+    scene->OnRuntimeStart();
+    auto& a = hero.GetComponent<AnimatorComponent>();
+    auto* probe = ScriptableEntity::GetScript<AnimEventProbe>(hero);
+    CHECK(probe);
+    auto stats = [&]() { return scene->GetAnimationStats(); };
+    scene->OnUpdateRuntime(0.25f);
+    CHECK(stats().Animators == 1 && stats().Posed == 1 && stats().Unchanged == 0 && stats().Culled == 0);
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 0.25f, 1e-5f);
+    // A clip that has finished (not looping): its time counts on, its pose stays - not posed again.
+    for (int i = 0; i < 4; i++)
+        scene->OnUpdateRuntime(0.25f);
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 1.0f, 1e-5f);
+    scene->OnUpdateRuntime(0.25f);
+    CHECK(stats().Posed == 0 && stats().Unchanged == 1);
+    // Paused, or speed 0: the same.
+    a.Play("Rise", true);
+    scene->OnUpdateRuntime(0.25f);
+    CHECK(stats().Posed == 1);
+    a.Playing = false;
+    scene->OnUpdateRuntime(0.25f);
+    CHECK(stats().Unchanged == 1 && stats().Posed == 0);
+    a.Playing = true;
+    a.Speed = 0.0f;
+    scene->OnUpdateRuntime(0.25f);
+    CHECK(stats().Unchanged == 1);
+    // Another clip (an input changed): posed at once.
+    a.Play("High", true, 1.0f, 0.0f);
+    scene->OnUpdateRuntime(0.5f);
+    CHECK(stats().Posed == 1);
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 2.5f, 1e-5f);
+
+    // ---- culling: what no view saw after the last update is off screen
+    const glm::mat4 projection = glm::perspective(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 100.0f);
+    const glm::mat4 looking = projection * glm::lookAt(glm::vec3(0, 0, 5), glm::vec3(0.0f), glm::vec3(0, 1, 0));
+    const glm::mat4 away = projection * glm::lookAt(glm::vec3(0, 0, 5), glm::vec3(0, 0, 10), glm::vec3(0, 1, 0));
+    a.Play("Rise", true, 1.0f, 0.0f);
+    a.Culling = AnimatorCulling::CullPose;
+    scene->OnUpdateRuntime(0.25f);           // no view drawn since the last update: nothing culled
+    CHECK(stats().Culled == 0 && !a.Culled && stats().Posed == 1);
+    probe->Heard.clear();
+    scene->MarkVisibleAnimators(away);
+    scene->OnUpdateRuntime(0.5f);            // 0.25 -> 0.75: off screen
+    CHECK(stats().Culled == 1 && a.Culled && stats().Posed == 0);
+    CHECK_NEAR(a.Time, 0.75f, 1e-5f);        // CullPose: time goes on, events too ...
+    CHECK(probe->Heard == std::vector<std::string>({ "Rise:Tick" }));
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 0.25f, 1e-5f); // ... the pose waits
+    scene->MarkVisibleAnimators(looking);
+    scene->OnUpdateRuntime(0.1f);            // seen again: posed where it is now
+    CHECK(stats().Culled == 0 && !a.Culled && stats().Posed == 1);
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 0.85f, 1e-4f);
+    // Two views (the game's and the editor's): seen in either one is seen.
+    scene->MarkVisibleAnimators(away);
+    scene->MarkVisibleAnimators(looking);
+    scene->OnUpdateRuntime(0.05f);
+    CHECK(!a.Culled);
+    // CullCompletely: nothing advances while off screen.
+    a.Culling = AnimatorCulling::CullCompletely;
+    scene->MarkVisibleAnimators(away);
+    const float time = a.Time;
+    scene->OnUpdateRuntime(0.5f);
+    CHECK(a.Culled && a.Time == time && stats().Culled == 1);
+    // AlwaysAnimate ignores the views.
+    a.Culling = AnimatorCulling::AlwaysAnimate;
+    scene->MarkVisibleAnimators(away);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(!a.Culled && stats().Posed == 1);
+    // Behind the camera's far plane or beside it: off screen as well; the entity's transform counts.
+    a.Culling = AnimatorCulling::CullPose;
+    hero.GetComponent<TransformComponent>().Translation = { 40.0f, 0.0f, 0.0f };
+    scene->MarkVisibleAnimators(looking);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(a.Culled);
+    // A new animator is posed once before it can be culled (no bind pose when it comes into view).
+    Entity second = scene->CreateEntity("Second");
+    auto& mr2 = second.AddComponent<MeshRendererComponent>();
+    mr2.Type = PrimitiveMesh::Model;
+    mr2.ModelAsset = model;
+    auto& b = second.AddComponent<AnimatorComponent>();
+    b.Clip = "High";
+    b.Culling = AnimatorCulling::CullCompletely;
+    second.GetComponent<TransformComponent>().Translation = { -40.0f, 0.0f, 0.0f };
+    scene->MarkVisibleAnimators(looking);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(!b.Culled && b.JointMatrices.size() == 1);
+    scene->MarkVisibleAnimators(looking);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(b.Culled && stats().Culled == 2 && stats().Animators == 2);
+    scene->OnRuntimeStop();
+
+    // Saved with the scene (only when not the defaults).
+    a0.Culling = AnimatorCulling::CullCompletely;
+    a0.CachePoses = true;
+    a0.PoseCacheRate = 24.0f;
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& la = loaded->FindEntityByName("Hero").GetComponent<AnimatorComponent>();
+    CHECK(la.Culling == AnimatorCulling::CullCompletely && la.CachePoses && la.PoseCacheRate == 24.0f);
+    const auto& lb = loaded->FindEntityByName("Second").GetComponent<AnimatorComponent>();
+    CHECK(lb.Culling == AnimatorCulling::CullCompletely && !lb.CachePoses && lb.PoseCacheRate == 30.0f);
+}

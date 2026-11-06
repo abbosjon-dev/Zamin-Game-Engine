@@ -1388,3 +1388,45 @@ private:
     float m_Time = 0.0f;
 };
 ZM_REGISTER_SCRIPT(BlendShapeDemo, ZM_FIELD(BlendShapeDemo, Speed), ZM_FIELD(BlendShapeDemo, Height))
+
+// Kamera joyida turib chapga-o'ngga sekin buriladi (Scenes/Olomon.zscene): ko'rinish o'zgargani sari
+// ekrandan chiqqan paypoqlar animatsiyasi kesiladi, kirganlari yana pozalanadi.
+class SweepCamera : public ScriptableEntity
+{
+public:
+    float Amplitude = 0.7f; // radians to each side
+    float Period = 16.0f;   // seconds for a sweep there and back
+    void OnCreate() override { m_Base = Transform().Rotation.y; }
+    void OnUpdate(Timestep ts) override
+    {
+        m_Time += ts;
+        Transform().Rotation.y = m_Base + Amplitude * std::sin(m_Time * glm::two_pi<float>() / std::max(0.1f, Period));
+    }
+private:
+    float m_Base = 0.0f;
+    float m_Time = 0.0f;
+};
+ZM_REGISTER_SCRIPT(SweepCamera, ZM_FIELD(SweepCamera, Amplitude), ZM_FIELD(SweepCamera, Period))
+
+// Sahnadagi animatsiya ishini obyekt ustida yozib turadi (Scene::GetAnimationStats): nechta animator
+// pozalandi, nechtasi o'zgarmagani uchun o'tkazib yuborildi, nechtasi ekrandan tashqarida kesildi.
+class AnimationStatsDemo : public ScriptableEntity
+{
+public:
+    float Height = 4.4f; // the labels above the entity
+    void OnUpdate(Timestep) override
+    {
+        const Scene::AnimationStats& a = GetScene().GetAnimationStats();
+        const glm::vec3 p = GetWorldPosition();
+        DebugDraw::Text(p + glm::vec3(0.0f, Height + 0.35f, 0.0f), "Animatsiya keshlash va kesish", glm::vec4(0.85f, 0.88f, 0.95f, 1.0f));
+        DebugDraw::Text(p + glm::vec3(0.0f, Height, 0.0f),
+                        std::format("{} animator: {} pozalangan, {} o'zgarmagan, {} kesilgan  ({:.2f} ms)", a.Animators, a.Posed,
+                                    a.Unchanged, a.Culled, a.Milliseconds),
+                        glm::vec4(1.0f, 0.82f, 0.3f, 1.0f));
+        DebugDraw::Text(p + glm::vec3(0.0f, Height - 0.35f, 0.0f),
+                        std::format("keshdan {} / klipdan {} namuna, kesh {:.0f} KB", a.CachedSamples, a.ClipSamples,
+                                    (double)a.CacheBytes / 1024.0),
+                        glm::vec4(0.6f, 0.78f, 1.0f, 1.0f));
+    }
+};
+ZM_REGISTER_SCRIPT(AnimationStatsDemo, ZM_FIELD(AnimationStatsDemo, Height))

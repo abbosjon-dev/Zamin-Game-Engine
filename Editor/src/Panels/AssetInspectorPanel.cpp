@@ -1129,8 +1129,11 @@ namespace Zamin {
             EvaluatePose(model->GetSkeleton(), clip, clip ? m_ClipTime : 0.0f, m_Joints);
             joints = &m_Joints;
         }
-        for (const Model::SubMesh& sub : model->GetSubMeshes())
-            Renderer3D::SubmitMesh(sub.MeshRef, glm::mat4(1.0f), sub.Mat, -1, false, sub.MeshRef->IsSkinned() ? joints : nullptr);
+        std::vector<glm::mat4> palette;
+        const auto& subs = model->GetSubMeshes();
+        for (size_t s = 0; s < subs.size(); s++)
+            Renderer3D::SubmitMesh(subs[s].MeshRef, glm::mat4(1.0f), subs[s].Mat, -1, false,
+                                   subs[s].MeshRef->IsSkinned() && joints ? &model->GetSubMeshJoints(s, *joints, palette) : nullptr);
         Renderer3D::EndScene();
         m_ModelTarget->Unbind();
 
@@ -1286,7 +1289,20 @@ namespace Zamin {
                 UI::PropertyLabel("O'lcham", "Import masshtabi bilan (metr).");
                 ImGui::Text("%.3g x %.3g x %.3g", size.x, size.y, size.z);
                 UI::PropertyLabel("Skelet");
-                if (model->IsSkinned())
+                if (model->IsSkinned() && model->GetSkins().size() > 1)
+                {
+                    ImGui::Text("%zu ta bo'g'in, %zu skin", model->GetSkeleton().Joints.size(), model->GetSkins().size());
+                    if (ImGui::IsItemHovered())
+                    {
+                        // Each skin: its joints and how it is drawn.
+                        std::string text;
+                        for (const ModelSkin& skin : model->GetSkins())
+                            text += std::format("{}{}: {} suyak{}", text.empty() ? "" : "\n", skin.Name, skin.Joints.size(),
+                                                skin.Direct ? "" : " (o'z palitrasi bilan)");
+                        UI::Tooltip(text.c_str());
+                    }
+                }
+                else if (model->IsSkinned())
                     ImGui::Text("%zu ta bo'g'in", model->GetSkeleton().Joints.size());
                 else
                     ImGui::TextDisabled("yo'q");

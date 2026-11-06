@@ -511,8 +511,11 @@ namespace Zamin {
         std::vector<glm::mat4> joints;
         if (model->IsSkinned())
             EvaluatePose(model->GetSkeleton(), nullptr, 0.0f, joints);
-        for (const Model::SubMesh& sub : model->GetSubMeshes())
-            Renderer3D::SubmitMesh(sub.MeshRef, glm::mat4(1.0f), sub.Mat, -1, false, sub.MeshRef->IsSkinned() ? &joints : nullptr);
+        std::vector<glm::mat4> palette;
+        const auto& subs = model->GetSubMeshes();
+        for (size_t s = 0; s < subs.size(); s++)
+            Renderer3D::SubmitMesh(subs[s].MeshRef, glm::mat4(1.0f), subs[s].Mat, -1, false,
+                                   subs[s].MeshRef->IsSkinned() ? &model->GetSubMeshJoints(s, joints, palette) : nullptr);
         Renderer3D::EndScene();
         m_ModelTarget->Unbind();
         PostProcessSettings post;

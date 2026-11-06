@@ -256,6 +256,13 @@ namespace Zamin {
         if (std::getenv("ZAMIN_EDITOR_STATS"))
         {
             ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
+            if (m_ActiveScene)
+            {
+                const Scene::AnimationStats& a = m_ActiveScene->GetAnimationStats();
+                ZM_INFO("Animatsiya statistikasi: {} animator, {} pozalangan, {} o'zgarmagan, {} kesilgan, {}/{} kesh/klip namunasi, "
+                        "kesh {:.1f} KB, {:.3f} ms", a.Animators, a.Posed, a.Unchanged, a.Culled, a.CachedSamples, a.ClipSamples,
+                        (double)a.CacheBytes / 1024.0, a.Milliseconds);
+            }
             ZM_INFO("Profiler (oxirgi kadr, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
         }
         m_AssetHotReload.Stop();
@@ -2635,10 +2642,13 @@ namespace Zamin {
                 if (mr->Type == PrimitiveMesh::Model && mr->ModelAsset)
                 {
                     const auto* anim = entity.TryGetComponent<AnimatorComponent>();
-                    for (const auto& sub : mr->ModelAsset->GetSubMeshes())
-                        if (sub.MeshRef)
-                            add(Renderer3D::GetWorldBounds(*sub.MeshRef, transform,
-                                                           sub.MeshRef->IsSkinned() && anim && !anim->JointMatrices.empty() ? &anim->JointMatrices : nullptr));
+                    const auto& subs = mr->ModelAsset->GetSubMeshes();
+                    std::vector<glm::mat4> palette;
+                    for (size_t s = 0; s < subs.size(); s++)
+                        if (subs[s].MeshRef)
+                            add(Renderer3D::GetWorldBounds(*subs[s].MeshRef, transform,
+                                                           subs[s].MeshRef->IsSkinned() && anim && !anim->JointMatrices.empty()
+                                                               ? &mr->ModelAsset->GetSubMeshJoints(s, anim->JointMatrices, palette) : nullptr));
                 }
                 else if (mr->MeshAsset)
                     add(Renderer3D::GetWorldBounds(*mr->MeshAsset, transform));
@@ -2754,7 +2764,7 @@ namespace Zamin {
         options.CameraPosition = view.Position;
         options.CameraForward = view.Forward;
         std::vector<NormalLine> lines;
-        std::vector<glm::mat4> bindPose;
+        std::vector<glm::mat4> bindPose, skinPalette;
         size_t vertices = 0;
         for (auto e : scene.GetAllEntitiesWith<MeshRendererComponent>())
         {
@@ -2781,12 +2791,15 @@ namespace Zamin {
                         joints = &bindPose;
                     }
                 }
-                for (const auto& sub : mr.ModelAsset->GetSubMeshes())
-                    if (sub.MeshRef)
+                const auto& subs = mr.ModelAsset->GetSubMeshes();
+                for (size_t s = 0; s < subs.size(); s++)
+                    if (subs[s].MeshRef)
                     {
-                        const MeshGeometry& geometry = sub.MeshRef->GetGeometry();
+                        const MeshGeometry& geometry = subs[s].MeshRef->GetGeometry();
                         vertices += geometry.GetVertexCount();
-                        AppendNormalLines(geometry, world, sub.MeshRef->IsSkinned() ? joints : nullptr, options, lines);
+                        AppendNormalLines(geometry, world,
+                                          subs[s].MeshRef->IsSkinned() && joints ? &mr.ModelAsset->GetSubMeshJoints(s, *joints, skinPalette) : nullptr,
+                                          options, lines);
                     }
             }
             else
@@ -9139,6 +9152,7 @@ namespace Zamin {
                 ImGui::SetNextItemOpen(false);
             if (!ImGui::CollapsingHeader(ICON_FA_CUBES "  Render statistikasi", ImGuiTreeNodeFlags_DefaultOpen))
             {
+                UI_AnimationStats();
                 UI_AudioProfiler();
                 UI_ProfilerTree(true);
                 ImGui::End();
@@ -9240,10 +9254,47 @@ namespace Zamin {
                 UI::EndPropertyGrid();
             }
 
+            UI_AnimationStats();
             UI_AudioProfiler();
             UI_ProfilerTree(true);
         }
         ImGui::End();
+    }
+
+    void EditorLayer::UI_AnimationStats()
+    {
+        const Scene::AnimationStats& a = m_ActiveScene->GetAnimationStats();
+        if (a.Animators == 0 && a.CacheBytes == 0)
+            return; // nothing animated: no section
+        if (!ImGui::CollapsingHeader(ICON_FA_PERSON_RUNNING "  Animatsiya", ImGuiTreeNodeFlags_DefaultOpen))
+            return;
+        float labelWidth = 0.0f;
+        for (const char* label : { "Pozalangan", "O'zgarmagan", "Kesh / klipdan", "Kesh xotirasi" })
+            labelWidth = std::max(labelWidth, ImGui::CalcTextSize(label).x);
+        labelWidth = std::min(labelWidth + ImGui::GetStyle().ItemSpacing.x * 2.0f, ImGui::GetContentRegionAvail().x * 0.5f);
+        if (!UI::BeginPropertyGrid("animstats", labelWidth))
+            return;
+        UI::PropertyLabel("Animatorlar", "Faol Animator'lar (oxirgi yangilanishda) va ularga ketgan vaqt");
+        ImGui::Text("%u", a.Animators);
+        ImGui::SameLine(0.0f, 6.0f);
+        ImGui::TextDisabled("(%.3f ms)", a.Milliseconds);
+        UI::PropertyLabel("Pozalangan", "Skelet (yoki blend shape'lar) shu kadrda qaytadan hisoblanganlar");
+        ImGui::Text("%u", a.Posed);
+        UI::PropertyLabel("O'zgarmagan", "Kirishlari o'tgan kadrdagidek (pauza, tezlik 0, tugagan klip): oldingi poza qoldi, hisoblanmadi");
+        ImGui::Text("%u", a.Unchanged);
+        UI::PropertyLabel("Kesilgan", "Hech bir kamera ko'rmagan modellar (Animator > Samaradorlik > Ko'rinmasa: Pozasiz / To'liq)");
+        if (a.Culled > 0)
+            ImGui::TextColored(UI::AccentColor(), "%u", a.Culled);
+        else
+            ImGui::TextDisabled("0");
+        UI::PropertyLabel("Kesh / klipdan", "Klip pozalari: keshlangan kadrlardan (Pozalarni keshlash) / klip kalitlaridan o'qilganlar");
+        ImGui::Text("%u / %u", a.CachedSamples, a.ClipSamples);
+        UI::PropertyLabel("Kesh xotirasi", "Barcha modellarning poza keshlari");
+        if (a.CacheBytes >= 1024 * 1024)
+            ImGui::Text("%.2f MB", (double)a.CacheBytes / (1024.0 * 1024.0));
+        else
+            ImGui::Text("%.1f KB", (double)a.CacheBytes / 1024.0);
+        UI::EndPropertyGrid();
     }
 
     void EditorLayer::UI_AudioProfiler()

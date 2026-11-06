@@ -1,0 +1,9814 @@
+{
+ "Scene": "Olomon",
+ "Version": 1,
+ "Settings": {
+  "DrawSky": true,
+  "SkyTop": [
+   0.1,
+   0.16,
+   0.3
+  ],
+  "SkyHorizon": [
+   0.45,
+   0.5,
+   0.6
+  ],
+  "Ground": [
+   0.12,
+   0.12,
+   0.13
+  ],
+  "Ambient": 0.35,
+  "Exposure": 1.0,
+  "ShadowDistance": 40,
+  "Gravity": [
+   0,
+   -9.8
+  ],
+  "Gravity3D": [
+   0,
+   -9.81,
+   0
+  ],
+  "Post": {
+   "Bloom": true,
+   "BloomThreshold": 1.0,
+   "BloomKnee": 0.5,
+   "BloomIntensity": 0.45,
+   "BloomRadius": 1.0,
+   "Vignette": 0.2,
+   "Saturation": 1.05,
+   "Contrast": 1.05,
+   "Brightness": 0.0,
+   "Tint": [
+    1,
+    1,
+    1
+   ],
+   "Tonemap": 1,
+   "SSAO": true,
+   "SSAORadius": 0.6,
+   "SSAOIntensity": 1.0,
+   "SSAOBias": 0.03,
+   "FXAA": true,
+   "FXAASubpixel": 0.75
+  }
+ },
+ "Entities": [
+  {
+   "Entity": 7415000000000001,
+   "Tag": "Main Camera",
+   "Transform": {
+    "Translation": [
+     0,
+     5.0,
+     15.5
+    ],
+    "Rotation": [
+     -0.24,
+     0,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "Camera": {
+    "ProjectionType": 0,
+    "PerspectiveFOV": 0.8,
+    "PerspectiveNear": 0.1,
+    "PerspectiveFar": 300,
+    "OrthographicSize": 10,
+    "OrthographicNear": -100,
+    "OrthographicFar": 100,
+    "Primary": true,
+    "FixedAspectRatio": false,
+    "ClearColor": [
+     0.05,
+     0.05,
+     0.08,
+     1
+    ]
+   },
+   "NativeScript": {
+    "Class": "SweepCamera",
+    "Fields": {}
+   }
+  },
+  {
+   "Entity": 7415000000000002,
+   "Tag": "Quyosh",
+   "Transform": {
+    "Translation": [
+     0,
+     10,
+     0
+    ],
+    "Rotation": [
+     -0.85,
+     0.55,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "DirectionalLight": {
+    "Color": [
+     1.0,
+     0.9,
+     0.8
+    ],
+    "Intensity": 1.6,
+    "CastShadows": true
+   }
+  },
+  {
+   "Entity": 7415000000000003,
+   "Tag": "Yer",
+   "Transform": {
+    "Translation": [
+     0,
+     0,
+     -14
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     90,
+     1,
+     50
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Plane",
+    "Model": "",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     0.4,
+     0.41,
+     0.44,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.85,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   }
+  },
+  {
+   "Entity": 7415000000000004,
+   "Tag": "Juft paypoq (3 skin)",
+   "Transform": {
+    "Translation": [
+     0,
+     0,
+     4.5
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/TentaclePair.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.0,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": []
+   },
+   "NativeScript": {
+    "Class": "AnimationStatsDemo",
+    "Fields": {
+     "Height": {
+      "Type": "Float",
+      "Value": 4.6
+     }
+    }
+   }
+  },
+  {
+   "Entity": 7415000000000005,
+   "Tag": "Paypoq 1-1",
+   "Transform": {
+    "Translation": [
+     -29.900000000000002,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -1.0922368580343935,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.79,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000006,
+   "Tag": "Paypoq 1-2",
+   "Transform": {
+    "Translation": [
+     -27.3,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     0.9357937328470931,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.74,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000007,
+   "Tag": "Paypoq 1-3",
+   "Transform": {
+    "Translation": [
+     -24.7,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     0.22246842670147293,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.92,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000008,
+   "Tag": "Paypoq 1-4",
+   "Transform": {
+    "Translation": [
+     -22.1,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -2.740406666396818,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.0,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000009,
+   "Tag": "Paypoq 1-5",
+   "Transform": {
+    "Translation": [
+     -19.5,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -2.867526917659694,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.96,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000010,
+   "Tag": "Paypoq 1-6",
+   "Transform": {
+    "Translation": [
+     -16.900000000000002,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -2.6668963738373628,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.75,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000011,
+   "Tag": "Paypoq 1-7",
+   "Transform": {
+    "Translation": [
+     -14.3,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -0.46798102731641356,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.2,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000012,
+   "Tag": "Paypoq 1-8",
+   "Transform": {
+    "Translation": [
+     -11.700000000000001,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -2.3324278408721977,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.83,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000013,
+   "Tag": "Paypoq 1-9",
+   "Transform": {
+    "Translation": [
+     -9.1,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     0.7900859789146537,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.27,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000014,
+   "Tag": "Paypoq 1-10",
+   "Transform": {
+    "Translation": [
+     -6.5,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     0.4780382814284918,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.94,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000015,
+   "Tag": "Paypoq 1-11",
+   "Transform": {
+    "Translation": [
+     -3.9000000000000004,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     2.9527816546761048,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.73,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000016,
+   "Tag": "Paypoq 1-12",
+   "Transform": {
+    "Translation": [
+     -1.3,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     2.2225044461018135,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.87,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000017,
+   "Tag": "Paypoq 1-13",
+   "Transform": {
+    "Translation": [
+     1.3,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -2.2056184831838874,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.77,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000018,
+   "Tag": "Paypoq 1-14",
+   "Transform": {
+    "Translation": [
+     3.9000000000000004,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -1.187412690568007,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.19,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000019,
+   "Tag": "Paypoq 1-15",
+   "Transform": {
+    "Translation": [
+     6.5,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -1.9794964444715877,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.05,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000020,
+   "Tag": "Paypoq 1-16",
+   "Transform": {
+    "Translation": [
+     9.1,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     0.8612635073423411,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.92,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000021,
+   "Tag": "Paypoq 1-17",
+   "Transform": {
+    "Translation": [
+     11.700000000000001,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     0.29601568739925854,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.74,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000022,
+   "Tag": "Paypoq 1-18",
+   "Transform": {
+    "Translation": [
+     14.3,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -2.7304727462093576,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.82,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000023,
+   "Tag": "Paypoq 1-19",
+   "Transform": {
+    "Translation": [
+     16.900000000000002,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     1.1184798337270725,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.96,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000024,
+   "Tag": "Paypoq 1-20",
+   "Transform": {
+    "Translation": [
+     19.5,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -1.1522875436638926,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.05,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000025,
+   "Tag": "Paypoq 1-21",
+   "Transform": {
+    "Translation": [
+     22.1,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -0.29025686650119287,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.88,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000026,
+   "Tag": "Paypoq 1-22",
+   "Transform": {
+    "Translation": [
+     24.7,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     1.8251527854394456,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.12,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000027,
+   "Tag": "Paypoq 1-23",
+   "Transform": {
+    "Translation": [
+     27.3,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     -1.5866016335226523,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.04,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000028,
+   "Tag": "Paypoq 1-24",
+   "Transform": {
+    "Translation": [
+     29.900000000000002,
+     0,
+     -2.0
+    ],
+    "Rotation": [
+     0,
+     0.15621832363099886,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.23,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000029,
+   "Tag": "Paypoq 2-1",
+   "Transform": {
+    "Translation": [
+     -29.900000000000002,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     1.4225607945231489,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.87,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000030,
+   "Tag": "Paypoq 2-2",
+   "Transform": {
+    "Translation": [
+     -27.3,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     2.9770840544540094,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.77,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000031,
+   "Tag": "Paypoq 2-3",
+   "Transform": {
+    "Translation": [
+     -24.7,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -0.5076385049315912,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.15,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000032,
+   "Tag": "Paypoq 2-4",
+   "Transform": {
+    "Translation": [
+     -22.1,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -2.1576958851048706,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.99,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000033,
+   "Tag": "Paypoq 2-5",
+   "Transform": {
+    "Translation": [
+     -19.5,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -2.856915006305887,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.1,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000034,
+   "Tag": "Paypoq 2-6",
+   "Transform": {
+    "Translation": [
+     -16.900000000000002,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     1.6403393705194413,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.04,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000035,
+   "Tag": "Paypoq 2-7",
+   "Transform": {
+    "Translation": [
+     -14.3,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     2.3279624333515074,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.89,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000036,
+   "Tag": "Paypoq 2-8",
+   "Transform": {
+    "Translation": [
+     -11.700000000000001,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     1.2108312708966875,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.06,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000037,
+   "Tag": "Paypoq 2-9",
+   "Transform": {
+    "Translation": [
+     -9.1,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     0.49535026655145176,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.97,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000038,
+   "Tag": "Paypoq 2-10",
+   "Transform": {
+    "Translation": [
+     -6.5,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     2.1078002391777564,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.27,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000039,
+   "Tag": "Paypoq 2-11",
+   "Transform": {
+    "Translation": [
+     -3.9000000000000004,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -0.16059030799820428,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.1,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000040,
+   "Tag": "Paypoq 2-12",
+   "Transform": {
+    "Translation": [
+     -1.3,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -2.723849548897238,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.12,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000041,
+   "Tag": "Paypoq 2-13",
+   "Transform": {
+    "Translation": [
+     1.3,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     0.9121988980715465,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.3,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000042,
+   "Tag": "Paypoq 2-14",
+   "Transform": {
+    "Translation": [
+     3.9000000000000004,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     1.9959336769802323,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.87,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000043,
+   "Tag": "Paypoq 2-15",
+   "Transform": {
+    "Translation": [
+     6.5,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -0.7080930568303931,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.1,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000044,
+   "Tag": "Paypoq 2-16",
+   "Transform": {
+    "Translation": [
+     9.1,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -2.9601098460553508,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.98,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000045,
+   "Tag": "Paypoq 2-17",
+   "Transform": {
+    "Translation": [
+     11.700000000000001,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -2.058100050779424,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.77,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000046,
+   "Tag": "Paypoq 2-18",
+   "Transform": {
+    "Translation": [
+     14.3,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -2.7344826001458755,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.16,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000047,
+   "Tag": "Paypoq 2-19",
+   "Transform": {
+    "Translation": [
+     16.900000000000002,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -2.298090623484158,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.85,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000048,
+   "Tag": "Paypoq 2-20",
+   "Transform": {
+    "Translation": [
+     19.5,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -0.6761118405739923,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.22,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000049,
+   "Tag": "Paypoq 2-21",
+   "Transform": {
+    "Translation": [
+     22.1,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -2.600395932559141,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.97,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000050,
+   "Tag": "Paypoq 2-22",
+   "Transform": {
+    "Translation": [
+     24.7,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     0.30652743669303195,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.23,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000051,
+   "Tag": "Paypoq 2-23",
+   "Transform": {
+    "Translation": [
+     27.3,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     1.9795349945815963,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.22,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000052,
+   "Tag": "Paypoq 2-24",
+   "Transform": {
+    "Translation": [
+     29.900000000000002,
+     0,
+     -5.0
+    ],
+    "Rotation": [
+     0,
+     -1.3737894000138378,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.95,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000053,
+   "Tag": "Paypoq 3-1",
+   "Transform": {
+    "Translation": [
+     -29.900000000000002,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -0.8756187749439261,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.23,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000054,
+   "Tag": "Paypoq 3-2",
+   "Transform": {
+    "Translation": [
+     -27.3,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     2.837933464576746,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.79,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000055,
+   "Tag": "Paypoq 3-3",
+   "Transform": {
+    "Translation": [
+     -24.7,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -2.007450083359704,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.84,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000056,
+   "Tag": "Paypoq 3-4",
+   "Transform": {
+    "Translation": [
+     -22.1,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -1.653316281178661,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.99,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000057,
+   "Tag": "Paypoq 3-5",
+   "Transform": {
+    "Translation": [
+     -19.5,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     0.5525657231399848,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.86,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000058,
+   "Tag": "Paypoq 3-6",
+   "Transform": {
+    "Translation": [
+     -16.900000000000002,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -3.074619659012604,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.95,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000059,
+   "Tag": "Paypoq 3-7",
+   "Transform": {
+    "Translation": [
+     -14.3,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -0.8106278480527025,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.04,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000060,
+   "Tag": "Paypoq 3-8",
+   "Transform": {
+    "Translation": [
+     -11.700000000000001,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     2.809207138255591,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.11,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000061,
+   "Tag": "Paypoq 3-9",
+   "Transform": {
+    "Translation": [
+     -9.1,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     0.09604688503882608,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.07,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000062,
+   "Tag": "Paypoq 3-10",
+   "Transform": {
+    "Translation": [
+     -6.5,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     1.0924405111869082,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.73,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000063,
+   "Tag": "Paypoq 3-11",
+   "Transform": {
+    "Translation": [
+     -3.9000000000000004,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     2.4771046623593036,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.17,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000064,
+   "Tag": "Paypoq 3-12",
+   "Transform": {
+    "Translation": [
+     -1.3,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     2.321981741633755,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.18,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000065,
+   "Tag": "Paypoq 3-13",
+   "Transform": {
+    "Translation": [
+     1.3,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -0.6672507772741345,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.94,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000066,
+   "Tag": "Paypoq 3-14",
+   "Transform": {
+    "Translation": [
+     3.9000000000000004,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -2.45807001899599,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.08,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000067,
+   "Tag": "Paypoq 3-15",
+   "Transform": {
+    "Translation": [
+     6.5,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -2.714063505964137,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.74,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000068,
+   "Tag": "Paypoq 3-16",
+   "Transform": {
+    "Translation": [
+     9.1,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -1.8056682502337804,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.8,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000069,
+   "Tag": "Paypoq 3-17",
+   "Transform": {
+    "Translation": [
+     11.700000000000001,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -0.9916673561594709,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.73,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000070,
+   "Tag": "Paypoq 3-18",
+   "Transform": {
+    "Translation": [
+     14.3,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -3.098553652211589,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.79,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000071,
+   "Tag": "Paypoq 3-19",
+   "Transform": {
+    "Translation": [
+     16.900000000000002,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -2.4709209182599015,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.92,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000072,
+   "Tag": "Paypoq 3-20",
+   "Transform": {
+    "Translation": [
+     19.5,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -2.941894502669897,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.22,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000073,
+   "Tag": "Paypoq 3-21",
+   "Transform": {
+    "Translation": [
+     22.1,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     0.7072277242885683,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.79,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000074,
+   "Tag": "Paypoq 3-22",
+   "Transform": {
+    "Translation": [
+     24.7,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -1.536001909346121,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.91,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000075,
+   "Tag": "Paypoq 3-23",
+   "Transform": {
+    "Translation": [
+     27.3,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     -0.8421866749246489,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.77,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000076,
+   "Tag": "Paypoq 3-24",
+   "Transform": {
+    "Translation": [
+     29.900000000000002,
+     0,
+     -8.0
+    ],
+    "Rotation": [
+     0,
+     2.1634089442046123,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.3,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000077,
+   "Tag": "Paypoq 4-1",
+   "Transform": {
+    "Translation": [
+     -29.900000000000002,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -0.21086535320841104,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.99,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000078,
+   "Tag": "Paypoq 4-2",
+   "Transform": {
+    "Translation": [
+     -27.3,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -2.567515098351773,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.76,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000079,
+   "Tag": "Paypoq 4-3",
+   "Transform": {
+    "Translation": [
+     -24.7,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -0.9756578028933887,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.86,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000080,
+   "Tag": "Paypoq 4-4",
+   "Transform": {
+    "Translation": [
+     -22.1,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     2.0389033443536753,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.8,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000081,
+   "Tag": "Paypoq 4-5",
+   "Transform": {
+    "Translation": [
+     -19.5,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -2.9568065295194614,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.27,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000082,
+   "Tag": "Paypoq 4-6",
+   "Transform": {
+    "Translation": [
+     -16.900000000000002,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     0.17519584926117338,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.79,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000083,
+   "Tag": "Paypoq 4-7",
+   "Transform": {
+    "Translation": [
+     -14.3,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     0.2676690404691091,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.72,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000084,
+   "Tag": "Paypoq 4-8",
+   "Transform": {
+    "Translation": [
+     -11.700000000000001,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     0.17427853381750014,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.29,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000085,
+   "Tag": "Paypoq 4-9",
+   "Transform": {
+    "Translation": [
+     -9.1,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     2.252615187795947,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.12,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000086,
+   "Tag": "Paypoq 4-10",
+   "Transform": {
+    "Translation": [
+     -6.5,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -1.481085777177956,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.92,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000087,
+   "Tag": "Paypoq 4-11",
+   "Transform": {
+    "Translation": [
+     -3.9000000000000004,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -2.064339385887115,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.16,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000088,
+   "Tag": "Paypoq 4-12",
+   "Transform": {
+    "Translation": [
+     -1.3,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     0.20207286445584982,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.17,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000089,
+   "Tag": "Paypoq 4-13",
+   "Transform": {
+    "Translation": [
+     1.3,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -1.0560770307038734,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.83,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000090,
+   "Tag": "Paypoq 4-14",
+   "Transform": {
+    "Translation": [
+     3.9000000000000004,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     1.9313697299962889,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.29,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000091,
+   "Tag": "Paypoq 4-15",
+   "Transform": {
+    "Translation": [
+     6.5,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     2.1862985522292955,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.18,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000092,
+   "Tag": "Paypoq 4-16",
+   "Transform": {
+    "Translation": [
+     9.1,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     1.9736642486173142,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.14,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000093,
+   "Tag": "Paypoq 4-17",
+   "Transform": {
+    "Translation": [
+     11.700000000000001,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -1.6942151618041736,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.01,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000094,
+   "Tag": "Paypoq 4-18",
+   "Transform": {
+    "Translation": [
+     14.3,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -0.8955122311992594,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.72,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000095,
+   "Tag": "Paypoq 4-19",
+   "Transform": {
+    "Translation": [
+     16.900000000000002,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -2.9267901323832004,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.87,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000096,
+   "Tag": "Paypoq 4-20",
+   "Transform": {
+    "Translation": [
+     19.5,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -1.4931189477399094,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.12,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000097,
+   "Tag": "Paypoq 4-21",
+   "Transform": {
+    "Translation": [
+     22.1,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     2.830393473316294,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.97,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000098,
+   "Tag": "Paypoq 4-22",
+   "Transform": {
+    "Translation": [
+     24.7,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     2.709531447912702,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.29,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000099,
+   "Tag": "Paypoq 4-23",
+   "Transform": {
+    "Translation": [
+     27.3,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     2.8210039141922656,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.92,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000100,
+   "Tag": "Paypoq 4-24",
+   "Transform": {
+    "Translation": [
+     29.900000000000002,
+     0,
+     -11.0
+    ],
+    "Rotation": [
+     0,
+     -1.7331335974233277,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.84,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000101,
+   "Tag": "Paypoq 5-1",
+   "Transform": {
+    "Translation": [
+     -29.900000000000002,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -1.880421786800233,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.82,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000102,
+   "Tag": "Paypoq 5-2",
+   "Transform": {
+    "Translation": [
+     -27.3,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     0.7692116641144731,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.24,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000103,
+   "Tag": "Paypoq 5-3",
+   "Transform": {
+    "Translation": [
+     -24.7,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     2.110700269131597,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.99,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000104,
+   "Tag": "Paypoq 5-4",
+   "Transform": {
+    "Translation": [
+     -22.1,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     0.9484638656142557,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.18,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000105,
+   "Tag": "Paypoq 5-5",
+   "Transform": {
+    "Translation": [
+     -19.5,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -2.5743733840076435,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.1,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000106,
+   "Tag": "Paypoq 5-6",
+   "Transform": {
+    "Translation": [
+     -16.900000000000002,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     2.5406182528206824,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.17,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000107,
+   "Tag": "Paypoq 5-7",
+   "Transform": {
+    "Translation": [
+     -14.3,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     1.5508708509488423,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.99,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000108,
+   "Tag": "Paypoq 5-8",
+   "Transform": {
+    "Translation": [
+     -11.700000000000001,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -1.9931653463070438,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.17,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000109,
+   "Tag": "Paypoq 5-9",
+   "Transform": {
+    "Translation": [
+     -9.1,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -1.0383933608394185,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.18,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000110,
+   "Tag": "Paypoq 5-10",
+   "Transform": {
+    "Translation": [
+     -6.5,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     2.924275191689382,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.94,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000111,
+   "Tag": "Paypoq 5-11",
+   "Transform": {
+    "Translation": [
+     -3.9000000000000004,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -0.6114017292202507,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.27,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000112,
+   "Tag": "Paypoq 5-12",
+   "Transform": {
+    "Translation": [
+     -1.3,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     1.3937517269321344,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.8,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000113,
+   "Tag": "Paypoq 5-13",
+   "Transform": {
+    "Translation": [
+     1.3,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -2.312362122753241,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.79,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000114,
+   "Tag": "Paypoq 5-14",
+   "Transform": {
+    "Translation": [
+     3.9000000000000004,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     2.5100829935460838,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.18,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000115,
+   "Tag": "Paypoq 5-15",
+   "Transform": {
+    "Translation": [
+     6.5,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -2.19371928578798,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.2,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000116,
+   "Tag": "Paypoq 5-16",
+   "Transform": {
+    "Translation": [
+     9.1,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     2.977896849371589,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.09,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000117,
+   "Tag": "Paypoq 5-17",
+   "Transform": {
+    "Translation": [
+     11.700000000000001,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -0.9274734246234821,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.03,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000118,
+   "Tag": "Paypoq 5-18",
+   "Transform": {
+    "Translation": [
+     14.3,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -2.2879001175414078,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.71,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000119,
+   "Tag": "Paypoq 5-19",
+   "Transform": {
+    "Translation": [
+     16.900000000000002,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     2.919519098874139,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.09,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000120,
+   "Tag": "Paypoq 5-20",
+   "Transform": {
+    "Translation": [
+     19.5,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     0.164802492014144,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.26,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000121,
+   "Tag": "Paypoq 5-21",
+   "Transform": {
+    "Translation": [
+     22.1,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -0.4103814921035891,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.22,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000122,
+   "Tag": "Paypoq 5-22",
+   "Transform": {
+    "Translation": [
+     24.7,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     2.022162561254371,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.83,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000123,
+   "Tag": "Paypoq 5-23",
+   "Transform": {
+    "Translation": [
+     27.3,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -1.5386241695341862,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.88,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000124,
+   "Tag": "Paypoq 5-24",
+   "Transform": {
+    "Translation": [
+     29.900000000000002,
+     0,
+     -14.0
+    ],
+    "Rotation": [
+     0,
+     -1.6086557661383258,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.05,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000125,
+   "Tag": "Paypoq 6-1",
+   "Transform": {
+    "Translation": [
+     -29.900000000000002,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -1.491938269324697,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.95,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000126,
+   "Tag": "Paypoq 6-2",
+   "Transform": {
+    "Translation": [
+     -27.3,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -2.287343205678403,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.25,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000127,
+   "Tag": "Paypoq 6-3",
+   "Transform": {
+    "Translation": [
+     -24.7,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -0.9065390514897946,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.97,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000128,
+   "Tag": "Paypoq 6-4",
+   "Transform": {
+    "Translation": [
+     -22.1,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     0.5167623866594697,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.24,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000129,
+   "Tag": "Paypoq 6-5",
+   "Transform": {
+    "Translation": [
+     -19.5,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -0.49210472160379615,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.25,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000130,
+   "Tag": "Paypoq 6-6",
+   "Transform": {
+    "Translation": [
+     -16.900000000000002,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     0.010223434945435539,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.02,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000131,
+   "Tag": "Paypoq 6-7",
+   "Transform": {
+    "Translation": [
+     -14.3,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     0.14574083064043153,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.71,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000132,
+   "Tag": "Paypoq 6-8",
+   "Transform": {
+    "Translation": [
+     -11.700000000000001,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -0.37122554321335155,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.81,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000133,
+   "Tag": "Paypoq 6-9",
+   "Transform": {
+    "Translation": [
+     -9.1,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -3.0756186126810197,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.18,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000134,
+   "Tag": "Paypoq 6-10",
+   "Transform": {
+    "Translation": [
+     -6.5,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -2.031450384276617,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.98,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000135,
+   "Tag": "Paypoq 6-11",
+   "Transform": {
+    "Translation": [
+     -3.9000000000000004,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     1.396198276773743,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.03,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000136,
+   "Tag": "Paypoq 6-12",
+   "Transform": {
+    "Translation": [
+     -1.3,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -1.0789106634970427,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.01,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000137,
+   "Tag": "Paypoq 6-13",
+   "Transform": {
+    "Translation": [
+     1.3,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     0.3437396242575308,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.17,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000138,
+   "Tag": "Paypoq 6-14",
+   "Transform": {
+    "Translation": [
+     3.9000000000000004,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -2.442121613949445,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.04,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000139,
+   "Tag": "Paypoq 6-15",
+   "Transform": {
+    "Translation": [
+     6.5,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -1.559335209532842,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.87,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000140,
+   "Tag": "Paypoq 6-16",
+   "Transform": {
+    "Translation": [
+     9.1,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     1.6880188122840276,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.0,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000141,
+   "Tag": "Paypoq 6-17",
+   "Transform": {
+    "Translation": [
+     11.700000000000001,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     0.38272219727015244,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.16,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000142,
+   "Tag": "Paypoq 6-18",
+   "Transform": {
+    "Translation": [
+     14.3,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     2.557425825244835,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.97,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000143,
+   "Tag": "Paypoq 6-19",
+   "Transform": {
+    "Translation": [
+     16.900000000000002,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     0.6976728829356542,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.0,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000144,
+   "Tag": "Paypoq 6-20",
+   "Transform": {
+    "Translation": [
+     19.5,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     0.07540112909898022,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.12,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000145,
+   "Tag": "Paypoq 6-21",
+   "Transform": {
+    "Translation": [
+     22.1,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -0.29545608795756007,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.02,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000146,
+   "Tag": "Paypoq 6-22",
+   "Transform": {
+    "Translation": [
+     24.7,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     -0.1361748282010744,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.26,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000147,
+   "Tag": "Paypoq 6-23",
+   "Transform": {
+    "Translation": [
+     27.3,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     1.235150869517772,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.23,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000148,
+   "Tag": "Paypoq 6-24",
+   "Transform": {
+    "Translation": [
+     29.900000000000002,
+     0,
+     -17.0
+    ],
+    "Rotation": [
+     0,
+     2.741519647482169,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.86,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000149,
+   "Tag": "Paypoq 7-1",
+   "Transform": {
+    "Translation": [
+     -29.900000000000002,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     0.36898560028583205,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.27,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000150,
+   "Tag": "Paypoq 7-2",
+   "Transform": {
+    "Translation": [
+     -27.3,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     2.1079986570378764,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.78,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000151,
+   "Tag": "Paypoq 7-3",
+   "Transform": {
+    "Translation": [
+     -24.7,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -2.34594388281808,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.97,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000152,
+   "Tag": "Paypoq 7-4",
+   "Transform": {
+    "Translation": [
+     -22.1,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -2.6502141821297727,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.84,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000153,
+   "Tag": "Paypoq 7-5",
+   "Transform": {
+    "Translation": [
+     -19.5,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -2.6466512447694193,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.1,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000154,
+   "Tag": "Paypoq 7-6",
+   "Transform": {
+    "Translation": [
+     -16.900000000000002,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     1.7604033064735627,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.24,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000155,
+   "Tag": "Paypoq 7-7",
+   "Transform": {
+    "Translation": [
+     -14.3,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -2.142430932634109,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.13,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000156,
+   "Tag": "Paypoq 7-8",
+   "Transform": {
+    "Translation": [
+     -11.700000000000001,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     0.9935903941864992,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.79,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000157,
+   "Tag": "Paypoq 7-9",
+   "Transform": {
+    "Translation": [
+     -9.1,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     2.3735635686738674,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.28,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000158,
+   "Tag": "Paypoq 7-10",
+   "Transform": {
+    "Translation": [
+     -6.5,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -1.738555449028098,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.27,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000159,
+   "Tag": "Paypoq 7-11",
+   "Transform": {
+    "Translation": [
+     -3.9000000000000004,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -0.6308073767529141,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.99,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000160,
+   "Tag": "Paypoq 7-12",
+   "Transform": {
+    "Translation": [
+     -1.3,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     3.037203019414576,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.2,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000161,
+   "Tag": "Paypoq 7-13",
+   "Transform": {
+    "Translation": [
+     1.3,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -2.0989104287385496,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.96,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000162,
+   "Tag": "Paypoq 7-14",
+   "Transform": {
+    "Translation": [
+     3.9000000000000004,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     0.09675135838702609,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.9,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000163,
+   "Tag": "Paypoq 7-15",
+   "Transform": {
+    "Translation": [
+     6.5,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -1.886383069969627,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.89,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000164,
+   "Tag": "Paypoq 7-16",
+   "Transform": {
+    "Translation": [
+     9.1,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     1.3773351778753518,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.71,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000165,
+   "Tag": "Paypoq 7-17",
+   "Transform": {
+    "Translation": [
+     11.700000000000001,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     0.3351115364116337,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 0.96,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000166,
+   "Tag": "Paypoq 7-18",
+   "Transform": {
+    "Translation": [
+     14.3,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -2.987891718872367,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.9,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000167,
+   "Tag": "Paypoq 7-19",
+   "Transform": {
+    "Translation": [
+     16.900000000000002,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     0.7683478581295566,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 1.01,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000168,
+   "Tag": "Paypoq 7-20",
+   "Transform": {
+    "Translation": [
+     19.5,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -2.7013970859373386,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.29,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000169,
+   "Tag": "Paypoq 7-21",
+   "Transform": {
+    "Translation": [
+     22.1,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     1.7878509478050009,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 1.28,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000170,
+   "Tag": "Paypoq 7-22",
+   "Transform": {
+    "Translation": [
+     24.7,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -2.450366515508444,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Wave",
+    "Speed": 0.86,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000171,
+   "Tag": "Paypoq 7-23",
+   "Transform": {
+    "Translation": [
+     27.3,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -2.8545532225327808,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Twist",
+    "Speed": 1.17,
+    "Loop": true,
+    "Playing": false,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  },
+  {
+   "Entity": 7415000000000172,
+   "Tag": "Paypoq 7-24",
+   "Transform": {
+    "Translation": [
+     29.900000000000002,
+     0,
+     -20.0
+    ],
+    "Rotation": [
+     0,
+     -1.4232341953678835,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Tentacle.gltf",
+    "CastShadows": true,
+    "Material": "",
+    "Albedo": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "AlbedoMap": "",
+    "Tiling": 1.0,
+    "Metallic": 0.0,
+    "Roughness": 0.5,
+    "Emission": [
+     0,
+     0,
+     0
+    ],
+    "EmissionStrength": 0.0
+   },
+   "Animator": {
+    "Clip": "Sway",
+    "Speed": 0.78,
+    "Loop": true,
+    "Playing": true,
+    "PlayInEditor": true,
+    "DefaultFade": 0.2,
+    "DefaultState": 0,
+    "Parameters": [],
+    "States": [],
+    "Transitions": [],
+    "Culling": "Pose",
+    "CachePoses": true
+   }
+  }
+ ]
+}

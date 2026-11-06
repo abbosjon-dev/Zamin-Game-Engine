@@ -295,8 +295,8 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 253. Animatsiya tezligi bo'yicha qadam tovushlari event bilan
 - [x] 254. Animatsiya kliplarini qisqartirish (start/end)
 - [x] 255. glTF morph target'lar (blend shapes) - oddiy
-- [ ] 256. Animatsiya keshlash (performance)
-- [ ] 257. Bir nechta skin qo'llab-quvvatlash
+- [x] 256. Animatsiya keshlash (performance)
+- [x] 257. Bir nechta skin qo'llab-quvvatlash
 - [ ] 258. Animatsiya testlari (property clip, event)
 - [ ] 259. Animatsiya namunasi (eshik ochilishi)
 - [ ] 260. Animatsiya hujjatlari

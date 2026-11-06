@@ -20,6 +20,7 @@
 #include "Zamin/Renderer/Renderer3D.h"
 #include "Zamin/Renderer/RenderCommand.h"
 #include "Zamin/Renderer/Renderer.h"
+#include "Zamin/Renderer/Frustum.h"
 #include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Audio/Audio.h"
@@ -31,6 +32,8 @@
 #include "Zamin/Debug/DebugDraw.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cstring>
 #include <functional>
 #include <limits>
 #include <unordered_set>
@@ -4770,6 +4773,7 @@ namespace Zamin {
             LocalPose Base, Other, Part, Reference;
             std::vector<float> Mask, Weights, Thresholds;
             std::vector<float> MorphBase, MorphPart, MorphPrevious;
+            std::vector<uint32_t> Signature;
         };
 
     }
@@ -4777,6 +4781,11 @@ namespace Zamin {
     void Scene::UpdateAnimators(Timestep ts, bool editor)
     {
         ZM_PROFILE_SCOPE("Animatsiya");
+        const auto started = std::chrono::steady_clock::now();
+        m_AnimationStats = {};
+        // A view was drawn since the last update: what it did not see is off screen.
+        const bool viewKnown = m_AnimationViewUpdate == m_AnimationUpdate;
+        const uint64_t lastUpdate = m_AnimationUpdate++;
         std::vector<PendingAnimationEvent> firedEvents;
         static thread_local AnimatorScratch scratch;
         for (auto e : m_Registry.view<AnimatorComponent>())
@@ -4788,6 +4797,20 @@ namespace Zamin {
             auto& anim = m_Registry.get<AnimatorComponent>(e);
             auto* mr = m_Registry.try_get<MeshRendererComponent>(e);
             Ref<Model> model = mr ? mr->ModelAsset : nullptr;
+            m_AnimationStats.Animators++;
+            // Off screen - no view saw its model after the last update (see AnimatorCulling). Posed
+            // once at least (no bind pose flashes when it comes into view); the Animation window's
+            // scrubbing is always shown.
+            const bool hasPose = model && (model->IsSkinned() ? !anim.JointMatrices.empty() : !model->HasMorphTargets() || !anim.MorphWeights.empty());
+            const bool offscreen = viewKnown && hasPose && anim.Culling != AnimatorCulling::AlwaysAnimate && anim.VisibleFrame != lastUpdate &&
+                                   !(editor && anim.EditorPreview.Active);
+            anim.Culled = offscreen;
+            if (offscreen)
+            {
+                m_AnimationStats.Culled++;
+                if (anim.Culling == AnimatorCulling::CullCompletely)
+                    continue;
+            }
             static const std::vector<AnimationClip> s_NoClips;
             const auto& clips = model ? model->GetAnimations() : s_NoClips;
             auto findClip = [&](const std::string& name) -> const AnimationClip* {
@@ -4874,6 +4897,8 @@ namespace Zamin {
                 }
                 anim.RootMotionVelocity = glm::vec3(0.0f);
                 anim.RootMotionTurnRate = 0.0f;
+                anim.PoseSignature.clear(); // the next regular update poses again
+                m_AnimationStats.Posed++;
                 continue;
             }
 
@@ -5006,9 +5031,85 @@ namespace Zamin {
             float w = anim.IsFading() ? anim.FadeElapsed / anim.FadeDuration : 1.0f;
             w = w * w * (3.0f - 2.0f * w);
 
+            const bool skinned = model && model->IsSkinned();
+            const AnimationClip* rootClip = !current.Parts.empty() ? current.Parts[0].Clip : !previous.Parts.empty() ? previous.Parts[0].Clip : nullptr;
+            const int rootJoint = skinned && anim.ApplyRootMotion ? FindRootMotionJoint(model->GetSkeleton(), rootClip, anim.RootMotionBone) : -1;
+
+            // ---- what the pose is made from: the same as for the last pose (paused, speed 0, a
+            // finished clip) - that pose stays. Off screen (CullPose): not posed at all.
+            bool posePending = (skinned || morphs) && !offscreen;
+            if (posePending)
+            {
+                std::vector<uint32_t>& sig = scratch.Signature;
+                sig.clear();
+                auto put = [&](float v) { uint32_t u; std::memcpy(&u, &v, sizeof(u)); sig.push_back(u); };
+                auto putPointer = [&](const void* ptr) {
+                    const uint64_t v = (uint64_t)(uintptr_t)ptr;
+                    sig.push_back((uint32_t)v);
+                    sig.push_back((uint32_t)(v >> 32));
+                };
+                auto putMotion = [&](const ResolvedMotion& m) {
+                    sig.push_back((uint32_t)m.Parts.size());
+                    for (const MotionPart& part : m.Parts)
+                    {
+                        putPointer(part.Clip);
+                        put(part.Time);
+                        put(part.Weight);
+                    }
+                };
+                putPointer(model.get());
+                sig.push_back((uint32_t)model->GetRevision());
+                sig.push_back((uint32_t)rootJoint);
+                sig.push_back(anim.CachePoses ? 1u : 0u);
+                put(anim.PoseCacheRate);
+                putMotion(current);
+                sig.push_back(anim.IsFading() ? 1u : 0u);
+                if (anim.IsFading())
+                {
+                    putMotion(previous);
+                    put(w);
+                }
+                for (const AnimatorLayer& layer : anim.Layers)
+                {
+                    const AnimationClip* c = layer.Clip.empty() ? nullptr : findClip(layer.Clip);
+                    putPointer(c);
+                    put(c ? WrapClipTime(c, layer.Time, layer.Loop) : 0.0f);
+                    put(layer.CurrentWeight);
+                    put(layer.WeightParameter.empty() ? 1.0f : parameterValue(layer.WeightParameter, 1.0f));
+                    sig.push_back((uint32_t)layer.Blend);
+                    sig.push_back(layer.IsFading() ? 1u : 0u);
+                    if (layer.IsFading())
+                    {
+                        const AnimationClip* p = layer.PreviousClip.empty() ? nullptr : findClip(layer.PreviousClip);
+                        putPointer(p);
+                        put(p ? WrapClipTime(p, layer.PreviousTime, layer.PreviousLoop) : 0.0f);
+                        put(layer.FadeElapsed / layer.FadeDuration);
+                    }
+                    sig.push_back((uint32_t)layer.MaskBones.size());
+                    for (const std::string& bone : layer.MaskBones)
+                        sig.push_back((uint32_t)std::hash<std::string>{}(bone));
+                }
+                if (morphs)
+                    for (float v : scratch.MorphBase)
+                        put(v);
+                const bool same = sig == anim.PoseSignature &&
+                                  (!skinned || anim.JointMatrices.size() == model->GetSkeleton().Joints.size()) &&
+                                  (!morphs || anim.MorphWeights.size() == model->GetMorphWeightCount());
+                if (same)
+                {
+                    posePending = false;
+                    m_AnimationStats.Unchanged++;
+                }
+                else
+                {
+                    anim.PoseSignature.assign(sig.begin(), sig.end());
+                    m_AnimationStats.Posed++;
+                }
+            }
+
             // ---- morph target weights: each motion's clips over the Mesh Renderer's weights,
             // mixed like the pose (blend tree shares, then the crossfade)
-            if (morphs)
+            if (morphs && posePending)
             {
                 auto sampleMorphs = [&](const ResolvedMotion& m, std::vector<float>& out) {
                     out = scratch.MorphBase;
@@ -5057,9 +5158,19 @@ namespace Zamin {
             }
             const Skeleton& skeleton = model->GetSkeleton();
             const bool fading = anim.IsFading();
-            const AnimationClip* rootClip = !current.Parts.empty() ? current.Parts[0].Clip : !previous.Parts.empty() ? previous.Parts[0].Clip : nullptr;
-            const int rootJoint = anim.ApplyRootMotion ? FindRootMotionJoint(skeleton, rootClip, anim.RootMotionBone) : -1;
 
+            // A clip's pose: from its pose cache (CachePoses), else from its keys.
+            auto sampleClip = [&](const AnimationClip* clip, float time, LocalPose& out) {
+                if (clip && anim.CachePoses)
+                    if (const BakedClip* baked = model->GetBakedClip(*clip, anim.PoseCacheRate))
+                    {
+                        SampleBakedPose(skeleton, *clip, *baked, time, out, rootJoint);
+                        m_AnimationStats.CachedSamples++;
+                        return;
+                    }
+                SampleLocalPose(skeleton, clip, time, out, rootJoint);
+                m_AnimationStats.ClipSamples += clip ? 1 : 0;
+            };
             // A motion's pose: its parts mixed by weight (each one's share of what came before).
             auto samplePose = [&](const ResolvedMotion& m, LocalPose& out) {
                 if (m.Parts.empty())
@@ -5067,70 +5178,74 @@ namespace Zamin {
                     SampleLocalPose(skeleton, nullptr, 0.0f, out);
                     return;
                 }
-                SampleLocalPose(skeleton, m.Parts[0].Clip, m.Parts[0].Time, out, rootJoint);
+                sampleClip(m.Parts[0].Clip, m.Parts[0].Time, out);
                 float sum = m.Parts[0].Weight;
                 for (size_t i = 1; i < m.Parts.size(); i++)
                 {
                     sum += m.Parts[i].Weight;
                     if (m.Parts[i].Weight <= 0.0f || sum <= 0.0f)
                         continue;
-                    SampleLocalPose(skeleton, m.Parts[i].Clip, m.Parts[i].Time, scratch.Part, rootJoint);
+                    sampleClip(m.Parts[i].Clip, m.Parts[i].Time, scratch.Part);
                     BlendLocalPose(out, scratch.Part, m.Parts[i].Weight / sum);
                 }
             };
-            if (fading)
+            if (posePending)
             {
-                samplePose(previous, scratch.Base);
-                samplePose(current, scratch.Other);
-                BlendLocalPose(scratch.Base, scratch.Other, w);
-            }
-            else
-                samplePose(current, scratch.Base);
-
-            // ---- layers on top, each on its mask's bones
-            for (AnimatorLayer& layer : anim.Layers)
-            {
-                layer.EffectiveWeight = 0.0f;
-                const AnimationClip* c = layer.Clip.empty() ? nullptr : findClip(layer.Clip);
-                float weight = std::clamp(layer.CurrentWeight, 0.0f, 1.0f);
-                if (!layer.WeightParameter.empty())
-                    weight *= std::clamp(parameterValue(layer.WeightParameter, 1.0f), 0.0f, 1.0f);
-                if (!c || weight <= 0.0f)
-                    continue;
-                const AnimationClip* prev = layer.IsFading() ? (layer.PreviousClip.empty() ? nullptr : findClip(layer.PreviousClip)) : nullptr;
-                float fw = layer.IsFading() ? layer.FadeElapsed / layer.FadeDuration : 1.0f;
-                fw = fw * fw * (3.0f - 2.0f * fw);
-                if (layer.IsFading() && !prev)
-                    weight *= fw; // from nothing: the layer fades in
-                if (BuildJointMask(skeleton, layer.MaskBones, scratch.Mask) == 0 || weight <= 0.0f)
-                    continue;
-                layer.EffectiveWeight = weight;
-                if (layer.Blend == AnimatorLayerBlend::Override)
+                ZM_PROFILE_SCOPE("Pozalar");
+                if (fading)
                 {
-                    SampleLocalPose(skeleton, c, WrapClipTime(c, layer.Time, layer.Loop), scratch.Other, rootJoint);
-                    if (prev)
-                    {
-                        SampleLocalPose(skeleton, prev, WrapClipTime(prev, layer.PreviousTime, layer.PreviousLoop), scratch.Part, rootJoint);
-                        BlendLocalPose(scratch.Part, scratch.Other, fw);
-                        BlendLocalPose(scratch.Base, scratch.Part, weight, &scratch.Mask);
-                    }
-                    else
-                        BlendLocalPose(scratch.Base, scratch.Other, weight, &scratch.Mask);
+                    samplePose(previous, scratch.Base);
+                    samplePose(current, scratch.Other);
+                    BlendLocalPose(scratch.Base, scratch.Other, w);
                 }
                 else
+                    samplePose(current, scratch.Base);
+
+                // ---- layers on top, each on its mask's bones
+                for (AnimatorLayer& layer : anim.Layers)
                 {
-                    // Additive: each clip's change from its own first frame.
-                    auto add = [&](const AnimationClip* clip, float time, bool loop, float share) {
-                        SampleLocalPose(skeleton, clip, WrapClipTime(clip, time, loop), scratch.Other, rootJoint);
-                        SampleLocalPose(skeleton, clip, 0.0f, scratch.Reference, rootJoint);
-                        AddLocalPose(scratch.Base, scratch.Other, scratch.Reference, share, &scratch.Mask);
-                    };
-                    if (prev)
-                        add(prev, layer.PreviousTime, layer.PreviousLoop, weight * (1.0f - fw));
-                    add(c, layer.Time, layer.Loop, prev ? weight * fw : weight);
+                    layer.EffectiveWeight = 0.0f;
+                    const AnimationClip* c = layer.Clip.empty() ? nullptr : findClip(layer.Clip);
+                    float weight = std::clamp(layer.CurrentWeight, 0.0f, 1.0f);
+                    if (!layer.WeightParameter.empty())
+                        weight *= std::clamp(parameterValue(layer.WeightParameter, 1.0f), 0.0f, 1.0f);
+                    if (!c || weight <= 0.0f)
+                        continue;
+                    const AnimationClip* prev = layer.IsFading() ? (layer.PreviousClip.empty() ? nullptr : findClip(layer.PreviousClip)) : nullptr;
+                    float fw = layer.IsFading() ? layer.FadeElapsed / layer.FadeDuration : 1.0f;
+                    fw = fw * fw * (3.0f - 2.0f * fw);
+                    if (layer.IsFading() && !prev)
+                        weight *= fw; // from nothing: the layer fades in
+                    if (BuildJointMask(skeleton, layer.MaskBones, scratch.Mask) == 0 || weight <= 0.0f)
+                        continue;
+                    layer.EffectiveWeight = weight;
+                    if (layer.Blend == AnimatorLayerBlend::Override)
+                    {
+                        sampleClip(c, WrapClipTime(c, layer.Time, layer.Loop), scratch.Other);
+                        if (prev)
+                        {
+                            sampleClip(prev, WrapClipTime(prev, layer.PreviousTime, layer.PreviousLoop), scratch.Part);
+                            BlendLocalPose(scratch.Part, scratch.Other, fw);
+                            BlendLocalPose(scratch.Base, scratch.Part, weight, &scratch.Mask);
+                        }
+                        else
+                            BlendLocalPose(scratch.Base, scratch.Other, weight, &scratch.Mask);
+                    }
+                    else
+                    {
+                        // Additive: each clip's change from its own first frame.
+                        auto add = [&](const AnimationClip* clip, float time, bool loop, float share) {
+                            sampleClip(clip, WrapClipTime(clip, time, loop), scratch.Other);
+                            sampleClip(clip, 0.0f, scratch.Reference);
+                            AddLocalPose(scratch.Base, scratch.Other, scratch.Reference, share, &scratch.Mask);
+                        };
+                        if (prev)
+                            add(prev, layer.PreviousTime, layer.PreviousLoop, weight * (1.0f - fw));
+                        add(c, layer.Time, layer.Loop, prev ? weight * fw : weight);
+                    }
                 }
+                ComposeJointMatrices(skeleton, scratch.Base, anim.JointMatrices);
             }
-            ComposeJointMatrices(skeleton, scratch.Base, anim.JointMatrices);
 
             // Root motion moves the entity (play mode; the editor's preview stays in place).
             anim.RootMotionVelocity = glm::vec3(0.0f);
@@ -5160,8 +5275,55 @@ namespace Zamin {
                 ApplyRootMotion({ e, this }, anim, motion, ts);
             }
         }
+        m_AnimationStats.CacheBytes = GetBakedClipMemory();
+        m_AnimationStats.Milliseconds = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - started).count();
         for (const auto& fired : firedEvents)
             FireAnimationEvent(GetEntityByUUID(fired.Entity), fired.Event, fired.Clip, true);
+    }
+
+    void Scene::MarkVisibleAnimators(const glm::mat4& viewProjection)
+    {
+        // Stamped with the number of updates so far: the next one knows what was seen after the last.
+        m_AnimationViewUpdate = m_AnimationUpdate;
+        const uint64_t stamp = m_AnimationUpdate;
+        const Frustum frustum = Frustum::FromViewProjection(viewProjection);
+        static thread_local std::vector<glm::mat4> palette;
+        for (auto e : m_Registry.view<AnimatorComponent, MeshRendererComponent>())
+        {
+            auto& anim = m_Registry.get<AnimatorComponent>(e);
+            if (anim.Culling == AnimatorCulling::AlwaysAnimate || anim.VisibleFrame == stamp)
+                continue;
+            const auto& mr = m_Registry.get<MeshRendererComponent>(e);
+            if (!mr.ModelAsset)
+                continue;
+            // The model as it was posed (skinned bounds: the bind box moved by each joint),
+            // a little larger - its next pose may reach further.
+            const Model& model = *mr.ModelAsset;
+            AABB bounds;
+            bool any = false;
+            const auto& subs = model.GetSubMeshes();
+            for (size_t i = 0; i < subs.size(); i++)
+            {
+                if (!subs[i].MeshRef)
+                    continue;
+                AABB b = subs[i].MeshRef->GetBounds();
+                if (subs[i].MeshRef->IsSkinned() && !anim.JointMatrices.empty())
+                {
+                    const auto& joints = model.GetSubMeshJoints(i, anim.JointMatrices, palette);
+                    b = SkinnedBounds(b, joints.data(), joints.size());
+                }
+                bounds.Min = any ? glm::min(bounds.Min, b.Min) : b.Min;
+                bounds.Max = any ? glm::max(bounds.Max, b.Max) : b.Max;
+                any = true;
+            }
+            if (!any)
+                bounds = model.GetBounds();
+            const glm::vec3 margin = (bounds.Max - bounds.Min) * 0.1f + glm::vec3(0.05f);
+            bounds.Min -= margin;
+            bounds.Max += margin;
+            if (frustum.Intersects(TransformAABB(bounds, GetWorldTransform({ e, this }))))
+                anim.VisibleFrame = stamp;
+        }
     }
 
     void Scene::CollectAnimatorEvents(Entity entity, const AnimatorComponent& anim, const AnimationClip& clip, float localTime, float delta,
@@ -6461,6 +6623,8 @@ namespace Zamin {
         ZM_PROFILE_SCOPE("Render");
         m_LastProjection = projection;
         m_LastView = view;
+        // What this view sees of the animated models: the others may skip posing (Animator culling).
+        MarkVisibleAnimators(projection * view);
         Renderer3D::BeginScene(view, projection, cameraPosition, env);
         for (auto e : m_Registry.view<TransformComponent, MeshRendererComponent>())
         {
@@ -6488,6 +6652,10 @@ namespace Zamin {
                         EvaluatePose(mr.ModelAsset->GetSkeleton(), nullptr, 0.0f, bindPose);
                         joints = &bindPose;
                     }
+                    // A skin of its own (several in one file): its joints' palette.
+                    static thread_local std::vector<glm::mat4> skinPalette;
+                    if (joints)
+                        joints = &mr.ModelAsset->GetSubMeshJoints(index, *joints, skinPalette);
                     Renderer3D::SubmitMesh(sub.Morph ? GetMorphedMesh(e, mr, index) : sub.MeshRef, world(e), m, (int)(uint32_t)e, mr.CastShadows,
                                            joints);
                 }

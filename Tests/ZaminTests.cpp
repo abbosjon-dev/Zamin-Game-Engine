@@ -27085,3 +27085,175 @@ TEST(AnimatorSkipsUnchangedAndCulledPoses)
     const auto& lb = loaded->FindEntityByName("Second").GetComponent<AnimatorComponent>();
     CHECK(lb.Culling == AnimatorCulling::CullCompletely && !lb.CachePoses && lb.PoseCacheRate == 30.0f);
 }
+
+// ---- M13: animation tests (258) - every property a clip animates, events through the scene
+TEST(PropertyClipAnimatesEveryProperty)
+{
+    auto scene = CreateRef<Scene>();
+    Entity root = scene->CreateEntity("Root");
+    root.AddComponent<NativeScriptComponent>().ClassName = "AnimEventProbe";
+    auto child = [&](const char* name, Entity parent) {
+        Entity e = scene->CreateEntity(name);
+        scene->SetParent(e, parent, false);
+        return e;
+    };
+    Entity sprite = child("Sprite", root), circle = child("Circle", root), label = child("Label", root), mesh = child("Mesh", root);
+    Entity lamp = child("Lamp", root), panel = child("Panel", root), icon = child("Icon", panel);
+    sprite.AddComponent<SpriteRendererComponent>();
+    circle.AddComponent<CircleRendererComponent>();
+    label.AddComponent<TextComponent>();
+    mesh.AddComponent<MeshRendererComponent>();
+    lamp.AddComponent<PointLightComponent>();
+    panel.AddComponent<UITransformComponent>();
+    icon.AddComponent<UITransformComponent>();
+    icon.AddComponent<UIImageComponent>();
+
+    PropertyClip clip;
+    clip.Duration = 1.0f;
+    auto track = [&](const std::string& path, AnimatedProperty property, glm::vec4 from, glm::vec4 to,
+                     KeyInterpolation interpolation = KeyInterpolation::Linear, const std::string& field = {}) {
+        AnimationTrack& t = clip.GetOrAddTrack(path, property, field);
+        t.SetKey(0.0f, from);
+        t.SetKey(1.0f, to);
+        t.Keys[0].Interpolation = interpolation;
+        t.UpdateTangents();
+    };
+    const glm::vec4 red(1.0f, 0.0f, 0.0f, 1.0f), blue(0.0f, 0.0f, 1.0f, 1.0f), purple(0.5f, 0.0f, 0.5f, 1.0f);
+    track("", AnimatedProperty::Position, glm::vec4(0.0f), glm::vec4(2.0f, 4.0f, 6.0f, 0.0f));
+    track("", AnimatedProperty::Rotation, glm::vec4(0.0f), glm::vec4(0.0f, 90.0f, 0.0f, 0.0f));
+    track("", AnimatedProperty::Scale, glm::vec4(1.0f), glm::vec4(3.0f), KeyInterpolation::Step);
+    track("Sprite", AnimatedProperty::SpriteColor, red, blue);
+    track("Circle", AnimatedProperty::CircleColor, red, blue);
+    track("Label", AnimatedProperty::TextColor, red, blue);
+    track("Mesh", AnimatedProperty::MeshColor, red, blue);
+    track("Lamp", AnimatedProperty::LightColor, glm::vec4(1.0f), red);
+    track("Lamp", AnimatedProperty::LightIntensity, glm::vec4(0.0f), glm::vec4(4.0f));
+    track("Panel", AnimatedProperty::UIPosition, glm::vec4(0.0f), glm::vec4(100.0f, 50.0f, 0.0f, 0.0f));
+    track("Panel", AnimatedProperty::UISize, glm::vec4(10.0f), glm::vec4(30.0f));
+    track("Panel", AnimatedProperty::UIScale, glm::vec4(1.0f), glm::vec4(2.0f));
+    track("Panel", AnimatedProperty::UIAlpha, glm::vec4(1.0f), glm::vec4(0.0f));
+    track("Panel/Icon", AnimatedProperty::UIImageColor, red, blue);
+    track("", AnimatedProperty::ScriptFloat, glm::vec4(0.0f), glm::vec4(2.0f), KeyInterpolation::Bezier, "Glow");
+    track("Missing", AnimatedProperty::Position, glm::vec4(0.0f), glm::vec4(1.0f));          // no such child
+    track("Sprite", AnimatedProperty::LightIntensity, glm::vec4(0.0f), glm::vec4(1.0f));     // it has no light
+    CHECK(clip.Tracks.size() == 17);
+
+    scene->OnRuntimeStart();
+    auto* probe = ScriptableEntity::GetScript<AnimEventProbe>(root);
+    CHECK(probe);
+    CHECK(ApplyPropertyClip(root, clip, 0.5f) == 15); // every track but the two without a target
+    auto near4 = [](const glm::vec4& a, const glm::vec4& b) { return glm::length(a - b) < 1e-4f; };
+    const auto& tc = root.GetComponent<TransformComponent>();
+    CHECK(glm::length(tc.Translation - glm::vec3(1.0f, 2.0f, 3.0f)) < 1e-5f);
+    CHECK_NEAR(glm::degrees(tc.Rotation.y), 45.0f, 1e-3f);
+    CHECK(tc.Scale == glm::vec3(1.0f));                                          // step: still the first key
+    CHECK(near4(sprite.GetComponent<SpriteRendererComponent>().Color, purple));
+    CHECK(near4(circle.GetComponent<CircleRendererComponent>().Color, purple));
+    CHECK(near4(label.GetComponent<TextComponent>().Color, purple));
+    CHECK(near4(mesh.GetComponent<MeshRendererComponent>().Mat.Albedo, purple));
+    CHECK(glm::length(lamp.GetComponent<PointLightComponent>().Color - glm::vec3(1.0f, 0.5f, 0.5f)) < 1e-5f);
+    CHECK_NEAR(lamp.GetComponent<PointLightComponent>().Intensity, 2.0f, 1e-5f);
+    const auto& ui = panel.GetComponent<UITransformComponent>();
+    CHECK(glm::length(ui.Position - glm::vec2(50.0f, 25.0f)) < 1e-4f && glm::length(ui.Size - glm::vec2(20.0f)) < 1e-4f);
+    CHECK(glm::length(ui.Scale - glm::vec2(1.5f)) < 1e-5f);
+    CHECK_NEAR(ui.Alpha, 0.5f, 1e-5f);
+    CHECK(near4(icon.GetComponent<UIImageComponent>().Color, purple));
+    CHECK_NEAR(probe->Glow, 1.0f, 1e-4f);                                       // eased: half way at half time
+    // The end: the step lands; read back through the same table.
+    ApplyPropertyClip(root, clip, 1.0f);
+    CHECK(tc.Scale == glm::vec3(3.0f));
+    glm::vec4 value;
+    CHECK(AnimationTargets::Read(icon, AnimatedProperty::UIImageColor, {}, value) && near4(value, blue));
+    CHECK(AnimationTargets::Read(root, AnimatedProperty::ScriptFloat, "Glow", value) && std::abs(value.x - 2.0f) < 1e-5f);
+    CHECK(!AnimationTargets::Read(sprite, AnimatedProperty::LightIntensity, {}, value));
+    // Out-of-range values are kept in range where the property has one.
+    AnimationTargets::Write(panel, AnimatedProperty::UIAlpha, {}, glm::vec4(7.0f));
+    AnimationTargets::Write(lamp, AnimatedProperty::LightIntensity, {}, glm::vec4(-3.0f));
+    CHECK(ui.Alpha == 1.0f && lamp.GetComponent<PointLightComponent>().Intensity == 0.0f);
+    scene->OnRuntimeStop();
+}
+
+static int CountHeard(const std::vector<std::string>& heard, const std::string& what)
+{
+    return (int)std::count(heard.begin(), heard.end(), what);
+}
+
+TEST(AnimationEventsExactlyOnceInScene)
+{
+    Skeleton skeleton;
+    skeleton.Joints.resize(1);
+    skeleton.Joints[0].Name = "Root";
+    Ref<Model> model = Model::CreateSkeletal(skeleton, { MakeRiseClip("Rise", 1.0f, 1.0f), MakeRiseClip("High", 1.0f, 5.0f) });
+    auto dir = MakeTempDir("zamin-events-scene-");
+    PropertyClip swing;
+    swing.Duration = 1.0f;
+    swing.Wrap = AnimationWrap::PingPong;
+    swing.GetOrAddTrack("", AnimatedProperty::Scale).SetKey(0.0f, glm::vec4(1.0f));
+    swing.Events = { { 0.0f, "A", "" }, { 0.5f, "B", "" }, { 1.0f, "C", "" } };
+    CHECK(PropertyClipSerializer::Serialize(swing, dir / "Swing.zanim"));
+
+    auto scene = CreateRef<Scene>();
+    Entity hero = scene->CreateEntity("Hero");
+    auto& mr = hero.AddComponent<MeshRendererComponent>();
+    mr.Type = PrimitiveMesh::Model;
+    mr.ModelAsset = model;
+    auto& anim = hero.AddComponent<AnimatorComponent>();
+    anim.Clip = "Rise";
+    anim.Events = { { "Rise", 0.0f, "Start", "" }, { "Rise", 0.5f, "Mid", "" }, { "Rise", 1.0f, "End", "" },
+                    { "", 0.25f, "Any", "" }, { "High", 0.5f, "HighMid", "" } };
+    AnimatorLayer upper;
+    upper.Name = "Upper";
+    anim.Layers = { upper };
+    hero.AddComponent<NativeScriptComponent>().ClassName = "AnimEventProbe";
+    Entity door = scene->CreateEntity("Door");
+    door.AddComponent<NativeScriptComponent>().ClassName = "AnimEventProbe";
+    door.AddComponent<AnimationPlayerComponent>().Clips = { (dir / "Swing.zanim").string() };
+
+    scene->OnRuntimeStart();
+    auto* probe = ScriptableEntity::GetScript<AnimEventProbe>(hero);
+    auto* doorProbe = ScriptableEntity::GetScript<AnimEventProbe>(door);
+    CHECK(probe && doorProbe);
+    // One cycle in exact steps: the start at once, then each moment, the end on the step that lands
+    // on 1.0 - the next cycle's start comes with the step after it (not twice).
+    for (int i = 0; i < 8; i++)
+        scene->OnUpdateRuntime(0.125f);
+    CHECK(probe->Heard == std::vector<std::string>({ "Rise:Start", "Rise:Any", "Rise:Mid", "Rise:End" }));
+    // The Animation Player's ping-pong clip the same second: there, A to C.
+    CHECK(doorProbe->Heard == std::vector<std::string>({ "Swing:A", "Swing:B", "Swing:C" }));
+    scene->OnUpdateRuntime(0.125f);
+    CHECK(probe->Heard.size() == 5 && probe->Heard[4] == "Rise:Start");
+    // A hitch of several cycles: every event once more, not once per cycle.
+    probe->Heard.clear();
+    scene->OnUpdateRuntime(3.3f);
+    CHECK(probe->Heard.size() == 4 && CountHeard(probe->Heard, "Rise:Any") == 1 && CountHeard(probe->Heard, "Rise:Mid") == 1 &&
+          CountHeard(probe->Heard, "Rise:End") == 1 && CountHeard(probe->Heard, "Rise:Start") == 1);
+    CHECK_NEAR(anim.Time, 4.425f, 1e-4f);
+    // A crossfade into another clip: the events of the clip that plays now (and the "every clip"
+    // ones), none of the clip fading out.
+    probe->Heard.clear();
+    anim.Play("High", true, 1.0f, 0.25f);
+    scene->OnUpdateRuntime(0.5f);
+    CHECK(probe->Heard == std::vector<std::string>({ "High:Any", "High:HighMid" }));
+    // A layer: the events that name its clip (not the "every clip" ones - the base has those).
+    probe->Heard.clear();
+    CHECK(anim.PlayLayer("Upper", "Rise", true, 1.0f, 0.0f));
+    scene->OnUpdateRuntime(0.5f);
+    CHECK(probe->Heard == std::vector<std::string>({ "Rise:Start", "Rise:Mid" }));
+    // Speed 0: nothing passes, nothing fires.
+    probe->Heard.clear();
+    anim.Speed = 0.0f;
+    anim.Layers[0].Speed = 0.0f;
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(0.2f);
+    CHECK(probe->Heard.empty());
+
+    // A hitch of the ping-pong clip: one whole cycle there and back - the turning points once, the
+    // middle twice (once each way) - however long the step.
+    doorProbe->Heard.clear();
+    scene->OnUpdateRuntime(10.0f);
+    CHECK(doorProbe->Heard.size() == 4 && CountHeard(doorProbe->Heard, "Swing:A") == 1 && CountHeard(doorProbe->Heard, "Swing:B") == 2 &&
+          CountHeard(doorProbe->Heard, "Swing:C") == 1);
+    scene->OnRuntimeStop();
+    PropertyClipLibrary::Clear();
+    std::filesystem::remove_all(dir);
+}

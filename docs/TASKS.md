@@ -297,7 +297,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 255. glTF morph target'lar (blend shapes) - oddiy
 - [x] 256. Animatsiya keshlash (performance)
 - [x] 257. Bir nechta skin qo'llab-quvvatlash
-- [ ] 258. Animatsiya testlari (property clip, event)
+- [x] 258. Animatsiya testlari (property clip, event)
 - [ ] 259. Animatsiya namunasi (eshik ochilishi)
 - [ ] 260. Animatsiya hujjatlari
 

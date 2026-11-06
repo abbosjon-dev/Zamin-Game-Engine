@@ -1,0 +1,272 @@
+{
+  "Name": "Gulxan",
+  "System": {
+    "Additive": true,
+    "AngularVelocityMax": 1.0,
+    "Billboard": true,
+    "Burst": 0,
+    "ColorOverLifetime": {
+      "Enabled": true,
+      "Gradient": {
+        "Stops": [
+          [
+            0.0,
+            1.0,
+            0.699999988079071,
+            0.30000001192092896,
+            0.0
+          ],
+          [
+            0.10000000149011612,
+            1.0,
+            0.550000011920929,
+            0.15000000596046448,
+            0.8500000238418579
+          ],
+          [
+            0.5,
+            0.949999988079071,
+            0.30000001192092896,
+            0.05000000074505806,
+            0.6000000238418579
+          ],
+          [
+            1.0,
+            0.6000000238418579,
+            0.07999999821186066,
+            0.019999999552965164,
+            0.0
+          ]
+        ]
+      },
+      "GradientB": {
+        "Stops": [
+          [
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            0.0
+          ]
+        ]
+      },
+      "RandomBetweenTwo": false
+    },
+    "ConeAngle": 8.0,
+    "ConeFlat": false,
+    "ConeFrom": "Base",
+    "ConeLength": 1.0,
+    "Direction": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "Drag": 0.6000000238418579,
+    "EmissionRate": 55.0,
+    "EndColor": [
+      0.6000000238418579,
+      0.07999999821186066,
+      0.019999999552965164,
+      0.0
+    ],
+    "EndSize": 0.07999999821186066,
+    "Gravity": [
+      0.0,
+      1.2000000476837158,
+      0.0
+    ],
+    "LifetimeMax": 1.2000000476837158,
+    "LifetimeMin": 0.6000000238418579,
+    "Looping": true,
+    "MaxParticles": 400,
+    "Noise": {
+      "Enabled": true,
+      "Frequency": 1.2000000476837158,
+      "OctaveMultiplier": 0.5,
+      "Octaves": 1,
+      "ScrollSpeed": 0.800000011920929,
+      "Seed": 0,
+      "Strength": [
+        0.6000000238418579,
+        0.4000000059604645,
+        0.6000000238418579
+      ],
+      "StrengthCurve": [
+        {
+          "Interpolation": "Linear",
+          "Time": 0.0,
+          "Value": 1.0
+        },
+        {
+          "Interpolation": "Linear",
+          "Time": 1.0,
+          "Value": 1.0
+        }
+      ]
+    },
+    "PlayInEditor": true,
+    "Playing": true,
+    "RenderAsCircle": true,
+    "Shape": 4,
+    "ShapeExtents": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "ShapeRadius": 0.3499999940395355,
+    "SizeOverLifetime": {
+      "Curve": [
+        {
+          "Interpolation": "Bezier",
+          "Time": 0.0,
+          "Value": 0.6000000238418579
+        },
+        {
+          "Interpolation": "Bezier",
+          "Time": 0.25,
+          "Value": 1.0
+        },
+        {
+          "Interpolation": "Bezier",
+          "Time": 1.0,
+          "Value": 0.15000000596046448
+        }
+      ],
+      "CurveB": [
+        {
+          "Interpolation": "Linear",
+          "Time": 0.0,
+          "Value": 1.0
+        },
+        {
+          "Interpolation": "Linear",
+          "Time": 1.0,
+          "Value": 0.5
+        }
+      ],
+      "Enabled": true,
+      "RandomBetweenTwo": false
+    },
+    "SortingOrder": 0,
+    "SpeedMax": 1.600000023841858,
+    "SpeedMin": 0.800000011920929,
+    "Spread": 25.0,
+    "StartColor": [
+      1.0,
+      0.550000011920929,
+      0.15000000596046448,
+      0.8500000238418579
+    ],
+    "StartSize": 0.550000011920929,
+    "SubEmitters": {
+      "Emitters": [
+        {
+          "Count": 1,
+          "Emitter": 1,
+          "InheritColor": false,
+          "InheritSize": false,
+          "InheritVelocity": 1.0,
+          "Probability": 0.11999999731779099,
+          "Trigger": "Lifetime"
+        }
+      ],
+      "Enabled": true
+    },
+    "Texture": "",
+    "WorldSpace": true
+  },
+  "Templates": [
+    {
+      "Name": "Gulxan uchqunlari",
+      "System": {
+        "Additive": true,
+        "AngularVelocityMax": 0.0,
+        "Billboard": true,
+        "Burst": 0,
+        "Direction": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "Drag": 0.5,
+        "EmissionEnabled": false,
+        "EmissionRate": 0.0,
+        "EndColor": [
+          1.0,
+          0.3499999940395355,
+          0.05000000074505806,
+          0.0
+        ],
+        "EndSize": 0.009999999776482582,
+        "Gravity": [
+          0.0,
+          0.6000000238418579,
+          0.0
+        ],
+        "LifetimeMax": 1.600000023841858,
+        "LifetimeMin": 0.800000011920929,
+        "Looping": true,
+        "MaxParticles": 300,
+        "Noise": {
+          "Enabled": true,
+          "Frequency": 1.5,
+          "OctaveMultiplier": 0.5,
+          "Octaves": 1,
+          "ScrollSpeed": 0.25,
+          "Seed": 0,
+          "Strength": [
+            1.2000000476837158,
+            0.6000000238418579,
+            1.2000000476837158
+          ],
+          "StrengthCurve": [
+            {
+              "Interpolation": "Linear",
+              "Time": 0.0,
+              "Value": 1.0
+            },
+            {
+              "Interpolation": "Linear",
+              "Time": 1.0,
+              "Value": 1.0
+            }
+          ]
+        },
+        "PlayInEditor": true,
+        "Playing": true,
+        "RenderAsCircle": true,
+        "Shape": 0,
+        "ShapeExtents": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "ShapeRadius": 0.5,
+        "SortingOrder": 0,
+        "SpeedMax": 2.5,
+        "SpeedMin": 1.0,
+        "Spread": 35.0,
+        "StartColor": [
+          1.0,
+          0.8500000238418579,
+          0.4000000059604645,
+          1.0
+        ],
+        "StartSize": 0.03999999910593033,
+        "StretchLength": 1.0,
+        "StretchSpeed": 0.03999999910593033,
+        "Stretched": true,
+        "Texture": "",
+        "WorldSpace": true
+      }
+    }
+  ],
+  "ZaminParticlePreset": 1
+}

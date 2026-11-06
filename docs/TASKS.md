@@ -318,11 +318,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 273. Prewarm (boshidan to'ldirilgan holat)
 - [x] 274. Emissiya portlashlari jadvali (bursts list)
 - [x] 275. Simulyatsiya tezligi va local/world
-- [ ] 276. Particle preset'lari kutubxonasi (olov, tutun, uchqun, yomg'ir, qor)
-- [ ] 277. Yomg'ir va qor effektlari (kamera atrofida)
-- [ ] 278. Particle inspektorida bo'limlar
-- [ ] 279. Particle serializatsiya testlari
-- [ ] 280. Particle performance testi
+- [x] 276. Particle preset'lari kutubxonasi (olov, tutun, uchqun, yomg'ir, qor)
+- [x] 277. Yomg'ir va qor effektlari (kamera atrofida)
+- [x] 278. Particle inspektorida bo'limlar
+- [x] 279. Particle serializatsiya testlari
+- [x] 280. Particle performance testi
 
 ## M15 Sahna boshqaruvi
 

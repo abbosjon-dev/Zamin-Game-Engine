@@ -493,31 +493,11 @@ namespace Zamin {
             e.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
             e.AddComponent<BoxCollider3DComponent>();
         }
-        else if (p == "Fire")
+        else if (p == "Fire" || p == "Sparks" || p == "Smoke")
         {
-            e = m_Context->CreateEntity("Olov");
-            auto& ps = e.AddComponent<ParticleSystemComponent>();
-            ps.EmissionRate = 60.0f; ps.Spread = 18.0f; ps.SpeedMin = 1.0f; ps.SpeedMax = 2.2f;
-            ps.Shape = ParticleSystemComponent::EmitterShape::Circle; ps.ShapeRadius = 0.25f;
-            ps.StartSize = 0.45f; ps.EndSize = 0.05f; ps.Gravity = { 0.0f, 1.0f, 0.0f };
-        }
-        else if (p == "Sparks")
-        {
-            e = m_Context->CreateEntity("Uchqunlar");
-            auto& ps = e.AddComponent<ParticleSystemComponent>();
-            ps.EmissionRate = 25.0f; ps.Spread = 60.0f; ps.SpeedMin = 3.0f; ps.SpeedMax = 6.0f;
-            ps.Gravity = { 0.0f, -9.8f, 0.0f }; ps.StartSize = 0.12f; ps.EndSize = 0.02f;
-            ps.StartColor = { 1.0f, 0.95f, 0.6f, 1.0f }; ps.EndColor = { 1.0f, 0.4f, 0.1f, 0.0f };
-            ps.LifetimeMin = 0.4f; ps.LifetimeMax = 1.0f;
-        }
-        else if (p == "Smoke")
-        {
-            e = m_Context->CreateEntity("Tutun");
-            auto& ps = e.AddComponent<ParticleSystemComponent>();
-            ps.EmissionRate = 12.0f; ps.Spread = 15.0f; ps.SpeedMin = 0.5f; ps.SpeedMax = 1.2f;
-            ps.StartSize = 0.4f; ps.EndSize = 1.6f; ps.LifetimeMin = 2.0f; ps.LifetimeMax = 3.5f;
-            ps.StartColor = { 0.6f, 0.6f, 0.62f, 0.5f }; ps.EndColor = { 0.4f, 0.4f, 0.42f, 0.0f };
-            ps.Additive = false; ps.AngularVelocityMax = 1.0f;
+            // The particle library's effects (the Effects menu lists all of them).
+            if (std::optional<ParticlePreset> preset = ParticlePresets::GetBuiltin(p))
+                e = ParticlePresets::Instantiate(*m_Context, *preset);
         }
         else if (p == "UI Text")
         {

@@ -11,6 +11,7 @@
 #include <imgui_stdlib.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <format>
 
 namespace Zamin {
@@ -19,6 +20,8 @@ namespace Zamin {
 
     // Show only the modules that are on (the toolbar's filter; for this editor session).
     static bool s_OnlyEnabledModules = false;
+    // The modules start closed (screenshots: ZAMIN_EDITOR_PARTICLE_PRESETS=collapse).
+    static bool s_ModulesStartClosed = false;
 
     // A module: a full-width foldout row with its on / off box (`enabled` null: always on, no box;
     // the property grid pauses around it). Its rows follow while it is open; they are greyed out
@@ -37,7 +40,7 @@ namespace Zamin {
         if (!on)
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
         const ImVec2 start = ImGui::GetCursorPos();
-        ImGui::SetNextItemOpen(on || defaultOpen, ImGuiCond_Once);
+        ImGui::SetNextItemOpen(!s_ModulesStartClosed && (on || defaultOpen), ImGuiCond_Once);
         // Room for the box after the arrow: the title starts behind it.
         const bool open = enabled ? ImGui::TreeNodeEx("##module", flags, "        %s  %s", icon, title)
                                   : ImGui::TreeNodeEx("##module", flags, "%s  %s", icon, title);
@@ -118,8 +121,26 @@ namespace Zamin {
                             ImGui::GetStyle().ItemSpacing.x * 2.0f + 8.0f;
         const float afterStop = ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x + ImGui::GetStyle().ItemSpacing.x;
         ImGui::SameLine(std::max(afterStop, ImGui::GetWindowContentRegionMax().x - right));
-        if (ImGui::Button(ICON_FA_SWATCHBOOK "  Preset"))
+        // Screenshots / CI: ZAMIN_EDITOR_PARTICLE_PRESETS=1 opens the library once; "filter" also
+        // shows only the modules that are on, "collapse" starts every module closed.
+        static bool s_AutomationDone = false;
+        bool openPresets = false;
+        if (!s_AutomationDone)
+        {
+            s_AutomationDone = true;
+            if (const char* automation = std::getenv("ZAMIN_EDITOR_PARTICLE_PRESETS"))
+            {
+                const std::string_view v(automation);
+                openPresets = v.find('1') != std::string_view::npos || v.find("menu") != std::string_view::npos;
+                if (v.find("filter") != std::string_view::npos)
+                    s_OnlyEnabledModules = true;
+                if (v.find("collapse") != std::string_view::npos)
+                    s_ModulesStartClosed = true;
+            }
+        }
+        if (ImGui::Button(ICON_FA_SWATCHBOOK "  Preset") || openPresets)
             ImGui::OpenPopup("##particlePresets");
+        const ImVec2 presetCorner(ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + 2.0f); // the menu hangs from the button
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
             UI::Tooltip("Tayyor effektlar (olov, tutun, yomg'ir, qor...) va loyihaning .zparticle preset'lari");
         if (ImGui::BeginDragDropTarget())
@@ -133,6 +154,7 @@ namespace Zamin {
             }
             ImGui::EndDragDropTarget();
         }
+        ImGui::SetNextWindowPos(presetCorner, ImGuiCond_Appearing, ImVec2(1.0f, 0.0f));
         if (ImGui::BeginPopup("##particlePresets"))
         {
             DrawParticlePresetMenu(entity);

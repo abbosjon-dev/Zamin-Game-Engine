@@ -86,11 +86,11 @@ namespace Zamin {
         ps.AngularVelocityMax = 1.0f;
         ps.StartSize = 0.55f;
         ps.EndSize = 0.08f;
-        ps.StartColor = { 1.0f, 0.8f, 0.3f, 1.0f };
-        ps.EndColor = { 0.6f, 0.1f, 0.02f, 0.0f };
+        ps.StartColor = { 1.0f, 0.55f, 0.15f, 0.85f };
+        ps.EndColor = { 0.6f, 0.08f, 0.02f, 0.0f };
         ps.ColorOverLifetime.Enabled = true;
-        ps.ColorOverLifetime.Gradient = Gradient({ { 0.0f, 1.0f, 0.9f, 0.5f, 0.0f }, { 0.1f, 1.0f, 0.8f, 0.3f, 1.0f },
-                                                   { 0.45f, 1.0f, 0.4f, 0.08f, 0.85f }, { 1.0f, 0.6f, 0.1f, 0.02f, 0.0f } });
+        ps.ColorOverLifetime.Gradient = Gradient({ { 0.0f, 1.0f, 0.7f, 0.3f, 0.0f }, { 0.1f, 1.0f, 0.55f, 0.15f, 0.85f },
+                                                   { 0.5f, 0.95f, 0.3f, 0.05f, 0.6f }, { 1.0f, 0.6f, 0.08f, 0.02f, 0.0f } });
         ps.SizeOverLifetime.Enabled = true;
         ps.SizeOverLifetime.Curve = Curve({ { 0.0f, 0.6f }, { 0.25f, 1.0f }, { 1.0f, 0.15f } });
         ps.Noise.Enabled = true;
@@ -184,10 +184,10 @@ namespace Zamin {
         ps.LifetimeMax = 1.6f;
         ps.SpeedMin = 16.0f;
         ps.SpeedMax = 20.0f;
-        ps.StartSize = 0.025f;
-        ps.EndSize = 0.025f;
-        ps.StartColor = { 0.72f, 0.8f, 0.92f, 0.5f };
-        ps.EndColor = { 0.72f, 0.8f, 0.92f, 0.35f };
+        ps.StartSize = 0.03f;
+        ps.EndSize = 0.03f;
+        ps.StartColor = { 0.72f, 0.8f, 0.95f, 0.55f };
+        ps.EndColor = { 0.72f, 0.8f, 0.95f, 0.4f };
         ps.Additive = false;
         ps.Sorting = PS::SortMode::None; // thin streaks: their order does not show
         ps.Stretched = true;
@@ -203,20 +203,20 @@ namespace Zamin {
         ps.Collision.LifetimeLoss = 1.0f;
         ps.Collision.RadiusScale = 0.0f;
         ps.SubEmitters.Enabled = true;
-        ps.SubEmitters.Emitters = { SubEmitter(PS::SubEmitter::TriggerType::Collision, 0, 3, 0.6f) };
+        ps.SubEmitters.Emitters = { SubEmitter(PS::SubEmitter::TriggerType::Collision, 0, 4, 0.7f) };
 
         PS splash = TemplateSystem();
         splash.Direction = { 0.0f, 1.0f, 0.0f };
-        splash.Spread = 60.0f;
-        splash.SpeedMin = 1.0f;
-        splash.SpeedMax = 2.2f;
-        splash.LifetimeMin = 0.2f;
-        splash.LifetimeMax = 0.35f;
+        splash.Spread = 55.0f;
+        splash.SpeedMin = 1.2f;
+        splash.SpeedMax = 2.6f;
+        splash.LifetimeMin = 0.25f;
+        splash.LifetimeMax = 0.4f;
         splash.Gravity = { 0.0f, -9.8f, 0.0f };
-        splash.StartSize = 0.035f;
-        splash.EndSize = 0.01f;
-        splash.StartColor = { 0.8f, 0.85f, 0.95f, 0.6f };
-        splash.EndColor = { 0.8f, 0.85f, 0.95f, 0.0f };
+        splash.StartSize = 0.045f;
+        splash.EndSize = 0.015f;
+        splash.StartColor = { 0.82f, 0.88f, 1.0f, 0.8f };
+        splash.EndColor = { 0.82f, 0.88f, 1.0f, 0.0f };
         splash.Additive = false;
         splash.Sorting = PS::SortMode::None;
         preset.Templates.push_back({ "Yomg'ir sachrashi", splash });

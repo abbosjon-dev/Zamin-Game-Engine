@@ -53,14 +53,32 @@ namespace Zamin {
                               ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings))
         {
             // ---- title: the system and its count
+            const std::string count = subParticles > 0 ? std::format("{} + {}", ps.Particles.size(), subParticles)
+                                                       : std::format("{}", ps.Particles.size());
+            const float countWidth = ImGui::CalcTextSize(count.c_str()).x;
             ImGui::TextColored(UI::AccentColor(), ICON_FA_WAND_MAGIC_SPARKLES);
             ImGui::SameLine();
             ImGui::PushFont(ImGuiLayer::GetBoldFont());
-            ImGui::TextUnformatted(entity.GetName().c_str());
+            // The name as long as it fits before the count.
+            const float room = ImGui::GetWindowContentRegionMax().x - ImGui::GetCursorPosX() - countWidth - 10.0f;
+            std::string name = entity.GetName();
+            if (ImGui::CalcTextSize(name.c_str()).x > room)
+            {
+                while (!name.empty() && ImGui::CalcTextSize((name + "...").c_str()).x > room)
+                {
+                    name.pop_back();
+                    while (!name.empty() && ((unsigned char)name.back() & 0xC0) == 0x80) // a whole UTF-8 letter
+                        name.pop_back();
+                    if (!name.empty() && ((unsigned char)name.back() & 0xC0) == 0xC0)
+                        name.pop_back();
+                }
+                name += "...";
+            }
+            ImGui::TextUnformatted(name.c_str());
             ImGui::PopFont();
-            const std::string count = subParticles > 0 ? std::format("{} + {}", ps.Particles.size(), subParticles)
-                                                       : std::format("{}", ps.Particles.size());
-            ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(count.c_str()).x));
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip(entity.GetName().c_str());
+            ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowContentRegionMax().x - countWidth));
             ImGui::TextColored(ps.Particles.size() >= (size_t)std::max(1, ps.MaxParticles) ? ImVec4(0.95f, 0.6f, 0.3f, 1.0f)
                                                                                           : ImVec4(0.85f, 0.88f, 0.92f, 1.0f),
                                "%s", count.c_str());

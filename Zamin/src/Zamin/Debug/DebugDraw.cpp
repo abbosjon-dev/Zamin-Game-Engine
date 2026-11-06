@@ -659,6 +659,7 @@ namespace Zamin {
             return a.EntityA == b.EntityA && a.EntityB == b.EntityB && a.Character == b.Character;
         };
         size_t labels = 0;
+        std::vector<glm::vec3> placed;
         for (size_t i = 0; i < contacts.size() && labels < MaxContactLabels;)
         {
             // The pair's points: their middle, the deepest overlap, the hardest impact, the impulse in all.
@@ -704,7 +705,19 @@ namespace Zamin {
             else if (sleeping)
                 text += "\nuxlayapti";
             const glm::vec4 color = sleeping ? glm::vec4(0.7f, 0.75f, 0.85f, 0.6f) : glm::vec4(1.0f, 0.95f, 0.8f, 1.0f);
-            Text(middle + up * (s.NormalLength * 1.35f), text, color, 0.0f, false, s.TextSize * 0.75f);
+            // Pairs touching in about the same place (a ball on a plank on the floor): their labels
+            // are stacked instead of written over each other.
+            glm::vec3 at = middle + up * (s.NormalLength * 1.35f);
+            for (int tries = 0; tries < 8; tries++)
+            {
+                const bool clash = std::any_of(placed.begin(), placed.end(),
+                                               [&](const glm::vec3& other) { return glm::length(other - at) < s.NormalLength * 1.2f; });
+                if (!clash)
+                    break;
+                at.y += s.NormalLength * 1.4f;
+            }
+            placed.push_back(at);
+            Text(at, text, color, 0.0f, false, s.TextSize * 0.75f);
             labels++;
         }
     }

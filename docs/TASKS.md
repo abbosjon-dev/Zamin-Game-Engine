@@ -226,11 +226,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 193. Physics material 3D
 - [x] 194. Trigger callback'lari 3D (OnTriggerBegin)
 - [x] 195. Character controller dinamik jismlarni itarishi (kuch sozlamasi)
-- [ ] 196. Joint'lar inspektori va wireframe
-- [ ] 197. Joint'lar serializatsiyasi
-- [ ] 198. 3D ragdoll (oddiy) namunasi
-- [ ] 199. Fizika debug: contact nuqtalari
-- [ ] 200. 3D fizika testlari
+- [x] 196. Joint'lar inspektori va wireframe
+- [x] 197. Joint'lar serializatsiyasi
+- [x] 198. 3D ragdoll (oddiy) namunasi
+- [x] 199. Fizika debug: contact nuqtalari
+- [x] 200. 3D fizika testlari
 
 ## M11 Audio
 

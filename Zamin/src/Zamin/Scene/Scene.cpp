@@ -412,6 +412,23 @@ namespace Zamin {
             auto& b = registry.get<UIButtonComponent>(e);
             b.Hovered = b.Pressed = b.Clicked = false;
         }
+        for (auto e : registry.view<UISliderComponent>())
+        {
+            auto& c = registry.get<UISliderComponent>(e);
+            c.Hovered = c.Dragging = c.ValueChanged = false;
+        }
+        for (auto e : registry.view<UIToggleComponent>())
+        {
+            auto& c = registry.get<UIToggleComponent>(e);
+            c.Hovered = c.Pressed = c.ValueChanged = false;
+            c.Transition = c.IsOn ? 1.0f : 0.0f;
+        }
+        for (auto e : registry.view<UIProgressBarComponent>())
+        {
+            auto& c = registry.get<UIProgressBarComponent>(e);
+            c.DisplayValue = std::clamp(c.Value, 0.0f, 1.0f);
+        }
+        for (auto e : registry.view<UIInputFieldComponent>()) registry.get<UIInputFieldComponent>(e).ResetRuntime();
     }
 
     static void ResetRuntimeData(Entity e)
@@ -446,6 +463,14 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; c->Velocity = glm::vec3(0.0f); }
         if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->Clear(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
         if (auto* c = e.TryGetComponent<UIButtonComponent>()) c->Hovered = c->Pressed = c->Clicked = false;
+        if (auto* c = e.TryGetComponent<UISliderComponent>()) c->Hovered = c->Dragging = c->ValueChanged = false;
+        if (auto* c = e.TryGetComponent<UIToggleComponent>())
+        {
+            c->Hovered = c->Pressed = c->ValueChanged = false;
+            c->Transition = c->IsOn ? 1.0f : 0.0f;
+        }
+        if (auto* c = e.TryGetComponent<UIProgressBarComponent>()) c->DisplayValue = std::clamp(c->Value, 0.0f, 1.0f);
+        if (auto* c = e.TryGetComponent<UIInputFieldComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<MeshRendererComponent>())
         {
             // A copy (Instantiate) looks like its original did, with material instances of its own.
@@ -1697,8 +1722,16 @@ namespace Zamin {
             ps->Clear(); // starts over (Burst included) when the entity comes back
         if (auto* button = entity.TryGetComponent<UIButtonComponent>())
             button->Hovered = button->Pressed = button->Clicked = false;
-        if (m_PressedButton == (entt::entity)entity)
-            m_PressedButton = entt::null; // a press in progress is cancelled, not clicked later
+        if (auto* slider = entity.TryGetComponent<UISliderComponent>())
+            slider->Hovered = slider->Dragging = slider->ValueChanged = false;
+        if (auto* toggle = entity.TryGetComponent<UIToggleComponent>())
+            toggle->Hovered = toggle->Pressed = toggle->ValueChanged = false;
+        if (m_FocusedInput == (entt::entity)entity)
+            EndInputEdit(nullptr); // editing stops (its text stays)
+        if (auto* field = entity.TryGetComponent<UIInputFieldComponent>())
+            field->Hovered = field->Selecting = field->TextChanged = field->Submitted = false;
+        if (m_PressedUI == (entt::entity)entity)
+            m_PressedUI = entt::null; // a press in progress is cancelled, not clicked later
     }
 
     void Scene::StartEntityEffects(Entity entity)
@@ -1956,6 +1989,7 @@ namespace Zamin {
         // Tint animations start (PlayOnStart) from their first colour.
         for (auto e : m_Registry.view<TintAnimationComponent>())
             m_Registry.get<TintAnimationComponent>(e).ResetRuntime();
+        ResetUIRuntime(); // nothing pressed or being edited; widgets drawn as they are set
         // Inactive entities start without bodies and without OnEnable.
         EnsureActiveCache();
         m_AppliedInactive = m_InactiveOrder;
@@ -2013,6 +2047,7 @@ namespace Zamin {
         for (auto e : m_Registry.view<AmbientZoneComponent>())
             m_Registry.get<AmbientZoneComponent>(e).ResetRuntime();
         m_SoundOwners.clear();
+        ResetUIRuntime();
         SaveData::Save(); // flush what the scripts stored (no-op when nothing changed)
         DebugDraw::Clear(); // nothing the game drew stays in the editor's view
     }
@@ -4147,7 +4182,7 @@ namespace Zamin {
     {
         m_FrameIndex++;
         DeleteRetiredScripts(); // destroyed between frames (editor, other code)
-        UpdateUI();
+        UpdateUI(ts);
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
             m_Time += ts;
@@ -4329,6 +4364,11 @@ namespace Zamin {
                 : TextureLibrary::Load(Project::GetAssetFileSystemPath(tm->TilesetPath), tm->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
         if (auto* text = entity.TryGetComponent<TextComponent>())
             text->FontAsset = text->FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(text->FontPath));
+        if (auto* image = entity.TryGetComponent<UIImageComponent>())
+            image->Texture = image->TexturePath.empty() ? nullptr
+                : TextureLibrary::Load(Project::GetAssetFileSystemPath(image->TexturePath), image->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+        if (auto* field = entity.TryGetComponent<UIInputFieldComponent>())
+            field->FontAsset = field->FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(field->FontPath));
     }
 
     // ------------------------------------------------------------------ sprites
@@ -5197,77 +5237,6 @@ namespace Zamin {
             return;
         if (auto* ps = entity.TryGetComponent<ParticleSystemComponent>())
             SpawnParticles(*ps, GetWorldTransform(entity), count);
-    }
-
-    // ------------------------------------------------------------------ UI
-    static glm::vec2 AnchorOffset(UITransformComponent::AnchorPoint a, const glm::vec2& viewport)
-    {
-        int i = (int)a;
-        float fx = (i % 3) * 0.5f;          // 0, 0.5, 1
-        float fy = 1.0f - (i / 3) * 0.5f;   // top = 1
-        return { fx * viewport.x, fy * viewport.y };
-    }
-
-    static glm::vec2 UICenter(const UITransformComponent& ui, const glm::vec2& viewport)
-    {
-        return AnchorOffset(ui.Anchor, viewport) + ui.Position; // bottom-left origin, pixels
-    }
-
-    void Scene::UpdateUI()
-    {
-        glm::vec2 viewport = GetViewportSize();
-        glm::vec2 mouse = { m_MousePosition.x, viewport.y - m_MousePosition.y }; // to bottom-left origin
-        bool pressedNow = m_MouseDown && !m_MouseWasDown;
-        bool released = !m_MouseDown && m_MouseWasDown;
-        m_MouseWasDown = m_MouseDown;
-
-        // A button that went inactive while held down is not clicked when it comes back.
-        if (m_PressedButton != entt::null && (!m_Registry.valid(m_PressedButton) || !IsActiveInHierarchy({ m_PressedButton, this })))
-            m_PressedButton = entt::null;
-
-        entt::entity hovered = entt::null;
-        int bestOrder = INT32_MIN;
-        for (auto e : m_Registry.view<UITransformComponent, UIButtonComponent>())
-        {
-            auto& ui = m_Registry.get<UITransformComponent>(e);
-            auto& button = m_Registry.get<UIButtonComponent>(e);
-            button.Clicked = false;
-            button.Hovered = false;
-            // Inactive buttons are not drawn and cannot be hovered: the mouse reaches what is
-            // below them.
-            if (!button.Interactable || !IsActiveInHierarchy({ e, this })) continue;
-            glm::vec2 c = UICenter(ui, viewport), half = glm::abs(ui.Size) * 0.5f;
-            if (std::abs(mouse.x - c.x) <= half.x && std::abs(mouse.y - c.y) <= half.y && ui.Order >= bestOrder)
-            {
-                hovered = e;
-                bestOrder = ui.Order;
-            }
-        }
-
-        if (hovered != entt::null)
-            m_Registry.get<UIButtonComponent>(hovered).Hovered = true;
-        if (pressedNow)
-            m_PressedButton = hovered;
-
-        std::vector<entt::entity> clicked;
-        for (auto e : m_Registry.view<UIButtonComponent>())
-        {
-            auto& b = m_Registry.get<UIButtonComponent>(e);
-            b.Pressed = m_MouseDown && m_PressedButton == e && b.Hovered;
-            if (released && m_PressedButton == e && b.Hovered)
-            {
-                b.Clicked = true;
-                clicked.push_back(e);
-            }
-        }
-        if (released)
-            m_PressedButton = entt::null;
-
-        if (m_ScriptsRunning)
-            for (auto e : clicked)
-                if (m_Registry.valid(e) && IsActiveInHierarchy({ e, this })) // still active after earlier OnClicks
-                    if (auto* nsc = m_Registry.try_get<NativeScriptComponent>(e); nsc && nsc->Instance)
-                        nsc->Instance->OnClick();
     }
 
     // ------------------------------------------------------------------ cameras (2D follow, shake)
@@ -6165,71 +6134,5 @@ namespace Zamin {
         return GatherLights2D(world, viewCenter, nullptr, m_InactiveInHierarchy);
     }
 
-    void Scene::RenderUI(const std::unordered_set<entt::entity>* skip)
-    {
-        // ---------------- screen-space UI (pixels, bottom-left origin)
-        auto uiView = m_Registry.view<UITransformComponent>();
-        if (uiView.empty() || m_ViewportWidth == 0 || m_ViewportHeight == 0)
-            return;
-        glm::vec2 viewport = GetViewportSize();
-
-        std::vector<entt::entity> ui;
-        for (auto e : uiView)
-            if (!skip || !skip->contains(e))
-                ui.push_back(e);
-        std::reverse(ui.begin(), ui.end()); // views iterate newest-first; keep creation order for equal Order
-        std::stable_sort(ui.begin(), ui.end(), [&](entt::entity a, entt::entity b) {
-            return m_Registry.get<UITransformComponent>(a).Order < m_Registry.get<UITransformComponent>(b).Order;
-        });
-
-        RenderCommand::SetDepthTest(false);
-        Renderer2D::SetLit(false);
-        Renderer2D::BeginScene(glm::ortho(0.0f, viewport.x, 0.0f, viewport.y, -1.0f, 1.0f));
-        for (auto e : ui)
-        {
-            const auto& t = m_Registry.get<UITransformComponent>(e);
-            glm::vec2 center = UICenter(t, viewport);
-            int id = (int)(uint32_t)e;
-            glm::mat4 rect = glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(t.Size, 1.0f));
-
-            glm::vec4 tint(1.0f);
-            if (auto* b = m_Registry.try_get<UIButtonComponent>(e))
-                tint = !b->Interactable ? glm::vec4(0.5f, 0.5f, 0.5f, 1.0f) : b->Pressed ? b->PressedColor : b->Hovered ? b->HoverColor : b->NormalColor;
-            // A tint animation colours all of it (the button's own colours included).
-            const glm::vec4 animated = m_Registry.all_of<TintAnimationComponent>(e) ? m_Registry.get<TintAnimationComponent>(e).GetColor() : glm::vec4(1.0f);
-            tint *= animated;
-
-            if (auto* s = m_Registry.try_get<SpriteRendererComponent>(e))
-            {
-                glm::vec4 c = s->Color * tint;
-                const AssetRegistry* sheets = !s->SpriteName.empty() && Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
-                if (s->DrawMode == SpriteDrawMode::Simple)
-                    DrawSprite(rect, *s, nullptr, c, id, sheets);
-                else // 9-slice / tiled panels: borders in screen px
-                    DrawSprite(glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)), *s, nullptr, c, id, sheets, &t.Size);
-            }
-            else if (m_Registry.all_of<UIButtonComponent>(e))
-                Renderer2D::DrawQuad(rect, tint, id);
-
-            if (auto* c = m_Registry.try_get<CircleRendererComponent>(e))
-                Renderer2D::DrawCircle(rect, c->Color * animated, c->Thickness, c->Fade, id);
-
-            if (auto* text = m_Registry.try_get<TextComponent>(e))
-            {
-                if (!text->FontAsset) text->FontAsset = Font::GetDefault();
-                Renderer2D::TextParams params{ text->Color * animated, text->Kerning, text->LineSpacing };
-                float scale = std::max(1.0f, t.FontSize > 0.0f ? t.FontSize : t.Size.y);
-                glm::mat4 tm = glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(scale, scale, 1.0f));
-                glm::vec2 size = Renderer2D::MeasureString(text->Text, text->FontAsset, params);
-                float asc = text->FontAsset->GetAscent();
-                // Text is vertically centered on the rect; horizontally centered or left-aligned.
-                float x = text->Centered ? -size.x * 0.5f : -t.Size.x * 0.5f / scale;
-                tm = tm * glm::translate(glm::mat4(1.0f), { x, size.y * 0.5f - asc, 0.0f });
-                Renderer2D::DrawString(text->Text, text->FontAsset, tm, params, id);
-            }
-        }
-        Renderer2D::EndScene();
-        RenderCommand::SetDepthTest(true);
-    }
 
 }

@@ -114,6 +114,17 @@ namespace Zamin {
         virtual void OnJointBreak3D(const JointBreak3D& /*joint*/) {}
         // Called when a UIButton on this entity is clicked.
         virtual void OnClick() {}
+        // UI widgets on this entity, after the player changed them (not when code sets their fields;
+        // Scene::SetSliderValue / SetToggle / SetInputText notify unless told not to). Each is also
+        // emitted on the scene's event bus with the widget as the sender:
+        // "UISliderChanged" (float), "UIToggleChanged" (bool), "UITextChanged" / "UITextSubmitted" /
+        // "UITextEndEdit" (std::string).
+        //   void OnValueChanged(float volume) override { AudioEngine::SetBusVolume("Music", volume); }
+        virtual void OnValueChanged(float /*value*/) {}                 // UI Slider: dragged / clicked to a new value
+        virtual void OnToggleChanged(bool /*isOn*/) {}                  // UI Toggle: switched (also off by its group)
+        virtual void OnTextChanged(const std::string& /*text*/) {}      // UI Input Field: typed, deleted, pasted
+        virtual void OnTextSubmit(const std::string& /*text*/) {}       // UI Input Field: Enter
+        virtual void OnTextEndEdit(const std::string& /*text*/) {}      // UI Input Field: editing ended (Enter, Escape, a click elsewhere)
         // A sound of this entity ended by itself, on the main thread, in the frame the engine noticed
         // it (after OnLateUpdate): the Audio Source's sound or a one-shot this script played reached
         // its end (not looping), or the voice limit cut it off (sound.Stolen). Not for sounds stopped

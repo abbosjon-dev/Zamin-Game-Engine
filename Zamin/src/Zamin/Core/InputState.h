@@ -6,6 +6,8 @@
 #include "Zamin/Core/InputActions.h"
 
 #include <array>
+#include <string>
+#include <vector>
 
 namespace Zamin::Internal {
 
@@ -61,6 +63,9 @@ namespace Zamin::Internal {
         glm::vec2 PendingScroll{ 0.0f }, Scroll{ 0.0f };
 
         std::array<GamepadSlot, Input::MaxGamepads> Gamepads{};
+
+        std::vector<TextInputEvent> PendingText, Text; // since the last Update() / this frame
+        std::string Clipboard;                          // without a window
     };
 
     InputState& GetInputState();

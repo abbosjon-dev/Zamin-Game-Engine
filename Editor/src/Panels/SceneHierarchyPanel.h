@@ -323,6 +323,8 @@ namespace Zamin {
         bool DrawSpriteRenderer(Entity entity, SpriteRendererComponent& c);
         // Sprite Animation: grid cells or a list of sprite sheet frames.
         bool DrawSpriteAnimation(Entity entity, SpriteAnimationComponent& c);
+        // UI Image: texture, sprite sheet frame, type (Simple / Sliced / Tiled / Filled) and its settings.
+        bool DrawUIImage(Entity entity, UIImageComponent& c);
         // Camera 2D Follow: target, damping, dead zone, look-ahead, bounds.
         bool DrawCamera2DFollow(Entity entity, Camera2DFollowComponent& c);
         // 2D joints: the connected body (with what keeps the joint from being made), the anchors and

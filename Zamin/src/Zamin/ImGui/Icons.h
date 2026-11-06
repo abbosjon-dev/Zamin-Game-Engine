@@ -130,6 +130,8 @@
 #define ICON_FA_POWER_OFF "\xef\x80\x91"
 #define ICON_FA_TOGGLE_ON "\xef\x88\x85"
 #define ICON_FA_TOGGLE_OFF "\xef\x88\x84"
+#define ICON_FA_BARS_PROGRESS "\xef\xa0\xa8"
+#define ICON_FA_I_CURSOR "\xef\x89\x86"
 #define ICON_FA_BONE "\xef\x97\x97"
 #define ICON_FA_REPEAT "\xef\x8d\xa3"
 #define ICON_FA_BROOM "\xef\x94\x9a"

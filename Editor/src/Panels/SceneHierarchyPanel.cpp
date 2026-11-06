@@ -23,7 +23,12 @@ namespace Zamin {
 
     static const char* EntityIcon(Entity e)
     {
+        if (e.HasComponent<UIInputFieldComponent>()) return ICON_FA_I_CURSOR;
+        if (e.HasComponent<UISliderComponent>()) return ICON_FA_SLIDERS;
+        if (e.HasComponent<UIToggleComponent>()) return ICON_FA_SQUARE_CHECK;
+        if (e.HasComponent<UIProgressBarComponent>()) return ICON_FA_BARS_PROGRESS;
         if (e.HasComponent<UIButtonComponent>()) return ICON_FA_HAND_POINTER;
+        if (e.HasComponent<UIImageComponent>()) return ICON_FA_IMAGE;
         if (e.HasComponent<UITransformComponent>()) return ICON_FA_TABLE_CELLS;
         if (e.HasComponent<ParticleSystemComponent>()) return ICON_FA_WAND_MAGIC_SPARKLES;
         if (e.HasComponent<CameraComponent>()) return ICON_FA_CAMERA;
@@ -521,7 +526,40 @@ namespace Zamin {
             e = m_Context->CreateEntity("UI Rasm");
             auto& ui = e.AddComponent<UITransformComponent>();
             ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 128, 128 };
-            e.AddComponent<SpriteRendererComponent>();
+            e.AddComponent<UIImageComponent>();
+        }
+        else if (p == "UI Slider")
+        {
+            e = m_Context->CreateEntity("UI Slayder");
+            auto& ui = e.AddComponent<UITransformComponent>();
+            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 260, 28 };
+            e.AddComponent<UISliderComponent>();
+        }
+        else if (p == "UI Toggle")
+        {
+            e = m_Context->CreateEntity("UI Belgilash");
+            auto& ui = e.AddComponent<UITransformComponent>();
+            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 260, 32 };
+            ui.FontSize = 22.0f;
+            e.AddComponent<UIToggleComponent>();
+            auto& t = e.AddComponent<TextComponent>();
+            t.Text = "Ovoz yoqilgan";
+            t.FontAsset = Font::GetDefault();
+        }
+        else if (p == "UI Progress")
+        {
+            e = m_Context->CreateEntity("UI Progress");
+            auto& ui = e.AddComponent<UITransformComponent>();
+            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 260, 26 };
+            e.AddComponent<UIProgressBarComponent>().ShowPercentage = true;
+        }
+        else if (p == "UI Input")
+        {
+            e = m_Context->CreateEntity("UI Matn maydoni");
+            auto& ui = e.AddComponent<UITransformComponent>();
+            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 300, 44 };
+            ui.FontSize = 22.0f;
+            e.AddComponent<UIInputFieldComponent>().Placeholder = "Ismingiz...";
         }
         else if (p == "UI Button")
         {
@@ -613,6 +651,10 @@ namespace Zamin {
             if (ImGui::MenuItem(ICON_FA_FONT "  Matn")) CreateEntityPreset("UI Text");
             if (ImGui::MenuItem(ICON_FA_IMAGE "  Rasm")) CreateEntityPreset("UI Image");
             if (ImGui::MenuItem(ICON_FA_HAND_POINTER "  Tugma")) CreateEntityPreset("UI Button");
+            if (ImGui::MenuItem(ICON_FA_SLIDERS "  Slayder")) CreateEntityPreset("UI Slider");
+            if (ImGui::MenuItem(ICON_FA_SQUARE_CHECK "  Belgilash (toggle)")) CreateEntityPreset("UI Toggle");
+            if (ImGui::MenuItem(ICON_FA_BARS_PROGRESS "  Progress bar")) CreateEntityPreset("UI Progress");
+            if (ImGui::MenuItem(ICON_FA_I_CURSOR "  Matn maydoni (input)")) CreateEntityPreset("UI Input");
             ImGui::EndMenu();
         }
         if (ImGui::MenuItem(ICON_FA_VOLUME_HIGH "  Ovoz manbai")) CreateEntityPreset("Audio");
@@ -1174,7 +1216,8 @@ namespace Zamin {
             { "FixedJoint3D", "Fixed Joint 3D" }, { "HingeJoint3D", "Hinge Joint 3D" }, { "DistanceJoint3D", "Distance Joint 3D" },
             { "SliderJoint3D", "Slider Joint 3D" }, { "ConeJoint3D", "Cone Joint 3D" }, { "CharacterController3D", "Character Controller 3D" },
             { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
-            { "UIButton", "UI Button" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "AmbientZone", "Ambient Zone" },
+            { "UIButton", "UI Button" }, { "UIImage", "UI Image" }, { "UISlider", "UI Slider" }, { "UIToggle", "UI Toggle" },
+            { "UIProgressBar", "UI Progress Bar" }, { "UIInputField", "UI Input Field" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "AmbientZone", "Ambient Zone" },
             { "NativeScript", "C++ Skript" },
         };
         for (const auto& [k, name] : s_Names)
@@ -2731,6 +2774,119 @@ namespace Zamin {
                                                : "Kontur faqat bitta bo'lak bo'lib chiziladigan sprite'da (chegarasiz, takrorlashsiz)");
             }
         }
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::DrawUIImage(Entity entity, UIImageComponent& c)
+    {
+        (void)entity;
+        bool changed = UI::PropertyColor4("Rang", c.Color);
+        if (UI::PropertyAssetPath("Tekstura", c.TexturePath, ".png;.jpg;.jpeg;.bmp;.tga", ICON_FA_FILE_IMAGE))
+        {
+            c.Texture = c.TexturePath.empty() ? nullptr
+                : TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TexturePath), c.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+            changed = true;
+        }
+        const SpriteSheet* sheet = c.TexturePath.empty() ? nullptr : SpriteSheet::Get(c.TexturePath);
+        const bool missingFrame = !c.SpriteName.empty() && (!sheet || !sheet->Find(c.SpriteName));
+        UI::PropertyLabel("Sprite (kadr)", "Teksturaning nomlangan kadri (Sprite muharriri). Bo'sh - butun rasm. Tekstura bo'lmasa - oddiy rang");
+        ImGui::PushID("uiImageFrame");
+        const float button = ImGui::GetFrameHeight();
+        ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
+        std::string preview = c.SpriteName.empty() ? std::string("(butun rasm)")
+                            : missingFrame ? std::format(ICON_FA_TRIANGLE_EXCLAMATION "  {} (topilmadi)", c.SpriteName) : c.SpriteName;
+        ImGui::BeginDisabled(!sheet && c.SpriteName.empty());
+        if (ImGui::BeginCombo("##frame", preview.c_str(), ImGuiComboFlags_HeightLarge))
+        {
+            if (ImGui::Selectable("(butun rasm)", c.SpriteName.empty()))
+            {
+                c.SpriteName.clear();
+                changed = true;
+            }
+            if (sheet)
+                for (const SpriteFrame& f : sheet->Frames)
+                {
+                    std::string label = std::format("{}  ({}x{})", f.Name, f.Size.x, f.Size.y);
+                    if (ImGui::Selectable(label.c_str(), f.Name == c.SpriteName))
+                    {
+                        c.SpriteName = f.Name;
+                        changed = true;
+                    }
+                    if (ImGui::IsItemHovered() && c.Texture)
+                    {
+                        ImGui::BeginTooltip();
+                        SpriteImage(c.Texture, SpriteRegion::FromFrame(f, c.Texture->GetWidth(), c.Texture->GetHeight()), 96.0f);
+                        ImGui::EndTooltip();
+                    }
+                }
+            ImGui::EndCombo();
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(c.TexturePath.empty());
+        if (ImGui::Button(ICON_FA_SCISSORS, ImVec2(button, 0)) && OnSpriteEditorRequested)
+            OnSpriteEditorRequested(c.TexturePath);
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip("Sprite muharriri: teksturani kadrlarga kesish");
+        ImGui::PopID();
+
+        const char* types[] = { "Oddiy (Simple)", "9-slice (Sliced)", "Plitka (Tiled)", "To'ldirilgan (Filled)" };
+        int type = (int)c.Type;
+        UI::PropertyLabel("Turi", "Oddiy: rasm to'rtburchakka cho'ziladi. 9-slice: burchaklar o'z o'lchamida (panel, tugma). "
+                                  "Plitka: chetlar va o'rta takrorlanadi. To'ldirilgan: rasmning bir qismi (chiziq, taymer, qayta tiklanish)");
+        ImGui::PushID("uiImageType");
+        if (ImGui::Combo("##v", &type, types, 4)) { c.Type = (UIImageType)type; changed = true; }
+        ImGui::PopID();
+        if (c.Type == UIImageType::Simple || c.Type == UIImageType::Filled)
+            changed |= UI::PropertyBool("Nisbatni saqlash", c.PreserveAspect);
+        if (c.Type == UIImageType::Sliced || c.Type == UIImageType::Tiled)
+        {
+            UI::PropertyLabel("Chegaralar (px)", "Chap, o'ng, yuqori, past. Hammasi 0 bo'lsa kadrning chegaralari (Sprite muharriri)");
+            ImGui::PushID("uiImageBorder");
+            if (ImGui::DragFloat4("##v", &c.SliceBorder.x, 0.25f, 0.0f, 4096.0f, "%.0f"))
+            {
+                c.SliceBorder = glm::max(c.SliceBorder, glm::vec4(0.0f));
+                changed = true;
+            }
+            ImGui::PopID();
+            if (UI::PropertyFloat("Chegara masshtabi", c.BorderScale, 0.01f, 0.01f, 100.0f, "%.2f"))
+            {
+                c.BorderScale = std::max(0.01f, c.BorderScale);
+                changed = true;
+            }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Burchaklar ekranda chegara piksellari x shu son (plitkalar ham)");
+        }
+        if (c.Type == UIImageType::Filled)
+        {
+            const char* methods[] = { "Gorizontal", "Vertikal", "Radial 360" };
+            int method = (int)c.FillMethod;
+            if (UI::PropertyCombo("To'ldirish usuli", method, methods, 3))
+            {
+                c.FillMethod = (UIFillMethod)method;
+                c.FillOrigin = 0;
+                changed = true;
+            }
+            const char* horizontal[] = { "Chap", "O'ng" };
+            const char* vertical[] = { "Past", "Yuqori" };
+            const char* radial[] = { "Yuqori", "O'ng", "Past", "Chap" };
+            const char* const* origins = c.FillMethod == UIFillMethod::Horizontal ? horizontal : c.FillMethod == UIFillMethod::Vertical ? vertical : radial;
+            const int originCount = c.FillMethod == UIFillMethod::Radial360 ? 4 : 2;
+            c.FillOrigin = std::clamp(c.FillOrigin, 0, originCount - 1);
+            changed |= UI::PropertyCombo("Boshlanish", c.FillOrigin, origins, originCount);
+            changed |= UI::PropertySlider("Miqdor", c.FillAmount, 0.0f, 1.0f);
+            if (c.FillMethod == UIFillMethod::Radial360)
+                changed |= UI::PropertyBool("Soat yo'nalishida", c.FillClockwise);
+        }
+        if (UI::PropertyBool("Pixel-art (aniq piksellar)", c.PixelArt) && !c.TexturePath.empty())
+        {
+            c.Texture = TextureLibrary::Load(Project::GetAssetFileSystemPath(c.TexturePath), c.PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+            changed = true;
+        }
+        changed |= UI::PropertyBool("Sichqonchani to'sadi", c.RaycastTarget);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Yoqiq: rasm ostidagi UI tugma, slayder va boshqalar bosilmaydi (masalan, dialog foni)");
         return changed;
     }
 
@@ -5188,6 +5344,11 @@ namespace Zamin {
                 DisplayAddComponentEntry<ParticleSystemComponent>("Particle System", ICON_FA_WAND_MAGIC_SPARKLES);
                 DisplayAddComponentEntry<UITransformComponent>("UI Transform", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<UIButtonComponent>("UI Button", ICON_FA_HAND_POINTER);
+                DisplayAddComponentEntry<UIImageComponent>("UI Image (rasm, 9-slice, to'ldirish)", ICON_FA_IMAGE);
+                DisplayAddComponentEntry<UISliderComponent>("UI Slider", ICON_FA_SLIDERS);
+                DisplayAddComponentEntry<UIToggleComponent>("UI Toggle (belgilash)", ICON_FA_SQUARE_CHECK);
+                DisplayAddComponentEntry<UIProgressBarComponent>("UI Progress Bar", ICON_FA_BARS_PROGRESS);
+                DisplayAddComponentEntry<UIInputFieldComponent>("UI Input Field (matn maydoni)", ICON_FA_I_CURSOR);
                 ImGui::SeparatorText("Boshqa");
                 DisplayAddComponentEntry<AudioSourceComponent>("Audio Source", ICON_FA_VOLUME_HIGH);
                 DisplayAddComponentEntry<AudioListenerComponent>("Audio Listener (tinglovchi)", ICON_FA_EAR_LISTEN);
@@ -6309,6 +6470,185 @@ namespace Zamin {
             changed |= UI::PropertyBool("Faol", c.Interactable);
             UI::PropertyLabel("");
             ImGui::TextDisabled("Skriptda: OnClick() yoki .Clicked");
+            return changed;
+        }, true, modified);
+
+        AddSection<UIImageComponent>(ICON_FA_IMAGE, "UI Image", entity, [&](UIImageComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: rasm ko'rinmaydi");
+            if (!entity.HasComponent<UITransformComponent>())
+            {
+                UI::PropertyLabel("");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  UI Transform kerak");
+            }
+            return DrawUIImage(entity, c);
+        }, true, modified);
+
+        static const char* const s_UIDirectionNames[] = { "Chapdan o'ngga", "O'ngdan chapga", "Pastdan yuqoriga", "Yuqoridan pastga" };
+
+        AddSection<UISliderComponent>(ICON_FA_SLIDERS, "UI Slider", entity, [&](UISliderComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: slayder ko'rinmaydi va surilmaydi");
+            bool changed = false;
+            const float step = c.WholeNumbers ? 1.0f : 0.01f;
+            if (UI::PropertyFloat("Minimum", c.MinValue, step, 0.0f, 0.0f, c.WholeNumbers ? "%.0f" : "%.3f"))
+            {
+                c.Value = UIMath::ClampValue(c.Value, c.MinValue, c.MaxValue, c.WholeNumbers);
+                changed = true;
+            }
+            if (UI::PropertyFloat("Maksimum", c.MaxValue, step, 0.0f, 0.0f, c.WholeNumbers ? "%.0f" : "%.3f"))
+            {
+                c.Value = UIMath::ClampValue(c.Value, c.MinValue, c.MaxValue, c.WholeNumbers);
+                changed = true;
+            }
+            UI::PropertyLabel("Qiymat", "Skriptdan: GetScene().SetSliderValue(entity, qiymat) - OnValueChanged ham chaqiriladi");
+            ImGui::PushID("value");
+            float lo = std::min(c.MinValue, c.MaxValue), hi = std::max(c.MinValue, c.MaxValue);
+            if (ImGui::SliderFloat("##v", &c.Value, lo, hi, c.WholeNumbers ? "%.0f" : "%.3f"))
+            {
+                c.Value = UIMath::ClampValue(c.Value, c.MinValue, c.MaxValue, c.WholeNumbers);
+                changed = true;
+            }
+            ImGui::PopID();
+            if (UI::PropertyBool("Butun sonlar", c.WholeNumbers))
+            {
+                c.Value = UIMath::ClampValue(c.Value, c.MinValue, c.MaxValue, c.WholeNumbers);
+                changed = true;
+            }
+            int direction = (int)c.Direction;
+            if (UI::PropertyCombo("Yo'nalish", direction, s_UIDirectionNames, 4)) { c.Direction = (UIDirection)direction; changed = true; }
+            changed |= UI::PropertyBool("Faol", c.Interactable);
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Ko'rinish");
+            changed |= UI::PropertyFloat("Yo'lak qalinligi (px)", c.TrackThickness, 0.25f, 0.0f, 1000.0f, "%.1f");
+            if (ImGui::IsItemHovered()) UI::Tooltip("0 - butun to'rtburchak qalinligi");
+            changed |= UI::PropertyFloat("Tutqich o'lchami (px)", c.HandleSize, 0.25f, 0.0f, 1000.0f, "%.1f");
+            if (ImGui::IsItemHovered()) UI::Tooltip("0 - to'rtburchak qalinligi");
+            changed |= UI::PropertyBool("Yumaloq", c.Rounded);
+            changed |= UI::PropertyColor4("Yo'lak rangi", c.TrackColor);
+            changed |= UI::PropertyColor4("To'ldirish rangi", c.FillColor);
+            changed |= UI::PropertyColor4("Tutqich rangi", c.HandleColor);
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("Skriptda: OnValueChanged(qiymat), .Value, .Dragging");
+            return changed;
+        }, true, modified);
+
+        AddSection<UIToggleComponent>(ICON_FA_SQUARE_CHECK, "UI Toggle", entity, [&](UIToggleComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: belgilash ko'rinmaydi va bosilmaydi");
+            bool changed = false;
+            if (UI::PropertyBool("Yoqilgan", c.IsOn))
+            {
+                c.Transition = c.IsOn ? 1.0f : 0.0f;
+                if (c.IsOn && m_Context && m_Context->IsRunning())
+                {
+                    // The group follows while the game runs (as SetToggle does).
+                    c.IsOn = false;
+                    m_Context->SetToggle(entity, true);
+                }
+                changed = true;
+            }
+            const char* styles[] = { "Belgilash qutisi", "Almashtirgich (switch)" };
+            int style = (int)c.Style;
+            if (UI::PropertyCombo("Ko'rinish", style, styles, 2)) { c.Style = (UIToggleStyle)style; changed = true; }
+            if (c.Style == UIToggleStyle::Checkbox)
+            {
+                const char* marks[] = { "Belgi (galochka)", "Kvadrat", "Nuqta" };
+                int mark = (int)c.Mark;
+                if (UI::PropertyCombo("Belgi", mark, marks, 3)) { c.Mark = (UIToggleMark)mark; changed = true; }
+            }
+            changed |= UI::PropertyString("Guruh", c.Group);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Bir xil guruhdagi belgilashlardan faqat bittasi yoqiq bo'ladi (radio tugmalar). Bo'sh - guruhsiz");
+            if (!c.Group.empty())
+                changed |= UI::PropertyBool("O'chirishga ruxsat", c.AllowSwitchOff);
+            changed |= UI::PropertyBool("Faol", c.Interactable);
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Ko'rinish");
+            changed |= UI::PropertyFloat("Quti o'lchami (px)", c.BoxSize, 0.25f, 0.0f, 1000.0f, "%.1f");
+            if (ImGui::IsItemHovered()) UI::Tooltip("0 - to'rtburchak balandligi");
+            changed |= UI::PropertyFloat("Yozuvgacha oraliq (px)", c.LabelSpacing, 0.25f, 0.0f, 1000.0f, "%.1f");
+            changed |= UI::PropertyColor4("Quti rangi", c.BoxColor);
+            changed |= UI::PropertyColor4("Yoqiq rangi", c.OnColor);
+            changed |= UI::PropertyColor4("Belgi rangi", c.MarkColor);
+            UI::PropertyLabel("");
+            ImGui::TextDisabled(entity.HasComponent<TextComponent>() ? "Yozuv: shu obyektning Text komponenti (qutidan o'ngda)"
+                                                                     : "Yozuv uchun Text komponenti qo'shing");
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("Skriptda: OnToggleChanged(yoqiq), .IsOn");
+            return changed;
+        }, true, modified);
+
+        AddSection<UIProgressBarComponent>(ICON_FA_BARS_PROGRESS, "UI Progress Bar", entity, [&](UIProgressBarComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: progress bar ko'rinmaydi");
+            bool changed = UI::PropertySlider("Qiymat (0..1)", c.Value, 0.0f, 1.0f);
+            if (changed && !(m_Context && m_Context->IsRunning()))
+                c.DisplayValue = c.Value;
+            int direction = (int)c.Direction;
+            if (UI::PropertyCombo("Yo'nalish", direction, s_UIDirectionNames, 4)) { c.Direction = (UIDirection)direction; changed = true; }
+            changed |= UI::PropertyColor4("Fon rangi", c.BackgroundColor);
+            changed |= UI::PropertyColor4("To'ldirish rangi", c.FillColor);
+            changed |= UI::PropertyBool("Rang qiymatga qarab", c.UseLowColor);
+            if (ImGui::IsItemHovered()) UI::Tooltip("To'ldirish rangi bo'shda shu rangdan to'lada asosiy rangga o'tadi (masalan, sog'liq: qizil -> yashil)");
+            if (c.UseLowColor)
+                changed |= UI::PropertyColor4("Kam qiymat rangi", c.LowColor);
+            changed |= UI::PropertyFloat("Ichki chekinish (px)", c.Padding, 0.25f, 0.0f, 1000.0f, "%.1f");
+            changed |= UI::PropertyFloat("Silliq tezlik (/s)", c.SmoothSpeed, 0.01f, 0.0f, 100.0f, "%.2f");
+            if (ImGui::IsItemHovered()) UI::Tooltip("O'yinda chiziq qiymatga shu tezlikda yetib boradi (sekundiga). 0 - darhol");
+            changed |= UI::PropertyBool("Foizni ko'rsatish", c.ShowPercentage);
+            if (c.ShowPercentage)
+                changed |= UI::PropertyColor4("Matn rangi", c.TextColor);
+            return changed;
+        }, true, modified);
+
+        AddSection<UIInputFieldComponent>(ICON_FA_I_CURSOR, "UI Input Field", entity, [&](UIInputFieldComponent& c) {
+            InactiveComponentNote(entity, "Obyekt nofaol: matn maydoni ko'rinmaydi va tahrirlanmaydi");
+            bool changed = false;
+            std::string text = c.Text;
+            if (UI::PropertyString("Matn", text))
+            {
+                c.Text = TextEdit::Filter(text, c.ContentType, c.CharacterLimit);
+                c.Caret = c.Anchor = std::min(c.Caret, c.Text.size());
+                changed = true;
+            }
+            changed |= UI::PropertyString("Bo'sh paytdagi yozuv", c.Placeholder);
+            const char* types[] = { "Oddiy matn", "Butun son", "O'nlik son", "Harf va raqam", "Parol" };
+            int type = (int)c.ContentType;
+            if (UI::PropertyCombo("Mazmun turi", type, types, 5))
+            {
+                c.ContentType = (UIContentType)type;
+                c.Text = TextEdit::Filter(c.Text, c.ContentType, c.CharacterLimit);
+                c.Caret = c.Anchor = std::min(c.Caret, c.Text.size());
+                changed = true;
+            }
+            if (UI::PropertyInt("Belgilar chegarasi", c.CharacterLimit))
+            {
+                c.CharacterLimit = std::max(0, c.CharacterLimit);
+                c.Text = TextEdit::Filter(c.Text, c.ContentType, c.CharacterLimit);
+                c.Caret = c.Anchor = std::min(c.Caret, c.Text.size());
+                changed = true;
+            }
+            if (ImGui::IsItemHovered()) UI::Tooltip("Ko'pi bilan shuncha belgi (harflar, UTF-8 baytlar emas). 0 - cheklanmagan");
+            changed |= UI::PropertyBool("Faol", c.Interactable);
+            changed |= UI::PropertyBool("Faqat o'qish", c.ReadOnly);
+            changed |= UI::PropertyBool("Fokusda hammasini tanlash", c.SelectAllOnFocus);
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Ko'rinish");
+            if (UI::PropertyAssetPath("Shrift", c.FontPath, ".ttf;.otf", ICON_FA_FONT))
+            {
+                c.FontAsset = c.FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(c.FontPath));
+                changed = true;
+            }
+            changed |= UI::PropertyFloat("Chekinish (px)", c.Padding, 0.25f, 0.0f, 1000.0f, "%.1f");
+            changed |= UI::PropertyColor4("Fon", c.BackgroundColor);
+            changed |= UI::PropertyColor4("Chegara", c.OutlineColor);
+            changed |= UI::PropertyColor4("Fokus chegarasi", c.FocusColor);
+            changed |= UI::PropertyColor4("Matn rangi", c.TextColor);
+            changed |= UI::PropertyColor4("Bo'sh yozuv rangi", c.PlaceholderColor);
+            changed |= UI::PropertyColor4("Kursor", c.CaretColor);
+            changed |= UI::PropertyColor4("Tanlov", c.SelectionColor);
+            changed |= UI::PropertyFloat("Kursor miltillashi (s)", c.CaretBlinkRate, 0.01f, 0.0f, 5.0f, "%.2f");
+            if (m_Context && m_Context->IsRunning())
+            {
+                UI::PropertyLabel("Holat");
+                ImGui::TextDisabled("%s", c.Focused ? "Tahrirlanmoqda" : "Kutmoqda");
+            }
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("Skriptda: OnTextChanged / OnTextSubmit / OnTextEndEdit");
             return changed;
         }, true, modified);
 

@@ -4336,13 +4336,18 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<ParticleSystemComponent>();
     e.AddComponent<UITransformComponent>();
     e.AddComponent<UIButtonComponent>();
+    e.AddComponent<UIImageComponent>();
+    e.AddComponent<UISliderComponent>();
+    e.AddComponent<UIToggleComponent>();
+    e.AddComponent<UIProgressBarComponent>();
+    e.AddComponent<UIInputFieldComponent>();
     e.AddComponent<AudioSourceComponent>();
     e.AddComponent<AudioListenerComponent>();
     e.AddComponent<AmbientZoneComponent>();
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 49);
+    CHECK(types.size() == 54);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -22178,4 +22183,762 @@ TEST(AudioSampleScene)
     }
     if (!wasAvailable)
         AudioEngine::Shutdown();
+}
+
+// ------------------------------------------------------------------ M12: UI widgets (image, slider, toggle, progress bar, input field)
+TEST(UIImageFillGeometry)
+{
+    const UIRect square{ { 0.0f, 0.0f }, { 100.0f, 100.0f } };
+    const UIRect wide{ { 0.0f, 0.0f }, { 200.0f, 100.0f } };
+    // Preserve aspect: the largest rectangle of the picture's shape, centred.
+    UIRect fit = UIMath::FitAspect(wide, 1.0f);
+    CHECK_NEAR(fit.Min.x, 50.0f, 1e-4f);
+    CHECK_NEAR(fit.Max.x, 150.0f, 1e-4f);
+    CHECK_NEAR(fit.GetHeight(), 100.0f, 1e-4f);
+    fit = UIMath::FitAspect(square, 2.0f);
+    CHECK_NEAR(fit.GetWidth(), 100.0f, 1e-4f);
+    CHECK_NEAR(fit.GetHeight(), 50.0f, 1e-4f);
+    CHECK_NEAR(fit.Min.y, 25.0f, 1e-4f);
+
+    std::vector<UIQuad> quads;
+    const glm::vec2 uv0(0.0f), uv1(1.0f);
+    // Horizontal from the left / the right: the UVs follow the cut.
+    UIMath::BuildFill(wide, uv0, uv1, UIFillMethod::Horizontal, 0, 0.25f, true, quads);
+    CHECK(quads.size() == 1);
+    CHECK_NEAR(quads[0].Position[1].x, 50.0f, 1e-4f);
+    CHECK_NEAR(quads[0].UV[1].x, 0.25f, 1e-5f);
+    quads.clear();
+    UIMath::BuildFill(wide, uv0, uv1, UIFillMethod::Horizontal, 1, 0.25f, true, quads);
+    CHECK(quads.size() == 1);
+    CHECK_NEAR(quads[0].Position[0].x, 150.0f, 1e-4f);
+    CHECK_NEAR(quads[0].UV[0].x, 0.75f, 1e-5f);
+    quads.clear();
+    // Vertical from the top, a sub-region of an atlas.
+    UIMath::BuildFill(square, { 0.5f, 0.5f }, { 1.0f, 1.0f }, UIFillMethod::Vertical, 1, 0.5f, true, quads);
+    CHECK(quads.size() == 1);
+    CHECK_NEAR(quads[0].Position[0].y, 50.0f, 1e-4f);
+    CHECK_NEAR(quads[0].UV[0].y, 0.75f, 1e-5f);
+    quads.clear();
+    // Nothing / everything.
+    UIMath::BuildFill(square, uv0, uv1, UIFillMethod::Radial360, 0, 0.0f, true, quads);
+    CHECK(quads.empty());
+    UIMath::BuildFill(square, uv0, uv1, UIFillMethod::Radial360, 0, 1.0f, true, quads);
+    CHECK(quads.size() == 1);
+    CHECK_NEAR(UIMath::GetArea(quads), 10000.0f, 0.5f);
+    quads.clear();
+
+    // Radial: the share of the picture (measured in its own square: also for a wide rect).
+    // (The amount is the clock hand's angle: at eighths - the corners and the edge middles - it is
+    // also that share of the area; it always grows with the amount.)
+    for (float amount : { 0.125f, 0.25f, 0.5f, 0.625f, 0.875f })
+    {
+        quads.clear();
+        UIMath::BuildFill(square, uv0, uv1, UIFillMethod::Radial360, 0, amount, true, quads);
+        CHECK_NEAR(UIMath::GetArea(quads), 10000.0f * amount, 1.0f);
+        quads.clear();
+        UIMath::BuildFill(wide, uv0, uv1, UIFillMethod::Radial360, 2, amount, false, quads);
+        CHECK_NEAR(UIMath::GetArea(quads), 20000.0f * amount, 2.0f);
+    }
+    float previous = 0.0f;
+    bool grows = true;
+    for (int i = 1; i <= 50; i++)
+    {
+        quads.clear();
+        UIMath::BuildFill(square, uv0, uv1, UIFillMethod::Radial360, 1, (float)i / 50.0f, true, quads);
+        float area = UIMath::GetArea(quads);
+        grows &= area > previous;
+        previous = area;
+    }
+    CHECK(grows && std::abs(previous - 10000.0f) < 1.0f);
+    // A third of the way round from the top, clockwise: the hand points down-right at 120 degrees.
+    quads.clear();
+    UIMath::BuildFill(square, uv0, uv1, UIFillMethod::Radial360, 0, 1.0f / 3.0f, true, quads);
+    CHECK(!quads.empty());
+    if (!quads.empty())
+    {
+        glm::vec2 end = quads.back().Position[1] - glm::vec2(50.0f); // clockwise: corner 1 is the sweep's end
+        CHECK_NEAR(std::atan2(end.y, end.x), glm::radians(90.0f - 120.0f), 1e-3f);
+    }
+    // A quarter from the top, clockwise: the top-right quarter; counter-clockwise: the top-left one.
+    quads.clear();
+    UIMath::BuildFill(square, uv0, uv1, UIFillMethod::Radial360, 0, 0.25f, true, quads);
+    bool topRight = !quads.empty();
+    for (const UIQuad& q : quads)
+        for (const glm::vec2& p : q.Position)
+            topRight &= p.x >= 50.0f - 1e-3f && p.y >= 50.0f - 1e-3f;
+    CHECK(topRight);
+    // Corners are counter-clockwise (positive area) and the UVs match the positions.
+    for (const UIQuad& q : quads)
+    {
+        const glm::vec2 a = q.Position[1] - q.Position[0], b = q.Position[2] - q.Position[0];
+        CHECK(a.x * b.y - a.y * b.x > 0.0f);
+        for (int i = 0; i < 4; i++)
+            CHECK(glm::length(q.UV[i] - q.Position[i] / 100.0f) < 1e-4f);
+    }
+    quads.clear();
+    UIMath::BuildFill(square, uv0, uv1, UIFillMethod::Radial360, 0, 0.25f, false, quads);
+    bool topLeft = !quads.empty();
+    for (const UIQuad& q : quads)
+        for (const glm::vec2& p : q.Position)
+            topLeft &= p.x <= 50.0f + 1e-3f && p.y >= 50.0f - 1e-3f;
+    CHECK(topLeft);
+
+    // Progress fill rectangles.
+    UIRect f = UIMath::FillRect(wide, UIDirection::RightToLeft, 0.25f);
+    CHECK_NEAR(f.Min.x, 150.0f, 1e-4f);
+    CHECK_NEAR(f.Max.x, 200.0f, 1e-4f);
+    f = UIMath::FillRect(square, UIDirection::TopToBottom, 2.0f); // clamped
+    CHECK_NEAR(f.Min.y, 0.0f, 1e-4f);
+    f = UIMath::FillRect(square, UIDirection::BottomToTop, 0.3f);
+    CHECK_NEAR(f.Max.y, 30.0f, 1e-4f);
+    // Insets never turn a rectangle inside out.
+    UIRect thin = UIRect{ { 0.0f, 0.0f }, { 10.0f, 4.0f } }.Inset(3.0f);
+    CHECK(thin.GetHeight() == 0.0f && thin.GetWidth() == 4.0f);
+}
+
+TEST(UISliderValueMapping)
+{
+    CHECK_NEAR(UIMath::Normalize(5.0f, 0.0f, 10.0f), 0.5f, 1e-6f);
+    CHECK_NEAR(UIMath::Normalize(15.0f, 0.0f, 10.0f), 1.0f, 1e-6f);
+    CHECK_NEAR(UIMath::Normalize(2.0f, 10.0f, 0.0f), 0.8f, 1e-6f); // a range that runs backwards
+    CHECK(UIMath::Normalize(3.0f, 4.0f, 4.0f) == 0.0f);
+    CHECK_NEAR(UIMath::Denormalize(0.34f, 0.0f, 10.0f, true), 3.0f, 1e-6f);
+    CHECK_NEAR(UIMath::Denormalize(0.36f, 0.0f, 10.0f, true), 4.0f, 1e-6f);
+    CHECK_NEAR(UIMath::Denormalize(0.25f, -1.0f, 1.0f, false), -0.5f, 1e-6f);
+    CHECK_NEAR(UIMath::ClampValue(12.0f, 10.0f, 0.0f, false), 10.0f, 1e-6f);
+    CHECK_NEAR(UIMath::ClampValue(0.4f, 0.2f, 0.8f, true), 0.0f, 1e-6f); // no whole number inside: the rounded minimum
+    CHECK_NEAR(UIMath::ClampValue(2.6f, 0.5f, 5.5f, true), 3.0f, 1e-6f);
+
+    // The handle (20 px: the rect's height) stays inside: its centre runs from 10 to 190.
+    const UIRect rect{ { 0.0f, 0.0f }, { 200.0f, 20.0f } };
+    CHECK_NEAR(UIMath::GetSliderHandleSize(rect, UIDirection::LeftToRight, 0.0f), 20.0f, 1e-6f);
+    CHECK_NEAR(UIMath::SliderNormalizedAt(rect, UIDirection::LeftToRight, 0.0f, { 10.0f, 10.0f }), 0.0f, 1e-6f);
+    CHECK_NEAR(UIMath::SliderNormalizedAt(rect, UIDirection::LeftToRight, 0.0f, { 100.0f, 50.0f }), 0.5f, 1e-6f);
+    CHECK_NEAR(UIMath::SliderNormalizedAt(rect, UIDirection::LeftToRight, 0.0f, { 190.0f, -40.0f }), 1.0f, 1e-6f);
+    CHECK_NEAR(UIMath::SliderNormalizedAt(rect, UIDirection::LeftToRight, 0.0f, { -50.0f, 10.0f }), 0.0f, 1e-6f);
+    CHECK_NEAR(UIMath::SliderNormalizedAt(rect, UIDirection::RightToLeft, 0.0f, { 10.0f, 10.0f }), 1.0f, 1e-6f);
+    CHECK_NEAR(UIMath::SliderNormalizedAt(rect, UIDirection::LeftToRight, 40.0f, { 20.0f, 10.0f }), 0.0f, 1e-6f);
+    glm::vec2 h = UIMath::GetSliderHandleCenter(rect, UIDirection::LeftToRight, 0.0f, 0.25f);
+    CHECK_NEAR(h.x, 55.0f, 1e-4f);
+    CHECK_NEAR(h.y, 10.0f, 1e-4f);
+    const UIRect column{ { 0.0f, 0.0f }, { 30.0f, 330.0f } };
+    CHECK_NEAR(UIMath::SliderNormalizedAt(column, UIDirection::BottomToTop, 0.0f, { 0.0f, 165.0f }), 0.5f, 1e-6f);
+    CHECK_NEAR(UIMath::SliderNormalizedAt(column, UIDirection::TopToBottom, 0.0f, { 0.0f, 15.0f }), 1.0f, 1e-6f);
+
+    // Toggle layout: the box at the left (a switch is wider), the label after the spacing.
+    const UIRect row{ { 100.0f, 0.0f }, { 400.0f, 40.0f } };
+    UIRect box = UIMath::GetToggleBox(row, 0.0f, UIToggleStyle::Checkbox);
+    CHECK_NEAR(box.Min.x, 100.0f, 1e-4f);
+    CHECK_NEAR(box.GetWidth(), 40.0f, 1e-4f);
+    box = UIMath::GetToggleBox(row, 20.0f, UIToggleStyle::Switch);
+    CHECK_NEAR(box.GetHeight(), 20.0f, 1e-4f);
+    CHECK_NEAR(box.GetWidth(), 36.0f, 1e-4f);
+    CHECK_NEAR(box.GetCenter().y, 20.0f, 1e-4f);
+    CHECK_NEAR(UIMath::GetToggleLabel(row, 0.0f, UIToggleStyle::Checkbox, 10.0f).Min.x, 150.0f, 1e-4f);
+
+    UISliderComponent slider;
+    slider.MinValue = 0.0f;
+    slider.MaxValue = 100.0f;
+    slider.WholeNumbers = true;
+    slider.SetNormalizedValue(0.333f);
+    CHECK(slider.Value == 33.0f);
+    CHECK_NEAR(slider.GetNormalizedValue(), 0.33f, 1e-6f);
+}
+
+static std::vector<std::string> g_UIEvents; // "<entity>:<what>=<value>" in the order they came
+
+class UIWidgetProbe : public ScriptableEntity
+{
+public:
+    void OnValueChanged(float value) override { g_UIEvents.push_back(std::format("{}:slider={}", GetName(), value)); }
+    void OnToggleChanged(bool isOn) override { g_UIEvents.push_back(std::format("{}:toggle={}", GetName(), isOn ? 1 : 0)); }
+    void OnTextChanged(const std::string& text) override { g_UIEvents.push_back(std::format("{}:text={}", GetName(), text)); }
+    void OnTextSubmit(const std::string& text) override { g_UIEvents.push_back(std::format("{}:submit={}", GetName(), text)); }
+    void OnTextEndEdit(const std::string& text) override { g_UIEvents.push_back(std::format("{}:end={}", GetName(), text)); }
+};
+ZM_REGISTER_SCRIPT(UIWidgetProbe)
+
+// A UI entity at the view's centre + offset (px, y up), with the probe script.
+static Entity MakeUIWidget(const Ref<Scene>& scene, const std::string& name, const glm::vec2& offset, const glm::vec2& size, int order = 0)
+{
+    Entity e = scene->CreateEntity(name);
+    auto& ui = e.AddComponent<UITransformComponent>();
+    ui.Anchor = UITransformComponent::AnchorPoint::Center;
+    ui.Position = offset;
+    ui.Size = size;
+    ui.Order = order;
+    e.AddComponent<NativeScriptComponent>().ClassName = "UIWidgetProbe";
+    return e;
+}
+
+TEST(UISliderDragging)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    Entity e = MakeUIWidget(scene, "Volume", { 0.0f, 0.0f }, { 200.0f, 20.0f });
+    auto& slider = e.AddComponent<UISliderComponent>();
+    slider.MinValue = 0.0f;
+    slider.MaxValue = 10.0f;
+    slider.Value = 5.0f;
+    slider.WholeNumbers = true;
+    // The rect is x 300..500 (the handle's centre 310..490), y 290..310; the mouse is top-left origin.
+    auto frame = [&](float x, float yUp, bool down) {
+        scene->SetViewportMouse({ x, 600.0f - yUp }, down);
+        scene->OnUpdateRuntime(0.016f);
+    };
+    std::vector<float> bus;
+    scene->OnRuntimeStart();
+    scene->GetEventBus().Subscribe("UISliderChanged", [&](const ScriptMessage& m) {
+        CHECK(m.Sender == e);
+        bus.push_back(m.Get<float>());
+    });
+    g_UIEvents.clear();
+    CHECK(scene->GetUIRect(e).Min.x == 300.0f && scene->GetUIRect(e).Max.y == 310.0f);
+    frame(400.0f, 300.0f, false);
+    CHECK(slider.Hovered && !slider.Dragging && slider.Value == 5.0f);
+    // A press on the track jumps there; held down the handle follows the mouse anywhere.
+    frame(490.0f, 300.0f, true);
+    CHECK(slider.Dragging && slider.Value == 10.0f && slider.ValueChanged);
+    frame(330.0f, 150.0f, true); // far below the slider
+    CHECK(slider.Dragging && slider.Value == 1.0f && !slider.Hovered);
+    frame(330.0f, 150.0f, true); // no change: no callback
+    CHECK(!slider.ValueChanged);
+    frame(200.0f, 150.0f, false);
+    CHECK(!slider.Dragging && slider.Value == 0.0f); // the last move before the release still counts
+    CHECK(g_UIEvents.size() == 3 && g_UIEvents[0] == "Volume:slider=10" && g_UIEvents[1] == "Volume:slider=1" && g_UIEvents[2] == "Volume:slider=0");
+    CHECK(bus.size() == 3 && bus[0] == 10.0f);
+    // A press outside does not grab it.
+    frame(700.0f, 300.0f, true);
+    frame(400.0f, 300.0f, true);
+    CHECK(!slider.Dragging && slider.Value == 0.0f);
+    frame(400.0f, 300.0f, false);
+
+    // From code: clamped and rounded, notified unless told not to; the same value is no change.
+    g_UIEvents.clear();
+    CHECK(scene->SetSliderValue(e, 3.4f));
+    CHECK(slider.Value == 3.0f && g_UIEvents.size() == 1 && g_UIEvents[0] == "Volume:slider=3");
+    CHECK(!scene->SetSliderValue(e, 3.0f));
+    CHECK(scene->SetSliderValue(e, 99.0f, false) && slider.Value == 10.0f && g_UIEvents.size() == 1);
+
+    // Not interactable / inactive: neither hovered nor dragged.
+    slider.Interactable = false;
+    frame(400.0f, 300.0f, true);
+    CHECK(!slider.Hovered && !slider.Dragging && slider.Value == 10.0f);
+    frame(400.0f, 300.0f, false);
+    slider.Interactable = true;
+    e.SetActive(false);
+    frame(400.0f, 300.0f, true);
+    CHECK(!slider.Dragging && slider.Value == 10.0f);
+    frame(400.0f, 300.0f, false);
+    // Switched off while dragging: the drag ends.
+    e.SetActive(true);
+    frame(400.0f, 300.0f, true);
+    CHECK(slider.Dragging && slider.Value == 5.0f);
+    e.SetActive(false);
+    CHECK(!slider.Dragging);
+    e.SetActive(true);
+    frame(480.0f, 300.0f, true);
+    CHECK(!slider.Dragging && slider.Value == 5.0f);
+    frame(480.0f, 300.0f, false);
+    scene->OnRuntimeStop();
+}
+
+TEST(UIToggleClicksAndGroups)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    auto toggle = [&](const std::string& name, float y, const std::string& group, bool on) {
+        Entity e = MakeUIWidget(scene, name, { 0.0f, y }, { 240.0f, 30.0f });
+        auto& t = e.AddComponent<UIToggleComponent>();
+        t.Group = group;
+        t.IsOn = on;
+        return e;
+    };
+    Entity easy = toggle("Easy", 100.0f, "Difficulty", true);
+    Entity hard = toggle("Hard", 50.0f, "Difficulty", false);
+    Entity sound = toggle("Sound", 0.0f, "", false);
+    Entity music = toggle("Music", -50.0f, "Difficulty", false);
+    auto& easyT = easy.GetComponent<UIToggleComponent>();
+    auto& hardT = hard.GetComponent<UIToggleComponent>();
+    auto& soundT = sound.GetComponent<UIToggleComponent>();
+    auto& musicT = music.GetComponent<UIToggleComponent>();
+    auto click = [&](float yUp, float x = 400.0f) {
+        scene->SetViewportMouse({ x, 300.0f - yUp }, true);
+        scene->OnUpdateRuntime(0.016f);
+        scene->SetViewportMouse({ x, 300.0f - yUp }, false);
+        scene->OnUpdateRuntime(0.016f);
+    };
+    scene->OnRuntimeStart();
+    CHECK(easyT.Transition == 1.0f && hardT.Transition == 0.0f); // drawn as they are from the start
+    g_UIEvents.clear();
+
+    // On its own: a click switches it, both ways (anywhere on the row: the label too).
+    click(0.0f, 500.0f);
+    CHECK(soundT.IsOn && g_UIEvents.size() == 1 && g_UIEvents[0] == "Sound:toggle=1");
+    CHECK(soundT.ValueChanged);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!soundT.ValueChanged && soundT.Transition > 0.0f && soundT.Transition < 1.0f); // the knob is on its way
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(0.016f);
+    CHECK(soundT.Transition == 1.0f);
+    click(0.0f);
+    CHECK(!soundT.IsOn && g_UIEvents.size() == 2 && g_UIEvents[1] == "Sound:toggle=0");
+
+    // A group: one on at a time - the old one is told first.
+    g_UIEvents.clear();
+    click(50.0f);
+    CHECK(hardT.IsOn && !easyT.IsOn && !musicT.IsOn);
+    CHECK(g_UIEvents.size() == 2 && g_UIEvents[0] == "Easy:toggle=0" && g_UIEvents[1] == "Hard:toggle=1");
+    click(50.0f); // the one that is on stays on
+    CHECK(hardT.IsOn && g_UIEvents.size() == 2);
+    hardT.AllowSwitchOff = true;
+    click(50.0f);
+    CHECK(!hardT.IsOn && g_UIEvents.size() == 3 && g_UIEvents[2] == "Hard:toggle=0");
+
+    // A press that leaves before the release does nothing.
+    scene->SetViewportMouse({ 400.0f, 300.0f - 100.0f }, true);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(easyT.Pressed);
+    scene->SetViewportMouse({ 50.0f, 300.0f - 100.0f }, false);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!easyT.IsOn && !easyT.Pressed);
+
+    // From code: the group follows.
+    g_UIEvents.clear();
+    CHECK(scene->SetToggle(music, true));
+    CHECK(musicT.IsOn && g_UIEvents.size() == 1 && g_UIEvents[0] == "Music:toggle=1");
+    CHECK(scene->SetToggle(easy, true));
+    CHECK(easyT.IsOn && !musicT.IsOn && g_UIEvents.size() == 3 && g_UIEvents[1] == "Music:toggle=0");
+    CHECK(!scene->SetToggle(easy, true));
+    CHECK(scene->SetToggle(hard, true, false) && !easyT.IsOn && g_UIEvents.size() == 3);
+    scene->OnRuntimeStop();
+}
+
+TEST(UIImageBlocksTheMouse)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    Entity button = MakeUIWidget(scene, "Button", { 0.0f, 0.0f }, { 200.0f, 60.0f }, 0);
+    button.AddComponent<UIButtonComponent>();
+    Entity panel = MakeUIWidget(scene, "Panel", { 0.0f, 0.0f }, { 400.0f, 300.0f }, 5);
+    auto& image = panel.AddComponent<UIImageComponent>();
+    auto& b = button.GetComponent<UIButtonComponent>();
+    scene->OnRuntimeStart();
+    auto frame = [&]() {
+        scene->SetViewportMouse({ 400.0f, 300.0f }, false);
+        scene->OnUpdateRuntime(0.016f);
+    };
+    // A dialog's background over the button catches the mouse.
+    frame();
+    CHECK(!b.Hovered && scene->PickUI({ 400.0f, 300.0f }) == panel);
+    image.RaycastTarget = false;
+    frame();
+    CHECK(b.Hovered && scene->PickUI({ 400.0f, 300.0f }) == button);
+    // Below the button (by order) it does not matter; inactive it does not either.
+    image.RaycastTarget = true;
+    panel.GetComponent<UITransformComponent>().Order = -1;
+    frame();
+    CHECK(b.Hovered);
+    panel.GetComponent<UITransformComponent>().Order = 5;
+    panel.SetActive(false);
+    frame();
+    CHECK(b.Hovered);
+    CHECK(!scene->PickUI({ 10.0f, 10.0f }));
+    // Equal order: the one created later is drawn on top and gets the mouse.
+    panel.SetActive(true);
+    panel.GetComponent<UITransformComponent>().Order = 0;
+    frame();
+    CHECK(!b.Hovered);
+    std::vector<entt::entity> order = scene->GetUIDrawOrder();
+    CHECK(order.size() == 2 && order[0] == (entt::entity)button && order[1] == (entt::entity)panel);
+    scene->OnRuntimeStop();
+}
+
+TEST(UIProgressBarFollowsValue)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    Entity e = MakeUIWidget(scene, "Health", { 0.0f, 0.0f }, { 200.0f, 20.0f });
+    auto& bar = e.AddComponent<UIProgressBarComponent>();
+    bar.Value = 0.0f;
+    bar.SmoothSpeed = 1.0f;
+    scene->OnRuntimeStart();
+    CHECK(bar.DisplayValue == 0.0f);
+    bar.Value = 1.0f;
+    for (int i = 0; i < 5; i++)
+        scene->OnUpdateRuntime(0.05f);
+    CHECK_NEAR(bar.DisplayValue, 0.25f, 1e-4f);
+    // While paused the UI still animates (a pause menu).
+    scene->SetPaused(true);
+    for (int i = 0; i < 20; i++)
+        scene->OnUpdateRuntime(0.05f);
+    CHECK(bar.DisplayValue == 1.0f);
+    scene->SetPaused(false);
+    bar.SmoothSpeed = 0.0f;
+    bar.Value = 0.4f;
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(bar.DisplayValue == 0.4f);
+    bar.Value = 7.0f; // clamped
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(bar.DisplayValue == 1.0f);
+    // A health bar going red as it empties.
+    bar.UseLowColor = true;
+    bar.LowColor = { 1.0f, 0.0f, 0.0f, 1.0f };
+    bar.FillColor = { 0.0f, 1.0f, 0.0f, 1.0f };
+    CHECK(glm::length(bar.GetFillColor(0.25f) - glm::vec4(0.75f, 0.25f, 0.0f, 1.0f)) < 1e-5f);
+    scene->OnRuntimeStop();
+    CHECK(bar.DisplayValue == 1.0f);
+}
+
+TEST(TextEditUTF8)
+{
+    // UTF-8: Uzbek Latin oʻ / gʻ (U+02BB) and Cyrillic are one character each; sh is two.
+    TextEditState s;
+    CHECK(TextEdit::Insert(s, "O\xCA\xBBzbekiston", UIContentType::Standard, 0));
+    CHECK(TextEdit::CountCodepoints(s.Text) == 11 && s.Text.size() == 12 && s.Caret == 12 && !s.HasSelection());
+    TextEdit::MoveHome(s, false);
+    TextEdit::MoveRight(s, false, false);
+    TextEdit::MoveRight(s, false, false);
+    CHECK(s.Caret == 3); // past "Oʻ" (1 + 2 bytes)
+    CHECK(TextEdit::Backspace(s, false));
+    CHECK(s.Text == "Ozbekiston" && s.Caret == 1);
+    CHECK(TextEdit::Insert(s, "\xCA\xBB", UIContentType::Standard, 0) && s.Text == "O\xCA\xBBzbekiston");
+    // Delete / Backspace never split a character.
+    TextEditState c{ "\xD1\x88\xD0\xB0\xD1\x85\xD0\xB0\xD1\x80", 4, 4 }; // шахар
+    CHECK(TextEdit::Delete(c, false) && c.Text == "\xD1\x88\xD0\xB0\xD0\xB0\xD1\x80");
+    c.Caret = c.Anchor = 3; // inside a character: snapped back
+    TextEdit::Clamp(c);
+    CHECK(c.Caret == 2);
+    CHECK(TextEdit::NextBoundary(c.Text, 2) == 4 && TextEdit::PrevBoundary(c.Text, 4) == 2);
+    CHECK(TextEdit::ByteOffsetOf(c.Text, 2) == 4 && TextEdit::CodepointIndexOf(c.Text, 4) == 2);
+
+    // Words: the apostrophes belong to Uzbek words (oʻgʻil, o'g'il).
+    TextEditState w{ "o'g'il bola", 0, 0 };
+    TextEdit::MoveEnd(w, false);
+    TextEdit::MoveLeft(w, false, true);
+    CHECK(w.Caret == 7);
+    TextEdit::MoveLeft(w, false, true);
+    CHECK(w.Caret == 0);
+    TextEdit::MoveRight(w, false, true);
+    CHECK(w.Caret == 6);
+    CHECK(TextEdit::Backspace(w, true) && w.Text == " bola" && w.Caret == 0);
+    TextEditState sentence{ "Salom, dunyo!", 13, 13 };
+    CHECK(TextEdit::Backspace(sentence, true) && sentence.Text == "Salom, ");
+
+    // Selection: Shift + arrows extend it, typing replaces it, an arrow collapses it.
+    TextEditState sel{ "Toshkent", 8, 8 };
+    TextEdit::MoveLeft(sel, true, false);
+    TextEdit::MoveLeft(sel, true, false);
+    TextEdit::MoveLeft(sel, true, false);
+    CHECK(sel.HasSelection() && TextEdit::GetSelectedText(sel) == "ent" && sel.Anchor == 8 && sel.Caret == 5);
+    TextEdit::MoveRight(sel, false, false);
+    CHECK(!sel.HasSelection() && sel.Caret == 8);
+    TextEdit::SelectAll(sel);
+    CHECK(TextEdit::GetSelectedText(sel) == "Toshkent");
+    CHECK(TextEdit::Insert(sel, "Samarqand", UIContentType::Standard, 0) && sel.Text == "Samarqand" && sel.Caret == 9);
+    // Rejected input keeps the selection.
+    TextEditState digits{ "123", 0, 3 };
+    CHECK(!TextEdit::Insert(digits, "abc", UIContentType::Integer, 0) && digits.Text == "123" && digits.HasSelection());
+
+    // The limit counts characters (not bytes); pasted line breaks become spaces.
+    TextEditState lim;
+    CHECK(TextEdit::Insert(lim, "Toshkent", UIContentType::Standard, 5) && lim.Text == "Toshk");
+    CHECK(!TextEdit::Insert(lim, "x", UIContentType::Standard, 5));
+    TextEditState cyr;
+    CHECK(TextEdit::Insert(cyr, "\xD1\x9E\xD2\x9B\xD2\x93\xD2\xB3", UIContentType::Standard, 3)); // ўқғҳ
+    CHECK(TextEdit::CountCodepoints(cyr.Text) == 3 && cyr.Text.size() == 6);
+    CHECK(TextEdit::Filter("bir\nikki\r\n", UIContentType::Standard, 0) == "bir ikki ");
+
+    // Content types.
+    CHECK(TextEdit::Filter("12a-3", UIContentType::Integer, 0) == "123");
+    CHECK(TextEdit::Filter("-5-", UIContentType::Integer, 0) == "-5");
+    TextEditState neg{ "-5", 0, 0 };
+    CHECK(!TextEdit::Insert(neg, "7", UIContentType::Integer, 0)); // nothing before the sign
+    CHECK(TextEdit::Filter("3,14.15", UIContentType::Decimal, 0) == "3.1415");
+    CHECK(TextEdit::Filter("G\xCA\xBBulom 2!", UIContentType::Alphanumeric, 0) == "G\xCA\xBBulom2");
+    CHECK(TextEdit::Filter("O'zbek", UIContentType::Alphanumeric, 0) == "O'zbek");
+    CHECK(TextEdit::Filter("a\x01" "b", UIContentType::Standard, 0) == "ab");
+    CHECK(TextEdit::GetDisplayText("pa\xCA\xBBs", UIContentType::Password) == "\xE2\x80\xA2\xE2\x80\xA2\xE2\x80\xA2\xE2\x80\xA2");
+    CHECK(TextEdit::GetDisplayText("abc", UIContentType::Standard) == "abc");
+
+    // Layout helpers: the nearest caret position, scrolling that keeps the caret in view.
+    std::vector<float> offsets = { 0.0f, 10.0f, 20.0f, 30.0f };
+    CHECK(TextEdit::CaretIndexAt(offsets, 14.0f) == 1 && TextEdit::CaretIndexAt(offsets, 16.0f) == 2);
+    CHECK(TextEdit::CaretIndexAt(offsets, -5.0f) == 0 && TextEdit::CaretIndexAt(offsets, 99.0f) == 3);
+    CHECK(TextEdit::ScrollToCaret(0.0f, 30.0f, 30.0f, 100.0f, 2.0f) == 0.0f);     // fits: no scroll
+    CHECK_NEAR(TextEdit::ScrollToCaret(0.0f, 250.0f, 250.0f, 100.0f, 2.0f), 152.0f, 1e-4f);
+    CHECK_NEAR(TextEdit::ScrollToCaret(152.0f, 100.0f, 250.0f, 100.0f, 2.0f), 98.0f, 1e-4f);
+    CHECK(TextEdit::ToUTF8(0x02BB) == "\xCA\xBB" && TextEdit::ToUTF8(0x1F600).size() == 4);
+}
+
+TEST(UIInputFieldEditing)
+{
+    Input::ResetState();
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    // x 250..550, y 278..322; text from x 260, 11 px a character (headless: 0.55 of 20 px).
+    Entity e = MakeUIWidget(scene, "Name", { 0.0f, 0.0f }, { 300.0f, 44.0f });
+    e.GetComponent<UITransformComponent>().FontSize = 20.0f;
+    auto& field = e.AddComponent<UIInputFieldComponent>();
+    Entity other = MakeUIWidget(scene, "Age", { 0.0f, -100.0f }, { 300.0f, 44.0f });
+    other.GetComponent<UITransformComponent>().FontSize = 20.0f;
+    auto& age = other.AddComponent<UIInputFieldComponent>();
+    age.ContentType = UIContentType::Integer;
+    age.CharacterLimit = 3;
+    auto mouse = [&](float x, float yUp, bool down) {
+        Input::Update(); // a new frame (what was typed before is gone)
+        scene->SetViewportMouse({ x, 600.0f - yUp }, down);
+        scene->OnUpdateRuntime(0.016f);
+    };
+    auto type = [&](const std::string& text) {
+        size_t i = 0;
+        while (i < text.size())
+            Input::OnCharEvent(DecodeUTF8(text, i));
+        Input::Update();
+        scene->OnUpdateRuntime(0.016f);
+    };
+    auto key = [&](Key k, bool ctrl = false, bool shift = false, int repeats = 0) {
+        if (ctrl) Input::OnKeyEvent(Key::LeftControl, true);
+        if (shift) Input::OnKeyEvent(Key::LeftShift, true);
+        Input::OnKeyEvent(k, true);
+        for (int r = 0; r < repeats; r++)
+            Input::OnKeyEvent(k, true, true); // the keyboard's auto-repeat
+        Input::OnKeyEvent(k, false);
+        if (shift) Input::OnKeyEvent(Key::LeftShift, false);
+        if (ctrl) Input::OnKeyEvent(Key::LeftControl, false);
+        Input::Update();
+        scene->OnUpdateRuntime(0.016f);
+    };
+    scene->OnRuntimeStart();
+    g_UIEvents.clear();
+
+    // Typing goes nowhere until a field is clicked.
+    type("x");
+    CHECK(field.Text.empty() && !scene->IsTextInputFocused());
+    mouse(400.0f, 300.0f, true);
+    mouse(400.0f, 300.0f, false);
+    CHECK(field.Focused && scene->GetFocusedInputField() == e && field.Hovered);
+    type("O\xCA\xBBzbek");
+    CHECK(field.Text == "O\xCA\xBBzbek" && field.Caret == field.Text.size());
+    CHECK(g_UIEvents.size() == 1 && g_UIEvents[0] == "Name:text=O\xCA\xBBzbek");
+    // Backspace with the auto-repeat: three characters go.
+    key(Key::Backspace, false, false, 2);
+    CHECK(field.Text == "O\xCA\xBBz");
+    key(Key::Left);
+    key(Key::Left);
+    CHECK(field.Caret == 1);
+    type("'");
+    CHECK(field.Text == "O'\xCA\xBBz");
+    key(Key::Delete);
+    CHECK(field.Text == "O'z");
+    // Ctrl+A, typing replaces; Ctrl+C / Ctrl+V through the clipboard.
+    key(Key::A, true);
+    CHECK(field.Anchor == 0 && field.Caret == 3);
+    type("Salom");
+    CHECK(field.Text == "Salom");
+    key(Key::Home);
+    key(Key::End, false, true);
+    key(Key::C, true);
+    CHECK(Input::GetClipboardText() == "Salom");
+    key(Key::End);
+    key(Key::V, true);
+    CHECK(field.Text == "SalomSalom");
+    // Characters typed with Ctrl held are shortcuts, not text.
+    Input::OnKeyEvent(Key::LeftControl, true);
+    Input::OnCharEvent('q');
+    Input::Update();
+    scene->OnUpdateRuntime(0.016f);
+    Input::OnKeyEvent(Key::LeftControl, false);
+    CHECK(field.Text == "SalomSalom");
+
+    // A click places the caret (11 px a character from x 260); dragging selects; a double click: everything.
+    Input::Update();
+    scene->OnUpdateRuntime(0.5f); // well after the last click
+    mouse(260.0f + 11.0f * 2.0f + 2.0f, 300.0f, true);
+    CHECK(field.Focused && field.Caret == 2 && field.Anchor == 2);
+    mouse(260.0f + 11.0f * 4.0f - 3.0f, 300.0f, true);
+    CHECK(field.Anchor == 2 && field.Caret == 4);
+    mouse(260.0f + 11.0f * 4.0f, 300.0f, false);
+    CHECK(field.Anchor == 2 && field.Caret == 4 && !field.Selecting);
+    mouse(300.0f, 300.0f, true);
+    CHECK(field.Anchor == 0 && field.Caret == field.Text.size()); // the second click came within the double-click time
+    mouse(300.0f, 300.0f, false);
+
+    // Enter submits and ends editing.
+    g_UIEvents.clear();
+    key(Key::Enter);
+    CHECK(!field.Focused && !scene->IsTextInputFocused() && field.Submitted);
+    CHECK(g_UIEvents.size() == 2 && g_UIEvents[0] == "Name:submit=SalomSalom" && g_UIEvents[1] == "Name:end=SalomSalom");
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(!field.Submitted);
+
+    // Escape cancels: the text it had when editing began.
+    scene->FocusInputField(e);
+    CHECK(field.Focused && field.Caret == field.Text.size());
+    type("!!");
+    CHECK(field.Text == "SalomSalom!!");
+    g_UIEvents.clear();
+    key(Key::Escape);
+    CHECK(!field.Focused && field.Text == "SalomSalom");
+    CHECK(g_UIEvents.size() == 2 && g_UIEvents[0] == "Name:text=SalomSalom" && g_UIEvents[1] == "Name:end=SalomSalom");
+
+    // Content type and limit: an age field takes three digits.
+    mouse(400.0f, 200.0f, true);
+    mouse(400.0f, 200.0f, false);
+    CHECK(age.Focused && !field.Focused);
+    type("4a2-17");
+    CHECK(age.Text == "421");
+    // A click elsewhere ends editing (OnTextEndEdit).
+    g_UIEvents.clear();
+    mouse(50.0f, 50.0f, true);
+    mouse(50.0f, 50.0f, false);
+    CHECK(!age.Focused && g_UIEvents.size() == 1 && g_UIEvents[0] == "Age:end=421");
+
+    // The host can keep the keyboard away (the editor while its game view is not focused).
+    scene->FocusInputField(e);
+    scene->SetUIKeyboardEnabled(false);
+    type("zzz");
+    CHECK(field.Text == "SalomSalom");
+    scene->SetUIKeyboardEnabled(true);
+    // Read only: selectable, not editable.
+    field.ReadOnly = true;
+    type("zzz");
+    key(Key::Backspace);
+    CHECK(field.Text == "SalomSalom");
+    field.ReadOnly = false;
+    // A password is never copied out.
+    field.ContentType = UIContentType::Password;
+    Input::SetClipboardText("old");
+    key(Key::A, true);
+    key(Key::C, true);
+    CHECK(Input::GetClipboardText() == "old");
+    field.ContentType = UIContentType::Standard;
+    // From code: filtered by the content type and the limit.
+    CHECK(scene->SetInputText(other, "12345", false) && age.Text == "123");
+    CHECK(!scene->SetInputText(other, "1x2y3", false)); // the same after filtering
+    // Switched off while editing: editing ends.
+    e.SetActive(false);
+    CHECK(!field.Focused && !scene->IsTextInputFocused());
+    e.SetActive(true);
+    scene->OnRuntimeStop();
+    CHECK(!field.Focused && field.Caret == 0);
+    Input::ResetState();
+}
+
+TEST(UIWidgetSerialization)
+{
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Widgets");
+    e.AddComponent<UITransformComponent>();
+    auto& image = e.AddComponent<UIImageComponent>();
+    image.Color = { 0.5f, 0.25f, 1.0f, 0.75f };
+    image.TexturePath = "Textures/panel.png";
+    image.SpriteName = "frame";
+    image.Type = UIImageType::Filled;
+    image.PreserveAspect = true;
+    image.SliceBorder = { 4, 5, 6, 7 };
+    image.BorderScale = 2.0f;
+    image.FillMethod = UIFillMethod::Radial360;
+    image.FillOrigin = 3;
+    image.FillAmount = 0.4f;
+    image.FillClockwise = false;
+    image.RaycastTarget = false;
+    auto& slider = e.AddComponent<UISliderComponent>();
+    slider.MinValue = 10.0f;
+    slider.MaxValue = -10.0f;
+    slider.Value = -3.0f;
+    slider.WholeNumbers = true;
+    slider.Direction = UIDirection::TopToBottom;
+    slider.HandleSize = 30.0f;
+    slider.Rounded = false;
+    slider.FillColor = { 1, 0, 0, 1 };
+    auto& toggle = e.AddComponent<UIToggleComponent>();
+    toggle.IsOn = true;
+    toggle.Style = UIToggleStyle::Switch;
+    toggle.Mark = UIToggleMark::Dot;
+    toggle.Group = "Daraja";
+    toggle.AllowSwitchOff = true;
+    toggle.OnColor = { 0, 0, 1, 1 };
+    auto& bar = e.AddComponent<UIProgressBarComponent>();
+    bar.Value = 0.3f;
+    bar.Direction = UIDirection::BottomToTop;
+    bar.UseLowColor = true;
+    bar.SmoothSpeed = 2.0f;
+    bar.ShowPercentage = true;
+    bar.Padding = 5.0f;
+    auto& field = e.AddComponent<UIInputFieldComponent>();
+    field.Text = "G\xCA\xBBulom";
+    field.Placeholder = "Ism";
+    field.ContentType = UIContentType::Alphanumeric;
+    field.CharacterLimit = 12;
+    field.ReadOnly = true;
+    field.SelectAllOnFocus = true;
+    field.CaretBlinkRate = 0.0f;
+    field.SelectionColor = { 0, 1, 0, 0.5f };
+
+    std::string text = SceneSerializer::SerializeEntities(*scene, { e });
+    CHECK(text.find("\"Radial360\"") != std::string::npos && text.find("\"Alphanumeric\"") != std::string::npos);
+    auto other = CreateRef<Scene>();
+    auto pasted = SceneSerializer::DeserializeEntities(*other, text, true);
+    CHECK(pasted.size() == 1);
+    if (pasted.size() != 1)
+        return;
+    Entity p = pasted[0];
+    const auto& i2 = p.GetComponent<UIImageComponent>();
+    CHECK(i2.Color == image.Color && i2.TexturePath == image.TexturePath && i2.SpriteName == "frame" && i2.Type == UIImageType::Filled);
+    CHECK(i2.PreserveAspect && i2.SliceBorder == image.SliceBorder && i2.BorderScale == 2.0f && i2.FillMethod == UIFillMethod::Radial360);
+    CHECK(i2.FillOrigin == 3 && std::abs(i2.FillAmount - 0.4f) < 1e-6f && !i2.FillClockwise && !i2.RaycastTarget);
+    const auto& s2 = p.GetComponent<UISliderComponent>();
+    CHECK(s2.MinValue == 10.0f && s2.MaxValue == -10.0f && s2.Value == -3.0f && s2.WholeNumbers && s2.Direction == UIDirection::TopToBottom);
+    CHECK(s2.HandleSize == 30.0f && !s2.Rounded && s2.FillColor == slider.FillColor);
+    const auto& t2 = p.GetComponent<UIToggleComponent>();
+    CHECK(t2.IsOn && t2.Style == UIToggleStyle::Switch && t2.Mark == UIToggleMark::Dot && t2.Group == "Daraja" && t2.AllowSwitchOff);
+    CHECK(t2.OnColor == toggle.OnColor && t2.Transition == 1.0f);
+    const auto& b2 = p.GetComponent<UIProgressBarComponent>();
+    CHECK(std::abs(b2.Value - 0.3f) < 1e-6f && b2.Direction == UIDirection::BottomToTop && b2.UseLowColor && b2.SmoothSpeed == 2.0f);
+    CHECK(b2.ShowPercentage && b2.Padding == 5.0f && b2.DisplayValue == b2.Value);
+    const auto& f2 = p.GetComponent<UIInputFieldComponent>();
+    CHECK(f2.Text == field.Text && f2.Placeholder == "Ism" && f2.ContentType == UIContentType::Alphanumeric && f2.CharacterLimit == 12);
+    CHECK(f2.ReadOnly && f2.SelectAllOnFocus && f2.CaretBlinkRate == 0.0f && f2.SelectionColor == field.SelectionColor);
+    // Unknown names / numbers read as the defaults (a file from a newer version).
+    std::string odd = text;
+    size_t at = odd.find("\"Radial360\"");
+    odd.replace(at, 11, "\"Spiral\"");
+    auto third = CreateRef<Scene>();
+    auto read = SceneSerializer::DeserializeEntities(*third, odd, true);
+    CHECK(read.size() == 1 && read[0].GetComponent<UIImageComponent>().FillMethod == UIFillMethod::Horizontal);
+    // Copies (Instantiate / duplicate) carry the widgets.
+    Entity copy = scene->DuplicateEntity(e);
+    CHECK(copy.HasComponent<UISliderComponent>() && copy.GetComponent<UIInputFieldComponent>().Text == field.Text);
+}
+
+TEST(TextInputEventStream)
+{
+    Input::ResetState();
+    // Characters and key presses keep their order; repeats only reach text input.
+    Input::OnCharEvent('a');
+    Input::OnKeyEvent(Key::Backspace, true);
+    Input::OnKeyEvent(Key::Backspace, true, true);
+    Input::OnCharEvent(0x02BB);
+    CHECK(Input::GetTextInput().empty()); // until the next frame
+    Input::Update();
+    const auto& events = Input::GetTextInput();
+    CHECK(events.size() == 4);
+    if (events.size() == 4)
+    {
+        CHECK(events[0].IsCharacter() && events[0].Codepoint == 'a');
+        CHECK(!events[1].IsCharacter() && events[1].KeyCode == Key::Backspace && events[2].KeyCode == Key::Backspace);
+        CHECK(events[3].Codepoint == 0x02BB);
+    }
+    CHECK(Input::IsKeyJustPressed(Key::Backspace)); // one press, not two
+    Input::OnKeyEvent(Key::Backspace, false);
+    Input::OnKeyEvent(Key::LeftShift, true);
+    Input::OnKeyEvent(Key::Left, true);
+    Input::Update();
+    CHECK(Input::GetTextInput().size() == 2 && Input::GetTextInput()[1].Shift && !Input::GetTextInput()[1].Control);
+    Input::Update();
+    CHECK(Input::GetTextInput().empty()); // one frame only
+    Input::SetClipboardText("Oʻzbekiston");
+    CHECK(Input::GetClipboardText() == "Oʻzbekiston");
+    Input::ResetState();
 }

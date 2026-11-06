@@ -77,9 +77,10 @@ namespace Zamin {
         EventDispatcher dispatcher(e);
         // The input system sees every device event, even ones a layer (e.g. ImGui) handles.
         dispatcher.Dispatch<KeyPressedEvent>([](KeyPressedEvent& ev) {
-            if (!ev.IsRepeat()) Input::OnKeyEvent(ev.GetKeyCode(), true);
+            Input::OnKeyEvent(ev.GetKeyCode(), true, ev.IsRepeat()); // repeats only reach text input
             return false;
         });
+        dispatcher.Dispatch<KeyTypedEvent>([](KeyTypedEvent& ev) { Input::OnCharEvent((uint32_t)ev.GetKeyCode()); return false; });
         dispatcher.Dispatch<KeyReleasedEvent>([](KeyReleasedEvent& ev) { Input::OnKeyEvent(ev.GetKeyCode(), false); return false; });
         dispatcher.Dispatch<MouseButtonPressedEvent>([](MouseButtonPressedEvent& ev) { Input::OnMouseButtonEvent(ev.GetMouseButton(), true); return false; });
         dispatcher.Dispatch<MouseButtonReleasedEvent>([](MouseButtonReleasedEvent& ev) { Input::OnMouseButtonEvent(ev.GetMouseButton(), false); return false; });

@@ -12,6 +12,7 @@
 #include "Zamin/Renderer/Lighting2D.h"
 #include "Zamin/Scene/SortingLayers.h"
 #include "Zamin/Scene/PixelPerfect.h"
+#include "Zamin/UI/UIWidgets.h"
 
 #include <filesystem>
 #include <functional>
@@ -503,6 +504,32 @@ namespace Zamin {
         void SetViewportMouse(const glm::vec2& position, bool leftButtonDown) { m_MousePosition = position; m_MouseDown = leftButtonDown; }
         const glm::vec2& GetViewportMouse() const { return m_MousePosition; }
         glm::vec2 GetViewportSize() const { return { (float)m_ViewportWidth, (float)m_ViewportHeight }; }
+        // ---- screen-space UI (UITransformComponent; pixels, origin bottom-left of the view)
+        // The entity's UI rectangle in the current view (empty without a UITransform).
+        UIRect GetUIRect(Entity entity);
+        // The UI entities in the order they are drawn (bottom first): by UITransform Order, then by
+        // creation. `skip`: entities to leave out.
+        std::vector<entt::entity> GetUIDrawOrder(const std::unordered_set<entt::entity>* skip = nullptr);
+        // The topmost UI element that takes the mouse at `point` (px, origin bottom-left): an
+        // interactable button / slider / toggle / input field, or an image that is a raycast target
+        // (then what is below it is not reached). Invalid when the point is over none of them.
+        // Inactive entities are skipped.
+        Entity PickUI(const glm::vec2& point);
+        // ---- UI widgets from code. `notify`: the entity's script callback and the event bus hear of
+        // it as when the player changes it. False when the entity has no such widget or nothing changed.
+        bool SetSliderValue(Entity slider, float value, bool notify = true); // clamped (rounded: WholeNumbers)
+        bool SetToggle(Entity toggle, bool isOn, bool notify = true);        // switched on: the rest of its group off
+        bool SetInputText(Entity field, const std::string& text, bool notify = true); // filtered by its content type
+        // Starts editing the input field (keyboard input goes to it, the caret at the end); an invalid
+        // entity ends the editing of the one being edited.
+        void FocusInputField(Entity field);
+        Entity GetFocusedInputField();
+        bool IsTextInputFocused() const { return m_FocusedInput != entt::null; }
+        // Whether the keyboard reaches the UI (typing into input fields). The editor turns it off
+        // while its game view does not have the focus. On by default.
+        void SetUIKeyboardEnabled(bool enabled) { m_UIKeyboardEnabled = enabled; }
+        bool IsUIKeyboardEnabled() const { return m_UIKeyboardEnabled; }
+
         // Projection and view matrix used by the most recent render (post-processing needs the
         // projection for SSAO, debug drawing both).
         const glm::mat4& GetLastProjection() const { return m_LastProjection; }
@@ -805,7 +832,31 @@ namespace Zamin {
         void DeliverContact(Entity self, Entity other, bool begin, bool sensor);
         void FlushDestroyQueue();
         void UpdateParticles(Timestep ts, bool editor);
-        void UpdateUI();
+        void UpdateUI(Timestep ts);
+        // The widgets' runtime state from the start: nothing hovered, pressed or edited, toggles and
+        // progress bars drawn as they are set (play starts / stops).
+        void ResetUIRuntime();
+        // ---- UI widgets (SceneUI.cpp)
+        enum class UIChange { Slider, Toggle, TextChanged, TextSubmitted, TextEndEdit };
+        struct UIChangeEvent
+        {
+            entt::entity Entity = entt::null;
+            UIChange Kind = UIChange::Slider;
+            float Value = 0.0f;
+            bool On = false;
+            std::string Text;
+        };
+        // The script callback and the event bus message of a change (only while the game runs).
+        void DeliverUIChange(const UIChangeEvent& change);
+        void DeliverUIChanges(std::vector<UIChangeEvent>& changes);
+        // A toggle switched (its group follows); the changes for the callbacks are appended.
+        bool ApplyToggle(entt::entity toggle, bool isOn, std::vector<UIChangeEvent>* changes);
+        void BeginInputEdit(entt::entity field);
+        // Ends the editing of the focused field (`changes`: its OnTextEndEdit).
+        void EndInputEdit(std::vector<UIChangeEvent>* changes);
+        void ProcessTextInput(entt::entity field, std::vector<UIChangeEvent>& changes);
+        // Keeps the focused field's caret in view (its Scroll), for its rectangle.
+        void ScrollInputField(entt::entity field);
 
         void RenderUI(const std::unordered_set<entt::entity>* skip);
         // The Light 2D lights the view sees (culled by `frustum` when given; the nearest to
@@ -945,7 +996,14 @@ namespace Zamin {
         std::string m_EnvMapPath;
         bool m_MouseDown = false, m_MouseWasDown = false;
         bool m_UIDeferred = false;
-        entt::entity m_PressedButton = entt::null;
+        // The UI widget the mouse button went down on (button, toggle, slider, input field): a click
+        // is a release over the same one, a slider follows the mouse while it is held.
+        entt::entity m_PressedUI = entt::null;
+        entt::entity m_FocusedInput = entt::null; // the input field being edited
+        bool m_UIKeyboardEnabled = true;
+        float m_UITime = 0.0f;                    // seconds of UI updates (double clicks)
+        float m_LastUIClickTime = -1.0f;
+        entt::entity m_LastUIClickEntity = entt::null;
 
         std::unordered_map<UUID, entt::entity> m_EntityMap;
         std::vector<UUID> m_DestroyQueue;

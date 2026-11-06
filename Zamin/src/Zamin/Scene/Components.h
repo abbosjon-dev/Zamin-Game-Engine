@@ -14,6 +14,8 @@
 #include "Zamin/Scene/TintAnimation.h"
 #include "Zamin/Scene/SceneCamera.h"
 #include "Zamin/Scripting/ScriptField.h"
+#include "Zamin/UI/TextEdit.h"
+#include "Zamin/UI/UIWidgets.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -810,6 +812,157 @@ namespace Zamin {
         bool Clicked = false; // true for one frame
     };
 
+    // A picture in the UI rect: a texture or one of its sprite sheet frames ("" = a plain colour),
+    // tinted by Color and by a UI Button's state colours. Type: Simple (stretched, or fitted with
+    // PreserveAspect), Sliced (9-slice: corners keep their size - border px x BorderScale), Tiled, or
+    // Filled (FillAmount 0..1 of it: horizontal, vertical or radial - bars, cooldowns, timers).
+    // RaycastTarget: the mouse stops at it - UI widgets drawn below it are not hovered or clicked.
+    struct UIImageComponent
+    {
+        glm::vec4 Color{ 1.0f };
+        Ref<Texture2D> Texture;
+        std::string TexturePath;       // relative to project assets
+        std::string SpriteName;        // a named frame of the texture's sprite sheet ("" = the whole texture)
+        UIImageType Type = UIImageType::Simple;
+        bool PreserveAspect = false;   // Simple / Filled
+        glm::vec4 SliceBorder{ 0.0f }; // Sliced / Tiled: px left, right, top, bottom (all 0 = the frame's border)
+        float BorderScale = 1.0f;      // Sliced / Tiled: corner size on screen = border px x this
+        UIFillMethod FillMethod = UIFillMethod::Horizontal;
+        int FillOrigin = 0;            // Horizontal: 0 left, 1 right; Vertical: 0 bottom, 1 top; Radial: 0 top, 1 right, 2 bottom, 3 left
+        float FillAmount = 1.0f;
+        bool FillClockwise = true;     // Radial 360
+        bool PixelArt = false;         // nearest filtering (crisp pixels)
+        bool RaycastTarget = true;
+
+        bool HasSliceBorder() const { return SliceBorder.x > 0.0f || SliceBorder.y > 0.0f || SliceBorder.z > 0.0f || SliceBorder.w > 0.0f; }
+    };
+
+    // A value picked by dragging a handle along a track or clicking the track: MinValue..MaxValue
+    // (whole numbers only with WholeNumbers; MinValue > MaxValue runs backwards). Drawn over the
+    // entity's own image / sprite: the track, its filled part up to the handle, the handle. A change
+    // by the user calls OnValueChanged(value) on the entity's script and emits "UISliderChanged"
+    // (payload float, sender: the slider) on the scene's event bus; Scene::SetSliderValue sets it from code.
+    struct UISliderComponent
+    {
+        float MinValue = 0.0f;
+        float MaxValue = 1.0f;
+        float Value = 0.5f;
+        bool WholeNumbers = false;
+        UIDirection Direction = UIDirection::LeftToRight;
+        bool Interactable = true;
+        float TrackThickness = 8.0f;   // px (0 = the whole rect)
+        float HandleSize = 0.0f;       // px across (0 = the rect's thickness)
+        bool Rounded = true;           // round track ends and a round handle (else square)
+        glm::vec4 TrackColor{ 0.12f, 0.13f, 0.16f, 1.0f };
+        glm::vec4 FillColor{ 0.16f, 0.62f, 0.50f, 1.0f };
+        glm::vec4 HandleColor{ 0.92f, 0.94f, 0.96f, 1.0f };
+
+        // runtime state (read by scripts)
+        bool Hovered = false;
+        bool Dragging = false;
+        bool ValueChanged = false;     // true for one frame: the user changed the value
+
+        float GetNormalizedValue() const { return UIMath::Normalize(Value, MinValue, MaxValue); }
+        // Value set from 0..1 of the range (rounded with WholeNumbers). No notification.
+        void SetNormalizedValue(float t) { Value = UIMath::Denormalize(t, MinValue, MaxValue, WholeNumbers); }
+    };
+
+    // An on / off switch: a check box (or a sliding switch) at the left of the rect with the
+    // entity's Text as its label right of it; a click switches it. Toggles of the same Group are
+    // radio buttons: one on at a time (AllowSwitchOff: the one that is on can be clicked off). A
+    // change calls OnToggleChanged(isOn) on the entity's script and emits "UIToggleChanged"
+    // (payload bool); Scene::SetToggle sets it from code (the group follows).
+    struct UIToggleComponent
+    {
+        bool IsOn = false;
+        bool Interactable = true;
+        UIToggleStyle Style = UIToggleStyle::Checkbox;
+        UIToggleMark Mark = UIToggleMark::Check;
+        float BoxSize = 0.0f;          // px (0 = the rect's height)
+        float LabelSpacing = 10.0f;    // px between the box and the label
+        std::string Group;             // "" = on its own
+        bool AllowSwitchOff = false;
+        glm::vec4 BoxColor{ 0.12f, 0.13f, 0.16f, 1.0f };
+        glm::vec4 OnColor{ 0.16f, 0.62f, 0.50f, 1.0f };   // the box (switch: the track) when on
+        glm::vec4 MarkColor{ 1.0f };                       // the check mark / the switch's knob
+
+        // runtime state (read by scripts)
+        bool Hovered = false;
+        bool Pressed = false;
+        bool ValueChanged = false;     // true for one frame: it was switched
+        float Transition = 0.0f;       // 0..1, follows IsOn (the switch's knob slides)
+    };
+
+    // A bar filled to Value (0..1) in Direction over its background (drawn over the entity's own
+    // image / sprite). UseLowColor: the fill blends from LowColor (empty) to FillColor (full) - a
+    // health bar going red. SmoothSpeed > 0: the bar follows Value at that much per second.
+    struct UIProgressBarComponent
+    {
+        float Value = 0.5f;
+        UIDirection Direction = UIDirection::LeftToRight;
+        glm::vec4 BackgroundColor{ 0.12f, 0.13f, 0.16f, 1.0f };
+        glm::vec4 FillColor{ 0.16f, 0.62f, 0.50f, 1.0f };
+        bool UseLowColor = false;
+        glm::vec4 LowColor{ 0.86f, 0.24f, 0.20f, 1.0f };
+        float Padding = 3.0f;          // px between the background's edge and the fill
+        float SmoothSpeed = 0.0f;      // per second (0 = at once)
+        bool ShowPercentage = false;   // "75%" in the middle
+        glm::vec4 TextColor{ 1.0f };
+
+        // runtime: what is drawn (follows Value while the game runs)
+        float DisplayValue = 0.5f;
+
+        glm::vec4 GetFillColor(float t) const { return UseLowColor ? glm::mix(LowColor, FillColor, std::clamp(t, 0.0f, 1.0f)) : FillColor; }
+    };
+
+    // A single line of text the player types into: click it (or Scene::FocusInputField) to edit -
+    // caret, selection (drag, Shift + arrows, double click: everything), Ctrl+A / C / X / V, Home /
+    // End, Ctrl + arrows by words; Enter submits, Escape cancels (the text it had before), a click
+    // elsewhere ends editing. UTF-8 throughout (oʻ, gʻ, sh, Cyrillic). ContentType filters what can
+    // be typed (Integer, Decimal, Alphanumeric) or hides it (Password); CharacterLimit counts
+    // characters. Script callbacks: OnTextChanged(text), OnTextSubmit(text), OnTextEndEdit(text)
+    // (event bus: "UITextChanged", "UITextSubmitted", "UITextEndEdit", payload std::string).
+    struct UIInputFieldComponent
+    {
+        std::string Text;
+        std::string Placeholder = "Matn kiriting...";
+        UIContentType ContentType = UIContentType::Standard;
+        int CharacterLimit = 0;        // characters (0 = no limit)
+        bool Interactable = true;
+        bool ReadOnly = false;         // can be selected and copied, not changed
+        bool SelectAllOnFocus = false;
+        std::string FontPath;          // "" = the engine's font
+        Ref<Font> FontAsset;
+        float Padding = 10.0f;         // px left / right of the text
+        glm::vec4 BackgroundColor{ 0.09f, 0.10f, 0.12f, 1.0f };
+        glm::vec4 OutlineColor{ 0.28f, 0.30f, 0.35f, 1.0f };
+        glm::vec4 FocusColor{ 0.16f, 0.62f, 0.50f, 1.0f };  // the outline while editing
+        glm::vec4 TextColor{ 0.95f, 0.96f, 0.98f, 1.0f };
+        glm::vec4 PlaceholderColor{ 0.50f, 0.53f, 0.58f, 1.0f };
+        glm::vec4 CaretColor{ 1.0f };
+        glm::vec4 SelectionColor{ 0.22f, 0.46f, 0.86f, 0.55f };
+        float CaretBlinkRate = 0.53f;  // seconds on / off (0 = always on)
+
+        // runtime state (read by scripts)
+        bool Focused = false;
+        bool Hovered = false;
+        bool TextChanged = false;      // true for one frame
+        bool Submitted = false;        // true for one frame (Enter)
+        size_t Caret = 0, Anchor = 0;  // bytes into Text (Anchor: the selection's other end)
+        float BlinkTime = 0.0f;
+        float Scroll = 0.0f;           // px the text is moved left (a long text keeps the caret in view)
+        std::string TextBeforeEdit;    // Escape brings it back
+        bool Selecting = false;        // the mouse drags a selection
+
+        void ResetRuntime()
+        {
+            Focused = Hovered = TextChanged = Submitted = Selecting = false;
+            Caret = Anchor = 0;
+            BlinkTime = Scroll = 0.0f;
+            TextBeforeEdit.clear();
+        }
+    };
+
     // ------------------------------------------------------------------ physics 2D
     struct Rigidbody2DComponent
     {
@@ -1514,6 +1667,7 @@ namespace Zamin {
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
         SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
+        UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent,
         AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, NativeScriptComponent, EditorMetadataComponent>;
 
 }

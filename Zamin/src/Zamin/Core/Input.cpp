@@ -328,6 +328,8 @@ namespace Zamin {
         s.HasMousePosition = true;
         s.Scroll = s.PendingScroll;
         s.PendingScroll = glm::vec2(0.0f);
+        s.Text.swap(s.PendingText);
+        s.PendingText.clear();
 
         for (auto& slot : s.Gamepads)
         {
@@ -341,12 +343,47 @@ namespace Zamin {
         State() = InputState{};
     }
 
-    void Input::OnKeyEvent(Key key, bool pressed)
+    static bool KeyLive(Key key)
     {
         int code = (int)key;
-        if (code >= Internal::InputFirstKey && code < Internal::InputKeyCount)
-            State().Keys[code].OnEvent(pressed);
+        return code >= Internal::InputFirstKey && code < Internal::InputKeyCount && State().Keys[code].Live;
     }
+
+    static TextInputEvent ModifiedTextEvent()
+    {
+        TextInputEvent e;
+        e.Control = KeyLive(Key::LeftControl) || KeyLive(Key::RightControl);
+        e.Shift = KeyLive(Key::LeftShift) || KeyLive(Key::RightShift);
+        e.Alt = KeyLive(Key::LeftAlt) || KeyLive(Key::RightAlt);
+        e.Super = KeyLive(Key::LeftSuper) || KeyLive(Key::RightSuper);
+        return e;
+    }
+
+    void Input::OnKeyEvent(Key key, bool pressed, bool repeat)
+    {
+        int code = (int)key;
+        if (code < Internal::InputFirstKey || code >= Internal::InputKeyCount)
+            return;
+        if (!repeat)
+            State().Keys[code].OnEvent(pressed);
+        if (pressed)
+        {
+            TextInputEvent e = ModifiedTextEvent();
+            e.KeyCode = key;
+            State().PendingText.push_back(e);
+        }
+    }
+
+    void Input::OnCharEvent(uint32_t codepoint)
+    {
+        if (codepoint == 0)
+            return;
+        TextInputEvent e = ModifiedTextEvent();
+        e.Codepoint = codepoint;
+        State().PendingText.push_back(e);
+    }
+
+    const std::vector<TextInputEvent>& Input::GetTextInput() { return State().Text; }
 
     void Input::OnMouseButtonEvent(MouseButton button, bool pressed)
     {

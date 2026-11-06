@@ -51,6 +51,9 @@ namespace Zamin {
         virtual void SetColorWriteMask(uint32_t attachment, bool color, bool alpha) = 0;
         // Clears only the depth of the bound framebuffer (depth writes must be on).
         virtual void ClearDepth() = 0;
+        // Draws (and clears) only inside a rectangle of the current viewport: min01 / max01 in 0..1 of
+        // it, origin bottom-left (UI clipping). Off: everywhere again.
+        virtual void SetScissor(bool enabled, const glm::vec2& min01, const glm::vec2& max01) = 0;
 
         // Remember / restore the currently bound render target + viewport
         // (used by passes such as shadow mapping that render off-screen).

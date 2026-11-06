@@ -49,6 +49,8 @@
 #include "Zamin/Scene/TilesetProperties.h"
 #include "Zamin/Scene/TintAnimation.h"
 #include "Zamin/Scene/PixelPerfect.h"
+#include "Zamin/UI/UIWidgets.h"
+#include "Zamin/UI/TextEdit.h"
 #include "Zamin/Physics/CollisionLayers.h"
 #include "Zamin/Physics/PhysicsMaterial.h"
 #include "Zamin/Physics/PhysicsWorld2D.h"

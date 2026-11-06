@@ -989,6 +989,8 @@ namespace Zamin {
             ImVec2 mouse = ImGui::GetMousePos();
             m_ActiveScene->SetViewportMouse({ mouse.x - m_ViewportBounds[0].x, mouse.y - m_ViewportBounds[0].y },
                                             m_ViewportHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left));
+            // Typing reaches the game's input fields only while the game view has the focus.
+            m_ActiveScene->SetUIKeyboardEnabled(m_ViewportFocused && !ImGui::GetIO().WantTextInput);
         }
 
         SceneRenderOptions options;
@@ -4828,8 +4830,9 @@ namespace Zamin {
     {
         ImGuiIO& io = ImGui::GetIO();
 
-        // ---- keyboard shortcuts (ignored while typing)
-        if (!io.WantTextInput)
+        // ---- keyboard shortcuts (ignored while typing - into the editor, or into the game's input field)
+        const bool typingInGame = m_SceneState == SceneState::Play && m_ViewportFocused && m_ActiveScene && m_ActiveScene->IsTextInputFocused();
+        if (!io.WantTextInput && !typingInGame)
         {
             bool ctrl = io.KeyCtrl, shift = io.KeyShift;
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S, false))

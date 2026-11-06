@@ -62,6 +62,11 @@ namespace Zamin {
         static void DrawQuad(const glm::mat4& transform, const Ref<Texture2D>& texture, const glm::vec2& uvMin, const glm::vec2& uvMax,
                              const glm::vec4& tintColor, const SpriteEffect& effect, const glm::vec4& uvRect, int entityID = -1);
 
+        // A quad with corners of its own (counter-clockwise; a triangle repeats its last corner) and
+        // their UVs, at depth `z` (UI fills, radial fills). A null texture: a plain colour.
+        static void DrawQuadCorners(const glm::vec2 positions[4], const glm::vec2 uvs[4], const Ref<Texture2D>& texture,
+                                    const glm::vec4& tintColor, int entityID = -1, float z = 0.0f);
+
         static void DrawCircle(const glm::mat4& transform, const glm::vec4& color, float thickness = 1.0f, float fade = 0.005f, int entityID = -1);
 
         static void DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, int entityID = -1);
@@ -80,6 +85,10 @@ namespace Zamin {
         // The box around every glyph quad DrawString lays out for `text`, in the text's own space
         // (before its transform); empty (Min > Max) when nothing would be drawn.
         static AABB GetStringBounds(const std::string& text, const Ref<Font>& font, const TextParams& params = TextParams());
+
+        // Draws only inside a rectangle of the viewport (min01 / max01: 0..1 of it, origin bottom-left)
+        // from now on - UI clipping; what is pending is drawn first. Off: everywhere again.
+        static void SetClipRect(bool enabled, const glm::vec2& min01 = glm::vec2(0.0f), const glm::vec2& max01 = glm::vec2(1.0f));
 
         // Flushes the current batch and switches blending (e.g. additive particles).
         static void SetBlendMode(BlendMode mode);

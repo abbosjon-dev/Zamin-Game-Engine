@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 
 #include <algorithm>
+#include <cmath>
 
 namespace Zamin {
 
@@ -138,6 +139,24 @@ namespace Zamin {
         }
 
         void ClearDepth() override { glClear(GL_DEPTH_BUFFER_BIT); }
+
+        void SetScissor(bool enabled, const glm::vec2& min01, const glm::vec2& max01) override
+        {
+            if (!enabled)
+            {
+                glDisable(GL_SCISSOR_TEST);
+                return;
+            }
+            GLint viewport[4] = { 0, 0, 0, 0 };
+            glGetIntegerv(GL_VIEWPORT, viewport);
+            const float w = (float)viewport[2], h = (float)viewport[3];
+            const int x0 = viewport[0] + (int)std::floor(std::clamp(min01.x, 0.0f, 1.0f) * w);
+            const int y0 = viewport[1] + (int)std::floor(std::clamp(min01.y, 0.0f, 1.0f) * h);
+            const int x1 = viewport[0] + (int)std::ceil(std::clamp(max01.x, 0.0f, 1.0f) * w);
+            const int y1 = viewport[1] + (int)std::ceil(std::clamp(max01.y, 0.0f, 1.0f) * h);
+            glEnable(GL_SCISSOR_TEST);
+            glScissor(x0, y0, std::max(0, x1 - x0), std::max(0, y1 - y0));
+        }
 
         void BindTextureUnit(uint32_t unit, uint32_t rendererID) override
         {

@@ -4,12 +4,26 @@
 
 #include <glm/glm.hpp>
 
+#include <cstdint>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace Zamin {
 
     struct InputAction;
     struct InputAxis;
+
+    // One step of typing (Input::GetTextInput): a typed character, or a key press for editing -
+    // Backspace, arrows, Enter, Ctrl+C ... (the keyboard's auto-repeat included).
+    struct TextInputEvent
+    {
+        uint32_t Codepoint = 0; // the typed character (Unicode); 0: a key press
+        Key KeyCode{};          // the pressed key (when Codepoint is 0)
+        bool Control = false, Shift = false, Alt = false, Super = false; // modifiers held at that moment
+
+        bool IsCharacter() const { return Codepoint != 0; }
+    };
 
     // Keyboard, mouse, gamepad and named actions / axes.
     //
@@ -67,6 +81,13 @@ namespace Zamin {
         // 0 inside the deadzone, then rescaled so the output still covers 0..1 (sign kept).
         static float ApplyDeadzone(float value, float deadzone);
 
+        // ---- text input (UI input fields): the characters typed and the key presses (auto-repeat
+        // included) since the previous frame, in the order they happened.
+        static const std::vector<TextInputEvent>& GetTextInput();
+        // ---- clipboard (the system's; without a window a clipboard of the process)
+        static std::string GetClipboardText();
+        static void SetClipboardText(std::string_view text);
+
         // ---- frame state
         // Captures the current device state (previous frame <- current frame). Called once
         // per frame by the application; tests call it to advance simulated input.
@@ -76,7 +97,10 @@ namespace Zamin {
 
         // Device events (fed by the application from window events). Without a window they
         // are the only input source, which makes them usable to simulate input headlessly.
-        static void OnKeyEvent(Key key, bool pressed);
+        // `repeat`: the keyboard's auto-repeat of a held key - only text input sees it.
+        static void OnKeyEvent(Key key, bool pressed, bool repeat = false);
+        // A typed character (Unicode codepoint; the window's character callback).
+        static void OnCharEvent(uint32_t codepoint);
         static void OnMouseButtonEvent(MouseButton button, bool pressed);
         static void OnMouseMovedEvent(float x, float y);
         static void OnMouseScrolledEvent(float xOffset, float yOffset);

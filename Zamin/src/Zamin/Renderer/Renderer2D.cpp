@@ -739,6 +739,38 @@ void main()
     }
 
     // ------------------------------------------------------------------ circles
+    void Renderer2D::DrawQuadCorners(const glm::vec2 positions[4], const glm::vec2 uvs[4], const Ref<Texture2D>& texture,
+                                     const glm::vec4& tintColor, int entityID, float z)
+    {
+        if (s_Data->QuadIndexCount >= Renderer2DData::MaxIndices)
+            NextBatch();
+        float texIndex = GetTextureIndex(texture);
+        BeginQuads();
+        for (int i = 0; i < 4; i++)
+        {
+            s_Data->QuadVertexBufferPtr->Position = glm::vec3(positions[i], z);
+            s_Data->QuadVertexBufferPtr->Color = tintColor;
+            s_Data->QuadVertexBufferPtr->TexCoord = uvs[i];
+            s_Data->QuadVertexBufferPtr->TexIndex = texIndex;
+            s_Data->QuadVertexBufferPtr->TilingFactor = 1.0f;
+            s_Data->QuadVertexBufferPtr->EntityID = entityID;
+            s_Data->QuadVertexBufferPtr->Flash = glm::vec4(0.0f);
+            s_Data->QuadVertexBufferPtr->OutlineColor = glm::vec4(0.0f);
+            s_Data->QuadVertexBufferPtr->UVRect = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+            s_Data->QuadVertexBufferPtr->OutlineWidth = 0.0f;
+            s_Data->QuadVertexBufferPtr->Lit = s_Data->CurrentLit;
+            s_Data->QuadVertexBufferPtr++;
+        }
+        s_Data->QuadIndexCount += 6;
+        Renderer::GetStats().QuadCount++;
+    }
+
+    void Renderer2D::SetClipRect(bool enabled, const glm::vec2& min01, const glm::vec2& max01)
+    {
+        Flush();
+        RenderCommand::SetScissor(enabled, min01, max01);
+    }
+
     void Renderer2D::DrawCircle(const glm::mat4& transform, const glm::vec4& color, float thickness, float fade, int entityID)
     {
         if (s_Data->CircleIndexCount >= Renderer2DData::MaxIndices)

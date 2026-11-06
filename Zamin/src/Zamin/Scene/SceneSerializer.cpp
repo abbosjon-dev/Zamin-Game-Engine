@@ -147,6 +147,44 @@ namespace Zamin {
         return SpriteDrawMode::Simple;
     }
 
+    // ------------------------------------------------------------------ UI widget enums (by name)
+    static const char* const s_UIImageTypes[] = { "Simple", "Sliced", "Tiled", "Filled" };
+    static const char* const s_UIFillMethods[] = { "Horizontal", "Vertical", "Radial360" };
+    static const char* const s_UIDirections[] = { "LeftToRight", "RightToLeft", "BottomToTop", "TopToBottom" };
+    static const char* const s_UIToggleStyles[] = { "Checkbox", "Switch" };
+    static const char* const s_UIToggleMarks[] = { "Check", "Square", "Dot" };
+    static const char* const s_UIContentTypes[] = { "Standard", "Integer", "Decimal", "Alphanumeric", "Password" };
+
+    template<typename E, size_t N>
+    static const char* EnumName(E value, const char* const (&names)[N])
+    {
+        const int i = (int)value;
+        return i >= 0 && i < (int)N ? names[i] : names[0];
+    }
+
+    // The enum stored under `key` by name (or by number); `fallback` when missing / unknown.
+    template<typename E, size_t N>
+    static E EnumFromJson(const json& j, const char* key, const char* const (&names)[N], E fallback)
+    {
+        auto it = j.find(key);
+        if (it == j.end())
+            return fallback;
+        if (it->is_string())
+        {
+            const std::string name = it->get<std::string>();
+            for (size_t i = 0; i < N; i++)
+                if (name == names[i])
+                    return (E)i;
+            return fallback;
+        }
+        if (it->is_number_integer())
+        {
+            const int i = it->get<int>();
+            return i >= 0 && i < (int)N ? (E)i : fallback;
+        }
+        return fallback;
+    }
+
     static const char* BodyTypeToString(Rigidbody2DComponent::BodyType t)
     {
         switch (t)
@@ -709,6 +747,51 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<UIButtonComponent>())
             e["UIButton"] = { { "Normal", ToJson(c->NormalColor) }, { "Hover", ToJson(c->HoverColor) }, { "Pressed", ToJson(c->PressedColor) },
                               { "Interactable", c->Interactable } };
+        if (auto* c = entity.TryGetComponent<UIImageComponent>())
+        {
+            json& j = e["UIImage"];
+            j = { { "Color", ToJson(c->Color) }, { "Texture", c->TexturePath }, { "Type", EnumName(c->Type, s_UIImageTypes) },
+                  { "PreserveAspect", c->PreserveAspect }, { "PixelArt", c->PixelArt }, { "RaycastTarget", c->RaycastTarget } };
+            WriteAssetHandle(j, "Texture", c->TexturePath);
+            if (!c->SpriteName.empty())
+                j["Sprite"] = c->SpriteName;
+            if (c->HasSliceBorder())
+                j["SliceBorder"] = ToJson(c->SliceBorder);
+            if (c->BorderScale != 1.0f)
+                j["BorderScale"] = c->BorderScale;
+            if (c->Type == UIImageType::Filled)
+                j["Fill"] = { { "Method", EnumName(c->FillMethod, s_UIFillMethods) }, { "Origin", c->FillOrigin },
+                              { "Amount", c->FillAmount }, { "Clockwise", c->FillClockwise } };
+        }
+        if (auto* c = entity.TryGetComponent<UISliderComponent>())
+            e["UISlider"] = { { "Min", c->MinValue }, { "Max", c->MaxValue }, { "Value", c->Value }, { "WholeNumbers", c->WholeNumbers },
+                              { "Direction", EnumName(c->Direction, s_UIDirections) }, { "Interactable", c->Interactable },
+                              { "TrackThickness", c->TrackThickness }, { "HandleSize", c->HandleSize }, { "Rounded", c->Rounded },
+                              { "TrackColor", ToJson(c->TrackColor) }, { "FillColor", ToJson(c->FillColor) },
+                              { "HandleColor", ToJson(c->HandleColor) } };
+        if (auto* c = entity.TryGetComponent<UIToggleComponent>())
+            e["UIToggle"] = { { "IsOn", c->IsOn }, { "Interactable", c->Interactable }, { "Style", EnumName(c->Style, s_UIToggleStyles) },
+                              { "Mark", EnumName(c->Mark, s_UIToggleMarks) }, { "BoxSize", c->BoxSize }, { "LabelSpacing", c->LabelSpacing },
+                              { "Group", c->Group }, { "AllowSwitchOff", c->AllowSwitchOff }, { "BoxColor", ToJson(c->BoxColor) },
+                              { "OnColor", ToJson(c->OnColor) }, { "MarkColor", ToJson(c->MarkColor) } };
+        if (auto* c = entity.TryGetComponent<UIProgressBarComponent>())
+            e["UIProgressBar"] = { { "Value", c->Value }, { "Direction", EnumName(c->Direction, s_UIDirections) },
+                                   { "BackgroundColor", ToJson(c->BackgroundColor) }, { "FillColor", ToJson(c->FillColor) },
+                                   { "UseLowColor", c->UseLowColor }, { "LowColor", ToJson(c->LowColor) }, { "Padding", c->Padding },
+                                   { "SmoothSpeed", c->SmoothSpeed }, { "ShowPercentage", c->ShowPercentage },
+                                   { "TextColor", ToJson(c->TextColor) } };
+        if (auto* c = entity.TryGetComponent<UIInputFieldComponent>())
+        {
+            json& j = e["UIInputField"];
+            j = { { "Text", c->Text }, { "Placeholder", c->Placeholder }, { "ContentType", EnumName(c->ContentType, s_UIContentTypes) },
+                  { "CharacterLimit", c->CharacterLimit }, { "Interactable", c->Interactable }, { "ReadOnly", c->ReadOnly },
+                  { "SelectAllOnFocus", c->SelectAllOnFocus }, { "Font", c->FontPath }, { "Padding", c->Padding },
+                  { "BackgroundColor", ToJson(c->BackgroundColor) }, { "OutlineColor", ToJson(c->OutlineColor) },
+                  { "FocusColor", ToJson(c->FocusColor) }, { "TextColor", ToJson(c->TextColor) },
+                  { "PlaceholderColor", ToJson(c->PlaceholderColor) }, { "CaretColor", ToJson(c->CaretColor) },
+                  { "SelectionColor", ToJson(c->SelectionColor) }, { "CaretBlinkRate", c->CaretBlinkRate } };
+            WriteAssetHandle(j, "Font", c->FontPath);
+        }
         if (auto* c = entity.TryGetComponent<AudioSourceComponent>())
         {
             e["AudioSource"] = { { "Path", c->Path }, { "Volume", c->Volume }, { "Pitch", c->Pitch }, { "Loop", c->Loop }, { "PlayOnStart", c->PlayOnStart },
@@ -1505,6 +1588,99 @@ namespace Zamin {
             c.HoverColor = Vec(j, "Hover", c.HoverColor);
             c.PressedColor = Vec(j, "Pressed", c.PressedColor);
             c.Interactable = j.value("Interactable", true);
+        }
+        if (e.contains("UIImage"))
+        {
+            const json& j = e["UIImage"];
+            auto& c = entity.AddComponent<UIImageComponent>();
+            c.Color = Vec(j, "Color", c.Color);
+            c.TexturePath = ReadAssetPath(j, "Texture");
+            c.SpriteName = j.value("Sprite", std::string());
+            c.Type = EnumFromJson(j, "Type", s_UIImageTypes, UIImageType::Simple);
+            c.PreserveAspect = j.value("PreserveAspect", false);
+            c.PixelArt = j.value("PixelArt", false);
+            c.RaycastTarget = j.value("RaycastTarget", true);
+            c.SliceBorder = glm::max(Vec(j, "SliceBorder", glm::vec4(0.0f)), glm::vec4(0.0f));
+            c.BorderScale = std::max(0.01f, j.value("BorderScale", 1.0f));
+            if (auto fill = j.find("Fill"); fill != j.end() && fill->is_object())
+            {
+                c.FillMethod = EnumFromJson(*fill, "Method", s_UIFillMethods, UIFillMethod::Horizontal);
+                c.FillOrigin = std::clamp(fill->value("Origin", 0), 0, 3);
+                c.FillAmount = std::clamp(fill->value("Amount", 1.0f), 0.0f, 1.0f);
+                c.FillClockwise = fill->value("Clockwise", true);
+            }
+        }
+        if (e.contains("UISlider"))
+        {
+            const json& j = e["UISlider"];
+            auto& c = entity.AddComponent<UISliderComponent>();
+            c.MinValue = j.value("Min", 0.0f);
+            c.MaxValue = j.value("Max", 1.0f);
+            c.WholeNumbers = j.value("WholeNumbers", false);
+            c.Value = UIMath::ClampValue(j.value("Value", 0.5f), c.MinValue, c.MaxValue, c.WholeNumbers);
+            c.Direction = EnumFromJson(j, "Direction", s_UIDirections, UIDirection::LeftToRight);
+            c.Interactable = j.value("Interactable", true);
+            c.TrackThickness = std::max(0.0f, j.value("TrackThickness", 8.0f));
+            c.HandleSize = std::max(0.0f, j.value("HandleSize", 0.0f));
+            c.Rounded = j.value("Rounded", true);
+            c.TrackColor = Vec(j, "TrackColor", c.TrackColor);
+            c.FillColor = Vec(j, "FillColor", c.FillColor);
+            c.HandleColor = Vec(j, "HandleColor", c.HandleColor);
+        }
+        if (e.contains("UIToggle"))
+        {
+            const json& j = e["UIToggle"];
+            auto& c = entity.AddComponent<UIToggleComponent>();
+            c.IsOn = j.value("IsOn", false);
+            c.Interactable = j.value("Interactable", true);
+            c.Style = EnumFromJson(j, "Style", s_UIToggleStyles, UIToggleStyle::Checkbox);
+            c.Mark = EnumFromJson(j, "Mark", s_UIToggleMarks, UIToggleMark::Check);
+            c.BoxSize = std::max(0.0f, j.value("BoxSize", 0.0f));
+            c.LabelSpacing = std::max(0.0f, j.value("LabelSpacing", 10.0f));
+            c.Group = j.value("Group", std::string());
+            c.AllowSwitchOff = j.value("AllowSwitchOff", false);
+            c.BoxColor = Vec(j, "BoxColor", c.BoxColor);
+            c.OnColor = Vec(j, "OnColor", c.OnColor);
+            c.MarkColor = Vec(j, "MarkColor", c.MarkColor);
+            c.Transition = c.IsOn ? 1.0f : 0.0f;
+        }
+        if (e.contains("UIProgressBar"))
+        {
+            const json& j = e["UIProgressBar"];
+            auto& c = entity.AddComponent<UIProgressBarComponent>();
+            c.Value = std::clamp(j.value("Value", 0.5f), 0.0f, 1.0f);
+            c.Direction = EnumFromJson(j, "Direction", s_UIDirections, UIDirection::LeftToRight);
+            c.BackgroundColor = Vec(j, "BackgroundColor", c.BackgroundColor);
+            c.FillColor = Vec(j, "FillColor", c.FillColor);
+            c.UseLowColor = j.value("UseLowColor", false);
+            c.LowColor = Vec(j, "LowColor", c.LowColor);
+            c.Padding = std::max(0.0f, j.value("Padding", 3.0f));
+            c.SmoothSpeed = std::max(0.0f, j.value("SmoothSpeed", 0.0f));
+            c.ShowPercentage = j.value("ShowPercentage", false);
+            c.TextColor = Vec(j, "TextColor", c.TextColor);
+            c.DisplayValue = c.Value;
+        }
+        if (e.contains("UIInputField"))
+        {
+            const json& j = e["UIInputField"];
+            auto& c = entity.AddComponent<UIInputFieldComponent>();
+            c.Text = j.value("Text", std::string());
+            c.Placeholder = j.value("Placeholder", std::string());
+            c.ContentType = EnumFromJson(j, "ContentType", s_UIContentTypes, UIContentType::Standard);
+            c.CharacterLimit = std::max(0, j.value("CharacterLimit", 0));
+            c.Interactable = j.value("Interactable", true);
+            c.ReadOnly = j.value("ReadOnly", false);
+            c.SelectAllOnFocus = j.value("SelectAllOnFocus", false);
+            c.FontPath = ReadAssetPath(j, "Font");
+            c.Padding = std::max(0.0f, j.value("Padding", 10.0f));
+            c.BackgroundColor = Vec(j, "BackgroundColor", c.BackgroundColor);
+            c.OutlineColor = Vec(j, "OutlineColor", c.OutlineColor);
+            c.FocusColor = Vec(j, "FocusColor", c.FocusColor);
+            c.TextColor = Vec(j, "TextColor", c.TextColor);
+            c.PlaceholderColor = Vec(j, "PlaceholderColor", c.PlaceholderColor);
+            c.CaretColor = Vec(j, "CaretColor", c.CaretColor);
+            c.SelectionColor = Vec(j, "SelectionColor", c.SelectionColor);
+            c.CaretBlinkRate = std::max(0.0f, j.value("CaretBlinkRate", 0.53f));
         }
         if (e.contains("AudioSource"))
         {

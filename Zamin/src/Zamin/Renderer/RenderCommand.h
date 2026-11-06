@@ -29,6 +29,10 @@ namespace Zamin {
         static void SetColorWrite(uint32_t attachment, bool enabled) { s_API->SetColorWrite(attachment, enabled); }
         static void SetColorWriteMask(uint32_t attachment, bool color, bool alpha) { s_API->SetColorWriteMask(attachment, color, alpha); }
         static void ClearDepth() { s_API->ClearDepth(); }
+        static void SetScissor(bool enabled, const glm::vec2& min01 = glm::vec2(0.0f), const glm::vec2& max01 = glm::vec2(1.0f))
+        {
+            s_API->SetScissor(enabled, min01, max01);
+        }
 
         static void BindTextureUnit(uint32_t unit, uint32_t id) { s_API->BindTextureUnit(unit, id); }
         static void SaveRenderTarget() { s_API->SaveRenderTarget(); }

@@ -49,6 +49,29 @@ namespace Zamin {
 
     }
 
+    static GLFWwindow* NativeWindow()
+    {
+        return Application::Exists() ? static_cast<GLFWwindow*>(Application::Get().GetWindow().GetNativeWindow()) : nullptr;
+    }
+
+    std::string Input::GetClipboardText()
+    {
+        if (GLFWwindow* window = NativeWindow())
+        {
+            const char* text = glfwGetClipboardString(window);
+            return text ? std::string(text) : std::string();
+        }
+        return Internal::GetInputState().Clipboard;
+    }
+
+    void Input::SetClipboardText(std::string_view text)
+    {
+        if (GLFWwindow* window = NativeWindow())
+            glfwSetClipboardString(window, std::string(text).c_str());
+        else
+            Internal::GetInputState().Clipboard = std::string(text);
+    }
+
     const char* Input::GetGamepadName(int id)
     {
         if (id < 0 || id >= MaxGamepads)

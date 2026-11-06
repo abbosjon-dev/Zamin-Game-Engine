@@ -1014,7 +1014,7 @@ public:
                                : IsAudioPaused(hum)  ? std::format("pauza ({:.1f} s)", GetAudioTime(hum))
                                : IsAudioPlaying(hum) ? std::format("{:.1f} s", GetAudioTime(hum))
                                                      : std::string("jim");
-        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 1.25f, 0.0f), std::format("Qo'ng'iroqcha: {}", last),
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 1.45f, 0.0f), std::format("Qo'ng'iroqcha: {}", last),
                         glm::vec4(1.0f, 0.9f, 0.55f, 1.0f));
         DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.9f, 0.0f),
                         std::format("bir vaqtda {}/{}   H - g'uvillash: {}", m_Handles.size(), MaxAtOnce, humState),
@@ -1078,9 +1078,12 @@ public:
         std::string state = IsAudioPlaying() ? std::format("ijro, so'nish {:.0f}%", GetAudioFade() * 100.0f) : std::string("o'chiq");
         std::string filter = !audio || !audio->Filter.IsActive() ? std::string("yo'q")
                            : std::format("high-pass {:.0f} Hz + low-pass {:.1f} kHz", audio->Filter.GetHighPass(), audio->Filter.GetLowPass() / 1000.0f);
-        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 1.05f, 0.0f), std::format("Radio: {}   (R - yoqish / o'chirish)", state),
+        // High enough above the radio that the drone's label flying past below stays readable, and a
+        // little to the right, clear of the wind chimes' labels.
+        const glm::vec3 label = GetWorldPosition() + glm::vec3(0.9f, 0.0f, 0.0f);
+        DebugDraw::Text(label + glm::vec3(0.0f, 1.95f, 0.0f), std::format("Radio: {}   (R - yoqish / o'chirish)", state),
                         glm::vec4(1.0f, 0.85f, 0.5f, 1.0f));
-        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.7f, 0.0f), std::format("Filtr: {}   (T - filtr, G - pasaytirish)", filter),
+        DebugDraw::Text(label + glm::vec3(0.0f, 1.6f, 0.0f), std::format("Filtr: {}   (T - filtr, G - pasaytirish)", filter),
                         glm::vec4(0.6f, 0.85f, 1.0f, 1.0f));
     }
 
@@ -1198,6 +1201,7 @@ class AmbientZoneLabel : public ScriptableEntity
 {
 public:
     std::string Title = "O'rmon (Ambient Zone)";
+    float LabelHeight = 1.3f;
 
     void OnUpdate(Timestep) override
     {
@@ -1208,12 +1212,13 @@ public:
                           : zone->Target > 0.0f  ? std::format("chetdan {:.1f} m", zone->Distance)
                                                  : std::string("uzoqda");
         float top = zone->Shape == AmbientZoneComponent::ZoneShape::Box ? zone->Size.y * 0.5f : zone->Radius;
-        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, top + 0.3f, 0.0f),
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, top + LabelHeight, 0.0f),
                         std::format("{}: {:.0f}%  ({})", Title, GetEntity().GetScene()->GetAmbientZoneLevel(GetEntity()) * 100.0f, state),
                         glm::mix(glm::vec4(0.6f, 0.75f, 0.6f, 1.0f), glm::vec4(0.55f, 1.0f, 0.6f, 1.0f), zone->Level));
     }
 };
-ZM_REGISTER_SCRIPT(AmbientZoneLabel, ZM_FIELD(AmbientZoneLabel, Title).Tooltip("Zona ustidagi yozuv"))
+ZM_REGISTER_SCRIPT(AmbientZoneLabel, ZM_FIELD(AmbientZoneLabel, Title).Tooltip("Zona ustidagi yozuv"),
+    ZM_FIELD(AmbientZoneLabel, LabelHeight).Tooltip("Yozuv zona tepasidan qancha balandda, m (boshqa yozuvlar bilan ustma-ust tushmasin)"))
 
 // O'yinchi ovoz sozlamalari: - / = Music guruhini 3 dB pasaytirish / ko'tarish, N - SFX'ni o'chirish (mute),
 // 9 - saqlash (Audio::SaveSettings: SaveData'ga, loyiha standartidan alohida), 0 - saqlanganini o'chirish.

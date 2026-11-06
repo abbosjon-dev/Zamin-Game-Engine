@@ -4669,6 +4669,9 @@ namespace Zamin {
         params.Cone = audio->Cone;
         params.Direction = glm::vec3(GetWorldTransform(entity) * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
         audio->RuntimeHandle = AudioEngine::Play(Project::GetAssetFileSystemPath(audio->Path), params);
+        // Its owner is known from now on: it is reported to this entity even if the source is
+        // restarted or stopped in the frame the sound ended in.
+        TrackSound(audio->RuntimeHandle, entity, true);
         return audio->RuntimeHandle != 0;
     }
 
@@ -4679,7 +4682,9 @@ namespace Zamin {
             float fade = std::isfinite(fadeOutSeconds) && fadeOutSeconds >= 0.0f ? fadeOutSeconds : audio->FadeOut;
             // With a fade the sound goes on by itself until it is silent; the source is free now.
             AudioEngine::Stop(audio->RuntimeHandle, fade);
-            audio->RuntimeHandle = 0;
+            // Its measured velocity too: not measured while stopped, it would be stale (a Doppler
+            // jump) when the source plays again somewhere else.
+            audio->ResetRuntime();
         }
     }
 
@@ -4840,6 +4845,10 @@ namespace Zamin {
         return GetPrimaryCameraEntity();
     }
 
+    // A jump faster than this (units per second) is a teleport (respawn, a moved spawn point, a cut
+    // to another place), not movement: it gives no Doppler sweep.
+    static constexpr float AudioTeleportSpeed = 150.0f;
+
     void Scene::UpdateAudioListener(float ts)
     {
         // Listeners measure how they move every frame (also those not listening right now: one that
@@ -4849,7 +4858,12 @@ namespace Zamin {
             auto& listener = m_Registry.get<AudioListenerComponent>(e);
             glm::vec3 position = GetWorldPosition({ e, this });
             if (listener.TrackVelocity && listener.HasLastPosition && ts > 0.0f)
-                listener.Velocity = (position - listener.LastPosition) / ts;
+            {
+                // A teleport keeps the velocity it had: every 3D sound's pitch would jump otherwise.
+                glm::vec3 velocity = (position - listener.LastPosition) / ts;
+                if (glm::length(velocity) <= AudioTeleportSpeed)
+                    listener.Velocity = velocity;
+            }
             else if (!listener.TrackVelocity)
                 listener.Velocity = glm::vec3(0.0f);
             listener.LastPosition = position;
@@ -4982,9 +4996,6 @@ namespace Zamin {
         ZM_PROFILE_SCOPE("Audio");
         UpdateAudioListener(ts);
         UpdateAmbientZones(ts);
-        // A jump faster than this is a teleport (respawn, a moved spawn point), not movement: it
-        // gives no Doppler sweep.
-        constexpr float teleportSpeed = 150.0f;
         const bool engine = AudioEngine::IsAvailable();
         for (auto e : m_Registry.view<AudioSourceComponent>())
         {
@@ -4997,7 +5008,7 @@ namespace Zamin {
                 if (a.HasLastPosition && ts > 0.0f)
                 {
                     glm::vec3 velocity = (position - a.LastPosition) / ts;
-                    a.Velocity = glm::length(velocity) <= teleportSpeed ? velocity : glm::vec3(0.0f);
+                    a.Velocity = glm::length(velocity) <= AudioTeleportSpeed ? velocity : glm::vec3(0.0f);
                 }
                 a.LastPosition = position;
                 a.HasLastPosition = true;
@@ -5027,21 +5038,26 @@ namespace Zamin {
         DispatchFinishedSounds();
     }
 
-    void Scene::TrackSound(uint32_t handle, Entity owner)
+    void Scene::TrackSound(uint32_t handle, Entity owner, bool fromAudioSource)
     {
         if (!handle || !owner.IsValid() || owner.GetScene() != this)
             return;
-        // Sounds stopped on purpose never report back: their entries are dropped now and then.
-        if (m_SoundOwners.size() >= 256)
-            std::erase_if(m_SoundOwners, [](const auto& entry) {
-                return !AudioEngine::IsPlaying(entry.first) && !AudioEngine::IsPaused(entry.first) && !AudioEngine::IsStopping(entry.first);
-            });
-        m_SoundOwners[handle] = owner.GetUUID();
+        m_SoundOwners[handle] = { owner.GetUUID(), fromAudioSource };
     }
 
     void Scene::DispatchFinishedSounds()
     {
         std::vector<FinishedSound> finished = AudioEngine::TakeFinishedSounds();
+        // Sounds stopped on purpose never report back: their entries are dropped now and then. Only
+        // here, right after the queue was taken: an entry whose sound ended but waits there (this
+        // frame's scripts ran in between) must not go before it is dispatched.
+        if (m_SoundOwners.size() >= 256)
+            std::erase_if(m_SoundOwners, [&](const auto& entry) {
+                const uint32_t handle = entry.first;
+                if (AudioEngine::IsPlaying(handle) || AudioEngine::IsPaused(handle) || AudioEngine::IsStopping(handle))
+                    return false;
+                return std::none_of(finished.begin(), finished.end(), [handle](const FinishedSound& f) { return f.Handle == handle; });
+            });
         for (const FinishedSound& sound : finished)
         {
             SoundFinished info;
@@ -5049,17 +5065,10 @@ namespace Zamin {
             info.Stolen = sound.Reason == SoundEndReason::Stolen;
             if (auto it = m_SoundOwners.find(sound.Handle); it != m_SoundOwners.end())
             {
-                info.Source = GetEntityByUUID(it->second);
+                info.Source = GetEntityByUUID(it->second.Entity);
+                info.FromAudioSource = it->second.FromAudioSource;
                 m_SoundOwners.erase(it);
             }
-            else
-                for (auto e : m_Registry.view<AudioSourceComponent>())
-                    if (m_Registry.get<AudioSourceComponent>(e).RuntimeHandle == sound.Handle)
-                    {
-                        info.Source = { e, this };
-                        info.FromAudioSource = true;
-                        break;
-                    }
             if (!info.Source || !m_ScriptsRunning)
                 continue; // not this scene's (an editor preview, an earlier scene) or destroyed since
             info.Clip = Project::GetAssetRelativePath(sound.File);

@@ -1660,6 +1660,7 @@ namespace Zamin {
     // A ruler label for `seconds` with ticks `step` apart: no more digits than the step needs.
     static std::string FormatRulerTime(double seconds, double step)
     {
+        seconds = std::max(0.0, seconds); // never "-0s" (a -0.0 or a rounding error at the start)
         if (step >= 60.0 || seconds >= 60.0)
         {
             const int minutes = (int)(seconds / 60.0);
@@ -1914,7 +1915,7 @@ namespace Zamin {
             // Time ruler along the bottom edge.
             const double visible = m_WaveView.GetSpan() * duration;
             const double step = WaveformView::GetTickStep(visible, width, 64.0);
-            const double first = std::ceil(m_WaveView.Start * duration / step - 1e-9) * step;
+            const double first = std::max(0.0, std::ceil(m_WaveView.Start * duration / step - 1e-9) * step); // +0.0, not -0.0
             for (double t = first; t <= m_WaveView.End * duration + 1e-9; t += step)
             {
                 const float x = std::round(xOf(t / duration)) + 0.5f;

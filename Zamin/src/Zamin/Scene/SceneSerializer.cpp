@@ -750,10 +750,10 @@ namespace Zamin {
             z = { { "Path", c->Path }, { "Volume", c->Volume }, { "Pitch", c->Pitch }, { "Output", c->Output },
                   { "Shape", c->Shape == AmbientZoneComponent::ZoneShape::Sphere ? "Sphere" : "Box" }, { "BlendDistance", c->BlendDistance },
                   { "FadeTime", c->FadeTime } };
-            if (c->Shape == AmbientZoneComponent::ZoneShape::Sphere)
-                z["Radius"] = c->Radius;
-            else
-                z["Size"] = ToJson(c->Size);
+            // Both sizes: the other shape's is kept too (switched back, it has its size again).
+            z["Size"] = ToJson(c->Size);
+            z["Radius"] = c->Radius;
+            WriteAssetHandle(z, "Path", c->Path);
             if (c->Stream)
                 z["Stream"] = true;
             if (c->Priority != 128)
@@ -1569,7 +1569,7 @@ namespace Zamin {
             const json& j = e["AmbientZone"];
             auto& c = entity.AddComponent<AmbientZoneComponent>();
             auto finite = [](float v, float lo, float hi, float fallback) { return std::isfinite(v) ? std::clamp(v, lo, hi) : fallback; };
-            c.Path = j.value("Path", std::string());
+            c.Path = ReadAssetPath(j, "Path");
             c.Volume = finite(j.value("Volume", 1.0f), 0.0f, AudioSettings::MaxVolume, 1.0f);
             c.Pitch = finite(j.value("Pitch", 1.0f), 0.01f, 10.0f, 1.0f);
             c.Output = j.value("Output", std::string(AudioSettings::SFX));

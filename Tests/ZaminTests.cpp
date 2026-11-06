@@ -5909,6 +5909,7 @@ TEST(AssetReferencesFollowUUIDs)
     WriteFile(assets / "Textures" / "coin.png", "png");
     WriteFile(assets / "Models" / "ship.glb", "glb");
     WriteFile(assets / "Audio" / "jump.wav", "wav");
+    WriteFile(assets / "Audio" / "forest.wav", "wav");
     WriteFile(assets / "Environment" / "sky.hdr", "hdr");
     bool writes = AssetRegistry::GetWriteMetaFilesByDefault();
     AssetRegistry::SetWriteMetaFilesByDefault(true); // like the editor
@@ -5922,7 +5923,8 @@ TEST(AssetReferencesFollowUUIDs)
     }
     AssetHandle coin = registry->GetHandle("Textures/coin.png"), ship = registry->GetHandle("Models/ship.glb");
     AssetHandle jump = registry->GetHandle("Audio/jump.wav"), sky = registry->GetHandle("Environment/sky.hdr");
-    CHECK(coin && ship && jump && sky);
+    AssetHandle forest = registry->GetHandle("Audio/forest.wav");
+    CHECK(coin && ship && jump && sky && forest);
 
     // ---- saving: the UUID next to each path the registry knows
     auto scene = CreateRef<Scene>();
@@ -5936,6 +5938,8 @@ TEST(AssetReferencesFollowUUIDs)
     mr.NormalPath = "Textures/missing.png"; // unknown: path only
     Entity sound = scene->CreateEntity("Sound");
     sound.AddComponent<AudioSourceComponent>().Path = "Audio/jump.wav";
+    Entity woods = scene->CreateEntity("Woods");
+    woods.AddComponent<AmbientZoneComponent>().Path = "Audio/forest.wav";
     scene->GetSettings().EnvironmentMap = "Environment/sky.hdr";
     std::string text = SceneSerializer(scene).SerializeToString();
     CHECK(text.find("\"TextureUUID\": \"" + coin.ToString() + "\"") != std::string::npos);
@@ -5943,6 +5947,7 @@ TEST(AssetReferencesFollowUUIDs)
     CHECK(text.find("\"AlbedoMapUUID\": \"" + coin.ToString() + "\"") != std::string::npos);
     CHECK(text.find("NormalMapUUID") == std::string::npos);
     CHECK(text.find("\"PathUUID\": \"" + jump.ToString() + "\"") != std::string::npos);
+    CHECK(text.find("\"PathUUID\": \"" + forest.ToString() + "\"") != std::string::npos); // the ambient zone's clip
     CHECK(text.find("\"MapUUID\": \"" + sky.ToString() + "\"") != std::string::npos);
     fs::path scenePath = assets / "Scenes" / "Level.zscene";
     CHECK(SceneSerializer(scene).Serialize(scenePath));
@@ -5963,6 +5968,8 @@ TEST(AssetReferencesFollowUUIDs)
     fs::rename(assets / "Textures" / "coin.png.zmeta", assets / "Art" / "gold.png.zmeta");
     fs::rename(assets / "Audio" / "jump.wav", assets / "Audio" / "hop.wav");
     fs::rename(assets / "Audio" / "jump.wav.zmeta", assets / "Audio" / "hop.wav.zmeta");
+    fs::rename(assets / "Audio" / "forest.wav", assets / "Audio" / "woods.wav");
+    fs::rename(assets / "Audio" / "forest.wav.zmeta", assets / "Audio" / "woods.wav.zmeta");
     fs::rename(assets / "Environment" / "sky.hdr", assets / "Environment" / "dusk.hdr");
     fs::rename(assets / "Environment" / "sky.hdr.zmeta", assets / "Environment" / "dusk.hdr.zmeta");
     registry->Scan(assets);
@@ -5975,9 +5982,10 @@ TEST(AssetReferencesFollowUUIDs)
         auto& lmr = loaded->FindEntityByName("Ship").GetComponent<MeshRendererComponent>();
         CHECK(lmr.AlbedoPath == "Art/gold.png" && lmr.ModelPath == "Models/ship.glb" && lmr.NormalPath == "Textures/missing.png");
         CHECK(loaded->FindEntityByName("Sound").GetComponent<AudioSourceComponent>().Path == "Audio/hop.wav");
+        CHECK(loaded->FindEntityByName("Woods").GetComponent<AmbientZoneComponent>().Path == "Audio/woods.wav");
         CHECK(loaded->GetSettings().EnvironmentMap == "Environment/dusk.hdr");
         const auto& repairs = serializer.GetRepairedReferences();
-        CHECK(repairs.size() == 4); // sprite, albedo map, audio, environment
+        CHECK(repairs.size() == 5); // sprite, albedo map, audio, ambient zone, environment
         CHECK(std::any_of(repairs.begin(), repairs.end(), [](const auto& r) { return r.OldPath == "Textures/coin.png" && r.NewPath == "Art/gold.png"; }));
         // Saved again: the new paths, the same UUIDs.
         std::string again = SceneSerializer(loaded).SerializeToString();
@@ -7609,6 +7617,16 @@ TEST(AudioListenerSelection)
     CHECK(glm::length(listener.Velocity - glm::vec3(2.0f, 0.0f, 0.0f)) < 1e-3f);
     CHECK(glm::length(AudioEngine::GetListenerVelocity() - glm::vec3(2.0f, 0.0f, 0.0f)) < 1e-3f);
     CHECK(glm::length(AudioEngine::GetListenerPosition() - glm::vec3(4.0f, 1.0f, 0.0f)) < 1e-4f);
+    // A teleport (faster than any movement: a respawn, a cut) keeps the velocity it had - every 3D
+    // sound's pitch would jump otherwise; then it is measured from the new place.
+    head.GetTransform().Translation.x += 500.0f;
+    scene->OnUpdateRuntime(0.5f);
+    CHECK(glm::length(listener.Velocity - glm::vec3(2.0f, 0.0f, 0.0f)) < 1e-3f);
+    CHECK(glm::length(AudioEngine::GetListenerVelocity() - glm::vec3(2.0f, 0.0f, 0.0f)) < 1e-3f);
+    CHECK(glm::length(AudioEngine::GetListenerPosition() - glm::vec3(504.0f, 1.0f, 0.0f)) < 1e-3f);
+    head.GetTransform().Translation.x += 0.5f;
+    scene->OnUpdateRuntime(0.5f);
+    CHECK(glm::length(listener.Velocity - glm::vec3(1.0f, 0.0f, 0.0f)) < 1e-3f);
     listener.TrackVelocity = false;
     scene->OnUpdateRuntime(0.5f);
     CHECK(listener.Velocity == glm::vec3(0.0f) && AudioEngine::GetListenerVelocity() == glm::vec3(0.0f));
@@ -8189,6 +8207,17 @@ TEST(AudioDoppler)
     Ref<Scene> copy = Scene::Copy(scene);
     const auto& copied = copy->FindEntityByName("Drone").GetComponent<AudioSourceComponent>();
     CHECK(copied.Velocity == glm::vec3(0.0f) && !copied.HasLastPosition && copied.RuntimeHandle == 0 && copied.DopplerFactor == 0.0f);
+    // Stopped: the measured velocity goes too (nothing is measured while it is stopped). Moved 2 m and
+    // played again, it starts without a Doppler shift and measures from where it starts.
+    a.DopplerFactor = 1.0f;
+    scene->StopAudio(drone);
+    CHECK(a.RuntimeHandle == 0 && a.Velocity == glm::vec3(0.0f) && !a.HasLastPosition);
+    drone.GetTransform().Translation.x += 2.0f;
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(scene->PlayAudio(drone) && scene->GetAudioInfo(drone, info) && info.DopplerPitch == 1.0f);
+    scene->OnUpdateRuntime(0.016f); // standing still: not 2 m / 16 ms
+    AudioEngine::Update(1.0f);
+    CHECK(a.Velocity == glm::vec3(0.0f) && a.HasLastPosition && scene->GetAudioInfo(drone, info) && info.DopplerPitch == 1.0f);
     scene->OnRuntimeStop();
     CHECK(a.Velocity == glm::vec3(0.0f) && !a.HasLastPosition && a.RuntimeHandle == 0);
 
@@ -9168,7 +9197,7 @@ TEST(AudioAmbientZones)
     CHECK_NEAR(Scene::GetAmbientZoneDistance(cave, scaled, { 0.0f, 0.0f, 7.0f }), 1.0f, 1e-5f);
     CHECK_NEAR(Scene::GetAmbientZoneWeight(cave, scaled, { 0.0f, 0.0f, 7.0f }), 0.5f, 1e-5f);
 
-    // ---- saved with the scene (the shape's own size only)
+    // ---- saved with the scene (both sizes: the other shape's is kept for switching back)
     {
         auto scene = CreateRef<Scene>();
         Entity forest = scene->CreateEntity("Forest");
@@ -9185,7 +9214,9 @@ TEST(AudioAmbientZones)
         auto& c = cavern.AddComponent<AmbientZoneComponent>();
         c.Shape = AmbientZoneComponent::ZoneShape::Sphere;
         c.Radius = 8.0f;
+        c.Size = { 20.0f, 6.0f, 12.0f }; // a box before: switched back, it is this box again
         c.Stream = true;
+        z.Radius = 7.5f;                 // the box's unused radius, likewise
         std::string text = SceneSerializer(scene).SerializeToString();
         auto loaded = CreateRef<Scene>();
         CHECK(SceneSerializer(loaded).DeserializeFromString(text));
@@ -9194,6 +9225,7 @@ TEST(AudioAmbientZones)
         CHECK(a.BlendDistance == 5.0f && a.FadeTime == 1.5f && a.Priority == 90 && a.Shape == AmbientZoneComponent::ZoneShape::Box && a.Level == 0.0f);
         const auto& b = loaded->FindEntityByName("Cave").GetComponent<AmbientZoneComponent>();
         CHECK(b.Shape == AmbientZoneComponent::ZoneShape::Sphere && b.Radius == 8.0f && b.Stream && b.Priority == 128);
+        CHECK(b.Size == glm::vec3(20.0f, 6.0f, 12.0f) && a.Radius == 7.5f);
         CHECK(text.find("\"Radius\"") != std::string::npos && ComponentRegistry::Find("AmbientZone") != nullptr);
         // Copies (play mode, prefabs) carry it.
         Ref<Scene> copy = Scene::Copy(scene);
@@ -9406,6 +9438,22 @@ TEST(AudioOnSoundFinished)
     AudioEngine::Update(0.016f);
     scene->OnUpdateRuntime(0.016f);
     CHECK(bellProbe->Heard.size() == 2 && humProbe->Heard.empty());
+    // Restarted after its sound ended but before the scene's frame told the script (a script's
+    // `if (!IsAudioPlaying()) PlayAudio();` in that frame): the ended sound is still reported.
+    CHECK(scene->PlayAudio(bell));
+    uint32_t ended = source.RuntimeHandle;
+    AudioEngine::RenderOffline(0.5f);
+    AudioEngine::Update(0.016f); // noticed: it waits for the scene's frame
+    CHECK(!scene->IsAudioPlaying(bell) && scene->PlayAudio(bell) && source.RuntimeHandle != ended);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(bellProbe->Heard.size() == 3 && bellProbe->Heard.back().Handle == ended && bellProbe->Heard.back().FromAudioSource);
+    // Likewise stopped (StopAudio) in that window: it had ended by itself before.
+    ended = source.RuntimeHandle;
+    AudioEngine::RenderOffline(0.5f);
+    AudioEngine::Update(0.016f);
+    scene->StopAudio(bell);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(bellProbe->Heard.size() == 4 && bellProbe->Heard.back().Handle == ended && bellProbe->Heard.back().FromAudioSource);
     hum.SetActive(true); // the hum starts again
     scene->OnUpdateRuntime(0.016f);
     CHECK(scene->IsAudioPlaying(hum));

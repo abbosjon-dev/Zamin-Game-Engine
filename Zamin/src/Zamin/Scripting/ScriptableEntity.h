@@ -7,6 +7,7 @@
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Math/Random.h"
 #include "Zamin/Scripting/EventBus.h"
+#include "Zamin/UI/UIAnimation.h"
 #include "Zamin/UI/UIEvents.h"
 
 #include <any>
@@ -463,6 +464,25 @@ namespace Zamin {
         bool TweenColor(const glm::vec4& target, float duration, Ease ease = Ease::InOutQuad, std::function<void()> onComplete = {});
         // Only the alpha.
         bool FadeTo(float alpha, float duration, Ease ease = Ease::InOutQuad, std::function<void()> onComplete = {});
+
+        // ---- UI animations (this entity's UI Transform; Scene::TweenUI - they run on the UI's own
+        // time, also while the game is paused, and its UI children move / fade with it). Each returns
+        // the tween's id (0: no UI Transform).
+        //   UIScaleTo({ 1.2f, 1.2f }, 0.2f);                         // grow (around its pivot)
+        //   UIFadeTo(0.0f, 0.3f, Ease::OutQuad, [this] { SetActive(false); });
+        //   UIMoveTo({ 0.0f, 40.0f }, 0.4f);                         // drawn 40 UI units higher
+        //   TweenUI(UITweenProperty::Alpha, glm::vec4(0.3f), 0.6f, { .Easing = Ease::InOutQuad, .Loop = UITweenLoop::PingPong });
+        uint64_t TweenUI(UITweenProperty property, const glm::vec4& to, float duration, UITweenOptions options = {});
+        uint64_t UIScaleTo(const glm::vec2& scale, float duration, Ease ease = Ease::OutBack, std::function<void()> onComplete = {});
+        uint64_t UIFadeTo(float alpha, float duration, Ease ease = Ease::OutQuad, std::function<void()> onComplete = {});
+        uint64_t UIMoveTo(const glm::vec2& offset, float duration, Ease ease = Ease::OutCubic, std::function<void()> onComplete = {});
+        // A quick bump: `amount` bigger, springing back (a coin counter that just changed).
+        void UIPunchScale(float amount = 0.15f, float duration = 0.35f);
+        void CancelUITweens(bool complete = false);
+        // Another UI entity (a panel): switched on with its UIAnimation's show / its hide played,
+        // then switched off (Scene::ShowUI / HideUI).
+        void ShowUI(Entity panel);
+        void HideUI(Entity panel, bool animate = true);
 
         // ---- tint animation (TintAnimationComponent: the renderer's colour times a gradient)
         // (Re)starts the entity's tint animation; false without one.

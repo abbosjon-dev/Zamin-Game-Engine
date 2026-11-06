@@ -65,6 +65,7 @@ namespace Zamin {
             MakeTypeInfo<UILayoutGroupComponent>(),
             MakeTypeInfo<UILayoutElementComponent>(),
             MakeTypeInfo<UINavigationComponent>(),
+            MakeTypeInfo<UIAnimationComponent>(),
             MakeTypeInfo<UIButtonComponent>(),
             MakeTypeInfo<UIImageComponent>(),
             MakeTypeInfo<UISliderComponent>(),

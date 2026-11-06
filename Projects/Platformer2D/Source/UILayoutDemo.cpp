@@ -12,13 +12,19 @@ using namespace Zamin;
 //   pastki panel - gorizontal guruh (joyni teng bo'ladi);
 // - UI hodisalari (event bus): "UIPointerEnter" / "UIPointerExit" (sichqoncha ustida), "UIClick",
 //   "UISelected", "UICancel"; menyu tugmalari bosilganda o'z xabarini (UI Button > Xabar nomi) yuboradi;
-// - klaviatura / gamepad: strelkalar yoki D-pad tanlaydi, Enter / A bosadi, Tab - keyingisi.
+// - klaviatura / gamepad: strelkalar yoki D-pad tanlaydi, Enter / A bosadi, Tab - keyingisi;
+// - UI animatsiyalari (UI Animation): menyu va inventar chetdan surilib, tugmalar ketma-ket sakrab
+//   chiqadi, ustiga kelganda kattalashadi / bosilganda kichrayadi; uya bosilganda tangalar yozuvi
+//   "sakraydi" (PunchUIScale); "Yangiliklar" paneli X bilan yopiladi (HideUI), "Yutuqlar" uni qaytaradi (ShowUI);
+// - matn: "Yangiliklar" matni so'z bo'yicha o'raladi, sig'magani uch nuqta bilan kesiladi; sarlavha
+//   markazda, sahifa raqami o'ng pastda, holat qatori uzun bo'lsa "..." bilan tugaydi.
 class UILayoutDemo : public ScriptableEntity
 {
 public:
     EntityRef Status;
     EntityRef Info;
     EntityRef Coins;
+    EntityRef News;
 
     void OnStart() override
     {
@@ -61,10 +67,19 @@ public:
         AddMessageHandler("Start", [this](const ScriptMessage&) { SetLast("Yangi o'yin boshlanadi!"); });
         AddMessageHandler("Continue", [this](const ScriptMessage&) { SetLast("Saqlangan o'yin davom etadi"); });
         AddMessageHandler("Settings", [this](const ScriptMessage&) { SetLast("Sozlamalar ochiladi"); });
-        AddMessageHandler("Achievements", [this](const ScriptMessage&) { SetLast("Yutuqlar: 7 / 24"); });
+        AddMessageHandler("Achievements", [this](const ScriptMessage&) {
+            ShowUI(Resolve(News)); // comes back with its show animation
+            SetLast("Yutuqlar: 7 / 24");
+        });
+        AddMessageHandler("CloseNews", [this](const ScriptMessage&) {
+            HideUI(Resolve(News)); // its hide animation, then switched off
+            SetLast("Yangiliklar yopildi (Yutuqlar - qaytadan ochadi)");
+        });
         AddMessageHandler("Quit", [this](const ScriptMessage&) { SetLast("Chiqish (namunada o'chirilgan)"); });
         AddMessageHandler("Slot", [this](const ScriptMessage& m) {
             m_Coins += 5;
+            if (Entity coins = Resolve(Coins))
+                GetScene().PunchUIScale(coins, 0.25f, 0.4f); // the counter jumps
             SetLast(std::format("{} olindi: +5 tanga", m.Sender.GetName()));
         });
         // A widget selected before this script started (UI Navigation > Faollashganda tanlash).
@@ -115,4 +130,5 @@ private:
 ZM_REGISTER_SCRIPT(UILayoutDemo,
     ZM_FIELD(UILayoutDemo, Status).Header("Yozuvlar"),
     ZM_FIELD(UILayoutDemo, Info),
-    ZM_FIELD(UILayoutDemo, Coins))
+    ZM_FIELD(UILayoutDemo, Coins),
+    ZM_FIELD(UILayoutDemo, News))

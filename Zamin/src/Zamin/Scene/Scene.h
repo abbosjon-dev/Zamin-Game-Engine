@@ -12,9 +12,11 @@
 #include "Zamin/Renderer/Lighting2D.h"
 #include "Zamin/Scene/SortingLayers.h"
 #include "Zamin/Scene/PixelPerfect.h"
+#include "Zamin/UI/UIAnimation.h"
 #include "Zamin/UI/UILayout.h"
 #include "Zamin/UI/UIWidgets.h"
 
+#include <cmath>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -516,6 +518,11 @@ namespace Zamin {
         UIRect GetUIRect(Entity entity);
         // The same in view pixels.
         UIRect GetUIScreenRect(Entity entity);
+        // Where it is drawn (UI units): its rectangle moved / scaled by its look and its UI
+        // ancestors' (UITransform Scale, VisualOffset - what tweens animate). Clicks follow it.
+        UIRect GetUIVisualRect(Entity entity);
+        // Its alpha times its UI ancestors' (what it is drawn with).
+        float GetUIAlpha(Entity entity);
         // View pixels per UI unit of the entity's UI (its outermost UI Canvas's scale; 1 without one).
         float GetUIScale(Entity entity);
         // The rectangle the entity is laid out in (UI units): its UI parent's, else the whole view.
@@ -538,6 +545,31 @@ namespace Zamin {
         Entity PickUI(const glm::vec2& point);
         // The UI element under the mouse in the last UI update (what PickUI found then).
         Entity GetHoveredUI();
+        // ---- UI animations (UIAnimation.h): tweens on the UI's own time - they run while the game
+        // runs, also while it is paused. A tween of a property replaces the one already running on
+        // it for that entity. Returns its id (0: not started - no UI Transform / picture).
+        //   scene.TweenUI(panel, UITweenProperty::Alpha, glm::vec4(0.0f), 0.3f);
+        //   scene.TweenUI(button, UITweenProperty::Scale, glm::vec4(1.1f), 0.5f, { .Easing = Ease::InOutQuad, .Loop = UITweenLoop::PingPong });
+        uint64_t TweenUI(Entity entity, UITweenProperty property, const glm::vec4& to, float duration, UITweenOptions options = {});
+        // Stops its tweens (only those of `property` when given); `complete`: they jump to their end
+        // first (their OnComplete is not called).
+        void CancelUITweens(Entity entity, bool complete = false);
+        void CancelUITweens(Entity entity, UITweenProperty property, bool complete = false);
+        bool CancelUITween(uint64_t id);
+        bool IsUITweening(Entity entity) const;
+        size_t GetUITweenCount() const { return m_UITweens.size(); }
+        // A property's value now (vec4 as TweenUI takes it); `ok` false: the entity has none.
+        glm::vec4 GetUITweenValue(Entity entity, UITweenProperty property, bool* ok = nullptr);
+        // Switches the entity on; its UIAnimation's show plays (as it does when it becomes active).
+        // Stops a hide that is playing.
+        void ShowUI(Entity entity);
+        // Plays its UIAnimation's hide, then switches it off (at once: no hide preset, not running,
+        // `animate` false). Its look comes back to rest for the next show.
+        void HideUI(Entity entity, bool animate = true);
+        bool IsUIHiding(Entity entity);
+        // A quick bump: drawn `amount` bigger, springing back over `duration` seconds.
+        void PunchUIScale(Entity entity, float amount = 0.15f, float duration = 0.35f);
+
         // ---- keyboard / gamepad navigation of the UI widgets (buttons, sliders, toggles, input
         // fields that are interactable and active). While one is selected: arrows / D-pad / left
         // stick move the selection (UINavigationComponent: how; else to the nearest widget in that
@@ -908,11 +940,53 @@ namespace Zamin {
             UIRect Parent;      // the rectangle it was laid out in
             float Scale = 1.0f;
             bool Driven = false; // placed by its parent's layout group
+            // The look (with its UI ancestors'): drawn point = layout point x VisScale + VisOffset.
+            glm::vec2 VisScale{ 1.0f };
+            glm::vec2 VisOffset{ 0.0f };
+            float Alpha = 1.0f;
+            UIRect Visual;       // Rect as drawn
+            // The same without the widgets' hover / press feedback: where the mouse finds it (a
+            // button that shrinks while pressed does not slip away from under the mouse).
+            glm::vec2 HitScale{ 1.0f };
+            glm::vec2 HitOffset{ 0.0f };
+            UIRect HitRect;
+            bool HasLook() const { return VisScale != glm::vec2(1.0f) || VisOffset != glm::vec2(0.0f); }
+            // A view point (UI units) in the layout's units (the look - without feedback - undone).
+            glm::vec2 ToLayout(const glm::vec2& p) const
+            {
+                glm::vec2 s = HitScale;
+                for (int i = 0; i < 2; i++)
+                    if (std::abs(s[i]) < 1e-6f)
+                        s[i] = s[i] < 0.0f ? -1e-6f : 1e-6f;
+                return (p - HitOffset) / s;
+            }
         };
         // Lays out every UI entity for the current view (m_UILayout).
         void LayoutUI();
         void LayoutUINode(entt::entity e, const UIRect& parent, const UIRect& rect, float scale, bool driven,
-                          std::unordered_map<entt::entity, UILayoutSizes>& sizes);
+                          std::unordered_map<entt::entity, UILayoutSizes>& sizes, const UILayoutNode* parentLook = nullptr);
+        // UI animations: shows of elements that became active, hover / press feedback; the tweens.
+        void UpdateUIAnimations(float dt);
+        void UpdateUITweens(float dt);
+        // Elements that became active since the last look: their show starts (before they are drawn).
+        void StartPendingUIShows();
+        void StartUIShow(entt::entity e);
+        // Writes a tween's value into its property.
+        bool SetUITweenValue(entt::entity e, UITweenProperty property, const glm::vec4& value);
+        struct UITween
+        {
+            uint64_t ID = 0;
+            entt::entity Entity = entt::null;
+            UITweenProperty Property = UITweenProperty::Scale;
+            glm::vec4 From{ 0.0f }, To{ 0.0f };
+            bool FromSet = false;
+            float Duration = 0.0f, Delay = 0.0f, Elapsed = 0.0f;
+            Ease Easing = Ease::OutQuad;
+            UITweenLoop Loop = UITweenLoop::None;
+            int Loops = -1;
+            bool Done = false;
+            std::function<void()> OnComplete;
+        };
         // The entity's rectangle as the parent's layout group sees it (own size, min / preferred / flexible).
         UILayoutItem GetUILayoutItem(entt::entity child, const glm::vec2& parentSize, std::unordered_map<entt::entity, UILayoutSizes>& sizes);
         UILayoutSizes GetUILayoutGroupSizes(entt::entity group, const glm::vec2& groupSize, std::unordered_map<entt::entity, UILayoutSizes>& sizes);
@@ -1094,6 +1168,10 @@ namespace Zamin {
         float m_LastUIClickTime = -1.0f;
         entt::entity m_LastUIClickEntity = entt::null;
         std::unordered_map<entt::entity, UILayoutNode> m_UILayout;
+        std::vector<UITween> m_UITweens;
+        uint64_t m_NextUITweenID = 1;
+        bool m_TickingUITweens = false;
+        bool m_UIAnimationsStarted = false; // the first UI update of the run has been (ShowAtStart)
         std::vector<entt::entity> m_UIHoverChain;   // the hovered element and its UI ancestors (deepest first)
         entt::entity m_HoveredUI = entt::null;
         entt::entity m_SelectedUI = entt::null;     // keyboard / gamepad navigation

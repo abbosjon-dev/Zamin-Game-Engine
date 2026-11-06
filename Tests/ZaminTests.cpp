@@ -4339,6 +4339,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<UILayoutGroupComponent>();
     e.AddComponent<UILayoutElementComponent>();
     e.AddComponent<UINavigationComponent>();
+    e.AddComponent<UIAnimationComponent>();
     e.AddComponent<UIButtonComponent>();
     e.AddComponent<UIImageComponent>();
     e.AddComponent<UISliderComponent>();
@@ -4351,7 +4352,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 58);
+    CHECK(types.size() == 59);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -24121,4 +24122,284 @@ TEST(FontAtlasSizeLadder)
     Font::SetSizedAtlasesEnabled(false);
     CHECK(Font::GetAtlasPixelSize(24.0f) == 0.0f);
     Font::SetSizedAtlasesEnabled(true);
+}
+
+// ------------------------------------------------------------------ M12: UI animations
+TEST(UIAnimationMath)
+{
+    bool finished = false;
+    CHECK_NEAR(UIAnimMath::Progress(0.25f, 1.0f, UITweenLoop::None, -1, finished), 0.25f, 1e-6f);
+    CHECK(!finished);
+    CHECK_NEAR(UIAnimMath::Progress(2.0f, 1.0f, UITweenLoop::None, -1, finished), 1.0f, 1e-6f);
+    CHECK(finished);
+    // Loop: again from the start; forever, or a number of rounds.
+    CHECK_NEAR(UIAnimMath::Progress(2.25f, 1.0f, UITweenLoop::Loop, -1, finished), 0.25f, 1e-5f);
+    CHECK(!finished);
+    CHECK_NEAR(UIAnimMath::Progress(3.5f, 1.0f, UITweenLoop::Loop, 3, finished), 1.0f, 1e-6f);
+    CHECK(finished);
+    // Ping-pong: back on every odd round; an even number of rounds ends where it began.
+    CHECK_NEAR(UIAnimMath::Progress(1.25f, 1.0f, UITweenLoop::PingPong, -1, finished), 0.75f, 1e-5f);
+    CHECK_NEAR(UIAnimMath::Progress(2.25f, 1.0f, UITweenLoop::PingPong, -1, finished), 0.25f, 1e-5f);
+    CHECK_NEAR(UIAnimMath::Progress(5.0f, 1.0f, UITweenLoop::PingPong, 2, finished), 0.0f, 1e-6f);
+    CHECK(finished);
+    CHECK_NEAR(UIAnimMath::Progress(5.0f, 1.0f, UITweenLoop::PingPong, 3, finished), 1.0f, 1e-6f);
+    // No duration: done at once.
+    CHECK_NEAR(UIAnimMath::Progress(0.0f, 0.0f, UITweenLoop::None, -1, finished), 1.0f, 1e-6f);
+    CHECK(finished);
+
+    // Presets: hidden looks around the rest look.
+    const UIAnimMath::Look rest{ { 2.0f, 2.0f }, { 10.0f, 0.0f }, 0.8f };
+    UIAnimMath::Look pop = UIAnimMath::HiddenLook(UIAnimPreset::Pop, rest, 100.0f);
+    CHECK(pop.Scale == glm::vec2(1.2f) && pop.Offset == rest.Offset && pop.Alpha == 0.0f);
+    UIAnimMath::Look left = UIAnimMath::HiddenLook(UIAnimPreset::SlideLeft, rest, 100.0f);
+    CHECK(left.Offset == glm::vec2(-90.0f, 0.0f) && left.Scale == rest.Scale && left.Alpha == 0.0f);
+    CHECK(UIAnimMath::HiddenLook(UIAnimPreset::SlideUp, rest, 50.0f).Offset == glm::vec2(10.0f, 50.0f));
+    CHECK(UIAnimMath::HiddenLook(UIAnimPreset::Fade, rest, 50.0f).Scale == rest.Scale);
+    CHECK(UIAnimMath::HiddenLook(UIAnimPreset::None, rest, 50.0f).Alpha == 0.8f);
+    CHECK(UIAnimMath::FeedbackTarget(true, true, 1.1f, 0.9f) == 0.9f);
+    CHECK(UIAnimMath::FeedbackTarget(true, false, 1.1f, 0.9f) == 1.1f);
+    CHECK(UIAnimMath::FeedbackTarget(false, false, 1.1f, 0.9f) == 1.0f);
+}
+
+TEST(UILookScalesAndFadesWithChildren)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    // A 200 x 100 panel in the middle with a button in its top-left quarter.
+    Entity panel = scene->CreateEntity("Panel");
+    auto& pt = panel.AddComponent<UITransformComponent>();
+    pt.SetAnchor(UITransformComponent::AnchorPoint::Center);
+    pt.Position = { 0.0f, 0.0f };
+    pt.Size = { 200.0f, 100.0f };
+    Entity button = scene->CreateEntity("Button");
+    auto& bt = button.AddComponent<UITransformComponent>();
+    bt.SetAnchor(UITransformComponent::AnchorPoint::TopLeft);
+    bt.Position = { 50.0f, -25.0f };
+    bt.Size = { 100.0f, 50.0f };
+    button.AddComponent<UIButtonComponent>();
+    scene->SetParent(button, panel, false);
+    CHECK(RectNear(scene->GetUIRect(button), { { 300.0f, 300.0f }, { 400.0f, 350.0f } }));
+    CHECK(RectNear(scene->GetUIVisualRect(button), scene->GetUIRect(button)));
+    CHECK(scene->PickUI({ 350.0f, 325.0f }) == button);
+
+    // The panel at half size (around its centre): the button with it - drawn and clicked there.
+    pt.Scale = { 0.5f, 0.5f };
+    CHECK(RectNear(scene->GetUIRect(button), { { 300.0f, 300.0f }, { 400.0f, 350.0f } })); // the layout stays
+    CHECK(RectNear(scene->GetUIVisualRect(panel), { { 350.0f, 275.0f }, { 450.0f, 325.0f } }));
+    CHECK(RectNear(scene->GetUIVisualRect(button), { { 350.0f, 300.0f }, { 400.0f, 325.0f } }));
+    CHECK(scene->PickUI({ 375.0f, 312.0f }) == button);
+    CHECK(!scene->PickUI({ 310.0f, 340.0f })); // where it was laid out: nothing is drawn there now
+    // Moved by its look; the button's own scale around its pivot (its centre) on top.
+    pt.Scale = { 1.0f, 1.0f };
+    pt.VisualOffset = { 100.0f, 0.0f };
+    bt.Scale = { 2.0f, 2.0f };
+    CHECK(RectNear(scene->GetUIVisualRect(button), { { 350.0f, 275.0f }, { 550.0f, 375.0f } }));
+    // Alpha multiplies down the tree; faded out it takes no clicks.
+    pt.Alpha = 0.5f;
+    bt.Alpha = 0.5f;
+    CHECK_NEAR(scene->GetUIAlpha(button), 0.25f, 1e-6f);
+    CHECK(scene->PickUI({ 450.0f, 325.0f }) == button);
+    pt.Alpha = 0.0f;
+    CHECK(!scene->PickUI({ 450.0f, 325.0f }));
+}
+
+TEST(UITweensRunOnUITime)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    Entity e = MakeUIWidget(scene, "Panel", { 0.0f, 0.0f }, { 200.0f, 100.0f });
+    e.AddComponent<UIImageComponent>().Color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    auto& t = e.GetComponent<UITransformComponent>();
+    scene->OnRuntimeStart();
+    int done = 0;
+    UITweenOptions linear;
+    linear.Easing = Ease::Linear;
+    linear.OnComplete = [&]() { done++; };
+    CHECK(scene->TweenUI(e, UITweenProperty::Alpha, glm::vec4(0.0f), 0.5f, linear) != 0);
+    CHECK(scene->IsUITweening(e));
+    scene->OnUpdateRuntime(0.25f);
+    CHECK_NEAR(t.Alpha, 0.5f, 1e-4f);
+    // The game paused: UI tweens go on.
+    scene->SetPaused(true);
+    scene->OnUpdateRuntime(0.25f);
+    CHECK_NEAR(t.Alpha, 0.0f, 1e-6f);
+    CHECK(done == 1 && !scene->IsUITweening(e) && scene->GetUITweenCount() == 0);
+    scene->SetPaused(false);
+
+    // A delay with a start value: the start look at once, then the tween.
+    UITweenOptions delayed;
+    delayed.Easing = Ease::Linear;
+    delayed.Delay = 0.2f;
+    delayed.From = glm::vec4(0.0f, 50.0f, 0.0f, 0.0f);
+    scene->TweenUI(e, UITweenProperty::Offset, glm::vec4(0.0f), 0.4f, delayed);
+    CHECK(t.VisualOffset == glm::vec2(0.0f, 50.0f));
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(t.VisualOffset == glm::vec2(0.0f, 50.0f));
+    scene->OnUpdateRuntime(0.3f); // 0.2 s into it
+    CHECK_NEAR(t.VisualOffset.y, 25.0f, 1e-3f);
+    // A new tween of the same property replaces it; another property runs beside it.
+    UITweenOptions colour;
+    colour.Easing = Ease::Linear;
+    scene->TweenUI(e, UITweenProperty::Offset, glm::vec4(10.0f, 0.0f, 0.0f, 0.0f), 0.1f);
+    scene->TweenUI(e, UITweenProperty::Color, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), 0.2f, colour);
+    CHECK(scene->GetUITweenCount() == 2);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(t.VisualOffset == glm::vec2(10.0f, 0.0f));
+    CHECK_NEAR(e.GetComponent<UIImageComponent>().Color.g, 0.5f, 1e-4f);
+    // Cancelled with `complete`: straight to its end.
+    scene->CancelUITweens(e, true);
+    CHECK(e.GetComponent<UIImageComponent>().Color == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    CHECK(scene->GetUITweenCount() == 0);
+
+    // Ping-pong twice: there and back, then done where it began.
+    UITweenOptions pulse;
+    pulse.Easing = Ease::Linear;
+    pulse.Loop = UITweenLoop::PingPong;
+    pulse.Loops = 2;
+    t.Scale = glm::vec2(1.0f);
+    scene->TweenUI(e, UITweenProperty::Scale, glm::vec4(2.0f, 2.0f, 0.0f, 0.0f), 1.0f, pulse);
+    scene->OnUpdateRuntime(1.5f);
+    CHECK_NEAR(t.Scale.x, 1.5f, 1e-4f);
+    scene->OnUpdateRuntime(1.0f);
+    CHECK(t.Scale == glm::vec2(1.0f) && !scene->IsUITweening(e));
+
+    // A callback may chain the next tween; a destroyed entity's tweens go.
+    UITweenOptions chain;
+    chain.OnComplete = [&]() { scene->TweenUI(e, UITweenProperty::Alpha, glm::vec4(1.0f), 0.1f); };
+    scene->TweenUI(e, UITweenProperty::Alpha, glm::vec4(0.0f), 0.1f, chain);
+    scene->OnUpdateRuntime(0.2f);
+    CHECK(scene->IsUITweening(e) && t.Alpha == 0.0f);
+    scene->OnUpdateRuntime(0.2f);
+    CHECK(t.Alpha == 1.0f && !scene->IsUITweening(e));
+    scene->PunchUIScale(e, 0.2f, 0.3f);
+    CHECK_NEAR(t.Scale.x, 1.2f, 1e-5f);
+    scene->OnUpdateRuntime(0.5f);
+    CHECK(t.Scale == glm::vec2(1.0f));
+    scene->TweenUI(e, UITweenProperty::Size, glm::vec4(10.0f), 1.0f);
+    scene->DestroyEntity(e);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(scene->GetUITweenCount() == 0);
+    // Nothing to animate: no tween.
+    Entity plain = scene->CreateEntity("Plain");
+    CHECK(scene->TweenUI(plain, UITweenProperty::Alpha, glm::vec4(0.0f), 1.0f) == 0);
+    scene->OnRuntimeStop();
+}
+
+TEST(UIAnimationShowHideAndFeedback)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    Entity panel = MakeUIWidget(scene, "Panel", { 0.0f, 0.0f }, { 300.0f, 200.0f });
+    auto& anim = panel.AddComponent<UIAnimationComponent>();
+    anim.Show = UIAnimPreset::Pop;
+    anim.Hide = UIAnimPreset::SlideDown;
+    anim.Duration = 0.2f;
+    anim.ShowEase = Ease::Linear;
+    anim.HideEase = Ease::Linear;
+    anim.SlideDistance = 100.0f;
+    Entity quiet = MakeUIWidget(scene, "Quiet", { 0.0f, 200.0f }, { 100.0f, 40.0f });
+    quiet.AddComponent<UIAnimationComponent>().ShowAtStart = false;
+    auto& t = panel.GetComponent<UITransformComponent>();
+    scene->OnRuntimeStart();
+    // The first frame: the show starts (smaller, faded) and plays to its rest look.
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(t.Scale.x > 0.6f && t.Scale.x < 1.0f && t.Alpha > 0.0f && t.Alpha < 1.0f);
+    CHECK(quiet.GetComponent<UITransformComponent>().Scale == glm::vec2(1.0f) && !scene->IsUITweening(quiet)); // not at the start
+    scene->OnUpdateRuntime(0.2f);
+    CHECK(t.Scale == glm::vec2(1.0f) && t.Alpha == 1.0f && !anim.RestSaved);
+
+    // Hide: slides down while fading, then it is switched off - its look back to rest.
+    scene->HideUI(panel);
+    CHECK(scene->IsUIHiding(panel) && panel.IsActive());
+    scene->OnUpdateRuntime(0.1f);
+    CHECK_NEAR(t.VisualOffset.y, -50.0f, 1e-3f);
+    scene->OnUpdateRuntime(0.15f);
+    CHECK(!panel.IsActive() && !scene->IsUIHiding(panel));
+    CHECK(t.VisualOffset == glm::vec2(0.0f) && t.Alpha == 1.0f && t.Scale == glm::vec2(1.0f));
+    // Show again: switched on and drawn from its first look at once.
+    scene->ShowUI(panel);
+    CHECK(panel.IsActive() && t.Scale.x < 0.61f && t.Alpha == 0.0f);
+    scene->OnUpdateRuntime(0.3f);
+    CHECK(t.Scale == glm::vec2(1.0f) && t.Alpha == 1.0f);
+    // Switched on by other code: the next UI update plays it (later in the run: also without ShowAtStart).
+    quiet.SetActive(false);
+    scene->OnUpdateRuntime(0.016f);
+    quiet.SetActive(true);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(scene->IsUITweening(quiet));
+    // Hide without animation: off at once.
+    scene->HideUI(quiet, false);
+    CHECK(!quiet.IsActive() && quiet.GetComponent<UITransformComponent>().Scale == glm::vec2(1.0f));
+
+    // Feedback: bigger under the mouse, smaller while pressed - where it is clicked stays put.
+    Entity button = MakeUIWidget(scene, "Button", { 0.0f, -200.0f }, { 200.0f, 60.0f });
+    button.AddComponent<UIButtonComponent>();
+    auto& fb = button.AddComponent<UIAnimationComponent>();
+    fb.Show = UIAnimPreset::None;
+    fb.HoverScale = 1.1f;
+    fb.PressScale = 0.5f;
+    fb.FeedbackDuration = 0.05f;
+    const glm::vec2 nearEdge{ 400.0f + 90.0f, 300.0f + 200.0f }; // 10 px in from its right end (top-left origin)
+    scene->SetViewportMouse(nearEdge, false);
+    for (int i = 0; i < 6; i++)
+        scene->OnUpdateRuntime(0.016f);
+    CHECK_NEAR(fb.FeedbackScale, 1.1f, 1e-4f);
+    CHECK(scene->GetUIVisualRect(button).GetWidth() > 219.0f);
+    scene->SetViewportMouse(nearEdge, true);
+    for (int i = 0; i < 6; i++)
+        scene->OnUpdateRuntime(0.016f);
+    CHECK_NEAR(fb.FeedbackScale, 0.5f, 1e-4f);
+    CHECK(button.GetComponent<UIButtonComponent>().Pressed); // drawn half as big, still pressed under the mouse
+    scene->SetViewportMouse(nearEdge, false);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(button.GetComponent<UIButtonComponent>().Clicked);
+    scene->OnRuntimeStop();
+}
+
+TEST(UIAnimationSerialization)
+{
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Anim");
+    auto& t = e.AddComponent<UITransformComponent>();
+    t.Scale = { 1.5f, 0.5f };
+    t.VisualOffset = { 3.0f, -4.0f };
+    t.Alpha = 0.25f;
+    auto& a = e.AddComponent<UIAnimationComponent>();
+    a.Show = UIAnimPreset::SlideRight;
+    a.Hide = UIAnimPreset::Pop;
+    a.ShowAtStart = false;
+    a.Duration = 0.6f;
+    a.ShowDelay = 0.15f;
+    a.ShowEase = Ease::OutBounce;
+    a.HideEase = Ease::InOutCubic;
+    a.SlideDistance = 42.0f;
+    a.HoverScale = 1.08f;
+    a.PressScale = 0.9f;
+    a.FeedbackDuration = 0.12f;
+    Entity plain = scene->CreateEntity("Plain");
+    plain.AddComponent<UITransformComponent>();
+    SceneSerializer serializer(scene);
+    const std::string text = serializer.SerializeToString();
+    CHECK(text.find("\"SlideRight\"") != std::string::npos && text.find("\"OutBounce\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    SceneSerializer reader(loaded);
+    CHECK(reader.DeserializeFromString(text));
+    Entity back = loaded->FindEntityByName("Anim"), plainBack = loaded->FindEntityByName("Plain");
+    CHECK(back && plainBack && back.HasComponent<UIAnimationComponent>());
+    if (!back || !plainBack)
+        return;
+    const auto& bt = back.GetComponent<UITransformComponent>();
+    CHECK(bt.Scale == glm::vec2(1.5f, 0.5f) && bt.VisualOffset == glm::vec2(3.0f, -4.0f) && bt.Alpha == 0.25f);
+    const auto& ba = back.GetComponent<UIAnimationComponent>();
+    CHECK(ba.Show == UIAnimPreset::SlideRight && ba.Hide == UIAnimPreset::Pop && !ba.ShowAtStart);
+    CHECK(ba.ShowEase == Ease::OutBounce && ba.HideEase == Ease::InOutCubic);
+    CHECK_NEAR(ba.Duration, 0.6f, 1e-6f);
+    CHECK_NEAR(ba.ShowDelay, 0.15f, 1e-6f);
+    CHECK_NEAR(ba.SlideDistance, 42.0f, 1e-6f);
+    CHECK_NEAR(ba.HoverScale, 1.08f, 1e-6f);
+    CHECK_NEAR(ba.PressScale, 0.9f, 1e-6f);
+    CHECK_NEAR(ba.FeedbackDuration, 0.12f, 1e-6f);
+    // The plain look is not written (and loads as plain).
+    const auto& pb = plainBack.GetComponent<UITransformComponent>();
+    CHECK(pb.Scale == glm::vec2(1.0f) && pb.VisualOffset == glm::vec2(0.0f) && pb.Alpha == 1.0f);
 }

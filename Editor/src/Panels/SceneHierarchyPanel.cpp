@@ -1829,6 +1829,13 @@ namespace Zamin {
                 c.MeshAsset = MeshLibrary::GetPrimitive(c.Type);
             if constexpr (std::is_same_v<T, TextComponent>)
                 c.FontAsset = Font::GetDefault();
+            // On a widget: a little hover / press feedback from the start.
+            if constexpr (std::is_same_v<T, UIAnimationComponent>)
+                if (entity.HasComponent<UIButtonComponent>() || entity.HasComponent<UIToggleComponent>())
+                {
+                    c.HoverScale = 1.05f;
+                    c.PressScale = 0.94f;
+                }
             // A UI widget lives in a UI rectangle: one is added with it (in the middle of the screen).
             constexpr bool widget = std::is_same_v<T, UIImageComponent> || std::is_same_v<T, UISliderComponent> ||
                                     std::is_same_v<T, UIToggleComponent> || std::is_same_v<T, UIProgressBarComponent> ||
@@ -1838,7 +1845,7 @@ namespace Zamin {
                 if (!entity.HasComponent<UITransformComponent>())
                     entity.AddComponent<UITransformComponent>().SetStretch();
             if constexpr (std::is_same_v<T, UILayoutGroupComponent> || std::is_same_v<T, UILayoutElementComponent> ||
-                          std::is_same_v<T, UINavigationComponent>)
+                          std::is_same_v<T, UINavigationComponent> || std::is_same_v<T, UIAnimationComponent>)
                 if (!entity.HasComponent<UITransformComponent>())
                 {
                     auto& ui = entity.AddComponent<UITransformComponent>();
@@ -5426,6 +5433,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<UILayoutGroupComponent>("UI Layout Group (qator, ustun, panjara)", ICON_FA_LIST);
                 DisplayAddComponentEntry<UILayoutElementComponent>("UI Layout Element (min / afzal o'lcham)", ICON_FA_ARROWS_LEFT_RIGHT);
                 DisplayAddComponentEntry<UINavigationComponent>("UI Navigation (klaviatura / gamepad)", ICON_FA_GAMEPAD);
+                DisplayAddComponentEntry<UIAnimationComponent>("UI Animation (ko'rinish, yashirish, bosilish)", ICON_FA_WAND_MAGIC_SPARKLES);
                 DisplayAddComponentEntry<UIButtonComponent>("UI Button", ICON_FA_HAND_POINTER);
                 DisplayAddComponentEntry<UIImageComponent>("UI Image (rasm, 9-slice, to'ldirish)", ICON_FA_IMAGE);
                 DisplayAddComponentEntry<UISliderComponent>("UI Slider", ICON_FA_SLIDERS);
@@ -6708,6 +6716,32 @@ namespace Zamin {
             changed |= UI::PropertyInt("Tartib", c.Order);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("Aka-ukalari orasida chizilish tartibi: kattasi ustida. Bolalar doim otasi ustida chiziladi");
+            // The look (not the layout): what UI tweens animate; open by itself when it is not the plain one.
+            const bool plainLook = c.Scale == glm::vec2(1.0f) && c.VisualOffset == glm::vec2(0.0f) && c.Alpha == 1.0f;
+            if (ImGui::TreeNodeEx("Ko'rinish (animatsiya)", ImGuiTreeNodeFlags_SpanAvailWidth | (plainLook ? 0 : ImGuiTreeNodeFlags_DefaultOpen)))
+            {
+                changed |= UI::PropertyFloat2("Masshtab", c.Scale, 0.01f);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Pivot atrofida shuncha marta katta chiziladi (bolalari bilan); joylashuvga ta'sir qilmaydi");
+                changed |= UI::PropertyFloat2("Siljish", c.VisualOffset, 1.0f);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Shuncha UI birligi nariroqda chiziladi (bolalari bilan) - layout guruhidagi elementni ham surish mumkin");
+                changed |= UI::PropertySlider("Shaffoflik (alpha)", c.Alpha, 0.0f, 1.0f);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("O'zi va bolalari shu shaffoflikda chiziladi; 0 bo'lsa sichqonchani ham olmaydi");
+                if (!plainLook)
+                {
+                    UI::PropertyLabel("");
+                    if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT " Asl holiga"))
+                    {
+                        c.Scale = glm::vec2(1.0f);
+                        c.VisualOffset = glm::vec2(0.0f);
+                        c.Alpha = 1.0f;
+                        changed = true;
+                    }
+                }
+                ImGui::TreePop();
+            }
             if (m_Context)
             {
                 const UIRect r = m_Context->GetUIRect(entity);
@@ -6869,6 +6903,55 @@ namespace Zamin {
                 optional("Moslashuvchan", c.FlexibleSize, "Ortib qolgan joydan ulushi (1 va 2: ikkinchisi ikki baravar ko'p oladi)", 1.0f);
                 UI::PropertyLabel("");
                 ImGui::TextDisabled("Guruh o'lchamni boshqarganda hisobga olinadi");
+            }
+            return changed;
+        }, true, modified);
+
+        AddSection<UIAnimationComponent>(ICON_FA_WAND_MAGIC_SPARKLES, "UI Animation", entity, [&](UIAnimationComponent& c) {
+            bool changed = false;
+            static const char* const s_Presets[] = { "Yo'q", "Paydo bo'lish (fade)", "Kattalashib chiqish (pop)", "Chapdan", "O'ngdan", "Yuqoridan",
+                                                     "Pastdan" };
+            static const char* const s_HidePresets[] = { "Yo'q", "So'nish (fade)", "Kichrayib yo'qolish", "Chapga", "O'ngga", "Yuqoriga", "Pastga" };
+            static const char* const s_Eases[] = { "Linear", "InQuad", "OutQuad", "InOutQuad", "OutCubic", "InOutCubic", "OutBack", "OutElastic", "OutBounce" };
+            int show = (int)c.Show, hide = (int)c.Hide;
+            if (UI::PropertyCombo("Ko'rinish", show, s_Presets, 7)) { c.Show = (UIAnimPreset)show; changed = true; }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("O'yin paytida obyekt faollashganda (ShowUI yoki SetActive) shu animatsiya bilan chiqadi");
+            if (c.Show != UIAnimPreset::None)
+            {
+                changed |= UI::PropertyBool("Boshlanishda ham", c.ShowAtStart);
+                changed |= UI::PropertyFloat("Kechikish (s)", c.ShowDelay, 0.01f, 0.0f, 10.0f);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Ko'rinish animatsiyasi shuncha kutib boshlanadi - menyu tugmalari ketma-ket chiqishi uchun");
+                int ease = (int)c.ShowEase;
+                if (UI::PropertyCombo("Ko'rinish egri chizig'i", ease, s_Eases, EaseCount)) { c.ShowEase = (Ease)ease; changed = true; }
+            }
+            if (UI::PropertyCombo("Yashirish", hide, s_HidePresets, 7)) { c.Hide = (UIAnimPreset)hide; changed = true; }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Scene::HideUI / skriptdagi HideUI(panel) shu animatsiyani o'ynab, so'ng obyektni o'chiradi");
+            if (c.Hide != UIAnimPreset::None)
+            {
+                int ease = (int)c.HideEase;
+                if (UI::PropertyCombo("Yashirish egri chizig'i", ease, s_Eases, EaseCount)) { c.HideEase = (Ease)ease; changed = true; }
+            }
+            if (c.Show != UIAnimPreset::None || c.Hide != UIAnimPreset::None)
+                changed |= UI::PropertyFloat("Davomiylik (s)", c.Duration, 0.01f, 0.0f, 10.0f);
+            const auto slides = [](UIAnimPreset p) { return p >= UIAnimPreset::SlideLeft; };
+            if (slides(c.Show) || slides(c.Hide))
+                changed |= UI::PropertyFloat("Surilish masofasi", c.SlideDistance, 1.0f, 0.0f, 10000.0f);
+            UI::PropertyHeader("Sichqoncha javobi", "Shu obyektdagi tugma / belgilash / slayder / matn maydoni ustiga kelinganda kattalashadi, bosilganda kichrayadi (1 - o'chiq)");
+            changed |= UI::PropertyFloat("Ustida masshtab", c.HoverScale, 0.005f, 0.1f, 3.0f);
+            changed |= UI::PropertyFloat("Bosilganda masshtab", c.PressScale, 0.005f, 0.1f, 3.0f);
+            changed |= UI::PropertyFloat("O'tish vaqti (s)", c.FeedbackDuration, 0.005f, 0.0f, 2.0f);
+            if (m_Context && m_Context->IsRunning())
+            {
+                UI::PropertyLabel("");
+                if (c.Hiding)
+                    ImGui::TextColored(ImVec4(0.95f, 0.7f, 0.4f, 1.0f), "Yashirilmoqda...");
+                else if (m_Context->IsUITweening(entity))
+                    ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), ICON_FA_WAND_MAGIC_SPARKLES "  Animatsiya o'ynamoqda");
+                else
+                    ImGui::TextDisabled("Tinch (masshtab %.2f)", c.FeedbackScale);
             }
             return changed;
         }, true, modified);

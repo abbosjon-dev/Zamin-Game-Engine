@@ -191,6 +191,10 @@
           "Coins": {
             "Type": "Entity",
             "Value": 7700000000000006
+          },
+          "News": {
+            "Type": "Entity",
+            "Value": 7700000000000040
           }
         }
       }
@@ -512,6 +516,19 @@
         "ControlHeight": false,
         "ExpandWidth": true,
         "ExpandHeight": false
+      },
+      "UIAnimation": {
+        "Show": "SlideLeft",
+        "Hide": "SlideLeft",
+        "ShowAtStart": true,
+        "Duration": 0.45,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutCubic",
+        "HideEase": "InQuad",
+        "SlideDistance": 220.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -684,6 +701,19 @@
           0.28,
           1.0
         ]
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.35,
+        "ShowDelay": 0.15,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.94,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -782,6 +812,19 @@
         "LineSpacing": 0.0,
         "Centered": true,
         "Font": ""
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.35,
+        "ShowDelay": 0.22,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.94,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -880,6 +923,19 @@
         "LineSpacing": 0.0,
         "Centered": true,
         "Font": ""
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.35,
+        "ShowDelay": 0.29000000000000004,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.94,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -978,6 +1034,19 @@
         "LineSpacing": 0.0,
         "Centered": true,
         "Font": ""
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.35,
+        "ShowDelay": 0.36,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.94,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -1076,6 +1145,19 @@
         "LineSpacing": 0.0,
         "Centered": true,
         "Font": ""
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.35,
+        "ShowDelay": 0.43000000000000005,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.94,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -1156,6 +1238,19 @@
         "ControlHeight": false,
         "ExpandWidth": true,
         "ExpandHeight": false
+      },
+      "UIAnimation": {
+        "Show": "SlideRight",
+        "Hide": "SlideRight",
+        "ShowAtStart": true,
+        "Duration": 0.45,
+        "ShowDelay": 0.1,
+        "ShowEase": "OutCubic",
+        "HideEase": "InQuad",
+        "SlideDistance": 220.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -1370,6 +1465,19 @@
         "TextureUUID": "f38b2ffc80a4df5a",
         "Sprite": "button",
         "BorderScale": 3.0
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.08,
+        "PressScale": 0.9,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -1515,6 +1623,19 @@
         "TextureUUID": "f38b2ffc80a4df5a",
         "Sprite": "button",
         "BorderScale": 3.0
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.08,
+        "PressScale": 0.9,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -1660,6 +1781,19 @@
         "TextureUUID": "f38b2ffc80a4df5a",
         "Sprite": "button",
         "BorderScale": 3.0
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.08,
+        "PressScale": 0.9,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -1805,6 +1939,19 @@
         "TextureUUID": "f38b2ffc80a4df5a",
         "Sprite": "button",
         "BorderScale": 3.0
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.08,
+        "PressScale": 0.9,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -1950,6 +2097,19 @@
         "TextureUUID": "f38b2ffc80a4df5a",
         "Sprite": "button",
         "BorderScale": 3.0
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.08,
+        "PressScale": 0.9,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -2035,6 +2195,19 @@
         "TextureUUID": "f38b2ffc80a4df5a",
         "Sprite": "button",
         "BorderScale": 3.0
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.08,
+        "PressScale": 0.9,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -2180,6 +2353,19 @@
         "TextureUUID": "f38b2ffc80a4df5a",
         "Sprite": "button",
         "BorderScale": 3.0
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.08,
+        "PressScale": 0.9,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -2325,6 +2511,19 @@
         "TextureUUID": "f38b2ffc80a4df5a",
         "Sprite": "button",
         "BorderScale": 3.0
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.08,
+        "PressScale": 0.9,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -2492,6 +2691,19 @@
         "LineSpacing": 0.0,
         "Centered": false,
         "Font": ""
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.96,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -2579,6 +2791,19 @@
         "LineSpacing": 0.0,
         "Centered": false,
         "Font": ""
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.96,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -2666,6 +2891,19 @@
         "LineSpacing": 0.0,
         "Centered": false,
         "Font": ""
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.96,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -2814,7 +3052,8 @@
         "Kerning": 0.0,
         "LineSpacing": 0.0,
         "Centered": true,
-        "Font": ""
+        "Font": "",
+        "Overflow": "Ellipsis"
       }
     },
     {
@@ -2874,6 +3113,435 @@
         "LineSpacing": 0.0,
         "Centered": true,
         "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000040,
+      "Tag": "Yangiliklar",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000003,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          40
+        ],
+        "Size": [
+          620,
+          400
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "panel",
+        "BorderScale": 4.0
+      },
+      "UIAnimation": {
+        "Show": "Pop",
+        "Hide": "Pop",
+        "ShowAtStart": true,
+        "Duration": 0.4,
+        "ShowDelay": 0.35,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.0,
+        "PressScale": 1.0,
+        "FeedbackDuration": 0.08
+      }
+    },
+    {
+      "Entity": 7700000000000041,
+      "Tag": "Yangiliklar sarlavhasi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000040,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          1
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          1
+        ],
+        "Position": [
+          0,
+          -24
+        ],
+        "Size": [
+          -60,
+          52
+        ],
+        "FontSize": 34,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Yangiliklar",
+        "Color": [
+          1.0,
+          0.85,
+          0.4,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000042,
+      "Tag": "Yangilik matni",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000040,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          6
+        ],
+        "Size": [
+          -72,
+          -188
+        ],
+        "FontSize": 25,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Zamin Engine'ning yangi UI tizimi: matn endi to'rtburchak ichida chapga, markazga yoki o'ngga tekislanadi, so'z bo'yicha o'raladi va sig'magan joyi uch nuqta bilan kesiladi. Oʻzbekcha oʻ, gʻ, sh, ch harflari va kirill yozuvi (Тошкент, Самарқанд) bitta belgi sifatida o'raladi. Tugmalar ustiga kelganda kattalashadi, bosilganda kichrayadi, panellar esa sakrab yoki surilib chiqadi. Bu matn ataylab uzun yozilgan - oxiri kesiladi va uch nuqta qo'yiladi.",
+        "Color": [
+          0.93,
+          0.95,
+          1.0,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.12,
+        "AlignH": "Left",
+        "AlignV": "Top",
+        "Font": "",
+        "WordWrap": true,
+        "Overflow": "Ellipsis"
+      }
+    },
+    {
+      "Entity": 7700000000000043,
+      "Tag": "Muallif",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000040,
+      "UITransform": {
+        "AnchorMin": [
+          0,
+          0
+        ],
+        "AnchorMax": [
+          0,
+          0
+        ],
+        "Pivot": [
+          0,
+          0
+        ],
+        "Position": [
+          36,
+          30
+        ],
+        "Size": [
+          300,
+          30
+        ],
+        "FontSize": 21,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Zamin jamoasi",
+        "Color": [
+          0.65,
+          0.75,
+          0.9,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Bottom",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000044,
+      "Tag": "Sahifa",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000040,
+      "UITransform": {
+        "AnchorMin": [
+          1,
+          0
+        ],
+        "AnchorMax": [
+          1,
+          0
+        ],
+        "Pivot": [
+          1,
+          0
+        ],
+        "Position": [
+          -36,
+          30
+        ],
+        "Size": [
+          200,
+          30
+        ],
+        "FontSize": 21,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "1 / 3",
+        "Color": [
+          0.65,
+          0.75,
+          0.9,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Right",
+        "AlignV": "Bottom",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7700000000000045,
+      "Tag": "Yopish",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7700000000000040,
+      "UITransform": {
+        "AnchorMin": [
+          1,
+          1
+        ],
+        "AnchorMax": [
+          1,
+          1
+        ],
+        "Pivot": [
+          1,
+          1
+        ],
+        "Position": [
+          -18,
+          -18
+        ],
+        "Size": [
+          52,
+          52
+        ],
+        "FontSize": 30,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          1.0,
+          0.6,
+          0.55,
+          1
+        ],
+        "Hover": [
+          1.0,
+          0.75,
+          0.7,
+          1
+        ],
+        "Pressed": [
+          0.8,
+          0.45,
+          0.4,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "CloseNews",
+        "ClickTarget": 7700000000000003
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "X",
+        "Color": [
+          0.2,
+          0.08,
+          0.08,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "Fade",
+        "ShowAtStart": true,
+        "Duration": 0.3,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.12,
+        "PressScale": 0.88,
+        "FeedbackDuration": 0.08
       }
     }
   ]

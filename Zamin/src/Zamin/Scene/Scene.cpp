@@ -430,6 +430,7 @@ namespace Zamin {
         }
         for (auto e : registry.view<UIInputFieldComponent>()) registry.get<UIInputFieldComponent>(e).ResetRuntime();
         for (auto e : registry.view<UINavigationComponent>()) registry.get<UINavigationComponent>(e).WasActive = false;
+        for (auto e : registry.view<UIAnimationComponent>()) registry.get<UIAnimationComponent>(e).ResetRuntime();
         for (auto e : registry.view<UICanvasComponent>()) registry.get<UICanvasComponent>(e).CurrentScale = 1.0f;
     }
 
@@ -474,6 +475,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<UIProgressBarComponent>()) c->DisplayValue = std::clamp(c->Value, 0.0f, 1.0f);
         if (auto* c = e.TryGetComponent<UIInputFieldComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<UINavigationComponent>()) c->WasActive = false; // a spawned menu's SelectOnEnable counts
+        if (auto* c = e.TryGetComponent<UIAnimationComponent>()) c->ResetRuntime();      // a spawned panel's show plays
         if (auto* c = e.TryGetComponent<UICanvasComponent>()) c->CurrentScale = 1.0f;
         if (auto* c = e.TryGetComponent<MeshRendererComponent>())
         {

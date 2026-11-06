@@ -63,6 +63,7 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, UILayoutGroupComponent>) return "UILayoutGroup";
         else if constexpr (std::is_same_v<T, UILayoutElementComponent>) return "UILayoutElement";
         else if constexpr (std::is_same_v<T, UINavigationComponent>) return "UINavigation";
+        else if constexpr (std::is_same_v<T, UIAnimationComponent>) return "UIAnimation";
         else if constexpr (std::is_same_v<T, UIButtonComponent>) return "UIButton";
         else if constexpr (std::is_same_v<T, UIImageComponent>) return "UIImage";
         else if constexpr (std::is_same_v<T, UISliderComponent>) return "UISlider";

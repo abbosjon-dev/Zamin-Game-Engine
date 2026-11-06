@@ -120,9 +120,28 @@ namespace Zamin {
     }
 
     void Scene::LayoutUINode(entt::entity e, const UIRect& parent, const UIRect& rect, float scale, bool driven,
-                             std::unordered_map<entt::entity, UILayoutSizes>& sizes)
+                             std::unordered_map<entt::entity, UILayoutSizes>& sizes, const UILayoutNode* parentLook)
     {
-        m_UILayout[e] = UILayoutNode{ rect, parent, scale, driven };
+        // Its look around its pivot (drawn: also its widget's hover / press feedback), after its ancestors'.
+        const auto& t = m_Registry.get<UITransformComponent>(e);
+        const glm::vec2 pivot = rect.Min + rect.GetSize() * t.Pivot;
+        const float feedback = m_Registry.all_of<UIAnimationComponent>(e) ? m_Registry.get<UIAnimationComponent>(e).FeedbackScale : 1.0f;
+        UILayoutNode node{ rect, parent, scale, driven };
+        auto compose = [&](const glm::vec2& own, const glm::vec2& parentScale, const glm::vec2& parentOffset, glm::vec2& outScale, glm::vec2& outOffset) {
+            outScale = parentScale * own;
+            outOffset = (pivot * (1.0f - own) + t.VisualOffset) * parentScale + parentOffset;
+        };
+        auto box = [&](const glm::vec2& s, const glm::vec2& o) {
+            const glm::vec2 a = rect.Min * s + o, b = rect.Max * s + o;
+            return UIRect{ glm::min(a, b), glm::max(a, b) };
+        };
+        const glm::vec2 one(1.0f), zero(0.0f);
+        compose(t.Scale * feedback, parentLook ? parentLook->VisScale : one, parentLook ? parentLook->VisOffset : zero, node.VisScale, node.VisOffset);
+        compose(t.Scale, parentLook ? parentLook->HitScale : one, parentLook ? parentLook->HitOffset : zero, node.HitScale, node.HitOffset);
+        node.Alpha = (parentLook ? parentLook->Alpha : 1.0f) * std::clamp(t.Alpha, 0.0f, 1.0f);
+        node.Visual = box(node.VisScale, node.VisOffset);
+        node.HitRect = box(node.HitScale, node.HitOffset);
+        m_UILayout[e] = node;
         if (auto* canvas = m_Registry.try_get<UICanvasComponent>(e))
             canvas->CurrentScale = scale; // an inner canvas takes the outer one's scale
         std::vector<entt::entity> children;
@@ -147,9 +166,9 @@ namespace Zamin {
         for (auto child : children)
         {
             if (next < placed.size() && placed[next] == child)
-                LayoutUINode(child, rect, rects[next++], scale, true, sizes);
+                LayoutUINode(child, rect, rects[next++], scale, true, sizes, &node);
             else
-                LayoutUINode(child, rect, ComputeOwnUIRect(child, rect, sizes), scale, false, sizes);
+                LayoutUINode(child, rect, ComputeOwnUIRect(child, rect, sizes), scale, false, sizes, &node);
         }
     }
 
@@ -219,6 +238,22 @@ namespace Zamin {
         LayoutUI();
         const UILayoutNode& node = GetUINode(entity);
         return { node.Rect.Min * node.Scale, node.Rect.Max * node.Scale };
+    }
+
+    UIRect Scene::GetUIVisualRect(Entity entity)
+    {
+        if (!HasUITransform(entity, this))
+            return {};
+        LayoutUI();
+        return GetUINode(entity).Visual;
+    }
+
+    float Scene::GetUIAlpha(Entity entity)
+    {
+        if (!HasUITransform(entity, this))
+            return 1.0f;
+        LayoutUI();
+        return GetUINode(entity).Alpha;
     }
 
     float Scene::GetUIScale(Entity entity)
@@ -334,7 +369,7 @@ namespace Zamin {
             if (!TakesMouse(m_Registry, e) || !IsActiveInHierarchy({ e, this }))
                 continue; // inactive UI is not drawn and cannot be hovered: the mouse reaches what is below
             const UILayoutNode& node = GetUINode(e);
-            if (node.Rect.Contains(point / node.Scale))
+            if (node.Alpha > 0.001f && node.HitRect.Contains(point / node.Scale)) // where it is drawn; faded out: not there
                 return e;
         }
         return entt::null;
@@ -1068,8 +1103,12 @@ namespace Zamin {
         LayoutUI();
         const glm::vec2 viewport = GetViewportSize();
         const glm::vec2 mouse = { m_MousePosition.x, viewport.y - m_MousePosition.y }; // to bottom-left origin, view px
-        // The mouse in an element's UI units.
-        auto local = [&](entt::entity e) { return mouse / GetUINode(e).Scale; };
+        // The mouse in an element's UI units, where its layout is (its look undone: a scaled /
+        // moved widget is used where it is drawn).
+        auto local = [&](entt::entity e) {
+            const UILayoutNode& node = GetUINode(e);
+            return node.ToLayout(mouse / node.Scale);
+        };
         const bool pressedNow = m_MouseDown && !m_MouseWasDown;
         const bool released = !m_MouseDown && m_MouseWasDown;
         m_MouseWasDown = m_MouseDown;
@@ -1316,6 +1355,9 @@ namespace Zamin {
                 p.DisplayValue = p.DisplayValue < target ? std::min(target, p.DisplayValue + step) : std::max(target, p.DisplayValue - step);
             }
         }
+
+        // ---- UI animations: shows of what became active, the widgets' feedback, the tweens
+        UpdateUIAnimations(dt);
 
         // ---- the scripts hear of it, in the order it happened
         DeliverUIChanges(changes);
@@ -1599,7 +1641,7 @@ namespace Zamin {
     }
 
     static void DrawUIInputField(UIInputFieldComponent& f, const UITransformComponent& t, const UIRect& rect, const glm::vec2& canvas,
-                                 const glm::vec4& tint, int id)
+                                 const glm::vec2& lookScale, const glm::vec2& lookOffset, const glm::vec4& tint, int id)
     {
         if (!f.FontAsset)
             f.FontAsset = f.FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(f.FontPath));
@@ -1631,7 +1673,9 @@ namespace Zamin {
 
         // Only inside the field (a long text scrolls under its edges).
         const glm::vec2 v = glm::max(canvas, glm::vec2(1.0f)); // the canvas's size in UI units: the clip is 0..1 of the view
-        const UIRect clip = area.Inset(-1.0f, -1.0f, 0.0f, 0.0f).Intersect(rect);
+        UIRect clip = area.Inset(-1.0f, -1.0f, 0.0f, 0.0f).Intersect(rect);
+        const glm::vec2 a = clip.Min * lookScale + lookOffset, b = clip.Max * lookScale + lookOffset; // as drawn
+        clip = { glm::min(a, b), glm::max(a, b) };
         Renderer2D::SetClipRect(true, clip.Min / v, clip.Max / v);
 
         std::vector<float> offsets;
@@ -1666,31 +1710,44 @@ namespace Zamin {
         if (uiView.empty() || m_ViewportWidth == 0 || m_ViewportHeight == 0)
             return;
         const glm::vec2 viewport = GetViewportSize();
+        // What became active since the UI update shows up already in its show's first look.
+        if (m_IsRunning)
+            StartPendingUIShows();
         LayoutUI();
         std::vector<entt::entity> ui = GetUIDrawOrder(skip);
         const AssetRegistry* registry = Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
 
         RenderCommand::SetDepthTest(false);
         Renderer2D::SetLit(false);
-        // One projection per canvas scale: the view is viewport / scale UI units big.
+        // One projection per canvas scale and look: the view is viewport / scale UI units big; an
+        // element with a look (scale / offset - tweens) is drawn through it, with its children.
         float currentScale = 0.0f;
+        glm::vec2 currentLookScale(1.0f), currentLookOffset(0.0f);
         glm::vec2 canvas = viewport;
-        auto useScale = [&](float scale) {
-            if (scale == currentScale)
+        auto useView = [&](float scale, const glm::vec2& lookScale, const glm::vec2& lookOffset) {
+            if (scale == currentScale && lookScale == currentLookScale && lookOffset == currentLookOffset)
                 return;
             if (currentScale > 0.0f)
                 Renderer2D::EndScene();
             currentScale = scale;
+            currentLookScale = lookScale;
+            currentLookOffset = lookOffset;
             canvas = viewport / scale;
-            Renderer2D::BeginScene(glm::ortho(0.0f, canvas.x, 0.0f, canvas.y, -1.0f, 1.0f));
+            glm::mat4 projection = glm::ortho(0.0f, canvas.x, 0.0f, canvas.y, -1.0f, 1.0f);
+            if (lookScale != glm::vec2(1.0f) || lookOffset != glm::vec2(0.0f))
+                projection = projection * glm::translate(glm::mat4(1.0f), glm::vec3(lookOffset, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(lookScale, 1.0f));
+            Renderer2D::BeginScene(projection);
         };
-        useScale(1.0f);
+        auto useNode = [&](const UILayoutNode& node) { useView(node.Scale, node.VisScale, node.VisOffset); };
+        useView(1.0f, glm::vec2(1.0f), glm::vec2(0.0f));
         const bool highlight = IsUISelectionHighlighted();
         for (auto e : ui)
         {
             const auto& t = m_Registry.get<UITransformComponent>(e);
             const UILayoutNode& node = GetUINode(e);
-            useScale(node.Scale);
+            if (node.Alpha <= 0.001f)
+                continue; // faded out (its children too)
+            useNode(node);
             const UIRect uiRect = node.Rect;
             const glm::vec2 center = uiRect.GetCenter(), uiSize = uiRect.GetSize();
             int id = (int)(uint32_t)e;
@@ -1705,7 +1762,8 @@ namespace Zamin {
                 tint = !b->Interactable ? glm::vec4(0.5f, 0.5f, 0.5f, 1.0f) : pressed ? b->PressedColor : (b->Hovered || selected) ? b->HoverColor : b->NormalColor;
             }
             // A tint animation colours all of it (the button's own colours included).
-            const glm::vec4 animated = m_Registry.all_of<TintAnimationComponent>(e) ? m_Registry.get<TintAnimationComponent>(e).GetColor() : glm::vec4(1.0f);
+            glm::vec4 animated = m_Registry.all_of<TintAnimationComponent>(e) ? m_Registry.get<TintAnimationComponent>(e).GetColor() : glm::vec4(1.0f);
+            animated.a *= node.Alpha; // its alpha and its UI ancestors' fade all of it
             tint *= animated;
 
             auto* image = m_Registry.try_get<UIImageComponent>(e);
@@ -1735,7 +1793,7 @@ namespace Zamin {
             if (toggle)
                 DrawUIToggle(*toggle, uiRect, m_IsRunning, selected, animated, id);
             if (auto* f = m_Registry.try_get<UIInputFieldComponent>(e))
-                DrawUIInputField(*f, t, uiRect, canvas, animated, id);
+                DrawUIInputField(*f, t, uiRect, canvas, node.VisScale, node.VisOffset, animated, id);
 
             if (auto* text = m_Registry.try_get<TextComponent>(e))
             {
@@ -1745,7 +1803,8 @@ namespace Zamin {
                 const UIRect textRect = toggle ? UIMath::GetToggleLabel(uiRect, toggle->BoxSize, toggle->Style, toggle->LabelSpacing) : uiRect;
                 const float px = GetUITextSize(t, uiRect, toggle != nullptr);
                 // Aligned / wrapped / cut in its rectangle; lines on whole screen pixels.
-                TextLayout::Draw(text->Text, text->Layout(textRect, px), text->FontAsset, px, glm::mat4(1.0f), params, id, node.Scale);
+                TextLayout::Draw(text->Text, text->Layout(textRect, px), text->FontAsset, px, glm::mat4(1.0f), params, id,
+                                 node.HasLook() ? 0.0f : node.Scale);
             }
         }
 
@@ -1757,11 +1816,11 @@ namespace Zamin {
             if (!nav || nav->ShowHighlight)
             {
                 const UILayoutNode& node = GetUINode(m_SelectedUI);
-                useScale(node.Scale);
+                useNode(node);
                 const glm::vec4 color = nav ? nav->HighlightColor : UINavigationComponent{}.HighlightColor;
                 // Pulses softly so it is noticed.
                 const float pulse = 0.75f + 0.25f * std::cos(m_UITime * 5.0f);
-                DrawRectOutline(node.Rect.Inset(-4.0f), 3.0f, glm::vec4(glm::vec3(color), color.a * pulse), (int)(uint32_t)m_SelectedUI);
+                DrawRectOutline(node.Rect.Inset(-4.0f), 3.0f, glm::vec4(glm::vec3(color), color.a * pulse * node.Alpha), (int)(uint32_t)m_SelectedUI);
             }
         }
         Renderer2D::EndScene();

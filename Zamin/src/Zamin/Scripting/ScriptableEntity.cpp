@@ -484,6 +484,60 @@ namespace Zamin {
         return true;
     }
 
+    uint64_t ScriptableEntity::TweenUI(UITweenProperty property, const glm::vec4& to, float duration, UITweenOptions options)
+    {
+        Scene* scene = m_Entity.GetScene();
+        return scene && m_Entity.IsValid() ? scene->TweenUI(m_Entity, property, to, duration, std::move(options)) : 0;
+    }
+
+    uint64_t ScriptableEntity::UIScaleTo(const glm::vec2& scale, float duration, Ease ease, std::function<void()> onComplete)
+    {
+        UITweenOptions options;
+        options.Easing = ease;
+        options.OnComplete = std::move(onComplete);
+        return TweenUI(UITweenProperty::Scale, glm::vec4(scale, 0.0f, 0.0f), duration, std::move(options));
+    }
+
+    uint64_t ScriptableEntity::UIFadeTo(float alpha, float duration, Ease ease, std::function<void()> onComplete)
+    {
+        UITweenOptions options;
+        options.Easing = ease;
+        options.OnComplete = std::move(onComplete);
+        return TweenUI(UITweenProperty::Alpha, glm::vec4(alpha, 0.0f, 0.0f, 0.0f), duration, std::move(options));
+    }
+
+    uint64_t ScriptableEntity::UIMoveTo(const glm::vec2& offset, float duration, Ease ease, std::function<void()> onComplete)
+    {
+        UITweenOptions options;
+        options.Easing = ease;
+        options.OnComplete = std::move(onComplete);
+        return TweenUI(UITweenProperty::Offset, glm::vec4(offset, 0.0f, 0.0f), duration, std::move(options));
+    }
+
+    void ScriptableEntity::UIPunchScale(float amount, float duration)
+    {
+        if (Scene* scene = m_Entity.GetScene(); scene && m_Entity.IsValid())
+            scene->PunchUIScale(m_Entity, amount, duration);
+    }
+
+    void ScriptableEntity::CancelUITweens(bool complete)
+    {
+        if (Scene* scene = m_Entity.GetScene(); scene && m_Entity.IsValid())
+            scene->CancelUITweens(m_Entity, complete);
+    }
+
+    void ScriptableEntity::ShowUI(Entity panel)
+    {
+        if (Scene* scene = m_Entity.GetScene(); scene && panel.IsValid() && panel.GetScene() == scene)
+            scene->ShowUI(panel);
+    }
+
+    void ScriptableEntity::HideUI(Entity panel, bool animate)
+    {
+        if (Scene* scene = m_Entity.GetScene(); scene && panel.IsValid() && panel.GetScene() == scene)
+            scene->HideUI(panel, animate);
+    }
+
     bool ScriptableEntity::PlayTint(bool restart)
     {
         Entity entity = m_Entity;

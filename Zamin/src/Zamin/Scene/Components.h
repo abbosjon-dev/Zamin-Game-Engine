@@ -16,6 +16,7 @@
 #include "Zamin/Scripting/ScriptField.h"
 #include "Zamin/UI/TextEdit.h"
 #include "Zamin/UI/TextLayout.h"
+#include "Zamin/UI/UIAnimation.h"
 #include "Zamin/UI/UILayout.h"
 #include "Zamin/UI/UIWidgets.h"
 
@@ -841,6 +842,12 @@ namespace Zamin {
         glm::vec2 Size{ 200.0f, 60.0f };
         float FontSize = 0.0f;                // text height in UI units (0 = the rect's height)
         int Order = 0;                        // drawn above its lower-Order siblings (children are drawn above their parent)
+        // The look, not the layout (UI tweens animate it): drawn Scale times as big around its pivot,
+        // VisualOffset UI units away and Alpha opaque - its UI children with it. Clicks follow what is
+        // drawn; at Alpha 0 it takes none.
+        glm::vec2 Scale{ 1.0f };
+        glm::vec2 VisualOffset{ 0.0f };
+        float Alpha = 1.0f;
 
         // Both anchors at a preset point (Position and Size stay: it moves with the new anchor).
         void SetAnchor(AnchorPoint point)
@@ -940,6 +947,41 @@ namespace Zamin {
 
         // runtime
         bool WasActive = false;              // SelectOnEnable notices the switch on
+    };
+
+    // Animations of a UI element (tweens of its UI Transform's look - see UIAnimation.h):
+    // - Show: played when it becomes active while the game runs (at the start too, unless
+    //   ShowAtStart is off) - it comes in from its preset's look (faded out, smaller, off to a side);
+    // - Hide: Scene::HideUI / ScriptableEntity::HideUI play it, then switch the entity off;
+    // - feedback: a button / toggle / slider / input field on the entity grows to HoverScale under
+    //   the mouse (or while selected by the keyboard) and shrinks to PressScale while pressed (1: off).
+    struct UIAnimationComponent
+    {
+        UIAnimPreset Show = UIAnimPreset::Pop;
+        UIAnimPreset Hide = UIAnimPreset::Fade;
+        bool ShowAtStart = true;
+        float Duration = 0.25f;                 // seconds (show and hide)
+        float ShowDelay = 0.0f;                 // seconds before the show starts (staggered menus)
+        Ease ShowEase = Ease::OutBack;
+        Ease HideEase = Ease::InQuad;
+        float SlideDistance = 160.0f;           // UI units (Slide presets)
+        float HoverScale = 1.0f;
+        float PressScale = 1.0f;
+        float FeedbackDuration = 0.08f;         // seconds to the new feedback scale
+
+        // runtime
+        bool WasActive = false;                 // the show notices the switch on
+        bool Hiding = false;                    // a hide plays: the entity goes off when it ends
+        bool RestSaved = false;                 // RestLook holds the look to come back to
+        UIAnimMath::Look RestLook;
+        float FeedbackScale = 1.0f, FeedbackFrom = 1.0f, FeedbackTo = 1.0f, FeedbackTime = 1.0f;
+
+        void ResetRuntime()
+        {
+            WasActive = Hiding = RestSaved = false;
+            RestLook = {};
+            FeedbackScale = FeedbackFrom = FeedbackTo = FeedbackTime = 1.0f;
+        }
     };
 
     // A clickable rectangle: tinted by its state colours (Normal / Hover / Pressed), OnClick() on
@@ -1816,7 +1858,7 @@ namespace Zamin {
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
         SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
-        UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIButtonComponent,
+        UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
         UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent,
         AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, NativeScriptComponent, EditorMetadataComponent>;
 

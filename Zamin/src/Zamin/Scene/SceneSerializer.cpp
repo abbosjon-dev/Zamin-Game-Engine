@@ -162,6 +162,7 @@ namespace Zamin {
     static const char* const s_TextAlignH[] = { "Left", "Center", "Right" };
     static const char* const s_TextAlignV[] = { "Top", "Middle", "Bottom", "Baseline" };
     static const char* const s_TextOverflows[] = { "Overflow", "Truncate", "Ellipsis" };
+    static const char* const s_UIAnimPresets[] = { "None", "Fade", "Pop", "SlideLeft", "SlideRight", "SlideUp", "SlideDown" };
 
     template<typename E, size_t N>
     static const char* EnumName(E value, const char* const (&names)[N])
@@ -758,8 +759,23 @@ namespace Zamin {
             WriteSortingLayer(e["ParticleSystem"], c->SortingLayer);
         }
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
+        {
             e["UITransform"] = { { "AnchorMin", ToJson(c->AnchorMin) }, { "AnchorMax", ToJson(c->AnchorMax) }, { "Pivot", ToJson(c->Pivot) },
                                  { "Position", ToJson(c->Position) }, { "Size", ToJson(c->Size) }, { "FontSize", c->FontSize }, { "Order", c->Order } };
+            // The look only when it is not the plain one.
+            if (c->Scale != glm::vec2(1.0f))
+                e["UITransform"]["Scale"] = ToJson(c->Scale);
+            if (c->VisualOffset != glm::vec2(0.0f))
+                e["UITransform"]["VisualOffset"] = ToJson(c->VisualOffset);
+            if (c->Alpha != 1.0f)
+                e["UITransform"]["Alpha"] = c->Alpha;
+        }
+        if (auto* c = entity.TryGetComponent<UIAnimationComponent>())
+            e["UIAnimation"] = { { "Show", EnumName(c->Show, s_UIAnimPresets) }, { "Hide", EnumName(c->Hide, s_UIAnimPresets) },
+                                 { "ShowAtStart", c->ShowAtStart }, { "Duration", c->Duration }, { "ShowDelay", c->ShowDelay },
+                                 { "ShowEase", EaseToString(c->ShowEase) }, { "HideEase", EaseToString(c->HideEase) },
+                                 { "SlideDistance", c->SlideDistance }, { "HoverScale", c->HoverScale }, { "PressScale", c->PressScale },
+                                 { "FeedbackDuration", c->FeedbackDuration } };
         if (auto* c = entity.TryGetComponent<UICanvasComponent>())
             e["UICanvas"] = { { "ScaleMode", EnumName(c->ScaleMode, s_UIScaleModes) }, { "ScaleFactor", c->ScaleFactor },
                               { "ReferenceResolution", ToJson(c->ReferenceResolution) }, { "MatchMode", EnumName(c->MatchMode, s_UIScreenMatchModes) },
@@ -1663,6 +1679,29 @@ namespace Zamin {
             c.Size = Vec(j, "Size", c.Size);
             c.FontSize = j.value("FontSize", 0.0f);
             c.Order = j.value("Order", 0);
+            c.Scale = Vec(j, "Scale", glm::vec2(1.0f));
+            c.VisualOffset = Vec(j, "VisualOffset", glm::vec2(0.0f));
+            c.Alpha = std::clamp(j.value("Alpha", 1.0f), 0.0f, 1.0f);
+        }
+        if (e.contains("UIAnimation"))
+        {
+            const json& j = e["UIAnimation"];
+            auto& c = entity.AddComponent<UIAnimationComponent>();
+            auto ease = [&](const char* key, Ease fallback) {
+                auto it = j.find(key);
+                return it != j.end() && it->is_string() ? EaseFromString(it->get<std::string>()).value_or(fallback) : fallback;
+            };
+            c.Show = EnumFromJson(j, "Show", s_UIAnimPresets, UIAnimPreset::Pop);
+            c.Hide = EnumFromJson(j, "Hide", s_UIAnimPresets, UIAnimPreset::Fade);
+            c.ShowAtStart = j.value("ShowAtStart", true);
+            c.Duration = std::max(0.0f, j.value("Duration", 0.25f));
+            c.ShowDelay = std::max(0.0f, j.value("ShowDelay", 0.0f));
+            c.ShowEase = ease("ShowEase", Ease::OutBack);
+            c.HideEase = ease("HideEase", Ease::InQuad);
+            c.SlideDistance = j.value("SlideDistance", 160.0f);
+            c.HoverScale = j.value("HoverScale", 1.0f);
+            c.PressScale = j.value("PressScale", 1.0f);
+            c.FeedbackDuration = std::max(0.0f, j.value("FeedbackDuration", 0.08f));
         }
         if (e.contains("UICanvas"))
         {

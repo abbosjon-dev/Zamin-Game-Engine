@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -104,6 +105,53 @@ namespace Zamin {
         float Hold = 0.0f;               // the highest peak of the last moment (held ~1.5 s)
     };
 
+    // One mixer group in the audio profiler (AudioProfile::Groups).
+    struct AudioGroupProfile
+    {
+        std::string Name;
+        std::string Parent;       // "" for Master
+        int Depth = 0;            // Master 0, its children 1, ...
+        size_t Voices = 0;        // sounds in the group itself (paused and fading ones included)
+        size_t Paused = 0;
+        size_t Stopping = 0;      // fading out
+        size_t Streamed = 0;
+        size_t Spatial = 0;
+        size_t TotalVoices = 0;   // with every group below it
+        uint64_t Stolen = 0;      // its sounds stopped to make room for another (since the reset)
+        uint64_t Rejected = 0;    // sounds for it that were not played: no room (since the reset)
+        float Gain = 1.0f;        // its fader with its parents' (mute / solo included)
+        float Level = 0.0f;       // the meter's hold peak
+    };
+
+    // What the audio engine is doing right now (AudioEngine::GetProfile): the editor's Stats
+    // window and viewport overlay, the player's ZAMIN_PLAYER_STATS log, tests.
+    struct AudioProfile
+    {
+        bool Available = false;   // an engine runs (with or without a device)
+        size_t Voices = 0;        // sounds that count towards the voice limit (playing or paused)
+        int MaxVoices = 0;
+        size_t Sounds = 0;        // every living sound: the counted ones, the music, the previews
+        size_t Playing = 0;       // of those heard now (started, not paused)
+        size_t Paused = 0;
+        size_t Stopping = 0;      // fading out (released once silent)
+        size_t Streamed = 0;
+        size_t Spatial = 0;
+        size_t Filtered = 0;      // with a low-pass / high-pass of their own
+        size_t Music = 0;         // music tracks (2 during a crossfade)
+        size_t Previews = 0;      // past the mixer (the editor's file previews)
+        size_t PeakVoices = 0;    // the most counted voices at once since the reset
+        uint64_t Started = 0;     // sounds started since the reset (the music too)
+        uint64_t Stolen = 0;      // since the reset
+        uint64_t Rejected = 0;    // since the reset
+        size_t Preloaded = 0;     // files kept decoded in memory
+        float SinceReset = 0.0f;  // seconds since the counters were reset
+        std::vector<AudioGroupProfile> Groups; // the mixer's tree order: parents before children
+
+        const AudioGroupProfile* FindGroup(std::string_view name) const;
+        // One line for logs: "12/64 ovoz (cho'qqi 14) | musiqa 1 | to'xtatilgan 3, rad etilgan 0 | SFX 8, UI 2".
+        std::string Format() const;
+    };
+
     // Thin wrapper over miniaudio. All functions are safe to call even when
     // no audio device is available (they simply do nothing).
     //
@@ -168,6 +216,16 @@ namespace Zamin {
         // The sound was stopped to make room for another one (voice limit).
         static bool WasStolen(uint32_t handle);
         static AudioVoiceStats GetVoiceStats();
+
+        // ---- profiler
+        // Every sound by kind, the voice limit, each mixer group's voices and what the limit cost
+        // (stolen / rejected since the counters were reset; GetVoiceStats keeps the totals).
+        static AudioProfile GetProfile();
+        // Peak, started, stolen and rejected start again from 0 (the editor's button, entering play).
+        static void ResetProfileCounters();
+        // The counted voices of the last frames (one value per Update, oldest first) for a graph.
+        static constexpr size_t VoiceHistoryCapacity = 240;
+        static std::vector<float> GetVoiceHistory();
         // The random variation (SoundParams::VolumeRandom / PitchRandom) from here on is the same
         // sequence for the same seed (tests, replays). Init picks a random seed.
         static void SetRandomSeed(uint32_t seed);

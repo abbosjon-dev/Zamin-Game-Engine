@@ -131,7 +131,10 @@ namespace Zamin {
             // Snapshot keyboard / mouse / gamepads once per frame (JustPressed, actions, axes).
             Input::Update();
             // Music fades, level meters, finished sounds (also while minimized: fades go on).
-            AudioEngine::Update(timestep);
+            {
+                ZM_PROFILE_SCOPE("Audio (mixer)");
+                AudioEngine::Update(timestep);
+            }
 
             if (!m_Minimized)
             {

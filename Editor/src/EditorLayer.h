@@ -207,6 +207,8 @@ namespace Zamin {
         // (`header`: under a collapsing header) and in a window of its own.
         void UI_ProfilerTree(bool header);
         void UI_ProfilerWindow();
+        // The audio profiler (Stats panel): voices against the limit, a graph, by kind and mixer group.
+        void UI_AudioProfiler();
         // The statistics overlay over the viewport (FPS graph, draw calls, triangles, culling):
         // the overlay itself, the toolbar's popup and the view menu sharing its settings' widgets.
         void UI_StatsOverlay();

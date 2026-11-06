@@ -4842,6 +4842,7 @@ namespace Zamin {
 
     void Scene::UpdateAudio(float ts)
     {
+        ZM_PROFILE_SCOPE("Audio");
         UpdateAudioListener(ts);
         // A jump faster than this is a teleport (respawn, a moved spawn point), not movement: it
         // gives no Doppler sweep.

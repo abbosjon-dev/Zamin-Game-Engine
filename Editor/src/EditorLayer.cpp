@@ -438,7 +438,7 @@ namespace Zamin {
                 o.Sanitize();
                 if (v.find("menu") != std::string_view::npos) m_OpenGizmosMenu = true;
             }
-            // ZAMIN_EDITOR_OVERLAY=0 | 1 | graph=0,calls=0,culling=0,hotspots,corner=tl|tr|bl|br,target=144,menu:
+            // ZAMIN_EDITOR_OVERLAY=0 | 1 | graph=0,calls=0,culling=0,hotspots,audio,corner=tl|tr|bl|br,target=144,menu:
             // the viewport's statistics overlay (for this session; not saved unless the settings change).
             if (const char* overlay = std::getenv("ZAMIN_EDITOR_OVERLAY"))
             {
@@ -453,6 +453,7 @@ namespace Zamin {
                 flag("calls=", o.DrawCalls);
                 flag("culling=", o.Culling);
                 if (v.find("hotspots") != std::string_view::npos) o.Hotspots = true;
+                if (v.find("audio") != std::string_view::npos) o.Audio = true;
                 if (size_t at = v.find("corner="); at != std::string_view::npos)
                 {
                     std::string_view c = v.substr(at + 7, 2);
@@ -3540,6 +3541,7 @@ namespace Zamin {
         // mixer, for this run (the mixer is the project's again when play stops).
         if (Audio::LoadSettings())
             ZM_INFO("O'yinda saqlangan ovoz sozlamalari yuklandi (SaveData)");
+        AudioEngine::ResetProfileCounters(); // the audio profiler counts this run
         m_ActiveScene->OnRuntimeStart();
         ImGui::SetWindowFocus("###Viewport");
         UpdateWindowTitle();
@@ -7709,6 +7711,81 @@ namespace Zamin {
         }
     }
 
+    // How full the voice limit is: green, yellow from 75%, red at the limit.
+    static ImVec4 VoiceLimitColor(size_t voices, int maxVoices)
+    {
+        if (maxVoices <= 0)
+            return FrameRateColor(0);
+        const float share = (float)voices / (float)maxVoices;
+        return FrameRateColor(share >= 1.0f ? 2 : share >= 0.75f ? 1 : 0);
+    }
+
+    // A thin bar `share` (0..1) filled, as tall as a text line takes.
+    static void DrawShareBar(float width, float height, float share, const ImVec4& color)
+    {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const ImVec2 a = ImGui::GetCursorScreenPos();
+        const float y = a.y + std::floor((ImGui::GetTextLineHeight() - height) * 0.5f);
+        dl->AddRectFilled(ImVec2(a.x, y), ImVec2(a.x + width, y + height), IM_COL32(255, 255, 255, 24), height * 0.5f);
+        if (share > 0.0f)
+            dl->AddRectFilled(ImVec2(a.x, y), ImVec2(a.x + std::max(height, width * std::clamp(share, 0.0f, 1.0f)), y + height),
+                              ImGui::GetColorU32(color), height * 0.5f);
+        ImGui::Dummy(ImVec2(width, ImGui::GetTextLineHeight()));
+    }
+
+    // The counted voices of the last frames (newest on the right), with the limit as a dashed line
+    // when the graph's scale reaches it.
+    static void DrawVoiceGraph(const std::vector<float>& history, int maxVoices, float width, float height, float opacity)
+    {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const ImVec2 a = ImGui::GetCursorScreenPos(), b(a.x + width, a.y + height);
+        ImGui::InvisibleButton("##voiceGraph", ImVec2(width, height));
+        const bool hovered = ImGui::IsItemHovered();
+        dl->AddRectFilled(a, b, IM_COL32(0, 0, 0, (int)(110 * opacity)), 4.0f);
+        float top = 4.0f;
+        for (float v : history)
+            top = std::max(top, v);
+        float scale = std::ceil(top * 1.25f);
+        // The limit is drawn when the voices come anywhere near it.
+        const bool showLimit = maxVoices > 0 && (float)maxVoices <= scale * 1.6f;
+        if (showLimit)
+            scale = std::max(scale, (float)maxVoices * 1.08f);
+        const float barWidth = width / (float)AudioEngine::VoiceHistoryCapacity;
+        auto yOf = [&](float v) { return b.y - std::min(v / scale, 1.0f) * (height - 2.0f); };
+        const size_t n = history.size();
+        for (size_t i = 0; i < n; i++)
+        {
+            const float v = history[i];
+            if (v <= 0.0f)
+                continue;
+            const float x1 = b.x - (float)(n - 1 - i) * barWidth, x0 = x1 - barWidth;
+            ImVec4 color = VoiceLimitColor((size_t)v, maxVoices);
+            color.w = 0.8f;
+            dl->AddRectFilled(ImVec2(x0, yOf(v)), ImVec2(std::max(x1 - 0.15f, x0 + 0.6f), b.y), ImGui::GetColorU32(color));
+        }
+        if (showLimit)
+        {
+            const float y = std::round(yOf((float)maxVoices)) + 0.5f;
+            for (float x = a.x; x < b.x; x += 6.0f)
+                dl->AddLine(ImVec2(x, y), ImVec2(std::min(x + 3.0f, b.x), y), IM_COL32(255, 120, 100, 150));
+            const std::string label = std::format("limit {}", maxVoices);
+            const ImVec2 at(a.x + 4.0f, std::max(a.y, y - ImGui::GetFontSize() - 1.0f));
+            const ImVec2 size = ImGui::CalcTextSize(label.c_str());
+            dl->AddRectFilled(ImVec2(at.x - 2.0f, at.y), ImVec2(at.x + size.x + 2.0f, at.y + size.y), IM_COL32(10, 12, 14, 150), 3.0f);
+            dl->AddText(at, IM_COL32(255, 170, 150, 200), label.c_str());
+        }
+        if (hovered && n > 0)
+        {
+            const float mx = ImGui::GetMousePos().x;
+            const int fromRight = (int)std::floor((b.x - mx) / barWidth);
+            if (fromRight >= 0 && (size_t)fromRight < n)
+            {
+                dl->AddLine(ImVec2(mx, a.y), ImVec2(mx, b.y), IM_COL32(255, 255, 255, 110));
+                ImGui::SetTooltip("%d kadr oldin: %.0f ovoz (limit %d)", fromRight, history[n - 1 - (size_t)fromRight], maxVoices);
+            }
+        }
+    }
+
     void EditorLayer::UI_StatsOverlay()
     {
         const ViewportStatsOverlaySettings& o = m_ViewSettings.StatsOverlay;
@@ -7953,6 +8030,78 @@ namespace Zamin {
                     ImGui::EndTable();
                 }
             }
+            // ---- audio: the voices against the limit, by mixer group, what the limit cost
+            if (o.Audio)
+            {
+                ImGui::Separator();
+                const AudioProfile audio = AudioEngine::GetProfile();
+                ImGui::TextDisabled(ICON_FA_VOLUME_HIGH "  Audio");
+                if (!audio.Available)
+                {
+                    ImGui::SameLine();
+                    ImGui::TextColored(FrameRateColor(1), "ovoz tizimi yo'q");
+                }
+                else
+                {
+                    const ImVec4 color = VoiceLimitColor(audio.Voices, audio.MaxVoices);
+                    const std::string count = std::format("{} / {} ovoz", audio.Voices, audio.MaxVoices);
+                    ImGui::SameLine();
+                    ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(count.c_str()).x));
+                    ImGui::TextColored(color, "%s", count.c_str());
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip(std::format("Limitga kiradigan ovozlar (ijro etilayotgan va pauzadagilar) / loyiha limiti (Audio Mixer > "
+                                                "Sozlamalar). Musiqa va editordagi ko'rib chiqish hisobga kirmaydi.\nCho'qqi: {}   jami "
+                                                "ovozlar: {} (ijroda {})", audio.PeakVoices, audio.Sounds, audio.Playing).c_str());
+                    DrawShareBar(inner, 4.0f, audio.MaxVoices > 0 ? (float)audio.Voices / (float)audio.MaxVoices : 0.0f, color);
+                    if (table("##overlayAudio"))
+                    {
+                        ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+                        ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch, 1.25f);
+                        // The groups something plays in (or lost a sound to the limit), as a tree.
+                        bool any = false;
+                        for (const AudioGroupProfile& g : audio.Groups)
+                        {
+                            if (g.TotalVoices == 0 && g.Stolen == 0 && g.Rejected == 0)
+                                continue;
+                            any = true;
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (float)g.Depth * fontSize * 0.75f);
+                            ImGui::TextDisabled("%s", g.Name.c_str());
+                            ImGui::TableSetColumnIndex(1);
+                            ImGui::Text("%zu", g.Voices);
+                            if (g.TotalVoices != g.Voices)
+                            {
+                                ImGui::SameLine(0.0f, 5.0f);
+                                ImGui::TextDisabled("(jami %zu)", g.TotalVoices);
+                            }
+                            if (g.Stolen || g.Rejected)
+                            {
+                                ImGui::SameLine(0.0f, 5.0f);
+                                ImGui::TextColored(FrameRateColor(1), "-%llu", (unsigned long long)(g.Stolen + g.Rejected));
+                                if (ImGui::IsItemHovered())
+                                    UI::Tooltip(std::format("{}: limit sababli to'xtatilgan {}, ijro etilmagan {}", g.Name, g.Stolen,
+                                                            g.Rejected).c_str());
+                            }
+                        }
+                        if (!any)
+                            row("-", "hech narsa o'ynamayapti");
+                        if (audio.Stolen || audio.Rejected)
+                        {
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::TextDisabled("Limit");
+                            ImGui::TableSetColumnIndex(1);
+                            ImGui::TextColored(FrameRateColor(1), "%llu to'xt. / %llu rad", (unsigned long long)audio.Stolen,
+                                               (unsigned long long)audio.Rejected);
+                            if (ImGui::IsItemHovered())
+                                UI::Tooltip("Ovozlar limiti to'lgani uchun to'xtatilgan (boshqasiga joy bergan) / umuman ijro etilmagan "
+                                            "ovozlar - Play boshlanganidan beri");
+                        }
+                        ImGui::EndTable();
+                    }
+                }
+            }
             // Right click: the overlay's settings.
             if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && ImGui::IsMouseReleased(ImGuiMouseButton_Right))
                 ImGui::OpenPopup("##StatsOverlayContext");
@@ -7986,6 +8135,10 @@ namespace Zamin {
         changed |= ImGui::Checkbox(ICON_FA_STOPWATCH "  Eng sekin bo'limlar", &o.Hotspots);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Profiler bo'limlaridan o'zi (ichki bo'limlarsiz) eng ko'p vaqt olgan 4 tasi, o'rtacha");
+        changed |= ImGui::Checkbox(ICON_FA_VOLUME_HIGH "  Audio (faol ovozlar)", &o.Audio);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Ijro etilayotgan ovozlar soni / limit, mixer guruhlari bo'yicha, limit sababli to'xtatilgan va ijro "
+                        "etilmagan ovozlar (Play boshlanganidan beri)");
         static const char* corners[] = { "Yuqori chap", "Yuqori o'ng", "Pastki chap", "Pastki o'ng" };
         int corner = (int)o.Corner;
         ImGui::SetNextItemWidth(150);
@@ -8702,14 +8855,17 @@ namespace Zamin {
             ImGui::Text("FPS: %.0f   Kadr: %.2f ms", Application::Get().GetFPS(), Application::Get().GetFrameTime());
             ImGui::PlotLines("##ft", history, (int)std::max<size_t>(1, frameTimes.Size()), 0, nullptr, 0.0f, 40.0f, ImVec2(-1, 50));
             // ZAMIN_EDITOR_STATS=profiler (automation): the render numbers start folded, the profiler shows.
+            // ZAMIN_EDITOR_STATS=audio: the same, the audio profiler first.
             static const bool profilerFirst = [] {
                 const char* v = std::getenv("ZAMIN_EDITOR_STATS");
-                return v && std::string_view(v).find("profiler") != std::string_view::npos;
+                return v && (std::string_view(v).find("profiler") != std::string_view::npos ||
+                             std::string_view(v).find("audio") != std::string_view::npos);
             }();
             if (profilerFirst && ImGui::IsWindowAppearing())
                 ImGui::SetNextItemOpen(false);
             if (!ImGui::CollapsingHeader(ICON_FA_CUBES "  Render statistikasi", ImGuiTreeNodeFlags_DefaultOpen))
             {
+                UI_AudioProfiler();
                 UI_ProfilerTree(true);
                 ImGui::End();
                 return;
@@ -8810,9 +8966,156 @@ namespace Zamin {
                 UI::EndPropertyGrid();
             }
 
+            UI_AudioProfiler();
             UI_ProfilerTree(true);
         }
         ImGui::End();
+    }
+
+    void EditorLayer::UI_AudioProfiler()
+    {
+        if (!ImGui::CollapsingHeader(ICON_FA_VOLUME_HIGH "  Audio profiler", ImGuiTreeNodeFlags_DefaultOpen))
+            return;
+        const AudioProfile audio = AudioEngine::GetProfile();
+        if (!audio.Available)
+        {
+            ImGui::TextColored(FrameRateColor(1), ICON_FA_TRIANGLE_EXCLAMATION "  Ovoz tizimi ishlamayapti (audio qurilmasi yo'q)");
+            return;
+        }
+        const float width = ImGui::GetContentRegionAvail().x;
+        const ImVec4 color = VoiceLimitColor(audio.Voices, audio.MaxVoices);
+        const ImVec4 warn = FrameRateColor(1);
+
+        // ---- the count against the limit, what the limit cost
+        if (ImFont* title = ImGuiLayer::GetTitleFont())
+            ImGui::PushFont(title);
+        ImGui::TextColored(color, "%zu", audio.Voices);
+        if (ImGuiLayer::GetTitleFont())
+            ImGui::PopFont();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Limitga kiradigan ovozlar: ijro etilayotgan va pauzadagi Audio Source / PlaySound ovozlari. Musiqa va editordagi "
+                        "fayl ko'rib chiqishi hisobga kirmaydi");
+        ImGui::SameLine(0.0f, 6.0f);
+        ImGui::BeginGroup();
+        ImGui::TextDisabled("/ %d ovoz limiti", audio.MaxVoices);
+        ImGui::Text("cho'qqi %zu", audio.PeakVoices);
+        ImGui::EndGroup();
+        ImGui::SameLine();
+        ImGui::BeginGroup();
+        const float column = ImGui::GetCursorPosX();
+        auto right = [&](const std::string& text, bool alert) {
+            const float w = ImGui::CalcTextSize(text.c_str()).x;
+            ImGui::SetCursorPosX(std::max(column, ImGui::GetWindowContentRegionMax().x - w));
+            if (alert)
+                ImGui::TextColored(warn, "%s", text.c_str());
+            else
+                ImGui::TextDisabled("%s", text.c_str());
+        };
+        right(std::format("to'xtatilgan {}", audio.Stolen), audio.Stolen > 0);
+        right(std::format("rad etilgan {}", audio.Rejected), audio.Rejected > 0);
+        ImGui::EndGroup();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Limit to'lganda: boshqa ovozga joy berib to'xtatilganlar / joy topilmay umuman ijro etilmaganlar (Audio Source > "
+                        "Ovozlar limiti: ustuvorlik va qoida)");
+        DrawShareBar(width, 5.0f, audio.MaxVoices > 0 ? (float)audio.Voices / (float)audio.MaxVoices : 0.0f, color);
+        DrawVoiceGraph(AudioEngine::GetVoiceHistory(), audio.MaxVoices, width, std::floor(ImGui::GetFontSize() * 3.2f), 1.0f);
+
+        // ---- what kind of sounds
+        float labelWidth = 0.0f;
+        for (const char* label : { "Oldindan yuklangan", "Ko'rib chiqish" })
+            labelWidth = std::max(labelWidth, ImGui::CalcTextSize(label).x);
+        labelWidth = std::min(labelWidth + ImGui::GetStyle().ItemSpacing.x, width * 0.5f);
+        if (UI::BeginPropertyGrid("audioProfile", labelWidth))
+        {
+            UI::PropertyLabel("Ovozlar", "Hamma tirik ovozlar (musiqa va ko'rib chiqish bilan): eshitilayotgani, pauzadagisi va so'nib "
+                                         "to'xtayotgani");
+            // Only the parts there are (the panel is often narrow).
+            auto parts = [](std::initializer_list<std::pair<const char*, size_t>> list) {
+                std::string text;
+                for (const auto& [name, count] : list)
+                    if (count)
+                        text += std::format("{}{} {}", text.empty() ? "" : ", ", name, count);
+                return text.empty() ? std::string("-") : text;
+            };
+            ImGui::Text("%zu", audio.Sounds);
+            ImGui::SameLine(0.0f, 6.0f);
+            ImGui::TextDisabled("%s", parts({ { "ijroda", audio.Playing }, { "pauza", audio.Paused }, { "so'nmoqda", audio.Stopping } }).c_str());
+            UI::PropertyLabel("Turi", "3D (fazoviy), diskdan oqim bilan o'qilayotgan va o'z filtri (low-pass / high-pass) bor ovozlar");
+            ImGui::TextUnformatted(parts({ { "3D", audio.Spatial }, { "oqim", audio.Streamed }, { "filtrli", audio.Filtered } }).c_str());
+            UI::PropertyLabel("Musiqa", "Audio::PlayMusic treklari (crossfade paytida 2 ta) - limitga kirmaydi");
+            ImGui::Text("%zu", audio.Music);
+            UI::PropertyLabel("Ko'rib chiqish", "Mixerdan tashqari ovozlar: editordagi fayl ko'rib chiqishi");
+            ImGui::Text("%zu", audio.Previews);
+            UI::PropertyLabel("Boshlangan", "Hisoblagichlar nollanganidan beri boshlangan ovozlar (musiqa bilan)");
+            ImGui::Text("%llu", (unsigned long long)audio.Started);
+            UI::PropertyLabel("Oldindan yuklangan", "Xotirada yechilgan holda saqlanayotgan fayllar (import sozlamasi Preload, "
+                                                    "Audio::Preload)");
+            ImGui::Text("%zu fayl", audio.Preloaded);
+            UI::EndPropertyGrid();
+        }
+
+        // ---- by mixer group
+        if (ImGui::BeginTable("##audioGroups", 5, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH |
+                                                      ImGuiTableFlags_NoSavedSettings))
+        {
+            ImGui::TableSetupColumn("Guruh", ImGuiTableColumnFlags_WidthStretch, 1.5f);
+            ImGui::TableSetupColumn("O'zi", ImGuiTableColumnFlags_WidthStretch, 0.55f);
+            ImGui::TableSetupColumn("Jami", ImGuiTableColumnFlags_WidthStretch, 0.55f);
+            ImGui::TableSetupColumn("Limit", ImGuiTableColumnFlags_WidthStretch, 0.8f);
+            ImGui::TableSetupColumn("Daraja", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+            ImGui::TableHeadersRow();
+            for (const AudioGroupProfile& g : audio.Groups)
+            {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (float)g.Depth * ImGui::GetFontSize() * 0.8f);
+                if (g.TotalVoices)
+                    ImGui::TextUnformatted(g.Name.c_str());
+                else
+                    ImGui::TextDisabled("%s", g.Name.c_str());
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(std::format("{} -> {}\nO'zida: {} (pauza {}, so'nmoqda {}, oqim {}, 3D {})\nBola guruhlari bilan: {}\n"
+                                            "Balandligi (ota guruhlar bilan): {:.1f} dB", g.Name, g.Parent.empty() ? "chiqish" : g.Parent,
+                                            g.Voices, g.Paused, g.Stopping, g.Streamed, g.Spatial, g.TotalVoices,
+                                            AudioGain::ToDecibels(g.Gain)).c_str());
+                ImGui::TableSetColumnIndex(1);
+                if (g.Voices)
+                    ImGui::Text("%zu", g.Voices);
+                else
+                    ImGui::TextDisabled("0");
+                ImGui::TableSetColumnIndex(2);
+                if (g.TotalVoices != g.Voices)
+                    ImGui::Text("%zu", g.TotalVoices);
+                else
+                    ImGui::TextDisabled("%zu", g.TotalVoices);
+                ImGui::TableSetColumnIndex(3);
+                if (g.Stolen || g.Rejected)
+                {
+                    ImGui::TextColored(warn, "%llu / %llu", (unsigned long long)g.Stolen, (unsigned long long)g.Rejected);
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip("Limit sababli to'xtatilgan / ijro etilmagan ovozlar");
+                }
+                else
+                    ImGui::TextDisabled("-");
+                ImGui::TableSetColumnIndex(4);
+                // The meter's hold peak on a -60..0 dB scale.
+                const float db = g.Level > 0.0f ? AudioGain::ToDecibels(g.Level) : AudioGain::MinDecibels;
+                const float share = std::clamp((db - AudioGain::MinDecibels) / -AudioGain::MinDecibels, 0.0f, 1.0f);
+                const ImVec4 levelColor = db > -1.0f ? FrameRateColor(2) : db > -9.0f ? FrameRateColor(1) : UI::AccentColor();
+                DrawShareBar(std::max(10.0f, ImGui::GetContentRegionAvail().x), 5.0f, share, levelColor);
+                if (ImGui::IsItemHovered() && g.Level > 0.0f)
+                    UI::Tooltip(std::format("Cho'qqi: {:.1f} dBFS", db).c_str());
+            }
+            ImGui::EndTable();
+        }
+        if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Hisoblagichlarni nollash"))
+            AudioEngine::ResetProfileCounters();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Cho'qqi, boshlangan, to'xtatilgan va rad etilgan ovozlar qaytadan sanaladi (Play boshlanganda o'zi nollanadi)");
+        ImGui::SameLine();
+        const int seconds = (int)audio.SinceReset;
+        ImGui::TextDisabled("%s", seconds < 60 ? std::format("{} s dan beri", seconds).c_str()
+                                               : std::format("{}:{:02} dan beri", seconds / 60, seconds % 60).c_str());
     }
 
     void EditorLayer::UI_ProfilerWindow()

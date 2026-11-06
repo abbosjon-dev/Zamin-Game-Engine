@@ -249,7 +249,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 213. Ovoz effektlari: low-pass filter
 - [x] 214. Ovoz sozlamalari SaveData bilan saqlanadi
 - [x] 215. Audio testlari (ovoz qurilmasisiz)
-- [ ] 216. Audio profiler (faol ovozlar soni)
+- [x] 216. Audio profiler (faol ovozlar soni)
 - [ ] 217. Editorda audio preview to'lqin shakli
 - [ ] 218. 3D ovoz uchun yo'nalishli konus
 - [ ] 219. Ambient zona (hajm ichida ovoz)

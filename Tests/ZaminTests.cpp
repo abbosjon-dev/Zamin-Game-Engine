@@ -8696,6 +8696,122 @@ TEST(AudioPlayerSettingsSaveLoad)
     std::filesystem::remove_all(dir, ec);
 }
 
+TEST(AudioProfiler)
+{
+    // Without an engine: an empty profile that says so.
+    if (!AudioEngine::IsAvailable())
+    {
+        AudioProfile none = AudioEngine::GetProfile();
+        CHECK(!none.Available && none.Voices == 0 && none.Format() == "audio yo'q");
+    }
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-audio-profile-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    std::filesystem::path wav = dir / "hit.wav";
+    WriteTestWav(wav, 0.5f);
+    AudioEngine::StopAll();
+
+    AudioSettings mixer;
+    mixer.MaxVoices = 3;
+    mixer.AddGroup("Steps", "SFX");
+    mixer.AddGroup("Voice", "Master");
+    AudioEngine::SetMixerSettings(mixer);
+    AudioEngine::ResetProfileCounters();
+    AudioProfile empty = AudioEngine::GetProfile();
+    CHECK(empty.Available && empty.Voices == 0 && empty.MaxVoices == 3 && empty.Stolen == 0 && empty.Rejected == 0 && empty.PeakVoices == 0);
+    // Every group in the mixer's tree order, with its depth.
+    CHECK(empty.Groups.size() == 6 && empty.Groups[0].Name == "Master" && empty.Groups[0].Depth == 0);
+    const AudioGroupProfile* steps = empty.FindGroup("Steps");
+    CHECK(steps && steps->Depth == 2 && steps->Parent == "SFX" && empty.FindGroup("Nope") == nullptr);
+    for (size_t i = 1; i < empty.Groups.size(); i++)
+    {
+        const AudioGroupProfile* parent = empty.FindGroup(empty.Groups[i].Parent);
+        CHECK(parent && parent < &empty.Groups[i]); // parents before their children
+    }
+
+    SoundParams loop;
+    loop.Loop = true;
+    loop.Group = "Steps";
+    uint32_t a = AudioEngine::Play(wav, loop);
+    loop.Group = "SFX";
+    loop.Spatial = true;
+    uint32_t b = AudioEngine::Play(wav, loop);
+    loop.Spatial = false;
+    loop.Group = "Voice";
+    loop.Stream = true;
+    loop.Filter.LowPass = true;
+    uint32_t c = AudioEngine::Play(wav, loop);
+    // Past the mixer (a preview) and the music do not count towards the limit.
+    SoundParams preview;
+    preview.Group.clear();
+    preview.Loop = true;
+    uint32_t p = AudioEngine::Play(wav, preview);
+    CHECK(AudioEngine::PlayMusic(wav, 0.0f));
+    CHECK(a && b && c && p);
+    AudioEngine::Pause(b);
+    AudioProfile profile = AudioEngine::GetProfile();
+    CHECK(profile.Voices == 3 && profile.Sounds == 5 && profile.Music == 1 && profile.Previews == 1);
+    CHECK(profile.Paused == 1 && profile.Playing == 4 && profile.Spatial == 1 && profile.Streamed == 2 && profile.Filtered == 1);
+    CHECK(profile.Started == 5 && profile.PeakVoices == 3);
+    const AudioGroupProfile* sfx = profile.FindGroup("SFX");
+    const AudioGroupProfile* master = profile.FindGroup("Master");
+    steps = profile.FindGroup("Steps");
+    CHECK(steps && steps->Voices == 1 && steps->TotalVoices == 1);
+    CHECK(sfx && sfx->Voices == 1 && sfx->Paused == 1 && sfx->Spatial == 1 && sfx->TotalVoices == 2);
+    CHECK(profile.FindGroup("Voice")->Voices == 1 && profile.FindGroup("Voice")->Streamed == 1);
+    CHECK(profile.FindGroup("Music")->Voices == 1);
+    // Master hears everything routed through the mixer (the preview goes past it).
+    CHECK(master && master->Voices == 0 && master->TotalVoices == 4);
+    CHECK_NEAR(steps->Gain, 1.0f, 1e-6f);
+
+    // The limit at work, by group: the oldest equal-priority sound (in Steps) gives its place.
+    loop = SoundParams();
+    loop.Loop = true;
+    loop.Group = "UI";
+    uint32_t d = AudioEngine::Play(wav, loop);
+    CHECK(d && AudioEngine::WasStolen(a));
+    loop.Steal = AudioStealPolicy::None;
+    CHECK(AudioEngine::Play(wav, loop) == 0);
+    profile = AudioEngine::GetProfile();
+    CHECK(profile.Stolen == 1 && profile.Rejected == 1 && profile.Voices == 3);
+    CHECK(profile.FindGroup("Steps")->Stolen == 1 && profile.FindGroup("Steps")->Voices == 0);
+    CHECK(profile.FindGroup("UI")->Rejected == 1 && profile.FindGroup("UI")->Voices == 1 && profile.FindGroup("SFX")->Stolen == 0);
+    std::string line = profile.Format();
+    CHECK(line.find("3/3 ovoz") != std::string::npos && line.find("to'xtatilgan 1, rad etilgan 1") != std::string::npos);
+    CHECK(line.find("musiqa 1") != std::string::npos && line.find("UI 1") != std::string::npos);
+    // The totals since Init stay; the profile's counters start again.
+    const AudioVoiceStats totals = AudioEngine::GetVoiceStats();
+    AudioEngine::ResetProfileCounters();
+    profile = AudioEngine::GetProfile();
+    CHECK(profile.Stolen == 0 && profile.Rejected == 0 && profile.Started == 0 && profile.PeakVoices == 3 && profile.SinceReset == 0.0f);
+    CHECK(profile.FindGroup("Steps")->Stolen == 0 && AudioEngine::GetVoiceStats().Stolen == totals.Stolen);
+
+    // The graph: one sample per update, the newest last, at most the capacity.
+    AudioEngine::Update(0.5f);
+    AudioEngine::Stop(c);
+    AudioEngine::Update(0.25f);
+    std::vector<float> history = AudioEngine::GetVoiceHistory();
+    CHECK(history.size() >= 2 && history[history.size() - 2] == 3.0f && history.back() == 2.0f);
+    CHECK_NEAR(AudioEngine::GetProfile().SinceReset, 0.75f, 1e-5f);
+    for (size_t i = 0; i < AudioEngine::VoiceHistoryCapacity + 5; i++)
+        AudioEngine::Update(0.0f);
+    CHECK(AudioEngine::GetVoiceHistory().size() == AudioEngine::VoiceHistoryCapacity && AudioEngine::GetVoiceHistory().back() == 2.0f);
+    // Fading out still counts; the peak is the most at once.
+    AudioEngine::Stop(d, 1.0f);
+    CHECK(AudioEngine::GetProfile().Stopping == 1 && AudioEngine::GetProfile().FindGroup("UI")->Stopping == 1);
+    AudioEngine::StopAll();
+    profile = AudioEngine::GetProfile();
+    CHECK(profile.Sounds == 0 && profile.Voices == 0 && profile.Music == 0 && profile.PeakVoices == 3);
+
+    AudioEngine::SetMixerSettings(AudioSettings());
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
 TEST(InactiveAnimatorsPause)
 {
     auto scene = CreateRef<Scene>();
@@ -13945,6 +14061,7 @@ TEST(StatsOverlaySettingsSaved)
     view.StatsOverlay.Visible = true;
     view.StatsOverlay.Culling = false;
     view.StatsOverlay.Hotspots = true;
+    view.StatsOverlay.Audio = true;
     view.StatsOverlay.Corner = OverlayCorner::BottomLeft;
     view.StatsOverlay.Opacity = 0.5f;
     view.StatsOverlay.TargetFPS = 144.0f;
@@ -13955,14 +14072,14 @@ TEST(StatsOverlaySettingsSaved)
     EditorViewSettings loaded;
     CHECK(loaded.FromJson(view.ToJson()));
     const auto& o = loaded.StatsOverlay;
-    CHECK(o.Visible && o.FrameGraph && o.DrawCalls && !o.Culling && o.Hotspots && o.Corner == OverlayCorner::BottomLeft);
+    CHECK(o.Visible && o.FrameGraph && o.DrawCalls && !o.Culling && o.Hotspots && o.Audio && o.Corner == OverlayCorner::BottomLeft);
     CHECK(o.Opacity == 0.5f && o.TargetFPS == 144.0f);
     CHECK(loaded.Gizmos.Normals == GizmoVisibility::All && loaded.Gizmos.NormalLength == 0.25f);
     CHECK(!loaded.Gizmos.NormalsFacingOnly && loaded.Gizmos.NormalsByDirection);
     // Older files: the defaults (normals off, overlay hidden).
     EditorViewSettings old;
     CHECK(old.FromJson("{\"ZaminEditorView\": 1, \"Gizmos\": {\"Bounds\": \"All\"}}"));
-    CHECK(old.Gizmos.Normals == GizmoVisibility::Off && old.Gizmos.NormalLength == 0.1f && !old.StatsOverlay.Visible);
+    CHECK(old.Gizmos.Normals == GizmoVisibility::Off && old.Gizmos.NormalLength == 0.1f && !old.StatsOverlay.Visible && !old.StatsOverlay.Audio);
     // Out of range values come back into range.
     EditorViewSettings wild;
     CHECK(wild.FromJson("{\"ZaminEditorView\": 1, \"StatsOverlay\": {\"TargetFPS\": 5000, \"Opacity\": 0, \"Corner\": \"Middle\"},"

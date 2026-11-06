@@ -469,6 +469,12 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   FadeOut, high-pass 700 Hz + low-pass 3.5 kHz; R — yoqish / o'chirish, T — filtr, G — pasaytirish), **suv havzasi**
   (tinglovchi kirsa SFX va Music guruhlari low-pass bilan bo'g'iladi), **sozlamalar** (- / = Music balandligi, N — SFX
   mute, 9 — saqlash, 0 — tozalash)
+- **Audio profiler**: Statistika oynasida faol ovozlar soni / limit (rang: to'lishiga qarab), so'nggi 240 kadr grafigi
+  (limit chizig'i bilan), cho'qqi, ovoz turlari (ijroda / pauza / so'nmoqda, 3D, oqim, filtrli, musiqa, ko'rib chiqish,
+  oldindan yuklangan fayllar) va **mixer guruhlari bo'yicha** jadval (o'zida / bola guruhlari bilan, limit sababli
+  to'xtatilgan / ijro etilmagan, daraja); viewport statistika overlay'ida **Audio** bo'limi (o'ng tugma > Audio).
+  Hisoblagichlar Play boshlanganda nollanadi. API: `AudioEngine::GetProfile()`, `ResetProfileCounters()`,
+  `GetVoiceHistory()`; player `ZAMIN_PLAYER_STATS=1` bilan chiqishda va F11 bilan audio profilini log'ga yozadi
 - **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, 9 ta langar (anchor), `OnClick()`
 - **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash
 - Skriptlardan **sahna almashtirish** (`LoadScene`), prefab'larni `Instantiate` qilish

@@ -66,7 +66,7 @@ namespace Zamin {
 
             // Automation (comparisons, CI): ZAMIN_PLAYER_NO_CULLING=1 / ZAMIN_PLAYER_NO_INSTANCING=1 turn the
             // renderer's frustum culling / GPU instancing off; ZAMIN_PLAYER_STATS=1 logs the last frame's
-            // render statistics at exit.
+            // render statistics (and the audio profile) at exit.
             if (std::getenv("ZAMIN_PLAYER_NO_CULLING"))
                 Renderer3D::SetFrustumCulling(false);
             if (std::getenv("ZAMIN_PLAYER_NO_INSTANCING"))
@@ -79,6 +79,7 @@ namespace Zamin {
             {
                 ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
                 ZM_INFO("Profiler (oxirgi kadr, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
+                ZM_INFO("Audio profili (oxirgi kadr): {}", m_LastAudioProfile);
             }
             if (m_Scene)
             {
@@ -91,6 +92,10 @@ namespace Zamin {
         void OnUpdate(Timestep ts) override
         {
             if (!m_Scene) return;
+            // The audio engine is shut down before OnDetach: its profile is kept from the last frame.
+            static const bool logStats = std::getenv("ZAMIN_PLAYER_STATS") != nullptr;
+            if (logStats)
+                m_LastAudioProfile = AudioEngine::GetProfile().Format();
             auto& window = Application::Get().GetWindow();
             uint32_t w = window.GetFramebufferWidth(), h = window.GetFramebufferHeight();
             m_Scene->OnViewportResize(w, h);
@@ -184,7 +189,7 @@ namespace Zamin {
             EventDispatcher dispatcher(e);
             dispatcher.Dispatch<KeyPressedEvent>([](KeyPressedEvent& ev) {
                 if (ev.GetKeyCode() == Key::F11)
-                    ZM_INFO("FPS: {:.0f}", Application::Get().GetFPS());
+                    ZM_INFO("FPS: {:.0f} | audio: {}", Application::Get().GetFPS(), AudioEngine::GetProfile().Format());
                 return false;
             });
         }
@@ -193,6 +198,7 @@ namespace Zamin {
         std::filesystem::path m_ProjectPath;
         std::string m_SceneOverride;
         DebugDrawFlags m_DebugDrawFlags;
+        std::string m_LastAudioProfile = "-";
         Ref<Scene> m_Scene;
         Ref<Framebuffer> m_Target;
         PostProcessHistory m_PostHistory; // auto exposure: the screen's adapted brightness

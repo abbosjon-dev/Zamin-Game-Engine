@@ -158,6 +158,7 @@ namespace Zamin {
         bool DrawCalls = true;
         bool Culling = true;
         bool Hotspots = false;          // the profiler scopes that took the most time themselves
+        bool Audio = false;             // the audio profiler: voices against the limit, by mixer group
         OverlayCorner Corner = OverlayCorner::TopRight;
         float Opacity = 0.85f;          // of the background
         float TargetFPS = 60.0f;        // the graph's budget line and the colours of the numbers

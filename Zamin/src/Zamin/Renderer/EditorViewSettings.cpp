@@ -389,6 +389,7 @@ namespace Zamin {
             { "DrawCalls", StatsOverlay.DrawCalls },
             { "Culling", StatsOverlay.Culling },
             { "Hotspots", StatsOverlay.Hotspots },
+            { "Audio", StatsOverlay.Audio },
             { "Corner", ViewportStatsOverlaySettings::GetCornerKey(StatsOverlay.Corner) },
             { "Opacity", Num(StatsOverlay.Opacity) },
             { "TargetFPS", Num(StatsOverlay.TargetFPS) },
@@ -524,6 +525,7 @@ namespace Zamin {
             Read(*it, "DrawCalls", o.DrawCalls);
             Read(*it, "Culling", o.Culling);
             Read(*it, "Hotspots", o.Hotspots);
+            Read(*it, "Audio", o.Audio);
             if (auto c = it->find("Corner"); c != it->end() && c->is_string())
                 o.Corner = ViewportStatsOverlaySettings::CornerFromKey(c->get<std::string>(), o.Corner);
             Read(*it, "Opacity", o.Opacity);

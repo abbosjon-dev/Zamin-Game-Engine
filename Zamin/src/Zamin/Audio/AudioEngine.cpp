@@ -10,6 +10,7 @@
 #include <miniaudio.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -168,6 +169,27 @@ namespace Zamin {
         // Files kept decoded in the resource manager: file -> asked for by Preload (kept until
         // Unload) or not (a scene's clips, a clip's Preload setting on its first play).
         std::unordered_map<std::string, bool> s_Preloaded;
+
+        // ---- profiler (since ResetProfileCounters)
+        struct GroupLimitCounts
+        {
+            uint64_t Stolen = 0, Rejected = 0;
+        };
+        std::unordered_map<std::string, GroupLimitCounts> s_GroupLimitCounts;
+        uint64_t s_ProfileStolen = 0, s_ProfileRejected = 0, s_ProfileStarted = 0;
+        size_t s_PeakVoices = 0;
+        float s_ProfileTime = 0.0f;
+        std::array<float, AudioEngine::VoiceHistoryCapacity> s_VoiceHistory{};
+        size_t s_VoiceHistoryCount = 0, s_VoiceHistoryNext = 0;
+
+        size_t CountedVoices()
+        {
+            size_t count = 0;
+            for (const auto& [handle, voice] : s_Voices)
+                if (voice.Counted)
+                    count++;
+            return count;
+        }
 
         bool IsFinite(const glm::vec3& v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); }
 
@@ -572,8 +594,12 @@ namespace Zamin {
                 s_StolenHandles.clear(); // only the recent ones matter (the inspector asks about live sources)
             s_StolenHandles.insert(handle);
             s_StolenCount++;
+            s_ProfileStolen++;
             if (auto it = s_Voices.find(handle); it != s_Voices.end())
+            {
+                s_GroupLimitCounts[it->second.Group].Stolen++;
                 ma_sound_stop(it->second.Sound.get());
+            }
             Release(handle);
         }
 
@@ -676,6 +702,8 @@ namespace Zamin {
             if (!music && !MakeRoom(file, params, priority, counted, victims))
             {
                 s_RejectedCount++;
+                s_ProfileRejected++;
+                s_GroupLimitCounts[group].Rejected++;
                 return 0;
             }
             Voice voice;
@@ -746,6 +774,9 @@ namespace Zamin {
             voice.Music = music;
             uint32_t handle = s_NextHandle++;
             s_Voices[handle] = std::move(voice);
+            s_ProfileStarted++;
+            if (counted)
+                s_PeakVoices = std::max(s_PeakVoices, CountedVoices());
             return handle;
         }
 
@@ -1007,6 +1038,13 @@ namespace Zamin {
         UpdateFades(dt);
         UpdateDoppler(dt);
         UpdateMeters(dt);
+        // The profiler's graph: one sample per frame.
+        const size_t voices = CountedVoices();
+        s_PeakVoices = std::max(s_PeakVoices, voices);
+        s_ProfileTime += dt;
+        s_VoiceHistory[s_VoiceHistoryNext] = (float)voices;
+        s_VoiceHistoryNext = (s_VoiceHistoryNext + 1) % VoiceHistoryCapacity;
+        s_VoiceHistoryCount = std::min(s_VoiceHistoryCount + 1, VoiceHistoryCapacity);
     }
 
     void AudioEngine::RenderOffline(float seconds)
@@ -1231,13 +1269,125 @@ namespace Zamin {
     AudioVoiceStats AudioEngine::GetVoiceStats()
     {
         AudioVoiceStats stats;
-        for (const auto& [handle, voice] : s_Voices)
-            if (voice.Counted)
-                stats.Voices++;
+        stats.Voices = CountedVoices();
         stats.MaxVoices = s_Mixer.MaxVoices;
         stats.Stolen = s_StolenCount;
         stats.Rejected = s_RejectedCount;
         return stats;
+    }
+
+    // ------------------------------------------------------------------ profiler
+    const AudioGroupProfile* AudioProfile::FindGroup(std::string_view name) const
+    {
+        for (const AudioGroupProfile& g : Groups)
+            if (g.Name == name)
+                return &g;
+        return nullptr;
+    }
+
+    std::string AudioProfile::Format() const
+    {
+        if (!Available)
+            return "audio yo'q";
+        std::string text = std::format("{}/{} ovoz (cho'qqi {})", Voices, MaxVoices, PeakVoices);
+        if (Paused || Stopping || Streamed)
+            text += std::format(", pauza {}, so'nmoqda {}, oqim {}", Paused, Stopping, Streamed);
+        if (Music)
+            text += std::format(" | musiqa {}", Music);
+        if (Previews)
+            text += std::format(" | ko'rib chiqish {}", Previews);
+        text += std::format(" | to'xtatilgan {}, rad etilgan {}", Stolen, Rejected);
+        std::string groups;
+        for (const AudioGroupProfile& g : Groups)
+            if (g.Voices)
+                groups += std::format("{}{} {}", groups.empty() ? "" : ", ", g.Name, g.Voices);
+        if (!groups.empty())
+            text += " | " + groups;
+        return text;
+    }
+
+    AudioProfile AudioEngine::GetProfile()
+    {
+        AudioProfile profile;
+        profile.Available = s_Engine != nullptr;
+        profile.MaxVoices = s_Mixer.MaxVoices;
+        profile.PeakVoices = s_PeakVoices;
+        profile.Started = s_ProfileStarted;
+        profile.Stolen = s_ProfileStolen;
+        profile.Rejected = s_ProfileRejected;
+        profile.Preloaded = s_Preloaded.size();
+        profile.SinceReset = s_ProfileTime;
+        std::unordered_map<std::string, size_t> index;
+        for (const auto& [name, depth] : s_Mixer.GetTreeOrder())
+        {
+            AudioGroupProfile g;
+            g.Name = name;
+            g.Depth = depth;
+            if (const AudioGroupSettings* settings = s_Mixer.Find(name))
+                g.Parent = settings->Parent;
+            g.Gain = s_Mixer.GetEffectiveGain(name);
+            if (MixerGroup* node = FindGroup(name))
+                g.Level = node->Level.Hold;
+            if (auto it = s_GroupLimitCounts.find(name); it != s_GroupLimitCounts.end())
+            {
+                g.Stolen = it->second.Stolen;
+                g.Rejected = it->second.Rejected;
+            }
+            index[name] = profile.Groups.size();
+            profile.Groups.push_back(std::move(g));
+        }
+        for (const auto& [handle, voice] : s_Voices)
+        {
+            const bool playing = ma_sound_is_playing(voice.Sound.get());
+            profile.Sounds++;
+            profile.Playing += playing ? 1 : 0;
+            profile.Paused += voice.Paused ? 1 : 0;
+            profile.Stopping += voice.Stopping ? 1 : 0;
+            profile.Streamed += voice.Streamed ? 1 : 0;
+            profile.Spatial += voice.Spatial ? 1 : 0;
+            profile.Filtered += voice.FilterSettings.IsActive() ? 1 : 0;
+            profile.Music += voice.Music ? 1 : 0;
+            profile.Previews += voice.Group.empty() ? 1 : 0;
+            profile.Voices += voice.Counted ? 1 : 0;
+            auto it = index.find(voice.Group);
+            if (it == index.end())
+                continue;
+            AudioGroupProfile& g = profile.Groups[it->second];
+            g.Voices++;
+            g.Paused += voice.Paused ? 1 : 0;
+            g.Stopping += voice.Stopping ? 1 : 0;
+            g.Streamed += voice.Streamed ? 1 : 0;
+            g.Spatial += voice.Spatial ? 1 : 0;
+            // Up the tree: every parent hears it too.
+            for (std::string parent = voice.Group; !parent.empty();)
+            {
+                auto p = index.find(parent);
+                if (p == index.end())
+                    break;
+                AudioGroupProfile& up = profile.Groups[p->second];
+                up.TotalVoices++;
+                parent = up.Parent;
+            }
+        }
+        return profile;
+    }
+
+    void AudioEngine::ResetProfileCounters()
+    {
+        s_GroupLimitCounts.clear();
+        s_ProfileStolen = s_ProfileRejected = s_ProfileStarted = 0;
+        s_PeakVoices = CountedVoices();
+        s_ProfileTime = 0.0f;
+    }
+
+    std::vector<float> AudioEngine::GetVoiceHistory()
+    {
+        std::vector<float> history;
+        history.reserve(s_VoiceHistoryCount);
+        const size_t start = (s_VoiceHistoryNext + VoiceHistoryCapacity - s_VoiceHistoryCount) % VoiceHistoryCapacity;
+        for (size_t i = 0; i < s_VoiceHistoryCount; i++)
+            history.push_back(s_VoiceHistory[(start + i) % VoiceHistoryCapacity]);
+        return history;
     }
 
     void AudioEngine::SetRandomSeed(uint32_t seed)

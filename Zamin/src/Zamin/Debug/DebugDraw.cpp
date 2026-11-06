@@ -603,6 +603,7 @@ namespace Zamin {
         constexpr float ImpactSpeed = 0.5f;
         constexpr float ImpactTime = 0.6f;
         constexpr size_t MaxContactLabels = 64; // per frame (a pile of crates would bury the picture)
+        constexpr float LabelImpactSpeed = 0.25f; // m/s: slower contacts were put down, not hit
 
         // Physics quantities with as many decimals as they need.
         std::string FormatAmount(float value, const char* unit)
@@ -684,12 +685,19 @@ namespace Zamin {
             if (count == 0)
                 continue;
             middle /= (float)count;
-            const glm::vec3 up = glm::length(normal) > 1e-4f ? glm::normalize(normal) : glm::vec3(0.0f, 1.0f, 0.0f);
+            // Beside the contact along its normal, on the upper side (between two dynamic bodies the
+            // normal may point either way).
+            glm::vec3 up = glm::length(normal) > 1e-4f ? glm::normalize(normal) : glm::vec3(0.0f, 1.0f, 0.0f);
+            if (up.y < -0.2f)
+                up = -up;
             std::string text = depth >= 0.0f ? std::format("chuqurlik {:.1f} mm", depth * 1000.0f)
                                              : std::format("oraliq {:.1f} mm", -depth * 1000.0f);
-            if (speed >= 0.05f)
+            // A 3D impact (a body put down gently "hits" at one step of gravity: not worth a line);
+            // 2D contacts carry Box2D's impulse without a speed.
+            const bool impact = speed >= LabelImpactSpeed;
+            if (impact)
                 text += std::format("\nzarba {:.2f} m/s", speed);
-            if (impulse > 1e-5f)
+            if (impulse > 1e-5f && (impact || speed <= 0.0f))
                 text += "\nimpuls " + FormatAmount(impulse, "N*s");
             if (first.Character)
                 text += "\npersonaj";

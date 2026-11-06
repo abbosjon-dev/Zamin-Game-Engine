@@ -299,15 +299,23 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     ko'payadi. Inspektorda burchak / yuz soni, viewport'da qobiq qirralari (Fizik colliderlar)
   - **Joint'lar 3D** (Jolt constraint'lar): Fixed (mahkam), Hinge (sharnir: o'q, chegaralar -180..0 / 0..180, motor -
     tezlik va maks. moment, prujina - nishon burchakka tortadi), Distance (minimal / maksimal masofa, arqon - "faqat
-    maksimal", yumshoq uchlar - chastota / so'nish), Slider (o'q bo'ylab sirpanish, chegaralar, motor). 2D joint'lar
+    maksimal", yumshoq uchlar - chastota / so'nish), Slider (o'q bo'ylab sirpanish, chegaralar, motor), Cone (sharsimon
+    sharnir - yelka / son: konus burchagi, buralish chegaralari, ishqalanish momenti; Jolt SwingTwist). 2D joint'lar
     kabi: ulangan jism (bo'sh - dunyodagi nuqta), langar / avto ulangan langar (obyektning o'z koordinatalarida,
     masshtab bilan), "Bir-biri bilan to'qnashsin" (o'chiq - ulangan jismlar bir-biridan o'tadi), uzilish kuchi / momenti
     (`OnJointBreak3D(joint)`, `Broken`), jism nofaol / o'chirilganda yo'qolib qaytishi, o'yin davomida sozlamalar
-    darhol, duplikat / prefab'da qayta bog'lanish, serializatsiya UUID orqali. Inspektorda holat (kuch, moment,
-    burchak, siljish, masofa), viewport'da langarlar, sharnir o'qi va burchak yoyi, sirpanish chegaralari, masofa
-    tayog'i (Gizmolar > Joint'lar). Namuna: Showcase3D `Scenes/Joints3D.zscene` (prujinali eshik, sharlar zanjiri,
-    lift - `SliderShuttle` skripti, motorli tegirmon parragi, payvandlangan L, qiyalikdan dumalaydigan konus /
-    silindr / kristall ziyoratgoh qobiqlari)
+    darhol, duplikat / nusxalash / prefab'da (`.zprefab` fayli ham) qayta bog'lanish - nusxa o'z jismlariga ulanadi,
+    tashqaridagi jismga havola saqlanadi; serializatsiya UUID orqali, sahnada yo'q ulangan jism uchun bitta
+    ogohlantirish. Bo'sh yoki faqat 2D sahnaga 3D prefab tashlansa Jolt o'sha paytda ishga tushadi. Inspektorda holat
+    (kuch, moment, burchak, siljish, masofa, og'ish / buralish), viewport'da langarlar, sharnir o'qi va burchak yoyi,
+    sirpanish chegaralari, masofa tayog'i, konus (Gizmolar > Joint'lar); "Langarlarni tahrirlash" - langar, ulangan
+    langar, o'q va chegaralarni viewport'da sudrash (tanlangan nuqtada ko'chirish gizmosi). Namuna: Showcase3D
+    `Scenes/Joints3D.zscene` (prujinali eshik, sharlar zanjiri, lift - `SliderShuttle` skripti, motorli tegirmon
+    parragi, payvandlangan L, qiyalikdan dumalaydigan konus / silindr / kristall ziyoratgoh qobiqlari)
+  - **3D ragdoll** namunasi: Showcase3D `Scenes/Ragdoll3D.zscene` - `Prefabs/Ragdoll3D.zprefab` (11 bo'lak: yelka, son,
+    bel va bo'yinda Cone Joint 3D, tirsak va tizzada chegarali Hinge Joint 3D, bo'g'imlar bir-biri bilan
+    to'qnashmaydi) zinadan yumalab tushadi; `RagdollSpawner3D` skripti - R (yana 3 ta), sichqoncha / F (kameradan
+    otish), o'zi ham har 3 soniyada; qutilar, bochkalar, arg'imchoq va qum xalta
   - **Mesh Collider 3D** (Jolt MeshShape): modelning (yoki Mesh Renderer'dagi model / primitivning) o'z uchburchaklari -
     botiq shakllar (zinapoya, ark, tunnel, yarim quvur, notekis yer) chizilgan joyida to'qnashadi. Faqat statik va
     kinematik jismlar uchun (dinamik jism uni hisobga olmaydi - ogohlantirish, inspektorda ham); uchburchaklar old
@@ -352,11 +360,21 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   pauza paytida boshqa kod chizgan bir kadrlik shakllar esa yig'ilib qolmaydi) va chuqurlik testi bilan. Sahna chizilgandan keyin
   post-processingdan o'tgan tasvir ustiga (aniq ranglar, silliq qalin chiziqlar) sahna chuqurligiga qarab chiziladi.
   Fizika ko'rinishlari: **raycast so'rovlari** (nur, tegish nuqtasi, normal; tegmasa qizil), **kontakt nuqtalari**
-  (2D, 3D, personajlar; normallari bilan) va **tezlik vektorlari** (3D personajlarning haqiqiy tezligi o'q va m/s bilan,
-  devor to'sganda skript so'ragan tezlik xira; dinamik 2D/3D jismlar). Navigatsiya yo'llari uchun
+  (2D, 3D, personajlar - yashil; sariq normal, shakllar qancha kirgani asl o'lchamda qizil chiziq, 3D jism kuchli
+  urilganda bir lahza halqa, ikkala jism uxlasa xira), **qiymat yozuvlari** (har tegib turgan juftlik ustida:
+  chuqurlik mm, 3D zarba tezligi va taxminiy impulsi - tezlik x juftlikning normal bo'yicha effektiv massasi, 2D'da
+  Box2D impulsi; joint'larda kuch, moment, uzilish chegarasidan foizi), **joint'lar** (2D va 3D: ikkala langar va ular
+  orasidagi chiziq - sharnir bo'shasa qizil, jismlar markazigacha chiziqlar, sharnir / sirpanish / konus o'qi; rangi
+  uzilishga qanchalik yaqin - yashil, sariq, qizil, uzilmaydigani ko'k; uzilgani qizil X) va **tezlik vektorlari**
+  (3D personajlarning haqiqiy tezligi o'q va m/s bilan, devor to'sganda skript so'ragan tezlik xira; dinamik 2D/3D
+  jismlar). `PhysicsWorld3D::GetDebugContacts` kontakt ma'lumotini (normal, chuqurlik, zarba, impuls, yoshi, uxlash,
+  ikkala obyekt) testlar va vositalar uchun ham beradi. Namuna: Showcase3D `Scenes/PhysicsDebug3D.zscene` (ikki
+  chiroq - biri tebranadi, biri chegarasiga yaqin; shar urilib uziladigan javon; tinch quti, uxlagan minora, sakraydigan
+  shar; `PhysicsDebugView3D` skripti - C / J / V tugmalari). Navigatsiya yo'llari uchun
   `DebugDraw::NavigationPath(points)`: bo'laklar, yo'nalish uchlari, nuqtalar, boshi yashil va oxirida halqa.
   Editor'da viewport toolbar'idagi hasharot (bug) tugmasi va uning menyusi, player'da loyiha sozlamalari
-  (Umumiy > Debug chizish) va `--no-debug-draw` / `--debug-raycasts` / `--debug-contacts` / `--debug-velocities` bayroqlari.
+  (Umumiy > Debug chizish) va `--no-debug-draw` / `--debug-raycasts` / `--debug-contacts` / `--debug-contact-details` /
+  `--debug-joints` / `--debug-velocities` bayroqlari.
   Skript ularni o'yin vaqtida o'zgartira oladi (`DebugDraw::SetEnabled(false)`, `DebugDraw::GetSettings().ShowRaycasts = true`):
   editor'da o'yin viewport sozlamalari bilan boshlanadi, skript o'zgarishi o'yin to'xtaguncha (yoki menyuda biror narsa
   o'zgartirilguncha) saqlanadi.

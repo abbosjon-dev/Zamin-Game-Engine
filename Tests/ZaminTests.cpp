@@ -19668,7 +19668,7 @@ TEST(ScriptQueries3D)
     // Out of order along +x; the crystal on its own layer.
     MakeBody3D(scene, "Far", { 6.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
     MakeBody3D(scene, "Near", { 2.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
-    Entity crystal = MakeBody3D(scene, "Crystal", { 4.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.3f));
+    Entity crystal = MakeBody3D(scene, "Crystal", { 4.5f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.3f));
     crystal.GetComponent<Rigidbody3DComponent>().Layer = 4;
     scene->OnRuntimeStart();
     RunFrames(scene, 1);
@@ -19681,6 +19681,69 @@ TEST(ScriptQueries3D)
     CHECK(script->MaskedOverlaps == std::vector<std::string>{ "Crystal" });
     CHECK(script->SphereHit == "Near");
     CHECK_NEAR(script->SphereDistance, 1.2f, 0.01f);
+    scene->OnRuntimeStop();
+}
+
+// The Showcase3D sample's PhysicsDebug3D scene: two lamps on hinges near and far from their break force,
+// a shelf on a breakable fixed joint under a falling ball, a resting crate, a sleeping tower and a
+// bouncing ball; its PhysicsDebugView3D script (not loaded here) switches the debug views on.
+TEST(PhysicsDebug3DSampleScene)
+{
+    namespace fs = std::filesystem;
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D";
+    auto project = Project::Load(root / "Showcase3D.zproject");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    Project::SetActive(project);
+    ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "PhysicsDebug3D.zscene"));
+    Entity view = scene->FindEntityByName("Fizika debug"), swinging = scene->FindEntityByName("Tebranuvchi chiroq");
+    Entity heavy = scene->FindEntityByName("Og'ir chiroq"), shelf = scene->FindEntityByName("Javon"), crate = scene->FindEntityByName("Quti");
+    std::vector<Entity> tower = scene->FindEntitiesByName("Uxlagan quti");
+    CHECK(view && swinging && heavy && shelf && crate && tower.size() == 3);
+    if (!(view && swinging && heavy && shelf && crate && tower.size() == 3))
+        return;
+    CHECK(view.GetComponent<NativeScriptComponent>().ClassName == "PhysicsDebugView3D");
+    CHECK(swinging.GetComponent<HingeJoint3DComponent>().BreakForce == 300.0f && heavy.GetComponent<HingeJoint3DComponent>().BreakForce == 140.0f);
+    CHECK(shelf.GetComponent<FixedJoint3DComponent>().BreakForce == 150.0f && !shelf.GetComponent<FixedJoint3DComponent>().ConnectedBody);
+    scene->FindEntityByName("Main Camera").GetComponent<CameraComponent>().Primary = false; // headless
+    if (DebugDraw::IsCompiledIn())
+    {
+        ResetDebugDraw();
+        DebugDraw::GetSettings().ShowContacts = DebugDraw::GetSettings().ShowJoints = true; // what its script does
+    }
+    scene->OnRuntimeStart();
+    // The hinges hang their lamps from the beam's underside (the swinging one starts out at an angle).
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    for (Entity lamp : { swinging, heavy })
+    {
+        glm::vec3 a, b, axis;
+        CHECK(world->GetJointFrame(lamp.GetComponent<HingeJoint3DComponent>().RuntimeJoint, a, b, axis));
+        CHECK_NEAR(a.y, 4.475f, 0.01f);
+        CHECK(glm::length(a - b) < 0.01f && std::abs(axis.z) > 0.99f);
+    }
+    RunFrames(scene, 90);
+    // The heavy lamp holds about 70% of its limit, the swinging one less; the falling ball broke the shelf.
+    CHECK_NEAR(heavy.GetComponent<HingeJoint3DComponent>().ReactionForce / 140.0f, 0.7f, 0.03f);
+    CHECK(!swinging.GetComponent<HingeJoint3DComponent>().Broken && !heavy.GetComponent<HingeJoint3DComponent>().Broken);
+    CHECK(swinging.GetComponent<HingeJoint3DComponent>().ReactionForce < 0.5f * 300.0f);
+    CHECK(shelf.GetComponent<FixedJoint3DComponent>().Broken && Pos3D(shelf).y < 0.5f);
+    for (Entity crateInTower : tower)
+        CHECK(scene->IsSleeping3D(crateInTower)); // woken by the contact view, asleep again
+    if (DebugDraw::IsCompiledIn())
+    {
+        // The broken shelf crossed out, the contacts of the sleeping tower dimmed.
+        bool cross = false;
+        for (const DebugDrawLine& l : DebugDraw::GetLines())
+            cross = cross || (l.Color == DebugColor::Red && glm::length(glm::vec2(l.From.x, l.From.z) - glm::vec2(Pos3D(shelf).x, Pos3D(shelf).z)) < 0.5f);
+        int dim = 0;
+        for (const DebugDrawPoint& p : DebugDraw::GetPoints())
+            dim += p.Color.a < 0.5f ? 1 : 0;
+        CHECK(cross && dim >= 12);
+        ResetDebugDraw();
+    }
     scene->OnRuntimeStop();
 }
 

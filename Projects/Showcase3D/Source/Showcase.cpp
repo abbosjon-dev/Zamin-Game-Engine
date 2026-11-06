@@ -792,3 +792,47 @@ ZM_REGISTER_SCRIPT(RagdollSpawner3D,
     ZM_FIELD_RANGE(RagdollSpawner3D, MaxRagdolls, 1, 40).Tooltip("Ko'pi bilan shuncha (eskilari yo'qoladi)"),
     ZM_FIELD_RANGE(RagdollSpawner3D, Push, 0.0f, 20.0f).Tooltip("Zina tomonga (+X) boshlang'ich tezlik"),
     ZM_FIELD_RANGE(RagdollSpawner3D, ThrowSpeed, 0.0f, 60.0f).Tooltip("Kameradan sichqoncha tomonga otish tezligi"))
+
+// ---- PhysicsDebug3D sahnasi: fizika debug ko'rinishlari - kontakt nuqtalari (normal, chuqurlik, zarba
+// halqasi, uxlayotganlari xira), qiymat yozuvlari (chuqurlik, zarba tezligi va impulsi) va joint'lar
+// (langarlar, o'q, uzilishga yaqinligi rangda, uzilgani qizil X).
+
+// O'yin boshlanganda debug chizishning fizika ko'rinishlarini yoqadi; C - kontaktlar, J - joint'lar,
+// V - qiymat yozuvlari. Editor'da o'yin to'xtaganda viewport sozlamalari qaytadi.
+class PhysicsDebugView3D : public ScriptableEntity
+{
+public:
+    bool Contacts = true;
+    bool Joints = true;
+    bool Values = true;
+
+    void OnStart() override { Apply(); }
+
+    void OnUpdate(Timestep) override
+    {
+        bool changed = false;
+        if (Input::IsKeyJustPressed(Key::C)) { Contacts = !Contacts; changed = true; }
+        if (Input::IsKeyJustPressed(Key::J)) { Joints = !Joints; changed = true; }
+        if (Input::IsKeyJustPressed(Key::V)) { Values = !Values; changed = true; }
+        if (changed)
+            Apply();
+        auto mark = [](bool on) { return on ? "[x]" : "[ ]"; };
+        DebugDraw::Text(GetWorldPosition(),
+                        std::format("{} C - kontaktlar   {} J - joint'lar   {} V - qiymatlar", mark(Contacts), mark(Joints), mark(Values)),
+                        glm::vec4(0.9f, 0.95f, 1.0f, 1.0f));
+    }
+
+private:
+    void Apply()
+    {
+        DebugDrawSettings& s = DebugDraw::GetSettings();
+        s.Enabled = true;
+        s.ShowContacts = Contacts;
+        s.ShowJoints = Joints;
+        s.ShowContactDetails = Values;
+    }
+};
+ZM_REGISTER_SCRIPT(PhysicsDebugView3D,
+    ZM_FIELD(PhysicsDebugView3D, Contacts).Tooltip("Kontakt nuqtalari va normallari (C)"),
+    ZM_FIELD(PhysicsDebugView3D, Joints).Tooltip("Joint'lar: langarlar, o'q, yuk rangi (J)"),
+    ZM_FIELD(PhysicsDebugView3D, Values).Tooltip("Chuqurlik, zarba, impuls, kuch yozuvlari (V)"))

@@ -6374,22 +6374,27 @@ namespace Zamin {
                     c.Culling = (AnimatorCulling)culling;
                     changed = true;
                 }
-                changed |= UI::PropertyBool("Pozalarni keshlash", c.CachePoses);
+                changed |= UI::PropertyBool("Poza keshi", c.CachePoses);
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Klip oldindan belgilangan tezlikda (kadr/s) namuna olinib saqlanadi: har kadr ikki saqlangan kadr "
                                 "aralashtiriladi. Ko'p suyakli va ko'p kalitli kliplar uchun arzonroq; step kalitlar aniq qoladi");
                 if (c.CachePoses)
                 {
-                    changed |= UI::PropertyFloat("Kesh tezligi (kadr/s)", c.PoseCacheRate, 1.0f, 1.0f, 240.0f, "%.0f");
+                    changed |= UI::PropertyFloat("Kesh kadr/s", c.PoseCacheRate, 1.0f, 1.0f, 240.0f, "%.0f");
                     c.PoseCacheRate = std::clamp(c.PoseCacheRate, 1.0f, 240.0f);
                 }
                 if (!m_SceneEditable || c.Culled)
                 {
                     UI::PropertyLabel("Hozir");
                     if (c.Culled)
-                        ImGui::TextColored(UI::AccentColor(), ICON_FA_EYE_SLASH "  ekrandan tashqarida (kesilgan)");
+                        ImGui::TextColored(UI::AccentColor(), ICON_FA_EYE_SLASH "  kesilgan");
                     else
                         ImGui::TextDisabled(ICON_FA_EYE "  ko'rinmoqda");
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip(!c.Culled ? "Model ko'rinishda: har kadr pozalanadi"
+                                    : c.Culling == AnimatorCulling::CullCompletely
+                                        ? "Oxirgi yangilanishda hech bir kamera modelni ko'rmadi: hech narsa yangilanmadi (vaqt ham)"
+                                        : "Oxirgi yangilanishda hech bir kamera modelni ko'rmadi: poza hisoblanmadi (vaqt va event'lar davom etadi)");
                 }
             }
 

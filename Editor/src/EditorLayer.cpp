@@ -9287,7 +9287,7 @@ namespace Zamin {
             ImGui::TextColored(UI::AccentColor(), "%u", a.Culled);
         else
             ImGui::TextDisabled("0");
-        UI::PropertyLabel("Kesh / klipdan", "Klip pozalari: keshlangan kadrlardan (Pozalarni keshlash) / klip kalitlaridan o'qilganlar");
+        UI::PropertyLabel("Kesh / klipdan", "Klip pozalari: keshlangan kadrlardan (Poza keshi) / klip kalitlaridan o'qilganlar");
         ImGui::Text("%u / %u", a.CachedSamples, a.ClipSamples);
         UI::PropertyLabel("Kesh xotirasi", "Barcha modellarning poza keshlari");
         if (a.CacheBytes >= 1024 * 1024)

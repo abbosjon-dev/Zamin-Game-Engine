@@ -457,7 +457,7 @@ Chegaralar — modelning oxirgi pozasidagi skinned chegaralari (biroz kattalasht
 pozalanadi. Sahna umuman chizilmasa (headless) hech narsa kesilmaydi. Eslatma: faqat soyasi ko'rinib turgan model ham
 kesiladi.
 
-**Pozalarni keshlash** (`CachePoses`, `PoseCacheRate` kadr/s, 30 standart): klip oldindan shu tezlikda namuna olinib saqlanadi
+**Poza keshi** (`CachePoses`, `PoseCacheRate` kadr/s, 30 standart): klip oldindan shu tezlikda namuna olinib saqlanadi
 (modelning har klipi uchun bir marta, uning barcha animatorlari ulashadi); har kadr ikki saqlangan kadr aralashtiriladi —
 har kanal kalitlarini qidirish yo'q. Ko'p suyakli, ko'p kalitli kliplarda arzonroq; saqlangan kadrlar orasida biroz
 kamroq aniq, **step kalitlar aniq qoladi** (bunday suyaklar klipning o'zidan o'qiladi). Debug build'da 100 ta 60 suyakli

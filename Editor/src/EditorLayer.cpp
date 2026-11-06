@@ -2814,13 +2814,17 @@ namespace Zamin {
             }
 
             const glm::vec4 cyan(0.3f, 0.85f, 1.0f, 1.0f);
+            // Triggers yellow; while the game runs, the colliders of sleeping 3D bodies blue-grey.
+            auto color3D = [&](Entity entity, bool sensor) {
+                return sensor ? yellow : scene.IsSleeping3D(entity) ? sleepColor : cyan;
+            };
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, BoxCollider3DComponent>())
             {
                 if (hidden.contains(e)) continue;
                 Entity entity{ e, &scene };
                 auto& c = entity.GetComponent<BoxCollider3DComponent>();
                 glm::mat4 t = scene.GetWorldTransform(entity) * glm::translate(glm::mat4(1.0f), c.Offset) * glm::scale(glm::mat4(1.0f), c.HalfExtents * 2.0f);
-                DrawWireBox(t, c.IsSensor ? yellow : cyan);
+                DrawWireBox(t, color3D(entity, c.IsSensor));
             }
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, SphereCollider3DComponent>())
             {
@@ -2831,9 +2835,10 @@ namespace Zamin {
                 Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
                 float radius = c.Radius * std::max({ std::abs(sc.x), std::abs(sc.y), std::abs(sc.z) });
                 glm::vec3 center = p + glm::quat(r) * (c.Offset * sc);
-                DrawWireCircle(center, { 1, 0, 0 }, { 0, 1, 0 }, radius, c.IsSensor ? yellow : cyan);
-                DrawWireCircle(center, { 1, 0, 0 }, { 0, 0, 1 }, radius, c.IsSensor ? yellow : cyan);
-                DrawWireCircle(center, { 0, 1, 0 }, { 0, 0, 1 }, radius, c.IsSensor ? yellow : cyan);
+                const glm::vec4 col = color3D(entity, c.IsSensor);
+                DrawWireCircle(center, { 1, 0, 0 }, { 0, 1, 0 }, radius, col);
+                DrawWireCircle(center, { 1, 0, 0 }, { 0, 0, 1 }, radius, col);
+                DrawWireCircle(center, { 0, 1, 0 }, { 0, 0, 1 }, radius, col);
             }
             for (auto e : scene.GetAllEntitiesWith<TransformComponent, CharacterController3DComponent>())
             {
@@ -2863,7 +2868,7 @@ namespace Zamin {
                 float half = c.HalfHeight * std::abs(sc.y);
                 glm::vec3 center = p + q * (c.Offset * sc);
                 glm::vec3 up = q * glm::vec3(0, 1, 0), right = q * glm::vec3(1, 0, 0), fwd = q * glm::vec3(0, 0, 1);
-                glm::vec4 col = c.IsSensor ? yellow : cyan;
+                glm::vec4 col = color3D(entity, c.IsSensor);
                 DrawWireCircle(center + up * half, right, fwd, radius, col);
                 DrawWireCircle(center - up * half, right, fwd, radius, col);
                 for (glm::vec3 side : { right, -right, fwd, -fwd })
@@ -2883,7 +2888,7 @@ namespace Zamin {
                 Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
                 const glm::quat q(r);
                 const glm::vec3 scale = glm::abs(sc), offset = c.Offset * scale;
-                const glm::vec4 col = c.IsSensor ? yellow : cyan;
+                const glm::vec4 col = color3D(entity, c.IsSensor);
                 for (const auto& [a, b] : hull->Edges)
                     Renderer2D::DrawLine(p + q * (offset + hull->Points[a] * scale), p + q * (offset + hull->Points[b] * scale), col);
             }
@@ -2901,7 +2906,7 @@ namespace Zamin {
                 Math::DecomposeTransform(scene.GetWorldTransform(entity), p, r, sc);
                 const glm::quat q(r);
                 const glm::vec3 scale = glm::abs(sc), offset = c.Offset * scale;
-                glm::vec4 col = c.IsSensor ? yellow : cyan;
+                glm::vec4 col = color3D(entity, c.IsSensor);
                 if (rb && rb->Type == Rigidbody3DComponent::BodyType::Dynamic)
                     col.a = 0.3f;
                 for (const auto& [a, b] : *edges)
@@ -7881,20 +7886,47 @@ namespace Zamin {
                 UI::PropertyLabel("Bu kadrda");
                 ImGui::Text("%d ta Box2D qadami", m_ActiveScene->GetPhysics2DStepsLastFrame());
             }
+
+            auto& p3 = s.Physics3D;
+            UI::PropertyHeader("Jolt (3D)", "3D jismlarning uxlash sozlamalari");
+            UI::PropertyLabel("Uxlash", "Bir muddat qimirlamay turgan 3D jismlar (ularga tegib / ulanib turganlar bilan birga) "
+                                             "hisoblanmaydi - biror narsa tegsa, joint tortsa, qahramon itarsa yoki skript uyg'otsa "
+                                             "(WakeUp3D) yana harakatlanadi. Har jismniki: Rigidbody 3D > Uxlash");
+            if (ImGui::Checkbox("##sleep3d", &p3.AllowSleep))
+                changed = true;
+            ImGui::BeginDisabled(!p3.AllowSleep);
+            UI::PropertyLabel("Uxlashgacha", "Jism (va unga tegib turganlar) shuncha soniya qimirlamasa uxlaydi. Jolt'niki: 0.5 s");
+            if (ImGui::DragFloat("##tts3d", &p3.TimeToSleep, 0.01f, 0.05f, 60.0f, "%.2f s", ImGuiSliderFlags_AlwaysClamp))
+                changed = true;
+            ImGui::EndDisabled();
+            if (m_ActiveScene->GetPhysicsWorld3D()) // while playing / simulating
+            {
+                const PhysicsStats3D stats = m_ActiveScene->GetPhysics3DStats();
+                UI::PropertyLabel("Jismlar");
+                ImGui::Text("%d ta (%d harakatlanuvchi), %d qahramon", stats.Bodies, stats.Moving, stats.Characters);
+                UI::PropertyLabel("Uyg'oq");
+                ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1.0f), ICON_FA_BOLT "  %d ta", stats.Awake);
+                UI::PropertyLabel("Uxlayapti", "Fizik colliderlar ko'rsatilganda uxlayotgan jismlarning chiziqlari ko'kish-kulrang");
+                ImGui::TextColored(ImVec4(0.55f, 0.65f, 0.95f, 1.0f), ICON_FA_MOON "  %d ta", stats.Sleeping);
+                UI::PropertyLabel("Joint / kontakt", "Kontakt - tegib turgan jism juftlari (triggerlar ham)");
+                ImGui::Text("%d joint, %d kontakt", stats.Joints, stats.Contacts);
+            }
             UI::EndPropertyGrid();
         }
         {
-            const bool standard = s.PhysicsStep == SceneSettings::PhysicsStepSettings() && s.Physics2D == SceneSettings::Physics2DSettings();
+            const bool standard = s.PhysicsStep == SceneSettings::PhysicsStepSettings() && s.Physics2D == SceneSettings::Physics2DSettings() &&
+                                  s.Physics3D == SceneSettings::Physics3DSettings();
             ImGui::BeginDisabled(standard);
             if (ImGui::Button(ICON_FA_ROTATE_LEFT "  Standart fizika sozlamalari"))
             {
                 s.PhysicsStep = {};
                 s.Physics2D = {};
+                s.Physics3D = {};
                 changed = true;
             }
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                UI::Tooltip("Qadam chastotasi 60 Hz, 5 qadam, 1 sub-qadam, 6 / 2 iteratsiya, uxlash 0.5 s dan keyin");
+                UI::Tooltip("Qadam chastotasi 60 Hz, 5 qadam, 1 sub-qadam, 6 / 2 iteratsiya, 2D va 3D uxlash 0.5 s dan keyin");
         }
 
         ImGui::SeparatorText(ICON_FA_CAMERA "  Editor kamerasi");

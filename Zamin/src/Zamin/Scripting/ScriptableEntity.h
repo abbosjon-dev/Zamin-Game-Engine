@@ -262,6 +262,17 @@ namespace Zamin {
         void ApplyForce3D(const glm::vec3& force);
         void ApplyTorque3D(const glm::vec3& torque);
         void SetPosition3D(const glm::vec3& position); // teleports the physics body too
+        // Sleeping (Rigidbody 3D > Sleeping, scene settings > Physics 3D): a body that keeps still
+        // for a while stops being simulated until something touches it. WakeUp3D brings it back at
+        // once, PutToSleep3D stops it now (it wakes again when hit); the Entity versions are for
+        // another body:
+        //   if (IsSleeping3D(crate)) WakeUp3D(crate);
+        bool IsSleeping3D() const;
+        void WakeUp3D();
+        void PutToSleep3D();
+        bool IsSleeping3D(Entity other) const;
+        void WakeUp3D(Entity other);
+        void PutToSleep3D(Entity other);
         // Same, for another entity (e.g. a freshly instantiated projectile)
         void SetVelocity3D(Entity other, const glm::vec3& velocity);
         void ApplyImpulse3D(Entity other, const glm::vec3& impulse);

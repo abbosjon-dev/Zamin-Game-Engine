@@ -77,6 +77,19 @@ namespace Zamin {
         uint64_t Steps = 0; // Box2D steps since the world was made (sub-steps count one by one)
     };
 
+    // What a running 3D world holds now (the editor's scene settings, tests).
+    struct PhysicsStats3D
+    {
+        int Bodies = 0;     // every body (static ones too; not the characters' inner bodies)
+        int Moving = 0;     // dynamic and kinematic ones
+        int Awake = 0;      // moving bodies being simulated
+        int Sleeping = 0;   // moving bodies that sleep
+        int Joints = 0;
+        int Characters = 0;
+        int Contacts = 0;   // touching body pairs (triggers too)
+        uint64_t Steps = 0; // steps since the world was made
+    };
+
     // A point where two bodies touch (debug drawing): world position and the contact normal.
     struct PhysicsContactPoint
     {

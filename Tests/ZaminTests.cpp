@@ -18401,16 +18401,561 @@ TEST(Queries3DSampleScene)
     scene->OnRuntimeStop();
 }
 
+// ------------------------------------------------------------------ 3D physics: CCD, sleeping, materials, triggers, pushing (M10)
+TEST(ContinuousCollision3DStopsFastBodies)
+{
+    // A small ball at 290 m/s (4.8 m a step) at a pane 0.1 thick: without continuous collision it is
+    // past the pane after one step, with it it stops there.
+    auto shoot = [](bool continuous) {
+        auto scene = CreateRef<Scene>();
+        scene->GetSettings().Gravity3D = glm::vec3(0.0f);
+        MakeBody3D(scene, "Pane", { 10.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Static, { 0.05f, 2.0f, 2.0f });
+        Entity bullet = MakeBody3D(scene, "Bullet", glm::vec3(0.0f), Rigidbody3DComponent::BodyType::Dynamic, glm::vec3(0.0f));
+        bullet.AddComponent<SphereCollider3DComponent>().Radius = 0.1f;
+        bullet.GetComponent<Rigidbody3DComponent>().ContinuousCollision = continuous;
+        scene->OnRuntimeStart();
+        PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+        const uint32_t id = bullet.GetComponent<Rigidbody3DComponent>().RuntimeBodyID;
+        CHECK(world && world->IsBodyContinuous(id) == continuous);
+        world->SetLinearVelocity(id, { 290.0f, 0.0f, 0.0f });
+        RunFrames(scene, 20);
+        const float x = Pos3D(bullet).x;
+        scene->OnRuntimeStop();
+        return x;
+    };
+    CHECK(shoot(false) > 20.0f); // went through
+    const float stopped = shoot(true);
+    CHECK(stopped > 9.0f && stopped < 9.96f);
+
+    // Switched while the game runs (dynamic bodies only: a kinematic body is never stopped).
+    auto scene = CreateRef<Scene>();
+    Entity ball = MakeBody3D(scene, "Ball", glm::vec3(0.0f), Rigidbody3DComponent::BodyType::Dynamic);
+    Entity lift = MakeBody3D(scene, "Lift", { 3.0f, 0.0f, 0.0f }, Rigidbody3DComponent::BodyType::Kinematic);
+    auto& rb = ball.GetComponent<Rigidbody3DComponent>();
+    rb.ContinuousCollision = true;
+    lift.GetComponent<Rigidbody3DComponent>().ContinuousCollision = true;
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    CHECK(world->IsBodyContinuous(rb.RuntimeBodyID) && !world->IsBodyContinuous(lift.GetComponent<Rigidbody3DComponent>().RuntimeBodyID));
+    rb.ContinuousCollision = false;
+    RunFrames(scene, 1);
+    CHECK(!world->IsBodyContinuous(rb.RuntimeBodyID));
+    rb.ContinuousCollision = true;
+    RunFrames(scene, 1);
+    CHECK(world->IsBodyContinuous(rb.RuntimeBodyID));
+    scene->OnRuntimeStop();
+    // Saved only when on.
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"ContinuousCollision\": true") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->FindEntityByName("Ball").GetComponent<Rigidbody3DComponent>().ContinuousCollision);
+    auto plain = CreateRef<Scene>();
+    MakeBody3D(plain, "Plain", glm::vec3(0.0f), Rigidbody3DComponent::BodyType::Dynamic);
+    CHECK(SceneSerializer(plain).SerializeToString().find("ContinuousCollision") == std::string::npos);
+}
+
+// Reports whether its entity's / another body sleeps, and wakes / puts it to sleep when asked (the
+// script API: IsSleeping3D, WakeUp3D, PutToSleep3D).
+class Sleep3DProbe : public ScriptableEntity
+{
+public:
+    int Action = 0; // 1: wake self, 2: put self to sleep, 3: wake "Waiting", 4: put "Waiting" to sleep
+    bool SelfAsleep = false, OtherAsleep = false;
+    void OnUpdate(Timestep) override
+    {
+        Entity other = FindEntity("Waiting");
+        switch (Action)
+        {
+            case 1: WakeUp3D(); break;
+            case 2: PutToSleep3D(); break;
+            case 3: WakeUp3D(other); break;
+            case 4: PutToSleep3D(other); break;
+            default: break;
+        }
+        Action = 0;
+        SelfAsleep = IsSleeping3D();
+        OtherAsleep = IsSleeping3D(other);
+    }
+};
+ZM_REGISTER_SCRIPT(Sleep3DProbe)
+
+TEST(Physics3DSleepingAndWakeUp)
+{
+    using Mode = Rigidbody3DComponent::SleepMode;
+    using BT = Rigidbody3DComponent::BodyType;
+    // A box resting on the ground: frames until it sleeps (-1: not within `frames`).
+    auto framesToSleep = [](float timeToSleep, bool allowSleep, Mode mode, int frames) {
+        auto sc = CreateRef<Scene>();
+        sc->GetSettings().Physics3D.TimeToSleep = timeToSleep;
+        sc->GetSettings().Physics3D.AllowSleep = allowSleep;
+        MakeBody3D(sc, "Ground", { 0.0f, -0.5f, 0.0f }, BT::Static, { 20.0f, 0.5f, 20.0f });
+        Entity box = MakeBody3D(sc, "Box", { 0.0f, 0.255f, 0.0f }, BT::Dynamic);
+        box.GetComponent<Rigidbody3DComponent>().Sleeping = mode;
+        sc->OnRuntimeStart();
+        int asleep = -1;
+        for (int i = 1; i <= frames && asleep < 0; i++)
+        {
+            sc->OnUpdateRuntime(1.0f / 60.0f);
+            if (sc->IsSleeping3D(box))
+                asleep = i;
+        }
+        sc->OnRuntimeStop();
+        return asleep;
+    };
+    const int quick = framesToSleep(0.2f, true, Mode::StartAwake, 600);
+    const int standard = framesToSleep(0.5f, true, Mode::StartAwake, 600);
+    const int slow = framesToSleep(2.0f, true, Mode::StartAwake, 600);
+    CHECK(quick >= 12 && standard >= 30 && slow >= 120);
+    CHECK(quick < standard && standard < slow && slow < 220);
+    CHECK(framesToSleep(0.5f, false, Mode::StartAwake, 240) == -1); // sleeping off
+    CHECK(framesToSleep(0.5f, true, Mode::NeverSleep, 240) == -1);
+    CHECK(framesToSleep(0.5f, true, Mode::StartAsleep, 1) == 1);    // asleep from the start
+
+    auto scene = CreateRef<Scene>();
+    Entity ground = MakeBody3D(scene, "Ground", { 0.0f, -0.5f, 0.0f }, BT::Static, { 30.0f, 0.5f, 30.0f });
+    Entity bottom = MakeBody3D(scene, "Bottom", { 0.0f, 0.255f, 0.0f }, BT::Dynamic);
+    Entity top = MakeBody3D(scene, "Top", { 0.0f, 0.76f, 0.0f }, BT::Dynamic);
+    top.AddComponent<NativeScriptComponent>().ClassName = "Sleep3DProbe";
+    // A box waiting in the air (asleep) and a ball that falls on it.
+    Entity waiting = MakeBody3D(scene, "Waiting", { 8.0f, 5.0f, 0.0f }, BT::Dynamic);
+    waiting.GetComponent<Rigidbody3DComponent>().Sleeping = Mode::StartAsleep;
+    Entity ball = MakeBody3D(scene, "Ball", { 8.05f, 9.0f, 0.0f }, BT::Dynamic, glm::vec3(0.0f));
+    ball.AddComponent<SphereCollider3DComponent>().Radius = 0.2f;
+    Entity restless = MakeBody3D(scene, "Restless", { -8.0f, 0.255f, 0.0f }, BT::Dynamic);
+    restless.GetComponent<Rigidbody3DComponent>().Sleeping = Mode::NeverSleep;
+    scene->OnRuntimeStart();
+    auto* probe = dynamic_cast<Sleep3DProbe*>(top.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(probe != nullptr);
+    if (!probe)
+        return;
+    CHECK(!scene->IsSleeping3D(ground) && !scene->SetAwake3D(ground, false)); // static: neither
+    CHECK(scene->IsSleeping3D(waiting) && !scene->IsSleeping3D(bottom));
+    PhysicsStats3D stats = scene->GetPhysics3DStats();
+    CHECK(stats.Bodies == 6 && stats.Moving == 5 && stats.Sleeping == 1 && stats.Awake == 4 && stats.Joints == 0);
+    int stackAsleep = -1;
+    bool together = true;
+    for (int i = 1; i <= 50; i++)
+    {
+        RunFrames(scene, 1);
+        together &= scene->IsSleeping3D(bottom) == scene->IsSleeping3D(top);
+        if (stackAsleep < 0 && scene->IsSleeping3D(bottom))
+            stackAsleep = i;
+        if (i <= 30)
+            CHECK_NEAR(Pos3D(waiting).y, 5.0f, 1e-6f); // asleep: does not fall until the ball comes
+    }
+    CHECK(together && stackAsleep >= 30 && stackAsleep <= 50); // ~0.5 s after they stopped moving
+    CHECK(probe->SelfAsleep && scene->GetPhysics3DStats().Sleeping >= 2);
+    RunFrames(scene, 60);
+    CHECK(!scene->IsSleeping3D(waiting) && Pos3D(waiting).y < 4.5f); // hit and falling
+    CHECK(!scene->IsSleeping3D(restless) && scene->IsSleeping3D(top));
+    // The script wakes its body: awake at once (then it falls asleep again, being still).
+    probe->Action = 1;
+    RunFrames(scene, 1);
+    CHECK(!probe->SelfAsleep && !scene->IsSleeping3D(top));
+    RunFrames(scene, 200); // everything settles
+    CHECK(scene->IsSleeping3D(waiting) && probe->OtherAsleep);
+    // ... and another one: it is woken, put to sleep in the air, stays there, falls when woken.
+    const uint32_t waitingBody = waiting.GetComponent<Rigidbody3DComponent>().RuntimeBodyID;
+    scene->GetPhysicsWorld3D()->SetTransform(waitingBody, { 15.0f, 6.0f, 0.0f }, glm::quat(1.0f, 0.0f, 0.0f, 0.0f)); // moved: it wakes up
+    CHECK(!scene->IsSleeping3D(waiting));
+    RunFrames(scene, 15);
+    CHECK(!scene->IsSleeping3D(waiting) && Pos3D(waiting).y < 6.0f);
+    probe->Action = 4;
+    RunFrames(scene, 1);
+    CHECK(probe->OtherAsleep && scene->IsSleeping3D(waiting));
+    const float stopped = Pos3D(waiting).y;
+    RunFrames(scene, 30);
+    CHECK(Pos3D(waiting).y == stopped && scene->GetPhysicsWorld3D()->GetLinearVelocity(waitingBody) == glm::vec3(0.0f));
+    probe->Action = 3;
+    RunFrames(scene, 10);
+    CHECK(!probe->OtherAsleep && Pos3D(waiting).y < stopped - 0.05f);
+    // Switching sleeping off while running wakes every body; the mode of one body may change too.
+    RunFrames(scene, 120);
+    CHECK(scene->GetPhysics3DStats().Sleeping >= 3);
+    scene->GetSettings().Physics3D.AllowSleep = false;
+    RunFrames(scene, 1);
+    CHECK(scene->GetPhysics3DStats().Sleeping == 0);
+    CHECK(!scene->GetPhysicsWorld3D()->IsSleepingAllowed());
+    scene->GetSettings().Physics3D.AllowSleep = true;
+    scene->GetSettings().Physics3D.TimeToSleep = 0.3f;
+    restless.GetComponent<Rigidbody3DComponent>().Sleeping = Mode::StartAwake;
+    RunFrames(scene, 60);
+    CHECK(scene->IsSleeping3D(restless) && scene->IsSleeping3D(bottom));
+    CHECK_NEAR(scene->GetPhysicsWorld3D()->GetTimeToSleep(), 0.3f, 1e-6f);
+    restless.GetComponent<Rigidbody3DComponent>().Sleeping = Mode::NeverSleep; // wakes it
+    RunFrames(scene, 1);
+    CHECK(!scene->IsSleeping3D(restless));
+    scene->OnRuntimeStop();
+    CHECK(!scene->IsSleeping3D(bottom) && scene->GetPhysics3DStats().Bodies == 0);
+
+    // The mode and the scene's settings are saved only when they are not the defaults.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Sleeping\": \"StartAsleep\"") != std::string::npos && text.find("\"Sleeping\": \"NeverSleep\"") != std::string::npos);
+    CHECK(text.find("\"Physics3D\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->GetEntityByUUID(waiting.GetUUID()).GetComponent<Rigidbody3DComponent>().Sleeping == Mode::StartAsleep);
+    CHECK(loaded->GetEntityByUUID(restless.GetUUID()).GetComponent<Rigidbody3DComponent>().Sleeping == Mode::NeverSleep);
+    CHECK(loaded->GetEntityByUUID(bottom.GetUUID()).GetComponent<Rigidbody3DComponent>().Sleeping == Mode::StartAwake);
+    CHECK(loaded->GetSettings().Physics3D.AllowSleep && std::abs(loaded->GetSettings().Physics3D.TimeToSleep - 0.3f) < 1e-6f);
+    auto plain = CreateRef<Scene>();
+    MakeBody3D(plain, "Plain", glm::vec3(0.0f), BT::Dynamic);
+    const std::string plainText = SceneSerializer(plain).SerializeToString();
+    CHECK(plainText.find("\"Sleeping\"") == std::string::npos && plainText.find("\"Physics3D\"") == std::string::npos);
+}
+
+TEST(PhysicsMaterial3DOnColliders)
+{
+    namespace fs = std::filesystem;
+    using BT = Rigidbody3DComponent::BodyType;
+    fs::path root = MakeTempDir("zamin-physmat3d-");
+    bool writesMeta = AssetRegistry::GetWriteMetaFilesByDefault();
+    AssetRegistry::SetWriteMetaFilesByDefault(true); // like the editor: the materials get UUIDs
+    auto project = Project::CreateFromTemplate(root, "PhysGame3D");
+    CHECK(project != nullptr);
+    if (!project)
+    {
+        AssetRegistry::SetWriteMetaFilesByDefault(writesMeta);
+        return;
+    }
+    PhysicsMaterialData bouncy;
+    bouncy.Restitution = 0.9f;
+    bouncy.RestitutionThreshold = 0.1f;
+    bouncy.RestitutionCombine = PhysicsCombine::Maximum;
+    PhysicsMaterialData dead = bouncy;
+    dead.RestitutionThreshold = 20.0f; // no impact here is that fast
+    PhysicsMaterialData ice;
+    ice.Friction = 0.02f;
+    ice.FrictionCombine = PhysicsCombine::Minimum;
+    const fs::path dir = root / "Assets" / "Physics";
+    fs::create_directories(dir);
+    CHECK(PhysicsMaterial::Save(dir / "Bouncy.zphysmat", bouncy) && PhysicsMaterial::Save(dir / "Dead.zphysmat", dead) &&
+          PhysicsMaterial::Save(dir / "Ice.zphysmat", ice));
+    AssetHandle handle;
+    if (AssetRegistry* registry = Project::GetAssetRegistry())
+    {
+        registry->Scan(Project::GetAssetDirectory());
+        handle = registry->GetHandle("Physics/Bouncy.zphysmat");
+    }
+    AssetRegistry::SetWriteMetaFilesByDefault(writesMeta);
+    CHECK(handle);
+
+    auto scene = CreateRef<Scene>();
+    Entity ground = MakeBody3D(scene, "Ground", { 0.0f, -0.5f, 0.0f }, BT::Static, { 40.0f, 0.5f, 40.0f });
+    ground.GetComponent<BoxCollider3DComponent>().Friction = 1.0f;
+    auto ball = [&](const char* name, glm::vec3 at, const std::string& material, float restitution) {
+        Entity b = MakeBody3D(scene, name, at, BT::Dynamic, glm::vec3(0.0f));
+        auto& c = b.AddComponent<SphereCollider3DComponent>();
+        c.Radius = 0.25f;
+        c.MaterialPath = material;
+        c.Restitution = restitution;
+        return b;
+    };
+    // Dropped from 5 m: its own values (no bounce), the bouncy material, the same with a threshold
+    // above the impact speed.
+    Entity plain = ball("Plain", { -6.0f, 5.0f, -5.0f }, "", 0.0f);
+    Entity bouncyBall = ball("Bouncy", { -3.0f, 5.0f, -5.0f }, "Physics/Bouncy.zphysmat", 0.0f);
+    Entity deadBall = ball("Dead", { 0.0f, 5.0f, -5.0f }, "Physics/Dead.zphysmat", 0.0f);
+    // The collider's own restitution: as bouncy as the material (Jolt's own handling of a bounce).
+    Entity ownHigh = ball("OwnHigh", { 9.0f, 5.0f, -5.0f }, "", 0.9f);
+    // Dropped from 4.5 cm (0.94 m/s, slower than Jolt's own 1 m/s threshold) onto pads of their own
+    // material: the bouncy material's 0.1 m/s still bounces (a pair bounces above the larger of its
+    // two thresholds, as in Box2D), a collider's own 0.9 does not.
+    for (auto [name, x, material] : { std::tuple{ "BouncyPad", 3.0f, "Physics/Bouncy.zphysmat" }, std::tuple{ "OwnPad", 6.0f, "" } })
+    {
+        Entity padEntity = MakeBody3D(scene, name, { x, -0.45f, -5.0f }, BT::Static, { 0.6f, 0.5f, 0.6f }); // top at 0.05
+        padEntity.GetComponent<BoxCollider3DComponent>().MaterialPath = material;
+        padEntity.GetComponent<BoxCollider3DComponent>().Restitution = 0.9f;
+    }
+    Entity lowBouncy = ball("LowBouncy", { 3.0f, 0.345f, -5.0f }, "Physics/Bouncy.zphysmat", 0.0f);
+    Entity lowOwn = ball("LowOwn", { 6.0f, 0.345f, -5.0f }, "", 0.9f);
+    // Shoved at 5 m/s over the rough ground: ice (Minimum) slides far; its own 0.02 friction (Default:
+    // sqrt(0.02 * 1)) stops it sooner.
+    Entity icy = MakeBody3D(scene, "Icy", { -10.0f, 0.255f, 5.0f }, BT::Dynamic);
+    icy.GetComponent<BoxCollider3DComponent>().MaterialPath = "Physics/Ice.zphysmat";
+    Entity rough = MakeBody3D(scene, "Rough", { -10.0f, 0.255f, 8.0f }, BT::Dynamic);
+    rough.GetComponent<BoxCollider3DComponent>().Friction = 0.02f;
+    // Each collider of a body rubs with its own friction: a sled on a frictionless runner (a sphere
+    // below) with a rough box on top that does not touch the ground.
+    Entity sled = MakeBody3D(scene, "Sled", { -10.0f, 0.25f, 11.0f }, BT::Dynamic, { 0.25f, 0.1f, 0.25f });
+    sled.GetComponent<Rigidbody3DComponent>().LockRotation = true;
+    sled.GetComponent<BoxCollider3DComponent>().Offset = { 0.0f, 0.6f, 0.0f };
+    sled.GetComponent<BoxCollider3DComponent>().Friction = 1.0f;
+    auto& runner = sled.AddComponent<SphereCollider3DComponent>();
+    runner.Radius = 0.25f;
+    runner.Friction = 0.0f;
+
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    auto id = [](Entity e) { return e.GetComponent<Rigidbody3DComponent>().RuntimeBodyID; };
+    for (Entity e : { icy, rough, sled })
+        world->SetLinearVelocity(id(e), { 5.0f, 0.0f, 0.0f });
+    // How high each ball gets after it first lands (resting height + bounce).
+    std::map<std::string, float> peak, rest;
+    std::map<std::string, bool> landed;
+    std::vector<Entity> balls = { plain, bouncyBall, deadBall, ownHigh, lowBouncy, lowOwn };
+    for (Entity b : balls)
+        rest[b.GetName()] = b == lowBouncy || b == lowOwn ? 0.3f : 0.25f;
+    for (int i = 0; i < 180; i++)
+    {
+        RunFrames(scene, 1);
+        for (Entity b : balls)
+        {
+            const std::string& name = b.GetName();
+            const float y = Pos3D(b).y;
+            landed[name] = landed[name] || y < rest[name] + 0.002f;
+            if (landed[name])
+                peak[name] = std::max(peak[name], y - rest[name]);
+        }
+    }
+    CHECK(peak["Plain"] < 0.03f);
+    CHECK(peak["Bouncy"] > 1.0f && std::abs(peak["Bouncy"] - peak["OwnHigh"]) < 0.05f);
+    CHECK(peak["Dead"] < 0.03f);
+    CHECK(peak["LowBouncy"] > 0.008f);
+    CHECK(peak["LowOwn"] < 0.004f);
+    const float iceSlide = Pos3D(icy).x + 10.0f, roughSlide = Pos3D(rough).x + 10.0f, sledSlide = Pos3D(sled).x + 10.0f;
+    CHECK(iceSlide > roughSlide + 3.0f && iceSlide > 11.0f);
+    CHECK(sledSlide > 13.0f); // the runner has no friction (the box's 1.0 would have stopped it at once)
+    // Hot reload: the ice gets rough; the running collider takes it on the next step.
+    PhysicsMaterialData sticky = ice;
+    sticky.Friction = 1.0f;
+    sticky.FrictionCombine = PhysicsCombine::Maximum;
+    CHECK(PhysicsMaterial::Save(dir / "Ice.zphysmat", sticky));
+    CHECK(PhysicsMaterialLibrary::ReloadFile(dir / "Ice.zphysmat") == 1);
+    RunFrames(scene, 1);
+    const float before = Pos3D(icy).x;
+    world->SetLinearVelocity(id(icy), { 5.0f, 0.0f, 0.0f });
+    RunFrames(scene, 90);
+    CHECK(Pos3D(icy).x - before < 2.0f); // 5 m/s at 9.8 m/s^2: stops after ~1.3 m
+    scene->OnRuntimeStop();
+    // The path is saved with the scene (with the asset's UUID).
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Material\": \"Physics/Bouncy.zphysmat\"") != std::string::npos);
+    CHECK(text.find("\"MaterialUUID\": \"" + handle.ToString() + "\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->FindEntityByName("Bouncy").GetComponent<SphereCollider3DComponent>().MaterialPath == "Physics/Bouncy.zphysmat");
+    CHECK(loaded->FindEntityByName("Icy").GetComponent<BoxCollider3DComponent>().MaterialPath == "Physics/Ice.zphysmat");
+    CHECK(loaded->FindEntityByName("Plain").GetComponent<SphereCollider3DComponent>().MaterialPath.empty());
+
+    PhysicsMaterialLibrary::Clear();
+    Project::SetActive(nullptr);
+    std::error_code ec;
+    fs::remove_all(root, ec);
+}
+
+TEST(Triggers3DMixedCollidersAndCharacters)
+{
+    using BT = Rigidbody3DComponent::BodyType;
+    g_Contacts.clear();
+    auto scene = CreateRef<Scene>();
+    Entity floor = MakeBody3D(scene, "Floor", { 0.0f, -0.5f, 0.0f }, BT::Static, { 30.0f, 0.5f, 30.0f });
+    AddContactLog(floor);
+    // A crate with a pick-up sphere around it (a trigger collider of the same body): the sphere goes
+    // through the floor and the bodies around, they are reported to the scripts.
+    Entity collector = MakeBody3D(scene, "Collector", { 0.0f, 0.3f, 0.0f }, BT::Dynamic);
+    auto& reach = collector.AddComponent<SphereCollider3DComponent>();
+    reach.Radius = 1.5f;
+    reach.IsSensor = true;
+    AddContactLog(collector);
+    Entity crate = MakeBody3D(scene, "Crate", { 1.0f, 0.255f, 0.0f }, BT::Dynamic);
+    AddContactLog(crate);
+    Entity ball = MakeBody3D(scene, "Ball", { -0.9f, 4.0f, 0.0f }, BT::Dynamic, glm::vec3(0.0f));
+    ball.AddComponent<SphereCollider3DComponent>().Radius = 0.2f;
+    AddContactLog(ball);
+    // A wall with a trigger in front of it (a static body with both): the character walks through the
+    // trigger, the wall stops it.
+    Entity gate = MakeBody3D(scene, "Gate", { 8.0f, 1.0f, 10.0f }, BT::Static, { 0.25f, 1.0f, 3.0f });
+    auto& porch = gate.AddComponent<CapsuleCollider3DComponent>();
+    porch.Radius = 0.8f;
+    porch.HalfHeight = 0.5f;
+    porch.Offset = { -1.5f, 0.0f, 0.0f };
+    porch.IsSensor = true;
+    AddContactLog(gate);
+    // A trigger pad the character stands on for a while (its inner body falls asleep there) and leaves.
+    Entity pad = MakeBody3D(scene, "Pad", { 2.0f, 1.0f, 10.0f }, BT::Static, { 0.5f, 1.0f, 1.0f });
+    pad.GetComponent<BoxCollider3DComponent>().IsSensor = true;
+    AddContactLog(pad);
+    Entity hero = scene->CreateEntity("Hero");
+    hero.GetTransform().Translation = { 3.2f, 0.02f, 10.0f };
+    auto& cc = hero.AddComponent<CharacterController3DComponent>();
+    AddContactLog(hero);
+
+    scene->OnRuntimeStart();
+    RunFrames(scene, 60);
+    // The collector rests on its box (the sphere holds nothing up), the crate and the ball on the floor.
+    CHECK_NEAR(Pos3D(collector).y, 0.25f, 0.03f);
+    CHECK_NEAR(Pos3D(crate).y, 0.25f, 0.03f);
+    CHECK_NEAR(Pos3D(crate).x, 1.0f, 0.02f);
+    CHECK_NEAR(Pos3D(ball).y, 0.2f, 0.03f);
+    CHECK(CountContact("Collector:TriggerBegin:Crate") == 1 && CountContact("Crate:TriggerBegin:Collector") == 1);
+    CHECK(CountContact("Collector:CollisionBegin:Crate") == 0 && CountContact("Collector:TriggerEnd:Crate") == 0);
+    CHECK(CountContact("Collector:TriggerBegin:Ball") == 1 && CountContact("Ball:TriggerBegin:Collector") == 1);
+    CHECK(CountContact("Ball:CollisionBegin:Floor") == 1);
+    // Both kinds with the floor: the box lies on it, the sphere goes into it.
+    CHECK(CountContact("Collector:CollisionBegin:Floor") == 1 && CountContact("Collector:TriggerBegin:Floor") == 1);
+    CHECK(CountContact("Collector:CollisionEnd:Floor") == 0);
+
+    // Queries leave the trigger collider out unless triggers count.
+    RaycastHit down = scene->Raycast3D({ 0.0f, 3.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 10.0f);
+    CHECK(down && down.EntityID == collector.GetUUID());
+    CHECK_NEAR(down.Distance, 2.5f, 0.05f); // the box's top, not the sphere's
+    std::vector<RaycastHit> all = scene->Raycast3DAll({ 0.0f, 3.0f, 0.0f }, { 0.0f, -1.0f, 0.0f }, 10.0f, 0xFFFF, true);
+    CHECK(!all.empty() && all[0].EntityID == collector.GetUUID());
+    if (!all.empty())
+        CHECK_NEAR(all[0].Distance, 1.25f, 0.05f);
+    CHECK(scene->OverlapSphere3D({ -1.0f, 1.0f, 0.0f }, 0.1f).empty());
+    CHECK(EntityNames(scene->OverlapSphere3D({ -1.0f, 1.0f, 0.0f }, 0.1f, 0xFFFF, true)) == std::vector<std::string>{ "Collector" });
+    RaycastHit cast = scene->SphereCast3D({ 0.0f, 0.3f, -5.0f }, 0.1f, { 0.0f, 0.0f, 1.0f }, 10.0f);
+    CHECK(cast && cast.EntityID == collector.GetUUID());
+    CHECK_NEAR(cast.Distance, 4.65f, 0.05f);
+    RaycastHit castTriggers = scene->SphereCast3D({ 0.0f, 0.3f, -5.0f }, 0.1f, { 0.0f, 0.0f, 1.0f }, 10.0f, 0xFFFF, true);
+    CHECK(castTriggers && castTriggers.EntityID == collector.GetUUID());
+    CHECK_NEAR(castTriggers.Distance, 3.4f, 0.05f);
+
+    // The character walks through the porch and stops at the wall.
+    cc.Move({ 2.0f, 0.0f, 0.0f });
+    RunFrames(scene, 150);
+    CHECK(Pos3D(hero).x > 7.2f && Pos3D(hero).x < 7.5f);
+    CHECK(CountContact("Hero:TriggerBegin:Gate") == 1 && CountContact("Gate:TriggerBegin:Hero") == 1);
+    CHECK(CountContact("Hero:CollisionBegin:Gate") == 1);
+    // Back onto the pad: the porch ends; it stands there (the inner body falls asleep), then leaves it.
+    cc.Move({ -2.0f, 0.0f, 0.0f });
+    RunFrames(scene, 162);
+    CHECK(Pos3D(hero).x > 1.6f && Pos3D(hero).x < 2.4f);
+    CHECK(CountContact("Hero:TriggerEnd:Gate") == 1 && CountContact("Gate:TriggerEnd:Hero") == 1);
+    CHECK(CountContact("Hero:CollisionEnd:Gate") == 1);
+    CHECK(CountContact("Hero:TriggerBegin:Pad") == 1 && CountContact("Hero:TriggerEnd:Pad") == 0);
+    cc.Move(glm::vec3(0.0f));
+    RunFrames(scene, 90);
+    cc.Move({ -2.0f, 0.0f, 0.0f });
+    RunFrames(scene, 60);
+    CHECK(Pos3D(hero).x < 0.5f);
+    CHECK(CountContact("Hero:TriggerEnd:Pad") == 1 && CountContact("Pad:TriggerEnd:Hero") == 1);
+    CHECK(CountContact("Hero:TriggerBegin:Pad") == 1);
+    scene->OnRuntimeStop();
+}
+
+TEST(CharacterController3DPushesBodies)
+{
+    using BT = Rigidbody3DComponent::BodyType;
+    // A character walks at 2 m/s into a crate (asleep: the push wakes it). Returns how far it moved.
+    auto push = [](bool pushBodies, float force, float crateMass, bool switchOn = false) {
+        auto scene = CreateRef<Scene>();
+        MakeBody3D(scene, "Floor", { 0.0f, -0.5f, 0.0f }, BT::Static, { 30.0f, 0.5f, 30.0f });
+        Entity crate = MakeBody3D(scene, "Crate", { 2.0f, 0.3f, 0.0f }, BT::Dynamic, { 0.5f, 0.3f, 0.5f });
+        crate.GetComponent<Rigidbody3DComponent>().Mass = crateMass;
+        crate.GetComponent<Rigidbody3DComponent>().Sleeping = Rigidbody3DComponent::SleepMode::StartAsleep;
+        Entity hero = scene->CreateEntity("Hero");
+        hero.GetTransform().Translation = { 0.0f, 0.02f, 0.0f };
+        auto& cc = hero.AddComponent<CharacterController3DComponent>();
+        cc.PushBodies = pushBodies && !switchOn;
+        cc.PushForce = force;
+        scene->OnRuntimeStart();
+        RunFrames(scene, 20);
+        cc.Move({ 2.0f, 0.0f, 0.0f });
+        RunFrames(scene, switchOn ? 60 : 120);
+        if (switchOn)
+        {
+            CHECK(Pos3D(crate).x - 2.0f < 0.02f); // a wall until pushing is switched on
+            cc.PushBodies = true;
+            RunFrames(scene, 60);
+        }
+        const float moved = Pos3D(crate).x - 2.0f;
+        const bool asleep = scene->IsSleeping3D(crate);
+        scene->OnRuntimeStop();
+        return std::make_pair(moved, asleep);
+    };
+    auto [light, lightAsleep] = push(true, 100.0f, 10.0f);
+    CHECK(light > 1.0f && !lightAsleep);
+    auto [wall, wallAsleep] = push(false, 100.0f, 10.0f);
+    CHECK(wall < 0.02f && wallAsleep); // not pushed: it is not even woken
+    CHECK(push(true, 100.0f, 400.0f).first < 0.05f); // too heavy for 100 N
+    CHECK(push(true, 5000.0f, 400.0f).first > 0.5f);  // strong enough
+    CHECK(push(true, 100.0f, 10.0f, true).first > 0.3f); // switched on while the game runs
+
+    // Saved only when not the defaults.
+    auto scene = CreateRef<Scene>();
+    Entity hero = scene->CreateEntity("Hero");
+    auto& cc = hero.AddComponent<CharacterController3DComponent>();
+    CHECK(SceneSerializer(scene).SerializeToString().find("Push") == std::string::npos);
+    cc.PushBodies = false;
+    cc.PushForce = 750.0f;
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& back = loaded->FindEntityByName("Hero").GetComponent<CharacterController3DComponent>();
+    CHECK(!back.PushBodies && back.PushForce == 750.0f);
+}
+
+
+TEST(Triggers3DContactsOfSleepingBodies)
+{
+    using BT = Rigidbody3DComponent::BodyType;
+    g_Contacts.clear();
+    auto scene = CreateRef<Scene>();
+    Entity floor = MakeBody3D(scene, "Floor", { 0.0f, -0.5f, 0.0f }, BT::Static, { 30.0f, 0.5f, 30.0f });
+    AddContactLog(floor);
+    // A pressure plate (a trigger) with a crate on it: the crate falls asleep there, the plate still has it.
+    Entity plate = MakeBody3D(scene, "Plate", { 0.0f, 0.05f, 0.0f }, BT::Static, { 0.6f, 0.1f, 0.6f });
+    plate.GetComponent<BoxCollider3DComponent>().IsSensor = true;
+    AddContactLog(plate);
+    Entity crate = MakeBody3D(scene, "Crate", { 0.0f, 0.4f, 0.0f }, BT::Dynamic);
+    AddContactLog(crate);
+    // A scanner (a kinematic trigger) that passes over a sleeping crate.
+    Entity scanner = MakeBody3D(scene, "Scanner", { -6.0f, 0.5f, 6.0f }, BT::Kinematic, { 0.5f, 1.0f, 0.5f });
+    scanner.GetComponent<BoxCollider3DComponent>().IsSensor = true;
+    AddContactLog(scanner);
+    Entity parcel = MakeBody3D(scene, "Parcel", { 0.0f, 0.255f, 6.0f }, BT::Dynamic);
+    AddContactLog(parcel);
+    scene->OnRuntimeStart();
+    RunFrames(scene, 150);
+    CHECK(scene->IsSleeping3D(crate) && scene->IsSleeping3D(parcel));
+    CHECK(CountContact("Crate:TriggerBegin:Plate") == 1 && CountContact("Plate:TriggerBegin:Crate") == 1);
+    CHECK(CountContact("Crate:CollisionBegin:Floor") == 1);
+    CHECK(CountContact("Crate:TriggerEnd:Plate") == 0 && CountContact("Crate:CollisionEnd:Floor") == 0); // asleep: still on them
+    CHECK(scene->GetPhysics3DStats().Contacts >= 3);
+    // Woken by a script: still there (no End, no second Begin).
+    scene->SetAwake3D(crate, true);
+    RunFrames(scene, 5);
+    CHECK(CountContact("Crate:TriggerEnd:Plate") == 0 && CountContact("Crate:TriggerBegin:Plate") == 1);
+    // Lifted away: it leaves the plate and the floor, then lands on the floor again.
+    scene->GetPhysicsWorld3D()->SetTransform(crate.GetComponent<Rigidbody3DComponent>().RuntimeBodyID, { 5.0f, 2.0f, 0.0f },
+                                             glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
+    RunFrames(scene, 5);
+    CHECK(CountContact("Crate:TriggerEnd:Plate") == 1 && CountContact("Plate:TriggerEnd:Crate") == 1);
+    CHECK(CountContact("Crate:CollisionEnd:Floor") == 1);
+    RunFrames(scene, 60);
+    CHECK(CountContact("Crate:CollisionBegin:Floor") == 2);
+    // The scanner sweeps over the sleeping parcel (a trigger does not wake it) and on.
+    for (int i = 0; i < 120; i++)
+    {
+        scanner.GetTransform().Translation.x += 0.1f;
+        RunFrames(scene, 1);
+    }
+    CHECK(Pos3D(scanner).x > 5.5f);
+    CHECK(CountContact("Parcel:TriggerBegin:Scanner") == 1 && CountContact("Parcel:TriggerEnd:Scanner") == 1);
+    CHECK(CountContact("Scanner:TriggerEnd:Parcel") == 1 && CountContact("Parcel:CollisionEnd:Floor") == 0);
+    scene->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);
+    // ZAMIN_TESTS=<part of a name>: only the tests whose names contain it (while working on them).
+    const char* only = std::getenv("ZAMIN_TESTS");
     int index = 0;
+    size_t ran = 0;
     for (auto& t : Tests())
     {
+        if (only && *only && !std::strstr(t.Name, only))
+            continue;
         int before = s_Failures;
         t.Fn();
+        ran++;
         std::printf("[%2d] %-32s %s\n", ++index, t.Name, s_Failures == before ? "OK" : "FAILED");
     }
-    std::printf("\n%zu test, %d xato\n", Tests().size(), s_Failures);
+    std::printf("\n%zu test, %d xato\n", ran, s_Failures);
     return s_Failures == 0 ? 0 : 1;
 }

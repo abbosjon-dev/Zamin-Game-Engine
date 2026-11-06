@@ -2150,7 +2150,7 @@ namespace Zamin {
         ImGui::PopTextWrapPos();
     }
 
-    bool SceneHierarchyPanel::DrawPhysicsMaterialField(Entity entity, std::string& path, const PhysicsMaterialData& own, bool& active)
+    bool SceneHierarchyPanel::DrawPhysicsMaterialField(Entity entity, std::string& path, const PhysicsMaterialData& own, bool& active, bool threeD)
     {
         bool changed = false, edit = false;
         Ref<PhysicsMaterialAsset> asset = path.empty() ? nullptr : PhysicsMaterialLibrary::Load(path);
@@ -2174,9 +2174,15 @@ namespace Zamin {
             const PhysicsMaterialData& d = asset->GetData();
             UI::PropertyLabel("");
             ImGui::PushTextWrapPos(0.0f);
-            ImGui::TextDisabled(ICON_FA_GEM "  Ishqalanish %.2f (%s), sakrash %.2f (%s), zichlik %.2f", d.Friction,
-                                PhysicsMaterial::GetCombineName(d.FrictionCombine), d.Restitution,
-                                PhysicsMaterial::GetCombineName(d.RestitutionCombine), d.Density);
+            if (threeD)
+                ImGui::TextDisabled(ICON_FA_GEM "  Ishqalanish %.2f (%s), sakrash %.2f (%s), sakrash chegarasi %.2f m/s. Zichlik 3D'da "
+                                    "ishlatilmaydi: massa - Rigidbody 3D'da",
+                                    d.Friction, PhysicsMaterial::GetCombineName(d.FrictionCombine), d.Restitution,
+                                    PhysicsMaterial::GetCombineName(d.RestitutionCombine), d.RestitutionThreshold);
+            else
+                ImGui::TextDisabled(ICON_FA_GEM "  Ishqalanish %.2f (%s), sakrash %.2f (%s), zichlik %.2f", d.Friction,
+                                    PhysicsMaterial::GetCombineName(d.FrictionCombine), d.Restitution,
+                                    PhysicsMaterial::GetCombineName(d.RestitutionCombine), d.Density);
             ImGui::PopTextWrapPos();
         }
         else if (path.empty() && Project::GetActive())
@@ -5743,14 +5749,66 @@ namespace Zamin {
                                           "Kolliderlarining to'qnashuv qatlami (2D fizika bilan bir xil qatlamlar): qaysi qatlamlarga "
                                           "tegishi loyiha matritsasida (Loyiha sozlamalari > Fizika qatlamlari). O'yin davomida ham "
                                           "o'zgartirsa bo'ladi; so'rovlar (Raycast3D, OverlapSphere3D...) qatlam niqobini oladi.");
+            const bool dynamic = c.Type == Rigidbody3DComponent::BodyType::Dynamic;
+            ImGui::BeginDisabled(!dynamic);
+            changed |= UI::PropertyBool("Uzluksiz to'qnashuv (CCD)", c.ContinuousCollision);
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip(dynamic ? "Tez jism (o'q, otilgan to'p) har qadamda yo'li bo'ylab tekshiriladi: ikki qadam orasida yupqa "
+                                      "devordan o'tib ketmaydi, unga urilib to'xtaydi. Qimmatroq - faqat tez va kichik jismlar uchun. "
+                                      "O'yin davomida ham o'zgartirsa bo'ladi"
+                                    : "Faqat dinamik jismlar uchun (kinematik jismni hech narsa to'xtatmaydi)");
+            if (c.Type != Rigidbody3DComponent::BodyType::Static)
+            {
+                const char* modes[] = { "Uyg'oq boshlanadi", "Uxlab boshlanadi", "Hech uxlamaydi" };
+                int mode = (int)c.Sleeping;
+                UI::PropertyLabel("Uxlash", "Qimirlamay qolgan jism uxlaydi: tegilmaguncha hisoblanmaydi (Sahna sozlamalari > Fizika). "
+                                            "Uxlab boshlanadi - urilguncha kutib turadigan minora yoki to'plam uchun; Hech uxlamaydi - "
+                                            "doim hisoblanadi. Skriptdan: IsSleeping3D / WakeUp3D / PutToSleep3D");
+                ImGui::PushID("sleep3d");
+                if (ImGui::Combo("##v", &mode, modes, 3))
+                {
+                    c.Sleeping = (Rigidbody3DComponent::SleepMode)std::clamp(mode, 0, 2);
+                    changed = true;
+                }
+                ImGui::PopID();
+                if (c.RuntimeBodyID != 0xffffffff && m_Context && m_Context->GetPhysicsWorld3D())
+                {
+                    // While the game runs: whether it sleeps now, and a button to change that.
+                    const bool sleeping = m_Context->IsSleeping3D(entity);
+                    UI::PropertyLabel("Holati");
+                    if (sleeping)
+                        ImGui::TextColored(ImVec4(0.55f, 0.65f, 0.95f, 1.0f), ICON_FA_MOON "  Uxlayapti");
+                    else
+                        ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1.0f), ICON_FA_BOLT "  Uyg'oq");
+                    ImGui::SameLine();
+                    ImGui::PushID("sleep3dState");
+                    if (ImGui::SmallButton(sleeping ? "Uyg'otish" : "Uxlatish"))
+                        m_Context->SetAwake3D(entity, sleeping);
+                    ImGui::PopID();
+                }
+            }
             return changed;
         }, true, modified);
 
-        auto collider3D = [](auto& c) {
+        // What every 3D collider has after its shape: offset, the material (or its own values), trigger.
+        auto collider3D = [&](auto& c) {
             bool changed = UI::PropertyFloat3("Siljish", c.Offset);
+            PhysicsMaterialData own;
+            own.Friction = c.Friction;
+            own.Restitution = c.Restitution;
+            own.RestitutionThreshold = PhysicsSurface3D::DefaultRestitutionThreshold;
+            bool material = false;
+            changed |= DrawPhysicsMaterialField(entity, c.MaterialPath, own, material, true);
+            ImGui::BeginDisabled(material); // the material's values are used
             changed |= UI::PropertySlider("Ishqalanish", c.Friction, 0.0f, 1.0f);
             changed |= UI::PropertySlider("Sakrash", c.Restitution, 0.0f, 1.0f);
+            ImGui::EndDisabled();
             changed |= UI::PropertyBool("Trigger (sensor)", c.IsSensor);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Urilmaydi - ichiga kirgan / chiqqan jism va qahramonlar skriptga OnTriggerBegin / OnTriggerEnd bo'lib "
+                            "keladi (2D'dagidek). Bir jismda trigger va qattiq kolliderlar birga bo'lishi mumkin (masalan, "
+                            "quti + uning atrofidagi 'yig'ish' sferasi)");
             return changed;
         };
 
@@ -5889,6 +5947,19 @@ namespace Zamin {
             changed |= DrawCollisionLayer("Qatlam", c.Layer, false,
                                           "Qahramonning to'qnashuv qatlami: qaysi jismlarga urilishi / ustida turishi loyiha "
                                           "matritsasida (Loyiha sozlamalari > Fizika qatlamlari)");
+            UI::PropertyHeader("Itarish", "Yurib borib tekkan dinamik jismlarni (qutilar, to'plar) o'z tezligiga yaqin tezlikda suradi");
+            changed |= UI::PropertyBool("Jismlarni itaradi", c.PushBodies);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("O'chiq: dinamik jismlar qahramon uchun devor (ular baribir qahramonni itarishi mumkin)");
+            ImGui::BeginDisabled(!c.PushBodies);
+            UI::PropertyLabel("Itarish kuchi", "Qahramon jismni itara oladigan eng katta kuch (N). 100 N - bir necha o'n kg'lik qutini "
+                                               "suradi; og'ir jism (yerga ishqalanishi kuchdan katta) uchun ko'proq kerak");
+            if (ImGui::DragFloat("##pushForce", &c.PushForce, 5.0f, 0.0f, 1e6f, "%.0f N"))
+            {
+                c.PushForce = std::max(0.0f, c.PushForce);
+                changed = true;
+            }
+            ImGui::EndDisabled();
             UI::PropertyLabel("Holat");
             ImGui::TextDisabled(!entity.IsActiveInHierarchy() ? "Nofaol" : (c.Grounded ? "Yerda" : "Havoda"));
             if (c.RuntimeID != 0xffffffff)

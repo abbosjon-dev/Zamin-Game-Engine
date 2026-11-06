@@ -529,23 +529,49 @@ namespace Zamin {
         if (auto* c = entity.TryGetComponent<Rigidbody3DComponent>())
             e["Rigidbody3D"] = { { "BodyType", BodyType3DToString(c->Type) }, { "Mass", c->Mass }, { "LinearDamping", c->LinearDamping },
                                  { "AngularDamping", c->AngularDamping }, { "GravityFactor", c->GravityFactor }, { "LockRotation", c->LockRotation } };
-        if (auto* c = entity.TryGetComponent<Rigidbody3DComponent>(); c && c->Layer != 0)
-            e["Rigidbody3D"]["Layer"] = c->Layer;
+        if (auto* c = entity.TryGetComponent<Rigidbody3DComponent>())
+        {
+            // Left out when off / the defaults (older files stay as they were).
+            json& j = e["Rigidbody3D"];
+            if (c->Layer != 0)
+                j["Layer"] = c->Layer;
+            if (c->ContinuousCollision)
+                j["ContinuousCollision"] = true;
+            if (c->Sleeping != Rigidbody3DComponent::SleepMode::StartAwake)
+                j["Sleeping"] = c->Sleeping == Rigidbody3DComponent::SleepMode::StartAsleep ? "StartAsleep" : "NeverSleep";
+        }
+        // A 3D collider's physics material: its path (and the asset's UUID) when it has one.
+        auto writeMaterial3D = [](json& j, const std::string& material) {
+            if (material.empty())
+                return;
+            j["Material"] = material;
+            WriteAssetHandle(j, "Material", material);
+        };
         if (auto* c = entity.TryGetComponent<BoxCollider3DComponent>())
+        {
             e["BoxCollider3D"] = { { "HalfExtents", ToJson(c->HalfExtents) }, { "Offset", ToJson(c->Offset) }, { "Friction", c->Friction },
                                    { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
+            writeMaterial3D(e["BoxCollider3D"], c->MaterialPath);
+        }
         if (auto* c = entity.TryGetComponent<SphereCollider3DComponent>())
+        {
             e["SphereCollider3D"] = { { "Radius", c->Radius }, { "Offset", ToJson(c->Offset) }, { "Friction", c->Friction },
                                       { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
+            writeMaterial3D(e["SphereCollider3D"], c->MaterialPath);
+        }
         if (auto* c = entity.TryGetComponent<CapsuleCollider3DComponent>())
+        {
             e["CapsuleCollider3D"] = { { "Radius", c->Radius }, { "HalfHeight", c->HalfHeight }, { "Offset", ToJson(c->Offset) },
                                        { "Friction", c->Friction }, { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
+            writeMaterial3D(e["CapsuleCollider3D"], c->MaterialPath);
+        }
         if (auto* c = entity.TryGetComponent<ConvexHullCollider3DComponent>())
         {
             json& j = e["ConvexHullCollider3D"];
             j = { { "Model", c->ModelPath }, { "MaxVertices", c->MaxVertices }, { "Offset", ToJson(c->Offset) }, { "Friction", c->Friction },
                   { "Restitution", c->Restitution }, { "IsSensor", c->IsSensor } };
             WriteAssetHandle(j, "Model", c->ModelPath);
+            writeMaterial3D(j, c->MaterialPath);
         }
         if (auto* c = entity.TryGetComponent<MeshCollider3DComponent>())
         {
@@ -553,6 +579,7 @@ namespace Zamin {
             j = { { "Model", c->ModelPath }, { "Offset", ToJson(c->Offset) }, { "Friction", c->Friction }, { "Restitution", c->Restitution },
                   { "IsSensor", c->IsSensor } };
             WriteAssetHandle(j, "Model", c->ModelPath);
+            writeMaterial3D(j, c->MaterialPath);
         }
         // 3D joints: the connected body by its UUID (0 = a fixed point in the world).
         auto writeJoint3D = [](const Joint3DComponentBase& c) {
@@ -605,8 +632,16 @@ namespace Zamin {
             e["CharacterController3D"] = { { "Radius", c->Radius }, { "Height", c->Height }, { "MaxSlope", c->MaxSlope },
                                            { "StepHeight", c->StepHeight }, { "Mass", c->Mass }, { "GravityScale", c->GravityScale },
                                            { "StickToFloor", c->StickToFloor } };
-        if (auto* c = entity.TryGetComponent<CharacterController3DComponent>(); c && c->Layer != 0)
-            e["CharacterController3D"]["Layer"] = c->Layer;
+        if (auto* c = entity.TryGetComponent<CharacterController3DComponent>())
+        {
+            json& j = e["CharacterController3D"];
+            if (c->Layer != 0)
+                j["Layer"] = c->Layer;
+            if (!c->PushBodies)
+                j["PushBodies"] = false;
+            if (c->PushForce != CharacterController3DComponent().PushForce)
+                j["PushForce"] = c->PushForce;
+        }
         if (auto* c = entity.TryGetComponent<TilemapComponent>())
         {
             c->EnsureSize();
@@ -1150,12 +1185,18 @@ namespace Zamin {
             c.GravityFactor = j.value("GravityFactor", 1.0f);
             c.LockRotation = j.value("LockRotation", false);
             c.Layer = CollisionLayers2D::Clamp(j.value("Layer", 0));
+            c.ContinuousCollision = j.value("ContinuousCollision", false);
+            const std::string sleeping = j.value("Sleeping", std::string("StartAwake"));
+            c.Sleeping = sleeping == "StartAsleep" ? Rigidbody3DComponent::SleepMode::StartAsleep
+                       : sleeping == "NeverSleep" ? Rigidbody3DComponent::SleepMode::NeverSleep
+                       : Rigidbody3DComponent::SleepMode::StartAwake;
         }
         auto read3D = [](const json& j, auto& c) {
             c.Offset = Vec(j, "Offset", glm::vec3(0.0f));
             c.Friction = j.value("Friction", 0.5f);
             c.Restitution = j.value("Restitution", 0.0f);
             c.IsSensor = j.value("IsSensor", false);
+            c.MaterialPath = ReadAssetPath(j, "Material");
         };
         if (e.contains("BoxCollider3D"))
         {
@@ -1260,6 +1301,8 @@ namespace Zamin {
             c.GravityScale = j.value("GravityScale", 1.0f);
             c.StickToFloor = j.value("StickToFloor", true);
             c.Layer = CollisionLayers2D::Clamp(j.value("Layer", 0));
+            c.PushBodies = j.value("PushBodies", true);
+            c.PushForce = std::max(0.0f, j.value("PushForce", c.PushForce));
         }
         if (e.contains("Tilemap"))
         {
@@ -1637,6 +1680,8 @@ namespace Zamin {
                                               { "PositionIterations", s.Physics2D.PositionIterations },
                                               { "SubSteps", s.Physics2D.SubSteps }, { "AllowSleep", s.Physics2D.AllowSleep },
                                               { "TimeToSleep", s.Physics2D.TimeToSleep } };
+        if (s.Physics3D != SceneSettings::Physics3DSettings())
+            root["Settings"]["Physics3D"] = { { "AllowSleep", s.Physics3D.AllowSleep }, { "TimeToSleep", s.Physics3D.TimeToSleep } };
 
         json entities = json::array();
         std::vector<Entity> ordered = m_Scene->GetEntitiesInOrder(); // creation order => stable diffs
@@ -1749,6 +1794,13 @@ namespace Zamin {
                     s.Physics2D.TimeToSleep = p2->value("TimeToSleep", s.Physics2D.TimeToSleep);
                 }
                 s.Physics2D.Sanitize();
+                s.Physics3D = {};
+                if (auto p3 = j.find("Physics3D"); p3 != j.end() && p3->is_object())
+                {
+                    s.Physics3D.AllowSleep = p3->value("AllowSleep", s.Physics3D.AllowSleep);
+                    s.Physics3D.TimeToSleep = p3->value("TimeToSleep", s.Physics3D.TimeToSleep);
+                }
+                s.Physics3D.Sanitize();
                 // Older scenes have none: white at 1 (Lit renderers look unlit).
                 s.Lighting2D = {};
                 if (auto l2d = j.find("Lighting2D"); l2d != j.end() && l2d->is_object())

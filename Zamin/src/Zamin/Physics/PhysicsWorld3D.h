@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Core/Base.h"
+#include "Zamin/Physics/PhysicsMaterial.h"
 #include "Zamin/Physics/PhysicsTypes.h"
 
 #include <glm/glm.hpp>
@@ -8,12 +9,32 @@
 
 #include <array>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace Zamin {
 
     struct ConvexHull3D;
     struct CollisionMesh3D;
+
+    // How a 3D collider rubs and bounces against others: its own values or a physics material asset's
+    // (.zphysmat, shared with 2D). Two touching colliders combine theirs as PhysicsMaterial::Combine
+    // says (Default: friction sqrt(a * b), bounce max(a, b) - Jolt's own rule).
+    struct PhysicsSurface3D
+    {
+        // Jolt's own threshold: slower impacts (m/s along the contact normal) do not bounce.
+        static constexpr float DefaultRestitutionThreshold = 1.0f;
+
+        float Friction = 0.5f;
+        float Restitution = 0.0f;
+        float RestitutionThreshold = DefaultRestitutionThreshold;
+        PhysicsCombine FrictionCombine = PhysicsCombine::Default;
+        PhysicsCombine RestitutionCombine = PhysicsCombine::Default;
+
+        // A material's values (its density is not used: a 3D body's mass is the Rigidbody 3D's).
+        static PhysicsSurface3D FromMaterial(const PhysicsMaterialData& material);
+        bool operator==(const PhysicsSurface3D&) const = default;
+    };
 
     struct PhysicsBody3DDesc
     {
@@ -28,6 +49,13 @@ namespace Zamin {
         bool LockRotation = false;
         // The collision layer (CollisionLayers2D: the project's 16 layers, shared with 2D physics).
         int Layer = 0;
+        // Continuous collision detection (Jolt's linear cast motion quality, dynamic bodies): a fast
+        // body is swept along its path every step, so it stops at a thin wall instead of passing it.
+        bool ContinuousCollision = false;
+        // Sleeping: AllowSleeping false - never sleeps; StartAsleep - a dynamic / kinematic body starts
+        // asleep (not simulated until something touches it, a joint pulls it or it is woken).
+        bool AllowSleeping = true;
+        bool StartAsleep = false;
 
         struct Shape
         {
@@ -44,9 +72,12 @@ namespace Zamin {
             Ref<const CollisionMesh3D> Mesh;
             glm::vec3 Scale{ 1.0f };
             glm::vec3 Offset{ 0.0f };
-            float Friction = 0.5f;
-            float Restitution = 0.0f;
+            PhysicsSurface3D Surface;
+            // A trigger: reports contacts (OnTriggerBegin / End) without colliding. A body may mix
+            // trigger and solid colliders.
             bool IsSensor = false;
+            // Names the collider among the body's (SetShapeSurface); the scene uses its component kind.
+            int Tag = 0;
         };
         std::vector<Shape> Shapes;
     };
@@ -109,6 +140,9 @@ namespace Zamin {
 
     struct CharacterDesc
     {
+        // Jolt's own push strength (CharacterVirtualSettings::mMaxStrength).
+        static constexpr float DefaultPushForce = 100.0f;
+
         UUID EntityID = 0;
         glm::vec3 Position{ 0.0f };   // feet position
         float Radius = 0.35f;
@@ -116,7 +150,12 @@ namespace Zamin {
         float MaxSlopeDegrees = 50.0f;
         float Mass = 70.0f;
         int Layer = 0;                // collision layer (CollisionLayers2D)
+        // Walking into a dynamic body pushes it (towards the character's speed at the contact) with at
+        // most PushForce newtons; PushBodies false - it is a wall to the character.
+        bool PushBodies = true;
+        float PushForce = DefaultPushForce;
     };
+
 
     // 3D rigid body simulation (Jolt Physics). Jolt types are hidden from users.
     class PhysicsWorld3D
@@ -154,6 +193,33 @@ namespace Zamin {
         // Simulated now (false: asleep, static, or not in this world).
         bool IsBodyActive(uint32_t bodyID) const;
 
+        // ---- continuous collision detection (PhysicsBody3DDesc::ContinuousCollision)
+        void SetBodyContinuous(uint32_t bodyID, bool continuous);
+        bool IsBodyContinuous(uint32_t bodyID) const;
+
+        // ---- sleeping. A moving body that keeps still for TimeToSleep seconds (with everything
+        // touching / joined to it) is not simulated until something wakes it: a body that is awake
+        // touches it, a joint pulls it, it is moved, pushed or woken here.
+        // allowSleep false: no body sleeps (the sleeping ones wake up). Jolt's own time: 0.5 s.
+        void SetSleeping(bool allowSleep, float timeToSleep);
+        bool IsSleepingAllowed() const;
+        float GetTimeToSleep() const;
+        // A dynamic / kinematic body of this world that sleeps now.
+        bool IsBodySleeping(uint32_t bodyID) const;
+        // Wakes the body / puts it to sleep at once (its velocities stop; it wakes again when hit).
+        // False for a static body or one not in this world.
+        bool SetBodyAwake(uint32_t bodyID, bool awake);
+        // Whether the body may sleep (PhysicsBody3DDesc::AllowSleeping); false wakes it.
+        void SetBodyAllowSleeping(uint32_t bodyID, bool allow);
+        bool GetBodyAllowSleeping(uint32_t bodyID) const;
+        PhysicsStats3D GetStats() const;
+
+        // ---- surfaces (physics materials): the collider `tag` of the body (PhysicsBody3DDesc::Shape::Tag)
+        // gets new values, used from the next step. False when the body has no such collider.
+        bool SetShapeSurface(uint32_t bodyID, int tag, const PhysicsSurface3D& surface);
+        // What the collider touches with now (nullopt: no such body / collider).
+        std::optional<PhysicsSurface3D> GetShapeSurface(uint32_t bodyID, int tag) const;
+
         // ---- kinematic character controllers (Jolt CharacterVirtual)
         uint32_t CreateCharacter(const CharacterDesc& desc);
         // Its slot is reused by the next CreateCharacter; bodies resting on it wake up.
@@ -165,6 +231,8 @@ namespace Zamin {
         glm::vec3 GetCharacterVelocity(uint32_t id) const;
         glm::vec3 GetCharacterGroundVelocity(uint32_t id) const;
         bool IsCharacterGrounded(uint32_t id) const;
+        // How it pushes dynamic bodies (CharacterDesc::PushBodies / PushForce).
+        void SetCharacterPush(uint32_t id, bool pushBodies, float pushForce);
 
         // ---- collision layers: the project's 16 named layers and their matrix (CollisionLayers2D,
         // shared with 2D physics). Bit b of masks[a]: bodies on layers a and b collide (symmetric).
@@ -178,7 +246,7 @@ namespace Zamin {
         int GetCharacterLayer(uint32_t id) const;
 
         // ---- queries. layerMask: the layers that count (bits, CollisionLayers2D::GetCategoryBits);
-        // triggers (sensor bodies) only with includeSensors. A ray / shape that starts inside a
+        // triggers (sensor colliders) only with includeSensors. A ray / shape that starts inside a
         // collider does not hit it (its own body, a wall it touches); triangles of mesh colliders
         // are hit from their front side only.
         // The closest hit along the ray.

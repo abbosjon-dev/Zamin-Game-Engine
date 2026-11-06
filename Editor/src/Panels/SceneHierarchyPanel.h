@@ -300,7 +300,8 @@ namespace Zamin {
         bool DrawCollisionLayer(const char* label, int& layer, bool inherit, const char* tooltip);
         // A physics material asset (.zphysmat) field: open / create one from `own` values.
         // `active` is set when the path names a material that loaded (its values replace the own ones).
-        bool DrawPhysicsMaterialField(Entity entity, std::string& path, const PhysicsMaterialData& own, bool& active);
+        // threeD: a 3D collider's (the material's density is not used: the Rigidbody 3D has the mass).
+        bool DrawPhysicsMaterialField(Entity entity, std::string& path, const PhysicsMaterialData& own, bool& active, bool threeD = false);
         // The points of a polygon / edge collider: a list (drag, add, remove) and the viewport edit toggle.
         bool DrawColliderPoints(std::vector<glm::vec2>& points, ColliderPointKind kind, int minPoints);
         void DrawJoint2DStatus(const Joint2DComponentBase& c, const char* readout);

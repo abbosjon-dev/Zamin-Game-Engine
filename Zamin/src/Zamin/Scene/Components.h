@@ -535,6 +535,11 @@ namespace Zamin {
         // Its collision layer (0..15, Project settings > Physics layers - the same layers and matrix
         // as 2D physics): which bodies it walks into / stands on.
         int Layer = 0;
+        // Walking into a dynamic body pushes it along (towards the character's speed where they touch)
+        // with at most PushForce newtons: 100 N moves a crate of a few dozen kg, a heavy one needs
+        // more. PushBodies off: dynamic bodies are walls to it (they still push the character).
+        bool PushBodies = true;
+        float PushForce = 100.0f; // N
 
         // control (set by scripts)
         glm::vec3 MoveVelocity{ 0.0f }; // horizontal, world space
@@ -1092,9 +1097,27 @@ namespace Zamin {
         // 2D physics): which other layers it touches is the project's layer matrix. Raycasts and the
         // other queries take a mask of layers. May change while the game runs.
         int Layer = 0;
+        // Continuous collision detection (dynamic bodies): the body is swept along its path every step,
+        // so a fast one (a bullet, a thrown ball) stops at a thin wall instead of passing through it
+        // between two steps. Costs more: for the fast and small ones. May change while the game runs.
+        bool ContinuousCollision = false;
+        // Sleeping: a body that keeps still for a while (scene settings: Physics 3D > time to sleep),
+        // together with everything touching it, is not simulated until something hits it, a joint
+        // pulls it, a script moves or wakes it (ScriptableEntity::WakeUp3D). StartAsleep: it starts
+        // like that (a stack that waits to be knocked over); NeverSleep: it is always simulated.
+        enum class SleepMode { StartAwake = 0, StartAsleep, NeverSleep };
+        SleepMode Sleeping = SleepMode::StartAwake;
 
         uint32_t RuntimeBodyID = 0xffffffff; // JPH::BodyID
     };
+
+    // What every 3D collider has besides its shape. The friction / bounciness are the collider's own
+    // unless MaterialPath names a physics material asset (.zphysmat, the same files as 2D colliders'):
+    // then its friction, bounciness, bounce threshold and combine modes are used (and follow the file
+    // when it changes; its density is not - a 3D body's mass is its Rigidbody 3D's). IsSensor: a
+    // trigger - OnTriggerBegin / OnTriggerEnd instead of a collision; a body may have both trigger and
+    // solid colliders. BoxCollider3D ... MeshCollider3D have these fields:
+    //   glm::vec3 Offset; float Friction, Restitution; bool IsSensor; std::string MaterialPath;
 
     struct BoxCollider3DComponent
     {
@@ -1103,6 +1126,7 @@ namespace Zamin {
         float Friction = 0.5f;
         float Restitution = 0.0f;
         bool IsSensor = false;
+        std::string MaterialPath; // physics material asset (.zphysmat), "" = the values above
     };
 
     struct SphereCollider3DComponent
@@ -1112,6 +1136,7 @@ namespace Zamin {
         float Friction = 0.5f;
         float Restitution = 0.0f;
         bool IsSensor = false;
+        std::string MaterialPath; // physics material asset (.zphysmat), "" = the values above
     };
 
     struct CapsuleCollider3DComponent
@@ -1122,6 +1147,7 @@ namespace Zamin {
         float Friction = 0.5f;
         float Restitution = 0.0f;
         bool IsSensor = false;
+        std::string MaterialPath; // physics material asset (.zphysmat), "" = the values above
     };
 
     // A convex collider shaped like a mesh: the convex hull of the vertices of the entity's Mesh
@@ -1138,6 +1164,7 @@ namespace Zamin {
         float Friction = 0.5f;
         float Restitution = 0.0f;
         bool IsSensor = false;
+        std::string MaterialPath; // physics material asset (.zphysmat), "" = the values above
     };
 
     // A collider that is the mesh itself: every triangle of the entity's Mesh Renderer (its model or
@@ -1154,6 +1181,7 @@ namespace Zamin {
         float Friction = 0.5f;
         float Restitution = 0.0f;
         bool IsSensor = false;
+        std::string MaterialPath; // physics material asset (.zphysmat), "" = the values above
     };
 
     // ------------------------------------------------------------------ joints 3D

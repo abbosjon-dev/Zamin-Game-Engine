@@ -268,6 +268,20 @@ namespace Zamin {
     // ------------------------------------------------------------------ 2D collider shapes
     // Which component of an entity a fixture came from (PhysicsWorld2D::SetShapeMaterial).
     enum : int { ShapeTagBox = 1, ShapeTagCircle, ShapeTagPolygon, ShapeTagEdge, ShapeTagTilemap };
+    // The 3D colliders of a body (PhysicsBody3DDesc::Shape::Tag): an entity has one of each kind at most.
+    enum : int { ShapeTagBox3D = 1, ShapeTagSphere3D, ShapeTagCapsule3D, ShapeTagConvexHull3D, ShapeTagMesh3D };
+
+    // A 3D collider's surface: its physics material asset's values, else its own (with Jolt's bounce
+    // threshold).
+    template<typename C>
+    static PhysicsSurface3D ColliderSurface3D(const C& c)
+    {
+        PhysicsMaterialData own;
+        own.Friction = c.Friction;
+        own.Restitution = c.Restitution;
+        own.RestitutionThreshold = PhysicsSurface3D::DefaultRestitutionThreshold;
+        return PhysicsSurface3D::FromMaterial(PhysicsMaterialLibrary::Resolve(c.MaterialPath, own));
+    }
 
     static void ApplySurface(PhysicsShape2DDesc& shape, const PhysicsMaterialData& surface)
     {
@@ -2853,6 +2867,24 @@ namespace Zamin {
     {
         // A physics material asset changed (hot reload, the editor): the colliders naming one get its values.
         m_PhysicsMaterialRevision = PhysicsMaterialLibrary::GetRevision();
+        if (m_PhysicsWorld3D)
+        {
+            auto apply3D = [&](auto type, int tag) {
+                using T = typename decltype(type)::type;
+                for (auto e : m_Registry.view<T, Rigidbody3DComponent>())
+                {
+                    const auto& c = m_Registry.get<T>(e);
+                    const auto& rb = m_Registry.get<Rigidbody3DComponent>(e);
+                    if (!c.MaterialPath.empty() && rb.RuntimeBodyID != 0xffffffff)
+                        m_PhysicsWorld3D->SetShapeSurface(rb.RuntimeBodyID, tag, ColliderSurface3D(c));
+                }
+            };
+            apply3D(std::type_identity<BoxCollider3DComponent>(), ShapeTagBox3D);
+            apply3D(std::type_identity<SphereCollider3DComponent>(), ShapeTagSphere3D);
+            apply3D(std::type_identity<CapsuleCollider3DComponent>(), ShapeTagCapsule3D);
+            apply3D(std::type_identity<ConvexHullCollider3DComponent>(), ShapeTagConvexHull3D);
+            apply3D(std::type_identity<MeshCollider3DComponent>(), ShapeTagMesh3D);
+        }
         if (!m_PhysicsWorld)
             return;
         auto apply = [&](auto type, int tag) {
@@ -2910,6 +2942,10 @@ namespace Zamin {
         m_PhysicsWorld3D = std::make_unique<PhysicsWorld3D>(m_Settings.Gravity3D);
         // The project's collision layers (shared with 2D physics); StepPhysics keeps it up to date.
         m_PhysicsWorld3D->SetCollisionMatrix(Project::GetCollisionLayers2D().Masks);
+        m_Settings.Physics3D.Sanitize();
+        m_PhysicsWorld3D->SetSleeping(m_Settings.Physics3D.AllowSleep, m_Settings.Physics3D.TimeToSleep);
+        if (!m_PhysicsWorld)
+            m_PhysicsMaterialRevision = PhysicsMaterialLibrary::GetRevision(); // the colliders get the materials as they are now
     }
 
     void Scene::CreateCharacter3D(Entity entity)
@@ -2928,6 +2964,8 @@ namespace Zamin {
         desc.MaxSlopeDegrees = cc.MaxSlope;
         desc.Mass = cc.Mass;
         desc.Layer = CollisionLayers2D::Clamp(cc.Layer);
+        desc.PushBodies = cc.PushBodies;
+        desc.PushForce = cc.PushForce;
         cc.RuntimeID = m_PhysicsWorld3D->CreateCharacter(desc);
         cc.VerticalVelocity = 0.0f;
         cc.Grounded = false;
@@ -2975,6 +3013,15 @@ namespace Zamin {
         desc.GravityFactor = rb.GravityFactor;
         desc.LockRotation = rb.LockRotation;
         desc.Layer = CollisionLayers2D::Clamp(rb.Layer);
+        desc.ContinuousCollision = rb.ContinuousCollision;
+        desc.AllowSleeping = rb.Sleeping != Rigidbody3DComponent::SleepMode::NeverSleep;
+        desc.StartAsleep = rb.Sleeping == Rigidbody3DComponent::SleepMode::StartAsleep;
+        // What every collider has: its surface (material asset or own values), trigger flag, kind.
+        auto common = [](PhysicsBody3DDesc::Shape& s, const auto& c, int tag) {
+            s.Surface = ColliderSurface3D(c);
+            s.IsSensor = c.IsSensor;
+            s.Tag = tag;
+        };
 
         if (auto* c = entity.TryGetComponent<BoxCollider3DComponent>())
         {
@@ -2982,7 +3029,7 @@ namespace Zamin {
             s.Type = PhysicsBody3DDesc::Shape::Kind::Box;
             s.HalfExtents = c->HalfExtents * scale;
             s.Offset = c->Offset * scale;
-            s.Friction = c->Friction; s.Restitution = c->Restitution; s.IsSensor = c->IsSensor;
+            common(s, *c, ShapeTagBox3D);
             desc.Shapes.push_back(s);
         }
         if (auto* c = entity.TryGetComponent<SphereCollider3DComponent>())
@@ -2991,7 +3038,7 @@ namespace Zamin {
             s.Type = PhysicsBody3DDesc::Shape::Kind::Sphere;
             s.Radius = c->Radius * std::max({ scale.x, scale.y, scale.z });
             s.Offset = c->Offset * scale;
-            s.Friction = c->Friction; s.Restitution = c->Restitution; s.IsSensor = c->IsSensor;
+            common(s, *c, ShapeTagSphere3D);
             desc.Shapes.push_back(s);
         }
         if (auto* c = entity.TryGetComponent<CapsuleCollider3DComponent>())
@@ -3001,7 +3048,7 @@ namespace Zamin {
             s.Radius = c->Radius * std::max(scale.x, scale.z);
             s.HalfHeight = c->HalfHeight * scale.y;
             s.Offset = c->Offset * scale;
-            s.Friction = c->Friction; s.Restitution = c->Restitution; s.IsSensor = c->IsSensor;
+            common(s, *c, ShapeTagCapsule3D);
             desc.Shapes.push_back(s);
         }
         if (auto* c = entity.TryGetComponent<ConvexHullCollider3DComponent>())
@@ -3014,7 +3061,7 @@ namespace Zamin {
                 s.Hull = hull;
                 s.Scale = scale;
                 s.Offset = c->Offset * scale;
-                s.Friction = c->Friction; s.Restitution = c->Restitution; s.IsSensor = c->IsSensor;
+                common(s, *c, ShapeTagConvexHull3D);
                 desc.Shapes.push_back(s);
             }
             else
@@ -3033,7 +3080,7 @@ namespace Zamin {
                 s.Mesh = mesh;
                 s.Scale = scale;
                 s.Offset = c->Offset * scale;
-                s.Friction = c->Friction; s.Restitution = c->Restitution; s.IsSensor = c->IsSensor;
+                common(s, *c, ShapeTagMesh3D);
                 desc.Shapes.push_back(s);
             }
             else
@@ -3123,7 +3170,10 @@ namespace Zamin {
         if (m_PhysicsWorld3D && entity.HasComponent<Rigidbody3DComponent>())
         {
             CreatePhysicsBody3D(entity);
-            m_PhysicsWorld3D->WakeBodiesAround(entity.GetComponent<Rigidbody3DComponent>().RuntimeBodyID);
+            // A body that starts asleep waits to be knocked (waking what is around would wake it too).
+            const auto& rb = entity.GetComponent<Rigidbody3DComponent>();
+            if (rb.Sleeping != Rigidbody3DComponent::SleepMode::StartAsleep)
+                m_PhysicsWorld3D->WakeBodiesAround(rb.RuntimeBodyID);
         }
     }
 
@@ -3310,6 +3360,32 @@ namespace Zamin {
         TimeToSleep = std::isfinite(TimeToSleep) ? std::clamp(TimeToSleep, 0.05f, 60.0f) : 0.5f;
     }
 
+    void SceneSettings::Physics3DSettings::Sanitize()
+    {
+        TimeToSleep = std::isfinite(TimeToSleep) ? std::clamp(TimeToSleep, 0.05f, 60.0f) : 0.5f;
+    }
+
+    bool Scene::IsSleeping3D(Entity entity)
+    {
+        const auto* rb = entity ? entity.TryGetComponent<Rigidbody3DComponent>() : nullptr;
+        if (!m_PhysicsWorld3D || !rb || rb->RuntimeBodyID == 0xffffffff)
+            return false;
+        return m_PhysicsWorld3D->IsBodySleeping(rb->RuntimeBodyID);
+    }
+
+    bool Scene::SetAwake3D(Entity entity, bool awake)
+    {
+        const auto* rb = entity ? entity.TryGetComponent<Rigidbody3DComponent>() : nullptr;
+        if (!m_PhysicsWorld3D || !rb || rb->RuntimeBodyID == 0xffffffff)
+            return false;
+        return m_PhysicsWorld3D->SetBodyAwake(rb->RuntimeBodyID, awake);
+    }
+
+    PhysicsStats3D Scene::GetPhysics3DStats() const
+    {
+        return m_PhysicsWorld3D ? m_PhysicsWorld3D->GetStats() : PhysicsStats3D();
+    }
+
     bool Scene::IsSleeping2D(Entity entity)
     {
         const auto* rb = entity ? entity.TryGetComponent<Rigidbody2DComponent>() : nullptr;
@@ -3388,12 +3464,22 @@ namespace Zamin {
             // The project's layer matrix (Project settings) and the bodies' layers (inspector, scripts)
             // may change while the game runs.
             m_PhysicsWorld3D->SetCollisionMatrix(Project::GetCollisionLayers2D().Masks);
+            // So may the sleeping settings, continuous collision and how characters push.
+            m_Settings.Physics3D.Sanitize();
+            m_PhysicsWorld3D->SetSleeping(m_Settings.Physics3D.AllowSleep, m_Settings.Physics3D.TimeToSleep);
             for (auto e : m_Registry.view<Rigidbody3DComponent>())
                 if (const auto& rb = m_Registry.get<Rigidbody3DComponent>(e); rb.RuntimeBodyID != 0xffffffff)
+                {
                     m_PhysicsWorld3D->SetBodyLayer(rb.RuntimeBodyID, CollisionLayers2D::Clamp(rb.Layer));
+                    m_PhysicsWorld3D->SetBodyAllowSleeping(rb.RuntimeBodyID, rb.Sleeping != Rigidbody3DComponent::SleepMode::NeverSleep);
+                    m_PhysicsWorld3D->SetBodyContinuous(rb.RuntimeBodyID, rb.ContinuousCollision);
+                }
             for (auto e : m_Registry.view<CharacterController3DComponent>())
                 if (const auto& cc = m_Registry.get<CharacterController3DComponent>(e); cc.RuntimeID != 0xffffffff)
+                {
                     m_PhysicsWorld3D->SetCharacterLayer(cc.RuntimeID, CollisionLayers2D::Clamp(cc.Layer));
+                    m_PhysicsWorld3D->SetCharacterPush(cc.RuntimeID, cc.PushBodies, cc.PushForce);
+                }
         }
 
         // Kinematic/static bodies follow their transforms (lets scripts move them directly).
@@ -3425,7 +3511,7 @@ namespace Zamin {
         SyncJoints2D();
         SyncJoints3D();
         // Physics material assets edited / reloaded since the last frame.
-        if (m_PhysicsWorld && m_PhysicsMaterialRevision != PhysicsMaterialLibrary::GetRevision())
+        if ((m_PhysicsWorld || m_PhysicsWorld3D) && m_PhysicsMaterialRevision != PhysicsMaterialLibrary::GetRevision())
             ApplyPhysicsMaterials();
         m_PhysicsAccumulator += ts;
         int stepCount = std::min(maxSteps, (int)(m_PhysicsAccumulator / fixedStep));

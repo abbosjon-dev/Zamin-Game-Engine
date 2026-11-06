@@ -17,6 +17,8 @@
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
+#include <Jolt/Physics/Collision/Shape/CompoundShape.h>
+#include <Jolt/Physics/Collision/Shape/SubShapeIDPair.h>
 #include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
 #include <Jolt/Physics/Collision/Shape/ScaledShape.h>
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
@@ -260,6 +262,110 @@ namespace Zamin {
         }
     }
 
+    // ------------------------------------------------------------------ colliders of a body
+    PhysicsSurface3D PhysicsSurface3D::FromMaterial(const PhysicsMaterialData& material)
+    {
+        PhysicsSurface3D s;
+        s.Friction = material.Friction;
+        s.Restitution = material.Restitution;
+        s.RestitutionThreshold = material.RestitutionThreshold;
+        s.FrictionCombine = material.FrictionCombine;
+        s.RestitutionCombine = material.RestitutionCombine;
+        return s;
+    }
+
+    namespace {
+
+        // One collider of a body: its part of the body's shape (the compound's sub shape whose user
+        // data is its index here, or the whole shape of a body with one collider).
+        struct BodyPart
+        {
+            PhysicsSurface3D Surface;
+            bool Sensor = false;
+            int Tag = 0;
+        };
+
+        // What the contact listener and the queries need to know about a body's colliders beyond what
+        // Jolt keeps per body (one friction / restitution, one sensor flag). Changed only between steps;
+        // Jolt's jobs only read it.
+        struct BodyParts
+        {
+            JPH::RefConst<JPH::Shape> Shape; // the body's shape (a compound when there are several parts)
+            std::vector<BodyPart> Parts;
+            bool Mixed = false;  // trigger and solid colliders on one body: the triggers per contact
+            bool Custom = false; // surfaces Jolt's per-body friction / restitution and its own rule do not give
+            // What the body was given last (SetBodyContinuous / SetBodyAllowSleeping: no lock when unchanged).
+            bool Continuous = false;
+            bool AllowSleeping = true;
+
+            const BodyPart* Find(const JPH::SubShapeID& id) const
+            {
+                if (Parts.size() == 1)
+                    return &Parts[0];
+                if (Parts.empty() || !Shape || Shape->GetType() != JPH::EShapeType::Compound)
+                    return nullptr;
+                const auto& compound = static_cast<const JPH::CompoundShape&>(*Shape);
+                JPH::SubShapeID rest;
+                const uint32_t index = compound.GetSubShapeIndexFromID(id, rest);
+                if (index >= compound.GetNumSubShapes())
+                    return nullptr;
+                const uint32_t part = compound.GetCompoundUserData(index);
+                return part < Parts.size() ? &Parts[part] : nullptr;
+            }
+
+            // Whether the body needs the contact listener: triggers next to solid colliders, combine
+            // modes, colliders that differ from the body's first one (Jolt keeps one friction per body),
+            // restitution thresholds other than Jolt's.
+            void Update()
+            {
+                bool sensor = false, solid = false;
+                Custom = false;
+                for (const BodyPart& part : Parts)
+                {
+                    (part.Sensor ? sensor : solid) = true;
+                    const PhysicsSurface3D& s = part.Surface;
+                    Custom |= s.FrictionCombine != PhysicsCombine::Default || s.RestitutionCombine != PhysicsCombine::Default ||
+                              s.Friction != Parts[0].Surface.Friction || s.Restitution != Parts[0].Surface.Restitution ||
+                              s.RestitutionThreshold != PhysicsSurface3D::DefaultRestitutionThreshold;
+                }
+                Mixed = sensor && solid;
+            }
+        };
+
+        using BodyPartTable = std::unordered_map<uint32_t, BodyParts>;
+
+        const BodyParts* FindBodyParts(const BodyPartTable& table, const JPH::BodyID& id)
+        {
+            auto it = table.find(id.GetIndexAndSequenceNumber());
+            return it == table.end() ? nullptr : &it->second;
+        }
+
+        // A trigger collider of a body that also has solid ones (an all-trigger body is a Jolt sensor).
+        bool IsSensorPart(const BodyPartTable& table, const JPH::BodyID& body, const JPH::SubShapeID& subShape)
+        {
+            const BodyParts* parts = FindBodyParts(table, body);
+            if (!parts || !parts->Mixed)
+                return false;
+            const BodyPart* part = parts->Find(subShape);
+            return part && part->Sensor;
+        }
+
+        // How fast the two bodies run into each other at the contact (m/s along its normal; 0 when
+        // they part).
+        float ApproachSpeed(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& m)
+        {
+            float fastest = 0.0f;
+            for (JPH::uint i = 0; i < m.mRelativeContactPointsOn1.size(); i++)
+            {
+                const JPH::RVec3 p = m.GetWorldSpaceContactPointOn1(i);
+                // The normal moves body 2 out of body 1: running into each other is a negative speed along it.
+                const float along = (b2.GetPointVelocity(p) - b1.GetPointVelocity(p)).Dot(m.mWorldSpaceNormal);
+                fastest = std::max(fastest, -along);
+            }
+            return fastest;
+        }
+    }
+
     // ------------------------------------------------------------------ contacts
     class ContactListener3D : public JPH::ContactListener
     {
@@ -267,13 +373,40 @@ namespace Zamin {
         std::mutex Mutex;
         std::unordered_map<uint32_t, uint64_t> BodyToEntity; // guarded by Mutex
         std::vector<ContactEvent> Events;
-        // count active sub-shape contacts per body pair, so begin/end fire once per pair
+
+        // ---- colliders (read during steps only: changed between them)
+        const BodyPartTable* Parts = nullptr; // the world's
+        int SpecialBodies = 0;                // bodies whose BodyParts are Mixed or Custom
+        int MixedBodies = 0;                  // bodies with trigger and solid colliders
+        // The characters' inner bodies (guarded by Mutex): their trigger contacts are the characters'
+        // own (UpdateCharacter) - an inner body that fell asleep would keep one after it left.
+        std::unordered_set<uint32_t> InnerBodies;
+        float MinRestitutionVelocity = PhysicsSurface3D::DefaultRestitutionThreshold; // Jolt's setting now
+
+        // What a contact counts as (one per sub shape pair: a body's colliders touch one by one).
+        enum class ContactKind : uint8_t
+        {
+            Solid,   // a collision (OnCollisionBegin / End)
+            Sensor,  // a trigger contact (OnTriggerBegin / End)
+            Pending, // a trigger collider of a mixed body within Jolt's speculative distance: not touching yet
+            Ignored  // two solid colliders of bodies that do not move each other (kinematic / static)
+        };
+        struct ContactEntry
+        {
+            ContactKind Kind = ContactKind::Solid;
+            // Jolt forgets the contacts of a body that falls asleep (OnContactRemoved): they are kept
+            // (still touching, as Box2D does) until a step with both bodies awake no longer has them.
+            bool Dormant = false;
+        };
+        std::unordered_map<JPH::SubShapeIDPair, ContactEntry> ContactKinds; // guarded by Mutex
+        std::vector<JPH::SubShapeIDPair> Removed; // reported during a step, settled after it (Mutex)
+        // Touching contacts per body pair, so that begin / end fire once per pair (and kind).
         struct PairState
         {
-            int Count = 0;
-            bool Sensor = false; // OnContactRemoved no longer has the bodies: remember it here
+            int Solid = 0;
+            int Sensor = 0;
         };
-        std::unordered_map<uint64_t, PairState> PairCounts;
+        std::unordered_map<uint64_t, PairState> PairCounts; // guarded by Mutex
 
         static uint64_t PairKey(uint32_t a, uint32_t b)
         {
@@ -294,10 +427,50 @@ namespace Zamin {
         std::map<std::pair<uint64_t, uint64_t>, DebugManifold> DebugContacts;
         uint64_t DebugStep = 0;
 
+        // The contact's settings from the two colliders: a trigger collider of a mixed body makes it a
+        // sensor contact, surfaces (materials) give its friction and bounce. True: a trigger contact.
+        bool ApplyColliders(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& m, JPH::ContactSettings& settings) const
+        {
+            if (settings.mIsSensor)
+                return true; // a sensor body
+            const bool thresholds = MinRestitutionVelocity < PhysicsSurface3D::DefaultRestitutionThreshold;
+            if (!Parts || (SpecialBodies == 0 && !thresholds))
+                return false; // Jolt's per-body values as they are
+            const BodyParts* parts1 = FindBodyParts(*Parts, b1.GetID());
+            const BodyParts* parts2 = FindBodyParts(*Parts, b2.GetID());
+            const BodyPart* p1 = parts1 ? parts1->Find(m.mSubShapeID1) : nullptr;
+            const BodyPart* p2 = parts2 ? parts2->Find(m.mSubShapeID2) : nullptr;
+            if ((p1 && p1->Sensor) || (p2 && p2->Sensor))
+            {
+                settings.mIsSensor = true;
+                return true;
+            }
+            // Bodies without parts (characters' inner bodies): their own values, Jolt's rule.
+            auto surfaceOf = [](const BodyPart* part, const JPH::Body& body) {
+                if (part)
+                    return part->Surface;
+                PhysicsSurface3D s;
+                s.Friction = body.GetFriction();
+                s.Restitution = body.GetRestitution();
+                return s;
+            };
+            const PhysicsSurface3D a = surfaceOf(p1, b1), b = surfaceOf(p2, b2);
+            if ((parts1 && parts1->Custom) || (parts2 && parts2->Custom))
+            {
+                settings.mCombinedFriction = PhysicsMaterial::CombineFriction(a.Friction, a.FrictionCombine, b.Friction, b.FrictionCombine);
+                settings.mCombinedRestitution =
+                    PhysicsMaterial::CombineRestitution(a.Restitution, a.RestitutionCombine, b.Restitution, b.RestitutionCombine);
+            }
+            // Jolt bounces everything faster than its one threshold (the lowest one in use): slower
+            // impacts than the pair's own (the larger of the two, as Box2D does) do not bounce.
+            const float threshold = std::max(a.RestitutionThreshold, b.RestitutionThreshold);
+            if (settings.mCombinedRestitution > 0.0f && threshold > MinRestitutionVelocity && ApproachSpeed(b1, b2, m) < threshold)
+                settings.mCombinedRestitution = 0.0f;
+            return false;
+        }
+
         void RecordDebugContact(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& m)
         {
-            if (b1.IsSensor() || b2.IsSensor())
-                return;
             std::pair<uint64_t, uint64_t> key{ ((uint64_t)b1.GetID().GetIndexAndSequenceNumber() << 32) | b2.GetID().GetIndexAndSequenceNumber(),
                                                ((uint64_t)m.mSubShapeID1.GetValue() << 32) | m.mSubShapeID2.GetValue() };
             DebugManifold& d = DebugContacts[key];
@@ -317,48 +490,182 @@ namespace Zamin {
             d.Step = DebugStep;
         }
 
-        void OnContactPersisted(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& m, JPH::ContactSettings&) override
+        // Contacts that push the bodies apart (drawn when debug contacts are on).
+        static bool Responds(const JPH::Body& b1, const JPH::Body& b2, bool sensor) { return !sensor && (b1.IsDynamic() || b2.IsDynamic()); }
+
+        void OnContactPersisted(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& m, JPH::ContactSettings& settings) override
         {
-            if (!CollectDebug.load(std::memory_order_relaxed))
+            const bool sensor = ApplyColliders(b1, b2, m, settings);
+            // A mixed body's trigger collider that came within Jolt's speculative distance begins once it overlaps.
+            const bool pending = sensor && !b1.IsSensor() && !b2.IsSensor() && m.mPenetrationDepth >= 0.0f;
+            const bool debug = CollectDebug.load(std::memory_order_relaxed) && Responds(b1, b2, sensor);
+            if (!pending && !debug)
                 return;
             std::lock_guard lock(Mutex);
-            RecordDebugContact(b1, b2, m);
+            if (pending)
+                if (auto it = ContactKinds.find(JPH::SubShapeIDPair(b1.GetID(), m.mSubShapeID1, b2.GetID(), m.mSubShapeID2));
+                    it != ContactKinds.end() && it->second.Kind == ContactKind::Pending)
+                {
+                    it->second.Kind = ContactKind::Sensor;
+                    Count(b1.GetID().GetIndexAndSequenceNumber(), b2.GetID().GetIndexAndSequenceNumber(), ContactKind::Sensor, 1);
+                }
+            if (debug)
+                RecordDebugContact(b1, b2, m);
         }
 
-        void OnContactAdded(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& manifold, JPH::ContactSettings&) override
+        void OnContactAdded(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& manifold, JPH::ContactSettings& settings) override
         {
+            const bool sensor = ApplyColliders(b1, b2, manifold, settings);
+            ContactKind kind = sensor ? ContactKind::Sensor : ContactKind::Solid;
+            if (!sensor && !b1.IsDynamic() && !b2.IsDynamic())
+                kind = ContactKind::Ignored; // a mixed kinematic / static body's solid collider (it detects them for its triggers)
+            else if (sensor && !b1.IsSensor() && !b2.IsSensor() && manifold.mPenetrationDepth < 0.0f)
+                kind = ContactKind::Pending;
             std::lock_guard lock(Mutex);
-            if (CollectDebug.load(std::memory_order_relaxed))
+            if (sensor && !InnerBodies.empty() &&
+                (InnerBodies.contains(b1.GetID().GetIndexAndSequenceNumber()) || InnerBodies.contains(b2.GetID().GetIndexAndSequenceNumber())))
+                kind = ContactKind::Ignored;
+            if (CollectDebug.load(std::memory_order_relaxed) && Responds(b1, b2, sensor))
                 RecordDebugContact(b1, b2, manifold);
-            uint32_t a = b1.GetID().GetIndexAndSequenceNumber(), b = b2.GetID().GetIndexAndSequenceNumber();
-            auto& pair = PairCounts[PairKey(a, b)];
-            if (pair.Count++ == 0)
+            const uint32_t a = b1.GetID().GetIndexAndSequenceNumber(), b = b2.GetID().GetIndexAndSequenceNumber();
+            auto [it, added] = ContactKinds.try_emplace(JPH::SubShapeIDPair(b1.GetID(), manifold.mSubShapeID1, b2.GetID(), manifold.mSubShapeID2));
+            if (added)
             {
-                pair.Sensor = b1.IsSensor() || b2.IsSensor();
-                Push(a, b, true, pair.Sensor);
+                it->second.Kind = kind;
+                Count(a, b, kind, 1);
+                return;
+            }
+            // Kept while a body slept and touching again now that it woke up: no new Begin (unless it
+            // counts as something else now).
+            it->second.Dormant = false;
+            if (it->second.Kind != kind)
+            {
+                Count(a, b, it->second.Kind, -1);
+                Count(a, b, kind, 1);
+                it->second.Kind = kind;
             }
         }
 
         void OnContactRemoved(const JPH::SubShapeIDPair& pair) override
         {
             std::lock_guard lock(Mutex);
-            uint32_t a = pair.GetBody1ID().GetIndexAndSequenceNumber(), b = pair.GetBody2ID().GetIndexAndSequenceNumber();
-            auto it = PairCounts.find(PairKey(a, b));
-            if (it == PairCounts.end()) return;
-            if (--it->second.Count <= 0)
+            Removed.push_back(pair);
+        }
+
+        // After a step: the contacts Jolt removed end - unless neither body is awake any more (Jolt
+        // drops the contacts of a body that falls asleep; the bodies still touch). A kept one ends
+        // after a step in which a body of it was awake again but did not touch the other. A
+        // character's inner body is left out (it is moved without waking it: its contacts end as Jolt
+        // says).
+        void SettleContacts(const JPH::BodyInterface& bi)
+        {
+            std::lock_guard lock(Mutex);
+            auto active = [&](const JPH::BodyID& id) { return bi.IsAdded(id) && bi.IsActive(id); };
+            auto end = [&](std::unordered_map<JPH::SubShapeIDPair, ContactEntry>::iterator it) {
+                const JPH::SubShapeIDPair pair = it->first;
+                const ContactKind kind = it->second.Kind;
+                ContactKinds.erase(it);
+                Count(pair.GetBody1ID().GetIndexAndSequenceNumber(), pair.GetBody2ID().GetIndexAndSequenceNumber(), kind, -1);
+            };
+            for (const JPH::SubShapeIDPair& pair : Removed)
             {
-                bool sensor = it->second.Sensor;
-                PairCounts.erase(it);
+                auto it = ContactKinds.find(pair);
+                if (it == ContactKinds.end())
+                    continue;
+                const bool counted = it->second.Kind == ContactKind::Solid || it->second.Kind == ContactKind::Sensor;
+                const bool inner = !InnerBodies.empty() && (InnerBodies.contains(pair.GetBody1ID().GetIndexAndSequenceNumber()) ||
+                                                            InnerBodies.contains(pair.GetBody2ID().GetIndexAndSequenceNumber()));
+                const bool kept = bi.IsAdded(pair.GetBody1ID()) && bi.IsAdded(pair.GetBody2ID()) && !active(pair.GetBody1ID()) &&
+                                  !active(pair.GetBody2ID());
+                if (counted && !inner && kept)
+                    it->second.Dormant = true;
+                else
+                    end(it);
+            }
+            const bool removedAny = !Removed.empty();
+            Removed.clear();
+            if (DormantCheck || removedAny)
+            {
+                DormantCheck = false;
+                for (auto it = ContactKinds.begin(); it != ContactKinds.end();)
+                {
+                    auto next = std::next(it);
+                    if (it->second.Dormant)
+                    {
+                        const JPH::BodyID b1 = it->first.GetBody1ID(), b2 = it->first.GetBody2ID();
+                        if (!bi.IsAdded(b1) || !bi.IsAdded(b2) || active(b1) || active(b2))
+                            end(it);
+                        else
+                            DormantCheck = true; // still asleep: looked at again after the next step
+                    }
+                    it = next;
+                }
+            }
+        }
+        bool DormantCheck = false; // dormant contacts to look at after the next step (Mutex)
+
+        // Touching body pairs now (triggers too).
+        int GetTouchingPairs()
+        {
+            std::lock_guard lock(Mutex);
+            return (int)PairCounts.size();
+        }
+
+    private:
+        // A contact of the pair begins (+1) / ends (-1): the pair's Begin / End events (Mutex held).
+        void Count(uint32_t a, uint32_t b, ContactKind kind, int change)
+        {
+            if (kind != ContactKind::Solid && kind != ContactKind::Sensor)
+                return;
+            const uint64_t key = PairKey(a, b);
+            const bool sensor = kind == ContactKind::Sensor;
+            if (change > 0)
+            {
+                PairState& state = PairCounts[key];
+                if ((sensor ? state.Sensor : state.Solid)++ == 0)
+                    Push(a, b, true, sensor);
+                return;
+            }
+            auto it = PairCounts.find(key);
+            if (it == PairCounts.end())
+                return;
+            int& count = sensor ? it->second.Sensor : it->second.Solid;
+            if (count <= 0)
+                return;
+            if (--count == 0)
+            {
+                if (it->second.Solid == 0 && it->second.Sensor == 0)
+                    PairCounts.erase(it);
                 Push(a, b, false, sensor);
             }
         }
 
-    private:
         void Push(uint32_t a, uint32_t b, bool begin, bool sensor)
         {
             auto ea = BodyToEntity.find(a), eb = BodyToEntity.find(b);
             if (ea != BodyToEntity.end() && eb != BodyToEntity.end())
                 Events.push_back({ ea->second, eb->second, begin, sensor });
+        }
+    };
+
+    // ------------------------------------------------------------------ characters
+    // Characters (Jolt CharacterVirtual) and bodies: a mixed body's trigger colliders do not stop
+    // them (their inner bodies report the trigger contacts), and a character pushes dynamic bodies
+    // only while its push force (Jolt's max strength) is above 0.
+    class CharacterListener3D final : public JPH::CharacterContactListener
+    {
+    public:
+        const BodyPartTable* Parts = nullptr; // the world's (characters update between steps)
+
+        bool OnContactValidate(const JPH::CharacterVirtual*, const JPH::BodyID& body, const JPH::SubShapeID& subShape) override
+        {
+            return !Parts || !IsSensorPart(*Parts, body, subShape);
+        }
+
+        void OnContactAdded(const JPH::CharacterVirtual* character, const JPH::BodyID&, const JPH::SubShapeID&, JPH::RVec3Arg, JPH::Vec3Arg,
+                            JPH::CharacterContactSettings& settings) override
+        {
+            settings.mCanReceiveImpulses = character->GetMaxStrength() > 0.0f;
         }
     };
 
@@ -372,7 +679,12 @@ namespace Zamin {
         ObjectLayerPairFilterImpl ObjectPairFilter;
         std::unique_ptr<JPH::PhysicsSystem> System;
         ContactListener3D Contacts;
+        CharacterListener3D CharacterContacts;
         std::vector<JPH::BodyID> Bodies;
+        // Every body's colliders (by body ID); the listeners and queries read it.
+        BodyPartTable Parts;
+        bool PartsChanged = false; // the listener's counts / Jolt's restitution threshold need a look
+        uint64_t Steps = 0;
 
         struct CharacterSlot
         {
@@ -400,12 +712,51 @@ namespace Zamin {
         JPH::Ref<JointCollisionFilter> JointFilter; // made once Jolt's allocator is there
 
         // The Jolt shape of each convex hull used by a body of this world (the hull is kept alive with it).
+        // Second key: a trigger next to solid colliders on a dynamic body (it weighs nothing).
         struct HullShape
         {
             Ref<const ConvexHull3D> Hull;
             JPH::RefConst<JPH::Shape> Shape;
         };
-        std::unordered_map<const ConvexHull3D*, HullShape> HullShapes;
+        std::map<std::pair<const ConvexHull3D*, bool>, HullShape> HullShapes;
+
+        // Before a step, after bodies / surfaces changed: which bodies the contact listener has to look
+        // at, and Jolt's restitution threshold (the lowest one any collider asks for).
+        void RefreshParts()
+        {
+            if (!PartsChanged)
+                return;
+            PartsChanged = false;
+            int special = 0, mixed = 0;
+            float lowest = PhysicsSurface3D::DefaultRestitutionThreshold;
+            for (const auto& [id, parts] : Parts)
+            {
+                special += parts.Mixed || parts.Custom ? 1 : 0;
+                mixed += parts.Mixed ? 1 : 0;
+                for (const BodyPart& part : parts.Parts)
+                    lowest = std::min(lowest, std::max(0.0f, part.Surface.RestitutionThreshold));
+            }
+            Contacts.SpecialBodies = special;
+            Contacts.MixedBodies = mixed;
+            if (lowest != Contacts.MinRestitutionVelocity)
+            {
+                Contacts.MinRestitutionVelocity = lowest;
+                JPH::PhysicsSettings settings = System->GetPhysicsSettings();
+                settings.mMinVelocityForRestitution = lowest;
+                System->SetPhysicsSettings(settings);
+            }
+        }
+
+        BodyParts* FindParts(uint32_t bodyID)
+        {
+            auto it = Parts.find(bodyID);
+            return it == Parts.end() ? nullptr : &it->second;
+        }
+        const BodyParts* FindParts(uint32_t bodyID) const
+        {
+            auto it = Parts.find(bodyID);
+            return it == Parts.end() ? nullptr : &it->second;
+        }
 
         bool HasBody(JPH::BodyID id) const { return std::find(Bodies.begin(), Bodies.end(), id) != Bodies.end(); }
 
@@ -484,6 +835,8 @@ namespace Zamin {
                              m_Impl->BroadPhaseLayerInterface, m_Impl->ObjectVsBroadPhaseFilter, m_Impl->ObjectPairFilter);
         m_Impl->System->SetGravity(ToJolt(gravity));
         m_Impl->System->SetContactListener(&m_Impl->Contacts);
+        m_Impl->Contacts.Parts = &m_Impl->Parts;
+        m_Impl->CharacterContacts.Parts = &m_Impl->Parts;
     }
 
     PhysicsWorld3D::~PhysicsWorld3D()
@@ -499,6 +852,7 @@ namespace Zamin {
             bi.DestroyBody(id);
         }
         m_Impl->Bodies.clear();
+        m_Impl->Parts.clear();
         m_Impl->HullShapes.clear();
         m_Impl->System.reset();
         m_Impl->JobSystem.reset();
@@ -514,7 +868,14 @@ namespace Zamin {
 
         const JPH::EMotionType motion = desc.MotionType == 0 ? JPH::EMotionType::Static :
                                         desc.MotionType == 2 ? JPH::EMotionType::Kinematic : JPH::EMotionType::Dynamic;
-        auto makeShape = [this, motion](const PhysicsBody3DDesc::Shape& s) -> JPH::RefConst<JPH::Shape> {
+        // Trigger colliders next to solid ones on a dynamic body weigh (almost) nothing: the body's
+        // centre of mass and inertia are its solid colliders'.
+        const bool anySensor = std::any_of(desc.Shapes.begin(), desc.Shapes.end(), [](const auto& s) { return s.IsSensor; });
+        const bool anySolid = std::any_of(desc.Shapes.begin(), desc.Shapes.end(), [](const auto& s) { return !s.IsSensor; });
+        const bool weightlessTriggers = motion == JPH::EMotionType::Dynamic && anySensor && anySolid;
+        constexpr float TriggerDensity = 1.0e-3f; // Jolt's default: 1000
+        auto makeShape = [&](const PhysicsBody3DDesc::Shape& s) -> JPH::RefConst<JPH::Shape> {
+            const bool light = weightlessTriggers && s.IsSensor;
             JPH::RefConst<JPH::Shape> shape;
             switch (s.Type)
             {
@@ -536,7 +897,7 @@ namespace Zamin {
                 {
                     if (!s.Hull || s.Hull->Points.size() < 4)
                         return nullptr;
-                    auto it = m_Impl->HullShapes.find(s.Hull.get());
+                    auto it = m_Impl->HullShapes.find({ s.Hull.get(), light });
                     if (it == m_Impl->HullShapes.end())
                     {
                         JPH::Array<JPH::Vec3> points;
@@ -544,13 +905,15 @@ namespace Zamin {
                         for (const glm::vec3& p : s.Hull->Points)
                             points.push_back(ToJolt(p));
                         JPH::ConvexHullShapeSettings settings(points, JPH::cDefaultConvexRadius);
+                        if (light)
+                            settings.SetDensity(TriggerDensity);
                         JPH::ShapeSettings::ShapeResult result = settings.Create();
                         if (result.HasError())
                         {
                             ZM_CORE_ERROR("Jolt konveks qobiq xatosi: {}", result.GetError().c_str());
                             return nullptr;
                         }
-                        it = m_Impl->HullShapes.emplace(s.Hull.get(), Impl::HullShape{ s.Hull, result.Get() }).first;
+                        it = m_Impl->HullShapes.emplace(std::make_pair(s.Hull.get(), light), Impl::HullShape{ s.Hull, result.Get() }).first;
                     }
                     shape = it->second.Shape;
                     glm::vec3 scale = glm::max(glm::abs(s.Scale), glm::vec3(0.001f));
@@ -562,15 +925,28 @@ namespace Zamin {
                 {
                     glm::vec3 h = glm::max(s.HalfExtents, glm::vec3(0.01f));
                     float convex = std::min({ h.x, h.y, h.z, JPH::cDefaultConvexRadius });
-                    shape = new JPH::BoxShape(ToJolt(h), convex);
+                    auto* box = new JPH::BoxShape(ToJolt(h), convex);
+                    if (light)
+                        box->SetDensity(TriggerDensity);
+                    shape = box;
                     break;
                 }
                 case PhysicsBody3DDesc::Shape::Kind::Sphere:
-                    shape = new JPH::SphereShape(std::max(0.01f, s.Radius));
+                {
+                    auto* sphere = new JPH::SphereShape(std::max(0.01f, s.Radius));
+                    if (light)
+                        sphere->SetDensity(TriggerDensity);
+                    shape = sphere;
                     break;
+                }
                 case PhysicsBody3DDesc::Shape::Kind::Capsule:
-                    shape = new JPH::CapsuleShape(std::max(0.01f, s.HalfHeight), std::max(0.01f, s.Radius));
+                {
+                    auto* capsule = new JPH::CapsuleShape(std::max(0.01f, s.HalfHeight), std::max(0.01f, s.Radius));
+                    if (light)
+                        capsule->SetDensity(TriggerDensity);
+                    shape = capsule;
                     break;
+                }
             }
             if (glm::length(s.Offset) > 1e-5f)
                 shape = new JPH::RotatedTranslatedShape(ToJolt(s.Offset), JPH::Quat::sIdentity(), shape);
@@ -595,9 +971,10 @@ namespace Zamin {
             shape = parts[0];
         else
         {
+            // Each part's user data: its index in `made` (the compound orders its parts its own way).
             JPH::StaticCompoundShapeSettings compound;
-            for (const auto& part : parts)
-                compound.AddShape(JPH::Vec3::sZero(), JPH::Quat::sIdentity(), part);
+            for (size_t i = 0; i < parts.size(); i++)
+                compound.AddShape(JPH::Vec3::sZero(), JPH::Quat::sIdentity(), parts[i], (JPH::uint32)i);
             auto result = compound.Create();
             if (result.HasError())
             {
@@ -611,14 +988,28 @@ namespace Zamin {
 
         JPH::BodyCreationSettings settings(shape, JPH::RVec3(desc.Position.x, desc.Position.y, desc.Position.z),
                                            ToJolt(glm::normalize(desc.Rotation)), motion, layer);
-        settings.mFriction = made[0]->Friction;
-        settings.mRestitution = made[0]->Restitution;
-        settings.mIsSensor = std::all_of(made.begin(), made.end(), [](auto* s) { return s->IsSensor; });
+        // Jolt keeps one friction / restitution per body: the first collider's (the contact listener
+        // gives each collider its own when they differ, and the combine modes).
+        settings.mFriction = made[0]->Surface.Friction;
+        settings.mRestitution = made[0]->Surface.Restitution;
+        const bool allSensors = std::all_of(made.begin(), made.end(), [](auto* s) { return s->IsSensor; });
+        const bool mixed = !allSensors && std::any_of(made.begin(), made.end(), [](auto* s) { return s->IsSensor; });
+        settings.mIsSensor = allSensors;
+        // Jolt merges the contacts of a body's colliders that touch with the same normal (keeping one
+        // collider's ID): a body whose colliders differ (triggers, surfaces) keeps them apart.
+        const bool partsDiffer = mixed || std::any_of(made.begin(), made.end(), [&](auto* s) { return !(s->Surface == made[0]->Surface); });
+        if (partsDiffer)
+            settings.mUseManifoldReduction = false;
         settings.mLinearDamping = desc.LinearDamping;
         settings.mAngularDamping = desc.AngularDamping;
         settings.mGravityFactor = desc.GravityFactor;
         settings.mUserData = (uint64_t)desc.EntityID;
-        if (settings.mIsSensor && motion != JPH::EMotionType::Dynamic)
+        settings.mAllowSleeping = desc.AllowSleeping;
+        if (desc.ContinuousCollision && motion == JPH::EMotionType::Dynamic)
+            settings.mMotionQuality = JPH::EMotionQuality::LinearCast;
+        // A static / kinematic body's triggers also detect kinematic bodies and characters (their solid
+        // colliders' contacts with those are left out: neither of them moves the other).
+        if ((allSensors || mixed) && motion != JPH::EMotionType::Dynamic)
             settings.mCollideKinematicVsNonDynamic = true;
         if (motion == JPH::EMotionType::Kinematic && hasMesh)
         {
@@ -646,8 +1037,18 @@ namespace Zamin {
         JPH::BodyID id = body->GetID();
         // Its group is its own ID: joints with CollideConnected off filter the pair (JointFilter).
         body->SetCollisionGroup(JPH::CollisionGroup(m_Impl->JointFilter, id.GetIndexAndSequenceNumber(), 0));
-        bi.AddBody(id, motion == JPH::EMotionType::Static ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
+        const bool awake = motion != JPH::EMotionType::Static && !desc.StartAsleep;
+        bi.AddBody(id, awake ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
         m_Impl->Bodies.push_back(id);
+        BodyParts& info = m_Impl->Parts[id.GetIndexAndSequenceNumber()];
+        info = {};
+        info.Shape = shape;
+        for (const PhysicsBody3DDesc::Shape* s : made)
+            info.Parts.push_back({ s->Surface, s->IsSensor, s->Tag });
+        info.Update();
+        info.Continuous = desc.ContinuousCollision;
+        info.AllowSleeping = desc.AllowSleeping;
+        m_Impl->PartsChanged = true;
         {
             std::lock_guard lock(m_Impl->Contacts.Mutex);
             m_Impl->Contacts.BodyToEntity[id.GetIndexAndSequenceNumber()] = (uint64_t)desc.EntityID;
@@ -689,6 +1090,8 @@ namespace Zamin {
         bi.RemoveBody(id);
         bi.DestroyBody(id);
         m_Impl->Bodies.erase(it);
+        m_Impl->Parts.erase(bodyID);
+        m_Impl->PartsChanged = true;
         bi.ActivateBodiesInAABox(around, {}, {});
         std::lock_guard lock(m_Impl->Contacts.Mutex);
         if (auto owner = m_Impl->Contacts.BodyToEntity.find(bodyID); owner != m_Impl->Contacts.BodyToEntity.end())
@@ -718,7 +1121,10 @@ namespace Zamin {
             std::lock_guard lock(contacts.Mutex);
             contacts.DebugStep++;
         }
+        m_Impl->RefreshParts();
         m_Impl->System->Update(dt, 1, m_Impl->TempAllocator.get(), m_Impl->JobSystem.get());
+        m_Impl->Steps++;
+        m_Impl->Contacts.SettleContacts(m_Impl->System->GetBodyInterfaceNoLock());
         // Jolt puts a body to sleep when it hardly moved for half a second - also at the turning point
         // of a slow swing: a door on a hinge spring would stop short of its angle. Such a body is woken
         // while the spring has not got it there (at an angle where nothing holds it against the spring).
@@ -818,7 +1224,142 @@ namespace Zamin {
 
     bool PhysicsWorld3D::IsBodyActive(uint32_t bodyID) const
     {
-        return bodyID != 0xffffffff && m_Impl->HasBody(ToBodyID(bodyID)) && m_Impl->BI().IsActive(ToBodyID(bodyID));
+        return bodyID != 0xffffffff && m_Impl->FindParts(bodyID) && m_Impl->BI().IsActive(ToBodyID(bodyID));
+    }
+
+    // ------------------------------------------------------------------ continuous collision
+    void PhysicsWorld3D::SetBodyContinuous(uint32_t bodyID, bool continuous)
+    {
+        BodyParts* info = m_Impl->FindParts(bodyID);
+        if (!info || info->Continuous == continuous)
+            return;
+        info->Continuous = continuous;
+        // Jolt sweeps dynamic bodies only (kinematic ones are never stopped).
+        if (m_Impl->BI().GetMotionType(ToBodyID(bodyID)) != JPH::EMotionType::Dynamic)
+            return;
+        m_Impl->BI().SetMotionQuality(ToBodyID(bodyID), continuous ? JPH::EMotionQuality::LinearCast : JPH::EMotionQuality::Discrete);
+    }
+
+    bool PhysicsWorld3D::IsBodyContinuous(uint32_t bodyID) const
+    {
+        const BodyParts* info = m_Impl->FindParts(bodyID);
+        return info && m_Impl->BI().GetMotionQuality(ToBodyID(bodyID)) == JPH::EMotionQuality::LinearCast;
+    }
+
+    // ------------------------------------------------------------------ sleeping
+    void PhysicsWorld3D::SetSleeping(bool allowSleep, float timeToSleep)
+    {
+        timeToSleep = std::isfinite(timeToSleep) ? std::clamp(timeToSleep, 0.05f, 60.0f) : 0.5f;
+        JPH::PhysicsSettings settings = m_Impl->System->GetPhysicsSettings();
+        if (settings.mAllowSleeping == allowSleep && settings.mTimeBeforeSleep == timeToSleep)
+            return;
+        const bool wake = settings.mAllowSleeping && !allowSleep;
+        settings.mAllowSleeping = allowSleep;
+        settings.mTimeBeforeSleep = timeToSleep;
+        m_Impl->System->SetPhysicsSettings(settings);
+        if (wake) // Jolt leaves the sleeping ones asleep
+            m_Impl->BI().ActivateBodies(m_Impl->Bodies.data(), (int)m_Impl->Bodies.size());
+    }
+
+    bool PhysicsWorld3D::IsSleepingAllowed() const { return m_Impl->System->GetPhysicsSettings().mAllowSleeping; }
+    float PhysicsWorld3D::GetTimeToSleep() const { return m_Impl->System->GetPhysicsSettings().mTimeBeforeSleep; }
+
+    bool PhysicsWorld3D::IsBodySleeping(uint32_t bodyID) const
+    {
+        if (bodyID == 0xffffffff || !m_Impl->FindParts(bodyID))
+            return false;
+        const JPH::BodyID id = ToBodyID(bodyID);
+        return m_Impl->BI().GetMotionType(id) != JPH::EMotionType::Static && !m_Impl->BI().IsActive(id);
+    }
+
+    bool PhysicsWorld3D::SetBodyAwake(uint32_t bodyID, bool awake)
+    {
+        if (bodyID == 0xffffffff || !m_Impl->FindParts(bodyID))
+            return false;
+        const JPH::BodyID id = ToBodyID(bodyID);
+        if (m_Impl->BI().GetMotionType(id) == JPH::EMotionType::Static)
+            return false;
+        if (awake)
+            m_Impl->BI().ActivateBody(id);
+        else
+            m_Impl->BI().DeactivateBody(id); // its velocities stop
+        return true;
+    }
+
+    void PhysicsWorld3D::SetBodyAllowSleeping(uint32_t bodyID, bool allow)
+    {
+        BodyParts* info = bodyID == 0xffffffff ? nullptr : m_Impl->FindParts(bodyID);
+        if (!info || info->AllowSleeping == allow)
+            return;
+        info->AllowSleeping = allow;
+        const JPH::BodyID id = ToBodyID(bodyID);
+        {
+            JPH::BodyLockWrite lock(m_Impl->System->GetBodyLockInterface(), id);
+            if (!lock.Succeeded() || lock.GetBody().IsStatic())
+                return;
+            lock.GetBody().SetAllowSleeping(allow);
+        }
+        if (!allow)
+            m_Impl->BI().ActivateBody(id);
+    }
+
+    bool PhysicsWorld3D::GetBodyAllowSleeping(uint32_t bodyID) const
+    {
+        const BodyParts* info = m_Impl->FindParts(bodyID);
+        return info && info->AllowSleeping;
+    }
+
+    PhysicsStats3D PhysicsWorld3D::GetStats() const
+    {
+        PhysicsStats3D stats;
+        const auto& bi = m_Impl->BI();
+        for (const JPH::BodyID& id : m_Impl->Bodies)
+        {
+            stats.Bodies++;
+            if (bi.GetMotionType(id) == JPH::EMotionType::Static)
+                continue;
+            stats.Moving++;
+            (bi.IsActive(id) ? stats.Awake : stats.Sleeping)++;
+        }
+        stats.Joints = (int)m_Impl->Joints.size();
+        for (const auto& slot : m_Impl->Characters)
+            stats.Characters += slot.Character ? 1 : 0;
+        stats.Contacts = m_Impl->Contacts.GetTouchingPairs();
+        stats.Steps = m_Impl->Steps;
+        return stats;
+    }
+
+    // ------------------------------------------------------------------ surfaces
+    bool PhysicsWorld3D::SetShapeSurface(uint32_t bodyID, int tag, const PhysicsSurface3D& surface)
+    {
+        BodyParts* info = bodyID == 0xffffffff ? nullptr : m_Impl->FindParts(bodyID);
+        if (!info)
+            return false;
+        bool found = false;
+        for (BodyPart& part : info->Parts)
+            if (part.Tag == tag)
+            {
+                found = true;
+                part.Surface = surface;
+            }
+        if (!found)
+            return false;
+        // Jolt's own values are the first collider's.
+        const JPH::BodyID id = ToBodyID(bodyID);
+        m_Impl->BI().SetFriction(id, info->Parts[0].Surface.Friction);
+        m_Impl->BI().SetRestitution(id, info->Parts[0].Surface.Restitution);
+        info->Update();
+        m_Impl->PartsChanged = true;
+        return true;
+    }
+
+    std::optional<PhysicsSurface3D> PhysicsWorld3D::GetShapeSurface(uint32_t bodyID, int tag) const
+    {
+        if (const BodyParts* info = bodyID == 0xffffffff ? nullptr : m_Impl->FindParts(bodyID))
+            for (const BodyPart& part : info->Parts)
+                if (part.Tag == tag)
+                    return part.Surface;
+        return std::nullopt;
     }
 
     // ------------------------------------------------------------------ characters
@@ -838,9 +1379,12 @@ namespace Zamin {
         settings->mMaxSlopeAngle = JPH::DegreesToRadians(desc.MaxSlopeDegrees);
         settings->mMass = desc.Mass;
         settings->mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -radius); // feet area counts as support
+        // How hard it pushes dynamic bodies (0: not at all, CharacterListener3D).
+        settings->mMaxStrength = desc.PushBodies && std::isfinite(desc.PushForce) ? std::max(0.0f, desc.PushForce) : 0.0f;
 
         auto character = new JPH::CharacterVirtual(settings, JPH::RVec3(desc.Position.x, desc.Position.y, desc.Position.z),
                                                    JPH::Quat::sIdentity(), (uint64_t)desc.EntityID, m_Impl->System.get());
+        character->SetListener(&m_Impl->CharacterContacts);
         // A slot freed by DestroyCharacter is reused (entities switched off and on again
         // destroy and recreate their character).
         uint32_t slot = 0;
@@ -855,6 +1399,7 @@ namespace Zamin {
             m_Impl->BI().SetUserData(character->GetInnerBodyID(), (uint64_t)desc.EntityID);
             std::lock_guard lock(m_Impl->Contacts.Mutex);
             m_Impl->Contacts.BodyToEntity[character->GetInnerBodyID().GetIndexAndSequenceNumber()] = (uint64_t)desc.EntityID;
+            m_Impl->Contacts.InnerBodies.insert(character->GetInnerBodyID().GetIndexAndSequenceNumber());
         }
         return slot;
     }
@@ -873,6 +1418,7 @@ namespace Zamin {
             around = WakeBounds(m_Impl->BI(), inner);
             std::lock_guard lock(m_Impl->Contacts.Mutex);
             m_Impl->Contacts.BodyToEntity.erase(inner.GetIndexAndSequenceNumber());
+            m_Impl->Contacts.InnerBodies.erase(inner.GetIndexAndSequenceNumber());
         }
         slot.Character = nullptr; // releases the CharacterVirtual, which removes its inner body
         // Other characters touching its capsule (inner body) forget it as well.
@@ -908,6 +1454,24 @@ namespace Zamin {
             std::pair<uint64_t, bool> entry{ contact.mUserData, contact.mIsSensorB };
             if (std::find(touching.begin(), touching.end(), entry) == touching.end())
                 touching.push_back(entry);
+        }
+        // Trigger colliders of mixed bodies do not stop the character (CharacterListener3D): the ones
+        // its capsule overlaps now.
+        if (m_Impl->Contacts.MixedBodies > 0)
+        {
+            JPH::CollideShapeSettings overlap;
+            JPH::AllHitCollisionCollector<JPH::CollideShapeCollector> hits;
+            sys.GetNarrowPhaseQuery().CollideShape(c.GetShape(), JPH::Vec3::sReplicate(1.0f), c.GetCenterOfMassTransform(), overlap,
+                                                   JPH::RVec3::sZero(), hits, sys.GetDefaultBroadPhaseLayerFilter(slot.Layer),
+                                                   sys.GetDefaultLayerFilter(slot.Layer), JPH::IgnoreSingleBodyFilter(c.GetInnerBodyID()));
+            for (const JPH::CollideShapeResult& hit : hits.mHits)
+            {
+                if (!IsSensorPart(m_Impl->Parts, hit.mBodyID2, hit.mSubShapeID2))
+                    continue;
+                std::pair<uint64_t, bool> entry{ m_Impl->BI().GetUserData(hit.mBodyID2), true };
+                if (entry.first && std::find(touching.begin(), touching.end(), entry) == touching.end())
+                    touching.push_back(entry);
+            }
         }
         std::lock_guard lock(m_Impl->Contacts.Mutex);
         for (auto [other, sensor] : touching)
@@ -948,6 +1512,13 @@ namespace Zamin {
     {
         if (id >= m_Impl->Characters.size() || !m_Impl->Characters[id].Character) return false;
         return m_Impl->Characters[id].Character->GetGroundState() == JPH::CharacterBase::EGroundState::OnGround;
+    }
+
+    void PhysicsWorld3D::SetCharacterPush(uint32_t id, bool pushBodies, float pushForce)
+    {
+        if (id >= m_Impl->Characters.size() || !m_Impl->Characters[id].Character) return;
+        const float strength = pushBodies && std::isfinite(pushForce) ? std::max(0.0f, pushForce) : 0.0f;
+        m_Impl->Characters[id].Character->SetMaxStrength(strength);
     }
 
     // ------------------------------------------------------------------ collision layers
@@ -1081,10 +1652,14 @@ namespace Zamin {
             static constexpr float StartInside = 1.0e-3f; // penetration at the start that counts as "inside"
             static constexpr float MinApproach = 0.02f;   // cos of the steepest angle a touching start may move at (~89 degrees)
 
-            ShapeCastHits(bool all, const glm::vec3& direction) : m_All(all), m_Direction(ToJolt(direction)) {}
+            // sensorParts: the world's colliders when trigger colliders of mixed bodies do not count.
+            ShapeCastHits(bool all, const glm::vec3& direction, const BodyPartTable* sensorParts)
+                : m_All(all), m_Direction(ToJolt(direction)), m_SensorParts(sensorParts) {}
 
             void AddHit(const JPH::ShapeCastResult& result) override
             {
+                if (m_SensorParts && IsSensorPart(*m_SensorParts, result.mBodyID2, result.mSubShapeID2))
+                    return;
                 if (result.mFraction <= 0.0f)
                 {
                     if (result.mPenetrationDepth > StartInside)
@@ -1107,6 +1682,33 @@ namespace Zamin {
         private:
             bool m_All;
             JPH::Vec3 m_Direction;
+            const BodyPartTable* m_SensorParts;
+        };
+
+        // Ray hits: the closest (or every) one, trigger colliders of mixed bodies left out unless they count.
+        class RayHits final : public JPH::CastRayCollector
+        {
+        public:
+            RayHits(bool all, const BodyPartTable* sensorParts) : m_All(all), m_SensorParts(sensorParts) {}
+
+            void AddHit(const JPH::RayCastResult& result) override
+            {
+                if (m_SensorParts && IsSensorPart(*m_SensorParts, result.mBodyID, result.mSubShapeID2))
+                    return;
+                if (m_All)
+                    Hits.push_back(result);
+                else if (Hits.empty() || result.mFraction < Hits[0].mFraction)
+                {
+                    Hits.assign(1, result);
+                    UpdateEarlyOutFraction(result.mFraction);
+                }
+            }
+
+            std::vector<JPH::RayCastResult> Hits;
+
+        private:
+            bool m_All;
+            const BodyPartTable* m_SensorParts;
         };
 
         // Each entity's first hit only, the closest first (ties: by ID).
@@ -1122,8 +1724,8 @@ namespace Zamin {
 
     // Rays: convex shapes are hollow and triangles one-sided, so a ray that starts inside a body
     // (or behind a mesh's triangle) goes through it.
-    static void CastRayQuery(const JPH::PhysicsSystem& system, const glm::vec3& origin, const glm::vec3& dir, float maxDistance,
-                             uint16_t layerMask, bool includeSensors, bool all, std::vector<RaycastHit>& out)
+    static void CastRayQuery(const JPH::PhysicsSystem& system, const BodyPartTable& parts, const glm::vec3& origin, const glm::vec3& dir,
+                             float maxDistance, uint16_t layerMask, bool includeSensors, bool all, std::vector<RaycastHit>& out)
     {
         const JPH::RRayCast ray(JPH::RVec3(origin.x, origin.y, origin.z), ToJolt(dir * maxDistance));
         JPH::RayCastSettings settings;
@@ -1131,21 +1733,9 @@ namespace Zamin {
         settings.mTreatConvexAsSolid = false;
         const QueryLayerFilter layers(layerMask);
         const QueryBodyFilter bodies(includeSensors);
-        std::vector<JPH::RayCastResult> results;
-        if (all)
-        {
-            JPH::AllHitCollisionCollector<JPH::CastRayCollector> collector;
-            system.GetNarrowPhaseQuery().CastRay(ray, settings, collector, {}, layers, bodies);
-            results.assign(collector.mHits.begin(), collector.mHits.end());
-        }
-        else
-        {
-            JPH::ClosestHitCollisionCollector<JPH::CastRayCollector> collector;
-            system.GetNarrowPhaseQuery().CastRay(ray, settings, collector, {}, layers, bodies);
-            if (collector.HadHit())
-                results.push_back(collector.mHit);
-        }
-        for (const JPH::RayCastResult& result : results)
+        RayHits collector(all, includeSensors ? nullptr : &parts);
+        system.GetNarrowPhaseQuery().CastRay(ray, settings, collector, {}, layers, bodies);
+        for (const JPH::RayCastResult& result : collector.Hits)
         {
             JPH::BodyLockRead lock(system.GetBodyLockInterface(), result.mBodyID);
             if (!lock.Succeeded())
@@ -1169,7 +1759,7 @@ namespace Zamin {
         if (!QueryDirection(origin, direction, maxDistance, dir))
             return {};
         std::vector<RaycastHit> hits;
-        CastRayQuery(*m_Impl->System, origin, dir, maxDistance, layerMask, includeSensors, false, hits);
+        CastRayQuery(*m_Impl->System, m_Impl->Parts, origin, dir, maxDistance, layerMask, includeSensors, false, hits);
         return hits.empty() ? RaycastHit() : hits[0];
     }
 
@@ -1180,7 +1770,7 @@ namespace Zamin {
         glm::vec3 dir;
         if (!QueryDirection(origin, direction, maxDistance, dir))
             return hits;
-        CastRayQuery(*m_Impl->System, origin, dir, maxDistance, layerMask, includeSensors, true, hits);
+        CastRayQuery(*m_Impl->System, m_Impl->Parts, origin, dir, maxDistance, layerMask, includeSensors, true, hits);
         SortHits(hits); // Jolt reports them in no particular order (a body's sub-shapes / triangles each)
         return hits;
     }
@@ -1206,6 +1796,8 @@ namespace Zamin {
         const auto& bi = m_Impl->BI();
         for (const JPH::CollideShapeResult& hit : collector.mHits)
         {
+            if (!includeSensors && IsSensorPart(m_Impl->Parts, hit.mBodyID2, hit.mSubShapeID2))
+                continue;
             if (!seenBodies.insert(hit.mBodyID2.GetIndexAndSequenceNumber()).second)
                 continue;
             const uint64_t entity = bi.GetUserData(hit.mBodyID2);
@@ -1225,7 +1817,8 @@ namespace Zamin {
         return out;
     }
 
-    static std::vector<RaycastHit> CastShapeQuery(const JPH::PhysicsSystem& system, const PhysicsQueryShape3D& shape, const glm::vec3& origin,
+    static std::vector<RaycastHit> CastShapeQuery(const JPH::PhysicsSystem& system, const BodyPartTable& parts, const PhysicsQueryShape3D& shape,
+                                                  const glm::vec3& origin,
                                                   const glm::quat& rotation, const glm::vec3& direction, float maxDistance, uint16_t layerMask,
                                                   bool includeSensors, bool all)
     {
@@ -1242,7 +1835,7 @@ namespace Zamin {
         // deepest point of a body it starts in gives the depth that tells "inside" from "touching".
         JPH::ShapeCastSettings settings;
         settings.mReturnDeepestPoint = true;
-        ShapeCastHits collector(all, dir);
+        ShapeCastHits collector(all, dir, includeSensors ? nullptr : &parts);
         const QueryLayerFilter layers(layerMask);
         const QueryBodyFilter bodies(includeSensors);
         system.GetNarrowPhaseQuery().CastShape(cast, settings, JPH::RVec3::sZero(), collector, {}, layers, bodies);
@@ -1274,7 +1867,7 @@ namespace Zamin {
     RaycastHit PhysicsWorld3D::CastShape(const PhysicsQueryShape3D& shape, const glm::vec3& origin, const glm::quat& rotation,
                                          const glm::vec3& direction, float maxDistance, uint16_t layerMask, bool includeSensors) const
     {
-        std::vector<RaycastHit> hits = CastShapeQuery(*m_Impl->System, shape, origin, rotation, direction, maxDistance, layerMask, includeSensors, false);
+        std::vector<RaycastHit> hits = CastShapeQuery(*m_Impl->System, m_Impl->Parts, shape, origin, rotation, direction, maxDistance, layerMask, includeSensors, false);
         return hits.empty() ? RaycastHit() : hits[0];
     }
 
@@ -1282,7 +1875,7 @@ namespace Zamin {
                                                          const glm::vec3& direction, float maxDistance, uint16_t layerMask,
                                                          bool includeSensors) const
     {
-        return CastShapeQuery(*m_Impl->System, shape, origin, rotation, direction, maxDistance, layerMask, includeSensors, true);
+        return CastShapeQuery(*m_Impl->System, m_Impl->Parts, shape, origin, rotation, direction, maxDistance, layerMask, includeSensors, true);
     }
 
     // ------------------------------------------------------------------ joints

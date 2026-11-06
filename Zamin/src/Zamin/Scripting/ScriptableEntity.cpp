@@ -241,6 +241,23 @@ namespace Zamin {
 
     static b2Body* BodyOf(const Entity& e);
 
+    bool ScriptableEntity::IsSleeping3D() const { return m_Entity.GetScene()->IsSleeping3D(m_Entity); }
+    void ScriptableEntity::WakeUp3D() { m_Entity.GetScene()->SetAwake3D(m_Entity, true); }
+    void ScriptableEntity::PutToSleep3D() { m_Entity.GetScene()->SetAwake3D(m_Entity, false); }
+    bool ScriptableEntity::IsSleeping3D(Entity other) const { return other && m_Entity.GetScene()->IsSleeping3D(other); }
+
+    void ScriptableEntity::WakeUp3D(Entity other)
+    {
+        if (other)
+            m_Entity.GetScene()->SetAwake3D(other, true);
+    }
+
+    void ScriptableEntity::PutToSleep3D(Entity other)
+    {
+        if (other)
+            m_Entity.GetScene()->SetAwake3D(other, false);
+    }
+
     void ScriptableEntity::SetVelocity3D(Entity other, const glm::vec3& v)
     {
         auto* w = m_Entity.GetScene()->GetPhysicsWorld3D();

@@ -119,6 +119,19 @@ namespace Zamin {
             void Sanitize();
             bool operator==(const Physics2DSettings&) const = default;
         } Physics2D;
+
+        // 3D physics (Jolt).
+        struct Physics3DSettings
+        {
+            // Sleeping: a body that keeps still for TimeToSleep seconds together with everything
+            // touching it / joined to it is not simulated until something wakes it (Jolt's own time is
+            // 0.5 s). Off: every body is simulated all the time (Rigidbody 3D's Sleeping mode decides
+            // for one body).
+            bool AllowSleep = true;
+            float TimeToSleep = 0.5f;
+            void Sanitize();
+            bool operator==(const Physics3DSettings&) const = default;
+        } Physics3D;
     };
 
     // Tilemaps are drawn (and frustum culled) in square chunks of this many tiles per side.
@@ -471,6 +484,14 @@ namespace Zamin {
         // Box2D steps the last frame took (fixed steps x sub-steps).
         int GetPhysics2DStepsLastFrame() const { return m_Physics2DStepsLastFrame; }
         PhysicsWorld3D* GetPhysicsWorld3D() { return m_PhysicsWorld3D.get(); }
+        // ---- 3D sleeping (Rigidbody3DComponent::Sleeping, SceneSettings::Physics3D)
+        // The entity's running 3D body is dynamic / kinematic and sleeps now.
+        bool IsSleeping3D(Entity entity);
+        // Wakes the entity's 3D body / puts it to sleep (its velocities stop; it wakes again when
+        // something touches it). False without a running dynamic / kinematic body.
+        bool SetAwake3D(Entity entity, bool awake);
+        // The running 3D world's bodies, sleeping ones, joints, characters, contacts (zeros without one).
+        PhysicsStats3D GetPhysics3DStats() const;
 
         // ---- viewport input (set by the host each frame; pixels, origin top-left of the game view)
         void SetViewportMouse(const glm::vec2& position, bool leftButtonDown) { m_MousePosition = position; m_MouseDown = leftButtonDown; }

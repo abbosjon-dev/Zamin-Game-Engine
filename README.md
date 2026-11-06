@@ -576,6 +576,29 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     `"UITextSubmitted"`, `"UITextEndEdit"` (std::string), jo'natuvchi — vidjet obyekti. Nofaol / "Faol" belgisi o'chiq
     vidjet bosilmaydi. Matn kiritish uchun `Input::GetTextInput()` (yozilgan belgilar va avto-takrorli tugmalar) va
     `Input::GetClipboardText()` / `SetClipboardText()`. Namuna: Platformer2D `Scenes/UIWidgets.zscene` (`UIWidgetsDemo`)
+  - **UI Mask** — obyektning butun UI ierarxiyasi faqat uning to'rtburchagi ichida chiziladi va sichqoncha ham faqat
+    shu yerda topadi (chekka ichkariga / tashqariga suriladi); maska ichidagi maska ikkalasi kesishgan joyni ko'rsatadi;
+    "O'z rasmini ko'rsatish" o'chiq bo'lsa faqat kesadi. To'liq yashiringan vidjetga navigatsiya o'tmaydi.
+    `GetScene().GetUIClipRect(e, rect)` (ekran pikselida, scissor bilan)
+  - **UI Scroll View** — kontent (masalan balandligi qatorlariga moslashuvchi ro'yxat) ko'rinish ichida suriladi:
+    sichqoncha **g'ildiragi**, **sudrash** (tugma ustidan boshlansa ham — u holda tugma bosilmaydi), **scrollbar'lar**
+    (o'zi chizadi: tutqichni sudrash, yo'lakni bosish; doim / kerak bo'lganda / yo'q), **inersiya** (sudrab qo'yib
+    yuborilganda sekinlashib davom etadi), **elastik** chekka (tortilganda qarshilik qiladi va qaytadi) yoki chetda
+    to'xtash; gorizontal / vertikal; viewport (bo'sh — o'zi, scrollbar'lar joyisiz; bolalari shu joyga joylashadi).
+    Klaviatura / gamepad bilan tanlangan vidjet ko'rinadigan joyga **o'zi aylanadi**. `OnScrollChanged(pos)` (x 0 chap ..
+    1 o'ng, y 1 tepa .. 0 past), `"UIScrollChanged"`; `GetScene().SetScrollPosition` / `ScrollBy` / `ScrollIntoView` /
+    `GetScrollPosition`. Obyekt > UI (ekran) > Scroll view (ro'yxat bilan)
+  - **Pauza menyusi** namunasi (Platformer2D 1-3 darajalar, `PauseMenu` skripti): Esc / gamepad Start — o'yin to'xtaydi
+    va menyu ochiladi (Davom etish / Sozlamalar / Chiqish), musiqa bo'g'iqlashadi; Sozlamalar — scroll view ichida ovoz
+    guruhlari (Master, Music, SFX, UI) slayderlari mikserga ulangan, **to'liq ekran** va **VSync** switch'lari, "Standart";
+    hammasi SaveData'da saqlanadi va keyingi safar qaytadi. Strelkalar / D-pad tanlaydi, Enter / A bosadi, Esc / B orqaga
+- **O'yin vaqti**: `SetTimeScale(0.5f)` — sekin harakat (OnUpdate vaqti, taymerlar, fizika, animatsiyalar shunga
+  ergashadi), `PauseGame()` / `ResumeGame()` / `IsGamePaused()` — vaqt 0: o'yindan hech narsa qimirlamaydi, faqat
+  `SetUpdateWhenPaused(true)` qilgan skriptlar (pauza menyusi) `OnUpdate` oladi; UI (vidjetlar, UI tween'lari,
+  navigatsiya) doim haqiqiy vaqtda ishlaydi. `GetUnscaledDeltaTime()`, `QuitGame()` (player yopiladi, editorda Play
+  to'xtaydi). **Display**: `Display::SetFullscreen` / `SetVSync` (player oynasiga qo'llanadi, editorda faqat eslab
+  qoladi), `Display::SaveSettings()` / `LoadSettings()` (SaveData; player boshlanishda yuklaydi, `--fullscreen` /
+  `--no-vsync` ustun). Player avtomatlashtirish: `ZAMIN_PLAYER_INPUT` da `down` / `up` (sudrash) va `scroll=dy`
 - **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash
 - Skriptlardan **sahna almashtirish** (`LoadScene`), prefab'larni `Instantiate` qilish
 - **Audio** (miniaudio): wav/mp3/flac/ogg
@@ -727,6 +750,7 @@ ZM_REGISTER_SCRIPT(Player,
 | `OnValueChanged(value)` | Shu obyektdagi UI Slider o'yinchi tomonidan surilganda (yangi qiymat) |
 | `OnToggleChanged(isOn)` | Shu obyektdagi UI Toggle bosilganda (yoki guruhdagi boshqasi yoqilib, bu o'chganda) |
 | `OnTextChanged(text)` / `OnTextSubmit(text)` / `OnTextEndEdit(text)` | Shu obyektdagi UI Input Field: matn o'zgardi / Enter bosildi / tahrir tugadi (Enter, Escape, boshqa joy bosildi) |
+| `OnScrollChanged(pos)` | Shu obyektdagi UI Scroll View kontenti surildi (g'ildirak, sudrash, scrollbar, inersiya, navigatsiya, kod); `pos` - x 0..1 chapdan, y 1..0 tepadan |
 | `OnMessage(msg)` | Shu obyektga xabar kelganda (`SendMessage`, `Broadcast` ...) |
 
 Tartib: `OnCreate → OnEnable → OnStart → (OnUpdate → OnLateUpdate)… → OnDisable → OnDestroy`. O'chirilgan skript (inspektorda **Faol** belgisi yoki `SetEnabled(false)`) `OnUpdate`/`OnLateUpdate` olmaydi va taymer/tween'lari to'xtab turadi; yoqilganda davom etadi (`OnStart` qayta chaqirilmaydi). To'qnashuv, trigger, xabar va `OnClick` o'chirilgan skriptga ham keladi — u o'zini javoban yoqishi mumkin. To'qnashuv/trigger har bir obyekt jufti uchun bir marta keladi (bir nechta collider yoki tilemap katakchalari bo'lsa ham); obyekt ichida turgan paytda o'chirilsa, qolgan tomon `OnTriggerEnd`/`OnCollisionEnd` oladi.

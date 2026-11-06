@@ -23436,6 +23436,7 @@ public:
     void OnCancel() override { g_UIPointer.push_back(std::format("{}:cancel", GetName())); }
     void OnToggleChanged(bool isOn) override { g_UIPointer.push_back(std::format("{}:toggle={}", GetName(), isOn ? 1 : 0)); }
     void OnValueChanged(float value) override { g_UIPointer.push_back(std::format("{}:slider={}", GetName(), value)); }
+    void OnScrollChanged(const glm::vec2& p) override { g_UIPointer.push_back(std::format("{}:scroll={:.2f}", GetName(), p.y)); }
     void OnMessage(const ScriptMessage& m) override { g_UIPointer.push_back(std::format("{}:msg={}", GetName(), m.Name)); }
 
     glm::vec2 LastPosition{ -1.0f };
@@ -25165,4 +25166,101 @@ TEST(PauseMenuSampleScene)
     CHECK(scene->IsQuitRequested() && !scene->IsGamePaused() && !overlay.IsActive());
     scene->OnRuntimeStop();
     Log::SetMinLevel(LogLevel::Error);
+}
+
+// The order the scripts hear of a frame's UI events in, with a toggle inside a scroll view: a click,
+// then a drag that starts on it (no click, the scroll view's position changes), then the wheel.
+TEST(UIEventOrderInScrollViews)
+{
+    ScrollFixture f = MakeScrollFixture();
+    auto& scene = f.SceneRef;
+    f.View.AddComponent<NativeScriptComponent>().ClassName = "UIPointerProbe";
+    f.View.GetComponent<UIScrollViewComponent>().Inertia = false;
+    Entity row = f.Rows[1]; // y 320..360
+    row.RemoveComponent<UIButtonComponent>();
+    row.AddComponent<UIToggleComponent>();
+    row.AddComponent<NativeScriptComponent>().ClassName = "UIPointerProbe";
+    scene->OnRuntimeStart();
+    auto frame = [&](float yUp, bool down, float wheel = 0.0f) {
+        scene->SetViewportMouse({ 400.0f, 600.0f - yUp }, down);
+        scene->SetViewportScroll({ 0.0f, wheel });
+        scene->OnUpdateRuntime(0.016f);
+    };
+    g_UIPointer.clear();
+    frame(340.0f, false); // onto the row: the scroll view (its UI parent's parent) is entered first
+    CHECK(JoinEvents(g_UIPointer) == "Scroll:enter(Row1) Row1:enter(Row1)");
+    frame(340.0f, true);
+    CHECK(JoinEvents(g_UIPointer) == "Row1:down Row1:select");
+    frame(340.0f, false);
+    CHECK(JoinEvents(g_UIPointer) == "Row1:up(in) Row1:pclick Row1:toggle=1");
+    // A drag that starts on it: let go without a click, the content moves (each frame it moves).
+    frame(340.0f, true);
+    frame(370.0f, true);
+    // (the mouse left the row as it was before the move, and is over it again in the next frame)
+    CHECK(JoinEvents(g_UIPointer) == "Row1:down Row1:exit(Row1) Row1:up(out) Scroll:scroll=0.85");
+    CHECK(row.GetComponent<UIToggleComponent>().IsOn);
+    frame(370.0f, false);
+    CHECK(JoinEvents(g_UIPointer) == "Row1:enter(Row1)"); // no click: the row was let go when the drag began
+    // The wheel scrolls the scroll view under the mouse.
+    frame(370.0f, false, 1.0f);
+    CHECK(JoinEvents(g_UIPointer) == "Scroll:scroll=1.00");
+    scene->OnRuntimeStop();
+}
+
+// A horizontal list in a scaled canvas: the wheel's up / down scrolls it sideways, a drag in view
+// pixels moves it in UI units, the mask clips in view pixels.
+TEST(UIScrollViewHorizontalInACanvas)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    Entity canvas = scene->CreateEntity("Canvas");
+    canvas.AddComponent<UITransformComponent>().SetStretch();
+    canvas.AddComponent<UICanvasComponent>().ReferenceResolution = { 1600.0f, 1200.0f }; // 0.5 px per unit
+    Entity view = MakeUIRect(scene, "Strip", UITransformComponent::AnchorPoint::Center, { 0.0f, 0.0f }, { 800.0f, 200.0f }); // units 400..1200
+    view.AddComponent<UIMaskComponent>();
+    auto& s = view.AddComponent<UIScrollViewComponent>();
+    s.Horizontal = true;
+    s.Vertical = false;
+    s.Inertia = false;
+    s.Scrollbars = UIScrollbarVisibility::Hidden;
+    scene->SetParent(view, canvas, false);
+    Entity content = scene->CreateEntity("Cards");
+    auto& ct = content.AddComponent<UITransformComponent>();
+    ct.AnchorMin = { 0.0f, 0.0f };
+    ct.AnchorMax = { 0.0f, 1.0f };
+    ct.Pivot = { 0.0f, 0.5f };
+    ct.Position = { 0.0f, 0.0f };
+    ct.Size = { 2400.0f, 0.0f }; // three views wide
+    scene->SetParent(content, view, false);
+    s.Content.ID = content.GetUUID();
+    Entity card = MakeUIRect(scene, "Card", UITransformComponent::AnchorPoint::Left, { 1100.0f, 0.0f }, { 100.0f, 100.0f });
+    card.AddComponent<UIButtonComponent>();
+    scene->SetParent(card, content, false);
+
+    UIRect clip;
+    CHECK(scene->GetUIClipRect(card, clip) && RectNear(clip, { { 200.0f, 250.0f }, { 600.0f, 350.0f } })); // view px
+    CHECK(scene->GetScrollPosition(view) == glm::vec2(0.0f, 1.0f));
+    scene->OnRuntimeStart();
+    auto frame = [&](float x, bool down, float wheel = 0.0f) {
+        scene->SetViewportMouse({ x, 300.0f }, down);
+        scene->SetViewportScroll({ 0.0f, wheel });
+        scene->OnUpdateRuntime(0.016f);
+    };
+    frame(400.0f, false, -2.0f); // two notches towards the user: 80 units to the right end
+    CHECK_NEAR(scene->GetUIRect(content).Min.x, 400.0f - 80.0f, 1e-3f);
+    // A drag of 100 px to the left: 200 units.
+    frame(400.0f, true);
+    frame(350.0f, true);
+    frame(300.0f, true);
+    frame(300.0f, false);
+    CHECK_NEAR(scene->GetUIRect(content).Min.x, 400.0f - 280.0f, 1e-3f);
+    CHECK_NEAR(scene->GetScrollPosition(view).x, 280.0f / 1600.0f, 1e-4f);
+    // The card is at 1170..1270 units now: only its left part is in the view (up to 1200 units = 600 px).
+    CHECK(RectNear(scene->GetUIRect(card), { { 1170.0f, 550.0f }, { 1270.0f, 650.0f } }));
+    CHECK(scene->PickUI({ 592.0f, 300.0f }) == card); // 1184 units: shown
+    CHECK(!scene->PickUI({ 610.0f, 300.0f }));        // 1220 units: clipped
+    // Scrolled into view at once from code: its right edge (with the margin) at the view's.
+    CHECK(scene->ScrollIntoView(card, false));
+    CHECK_NEAR(scene->GetUIRect(card).Max.x, 1200.0f - 8.0f, 1e-3f);
+    scene->OnRuntimeStop();
 }

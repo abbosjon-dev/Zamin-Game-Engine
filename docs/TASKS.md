@@ -273,10 +273,10 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 234. Matn o'rash (word wrap) kenglik bo'yicha
 - [x] 235. UI editorda tanlash va ko'chirish (2D gizmo)
 - [x] 236. UI ierarxiyasi (ota UITransform'ga nisbatan)
-- [ ] 237. UI mask/clip (scroll view)
-- [ ] 238. Scroll view
-- [ ] 239. Dialog/menyu namunasi (pause menu)
-- [ ] 240. UI testlari
+- [x] 237. UI mask/clip (scroll view)
+- [x] 238. Scroll view
+- [x] 239. Dialog/menyu namunasi (pause menu)
+- [x] 240. UI testlari
 
 ## M13 Animatsiya II
 

@@ -2180,14 +2180,14 @@ namespace Zamin {
                     const float maxLength = d.AutoConfigureDistance && !d.RuntimeJoint ? now : d.MaxDistance;
                     const float minLength = d.MaxDistanceOnly ? 0.0f : (d.AutoConfigureDistance && !d.RuntimeJoint ? now : d.MinDistance);
                     // The rod / rope from the connected anchor as long as the joint lets it be; the
-                    // shortest length is marked with a ring.
+                    // shortest length is marked with a ring. The rings lie at right angles to the rod
+                    // (their frame from the rod itself: the joint's axis may lie along it).
                     Renderer2D::DrawLine(connected, connected + dir * maxLength, color);
+                    const glm::vec3 rodHelper = std::abs(dir.y) < 0.9f ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+                    const glm::vec3 ringU = glm::normalize(glm::cross(dir, rodHelper)), ringV = glm::cross(dir, ringU);
                     if (minLength > 1e-3f && minLength < maxLength - 1e-3f)
-                        DrawWireCircle(connected + dir * minLength, glm::normalize(glm::cross(dir, helper)),
-                                       glm::normalize(glm::cross(dir, glm::normalize(glm::cross(dir, helper)))), size * 1.2f, limitColor);
-                    DrawWireCircle(connected + dir * maxLength, glm::normalize(glm::cross(dir, helper)),
-                                   glm::normalize(glm::cross(dir, glm::normalize(glm::cross(dir, helper)))), size * 1.5f,
-                                   d.MaxDistanceOnly ? faint : color);
+                        DrawWireCircle(connected + dir * minLength, ringU, ringV, size * 1.2f, limitColor);
+                    DrawWireCircle(connected + dir * maxLength, ringU, ringV, size * 1.5f, d.MaxDistanceOnly ? faint : color);
                     break;
                 }
             }

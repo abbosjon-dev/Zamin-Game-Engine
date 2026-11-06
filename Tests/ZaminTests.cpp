@@ -17391,6 +17391,101 @@ TEST(HingeJoint3DSlowSpringDoesNotSleepShort)
     scene->OnRuntimeStop();
 }
 
+TEST(Joint3DStartAsleepBodiesStayAsleep)
+{
+    // Jointed bodies that start asleep (a drawbridge, a chain, a door on a spring) wait like any other:
+    // making their joints at the start (or with a spawned copy) does not wake them. A joint pulls one
+    // once the body at its other end moves, and a joint made later (by a script) wakes a sleeping body.
+    using BT = Rigidbody3DComponent::BodyType;
+    using Mode = Rigidbody3DComponent::SleepMode;
+    auto scene = CreateRef<Scene>();
+    // A drawbridge hinged to the world at its left edge: gravity would swing it down.
+    Entity bridge = MakeBody3D(scene, "Bridge", { 0.0f, 5.0f, 0.0f }, BT::Dynamic, { 1.0f, 0.05f, 0.5f });
+    bridge.GetComponent<Rigidbody3DComponent>().Sleeping = Mode::StartAsleep;
+    auto& bridgeHinge = bridge.AddComponent<HingeJoint3DComponent>();
+    bridgeHinge.Anchor = { -1.0f, 0.0f, 0.0f };
+    bridgeHinge.Axis = { 0.0f, 0.0f, 1.0f };
+    // A chain of three links held out sideways from a world point, each hinged to the one before.
+    std::vector<Entity> chain;
+    for (int i = 0; i < 3; i++)
+    {
+        Entity link = MakeBody3D(scene, "Link", { 5.0f + 0.5f * (float)i, 5.0f, 0.0f }, BT::Dynamic, glm::vec3(0.2f));
+        link.GetComponent<Rigidbody3DComponent>().Sleeping = Mode::StartAsleep;
+        auto& h = link.AddComponent<HingeJoint3DComponent>();
+        h.Anchor = { -0.25f, 0.0f, 0.0f };
+        h.Axis = { 0.0f, 0.0f, 1.0f };
+        if (i > 0)
+            h.ConnectedBody.ID = chain.back().GetUUID();
+        chain.push_back(link);
+    }
+    // A door its spring would turn to 60 degrees (no gravity).
+    Entity door = MakeBody3D(scene, "Door", { 10.0f, 5.0f, 0.0f }, BT::Dynamic, { 0.5f, 1.0f, 0.05f });
+    door.GetComponent<Rigidbody3DComponent>().Sleeping = Mode::StartAsleep;
+    door.GetComponent<Rigidbody3DComponent>().GravityFactor = 0.0f;
+    auto& spring = door.AddComponent<HingeJoint3DComponent>();
+    spring.Anchor = { -0.5f, 0.0f, 0.0f };
+    spring.EnableSpring = true;
+    spring.SpringTargetAngle = 60.0f;
+    spring.SpringDamping = 1.0f;
+    // An asleep box welded to an awake one that falls: the joint pulls it along.
+    Entity puller = MakeBody3D(scene, "Puller", { 15.0f, 5.0f, 0.0f }, BT::Dynamic);
+    Entity pulled = MakeBody3D(scene, "Pulled", { 15.6f, 5.0f, 0.0f }, BT::Dynamic);
+    pulled.GetComponent<Rigidbody3DComponent>().Sleeping = Mode::StartAsleep;
+    pulled.AddComponent<FixedJoint3DComponent>().ConnectedBody.ID = puller.GetUUID();
+    // An asleep wheel that gets a motor hinge from a script later (no gravity).
+    Entity wheel = MakeBody3D(scene, "Wheel", { 20.0f, 5.0f, 0.0f }, BT::Dynamic);
+    wheel.GetComponent<Rigidbody3DComponent>().Sleeping = Mode::StartAsleep;
+    wheel.GetComponent<Rigidbody3DComponent>().GravityFactor = 0.0f;
+
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    CHECK(world && world->GetJointCount() == 6);
+    auto allAsleep = [&]() {
+        bool asleep = scene->IsSleeping3D(bridge) && scene->IsSleeping3D(door) && scene->IsSleeping3D(wheel);
+        for (Entity link : chain)
+            asleep &= scene->IsSleeping3D(link);
+        return asleep;
+    };
+    CHECK(allAsleep());
+    CHECK(!scene->IsSleeping3D(puller));
+    RunFrames(scene, 30);
+    CHECK(allAsleep());
+    CHECK_NEAR(Pos3D(bridge).y, 5.0f, 1e-6f);
+    CHECK_NEAR(Pos3D(chain[2]).y, 5.0f, 1e-6f);
+    CHECK_NEAR(door.GetComponent<HingeJoint3DComponent>().JointAngle, 0.0f, 1e-3f); // its spring waits too
+    CHECK(!scene->IsSleeping3D(pulled) && Pos3D(pulled).y < 4.5f);                  // pulled down with it
+    CHECK_NEAR(glm::length(Pos3D(pulled) - Pos3D(puller)), 0.6f, 0.02f);
+
+    // A spawned copy of the drawbridge waits as well (its joint is made at once).
+    Entity copy = scene->Instantiate(bridge, { 0.0f, 10.0f, 0.0f });
+    CHECK(copy.GetComponent<HingeJoint3DComponent>().RuntimeJoint != 0 && world->GetJointCount() == 7);
+    CHECK(scene->IsSleeping3D(copy));
+    RunFrames(scene, 10);
+    CHECK(scene->IsSleeping3D(copy));
+    CHECK_NEAR(Pos3D(copy).y, 10.0f, 1e-5f);
+
+    // The last link woken: it pulls the others down, link by link (the bridge keeps waiting).
+    CHECK(scene->SetAwake3D(chain[2], true));
+    // A motor hinge added while the game runs wakes the sleeping wheel.
+    auto& motor = wheel.AddComponent<HingeJoint3DComponent>();
+    motor.EnableMotor = true;
+    motor.MotorSpeed = 90.0f;
+    motor.MaxMotorTorque = 100.0f;
+    RunFrames(scene, 40);
+    for (Entity link : chain)
+        CHECK(!scene->IsSleeping3D(link));
+    CHECK(Pos3D(chain[0]).y < 4.95f && Pos3D(chain[2]).y < 4.5f);
+    CHECK(!scene->IsSleeping3D(wheel));
+    CHECK_NEAR(wheel.GetComponent<HingeJoint3DComponent>().JointSpeed, 90.0f, 3.0f);
+    CHECK(scene->IsSleeping3D(bridge) && scene->IsSleeping3D(door));
+    CHECK_NEAR(Pos3D(bridge).y, 5.0f, 1e-5f);
+    // A new spring angle wakes the door, and it turns there.
+    door.GetComponent<HingeJoint3DComponent>().SpringTargetAngle = 45.0f;
+    RunFrames(scene, 120);
+    CHECK_NEAR(door.GetComponent<HingeJoint3DComponent>().JointAngle, 45.0f, 3.0f);
+    scene->OnRuntimeStop();
+}
+
 TEST(DistanceJoint3DRodRopeAndSpring)
 {
     auto scene = CreateRef<Scene>();

@@ -731,6 +731,11 @@ namespace Zamin {
         BodyPartTable Parts;
         bool PartsChanged = false; // the listener's counts / Jolt's restitution threshold need a look
         uint64_t Steps = 0;
+        // Bodies made asleep (StartAsleep) that have not been awake yet, with the step count when they
+        // were made. Joints made for them before the next step (at the start, with a spawned copy) do
+        // not wake them - a chain or a drawbridge waits like any other - and the hinge spring wake
+        // below leaves them alone. Once awake (hit, pulled, woken) they are ordinary bodies.
+        std::unordered_map<uint32_t, uint64_t> StartedAsleep;
 
         struct CharacterSlot
         {
@@ -817,10 +822,19 @@ namespace Zamin {
                 pairs.erase(it);
         }
 
-        void WakeJointBodies(const JointSlot& joint)
+        // Made asleep since the last step: still waiting to be hit (or pulled by an awake body).
+        bool IsJustMadeAsleep(JPH::BodyID id) const
+        {
+            auto it = StartedAsleep.find(id.GetIndexAndSequenceNumber());
+            return it != StartedAsleep.end() && it->second == Steps;
+        }
+
+        // newJoint: a joint just made - the bodies made asleep since the last step stay asleep (Jolt
+        // wakes them itself when the body at the other end is awake: the joint pulls them).
+        void WakeJointBodies(const JointSlot& joint, bool newJoint = false)
         {
             for (JPH::BodyID id : { joint.Body1, joint.Body2 })
-                if (!id.IsInvalid() && BI().GetMotionType(id) != JPH::EMotionType::Static)
+                if (!id.IsInvalid() && BI().GetMotionType(id) != JPH::EMotionType::Static && !(newJoint && IsJustMadeAsleep(id)))
                     BI().ActivateBody(id);
         }
 
@@ -1086,6 +1100,8 @@ namespace Zamin {
         body->SetCollisionGroup(JPH::CollisionGroup(m_Impl->JointFilter, id.GetIndexAndSequenceNumber(), 0));
         const bool awake = motion != JPH::EMotionType::Static && !desc.StartAsleep;
         bi.AddBody(id, awake ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+        if (motion != JPH::EMotionType::Static && desc.StartAsleep)
+            m_Impl->StartedAsleep[id.GetIndexAndSequenceNumber()] = m_Impl->Steps;
         m_Impl->Bodies.push_back(id);
         BodyParts& info = m_Impl->Parts[id.GetIndexAndSequenceNumber()];
         info = {};
@@ -1138,6 +1154,7 @@ namespace Zamin {
         bi.DestroyBody(id);
         m_Impl->Bodies.erase(it);
         m_Impl->Parts.erase(bodyID);
+        m_Impl->StartedAsleep.erase(bodyID);
         m_Impl->PartsChanged = true;
         bi.ActivateBodiesInAABox(around, {}, {});
         std::lock_guard lock(m_Impl->Contacts.Mutex);
@@ -1173,6 +1190,8 @@ namespace Zamin {
         m_Impl->System->Update(dt, 1, m_Impl->TempAllocator.get(), m_Impl->JobSystem.get());
         m_Impl->Steps++;
         m_Impl->Contacts.SettleContacts(m_Impl->System->GetBodyInterfaceNoLock());
+        // The ones that started asleep and were woken this step (hit, pulled) are ordinary bodies now.
+        std::erase_if(m_Impl->StartedAsleep, [&](const auto& entry) { return m_Impl->BI().IsActive(ToBodyID(entry.first)); });
         // Jolt puts a body to sleep when it hardly moved for half a second - also at the turning point
         // of a slow swing: a door on a hinge spring would stop short of its angle. Such a body is woken
         // while the spring has not got it there (at an angle where nothing holds it against the spring).
@@ -1181,8 +1200,9 @@ namespace Zamin {
             const PhysicsJoint3DDesc& d = joint.Desc;
             if (joint.Type != Joint3DType::Hinge || d.EnableMotor || !d.EnableSpring || d.Frequency <= 0.0f)
                 continue;
-            if (m_Impl->BI().IsActive(joint.Body2) || m_Impl->BI().GetMotionType(joint.Body2) != JPH::EMotionType::Dynamic)
-                continue;
+            if (m_Impl->BI().IsActive(joint.Body2) || m_Impl->BI().GetMotionType(joint.Body2) != JPH::EMotionType::Dynamic ||
+                m_Impl->StartedAsleep.contains(joint.Body2.GetIndexAndSequenceNumber()))
+                continue; // awake, not swung by it, or waiting asleep since it was made
             const auto& hinge = static_cast<const JPH::HingeConstraint&>(*joint.Constraint);
             float off = hinge.GetCurrentAngle() - hinge.GetTargetAngle();
             off = std::remainder(off, 2.0f * JPH::JPH_PI);
@@ -2168,7 +2188,7 @@ namespace Zamin {
         joint.NoCollision = !d.CollideConnected && !id1.IsInvalid();
         if (joint.NoCollision)
             m_Impl->SetPairCollision(joint, true);
-        m_Impl->WakeJointBodies(joint);
+        m_Impl->WakeJointBodies(joint, true);
         const uint32_t handle = m_Impl->NextJoint++;
         m_Impl->Joints.emplace(handle, std::move(joint));
         return handle;

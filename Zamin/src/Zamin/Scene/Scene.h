@@ -243,6 +243,16 @@ namespace Zamin {
         static void RemapEntityReferences(const std::vector<Entity>& entities, const std::unordered_map<uint64_t, uint64_t>& oldToNew);
 
         void OnRuntimeStart();
+        // How long the last OnRuntimeStart took in its heavy parts (the scene load profiler's
+        // Physics / Scripts stages): making the 2D and 3D physics worlds with their bodies, and the
+        // scripts' OnCreate / OnEnable.
+        struct RuntimeStartTiming
+        {
+            double PhysicsMilliseconds = 0.0;
+            double ScriptsMilliseconds = 0.0;
+            double TotalMilliseconds = 0.0;
+        };
+        const RuntimeStartTiming& GetRuntimeStartTiming() const { return m_RuntimeStartTiming; }
         // Stops the scripts, physics and the scene's sounds; the music (AudioEngine::PlayMusic)
         // goes on, it belongs to the game (the editor stops it when play mode ends).
         void OnRuntimeStop();
@@ -1446,6 +1456,7 @@ namespace Zamin {
     private:
         entt::registry m_Registry;
         uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
+        RuntimeStartTiming m_RuntimeStartTiming;
         bool m_IsRunning = false;
         bool m_IsSimulating = false;
         bool m_IsPaused = false;

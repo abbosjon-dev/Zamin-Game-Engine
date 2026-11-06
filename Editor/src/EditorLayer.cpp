@@ -3993,15 +3993,29 @@ namespace Zamin {
             return false;
         }
 
+        const auto loadClock = std::chrono::steady_clock::now();
         Ref<Scene> newScene = CreateRef<Scene>();
         SceneSerializer serializer(newScene);
+        SceneLoadTiming timing;
+        timing.How = SceneLoadTiming::Source::Editor;
+        timing.Path = Project::GetActive() ? Project::GetAssetRelativePath(path) : path.generic_string();
         if (!serializer.Deserialize(path))
         {
+            timing.Add(serializer.GetTiming());
+            timing.Failed = true;
+            timing.WallMilliseconds = ElapsedMilliseconds(loadClock);
+            SceneLoadProfiler::Record(timing);
             // The scene that was open stays; what went wrong is shown over the viewport.
             ShowSceneLoadReport(serializer.GetLoadReport());
             return false;
         }
+        timing.Add(serializer.GetTiming());
+        const auto assetsClock = std::chrono::steady_clock::now();
         newScene->ResolveAssets();
+        timing[SceneLoadTiming::Stage::Assets] = ElapsedMilliseconds(assetsClock);
+        timing.SceneName = newScene->GetName();
+        timing.WallMilliseconds = ElapsedMilliseconds(loadClock);
+        SceneLoadProfiler::Record(timing);
         if (serializer.GetLoadReport().HasIssues())
             ShowSceneLoadReport(serializer.GetLoadReport());
         else if (m_LoadReportBanner && m_LoadReport.File == serializer.GetLoadReport().File)
@@ -4246,8 +4260,15 @@ namespace Zamin {
         m_PlayStart.Camera = m_EditorCamera.GetViewState();
         m_PlayStart.Mode2D = m_2DMode;
         m_PlayStart.SceneName = m_EditorScene->GetName();
+        // The game's first scene is a copy of the edit scene: its making counts as the entities'
+        // stage of the load (the scene manager adds the physics, the scripts and the audio).
+        const auto playClock = std::chrono::steady_clock::now();
+        SceneLoadTiming playTiming;
         Ref<Scene> runtime = Scene::Copy(m_EditorScene);
+        playTiming[SceneLoadTiming::Stage::Deserialize] = ElapsedMilliseconds(playClock);
+        const auto assetsClock = std::chrono::steady_clock::now();
         runtime->ResolveAssets();
+        playTiming[SceneLoadTiming::Stage::Assets] = ElapsedMilliseconds(assetsClock);
         m_PlayStart.RuntimeStart = runtime;
         SetActiveScene(runtime);
         ApplyDebugDrawSettings(); // before the scripts' OnCreate: they may change them
@@ -4266,7 +4287,9 @@ namespace Zamin {
         // as in the player.
         m_RuntimeScenes = std::make_unique<SceneManager>();
         m_RuntimeScenes->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
-        m_RuntimeScenes->Start(m_ActiveScene, m_EditorScenePath.empty() ? fs::path() : fs::path(Project::GetAssetRelativePath(m_EditorScenePath)));
+        playTiming.WallMilliseconds = ElapsedMilliseconds(playClock);
+        m_RuntimeScenes->Start(m_ActiveScene, m_EditorScenePath.empty() ? fs::path() : fs::path(Project::GetAssetRelativePath(m_EditorScenePath)),
+                               &playTiming);
         m_RuntimeActiveSerial = m_RuntimeScenes->GetActiveSceneSerial();
         m_RuntimeReportSerial = m_RuntimeScenes->GetLoadReportSerial();
         m_SceneHierarchyPanel.SetSceneManager(m_RuntimeScenes.get());
@@ -9095,6 +9118,17 @@ namespace Zamin {
                         ImGui::TableSetColumnIndex(1);
                         ImGui::Text("%.2f ms", std::max(0.0f, self));
                     }
+                    // The newest scene load (what a switch cost): its time and slowest stage.
+                    if (SceneLoadTiming load; SceneLoadProfiler::GetLast(load))
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextDisabled(ICON_FA_HOURGLASS_HALF " %s", load.SceneName.empty() ? load.Path.c_str() : load.SceneName.c_str());
+                        if (ImGui::IsItemHovered())
+                            UI::Tooltip(std::format("Oxirgi sahna yuklash:\n{}", load.Format()).c_str());
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::TextDisabled("%.1f ms", load.MainThreadMilliseconds());
+                    }
                     ImGui::EndTable();
                 }
             }
@@ -9941,6 +9975,7 @@ namespace Zamin {
             {
                 UI_AnimationStats();
                 UI_AudioProfiler();
+                UI_SceneLoadTimings(true);
                 UI_ProfilerTree(true);
                 ImGui::End();
                 return;
@@ -10046,6 +10081,7 @@ namespace Zamin {
 
             UI_AnimationStats();
             UI_AudioProfiler();
+            UI_SceneLoadTimings(true);
             UI_ProfilerTree(true);
         }
         ImGui::End();
@@ -10242,7 +10278,11 @@ namespace Zamin {
         ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + vp->WorkSize.y * 0.5f), ImGuiCond_FirstUseEver,
                                 ImVec2(0.5f, 0.5f));
         if (ImGui::Begin(ICON_FA_STOPWATCH "  Profiler###Profiler", &m_ShowProfiler))
+        {
             UI_ProfilerTree(false);
+            ImGui::Spacing();
+            UI_SceneLoadTimings(false);
+        }
         ImGui::End();
     }
 
@@ -10354,6 +10394,204 @@ namespace Zamin {
             drawNode(drawNode, i);
         ImGui::PopStyleVar();
         ImGui::EndTable();
+    }
+
+    // The colour of a scene load stage in the bars (the same in every row).
+    static ImVec4 SceneLoadStageColor(SceneLoadTiming::Stage stage)
+    {
+        switch (stage)
+        {
+            case SceneLoadTiming::Stage::Read:        return ImVec4(0.55f, 0.60f, 0.70f, 1.0f);
+            case SceneLoadTiming::Stage::Parse:       return ImVec4(0.95f, 0.76f, 0.30f, 1.0f);
+            case SceneLoadTiming::Stage::Migrate:     return ImVec4(0.78f, 0.52f, 0.92f, 1.0f);
+            case SceneLoadTiming::Stage::Deserialize: return ImVec4(0.30f, 0.76f, 0.56f, 1.0f);
+            case SceneLoadTiming::Stage::Decode:      return ImVec4(0.50f, 0.72f, 0.98f, 1.0f);
+            case SceneLoadTiming::Stage::Assets:      return ImVec4(0.96f, 0.50f, 0.34f, 1.0f);
+            case SceneLoadTiming::Stage::Audio:       return ImVec4(0.92f, 0.42f, 0.66f, 1.0f);
+            case SceneLoadTiming::Stage::Physics:     return ImVec4(0.36f, 0.56f, 0.96f, 1.0f);
+            case SceneLoadTiming::Stage::Scripts:     return ImVec4(0.68f, 0.86f, 0.36f, 1.0f);
+            case SceneLoadTiming::Stage::Count:       break;
+        }
+        return ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    // One load's stages side by side, as wide as their share of its time; hovering a part names it.
+    static void DrawSceneLoadBar(const SceneLoadTiming& t, float width, float height, bool tooltips)
+    {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const ImVec2 start = ImGui::GetCursorScreenPos();
+        ImGui::InvisibleButton("##loadBar", ImVec2(std::max(1.0f, width), height));
+        const bool hovered = tooltips && ImGui::IsItemHovered();
+        dl->AddRectFilled(start, ImVec2(start.x + width, start.y + height), ImGui::GetColorU32(ImGuiCol_FrameBg), 3.0f);
+        const double total = t.TotalMilliseconds();
+        if (total <= 0.0)
+            return;
+        float x = start.x;
+        const float mouseX = ImGui::GetIO().MousePos.x;
+        for (size_t i = 0; i < SceneLoadTiming::StageCount; i++)
+        {
+            const double ms = t.Milliseconds[i];
+            if (ms <= 0.0)
+                continue;
+            const float w = (float)(ms / total) * width;
+            if (w < 0.5f)
+                continue;
+            const auto stage = (SceneLoadTiming::Stage)i;
+            ImVec4 color = SceneLoadStageColor(stage);
+            const bool worker = t.How == SceneLoadTiming::Source::Async && SceneLoadTiming::IsWorkerStage(stage);
+            if (worker)
+                color.w = 0.55f; // off the main thread: dimmer
+            dl->AddRectFilled(ImVec2(x, start.y), ImVec2(x + w, start.y + height), ImGui::GetColorU32(color));
+            if (hovered && mouseX >= x && mouseX < x + w)
+            {
+                dl->AddRect(ImVec2(x, start.y), ImVec2(x + w, start.y + height), IM_COL32(255, 255, 255, 220), 0.0f, 0, 1.5f);
+                UI::Tooltip(std::format("{}: {:.2f} ms ({:.0f}%){}\n{}", SceneLoadTiming::StageName(stage), ms, 100.0 * ms / total,
+                                        worker ? "  - fon oqimida" : "", SceneLoadTiming::StageDescription(stage)).c_str());
+            }
+            x += w;
+        }
+    }
+
+    void EditorLayer::UI_SceneLoadTimings(bool header)
+    {
+        const std::vector<SceneLoadTiming> history = SceneLoadProfiler::GetHistory();
+        if (header)
+        {
+            const std::string title = history.empty() ? std::string(ICON_FA_HOURGLASS_HALF "  Sahna yuklash vaqti###sceneLoads")
+                : std::format(ICON_FA_HOURGLASS_HALF "  Sahna yuklash vaqti ({})###sceneLoads", history.size());
+            // ZAMIN_EDITOR_STATS=load (automation): this section open first.
+            static const bool loadFirst = [] {
+                const char* v = std::getenv("ZAMIN_EDITOR_STATS");
+                return v && std::string_view(v).find("load") != std::string_view::npos;
+            }();
+            if (!ImGui::CollapsingHeader(title.c_str(), loadFirst || !history.empty() ? ImGuiTreeNodeFlags_DefaultOpen : 0))
+                return;
+        }
+        else
+            ImGui::SeparatorText(ICON_FA_HOURGLASS_HALF "  Sahna yuklash vaqti");
+        if (history.empty())
+        {
+            ImGui::TextDisabled("Hali sahna yuklanmadi (sahna ochilganda yoki o'yinda almashganda yoziladi)");
+            return;
+        }
+        if (m_SceneLoadTimingPick >= (int)history.size())
+            m_SceneLoadTimingPick = -1;
+        const int picked = m_SceneLoadTimingPick < 0 ? (int)history.size() - 1 : m_SceneLoadTimingPick;
+        const SceneLoadTiming& t = history[(size_t)picked];
+
+        // ---- the picked load (the newest by default): what took how long
+        ImGui::TextUnformatted(t.SceneName.empty() ? t.Path.c_str() : t.SceneName.c_str());
+        ImGui::SameLine();
+        std::string how = SceneLoadTiming::SourceName(t.How);
+        if (t.How == SceneLoadTiming::Source::Async && t.Additive)
+            how += ", qo'shimcha";
+        if (t.Binary)
+            how += ", binar kesh";
+        ImGui::TextDisabled("(%s%s)", how.c_str(), t.Failed ? ", muvaffaqiyatsiz" : "");
+        if (!t.Path.empty() && ImGui::IsItemHovered())
+            UI::Tooltip(t.Path.c_str());
+        {
+            const std::string total = std::format("{:.2f} ms", t.TotalMilliseconds());
+            ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetContentRegionMax().x - ImGui::CalcTextSize(total.c_str()).x));
+            ImGui::TextColored(t.Failed ? ImVec4(0.95f, 0.45f, 0.40f, 1.0f) : ImVec4(0.92f, 0.94f, 0.97f, 1.0f), "%s", total.c_str());
+        }
+        ImGui::PushID("pickedLoad");
+        DrawSceneLoadBar(t, ImGui::GetContentRegionAvail().x, ImGui::GetFrameHeight() * 0.8f, true);
+        ImGui::PopID();
+        // The legend: every stage that took time, with its time (wraps to the width).
+        {
+            const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+            bool first = true;
+            for (size_t i = 0; i < SceneLoadTiming::StageCount; i++)
+            {
+                const double ms = t.Milliseconds[i];
+                if (ms < 0.005)
+                    continue;
+                const auto stage = (SceneLoadTiming::Stage)i;
+                const std::string label = std::format("{} {:.2f}", SceneLoadTiming::StageName(stage), ms);
+                const float box = ImGui::GetTextLineHeight() * 0.7f;
+                const float width = box + 4.0f + ImGui::CalcTextSize(label.c_str()).x;
+                if (!first)
+                {
+                    ImGui::SameLine(0.0f, 12.0f);
+                    if (ImGui::GetCursorScreenPos().x + width > right)
+                        ImGui::NewLine();
+                }
+                first = false;
+                const ImVec2 p = ImGui::GetCursorScreenPos();
+                const float pad = (ImGui::GetTextLineHeight() - box) * 0.5f;
+                ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(p.x, p.y + pad), ImVec2(p.x + box, p.y + pad + box),
+                                                          ImGui::GetColorU32(SceneLoadStageColor(stage)), 2.0f);
+                ImGui::Dummy(ImVec2(box, ImGui::GetTextLineHeight()));
+                ImGui::SameLine(0.0f, 4.0f);
+                ImGui::TextUnformatted(label.c_str());
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(SceneLoadTiming::StageDescription(stage));
+            }
+        }
+        if (t.How == SceneLoadTiming::Source::Async)
+            ImGui::TextDisabled("Asosiy oqim: %.2f ms, %d kadr ichida (so'rovdan kirishigacha %.0f ms)", t.MainThreadMilliseconds(), t.Frames,
+                                t.WallMilliseconds);
+        ImGui::TextDisabled("%zu obyekt%s, eng sekini: %s", t.Entities,
+                            t.FileBytes ? std::format(", fayl {:.1f} KB", (double)t.FileBytes / 1024.0).c_str() : "",
+                            SceneLoadTiming::StageName(t.GetSlowestStage()));
+
+        // ---- the recent loads, newest first (a click shows one above)
+        if (history.size() > 1)
+        {
+            const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp |
+                                          ImGuiTableFlags_ScrollY;
+            const float rows = (float)std::min<size_t>(history.size(), 8) + 1.3f;
+            if (ImGui::BeginTable("##sceneLoads", 4, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * rows + 4.0f)))
+            {
+                ImGui::TableSetupScrollFreeze(0, 1);
+                ImGui::TableSetupColumn("Sahna", ImGuiTableColumnFlags_WidthStretch, 1.2f);
+                ImGui::TableSetupColumn("Qanday", ImGuiTableColumnFlags_WidthStretch, 0.7f);
+                ImGui::TableSetupColumn("ms", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("0000.00").x);
+                ImGui::TableSetupColumn("Bosqichlar", ImGuiTableColumnFlags_WidthStretch, 1.3f);
+                ImGui::TableHeadersRow();
+                for (int i = (int)history.size() - 1; i >= 0; i--)
+                {
+                    const SceneLoadTiming& row = history[(size_t)i];
+                    ImGui::PushID(i);
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    const std::string name = row.SceneName.empty() ? row.Path : row.SceneName;
+                    if (ImGui::Selectable(name.c_str(), i == picked, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap))
+                        m_SceneLoadTimingPick = i == (int)history.size() - 1 ? -1 : i;
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip(row.Format().c_str());
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::TextDisabled("%s", SceneLoadTiming::SourceName(row.How));
+                    ImGui::TableSetColumnIndex(2);
+                    if (row.Failed)
+                        ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.40f, 1.0f), "%.2f", row.TotalMilliseconds());
+                    else
+                        ImGui::Text("%.2f", row.TotalMilliseconds());
+                    ImGui::TableSetColumnIndex(3);
+                    DrawSceneLoadBar(row, ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeight() * 0.8f, false);
+                    ImGui::PopID();
+                }
+                ImGui::EndTable();
+            }
+        }
+        if (ImGui::SmallButton(ICON_FA_BROOM "  Tozalash"))
+        {
+            SceneLoadProfiler::Clear();
+            m_SceneLoadTimingPick = -1;
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Yuklashlar ro'yxatini bo'shatish (har yuklash konsolga ham yoziladi)");
+        ImGui::SameLine();
+        if (ImGui::SmallButton(ICON_FA_COPY "  Nusxa olish"))
+        {
+            std::string text;
+            for (const SceneLoadTiming& row : history)
+                text += row.Format() + "\n";
+            ImGui::SetClipboardText(text.c_str());
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Barcha yuklashlarni bosqichlari bilan matn qilib nusxalash");
     }
 
     void EditorLayer::UI_Modals()

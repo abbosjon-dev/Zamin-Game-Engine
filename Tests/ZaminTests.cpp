@@ -31117,3 +31117,100 @@ TEST(GlobalGameState)
     std::error_code ec;
     fs::remove_all(dir, ec);
 }
+
+TEST(SceneLoadTimingBreakdown)
+{
+    using Stage = SceneLoadTiming::Stage;
+    SceneFolder f;
+    f.Write("Plain", { "One" });
+    f.Write("Busy", {}, [](Scene& s) {
+        for (int i = 0; i < 50; i++)
+        {
+            Entity box = s.CreateEntity(std::format("Box{}", i));
+            box.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+            box.AddComponent<BoxCollider2DComponent>();
+        }
+        s.CreateEntity("Brain").AddComponent<NativeScriptComponent>().ClassName = "CoinEmitterProbe";
+    });
+    SceneLoadProfiler::Clear();
+    SceneLoadProfiler::SetLogging(false);
+    // The serializer times the file's stages; the runtime ones are not its.
+    {
+        auto scene = CreateRef<Scene>();
+        SceneSerializer serializer(scene);
+        CHECK(serializer.Deserialize(f.Path("Busy")));
+        const SceneLoadTiming& t = serializer.GetTiming();
+        CHECK(t.Get(Stage::Read) > 0.0 && t.Get(Stage::Parse) > 0.0 && t.Get(Stage::Deserialize) > 0.0);
+        CHECK(t.Entities == 51 && t.FileBytes > 1000 && !t.Failed);
+        CHECK(t.Get(Stage::Physics) == 0.0 && t.Get(Stage::Scripts) == 0.0 && t.Get(Stage::Assets) == 0.0);
+        Log::SetMinLevel(LogLevel::Critical);
+        CHECK(!serializer.Deserialize(f.Path("Missing")) && serializer.GetTiming().Failed);
+        Log::SetMinLevel(LogLevel::Error);
+        CHECK(SceneLoadProfiler::GetCount() == 0); // the serializer alone records nothing
+    }
+
+    SceneManager m;
+    CHECK(m.Start(f.Path("Plain")));
+    SceneLoadTiming last;
+    CHECK(SceneLoadProfiler::GetLast(last) && last.How == SceneLoadTiming::Source::Start && last.SceneName == "Plain");
+    CHECK(last.Path.ends_with("Plain.zscene") && last.Get(Stage::Parse) > 0.0 && last.Entities == 1);
+    // A Single switch: every stage of it, the physics worlds and the scripts' OnCreate included.
+    m.LoadScene(f.Path("Busy"));
+    m.ProcessRequests();
+    CHECK(SceneLoadProfiler::GetCount() == 2 && SceneLoadProfiler::GetLast(last));
+    CHECK(last.How == SceneLoadTiming::Source::Single && last.SceneName == "Busy" && last.Entities == 51 && !last.Failed);
+    CHECK(last.Get(Stage::Physics) > 0.0 && last.Get(Stage::Scripts) > 0.0 && last.Get(Stage::Deserialize) > 0.0);
+    CHECK(last.Get(Stage::Decode) == 0.0 && last.MainThreadMilliseconds() == last.TotalMilliseconds());
+    // The stages are parts of the load's own time.
+    CHECK(last.WallMilliseconds + 1e-6 >= last.TotalMilliseconds());
+    CHECK(last.Format().find("Fizika") != std::string::npos && last.Format().find("Busy (yagona)") == 0);
+    CHECK(m.GetActiveScene()->GetRuntimeStartTiming().PhysicsMilliseconds > 0.0);
+    // A failed switch is recorded too (the game stays).
+    Log::SetMinLevel(LogLevel::Critical);
+    m.LoadScene(f.Path("Missing"));
+    m.ProcessRequests();
+    Log::SetMinLevel(LogLevel::Error);
+    CHECK(SceneLoadProfiler::GetLast(last) && last.Failed && last.SceneName.empty() && m.GetActiveScene()->GetName() == "Busy");
+
+    // In the background: the worker's stages apart from the main thread's, over several frames.
+    Ref<AsyncOperation> op = m.LoadSceneAsync(f.Path("Plain"), LoadSceneMode::Additive);
+    for (int i = 0; op && !op->IsDone() && i < 5000; i++)
+    {
+        m.UpdateAsyncLoads(1.0f);
+        m.ProcessRequests();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(op && op->IsDone() && !op->HasFailed());
+    const SceneLoadTiming& async = op->GetTiming();
+    CHECK(async.How == SceneLoadTiming::Source::Async && async.Additive && async.Frames >= 2 && async.Get(Stage::Parse) > 0.0);
+    CHECK(async.MainThreadMilliseconds() < async.TotalMilliseconds() && async.WallMilliseconds >= async.MainThreadMilliseconds());
+    CHECK(SceneLoadProfiler::GetLast(last) && last.How == SceneLoadTiming::Source::Async && last.SceneName == "Plain");
+    CHECK(last.Format().find("fonda, qo'shimcha") != std::string::npos);
+
+    // The frame of a switch shows its stages in the profiler, under "Sahna yuklash".
+    const bool profiling = Profiler::IsEnabled();
+    Profiler::SetEnabled(true);
+    Profiler::BeginFrame();
+    m.LoadScene(f.Path("Busy"));
+    m.ProcessRequests();
+    Profiler::BeginFrame();
+    CHECK(Profiler::Find("Sahna yuklash") && Profiler::Find("Sahna yuklash/Fizika") && Profiler::Find("Sahna yuklash/Obyektlar"));
+    CHECK(Profiler::Find("Sahna yuklash/JSON") && Profiler::Find("Sahna yuklash")->Milliseconds >= Profiler::Find("Sahna yuklash/Fizika")->Milliseconds);
+    Profiler::SetEnabled(profiling);
+    m.Stop();
+
+    // The history keeps the newest Capacity loads.
+    SceneLoadTiming named;
+    for (size_t i = 0; i < SceneLoadProfiler::Capacity + 5; i++)
+    {
+        named.SceneName = std::format("S{}", i);
+        SceneLoadProfiler::Record(named);
+    }
+    const std::vector<SceneLoadTiming> history = SceneLoadProfiler::GetHistory();
+    CHECK(history.size() == SceneLoadProfiler::Capacity && history.front().SceneName == "S5");
+    CHECK(history.back().SceneName == std::format("S{}", SceneLoadProfiler::Capacity + 4));
+    const uint64_t serial = SceneLoadProfiler::GetSerial();
+    SceneLoadProfiler::Clear();
+    CHECK(SceneLoadProfiler::GetCount() == 0 && SceneLoadProfiler::GetSerial() > serial && !SceneLoadProfiler::GetLast(last));
+    SceneLoadProfiler::SetLogging(true);
+}

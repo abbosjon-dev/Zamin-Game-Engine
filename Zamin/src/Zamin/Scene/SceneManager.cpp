@@ -127,10 +127,45 @@ namespace Zamin {
         scene->SetPaused(m_Paused);
     }
 
-    void SceneManager::StartScene(const Ref<Scene>& scene)
+    void SceneManager::StartScene(const Ref<Scene>& scene, SceneLoadTiming* timing)
     {
         Adopt(scene);
         scene->OnRuntimeStart();
+        if (timing)
+        {
+            const Scene::RuntimeStartTiming& start = scene->GetRuntimeStartTiming();
+            (*timing)[SceneLoadTiming::Stage::Physics] += start.PhysicsMilliseconds;
+            (*timing)[SceneLoadTiming::Stage::Scripts] += start.ScriptsMilliseconds;
+        }
+    }
+
+    // A load's stages as leaves of the profiler's open scope (the frame it happened in).
+    static void RecordStagesToProfiler(const SceneLoadTiming& timing)
+    {
+        for (size_t i = 0; i < SceneLoadTiming::StageCount; i++)
+            if (timing.Milliseconds[i] > 0.0)
+                Profiler::Record(SceneLoadTiming::StageName((SceneLoadTiming::Stage)i), (float)timing.Milliseconds[i]);
+    }
+
+    void SceneManager::FinishLoadTimings(std::vector<SceneLoadTiming>& timings, bool preloads, AsyncOperation* last)
+    {
+        if (preloads)
+        {
+            const auto clock = std::chrono::steady_clock::now();
+            ApplySharedPreloads();
+            const double audio = ElapsedMilliseconds(clock);
+            if (!timings.empty())
+            {
+                timings.back()[SceneLoadTiming::Stage::Audio] += audio;
+                timings.back().WallMilliseconds += audio;
+                if (last)
+                    last->m_Timing = timings.back();
+                Profiler::Record(SceneLoadTiming::StageName(SceneLoadTiming::Stage::Audio), (float)audio);
+            }
+        }
+        for (const SceneLoadTiming& timing : timings)
+            SceneLoadProfiler::Record(timing);
+        timings.clear();
     }
 
     void SceneManager::StopScene(const Ref<Scene>& scene)
@@ -152,21 +187,32 @@ namespace Zamin {
         m_ActiveSerial++;
     }
 
-    void SceneManager::Start(const Ref<Scene>& scene, const fs::path& path)
+    void SceneManager::Start(const Ref<Scene>& scene, const fs::path& path, const SceneLoadTiming* prepared)
     {
         if (m_Running)
             Stop();
         if (!scene)
             return;
+        ZM_PROFILE_SCOPE("Sahna yuklash");
+        const auto clock = std::chrono::steady_clock::now();
+        SceneLoadTiming timing = prepared ? *prepared : SceneLoadTiming();
+        timing.How = SceneLoadTiming::Source::Start;
         m_Running = true;
         m_Fade = {};
         DebugDraw::Clear(); // the game starts with an empty debug drawing queue
         AudioEngine::TakeFinishedSounds(); // sounds that ended before this run are not its
         m_FinishedSounds->clear();
-        StartScene(scene);
+        StartScene(scene, &timing);
         m_Scenes.push_back({ scene, path.empty() ? std::string() : ToAssetRelative(path) });
         SetActive(scene);
-        ApplySharedPreloads();
+        timing.SceneName = scene->GetName();
+        timing.Path = m_Scenes.back().Path;
+        if (!timing.Entities)
+            timing.Entities = scene->GetRegistry().view<IDComponent>().size();
+        timing.WallMilliseconds += ElapsedMilliseconds(clock);
+        RecordStagesToProfiler(timing);
+        std::vector<SceneLoadTiming> timings{ timing };
+        FinishLoadTimings(timings, true);
         NotifyActiveSceneChanged({}, MakeEventInfo(scene));
         NotifySceneLoaded(MakeEventInfo(scene, LoadSceneMode::Single));
     }
@@ -174,14 +220,17 @@ namespace Zamin {
     bool SceneManager::Start(const fs::path& path, std::string* error)
     {
         std::string reason;
-        Ref<Scene> scene = LoadNow(path, &reason);
+        const auto clock = std::chrono::steady_clock::now();
+        SceneLoadTiming timing;
+        Ref<Scene> scene = LoadNow(path, &reason, &timing);
         if (!scene)
         {
             if (error)
                 *error = reason;
             return false;
         }
-        Start(scene, path);
+        timing.WallMilliseconds = ElapsedMilliseconds(clock);
+        Start(scene, path, &timing);
         return true;
     }
 
@@ -267,7 +316,7 @@ namespace Zamin {
         m_EventBus->Emit("ActiveSceneChanged", ActiveSceneChange{ previous, current });
     }
 
-    Ref<Scene> SceneManager::LoadNow(const fs::path& path, std::string* error)
+    Ref<Scene> SceneManager::LoadNow(const fs::path& path, std::string* error, SceneLoadTiming* timing)
     {
         const fs::path file = ToAssetFile(ResolveScenePath(path));
         Ref<Scene> scene = CreateRef<Scene>();
@@ -275,13 +324,25 @@ namespace Zamin {
         SceneSerializer serializer(scene);
         const bool loaded = serializer.Deserialize(file); // logs what it found
         AddLoadReport(serializer.GetLoadReport());
+        if (timing)
+        {
+            timing->Add(serializer.GetTiming());
+            timing->Path = ToAssetRelative(ResolveScenePath(path));
+            timing->Failed = !loaded;
+        }
         if (!loaded)
         {
             if (error)
                 *error = serializer.GetLastError();
             return nullptr;
         }
+        const auto assets = std::chrono::steady_clock::now();
         scene->ResolveAssets();
+        if (timing)
+        {
+            (*timing)[SceneLoadTiming::Stage::Assets] += ElapsedMilliseconds(assets);
+            timing->SceneName = scene->GetName();
+        }
         return scene;
     }
 
@@ -536,6 +597,9 @@ namespace Zamin {
             return nullptr;
         }
         Ref<AsyncOperation> op = CreateRef<AsyncOperation>(fs::path(ToAssetRelative(path)), mode, transition);
+        op->m_Timing.How = SceneLoadTiming::Source::Async;
+        op->m_Timing.Additive = mode == LoadSceneMode::Additive;
+        op->m_Timing.Path = op->m_Path.generic_string();
         if (!transition.IsNone())
         {
             // A transition that still covers the screen for its switch keeps it; one that only fades
@@ -614,7 +678,7 @@ namespace Zamin {
         return m_Persistent;
     }
 
-    void SceneManager::AddLoaded(const Ref<Scene>& scene, const std::string& path, LoadSceneMode mode)
+    void SceneManager::AddLoaded(const Ref<Scene>& scene, const std::string& path, LoadSceneMode mode, SceneLoadTiming* timing)
     {
         // The scenes that go stay alive until their events are out (the scripts may look at them).
         std::vector<SceneEntry> old;
@@ -637,7 +701,7 @@ namespace Zamin {
             }
         }
         const Scene* clock = m_Active ? m_Active.get() : nullptr;
-        StartScene(scene);
+        StartScene(scene, timing);
         if (clock)
         {
             // An additive scene runs on the game's clock as it is now.
@@ -666,7 +730,9 @@ namespace Zamin {
 
     void SceneManager::Activate(const Ref<AsyncOperation>& op)
     {
-        AddLoaded(op->m_Scene, op->m_Path.generic_string(), op->m_Mode);
+        AddLoaded(op->m_Scene, op->m_Path.generic_string(), op->m_Mode, &op->m_Timing);
+        op->m_Timing.SceneName = op->m_Scene->GetName();
+        op->m_Timing.WallMilliseconds = ElapsedMilliseconds(op->m_Started);
         op->m_Stage = AsyncOperation::Stage::Done;
         op->m_Job.reset();
         if (m_Fade.Operation == op)
@@ -689,6 +755,8 @@ namespace Zamin {
             }
 
         bool changed = false;
+        std::vector<SceneLoadTiming> timings; // recorded once the frame's changes are in (with their audio)
+        Ref<AsyncOperation> lastAsync;        // the operation of the newest of them (it gets the audio time too)
         std::vector<Request> requests = std::move(m_Requests);
         m_Requests.clear(); // callbacks below (OnDestroy of an unloaded scene) queue for the next frame
         for (Request& request : requests)
@@ -734,14 +802,26 @@ namespace Zamin {
                 }
                 case Request::Kind::Load:
                 {
+                    ZM_PROFILE_SCOPE("Sahna yuklash");
+                    const auto clock = std::chrono::steady_clock::now();
+                    SceneLoadTiming timing;
+                    timing.How = request.Mode == LoadSceneMode::Additive ? SceneLoadTiming::Source::Additive : SceneLoadTiming::Source::Single;
                     std::string error;
-                    Ref<Scene> scene = LoadNow(request.Path, &error);
+                    Ref<Scene> scene = LoadNow(request.Path, &error, &timing);
                     if (!scene)
                     {
                         ZM_CORE_ERROR("Sahnaga o'tilmadi: {} ({})", request.Path.generic_string(), error);
+                        timing.WallMilliseconds = ElapsedMilliseconds(clock);
+                        RecordStagesToProfiler(timing);
+                        timings.push_back(std::move(timing));
                         break;
                     }
-                    AddLoaded(scene, ToAssetRelative(request.Path), request.Mode);
+                    AddLoaded(scene, ToAssetRelative(request.Path), request.Mode, &timing);
+                    timing.SceneName = scene->GetName();
+                    timing.WallMilliseconds = ElapsedMilliseconds(clock);
+                    RecordStagesToProfiler(timing);
+                    timings.push_back(std::move(timing));
+                    lastAsync.reset();
                     changed = true;
                     break;
                 }
@@ -761,14 +841,23 @@ namespace Zamin {
             if (op->IsReady() && op->GetAllowSceneActivation() && fadeReady)
             {
                 m_AsyncOps.erase(m_AsyncOps.begin() + (ptrdiff_t)i);
+                ZM_PROFILE_SCOPE("Sahna yuklash");
+                SceneLoadTiming before = op->m_Timing;
                 Activate(op);
+                // This frame's part of it (the start: physics, scripts).
+                SceneLoadTiming now;
+                for (size_t s = 0; s < SceneLoadTiming::StageCount; s++)
+                    now.Milliseconds[s] = op->m_Timing.Milliseconds[s] - before.Milliseconds[s];
+                RecordStagesToProfiler(now);
+                timings.push_back(op->m_Timing);
+                lastAsync = op;
                 changed = true;
                 continue;
             }
             i++;
         }
-        if (changed)
-            ApplySharedPreloads();
+        if (changed || !timings.empty())
+            FinishLoadTimings(timings, changed, lastAsync.get());
     }
 
     void SceneManager::UpdateAsyncLoads(float budgetMs)
@@ -779,6 +868,9 @@ namespace Zamin {
         const double deadline = NowMs() + (double)budgetMs;
         // A copy: a failure is only marked here (the list changes in ProcessRequests).
         std::vector<Ref<AsyncOperation>> ops = m_AsyncOps;
+        for (const Ref<AsyncOperation>& op : ops)
+            if (!op->IsDone())
+                op->m_Timing.Frames++; // every frame from the request to the activation
         for (const Ref<AsyncOperation>& op : ops)
         {
             AdvanceAsync(*op, deadline);
@@ -796,6 +888,10 @@ namespace Zamin {
             op.m_Stage = Stage::Failed;
             op.m_Report = op.m_Job->GetReport();
             AddLoadReport(op.m_Report);
+            op.m_Timing.Add(op.m_Job->GetTiming());
+            op.m_Timing.Failed = true;
+            op.m_Timing.WallMilliseconds = ElapsedMilliseconds(op.m_Started);
+            SceneLoadProfiler::Record(op.m_Timing);
             // Logged once with the path (and the line the parser stopped at).
             if (AssetImportLog::Report(op.m_File, reason))
                 if (const SceneLoadIssue* main = op.m_Report.GetMain(); main && !main->SourceLine.empty())
@@ -833,6 +929,7 @@ namespace Zamin {
                     op.m_Stage = Stage::Decoding;
                     op.m_WorkerDone = false;
                     op.m_Worker = std::thread([&op]() {
+                        const auto clock = std::chrono::steady_clock::now();
                         for (const fs::path& file : op.m_Decode)
                         {
                             if (op.m_Cancel)
@@ -840,6 +937,7 @@ namespace Zamin {
                             TextureLibrary::Predecode(file);
                             op.m_ImagesDecoded++;
                         }
+                        op.m_DecodeMilliseconds = ElapsedMilliseconds(clock);
                         op.m_WorkerDone.store(true, std::memory_order_release);
                     });
                     return;
@@ -848,10 +946,12 @@ namespace Zamin {
                     if (!op.m_WorkerDone.load(std::memory_order_acquire))
                         return;
                     op.JoinWorker();
+                    op.m_Timing[SceneLoadTiming::Stage::Decode] = op.m_DecodeMilliseconds;
                     op.m_Stage = Stage::Building;
                     break;
                 case Stage::Building:
                 {
+                    ZM_PROFILE_SCOPE("Obyektlar");
                     if (!op.m_Scene)
                     {
                         op.m_Scene = CreateRef<Scene>();
@@ -872,6 +972,13 @@ namespace Zamin {
                 case Stage::Resolving:
                 {
                     // The GPU uploads (textures - predecoded -, meshes, fonts), a slice per frame.
+                    ZM_PROFILE_SCOPE("Assetlar");
+                    struct SliceClock
+                    {
+                        SceneLoadTiming& Timing;
+                        std::chrono::steady_clock::time_point Start = std::chrono::steady_clock::now();
+                        ~SliceClock() { Timing[SceneLoadTiming::Stage::Assets] += ElapsedMilliseconds(Start); }
+                    } sliceClock{ op.m_Timing };
                     while (op.m_Resolved < op.m_ResolveOrder.size())
                     {
                         if (Entity e = op.m_Scene->GetEntityByUUID(op.m_ResolveOrder[op.m_Resolved]))
@@ -883,6 +990,7 @@ namespace Zamin {
                     TextureLibrary::DropPredecoded(op.m_Decode); // what no component asked for
                     op.m_Decode.clear();
                     op.m_Stage = Stage::Ready;
+                    op.m_Timing.Add(op.m_Job->GetTiming()); // the file's stages (reading ... making the entities)
                     // What the scene came without (a broken component, a missing asset...).
                     op.m_Report = op.m_Job->GetReport();
                     op.m_Report.Log();

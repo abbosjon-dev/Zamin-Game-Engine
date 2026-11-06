@@ -193,6 +193,8 @@ namespace Zamin {
                 ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
                 ZM_INFO("Profiler (oxirgi kadr, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
                 ZM_INFO("Audio profili (oxirgi kadr): {}", m_LastAudioProfile);
+                for (const SceneLoadTiming& load : SceneLoadProfiler::GetHistory())
+                    ZM_INFO("Sahna yuklash: {}", load.Format());
             }
             if (m_Scenes)
             {

@@ -45,6 +45,7 @@
 #include "Zamin/Scene/ComponentRegistry.h"
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Scene/SceneManager.h"
+#include "Zamin/Scene/SceneLoadTiming.h"
 #include "Zamin/Scene/ParticlePresets.h"
 #include "Zamin/Scene/EntitySelection.h"
 #include "Zamin/Scene/SortingLayers.h"

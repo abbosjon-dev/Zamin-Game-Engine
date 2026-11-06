@@ -238,6 +238,8 @@ namespace Zamin {
         // (`header`: under a collapsing header) and in a window of its own.
         void UI_ProfilerTree(bool header);
         void UI_ProfilerWindow();
+        // The recent scene loads, stage by stage (SceneLoadProfiler): the Stats and Profiler windows.
+        void UI_SceneLoadTimings(bool header);
         // The audio profiler (Stats panel): voices against the limit, a graph, by kind and mixer group.
         void UI_AudioProfiler();
         void UI_AnimationStats();
@@ -495,6 +497,7 @@ namespace Zamin {
         // The Stats panel's profiler: averaged or the last frame's times, and a frozen frame.
         bool m_ProfilerAverage = true;
         bool m_ProfilerFrozen = false;
+        int m_SceneLoadTimingPick = -1; // the load shown in detail (index in the history; -1: the newest)
         std::vector<Profiler::Entry> m_ProfilerFrozenFrame;
         bool m_OutlineCaptured = false;   // the outlined meshes' draws were kept for their silhouettes
         Entity m_OutlineHover;            // the entity the hover outline marked (last frame)

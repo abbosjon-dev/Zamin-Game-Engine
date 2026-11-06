@@ -2964,8 +2964,10 @@ namespace Zamin {
     {
         m_Report.Clear();
         m_Report.File = filepath.generic_string();
+        const auto readStart = std::chrono::steady_clock::now();
         m_LastError = AssetImportLog::CheckReadable(filepath);
         std::string text = m_LastError.empty() ? FileSystem::ReadTextFile(filepath) : std::string();
+        const double readMs = ElapsedMilliseconds(readStart);
         if (text.empty() && m_LastError.empty())
             m_LastError = "fayl o'qilmadi";
         bool ok = false;
@@ -2976,7 +2978,13 @@ namespace Zamin {
             m_QuietErrors = false;
         }
         else
+        {
+            m_Timing = {};
             m_Report.Add(MakeUnreadableIssue(m_LastError));
+        }
+        m_Timing[SceneLoadTiming::Stage::Read] = readMs;
+        m_Timing.FileBytes = text.size();
+        m_Timing.Failed = !ok;
         if (!ok)
         {
             // Logged once with the file's path (and the line the parser stopped at).
@@ -3669,24 +3677,36 @@ namespace Zamin {
         m_LastError.clear();
         m_Report.Clear();
         m_Migration = {};
+        m_Timing = {};
+        m_Timing.FileBytes = text.size();
         AssetReferenceScope assetReferences(&m_RepairedReferences);
         assetReferences.SetReport(&m_Report);
         auto fail = [&](SceneLoadIssue issue) {
             m_LastError = issue.Message;
             m_Report.Add(std::move(issue));
+            m_Timing.Failed = true;
             if (!m_QuietErrors)
                 ZM_CORE_ERROR("{}", m_LastError);
             return false;
+        };
+        auto stage = std::chrono::steady_clock::now();
+        auto lap = [&](SceneLoadTiming::Stage s) {
+            const auto now = std::chrono::steady_clock::now();
+            m_Timing[s] += std::chrono::duration<double, std::milli>(now - stage).count();
+            stage = now;
         };
         json root;
         try { root = json::parse(text); }
         catch (const std::exception& e)
         {
+            lap(SceneLoadTiming::Stage::Parse);
             return fail(MakeParseIssue(text, e));
         }
+        lap(SceneLoadTiming::Stage::Parse);
         if (!root.is_object() || !root.contains("Scene"))
             return fail(MakeNotASceneIssue());
         m_Migration = MigrateSceneRoot(root, &m_Report);
+        lap(SceneLoadTiming::Stage::Migrate);
 
         DeserializeSceneSettingsChecked(root, *m_Scene, &m_Report);
         const json& entityList = SceneEntityList(root, &m_Report);
@@ -3695,6 +3715,9 @@ namespace Zamin {
         for (size_t i : ComputeLoadOrder(root, entityList))
             DeserializeSceneEntity(entityList[i], i, *m_Scene, loaded, &m_Report);
         LinkSceneHierarchy(*m_Scene, loaded, &m_Report);
+        lap(SceneLoadTiming::Stage::Deserialize);
+        m_Timing.Entities = loaded.size();
+        m_Timing.SceneName = m_Scene->GetName();
         return true;
     }
 
@@ -3765,6 +3788,7 @@ namespace Zamin {
         std::vector<SceneSerializer::AssetReferenceRepair> Repairs;
         SceneLoadReport Report;
         SceneMigrationResult Migration;
+        SceneLoadTiming Timing;
 
         const json& Entities() const
         {
@@ -3787,16 +3811,23 @@ namespace Zamin {
         m_Data->File = path;
         m_Data->Report.Clear();
         m_Data->Report.File = path.generic_string();
+        const auto readStart = std::chrono::steady_clock::now();
         std::string error = AssetImportLog::CheckReadable(path);
         std::string text = error.empty() ? FileSystem::ReadTextFile(path) : std::string();
+        const double readMs = ElapsedMilliseconds(readStart);
         if (text.empty() && error.empty())
             error = "fayl o'qilmadi";
         if (!error.empty())
         {
+            m_Data->Timing = {};
+            m_Data->Timing[SceneLoadTiming::Stage::Read] = readMs;
+            m_Data->Timing.Failed = true;
             m_Data->Fail(MakeUnreadableIssue(error));
             return false;
         }
-        if (!ParseString(text))
+        const bool parsed = ParseString(text);
+        m_Data->Timing[SceneLoadTiming::Stage::Read] = readMs;
+        if (!parsed)
             return false;
         SceneMigration::LogMigration(SceneDisplayPath(path), m_Data->Migration);
         return true;
@@ -3805,15 +3836,27 @@ namespace Zamin {
     bool SceneLoadJob::ParseString(const std::string& text)
     {
         m_Data->Error.clear();
+        m_Data->Timing = {};
+        m_Data->Timing.FileBytes = text.size();
         std::erase_if(m_Data->Report.Issues, [](const SceneLoadIssue& i) { return i.Level == SceneLoadIssue::Severity::Fatal; });
+        auto stage = std::chrono::steady_clock::now();
+        auto lap = [&](SceneLoadTiming::Stage s) {
+            const auto now = std::chrono::steady_clock::now();
+            m_Data->Timing[s] += std::chrono::duration<double, std::milli>(now - stage).count();
+            stage = now;
+        };
         try { m_Data->Root = json::parse(text); }
         catch (const std::exception& e)
         {
+            lap(SceneLoadTiming::Stage::Parse);
+            m_Data->Timing.Failed = true;
             m_Data->Fail(MakeParseIssue(text, e));
             return false;
         }
+        lap(SceneLoadTiming::Stage::Parse);
         if (!m_Data->Root.is_object() || !m_Data->Root.contains("Scene"))
         {
+            m_Data->Timing.Failed = true;
             m_Data->Fail(MakeNotASceneIssue());
             return false;
         }
@@ -3821,6 +3864,8 @@ namespace Zamin {
         m_Data->Migration = MigrateSceneRoot(m_Data->Root, &m_Data->Report);
         // The order the entities are made in (any thread: only the parsed file is read).
         m_Data->Order = ComputeLoadOrder(m_Data->Root, m_Data->Entities());
+        lap(SceneLoadTiming::Stage::Migrate);
+        m_Data->Timing.Entities = m_Data->Entities().size();
         m_Data->Step = Data::Phase::Parsed;
         return true;
     }
@@ -3863,6 +3908,7 @@ namespace Zamin {
     const std::vector<SceneSerializer::AssetReferenceRepair>& SceneLoadJob::GetRepairedReferences() const { return m_Data->Repairs; }
     const SceneLoadReport& SceneLoadJob::GetReport() const { return m_Data->Report; }
     const SceneMigrationResult& SceneLoadJob::GetMigration() const { return m_Data->Migration; }
+    const SceneLoadTiming& SceneLoadJob::GetTiming() const { return m_Data->Timing; }
 
     float SceneLoadJob::GetBuildProgress() const
     {
@@ -3889,6 +3935,13 @@ namespace Zamin {
             return true;
         const auto start = std::chrono::steady_clock::now();
         auto elapsed = [&]() { return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count(); };
+        // Every slice adds to the job's Deserialize time (however it returns).
+        struct SliceClock
+        {
+            Data& D;
+            std::chrono::steady_clock::time_point Start;
+            ~SliceClock() { D.Timing[SceneLoadTiming::Stage::Deserialize] += ElapsedMilliseconds(Start); }
+        } sliceClock{ d, start };
         AssetReferenceScope assetReferences(&d.Repairs);
         assetReferences.SetReport(&d.Report);
         try
@@ -3923,6 +3976,8 @@ namespace Zamin {
                 LinkSceneHierarchy(scene, d.Loaded, &d.Report);
                 if (scene.GetName().empty() || scene.GetName() == "Untitled")
                     scene.SetName(d.File.empty() ? std::string("Untitled") : d.File.stem().string());
+                d.Timing.Entities = d.Loaded.size();
+                d.Timing.SceneName = scene.GetName();
                 d.Loaded.clear();
                 d.Order.clear();
                 d.Root = json(); // the parsed file is not needed any more
@@ -3931,6 +3986,7 @@ namespace Zamin {
         }
         catch (const std::exception& ex)
         {
+            d.Timing.Failed = true;
             d.Fail(MakeIssue(SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Fatal, std::format("Sahna formati xato: {}", ex.what())));
         }
         return true;

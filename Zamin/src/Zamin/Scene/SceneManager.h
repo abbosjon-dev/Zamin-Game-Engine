@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -110,6 +111,9 @@ namespace Zamin {
         // Images decoded ahead on the worker thread / entities made / entities resolved.
         size_t GetDecodedImageCount() const { return m_ImagesDecoded; }
         size_t GetImageCount() const { return m_Images.size(); }
+        // How long it has taken so far, stage by stage (SceneLoadTiming; complete once it is done -
+        // the scene load profiler then has it too).
+        const SceneLoadTiming& GetTiming() const { return m_Timing; }
 
     private:
         friend class SceneManager;
@@ -136,6 +140,9 @@ namespace Zamin {
         std::vector<UUID> m_ResolveOrder;
         size_t m_Resolved = 0;
         float m_BuildProgress = 0.0f;
+        SceneLoadTiming m_Timing;
+        std::chrono::steady_clock::time_point m_Started = std::chrono::steady_clock::now();
+        double m_DecodeMilliseconds = 0.0; // written by the worker before it sets m_WorkerDone
     };
 
     // The scenes of a running game (owned by the host: the editor's play mode, the player). One is the
@@ -166,8 +173,10 @@ namespace Zamin {
 
         // ---- the run (the host)
         // Starts the game with `scene` (its assets resolved) as the active scene; `path`: its file
-        // (relative to the assets) for GetScenePath / UnloadScene by path.
-        void Start(const Ref<Scene>& scene, const std::filesystem::path& path = {});
+        // (relative to the assets) for GetScenePath / UnloadScene by path. `prepared`: what the host
+        // already timed of it (loading / copying it, its assets) - the start adds the physics, the
+        // scripts and the audio and records it (SceneLoadProfiler).
+        void Start(const Ref<Scene>& scene, const std::filesystem::path& path = {}, const SceneLoadTiming* prepared = nullptr);
         // Loads the file (relative to the assets, or absolute) and starts with it; false with the
         // reason in `error` when it cannot be read.
         bool Start(const std::filesystem::path& path, std::string* error = nullptr);
@@ -346,15 +355,20 @@ namespace Zamin {
 
         // Gives the scene the manager's bus, viewport and input, starts it (OnRuntimeStart).
         void Adopt(const Ref<Scene>& scene);
-        void StartScene(const Ref<Scene>& scene);
+        // `timing` (optional) receives its OnRuntimeStart's physics / scripts time.
+        void StartScene(const Ref<Scene>& scene, SceneLoadTiming* timing = nullptr);
         void StopScene(const Ref<Scene>& scene);
-        void AddLoaded(const Ref<Scene>& scene, const std::string& path, LoadSceneMode mode);
+        void AddLoaded(const Ref<Scene>& scene, const std::string& path, LoadSceneMode mode, SceneLoadTiming* timing = nullptr);
         void RemoveLoaded(const Ref<Scene>& scene);
-        Ref<Scene> LoadNow(const std::filesystem::path& path, std::string* error);
+        // `timing` (optional) receives the file's stages and the assets' time.
+        Ref<Scene> LoadNow(const std::filesystem::path& path, std::string* error, SceneLoadTiming* timing = nullptr);
         void Activate(const Ref<AsyncOperation>& op);
         void AdvanceAsync(AsyncOperation& op, double deadlineMs);
         void UpdateFade(float dt);
         void ApplySharedPreloads();
+        // Applies the shared preloads (the audio of the scenes that came: its time goes to the newest
+        // of `timings`), then records every one of them (SceneLoadProfiler).
+        void FinishLoadTimings(std::vector<SceneLoadTiming>& timings, bool preloads, AsyncOperation* last = nullptr);
         void AssignFrameRoles();
         void SetActive(const Ref<Scene>& scene);
         void AddLoadReport(const SceneLoadReport& report);

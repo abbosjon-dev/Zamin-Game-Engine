@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Scene/Scene.h"
+#include "Zamin/Scene/SceneLoadTiming.h"
 #include "Zamin/Scene/SceneMigration.h"
 
 #include <filesystem>
@@ -121,6 +122,9 @@ namespace Zamin {
         // version and the steps that brought it to the current one. Deserialize(file) logs it once
         // per file version; DeserializeFromString leaves that to the caller.
         const SceneMigrationResult& GetMigration() const { return m_Migration; }
+        // How long the last Deserialize* call took: reading the file (Deserialize only), parsing, the
+        // migration and making the entities (see SceneLoadTiming; the assets are resolved later).
+        const SceneLoadTiming& GetTiming() const { return m_Timing; }
 
         // Entity subsets (prefabs, copy/paste). Parents outside the set become roots.
         // includeEditorFlags = false (prefabs): the hierarchy's hidden / locked flags are left
@@ -158,6 +162,7 @@ namespace Zamin {
         std::vector<AssetReferenceRepair> m_RepairedReferences;
         SceneLoadReport m_Report;
         SceneMigrationResult m_Migration;
+        SceneLoadTiming m_Timing;
         std::string m_LastError;       // why the last Deserialize* call failed
         bool m_QuietErrors = false;    // Deserialize(file) reports the error with the file's path
     };
@@ -191,6 +196,9 @@ namespace Zamin {
         const SceneLoadReport& GetReport() const;
         // The format migration Parse applied (see SceneMigration; Parse(file) logs it).
         const SceneMigrationResult& GetMigration() const;
+        // How long it took so far: Parse's stages (reading, parsing, the migration - on the thread
+        // that parsed) and Build's slices together (Deserialize).
+        const SceneLoadTiming& GetTiming() const;
 
     private:
         struct Data;

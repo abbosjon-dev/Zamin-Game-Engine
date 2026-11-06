@@ -1,4 +1,5 @@
 #include "Zamin/Scene/Scene.h"
+#include "Zamin/Scene/SceneLoadTiming.h"
 #include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
@@ -2498,6 +2499,8 @@ namespace Zamin {
     // ------------------------------------------------------------------ lifecycle
     void Scene::OnRuntimeStart()
     {
+        const auto startClock = std::chrono::steady_clock::now();
+        m_RuntimeStartTiming = {};
         m_IsRunning = true;
         m_Time = 0.0f;
         m_TimeScale = m_TimeScaleBeforePause = 1.0f; // the game's clock runs
@@ -2513,8 +2516,10 @@ namespace Zamin {
         // Inactive entities start without bodies and without OnEnable.
         EnsureActiveCache();
         m_AppliedInactive = m_InactiveOrder;
+        const auto physicsClock = std::chrono::steady_clock::now();
         OnPhysics2DStart();
         OnPhysics3DStart();
+        m_RuntimeStartTiming.PhysicsMilliseconds = ElapsedMilliseconds(physicsClock);
 
         // Sources on inactive entities start when they are switched on.
         UpdateAudioListener(0.0f); // the 3D sounds start where the listener is
@@ -2539,7 +2544,10 @@ namespace Zamin {
         for (auto e : sources)
             StartEntityEffects({ e, this });
 
+        const auto scriptsClock = std::chrono::steady_clock::now();
         StartScripts();
+        m_RuntimeStartTiming.ScriptsMilliseconds = ElapsedMilliseconds(scriptsClock);
+        m_RuntimeStartTiming.TotalMilliseconds = ElapsedMilliseconds(startClock);
     }
 
     void Scene::SetGamePaused(bool paused)

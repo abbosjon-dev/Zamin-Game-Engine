@@ -138,6 +138,10 @@ namespace Zamin {
     // inverse bind; at most MaxJoints).
     const std::vector<glm::mat4>& GetSkinMatrices(const ModelSkin& skin, const std::vector<glm::mat4>& skeletonMatrices,
                                                   std::vector<glm::mat4>& scratch);
+    // A vertex's four joint influences made to fit the GPU's palette (joints under MaxJoints): the
+    // weight of a joint past it goes to the vertex's other joints (the weights renormalized); with
+    // none of them left, the vertex follows joint 0.
+    void FitJointInfluences(glm::ivec4& joints, glm::vec4& weights);
 
     class Model;
     // The weights `clip` gives the morph groups it animates at `time` seconds, written into the
@@ -186,7 +190,11 @@ namespace Zamin {
         }
 
         // The pose cache of one of its clips at `rate` frames per second (baked when first asked for;
-        // nullptr for a clip that is not one of GetAnimations()). Dropped when the file is read again.
+        // nullptr for a clip that is not one of GetAnimations()). Each clip keeps one cache per rate
+        // (up to MaxPoseCacheRates; past that the one asked for longest ago is made again for the new
+        // rate), so animators of the model with different rates share theirs instead of baking the
+        // clip over and over. Dropped when the file is read again.
+        static constexpr size_t MaxPoseCacheRates = 8;
         const BakedClip* GetBakedClip(const AnimationClip& clip, float rate) const;
         // Goes up each time the file is read again (Reload / Reimport): what was made from the old
         // skeleton and clips is out of date.
@@ -272,7 +280,13 @@ namespace Zamin {
         std::vector<MorphGroup> m_MorphGroups;
         ModelImportSettings m_ImportSettings;
         std::vector<std::filesystem::path> m_Dependencies;
-        mutable std::vector<Ref<BakedClip>> m_PoseCache; // per clip of m_Animations (GetBakedClip)
+        struct PoseCacheEntry
+        {
+            Ref<BakedClip> Baked;
+            uint64_t LastUse = 0; // m_PoseCacheUses when it was last asked for
+        };
+        mutable std::vector<std::vector<PoseCacheEntry>> m_PoseCache; // per clip of m_Animations: one per rate (GetBakedClip)
+        mutable uint64_t m_PoseCacheUses = 0;
         uint64_t m_Revision = 0;
         friend class ModelLoader;
     };

@@ -272,6 +272,24 @@ namespace Zamin {
         return scratch;
     }
 
+    void FitJointInfluences(glm::ivec4& joints, glm::vec4& weights)
+    {
+        float sum = 0.0f;
+        for (int k = 0; k < 4; k++)
+        {
+            if (joints[k] < 0 || joints[k] >= MaxJoints || !std::isfinite(weights[k]))
+            {
+                joints[k] = 0;
+                weights[k] = 0.0f;
+            }
+            sum += weights[k];
+        }
+        if (sum > 0.0f)
+            weights /= sum;
+        else
+            weights = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f); // all on the first (joint 0 if it was past the palette)
+    }
+
     const std::vector<glm::mat4>& Model::GetSubMeshJoints(size_t index, const std::vector<glm::mat4>& skeletonMatrices,
                                                           std::vector<glm::mat4>& scratch) const
     {
@@ -772,7 +790,8 @@ namespace Zamin {
         BuildGLTFSkeleton(data, model->m_Skeleton, model->m_Skins, jointIndex);
         for (const ModelSkin& s : model->m_Skins)
             if (!s.Direct && s.Joints.size() > (size_t)MaxJoints)
-                ZM_CORE_WARN("{}: '{}' skinida {} suyak bor - GPU {} tasini oladi, qolganlari birinchisiga bog'lanadi",
+                ZM_CORE_WARN("{}: '{}' skinida {} suyak bor - GPU {} tasini oladi; ortiqcha suyaklarning og'irligi uchning "
+                             "boshqa suyaklariga o'tadi (ular bo'lmasa birinchi suyakka bog'lanadi)",
                              path.filename().string(), s.Name, s.Joints.size(), MaxJoints);
 
         // Morph groups: one per mesh node with targets (its weights are the node's / mesh's).
@@ -933,16 +952,17 @@ namespace Zamin {
                     cgltf_accessor_read_uint(joints, i, j, 4);
                     float w[4] = { 0, 0, 0, 0 };
                     cgltf_accessor_read_float(weights, i, w, 4);
-                    float sum = w[0] + w[1] + w[2] + w[3];
                     for (int k = 0; k < 4; k++)
                     {
                         // A direct skin: skin-local joint index -> the skeleton's; else the skin's own
                         // (its palette, GetSkinMatrices).
                         const size_t local = j[k] < modelSkin->Joints.size() ? (size_t)j[k] : 0;
-                        int idx = modelSkin->Direct ? modelSkin->Joints[local] : (int)local;
-                        sv[i].Joints[k] = std::min(idx, MaxJoints - 1);
-                        sv[i].Weights[k] = sum > 0.0f ? w[k] / sum : (k == 0 ? 1.0f : 0.0f);
+                        sv[i].Joints[k] = modelSkin->Direct ? modelSkin->Joints[local] : (int)local;
+                        sv[i].Weights[k] = w[k];
                     }
+                    // Joints past the GPU's palette (a skin with more than MaxJoints): their weight
+                    // goes to the vertex's other joints.
+                    FitJointInfluences(sv[i].Joints, sv[i].Weights);
                 }
                 if (morph)
                 {
@@ -1298,14 +1318,30 @@ namespace Zamin {
             m_PoseCache.resize(m_Animations.size());
         if (!std::isfinite(rate) || rate < 1.0f)
             rate = 1.0f;
-        Ref<BakedClip>& baked = m_PoseCache[index];
-        if (!baked || baked->Rate != rate || baked->Joints != m_Skeleton.Joints.size())
+        // One cache per rate: animators of this model asking for different rates each get their own.
+        std::vector<PoseCacheEntry>& entries = m_PoseCache[index];
+        PoseCacheEntry* entry = nullptr;
+        for (PoseCacheEntry& e : entries)
+            if (e.Baked && e.Baked->Rate == rate)
+            {
+                entry = &e;
+                break;
+            }
+        if (!entry)
         {
-            if (!baked)
-                baked = CreateRef<BakedClip>();
-            BakeClip(m_Skeleton, clip, rate, *baked);
+            if (entries.size() < MaxPoseCacheRates)
+                entry = &entries.emplace_back();
+            else // full: the one asked for longest ago is made again for this rate
+                entry = &*std::min_element(entries.begin(), entries.end(),
+                                           [](const PoseCacheEntry& a, const PoseCacheEntry& b) { return a.LastUse < b.LastUse; });
         }
-        return baked.get();
+        entry->LastUse = ++m_PoseCacheUses;
+        if (!entry->Baked)
+            entry->Baked = CreateRef<BakedClip>();
+        BakedClip& baked = *entry->Baked;
+        if (baked.Rate != rate || baked.Joints != m_Skeleton.Joints.size() || baked.Frames == 0)
+            BakeClip(m_Skeleton, clip, rate, baked);
+        return &baked;
     }
 
     Ref<Model> Model::CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations)

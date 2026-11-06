@@ -3223,10 +3223,12 @@ namespace Zamin {
                     speed = p->Value;
             float v = 1.0f, pitch = 1.0f;
             UI::PropertyLabel("");
+            ImGui::PushTextWrapPos(0.0f); // wraps inside the value column
             if (c.GetSpeedScale(speed, v, pitch))
                 ImGui::TextDisabled("Tezlik %.2f: balandlik x%.2f, ton x%.2f", speed, v, pitch);
             else
-                ImGui::TextDisabled("Tezlik %.2f: eshitilmaydi (juda sekin)", speed);
+                ImGui::TextDisabled("Tezlik %.2f: juda sekin, eshitilmaydi", speed);
+            ImGui::PopTextWrapPos();
         }
 
         UI::PropertyHeader(ICON_FA_VOLUME_HIGH "  Ijro", "Qaysi mixer guruhida va 3D ovoz sifatida (obyekt turgan joyda) eshitiladi");

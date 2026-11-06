@@ -458,7 +458,8 @@ pozalanadi. Sahna umuman chizilmasa (headless) hech narsa kesilmaydi. Eslatma: f
 kesiladi.
 
 **Poza keshi** (`CachePoses`, `PoseCacheRate` kadr/s, 30 standart): klip oldindan shu tezlikda namuna olinib saqlanadi
-(modelning har klipi uchun bir marta, uning barcha animatorlari ulashadi); har kadr ikki saqlangan kadr aralashtiriladi —
+(modelning har klipi va tezligi uchun bir marta, uning shu tezlikdagi barcha animatorlari ulashadi; bir klipga 8 tagacha
+turli tezlik, undan ko'pi eng uzoq so'ralmaganining o'rniga); har kadr ikki saqlangan kadr aralashtiriladi —
 har kanal kalitlarini qidirish yo'q. Ko'p suyakli, ko'p kalitli kliplarda arzonroq; saqlangan kadrlar orasida biroz
 kamroq aniq, **step kalitlar aniq qoladi** (bunday suyaklar klipning o'zidan o'qiladi). Debug build'da 100 ta 60 suyakli
 animator (10 s, 30 kalit/s): klipdan ~40 ms → keshdan ~24 ms; yarmi pauzada bo'lsa ~19 ms.

@@ -165,6 +165,7 @@ public:
     std::string CreakSound = "Audio/DoorCreak.wav";
     std::string ThudSound = "Audio/DoorThud.wav";
     bool ShowLabel = true;
+    float LabelHeight = 2.6f;  // on the door's front, under the lamp (in view of the editor's play mode too)
 
     void OnCreate() override
     {
@@ -205,7 +206,7 @@ public:
 
         if (ShowLabel)
         {
-            const glm::vec3 p = GetWorldPosition() + glm::vec3(0.0f, 4.75f, 0.9f); // on the arch's front
+            const glm::vec3 p = GetWorldPosition() + glm::vec3(0.0f, LabelHeight, 0.9f);
             const char* state = anim->IsPlaying() ? (m_Opening ? "ochilmoqda" : "yopilmoqda") : (m_Opening ? "ochiq" : "yopiq");
             DebugDraw::Text(p, std::format("Darvoza: {}", state), glm::vec4(0.9f, 0.92f, 0.98f, 1.0f));
             if (!m_LastEvent.empty())
@@ -242,4 +243,4 @@ private:
 };
 ZM_REGISTER_SCRIPT(ProximityDoor, ZM_FIELD(ProximityDoor, Player), ZM_FIELD(ProximityDoor, Clip), ZM_FIELD(ProximityDoor, OpenRadius),
                    ZM_FIELD(ProximityDoor, CloseRadius), ZM_FIELD(ProximityDoor, CloseDelay), ZM_FIELD(ProximityDoor, CreakSound),
-                   ZM_FIELD(ProximityDoor, ThudSound), ZM_FIELD(ProximityDoor, ShowLabel))
+                   ZM_FIELD(ProximityDoor, ThudSound), ZM_FIELD(ProximityDoor, ShowLabel), ZM_FIELD(ProximityDoor, LabelHeight))

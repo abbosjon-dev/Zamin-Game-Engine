@@ -26936,13 +26936,38 @@ TEST(AnimationPoseCache)
     }
     CHECK(GetBakedClipMemory() == memory0); // freed with it
 
-    // Models keep one cache per clip (and rate); clips that are not theirs have none.
+    // Models keep one cache per clip and rate; clips that are not theirs have none.
     Ref<Model> model = Model::CreateSkeletal(sk, { clip });
-    const BakedClip* b30 = model->GetBakedClip(model->GetAnimations()[0], 30.0f);
-    CHECK(b30 && model->GetBakedClip(model->GetAnimations()[0], 30.0f) == b30 && GetBakedClipMemory() > memory0);
-    const BakedClip* b60 = model->GetBakedClip(model->GetAnimations()[0], 60.0f);
-    CHECK(b60 && b60->Rate == 60.0f && b60->Frames == 61);
+    const AnimationClip& own = model->GetAnimations()[0];
+    const BakedClip* b30 = model->GetBakedClip(own, 30.0f);
+    CHECK(b30 && model->GetBakedClip(own, 30.0f) == b30 && GetBakedClipMemory() > memory0);
+    const BakedClip* b60 = model->GetBakedClip(own, 60.0f);
+    CHECK(b60 && b60 != b30 && b60->Rate == 60.0f && b60->Frames == 61);
+    // Asking for one rate leaves the other's cache as it was (not made again for the new rate).
+    CHECK(b30->Rate == 30.0f && b30->Frames == 31 && model->GetBakedClip(own, 30.0f) == b30 && model->GetBakedClip(own, 60.0f) == b60);
+    CHECK(GetBakedClipMemory() == memory0 + b30->GetMemory() + b60->GetMemory());
     CHECK(!model->GetBakedClip(clip, 30.0f));
+    // At most MaxPoseCacheRates rates per clip: past that, the one asked for longest ago makes room.
+    {
+        Ref<Model> many = Model::CreateSkeletal(sk, { clip });
+        const AnimationClip& c = many->GetAnimations()[0];
+        const size_t before = GetBakedClipMemory();
+        std::vector<const BakedClip*> caches;
+        for (size_t r = 0; r < Model::MaxPoseCacheRates; r++)
+            caches.push_back(many->GetBakedClip(c, 10.0f + (float)r));
+        auto cachedBytes = [&]() {
+            size_t bytes = 0;
+            for (const BakedClip* b : caches)
+                bytes += b->GetMemory();
+            return bytes;
+        };
+        CHECK(std::set<const BakedClip*>(caches.begin(), caches.end()).size() == Model::MaxPoseCacheRates);
+        CHECK(GetBakedClipMemory() == before + cachedBytes());
+        CHECK(many->GetBakedClip(c, 10.0f) == caches[0]); // asked for again: rate 11 is now the oldest
+        const BakedClip* extra = many->GetBakedClip(c, 50.0f);
+        CHECK(extra == caches[1] && extra->Rate == 50.0f && extra->Frames == 51);
+        CHECK(caches[0]->Rate == 10.0f && caches[2]->Rate == 12.0f && GetBakedClipMemory() == before + cachedBytes());
+    }
 
     // An Animator reading the cache: the same pose (on a frame time), counted in the scene's stats.
     auto scene = CreateRef<Scene>();
@@ -26965,6 +26990,74 @@ TEST(AnimationPoseCache)
     scene->OnUpdateRuntime(0.1f);
     CHECK(scene->GetAnimationStats().ClipSamples == 1 && scene->GetAnimationStats().CachedSamples == 0);
     scene->OnRuntimeStop();
+
+    // Two animators of one model with different cache rates (a hero at 48, a crowd at 24): each rate
+    // has a cache of its own, made once - not made again for the other one every update.
+    {
+        auto shared = CreateRef<Scene>();
+        auto addArm = [&](const char* name, float rate) {
+            Entity arm = shared->CreateEntity(name);
+            auto& r = arm.AddComponent<MeshRendererComponent>();
+            r.Type = PrimitiveMesh::Model;
+            r.ModelAsset = model;
+            auto& anim = arm.AddComponent<AnimatorComponent>();
+            anim.Clip = "Swing";
+            anim.CachePoses = true;
+            anim.PoseCacheRate = rate;
+            return arm;
+        };
+        Entity hero = addArm("Hero", 48.0f);
+        Entity crowd = addArm("Crowd", 24.0f);
+        const size_t before = GetBakedClipMemory();
+        shared->OnRuntimeStart();
+        shared->OnUpdateRuntime(0.25f);
+        CHECK(shared->GetAnimationStats().CachedSamples == 2 && shared->GetAnimationStats().ClipSamples == 0);
+        const BakedClip* b48 = model->GetBakedClip(own, 48.0f);
+        const BakedClip* b24 = model->GetBakedClip(own, 24.0f);
+        CHECK(b48 && b24 && b48 != b24 && b48->Rate == 48.0f && b24->Rate == 24.0f);
+        const size_t baked = GetBakedClipMemory();
+        CHECK(baked == before + b48->GetMemory() + b24->GetMemory());
+        for (int i = 0; i < 5; i++)
+            shared->OnUpdateRuntime(0.1f);
+        CHECK(model->GetBakedClip(own, 48.0f) == b48 && model->GetBakedClip(own, 24.0f) == b24);
+        CHECK(b48->Rate == 48.0f && b24->Rate == 24.0f && b48->Frames == 49 && b24->Frames == 25 && GetBakedClipMemory() == baked);
+        // Both posed from their own cache (0.75 s is a cached frame at both rates).
+        std::vector<glm::mat4> at;
+        EvaluatePose(sk, &own, 0.75f, at);
+        const auto& heroAnim = hero.GetComponent<AnimatorComponent>();
+        const auto& crowdAnim = crowd.GetComponent<AnimatorComponent>();
+        CHECK(heroAnim.JointMatrices.size() == 2 && NearMat(heroAnim.JointMatrices[1], at[1], 1e-3f));
+        CHECK(crowdAnim.JointMatrices.size() == 2 && NearMat(crowdAnim.JointMatrices[1], at[1], 1e-3f));
+        shared->OnRuntimeStop();
+    }
+}
+
+TEST(SkinJointInfluencesFitPalette)
+{
+    // Joints under the GPU's limit: kept (the weights normalized).
+    glm::ivec4 j(1, 2, 0, 0);
+    glm::vec4 w(0.5f, 1.5f, 0.0f, 0.0f);
+    FitJointInfluences(j, w);
+    CHECK(j == glm::ivec4(1, 2, 0, 0));
+    CHECK_NEAR(w.x, 0.25f, 1e-6f);
+    CHECK_NEAR(w.y, 0.75f, 1e-6f);
+    // One past it: its weight goes to the vertex's other joints.
+    j = glm::ivec4(5, MaxJoints + 3, 7, 0);
+    w = glm::vec4(0.3f, 0.4f, 0.3f, 0.0f);
+    FitJointInfluences(j, w);
+    CHECK(j.x == 5 && j.y == 0 && j.z == 7 && w.y == 0.0f);
+    CHECK_NEAR(w.x, 0.5f, 1e-6f);
+    CHECK_NEAR(w.z, 0.5f, 1e-6f);
+    // All of them past it: the vertex follows joint 0 (not the palette's last joint).
+    j = glm::ivec4(MaxJoints, MaxJoints + 1, 0, 0);
+    w = glm::vec4(0.6f, 0.4f, 0.0f, 0.0f);
+    FitJointInfluences(j, w);
+    CHECK(j.x == 0 && j.y == 0 && w == glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+    // No weight at all: fully on its first joint.
+    j = glm::ivec4(4, 0, 0, 0);
+    w = glm::vec4(0.0f);
+    FitJointInfluences(j, w);
+    CHECK(j.x == 4 && w == glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
 }
 
 TEST(AnimatorSkipsUnchangedAndCulledPoses)

@@ -614,7 +614,7 @@ namespace Zamin {
         // ---- performance
         AnimatorCulling Culling = AnimatorCulling::AlwaysAnimate;
         // Clips are read from poses cached at PoseCacheRate frames per second (made once per clip
-        // of the model, shared by all its animators): cheaper for clips with many keys and bones,
+        // of the model and rate, shared by all its animators): cheaper for clips with many keys and bones,
         // a little less exact between the cached frames (step keys stay exact).
         bool CachePoses = false;
         float PoseCacheRate = 30.0f;

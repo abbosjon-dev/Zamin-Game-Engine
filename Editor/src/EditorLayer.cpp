@@ -295,6 +295,9 @@ namespace Zamin {
         {
             if (const char* scene = std::getenv("ZAMIN_EDITOR_SCENE"))
                 OpenScene(Project::GetAssetFileSystemPath(scene));
+            // ZAMIN_EDITOR_LOAD_REPORT=1: the scene load problems window open (when the load found any).
+            if (std::getenv("ZAMIN_EDITOR_LOAD_REPORT") && m_LoadReport.HasIssues())
+                m_ShowLoadReport = true;
             // "Name" or "A,B,C" (multi-selection, the last is primary); ZAMIN_EDITOR_SELECT_FRAME=<n>: at
             // frame n instead (e.g. an entity a script spawns after ZAMIN_EDITOR_PLAY).
             if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT"); sel && !std::getenv("ZAMIN_EDITOR_SELECT_FRAME"))
@@ -7142,14 +7145,15 @@ namespace Zamin {
                 if (!issue.SourceLine.empty())
                 {
                     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.80f, 0.88f, 1.0f));
+                    const float lineX = ImGui::GetCursorPosX();
                     ImGui::TextUnformatted(issue.SourceLine.c_str());
                     ImGui::PopStyleColor();
                     if (issue.Column > 0)
                     {
-                        // A caret under the column the parser stopped at.
-                        const int column = std::min<int>(issue.Column, (int)issue.SourceLine.size() + 1);
-                        const std::string caret = std::string((size_t)std::max(0, column - 1), ' ') + "^";
-                        ImGui::TextColored(ImVec4(0.95f, 0.40f, 0.36f, 1.0f), "%s", caret.c_str());
+                        // A caret under the character the parser stopped at (measured: the font is proportional).
+                        const size_t before = (size_t)std::clamp(issue.Column - 1, 0, (int)issue.SourceLine.size());
+                        ImGui::SetCursorPosX(lineX + ImGui::CalcTextSize(issue.SourceLine.c_str(), issue.SourceLine.c_str() + before).x);
+                        ImGui::TextColored(ImVec4(0.95f, 0.40f, 0.36f, 1.0f), "^");
                     }
                 }
                 ImGui::PopTextWrapPos();

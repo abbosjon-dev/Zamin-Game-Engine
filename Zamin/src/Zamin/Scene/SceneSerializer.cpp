@@ -3216,6 +3216,15 @@ namespace Zamin {
 
     void SceneLoadReport::Add(SceneLoadIssue issue) { Issues.push_back(std::move(issue)); }
 
+    // An exception's text without the JSON library's "[json.exception.type_error.302] " prefix.
+    static std::string DescribeException(const std::exception& ex)
+    {
+        std::string what = ex.what();
+        if (size_t bracket = what.find("] "); what.starts_with("[json.exception") && bracket != std::string::npos)
+            what = what.substr(bracket + 2);
+        return what;
+    }
+
     static SceneLoadIssue MakeIssue(SceneLoadIssue::Kind kind, SceneLoadIssue::Severity level, std::string message)
     {
         SceneLoadIssue issue;
@@ -3337,7 +3346,7 @@ namespace Zamin {
                 else if (key != "Active")
                     ComponentRegistry::Remove(entity, key);
                 AddEntityIssue(report, SceneLoadIssue::Kind::BadComponent, SceneLoadIssue::Severity::Error,
-                               std::format("'{}' obyektining '{}' komponenti o'qilmadi ({}): usiz yuklandi", name, key, ex.what()),
+                               std::format("'{}' obyektining '{}' komponenti o'qilmadi ({}): usiz yuklandi", name, key, DescribeException(ex)),
                                name, id, std::string(key));
             }
         }
@@ -3586,7 +3595,7 @@ namespace Zamin {
             if (report)
             {
                 SceneLoadIssue issue = MakeIssue(SceneLoadIssue::Kind::BadComponent, SceneLoadIssue::Severity::Error,
-                                                 std::format("Sahna sozlamalari to'liq o'qilmadi ({}): qolganlari standart", ex.what()));
+                                                 std::format("Sahna sozlamalari to'liq o'qilmadi ({}): qolganlari standart", DescribeException(ex)));
                 issue.Component = "Settings";
                 report->Add(std::move(issue));
             }

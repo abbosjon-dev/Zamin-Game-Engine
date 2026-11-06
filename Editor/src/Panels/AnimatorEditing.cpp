@@ -538,23 +538,25 @@ namespace Zamin::AnimatorEditing {
                                    : c.PreviousBlendTree >= 0 ? StateName(c, c.PreviousBlendTree)
                                    : (c.PreviousClip.empty() ? std::string("?") : c.PreviousClip);
             const std::string to = c.UsesStateMachine() && c.CurrentState >= 0 ? std::string(c.GetCurrentStateName()) : c.Clip;
-            bar(c.GetFadeProgress(), std::format("{}  " ICON_FA_ARROW_RIGHT "  {}  {:.0f}%", from, to, c.GetFadeProgress() * 100.0f), fade);
+            ImGui::TextColored(fade, "%s  " ICON_FA_ARROW_RIGHT "  %s", from.c_str(), to.c_str());
+            row("");
+            bar(c.GetFadeProgress(), std::format("{:.0f}%  ({:.2f} / {:.2f} s)", c.GetFadeProgress() * 100.0f, c.FadeElapsed, c.FadeDuration), fade);
         }
         // A blend tree's weights.
         if (tree && c.BlendWeights.size() == tree->Motions.size())
             for (size_t i = 0; i < tree->Motions.size(); i++)
             {
                 const auto& m = tree->Motions[i];
-                std::string label = std::format("  {}##w{}", m.Clip.empty() ? "?" : m.Clip, i);
-                row(label.c_str());
+                std::string label = std::format("  {}", m.Clip.empty() ? "?" : m.Clip);
+                row(label.c_str(), "Blend tree motion'ining og'irligi");
                 bar(c.BlendWeights[i], std::format("{:.2f}  (chegara {:.2f})", c.BlendWeights[i], m.Threshold), weight);
             }
         // Layers.
         for (size_t i = 0; i < c.Layers.size(); i++)
         {
             const AnimatorLayer& l = c.Layers[i];
-            std::string label = std::format(ICON_FA_LAYER_GROUP " {}##l{}", l.Name, i);
-            row(label.c_str());
+            std::string label = std::format(ICON_FA_LAYER_GROUP " {}", l.Name);
+            row(label.c_str(), "Qatlamning amaldagi og'irligi (parametr va fade bilan)");
             bar(l.EffectiveWeight, std::format("{}  {:.2f}", l.Clip.empty() ? "(klip yo'q)" : l.Clip.c_str(), l.EffectiveWeight), weight);
         }
     }

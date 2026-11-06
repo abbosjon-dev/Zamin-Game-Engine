@@ -285,11 +285,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 243. Kalit kadrlar interpolyatsiyasi (linear, step, bezier)
 - [x] 244. Animatsiya event'lari (vaqtda skript callback)
 - [x] 245. Root motion (glTF)
-- [ ] 246. Blend tree 1D (tezlik bo'yicha walk/run aralashtirish)
-- [ ] 247. Animatsiya qatlamlari (ustki tana) - oddiy
-- [ ] 248. Sprite animatsiya kliplari asset sifatida
-- [ ] 249. Animator parametrlarini inspektorda runtime ko'rsatish
-- [ ] 250. Holat mashinasi uchun vizual graf (node'lar)
+- [x] 246. Blend tree 1D (tezlik bo'yicha walk/run aralashtirish)
+- [x] 247. Animatsiya qatlamlari (ustki tana) - oddiy
+- [x] 248. Sprite animatsiya kliplari asset sifatida
+- [x] 249. Animator parametrlarini inspektorda runtime ko'rsatish
+- [x] 250. Holat mashinasi uchun vizual graf (node'lar)
 - [ ] 251. Animatsiya preview editorda (scrub)
 - [ ] 252. Skelet: suyakka obyekt biriktirish (attachment socket)
 - [ ] 253. Animatsiya tezligi bo'yicha qadam tovushlari event bilan

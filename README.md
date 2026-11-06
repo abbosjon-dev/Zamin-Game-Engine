@@ -83,6 +83,11 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     rasm o'zi atlas bo'ladi: Sprite Renderer kadrni nomi bilan ko'rsatadi (`SpriteName`, bo'sh — butun rasm), Sprite
     Animation nomlangan kadrlar ro'yxatini o'ynaydi (`Frames`, inspektorda `run_0, run_1, ...` ketma-ketliklari bitta
     tanlov bilan; skriptdan `PlaySpriteSequence("run")`, `SetSprite("idle")`), eksport qilingan o'yinga registry bilan o'tadi
+  - **Sprite animatsiya kliplari** (`.zsanim` asset): rasm, sprite sheet kadrlari yoki grid, FPS, takrorlash va **kadr
+    event'lari** (`OnAnimationEvent`, masalan qadam "Step"). Sprite Animation'ning **Kliplar** ro'yxati — birinchisi o'yin
+    boshida o'ynaydi va editorda ko'rinadi, skript `PlaySpriteClip("HeroSide")`; asset inspektorida jonli ko'rinish (kadrlar
+    qatori, oldinga / orqaga), tahrirlar darhol hamma foydalanuvchilarga o'tadi va saqlanadi. Kontent: o'ng tugma → Yangi
+    sprite animatsiya klipi (tanlangan rasmdan); inspektorda "Shu kadrlardan klip". Namuna: TopDown2D qahramoni va gulxani
   - **9-slice va plitkali sprite'lar**: Sprite Renderer'ning chizish rejimi Oddiy / 9-slice (Sliced) / Plitka (Tiled) —
     `Size` (birlik) to'rtburchagini burchaklari cho'zilmay (chegara px / `PixelsPerUnit`) to'ldiradi, Tiled'da chetlar va
     o'rta takrorlanadi; chegaralar komponentda yoki kadrda. Ekran UI'sida ham (panel, tugma — chegara ekran pikselida).
@@ -203,6 +208,19 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`; **event'lar** (klipning 0..1 nuqtasi,
     nom va parametr — skriptga `OnAnimationEvent`), **root motion** (ildiz suyakning XZ yurishi va Y burilishi obyektni yoki
     Character Controller 3D'ni siljitadi, poza joyida qoladi; suyak avtomatik yoki tanlanadi)
+  - **Blend tree 1D**: holat turi "Blend tree 1D" — float parametr (masalan `Speed`) chegaralari bo'yicha kliplar
+    aralashadi (Idle 0 / Walk 3 / Run 6.5), hammasi bitta normalizatsiyalangan vaqtda o'ynaydi (oyoqlar fazada qoladi),
+    sikl davomiyligi og'irliklar bo'yicha; boshqa holatlarga crossfade, exit time, root motion va event'lar (eng og'ir klipdan)
+    bilan. **Qatlamlar** (Animator > Qatlamlar): o'z klipi, og'irligi (parametr bilan ham), **avatar maska** (suyak va undan
+    pastdagilar, masalan `Spine` — ustki tana), Override yoki Additive; skript: `PlayLayer("UpperBody", "Wave")`,
+    `SetLayerWeight("UpperBody", 0.0f, 0.3f)`, `SetState("Jump")`
+  - **Animator grafi** (Oyna > Animator grafi, yoki inspektordagi tugma): holatlar node'lar (klip / blend tree, boshlang'ich —
+    to'q sariq), o'tishlar strelkalar, "Har qanday holat" node'i; node'larni sudrash (joylari sahnada saqlanadi), Shift +
+    sudrash yoki menyu bilan o'tish chizish, strelka / node bosilsa o'ng panelda tahrirlash (shartlar, fade, exit time, blend
+    motion'lari), Delete, g'ildirak — masshtab, o'rta / o'ng tugma — surish, undo. O'yin davomida jonli: hozirgi holat va
+    uning vaqti, o'tish strelkasi, blend og'irliklari; inspektorda ham **jonli holat** (normalizatsiyalangan vaqt, o'tish
+    jarayoni, og'irliklar, qatlamlar) va parametrlarni o'zgartirish (trigger tugmasi). Namuna: Showcase3D
+    `Scenes/Animator.zscene` (blend tree + Any State trigger, Bone2 maskali qatlam), Adventure3D robot (Idle/Walk/Run blend tree)
   - **Property animatsiya** (`.zanim` kliplar, **Animation Player** komponenti): obyekt va uning bolalarining (nom yo'li bilan,
     `"Eshik/Oshiq"`) transformi, Sprite / Circle / Text / Mesh rangi, yorug'lik rangi va kuchi, UI joylashuvi / o'lchami /
     masshtabi / shaffofligi, UI rasm rangi va skriptning float maydonlari; kalitlar **Step / Linear / Bezier** (avtomatik
@@ -790,7 +808,8 @@ Foydali API:
 | 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `ApplyImpulse(other, impulse)`, `Raycast2D(origin, dir, dist, LayerMask({ "Ground" }))`, `Raycast2DAll(origin, dir, dist, mask, includeTriggers)` (hamma urilishlar, yaqini birinchi), `OverlapCircle2D(center, r, mask)` / `OverlapBox2D(center, halfExtents, angle, mask)` / `OverlapPoint2D(p, mask)` → `std::vector<Entity>`, `LayerIndex("Player")`, uxlash: `IsSleeping()` / `WakeUp()` / `PutToSleep()` (`IsSleeping(other)`, `WakeUp(other)`); joint'lar: `GetComponent<RevoluteJoint2DComponent>()` → `.MotorSpeed`, `.EnableLimit`, `.JointAngle`, `.ReactionForce`, `.Broken` ... |
 | 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)`, uxlash: `IsSleeping3D()` / `WakeUp3D()` / `PutToSleep3D()` (`(other)` turlari ham); joint'lar: `GetComponent<HingeJoint3DComponent>()` → `.MotorSpeed`, `.EnableSpring`, `.SpringTargetAngle`, `.JointAngle`, `.ReactionForce`, `.Broken`; `SliderJoint3DComponent` → `.MotorSpeed`, `.JointTranslation` ... |
 | Qahramon | `GetComponent<CharacterController3DComponent>()` → `.Move(velocity)`, `.Jump(speed)`, `.Grounded`, `.Velocity` (oxirgi fizika qadamidagi haqiqiy tezlik) |
-| Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)`, `SetBool`, `SetTrigger`; `.ApplyRootMotion`, `.RootMotionVelocity` |
+| Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)` (blend tree ham), `SetBool`, `SetTrigger`, `SetState("Jump")`, `GetNormalizedTime(model)`; qatlamlar: `PlayLayer("UpperBody", "Wave")`, `SetLayerWeight("UpperBody", w, fade)`; `.ApplyRootMotion`, `.RootMotionVelocity` |
+| Sprite klip | `PlaySpriteClip("HeroSide")`, `GetSpriteClip()`; kadr event'lari `OnAnimationEvent(e)` orqali |
 | Property animatsiya | `PlayAnimation("Klip", speed)` (speed < 0 — oxiridan orqaga), `StopAnimation()`, `IsAnimationPlaying()`; `GetComponent<AnimationPlayerComponent>().SetTime(t)`; event'lar: `OnAnimationEvent(const AnimationEventInfo& e)` (`e.Name`, `e.Parameter`, `e.Clip`, `e.Skeletal`), `AddAnimationEventHandler("Footstep", fn)` |
 | Input harakatlari | `Input::IsActionPressed("Fire")`, `IsActionJustPressed("Jump")`, `IsActionJustReleased(...)`, `GetAxis("Horizontal")`, `GetAxis2D("Horizontal", "Vertical")` |
 | Input (qurilma) | `Input::IsKeyPressed / IsKeyJustPressed / IsKeyJustReleased`, `IsMouseButtonPressed / ...JustPressed / ...JustReleased`, `GetMouseDelta()`, `GetMouseScrollDelta()`, `IsGamepadButtonPressed / ...JustPressed`, `GetGamepadAxis`, `GetMousePosition()`, `GetMouseWorldPosition()`, `ScreenToWorld()` |

@@ -1434,6 +1434,10 @@ namespace Zamin {
             return 0;
         const bool requested = it->second;
         UnloadFile(file);
+        // New import settings: a clip that streams now, or (kept for its Preload setting) has it
+        // switched off, is let go instead.
+        if (ShouldStream(path, false) || (!requested && !AssetImporter::GetAudioSettings(path).Preload))
+            return 1;
         // Checked with a decoder of our own (the shortcut for files in use does not apply here).
         ma_decoder decoder;
         ma_result result = ma_decoder_init_file(file.c_str(), nullptr, &decoder);

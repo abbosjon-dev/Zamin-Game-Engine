@@ -8606,6 +8606,15 @@ TEST(AudioClipImportSettings)
     bool failed = false;
     CHECK(AudioEngine::ReloadFile(step, &failed) == 1 && !failed && AudioEngine::IsPreloaded(step));
     CHECK(AudioEngine::ReloadFile(song, &failed) == 0);
+    h = AudioEngine::Play(step); // kept for the clip's Preload (not asked for by a script) ...
+    AudioEngine::Unload(step);
+    AudioEngine::Stop(h);
+    CHECK(AudioEngine::Play(step) && AudioEngine::IsPreloaded(step));
+    CHECK(setClip("Audio/step.wav", { AudioLoadMode::Auto, false, 1.0f }));
+    CHECK(AudioEngine::ReloadFile(step, &failed) == 1 && !AudioEngine::IsPreloaded(step)); // ... let go when it is switched off
+    AudioEngine::StopAll();
+    CHECK(setClip("Audio/step.wav", { AudioLoadMode::Auto, true, 1.0f }));
+    CHECK(Audio::Preload("Audio/step.wav"));
     Audio::Unload("Audio/step.wav");
     CHECK(!AudioEngine::IsPreloaded(step));
     Log::SetMinLevel(LogLevel::Critical); // the expected load error stays out of the output

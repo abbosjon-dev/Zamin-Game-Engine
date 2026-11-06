@@ -222,8 +222,9 @@ namespace Zamin {
         // Preload). What an earlier scene (or a clip's Preload on its first play) left decoded and
         // this scene does not use is let go; files preloaded by a Preload call stay.
         static void SetScenePreloads(const std::vector<std::filesystem::path>& paths);
-        // The file changed on disk (hot reload): a preloaded file is decoded again (the sounds
-        // playing it now keep the old data until they end). Returns 1 when it was preloaded.
+        // The file or its import settings changed (hot reload): a preloaded file is decoded again
+        // (the sounds playing it now keep the old data until they end) - or let go when it streams
+        // now or its Preload was switched off. Returns 1 when it was preloaded.
         static size_t ReloadFile(const std::filesystem::path& path, bool* failed = nullptr);
 
         // ---- listener (Scene::UpdateAudio: the active Audio Listener, else the primary camera)

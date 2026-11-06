@@ -9,6 +9,7 @@
 #include "Zamin/Renderer/VertexArray.h"
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <format>
 
@@ -380,6 +381,18 @@ namespace Zamin {
         return s.Enabled && s.ShowContacts;
     }
 
+    bool DebugDraw::IsShowingContactDetails()
+    {
+        const DebugDrawSettings& s = State().Settings;
+        return s.Enabled && s.ShowContactDetails;
+    }
+
+    bool DebugDraw::IsShowingJoints()
+    {
+        const DebugDrawSettings& s = State().Settings;
+        return s.Enabled && s.ShowJoints;
+    }
+
     bool DebugDraw::IsShowingVelocities()
     {
         const DebugDrawSettings& s = State().Settings;
@@ -583,6 +596,160 @@ namespace Zamin {
         Point(point, DebugColor::Orange, 0.0f, false, s.PointSize * 0.8f);
         if (glm::length(normal) > 0.5f)
             PushLine(point, point + glm::normalize(normal) * s.NormalLength, DebugColor::Yellow, 0.0f, false);
+    }
+
+    namespace {
+        // A contact that began this fast (m/s) is an impact: a ring for ImpactTime seconds.
+        constexpr float ImpactSpeed = 0.5f;
+        constexpr float ImpactTime = 0.6f;
+        constexpr size_t MaxContactLabels = 64; // per frame (a pile of crates would bury the picture)
+
+        // Physics quantities with as many decimals as they need.
+        std::string FormatAmount(float value, const char* unit)
+        {
+            const float a = std::abs(value);
+            return a >= 100.0f ? std::format("{:.0f} {}", value, unit)
+                 : a >= 1.0f   ? std::format("{:.2f} {}", value, unit)
+                               : std::format("{:.3f} {}", value, unit);
+        }
+    }
+
+    void DebugDraw::PhysicsContact(const PhysicsContactPoint& c)
+    {
+        if (!IsShowingContacts() || !Finite(c.Position))
+            return;
+        const DebugDrawSettings& s = State().Settings;
+        // Both bodies asleep: dimmed (the solver does nothing with them now).
+        const float alpha = c.Sleeping ? 0.4f : 1.0f;
+        auto faded = [&](glm::vec4 color) {
+            color.a *= alpha;
+            return color;
+        };
+        const glm::vec4 pointColor = c.Sleeping ? glm::vec4(0.55f, 0.65f, 0.85f, 1.0f) : c.Character ? DebugColor::Green : DebugColor::Orange;
+        Point(c.Position, faded(pointColor), 0.0f, false, s.PointSize * 0.8f);
+        if (!Finite(c.Normal) || glm::length(c.Normal) < 0.5f)
+            return;
+        const glm::vec3 n = glm::normalize(c.Normal);
+        PushLine(c.Position, c.Position + n * s.NormalLength, faded(DebugColor::Yellow), 0.0f, false);
+        // How far the shapes overlap, true to scale into EntityA's surface (a few millimetres at
+        // rest; a body pushed into another one shows it).
+        if (std::isfinite(c.Penetration) && c.Penetration > 0.001f)
+            PushLine(c.Position, c.Position - n * std::min(c.Penetration, 10.0f), faded(DebugColor::Red), 0.0f, false);
+        // A hard impact, for a moment after the contact began: a ring around the normal that grows
+        // and fades (larger for faster hits).
+        if (!c.Sleeping && std::isfinite(c.Speed) && c.Speed >= ImpactSpeed && c.Age >= 0.0f && c.Age < ImpactTime)
+        {
+            const float t = c.Age / ImpactTime;
+            const float strength = std::clamp(c.Speed / 8.0f, 0.25f, 1.0f);
+            Circle(c.Position, n, s.NormalLength * strength * (0.35f + 0.9f * t), glm::vec4(1.0f, 0.42f, 0.25f, 1.0f - t), 0.0f, false);
+        }
+    }
+
+    void DebugDraw::PhysicsContacts(const std::vector<PhysicsContactPoint>& contacts)
+    {
+        if (!IsShowingContacts())
+            return;
+        for (const PhysicsContactPoint& c : contacts)
+            PhysicsContact(c);
+        if (!IsShowingContactDetails())
+            return;
+        const DebugDrawSettings& s = State().Settings;
+        auto samePair = [](const PhysicsContactPoint& a, const PhysicsContactPoint& b) {
+            return a.EntityA == b.EntityA && a.EntityB == b.EntityB && a.Character == b.Character;
+        };
+        size_t labels = 0;
+        for (size_t i = 0; i < contacts.size() && labels < MaxContactLabels;)
+        {
+            // The pair's points: their middle, the deepest overlap, the hardest impact, the impulse in all.
+            const PhysicsContactPoint& first = contacts[i];
+            glm::vec3 middle(0.0f), normal(0.0f);
+            float depth = -FLT_MAX, speed = 0.0f, impulse = 0.0f;
+            bool sleeping = true;
+            size_t count = 0, j = i;
+            for (; j < contacts.size() && samePair(first, contacts[j]); j++)
+            {
+                const PhysicsContactPoint& c = contacts[j];
+                if (!Finite(c.Position))
+                    continue;
+                middle += c.Position;
+                if (Finite(c.Normal))
+                    normal += c.Normal;
+                depth = std::max(depth, c.Penetration);
+                speed = std::max(speed, c.Speed);
+                impulse += c.Impulse;
+                sleeping = sleeping && c.Sleeping;
+                count++;
+            }
+            i = j;
+            if (count == 0)
+                continue;
+            middle /= (float)count;
+            const glm::vec3 up = glm::length(normal) > 1e-4f ? glm::normalize(normal) : glm::vec3(0.0f, 1.0f, 0.0f);
+            std::string text = depth >= 0.0f ? std::format("chuqurlik {:.1f} mm", depth * 1000.0f)
+                                             : std::format("oraliq {:.1f} mm", -depth * 1000.0f);
+            if (speed >= 0.05f)
+                text += std::format("\nzarba {:.2f} m/s", speed);
+            if (impulse > 1e-5f)
+                text += "\nimpuls " + FormatAmount(impulse, "N*s");
+            if (first.Character)
+                text += "\npersonaj";
+            else if (sleeping)
+                text += "\nuxlayapti";
+            const glm::vec4 color = sleeping ? glm::vec4(0.7f, 0.75f, 0.85f, 0.6f) : glm::vec4(1.0f, 0.95f, 0.8f, 1.0f);
+            Text(middle + up * (s.NormalLength * 1.35f), text, color, 0.0f, false, s.TextSize * 0.75f);
+            labels++;
+        }
+    }
+
+    void DebugDraw::PhysicsJoint(const PhysicsJointDebug& j)
+    {
+        if (!IsShowingJoints() || !Finite(j.Anchor))
+            return;
+        const DebugDrawSettings& s = State().Settings;
+        const float size = s.NormalLength * 0.3f;
+        if (j.Broken)
+        {
+            // Holds nothing any more: where it was attached, crossed out.
+            Point(j.Anchor, DebugColor::Red, 0.0f, false, s.PointSize);
+            for (glm::vec3 d : { glm::vec3(1, 1, 0), glm::vec3(1, -1, 0), glm::vec3(0, 1, 1), glm::vec3(0, 1, -1) })
+                PushLine(j.Anchor - d * size, j.Anchor + d * size, DebugColor::Red, 0.0f, false);
+            return;
+        }
+        // Green (no load) - yellow - red (about to break); cyan: it never breaks.
+        glm::vec4 color = DebugColor::Cyan;
+        if (std::isfinite(j.Load) && j.Load >= 0.0f)
+        {
+            const float t = std::clamp(j.Load, 0.0f, 1.0f);
+            color = t < 0.5f ? glm::mix(DebugColor::Green, DebugColor::Yellow, t * 2.0f) : glm::mix(DebugColor::Yellow, DebugColor::Red, t * 2.0f - 1.0f);
+        }
+        const glm::vec4 connectedColor(0.75f, 0.55f, 1.0f, 1.0f);
+        if (Finite(j.BodyCenter))
+            PushLine(j.BodyCenter, j.Anchor, glm::vec4(color.r, color.g, color.b, 0.45f), 0.0f, false);
+        const bool connected = Finite(j.ConnectedAnchor);
+        if (connected && j.HasConnectedBody && Finite(j.ConnectedCenter))
+            PushLine(j.ConnectedCenter, j.ConnectedAnchor, glm::vec4(connectedColor.r, connectedColor.g, connectedColor.b, 0.45f), 0.0f, false);
+        if (connected)
+        {
+            // Anchors that should meet but have parted (the joint gives under the load) in red; a
+            // rod / slider: the line between its anchors.
+            const float gap = glm::length(j.ConnectedAnchor - j.Anchor);
+            if (gap > 1e-4f)
+                PushLine(j.Anchor, j.ConnectedAnchor, j.AnchorsMeet && gap > 0.02f ? DebugColor::Red : color, 0.0f, false);
+            Point(j.ConnectedAnchor, connectedColor, 0.0f, false, s.PointSize * 0.8f);
+        }
+        Point(j.Anchor, color, 0.0f, false, s.PointSize);
+        if (Finite(j.Axis) && glm::length(j.Axis) > 1e-4f)
+        {
+            const glm::vec3 axis = glm::normalize(j.Axis) * s.NormalLength;
+            Arrow(j.Anchor, j.Anchor + axis, glm::vec4(color.r, color.g, color.b, 0.85f), 0.0f, false, s.NormalLength * 0.25f);
+        }
+        if (IsShowingContactDetails())
+        {
+            std::string text = FormatAmount(j.Force, "N") + "  " + FormatAmount(j.Torque, "N*m");
+            if (std::isfinite(j.Load) && j.Load >= 0.0f)
+                text += std::format("\nyuk {:.0f}%", std::min(j.Load, 9.99f) * 100.0f);
+            Text(j.Anchor + glm::vec3(0.0f, s.NormalLength * 0.7f, 0.0f), text, color, 0.0f, false, s.TextSize * 0.75f);
+        }
     }
 
     // ------------------------------------------------------------------ queue

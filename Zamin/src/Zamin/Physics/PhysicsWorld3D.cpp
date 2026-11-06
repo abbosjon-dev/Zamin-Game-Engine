@@ -365,6 +365,30 @@ namespace Zamin {
             }
             return fastest;
         }
+
+        // The impulse that stops two bodies running into each other at `speed` (N*s, with the bounce):
+        // the speed times the pair's effective mass along the normal at the middle of the contact
+        // (both masses and how easily each one turns about that point).
+        float ImpactImpulse(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& m, float speed, float restitution)
+        {
+            const JPH::uint count = (JPH::uint)m.mRelativeContactPointsOn1.size();
+            if (speed <= 0.0f || count == 0)
+                return 0.0f;
+            JPH::Vec3 offset = JPH::Vec3::sZero();
+            for (JPH::uint i = 0; i < count; i++)
+                offset += m.mRelativeContactPointsOn1[i];
+            const JPH::RVec3 middle = m.mBaseOffset + offset / (float)count;
+            const JPH::Vec3 n = m.mWorldSpaceNormal;
+            float k = 0.0f; // 1 / effective mass
+            for (const JPH::Body* b : { &b1, &b2 })
+            {
+                if (!b->IsDynamic())
+                    continue;
+                const JPH::Vec3 rn = JPH::Vec3(middle - b->GetCenterOfMassPosition()).Cross(n);
+                k += b->GetMotionProperties()->GetInverseMass() + rn.Dot(b->GetInverseInertia().Multiply3x3(rn));
+            }
+            return k > 1e-12f ? (1.0f + std::max(0.0f, restitution)) * speed / k : 0.0f;
+        }
     }
 
     // ------------------------------------------------------------------ contacts
@@ -422,11 +446,16 @@ namespace Zamin {
             JPH::BodyID Body1, Body2;
             glm::vec3 Normal{ 0.0f };
             std::vector<glm::vec3> Points;
-            uint64_t Step = 0; // the step that last reported it
+            float Penetration = 0.0f;
+            float Speed = 0.0f, Impulse = 0.0f; // the impact's, when the contact began
+            double Began = 0.0;                 // DebugTime then
+            uint64_t EntityA = 0, EntityB = 0;  // the normal leaves A's surface
+            uint64_t Step = 0;                  // the step that last reported it
         };
         // (body 1 << 32 | body 2, sub shape 1 << 32 | sub shape 2) -> its points
         std::map<std::pair<uint64_t, uint64_t>, DebugManifold> DebugContacts;
         uint64_t DebugStep = 0;
+        double DebugTime = 0.0; // simulated seconds while collecting
 
         // The contact's settings from the two colliders: a trigger collider of a mixed body makes it a
         // sensor contact, surfaces (materials) give its friction and bounce. True: a trigger contact.
@@ -470,17 +499,33 @@ namespace Zamin {
             return false;
         }
 
-        void RecordDebugContact(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& m)
+        // `began`: Jolt reports the contact for the first time (its impact is measured then: the
+        // velocities are the ones the bodies had before the solver acted on them).
+        void RecordDebugContact(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& m, const JPH::ContactSettings& settings,
+                                bool began)
         {
             std::pair<uint64_t, uint64_t> key{ ((uint64_t)b1.GetID().GetIndexAndSequenceNumber() << 32) | b2.GetID().GetIndexAndSequenceNumber(),
                                                ((uint64_t)m.mSubShapeID1.GetValue() << 32) | m.mSubShapeID2.GetValue() };
-            DebugManifold& d = DebugContacts[key];
+            auto [it, added] = DebugContacts.try_emplace(key);
+            DebugManifold& d = it->second;
+            if (began || added)
+            {
+                // A contact seen first after the drawing was switched on had its impact before.
+                d.Speed = began ? ApproachSpeed(b1, b2, m) : 0.0f;
+                const float bounce = d.Speed > MinRestitutionVelocity ? settings.mCombinedRestitution : 0.0f;
+                d.Impulse = ImpactImpulse(b1, b2, m, d.Speed, bounce);
+                d.Began = DebugTime;
+            }
             d.Body1 = b1.GetID();
             d.Body2 = b2.GetID();
             // Jolt's normal moves body 2 out of body 1: turned so that it leaves a static /
             // kinematic surface (the surface normal under a resting crate).
             glm::vec3 n = FromJolt(m.mWorldSpaceNormal);
-            d.Normal = !b2.IsDynamic() && b1.IsDynamic() ? -n : n;
+            const bool flip = !b2.IsDynamic() && b1.IsDynamic();
+            d.Normal = flip ? -n : n;
+            d.EntityA = flip ? b2.GetUserData() : b1.GetUserData();
+            d.EntityB = flip ? b1.GetUserData() : b2.GetUserData();
+            d.Penetration = m.mPenetrationDepth;
             d.Points.clear();
             for (JPH::uint i = 0; i < m.mRelativeContactPointsOn1.size(); i++)
             {
@@ -511,7 +556,7 @@ namespace Zamin {
                     Count(b1.GetID().GetIndexAndSequenceNumber(), b2.GetID().GetIndexAndSequenceNumber(), ContactKind::Sensor, 1);
                 }
             if (debug)
-                RecordDebugContact(b1, b2, m);
+                RecordDebugContact(b1, b2, m, settings, false);
         }
 
         void OnContactAdded(const JPH::Body& b1, const JPH::Body& b2, const JPH::ContactManifold& manifold, JPH::ContactSettings& settings) override
@@ -527,7 +572,7 @@ namespace Zamin {
                 (InnerBodies.contains(b1.GetID().GetIndexAndSequenceNumber()) || InnerBodies.contains(b2.GetID().GetIndexAndSequenceNumber())))
                 kind = ContactKind::Ignored;
             if (CollectDebug.load(std::memory_order_relaxed) && Responds(b1, b2, sensor))
-                RecordDebugContact(b1, b2, manifold);
+                RecordDebugContact(b1, b2, manifold, settings, true);
             const uint32_t a = b1.GetID().GetIndexAndSequenceNumber(), b = b2.GetID().GetIndexAndSequenceNumber();
             auto [it, added] = ContactKinds.try_emplace(JPH::SubShapeIDPair(b1.GetID(), manifold.mSubShapeID1, b2.GetID(), manifold.mSubShapeID2));
             if (added)
@@ -1122,6 +1167,7 @@ namespace Zamin {
         {
             std::lock_guard lock(contacts.Mutex);
             contacts.DebugStep++;
+            contacts.DebugTime += dt;
         }
         m_Impl->RefreshParts();
         m_Impl->System->Update(dt, 1, m_Impl->TempAllocator.get(), m_Impl->JobSystem.get());
@@ -1181,9 +1227,23 @@ namespace Zamin {
     {
         {
             std::lock_guard lock(m_Impl->Contacts.Mutex);
+            const uint64_t step = m_Impl->Contacts.DebugStep;
+            const double time = m_Impl->Contacts.DebugTime;
             for (const auto& [key, d] : m_Impl->Contacts.DebugContacts)
                 for (const glm::vec3& p : d.Points)
-                    out.push_back({ p, d.Normal });
+                {
+                    PhysicsContactPoint point;
+                    point.Position = p;
+                    point.Normal = d.Normal;
+                    point.Penetration = d.Penetration;
+                    point.Speed = d.Speed;
+                    point.Impulse = d.Impulse / (float)d.Points.size(); // the points share the impact
+                    point.Age = (float)(time - d.Began);
+                    point.EntityA = d.EntityA;
+                    point.EntityB = d.EntityB;
+                    point.Sleeping = d.Step != step; // kept while both bodies sleep
+                    out.push_back(point);
+                }
         }
         for (const auto& slot : m_Impl->Characters)
         {
@@ -1191,8 +1251,17 @@ namespace Zamin {
                 continue;
             for (const auto& contact : slot.Character->GetActiveContacts())
                 if (contact.mHadCollision && !contact.mIsSensorB)
-                    out.push_back({ { (float)contact.mPosition.GetX(), (float)contact.mPosition.GetY(), (float)contact.mPosition.GetZ() },
-                                    FromJolt(contact.mContactNormal) });
+                {
+                    // Jolt's normal points at the character: out of the body it touches.
+                    PhysicsContactPoint point;
+                    point.Position = { (float)contact.mPosition.GetX(), (float)contact.mPosition.GetY(), (float)contact.mPosition.GetZ() };
+                    point.Normal = FromJolt(contact.mContactNormal);
+                    point.Penetration = std::max(0.0f, -contact.mDistance);
+                    point.EntityA = contact.mUserData;
+                    point.EntityB = slot.EntityID;
+                    point.Character = true;
+                    out.push_back(point);
+                }
         }
     }
 

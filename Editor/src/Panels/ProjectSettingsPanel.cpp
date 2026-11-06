@@ -266,7 +266,18 @@ namespace Zamin {
             changed |= UI::PropertyFloat("Raycast vaqti (s)", d.RaycastDuration, 0.01f, 0.0f, DebugDrawSettings::MaxRaycastDuration, "%.2f");
         changed |= UI::PropertyBool("Kontakt nuqtalari", d.ShowContacts);
         if (ImGui::IsItemHovered())
-            UI::Tooltip("Fizik jismlar tegib turgan nuqtalar va normallari (2D va 3D)");
+            UI::Tooltip("Fizik jismlar tegib turgan nuqtalar va normallari (2D va 3D): uxlayotganlari xira, qizil chiziq - shakllar "
+                        "qancha kirgani, halqa - 3D zarba; --debug-contacts bayrog'i ham yoqadi");
+        changed |= UI::PropertyBool("Joint'lar", d.ShowJoints);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Ishlayotgan 2D / 3D joint'lar: langarlar, o'qlar, uzilishga yaqinligi rangda; --debug-joints bayrog'i ham yoqadi");
+        if (d.ShowContacts || d.ShowJoints)
+        {
+            changed |= UI::PropertyBool("Fizika qiymatlari", d.ShowContactDetails);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Kontaktlar ustida chuqurlik, zarba tezligi va impuls, joint'larda kuch / moment yozuvlari; "
+                            "--debug-contact-details bayrog'i ham yoqadi");
+        }
         changed |= UI::PropertyBool("Personaj tezligi", d.ShowVelocities);
         if (ImGui::IsItemHovered())
             UI::Tooltip("3D character controller'larning tezlik vektori (o'q va tezlik, m/s); --debug-velocities bayrog'i ham yoqadi");

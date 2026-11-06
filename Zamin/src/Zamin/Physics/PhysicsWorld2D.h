@@ -168,12 +168,15 @@ namespace Zamin {
         float SubmergedArea = 0.0f; // buoyancy: the area under the surface, over all of them
     };
 
-    // A point where two 2D bodies touch (debug drawing) and the entity of the first fixture.
+    // A point where two 2D bodies touch (debug drawing, tests).
     struct PhysicsContactPoint2D
     {
         glm::vec2 Position{ 0.0f };
-        glm::vec2 Normal{ 0.0f }; // out of the static / kinematic body (A to B between two dynamic ones)
-        UUID EntityA = 0;
+        glm::vec2 Normal{ 0.0f }; // out of EntityA's surface: the static / kinematic body (A to B between two dynamic ones)
+        float Penetration = 0.0f; // how far the shapes overlap there (Box2D keeps a little: its linear slop)
+        float Impulse = 0.0f;     // Box2D's normal impulse of the last step (N*s)
+        UUID EntityA = 0, EntityB = 0;
+        bool Sleeping = false;    // both bodies sleep
     };
 
     // 2D rigid body simulation (Box2D): bodies, fixtures, joints, contact events, one-way surfaces

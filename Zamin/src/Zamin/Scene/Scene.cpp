@@ -3173,6 +3173,11 @@ namespace Zamin {
     {
         if (!IsActiveInHierarchy(entity))
             return;
+        // A 3D body / character spawned into a game that had none (a prefab instance in a 2D or an
+        // empty scene): Jolt starts now. The 2D world is there whenever physics runs.
+        if (!m_PhysicsWorld3D && m_PhysicsWorld &&
+            (entity.HasComponent<Rigidbody3DComponent>() || entity.HasComponent<CharacterController3DComponent>()))
+            MakePhysicsWorld3D();
         if (m_PhysicsWorld3D && entity.HasComponent<CharacterController3DComponent>())
             CreateCharacter3D(entity);
         if (m_PhysicsWorld && entity.HasComponent<Rigidbody2DComponent>())
@@ -3666,6 +3671,8 @@ namespace Zamin {
 
         if (debugContacts)
             DrawPhysicsContacts();
+        if (DebugDraw::IsShowingJoints())
+            DrawPhysicsJoints();
         if (DebugDraw::IsShowingVelocities() || DebugDraw::IsShowingBodyVelocities())
             DrawPhysicsVelocities();
     }
@@ -3712,10 +3719,12 @@ namespace Zamin {
     void Scene::DrawPhysicsContacts()
     {
         // Every frame (also one without a physics step): the contacts as they are now.
+        std::vector<PhysicsContactPoint> contacts;
         if (m_PhysicsWorld)
         {
             std::vector<PhysicsContactPoint2D> points;
             m_PhysicsWorld->GetDebugContacts(points);
+            contacts.reserve(points.size());
             UUID lastEntity = 0;
             float z = 0.0f;
             for (const PhysicsContactPoint2D& p : points)
@@ -3728,16 +3737,121 @@ namespace Zamin {
                     if (auto it = m_EntityMap.find(p.EntityA); it != m_EntityMap.end() && m_Registry.valid(it->second))
                         z = GetWorldPosition({ it->second, this }).z;
                 }
-                DebugDraw::PhysicsContact({ p.Position.x, p.Position.y, z }, { p.Normal.x, p.Normal.y, 0.0f });
+                PhysicsContactPoint c;
+                c.Position = { p.Position.x, p.Position.y, z };
+                c.Normal = { p.Normal.x, p.Normal.y, 0.0f };
+                c.Penetration = p.Penetration;
+                c.Impulse = p.Impulse;
+                c.EntityA = p.EntityA;
+                c.EntityB = p.EntityB;
+                c.Sleeping = p.Sleeping;
+                contacts.push_back(c);
             }
         }
         if (m_PhysicsWorld3D)
-        {
-            std::vector<PhysicsContactPoint> points;
-            m_PhysicsWorld3D->GetDebugContacts(points);
-            for (const PhysicsContactPoint& p : points)
-                DebugDraw::PhysicsContact(p.Position, p.Normal);
-        }
+            m_PhysicsWorld3D->GetDebugContacts(contacts);
+        DebugDraw::PhysicsContacts(contacts);
+    }
+
+    void Scene::DrawPhysicsJoints()
+    {
+        auto load = [](const auto& joint) {
+            if (joint.BreakForce <= 0.0f && joint.BreakTorque <= 0.0f)
+                return -1.0f;
+            float l = 0.0f;
+            if (joint.BreakForce > 0.0f)
+                l = std::max(l, joint.ReactionForce / joint.BreakForce);
+            if (joint.BreakTorque > 0.0f)
+                l = std::max(l, joint.ReactionTorque / joint.BreakTorque);
+            return l;
+        };
+        auto connectedOf = [&](const EntityRef& ref, Entity self) {
+            Entity other = ref.ID ? GetEntityByUUID(ref.ID) : Entity();
+            return other == self ? Entity() : other;
+        };
+        if (m_PhysicsWorld)
+            ForEachJoint2DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                for (auto e : m_Registry.view<T>())
+                {
+                    const auto& joint = m_Registry.get<T>(e);
+                    if (!joint.RuntimeJoint && !joint.Broken)
+                        continue;
+                    Entity entity{ e, this };
+                    // A 2D body's frame: its position and turn (anchors and axes are unscaled).
+                    glm::vec3 position, rotation, scale;
+                    Math::DecomposeTransform(GetWorldTransform(entity), position, rotation, scale);
+                    const float cs = std::cos(rotation.z), sn = std::sin(rotation.z);
+                    auto turn = [&](const glm::vec2& v) { return glm::vec2(cs * v.x - sn * v.y, sn * v.x + cs * v.y); };
+                    PhysicsJointDebug d;
+                    d.BodyCenter = position;
+                    if (joint.Broken)
+                    {
+                        // Where it was attached: the anchor on this body now.
+                        d.Broken = true;
+                        d.Anchor = { glm::vec2(position) + turn(joint.Anchor), position.z };
+                        DebugDraw::PhysicsJoint(d);
+                        continue;
+                    }
+                    glm::vec2 anchor, connected;
+                    PhysicsWorld2D::GetJointAnchors((const b2Joint*)joint.RuntimeJoint, anchor, connected);
+                    d.Anchor = { anchor, d.BodyCenter.z };
+                    d.ConnectedAnchor = { connected, d.BodyCenter.z };
+                    if (Entity other = connectedOf(joint.ConnectedBody, entity))
+                    {
+                        d.HasConnectedBody = true;
+                        d.ConnectedCenter = GetWorldPosition(other);
+                        d.ConnectedCenter.z = d.BodyCenter.z;
+                    }
+                    if constexpr (std::is_same_v<T, PrismaticJoint2DComponent> || std::is_same_v<T, WheelJoint2DComponent>)
+                    {
+                        d.Axis = { turn(joint.Axis), 0.0f };
+                        d.AnchorsMeet = false;
+                    }
+                    else if constexpr (std::is_same_v<T, DistanceJoint2DComponent>)
+                        d.AnchorsMeet = false;
+                    d.Force = joint.ReactionForce;
+                    d.Torque = joint.ReactionTorque;
+                    d.Load = load(joint);
+                    DebugDraw::PhysicsJoint(d);
+                }
+            });
+        if (m_PhysicsWorld3D)
+            ForEachJoint3DType([&](auto type) {
+                using T = typename decltype(type)::type;
+                for (auto e : m_Registry.view<T>())
+                {
+                    const auto& joint = m_Registry.get<T>(e);
+                    if (!joint.RuntimeJoint && !joint.Broken)
+                        continue;
+                    Entity entity{ e, this };
+                    const glm::mat4 world = GetWorldTransform(entity);
+                    PhysicsJointDebug d;
+                    d.BodyCenter = glm::vec3(world[3]);
+                    glm::vec3 axis(0.0f);
+                    if (joint.Broken || !m_PhysicsWorld3D->GetJointFrame(joint.RuntimeJoint, d.Anchor, d.ConnectedAnchor, axis))
+                    {
+                        d.Broken = joint.Broken;
+                        d.Anchor = glm::vec3(world * glm::vec4(joint.Anchor, 1.0f));
+                        if (d.Broken)
+                            DebugDraw::PhysicsJoint(d);
+                        continue;
+                    }
+                    if (Entity other = connectedOf(joint.ConnectedBody, entity))
+                    {
+                        d.HasConnectedBody = true;
+                        d.ConnectedCenter = GetWorldPosition(other);
+                    }
+                    if constexpr (std::is_same_v<T, HingeJoint3DComponent> || std::is_same_v<T, SliderJoint3DComponent> ||
+                                  std::is_same_v<T, ConeJoint3DComponent>)
+                        d.Axis = axis;
+                    d.AnchorsMeet = !std::is_same_v<T, DistanceJoint3DComponent> && !std::is_same_v<T, SliderJoint3DComponent>;
+                    d.Force = joint.ReactionForce;
+                    d.Torque = joint.ReactionTorque;
+                    d.Load = load(joint);
+                    DebugDraw::PhysicsJoint(d);
+                }
+            });
     }
 
     void Scene::StepCharacters(float dt)

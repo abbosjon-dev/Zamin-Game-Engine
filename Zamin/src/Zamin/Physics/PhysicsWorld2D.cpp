@@ -1491,11 +1491,30 @@ namespace Zamin {
             // Box2D's normal points from A to B: turned so that it leaves a static / kinematic
             // body (the ground's normal under the player), as the 3D world's.
             glm::vec2 normal = FromB2(manifold.normal);
-            if (contact->GetFixtureA()->GetBody()->GetType() == b2_dynamicBody && contact->GetFixtureB()->GetBody()->GetType() != b2_dynamicBody)
-                normal = -normal;
+            const b2Body* bodyA = contact->GetFixtureA()->GetBody();
+            const b2Body* bodyB = contact->GetFixtureB()->GetBody();
             UUID entityA((uint64_t)contact->GetFixtureA()->GetUserData().pointer);
+            UUID entityB((uint64_t)contact->GetFixtureB()->GetUserData().pointer);
+            if (bodyA->GetType() == b2_dynamicBody && bodyB->GetType() != b2_dynamicBody)
+            {
+                normal = -normal;
+                std::swap(entityA, entityB);
+            }
+            // A static body never wakes: the pair sleeps when its moving bodies do.
+            const bool sleeping = (bodyA->GetType() == b2_staticBody || !bodyA->IsAwake()) &&
+                                  (bodyB->GetType() == b2_staticBody || !bodyB->IsAwake());
             for (int i = 0; i < count && i < b2_maxManifoldPoints; i++)
-                out.push_back({ FromB2(manifold.points[i]), normal, entityA });
+            {
+                PhysicsContactPoint2D point;
+                point.Position = FromB2(manifold.points[i]);
+                point.Normal = normal;
+                point.Penetration = -manifold.separations[i];
+                point.Impulse = contact->GetManifold()->points[i].normalImpulse;
+                point.EntityA = entityA;
+                point.EntityB = entityB;
+                point.Sleeping = sleeping;
+                out.push_back(point);
+            }
         }
     }
 

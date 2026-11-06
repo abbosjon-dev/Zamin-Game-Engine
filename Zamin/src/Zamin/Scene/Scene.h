@@ -725,8 +725,10 @@ namespace Zamin {
         Entity DuplicateEntityRecursive(Entity entity, UUID newParent);
         Entity InstantiateCopy(Entity prefab, const glm::vec3* position);
         void StepPhysics(Timestep ts);
-        // DebugDraw: the 2D / 3D contact points with their normals (ShowContacts).
+        // DebugDraw: the 2D / 3D contact points with their normals (ShowContacts, ShowContactDetails).
         void DrawPhysicsContacts();
+        // DebugDraw: the running 2D / 3D joints (ShowJoints).
+        void DrawPhysicsJoints();
         // DebugDraw: the velocities of the characters and dynamic bodies (ShowVelocities / ShowBodyVelocities).
         void DrawPhysicsVelocities();
         void StartScripts();

@@ -358,6 +358,8 @@ namespace Zamin {
             { "Raycasts", DebugDraw.ShowRaycasts },
             { "RaycastDuration", Num(DebugDraw.RaycastDuration) },
             { "Contacts", DebugDraw.ShowContacts },
+            { "ContactDetails", DebugDraw.ShowContactDetails },
+            { "Joints", DebugDraw.ShowJoints },
             { "NormalLength", Num(DebugDraw.NormalLength) },
             { "LineWidth", Num(DebugDraw.LineWidth) },
             { "PointSize", Num(DebugDraw.PointSize) },
@@ -481,6 +483,8 @@ namespace Zamin {
             Read(*it, "Raycasts", DebugDraw.ShowRaycasts);
             Read(*it, "RaycastDuration", DebugDraw.RaycastDuration);
             Read(*it, "Contacts", DebugDraw.ShowContacts);
+            Read(*it, "ContactDetails", DebugDraw.ShowContactDetails);
+            Read(*it, "Joints", DebugDraw.ShowJoints);
             Read(*it, "NormalLength", DebugDraw.NormalLength);
             Read(*it, "LineWidth", DebugDraw.LineWidth);
             Read(*it, "PointSize", DebugDraw.PointSize);

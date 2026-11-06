@@ -340,8 +340,9 @@ namespace Zamin {
                 m_Wireframe = m_WireframeStyle = std::string_view(wire) == "shaded" ? WireframeMode::ShadedWire : WireframeMode::Wire;
             if (std::getenv("ZAMIN_EDITOR_VIEW_MENU"))
                 m_OpenViewModeMenu = true;
-            // ZAMIN_EDITOR_DEBUG_DRAW=0 | 1 | raycasts,contacts,menu: debug drawing off / on, its physics
-            // views on, its popup open (for this session; not saved unless the settings change).
+            // ZAMIN_EDITOR_DEBUG_DRAW=0 | 1 | raycasts,contacts,details,joints,velocities,normallength=0.6,menu:
+            // debug drawing off / on, its physics views on, its popup open (for this session; not saved
+            // unless the settings change).
             if (const char* debug = std::getenv("ZAMIN_EDITOR_DEBUG_DRAW"))
             {
                 std::string_view v(debug);
@@ -349,7 +350,14 @@ namespace Zamin {
                 d.Enabled = v != "0";
                 if (v.find("raycasts") != std::string_view::npos) d.ShowRaycasts = true;
                 if (v.find("contacts") != std::string_view::npos) d.ShowContacts = true;
+                if (v.find("details") != std::string_view::npos) d.ShowContactDetails = true;
+                if (v.find("joints") != std::string_view::npos) d.ShowJoints = true;
                 if (v.find("velocities") != std::string_view::npos) d.ShowVelocities = d.ShowBodyVelocities = true;
+                if (size_t at = v.find("normallength="); at != std::string_view::npos)
+                {
+                    d.NormalLength = std::strtof(std::string(v.substr(at + 13)).c_str(), nullptr);
+                    d.Sanitize();
+                }
                 if (v.find("menu") != std::string_view::npos) m_OpenDebugDrawMenu = true;
             }
             // ZAMIN_EDITOR_GIZMOS=off | selected | all | frustums=all,lights=off,audio=selected,bounds=all,
@@ -5589,8 +5597,8 @@ namespace Zamin {
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
                     ImGui::OpenPopup("##DebugDraw");
                 ImGui::SameLine(0.0f, 0.0f);
-                const bool physicsViews = debug.Enabled && (debug.ShowRaycasts || debug.ShowContacts || debug.ShowVelocities ||
-                                                            debug.ShowBodyVelocities);
+                const bool physicsViews = debug.Enabled && (debug.ShowRaycasts || debug.ShowContacts || debug.ShowJoints ||
+                                                            debug.ShowVelocities || debug.ShowBodyVelocities);
                 if (physicsViews) ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
                 if (UI::ToolbarButton(ICON_FA_CARET_DOWN "###DebugDrawMenu", "Debug chizish sozlamalari: raycastlar, kontakt nuqtalari, "
                                       "chiziq qalinligi, matn o'lchami", physicsViews, ImVec2(caretWidth, buttonSize)))
@@ -5895,7 +5903,24 @@ namespace Zamin {
         }
         changed |= ImGui::Checkbox(ICON_FA_CIRCLE_DOT "  Kontakt nuqtalari", &d.ShowContacts);
         if (ImGui::IsItemHovered())
-            UI::Tooltip("Fizik jismlar (2D, 3D, 3D personajlar) tegib turgan nuqtalar va normallari - o'yin yoki simulyatsiya paytida");
+            UI::Tooltip("Fizik jismlar (2D, 3D, 3D personajlar) tegib turgan nuqtalar va normallari - o'yin yoki simulyatsiya "
+                        "paytida. To'q sariq - jismlar, yashil - personajlar, xira ko'kish - ikkala jism uxlayapti; qizil chiziq - "
+                        "shakllar bir-biriga qancha kirgani (asl o'lchamda), halqa - 3D jism kuchli urilgan joy (bir lahza)");
+        changed |= ImGui::Checkbox(ICON_FA_LINK "  Joint'lar", &d.ShowJoints);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Ishlayotgan 2D / 3D joint'lar o'yin yoki simulyatsiya paytida: ikkala langar va ular orasidagi chiziq "
+                        "(sharnir bo'shasa qizil), jismlar markazigacha chiziqlar, sharnir / sirpanish / konus o'qi. Rangi - "
+                        "uzilishga qanchalik yaqin (yashil - sariq - qizil; ko'k - uzilmaydi), uzilgani qizil X");
+        if (d.ShowContacts || d.ShowJoints)
+        {
+            ImGui::Indent();
+            changed |= ImGui::Checkbox("Qiymatlar (yozuvlar)", &d.ShowContactDetails);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Har tegib turgan juftlik ustida yozuv: shakllar qancha kirgani (chuqurlik, mm), 3D zarba tezligi va "
+                            "taxminiy impulsi (2D: Box2D impulsi), uxlayotgani; joint'larda kuch, moment va uzilish chegarasidan "
+                            "qancha foizi");
+            ImGui::Unindent();
+        }
         if (d.ShowRaycasts || d.ShowContacts)
         {
             ImGui::SetNextItemWidth(150);

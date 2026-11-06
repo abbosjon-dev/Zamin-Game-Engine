@@ -351,6 +351,8 @@ namespace Zamin {
             { "Raycasts", c.DebugDraw.ShowRaycasts },
             { "RaycastDuration", c.DebugDraw.RaycastDuration },
             { "Contacts", c.DebugDraw.ShowContacts },
+            { "ContactDetails", c.DebugDraw.ShowContactDetails },
+            { "Joints", c.DebugDraw.ShowJoints },
             { "Velocities", c.DebugDraw.ShowVelocities },
             { "BodyVelocities", c.DebugDraw.ShowBodyVelocities },
             { "VelocityScale", c.DebugDraw.VelocityScale },
@@ -416,6 +418,8 @@ namespace Zamin {
                 readBool("Raycasts", c.DebugDraw.ShowRaycasts);
                 readFloat("RaycastDuration", c.DebugDraw.RaycastDuration);
                 readBool("Contacts", c.DebugDraw.ShowContacts);
+                readBool("ContactDetails", c.DebugDraw.ShowContactDetails);
+                readBool("Joints", c.DebugDraw.ShowJoints);
                 readBool("Velocities", c.DebugDraw.ShowVelocities);
                 readBool("BodyVelocities", c.DebugDraw.ShowBodyVelocities);
                 readFloat("VelocityScale", c.DebugDraw.VelocityScale);

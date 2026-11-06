@@ -53,8 +53,19 @@ namespace Zamin {
         bool ShowRaycasts = false;
         float RaycastDuration = 0.0f;
         // The physics contact points (2D and 3D bodies, 3D characters) with their normals, every
-        // frame while the game runs / simulates. Sleeping 3D bodies keep the contacts they had.
+        // frame while the game runs / simulates: orange (characters' green), dimmed while both
+        // bodies sleep (sleeping 3D bodies keep the contacts they had), the overlap as a red line
+        // into the surface and, for a moment, a ring where a 3D body hit hard. ShowContactDetails:
+        // a label per touching pair - how deep the shapes overlap, the 3D impact's speed and impulse
+        // (2D: Box2D's normal impulse).
         bool ShowContacts = false;
+        bool ShowContactDetails = false;
+        // The running joints (2D and 3D), every frame while the game runs / simulates: both anchors
+        // with a line between them (it shows how far the joint gives), lines to the bodies' centres,
+        // the hinge / slider / cone axis; coloured by how close it is to breaking (green - yellow -
+        // red; cyan: unbreakable), a broken one crossed out in red. With ShowContactDetails: the force
+        // and torque it holds.
+        bool ShowJoints = false;
         // Length of the normals drawn at hit points and contact points (world units).
         float NormalLength = 0.4f;
         // Velocity arrows while the game runs / simulates, every frame: ShowVelocities - the 3D
@@ -230,6 +241,14 @@ namespace Zamin {
                                      const glm::vec3& direction, float maxDistance, const std::vector<RaycastHit>& hits);
         // A contact point and its normal (shown when ShowContacts is on).
         static void PhysicsContact(const glm::vec3& point, const glm::vec3& normal);
+        // A contact point with what is known about it: its normal, how deep the shapes overlap, a
+        // hard impact for a moment after it began, dimmed when both bodies sleep.
+        static void PhysicsContact(const PhysicsContactPoint& contact);
+        // The contacts of a frame: each point, and with ShowContactDetails a label per touching pair
+        // (the points of a pair follow each other).
+        static void PhysicsContacts(const std::vector<PhysicsContactPoint>& contacts);
+        // A running (or broken) joint (shown when ShowJoints is on).
+        static void PhysicsJoint(const PhysicsJointDebug& joint);
         // A 3D character's velocity (`desired`: what its script asked for) from `center` (shown
         // when ShowVelocities is on).
         static void CharacterVelocity(const glm::vec3& center, const glm::vec3& velocity, const glm::vec3& desired);
@@ -237,6 +256,8 @@ namespace Zamin {
         static void BodyVelocity(const glm::vec3& center, const glm::vec3& velocity);
         static bool IsShowingRaycasts();
         static bool IsShowingContacts();
+        static bool IsShowingContactDetails();
+        static bool IsShowingJoints();
         static bool IsShowingVelocities();
         static bool IsShowingBodyVelocities();
 
@@ -316,10 +337,15 @@ namespace Zamin {
             static void PhysicsShapeCast(const PhysicsQueryShape3D&, const glm::vec3&, const glm::quat&, const glm::vec3&, float,
                                          const std::vector<RaycastHit>&) {}
             static void PhysicsContact(const glm::vec3&, const glm::vec3&) {}
+            static void PhysicsContact(const PhysicsContactPoint&) {}
+            static void PhysicsContacts(const std::vector<PhysicsContactPoint>&) {}
+            static void PhysicsJoint(const PhysicsJointDebug&) {}
             static void CharacterVelocity(const glm::vec3&, const glm::vec3&, const glm::vec3&) {}
             static void BodyVelocity(const glm::vec3&, const glm::vec3&) {}
             static bool IsShowingRaycasts() { return false; }
             static bool IsShowingContacts() { return false; }
+            static bool IsShowingContactDetails() { return false; }
+            static bool IsShowingJoints() { return false; }
             static bool IsShowingVelocities() { return false; }
             static bool IsShowingBodyVelocities() { return false; }
 

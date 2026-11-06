@@ -19260,6 +19260,430 @@ TEST(Physics3DSampleScene)
     scene->OnRuntimeStop();
 }
 
+// ------------------------------------------------------------------ 3D physics II: debug contacts, joint debug, joint prefabs, script queries (M10)
+// The contact points' data (PhysicsWorld3D::GetDebugContacts) and how they are drawn: a crate resting on
+// the floor, a ball dropped on it (an impact), a character standing beside them; a 2D crate.
+TEST(Physics3DDebugContactData)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return; // a Shipping build: the contacts are collected only for the debug drawing
+    using BT = Rigidbody3DComponent::BodyType;
+    ResetDebugDraw();
+    auto scene = CreateRef<Scene>();
+    Entity floor = MakeBody3D(scene, "Floor", { 0.0f, -0.5f, 0.0f }, BT::Static, { 20.0f, 0.5f, 20.0f });
+    Entity crate = MakeBody3D(scene, "Crate", { 0.0f, 0.25f, 0.0f }, BT::Dynamic); // put down: no impact
+    crate.GetComponent<Rigidbody3DComponent>().Mass = 2.0f;
+    Entity ball = MakeShape3D(scene, "Ball", { 5.0f, 5.0f, 0.0f }, BT::Dynamic); // falls 4.75 m: about 9.65 m/s
+    ball.GetComponent<Rigidbody3DComponent>().Mass = 2.0f;
+    ball.AddComponent<SphereCollider3DComponent>().Radius = 0.25f;
+    Entity hero = scene->CreateEntity("Hero");
+    hero.GetTransform().Translation = { -5.0f, 0.02f, 0.0f };
+    hero.AddComponent<CharacterController3DComponent>();
+    // 2D: a 1 kg crate on the ground, far away.
+    Entity ground2D = MakeBox2D(scene, "Ground2D", { 0.0f, 99.5f }, { 10.0f, 0.5f }, Rigidbody2DComponent::BodyType::Static);
+    Entity crate2D = MakeBox2D(scene, "Crate2D", { 0.0f, 100.5f }, { 0.5f, 0.5f }, Rigidbody2DComponent::BodyType::Dynamic);
+    DebugDraw::GetSettings().ShowContacts = true;
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    CHECK(world != nullptr);
+    if (!world)
+        return;
+    auto of = [&](Entity e) {
+        std::vector<PhysicsContactPoint> all, mine;
+        world->GetDebugContacts(all);
+        for (const PhysicsContactPoint& p : all)
+            if (p.EntityB == e.GetUUID())
+                mine.push_back(p);
+        return mine;
+    };
+    // Frame by frame until the ball lands: the impact is measured as it begins.
+    std::vector<PhysicsContactPoint> landed;
+    int frame = 0;
+    bool ringSeen = false;
+    for (; frame < 120 && landed.empty(); frame++)
+    {
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        landed = of(ball);
+    }
+    CHECK(!landed.empty());
+    if (landed.empty())
+        return;
+    for (const DebugDrawLine& l : DebugDraw::GetLines())
+        ringSeen = ringSeen || (std::abs(l.Color.g - 0.42f) < 1e-3f && l.Color.r == 1.0f);
+    CHECK(ringSeen); // a hard hit: the ring
+    const PhysicsContactPoint hit = landed.front();
+    CHECK(hit.EntityA == floor.GetUUID() && !hit.Sleeping && !hit.Character);
+    CHECK(hit.Normal.y > 0.99f);
+    CHECK_NEAR(hit.Speed, 9.65f, 0.4f);
+    CHECK_NEAR(hit.Impulse, 2.0f * hit.Speed, 1.0f); // the ball's momentum (no bounce, no turning about the point)
+    CHECK(hit.Age >= 0.0f && hit.Age < 0.05f);
+    // The crate: four corners of its face, put down without an impact.
+    std::vector<PhysicsContactPoint> resting = of(crate);
+    CHECK(resting.size() == 4);
+    float impulse = 0.0f;
+    for (const PhysicsContactPoint& p : resting)
+    {
+        CHECK(p.EntityA == floor.GetUUID() && p.Normal.y > 0.99f && std::abs(p.Penetration) < 0.03f);
+        CHECK(p.Speed < 0.2f);
+        impulse += p.Impulse;
+    }
+    CHECK(impulse < 0.5f);
+    // The character's contact with the floor.
+    std::vector<PhysicsContactPoint> feet = of(hero);
+    CHECK(!feet.empty());
+    for (const PhysicsContactPoint& p : feet)
+        CHECK(p.Character && p.EntityA == floor.GetUUID() && p.Normal.y > 0.9f && !p.Sleeping);
+    // The 2D crate (asleep by now, put down a second ago): Box2D's normal impulses hold its weight (1 kg x g x one step).
+    std::vector<PhysicsContactPoint2D> points2D;
+    scene->GetPhysicsWorld2D()->GetDebugContacts(points2D);
+    CHECK(points2D.size() == 2);
+    float impulse2D = 0.0f;
+    for (const PhysicsContactPoint2D& p : points2D)
+    {
+        CHECK(p.EntityA == ground2D.GetUUID() && p.EntityB == crate2D.GetUUID() && p.Normal.y > 0.99f);
+        CHECK(p.Penetration > -0.01f && p.Penetration < 0.02f);
+        CHECK(p.Sleeping == scene->IsSleeping2D(crate2D));
+        impulse2D += p.Impulse;
+    }
+    CHECK_NEAR(impulse2D, 9.81f / 60.0f, 0.04f);
+
+    // A second later the impact is still known (and how long ago it was); the ring is gone.
+    DebugDraw::GetSettings().ShowContactDetails = true;
+    RunFrames(scene, 60);
+    std::vector<PhysicsContactPoint> later = of(ball);
+    CHECK(!later.empty() && later.front().Speed == hit.Speed && later.front().Age > 0.9f);
+    ringSeen = false;
+    for (const DebugDrawLine& l : DebugDraw::GetLines())
+        ringSeen = ringSeen || (std::abs(l.Color.g - 0.42f) < 1e-3f && l.Color.r == 1.0f);
+    CHECK(!ringSeen);
+    // A label per touching pair: the overlap, the ball's impact, the character's.
+    auto labels = [&](const char* text) {
+        int n = 0;
+        for (const DebugDrawText& t : DebugDraw::GetTexts())
+            n += t.Text.find(text) != std::string::npos ? 1 : 0;
+        return n;
+    };
+    CHECK(labels("chuqurlik") + labels("oraliq") == 4); // ball, crate, character, 2D crate
+    CHECK(labels("zarba 9.") == 1 && labels("personaj") == 1);
+    CHECK(labels("impuls 0.16") == 1); // the 2D crate's weight per step
+    // Everything asleep: the contacts stay, dimmed, the labels say so.
+    RunFrames(scene, 240);
+    std::vector<PhysicsContactPoint> asleep = of(crate);
+    CHECK(asleep.size() == 4);
+    for (const PhysicsContactPoint& p : asleep)
+        CHECK(p.Sleeping);
+    points2D.clear();
+    scene->GetPhysicsWorld2D()->GetDebugContacts(points2D);
+    CHECK(points2D.size() == 2 && points2D[0].Sleeping);
+    int dim = 0;
+    for (const DebugDrawPoint& p : DebugDraw::GetPoints())
+        dim += p.Color.a < 0.5f ? 1 : 0;
+    CHECK(dim >= 4 + 1 + 2); // the crate, the ball, the 2D crate
+    CHECK(labels("uxlayapti") == 3);
+    // Pressed into the floor (moved there by hand): the overlap shows as a red line into it.
+    DebugDraw::GetSettings().ShowContactDetails = false;
+    world->SetTransform(crate.GetComponent<Rigidbody3DComponent>().RuntimeBodyID, { 0.0f, 0.2f, 0.0f }, glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
+    world->SetBodyAwake(crate.GetComponent<Rigidbody3DComponent>().RuntimeBodyID, true);
+    world->Step(1.0f / 60.0f);
+    float deepest = 0.0f;
+    for (const PhysicsContactPoint& p : of(crate))
+        deepest = std::max(deepest, p.Penetration);
+    CHECK(deepest > 0.03f);
+    DebugDraw::Clear();
+    DebugDraw::PhysicsContact(of(crate).front());
+    bool red = false;
+    for (const DebugDrawLine& l : DebugDraw::GetLines())
+        red = red || (l.Color == DebugColor::Red && l.To.y < l.From.y - 0.03f);
+    CHECK(red);
+    scene->OnRuntimeStop();
+    ResetDebugDraw();
+}
+
+// The joints view: anchors, axis, a rod, the load colour and readout, a broken joint crossed out.
+TEST(DebugDrawJoints)
+{
+    if (!DebugDraw::IsCompiledIn())
+        return;
+    using BT = Rigidbody3DComponent::BodyType;
+    ResetDebugDraw();
+    auto scene = CreateRef<Scene>();
+    Entity hook = MakeBody3D(scene, "Hook", { 0.0f, 5.0f, 0.0f }, BT::Static);
+    Entity lamp = MakeBody3D(scene, "Lamp", { 0.0f, 3.0f, 0.0f }, BT::Dynamic);
+    lamp.GetComponent<Rigidbody3DComponent>().Mass = 10.0f; // about 98 N on a hinge that breaks at 200 N
+    auto& hinge = lamp.AddComponent<HingeJoint3DComponent>();
+    hinge.ConnectedBody.ID = hook.GetUUID();
+    hinge.Anchor = { 0.0f, 2.0f, 0.0f };
+    hinge.Axis = { 0.0f, 0.0f, 1.0f };
+    hinge.BreakForce = 200.0f;
+    Entity weakHook = MakeBody3D(scene, "WeakHook", { 4.0f, 5.0f, 0.0f }, BT::Static);
+    Entity weak = MakeBody3D(scene, "Weak", { 4.0f, 3.0f, 0.0f }, BT::Dynamic);
+    weak.GetComponent<Rigidbody3DComponent>().Mass = 10.0f;
+    auto& weakJoint = weak.AddComponent<FixedJoint3DComponent>();
+    weakJoint.ConnectedBody.ID = weakHook.GetUUID();
+    weakJoint.BreakForce = 50.0f;
+    Entity rodTop = MakeBody3D(scene, "RodTop", { 8.0f, 5.0f, 0.0f }, BT::Static);
+    Entity bob = MakeBody3D(scene, "Bob", { 8.0f, 3.0f, 0.0f }, BT::Dynamic);
+    auto& rod = bob.AddComponent<DistanceJoint3DComponent>();
+    rod.ConnectedBody.ID = rodTop.GetUUID();
+    rod.AutoConfigureConnectedAnchor = false; // the top's centre: a 2 m rod
+    // 2D: a wheel on a hinge.
+    Entity axle = MakeBody2D(scene, "Axle", { 0.0f, 50.0f }, Rigidbody2DComponent::BodyType::Static, 0.0f);
+    Entity wheel = MakeBody2D(scene, "Wheel", { 0.0f, 50.0f }, Rigidbody2DComponent::BodyType::Dynamic);
+    wheel.AddComponent<RevoluteJoint2DComponent>().ConnectedBody.ID = axle.GetUUID();
+    scene->OnRuntimeStart();
+    RunFrames(scene, 20);
+    CHECK(DebugDraw::GetPoints().empty()); // off by default
+    DebugDraw::GetSettings().ShowJoints = true;
+    DebugDraw::GetSettings().ShowContactDetails = true;
+    CHECK(DebugDraw::IsShowingJoints() && DebugDraw::IsShowingContactDetails());
+    RunFrames(scene, 1);
+    CHECK(weak.GetComponent<FixedJoint3DComponent>().Broken && !lamp.GetComponent<HingeJoint3DComponent>().Broken);
+    auto pointNear = [&](const glm::vec3& at, float eps = 0.05f) -> const DebugDrawPoint* {
+        for (const DebugDrawPoint& p : DebugDraw::GetPoints())
+            if (glm::length(p.Position - at) < eps)
+                return &p;
+        return nullptr;
+    };
+    // The lamp's anchor at the hook: about half way to breaking - between green and yellow (its
+    // connected anchor beside it in purple).
+    bool loaded = false, connectedAnchor = false;
+    for (const DebugDrawPoint& p : DebugDraw::GetPoints())
+        if (glm::length(p.Position - glm::vec3(0.0f, 5.0f, 0.0f)) < 0.05f)
+        {
+            loaded = loaded || (p.Color.r > 0.5f && p.Color.g > 0.85f && p.Color.b < 0.4f);
+            connectedAnchor = connectedAnchor || (p.Color.b > 0.9f && p.Color.r > 0.7f);
+        }
+    CHECK(loaded && connectedAnchor);
+    // Its axis along z, its readout.
+    bool axis = false, rodLine = false, cross = false;
+    for (const DebugDrawLine& l : DebugDraw::GetLines())
+    {
+        axis = axis || (glm::length(l.From - glm::vec3(0.0f, 5.0f, 0.0f)) < 0.05f && std::abs(l.To.z - l.From.z - 0.4f) < 0.02f);
+        rodLine = rodLine || (l.Color == DebugColor::Cyan && std::abs(std::abs(l.To.y - l.From.y) - 2.0f) < 0.05f && std::abs(l.From.x - 8.0f) < 0.05f);
+        cross = cross || (l.Color == DebugColor::Red && std::abs(l.From.x - 4.0f) < 0.3f);
+    }
+    CHECK(axis && rodLine && cross);
+    int loadLabels = 0, forceLabels = 0;
+    for (const DebugDrawText& t : DebugDraw::GetTexts())
+    {
+        loadLabels += t.Text.find("yuk 4") != std::string::npos || t.Text.find("yuk 5") != std::string::npos ? 1 : 0;
+        forceLabels += t.Text.find(" N ") != std::string::npos ? 1 : 0;
+    }
+    CHECK(loadLabels == 1);
+    CHECK(forceLabels >= 3); // the hinge, the rod, the 2D wheel (not the broken one)
+    // The 2D wheel's anchor (one point, both anchors together).
+    CHECK(pointNear({ 0.0f, 50.0f, 0.0f }) != nullptr);
+    // Off again: nothing next frame.
+    DebugDraw::GetSettings().ShowJoints = false;
+    RunFrames(scene, 1);
+    CHECK(DebugDraw::GetPoints().empty() && DebugDraw::GetTexts().empty());
+    scene->OnRuntimeStop();
+    ResetDebugDraw();
+}
+
+// 3D joints in a prefab file and in the clipboard: each instance's joints join its own bodies, a
+// reference outside the prefab is kept (and waits, with one warning, where that body is missing).
+TEST(Joint3DPrefabFileAndSpawn)
+{
+    namespace fs = std::filesystem;
+    using BT = Rigidbody3DComponent::BodyType;
+    fs::path dir = MakeTempDir("zamin-joint3d-prefab-");
+    ScopeExit removeDir{ [&]() {
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+    } };
+    auto scene = CreateRef<Scene>();
+    Entity hook = MakeBody3D(scene, "Hook", { 0.0f, 8.0f, 0.0f }, BT::Static);
+    Entity rig = scene->CreateEntity("Rig");
+    rig.GetTransform().Translation = { 0.0f, 5.0f, 0.0f };
+    Entity torso = MakeBody3D(scene, "Torso", { 0.0f, 0.0f, 0.0f }, BT::Dynamic, { 0.2f, 0.4f, 0.15f });
+    Entity arm = MakeBody3D(scene, "Arm", { 0.35f, 0.1f, 0.0f }, BT::Dynamic, { 0.06f, 0.25f, 0.06f });
+    Entity head = MakeBody3D(scene, "Head", { 0.0f, 0.6f, 0.0f }, BT::Dynamic, glm::vec3(0.12f));
+    for (Entity part : { torso, arm, head })
+        scene->SetParent(part, rig, false);
+    auto& shoulder = arm.AddComponent<HingeJoint3DComponent>();
+    shoulder.ConnectedBody.ID = torso.GetUUID();
+    shoulder.Anchor = { 0.0f, 0.22f, 0.0f };
+    shoulder.Axis = { 0.0f, 0.0f, 1.0f };
+    shoulder.EnableLimit = true;
+    shoulder.LowerAngle = -20.0f;
+    shoulder.UpperAngle = 90.0f;
+    auto& neck = head.AddComponent<ConeJoint3DComponent>();
+    neck.ConnectedBody.ID = torso.GetUUID();
+    neck.Anchor = { 0.0f, -0.15f, 0.0f };
+    neck.SwingLimit = 30.0f;
+    neck.TwistLower = -10.0f;
+    neck.TwistUpper = 15.0f;
+    auto& rope = torso.AddComponent<DistanceJoint3DComponent>();
+    rope.ConnectedBody.ID = hook.GetUUID();
+    rope.Anchor = { 0.0f, 0.4f, 0.0f };
+    rope.MaxDistanceOnly = true;
+    fs::path file = dir / "Rig.zprefab";
+    CHECK(scene->SavePrefab(rig, file));
+    const std::string saved = FileSystem::ReadTextFile(file);
+    CHECK(saved.find("\"HingeJoint3D\"") != std::string::npos && saved.find("\"ConeJoint3D\"") != std::string::npos);
+    CHECK(saved.find("\"DistanceJoint3D\"") != std::string::npos);
+    CHECK(saved.find(std::to_string((uint64_t)torso.GetUUID())) != std::string::npos);
+    CHECK(saved.find(std::to_string((uint64_t)hook.GetUUID())) != std::string::npos); // the outside reference is kept
+
+    // Another scene: two instances, each joined inside itself; the hook is not there - no rope, one warning.
+    auto warnings = [&]() {
+        int n = 0;
+        const std::string id = std::format("{:016x}", (uint64_t)hook.GetUUID());
+        Log::ForEach([&](const LogMessage& m) {
+            if (m.Level == LogLevel::Warn && m.Text.find(id) != std::string::npos && m.Text.find("sahnada yo'q") != std::string::npos)
+                n++;
+        });
+        return n;
+    };
+    const LogLevel minLevel = Log::GetMinLevel();
+    const bool terminal = Log::GetTerminalOutput();
+    Log::SetMinLevel(LogLevel::Warn); // counted in the log, kept out of the output
+    Log::SetTerminalOutput(false);
+    const int before = warnings();
+    auto other = CreateRef<Scene>();
+    other->OnRuntimeStart();
+    CHECK(other->GetPhysicsWorld3D() == nullptr); // nothing 3D in it: Jolt waits
+    Entity a = other->InstantiatePrefab(file), b = other->InstantiatePrefab(file);
+    CHECK(other->GetPhysicsWorld3D() != nullptr); // started by the first 3D body spawned
+    Log::SetTerminalOutput(terminal);
+    Log::SetMinLevel(minLevel);
+    CHECK(a && b && a != b);
+    if (!a || !b)
+        return;
+    CHECK(warnings() == before + 1); // said once for the missing body
+    auto parts = [](Ref<Scene>& sc, Entity root, Entity& t, Entity& r, Entity& h) {
+        t = sc->FindChild(root, "Torso");
+        r = sc->FindChild(root, "Arm");
+        h = sc->FindChild(root, "Head");
+        return t && r && h;
+    };
+    Entity ta, ra, ha, tb, rb, hb;
+    CHECK(parts(other, a, ta, ra, ha) && parts(other, b, tb, rb, hb));
+    if (!ta || !ra || !ha || !tb || !rb || !hb)
+        return;
+    CHECK(ta.GetUUID() != torso.GetUUID() && ta.GetUUID() != tb.GetUUID());
+    CHECK(ra.GetComponent<HingeJoint3DComponent>().ConnectedBody.ID == (uint64_t)ta.GetUUID());
+    CHECK(rb.GetComponent<HingeJoint3DComponent>().ConnectedBody.ID == (uint64_t)tb.GetUUID());
+    CHECK(ha.GetComponent<ConeJoint3DComponent>().ConnectedBody.ID == (uint64_t)ta.GetUUID());
+    CHECK(hb.GetComponent<ConeJoint3DComponent>().ConnectedBody.ID == (uint64_t)tb.GetUUID());
+    CHECK(ra.GetComponent<HingeJoint3DComponent>().RuntimeJoint && hb.GetComponent<ConeJoint3DComponent>().RuntimeJoint);
+    const auto& hr = ra.GetComponent<HingeJoint3DComponent>();
+    CHECK(hr.EnableLimit && hr.LowerAngle == -20.0f && hr.UpperAngle == 90.0f && hr.Anchor == glm::vec3(0.0f, 0.22f, 0.0f));
+    const auto& cn = ha.GetComponent<ConeJoint3DComponent>();
+    CHECK(cn.SwingLimit == 30.0f && cn.TwistLower == -10.0f && cn.TwistUpper == 15.0f);
+    CHECK(ta.GetComponent<DistanceJoint3DComponent>().ConnectedBody.ID == (uint64_t)hook.GetUUID());
+    CHECK(!ta.GetComponent<DistanceJoint3DComponent>().RuntimeJoint); // waits for a body that is not in this scene
+    CHECK(other->GetPhysics3DStats().Joints == 4);
+    RunFrames(other, 60);
+    // The joints hold while the rigs fall (nothing holds them up).
+    PhysicsWorld3D* ow = other->GetPhysicsWorld3D();
+    for (Entity e : { ra, rb })
+    {
+        glm::vec3 p1, p2, ax;
+        CHECK(ow->GetJointFrame(e.GetComponent<HingeJoint3DComponent>().RuntimeJoint, p1, p2, ax) && glm::length(p1 - p2) < 0.02f);
+    }
+    CHECK(other->GetWorldPosition(ta).y < 3.0f); // fell from 5
+    other->OnRuntimeStop();
+
+    // Pasted into a third scene (the editor's clipboard): new IDs, joined inside the copy.
+    auto third = CreateRef<Scene>();
+    auto pasted = SceneSerializer::DeserializeEntities(*third, SceneSerializer::SerializeEntities(*scene, { rig, torso, arm, head }), true);
+    CHECK(pasted.size() == 4);
+    if (pasted.size() == 4)
+    {
+        Entity pt = third->FindEntityByName("Torso"), pa = third->FindEntityByName("Arm"), ph = third->FindEntityByName("Head");
+        CHECK(pt && pa && ph && pt.GetUUID() != torso.GetUUID());
+        CHECK(pa.GetComponent<HingeJoint3DComponent>().ConnectedBody.ID == (uint64_t)pt.GetUUID());
+        CHECK(ph.GetComponent<ConeJoint3DComponent>().ConnectedBody.ID == (uint64_t)pt.GetUUID());
+        CHECK(pt.GetComponent<DistanceJoint3DComponent>().ConnectedBody.ID == (uint64_t)hook.GetUUID());
+    }
+
+    // The scene it was made in (without the original rig): the instance's rope finds the hook.
+    scene->DestroyEntity(rig);
+    scene->OnRuntimeStart();
+    CHECK(scene->GetPhysics3DStats().Joints == 0);
+    Entity c = scene->InstantiatePrefab(file);
+    Entity tc, rc, hc;
+    CHECK(c && parts(scene, c, tc, rc, hc));
+    if (tc)
+    {
+        CHECK(tc.GetComponent<DistanceJoint3DComponent>().RuntimeJoint != 0);
+        CHECK(scene->GetPhysics3DStats().Joints == 3);
+        RunFrames(scene, 120);
+        // Hanging from the hook on the taut rope (2.6 long; the arm on its side tilts it a little).
+        CHECK_NEAR(tc.GetComponent<DistanceJoint3DComponent>().CurrentDistance, 2.6f, 0.01f);
+        const glm::vec3 hanging = scene->GetWorldPosition(tc);
+        CHECK(hanging.y > 4.7f && hanging.y < 5.4f && std::abs(hanging.x) < 0.8f);
+    }
+    scene->OnRuntimeStop();
+}
+
+// The 3D queries and the joint / sleep state from a script (ScriptableEntity's API).
+class Query3DProbe : public ScriptableEntity
+{
+public:
+    std::vector<std::string> RayHits, Overlaps, MaskedOverlaps;
+    std::string SphereHit;
+    float SphereDistance = -1.0f;
+    bool Ran = false;
+    void OnUpdate(Timestep) override
+    {
+        const glm::vec3 origin = GetWorldPosition();
+        RayHits.clear();
+        for (const RaycastHit& hit : Raycast3DAll(origin, { 1.0f, 0.0f, 0.0f }, 20.0f))
+            RayHits.push_back(GetScene().GetEntityByUUID(hit.EntityID).GetName());
+        Overlaps.clear();
+        for (Entity e : OverlapSphere3D(origin + glm::vec3(3.0f, 0.0f, 0.0f), 2.2f))
+            Overlaps.push_back(e.GetName());
+        MaskedOverlaps.clear();
+        for (Entity e : OverlapSphere3D(origin + glm::vec3(3.0f, 0.0f, 0.0f), 2.2f, LayerMask({ "Kristall" })))
+            MaskedOverlaps.push_back(e.GetName());
+        RaycastHit sphere = SphereCast3D(origin, 0.3f, { 1.0f, 0.0f, 0.0f }, 20.0f);
+        SphereHit = sphere ? GetScene().GetEntityByUUID(sphere.EntityID).GetName() : "";
+        SphereDistance = sphere ? sphere.Distance : -1.0f;
+        Ran = true;
+    }
+};
+ZM_REGISTER_SCRIPT(Query3DProbe)
+
+TEST(ScriptQueries3D)
+{
+    namespace fs = std::filesystem;
+    using BT = Rigidbody3DComponent::BodyType;
+    fs::path root = MakeTempDir("zamin-script-queries3d-");
+    auto project = Project::CreateFromTemplate(root, "Queries3DGame");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    ScopeExit cleanup{ [&]() {
+        Project::SetActive(nullptr);
+        std::error_code ec;
+        fs::remove_all(root, ec);
+    } };
+    project->GetConfig().CollisionLayers.Names[4] = "Kristall";
+    auto scene = CreateRef<Scene>();
+    Entity probe = scene->CreateEntity("Probe");
+    probe.AddComponent<NativeScriptComponent>().ClassName = "Query3DProbe";
+    // Out of order along +x; the crystal on its own layer.
+    MakeBody3D(scene, "Far", { 6.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    MakeBody3D(scene, "Near", { 2.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.5f));
+    Entity crystal = MakeBody3D(scene, "Crystal", { 4.0f, 0.0f, 0.0f }, BT::Static, glm::vec3(0.3f));
+    crystal.GetComponent<Rigidbody3DComponent>().Layer = 4;
+    scene->OnRuntimeStart();
+    RunFrames(scene, 1);
+    auto* script = dynamic_cast<Query3DProbe*>(probe.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(script && script->Ran);
+    if (!script)
+        return;
+    CHECK(script->RayHits == (std::vector<std::string>{ "Near", "Crystal", "Far" }));
+    CHECK(script->Overlaps == (std::vector<std::string>{ "Near", "Crystal" }));  // nearest to the centre (x 3) first
+    CHECK(script->MaskedOverlaps == std::vector<std::string>{ "Crystal" });
+    CHECK(script->SphereHit == "Near");
+    CHECK_NEAR(script->SphereDistance, 1.2f, 0.01f);
+    scene->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

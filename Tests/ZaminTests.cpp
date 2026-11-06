@@ -18036,6 +18036,138 @@ TEST(Joints3DSampleScene)
     scene->OnRuntimeStop();
 }
 
+// The largest distance between a 3D joint's two anchors now (0 when there is no running joint).
+template<typename T>
+static float JointGap3D(PhysicsWorld3D* world, Entity e)
+{
+    const auto* j = e.TryGetComponent<T>();
+    glm::vec3 a, b, axis;
+    if (!j || !j->RuntimeJoint || !world->GetJointFrame(j->RuntimeJoint, a, b, axis))
+        return 0.0f;
+    return glm::length(a - b);
+}
+
+TEST(Ragdoll3DSampleScene)
+{
+    namespace fs = std::filesystem;
+    // The Showcase3D sample's Ragdoll3D scene and Ragdoll3D prefab: 11 parts, cone joints at the waist,
+    // neck, shoulders and hips, limited hinges at the elbows and knees, all joined inside the ragdoll.
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D";
+    auto project = Project::Load(root / "Showcase3D.zproject");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    Project::SetActive(project);
+    ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Ragdoll3D.zscene"));
+    std::vector<Entity> ragdolls = scene->FindEntitiesByName("Ragdoll");
+    CHECK(ragdolls.size() == 3);
+    Entity spawner = scene->FindEntityByName("Ragdoll tashlagich");
+    CHECK(spawner && spawner.GetComponent<NativeScriptComponent>().ClassName == "RagdollSpawner3D");
+    if (spawner)
+    {
+        auto& fields = spawner.GetComponent<NativeScriptComponent>().Fields;
+        CHECK(fields.count("Prefab") && fields["Prefab"].Get<std::string>() == "Prefabs/Ragdoll3D.zprefab");
+    }
+    CHECK(scene->FindEntitiesByName("Zina 8").size() == 1 && scene->FindEntityByName("Arg'imchoq").HasComponent<HingeJoint3DComponent>());
+    auto checkRagdoll = [&](Ref<Scene>& sc, Entity r, std::vector<Entity>& cones, std::vector<Entity>& hinges) {
+        std::vector<Entity> parts = sc->GetChildren(r);
+        std::unordered_set<uint64_t> inside;
+        for (Entity p : parts)
+            inside.insert((uint64_t)p.GetUUID());
+        int bodies = 0, coneCount = 0, hingeCount = 0;
+        bool joinedInside = true, limited = true;
+        for (Entity p : parts)
+        {
+            if (!p.HasComponent<Rigidbody3DComponent>())
+                continue;
+            bodies++;
+            if (const auto* c = p.TryGetComponent<ConeJoint3DComponent>())
+            {
+                coneCount++;
+                cones.push_back(p);
+                joinedInside &= inside.count(c->ConnectedBody.ID) == 1 && !c->CollideConnected;
+                limited &= c->SwingLimit > 0.0f && c->SwingLimit < 90.0f && c->FrictionTorque > 0.0f;
+            }
+            if (const auto* h = p.TryGetComponent<HingeJoint3DComponent>())
+            {
+                hingeCount++;
+                hinges.push_back(p);
+                joinedInside &= inside.count(h->ConnectedBody.ID) == 1 && !h->CollideConnected;
+                limited &= h->EnableLimit && h->LowerAngle < h->UpperAngle && h->EnableMotor && h->MotorSpeed == 0.0f && h->MaxMotorTorque > 0.0f;
+            }
+        }
+        CHECK(bodies == 11 && coneCount == 6 && hingeCount == 4 && joinedInside && limited);
+    };
+    std::vector<Entity> cones, hinges;
+    for (Entity r : ragdolls)
+        checkRagdoll(scene, r, cones, hinges);
+
+    // Played headless (no primary camera: nothing is drawn, the spawner's script is not loaded).
+    scene->FindEntityByName("Main Camera").GetComponent<CameraComponent>().Primary = false;
+    auto play = Scene::Copy(scene);
+    play->OnRuntimeStart();
+    PhysicsWorld3D* world = play->GetPhysicsWorld3D();
+    CHECK(world && world->GetJointCount() == 32); // 3 ragdolls, the seesaw and the punching bag
+    // One more from the prefab file, as the spawner makes them (read with new IDs, moved, spawned).
+    std::vector<Entity> spawned =
+        SceneSerializer::DeserializeEntities(*play, FileSystem::ReadTextFile(root / "Assets" / "Prefabs" / "Ragdoll3D.zprefab"), true);
+    CHECK(spawned.size() == 14 && !spawned.empty() && spawned[0].GetName() == "Ragdoll");
+    if (spawned.empty())
+        return;
+    spawned[0].GetTransform().Translation = { -6.6f, 6.5f, 0.0f };
+    play->OnEntitiesSpawned(spawned);
+    CHECK(world->GetJointCount() == 42);
+    std::vector<Entity> playCones, playHinges;
+    std::vector<Entity> playRagdolls = play->FindEntitiesByName("Ragdoll");
+    CHECK(playRagdolls.size() == 4);
+    for (Entity r : playRagdolls)
+        checkRagdoll(play, r, playCones, playHinges);
+    for (Entity p : play->GetChildren(spawned[0]))
+        if (p.HasComponent<Rigidbody3DComponent>())
+            world->SetLinearVelocity(p.GetComponent<Rigidbody3DComponent>().RuntimeBodyID, { 4.5f, 0.0f, 0.0f }); // pushed towards the stairs
+    Entity chest = play->FindChild(spawned[0], "Ko'krak");
+    const float startY = play->GetWorldPosition(chest).y;
+    float worstGap = 0.0f, worstHinge = 0.0f, worstSwing = 0.0f;
+    bool allJoined = true;
+    for (int frame = 0; frame < 360; frame++)
+    {
+        play->OnUpdateRuntime(1.0f / 60.0f);
+        for (Entity p : playCones)
+        {
+            const auto& c = p.GetComponent<ConeJoint3DComponent>();
+            allJoined &= c.RuntimeJoint != 0 && !c.Broken;
+            worstGap = std::max(worstGap, JointGap3D<ConeJoint3DComponent>(world, p));
+            worstSwing = std::max(worstSwing, c.SwingAngle - c.SwingLimit);
+        }
+        for (Entity p : playHinges)
+        {
+            const auto& h = p.GetComponent<HingeJoint3DComponent>();
+            allJoined &= h.RuntimeJoint != 0 && !h.Broken;
+            worstGap = std::max(worstGap, JointGap3D<HingeJoint3DComponent>(world, p));
+            worstHinge = std::max(worstHinge, std::max(h.LowerAngle - h.JointAngle, h.JointAngle - h.UpperAngle));
+        }
+    }
+    // (Dropped on the stairs, tumbling down them: the joints hold, the limits within a few degrees - a
+    // little more for a frame when the falling ragdoll hits a step's edge with its back.)
+    CHECK(allJoined && worstGap < 0.06f && worstHinge < 8.0f && worstSwing < 12.0f);
+    // It went down the stairs (from the platform at 4.5); everything is above the ground, inside the scene.
+    CHECK(play->GetWorldPosition(chest).y < startY - 1.0f);
+    bool inside = true;
+    for (Entity r : playRagdolls)
+        for (Entity p : play->GetChildren(r))
+            if (p.HasComponent<Rigidbody3DComponent>())
+            {
+                const glm::vec3 at = play->GetWorldPosition(p);
+                inside &= at.y > -0.1f && at.y < 8.0f && std::abs(at.x) < 22.0f && std::abs(at.z) < 13.0f;
+            }
+    CHECK(inside);
+    // Some of them have come to rest and sleep by now.
+    CHECK(play->GetPhysics3DStats().Sleeping > 0);
+    play->OnRuntimeStop();
+}
+
 // ------------------------------------------------------------------ M10: mesh colliders, layers, 3D queries
 static Entity MakeShape3D(Ref<Scene>& scene, const char* name, glm::vec3 position, Rigidbody3DComponent::BodyType type)
 {

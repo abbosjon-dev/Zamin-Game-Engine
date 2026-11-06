@@ -1,6 +1,7 @@
 #include <Zamin/Zamin.h>
 
 #include <cmath>
+#include <deque>
 #include <format>
 #include <map>
 #include <unordered_map>
@@ -658,3 +659,136 @@ private:
 };
 ZM_REGISTER_SCRIPT(TriggerGlow3D, ZM_FIELD(TriggerGlow3D, Title), ZM_FIELD_COLOR(TriggerGlow3D, Glow), ZM_FIELD(TriggerGlow3D, GlowStrength),
                    ZM_FIELD(TriggerGlow3D, Radius), ZM_FIELD(TriggerGlow3D, LabelOffset))
+
+// ---- Ragdoll3D sahnasi: Cone Joint 3D (yelka, son, bel, bo'yin) va Hinge Joint 3D (tirsak, tizza) bilan
+// bog'langan 11 bo'lakli ragdoll'lar zinadan yumalab tushadi.
+
+// R - zina ustidan yana 3 ta ragdoll, sichqoncha chap tugmasi / F - kameradan sichqoncha tomonga otadi,
+// har AutoInterval soniyada o'zi bittasini tashlaydi. Ko'pi bilan MaxRagdolls ta (eskilari yo'qoladi).
+class RagdollSpawner3D : public ScriptableEntity
+{
+public:
+    std::string Prefab = "Prefabs/Ragdoll3D.zprefab";
+    float AutoInterval = 3.0f;
+    float Width = 4.0f;       // tashlash joyining kengligi (Z bo'ylab)
+    int MaxRagdolls = 8;
+    float Push = 4.5f;        // zina tomonga (+X) boshlang'ich tezlik
+    float ThrowSpeed = 14.0f; // kameradan otilganda
+
+    void OnUpdate(Timestep ts) override
+    {
+        if (Input::IsMouseButtonJustPressed(MouseButton::Left) || Input::IsKeyJustPressed(Key::F))
+            Throw();
+        if (Input::IsKeyJustPressed(Key::R))
+            for (int i = 0; i < 3; i++)
+                Spawn(SkyPoint(), { Push * Random::Range(0.6f, 1.4f), 0.0f, 0.0f });
+        // Sahnadan tushib ketganlari yo'qoladi.
+        for (auto it = m_Spawned.begin(); it != m_Spawned.end();)
+        {
+            Entity root = GetScene().GetEntityByUUID(*it);
+            Entity chest = root ? GetScene().FindChild(root, "Ko'krak") : Entity();
+            if (!root || (chest && GetScene().GetWorldPosition(chest).y < -20.0f))
+            {
+                if (root)
+                    Destroy(root);
+                it = m_Spawned.erase(it);
+            }
+            else
+                ++it;
+        }
+        if (AutoInterval <= 0.0f)
+            return;
+        m_Time += ts;
+        if (m_Time < AutoInterval)
+            return;
+        m_Time = 0.0f;
+        Spawn(SkyPoint(), { Push * Random::Range(0.6f, 1.4f), 0.0f, Random::Range(-0.5f, 0.5f) });
+    }
+
+private:
+    glm::vec3 SkyPoint() const
+    {
+        const glm::vec3 at = GetWorldPosition();
+        return { at.x + Random::Range(-1.0f, 1.0f), at.y + Random::Range(-0.3f, 0.8f), at.z + Random::Range(-Width * 0.5f, Width * 0.5f) };
+    }
+
+    // Kameradan sichqoncha ko'rsatgan joyga (z = 0 tekisligida) qarab.
+    void Throw()
+    {
+        Entity camera = GetScene().GetPrimaryCameraEntity();
+        if (!camera)
+            return;
+        const glm::vec3 from = GetScene().GetWorldPosition(camera);
+        glm::vec3 dir = ScreenToWorld(GetMousePosition(), 0.0f) - from;
+        if (glm::length(dir) < 1e-3f)
+            return;
+        dir = glm::normalize(dir);
+        // Ildiz oyoq ostida: bo'laklar markazi ~0.8 yuqorida.
+        Spawn(from + dir * 3.0f - glm::vec3(0.0f, 0.8f, 0.0f), dir * ThrowSpeed);
+    }
+
+    void Spawn(const glm::vec3& position, const glm::vec3& velocity)
+    {
+        Entity root = Instantiate(Prefab, position);
+        if (!root)
+        {
+            ZM_WARN("Ragdoll prefabi topilmadi: {}", Prefab);
+            return;
+        }
+        Paint(root);
+        // Hamma bo'lak bir xil tezlikda, boshi biroz boshqacha: ragdoll aylanib uchadi.
+        for (Entity part : GetScene().GetChildren(root))
+        {
+            if (!part.HasComponent<Rigidbody3DComponent>())
+                continue;
+            glm::vec3 v = velocity;
+            if (part.GetName() == "Bosh")
+                v += Random::InsideUnitSphere() * 2.5f;
+            SetVelocity3D(part, v);
+        }
+        m_Spawned.push_back(root.GetUUID());
+        while ((int)m_Spawned.size() > std::max(1, MaxRagdolls))
+        {
+            if (Entity old = GetScene().GetEntityByUUID(m_Spawned.front()))
+                Destroy(old);
+            m_Spawned.pop_front();
+        }
+    }
+
+    // Ko'ylak (ko'krak, yelkalar), shim (bel, son, boldir) va teri uchun tasodifiy ranglar.
+    void Paint(Entity root)
+    {
+        const float hue = Random::Float();
+        auto fromHue = [](float h, float saturation, float value) {
+            const glm::vec3 k = glm::fract(glm::vec3(h) + glm::vec3(0.0f, 2.0f / 3.0f, 1.0f / 3.0f)) * 6.0f - 3.0f;
+            const glm::vec3 rgb = glm::clamp(glm::abs(k) - 1.0f, 0.0f, 1.0f);
+            return glm::mix(glm::vec3(1.0f), rgb, saturation) * value;
+        };
+        const glm::vec3 shirt = fromHue(hue, 0.7f, 0.9f);
+        const glm::vec3 pants = fromHue(hue + 0.5f, 0.45f, 0.45f);
+        const glm::vec3 skin = glm::mix(glm::vec3(0.95f, 0.78f, 0.64f), glm::vec3(0.55f, 0.37f, 0.25f), Random::Float());
+        for (Entity part : GetScene().GetChildren(root))
+        {
+            auto* mesh = part.TryGetComponent<MeshRendererComponent>();
+            if (!mesh)
+                continue;
+            const std::string& name = part.GetName();
+            if (name == "Ko'krak" || name.starts_with("Yelka"))
+                mesh->Mat.Albedo = glm::vec4(shirt, 1.0f);
+            else if (name == "Bel" || name.starts_with("Son") || name.starts_with("Boldir"))
+                mesh->Mat.Albedo = glm::vec4(name.starts_with("Boldir") ? pants * 0.8f : pants, 1.0f);
+            else if (name == "Bosh" || name.starts_with("Bilak"))
+                mesh->Mat.Albedo = glm::vec4(skin, 1.0f);
+        }
+    }
+
+    float m_Time = 0.0f;
+    std::deque<UUID> m_Spawned;
+};
+ZM_REGISTER_SCRIPT(RagdollSpawner3D,
+    ZM_FIELD(RagdollSpawner3D, Prefab).Tooltip("Ragdoll prefabi (Assets ichidagi yo'l)"),
+    ZM_FIELD_RANGE(RagdollSpawner3D, AutoInterval, 0.0f, 30.0f).Header("Tashlash").Tooltip("Necha soniyada o'zi bittasini tashlaydi (0 - faqat R / sichqoncha)"),
+    ZM_FIELD_RANGE(RagdollSpawner3D, Width, 0.0f, 20.0f).Tooltip("Tashlash joyining kengligi (Z bo'ylab)"),
+    ZM_FIELD_RANGE(RagdollSpawner3D, MaxRagdolls, 1, 40).Tooltip("Ko'pi bilan shuncha (eskilari yo'qoladi)"),
+    ZM_FIELD_RANGE(RagdollSpawner3D, Push, 0.0f, 20.0f).Tooltip("Zina tomonga (+X) boshlang'ich tezlik"),
+    ZM_FIELD_RANGE(RagdollSpawner3D, ThrowSpeed, 0.0f, 60.0f).Tooltip("Kameradan sichqoncha tomonga otish tezligi"))

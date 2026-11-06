@@ -1,0 +1,998 @@
+{
+ "ZaminEntities": 1,
+ "Entities": [
+  {
+   "Entity": 1,
+   "Tag": "Ragdoll",
+   "Transform": {
+    "Translation": [
+     0,
+     0,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     1,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "Entity": 2,
+   "Tag": "Bel",
+   "Transform": {
+    "Translation": [
+     0,
+     0.7,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.32,
+     0.18,
+     0.2
+    ]
+   },
+   "Parent": 1,
+   "MeshRenderer": {
+    "Mesh": "Cube",
+    "Model": "",
+    "CastShadows": true,
+    "Albedo": [
+     0.22,
+     0.28,
+     0.45,
+     1.0
+    ],
+    "Roughness": 0.75,
+    "Metallic": 0.0
+   },
+   "Rigidbody3D": {
+    "BodyType": "Dynamic",
+    "Mass": 7.0,
+    "LinearDamping": 0.05,
+    "AngularDamping": 0.3,
+    "GravityFactor": 1.0,
+    "LockRotation": false
+   },
+   "BoxCollider3D": {
+    "HalfExtents": [
+     0.5,
+     0.5,
+     0.5
+    ],
+    "Offset": [
+     0,
+     0,
+     0
+    ],
+    "Friction": 0.6,
+    "Restitution": 0.0,
+    "IsSensor": false
+   }
+  },
+  {
+   "Entity": 3,
+   "Tag": "Ko'krak",
+   "Transform": {
+    "Translation": [
+     0,
+     1.03,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.36,
+     0.42,
+     0.22
+    ]
+   },
+   "Parent": 1,
+   "MeshRenderer": {
+    "Mesh": "Cube",
+    "Model": "",
+    "CastShadows": true,
+    "Albedo": [
+     0.85,
+     0.3,
+     0.25,
+     1.0
+    ],
+    "Roughness": 0.75,
+    "Metallic": 0.0
+   },
+   "Rigidbody3D": {
+    "BodyType": "Dynamic",
+    "Mass": 9.0,
+    "LinearDamping": 0.05,
+    "AngularDamping": 0.3,
+    "GravityFactor": 1.0,
+    "LockRotation": false
+   },
+   "BoxCollider3D": {
+    "HalfExtents": [
+     0.5,
+     0.5,
+     0.5
+    ],
+    "Offset": [
+     0,
+     0,
+     0
+    ],
+    "Friction": 0.6,
+    "Restitution": 0.0,
+    "IsSensor": false
+   },
+   "ConeJoint3D": {
+    "ConnectedBody": 2,
+    "Anchor": [
+     0,
+     -0.5,
+     0
+    ],
+    "ConnectedAnchor": [
+     0,
+     0,
+     0
+    ],
+    "AutoConfigureConnectedAnchor": true,
+    "CollideConnected": false,
+    "BreakForce": 0.0,
+    "BreakTorque": 0.0,
+    "Axis": [
+     0,
+     1,
+     0
+    ],
+    "SwingLimit": 30.0,
+    "TwistLower": -25.0,
+    "TwistUpper": 25.0,
+    "FrictionTorque": 2.0
+   }
+  },
+  {
+   "Entity": 4,
+   "Tag": "Bosh",
+   "Transform": {
+    "Translation": [
+     0,
+     1.39,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.26,
+     0.26,
+     0.26
+    ]
+   },
+   "Parent": 1,
+   "MeshRenderer": {
+    "Mesh": "Sphere",
+    "Model": "",
+    "CastShadows": true,
+    "Albedo": [
+     0.93,
+     0.74,
+     0.6,
+     1.0
+    ],
+    "Roughness": 0.6,
+    "Metallic": 0.0
+   },
+   "Rigidbody3D": {
+    "BodyType": "Dynamic",
+    "Mass": 4.0,
+    "LinearDamping": 0.05,
+    "AngularDamping": 0.3,
+    "GravityFactor": 1.0,
+    "LockRotation": false
+   },
+   "SphereCollider3D": {
+    "Radius": 0.5,
+    "Offset": [
+     0,
+     0,
+     0
+    ],
+    "Friction": 0.6,
+    "Restitution": 0.0,
+    "IsSensor": false
+   },
+   "ConeJoint3D": {
+    "ConnectedBody": 3,
+    "Anchor": [
+     0,
+     -0.6,
+     0
+    ],
+    "ConnectedAnchor": [
+     0,
+     0,
+     0
+    ],
+    "AutoConfigureConnectedAnchor": true,
+    "CollideConnected": false,
+    "BreakForce": 0.0,
+    "BreakTorque": 0.0,
+    "Axis": [
+     0,
+     1,
+     0
+    ],
+    "SwingLimit": 40.0,
+    "TwistLower": -50.0,
+    "TwistUpper": 50.0,
+    "FrictionTorque": 0.6
+   }
+  },
+  {
+   "Entity": 5,
+   "Tag": "Ko'z",
+   "Transform": {
+    "Translation": [
+     -0.2,
+     0.12,
+     0.43
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.16,
+     0.16,
+     0.16
+    ]
+   },
+   "Parent": 4,
+   "MeshRenderer": {
+    "Mesh": "Sphere",
+    "Model": "",
+    "CastShadows": true,
+    "Albedo": [
+     0.05,
+     0.05,
+     0.07,
+     1.0
+    ],
+    "Roughness": 0.3,
+    "Metallic": 0.0
+   }
+  },
+  {
+   "Entity": 6,
+   "Tag": "Ko'z",
+   "Transform": {
+    "Translation": [
+     0.2,
+     0.12,
+     0.43
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.16,
+     0.16,
+     0.16
+    ]
+   },
+   "Parent": 4,
+   "MeshRenderer": {
+    "Mesh": "Sphere",
+    "Model": "",
+    "CastShadows": true,
+    "Albedo": [
+     0.05,
+     0.05,
+     0.07,
+     1.0
+    ],
+    "Roughness": 0.3,
+    "Metallic": 0.0
+   }
+  },
+  {
+   "Entity": 7,
+   "Tag": "Yelka chap",
+   "Transform": {
+    "Translation": [
+     -0.25,
+     1.06,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.12,
+     0.12,
+     0.12
+    ]
+   },
+   "Parent": 1,
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Limb.obj",
+    "CastShadows": true,
+    "Albedo": [
+     0.85,
+     0.3,
+     0.25,
+     1.0
+    ],
+    "Roughness": 0.75,
+    "Metallic": 0.0,
+    "ModelUUID": "e5ecd5d2045a10e7"
+   },
+   "Rigidbody3D": {
+    "BodyType": "Dynamic",
+    "Mass": 2.0,
+    "LinearDamping": 0.05,
+    "AngularDamping": 0.3,
+    "GravityFactor": 1.0,
+    "LockRotation": false
+   },
+   "CapsuleCollider3D": {
+    "Radius": 0.5,
+    "HalfHeight": 1.0,
+    "Offset": [
+     0,
+     0,
+     0
+    ],
+    "Friction": 0.6,
+    "Restitution": 0.0,
+    "IsSensor": false
+   },
+   "ConeJoint3D": {
+    "ConnectedBody": 3,
+    "Anchor": [
+     0,
+     1.0,
+     0
+    ],
+    "ConnectedAnchor": [
+     0,
+     0,
+     0
+    ],
+    "AutoConfigureConnectedAnchor": true,
+    "CollideConnected": false,
+    "BreakForce": 0.0,
+    "BreakTorque": 0.0,
+    "Axis": [
+     0,
+     1,
+     0
+    ],
+    "SwingLimit": 75.0,
+    "TwistLower": -60.0,
+    "TwistUpper": 60.0,
+    "FrictionTorque": 0.4
+   }
+  },
+  {
+   "Entity": 8,
+   "Tag": "Bilak chap",
+   "Transform": {
+    "Translation": [
+     -0.25,
+     0.83,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.11,
+     0.11,
+     0.11
+    ]
+   },
+   "Parent": 1,
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Limb.obj",
+    "CastShadows": true,
+    "Albedo": [
+     0.93,
+     0.74,
+     0.6,
+     1.0
+    ],
+    "Roughness": 0.75,
+    "Metallic": 0.0,
+    "ModelUUID": "e5ecd5d2045a10e7"
+   },
+   "Rigidbody3D": {
+    "BodyType": "Dynamic",
+    "Mass": 1.5,
+    "LinearDamping": 0.05,
+    "AngularDamping": 0.3,
+    "GravityFactor": 1.0,
+    "LockRotation": false
+   },
+   "CapsuleCollider3D": {
+    "Radius": 0.5,
+    "HalfHeight": 1.0,
+    "Offset": [
+     0,
+     0,
+     0
+    ],
+    "Friction": 0.6,
+    "Restitution": 0.0,
+    "IsSensor": false
+   },
+   "HingeJoint3D": {
+    "ConnectedBody": 7,
+    "Anchor": [
+     0,
+     1.0,
+     0
+    ],
+    "ConnectedAnchor": [
+     0,
+     0,
+     0
+    ],
+    "AutoConfigureConnectedAnchor": true,
+    "CollideConnected": false,
+    "BreakForce": 0.0,
+    "BreakTorque": 0.0,
+    "Axis": [
+     1,
+     0,
+     0
+    ],
+    "EnableLimit": true,
+    "LowerAngle": -135.0,
+    "UpperAngle": 0.0,
+    "EnableMotor": true,
+    "MotorSpeed": 0.0,
+    "MaxMotorTorque": 0.6,
+    "EnableSpring": false,
+    "SpringTargetAngle": 0.0,
+    "SpringFrequency": 2.0,
+    "SpringDamping": 0.5
+   }
+  },
+  {
+   "Entity": 9,
+   "Tag": "Yelka o'ng",
+   "Transform": {
+    "Translation": [
+     0.25,
+     1.06,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.12,
+     0.12,
+     0.12
+    ]
+   },
+   "Parent": 1,
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Limb.obj",
+    "CastShadows": true,
+    "Albedo": [
+     0.85,
+     0.3,
+     0.25,
+     1.0
+    ],
+    "Roughness": 0.75,
+    "Metallic": 0.0,
+    "ModelUUID": "e5ecd5d2045a10e7"
+   },
+   "Rigidbody3D": {
+    "BodyType": "Dynamic",
+    "Mass": 2.0,
+    "LinearDamping": 0.05,
+    "AngularDamping": 0.3,
+    "GravityFactor": 1.0,
+    "LockRotation": false
+   },
+   "CapsuleCollider3D": {
+    "Radius": 0.5,
+    "HalfHeight": 1.0,
+    "Offset": [
+     0,
+     0,
+     0
+    ],
+    "Friction": 0.6,
+    "Restitution": 0.0,
+    "IsSensor": false
+   },
+   "ConeJoint3D": {
+    "ConnectedBody": 3,
+    "Anchor": [
+     0,
+     1.0,
+     0
+    ],
+    "ConnectedAnchor": [
+     0,
+     0,
+     0
+    ],
+    "AutoConfigureConnectedAnchor": true,
+    "CollideConnected": false,
+    "BreakForce": 0.0,
+    "BreakTorque": 0.0,
+    "Axis": [
+     0,
+     1,
+     0
+    ],
+    "SwingLimit": 75.0,
+    "TwistLower": -60.0,
+    "TwistUpper": 60.0,
+    "FrictionTorque": 0.4
+   }
+  },
+  {
+   "Entity": 10,
+   "Tag": "Bilak o'ng",
+   "Transform": {
+    "Translation": [
+     0.25,
+     0.83,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.11,
+     0.11,
+     0.11
+    ]
+   },
+   "Parent": 1,
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Limb.obj",
+    "CastShadows": true,
+    "Albedo": [
+     0.93,
+     0.74,
+     0.6,
+     1.0
+    ],
+    "Roughness": 0.75,
+    "Metallic": 0.0,
+    "ModelUUID": "e5ecd5d2045a10e7"
+   },
+   "Rigidbody3D": {
+    "BodyType": "Dynamic",
+    "Mass": 1.5,
+    "LinearDamping": 0.05,
+    "AngularDamping": 0.3,
+    "GravityFactor": 1.0,
+    "LockRotation": false
+   },
+   "CapsuleCollider3D": {
+    "Radius": 0.5,
+    "HalfHeight": 1.0,
+    "Offset": [
+     0,
+     0,
+     0
+    ],
+    "Friction": 0.6,
+    "Restitution": 0.0,
+    "IsSensor": false
+   },
+   "HingeJoint3D": {
+    "ConnectedBody": 9,
+    "Anchor": [
+     0,
+     1.0,
+     0
+    ],
+    "ConnectedAnchor": [
+     0,
+     0,
+     0
+    ],
+    "AutoConfigureConnectedAnchor": true,
+    "CollideConnected": false,
+    "BreakForce": 0.0,
+    "BreakTorque": 0.0,
+    "Axis": [
+     1,
+     0,
+     0
+    ],
+    "EnableLimit": true,
+    "LowerAngle": -135.0,
+    "UpperAngle": 0.0,
+    "EnableMotor": true,
+    "MotorSpeed": 0.0,
+    "MaxMotorTorque": 0.6,
+    "EnableSpring": false,
+    "SpringTargetAngle": 0.0,
+    "SpringFrequency": 2.0,
+    "SpringDamping": 0.5
+   }
+  },
+  {
+   "Entity": 11,
+   "Tag": "Son chap",
+   "Transform": {
+    "Translation": [
+     -0.09,
+     0.5,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.15,
+     0.15,
+     0.15
+    ]
+   },
+   "Parent": 1,
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Limb.obj",
+    "CastShadows": true,
+    "Albedo": [
+     0.22,
+     0.28,
+     0.45,
+     1.0
+    ],
+    "Roughness": 0.75,
+    "Metallic": 0.0,
+    "ModelUUID": "e5ecd5d2045a10e7"
+   },
+   "Rigidbody3D": {
+    "BodyType": "Dynamic",
+    "Mass": 5.0,
+    "LinearDamping": 0.05,
+    "AngularDamping": 0.3,
+    "GravityFactor": 1.0,
+    "LockRotation": false
+   },
+   "CapsuleCollider3D": {
+    "Radius": 0.5,
+    "HalfHeight": 1.0,
+    "Offset": [
+     0,
+     0,
+     0
+    ],
+    "Friction": 0.6,
+    "Restitution": 0.0,
+    "IsSensor": false
+   },
+   "ConeJoint3D": {
+    "ConnectedBody": 2,
+    "Anchor": [
+     0,
+     1.0,
+     0
+    ],
+    "ConnectedAnchor": [
+     0,
+     0,
+     0
+    ],
+    "AutoConfigureConnectedAnchor": true,
+    "CollideConnected": false,
+    "BreakForce": 0.0,
+    "BreakTorque": 0.0,
+    "Axis": [
+     0,
+     1,
+     0
+    ],
+    "SwingLimit": 50.0,
+    "TwistLower": -20.0,
+    "TwistUpper": 20.0,
+    "FrictionTorque": 1.2
+   }
+  },
+  {
+   "Entity": 12,
+   "Tag": "Boldir chap",
+   "Transform": {
+    "Translation": [
+     -0.09,
+     0.21,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.14,
+     0.14,
+     0.14
+    ]
+   },
+   "Parent": 1,
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Limb.obj",
+    "CastShadows": true,
+    "Albedo": [
+     0.22,
+     0.28,
+     0.45,
+     1.0
+    ],
+    "Roughness": 0.75,
+    "Metallic": 0.0,
+    "ModelUUID": "e5ecd5d2045a10e7"
+   },
+   "Rigidbody3D": {
+    "BodyType": "Dynamic",
+    "Mass": 3.5,
+    "LinearDamping": 0.05,
+    "AngularDamping": 0.3,
+    "GravityFactor": 1.0,
+    "LockRotation": false
+   },
+   "CapsuleCollider3D": {
+    "Radius": 0.5,
+    "HalfHeight": 1.0,
+    "Offset": [
+     0,
+     0,
+     0
+    ],
+    "Friction": 0.6,
+    "Restitution": 0.0,
+    "IsSensor": false
+   },
+   "HingeJoint3D": {
+    "ConnectedBody": 11,
+    "Anchor": [
+     0,
+     1.0,
+     0
+    ],
+    "ConnectedAnchor": [
+     0,
+     0,
+     0
+    ],
+    "AutoConfigureConnectedAnchor": true,
+    "CollideConnected": false,
+    "BreakForce": 0.0,
+    "BreakTorque": 0.0,
+    "Axis": [
+     1,
+     0,
+     0
+    ],
+    "EnableLimit": true,
+    "LowerAngle": 0.0,
+    "UpperAngle": 135.0,
+    "EnableMotor": true,
+    "MotorSpeed": 0.0,
+    "MaxMotorTorque": 1.0,
+    "EnableSpring": false,
+    "SpringTargetAngle": 0.0,
+    "SpringFrequency": 2.0,
+    "SpringDamping": 0.5
+   }
+  },
+  {
+   "Entity": 13,
+   "Tag": "Son o'ng",
+   "Transform": {
+    "Translation": [
+     0.09,
+     0.5,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.15,
+     0.15,
+     0.15
+    ]
+   },
+   "Parent": 1,
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Limb.obj",
+    "CastShadows": true,
+    "Albedo": [
+     0.22,
+     0.28,
+     0.45,
+     1.0
+    ],
+    "Roughness": 0.75,
+    "Metallic": 0.0,
+    "ModelUUID": "e5ecd5d2045a10e7"
+   },
+   "Rigidbody3D": {
+    "BodyType": "Dynamic",
+    "Mass": 5.0,
+    "LinearDamping": 0.05,
+    "AngularDamping": 0.3,
+    "GravityFactor": 1.0,
+    "LockRotation": false
+   },
+   "CapsuleCollider3D": {
+    "Radius": 0.5,
+    "HalfHeight": 1.0,
+    "Offset": [
+     0,
+     0,
+     0
+    ],
+    "Friction": 0.6,
+    "Restitution": 0.0,
+    "IsSensor": false
+   },
+   "ConeJoint3D": {
+    "ConnectedBody": 2,
+    "Anchor": [
+     0,
+     1.0,
+     0
+    ],
+    "ConnectedAnchor": [
+     0,
+     0,
+     0
+    ],
+    "AutoConfigureConnectedAnchor": true,
+    "CollideConnected": false,
+    "BreakForce": 0.0,
+    "BreakTorque": 0.0,
+    "Axis": [
+     0,
+     1,
+     0
+    ],
+    "SwingLimit": 50.0,
+    "TwistLower": -20.0,
+    "TwistUpper": 20.0,
+    "FrictionTorque": 1.2
+   }
+  },
+  {
+   "Entity": 14,
+   "Tag": "Boldir o'ng",
+   "Transform": {
+    "Translation": [
+     0.09,
+     0.21,
+     0
+    ],
+    "Rotation": [
+     0,
+     0,
+     0
+    ],
+    "Scale": [
+     0.14,
+     0.14,
+     0.14
+    ]
+   },
+   "Parent": 1,
+   "MeshRenderer": {
+    "Mesh": "Model",
+    "Model": "Models/Limb.obj",
+    "CastShadows": true,
+    "Albedo": [
+     0.22,
+     0.28,
+     0.45,
+     1.0
+    ],
+    "Roughness": 0.75,
+    "Metallic": 0.0,
+    "ModelUUID": "e5ecd5d2045a10e7"
+   },
+   "Rigidbody3D": {
+    "BodyType": "Dynamic",
+    "Mass": 3.5,
+    "LinearDamping": 0.05,
+    "AngularDamping": 0.3,
+    "GravityFactor": 1.0,
+    "LockRotation": false
+   },
+   "CapsuleCollider3D": {
+    "Radius": 0.5,
+    "HalfHeight": 1.0,
+    "Offset": [
+     0,
+     0,
+     0
+    ],
+    "Friction": 0.6,
+    "Restitution": 0.0,
+    "IsSensor": false
+   },
+   "HingeJoint3D": {
+    "ConnectedBody": 13,
+    "Anchor": [
+     0,
+     1.0,
+     0
+    ],
+    "ConnectedAnchor": [
+     0,
+     0,
+     0
+    ],
+    "AutoConfigureConnectedAnchor": true,
+    "CollideConnected": false,
+    "BreakForce": 0.0,
+    "BreakTorque": 0.0,
+    "Axis": [
+     1,
+     0,
+     0
+    ],
+    "EnableLimit": true,
+    "LowerAngle": 0.0,
+    "UpperAngle": 135.0,
+    "EnableMotor": true,
+    "MotorSpeed": 0.0,
+    "MaxMotorTorque": 1.0,
+    "EnableSpring": false,
+    "SpringTargetAngle": 0.0,
+    "SpringFrequency": 2.0,
+    "SpringDamping": 0.5
+   }
+  }
+ ]
+}

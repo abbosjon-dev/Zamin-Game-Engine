@@ -836,3 +836,88 @@ ZM_REGISTER_SCRIPT(PhysicsDebugView3D,
     ZM_FIELD(PhysicsDebugView3D, Contacts).Tooltip("Kontakt nuqtalari va normallari (C)"),
     ZM_FIELD(PhysicsDebugView3D, Joints).Tooltip("Joint'lar: langarlar, o'q, yuk rangi (J)"),
     ZM_FIELD(PhysicsDebugView3D, Values).Tooltip("Chuqurlik, zarba, impuls, kuch yozuvlari (V)"))
+
+// ---- Audio sahnasi: mixer guruhlari, musiqa crossfade, Audio Listener.
+// Tinglovchi (Audio Listener) qaysi zonada bo'lsa o'sha musiqa crossfade bilan yangraydi
+// (Audio::CrossfadeTo, Music guruhi, diskdan oqim bilan). UI guruhida vaqti-vaqti bilan signal chalinadi.
+// 1 / 2 - musiqani qo'lda tanlash, M - Music guruhini o'chirish (mute), P - pauza, S - musiqani so'ndirish.
+class MusicDirector : public ScriptableEntity
+{
+public:
+    std::string CalmTrack = "Audio/MusicCalm.wav";
+    std::string TenseTrack = "Audio/MusicTense.wav";
+    float Crossfade = 2.0f;
+    float Border = 0.0f;       // zonalar chegarasi (X)
+    std::string Ping = "Audio/UiPing.wav";
+    float PingInterval = 2.5f; // UI guruhidagi signal (0: yo'q)
+
+    void OnStart() override
+    {
+        Audio::PlayMusic(CalmTrack, 1.0f);
+        m_Zone = 0;
+    }
+
+    void OnUpdate(Timestep ts) override
+    {
+        Scene* scene = GetEntity().GetScene();
+        Entity listener = scene->GetAudioListenerEntity();
+        if (listener && !m_Manual)
+        {
+            float x = scene->GetWorldPosition(listener).x;
+            int zone = x < Border - 0.5f ? 0 : x > Border + 0.5f ? 1 : m_Zone; // a little dead band at the border
+            if (zone != m_Zone)
+            {
+                m_Zone = zone;
+                Audio::CrossfadeTo(zone == 0 ? CalmTrack : TenseTrack, Crossfade);
+            }
+        }
+        if (Input::IsKeyJustPressed(Key::D1) || Input::IsKeyJustPressed(Key::D2))
+        {
+            m_Manual = true;
+            m_Zone = Input::IsKeyJustPressed(Key::D1) ? 0 : 1;
+            Audio::CrossfadeTo(m_Zone == 0 ? CalmTrack : TenseTrack, Crossfade);
+        }
+        if (Input::IsKeyJustPressed(Key::M))
+            Audio::SetGroupMuted("Music", !Audio::IsGroupMuted("Music"));
+        if (Input::IsKeyJustPressed(Key::P))
+        {
+            if (Audio::IsMusicPaused())
+                Audio::ResumeMusic();
+            else
+                Audio::PauseMusic();
+        }
+        if (Input::IsKeyJustPressed(Key::S))
+        {
+            if (Audio::IsMusicPlaying())
+                Audio::StopMusic(1.5f);
+            else
+                Audio::PlayMusic(m_Zone == 0 ? CalmTrack : TenseTrack, 1.5f);
+        }
+        if (PingInterval > 0.0f && (m_PingTime += ts) >= PingInterval)
+        {
+            m_PingTime = 0.0f;
+            PlaySound(Ping, 0.6f, m_Zone == 0 ? 1.0f : 1.5f, "UI");
+        }
+
+        std::string music = Audio::GetMusic();
+        std::string state = music.empty() ? std::string("yo'q") : music.substr(music.find_last_of('/') + 1);
+        if (Audio::IsMusicPaused())
+            state += " (pauza)";
+        if (Audio::IsGroupMuted("Music"))
+            state += " [Music: mute]";
+        DebugDraw::Text(GetWorldPosition(), std::format("Musiqa: {}   |   1 / 2 - trek, M - mute, P - pauza, S - to'xtatish", state),
+                        glm::vec4(0.9f, 0.95f, 1.0f, 1.0f));
+    }
+
+private:
+    int m_Zone = 0;
+    bool m_Manual = false;
+    float m_PingTime = 0.0f;
+};
+ZM_REGISTER_SCRIPT(MusicDirector,
+    ZM_FIELD(MusicDirector, CalmTrack).Tooltip("Tinch zona musiqasi (X < chegara)"),
+    ZM_FIELD(MusicDirector, TenseTrack).Tooltip("Xavfli zona musiqasi (X > chegara)"),
+    ZM_FIELD(MusicDirector, Crossfade).Tooltip("Treklar almashinish vaqti, sekund"),
+    ZM_FIELD(MusicDirector, Border),
+    ZM_FIELD(MusicDirector, Ping).Tooltip("UI guruhida chalinadigan signal"),
+    ZM_FIELD(MusicDirector, PingInterval))

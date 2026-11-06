@@ -234,11 +234,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M11 Audio
 
-- [ ] 201. Audio mixer guruhlari (Master, Music, SFX, UI)
-- [ ] 202. Guruh balandligi va mute
-- [ ] 203. AudioListener komponenti (kamera o'rniga)
-- [ ] 204. Musiqa crossfade API
-- [ ] 205. Musiqani streaming (katta fayllar uchun)
+- [x] 201. Audio mixer guruhlari (Master, Music, SFX, UI)
+- [x] 202. Guruh balandligi va mute
+- [x] 203. AudioListener komponenti (kamera o'rniga)
+- [x] 204. Musiqa crossfade API
+- [x] 205. Musiqani streaming (katta fayllar uchun)
 - [ ] 206. Ovoz pitch tasodifiyligi (random range)
 - [ ] 207. Bir vaqtda o'ynaydigan ovozlar limiti
 - [ ] 208. AudioSource: Play/Stop/Pause skript API

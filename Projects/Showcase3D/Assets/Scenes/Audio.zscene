@@ -1,0 +1,522 @@
+{
+  "Scene": "Audio",
+  "Version": 1,
+  "Settings": {
+    "DrawSky": true,
+    "SkyTop": [
+      0.26,
+      0.46,
+      0.82
+    ],
+    "SkyHorizon": [
+      0.82,
+      0.86,
+      0.92
+    ],
+    "Ground": [
+      0.33,
+      0.31,
+      0.28
+    ],
+    "Ambient": 0.55,
+    "Exposure": 1.05,
+    "ShadowDistance": 60,
+    "Gravity": [
+      0,
+      -9.8
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ],
+    "Post": {
+      "Bloom": true,
+      "BloomThreshold": 1.0,
+      "BloomKnee": 0.5,
+      "BloomIntensity": 0.6,
+      "BloomRadius": 1.0,
+      "Vignette": 0.3,
+      "Saturation": 1.08,
+      "Contrast": 1.05,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "Tonemap": 1,
+      "SSAO": true,
+      "SSAORadius": 0.6,
+      "SSAOIntensity": 1.3,
+      "SSAOBias": 0.03
+    },
+    "Environment": {
+      "Map": "Textures/sunset.hdr",
+      "Intensity": 0.85,
+      "Rotation": 0.0
+    }
+  },
+  "Entities": [
+    {
+      "Entity": 8110000000000001,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0,
+          7.2,
+          14.5
+        ],
+        "Rotation": [
+          -0.42,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 0,
+        "PerspectiveFOV": 0.85,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 500,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.1,
+          0.1,
+          0.12,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 8110000000000008,
+      "Tag": "Sun",
+      "Transform": {
+        "Translation": [
+          0,
+          10,
+          0
+        ],
+        "Rotation": [
+          -0.9,
+          -0.5,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "DirectionalLight": {
+        "Color": [
+          1.0,
+          0.94,
+          0.86
+        ],
+        "Intensity": 2.6,
+        "CastShadows": true
+      }
+    },
+    {
+      "Entity": 8110000000000015,
+      "Tag": "Ground",
+      "Transform": {
+        "Translation": [
+          0,
+          -0.5,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          24,
+          1,
+          13
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.3,
+          0.31,
+          0.33,
+          1
+        ],
+        "Roughness": 0.9,
+        "Metallic": 0.0,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      }
+    },
+    {
+      "Entity": 8110000000000022,
+      "Tag": "Tinch zona",
+      "Transform": {
+        "Translation": [
+          -5.6,
+          0.02,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          10.4,
+          0.05,
+          9
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.16,
+          0.42,
+          0.28,
+          1
+        ],
+        "Roughness": 0.85,
+        "Metallic": 0.0,
+        "Emission": [
+          0.1,
+          0.45,
+          0.25
+        ],
+        "EmissionStrength": 0.08
+      }
+    },
+    {
+      "Entity": 8110000000000029,
+      "Tag": "Xavfli zona",
+      "Transform": {
+        "Translation": [
+          5.6,
+          0.02,
+          0.5
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          10.4,
+          0.05,
+          9
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.5,
+          0.15,
+          0.13,
+          1
+        ],
+        "Roughness": 0.85,
+        "Metallic": 0.0,
+        "Emission": [
+          0.55,
+          0.1,
+          0.08
+        ],
+        "EmissionStrength": 0.08
+      }
+    },
+    {
+      "Entity": 8110000000000036,
+      "Tag": "Tinch zona yozuvi",
+      "Transform": {
+        "Translation": [
+          -5.6,
+          3.2,
+          -4.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.8,
+          0.8,
+          0.8
+        ]
+      },
+      "Text": {
+        "Text": "Tinch zona: MusicCalm",
+        "Color": [
+          0.6,
+          1.0,
+          0.75,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8110000000000043,
+      "Tag": "Xavfli zona yozuvi",
+      "Transform": {
+        "Translation": [
+          5.6,
+          3.2,
+          -4.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.8,
+          0.8,
+          0.8
+        ]
+      },
+      "Text": {
+        "Text": "Xavfli zona: MusicTense",
+        "Color": [
+          1.0,
+          0.6,
+          0.5,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8110000000000050,
+      "Tag": "Sarlavha",
+      "Transform": {
+        "Translation": [
+          0,
+          5.4,
+          -6.0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "Text": {
+        "Text": "Audio Mixer",
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 8110000000000057,
+      "Tag": "Tinglovchi",
+      "Transform": {
+        "Translation": [
+          -7.0,
+          0.6,
+          2.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Albedo": [
+          0.3,
+          0.85,
+          1.0,
+          1
+        ],
+        "Roughness": 0.3,
+        "Metallic": 0.0,
+        "Emission": [
+          0.3,
+          0.85,
+          1.0
+        ],
+        "EmissionStrength": 1.4
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.85,
+          1.0
+        ],
+        "Intensity": 3.0,
+        "Radius": 4.0
+      },
+      "AudioListener": {
+        "Enabled": true,
+        "Priority": 1,
+        "TrackVelocity": true
+      },
+      "NativeScript": {
+        "Class": "Sweeper3D",
+        "Fields": {
+          "Axis": {
+            "Type": "Vec3",
+            "Value": [
+              1,
+              0,
+              0
+            ]
+          },
+          "Distance": {
+            "Type": "Float",
+            "Value": 14.0
+          },
+          "Period": {
+            "Type": "Float",
+            "Value": 14.0
+          },
+          "Delay": {
+            "Type": "Float",
+            "Value": 0.5
+          }
+        }
+      }
+    },
+    {
+      "Entity": 8110000000000064,
+      "Tag": "Qo'shiq aytuvchi ziyoratgoh",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -2.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/CrystalShrine.gltf",
+        "CastShadows": true,
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Roughness": 0.5,
+        "Metallic": 0.0,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.85,
+          1.0
+        ],
+        "Intensity": 4.0,
+        "Radius": 6.0
+      },
+      "AudioSource": {
+        "Path": "Audio/ShrineHum.wav",
+        "Volume": 0.7,
+        "Pitch": 1.0,
+        "Loop": true,
+        "PlayOnStart": true,
+        "Spatial": true,
+        "MinDistance": 1.5,
+        "MaxDistance": 7.0,
+        "Output": "Ambience"
+      }
+    },
+    {
+      "Entity": 8110000000000071,
+      "Tag": "Musiqa direktori",
+      "Transform": {
+        "Translation": [
+          0,
+          0.15,
+          5.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "MusicDirector",
+        "Fields": {
+          "Crossfade": {
+            "Type": "Float",
+            "Value": 2.0
+          },
+          "PingInterval": {
+            "Type": "Float",
+            "Value": 2.5
+          }
+        }
+      }
+    }
+  ]
+}

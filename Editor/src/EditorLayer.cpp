@@ -464,11 +464,23 @@ namespace Zamin {
                 o.Sanitize();
                 if (v.find("menu") != std::string_view::npos) m_OpenStatsOverlayMenu = true;
             }
-            // ZAMIN_EDITOR_AUDIO_MIXER=1: the Audio Mixer window opens (in front).
+            // ZAMIN_EDITOR_AUDIO_MIXER=1 | mute=UI,solo=Music,...: the Audio Mixer window opens (in front); the
+            // groups named are muted / soloed in the running mixer (for this session, not saved).
             if (const char* mixer = std::getenv("ZAMIN_EDITOR_AUDIO_MIXER"); mixer && std::string_view(mixer) != "0")
             {
                 m_ShowAudioMixer = true;
                 m_AudioMixerPanel.Focus();
+                std::string_view rest(mixer);
+                while (!rest.empty())
+                {
+                    size_t comma = rest.find(',');
+                    std::string_view item = rest.substr(0, comma);
+                    rest = comma == std::string_view::npos ? std::string_view() : rest.substr(comma + 1);
+                    if (item.starts_with("mute=") && !AudioEngine::SetGroupMuted(std::string(item.substr(5)), true))
+                        ZM_WARN("ZAMIN_EDITOR_AUDIO_MIXER: '{}' guruhi yo'q", item.substr(5));
+                    if (item.starts_with("solo=") && !AudioEngine::SetGroupSolo(std::string(item.substr(5)), true))
+                        ZM_WARN("ZAMIN_EDITOR_AUDIO_MIXER: '{}' guruhi yo'q", item.substr(5));
+                }
             }
             // ZAMIN_EDITOR_PROFILER=1: the profiler's own window opens.
             if (const char* profiler = std::getenv("ZAMIN_EDITOR_PROFILER"))

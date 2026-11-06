@@ -420,7 +420,21 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     plitka yoki **sudrab bir nechta plitkali mo'yqalam** tanlash (mo'yqalam, to'rtburchak va to'ldirish uni choksiz
     takrorlaydi); belgilar (collision yo'q, bir tomonlama, animatsiya). Inspektor kengligida yoki alohida **Oyna > Plitka
     palitrasi** oynasida. Fizik colliderlar ko'rinishida tilemap qutilari (bir tomonlamalari pushti, strelka bilan)
-- **3D (spatial) ovoz**: tinglovchi — asosiy kamera, masofaga qarab so'nish
+- **3D (spatial) ovoz**: masofaga qarab so'nish; tinglovchi — **Audio Listener** komponenti (bir nechtasidan faol va eng katta
+  ustuvorlikdagisi; ixtiyoriy tezlik o'lchash — Doppler uchun), u bo'lmasa asosiy kamera
+- **Audio mixer**: guruhlar (bus) — Master > Music, SFX, UI va loyihaning o'z guruhlari (ota guruh bilan, masalan
+  Ambience → SFX); har birida fader (dB), mute, solo va post-fader **daraja o'lchagich** (stereo, peak hold). **Oyna > Audio
+  Mixer**: kanal tasmalari, guruh qo'shish / o'chirish / ota guruhini o'zgartirish (o'ng tugma), hozir chalinayotgan
+  musiqa (pauza, to'xtatish), streaming chegarasi. Tahrir rejimida — loyiha standarti (`.zproject` "Audio"), o'yin
+  davomida — faqat shu o'yin uchun ("Standart qilib saqlash" bilan loyihaga). Audio Source'ning **Chiqish guruhi**
+  (inspektorda guruh tanlash + mixerdan keyingi dB) va **Streaming** belgisi; loyiha chegarasidan (4 MB) katta fayllar
+  avtomatik diskdan oqim bilan o'qiladi
+- **Musiqa API** (`Audio::PlayMusic(path, fade)`, `Audio::CrossfadeTo(path, sekund)`, `Audio::StopMusic(fade)`, pauza,
+  musiqa balandligi): Music guruhida, har doim oqim bilan, teng quvvatli crossfade; musiqa o'yinga tegishli — `LoadScene`dan
+  keyin ham davom etadi (editor o'yin to'xtaganda to'xtatadi va mixerni loyiha standartiga qaytaradi). Namuna: Showcase3D
+  `Scenes/Audio.zscene` — tinglovchi shar tinch (yashil) va xavfli (qizil) zonalar orasida yuradi, `MusicDirector` skripti
+  zonaga qarab musiqani crossfade qiladi (1 / 2 — trek, M — Music mute, P — pauza, S — to'xtatish), ziyoratgoh ovozi
+  Ambience guruhida, signal UI guruhida
 - **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, 9 ta langar (anchor), `OnClick()`
 - **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash
 - Skriptlardan **sahna almashtirish** (`LoadScene`), prefab'larni `Instantiate` qilish
@@ -597,6 +611,7 @@ Foydali API:
 | Tween | `Tween(davomiylik, [](float t){...}, Ease::OutBack, onComplete)`, `TweenPosition(target, sek, ease, onComplete)`, `TweenScale(...)`, `CancelTweens()`, `ApplyEase(ease, t)` |
 | Havolalar | `EntityRef Target;` maydoni + `Resolve(Target)` → `Entity` |
 | Audio manba | `PlayAudio()` (obyektning `AudioSourceComponent`'ini boshidan chaladi; obyekt nofaol bo'lsa `false`), `StopAudio()`, `IsAudioPlaying()`; `GetScene().PlayAudio(entity)` |
+| Musiqa va mixer | `Audio::PlayMusic("Audio/theme.ogg", 1.0f)`, `Audio::CrossfadeTo("Audio/boss.ogg", 2.0f)`, `Audio::StopMusic(fade)`, `PauseMusic()` / `ResumeMusic()`, `GetMusic()`, `SetMusicVolume(v)`; `Audio::SetGroupVolume("SFX", 0.5f)`, `SetGroupMuted("Music", true)`, `ResetMixer()`; `PlaySound(path, vol, pitch, "UI")` — guruh bilan |
 | Debug chizish | `DebugDraw::Line(a, b, DebugColor::Red)`, `Ray(o, dir)`, `Arrow(a, b)`, `Box(center, half)` / `Box(center, half, quat)` / `Box(worldTransform)`, `Bounds(aabb)`, `Rect(c, size)`, `WireSphere(c, r)`, `Circle(c, normal, r)`, `Cross(p, size)`, `Point(p)`, `Axes(transform)`, `Path(points)`, `NavigationPath(points)`, `Text(p, "matn")` — oxirgi parametrlar: rang, `duration` (soniya, 0 = bir kadr), `depthTest` |
 | Boshqa | `LoadScene("Scenes/Level2.zscene")`, `EmitParticles(n)`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
 
@@ -695,7 +710,8 @@ Zamin/src/Zamin/
 │                overlap / raycast-all so'rovlari, uxlash orollari, statistika), Polygon2D (qavariq bo'laklarga ajratish, kesish, sprayt konturi),
 │                PhysicsMaterial (.zphysmat), CollisionLayers, PhysicsWorld3D (Jolt: jismlar, joint'lar, qahramonlar),
 │                CollisionShapes3D (meshdan qavariq qobiq, kesh)
-├── Audio/       AudioEngine (miniaudio)
+├── Audio/       AudioEngine (miniaudio: mixer guruhlari va daraja o'lchagichlari, musiqa crossfade, streaming),
+│                AudioMixer (guruhlar daraxti, mute / solo hisobi), Audio (o'yin API'si)
 ├── Project/     Project, shablonlar, build fayllari
 ├── ImGui/       ImGuiLayer, tema, ikonkalar
 └── Platform/

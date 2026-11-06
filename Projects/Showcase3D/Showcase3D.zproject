@@ -45,5 +45,34 @@
             65535,
             65535
         ]
+    },
+    "Audio": {
+        "StreamThresholdMB": 4.0,
+        "Groups": [
+            {
+                "Name": "Master",
+                "Volume": 1.0
+            },
+            {
+                "Name": "Music",
+                "Parent": "Master",
+                "Volume": 0.7
+            },
+            {
+                "Name": "SFX",
+                "Parent": "Master",
+                "Volume": 1.0
+            },
+            {
+                "Name": "UI",
+                "Parent": "Master",
+                "Volume": 0.8
+            },
+            {
+                "Name": "Ambience",
+                "Parent": "SFX",
+                "Volume": 0.85
+            }
+        ]
     }
 }

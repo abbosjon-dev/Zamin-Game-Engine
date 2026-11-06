@@ -20243,3 +20243,64 @@ int main()
     std::printf("\n%zu test, %d xato\n", ran, s_Failures);
     return s_Failures == 0 ? 0 : 1;
 }
+
+// The Showcase3D sample's Audio scene: a listener walking between two music zones, a humming shrine in
+// the project's own Ambience group (under SFX), music crossfaded by its script.
+TEST(AudioSampleScene)
+{
+    namespace fs = std::filesystem;
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D";
+    auto project = Project::Load(root / "Showcase3D.zproject");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    Project::SetActive(project);
+    ScopeExit noProject{ []() {
+        Project::SetActive(nullptr);
+        AudioEngine::SetMixerSettings(AudioSettings());
+    } };
+    // The project's mixer: Ambience under SFX, the music and UI a little lower.
+    const AudioSettings& mixer = project->GetConfig().Audio;
+    CHECK(mixer.Find("Ambience") && mixer.Find("Ambience")->Parent == "SFX");
+    CHECK_NEAR(mixer.GetEffectiveGain("Music"), 0.7f, 1e-5f);
+    CHECK(AudioEngine::HasGroup("Ambience")); // loading the project set the engine's mixer up
+
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Audio.zscene"));
+    Entity listener = scene->FindEntityByName("Tinglovchi"), shrine = scene->FindEntityByName("Qo'shiq aytuvchi ziyoratgoh");
+    Entity director = scene->FindEntityByName("Musiqa direktori");
+    CHECK(listener && shrine && director);
+    if (!(listener && shrine && director))
+        return;
+    CHECK(listener.GetComponent<AudioListenerComponent>().TrackVelocity && listener.GetComponent<AudioListenerComponent>().Priority == 1);
+    CHECK(scene->GetAudioListenerEntity() == listener); // not the camera
+    const auto& hum = shrine.GetComponent<AudioSourceComponent>();
+    CHECK(hum.Output == "Ambience" && hum.Spatial && hum.Loop && hum.Path == "Audio/ShrineHum.wav");
+    const auto& script = director.GetComponent<NativeScriptComponent>();
+    CHECK(script.ClassName == "MusicDirector");
+    for (const char* file : { "Audio/MusicCalm.wav", "Audio/MusicTense.wav", "Audio/UiPing.wav" })
+    {
+        CHECK(fs::exists(root / "Assets" / file));
+        CHECK(fs::exists(root / "Assets" / (std::string(file) + ".zmeta")));
+    }
+
+    // Played without a device: the hum plays in Ambience, the tracks crossfade in Music.
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (AudioEngine::IsAvailable())
+    {
+        scene->FindEntityByName("Main Camera").GetComponent<CameraComponent>().Primary = false; // headless
+        scene->OnRuntimeStart();
+        CHECK(AudioEngine::GetSoundGroup(hum.RuntimeHandle) == "Ambience" && AudioEngine::IsPlaying(hum.RuntimeHandle));
+        CHECK_NEAR(AudioEngine::GetGroupEffectiveVolume("Ambience"), 0.85f, 1e-5f);
+        CHECK(Audio::PlayMusic("Audio/MusicCalm.wav", 0.0f) && Audio::GetMusic() == "Audio/MusicCalm.wav");
+        CHECK(Audio::CrossfadeTo("Audio/MusicTense.wav", 2.0f) && AudioEngine::GetMusicVoiceCount() == 2);
+        AudioEngine::Update(2.0f);
+        CHECK(Audio::GetMusic() == "Audio/MusicTense.wav" && AudioEngine::GetMusicVoiceCount() == 1);
+        scene->OnRuntimeStop();
+        CHECK(Audio::IsMusicPlaying()); // music goes on into the next scene
+        AudioEngine::StopAll();
+    }
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+}

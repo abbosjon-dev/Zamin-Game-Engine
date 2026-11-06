@@ -15,6 +15,7 @@
 #include "Zamin/Scene/SceneCamera.h"
 #include "Zamin/Scripting/ScriptField.h"
 #include "Zamin/UI/TextEdit.h"
+#include "Zamin/UI/UILayout.h"
 #include "Zamin/UI/UIWidgets.h"
 
 #include <glm/glm.hpp>
@@ -787,24 +788,145 @@ namespace Zamin {
     };
 
     // ------------------------------------------------------------------ screen-space UI
-    // Entities with a UITransform are drawn in screen space (pixels) on top of the scene,
-    // instead of in the world. Works with Sprite/Circle/Text renderers.
+    // Entities with a UITransform are drawn in screen space on top of the scene, instead of in the
+    // world (Sprite / Circle / Text renderers and the UI widgets). Its rectangle is laid out in its
+    // parent's - the UI Transform of the parent entity, else the whole screen (RectTransform model):
+    // - AnchorMin / AnchorMax: 0..1 of the parent's rectangle (0,0 bottom-left, 1,1 top-right).
+    //   Equal ones pin it to that point of the parent; different ones stretch it with the parent
+    //   along that axis (a bar across the top: AnchorMin 0,1 AnchorMax 1,1);
+    // - Pivot: 0..1 of its own rectangle - the point Position places (and that it grows around);
+    // - Position: px from the anchor point (stretched: the point between the anchors at the pivot)
+    //   to the pivot, +x right, +y up;
+    // - Size: px. Along a stretched axis it is added to the anchors' span (0: exactly between
+    //   them, -40: 20 px in from each edge with the pivot in the middle) - Left / Right / Top /
+    //   Bottom offsets: GetOffsetMin / GetOffsetMax, SetOffsets.
+    // UI units are screen pixels unless a UI Canvas scales them (UICanvasComponent). A layout group
+    // on the parent (UILayoutGroupComponent) places it instead (its anchors and position then do not
+    // count). Scene::GetUIRect gives the rectangle the frame uses.
     struct UITransformComponent
     {
+        // The 9 point presets (both anchors at that point of the parent).
         enum class AnchorPoint { TopLeft = 0, Top, TopRight, Left, Center, Right, BottomLeft, Bottom, BottomRight };
-        AnchorPoint Anchor = AnchorPoint::TopLeft;
-        glm::vec2 Position{ 100.0f, -60.0f }; // pixels from the anchor (+x right, +y up)
-        glm::vec2 Size{ 200.0f, 60.0f };      // pixels
-        float FontSize = 0.0f;                // text height in pixels (0 = Size.y)
-        int Order = 0;
+        glm::vec2 AnchorMin{ 0.0f, 1.0f };
+        glm::vec2 AnchorMax{ 0.0f, 1.0f };
+        glm::vec2 Pivot{ 0.5f, 0.5f };
+        glm::vec2 Position{ 100.0f, -60.0f };
+        glm::vec2 Size{ 200.0f, 60.0f };
+        float FontSize = 0.0f;                // text height in UI units (0 = the rect's height)
+        int Order = 0;                        // drawn above its lower-Order siblings (children are drawn above their parent)
+
+        // Both anchors at a preset point (Position and Size stay: it moves with the new anchor).
+        void SetAnchor(AnchorPoint point)
+        {
+            AnchorMin = AnchorMax = UILayout::PresetPoint((int)point);
+        }
+        // The preset both anchors are at (-1: they are not at one of the 9 points).
+        int GetAnchorPreset() const
+        {
+            for (int i = 0; i < 9; i++)
+                if (AnchorMin == UILayout::PresetPoint(i) && AnchorMax == AnchorMin)
+                    return i;
+            return -1;
+        }
+        bool IsStretchedX() const { return AnchorMin.x != AnchorMax.x; }
+        bool IsStretchedY() const { return AnchorMin.y != AnchorMax.y; }
+        // The corners' offsets from the anchors: OffsetMin = (left, bottom) from AnchorMin,
+        // OffsetMax = (right, top) from AnchorMax (inward edges: left > 0, right < 0).
+        glm::vec2 GetOffsetMin() const { return Position - Size * Pivot; }
+        glm::vec2 GetOffsetMax() const { return Position + Size * (1.0f - Pivot); }
+        void SetOffsets(const glm::vec2& offsetMin, const glm::vec2& offsetMax)
+        {
+            Size = offsetMax - offsetMin;
+            Position = offsetMin + Size * Pivot;
+        }
+        // Stretched over the whole parent, `inset` px in from its edges (left, right, top, bottom).
+        void SetStretch(const glm::vec4& inset = glm::vec4(0.0f))
+        {
+            AnchorMin = { 0.0f, 0.0f };
+            AnchorMax = { 1.0f, 1.0f };
+            SetOffsets({ inset.x, inset.w }, { -inset.y, -inset.z });
+        }
+        // The rectangle inside `parent` (UI units).
+        UIRect ComputeRect(const UIRect& parent) const { return UILayout::ComputeRect(parent, AnchorMin, AnchorMax, Pivot, Position, Size); }
+        // Position / Size so that it has `rect` inside `parent`.
+        void SetRect(const UIRect& parent, const UIRect& rect) { UILayout::FromRect(parent, AnchorMin, AnchorMax, Pivot, rect, Position, Size); }
     };
 
+    // A canvas: the UI below it (this entity's subtree - UI Transforms, also under plain entities)
+    // is scaled for the screen. ScaleWithScreenSize: made for ReferenceResolution, it grows and
+    // shrinks with the screen (MatchWidthOrHeight: 0 follows the width, 1 the height, 0.5 both
+    // halfway - in log space; Expand: always fits; Shrink: always fills). ConstantPixelSize: 1 UI
+    // unit = ScaleFactor px. Only the outermost canvas of a subtree counts.
+    struct UICanvasComponent
+    {
+        UIScaleMode ScaleMode = UIScaleMode::ScaleWithScreenSize;
+        float ScaleFactor = 1.0f;                       // ConstantPixelSize
+        glm::vec2 ReferenceResolution{ 1920.0f, 1080.0f };
+        UIScreenMatchMode MatchMode = UIScreenMatchMode::MatchWidthOrHeight;
+        float MatchWidthOrHeight = 0.5f;
+
+        // runtime: the scale of the last layout (screen px per UI unit)
+        float CurrentScale = 1.0f;
+
+        float ComputeScale(const glm::vec2& screen) const
+        {
+            return UILayout::CanvasScale(screen, ScaleMode, ScaleFactor, ReferenceResolution, MatchMode, MatchWidthOrHeight);
+        }
+    };
+
+    // Arranges the entity's UI children - in a row (Horizontal), a column (Vertical) or a grid -
+    // inside its rectangle, in hierarchy order (inactive children and those whose layout element
+    // ignores the layout are left out). Their anchors and Position no longer count; their size
+    // too when the group controls it (see UILayoutGroupSettings). FitWidth / FitHeight: the
+    // group's own rectangle takes its content's preferred size (a list that grows with its items).
+    struct UILayoutGroupComponent : UILayoutGroupSettings
+    {
+    };
+
+    // What a child of a layout group asks for (-1: not set). Min: the least it is shrunk to;
+    // Preferred: its size when there is room (not set: its own size); Flexible: its share of
+    // the space left over (relative to its siblings' - 1 and 2: the second gets twice as much).
+    // These count where the group controls the children's size. IgnoreLayout: the group leaves it
+    // where its own UI Transform puts it.
+    struct UILayoutElementComponent
+    {
+        bool IgnoreLayout = false;
+        glm::vec2 MinSize{ -1.0f };
+        glm::vec2 PreferredSize{ -1.0f };
+        glm::vec2 FlexibleSize{ -1.0f };
+    };
+
+    // How keyboard / gamepad navigation leaves this widget (button, slider, toggle, input field):
+    // Automatic - to the nearest widget in the pressed direction; Horizontal / Vertical - the same,
+    // only left / right or up / down; Explicit - to the widgets set for each direction (empty: none);
+    // None - it is not reached by navigation (a click still selects it). Widgets without this
+    // component navigate Automatically. SelectOnEnable: it is selected when it becomes active while
+    // the game runs (also at the start) - a menu's first button.
+    struct UINavigationComponent
+    {
+        enum class Mode { Automatic = 0, Horizontal, Vertical, Explicit, None };
+        Mode NavigationMode = Mode::Automatic;
+        EntityRef Up, Down, Left, Right;     // Explicit
+        bool SelectOnEnable = false;
+        bool ShowHighlight = true;           // the outline around it while selected by keyboard / gamepad
+        glm::vec4 HighlightColor{ 1.0f, 0.80f, 0.28f, 1.0f };
+
+        // runtime
+        bool WasActive = false;              // SelectOnEnable notices the switch on
+    };
+
+    // A clickable rectangle: tinted by its state colours (Normal / Hover / Pressed), OnClick() on
+    // the entity's script, "UIClick" on the scene's event bus (sender: the button) and - with a
+    // ClickMessage - that script message to ClickTarget (empty: every running script, Broadcast).
+    // Enter / gamepad A clicks it while it is selected (keyboard / gamepad navigation).
     struct UIButtonComponent
     {
         glm::vec4 NormalColor{ 0.16f, 0.62f, 0.50f, 1.0f };
         glm::vec4 HoverColor{ 0.22f, 0.74f, 0.60f, 1.0f };
         glm::vec4 PressedColor{ 0.10f, 0.45f, 0.36f, 1.0f };
         bool Interactable = true;
+        std::string ClickMessage;            // "" = none
+        EntityRef ClickTarget;               // empty: Broadcast
 
         // runtime state (read by scripts)
         bool Hovered = false;
@@ -1666,7 +1788,8 @@ namespace Zamin {
         CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
-        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UIButtonComponent,
+        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
+        UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIButtonComponent,
         UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent,
         AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, NativeScriptComponent, EditorMetadataComponent>;
 

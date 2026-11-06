@@ -28,7 +28,9 @@ namespace Zamin {
         if (e.HasComponent<UIToggleComponent>()) return ICON_FA_SQUARE_CHECK;
         if (e.HasComponent<UIProgressBarComponent>()) return ICON_FA_BARS_PROGRESS;
         if (e.HasComponent<UIButtonComponent>()) return ICON_FA_HAND_POINTER;
+        if (e.HasComponent<UILayoutGroupComponent>()) return ICON_FA_LIST;
         if (e.HasComponent<UIImageComponent>()) return ICON_FA_IMAGE;
+        if (e.HasComponent<UICanvasComponent>()) return ICON_FA_EXPAND;
         if (e.HasComponent<UITransformComponent>()) return ICON_FA_TABLE_CELLS;
         if (e.HasComponent<ParticleSystemComponent>()) return ICON_FA_WAND_MAGIC_SPARKLES;
         if (e.HasComponent<CameraComponent>()) return ICON_FA_CAMERA;
@@ -525,21 +527,21 @@ namespace Zamin {
         {
             e = m_Context->CreateEntity("UI Rasm");
             auto& ui = e.AddComponent<UITransformComponent>();
-            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 128, 128 };
+            ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 128, 128 };
             e.AddComponent<UIImageComponent>();
         }
         else if (p == "UI Slider")
         {
             e = m_Context->CreateEntity("UI Slayder");
             auto& ui = e.AddComponent<UITransformComponent>();
-            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 260, 28 };
+            ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 260, 28 };
             e.AddComponent<UISliderComponent>();
         }
         else if (p == "UI Toggle")
         {
             e = m_Context->CreateEntity("UI Belgilash");
             auto& ui = e.AddComponent<UITransformComponent>();
-            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 260, 32 };
+            ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 260, 32 };
             ui.FontSize = 22.0f;
             e.AddComponent<UIToggleComponent>();
             auto& t = e.AddComponent<TextComponent>();
@@ -550,22 +552,64 @@ namespace Zamin {
         {
             e = m_Context->CreateEntity("UI Progress");
             auto& ui = e.AddComponent<UITransformComponent>();
-            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 260, 26 };
+            ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 260, 26 };
             e.AddComponent<UIProgressBarComponent>().ShowPercentage = true;
         }
         else if (p == "UI Input")
         {
             e = m_Context->CreateEntity("UI Matn maydoni");
             auto& ui = e.AddComponent<UITransformComponent>();
-            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 300, 44 };
+            ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 300, 44 };
             ui.FontSize = 22.0f;
             e.AddComponent<UIInputFieldComponent>().Placeholder = "Ismingiz...";
+        }
+        else if (p == "UI Canvas")
+        {
+            e = m_Context->CreateEntity("Canvas");
+            e.AddComponent<UITransformComponent>().SetStretch();
+            e.AddComponent<UICanvasComponent>();
+        }
+        else if (p == "UI Menu")
+        {
+            // A panel whose vertical layout group stacks three buttons (it grows with them).
+            e = m_Context->CreateEntity("UI Menyu");
+            auto& ui = e.AddComponent<UITransformComponent>();
+            ui.SetAnchor(UITransformComponent::AnchorPoint::Center);
+            ui.Position = { 0.0f, 0.0f };
+            ui.Size = { 320.0f, 240.0f };
+            auto& image = e.AddComponent<UIImageComponent>();
+            image.Color = { 0.08f, 0.09f, 0.12f, 0.92f };
+            auto& group = e.AddComponent<UILayoutGroupComponent>();
+            group.Type = UILayoutType::Vertical;
+            group.Padding = glm::vec4(20.0f);
+            group.Spacing = 12.0f;
+            group.ChildAlignment = 1;
+            group.ControlChildWidth = group.ChildForceExpandWidth = true;
+            group.FitHeight = true;
+            const char* labels[] = { "Davom etish", "Sozlamalar", "Chiqish" };
+            for (int i = 0; i < 3; i++)
+            {
+                Entity button = m_Context->CreateEntity(labels[i]);
+                auto& bt = button.AddComponent<UITransformComponent>();
+                bt.SetAnchor(UITransformComponent::AnchorPoint::Center);
+                bt.Position = { 0.0f, 0.0f };
+                bt.Size = { 260.0f, 52.0f };
+                bt.FontSize = 24.0f;
+                button.AddComponent<UIButtonComponent>();
+                auto& t = button.AddComponent<TextComponent>();
+                t.Text = labels[i];
+                t.Centered = true;
+                t.FontAsset = Font::GetDefault();
+                if (i == 0)
+                    button.AddComponent<UINavigationComponent>().SelectOnEnable = true;
+                m_Context->SetParent(button, e, false);
+            }
         }
         else if (p == "UI Button")
         {
             e = m_Context->CreateEntity("UI Tugma");
             auto& ui = e.AddComponent<UITransformComponent>();
-            ui.Anchor = UITransformComponent::AnchorPoint::Center; ui.Position = { 0, 0 }; ui.Size = { 220, 56 };
+            ui.SetAnchor(UITransformComponent::AnchorPoint::Center); ui.Position = { 0, 0 }; ui.Size = { 220, 56 };
             e.AddComponent<UIButtonComponent>();
             auto& t = e.AddComponent<TextComponent>();
             t.Text = "Boshlash"; t.Centered = true;
@@ -655,6 +699,9 @@ namespace Zamin {
             if (ImGui::MenuItem(ICON_FA_SQUARE_CHECK "  Belgilash (toggle)")) CreateEntityPreset("UI Toggle");
             if (ImGui::MenuItem(ICON_FA_BARS_PROGRESS "  Progress bar")) CreateEntityPreset("UI Progress");
             if (ImGui::MenuItem(ICON_FA_I_CURSOR "  Matn maydoni (input)")) CreateEntityPreset("UI Input");
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_EXPAND "  Canvas (ekranga moslashadi)")) CreateEntityPreset("UI Canvas");
+            if (ImGui::MenuItem(ICON_FA_LIST "  Menyu (vertikal layout)")) CreateEntityPreset("UI Menu");
             ImGui::EndMenu();
         }
         if (ImGui::MenuItem(ICON_FA_VOLUME_HIGH "  Ovoz manbai")) CreateEntityPreset("Audio");
@@ -1216,6 +1263,7 @@ namespace Zamin {
             { "FixedJoint3D", "Fixed Joint 3D" }, { "HingeJoint3D", "Hinge Joint 3D" }, { "DistanceJoint3D", "Distance Joint 3D" },
             { "SliderJoint3D", "Slider Joint 3D" }, { "ConeJoint3D", "Cone Joint 3D" }, { "CharacterController3D", "Character Controller 3D" },
             { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
+            { "UICanvas", "UI Canvas" }, { "UILayoutGroup", "UI Layout Group" }, { "UILayoutElement", "UI Layout Element" }, { "UINavigation", "UI Navigation" },
             { "UIButton", "UI Button" }, { "UIImage", "UI Image" }, { "UISlider", "UI Slider" }, { "UIToggle", "UI Toggle" },
             { "UIProgressBar", "UI Progress Bar" }, { "UIInputField", "UI Input Field" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "AmbientZone", "Ambient Zone" },
             { "NativeScript", "C++ Skript" },
@@ -1785,11 +1833,24 @@ namespace Zamin {
             constexpr bool widget = std::is_same_v<T, UIImageComponent> || std::is_same_v<T, UISliderComponent> ||
                                     std::is_same_v<T, UIToggleComponent> || std::is_same_v<T, UIProgressBarComponent> ||
                                     std::is_same_v<T, UIInputFieldComponent>;
+            // A canvas covers its parent (the screen); a layout group is a panel.
+            if constexpr (std::is_same_v<T, UICanvasComponent>)
+                if (!entity.HasComponent<UITransformComponent>())
+                    entity.AddComponent<UITransformComponent>().SetStretch();
+            if constexpr (std::is_same_v<T, UILayoutGroupComponent> || std::is_same_v<T, UILayoutElementComponent> ||
+                          std::is_same_v<T, UINavigationComponent>)
+                if (!entity.HasComponent<UITransformComponent>())
+                {
+                    auto& ui = entity.AddComponent<UITransformComponent>();
+                    ui.SetAnchor(UITransformComponent::AnchorPoint::Center);
+                    ui.Position = { 0.0f, 0.0f };
+                    ui.Size = { 320.0f, 240.0f };
+                }
             if constexpr (widget)
                 if (!entity.HasComponent<UITransformComponent>())
                 {
                     auto& ui = entity.AddComponent<UITransformComponent>();
-                    ui.Anchor = UITransformComponent::AnchorPoint::Center;
+                    ui.SetAnchor(UITransformComponent::AnchorPoint::Center);
                     ui.Position = { 0.0f, 0.0f };
                     if constexpr (std::is_same_v<T, UISliderComponent>) ui.Size = { 260.0f, 28.0f };
                     else if constexpr (std::is_same_v<T, UIToggleComponent>) ui.Size = { 260.0f, 32.0f };
@@ -5361,6 +5422,10 @@ namespace Zamin {
                 DisplayAddComponentEntry<Camera2DFollowComponent>("Camera 2D Follow", ICON_FA_VIDEO);
                 DisplayAddComponentEntry<ParticleSystemComponent>("Particle System", ICON_FA_WAND_MAGIC_SPARKLES);
                 DisplayAddComponentEntry<UITransformComponent>("UI Transform", ICON_FA_TABLE_CELLS);
+                DisplayAddComponentEntry<UICanvasComponent>("UI Canvas (ekranga moslashuvchi masshtab)", ICON_FA_EXPAND);
+                DisplayAddComponentEntry<UILayoutGroupComponent>("UI Layout Group (qator, ustun, panjara)", ICON_FA_LIST);
+                DisplayAddComponentEntry<UILayoutElementComponent>("UI Layout Element (min / afzal o'lcham)", ICON_FA_ARROWS_LEFT_RIGHT);
+                DisplayAddComponentEntry<UINavigationComponent>("UI Navigation (klaviatura / gamepad)", ICON_FA_GAMEPAD);
                 DisplayAddComponentEntry<UIButtonComponent>("UI Button", ICON_FA_HAND_POINTER);
                 DisplayAddComponentEntry<UIImageComponent>("UI Image (rasm, 9-slice, to'ldirish)", ICON_FA_IMAGE);
                 DisplayAddComponentEntry<UISliderComponent>("UI Slider", ICON_FA_SLIDERS);
@@ -6468,15 +6533,329 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        AddSection<UITransformComponent>(ICON_FA_TABLE_CELLS, "UI Transform", entity, [](UITransformComponent& c) {
+        AddSection<UITransformComponent>(ICON_FA_TABLE_CELLS, "UI Transform", entity, [&](UITransformComponent& c) {
             bool changed = false;
-            const char* anchors[] = { "Yuqori-chap", "Yuqori", "Yuqori-o'ng", "Chap", "Markaz", "O'ng", "Past-chap", "Past", "Past-o'ng" };
-            int a = (int)c.Anchor;
-            if (UI::PropertyCombo("Langar (anchor)", a, anchors, 9)) { c.Anchor = (UITransformComponent::AnchorPoint)a; changed = true; }
-            changed |= UI::PropertyFloat2("Pozitsiya (px)", c.Position, 1.0f);
-            changed |= UI::PropertyFloat2("O'lcham (px)", c.Size, 1.0f);
-            changed |= UI::PropertyFloat("Shrift o'lchami (px)", c.FontSize, 0.5f, 0.0f, 500.0f);
+            // Anchor presets: the 9 points, the 7 stretches; the element stays where it is.
+            struct AnchorPreset { const char* Name; glm::vec2 Min, Max; };
+            static const AnchorPreset s_Presets[] = {
+                { "Yuqori-chap", { 0.0f, 1.0f }, { 0.0f, 1.0f } },   { "Yuqori", { 0.5f, 1.0f }, { 0.5f, 1.0f } },
+                { "Yuqori-o'ng", { 1.0f, 1.0f }, { 1.0f, 1.0f } },   { "Chap", { 0.0f, 0.5f }, { 0.0f, 0.5f } },
+                { "Markaz", { 0.5f, 0.5f }, { 0.5f, 0.5f } },        { "O'ng", { 1.0f, 0.5f }, { 1.0f, 0.5f } },
+                { "Past-chap", { 0.0f, 0.0f }, { 0.0f, 0.0f } },     { "Past", { 0.5f, 0.0f }, { 0.5f, 0.0f } },
+                { "Past-o'ng", { 1.0f, 0.0f }, { 1.0f, 0.0f } },
+                { "Yuqorida cho'zilgan (chapdan o'ngga)", { 0.0f, 1.0f }, { 1.0f, 1.0f } },
+                { "O'rtada cho'zilgan (chapdan o'ngga)", { 0.0f, 0.5f }, { 1.0f, 0.5f } },
+                { "Pastda cho'zilgan (chapdan o'ngga)", { 0.0f, 0.0f }, { 1.0f, 0.0f } },
+                { "Chapda cho'zilgan (pastdan yuqoriga)", { 0.0f, 0.0f }, { 0.0f, 1.0f } },
+                { "Markazda cho'zilgan (pastdan yuqoriga)", { 0.5f, 0.0f }, { 0.5f, 1.0f } },
+                { "O'ngda cho'zilgan (pastdan yuqoriga)", { 1.0f, 0.0f }, { 1.0f, 1.0f } },
+                { "To'liq cho'zilgan (butun ota)", { 0.0f, 0.0f }, { 1.0f, 1.0f } },
+            };
+            constexpr int presetCount = (int)(sizeof(s_Presets) / sizeof(s_Presets[0]));
+            int current = presetCount; // "custom"
+            for (int i = 0; i < presetCount; i++)
+                if (c.AnchorMin == s_Presets[i].Min && c.AnchorMax == s_Presets[i].Max)
+                    current = i;
+            const bool driven = m_Context && m_Context->IsUILayoutDriven(entity);
+            if (driven)
+            {
+                UI::PropertyLabel("");
+                ImGui::TextColored(ImVec4(0.45f, 0.75f, 0.95f, 1.0f), ICON_FA_LIST "  Ota obyektning layout guruhi joylashtiradi");
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Langar va pozitsiya hisobga olinmaydi; o'lcham - guruh boshqarmasa. Guruhdan chiqarish: UI Layout Element > Layoutni e'tiborsiz qoldirish");
+            }
+            UI::PropertyLabel("Langar (anchor)", "Ota to'rtburchakning qaysi nuqtasiga (yoki qaysi chetlari orasiga cho'zilib) bog'langan. "
+                                                 "Tanlanganda obyekt joyida qoladi; Shift bilan - langarga joylashadi (pivot ham)");
+            ImGui::PushID("anchorPreset");
+            ImGui::SetNextItemWidth(-1.0f);
+            if (ImGui::BeginCombo("##preset", current < presetCount ? s_Presets[current].Name : "Boshqa (qo'lda)"))
+            {
+                for (int i = 0; i < presetCount; i++)
+                {
+                    if (i == 9)
+                        ImGui::Separator();
+                    if (ImGui::Selectable(s_Presets[i].Name, i == current) && m_Context)
+                    {
+                        const bool snap = ImGui::GetIO().KeyShift;
+                        m_Context->SetUIAnchors(entity, s_Presets[i].Min, s_Presets[i].Max, !snap);
+                        if (snap)
+                        {
+                            // At the anchors: the pivot on the anchor point, no offset (stretched axes fill the span).
+                            for (int axis = 0; axis < 2; axis++)
+                                if (c.AnchorMin[axis] == c.AnchorMax[axis])
+                                {
+                                    c.Pivot[axis] = c.AnchorMin[axis];
+                                    c.Position[axis] = 0.0f;
+                                }
+                                else
+                                {
+                                    c.Position[axis] = 0.0f;
+                                    c.Size[axis] = 0.0f;
+                                }
+                        }
+                        changed = true;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::PopID();
+
+            // Per axis: a point anchor shows position and size, a stretch the two edge offsets.
+            auto axisRow = [&](int axis) {
+                const bool stretched = c.AnchorMin[axis] != c.AnchorMax[axis];
+                if (!stretched)
+                {
+                    glm::vec2 v{ c.Position[axis], c.Size[axis] };
+                    if (UI::PropertyFloat2(axis == 0 ? "X | Kenglik" : "Y | Balandlik", v, 1.0f))
+                    {
+                        c.Position[axis] = v.x;
+                        c.Size[axis] = v.y;
+                        changed = true;
+                    }
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip(axis == 0 ? "Langardan pivotgacha (o'ngga +) va kenglik, UI birliklarida"
+                                              : "Langardan pivotgacha (yuqoriga +) va balandlik, UI birliklarida");
+                }
+                else
+                {
+                    glm::vec2 offsetMin = c.GetOffsetMin(), offsetMax = c.GetOffsetMax();
+                    glm::vec2 v{ offsetMin[axis], -offsetMax[axis] };
+                    if (UI::PropertyFloat2(axis == 0 ? "Chap | O'ng" : "Past | Yuqori", v, 1.0f))
+                    {
+                        offsetMin[axis] = v.x;
+                        offsetMax[axis] = -v.y;
+                        c.SetOffsets(offsetMin, offsetMax);
+                        changed = true;
+                    }
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip("Langarlar orasidagi chetlardan ichkariga masofa (UI birliklari): 0 - aynan ota chetida");
+                }
+            };
+            axisRow(0);
+            axisRow(1);
+            if (ImGui::TreeNodeEx("Langar va pivot (qo'lda)", ImGuiTreeNodeFlags_SpanAvailWidth))
+            {
+                glm::vec2 aMin = c.AnchorMin, aMax = c.AnchorMax, pivot = c.Pivot;
+                if (UI::PropertyFloat2("Langar min", aMin, 0.01f) && m_Context)
+                {
+                    m_Context->SetUIAnchors(entity, glm::clamp(aMin, glm::vec2(0.0f), glm::vec2(1.0f)), c.AnchorMax, true);
+                    changed = true;
+                }
+                if (UI::PropertyFloat2("Langar max", aMax, 0.01f) && m_Context)
+                {
+                    m_Context->SetUIAnchors(entity, c.AnchorMin, glm::clamp(aMax, glm::vec2(0.0f), glm::vec2(1.0f)), true);
+                    changed = true;
+                }
+                if (UI::PropertyFloat2("Pivot", pivot, 0.01f) && m_Context)
+                {
+                    m_Context->SetUIPivot(entity, pivot, true);
+                    changed = true;
+                }
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("O'z to'rtburchagining 0..1 nuqtasi: pozitsiya shu nuqtani joylaydi (0.5, 0.5 - markaz). O'zgarganda obyekt joyida qoladi");
+                ImGui::TreePop();
+            }
+            changed |= UI::PropertyFloat("Shrift o'lchami", c.FontSize, 0.5f, 0.0f, 500.0f);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Matn balandligi UI birliklarida (0 - to'rtburchak balandligi)");
             changed |= UI::PropertyInt("Tartib", c.Order);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Aka-ukalari orasida chizilish tartibi: kattasi ustida. Bolalar doim otasi ustida chiziladi");
+            if (m_Context)
+            {
+                const UIRect r = m_Context->GetUIRect(entity);
+                const float scale = m_Context->GetUIScale(entity);
+                UI::PropertyLabel("");
+                if (scale != 1.0f)
+                    ImGui::TextDisabled("%.0f x %.0f  (%.0f, %.0f)   masshtab %.2f", r.GetWidth(), r.GetHeight(), r.Min.x, r.Min.y, scale);
+                else
+                    ImGui::TextDisabled("%.0f x %.0f  (%.0f, %.0f)", r.GetWidth(), r.GetHeight(), r.Min.x, r.Min.y);
+            }
+            return changed;
+        }, true, modified);
+
+        AddSection<UICanvasComponent>(ICON_FA_EXPAND, "UI Canvas", entity, [&](UICanvasComponent& c) {
+            bool changed = false;
+            static const char* const s_Modes[] = { "Doimiy piksel o'lchami", "Ekran o'lchami bilan masshtablash" };
+            int mode = (int)c.ScaleMode;
+            if (UI::PropertyCombo("Masshtab rejimi", mode, s_Modes, 2)) { c.ScaleMode = (UIScaleMode)mode; changed = true; }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Bu obyekt va uning ostidagi butun UI: doimiy - 1 UI birligi = koeffitsiyent px; ekran bilan - UI mo'ljal "
+                            "o'lchamida chiziladi va ekran kattalashsa / kichraysa birga o'zgaradi");
+            if (c.ScaleMode == UIScaleMode::ConstantPixelSize)
+            {
+                if (UI::PropertyFloat("Koeffitsiyent", c.ScaleFactor, 0.01f, 0.01f, 20.0f, "%.2f"))
+                {
+                    c.ScaleFactor = std::max(0.01f, c.ScaleFactor);
+                    changed = true;
+                }
+            }
+            else
+            {
+                if (UI::PropertyFloat2("Mo'ljal o'lcham (px)", c.ReferenceResolution, 1.0f))
+                {
+                    c.ReferenceResolution = glm::max(c.ReferenceResolution, glm::vec2(1.0f));
+                    changed = true;
+                }
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("UI qaysi ekran o'lchami uchun yasalgan (masalan 1920 x 1080)");
+                static const char* const s_Match[] = { "Kenglik yoki balandlikka moslash", "Kengaytirish (doim sig'adi)", "Qisqartirish (doim to'ldiradi)" };
+                int match = (int)c.MatchMode;
+                if (UI::PropertyCombo("Moslash", match, s_Match, 3)) { c.MatchMode = (UIScreenMatchMode)match; changed = true; }
+                if (c.MatchMode == UIScreenMatchMode::MatchWidthOrHeight)
+                {
+                    changed |= UI::PropertySlider("Kenglik <-> balandlik", c.MatchWidthOrHeight, 0.0f, 1.0f);
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip("0 - kenglikka qarab, 1 - balandlikka qarab, 0.5 - ikkalasi teng (logarifmik)");
+                }
+            }
+            if (m_Context)
+            {
+                const glm::vec2 view = m_Context->GetViewportSize();
+                const float scale = c.ComputeScale(view);
+                UI::PropertyLabel("");
+                ImGui::TextDisabled("Hozir: %.0f x %.0f px -> masshtab %.3f (%.0f x %.0f UI)", view.x, view.y, scale, view.x / scale, view.y / scale);
+            }
+            if (m_Context && m_Context->GetParent(entity))
+                for (Entity a = m_Context->GetParent(entity); a; a = m_Context->GetParent(a))
+                    if (a.HasComponent<UICanvasComponent>())
+                    {
+                        UI::PropertyLabel("");
+                        ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Ichki canvas: tashqi canvas masshtabi ishlatiladi");
+                        break;
+                    }
+            return changed;
+        }, true, modified);
+
+        AddSection<UILayoutGroupComponent>(ICON_FA_LIST, "UI Layout Group", entity, [&](UILayoutGroupComponent& c) {
+            bool changed = false;
+            static const char* const s_Types[] = { "Gorizontal (qator)", "Vertikal (ustun)", "Panjara (grid)" };
+            int type = (int)c.Type;
+            if (UI::PropertyCombo("Turi", type, s_Types, 3)) { c.Type = (UILayoutType)type; changed = true; }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("UI bolalarini ierarxiya tartibida joylaydi (nofaollari tashlab ketiladi)");
+            changed |= UI::PropertyFloat4("Ichki chekka (C, O', Y, P)", c.Padding, 0.5f);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Chap, o'ng, yuqori, past - guruh chetidan ichkariga, UI birliklarida");
+            static const char* const s_Align[] = { "Yuqori-chap", "Yuqori", "Yuqori-o'ng", "Chap", "Markaz", "O'ng", "Past-chap", "Past", "Past-o'ng" };
+            changed |= UI::PropertyCombo("Tekislash", c.ChildAlignment, s_Align, 9);
+            if (c.Type != UILayoutType::Grid)
+            {
+                changed |= UI::PropertyFloat("Oraliq", c.Spacing, 0.5f);
+                changed |= UI::PropertyBool("Teskari tartib", c.ReverseArrangement);
+                ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Bolalar o'lchami");
+                changed |= UI::PropertyBool("Kenglikni boshqarish", c.ControlChildWidth);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Guruh bolalar kengligini belgilaydi (UI Layout Element: min / afzal / moslashuvchan; yo'q bo'lsa o'z o'lchami)");
+                changed |= UI::PropertyBool("Balandlikni boshqarish", c.ControlChildHeight);
+                changed |= UI::PropertyBool("Kenglik bo'yicha yoyish", c.ChildForceExpandWidth);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Ortib qolgan joy bolalarga bo'linadi (boshqarilmasa - ular orasiga)");
+                changed |= UI::PropertyBool("Balandlik bo'yicha yoyish", c.ChildForceExpandHeight);
+            }
+            else
+            {
+                if (UI::PropertyFloat2("Katak o'lchami", c.CellSize, 1.0f)) { c.CellSize = glm::max(c.CellSize, glm::vec2(0.0f)); changed = true; }
+                changed |= UI::PropertyFloat2("Oraliq (x, y)", c.GridSpacing, 0.5f);
+                static const char* const s_Corners[] = { "Yuqori-chap", "Yuqori-o'ng", "Past-chap", "Past-o'ng" };
+                changed |= UI::PropertyCombo("Boshlanish burchagi", c.StartCorner, s_Corners, 4);
+                changed |= UI::PropertyBool("Avval ustunlar", c.StartAxisVertical);
+                static const char* const s_Constraints[] = { "Moslashuvchan (sig'gancha)", "Ustunlar soni", "Qatorlar soni" };
+                int constraint = (int)c.Constraint;
+                if (UI::PropertyCombo("Cheklov", constraint, s_Constraints, 3)) { c.Constraint = (UIGridConstraint)constraint; changed = true; }
+                if (c.Constraint != UIGridConstraint::Flexible && UI::PropertyInt("Soni", c.ConstraintCount))
+                {
+                    c.ConstraintCount = std::max(1, c.ConstraintCount);
+                    changed = true;
+                }
+            }
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("O'z o'lchami");
+            changed |= UI::PropertyBool("Kenglik mazmunga mos", c.FitWidth);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Guruh kengligi bolalari talab qilgan (afzal) o'lchamga teng bo'ladi, pivot atrofida");
+            changed |= UI::PropertyBool("Balandlik mazmunga mos", c.FitHeight);
+            if (!entity.HasComponent<UITransformComponent>())
+            {
+                UI::PropertyLabel("");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  UI Transform kerak");
+            }
+            return changed;
+        }, true, modified);
+
+        AddSection<UILayoutElementComponent>(ICON_FA_ARROWS_LEFT_RIGHT, "UI Layout Element", entity, [&](UILayoutElementComponent& c) {
+            bool changed = UI::PropertyBool("Layoutni e'tiborsiz qoldirish", c.IgnoreLayout);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Ota guruh bu obyektni joylamaydi: o'z UI Transform'i bo'yicha turadi");
+            if (!c.IgnoreLayout)
+            {
+                // -1 = not set: a checkbox per value.
+                auto optional = [&](const char* label, glm::vec2& v, const char* tooltip, float fallback) {
+                    UI::PropertyLabel(label, tooltip);
+                    ImGui::PushID(label);
+                    for (int axis = 0; axis < 2; axis++)
+                    {
+                        ImGui::PushID(axis);
+                        bool set = v[axis] >= 0.0f;
+                        if (ImGui::Checkbox("##set", &set))
+                        {
+                            v[axis] = set ? fallback : -1.0f;
+                            changed = true;
+                        }
+                        ImGui::SameLine();
+                        ImGui::SetNextItemWidth(std::max(30.0f, ImGui::GetContentRegionAvail().x * (axis == 0 ? 0.5f : 1.0f) - 4.0f));
+                        ImGui::BeginDisabled(!set);
+                        float value = std::max(v[axis], 0.0f);
+                        if (ImGui::DragFloat("##v", &value, 0.5f, 0.0f, 100000.0f, axis == 0 ? "x: %.1f" : "y: %.1f") && set)
+                        {
+                            v[axis] = std::max(0.0f, value);
+                            changed = true;
+                        }
+                        ImGui::EndDisabled();
+                        if (axis == 0)
+                            ImGui::SameLine();
+                        ImGui::PopID();
+                    }
+                    ImGui::PopID();
+                };
+                optional("Minimal", c.MinSize, "Guruh siqqanda shundan kichraymaydi (belgilanmagan: 0)", 0.0f);
+                optional("Afzal", c.PreferredSize, "Joy yetganda shu o'lcham (belgilanmagan: o'z o'lchami)", 100.0f);
+                optional("Moslashuvchan", c.FlexibleSize, "Ortib qolgan joydan ulushi (1 va 2: ikkinchisi ikki baravar ko'p oladi)", 1.0f);
+                UI::PropertyLabel("");
+                ImGui::TextDisabled("Guruh o'lchamni boshqarganda hisobga olinadi");
+            }
+            return changed;
+        }, true, modified);
+
+        AddSection<UINavigationComponent>(ICON_FA_GAMEPAD, "UI Navigation", entity, [&](UINavigationComponent& c) {
+            bool changed = false;
+            static const char* const s_Modes[] = { "Avtomatik (eng yaqini)", "Faqat gorizontal", "Faqat vertikal", "Aniq (qo'lda)", "Yo'q" };
+            int mode = (int)c.NavigationMode;
+            if (UI::PropertyCombo("Rejim", mode, s_Modes, 5)) { c.NavigationMode = (UINavigationComponent::Mode)mode; changed = true; }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Strelkalar / D-pad / stik bilan bu vidjetdan qayerga o'tiladi. Yo'q - navigatsiya unga kelmaydi (sichqoncha bilan tanlanadi)");
+            if (c.NavigationMode == UINavigationComponent::Mode::Explicit)
+            {
+                changed |= DrawEntityRefField("Yuqoriga", c.Up, "Yuqori strelka bosilganda tanlanadigan vidjet (bo'sh - hech qayer)");
+                changed |= DrawEntityRefField("Pastga", c.Down, "Past strelka bosilganda tanlanadigan vidjet");
+                changed |= DrawEntityRefField("Chapga", c.Left, "Chap strelka bosilganda tanlanadigan vidjet");
+                changed |= DrawEntityRefField("O'ngga", c.Right, "O'ng strelka bosilganda tanlanadigan vidjet");
+            }
+            changed |= UI::PropertyBool("Faollashganda tanlash", c.SelectOnEnable);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("O'yin paytida faollashganda (boshlanishda ham) shu vidjet tanlanadi - menyuning birinchi tugmasi");
+            changed |= UI::PropertyBool("Ramka ko'rsatish", c.ShowHighlight);
+            if (c.ShowHighlight)
+                changed |= UI::PropertyColor4("Ramka rangi", c.HighlightColor);
+            if (m_Context && m_Context->IsRunning())
+            {
+                UI::PropertyLabel("");
+                if (m_Context->GetSelectedUI() == entity)
+                    ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), ICON_FA_GAMEPAD "  Tanlangan");
+                else
+                    ImGui::TextDisabled("Tanlanmagan");
+            }
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("Enter / A - bosish, Esc / B - OnCancel, Tab - keyingisi");
             return changed;
         }, true, modified);
 
@@ -6486,8 +6865,14 @@ namespace Zamin {
             changed |= UI::PropertyColor4("Ustida (hover)", c.HoverColor);
             changed |= UI::PropertyColor4("Bosilgan", c.PressedColor);
             changed |= UI::PropertyBool("Faol", c.Interactable);
+            ImGui::TableNextRow(); ImGui::TableSetColumnIndex(0); ImGui::SeparatorText("Bosilganda");
+            changed |= UI::PropertyString("Xabar nomi", c.ClickMessage);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Bosilganda shu nomli skript xabari yuboriladi (bo'sh - yo'q): AddMessageHandler(\"Nomi\", ...) yoki OnMessage");
+            if (!c.ClickMessage.empty())
+                changed |= DrawEntityRefField("Qabul qiluvchi", c.ClickTarget, "Xabar oladigan obyekt (bo'sh - barcha skriptlar, Broadcast)");
             UI::PropertyLabel("");
-            ImGui::TextDisabled("Skriptda: OnClick() yoki .Clicked");
+            ImGui::TextDisabled("Skriptda: OnClick(), .Clicked; hodisa: \"UIClick\"");
             return changed;
         }, true, modified);
 

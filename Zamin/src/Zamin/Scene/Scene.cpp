@@ -429,6 +429,8 @@ namespace Zamin {
             c.DisplayValue = std::clamp(c.Value, 0.0f, 1.0f);
         }
         for (auto e : registry.view<UIInputFieldComponent>()) registry.get<UIInputFieldComponent>(e).ResetRuntime();
+        for (auto e : registry.view<UINavigationComponent>()) registry.get<UINavigationComponent>(e).WasActive = false;
+        for (auto e : registry.view<UICanvasComponent>()) registry.get<UICanvasComponent>(e).CurrentScale = 1.0f;
     }
 
     static void ResetRuntimeData(Entity e)
@@ -471,6 +473,8 @@ namespace Zamin {
         }
         if (auto* c = e.TryGetComponent<UIProgressBarComponent>()) c->DisplayValue = std::clamp(c->Value, 0.0f, 1.0f);
         if (auto* c = e.TryGetComponent<UIInputFieldComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<UINavigationComponent>()) c->WasActive = false; // a spawned menu's SelectOnEnable counts
+        if (auto* c = e.TryGetComponent<UICanvasComponent>()) c->CurrentScale = 1.0f;
         if (auto* c = e.TryGetComponent<MeshRendererComponent>())
         {
             // A copy (Instantiate) looks like its original did, with material instances of its own.
@@ -761,9 +765,21 @@ namespace Zamin {
     {
         for (Entity e : entities)
         {
+            auto remap = [&](EntityRef& ref) {
+                if (auto it = oldToNew.find(ref.ID); ref.ID && it != oldToNew.end())
+                    ref.ID = it->second;
+            };
             if (auto* follow = e.TryGetComponent<Camera2DFollowComponent>())
-                if (auto it = oldToNew.find(follow->Target.ID); follow->Target.ID && it != oldToNew.end())
-                    follow->Target.ID = it->second;
+                remap(follow->Target);
+            if (auto* button = e.TryGetComponent<UIButtonComponent>())
+                remap(button->ClickTarget);
+            if (auto* nav = e.TryGetComponent<UINavigationComponent>())
+            {
+                remap(nav->Up);
+                remap(nav->Down);
+                remap(nav->Left);
+                remap(nav->Right);
+            }
             ForEachJoint2DType([&](auto type) {
                 using T = typename decltype(type)::type;
                 if (auto* joint = e.TryGetComponent<T>())

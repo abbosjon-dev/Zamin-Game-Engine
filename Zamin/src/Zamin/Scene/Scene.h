@@ -12,6 +12,7 @@
 #include "Zamin/Renderer/Lighting2D.h"
 #include "Zamin/Scene/SortingLayers.h"
 #include "Zamin/Scene/PixelPerfect.h"
+#include "Zamin/UI/UILayout.h"
 #include "Zamin/UI/UIWidgets.h"
 
 #include <filesystem>
@@ -504,17 +505,60 @@ namespace Zamin {
         void SetViewportMouse(const glm::vec2& position, bool leftButtonDown) { m_MousePosition = position; m_MouseDown = leftButtonDown; }
         const glm::vec2& GetViewportMouse() const { return m_MousePosition; }
         glm::vec2 GetViewportSize() const { return { (float)m_ViewportWidth, (float)m_ViewportHeight }; }
-        // ---- screen-space UI (UITransformComponent; pixels, origin bottom-left of the view)
-        // The entity's UI rectangle in the current view (empty without a UITransform).
+        // ---- screen-space UI (UITransformComponent). UI units are view pixels unless a UI Canvas
+        // scales them (UICanvasComponent: then px = units x GetUIScale); origin bottom-left of the view.
+        // The entity's UI rectangle in the current view, in its UI units (empty without a UITransform):
+        // laid out in its UI parent's rectangle (else the view's) - or placed by the parent's layout group.
         UIRect GetUIRect(Entity entity);
-        // The UI entities in the order they are drawn (bottom first): by UITransform Order, then by
-        // creation. `skip`: entities to leave out.
+        // The same in view pixels.
+        UIRect GetUIScreenRect(Entity entity);
+        // View pixels per UI unit of the entity's UI (its outermost UI Canvas's scale; 1 without one).
+        float GetUIScale(Entity entity);
+        // The rectangle the entity is laid out in (UI units): its UI parent's, else the whole view.
+        UIRect GetUIParentRect(Entity entity);
+        // A layout group (UILayoutGroupComponent of its UI parent) places the entity.
+        bool IsUILayoutDriven(Entity entity);
+        // Moves / resizes it so that it gets `rect` (UI units; its anchors and pivot stay).
+        void SetUIRect(Entity entity, const UIRect& rect);
+        // New anchors / pivot; keepRect: Position and Size change so that it stays where it is.
+        void SetUIAnchors(Entity entity, const glm::vec2& anchorMin, const glm::vec2& anchorMax, bool keepRect = true);
+        void SetUIPivot(Entity entity, const glm::vec2& pivot, bool keepRect = true);
+        // The UI entities in the order they are drawn (bottom first): the hierarchy depth-first (a
+        // parent below its children), siblings by UITransform Order, then hierarchy order (roots: by
+        // Order, then creation). `skip`: entities to leave out (their children are still listed).
         std::vector<entt::entity> GetUIDrawOrder(const std::unordered_set<entt::entity>* skip = nullptr);
-        // The topmost UI element that takes the mouse at `point` (px, origin bottom-left): an
+        // The topmost UI element that takes the mouse at `point` (view px, origin bottom-left): an
         // interactable button / slider / toggle / input field, or an image that is a raycast target
         // (then what is below it is not reached). Invalid when the point is over none of them.
         // Inactive entities are skipped.
         Entity PickUI(const glm::vec2& point);
+        // The UI element under the mouse in the last UI update (what PickUI found then).
+        Entity GetHoveredUI();
+        // ---- keyboard / gamepad navigation of the UI widgets (buttons, sliders, toggles, input
+        // fields that are interactable and active). While one is selected: arrows / D-pad / left
+        // stick move the selection (UINavigationComponent: how; else to the nearest widget in that
+        // direction - a horizontal slider takes left / right for its value), Tab / Shift+Tab go to
+        // the next / previous one, Enter / gamepad A submits it (clicks a button, switches a toggle,
+        // starts editing an input field), Escape / gamepad B cancels (OnCancel). Nothing is selected
+        // until code selects a widget (or a UINavigation SelectOnEnable does), Tab is pressed or the
+        // mouse presses a widget; a press elsewhere selects nothing.
+        Entity GetSelectedUI();
+        // `highlight`: the selected widget shows its outline (keyboard / gamepad use; a mouse press
+        // selects without it). An invalid entity (or one that is not a widget) selects nothing.
+        void SetSelectedUI(Entity widget, bool highlight = true);
+        bool IsUISelectionHighlighted() const { return m_UISelectionHighlight && m_SelectedUI != entt::null; }
+        // A widget that navigation can select (UINavigation Mode None: only a click selects it).
+        bool IsUISelectable(Entity entity);
+        // Where a move from `from` in `direction` goes (invalid: nowhere), as a key press would.
+        Entity FindUINavigationTarget(Entity from, UINavDirection direction);
+        // What the keys do, from code (only while the game runs): move the selection (false: it
+        // stayed), submit / cancel the selected widget (false: nothing selected).
+        bool NavigateUI(UINavDirection direction);
+        bool SubmitUI();
+        bool CancelUI();
+        // Keys and gamepads move the selection (on by default).
+        void SetUINavigationEnabled(bool enabled) { m_UINavigationEnabled = enabled; }
+        bool IsUINavigationEnabled() const { return m_UINavigationEnabled; }
         // ---- UI widgets from code. `notify`: the entity's script callback and the event bus hear of
         // it as when the player changes it. False when the entity has no such widget or nothing changed.
         bool SetSliderValue(Entity slider, float value, bool notify = true); // clamped (rounded: WholeNumbers)
@@ -837,7 +881,12 @@ namespace Zamin {
         // progress bars drawn as they are set (play starts / stops).
         void ResetUIRuntime();
         // ---- UI widgets (SceneUI.cpp)
-        enum class UIChange { Slider, Toggle, TextChanged, TextSubmitted, TextEndEdit };
+        // What the scripts hear of in a UI update, in the order it happened.
+        enum class UIChange
+        {
+            Slider, Toggle, TextChanged, TextSubmitted, TextEndEdit,
+            PointerEnter, PointerExit, PointerDown, PointerUp, PointerClick, Click, Select, Deselect, Cancel
+        };
         struct UIChangeEvent
         {
             entt::entity Entity = entt::null;
@@ -845,7 +894,43 @@ namespace Zamin {
             float Value = 0.0f;
             bool On = false;
             std::string Text;
+            entt::entity Target = entt::null; // pointer events: the element under the mouse
+            glm::vec2 Screen{ 0.0f };         // pointer events: the mouse (view px, bottom-left)
         };
+        // The laid-out rectangle of a UI entity (UI units) and its canvas scale.
+        struct UILayoutNode
+        {
+            UIRect Rect;
+            UIRect Parent;      // the rectangle it was laid out in
+            float Scale = 1.0f;
+            bool Driven = false; // placed by its parent's layout group
+        };
+        // Lays out every UI entity for the current view (m_UILayout).
+        void LayoutUI();
+        void LayoutUINode(entt::entity e, const UIRect& parent, const UIRect& rect, float scale, bool driven,
+                          std::unordered_map<entt::entity, UILayoutSizes>& sizes);
+        // The entity's rectangle as the parent's layout group sees it (own size, min / preferred / flexible).
+        UILayoutItem GetUILayoutItem(entt::entity child, const glm::vec2& parentSize, std::unordered_map<entt::entity, UILayoutSizes>& sizes);
+        UILayoutSizes GetUILayoutGroupSizes(entt::entity group, const glm::vec2& groupSize, std::unordered_map<entt::entity, UILayoutSizes>& sizes);
+        // The rectangle of a child laid out by its own UI Transform in `parent` (a group fitting its content resized).
+        UIRect ComputeOwnUIRect(entt::entity e, const UIRect& parent, std::unordered_map<entt::entity, UILayoutSizes>& sizes);
+        // The children (with a UI Transform) of a UI entity, in hierarchy order.
+        void GetUIChildren(entt::entity e, std::vector<entt::entity>& out);
+        entt::entity GetUIParent(entt::entity e);
+        // The layout of a UI entity in this frame (laid out again when it is not known yet).
+        const UILayoutNode& GetUINode(entt::entity e);
+        // PickUI over the current layout.
+        entt::entity PickUILaidOut(const glm::vec2& point);
+        bool IsUIWidget(entt::entity e);
+        void SelectUI(entt::entity e, bool highlight, std::vector<UIChangeEvent>& changes);
+        // Clicks / switches / starts editing the widget (the keyboard's Submit).
+        bool SubmitWidget(entt::entity e, std::vector<UIChangeEvent>& changes);
+        bool MoveUISelection(UINavDirection direction, std::vector<UIChangeEvent>& changes);
+        bool StepSlider(entt::entity e, UINavDirection direction, std::vector<UIChangeEvent>& changes);
+        void TabUISelection(bool backwards, std::vector<UIChangeEvent>& changes);
+        // The keys / gamepad buttons of navigation in this frame (`editing`: an input field had the
+        // keyboard when the frame began).
+        void ProcessUINavigation(float dt, bool editing, std::vector<UIChangeEvent>& changes);
         // The script callback and the event bus message of a change (only while the game runs).
         void DeliverUIChange(const UIChangeEvent& change);
         void DeliverUIChanges(std::vector<UIChangeEvent>& changes);
@@ -1004,6 +1089,16 @@ namespace Zamin {
         float m_UITime = 0.0f;                    // seconds of UI updates (double clicks)
         float m_LastUIClickTime = -1.0f;
         entt::entity m_LastUIClickEntity = entt::null;
+        std::unordered_map<entt::entity, UILayoutNode> m_UILayout;
+        std::vector<entt::entity> m_UIHoverChain;   // the hovered element and its UI ancestors (deepest first)
+        entt::entity m_HoveredUI = entt::null;
+        entt::entity m_SelectedUI = entt::null;     // keyboard / gamepad navigation
+        bool m_UISelectionHighlight = false;
+        bool m_UINavigationEnabled = true;
+        int m_UINavHeld = -1;                       // the gamepad direction held (-1 none), for repeats
+        float m_UINavRepeat = 0.0f;                 // seconds until it repeats
+        entt::entity m_UISubmitFlash = entt::null;  // a button submitted by key looks pressed for a moment
+        float m_UISubmitFlashTime = 0.0f;
 
         std::unordered_map<UUID, entt::entity> m_EntityMap;
         std::vector<UUID> m_DestroyQueue;

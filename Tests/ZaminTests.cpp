@@ -4335,6 +4335,10 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<Camera2DFollowComponent>();
     e.AddComponent<ParticleSystemComponent>();
     e.AddComponent<UITransformComponent>();
+    e.AddComponent<UICanvasComponent>();
+    e.AddComponent<UILayoutGroupComponent>();
+    e.AddComponent<UILayoutElementComponent>();
+    e.AddComponent<UINavigationComponent>();
     e.AddComponent<UIButtonComponent>();
     e.AddComponent<UIImageComponent>();
     e.AddComponent<UISliderComponent>();
@@ -4347,7 +4351,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 54);
+    CHECK(types.size() == 58);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -9538,7 +9542,7 @@ TEST(InactiveUIButtons)
     auto button = [&](const std::string& name, int order) {
         Entity e = scene->CreateEntity(name);
         auto& ui = e.AddComponent<UITransformComponent>();
-        ui.Anchor = UITransformComponent::AnchorPoint::Center;
+        ui.SetAnchor(UITransformComponent::AnchorPoint::Center);
         ui.Position = { 0.0f, 0.0f };
         ui.Size = { 200.0f, 60.0f };
         ui.Order = order;
@@ -22363,7 +22367,7 @@ static Entity MakeUIWidget(const Ref<Scene>& scene, const std::string& name, con
 {
     Entity e = scene->CreateEntity(name);
     auto& ui = e.AddComponent<UITransformComponent>();
-    ui.Anchor = UITransformComponent::AnchorPoint::Center;
+    ui.SetAnchor(UITransformComponent::AnchorPoint::Center);
     ui.Position = offset;
     ui.Size = size;
     ui.Order = order;

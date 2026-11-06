@@ -414,7 +414,7 @@ namespace Zamin {
         // entity called "Player" must stay "Player" when the folder Assets/Player is renamed.
         static constexpr std::string_view NameKeys[] = {
             "Tag", "Tags", "Scene", "Name", "Class", "ComponentOrder", "ZaminComponent", "Text", "Type",
-            "Mesh", "BodyType", "Clip", "DefaultState", "SpeedParameter", "Parameter", "From", "To",
+            "Mesh", "BodyType", "Clip", "DefaultState", "SpeedParameter", "Parameter", "From", "To", "ClickMessage",
         };
         if (value.empty() || std::find(std::begin(NameKeys), std::end(NameKeys), key) != std::end(NameKeys))
             return false;

@@ -24,43 +24,286 @@
 namespace Zamin {
 
     // ------------------------------------------------------------------ layout
-    static glm::vec2 AnchorOffset(UITransformComponent::AnchorPoint a, const glm::vec2& viewport)
+    entt::entity Scene::GetUIParent(entt::entity e)
     {
-        int i = (int)a;
-        float fx = (i % 3) * 0.5f;          // 0, 0.5, 1
-        float fy = 1.0f - (i / 3) * 0.5f;   // top = 1
-        return { fx * viewport.x, fy * viewport.y };
+        const auto* rel = m_Registry.try_get<RelationshipComponent>(e);
+        if (!rel || !(uint64_t)rel->Parent)
+            return entt::null;
+        auto it = m_EntityMap.find(rel->Parent);
+        if (it == m_EntityMap.end() || !m_Registry.valid(it->second) || !m_Registry.all_of<UITransformComponent>(it->second))
+            return entt::null;
+        return it->second;
     }
 
-    static glm::vec2 UICenter(const UITransformComponent& ui, const glm::vec2& viewport)
+    void Scene::GetUIChildren(entt::entity e, std::vector<entt::entity>& out)
     {
-        return AnchorOffset(ui.Anchor, viewport) + ui.Position; // bottom-left origin, pixels
+        out.clear();
+        if (const auto* rel = m_Registry.try_get<RelationshipComponent>(e))
+            for (UUID id : rel->Children)
+                if (auto it = m_EntityMap.find(id); it != m_EntityMap.end() && m_Registry.valid(it->second) &&
+                                                    m_Registry.all_of<UITransformComponent>(it->second))
+                    out.push_back(it->second);
     }
 
-    static UIRect ComputeUIRect(const UITransformComponent& ui, const glm::vec2& viewport)
+    // Whether a layout group leaves the child out: switched off itself, or its layout element says so.
+    static bool IgnoredByLayout(entt::registry& registry, entt::entity child)
     {
-        return UIRect::FromCenter(UICenter(ui, viewport), ui.Size);
+        if (const auto* tag = registry.try_get<TagComponent>(child); tag && !tag->Active)
+            return true;
+        const auto* element = registry.try_get<UILayoutElementComponent>(child);
+        return element && element->IgnoreLayout;
+    }
+
+    UILayoutSizes Scene::GetUILayoutGroupSizes(entt::entity group, const glm::vec2& groupSize, std::unordered_map<entt::entity, UILayoutSizes>& sizes)
+    {
+        if (auto it = sizes.find(group); it != sizes.end())
+            return it->second;
+        sizes[group] = UILayoutSizes{}; // a guard while its children are measured
+        const auto& settings = m_Registry.get<UILayoutGroupComponent>(group);
+        std::vector<entt::entity> children;
+        GetUIChildren(group, children);
+        std::vector<UILayoutItem> items;
+        for (auto child : children)
+            if (!IgnoredByLayout(m_Registry, child))
+                items.push_back(GetUILayoutItem(child, groupSize, sizes));
+        const UILayoutSizes result = UILayout::CalcSizes(settings, items, groupSize);
+        sizes[group] = result;
+        return result;
+    }
+
+    UILayoutItem Scene::GetUILayoutItem(entt::entity child, const glm::vec2& parentSize, std::unordered_map<entt::entity, UILayoutSizes>& sizes)
+    {
+        const auto& t = m_Registry.get<UITransformComponent>(child);
+        UILayoutItem item;
+        // Its own size: along a stretched axis the anchors' span of the parent plus Size.
+        item.Size = glm::abs((t.AnchorMax - t.AnchorMin) * parentSize + t.Size);
+        item.Preferred = item.Size;
+        if (const auto* group = m_Registry.try_get<UILayoutGroupComponent>(child))
+        {
+            // A group asks for what its children need.
+            const UILayoutSizes content = GetUILayoutGroupSizes(child, item.Size, sizes);
+            item.Min = content.Min;
+            item.Preferred = content.Preferred;
+            item.Flexible = content.Flexible;
+            if (group->FitWidth) item.Size.x = content.Preferred.x;
+            if (group->FitHeight) item.Size.y = content.Preferred.y;
+        }
+        if (const auto* element = m_Registry.try_get<UILayoutElementComponent>(child))
+            for (int axis = 0; axis < 2; axis++)
+            {
+                if (element->MinSize[axis] >= 0.0f) item.Min[axis] = element->MinSize[axis];
+                if (element->PreferredSize[axis] >= 0.0f) item.Preferred[axis] = element->PreferredSize[axis];
+                if (element->FlexibleSize[axis] >= 0.0f) item.Flexible[axis] = element->FlexibleSize[axis];
+            }
+        return item;
+    }
+
+    UIRect Scene::ComputeOwnUIRect(entt::entity e, const UIRect& parent, std::unordered_map<entt::entity, UILayoutSizes>& sizes)
+    {
+        const auto& t = m_Registry.get<UITransformComponent>(e);
+        UIRect rect = t.ComputeRect(parent);
+        if (const auto* group = m_Registry.try_get<UILayoutGroupComponent>(e); group && (group->FitWidth || group->FitHeight))
+        {
+            // Fits its content: that size around its pivot.
+            const UILayoutSizes content = GetUILayoutGroupSizes(e, rect.GetSize(), sizes);
+            const glm::vec2 pivot = rect.Min + rect.GetSize() * t.Pivot;
+            for (int axis = 0; axis < 2; axis++)
+                if (axis == 0 ? group->FitWidth : group->FitHeight)
+                {
+                    const float size = content.Preferred[axis];
+                    rect.Min[axis] = pivot[axis] - size * t.Pivot[axis];
+                    rect.Max[axis] = rect.Min[axis] + size;
+                }
+        }
+        return rect;
+    }
+
+    void Scene::LayoutUINode(entt::entity e, const UIRect& parent, const UIRect& rect, float scale, bool driven,
+                             std::unordered_map<entt::entity, UILayoutSizes>& sizes)
+    {
+        m_UILayout[e] = UILayoutNode{ rect, parent, scale, driven };
+        if (auto* canvas = m_Registry.try_get<UICanvasComponent>(e))
+            canvas->CurrentScale = scale; // an inner canvas takes the outer one's scale
+        std::vector<entt::entity> children;
+        GetUIChildren(e, children);
+        if (children.empty())
+            return;
+        // A layout group places its children (in hierarchy order); the rest follow their own UI Transform.
+        std::vector<entt::entity> placed;
+        std::vector<UIRect> rects;
+        if (const auto* group = m_Registry.try_get<UILayoutGroupComponent>(e))
+        {
+            std::vector<UILayoutItem> items;
+            for (auto child : children)
+                if (!IgnoredByLayout(m_Registry, child))
+                {
+                    placed.push_back(child);
+                    items.push_back(GetUILayoutItem(child, rect.GetSize(), sizes));
+                }
+            UILayout::Arrange(rect, *group, items, rects);
+        }
+        size_t next = 0;
+        for (auto child : children)
+        {
+            if (next < placed.size() && placed[next] == child)
+                LayoutUINode(child, rect, rects[next++], scale, true, sizes);
+            else
+                LayoutUINode(child, rect, ComputeOwnUIRect(child, rect, sizes), scale, false, sizes);
+        }
+    }
+
+    void Scene::LayoutUI()
+    {
+        m_UILayout.clear();
+        const glm::vec2 viewport = glm::max(GetViewportSize(), glm::vec2(0.0f));
+        std::unordered_map<entt::entity, UILayoutSizes> sizes;
+        for (auto e : m_Registry.view<UITransformComponent>())
+        {
+            if (GetUIParent(e) != entt::null)
+                continue; // laid out with its parent
+            // The outermost UI Canvas of its ancestors (itself included, also through plain entities) scales it.
+            entt::entity canvas = entt::null;
+            entt::entity a = e;
+            for (int depth = 0; a != entt::null && depth < 1024; depth++)
+            {
+                if (m_Registry.all_of<UICanvasComponent>(a))
+                    canvas = a;
+                const auto* rel = m_Registry.try_get<RelationshipComponent>(a);
+                if (!rel || !(uint64_t)rel->Parent)
+                    break;
+                auto it = m_EntityMap.find(rel->Parent);
+                a = it != m_EntityMap.end() && m_Registry.valid(it->second) ? it->second : entt::null;
+            }
+            float scale = 1.0f;
+            if (canvas != entt::null)
+            {
+                auto& c = m_Registry.get<UICanvasComponent>(canvas);
+                scale = c.ComputeScale(viewport);
+                c.CurrentScale = scale;
+            }
+            const UIRect screen{ { 0.0f, 0.0f }, viewport / scale };
+            LayoutUINode(e, screen, ComputeOwnUIRect(e, screen, sizes), scale, false, sizes);
+        }
+    }
+
+    const Scene::UILayoutNode& Scene::GetUINode(entt::entity e)
+    {
+        auto it = m_UILayout.find(e);
+        if (it == m_UILayout.end() && m_Registry.valid(e) && m_Registry.all_of<UITransformComponent>(e))
+        {
+            LayoutUI(); // added since the frame's layout
+            it = m_UILayout.find(e);
+        }
+        static const UILayoutNode s_None{};
+        return it != m_UILayout.end() ? it->second : s_None;
+    }
+
+    static bool HasUITransform(Entity entity, Scene* scene)
+    {
+        return entity && entity.GetScene() == scene && entity.HasComponent<UITransformComponent>();
     }
 
     UIRect Scene::GetUIRect(Entity entity)
     {
-        if (!entity || entity.GetScene() != this)
+        if (!HasUITransform(entity, this))
             return {};
-        const auto* ui = entity.TryGetComponent<UITransformComponent>();
-        return ui ? ComputeUIRect(*ui, GetViewportSize()) : UIRect{};
+        LayoutUI();
+        return GetUINode(entity).Rect;
+    }
+
+    UIRect Scene::GetUIScreenRect(Entity entity)
+    {
+        if (!HasUITransform(entity, this))
+            return {};
+        LayoutUI();
+        const UILayoutNode& node = GetUINode(entity);
+        return { node.Rect.Min * node.Scale, node.Rect.Max * node.Scale };
+    }
+
+    float Scene::GetUIScale(Entity entity)
+    {
+        if (!HasUITransform(entity, this))
+            return 1.0f;
+        LayoutUI();
+        return GetUINode(entity).Scale;
+    }
+
+    UIRect Scene::GetUIParentRect(Entity entity)
+    {
+        if (!HasUITransform(entity, this))
+            return {};
+        LayoutUI();
+        return GetUINode(entity).Parent;
+    }
+
+    bool Scene::IsUILayoutDriven(Entity entity)
+    {
+        if (!HasUITransform(entity, this))
+            return false;
+        LayoutUI();
+        return GetUINode(entity).Driven;
+    }
+
+    void Scene::SetUIRect(Entity entity, const UIRect& rect)
+    {
+        if (!HasUITransform(entity, this))
+            return;
+        LayoutUI();
+        entity.GetComponent<UITransformComponent>().SetRect(GetUINode(entity).Parent, rect);
+    }
+
+    void Scene::SetUIAnchors(Entity entity, const glm::vec2& anchorMin, const glm::vec2& anchorMax, bool keepRect)
+    {
+        if (!HasUITransform(entity, this))
+            return;
+        LayoutUI();
+        const UILayoutNode node = GetUINode(entity);
+        auto& t = entity.GetComponent<UITransformComponent>();
+        t.AnchorMin = glm::clamp(glm::min(anchorMin, anchorMax), glm::vec2(0.0f), glm::vec2(1.0f));
+        t.AnchorMax = glm::clamp(glm::max(anchorMin, anchorMax), glm::vec2(0.0f), glm::vec2(1.0f));
+        if (keepRect)
+            t.SetRect(node.Parent, node.Rect);
+    }
+
+    void Scene::SetUIPivot(Entity entity, const glm::vec2& pivot, bool keepRect)
+    {
+        if (!HasUITransform(entity, this))
+            return;
+        LayoutUI();
+        const UILayoutNode node = GetUINode(entity);
+        auto& t = entity.GetComponent<UITransformComponent>();
+        t.Pivot = pivot;
+        if (keepRect)
+            t.SetRect(node.Parent, node.Rect);
     }
 
     std::vector<entt::entity> Scene::GetUIDrawOrder(const std::unordered_set<entt::entity>* skip)
     {
-        std::vector<entt::entity> ui;
-        for (auto e : m_Registry.view<UITransformComponent>())
-            if (!skip || !skip->contains(e))
-                ui.push_back(e);
-        std::reverse(ui.begin(), ui.end()); // views iterate newest-first; keep creation order for equal Order
-        std::stable_sort(ui.begin(), ui.end(), [&](entt::entity a, entt::entity b) {
+        auto view = m_Registry.view<UITransformComponent>();
+        std::vector<entt::entity> roots;
+        for (auto e : view)
+            if (GetUIParent(e) == entt::null)
+                roots.push_back(e);
+        std::reverse(roots.begin(), roots.end()); // views iterate newest-first; keep creation order for equal Order
+        auto byOrder = [&](entt::entity a, entt::entity b) {
             return m_Registry.get<UITransformComponent>(a).Order < m_Registry.get<UITransformComponent>(b).Order;
-        });
-        return ui;
+        };
+        std::stable_sort(roots.begin(), roots.end(), byOrder);
+
+        // Depth-first: a parent, then its children (by Order, then hierarchy order) above it.
+        std::vector<entt::entity> order, stack(roots.rbegin(), roots.rend()), children;
+        order.reserve(view.size());
+        while (!stack.empty())
+        {
+            entt::entity e = stack.back();
+            stack.pop_back();
+            if (!skip || !skip->contains(e))
+                order.push_back(e);
+            GetUIChildren(e, children);
+            std::stable_sort(children.begin(), children.end(), byOrder);
+            stack.insert(stack.end(), children.rbegin(), children.rend());
+        }
+        return order;
     }
 
     // Whether the mouse stops at the entity (an interactable widget, or an image that catches it).
@@ -76,7 +319,12 @@ namespace Zamin {
 
     Entity Scene::PickUI(const glm::vec2& point)
     {
-        const glm::vec2 viewport = GetViewportSize();
+        LayoutUI();
+        return { PickUILaidOut(point), this };
+    }
+
+    entt::entity Scene::PickUILaidOut(const glm::vec2& point)
+    {
         std::vector<entt::entity> order = GetUIDrawOrder();
         // The topmost first: the last one drawn.
         for (auto it = order.rbegin(); it != order.rend(); ++it)
@@ -84,10 +332,16 @@ namespace Zamin {
             entt::entity e = *it;
             if (!TakesMouse(m_Registry, e) || !IsActiveInHierarchy({ e, this }))
                 continue; // inactive UI is not drawn and cannot be hovered: the mouse reaches what is below
-            if (ComputeUIRect(m_Registry.get<UITransformComponent>(e), viewport).Contains(point))
-                return { e, this };
+            const UILayoutNode& node = GetUINode(e);
+            if (node.Rect.Contains(point / node.Scale))
+                return e;
         }
-        return {};
+        return entt::null;
+    }
+
+    Entity Scene::GetHoveredUI()
+    {
+        return m_HoveredUI != entt::null && m_Registry.valid(m_HoveredUI) ? Entity{ m_HoveredUI, this } : Entity{};
     }
 
     // ------------------------------------------------------------------ input field text layout
@@ -132,7 +386,7 @@ namespace Zamin {
     {
         auto& field = m_Registry.get<UIInputFieldComponent>(e);
         const auto& t = m_Registry.get<UITransformComponent>(e);
-        const UIRect rect = ComputeUIRect(t, GetViewportSize());
+        const UIRect rect = GetUINode(e).Rect;
         const UIRect area = InputTextArea(field, rect);
         std::vector<float> offsets;
         LayoutCaretOffsets(TextEdit::GetDisplayText(field.Text, field.ContentType), LoadedFont(field.FontAsset),
@@ -158,6 +412,20 @@ namespace Zamin {
         if (!m_IsRunning || !m_Registry.valid(change.Entity))
             return;
         Entity entity{ change.Entity, this };
+        // A button that went inactive (an earlier OnClick switched it off) is not clicked.
+        if (change.Kind == UIChange::Click && !IsActiveInHierarchy(entity))
+            return;
+        UIPointerEvent pointer;
+        const UIChange k = change.Kind;
+        if (k == UIChange::PointerEnter || k == UIChange::PointerExit || k == UIChange::PointerDown || k == UIChange::PointerUp ||
+            k == UIChange::PointerClick)
+        {
+            pointer.Target = m_Registry.valid(change.Target) ? Entity{ change.Target, this } : Entity{};
+            const auto it = m_UILayout.find(change.Entity);
+            pointer.Position = change.Screen / (it != m_UILayout.end() ? it->second.Scale : 1.0f);
+            pointer.ScreenPosition = change.Screen;
+            pointer.Inside = change.On;
+        }
         // Like OnClick, the callbacks also reach disabled scripts.
         if (m_ScriptsRunning)
             if (auto* nsc = m_Registry.try_get<NativeScriptComponent>(change.Entity); nsc && nsc->Instance)
@@ -170,18 +438,50 @@ namespace Zamin {
                     case UIChange::TextChanged:   script->OnTextChanged(change.Text); break;
                     case UIChange::TextSubmitted: script->OnTextSubmit(change.Text); break;
                     case UIChange::TextEndEdit:   script->OnTextEndEdit(change.Text); break;
+                    case UIChange::PointerEnter:  script->OnPointerEnter(pointer); break;
+                    case UIChange::PointerExit:   script->OnPointerExit(pointer); break;
+                    case UIChange::PointerDown:   script->OnPointerDown(pointer); break;
+                    case UIChange::PointerUp:     script->OnPointerUp(pointer); break;
+                    case UIChange::PointerClick:  script->OnPointerClick(pointer); break;
+                    case UIChange::Click:         script->OnClick(); break;
+                    case UIChange::Select:        script->OnSelect(); break;
+                    case UIChange::Deselect:      script->OnDeselect(); break;
+                    case UIChange::Cancel:        script->OnCancel(); break;
                 }
             }
-        if (!m_EventBus || !m_Registry.valid(change.Entity))
+        if (!m_Registry.valid(change.Entity))
             return; // destroyed by its callback
-        switch (change.Kind)
-        {
-            case UIChange::Slider:        m_EventBus->Emit("UISliderChanged", change.Value, entity); break;
-            case UIChange::Toggle:        m_EventBus->Emit("UIToggleChanged", change.On, entity); break;
-            case UIChange::TextChanged:   m_EventBus->Emit("UITextChanged", change.Text, entity); break;
-            case UIChange::TextSubmitted: m_EventBus->Emit("UITextSubmitted", change.Text, entity); break;
-            case UIChange::TextEndEdit:   m_EventBus->Emit("UITextEndEdit", change.Text, entity); break;
-        }
+        if (m_EventBus)
+            switch (change.Kind)
+            {
+                case UIChange::Slider:        m_EventBus->Emit("UISliderChanged", change.Value, entity); break;
+                case UIChange::Toggle:        m_EventBus->Emit("UIToggleChanged", change.On, entity); break;
+                case UIChange::TextChanged:   m_EventBus->Emit("UITextChanged", change.Text, entity); break;
+                case UIChange::TextSubmitted: m_EventBus->Emit("UITextSubmitted", change.Text, entity); break;
+                case UIChange::TextEndEdit:   m_EventBus->Emit("UITextEndEdit", change.Text, entity); break;
+                case UIChange::PointerEnter:  m_EventBus->Emit("UIPointerEnter", pointer, entity); break;
+                case UIChange::PointerExit:   m_EventBus->Emit("UIPointerExit", pointer, entity); break;
+                case UIChange::PointerDown:   m_EventBus->Emit("UIPointerDown", pointer, entity); break;
+                case UIChange::PointerUp:     m_EventBus->Emit("UIPointerUp", pointer, entity); break;
+                case UIChange::PointerClick:  m_EventBus->Emit("UIPointerClick", pointer, entity); break;
+                case UIChange::Click:         m_EventBus->Emit("UIClick", {}, entity); break;
+                case UIChange::Select:        m_EventBus->Emit("UISelected", {}, entity); break;
+                case UIChange::Deselect:      m_EventBus->Emit("UIDeselected", {}, entity); break;
+                case UIChange::Cancel:        m_EventBus->Emit("UICancel", {}, entity); break;
+            }
+        // A button's click message: to its target, else to every running script.
+        if (change.Kind == UIChange::Click && m_Registry.valid(change.Entity))
+            if (const auto* button = m_Registry.try_get<UIButtonComponent>(change.Entity); button && !button->ClickMessage.empty())
+            {
+                ScriptMessage message{ button->ClickMessage, entity, {} };
+                if (button->ClickTarget)
+                {
+                    if (Entity target = GetEntityByUUID(button->ClickTarget.ID))
+                        SendMessage(target, message);
+                }
+                else
+                    Broadcast(message);
+            }
     }
 
     void Scene::DeliverUIChanges(std::vector<UIChangeEvent>& changes)
@@ -429,6 +729,11 @@ namespace Zamin {
     void Scene::ResetUIRuntime()
     {
         m_PressedUI = m_FocusedInput = m_LastUIClickEntity = entt::null;
+        m_HoveredUI = m_SelectedUI = m_UISubmitFlash = entt::null;
+        m_UIHoverChain.clear();
+        m_UISelectionHighlight = false;
+        m_UINavHeld = -1;
+        m_UINavRepeat = m_UISubmitFlashTime = 0.0f;
         m_LastUIClickTime = -1.0f;
         m_MouseWasDown = m_MouseDown;
         for (auto e : m_Registry.view<UIButtonComponent>())
@@ -454,6 +759,295 @@ namespace Zamin {
         }
         for (auto e : m_Registry.view<UIInputFieldComponent>())
             m_Registry.get<UIInputFieldComponent>(e).ResetRuntime();
+        for (auto e : m_Registry.view<UINavigationComponent>())
+            m_Registry.get<UINavigationComponent>(e).WasActive = false; // SelectOnEnable: active at the start counts as switched on
+    }
+
+    // ------------------------------------------------------------------ keyboard / gamepad navigation
+    bool Scene::IsUIWidget(entt::entity e)
+    {
+        if (!m_Registry.valid(e) || !m_Registry.all_of<UITransformComponent>(e))
+            return false;
+        if (auto* b = m_Registry.try_get<UIButtonComponent>(e); b && b->Interactable) return true;
+        if (auto* s = m_Registry.try_get<UISliderComponent>(e); s && s->Interactable) return true;
+        if (auto* t = m_Registry.try_get<UIToggleComponent>(e); t && t->Interactable) return true;
+        if (auto* f = m_Registry.try_get<UIInputFieldComponent>(e); f && f->Interactable) return true;
+        return false;
+    }
+
+    bool Scene::IsUISelectable(Entity entity)
+    {
+        if (!entity || entity.GetScene() != this || !IsUIWidget(entity) || !IsActiveInHierarchy(entity))
+            return false;
+        const auto* nav = entity.TryGetComponent<UINavigationComponent>();
+        return !nav || nav->NavigationMode != UINavigationComponent::Mode::None;
+    }
+
+    void Scene::SelectUI(entt::entity e, bool highlight, std::vector<UIChangeEvent>& changes)
+    {
+        if (e != entt::null && (!IsUIWidget(e) || !IsActiveInHierarchy({ e, this })))
+            e = entt::null;
+        m_UISelectionHighlight = highlight && e != entt::null;
+        if (e == m_SelectedUI)
+            return;
+        if (m_SelectedUI != entt::null && m_Registry.valid(m_SelectedUI))
+            changes.push_back({ m_SelectedUI, UIChange::Deselect });
+        m_SelectedUI = e;
+        if (e != entt::null)
+            changes.push_back({ e, UIChange::Select });
+    }
+
+    Entity Scene::GetSelectedUI()
+    {
+        return m_SelectedUI != entt::null && m_Registry.valid(m_SelectedUI) ? Entity{ m_SelectedUI, this } : Entity{};
+    }
+
+    void Scene::SetSelectedUI(Entity widget, bool highlight)
+    {
+        std::vector<UIChangeEvent> changes;
+        const bool valid = widget && widget.GetScene() == this;
+        SelectUI(valid ? (entt::entity)widget : entt::null, highlight, changes);
+        DeliverUIChanges(changes);
+    }
+
+    Entity Scene::FindUINavigationTarget(Entity from, UINavDirection direction)
+    {
+        if (!from || from.GetScene() != this || !IsUIWidget(from))
+            return {};
+        using Mode = UINavigationComponent::Mode;
+        const auto* nav = from.TryGetComponent<UINavigationComponent>();
+        const Mode mode = nav ? nav->NavigationMode : Mode::Automatic;
+        const bool horizontal = direction == UINavDirection::Left || direction == UINavDirection::Right;
+        if (mode == Mode::None || (mode == Mode::Horizontal && !horizontal) || (mode == Mode::Vertical && horizontal))
+            return {};
+        if (mode == Mode::Explicit)
+        {
+            const EntityRef ref = direction == UINavDirection::Up ? nav->Up : direction == UINavDirection::Down ? nav->Down
+                                : direction == UINavDirection::Left ? nav->Left : nav->Right;
+            Entity target = ref ? GetEntityByUUID(ref.ID) : Entity{};
+            return IsUISelectable(target) ? target : Entity{};
+        }
+        // Automatic: the nearest selectable widget in that direction (on the screen: canvases may differ).
+        auto screenRect = [&](entt::entity e) {
+            const UILayoutNode& node = GetUINode(e);
+            return UIRect{ node.Rect.Min * node.Scale, node.Rect.Max * node.Scale };
+        };
+        std::vector<entt::entity> candidates;
+        std::vector<UIRect> rects;
+        for (auto e : GetUIDrawOrder())
+            if (e != (entt::entity)from && IsUISelectable({ e, this }))
+            {
+                candidates.push_back(e);
+                rects.push_back(screenRect(e));
+            }
+        const int index = UILayout::FindInDirection(screenRect(from), direction, rects);
+        return index >= 0 ? Entity{ candidates[index], this } : Entity{};
+    }
+
+    bool Scene::StepSlider(entt::entity e, UINavDirection direction, std::vector<UIChangeEvent>& changes)
+    {
+        auto& s = m_Registry.get<UISliderComponent>(e);
+        // +1: towards the maximum's end of the track.
+        int sign = 0;
+        switch (s.Direction)
+        {
+            case UIDirection::LeftToRight: sign = direction == UINavDirection::Right ? 1 : direction == UINavDirection::Left ? -1 : 0; break;
+            case UIDirection::RightToLeft: sign = direction == UINavDirection::Left ? 1 : direction == UINavDirection::Right ? -1 : 0; break;
+            case UIDirection::BottomToTop: sign = direction == UINavDirection::Up ? 1 : direction == UINavDirection::Down ? -1 : 0; break;
+            case UIDirection::TopToBottom: sign = direction == UINavDirection::Down ? 1 : direction == UINavDirection::Up ? -1 : 0; break;
+        }
+        if (sign == 0)
+            return false;
+        const float range = s.MaxValue - s.MinValue;
+        const float step = s.WholeNumbers ? (range >= 0.0f ? 1.0f : -1.0f) : range * 0.1f; // a tenth of the range (whole numbers: 1)
+        const float value = UIMath::ClampValue(s.Value + step * (float)sign, s.MinValue, s.MaxValue, s.WholeNumbers);
+        if (value != s.Value)
+        {
+            s.Value = value;
+            s.ValueChanged = true;
+            changes.push_back({ e, UIChange::Slider, value });
+        }
+        return true; // the key is the slider's, also at its end
+    }
+
+    bool Scene::MoveUISelection(UINavDirection direction, std::vector<UIChangeEvent>& changes)
+    {
+        if (m_SelectedUI == entt::null || !IsUISelectable({ m_SelectedUI, this }))
+            return false;
+        m_UISelectionHighlight = true;
+        // A slider takes the keys along its track.
+        if (auto* s = m_Registry.try_get<UISliderComponent>(m_SelectedUI); s && s->Interactable)
+        {
+            const bool horizontalKey = direction == UINavDirection::Left || direction == UINavDirection::Right;
+            if (UIMath::IsHorizontal(s->Direction) == horizontalKey)
+                return StepSlider(m_SelectedUI, direction, changes);
+        }
+        Entity target = FindUINavigationTarget({ m_SelectedUI, this }, direction);
+        if (!target)
+            return false;
+        SelectUI(target, true, changes);
+        return true;
+    }
+
+    void Scene::TabUISelection(bool backwards, std::vector<UIChangeEvent>& changes)
+    {
+        std::vector<entt::entity> order;
+        for (auto e : GetUIDrawOrder())
+            if (IsUISelectable({ e, this }))
+                order.push_back(e);
+        if (order.empty())
+            return;
+        auto it = std::find(order.begin(), order.end(), m_SelectedUI);
+        size_t index = 0;
+        if (it == order.end())
+            index = backwards ? order.size() - 1 : 0;
+        else
+        {
+            const size_t current = (size_t)(it - order.begin());
+            index = backwards ? (current + order.size() - 1) % order.size() : (current + 1) % order.size();
+        }
+        const entt::entity next = order[index];
+        SelectUI(next, true, changes);
+        // Into an input field: typing goes to it (as in a form).
+        if (auto* f = m_Registry.try_get<UIInputFieldComponent>(next); f && f->Interactable && m_FocusedInput != next)
+        {
+            if (m_FocusedInput != entt::null)
+                EndInputEdit(&changes);
+            BeginInputEdit(next);
+        }
+    }
+
+    bool Scene::SubmitWidget(entt::entity e, std::vector<UIChangeEvent>& changes)
+    {
+        bool any = false;
+        if (auto* b = m_Registry.try_get<UIButtonComponent>(e); b && b->Interactable)
+        {
+            b->Clicked = true;
+            changes.push_back({ e, UIChange::Click });
+            m_UISubmitFlash = e; // looks pressed for a moment
+            m_UISubmitFlashTime = 0.12f;
+            any = true;
+        }
+        if (auto* t = m_Registry.try_get<UIToggleComponent>(e); t && t->Interactable)
+        {
+            // A radio button that is on stays on (unless the group allows none).
+            if (!(t->IsOn && !t->Group.empty() && !t->AllowSwitchOff))
+                ApplyToggle(e, !t->IsOn, &changes);
+            any = true;
+        }
+        if (auto* f = m_Registry.try_get<UIInputFieldComponent>(e); f && f->Interactable)
+        {
+            if (m_FocusedInput != e)
+            {
+                if (m_FocusedInput != entt::null)
+                    EndInputEdit(&changes);
+                BeginInputEdit(e); // its keys from the next frame on: the Enter that started it is not typed into it
+            }
+            any = true;
+        }
+        return any;
+    }
+
+    bool Scene::NavigateUI(UINavDirection direction)
+    {
+        std::vector<UIChangeEvent> changes;
+        LayoutUI();
+        const bool moved = MoveUISelection(direction, changes);
+        DeliverUIChanges(changes);
+        return moved;
+    }
+
+    bool Scene::SubmitUI()
+    {
+        if (m_SelectedUI == entt::null || !IsUISelectable({ m_SelectedUI, this }))
+            return false;
+        std::vector<UIChangeEvent> changes;
+        const bool done = SubmitWidget(m_SelectedUI, changes);
+        DeliverUIChanges(changes);
+        return done;
+    }
+
+    bool Scene::CancelUI()
+    {
+        if (m_SelectedUI == entt::null || !m_Registry.valid(m_SelectedUI))
+            return false;
+        DeliverUIChange({ m_SelectedUI, UIChange::Cancel });
+        return true;
+    }
+
+    void Scene::ProcessUINavigation(float dt, bool editing, std::vector<UIChangeEvent>& changes)
+    {
+        // An input field edited at the start of the frame kept its keys (arrows, Enter, Escape -
+        // also those that ended its editing); Tab still moves on.
+        if (m_UIKeyboardEnabled)
+        {
+            for (const TextInputEvent& ev : Input::GetTextInput())
+            {
+                if (ev.IsCharacter())
+                    continue;
+                if (ev.KeyCode == Key::Tab && !ev.Control && !ev.Alt)
+                {
+                    if (m_FocusedInput != entt::null)
+                        EndInputEdit(&changes);
+                    TabUISelection(ev.Shift, changes);
+                    continue;
+                }
+                if (editing || m_FocusedInput != entt::null || m_SelectedUI == entt::null)
+                    continue;
+                // Arrows with the keyboard's auto-repeat.
+                switch (ev.KeyCode)
+                {
+                    case Key::Up:    MoveUISelection(UINavDirection::Up, changes); break;
+                    case Key::Down:  MoveUISelection(UINavDirection::Down, changes); break;
+                    case Key::Left:  MoveUISelection(UINavDirection::Left, changes); break;
+                    case Key::Right: MoveUISelection(UINavDirection::Right, changes); break;
+                    default: break;
+                }
+            }
+        }
+        const bool keySubmit = m_UIKeyboardEnabled && (Input::IsKeyJustPressed(Key::Enter) || Input::IsKeyJustPressed(Key::KPEnter));
+        const bool keyCancel = m_UIKeyboardEnabled && Input::IsKeyJustPressed(Key::Escape);
+
+        // Gamepads: the D-pad or the left stick (held: repeats), A submits, B cancels.
+        int held = -1;
+        bool padSubmit = false, padCancel = false;
+        for (int id = 0; id < Input::MaxGamepads; id++)
+        {
+            if (!Input::IsGamepadConnected(id))
+                continue;
+            padSubmit |= Input::IsGamepadButtonJustPressed(GamepadButton::A, id);
+            padCancel |= Input::IsGamepadButtonJustPressed(GamepadButton::B, id);
+            if (held >= 0)
+                continue;
+            const float x = Input::GetGamepadAxis(GamepadAxis::LeftX, id), y = Input::GetGamepadAxis(GamepadAxis::LeftY, id);
+            if (Input::IsGamepadButtonPressed(GamepadButton::DPadUp, id) || y < -0.5f) held = (int)UINavDirection::Up; // stick up is -1
+            else if (Input::IsGamepadButtonPressed(GamepadButton::DPadDown, id) || y > 0.5f) held = (int)UINavDirection::Down;
+            else if (Input::IsGamepadButtonPressed(GamepadButton::DPadLeft, id) || x < -0.5f) held = (int)UINavDirection::Left;
+            else if (Input::IsGamepadButtonPressed(GamepadButton::DPadRight, id) || x > 0.5f) held = (int)UINavDirection::Right;
+        }
+        bool padMove = false;
+        if (held != m_UINavHeld)
+        {
+            m_UINavHeld = held;
+            m_UINavRepeat = 0.4f; // the first repeat waits a little longer
+            padMove = held >= 0;
+        }
+        else if (held >= 0 && (m_UINavRepeat -= dt) <= 0.0f)
+        {
+            m_UINavRepeat = 0.12f;
+            padMove = true;
+        }
+        if (editing || m_FocusedInput != entt::null)
+            return;
+        if (padMove && m_SelectedUI != entt::null)
+            MoveUISelection((UINavDirection)held, changes);
+        if ((keySubmit || padSubmit) && m_SelectedUI != entt::null && IsUISelectable({ m_SelectedUI, this }))
+        {
+            m_UISelectionHighlight = true;
+            SubmitWidget(m_SelectedUI, changes);
+        }
+        else if ((keyCancel || padCancel) && m_SelectedUI != entt::null)
+            changes.push_back({ m_SelectedUI, UIChange::Cancel });
     }
 
     // ------------------------------------------------------------------ update (every frame of the game, also while paused)
@@ -461,11 +1055,16 @@ namespace Zamin {
     {
         const float dt = std::max(0.0f, (float)ts);
         m_UITime += dt;
+        LayoutUI();
         const glm::vec2 viewport = GetViewportSize();
-        const glm::vec2 mouse = { m_MousePosition.x, viewport.y - m_MousePosition.y }; // to bottom-left origin
+        const glm::vec2 mouse = { m_MousePosition.x, viewport.y - m_MousePosition.y }; // to bottom-left origin, view px
+        // The mouse in an element's UI units.
+        auto local = [&](entt::entity e) { return mouse / GetUINode(e).Scale; };
         const bool pressedNow = m_MouseDown && !m_MouseWasDown;
         const bool released = !m_MouseDown && m_MouseWasDown;
         m_MouseWasDown = m_MouseDown;
+        if (m_UISubmitFlashTime > 0.0f && (m_UISubmitFlashTime -= dt) <= 0.0f)
+            m_UISubmitFlash = entt::null;
 
         // A widget that went inactive (or lost its component) while held down is not clicked when it comes back.
         if (m_PressedUI != entt::null && (!m_Registry.valid(m_PressedUI) || !IsActiveInHierarchy({ m_PressedUI, this })))
@@ -478,6 +1077,31 @@ namespace Zamin {
                 m_FocusedInput = entt::null;
             else if (!IsActiveInHierarchy({ m_FocusedInput, this }) || !m_Registry.get<UIInputFieldComponent>(m_FocusedInput).Interactable)
                 EndInputEdit(&changes);
+        }
+        // The selected widget went away / inactive / not interactable: nothing is selected.
+        if (m_SelectedUI != entt::null && (!m_Registry.valid(m_SelectedUI) || !IsUIWidget(m_SelectedUI) || !IsActiveInHierarchy({ m_SelectedUI, this })))
+        {
+            if (!m_Registry.valid(m_SelectedUI))
+                m_SelectedUI = entt::null;
+            else
+                SelectUI(entt::null, false, changes);
+        }
+        // SelectOnEnable: a widget that became active (the first one in scene order wins).
+        {
+            std::vector<entt::entity> enabled;
+            for (auto e : m_Registry.view<UINavigationComponent>())
+            {
+                auto& nav = m_Registry.get<UINavigationComponent>(e);
+                const bool active = IsUIWidget(e) && IsActiveInHierarchy({ e, this });
+                if (active && !nav.WasActive && nav.SelectOnEnable)
+                    enabled.push_back(e);
+                nav.WasActive = active;
+            }
+            if (!enabled.empty())
+            {
+                SortInSceneOrder(enabled);
+                SelectUI(enabled.front(), true, changes);
+            }
         }
 
         // One-frame flags and the hover state start over.
@@ -503,7 +1127,7 @@ namespace Zamin {
         }
 
         // ---- the mouse
-        const entt::entity hovered = (entt::entity)PickUI(mouse);
+        const entt::entity hovered = PickUILaidOut(mouse);
         if (hovered != entt::null)
         {
             if (auto* b = m_Registry.try_get<UIButtonComponent>(hovered); b && b->Interactable) b->Hovered = true;
@@ -511,23 +1135,50 @@ namespace Zamin {
             if (auto* t = m_Registry.try_get<UIToggleComponent>(hovered); t && t->Interactable) t->Hovered = true;
             if (auto* f = m_Registry.try_get<UIInputFieldComponent>(hovered); f && f->Interactable) f->Hovered = true;
         }
+        auto pointer = [&](UIChange kind, entt::entity e, entt::entity target, bool inside) {
+            UIChangeEvent change{ e, kind };
+            change.Target = target;
+            change.Screen = mouse;
+            change.On = inside;
+            changes.push_back(change);
+        };
+        // Enter / exit: the hovered element and its UI ancestors (exits from the deepest one up,
+        // enters from the outermost one down).
+        {
+            std::vector<entt::entity> chain;
+            for (entt::entity a = hovered; a != entt::null && chain.size() < 1024; a = GetUIParent(a))
+                chain.push_back(a);
+            auto contains = [](const std::vector<entt::entity>& v, entt::entity e) { return std::find(v.begin(), v.end(), e) != v.end(); };
+            const entt::entity previous = m_HoveredUI;
+            for (auto e : m_UIHoverChain)
+                if (!contains(chain, e) && m_Registry.valid(e))
+                    pointer(UIChange::PointerExit, e, previous, false);
+            for (auto it = chain.rbegin(); it != chain.rend(); ++it)
+                if (!contains(m_UIHoverChain, *it))
+                    pointer(UIChange::PointerEnter, *it, hovered, true);
+            m_UIHoverChain = std::move(chain);
+            m_HoveredUI = hovered;
+        }
 
         auto sliderFollowMouse = [&](entt::entity e) {
             auto& s = m_Registry.get<UISliderComponent>(e);
-            const UIRect rect = ComputeUIRect(m_Registry.get<UITransformComponent>(e), viewport);
-            const float t = UIMath::SliderNormalizedAt(rect, s.Direction, s.HandleSize, mouse);
+            const float t = UIMath::SliderNormalizedAt(GetUINode(e).Rect, s.Direction, s.HandleSize, local(e));
             const float value = UIMath::Denormalize(t, s.MinValue, s.MaxValue, s.WholeNumbers);
             if (value != s.Value)
             {
                 s.Value = value;
                 s.ValueChanged = true;
-                changes.push_back({ e, UIChange::Slider, value, false, {} });
+                changes.push_back({ e, UIChange::Slider, value });
             }
         };
 
         if (pressedNow)
         {
             m_PressedUI = hovered;
+            if (hovered != entt::null)
+                pointer(UIChange::PointerDown, hovered, hovered, true);
+            // A press selects the widget under it (no highlight: that is for keys), elsewhere nothing.
+            SelectUI(hovered != entt::null && IsUIWidget(hovered) ? hovered : entt::null, false, changes);
             // A press anywhere but on the field being edited ends its editing.
             if (m_FocusedInput != entt::null && hovered != m_FocusedInput)
                 EndInputEdit(&changes);
@@ -551,7 +1202,7 @@ namespace Zamin {
                     else if (!(focusing && f->SelectAllOnFocus))
                     {
                         const auto& t = m_Registry.get<UITransformComponent>(hovered);
-                        f->Caret = f->Anchor = InputCaretAt(*f, t, ComputeUIRect(t, viewport), mouse);
+                        f->Caret = f->Anchor = InputCaretAt(*f, t, GetUINode(hovered).Rect, local(hovered));
                         f->Selecting = true;
                     }
                     f->BlinkTime = 0.0f;
@@ -571,11 +1222,19 @@ namespace Zamin {
             if (auto* f = m_Registry.try_get<UIInputFieldComponent>(m_PressedUI); f && f->Selecting && m_FocusedInput == m_PressedUI && !pressedNow)
             {
                 const auto& t = m_Registry.get<UITransformComponent>(m_PressedUI);
-                f->Caret = InputCaretAt(*f, t, ComputeUIRect(t, viewport), mouse);
+                f->Caret = InputCaretAt(*f, t, GetUINode(m_PressedUI).Rect, local(m_PressedUI));
                 ScrollInputField(m_PressedUI);
             }
         }
 
+        // Up (where the press went down; inside: a click of it).
+        if (released && m_PressedUI != entt::null && m_Registry.valid(m_PressedUI))
+        {
+            const bool inside = hovered == m_PressedUI;
+            pointer(UIChange::PointerUp, m_PressedUI, hovered, inside);
+            if (inside)
+                pointer(UIChange::PointerClick, m_PressedUI, hovered, true);
+        }
         std::vector<entt::entity> clicked;
         for (auto e : m_Registry.view<UIButtonComponent>())
         {
@@ -587,6 +1246,8 @@ namespace Zamin {
                 clicked.push_back(e);
             }
         }
+        for (auto e : clicked)
+            changes.push_back({ e, UIChange::Click });
         for (auto e : m_Registry.view<UISliderComponent>())
         {
             auto& s = m_Registry.get<UISliderComponent>(e);
@@ -616,9 +1277,13 @@ namespace Zamin {
             m_PressedUI = entt::null;
         }
 
-        // ---- the keyboard
+        // ---- the keyboard: the input field being edited, then navigation (which sees the field as
+        // it was before this frame's keys: the Enter that submitted it does not start it again).
+        const bool editedBefore = m_FocusedInput != entt::null;
         if (m_FocusedInput != entt::null && m_UIKeyboardEnabled)
             ProcessTextInput(m_FocusedInput, changes);
+        if (m_UINavigationEnabled)
+            ProcessUINavigation(dt, editedBefore, changes);
 
         // ---- what animates by itself (the UI's own time: it goes on while the game is paused)
         if (m_FocusedInput != entt::null)
@@ -642,12 +1307,7 @@ namespace Zamin {
             }
         }
 
-        // ---- the scripts hear of it: clicks first, then the changes in the order they happened
-        if (m_ScriptsRunning)
-            for (auto e : clicked)
-                if (m_Registry.valid(e) && IsActiveInHierarchy({ e, this })) // still active after earlier OnClicks
-                    if (auto* nsc = m_Registry.try_get<NativeScriptComponent>(e); nsc && nsc->Instance)
-                        nsc->Instance->OnClick();
+        // ---- the scripts hear of it, in the order it happened
         DeliverUIChanges(changes);
     }
 
@@ -821,7 +1481,7 @@ namespace Zamin {
         }
     }
 
-    static void DrawUISlider(const UISliderComponent& s, const UIRect& rect, const glm::vec4& tint, int id)
+    static void DrawUISlider(const UISliderComponent& s, const UIRect& rect, bool selected, const glm::vec4& tint, int id)
     {
         const bool horizontal = UIMath::IsHorizontal(s.Direction);
         const float thicknessOfRect = horizontal ? rect.GetHeight() : rect.GetWidth();
@@ -846,7 +1506,7 @@ namespace Zamin {
 
         glm::vec4 handleColor = s.HandleColor;
         if (s.Interactable)
-            handleColor = s.Dragging ? Darken(handleColor, 0.15f) : s.Hovered ? Lighten(handleColor, 0.25f) : handleColor;
+            handleColor = s.Dragging ? Darken(handleColor, 0.15f) : (s.Hovered || selected) ? Lighten(handleColor, 0.25f) : handleColor;
         if (s.Rounded)
         {
             // A soft shadow ring under the knob, then the knob.
@@ -860,7 +1520,7 @@ namespace Zamin {
         }
     }
 
-    static void DrawUIToggle(const UIToggleComponent& t, const UIRect& rect, bool running, const glm::vec4& tint, int id)
+    static void DrawUIToggle(const UIToggleComponent& t, const UIRect& rect, bool running, bool selected, const glm::vec4& tint, int id)
     {
         const UIRect box = UIMath::GetToggleBox(rect, t.BoxSize, t.Style);
         if (box.IsEmpty())
@@ -871,7 +1531,7 @@ namespace Zamin {
             boxColor = Disabled(boxColor);
         else if (t.Pressed)
             boxColor = Darken(boxColor, 0.15f);
-        else if (t.Hovered)
+        else if (t.Hovered || selected)
             boxColor = Lighten(boxColor, 0.15f);
         boxColor *= tint;
         const glm::vec4 markColor = (t.Interactable ? t.MarkColor : Disabled(t.MarkColor)) * tint;
@@ -928,7 +1588,7 @@ namespace Zamin {
             }
     }
 
-    static void DrawUIInputField(UIInputFieldComponent& f, const UITransformComponent& t, const UIRect& rect, const glm::vec2& viewport,
+    static void DrawUIInputField(UIInputFieldComponent& f, const UITransformComponent& t, const UIRect& rect, const glm::vec2& canvas,
                                  const glm::vec4& tint, int id)
     {
         if (!f.FontAsset)
@@ -960,7 +1620,7 @@ namespace Zamin {
         const float top = baseline + font->GetAscent() * px, bottom = baseline + font->GetDescent() * px;
 
         // Only inside the field (a long text scrolls under its edges).
-        const glm::vec2 v = glm::max(viewport, glm::vec2(1.0f));
+        const glm::vec2 v = glm::max(canvas, glm::vec2(1.0f)); // the canvas's size in UI units: the clip is 0..1 of the view
         const UIRect clip = area.Inset(-1.0f, -1.0f, 0.0f, 0.0f).Intersect(rect);
         Renderer2D::SetClipRect(true, clip.Min / v, clip.Max / v);
 
@@ -991,28 +1651,49 @@ namespace Zamin {
     // ------------------------------------------------------------------ the UI pass
     void Scene::RenderUI(const std::unordered_set<entt::entity>* skip)
     {
-        // ---------------- screen-space UI (pixels, bottom-left origin)
+        // ---------------- screen-space UI (UI units, bottom-left origin; a canvas scales them to px)
         auto uiView = m_Registry.view<UITransformComponent>();
         if (uiView.empty() || m_ViewportWidth == 0 || m_ViewportHeight == 0)
             return;
-        glm::vec2 viewport = GetViewportSize();
+        const glm::vec2 viewport = GetViewportSize();
+        LayoutUI();
         std::vector<entt::entity> ui = GetUIDrawOrder(skip);
         const AssetRegistry* registry = Project::GetActive() ? Project::GetAssetRegistry() : nullptr;
 
         RenderCommand::SetDepthTest(false);
         Renderer2D::SetLit(false);
-        Renderer2D::BeginScene(glm::ortho(0.0f, viewport.x, 0.0f, viewport.y, -1.0f, 1.0f));
+        // One projection per canvas scale: the view is viewport / scale UI units big.
+        float currentScale = 0.0f;
+        glm::vec2 canvas = viewport;
+        auto useScale = [&](float scale) {
+            if (scale == currentScale)
+                return;
+            if (currentScale > 0.0f)
+                Renderer2D::EndScene();
+            currentScale = scale;
+            canvas = viewport / scale;
+            Renderer2D::BeginScene(glm::ortho(0.0f, canvas.x, 0.0f, canvas.y, -1.0f, 1.0f));
+        };
+        useScale(1.0f);
+        const bool highlight = IsUISelectionHighlighted();
         for (auto e : ui)
         {
             const auto& t = m_Registry.get<UITransformComponent>(e);
-            glm::vec2 center = UICenter(t, viewport);
-            const UIRect uiRect = ComputeUIRect(t, viewport);
+            const UILayoutNode& node = GetUINode(e);
+            useScale(node.Scale);
+            const UIRect uiRect = node.Rect;
+            const glm::vec2 center = uiRect.GetCenter(), uiSize = uiRect.GetSize();
             int id = (int)(uint32_t)e;
-            glm::mat4 rect = glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(t.Size, 1.0f));
+            glm::mat4 rect = glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(uiSize, 1.0f));
+            // Selected by keyboard / gamepad: it looks hovered (and gets an outline at the end).
+            const bool selected = highlight && e == m_SelectedUI;
 
             glm::vec4 tint(1.0f);
             if (auto* b = m_Registry.try_get<UIButtonComponent>(e))
-                tint = !b->Interactable ? glm::vec4(0.5f, 0.5f, 0.5f, 1.0f) : b->Pressed ? b->PressedColor : b->Hovered ? b->HoverColor : b->NormalColor;
+            {
+                const bool pressed = b->Pressed || (e == m_UISubmitFlash && m_UISubmitFlashTime > 0.0f);
+                tint = !b->Interactable ? glm::vec4(0.5f, 0.5f, 0.5f, 1.0f) : pressed ? b->PressedColor : (b->Hovered || selected) ? b->HoverColor : b->NormalColor;
+            }
             // A tint animation colours all of it (the button's own colours included).
             const glm::vec4 animated = m_Registry.all_of<TintAnimationComponent>(e) ? m_Registry.get<TintAnimationComponent>(e).GetColor() : glm::vec4(1.0f);
             tint *= animated;
@@ -1024,8 +1705,8 @@ namespace Zamin {
                 const AssetRegistry* sheets = !s->SpriteName.empty() ? registry : nullptr;
                 if (s->DrawMode == SpriteDrawMode::Simple)
                     DrawSprite(rect, *s, nullptr, c, id, sheets);
-                else // 9-slice / tiled panels: borders in screen px
-                    DrawSprite(glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)), *s, nullptr, c, id, sheets, &t.Size);
+                else // 9-slice / tiled panels: borders in UI units
+                    DrawSprite(glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)), *s, nullptr, c, id, sheets, &uiSize);
             }
             else if (m_Registry.all_of<UIButtonComponent>(e) && !image)
                 Renderer2D::DrawQuad(rect, tint, id);
@@ -1039,12 +1720,12 @@ namespace Zamin {
             if (auto* p = m_Registry.try_get<UIProgressBarComponent>(e))
                 DrawUIProgressBar(*p, t, uiRect, m_IsRunning, animated, id);
             if (auto* s = m_Registry.try_get<UISliderComponent>(e))
-                DrawUISlider(*s, uiRect, animated, id);
+                DrawUISlider(*s, uiRect, selected, animated, id);
             auto* toggle = m_Registry.try_get<UIToggleComponent>(e);
             if (toggle)
-                DrawUIToggle(*toggle, uiRect, m_IsRunning, animated, id);
+                DrawUIToggle(*toggle, uiRect, m_IsRunning, selected, animated, id);
             if (auto* f = m_Registry.try_get<UIInputFieldComponent>(e))
-                DrawUIInputField(*f, t, uiRect, viewport, animated, id);
+                DrawUIInputField(*f, t, uiRect, canvas, animated, id);
 
             if (auto* text = m_Registry.try_get<TextComponent>(e))
             {
@@ -1052,9 +1733,9 @@ namespace Zamin {
                 Renderer2D::TextParams params{ text->Color * animated, text->Kerning, text->LineSpacing };
                 // A toggle's label goes right of its box.
                 UIRect textRect = toggle ? UIMath::GetToggleLabel(uiRect, toggle->BoxSize, toggle->Style, toggle->LabelSpacing) : uiRect;
-                const glm::vec2 textCenter = toggle ? textRect.GetCenter() : center;
-                const float textWidth = toggle ? textRect.GetWidth() : t.Size.x;
-                float scale = std::max(1.0f, t.FontSize > 0.0f ? t.FontSize : toggle ? uiRect.GetHeight() * 0.55f : t.Size.y);
+                const glm::vec2 textCenter = textRect.GetCenter();
+                const float textWidth = textRect.GetWidth();
+                float scale = std::max(1.0f, t.FontSize > 0.0f ? t.FontSize : toggle ? uiRect.GetHeight() * 0.55f : uiSize.y);
                 glm::mat4 tm = glm::translate(glm::mat4(1.0f), glm::vec3(textCenter, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(scale, scale, 1.0f));
                 glm::vec2 size = Renderer2D::MeasureString(text->Text, text->FontAsset, params);
                 float asc = text->FontAsset ? text->FontAsset->GetAscent() : 0.8f;
@@ -1062,6 +1743,22 @@ namespace Zamin {
                 float x = text->Centered ? -size.x * 0.5f : -textWidth * 0.5f / scale;
                 tm = tm * glm::translate(glm::mat4(1.0f), { x, size.y * 0.5f - asc, 0.0f });
                 Renderer2D::DrawString(text->Text, text->FontAsset, tm, params, id);
+            }
+        }
+
+        // The keyboard / gamepad selection's outline, over everything.
+        if (highlight && m_Registry.valid(m_SelectedUI) && m_UILayout.contains(m_SelectedUI) && (!skip || !skip->contains(m_SelectedUI)) &&
+            IsActiveInHierarchy({ m_SelectedUI, this }))
+        {
+            const auto* nav = m_Registry.try_get<UINavigationComponent>(m_SelectedUI);
+            if (!nav || nav->ShowHighlight)
+            {
+                const UILayoutNode& node = GetUINode(m_SelectedUI);
+                useScale(node.Scale);
+                const glm::vec4 color = nav ? nav->HighlightColor : UINavigationComponent{}.HighlightColor;
+                // Pulses softly so it is noticed.
+                const float pulse = 0.75f + 0.25f * std::cos(m_UITime * 5.0f);
+                DrawRectOutline(node.Rect.Inset(-4.0f), 3.0f, glm::vec4(glm::vec3(color), color.a * pulse), (int)(uint32_t)m_SelectedUI);
             }
         }
         Renderer2D::EndScene();

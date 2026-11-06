@@ -7,6 +7,7 @@
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Math/Random.h"
 #include "Zamin/Scripting/EventBus.h"
+#include "Zamin/UI/UIEvents.h"
 
 #include <any>
 #include <cstdint>
@@ -112,8 +113,30 @@ namespace Zamin {
         virtual void OnJointBreak(const JointBreak2D& /*joint*/) {}
         // A 3D joint of this entity broke (after the physics step; also reaches disabled scripts).
         virtual void OnJointBreak3D(const JointBreak3D& /*joint*/) {}
-        // Called when a UIButton on this entity is clicked.
+        // Called when a UIButton on this entity is clicked (by the mouse, or Enter / gamepad A while
+        // it is selected).
         virtual void OnClick() {}
+        // The mouse and this UI entity (one that takes the mouse: an interactable widget or a UI
+        // Image that is a raycast target - the topmost one under the mouse):
+        // - OnPointerEnter / OnPointerExit: the mouse came onto it / left it - also for a parent UI
+        //   entity while the mouse is over one of its children (event.Target: that child);
+        // - OnPointerDown: the left button went down on it; OnPointerUp: it came up again (anywhere;
+        //   event.Inside: over this entity) - then OnPointerClick when it was over it.
+        // Order in a frame: exits, enters, down, up, click, OnClick, value changes. Also emitted on
+        // the scene's event bus: "UIPointerEnter" / "UIPointerExit" / "UIPointerDown" / "UIPointerUp" /
+        // "UIPointerClick" (payload UIPointerEvent, sender: the entity).
+        //   void OnPointerEnter(const UIPointerEvent&) override { TweenColor({ 1.0f, 0.9f, 0.5f, 1.0f }, 0.1f); }
+        virtual void OnPointerEnter(const UIPointerEvent& /*event*/) {}
+        virtual void OnPointerExit(const UIPointerEvent& /*event*/) {}
+        virtual void OnPointerDown(const UIPointerEvent& /*event*/) {}
+        virtual void OnPointerUp(const UIPointerEvent& /*event*/) {}
+        virtual void OnPointerClick(const UIPointerEvent& /*event*/) {}
+        // Keyboard / gamepad navigation (Scene::SetSelectedUI, UINavigationComponent): this widget
+        // became the selected one / stopped being it; Escape / gamepad B while it is selected.
+        // Bus: "UISelected", "UIDeselected", "UICancel" (sender: the widget).
+        virtual void OnSelect() {}
+        virtual void OnDeselect() {}
+        virtual void OnCancel() {}
         // UI widgets on this entity, after the player changed them (not when code sets their fields;
         // Scene::SetSliderValue / SetToggle / SetInputText notify unless told not to). Each is also
         // emitted on the scene's event bus with the widget as the sender:

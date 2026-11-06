@@ -154,6 +154,11 @@ namespace Zamin {
     static const char* const s_UIToggleStyles[] = { "Checkbox", "Switch" };
     static const char* const s_UIToggleMarks[] = { "Check", "Square", "Dot" };
     static const char* const s_UIContentTypes[] = { "Standard", "Integer", "Decimal", "Alphanumeric", "Password" };
+    static const char* const s_UIScaleModes[] = { "ConstantPixelSize", "ScaleWithScreenSize" };
+    static const char* const s_UIScreenMatchModes[] = { "MatchWidthOrHeight", "Expand", "Shrink" };
+    static const char* const s_UILayoutTypes[] = { "Horizontal", "Vertical", "Grid" };
+    static const char* const s_UIGridConstraints[] = { "Flexible", "FixedColumnCount", "FixedRowCount" };
+    static const char* const s_UINavigationModes[] = { "Automatic", "Horizontal", "Vertical", "Explicit", "None" };
 
     template<typename E, size_t N>
     static const char* EnumName(E value, const char* const (&names)[N])
@@ -743,10 +748,53 @@ namespace Zamin {
             WriteSortingLayer(e["ParticleSystem"], c->SortingLayer);
         }
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
-            e["UITransform"] = { { "Anchor", (int)c->Anchor }, { "Position", ToJson(c->Position) }, { "Size", ToJson(c->Size) }, { "FontSize", c->FontSize }, { "Order", c->Order } };
+            e["UITransform"] = { { "AnchorMin", ToJson(c->AnchorMin) }, { "AnchorMax", ToJson(c->AnchorMax) }, { "Pivot", ToJson(c->Pivot) },
+                                 { "Position", ToJson(c->Position) }, { "Size", ToJson(c->Size) }, { "FontSize", c->FontSize }, { "Order", c->Order } };
+        if (auto* c = entity.TryGetComponent<UICanvasComponent>())
+            e["UICanvas"] = { { "ScaleMode", EnumName(c->ScaleMode, s_UIScaleModes) }, { "ScaleFactor", c->ScaleFactor },
+                              { "ReferenceResolution", ToJson(c->ReferenceResolution) }, { "MatchMode", EnumName(c->MatchMode, s_UIScreenMatchModes) },
+                              { "Match", c->MatchWidthOrHeight } };
+        if (auto* c = entity.TryGetComponent<UILayoutGroupComponent>())
+        {
+            json& j = e["UILayoutGroup"];
+            j = { { "Type", EnumName(c->Type, s_UILayoutTypes) }, { "Padding", ToJson(c->Padding) }, { "Alignment", c->ChildAlignment },
+                  { "FitWidth", c->FitWidth }, { "FitHeight", c->FitHeight } };
+            if (c->Type == UILayoutType::Grid)
+            {
+                j["CellSize"] = ToJson(c->CellSize);
+                j["GridSpacing"] = ToJson(c->GridSpacing);
+                j["StartCorner"] = c->StartCorner;
+                j["StartAxisVertical"] = c->StartAxisVertical;
+                j["Constraint"] = EnumName(c->Constraint, s_UIGridConstraints);
+                j["ConstraintCount"] = c->ConstraintCount;
+            }
+            else
+            {
+                j["Spacing"] = c->Spacing;
+                j["Reverse"] = c->ReverseArrangement;
+                j["ControlWidth"] = c->ControlChildWidth;
+                j["ControlHeight"] = c->ControlChildHeight;
+                j["ExpandWidth"] = c->ChildForceExpandWidth;
+                j["ExpandHeight"] = c->ChildForceExpandHeight;
+            }
+        }
+        if (auto* c = entity.TryGetComponent<UILayoutElementComponent>())
+            e["UILayoutElement"] = { { "IgnoreLayout", c->IgnoreLayout }, { "Min", ToJson(c->MinSize) }, { "Preferred", ToJson(c->PreferredSize) },
+                                     { "Flexible", ToJson(c->FlexibleSize) } };
+        if (auto* c = entity.TryGetComponent<UINavigationComponent>())
+            e["UINavigation"] = { { "Mode", EnumName(c->NavigationMode, s_UINavigationModes) }, { "Up", c->Up.ID }, { "Down", c->Down.ID },
+                                  { "Left", c->Left.ID }, { "Right", c->Right.ID }, { "SelectOnEnable", c->SelectOnEnable },
+                                  { "ShowHighlight", c->ShowHighlight }, { "HighlightColor", ToJson(c->HighlightColor) } };
         if (auto* c = entity.TryGetComponent<UIButtonComponent>())
+        {
             e["UIButton"] = { { "Normal", ToJson(c->NormalColor) }, { "Hover", ToJson(c->HoverColor) }, { "Pressed", ToJson(c->PressedColor) },
                               { "Interactable", c->Interactable } };
+            if (!c->ClickMessage.empty())
+            {
+                e["UIButton"]["ClickMessage"] = c->ClickMessage;
+                e["UIButton"]["ClickTarget"] = c->ClickTarget.ID;
+            }
+        }
         if (auto* c = entity.TryGetComponent<UIImageComponent>())
         {
             json& j = e["UIImage"];
@@ -1574,11 +1622,77 @@ namespace Zamin {
         {
             const json& j = e["UITransform"];
             auto& c = entity.AddComponent<UITransformComponent>();
-            c.Anchor = (UITransformComponent::AnchorPoint)j.value("Anchor", 0);
+            if (j.contains("AnchorMin") || j.contains("AnchorMax"))
+            {
+                c.AnchorMin = glm::clamp(Vec(j, "AnchorMin", c.AnchorMin), glm::vec2(0.0f), glm::vec2(1.0f));
+                c.AnchorMax = glm::clamp(Vec(j, "AnchorMax", c.AnchorMin), glm::vec2(0.0f), glm::vec2(1.0f));
+                c.Pivot = Vec(j, "Pivot", c.Pivot);
+            }
+            else
+            {
+                // Older scenes: one of 9 anchor points, the position of the rect's centre from it.
+                c.SetAnchor((UITransformComponent::AnchorPoint)std::clamp(j.value("Anchor", 0), 0, 8));
+                c.Pivot = { 0.5f, 0.5f };
+            }
             c.Position = Vec(j, "Position", c.Position);
             c.Size = Vec(j, "Size", c.Size);
             c.FontSize = j.value("FontSize", 0.0f);
             c.Order = j.value("Order", 0);
+        }
+        if (e.contains("UICanvas"))
+        {
+            const json& j = e["UICanvas"];
+            auto& c = entity.AddComponent<UICanvasComponent>();
+            c.ScaleMode = EnumFromJson(j, "ScaleMode", s_UIScaleModes, UIScaleMode::ScaleWithScreenSize);
+            c.ScaleFactor = std::max(0.01f, j.value("ScaleFactor", 1.0f));
+            c.ReferenceResolution = glm::max(Vec(j, "ReferenceResolution", c.ReferenceResolution), glm::vec2(1.0f));
+            c.MatchMode = EnumFromJson(j, "MatchMode", s_UIScreenMatchModes, UIScreenMatchMode::MatchWidthOrHeight);
+            c.MatchWidthOrHeight = std::clamp(j.value("Match", 0.5f), 0.0f, 1.0f);
+        }
+        if (e.contains("UILayoutGroup"))
+        {
+            const json& j = e["UILayoutGroup"];
+            auto& c = entity.AddComponent<UILayoutGroupComponent>();
+            c.Type = EnumFromJson(j, "Type", s_UILayoutTypes, UILayoutType::Vertical);
+            c.Padding = Vec(j, "Padding", c.Padding);
+            c.ChildAlignment = std::clamp(j.value("Alignment", 0), 0, 8);
+            c.FitWidth = j.value("FitWidth", false);
+            c.FitHeight = j.value("FitHeight", false);
+            c.Spacing = j.value("Spacing", c.Spacing);
+            c.ReverseArrangement = j.value("Reverse", false);
+            c.ControlChildWidth = j.value("ControlWidth", false);
+            c.ControlChildHeight = j.value("ControlHeight", false);
+            c.ChildForceExpandWidth = j.value("ExpandWidth", false);
+            c.ChildForceExpandHeight = j.value("ExpandHeight", false);
+            c.CellSize = glm::max(Vec(j, "CellSize", c.CellSize), glm::vec2(0.0f));
+            c.GridSpacing = Vec(j, "GridSpacing", c.GridSpacing);
+            c.StartCorner = std::clamp(j.value("StartCorner", 0), 0, 3);
+            c.StartAxisVertical = j.value("StartAxisVertical", false);
+            c.Constraint = EnumFromJson(j, "Constraint", s_UIGridConstraints, UIGridConstraint::Flexible);
+            c.ConstraintCount = std::max(1, j.value("ConstraintCount", 2));
+        }
+        if (e.contains("UILayoutElement"))
+        {
+            const json& j = e["UILayoutElement"];
+            auto& c = entity.AddComponent<UILayoutElementComponent>();
+            c.IgnoreLayout = j.value("IgnoreLayout", false);
+            c.MinSize = Vec(j, "Min", c.MinSize);
+            c.PreferredSize = Vec(j, "Preferred", c.PreferredSize);
+            c.FlexibleSize = Vec(j, "Flexible", c.FlexibleSize);
+        }
+        if (e.contains("UINavigation"))
+        {
+            const json& j = e["UINavigation"];
+            auto& c = entity.AddComponent<UINavigationComponent>();
+            auto ref = [&](const char* key) { return EntityRef{ j.contains(key) && j[key].is_number_unsigned() ? j[key].get<uint64_t>() : 0 }; };
+            c.NavigationMode = EnumFromJson(j, "Mode", s_UINavigationModes, UINavigationComponent::Mode::Automatic);
+            c.Up = ref("Up");
+            c.Down = ref("Down");
+            c.Left = ref("Left");
+            c.Right = ref("Right");
+            c.SelectOnEnable = j.value("SelectOnEnable", false);
+            c.ShowHighlight = j.value("ShowHighlight", true);
+            c.HighlightColor = Vec(j, "HighlightColor", c.HighlightColor);
         }
         if (e.contains("UIButton"))
         {
@@ -1588,6 +1702,8 @@ namespace Zamin {
             c.HoverColor = Vec(j, "Hover", c.HoverColor);
             c.PressedColor = Vec(j, "Pressed", c.PressedColor);
             c.Interactable = j.value("Interactable", true);
+            c.ClickMessage = j.value("ClickMessage", std::string());
+            c.ClickTarget.ID = j.contains("ClickTarget") && j["ClickTarget"].is_number_unsigned() ? j["ClickTarget"].get<uint64_t>() : 0;
         }
         if (e.contains("UIImage"))
         {

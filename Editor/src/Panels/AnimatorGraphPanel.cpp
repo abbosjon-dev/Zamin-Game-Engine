@@ -690,14 +690,6 @@ namespace Zamin {
     {
         bool changed = false;
         const bool live = !m_Editable;
-        if (ImGui::CollapsingHeader(live ? ICON_FA_SLIDERS "  Parametrlar (jonli)" : ICON_FA_SLIDERS "  Parametrlar", ImGuiTreeNodeFlags_DefaultOpen))
-            changed |= AnimatorEditing::DrawParameters(c, live);
-
-        if (c.UsesStateMachine() && ImGui::CollapsingHeader(live ? ICON_FA_PLAY "  Holat (jonli)" : ICON_FA_EYE "  Holat (ko'rib chiqish)",
-                                                            ImGuiTreeNodeFlags_DefaultOpen))
-            AnimatorEditing::DrawLiveStatus(c, model, false);
-
-        ImGui::Spacing();
         switch (m_Selection.Type)
         {
             case Kind::State:
@@ -762,6 +754,13 @@ namespace Zamin {
                 ImGui::PopTextWrapPos();
                 break;
         }
+        // The parameters and the live state below what is selected.
+        ImGui::Spacing();
+        if (ImGui::CollapsingHeader(live ? ICON_FA_SLIDERS "  Parametrlar (jonli)" : ICON_FA_SLIDERS "  Parametrlar", ImGuiTreeNodeFlags_DefaultOpen))
+            changed |= AnimatorEditing::DrawParameters(c, live);
+        if (c.UsesStateMachine() && ImGui::CollapsingHeader(live ? ICON_FA_PLAY "  Holat (jonli)" : ICON_FA_EYE "  Holat (ko'rib chiqish)",
+                                                            ImGuiTreeNodeFlags_DefaultOpen))
+            AnimatorEditing::DrawLiveStatus(c, model, false);
         if (changed)
         {
             if (m_Editable)

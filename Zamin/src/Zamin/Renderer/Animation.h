@@ -74,6 +74,42 @@ namespace Zamin {
     // added on (at most 8 cycles: a hitch); not looping: clamped to the clip.
     RootMotion ExtractRootMotion(const Skeleton& skeleton, const AnimationClip& clip, int joint, float from, float to, bool loop);
 
+    // ---- poses as joint-local transforms: blend trees and layers mix these, then compose them
+    struct LocalPose
+    {
+        std::vector<glm::vec3> T, S;
+        std::vector<glm::quat> R;
+        size_t Size() const { return T.size(); }
+    };
+
+    // The pose of `clip` at `time` seconds as joint-local transforms (the rest values where the
+    // clip has no channel; no clip: the rest pose). rootMotionJoint >= 0: that joint's walk and
+    // turn are taken out, as EvaluatePose does.
+    void SampleLocalPose(const Skeleton& skeleton, const AnimationClip* clip, float time, LocalPose& out, int rootMotionJoint = -1);
+    // `pose` moved toward `other` by `weight` (0 = pose, 1 = other): positions and scales mixed,
+    // rotations along the shortest arc. mask (one value per joint, 0..1): each joint's weight is
+    // weight x its mask value (avatar masks).
+    void BlendLocalPose(LocalPose& pose, const LocalPose& other, float weight, const std::vector<float>* mask = nullptr);
+    // Additive: what `other` changes relative to `reference` (the same clip at its start) is added
+    // onto `pose`, scaled by weight (and the mask): moves add, turns are applied on top, scales multiply.
+    void AddLocalPose(LocalPose& pose, const LocalPose& other, const LocalPose& reference, float weight,
+                      const std::vector<float>* mask = nullptr);
+    // Skinning matrices (global x inverse bind) of a local pose.
+    void ComposeJointMatrices(const Skeleton& skeleton, const LocalPose& pose, std::vector<glm::mat4>& outJointMatrices);
+
+    // ---- 1D blend trees
+    // The weights of motions placed at `thresholds` (in any order) for the parameter `value`: the
+    // two nearest on either side share it linearly; at or below the lowest / at or above the
+    // highest that one alone has it. They add up to 1 (an empty list: none). Equal thresholds: the
+    // first of them.
+    void ComputeBlend1DWeights(const std::vector<float>& thresholds, float value, std::vector<float>& outWeights);
+
+    // ---- avatar masks
+    // 1 for each named joint and every joint below it, 0 for the others (one value per joint).
+    // No names: the whole skeleton (all 1). Names the skeleton does not have are skipped (only
+    // unknown names: all 0). Returns how many joints are in the mask.
+    size_t BuildJointMask(const Skeleton& skeleton, const std::vector<std::string>& roots, std::vector<float>& outMask);
+
     // Where the joints of a pose are: each joint's global transform in the model's space (the
     // space the skinned mesh is drawn in, before the entity's transform), from the skinning
     // matrices EvaluatePose made (joint matrix x inverse bind). `jointMatrices` that do not fit

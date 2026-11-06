@@ -947,8 +947,10 @@ namespace Zamin {
             AnimationEvent Event;
             std::string Clip;
         };
-        void CollectAnimatorEvents(Entity entity, struct AnimatorComponent& anim, const AnimationClip& clip, float localTime, float delta,
-                                   std::vector<PendingAnimationEvent>& out);
+        // The Animator events of `clip` passed by playing it `delta` seconds from `localTime`.
+        // anyClipEvents: also the events for every clip (Clip ""; the base animation, not layers).
+        void CollectAnimatorEvents(Entity entity, const struct AnimatorComponent& anim, const AnimationClip& clip, float localTime, float delta,
+                                   bool loop, bool& atStart, bool anyClipEvents, std::vector<PendingAnimationEvent>& out);
         void ApplyRootMotion(Entity entity, struct AnimatorComponent& anim, const RootMotion& motion, float ts);
         // Tells the entity's script (OnAnimationEvent) and the event bus ("AnimationEvent").
         void FireAnimationEvent(Entity entity, const AnimationEvent& event, const std::string& clip, bool skeletal);

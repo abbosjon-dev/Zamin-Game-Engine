@@ -32,12 +32,6 @@ namespace Zamin {
         return glm::mix(c.Values[a], c.Values[b], f);
     }
 
-    struct LocalPose
-    {
-        std::vector<glm::vec3> T, S;
-        std::vector<glm::quat> R;
-    };
-
     // ---- root motion: where the joint is / which way it faces in the model space
     static float WrapAngle(float a)
     {
@@ -178,6 +172,125 @@ namespace Zamin {
             global[i] = (p >= 0 ? global[p] : skeleton.RootTransform) * local;
             out[i] = global[i] * skeleton.Joints[i].InverseBind;
         }
+    }
+
+    void SampleLocalPose(const Skeleton& skeleton, const AnimationClip* clip, float time, LocalPose& out, int rootMotionJoint)
+    {
+        SamplePose(skeleton, clip, time, out);
+        if (rootMotionJoint >= 0 && rootMotionJoint < (int)out.T.size())
+            StripRootMotion(skeleton, clip, rootMotionJoint, out.T[rootMotionJoint], out.R[rootMotionJoint]);
+    }
+
+    void BlendLocalPose(LocalPose& pose, const LocalPose& other, float weight, const std::vector<float>* mask)
+    {
+        weight = std::clamp(weight, 0.0f, 1.0f);
+        if (weight <= 0.0f)
+            return;
+        const size_t n = std::min(pose.T.size(), other.T.size());
+        for (size_t i = 0; i < n; i++)
+        {
+            float w = weight;
+            if (mask)
+                w *= i < mask->size() ? std::clamp((*mask)[i], 0.0f, 1.0f) : 0.0f;
+            if (w <= 0.0f)
+                continue;
+            pose.T[i] = glm::mix(pose.T[i], other.T[i], w);
+            pose.S[i] = glm::mix(pose.S[i], other.S[i], w);
+            glm::quat q = glm::dot(pose.R[i], other.R[i]) < 0.0f ? -other.R[i] : other.R[i];
+            pose.R[i] = glm::normalize(glm::slerp(pose.R[i], q, w));
+        }
+    }
+
+    void AddLocalPose(LocalPose& pose, const LocalPose& other, const LocalPose& reference, float weight, const std::vector<float>* mask)
+    {
+        weight = std::clamp(weight, 0.0f, 1.0f);
+        if (weight <= 0.0f)
+            return;
+        const size_t n = std::min({ pose.T.size(), other.T.size(), reference.T.size() });
+        const glm::quat identity(1.0f, 0.0f, 0.0f, 0.0f);
+        for (size_t i = 0; i < n; i++)
+        {
+            float w = weight;
+            if (mask)
+                w *= i < mask->size() ? std::clamp((*mask)[i], 0.0f, 1.0f) : 0.0f;
+            if (w <= 0.0f)
+                continue;
+            pose.T[i] += (other.T[i] - reference.T[i]) * w;
+            glm::vec3 ratio(1.0f);
+            for (int c = 0; c < 3; c++)
+                if (std::abs(reference.S[i][c]) > 1e-6f)
+                    ratio[c] = other.S[i][c] / reference.S[i][c];
+            pose.S[i] *= glm::mix(glm::vec3(1.0f), ratio, w);
+            glm::quat delta = glm::normalize(other.R[i] * glm::inverse(reference.R[i]));
+            if (delta.w < 0.0f)
+                delta = -delta;
+            pose.R[i] = glm::normalize(glm::slerp(identity, delta, w) * pose.R[i]);
+        }
+    }
+
+    void ComposeJointMatrices(const Skeleton& skeleton, const LocalPose& pose, std::vector<glm::mat4>& out)
+    {
+        if (pose.T.size() != skeleton.Joints.size())
+        {
+            LocalPose rest;
+            SamplePose(skeleton, nullptr, 0.0f, rest);
+            ComposePose(skeleton, rest, out);
+            return;
+        }
+        ComposePose(skeleton, pose, out);
+    }
+
+    void ComputeBlend1DWeights(const std::vector<float>& thresholds, float value, std::vector<float>& out)
+    {
+        const size_t n = thresholds.size();
+        out.assign(n, 0.0f);
+        if (n == 0)
+            return;
+        if (!std::isfinite(value))
+            value = 0.0f;
+        // The nearest motion at or below the value and the nearest above it.
+        int below = -1, above = -1;
+        for (size_t i = 0; i < n; i++)
+        {
+            const float t = thresholds[i];
+            if (t <= value && (below < 0 || t > thresholds[below]))
+                below = (int)i;
+            if (t > value && (above < 0 || t < thresholds[above]))
+                above = (int)i;
+        }
+        if (below < 0) { out[above] = 1.0f; return; }  // under the lowest
+        if (above < 0) { out[below] = 1.0f; return; }  // at / over the highest
+        const float span = thresholds[above] - thresholds[below];
+        const float f = span > 0.0f ? std::clamp((value - thresholds[below]) / span, 0.0f, 1.0f) : 0.0f;
+        out[below] = 1.0f - f;
+        out[above] += f;
+    }
+
+    size_t BuildJointMask(const Skeleton& skeleton, const std::vector<std::string>& roots, std::vector<float>& out)
+    {
+        const size_t n = skeleton.Joints.size();
+        bool any = false;
+        for (const std::string& r : roots)
+            any |= !r.empty();
+        if (!any)
+        {
+            out.assign(n, 1.0f);
+            return n;
+        }
+        out.assign(n, 0.0f);
+        // Parents come before their children: one pass marks every subtree.
+        for (size_t i = 0; i < n; i++)
+        {
+            const Joint& j = skeleton.Joints[i];
+            bool in = std::find(roots.begin(), roots.end(), j.Name) != roots.end();
+            if (!in && j.Parent >= 0 && (size_t)j.Parent < i)
+                in = out[(size_t)j.Parent] > 0.0f;
+            out[i] = in ? 1.0f : 0.0f;
+        }
+        size_t count = 0;
+        for (float v : out)
+            count += v > 0.0f ? 1 : 0;
+        return count;
     }
 
     void EvaluatePose(const Skeleton& skeleton, const AnimationClip* clip, float time, std::vector<glm::mat4>& out, int rootMotionJoint)

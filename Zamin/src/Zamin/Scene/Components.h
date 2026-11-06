@@ -370,6 +370,19 @@ namespace Zamin {
         float Threshold = 0.0f;
     };
 
+    // One clip of a 1D blend tree: it plays alone where the tree's parameter equals Threshold and
+    // shares the weight with its neighbour between two thresholds.
+    struct AnimatorBlendMotion
+    {
+        std::string Clip;
+        float Threshold = 0.0f;
+        float Speed = 1.0f;         // this clip's own rate inside the tree
+    };
+
+    // What a state plays: one clip, or a 1D blend tree - clips mixed by a float parameter (idle /
+    // walk / run by the character's speed).
+    enum class AnimatorStateType : uint8_t { Clip = 0, BlendTree1D };
+
     struct AnimatorState
     {
         std::string Name = "State";
@@ -377,6 +390,60 @@ namespace Zamin {
         float Speed = 1.0f;
         bool Loop = true;
         std::string SpeedParameter; // optional: multiplies Speed by a float parameter
+        // ---- 1D blend tree (Type BlendTree1D): BlendParameter's value picks the motions by their
+        // thresholds. They play in step - one normalized time, so the feet stay in phase while a
+        // walk turns into a run - and a cycle lasts the weighted mix of their lengths.
+        AnimatorStateType Type = AnimatorStateType::Clip;
+        std::string BlendParameter;
+        std::vector<AnimatorBlendMotion> Motions;
+        glm::vec2 GraphPosition{ 0.0f }; // the node in the editor's state graph (canvas units)
+
+        bool IsBlendTree() const { return Type == AnimatorStateType::BlendTree1D; }
+    };
+
+    // How a layer's pose goes onto the animation below it: Override - replaces it by the layer's
+    // weight; Additive - what the clip changes from its first frame is added on top (a nod, breathing).
+    enum class AnimatorLayerBlend : uint8_t { Override = 0, Additive };
+
+    // An Animator layer: a clip of its own played over the base animation (the state machine or
+    // Clip) on the bones of its mask only - e.g. the upper body (mask "Spine") waving while the
+    // legs walk. Scripts: AnimatorComponent::PlayLayer / SetLayerWeight.
+    struct AnimatorLayer
+    {
+        std::string Name = "Layer";
+        std::string Clip;                       // "" = nothing: the layer does not change the pose
+        float Speed = 1.0f;
+        bool Loop = true;
+        float Weight = 1.0f;                    // 0..1 (SetLayerWeight fades to a new one)
+        std::string WeightParameter;            // optional: a float parameter (0..1) multiplies Weight
+        AnimatorLayerBlend Blend = AnimatorLayerBlend::Override;
+        std::vector<std::string> MaskBones;     // these bones and every bone below them (none: the whole body)
+
+        // runtime (reset when play starts)
+        float Time = 0.0f;
+        std::string PreviousClip;               // crossfading from it into Clip
+        float PreviousTime = 0.0f;
+        float PreviousSpeed = 1.0f;
+        bool PreviousLoop = true;
+        float FadeDuration = 0.0f;
+        float FadeElapsed = 0.0f;
+        float CurrentWeight = -1.0f;            // the weight in effect (-1: not started - Weight)
+        float WeightFadeSpeed = 0.0f;           // per second toward Weight (0: at once)
+        bool EventsAtStart = true;
+        float EffectiveWeight = 0.0f;           // the last pose's weight (parameter and fade-in included; inspector)
+
+        bool IsFading() const { return FadeDuration > 0.0f && FadeElapsed < FadeDuration; }
+        void ResetRuntime()
+        {
+            Time = 0.0f;
+            PreviousClip.clear();
+            PreviousTime = 0.0f;
+            FadeDuration = FadeElapsed = 0.0f;
+            CurrentWeight = -1.0f;
+            WeightFadeSpeed = 0.0f;
+            EventsAtStart = true;
+            EffectiveWeight = 0.0f;
+        }
     };
 
     // A moment of a clip that tells the entity's script (ScriptableEntity::OnAnimationEvent) and the
@@ -412,10 +479,14 @@ namespace Zamin {
         float DefaultFade = 0.2f;  // seconds used by Play() when no fade is given
 
         // runtime
-        float Time = 0.0f;
+        float Time = 0.0f;         // seconds into Clip; a blend tree (BlendTree >= 0): its normalized time (1 = one cycle)
+        int BlendTree = -1;        // the state whose blend tree plays instead of Clip (state machine)
         std::vector<glm::mat4> JointMatrices;
-        // crossfade state: blending from the previous clip into `Clip`
+        std::vector<float> BlendWeights; // the playing blend tree's weights, one per motion (inspector)
+        // crossfade state: blending from the previous clip / blend tree into the current one
         std::string PreviousClip;
+        int PreviousBlendTree = -1;
+        int PreviousState = -1;    // the state the transition came from (-1: none / Play())
         float PreviousTime = 0.0f;
         float PreviousSpeed = 1.0f;
         bool PreviousLoop = true;
@@ -438,14 +509,79 @@ namespace Zamin {
         // Switch clip with a smooth crossfade (fade < 0 = DefaultFade, 0 = instant).
         void Play(const std::string& clip, bool loop = true, float speed = 1.0f, float fade = -1.0f)
         {
-            if (Clip == clip && Playing) { Speed = speed; Loop = loop; return; }
-            if (fade < 0.0f) fade = DefaultFade;
-            PreviousClip = Clip; PreviousTime = Time; PreviousSpeed = Speed; PreviousLoop = Loop;
-            FadeDuration = fade; FadeElapsed = 0.0f;
-            Clip = clip; Loop = loop; Speed = speed; Playing = true; Time = 0.0f;
+            if (BlendTree < 0 && Clip == clip && Playing) { Speed = speed; Loop = loop; return; }
+            BeginCrossfade(fade);
+            Clip = clip; BlendTree = -1; Loop = loop; Speed = speed; Playing = true; Time = 0.0f;
             EventsAtStart = true;
         }
+        // Plays state `state`'s blend tree (the state machine does this), crossfading like Play.
+        void PlayBlendTree(int state, bool loop = true, float speed = 1.0f, float fade = -1.0f)
+        {
+            if (BlendTree == state && Playing) { Speed = speed; Loop = loop; return; }
+            BeginCrossfade(fade);
+            BlendTree = state; Loop = loop; Speed = speed; Playing = true; Time = 0.0f;
+            EventsAtStart = true;
+        }
+        // What plays now becomes the crossfade's "previous" (fade < 0 = DefaultFade, 0 = none).
+        void BeginCrossfade(float fade)
+        {
+            if (fade < 0.0f) fade = DefaultFade;
+            PreviousClip = Clip; PreviousBlendTree = BlendTree; PreviousTime = Time; PreviousSpeed = Speed; PreviousLoop = Loop;
+            FadeDuration = fade; FadeElapsed = 0.0f;
+        }
         bool IsFading() const { return FadeDuration > 0.0f && FadeElapsed < FadeDuration; }
+        // 0..1 of the crossfade (1 when there is none).
+        float GetFadeProgress() const { return IsFading() ? FadeElapsed / FadeDuration : 1.0f; }
+        // How far the current clip / blend tree is: 1 = one cycle. Loops keep counting (2.5: half of
+        // the third cycle). A clip the model does not have counts as finished (1).
+        float GetNormalizedTime(const Model* model) const
+        {
+            if (BlendTree >= 0)
+                return Time;
+            const int index = !model ? -1 : Clip.empty() ? (model->GetAnimations().empty() ? -1 : 0) : model->FindAnimation(Clip);
+            if (index < 0)
+                return 1.0f;
+            const float duration = model->GetAnimations()[(size_t)index].Duration;
+            return duration > 0.0f ? Time / duration : 1.0f;
+        }
+
+        // ---- layers: clips over the base animation on parts of the body (avatar masks)
+        std::vector<AnimatorLayer> Layers;
+        AnimatorLayer* FindLayer(const std::string& name)
+        {
+            for (auto& l : Layers) if (l.Name == name) return &l;
+            return nullptr;
+        }
+        // Plays a clip on a layer, crossfading from what the layer played (fade < 0 = DefaultFade;
+        // from nothing: the layer fades in). False when there is no such layer.
+        bool PlayLayer(const std::string& layer, const std::string& clip, bool loop = true, float speed = 1.0f, float fade = -1.0f)
+        {
+            AnimatorLayer* l = FindLayer(layer);
+            if (!l) return false;
+            if (l->Clip == clip) { l->Speed = speed; l->Loop = loop; return true; }
+            if (fade < 0.0f) fade = DefaultFade;
+            l->PreviousClip = l->Clip; l->PreviousTime = l->Time; l->PreviousSpeed = l->Speed; l->PreviousLoop = l->Loop;
+            l->FadeDuration = fade; l->FadeElapsed = 0.0f;
+            l->Clip = clip; l->Loop = loop; l->Speed = speed; l->Time = 0.0f; l->EventsAtStart = true;
+            return true;
+        }
+        // The layer's weight goes to `weight` (0..1) over `fade` seconds (0: at once).
+        bool SetLayerWeight(const std::string& layer, float weight, float fade = 0.0f)
+        {
+            AnimatorLayer* l = FindLayer(layer);
+            if (!l) return false;
+            weight = std::clamp(weight, 0.0f, 1.0f);
+            if (l->CurrentWeight < 0.0f) l->CurrentWeight = l->Weight;
+            l->WeightFadeSpeed = fade > 0.0f ? std::abs(weight - l->CurrentWeight) / fade : 0.0f;
+            if (fade <= 0.0f) l->CurrentWeight = weight;
+            l->Weight = weight;
+            return true;
+        }
+        float GetLayerWeight(const std::string& layer)
+        {
+            const AnimatorLayer* l = FindLayer(layer);
+            return !l ? 0.0f : l->CurrentWeight < 0.0f ? l->Weight : l->CurrentWeight;
+        }
 
         // ---- state machine
         std::vector<AnimatorParameter> Parameters;
@@ -453,6 +589,7 @@ namespace Zamin {
         std::vector<AnimatorTransition> Transitions;
         int DefaultState = 0;
         int CurrentState = -1; // runtime
+        glm::vec2 AnyStateGraphPosition{ 0.0f }; // the "any state" node of the editor's graph
 
         AnimatorParameter* FindParameter(const std::string& name)
         {
@@ -468,7 +605,43 @@ namespace Zamin {
         {
             return CurrentState >= 0 && CurrentState < (int)States.size() ? States[CurrentState].Name.c_str() : "";
         }
+        // The state machine enters this state now (crossfading over `fade` seconds; < 0: DefaultFade).
+        bool SetState(const std::string& name, float fade = -1.0f)
+        {
+            for (int i = 0; i < (int)States.size(); i++)
+                if (States[(size_t)i].Name == name)
+                {
+                    EnterState(i, fade);
+                    return true;
+                }
+            return false;
+        }
+        void EnterState(int index, float fade = -1.0f)
+        {
+            if (index < 0 || index >= (int)States.size()) return;
+            const AnimatorState& st = States[(size_t)index];
+            PreviousState = CurrentState;
+            CurrentState = index;
+            if (st.IsBlendTree()) PlayBlendTree(index, st.Loop, st.Speed, fade);
+            else Play(st.Clip, st.Loop, st.Speed, fade);
+        }
+        // The blend tree playing now (nullptr: a clip).
+        const AnimatorState* GetBlendTreeState() const
+        {
+            return BlendTree >= 0 && BlendTree < (int)States.size() && States[(size_t)BlendTree].IsBlendTree() ? &States[(size_t)BlendTree] : nullptr;
+        }
         bool UsesStateMachine() const { return !States.empty(); }
+
+        // Play starts / stops (and spawned copies): events from the start again, no root motion
+        // yet, the layers at their own weights.
+        void ResetRuntime()
+        {
+            EventsAtStart = true;
+            RootMotionVelocity = glm::vec3(0.0f);
+            RootMotionTurnRate = 0.0f;
+            for (auto& l : Layers)
+                l.ResetRuntime();
+        }
     };
 
     // How an Animation Player plays its clips: as the clip says, or Once / Loop / PingPong.

@@ -404,13 +404,7 @@ namespace Zamin {
         for (auto e : registry.view<SpriteRendererComponent>()) registry.get<SpriteRendererComponent>(e).StopFlash();
         for (auto e : registry.view<TintAnimationComponent>()) registry.get<TintAnimationComponent>(e).ResetRuntime();
         for (auto e : registry.view<AnimationPlayerComponent>()) registry.get<AnimationPlayerComponent>(e).ResetRuntime();
-        for (auto e : registry.view<AnimatorComponent>())
-        {
-            auto& c = registry.get<AnimatorComponent>(e);
-            c.EventsAtStart = true;
-            c.RootMotionVelocity = glm::vec3(0.0f);
-            c.RootMotionTurnRate = 0.0f;
-        }
+        for (auto e : registry.view<AnimatorComponent>()) registry.get<AnimatorComponent>(e).ResetRuntime();
         for (auto e : registry.view<CameraComponent>()) registry.get<CameraComponent>(e).Shake.ResetRuntime();
         for (auto e : registry.view<Camera2DFollowComponent>()) registry.get<Camera2DFollowComponent>(e).ResetRuntime();
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).Clear();
@@ -470,7 +464,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<SpriteRendererComponent>()) c->StopFlash();
         if (auto* c = e.TryGetComponent<TintAnimationComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<AnimationPlayerComponent>()) c->ResetRuntime();
-        if (auto* c = e.TryGetComponent<AnimatorComponent>()) { c->EventsAtStart = true; c->RootMotionVelocity = glm::vec3(0.0f); c->RootMotionTurnRate = 0.0f; }
+        if (auto* c = e.TryGetComponent<AnimatorComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<TilemapComponent>()) c->RuntimeBody = nullptr;
         if (auto* c = e.TryGetComponent<CameraComponent>()) c->Shake.ResetRuntime();
         if (auto* c = e.TryGetComponent<Camera2DFollowComponent>()) c->ResetRuntime();
@@ -4662,10 +4656,50 @@ namespace Zamin {
         return glm::translate(glm::mat4(1.0f), glm::vec3((min + max) * 0.5f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
     }
 
+    namespace {
+
+        // A clip of what an Animator plays, at its own time in seconds, with its share.
+        struct MotionPart
+        {
+            const AnimationClip* Clip = nullptr;
+            float Time = 0.0f;       // seconds, wrapped into the clip
+            float Weight = 1.0f;
+        };
+
+        // What plays (a clip, or a blend tree's clips) resolved for one frame.
+        struct ResolvedMotion
+        {
+            std::vector<MotionPart> Parts;
+            bool Tree = false;
+            float Cycle = 0.0f;      // a blend tree: how long one (normalized) cycle lasts, in seconds
+            int Dominant = -1;       // the part with the most weight (its events fire)
+        };
+
+        float WrapClipTime(const AnimationClip* c, float t, bool loop)
+        {
+            if (!c || c->Duration <= 0.0f) return t;
+            return loop ? std::fmod(std::fmod(t, c->Duration) + c->Duration, c->Duration) : std::clamp(t, 0.0f, c->Duration);
+        }
+
+        float WrapNormalized(float t, bool loop)
+        {
+            return loop ? t - std::floor(t) : std::clamp(t, 0.0f, 1.0f);
+        }
+
+        // Scratch poses, kept between frames (no allocations once they have the skeleton's size).
+        struct AnimatorScratch
+        {
+            LocalPose Base, Other, Part, Reference;
+            std::vector<float> Mask, Weights, Thresholds;
+        };
+
+    }
+
     void Scene::UpdateAnimators(Timestep ts, bool editor)
     {
         ZM_PROFILE_SCOPE("Animatsiya");
         std::vector<PendingAnimationEvent> firedEvents;
+        static thread_local AnimatorScratch scratch;
         for (auto e : m_Registry.view<AnimatorComponent>())
         {
             // Inactive in the hierarchy: not updated at all - time, pose and state machine wait
@@ -4682,24 +4716,62 @@ namespace Zamin {
                 int index = name.empty() ? (clips.empty() ? -1 : 0) : model->FindAnimation(name);
                 return index >= 0 ? &clips[index] : nullptr;
             };
-            auto wrap = [](const AnimationClip* c, float t, bool loop) {
-                if (!c || c->Duration <= 0.0f) return t;
-                return loop ? std::fmod(std::fmod(t, c->Duration) + c->Duration, c->Duration) : std::clamp(t, 0.0f, c->Duration);
+            auto parameterValue = [&](const std::string& name, float fallback) {
+                const AnimatorParameter* p = name.empty() ? nullptr : anim.FindParameter(name);
+                return p ? p->Value : fallback;
             };
+            // A clip, or the blend tree of state `tree` (when that state is one), at `time`.
+            auto resolve = [&](int tree, const std::string& clipName, float time, bool loop, ResolvedMotion& out) {
+                out.Parts.clear();
+                out.Tree = false;
+                out.Cycle = 0.0f;
+                out.Dominant = -1;
+                const AnimatorState* st = tree >= 0 && tree < (int)anim.States.size() && anim.States[(size_t)tree].IsBlendTree()
+                                              ? &anim.States[(size_t)tree] : nullptr;
+                if (!st)
+                {
+                    if (const AnimationClip* c = findClip(clipName))
+                    {
+                        out.Parts.push_back({ c, WrapClipTime(c, time, loop), 1.0f });
+                        out.Dominant = 0;
+                    }
+                    return;
+                }
+                out.Tree = true;
+                scratch.Thresholds.clear();
+                for (const auto& m : st->Motions)
+                    scratch.Thresholds.push_back(m.Threshold);
+                ComputeBlend1DWeights(scratch.Thresholds, parameterValue(st->BlendParameter, 0.0f), scratch.Weights);
+                const float phase = WrapNormalized(time, loop);
+                float total = 0.0f, best = 0.0f;
+                for (size_t i = 0; i < st->Motions.size(); i++)
+                {
+                    const float w = scratch.Weights[i];
+                    const AnimationClip* c = w > 0.0f ? findClip(st->Motions[i].Clip) : nullptr;
+                    if (!c)
+                        continue;
+                    out.Parts.push_back({ c, phase * c->Duration, w });
+                    out.Cycle += w * c->Duration / std::max(0.01f, std::abs(st->Motions[i].Speed));
+                    total += w;
+                    if (w > best) { best = w; out.Dominant = (int)out.Parts.size() - 1; }
+                }
+                if (total > 0.0f && total < 0.999f)
+                {
+                    // A motion without its clip: the others share its weight.
+                    for (auto& part : out.Parts)
+                        part.Weight /= total;
+                    out.Cycle /= total;
+                }
+            };
+
             // ---- state machine (runtime only; the editor previews the default state)
             if (anim.UsesStateMachine())
             {
-                auto enter = [&](int index, float fade) {
-                    const AnimatorState& st = anim.States[index];
-                    anim.CurrentState = index;
-                    anim.Play(st.Clip, st.Loop, st.Speed, fade);
-                };
                 if (anim.CurrentState < 0 || anim.CurrentState >= (int)anim.States.size())
-                    enter(std::clamp(anim.DefaultState, 0, (int)anim.States.size() - 1), 0.0f);
+                    anim.EnterState(std::clamp(anim.DefaultState, 0, (int)anim.States.size() - 1), 0.0f);
                 else if (!editor)
                 {
-                    const AnimationClip* cur = findClip(anim.Clip);
-                    float normalized = cur && cur->Duration > 0.0f ? anim.Time / cur->Duration : 1.0f;
+                    const float normalized = anim.GetNormalizedTime(model.get());
                     for (const auto& tr : anim.Transitions)
                     {
                         if (tr.To < 0 || tr.To >= (int)anim.States.size()) continue;
@@ -4725,64 +4797,208 @@ namespace Zamin {
                         for (const auto& c : tr.Conditions) // consume triggers
                             if (c.Mode == AnimatorCondition::Op::Triggered)
                                 if (auto* p = anim.FindParameter(c.Parameter)) p->Value = 0.0f;
-                        enter(tr.To, tr.Fade);
+                        anim.EnterState(tr.To, tr.Fade);
                         break;
                     }
                 }
-                const AnimatorState& st = anim.States[anim.CurrentState];
+                const AnimatorState& st = anim.States[(size_t)anim.CurrentState];
+                // The editor previews what the state says now (it may just have been edited).
+                if (editor && (st.IsBlendTree() ? anim.BlendTree != anim.CurrentState : (anim.BlendTree >= 0 || anim.Clip != st.Clip)))
+                    anim.EnterState(anim.CurrentState, 0.0f);
                 anim.Speed = st.Speed;
                 if (!st.SpeedParameter.empty())
                     if (auto* p = anim.FindParameter(st.SpeedParameter)) anim.Speed = st.Speed * p->Value;
             }
 
-            const AnimationClip* clip = findClip(anim.Clip);
+            ResolvedMotion current, previous;
+            resolve(anim.BlendTree, anim.Clip, anim.Time, anim.Loop, current);
+            const bool fading0 = anim.IsFading();
+            if (fading0)
+                resolve(anim.PreviousBlendTree, anim.PreviousClip, anim.PreviousTime, anim.PreviousLoop, previous);
+            anim.BlendWeights.clear();
+            if (const AnimatorState* tree = anim.GetBlendTreeState())
+            {
+                scratch.Thresholds.clear();
+                for (const auto& m : tree->Motions)
+                    scratch.Thresholds.push_back(m.Threshold);
+                ComputeBlend1DWeights(scratch.Thresholds, parameterValue(tree->BlendParameter, 0.0f), anim.BlendWeights);
+            }
 
+            // Seconds -> the motion's own time: a clip's seconds, or a tree's normalized time.
+            auto step = [](const ResolvedMotion& m, float seconds) { return !m.Tree ? seconds : m.Cycle > 0.0f ? seconds / m.Cycle : 0.0f; };
             const bool advance = anim.Playing && (!editor || anim.PlayInEditor);
             const float time0 = anim.Time, previousTime0 = anim.PreviousTime;
-            const bool fading0 = anim.IsFading();
             if (advance)
             {
-                anim.Time += ts * anim.Speed;
+                anim.Time += step(current, ts * anim.Speed);
                 if (anim.IsFading())
                 {
-                    anim.PreviousTime += ts * anim.PreviousSpeed;
+                    anim.PreviousTime += step(previous, ts * anim.PreviousSpeed);
                     anim.FadeElapsed += ts;
                 }
             }
+            // Where the parts are after the step (a tree's parts keep their weights).
+            auto moveParts = [&](ResolvedMotion& m, float time, bool loop) {
+                if (!m.Tree)
+                {
+                    for (auto& part : m.Parts)
+                        part.Time = WrapClipTime(part.Clip, time, loop);
+                    return;
+                }
+                const float phase = WrapNormalized(time, loop);
+                for (auto& part : m.Parts)
+                    part.Time = phase * part.Clip->Duration;
+            };
 
-            // Events of the playing clip (play mode): the moments the time went past.
-            if (advance && !editor && clip && !anim.Events.empty())
-                CollectAnimatorEvents({ e, this }, anim, *clip, wrap(clip, time0, anim.Loop), ts * anim.Speed, firedEvents);
+            // Events of what plays (play mode): the moments the time went past - a blend tree's
+            // from its strongest clip.
+            if (advance && !editor && !anim.Events.empty() && current.Dominant >= 0)
+            {
+                const MotionPart& part = current.Parts[(size_t)current.Dominant];
+                const float delta = current.Tree ? (anim.Time - time0) * part.Clip->Duration : ts * anim.Speed;
+                CollectAnimatorEvents({ e, this }, anim, *part.Clip, part.Time, delta, anim.Loop, anim.EventsAtStart, true, firedEvents);
+            }
+            moveParts(current, anim.Time, anim.Loop);
+            if (fading0)
+                moveParts(previous, anim.PreviousTime, anim.PreviousLoop);
+
+            // ---- layers: their weights and times
+            for (AnimatorLayer& layer : anim.Layers)
+            {
+                if (layer.CurrentWeight < 0.0f || editor || layer.WeightFadeSpeed <= 0.0f)
+                    layer.CurrentWeight = layer.Weight;
+                else if (advance)
+                {
+                    const float d = layer.WeightFadeSpeed * ts;
+                    layer.CurrentWeight = layer.CurrentWeight < layer.Weight ? std::min(layer.Weight, layer.CurrentWeight + d)
+                                                                             : std::max(layer.Weight, layer.CurrentWeight - d);
+                }
+                if (!advance)
+                    continue;
+                const float layerTime0 = layer.Time;
+                layer.Time += ts * layer.Speed;
+                if (layer.IsFading())
+                {
+                    layer.PreviousTime += ts * layer.PreviousSpeed;
+                    layer.FadeElapsed += ts;
+                }
+                // Layer clips fire the events that name them (not the "every clip" ones: the base has those).
+                if (!editor && !anim.Events.empty() && !layer.Clip.empty())
+                    if (const AnimationClip* c = findClip(layer.Clip))
+                        CollectAnimatorEvents({ e, this }, anim, *c, WrapClipTime(c, layerTime0, layer.Loop), ts * layer.Speed, layer.Loop,
+                                              layer.EventsAtStart, false, firedEvents);
+            }
 
             if (!model || !model->IsSkinned())
             {
                 anim.JointMatrices.clear();
                 anim.RootMotionVelocity = glm::vec3(0.0f);
                 anim.RootMotionTurnRate = 0.0f;
+                for (AnimatorLayer& layer : anim.Layers)
+                    layer.EffectiveWeight = 0.0f;
                 continue;
             }
             const Skeleton& skeleton = model->GetSkeleton();
-            const AnimationClip* prev = fading0 || anim.IsFading() ? findClip(anim.PreviousClip) : nullptr;
-            const int rootJoint = anim.ApplyRootMotion ? FindRootMotionJoint(skeleton, clip ? clip : prev, anim.RootMotionBone) : -1;
-            float w = anim.IsFading() ? anim.FadeElapsed / anim.FadeDuration : 1.0f;
+            const bool fading = anim.IsFading();
+            const AnimationClip* rootClip = !current.Parts.empty() ? current.Parts[0].Clip : !previous.Parts.empty() ? previous.Parts[0].Clip : nullptr;
+            const int rootJoint = anim.ApplyRootMotion ? FindRootMotionJoint(skeleton, rootClip, anim.RootMotionBone) : -1;
+
+            // A motion's pose: its parts mixed by weight (each one's share of what came before).
+            auto samplePose = [&](const ResolvedMotion& m, LocalPose& out) {
+                if (m.Parts.empty())
+                {
+                    SampleLocalPose(skeleton, nullptr, 0.0f, out);
+                    return;
+                }
+                SampleLocalPose(skeleton, m.Parts[0].Clip, m.Parts[0].Time, out, rootJoint);
+                float sum = m.Parts[0].Weight;
+                for (size_t i = 1; i < m.Parts.size(); i++)
+                {
+                    sum += m.Parts[i].Weight;
+                    if (m.Parts[i].Weight <= 0.0f || sum <= 0.0f)
+                        continue;
+                    SampleLocalPose(skeleton, m.Parts[i].Clip, m.Parts[i].Time, scratch.Part, rootJoint);
+                    BlendLocalPose(out, scratch.Part, m.Parts[i].Weight / sum);
+                }
+            };
+            float w = fading ? anim.FadeElapsed / anim.FadeDuration : 1.0f;
             w = w * w * (3.0f - 2.0f * w); // smoothstep
-            if (anim.IsFading())
-                EvaluatePoseBlended(skeleton, prev, wrap(prev, anim.PreviousTime, anim.PreviousLoop),
-                                    clip, wrap(clip, anim.Time, anim.Loop), w, anim.JointMatrices, rootJoint);
+            if (fading)
+            {
+                samplePose(previous, scratch.Base);
+                samplePose(current, scratch.Other);
+                BlendLocalPose(scratch.Base, scratch.Other, w);
+            }
             else
-                EvaluatePose(skeleton, clip, wrap(clip, anim.Time, anim.Loop), anim.JointMatrices, rootJoint);
+                samplePose(current, scratch.Base);
+
+            // ---- layers on top, each on its mask's bones
+            for (AnimatorLayer& layer : anim.Layers)
+            {
+                layer.EffectiveWeight = 0.0f;
+                const AnimationClip* c = layer.Clip.empty() ? nullptr : findClip(layer.Clip);
+                float weight = std::clamp(layer.CurrentWeight, 0.0f, 1.0f);
+                if (!layer.WeightParameter.empty())
+                    weight *= std::clamp(parameterValue(layer.WeightParameter, 1.0f), 0.0f, 1.0f);
+                if (!c || weight <= 0.0f)
+                    continue;
+                const AnimationClip* prev = layer.IsFading() ? (layer.PreviousClip.empty() ? nullptr : findClip(layer.PreviousClip)) : nullptr;
+                float fw = layer.IsFading() ? layer.FadeElapsed / layer.FadeDuration : 1.0f;
+                fw = fw * fw * (3.0f - 2.0f * fw);
+                if (layer.IsFading() && !prev)
+                    weight *= fw; // from nothing: the layer fades in
+                if (BuildJointMask(skeleton, layer.MaskBones, scratch.Mask) == 0 || weight <= 0.0f)
+                    continue;
+                layer.EffectiveWeight = weight;
+                if (layer.Blend == AnimatorLayerBlend::Override)
+                {
+                    SampleLocalPose(skeleton, c, WrapClipTime(c, layer.Time, layer.Loop), scratch.Other, rootJoint);
+                    if (prev)
+                    {
+                        SampleLocalPose(skeleton, prev, WrapClipTime(prev, layer.PreviousTime, layer.PreviousLoop), scratch.Part, rootJoint);
+                        BlendLocalPose(scratch.Part, scratch.Other, fw);
+                        BlendLocalPose(scratch.Base, scratch.Part, weight, &scratch.Mask);
+                    }
+                    else
+                        BlendLocalPose(scratch.Base, scratch.Other, weight, &scratch.Mask);
+                }
+                else
+                {
+                    // Additive: each clip's change from its own first frame.
+                    auto add = [&](const AnimationClip* clip, float time, bool loop, float share) {
+                        SampleLocalPose(skeleton, clip, WrapClipTime(clip, time, loop), scratch.Other, rootJoint);
+                        SampleLocalPose(skeleton, clip, 0.0f, scratch.Reference, rootJoint);
+                        AddLocalPose(scratch.Base, scratch.Other, scratch.Reference, share, &scratch.Mask);
+                    };
+                    if (prev)
+                        add(prev, layer.PreviousTime, layer.PreviousLoop, weight * (1.0f - fw));
+                    add(c, layer.Time, layer.Loop, prev ? weight * fw : weight);
+                }
+            }
+            ComposeJointMatrices(skeleton, scratch.Base, anim.JointMatrices);
 
             // Root motion moves the entity (play mode; the editor's preview stays in place).
             anim.RootMotionVelocity = glm::vec3(0.0f);
             anim.RootMotionTurnRate = 0.0f;
             if (rootJoint >= 0 && advance && !editor && ts > 0.0f)
             {
-                RootMotion motion;
-                if (clip)
-                    motion = ExtractRootMotion(skeleton, *clip, rootJoint, time0, anim.Time, anim.Loop);
-                if (fading0 && prev)
+                // A motion's root motion from `from` to `to` (its own time): a blend tree's parts by weight.
+                auto extract = [&](const ResolvedMotion& m, float from, float to, bool loop) {
+                    RootMotion total;
+                    for (const MotionPart& part : m.Parts)
+                    {
+                        const float d = part.Clip->Duration;
+                        RootMotion r = m.Tree ? ExtractRootMotion(skeleton, *part.Clip, rootJoint, from * d, to * d, loop)
+                                              : ExtractRootMotion(skeleton, *part.Clip, rootJoint, from, to, loop);
+                        total.Translation += r.Translation * part.Weight;
+                        total.Yaw += r.Yaw * part.Weight;
+                    }
+                    return total;
+                };
+                RootMotion motion = extract(current, time0, anim.Time, anim.Loop);
+                if (fading0 && !previous.Parts.empty())
                 {
-                    RootMotion old = ExtractRootMotion(skeleton, *prev, rootJoint, previousTime0, anim.PreviousTime, anim.PreviousLoop);
+                    RootMotion old = extract(previous, previousTime0, anim.PreviousTime, anim.PreviousLoop);
                     motion.Translation = glm::mix(old.Translation, motion.Translation, w);
                     motion.Yaw = glm::mix(old.Yaw, motion.Yaw, w);
                 }
@@ -4793,24 +5009,24 @@ namespace Zamin {
             FireAnimationEvent(GetEntityByUUID(fired.Entity), fired.Event, fired.Clip, true);
     }
 
-    void Scene::CollectAnimatorEvents(Entity entity, AnimatorComponent& anim, const AnimationClip& clip, float localTime, float delta,
-                                      std::vector<PendingAnimationEvent>& out)
+    void Scene::CollectAnimatorEvents(Entity entity, const AnimatorComponent& anim, const AnimationClip& clip, float localTime, float delta,
+                                      bool loop, bool& atStart, bool anyClipEvents, std::vector<PendingAnimationEvent>& out)
     {
         std::vector<const AnimatorEvent*> events;
         for (const AnimatorEvent& ev : anim.Events)
-            if (ev.Clip.empty() || ev.Clip == clip.Name)
+            if ((anyClipEvents && ev.Clip.empty()) || ev.Clip == clip.Name)
                 events.push_back(&ev);
         ClipCursor cursor;
         cursor.Time = localTime;
-        cursor.AtStart = anim.EventsAtStart;
-        const AnimationWrap wrapMode = anim.Loop ? AnimationWrap::Loop : AnimationWrap::Once;
+        cursor.AtStart = atStart;
+        const AnimationWrap wrapMode = loop ? AnimationWrap::Loop : AnimationWrap::Once;
         // Not looping and already at its end (in the direction it plays): nothing more happens.
-        if (!anim.Loop && ((delta > 0.0f && localTime >= clip.Duration) || (delta < 0.0f && localTime <= 0.0f)))
+        if (!loop && ((delta > 0.0f && localTime >= clip.Duration) || (delta < 0.0f && localTime <= 0.0f)))
             cursor.Finished = true;
         std::vector<ClipSpan> spans;
         AdvanceClip(cursor, delta, clip.Duration, wrapMode, &spans);
         if (delta != 0.0f)
-            anim.EventsAtStart = cursor.AtStart;
+            atStart = cursor.AtStart;
         if (events.empty())
             return;
         std::vector<size_t> hit;

@@ -91,6 +91,9 @@ namespace Zamin {
         // .gltf / .glb (meshes, node transforms, PBR materials + textures) or .obj, imported with
         // the file's .zmeta settings (AssetImporter::GetModelSettings). Cached by path.
         static Ref<Model> Load(const std::filesystem::path& path);
+        // A model of a skeleton and its clips only - no meshes, no file, not cached: procedural
+        // rigs and tests (needs no GPU).
+        static Ref<Model> CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations);
         // The materials of a model file as the importer makes them - values and modes (glTF
         // alphaMode OPAQUE / MASK -> Cutout with alphaCutoff / BLEND -> Transparent, doubleSided,
         // KHR_materials_unlit) without their textures, in the file's material order (.obj: one

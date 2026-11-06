@@ -25882,3 +25882,255 @@ TEST(RootMotionExtraction)
     skeleton.RootTransform = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
     CHECK_NEAR(ExtractRootMotion(skeleton, clip, 0, 0.0f, 0.5f, false).Translation.z, 0.5f, 1e-4f);
 }
+
+TEST(BlendTree1DWeights)
+{
+    std::vector<float> w;
+    auto near = [&](std::initializer_list<float> expected) {
+        if (w.size() != expected.size()) return false;
+        size_t i = 0;
+        for (float v : expected)
+            if (std::abs(w[i++] - v) > 1e-5f) return false;
+        return true;
+    };
+    const std::vector<float> speeds = { 0.0f, 3.0f, 6.5f }; // idle, walk, run
+    ComputeBlend1DWeights(speeds, -1.0f, w);  CHECK(near({ 1, 0, 0 }));
+    ComputeBlend1DWeights(speeds, 0.0f, w);   CHECK(near({ 1, 0, 0 }));
+    ComputeBlend1DWeights(speeds, 1.5f, w);   CHECK(near({ 0.5f, 0.5f, 0 }));
+    ComputeBlend1DWeights(speeds, 3.0f, w);   CHECK(near({ 0, 1, 0 }));
+    ComputeBlend1DWeights(speeds, 4.75f, w);  CHECK(near({ 0, 0.5f, 0.5f }));
+    ComputeBlend1DWeights(speeds, 6.5f, w);   CHECK(near({ 0, 0, 1 }));
+    ComputeBlend1DWeights(speeds, 99.0f, w);  CHECK(near({ 0, 0, 1 }));
+    // Any order; the weights still add up to 1.
+    ComputeBlend1DWeights({ 6.5f, 0.0f, 3.0f }, 1.5f, w);
+    CHECK(near({ 0, 0.5f, 0.5f }));
+    ComputeBlend1DWeights({ 2.0f }, -5.0f, w);
+    CHECK(near({ 1 }));
+    ComputeBlend1DWeights({ 1.0f, 1.0f }, 1.0f, w); // equal thresholds: the first
+    CHECK(near({ 1, 0 }));
+    ComputeBlend1DWeights({}, 1.0f, w);
+    CHECK(w.empty());
+    ComputeBlend1DWeights(speeds, std::numeric_limits<float>::quiet_NaN(), w);
+    CHECK(near({ 1, 0, 0 }));
+}
+
+// A joint "Root" whose height a clip moves from 0 to `top` in `duration` seconds.
+static AnimationClip MakeRiseClip(const std::string& name, float duration, float top, int joint = 0)
+{
+    AnimationClip clip;
+    clip.Name = name;
+    clip.Duration = duration;
+    AnimationChannel ch;
+    ch.JointIndex = joint;
+    ch.Target = AnimationChannel::Path::Translation;
+    ch.Times = { 0.0f, duration };
+    ch.Values = { glm::vec4(0.0f), glm::vec4(0.0f, top, 0.0f, 0.0f) };
+    clip.Channels.push_back(ch);
+    return clip;
+}
+
+static glm::vec3 JointPosition(const Model& model, const AnimatorComponent& anim, size_t joint)
+{
+    std::vector<glm::mat4> global;
+    GetJointTransforms(model.GetSkeleton(), anim.JointMatrices, global);
+    return joint < global.size() ? glm::vec3(global[joint][3]) : glm::vec3(-999.0f);
+}
+
+TEST(AnimatorBlendTreeSyncsClips)
+{
+    Skeleton skeleton;
+    skeleton.Joints.resize(1);
+    skeleton.Joints[0].Name = "Root";
+    // Walk: 1 s rising 1; Run: 0.5 s rising 3; Jump: 1 s rising 10.
+    Ref<Model> model = Model::CreateSkeletal(skeleton, { MakeRiseClip("Walk", 1.0f, 1.0f), MakeRiseClip("Run", 0.5f, 3.0f),
+                                                         MakeRiseClip("Jump", 1.0f, 10.0f) });
+    CHECK(model->IsSkinned() && model->FindAnimation("Run") == 1 && model->GetSubMeshes().empty());
+
+    auto scene = CreateRef<Scene>();
+    Entity hero = scene->CreateEntity("Hero");
+    auto& mr = hero.AddComponent<MeshRendererComponent>();
+    mr.Type = PrimitiveMesh::Model;
+    mr.ModelAsset = model;
+    auto& a = hero.AddComponent<AnimatorComponent>();
+    a.Parameters = { { "Speed", AnimatorParameter::Type::Float, 0.5f }, { "Jump", AnimatorParameter::Type::Trigger, 0.0f } };
+    AnimatorState move{ "Move" };
+    move.Type = AnimatorStateType::BlendTree1D;
+    move.BlendParameter = "Speed";
+    move.Motions = { { "Walk", 0.0f, 1.0f }, { "Run", 1.0f, 1.0f } };
+    move.GraphPosition = { 40.0f, 80.0f };
+    a.States = { move, { "Jump", "Jump", 1.0f, false } };
+    AnimatorTransition jump{ -1, 1 };
+    jump.Fade = 0.5f;
+    jump.Conditions = { { "Jump", AnimatorCondition::Op::Triggered } };
+    AnimatorTransition land{ 1, 0 };
+    land.HasExitTime = true;
+    land.ExitTime = 1.0f;
+    land.Fade = 0.0f;
+    a.Transitions = { jump, land };
+    a.AnyStateGraphPosition = { -100.0f, 20.0f };
+
+    scene->OnRuntimeStart();
+    // Half walk, half run: one cycle lasts 0.5 x 1 + 0.5 x 0.5 = 0.75 s; both clips at the same
+    // normalized time, their heights mixed half and half.
+    for (int i = 0; i < 3; i++)
+        scene->OnUpdateRuntime(0.125f);
+    CHECK(std::string(a.GetCurrentStateName()) == "Move" && a.BlendTree == 0 && a.GetBlendTreeState());
+    CHECK_NEAR(a.Time, 0.5f, 1e-4f);
+    CHECK_NEAR(a.GetNormalizedTime(model.get()), 0.5f, 1e-4f);
+    CHECK(a.BlendWeights.size() == 2 && std::abs(a.BlendWeights[0] - 0.5f) < 1e-5f && std::abs(a.BlendWeights[1] - 0.5f) < 1e-5f);
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 0.5f * 0.5f + 0.5f * 1.5f, 1e-4f); // walk at 0.5 s, run at 0.25 s
+    // All run: the cycle is the run's 0.5 s; it carries on from the same phase.
+    a.SetFloat("Speed", 2.0f);
+    scene->OnUpdateRuntime(0.125f);
+    CHECK_NEAR(a.Time, 0.75f, 1e-4f);
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 0.75f * 3.0f, 1e-4f);
+    // Wraps like a looping clip.
+    scene->OnUpdateRuntime(0.25f);
+    CHECK_NEAR(a.Time, 1.25f, 1e-4f);
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 0.25f * 3.0f, 1e-4f);
+
+    // Into a clip state: a crossfade from the tree (its time goes on) into the jump.
+    a.SetTrigger("Jump");
+    scene->OnUpdateRuntime(0.25f);
+    CHECK(std::string(a.GetCurrentStateName()) == "Jump" && a.BlendTree < 0 && a.PreviousBlendTree == 0 && a.IsFading());
+    CHECK(a.PreviousState == 0 && a.Clip == "Jump" && a.BlendWeights.empty());
+    CHECK_NEAR(a.GetFadeProgress(), 0.5f, 1e-4f);
+    CHECK_NEAR(a.PreviousTime, 1.75f, 1e-4f);
+    // smoothstep(0.5) = 0.5: half the tree (run at 0.75 of its cycle), half the jump at 0.25 s.
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 0.5f * (0.75f * 3.0f) + 0.5f * 2.5f, 1e-3f);
+    scene->OnUpdateRuntime(0.25f);
+    CHECK(!a.IsFading());
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 5.0f, 1e-3f);
+    // Exit time: back to the tree once the jump has played, which starts from its beginning.
+    scene->OnUpdateRuntime(0.5f);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(std::string(a.GetCurrentStateName()) == "Move" && a.BlendTree == 0);
+    CHECK_NEAR(a.Time, 0.2f, 1e-4f); // 0.1 s of the run's 0.5 s cycle
+    // A script can set the state directly.
+    CHECK(a.SetState("Jump", 0.0f) && !a.SetState("Nope"));
+    CHECK(std::string(a.GetCurrentStateName()) == "Jump" && a.BlendTree < 0);
+    scene->OnRuntimeStop();
+
+    // The scene file keeps the tree and the graph.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& la = loaded->FindEntityByName("Hero").GetComponent<AnimatorComponent>();
+    CHECK(la.States.size() == 2 && la.States[0].IsBlendTree() && !la.States[1].IsBlendTree());
+    CHECK(la.States[0].BlendParameter == "Speed" && la.States[0].Motions.size() == 2);
+    CHECK(la.States[0].Motions[1].Clip == "Run" && la.States[0].Motions[1].Threshold == 1.0f);
+    CHECK(la.States[0].GraphPosition == glm::vec2(40.0f, 80.0f) && la.AnyStateGraphPosition == glm::vec2(-100.0f, 20.0f));
+}
+
+TEST(AnimatorLayersMasks)
+{
+    // Hips -> Spine -> Head, Hips -> Leg.
+    Skeleton skeleton;
+    skeleton.Joints.resize(4);
+    const char* names[] = { "Hips", "Spine", "Head", "Leg" };
+    const int parents[] = { -1, 0, 1, 0 };
+    for (int i = 0; i < 4; i++)
+    {
+        skeleton.Joints[(size_t)i].Name = names[i];
+        skeleton.Joints[(size_t)i].Parent = parents[i];
+        skeleton.Joints[(size_t)i].RestTranslation = i == 0 ? glm::vec3(0.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+    }
+    std::vector<float> mask;
+    CHECK(BuildJointMask(skeleton, { "Spine" }, mask) == 2 && mask == std::vector<float>({ 0, 1, 1, 0 }));
+    CHECK(BuildJointMask(skeleton, {}, mask) == 4 && mask == std::vector<float>({ 1, 1, 1, 1 }));
+    CHECK(BuildJointMask(skeleton, { "" }, mask) == 4);
+    CHECK(BuildJointMask(skeleton, { "Head", "Leg" }, mask) == 2 && mask == std::vector<float>({ 0, 0, 1, 1 }));
+    CHECK(BuildJointMask(skeleton, { "Nope" }, mask) == 0 && mask == std::vector<float>({ 0, 0, 0, 0 }));
+
+    // The pose math: override by weight x mask, additive relative to the clip's first frame.
+    LocalPose base, other, reference;
+    SampleLocalPose(skeleton, nullptr, 0.0f, base);
+    other = base;
+    other.T[1] = glm::vec3(2.0f, 1.0f, 0.0f);
+    other.T[3] = glm::vec3(2.0f, 1.0f, 0.0f);
+    BuildJointMask(skeleton, { "Spine" }, mask);
+    LocalPose blended = base;
+    BlendLocalPose(blended, other, 0.5f, &mask);
+    CHECK_NEAR(blended.T[1].x, 1.0f, 1e-5f);
+    CHECK(blended.T[3] == base.T[3]); // the leg is not in the mask
+    reference = base;
+    reference.T[1] = glm::vec3(1.0f, 1.0f, 0.0f);
+    LocalPose added = base;
+    AddLocalPose(added, other, reference, 1.0f, &mask);
+    CHECK_NEAR(added.T[1].x, 1.0f, 1e-5f); // 2 - 1 added onto 0
+    CHECK(added.T[3] == base.T[3]);
+
+    // A spine clip that leans the spine 2 units along X; a nod that lifts the spine (additive).
+    AnimationClip lean;
+    lean.Name = "Lean";
+    lean.Duration = 1.0f;
+    AnimationChannel ch;
+    ch.JointIndex = 1;
+    ch.Target = AnimationChannel::Path::Translation;
+    ch.Times = { 0.0f, 1.0f };
+    ch.Values = { glm::vec4(2.0f, 1.0f, 0.0f, 0.0f), glm::vec4(2.0f, 1.0f, 0.0f, 0.0f) };
+    lean.Channels.push_back(ch);
+    AnimationClip nod = MakeRiseClip("Nod", 1.0f, 2.0f, 1); // spine from (0,0,0) to (0,2,0)
+    AnimationClip walk = MakeRiseClip("Walk", 1.0f, 0.0f, 3);  // the leg at (0,0,0): lowered by 1
+    Ref<Model> model = Model::CreateSkeletal(skeleton, { walk, lean, nod });
+
+    auto scene = CreateRef<Scene>();
+    Entity hero = scene->CreateEntity("Hero");
+    auto& mr = hero.AddComponent<MeshRendererComponent>();
+    mr.Type = PrimitiveMesh::Model;
+    mr.ModelAsset = model;
+    auto& a = hero.AddComponent<AnimatorComponent>();
+    a.Clip = "Walk";
+    a.Parameters = { { "Aim", AnimatorParameter::Type::Float, 1.0f } };
+    AnimatorLayer upper;
+    upper.Name = "Upper";
+    upper.Clip = "Lean";
+    upper.Weight = 0.5f;
+    upper.MaskBones = { "Spine" };
+    upper.WeightParameter = "Aim";
+    a.Layers = { upper };
+    CHECK(a.FindLayer("Upper") && !a.FindLayer("Nope") && !a.PlayLayer("Nope", "Lean"));
+
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(0.1f);
+    // The spine leans half way; the head follows it; the leg walks as the base says.
+    CHECK_NEAR(JointPosition(*model, a, 1).x, 1.0f, 1e-4f);
+    CHECK_NEAR(JointPosition(*model, a, 2).x, 1.0f, 1e-4f);
+    CHECK_NEAR(JointPosition(*model, a, 3).y, 0.0f, 1e-4f);
+    CHECK_NEAR(JointPosition(*model, a, 3).x, 0.0f, 1e-4f);
+    CHECK_NEAR(a.Layers[0].EffectiveWeight, 0.5f, 1e-5f);
+    // The weight parameter scales it.
+    a.SetFloat("Aim", 0.5f);
+    scene->OnUpdateRuntime(0.1f);
+    CHECK_NEAR(JointPosition(*model, a, 1).x, 0.5f, 1e-4f);
+    a.SetFloat("Aim", 1.0f);
+    // Fading the layer out over a second.
+    CHECK(a.SetLayerWeight("Upper", 0.0f, 1.0f));
+    scene->OnUpdateRuntime(0.5f);
+    CHECK_NEAR(a.GetLayerWeight("Upper"), 0.25f, 1e-4f);
+    CHECK_NEAR(JointPosition(*model, a, 1).x, 0.5f, 1e-4f);
+    scene->OnUpdateRuntime(1.0f);
+    CHECK(a.GetLayerWeight("Upper") == 0.0f && a.Layers[0].EffectiveWeight == 0.0f);
+    CHECK_NEAR(JointPosition(*model, a, 1).x, 0.0f, 1e-4f);
+    // Additive: the nod's lift (from its first frame) on top of the base, at full weight.
+    a.SetLayerWeight("Upper", 1.0f);
+    a.Layers[0].Blend = AnimatorLayerBlend::Additive;
+    CHECK(a.PlayLayer("Upper", "Nod", true, 1.0f, 0.0f));
+    scene->OnUpdateRuntime(0.25f);
+    CHECK_NEAR(JointPosition(*model, a, 1).y, 1.0f + 0.5f, 1e-4f); // rest 1 + lifted 0.5 at 0.25 s
+    CHECK_NEAR(JointPosition(*model, a, 2).y, 2.0f + 0.5f, 1e-4f);
+    scene->OnRuntimeStop();
+    // A copy (play starts from one) starts its layers over.
+    auto copy = Scene::Copy(scene);
+    const auto& ca = copy->FindEntityByName("Hero").GetComponent<AnimatorComponent>();
+    CHECK(ca.Layers[0].CurrentWeight == -1.0f && ca.Layers[0].Time == 0.0f && ca.Layers[0].Clip == "Nod");
+
+    // The scene file keeps the layers.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& la = loaded->FindEntityByName("Hero").GetComponent<AnimatorComponent>();
+    CHECK(la.Layers.size() == 1 && la.Layers[0].Name == "Upper" && la.Layers[0].Clip == "Nod");
+    CHECK(la.Layers[0].MaskBones == std::vector<std::string>({ "Spine" }) && la.Layers[0].WeightParameter == "Aim");
+    CHECK(la.Layers[0].Blend == AnimatorLayerBlend::Additive && la.Layers[0].Weight == 1.0f);
+}

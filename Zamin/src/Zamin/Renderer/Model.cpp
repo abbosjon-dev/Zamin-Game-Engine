@@ -764,6 +764,14 @@ namespace Zamin {
         to.m_Dependencies = std::move(from.m_Dependencies);
     }
 
+    Ref<Model> Model::CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations)
+    {
+        auto model = CreateRef<Model>();
+        model->m_Skeleton = std::move(skeleton);
+        model->m_Animations = std::move(animations);
+        return model;
+    }
+
     Ref<Model> Model::Load(const std::filesystem::path& path)
     {
         std::string key = path.string();

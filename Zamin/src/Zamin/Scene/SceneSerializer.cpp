@@ -431,7 +431,20 @@ namespace Zamin {
             for (const auto& p : c->Parameters)
                 params.push_back({ { "Name", p.Name }, { "Type", (int)p.Kind }, { "Value", p.Value } });
             for (const auto& st : c->States)
-                states.push_back({ { "Name", st.Name }, { "Clip", st.Clip }, { "Speed", st.Speed }, { "Loop", st.Loop }, { "SpeedParameter", st.SpeedParameter } });
+            {
+                json js = { { "Name", st.Name }, { "Clip", st.Clip }, { "Speed", st.Speed }, { "Loop", st.Loop }, { "SpeedParameter", st.SpeedParameter } };
+                if (st.IsBlendTree())
+                {
+                    js["Type"] = "BlendTree1D";
+                    js["BlendParameter"] = st.BlendParameter;
+                    json motions = json::array();
+                    for (const auto& m : st.Motions)
+                        motions.push_back({ { "Clip", m.Clip }, { "Threshold", m.Threshold }, { "Speed", m.Speed } });
+                    js["Motions"] = std::move(motions);
+                }
+                js["Graph"] = ToJson(st.GraphPosition);
+                states.push_back(std::move(js));
+            }
             for (const auto& t : c->Transitions)
             {
                 json conds = json::array();
@@ -454,6 +467,21 @@ namespace Zamin {
                     events.push_back(std::move(j));
                 }
                 e["Animator"]["Events"] = std::move(events);
+            }
+            if (!c->States.empty() || c->AnyStateGraphPosition != glm::vec2(0.0f))
+                e["Animator"]["AnyStateGraph"] = ToJson(c->AnyStateGraphPosition);
+            if (!c->Layers.empty())
+            {
+                json layers = json::array();
+                for (const AnimatorLayer& l : c->Layers)
+                {
+                    json jl = { { "Name", l.Name }, { "Clip", l.Clip }, { "Speed", l.Speed }, { "Loop", l.Loop }, { "Weight", l.Weight },
+                                { "Blend", l.Blend == AnimatorLayerBlend::Additive ? "Additive" : "Override" }, { "Mask", l.MaskBones } };
+                    if (!l.WeightParameter.empty())
+                        jl["WeightParameter"] = l.WeightParameter;
+                    layers.push_back(std::move(jl));
+                }
+                e["Animator"]["Layers"] = std::move(layers);
             }
             if (c->ApplyRootMotion)
                 e["Animator"]["ApplyRootMotion"] = true;
@@ -1208,8 +1236,50 @@ namespace Zamin {
             for (const json& p : j.value("Parameters", json::array()))
                 c.Parameters.push_back({ p.value("Name", ""), (AnimatorParameter::Type)p.value("Type", 0), p.value("Value", 0.0f) });
             for (const json& st : j.value("States", json::array()))
-                c.States.push_back({ st.value("Name", "State"), st.value("Clip", ""), st.value("Speed", 1.0f), st.value("Loop", true),
-                                     st.value("SpeedParameter", "") });
+            {
+                if (!st.is_object())
+                    continue;
+                AnimatorState state{ st.value("Name", "State"), st.value("Clip", ""), st.value("Speed", 1.0f), st.value("Loop", true),
+                                     st.value("SpeedParameter", "") };
+                if (st.value("Type", std::string()) == "BlendTree1D")
+                {
+                    state.Type = AnimatorStateType::BlendTree1D;
+                    state.BlendParameter = st.value("BlendParameter", std::string());
+                    if (auto motions = st.find("Motions"); motions != st.end() && motions->is_array())
+                        for (const json& m : *motions)
+                            if (m.is_object())
+                            {
+                                AnimatorBlendMotion motion{ m.value("Clip", std::string()), m.value("Threshold", 0.0f), m.value("Speed", 1.0f) };
+                                if (!std::isfinite(motion.Threshold)) motion.Threshold = 0.0f;
+                                if (!std::isfinite(motion.Speed)) motion.Speed = 1.0f;
+                                state.Motions.push_back(std::move(motion));
+                            }
+                }
+                state.GraphPosition = Vec(st, "Graph", glm::vec2(0.0f));
+                c.States.push_back(std::move(state));
+            }
+            c.AnyStateGraphPosition = Vec(j, "AnyStateGraph", glm::vec2(0.0f));
+            if (auto layers = j.find("Layers"); layers != j.end() && layers->is_array())
+                for (const json& jl : *layers)
+                {
+                    if (!jl.is_object())
+                        continue;
+                    AnimatorLayer l;
+                    l.Name = jl.value("Name", std::string("Layer"));
+                    l.Clip = jl.value("Clip", std::string());
+                    l.Speed = jl.value("Speed", 1.0f);
+                    if (!std::isfinite(l.Speed)) l.Speed = 1.0f;
+                    l.Loop = jl.value("Loop", true);
+                    l.Weight = std::clamp(jl.value("Weight", 1.0f), 0.0f, 1.0f);
+                    if (!std::isfinite(l.Weight)) l.Weight = 1.0f;
+                    l.WeightParameter = jl.value("WeightParameter", std::string());
+                    l.Blend = jl.value("Blend", std::string()) == "Additive" ? AnimatorLayerBlend::Additive : AnimatorLayerBlend::Override;
+                    if (auto mask = jl.find("Mask"); mask != jl.end() && mask->is_array())
+                        for (const json& bone : *mask)
+                            if (bone.is_string())
+                                l.MaskBones.push_back(bone.get<std::string>());
+                    c.Layers.push_back(std::move(l));
+                }
             for (const json& t : j.value("Transitions", json::array()))
             {
                 AnimatorTransition tr;

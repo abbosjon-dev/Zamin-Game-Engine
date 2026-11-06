@@ -5618,7 +5618,7 @@ namespace Zamin {
                 if (ImGui::IsItemHovered())
                     UI::Tooltip(ui ? "So'z bo'yicha o'rash: qator to'rtburchak kengligiga sig'maganda keyingi qatorga o'tadi"
                                    : "So'z bo'yicha o'rash: qator kenglikka sig'maganda keyingi qatorga o'tadi");
-                const char* overflows[] = { "Chiqadi", "Kesish", "..." };
+                const char* overflows[] = { "To'liq", "Kesish", "..." };
                 const char* tips[] = { "Sig'magan matn chegaradan tashqarida ham chiziladi", "Sig'magan belgilar va qatorlar chizilmaydi",
                                        "Kesilgan joyga \"...\" (uch nuqta) qo'yiladi" };
                 int o = (int)c.Overflow;

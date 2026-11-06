@@ -5707,6 +5707,11 @@ namespace Zamin {
         if (ImGuiWindow* content = ImGui::FindWindowByName("###ContentBrowser"); content && content->DockId)
             m_ScenesPanel.SetDefaultDock(content->DockId); // first opened: a tab next to the content browser
         m_ScenesPanel.OnImGuiRender(&m_ShowScenes);
+        // ZAMIN_EDITOR_FOCUS=<window id, e.g. ContentBrowser / Console / ScenesPanel>: that window's tab in
+        // front (screenshots), from frame 8 on for a few frames (docked tabs settle first).
+        if (static int focusFrames = 0; focusFrames < 12)
+            if (const char* focus = std::getenv("ZAMIN_EDITOR_FOCUS"); focus && ++focusFrames >= 8)
+                ImGui::SetWindowFocus(std::format("###{}", focus).c_str());
         m_ProjectSettingsPanel.SetScene(m_EditorScene); // tag counts / renames apply to the saved scene
         m_ProjectSettingsPanel.SetOpenScenePath(m_EditorScenePath.empty() ? fs::path() : fs::path(Project::GetAssetRelativePath(m_EditorScenePath)));
         m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);

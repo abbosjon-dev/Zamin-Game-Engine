@@ -731,8 +731,21 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   asosiy oqimda har kadr bir bo'lak, `GetProgress()`, `SetAllowSceneActivation`); **o'tishlar**
   (`SceneTransition::Fade(0.5f)` — rangga so'nib, almashib, ochiladi); **build sahnalar ro'yxati** (Loyiha sozlamalari →
   Build sahnalar: tartib, yoqish/o'chirish, sudrash, ochiq sahnani qo'shish, boshlang'ich sahna; `LoadScene(1)` yoki
-  `LoadScene("Level2")`; eksportga faqat ro'yxatdagi sahnalar kiradi). Namuna: Platformer2D `Scenes/Menu.zscene` →
-  `Scenes/Loading.zscene` (progress bar) → 1-daraja, `GameSession` (DontDestroyOnLoad: musiqa va jami tangalar)
+  `LoadScene("Level2")`, `LoadNextScene()`, `ReloadScene()`, `LoadSceneAsync(2)`, `GetSceneBuildIndex()`; player:
+  `--scene 2` yoki `--scene Level2`; eksportga faqat ro'yxatdagi sahnalar kiradi); **sahna hodisalari** —
+  `OnSceneLoaded` / `OnSceneUnloaded` / `OnActiveSceneChanged` skript callback'lari va shinada `"SceneLoaded"`,
+  `"SceneUnloaded"`, `"ActiveSceneChanged"` (`SceneEventInfo`: nom, yo'l, build indeksi, rejim); **tez qidiruv** —
+  nom va teg indekslari (birinchi qidiruvda quriladi, keyin obyekt yaratish/o'chirish/nomlashda bittalab yangilanadi:
+  10 000 obyektda `FindEntityByName` skandan ~2000x tez, `CountEntitiesWithTag` O(1)), komponent turi bo'yicha
+  `FindEntitiesWith<T>()`, `FindObjectsOfType<T>()` (komponentlar yoki skript klasslari, barcha yuklangan sahnalarda;
+  `ZaminBench --queries`); **yuklash xatolari** (`SceneLoadReport`) — JSON xatosi qator/ustun va fayl qatori bilan,
+  noma'lum komponent, o'qilmagan komponent (obyekt qolgan komponentlari bilan yuklanadi), topilmagan asset, takroriy ID,
+  ota obyekti yo'q / halqa: konsolda, editorda viewport ustidagi banner va "Sahna yuklash muammolari" oynasi, player'da
+  o'yin yopilish o'rniga xato ekrani; **barqaror fayl tartibi** — `.zscene` obyektlari UUID bo'yicha saralangan,
+  ierarxiya tartibi `RootOrder` / `ChildOrder` da: bir xil sahna doim bir xil matn (diff'lar faqat o'zgarganini
+  ko'rsatadi), yuklashda obyektlar ierarxiya tartibida yaratiladi. Namuna: Platformer2D `Scenes/Menu.zscene` →
+  `Scenes/Loading.zscene` (progress bar) → 1-daraja, `GameSession` (DontDestroyOnLoad: musiqa va jami tangalar;
+  HUD `OnActiveSceneChanged` bilan yangilanadi)
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime

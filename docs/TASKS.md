@@ -299,7 +299,7 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 257. Bir nechta skin qo'llab-quvvatlash
 - [x] 258. Animatsiya testlari (property clip, event)
 - [x] 259. Animatsiya namunasi (eshik ochilishi)
-- [ ] 260. Animatsiya hujjatlari
+- [x] 260. Animatsiya hujjatlari
 
 ## M14 Particle II
 

@@ -257,7 +257,19 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     (yoki saqlash / undo / Play) sahnaning o'z qiymatlari qaytadi. **Yozish** (●): inspektor yoki gizmo bilan qilingan
     o'zgarishlar joriy vaqtda kalit bo'ladi (yangi xususiyat — yangi trek). O'z undo/redo'si (oyna fokusda: Ctrl+Z / Ctrl+Y),
     Ctrl+S — klipni saqlash. Kontent: o'ng tugma → Yangi animatsiya klipi, `.zanim` ikki marta bosilsa oynada ochiladi.
-    Namuna: Showcase3D `Scenes/Animation.zscene` (mayoq, eshik, glTF Animator event'lari)
+    Namuna: Showcase3D `Scenes/Animation.zscene` (mayoq, eshik, glTF Animator event'lari); Adventure3D ark ostidagi
+    **darvoza** — qahramon yaqinlashsa ochiladi, uzoqlashsa yopiladi (`AnimationPlayerComponent::PlayFrom` — turgan joyidan
+    orqaga), klip event'lari g'ichirlash va taqillash ovozlarini chaladi (`ProximityDoor` skripti)
+  - **Bir nechta skin** (glTF): har skinned mesh o'z skin'i bilan (tana va kiyim, bir faylda ikki personaj, ikki armaturaga
+    bog'langan arqon) — barcha skin suyaklari bitta skeletda (bitta Animator), har skin o'z suyaklari / inverse bind'lari bilan
+    (farq qilsa o'z palitrasi, har skin'da 80 tagacha suyak). Namuna: Showcase3D `Models/TentaclePair.gltf` (uch skin)
+  - **Animatsiya samaradorligi** (Animator > Samaradorlik): kirishlari o'zgarmagan poza qayta hisoblanmaydi (pauza, tezlik 0,
+    tugagan klip); **ko'rinmasa** — hech bir kamera ko'rmagan model pozalanmaydi (vaqt, event'lar, root motion davom etadi) yoki
+    umuman to'xtaydi; **pozalarni keshlash** (klip belgilangan kadr/s da oldindan namuna olinadi, model animatorlari ulashadi,
+    step kalitlar aniq). Statistika oynasida **Animatsiya** bo'limi, profiler'da `Animatsiya/Pozalar`, `Scene::GetAnimationStats()`.
+    Namuna: Showcase3D `Scenes/Olomon.zscene` (168 tentakl, buriladigan kamera)
+  - Batafsil qo'llanma: [docs/animation.md](docs/animation.md) — kliplar, timeline, Animator, blend tree, qatlamlar, event'lar,
+    root motion, biriktirish, morph target'lar, samaradorlik, kod misollari bilan
   - **Post-processing**: SSAO (ambient occlusion), bloom (**rangi** — porlash shu rangga ko'paytiriladi; **linza changi** —
     yorqin yorug'likning keng porlashi protsedural chang/dog' teksturasini yoritadi), vinyetka, kontrast/to'yinganlik/rang
     tuslash, **xromatik aberratsiya** (chetlarga tomon qizil va ko'k siljiydi), **plyonka donasi** (har kadr o'zgaradigan
@@ -831,7 +843,7 @@ Foydali API:
 | Qahramon | `GetComponent<CharacterController3DComponent>()` → `.Move(velocity)`, `.Jump(speed)`, `.Grounded`, `.Velocity` (oxirgi fizika qadamidagi haqiqiy tezlik) |
 | Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)` (blend tree ham), `SetBool`, `SetTrigger`, `SetState("Jump")`, `GetNormalizedTime(model)`; qatlamlar: `PlayLayer("UpperBody", "Wave")`, `SetLayerWeight("UpperBody", w, fade)`; `.ApplyRootMotion`, `.RootMotionVelocity`; blend shape'lar: `GetComponent<MeshRendererComponent>().SetMorphWeight("Smile", 0.8f)`, `GetMorphWeight("Smile")` |
 | Sprite klip | `PlaySpriteClip("HeroSide")`, `GetSpriteClip()`; kadr event'lari `OnAnimationEvent(e)` orqali |
-| Property animatsiya | `PlayAnimation("Klip", speed)` (speed < 0 — oxiridan orqaga), `StopAnimation()`, `IsAnimationPlaying()`; `GetComponent<AnimationPlayerComponent>().SetTime(t)`; event'lar: `OnAnimationEvent(const AnimationEventInfo& e)` (`e.Name`, `e.Parameter`, `e.Clip`, `e.Skeletal`), `AddAnimationEventHandler("Footstep", fn)` |
+| Property animatsiya | `PlayAnimation("Klip", speed)` (speed < 0 — oxiridan orqaga), `StopAnimation()`, `IsAnimationPlaying()`; `GetComponent<AnimationPlayerComponent>().SetTime(t)`, `.PlayFrom("Klip", t, -1.0f)` (turgan joyidan orqaga); event'lar: `OnAnimationEvent(const AnimationEventInfo& e)` (`e.Name`, `e.Parameter`, `e.Clip`, `e.Skeletal`), `AddAnimationEventHandler("Footstep", fn)` |
 | Input harakatlari | `Input::IsActionPressed("Fire")`, `IsActionJustPressed("Jump")`, `IsActionJustReleased(...)`, `GetAxis("Horizontal")`, `GetAxis2D("Horizontal", "Vertical")` |
 | Input (qurilma) | `Input::IsKeyPressed / IsKeyJustPressed / IsKeyJustReleased`, `IsMouseButtonPressed / ...JustPressed / ...JustReleased`, `GetMouseDelta()`, `GetMouseScrollDelta()`, `IsGamepadButtonPressed / ...JustPressed`, `GetGamepadAxis`, `GetMousePosition()`, `GetMouseWorldPosition()`, `ScreenToWorld()` |
 | Saqlash | `SaveData::SetInt/SetFloat/SetString/SetBool(kalit, qiymat)`, `GetInt/GetFloat/GetString/GetBool(kalit, standart)`, `HasKey`, `DeleteKey`, `DeleteAll`, `Save()` |
@@ -974,7 +986,7 @@ Tests/           Headless unit testlar
 - [x] Skeletal animatsiya (glTF skins), Animator, CPU profiler
 - [x] Animatsiyalar orasida silliq o'tish (crossfade), Character Controller 3D
 - [x] Animatsiya holat mashinasi (parametrlar, holatlar, shartli o'tishlar, exit time, trigger'lar)
-- [ ] Root motion, animatsiya event'lari
+- [x] Root motion, animatsiya event'lari, property animatsiya va timeline, blend tree, qatlamlar
 - [x] Cascaded shadow maps, tuman
 - [x] SSAO
 - [x] HDRI osmon va IBL (SH9 + prefiltered mip)

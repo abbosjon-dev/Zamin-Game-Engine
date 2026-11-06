@@ -1,5 +1,7 @@
 #include "Zamin/Audio/AudioEngine.h"
+#include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Asset/AssetImportLog.h"
+#include "Zamin/Audio/AudioFilter.h"
 #include "Zamin/Core/Log.h"
 
 #define MINIAUDIO_IMPLEMENTATION
@@ -11,6 +13,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <string>
@@ -60,12 +63,44 @@ namespace Zamin {
 
         ma_node_vtable s_MeterVTable = { MeterProcess, nullptr, 1, 1, MA_NODE_FLAG_PASSTHROUGH };
 
+        // A low-pass / high-pass node (AudioFilterChain) after a mixer group or a sound. The main
+        // thread sets the cutoffs (atomics); the audio thread glides the filter to them.
+        struct FilterNode
+        {
+            ma_node_base Base; // must stay first
+            std::atomic<float> LowPass{ 0.0f }, HighPass{ 0.0f }; // Hz; 0 = off
+            AudioFilterChain Chain;                              // the audio thread's
+            ma_uint32 Channels = 2;
+            float SampleRate = 48000.0f;
+        };
+
+        void FilterProcess(ma_node* node, const float** framesIn, ma_uint32* frameCountIn, float** framesOut, ma_uint32* frameCountOut)
+        {
+            (void)frameCountIn;
+            auto* filter = (FilterNode*)node;
+            const ma_uint32 channels = std::max<ma_uint32>(1, filter->Channels);
+            const ma_uint32 frames = *frameCountOut;
+            float* out = framesOut[0];
+            if (!framesIn || !framesIn[0])
+            {
+                std::memset(out, 0, (size_t)frames * channels * sizeof(float));
+                return;
+            }
+            if (out != framesIn[0])
+                std::memcpy(out, framesIn[0], (size_t)frames * channels * sizeof(float));
+            filter->Chain.SetTarget(filter->LowPass.load(std::memory_order_relaxed), filter->HighPass.load(std::memory_order_relaxed));
+            filter->Chain.Process(out, frames, channels, filter->SampleRate);
+        }
+
+        ma_node_vtable s_FilterVTable = { FilterProcess, nullptr, 1, 1, 0 };
+
         struct MixerGroup
         {
             std::string Name;
             std::string Parent; // what its meter is attached to now
             bool Wired = false;
             std::unique_ptr<ma_sound_group> Group;
+            std::unique_ptr<FilterNode> Filter; // group -> filter -> meter -> parent
             std::unique_ptr<MeterNode> Meter;
             AudioLevel Level;
             float HoldTime = 0.0f;
@@ -87,6 +122,13 @@ namespace Zamin {
             float Pitch = 1.0f, PitchVariation = 1.0f;
             float DopplerFactor = 1.0f, DopplerPitch = 1.0f;
             glm::vec3 Velocity{ 0.0f };
+            float ClipGain = 1.0f; // the file's own Volume (import settings)
+            // The fade envelope (main thread: logic and info); miniaudio's fader ramps the samples
+            // the same way on the audio thread.
+            float Fade = 1.0f, FadeFrom = 1.0f, FadeTarget = 1.0f, FadeDuration = 0.0f, FadeElapsed = 0.0f;
+            bool Stopping = false; // fading out: released once silent
+            AudioFilterSettings FilterSettings;
+            std::unique_ptr<FilterNode> Filter; // made when the sound first gets a filter
         };
 
         // A music track and its fade. Position runs 0..1 along the fade, the track is heard at
@@ -123,6 +165,9 @@ namespace Zamin {
         uint64_t s_StolenCount = 0, s_RejectedCount = 0;
         std::unordered_set<uint32_t> s_StolenHandles;
         bool s_WarnedVoiceLimit = false;
+        // Files kept decoded in the resource manager: file -> asked for by Preload (kept until
+        // Unload) or not (a scene's clips, a clip's Preload setting on its first play).
+        std::unordered_map<std::string, bool> s_Preloaded;
 
         bool IsFinite(const glm::vec3& v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); }
 
@@ -166,10 +211,44 @@ namespace Zamin {
         {
             if (g.Meter)
                 ma_node_uninit(&g.Meter->Base, nullptr);
+            if (g.Filter)
+                ma_node_uninit(&g.Filter->Base, nullptr);
             if (g.Group)
                 ma_sound_group_uninit(g.Group.get());
             g.Meter.reset();
+            g.Filter.reset();
             g.Group.reset();
+        }
+
+        std::unique_ptr<FilterNode> CreateFilterNode()
+        {
+            auto filter = std::make_unique<FilterNode>();
+            filter->Channels = ma_engine_get_channels(s_Engine);
+            filter->SampleRate = (float)ma_engine_get_sample_rate(s_Engine);
+            ma_uint32 channels = filter->Channels;
+            ma_node_config config = ma_node_config_init();
+            config.vtable = &s_FilterVTable;
+            config.pInputChannels = &channels;
+            config.pOutputChannels = &channels;
+            if (ma_node_init(ma_engine_get_node_graph(s_Engine), &config, nullptr, &filter->Base) != MA_SUCCESS)
+                return nullptr;
+            return filter;
+        }
+
+        // What a group sends on to its parent.
+        ma_node* GroupOutput(MixerGroup& g)
+        {
+            if (g.Meter)
+                return (ma_node*)&g.Meter->Base;
+            if (g.Filter)
+                return (ma_node*)&g.Filter->Base;
+            return (ma_node*)g.Group.get();
+        }
+
+        void SetFilterTargets(FilterNode& node, const AudioFilterSettings& settings)
+        {
+            node.LowPass.store(settings.GetLowPass(), std::memory_order_relaxed);
+            node.HighPass.store(settings.GetHighPass(), std::memory_order_relaxed);
         }
 
         std::unique_ptr<MixerGroup> CreateGroup(const std::string& name)
@@ -183,6 +262,11 @@ namespace Zamin {
                 g->Group.reset();
                 return nullptr;
             }
+            // Its filter (bypassed while off): without one the group goes on unfiltered.
+            g->Filter = CreateFilterNode();
+            if (g->Filter)
+                ma_node_attach_output_bus(g->Group.get(), 0, &g->Filter->Base, 0);
+            ma_node* beforeMeter = g->Filter ? (ma_node*)&g->Filter->Base : (ma_node*)g->Group.get();
             g->Meter = std::make_unique<MeterNode>();
             g->Meter->Peak[0] = 0.0f;
             g->Meter->Peak[1] = 0.0f;
@@ -198,19 +282,53 @@ namespace Zamin {
                 g->Meter.reset();
             }
             else
-                ma_node_attach_output_bus(g->Group.get(), 0, &g->Meter->Base, 0);
+                ma_node_attach_output_bus(beforeMeter, 0, &g->Meter->Base, 0);
             return g;
         }
 
         void ApplyGains()
         {
             for (auto& g : s_Groups)
+            {
                 ma_sound_group_set_volume(g->Group.get(), s_Mixer.GetLocalGain(g->Name));
+                if (g->Filter)
+                    if (const AudioGroupSettings* settings = s_Mixer.Find(g->Name))
+                        SetFilterTargets(*g->Filter, settings->Filter);
+            }
         }
 
         void RouteVoice(Voice& voice)
         {
-            ma_node_attach_output_bus(voice.Sound.get(), 0, GroupInput(voice.Group), 0);
+            ma_node* target = GroupInput(voice.Group);
+            if (voice.Filter)
+            {
+                // The filter's way on first: the sound never goes to a node that leads nowhere.
+                ma_node_attach_output_bus(&voice.Filter->Base, 0, target, 0);
+                ma_node_attach_output_bus(voice.Sound.get(), 0, &voice.Filter->Base, 0);
+            }
+            else
+                ma_node_attach_output_bus(voice.Sound.get(), 0, target, 0);
+        }
+
+        // The sound's filter as its settings say; its node is made the first time one is on.
+        // `starting`: the sound has not started yet - the filter starts at its cutoffs (otherwise
+        // it glides in from unfiltered).
+        void ApplyVoiceFilter(Voice& voice, bool starting)
+        {
+            if (!voice.Filter)
+            {
+                if (!voice.FilterSettings.IsActive())
+                    return;
+                voice.Filter = CreateFilterNode();
+                if (!voice.Filter)
+                    return;
+                if (!starting)
+                    voice.Filter->Chain.StartOpen();
+                SetFilterTargets(*voice.Filter, voice.FilterSettings);
+                RouteVoice(voice);
+                return;
+            }
+            SetFilterTargets(*voice.Filter, voice.FilterSettings);
         }
 
         // Makes the engine's groups match s_Mixer.
@@ -248,8 +366,7 @@ namespace Zamin {
                 MixerGroup* g = FindGroup(settings.Name);
                 if (!g || (g->Wired && g->Parent == settings.Parent))
                     continue;
-                ma_node* output = g->Meter ? (ma_node*)&g->Meter->Base : (ma_node*)g->Group.get();
-                ma_node_attach_output_bus(output, 0, GroupInput(settings.Parent), 0);
+                ma_node_attach_output_bus(GroupOutput(*g), 0, GroupInput(settings.Parent), 0);
                 g->Parent = settings.Parent;
                 g->Wired = true;
             }
@@ -258,7 +375,7 @@ namespace Zamin {
 
         void ApplyVolume(Voice& voice)
         {
-            ma_sound_set_volume(voice.Sound.get(), std::max(0.0f, voice.Volume * voice.VolumeVariation));
+            ma_sound_set_volume(voice.Sound.get(), std::max(0.0f, voice.Volume * voice.VolumeVariation * voice.ClipGain));
         }
 
         void ApplyPitch(Voice& voice)
@@ -306,16 +423,39 @@ namespace Zamin {
         {
             if (voice.Paused)
                 return 0.0f;
-            return std::max(0.0f, voice.Volume * voice.VolumeVariation) * GroupGain(voice) * Attenuation(voice);
+            return std::max(0.0f, voice.Volume * voice.VolumeVariation * voice.ClipGain * voice.Fade) * GroupGain(voice) * Attenuation(voice);
+        }
+
+        void DestroyVoice(Voice& voice)
+        {
+            ma_sound_uninit(voice.Sound.get());
+            if (voice.Filter)
+                ma_node_uninit(&voice.Filter->Base, nullptr);
+            voice.Filter.reset();
         }
 
         void Release(uint32_t handle)
         {
             if (auto it = s_Voices.find(handle); it != s_Voices.end())
             {
-                ma_sound_uninit(it->second.Sound.get());
+                DestroyVoice(it->second);
                 s_Voices.erase(it);
             }
+        }
+
+        // The envelope heads for `target` over `seconds` (from where it is now).
+        void FadeVoice(Voice& voice, float target, float seconds)
+        {
+            target = std::clamp(std::isfinite(target) ? target : 1.0f, 0.0f, 1.0f);
+            seconds = std::isfinite(seconds) ? std::max(0.0f, seconds) : 0.0f;
+            voice.FadeFrom = voice.Fade;
+            voice.FadeTarget = target;
+            voice.FadeElapsed = 0.0f;
+            voice.FadeDuration = seconds;
+            if (seconds <= 0.0f)
+                voice.Fade = target;
+            // -1: miniaudio's fader starts from where it is on the audio thread (no jump).
+            ma_sound_set_fade_in_milliseconds(voice.Sound.get(), -1.0f, target, (ma_uint64)std::llround(seconds * 1000.0f));
         }
 
         void CleanupFinished()
@@ -340,8 +480,10 @@ namespace Zamin {
             {
                 const Voice& v = s_Voices.at(handle);
                 float volume = policy == AudioStealPolicy::Quietest ? AudibleVolume(v) : 0.0f;
-                bool better = !best || v.Priority < bestPriority;
-                if (!better && v.Priority == bestPriority)
+                // A sound fading out is on its way already: it goes first.
+                const int priority = v.Stopping ? -1 : v.Priority;
+                bool better = !best || priority < bestPriority;
+                if (!better && priority == bestPriority)
                 {
                     if (policy == AudioStealPolicy::Quietest && std::abs(volume - bestVolume) > 1e-6f)
                         better = volume < bestVolume;
@@ -351,7 +493,7 @@ namespace Zamin {
                 if (better)
                 {
                     best = handle;
-                    bestPriority = v.Priority;
+                    bestPriority = priority;
                     bestVolume = volume;
                 }
             }
@@ -363,7 +505,7 @@ namespace Zamin {
         bool MakeRoom(const std::string& file, const SoundParams& params, int priority, bool counted, std::vector<uint32_t>& victims)
         {
             auto mayStop = [&](const Voice& v) {
-                return v.Priority < priority || (v.Priority == priority && params.Steal != AudioStealPolicy::None);
+                return v.Stopping || v.Priority < priority || (v.Priority == priority && params.Steal != AudioStealPolicy::None);
             };
             // The clip's own limit: one of its instances makes room (the total stays the same).
             if (params.MaxInstances > 0)
@@ -444,8 +586,10 @@ namespace Zamin {
         // an error - not just ends early - still takes that path.)
         ma_result CheckDecodable(const std::string& file)
         {
+            if (s_Preloaded.contains(file))
+                return MA_SUCCESS; // decoded already: the manager shares that data
             for (const auto& [handle, voice] : s_Voices)
-                if (voice.File == file)
+                if (voice.File == file && !voice.Streamed)
                     return MA_SUCCESS;
             ma_decoder decoder;
             ma_result result = ma_decoder_init_file(file.c_str(), nullptr, &decoder);
@@ -476,6 +620,37 @@ namespace Zamin {
             return true;
         }
 
+        ma_resource_manager* ResourceManager() { return ma_engine_get_resource_manager(s_Engine); }
+
+        // Keeps the file decoded in the resource manager (see AudioEngine::Preload).
+        bool PreloadFile(const std::filesystem::path& path, bool requested)
+        {
+            if (!s_Engine || path.empty())
+                return false;
+            const std::string file = path.string();
+            if (auto it = s_Preloaded.find(file); it != s_Preloaded.end())
+            {
+                it->second = it->second || requested;
+                return true;
+            }
+            if (AudioEngine::ShouldStream(path, false) || !CanPlay(path))
+                return false;
+            ma_result result = ma_resource_manager_register_file(ResourceManager(), file.c_str(), MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_DECODE);
+            if (result != MA_SUCCESS)
+            {
+                ReportFailure(path, result);
+                return false;
+            }
+            s_Preloaded[file] = requested;
+            return true;
+        }
+
+        void UnloadFile(const std::string& file)
+        {
+            if (s_Preloaded.erase(file) && s_Engine)
+                ma_resource_manager_unregister_file(ResourceManager(), file.c_str());
+        }
+
         uint32_t StartSound(const std::filesystem::path& path, const SoundParams& params, bool music)
         {
             if (!s_Engine) return 0;
@@ -493,6 +668,7 @@ namespace Zamin {
                 group = AudioSettings::SFX;
             }
             const std::string file = path.string();
+            const AudioClipSettings clip = AssetImporter::GetAudioSettings(path);
             const bool stream = music || AudioEngine::ShouldStream(path, params.Stream);
             const bool counted = !music && !group.empty();
             const int priority = std::clamp(params.Priority, 0, 255);
@@ -504,6 +680,9 @@ namespace Zamin {
             }
             Voice voice;
             voice.Sound = std::make_unique<ma_sound>();
+            // A clip that asks for it stays decoded from its first play on (the next plays share it).
+            if (!stream && clip.Preload && !s_Preloaded.contains(file))
+                PreloadFile(path, false);
             ma_result result = CheckDecodable(file);
             if (result == MA_SUCCESS)
             {
@@ -524,6 +703,7 @@ namespace Zamin {
             voice.Pitch = std::isfinite(params.Pitch) ? std::max(0.01f, params.Pitch) : 1.0f;
             voice.VolumeVariation = RandomInRange(params.VolumeRandom, 0.0f);
             voice.PitchVariation = RandomInRange(params.PitchRandom, 0.01f);
+            voice.ClipGain = std::isfinite(clip.Volume) ? std::clamp(clip.Volume, 0.0f, AudioSettings::MaxVolume) : 1.0f;
             voice.Priority = priority;
             voice.Counted = counted;
             voice.Spatial = params.Spatial;
@@ -548,10 +728,20 @@ namespace Zamin {
                 ma_sound_set_spatialization_enabled(sound, MA_FALSE);
             ApplyVolume(voice);
             ApplyPitch(voice);
+            if (!music && std::isfinite(params.FadeIn) && params.FadeIn > 0.0f)
+            {
+                voice.Fade = voice.FadeFrom = 0.0f;
+                voice.FadeTarget = 1.0f;
+                voice.FadeDuration = params.FadeIn;
+                ma_sound_set_fade_in_milliseconds(sound, 0.0f, 1.0f, (ma_uint64)std::llround(params.FadeIn * 1000.0f));
+            }
+            voice.Group = group;
+            voice.FilterSettings = params.Filter;
+            voice.FilterSettings.Sanitize();
+            ApplyVoiceFilter(voice, true);
             ma_sound_start(sound);
 
             voice.File = file;
-            voice.Group = group;
             voice.Streamed = stream;
             voice.Music = music;
             uint32_t handle = s_NextHandle++;
@@ -718,6 +908,27 @@ namespace Zamin {
             }
         }
 
+        // The sounds' fade envelopes move on (paused ones wait); one fading out is released once silent.
+        void UpdateFades(float dt)
+        {
+            std::vector<uint32_t> silent;
+            for (auto& [handle, v] : s_Voices)
+            {
+                if (v.Music || v.Paused)
+                    continue;
+                if (v.Fade != v.FadeTarget)
+                {
+                    v.FadeElapsed += dt;
+                    float t = v.FadeDuration > 0.0f ? std::min(1.0f, v.FadeElapsed / v.FadeDuration) : 1.0f;
+                    v.Fade = t >= 1.0f ? v.FadeTarget : v.FadeFrom + (v.FadeTarget - v.FadeFrom) * t;
+                }
+                if (v.Stopping && v.Fade <= 0.0f)
+                    silent.push_back(handle);
+            }
+            for (uint32_t handle : silent)
+                Release(handle);
+        }
+
         void UpdateMeters(float dt)
         {
             // Falls 24 dB a second; the hold mark waits 1.5 s, then falls the same way.
@@ -785,6 +996,7 @@ namespace Zamin {
 
     bool AudioEngine::IsAvailable() { return s_Engine != nullptr; }
     bool AudioEngine::HasDevice() { return s_Engine && s_HasDevice; }
+    uint32_t AudioEngine::GetSampleRate() { return s_Engine ? ma_engine_get_sample_rate(s_Engine) : 0; }
 
     void AudioEngine::Update(float deltaSeconds)
     {
@@ -792,6 +1004,7 @@ namespace Zamin {
         float dt = std::isfinite(deltaSeconds) ? std::max(0.0f, deltaSeconds) : 0.0f;
         CleanupFinished();
         UpdateMusic(dt);
+        UpdateFades(dt);
         UpdateDoppler(dt);
         UpdateMeters(dt);
     }
@@ -995,7 +1208,13 @@ namespace Zamin {
         out.VolumeVariation = v->VolumeVariation;
         out.GroupGain = GroupGain(*v);
         out.Attenuation = Attenuation(*v, &out.Distance);
-        out.AudibleVolume = std::max(0.0f, v->Volume * v->VolumeVariation) * out.GroupGain * out.Attenuation;
+        out.ClipGain = v->ClipGain;
+        out.Fade = v->Fade;
+        out.FadeTarget = v->FadeTarget;
+        out.Stopping = v->Stopping;
+        out.Preloaded = s_Preloaded.contains(v->File);
+        out.Filter = v->FilterSettings;
+        out.AudibleVolume = std::max(0.0f, v->Volume * v->VolumeVariation * v->ClipGain * v->Fade) * out.GroupGain * out.Attenuation;
         out.Pitch = v->Pitch;
         out.PitchVariation = v->PitchVariation;
         out.DopplerPitch = v->DopplerPitch;
@@ -1047,6 +1266,9 @@ namespace Zamin {
     {
         if (requested)
             return true;
+        const AudioClipSettings clip = AssetImporter::GetAudioSettings(path);
+        if (clip.LoadMode != AudioLoadMode::Auto)
+            return clip.LoadMode == AudioLoadMode::Stream;
         std::error_code ec;
         uintmax_t size = std::filesystem::file_size(path, ec);
         return !ec && (double)size > (double)s_Mixer.StreamThresholdMB * 1024.0 * 1024.0;
@@ -1060,14 +1282,51 @@ namespace Zamin {
         Release(handle);
     }
 
+    void AudioEngine::Stop(uint32_t handle, float fadeSeconds)
+    {
+        Voice* v = FindVoice(handle);
+        if (!v) return;
+        if (!std::isfinite(fadeSeconds) || fadeSeconds <= 0.0f || v->Paused || v->Music || !ma_sound_is_playing(v->Sound.get()))
+        {
+            Stop(handle);
+            return;
+        }
+        v->Stopping = true;
+        FadeVoice(*v, 0.0f, fadeSeconds);
+    }
+
+    bool AudioEngine::IsStopping(uint32_t handle)
+    {
+        Voice* v = FindVoice(handle);
+        return v && v->Stopping;
+    }
+
+    bool AudioEngine::FadeTo(uint32_t handle, float volume, float seconds)
+    {
+        Voice* v = FindVoice(handle);
+        if (!v || v->Music)
+            return false;
+        if (v->Stopping)
+            return true; // on its way out: a stop is not undone by a fade
+        FadeVoice(*v, volume, seconds);
+        return true;
+    }
+
+    float AudioEngine::GetFade(uint32_t handle)
+    {
+        Voice* v = FindVoice(handle);
+        return v ? v->Fade : 1.0f;
+    }
+
     void AudioEngine::StopAll()
     {
         for (auto& [handle, voice] : s_Voices)
         {
             ma_sound_stop(voice.Sound.get());
-            ma_sound_uninit(voice.Sound.get());
+            DestroyVoice(voice);
         }
         s_Voices.clear();
+        UnloadAll();
         float volume = s_Music.Volume;
         s_Music = {};
         s_Music.Volume = volume; // the music's volume is a setting, not a track
@@ -1095,6 +1354,103 @@ namespace Zamin {
     void AudioEngine::SetMasterVolume(float volume)
     {
         if (s_Engine) ma_engine_set_volume(s_Engine, volume);
+    }
+
+    // ------------------------------------------------------------------ filters
+    bool AudioEngine::SetSoundFilter(uint32_t handle, const AudioFilterSettings& filter)
+    {
+        Voice* v = FindVoice(handle);
+        if (!v)
+            return false;
+        AudioFilterSettings settings = filter;
+        settings.Sanitize();
+        if (settings == v->FilterSettings && (v->Filter || !settings.IsActive()))
+            return true;
+        v->FilterSettings = settings;
+        ApplyVoiceFilter(*v, false);
+        return true;
+    }
+
+    AudioFilterSettings AudioEngine::GetSoundFilter(uint32_t handle)
+    {
+        Voice* v = FindVoice(handle);
+        return v ? v->FilterSettings : AudioFilterSettings();
+    }
+
+    bool AudioEngine::SetGroupFilter(const std::string& group, const AudioFilterSettings& filter)
+    {
+        AudioGroupSettings* g = s_Mixer.Find(group);
+        if (!g) return false;
+        g->Filter = filter;
+        g->Filter.Sanitize();
+        if (MixerGroup* node = FindGroup(group); node && node->Filter)
+            SetFilterTargets(*node->Filter, g->Filter);
+        return true;
+    }
+
+    AudioFilterSettings AudioEngine::GetGroupFilter(const std::string& group)
+    {
+        const AudioGroupSettings* g = s_Mixer.Find(group);
+        return g ? g->Filter : AudioFilterSettings();
+    }
+
+    // ------------------------------------------------------------------ sound files
+    bool AudioEngine::Preload(const std::filesystem::path& path) { return PreloadFile(path, true); }
+
+    void AudioEngine::Unload(const std::filesystem::path& path) { UnloadFile(path.string()); }
+
+    void AudioEngine::UnloadAll()
+    {
+        if (s_Engine)
+            for (const auto& [file, requested] : s_Preloaded)
+                ma_resource_manager_unregister_file(ResourceManager(), file.c_str());
+        s_Preloaded.clear();
+    }
+
+    bool AudioEngine::IsPreloaded(const std::filesystem::path& path) { return s_Preloaded.contains(path.string()); }
+
+    size_t AudioEngine::GetPreloadedCount() { return s_Preloaded.size(); }
+
+    void AudioEngine::SetScenePreloads(const std::vector<std::filesystem::path>& paths)
+    {
+        std::unordered_set<std::string> keep;
+        for (const std::filesystem::path& path : paths)
+            keep.insert(path.string());
+        std::vector<std::string> drop;
+        for (const auto& [file, requested] : s_Preloaded)
+            if (!requested && !keep.contains(file))
+                drop.push_back(file);
+        for (const std::string& file : drop)
+            UnloadFile(file);
+        for (const std::filesystem::path& path : paths)
+            PreloadFile(path, false);
+    }
+
+    size_t AudioEngine::ReloadFile(const std::filesystem::path& path, bool* failed)
+    {
+        const std::string file = path.string();
+        auto it = s_Preloaded.find(file);
+        if (!s_Engine || it == s_Preloaded.end())
+            return 0;
+        const bool requested = it->second;
+        UnloadFile(file);
+        // Checked with a decoder of our own (the shortcut for files in use does not apply here).
+        ma_decoder decoder;
+        ma_result result = ma_decoder_init_file(file.c_str(), nullptr, &decoder);
+        if (result == MA_SUCCESS)
+        {
+            ma_decoder_uninit(&decoder);
+            result = ma_resource_manager_register_file(ResourceManager(), file.c_str(), MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_DECODE);
+        }
+        if (result != MA_SUCCESS)
+        {
+            ReportFailure(path, result);
+            if (failed)
+                *failed = true;
+            return 1;
+        }
+        s_Preloaded[file] = requested;
+        return 1;
     }
 
     // ------------------------------------------------------------------ listener

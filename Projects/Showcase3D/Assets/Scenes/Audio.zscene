@@ -661,6 +661,151 @@
           }
         }
       }
+    },
+    {
+      "Entity": 8110000000000092,
+      "Tag": "Radio",
+      "Transform": {
+        "Translation": [
+          4.4,
+          0.4,
+          -2.3
+        ],
+        "Rotation": [
+          0,
+          -0.35,
+          0
+        ],
+        "Scale": [
+          1.1,
+          0.8,
+          0.5
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": true,
+        "Albedo": [
+          0.45,
+          0.27,
+          0.16,
+          1
+        ],
+        "Roughness": 0.55,
+        "Metallic": 0.0,
+        "Emission": [
+          1.0,
+          0.6,
+          0.25
+        ],
+        "EmissionStrength": 0.35
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.7,
+          0.35
+        ],
+        "Intensity": 2.5,
+        "Radius": 4.0
+      },
+      "AudioSource": {
+        "Path": "Audio/RadioTune.wav",
+        "Volume": 0.9,
+        "Pitch": 1.0,
+        "Loop": true,
+        "PlayOnStart": true,
+        "Spatial": true,
+        "MinDistance": 1.5,
+        "MaxDistance": 11.0,
+        "Output": "SFX",
+        "Priority": 140,
+        "FadeIn": 1.5,
+        "FadeOut": 1.2,
+        "Filter": {
+          "LowPass": true,
+          "LowPassCutoff": 3500.0,
+          "HighPass": true,
+          "HighPassCutoff": 700.0
+        }
+      },
+      "NativeScript": {
+        "Class": "RadioToggle",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 8110000000000099,
+      "Tag": "Suv havzasi",
+      "Transform": {
+        "Translation": [
+          4.7,
+          0.35,
+          2.2
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          3.0,
+          0.7,
+          2.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cube",
+        "Model": "",
+        "CastShadows": false,
+        "Albedo": [
+          0.2,
+          0.55,
+          0.95,
+          0.38
+        ],
+        "Roughness": 0.08,
+        "Metallic": 0.0,
+        "Emission": [
+          0.1,
+          0.35,
+          0.7
+        ],
+        "EmissionStrength": 0.25,
+        "BlendMode": "Transparent",
+        "DoubleSided": true,
+        "PreserveSpecular": true
+      },
+      "NativeScript": {
+        "Class": "UnderwaterZone",
+        "Fields": {}
+      }
+    },
+    {
+      "Entity": 8110000000000106,
+      "Tag": "Ovoz sozlamalari",
+      "Transform": {
+        "Translation": [
+          0,
+          0.15,
+          6.8
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NativeScript": {
+        "Class": "AudioOptions",
+        "Fields": {}
+      }
     }
   ]
 }

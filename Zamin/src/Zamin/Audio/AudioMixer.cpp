@@ -10,6 +10,24 @@ namespace Zamin {
 
     using json = nlohmann::json;
 
+    // ------------------------------------------------------------------ filters
+    float AudioFilterSettings::GetLowPass() const
+    {
+        return LowPass ? std::clamp(std::isfinite(LowPassCutoff) ? LowPassCutoff : 1000.0f, MinCutoff, MaxCutoff) : 0.0f;
+    }
+
+    float AudioFilterSettings::GetHighPass() const
+    {
+        return HighPass ? std::clamp(std::isfinite(HighPassCutoff) ? HighPassCutoff : 300.0f, MinCutoff, MaxCutoff) : 0.0f;
+    }
+
+    void AudioFilterSettings::Sanitize()
+    {
+        LowPassCutoff = std::isfinite(LowPassCutoff) ? std::clamp(LowPassCutoff, MinCutoff, MaxCutoff) : 1000.0f;
+        HighPassCutoff = std::isfinite(HighPassCutoff) ? std::clamp(HighPassCutoff, MinCutoff, MaxCutoff) : 300.0f;
+    }
+
+    // ------------------------------------------------------------------ groups
     std::vector<AudioGroupSettings> AudioSettings::DefaultGroups()
     {
         return { { Master, "" }, { Music, Master }, { SFX, Master }, { UI, Master } };
@@ -196,7 +214,10 @@ namespace Zamin {
             }
         }
         for (AudioGroupSettings& g : Groups)
+        {
             g.Volume = std::isfinite(g.Volume) ? std::clamp(g.Volume, 0.0f, MaxVolume) : 1.0f;
+            g.Filter.Sanitize();
+        }
         if (!std::isfinite(StreamThresholdMB) || StreamThresholdMB <= 0.0f)
             StreamThresholdMB = 4.0f;
         StreamThresholdMB = std::clamp(StreamThresholdMB, 0.01f, 4096.0f);
@@ -213,7 +234,7 @@ namespace Zamin {
         {
             const AudioGroupSettings& a = Groups[i];
             const AudioGroupSettings& b = other.Groups[i];
-            if (a.Name != b.Name || a.Parent != b.Parent || a.Volume != b.Volume || a.Muted != b.Muted)
+            if (a.Name != b.Name || a.Parent != b.Parent || a.Volume != b.Volume || a.Muted != b.Muted || !(a.Filter == b.Filter))
                 return false;
         }
         return true;
@@ -231,6 +252,10 @@ namespace Zamin {
                 item["Parent"] = g.Parent;
             if (g.Muted)
                 item["Muted"] = true;
+            // Only a filter that was set up (older files stay the same).
+            if (!g.Filter.IsDefault())
+                item["Filter"] = { { "LowPass", g.Filter.LowPass }, { "LowPassCutoff", g.Filter.LowPassCutoff },
+                                   { "HighPass", g.Filter.HighPass }, { "HighPassCutoff", g.Filter.HighPassCutoff } };
             groups.push_back(std::move(item));
         }
         json j = { { "StreamThresholdMB", StreamThresholdMB }, { "MaxVoices", MaxVoices }, { "DopplerFactor", DopplerFactor }, { "Groups", groups } };
@@ -265,6 +290,17 @@ namespace Zamin {
                     g.Volume = v->get<float>();
                 if (auto v = item.find("Muted"); v != item.end() && v->is_boolean())
                     g.Muted = v->get<bool>();
+                if (auto f = item.find("Filter"); f != item.end() && f->is_object())
+                {
+                    if (auto v = f->find("LowPass"); v != f->end() && v->is_boolean())
+                        g.Filter.LowPass = v->get<bool>();
+                    if (auto v = f->find("LowPassCutoff"); v != f->end() && v->is_number())
+                        g.Filter.LowPassCutoff = v->get<float>();
+                    if (auto v = f->find("HighPass"); v != f->end() && v->is_boolean())
+                        g.Filter.HighPass = v->get<bool>();
+                    if (auto v = f->find("HighPassCutoff"); v != f->end() && v->is_number())
+                        g.Filter.HighPassCutoff = v->get<float>();
+                }
                 settings.Groups.push_back(std::move(g));
             }
         }
@@ -273,6 +309,73 @@ namespace Zamin {
         return true;
     }
 
+    // ------------------------------------------------------------------ player settings
+    AudioPlayerSettings AudioPlayerSettings::Capture(const AudioSettings& mixer, float musicVolume)
+    {
+        AudioPlayerSettings settings;
+        for (const AudioGroupSettings& g : mixer.Groups)
+            settings.Groups.push_back({ g.Name, g.Volume, g.Muted });
+        settings.MusicVolume = std::isfinite(musicVolume) ? std::clamp(musicVolume, 0.0f, AudioSettings::MaxVolume) : 1.0f;
+        return settings;
+    }
+
+    size_t AudioPlayerSettings::ApplyTo(AudioSettings& mixer) const
+    {
+        size_t applied = 0;
+        for (const Group& saved : Groups)
+            if (AudioGroupSettings* g = mixer.Find(saved.Name))
+            {
+                g->Volume = std::isfinite(saved.Volume) ? std::clamp(saved.Volume, 0.0f, AudioSettings::MaxVolume) : 1.0f;
+                g->Muted = saved.Muted;
+                applied++;
+            }
+        return applied;
+    }
+
+    std::string AudioPlayerSettings::ToJson() const
+    {
+        json groups = json::array();
+        for (const Group& g : Groups)
+            groups.push_back({ { "Name", g.Name }, { "Volume", g.Volume }, { "Muted", g.Muted } });
+        json j = { { "Version", 1 }, { "MusicVolume", MusicVolume }, { "Groups", groups } };
+        return j.dump();
+    }
+
+    bool AudioPlayerSettings::FromJson(const std::string& text, AudioPlayerSettings& out)
+    {
+        json j = json::parse(text, nullptr, false);
+        if (j.is_discarded() || !j.is_object())
+            return false;
+        AudioPlayerSettings settings;
+        if (auto it = j.find("MusicVolume"); it != j.end() && it->is_number())
+        {
+            float v = it->get<float>();
+            settings.MusicVolume = std::isfinite(v) ? std::clamp(v, 0.0f, AudioSettings::MaxVolume) : 1.0f;
+        }
+        if (auto it = j.find("Groups"); it != j.end() && it->is_array())
+            for (const json& item : *it)
+            {
+                if (!item.is_object())
+                    continue;
+                Group group;
+                if (auto v = item.find("Name"); v != item.end() && v->is_string())
+                    group.Name = v->get<std::string>();
+                if (group.Name.empty() || std::any_of(settings.Groups.begin(), settings.Groups.end(), [&](const Group& g) { return g.Name == group.Name; }))
+                    continue;
+                if (auto v = item.find("Volume"); v != item.end() && v->is_number())
+                {
+                    float volume = v->get<float>();
+                    group.Volume = std::isfinite(volume) ? std::clamp(volume, 0.0f, AudioSettings::MaxVolume) : 1.0f;
+                }
+                if (auto v = item.find("Muted"); v != item.end() && v->is_boolean())
+                    group.Muted = v->get<bool>();
+                settings.Groups.push_back(std::move(group));
+            }
+        out = std::move(settings);
+        return true;
+    }
+
+    // ------------------------------------------------------------------ decibels
     float AudioGain::ToDecibels(float gain)
     {
         if (gain <= 0.0f)

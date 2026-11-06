@@ -44,6 +44,7 @@ namespace Zamin {
     struct ScriptMessage;
     struct SoundInfo;
     struct AudioSourceComponent;
+    struct AudioFilterSettings;
 
     struct SceneSettings
     {
@@ -531,8 +532,20 @@ namespace Zamin {
         // Starts the source's sound from the beginning (a sound it is already playing is
         // stopped first). False when the scene is not running, the entity is not active in the
         // hierarchy, it has no source / path, or the sound could not be started (no device).
-        bool PlayAudio(Entity entity);
-        void StopAudio(Entity entity);
+        // `fadeInSeconds` < 0: the source's FadeIn.
+        bool PlayAudio(Entity entity, float fadeInSeconds = -1.0f);
+        // Stops it; with a fade (`fadeOutSeconds` < 0: the source's FadeOut) the sound fades out by
+        // itself while the source is free at once (IsAudioPlaying false, PlayAudio starts anew).
+        void StopAudio(Entity entity, float fadeOutSeconds = -1.0f);
+        // The playing sound's fade envelope goes to `volume` (0..1, x the source's Volume) over
+        // `seconds`. False when it plays nothing. GetAudioFade: the envelope now (1: nothing plays).
+        bool FadeAudio(Entity entity, float volume, float seconds);
+        float GetAudioFade(Entity entity);
+        // The source's filter (also of the sound playing now; a changed cutoff glides there).
+        // SetAudioLowPass / SetAudioHighPass: cutoff in Hz, <= 0 switches that filter off.
+        void SetAudioFilter(Entity entity, const AudioFilterSettings& filter);
+        void SetAudioLowPass(Entity entity, float cutoffHz);
+        void SetAudioHighPass(Entity entity, float cutoffHz);
         // Heard now (false while paused).
         bool IsAudioPlaying(Entity entity);
         // Pause keeps the sound where it is (its voice too); Resume goes on from there (refused

@@ -730,6 +730,13 @@ namespace Zamin {
                 a["Steal"] = c->Steal == AudioStealPolicy::Quietest ? "Quietest" : "None";
             if (c->DopplerFactor != 1.0f)
                 a["Doppler"] = c->DopplerFactor;
+            if (c->FadeIn > 0.0f)
+                a["FadeIn"] = c->FadeIn;
+            if (c->FadeOut > 0.0f)
+                a["FadeOut"] = c->FadeOut;
+            if (!c->Filter.IsDefault())
+                a["Filter"] = { { "LowPass", c->Filter.LowPass }, { "LowPassCutoff", c->Filter.LowPassCutoff },
+                                { "HighPass", c->Filter.HighPass }, { "HighPassCutoff", c->Filter.HighPassCutoff } };
             WriteAssetHandle(a, "Path", c->Path);
         }
         if (auto* c = entity.TryGetComponent<AudioListenerComponent>())
@@ -1509,6 +1516,18 @@ namespace Zamin {
             std::string steal = j.contains("Steal") && j["Steal"].is_string() ? j["Steal"].get<std::string>() : std::string();
             c.Steal = steal == "Quietest" ? AudioStealPolicy::Quietest : steal == "None" ? AudioStealPolicy::None : AudioStealPolicy::Oldest;
             c.DopplerFactor = std::clamp(j.value("Doppler", 1.0f), 0.0f, AudioSettings::MaxDopplerFactor);
+            auto seconds = [](float v) { return std::isfinite(v) ? std::clamp(v, 0.0f, 600.0f) : 0.0f; };
+            c.FadeIn = seconds(j.value("FadeIn", 0.0f));
+            c.FadeOut = seconds(j.value("FadeOut", 0.0f));
+            if (j.contains("Filter") && j["Filter"].is_object())
+            {
+                const json& f = j["Filter"];
+                c.Filter.LowPass = f.value("LowPass", false);
+                c.Filter.LowPassCutoff = f.value("LowPassCutoff", c.Filter.LowPassCutoff);
+                c.Filter.HighPass = f.value("HighPass", false);
+                c.Filter.HighPassCutoff = f.value("HighPassCutoff", c.Filter.HighPassCutoff);
+                c.Filter.Sanitize();
+            }
         }
         if (e.contains("AudioListener"))
         {

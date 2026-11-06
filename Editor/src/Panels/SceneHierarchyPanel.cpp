@@ -2093,7 +2093,8 @@ namespace Zamin {
             return;
 
         // What is heard: the sound's volume after its variation, the mixer and the distance.
-        UI::PropertyLabel("Eshitilishi", "Balandlik x tasodifiy ko'paytuvchi x mixer guruhi (ota guruhlari bilan) x masofa (3D)");
+        UI::PropertyLabel("Eshitilishi", "Balandlik x tasodifiy ko'paytuvchi x fayl balandligi x so'nish x mixer guruhi (ota guruhlari "
+                                         "bilan) x masofa (3D)");
         {
             float db = AudioGain::ToDecibels(info.AudibleVolume);
             float fraction = std::clamp((db - AudioGain::MinDecibels) / (6.0f - AudioGain::MinDecibels), 0.0f, 1.0f);
@@ -2101,13 +2102,38 @@ namespace Zamin {
             ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.35f, 0.8f, 0.45f, 1.0f));
             ImGui::ProgressBar(info.Paused ? 0.0f : fraction, ImVec2(-FLT_MIN, 0.0f), text.c_str());
             ImGui::PopStyleColor();
-            ImGui::TextDisabled("balandlik %.2f x%.2f", info.Volume, info.VolumeVariation);
+            if (info.ClipGain != 1.0f)
+                ImGui::TextDisabled("balandlik %.2f x%.2f  fayl x%.2f", info.Volume, info.VolumeVariation, info.ClipGain);
+            else
+                ImGui::TextDisabled("balandlik %.2f x%.2f", info.Volume, info.VolumeVariation);
             if (ImGui::IsItemHovered())
-                UI::Tooltip("Manbaning balandligi va bu ijroda olgan tasodifiy ko'paytuvchisi");
+                UI::Tooltip("Manbaning balandligi, bu ijroda olgan tasodifiy ko'paytuvchisi va faylning o'z balandligi (import sozlamasi)");
             ImGui::TextDisabled("guruh %s %s", info.Group.empty() ? "-" : info.Group.c_str(),
                                 info.GroupGain <= 0.0f ? "jim" : std::format("{:+.1f} dB", AudioGain::ToDecibels(info.GroupGain)).c_str());
             if (info.Spatial)
                 ImGui::TextDisabled("masofa %.1f m x%.2f", info.Distance, info.Attenuation);
+        }
+
+        // The fade envelope: where it is and where it goes.
+        UI::PropertyLabel("So'nish", "Fade konverti (0..1): FadeIn, FadeAudio yoki so'nib to'xtash");
+        {
+            std::string text = info.Fade == info.FadeTarget ? std::format("{:.0f}%", info.Fade * 100.0f)
+                                                            : std::format("{:.0f}% -> {:.0f}%", info.Fade * 100.0f, info.FadeTarget * 100.0f);
+            if (info.Stopping)
+                text += "  so'nib to'xtamoqda";
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, info.Stopping ? ImVec4(0.9f, 0.5f, 0.3f, 1.0f) : ImVec4(0.45f, 0.65f, 0.95f, 1.0f));
+            ImGui::ProgressBar(std::clamp(info.Fade, 0.0f, 1.0f), ImVec2(-FLT_MIN, 0.0f), text.c_str());
+            ImGui::PopStyleColor();
+        }
+        if (info.Filter.IsActive())
+        {
+            UI::PropertyLabel("Filtr");
+            std::string filter;
+            if (info.Filter.LowPass)
+                filter += "low-pass " + UI::FormatHz(info.Filter.GetLowPass());
+            if (info.Filter.HighPass)
+                filter += (filter.empty() ? "" : "   ") + std::string("high-pass ") + UI::FormatHz(info.Filter.GetHighPass());
+            ImGui::TextColored(ImVec4(0.55f, 0.75f, 1.0f, 1.0f), ICON_FA_FILTER "  %s", filter.c_str());
         }
 
         UI::PropertyLabel("Ton (hozir)", "So'ralgan ton x tasodifiy ko'paytuvchi x Doppler");
@@ -2126,7 +2152,8 @@ namespace Zamin {
         }
         AudioVoiceStats stats = AudioEngine::GetVoiceStats();
         UI::PropertyLabel("Ovozlar", "Loyihada hozir ijro etilayotgan ovozlar / limit (musiqasiz)");
-        ImGui::TextDisabled("%zu / %d%s", stats.Voices, stats.MaxVoices, info.Streamed ? "   " ICON_FA_WAVE_SQUARE " oqim" : "");
+        ImGui::TextDisabled("%zu / %d%s%s", stats.Voices, stats.MaxVoices, info.Streamed ? "   " ICON_FA_WAVE_SQUARE " oqim" : "",
+                            info.Preloaded ? "   " ICON_FA_MEMORY " xotirada" : "");
     }
 
     // ------------------------------------------------------------------ 2D renderers
@@ -6306,6 +6333,28 @@ namespace Zamin {
             }
             ImGui::PopID();
 
+            UI::PropertyHeader(ICON_FA_CHART_LINE "  So'nish (fade)", "Ovoz boshlanganda jimdan asta balandlashadi, to'xtatilganda "
+                                                                    "(StopAudio, obyekt o'chirilsa yoki yo'q qilinsa) birdan uzilmay asta "
+                                                                    "so'nadi. Skriptda: PlayAudio(sekund), StopAudio(sekund), FadeAudio(...).");
+            auto fadeField = [&](const char* label, const char* id, float& seconds, const char* tooltip) {
+                UI::PropertyLabel(label, tooltip);
+                ImGui::PushID(id);
+                bool edited = ImGui::DragFloat("##v", &seconds, 0.01f, 0.0f, 60.0f, seconds > 0.0f ? "%.2f s" : "yo'q", ImGuiSliderFlags_AlwaysClamp);
+                ImGui::PopID();
+                return edited;
+            };
+            changed |= fadeField("Kirish (fade in)", "fadeIn", c.FadeIn, "Ijro boshlanganda 0 dan to'liq balandlikkacha necha sekundda ko'tariladi");
+            changed |= fadeField("Chiqish (fade out)", "fadeOut", c.FadeOut,
+                                 "To'xtatilganda necha sekundda so'nadi (bu vaqtda manba bo'sh: PlayAudio yangisini boshlaydi)");
+
+            UI::PropertyHeader(ICON_FA_FILTER "  Filtr", "Low-pass: kesish chastotasidan yuqorisi bo'g'iladi (devor ortida, suv ostida, "
+                                                         "uzoqda). High-pass: undan pastki ovozlar kesiladi (radio, telefon). O'yin "
+                                                         "davomida o'zgarsa silliq o'tadi. Mixer guruhining filtri ustiga qo'shiladi.");
+            UI::PropertyLabel("Low-pass", "Shu chastotadan (Hz) yuqori tovushlar so'nadi: 500 - kuchli bo'g'iq, 5000 - yengil");
+            changed |= UI::AudioFilterRow("lowPass", c.Filter.LowPass, c.Filter.LowPassCutoff);
+            UI::PropertyLabel("High-pass", "Shu chastotadan (Hz) past tovushlar so'nadi: 300 - 3000 oralig'i radio / telefon kabi");
+            changed |= UI::AudioFilterRow("highPass", c.Filter.HighPass, c.Filter.HighPassCutoff);
+
             UI::PropertyHeader(ICON_FA_SHUFFLE "  Tasodifiylik", "Har ijroda balandlik va ton shu oraliqdagi tasodifiy songa "
                                                                 "ko'paytiriladi (1 - 1: o'zgarmaydi): takrorlanadigan ovozlar "
                                                                 "(qadam, zarba, o'q) bir xil eshitilmasin.");
@@ -6369,6 +6418,8 @@ namespace Zamin {
                     params.Stream = c.Stream;
                     params.VolumeRandom = c.VolumeRandom;
                     params.PitchRandom = c.PitchRandom;
+                    params.FadeIn = c.FadeIn;
+                    params.Filter = c.Filter;
                     AudioEngine::Play(Project::GetAssetFileSystemPath(c.Path), params);
                 }
                 if (ImGui::IsItemHovered())

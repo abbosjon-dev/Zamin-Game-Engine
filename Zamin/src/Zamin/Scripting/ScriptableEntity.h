@@ -466,8 +466,25 @@ namespace Zamin {
         bool SetAudioTime(float seconds);
         // The playing sound's length in seconds (0 when nothing plays).
         float GetAudioLength() const;
+        // With a fade of its own (seconds; the source's FadeIn / FadeOut are the defaults above):
+        // PlayAudio(1.5f) starts silent and fades in, StopAudio(2.0f) fades out (the sound goes on
+        // by itself until silent; IsAudioPlaying is false at once and PlayAudio starts anew).
+        bool PlayAudio(float fadeInSeconds);
+        void StopAudio(float fadeOutSeconds);
+        // The playing sound's fade envelope to `volume` (0..1, x the source's Volume) over `seconds`,
+        // e.g. FadeAudio(0.3f, 0.5f) to duck it under a voice line. False when nothing plays.
+        bool FadeAudio(float volume, float seconds);
+        float GetAudioFade() const;
+        // The source's low-pass / high-pass filter, cutoff in Hz (<= 0 switches it off); a change
+        // glides there (~30 ms), e.g. SetAudioLowPass(600.0f) muffles it behind a wall.
+        void SetAudioLowPass(float cutoffHz);
+        void SetAudioHighPass(float cutoffHz);
         bool PlayAudio(Entity other);
         void StopAudio(Entity other);
+        bool PlayAudio(Entity other, float fadeInSeconds);
+        void StopAudio(Entity other, float fadeOutSeconds);
+        bool FadeAudio(Entity other, float volume, float seconds);
+        void SetAudioLowPass(Entity other, float cutoffHz);
         bool PauseAudio(Entity other);
         bool ResumeAudio(Entity other);
         bool IsAudioPlaying(Entity other) const;

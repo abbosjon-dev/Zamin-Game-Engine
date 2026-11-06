@@ -794,7 +794,7 @@ namespace Zamin {
                                                                : v == "RGB" ? ImageChannelView::RGB : ImageChannelView::RGBA);
             }
 
-        // ZAMIN_EDITOR_ASSET_IMPORT="Filter=Nearest,sRGB=false" (with ZAMIN_EDITOR_ASSET): edits the
+        // ZAMIN_EDITOR_ASSET_IMPORT="Filter=Nearest,sRGB=false" / "LoadMode=Stream,Volume=0.5" (with ZAMIN_EDITOR_ASSET): edits the
         // inspected asset's import settings at frame 30 and applies them, like the Apply button.
         if (frame == 30 && m_AssetInspectorPanel.HasAsset())
             if (const char* edits = std::getenv("ZAMIN_EDITOR_ASSET_IMPORT"))
@@ -802,6 +802,7 @@ namespace Zamin {
                 AssetImportSettings import;
                 AssetImporter::WriteTextureSettings(m_AssetInspectorPanel.GetEditedTextureSettings(), import);
                 AssetImporter::WriteModelSettings(m_AssetInspectorPanel.GetEditedModelSettings(), import);
+                AssetImporter::WriteAudioSettings(m_AssetInspectorPanel.GetEditedAudioSettings(), import);
                 std::string_view rest(edits);
                 while (!rest.empty())
                 {
@@ -823,6 +824,7 @@ namespace Zamin {
                 }
                 m_AssetInspectorPanel.GetEditedTextureSettings() = AssetImporter::ReadTextureSettings(import);
                 m_AssetInspectorPanel.GetEditedModelSettings() = AssetImporter::ReadModelSettings(import);
+                m_AssetInspectorPanel.GetEditedAudioSettings() = AssetImporter::ReadAudioSettings(import);
                 m_AssetInspectorPanel.Apply();
             }
 
@@ -3534,6 +3536,10 @@ namespace Zamin {
         runtime->ResolveAssets();
         SetActiveScene(runtime);
         ApplyDebugDrawSettings(); // before the scripts' OnCreate: they may change them
+        // As in the player: the audio settings the game saved (its options menu) over the project's
+        // mixer, for this run (the mixer is the project's again when play stops).
+        if (Audio::LoadSettings())
+            ZM_INFO("O'yinda saqlangan ovoz sozlamalari yuklandi (SaveData)");
         m_ActiveScene->OnRuntimeStart();
         ImGui::SetWindowFocus("###Viewport");
         UpdateWindowTitle();
@@ -3566,6 +3572,7 @@ namespace Zamin {
         // The game's music stops with it, and the mixer is the project's again (what the game or the
         // mixer window changed while it ran goes, unless it was saved as the defaults).
         AudioEngine::StopAll();
+        AudioEngine::SetMusicVolume(1.0f); // the game's (or its saved settings') music volume goes too
         if (Ref<Project> project = Project::GetActive())
             AudioEngine::SetMixerSettings(project->GetConfig().Audio);
         // Shared materials scripts changed while playing (GetSharedMaterial) look as before again.

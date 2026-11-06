@@ -25,6 +25,16 @@ namespace Zamin {
             return std::format("{:+.1f} dB", AudioGain::ToDecibels(gain));
         }
 
+        // "850", "1.2k", "12k" (a strip's narrow filter button).
+        std::string ShortHz(float hz)
+        {
+            if (hz >= 10000.0f)
+                return std::format("{:.0f}k", hz / 1000.0f);
+            if (hz >= 1000.0f)
+                return std::format("{:.1f}k", hz / 1000.0f);
+            return std::format("{:.0f}", hz);
+        }
+
         // The name shortened with "..." to fit `width`.
         std::string FitText(const std::string& text, float width)
         {
@@ -382,6 +392,10 @@ namespace Zamin {
         size_t voices = AudioEngine::GetGroupVoiceCount(name);
         std::string details = std::format("{} -> {}\nShu guruhda o'ynayotgan ovozlar: {}\nMixerdan keyingi balandlik: {}", name,
                                           isMaster ? std::string("chiqish") : group->Parent, voices, FormatDecibels(effective));
+        if (group->Filter.LowPass)
+            details += "\nLow-pass: " + UI::FormatHz(group->Filter.GetLowPass());
+        if (group->Filter.HighPass)
+            details += "\nHigh-pass: " + UI::FormatHz(group->Filter.GetHighPass());
         if (ImGui::IsItemHovered())
             UI::Tooltip(details.c_str());
         if (!compact)
@@ -393,7 +407,7 @@ namespace Zamin {
         (void)depth;
 
         // Fader | meter | scale.
-        const float bottom = compact ? font * 2.9f : font * 4.6f;
+        const float bottom = (compact ? font * 2.9f : font * 4.6f) + ImGui::GetFrameHeight() + 2.0f; // + the filter button
         const float top = ImGui::GetCursorScreenPos().y + 4.0f;
         const float faderHeight = std::max(40.0f, end.y - bottom - top);
         const float faderWidth = font * 1.45f, meterWidth = font * 0.95f;
@@ -467,6 +481,48 @@ namespace Zamin {
         ImGui::PopStyleColor(3);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             UI::Tooltip(isMaster ? "Master'ni yakka qilib bo'lmaydi" : "Solo: faqat shu guruh (va bolalari) eshitiladi; saqlanmaydi");
+
+        // The group's filter: what it does now, a click edits it.
+        {
+            const AudioFilterSettings& filter = group->Filter;
+            std::string label = filter.LowPass && filter.HighPass ? std::string("LP + HP")
+                              : filter.LowPass                    ? "LP " + ShortHz(filter.GetLowPass())
+                              : filter.HighPass                   ? "HP " + ShortHz(filter.GetHighPass())
+                                                                  : std::string(ICON_FA_FILTER);
+            ImGui::SetCursorScreenPos(ImVec2(start.x + pad, ImGui::GetCursorScreenPos().y + 2.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, filter.IsActive() ? ImVec4(0.22f, 0.40f, 0.70f, 1.0f) : ImVec4(0.22f, 0.23f, 0.27f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, filter.IsActive() ? ImVec4(0.28f, 0.48f, 0.80f, 1.0f) : ImVec4(0.30f, 0.31f, 0.36f, 1.0f));
+            if (!filter.IsActive())
+                ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+            if (ImGui::Button((label + "##filter").c_str(), ImVec2(width - 2.0f * pad, 0)))
+                ImGui::OpenPopup("##filterPopup");
+            ImGui::PopStyleColor(filter.IsActive() ? 2 : 3);
+            if (ImGui::IsItemHovered())
+            {
+                std::string tip = "Filtr (bosing: sozlash)";
+                if (filter.LowPass)
+                    tip += "\nLow-pass " + UI::FormatHz(filter.GetLowPass()) + ": yuqori chastotalar bo'g'iladi";
+                if (filter.HighPass)
+                    tip += "\nHigh-pass " + UI::FormatHz(filter.GetHighPass()) + ": past chastotalar kesiladi";
+                UI::Tooltip(tip.c_str());
+            }
+            if (ImGui::BeginPopup("##filterPopup"))
+            {
+                ImGui::TextDisabled("%s guruhi filtri (ovozlari va bola guruhlari)", name.c_str());
+                ImGui::Separator();
+                const float rowWidth = font * 14.0f;
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted("Low-pass");
+                ImGui::SameLine(font * 5.5f);
+                changed |= UI::AudioFilterRow("lowPass", group->Filter.LowPass, group->Filter.LowPassCutoff, rowWidth);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted("High-pass");
+                ImGui::SameLine(font * 5.5f);
+                changed |= UI::AudioFilterRow("highPass", group->Filter.HighPass, group->Filter.HighPassCutoff, rowWidth);
+                ImGui::TextDisabled("Masalan suv ostida: SFX low-pass 500 Hz. Skriptda: Audio::SetGroupLowPass(\"%s\", 500)", name.c_str());
+                ImGui::EndPopup();
+            }
+        }
         if (!compact)
         {
             std::string count = silent && !group->Muted ? std::string(ICON_FA_VOLUME_XMARK " jim")

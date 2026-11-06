@@ -1333,6 +1333,15 @@ namespace Zamin {
         // moves - x the project's Doppler factor; 0 = off. Its velocity comes from its movement.
         float DopplerFactor = 1.0f;
 
+        // Fades, in seconds (0 = none): the sound starts silent and fades in whenever it plays
+        // (PlayOnStart, PlayAudio); it fades out when it is stopped (StopAudio, the entity switched
+        // off or destroyed) instead of being cut. Scripts may pass their own times.
+        float FadeIn = 0.0f;
+        float FadeOut = 0.0f;
+        // Low-pass / high-pass on this source alone (e.g. a radio behind a wall); its mixer group
+        // may filter on top. Changes while it plays glide there.
+        AudioFilterSettings Filter;
+
         // Runtime.
         uint32_t RuntimeHandle = 0;
         glm::vec3 Velocity{ 0.0f };     // units per second (measured while a 3D sound plays)

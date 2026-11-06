@@ -8167,6 +8167,526 @@ TEST(AudioDoppler)
     std::filesystem::remove_all(dir);
 }
 
+// 16-bit mono PCM .wav: a sine of `frequency` Hz at `amplitude` (0..1) of full scale.
+static void WriteToneWav(const std::filesystem::path& path, float seconds, float frequency, float amplitude, uint32_t rate = 22050)
+{
+    const uint32_t frames = (uint32_t)(rate * seconds), dataSize = frames * 2;
+    std::string bytes;
+    auto u32 = [&](uint32_t v) { for (int i = 0; i < 4; i++) bytes.push_back((char)((v >> (8 * i)) & 0xff)); };
+    auto u16 = [&](uint16_t v) { bytes.push_back((char)(v & 0xff)); bytes.push_back((char)(v >> 8)); };
+    bytes += "RIFF"; u32(36 + dataSize); bytes += "WAVE";
+    bytes += "fmt "; u32(16); u16(1); u16(1); u32(rate); u32(rate * 2); u16(2); u16(16);
+    bytes += "data"; u32(dataSize);
+    for (uint32_t i = 0; i < frames; i++)
+        u16((uint16_t)(int16_t)(std::sin(6.2831853f * frequency * (float)i / (float)rate) * amplitude * 32000.0f));
+    std::filesystem::create_directories(path.parent_path());
+    FileSystem::WriteTextFile(path, bytes);
+}
+
+// RMS of a sine of `frequency` after `filter` (the first half is skipped: the filter settles).
+static float FilteredSineRms(AudioFilterChain& filter, float frequency, float sampleRate = 48000.0f)
+{
+    const uint32_t frames = (uint32_t)(sampleRate * 0.4f);
+    std::vector<float> samples(frames * 2);
+    for (uint32_t i = 0; i < frames; i++)
+        samples[i * 2] = samples[i * 2 + 1] = std::sin(6.2831853f * frequency * (float)i / sampleRate);
+    filter.Process(samples.data(), frames, 2, sampleRate);
+    double sum = 0.0;
+    for (uint32_t i = frames / 2; i < frames; i++)
+        sum += (double)samples[i * 2] * samples[i * 2];
+    return (float)std::sqrt(sum / (frames - frames / 2)) / 0.70710678f; // 1 = unchanged
+}
+
+TEST(AudioFilterMath)
+{
+    // Butterworth: flat below the cutoff, -3 dB at it, 12 dB per octave past it.
+    Biquad lp = Biquad::LowPass(1000.0f, 48000.0f), hp = Biquad::HighPass(1000.0f, 48000.0f);
+    CHECK_NEAR(lp.GetResponse(50.0f, 48000.0f), 1.0f, 0.01f);
+    CHECK_NEAR(lp.GetResponse(1000.0f, 48000.0f), 0.7071f, 0.01f);
+    CHECK(lp.GetResponse(8000.0f, 48000.0f) < 0.025f);
+    CHECK_NEAR(hp.GetResponse(1000.0f, 48000.0f), 0.7071f, 0.01f);
+    CHECK_NEAR(hp.GetResponse(12000.0f, 48000.0f), 1.0f, 0.02f);
+    CHECK(hp.GetResponse(125.0f, 48000.0f) < 0.025f);
+
+    // The chain on real samples: a first Process starts right at the targets.
+    AudioFilterChain chain;
+    chain.SetTarget(500.0f, 0.0f);
+    CHECK(FilteredSineRms(chain, 5000.0f) < 0.02f);
+    CHECK(chain.GetLowPass() == 500.0f && chain.GetHighPass() == 0.0f && !chain.IsBypassed());
+    CHECK(FilteredSineRms(chain, 100.0f) > 0.95f);
+    AudioFilterChain thin;
+    thin.SetTarget(0.0f, 2000.0f);
+    CHECK(FilteredSineRms(thin, 100.0f) < 0.01f);
+    CHECK(FilteredSineRms(thin, 9000.0f) > 0.9f);
+    // A changed cutoff glides (not there after one block, there after a while).
+    chain.SetTarget(4000.0f, 0.0f);
+    std::vector<float> block(64 * 2, 0.0f);
+    chain.Process(block.data(), 32, 2, 48000.0f);
+    CHECK(chain.GetLowPass() > 500.0f && chain.GetLowPass() < 4000.0f);
+    FilteredSineRms(chain, 100.0f);
+    CHECK(chain.GetLowPass() == 4000.0f);
+    // Switched off: it opens up, then is bypassed (the samples are left alone).
+    chain.SetTarget(0.0f, 0.0f);
+    chain.Process(block.data(), 32, 2, 48000.0f);
+    CHECK(chain.GetLowPass() > 4000.0f && !chain.IsBypassed());
+    FilteredSineRms(chain, 100.0f);
+    CHECK(chain.IsBypassed());
+    std::vector<float> ramp = { 0.1f, 0.2f, 0.3f, 0.4f };
+    chain.Process(ramp.data(), 2, 2, 48000.0f);
+    CHECK(ramp[0] == 0.1f && ramp[3] == 0.4f);
+    // Added while a sound plays: glides in from unfiltered.
+    AudioFilterChain late;
+    late.StartOpen();
+    late.SetTarget(300.0f, 0.0f);
+    late.Process(block.data(), 32, 2, 48000.0f);
+    CHECK(late.GetLowPass() > 300.0f);
+
+    // The settings: off = 0, cutoffs kept in range.
+    AudioFilterSettings f;
+    CHECK(!f.IsActive() && f.GetLowPass() == 0.0f && f.GetHighPass() == 0.0f && f.IsDefault());
+    f.LowPass = true;
+    f.LowPassCutoff = 99999.0f;
+    f.HighPass = true;
+    f.HighPassCutoff = NAN;
+    CHECK(f.IsActive() && f.GetLowPass() == AudioFilterSettings::MaxCutoff && f.GetHighPass() == 300.0f);
+    f.Sanitize();
+    CHECK(f.LowPassCutoff == AudioFilterSettings::MaxCutoff && f.HighPassCutoff == 300.0f);
+
+    // A group's filter is part of the project's mixer (saved only when set).
+    AudioSettings mixer;
+    CHECK(mixer.ToJson().find("Filter") == std::string::npos);
+    mixer.Find("SFX")->Filter.LowPass = true;
+    mixer.Find("SFX")->Filter.LowPassCutoff = 650.0f;
+    CHECK(!mixer.IsDefault() && !mixer.EqualsIgnoringSolo(AudioSettings()));
+    AudioSettings read;
+    CHECK(AudioSettings::FromJson(mixer.ToJson(), read) && read.EqualsIgnoringSolo(mixer));
+    CHECK(read.Find("SFX")->Filter.LowPass && read.Find("SFX")->Filter.LowPassCutoff == 650.0f && !read.Find("Music")->Filter.IsActive());
+}
+
+TEST(AudioFiltersDeviceless)
+{
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = MakeTempDir("zamin-audio-filter-");
+    std::filesystem::path high = dir / "high.wav", low = dir / "low.wav";
+    WriteToneWav(high, 1.0f, 6000.0f, 0.5f);
+    WriteToneWav(low, 1.0f, 150.0f, 0.5f);
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+    // The level a group sends on over the next `seconds` (the meter starts over).
+    auto level = [](const char* group, float seconds) {
+        AudioEngine::Update(100.0f);
+        AudioEngine::RenderOffline(seconds);
+        AudioEngine::Update(100.0f);
+        return AudioEngine::GetGroupLevel(group).Left;
+    };
+
+    SoundParams params;
+    params.Loop = true;
+    uint32_t tone = AudioEngine::Play(high, params);
+    CHECK(tone != 0);
+    float open = level("SFX", 0.1f);
+    CHECK(open > 0.3f);
+    // The group's low-pass muffles it (after its glide); the sound itself is not touched.
+    CHECK(Audio::SetGroupLowPass("SFX", 300.0f) && !Audio::SetGroupLowPass("Nope", 300.0f));
+    CHECK(AudioEngine::GetGroupFilter("SFX").LowPass && AudioEngine::GetGroupFilter("SFX").LowPassCutoff == 300.0f);
+    CHECK(AudioEngine::GetMixerSettings().Find("SFX")->Filter.LowPass);
+    level("SFX", 0.2f);
+    float muffled = level("SFX", 0.1f);
+    CHECK(muffled < open * 0.05f);
+    CHECK(!AudioEngine::GetSoundFilter(tone).IsActive());
+    // Off again: back to full.
+    CHECK(Audio::SetGroupLowPass("SFX", 0.0f) && !AudioEngine::GetGroupFilter("SFX").LowPass);
+    level("SFX", 0.2f);
+    CHECK(level("SFX", 0.1f) > open * 0.9f);
+
+    // The sound's own filter: a high-pass thins a low tone out (Music group: no group filter).
+    params.Group = "Music";
+    uint32_t bass = AudioEngine::Play(low, params);
+    float bassOpen = level("Music", 0.1f);
+    CHECK(bassOpen > 0.3f);
+    AudioFilterSettings thin;
+    thin.HighPass = true;
+    thin.HighPassCutoff = 3000.0f;
+    CHECK(AudioEngine::SetSoundFilter(bass, thin) && AudioEngine::GetSoundFilter(bass) == thin);
+    CHECK(!AudioEngine::SetSoundFilter(999999, thin));
+    level("Music", 0.2f);
+    CHECK(level("Music", 0.1f) < bassOpen * 0.05f);
+    SoundInfo info;
+    CHECK(AudioEngine::GetSoundInfo(bass, info) && info.Filter == thin);
+    // Group changes (a mixer rebuilt) keep the sound behind its filter.
+    AudioSettings custom;
+    custom.AddGroup("Radio", "Music");
+    AudioEngine::SetMixerSettings(custom);
+    level("Music", 0.1f);
+    CHECK(level("Music", 0.1f) < bassOpen * 0.05f && AudioEngine::IsPlaying(bass));
+    AudioEngine::Stop(bass);
+
+    // Started filtered: muffled from its first sample (no unfiltered burst).
+    AudioEngine::Stop(tone);
+    params.Group = "UI";
+    params.Filter.LowPass = true;
+    params.Filter.LowPassCutoff = 300.0f;
+    uint32_t muted = AudioEngine::Play(high, params);
+    CHECK(muted && AudioEngine::GetSoundFilter(muted).LowPass);
+    CHECK(level("UI", 0.05f) < open * 0.05f);
+    AudioEngine::StopAll();
+
+    // An Audio Source: its filter is the sound's (live edits follow), the script API sets it.
+    auto scene = CreateRef<Scene>();
+    Entity radio = scene->CreateEntity("Radio");
+    auto& a = radio.AddComponent<AudioSourceComponent>();
+    a.Path = high.string();
+    a.Loop = true;
+    a.Filter.LowPass = true;
+    a.Filter.LowPassCutoff = 800.0f;
+    scene->OnRuntimeStart();
+    CHECK(AudioEngine::GetSoundFilter(a.RuntimeHandle) == a.Filter);
+    a.Filter.LowPassCutoff = 1200.0f; // the inspector during play
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(AudioEngine::GetSoundFilter(a.RuntimeHandle).LowPassCutoff == 1200.0f);
+    scene->SetAudioHighPass(radio, 400.0f);
+    CHECK(a.Filter.HighPass && a.Filter.HighPassCutoff == 400.0f && AudioEngine::GetSoundFilter(a.RuntimeHandle).HighPass);
+    scene->SetAudioLowPass(radio, 0.0f);
+    CHECK(!a.Filter.LowPass && a.Filter.LowPassCutoff == 1200.0f && !AudioEngine::GetSoundFilter(a.RuntimeHandle).LowPass);
+    scene->OnRuntimeStop();
+
+    // Saved with the scene only when set.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("HighPassCutoff") != std::string::npos);
+    Ref<Scene> loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->FindEntityByName("Radio").GetComponent<AudioSourceComponent>().Filter == a.Filter);
+    a.Filter = AudioFilterSettings();
+    CHECK(SceneSerializer(scene).SerializeToString().find("HighPassCutoff") == std::string::npos);
+
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
+TEST(AudioFades)
+{
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = MakeTempDir("zamin-audio-fade-");
+    std::filesystem::path wav = dir / "pad.wav";
+    WriteTestWav(wav, 2.0f);
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+
+    // Fade in: silent at first, up over simulated time.
+    SoundParams params;
+    params.Loop = true;
+    params.Volume = 0.8f;
+    params.FadeIn = 1.0f;
+    uint32_t pad = AudioEngine::Play(wav, params);
+    SoundInfo info;
+    CHECK(pad && AudioEngine::GetFade(pad) == 0.0f && AudioEngine::GetSoundInfo(pad, info) && info.AudibleVolume == 0.0f);
+    AudioEngine::Update(0.25f);
+    CHECK_NEAR(AudioEngine::GetFade(pad), 0.25f, 1e-5f);
+    CHECK(AudioEngine::GetSoundInfo(pad, info) && std::abs(info.AudibleVolume - 0.8f * 0.25f) < 1e-5f && info.FadeTarget == 1.0f);
+    AudioEngine::Update(1.0f);
+    CHECK(AudioEngine::GetFade(pad) == 1.0f);
+    // Paused, the envelope waits.
+    CHECK(AudioEngine::FadeTo(pad, 0.3f, 0.5f));
+    AudioEngine::Update(0.25f);
+    CHECK_NEAR(AudioEngine::GetFade(pad), 0.65f, 1e-5f);
+    AudioEngine::Pause(pad);
+    AudioEngine::Update(5.0f);
+    CHECK_NEAR(AudioEngine::GetFade(pad), 0.65f, 1e-5f);
+    AudioEngine::Resume(pad);
+    AudioEngine::Update(0.25f);
+    CHECK_NEAR(AudioEngine::GetFade(pad), 0.3f, 1e-5f);
+    // A fade to silence keeps it playing; a fade out releases it once silent.
+    CHECK(AudioEngine::FadeTo(pad, 0.0f, 0.0f) && AudioEngine::GetFade(pad) == 0.0f);
+    AudioEngine::Update(1.0f);
+    CHECK(AudioEngine::IsPlaying(pad) && !AudioEngine::IsStopping(pad));
+    AudioEngine::FadeTo(pad, 1.0f, 0.0f);
+    AudioEngine::Stop(pad, 1.0f);
+    CHECK(AudioEngine::IsStopping(pad) && AudioEngine::IsPlaying(pad));
+    CHECK(AudioEngine::FadeTo(pad, 1.0f, 0.1f) && AudioEngine::IsStopping(pad)); // a stop is not undone
+    AudioEngine::Update(0.5f);
+    CHECK(AudioEngine::GetSoundInfo(pad, info) && info.Stopping && std::abs(info.Fade - 0.5f) < 1e-5f);
+    AudioEngine::Update(0.5f);
+    CHECK(!AudioEngine::IsPlaying(pad) && !AudioEngine::GetSoundInfo(pad, info));
+    // A paused sound (or no fade) stops at once.
+    uint32_t paused = AudioEngine::Play(wav, params);
+    AudioEngine::Pause(paused);
+    AudioEngine::Stop(paused, 2.0f);
+    CHECK(!AudioEngine::GetSoundInfo(paused, info));
+    uint32_t cut = AudioEngine::Play(wav, params);
+    AudioEngine::Stop(cut, 0.0f);
+    CHECK(!AudioEngine::GetSoundInfo(cut, info));
+    CHECK(AudioEngine::GetFade(12345678) == 1.0f && !AudioEngine::FadeTo(12345678, 0.5f, 1.0f));
+
+    // At the voice limit a sound fading out gives its place first, whatever its priority.
+    AudioSettings two;
+    two.MaxVoices = 2;
+    AudioEngine::SetMixerSettings(two);
+    params.FadeIn = 0.0f;
+    params.Priority = 250;
+    uint32_t leaving = AudioEngine::Play(wav, params);
+    params.Priority = 100;
+    uint32_t staying = AudioEngine::Play(wav, params);
+    AudioEngine::Stop(leaving, 3.0f);
+    params.Steal = AudioStealPolicy::None;
+    uint32_t newcomer = AudioEngine::Play(wav, params);
+    CHECK(newcomer && AudioEngine::WasStolen(leaving) && AudioEngine::IsPlaying(staying));
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+
+    // Music fades are its own (crossfades): FadeTo refuses it.
+    CHECK(AudioEngine::PlayMusic(wav, 0.0f) && !AudioEngine::FadeTo(AudioEngine::GetMusicHandle(), 0.5f, 1.0f));
+    AudioEngine::StopAll();
+
+    // An Audio Source with FadeIn / FadeOut, and the script API's own times.
+    auto scene = CreateRef<Scene>();
+    Entity hum = scene->CreateEntity("Hum");
+    auto& a = hum.AddComponent<AudioSourceComponent>();
+    a.Path = wav.string();
+    a.Loop = true;
+    a.FadeIn = 0.5f;
+    a.FadeOut = 0.5f;
+    scene->OnRuntimeStart();
+    CHECK(scene->IsAudioPlaying(hum) && scene->GetAudioFade(hum) == 0.0f);
+    scene->OnUpdateRuntime(0.016f);
+    AudioEngine::Update(0.25f);
+    CHECK_NEAR(scene->GetAudioFade(hum), 0.5f, 1e-5f);
+    AudioEngine::Update(0.25f);
+    CHECK(scene->GetAudioFade(hum) == 1.0f);
+    // StopAudio fades out by itself: the source is free at once.
+    uint32_t old = a.RuntimeHandle;
+    scene->StopAudio(hum);
+    CHECK(a.RuntimeHandle == 0 && !scene->IsAudioPlaying(hum) && AudioEngine::IsStopping(old));
+    CHECK(scene->PlayAudio(hum, 0.0f) && scene->GetAudioFade(hum) == 1.0f && a.RuntimeHandle != old);
+    AudioEngine::Update(0.5f);
+    CHECK(!AudioEngine::GetSoundInfo(old, info) && scene->IsAudioPlaying(hum));
+    CHECK(scene->FadeAudio(hum, 0.5f, 0.0f) && scene->GetAudioFade(hum) == 0.5f);
+    old = a.RuntimeHandle;
+    scene->StopAudio(hum, 0.0f); // its own time: at once
+    CHECK(!AudioEngine::GetSoundInfo(old, info) && !scene->FadeAudio(hum, 1.0f, 0.0f) && scene->GetAudioFade(hum) == 1.0f);
+    // Switched off: the sound fades out without the entity.
+    CHECK(scene->PlayAudio(hum));
+    old = a.RuntimeHandle;
+    AudioEngine::Update(1.0f);
+    hum.SetActive(false);
+    CHECK(a.RuntimeHandle == 0 && AudioEngine::IsStopping(old));
+    AudioEngine::Update(0.6f);
+    CHECK(!AudioEngine::GetSoundInfo(old, info));
+    scene->OnRuntimeStop();
+
+    // Saved only when set.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    Ref<Scene> loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& l = loaded->FindEntityByName("Hum").GetComponent<AudioSourceComponent>();
+    CHECK(l.FadeIn == 0.5f && l.FadeOut == 0.5f);
+    a.FadeIn = a.FadeOut = 0.0f;
+    CHECK(SceneSerializer(scene).SerializeToString().find("FadeIn") == std::string::npos);
+
+    AudioEngine::StopAll();
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
+TEST(AudioClipImportSettings)
+{
+    namespace fs = std::filesystem;
+    // The .zmeta keys.
+    AudioClipSettings clip;
+    clip.LoadMode = AudioLoadMode::Stream;
+    clip.Preload = true;
+    clip.Volume = 0.5f;
+    AssetImportSettings import;
+    import.SetString("Other", "kept");
+    AssetImporter::WriteAudioSettings(clip, import);
+    CHECK(import.GetString("LoadMode") == "Stream" && import.GetBool("Preload", false) && import.GetString("Other") == "kept");
+    CHECK(AssetImporter::ReadAudioSettings(import) == clip);
+    CHECK(AssetImporter::ReadAudioSettings(AssetImportSettings()) == AudioClipSettings());
+    CHECK(AssetImporter::LoadModeFromKey("decompressonload") == AudioLoadMode::Decompress && !AssetImporter::LoadModeFromKey("Nope"));
+    import.SetNumber("Volume", 99.0);
+    import.SetString("LoadMode", "Nope");
+    AudioClipSettings odd = AssetImporter::ReadAudioSettings(import);
+    CHECK(odd.Volume == AudioSettings::MaxVolume && odd.LoadMode == AudioLoadMode::Auto);
+
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    AudioEngine::StopAll();
+    fs::path dir = MakeTempDir("zamin-audio-clip-");
+    CHECK(Project::CreateFromTemplate(dir, "ClipGame") != nullptr);
+    WriteTestWav(dir / "Assets" / "Audio" / "step.wav", 1.0f);
+    WriteTestWav(dir / "Assets" / "Audio" / "song.wav", 1.0f);
+    CHECK(Project::Load(dir / "ClipGame.zproject") != nullptr);
+    AssetRegistry* registry = Project::GetAssetRegistry();
+    CHECK(registry != nullptr);
+    if (!registry)
+        return;
+    fs::path step = Project::GetAssetFileSystemPath("Audio/step.wav"), song = Project::GetAssetFileSystemPath("Audio/song.wav");
+    auto setClip = [&](const char* path, const AudioClipSettings& settings) {
+        AssetHandle handle = registry->GetHandle(path);
+        AssetImportSettings values = registry->Find(handle)->Import;
+        AssetImporter::WriteAudioSettings(settings, values);
+        return registry->SetImportSettings(handle, values);
+    };
+
+    // The clip's info: read once per version of the file.
+    const AudioFileInfo& info = AudioClip::GetInfo(step);
+    CHECK(info.Valid && info.Channels == 1 && info.SampleRate == 22050 && std::abs(info.Duration - 1.0) < 1e-3);
+    CHECK_NEAR(Audio::GetClipLength("Audio/step.wav"), 1.0f, 1e-3f);
+    CHECK(Audio::GetClipLength("Audio/nope.wav") == 0.0f && !Audio::GetClipInfo("Audio/nope.wav").Valid);
+    CHECK(AudioClip::EstimateDecodedSize(info, 48000) == 48000u * 4u && AudioClip::EstimateDecodedSize(info) == 22050u * 4u);
+    WriteTestWav(step, 2.0f);
+    CHECK_NEAR(AudioClip::GetLength(step), 2.0f, 1e-3f);
+
+    // Load mode: Stream always streams, Decompress never (unless a source asks), Auto by size.
+    AudioSettings tiny;
+    tiny.StreamThresholdMB = 0.01f;
+    AudioEngine::SetMixerSettings(tiny);
+    CHECK(AudioEngine::ShouldStream(step, false));
+    CHECK(setClip("Audio/step.wav", { AudioLoadMode::Decompress, false, 1.0f }));
+    CHECK(!AudioEngine::ShouldStream(step, false) && AudioEngine::ShouldStream(step, true));
+    uint32_t h = AudioEngine::Play(step);
+    CHECK(h && !AudioEngine::IsStreaming(h));
+    AudioEngine::SetMixerSettings(AudioSettings());
+    CHECK(setClip("Audio/song.wav", { AudioLoadMode::Stream, true, 1.0f }));
+    CHECK(AudioEngine::ShouldStream(song, false));
+    h = AudioEngine::Play(song);
+    CHECK(h && AudioEngine::IsStreaming(h));
+    CHECK(!AudioEngine::Preload(song) && !AudioEngine::IsPreloaded(song)); // a streamed file is not decoded
+    AudioEngine::StopAll();
+
+    // The clip's own volume multiplies every sound played from it.
+    CHECK(setClip("Audio/step.wav", { AudioLoadMode::Auto, false, 0.5f }));
+    SoundParams params;
+    params.Volume = 0.8f;
+    h = AudioEngine::Play(step, params);
+    SoundInfo sound;
+    CHECK(AudioEngine::GetSoundInfo(h, sound) && sound.ClipGain == 0.5f && std::abs(sound.AudibleVolume - 0.4f) < 1e-5f);
+    CHECK(AudioEngine::GetVolume(h) == 0.8f); // its own volume as asked
+    AudioEngine::StopAll();
+
+    // Preload: a scene's sources with it are decoded when it starts and kept while it runs.
+    CHECK(setClip("Audio/step.wav", { AudioLoadMode::Auto, true, 1.0f }));
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Steps");
+    auto& a = e.AddComponent<AudioSourceComponent>();
+    a.Path = "Audio/step.wav";
+    a.PlayOnStart = false;
+    e.SetActive(false); // inactive sources count too: they may start later
+    scene->OnRuntimeStart();
+    CHECK(AudioEngine::IsPreloaded(step) && AudioEngine::GetPreloadedCount() == 1);
+    CHECK(scene->PlayAudio(e) == false); // inactive
+    e.SetActive(true);
+    CHECK(scene->PlayAudio(e) && AudioEngine::GetSoundInfo(a.RuntimeHandle, sound) && sound.Preloaded);
+    scene->OnRuntimeStop();
+    CHECK(AudioEngine::IsPreloaded(step)); // the next scene may use it too
+    AudioEngine::SetScenePreloads({});  // a scene without it
+    CHECK(!AudioEngine::IsPreloaded(step));
+    // A clip with Preload stays decoded after its first play; one asked for by a script stays
+    // across scenes until Unload.
+    h = AudioEngine::Play(step);
+    CHECK(h && AudioEngine::IsPreloaded(step));
+    AudioEngine::Stop(h);
+    CHECK(AudioEngine::IsPreloaded(step));
+    AudioEngine::SetScenePreloads({});
+    CHECK(Audio::Preload("Audio/step.wav") && Audio::IsPreloaded("Audio/step.wav"));
+    AudioEngine::SetScenePreloads({});
+    CHECK(AudioEngine::IsPreloaded(step));
+    // Hot reload decodes it again (a broken new version is reported and let go).
+    bool failed = false;
+    CHECK(AudioEngine::ReloadFile(step, &failed) == 1 && !failed && AudioEngine::IsPreloaded(step));
+    CHECK(AudioEngine::ReloadFile(song, &failed) == 0);
+    Audio::Unload("Audio/step.wav");
+    CHECK(!AudioEngine::IsPreloaded(step));
+    Log::SetMinLevel(LogLevel::Critical); // the expected load error stays out of the output
+    CHECK(!Audio::Preload("Audio/missing.wav") && AudioEngine::GetPreloadedCount() == 0);
+    Log::SetMinLevel(LogLevel::Error);
+    CHECK(Audio::Preload("Audio/step.wav"));
+    AudioEngine::StopAll(); // leaving play mode: everything goes
+    CHECK(AudioEngine::GetPreloadedCount() == 0);
+
+    // The asset inspector's settings reach the .zmeta.
+    if (registry->GetWriteMetaFiles())
+    {
+        auto onDisk = AssetMetaFile::Read(step);
+        CHECK(onDisk && AssetImporter::ReadAudioSettings(onDisk->Import).Preload);
+    }
+
+    Project::SetActive(nullptr);
+    AudioEngine::SetMixerSettings(AudioSettings());
+    AudioClip::ClearCache();
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+TEST(AudioPlayerSettingsSaveLoad)
+{
+    // The data: every group of the mixer, applied only to groups that exist.
+    AudioSettings mixer;
+    mixer.AddGroup("Voices", "SFX");
+    mixer.Find("Music")->Volume = 0.25f;
+    mixer.Find("UI")->Muted = true;
+    mixer.Find("SFX")->Solo = true;
+    AudioPlayerSettings captured = AudioPlayerSettings::Capture(mixer, 0.5f);
+    CHECK(captured.Groups.size() == 5 && captured.MusicVolume == 0.5f);
+    AudioPlayerSettings read;
+    CHECK(AudioPlayerSettings::FromJson(captured.ToJson(), read) && read == captured);
+    CHECK(!AudioPlayerSettings::FromJson("[1]", read) && !AudioPlayerSettings::FromJson("{ broken", read));
+    AudioSettings other; // a build of the game without "Voices"
+    CHECK(captured.ApplyTo(other) == 4 && other.Find("Music")->Volume == 0.25f && other.Find("UI")->Muted && !other.AnySolo());
+    AudioPlayerSettings odd;
+    CHECK(AudioPlayerSettings::FromJson(R"({"MusicVolume":9,"Groups":[{"Name":"SFX","Volume":-1},{"Name":"SFX","Volume":0.1},{"Volume":1},5]})", odd));
+    CHECK(odd.MusicVolume == AudioSettings::MaxVolume && odd.Groups.size() == 1 && odd.Groups[0].Volume == 0.0f);
+
+    // Through SaveData, apart from the project's defaults.
+    auto dir = MakeTempDir("zamin-audio-settings-");
+    SaveData::SetFilePath(dir / "save.json");
+    Ref<Project> project = Project::New();
+    project->GetConfig().Audio.AddGroup("Voices", "SFX");
+    AudioEngine::SetMixerSettings(project->GetConfig().Audio);
+    CHECK(!Audio::HasSavedSettings() && !Audio::LoadSettings());
+    Audio::SetGroupVolume("Music", 0.25f);
+    Audio::SetGroupMuted("Voices", true);
+    Audio::SetMusicVolume(0.5f);
+    CHECK(Audio::SaveSettings() && Audio::HasSavedSettings() && SaveData::HasKey(Audio::SettingsKey));
+    // A new session: the project's mixer, then the saved settings over it.
+    Audio::ResetMixer();
+    Audio::SetMusicVolume(1.0f);
+    CHECK(Audio::GetGroupVolume("Music") == 1.0f && !Audio::IsGroupMuted("Voices"));
+    CHECK(SaveData::Reload() && Audio::LoadSettings());
+    CHECK(Audio::GetGroupVolume("Music") == 0.25f && Audio::IsGroupMuted("Voices") && Audio::GetMusicVolume() == 0.5f);
+    CHECK(project->GetConfig().Audio.Find("Music")->Volume == 1.0f && !project->GetConfig().Audio.Find("Voices")->Muted);
+    // Forgotten: back to the project's mixer.
+    Audio::ClearSavedSettings();
+    CHECK(!Audio::HasSavedSettings() && Audio::GetGroupVolume("Music") == 1.0f && Audio::GetMusicVolume() == 1.0f);
+    // Unreadable: nothing changes.
+    SaveData::SetString(Audio::SettingsKey, "{ broken");
+    Audio::SetGroupVolume("SFX", 0.7f);
+    Log::SetMinLevel(LogLevel::Critical); // the expected warning
+    CHECK(!Audio::LoadSettings() && Audio::GetGroupVolume("SFX") == 0.7f);
+    Log::SetMinLevel(LogLevel::Error);
+
+    SaveData::DeleteAll();
+    SaveData::SetFilePath({});
+    Project::SetActive(nullptr);
+    AudioEngine::SetMixerSettings(AudioSettings());
+    AudioEngine::SetMusicVolume(1.0f);
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+}
+
 TEST(InactiveAnimatorsPause)
 {
     auto scene = CreateRef<Scene>();
@@ -20780,11 +21300,31 @@ TEST(AudioSampleScene)
     CHECK(drone.GetComponent<NativeScriptComponent>().ClassName == "DopplerFlyby");
     CHECK(chimes.GetComponent<NativeScriptComponent>().ClassName == "ChimeRinger");
     CHECK(chimes.GetComponent<NativeScriptComponent>().Fields.at("Hum").Get<EntityRef>().ID == (uint64_t)shrine.GetUUID());
-    for (const char* file : { "Audio/MusicCalm.wav", "Audio/MusicTense.wav", "Audio/UiPing.wav", "Audio/DroneBuzz.wav", "Audio/Chime.wav" })
+    for (const char* file : { "Audio/MusicCalm.wav", "Audio/MusicTense.wav", "Audio/UiPing.wav", "Audio/DroneBuzz.wav", "Audio/Chime.wav",
+                              "Audio/RadioTune.wav" })
     {
         CHECK(fs::exists(root / "Assets" / file));
         CHECK(fs::exists(root / "Assets" / (std::string(file) + ".zmeta")));
     }
+    // The radio (fades, "small speaker" filter), the pool (group low-pass) and the player's settings.
+    Entity radio = scene->FindEntityByName("Radio"), pool = scene->FindEntityByName("Suv havzasi");
+    Entity options = scene->FindEntityByName("Ovoz sozlamalari");
+    CHECK(radio && pool && options);
+    if (!(radio && pool && options))
+        return;
+    const auto& tune = radio.GetComponent<AudioSourceComponent>();
+    CHECK(tune.FadeIn == 1.5f && tune.FadeOut == 1.2f && tune.Filter.GetHighPass() == 700.0f && tune.Filter.GetLowPass() == 3500.0f);
+    CHECK(radio.GetComponent<NativeScriptComponent>().ClassName == "RadioToggle");
+    CHECK(pool.GetComponent<NativeScriptComponent>().ClassName == "UnderwaterZone");
+    CHECK(options.GetComponent<NativeScriptComponent>().ClassName == "AudioOptions");
+    CHECK(pool.GetComponent<MeshRendererComponent>().Mat.BlendMode == MaterialBlendMode::Transparent);
+    // The clips' import settings: the music streams, the short sounds stay decoded.
+    fs::path radioClip = Project::GetAssetFileSystemPath("Audio/RadioTune.wav");
+    AudioClipSettings radioSettings = AssetImporter::GetAudioSettings(radioClip);
+    CHECK(radioSettings.LoadMode == AudioLoadMode::Decompress && radioSettings.Preload && std::abs(radioSettings.Volume - 0.9f) < 1e-6f);
+    CHECK(AssetImporter::GetAudioSettings(Project::GetAssetFileSystemPath("Audio/MusicCalm.wav")).LoadMode == AudioLoadMode::Stream);
+    CHECK(AssetImporter::GetAudioSettings(Project::GetAssetFileSystemPath("Audio/Chime.wav")).Preload);
+    CHECK_NEAR(Audio::GetClipLength("Audio/RadioTune.wav"), 8.0f, 1e-3f);
 
     // Played without a device: the hum plays in Ambience, the tracks crossfade in Music.
     bool wasAvailable = AudioEngine::IsAvailable();
@@ -20812,6 +21352,15 @@ TEST(AudioSampleScene)
         CHECK(scene->GetAudioInfo(drone, info) && info.DopplerPitch > 1.0f && glm::length(info.Velocity) > 11.0f);
         // The hum pauses and goes on from where it was.
         CHECK(scene->PauseAudio(shrine) && scene->IsAudioPaused(shrine) && scene->ResumeAudio(shrine) && scene->IsAudioPlaying(shrine));
+        // The radio faded in behind its filter; its clip (and the drone's) were preloaded with the scene.
+        CHECK(scene->GetAudioInfo(radio, info) && info.Filter == tune.Filter && info.Fade == 1.0f && info.Preloaded);
+        CHECK(std::abs(info.ClipGain - 0.9f) < 1e-6f && AudioEngine::IsPreloaded(Project::GetAssetFileSystemPath("Audio/DroneBuzz.wav")));
+        CHECK(!AudioEngine::IsStreaming(tune.RuntimeHandle));
+        scene->StopAudio(radio);
+        CHECK(!scene->IsAudioPlaying(radio) && AudioEngine::GetVoiceStats().Voices >= 1);
+        // Under water: SFX (with Ambience) and Music muffled - what UnderwaterZone does.
+        CHECK(Audio::SetGroupLowPass("SFX", 450.0f) && Audio::GetGroupFilter("SFX").GetLowPass() == 450.0f);
+        CHECK(Audio::SetGroupLowPass("SFX", 0.0f) && !Audio::GetGroupFilter("SFX").IsActive());
         scene->OnRuntimeStop();
         CHECK(Audio::IsMusicPlaying()); // music goes on into the next scene
         AudioEngine::StopAll();

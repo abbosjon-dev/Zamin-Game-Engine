@@ -660,8 +660,18 @@ namespace Zamin {
         return audio ? audio->Pitch : 0.0f;
     }
 
+    bool ScriptableEntity::PlayAudio(float fadeInSeconds) { return m_Entity.GetScene()->PlayAudio(m_Entity, std::max(0.0f, fadeInSeconds)); }
+    void ScriptableEntity::StopAudio(float fadeOutSeconds) { m_Entity.GetScene()->StopAudio(m_Entity, std::max(0.0f, fadeOutSeconds)); }
+    bool ScriptableEntity::FadeAudio(float volume, float seconds) { return m_Entity.GetScene()->FadeAudio(m_Entity, volume, seconds); }
+    float ScriptableEntity::GetAudioFade() const { return m_Entity.GetScene()->GetAudioFade(m_Entity); }
+    void ScriptableEntity::SetAudioLowPass(float cutoffHz) { m_Entity.GetScene()->SetAudioLowPass(m_Entity, cutoffHz); }
+    void ScriptableEntity::SetAudioHighPass(float cutoffHz) { m_Entity.GetScene()->SetAudioHighPass(m_Entity, cutoffHz); }
     bool ScriptableEntity::PlayAudio(Entity other) { return m_Entity.GetScene()->PlayAudio(other); }
     void ScriptableEntity::StopAudio(Entity other) { m_Entity.GetScene()->StopAudio(other); }
+    bool ScriptableEntity::PlayAudio(Entity other, float fadeInSeconds) { return m_Entity.GetScene()->PlayAudio(other, std::max(0.0f, fadeInSeconds)); }
+    void ScriptableEntity::StopAudio(Entity other, float fadeOutSeconds) { m_Entity.GetScene()->StopAudio(other, std::max(0.0f, fadeOutSeconds)); }
+    bool ScriptableEntity::FadeAudio(Entity other, float volume, float seconds) { return m_Entity.GetScene()->FadeAudio(other, volume, seconds); }
+    void ScriptableEntity::SetAudioLowPass(Entity other, float cutoffHz) { m_Entity.GetScene()->SetAudioLowPass(other, cutoffHz); }
     bool ScriptableEntity::PauseAudio(Entity other) { return m_Entity.GetScene()->PauseAudio(other); }
     bool ScriptableEntity::ResumeAudio(Entity other) { return m_Entity.GetScene()->ResumeAudio(other); }
     bool ScriptableEntity::IsAudioPlaying(Entity other) const { return m_Entity.GetScene()->IsAudioPlaying(other); }

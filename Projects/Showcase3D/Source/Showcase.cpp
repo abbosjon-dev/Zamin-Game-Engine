@@ -1035,3 +1035,152 @@ ZM_REGISTER_SCRIPT(ChimeRinger,
     ZM_FIELD(ChimeRinger, VolumeRange).Tooltip("Balandlik ko'paytuvchisi: min, max"),
     ZM_FIELD_RANGE(ChimeRinger, MaxAtOnce, 1, 16).Tooltip("Bir vaqtda ko'pi bilan nechtasi eshitiladi"),
     ZM_FIELD(ChimeRinger, Hum).Header("Pauza namunasi").Tooltip("H tugmasi bilan pauza qilinadigan Audio Source"))
+
+// Radio: Audio Source'ning so'nishi va filtri. Manbada FadeIn 1.5 s / FadeOut 1.2 s va high-pass 700 Hz +
+// low-pass 3.5 kHz (kichik karnaydan chiqayotgandek). R - radioni yoqish / o'chirish (asta kiradi va so'nadi),
+// T - "karnay" filtrini yoqish / o'chirish (kesish chastotasi silliq siljiydi), G - FadeAudio bilan pasaytirish.
+class RadioToggle : public ScriptableEntity
+{
+public:
+    float HighPass = 700.0f;
+    float LowPass = 3500.0f;
+    float DuckVolume = 0.3f;
+
+    void OnStart() override
+    {
+        if (auto* audio = GetEntity().TryGetComponent<AudioSourceComponent>())
+            m_Filtered = audio->Filter.IsActive();
+    }
+
+    void OnUpdate(Timestep) override
+    {
+        if (Input::IsKeyJustPressed(Key::R))
+        {
+            if (IsAudioPlaying())
+                StopAudio(); // the source's FadeOut: it fades out by itself
+            else
+                PlayAudio(); // the source's FadeIn
+            m_Ducked = false;
+        }
+        if (Input::IsKeyJustPressed(Key::T))
+        {
+            m_Filtered = !m_Filtered;
+            SetAudioHighPass(m_Filtered ? HighPass : 0.0f);
+            SetAudioLowPass(m_Filtered ? LowPass : 0.0f);
+        }
+        if (Input::IsKeyJustPressed(Key::G) && IsAudioPlaying())
+        {
+            m_Ducked = !m_Ducked;
+            FadeAudio(m_Ducked ? DuckVolume : 1.0f, 0.6f);
+        }
+
+        const auto* audio = GetEntity().TryGetComponent<AudioSourceComponent>();
+        std::string state = IsAudioPlaying() ? std::format("ijro, so'nish {:.0f}%", GetAudioFade() * 100.0f) : std::string("o'chiq");
+        std::string filter = !audio || !audio->Filter.IsActive() ? std::string("yo'q")
+                           : std::format("high-pass {:.0f} Hz + low-pass {:.1f} kHz", audio->Filter.GetHighPass(), audio->Filter.GetLowPass() / 1000.0f);
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 1.05f, 0.0f), std::format("Radio: {}   (R - yoqish / o'chirish)", state),
+                        glm::vec4(1.0f, 0.85f, 0.5f, 1.0f));
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.7f, 0.0f), std::format("Filtr: {}   (T - filtr, G - pasaytirish)", filter),
+                        glm::vec4(0.6f, 0.85f, 1.0f, 1.0f));
+    }
+
+private:
+    bool m_Filtered = false;
+    bool m_Ducked = false;
+};
+
+ZM_REGISTER_SCRIPT(RadioToggle,
+    ZM_FIELD_RANGE(RadioToggle, HighPass, 20.0f, 8000.0f).Tooltip("T bilan yoqiladigan high-pass, Hz"),
+    ZM_FIELD_RANGE(RadioToggle, LowPass, 200.0f, 20000.0f).Tooltip("T bilan yoqiladigan low-pass, Hz"),
+    ZM_FIELD_RANGE(RadioToggle, DuckVolume, 0.0f, 1.0f).Tooltip("G bosilganda so'nish darajasi"))
+
+// Suv havzasi: tinglovchi (Audio Listener) havza ichiga kirsa SFX guruhi (bolasi Ambience bilan) va Music
+// guruhi low-pass bilan bo'g'iladi - suv ostidagidek; chiqsa filtr silliq ochiladi (Audio::SetGroupLowPass).
+class UnderwaterZone : public ScriptableEntity
+{
+public:
+    float Cutoff = 450.0f;      // SFX (va Ambience)
+    float MusicCutoff = 800.0f; // Music
+
+    void OnUpdate(Timestep) override
+    {
+        Scene* scene = GetEntity().GetScene();
+        Entity listener = scene->GetAudioListenerEntity();
+        const glm::vec3 center = GetWorldPosition(), half = Transform().Scale * 0.5f;
+        bool inside = false;
+        if (listener)
+        {
+            glm::vec3 p = scene->GetWorldPosition(listener);
+            inside = std::abs(p.x - center.x) <= half.x && std::abs(p.z - center.z) <= half.z && std::abs(p.y - center.y) <= half.y + 0.5f;
+        }
+        if (inside != m_Inside)
+        {
+            m_Inside = inside;
+            Apply(inside);
+        }
+        AudioFilterSettings sfx = Audio::GetGroupFilter("SFX");
+        std::string text = m_Inside ? std::format("Suv ostida: SFX low-pass {:.0f} Hz, Music {:.0f} Hz", sfx.GetLowPass(), MusicCutoff)
+                                    : std::string("Suv havzasi: tinglovchi kirsa ovozlar bo'g'iladi");
+        DebugDraw::Text(center + glm::vec3(0.0f, half.y + 0.35f, 0.0f), text,
+                        m_Inside ? glm::vec4(0.45f, 0.8f, 1.0f, 1.0f) : glm::vec4(0.75f, 0.85f, 0.95f, 1.0f));
+    }
+
+    // The mixer is the game's: a scene that ends with the listener in the water leaves no filter behind.
+    void OnDestroy() override
+    {
+        if (m_Inside)
+            Apply(false);
+    }
+
+private:
+    void Apply(bool on)
+    {
+        Audio::SetGroupLowPass("SFX", on ? Cutoff : 0.0f);
+        Audio::SetGroupLowPass("Music", on ? MusicCutoff : 0.0f);
+    }
+
+    bool m_Inside = false;
+};
+
+ZM_REGISTER_SCRIPT(UnderwaterZone,
+    ZM_FIELD_RANGE(UnderwaterZone, Cutoff, 50.0f, 20000.0f).Tooltip("Suv ostida SFX guruhining low-pass chastotasi, Hz"),
+    ZM_FIELD_RANGE(UnderwaterZone, MusicCutoff, 50.0f, 20000.0f).Tooltip("Suv ostida Music guruhining low-pass chastotasi, Hz"))
+
+// O'yinchi ovoz sozlamalari: - / = Music guruhini 3 dB pasaytirish / ko'tarish, N - SFX'ni o'chirish (mute),
+// 9 - saqlash (Audio::SaveSettings: SaveData'ga, loyiha standartidan alohida), 0 - saqlanganini o'chirish.
+// Saqlangan sozlamalar o'yin boshlanganda (player va editorda Play) avtomatik yuklanadi.
+class AudioOptions : public ScriptableEntity
+{
+public:
+    void OnUpdate(Timestep) override
+    {
+        auto step = [](float decibels) {
+            float db = std::clamp(AudioGain::ToDecibels(Audio::GetGroupVolume("Music")) + decibels, AudioGain::MinDecibels, 6.0f);
+            Audio::SetGroupVolume("Music", db <= AudioGain::MinDecibels ? 0.0f : AudioGain::FromDecibels(db));
+        };
+        if (Input::IsKeyJustPressed(Key::Minus))
+            step(-3.0f);
+        if (Input::IsKeyJustPressed(Key::Equal))
+            step(3.0f);
+        if (Input::IsKeyJustPressed(Key::N))
+            Audio::SetGroupMuted("SFX", !Audio::IsGroupMuted("SFX"));
+        if (Input::IsKeyJustPressed(Key::D9))
+            m_Status = Audio::SaveSettings() ? "saqlandi" : "saqlanmadi";
+        if (Input::IsKeyJustPressed(Key::D0))
+        {
+            Audio::ClearSavedSettings();
+            m_Status = "o'chirildi (loyiha standarti)";
+        }
+        float music = Audio::GetGroupVolume("Music");
+        std::string musicText = music <= 0.0f ? std::string("jim") : std::format("{:+.1f} dB", AudioGain::ToDecibels(music));
+        std::string saved = !m_Status.empty() ? m_Status : Audio::HasSavedSettings() ? std::string("bor") : std::string("yo'q");
+        DebugDraw::Text(GetWorldPosition(),
+                        std::format("Sozlamalar: Music {}{}   |   - / = balandlik, N - SFX mute, 9 - saqlash, 0 - tozalash   |   saqlangan: {}",
+                                    musicText, Audio::IsGroupMuted("SFX") ? ", SFX: mute" : "", saved),
+                        glm::vec4(0.8f, 1.0f, 0.75f, 1.0f));
+    }
+
+private:
+    std::string m_Status;
+};
+ZM_REGISTER_SCRIPT(AudioOptions)

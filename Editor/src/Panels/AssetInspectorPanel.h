@@ -20,9 +20,9 @@ namespace Zamin {
     // the animations, submeshes, triangles, materials, skeleton), audio (length, channels, sample
     // rate, waveform, play / stop), scenes and prefabs (entities), fonts, scripts, materials (a
     // turning preview sphere and the material editor); folders and several files get a summary.
-    // Import settings of textures and models are edited here: Apply saves them to the .zmeta file
-    // and imports the asset again at once (everything using it updates in place); Revert drops the
-    // edits. Material edits show in the scene at once (the shared material object changes) and go
+    // Import settings of textures, models and sounds (load mode, preload, the file's volume) are
+    // edited here: Apply saves them to the .zmeta file and imports the asset again at once
+    // (everything using it updates in place); Revert drops the edits. Material edits show in the scene at once (the shared material object changes) and go
     // to the .zmat file with Save; Revert puts the saved values back.
     class AssetInspectorPanel
     {
@@ -75,6 +75,7 @@ namespace Zamin {
         // Automation / tests: the settings being edited, preview controls.
         TextureImportSettings& GetEditedTextureSettings() { return m_TextureEdit; }
         ModelImportSettings& GetEditedModelSettings() { return m_ModelEdit; }
+        AudioClipSettings& GetEditedAudioSettings() { return m_AudioEdit; }
         void SetTextureChannelView(ImageChannelView view) { m_ChannelView = view; }
         // Audio: plays the sound; model: plays its first animation.
         void StartPreviewPlayback();
@@ -112,6 +113,7 @@ namespace Zamin {
             AssetType Type = AssetType::Other;
             TextureImportSettings Texture;
             ModelImportSettings Model;
+            AudioClipSettings Audio;
             Ref<MaterialAsset> Material;          // materials: the object holding the edits
             MaterialData MaterialSaved, MaterialEdit;
         };
@@ -129,7 +131,7 @@ namespace Zamin {
         void DrawModel(const AssetMetadata* meta);
         void DrawModelPreview(const Ref<Model>& model);
         void DrawModelInfo(const Ref<Model>& model);
-        void DrawAudio();
+        void DrawAudio(const AssetMetadata* meta);
         void DrawWaveform(float height);
         void DrawSceneFile();
         void DrawFont();
@@ -165,6 +167,7 @@ namespace Zamin {
 
         TextureImportSettings m_TextureSaved, m_TextureEdit;
         ModelImportSettings m_ModelSaved, m_ModelEdit;
+        AudioClipSettings m_AudioSaved, m_AudioEdit;
         std::vector<PendingEdits> m_Pending;  // unapplied edits of assets no longer shown
 
         // version of the shown file (cached info is read again when it changes)

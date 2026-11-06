@@ -193,8 +193,10 @@ namespace Zamin {
     {
         m_TextureSaved = meta ? AssetImporter::ReadTextureSettings(meta->Import) : TextureImportSettings{};
         m_ModelSaved = meta ? AssetImporter::ReadModelSettings(meta->Import) : ModelImportSettings{};
+        m_AudioSaved = meta ? AssetImporter::ReadAudioSettings(meta->Import) : AudioClipSettings{};
         m_TextureEdit = m_TextureSaved;
         m_ModelEdit = m_ModelSaved;
+        m_AudioEdit = m_AudioSaved;
     }
 
     const AssetMetadata* AssetInspectorPanel::FindMetadata() const
@@ -245,6 +247,13 @@ namespace Zamin {
                 m_ModelEdit = model;
             m_ModelSaved = model;
         }
+        AudioClipSettings audio = AssetImporter::ReadAudioSettings(meta->Import);
+        if (!(audio == m_AudioSaved))
+        {
+            if (m_AudioEdit == m_AudioSaved)
+                m_AudioEdit = audio;
+            m_AudioSaved = audio;
+        }
     }
 
     bool AssetInspectorPanel::CheckFileVersion()
@@ -290,6 +299,7 @@ namespace Zamin {
         {
             case AssetType::Texture: return !(m_TextureEdit == m_TextureSaved);
             case AssetType::Model:   return !(m_ModelEdit == m_ModelSaved);
+            case AssetType::Audio:   return !(m_AudioEdit == m_AudioSaved);
             case AssetType::Material: return HasUnsavedMaterial();
             default:                 return false;
         }
@@ -303,6 +313,7 @@ namespace Zamin {
         edits.Type = m_Type;
         edits.Texture = m_TextureEdit;
         edits.Model = m_ModelEdit;
+        edits.Audio = m_AudioEdit;
         edits.Material = m_Material;
         edits.MaterialSaved = m_MaterialSaved;
         edits.MaterialEdit = m_MaterialEdit;
@@ -354,6 +365,8 @@ namespace Zamin {
             AssetImporter::WriteTextureSettings(edits.Texture, import);
         else if (edits.Type == AssetType::Model)
             AssetImporter::WriteModelSettings(edits.Model, import);
+        else if (edits.Type == AssetType::Audio)
+            AssetImporter::WriteAudioSettings(edits.Audio, import);
         else
             return false;
         std::string name = meta->RelativePath;
@@ -373,6 +386,8 @@ namespace Zamin {
                 m_Status = "Saqlandi, lekin qayta import bo'lmadi - konsolni tekshiring";
             else if (updated > 0)
                 m_Status = "Saqlandi va qayta import qilindi";
+            else if (edits.Type == AssetType::Audio)
+                m_Status = "Saqlandi (keyingi ijrodan boshlab ishlatiladi)";
             else
                 m_Status = "Saqlandi (keyingi yuklashda ishlatiladi)";
         }
@@ -388,6 +403,7 @@ namespace Zamin {
             return false;
         m_TextureSaved = m_TextureEdit;
         m_ModelSaved = m_ModelEdit;
+        m_AudioSaved = m_AudioEdit;
         m_ChannelTexture = nullptr; // made with the old sampling settings
         return true;
     }
@@ -396,6 +412,7 @@ namespace Zamin {
     {
         m_TextureEdit = m_TextureSaved;
         m_ModelEdit = m_ModelSaved;
+        m_AudioEdit = m_AudioSaved;
         if (m_Type == AssetType::Material)
             RevertMaterial();
     }
@@ -484,7 +501,7 @@ namespace Zamin {
             case AssetType::Texture:     DrawTexture(meta); break;
             case AssetType::Environment: DrawTexture(nullptr); break;
             case AssetType::Model:       DrawModel(meta); break;
-            case AssetType::Audio:       DrawAudio(); break;
+            case AssetType::Audio:       DrawAudio(meta); break;
             case AssetType::Scene:
             case AssetType::Prefab:      DrawSceneFile(); break;
             case AssetType::Font:        DrawFont(); break;
@@ -1690,7 +1707,7 @@ namespace Zamin {
         }
     }
 
-    void AssetInspectorPanel::DrawAudio()
+    void AssetInspectorPanel::DrawAudio(const AssetMetadata* meta)
     {
         if (!m_AudioInfoRead)
         {
@@ -1771,6 +1788,36 @@ namespace Zamin {
                     ImGui::TextWrapped(ICON_FA_CIRCLE_INFO "  3D (fazoviy) ovoz uchun mono fayl yaxshiroq");
                     ImGui::PopStyleColor();
                 }
+
+                // How it is read with the settings below (as edited), and what that costs.
+                const AudioSettings& mixer = AudioEngine::GetMixerSettings();
+                const double megabytes = ec ? 0.0 : (double)bytes / (1024.0 * 1024.0);
+                const bool streams = m_AudioEdit.LoadMode == AudioLoadMode::Stream ||
+                                     (m_AudioEdit.LoadMode == AudioLoadMode::Auto && megabytes > mixer.StreamThresholdMB);
+                UI::PropertyLabel("Yuklanishi", "Ijro etilganda fayl qanday o'qiladi (pastdagi import sozlamasi bo'yicha). Audio Source'ning "
+                                                "Streaming belgisi va musiqa (Audio::PlayMusic) har doim oqim bilan o'qiladi.");
+                if (streams)
+                {
+                    ImGui::TextColored(ImVec4(0.55f, 0.75f, 1.0f, 1.0f), ICON_FA_WAVE_SQUARE "  Diskdan oqim");
+                    if (m_AudioEdit.LoadMode == AudioLoadMode::Auto)
+                    {
+                        ImGui::SameLine();
+                        ImGui::TextDisabled("(%.1f MB > %.1f MB chegara)", megabytes, mixer.StreamThresholdMB);
+                    }
+                }
+                else
+                {
+                    ImGui::TextColored(s_OkColor, ICON_FA_MEMORY "  Xotiraga yechiladi");
+                    UI::PropertyLabel("Xotirada", "Yechilgan ovoz (32-bit float, dvigatel chastotasida) egallaydigan joy - har ijroda "
+                                                  "(oldindan yuklansa - bir marta)");
+                    uint64_t decoded = AudioClip::EstimateDecodedSize(info, AudioEngine::GetSampleRate());
+                    ImGui::Text("~%.2f MB", (double)decoded / (1024.0 * 1024.0));
+                }
+                if (AudioEngine::IsPreloaded(m_Path))
+                {
+                    UI::PropertyLabel("Holat");
+                    ImGui::TextColored(s_OkColor, ICON_FA_MEMORY "  Oldindan yuklangan (xotirada)");
+                }
             }
             else
             {
@@ -1779,6 +1826,47 @@ namespace Zamin {
             }
             UI::EndPropertyGrid();
         }
+
+        // ---- import settings (the .zmeta)
+        ImGui::Spacing();
+        if (UI::BeginPropertyGrid("##audioImport"))
+        {
+            UI::PropertyHeader("Import sozlamalari");
+            int mode = (int)m_AudioEdit.LoadMode;
+            const char* modes[] = { AssetImporter::GetLoadModeName(AudioLoadMode::Auto), AssetImporter::GetLoadModeName(AudioLoadMode::Decompress),
+                                    AssetImporter::GetLoadModeName(AudioLoadMode::Stream) };
+            UI::PropertyLabel("Yuklash usuli", "Avtomatik: xotiraga yechiladi, loyiha chegarasidan (Audio Mixer > Sozlamalar) katta fayl "
+                                               "diskdan oqim bilan o'qiladi. Xotiraga: har doim to'liq yechiladi - tez-tez chalinadigan "
+                                               "qisqa ovozlar. Oqim: o'ynayotganda diskdan o'qiladi - uzun musiqa va fon ovozlari.");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::Combo("##loadMode", &mode, modes, 3))
+                m_AudioEdit.LoadMode = (AudioLoadMode)std::clamp(mode, 0, 2);
+
+            const bool streamOnly = m_AudioEdit.LoadMode == AudioLoadMode::Stream;
+            UI::PropertyLabel("Oldindan yuklash", "Sahna boshlanganda (unda shu fayl Audio Source'da bo'lsa) yoki birinchi ijroda yechilib, "
+                                                  "xotirada qoladi: birinchi ijro kutmaydi va qayta-qayta chalinadigan ovoz har safar "
+                                                  "qayta yechilmaydi. Oqim bilan o'qiladigan faylga ta'sir qilmaydi.");
+            ImGui::BeginDisabled(streamOnly);
+            ImGui::Checkbox("##preload", &m_AudioEdit.Preload);
+            ImGui::EndDisabled();
+            if (streamOnly && m_AudioEdit.Preload)
+            {
+                ImGui::SameLine();
+                ImGui::TextDisabled("(oqim: ishlatilmaydi)");
+            }
+
+            UI::PropertyLabel("Balandlik", "Faylning o'z balandligi: undan chalinadigan har bir ovozga ko'paytiriladi (juda baland yoki "
+                                           "past yozilgan faylni boshqalarga tenglashtirish). Ikki marta bosish: 0 dB.");
+            float decibels = AudioGain::ToDecibels(m_AudioEdit.Volume);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            std::string text = m_AudioEdit.Volume <= 0.0f ? std::string("jim") : std::format("{:+.1f} dB (x{:.2f})", decibels, m_AudioEdit.Volume);
+            if (ImGui::SliderFloat("##clipVolume", &decibels, -40.0f, 6.0f, text.c_str()))
+                m_AudioEdit.Volume = decibels <= -40.0f ? 0.0f : std::clamp(AudioGain::FromDecibels(decibels), 0.0f, AudioSettings::MaxVolume);
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                m_AudioEdit.Volume = 1.0f;
+            UI::EndPropertyGrid();
+        }
+        DrawApplyBar(meta != nullptr);
     }
 
     // ------------------------------------------------------------------ scenes, prefabs, fonts, scripts

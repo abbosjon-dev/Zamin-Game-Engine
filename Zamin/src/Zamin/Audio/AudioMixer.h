@@ -15,6 +15,31 @@ namespace Zamin {
         None        // nothing stops: the new sound is not played (unless it is more important)
     };
 
+    // A low-pass and / or a high-pass filter (12 dB per octave each) on a sound or a mixer group.
+    // Low-pass muffles what is above its cutoff (behind a wall, under water, far away); high-pass
+    // thins out what is below it (a radio, a telephone, a small speaker). A cutoff that changes
+    // glides there (~30 ms), so a sweep does not click.
+    struct AudioFilterSettings
+    {
+        static constexpr float MinCutoff = 10.0f;    // Hz
+        static constexpr float MaxCutoff = 20000.0f; // Hz
+
+        bool LowPass = false;
+        float LowPassCutoff = 1000.0f;  // Hz
+        bool HighPass = false;
+        float HighPassCutoff = 300.0f;  // Hz
+
+        bool IsActive() const { return LowPass || HighPass; }
+        // The cutoffs at work, in Hz (0: that filter is off).
+        float GetLowPass() const;
+        float GetHighPass() const;
+        // Cutoffs in MinCutoff..MaxCutoff (not a number: the default).
+        void Sanitize();
+        bool IsDefault() const { return *this == AudioFilterSettings(); }
+
+        bool operator==(const AudioFilterSettings&) const = default;
+    };
+
     // One mixer group (bus): the sounds routed to it and its child groups are mixed, multiplied by
     // its fader and passed on to its parent. Master is the root every group ends up in.
     struct AudioGroupSettings
@@ -26,6 +51,9 @@ namespace Zamin {
         // While any group is soloed only the soloed groups (with their children and the parents
         // they pass through) are heard. A mixing tool: kept for the session, never saved.
         bool Solo = false;
+        // On everything the group sends on (its sounds and its child groups), e.g. SFX muffled
+        // while the player is under water.
+        AudioFilterSettings Filter;
 
         bool operator==(const AudioGroupSettings&) const = default;
     };
@@ -98,6 +126,33 @@ namespace Zamin {
         static bool FromJson(const std::string& text, AudioSettings& out);
 
         bool operator==(const AudioSettings&) const = default;
+    };
+
+    // The player's own audio settings - what a game's options menu changes: the group faders and
+    // mutes and the music volume. Saved with SaveData apart from the project's defaults
+    // (Audio::SaveSettings / LoadSettings), so a player's choice survives a new build of the game.
+    struct AudioPlayerSettings
+    {
+        struct Group
+        {
+            std::string Name;
+            float Volume = 1.0f;
+            bool Muted = false;
+            bool operator==(const Group&) const = default;
+        };
+        std::vector<Group> Groups;
+        float MusicVolume = 1.0f;
+
+        // Every group of the mixer (Solo is a mixing tool: never kept).
+        static AudioPlayerSettings Capture(const AudioSettings& mixer, float musicVolume);
+        // The faders and mutes of the groups the mixer has (others - a group the project no
+        // longer has - are skipped). Returns how many groups were set.
+        size_t ApplyTo(AudioSettings& mixer) const;
+        std::string ToJson() const;
+        // Unknown / broken values: skipped (volumes clamped). False for text that is not a JSON object.
+        static bool FromJson(const std::string& text, AudioPlayerSettings& out);
+
+        bool operator==(const AudioPlayerSettings&) const = default;
     };
 
     // Fader helpers: linear gain <-> decibels (gain 0 = -inf, shown as the floor).

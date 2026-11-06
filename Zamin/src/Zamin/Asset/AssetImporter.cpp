@@ -1,5 +1,6 @@
 #include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Asset/AssetRegistry.h"
+#include "Zamin/Audio/AudioMixer.h"
 #include "Zamin/Project/Project.h"
 
 #include <algorithm>
@@ -64,6 +65,34 @@ namespace Zamin {
         return std::nullopt;
     }
 
+    const char* AssetImporter::GetLoadModeKey(AudioLoadMode mode)
+    {
+        switch (mode)
+        {
+            case AudioLoadMode::Decompress: return "Decompress";
+            case AudioLoadMode::Stream:     return "Stream";
+            default:                        return "Auto";
+        }
+    }
+
+    const char* AssetImporter::GetLoadModeName(AudioLoadMode mode)
+    {
+        switch (mode)
+        {
+            case AudioLoadMode::Decompress: return "Xotiraga (decompress)";
+            case AudioLoadMode::Stream:     return "Diskdan oqim (stream)";
+            default:                        return "Avtomatik (hajmiga qarab)";
+        }
+    }
+
+    std::optional<AudioLoadMode> AssetImporter::LoadModeFromKey(std::string_view key)
+    {
+        if (EqualsIgnoreCase(key, "Auto")) return AudioLoadMode::Auto;
+        if (EqualsIgnoreCase(key, "Decompress") || EqualsIgnoreCase(key, "DecompressOnLoad") || EqualsIgnoreCase(key, "Memory")) return AudioLoadMode::Decompress;
+        if (EqualsIgnoreCase(key, "Stream") || EqualsIgnoreCase(key, "Streaming")) return AudioLoadMode::Stream;
+        return std::nullopt;
+    }
+
     // ------------------------------------------------------------------ textures
     TextureImportSettings AssetImporter::ReadTextureSettings(const AssetImportSettings& import)
     {
@@ -104,6 +133,25 @@ namespace Zamin {
         import.SetBool("FlipUVs", settings.FlipUVs);
     }
 
+    // ------------------------------------------------------------------ audio
+    AudioClipSettings AssetImporter::ReadAudioSettings(const AssetImportSettings& import)
+    {
+        AudioClipSettings s;
+        if (auto mode = LoadModeFromKey(import.GetString("LoadMode")))
+            s.LoadMode = *mode;
+        s.Preload = import.GetBool("Preload", s.Preload);
+        double volume = import.GetNumber("Volume", 1.0);
+        s.Volume = std::isfinite(volume) ? std::clamp((float)volume, 0.0f, AudioSettings::MaxVolume) : 1.0f;
+        return s;
+    }
+
+    void AssetImporter::WriteAudioSettings(const AudioClipSettings& settings, AssetImportSettings& import)
+    {
+        import.SetString("LoadMode", GetLoadModeKey(settings.LoadMode));
+        import.SetBool("Preload", settings.Preload);
+        import.SetNumber("Volume", std::round((double)settings.Volume * 10000.0) / 10000.0); // 0.9, not 0.89999997
+    }
+
     // ------------------------------------------------------------------ lookups
     static const AssetMetadata* FindInActiveProject(const std::filesystem::path& file)
     {
@@ -123,6 +171,12 @@ namespace Zamin {
     {
         const AssetMetadata* meta = FindInActiveProject(file);
         return meta ? ReadModelSettings(meta->Import) : ModelImportSettings{};
+    }
+
+    AudioClipSettings AssetImporter::GetAudioSettings(const std::filesystem::path& file)
+    {
+        const AssetMetadata* meta = FindInActiveProject(file);
+        return meta ? ReadAudioSettings(meta->Import) : AudioClipSettings{};
     }
 
 }

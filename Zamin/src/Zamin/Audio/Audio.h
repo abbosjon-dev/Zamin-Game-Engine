@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/Audio/AudioClip.h"
 #include "Zamin/Audio/AudioMixer.h"
 
 #include <cstdint>
@@ -43,6 +44,35 @@ namespace Zamin {
         static bool HasGroup(const std::string& group);
         // The mixer as the project set it up (Project settings / Audio Mixer window).
         static void ResetMixer();
+        // A group's low-pass / high-pass (e.g. SFX muffled under water: SetGroupLowPass("SFX", 500)).
+        // Cutoff in Hz, <= 0 switches it off; a change glides there. False: no such group.
+        static bool SetGroupLowPass(const std::string& group, float cutoffHz);
+        static bool SetGroupHighPass(const std::string& group, float cutoffHz);
+        static bool SetGroupFilter(const std::string& group, const AudioFilterSettings& filter);
+        static AudioFilterSettings GetGroupFilter(const std::string& group);
+
+        // ---- player settings (a game's options menu): the group faders / mutes and the music
+        // volume are kept with SaveData (key SettingsKey), apart from the project's defaults. The
+        // player and the editor's Play load them when the game starts.
+        static constexpr const char* SettingsKey = "Zamin.Audio";
+        // Saves the mixer's faders / mutes and the music volume as they are now (and writes the
+        // save file). False without SaveData storage.
+        static bool SaveSettings();
+        // Puts the saved settings over the project's mixer. False when nothing was saved (or it
+        // cannot be read): the mixer stays as it is.
+        static bool LoadSettings();
+        static bool HasSavedSettings();
+        // Forgets the saved settings and goes back to the project's mixer.
+        static void ClearSavedSettings();
+
+        // ---- sound files (paths relative to Assets; their import settings in the .zmeta)
+        // Length in seconds (0: unknown / unreadable) and what the file is - read once per version.
+        static float GetClipLength(const std::string& assetPath);
+        static const AudioFileInfo& GetClipInfo(const std::string& assetPath);
+        // Keeps the file decoded in memory until Unload (AudioEngine::Preload).
+        static bool Preload(const std::string& assetPath);
+        static void Unload(const std::string& assetPath);
+        static bool IsPreloaded(const std::string& assetPath);
 
         // ---- one-shot sounds (handle for AudioEngine; 0 = not played)
         static uint32_t PlaySound(const std::string& assetPath, float volume = 1.0f, float pitch = 1.0f,
@@ -52,6 +82,8 @@ namespace Zamin {
         // With everything SoundParams has (random volume / pitch range, priority, instance limit,
         // 3D position, ...).
         static uint32_t PlaySound(const std::string& assetPath, const SoundParams& params);
+        // Stops a sound played above, fading it out over `fadeSeconds` (0: at once).
+        static void StopSound(uint32_t handle, float fadeSeconds = 0.0f);
     };
 
 }

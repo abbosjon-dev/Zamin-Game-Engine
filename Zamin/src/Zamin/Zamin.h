@@ -66,6 +66,8 @@
 #include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Audio/Audio.h"
 #include "Zamin/Audio/AudioMixer.h"
+#include "Zamin/Audio/AudioClip.h"
+#include "Zamin/Audio/AudioFilter.h"
 #include "Zamin/Project/Project.h"
 #include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Asset/AssetTypes.h"

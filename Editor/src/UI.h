@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Zamin/Audio/AudioMixer.h>
 #include <Zamin/ImGui/Icons.h>
 #include <Zamin/ImGui/ImGuiLayer.h>
 #include <Zamin/Renderer/Material.h>
@@ -11,6 +12,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <format>
 #include <string>
 
 // Small helpers for a consistent, good-looking editor UI.
@@ -34,6 +36,33 @@ namespace Zamin::UI {
     }
 
     inline void EndPropertyGrid() { ImGui::EndTable(); }
+
+    // "850 Hz", "1.2 kHz", "12 kHz".
+    inline std::string FormatHz(float hz)
+    {
+        if (hz >= 10000.0f)
+            return std::format("{:.0f} kHz", hz / 1000.0f);
+        if (hz >= 1000.0f)
+            return std::format("{:.1f} kHz", hz / 1000.0f);
+        return std::format("{:.0f} Hz", hz);
+    }
+
+    // One filter of an AudioFilterSettings in one row: on / off and its cutoff (Hz, log slider).
+    // `width`: of the slider (-FLT_MIN: the rest of the row).
+    inline bool AudioFilterRow(const char* id, bool& enabled, float& cutoff, float width = -FLT_MIN)
+    {
+        ImGui::PushID(id);
+        bool changed = ImGui::Checkbox("##on", &enabled);
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!enabled);
+        ImGui::SetNextItemWidth(width);
+        std::string text = FormatHz(cutoff);
+        changed |= ImGui::SliderFloat("##hz", &cutoff, AudioFilterSettings::MinCutoff, AudioFilterSettings::MaxCutoff, text.c_str(),
+                                      ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
+        ImGui::EndDisabled();
+        ImGui::PopID();
+        return changed;
+    }
 
     inline void PropertyLabel(const char* label)
     {

@@ -1,5 +1,9 @@
 {
     "UUID": "5350e44c432db029",
     "Type": "Audio",
-    "Import": {}
+    "Import": {
+        "LoadMode": "Auto",
+        "Preload": true,
+        "Volume": 1.0
+    }
 }

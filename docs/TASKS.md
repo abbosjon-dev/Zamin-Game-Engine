@@ -244,11 +244,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 208. AudioSource: Play/Stop/Pause skript API
 - [x] 209. AudioSource holatini inspektorda ko'rsatish
 - [x] 210. Doppler effekti (oddiy)
-- [ ] 211. Audio clip asset (davomiylik, format)
-- [ ] 212. Ovoz so'nishi (fade in/out)
-- [ ] 213. Ovoz effektlari: low-pass filter
-- [ ] 214. Ovoz sozlamalari SaveData bilan saqlanadi
-- [ ] 215. Audio testlari (ovoz qurilmasisiz)
+- [x] 211. Audio clip asset (davomiylik, format)
+- [x] 212. Ovoz so'nishi (fade in/out)
+- [x] 213. Ovoz effektlari: low-pass filter
+- [x] 214. Ovoz sozlamalari SaveData bilan saqlanadi
+- [x] 215. Audio testlari (ovoz qurilmasisiz)
 - [ ] 216. Audio profiler (faol ovozlar soni)
 - [ ] 217. Editorda audio preview to'lqin shakli
 - [ ] 218. 3D ovoz uchun yo'nalishli konus

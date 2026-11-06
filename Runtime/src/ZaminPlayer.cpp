@@ -33,6 +33,9 @@ namespace Zamin {
             }
             auto& config = Project::GetActive()->GetConfig();
             Application::Get().GetWindow().SetTitle(config.Name);
+            // The player's own audio settings (the game's options menu saved them) over the project's mixer.
+            if (Audio::LoadSettings())
+                ZM_INFO("Saqlangan ovoz sozlamalari yuklandi");
 
             // Debug drawing: the project's settings, then the command line (Shipping: compiled out).
             DebugDrawSettings& debugDraw = DebugDraw::GetSettings();

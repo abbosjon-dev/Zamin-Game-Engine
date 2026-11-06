@@ -119,6 +119,7 @@
 #define ICON_FA_SQUARE_MINUS "\xef\x85\x86"
 #define ICON_FA_SQUARE_PLUS "\xef\x83\xbe"
 #define ICON_FA_FILTER "\xef\x82\xb0"
+#define ICON_FA_MEMORY "\xef\x94\xb8"
 #define ICON_FA_FILE_IMPORT "\xef\x95\xaf"
 #define ICON_FA_TABLE_CELLS_LARGE "\xef\x80\x89"
 #define ICON_FA_TURN_UP "\xef\x8e\xbf"

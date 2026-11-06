@@ -2,6 +2,7 @@
 #include "Zamin/Physics/CollisionShapes3D.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
+#include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Physics/PhysicsMaterial.h"
 #include "Zamin/Renderer/Environment.h"
 #include "Zamin/Renderer/Font.h"
@@ -128,6 +129,8 @@ namespace Zamin {
                 return Model::ReloadFile(path, failed);
             case AssetType::Font:        return Font::ReloadFile(path, failed);
             case AssetType::Environment: return EnvironmentMap::ReloadFile(path, failed);
+            // A preloaded sound is decoded again (the import settings changed, or the file).
+            case AssetType::Audio:       return AudioEngine::ReloadFile(path, failed);
             case AssetType::Other:
             {
                 size_t reloaded = Model::ReloadFile(path, failed); // a model's .bin buffer
@@ -149,6 +152,7 @@ namespace Zamin {
             case AssetType::Model:       return Model::IsFileLoaded(path);
             case AssetType::Font:        return Font::IsFileLoaded(path);
             case AssetType::Environment: return EnvironmentMap::IsFileLoaded(path);
+            case AssetType::Audio:       return AudioEngine::IsPreloaded(path);
             case AssetType::Other:       return Model::IsFileLoaded(path);
             default:                     return false;
         }

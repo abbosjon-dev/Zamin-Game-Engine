@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include <glm/glm.hpp>
 
@@ -47,6 +48,11 @@ namespace Zamin {
         // AudioSettings::DopplerFactor; 0 = off) and how fast it moves (units per second).
         float DopplerFactor = 1.0f;
         glm::vec3 Velocity{ 0.0f };
+
+        // Starts silent and fades in over this many seconds (0 = at full volume at once).
+        float FadeIn = 0.0f;
+        // Low-pass / high-pass on this sound alone (its group's filter comes on top).
+        AudioFilterSettings Filter;
     };
 
     // What a sound is doing right now (AudioEngine::GetSoundInfo): for the inspector and tests.
@@ -65,7 +71,7 @@ namespace Zamin {
         float VolumeVariation = 1.0f; // the random factor it got when it started
         float GroupGain = 1.0f;       // its mixer group with the parents (mute / solo included)
         float Attenuation = 1.0f;     // distance from the listener (3D; 1 for 2D sounds)
-        float AudibleVolume = 1.0f;   // Volume x VolumeVariation x GroupGain x Attenuation
+        float AudibleVolume = 1.0f;   // Volume x VolumeVariation x ClipGain x Fade x GroupGain x Attenuation
         float Pitch = 1.0f;           // as asked
         float PitchVariation = 1.0f;  // the random factor it got when it started
         float DopplerPitch = 1.0f;    // from the source's and the listener's movement (1: none)
@@ -74,6 +80,12 @@ namespace Zamin {
         glm::vec3 Velocity{ 0.0f };
         float Distance = 0.0f;        // from the listener (3D)
         int Priority = 128;
+        float ClipGain = 1.0f;        // the file's own Volume (its import settings)
+        float Fade = 1.0f;            // the fade envelope now (0..1: FadeIn, FadeTo, Stop with a fade)
+        float FadeTarget = 1.0f;      // where the envelope is going
+        bool Stopping = false;        // fading out: released once silent
+        bool Preloaded = false;       // its file is kept decoded in memory (AudioEngine::Preload)
+        AudioFilterSettings Filter;   // the sound's own filter (not its group's)
     };
 
     // The voice limit at work (AudioEngine::GetVoiceStats).
@@ -111,6 +123,8 @@ namespace Zamin {
         static bool IsAvailable();
         // False for a device-less engine (and without an engine).
         static bool HasDevice();
+        // The output's sample rate in Hz (0 without an engine): sounds are decoded at it.
+        static uint32_t GetSampleRate();
         // Once per frame (the application does it): music fades, the level meters, finished
         // sounds released. `deltaSeconds` is real time.
         static void Update(float deltaSeconds);
@@ -161,10 +175,23 @@ namespace Zamin {
         static bool IsStreaming(uint32_t handle);
         // The mixer group the sound plays in ("" = past the mixer or unknown handle).
         static std::string GetSoundGroup(uint32_t handle);
-        // Whether a file played with Stream = `requested` is streamed.
+        // Whether a file played with Stream = `requested` is streamed: asked for, its import settings
+        // say Stream, or (LoadMode Auto) it is larger than the project's threshold.
         static bool ShouldStream(const std::filesystem::path& path, bool requested);
         static void Stop(uint32_t handle);
-        // Everything, music included (the editor leaving play mode, shutdown).
+        // Fades the sound out over `fadeSeconds`, then releases it (0, or a paused sound: at once).
+        // While it fades IsStopping is true; a sound fading out is the first to give its place to
+        // a new one at the voice limit.
+        static void Stop(uint32_t handle, float fadeSeconds);
+        static bool IsStopping(uint32_t handle);
+        // The sound's fade envelope goes to `volume` (0..1, on top of its own volume) over `seconds`
+        // (e.g. ducking it under a voice line; 0 keeps it playing silently). False for an unknown
+        // handle and the music (Audio::SetMusicVolume / the crossfades).
+        static bool FadeTo(uint32_t handle, float volume, float seconds);
+        // The envelope now (1 for an unknown handle).
+        static float GetFade(uint32_t handle);
+        // Everything, music included (the editor leaving play mode, shutdown); the preloaded files
+        // are let go too.
         static void StopAll();
         // Every sound but the music (a scene stops: the music goes on into the next one).
         static void StopAllExceptMusic();
@@ -172,6 +199,32 @@ namespace Zamin {
         static size_t GetPlayingCount();
         // The engine's output volume (after Master).
         static void SetMasterVolume(float volume);
+
+        // ---- filters (low-pass / high-pass; a changed cutoff glides there)
+        // The sound's own filter (the first one makes a filter node for it; false: unknown handle).
+        static bool SetSoundFilter(uint32_t handle, const AudioFilterSettings& filter);
+        static AudioFilterSettings GetSoundFilter(uint32_t handle);
+        // A mixer group's filter: on everything it sends on (sounds and child groups). Kept in the
+        // mixer settings (AudioSettings::Groups[].Filter); false for unknown groups.
+        static bool SetGroupFilter(const std::string& group, const AudioFilterSettings& filter);
+        static AudioFilterSettings GetGroupFilter(const std::string& group);
+
+        // ---- sound files (their import settings: AudioClipSettings in the .zmeta)
+        // Decodes the file into memory now and keeps it there until Unload: the first Play does not
+        // wait for decoding and a short sound played again and again is not decoded every time.
+        // False when it cannot be read or is streamed (its LoadMode / size). Without an engine: false.
+        static bool Preload(const std::filesystem::path& path);
+        static void Unload(const std::filesystem::path& path);
+        static void UnloadAll();
+        static bool IsPreloaded(const std::filesystem::path& path);
+        static size_t GetPreloadedCount();
+        // A scene starts: exactly these files stay preloaded for it (its Audio Sources' clips with
+        // Preload). What an earlier scene (or a clip's Preload on its first play) left decoded and
+        // this scene does not use is let go; files preloaded by a Preload call stay.
+        static void SetScenePreloads(const std::vector<std::filesystem::path>& paths);
+        // The file changed on disk (hot reload): a preloaded file is decoded again (the sounds
+        // playing it now keep the old data until they end). Returns 1 when it was preloaded.
+        static size_t ReloadFile(const std::filesystem::path& path, bool* failed = nullptr);
 
         // ---- listener (Scene::UpdateAudio: the active Audio Listener, else the primary camera)
         static void SetListener(const glm::vec3& position, const glm::vec3& forward, const glm::vec3& up);

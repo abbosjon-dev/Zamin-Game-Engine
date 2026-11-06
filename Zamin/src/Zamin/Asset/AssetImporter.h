@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Asset/AssetMetadata.h"
+#include "Zamin/Audio/AudioClip.h"
 #include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Texture.h"
 
@@ -15,6 +16,7 @@ namespace Zamin {
     //   texture: { "Filter": "Linear" | "Nearest", "Wrap": "Repeat" | "Clamp" | "Mirror",
     //              "Mipmaps": true, "sRGB": true }
     //   model:   { "Scale": 1.0, "UpAxis": "Y" | "Z", "FlipUVs": false }
+    //   audio:   { "LoadMode": "Auto" | "Decompress" | "Stream", "Preload": false, "Volume": 1.0 }
     // A missing (or unreadable) value means the default, so assets without settings load as before.
     class AssetImporter
     {
@@ -24,11 +26,14 @@ namespace Zamin {
         static void WriteTextureSettings(const TextureImportSettings& settings, AssetImportSettings& import);
         static ModelImportSettings ReadModelSettings(const AssetImportSettings& import);
         static void WriteModelSettings(const ModelImportSettings& settings, AssetImportSettings& import);
+        static AudioClipSettings ReadAudioSettings(const AssetImportSettings& import);
+        static void WriteAudioSettings(const AudioClipSettings& settings, AssetImportSettings& import);
 
         // Settings of a file of the active project's asset folder, from the asset registry;
         // the defaults for other files and without a project.
         static TextureImportSettings GetTextureSettings(const std::filesystem::path& file);
         static ModelImportSettings GetModelSettings(const std::filesystem::path& file);
+        static AudioClipSettings GetAudioSettings(const std::filesystem::path& file);
 
         // Keys stored in .zmeta files and names shown in the editor.
         static const char* GetFilterKey(TextureFilter filter);
@@ -40,6 +45,9 @@ namespace Zamin {
         static const char* GetUpAxisKey(ModelUpAxis axis);
         static std::optional<ModelUpAxis> UpAxisFromKey(std::string_view key);
         static const char* GetUpAxisName(ModelUpAxis axis);
+        static const char* GetLoadModeKey(AudioLoadMode mode);
+        static std::optional<AudioLoadMode> LoadModeFromKey(std::string_view key);
+        static const char* GetLoadModeName(AudioLoadMode mode);
 
         // Smallest / largest model scale accepted (other values are clamped; 0, negative or not a
         // number means 1).

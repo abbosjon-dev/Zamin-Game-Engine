@@ -1,4 +1,5 @@
 #include "Zamin/Scene/Scene.h"
+#include "Zamin/Asset/AssetImporter.h"
 #include "Zamin/Asset/AssetImportLog.h"
 #include "Zamin/Asset/AssetRegistry.h"
 #include "Zamin/Scene/Entity.h"
@@ -643,7 +644,7 @@ namespace Zamin {
         if (m_InactiveInHierarchy.contains(entity))
             m_ActiveCacheDirty = true; // keep the cache free of dead handles
         if (auto* audio = entity.TryGetComponent<AudioSourceComponent>(); audio && audio->RuntimeHandle)
-            AudioEngine::Stop(audio->RuntimeHandle);
+            AudioEngine::Stop(audio->RuntimeHandle, audio->FadeOut); // a fade goes on without the entity
 
         m_EntityMap.erase(entity.GetUUID());
         // Normally already the last one (PrepareDestroyOrder); a script callback above may
@@ -1679,7 +1680,7 @@ namespace Zamin {
         if (auto* audio = entity.TryGetComponent<AudioSourceComponent>())
         {
             if (audio->RuntimeHandle)
-                AudioEngine::Stop(audio->RuntimeHandle);
+                AudioEngine::Stop(audio->RuntimeHandle, audio->FadeOut); // fades out by itself
             audio->ResetRuntime();
         }
         if (auto* ps = entity.TryGetComponent<ParticleSystemComponent>())
@@ -1954,11 +1955,20 @@ namespace Zamin {
         // Sources on inactive entities start when they are switched on.
         UpdateAudioListener(0.0f); // the 3D sounds start where the listener is
         std::vector<entt::entity> sources;
+        std::vector<std::filesystem::path> preloads; // clips set to Preload (inactive sources' too: they may start later)
         for (auto e : m_Registry.view<AudioSourceComponent>())
         {
-            m_Registry.get<AudioSourceComponent>(e).ResetRuntime(); // nothing left from an earlier run
+            auto& a = m_Registry.get<AudioSourceComponent>(e);
+            a.ResetRuntime(); // nothing left from an earlier run
             sources.push_back(e);
+            if (!a.Path.empty())
+            {
+                std::filesystem::path file = Project::GetAssetFileSystemPath(a.Path);
+                if (AssetImporter::GetAudioSettings(file).Preload && std::find(preloads.begin(), preloads.end(), file) == preloads.end())
+                    preloads.push_back(file);
+            }
         }
+        AudioEngine::SetScenePreloads(preloads);
         std::reverse(sources.begin(), sources.end()); // scene order
         for (auto e : sources)
             StartEntityEffects({ e, this });
@@ -4600,7 +4610,7 @@ namespace Zamin {
         return tint ? tint->GetColor() : glm::vec4(1.0f);
     }
 
-    bool Scene::PlayAudio(Entity entity)
+    bool Scene::PlayAudio(Entity entity, float fadeInSeconds)
     {
         if (!m_IsRunning || !entity.IsValid() || entity.GetScene() != this || !IsActiveInHierarchy(entity))
             return false;
@@ -4627,17 +4637,68 @@ namespace Zamin {
         params.DopplerFactor = audio->DopplerFactor;
         // A source that keeps moving keeps its measured velocity (restarted while flying past).
         params.Velocity = audio->HasLastPosition ? audio->Velocity : glm::vec3(0.0f);
+        params.FadeIn = std::isfinite(fadeInSeconds) && fadeInSeconds >= 0.0f ? fadeInSeconds : audio->FadeIn;
+        params.Filter = audio->Filter;
         audio->RuntimeHandle = AudioEngine::Play(Project::GetAssetFileSystemPath(audio->Path), params);
         return audio->RuntimeHandle != 0;
     }
 
-    void Scene::StopAudio(Entity entity)
+    void Scene::StopAudio(Entity entity, float fadeOutSeconds)
     {
         if (auto* audio = GetAudioSource(entity); audio && audio->RuntimeHandle)
         {
-            AudioEngine::Stop(audio->RuntimeHandle);
+            float fade = std::isfinite(fadeOutSeconds) && fadeOutSeconds >= 0.0f ? fadeOutSeconds : audio->FadeOut;
+            // With a fade the sound goes on by itself until it is silent; the source is free now.
+            AudioEngine::Stop(audio->RuntimeHandle, fade);
             audio->RuntimeHandle = 0;
         }
+    }
+
+    bool Scene::FadeAudio(Entity entity, float volume, float seconds)
+    {
+        auto* audio = GetAudioSource(entity);
+        return audio && audio->RuntimeHandle && AudioEngine::FadeTo(audio->RuntimeHandle, volume, seconds);
+    }
+
+    float Scene::GetAudioFade(Entity entity)
+    {
+        auto* audio = GetAudioSource(entity);
+        return audio && audio->RuntimeHandle ? AudioEngine::GetFade(audio->RuntimeHandle) : 1.0f;
+    }
+
+    void Scene::SetAudioFilter(Entity entity, const AudioFilterSettings& filter)
+    {
+        auto* audio = GetAudioSource(entity);
+        if (!audio)
+            return;
+        audio->Filter = filter;
+        audio->Filter.Sanitize();
+        if (audio->RuntimeHandle)
+            AudioEngine::SetSoundFilter(audio->RuntimeHandle, audio->Filter);
+    }
+
+    void Scene::SetAudioLowPass(Entity entity, float cutoffHz)
+    {
+        auto* audio = GetAudioSource(entity);
+        if (!audio || !std::isfinite(cutoffHz))
+            return;
+        AudioFilterSettings filter = audio->Filter;
+        filter.LowPass = cutoffHz > 0.0f;
+        if (filter.LowPass)
+            filter.LowPassCutoff = cutoffHz;
+        SetAudioFilter(entity, filter);
+    }
+
+    void Scene::SetAudioHighPass(Entity entity, float cutoffHz)
+    {
+        auto* audio = GetAudioSource(entity);
+        if (!audio || !std::isfinite(cutoffHz))
+            return;
+        AudioFilterSettings filter = audio->Filter;
+        filter.HighPass = cutoffHz > 0.0f;
+        if (filter.HighPass)
+            filter.HighPassCutoff = cutoffHz;
+        SetAudioFilter(entity, filter);
     }
 
     bool Scene::IsAudioPlaying(Entity entity)
@@ -4818,6 +4879,7 @@ namespace Zamin {
                 AudioEngine::SetVolume(a.RuntimeHandle, a.Volume);
                 AudioEngine::SetPitch(a.RuntimeHandle, a.Pitch);
                 AudioEngine::SetLooping(a.RuntimeHandle, a.Loop);
+                AudioEngine::SetSoundFilter(a.RuntimeHandle, a.Filter);
             }
         }
     }

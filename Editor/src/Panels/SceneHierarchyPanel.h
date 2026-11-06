@@ -102,6 +102,8 @@ namespace Zamin {
         bool RequestParticlePresetFile(Entity entity, const std::filesystem::path& assetPath);
         // The requested preset applied (selected, scene modified); the entity, or none.
         Entity ApplyPendingParticlePreset();
+        // OnOpenSceneRequested / OnRuntimeSceneSelected asked for while drawing (after both panels).
+        void ApplyPendingSceneRequests();
         // `entity`'s Particle System as Assets/Particles/<name>.zparticle (sub-emitter templates in it).
         bool SaveParticlePreset(Entity entity);
         // The built-ins and the project's presets as menu items (`entity` null: each makes a new entity).
@@ -497,6 +499,11 @@ namespace Zamin {
         std::optional<ParticlePreset> m_PendingParticlePreset; // applied after the inspector (RequestParticlePreset)
         UUID m_PendingParticlePresetFor = 0;                     // 0: onto a new entity
         UUID m_PendingSubEmitterFor = 0;           // "New template" of a particle system's sub-emitters (after the inspector)
+        // Another scene asked for while the hierarchy / inspector is drawn (a sub-scene to open for
+        // editing, a loaded scene to show in play mode): the panels' scene is replaced, so only once
+        // both are drawn (ApplyPendingSceneRequests).
+        std::filesystem::path m_PendingOpenScene;
+        Ref<Scene> m_PendingRuntimeScene;
         InspectorFoldState* m_FoldState = nullptr;
         bool m_SceneEditable = true;
         float m_GutterX = 0.0f;                    // left edge of the hierarchy's eye / lock column

@@ -348,12 +348,14 @@ qizil chiziq bilan ko'rsatiladi.
 alohida yozilgan: `"RootOrder"` (ildiz obyektlar tartibi) va `"ChildOrder"` (bolalar UUID tartibida bo'lmasa).
 Shuning uchun bir xil sahna har doim bir xil matn beradi va diff faqat o'zgargan joyni ko'rsatadi.
 
-**Versiya va migratsiya.** Fayl `"Version": 2` bilan yoziladi. Eskiroq fayl yuklanganda hech narsa o'qilishidan
+**Versiya va migratsiya.** Fayl `"Version": 3` bilan yoziladi. Eskiroq fayl yuklanganda hech narsa o'qilishidan
 oldin migratsiyalar zanjiri ishlaydi (`SceneMigration`):
 
 - **v0 → v1** (versiyasiz fayl): matn ko'rinishidagi ID'lar songa, `"Name"` → `"Tag"`.
 - **v1 → v2**: Text `"Centered"` → `AlignH` / `AlignV`, UI `"Anchor"` → `AnchorMin` / `AnchorMax` / `Pivot`,
   `"Metadata"` qo'shiladi.
+- **v2 → v3**: sub-sahna fayli `SubScene` ichida `"Scene"` / `"SceneUUID"` → `"Path"` / `"PathUUID"` (`"Scene"`
+  nom kaliti edi, shuning uchun fayl ko'chirilganda yoki nomi o'zgarganda havola yangilanmasdi).
 
 Har fayl versiyasi uchun migratsiya bir marta logga yoziladi. Fayl saqlanganda joriy formatga o'tadi.
 
@@ -409,11 +411,12 @@ va unga `.zscene` faylini bering (kontent brauzeridan tashlab).
 | `ApplyTransform` (**Obyekt joyiga**) | ildiz obyektlari shu obyektning dunyo transformiga ko'chiriladi |
 | `ShowInEditor` (**Editorda chizish**) | editorning sahna ko'rinishida joyida chiziladi |
 
-**O'yinda:** sahna yuklanganda (Start, `Single`, `Additive`, fonda yuklash) uning faol sub-sahna obyektlari o'sha
-kadrning o'zida **qo'shimcha sahna** sifatida yuklanadi — o'z obyektlari, skriptlari va fizika dunyosi bilan.
-Ildizlar obyekt transformi bo'yicha **bir marta**, yuklanishda joylanadi (fizika jismlari shu joyda yaratiladi);
+**O'yinda:** sahna yuklanganda (Start, `Single`, `Additive`, fonda yuklash) uning faol sub-sahna obyektlari (o'zi ham,
+ota-onalari ham yoqilgan — editor ko'rsatganidek) o'sha kadrning o'zida **qo'shimcha sahna** sifatida yuklanadi —
+o'z obyektlari, skriptlari va fizika dunyosi bilan. O'chirilgan ota ostidagi obyekt sub-sahnasini faqat skript
+`LoadSubScene()` chaqirganda olib keladi. Ildizlar obyekt transformi bo'yicha **bir marta**, yuklanishda joylanadi (fizika jismlari shu joyda yaratiladi);
 obyektni keyin surish sub-sahnani surmaydi. Sub-sahnaning o'z sub-sahnalari ham yuklanadi (eng ko'pi bilan
-8 qavat; zanjirda allaqachon bor fayl — halqa — o'tkazib yuboriladi). Egasi yopilganda uning sub-sahnalari ham
+8 qavat: asosiy sahnaning sub-sahnalari 1-qavat; zanjirda allaqachon bor fayl — halqa — o'tkazib yuboriladi). Egasi yopilganda uning sub-sahnalari ham
 yopiladi; `Single` yuklash hammasini yopadi. Egasining skriptlari sub-sahnani `OnStart` da ko'radi
 (`OnCreate` da hali yo'q).
 

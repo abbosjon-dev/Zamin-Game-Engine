@@ -14,10 +14,13 @@ namespace Zamin {
     class SceneThumbnails
     {
     public:
+        static constexpr float ParticleWarmUpSeconds = 2.0f;
+
         // Draws `scene` through its primary camera - what the game shows first - else through
         // `fallback` (the editor camera: a scene without a camera) into the thumbnail file of
         // `scenePath` (SceneMetadata::ThumbnailWidth x ThumbnailHeight). False when nothing could be
-        // drawn or written. The scene itself is not touched (a copy is drawn).
+        // drawn or written. The scene itself is not touched (a copy is drawn; its particle systems
+        // run ParticleWarmUpSeconds first, as the scene view plays them - else they would be empty).
         static bool Render(const Ref<Scene>& scene, const std::filesystem::path& scenePath, const EditorCamera* fallback);
 
         // The thumbnail of a scene file as a texture (nullptr without one): loaded once per version

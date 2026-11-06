@@ -791,6 +791,10 @@ namespace Zamin {
 
         // ---- particles (nothing is emitted for an entity that is not active in the hierarchy)
         void EmitParticles(Entity entity, int count);
+        // Runs the particle systems `seconds` ahead (steps of `step`, at most 600), as the scene view
+        // plays them (PlayInEditor ones): a picture of a scene that was just loaded or copied - a
+        // thumbnail - shows its effects under way instead of empty. Nothing else moves.
+        void SimulateParticles(float seconds, float step = 1.0f / 30.0f);
         // Where the entity's particles live in the world (their positions -> world): the emitter
         // (Local), the Custom space's entity, else the identity (World, or the Custom entity gone).
         glm::mat4 GetParticleSpace(Entity entity, const struct ParticleSystemComponent& ps);

@@ -321,8 +321,9 @@ namespace Zamin {
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             UI::Tooltip(open.empty() ? "Ochiq sahna hali saqlanmagan" : openListed ? "Ochiq sahna ro'yxatda bor" : open.c_str());
-        ImGui::SameLine();
-        if (ImGui::Button(ICON_FA_LAYER_GROUP "  Barcha sahnalarni qo'shish"))
+        const char* addAllLabel = ICON_FA_LAYER_GROUP "  Barcha sahnalarni qo'shish";
+        UI::SameLineIfFits(addAllLabel);
+        if (ImGui::Button(addAllLabel))
         {
             std::vector<std::string> found;
             std::error_code ec;
@@ -337,9 +338,10 @@ namespace Zamin {
             if (added)
                 m_Dirty = true;
         }
-        ImGui::SameLine();
+        const char* clearLabel = ICON_FA_TRASH "  Tozalash";
+        UI::SameLineIfFits(clearLabel);
         ImGui::BeginDisabled(list.empty());
-        if (ImGui::Button(ICON_FA_TRASH "  Tozalash"))
+        if (ImGui::Button(clearLabel))
         {
             list.clear();
             m_Dirty = true;

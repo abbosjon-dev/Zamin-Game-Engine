@@ -30776,8 +30776,8 @@ TEST(SceneVersionMigration)
         CHECK(!serializer.GetLoadReport().HasIssues());
         const SceneMigrationResult& m = serializer.GetMigration();
         CHECK(m.FileVersion == 1 && m.Version == SceneMigration::CurrentVersion && m.Migrated() && !m.IsNewer());
-        CHECK(m.Steps.size() == 1 && m.Steps[0].From == 1 && m.Steps[0].To == 2 && m.GetChangeCount() == 5);
-        CHECK(m.Summary().find("v1 -> v2") != std::string::npos);
+        CHECK(m.Steps.size() == 2 && m.Steps[0].From == 1 && m.Steps[0].To == 2 && m.Steps[1].To == 3 && m.GetChangeCount() == 5);
+        CHECK(m.Summary().find("v1 -> v3") != std::string::npos);
         Entity title = scene->FindEntityByName("Sarlavha"), corner = scene->FindEntityByName("Burchak"), world = scene->FindEntityByName("DunyoMatni");
         CHECK(title && corner && world);
         if (!title || !corner || !world)
@@ -30817,8 +30817,8 @@ TEST(SceneVersionMigration)
         SceneSerializer serializer(scene);
         CHECK(serializer.Deserialize(fixtures / "LegacyV0.zscene"));
         const SceneMigrationResult& m = serializer.GetMigration();
-        CHECK(m.FileVersion == 0 && m.Version == SceneMigration::CurrentVersion && m.Steps.size() == 2);
-        CHECK(m.Steps.size() == 2 && m.Steps[0].Changes == 5 && m.Steps[1].Changes == 1);
+        CHECK(m.FileVersion == 0 && m.Version == SceneMigration::CurrentVersion && m.Steps.size() == 3);
+        CHECK(m.Steps.size() == 3 && m.Steps[0].Changes == 5 && m.Steps[1].Changes == 1 && m.Steps[2].Changes == 0);
         Entity parent = scene->GetEntityByUUID(UUID(1001)), child = scene->GetEntityByUUID(UUID(1002)), text = scene->FindEntityByName("Yozuv");
         CHECK(parent && child && text && parent.GetName() == "Ota" && child.GetName() == "Bola");
         if (parent && child && text)
@@ -30829,6 +30829,37 @@ TEST(SceneVersionMigration)
             CHECK(text.GetComponent<TextComponent>().AlignH == TextAlignH::Center && text.GetComponent<TextComponent>().AlignV == TextAlignV::Middle);
         }
         CHECK(!serializer.GetLoadReport().HasIssues());
+    }
+    // Version 2: a sub-scene's file was under "Scene" (a name key: moving the file left it behind).
+    {
+        const std::string v2 = R"({ "Scene": "Uy", "Version": 2, "Entities": [
+            { "Entity": 5, "Tag": "Xona", "SubScene": { "Scene": "Scenes/Parts/Room.zscene", "SceneUUID": "0123456789abcdef0123456789abcdef",
+              "LoadOnStart": false, "ApplyTransform": true, "ShowInEditor": true } } ] })";
+        auto scene = CreateRef<Scene>();
+        SceneSerializer serializer(scene);
+        CHECK(serializer.DeserializeFromString(v2));
+        const SceneMigrationResult& m = serializer.GetMigration();
+        CHECK(m.FileVersion == 2 && m.Steps.size() == 1 && m.Steps[0].From == 2 && m.Steps[0].To == 3 && m.GetChangeCount() == 2);
+        Entity room = scene->FindEntityByName("Xona");
+        CHECK(scene->GetName() == "Uy" && room && room.HasComponent<SubSceneComponent>());
+        if (room && room.HasComponent<SubSceneComponent>())
+            CHECK(room.GetComponent<SubSceneComponent>().ScenePath == "Scenes/Parts/Room.zscene" && !room.GetComponent<SubSceneComponent>().LoadOnStart);
+        const std::string saved = SceneSerializer(scene).SerializeToString();
+        CHECK(saved.find("\"Path\": \"Scenes/Parts/Room.zscene\"") != std::string::npos && saved.find("SceneUUID") == std::string::npos);
+        std::string text = v2;
+        SceneMigrationResult result;
+        CHECK(SceneMigration::MigrateText(text, &result) && result.GetChangeCount() == 2);
+        CHECK(text.find("\"PathUUID\"") != std::string::npos && text.find("\"Scene\": \"Uy\"") != std::string::npos);
+        SceneFileInfo info;
+        CHECK(SceneSerializer::ReadSceneInfoFromString(v2, info) && info.Version == 2);
+        CHECK(info.Name == "Uy" && info.SubScenes == std::vector<std::string>({ "Scenes/Parts/Room.zscene" }));
+        // An entity snippet of the engine before (a prefab, the clipboard) still reads.
+        auto pasted = CreateRef<Scene>();
+        std::vector<Entity> made = SceneSerializer::DeserializeEntities(*pasted,
+            R"({ "Entities": [ { "Entity": 9, "Tag": "Eski", "SubScene": { "Scene": "Scenes/Old.zscene" } } ] })", true);
+        CHECK(made.size() == 1 && made[0].HasComponent<SubSceneComponent>() && made[0].GetComponent<SubSceneComponent>().ScenePath == "Scenes/Old.zscene");
+        // The new key is an asset path for the tools that move files (the old one was a name).
+        CHECK(AssetFiles::IsAssetPathValue("Path", "Scenes/Parts/Room.zscene") && !AssetFiles::IsAssetPathValue("Scene", "Scenes/Parts/Room.zscene"));
     }
     // The background loader migrates the same way (on its worker thread).
     {
@@ -31422,6 +31453,10 @@ TEST(SubScenes)
         host(s, "Later", f.Path("Lamp"), { 0.0f, 0.0f, 7.0f }, false);
         host(s, "Looper", f.Path("Loop"), glm::vec3(0.0f));
         host(s, "Broken", f.Path("Missing"), glm::vec3(0.0f));
+        // Under a switched-off parent: not loaded with the scene (the editor does not show it either).
+        Entity off = s.CreateEntity("Off");
+        off.GetComponent<TagComponent>().Active = false;
+        s.SetParent(host(s, "Hidden", f.Path("Lamp"), glm::vec3(0.0f)), off);
         s.CreateEntity("Probe").AddComponent<NativeScriptComponent>().ClassName = "SceneEventProbe";
     });
 
@@ -31475,6 +31510,7 @@ TEST(SubScenes)
     Ref<Scene> loop = m.GetSubScene(house->FindEntityByName("Looper"));
     CHECK(loop && !m.GetSubScene(loop->FindEntityByName("Self")));
     CHECK(!m.GetSubScene(house->FindEntityByName("Broken")));
+    CHECK(house->FindEntityByName("Hidden") && !m.GetSubScene(house->FindEntityByName("Hidden")));
     // Found from anywhere; the events came after the owner's (House, then its sub-scenes in order).
     CHECK(m.FindEntityByName("Bulb") && m.FindEntityByName("Chair"));
     std::vector<std::string> loadedOrder;
@@ -31508,6 +31544,24 @@ TEST(SubScenes)
     m.Stop();
     g_SceneEvents.clear();
 
+    // Nesting: MaxSubSceneDepth levels below the top-level scene load, the next one does not.
+    {
+        const int levels = SceneManager::MaxSubSceneDepth + 2;
+        for (int i = 0; i <= levels; i++)
+            f.Write(std::format("Level{}", i), { std::format("Floor{}", i) }, [&](Scene& s) {
+                if (i < levels)
+                    host(s, "Down", f.Path(std::format("Level{}", i + 1)), glm::vec3(0.0f));
+            });
+        SceneManager deep;
+        Log::SetMinLevel(LogLevel::Critical); // the level too deep is reported
+        CHECK(deep.Start(f.Path("Level0")));
+        Log::SetMinLevel(LogLevel::Error);
+        CHECK(deep.GetSceneCount() == 1 + SceneManager::MaxSubSceneDepth);
+        CHECK(deep.FindEntityByName(std::format("Floor{}", SceneManager::MaxSubSceneDepth)));
+        CHECK(!deep.FindEntityByName(std::format("Floor{}", SceneManager::MaxSubSceneDepth + 1)));
+        deep.Stop();
+    }
+
     // OffsetRoots on its own: the roots move, their children follow.
     auto scene = CreateRef<Scene>();
     Entity root = scene->CreateEntity("Root");
@@ -31518,6 +31572,61 @@ TEST(SubScenes)
     CHECK_NEAR(root.GetComponent<TransformComponent>().Translation.z, 3.0f, 1e-5f);
     CHECK_NEAR(kid.GetComponent<TransformComponent>().Translation.x, 1.0f, 1e-5f);
     CHECK_NEAR(glm::vec3(scene->GetWorldTransform(kid)[3]).z, 3.0f, 1e-5f);
+}
+
+// A sub-scene file moved / renamed in the content browser: the scenes that place it follow it (the
+// scene's own name - the root "Scene" key - stays, even when it reads like the path).
+TEST(SubSceneFileMoveUpdatesReference)
+{
+    namespace fs = std::filesystem;
+    const fs::path project = fs::temp_directory_path() / ("zamin-subscene-move-" + std::to_string((uint64_t)UUID()));
+    const fs::path assets = project / "Assets";
+    fs::create_directories(assets / "Scenes" / "Parts");
+    fs::create_directories(assets / "Scenes" / "Rooms");
+    auto camp = CreateRef<Scene>();
+    camp->SetName("Camp");
+    camp->CreateEntity("Fire");
+    CHECK(SceneSerializer(camp).Serialize(assets / "Scenes" / "Parts" / "Camp.zscene"));
+    auto main = CreateRef<Scene>();
+    main->SetName("Scenes/Parts/Camp.zscene");
+    main->CreateEntity("Spot").AddComponent<SubSceneComponent>().ScenePath = "Scenes/Parts/Camp.zscene";
+    const fs::path mainPath = assets / "Scenes" / "Main.zscene";
+    CHECK(SceneSerializer(main).Serialize(mainPath));
+
+    auto result = AssetFiles::MoveInto({ assets / "Scenes" / "Parts" / "Camp.zscene" }, assets / "Scenes" / "Rooms", assets);
+    CHECK(result.Errors.empty() && result.Moved.size() == 1 && result.UpdatedReferences == 1);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).Deserialize(mainPath));
+    Entity spot = loaded->FindEntityByName("Spot");
+    CHECK(spot && spot.GetComponent<SubSceneComponent>().ScenePath == "Scenes/Rooms/Camp.zscene");
+    CHECK(loaded->GetName() == "Scenes/Parts/Camp.zscene");
+    SceneFileInfo info;
+    CHECK(SceneSerializer::ReadSceneInfo(mainPath, info) && info.SubScenes == std::vector<std::string>({ "Scenes/Rooms/Camp.zscene" }));
+    result = AssetFiles::Rename(assets / "Scenes" / "Rooms" / "Camp.zscene", "Lager.zscene", assets);
+    CHECK(result.Errors.empty() && result.UpdatedReferences == 1);
+    CHECK(SceneSerializer::ReadSceneInfo(mainPath, info) && info.SubScenes == std::vector<std::string>({ "Scenes/Rooms/Lager.zscene" }));
+
+    std::error_code ec;
+    fs::remove_all(project, ec);
+}
+
+// A folder is not a text file: nothing is read (Linux opens folders as streams; their size is huge).
+TEST(ReadTextFileFolder)
+{
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / ("zamin-read-folder-" + std::to_string((uint64_t)UUID()));
+    fs::create_directories(dir / "Inner");
+    CHECK(FileSystem::ReadTextFile(dir).empty());
+    CHECK(FileSystem::ReadTextFile(dir / "Inner").empty());
+    CHECK(FileSystem::WriteTextFile(dir / "a.txt", "salom\n"));
+    CHECK(FileSystem::ReadTextFile(dir / "a.txt") == "salom\n");
+    CHECK(FileSystem::WriteTextFile(dir / "empty.txt", ""));
+    CHECK(FileSystem::ReadTextFile(dir / "empty.txt").empty());
+    Log::SetMinLevel(LogLevel::Critical); // the missing file is reported
+    CHECK(FileSystem::ReadTextFile(dir / "missing.txt").empty());
+    Log::SetMinLevel(LogLevel::Error);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
 }
 
 // ------------------------------------------------------------------ M15: scene management end to end

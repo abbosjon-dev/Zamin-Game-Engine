@@ -273,11 +273,12 @@ namespace Zamin {
         uint64_t GetActiveSceneSerial() const { return m_ActiveSerial; }
 
         // ---- sub-scenes (SubSceneComponent)
-        // A scene's entities with a SubSceneComponent (LoadOnStart) bring their scene files with it: each
-        // is loaded additively right after it (in the same frame, before its first update - its
-        // scripts' OnStart sees them, its OnCreate not yet), its roots placed by the entity's world
-        // transform, and goes when it is unloaded. A sub-scene's own sub-scenes come too (at most
-        // MaxSubSceneDepth deep; a file that is already up the chain is skipped: a loop).
+        // A scene's entities with a SubSceneComponent (LoadOnStart, active in the hierarchy) bring
+        // their scene files with it: each is loaded additively right after it (in the same frame,
+        // before its first update - its scripts' OnStart sees them, its OnCreate not yet), its roots
+        // placed by the entity's world transform, and goes when it is unloaded. A sub-scene's own sub-scenes come too (at most
+        // MaxSubSceneDepth levels deep, the first level being the top-level scene's own sub-scenes;
+        // a file that is already up the chain is skipped: a loop).
         static constexpr int MaxSubSceneDepth = 8;
         // The sub-scene `host` (an entity with a SubSceneComponent) has loaded (null when none is).
         Ref<Scene> GetSubScene(Entity host) const;

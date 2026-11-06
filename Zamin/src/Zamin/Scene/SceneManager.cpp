@@ -778,10 +778,12 @@ namespace Zamin {
 
     void SceneManager::LoadSubScenes(const Ref<Scene>& scene, std::vector<SceneEventInfo>& loaded)
     {
-        // In scene order; the entities that are switched off bring theirs when LoadSubScene asks.
+        // In scene order; the entities that are switched off (themselves or a parent - as the
+        // editor shows them) bring theirs when LoadSubScene asks.
         std::vector<Entity> hosts;
         for (Entity e : scene->FindEntitiesWith<SubSceneComponent>())
-            if (e.IsActive() && e.GetComponent<SubSceneComponent>().LoadOnStart && !e.GetComponent<SubSceneComponent>().ScenePath.empty())
+            if (scene->IsActiveInHierarchy(e) && e.GetComponent<SubSceneComponent>().LoadOnStart &&
+                !e.GetComponent<SubSceneComponent>().ScenePath.empty())
                 hosts.push_back(e);
         for (Entity host : hosts)
             if (host.IsValid())
@@ -796,8 +798,9 @@ namespace Zamin {
         if (c.ScenePath.empty())
             return false;
         const std::string path = ToAssetRelative(fs::path(c.ScenePath));
-        // Up the chain of owners: how deep this one is, and whether the file is already there (a loop).
-        int depth = 1;
+        // Up the chain of owners: how deep this one is (a sub-scene of the top-level scene: 1),
+        // and whether the file is already there (a loop).
+        int depth = 0;
         for (const Scene* up = owner.get(); up; depth++)
         {
             const SceneEntry* entry = FindEntry(up);

@@ -65,6 +65,16 @@ namespace Zamin::UI {
         return changed;
     }
 
+    // Before the next button of a row: on the same line when a button labelled `label` still fits
+    // to the right of the last item, else on a new line (narrow panels: no button cut off).
+    inline void SameLineIfFits(const char* label)
+    {
+        ImGui::SameLine();
+        const float width = ImGui::CalcTextSize(label, nullptr, true).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+        if (ImGui::GetContentRegionAvail().x < width)
+            ImGui::NewLine();
+    }
+
     inline void PropertyLabel(const char* label)
     {
         ImGui::TableNextRow();

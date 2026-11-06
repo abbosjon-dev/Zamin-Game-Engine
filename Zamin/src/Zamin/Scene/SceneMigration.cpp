@@ -7,6 +7,7 @@
 #include <format>
 #include <mutex>
 #include <unordered_map>
+#include <utility>
 
 namespace Zamin {
 
@@ -137,6 +138,39 @@ namespace Zamin {
             return changes;
         }
 
+        // v2 -> v3: a sub-scene's file under "Path" / "PathUUID" (was "Scene" / "SceneUUID").
+        // "Scene" is a name key (the scene's own name at the top of the file): the tools that
+        // rewrite asset paths when files move (AssetFiles::UpdateReferences, the open scene's
+        // remap) and the asset usage index passed the sub-scene's file by.
+        size_t MigrateV2(json& root)
+        {
+            size_t changes = 0;
+            json* entities = EntityList(root);
+            if (!entities)
+                return changes;
+            for (json& e : *entities)
+            {
+                if (!e.is_object())
+                    continue;
+                auto sub = e.find("SubScene");
+                if (sub == e.end() || !sub->is_object())
+                    continue;
+                json& s = *sub;
+                for (const auto& [from, to] : { std::pair<const char*, const char*>{ "Scene", "Path" }, { "SceneUUID", "PathUUID" } })
+                {
+                    auto it = s.find(from);
+                    if (it == s.end())
+                        continue;
+                    json value = std::move(*it);
+                    s.erase(it);
+                    if (!s.contains(to))
+                        s[to] = std::move(value);
+                    changes++;
+                }
+            }
+            return changes;
+        }
+
         struct StepFunction
         {
             SceneMigrationStep Step;
@@ -149,6 +183,7 @@ namespace Zamin {
                 { { 0, 1, "Versiyasiz fayl: obyekt ID'lari raqamga, \"Name\" -> \"Tag\"" }, &MigrateV0 },
                 { { 1, 2, "Eski maydonlar: Text \"Centered\" -> AlignH/AlignV, UITransform \"Anchor\" -> AnchorMin/AnchorMax/Pivot; "
                           "sahna metadata (\"Metadata\")" }, &MigrateV1 },
+                { { 2, 3, "Sub-sahna fayli: SubScene \"Scene\" -> \"Path\" (fayl ko'chirilganda havola yangilanadi)" }, &MigrateV2 },
             };
             return s_Steps;
         }

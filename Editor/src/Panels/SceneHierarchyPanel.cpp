@@ -405,6 +405,20 @@ namespace Zamin {
         }
         // A particle preset dropped onto the hierarchy (the inspector applies its own after drawing).
         ApplyPendingParticlePreset();
+        // Last: these replace the scene the panels were drawing.
+        ApplyPendingSceneRequests();
+    }
+
+    void SceneHierarchyPanel::ApplyPendingSceneRequests()
+    {
+        std::filesystem::path open = std::move(m_PendingOpenScene);
+        Ref<Scene> runtime = std::move(m_PendingRuntimeScene);
+        m_PendingOpenScene.clear();
+        m_PendingRuntimeScene.reset();
+        if (!open.empty() && OnOpenSceneRequested)
+            OnOpenSceneRequested(open);
+        else if (runtime && OnRuntimeSceneSelected)
+            OnRuntimeSceneSelected(runtime);
     }
 
     // ------------------------------------------------------------------ presets
@@ -974,10 +988,11 @@ namespace Zamin {
                                               "tahrirlash uchun faylni ochish", path).c_str());
         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
         {
-            if (playing && OnRuntimeSceneSelected)
-                OnRuntimeSceneSelected(sub);
-            else if (!playing && OnOpenSceneRequested && !path.empty())
-                OnOpenSceneRequested(path);
+            // Deferred: the rest of the hierarchy and the inspector are still drawn from this scene.
+            if (playing)
+                m_PendingRuntimeScene = sub;
+            else if (!path.empty())
+                m_PendingOpenScene = path;
         }
         if (open)
         {
@@ -1242,8 +1257,8 @@ namespace Zamin {
                     ImGui::TextDisabled("(bo'sh)");
                 ImGui::Unindent(ImGui::GetFrameHeight() * 0.6f);
             }
-            if (show && OnRuntimeSceneSelected)
-                OnRuntimeSceneSelected(scene);
+            if (show)
+                m_PendingRuntimeScene = scene; // once the hierarchy is drawn
             ImGui::PopID();
         }
     }
@@ -3307,8 +3322,8 @@ namespace Zamin {
                           "(additive) yuklanadi - o'z obyektlari, skriptlari va fizika dunyosi bilan";
         if (UI::PropertyAssetPath("Sahna", c.ScenePath, ".zscene", ICON_FA_LAYER_GROUP, options))
             changed = true;
-        if (open && OnOpenSceneRequested && !c.ScenePath.empty())
-            OnOpenSceneRequested(c.ScenePath);
+        if (open && !c.ScenePath.empty())
+            m_PendingOpenScene = c.ScenePath; // once the inspector is drawn (it still reads this entity)
         changed |= UI::PropertyBool("Birga yuklash", c.LoadOnStart);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Yoqilgan: sahna yuklanganda shu kadrning o'zida yuklanadi. O'chirilgan: skript LoadSubScene() "

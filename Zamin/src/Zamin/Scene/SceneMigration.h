@@ -22,6 +22,8 @@ namespace Zamin {
     //       9 anchor points, before AnchorMin / AnchorMax / Pivot).
     //   2 - scene metadata ("Metadata": description, author, tags); Text alignment and UI anchors in
     //       their current keys only.
+    //   3 - a sub-scene's file (SubScene) under "Path" / "PathUUID" instead of "Scene" / "SceneUUID"
+    //       ("Scene" is a name key: moving the file did not update the reference).
     struct SceneMigrationStep
     {
         int From = 0, To = 0;
@@ -47,7 +49,7 @@ namespace Zamin {
     {
     public:
         // The version scene files are written in.
-        static constexpr int CurrentVersion = 2;
+        static constexpr int CurrentVersion = 3;
 
         // Every step this engine knows, oldest first: From 0 .. CurrentVersion - 1, each To = From + 1.
         static const std::vector<SceneMigrationStep>& GetChain();

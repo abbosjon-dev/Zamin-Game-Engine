@@ -1,313 +1,385 @@
 {
-    "Scene": "SubScenes",
-    "Version": 2,
-    "Metadata": {
-        "Author": "Zamin jamoasi",
-        "Tags": [
-            "namuna",
-            "sub-sahna"
+  "Entities": [
+    {
+      "Camera": {
+        "ClearColor": [
+          0.41999998688697815,
+          0.6200000047683716,
+          0.8600000143051147,
+          1.0
         ],
-        "Description": "Sub-sahnalar (SubSceneComponent): Parts/Camp.zscene bo'lagi uch obyekt joyiga qo'yiladi - ikkitasi sahna bilan, uchinchisi skript (DelayedSubScene) 1.5 s dan keyin LoadSubScene() bilan."
+        "FixedAspectRatio": false,
+        "OrthographicFar": 100.0,
+        "OrthographicNear": -100.0,
+        "OrthographicSize": 15.0,
+        "PerspectiveFOV": 0.7853999733924866,
+        "PerspectiveFar": 1000.0,
+        "PerspectiveNear": 0.10000000149011612,
+        "Primary": true,
+        "ProjectionType": 1
+      },
+      "Entity": 9298000000000001,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Translation": [
+          0.0,
+          3.200000047683716,
+          10.0
+        ]
+      }
     },
-    "Settings": {
-        "DrawSky": false,
-        "SkyTop": [
-            0.32,
-            0.52,
-            0.85
+    {
+      "BoxCollider2D": {
+        "Density": 1.0,
+        "Friction": 0.6000000238418579,
+        "IsSensor": false,
+        "Offset": [
+          0.0,
+          0.0
         ],
-        "SkyHorizon": [
-            0.78,
-            0.86,
-            0.95
+        "Restitution": 0.0,
+        "RestitutionThreshold": 0.5,
+        "Size": [
+          0.5,
+          0.5
+        ]
+      },
+      "Entity": 9298000000000002,
+      "Rigidbody2D": {
+        "AngularDamping": 0.009999999776482582,
+        "BodyType": "Static",
+        "Bullet": false,
+        "FixedRotation": false,
+        "GravityScale": 1.0,
+        "LinearDamping": 0.0
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.30000001192092896,
+          0.550000011920929,
+          0.3199999928474426,
+          1.0
         ],
-        "Ground": [
-            0.36,
-            0.33,
-            0.3
+        "FlipX": false,
+        "FlipY": false,
+        "PixelArt": false,
+        "SortingOrder": -2,
+        "Texture": "",
+        "Tiling": 1.0
+      },
+      "Tag": "Yer",
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
         ],
-        "Ambient": 0.6,
-        "Exposure": 1.0,
-        "ShadowDistance": 40,
-        "Gravity": [
-            0,
-            -20
+        "Scale": [
+          40.0,
+          1.399999976158142,
+          1.0
         ],
-        "Gravity3D": [
-            0,
-            -9.81,
-            0
-        ],
-        "Post": {
-            "Bloom": false,
-            "Vignette": 0.2,
-            "Saturation": 1.05,
-            "Contrast": 1.05,
-            "Brightness": 0.0,
-            "Tint": [
-                1,
-                1,
-                1
-            ],
-            "Tonemap": 0
-        }
+        "Translation": [
+          0.0,
+          -1.600000023841858,
+          0.0
+        ]
+      }
     },
-    "Entities": [
-        {
-            "Entity": 9298000000000001,
-            "Tag": "Main Camera",
-            "Transform": {
-                "Translation": [
-                    0,
-                    3.2,
-                    10
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0.0
-                ],
-                "Scale": [
-                    1,
-                    1,
-                    1
-                ]
-            },
-            "Camera": {
-                "ProjectionType": 1,
-                "PerspectiveFOV": 0.7854,
-                "PerspectiveNear": 0.1,
-                "PerspectiveFar": 1000,
-                "OrthographicSize": 15,
-                "OrthographicNear": -100,
-                "OrthographicFar": 100,
-                "Primary": true,
-                "FixedAspectRatio": false,
-                "ClearColor": [
-                    0.42,
-                    0.62,
-                    0.86,
-                    1
-                ]
-            }
-        },
-        {
-            "Entity": 9298000000000002,
-            "Tag": "Yer",
-            "Transform": {
-                "Translation": [
-                    0,
-                    -1.6,
-                    0
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Scale": [
-                    40,
-                    1.4,
-                    1
-                ]
-            },
-            "SpriteRenderer": {
-                "Color": [
-                    0.3,
-                    0.55,
-                    0.32,
-                    1
-                ],
-                "Texture": "",
-                "Tiling": 1.0,
-                "SortingOrder": -2,
-                "PixelArt": false,
-                "FlipX": false,
-                "FlipY": false
-            },
-            "Rigidbody2D": {
-                "BodyType": "Static"
-            },
-            "BoxCollider2D": {
-                "Offset": [
-                    0,
-                    0
-                ],
-                "Size": [
-                    0.5,
-                    0.5
-                ],
-                "Density": 1.0,
-                "Friction": 0.6,
-                "Restitution": 0.0
-            }
-        },
-        {
-            "Entity": 9298000000000003,
-            "Tag": "Lager A",
-            "Transform": {
-                "Translation": [
-                    -9,
-                    -0.9,
-                    0
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0.0
-                ],
-                "Scale": [
-                    1,
-                    1,
-                    1
-                ]
-            },
-            "SubScene": {
-                "Scene": "Scenes/Parts/Camp.zscene",
-                "SceneUUID": "5b2f8e61c9d3a047",
-                "LoadOnStart": true,
-                "ApplyTransform": true,
-                "ShowInEditor": true
-            }
-        },
-        {
-            "Entity": 9298000000000004,
-            "Tag": "Lager B (qiya)",
-            "Transform": {
-                "Translation": [
-                    0,
-                    0.6,
-                    0
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0.12
-                ],
-                "Scale": [
-                    1.15,
-                    1.15,
-                    1
-                ]
-            },
-            "SubScene": {
-                "Scene": "Scenes/Parts/Camp.zscene",
-                "SceneUUID": "5b2f8e61c9d3a047",
-                "LoadOnStart": true,
-                "ApplyTransform": true,
-                "ShowInEditor": true
-            }
-        },
-        {
-            "Entity": 9298000000000005,
-            "Tag": "Lager C (keyinroq)",
-            "Transform": {
-                "Translation": [
-                    9,
-                    -0.9,
-                    0
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0.0
-                ],
-                "Scale": [
-                    1,
-                    1,
-                    1
-                ]
-            },
-            "SubScene": {
-                "Scene": "Scenes/Parts/Camp.zscene",
-                "SceneUUID": "5b2f8e61c9d3a047",
-                "LoadOnStart": false,
-                "ApplyTransform": true,
-                "ShowInEditor": true
-            },
-            "NativeScript": {
-                "Class": "DelayedSubScene",
-                "Fields": {
-                    "Delay": {
-                        "Type": "Float",
-                        "Value": 1.5
-                    },
-                    "Label": {
-                        "Type": "Entity",
-                        "Value": 9298000000000007
-                    }
-                }
-            }
-        },
-        {
-            "Entity": 9298000000000006,
-            "Tag": "Sarlavha",
-            "Transform": {
-                "Translation": [
-                    0,
-                    9.0,
-                    0.2
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Scale": [
-                    0.8,
-                    0.8,
-                    1
-                ]
-            },
-            "Text": {
-                "Text": "Sub-sahnalar: bitta Lager fayli - uch joyda",
-                "Color": [
-                    1,
-                    1,
-                    1,
-                    1
-                ],
-                "Kerning": 0.0,
-                "LineSpacing": 0.0,
-                "AlignH": "Center",
-                "AlignV": "Middle",
-                "Font": ""
-            }
-        },
-        {
-            "Entity": 9298000000000007,
-            "Tag": "Holat",
-            "Transform": {
-                "Translation": [
-                    0,
-                    7.6,
-                    0.2
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Scale": [
-                    0.5,
-                    0.5,
-                    1
-                ]
-            },
-            "Text": {
-                "Text": "",
-                "Color": [
-                    1,
-                    0.95,
-                    0.75,
-                    1
-                ],
-                "Kerning": 0.0,
-                "LineSpacing": 0.0,
-                "AlignH": "Center",
-                "AlignV": "Middle",
-                "Font": ""
-            }
+    {
+      "Entity": 9298000000000003,
+      "SubScene": {
+        "ApplyTransform": true,
+        "LoadOnStart": true,
+        "Path": "Scenes/Parts/Camp.zscene",
+        "PathUUID": "5b2f8e61c9d3a047",
+        "ShowInEditor": true
+      },
+      "Tag": "Lager A",
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Translation": [
+          -9.0,
+          -0.8999999761581421,
+          0.0
+        ]
+      }
+    },
+    {
+      "Entity": 9298000000000004,
+      "SubScene": {
+        "ApplyTransform": true,
+        "LoadOnStart": true,
+        "Path": "Scenes/Parts/Camp.zscene",
+        "PathUUID": "5b2f8e61c9d3a047",
+        "ShowInEditor": true
+      },
+      "Tag": "Lager B (qiya)",
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.11999999731779099
+        ],
+        "Scale": [
+          1.149999976158142,
+          1.149999976158142,
+          1.0
+        ],
+        "Translation": [
+          0.0,
+          0.6000000238418579,
+          0.0
+        ]
+      }
+    },
+    {
+      "Entity": 9298000000000005,
+      "NativeScript": {
+        "Class": "DelayedSubScene",
+        "Fields": {
+          "Delay": {
+            "Type": "Float",
+            "Value": 1.5
+          },
+          "Label": {
+            "Type": "Entity",
+            "Value": 9298000000000007
+          }
         }
+      },
+      "SubScene": {
+        "ApplyTransform": true,
+        "LoadOnStart": false,
+        "Path": "Scenes/Parts/Camp.zscene",
+        "PathUUID": "5b2f8e61c9d3a047",
+        "ShowInEditor": true
+      },
+      "Tag": "Lager C (keyinroq)",
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Translation": [
+          9.0,
+          -0.8999999761581421,
+          0.0
+        ]
+      }
+    },
+    {
+      "Entity": 9298000000000006,
+      "Tag": "Sarlavha",
+      "Text": {
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Font": "",
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Text": "Sub-sahnalar: bitta Lager fayli - uch joyda"
+      },
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.800000011920929,
+          0.800000011920929,
+          1.0
+        ],
+        "Translation": [
+          0.0,
+          9.0,
+          0.20000000298023224
+        ]
+      }
+    },
+    {
+      "Entity": 9298000000000007,
+      "Tag": "Holat",
+      "Text": {
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Color": [
+          1.0,
+          0.949999988079071,
+          0.75,
+          1.0
+        ],
+        "Font": "",
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Text": ""
+      },
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          0.5,
+          0.5,
+          1.0
+        ],
+        "Translation": [
+          0.0,
+          7.599999904632568,
+          0.20000000298023224
+        ]
+      }
+    }
+  ],
+  "Metadata": {
+    "Author": "Zamin jamoasi",
+    "Description": "Sub-sahnalar (SubSceneComponent): Parts/Camp.zscene bo'lagi uch obyekt joyiga qo'yiladi - ikkitasi sahna bilan, uchinchisi skript (DelayedSubScene) 1.5 s dan keyin LoadSubScene() bilan.",
+    "Tags": [
+      "namuna",
+      "sub-sahna"
     ]
+  },
+  "RootOrder": [
+    9298000000000001,
+    9298000000000002,
+    9298000000000003,
+    9298000000000004,
+    9298000000000005,
+    9298000000000006,
+    9298000000000007
+  ],
+  "Scene": "SubScenes",
+  "Settings": {
+    "Ambient": 0.6000000238418579,
+    "DrawSky": false,
+    "Environment": {
+      "Intensity": 1.0,
+      "Map": "",
+      "Rotation": 0.0
+    },
+    "Exposure": 1.0,
+    "Fog": {
+      "Color": [
+        0.699999988079071,
+        0.7799999713897705,
+        0.8600000143051147
+      ],
+      "Density": 0.014999999664723873,
+      "Enabled": false,
+      "HeightFalloff": 0.05000000074505806
+    },
+    "Gravity": [
+      0.0,
+      -20.0
+    ],
+    "Gravity3D": [
+      0.0,
+      -9.8100004196167,
+      0.0
+    ],
+    "Ground": [
+      0.36000001430511475,
+      0.33000001311302185,
+      0.30000001192092896
+    ],
+    "Post": {
+      "AutoExposure": false,
+      "AutoExposureCompensation": 0.0,
+      "AutoExposureMaxEV": 4.0,
+      "AutoExposureMinEV": -4.0,
+      "AutoExposureSpeed": 2.0,
+      "Bloom": false,
+      "BloomDirt": 0.0,
+      "BloomIntensity": 0.6000000238418579,
+      "BloomKnee": 0.5,
+      "BloomRadius": 1.0,
+      "BloomThreshold": 1.0,
+      "BloomTint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "Brightness": 0.0,
+      "ChromaticAberration": 0.0,
+      "Contrast": 1.0499999523162842,
+      "FXAA": false,
+      "FXAASubpixel": 0.75,
+      "FilmGrain": 0.0,
+      "FilmGrainSize": 1.0,
+      "SSAO": false,
+      "SSAOBias": 0.029999999329447746,
+      "SSAOIntensity": 1.0,
+      "SSAORadius": 0.6000000238418579,
+      "Saturation": 1.0499999523162842,
+      "Tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "Tonemap": 0,
+      "Vignette": 0.20000000298023224
+    },
+    "RenderScale": 1.0,
+    "ShadowDistance": 40.0,
+    "Shadows": {
+      "AtlasSize": 4096,
+      "CascadeSplit": 0.75,
+      "Cascades": 3,
+      "DepthBias": 0.0005000000237487257,
+      "Filter": 1,
+      "NormalBias": 1.0
+    },
+    "Sky": {
+      "Curve": 0.6000000238418579,
+      "GroundFade": 3.0,
+      "SunDisc": true,
+      "SunGlow": 0.18000000715255737,
+      "SunIntensity": 4.0,
+      "SunSize": 2.25
+    },
+    "SkyHorizon": [
+      0.7799999713897705,
+      0.8600000143051147,
+      0.949999988079071
+    ],
+    "SkyTop": [
+      0.3199999928474426,
+      0.5199999809265137,
+      0.8500000238418579
+    ]
+  },
+  "Version": 3
 }

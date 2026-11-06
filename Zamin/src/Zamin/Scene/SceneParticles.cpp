@@ -376,6 +376,15 @@ namespace Zamin {
         }
     }
 
+    void Scene::SimulateParticles(float seconds, float step)
+    {
+        if (!(seconds > 0.0f) || !(step > 0.0f) || m_Registry.view<ParticleSystemComponent>().empty())
+            return;
+        const int steps = (int)std::min(600.0f, std::ceil(seconds / step));
+        for (int i = 0; i < steps; i++)
+            UpdateParticles(Timestep(step), true);
+    }
+
     void Scene::EmitParticles(Entity entity, int count)
     {
         if (!entity.IsValid() || entity.GetScene() != this || !IsActiveInHierarchy(entity))

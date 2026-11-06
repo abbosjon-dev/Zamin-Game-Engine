@@ -28,6 +28,10 @@ namespace Zamin {
             camera = *fallback;
             camera.SetViewportSize((float)width, (float)height);
         }
+        // A copy starts with no particles: its effects as they look a while after they start.
+        const glm::vec3 viewer = gameCamera ? view.Position : camera.GetPosition();
+        scene->SetParticleViewer(viewer);
+        scene->SimulateParticles(ParticleWarmUpSeconds);
 
         const glm::uvec2 size = gameCamera ? scene->GetRuntimeRenderResolution(width, height)
                                            : Renderer::GetRenderResolution(width, height, scene->GetSettings().RenderScale);
@@ -72,6 +76,8 @@ namespace Zamin {
             sub->OnViewportResize(width, height);
             if (c.ApplyTransform)
                 SceneManager::OffsetRoots(*sub, scene->GetWorldTransform(host));
+            sub->SetParticleViewer(viewer);
+            sub->SimulateParticles(ParticleWarmUpSeconds);
             if (gameCamera)
                 sub->RenderRuntime(view, true);
             else

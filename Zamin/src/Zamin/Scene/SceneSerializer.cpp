@@ -1087,10 +1087,11 @@ namespace Zamin {
             e["BoneAttachment"] = { { "Target", c->Target.ID }, { "Bone", c->Bone }, { "InheritBoneScale", c->InheritBoneScale } };
         if (auto* c = entity.TryGetComponent<SubSceneComponent>())
         {
+            // "Path", not "Scene": that is a name key (the scene's own name), and asset tools pass names by.
             json& j = e["SubScene"];
-            j = { { "Scene", c->ScenePath }, { "LoadOnStart", c->LoadOnStart }, { "ApplyTransform", c->ApplyTransform },
+            j = { { "Path", c->ScenePath }, { "LoadOnStart", c->LoadOnStart }, { "ApplyTransform", c->ApplyTransform },
                   { "ShowInEditor", c->ShowInEditor } };
-            WriteAssetHandle(j, "Scene", c->ScenePath);
+            WriteAssetHandle(j, "Path", c->ScenePath);
         }
         if (auto* c = entity.TryGetComponent<FootstepsComponent>())
         {
@@ -1942,7 +1943,9 @@ namespace Zamin {
         {
             const json& j = *sub;
             auto& c = entity.AddComponent<SubSceneComponent>();
-            c.ScenePath = ReadAssetPath(j, "Scene");
+            // Scene files come here migrated (v3); entity snippets (prefabs, the clipboard) of an
+            // engine before it may still have "Scene".
+            c.ScenePath = ReadAssetPath(j, !j.contains("Path") && j.contains("Scene") ? "Scene" : "Path");
             c.LoadOnStart = j.value("LoadOnStart", true);
             c.ApplyTransform = j.value("ApplyTransform", true);
             c.ShowInEditor = j.value("ShowInEditor", true);
@@ -4150,6 +4153,26 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ scene file info
+    // A sub-scene's file as a scene file names it (migrated: "Path"); where its UUID is now when
+    // that path is gone (moved while the file was not open) - quietly: the file is only looked at.
+    static std::string SubScenePathOf(const json& sub)
+    {
+        auto pathIt = sub.find("Path");
+        std::string path = pathIt != sub.end() && pathIt->is_string() ? pathIt->get<std::string>() : std::string();
+        if (path.empty() || !Project::GetActive())
+            return path;
+        AssetRegistry* registry = Project::GetAssetRegistry();
+        std::error_code ec;
+        if (!registry || std::filesystem::exists(Project::GetAssetFileSystemPath(path), ec))
+            return path;
+        auto handleIt = sub.find(UUIDKey("Path"));
+        if (handleIt == sub.end() || !handleIt->is_string())
+            return path;
+        const std::optional<AssetHandle> handle = AssetHandle::FromString(handleIt->get<std::string>());
+        const std::string moved = handle ? registry->GetPath(*handle) : std::string();
+        return moved.empty() ? path : moved;
+    }
+
     bool SceneSerializer::ReadSceneInfoFromString(const std::string& text, SceneFileInfo& out)
     {
         const std::string name = out.Name;
@@ -4180,9 +4203,11 @@ namespace Zamin {
                 if (!ReadEntityID(e, "Parent"))
                     out.RootCount++;
                 if (auto sub = e.find("SubScene"); sub != e.end() && sub->is_object())
-                    if (auto scene = sub->find("Scene"); scene != sub->end() && scene->is_string() && !scene->get_ref<const std::string&>().empty())
-                        if (std::find(out.SubScenes.begin(), out.SubScenes.end(), scene->get_ref<const std::string&>()) == out.SubScenes.end())
-                            out.SubScenes.push_back(scene->get<std::string>());
+                {
+                    std::string path = SubScenePathOf(*sub);
+                    if (!path.empty() && std::find(out.SubScenes.begin(), out.SubScenes.end(), path) == out.SubScenes.end())
+                        out.SubScenes.push_back(std::move(path));
+                }
             }
         return true;
     }

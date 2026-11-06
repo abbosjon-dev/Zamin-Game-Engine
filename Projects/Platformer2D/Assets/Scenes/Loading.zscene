@@ -1,529 +1,591 @@
 {
-    "Scene": "Loading",
-    "Version": 2,
-    "Metadata": {
-        "Author": "Zamin jamoasi",
-        "Description": "Yuklanish ekrani: keyingi daraja fonda yuklanadi (LoadSceneAsync), progress bar AsyncOperation::GetProgress() ni ko'rsatadi, tayyor bo'lgach so'nish bilan o'tadi.",
-        "Tags": [
-            "yuklanish",
-            "oqim"
+  "Entities": [
+    {
+      "Camera": {
+        "ClearColor": [
+          0.029999999329447746,
+          0.03999999910593033,
+          0.07000000029802322,
+          1.0
+        ],
+        "FixedAspectRatio": false,
+        "OrthographicFar": 100.0,
+        "OrthographicNear": -100.0,
+        "OrthographicSize": 12.0,
+        "PerspectiveFOV": 0.7853999733924866,
+        "PerspectiveFar": 1000.0,
+        "PerspectiveNear": 0.10000000149011612,
+        "Primary": true,
+        "ProjectionType": 1
+      },
+      "Entity": 7816000000000001,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Translation": [
+          0.0,
+          0.0,
+          10.0
         ]
+      }
     },
-    "Settings": {
-        "DrawSky": false,
-        "SkyTop": [
-            0.32,
-            0.52,
-            0.85
+    {
+      "Entity": 7816000000000002,
+      "SpriteAnimation": {
+        "Columns": 4,
+        "FPS": 10.0,
+        "FrameCount": 4,
+        "Loop": true,
+        "Playing": true,
+        "Rows": 1,
+        "StartFrame": 0
+      },
+      "SpriteRenderer": {
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
         ],
-        "SkyHorizon": [
-            0.78,
-            0.86,
-            0.95
+        "FlipX": false,
+        "FlipY": false,
+        "PixelArt": true,
+        "SortingOrder": 3,
+        "Texture": "Textures/coin.png",
+        "TextureUUID": "a5d48a3f60a91293",
+        "Tiling": 1.0
+      },
+      "Tag": "Tanga",
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
         ],
-        "Ground": [
-            0.36,
-            0.33,
-            0.3
+        "Scale": [
+          1.7999999523162842,
+          1.7999999523162842,
+          1.0
         ],
-        "Ambient": 0.6,
-        "Exposure": 1.0,
-        "ShadowDistance": 40,
-        "Gravity": [
-            0,
-            -20
-        ],
-        "Gravity3D": [
-            0,
-            -9.81,
-            0
-        ],
-        "Post": {
-            "Bloom": false,
-            "Vignette": 0.35,
-            "Saturation": 1.05,
-            "Contrast": 1.05,
-            "Brightness": 0.0,
-            "Tint": [
-                1,
-                1,
-                1
-            ],
-            "Tonemap": 0
-        }
+        "Translation": [
+          0.0,
+          3.299999952316284,
+          0.0
+        ]
+      }
     },
-    "Entities": [
-        {
-            "Entity": 7816000000000001,
-            "Tag": "Main Camera",
-            "Transform": {
-                "Translation": [
-                    0,
-                    0,
-                    10
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Scale": [
-                    1,
-                    1,
-                    1
-                ]
-            },
-            "Camera": {
-                "ProjectionType": 1,
-                "PerspectiveFOV": 0.7854,
-                "PerspectiveNear": 0.1,
-                "PerspectiveFar": 1000,
-                "OrthographicSize": 12,
-                "OrthographicNear": -100,
-                "OrthographicFar": 100,
-                "Primary": true,
-                "FixedAspectRatio": false,
-                "ClearColor": [
-                    0.03,
-                    0.04,
-                    0.07,
-                    1
-                ]
-            }
-        },
-        {
-            "Entity": 7816000000000002,
-            "Tag": "Tanga",
-            "Transform": {
-                "Translation": [
-                    0,
-                    3.3,
-                    0
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Scale": [
-                    1.8,
-                    1.8,
-                    1
-                ]
-            },
-            "SpriteRenderer": {
-                "Color": [
-                    1,
-                    1,
-                    1,
-                    1
-                ],
-                "Texture": "Textures/coin.png",
-                "Tiling": 1.0,
-                "SortingOrder": 3,
-                "PixelArt": true,
-                "FlipX": false,
-                "FlipY": false
-            },
-            "SpriteAnimation": {
-                "Columns": 4,
-                "Rows": 1,
-                "StartFrame": 0,
-                "FrameCount": 4,
-                "FPS": 10,
-                "Loop": true,
-                "Playing": true
-            }
-        },
-        {
-            "Entity": 7816000000000010,
-            "Tag": "Yuklanish ekrani",
-            "Transform": {
-                "Translation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Scale": [
-                    1,
-                    1,
-                    1
-                ]
-            },
-            "UITransform": {
-                "AnchorMin": [
-                    0,
-                    0
-                ],
-                "AnchorMax": [
-                    1,
-                    1
-                ],
-                "Pivot": [
-                    0.5,
-                    0.5
-                ],
-                "Position": [
-                    0,
-                    0
-                ],
-                "Size": [
-                    0,
-                    0
-                ],
-                "FontSize": 0.0,
-                "Order": 0
-            },
-            "UICanvas": {
-                "ScaleMode": "ScaleWithScreenSize",
-                "ScaleFactor": 1.0,
-                "ReferenceResolution": [
-                    1920,
-                    1080
-                ],
-                "MatchMode": "MatchWidthOrHeight",
-                "Match": 0.5
-            },
-            "NativeScript": {
-                "Class": "LoadingScreen",
-                "Fields": {
-                    "Bar": {
-                        "Type": "Entity",
-                        "Value": 7816000000000012
-                    },
-                    "Percent": {
-                        "Type": "Entity",
-                        "Value": 7816000000000013
-                    },
-                    "Stage": {
-                        "Type": "Entity",
-                        "Value": 7816000000000014
-                    }
-                }
-            }
-        },
-        {
-            "Entity": 7816000000000011,
-            "Tag": "Sarlavha",
-            "Transform": {
-                "Translation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Scale": [
-                    1,
-                    1,
-                    1
-                ]
-            },
-            "Parent": 7816000000000010,
-            "UITransform": {
-                "AnchorMin": [
-                    0.5,
-                    0.5
-                ],
-                "AnchorMax": [
-                    0.5,
-                    0.5
-                ],
-                "Pivot": [
-                    0.5,
-                    0.5
-                ],
-                "Position": [
-                    0,
-                    40
-                ],
-                "Size": [
-                    900,
-                    80
-                ],
-                "FontSize": 60,
-                "Order": 1
-            },
-            "Text": {
-                "Text": "Yuklanmoqda",
-                "Color": [
-                    1.0,
-                    0.93,
-                    0.62,
-                    1
-                ],
-                "Kerning": 0.0,
-                "LineSpacing": 0.0,
-                "AlignH": "Center",
-                "AlignV": "Middle",
-                "Font": ""
-            }
-        },
-        {
-            "Entity": 7816000000000012,
-            "Tag": "Progress",
-            "Transform": {
-                "Translation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Scale": [
-                    1,
-                    1,
-                    1
-                ]
-            },
-            "Parent": 7816000000000010,
-            "UITransform": {
-                "AnchorMin": [
-                    0.5,
-                    0.5
-                ],
-                "AnchorMax": [
-                    0.5,
-                    0.5
-                ],
-                "Pivot": [
-                    0.5,
-                    0.5
-                ],
-                "Position": [
-                    0,
-                    -40
-                ],
-                "Size": [
-                    960,
-                    36
-                ],
-                "FontSize": 0.0,
-                "Order": 1
-            },
-            "UIProgressBar": {
-                "Value": 0.0,
-                "Direction": "LeftToRight",
-                "BackgroundColor": [
-                    0.1,
-                    0.12,
-                    0.18,
-                    1
-                ],
-                "FillColor": [
-                    0.2,
-                    0.74,
-                    0.58,
-                    1
-                ],
-                "UseLowColor": false,
-                "LowColor": [
-                    0.86,
-                    0.24,
-                    0.2,
-                    1
-                ],
-                "Padding": 4.0,
-                "SmoothSpeed": 0.0,
-                "ShowPercentage": false,
-                "TextColor": [
-                    1,
-                    1,
-                    1,
-                    1
-                ]
-            }
-        },
-        {
-            "Entity": 7816000000000013,
-            "Tag": "Foiz",
-            "Transform": {
-                "Translation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Scale": [
-                    1,
-                    1,
-                    1
-                ]
-            },
-            "Parent": 7816000000000010,
-            "UITransform": {
-                "AnchorMin": [
-                    0.5,
-                    0.5
-                ],
-                "AnchorMax": [
-                    0.5,
-                    0.5
-                ],
-                "Pivot": [
-                    0.5,
-                    0.5
-                ],
-                "Position": [
-                    0,
-                    -100
-                ],
-                "Size": [
-                    400,
-                    48
-                ],
-                "FontSize": 36,
-                "Order": 1
-            },
-            "Text": {
-                "Text": "0%",
-                "Color": [
-                    1,
-                    1,
-                    1,
-                    1
-                ],
-                "Kerning": 0.0,
-                "LineSpacing": 0.0,
-                "AlignH": "Center",
-                "AlignV": "Middle",
-                "Font": ""
-            }
-        },
-        {
-            "Entity": 7816000000000014,
-            "Tag": "Bosqich",
-            "Transform": {
-                "Translation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Scale": [
-                    1,
-                    1,
-                    1
-                ]
-            },
-            "Parent": 7816000000000010,
-            "UITransform": {
-                "AnchorMin": [
-                    0.5,
-                    0.5
-                ],
-                "AnchorMax": [
-                    0.5,
-                    0.5
-                ],
-                "Pivot": [
-                    0.5,
-                    0.5
-                ],
-                "Position": [
-                    0,
-                    -150
-                ],
-                "Size": [
-                    900,
-                    36
-                ],
-                "FontSize": 26,
-                "Order": 1
-            },
-            "Text": {
-                "Text": "Sahna fayli o'qilmoqda",
-                "Color": [
-                    0.62,
-                    0.68,
-                    0.8,
-                    1
-                ],
-                "Kerning": 0.0,
-                "LineSpacing": 0.0,
-                "AlignH": "Center",
-                "AlignV": "Middle",
-                "Font": ""
-            }
-        },
-        {
-            "Entity": 7816000000000015,
-            "Tag": "Maslahat",
-            "Transform": {
-                "Translation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Rotation": [
-                    0,
-                    0,
-                    0
-                ],
-                "Scale": [
-                    1,
-                    1,
-                    1
-                ]
-            },
-            "Parent": 7816000000000010,
-            "UITransform": {
-                "AnchorMin": [
-                    0.5,
-                    0
-                ],
-                "AnchorMax": [
-                    0.5,
-                    0
-                ],
-                "Pivot": [
-                    0.5,
-                    0.5
-                ],
-                "Position": [
-                    0,
-                    90
-                ],
-                "Size": [
-                    1400,
-                    34
-                ],
-                "FontSize": 23,
-                "Order": 1
-            },
-            "Text": {
-                "Text": "Maslahat: daraja fonda yuklanadi (LoadSceneAsync) - ekran tayyor bo'lgach so'nib o'tadi",
-                "Color": [
-                    0.48,
-                    0.54,
-                    0.64,
-                    1
-                ],
-                "Kerning": 0.0,
-                "LineSpacing": 0.0,
-                "AlignH": "Center",
-                "AlignV": "Middle",
-                "Font": ""
-            }
+    {
+      "Entity": 7816000000000010,
+      "NativeScript": {
+        "Class": "LoadingScreen",
+        "Fields": {
+          "Bar": {
+            "Type": "Entity",
+            "Value": 7816000000000012
+          },
+          "Percent": {
+            "Type": "Entity",
+            "Value": 7816000000000013
+          },
+          "Stage": {
+            "Type": "Entity",
+            "Value": 7816000000000014
+          }
         }
+      },
+      "Tag": "Yuklanish ekrani",
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "UICanvas": {
+        "Match": 0.5,
+        "MatchMode": "MatchWidthOrHeight",
+        "ReferenceResolution": [
+          1920.0,
+          1080.0
+        ],
+        "ScaleFactor": 1.0,
+        "ScaleMode": "ScaleWithScreenSize"
+      },
+      "UITransform": {
+        "AnchorMax": [
+          1.0,
+          1.0
+        ],
+        "AnchorMin": [
+          0.0,
+          0.0
+        ],
+        "FontSize": 0.0,
+        "Order": 0,
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          0.0
+        ],
+        "Size": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "Entity": 7816000000000011,
+      "Parent": 7816000000000010,
+      "Tag": "Sarlavha",
+      "Text": {
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Color": [
+          1.0,
+          0.9300000071525574,
+          0.6200000047683716,
+          1.0
+        ],
+        "Font": "",
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Text": "Yuklanmoqda"
+      },
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "FontSize": 60.0,
+        "Order": 1,
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          40.0
+        ],
+        "Size": [
+          900.0,
+          80.0
+        ]
+      }
+    },
+    {
+      "Entity": 7816000000000012,
+      "Parent": 7816000000000010,
+      "Tag": "Progress",
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "UIProgressBar": {
+        "BackgroundColor": [
+          0.10000000149011612,
+          0.11999999731779099,
+          0.18000000715255737,
+          1.0
+        ],
+        "Direction": "LeftToRight",
+        "FillColor": [
+          0.20000000298023224,
+          0.7400000095367432,
+          0.5799999833106995,
+          1.0
+        ],
+        "LowColor": [
+          0.8600000143051147,
+          0.23999999463558197,
+          0.20000000298023224,
+          1.0
+        ],
+        "Padding": 4.0,
+        "ShowPercentage": false,
+        "SmoothSpeed": 0.0,
+        "TextColor": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "UseLowColor": false,
+        "Value": 0.0
+      },
+      "UITransform": {
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "FontSize": 0.0,
+        "Order": 1,
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          -40.0
+        ],
+        "Size": [
+          960.0,
+          36.0
+        ]
+      }
+    },
+    {
+      "Entity": 7816000000000013,
+      "Parent": 7816000000000010,
+      "Tag": "Foiz",
+      "Text": {
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Color": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Font": "",
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Text": "0%"
+      },
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "FontSize": 36.0,
+        "Order": 1,
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          -100.0
+        ],
+        "Size": [
+          400.0,
+          48.0
+        ]
+      }
+    },
+    {
+      "Entity": 7816000000000014,
+      "Parent": 7816000000000010,
+      "Tag": "Bosqich",
+      "Text": {
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Color": [
+          0.6200000047683716,
+          0.6800000071525574,
+          0.800000011920929,
+          1.0
+        ],
+        "Font": "",
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Text": "Sahna fayli o'qilmoqda"
+      },
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "FontSize": 26.0,
+        "Order": 1,
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          -150.0
+        ],
+        "Size": [
+          900.0,
+          36.0
+        ]
+      }
+    },
+    {
+      "Entity": 7816000000000015,
+      "Parent": 7816000000000010,
+      "Tag": "Maslahat",
+      "Text": {
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Color": [
+          0.47999998927116394,
+          0.5400000214576721,
+          0.6399999856948853,
+          1.0
+        ],
+        "Font": "",
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Text": "Maslahat: daraja fonda yuklanadi (LoadSceneAsync) - ekran tayyor bo'lgach so'nib o'tadi"
+      },
+      "Transform": {
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "Translation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "UITransform": {
+        "AnchorMax": [
+          0.5,
+          0.0
+        ],
+        "AnchorMin": [
+          0.5,
+          0.0
+        ],
+        "FontSize": 23.0,
+        "Order": 1,
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0.0,
+          90.0
+        ],
+        "Size": [
+          1400.0,
+          34.0
+        ]
+      }
+    }
+  ],
+  "Metadata": {
+    "Author": "Zamin jamoasi",
+    "Description": "Yuklanish ekrani: keyingi daraja fonda yuklanadi (LoadSceneAsync), progress bar AsyncOperation::GetProgress() ni ko'rsatadi, tayyor bo'lgach so'nish bilan o'tadi.",
+    "Tags": [
+      "yuklanish",
+      "oqim"
     ]
+  },
+  "RootOrder": [
+    7816000000000001,
+    7816000000000002,
+    7816000000000010
+  ],
+  "Scene": "Loading",
+  "Settings": {
+    "Ambient": 0.6000000238418579,
+    "DrawSky": false,
+    "Environment": {
+      "Intensity": 1.0,
+      "Map": "",
+      "Rotation": 0.0
+    },
+    "Exposure": 1.0,
+    "Fog": {
+      "Color": [
+        0.699999988079071,
+        0.7799999713897705,
+        0.8600000143051147
+      ],
+      "Density": 0.014999999664723873,
+      "Enabled": false,
+      "HeightFalloff": 0.05000000074505806
+    },
+    "Gravity": [
+      0.0,
+      -20.0
+    ],
+    "Gravity3D": [
+      0.0,
+      -9.8100004196167,
+      0.0
+    ],
+    "Ground": [
+      0.36000001430511475,
+      0.33000001311302185,
+      0.30000001192092896
+    ],
+    "Post": {
+      "AutoExposure": false,
+      "AutoExposureCompensation": 0.0,
+      "AutoExposureMaxEV": 4.0,
+      "AutoExposureMinEV": -4.0,
+      "AutoExposureSpeed": 2.0,
+      "Bloom": false,
+      "BloomDirt": 0.0,
+      "BloomIntensity": 0.6000000238418579,
+      "BloomKnee": 0.5,
+      "BloomRadius": 1.0,
+      "BloomThreshold": 1.0,
+      "BloomTint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "Brightness": 0.0,
+      "ChromaticAberration": 0.0,
+      "Contrast": 1.0499999523162842,
+      "FXAA": false,
+      "FXAASubpixel": 0.75,
+      "FilmGrain": 0.0,
+      "FilmGrainSize": 1.0,
+      "SSAO": false,
+      "SSAOBias": 0.029999999329447746,
+      "SSAOIntensity": 1.0,
+      "SSAORadius": 0.6000000238418579,
+      "Saturation": 1.0499999523162842,
+      "Tint": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "Tonemap": 0,
+      "Vignette": 0.3499999940395355
+    },
+    "RenderScale": 1.0,
+    "ShadowDistance": 40.0,
+    "Shadows": {
+      "AtlasSize": 4096,
+      "CascadeSplit": 0.75,
+      "Cascades": 3,
+      "DepthBias": 0.0005000000237487257,
+      "Filter": 1,
+      "NormalBias": 1.0
+    },
+    "Sky": {
+      "Curve": 0.6000000238418579,
+      "GroundFade": 3.0,
+      "SunDisc": true,
+      "SunGlow": 0.18000000715255737,
+      "SunIntensity": 4.0,
+      "SunSize": 2.25
+    },
+    "SkyHorizon": [
+      0.7799999713897705,
+      0.8600000143051147,
+      0.949999988079071
+    ],
+    "SkyTop": [
+      0.3199999928474426,
+      0.5199999809265137,
+      0.8500000238418579
+    ]
+  },
+  "Version": 3
 }

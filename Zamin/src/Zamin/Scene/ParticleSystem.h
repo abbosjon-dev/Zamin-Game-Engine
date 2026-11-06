@@ -171,6 +171,11 @@ namespace Zamin {
         // along it), when the module's plane follows an entity; else the module's own.
         bool HasPlane = false;
         glm::vec4 Plane{ 0.0f, 1.0f, 0.0f, 0.0f };
+        // Space Custom: the particles' space in the world (their positions -> world). The
+        // emitter's matrix the simulation gets is then where the emitter is in that space.
+        // Without it a Custom system is simulated in world space.
+        bool HasSpace = false;
+        glm::mat4 Space{ 1.0f };
     };
 
     // Where a sub-emitter's particles start (world space): its shape around Position instead of
@@ -204,9 +209,22 @@ namespace Zamin {
         // `count` new particles (at most MaxParticles in all) from the emitter at `emitterWorld`
         // (a sub-emitter's: from `origin`).
         void Spawn(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, int count, const ParticleSpawnOrigin* origin = nullptr);
-        // One frame of a playing or paused system: the start burst and emission while Playing (in the
-        // editor a non-looping system only bursts, again whenever it is empty), then Integrate.
-        void Update(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float dt, bool editor, const ParticleEnvironment* environment = nullptr);
+        // One frame of a playing or paused system, `dt` times its SimulationSpeed: the prewarm
+        // (once), then while Playing the start burst, the bursts and the emission of its cycle
+        // (Duration, after StartDelay), then Integrate. True in the frame a non-looping system has
+        // finished - its cycle over and its last particle dead (Finished; in the editor it starts
+        // over instead, to keep previewing).
+        bool Update(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float dt, bool editor, const ParticleEnvironment* environment = nullptr);
+        // The bursts of the list that fire between `t0` and `t1` seconds of the system's play time
+        // (StartDelay included; t0 inclusive, t1 not): an index into ps.Bursts per firing (before
+        // its chance). A looping system's cycles repeat them.
+        void GetBurstFirings(const ParticleSystemComponent& ps, float t0, float t1, std::vector<int>& firings);
+        // How many of `dt` seconds from play time `t0` the system emits (EmissionRate): not
+        // before StartDelay, not after a non-looping system's cycle.
+        float GetEmissionTime(const ParticleSystemComponent& ps, float t0, float dt);
+        // The particles' space in the world (positions -> world): the emitter (Local), the
+        // environment's (Custom); false for world space (identity).
+        bool GetSpaceToWorld(const ParticleSystemComponent& ps, const glm::mat4& emitterWorld, const ParticleEnvironment* environment, glm::mat4& out);
         // Forces, velocity over lifetime, speed limit, noise, motion, collisions, trails and ageing;
         // the dead ones are removed. Events for the sub-emitters go to ps.Events.
         void Integrate(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float dt, const ParticleEnvironment* environment = nullptr);
@@ -222,6 +240,14 @@ namespace Zamin {
         int GetSheetFrame(const ParticleSystemComponent& ps, const Particle& p, int frameCount);
         // The frames of the Texture Sheet module's grid (Columns x Rows, at most FrameCount).
         int GetGridFrameCount(const ParticleSystemComponent& ps);
+        // The order to draw the particles in (indices, the last one on top) for a camera at
+        // `viewer` looking along `viewForward` (perspective: by distance to the viewer, else by
+        // depth along the view), `toWorld` placing the particles (null: they are in the world).
+        // Empty when they are drawn as they are (the Sorting mode says so, or there is nothing to
+        // sort). Auto sorts alpha-blended systems by distance.
+        void GetDrawOrder(const ParticleSystemComponent& ps, const glm::mat4* toWorld, const glm::vec3& viewer, const glm::vec3& viewForward,
+                          bool perspective, std::vector<uint32_t>& order);
+
         // A trail's width / colour at `u` along it (0 at the particle, 1 at its oldest end) for a
         // particle of `size` and `color`.
         float GetTrailWidth(const ParticleSystemComponent& ps, float size, float u);

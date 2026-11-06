@@ -173,6 +173,9 @@ namespace Zamin {
     static const char* const s_MeshEmitModes[] = { "Triangle", "Edge", "Vertex" };
     static const char* const s_CollisionTypes[] = { "Plane", "World3D", "World2D" };
     static const char* const s_SubEmitterTriggers[] = { "Birth", "Death", "Collision", "Lifetime" };
+    static const char* const s_ParticleSpaces[] = { "Local", "World", "Custom" };
+    static const char* const s_ParticleStopActions[] = { "None", "Disable", "Destroy" };
+    static const char* const s_ParticleSortModes[] = { "Auto", "None", "ByDistance", "OldestOnTop", "YoungestOnTop" };
 
     template<typename E, size_t N>
     static const char* EnumName(E value, const char* const (&names)[N])
@@ -295,6 +298,65 @@ namespace Zamin {
             return fallback;
         gradient.Sort();
         return gradient;
+    }
+
+    // The main settings newer than the first particle systems, when they are not at their defaults
+    // (older scenes stay as they were written).
+    static void WriteParticleMain(json& j, const ParticleSystemComponent& c)
+    {
+        using PS = ParticleSystemComponent;
+        const PS d;
+        if (c.Duration != d.Duration) j["Duration"] = c.Duration;
+        if (c.StartDelay != d.StartDelay) j["StartDelay"] = c.StartDelay;
+        if (c.Prewarm) j["Prewarm"] = true;
+        if (c.SimulationSpeed != d.SimulationSpeed) j["SimulationSpeed"] = c.SimulationSpeed;
+        if (c.StopActionType != d.StopActionType) j["StopAction"] = EnumName(c.StopActionType, s_ParticleStopActions);
+        if (c.Sorting != d.Sorting) j["Sorting"] = EnumName(c.Sorting, s_ParticleSortModes);
+        if (c.Space == PS::SimulationSpace::Custom)
+        {
+            j["Space"] = EnumName(c.Space, s_ParticleSpaces);
+            j["CustomSpace"] = c.CustomSpace.ID;
+        }
+        if (!c.Bursts.empty())
+        {
+            json list = json::array();
+            for (const auto& b : c.Bursts)
+                list.push_back({ { "Time", b.Time }, { "Count", b.Count }, { "Cycles", b.Cycles }, { "Interval", b.Interval },
+                                 { "Probability", b.Probability } });
+            j["Bursts"] = std::move(list);
+        }
+    }
+
+    static void ReadParticleMain(const json& j, ParticleSystemComponent& c)
+    {
+        using PS = ParticleSystemComponent;
+        const PS d;
+        c.Duration = std::max(0.01f, Number(j, "Duration", d.Duration));
+        c.StartDelay = std::max(0.0f, Number(j, "StartDelay", d.StartDelay));
+        c.Prewarm = j.value("Prewarm", false);
+        c.SimulationSpeed = std::max(0.0f, Number(j, "SimulationSpeed", d.SimulationSpeed));
+        c.StopActionType = EnumFromJson(j, "StopAction", s_ParticleStopActions, d.StopActionType);
+        c.Sorting = EnumFromJson(j, "Sorting", s_ParticleSortModes, d.Sorting);
+        // Older scenes: WorldSpace on / off.
+        c.Space = j.value("WorldSpace", true) ? PS::SimulationSpace::World : PS::SimulationSpace::Local;
+        c.Space = EnumFromJson(j, "Space", s_ParticleSpaces, c.Space);
+        c.CustomSpace = EntityRef();
+        if (auto it = j.find("CustomSpace"); it != j.end() && it->is_number_unsigned())
+            c.CustomSpace.ID = it->get<uint64_t>();
+        c.Bursts.clear();
+        if (auto list = j.find("Bursts"); list != j.end() && list->is_array())
+            for (const json& item : *list)
+            {
+                if (!item.is_object())
+                    continue;
+                PS::EmissionBurst b;
+                b.Time = std::max(0.0f, Number(item, "Time", b.Time));
+                b.Count = std::clamp(item.value("Count", b.Count), 0, 100000);
+                b.Cycles = std::clamp(item.value("Cycles", b.Cycles), 0, 100000);
+                b.Interval = std::max(0.0f, Number(item, "Interval", b.Interval));
+                b.Probability = std::clamp(Number(item, "Probability", b.Probability), 0.0f, 1.0f);
+                c.Bursts.push_back(b);
+            }
     }
 
     // The modules of a particle system that are on or not at their defaults (the others are left out).
@@ -1127,7 +1189,8 @@ namespace Zamin {
                 { "AngularVelocityMax", c->AngularVelocityMax },
                 { "StartColor", ToJson(c->StartColor) }, { "EndColor", ToJson(c->EndColor) },
                 { "StartSize", c->StartSize }, { "EndSize", c->EndSize },
-                { "RenderAsCircle", c->RenderAsCircle }, { "Additive", c->Additive }, { "WorldSpace", c->WorldSpace },
+                { "RenderAsCircle", c->RenderAsCircle }, { "Additive", c->Additive },
+                { "WorldSpace", c->Space == ParticleSystemComponent::SimulationSpace::World },
                 { "Billboard", c->Billboard }, { "Texture", c->TexturePath }, { "SortingOrder", c->SortingOrder },
             };
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
@@ -1161,6 +1224,7 @@ namespace Zamin {
                 j["MeshAlongNormal"] = c->MeshAlongNormal;
                 j["MeshNormalOffset"] = c->MeshNormalOffset;
             }
+            WriteParticleMain(j, *c);
             WriteParticleModules(j, *c);
         }
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
@@ -2209,11 +2273,11 @@ namespace Zamin {
             c.EndSize = j.value("EndSize", 0.05f);
             c.RenderAsCircle = j.value("RenderAsCircle", true);
             c.Additive = j.value("Additive", true);
-            c.WorldSpace = j.value("WorldSpace", true);
             c.Billboard = j.value("Billboard", true);
             c.TexturePath = ReadAssetPath(j, "Texture");
             c.SortingOrder = j.value("SortingOrder", 0);
             c.SortingLayer = ReadSortingLayer(j);
+            ReadParticleMain(j, c);
             ReadParticleModules(j, c);
         }
         if (e.contains("UITransform"))

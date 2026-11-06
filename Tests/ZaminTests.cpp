@@ -538,7 +538,7 @@ TEST(ParticleSimulationUnchanged)
         ps.Gravity = { 0, -3, 0.5f };
         ps.Drag = 0.4f;
         ps.AngularVelocityMax = 2.0f;
-        ps.WorldSpace = shape % 2 == 0;
+        ps.Space = shape % 2 == 0 ? ParticleSystemComponent::SimulationSpace::World : ParticleSystemComponent::SimulationSpace::Local;
         ps.Direction = { 0.2f, 1.0f, 0.3f };
         ps.Spread = 40.0f;
     }
@@ -666,7 +666,7 @@ TEST(ParticleVelocityOverLifetime)
     };
     // Linear velocity (emitter axes): a particle at rest drifts with it; its own velocity stays 0.
     ParticleSystemComponent ps;
-    ps.WorldSpace = true;
+    ps.Space = ParticleSystemComponent::SimulationSpace::World;
     Particle p;
     p.Lifetime = p.Life = 10.0f;
     ps.Particles = { p };
@@ -1346,7 +1346,7 @@ TEST(ParticleCollisionPlane)
     {
         auto& f = fx.GetComponent<ParticleSystemComponent>();
         f.Clear();
-        f.WorldSpace = false;
+        f.Space = ParticleSystemComponent::SimulationSpace::Local;
         fx.GetTransform().Rotation = { 0.0f, glm::radians(40.0f), glm::radians(10.0f) };
     }
     deepest = 1.0f;
@@ -1643,6 +1643,510 @@ TEST(ParticleModulesSerializationII)
     auto oddScene = CreateRef<Scene>();
     CHECK(SceneSerializer(oddScene).DeserializeFromString(odd));
     CHECK(oddScene->FindEntityByName("Fx").GetComponent<ParticleSystemComponent>().Noise.Octaves == 4);
+}
+
+// The bursts list: each burst's firings inside a cycle (time, cycles, interval; 0 cycles: until the
+// cycle ends), repeated every cycle of a looping system, after the start delay, once for a
+// non-looping one; the chance of each firing.
+TEST(ParticleBurstsList)
+{
+    using PS = ParticleSystemComponent;
+    PS ps;
+    ps.Duration = 2.0f;
+    ps.Bursts = { { 0.0f, 5, 1, 0.5f, 1.0f }, { 0.5f, 3, 3, 0.25f, 1.0f }, { 1.5f, 2, 0, 0.2f, 1.0f } };
+    std::vector<int> firings;
+    ParticleSimulation::GetBurstFirings(ps, 0.0f, 2.0f, firings);
+    // 0 | 0.5, 0.75, 1.0 | 1.5, 1.7, 1.9
+    CHECK(firings.size() == 7);
+    CHECK(std::count(firings.begin(), firings.end(), 0) == 1 && std::count(firings.begin(), firings.end(), 1) == 3 &&
+          std::count(firings.begin(), firings.end(), 2) == 3);
+    ParticleSimulation::GetBurstFirings(ps, 0.0f, 0.6f, firings);
+    CHECK(firings == std::vector<int>({ 0, 1 }));
+    ParticleSimulation::GetBurstFirings(ps, 0.5f, 0.75f, firings); // t0 counts, t1 does not
+    CHECK(firings == std::vector<int>({ 1 }));
+    // Across the end of a cycle: the next one starts over.
+    ParticleSimulation::GetBurstFirings(ps, 1.95f, 2.55f, firings);
+    CHECK(firings == std::vector<int>({ 0, 1 }));
+    // Several cycles in one step.
+    ParticleSimulation::GetBurstFirings(ps, 0.0f, 6.0f, firings);
+    CHECK(firings.size() == 21);
+    // The start delay comes first.
+    ps.StartDelay = 1.0f;
+    ParticleSimulation::GetBurstFirings(ps, 0.0f, 1.0f, firings);
+    CHECK(firings.empty());
+    ParticleSimulation::GetBurstFirings(ps, 1.0f, 1.01f, firings);
+    CHECK(firings == std::vector<int>({ 0 }));
+    // Not looping: one cycle only.
+    ps.Looping = false;
+    ParticleSimulation::GetBurstFirings(ps, 3.0f, 5.0f, firings);
+    CHECK(firings.empty());
+    ParticleSimulation::GetBurstFirings(ps, 0.0f, 10.0f, firings);
+    CHECK(firings.size() == 7);
+    // A burst after the cycle's end never fires; no interval: every repeat at once.
+    ps.StartDelay = 0.0f;
+    ps.Looping = true;
+    ps.Bursts = { { 2.5f, 1, 1, 0.5f, 1.0f }, { 0.25f, 4, 3, 0.0f, 1.0f } };
+    ParticleSimulation::GetBurstFirings(ps, 0.0f, 2.0f, firings);
+    CHECK(firings == std::vector<int>({ 1, 1, 1 }));
+
+    // Simulated: the start burst once, the list every cycle.
+    PS sim;
+    sim.EmissionRate = 0.0f;
+    sim.Burst = 4;
+    sim.LifetimeMin = sim.LifetimeMax = 100.0f;
+    sim.MaxParticles = 100000;
+    sim.Duration = 2.0f;
+    sim.Bursts = { { 0.0f, 5, 1, 0.5f, 1.0f }, { 0.5f, 3, 3, 0.25f, 1.0f }, { 1.5f, 2, 0, 0.2f, 1.0f } };
+    for (int i = 0; i < 230; i++) // 3.83 s: a whole cycle (20) and most of the second (5 + 9 + 2 x 2)
+        ParticleSimulation::Update(sim, glm::mat4(1.0f), 1.0f / 60.0f, false);
+    CHECK(sim.Particles.size() == 4 + 20 + 18);
+    CHECK(sim.PlayTime >= 0.0f && sim.PlayTime < 2.0f); // a looping system's time stays in one cycle
+    // A chance: about half of the firings.
+    PS chance;
+    chance.EmissionRate = 0.0f;
+    chance.LifetimeMin = chance.LifetimeMax = 100.0f;
+    chance.MaxParticles = 100000;
+    chance.Duration = 10.0f;
+    chance.Bursts = { { 0.0f, 1, 0, 0.01f, 0.5f } }; // every 0.01 s, half of them
+    for (int i = 0; i < 600; i++)
+        ParticleSimulation::Update(chance, glm::mat4(1.0f), 1.0f / 60.0f, false);
+    CHECK(chance.Particles.size() > 400 && chance.Particles.size() < 600); // of 1000
+}
+
+// Duration, start delay and simulation speed; a non-looping system finishes once (the editor
+// previews it again).
+TEST(ParticleDurationDelayAndSpeed)
+{
+    using PS = ParticleSystemComponent;
+    PS ps;
+    ps.Looping = false;
+    ps.Duration = 1.0f;
+    ps.StartDelay = 0.5f;
+    ps.EmissionRate = 100.0f;
+    ps.LifetimeMin = ps.LifetimeMax = 0.3f;
+    ps.MaxParticles = 100000;
+    const float dt = 1.0f / 60.0f;
+    int finished = 0, frames = 0;
+    auto run = [&](float seconds) {
+        for (int n = (int)std::lround(seconds / dt); n > 0; n--, frames++)
+            finished += ParticleSimulation::Update(ps, glm::mat4(1.0f), dt, false) ? 1 : 0;
+    };
+    run(0.45f);
+    CHECK(ps.Particles.empty()); // still waiting
+    run(0.55f);                  // t = 1.0: emitting for half a second
+    CHECK(ps.Particles.size() >= 25 && ps.Particles.size() <= 35);
+    run(0.6f);                   // t = 1.6: emission ended at 1.5, the last ones still live
+    CHECK(!ps.Particles.empty() && finished == 0 && !ps.Finished);
+    run(0.4f);                   // t = 2.0: all dead
+    CHECK(ps.Particles.empty() && finished == 1 && ps.Finished);
+    run(1.0f);
+    CHECK(ps.Particles.empty() && finished == 1); // once; nothing more
+    // How many it emitted in all: Duration x rate.
+    PS count = ps;
+    count.Clear();
+    count.LifetimeMin = count.LifetimeMax = 100.0f;
+    for (int i = 0; i < 180; i++)
+        ParticleSimulation::Update(count, glm::mat4(1.0f), dt, false);
+    CHECK(count.Particles.size() >= 99 && count.Particles.size() <= 101);
+    CHECK_NEAR(ParticleSimulation::GetEmissionTime(count, 0.0f, 0.6f), 0.1f, 1e-5f);  // from the delay on
+    CHECK_NEAR(ParticleSimulation::GetEmissionTime(count, 1.4f, 0.3f), 0.1f, 1e-5f);  // up to its end
+    CHECK(ParticleSimulation::GetEmissionTime(count, 2.0f, 0.5f) == 0.0f);
+    count.Looping = true;
+    CHECK(ParticleSimulation::GetEmissionTime(count, 2.0f, 0.5f) == 0.5f);
+
+    // The editor previews a finished non-looping system again (and never reports it).
+    PS preview = ps;
+    preview.Clear();
+    int previewFinished = 0;
+    size_t most = 0;
+    for (int i = 0; i < 240; i++) // 4 s: two rounds of 0.5 + 1 + 0.3
+    {
+        previewFinished += ParticleSimulation::Update(preview, glm::mat4(1.0f), dt, true) ? 1 : 0;
+        if (i > 120)
+            most = std::max(most, preview.Particles.size());
+    }
+    CHECK(previewFinished == 0 && !preview.Finished && most > 20);
+
+    // Simulation speed: its time runs faster / slower; 0 stops it.
+    PS fast, still;
+    fast.SimulationSpeed = 2.0f;
+    still.SimulationSpeed = 0.0f;
+    for (int i = 0; i < 30; i++)
+    {
+        ParticleSimulation::Update(fast, glm::mat4(1.0f), dt, false);
+        ParticleSimulation::Update(still, glm::mat4(1.0f), dt, false);
+    }
+    CHECK_NEAR(fast.Time, 1.0f, 1e-3f);
+    CHECK(fast.Particles.size() >= 25 && fast.Particles.size() <= 35); // a second's worth (30 / s)
+    CHECK(still.Time == 0.0f && still.Particles.empty());
+    // A scene system: the speed counts there too.
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Slow");
+    auto& slow = e.AddComponent<PS>();
+    slow.SimulationSpeed = 0.5f;
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 60; i++)
+        scene->OnUpdateRuntime(dt);
+    CHECK_NEAR(slow.Time, 0.5f, 1e-3f);
+    scene->OnRuntimeStop();
+}
+
+// Prewarm: a looping system starts as if it had run a whole cycle (the start delay skipped);
+// not for non-looping ones.
+TEST(ParticlePrewarm)
+{
+    using PS = ParticleSystemComponent;
+    PS ps;
+    ps.EmissionRate = 50.0f;
+    ps.LifetimeMin = ps.LifetimeMax = 1.0f;
+    ps.Duration = 2.0f;
+    ps.Prewarm = true;
+    ps.StartDelay = 3.0f;
+    ParticleSimulation::Update(ps, glm::mat4(1.0f), 1.0f / 60.0f, false);
+    CHECK(ps.Prewarmed);
+    CHECK(ps.Particles.size() >= 45 && ps.Particles.size() <= 55); // full: rate x lifetime
+    CHECK_NEAR(ps.Time, 2.0f + 1.0f / 60.0f, 1e-3f);
+    // Ages spread over the whole lifetime, as in a running system.
+    float youngest = 1.0f, oldest = 0.0f;
+    for (const Particle& p : ps.Particles)
+    {
+        youngest = std::min(youngest, p.GetAge());
+        oldest = std::max(oldest, p.GetAge());
+    }
+    CHECK(youngest < 0.06f && oldest > 0.9f);
+    const size_t after = ps.Particles.size();
+    ParticleSimulation::Update(ps, glm::mat4(1.0f), 1.0f / 60.0f, false);
+    CHECK(ps.Particles.size() >= after - 3 && ps.Particles.size() <= after + 3); // only once
+    // Not looping: no prewarm; without it: empty at first.
+    PS once = ps;
+    once.Clear();
+    once.Looping = false;
+    once.StartDelay = 0.0f;
+    ParticleSimulation::Update(once, glm::mat4(1.0f), 1.0f / 60.0f, false);
+    CHECK(!once.Prewarmed && once.Particles.size() <= 1);
+    // Starting over (Clear) prewarms again; its sub-emitters get no events from the prewarm.
+    ps.Clear();
+    ps.StartDelay = 0.0f;
+    ps.SubEmitters.Enabled = true;
+    ParticleSystemComponent::SubEmitter sub;
+    sub.Trigger = ParticleSystemComponent::SubEmitter::TriggerType::Death;
+    sub.Emitter.ID = 12345;
+    ps.SubEmitters.Emitters = { sub };
+    ParticleSimulation::Update(ps, glm::mat4(1.0f), 1.0f / 60.0f, false);
+    CHECK(ps.Particles.size() >= 45 && ps.Events.size() <= 2); // the deaths of this frame only
+}
+
+// The draw order: alpha-blended systems back to front by the camera's distance (orthographic:
+// along the view), additive ones as they are; by age; nothing when already in order.
+TEST(ParticleSortOrder)
+{
+    using PS = ParticleSystemComponent;
+    PS ps;
+    ps.Additive = false;
+    auto add = [&](const glm::vec3& at, float age) {
+        Particle p;
+        p.Position = at;
+        p.Lifetime = 2.0f;
+        p.Life = 2.0f - age;
+        ps.Particles.push_back(p);
+    };
+    add({ 0, 0, -1 }, 0.5f);
+    add({ 0, 0, -5 }, 0.2f);
+    add({ 0, 0, -3 }, 0.9f);
+    std::vector<uint32_t> order;
+    const glm::vec3 viewer(0.0f), forward(0, 0, -1);
+    ParticleSimulation::GetDrawOrder(ps, nullptr, viewer, forward, true, order);
+    CHECK(order == std::vector<uint32_t>({ 1, 2, 0 })); // the farthest first
+    ParticleSimulation::GetDrawOrder(ps, nullptr, viewer, forward, false, order);
+    CHECK(order == std::vector<uint32_t>({ 1, 2, 0 }));
+    // Perspective counts the distance, not the depth: one far off to the side goes first.
+    add({ 30, 0, -0.5f }, 0.1f);
+    ParticleSimulation::GetDrawOrder(ps, nullptr, viewer, forward, true, order);
+    CHECK(order.size() == 4 && order[0] == 3);
+    ParticleSimulation::GetDrawOrder(ps, nullptr, viewer, forward, false, order);
+    CHECK(order.size() == 4 && order[3] == 3); // orthographic: by depth it is the nearest
+    ps.Particles.pop_back();
+    // Additive: Auto leaves them; ByDistance sorts them anyway.
+    ps.Additive = true;
+    ParticleSimulation::GetDrawOrder(ps, nullptr, viewer, forward, true, order);
+    CHECK(order.empty());
+    ps.Sorting = PS::SortMode::ByDistance;
+    ParticleSimulation::GetDrawOrder(ps, nullptr, viewer, forward, true, order);
+    CHECK(order == std::vector<uint32_t>({ 1, 2, 0 }));
+    // In their space (local / custom): placed by the matrix first. Mirrored in Z and moved back,
+    // they are at z -9, -5, -7: the first one is now the farthest.
+    const glm::mat4 flip = glm::translate(glm::mat4(1.0f), { 0, 0, -10 }) * glm::scale(glm::mat4(1.0f), { 1, 1, -1 });
+    ParticleSimulation::GetDrawOrder(ps, &flip, viewer, forward, true, order);
+    CHECK(order == std::vector<uint32_t>({ 0, 2, 1 }));
+    ParticleSimulation::GetDrawOrder(ps, &flip, viewer, forward, false, order);
+    CHECK(order == std::vector<uint32_t>({ 0, 2, 1 }));
+    // By age.
+    ps.Sorting = PS::SortMode::OldestOnTop;
+    ParticleSimulation::GetDrawOrder(ps, nullptr, viewer, forward, true, order);
+    CHECK(order == std::vector<uint32_t>({ 1, 0, 2 }));
+    ps.Sorting = PS::SortMode::YoungestOnTop;
+    ParticleSimulation::GetDrawOrder(ps, nullptr, viewer, forward, true, order);
+    CHECK(order == std::vector<uint32_t>({ 2, 0, 1 }));
+    ps.Sorting = PS::SortMode::None;
+    ParticleSimulation::GetDrawOrder(ps, nullptr, viewer, forward, true, order);
+    CHECK(order.empty());
+    // Already back to front (a 2D system at one depth): nothing to reorder.
+    ps.Sorting = PS::SortMode::Auto;
+    ps.Additive = false;
+    for (auto& p : ps.Particles)
+        p.Position.z = 0.0f;
+    ParticleSimulation::GetDrawOrder(ps, nullptr, glm::vec3(0, 0, 10), forward, false, order);
+    CHECK(order.empty());
+}
+
+// Simulation spaces: World stays, Local moves and turns with the emitter, Custom with another
+// entity (not with the emitter); sub-emitters, bounds and collisions follow the space.
+TEST(ParticleSimulationSpaces)
+{
+    using PS = ParticleSystemComponent;
+    auto scene = CreateRef<Scene>();
+    Entity ship = scene->CreateEntity("Ship");
+    ship.GetTransform().Translation = { 10, 0, 0 };
+    Entity gun = scene->CreateEntity("Gun");
+    scene->SetParent(gun, ship, false);
+    gun.GetTransform().Translation = { 0, 1, 0 };
+    auto make = [&](Entity e, PS::SimulationSpace space) -> PS& {
+        auto& ps = e.AddComponent<PS>();
+        ps.EmissionRate = 0.0f;
+        ps.SpeedMin = ps.SpeedMax = 0.0f;
+        ps.LifetimeMin = ps.LifetimeMax = 100.0f;
+        ps.Space = space;
+        return ps;
+    };
+    PS& custom = make(gun, PS::SimulationSpace::Custom);
+    custom.CustomSpace.ID = ship.GetUUID();
+    Entity worldGun = scene->CreateEntity("World gun");
+    scene->SetParent(worldGun, ship, false);
+    make(worldGun, PS::SimulationSpace::World);
+    Entity localGun = scene->CreateEntity("Local gun");
+    scene->SetParent(localGun, ship, false);
+    localGun.GetTransform().Translation = { 0, 1, 0 };
+    make(localGun, PS::SimulationSpace::Local);
+
+    scene->OnRuntimeStart();
+    scene->EmitParticles(gun, 5);
+    scene->EmitParticles(worldGun, 5);
+    scene->EmitParticles(localGun, 5);
+    auto worldOf = [&](Entity e, size_t i) {
+        auto& ps = e.GetComponent<PS>();
+        const glm::mat4 space = scene->GetParticleSpace(e, ps);
+        const glm::vec3 p = ps.Particles[i].Position;
+        return ps.Space == PS::SimulationSpace::World ? p : glm::vec3(space * glm::vec4(p, 1.0f));
+    };
+    // In its space: the gun is one unit above the ship's origin.
+    CHECK(custom.Particles.size() == 5);
+    CHECK_NEAR(custom.Particles[0].Position.x, 0.0f, 1e-4f);
+    CHECK_NEAR(custom.Particles[0].Position.y, 1.0f, 1e-4f);
+    CHECK_NEAR(worldOf(gun, 0).x, 10.0f, 1e-4f);
+    // The ship sails on: the custom and local particles go with it, the world ones stay.
+    ship.GetTransform().Translation = { 15, 0, 0 };
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(worldOf(gun, 0).x, 15.0f, 1e-4f);
+    CHECK_NEAR(worldOf(localGun, 0).x, 15.0f, 1e-4f);
+    CHECK_NEAR(worldOf(worldGun, 0).x, 10.0f, 1e-4f);
+    // The gun turns: local particles turn with it, the custom ones stay where the ship has them.
+    gun.GetTransform().Rotation = { 0, 0, 1.0f };
+    gun.GetTransform().Translation = { 0, 3, 0 };
+    localGun.GetTransform().Rotation = { 0, 0, 1.0f };
+    localGun.GetTransform().Translation = { 0, 3, 0 };
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK_NEAR(worldOf(gun, 0).y, 1.0f, 1e-4f);
+    CHECK_NEAR(worldOf(localGun, 0).y, 3.0f, 1e-4f);
+    // The bounds are where the particles are drawn.
+    const AABB box = Scene::GetParticleBounds(custom, scene->GetParticleSpace(gun, custom));
+    CHECK(box.Min.x < 15.0f && box.Max.x > 15.0f && box.Min.y < 1.0f && box.Max.y > 1.0f);
+    // Gravity and velocity in the custom space: the ship turned upside down, its particles fall "up".
+    custom.Gravity = { 0, -10, 0 };
+    ship.GetTransform().Rotation = { glm::pi<float>(), 0, 0 };
+    const float before = worldOf(gun, 0).y;
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(worldOf(gun, 0).y > before + 0.05f);
+    // A sub-emitter's particles start where its parent's died, in the template's own (custom) space.
+    Entity spark = scene->CreateEntity("Spark");
+    PS& sparks = make(spark, PS::SimulationSpace::Custom);
+    sparks.CustomSpace.ID = ship.GetUUID();
+    Entity rocket = scene->CreateEntity("Rocket");
+    rocket.GetTransform().Translation = { 3, 4, 5 };
+    PS& rockets = make(rocket, PS::SimulationSpace::World);
+    rockets.LifetimeMin = rockets.LifetimeMax = 0.01f;
+    rockets.SubEmitters.Enabled = true;
+    ParticleSystemComponent::SubEmitter sub;
+    sub.Emitter.ID = spark.GetUUID();
+    sub.Count = 2;
+    rockets.SubEmitters.Emitters = { sub };
+    scene->EmitParticles(rocket, 1);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(sparks.Particles.size() == 2);
+    if (sparks.Particles.size() == 2)
+    {
+        const glm::vec3 at = worldOf(spark, 0);
+        CHECK_NEAR(at.x, 3.0f, 1e-3f);
+        CHECK_NEAR(at.y, 4.0f, 1e-3f);
+        CHECK_NEAR(at.z, 5.0f, 1e-3f);
+    }
+    // The custom entity gone: world space.
+    custom.CustomSpace.ID = 424242;
+    CHECK(scene->GetParticleSpace(gun, custom) == glm::mat4(1.0f));
+    scene->OnRuntimeStop();
+}
+
+// Hears its entity's particle system finish and every "ParticlesFinished" on the bus.
+class ParticlesFinishProbe : public ScriptableEntity
+{
+public:
+    int Finished = 0;
+    std::vector<std::string> Bus;
+    void OnCreate() override
+    {
+        Subscribe("ParticlesFinished", [this](const ScriptMessage& m) { Bus.push_back(m.Sender ? m.Sender.GetName() : std::string()); });
+    }
+    void OnParticlesFinished() override { Finished++; }
+};
+ZM_REGISTER_SCRIPT(ParticlesFinishProbe)
+
+// A non-looping system that finished: scripts hear of it, then its stop action (switched off,
+// destroyed); looping ones never finish.
+TEST(ParticleStopActions)
+{
+    using PS = ParticleSystemComponent;
+    auto scene = CreateRef<Scene>();
+    auto make = [&](const std::string& name, PS::StopAction action) -> Entity {
+        Entity e = scene->CreateEntity(name);
+        auto& ps = e.AddComponent<PS>();
+        ps.Looping = false;
+        ps.Duration = 0.2f;
+        ps.EmissionRate = 0.0f;
+        ps.Burst = 3;
+        ps.LifetimeMin = ps.LifetimeMax = 0.1f;
+        ps.StopActionType = action;
+        return e;
+    };
+    Entity keep = make("Keep", PS::StopAction::None);
+    Entity off = make("Off", PS::StopAction::Disable);
+    make("Gone", PS::StopAction::Destroy);
+    Entity looping = make("Looping", PS::StopAction::Destroy);
+    looping.GetComponent<PS>().Looping = true;
+    keep.AddComponent<NativeScriptComponent>().ClassName = "ParticlesFinishProbe";
+    scene->OnRuntimeStart();
+    auto* probe = dynamic_cast<ParticlesFinishProbe*>(keep.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(probe);
+    if (!probe)
+        return;
+    for (int i = 0; i < 6; i++) // 0.1 s: the cycle is not over
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(probe->Finished == 0 && probe->Bus.empty());
+    for (int i = 0; i < 24; i++) // 0.5 s
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(probe->Finished == 1);
+    CHECK(probe->Bus.size() == 3); // Keep, Off, Gone (each once)
+    CHECK(std::find(probe->Bus.begin(), probe->Bus.end(), "Gone") != probe->Bus.end());
+    CHECK(keep.GetComponent<PS>().Finished && scene->IsActiveInHierarchy(keep));
+    CHECK(!scene->IsActiveInHierarchy(off));
+    CHECK(!scene->FindEntityByName("Gone"));
+    CHECK(scene->FindEntityByName("Looping") && !looping.GetComponent<PS>().Finished);
+    // Back on, the switched-off one plays and finishes again.
+    scene->SetActive(off, true);
+    for (int i = 0; i < 30; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(probe->Bus.size() == 4 && !scene->IsActiveInHierarchy(off));
+    scene->OnRuntimeStop();
+    // The editor never finishes a system (it previews it again).
+    auto edit = CreateRef<Scene>();
+    Entity preview = edit->CreateEntity("Preview");
+    auto& ps = preview.AddComponent<PS>();
+    ps.Looping = false;
+    ps.Duration = 0.1f;
+    ps.Burst = 2;
+    ps.LifetimeMin = ps.LifetimeMax = 0.05f;
+    ps.StopActionType = PS::StopAction::Destroy;
+    for (int i = 0; i < 60; i++)
+        edit->UpdateEditorAnimation(1.0f / 60.0f);
+    CHECK(edit->FindEntityByName("Preview") && !ps.Finished);
+}
+
+// The main settings (duration, delay, prewarm, speed, stop action, sorting, custom space, the
+// bursts list) round trip; a plain system writes none of them; older scenes load as before.
+TEST(ParticleMainSerialization)
+{
+    using PS = ParticleSystemComponent;
+    auto scene = CreateRef<Scene>();
+    scene->CreateEntity("Plain").AddComponent<PS>();
+    Entity ship = scene->CreateEntity("Ship");
+    Entity fx = scene->CreateEntity("Fx");
+    scene->SetParent(fx, ship, false);
+    auto& ps = fx.AddComponent<PS>();
+    ps.Duration = 3.5f;
+    ps.StartDelay = 0.25f;
+    ps.Looping = true;
+    ps.Prewarm = true;
+    ps.SimulationSpeed = 0.5f;
+    ps.StopActionType = PS::StopAction::Destroy;
+    ps.Sorting = PS::SortMode::OldestOnTop;
+    ps.Space = PS::SimulationSpace::Custom;
+    ps.CustomSpace.ID = ship.GetUUID();
+    ps.Burst = 7;
+    ps.Bursts = { { 0.0f, 10, 1, 0.5f, 1.0f }, { 1.25f, 4, 0, 0.3f, 0.75f } };
+    Entity local = scene->CreateEntity("Local");
+    local.AddComponent<PS>().Space = PS::SimulationSpace::Local;
+
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& l = loaded->FindEntityByName("Fx").GetComponent<PS>();
+    CHECK(l.Duration == 3.5f && l.StartDelay == 0.25f && l.Prewarm && l.SimulationSpeed == 0.5f);
+    CHECK(l.StopActionType == PS::StopAction::Destroy && l.Sorting == PS::SortMode::OldestOnTop);
+    CHECK(l.Space == PS::SimulationSpace::Custom && l.CustomSpace.ID == (uint64_t)ship.GetUUID());
+    CHECK(l.Burst == 7 && l.Bursts == ps.Bursts);
+    CHECK(loaded->FindEntityByName("Local").GetComponent<PS>().Space == PS::SimulationSpace::Local);
+    CHECK(SceneSerializer(loaded).SerializeToString() == text); // stable
+    const auto& plain = loaded->FindEntityByName("Plain").GetComponent<PS>();
+    const PS d;
+    CHECK(plain.Duration == d.Duration && plain.StartDelay == 0.0f && !plain.Prewarm && plain.SimulationSpeed == 1.0f &&
+          plain.StopActionType == PS::StopAction::None && plain.Sorting == PS::SortMode::Auto && plain.Space == PS::SimulationSpace::World &&
+          plain.Bursts.empty());
+    {
+        auto only = CreateRef<Scene>();
+        only->CreateEntity("Plain").AddComponent<PS>();
+        const std::string plainText = SceneSerializer(only).SerializeToString();
+        for (const char* key : { "\"Duration\"", "\"StartDelay\"", "\"Prewarm\"", "\"SimulationSpeed\"", "\"StopAction\"", "\"Sorting\"",
+                                 "\"Space\"", "\"CustomSpace\"", "\"Bursts\"" })
+            CHECK(plainText.find(key) == std::string::npos);
+        CHECK(plainText.find("\"WorldSpace\": true") != std::string::npos); // as older versions wrote it
+    }
+    // An older scene: WorldSpace off is Local; the start burst stays as it was.
+    const std::string legacy = R"({ "Scene": "Old", "Entities": [ { "Entity": 77, "Tag": "Old fx", "Transform": {},
+        "ParticleSystem": { "Playing": true, "Looping": false, "EmissionRate": 0, "Burst": 40, "WorldSpace": false } } ] })";
+    auto old = CreateRef<Scene>();
+    CHECK(SceneSerializer(old).DeserializeFromString(legacy));
+    if (Entity e = old->FindEntityByName("Old fx"))
+    {
+        const auto& o = e.GetComponent<PS>();
+        CHECK(o.Space == PS::SimulationSpace::Local && o.Burst == 40 && o.Bursts.empty() && o.Duration == d.Duration && !o.Looping);
+    }
+    else
+        CHECK(false);
+    // Out-of-range values are clamped; an unknown space name keeps what WorldSpace says (off for Custom: Local).
+    std::string odd = text;
+    odd.replace(odd.find("\"Duration\": 3.5"), 15, "\"Duration\": -2.0");
+    odd.replace(odd.find("\"Space\": \"Custom\""), 17, "\"Space\": \"Banana\"");
+    odd.replace(odd.find("\"Probability\": 0.75"), 19, "\"Probability\": 9.00");
+    auto oddScene = CreateRef<Scene>();
+    CHECK(SceneSerializer(oddScene).DeserializeFromString(odd));
+    const auto& o = oddScene->FindEntityByName("Fx").GetComponent<PS>();
+    CHECK(o.Duration == 0.01f && o.Space == PS::SimulationSpace::Local && o.Bursts.size() == 2 && o.Bursts[1].Probability == 1.0f);
+    // Duplicating the ship with its gun: the copy's particles live in the copied ship.
+    Entity copy = scene->DuplicateEntity(ship);
+    Entity copiedFx;
+    for (Entity child : scene->GetDescendants(copy))
+        if (child.HasComponent<PS>())
+            copiedFx = child;
+    CHECK(copiedFx && copiedFx.GetComponent<PS>().CustomSpace.ID == (uint64_t)copy.GetUUID());
 }
 
 TEST(SkeletalPoseEvaluation)

@@ -368,6 +368,7 @@ namespace Zamin {
         // Particle System: playback, emission, shape, motion, look and the optional modules
         // (colour / size / velocity over lifetime, speed limit, texture sheet) - SceneHierarchyParticles.cpp.
         bool DrawParticleSystem(Entity entity, ParticleSystemComponent& c);
+        bool DrawParticleBursts(ParticleSystemComponent& c);
         // A child entity with a Particle System that emits nothing itself, made a Death sub-emitter of `owner`'s.
         void CreateSubEmitterTemplate(UUID owner);
         // Tilemap: tileset, layers, paint tools, auto-tile rules, palette.

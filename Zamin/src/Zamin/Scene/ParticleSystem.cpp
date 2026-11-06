@@ -566,7 +566,7 @@ namespace Zamin {
             if (origin)
             {
                 at[3] = glm::vec4(origin->Position, 1.0f);
-                if (!ps.WorldSpace)
+                if (ps.IsLocalSpace())
                 {
                     const glm::mat4 inverse = glm::inverse(emitterWorld);
                     localOffset = glm::vec3(inverse * glm::vec4(origin->Position, 1.0f));
@@ -574,7 +574,7 @@ namespace Zamin {
                 }
             }
             // Mesh normals stay at right angles to the surface under a non-uniform scale.
-            const bool normals = ps.Shape == Shape::Mesh && ps.MeshAlongNormal && ps.WorldSpace;
+            const bool normals = ps.Shape == Shape::Mesh && ps.MeshAlongNormal && !ps.IsLocalSpace();
             const glm::mat3 normalMatrix = normals ? glm::transpose(glm::inverse(glm::mat3(emitterWorld))) : glm::mat3(1.0f);
             PrepareTrails(ps);
             const bool births = Wants(GetEventMask(ps), ParticleEvent::Type::Birth);
@@ -584,7 +584,7 @@ namespace Zamin {
                 glm::vec3 local, dir;
                 SampleShape(ps, rng, local, dir);
                 float speed = ps.SpeedMin + (ps.SpeedMax - ps.SpeedMin) * Random01(rng);
-                if (ps.WorldSpace)
+                if (!ps.IsLocalSpace())
                 {
                     p.Position = glm::vec3(at * glm::vec4(local, 1.0f));
                     p.Velocity = glm::normalize(normals ? normalMatrix * dir : glm::vec3(emitterWorld * glm::vec4(dir, 0.0f))) * speed;
@@ -619,26 +619,169 @@ namespace Zamin {
             }
         }
 
-        void Update(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float dt, bool editor, const ParticleEnvironment* environment)
+        // ---- the emission's timeline
+        // One cycle (seconds; never so short that a step would hold thousands).
+        static float GetCycle(const ParticleSystemComponent& ps) { return std::max(0.01f, ps.Duration); }
+
+        float GetEmissionTime(const ParticleSystemComponent& ps, float t0, float dt)
         {
-            if (ps.Playing)
+            // dt itself unless a limit falls inside the step (the same sum as before there were limits).
+            float active = dt;
+            const float delay = std::max(0.0f, ps.StartDelay);
+            const float t1 = t0 + dt;
+            if (t0 < delay)
+                active = std::max(0.0f, t1 - delay);
+            if (!ps.Looping)
             {
-                if (!ps.BurstDone)
-                {
-                    Spawn(ps, emitterWorld, ps.Burst);
-                    ps.BurstDone = true;
-                }
-                if (ps.Looping || !editor)
-                {
-                    ps.EmitAccumulator += ps.EmissionRate * dt;
-                    int count = (int)ps.EmitAccumulator;
-                    ps.EmitAccumulator -= count;
-                    if (count > 0) Spawn(ps, emitterWorld, count);
-                }
-                if (!ps.Looping && ps.BurstDone && ps.EmissionRate <= 0.0f && ps.Particles.empty() && editor)
-                    ps.BurstDone = false; // keep previewing bursts in the editor
+                const float end = delay + GetCycle(ps);
+                if (t1 > end)
+                    active = std::max(0.0f, end - std::max(t0, delay));
             }
+            return active;
+        }
+
+        void GetBurstFirings(const ParticleSystemComponent& ps, float t0, float t1, std::vector<int>& firings)
+        {
+            firings.clear();
+            if (ps.Bursts.empty() || !(t1 > t0))
+                return;
+            const float delay = std::max(0.0f, ps.StartDelay);
+            const float cycle = GetCycle(ps);
+            const double u0 = std::max(0.0, (double)t0 - delay), u1 = (double)t1 - delay;
+            if (u1 <= u0)
+                return;
+            // The cycles the step touches (a looping system's repeat; at most a few hundred in one step).
+            const int64_t first = (int64_t)std::floor(u0 / cycle);
+            int64_t last = (int64_t)std::floor(u1 / cycle);
+            if (!ps.Looping)
+            {
+                if (first > 0)
+                    return;
+                last = 0;
+            }
+            last = std::min(last, first + 256);
+            for (int64_t c = first; c <= last; c++)
+            {
+                const double start = (double)c * cycle;
+                const double r0 = std::max(u0, start) - start, r1 = std::min(u1, start + cycle) - start; // [r0, r1) of this cycle
+                if (r1 <= r0)
+                    continue;
+                for (int b = 0; b < (int)ps.Bursts.size(); b++)
+                {
+                    const auto& burst = ps.Bursts[(size_t)b];
+                    if (burst.Count <= 0 || burst.Probability <= 0.0f)
+                        continue;
+                    const double time = std::max(0.0f, burst.Time);
+                    const double interval = burst.Interval;
+                    // Its k-th firing at time + k * interval (k < Cycles; 0: while in the cycle).
+                    int64_t kMax = burst.Cycles > 0 ? burst.Cycles : std::numeric_limits<int32_t>::max();
+                    if (interval <= 1e-4)
+                    {
+                        // No interval: every repeat at once (unlimited: once).
+                        if (time >= r0 && time < r1 && time < cycle)
+                            for (int64_t k = 0; k < (burst.Cycles > 0 ? burst.Cycles : 1); k++)
+                                firings.push_back(b);
+                        continue;
+                    }
+                    kMax = std::min<int64_t>(kMax, (int64_t)std::ceil((cycle - time) / interval)); // inside the cycle
+                    int64_t k = std::max<int64_t>(0, (int64_t)std::ceil((r0 - time) / interval));
+                    for (; k < kMax && firings.size() < 4096; k++)
+                    {
+                        const double at = time + (double)k * interval;
+                        if (at >= r1)
+                            break;
+                        if (at >= r0 && at < cycle)
+                            firings.push_back(b);
+                    }
+                }
+            }
+        }
+
+        // The cycle's emission over one step: the start burst, the bursts list and the rate.
+        static void Emit(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float dt)
+        {
+            uint32_t& rng = ps.RandomState;
+            if (!ps.BurstDone)
+            {
+                Spawn(ps, emitterWorld, ps.Burst);
+                ps.BurstDone = true;
+            }
+            const float t0 = ps.PlayTime;
+            if (!ps.Bursts.empty())
+            {
+                static thread_local std::vector<int> firings;
+                GetBurstFirings(ps, t0, t0 + dt, firings);
+                for (int b : firings)
+                {
+                    const auto& burst = ps.Bursts[(size_t)b];
+                    if (burst.Probability >= 1.0f || Random01(rng) < burst.Probability)
+                        Spawn(ps, emitterWorld, burst.Count);
+                }
+            }
+            ps.EmitAccumulator += ps.EmissionRate * GetEmissionTime(ps, t0, dt);
+            int count = (int)ps.EmitAccumulator;
+            ps.EmitAccumulator -= count;
+            if (count > 0)
+                Spawn(ps, emitterWorld, count);
+            ps.PlayTime = t0 + dt;
+            // A looping system's time stays inside its first cycle (no precision lost over hours).
+            const float delay = std::max(0.0f, ps.StartDelay);
+            const float cycle = GetCycle(ps);
+            if (ps.Looping && ps.PlayTime >= delay + cycle)
+                ps.PlayTime = delay + std::fmod(ps.PlayTime - delay, cycle);
+        }
+
+        bool Update(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float dt, bool editor, const ParticleEnvironment* environment)
+        {
+            // Prewarm: one whole cycle simulated before the first frame (in steps of 1/30 s, at
+            // most 600 of them), the bursts and the emission included; no sub-emitter events.
+            if (ps.Playing && ps.Looping && ps.Prewarm && !ps.Prewarmed)
+            {
+                ps.Prewarmed = true;
+                ps.PlayTime = std::max(ps.PlayTime, std::max(0.0f, ps.StartDelay)); // the delay is skipped
+                const float cycle = GetCycle(ps);
+                const int steps = std::clamp((int)std::ceil(cycle * 30.0f), 1, 600);
+                const float step = cycle / (float)steps;
+                for (int i = 0; i < steps; i++)
+                {
+                    Emit(ps, emitterWorld, step);
+                    Integrate(ps, emitterWorld, step, environment);
+                    ps.Events.clear();
+                }
+            }
+            dt *= std::max(0.0f, ps.SimulationSpeed);
+            if (ps.Playing && !ps.Finished)
+                Emit(ps, emitterWorld, dt);
             Integrate(ps, emitterWorld, dt, environment);
+            if (!ps.Playing || ps.Looping || ps.Finished || !ps.Particles.empty() ||
+                ps.PlayTime < std::max(0.0f, ps.StartDelay) + GetCycle(ps))
+                return false;
+            if (editor)
+            {
+                // Previewed again from the start.
+                ps.PlayTime = 0.0f;
+                ps.BurstDone = false;
+                ps.EmitAccumulator = 0.0f;
+                return false;
+            }
+            ps.Finished = true;
+            return true;
+        }
+
+        bool GetSpaceToWorld(const ParticleSystemComponent& ps, const glm::mat4& emitterWorld, const ParticleEnvironment* environment, glm::mat4& out)
+        {
+            if (ps.IsLocalSpace())
+            {
+                out = emitterWorld;
+                return true;
+            }
+            if (ps.Space == ParticleSystemComponent::SimulationSpace::Custom && environment && environment->HasSpace)
+            {
+                out = environment->Space;
+                return true;
+            }
+            out = glm::mat4(1.0f);
+            return false;
         }
 
         glm::vec4 GetCollisionPlane(const ParticleSystemComponent& ps, const glm::mat4& emitterWorld, const ParticleEnvironment* environment)
@@ -652,11 +795,12 @@ namespace Zamin {
                 const float length = glm::length(n);
                 plane = length > 1e-6f ? glm::vec4(n / length, ps.Collision.PlaneOffset / length) : glm::vec4(0.0f, 1.0f, 0.0f, ps.Collision.PlaneOffset);
             }
-            if (ps.WorldSpace)
+            glm::mat4 toWorld;
+            if (!GetSpaceToWorld(ps, emitterWorld, environment, toWorld))
                 return plane;
-            // In the emitter's space: a point of the plane there, the normal turned (and squeezed) with it.
-            const glm::vec3 point = glm::vec3(glm::inverse(emitterWorld) * glm::vec4(glm::vec3(plane) * plane.w, 1.0f));
-            glm::vec3 normal = glm::transpose(glm::mat3(emitterWorld)) * glm::vec3(plane);
+            // In the particles' space: a point of the plane there, the normal turned (and squeezed) with it.
+            const glm::vec3 point = glm::vec3(glm::inverse(toWorld) * glm::vec4(glm::vec3(plane) * plane.w, 1.0f));
+            glm::vec3 normal = glm::transpose(glm::mat3(toWorld)) * glm::vec3(plane);
             const float length = glm::length(normal);
             normal = length > 1e-9f ? normal / length : glm::vec3(0.0f, 1.0f, 0.0f);
             return glm::vec4(normal, glm::dot(normal, point));
@@ -717,15 +861,32 @@ namespace Zamin {
                 const float length = glm::length(axis);
                 rotation[i] = length > 1e-6f ? axis / length : glm::vec3(0.0f);
             }
-            const glm::vec3 center = ps.WorldSpace ? glm::vec3(emitterWorld[3]) : glm::vec3(0.0f);
+            const bool local = ps.IsLocalSpace();
+            const glm::vec3 center = !local ? glm::vec3(emitterWorld[3]) : glm::vec3(0.0f);
+            // Where the particles' space is in the world (Local: the emitter; Custom: its entity).
+            glm::mat4 toWorld(1.0f);
+            const bool spaced = GetSpaceToWorld(ps, emitterWorld, environment, toWorld);
             // Linear velocity in the particles' space: emitter axes (World: world axes).
             glm::vec3 linear = vol.Linear;
             if (vol.Enabled)
             {
-                if (ps.WorldSpace && !vol.World)
+                if (vol.World)
+                {
+                    if (spaced)
+                    {
+                        // The world's axes in the particles' space (their rotation, without scale).
+                        glm::mat3 spaceRotation(1.0f);
+                        for (int i = 0; i < 3; i++)
+                        {
+                            glm::vec3 axis(toWorld[i]);
+                            const float length = glm::length(axis);
+                            spaceRotation[i] = length > 1e-6f ? axis / length : glm::vec3(0.0f);
+                        }
+                        linear = glm::transpose(spaceRotation) * linear;
+                    }
+                }
+                else if (!local)
                     linear = rotation * linear;
-                else if (!ps.WorldSpace && vol.World)
-                    linear = glm::transpose(rotation) * linear;
             }
             const bool orbit = vol.Enabled && vol.Orbital != glm::vec3(0.0f);
             const glm::quat spin = orbit ? glm::quat(vol.Orbital * ts) : glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
@@ -743,10 +904,10 @@ namespace Zamin {
             const bool planeCollision = collision.Enabled && collision.Type == CollisionType::Plane;
             const bool worldCollision = collision.Enabled && collision.Type != CollisionType::Plane && environment && environment->Cast;
             const glm::vec4 plane = planeCollision ? GetCollisionPlane(ps, emitterWorld, environment) : glm::vec4(0.0f);
-            const glm::mat4 toLocal = worldCollision && !ps.WorldSpace ? glm::inverse(emitterWorld) : glm::mat4(1.0f);
-            // A particle's radius is in world units (it is drawn so); in the emitter's space the scale counts.
-            const float unitScale = ps.WorldSpace ? 1.0f
-                : std::max(1e-6f, (glm::length(glm::vec3(emitterWorld[0])) + glm::length(glm::vec3(emitterWorld[1])) + glm::length(glm::vec3(emitterWorld[2]))) / 3.0f);
+            const glm::mat4 toLocal = worldCollision && spaced ? glm::inverse(toWorld) : glm::mat4(1.0f);
+            // A particle's radius is in world units (it is drawn so); in a scaled space the scale counts.
+            const float unitScale = !spaced ? 1.0f
+                : std::max(1e-6f, (glm::length(glm::vec3(toWorld[0])) + glm::length(glm::vec3(toWorld[1])) + glm::length(glm::vec3(toWorld[2]))) / 3.0f);
             const float bounce = std::max(0.0f, collision.Bounce);
             const float dampen = std::clamp(collision.Dampen, 0.0f, 1.0f);
             const float restKeep = std::pow(1.0f - dampen, ts * 60.0f); // speed along the surface kept while resting
@@ -757,7 +918,7 @@ namespace Zamin {
             glm::vec3 down(0.0f);
             if (worldCollision)
             {
-                const glm::vec3 g = ps.WorldSpace ? ps.Gravity : glm::mat3(emitterWorld) * ps.Gravity;
+                const glm::vec3 g = spaced ? glm::mat3(toWorld) * ps.Gravity : ps.Gravity;
                 if (glm::length(g) > 1e-6f)
                     down = glm::normalize(g);
             }
@@ -793,7 +954,7 @@ namespace Zamin {
                     {
                         // Around the emitter's own axes through its centre.
                         const glm::vec3 offset = p.Position - center;
-                        const glm::vec3 turned = ps.WorldSpace ? rotation * (spin * (glm::transpose(rotation) * offset)) : spin * offset;
+                        const glm::vec3 turned = !local ? rotation * (spin * (glm::transpose(rotation) * offset)) : spin * offset;
                         p.Position = center + turned;
                     }
                 }
@@ -820,8 +981,8 @@ namespace Zamin {
                     }
                     else
                     {
-                        const glm::vec3 a = ps.WorldSpace ? from : glm::vec3(emitterWorld * glm::vec4(from, 1.0f));
-                        const glm::vec3 b = ps.WorldSpace ? p.Position : glm::vec3(emitterWorld * glm::vec4(p.Position, 1.0f));
+                        const glm::vec3 a = spaced ? glm::vec3(toWorld * glm::vec4(from, 1.0f)) : from;
+                        const glm::vec3 b = spaced ? glm::vec3(toWorld * glm::vec4(p.Position, 1.0f)) : p.Position;
                         glm::vec3 c, n;
                         // Moving along a surface it rests on: the ray down to it keeps it there
                         // (the one along its way would pass over the surface).
@@ -830,7 +991,7 @@ namespace Zamin {
                         if (cast)
                         {
                             hit = true;
-                            if (ps.WorldSpace)
+                            if (!spaced)
                             {
                                 p.Position = c;
                                 normal = n;
@@ -838,7 +999,7 @@ namespace Zamin {
                             else
                             {
                                 p.Position = glm::vec3(toLocal * glm::vec4(c, 1.0f));
-                                normal = glm::transpose(glm::mat3(emitterWorld)) * n;
+                                normal = glm::transpose(glm::mat3(toWorld)) * n;
                                 const float length = glm::length(normal);
                                 normal = length > 1e-9f ? normal / length : glm::vec3(0.0f, 1.0f, 0.0f);
                             }
@@ -924,6 +1085,48 @@ namespace Zamin {
             if (module.RandomBetweenTwo)
                 scale = std::max(scale, extent(module.CurveB));
             return std::abs(ps.StartSize) * scale;
+        }
+
+        void GetDrawOrder(const ParticleSystemComponent& ps, const glm::mat4* toWorld, const glm::vec3& viewer, const glm::vec3& viewForward,
+                          bool perspective, std::vector<uint32_t>& order)
+        {
+            order.clear();
+            using Sort = ParticleSystemComponent::SortMode;
+            Sort mode = ps.Sorting;
+            if (mode == Sort::Auto)
+                mode = ps.Additive ? Sort::None : Sort::ByDistance; // additive light adds up in any order
+            const size_t n = ps.Particles.size();
+            if (mode == Sort::None || n < 2)
+                return;
+            // A key per particle: the larger, the later it is drawn (on top).
+            static thread_local std::vector<float> keys;
+            keys.resize(n);
+            for (size_t i = 0; i < n; i++)
+            {
+                const Particle& p = ps.Particles[i];
+                switch (mode)
+                {
+                    case Sort::ByDistance:
+                    {
+                        const glm::vec3 position = toWorld ? glm::vec3(*toWorld * glm::vec4(p.Position, 1.0f)) : p.Position;
+                        const glm::vec3 d = position - viewer;
+                        keys[i] = perspective ? -glm::dot(d, d) : -glm::dot(d, viewForward); // the farthest first
+                        break;
+                    }
+                    case Sort::OldestOnTop: keys[i] = p.GetAge(); break;
+                    default: keys[i] = -p.GetAge(); break; // YoungestOnTop
+                }
+            }
+            // Already in that order (a 2D system at one depth, the youngest last): drawn as they are.
+            bool sorted = true;
+            for (size_t i = 1; i < n && sorted; i++)
+                sorted = keys[i - 1] <= keys[i];
+            if (sorted)
+                return;
+            order.resize(n);
+            for (uint32_t i = 0; i < (uint32_t)n; i++)
+                order[i] = i;
+            std::stable_sort(order.begin(), order.end(), [](uint32_t a, uint32_t b) { return keys[a] < keys[b]; });
         }
 
         float GetTrailWidth(const ParticleSystemComponent& ps, float size, float u)

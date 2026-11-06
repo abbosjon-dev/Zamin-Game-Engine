@@ -892,6 +892,8 @@ void main()
         s_Data->DisplayOutput = display ? 1 : 0;
     }
     bool Renderer2D::IsLit() { return s_Data->CurrentLit > 0.5f; }
+    bool Renderer2D::IsDisplayOutput() { return s_Data->DisplayOutput == 1; }
+    const glm::mat4& Renderer2D::GetViewProjection() { return s_Data->ViewProjection; }
 
     float Renderer2D::GetLineWidth() { return s_Data->LineWidth; }
     void Renderer2D::SetLineWidth(float width) { s_Data->LineWidth = width; }

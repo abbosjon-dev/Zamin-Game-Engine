@@ -74,11 +74,114 @@ namespace Zamin {
         if (ImGui::Button(ICON_FA_ARROWS_ROTATE "  Qayta")) c.Clear();
         ImGui::SameLine();
         ImGui::TextDisabled("%zu", c.Particles.size());
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Tirik particle'lar soni");
+        // Where the system is in its cycle.
+        {
+            const float delay = std::max(0.0f, c.StartDelay);
+            const float cycle = std::max(0.01f, c.Duration);
+            UI::PropertyLabel("Sikl", "Tizim o'z siklining qayerida (kechikish, keyin Davomiylik)");
+            std::string text;
+            float fraction = 0.0f;
+            if (c.Finished)
+                text = "tugadi";
+            else if (c.PlayTime < delay)
+            {
+                text = std::format("kechikish {:.1f} / {:.1f} s", c.PlayTime, delay);
+                fraction = delay > 0.0f ? c.PlayTime / delay : 0.0f;
+            }
+            else
+            {
+                const float t = std::min(c.PlayTime - delay, cycle);
+                text = std::format("{:.1f} / {:.1f} s", t, cycle);
+                fraction = t / cycle;
+            }
+            ImGui::ProgressBar(std::clamp(fraction, 0.0f, 1.0f), ImVec2(-FLT_MIN, 0.0f), text.c_str());
+        }
+
+        // ---- main
+        UI::PropertyHeader(ICON_FA_HOURGLASS_HALF "  Asosiy", "Sikl, vaqt, fazo va tizim tugaganda nima bo'lishi");
+        if (UI::PropertyFloat("Davomiylik (s)", c.Duration, 0.05f, 0.01f, 10000.0f))
+        {
+            c.Duration = std::max(0.01f, c.Duration);
+            changed = true;
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Bir sikl: portlashlar jadvali shu vaqt ichida; takrorlanmasa - shuncha chiqaradi, keyin tugaydi");
         changed |= UI::PropertyBool("Takrorlash", c.Looping);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Sikl tugagach yana boshidan (o'chiq: bir marta - portlash, otishma effekti)");
+        ImGui::BeginDisabled(!c.Looping);
+        if (UI::PropertyBool("Oldindan to'la", c.Prewarm))
+        {
+            c.Clear(); // previewed from the start: full at once
+            changed = true;
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort | ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip("Prewarm (faqat takrorlanadiganda): tizim boshidanoq bir butun sikl ishlagandek to'la - tutun ustuni, "
+                        "gulxan uchqunlari. Sub-emitterlar bu vaqtda ishlamaydi");
+        if (UI::PropertyFloat("Kechikish", c.StartDelay, 0.02f, 0.0f, 10000.0f, "%.2f s"))
+        {
+            c.StartDelay = std::max(0.0f, c.StartDelay);
+            changed = true;
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Boshlanish kechikishi: shuncha soniyadan keyin chiqara boshlaydi (bir nechta effektni ketma-ket boshlash)");
+        if (UI::PropertyFloat("Vaqt tezligi", c.SimulationSpeed, 0.01f, 0.0f, 100.0f, "x%.2f"))
+        {
+            c.SimulationSpeed = std::max(0.0f, c.SimulationSpeed);
+            changed = true;
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Simulyatsiya tezligi: tizim vaqti shuncha marta tez o'tadi: 0.5 - sekin harakat, 2 - ikki baravar tez (0 - qotib qoladi)");
+        {
+            static const char* const spaces[] = { "Lokal (emitter bilan)", "Dunyo", "Boshqa obyekt" };
+            int space = (int)c.Space;
+            if (PropertyEnum("Fazo", space, spaces, 3, "Dunyo: particle'lar tug'ilgan joyida qoladi (emitter yursa iz qoladi); "
+                                                       "Lokal: emitter bilan birga siljiydi va aylanadi; Boshqa obyekt: o'sha "
+                                                       "obyekt bilan (masalan kema ustidagi to'p - kema bilan, to'p burilishi bilan emas)"))
+            {
+                c.Space = (PS::SimulationSpace)space;
+                c.Clear(); // the particles' positions were in the old space
+                changed = true;
+            }
+            if (c.Space == PS::SimulationSpace::Custom)
+            {
+                if (DrawEntityRefField("Fazo obyekti", c.CustomSpace, "Particle'lar shu obyekt bilan birga siljiydi va aylanadi"))
+                {
+                    c.Clear();
+                    changed = true;
+                }
+                if (!c.CustomSpace)
+                    Note("Obyekt tanlanmagan: dunyo fazosida", true);
+                else if (!(m_Context && m_Context->GetEntityByUUID(c.CustomSpace.ID)))
+                    Note("Obyekt topilmadi: dunyo fazosida", true);
+            }
+        }
+        {
+            static const char* const actions[] = { "Hech narsa", "Obyektni o'chirish", "Obyektni yo'q qilish" };
+            int action = (int)c.StopActionType;
+            if (PropertyEnum("Tugaganda", action, actions, 3, "Takrorlanmaydigan tizim siklini o'ynab, oxirgi particle'i o'lganda "
+                                                              "(faqat o'yin paytida): obyekt o'chiriladi yoki yo'q qilinadi. Skriptlar "
+                                                              "OnParticlesFinished va \"ParticlesFinished\" hodisasini oladi"))
+            {
+                c.StopActionType = (PS::StopAction)action;
+                changed = true;
+            }
+            if (c.Looping && c.StopActionType != PS::StopAction::None)
+                Note("Takrorlanadigan tizim hech qachon tugamaydi");
+        }
         changed |= UI::PropertyBool("Editorda ko'rsatish", c.PlayInEditor);
-        changed |= UI::PropertyFloat("Chiqarish (1/s)", c.EmissionRate, 0.5f, 0.0f, 10000.0f);
-        changed |= UI::PropertyInt("Portlash (burst)", c.Burst);
         changed |= UI::PropertyInt("Maksimal soni", c.MaxParticles);
+
+        // ---- emission
+        UI::PropertyHeader(ICON_FA_BURST "  Emissiya", "Qancha particle va qachon chiqadi");
+        changed |= UI::PropertyFloat("Chiqarish (1/s)", c.EmissionRate, 0.5f, 0.0f, 10000.0f);
+        changed |= UI::PropertyInt("Boshida portlash", c.Burst);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Tizim ijro boshlanganda bir marta shuncha particle (har siklda emas - buning uchun portlashlar jadvali)");
+        changed |= DrawParticleBursts(c);
 
         // ---- shape
         UI::PropertyHeader(ICON_FA_SHAPES "  Shakl", "Particle'lar qayerdan va qaysi yo'nalishda chiqadi (emitterning o'z o'qlarida)");
@@ -210,8 +313,20 @@ namespace Zamin {
             UI::Tooltip("O'lcham = Boshlang'ich o'lcham x \"O'lcham (umr bo'yi)\" egri chizig'i");
         changed |= UI::PropertyBool("Doira shaklida", c.RenderAsCircle);
         changed |= UI::PropertyBool("Qo'shimcha yorqinlik (additive)", c.Additive);
-        changed |= UI::PropertyBool("Dunyo koordinatalari", c.WorldSpace);
         changed |= UI::PropertyBool("Kameraga qaragan", c.Billboard);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("3D: har particle kameraga qaraydi (GPU instancing bilan bitta chizish buyrug'ida); o'chiq: XY tekisligida (2D)");
+        {
+            static const char* const sorts[] = { "Avto", "Yo'q (tug'ilish tartibi)", "Masofa (orqadan oldinga)", "Eskisi ustida", "Yangisi ustida" };
+            int sort = (int)c.Sorting;
+            if (PropertyEnum("Saralash", sort, sorts, 5, "Qaysi particle ustida chiziladi. Avto: shaffof (additive emas) tizimlar kameradan "
+                                                         "uzoqlik bo'yicha orqadan oldinga - yaqindagisi uzoqdagisini to'g'ri yopadi; "
+                                                         "additive'lar tartibsiz (yorug'lik qo'shiladi, tartib ahamiyatsiz)"))
+            {
+                c.Sorting = (PS::SortMode)sort;
+                changed = true;
+            }
+        }
         if (UI::PropertyAssetPath("Tekstura", c.TexturePath, ".png;.jpg;.jpeg", ICON_FA_FILE_IMAGE)) { c.Texture = nullptr; changed = true; }
         changed |= DrawSortingLayer(c.SortingLayer, c.SortingOrder);
 
@@ -610,6 +725,99 @@ namespace Zamin {
                 ImGui::EndDisabled();
             }
         }
+        return changed;
+    }
+
+    // The bursts list: a full-width table (time, count, cycles, interval, chance) between two
+    // parts of the property grid.
+    bool SceneHierarchyPanel::DrawParticleBursts(ParticleSystemComponent& c)
+    {
+        bool changed = false;
+        UI::PropertyLabel("Portlashlar", "Har siklda: Vaqt - sikl boshidan soniya; Soni - nechta particle; Sikl - necha marta "
+                                         "(" ICON_FA_INFINITY " - sikl oxirigacha); Oraliq - takrorlar orasidagi soniya; % - ehtimollik");
+        if (ImGui::Button(ICON_FA_PLUS "  Portlash qo'shish"))
+        {
+            PS::EmissionBurst burst;
+            if (!c.Bursts.empty())
+                burst.Time = std::min(std::max(0.0f, c.Duration - 0.01f), c.Bursts.back().Time + 0.5f);
+            c.Bursts.push_back(burst);
+            changed = true;
+        }
+        if (c.Bursts.empty())
+            return changed;
+        UI::EndPropertyGrid();
+        const ImGuiTableFlags flags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchSame |
+                                      ImGuiTableFlags_PadOuterX;
+        int remove = -1;
+        if (ImGui::BeginTable("##bursts", 6, flags))
+        {
+            ImGui::TableSetupColumn("Vaqt", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+            ImGui::TableSetupColumn("Soni", ImGuiTableColumnFlags_WidthStretch, 0.9f);
+            ImGui::TableSetupColumn("Sikl", ImGuiTableColumnFlags_WidthStretch, 0.7f);
+            ImGui::TableSetupColumn("Oraliq", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+            ImGui::TableSetupColumn("%", ImGuiTableColumnFlags_WidthStretch, 0.8f);
+            ImGui::TableSetupColumn("##remove", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
+            ImGui::TableHeadersRow();
+            for (int i = 0; i < (int)c.Bursts.size(); i++)
+            {
+                auto& b = c.Bursts[(size_t)i];
+                ImGui::PushID(i);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                if (ImGui::DragFloat("##time", &b.Time, 0.01f, 0.0f, std::max(0.0f, c.Duration), "%.2f s"))
+                {
+                    b.Time = std::max(0.0f, b.Time);
+                    changed = true;
+                }
+                if (b.Time >= std::max(0.01f, c.Duration) && ImGui::IsItemHovered())
+                    UI::Tooltip("Vaqt Davomiylikdan katta: bu portlash hech qachon chiqmaydi");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                if (ImGui::DragInt("##count", &b.Count, 0.5f, 0, 100000))
+                {
+                    b.Count = std::clamp(b.Count, 0, 100000);
+                    changed = true;
+                }
+                ImGui::TableSetColumnIndex(2);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                if (ImGui::DragInt("##cycles", &b.Cycles, 0.05f, 0, 1000, b.Cycles == 0 ? ICON_FA_INFINITY : "%d"))
+                {
+                    b.Cycles = std::clamp(b.Cycles, 0, 100000);
+                    changed = true;
+                }
+                ImGui::TableSetColumnIndex(3);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                ImGui::BeginDisabled(b.Cycles == 1);
+                if (ImGui::DragFloat("##interval", &b.Interval, 0.01f, 0.0f, 1000.0f, "%.2f s"))
+                {
+                    b.Interval = std::max(0.0f, b.Interval);
+                    changed = true;
+                }
+                ImGui::EndDisabled();
+                ImGui::TableSetColumnIndex(4);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                float percent = b.Probability * 100.0f;
+                if (ImGui::DragFloat("##chance", &percent, 0.5f, 0.0f, 100.0f, "%.0f%%"))
+                {
+                    b.Probability = std::clamp(percent / 100.0f, 0.0f, 1.0f);
+                    changed = true;
+                }
+                ImGui::TableSetColumnIndex(5);
+                if (ImGui::Button(ICON_FA_TRASH, ImVec2(ImGui::GetFrameHeight(), 0)))
+                    remove = i;
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    UI::Tooltip("Olib tashlash");
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+        if (remove >= 0)
+        {
+            c.Bursts.erase(c.Bursts.begin() + remove);
+            changed = true;
+        }
+        UI::BeginPropertyGrid("##afterBursts");
         return changed;
     }
 

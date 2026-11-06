@@ -192,3 +192,5 @@
 #define ICON_FA_FACE_SMILE "\xef\x84\x98"
 #define ICON_FA_PAPERCLIP "\xef\x83\x86"
 #define ICON_FA_HAND "\xef\x89\x96"
+#define ICON_FA_INFINITY "\xef\x94\xb4"       // endless (particle burst cycles)
+#define ICON_FA_HOURGLASS_HALF "\xef\x89\x92" // particle duration / timeline

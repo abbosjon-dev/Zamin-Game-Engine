@@ -27,6 +27,9 @@ namespace Zamin {
         uint32_t CulledSpriteCount = 0;   // 2D objects skipped: outside the camera's view
         uint32_t TileChunkCount = 0;      // tilemap chunks drawn (blocks of TilemapChunkSize x TilemapChunkSize tiles)
         uint32_t CulledTileChunkCount = 0; // tilemap chunks skipped: outside the camera's view
+        uint32_t ParticleCount = 0;       // particles drawn (every system)
+        uint32_t InstancedParticleCount = 0;     // of them drawn as GPU instances (ParticleRenderer)
+        uint32_t InstancedParticleDrawCount = 0; // the instanced draw calls they took (also in DrawCalls)
 
         // One line for logs (ZAMIN_EDITOR_STATS / ZAMIN_PLAYER_STATS): what was drawn, culled
         // and instanced.

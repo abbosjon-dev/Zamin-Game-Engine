@@ -116,6 +116,9 @@ namespace Zamin {
         // On: display (sRGB) colours, for drawing over the finished picture (a pixel-perfect game's
         // screen-space UI at the screen's resolution).
         static void SetDisplayOutput(bool display);
+        static bool IsDisplayOutput();
+        // The camera of the scene BeginScene opened (other renderers drawing into it: particles).
+        static const glm::mat4& GetViewProjection();
 
         static float GetLineWidth();
         static void SetLineWidth(float width);

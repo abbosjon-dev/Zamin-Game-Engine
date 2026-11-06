@@ -293,7 +293,16 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   - **Editor ko'rinish rejimlari** (viewport toolbar'i): wireframe (faqat qirralar yoki sirt + qirralar) va debug
     ko'rinishlar - faqat yorug'lik, normallar, albedo, roughness, metallic (qiymat ko'rinishlari tonemappingsiz)
   - **Particle tizimi**: olov, uchqun, tutun (additive blending, billboard, editor'da jonli preview). Simulyatsiya sahnadan
-    alohida (`ParticleSimulation`, `Scene/ParticleSystem.h`). Emitter shakllari: nuqta, doira, sfera, quti, **konus**
+    alohida (`ParticleSimulation`, `Scene/ParticleSystem.h`). **Asosiy sozlamalar**: sikl davomiyligi, takrorlash,
+    **oldindan to'ldirish** (prewarm - takrorlanadigan tizim boshidanoq bir sikl ishlagandek to'la), boshlanish
+    kechikishi, **simulyatsiya (vaqt) tezligi**, fazo - dunyo / lokal / **boshqa obyekt** (masalan kema: uchqunlar
+    kema bilan siljiydi, aylanayotgan minora bilan emas), **tugaganda** (takrorlanmaydigan tizim siklini o'ynab
+    bo'lgach: obyekt o'chiriladi / yo'q qilinadi; skript `OnParticlesFinished()` va "ParticlesFinished" hodisasini
+    oladi). Emissiya: soniyasiga N, boshida bir martalik portlash va **portlashlar jadvali** (har siklda: vaqt, soni,
+    sikllar - cheksiz ham, oraliq, ehtimollik). Chizish: 3D billboardlar **GPU instancing** bilan - har tizim bitta
+    chizish buyrug'ida (`ParticleRenderer`; 2D tekis particle'lar sprite'lar bilan 2D partiyada), shaffof (additive
+    emas) tizimlar kameradan uzoqlik bo'yicha **orqadan oldinga saralanadi** (yoki yoshi bo'yicha / saralanmaydi);
+    statistikada particle'lar soni va instanced chaqiruvlar. Emitter shakllari: nuqta, doira, sfera, quti, **konus**
     (asos radiusi, burchak, asosdan / hajmidan, 2D tekis yelpig'ich), **chiziq** (2D, lokal X bo'ylab), **mesh sirti**
     (primitiv, model fayli yoki obyektning Mesh Renderer'i; uchburchaklar yuzasiga qarab / qirralar / uchlar, normal
     bo'ylab yoki Yo'nalish bo'ylab); qalinlik (faqat cheti / sirti) va "markazdan tashqariga" yo'nalish. Ixtiyoriy
@@ -311,7 +320,9 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     boshlang'ich / tasodifiy kadr, tasodifiy qator, **Iz (trail)** - kameraga qaragan lenta (ulushi, umri, nuqta
     oralig'i, kenglik egri chizig'i, rang gradienti, particle rangida). Viewport'da emitter shakli (mesh qirralari ham)
     va to'qnashuv tekisligi gizmo bilan (Gizmolar > Particle shakli). Namunalar: Showcase3D `Scenes/Particles.zscene`,
-    `Scenes/ParticlesII.zscene` (mesh, shovqin, to'qnashuv + sachrash, spiral izlar, mushaklar)
+    `Scenes/ParticlesII.zscene` (mesh, shovqin, to'qnashuv + sachrash, spiral izlar, mushaklar), `Scenes/ParticlesIII.zscene`
+    (prewarm bilan / siz tutun, portlashlar jadvali favvorasi, kechikish bilan halqalar to'lqini, 9000 particle'li
+    instanced galaktika sekin harakatda, kema fazosidagi uchqunlar, o'zini yo'q qiladigan bir martalik mushak)
   - **Sprite animatsiya** (sprite sheet), pixel-art filtr, FlipX/FlipY
 - **2D fizika** (Box2D, `PhysicsWorld2D`): dinamik/statik/kinematik jismlar, box/circle collider, trigger'lar, to'qnashuv callback'lari
   - **Polygon Collider 2D**: istalgan ko'pburchak (obyekt masshtabi bilan); botiq yoki 8 tadan ko'p burchakli shakl
@@ -875,7 +886,7 @@ Foydali API:
 | Audio manba | `PlayAudio()` (obyektning `AudioSourceComponent`'ini boshidan chaladi; obyekt nofaol bo'lsa yoki ovozlar limiti rad etsa `false`), `StopAudio()`, `PauseAudio()` / `ResumeAudio()`, `IsAudioPlaying()` / `IsAudioPaused()`, `SetAudioVolume(v)`, `SetAudioPitch(p)`, `GetAudioTime()` / `SetAudioTime(s)`, `GetAudioLength()`; so'nish bilan — `PlayAudio(fadeIn)`, `StopAudio(fadeOut)`, `FadeAudio(volume, sekund)`, `GetAudioFade()`; filtr — `SetAudioLowPass(hz)`, `SetAudioHighPass(hz)`; boshqa obyektniki — `PauseAudio(entity)` va h.k.; `PlaySound(path, SoundParams)` — tasodifiy oraliq, ustuvorlik, nusxalar limiti, 3D o'rni, FadeIn, filtr bilan |
 | Musiqa va mixer | `Audio::PlayMusic("Audio/theme.ogg", 1.0f)`, `Audio::CrossfadeTo("Audio/boss.ogg", 2.0f)`, `Audio::StopMusic(fade)`, `PauseMusic()` / `ResumeMusic()`, `GetMusic()`, `SetMusicVolume(v)`; `Audio::SetGroupVolume("SFX", 0.5f)`, `SetGroupMuted("Music", true)`, `SetGroupLowPass("SFX", 500)`, `ResetMixer()`; `Audio::SaveSettings()` / `LoadSettings()` — o'yinchi sozlamalari (SaveData); `Audio::GetClipLength(path)`, `Audio::Preload(path)`; `PlaySound(path, vol, pitch, "UI")` — guruh bilan |
 | Debug chizish | `DebugDraw::Line(a, b, DebugColor::Red)`, `Ray(o, dir)`, `Arrow(a, b)`, `Box(center, half)` / `Box(center, half, quat)` / `Box(worldTransform)`, `Bounds(aabb)`, `Rect(c, size)`, `WireSphere(c, r)`, `Circle(c, normal, r)`, `Cross(p, size)`, `Point(p)`, `Axes(transform)`, `Path(points)`, `NavigationPath(points)`, `Text(p, "matn")` — oxirgi parametrlar: rang, `duration` (soniya, 0 = bir kadr), `depthTest` |
-| Boshqa | `LoadScene("Scenes/Level2.zscene")`, `EmitParticles(n)`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
+| Boshqa | `LoadScene("Scenes/Level2.zscene")`, `EmitParticles(n)`, `OnParticlesFinished()`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
 
 `ZM_FIELD` turlari: `float`, `int`, `bool`, `glm::vec2`, `glm::vec3`, `glm::vec4`, `std::string`, istalgan `enum` / `enum class` (har qanday asosiy tur: `uint8_t` ... `int64_t`), `EntityRef` (boshqa obyektga havola: inspektorda ierarxiyadan tortib tashlanadi yoki ro'yxatdan tanlanadi; nusxalash/prefab'da ichki havolalar yangi nusxaga moslashadi).
 

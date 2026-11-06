@@ -255,6 +255,104 @@ namespace {
         return scene;
     }
 
+    // Particle systems simulated for a fixed second of editor preview (the same numbers every run):
+    // additive circles, alpha-blended rotating quads, a flipbook texture on a cone, a local-space
+    // emitter under a turned and squeezed parent, flat (not facing the camera) quads and trails,
+    // partly behind a box (depth test without depth writes).
+    Ref<Scene> BuildParticlesScene()
+    {
+        using PS = ParticleSystemComponent;
+        auto scene = CreateRef<Scene>();
+        scene->SetName("Particles");
+        AddMesh(scene, "Ground", PrimitiveMesh::Plane, { 0, 0, 0 }, { 30, 1, 30 }, { 0.25f, 0.26f, 0.3f, 1 }, 0.0f, 0.9f);
+        AddMesh(scene, "Occluder", PrimitiveMesh::Cube, { -0.4f, 0.6f, 2.2f }, { 1.2f, 1.2f, 1.2f }, { 0.55f, 0.4f, 0.3f, 1 });
+        AddSun(scene, "Sun", { -0.9f, 0.6f, 0.0f }, { 1.0f, 0.96f, 0.9f }, 2.0f, false);
+        auto add = [&](const std::string& name, const glm::vec3& position) -> PS& {
+            Entity e = scene->CreateEntity(name);
+            e.GetTransform().Translation = position;
+            return e.AddComponent<PS>();
+        };
+        {
+            PS& fire = add("Additive circles", { -3.0f, 0.3f, 0.0f });
+            fire.Shape = PS::EmitterShape::Sphere;
+            fire.ShapeRadius = 0.4f;
+            fire.EmissionRate = 120.0f;
+            fire.Gravity = { 0.0f, 1.5f, 0.0f };
+            fire.StartSize = 0.6f;
+            fire.EndSize = 0.1f;
+        }
+        {
+            PS& smoke = add("Alpha quads", { 0.0f, 0.4f, 0.0f });
+            smoke.RenderAsCircle = false;
+            smoke.Additive = false;
+            smoke.EmissionRate = 60.0f;
+            smoke.Spread = 50.0f;
+            smoke.AngularVelocityMax = 3.0f;
+            smoke.StartColor = { 0.9f, 0.9f, 1.0f, 0.9f };
+            smoke.EndColor = { 0.2f, 0.3f, 0.9f, 0.2f };
+            smoke.StartSize = 0.5f;
+            smoke.EndSize = 0.9f;
+            smoke.LifetimeMin = smoke.LifetimeMax = 1.2f;
+        }
+        {
+            PS& flame = add("Flipbook cone", { 3.0f, 0.2f, 0.0f });
+            flame.Texture = TextureLibrary::Load(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D" / "Assets" / "Textures" / "flame_sheet.png");
+            flame.Shape = PS::EmitterShape::Cone;
+            flame.ConeAngle = 20.0f;
+            flame.ShapeRadius = 0.3f;
+            flame.RenderAsCircle = false;
+            flame.Additive = false;
+            flame.EmissionRate = 30.0f;
+            flame.StartColor = { 1, 1, 1, 1 };
+            flame.EndColor = { 1, 0.6f, 0.3f, 0.8f };
+            flame.StartSize = 0.9f;
+            flame.EndSize = 0.6f;
+            flame.TextureSheet.Enabled = true;
+            flame.TextureSheet.Columns = flame.TextureSheet.Rows = 4;
+        }
+        {
+            Entity parent = scene->CreateEntity("Turned parent");
+            parent.GetTransform().Translation = { 0.0f, 2.6f, -2.0f };
+            parent.GetTransform().Rotation = { 0.4f, 0.3f, 0.6f };
+            parent.GetTransform().Scale = { 1.5f, 0.7f, 1.0f };
+            Entity e = scene->CreateEntity("Local circles");
+            scene->SetParent(e, parent, false);
+            PS& local = e.AddComponent<PS>();
+            local.Space = PS::SimulationSpace::Local;
+            local.Shape = PS::EmitterShape::Box;
+            local.ShapeExtents = { 1.0f, 0.2f, 0.2f };
+            local.Additive = false;
+            local.EmissionRate = 50.0f;
+            local.StartColor = { 0.3f, 1.0f, 0.4f, 1.0f };
+            local.EndColor = { 1.0f, 1.0f, 0.2f, 0.0f };
+        }
+        {
+            PS& flat = add("Flat quads", { -1.8f, 2.8f, 1.0f });
+            flat.Billboard = false;
+            flat.RenderAsCircle = false;
+            flat.EmissionRate = 40.0f;
+            flat.Spread = 180.0f;
+            flat.AngularVelocityMax = 2.0f;
+            flat.StartColor = { 1.0f, 0.4f, 0.8f, 1.0f };
+            flat.EndColor = { 0.4f, 0.1f, 1.0f, 0.0f };
+        }
+        {
+            PS& comet = add("Trails", { 1.6f, 2.4f, 1.2f });
+            comet.EmissionRate = 12.0f;
+            comet.Spread = 60.0f;
+            comet.SpeedMin = comet.SpeedMax = 2.0f;
+            comet.Gravity = { 0.0f, -2.0f, 0.0f };
+            comet.StartSize = comet.EndSize = 0.2f;
+            comet.Trails.Enabled = true;
+            comet.Trails.Lifetime = 0.5f;
+            comet.Trails.MinVertexDistance = 0.05f;
+        }
+        // One second of the editor's preview in fixed steps.
+        for (int i = 0; i < 60; i++)
+            scene->UpdateEditorAnimation(1.0f / 60.0f);
+        return scene;
+    }
+
     // ------------------------------------------------------------------ the sample projects
     // A scene of one of the sample projects as it is (models, textures, HDRI, particles and
     // animators as loaded - nothing is updated).
@@ -309,6 +407,14 @@ namespace {
         }
         cases.push_back({ "Sprites2D", "Renderer2D: sprite'lar (aylangan, shaffof, saralangan), doira va halqalar, matn",
                           BuildSpritesScene, LookAt({ 0, 0, 0 }, 9.0f, 0.0f, 0.0f, true) });
+        cases.push_back({ "Particles", "Particle'lar: additive doiralar, shaffof quadlar, flipbook, lokal fazo, tekis quadlar, izlar "
+                          "(billboardlar GPU instancing bilan)", BuildParticlesScene, LookAt({ 0, 1.4f, 0 }, 10.0f, 12.0f, 15.0f) });
+        {
+            RenderCase c{ "Particles_NoInstancing", "Particles: instancing o'chiq (har particle 2D partiyada) - bir xil chiqishi kerak",
+                          BuildParticlesScene, LookAt({ 0, 1.4f, 0 }, 10.0f, 12.0f, 15.0f), "Particles" };
+            c.NoCullingOrInstancing = true;
+            cases.push_back(c);
+        }
         cases.push_back({ "Showcase3D", "Showcase3D namunasi: modellar, teksturalar, HDRI, skinned mesh",
                           ProjectScene("Showcase3D", "Scenes/Showcase.zscene"), LookAt({ 0, 1.5f, 0 }, 22.0f, 22.0f, 20.0f) });
         cases.push_back({ "Platformer2D", "Platformer2D namunasi: tilemap, sprite'lar, matn",

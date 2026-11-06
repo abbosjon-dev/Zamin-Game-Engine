@@ -313,11 +313,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 268. Yer tekisligi bilan to'qnashuv (bounce)
 - [x] 269. Shovqin (noise) turbulentlik
 - [x] 270. Trail (iz) rendering
-- [ ] 271. Particle'larni GPU'ga ko'proq batch qilish
-- [ ] 272. Particle sorting (kameraga masofa)
-- [ ] 273. Prewarm (boshidan to'ldirilgan holat)
-- [ ] 274. Emissiya portlashlari jadvali (bursts list)
-- [ ] 275. Simulyatsiya tezligi va local/world
+- [x] 271. Particle'larni GPU'ga ko'proq batch qilish
+- [x] 272. Particle sorting (kameraga masofa)
+- [x] 273. Prewarm (boshidan to'ldirilgan holat)
+- [x] 274. Emissiya portlashlari jadvali (bursts list)
+- [x] 275. Simulyatsiya tezligi va local/world
 - [ ] 276. Particle preset'lari kutubxonasi (olov, tutun, uchqun, yomg'ir, qor)
 - [ ] 277. Yomg'ir va qor effektlari (kamera atrofida)
 - [ ] 278. Particle inspektorida bo'limlar

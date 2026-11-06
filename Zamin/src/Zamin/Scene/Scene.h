@@ -704,6 +704,9 @@ namespace Zamin {
 
         // ---- particles (nothing is emitted for an entity that is not active in the hierarchy)
         void EmitParticles(Entity entity, int count);
+        // Where the entity's particles live in the world (their positions -> world): the emitter
+        // (Local), the Custom space's entity, else the identity (World, or the Custom entity gone).
+        glm::mat4 GetParticleSpace(Entity entity, const struct ParticleSystemComponent& ps);
 
         // ---- audio sources (AudioSourceComponent; only while the game runs)
         // Starts the source's sound from the beginning (a sound it is already playing is
@@ -1263,14 +1266,17 @@ namespace Zamin {
         // as one stretched piece (no borders, or exactly one tile). Several pieces get the flash only.
         static bool CanDrawOutline(const struct SpriteRendererComponent& sprite, const struct SpriteAnimationComponent* animation,
                                    const AssetRegistry* registry, const glm::vec2* uiSize = nullptr);
-        // A particle system's particles (and their trails) into the open Renderer2D batch (flushed
-        // around them: no depth writes, its blend mode); `transform` is the emitter's, `billboard`
-        // the camera's rotation, `viewer` its position (trails face it; orthographic: its view
-        // direction) (SceneParticles.cpp).
-        static void DrawParticleSystem(struct ParticleSystemComponent& ps, const glm::mat4& transform, const glm::mat4& billboard, int entityID,
+        // A particle system's particles (and their trails) into the open Renderer2D scene (flushed
+        // around them: no depth writes, its blend mode): billboards as GPU instances (one draw call,
+        // ParticleRenderer; while instancing is on), flat ones in the 2D batch; alpha-blended ones
+        // back to front (Sorting). `space` is the particles' space in the world (GetParticleSpace;
+        // not used for World), `billboard` the camera's rotation, `viewer` its position (trails and
+        // billboards face it; orthographic: its view direction) (SceneParticles.cpp).
+        static void DrawParticleSystem(struct ParticleSystemComponent& ps, const glm::mat4& space, const glm::mat4& billboard, int entityID,
                                        const AssetRegistry* registry, const glm::vec3& viewer = glm::vec3(0.0f), bool perspective = false);
-        // The box around a system's particles at their largest (any rotation, facing the camera or not).
-        static AABB GetParticleBounds(const struct ParticleSystemComponent& ps, const glm::mat4& emitter);
+        // The box around a system's particles at their largest (any rotation, facing the camera or
+        // not); `space` as for DrawParticleSystem.
+        static AABB GetParticleBounds(const struct ParticleSystemComponent& ps, const glm::mat4& space);
         // Draws it into the open Renderer2D batch (FlipX / FlipY are part of `transform`).
         static void DrawSprite(const glm::mat4& transform, const struct SpriteRendererComponent& sprite,
                                const struct SpriteAnimationComponent* animation, const glm::vec4& color, int entityID,

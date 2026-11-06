@@ -8404,6 +8404,15 @@ namespace Zamin {
                         row("2D obyektlar", RenderStatistics::FormatCount(scene.SpriteCount),
                             scene.TileChunkCount ? std::format("+{} tile bo'lak", scene.TileChunkCount).c_str() : nullptr,
                             "Sprite, doira, matn va zarrachalar tizimlari");
+                    if (scene.ParticleCount)
+                    {
+                        const std::string instanced = scene.InstancedParticleCount
+                                                    ? std::format("{} instanced / {} chaqiruv", RenderStatistics::FormatCount(scene.InstancedParticleCount),
+                                                                  scene.InstancedParticleDrawCount)
+                                                    : std::string();
+                        row("Particle'lar", RenderStatistics::FormatCount(scene.ParticleCount), instanced.c_str(),
+                            "Chizilgan particle'lar. 3D billboardlar GPU instancing bilan: har tizim bitta chizish buyrug'ida");
+                    }
                     ImGui::EndTable();
                 }
             }
@@ -9352,6 +9361,9 @@ namespace Zamin {
                 UI::PropertyLabel("Tile bo'laklari", "Tilemap'lar 16x16 plitkali bo'laklarda chiziladi: ko'rinmaydigan bo'lak butunlay "
                                                      "tashlab ketiladi (qavsda kesilganlari)");
                 drawnCulled(stats.TileChunkCount, stats.CulledTileChunkCount);
+                UI::PropertyLabel("Particle'lar", "Chizilgan particle'lar; qavsda GPU instancing bilan chizilganlari / ular olgan "
+                                                  "chaqiruvlar (3D billboardlar: har tizim bitta chaqiruvda)");
+                ImGui::Text("%u  (%u / %u)", stats.ParticleCount, stats.InstancedParticleCount, stats.InstancedParticleDrawCount);
                 UI::PropertyLabel("Quadlar"); ImGui::Text("%u", stats.QuadCount);
                 UI::PropertyLabel("Doiralar"); ImGui::Text("%u", stats.CircleCount);
                 UI::PropertyLabel("Chiziqlar"); ImGui::Text("%u", stats.LineCount);

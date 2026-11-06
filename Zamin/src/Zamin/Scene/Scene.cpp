@@ -802,6 +802,7 @@ namespace Zamin {
             if (auto* ps = e.TryGetComponent<ParticleSystemComponent>())
             {
                 remap(ps->Collision.PlaneEntity);
+                remap(ps->CustomSpace);
                 for (auto& sub : ps->SubEmitters.Emitters)
                     remap(sub.Emitter);
             }
@@ -6671,7 +6672,7 @@ namespace Zamin {
         {
             const auto& ps = m_Registry.get<ParticleSystemComponent>(e);
             if (ps.Particles.empty() || skip(e)) continue;
-            if (culling2D && !seen(GetParticleBounds(ps, world(e))))
+            if (culling2D && !seen(GetParticleBounds(ps, ps.IsLocalSpace() ? world(e) : GetParticleSpace({ e, this }, ps))))
                 continue;
             items.push_back({ keyOf(e, ps.SortingLayer, ps.SortingOrder), 3, e });
         }
@@ -6830,8 +6831,11 @@ namespace Zamin {
                     }
             }
             else
-                DrawParticleSystem(m_Registry.get<ParticleSystemComponent>(item.Handle), transform, billboard, id, registry(), cameraPosition,
-                                   projection[3][3] == 0.0f);
+            {
+                auto& ps = m_Registry.get<ParticleSystemComponent>(item.Handle);
+                DrawParticleSystem(ps, ps.IsLocalSpace() ? transform : GetParticleSpace({ item.Handle, this }, ps), billboard, id, registry(),
+                                   cameraPosition, projection[3][3] == 0.0f);
+            }
         }
         Renderer2D::SetLit(false);
         Renderer2D::EndScene();

@@ -2,6 +2,7 @@
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Renderer/Renderer2D.h"
 #include "Zamin/Renderer/Renderer3D.h"
+#include "Zamin/Renderer/ParticleRenderer.h"
 #include "Zamin/Renderer/Font.h"
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/Model.h"
@@ -23,6 +24,7 @@ namespace Zamin {
         RenderCommand::Init();
         Renderer2D::Init();
         Renderer3D::Init();
+        ParticleRenderer::Init();
         PostProcessor::Init();
     }
 
@@ -37,6 +39,7 @@ namespace Zamin {
         DebugDraw::Shutdown();
         SelectionOutline::Shutdown();
         PostProcessor::Shutdown();
+        ParticleRenderer::Shutdown();
         Renderer3D::Shutdown();
         Renderer2D::Shutdown();
         RenderCommand::Shutdown();
@@ -80,10 +83,11 @@ namespace Zamin {
     {
         return std::format("draw call {}, uchburchak {} | mesh: {} chizildi, {} kesildi, {} instanced ({} chaqiruv), {} shaffof | "
                            "soya: {} chizildi, {} kesildi, {} instanced ({} chaqiruv) | 2D: {} chizildi, {} kesildi | tile bo'laklari: "
-                           "{} chizildi, {} kesildi | quad {}, doira {}, chiziq {}",
+                           "{} chizildi, {} kesildi | quad {}, doira {}, chiziq {} | particle {} ({} instanced, {} chaqiruv)",
                            DrawCalls, TriangleCount, MeshCount, CulledMeshCount, InstancedMeshCount, InstancedDrawCount, TransparentCount,
                            ShadowCasterCount, CulledShadowCasterCount, InstancedShadowCasterCount, InstancedShadowDrawCount, SpriteCount,
-                           CulledSpriteCount, TileChunkCount, CulledTileChunkCount, QuadCount, CircleCount, LineCount);
+                           CulledSpriteCount, TileChunkCount, CulledTileChunkCount, QuadCount, CircleCount, LineCount, ParticleCount,
+                           InstancedParticleCount, InstancedParticleDrawCount);
     }
 
     std::filesystem::path Renderer::GetResourcesDirectory()

@@ -1177,12 +1177,46 @@ namespace Zamin {
         // the entity's own Mesh Renderer shows.
         enum class MeshShapeSource { Primitive = 0, Model, Renderer };
         using MeshEmitMode = ParticleMeshMode;
+        // Where the particles live: World - they stay where they were born when the emitter
+        // moves; Local - they move (turn, scale) with the emitter; Custom - with another entity
+        // (CustomSpace: a ship whose turret emits; not set or gone: World).
+        enum class SimulationSpace { Local = 0, World, Custom };
+        // What happens when a non-looping system has finished (its Duration over, its last
+        // particle dead) while the game runs: nothing, the entity switched off, or destroyed.
+        // Scripts hear of it either way (OnParticlesFinished, the bus' "ParticlesFinished").
+        enum class StopAction { None = 0, Disable, Destroy };
+        // The order the particles are drawn in (the last one on top): Auto - back to front by
+        // the camera's distance when alpha-blended (not Additive), else as they were born;
+        // ByDistance - back to front always; OldestOnTop / YoungestOnTop - by age.
+        enum class SortMode { Auto = 0, None, ByDistance, OldestOnTop, YoungestOnTop };
+
+        // A burst of the emission: Count particles (with that chance) Time seconds into each
+        // cycle, repeated Cycles times (0: until the cycle ends) every Interval seconds.
+        struct EmissionBurst
+        {
+            float Time = 0.0f;
+            int Count = 30;
+            int Cycles = 1;
+            float Interval = 0.5f;
+            float Probability = 1.0f;
+            bool operator==(const EmissionBurst&) const = default;
+        };
 
         bool Playing = true;
         bool Looping = true;
         bool PlayInEditor = true;
+        // One cycle of the emission (seconds): the bursts' times are in it and it starts over
+        // while Looping; a non-looping system emits for one cycle, then finishes (StopActionType).
+        float Duration = 5.0f;
+        float StartDelay = 0.0f;     // seconds before it starts emitting
+        // Looping: it starts as if it had already run a whole cycle (a smoking chimney is full of
+        // smoke at once). Sub-emitters do not fire for the prewarm.
+        bool Prewarm = false;
+        float SimulationSpeed = 1.0f; // its time runs this many times as fast (0.5: slow motion)
+        StopAction StopActionType = StopAction::None;
         float EmissionRate = 30.0f;  // particles / second
-        int Burst = 0;               // particles emitted once at start
+        int Burst = 0;               // particles emitted once when it starts playing (not every cycle)
+        std::vector<EmissionBurst> Bursts; // every cycle
         int MaxParticles = 1000;
 
         EmitterShape Shape = EmitterShape::Point;
@@ -1385,8 +1419,10 @@ namespace Zamin {
 
         bool RenderAsCircle = true;
         bool Additive = true;
-        bool WorldSpace = true;      // particles stay in the world when the emitter moves
+        SimulationSpace Space = SimulationSpace::World;
+        EntityRef CustomSpace;       // Space Custom: the entity the particles move with
         bool Billboard = true;       // face the camera (3D)
+        SortMode Sorting = SortMode::Auto;
         std::string TexturePath;
         Ref<Texture2D> Texture;
         uint32_t SortingLayer = 0;
@@ -1398,10 +1434,16 @@ namespace Zamin {
         bool BurstDone = false;
         uint32_t RandomState = 0x9E3779B9u;
         float Time = 0.0f;                    // seconds simulated since it started (noise, trails)
+        float PlayTime = 0.0f;                // seconds it has played (emitted) since it started, StartDelay included
+        bool Prewarmed = false;
+        bool Finished = false;                // a non-looping system that played its cycle and emptied (once)
         std::vector<ParticleEvent> Events;    // for the sub-emitters (the scene takes them every frame)
         ParticleTrailPool TrailPool;
         Ref<const ParticleEmitterMesh> MeshRuntime; // the Mesh shape's mesh (the scene finds it)
         std::string MeshRuntimeKey;                 // what it was found for
+
+        // Particles in the emitter's own space (Local): they move with it.
+        bool IsLocalSpace() const { return Space == SimulationSpace::Local; }
 
         void Clear()
         {
@@ -1409,6 +1451,9 @@ namespace Zamin {
             EmitAccumulator = 0.0f;
             BurstDone = false;
             Time = 0.0f;
+            PlayTime = 0.0f;
+            Prewarmed = false;
+            Finished = false;
             Events.clear();
             TrailPool.Reset(0);
             MeshRuntime = nullptr;

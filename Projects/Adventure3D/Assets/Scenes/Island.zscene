@@ -3456,6 +3456,32 @@
         "AnyStateGraph": [
           100,
           140
+        ],
+        "Events": [
+          {
+            "Clip": "Walk",
+            "Time": 0.0,
+            "Name": "Footstep",
+            "Parameter": "R"
+          },
+          {
+            "Clip": "Walk",
+            "Time": 0.5,
+            "Name": "Footstep",
+            "Parameter": "L"
+          },
+          {
+            "Clip": "Run",
+            "Time": 0.0,
+            "Name": "Footstep",
+            "Parameter": "R"
+          },
+          {
+            "Clip": "Run",
+            "Time": 0.5,
+            "Name": "Footstep",
+            "Parameter": "L"
+          }
         ]
       },
       "CharacterController3D": {
@@ -3467,9 +3493,117 @@
         "GravityScale": 1.6,
         "StickToFloor": true
       },
+      "Footsteps": {
+        "Sounds": [
+          {
+            "Path": "Audio/Step1.wav"
+          },
+          {
+            "Path": "Audio/Step2.wav"
+          },
+          {
+            "Path": "Audio/Step3.wav"
+          },
+          {
+            "Path": "Audio/Step4.wav"
+          }
+        ],
+        "Event": "Footstep",
+        "Volume": 0.7,
+        "VolumeRandom": [
+          0.85,
+          1.0
+        ],
+        "PitchRandom": [
+          0.92,
+          1.08
+        ],
+        "SpeedParameter": "Speed",
+        "ReferenceSpeed": 3.0,
+        "SpeedPitch": 0.12,
+        "SpeedVolume": 0.35,
+        "MinSpeed": 0.6,
+        "MinInterval": 0.12,
+        "Spatial": true,
+        "MinDistance": 1.0,
+        "MaxDistance": 25.0,
+        "Output": "SFX"
+      },
       "NativeScript": {
         "Class": "ThirdPersonController",
         "Fields": {}
+      }
+    },
+    {
+      "Entity": 7394000000000901,
+      "Tag": "Fonar",
+      "Parent": 7394000000000052,
+      "Transform": {
+        "Translation": [
+          0,
+          -0.32,
+          0.1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.2,
+          0.26,
+          0.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cylinder",
+        "Model": "",
+        "CastShadows": false,
+        "Material": "",
+        "Albedo": [
+          1.0,
+          0.82,
+          0.45,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Offset": [
+          0,
+          0
+        ],
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Metallic": 0.0,
+        "Roughness": 0.4,
+        "Emission": [
+          1.0,
+          0.7,
+          0.3
+        ],
+        "EmissionStrength": 3.0,
+        "Shader": "Lit",
+        "BlendMode": "Opaque",
+        "AlphaCutoff": 0.5,
+        "DoubleSided": false,
+        "PreserveSpecular": true,
+        "SortPriority": 0
+      },
+      "PointLight": {
+        "Color": [
+          1.0,
+          0.72,
+          0.38
+        ],
+        "Intensity": 3.0,
+        "Radius": 4.0
+      },
+      "BoneAttachment": {
+        "Target": 0,
+        "Bone": "ForearmR",
+        "InheritBoneScale": false
       }
     },
     {

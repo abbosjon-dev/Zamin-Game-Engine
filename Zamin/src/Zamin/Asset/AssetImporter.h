@@ -15,7 +15,9 @@ namespace Zamin {
     // files:
     //   texture: { "Filter": "Linear" | "Nearest", "Wrap": "Repeat" | "Clamp" | "Mirror",
     //              "Mipmaps": true, "sRGB": true }
-    //   model:   { "Scale": 1.0, "UpAxis": "Y" | "Z", "FlipUVs": false }
+    //   model:   { "Scale": 1.0, "UpAxis": "Y" | "Z", "FlipUVs": false,
+    //              "Clips": [ { "Source": "Take", "Name": "Walk", "Start": 0.5, "End": 1.7 } ],  (trimmed / sub-clips)
+    //              "KeepSourceClips": true, "ClipFPS": 30 }
     //   audio:   { "LoadMode": "Auto" | "Decompress" | "Stream", "Preload": false, "Volume": 1.0 }
     // A missing (or unreadable) value means the default, so assets without settings load as before.
     class AssetImporter

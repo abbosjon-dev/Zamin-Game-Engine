@@ -1,5 +1,14 @@
 {
     "UUID": "5f570ab22297e0a1",
     "Type": "Model",
-    "Import": {}
+    "Import": {
+        "Clips": [
+            {
+                "Source": "Wave",
+                "Name": "WaveHalf",
+                "Start": 0.5,
+                "End": 1.5
+            }
+        ]
+    }
 }

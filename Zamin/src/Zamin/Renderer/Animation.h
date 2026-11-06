@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -35,14 +36,34 @@ namespace Zamin {
         std::vector<glm::vec4> Values;          // xyz or quaternion (x,y,z,w)
     };
 
+    // Morph target (blend shape) weights a clip animates: the weights of every target of one morph
+    // group (a glTF mesh node with blend shapes, Model::GetMorphGroups) at each key.
+    struct MorphWeightChannel
+    {
+        int Group = -1;                         // index into Model::GetMorphGroups()
+        uint32_t Count = 0;                     // weights per key (the group's targets)
+        bool Step = false;                      // STEP interpolation (else linear)
+        std::vector<float> Times;
+        std::vector<float> Values;              // Times.size() x Count, key after key
+    };
+
     struct AnimationClip
     {
         std::string Name;
         float Duration = 0.0f;
         std::vector<AnimationChannel> Channels;
+        std::vector<MorphWeightChannel> MorphChannels;
     };
 
+    // The weights of a morph channel at `time` seconds: channel.Count values into `out`.
+    void SampleMorphChannel(const MorphWeightChannel& channel, float time, float* out);
+
     static constexpr int MaxJoints = 80; // fits the uniform budget of most GL 4.1 drivers
+
+    // The part of `clip` from `start` to `end` seconds as a clip of its own (its time 0 = `start`):
+    // every channel gets its value at both ends as keys plus the keys in between. start / end are
+    // clamped to the clip (end < 0: its end; end before start: a one-pose clip of length 0).
+    AnimationClip TrimClip(const AnimationClip& clip, float start, float end, const std::string& name);
 
     // Computes skinning matrices (global * inverseBind) for `time` seconds into `clip`.
     // rootMotionJoint >= 0: that joint's walk (XZ) and turn (yaw about Y) are taken out of the pose -
@@ -115,5 +136,9 @@ namespace Zamin {
     // matrices EvaluatePose made (joint matrix x inverse bind). `jointMatrices` that do not fit
     // the skeleton (empty, another count) give the rest pose.
     void GetJointTransforms(const Skeleton& skeleton, const std::vector<glm::mat4>& jointMatrices, std::vector<glm::mat4>& outGlobal);
+    // The same for one joint (its rest pose when `jointMatrices` do not fit the skeleton).
+    glm::mat4 GetJointTransform(const Skeleton& skeleton, const std::vector<glm::mat4>& jointMatrices, int joint);
+    // The joint called `name` (-1: none).
+    int FindJoint(const Skeleton& skeleton, const std::string& name);
 
 }

@@ -212,8 +212,7 @@ namespace Zamin {
         {
             Entity e = m_Scene->GetEntityByUUID(item.ID);
             if (!e) continue;
-            Entity parent = m_Scene->GetParent(e);
-            const glm::mat4 toLocal = parent ? glm::inverse(m_Scene->GetWorldTransform(parent)) : glm::mat4(1.0f);
+            const glm::mat4 toLocal = glm::inverse(m_Scene->GetParentWorldTransform(e)); // the bone's space when on one
             auto& tc = e.GetComponent<TransformComponent>();
 
             const glm::vec3 worldPosition = glm::vec3(delta * item.StartWorld[3]);

@@ -12,6 +12,21 @@ namespace Zamin {
 
     enum class ModelUpAxis { Y = 0, Z };
 
+    // A clip the importer makes out of one of the file's clips (the "Clips" list of a model's import
+    // settings): the part of `Source` from Start to End seconds, named Name. Named like its source
+    // it replaces it (the clip trimmed); with another name it is a clip of its own (sub-clips:
+    // "Walk", "Run" and "Jump" cut out of one long take).
+    struct ModelClipSettings
+    {
+        std::string Source;     // the file's clip
+        std::string Name;       // "" = Source (the source trimmed in place)
+        float Start = 0.0f;     // seconds into Source
+        float End = -1.0f;      // seconds into Source (< 0, or past its end: its end)
+
+        const std::string& GetName() const { return Name.empty() ? Source : Name; }
+        bool operator==(const ModelClipSettings&) const = default;
+    };
+
     // How a model file is imported: the "Import" object of its .zmeta file (see AssetImporter).
     struct ModelImportSettings
     {
@@ -19,10 +34,24 @@ namespace Zamin {
         ModelUpAxis UpAxis = ModelUpAxis::Y;  // Z: the file is Z-up (CAD, some exporters) and is turned to Y-up
         bool FlipUVs = false;                 // V = 1 - V (textures shown upside down)
 
+        // ---- animation clips: trimmed / split (see ModelClipSettings)
+        std::vector<ModelClipSettings> Clips;
+        // false: a clip of the file that sub-clips are cut out of is not kept itself (only its
+        // sub-clips; one named like it is its trimmed version). Clips nothing is cut from stay.
+        bool KeepSourceClips = true;
+        float ClipFrameRate = 30.0f;          // frames the editor shows clip times in (display only)
+
         // What is applied to the file's geometry and skeleton: scale, then the up-axis rotation.
         glm::mat4 GetTransform() const;
         bool operator==(const ModelImportSettings&) const = default;
     };
+
+    // The clips of a model as its import settings make them out of the file's `clips`: each
+    // ModelClipSettings cut out (TrimClip) - in place of its source when named like it, after the
+    // file's clips otherwise; sources dropped when !keepSources. Entries whose source is missing
+    // or whose name is taken by an earlier entry are skipped (their reasons go to `warnings`).
+    void ApplyClipSettings(std::vector<AnimationClip>& clips, const std::vector<ModelClipSettings>& settings, bool keepSources,
+                           std::vector<std::string>* warnings = nullptr);
 
     // Applies an import transform to a skeleton whose skinned vertices were transformed by
     // `transform`: the skinned result is the old one transformed the same way (animations, which
@@ -50,6 +79,46 @@ namespace Zamin {
         std::vector<std::string> Warnings;              // images that could not be taken out (missing, unknown format)
     };
 
+    // A glTF mesh node with morph targets (blend shapes): what its targets are called and the
+    // weights it has by default. A model's weights are one flat list, its groups after each other.
+    struct MorphGroup
+    {
+        std::string Name;                       // the node's (or its mesh's) name
+        std::vector<std::string> Targets;       // the file's target names ("Target N" without them)
+        std::vector<float> DefaultWeights;      // the node's / mesh's weights (0 where it has none)
+        uint32_t Offset = 0;                    // where its weights start in the model's flat list
+
+        uint32_t GetCount() const { return (uint32_t)Targets.size(); }
+    };
+
+    // The morph targets of one submesh: its vertices without any target, and what each target adds
+    // to their positions and normals. Shared by everything drawing the model; per-entity weights
+    // make per-entity meshes from it (ApplyMorphTargets).
+    struct MorphTargetData
+    {
+        int Group = -1;                                 // index into Model::GetMorphGroups()
+        bool Skinned = false;
+        std::vector<MeshVertex> Vertices;               // the base vertices (not skinned meshes)
+        std::vector<SkinnedVertex> SkinnedVertices;     // the base vertices (skinned meshes)
+        std::vector<uint32_t> Indices;
+        std::vector<std::vector<glm::vec3>> PositionDeltas; // per target, one per vertex
+        std::vector<std::vector<glm::vec3>> NormalDeltas;   // per target (empty: it has none)
+
+        size_t GetVertexCount() const { return Skinned ? SkinnedVertices.size() : Vertices.size(); }
+        size_t GetTargetCount() const { return PositionDeltas.size(); }
+    };
+
+    // The base vertices plus each target's offsets times its weight (`weights`: one per target of
+    // the submesh's group, missing ones 0); normals renormalized.
+    void ApplyMorphTargets(const MorphTargetData& data, const float* weights, size_t count, std::vector<MeshVertex>& out);
+    void ApplyMorphTargets(const MorphTargetData& data, const float* weights, size_t count, std::vector<SkinnedVertex>& out);
+
+    class Model;
+    // The weights `clip` gives the morph groups it animates at `time` seconds, written into the
+    // model's flat list `weights` (resized to it; the groups the clip does not animate keep theirs).
+    // Returns true when the clip animates any.
+    bool SampleClipMorphWeights(const Model& model, const AnimationClip* clip, float time, std::vector<float>& weights);
+
     // A model asset made of several meshes, each with its own material (glTF / OBJ).
     class Model
     {
@@ -60,6 +129,8 @@ namespace Zamin {
             Material Mat;
             std::string Name;
             int MaterialIndex = -1; // the file's material it was made with (-1 = none; .obj: 0)
+            // Morph targets (glTF blend shapes): MeshRef shows them at the group's default weights.
+            Ref<MorphTargetData> Morph;
         };
 
         const std::vector<SubMesh>& GetSubMeshes() const { return m_SubMeshes; }
@@ -68,6 +139,9 @@ namespace Zamin {
 
         const Skeleton& GetSkeleton() const { return m_Skeleton; }
         const std::vector<AnimationClip>& GetAnimations() const { return m_Animations; }
+        // The file's clips as they are in it - before the import settings trim / split them
+        // (ModelImportSettings::Clips; the editor's clip settings preview these).
+        const std::vector<AnimationClip>& GetSourceAnimations() const { return m_ClipsCut ? m_SourceAnimations : m_Animations; }
         bool IsSkinned() const { return !m_Skeleton.Empty(); }
         int FindAnimation(const std::string& name) const
         {
@@ -75,6 +149,23 @@ namespace Zamin {
                 if (m_Animations[i].Name == name) return (int)i;
             return -1;
         }
+
+        // ---- morph targets (blend shapes)
+        const std::vector<MorphGroup>& GetMorphGroups() const { return m_MorphGroups; }
+        bool HasMorphTargets() const { return !m_MorphGroups.empty(); }
+        // Weights in the model's flat list (every group's targets after each other).
+        uint32_t GetMorphWeightCount() const
+        {
+            return m_MorphGroups.empty() ? 0u : m_MorphGroups.back().Offset + m_MorphGroups.back().GetCount();
+        }
+        // The flat index of a target: its name, or "Group/Target" (-1 when there is none).
+        int FindMorphTarget(const std::string& name) const;
+        // "Target" (one group) or "Group/Target" of a flat index ("" outside the list).
+        std::string GetMorphTargetName(uint32_t index) const;
+        // The default weights of every group as one flat list.
+        std::vector<float> GetDefaultMorphWeights() const;
+        // Models made in code (tests, procedural meshes): the morph groups the clips' weight channels refer to.
+        void SetMorphGroups(std::vector<MorphGroup> groups);
 
         const ModelImportSettings& GetImportSettings() const { return m_ImportSettings; }
         // Other files the model is read from (external .gltf buffers), absolute.
@@ -128,6 +219,9 @@ namespace Zamin {
         std::filesystem::path m_Path;
         Skeleton m_Skeleton;
         std::vector<AnimationClip> m_Animations;
+        std::vector<AnimationClip> m_SourceAnimations; // only when the import settings cut clips (m_ClipsCut)
+        bool m_ClipsCut = false;
+        std::vector<MorphGroup> m_MorphGroups;
         ModelImportSettings m_ImportSettings;
         std::vector<std::filesystem::path> m_Dependencies;
         friend class ModelLoader;

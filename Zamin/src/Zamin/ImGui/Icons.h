@@ -184,3 +184,8 @@
 #define ICON_FA_FLAG "\xef\x80\xa4"
 #define ICON_FA_ARROW_DOWN_WIDE_SHORT "\xef\x85\xa0" // sort
 #define ICON_FA_ASTERISK "\x2a"
+// animation II (M13): footsteps, blend shapes, bone attachments
+#define ICON_FA_SHOE_PRINTS "\xef\x95\x8b"
+#define ICON_FA_FACE_SMILE "\xef\x84\x98"
+#define ICON_FA_PAPERCLIP "\xef\x83\x86"
+#define ICON_FA_HAND "\xef\x89\x96"

@@ -221,6 +221,9 @@ namespace Zamin {
         void OnUpdateRuntime(Timestep ts);
         void OnUpdateSimulation(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options = {});
         void OnUpdateEditor(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options = {});
+        // What OnUpdateEditor animates before it draws: sprite / tint animations, particles and
+        // Animators as the editor shows them (their previews, the Animation window's scrubbing).
+        void UpdateEditorAnimation(Timestep ts);
         // Draws the scene from the editor camera without updating anything (an extra pass in
         // the same frame, e.g. the editor's click-through picking).
         void OnRenderEditor(const EditorCamera& camera, const SceneRenderOptions& options = {});
@@ -382,6 +385,17 @@ namespace Zamin {
         glm::mat4 GetWorldTransform(Entity entity);
         // Sets local transform so that the entity ends up at `world`.
         void SetWorldTransform(Entity entity, const glm::mat4& world);
+        // The space the entity's Transform is in: its bone's (BoneAttachmentComponent), else its
+        // parent's world transform, else the world (identity).
+        glm::mat4 GetParentWorldTransform(Entity entity);
+        // ---- bone attachments (BoneAttachmentComponent)
+        // The model entity an attachment follows: its Target, else its nearest ancestor with a
+        // skinned Mesh Renderer (an invalid entity when there is none).
+        Entity GetBoneAttachmentTarget(Entity entity);
+        // Where the attachment's bone is in its target's own space (the model's space, the pose its
+        // Animator gives it; scale left out unless InheritBoneScale). False when the entity is not
+        // attached or its target / bone is missing - it then follows its parent as usual.
+        bool GetBoneAttachmentLocal(Entity entity, Entity& target, glm::mat4& boneInTarget);
         glm::vec3 GetWorldPosition(Entity entity);
 
         // ---- bounds (editor framing: F = selection, Shift+F = whole scene)
@@ -939,6 +953,9 @@ namespace Zamin {
         // scripts (OnSoundFinished) and the event bus.
         void DispatchFinishedSounds();
         void UpdateAnimators(Timestep ts, bool editor);
+        // The mesh a morphed submesh is drawn with: the model's shared one at its own weights, else
+        // the entity's copy with the weights in effect (its Animator's, else its Mesh Renderer's).
+        Ref<Mesh> GetMorphedMesh(entt::entity entity, struct MeshRendererComponent& mr, size_t submesh);
         // Sprite animations: time, their clips (.zsanim: frames, texture, events); the editor
         // shows the first clip's frames.
         void UpdateSpriteAnimations(Timestep ts, bool editor);
@@ -957,6 +974,12 @@ namespace Zamin {
         void ApplyRootMotion(Entity entity, struct AnimatorComponent& anim, const RootMotion& motion, float ts);
         // Tells the entity's script (OnAnimationEvent) and the event bus ("AnimationEvent").
         void FireAnimationEvent(Entity entity, const AnimationEvent& event, const std::string& clip, bool skeletal);
+    public:
+        // A step of the entity's FootstepsComponent now (its animation event): a random sound,
+        // scaled by the speed. Returns the sound's handle (0: none - too slow, too soon after the
+        // last step, no sounds, no audio device). The Footsteps component calls it on its event.
+        uint32_t PlayFootstep(Entity entity, struct FootstepsComponent& steps);
+    private:
         // TintAnimationComponent: the playing ones advance (editor: only the inspector's previews).
         void UpdateTintAnimations(Timestep ts, bool editor);
     public:

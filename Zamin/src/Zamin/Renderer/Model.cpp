@@ -15,6 +15,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <functional>
 #include <unordered_map>
@@ -41,6 +42,73 @@ namespace Zamin {
         skeleton.RootTransform = transform * skeleton.RootTransform;
         for (Joint& joint : skeleton.Joints)
             joint.InverseBind = joint.InverseBind * inverse;
+    }
+
+    void ApplyClipSettings(std::vector<AnimationClip>& clips, const std::vector<ModelClipSettings>& settings, bool keepSources,
+                           std::vector<std::string>* warnings)
+    {
+        if (settings.empty())
+            return;
+        const std::vector<AnimationClip> sources = clips;
+        auto findSource = [&](const std::string& name) -> const AnimationClip* {
+            for (const AnimationClip& c : sources)
+                if (c.Name == name)
+                    return &c;
+            return nullptr;
+        };
+        auto warn = [&](std::string text) {
+            if (warnings)
+                warnings->push_back(std::move(text));
+        };
+        // The names the entries make (the first entry of a name wins).
+        std::vector<std::string> names;
+        std::vector<const ModelClipSettings*> entries;
+        for (const ModelClipSettings& s : settings)
+        {
+            if (s.Source.empty())
+                continue;
+            if (!findSource(s.Source))
+            {
+                warn(std::format("'{}' klipi faylda yo'q - '{}' yaratilmadi", s.Source, s.GetName()));
+                continue;
+            }
+            if (std::find(names.begin(), names.end(), s.GetName()) != names.end())
+            {
+                warn(std::format("'{}' nomli klip ikki marta - ikkinchisi tashlab ketildi", s.GetName()));
+                continue;
+            }
+            // A sub-clip may not take the name of another file clip (it would hide it).
+            if (s.GetName() != s.Source && findSource(s.GetName()))
+            {
+                warn(std::format("'{}' nomi fayldagi boshqa klipniki - '{}' dan kesilgan klip yaratilmadi", s.GetName(), s.Source));
+                continue;
+            }
+            names.push_back(s.GetName());
+            entries.push_back(&s);
+        }
+        std::vector<AnimationClip> out;
+        out.reserve(sources.size() + entries.size());
+        // The file's clips in their order: trimmed in place, kept, or dropped.
+        for (const AnimationClip& c : sources)
+        {
+            const ModelClipSettings* same = nullptr;
+            bool used = false;
+            for (const ModelClipSettings* e : entries)
+            {
+                used |= e->Source == c.Name;
+                if (e->Source == c.Name && e->GetName() == c.Name)
+                    same = e;
+            }
+            if (same)
+                out.push_back(TrimClip(c, same->Start, same->End, c.Name));
+            else if (!used || keepSources)
+                out.push_back(c);
+        }
+        // Then the sub-clips with names of their own, in the list's order.
+        for (const ModelClipSettings* e : entries)
+            if (e->GetName() != e->Source)
+                out.push_back(TrimClip(*findSource(e->Source), e->Start, e->End, e->GetName()));
+        clips = std::move(out);
     }
 
     // ------------------------------------------------------------------ loading
@@ -512,47 +580,35 @@ namespace Zamin {
                 cgltf_node_transform_world(ordered[0]->parent, m);
                 sk.RootTransform = glm::make_mat4(m);
             }
-
-            // ---- animations targeting joints
-            for (cgltf_size a = 0; a < data->animations_count; a++)
-            {
-                const cgltf_animation& anim = data->animations[a];
-                AnimationClip clip;
-                clip.Name = anim.name ? anim.name : ("Anim" + std::to_string(a));
-                for (cgltf_size c = 0; c < anim.channels_count; c++)
-                {
-                    const cgltf_animation_channel& ch = anim.channels[c];
-                    auto it = jointIndex.find(ch.target_node);
-                    if (it == jointIndex.end() || !ch.sampler) continue;
-                    AnimationChannel out;
-                    out.JointIndex = it->second;
-                    if (ch.target_path == cgltf_animation_path_type_translation) out.Target = AnimationChannel::Path::Translation;
-                    else if (ch.target_path == cgltf_animation_path_type_rotation) out.Target = AnimationChannel::Path::Rotation;
-                    else if (ch.target_path == cgltf_animation_path_type_scale) out.Target = AnimationChannel::Path::Scale;
-                    else continue;
-                    out.Step = ch.sampler->interpolation == cgltf_interpolation_type_step;
-                    bool cubic = ch.sampler->interpolation == cgltf_interpolation_type_cubic_spline;
-                    const cgltf_accessor* in = ch.sampler->input;
-                    const cgltf_accessor* val = ch.sampler->output;
-                    int comps = out.Target == AnimationChannel::Path::Rotation ? 4 : 3;
-                    for (cgltf_size k = 0; k < in->count; k++)
-                    {
-                        float t = 0.0f;
-                        cgltf_accessor_read_float(in, k, &t, 1);
-                        float v[4] = { 0, 0, 0, 1 };
-                        cgltf_accessor_read_float(val, cubic ? k * 3 + 1 : k, v, comps); // cubic: take the value, ignore tangents
-                        out.Times.push_back(t);
-                        out.Values.emplace_back(v[0], v[1], v[2], v[3]);
-                        clip.Duration = std::max(clip.Duration, t);
-                    }
-                    clip.Channels.push_back(std::move(out));
-                }
-                if (!clip.Channels.empty())
-                    model->m_Animations.push_back(std::move(clip));
-            }
         }
 
-        auto addPrimitive = [&](const cgltf_primitive& prim, const glm::mat4& transformIn, const char* name, const cgltf_skin* primSkin) {
+        // Morph groups: one per mesh node with targets (its weights are the node's / mesh's).
+        std::unordered_map<const cgltf_node*, int> nodeMorphGroup;
+        auto morphGroupOf = [&](const cgltf_node* node) -> int {
+            if (!node || !node->mesh || node->mesh->primitives_count == 0 || node->mesh->primitives[0].targets_count == 0)
+                return -1;
+            if (auto it = nodeMorphGroup.find(node); it != nodeMorphGroup.end())
+                return it->second;
+            const cgltf_mesh& mesh = *node->mesh;
+            const cgltf_size count = mesh.primitives[0].targets_count;
+            MorphGroup group;
+            group.Name = node->name ? node->name : mesh.name ? mesh.name : std::format("Mesh{}", model->m_MorphGroups.size());
+            for (cgltf_size t = 0; t < count; t++)
+            {
+                const char* targetName = t < mesh.target_names_count && mesh.target_names ? mesh.target_names[t] : nullptr;
+                group.Targets.push_back(targetName && *targetName ? targetName : std::format("Target {}", t));
+                float w = 0.0f;
+                if (node->weights && t < node->weights_count) w = node->weights[t];
+                else if (mesh.weights && t < mesh.weights_count) w = mesh.weights[t];
+                group.DefaultWeights.push_back(w);
+            }
+            group.Offset = model->GetMorphWeightCount();
+            model->m_MorphGroups.push_back(std::move(group));
+            return nodeMorphGroup[node] = (int)model->m_MorphGroups.size() - 1;
+        };
+
+        auto addPrimitive = [&](const cgltf_primitive& prim, const glm::mat4& transformIn, const char* name, const cgltf_skin* primSkin,
+                                int morphGroup) {
             if (prim.type != cgltf_primitive_type_triangles) return;
             const cgltf_accessor *pos = nullptr, *nrm = nullptr, *uv = nullptr, *joints = nullptr, *weights = nullptr;
             for (cgltf_size i = 0; i < prim.attributes_count; i++)
@@ -589,6 +645,52 @@ namespace Zamin {
                 }
             }
 
+            // Morph targets: each target's position / normal offsets, through the same transform.
+            Ref<MorphTargetData> morph;
+            if (morphGroup >= 0 && prim.targets_count > 0)
+            {
+                morph = CreateRef<MorphTargetData>();
+                morph->Group = morphGroup;
+                const glm::mat3 linear(transform);
+                bool anyNormals = false;
+                for (cgltf_size t = 0; t < prim.targets_count; t++)
+                {
+                    std::vector<glm::vec3> dp(pos->count, glm::vec3(0.0f)), dn;
+                    const cgltf_morph_target& target = prim.targets[t];
+                    for (cgltf_size a = 0; a < target.attributes_count; a++)
+                    {
+                        const cgltf_attribute& attr = target.attributes[a];
+                        if (!attr.data || attr.data->count < pos->count) continue;
+                        if (attr.type == cgltf_attribute_type_position)
+                            for (cgltf_size i = 0; i < pos->count; i++)
+                            {
+                                float d[3] = { 0, 0, 0 };
+                                cgltf_accessor_read_float(attr.data, i, d, 3);
+                                dp[i] = linear * glm::vec3(d[0], d[1], d[2]);
+                            }
+                        else if (attr.type == cgltf_attribute_type_normal && nrm)
+                        {
+                            dn.assign(pos->count, glm::vec3(0.0f));
+                            for (cgltf_size i = 0; i < pos->count; i++)
+                            {
+                                float d[3] = { 0, 0, 0 };
+                                cgltf_accessor_read_float(attr.data, i, d, 3);
+                                dn[i] = normalMatrix * glm::vec3(d[0], d[1], d[2]);
+                            }
+                            anyNormals = true;
+                        }
+                    }
+                    morph->PositionDeltas.push_back(std::move(dp));
+                    morph->NormalDeltas.push_back(std::move(dn));
+                }
+                if (!anyNormals)
+                    morph->NormalDeltas.clear();
+                else
+                    for (auto& dn : morph->NormalDeltas)
+                        if (dn.empty())
+                            dn.assign(pos->count, glm::vec3(0.0f));
+            }
+
             std::vector<uint32_t> indices;
             if (prim.indices)
             {
@@ -620,6 +722,9 @@ namespace Zamin {
 
             Model::SubMesh sub;
             sub.Name = name ? name : "mesh";
+            // The shared mesh shows the group's default weights.
+            const std::vector<float>* defaults = morph ? &model->m_MorphGroups[(size_t)morphGroup].DefaultWeights : nullptr;
+            const bool morphed = defaults && std::any_of(defaults->begin(), defaults->end(), [](float w) { return w != 0.0f; });
             if (skinned)
             {
                 std::vector<SkinnedVertex> sv(vertices.size());
@@ -641,10 +746,28 @@ namespace Zamin {
                         sv[i].Weights[k] = sum > 0.0f ? w[k] / sum : (k == 0 ? 1.0f : 0.0f);
                     }
                 }
+                if (morph)
+                {
+                    morph->Skinned = true;
+                    morph->SkinnedVertices = sv;
+                    morph->Indices = indices;
+                    if (morphed)
+                        ApplyMorphTargets(*morph, defaults->data(), defaults->size(), sv);
+                }
                 sub.MeshRef = CreateRef<Mesh>(sv, indices);
             }
             else
+            {
+                if (morph)
+                {
+                    morph->Vertices = vertices;
+                    morph->Indices = indices;
+                    if (morphed)
+                        ApplyMorphTargets(*morph, defaults->data(), defaults->size(), vertices);
+                }
                 sub.MeshRef = CreateRef<Mesh>(vertices, indices);
+            }
+            sub.Morph = morph;
             if (const cgltf_material* m = prim.material)
             {
                 sub.MaterialIndex = (int)cgltf_material_index(data, m);
@@ -674,7 +797,8 @@ namespace Zamin {
             glm::mat4 world = parent * glm::make_mat4(m);
             if (node->mesh)
                 for (cgltf_size i = 0; i < node->mesh->primitives_count; i++)
-                    addPrimitive(node->mesh->primitives[i], world, node->mesh->name ? node->mesh->name : node->name, node->skin);
+                    addPrimitive(node->mesh->primitives[i], world, node->mesh->name ? node->mesh->name : node->name, node->skin,
+                                 morphGroupOf(node));
             for (cgltf_size i = 0; i < node->children_count; i++)
                 visit(node->children[i], world);
         };
@@ -686,7 +810,84 @@ namespace Zamin {
         else
             for (cgltf_size i = 0; i < data->meshes_count; i++)
                 for (cgltf_size p = 0; p < data->meshes[i].primitives_count; p++)
-                    addPrimitive(data->meshes[i].primitives[p], glm::mat4(1.0f), data->meshes[i].name, nullptr);
+                    addPrimitive(data->meshes[i].primitives[p], glm::mat4(1.0f), data->meshes[i].name, nullptr, -1);
+
+        // ---- animations: channels moving joints and channels of morph target weights
+        for (cgltf_size a = 0; a < data->animations_count; a++)
+        {
+            const cgltf_animation& anim = data->animations[a];
+            AnimationClip clip;
+            clip.Name = anim.name ? anim.name : ("Anim" + std::to_string(a));
+            for (cgltf_size c = 0; c < anim.channels_count; c++)
+            {
+                const cgltf_animation_channel& ch = anim.channels[c];
+                if (!ch.sampler || !ch.sampler->input || !ch.sampler->output)
+                    continue;
+                const bool cubic = ch.sampler->interpolation == cgltf_interpolation_type_cubic_spline;
+                const cgltf_accessor* in = ch.sampler->input;
+                const cgltf_accessor* val = ch.sampler->output;
+                if (ch.target_path == cgltf_animation_path_type_weights)
+                {
+                    auto it = nodeMorphGroup.find(ch.target_node);
+                    if (it == nodeMorphGroup.end())
+                        continue;
+                    MorphWeightChannel out;
+                    out.Group = it->second;
+                    out.Count = model->m_MorphGroups[(size_t)it->second].GetCount();
+                    out.Step = ch.sampler->interpolation == cgltf_interpolation_type_step;
+                    for (cgltf_size k = 0; k < in->count; k++)
+                    {
+                        float t = 0.0f;
+                        cgltf_accessor_read_float(in, k, &t, 1);
+                        out.Times.push_back(t);
+                        for (uint32_t w = 0; w < out.Count; w++)
+                        {
+                            // scalars: key k's weights; cubic: [in tangents, values, out tangents] per key
+                            const cgltf_size index = cubic ? (k * 3 + 1) * out.Count + w : k * out.Count + w;
+                            float v = 0.0f;
+                            cgltf_accessor_read_float(val, index, &v, 1);
+                            out.Values.push_back(v);
+                        }
+                        clip.Duration = std::max(clip.Duration, t);
+                    }
+                    clip.MorphChannels.push_back(std::move(out));
+                    continue;
+                }
+                auto it = jointIndex.find(ch.target_node);
+                if (it == jointIndex.end()) continue;
+                AnimationChannel out;
+                out.JointIndex = it->second;
+                if (ch.target_path == cgltf_animation_path_type_translation) out.Target = AnimationChannel::Path::Translation;
+                else if (ch.target_path == cgltf_animation_path_type_rotation) out.Target = AnimationChannel::Path::Rotation;
+                else if (ch.target_path == cgltf_animation_path_type_scale) out.Target = AnimationChannel::Path::Scale;
+                else continue;
+                out.Step = ch.sampler->interpolation == cgltf_interpolation_type_step;
+                int comps = out.Target == AnimationChannel::Path::Rotation ? 4 : 3;
+                for (cgltf_size k = 0; k < in->count; k++)
+                {
+                    float t = 0.0f;
+                    cgltf_accessor_read_float(in, k, &t, 1);
+                    float v[4] = { 0, 0, 0, 1 };
+                    cgltf_accessor_read_float(val, cubic ? k * 3 + 1 : k, v, comps); // cubic: take the value, ignore tangents
+                    out.Times.push_back(t);
+                    out.Values.emplace_back(v[0], v[1], v[2], v[3]);
+                    clip.Duration = std::max(clip.Duration, t);
+                }
+                clip.Channels.push_back(std::move(out));
+            }
+            if (!clip.Channels.empty() || !clip.MorphChannels.empty())
+                model->m_Animations.push_back(std::move(clip));
+        }
+        // Trimmed clips and sub-clips (the model's import settings).
+        if (!settings.Clips.empty())
+        {
+            model->m_SourceAnimations = model->m_Animations;
+            model->m_ClipsCut = true;
+            std::vector<std::string> warnings;
+            ApplyClipSettings(model->m_Animations, settings.Clips, settings.KeepSourceClips, &warnings);
+            for (const std::string& w : warnings)
+                ZM_CORE_WARN("{}: {}", path.filename().string(), w);
+        }
 
         if (!model->m_Skeleton.Empty())
             ApplyImportTransform(model->m_Skeleton, importTransform);
@@ -699,8 +900,13 @@ namespace Zamin {
             error = "faylda uchburchakli mesh yo'q";
             return nullptr;
         }
-        ZM_CORE_INFO("glTF yuklandi: {} ({} qism, {} uchburchak, {} suyak, {} animatsiya)", path.filename().string(),
-                     model->m_SubMeshes.size(), triangles, model->m_Skeleton.Joints.size(), model->m_Animations.size());
+        if (model->HasMorphTargets())
+            ZM_CORE_INFO("glTF yuklandi: {} ({} qism, {} uchburchak, {} suyak, {} animatsiya, {} morph target)", path.filename().string(),
+                         model->m_SubMeshes.size(), triangles, model->m_Skeleton.Joints.size(), model->m_Animations.size(),
+                         model->GetMorphWeightCount());
+        else
+            ZM_CORE_INFO("glTF yuklandi: {} ({} qism, {} uchburchak, {} suyak, {} animatsiya)", path.filename().string(),
+                         model->m_SubMeshes.size(), triangles, model->m_Skeleton.Joints.size(), model->m_Animations.size());
         return model;
     }
 
@@ -760,8 +966,126 @@ namespace Zamin {
         to.m_Bounds = from.m_Bounds;
         to.m_Skeleton = std::move(from.m_Skeleton);
         to.m_Animations = std::move(from.m_Animations);
+        to.m_SourceAnimations = std::move(from.m_SourceAnimations);
+        to.m_ClipsCut = from.m_ClipsCut;
+        to.m_MorphGroups = std::move(from.m_MorphGroups);
         to.m_ImportSettings = from.m_ImportSettings;
         to.m_Dependencies = std::move(from.m_Dependencies);
+    }
+
+    // ------------------------------------------------------------------ morph targets
+    template<typename V>
+    static void ApplyMorph(const MorphTargetData& data, const std::vector<V>& base, const float* weights, size_t count, std::vector<V>& out)
+    {
+        out = base;
+        const size_t targets = std::min(count, data.PositionDeltas.size());
+        const bool normals = data.NormalDeltas.size() == data.PositionDeltas.size();
+        bool anyNormal = false;
+        for (size_t t = 0; t < targets; t++)
+        {
+            const float w = weights[t];
+            if (w == 0.0f || !std::isfinite(w))
+                continue;
+            const auto& dp = data.PositionDeltas[t];
+            for (size_t i = 0; i < out.size() && i < dp.size(); i++)
+                out[i].Position += dp[i] * w;
+            if (normals && !data.NormalDeltas[t].empty())
+            {
+                const auto& dn = data.NormalDeltas[t];
+                for (size_t i = 0; i < out.size() && i < dn.size(); i++)
+                    out[i].Normal += dn[i] * w;
+                anyNormal = true;
+            }
+        }
+        if (anyNormal)
+            for (V& v : out)
+            {
+                const float len = glm::length(v.Normal);
+                v.Normal = len > 1e-8f ? v.Normal / len : glm::vec3(0.0f, 1.0f, 0.0f);
+            }
+    }
+
+    void ApplyMorphTargets(const MorphTargetData& data, const float* weights, size_t count, std::vector<MeshVertex>& out)
+    {
+        ApplyMorph(data, data.Vertices, weights, count, out);
+    }
+
+    void ApplyMorphTargets(const MorphTargetData& data, const float* weights, size_t count, std::vector<SkinnedVertex>& out)
+    {
+        ApplyMorph(data, data.SkinnedVertices, weights, count, out);
+    }
+
+    bool SampleClipMorphWeights(const Model& model, const AnimationClip* clip, float time, std::vector<float>& weights)
+    {
+        const uint32_t count = model.GetMorphWeightCount();
+        if (weights.size() != count)
+            weights.resize(count, 0.0f);
+        if (!clip || clip->MorphChannels.empty())
+            return false;
+        const auto& groups = model.GetMorphGroups();
+        bool any = false;
+        for (const MorphWeightChannel& c : clip->MorphChannels)
+        {
+            if (c.Group < 0 || c.Group >= (int)groups.size())
+                continue;
+            const MorphGroup& g = groups[(size_t)c.Group];
+            if (c.Count == 0 || g.Offset + std::min(c.Count, g.GetCount()) > count)
+                continue;
+            if (c.Count == g.GetCount())
+                SampleMorphChannel(c, time, weights.data() + g.Offset);
+            else
+            {
+                std::vector<float> values(c.Count);
+                SampleMorphChannel(c, time, values.data());
+                std::copy(values.begin(), values.begin() + std::min(c.Count, g.GetCount()), weights.begin() + g.Offset);
+            }
+            any = true;
+        }
+        return any;
+    }
+
+    int Model::FindMorphTarget(const std::string& name) const
+    {
+        const size_t slash = name.find('/');
+        for (const MorphGroup& g : m_MorphGroups)
+            for (uint32_t t = 0; t < g.GetCount(); t++)
+            {
+                const bool match = slash == std::string::npos ? g.Targets[t] == name
+                                                              : name.compare(0, slash, g.Name) == 0 && slash == g.Name.size() &&
+                                                                name.compare(slash + 1, std::string::npos, g.Targets[t]) == 0;
+                if (match)
+                    return (int)(g.Offset + t);
+            }
+        return -1;
+    }
+
+    std::string Model::GetMorphTargetName(uint32_t index) const
+    {
+        for (const MorphGroup& g : m_MorphGroups)
+            if (index >= g.Offset && index < g.Offset + g.GetCount())
+                return m_MorphGroups.size() == 1 ? g.Targets[index - g.Offset] : g.Name + "/" + g.Targets[index - g.Offset];
+        return {};
+    }
+
+    std::vector<float> Model::GetDefaultMorphWeights() const
+    {
+        std::vector<float> weights(GetMorphWeightCount(), 0.0f);
+        for (const MorphGroup& g : m_MorphGroups)
+            for (uint32_t t = 0; t < g.GetCount() && t < g.DefaultWeights.size(); t++)
+                weights[g.Offset + t] = g.DefaultWeights[t];
+        return weights;
+    }
+
+    void Model::SetMorphGroups(std::vector<MorphGroup> groups)
+    {
+        uint32_t offset = 0;
+        for (MorphGroup& g : groups)
+        {
+            g.Offset = offset;
+            g.DefaultWeights.resize(g.Targets.size(), 0.0f);
+            offset += g.GetCount();
+        }
+        m_MorphGroups = std::move(groups);
     }
 
     Ref<Model> Model::CreateSkeletal(Skeleton skeleton, std::vector<AnimationClip> animations)

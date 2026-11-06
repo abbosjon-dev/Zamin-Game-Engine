@@ -433,6 +433,171 @@
           }
         }
       }
+    },
+    {
+      "Entity": 7414000000000010,
+      "Tag": "Blob (Animator)",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          1.6
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/Blob.gltf",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Animator": {
+        "Clip": "Pulse",
+        "Speed": 1.0,
+        "Loop": true,
+        "Playing": true,
+        "PlayInEditor": true,
+        "DefaultFade": 0.2,
+        "DefaultState": 0,
+        "Parameters": [],
+        "States": [],
+        "Transitions": []
+      }
+    },
+    {
+      "Entity": 7414000000000011,
+      "Tag": "Blob (skript)",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -2.4
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.85,
+          0.85,
+          0.85
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/Blob.gltf",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.5,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "NativeScript": {
+        "Class": "BlendShapeDemo",
+        "Fields": {
+          "Speed": {
+            "Type": "Float",
+            "Value": 1.0
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7414000000000012,
+      "Tag": "Kristal (Bone3)",
+      "Parent": 7414000000000004,
+      "Transform": {
+        "Translation": [
+          0,
+          0.42,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.28,
+          0.5,
+          0.28
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Cone",
+        "Model": "",
+        "CastShadows": true,
+        "Material": "",
+        "Albedo": [
+          0.45,
+          0.9,
+          1.0,
+          1
+        ],
+        "AlbedoMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.2,
+        "Roughness": 0.25,
+        "Emission": [
+          0.3,
+          0.85,
+          1.0
+        ],
+        "EmissionStrength": 2.5
+      },
+      "PointLight": {
+        "Color": [
+          0.45,
+          0.85,
+          1.0
+        ],
+        "Intensity": 2.0,
+        "Radius": 3.5
+      },
+      "BoneAttachment": {
+        "Target": 0,
+        "Bone": "Bone3",
+        "InheritBoneScale": false
+      }
     }
   ]
 }

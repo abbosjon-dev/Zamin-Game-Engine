@@ -431,6 +431,8 @@ namespace Zamin {
                 }
                 j["SubmeshMaterials"] = std::move(slots);
             }
+            if (!c->MorphWeights.empty())
+                j["MorphWeights"] = c->MorphWeights;
             WriteAssetHandle(j, "Model", c->ModelPath);
             WriteAssetHandle(j, "AlbedoMap", c->AlbedoPath);
             WriteAssetHandle(j, "NormalMap", c->NormalPath);
@@ -512,6 +514,24 @@ namespace Zamin {
             static const char* s_Wraps[] = { "Clip", "Once", "Loop", "PingPong" };
             e["AnimationPlayer"] = { { "Clips", std::move(clips) }, { "Speed", c->Speed }, { "PlayOnStart", c->PlayOnStart },
                                      { "Wrap", s_Wraps[std::clamp((int)c->Wrap, 0, 3)] } };
+        }
+        if (auto* c = entity.TryGetComponent<BoneAttachmentComponent>())
+            e["BoneAttachment"] = { { "Target", c->Target.ID }, { "Bone", c->Bone }, { "InheritBoneScale", c->InheritBoneScale } };
+        if (auto* c = entity.TryGetComponent<FootstepsComponent>())
+        {
+            json sounds = json::array();
+            for (const std::string& sound : c->Sounds)
+            {
+                json j = { { "Path", sound } };
+                WriteAssetHandle(j, "Path", sound);
+                sounds.push_back(std::move(j));
+            }
+            e["Footsteps"] = { { "Sounds", std::move(sounds) }, { "Event", c->EventName }, { "Volume", c->Volume },
+                               { "VolumeRandom", ToJson(c->VolumeRandom) }, { "PitchRandom", ToJson(c->PitchRandom) },
+                               { "SpeedParameter", c->SpeedParameter }, { "ReferenceSpeed", c->ReferenceSpeed },
+                               { "SpeedPitch", c->SpeedPitch }, { "SpeedVolume", c->SpeedVolume }, { "MinSpeed", c->MinSpeed },
+                               { "MinInterval", c->MinInterval }, { "Spatial", c->Spatial }, { "MinDistance", c->MinDistance },
+                               { "MaxDistance", c->MaxDistance }, { "Output", c->Output } };
         }
         if (auto* c = entity.TryGetComponent<DirectionalLightComponent>())
             e["DirectionalLight"] = { { "Color", ToJson(c->Color) }, { "Intensity", c->Intensity }, { "CastShadows", c->CastShadows } };
@@ -1211,6 +1231,9 @@ namespace Zamin {
             if (auto slots = j.find("SubmeshMaterials"); slots != j.end() && slots->is_array())
                 for (const json& slot : *slots)
                     c.SubmeshMaterials.push_back(slot.is_object() ? ReadAssetPath(slot, "Material") : slot.is_string() ? slot.get<std::string>() : std::string());
+            if (auto weights = j.find("MorphWeights"); weights != j.end() && weights->is_array())
+                for (const json& w : *weights)
+                    c.MorphWeights.push_back(w.is_number() ? w.get<float>() : 0.0f);
             // A single number before tiling became a vec2 (the same on both axes).
             if (auto tiling = j.find("Tiling"); tiling != j.end() && tiling->is_number())
                 c.Mat.Tiling = glm::vec2(tiling->get<float>());
@@ -1340,6 +1363,45 @@ namespace Zamin {
             const std::string wrap = j.value("Wrap", std::string("Clip"));
             c.Wrap = wrap == "Once" ? AnimationPlayerWrap::Once : wrap == "Loop" ? AnimationPlayerWrap::Loop
                    : wrap == "PingPong" ? AnimationPlayerWrap::PingPong : AnimationPlayerWrap::Clip;
+        }
+        if (e.contains("BoneAttachment"))
+        {
+            const json& j = e["BoneAttachment"];
+            auto& c = entity.AddComponent<BoneAttachmentComponent>();
+            c.Target.ID = j.contains("Target") && j["Target"].is_number_unsigned() ? j["Target"].get<uint64_t>() : 0;
+            c.Bone = j.value("Bone", std::string());
+            c.InheritBoneScale = j.value("InheritBoneScale", false);
+        }
+        if (e.contains("Footsteps"))
+        {
+            const json& j = e["Footsteps"];
+            auto& c = entity.AddComponent<FootstepsComponent>();
+            if (auto sounds = j.find("Sounds"); sounds != j.end() && sounds->is_array())
+                for (const json& sound : *sounds)
+                {
+                    if (sound.is_string())
+                        c.Sounds.push_back(sound.get<std::string>());
+                    else if (sound.is_object())
+                        c.Sounds.push_back(ReadAssetPath(sound, "Path"));
+                }
+            auto number = [&](const char* key, float fallback) {
+                const float v = j.value(key, fallback);
+                return std::isfinite(v) ? v : fallback;
+            };
+            c.EventName = j.value("Event", std::string("Footstep"));
+            c.Volume = std::max(0.0f, number("Volume", 0.8f));
+            c.VolumeRandom = Vec(j, "VolumeRandom", glm::vec2(0.85f, 1.0f));
+            c.PitchRandom = Vec(j, "PitchRandom", glm::vec2(0.92f, 1.08f));
+            c.SpeedParameter = j.value("SpeedParameter", std::string("Speed"));
+            c.ReferenceSpeed = std::max(0.0f, number("ReferenceSpeed", 3.0f));
+            c.SpeedPitch = number("SpeedPitch", 0.12f);
+            c.SpeedVolume = number("SpeedVolume", 0.35f);
+            c.MinSpeed = std::max(0.0f, number("MinSpeed", 0.3f));
+            c.MinInterval = std::max(0.0f, number("MinInterval", 0.12f));
+            c.Spatial = j.value("Spatial", true);
+            c.MinDistance = std::max(0.0f, number("MinDistance", 1.0f));
+            c.MaxDistance = std::max(c.MinDistance, number("MaxDistance", 25.0f));
+            c.Output = j.value("Output", std::string("SFX"));
         }
         if (e.contains("DirectionalLight"))
         {

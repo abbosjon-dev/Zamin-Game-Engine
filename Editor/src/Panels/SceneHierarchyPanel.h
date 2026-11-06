@@ -315,6 +315,8 @@ namespace Zamin {
         bool DrawScriptField(const ScriptFieldInfo& field, ScriptFieldValue& value);
         // EntityRef script field: drop from the hierarchy, pick from a list, locate, clear.
         bool DrawEntityRefField(const char* name, EntityRef& ref, const char* tooltip = nullptr);
+        bool DrawBoneAttachment(Entity entity, BoneAttachmentComponent& c);
+        bool DrawFootsteps(Entity entity, FootstepsComponent& c);
         // Gameplay tags: removable chips + add field with suggestions.
         bool DrawTagsComponent(TagsComponent& c);
         // 2D renderers: the sorting layer (from the project's list) and the order inside it.

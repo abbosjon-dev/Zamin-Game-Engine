@@ -76,6 +76,8 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, AudioSourceComponent>) return "AudioSource";
         else if constexpr (std::is_same_v<T, AudioListenerComponent>) return "AudioListener";
         else if constexpr (std::is_same_v<T, AmbientZoneComponent>) return "AmbientZone";
+        else if constexpr (std::is_same_v<T, BoneAttachmentComponent>) return "BoneAttachment";
+        else if constexpr (std::is_same_v<T, FootstepsComponent>) return "Footsteps";
         else if constexpr (std::is_same_v<T, NativeScriptComponent>) return "NativeScript";
         else static_assert(sizeof(T) == 0, "ComponentKey: this component has no scene-file name");
     }

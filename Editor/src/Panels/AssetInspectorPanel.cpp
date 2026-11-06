@@ -143,6 +143,7 @@ namespace Zamin {
         m_Clip = -1;
         m_ClipPlaying = false;
         m_ClipTime = 0.0f;
+        m_ClipSettingPreview = -1;
         m_Preview = nullptr;
         m_PreviewPath.clear();
         m_Model = nullptr;
@@ -404,6 +405,14 @@ namespace Zamin {
         if (!HasUnappliedChanges() || !ApplyEdits(CaptureEdits(), true))
             return false;
         m_TextureSaved = m_TextureEdit;
+        if (m_Type == AssetType::Model && m_ClipSettingPreview >= 0 && m_Model)
+        {
+            // The clip previewed is the model's own now: shown as one of its clips.
+            const int index = m_Model->FindAnimation(m_ModelEdit.Clips[(size_t)m_ClipSettingPreview].GetName());
+            m_ClipSettingPreview = -1;
+            if (index >= 0)
+                m_Clip = index;
+        }
         m_ModelSaved = m_ModelEdit;
         m_AudioSaved = m_AudioEdit;
         m_ChannelTexture = nullptr; // made with the old sampling settings
@@ -412,6 +421,7 @@ namespace Zamin {
 
     void AssetInspectorPanel::Revert()
     {
+        m_ClipSettingPreview = -1;
         m_TextureEdit = m_TextureSaved;
         m_ModelEdit = m_ModelSaved;
         m_AudioEdit = m_AudioSaved;
@@ -1114,7 +1124,8 @@ namespace Zamin {
         if (model->IsSkinned())
         {
             const auto& clips = model->GetAnimations();
-            const AnimationClip* clip = m_Clip >= 0 && m_Clip < (int)clips.size() ? &clips[m_Clip] : nullptr;
+            const AnimationClip* clip = m_ClipSettingPreview >= 0 ? &m_ClipSettingClip
+                                      : m_Clip >= 0 && m_Clip < (int)clips.size() ? &clips[m_Clip] : nullptr;
             EvaluatePose(model->GetSkeleton(), clip, clip ? m_ClipTime : 0.0f, m_Joints);
             joints = &m_Joints;
         }
@@ -1139,7 +1150,9 @@ namespace Zamin {
             m_Clip = -1;
             m_ClipPlaying = false;
         }
-        if (m_ClipPlaying && m_Clip >= 0)
+        if (m_ClipPlaying && m_ClipSettingPreview >= 0)
+            m_ClipTime = std::fmod(m_ClipTime + dt, std::max(0.001f, m_ClipSettingClip.Duration));
+        else if (m_ClipPlaying && m_Clip >= 0)
         {
             float duration = std::max(0.001f, clips[m_Clip].Duration);
             m_ClipTime = std::fmod(m_ClipTime + dt, duration);
@@ -1192,18 +1205,21 @@ namespace Zamin {
         if (!clips.empty())
         {
             ImGui::SameLine();
-            bool playing = m_ClipPlaying && m_Clip >= 0;
+            const bool settingPreview = m_ClipSettingPreview >= 0;
+            bool playing = m_ClipPlaying && (m_Clip >= 0 || settingPreview);
             if (ImGui::SmallButton(playing ? ICON_FA_PAUSE "##clipPlay" : ICON_FA_PLAY "##clipPlay"))
             {
-                if (m_Clip < 0)
+                if (m_Clip < 0 && !settingPreview)
                     m_Clip = 0;
                 m_ClipPlaying = !playing;
             }
             ImGui::SameLine();
             ImGui::SetNextItemWidth(std::max(80.0f, ImGui::GetContentRegionAvail().x * 0.45f));
-            const char* current = m_Clip >= 0 ? clips[m_Clip].Name.c_str() : "Bind pose";
+            const std::string settingName = settingPreview ? std::format(ICON_FA_SCISSORS " {} (qo'llanmagan)", m_ClipSettingClip.Name) : std::string();
+            const char* current = settingPreview ? settingName.c_str() : m_Clip >= 0 ? clips[m_Clip].Name.c_str() : "Bind pose";
             if (ImGui::BeginCombo("##clip", current))
             {
+                m_ClipSettingPreview = -1; // a clip picked here: the model's own clips again
                 if (ImGui::Selectable("Bind pose", m_Clip < 0))
                 {
                     m_Clip = -1;
@@ -1219,11 +1235,11 @@ namespace Zamin {
                     }
                 ImGui::EndCombo();
             }
-            if (m_Clip >= 0)
+            if (m_Clip >= 0 || settingPreview)
             {
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(-FLT_MIN);
-                float duration = std::max(0.001f, clips[m_Clip].Duration);
+                float duration = std::max(0.001f, settingPreview ? m_ClipSettingClip.Duration : clips[m_Clip].Duration);
                 if (ImGui::SliderFloat("##clipTime", &m_ClipTime, 0.0f, duration, "%.2f s"))
                     m_ClipPlaying = false;
             }
@@ -1274,6 +1290,14 @@ namespace Zamin {
                     ImGui::Text("%zu ta bo'g'in", model->GetSkeleton().Joints.size());
                 else
                     ImGui::TextDisabled("yo'q");
+                if (model->HasMorphTargets())
+                {
+                    UI::PropertyLabel("Blend shape'lar", "glTF morph target'lari (Mesh Renderer'da og'irliklari, Animator kliplari ham animatsiya qiladi)");
+                    std::string names;
+                    for (uint32_t i = 0; i < model->GetMorphWeightCount(); i++)
+                        names += (i ? ", " : "") + model->GetMorphTargetName(i);
+                    ImGui::TextWrapped("%u: %s", model->GetMorphWeightCount(), names.c_str());
+                }
             }
             if (file.Valid && file.Format != "OBJ")
             {
@@ -1440,9 +1464,10 @@ namespace Zamin {
                     bool playing = m_Clip == i && m_ClipPlaying;
                     if (ImGui::SmallButton(playing ? ICON_FA_PAUSE : ICON_FA_PLAY))
                     {
-                        if (m_Clip != i)
+                        if (m_Clip != i || m_ClipSettingPreview >= 0)
                             m_ClipTime = 0.0f;
                         m_Clip = i;
+                        m_ClipSettingPreview = -1;
                         m_ClipPlaying = !playing;
                     }
                     ImGui::TableSetColumnIndex(1);
@@ -1453,14 +1478,18 @@ namespace Zamin {
                     ImGui::TableSetColumnIndex(2);
                     ImGui::TextUnformatted(AssetInfo::FormatDuration(clip.Duration).c_str());
                     ImGui::TableSetColumnIndex(3);
-                    ImGui::Text("%zu", clip.Channels.size());
+                    ImGui::Text("%zu", clip.Channels.size() + clip.MorphChannels.size());
+                    if (!clip.MorphChannels.empty() && ImGui::IsItemHovered())
+                        UI::Tooltip(std::format("{} suyak kanali, {} morph og'irlik kanali", clip.Channels.size(), clip.MorphChannels.size()).c_str());
                     ImGui::PopID();
                 }
                 // Clips that do not move a skeleton: listed, but the engine does not play them.
                 for (const ModelFileInfo::Animation& a : file.Animations)
                 {
-                    if (a.TargetsJoints && model && model->FindAnimation(a.Name) >= 0)
+                    if (model && model->FindAnimation(a.Name) >= 0)
                         continue;
+                    if (std::any_of(m_ModelSaved.Clips.begin(), m_ModelSaved.Clips.end(), [&](const ModelClipSettings& c) { return c.Source == a.Name; }))
+                        continue; // cut into sub-clips (its own not kept)
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(1);
                     ImGui::TextDisabled("%s", a.Name.c_str());
@@ -1585,6 +1614,7 @@ namespace Zamin {
             ImGui::Checkbox("##flipUVs", &m_ModelEdit.FlipUVs);
             UI::EndPropertyGrid();
         }
+        DrawModelClipSettings();
         DrawApplyBar(canApply);
     }
 

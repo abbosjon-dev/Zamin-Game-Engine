@@ -3060,6 +3060,208 @@ namespace Zamin {
         ImGui::Dummy(ImVec2(width, height + 6.0f));
     }
 
+    bool SceneHierarchyPanel::DrawBoneAttachment(Entity entity, BoneAttachmentComponent& c)
+    {
+        bool changed = DrawEntityRefField("Model obyekti", c.Target,
+                                          "Skinned modelli (Mesh Renderer + skelet) obyekt. Bo'sh: eng yaqin shunday ota obyekt");
+        Entity target = m_Context ? m_Context->GetBoneAttachmentTarget(entity) : Entity();
+        const auto* mr = target ? target.TryGetComponent<MeshRendererComponent>() : nullptr;
+        const Model* model = mr && mr->ModelAsset && mr->ModelAsset->IsSkinned() ? mr->ModelAsset.get() : nullptr;
+        UI::PropertyLabel("");
+        if (!target)
+            ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.4f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Skinned model topilmadi (ota obyektlarda ham)");
+        else if (!model)
+            ImGui::TextColored(ImVec4(0.95f, 0.6f, 0.4f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  '%s' modelida skelet yo'q", target.GetName().c_str());
+        else
+            ImGui::TextDisabled(ICON_FA_ARROW_RIGHT " %s  (%zu suyak)", target.GetName().c_str(), model->GetSkeleton().Joints.size());
+
+        // The bone: the skeleton's joints, indented like the tree.
+        UI::PropertyLabel("Suyak", "Shu suyakka ergashadi (Animator pozasi bilan, editorda ham)");
+        const bool known = !model || FindJoint(model->GetSkeleton(), c.Bone) >= 0;
+        if (!known)
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.6f, 0.4f, 1.0f));
+        if (ImGui::BeginCombo("##bone", c.Bone.empty() ? "(tanlang)" : c.Bone.c_str(), ImGuiComboFlags_HeightLarge))
+        {
+            if (!known)
+                ImGui::PopStyleColor();
+            if (model)
+            {
+                const auto& joints = model->GetSkeleton().Joints;
+                std::vector<int> depth(joints.size(), 0);
+                for (size_t i = 0; i < joints.size(); i++)
+                {
+                    if (joints[i].Parent >= 0 && joints[i].Parent < (int)i)
+                        depth[i] = depth[(size_t)joints[i].Parent] + 1;
+                    const std::string label = std::string((size_t)depth[i] * 2, ' ') + ICON_FA_BONE " " + joints[i].Name;
+                    if (ImGui::Selectable(std::format("{}##j{}", label, i).c_str(), joints[i].Name == c.Bone))
+                    {
+                        c.Bone = joints[i].Name;
+                        changed = true;
+                    }
+                }
+            }
+            else
+                ImGui::TextDisabled("Avval skinned modelli obyektni tanlang");
+            ImGui::EndCombo();
+        }
+        else if (!known)
+            ImGui::PopStyleColor();
+        if (!known && ImGui::IsItemHovered())
+            UI::Tooltip("Modelning skeletida bunday suyak yo'q: obyekt odatdagidek otasiga ergashadi");
+        changed |= UI::PropertyBool("Suyak masshtabi", c.InheritBoneScale);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("O'chiq: faqat suyakning joyi va burilishi (import masshtabi, siqilish e'tiborga olinmaydi). Model obyektining o'z "
+                        "masshtabi baribir ta'sir qiladi");
+        UI::PropertyLabel("");
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextDisabled("Transform endi suyakka nisbatan siljish (offset): gizmo ham suyakka nisbatan suradi");
+        ImGui::PopTextWrapPos();
+        UI::PropertyLabel("");
+        ImGui::BeginDisabled(!m_SceneEditable);
+        if (ImGui::SmallButton(ICON_FA_CROSSHAIRS "  Suyakka qo'yish (offset 0)"))
+        {
+            auto& tc = entity.GetComponent<TransformComponent>();
+            tc.Translation = glm::vec3(0.0f);
+            tc.Rotation = glm::vec3(0.0f);
+            changed = true;
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Joy va burilish 0: obyekt aynan suyak nuqtasida, suyak yo'nalishida (masshtab o'zgarmaydi)");
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::DrawFootsteps(Entity entity, FootstepsComponent& c)
+    {
+        bool changed = false;
+        InactiveComponentNote(entity, "Obyekt nofaol: event'lar kelmaydi, qadam eshitilmaydi");
+        // ---- sounds: a cleared row goes away, the empty one at the end adds one
+        int remove = -1;
+        for (int i = 0; i <= (int)c.Sounds.size(); i++)
+        {
+            const bool adding = i == (int)c.Sounds.size();
+            std::string path = adding ? std::string() : c.Sounds[(size_t)i];
+            ImGui::PushID(i + 300);
+            const std::string label = adding ? std::string("Ovoz qo'shish") : std::format("Qadam {}", i + 1);
+            UI::AssetPathOptions options;
+            options.Tooltip = adding ? "Qadam ovozini shu yerga tashlang yoki tanlang (bir nechta: har qadamda tasodifiy, ketma-ket takrorlanmaydi)"
+                                     : "Qadam ovozi. Tozalash - ro'yxatdan olib tashlaydi";
+            if (UI::PropertyAssetPath(label.c_str(), path, ".wav;.mp3;.flac;.ogg", ICON_FA_FILE_AUDIO, options))
+            {
+                if (adding)
+                {
+                    if (!path.empty())
+                        c.Sounds.push_back(path);
+                }
+                else if (path.empty())
+                    remove = i;
+                else
+                    c.Sounds[(size_t)i] = path;
+                changed = true;
+            }
+            ImGui::PopID();
+        }
+        if (remove >= 0)
+            c.Sounds.erase(c.Sounds.begin() + remove);
+
+        auto* anim = entity.TryGetComponent<AnimatorComponent>();
+        UI::PropertyLabel("Event nomi", "Shu nomli animatsiya event'i qadam: Animator klip event'lari (Animatsiya oynasida "
+                                        "skelet klipiga qo'shiladi), Animation Player yoki sprite klip event'lari");
+        changed |= ImGui::InputText("##event", &c.EventName);
+        if (anim && !c.EventName.empty() &&
+            std::none_of(anim->Events.begin(), anim->Events.end(), [&](const AnimatorEvent& e) { return e.Name == c.EventName; }))
+        {
+            UI::PropertyLabel("");
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), ICON_FA_CIRCLE_INFO "  Animator'da '%s' event'i yo'q: Animatsiya oynasida "
+                               "yurish kliplariga oyoq yerga tekkan kadrlarda qo'shing", c.EventName.c_str());
+            ImGui::PopTextWrapPos();
+        }
+        changed |= UI::PropertySlider("Balandlik", c.Volume, 0.0f, 2.0f);
+        auto range = [&](const char* label, const char* id, glm::vec2& v, float lo, float hi, const char* tooltip) {
+            UI::PropertyLabel(label, tooltip);
+            ImGui::PushID(id);
+            bool edited = ImGui::DragFloatRange2("##v", &v.x, &v.y, 0.005f, lo, hi, "%.2f", "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::PopID();
+            return edited;
+        };
+        changed |= range("Balandlik oralig'i", "stepVolumeRandom", c.VolumeRandom, 0.0f, 2.0f, "Har qadamda tasodifiy ko'paytuvchi: min - max");
+        changed |= range("Ton oralig'i", "stepPitchRandom", c.PitchRandom, 0.1f, 3.0f, "Har qadamda tasodifiy ton ko'paytuvchisi (0.92 - 1.08 ~ +-1.4 yarim ton)");
+
+        UI::PropertyHeader(ICON_FA_PERSON_RUNNING "  Tezlik bo'yicha", "Tez yurganda qadam balandroq va sal yuqoriroq tonda: tezlik Animator'ning "
+                                                                     "float parametridan (odatda blend tree parametri), mos yozuv tezligida "
+                                                                     "ovoz o'z holicha. Juda sekinda (idle'ga o'tishda) eshitilmaydi.");
+        UI::PropertyLabel("Tezlik parametri", "Animator float parametri ((yo'q): tezlik hisobga olinmaydi)");
+        if (anim)
+            changed |= AnimatorEditing::FloatParameterCombo("##speedParam", c.SpeedParameter, *anim, "(yo'q)");
+        else
+        {
+            changed |= ImGui::InputText("##speedParam", &c.SpeedParameter);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Obyektda Animator yo'q: tezlik hisobga olinmaydi");
+        }
+        changed |= UI::PropertyFloat("Mos tezlik", c.ReferenceSpeed, 0.05f, 0.0f, 100.0f);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Shu tezlikda (m/s) ovoz o'z balandligi va tonida (yurish tezligi)");
+        changed |= UI::PropertyFloat("Ton x tezlik", c.SpeedPitch, 0.005f, 0.0f, 1.0f);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Ton = 1 + shu x (tezlik / mos tezlik - 1): 0.12 da ikki baravar tezlikda 12% yuqori");
+        changed |= UI::PropertyFloat("Balandlik x tezlik", c.SpeedVolume, 0.005f, 0.0f, 2.0f);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Balandlik = 1 + shu x (tezlik / mos tezlik - 1), 0.2 .. 1.6 oralig'ida");
+        changed |= UI::PropertyFloat("Eng kichik tezlik", c.MinSpeed, 0.01f, 0.0f, 10.0f);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Bundan sekinda qadam eshitilmaydi (idle bilan aralashganda)");
+        changed |= UI::PropertyFloat("Oraliq (s)", c.MinInterval, 0.005f, 0.0f, 1.0f);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Bundan yaqin ikki event bitta qadam (crossfade'da ikki klip birga event bersa)");
+        {
+            // What the speed parameter does now.
+            float speed = c.ReferenceSpeed;
+            if (anim)
+                if (const AnimatorParameter* p = anim->FindParameter(c.SpeedParameter); p && p->Kind == AnimatorParameter::Type::Float)
+                    speed = p->Value;
+            float v = 1.0f, pitch = 1.0f;
+            UI::PropertyLabel("");
+            if (c.GetSpeedScale(speed, v, pitch))
+                ImGui::TextDisabled("Tezlik %.2f: balandlik x%.2f, ton x%.2f", speed, v, pitch);
+            else
+                ImGui::TextDisabled("Tezlik %.2f: eshitilmaydi (juda sekin)", speed);
+        }
+
+        UI::PropertyHeader(ICON_FA_VOLUME_HIGH "  Ijro", "Qaysi mixer guruhida va 3D ovoz sifatida (obyekt turgan joyda) eshitiladi");
+        changed |= DrawAudioOutput(c.Output);
+        changed |= UI::PropertyBool("3D ovoz", c.Spatial);
+        if (c.Spatial)
+        {
+            changed |= UI::PropertyFloat("Min masofa", c.MinDistance, 0.05f, 0.0f, 1000.0f);
+            changed |= UI::PropertyFloat("Max masofa", c.MaxDistance, 0.1f, 0.0f, 10000.0f);
+        }
+        UI::PropertyLabel("");
+        ImGui::BeginDisabled(c.Sounds.empty());
+        if (ImGui::SmallButton(ICON_FA_PLAY "  Qadamni tinglash"))
+        {
+            // Past the mixer at the reference speed, like a step sounds (a new random variation each time).
+            const int index = c.PickSound();
+            if (index >= 0 && !c.Sounds[(size_t)index].empty())
+            {
+                SoundParams params;
+                params.Volume = c.Volume;
+                params.VolumeRandom = c.VolumeRandom;
+                params.PitchRandom = c.PitchRandom;
+                params.Group = c.Output;
+                AudioEngine::Play(Project::GetAssetFileSystemPath(c.Sounds[(size_t)index]), params);
+            }
+        }
+        ImGui::EndDisabled();
+        if (!m_SceneEditable)
+        {
+            ImGui::SameLine();
+            ImGui::TextDisabled("%u qadam", c.StepCount);
+        }
+        return changed;
+    }
+
     bool SceneHierarchyPanel::DrawAnimationPlayer(Entity entity, AnimationPlayerComponent& c)
     {
         bool changed = false;
@@ -5598,6 +5800,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<MeshRendererComponent>("Mesh Renderer", ICON_FA_CUBE);
                 DisplayAddComponentEntry<AnimatorComponent>("Animator (skeletal)", ICON_FA_PERSON_RUNNING);
                 DisplayAddComponentEntry<AnimationPlayerComponent>("Animation Player (.zanim kliplar)", ICON_FA_FILM);
+                DisplayAddComponentEntry<BoneAttachmentComponent>("Bone Attachment (suyakka biriktirish)", ICON_FA_PAPERCLIP);
                 DisplayAddComponentEntry<CameraComponent>("Camera", ICON_FA_CAMERA);
                 ImGui::SeparatorText("Yorug'lik");
                 DisplayAddComponentEntry<DirectionalLightComponent>("Directional Light", ICON_FA_SUN);
@@ -5654,6 +5857,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<AudioSourceComponent>("Audio Source", ICON_FA_VOLUME_HIGH);
                 DisplayAddComponentEntry<AudioListenerComponent>("Audio Listener (tinglovchi)", ICON_FA_EAR_LISTEN);
                 DisplayAddComponentEntry<AmbientZoneComponent>("Ambient Zone (hajmdagi fon ovozi)", ICON_FA_TREE);
+                DisplayAddComponentEntry<FootstepsComponent>("Footsteps (animatsiya event'idan qadam tovushi)", ICON_FA_SHOE_PRINTS);
                 DisplayAddComponentEntry<NativeScriptComponent>("C++ Script", ICON_FA_CODE);
                 DisplayAddComponentEntry<TagsComponent>("Teglar (Tags)", ICON_FA_TAGS);
                 ImGui::EndPopup();
@@ -5880,6 +6084,45 @@ namespace Zamin {
                 {
                     UI::PropertyLabel("Qismlar");
                     ImGui::Text("%zu mesh", c.ModelAsset->GetSubMeshes().size());
+                }
+                // ---- morph targets (blend shapes): a weight per target
+                if (c.ModelAsset && c.ModelAsset->HasMorphTargets())
+                {
+                    const Model& model = *c.ModelAsset;
+                    const auto* anim = entity.TryGetComponent<AnimatorComponent>();
+                    const bool animated = anim && anim->MorphWeights.size() == model.GetMorphWeightCount() &&
+                                          (!m_SceneEditable || anim->EditorPreview.Active || (anim->PlayInEditor && anim->Playing));
+                    UI::PropertyHeader("Blend shape'lar (morph)",
+                                       "glTF morph target'lari: har biri 0..1 og'irlik bilan mesh shaklini o'zgartiradi (yuz ifodalari, "
+                                       "shishish). Saqlanadi; Animator kliplari og'irliklarni animatsiya qilsa, o'ynayotganda ular "
+                                       "ishlatiladi. Skript: GetComponent<MeshRendererComponent>().SetMorphWeight(\"nom\", 0.8f)");
+                    for (uint32_t i = 0; i < model.GetMorphWeightCount(); i++)
+                    {
+                        ImGui::PushID((int)i + 7700);
+                        const std::string name = model.GetMorphTargetName(i);
+                        UI::PropertyLabel(name.c_str(), animated ? "Animator klipi hozir boshqarmoqda (o'ng tomonda: amaldagi qiymat)" : nullptr);
+                        float w = c.GetMorphWeight(i);
+                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - (animated ? 56.0f : 0.0f));
+                        if (ImGui::SliderFloat("##w", &w, 0.0f, 1.0f, "%.2f"))
+                        {
+                            c.SetMorphWeight(i, w);
+                            changed = true;
+                        }
+                        if (animated)
+                        {
+                            ImGui::SameLine();
+                            ImGui::TextColored(UI::AccentColor(), ICON_FA_PERSON_RUNNING " %.2f", anim->MorphWeights[i]);
+                        }
+                        ImGui::PopID();
+                    }
+                    UI::PropertyLabel("");
+                    ImGui::BeginDisabled(c.MorphWeights.empty());
+                    if (ImGui::SmallButton(ICON_FA_ROTATE_LEFT "  Modelning o'z og'irliklari"))
+                    {
+                        c.ResetMorphWeights();
+                        changed = true;
+                    }
+                    ImGui::EndDisabled();
                 }
             }
             ImGui::TableNextRow();
@@ -6187,6 +6430,10 @@ namespace Zamin {
 
         AddSection<AnimationPlayerComponent>(ICON_FA_FILM, "Animation Player", entity, [&](AnimationPlayerComponent& c) {
             return DrawAnimationPlayer(entity, c);
+        }, true, modified);
+
+        AddSection<BoneAttachmentComponent>(ICON_FA_PAPERCLIP, "Bone Attachment (suyakka biriktirish)", entity, [&](BoneAttachmentComponent& c) {
+            return DrawBoneAttachment(entity, c);
         }, true, modified);
 
         AddSection<DirectionalLightComponent>(ICON_FA_SUN, "Directional Light", entity, [&](DirectionalLightComponent& c) {
@@ -8019,6 +8266,10 @@ namespace Zamin {
             else
                 ImGui::TextDisabled("O'yinda: tinglovchi yaqinlashsa asta eshitiladi");
             return changed;
+        }, true, modified);
+
+        AddSection<FootstepsComponent>(ICON_FA_SHOE_PRINTS, "Footsteps (qadam tovushlari)", entity, [&](FootstepsComponent& c) {
+            return DrawFootsteps(entity, c);
         }, true, modified);
 
         DrawScriptComponent(entity, modified);

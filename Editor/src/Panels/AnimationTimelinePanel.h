@@ -20,6 +20,11 @@ namespace Zamin {
     // the gizmo to the previewed entities become keys at the current time. Edits go to the shared
     // clip at once (players see them, also while the game runs) and are written with Save
     // (Ctrl+S, or when the scene is saved). Undo / redo of its own (Ctrl+Z / Ctrl+Y while focused).
+    //
+    // Skeletal mode (an entity with an Animator; AnimationTimelineSkeletal.cpp): the model's glTF
+    // clips - scrubbing / playing one previews it in the scene view without play mode (the
+    // Animator's EditorPreview), its animated bones and blend shapes as key rows, and the
+    // Animator's events of the clip edited on the timeline (added, dragged, renamed - footsteps).
     class AnimationTimelinePanel
     {
     public:
@@ -54,6 +59,15 @@ namespace Zamin {
         // Where the window docks the first time it opens (the content browser's dock node).
         void SetDefaultDock(ImGuiID dock) { m_DefaultDock = dock; }
 
+        // ---- skeletal clips (glTF, an Animator)
+        // Shows an Animator entity's clips (`clip` "" = the one it plays / its first).
+        void OpenAnimator(Entity entity, const std::string& clip = {});
+        bool IsSkeletalMode() const { return m_Mode == Mode::Skeletal; }
+        void SetSkeletalClip(const std::string& clip);
+        void SelectSkeletalEvent(int index) { m_SkelSelectedEvent = index; }
+        // An edit of the scene (an Animator event): undo point, unsaved mark.
+        std::function<void()> OnSceneModified;
+
         // ---- automation (screenshots, tests)
         void SetTime(float seconds);
         void SetRecording(bool recording) { m_Recording = recording; }
@@ -73,8 +87,28 @@ namespace Zamin {
         };
         enum class DragMode { None, Scrub, Keys, Event, CurveKey, TangentIn, TangentOut, Pan };
 
+        enum class Mode { Property, Skeletal };
+
         Entity GetPlayer() const;
         AnimationPlayerComponent* GetPlayerComponent() const;
+
+        // ---- skeletal mode (AnimationTimelineSkeletal.cpp)
+        Entity GetAnimatorEntity() const;
+        const Model* GetAnimatorModel() const;
+        const AnimationClip* GetSkeletalClip() const;
+        float SkeletalFrameRate() const;
+        void SetSkeletalTime(float seconds);
+        void UpdateSkeletal(Timestep ts, bool visible);
+        void StopSkeletalPreview();
+        void DrawModeSwitch();
+        void DrawSkeletalToolbar();
+        void DrawSkeletalEmptyState();
+        void DrawSkeletalTimeline();
+        void DrawSkeletalDetails();
+        void HandleSkeletalShortcuts();
+        int AddSkeletalEvent(float time);
+        void DeleteSkeletalEvent(int index);
+        void MarkSceneModified() { if (OnSceneModified) OnSceneModified(); }
         void SyncTarget();
         void LoadClip(int index);
         void LoadAsset(const Ref<PropertyClipAsset>& asset, int index);
@@ -174,6 +208,25 @@ namespace Zamin {
         std::vector<PropertyValue> m_Watch;      // record: the selected entity's other properties as they were
         bool m_Previewing = false;
         Scene* m_PreviewScene = nullptr;
+
+        // ---- skeletal mode
+        Mode m_Mode = Mode::Property;
+        UUID m_AnimatorID = 0;
+        std::string m_SkelClip;
+        float m_SkelTime = 0.0f;
+        bool m_SkelPlaying = false;
+        bool m_SkelLoop = true;
+        float m_SkelSpeed = 1.0f;
+        bool m_SkelPreview = false;              // the scene view shows the clip at m_SkelTime
+        float m_SkelViewStart = -0.1f;
+        float m_SkelPixelsPerSecond = 200.0f;
+        float m_SkelScrollY = 0.0f;
+        bool m_SkelFit = true;
+        int m_SkelSelectedEvent = -1;
+        int m_SkelSelectedRow = -1;
+        bool m_SkelDragging = false;             // an event is being dragged (one undo point)
+        bool m_SkelScrubbing = false;
+        bool m_SkelPanning = false;
 
         bool m_Focused = false;
         bool m_FocusRequested = false;

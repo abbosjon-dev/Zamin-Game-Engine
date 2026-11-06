@@ -64,6 +64,39 @@ namespace Zamin {
         }
     }
 
+    template<typename V>
+    static void BoundsOf(const std::vector<V>& vertices, AABB& bounds)
+    {
+        if (vertices.empty())
+            return;
+        bounds.Min = bounds.Max = vertices[0].Position;
+        for (const auto& v : vertices)
+        {
+            bounds.Min = glm::min(bounds.Min, v.Position);
+            bounds.Max = glm::max(bounds.Max, v.Position);
+        }
+    }
+
+    bool Mesh::UpdateVertices(const std::vector<MeshVertex>& vertices)
+    {
+        if (m_Skinned || vertices.size() != m_VertexCount || !m_VertexBuffer)
+            return false;
+        m_VertexBuffer->StreamData(vertices.data(), (uint32_t)(vertices.size() * sizeof(MeshVertex)));
+        BoundsOf(vertices, m_Bounds);
+        m_Geometry.reset();
+        return true;
+    }
+
+    bool Mesh::UpdateVertices(const std::vector<SkinnedVertex>& vertices)
+    {
+        if (!m_Skinned || vertices.size() != m_VertexCount || !m_VertexBuffer)
+            return false;
+        m_VertexBuffer->StreamData(vertices.data(), (uint32_t)(vertices.size() * sizeof(SkinnedVertex)));
+        BoundsOf(vertices, m_Bounds);
+        m_Geometry.reset();
+        return true;
+    }
+
     MeshGeometry MeshGeometry::FromVertices(const std::vector<MeshVertex>& vertices)
     {
         MeshGeometry g;

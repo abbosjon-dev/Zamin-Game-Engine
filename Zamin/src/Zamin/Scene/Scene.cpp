@@ -22,6 +22,7 @@
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Project/Project.h"
+#include "Zamin/Audio/Audio.h"
 #include "Zamin/Audio/AudioEngine.h"
 #include "Zamin/Math/Math.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -400,6 +401,7 @@ namespace Zamin {
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).ResetRuntime();
         for (auto e : registry.view<AudioListenerComponent>()) registry.get<AudioListenerComponent>(e).ResetRuntime();
         for (auto e : registry.view<AmbientZoneComponent>()) registry.get<AmbientZoneComponent>(e).ResetRuntime();
+        for (auto e : registry.view<FootstepsComponent>()) registry.get<FootstepsComponent>(e).ResetRuntime();
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).ResetRuntime();
         for (auto e : registry.view<SpriteRendererComponent>()) registry.get<SpriteRendererComponent>(e).StopFlash();
         for (auto e : registry.view<TintAnimationComponent>()) registry.get<TintAnimationComponent>(e).ResetRuntime();
@@ -408,7 +410,11 @@ namespace Zamin {
         for (auto e : registry.view<CameraComponent>()) registry.get<CameraComponent>(e).Shake.ResetRuntime();
         for (auto e : registry.view<Camera2DFollowComponent>()) registry.get<Camera2DFollowComponent>(e).ResetRuntime();
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).Clear();
-        for (auto e : registry.view<MeshRendererComponent>()) Scene::ClearMaterialInstances(registry.get<MeshRendererComponent>(e));
+        for (auto e : registry.view<MeshRendererComponent>())
+        {
+            Scene::ClearMaterialInstances(registry.get<MeshRendererComponent>(e));
+            registry.get<MeshRendererComponent>(e).ReleaseMorphMeshes(); // the copy makes its own
+        }
         for (auto e : registry.view<UIButtonComponent>())
         {
             auto& b = registry.get<UIButtonComponent>(e);
@@ -460,6 +466,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<AudioListenerComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<AmbientZoneComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<FootstepsComponent>()) { c->ResetRuntime(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID() | 1u; }
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<SpriteRendererComponent>()) c->StopFlash();
         if (auto* c = e.TryGetComponent<TintAnimationComponent>()) c->ResetRuntime();
@@ -491,6 +498,7 @@ namespace Zamin {
             for (Ref<MaterialAsset>& instance : c->SubmeshMaterialInstances)
                 if (instance)
                     instance = instance->Clone();
+            c->ReleaseMorphMeshes(); // morphed meshes of its own (the original's stay its own)
         }
     }
 
@@ -786,6 +794,8 @@ namespace Zamin {
                 remap(scroll->Content);
                 remap(scroll->Viewport);
             }
+            if (auto* attachment = e.TryGetComponent<BoneAttachmentComponent>())
+                remap(attachment->Target);
             if (auto* nav = e.TryGetComponent<UINavigationComponent>())
             {
                 remap(nav->Up);
@@ -1771,9 +1781,77 @@ namespace Zamin {
             PlayAudio(entity);
     }
 
+    // How deep bone attachments are being followed now (attachments on each other's bones in a
+    // circle would never end: past this they follow their parents instead).
+    static thread_local int s_AttachmentDepth = 0;
+    static constexpr int s_MaxAttachmentDepth = 32;
+
+    Entity Scene::GetBoneAttachmentTarget(Entity entity)
+    {
+        const auto* attachment = entity.TryGetComponent<BoneAttachmentComponent>();
+        if (!attachment)
+            return {};
+        if (attachment->Target)
+        {
+            Entity target = GetEntityByUUID(attachment->Target.ID);
+            return target && target != entity ? target : Entity();
+        }
+        for (Entity e = GetParent(entity); e; e = GetParent(e))
+            if (const auto* mr = e.TryGetComponent<MeshRendererComponent>(); mr && mr->ModelAsset && mr->ModelAsset->IsSkinned())
+                return e;
+        return {};
+    }
+
+    bool Scene::GetBoneAttachmentLocal(Entity entity, Entity& target, glm::mat4& boneInTarget)
+    {
+        auto* attachment = entity.TryGetComponent<BoneAttachmentComponent>();
+        if (!attachment || attachment->Bone.empty())
+            return false;
+        target = GetBoneAttachmentTarget(entity);
+        if (!target)
+            return false;
+        const auto* mr = target.TryGetComponent<MeshRendererComponent>();
+        if (!mr || !mr->ModelAsset || !mr->ModelAsset->IsSkinned())
+            return false;
+        const Skeleton& skeleton = mr->ModelAsset->GetSkeleton();
+        int& joint = attachment->CachedJoint;
+        if (joint < 0 || joint >= (int)skeleton.Joints.size() || skeleton.Joints[(size_t)joint].Name != attachment->Bone)
+            joint = FindJoint(skeleton, attachment->Bone);
+        if (joint < 0)
+            return false;
+        static const std::vector<glm::mat4> s_RestPose;
+        const auto* anim = target.TryGetComponent<AnimatorComponent>();
+        boneInTarget = GetJointTransform(skeleton, anim ? anim->JointMatrices : s_RestPose, joint);
+        if (!attachment->InheritBoneScale)
+            for (int c = 0; c < 3; c++)
+            {
+                const float len = glm::length(glm::vec3(boneInTarget[c]));
+                if (len > 1e-8f)
+                    boneInTarget[c] /= len;
+            }
+        return true;
+    }
+
+    glm::mat4 Scene::GetParentWorldTransform(Entity entity)
+    {
+        Entity target;
+        glm::mat4 bone;
+        if (s_AttachmentDepth < s_MaxAttachmentDepth && GetBoneAttachmentLocal(entity, target, bone))
+        {
+            s_AttachmentDepth++;
+            const glm::mat4 targetWorld = GetWorldTransform(target);
+            s_AttachmentDepth--;
+            return targetWorld * bone;
+        }
+        Entity parent = GetParent(entity);
+        return parent ? GetWorldTransform(parent) : glm::mat4(1.0f);
+    }
+
     glm::mat4 Scene::GetWorldTransform(Entity entity)
     {
         glm::mat4 local = entity.GetComponent<TransformComponent>().GetTransform();
+        if (entity.HasComponent<BoneAttachmentComponent>())
+            return GetParentWorldTransform(entity) * local;
         Entity parent = GetParent(entity);
         return parent ? GetWorldTransform(parent) * local : local;
     }
@@ -1966,8 +2044,7 @@ namespace Zamin {
 
     void Scene::SetWorldTransform(Entity entity, const glm::mat4& world)
     {
-        Entity parent = GetParent(entity);
-        glm::mat4 local = parent ? glm::inverse(GetWorldTransform(parent)) * world : world;
+        glm::mat4 local = glm::inverse(GetParentWorldTransform(entity)) * world;
         glm::vec3 t, r, s;
         if (Math::DecomposeTransform(local, t, r, s))
         {
@@ -4011,7 +4088,7 @@ namespace Zamin {
             else
             {
                 auto& t = m_Registry.get<TransformComponent>(e);
-                glm::mat4 parentInv = glm::inverse(GetWorldTransform(GetParent(entity)));
+                glm::mat4 parentInv = glm::inverse(GetParentWorldTransform(entity));
                 t.Translation = glm::vec3(parentInv * glm::vec4(p, 1.0f));
             }
         }
@@ -4416,12 +4493,17 @@ namespace Zamin {
     {
         m_FrameIndex++;
         DebugDraw::Advance(ts); // the edit scene's time is the editor's
+        UpdateEditorAnimation(ts);
+        RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
+    }
+
+    void Scene::UpdateEditorAnimation(Timestep ts)
+    {
         m_AnimationTime += (double)ts; // animated tiles play in the scene view
         UpdateSpriteAnimations(ts, true);
         UpdateTintAnimations(ts, true);
         UpdateParticles(ts, true);
         UpdateAnimators(ts, true);
-        RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
     }
 
     void Scene::OnRenderEditor(const EditorCamera& camera, const SceneRenderOptions& options)
@@ -4687,6 +4769,7 @@ namespace Zamin {
         {
             LocalPose Base, Other, Part, Reference;
             std::vector<float> Mask, Weights, Thresholds;
+            std::vector<float> MorphBase, MorphPart, MorphPrevious;
         };
 
     }
@@ -4759,6 +4842,40 @@ namespace Zamin {
                     out.Cycle /= total;
                 }
             };
+
+            // The Mesh Renderer's morph weights (else the model's own): what the clips start from.
+            const bool morphs = model && model->HasMorphTargets();
+            if (morphs)
+            {
+                if (mr->MorphWeights.size() == model->GetMorphWeightCount())
+                    scratch.MorphBase = mr->MorphWeights;
+                else
+                    scratch.MorphBase = model->GetDefaultMorphWeights();
+            }
+            else
+                anim.MorphWeights.clear();
+
+            // ---- the Animation window scrubs a clip (edit mode): that clip at that time, nothing else
+            if (editor && anim.EditorPreview.Active)
+            {
+                const AnimationClip* c = findClip(anim.EditorPreview.Clip);
+                const float t = c ? std::clamp(anim.EditorPreview.Time, 0.0f, c->Duration) : 0.0f;
+                if (model && model->IsSkinned())
+                {
+                    SampleLocalPose(model->GetSkeleton(), c, t, scratch.Base);
+                    ComposeJointMatrices(model->GetSkeleton(), scratch.Base, anim.JointMatrices);
+                }
+                else
+                    anim.JointMatrices.clear();
+                if (morphs)
+                {
+                    anim.MorphWeights = scratch.MorphBase;
+                    SampleClipMorphWeights(*model, c, t, anim.MorphWeights);
+                }
+                anim.RootMotionVelocity = glm::vec3(0.0f);
+                anim.RootMotionTurnRate = 0.0f;
+                continue;
+            }
 
             // ---- state machine (runtime only; the editor previews the default state)
             if (anim.UsesStateMachine())
@@ -4885,6 +5002,50 @@ namespace Zamin {
                                               layer.EventsAtStart, false, firedEvents);
             }
 
+            // The crossfade's weight (smoothstep), for the pose and the morph weights.
+            float w = anim.IsFading() ? anim.FadeElapsed / anim.FadeDuration : 1.0f;
+            w = w * w * (3.0f - 2.0f * w);
+
+            // ---- morph target weights: each motion's clips over the Mesh Renderer's weights,
+            // mixed like the pose (blend tree shares, then the crossfade)
+            if (morphs)
+            {
+                auto sampleMorphs = [&](const ResolvedMotion& m, std::vector<float>& out) {
+                    out = scratch.MorphBase;
+                    if (m.Parts.empty())
+                        return;
+                    if (m.Parts.size() == 1)
+                    {
+                        SampleClipMorphWeights(*model, m.Parts[0].Clip, m.Parts[0].Time, out);
+                        return;
+                    }
+                    std::fill(out.begin(), out.end(), 0.0f);
+                    float total = 0.0f;
+                    for (const MotionPart& part : m.Parts)
+                    {
+                        if (part.Weight <= 0.0f)
+                            continue;
+                        scratch.MorphPart = scratch.MorphBase;
+                        SampleClipMorphWeights(*model, part.Clip, part.Time, scratch.MorphPart);
+                        for (size_t i = 0; i < out.size(); i++)
+                            out[i] += scratch.MorphPart[i] * part.Weight;
+                        total += part.Weight;
+                    }
+                    if (total > 0.0f && std::abs(total - 1.0f) > 1e-4f)
+                        for (float& v : out)
+                            v /= total;
+                    else if (total <= 0.0f)
+                        out = scratch.MorphBase;
+                };
+                sampleMorphs(current, anim.MorphWeights);
+                if (anim.IsFading())
+                {
+                    sampleMorphs(previous, scratch.MorphPrevious);
+                    for (size_t i = 0; i < anim.MorphWeights.size() && i < scratch.MorphPrevious.size(); i++)
+                        anim.MorphWeights[i] = scratch.MorphPrevious[i] + (anim.MorphWeights[i] - scratch.MorphPrevious[i]) * w;
+                }
+            }
+
             if (!model || !model->IsSkinned())
             {
                 anim.JointMatrices.clear();
@@ -4917,8 +5078,6 @@ namespace Zamin {
                     BlendLocalPose(out, scratch.Part, m.Parts[i].Weight / sum);
                 }
             };
-            float w = fading ? anim.FadeElapsed / anim.FadeDuration : 1.0f;
-            w = w * w * (3.0f - 2.0f * w); // smoothstep
             if (fading)
             {
                 samplePose(previous, scratch.Base);
@@ -5121,6 +5280,42 @@ namespace Zamin {
             FireAnimationEvent(GetEntityByUUID(f.Entity), f.Event, f.Clip, false);
     }
 
+    uint32_t Scene::PlayFootstep(Entity entity, FootstepsComponent& steps)
+    {
+        // Two clips of a crossfade / blend tree firing their steps at nearly the same moment: one sound.
+        if (m_AnimationTime - steps.LastStepTime < (double)std::max(0.0f, steps.MinInterval))
+            return 0;
+        float speed = steps.ReferenceSpeed;
+        if (!steps.SpeedParameter.empty())
+            if (auto* anim = entity.TryGetComponent<AnimatorComponent>())
+                if (const AnimatorParameter* p = anim->FindParameter(steps.SpeedParameter); p && p->Kind == AnimatorParameter::Type::Float)
+                    speed = p->Value;
+        float volume = 1.0f, pitch = 1.0f;
+        if (!steps.GetSpeedScale(speed, volume, pitch))
+            return 0;
+        const int index = steps.PickSound();
+        if (index < 0 || steps.Sounds[(size_t)index].empty())
+            return 0;
+        steps.LastStepTime = m_AnimationTime;
+        steps.StepCount++;
+        SoundParams params;
+        params.Volume = std::max(0.0f, steps.Volume) * volume;
+        params.Pitch = pitch;
+        params.VolumeRandom = steps.VolumeRandom;
+        params.PitchRandom = steps.PitchRandom;
+        params.Group = steps.Output;
+        params.MaxInstances = 4;
+        params.Priority = 96; // under voices and music
+        if (steps.Spatial)
+        {
+            params.Spatial = true;
+            params.Position = GetWorldPosition(entity);
+            params.MinDistance = steps.MinDistance;
+            params.MaxDistance = steps.MaxDistance;
+        }
+        return Audio::PlaySound(steps.Sounds[(size_t)index], params);
+    }
+
     void Scene::FireAnimationEvent(Entity entity, const AnimationEvent& event, const std::string& clip, bool skeletal)
     {
         if (!entity || !m_ScriptsRunning)
@@ -5132,6 +5327,8 @@ namespace Zamin {
         info.Time = event.Time;
         info.Source = entity;
         info.Skeletal = skeletal;
+        if (auto* steps = entity.TryGetComponent<FootstepsComponent>(); steps && steps->EventName == event.Name)
+            PlayFootstep(entity, *steps);
         if (auto* nsc = entity.TryGetComponent<NativeScriptComponent>(); nsc && nsc->Instance && !nsc->Instance->m_Destroying)
             nsc->Instance->ReceiveAnimationEvent(info);
         // A handler may have destroyed the entity: the bus still hears of the event.
@@ -6084,6 +6281,67 @@ namespace Zamin {
         return visible;
     }
 
+    Ref<Mesh> Scene::GetMorphedMesh(entt::entity e, MeshRendererComponent& mr, size_t index)
+    {
+        const Model& model = *mr.ModelAsset;
+        const Model::SubMesh& sub = model.GetSubMeshes()[index];
+        const MorphTargetData& data = *sub.Morph;
+        if (data.Group < 0 || data.Group >= (int)model.GetMorphGroups().size())
+            return sub.MeshRef;
+        const MorphGroup& group = model.GetMorphGroups()[(size_t)data.Group];
+        const uint32_t count = model.GetMorphWeightCount();
+        const std::vector<float>* weights = nullptr;
+        if (const auto* anim = m_Registry.try_get<AnimatorComponent>(e); anim && anim->MorphWeights.size() == count)
+            weights = &anim->MorphWeights;
+        else if (mr.MorphWeights.size() == count)
+            weights = &mr.MorphWeights;
+        if (!weights)
+            return sub.MeshRef;
+        const float* w = weights->data() + group.Offset;
+        bool own = false;
+        for (uint32_t t = 0; t < group.GetCount() && !own; t++)
+            own = std::abs(w[t] - (t < group.DefaultWeights.size() ? group.DefaultWeights[t] : 0.0f)) > 1e-5f;
+        if (!own)
+            return sub.MeshRef; // the model's own weights: its shared mesh shows them
+
+        // This entity's copy (a copied component's meshes are its original's: made anew).
+        const uint64_t owner = (uint64_t)m_Registry.get<IDComponent>(e).ID;
+        if (mr.MorphMeshOwner != owner)
+        {
+            mr.ReleaseMorphMeshes();
+            mr.MorphMeshOwner = owner;
+        }
+        const size_t parts = model.GetSubMeshes().size();
+        if (mr.MorphMeshes.size() != parts)
+        {
+            mr.MorphMeshes.resize(parts);
+            mr.MorphMeshWeights.resize(parts);
+            mr.MorphMeshSources.resize(parts, nullptr);
+        }
+        std::vector<float> slice(w, w + group.GetCount());
+        Ref<Mesh>& mesh = mr.MorphMeshes[index];
+        const bool fresh = !mesh || mr.MorphMeshSources[index] != sub.MeshRef.get(); // first time, or the model was imported again
+        if (!fresh && mr.MorphMeshWeights[index] == slice)
+            return mesh;
+        static thread_local std::vector<MeshVertex> s_Vertices;
+        static thread_local std::vector<SkinnedVertex> s_SkinnedVertices;
+        if (data.Skinned)
+        {
+            ApplyMorphTargets(data, slice.data(), slice.size(), s_SkinnedVertices);
+            if (fresh || !mesh->UpdateVertices(s_SkinnedVertices))
+                mesh = CreateRef<Mesh>(s_SkinnedVertices, data.Indices);
+        }
+        else
+        {
+            ApplyMorphTargets(data, slice.data(), slice.size(), s_Vertices);
+            if (fresh || !mesh->UpdateVertices(s_Vertices))
+                mesh = CreateRef<Mesh>(s_Vertices, data.Indices);
+        }
+        mr.MorphMeshSources[index] = sub.MeshRef.get();
+        mr.MorphMeshWeights[index] = std::move(slice);
+        return mesh;
+    }
+
     void Scene::RenderScene(const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPosition,
                             const SceneRenderOptions& options)
     {
@@ -6097,7 +6355,17 @@ namespace Zamin {
             if (it != worldCache.end()) return it->second;
             glm::mat4 local = m_Registry.get<TransformComponent>(e).GetTransform();
             UUID parent = m_Registry.get<RelationshipComponent>(e).Parent;
-            if ((uint64_t)parent)
+            Entity boneTarget;
+            glm::mat4 bone;
+            if (m_Registry.all_of<BoneAttachmentComponent>(e) && s_AttachmentDepth < s_MaxAttachmentDepth &&
+                GetBoneAttachmentLocal({ e, this }, boneTarget, bone))
+            {
+                // On a bone: the bone (as its model is posed this frame) in place of the parent.
+                s_AttachmentDepth++;
+                local = world((entt::entity)boneTarget) * bone * local;
+                s_AttachmentDepth--;
+            }
+            else if ((uint64_t)parent)
             {
                 auto pit = m_EntityMap.find(parent);
                 if (pit != m_EntityMap.end() && m_Registry.valid(pit->second))
@@ -6220,7 +6488,8 @@ namespace Zamin {
                         EvaluatePose(mr.ModelAsset->GetSkeleton(), nullptr, 0.0f, bindPose);
                         joints = &bindPose;
                     }
-                    Renderer3D::SubmitMesh(sub.MeshRef, world(e), m, (int)(uint32_t)e, mr.CastShadows, joints);
+                    Renderer3D::SubmitMesh(sub.Morph ? GetMorphedMesh(e, mr, index) : sub.MeshRef, world(e), m, (int)(uint32_t)e, mr.CastShadows,
+                                           joints);
                 }
             }
             else if (mr.MeshAsset)

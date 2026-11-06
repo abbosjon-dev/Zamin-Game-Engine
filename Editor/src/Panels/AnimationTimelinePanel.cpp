@@ -80,17 +80,35 @@ namespace Zamin {
         m_Watch.clear();
         if (m_Pinned || !selected || !m_Scene)
             return;
-        // The player of the selection: its own, else its nearest ancestor's.
-        for (Entity e = selected; e; e = m_Scene->GetParent(e))
-            if (e.HasComponent<AnimationPlayerComponent>())
+        // The player of the selection (property clips) or its Animator (skeletal clips): its own,
+        // else its nearest ancestor's; both on one entity: the mode shown stays.
+        Entity player, animator;
+        int playerDepth = -1, animatorDepth = -1, depth = 0;
+        for (Entity e = selected; e && (!player || !animator); e = m_Scene->GetParent(e), depth++)
+        {
+            if (!player && e.HasComponent<AnimationPlayerComponent>()) { player = e; playerDepth = depth; }
+            if (!animator && e.HasComponent<AnimatorComponent>()) { animator = e; animatorDepth = depth; }
+        }
+        const bool skeletal = animator && (!player || animatorDepth < playerDepth || (animatorDepth == playerDepth && m_Mode == Mode::Skeletal));
+        if (skeletal)
+        {
+            if (animator.GetUUID() != m_AnimatorID || m_Mode != Mode::Skeletal)
+                OpenAnimator(animator);
+            return;
+        }
+        if (player)
+        {
+            if (m_Mode != Mode::Property)
             {
-                if (e.GetUUID() != m_PlayerID)
-                {
-                    const auto& player = e.GetComponent<AnimationPlayerComponent>();
-                    Open(e, player.Current >= 0 ? player.Current : 0);
-                }
-                return;
+                StopSkeletalPreview();
+                m_Mode = Mode::Property;
             }
+            if (player.GetUUID() != m_PlayerID)
+            {
+                const auto& pc = player.GetComponent<AnimationPlayerComponent>();
+                Open(player, pc.Current >= 0 ? pc.Current : 0);
+            }
+        }
     }
 
     Entity AnimationTimelinePanel::GetPlayer() const
@@ -113,6 +131,8 @@ namespace Zamin {
             return;
         if (player.GetUUID() != m_PlayerID)
             StopPreview(true);
+        StopSkeletalPreview();
+        m_Mode = Mode::Property;
         m_PlayerID = player.GetUUID();
         LoadClip(clip);
         m_FocusRequested = true;
@@ -132,6 +152,8 @@ namespace Zamin {
                             return;
                         }
         StopPreview(true);
+        StopSkeletalPreview();
+        m_Mode = Mode::Property;
         m_PlayerID = 0;
         m_Pinned = true; // a clip on its own: the selection does not take it away
         Ref<PropertyClipAsset> asset = PropertyClipLibrary::Load(file);
@@ -319,6 +341,11 @@ namespace Zamin {
 
     void AnimationTimelinePanel::SetTime(float seconds)
     {
+        if (m_Mode == Mode::Skeletal)
+        {
+            SetSkeletalTime(seconds);
+            return;
+        }
         m_Time = std::clamp(std::isfinite(seconds) ? seconds : 0.0f, 0.0f, std::max(0.0f, m_Work.Duration));
         m_PlayCursor.Time = m_Time;
         // While the game runs: the running player goes there (and holds).
@@ -579,6 +606,7 @@ namespace Zamin {
 
     void AnimationTimelinePanel::StopPreview(bool restore)
     {
+        StopSkeletalPreview();
         if (restore && m_Previewing && m_PreviewScene && m_PreviewScene == m_Scene.get())
             for (const PropertyValue& b : m_Base)
                 if (Entity e = m_Scene->GetEntityByUUID(b.Entity))
@@ -733,6 +761,13 @@ namespace Zamin {
 
     void AnimationTimelinePanel::OnUpdate(Timestep ts, bool visible)
     {
+        UpdateSkeletal(ts, visible);
+        if (m_Mode == Mode::Skeletal)
+        {
+            if (m_Previewing)
+                StopPreview(true);
+            return;
+        }
         Entity player = GetPlayer();
         const bool preview = visible && m_Editable && m_Scene && player && m_Asset;
         if (!preview)
@@ -783,6 +818,30 @@ namespace Zamin {
             return;
         }
         m_Focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+        if (m_Mode == Mode::Skeletal)
+        {
+            DrawSkeletalToolbar();
+            ImGui::Separator();
+            if (!GetAnimatorEntity() || !GetAnimatorModel() || !GetSkeletalClip())
+            {
+                DrawSkeletalEmptyState();
+                ImGui::End();
+                return;
+            }
+            const ImVec2 avail = ImGui::GetContentRegionAvail();
+            const float details = std::min(s_DetailsWidth, avail.x * 0.35f);
+            ImGui::BeginChild("##skeltimeline", ImVec2(avail.x - details - ImGui::GetStyle().ItemSpacing.x, avail.y), ImGuiChildFlags_None,
+                              ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
+            DrawSkeletalTimeline();
+            ImGui::EndChild();
+            ImGui::SameLine();
+            ImGui::BeginChild("##skeldetails", ImVec2(details, avail.y), ImGuiChildFlags_Borders);
+            DrawSkeletalDetails();
+            ImGui::EndChild();
+            HandleSkeletalShortcuts();
+            ImGui::End();
+            return;
+        }
         SyncTarget();
         DrawToolbar();
         ImGui::Separator();
@@ -811,6 +870,7 @@ namespace Zamin {
     {
         Entity player = GetPlayer();
         auto* pc = GetPlayerComponent();
+        DrawModeSwitch();
         // ---- target and clip
         ImGui::AlignTextToFramePadding();
         if (player)

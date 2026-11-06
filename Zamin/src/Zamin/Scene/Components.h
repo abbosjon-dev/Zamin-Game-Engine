@@ -387,6 +387,55 @@ namespace Zamin {
         std::string MetalRoughPath;
         std::string EmissivePath;
         bool CastShadows = true;
+
+        // ---- morph targets (glTF blend shapes): one weight per target of the model, every morph
+        // group's after each other (Model::GetMorphGroups). Empty = the model's own weights. Saved
+        // with the scene; an Animator whose clips animate weights takes their place while it plays
+        // (the targets its clip does not animate keep these). Scripts:
+        //   GetComponent<MeshRendererComponent>().SetMorphWeight("Smile", 0.8f);
+        std::vector<float> MorphWeights;
+        // runtime (never saved): this entity's copies of the morphed submeshes (by index; null:
+        // the model's shared mesh), the weights they show and what they were made from
+        std::vector<Ref<Mesh>> MorphMeshes;
+        std::vector<std::vector<float>> MorphMeshWeights;
+        std::vector<const Mesh*> MorphMeshSources;
+        uint64_t MorphMeshOwner = 0;
+
+        uint32_t GetMorphTargetCount() const { return ModelAsset ? ModelAsset->GetMorphWeightCount() : 0u; }
+        // The weight of target `index` / `name` (or "Group/Target"): this entity's, else the model's own.
+        float GetMorphWeight(uint32_t index) const
+        {
+            if (index < MorphWeights.size()) return MorphWeights[index];
+            if (!ModelAsset || index >= ModelAsset->GetMorphWeightCount()) return 0.0f;
+            for (const auto& g : ModelAsset->GetMorphGroups())
+                if (index >= g.Offset && index < g.Offset + g.GetCount())
+                    return index - g.Offset < g.DefaultWeights.size() ? g.DefaultWeights[index - g.Offset] : 0.0f;
+            return 0.0f;
+        }
+        float GetMorphWeight(const std::string& name) const
+        {
+            const int index = ModelAsset ? ModelAsset->FindMorphTarget(name) : -1;
+            return index >= 0 ? GetMorphWeight((uint32_t)index) : 0.0f;
+        }
+        // Sets one weight (the others start at the model's own). False when the model has no such target.
+        bool SetMorphWeight(uint32_t index, float weight)
+        {
+            if (!ModelAsset || index >= ModelAsset->GetMorphWeightCount()) return false;
+            if (MorphWeights.size() != ModelAsset->GetMorphWeightCount()) MorphWeights = ModelAsset->GetDefaultMorphWeights();
+            MorphWeights[index] = weight;
+            return true;
+        }
+        bool SetMorphWeight(const std::string& name, float weight)
+        {
+            const int index = ModelAsset ? ModelAsset->FindMorphTarget(name) : -1;
+            return index >= 0 && SetMorphWeight((uint32_t)index, weight);
+        }
+        // Back to the model's own weights.
+        void ResetMorphWeights() { MorphWeights.clear(); }
+        void ReleaseMorphMeshes()
+        {
+            MorphMeshes.clear(); MorphMeshWeights.clear(); MorphMeshSources.clear(); MorphMeshOwner = 0;
+        }
     };
 
     // ---- animation state machine data
@@ -528,6 +577,20 @@ namespace Zamin {
         bool PreviousLoop = true;
         float FadeDuration = 0.0f;
         float FadeElapsed = 0.0f;
+
+        // Morph target weights the clips animate (runtime): the model's flat list - the Mesh
+        // Renderer's weights where the clips have none. Empty: the clips animate none.
+        std::vector<float> MorphWeights;
+
+        // ---- editor preview (never saved): the Animation window's scrubbing shows this clip at
+        // this time in the scene view instead of what the Animator plays (edit mode only).
+        struct EditorPreviewState
+        {
+            bool Active = false;
+            std::string Clip;
+            float Time = 0.0f;
+        };
+        EditorPreviewState EditorPreview;
 
         // Events of the clips (in play mode).
         std::vector<AnimatorEvent> Events;
@@ -673,6 +736,7 @@ namespace Zamin {
         void ResetRuntime()
         {
             EventsAtStart = true;
+            EditorPreview = {};
             RootMotionVelocity = glm::vec3(0.0f);
             RootMotionTurnRate = 0.0f;
             for (auto& l : Layers)
@@ -733,6 +797,23 @@ namespace Zamin {
         {
             Current = -1; Cursor = {}; PlaySpeed = 1.0f; Playing = false; Started = false; PoseDirty = false;
         }
+    };
+
+    // Puts the entity on a bone of a skinned model - a sword in the hand, a hat on the head, a
+    // lantern on the belt. The bone, as the model's Animator poses it (the editor's preview too),
+    // takes the place of the entity's parent: its Transform is the offset in the bone's space, so
+    // the gizmo moves it relative to the bone and the offset is what is saved. Target: the entity
+    // whose Mesh Renderer has the skinned model (empty: the nearest ancestor that has one).
+    struct BoneAttachmentComponent
+    {
+        EntityRef Target;
+        std::string Bone;                 // joint name of the model's skeleton
+        // false: only the bone's position and turn are followed - its scale (an import's
+        // centimetres, a squash) is left out; the model entity's own scale still counts.
+        bool InheritBoneScale = false;
+
+        // runtime cache: the joint Bone was found at (checked by name on every use)
+        int CachedJoint = -1;
     };
 
     struct CameraComponent
@@ -2121,6 +2202,66 @@ namespace Zamin {
     };
 
     // ------------------------------------------------------------------ scripting (C++)
+    // Footstep sounds played by animation events: every event named EventName (an Animator clip's
+    // event, an Animation Player's, a sprite clip's) plays one of Sounds at random - never the
+    // same one twice in a row - louder and higher the faster the character goes (its speed: the
+    // Animator float parameter SpeedParameter, compared with ReferenceSpeed), with a little random
+    // pitch / volume on top so no two steps sound alike. Steps closer than MinInterval play once
+    // (both clips of a crossfade / blend tree fire theirs).
+    struct FootstepsComponent
+    {
+        std::vector<std::string> Sounds;          // audio files, relative to Assets
+        std::string EventName = "Footstep";
+        float Volume = 0.8f;
+        glm::vec2 VolumeRandom{ 0.85f, 1.0f };    // x a random value in [x, y] per step
+        glm::vec2 PitchRandom{ 0.92f, 1.08f };
+        // Speed scaling ("" or a parameter the Animator does not have: none).
+        std::string SpeedParameter = "Speed";
+        float ReferenceSpeed = 3.0f;              // at this speed: Volume and pitch 1 (walking)
+        float SpeedPitch = 0.12f;                 // pitch x (1 + SpeedPitch x (speed / reference - 1))
+        float SpeedVolume = 0.35f;                // volume x (1 + SpeedVolume x (speed / reference - 1))
+        float MinSpeed = 0.3f;                    // slower than this: silent (blending into idle)
+        float MinInterval = 0.12f;                // seconds
+        bool Spatial = true;                      // 3D sound at the entity
+        float MinDistance = 1.0f;
+        float MaxDistance = 25.0f;
+        std::string Output = "SFX";               // mixer group
+
+        // runtime (reset when play starts)
+        int LastSound = -1;
+        double LastStepTime = -1.0e9;
+        uint32_t RandomState = 0x9E3779B9u;
+        uint32_t StepCount = 0;
+
+        // What speed `speed` does to a step: its volume and pitch multipliers (before the random
+        // variation). False when it is too slow to be heard.
+        bool GetSpeedScale(float speed, float& volume, float& pitch) const
+        {
+            volume = pitch = 1.0f;
+            if (!std::isfinite(speed)) speed = ReferenceSpeed;
+            speed = std::abs(speed);
+            if (speed < MinSpeed) return false;
+            const float r = ReferenceSpeed > 1e-4f ? speed / ReferenceSpeed - 1.0f : 0.0f;
+            volume = std::clamp(1.0f + SpeedVolume * r, 0.2f, 1.6f);
+            pitch = std::clamp(1.0f + SpeedPitch * r, 0.6f, 1.6f);
+            return true;
+        }
+        // The next sound to play: a random one of Sounds, not the last one again (when there are
+        // more). -1 without sounds.
+        int PickSound()
+        {
+            const int n = (int)Sounds.size();
+            if (n == 0) return -1;
+            RandomState ^= RandomState << 13; RandomState ^= RandomState >> 17; RandomState ^= RandomState << 5;
+            int index = (int)(RandomState % (uint32_t)n);
+            if (n > 1 && index == LastSound)
+                index = (index + 1 + (int)((RandomState >> 8) % (uint32_t)(n - 1))) % n;
+            LastSound = index;
+            return index;
+        }
+        void ResetRuntime() { LastSound = -1; LastStepTime = -1.0e9; StepCount = 0; }
+    };
+
     struct NativeScriptComponent
     {
         std::string ClassName;  // registered with ZM_REGISTER_SCRIPT
@@ -2216,6 +2357,7 @@ namespace Zamin {
         SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
         UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
         UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
-        UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, NativeScriptComponent, EditorMetadataComponent>;
+        UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, FootstepsComponent,
+        BoneAttachmentComponent, NativeScriptComponent, EditorMetadataComponent>;
 
 }

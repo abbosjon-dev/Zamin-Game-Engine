@@ -64,6 +64,10 @@ namespace Zamin {
         const AABB& GetBounds() const { return m_Bounds; }
         // The vertices on the CPU: read back from the GPU on the first call (slow), then kept.
         const MeshGeometry& GetGeometry() const;
+        // New vertex data of the same layout and count (morph targets): uploaded, bounds updated.
+        // False (nothing changed) when the kind or the count differs.
+        bool UpdateVertices(const std::vector<MeshVertex>& vertices);
+        bool UpdateVertices(const std::vector<SkinnedVertex>& vertices);
 
     private:
         Ref<VertexArray> m_VertexArray;

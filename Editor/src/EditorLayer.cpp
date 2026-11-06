@@ -126,6 +126,7 @@ namespace Zamin {
             m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
             m_AnimationPanel.OpenClipFile(p);
         };
+        m_AnimationPanel.OnSceneModified = [this]() { MarkDirty(); };
         m_AnimationPanel.OnClipSaved = [this](const fs::path& p) {
             m_ContentBrowserPanel.InvalidateThumbnail(p);
             m_ContentBrowserPanel.MarkListDirty();
@@ -300,22 +301,35 @@ namespace Zamin {
             }
             // ZAMIN_EDITOR_ANIMATION=1 | curves,time=0.5,track=1,key=1,record: the Animation window on the
             // selected entity's player (curve view, scrubbed to a time, a track / key selected, recording).
+            // skeletal,clip=Walk,time=0.4,event=0: its Animator's glTF clip scrubbed there (an event selected).
             if (const char* anim = std::getenv("ZAMIN_EDITOR_ANIMATION"))
             {
                 std::string_view v(anim);
                 m_ShowAnimation = true;
                 m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
                 Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
+                const bool skeletal = v.find("skeletal") != std::string_view::npos;
+                auto text = [&](std::string_view key) {
+                    size_t at = v.find(key);
+                    if (at == std::string_view::npos) return std::string();
+                    std::string_view rest = v.substr(at + key.size());
+                    return std::string(rest.substr(0, rest.find(',')));
+                };
                 for (Entity e = selected; e; e = m_ActiveScene->GetParent(e))
-                    if (e.HasComponent<AnimationPlayerComponent>())
+                    if (skeletal ? e.HasComponent<AnimatorComponent>() : e.HasComponent<AnimationPlayerComponent>())
                     {
-                        m_AnimationPanel.Open(e, 0);
+                        if (skeletal)
+                            m_AnimationPanel.OpenAnimator(e, text("clip="));
+                        else
+                            m_AnimationPanel.Open(e, 0);
                         break;
                     }
                 auto number = [&](std::string_view key, float fallback) {
                     size_t at = v.find(key);
                     return at == std::string_view::npos ? fallback : (float)std::atof(std::string(v.substr(at + key.size())).c_str());
                 };
+                if (skeletal && v.find("event=") != std::string_view::npos)
+                    m_AnimationPanel.SelectSkeletalEvent((int)number("event=", 0.0f));
                 m_AnimationPanel.SetCurveView(v.find("curves") != std::string_view::npos);
                 m_AnimationPanel.SetTime(number("time=", 0.0f));
                 if (v.find("track=") != std::string_view::npos)

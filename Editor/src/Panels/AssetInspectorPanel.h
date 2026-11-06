@@ -138,6 +138,11 @@ namespace Zamin {
         void DrawModel(const AssetMetadata* meta);
         void DrawModelPreview(const Ref<Model>& model);
         void DrawModelInfo(const Ref<Model>& model);
+        // The clip settings of the import (AssetInspectorModelClips.cpp): trim / split the file's clips.
+        void DrawModelClipSettings();
+        const AnimationClip* FindSourceClip(const std::string& name) const;
+        void StartClipSettingPreview(int entry);
+        void RefreshClipSettingPreview();
         void DrawAudio(const AssetMetadata* meta);
         void DrawWaveform(float height);
         void DrawSceneFile();
@@ -214,6 +219,10 @@ namespace Zamin {
         float m_ClipTime = 0.0f;
         double m_LastPreviewTime = -1.0;
         std::vector<glm::mat4> m_Joints;
+        // the clip settings' preview: entry m_ClipSettingPreview of m_ModelEdit.Clips cut out of its
+        // source as edited (not applied yet), shown instead of m_Clip (-1: none)
+        int m_ClipSettingPreview = -1;
+        AnimationClip m_ClipSettingClip;
         // the last "export materials" of the shown model
         bool m_ExportOverwrite = false;
         std::filesystem::path m_ExportModel;  // which model m_Export is about (empty = none yet)

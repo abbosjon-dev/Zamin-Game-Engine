@@ -1357,3 +1357,34 @@ private:
 ZM_REGISTER_SCRIPT(AnimatorDemo, ZM_FIELD(AnimatorDemo, Title), ZM_FIELD(AnimatorDemo, Parameter), ZM_FIELD(AnimatorDemo, Min),
                    ZM_FIELD(AnimatorDemo, Max), ZM_FIELD(AnimatorDemo, Period), ZM_FIELD(AnimatorDemo, Trigger),
                    ZM_FIELD(AnimatorDemo, TriggerEvery), ZM_FIELD(AnimatorDemo, Height))
+
+// Blend shape'lar skriptdan (Scenes/Animator.zscene): Mesh Renderer'ning morph target og'irliklari
+// (SetMorphWeight) vaqt bo'yicha - tabassum, siqilish, tikanlar; qiymatlar obyekt ustida yoziladi.
+class BlendShapeDemo : public ScriptableEntity
+{
+public:
+    float Speed = 1.0f;
+    float Height = 1.6f;   // the label above the entity
+
+    void OnUpdate(Timestep ts) override
+    {
+        m_Time += ts * Speed;
+        auto* mr = TryGetComponent<MeshRendererComponent>();
+        if (!mr || mr->GetMorphTargetCount() == 0)
+            return;
+        mr->SetMorphWeight("Smile", 0.5f + 0.5f * std::sin(m_Time * 1.7f));
+        mr->SetMorphWeight("Squash", 0.6f * std::max(0.0f, std::sin(m_Time * 2.6f)));
+        mr->SetMorphWeight("Spikes", std::pow(std::max(0.0f, std::sin(m_Time * 0.8f)), 3.0f));
+
+        std::string line;
+        for (uint32_t i = 0; i < mr->GetMorphTargetCount(); i++)
+            line += std::format("{}{} {:.2f}", i ? "   " : "", mr->ModelAsset->GetMorphTargetName(i), mr->GetMorphWeight(i));
+        const glm::vec3 p = GetWorldPosition();
+        DebugDraw::Text(p + glm::vec3(0.0f, Height + 0.35f, 0.0f), "Blend shape'lar: skript (SetMorphWeight)", glm::vec4(0.85f, 0.88f, 0.95f, 1.0f));
+        DebugDraw::Text(p + glm::vec3(0.0f, Height, 0.0f), line, glm::vec4(1.0f, 0.6f, 0.8f, 1.0f));
+    }
+
+private:
+    float m_Time = 0.0f;
+};
+ZM_REGISTER_SCRIPT(BlendShapeDemo, ZM_FIELD(BlendShapeDemo, Speed), ZM_FIELD(BlendShapeDemo, Height))

@@ -32,6 +32,99 @@ namespace Zamin {
         return glm::mix(c.Values[a], c.Values[b], f);
     }
 
+    void SampleMorphChannel(const MorphWeightChannel& c, float t, float* out)
+    {
+        const size_t n = c.Count;
+        const size_t keys = n > 0 ? std::min(c.Times.size(), c.Values.size() / n) : 0;
+        if (keys == 0)
+        {
+            std::fill(out, out + n, 0.0f);
+            return;
+        }
+        auto copy = [&](size_t k) { std::copy(c.Values.begin() + (std::ptrdiff_t)(k * n), c.Values.begin() + (std::ptrdiff_t)((k + 1) * n), out); };
+        if (t <= c.Times.front()) { copy(0); return; }
+        if (t >= c.Times[keys - 1]) { copy(keys - 1); return; }
+        size_t b = (size_t)(std::upper_bound(c.Times.begin(), c.Times.begin() + (std::ptrdiff_t)keys, t) - c.Times.begin());
+        size_t a = b - 1;
+        if (c.Step) { copy(a); return; }
+        const float span = c.Times[b] - c.Times[a];
+        const float f = span > 0.0f ? (t - c.Times[a]) / span : 0.0f;
+        for (size_t i = 0; i < n; i++)
+            out[i] = c.Values[a * n + i] + (c.Values[b * n + i] - c.Values[a * n + i]) * f;
+    }
+
+    AnimationClip TrimClip(const AnimationClip& clip, float start, float end, const std::string& name)
+    {
+        const float duration = std::max(0.0f, clip.Duration);
+        if (!std::isfinite(start)) start = 0.0f;
+        start = std::clamp(start, 0.0f, duration);
+        end = !std::isfinite(end) || end < 0.0f || end > duration ? duration : end;
+        end = std::max(end, start);
+        AnimationClip out;
+        out.Name = name;
+        out.Duration = end - start;
+        // Keys strictly inside (start, end), shifted; the sampled values at both ends.
+        auto inside = [&](const std::vector<float>& times, size_t& first, size_t& last) {
+            first = (size_t)(std::upper_bound(times.begin(), times.end(), start) - times.begin());
+            last = (size_t)(std::lower_bound(times.begin(), times.end(), end) - times.begin());
+            if (last < first) last = first;
+        };
+        for (const AnimationChannel& c : clip.Channels)
+        {
+            AnimationChannel t;
+            t.JointIndex = c.JointIndex;
+            t.Target = c.Target;
+            t.Step = c.Step;
+            if (!c.Times.empty())
+            {
+                size_t first = 0, last = 0;
+                inside(c.Times, first, last);
+                t.Times.push_back(0.0f);
+                t.Values.push_back(Sample(c, start));
+                for (size_t k = first; k < last && k < c.Values.size(); k++)
+                {
+                    t.Times.push_back(c.Times[k] - start);
+                    t.Values.push_back(c.Values[k]);
+                }
+                if (end > start)
+                {
+                    t.Times.push_back(end - start);
+                    t.Values.push_back(Sample(c, end));
+                }
+            }
+            out.Channels.push_back(std::move(t));
+        }
+        for (const MorphWeightChannel& c : clip.MorphChannels)
+        {
+            MorphWeightChannel t;
+            t.Group = c.Group;
+            t.Count = c.Count;
+            t.Step = c.Step;
+            if (!c.Times.empty() && c.Count > 0)
+            {
+                std::vector<float> values(c.Count);
+                auto push = [&](float time, float local) {
+                    SampleMorphChannel(c, time, values.data());
+                    t.Times.push_back(local);
+                    t.Values.insert(t.Values.end(), values.begin(), values.end());
+                };
+                size_t first = 0, last = 0;
+                inside(c.Times, first, last);
+                push(start, 0.0f);
+                for (size_t k = first; k < last && (k + 1) * c.Count <= c.Values.size(); k++)
+                {
+                    t.Times.push_back(c.Times[k] - start);
+                    t.Values.insert(t.Values.end(), c.Values.begin() + (std::ptrdiff_t)(k * c.Count),
+                                    c.Values.begin() + (std::ptrdiff_t)((k + 1) * c.Count));
+                }
+                if (end > start)
+                    push(end, end - start);
+            }
+            out.MorphChannels.push_back(std::move(t));
+        }
+        return out;
+    }
+
     // ---- root motion: where the joint is / which way it faces in the model space
     static float WrapAngle(float a)
     {
@@ -401,6 +494,35 @@ namespace Zamin {
         outGlobal.resize(n);
         for (size_t i = 0; i < n; i++)
             outGlobal[i] = jointMatrices[i] * glm::inverse(skeleton.Joints[i].InverseBind);
+    }
+
+    glm::mat4 GetJointTransform(const Skeleton& skeleton, const std::vector<glm::mat4>& jointMatrices, int joint)
+    {
+        const size_t n = skeleton.Joints.size();
+        if (joint < 0 || (size_t)joint >= n)
+            return skeleton.RootTransform;
+        if (jointMatrices.size() == n)
+            return jointMatrices[(size_t)joint] * glm::inverse(skeleton.Joints[(size_t)joint].InverseBind);
+        // the rest pose: the chain from the root down
+        int chain[256];
+        int count = 0;
+        for (int j = joint; j >= 0 && count < 256; j = skeleton.Joints[(size_t)j].Parent)
+            chain[count++] = j;
+        glm::mat4 m = skeleton.RootTransform;
+        for (int i = count - 1; i >= 0; i--)
+        {
+            const Joint& j = skeleton.Joints[(size_t)chain[i]];
+            m = m * glm::translate(glm::mat4(1.0f), j.RestTranslation) * glm::toMat4(j.RestRotation) * glm::scale(glm::mat4(1.0f), j.RestScale);
+        }
+        return m;
+    }
+
+    int FindJoint(const Skeleton& skeleton, const std::string& name)
+    {
+        for (size_t i = 0; i < skeleton.Joints.size(); i++)
+            if (skeleton.Joints[i].Name == name)
+                return (int)i;
+        return -1;
     }
 
     void EvaluatePoseBlended(const Skeleton& skeleton, const AnimationClip* clipA, float timeA,

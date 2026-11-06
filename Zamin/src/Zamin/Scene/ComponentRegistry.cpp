@@ -28,6 +28,7 @@ namespace Zamin {
             MakeTypeInfo<MeshRendererComponent>(),
             MakeTypeInfo<AnimatorComponent>(),
             MakeTypeInfo<AnimationPlayerComponent>(),
+            MakeTypeInfo<BoneAttachmentComponent>(),
             MakeTypeInfo<DirectionalLightComponent>(),
             MakeTypeInfo<PointLightComponent>(),
             MakeTypeInfo<SpotLightComponent>(),
@@ -78,6 +79,7 @@ namespace Zamin {
             MakeTypeInfo<AudioSourceComponent>(),
             MakeTypeInfo<AudioListenerComponent>(),
             MakeTypeInfo<AmbientZoneComponent>(),
+            MakeTypeInfo<FootstepsComponent>(),
             MakeTypeInfo<NativeScriptComponent>(),
         };
         return s_Types;

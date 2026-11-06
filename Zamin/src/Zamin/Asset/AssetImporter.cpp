@@ -3,6 +3,8 @@
 #include "Zamin/Audio/AudioMixer.h"
 #include "Zamin/Project/Project.h"
 
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -123,6 +125,34 @@ namespace Zamin {
         if (auto axis = UpAxisFromKey(import.GetString("UpAxis")))
             s.UpAxis = *axis;
         s.FlipUVs = import.GetBool("FlipUVs", s.FlipUVs);
+        s.KeepSourceClips = import.GetBool("KeepSourceClips", s.KeepSourceClips);
+        const double fps = import.GetNumber("ClipFPS", 30.0);
+        s.ClipFrameRate = std::isfinite(fps) && fps >= 1.0 ? std::min((float)fps, 240.0f) : 30.0f;
+        // "Clips": [ { "Source": "Take 001", "Name": "Walk", "Start": 0.5, "End": 1.7 }, ... ]
+        if (const AssetImportSettings::Value* v = import.Find("Clips"))
+            if (const auto* raw = std::get_if<AssetImportSettings::Json>(v))
+            {
+                nlohmann::json j = nlohmann::json::parse(raw->Text, nullptr, false);
+                if (j.is_array())
+                    for (const auto& item : j)
+                    {
+                        if (!item.is_object() || !item.contains("Source") || !item["Source"].is_string())
+                            continue;
+                        ModelClipSettings clip;
+                        clip.Source = item["Source"].get<std::string>();
+                        if (auto it = item.find("Name"); it != item.end() && it->is_string())
+                            clip.Name = it->get<std::string>();
+                        if (auto it = item.find("Start"); it != item.end() && it->is_number())
+                            clip.Start = std::max(0.0f, it->get<float>());
+                        if (auto it = item.find("End"); it != item.end() && it->is_number())
+                            clip.End = it->get<float>();
+                        if (!std::isfinite(clip.Start)) clip.Start = 0.0f;
+                        if (!std::isfinite(clip.End)) clip.End = -1.0f;
+                        if (clip.Name == clip.Source)
+                            clip.Name.clear();
+                        s.Clips.push_back(std::move(clip));
+                    }
+            }
         return s;
     }
 
@@ -131,6 +161,33 @@ namespace Zamin {
         import.SetNumber("Scale", settings.Scale);
         import.SetString("UpAxis", GetUpAxisKey(settings.UpAxis));
         import.SetBool("FlipUVs", settings.FlipUVs);
+        // The clip keys only when they say something (files without them stay as they were).
+        if (settings.Clips.empty())
+            import.Remove("Clips");
+        else
+        {
+            nlohmann::ordered_json clips = nlohmann::ordered_json::array();
+            auto rounded = [](float v) { return std::round((double)v * 10000.0) / 10000.0; };
+            for (const ModelClipSettings& c : settings.Clips)
+            {
+                nlohmann::ordered_json item;
+                item["Source"] = c.Source;
+                if (!c.Name.empty() && c.Name != c.Source)
+                    item["Name"] = c.Name;
+                item["Start"] = rounded(c.Start);
+                item["End"] = c.End < 0.0f ? -1.0 : rounded(c.End);
+                clips.push_back(std::move(item));
+            }
+            import.Set("Clips", AssetImportSettings::Json{ clips.dump() });
+        }
+        if (settings.KeepSourceClips)
+            import.Remove("KeepSourceClips");
+        else
+            import.SetBool("KeepSourceClips", false);
+        if (settings.ClipFrameRate == 30.0f)
+            import.Remove("ClipFPS");
+        else
+            import.SetNumber("ClipFPS", settings.ClipFrameRate);
     }
 
     // ------------------------------------------------------------------ audio

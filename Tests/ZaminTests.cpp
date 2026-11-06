@@ -4352,10 +4352,12 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<AudioSourceComponent>();
     e.AddComponent<AudioListenerComponent>();
     e.AddComponent<AmbientZoneComponent>();
+    e.AddComponent<FootstepsComponent>();
+    e.AddComponent<BoneAttachmentComponent>();
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 62);
+    CHECK(types.size() == 64);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -26232,4 +26234,501 @@ TEST(SpriteClipAssetsPlayWithEvents)
     CHECK(ra.Clips == anim.Clips && ra.PlayOnStart);
     SpriteClipLibrary::Clear();
     std::filesystem::remove_all(dir);
+}
+
+// ---- M13: clip trimming / sub-clips (254)
+// A joint 0 clip over 2 s: translation x 0 -> 1 -> 3 (linear, keys at 0, 1, 2), rotation steps.
+static AnimationClip MakeTakeClip(const std::string& name)
+{
+    AnimationClip clip;
+    clip.Name = name;
+    clip.Duration = 2.0f;
+    AnimationChannel t;
+    t.JointIndex = 0;
+    t.Target = AnimationChannel::Path::Translation;
+    t.Times = { 0.0f, 1.0f, 2.0f };
+    t.Values = { glm::vec4(0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 0.0f), glm::vec4(3.0f, 0.0f, 0.0f, 0.0f) };
+    clip.Channels.push_back(t);
+    AnimationChannel s;
+    s.JointIndex = 0;
+    s.Target = AnimationChannel::Path::Scale;
+    s.Step = true;
+    s.Times = { 0.0f, 0.75f };
+    s.Values = { glm::vec4(1.0f), glm::vec4(2.0f) };
+    clip.Channels.push_back(s);
+    MorphWeightChannel w;
+    w.Group = 0;
+    w.Count = 2;
+    w.Times = { 0.0f, 2.0f };
+    w.Values = { 0.0f, 1.0f, 1.0f, 0.0f };
+    clip.MorphChannels.push_back(w);
+    return clip;
+}
+
+TEST(AnimationClipTrimming)
+{
+    const AnimationClip take = MakeTakeClip("Take");
+    AnimationClip part = TrimClip(take, 0.5f, 1.5f, "Part");
+    CHECK(part.Name == "Part");
+    CHECK_NEAR(part.Duration, 1.0f, 1e-6f);
+    CHECK(part.Channels.size() == 2 && part.MorphChannels.size() == 1);
+    // Translation: the values at both ends plus the key in between, shifted to start at 0.
+    const AnimationChannel& t = part.Channels[0];
+    CHECK(t.Times.size() == 3);
+    CHECK_NEAR(t.Times[0], 0.0f, 1e-6f);
+    CHECK_NEAR(t.Times[1], 0.5f, 1e-6f);
+    CHECK_NEAR(t.Times[2], 1.0f, 1e-6f);
+    CHECK_NEAR(t.Values[0].x, 0.5f, 1e-5f);
+    CHECK_NEAR(t.Values[1].x, 1.0f, 1e-5f);
+    CHECK_NEAR(t.Values[2].x, 2.0f, 1e-5f);
+    // Step channel: the value held at the cut (1 before 0.75, 2 after), still stepping.
+    const AnimationChannel& sc = part.Channels[1];
+    CHECK(sc.Step && sc.Times.size() == 3);
+    CHECK_NEAR(sc.Values[0].x, 1.0f, 1e-6f);
+    CHECK_NEAR(sc.Times[1], 0.25f, 1e-6f);
+    CHECK_NEAR(sc.Values[2].x, 2.0f, 1e-6f);
+    // Morph weights: sampled the same way.
+    const MorphWeightChannel& w = part.MorphChannels[0];
+    CHECK(w.Count == 2 && w.Times.size() == 2 && w.Values.size() == 4);
+    CHECK_NEAR(w.Values[0], 0.25f, 1e-5f);
+    CHECK_NEAR(w.Values[1], 0.75f, 1e-5f);
+    CHECK_NEAR(w.Values[2], 0.75f, 1e-5f);
+    CHECK_NEAR(w.Values[3], 0.25f, 1e-5f);
+    // The pose of the trimmed clip at t is the source's at start + t.
+    Skeleton skeleton;
+    skeleton.Joints.resize(1);
+    skeleton.Joints[0].Name = "Root";
+    LocalPose a, b;
+    SampleLocalPose(skeleton, &part, 0.8f, a);
+    SampleLocalPose(skeleton, &take, 1.3f, b);
+    CHECK_NEAR(a.T[0].x, b.T[0].x, 1e-5f);
+    CHECK_NEAR(a.S[0].x, b.S[0].x, 1e-5f);
+    // End < 0: to the end; past the end: clamped; end before start: one pose of length 0.
+    CHECK_NEAR(TrimClip(take, 1.0f, -1.0f, "Rest").Duration, 1.0f, 1e-6f);
+    CHECK_NEAR(TrimClip(take, -3.0f, 99.0f, "All").Duration, 2.0f, 1e-6f);
+    AnimationClip still = TrimClip(take, 1.5f, 0.5f, "Still");
+    CHECK(still.Duration == 0.0f && still.Channels[0].Times.size() == 1);
+    CHECK_NEAR(still.Channels[0].Values[0].x, 2.0f, 1e-5f);
+    // Keys right on the cut are not doubled.
+    AnimationClip exact = TrimClip(take, 1.0f, 2.0f, "Exact");
+    CHECK(exact.Channels[0].Times.size() == 2);
+    CHECK_NEAR(exact.Channels[0].Values[0].x, 1.0f, 1e-6f);
+    CHECK_NEAR(exact.Channels[0].Values[1].x, 3.0f, 1e-6f);
+}
+
+TEST(ModelClipSettingsSplitClips)
+{
+    auto names = [](const std::vector<AnimationClip>& clips) {
+        std::vector<std::string> out;
+        for (const auto& c : clips)
+            out.push_back(c.Name);
+        return out;
+    };
+    const std::vector<AnimationClip> file = { MakeTakeClip("Take"), MakeRiseClip("Idle", 2.0f, 1.0f) };
+    std::vector<ModelClipSettings> settings = {
+        { "Take", "Walk", 0.0f, 1.0f },
+        { "Take", "Run", 1.0f, -1.0f },
+        { "Idle", "", 0.5f, 1.5f },        // named like its source: trimmed in place
+        { "Nope", "Ghost", 0.0f, 1.0f },   // no such source
+        { "Take", "Walk", 0.2f, 0.4f },    // the name is taken
+        { "Take", "Idle2", 0.0f, 0.5f },
+        { "Take", "Idle", 0.0f, 0.5f },    // would hide the file's Idle - but Idle is trimmed by its own entry first
+    };
+    std::vector<AnimationClip> clips = file;
+    std::vector<std::string> warnings;
+    ApplyClipSettings(clips, settings, true, &warnings);
+    CHECK(names(clips) == std::vector<std::string>({ "Take", "Idle", "Walk", "Run", "Idle2" }));
+    CHECK(warnings.size() == 3);
+    CHECK_NEAR(clips[1].Duration, 1.0f, 1e-6f);   // Idle 0.5 .. 1.5
+    CHECK_NEAR(clips[2].Duration, 1.0f, 1e-6f);   // Walk
+    CHECK_NEAR(clips[3].Duration, 1.0f, 1e-6f);   // Run: 1 s to the end
+    CHECK_NEAR(clips[3].Channels[0].Values.front().x, 1.0f, 1e-5f);
+    CHECK_NEAR(clips[0].Duration, 2.0f, 1e-6f);   // the source kept as it was
+    // Sources not kept: Take is gone (it has sub-clips), Idle is its trimmed self.
+    clips = file;
+    ApplyClipSettings(clips, settings, false);
+    CHECK(names(clips) == std::vector<std::string>({ "Idle", "Walk", "Run", "Idle2" }));
+    // No settings: nothing changes.
+    clips = file;
+    ApplyClipSettings(clips, {}, false);
+    CHECK(names(clips) == names(file));
+
+    // The .zmeta keys: written only when they say something, read back the same.
+    ModelImportSettings s;
+    s.Scale = 0.01f;
+    s.Clips = { { "Take", "Walk", 0.0f, 1.0f }, { "Idle", "", 0.25f, -1.0f } };
+    s.KeepSourceClips = false;
+    s.ClipFrameRate = 24.0f;
+    AssetImportSettings import;
+    import.SetString("Custom", "kept");
+    AssetImporter::WriteModelSettings(s, import);
+    CHECK(import.Has("Clips") && import.Has("KeepSourceClips") && import.Has("ClipFPS") && import.GetString("Custom") == "kept");
+    AssetImportSettings parsed;
+    CHECK(AssetImportSettings::FromJson(import.ToJson(), parsed));
+    ModelImportSettings back = AssetImporter::ReadModelSettings(parsed);
+    CHECK(back == s);
+    CHECK(back.Clips[1].Name.empty() && back.Clips[1].End < 0.0f && back.Clips[1].GetName() == "Idle");
+    // Back to the defaults: the keys go away again.
+    AssetImporter::WriteModelSettings(ModelImportSettings{}, import);
+    CHECK(!import.Has("Clips") && !import.Has("KeepSourceClips") && !import.Has("ClipFPS"));
+    CHECK(AssetImporter::ReadModelSettings(import) == ModelImportSettings{});
+    // Broken entries are skipped.
+    AssetImportSettings broken;
+    CHECK(AssetImportSettings::FromJson(R"({"Clips":[{"Name":"NoSource"},{"Source":"Take","Start":"x"},5]})", broken));
+    ModelImportSettings b = AssetImporter::ReadModelSettings(broken);
+    CHECK(b.Clips.size() == 1 && b.Clips[0].Source == "Take" && b.Clips[0].Start == 0.0f);
+}
+
+// ---- M13: glTF morph targets (255)
+TEST(MorphTargetsApplyWeights)
+{
+    MorphTargetData data;
+    data.Group = 0;
+    data.Vertices = { { { 0, 0, 0 }, { 0, 1, 0 }, { 0, 0 } }, { { 1, 0, 0 }, { 0, 1, 0 }, { 1, 0 } } };
+    data.Indices = { 0, 1, 0 };
+    data.PositionDeltas = { { { 0, 1, 0 }, { 0, 2, 0 } }, { { 1, 0, 0 }, { 0, 0, 0 } } };
+    data.NormalDeltas = { { { 1, -1, 0 }, { 0, 0, 0 } }, { { 0, 0, 0 }, { 0, 0, 0 } } };
+    CHECK(data.GetTargetCount() == 2 && data.GetVertexCount() == 2);
+    std::vector<MeshVertex> out;
+    const float half[] = { 0.5f, 1.0f };
+    ApplyMorphTargets(data, half, 2, out);
+    CHECK(out.size() == 2);
+    CHECK(glm::length(out[0].Position - glm::vec3(1.0f, 0.5f, 0.0f)) < 1e-5f);
+    CHECK(glm::length(out[1].Position - glm::vec3(1.0f, 1.0f, 0.0f)) < 1e-5f);
+    // normal (0,1,0) + 0.5 (1,-1,0) = (0.5, 0.5, 0), renormalized
+    CHECK(glm::length(out[0].Normal - glm::normalize(glm::vec3(0.5f, 0.5f, 0.0f))) < 1e-5f);
+    CHECK(out[1].TexCoord == glm::vec2(1, 0));
+    // Fewer weights than targets: the missing ones count as 0; zero weights: the base.
+    const float one[] = { 1.0f };
+    ApplyMorphTargets(data, one, 1, out);
+    CHECK(glm::length(out[0].Position - glm::vec3(0.0f, 1.0f, 0.0f)) < 1e-5f);
+    const float none[] = { 0.0f, 0.0f };
+    ApplyMorphTargets(data, none, 2, out);
+    CHECK(out[0].Position == data.Vertices[0].Position && out[0].Normal == data.Vertices[0].Normal);
+    // Skinned vertices keep their joints and weights.
+    MorphTargetData skinned = data;
+    skinned.Skinned = true;
+    skinned.SkinnedVertices.resize(2);
+    skinned.SkinnedVertices[1].Position = { 1, 0, 0 };
+    skinned.SkinnedVertices[1].Joints = { 3, 1, 0, 0 };
+    skinned.SkinnedVertices[1].Weights = { 0.75f, 0.25f, 0, 0 };
+    std::vector<SkinnedVertex> sv;
+    ApplyMorphTargets(skinned, half, 2, sv);
+    CHECK(sv.size() == 2 && sv[1].Joints == glm::ivec4(3, 1, 0, 0) && sv[1].Weights.x == 0.75f);
+    CHECK(glm::length(sv[1].Position - glm::vec3(1.0f, 1.0f, 0.0f)) < 1e-5f);
+}
+
+// A model of morph groups only ("Face": Smile, Blink; "Body": Squash) and a clip animating the face.
+static Ref<Model> MakeMorphModel()
+{
+    MorphWeightChannel face;
+    face.Group = 0;
+    face.Count = 2;
+    face.Times = { 0.0f, 1.0f, 2.0f };
+    face.Values = { 0.0f, 0.0f, 1.0f, 0.5f, 0.0f, 1.0f };
+    AnimationClip smile;
+    smile.Name = "Smile";
+    smile.Duration = 2.0f;
+    smile.MorphChannels.push_back(face);
+    MorphWeightChannel blink = face;
+    blink.Step = true;
+    AnimationClip stepClip;
+    stepClip.Name = "Steps";
+    stepClip.Duration = 2.0f;
+    stepClip.MorphChannels.push_back(blink);
+    Ref<Model> model = Model::CreateSkeletal(Skeleton{}, { smile, stepClip });
+    model->SetMorphGroups({ { "Face", { "Smile", "Blink" }, { 0.0f, 0.2f } }, { "Body", { "Squash" }, { 0.4f } } });
+    return model;
+}
+
+TEST(MorphWeightsFromClipsAndScripts)
+{
+    Ref<Model> model = MakeMorphModel();
+    CHECK(model->HasMorphTargets() && model->GetMorphWeightCount() == 3);
+    CHECK(model->GetMorphGroups()[1].Offset == 2);
+    CHECK(model->FindMorphTarget("Blink") == 1 && model->FindMorphTarget("Body/Squash") == 2 && model->FindMorphTarget("Face/Squash") < 0);
+    CHECK(model->FindMorphTarget("Nope") < 0);
+    CHECK(model->GetMorphTargetName(0) == "Face/Smile" && model->GetMorphTargetName(2) == "Body/Squash" && model->GetMorphTargetName(9).empty());
+    CHECK(model->GetDefaultMorphWeights() == std::vector<float>({ 0.0f, 0.2f, 0.4f }));
+
+    // Sampling: linear between keys, steps hold, the groups a clip does not animate keep theirs.
+    std::vector<float> w = { 9.0f, 9.0f, 0.7f };
+    CHECK(SampleClipMorphWeights(*model, &model->GetAnimations()[0], 0.5f, w));
+    CHECK_NEAR(w[0], 0.5f, 1e-5f);
+    CHECK_NEAR(w[1], 0.25f, 1e-5f);
+    CHECK_NEAR(w[2], 0.7f, 1e-6f);
+    CHECK(SampleClipMorphWeights(*model, &model->GetAnimations()[1], 1.5f, w));
+    CHECK_NEAR(w[0], 1.0f, 1e-6f);
+    CHECK_NEAR(w[1], 0.5f, 1e-6f);
+    CHECK(!SampleClipMorphWeights(*model, nullptr, 0.0f, w));
+
+    // The Mesh Renderer's weights for scripts: by name / index, the model's own until set.
+    MeshRendererComponent mr;
+    mr.Type = PrimitiveMesh::Model;
+    mr.ModelAsset = model;
+    CHECK(mr.GetMorphTargetCount() == 3);
+    CHECK_NEAR(mr.GetMorphWeight("Blink"), 0.2f, 1e-6f);
+    CHECK(mr.MorphWeights.empty());
+    CHECK(mr.SetMorphWeight("Squash", 0.9f) && !mr.SetMorphWeight("Nope", 1.0f) && !mr.SetMorphWeight(7u, 1.0f));
+    CHECK(mr.MorphWeights == std::vector<float>({ 0.0f, 0.2f, 0.9f }));
+    CHECK_NEAR(mr.GetMorphWeight(2u), 0.9f, 1e-6f);
+    mr.ResetMorphWeights();
+    CHECK(mr.MorphWeights.empty() && mr.GetMorphWeight("Squash") == 0.4f);
+
+    // An Animator playing a weight clip: over the Mesh Renderer's weights, crossfaded like poses.
+    auto scene = CreateRef<Scene>();
+    Entity blob = scene->CreateEntity("Blob");
+    auto& m = blob.AddComponent<MeshRendererComponent>();
+    m.Type = PrimitiveMesh::Model;
+    m.ModelAsset = model;
+    m.SetMorphWeight("Squash", 0.6f);
+    auto& a = blob.AddComponent<AnimatorComponent>();
+    a.Clip = "Smile";
+    a.DefaultFade = 1.0f;
+    scene->OnRuntimeStart();
+    Entity live = scene->FindEntityByName("Blob");
+    auto& la = live.GetComponent<AnimatorComponent>();
+    scene->OnUpdateRuntime(0.5f);
+    CHECK(la.MorphWeights.size() == 3);
+    CHECK_NEAR(la.MorphWeights[0], 0.5f, 1e-5f);
+    CHECK_NEAR(la.MorphWeights[1], 0.25f, 1e-5f);
+    CHECK_NEAR(la.MorphWeights[2], 0.6f, 1e-6f);      // not animated: the Mesh Renderer's
+    live.GetComponent<MeshRendererComponent>().SetMorphWeight("Squash", 0.1f);
+    scene->OnUpdateRuntime(0.5f);
+    CHECK_NEAR(la.MorphWeights[2], 0.1f, 1e-6f);      // a script's change shows through
+    CHECK_NEAR(la.MorphWeights[0], 1.0f, 1e-5f);
+    // Crossfade into the step clip at its start (weights 0, 0) over 1 s: half way (smoothstep 0.5).
+    la.Play("Steps");
+    scene->OnUpdateRuntime(0.5f);
+    CHECK(la.IsFading());
+    // previous: Smile at 1.5 s (0.5, 0.75); current: Steps at 0.5 s (0, 0) -> half of each
+    CHECK_NEAR(la.MorphWeights[0], 0.25f, 1e-4f);
+    CHECK_NEAR(la.MorphWeights[1], 0.375f, 1e-4f);
+    scene->OnRuntimeStop();
+
+    // The scene file keeps the Mesh Renderer's weights.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->FindEntityByName("Blob").GetComponent<MeshRendererComponent>().MorphWeights == std::vector<float>({ 0.0f, 0.2f, 0.1f }));
+
+    // The Animation window's scrub (edit mode): that clip at that time, the Animator does not advance.
+    a.EditorPreview = { true, "Smile", 1.0f };
+    scene->UpdateEditorAnimation(0.25f);
+    CHECK(a.MorphWeights.size() == 3);
+    CHECK_NEAR(a.MorphWeights[0], 1.0f, 1e-5f);
+    CHECK_NEAR(a.MorphWeights[1], 0.5f, 1e-5f);
+    a.EditorPreview = { true, "Smile", 2.0f };
+    scene->UpdateEditorAnimation(0.25f);
+    CHECK_NEAR(a.MorphWeights[0], 0.0f, 1e-5f);
+    // Play mode starts from a copy of the scene: the copy has no preview.
+    Ref<Scene> copy = Scene::Copy(scene);
+    CHECK(!copy->FindEntityByName("Blob").GetComponent<AnimatorComponent>().EditorPreview.Active);
+}
+
+// ---- M13: skeletal scrub preview (251)
+TEST(AnimatorEditorPreviewScrub)
+{
+    Skeleton skeleton;
+    skeleton.Joints.resize(1);
+    skeleton.Joints[0].Name = "Root";
+    Ref<Model> model = Model::CreateSkeletal(skeleton, { MakeRiseClip("Walk", 1.0f, 1.0f), MakeRiseClip("Jump", 2.0f, 4.0f) });
+    auto scene = CreateRef<Scene>();
+    Entity hero = scene->CreateEntity("Hero");
+    auto& mr = hero.AddComponent<MeshRendererComponent>();
+    mr.Type = PrimitiveMesh::Model;
+    mr.ModelAsset = model;
+    auto& a = hero.AddComponent<AnimatorComponent>();
+    a.Clip = "Walk";
+    a.PlayInEditor = true;
+    scene->UpdateEditorAnimation(0.25f);
+    CHECK_NEAR(a.Time, 0.25f, 1e-6f);
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 0.25f, 1e-5f);
+    // Scrubbing another clip: its pose at the scrubbed time; the Animator's own time waits.
+    a.EditorPreview = { true, "Jump", 1.5f };
+    scene->UpdateEditorAnimation(0.25f);
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 3.0f, 1e-5f);
+    CHECK_NEAR(a.Time, 0.25f, 1e-6f);
+    a.EditorPreview.Time = 99.0f; // clamped to the clip
+    scene->UpdateEditorAnimation(0.25f);
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 4.0f, 1e-5f);
+    // A state machine is not entered meanwhile; the preview ends: the Animator goes on.
+    a.EditorPreview = {};
+    scene->UpdateEditorAnimation(0.25f);
+    CHECK_NEAR(a.Time, 0.5f, 1e-6f);
+    CHECK_NEAR(JointPosition(*model, a, 0).y, 0.5f, 1e-5f);
+    // Not saved with the scene.
+    a.EditorPreview = { true, "Jump", 1.0f };
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("EditorPreview") == std::string::npos && text.find("Preview") == std::string::npos);
+}
+
+// ---- M13: bone attachments (252)
+TEST(BoneAttachmentFollowsJoint)
+{
+    // Root at the origin, Hand 1 up from it; "Turn" rotates the root 90 degrees about Z in 1 s.
+    Skeleton skeleton;
+    skeleton.Joints.resize(2);
+    skeleton.Joints[0].Name = "Root";
+    skeleton.Joints[1].Name = "Hand";
+    skeleton.Joints[1].Parent = 0;
+    skeleton.Joints[1].RestTranslation = { 0.0f, 1.0f, 0.0f };
+    skeleton.Joints[1].InverseBind = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+    AnimationClip turn;
+    turn.Name = "Turn";
+    turn.Duration = 1.0f;
+    AnimationChannel r;
+    r.JointIndex = 0;
+    r.Target = AnimationChannel::Path::Rotation;
+    r.Times = { 0.0f, 1.0f };
+    const glm::quat q = glm::angleAxis(glm::half_pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
+    r.Values = { glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec4(q.x, q.y, q.z, q.w) };
+    turn.Channels.push_back(r);
+    Ref<Model> model = Model::CreateSkeletal(skeleton, { turn });
+    CHECK(FindJoint(model->GetSkeleton(), "Hand") == 1 && FindJoint(model->GetSkeleton(), "Foot") < 0);
+    CHECK(glm::length(glm::vec3(GetJointTransform(model->GetSkeleton(), {}, 1)[3]) - glm::vec3(0.0f, 1.0f, 0.0f)) < 1e-5f);
+
+    auto scene = CreateRef<Scene>();
+    Entity hero = scene->CreateEntity("Hero");
+    hero.GetComponent<TransformComponent>().Translation = { 10.0f, 0.0f, 0.0f };
+    hero.GetComponent<TransformComponent>().Scale = glm::vec3(2.0f);
+    auto& mr = hero.AddComponent<MeshRendererComponent>();
+    mr.Type = PrimitiveMesh::Model;
+    mr.ModelAsset = model;
+    auto& anim = hero.AddComponent<AnimatorComponent>();
+    anim.Clip = "Turn";
+    anim.Loop = false;
+    Entity sword = scene->CreateEntity("Sword");
+    scene->SetParent(sword, hero, false);
+    sword.GetComponent<TransformComponent>().Translation = { 0.0f, 0.5f, 0.0f };
+    auto& att = sword.AddComponent<BoneAttachmentComponent>();
+    att.Bone = "Hand";
+    CHECK(scene->GetBoneAttachmentTarget(sword) == hero); // the nearest skinned ancestor
+    // Rest pose: on the hand (1 up, x2 by the hero's scale), the offset 0.5 up in the hand's space.
+    auto near3 = [](const glm::vec3& a, const glm::vec3& b) { return glm::length(a - b) < 1e-4f; };
+    CHECK(near3(scene->GetWorldPosition(sword), { 10.0f, 3.0f, 0.0f }));
+    // The animation turns the root: the hand (and the sword) swing to -X.
+    scene->OnRuntimeStart();
+    Entity liveHero = scene->FindEntityByName("Hero"), liveSword = scene->FindEntityByName("Sword");
+    scene->OnUpdateRuntime(1.0f);
+    CHECK(near3(scene->GetWorldPosition(liveSword), { 10.0f - 3.0f, 0.0f, 0.0f }));
+    // Its rotation follows the bone too: the sword's up (+Y) now points to -X.
+    const glm::mat4 world = scene->GetWorldTransform(liveSword);
+    CHECK(near3(glm::normalize(glm::vec3(world[1])), { -1.0f, 0.0f, 0.0f }));
+    // SetWorldTransform works in the bone's space (the gizmo): put it back at a world point.
+    scene->SetWorldTransform(liveSword, glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 5.0f, 0.0f)));
+    CHECK(near3(scene->GetWorldPosition(liveSword), { 10.0f, 5.0f, 0.0f }));
+    // An unknown bone: it follows its parent as usual (the transform is plain local again).
+    liveSword.GetComponent<BoneAttachmentComponent>().Bone = "Tail";
+    liveSword.GetComponent<TransformComponent>().Translation = { 0.0f, 0.5f, 0.0f };
+    liveSword.GetComponent<TransformComponent>().Rotation = glm::vec3(0.0f);
+    CHECK(near3(scene->GetWorldPosition(liveSword), { 10.0f, 1.0f, 0.0f }));
+    scene->OnRuntimeStop();
+    (void)liveHero;
+
+    // An explicit target that is not the parent; the bone's scale (the hero's own still counts).
+    hero.GetComponent<AnimatorComponent>().JointMatrices.clear(); // the rest pose again
+    Entity other = scene->CreateEntity("Other");
+    auto& oa = other.AddComponent<BoneAttachmentComponent>();
+    oa.Target.ID = (uint64_t)hero.GetUUID();
+    oa.Bone = "Hand";
+    CHECK(scene->GetBoneAttachmentTarget(other) == hero);
+    CHECK(near3(scene->GetWorldPosition(other), { 10.0f, 2.0f, 0.0f }));
+    // Attachments on each other's bones in a circle: no endless loop.
+    auto& otherModel = other.AddComponent<MeshRendererComponent>();
+    otherModel.Type = PrimitiveMesh::Model;
+    otherModel.ModelAsset = model;
+    auto& back = hero.AddComponent<BoneAttachmentComponent>();
+    back.Target.ID = (uint64_t)other.GetUUID();
+    back.Bone = "Hand";
+    const glm::vec3 p = scene->GetWorldPosition(other);
+    CHECK(std::isfinite(p.x) && std::isfinite(p.y));
+    hero.RemoveComponent<BoneAttachmentComponent>();
+
+    // Saved and loaded; a copied subtree points at the copies.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& la = loaded->FindEntityByName("Other").GetComponent<BoneAttachmentComponent>();
+    CHECK(la.Bone == "Hand" && la.Target.ID == (uint64_t)hero.GetUUID() && !la.InheritBoneScale);
+    Entity copy = scene->DuplicateEntity(hero);
+    Entity copiedSword;
+    for (Entity c : scene->GetChildren(copy))
+        if (c.HasComponent<BoneAttachmentComponent>())
+            copiedSword = c;
+    CHECK(copiedSword && scene->GetBoneAttachmentTarget(copiedSword) == copy);
+}
+
+// ---- M13: footsteps from animation events (253)
+TEST(FootstepsFromAnimationEvents)
+{
+    FootstepsComponent steps;
+    float volume = 0.0f, pitch = 0.0f;
+    CHECK(steps.GetSpeedScale(steps.ReferenceSpeed, volume, pitch) && volume == 1.0f && pitch == 1.0f);
+    CHECK(steps.GetSpeedScale(6.0f, volume, pitch));      // twice as fast: louder, higher
+    CHECK_NEAR(volume, 1.35f, 1e-5f);
+    CHECK_NEAR(pitch, 1.12f, 1e-5f);
+    CHECK(steps.GetSpeedScale(1.5f, volume, pitch) && volume < 1.0f && pitch < 1.0f);
+    CHECK(!steps.GetSpeedScale(0.1f, volume, pitch));     // blending into idle: silent
+    CHECK(steps.GetSpeedScale(1000.0f, volume, pitch) && volume <= 1.6f && pitch <= 1.6f);
+    // Sounds at random, never the same one twice in a row.
+    CHECK(steps.PickSound() == -1);
+    steps.Sounds = { "a.wav", "b.wav", "c.wav" };
+    int last = -1, seen[3] = { 0, 0, 0 };
+    for (int i = 0; i < 300; i++)
+    {
+        const int s = steps.PickSound();
+        CHECK(s >= 0 && s < 3 && s != last);
+        seen[s]++;
+        last = s;
+    }
+    CHECK(seen[0] > 50 && seen[1] > 50 && seen[2] > 50);
+    steps.Sounds = { "only.wav" };
+    CHECK(steps.PickSound() == 0 && steps.PickSound() == 0);
+
+    // In play: the Animator's "Footstep" events of the walk play steps, scaled by its Speed parameter.
+    Skeleton skeleton;
+    skeleton.Joints.resize(1);
+    skeleton.Joints[0].Name = "Root";
+    Ref<Model> model = Model::CreateSkeletal(skeleton, { MakeRiseClip("Walk", 1.0f, 1.0f) });
+    auto scene = CreateRef<Scene>();
+    Entity hero = scene->CreateEntity("Hero");
+    auto& mr = hero.AddComponent<MeshRendererComponent>();
+    mr.Type = PrimitiveMesh::Model;
+    mr.ModelAsset = model;
+    auto& a = hero.AddComponent<AnimatorComponent>();
+    a.Clip = "Walk";
+    a.Parameters = { { "Speed", AnimatorParameter::Type::Float, 3.0f } };
+    a.Events = { { "Walk", 0.25f, "Footstep", "L" }, { "Walk", 0.75f, "Footstep", "R" }, { "Walk", 0.5f, "Other", "" } };
+    auto& f = hero.AddComponent<FootstepsComponent>();
+    f.Sounds = { "Audio/none1.wav", "Audio/none2.wav" };
+    scene->OnRuntimeStart();
+    Entity live = scene->FindEntityByName("Hero");
+    auto& lf = live.GetComponent<FootstepsComponent>();
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(0.1f);   // one cycle: two steps (the other event is not a step)
+    CHECK(lf.StepCount == 2);
+    // Too slow: the events still come, no step is heard.
+    live.GetComponent<AnimatorComponent>().SetFloat("Speed", 0.1f);
+    for (int i = 0; i < 10; i++)
+        scene->OnUpdateRuntime(0.1f);
+    CHECK(lf.StepCount == 2);
+    // Two steps closer than MinInterval play once (a crossfade's two clips).
+    live.GetComponent<AnimatorComponent>().SetFloat("Speed", 3.0f);
+    const uint32_t before = lf.StepCount;
+    scene->PlayFootstep(live, lf);
+    scene->PlayFootstep(live, lf);
+    CHECK(lf.StepCount == before + 1);
+    scene->OnRuntimeStop();
+
+    // Saved with the scene.
+    f.EventName = "Step";
+    f.ReferenceSpeed = 2.5f;
+    f.Spatial = false;
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& lc = loaded->FindEntityByName("Hero").GetComponent<FootstepsComponent>();
+    CHECK(lc.Sounds == f.Sounds && lc.EventName == "Step" && lc.ReferenceSpeed == 2.5f && !lc.Spatial && lc.Output == "SFX");
+    CHECK(lc.PitchRandom == f.PitchRandom && lc.MinInterval == f.MinInterval);
 }

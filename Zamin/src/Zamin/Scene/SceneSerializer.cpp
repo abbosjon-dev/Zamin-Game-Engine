@@ -7,6 +7,7 @@
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Scene/ComponentRegistry.h"
 #include "Zamin/Scene/Entity.h"
+#include "Zamin/Scene/ParticlePresets.h"
 #include "Zamin/Utils/FileSystem.h"
 
 #include <nlohmann/json.hpp>
@@ -399,6 +400,8 @@ namespace Zamin {
                             { "MaxPoints", m.MaxPoints }, { "Width", m.Width }, { "WidthFromSize", m.WidthFromSize },
                             { "WidthCurve", ParticleCurveToJson(m.WidthCurve) }, { "Gradient", ParticleGradientToJson(m.Gradient) },
                             { "InheritColor", m.InheritColor } };
+        if (const auto& m = c.FollowCamera; m.Enabled || !(m == PS::FollowCameraModule{}))
+            j["FollowCamera"] = { { "Enabled", m.Enabled }, { "Offset", ToJson(m.Offset) }, { "Wrap", m.Wrap }, { "WrapExtents", ToJson(m.WrapExtents) } };
         if (const auto& m = c.TextureSheet; m.Enabled || !(m == PS::TextureSheetModule{}))
             j["TextureSheet"] = { { "Enabled", m.Enabled }, { "Source", EnumName(m.Source, s_SheetSources) }, { "Columns", m.Columns },
                                   { "Rows", m.Rows }, { "FrameCount", m.FrameCount }, { "SpritePrefix", m.SpritePrefix },
@@ -521,6 +524,15 @@ namespace Zamin {
                     m.Emitters.push_back(sub);
                 }
         }
+        if (auto it = j.find("FollowCamera"); it != j.end() && it->is_object())
+        {
+            auto& m = c.FollowCamera;
+            const PS::FollowCameraModule d;
+            m.Enabled = it->value("Enabled", false);
+            m.Offset = Vec(*it, "Offset", d.Offset);
+            m.Wrap = it->value("Wrap", d.Wrap);
+            m.WrapExtents = glm::max(Vec(*it, "WrapExtents", d.WrapExtents), glm::vec3(0.0f));
+        }
         if (auto it = j.find("Trails"); it != j.end() && it->is_object())
         {
             auto& m = c.Trails;
@@ -536,6 +548,121 @@ namespace Zamin {
             m.Gradient = ParticleGradientFromJson(*it, "Gradient", d.Gradient);
             m.InheritColor = it->value("InheritColor", d.InheritColor);
         }
+    }
+
+    // A particle system's settings (scenes, prefabs, .zparticle presets): the first systems' fields
+    // always, the newer ones only when they are used or changed (older files stay as they were).
+    static json ParticleSystemToJson(const ParticleSystemComponent& c)
+    {
+        using PS = ParticleSystemComponent;
+        json j = {
+            { "Playing", c.Playing }, { "Looping", c.Looping }, { "PlayInEditor", c.PlayInEditor },
+            { "EmissionRate", c.EmissionRate }, { "Burst", c.Burst }, { "MaxParticles", c.MaxParticles },
+            { "Shape", (int)c.Shape }, { "ShapeRadius", c.ShapeRadius }, { "ShapeExtents", ToJson(c.ShapeExtents) },
+            { "LifetimeMin", c.LifetimeMin }, { "LifetimeMax", c.LifetimeMax }, { "SpeedMin", c.SpeedMin }, { "SpeedMax", c.SpeedMax },
+            { "Direction", ToJson(c.Direction) }, { "Spread", c.Spread }, { "Gravity", ToJson(c.Gravity) }, { "Drag", c.Drag },
+            { "AngularVelocityMax", c.AngularVelocityMax },
+            { "StartColor", ToJson(c.StartColor) }, { "EndColor", ToJson(c.EndColor) },
+            { "StartSize", c.StartSize }, { "EndSize", c.EndSize },
+            { "RenderAsCircle", c.RenderAsCircle }, { "Additive", c.Additive },
+            { "WorldSpace", c.Space == PS::SimulationSpace::World },
+            { "Billboard", c.Billboard }, { "Texture", c.TexturePath }, { "SortingOrder", c.SortingOrder },
+        };
+        WriteAssetHandle(j, "Texture", c.TexturePath);
+        WriteSortingLayer(j, c.SortingLayer);
+        // The newer shape settings only when they are used or changed.
+        const PS d;
+        if (c.ShapeThickness != d.ShapeThickness) j["ShapeThickness"] = c.ShapeThickness;
+        if (c.AlignToShape) j["AlignToShape"] = true;
+        if (c.Shape == PS::EmitterShape::Cone || c.ConeAngle != d.ConeAngle || c.ConeLength != d.ConeLength || c.ConeFrom != d.ConeFrom || c.ConeFlat)
+        {
+            j["ConeAngle"] = c.ConeAngle;
+            j["ConeLength"] = c.ConeLength;
+            j["ConeFrom"] = EnumName(c.ConeFrom, s_ConeEmitFrom);
+            j["ConeFlat"] = c.ConeFlat;
+        }
+        if (c.Shape == PS::EmitterShape::Edge || c.EdgeLength != d.EdgeLength)
+            j["EdgeLength"] = c.EdgeLength;
+        if (c.Shape == PS::EmitterShape::Mesh || c.MeshSource != d.MeshSource || c.MeshPrimitive != d.MeshPrimitive || !c.MeshModelPath.empty() ||
+            c.MeshMode != d.MeshMode || c.MeshAlongNormal != d.MeshAlongNormal || c.MeshNormalOffset != d.MeshNormalOffset)
+        {
+            j["MeshSource"] = EnumName(c.MeshSource, s_MeshShapeSources);
+            j["MeshPrimitive"] = PrimitiveMeshToString(c.MeshPrimitive);
+            j["MeshModel"] = c.MeshModelPath;
+            WriteAssetHandle(j, "MeshModel", c.MeshModelPath);
+            j["MeshMode"] = EnumName(c.MeshMode, s_MeshEmitModes);
+            j["MeshAlongNormal"] = c.MeshAlongNormal;
+            j["MeshNormalOffset"] = c.MeshNormalOffset;
+        }
+        // The modules' on / off switches of the first systems (always on then).
+        if (!c.EmissionEnabled) j["EmissionEnabled"] = false;
+        if (!c.ShapeEnabled) j["ShapeEnabled"] = false;
+        if (!c.RendererEnabled) j["RendererEnabled"] = false;
+        if (c.Stretched || c.StretchLength != d.StretchLength || c.StretchSpeed != d.StretchSpeed)
+        {
+            j["Stretched"] = c.Stretched;
+            j["StretchLength"] = c.StretchLength;
+            j["StretchSpeed"] = c.StretchSpeed;
+        }
+        WriteParticleMain(j, c);
+        WriteParticleModules(j, c);
+        return j;
+    }
+
+    static void ParticleSystemFromJson(const json& j, ParticleSystemComponent& c)
+    {
+        using PS = ParticleSystemComponent;
+        c.Playing = j.value("Playing", true);
+        c.Looping = j.value("Looping", true);
+        c.PlayInEditor = j.value("PlayInEditor", true);
+        c.EmissionRate = j.value("EmissionRate", 30.0f);
+        c.Burst = j.value("Burst", 0);
+        c.MaxParticles = j.value("MaxParticles", 1000);
+        c.Shape = (PS::EmitterShape)std::clamp(j.value("Shape", 0), 0, (int)PS::EmitterShape::Mesh);
+        c.ShapeRadius = j.value("ShapeRadius", 0.5f);
+        c.ShapeExtents = Vec(j, "ShapeExtents", glm::vec3(0.5f));
+        c.ShapeThickness = std::clamp(Number(j, "ShapeThickness", 1.0f), 0.0f, 1.0f);
+        c.AlignToShape = j.value("AlignToShape", false);
+        c.ConeAngle = std::clamp(Number(j, "ConeAngle", c.ConeAngle), 0.0f, 89.0f);
+        c.ConeLength = std::max(0.0f, Number(j, "ConeLength", c.ConeLength));
+        c.ConeFrom = EnumFromJson(j, "ConeFrom", s_ConeEmitFrom, c.ConeFrom);
+        c.ConeFlat = j.value("ConeFlat", false);
+        c.EdgeLength = std::max(0.0f, Number(j, "EdgeLength", c.EdgeLength));
+        c.MeshSource = EnumFromJson(j, "MeshSource", s_MeshShapeSources, c.MeshSource);
+        if (auto it = j.find("MeshPrimitive"); it != j.end() && it->is_string())
+            c.MeshPrimitive = PrimitiveMeshFromString(it->get<std::string>());
+        c.MeshModelPath = ReadAssetPath(j, "MeshModel");
+        c.MeshMode = EnumFromJson(j, "MeshMode", s_MeshEmitModes, c.MeshMode);
+        c.MeshAlongNormal = j.value("MeshAlongNormal", true);
+        c.MeshNormalOffset = Number(j, "MeshNormalOffset", 0.0f);
+        c.LifetimeMin = j.value("LifetimeMin", 0.8f);
+        c.LifetimeMax = j.value("LifetimeMax", 1.6f);
+        c.SpeedMin = j.value("SpeedMin", 1.0f);
+        c.SpeedMax = j.value("SpeedMax", 3.0f);
+        c.Direction = Vec(j, "Direction", glm::vec3(0, 1, 0));
+        c.Spread = j.value("Spread", 25.0f);
+        c.Gravity = Vec(j, "Gravity", glm::vec3(0.0f));
+        c.Drag = j.value("Drag", 0.0f);
+        c.AngularVelocityMax = j.value("AngularVelocityMax", 0.0f);
+        c.StartColor = Vec(j, "StartColor", c.StartColor);
+        c.EndColor = Vec(j, "EndColor", c.EndColor);
+        c.StartSize = j.value("StartSize", 0.35f);
+        c.EndSize = j.value("EndSize", 0.05f);
+        c.RenderAsCircle = j.value("RenderAsCircle", true);
+        c.Additive = j.value("Additive", true);
+        c.Billboard = j.value("Billboard", true);
+        c.TexturePath = ReadAssetPath(j, "Texture");
+        c.SortingOrder = j.value("SortingOrder", 0);
+        c.SortingLayer = ReadSortingLayer(j);
+        const PS d;
+        c.EmissionEnabled = j.value("EmissionEnabled", true);
+        c.ShapeEnabled = j.value("ShapeEnabled", true);
+        c.RendererEnabled = j.value("RendererEnabled", true);
+        c.Stretched = j.value("Stretched", false);
+        c.StretchLength = std::max(0.0f, Number(j, "StretchLength", d.StretchLength));
+        c.StretchSpeed = std::max(0.0f, Number(j, "StretchSpeed", d.StretchSpeed));
+        ReadParticleMain(j, c);
+        ReadParticleModules(j, c);
     }
 
     static const char* BodyTypeToString(Rigidbody2DComponent::BodyType t)
@@ -1180,53 +1307,7 @@ namespace Zamin {
                                     { "UseBounds", c->UseBounds }, { "BoundsMin", ToJson(c->BoundsMin) }, { "BoundsMax", ToJson(c->BoundsMax) },
                                     { "SnapOnStart", c->SnapOnStart } };
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
-            e["ParticleSystem"] = {
-                { "Playing", c->Playing }, { "Looping", c->Looping }, { "PlayInEditor", c->PlayInEditor },
-                { "EmissionRate", c->EmissionRate }, { "Burst", c->Burst }, { "MaxParticles", c->MaxParticles },
-                { "Shape", (int)c->Shape }, { "ShapeRadius", c->ShapeRadius }, { "ShapeExtents", ToJson(c->ShapeExtents) },
-                { "LifetimeMin", c->LifetimeMin }, { "LifetimeMax", c->LifetimeMax }, { "SpeedMin", c->SpeedMin }, { "SpeedMax", c->SpeedMax },
-                { "Direction", ToJson(c->Direction) }, { "Spread", c->Spread }, { "Gravity", ToJson(c->Gravity) }, { "Drag", c->Drag },
-                { "AngularVelocityMax", c->AngularVelocityMax },
-                { "StartColor", ToJson(c->StartColor) }, { "EndColor", ToJson(c->EndColor) },
-                { "StartSize", c->StartSize }, { "EndSize", c->EndSize },
-                { "RenderAsCircle", c->RenderAsCircle }, { "Additive", c->Additive },
-                { "WorldSpace", c->Space == ParticleSystemComponent::SimulationSpace::World },
-                { "Billboard", c->Billboard }, { "Texture", c->TexturePath }, { "SortingOrder", c->SortingOrder },
-            };
-        if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
-        {
-            json& j = e["ParticleSystem"];
-            WriteAssetHandle(j, "Texture", c->TexturePath);
-            WriteSortingLayer(j, c->SortingLayer);
-            // The newer shape settings only when they are used or changed.
-            const ParticleSystemComponent d;
-            if (c->ShapeThickness != d.ShapeThickness) j["ShapeThickness"] = c->ShapeThickness;
-            if (c->AlignToShape) j["AlignToShape"] = true;
-            if (c->Shape == ParticleSystemComponent::EmitterShape::Cone || c->ConeAngle != d.ConeAngle || c->ConeLength != d.ConeLength ||
-                c->ConeFrom != d.ConeFrom || c->ConeFlat)
-            {
-                j["ConeAngle"] = c->ConeAngle;
-                j["ConeLength"] = c->ConeLength;
-                j["ConeFrom"] = EnumName(c->ConeFrom, s_ConeEmitFrom);
-                j["ConeFlat"] = c->ConeFlat;
-            }
-            if (c->Shape == ParticleSystemComponent::EmitterShape::Edge || c->EdgeLength != d.EdgeLength)
-                j["EdgeLength"] = c->EdgeLength;
-            if (c->Shape == ParticleSystemComponent::EmitterShape::Mesh || c->MeshSource != d.MeshSource || c->MeshPrimitive != d.MeshPrimitive ||
-                !c->MeshModelPath.empty() || c->MeshMode != d.MeshMode || c->MeshAlongNormal != d.MeshAlongNormal ||
-                c->MeshNormalOffset != d.MeshNormalOffset)
-            {
-                j["MeshSource"] = EnumName(c->MeshSource, s_MeshShapeSources);
-                j["MeshPrimitive"] = PrimitiveMeshToString(c->MeshPrimitive);
-                j["MeshModel"] = c->MeshModelPath;
-                WriteAssetHandle(j, "MeshModel", c->MeshModelPath);
-                j["MeshMode"] = EnumName(c->MeshMode, s_MeshEmitModes);
-                j["MeshAlongNormal"] = c->MeshAlongNormal;
-                j["MeshNormalOffset"] = c->MeshNormalOffset;
-            }
-            WriteParticleMain(j, *c);
-            WriteParticleModules(j, *c);
-        }
+            e["ParticleSystem"] = ParticleSystemToJson(*c);
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
         {
             e["UITransform"] = { { "AnchorMin", ToJson(c->AnchorMin) }, { "AnchorMax", ToJson(c->AnchorMax) }, { "Pivot", ToJson(c->Pivot) },
@@ -2232,54 +2313,7 @@ namespace Zamin {
             c.SnapOnStart = j.value("SnapOnStart", true);
         }
         if (e.contains("ParticleSystem"))
-        {
-            const json& j = e["ParticleSystem"];
-            auto& c = entity.AddComponent<ParticleSystemComponent>();
-            c.Playing = j.value("Playing", true);
-            c.Looping = j.value("Looping", true);
-            c.PlayInEditor = j.value("PlayInEditor", true);
-            c.EmissionRate = j.value("EmissionRate", 30.0f);
-            c.Burst = j.value("Burst", 0);
-            c.MaxParticles = j.value("MaxParticles", 1000);
-            c.Shape = (ParticleSystemComponent::EmitterShape)std::clamp(j.value("Shape", 0), 0, (int)ParticleSystemComponent::EmitterShape::Mesh);
-            c.ShapeRadius = j.value("ShapeRadius", 0.5f);
-            c.ShapeExtents = Vec(j, "ShapeExtents", glm::vec3(0.5f));
-            c.ShapeThickness = std::clamp(Number(j, "ShapeThickness", 1.0f), 0.0f, 1.0f);
-            c.AlignToShape = j.value("AlignToShape", false);
-            c.ConeAngle = std::clamp(Number(j, "ConeAngle", c.ConeAngle), 0.0f, 89.0f);
-            c.ConeLength = std::max(0.0f, Number(j, "ConeLength", c.ConeLength));
-            c.ConeFrom = EnumFromJson(j, "ConeFrom", s_ConeEmitFrom, c.ConeFrom);
-            c.ConeFlat = j.value("ConeFlat", false);
-            c.EdgeLength = std::max(0.0f, Number(j, "EdgeLength", c.EdgeLength));
-            c.MeshSource = EnumFromJson(j, "MeshSource", s_MeshShapeSources, c.MeshSource);
-            if (auto it = j.find("MeshPrimitive"); it != j.end() && it->is_string())
-                c.MeshPrimitive = PrimitiveMeshFromString(it->get<std::string>());
-            c.MeshModelPath = ReadAssetPath(j, "MeshModel");
-            c.MeshMode = EnumFromJson(j, "MeshMode", s_MeshEmitModes, c.MeshMode);
-            c.MeshAlongNormal = j.value("MeshAlongNormal", true);
-            c.MeshNormalOffset = Number(j, "MeshNormalOffset", 0.0f);
-            c.LifetimeMin = j.value("LifetimeMin", 0.8f);
-            c.LifetimeMax = j.value("LifetimeMax", 1.6f);
-            c.SpeedMin = j.value("SpeedMin", 1.0f);
-            c.SpeedMax = j.value("SpeedMax", 3.0f);
-            c.Direction = Vec(j, "Direction", glm::vec3(0, 1, 0));
-            c.Spread = j.value("Spread", 25.0f);
-            c.Gravity = Vec(j, "Gravity", glm::vec3(0.0f));
-            c.Drag = j.value("Drag", 0.0f);
-            c.AngularVelocityMax = j.value("AngularVelocityMax", 0.0f);
-            c.StartColor = Vec(j, "StartColor", c.StartColor);
-            c.EndColor = Vec(j, "EndColor", c.EndColor);
-            c.StartSize = j.value("StartSize", 0.35f);
-            c.EndSize = j.value("EndSize", 0.05f);
-            c.RenderAsCircle = j.value("RenderAsCircle", true);
-            c.Additive = j.value("Additive", true);
-            c.Billboard = j.value("Billboard", true);
-            c.TexturePath = ReadAssetPath(j, "Texture");
-            c.SortingOrder = j.value("SortingOrder", 0);
-            c.SortingLayer = ReadSortingLayer(j);
-            ReadParticleMain(j, c);
-            ReadParticleModules(j, c);
-        }
+            ParticleSystemFromJson(e["ParticleSystem"], entity.AddComponent<ParticleSystemComponent>());
         if (e.contains("UITransform"))
         {
             const json& j = e["UITransform"];
@@ -3133,6 +3167,76 @@ namespace Zamin {
             return !(uint64_t)e.GetComponent<RelationshipComponent>().Parent;
         });
         return created;
+    }
+
+    // ------------------------------------------------------------------ particle presets (.zparticle)
+    // { "ZaminParticlePreset": 1, "Name", "System": {...}, "Templates": [{ "Name", "System" }] } - the
+    // systems as scenes write them; a sub-emitter's "Emitter" is 1 + its template's index.
+    std::string ParticlePresets::ToString(const ParticlePreset& preset)
+    {
+        AssetReferenceScope scope;
+        json templates = json::array();
+        for (const auto& t : preset.Templates)
+        {
+            ParticleSystemComponent system = t.System;
+            system.SubEmitters = {}; // one level
+            templates.push_back({ { "Name", t.Name }, { "System", ParticleSystemToJson(system) } });
+        }
+        json root = { { "ZaminParticlePreset", FileVersion }, { "Name", preset.Name }, { "System", ParticleSystemToJson(preset.System) } };
+        if (!templates.empty())
+            root["Templates"] = std::move(templates);
+        return root.dump(2);
+    }
+
+    bool ParticlePresets::FromString(const std::string& text, ParticlePreset& out, std::string* error)
+    {
+        auto fail = [&](const std::string& why) {
+            if (error)
+                *error = why;
+            return false;
+        };
+        json root = json::parse(text, nullptr, false);
+        if (root.is_discarded() || !root.is_object())
+            return fail("JSON o'qilmadi");
+        auto system = root.find("System");
+        if (!root.contains("ZaminParticlePreset") || system == root.end() || !system->is_object())
+            return fail("Bu particle preset fayli emas");
+        if (auto version = root["ZaminParticlePreset"]; version.is_number_integer() && version.get<int>() > FileVersion)
+            ZM_CORE_WARN("Particle preset yangiroq versiyada ({}): ba'zi sozlamalar o'qilmasligi mumkin", version.get<int>());
+        AssetReferenceScope scope;
+        ParticlePreset preset;
+        try
+        {
+            preset.Name = root.value("Name", std::string());
+            ParticleSystemFromJson(*system, preset.System);
+            if (auto list = root.find("Templates"); list != root.end() && list->is_array())
+                for (const json& item : *list)
+                {
+                    ParticlePreset::Template t;
+                    if (item.is_object())
+                    {
+                        t.Name = item.value("Name", std::string());
+                        if (auto s = item.find("System"); s != item.end() && s->is_object())
+                            ParticleSystemFromJson(*s, t.System);
+                    }
+                    t.System.SubEmitters = {};
+                    t.System.CustomSpace = EntityRef();
+                    t.System.Collision.PlaneEntity = EntityRef();
+                    preset.Templates.push_back(std::move(t)); // a broken one keeps the others' places
+                }
+        }
+        catch (const std::exception& ex)
+        {
+            return fail(std::format("Particle preset xato: {}", ex.what()));
+        }
+        // Entity references of another scene mean nothing here; sub-emitters: template numbers.
+        preset.System.CustomSpace = EntityRef();
+        preset.System.Collision.PlaneEntity = EntityRef();
+        for (auto& sub : preset.System.SubEmitters.Emitters)
+            if (sub.Emitter.ID > preset.Templates.size())
+                sub.Emitter.ID = 0;
+        out = std::move(preset);
+        return true;
     }
 
 }

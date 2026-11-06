@@ -2018,12 +2018,13 @@ namespace Zamin {
             }
         };
         const glm::vec4 faint(color.r, color.g, color.b, color.a * 0.45f);
+        const Shape shape = ps.ShapeEnabled ? ps.Shape : Shape::Point; // the module off: from the centre
         const float inner = 1.0f - std::clamp(ps.ShapeThickness, 0.0f, 1.0f);
         const glm::vec3 axis = glm::length(ps.Direction) > 0.0f ? glm::normalize(ps.Direction) : glm::vec3(0, 1, 0);
         // About 60 px long on screen (in the emitter's units: its scale counts).
         const float scale = std::max(1e-6f, glm::length(glm::vec3(world * glm::vec4(axis, 0.0f))));
         const float arrow = 60.0f * pixel / scale;
-        switch (ps.Shape)
+        switch (shape)
         {
             case Shape::Circle:
                 circle(glm::vec3(0.0f), { 1, 0, 0 }, { 0, 1, 0 }, ps.ShapeRadius, color);
@@ -2097,7 +2098,7 @@ namespace Zamin {
                 break;
             default: break;
         }
-        if (ps.Shape == Shape::Mesh)
+        if (shape == Shape::Mesh)
             return; // the normals give the directions
         // The direction (the cone's axis).
         const glm::vec3 from = toWorld(glm::vec3(0.0f)), to = toWorld(axis * arrow);
@@ -2689,9 +2690,19 @@ namespace Zamin {
                 if (!shows(e, gizmos.ParticleShapes))
                     continue;
                 Entity entity{ e, &scene };
-                const glm::mat4 world = scene.GetWorldTransform(entity);
                 const auto& ps = entity.GetComponent<ParticleSystemComponent>();
+                const glm::mat4 world = scene.GetParticleEmitterTransform(entity, ps); // weather: at the camera
                 DrawParticleShapeGizmo(world, ps, tint(e, glm::vec4(0.55f, 0.75f, 1.0f, 0.9f)), view.PixelSize(glm::vec3(world[3])));
+                // Weather: the box the particles wrap around in (world axes; the flat ones as a rectangle).
+                if (ps.FollowCamera.Enabled && ps.FollowActive && ps.FollowCamera.Wrap)
+                {
+                    const glm::vec3 extents = glm::max(ps.FollowCamera.WrapExtents, glm::vec3(0.0f));
+                    if (extents.x > 0.0f || extents.y > 0.0f || extents.z > 0.0f)
+                    {
+                        glm::mat4 box = glm::scale(glm::translate(glm::mat4(1.0f), ps.FollowPosition), extents * 2.0f);
+                        DrawWireBox(box, tint(e, glm::vec4(0.55f, 0.75f, 1.0f, 0.3f)));
+                    }
+                }
                 // The collision plane: a grid under the emitter (where it meets the plane) and its normal.
                 if (ps.Collision.Enabled && ps.Collision.Type == ParticleSystemComponent::CollisionModule::CollisionType::Plane)
                 {
@@ -4358,6 +4369,21 @@ namespace Zamin {
                 break;
             case AssetType::Prefab:
                 return InstantiatePrefabInEditor(assetPath, {});
+            case AssetType::ParticlePreset:
+            {
+                // A new entity with the effect where the scene view looks (its sub-emitter templates as children).
+                ParticlePreset preset;
+                std::string error;
+                if (!ParticlePresets::Load(path, preset, &error))
+                {
+                    ZM_ERROR("Particle preset o'qilmadi: {} - {}", assetPath, error);
+                    return {};
+                }
+                Entity created = ParticlePresets::Instantiate(*m_EditorScene, preset, m_EditorCamera.GetFocalPoint());
+                m_SceneHierarchyPanel.SetSelectedEntity(created);
+                MarkDirty();
+                return created;
+            }
             default:
                 return {};
         }
@@ -5806,6 +5832,7 @@ namespace Zamin {
             dl->AddText(at, ImGui::GetColorU32(UI::AccentColor()), label.c_str());
         }
         UI_StatsOverlay();
+        UI_ParticleOverlay();
         UI_ViewportToolbar();
         UI_ViewportMessage();
 

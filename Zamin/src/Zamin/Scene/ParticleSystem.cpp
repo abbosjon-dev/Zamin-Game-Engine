@@ -53,7 +53,36 @@ namespace Zamin {
     // ------------------------------------------------------------------ curve
     float ParticleCurve::Evaluate(float t) const
     {
-        return Keys.empty() ? 1.0f : PropertyAnimation::Evaluate(Keys, t).x;
+        // PropertyAnimation::Evaluate for one component, without the vectors (called for every
+        // particle every frame): the same numbers.
+        const size_t n = Keys.size();
+        if (n == 0)
+            return 1.0f;
+        const AnimationKey& first = Keys.front();
+        if (n == 1 || t <= first.Time)
+            return first.Value.x;
+        const AnimationKey& last = Keys.back();
+        if (t >= last.Time)
+            return last.Value.x;
+        size_t i = 1; // the first key after t (a curve has a few keys)
+        while (i < n - 1 && !(t < Keys[i].Time))
+            i++;
+        const AnimationKey& a = Keys[i - 1];
+        const AnimationKey& b = Keys[i];
+        const float dt = b.Time - a.Time;
+        if (dt <= 0.0f)
+            return b.Value.x;
+        if (a.Interpolation == KeyInterpolation::Step)
+            return a.Value.x;
+        const float s = std::clamp((t - a.Time) / dt, 0.0f, 1.0f);
+        if (a.Interpolation == KeyInterpolation::Linear)
+            return a.Value.x * (1.0f - s) + b.Value.x * s;
+        const float s2 = s * s, s3 = s2 * s;
+        const float h00 = 2.0f * s3 - 3.0f * s2 + 1.0f;
+        const float h10 = s3 - 2.0f * s2 + s;
+        const float h01 = -2.0f * s3 + 3.0f * s2;
+        const float h11 = s3 - s2;
+        return h00 * a.Value.x + h10 * dt * a.OutTangent.x + h01 * b.Value.x + h11 * dt * b.InTangent.x;
     }
 
     void ParticleCurve::Sort()
@@ -382,44 +411,72 @@ namespace Zamin {
             }
         }
 
+        // A point's lattice cell, its place in it and the fade weights there: the same for the
+        // three axes' noises of a layer (NoiseField works them out once).
+        struct NoiseCell
+        {
+            int X, Y, Z;
+            float Fx, Fy, Fz; // 0..1 in the cell
+            float Ux, Uy, Uz; // faded
+        };
+
+        static NoiseCell MakeNoiseCell(float px, float py, float pz)
+        {
+            NoiseCell c;
+            const float floorX = std::floor(px), floorY = std::floor(py), floorZ = std::floor(pz);
+            c.Fx = px - floorX;
+            c.Fy = py - floorY;
+            c.Fz = pz - floorZ;
+            c.X = (int)floorX;
+            c.Y = (int)floorY;
+            c.Z = (int)floorZ;
+            // Quintic fade: the field and its slope are smooth across the lattice.
+            c.Ux = c.Fx * c.Fx * c.Fx * (c.Fx * (c.Fx * 6.0f - 15.0f) + 10.0f);
+            c.Uy = c.Fy * c.Fy * c.Fy * (c.Fy * (c.Fy * 6.0f - 15.0f) + 10.0f);
+            c.Uz = c.Fz * c.Fz * c.Fz * (c.Fz * (c.Fz * 6.0f - 15.0f) + 10.0f);
+            return c;
+        }
+
+        static float NoiseAt(const NoiseCell& c, uint32_t seed)
+        {
+            const uint32_t hs = Hash(seed);
+            const uint32_t hz0 = Hash((uint32_t)c.Z ^ hs), hz1 = Hash((uint32_t)(c.Z + 1) ^ hs);
+            const uint32_t h00 = Hash((uint32_t)c.Y + hz0), h10 = Hash((uint32_t)(c.Y + 1) + hz0);
+            const uint32_t h01 = Hash((uint32_t)c.Y + hz1), h11 = Hash((uint32_t)(c.Y + 1) + hz1);
+            const uint32_t x0 = (uint32_t)c.X, x1 = (uint32_t)(c.X + 1);
+            const float fx = c.Fx, fy = c.Fy, fz = c.Fz;
+            const float n000 = Gradient(Hash(x0 + h00), fx, fy, fz), n100 = Gradient(Hash(x1 + h00), fx - 1.0f, fy, fz);
+            const float n010 = Gradient(Hash(x0 + h10), fx, fy - 1.0f, fz), n110 = Gradient(Hash(x1 + h10), fx - 1.0f, fy - 1.0f, fz);
+            const float n001 = Gradient(Hash(x0 + h01), fx, fy, fz - 1.0f), n101 = Gradient(Hash(x1 + h01), fx - 1.0f, fy, fz - 1.0f);
+            const float n011 = Gradient(Hash(x0 + h11), fx, fy - 1.0f, fz - 1.0f), n111 = Gradient(Hash(x1 + h11), fx - 1.0f, fy - 1.0f, fz - 1.0f);
+            const float x00 = n000 + (n100 - n000) * c.Ux, x10 = n010 + (n110 - n010) * c.Ux;
+            const float x01 = n001 + (n101 - n001) * c.Ux, x11 = n011 + (n111 - n011) * c.Ux;
+            const float y0 = x00 + (x10 - x00) * c.Uy, y1 = x01 + (x11 - x01) * c.Uy;
+            return std::clamp(y0 + (y1 - y0) * c.Uz, -1.0f, 1.0f);
+        }
+
         float Noise(const glm::vec3& p, uint32_t seed)
         {
-            const glm::vec3 floor = glm::floor(p);
-            const glm::vec3 f = p - floor;
-            const int x = (int)floor.x, y = (int)floor.y, z = (int)floor.z;
-            // Quintic fade: the field and its slope are smooth across the lattice.
-            const glm::vec3 u = f * f * f * (f * (f * 6.0f - 15.0f) + 10.0f);
-            const uint32_t hz0 = Hash((uint32_t)z ^ Hash(seed)), hz1 = Hash((uint32_t)(z + 1) ^ Hash(seed));
-            const uint32_t h00 = Hash((uint32_t)y + hz0), h10 = Hash((uint32_t)(y + 1) + hz0);
-            const uint32_t h01 = Hash((uint32_t)y + hz1), h11 = Hash((uint32_t)(y + 1) + hz1);
-            auto corner = [&](uint32_t hyz, int dx, float gx, float gy, float gz) { return Gradient(Hash((uint32_t)(x + dx) + hyz), gx, gy, gz); };
-            const float n000 = corner(h00, 0, f.x, f.y, f.z), n100 = corner(h00, 1, f.x - 1.0f, f.y, f.z);
-            const float n010 = corner(h10, 0, f.x, f.y - 1.0f, f.z), n110 = corner(h10, 1, f.x - 1.0f, f.y - 1.0f, f.z);
-            const float n001 = corner(h01, 0, f.x, f.y, f.z - 1.0f), n101 = corner(h01, 1, f.x - 1.0f, f.y, f.z - 1.0f);
-            const float n011 = corner(h11, 0, f.x, f.y - 1.0f, f.z - 1.0f), n111 = corner(h11, 1, f.x - 1.0f, f.y - 1.0f, f.z - 1.0f);
-            const float x00 = n000 + (n100 - n000) * u.x, x10 = n010 + (n110 - n010) * u.x;
-            const float x01 = n001 + (n101 - n001) * u.x, x11 = n011 + (n111 - n011) * u.x;
-            const float y0 = x00 + (x10 - x00) * u.y, y1 = x01 + (x11 - x01) * u.y;
-            return std::clamp(y0 + (y1 - y0) * u.z, -1.0f, 1.0f);
+            return NoiseAt(MakeNoiseCell(p.x, p.y, p.z), seed);
         }
 
         glm::vec3 NoiseField(const glm::vec3& p, uint32_t seed, int octaves, float octaveMultiplier, const glm::bvec3& axes)
         {
             octaves = std::clamp(octaves, 1, 8);
-            glm::vec3 sum(0.0f);
+            float sum[3] = { 0.0f, 0.0f, 0.0f };
             float amplitude = 1.0f, total = 0.0f, frequency = 1.0f;
             for (int o = 0; o < octaves; o++)
             {
                 const uint32_t s = Hash(seed * 0x632BE5ABu + (uint32_t)o * 0x85EBCA6Bu);
-                const glm::vec3 q = p * frequency;
+                const NoiseCell cell = MakeNoiseCell(p.x * frequency, p.y * frequency, p.z * frequency);
                 for (int axis = 0; axis < 3; axis++)
                     if (axes[axis])
-                        sum[axis] += Noise(q, s + (uint32_t)axis * 0x27D4EB2Fu) * amplitude;
+                        sum[axis] += NoiseAt(cell, s + (uint32_t)axis * 0x27D4EB2Fu) * amplitude;
                 total += amplitude;
                 amplitude *= octaveMultiplier;
                 frequency *= 2.0f;
             }
-            return total > 0.0f ? sum / total : glm::vec3(0.0f);
+            return total > 0.0f ? glm::vec3(sum[0], sum[1], sum[2]) / total : glm::vec3(0.0f);
         }
 
         // Two unit vectors at right angles to `dir` (a unit vector).
@@ -454,7 +511,8 @@ namespace Zamin {
             local = glm::vec3(0.0f);
             // The part of the radius that emits: from 1 - thickness to 1 (1: all of it).
             const float inner = 1.0f - std::clamp(ps.ShapeThickness, 0.0f, 1.0f);
-            switch (ps.Shape)
+            const Shape shape = ps.ShapeEnabled ? ps.Shape : Shape::Point; // the module off: from the centre
+            switch (shape)
             {
                 case Shape::Circle:
                 {
@@ -520,7 +578,7 @@ namespace Zamin {
                 }
                 default: break;
             }
-            const bool outward = ps.AlignToShape && (ps.Shape == Shape::Circle || ps.Shape == Shape::Sphere || ps.Shape == Shape::Box);
+            const bool outward = ps.AlignToShape && (shape == Shape::Circle || shape == Shape::Sphere || shape == Shape::Box);
             dir = RandomInCone(outward ? Outward(local, ps.Direction) : ps.Direction, ps.Spread, rng);
         }
 
@@ -574,7 +632,7 @@ namespace Zamin {
                 }
             }
             // Mesh normals stay at right angles to the surface under a non-uniform scale.
-            const bool normals = ps.Shape == Shape::Mesh && ps.MeshAlongNormal && !ps.IsLocalSpace();
+            const bool normals = ps.ShapeEnabled && ps.Shape == Shape::Mesh && ps.MeshAlongNormal && !ps.IsLocalSpace();
             const glm::mat3 normalMatrix = normals ? glm::transpose(glm::inverse(glm::mat3(emitterWorld))) : glm::mat3(1.0f);
             PrepareTrails(ps);
             const bool births = Wants(GetEventMask(ps), ParticleEvent::Type::Birth);
@@ -701,6 +759,17 @@ namespace Zamin {
         static void Emit(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float dt)
         {
             uint32_t& rng = ps.RandomState;
+            if (!ps.EmissionEnabled)
+            {
+                // Nothing of its own; its cycle still runs (a non-looping one finishes).
+                ps.BurstDone = true;
+                ps.EmitAccumulator = 0.0f;
+                ps.PlayTime += dt;
+                const float delay = std::max(0.0f, ps.StartDelay), cycle = GetCycle(ps);
+                if (ps.Looping && ps.PlayTime >= delay + cycle)
+                    ps.PlayTime = delay + std::fmod(ps.PlayTime - delay, cycle);
+                return;
+            }
             if (!ps.BurstDone)
             {
                 Spawn(ps, emitterWorld, ps.Burst);
@@ -733,6 +802,8 @@ namespace Zamin {
 
         bool Update(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float dt, bool editor, const ParticleEnvironment* environment)
         {
+            if (ps.Paused)
+                return false; // frozen as it is
             // Prewarm: one whole cycle simulated before the first frame (in steps of 1/30 s, at
             // most 600 of them), the bursts and the emission included; no sub-emitter events.
             if (ps.Playing && ps.Looping && ps.Prewarm && !ps.Prewarmed)
@@ -890,6 +961,8 @@ namespace Zamin {
             }
             const bool orbit = vol.Enabled && vol.Orbital != glm::vec3(0.0f);
             const glm::quat spin = orbit ? glm::quat(vol.Orbital * ts) : glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+            // This step's turn around the emitter's own axes, as one matrix for all the particles.
+            const glm::mat3 orbitTurn = !orbit ? glm::mat3(1.0f) : !local ? rotation * glm::mat3_cast(spin) * glm::transpose(rotation) : glm::mat3_cast(spin);
             // The speed above the limit kept over this step (frame-rate independent: per 1/60 s).
             const float keep = limit.Enabled ? std::pow(1.0f - std::clamp(limit.Dampen, 0.0f, 1.0f), ts * 60.0f) : 1.0f;
 
@@ -953,9 +1026,7 @@ namespace Zamin {
                     if (orbit)
                     {
                         // Around the emitter's own axes through its centre.
-                        const glm::vec3 offset = p.Position - center;
-                        const glm::vec3 turned = !local ? rotation * (spin * (glm::transpose(rotation) * offset)) : spin * offset;
-                        p.Position = center + turned;
+                        p.Position = center + orbitTurn * (p.Position - center);
                     }
                 }
                 if (noisy)
@@ -1127,6 +1198,60 @@ namespace Zamin {
             for (uint32_t i = 0; i < (uint32_t)n; i++)
                 order[i] = i;
             std::stable_sort(order.begin(), order.end(), [](uint32_t a, uint32_t b) { return keys[a] < keys[b]; });
+        }
+
+        int WrapAround(ParticleSystemComponent& ps, const glm::vec3& center, const glm::vec3& extents)
+        {
+            const glm::vec3 e = glm::max(extents, glm::vec3(0.0f));
+            if (e.x <= 0.0f && e.y <= 0.0f && e.z <= 0.0f)
+                return 0;
+            const bool trails = ps.TrailPool.Capacity > 0;
+            int moved = 0;
+            for (Particle& p : ps.Particles)
+            {
+                glm::vec3 shift(0.0f);
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    if (e[axis] <= 0.0f)
+                        continue;
+                    const float d = p.Position[axis] - center[axis];
+                    if (d > e[axis] || d < -e[axis])
+                    {
+                        // Into [-e, e) around the centre (also after a jump of many box sizes).
+                        const float size = 2.0f * e[axis];
+                        const float wrapped = d - size * std::floor((d + e[axis]) / size);
+                        shift[axis] = wrapped - d;
+                    }
+                }
+                if (shift == glm::vec3(0.0f))
+                    continue;
+                p.Position += shift;
+                moved++;
+                if (trails && p.Trail >= 0)
+                {
+                    // The trail goes with it (no streak across the box).
+                    auto& pool = ps.TrailPool;
+                    const size_t base = (size_t)p.Trail * (size_t)pool.Capacity;
+                    for (int i = 0; i < pool.Capacity; i++)
+                        pool.Points[base + (size_t)i].Position += shift;
+                }
+            }
+            return moved;
+        }
+
+        bool GetStretchedQuad(const ParticleSystemComponent& ps, const glm::vec3& velocity, const glm::vec3& right, const glm::vec3& up,
+                              float size, float& rotation, glm::vec2& quad)
+        {
+            const float speed = glm::length(velocity);
+            const glm::vec2 across(glm::dot(velocity, right), glm::dot(velocity, up));
+            const float seen = glm::length(across);
+            if (!(speed > 1e-5f) || !(seen > 1e-5f))
+                return false;
+            // The quad's Y along the motion: (0, 1) turned by `rotation` is (-sin, cos).
+            rotation = std::atan2(-across.x, across.y);
+            const float length = std::max(0.0f, size * ps.StretchLength + speed * std::max(0.0f, ps.StretchSpeed));
+            quad = glm::vec2(size, std::max(size * 0.25f, length * (seen / speed)));
+            return true;
         }
 
         float GetTrailWidth(const ParticleSystemComponent& ps, float size, float u)

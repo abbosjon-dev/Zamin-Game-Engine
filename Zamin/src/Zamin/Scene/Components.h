@@ -1217,9 +1217,13 @@ namespace Zamin {
         float EmissionRate = 30.0f;  // particles / second
         int Burst = 0;               // particles emitted once when it starts playing (not every cycle)
         std::vector<EmissionBurst> Bursts; // every cycle
+        // The Emission module: off - the system emits nothing itself (rate, start burst, bursts);
+        // particles still come from scripts (EmitParticles) and as a sub-emitter's template.
+        bool EmissionEnabled = true;
         int MaxParticles = 1000;
 
         EmitterShape Shape = EmitterShape::Point;
+        bool ShapeEnabled = true;          // the Shape module: off - from the centre along Direction (as Point)
         float ShapeRadius = 0.5f;          // Circle, Sphere, Cone (its base)
         glm::vec3 ShapeExtents{ 0.5f };    // Box
         // Circle / Sphere / Cone: how much of the radius emits, from the rim inwards (1: all of
@@ -1417,8 +1421,29 @@ namespace Zamin {
             bool operator==(const TrailsModule&) const = default;
         } Trails;
 
+        // Weather around the camera (rain, snow, dust in the air): the emitter is where the camera
+        // is - the primary camera while the game runs, the scene view's in the editor - plus Offset
+        // (world axes); its own rotation and scale stay. Wrap (World space): a particle farther
+        // from the emitter than WrapExtents along a world axis (0: not along it) goes over to the
+        // other side of that box, so the camera never walks out of the rain.
+        struct FollowCameraModule
+        {
+            bool Enabled = false;
+            glm::vec3 Offset{ 0.0f, 6.0f, 0.0f };
+            bool Wrap = true;
+            glm::vec3 WrapExtents{ 10.0f, 0.0f, 10.0f };
+            bool operator==(const FollowCameraModule&) const = default;
+        } FollowCamera;
+
+        // ---- the Renderer module
+        bool RendererEnabled = true;       // off: simulated, not drawn (a rocket that only carries its sub-emitters)
         bool RenderAsCircle = true;
         bool Additive = true;
+        // Stretched along the velocity (rain streaks, sparks): StartSize wide, size x StretchLength
+        // + speed x StretchSpeed long - as the camera sees the motion (looking along it: shorter).
+        bool Stretched = false;
+        float StretchLength = 1.0f;
+        float StretchSpeed = 0.05f;
         SimulationSpace Space = SimulationSpace::World;
         EntityRef CustomSpace;       // Space Custom: the entity the particles move with
         bool Billboard = true;       // face the camera (3D)
@@ -1437,6 +1462,9 @@ namespace Zamin {
         float PlayTime = 0.0f;                // seconds it has played (emitted) since it started, StartDelay included
         bool Prewarmed = false;
         bool Finished = false;                // a non-looping system that played its cycle and emptied (once)
+        bool Paused = false;                  // frozen as it is (the editor's pause; not saved)
+        bool FollowActive = false;            // FollowCamera: placed at a camera in the last update,
+        glm::vec3 FollowPosition{ 0.0f };     // at this point (world)
         std::vector<ParticleEvent> Events;    // for the sub-emitters (the scene takes them every frame)
         ParticleTrailPool TrailPool;
         Ref<const ParticleEmitterMesh> MeshRuntime; // the Mesh shape's mesh (the scene finds it)
@@ -1444,6 +1472,33 @@ namespace Zamin {
 
         // Particles in the emitter's own space (Local): they move with it.
         bool IsLocalSpace() const { return Space == SimulationSpace::Local; }
+
+        // ---- playback (the inspector's and the scene view's controls, scripts)
+        // Emitting again - from where it was paused, or from the start when it had stopped / finished.
+        void Play()
+        {
+            if (Finished || (!Playing && !Paused))
+                Clear();
+            Playing = true;
+            Paused = false;
+        }
+        // Frozen as it is: the particles neither move nor age, nothing is emitted.
+        void Pause() { Paused = true; }
+        // No more emission; `clear`: the living particles go at once (else they live out their life).
+        void Stop(bool clear = true)
+        {
+            Playing = false;
+            Paused = false;
+            if (clear)
+                Clear();
+        }
+        // From the start (Burst, bursts, prewarm, delay again).
+        void Restart()
+        {
+            Clear();
+            Playing = true;
+        }
+        bool IsEmitting() const { return Playing && !Paused && !Finished; }
 
         void Clear()
         {
@@ -1454,6 +1509,8 @@ namespace Zamin {
             PlayTime = 0.0f;
             Prewarmed = false;
             Finished = false;
+            Paused = false;
+            FollowActive = false;
             Events.clear();
             TrailPool.Reset(0);
             MeshRuntime = nullptr;

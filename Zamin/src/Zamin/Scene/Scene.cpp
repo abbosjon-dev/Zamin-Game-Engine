@@ -4483,6 +4483,7 @@ namespace Zamin {
     void Scene::OnUpdateSimulation(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options)
     {
         m_FrameIndex++;
+        m_ParticleViewer = camera.GetPosition(); // weather follows the scene view's camera
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
             DebugDraw::Advance(ts);
@@ -4502,6 +4503,7 @@ namespace Zamin {
     void Scene::OnUpdateEditor(Timestep ts, const EditorCamera& camera, const SceneRenderOptions& options)
     {
         m_FrameIndex++;
+        m_ParticleViewer = camera.GetPosition(); // weather follows the scene view's camera
         DebugDraw::Advance(ts); // the edit scene's time is the editor's
         UpdateEditorAnimation(ts);
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
@@ -6671,8 +6673,8 @@ namespace Zamin {
         for (auto e : m_Registry.view<TransformComponent, ParticleSystemComponent>())
         {
             const auto& ps = m_Registry.get<ParticleSystemComponent>(e);
-            if (ps.Particles.empty() || skip(e)) continue;
-            if (culling2D && !seen(GetParticleBounds(ps, ps.IsLocalSpace() ? world(e) : GetParticleSpace({ e, this }, ps))))
+            if (ps.Particles.empty() || !ps.RendererEnabled || skip(e)) continue;
+            if (culling2D && !seen(GetParticleBounds(ps, ps.IsLocalSpace() && !ps.FollowActive ? world(e) : GetParticleSpace({ e, this }, ps))))
                 continue;
             items.push_back({ keyOf(e, ps.SortingLayer, ps.SortingOrder), 3, e });
         }
@@ -6833,7 +6835,7 @@ namespace Zamin {
             else
             {
                 auto& ps = m_Registry.get<ParticleSystemComponent>(item.Handle);
-                DrawParticleSystem(ps, ps.IsLocalSpace() ? transform : GetParticleSpace({ item.Handle, this }, ps), billboard, id, registry(),
+                DrawParticleSystem(ps, ps.IsLocalSpace() && !ps.FollowActive ? transform : GetParticleSpace({ item.Handle, this }, ps), billboard, id, registry(),
                                    cameraPosition, projection[3][3] == 0.0f);
             }
         }

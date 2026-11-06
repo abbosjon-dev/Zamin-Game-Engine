@@ -248,6 +248,17 @@ namespace Zamin {
         void GetDrawOrder(const ParticleSystemComponent& ps, const glm::mat4* toWorld, const glm::vec3& viewer, const glm::vec3& viewForward,
                           bool perspective, std::vector<uint32_t>& order);
 
+        // FollowCamera's wrap: the particles (and their trails) farther than `extents` from `center`
+        // along an axis (0: not along it) are moved by twice that to the other side of the box.
+        // Returns how many moved.
+        int WrapAround(ParticleSystemComponent& ps, const glm::vec3& center, const glm::vec3& extents);
+        // A stretched particle's quad (Stretched): its rotation in the plane of `right` / `up` (the
+        // quad's Y along the velocity as seen there) and its size (width, length) for a particle of
+        // `size` moving at `velocity` (world). False when it barely moves across the view (drawn
+        // as it is).
+        bool GetStretchedQuad(const ParticleSystemComponent& ps, const glm::vec3& velocity, const glm::vec3& right, const glm::vec3& up,
+                              float size, float& rotation, glm::vec2& quad);
+
         // A trail's width / colour at `u` along it (0 at the particle, 1 at its oldest end) for a
         // particle of `size` and `color`.
         float GetTrailWidth(const ParticleSystemComponent& ps, float size, float u);

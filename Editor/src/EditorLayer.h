@@ -226,6 +226,8 @@ namespace Zamin {
         // The statistics overlay over the viewport (FPS graph, draw calls, triangles, culling):
         // the overlay itself, the toolbar's popup and the view menu sharing its settings' widgets.
         void UI_StatsOverlay();
+        // The selected Particle System's play / pause / restart / stop and count (EditorParticleOverlay.cpp).
+        void UI_ParticleOverlay();
         void UI_StatsOverlayPopup();
         bool UI_StatsOverlaySettings();
         void UI_StatusBar();

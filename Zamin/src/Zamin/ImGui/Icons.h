@@ -194,3 +194,7 @@
 #define ICON_FA_HAND "\xef\x89\x96"
 #define ICON_FA_INFINITY "\xef\x94\xb4"       // endless (particle burst cycles)
 #define ICON_FA_HOURGLASS_HALF "\xef\x89\x92" // particle duration / timeline
+// particles III (M14): presets, weather
+#define ICON_FA_SWATCHBOOK "\xef\x97\x83" // particle presets
+#define ICON_FA_CLOUD_RAIN "\xef\x9c\xbd" // rain / weather around the camera
+#define ICON_FA_SMOG "\xef\x9d\x9f"       // dust

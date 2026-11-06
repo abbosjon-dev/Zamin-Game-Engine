@@ -402,6 +402,8 @@ namespace Zamin {
             }
             ImGui::End();
         }
+        // A particle preset dropped onto the hierarchy (the inspector applies its own after drawing).
+        ApplyPendingParticlePreset();
     }
 
     // ------------------------------------------------------------------ presets
@@ -729,9 +731,9 @@ namespace Zamin {
         }
         if (ImGui::BeginMenu(ICON_FA_WAND_MAGIC_SPARKLES "  Effektlar"))
         {
-            if (ImGui::MenuItem(ICON_FA_FIRE "  Olov")) CreateEntityPreset("Fire");
-            if (ImGui::MenuItem(ICON_FA_BOLT "  Uchqunlar")) CreateEntityPreset("Sparks");
-            if (ImGui::MenuItem(ICON_FA_CLOUD "  Tutun")) CreateEntityPreset("Smoke");
+            // The particle preset library: each makes a new entity with that effect.
+            if (DrawParticlePresetItems({}))
+                ApplyPendingParticlePreset();
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu(ICON_FA_TABLE_CELLS "  UI (ekran)"))
@@ -1014,6 +1016,8 @@ namespace Zamin {
             std::filesystem::path path((const char*)payload->Data);
             if (path.extension() == ".zprefab" && OnPrefabDropped)
                 OnPrefabDropped(path, entity);
+            else if (path.extension() == ParticlePresets::Extension && m_SceneEditable)
+                RequestParticlePresetFile(entity, path); // the entity takes the effect (after the hierarchy is drawn)
         }
         ImGui::EndDragDropTarget();
     }
@@ -1194,6 +1198,8 @@ namespace Zamin {
                 std::filesystem::path path((const char*)payload->Data);
                 if (path.extension() == ".zprefab" && OnPrefabDropped)
                     OnPrefabDropped(path, {});
+                else if (path.extension() == ParticlePresets::Extension && m_SceneEditable)
+                    RequestParticlePresetFile({}, path); // a new entity with the effect
             }
             ImGui::EndDragDropTarget();
         }
@@ -8297,6 +8303,7 @@ namespace Zamin {
         if (m_PendingSubEmitterFor && m_SceneEditable)
             CreateSubEmitterTemplate(m_PendingSubEmitterFor);
         m_PendingSubEmitterFor = 0;
+        ApplyPendingParticlePreset(); // a particle preset chosen in the inspector (it replaces the component)
 
         // Reordering (menu / header drag & drop) is applied after everything was drawn.
         PendingMove move = std::move(m_PendingMove);

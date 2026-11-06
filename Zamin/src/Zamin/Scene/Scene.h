@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <optional>
 
 #include <entt/entt.hpp>
 #include <glm/glm.hpp>
@@ -707,6 +708,14 @@ namespace Zamin {
         // Where the entity's particles live in the world (their positions -> world): the emitter
         // (Local), the Custom space's entity, else the identity (World, or the Custom entity gone).
         glm::mat4 GetParticleSpace(Entity entity, const struct ParticleSystemComponent& ps);
+        // Where the entity's emitter is in the world: its world transform, moved to the camera when
+        // its system follows one (FollowCamera, as placed in the last update).
+        glm::mat4 GetParticleEmitterTransform(Entity entity, const struct ParticleSystemComponent& ps);
+        // The point FollowCamera systems follow: set (the scene view's camera - OnUpdateEditor /
+        // OnUpdateSimulation set it every frame), else the primary camera's position; none
+        // without either.
+        void SetParticleViewer(std::optional<glm::vec3> position) { m_ParticleViewer = position; }
+        std::optional<glm::vec3> GetParticleViewer();
 
         // ---- audio sources (AudioSourceComponent; only while the game runs)
         // Starts the source's sound from the beginning (a sound it is already playing is
@@ -1373,6 +1382,7 @@ namespace Zamin {
         std::unordered_map<std::string, std::vector<entt::entity>, StringHash, std::equal_to<>> m_NameCache;
         bool m_NameCacheDirty = true;
         uint64_t m_FrameIndex = 0;
+        std::optional<glm::vec3> m_ParticleViewer; // SetParticleViewer
         uint64_t m_NameCacheFrame = ~0ull; // frame of the last validation / rebuild
         NameCacheStats m_NameCacheStats;
         AnimationStats m_AnimationStats;

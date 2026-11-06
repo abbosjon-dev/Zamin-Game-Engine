@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <format>
 #include <limits>
+#include <optional>
 #include <unordered_map>
 
 namespace Zamin {
@@ -112,12 +113,29 @@ namespace Zamin {
         return glm::inverse(environment.Space) * world;
     }
 
+    std::optional<glm::vec3> Scene::GetParticleViewer()
+    {
+        if (m_ParticleViewer)
+            return m_ParticleViewer;
+        if (Entity camera = GetPrimaryCameraEntity())
+            return glm::vec3(GetWorldTransform(camera)[3]);
+        return std::nullopt;
+    }
+
+    glm::mat4 Scene::GetParticleEmitterTransform(Entity entity, const ParticleSystemComponent& ps)
+    {
+        glm::mat4 world = GetWorldTransform(entity);
+        if (ps.FollowCamera.Enabled && ps.FollowActive)
+            world[3] = glm::vec4(ps.FollowPosition, 1.0f);
+        return world;
+    }
+
     glm::mat4 Scene::GetParticleSpace(Entity entity, const ParticleSystemComponent& ps)
     {
         switch (ps.Space)
         {
             case ParticleSystemComponent::SimulationSpace::Local:
-                return GetWorldTransform(entity);
+                return GetParticleEmitterTransform(entity, ps);
             case ParticleSystemComponent::SimulationSpace::Custom:
                 if (ps.CustomSpace)
                     if (Entity space = GetEntityByUUID(ps.CustomSpace.ID))
@@ -152,7 +170,7 @@ namespace Zamin {
             ResolveMeshShape(target, *child);
             // The template's own space: a Custom one takes the origin into it.
             ParticleEnvironment childEnvironment;
-            const glm::mat4 targetEmitter = ResolveSpace(scene, *child, scene.GetWorldTransform(target), childEnvironment);
+            const glm::mat4 targetEmitter = ResolveSpace(scene, *child, scene.GetParticleEmitterTransform(target, *child), childEnvironment);
             const glm::mat4 fromWorld = childEnvironment.HasSpace ? glm::inverse(childEnvironment.Space) : glm::mat4(1.0f);
             auto emit = [&](const glm::vec3& at, const glm::vec3& velocity, const glm::vec4& color, float size, int count) {
                 ParticleSpawnOrigin origin;
@@ -199,6 +217,8 @@ namespace Zamin {
     {
         ZM_PROFILE_SCOPE("Particle'lar");
         std::vector<entt::entity> finished;
+        std::optional<glm::vec3> viewer;
+        bool viewerFound = false;
         for (auto e : m_Registry.view<ParticleSystemComponent>())
         {
             auto& ps = m_Registry.get<ParticleSystemComponent>(e);
@@ -213,8 +233,25 @@ namespace Zamin {
                 continue;
             }
             ResolveMeshShape(entity, ps);
+            // Weather: the emitter at the camera (its own rotation and scale).
+            glm::mat4 emitterWorld = GetWorldTransform(entity);
+            ps.FollowActive = false;
+            if (ps.FollowCamera.Enabled)
+            {
+                if (!viewerFound)
+                {
+                    viewer = GetParticleViewer();
+                    viewerFound = true;
+                }
+                if (viewer)
+                {
+                    ps.FollowActive = true;
+                    ps.FollowPosition = *viewer + ps.FollowCamera.Offset;
+                    emitterWorld[3] = glm::vec4(ps.FollowPosition, 1.0f);
+                }
+            }
             ParticleEnvironment environment;
-            const glm::mat4 world = ResolveSpace(*this, ps, GetWorldTransform(entity), environment);
+            const glm::mat4 world = ResolveSpace(*this, ps, emitterWorld, environment);
 
             // Collisions: the plane through an entity, the physics world while it runs.
             const auto& collision = ps.Collision;
@@ -261,10 +298,19 @@ namespace Zamin {
                         return true;
                     };
             }
-            if (ParticleSimulation::Update(ps, world, ts, editor, &environment))
-                finished.push_back(e);
-            if (ps.SubEmitters.Enabled)
+            {
+                ZM_PROFILE_SCOPE("Particle simulyatsiyasi");
+                if (ParticleSimulation::Update(ps, world, ts, editor, &environment))
+                    finished.push_back(e);
+            }
+            // The camera moved on: what it left behind comes round to the front.
+            if (ps.FollowActive && ps.FollowCamera.Wrap && ps.Space == ParticleSystemComponent::SimulationSpace::World && !ps.Paused)
+                ParticleSimulation::WrapAround(ps, ps.FollowPosition, ps.FollowCamera.WrapExtents);
+            if (ps.SubEmitters.Enabled && !ps.Paused)
+            {
+                ZM_PROFILE_SCOPE("Sub-emitterlar");
                 RunSubEmitters(*this, entity, ps, world, environment, ts * std::max(0.0f, ps.SimulationSpeed), editor);
+            }
             ps.Events.clear();
         }
 
@@ -304,7 +350,7 @@ namespace Zamin {
         {
             ResolveMeshShape(entity, *ps);
             ParticleEnvironment environment;
-            ParticleSimulation::Spawn(*ps, ResolveSpace(*this, *ps, GetWorldTransform(entity), environment), count);
+            ParticleSimulation::Spawn(*ps, ResolveSpace(*this, *ps, GetParticleEmitterTransform(entity, *ps), environment), count);
         }
     }
 
@@ -467,6 +513,9 @@ namespace Zamin {
     void Scene::DrawParticleSystem(ParticleSystemComponent& ps, const glm::mat4& space, const glm::mat4& billboard, int id,
                                    const AssetRegistry* registry, const glm::vec3& viewer, bool perspective)
     {
+        if (!ps.RendererEnabled)
+            return;
+        ZM_PROFILE_SCOPE("Particle chizish");
         // What came before is drawn with depth writes; the particles without them.
         Renderer2D::Flush();
         if (ps.Additive) Renderer2D::SetBlendMode(BlendMode::Additive);
@@ -483,10 +532,18 @@ namespace Zamin {
 
         // The order they are drawn in: alpha-blended ones back to front (Sorting).
         static thread_local std::vector<uint32_t> order;
-        ParticleSimulation::GetDrawOrder(ps, world ? nullptr : &space, viewer, -glm::vec3(billboard[2]), perspective, order);
+        {
+            ZM_PROFILE_SCOPE("Particle saralash");
+            ParticleSimulation::GetDrawOrder(ps, world ? nullptr : &space, viewer, -glm::vec3(billboard[2]), perspective, order);
+        }
         const size_t count = ps.Particles.size();
         auto particle = [&](size_t i) -> const Particle& { return ps.Particles[order.empty() ? i : order[i]]; };
         Renderer::GetStats().ParticleCount += (uint32_t)count;
+        // Stretched along the motion: in the plane the quads are drawn in (billboards: the camera's;
+        // flat ones: the world's XY), the velocity in the world.
+        const glm::vec3 quadRight = ps.Billboard ? glm::vec3(billboard[0]) : glm::vec3(1.0f, 0.0f, 0.0f);
+        const glm::vec3 quadUp = ps.Billboard ? glm::vec3(billboard[1]) : glm::vec3(0.0f, 1.0f, 0.0f);
+        auto worldVelocity = [&](const Particle& p) { return world ? p.Velocity : glm::vec3(space * glm::vec4(p.Velocity, 0.0f)); };
 
         // Billboards (3D): GPU instances, one draw call for the system. The 2D ones (flat quads in
         // the sprites' plane) stay in the 2D batch with the sprites.
@@ -501,6 +558,8 @@ namespace Zamin {
                 instance.Position = world ? p.Position : glm::vec3(space * glm::vec4(p.Position, 1.0f));
                 instance.Rotation = p.Rotation;
                 instance.Size = glm::vec2(ParticleSimulation::GetSize(ps, p));
+                if (ps.Stretched)
+                    ParticleSimulation::GetStretchedQuad(ps, worldVelocity(p), quadRight, quadUp, instance.Size.x, instance.Rotation, instance.Size);
                 instance.Color = ParticleSimulation::GetColor(ps, p);
                 instance.UVRect = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
                 if (ps.Texture && frameCount > 0)
@@ -528,7 +587,11 @@ namespace Zamin {
                 glm::vec3 pos = world ? p.Position : glm::vec3(space * glm::vec4(p.Position, 1.0f));
                 glm::mat4 m = glm::translate(glm::mat4(1.0f), pos);
                 if (ps.Billboard) m = m * billboard;
-                m = m * glm::rotate(glm::mat4(1.0f), p.Rotation, glm::vec3(0, 0, 1)) * glm::scale(glm::mat4(1.0f), glm::vec3(size));
+                float rotation = p.Rotation;
+                glm::vec2 quad(size);
+                if (ps.Stretched)
+                    ParticleSimulation::GetStretchedQuad(ps, worldVelocity(p), quadRight, quadUp, size, rotation, quad);
+                m = m * glm::rotate(glm::mat4(1.0f), rotation, glm::vec3(0, 0, 1)) * glm::scale(glm::mat4(1.0f), glm::vec3(quad, size));
                 if (ps.Texture && frameCount > 0)
                 {
                     const ParticleFrames::Frame& f = frames.Frames[(size_t)ParticleSimulation::GetSheetFrame(ps, p, frameCount)];

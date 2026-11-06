@@ -32,6 +32,7 @@ namespace Zamin {
             case AssetType::PhysicsMaterial: color = IM_COL32(110, 215, 230, 255); return ICON_FA_GEM;
             case AssetType::Animation:   color = IM_COL32(255, 170, 90, 255); return ICON_FA_TIMELINE;
             case AssetType::SpriteAnimation: color = IM_COL32(255, 140, 170, 255); return ICON_FA_FILM;
+            case AssetType::ParticlePreset: color = IM_COL32(255, 190, 90, 255); return ICON_FA_WAND_MAGIC_SPARKLES;
             case AssetType::Script:      color = IM_COL32(100, 160, 240, 255); return ICON_FA_FILE_CODE;
             case AssetType::Project:     color = IM_COL32(46, 188, 148, 255); return ICON_FA_GAMEPAD;
             default:                     return ICON_FA_FILE;

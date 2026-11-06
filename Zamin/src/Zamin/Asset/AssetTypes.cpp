@@ -63,6 +63,7 @@ namespace Zamin {
         { AssetType::PhysicsMaterial, "Fizik material", "PhysicsMaterial", "Physics", true },
         { AssetType::Animation, "Animatsiya klipi", "Animation", "Animations", true },
         { AssetType::SpriteAnimation, "Sprite animatsiya klipi", "SpriteAnimation", "Animations", true },
+        { AssetType::ParticlePreset, "Particle preset", "ParticlePreset", "Particles", true },
         { AssetType::Script, "C++ skript", "Script", "", false },
         { AssetType::Project, "Loyiha", "Project", "", false },
         { AssetType::Other, "Boshqa", "Other", "", false },
@@ -83,6 +84,7 @@ namespace Zamin {
             { ".zphysmat" },                                              // PhysicsMaterial
             { ".zanim" },                                                 // Animation
             { ".zsanim" },                                                // SpriteAnimation
+            { ".zparticle" },                                             // ParticlePreset
             { ".cpp", ".h", ".hpp", ".cc", ".c", ".inl" },                // Script
             { ".zproject" },                                              // Project
             {},                                                           // Other

@@ -2149,6 +2149,620 @@ TEST(ParticleMainSerialization)
     CHECK(copiedFx && copiedFx.GetComponent<PS>().CustomSpace.ID == (uint64_t)copy.GetUUID());
 }
 
+// The module switches (Emission / Shape / Renderer off) and the playback controls (pause freezes,
+// stop clears, play / restart start over).
+TEST(ParticleModuleSwitchesAndPlayback)
+{
+    using PS = ParticleSystemComponent;
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Fx");
+    e.GetTransform().Translation = { 3.0f, 1.0f, 0.0f };
+    auto& ps = e.AddComponent<PS>();
+    ps.EmissionRate = 50.0f;
+    ps.Burst = 5;
+    ps.Bursts = { { 0.0f, 10, 1, 0.5f, 1.0f } };
+    ps.LifetimeMin = ps.LifetimeMax = 10.0f;
+    ps.EmissionEnabled = false;
+    ps.Looping = false;
+    ps.Duration = 0.5f;
+    for (int i = 0; i < 12; i++)
+        scene->UpdateEditorAnimation(0.1f); // the editor: a non-looping one starts over instead of finishing
+    CHECK(ps.Particles.empty() && ps.PlayTime < 0.5f);
+    scene->EmitParticles(e, 3); // scripts still emit
+    CHECK(ps.Particles.size() == 3);
+    // The emission back on: the start burst, the bursts list and the rate.
+    ps.EmissionEnabled = true;
+    ps.Looping = true;
+    ps.Clear();
+    scene->UpdateEditorAnimation(0.1f);
+    CHECK(ps.Particles.size() == 5 + 10 + 5);
+    // The Shape module off: from the centre (the Box would spread them).
+    ps.Clear();
+    ps.Shape = PS::EmitterShape::Box;
+    ps.ShapeExtents = glm::vec3(5.0f);
+    ps.ShapeEnabled = false;
+    ps.SpeedMin = ps.SpeedMax = 0.0f;
+    scene->UpdateEditorAnimation(1e-4f);
+    CHECK(!ps.Particles.empty());
+    bool centred = true;
+    for (const auto& p : ps.Particles)
+        centred &= glm::length(p.Position - glm::vec3(3.0f, 1.0f, 0.0f)) < 1e-4f;
+    CHECK(centred);
+    ps.ShapeEnabled = true;
+    ps.Clear();
+    scene->UpdateEditorAnimation(1e-4f);
+    float spread = 0.0f;
+    for (const auto& p : ps.Particles)
+        spread = std::max(spread, glm::length(p.Position - glm::vec3(3.0f, 1.0f, 0.0f)));
+    CHECK(spread > 1.0f);
+
+    // Pause: nothing moves, ages or is emitted; Play goes on from there.
+    ps.Clear();
+    ps.SpeedMin = ps.SpeedMax = 2.0f;
+    for (int i = 0; i < 5; i++)
+        scene->UpdateEditorAnimation(0.1f);
+    const std::vector<Particle> before = ps.Particles;
+    const float playTime = ps.PlayTime;
+    ps.Pause();
+    CHECK(ps.Paused && !ps.IsEmitting());
+    for (int i = 0; i < 5; i++)
+        scene->UpdateEditorAnimation(0.1f);
+    CHECK(ps.Particles.size() == before.size() && ps.PlayTime == playTime);
+    bool frozen = true;
+    for (size_t i = 0; i < before.size() && i < ps.Particles.size(); i++)
+        frozen &= ps.Particles[i].Position == before[i].Position && ps.Particles[i].Life == before[i].Life;
+    CHECK(frozen);
+    ps.Play();
+    CHECK(!ps.Paused && ps.IsEmitting() && ps.Particles.size() == before.size()); // resumed, not restarted
+    scene->UpdateEditorAnimation(0.1f);
+    CHECK(ps.Particles.size() > before.size() && ps.PlayTime > playTime);
+    // Stop: no emission, nothing left; Play: from the start (the start burst again).
+    ps.Stop();
+    CHECK(!ps.Playing && ps.Particles.empty());
+    scene->UpdateEditorAnimation(0.1f);
+    CHECK(ps.Particles.empty());
+    ps.Play();
+    scene->UpdateEditorAnimation(1e-4f);
+    CHECK(ps.Particles.size() == 5 + 10); // burst + bursts list (the rate: nothing in so short a step)
+    // Restart while running: everything goes, the burst fires again.
+    for (int i = 0; i < 3; i++)
+        scene->UpdateEditorAnimation(0.1f);
+    ps.Restart();
+    CHECK(ps.Particles.empty() && ps.Playing && !ps.BurstDone);
+    // The Renderer module off: still simulated.
+    ps.RendererEnabled = false;
+    scene->UpdateEditorAnimation(0.1f);
+    CHECK(ps.Particles.size() >= 15);
+}
+
+// Weather around the camera: the emitter at the viewer plus the offset, particles that fall behind
+// wrapped round to the other side of the box (with their trails); stretched billboards along the motion.
+TEST(ParticleFollowCameraWeather)
+{
+    using PS = ParticleSystemComponent;
+    // The wrap on its own.
+    {
+        PS ps;
+        ps.Trails.Enabled = true;
+        ps.TrailPool.Reset(4);
+        Particle p;
+        p.Position = { 25.0f, 3.0f, -1.0f };
+        p.Trail = ps.TrailPool.Allocate();
+        ps.TrailPool.Push(p.Trail, { 24.0f, 3.0f, -1.0f }, 0.0f);
+        ps.Particles.push_back(p);
+        Particle inside;
+        inside.Position = { 1.0f, 50.0f, 2.0f };
+        ps.Particles.push_back(inside);
+        Particle far;
+        far.Position = { -95.0f, 0.0f, 31.0f }; // many box sizes away
+        ps.Particles.push_back(far);
+        CHECK(ParticleSimulation::WrapAround(ps, glm::vec3(0.0f), { 10.0f, 0.0f, 10.0f }) == 2);
+        CHECK_NEAR(ps.Particles[0].Position.x, 5.0f, 1e-4f);                      // 25 -> 5
+        CHECK_NEAR(ps.TrailPool.Get(p.Trail, 0).Position.x, 4.0f, 1e-4f);        // its trail with it
+        CHECK(ps.Particles[1].Position == glm::vec3(1.0f, 50.0f, 2.0f));        // Y not wrapped (0), inside on X / Z
+        CHECK(ps.Particles[2].Position.x >= -10.0f && ps.Particles[2].Position.x < 10.0f);
+        CHECK(ps.Particles[2].Position.z >= -10.0f && ps.Particles[2].Position.z < 10.0f);
+        CHECK_NEAR(ps.Particles[2].Position.x, 5.0f, 1e-4f); // -95 + 5 * 20
+        CHECK_NEAR(ps.Particles[2].Position.z, -9.0f, 1e-4f); // 31 - 2 * 20
+        CHECK(ParticleSimulation::WrapAround(ps, glm::vec3(0.0f), glm::vec3(0.0f)) == 0);
+    }
+
+    auto scene = CreateRef<Scene>();
+    Entity rain = scene->CreateEntity("Rain");
+    rain.GetTransform().Translation = { 100.0f, 0.0f, 100.0f }; // where the entity is does not count
+    auto& ps = rain.AddComponent<PS>();
+    ps.Shape = PS::EmitterShape::Box;
+    ps.ShapeExtents = { 6.0f, 0.1f, 6.0f };
+    ps.Direction = { 0.0f, -1.0f, 0.0f };
+    ps.Spread = 0.0f;
+    ps.SpeedMin = ps.SpeedMax = 10.0f;
+    ps.LifetimeMin = ps.LifetimeMax = 3.0f;
+    ps.EmissionRate = 400.0f;
+    ps.MaxParticles = 5000;
+    ps.FollowCamera.Enabled = true;
+    ps.FollowCamera.Offset = { 0.0f, 8.0f, 0.0f };
+    ps.FollowCamera.WrapExtents = { 6.0f, 0.0f, 6.0f };
+    // No viewer and no camera: at the entity.
+    scene->UpdateEditorAnimation(0.05f);
+    CHECK(!ps.FollowActive);
+    CHECK(!ps.Particles.empty() && std::abs(ps.Particles[0].Position.x - 100.0f) <= 6.01f && std::abs(ps.Particles[0].Position.z - 100.0f) <= 6.01f);
+    ps.Clear();
+    // The primary camera (no render here: only the animation update).
+    Entity camera = scene->CreateEntity("Camera");
+    camera.AddComponent<CameraComponent>().Primary = true;
+    camera.GetTransform().Translation = { -20.0f, 2.0f, 5.0f };
+    CHECK(scene->GetParticleViewer() && *scene->GetParticleViewer() == glm::vec3(-20.0f, 2.0f, 5.0f));
+    scene->UpdateEditorAnimation(0.05f);
+    CHECK(ps.FollowActive && ps.FollowPosition == glm::vec3(-20.0f, 10.0f, 5.0f));
+    bool near = !ps.Particles.empty();
+    for (const auto& p : ps.Particles)
+        near &= std::abs(p.Position.x + 20.0f) <= 6.01f && std::abs(p.Position.z - 5.0f) <= 6.01f && p.Position.y <= 10.2f;
+    CHECK(near);
+    CHECK(glm::vec3(scene->GetParticleEmitterTransform(rain, ps)[3]) == glm::vec3(-20.0f, 10.0f, 5.0f));
+    // The scene view's camera wins over the primary one (the editor sets it every frame).
+    scene->SetParticleViewer(glm::vec3(0.0f, 1.0f, 0.0f));
+    for (int i = 0; i < 20; i++)
+        scene->UpdateEditorAnimation(0.05f);
+    CHECK(ps.FollowPosition == glm::vec3(0.0f, 9.0f, 0.0f));
+    // Walking on: what the camera leaves behind comes round in front - all the rain stays around it.
+    for (int step = 1; step <= 10; step++)
+    {
+        scene->SetParticleViewer(glm::vec3(1.5f * step, 1.0f, -2.0f * step));
+        scene->UpdateEditorAnimation(0.05f);
+    }
+    const glm::vec3 center = ps.FollowPosition;
+    CHECK(center == glm::vec3(15.0f, 9.0f, -20.0f));
+    bool around = ps.Particles.size() > 100;
+    for (const auto& p : ps.Particles)
+        around &= std::abs(p.Position.x - center.x) <= 6.0f + 1e-3f && std::abs(p.Position.z - center.z) <= 6.0f + 1e-3f;
+    CHECK(around);
+    // Without the wrap they stay where they fell.
+    ps.FollowCamera.Wrap = false;
+    scene->SetParticleViewer(glm::vec3(200.0f, 1.0f, 0.0f));
+    scene->UpdateEditorAnimation(0.01f);
+    size_t behind = 0;
+    for (const auto& p : ps.Particles)
+        behind += std::abs(p.Position.x - 200.0f) > 6.5f;
+    CHECK(behind > 50);
+    scene->SetParticleViewer(std::nullopt);
+    CHECK(*scene->GetParticleViewer() == glm::vec3(-20.0f, 2.0f, 5.0f)); // the primary camera again
+
+    // Stretched quads: along the motion as the camera sees it.
+    PS s;
+    s.Stretched = true;
+    s.StretchLength = 2.0f;
+    s.StretchSpeed = 0.1f;
+    float rotation = 0.0f;
+    glm::vec2 quad(0.0f);
+    const glm::vec3 right(1, 0, 0), up(0, 1, 0);
+    CHECK(ParticleSimulation::GetStretchedQuad(s, { 0.0f, -10.0f, 0.0f }, right, up, 0.5f, rotation, quad));
+    CHECK_NEAR(std::abs(rotation), glm::pi<float>(), 1e-4f); // its Y down the screen
+    CHECK_NEAR(quad.x, 0.5f, 1e-5f);
+    CHECK_NEAR(quad.y, 0.5f * 2.0f + 10.0f * 0.1f, 1e-4f);
+    CHECK(ParticleSimulation::GetStretchedQuad(s, { 4.0f, 0.0f, 0.0f }, right, up, 0.5f, rotation, quad));
+    CHECK_NEAR(rotation, -glm::half_pi<float>(), 1e-4f); // (0, 1) turned to (1, 0)
+    // Half of the motion towards the camera: half as long.
+    CHECK(ParticleSimulation::GetStretchedQuad(s, glm::vec3(0.0f, 6.0f, 6.0f * std::sqrt(3.0f)), right, up, 0.5f, rotation, quad));
+    CHECK_NEAR(quad.y, (1.0f + 12.0f * 0.1f) * 0.5f, 1e-4f);
+    CHECK(!ParticleSimulation::GetStretchedQuad(s, { 0.0f, 0.0f, 5.0f }, right, up, 0.5f, rotation, quad)); // straight at it
+    CHECK(!ParticleSimulation::GetStretchedQuad(s, glm::vec3(0.0f), right, up, 0.5f, rotation, quad));
+}
+
+// The built-in presets: each makes a working effect (rain splashes on the ground, the firework
+// bursts in the air, the explosion throws sparks) with its sub-emitter templates as children.
+TEST(ParticleBuiltinPresets)
+{
+    using PS = ParticleSystemComponent;
+    const auto& builtins = ParticlePresets::GetBuiltins();
+    CHECK(builtins.size() >= 8);
+    for (const char* key : { "Fire", "Smoke", "Sparks", "Rain", "Snow", "Magic", "Explosion", "Dust", "Firework" })
+        CHECK(ParticlePresets::GetBuiltin(key).has_value());
+    CHECK(!ParticlePresets::GetBuiltin("Banana"));
+    auto scene = CreateRef<Scene>();
+    scene->SetParticleViewer(glm::vec3(0.0f, 2.0f, 0.0f));
+    std::unordered_map<std::string, Entity> made;
+    float x = 0.0f;
+    for (const auto& info : builtins)
+    {
+        std::optional<ParticlePreset> preset = ParticlePresets::GetBuiltin(info.Key);
+        CHECK(preset && !preset->Name.empty() && std::string(info.Name) == preset->Name && std::strlen(info.Description) > 10);
+        if (!preset)
+            continue;
+        for (const auto& sub : preset->System.SubEmitters.Emitters)
+            CHECK(sub.Emitter.ID >= 1 && sub.Emitter.ID <= preset->Templates.size());
+        // Each round-trips through its file form unchanged.
+        ParticlePreset back;
+        CHECK(ParticlePresets::FromString(ParticlePresets::ToString(*preset), back));
+        CHECK(ParticlePresets::ToString(back) == ParticlePresets::ToString(*preset));
+        Entity e = ParticlePresets::Instantiate(*scene, *preset, { x, 1.0f, 0.0f });
+        x += 6.0f;
+        CHECK(e.GetName() == preset->Name && scene->GetChildren(e).size() == preset->Templates.size());
+        made[info.Key] = e;
+    }
+    for (int i = 0; i < 150; i++) // 2.5 s
+        scene->UpdateEditorAnimation(1.0f / 60.0f);
+    auto count = [&](const char* key) { return made.count(key) ? made[key].GetComponent<PS>().Particles.size() : 0; };
+    auto templateCount = [&](const char* key) {
+        size_t n = 0;
+        if (made.count(key))
+            for (Entity child : scene->GetChildren(made[key]))
+                n += child.GetComponent<PS>().Particles.size();
+        return n;
+    };
+    for (const char* key : { "Fire", "Smoke", "Sparks", "Rain", "Snow", "Magic", "Dust" })
+        CHECK(count(key) > 10);
+    CHECK(templateCount("Rain") > 0);       // splashes where the drops hit the ground
+    CHECK(templateCount("Firework") > 50);  // the rockets burst
+    CHECK(made.count("Rain") && made["Rain"].GetComponent<PS>().FollowActive);
+    CHECK(made.count("Smoke") && made["Smoke"].GetComponent<PS>().Prewarmed);
+    // The explosion: one burst (in the editor it plays its cycle again after 2 s) and its sparks.
+    CHECK(made.count("Explosion") && made["Explosion"].GetComponent<PS>().Bursts.size() == 1 && !made["Explosion"].GetComponent<PS>().Looping);
+    // No rain falls through the ground (Y 0): the drops die there.
+    bool above = true;
+    for (const auto& p : made["Rain"].GetComponent<PS>().Particles)
+        above &= p.Position.y > -0.05f;
+    CHECK(above);
+    // Applying one over another: the old templates go, the new ones come; the sorting layer stays.
+    Entity rain = made["Rain"];
+    rain.GetComponent<PS>().SortingLayer = 7;
+    rain.GetComponent<PS>().SortingOrder = 3;
+    auto countEntities = [&]() {
+        size_t n = 0;
+        for (auto handle : scene->GetAllEntitiesWith<IDComponent>())
+        {
+            (void)handle;
+            n++;
+        }
+        return n;
+    };
+    const size_t entities = countEntities();
+    ParticlePresets::Apply(*scene, rain, *ParticlePresets::GetBuiltin("Firework"));
+    CHECK(countEntities() == entities); // one template out, one in
+    const auto& firework = rain.GetComponent<PS>();
+    CHECK(firework.SortingLayer == 7 && firework.SortingOrder == 3 && !firework.FollowCamera.Enabled && firework.Particles.empty());
+    CHECK(scene->GetChildren(rain).size() == 1 && scene->GetChildren(rain)[0].GetName() == "Mushak portlashi");
+    CHECK(firework.SubEmitters.Emitters.size() == 1 && firework.SubEmitters.Emitters[0].Emitter.ID == (uint64_t)scene->GetChildren(rain)[0].GetUUID());
+    CHECK(scene->GetChildren(rain)[0].GetComponent<PS>().SortingLayer == 7);
+}
+
+// .zparticle files: a system with its sub-emitter templates and what belongs to the scene left
+// behind (custom space, plane entity), the same after a round trip, applied in another scene.
+TEST(ParticlePresetFiles)
+{
+    using PS = ParticleSystemComponent;
+    auto scene = CreateRef<Scene>();
+    Entity ship = scene->CreateEntity("Ship");
+    Entity ground = scene->CreateEntity("Ground");
+    ground.GetTransform().Translation = { 0.0f, -2.0f, 0.0f };
+    Entity fx = scene->CreateEntity("Sachratqi");
+    auto& ps = fx.AddComponent<PS>();
+    ps.EmissionRate = 12.0f;
+    ps.StartColor = { 0.1f, 0.2f, 0.3f, 0.4f };
+    ps.Space = PS::SimulationSpace::Custom;
+    ps.CustomSpace.ID = ship.GetUUID();
+    ps.Collision.Enabled = true;
+    ps.Collision.PlaneEntity.ID = ground.GetUUID();
+    ps.FollowCamera.Enabled = true;
+    ps.FollowCamera.Offset = { 1.0f, 2.0f, 3.0f };
+    ps.Stretched = true;
+    ps.StretchSpeed = 0.07f;
+    ps.EmissionEnabled = false;
+    ps.Particles.resize(5); // runtime: not kept
+    Entity splash = scene->CreateEntity("Tomchi");
+    splash.AddComponent<PS>().StartSize = 0.03f;
+    scene->SetParent(splash, fx, false);
+    Entity spark = scene->CreateEntity("Uchqun");
+    spark.AddComponent<PS>().StartSize = 0.07f;
+    auto& sys = fx.GetComponent<PS>();
+    sys.SubEmitters.Enabled = true;
+    PS::SubEmitter a, b, c, d;
+    a.Emitter.ID = splash.GetUUID();
+    a.Trigger = PS::SubEmitter::TriggerType::Collision;
+    b.Emitter.ID = spark.GetUUID();
+    c.Emitter.ID = splash.GetUUID(); // the same template twice: one copy
+    d.Emitter.ID = 12345;            // gone
+    sys.SubEmitters.Emitters = { a, b, c, d };
+
+    ParticlePreset preset = ParticlePresets::Capture(*scene, fx);
+    CHECK(preset.Name == "Sachratqi" && preset.Templates.size() == 2 && preset.System.Particles.empty());
+    CHECK(preset.System.Space == PS::SimulationSpace::World && !preset.System.CustomSpace);
+    CHECK(!preset.System.Collision.PlaneEntity && preset.System.Collision.PlaneNormal == glm::vec3(0, 1, 0) &&
+          preset.System.Collision.PlaneOffset == -2.0f); // the ground's plane in the world
+    const auto& subs = preset.System.SubEmitters.Emitters;
+    CHECK(subs.size() == 4 && subs[0].Emitter.ID == 1 && subs[1].Emitter.ID == 2 && subs[2].Emitter.ID == 1 && subs[3].Emitter.ID == 0);
+    CHECK(preset.Templates[0].Name == "Tomchi" && preset.Templates[0].System.StartSize == 0.03f && preset.Templates[1].Name == "Uchqun");
+
+    const std::string text = ParticlePresets::ToString(preset);
+    CHECK(text.find("\"ZaminParticlePreset\": 1") != std::string::npos && text.find("\"Templates\"") != std::string::npos);
+    ParticlePreset loaded;
+    std::string error;
+    CHECK(ParticlePresets::FromString(text, loaded, &error));
+    CHECK(ParticlePresets::ToString(loaded) == text);
+    CHECK(loaded.System.FollowCamera == preset.System.FollowCamera && loaded.System.Stretched && loaded.System.StretchSpeed == 0.07f &&
+          !loaded.System.EmissionEnabled && loaded.System.StartColor == glm::vec4(0.1f, 0.2f, 0.3f, 0.4f));
+    // On disk.
+    const auto file = std::filesystem::temp_directory_path() / ("zamin-preset-" + std::to_string((uint64_t)UUID()) + ".zparticle");
+    CHECK(ParticlePresets::Save(file, preset));
+    ParticlePreset fromFile;
+    CHECK(ParticlePresets::Load(file, fromFile) && ParticlePresets::ToString(fromFile) == text);
+    std::filesystem::remove(file);
+    CHECK(!ParticlePresets::Load(file, fromFile, &error) && !error.empty());
+    // Not a preset.
+    for (const char* bad : { "", "[1, 2]", "{ \"Scene\": \"x\" }", "{ \"ZaminParticlePreset\": 1 }", "{ \"ZaminParticlePreset\": 1, \"System\": 5 }" })
+    {
+        error.clear();
+        CHECK(!ParticlePresets::FromString(bad, loaded, &error) && !error.empty());
+    }
+    // A template number out of range means none; wrong types do not throw.
+    std::string odd = text;
+    odd.replace(odd.find("\"Emitter\": 2"), 12, "\"Emitter\": 9");
+    CHECK(ParticlePresets::FromString(odd, loaded) && loaded.System.SubEmitters.Emitters[1].Emitter.ID == 0);
+    CHECK(!ParticlePresets::FromString("{ \"ZaminParticlePreset\": 1, \"System\": { \"EmissionRate\": \"many\" } }", loaded, &error));
+
+    // Into another scene: the templates as children, the sub-emitters pointing at them.
+    auto other = CreateRef<Scene>();
+    Entity target = other->CreateEntity("Target");
+    Entity created = ParticlePresets::Instantiate(*other, fromFile, { 1.0f, 2.0f, 3.0f });
+    CHECK(created.GetName() == "Sachratqi" && created.GetTransform().Translation == glm::vec3(1.0f, 2.0f, 3.0f));
+    std::vector<Entity> made = ParticlePresets::Apply(*other, target, fromFile);
+    CHECK(made.size() == 2 && other->GetChildren(target).size() == 2);
+    const auto& applied = target.GetComponent<PS>();
+    CHECK(applied.SubEmitters.Emitters[0].Emitter.ID == (uint64_t)made[0].GetUUID() &&
+          applied.SubEmitters.Emitters[1].Emitter.ID == (uint64_t)made[1].GetUUID() &&
+          applied.SubEmitters.Emitters[2].Emitter.ID == (uint64_t)made[0].GetUUID() && !applied.SubEmitters.Emitters[3].Emitter);
+    CHECK(made[0].GetName() == "Tomchi" && made[0].GetComponent<PS>().StartSize == 0.03f);
+    // Captured again: the same preset (names, settings).
+    ParticlePreset again = ParticlePresets::Capture(*other, target);
+    again.Name = preset.Name;
+    CHECK(ParticlePresets::ToString(again) == text);
+    // Saved in the scene and loaded back: the references still hold.
+    auto reloaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(reloaded).DeserializeFromString(SceneSerializer(other).SerializeToString()));
+    Entity t2 = reloaded->FindEntityByName("Target");
+    CHECK(t2 && reloaded->GetEntityByUUID(t2.GetComponent<PS>().SubEmitters.Emitters[0].Emitter.ID).GetName() == "Tomchi");
+}
+
+// Every setting of a particle system away from its default survives a scene round trip (and the
+// text is stable); a default system writes none of the newer keys; a scene of the first particle
+// systems (only their fields) loads with every newer module off and the module switches on.
+TEST(ParticleSerializationEverything)
+{
+    using PS = ParticleSystemComponent;
+    auto scene = CreateRef<Scene>();
+    Entity plane = scene->CreateEntity("Plane");
+    Entity space = scene->CreateEntity("Space");
+    Entity sub = scene->CreateEntity("Sub");
+    sub.AddComponent<PS>().EmissionEnabled = false;
+    Entity fx = scene->CreateEntity("Everything");
+    PS c;
+    c.Playing = false; c.Looping = false; c.PlayInEditor = false;
+    c.Duration = 2.5f; c.StartDelay = 0.4f; c.Prewarm = true; c.SimulationSpeed = 1.5f; c.StopActionType = PS::StopAction::Disable;
+    c.EmissionRate = 12.5f; c.Burst = 3; c.Bursts = { { 0.2f, 4, 2, 0.1f, 0.5f } }; c.EmissionEnabled = false; c.MaxParticles = 321;
+    c.Shape = PS::EmitterShape::Mesh; c.ShapeEnabled = false; c.ShapeRadius = 0.7f; c.ShapeExtents = { 1, 2, 3 }; c.ShapeThickness = 0.25f;
+    c.ConeAngle = 33.0f; c.ConeLength = 2.0f; c.ConeFrom = PS::ConeEmitFrom::Volume; c.ConeFlat = true; c.EdgeLength = 4.0f; c.AlignToShape = true;
+    c.MeshSource = PS::MeshShapeSource::Model; c.MeshPrimitive = PrimitiveMesh::Cylinder; c.MeshModelPath = "Models/rock.glb";
+    c.MeshMode = PS::MeshEmitMode::Edge; c.MeshAlongNormal = false; c.MeshNormalOffset = 0.05f;
+    c.LifetimeMin = 0.3f; c.LifetimeMax = 0.9f; c.SpeedMin = -1.0f; c.SpeedMax = 7.0f; c.Direction = { 1, 0, 0 }; c.Spread = 77.0f;
+    c.Gravity = { 0, -2, 1 }; c.Drag = 0.6f; c.AngularVelocityMax = 3.0f;
+    c.StartColor = { 0.1f, 0.2f, 0.3f, 0.4f }; c.EndColor = { 0.5f, 0.6f, 0.7f, 0.8f }; c.StartSize = 0.9f; c.EndSize = 0.2f;
+    c.ColorOverLifetime.Enabled = true;
+    c.ColorOverLifetime.Gradient = ParticleGradient::TwoStops({ 1, 0, 0, 1 }, { 0, 0, 1, 0 });
+    c.ColorOverLifetime.Gradient.AddStop(0.3f);
+    c.ColorOverLifetime.Gradient.Fixed = true;
+    c.ColorOverLifetime.RandomBetweenTwo = true;
+    c.SizeOverLifetime.Enabled = true;
+    c.SizeOverLifetime.Curve = ParticleCurve::Linear(0.2f, 2.0f);
+    c.SizeOverLifetime.Curve.AddKey(0.5f);
+    c.SizeOverLifetime.Curve.Keys[1].Interpolation = KeyInterpolation::Bezier;
+    c.SizeOverLifetime.Curve.Keys[1].TangentMode = KeyTangentMode::Free;
+    c.SizeOverLifetime.Curve.Keys[1].InTangent.x = 0.5f;
+    c.SizeOverLifetime.Curve.Keys[1].OutTangent.x = -1.5f;
+    c.SizeOverLifetime.Curve.Sort();
+    c.VelocityOverLifetime = { true, { 1, 2, 3 }, ParticleCurve::Linear(1, 0), true, { 0.1f, 0.2f, 0.3f }, -0.5f, ParticleCurve::Constant(0.5f) };
+    c.LimitVelocity = { true, 4.0f, ParticleCurve::Linear(1, 0.5f), 0.75f };
+    c.Noise.Enabled = true; c.Noise.Strength = { 1, 0.5f, 0 }; c.Noise.Frequency = 2.0f; c.Noise.ScrollSpeed = -0.3f; c.Noise.Octaves = 3;
+    c.Noise.OctaveMultiplier = 0.4f; c.Noise.Seed = 99;
+    c.Collision.Enabled = true; c.Collision.Type = PS::CollisionModule::CollisionType::World2D; c.Collision.PlaneNormal = { 0, 0, 1 };
+    c.Collision.PlaneOffset = 2.0f; c.Collision.PlaneEntity.ID = plane.GetUUID(); c.Collision.Bounce = 0.8f; c.Collision.Dampen = 0.2f;
+    c.Collision.LifetimeLoss = 0.1f; c.Collision.MinKillSpeed = 0.3f; c.Collision.RadiusScale = 0.5f; c.Collision.CollidesWith = 0x0005;
+    c.SubEmitters.Enabled = true;
+    PS::SubEmitter s;
+    s.Trigger = PS::SubEmitter::TriggerType::Lifetime; s.Emitter.ID = sub.GetUUID(); s.Count = 7; s.Probability = 0.5f;
+    s.InheritVelocity = 0.3f; s.InheritColor = true; s.InheritSize = true;
+    c.SubEmitters.Emitters = { s };
+    c.TextureSheet = { true, PS::TextureSheetModule::FrameSource::Sprites, 3, 2, 5, "flame", PS::TextureSheetModule::TimeMode::FrameRate,
+                       2.0f, 24.0f, 1, true, true };
+    c.Trails = { true, 0.5f, 0.8f, 0.05f, 40, 2.0f, false, ParticleCurve::Linear(1, 0.2f),
+                 ParticleGradient::TwoStops({ 1, 1, 0, 1 }, { 1, 0, 0, 0 }), false };
+    c.FollowCamera = { true, { 1, 7, -1 }, false, { 5, 1, 5 } };
+    c.RendererEnabled = false; c.RenderAsCircle = false; c.Additive = false; c.Stretched = true; c.StretchLength = 1.5f; c.StretchSpeed = 0.02f;
+    c.Space = PS::SimulationSpace::Custom; c.CustomSpace.ID = space.GetUUID(); c.Billboard = false; c.Sorting = PS::SortMode::YoungestOnTop;
+    c.TexturePath = "Textures/flame_sheet.png"; c.SortingOrder = -4;
+    fx.AddComponent<PS>(c);
+
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+    Entity le = loaded->FindEntityByName("Everything");
+    CHECK(le);
+    if (!le)
+        return;
+    const PS& l = le.GetComponent<PS>();
+    CHECK(!l.Playing && !l.Looping && !l.PlayInEditor && l.Duration == 2.5f && l.StartDelay == 0.4f && l.Prewarm && l.SimulationSpeed == 1.5f);
+    CHECK(l.StopActionType == PS::StopAction::Disable && l.EmissionRate == 12.5f && l.Burst == 3 && l.Bursts == c.Bursts && !l.EmissionEnabled);
+    CHECK(l.MaxParticles == 321 && l.Shape == PS::EmitterShape::Mesh && !l.ShapeEnabled && l.ShapeRadius == 0.7f && l.ShapeExtents == c.ShapeExtents);
+    CHECK(l.ShapeThickness == 0.25f && l.ConeAngle == 33.0f && l.ConeLength == 2.0f && l.ConeFrom == PS::ConeEmitFrom::Volume && l.ConeFlat);
+    CHECK(l.EdgeLength == 4.0f && l.AlignToShape && l.MeshSource == PS::MeshShapeSource::Model && l.MeshPrimitive == PrimitiveMesh::Cylinder);
+    CHECK(l.MeshModelPath == "Models/rock.glb" && l.MeshMode == PS::MeshEmitMode::Edge && !l.MeshAlongNormal && l.MeshNormalOffset == 0.05f);
+    CHECK(l.LifetimeMin == 0.3f && l.LifetimeMax == 0.9f && l.SpeedMin == -1.0f && l.SpeedMax == 7.0f && l.Direction == c.Direction && l.Spread == 77.0f);
+    CHECK(l.Gravity == c.Gravity && l.Drag == 0.6f && l.AngularVelocityMax == 3.0f && l.StartColor == c.StartColor && l.EndColor == c.EndColor);
+    CHECK(l.StartSize == 0.9f && l.EndSize == 0.2f);
+    CHECK(l.ColorOverLifetime == c.ColorOverLifetime && l.SizeOverLifetime == c.SizeOverLifetime && l.VelocityOverLifetime == c.VelocityOverLifetime);
+    CHECK(l.LimitVelocity == c.LimitVelocity && l.Noise == c.Noise && l.Collision == c.Collision && l.SubEmitters == c.SubEmitters);
+    CHECK(l.TextureSheet == c.TextureSheet && l.Trails == c.Trails && l.FollowCamera == c.FollowCamera);
+    CHECK(!l.RendererEnabled && !l.RenderAsCircle && !l.Additive && l.Stretched && l.StretchLength == 1.5f && l.StretchSpeed == 0.02f);
+    CHECK(l.Space == PS::SimulationSpace::Custom && l.CustomSpace == c.CustomSpace && !l.Billboard && l.Sorting == PS::SortMode::YoungestOnTop);
+    CHECK(l.TexturePath == c.TexturePath && l.SortingOrder == -4);
+    // Copy / paste of the component and prefabs carry it all too.
+    const std::string copied = SceneSerializer::SerializeComponent(fx, "ParticleSystem");
+    Entity pasted = scene->CreateEntity("Pasted");
+    CHECK(SceneSerializer::DeserializeComponent(copied, pasted));
+    CHECK(pasted.GetComponent<PS>().FollowCamera == c.FollowCamera && pasted.GetComponent<PS>().Stretched && !pasted.GetComponent<PS>().EmissionEnabled);
+
+    // A default system: none of the newer keys.
+    {
+        auto plain = CreateRef<Scene>();
+        plain->CreateEntity("Plain").AddComponent<PS>();
+        const std::string plainText = SceneSerializer(plain).SerializeToString();
+        for (const char* key : { "\"EmissionEnabled\"", "\"ShapeEnabled\"", "\"RendererEnabled\"", "\"Stretched\"", "\"StretchLength\"",
+                                 "\"FollowCamera\"", "\"ColorOverLifetime\"", "\"Trails\"", "\"Noise\"", "\"Collision\"", "\"SubEmitters\"",
+                                 "\"ConeAngle\"", "\"MeshSource\"", "\"Bursts\"", "\"Duration\"" })
+            CHECK(plainText.find(key) == std::string::npos);
+    }
+
+    // The first particle systems' scenes: exactly the fields they wrote.
+    const std::string legacy = R"({ "Scene": "Old", "Entities": [ { "Entity": 501, "Tag": "Torch", "Transform": { "Translation": [1, 2, 3] },
+        "ParticleSystem": { "Playing": true, "Looping": true, "PlayInEditor": true, "EmissionRate": 40.0, "Burst": 0, "MaxParticles": 500,
+            "Shape": 1, "ShapeRadius": 0.2, "ShapeExtents": [0.5, 0.5, 0.5], "LifetimeMin": 0.5, "LifetimeMax": 1.2, "SpeedMin": 0.8,
+            "SpeedMax": 1.6, "Direction": [0, 1, 0], "Spread": 20.0, "Gravity": [0, 1.5, 0], "Drag": 0.2, "AngularVelocityMax": 1.0,
+            "StartColor": [1, 0.8, 0.3, 1], "EndColor": [1, 0.2, 0.05, 0], "StartSize": 0.4, "EndSize": 0.05, "RenderAsCircle": true,
+            "Additive": true, "WorldSpace": true, "Billboard": true, "Texture": "", "SortingOrder": 2 } } ] })";
+    auto old = CreateRef<Scene>();
+    CHECK(SceneSerializer(old).DeserializeFromString(legacy));
+    Entity torch = old->FindEntityByName("Torch");
+    CHECK(torch && torch.HasComponent<PS>());
+    if (!torch)
+        return;
+    const PS& o = torch.GetComponent<PS>();
+    const PS d;
+    CHECK(o.EmissionRate == 40.0f && o.MaxParticles == 500 && o.Shape == PS::EmitterShape::Circle && o.ShapeRadius == 0.2f && o.SortingOrder == 2);
+    CHECK(o.Space == PS::SimulationSpace::World && o.Gravity == glm::vec3(0, 1.5f, 0) && o.StartColor == glm::vec4(1, 0.8f, 0.3f, 1));
+    CHECK(o.EmissionEnabled && o.ShapeEnabled && o.RendererEnabled && !o.Stretched && !o.FollowCamera.Enabled);
+    CHECK(!o.ColorOverLifetime.Enabled && !o.SizeOverLifetime.Enabled && !o.VelocityOverLifetime.Enabled && !o.LimitVelocity.Enabled);
+    CHECK(!o.Noise.Enabled && !o.Collision.Enabled && !o.SubEmitters.Enabled && !o.TextureSheet.Enabled && !o.Trails.Enabled);
+    CHECK(o.Duration == d.Duration && o.StartDelay == 0.0f && !o.Prewarm && o.SimulationSpeed == 1.0f && o.Bursts.empty() &&
+          o.Sorting == PS::SortMode::Auto && o.StopActionType == PS::StopAction::None && o.ShapeThickness == 1.0f && !o.AlignToShape);
+    // It simulates as the old ones did: from the circle, rising.
+    old->UpdateEditorAnimation(0.5f);
+    CHECK(!o.Particles.empty());
+    // Saved again it keeps the old form (and loads to the same).
+    const std::string resaved = SceneSerializer(old).SerializeToString();
+    CHECK(resaved.find("\"FollowCamera\"") == std::string::npos && resaved.find("\"EmissionEnabled\"") == std::string::npos);
+    auto again = CreateRef<Scene>();
+    CHECK(SceneSerializer(again).DeserializeFromString(resaved) && SceneSerializer(again).SerializeToString() == resaved);
+    // Values out of range are clamped.
+    std::string odd = text;
+    odd.replace(odd.find("\"StretchLength\": 1.5"), 20, "\"StretchLength\": -3.0");
+    odd.insert(odd.find('5', odd.find("\"WrapExtents\"")), "-");
+    auto oddScene = CreateRef<Scene>();
+    CHECK(SceneSerializer(oddScene).DeserializeFromString(odd));
+    if (Entity e = oddScene->FindEntityByName("Everything"))
+        CHECK(e.GetComponent<PS>().StretchLength == 0.0f && e.GetComponent<PS>().FollowCamera.WrapExtents.x == 0.0f);
+}
+
+// The sample projects' particle scenes: every one loads, saves to the same text it loads from
+// (nothing lost, nothing added) and plays a few frames headless.
+TEST(ParticleSampleScenesRoundTrip)
+{
+    namespace fs = std::filesystem;
+    for (const char* projectName : { "Showcase3D", "Platformer2D", "Adventure3D" })
+    {
+        fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / projectName;
+        auto project = Project::Load(root / (std::string(projectName) + ".zproject"));
+        CHECK(project != nullptr);
+        if (!project)
+            continue;
+        Project::SetActive(project);
+        int scenes = 0, systems = 0;
+        std::error_code ec;
+        for (const auto& entry : fs::recursive_directory_iterator(root / "Assets", ec))
+        {
+            if (entry.path().extension() != ".zscene")
+                continue;
+            const std::string fileText = FileSystem::ReadTextFile(entry.path());
+            if (fileText.find("\"ParticleSystem\"") == std::string::npos)
+                continue;
+            auto scene = CreateRef<Scene>();
+            CHECK(SceneSerializer(scene).Deserialize(entry.path()));
+            const std::string first = SceneSerializer(scene).SerializeToString();
+            auto loaded = CreateRef<Scene>();
+            CHECK(SceneSerializer(loaded).DeserializeFromString(first));
+            CHECK(SceneSerializer(loaded).SerializeToString() == first);
+            for (auto e : loaded->GetAllEntitiesWith<ParticleSystemComponent>())
+            {
+                const auto& a = Entity(e, loaded.get()).GetComponent<ParticleSystemComponent>();
+                Entity original = scene->GetEntityByUUID(Entity(e, loaded.get()).GetUUID());
+                const auto& b = original.GetComponent<ParticleSystemComponent>();
+                CHECK(a.ColorOverLifetime == b.ColorOverLifetime && a.SizeOverLifetime == b.SizeOverLifetime && a.Trails == b.Trails &&
+                      a.SubEmitters == b.SubEmitters && a.Collision == b.Collision && a.Bursts == b.Bursts && a.FollowCamera == b.FollowCamera &&
+                      a.EmissionEnabled == b.EmissionEnabled && a.Stretched == b.Stretched && a.EmissionRate == b.EmissionRate);
+                systems++;
+            }
+            // A few frames of each system's simulation (only the particles: the scenes' models and
+            // animators are not for a test without a GPU).
+            for (auto e : loaded->GetAllEntitiesWith<ParticleSystemComponent>())
+            {
+                Entity entity(e, loaded.get());
+                auto& ps = entity.GetComponent<ParticleSystemComponent>();
+                for (int i = 0; i < 10; i++)
+                    ParticleSimulation::Update(ps, loaded->GetWorldTransform(entity), 1.0f / 30.0f, true);
+                CHECK(ps.Particles.size() <= (size_t)std::max(0, ps.MaxParticles));
+            }
+            scenes++;
+        }
+        CHECK(scenes > 0 || std::string(projectName) == "Adventure3D");
+        if (std::string(projectName) == "Showcase3D")
+            CHECK(scenes >= 4 && systems >= 20);
+        Project::SetActive(nullptr);
+    }
+}
+
+// Performance: 50 000 particles simulated headless with the common modules (a loose bound so a
+// slow build machine passes; the ZaminBench target measures it properly).
+TEST(ParticlePerformance)
+{
+    using PS = ParticleSystemComponent;
+    auto scene = CreateRef<Scene>();
+    for (int i = 0; i < 25; i++)
+    {
+        Entity e = scene->CreateEntity(std::format("Fx {}", i));
+        e.GetTransform().Translation = { (float)(i % 5) * 4.0f, 0.0f, (float)(i / 5) * 4.0f };
+        auto& ps = e.AddComponent<PS>();
+        ps.MaxParticles = 2000;
+        ps.EmissionRate = 1000.0f;
+        ps.LifetimeMin = ps.LifetimeMax = 2.0f;
+        ps.Prewarm = true;
+        ps.Duration = 2.0f;
+        ps.Shape = PS::EmitterShape::Sphere;
+        ps.Gravity = { 0.0f, -1.0f, 0.0f };
+        ps.Drag = 0.2f;
+        ps.ColorOverLifetime.Enabled = i % 2 == 0;
+        ps.SizeOverLifetime.Enabled = true;
+        ps.Noise.Enabled = i % 3 == 0;
+        ps.Collision.Enabled = i % 4 == 0;
+        ps.Additive = i % 2 == 1;
+    }
+    scene->UpdateEditorAnimation(1.0f / 60.0f); // the prewarm fills them
+    size_t total = 0;
+    for (auto e : scene->GetAllEntitiesWith<PS>())
+        total += Entity(e, scene.get()).GetComponent<PS>().Particles.size();
+    CHECK(total >= 45000);
+    const int frames = 30;
+    const auto start = std::chrono::steady_clock::now();
+    for (int i = 0; i < frames; i++)
+        scene->UpdateEditorAnimation(1.0f / 60.0f);
+    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() / frames;
+    // The draw order of the alpha-blended ones (the CPU part of drawing).
+    std::vector<uint32_t> order;
+    const auto sortStart = std::chrono::steady_clock::now();
+    for (auto e : scene->GetAllEntitiesWith<PS>())
+        ParticleSimulation::GetDrawOrder(Entity(e, scene.get()).GetComponent<PS>(), nullptr, { 0, 5, -20 }, { 0, 0, 1 }, true, order);
+    const double sortMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - sortStart).count();
+    std::printf("    %zu particle: %.2f ms / kadr simulyatsiya, %.2f ms saralash\n", total, ms, sortMs);
+    CHECK(ms < 400.0); // generous: a Debug build without optimisation, sanitizers, a busy CI machine
+}
+
 TEST(SkeletalPoseEvaluation)
 {
     Skeleton sk;
@@ -6298,7 +6912,9 @@ TEST(AssetTypesAndFilter)
     CHECK(!filter.Matches(AssetType::Model) && filter.Count() == 2);
     filter.Clear();
     CHECK(!filter.IsActive());
-    CHECK(AssetTypeFilter::GetFilterableTypes().size() == 13);
+    CHECK(AssetTypeFilter::GetFilterableTypes().size() == 14);
+    CHECK(AssetFiles::GetType("Particles/Fire.zparticle") == AssetType::ParticlePreset && AssetTypes::IsRegistered(AssetType::ParticlePreset));
+    CHECK(std::string(AssetFiles::GetImportFolder(AssetType::ParticlePreset)) == "Particles");
     CHECK(AssetFiles::GetType("Physics/Ice.ZPHYSMAT") == AssetType::PhysicsMaterial);
 
     // Natural, case-insensitive name order.

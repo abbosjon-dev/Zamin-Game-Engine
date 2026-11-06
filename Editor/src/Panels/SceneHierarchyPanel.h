@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Zamin/Zamin.h>
+#include <Zamin/Scene/ParticlePresets.h>
 
 #include <imgui.h>
 
@@ -87,6 +88,19 @@ namespace Zamin {
 
         // Entity creation shortcuts (also used by the editor menu).
         Entity CreateEntityPreset(const char* preset);
+        // ---- particle presets (SceneHierarchyParticles.cpp)
+        // A preset to apply once the panel has drawn: onto `entity`'s Particle System (replacing its
+        // settings, templates as children), or onto a new entity when `entity` is null.
+        void RequestParticlePreset(Entity entity, ParticlePreset preset);
+        // The same from a .zparticle file (path relative to Assets); false when it cannot be read.
+        bool RequestParticlePresetFile(Entity entity, const std::filesystem::path& assetPath);
+        // The requested preset applied (selected, scene modified); the entity, or none.
+        Entity ApplyPendingParticlePreset();
+        // `entity`'s Particle System as Assets/Particles/<name>.zparticle (sub-emitter templates in it).
+        bool SaveParticlePreset(Entity entity);
+        // The built-ins and the project's presets as menu items (`entity` null: each makes a new entity).
+        bool DrawParticlePresetItems(Entity entity);
+        static const char* GetParticlePresetIcon(std::string_view key);
         void DrawCreateMenu();
 
         // Invalidate cached script defaults (after module reload).
@@ -369,6 +383,10 @@ namespace Zamin {
         // (colour / size / velocity over lifetime, speed limit, texture sheet) - SceneHierarchyParticles.cpp.
         bool DrawParticleSystem(Entity entity, ParticleSystemComponent& c);
         bool DrawParticleBursts(ParticleSystemComponent& c);
+        // The row above its modules: play / pause, restart, stop, count, presets, the module filter.
+        void DrawParticleToolbar(Entity entity, ParticleSystemComponent& c);
+        // The preset library menu (built-ins, the project's .zparticle files, Save as preset).
+        void DrawParticlePresetMenu(Entity entity);
         // A child entity with a Particle System that emits nothing itself, made a Death sub-emitter of `owner`'s.
         void CreateSubEmitterTemplate(UUID owner);
         // Tilemap: tileset, layers, paint tools, auto-tile rules, palette.
@@ -449,6 +467,8 @@ namespace Zamin {
         std::string m_PasteText, m_PasteKey;       // clipboard contents when the menu opened
         struct PendingMove { std::string Key, Target; bool After = false; int Index = -1; };
         PendingMove m_PendingMove;                 // applied after the inspector is drawn
+        std::optional<ParticlePreset> m_PendingParticlePreset; // applied after the inspector (RequestParticlePreset)
+        UUID m_PendingParticlePresetFor = 0;                     // 0: onto a new entity
         UUID m_PendingSubEmitterFor = 0;           // "New template" of a particle system's sub-emitters (after the inspector)
         InspectorFoldState* m_FoldState = nullptr;
         bool m_SceneEditable = true;

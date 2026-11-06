@@ -49,3 +49,19 @@ add_custom_target(update_render_references
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMENT "Rendering etalon rasmlari qayta yaratilmoqda (Tests/Reference)"
     USES_TERMINAL VERBATIM)
+
+# Particle benchmark (not part of ctest): times the particle update headless - about 50 000
+# particles per case, the profiler's scopes with --profile. Run build/bin/ZaminBench, or the
+# particle_bench target.
+add_executable(ZaminBench ParticleBench.cpp)
+target_link_libraries(ZaminBench PRIVATE Zamin)
+set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
+if(ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG)
+    target_compile_definitions(ZaminBench PRIVATE ZAMIN_PARTICLES_OPTIMIZED_IN_DEBUG=1)
+endif()
+add_custom_target(particle_bench
+    COMMAND $<TARGET_FILE:ZaminBench>
+    DEPENDS ZaminBench
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Particle benchmark (ms / kadr)"
+    USES_TERMINAL VERBATIM)

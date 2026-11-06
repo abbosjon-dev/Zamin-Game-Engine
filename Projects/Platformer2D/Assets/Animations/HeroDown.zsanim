@@ -1,0 +1,21 @@
+{
+  "Version": 1,
+  "Texture": "Textures/topdown_objects.png",
+  "FPS": 9.0,
+  "Loop": true,
+  "Frames": [
+    "hero_down_0",
+    "hero_down_1",
+    "hero_down_2"
+  ],
+  "Events": [
+    {
+      "Frame": 0,
+      "Name": "Step"
+    },
+    {
+      "Frame": 2,
+      "Name": "Step"
+    }
+  ]
+}

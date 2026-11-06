@@ -4875,6 +4875,124 @@ namespace Zamin {
         const auto* sprite = entity.TryGetComponent<SpriteRendererComponent>();
         const SpriteSheet* sheet = sprite && !sprite->TexturePath.empty() ? SpriteSheet::Get(sprite->TexturePath) : nullptr;
 
+        // ---- clips (.zsanim): a cleared row goes away; the empty row at the end adds one
+        {
+            int remove = -1;
+            bool listChanged = false;
+            for (int i = 0; i <= (int)c.Clips.size(); i++)
+            {
+                const bool adding = i == (int)c.Clips.size();
+                std::string path = adding ? std::string() : c.Clips[(size_t)i];
+                ImGui::PushID(i + 7000);
+                std::string label = adding ? std::string("Klip qo'shish") : std::format("Klip {}", i + 1);
+                UI::AssetPathOptions options;
+                bool open = false;
+                if (!adding)
+                {
+                    options.ActionIcon = ICON_FA_PEN;
+                    options.ActionTooltip = "Klipni asset inspektorida tahrirlash (kadrlar, FPS, event'lar)";
+                    options.ActionClicked = &open;
+                    options.Missing = !path.empty() && !SpriteClipLibrary::Load(path);
+                }
+                options.Tooltip = adding ? ".zsanim faylini shu yerga tashlang yoki tanlang"
+                                         : i == 0 ? "Birinchi klip: o'yin boshlanganda o'ynaydi va editorda ko'rinadi. Tozalash - ro'yxatdan olib tashlaydi"
+                                                  : "Skript PlaySpriteClip(\"nom\") bilan o'ynatadi. Tozalash - ro'yxatdan olib tashlaydi";
+                if (UI::PropertyAssetPath(label.c_str(), path, ".zsanim", ICON_FA_FILM, options))
+                {
+                    if (adding)
+                    {
+                        if (!path.empty())
+                            c.Clips.push_back(path);
+                    }
+                    else if (path.empty())
+                        remove = i;
+                    else
+                        c.Clips[(size_t)i] = path;
+                    listChanged = true;
+                }
+                if (open && OnAssetEditRequested && !path.empty())
+                    OnAssetEditRequested(Project::GetAssetFileSystemPath(path));
+                ImGui::PopID();
+            }
+            if (remove >= 0)
+                c.Clips.erase(c.Clips.begin() + remove);
+            if (listChanged)
+            {
+                // The editor shows the (new) first clip at once.
+                c.ResolveClips();
+                c.CurrentClip = -1;
+                c.AppliedRevision = 0;
+                if (c.PlayOnStart && !c.ClipAssets.empty() && c.ClipAssets[0])
+                {
+                    c.ApplyClip(c.ClipAssets[0]->GetClip());
+                    c.AppliedRevision = c.ClipAssets[0]->GetRevision();
+                    c.CurrentClip = 0;
+                }
+                changed = true;
+            }
+            UI::PropertyLabel("");
+            ImGui::BeginDisabled(!Project::GetActive() || !m_SceneEditable);
+            if (ImGui::Button(ICON_FA_FILE_CIRCLE_PLUS "  Shu kadrlardan klip"))
+            {
+                // Assets/Animations/<entity name>.zsanim (a free name) with the frames set below.
+                std::string name;
+                for (char ch : entity.GetName())
+                    name += std::isalnum((unsigned char)ch) || ch == '_' || ch == '-' ? ch : '_';
+                if (name.empty()) name = "Sprite";
+                std::filesystem::path dir = Project::GetAssetDirectory() / "Animations";
+                std::filesystem::path file = AssetFiles::MakeUniquePath(dir, name + SpriteClip::Extension);
+                SpriteClip clip;
+                clip.Texture = sprite ? sprite->TexturePath : std::string();
+                clip.Frames = c.Frames;
+                clip.Columns = c.Columns;
+                clip.Rows = c.Rows;
+                clip.StartFrame = c.StartFrame;
+                clip.FrameCount = c.FrameCount;
+                if (clip.UsesFrameList())
+                {
+                    // Only the frames it plays.
+                    const int start = std::clamp(c.StartFrame, 0, (int)clip.Frames.size());
+                    const int count = std::clamp(c.FrameCount, 1, (int)clip.Frames.size() - start);
+                    clip.Frames = std::vector<std::string>(clip.Frames.begin() + start, clip.Frames.begin() + start + std::max(0, count));
+                    clip.StartFrame = 0;
+                    clip.FrameCount = (int)clip.Frames.size();
+                }
+                clip.FPS = c.FPS;
+                clip.Loop = c.Loop;
+                if (SpriteClipSerializer::Serialize(clip, file))
+                {
+                    if (AssetRegistry* registry = Project::GetAssetRegistry())
+                        registry->OnFileAdded(file);
+                    c.Clips.push_back(Project::GetAssetRelativePath(file));
+                    changed = true;
+                    ZM_INFO("Yangi sprite animatsiya klipi: {}", c.Clips.back());
+                    if (OnFilesCreated)
+                        OnFilesCreated({ file });
+                    if (OnAssetEditRequested)
+                        OnAssetEditRequested(file);
+                }
+                else
+                    ZM_ERROR("Sprite animatsiya klipi yozilmadi: {}", file.string());
+            }
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip("Assets/Animations ichida hozirgi kadrlar, FPS va takrorlash bilan .zsanim klip yaratiladi va ro'yxatga qo'shiladi");
+            if (!c.Clips.empty())
+            {
+                UI::PropertyLabel("Avto boshlash", "O'yin boshlanganda birinchi klip o'ynaydi (editorda ham u ko'rinadi)");
+                changed |= ImGui::Checkbox("##playonstart", &c.PlayOnStart);
+                const std::string current = c.GetCurrentClipName();
+                if (!current.empty())
+                {
+                    UI::PropertyLabel("Hozirgi klip");
+                    ImGui::Text("%s  %s", c.Playing ? ICON_FA_PLAY : ICON_FA_PAUSE, current.c_str());
+                }
+                UI::PropertyLabel("");
+                ImGui::TextDisabled("Klip quyidagi kadrlarni o'zi belgilaydi");
+            }
+            ImGui::Separator();
+        }
+
         const char* sources[] = { "Grid (ustun x qator)", "Sprite sheet kadrlari" };
         int source = c.UsesFrameList() ? 1 : 0;
         UI::PropertyLabel("Kadrlar manbai", "Grid: tekstura teng kataklarga bo'linadi. Sprite sheet: teksturaning nomlangan kadrlari "

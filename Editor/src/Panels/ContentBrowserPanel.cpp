@@ -31,6 +31,7 @@ namespace Zamin {
             case AssetType::Material:    color = IM_COL32(200, 160, 255, 255); return ICON_FA_PALETTE;
             case AssetType::PhysicsMaterial: color = IM_COL32(110, 215, 230, 255); return ICON_FA_GEM;
             case AssetType::Animation:   color = IM_COL32(255, 170, 90, 255); return ICON_FA_TIMELINE;
+            case AssetType::SpriteAnimation: color = IM_COL32(255, 140, 170, 255); return ICON_FA_FILM;
             case AssetType::Script:      color = IM_COL32(100, 160, 240, 255); return ICON_FA_FILE_CODE;
             case AssetType::Project:     color = IM_COL32(46, 188, 148, 255); return ICON_FA_GAMEPAD;
             default:                     return ICON_FA_FILE;
@@ -1225,6 +1226,41 @@ namespace Zamin {
         return file;
     }
 
+    fs::path ContentBrowserPanel::CreateSpriteClip()
+    {
+        // Made from a selected texture: its sprite sheet's frames (all of them, in order) and the texture.
+        SpriteClip clip;
+        for (const fs::path& selected : m_Selection)
+            if (AssetFiles::GetType(selected) == AssetType::Texture)
+            {
+                clip.Texture = Project::GetAssetRelativePath(selected);
+                if (const SpriteSheet* sheet = SpriteSheet::Get(clip.Texture))
+                    clip.Frames = sheet->FindSequence(sheet->GetSequencePrefixes().empty() ? "" : sheet->GetSequencePrefixes().front());
+                clip.FrameCount = clip.Frames.empty() ? clip.FrameCount : (int)clip.Frames.size();
+                break;
+            }
+        std::string base = clip.Texture.empty() ? std::string("NewSpriteAnimation") : fs::path(clip.Texture).stem().string();
+        fs::path file = AssetFiles::MakeUniquePath(m_CurrentDirectory, base + SpriteClip::Extension);
+        if (!SpriteClipSerializer::Serialize(clip, file))
+        {
+            ShowNotice(std::format("Klip yaratilmadi: {}", file.filename().string()), true);
+            ZM_ERROR("Sprite animatsiya klipi yozilmadi: {}", file.string());
+            return {};
+        }
+        if (AssetRegistry* registry = Project::GetAssetRegistry())
+            registry->OnFileAdded(file);
+        ZM_INFO("Yangi sprite animatsiya klipi yaratildi: {}", Project::GetAssetRelativePath(file));
+        m_ListDirty = true;
+        if (OnFilesChanged)
+            OnFilesChanged();
+        m_Selection.clear();
+        Reveal({ file });
+        if (OnAssetSelected)
+            OnAssetSelected(file);
+        ShowNotice(std::format("Yangi sprite klip: {}  (inspektorda kadrlar va FPS; Sprite Animation'ga torting)", file.filename().string()));
+        return file;
+    }
+
     fs::path ContentBrowserPanel::CreateMaterial(const MaterialPreset* preset)
     {
         if (!Project::GetActive())
@@ -1420,6 +1456,10 @@ namespace Zamin {
             }
             if (ImGui::MenuItem(ICON_FA_TIMELINE "  Yangi animatsiya klipi", nullptr, false, Project::GetActive() != nullptr))
                 CreateAnimationClip();
+            if (ImGui::MenuItem(ICON_FA_FILM "  Yangi sprite animatsiya klipi", nullptr, false, Project::GetActive() != nullptr))
+                CreateSpriteClip();
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Tanlangan rasm bo'lsa - uning sprite sheet kadrlaridan");
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A", false, !m_Entries.empty()))
             {

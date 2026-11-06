@@ -58,6 +58,8 @@ namespace Zamin {
         std::filesystem::path CreateMaterial(const MaterialPreset* preset = nullptr);
         // "Yangi animatsiya klipi": an empty property clip (.zanim, 1 s, looping) under a free name.
         std::filesystem::path CreateAnimationClip();
+        // A .zsanim in the current folder (from the selected texture's frames when one is selected).
+        std::filesystem::path CreateSpriteClip();
         // The "Yangi material" menu items: an empty material and the standard library. Returns true
         // when one was chosen.
         bool DrawNewMaterialMenu();

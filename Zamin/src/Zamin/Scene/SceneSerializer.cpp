@@ -357,6 +357,18 @@ namespace Zamin {
                                      { "FrameCount", c->FrameCount }, { "FPS", c->FPS }, { "Loop", c->Loop }, { "Playing", c->Playing } };
             if (!c->Frames.empty())
                 e["SpriteAnimation"]["Frames"] = c->Frames;
+            if (!c->Clips.empty())
+            {
+                json clips = json::array();
+                for (const std::string& clip : c->Clips)
+                {
+                    json j = { { "Path", clip } };
+                    WriteAssetHandle(j, "Path", clip);
+                    clips.push_back(std::move(j));
+                }
+                e["SpriteAnimation"]["Clips"] = std::move(clips);
+                e["SpriteAnimation"]["PlayOnStart"] = c->PlayOnStart;
+            }
         }
         if (auto* c = entity.TryGetComponent<TintAnimationComponent>())
         {
@@ -1113,6 +1125,15 @@ namespace Zamin {
                 for (const json& name : *it)
                     if (name.is_string())
                         c.Frames.push_back(name.get<std::string>());
+            if (auto clips = j.find("Clips"); clips != j.end() && clips->is_array())
+                for (const json& clip : *clips)
+                {
+                    if (clip.is_string())
+                        c.Clips.push_back(clip.get<std::string>());
+                    else if (clip.is_object())
+                        c.Clips.push_back(ReadAssetPath(clip, "Path"));
+                }
+            c.PlayOnStart = j.value("PlayOnStart", true);
         }
         if (e.contains("TintAnimation"))
         {

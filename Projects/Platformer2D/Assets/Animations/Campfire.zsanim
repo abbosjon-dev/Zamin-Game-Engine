@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Texture": "Textures/topdown_objects.png",
+  "FPS": 6.0,
+  "Loop": true,
+  "Frames": [
+    "campfire_0",
+    "campfire_1"
+  ],
+  "Events": []
+}

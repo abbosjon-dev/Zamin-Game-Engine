@@ -939,6 +939,9 @@ namespace Zamin {
         // scripts (OnSoundFinished) and the event bus.
         void DispatchFinishedSounds();
         void UpdateAnimators(Timestep ts, bool editor);
+        // Sprite animations: time, their clips (.zsanim: frames, texture, events); the editor
+        // shows the first clip's frames.
+        void UpdateSpriteAnimations(Timestep ts, bool editor);
         // Property animation players (.zanim): the values of the playing clips and their events.
         void UpdateAnimationPlayers(Timestep ts, bool editor);
         struct PendingAnimationEvent

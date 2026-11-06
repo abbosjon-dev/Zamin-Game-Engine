@@ -49,6 +49,7 @@
 #include "Zamin/Scene/TilemapTools.h"
 #include "Zamin/Scene/TilesetProperties.h"
 #include "Zamin/Scene/TintAnimation.h"
+#include "Zamin/Scene/SpriteClip.h"
 #include "Zamin/Scene/PixelPerfect.h"
 #include "Zamin/UI/UIWidgets.h"
 #include "Zamin/UI/TextEdit.h"

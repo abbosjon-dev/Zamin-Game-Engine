@@ -400,7 +400,7 @@ namespace Zamin {
         for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).ResetRuntime();
         for (auto e : registry.view<AudioListenerComponent>()) registry.get<AudioListenerComponent>(e).ResetRuntime();
         for (auto e : registry.view<AmbientZoneComponent>()) registry.get<AmbientZoneComponent>(e).ResetRuntime();
-        for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
+        for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).ResetRuntime();
         for (auto e : registry.view<SpriteRendererComponent>()) registry.get<SpriteRendererComponent>(e).StopFlash();
         for (auto e : registry.view<TintAnimationComponent>()) registry.get<TintAnimationComponent>(e).ResetRuntime();
         for (auto e : registry.view<AnimationPlayerComponent>()) registry.get<AnimationPlayerComponent>(e).ResetRuntime();
@@ -460,7 +460,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<AudioListenerComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<AmbientZoneComponent>()) c->ResetRuntime();
-        if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
+        if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<SpriteRendererComponent>()) c->StopFlash();
         if (auto* c = e.TryGetComponent<TintAnimationComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<AnimationPlayerComponent>()) c->ResetRuntime();
@@ -4356,12 +4356,7 @@ namespace Zamin {
             for (auto e : m_Registry.view<CameraComponent>())
                 m_Registry.get<CameraComponent>(e).Shake.Update(ts);
 
-            for (auto e : m_Registry.view<SpriteAnimationComponent>())
-            {
-                auto& anim = m_Registry.get<SpriteAnimationComponent>(e);
-                if (anim.Playing && IsActiveInHierarchy({ e, this })) // inactive: paused where it is
-                    anim.Time += ts;
-            }
+            UpdateSpriteAnimations(ts, false);
             UpdateTintAnimations(ts, false);
             UpdateParticles(ts, false);
             UpdateAnimators(ts, false);
@@ -4422,6 +4417,7 @@ namespace Zamin {
         m_FrameIndex++;
         DebugDraw::Advance(ts); // the edit scene's time is the editor's
         m_AnimationTime += (double)ts; // animated tiles play in the scene view
+        UpdateSpriteAnimations(ts, true);
         UpdateTintAnimations(ts, true);
         UpdateParticles(ts, true);
         UpdateAnimators(ts, true);
@@ -5060,6 +5056,69 @@ namespace Zamin {
             tc.Translation += glm::inverse(glm::mat3(GetWorldTransform(parent))) * worldDelta;
         else
             tc.Translation += worldDelta;
+    }
+
+    void Scene::UpdateSpriteAnimations(Timestep ts, bool editor)
+    {
+        std::vector<PendingAnimationEvent> fired;
+        std::vector<int> frames;
+        for (auto e : m_Registry.view<SpriteAnimationComponent>())
+        {
+            auto& anim = m_Registry.get<SpriteAnimationComponent>(e);
+            if (!anim.Clips.empty())
+                anim.ResolveClips();
+            if (editor)
+            {
+                // The editor shows the first clip's frames (the asset may just have been edited).
+                if (anim.PlayOnStart && !anim.ClipAssets.empty() && anim.ClipAssets[0] &&
+                    (anim.CurrentClip != 0 || anim.AppliedRevision != anim.ClipAssets[0]->GetRevision()))
+                {
+                    anim.ApplyClip(anim.ClipAssets[0]->GetClip());
+                    anim.AppliedRevision = anim.ClipAssets[0]->GetRevision();
+                    anim.CurrentClip = 0;
+                }
+                continue;
+            }
+            if (!IsActiveInHierarchy({ e, this })) // inactive: paused where it is
+                continue;
+            if (!anim.Started)
+            {
+                anim.Started = true;
+                if (anim.PlayOnStart && !anim.Clips.empty())
+                    anim.PlayClip(0, true);
+            }
+            const SpriteClipAsset* asset = anim.GetCurrentClipAsset();
+            if (asset && asset->GetRevision() != anim.AppliedRevision)
+            {
+                anim.ApplyClip(asset->GetClip()); // the file changed while it plays
+                anim.AppliedRevision = asset->GetRevision();
+            }
+            // A clip made for another picture puts it on the renderer.
+            if (asset && !asset->GetClip().Texture.empty())
+                if (auto* sprite = m_Registry.try_get<SpriteRendererComponent>(e); sprite && sprite->TexturePath != asset->GetClip().Texture)
+                {
+                    sprite->TexturePath = asset->GetClip().Texture;
+                    sprite->Texture = TextureLibrary::Load(Project::GetAssetFileSystemPath(sprite->TexturePath),
+                                                           sprite->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
+                }
+            if (!anim.Playing)
+                continue; // paused: no time, no events (the frame it rests on counts once it plays)
+            anim.Time += ts;
+            const int counter = anim.FPS > 0.0f ? (int)std::floor(std::min(anim.Time * anim.FPS, 1.0e9f)) : 0;
+            if (asset && !asset->GetClip().Events.empty() && counter != anim.LastFrame)
+            {
+                const SpriteClip& clip = asset->GetClip();
+                CollectSpriteFrames(anim.LastFrame, counter, std::max(1, anim.FrameCount), anim.Loop, frames);
+                for (int frame : frames)
+                    for (const SpriteClipEvent& ev : clip.Events)
+                        if (ev.Frame == frame)
+                            fired.push_back({ Entity(e, this).GetUUID(), { anim.FPS > 0.0f ? (float)frame / anim.FPS : 0.0f, ev.Name, ev.Parameter },
+                                              asset->GetName() });
+            }
+            anim.LastFrame = counter;
+        }
+        for (const auto& f : fired)
+            FireAnimationEvent(GetEntityByUUID(f.Entity), f.Event, f.Clip, false);
     }
 
     void Scene::FireAnimationEvent(Entity entity, const AnimationEvent& event, const std::string& clip, bool skeletal)

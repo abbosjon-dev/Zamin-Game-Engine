@@ -611,6 +611,18 @@ namespace Zamin {
         return (int)frames.size();
     }
 
+    bool ScriptableEntity::PlaySpriteClip(const std::string& clip, bool restart)
+    {
+        auto* anim = m_Entity.TryGetComponent<SpriteAnimationComponent>();
+        return anim && anim->PlayClip(clip, restart);
+    }
+
+    std::string ScriptableEntity::GetSpriteClip() const
+    {
+        const auto* anim = const_cast<Entity&>(m_Entity).TryGetComponent<SpriteAnimationComponent>();
+        return anim ? anim->GetCurrentClipName() : std::string();
+    }
+
     void ScriptableEntity::LoadScene(const std::string& scenePath)
     {
         m_Entity.GetScene()->RequestLoadScene(scenePath);

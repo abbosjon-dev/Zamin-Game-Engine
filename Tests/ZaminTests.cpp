@@ -4666,7 +4666,7 @@ TEST(AssetTypesAndFilter)
     CHECK(!filter.Matches(AssetType::Model) && filter.Count() == 2);
     filter.Clear();
     CHECK(!filter.IsActive());
-    CHECK(AssetTypeFilter::GetFilterableTypes().size() == 12);
+    CHECK(AssetTypeFilter::GetFilterableTypes().size() == 13);
     CHECK(AssetFiles::GetType("Physics/Ice.ZPHYSMAT") == AssetType::PhysicsMaterial);
 
     // Natural, case-insensitive name order.
@@ -26133,4 +26133,103 @@ TEST(AnimatorLayersMasks)
     CHECK(la.Layers.size() == 1 && la.Layers[0].Name == "Upper" && la.Layers[0].Clip == "Nod");
     CHECK(la.Layers[0].MaskBones == std::vector<std::string>({ "Spine" }) && la.Layers[0].WeightParameter == "Aim");
     CHECK(la.Layers[0].Blend == AnimatorLayerBlend::Additive && la.Layers[0].Weight == 1.0f);
+}
+
+TEST(SpriteClipAssetsPlayWithEvents)
+{
+    // Frames entered: each once, also across loops and hitches.
+    std::vector<int> f;
+    CollectSpriteFrames(-1, 0, 4, true, f);  CHECK(f == std::vector<int>({ 0 }));
+    CollectSpriteFrames(0, 2, 4, true, f);   CHECK(f == std::vector<int>({ 1, 2 }));
+    CollectSpriteFrames(2, 5, 4, true, f);   CHECK(f == std::vector<int>({ 3, 0, 1 }));
+    CollectSpriteFrames(1, 40, 4, true, f);  CHECK(f == std::vector<int>({ 1, 2, 3, 0 })); // a hitch: every frame once
+    CollectSpriteFrames(2, 2, 4, true, f);   CHECK(f.empty());
+    CollectSpriteFrames(1, 9, 4, false, f);  CHECK(f == std::vector<int>({ 2, 3 }));       // once: up to the last
+    CollectSpriteFrames(3, 9, 4, false, f);  CHECK(f.empty());
+
+    // The file: frames of a sheet, or a grid; events by frame.
+    SpriteClip run;
+    run.Texture = "Textures/hero.png";
+    run.Frames = { "run_0", "run_1", "run_2", "run_3" };
+    run.FPS = 10.0f;
+    run.Events = { { 3, "Step", "right" }, { 1, "Step", "left" } };
+    run.SortEvents();
+    CHECK(run.Events[0].Frame == 1 && run.GetFrameCount() == 4 && std::abs(run.GetDuration() - 0.4f) < 1e-6f);
+    std::string text = SpriteClipSerializer::SerializeToString(run);
+    SpriteClip loaded;
+    CHECK(SpriteClipSerializer::DeserializeFromString(text, loaded) && loaded == run);
+    SpriteClip grid;
+    grid.Columns = 4;
+    grid.Rows = 3;
+    grid.StartFrame = 8;
+    grid.FrameCount = 1;
+    grid.Loop = false;
+    CHECK(SpriteClipSerializer::DeserializeFromString(SpriteClipSerializer::SerializeToString(grid), loaded) && loaded == grid && !loaded.UsesFrameList());
+    std::string error;
+    CHECK(!SpriteClipSerializer::DeserializeFromString("[1,2]", loaded, &error) && !error.empty());
+    CHECK(!SpriteClipSerializer::DeserializeFromString("{\"Version\": 7}", loaded, &error));
+    CHECK(SpriteClipSerializer::DeserializeFromString("{\"FPS\": \"fast\", \"Grid\": {\"Columns\": -2}, \"Events\": [{\"Frame\": 99, \"Name\": \"X\"}, 5]}", loaded));
+    CHECK(loaded.FPS == 10.0f && loaded.Columns == 1 && loaded.Events.size() == 1 && loaded.Events[0].Frame == 3); // clamped to the last frame
+
+    auto dir = MakeTempDir("zamin-zsanim-");
+    run.Texture.clear(); // headless: no texture to load
+    CHECK(SpriteClipSerializer::Serialize(run, dir / "Run.zsanim"));
+    SpriteClip idle;
+    idle.Frames = { "idle_0", "idle_1" };
+    idle.FPS = 2.0f;
+    idle.Events = { { 0, "Blink", "" } };
+    CHECK(SpriteClipSerializer::Serialize(idle, dir / "Idle.zsanim"));
+    CHECK(AssetTypes::FromPath(dir / "Run.zsanim") == AssetType::SpriteAnimation && AssetTypes::IsRegistered(AssetType::SpriteAnimation));
+    Ref<SpriteClipAsset> runAsset = SpriteClipLibrary::Load(dir / "Run.zsanim");
+    CHECK(runAsset && runAsset->GetName() == "Run" && SpriteClipLibrary::Load(dir / "Run.zsanim") == runAsset);
+    CHECK(!SpriteClipLibrary::Load(dir / "Nope.zsanim"));
+
+    // Played by an entity: the first clip starts with the game; events at their frames.
+    auto scene = CreateRef<Scene>();
+    Entity hero = scene->CreateEntity("Hero");
+    hero.AddComponent<NativeScriptComponent>().ClassName = "AnimEventProbe";
+    auto& anim = hero.AddComponent<SpriteAnimationComponent>();
+    anim.Clips = { (dir / "Idle.zsanim").string(), (dir / "Run.zsanim").string() };
+    CHECK(anim.FindClip("Run") == 1 && anim.FindClip("Walk") == -1);
+    anim.ResolveClips();
+    CHECK(anim.ClipAssets.size() == 2 && anim.ClipAssets[0] && anim.ClipAssets[1] == runAsset);
+
+    auto copy = Scene::Copy(scene);
+    copy->OnRuntimeStart();
+    Entity h = copy->FindEntityByName("Hero");
+    auto& a = h.GetComponent<SpriteAnimationComponent>();
+    auto* probe = ScriptableEntity::GetScript<AnimEventProbe>(h);
+    CHECK(probe);
+    copy->OnUpdateRuntime(0.1f);
+    CHECK(a.GetCurrentClipName() == "Idle" && a.GetCurrentFrameName() == "idle_0");
+    CHECK(probe && probe->Heard == std::vector<std::string>({ "Idle:Blink" }));
+    copy->OnUpdateRuntime(1.0f); // frame 1 ... then frame 0 again (looped): one more blink
+    CHECK(probe->Heard.size() == 2);
+    // A script switches clips by name; the steps come at frames 1 and 3, once per cycle.
+    CHECK(probe->PlaySpriteClip("Run") && probe->GetSpriteClip() == "Run" && !probe->PlaySpriteClip("Walk"));
+    CHECK(a.Frames == run.Frames && a.FPS == 10.0f && a.Time == 0.0f);
+    probe->Heard.clear();
+    for (int i = 0; i < 8; i++)
+        copy->OnUpdateRuntime(0.1f); // frames 1..8 entered: 1, 2, 3, 0, 1, 2, 3, 0
+    CHECK(probe->Heard == std::vector<std::string>({ "Run:Step", "Run:Step", "Run:Step", "Run:Step" }));
+    CHECK(probe->PlaySpriteClip("Run") && a.Time > 0.7f); // already playing: goes on
+    probe->Heard.clear();
+    copy->OnUpdateRuntime(5.0f); // a hitch: each frame's events once
+    CHECK(probe->Heard.size() == 2);
+    // The file changes while it plays: the new frames at once.
+    run.FPS = 20.0f;
+    CHECK(SpriteClipSerializer::Serialize(run, dir / "Run.zsanim"));
+    CHECK(SpriteClipLibrary::ReloadFile(dir / "Run.zsanim") == 1);
+    copy->OnUpdateRuntime(0.01f);
+    CHECK(a.FPS == 20.0f);
+    copy->OnRuntimeStop();
+
+    // The scene keeps the clip list.
+    std::string sceneText = SceneSerializer(scene).SerializeToString();
+    auto reloaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(reloaded).DeserializeFromString(sceneText));
+    const auto& ra = reloaded->FindEntityByName("Hero").GetComponent<SpriteAnimationComponent>();
+    CHECK(ra.Clips == anim.Clips && ra.PlayOnStart);
+    SpriteClipLibrary::Clear();
+    std::filesystem::remove_all(dir);
 }

@@ -4647,6 +4647,7 @@ namespace Zamin {
             MaterialLibrary::OnFileMoved(m.From, m.To);
             PhysicsMaterialLibrary::OnFileMoved(m.From, m.To);
             PropertyClipLibrary::OnFileMoved(m.From, m.To);
+            SpriteClipLibrary::OnFileMoved(m.From, m.To);
         }
         for (const fs::path& file : result.UpdatedFiles)
             if (AssetFiles::GetType(file) == AssetType::Material)

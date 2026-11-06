@@ -525,6 +525,12 @@ namespace Zamin {
         // Plays the sheet's numbered frames "<prefix>_0", "<prefix>_1", ... on the Sprite Animation
         // (added when missing). Returns how many frames were found (0: nothing changes).
         int PlaySpriteSequence(const std::string& prefix, float fps = 10.0f, bool loop = true);
+        // Plays one of the Sprite Animation's clips (.zsanim) by name (its file name without the
+        // extension) or path: its frames, rate, loop, texture and events. Already playing it: it
+        // goes on (unless restart). False when the entity has no such clip.
+        bool PlaySpriteClip(const std::string& clip, bool restart = false);
+        // The name of the sprite clip playing ("" = none).
+        std::string GetSpriteClip() const;
 
         // ---- scenes: switch to another scene at the end of the frame (path relative to Assets)
         void LoadScene(const std::string& scenePath);

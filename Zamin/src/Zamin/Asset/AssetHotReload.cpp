@@ -10,6 +10,7 @@
 #include "Zamin/Renderer/Model.h"
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Scene/PropertyAnimation.h"
+#include "Zamin/Scene/SpriteClip.h"
 
 #include <algorithm>
 
@@ -126,6 +127,7 @@ namespace Zamin {
             case AssetType::Material:    return MaterialLibrary::ReloadFile(path, failed);
             case AssetType::PhysicsMaterial: return PhysicsMaterialLibrary::ReloadFile(path, failed);
             case AssetType::Animation:   return PropertyClipLibrary::ReloadFile(path, failed);
+            case AssetType::SpriteAnimation: return SpriteClipLibrary::ReloadFile(path, failed);
             case AssetType::Model:
                 CollisionShapes3D::Clear(); // convex hull colliders are made from the new geometry
                 return Model::ReloadFile(path, failed);
@@ -152,6 +154,7 @@ namespace Zamin {
             case AssetType::Material:    return MaterialLibrary::IsFileLoaded(path);
             case AssetType::PhysicsMaterial: return PhysicsMaterialLibrary::IsFileLoaded(path);
             case AssetType::Animation:   return PropertyClipLibrary::IsFileLoaded(path);
+            case AssetType::SpriteAnimation: return SpriteClipLibrary::IsFileLoaded(path);
             case AssetType::Model:       return Model::IsFileLoaded(path);
             case AssetType::Font:        return Font::IsFileLoaded(path);
             case AssetType::Environment: return EnvironmentMap::IsFileLoaded(path);
@@ -165,7 +168,8 @@ namespace Zamin {
     {
         AssetType type = AssetTypes::FromPath(path);
         return type == AssetType::Texture || type == AssetType::Model || type == AssetType::Font || type == AssetType::Environment ||
-               type == AssetType::Material || type == AssetType::PhysicsMaterial || type == AssetType::Animation;
+               type == AssetType::Material || type == AssetType::PhysicsMaterial || type == AssetType::Animation ||
+               type == AssetType::SpriteAnimation;
     }
 
 }

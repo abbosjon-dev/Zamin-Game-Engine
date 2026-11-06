@@ -148,6 +148,9 @@ namespace Zamin {
         // saved to the file once an edit is finished.
         void DrawPhysicsMaterial();
         void DrawAnimationClip();
+        // A sprite animation clip (.zsanim): a playing preview, its frames, rate and events, edited
+        // live and saved to the file once an edit is finished.
+        void DrawSpriteClip();
         void DrawMaterialPreview();
         // The material's fields (into m_MaterialEdit); true when one changed.
         bool DrawMaterialFields();
@@ -223,6 +226,10 @@ namespace Zamin {
         Ref<MaterialAsset> m_Material;
         bool m_MaterialLoaded = false;
         bool m_PhysicsMaterialUnsaved = false;
+        // sprite clip preview
+        float m_SpriteClipTime = 0.0f;
+        bool m_SpriteClipPlaying = true;
+        bool m_SpriteClipUnsaved = false;
         MaterialData m_MaterialSaved, m_MaterialEdit;
         uint64_t m_MaterialRevision = 0;      // the material's revision after this panel's last change
         MaterialPreview m_MaterialPreview;

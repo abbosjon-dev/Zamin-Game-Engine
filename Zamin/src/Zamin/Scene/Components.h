@@ -12,6 +12,7 @@
 #include "Zamin/Scene/Camera2D.h"
 #include "Zamin/Scene/PixelPerfect.h"
 #include "Zamin/Scene/PropertyAnimation.h"
+#include "Zamin/Scene/SpriteClip.h"
 #include "Zamin/Scene/TintAnimation.h"
 #include "Zamin/Scene/SceneCamera.h"
 #include "Zamin/Scripting/ScriptField.h"
@@ -192,6 +193,10 @@ namespace Zamin {
     // Plays frames on the SpriteRenderer texture: cells of a grid (Columns x Rows, numbered left to
     // right, top to bottom) or, when Frames is set, named frames of the texture's sprite sheet
     // (StartFrame / FrameCount then pick from that list).
+    // Clips: sprite animation clips (.zsanim assets) the entity can play by name (PlayClip("run"):
+    // the file name without .zsanim). A clip sets the frames, FPS and loop above (and the
+    // renderer's texture when it names one) and fires its events at its frames; the first clip
+    // plays when the game starts (PlayOnStart) and is what the editor shows.
     struct SpriteAnimationComponent
     {
         int Columns = 4;
@@ -202,21 +207,52 @@ namespace Zamin {
         bool Loop = true;
         bool Playing = true;
         std::vector<std::string> Frames; // sprite sheet frame names ("" list = the grid)
+        std::vector<std::string> Clips;  // .zsanim files, relative to Assets
+        bool PlayOnStart = true;         // the first clip
 
-        // runtime
+        // runtime (reset when play starts / stops and for spawned copies)
         float Time = 0.0f;
+        int CurrentClip = -1;            // index into Clips (-1: the frames above, no clip)
+        std::vector<Ref<SpriteClipAsset>> ClipAssets; // the loaded Clips (ResolveClips)
+        std::vector<std::string> LoadedClips;          // the paths ClipAssets were looked up for
+        uint64_t AppliedRevision = 0;    // the clip revision the fields hold
+        int LastFrame = -1;              // the frame counter (Time x FPS) last seen: events (-1: none yet)
+        bool Started = false;            // PlayOnStart was looked at
 
         void Play(int startFrame, int frameCount, float fps = 10.0f, bool loop = true)
         {
-            if (StartFrame == startFrame && FrameCount == frameCount && Playing) return;
+            if (CurrentClip < 0 && StartFrame == startFrame && FrameCount == frameCount && Playing) return;
             StartFrame = startFrame; FrameCount = frameCount; FPS = fps; Loop = loop; Playing = true; Time = 0.0f;
+            CurrentClip = -1; LastFrame = -1;
         }
         // Plays a list of sprite sheet frames (e.g. SpriteSheet::FindSequence("run")).
         void PlayFrames(const std::vector<std::string>& frames, float fps = 10.0f, bool loop = true)
         {
-            if (Frames == frames && StartFrame == 0 && FrameCount == (int)frames.size() && Playing) return;
+            if (CurrentClip < 0 && Frames == frames && StartFrame == 0 && FrameCount == (int)frames.size() && Playing) return;
             Frames = frames; StartFrame = 0; FrameCount = std::max(1, (int)frames.size());
             FPS = fps; Loop = loop; Playing = true; Time = 0.0f;
+            CurrentClip = -1; LastFrame = -1;
+        }
+
+        // ---- clips (.zsanim)
+        // Loads the clips that changed (Clips edited) - PlayClip and the scene call it.
+        void ResolveClips();
+        // The clip with this name (file name without .zsanim) or path; -1 when there is none.
+        int FindClip(std::string_view nameOrPath) const;
+        // Plays a clip from its first frame (already playing it: goes on, unless restart). False
+        // when there is no such clip or it cannot be read.
+        bool PlayClip(std::string_view nameOrPath, bool restart = false);
+        bool PlayClip(int index, bool restart = false);
+        // The frames, rate and loop of a clip into the fields above (what is drawn).
+        void ApplyClip(const SpriteClip& clip);
+        const SpriteClipAsset* GetCurrentClipAsset() const
+        {
+            return CurrentClip >= 0 && CurrentClip < (int)ClipAssets.size() ? ClipAssets[(size_t)CurrentClip].get() : nullptr;
+        }
+        std::string GetCurrentClipName() const { const auto* a = GetCurrentClipAsset(); return a ? a->GetName() : std::string(); }
+        void ResetRuntime()
+        {
+            Time = 0.0f; CurrentClip = -1; AppliedRevision = 0; LastFrame = -1; Started = false;
         }
         bool UsesFrameList() const { return !Frames.empty(); }
         // The frame name shown now ("" for a grid animation).

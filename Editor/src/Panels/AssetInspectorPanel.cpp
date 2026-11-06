@@ -511,6 +511,7 @@ namespace Zamin {
             case AssetType::Material:    DrawMaterial(); break;
             case AssetType::PhysicsMaterial: DrawPhysicsMaterial(); break;
             case AssetType::Animation:   DrawAnimationClip(); break;
+            case AssetType::SpriteAnimation: DrawSpriteClip(); break;
             default:
                 ImGui::Spacing();
                 ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Bu turdagi fayl uchun ko'rinish yo'q");

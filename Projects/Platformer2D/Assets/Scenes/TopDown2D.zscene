@@ -3664,7 +3664,13 @@
         "Frames": [
           "campfire_0",
           "campfire_1"
-        ]
+        ],
+        "Clips": [
+          {
+            "Path": "Animations/Campfire.zsanim"
+          }
+        ],
+        "PlayOnStart": true
       },
       "Light2D": {
         "Type": "Point",
@@ -11571,7 +11577,19 @@
           "hero_down_0",
           "hero_down_1",
           "hero_down_2"
-        ]
+        ],
+        "Clips": [
+          {
+            "Path": "Animations/HeroDown.zsanim"
+          },
+          {
+            "Path": "Animations/HeroUp.zsanim"
+          },
+          {
+            "Path": "Animations/HeroSide.zsanim"
+          }
+        ],
+        "PlayOnStart": false
       },
       "Rigidbody2D": {
         "BodyType": "Dynamic",

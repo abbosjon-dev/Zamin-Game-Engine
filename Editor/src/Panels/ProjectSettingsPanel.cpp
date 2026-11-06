@@ -222,6 +222,11 @@ namespace Zamin {
                 DrawPhysicsLayers(config);
                 ImGui::EndTabItem();
             }
+            if (ImGui::BeginTabItem(ICON_FA_LIST_OL "  Build sahnalar", nullptr, tabFlags(Tab::BuildScenes)))
+            {
+                DrawBuildScenes(config);
+                ImGui::EndTabItem();
+            }
             if (ImGui::BeginTabItem(ICON_FA_SLIDERS "  Umumiy", nullptr, tabFlags(Tab::General)))
             {
                 DrawGeneral(config);
@@ -296,6 +301,196 @@ namespace Zamin {
             m_Dirty = true;
         }
         UI::EndPropertyGrid();
+    }
+
+    // ------------------------------------------------------------------ build scenes
+    void ProjectSettingsPanel::DrawBuildScenes(ProjectConfig& config)
+    {
+        auto& list = config.BuildScenes;
+        ImGui::TextWrapped("O'yin shu sahnalardan quriladi. Yoqilganlar tartib bo'yicha build indeksini oladi (0, 1, 2 ...): skriptda "
+                           "LoadScene(1) yoki nomi bilan LoadScene(\"Level2\"). Ro'yxat bo'sh bo'lmasa, eksportga faqat shu sahnalar "
+                           "(va boshlang'ich sahna) kiradi. Tartibni sudrab yoki strelkalar bilan o'zgartiring.");
+        ImGui::Spacing();
+
+        // Add: the open scene, every scene of the project, or a .zscene dropped from the content browser.
+        const std::string open = m_OpenScenePath.generic_string();
+        const bool openListed = std::any_of(list.begin(), list.end(), [&](const BuildSceneEntry& e) { return e.Path.generic_string() == open; });
+        ImGui::BeginDisabled(open.empty() || openListed);
+        if (ImGui::Button(ICON_FA_PLUS "  Ochiq sahnani qo'shish") && Project::AddBuildScene(m_OpenScenePath))
+            m_Dirty = true;
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip(open.empty() ? "Ochiq sahna hali saqlanmagan" : openListed ? "Ochiq sahna ro'yxatda bor" : open.c_str());
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_LAYER_GROUP "  Barcha sahnalarni qo'shish"))
+        {
+            std::vector<std::string> found;
+            std::error_code ec;
+            for (auto it = std::filesystem::recursive_directory_iterator(Project::GetAssetDirectory(), ec);
+                 !ec && it != std::filesystem::recursive_directory_iterator(); it.increment(ec))
+                if (it->path().extension() == ".zscene")
+                    found.push_back(Project::GetAssetRelativePath(it->path()));
+            std::sort(found.begin(), found.end());
+            size_t added = 0;
+            for (const std::string& scene : found)
+                added += Project::AddBuildScene(scene) ? 1 : 0;
+            if (added)
+                m_Dirty = true;
+        }
+        ImGui::SameLine();
+        ImGui::BeginDisabled(list.empty());
+        if (ImGui::Button(ICON_FA_TRASH "  Tozalash"))
+        {
+            list.clear();
+            m_Dirty = true;
+        }
+        ImGui::EndDisabled();
+        ImGui::Spacing();
+
+        const std::string start = config.StartScene.generic_string();
+        int remove = -1, moveFrom = -1, moveTo = -1;
+        int buildIndex = 0;
+        const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX | ImGuiTableFlags_SizingFixedFit;
+        if (ImGui::BeginTable("##buildScenes", 6, flags))
+        {
+            ImGui::TableSetupColumn("##drag", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
+            ImGui::TableSetupColumn("##on", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
+            ImGui::TableSetupColumn("Indeks", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 3.2f);
+            ImGui::TableSetupColumn("Sahna", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("##start", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight());
+            ImGui::TableSetupColumn("##actions", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFrameHeight() * 3.0f + 8.0f);
+            ImGui::TableHeadersRow();
+            for (int i = 0; i < (int)list.size(); i++)
+            {
+                BuildSceneEntry& entry = list[(size_t)i];
+                ImGui::PushID(i);
+                ImGui::TableNextRow();
+                // Drag handle: the row moves where it is dropped.
+                ImGui::TableSetColumnIndex(0);
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextDisabled(ICON_FA_GRIP_LINES);
+                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+                {
+                    ImGui::SetDragDropPayload("BUILD_SCENE", &i, sizeof(int));
+                    ImGui::TextUnformatted(entry.Path.generic_string().c_str());
+                    ImGui::EndDragDropSource();
+                }
+                ImGui::TableSetColumnIndex(1);
+                if (ImGui::Checkbox("##enabled", &entry.Enabled))
+                    m_Dirty = true;
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(entry.Enabled ? "Buildga kiradi (o'chirilsa indeksi yo'qoladi)" : "O'chirilgan: buildga kirmaydi");
+                ImGui::TableSetColumnIndex(2);
+                ImGui::AlignTextToFramePadding();
+                if (entry.Enabled)
+                    ImGui::TextColored(UI::AccentColor(), "%d", buildIndex++);
+                else
+                    ImGui::TextDisabled("-");
+                ImGui::TableSetColumnIndex(3);
+                std::error_code ec;
+                const bool exists = std::filesystem::exists(Project::GetAssetFileSystemPath(entry.Path), ec);
+                const std::string label = std::format("{}  {}", exists ? ICON_FA_EARTH_ASIA : ICON_FA_TRIANGLE_EXCLAMATION, entry.Path.generic_string());
+                ImGui::PushStyleColor(ImGuiCol_Text, !exists ? ImVec4(0.95f, 0.45f, 0.40f, 1.0f)
+                                                    : entry.Enabled ? ImGui::GetStyleColorVec4(ImGuiCol_Text)
+                                                                    : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                ImGui::Selectable(label.c_str(), entry.Path.generic_string() == open, ImGuiSelectableFlags_AllowDoubleClick);
+                ImGui::PopStyleColor();
+                if (ImGui::IsItemHovered())
+                {
+                    UI::Tooltip(!exists ? "Fayl topilmadi" : "Ikki marta bosing: sahnani ochish. Sudrab tartibni o'zgartiring");
+                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && exists && OnOpenSceneRequested)
+                        OnOpenSceneRequested(entry.Path);
+                }
+                if (ImGui::BeginDragDropSource())
+                {
+                    ImGui::SetDragDropPayload("BUILD_SCENE", &i, sizeof(int));
+                    ImGui::TextUnformatted(entry.Path.generic_string().c_str());
+                    ImGui::EndDragDropSource();
+                }
+                if (ImGui::BeginDragDropTarget())
+                {
+                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("BUILD_SCENE"))
+                    {
+                        moveFrom = *(const int*)payload->Data;
+                        moveTo = i;
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+                // The start scene (the player starts with it).
+                ImGui::TableSetColumnIndex(4);
+                const bool isStart = entry.Path.generic_string() == start;
+                ImGui::PushStyleColor(ImGuiCol_Text, isStart ? ImVec4(1.0f, 0.82f, 0.30f, 1.0f) : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                if (UI::ToolbarButton(ICON_FA_STAR, isStart ? "Boshlang'ich sahna" : "Boshlang'ich sahna qilish", isStart,
+                                      ImVec2(ImGui::GetFrameHeight(), 0)) && !isStart)
+                {
+                    config.StartScene = entry.Path;
+                    config.StartSceneHandle = {};
+                    m_Dirty = true;
+                }
+                ImGui::PopStyleColor();
+                ImGui::TableSetColumnIndex(5);
+                ImGui::BeginDisabled(i == 0);
+                if (UI::ToolbarButton(ICON_FA_ARROW_UP, "Yuqoriga", false, ImVec2(ImGui::GetFrameHeight(), 0)))
+                {
+                    moveFrom = i;
+                    moveTo = i - 1;
+                }
+                ImGui::EndDisabled();
+                ImGui::SameLine(0.0f, 2.0f);
+                ImGui::BeginDisabled(i + 1 >= (int)list.size());
+                if (UI::ToolbarButton(ICON_FA_ARROW_DOWN, "Pastga", false, ImVec2(ImGui::GetFrameHeight(), 0)))
+                {
+                    moveFrom = i;
+                    moveTo = i + 1;
+                }
+                ImGui::EndDisabled();
+                ImGui::SameLine(0.0f, 2.0f);
+                if (UI::ToolbarButton(ICON_FA_XMARK, "Ro'yxatdan olib tashlash", false, ImVec2(ImGui::GetFrameHeight(), 0)))
+                    remove = i;
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+        if (list.empty())
+        {
+            ImGui::Spacing();
+            ImGui::TextDisabled("Ro'yxat bo'sh: eksportga hamma sahnalar kiradi, build indekslari yo'q.");
+        }
+        // A scene file dropped from the content browser joins the list.
+        ImVec2 avail = ImGui::GetContentRegionAvail();
+        ImGui::InvisibleButton("##buildDrop", ImVec2(std::max(1.0f, avail.x), std::max(30.0f, std::min(avail.y, 80.0f))));
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
+            {
+                std::filesystem::path path((const char*)payload->Data);
+                if (Project::AddBuildScene(path.is_absolute() ? std::filesystem::path(Project::GetAssetRelativePath(path)) : path))
+                    m_Dirty = true;
+            }
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("BUILD_SCENE"))
+            {
+                moveFrom = *(const int*)payload->Data;
+                moveTo = (int)list.size() - 1;
+            }
+            ImGui::EndDragDropTarget();
+        }
+        if (moveFrom >= 0 && moveTo >= 0 && moveFrom != moveTo && moveFrom < (int)list.size() && moveTo < (int)list.size())
+        {
+            BuildSceneEntry moved = list[(size_t)moveFrom];
+            list.erase(list.begin() + moveFrom);
+            list.insert(list.begin() + moveTo, moved);
+            m_Dirty = true;
+        }
+        else if (remove >= 0 && remove < (int)list.size())
+        {
+            list.erase(list.begin() + remove);
+            m_Dirty = true;
+        }
+        if (!start.empty() && !list.empty() && Project::GetBuildIndex(config.StartScene) < 0)
+        {
+            ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.32f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Boshlang'ich sahna (%s) ro'yxatda yo'q yoki o'chirilgan: "
+                               "eksportga baribir kiradi, lekin build indeksi yo'q", start.c_str());
+        }
     }
 
     // ------------------------------------------------------------------ tags

@@ -399,8 +399,7 @@ namespace Zamin {
         std::error_code ec;
         if (!fs::is_regular_file(file, ec))
         {
-            ZM_CORE_ERROR("Sahna topilmadi: {}", path.generic_string());
-            AssetImportLog::Report(file, "fayl topilmadi");
+            AssetImportLog::Report(file, "fayl topilmadi"); // logged once with the path
             return nullptr;
         }
         Ref<AsyncOperation> op = CreateRef<AsyncOperation>(fs::path(ToAssetRelative(path)), mode, transition);
@@ -639,8 +638,7 @@ namespace Zamin {
             op.JoinWorker();
             op.m_Error = reason;
             op.m_Stage = Stage::Failed;
-            AssetImportLog::Report(op.m_File, reason);
-            ZM_CORE_ERROR("Sahna yuklanmadi: {} ({})", op.m_Path.generic_string(), reason);
+            AssetImportLog::Report(op.m_File, reason); // logged once with the path
             if (!op.m_Decode.empty())
             {
                 TextureLibrary::DropPredecoded(op.m_Decode);

@@ -29870,3 +29870,388 @@ TEST(AnimationPlayerPlayFromTurnsRound)
     PropertyClipLibrary::Clear();
     std::filesystem::remove_all(dir);
 }
+
+// ------------------------------------------------------------------ M15: scene management
+static int g_PersistentDestroyed = 0;
+
+// A game manager that asks to survive scene switches (OnCreate) and counts the level's coins on the bus.
+class PersistentProbe : public ScriptableEntity
+{
+public:
+    bool Persist = false;
+    int Updates = 0, Coins = 0, Creates = 0;
+
+    void OnCreate() override
+    {
+        Creates++;
+        Subscribe("Coin", [this](const ScriptMessage&) { Coins++; });
+        if (Persist)
+            DontDestroyOnLoad();
+    }
+    void OnUpdate(Timestep) override { Updates++; }
+    void OnDestroy() override { g_PersistentDestroyed++; }
+};
+ZM_REGISTER_SCRIPT(PersistentProbe, ZM_FIELD(PersistentProbe, Persist))
+
+class CoinEmitterProbe : public ScriptableEntity
+{
+public:
+    void OnUpdate(Timestep) override { Emit("Coin"); }
+};
+ZM_REGISTER_SCRIPT(CoinEmitterProbe)
+
+namespace {
+    // A temporary folder of scene files (no GPU assets: the scene manager resolves them headless).
+    struct SceneFolder
+    {
+        std::filesystem::path Dir = std::filesystem::temp_directory_path() / ("zamin-scenes-" + std::to_string((uint64_t)UUID()));
+        SceneFolder() { std::filesystem::create_directories(Dir / "Assets" / "Scenes"); }
+        ~SceneFolder()
+        {
+            std::error_code ec;
+            std::filesystem::remove_all(Dir, ec);
+        }
+        std::filesystem::path Path(const std::string& name) const { return Dir / "Assets" / "Scenes" / (name + ".zscene"); }
+        // Writes a scene named `name` with the given root entities (and what `fill` adds).
+        std::filesystem::path Write(const std::string& name, const std::vector<std::string>& entities,
+                                    const std::function<void(Scene&)>& fill = {}) const
+        {
+            auto scene = CreateRef<Scene>();
+            scene->SetName(name);
+            for (const std::string& e : entities)
+                scene->CreateEntity(e);
+            if (fill)
+                fill(*scene);
+            SceneSerializer(scene).Serialize(Path(name));
+            return Path(name);
+        }
+    };
+}
+
+TEST(SceneManagerAdditiveScenes)
+{
+    SceneFolder f;
+    f.Write("A", { "Alpha" });
+    f.Write("B", { "Beta" }, [](Scene& s) { s.FindEntityByName("Beta").AddTag("Enemy"); });
+    f.Write("C", { "Gamma" });
+    SceneManager m;
+    CHECK(m.Start(f.Path("A")));
+    CHECK(m.IsRunning() && m.GetSceneCount() == 1 && m.GetActiveScene()->GetName() == "A");
+    CHECK(m.GetActiveScene()->IsRunning() && m.GetActiveScene()->GetSceneManager() == &m);
+
+    // Additive: at the end of the frame, next to A (A stays active).
+    m.LoadScene(f.Path("B"), LoadSceneMode::Additive);
+    CHECK(m.GetSceneCount() == 1);
+    m.ProcessRequests();
+    CHECK(m.GetSceneCount() == 2 && m.GetActiveScene()->GetName() == "A");
+    Ref<Scene> b = m.GetSceneByName("B");
+    CHECK(b && b->IsRunning() && m.IsLoaded(b.get()));
+    CHECK(m.GetScenePath(b.get()).ends_with("B.zscene") && m.GetSceneByPath(f.Path("B")) == b);
+    // Lookups across the loaded scenes; one event bus for all of them.
+    Entity beta = m.FindEntityByName("Beta");
+    CHECK(beta && beta.GetScene() == b.get());
+    CHECK(m.FindEntityByUUID(beta.GetUUID()) == beta);
+    CHECK(m.FindEntitiesWithTag("Enemy").size() == 1);
+    CHECK(&b->GetEventBus() == &m.GetEventBus() && &m.GetActiveScene()->GetEventBus() == &m.GetEventBus());
+    // Both run every frame; one game clock.
+    m.UpdateScenes(0.1f);
+    CHECK_NEAR(b->GetTime(), 0.1f, 1e-5f);
+    CHECK_NEAR(m.GetActiveScene()->GetTime(), 0.1f, 1e-5f);
+    m.SetGamePaused(true);
+    CHECK(b->IsGamePaused() && m.GetActiveScene()->IsGamePaused() && m.IsGamePaused());
+    m.UpdateScenes(0.1f);
+    CHECK_NEAR(b->GetTime(), 0.1f, 1e-5f);
+    m.SetGamePaused(false);
+    // An additive scene loaded while slowed down joins the game's clock.
+    m.SetTimeScale(0.5f);
+    m.LoadScene(f.Path("C"), LoadSceneMode::Additive);
+    m.ProcessRequests();
+    CHECK(m.GetSceneCount() == 3 && m.GetSceneByName("C") && m.GetSceneByName("C")->GetTimeScale() == 0.5f);
+
+    // Unloading the active scene makes the next loaded one active.
+    Ref<Scene> a = m.GetActiveScene();
+    CHECK(m.UnloadScene("A"));
+    m.ProcessRequests();
+    CHECK(m.GetSceneCount() == 2 && m.GetActiveScene() == b && !a->IsRunning() && !m.IsLoaded(a.get()));
+    CHECK(!m.FindEntityByName("Alpha"));
+    CHECK(m.SetActiveScene(m.GetSceneByName("C")) && m.GetActiveScene()->GetName() == "C");
+    CHECK(!m.SetActiveScene(a)); // not loaded
+    // Single: everything goes, the clock starts at 1 again.
+    m.LoadScene(f.Path("A"));
+    m.ProcessRequests();
+    CHECK(m.GetSceneCount() == 1 && m.GetActiveScene()->GetName() == "A" && !b->IsRunning());
+    CHECK(m.GetActiveScene()->GetTimeScale() == 1.0f);
+    // The last scene stays (another one is loaded Single instead).
+    CHECK(m.UnloadScene(m.GetActiveScene()));
+    m.ProcessRequests();
+    CHECK(m.GetSceneCount() == 1);
+    // A scene that cannot be read leaves the game as it is.
+    m.LoadScene(f.Path("Missing"));
+    m.ProcessRequests();
+    CHECK(m.GetSceneCount() == 1 && m.GetActiveScene()->GetName() == "A");
+    // Scene::RequestLoadScene (older code) still switches.
+    m.GetActiveScene()->RequestLoadScene(f.Path("B"));
+    m.ProcessRequests();
+    CHECK(m.GetActiveScene()->GetName() == "B" && m.GetActiveScene()->GetPendingSceneLoad().empty());
+    m.Stop();
+    CHECK(!m.IsRunning() && m.GetSceneCount() == 0 && !m.GetActiveScene());
+}
+
+TEST(SceneManagerDontDestroyOnLoad)
+{
+    SceneFolder f;
+    f.Write("Menu", { "Title" }, [](Scene& s) {
+        Entity manager = s.CreateEntity("Manager");
+        auto& nsc = manager.AddComponent<NativeScriptComponent>();
+        nsc.ClassName = "PersistentProbe";
+        ScriptFieldValue persist;
+        persist.Set(true);
+        nsc.Fields["Persist"] = persist;
+        Entity child = s.CreateEntity("Hud");
+        s.SetParent(child, manager);
+        // A body: made again in the persistent scene's world.
+        Entity crate = s.CreateEntity("Crate");
+        crate.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Dynamic;
+        crate.AddComponent<BoxCollider2DComponent>();
+        s.SetParent(crate, manager);
+    });
+    f.Write("Level", { "Ground" }, [](Scene& s) { s.CreateEntity("Spawner").AddComponent<NativeScriptComponent>().ClassName = "CoinEmitterProbe"; });
+    g_PersistentDestroyed = 0;
+
+    SceneManager m;
+    CHECK(m.Start(f.Path("Menu")));
+    Ref<Scene> menu = m.GetActiveScene();
+    Entity manager = menu->FindEntityByName("Manager");
+    auto* probe = ScriptableEntity::GetScript<PersistentProbe>(manager);
+    CHECK(probe && probe->Creates == 1);
+    const UUID managerID = manager.GetUUID();
+    CHECK(!m.GetDontDestroyOnLoadScene()); // asked for in OnCreate: it moves at the end of the frame
+    CHECK(menu->GetPhysics2DStats().Bodies == 1);
+    m.UpdateScenes(0.016f);
+    m.ProcessRequests();
+
+    Ref<Scene> persistent = m.GetDontDestroyOnLoadScene();
+    CHECK(persistent && persistent->GetName() == SceneManager::DontDestroyOnLoadSceneName && persistent->IsRunning());
+    CHECK(m.IsDontDestroyOnLoadScene(persistent.get()) && m.GetSceneCount() == 1);
+    Entity moved = persistent ? persistent->FindEntityByName("Manager") : Entity();
+    CHECK(moved && moved.GetUUID() == managerID && !menu->FindEntityByName("Manager"));
+    // Its children came along; the menu keeps the rest.
+    CHECK(persistent && persistent->FindEntityByName("Hud") && persistent->GetParent(persistent->FindEntityByName("Hud")) == moved);
+    CHECK(menu->FindEntityByName("Title") && !menu->FindEntityByName("Hud") && !menu->FindEntityByName("Crate"));
+    // The same script instance (its values) on the moved entity: no OnDestroy, no second OnCreate.
+    CHECK(ScriptableEntity::GetScript<PersistentProbe>(moved) == probe && probe->GetEntity() == moved);
+    CHECK(probe->Creates == 1 && g_PersistentDestroyed == 0);
+    // The body left the menu's world for the persistent one.
+    Entity crate = persistent ? persistent->FindEntityByName("Crate") : Entity();
+    CHECK(crate && crate.GetComponent<Rigidbody2DComponent>().RuntimeBody != nullptr);
+    CHECK(menu->GetPhysics2DStats().Bodies == 0 && persistent && persistent->GetPhysics2DStats().Bodies == 1);
+    // Found from anywhere by name / UUID.
+    CHECK(m.FindEntityByName("Manager") == moved && m.FindEntityByUUID(managerID) == moved);
+
+    // A Single load: the menu goes, the manager stays and keeps running.
+    const int updates = probe->Updates;
+    m.LoadScene(f.Path("Level"));
+    m.ProcessRequests();
+    CHECK(m.GetActiveScene()->GetName() == "Level" && !menu->IsRunning() && m.GetSceneCount() == 1);
+    CHECK(m.GetDontDestroyOnLoadScene() == persistent && persistent->FindEntityByName("Manager"));
+    CHECK(g_PersistentDestroyed == 0);
+    m.UpdateScenes(0.016f);
+    CHECK(probe->Updates == updates + 1);
+    // The level's coins reach it on the shared bus (its subscription went along).
+    CHECK(probe->Coins == 1);
+    m.UpdateScenes(0.016f);
+    CHECK(probe->Coins == 2);
+    // A second DontDestroyOnLoad of a persistent entity changes nothing.
+    m.DontDestroyOnLoad(moved);
+    m.ProcessRequests();
+    CHECK(persistent->FindEntityByName("Manager") == moved);
+    m.Stop();
+    CHECK(g_PersistentDestroyed == 1);
+}
+
+TEST(SceneManagerAsyncLoad)
+{
+    SceneFolder f;
+    f.Write("Start", { "Here" });
+    // A bigger scene: 400 entities in pairs (parent / child), a sprite naming a texture.
+    f.Write("Big", {}, [](Scene& s) {
+        for (int i = 0; i < 200; i++)
+        {
+            Entity p = s.CreateEntity(std::format("Parent{}", i));
+            Entity c = s.CreateEntity(std::format("Child{}", i));
+            s.SetParent(c, p);
+        }
+        s.FindEntityByName("Parent7").AddComponent<SpriteRendererComponent>().TexturePath = "Textures/zamin-test-missing.png";
+    });
+    {
+        std::ofstream bad(f.Path("Bad"));
+        bad << "{ \"Scene\": \"Bad\", \"Entities\": [ { \"Entity\": 1, ";
+    }
+
+    // The job alone: parsed off the main thread's way, built in slices, the same as Deserialize.
+    {
+        SceneLoadJob job;
+        CHECK(job.Parse(f.Path("Big")) && job.GetEntityCount() == 400);
+        CHECK(job.CollectImagePaths() == std::vector<std::string>({ "Textures/zamin-test-missing.png" }));
+        auto sliced = CreateRef<Scene>();
+        int calls = 0;
+        while (!job.Build(*sliced, 0.0) && calls < 1000)
+            calls++;
+        CHECK(job.IsBuilt() && job.GetError().empty() && calls > 3 && job.GetBuildProgress() == 1.0f);
+        auto whole = CreateRef<Scene>();
+        CHECK(SceneSerializer(whole).Deserialize(f.Path("Big")));
+        std::vector<Entity> a = sliced->GetEntitiesInHierarchyOrder(), b = whole->GetEntitiesInHierarchyOrder();
+        bool same = a.size() == b.size() && a.size() == 400;
+        for (size_t i = 0; same && i < a.size(); i++)
+            same = a[i].GetUUID() == b[i].GetUUID() && a[i].GetName() == b[i].GetName() &&
+                   (uint64_t)a[i].GetComponent<RelationshipComponent>().Parent == (uint64_t)b[i].GetComponent<RelationshipComponent>().Parent;
+        CHECK(same && sliced->GetName() == whole->GetName());
+        SceneLoadJob broken;
+        CHECK(!broken.Parse(f.Path("Bad")) && broken.GetError().starts_with("JSON xatosi"));
+    }
+
+    SceneManager m;
+    CHECK(m.Start(f.Path("Start")));
+    CHECK(!m.LoadSceneAsync(f.Path("Missing"))); // no such file
+    Ref<AsyncOperation> op = m.LoadSceneAsync(f.Path("Big"), LoadSceneMode::Additive);
+    CHECK(op && op->GetProgress() < 0.25f && !op->IsDone() && op->GetMode() == LoadSceneMode::Additive);
+    op->SetAllowSceneActivation(false);
+    float last = 0.0f;
+    bool monotonic = true;
+    int frames = 0;
+    while (op && !op->IsReady() && !op->IsDone() && frames < 5000)
+    {
+        m.UpdateAsyncLoads(0.05f); // a tiny budget: the work takes several frames
+        const float progress = op->GetProgress();
+        monotonic = monotonic && progress >= last;
+        last = progress;
+        m.ProcessRequests();
+        if (op->GetStage() == AsyncOperation::Stage::Reading || op->GetStage() == AsyncOperation::Stage::Decoding)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        frames++;
+    }
+    CHECK(op && op->IsReady() && monotonic && frames > 3);
+    CHECK(op && std::abs(op->GetProgress() - 0.9f) < 1e-5f && op->GetScene() && !op->GetScene()->IsRunning());
+    // Not allowed in yet: it waits.
+    m.ProcessRequests();
+    m.ProcessRequests();
+    CHECK(op && !op->IsDone() && m.GetSceneCount() == 1 && m.GetAsyncOperations().size() == 1);
+    op->SetAllowSceneActivation(true);
+    m.ProcessRequests();
+    CHECK(op && op->IsDone() && !op->HasFailed() && op->GetProgress() == 1.0f);
+    CHECK(m.GetSceneCount() == 2 && m.GetSceneByName("Big") == op->GetScene() && op->GetScene()->IsRunning());
+    CHECK(m.GetActiveScene()->GetName() == "Start" && m.GetAsyncOperations().empty());
+    CHECK(m.FindEntityByName("Child199") && TextureLibrary::GetPredecodedCount() == 0);
+
+    // A broken file fails: the game goes on, the reason is kept.
+    Ref<AsyncOperation> bad = m.LoadSceneAsync(f.Path("Bad"));
+    for (int i = 0; bad && !bad->IsDone() && i < 5000; i++)
+    {
+        m.UpdateAsyncLoads(1.0f);
+        m.ProcessRequests();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(bad && bad->HasFailed() && bad->GetError().starts_with("JSON xatosi") && m.GetAsyncOperations().empty());
+    CHECK(m.GetSceneCount() == 2);
+    // Stopping drops a load that is still on its way.
+    Ref<AsyncOperation> dropped = m.LoadSceneAsync(f.Path("Big"));
+    m.Stop();
+    CHECK(dropped && !dropped->IsDone() && m.GetSceneCount() == 0);
+}
+
+TEST(SceneManagerFadeTransition)
+{
+    SceneFolder f;
+    f.Write("First", { "One" });
+    f.Write("Second", { "Two" });
+    SceneManager m;
+    CHECK(m.Start(f.Path("First")));
+    const SceneTransition fade = SceneTransition::Fade(0.2f, 0.3f, { 1.0f, 1.0f, 1.0f, 1.0f });
+    CHECK(fade.FadeOut == 0.2f && fade.FadeIn == 0.3f && !fade.IsNone() && SceneTransition().IsNone());
+    m.LoadScene(f.Path("Second"), LoadSceneMode::Single, fade);
+    CHECK(m.IsTransitioning() && m.GetTransitionColor() == glm::vec4(1.0f));
+    Scene* before = m.GetActiveScene().get();
+    bool switched = false, coveredAtSwitch = false;
+    int framesToCover = -1, framesAfter = 0;
+    float maxAlpha = 0.0f, lastOut = 0.0f;
+    bool risingWhileOld = true;
+    for (int frame = 0; frame < 2000; frame++)
+    {
+        m.OnUpdate(0.02f); // no camera: nothing is drawn headless
+        const float alpha = m.GetTransitionAlpha();
+        maxAlpha = std::max(maxAlpha, alpha);
+        if (!switched)
+        {
+            risingWhileOld = risingWhileOld && alpha >= lastOut;
+            lastOut = alpha;
+            if (alpha >= 1.0f && framesToCover < 0)
+                framesToCover = frame + 1;
+        }
+        m.ProcessRequests();
+        if (!switched && m.GetActiveScene().get() != before)
+        {
+            switched = true;
+            coveredAtSwitch = alpha >= 1.0f; // the switch happens behind the full cover
+        }
+        else if (switched)
+            framesAfter++;
+        if (switched && !m.IsTransitioning())
+            break;
+        if (!switched)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1)); // the worker reads the file
+    }
+    CHECK(switched && coveredAtSwitch && risingWhileOld && maxAlpha == 1.0f);
+    CHECK(framesToCover >= 9 && framesToCover <= 11);          // 0.2 s at 0.02 s a frame
+    CHECK(framesAfter >= 14 && framesAfter <= 16);             // 0.3 s back
+    CHECK(!m.IsTransitioning() && m.GetTransitionAlpha() == 0.0f && m.GetActiveScene()->GetName() == "Second");
+    // A transition to a missing scene does nothing (and leaves no cover behind).
+    m.LoadScene(f.Path("Nope"), LoadSceneMode::Single, SceneTransition::Fade(0.1f));
+    CHECK(!m.IsTransitioning() && m.GetActiveScene()->GetName() == "Second");
+    m.Stop();
+}
+
+TEST(BuildSceneList)
+{
+    SceneFolder f;
+    f.Write("Menu", { "Title" });
+    f.Write("Level1", { "Ground" });
+    f.Write("Level2", { "Lava" });
+    {
+        std::ofstream project(f.Dir / "Game.zproject");
+        project << R"({ "Project": { "Name": "Game", "StartScene": "Scenes/Menu.zscene", "AssetDirectory": "Assets" },
+                        "BuildScenes": [ "Scenes/Menu.zscene", { "Path": "Scenes/Old.zscene", "Enabled": false },
+                                         { "Path": "Scenes/Level1.zscene", "Enabled": true } ] })";
+    }
+    auto project = Project::Load(f.Dir / "Game.zproject");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
+    auto& list = project->GetConfig().BuildScenes;
+    CHECK(list.size() == 3 && !list[1].Enabled);
+    // The enabled ones in order get the build indices.
+    CHECK(Project::GetBuildScenes().size() == 2);
+    CHECK(Project::GetBuildScenePath(0) == "Scenes/Menu.zscene" && Project::GetBuildScenePath(1) == "Scenes/Level1.zscene");
+    CHECK(Project::GetBuildScenePath(2).empty() && Project::GetBuildScenePath(-1).empty());
+    CHECK(Project::GetBuildIndex("Scenes/Level1.zscene") == 1 && Project::GetBuildIndex("Scenes/Old.zscene") == -1);
+    CHECK(Project::FindBuildScene("Level1") == "Scenes/Level1.zscene" && Project::FindBuildScene("Old").empty());
+    CHECK(!Project::AddBuildScene("Scenes/Level1.zscene") && !Project::AddBuildScene("Textures/a.png"));
+    CHECK(Project::AddBuildScene("Scenes/Level2.zscene") && Project::GetBuildIndex("Scenes/Level2.zscene") == 2);
+    // Saved and read again: order, on / off.
+    CHECK(Project::SaveActive(f.Dir / "Game.zproject"));
+    auto again = CreateRef<Project>();
+    CHECK(ProjectSerializer(again).Deserialize(f.Dir / "Game.zproject"));
+    CHECK(again->GetConfig().BuildScenes == list);
+
+    // The scene manager loads by build index and by name.
+    SceneManager m;
+    CHECK(m.Start("Scenes/Menu.zscene"));
+    CHECK(m.LoadScene(1));
+    m.ProcessRequests();
+    CHECK(m.GetActiveScene()->GetName() == "Level1" && m.GetScenePath(m.GetActiveScene().get()) == "Scenes/Level1.zscene");
+    CHECK(!m.LoadScene(7));
+    m.LoadScene(std::filesystem::path("Level2"), LoadSceneMode::Additive);
+    m.ProcessRequests();
+    CHECK(m.GetSceneCount() == 2 && m.GetSceneByPath("Scenes/Level2.zscene"));
+    m.Stop();
+}

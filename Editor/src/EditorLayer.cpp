@@ -106,6 +106,7 @@ namespace Zamin {
         m_SceneHierarchyPanel.SetFoldState(&m_ViewSettings.Inspector); // open / collapsed inspector headers, per user
         m_SceneHierarchyPanel.OnFoldStateModified = [this]() { MarkViewSettingsDirty(); };
         m_ProjectSettingsPanel.OnSceneModified = [this]() { MarkDirty(); };
+        m_ProjectSettingsPanel.OnOpenSceneRequested = [this](const fs::path& scene) { OpenScene(Project::GetAssetFileSystemPath(scene)); };
         m_AudioMixerPanel.OnProjectModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
         m_SceneHierarchyPanel.OnAudioMixerRequested = [this]() {
             m_ShowAudioMixer = true;
@@ -658,11 +659,12 @@ namespace Zamin {
                     keys = comma == std::string_view::npos ? std::string_view() : keys.substr(comma + 1);
                 }
             }
-            if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | Tags | General | SortingLayers | PhysicsLayers
+            if (const char* tab = std::getenv("ZAMIN_EDITOR_PROJECT_SETTINGS")) // 1 | SaveData | Tags | General | SortingLayers | PhysicsLayers | BuildScenes
             {
                 m_ShowProjectSettings = true;
                 std::string_view t(tab);
                 m_ProjectSettingsPanel.Focus(t == "SaveData"        ? ProjectSettingsPanel::Tab::SaveData
+                                           : t == "BuildScenes"     ? ProjectSettingsPanel::Tab::BuildScenes
                                            : t == "Tags"            ? ProjectSettingsPanel::Tab::Tags
                                            : t == "General"         ? ProjectSettingsPanel::Tab::General
                                            : t == "SortingLayers"   ? ProjectSettingsPanel::Tab::SortingLayers
@@ -5162,6 +5164,19 @@ namespace Zamin {
         fs::path moduleRel = project->GetConfig().ScriptModulePath;
         fs::path assetRel = project->GetConfig().AssetDirectory;
         fs::path exeDir = FileSystem::GetExecutableDirectory();
+        // With a build list only its enabled scenes (and the start scene) go into the game.
+        std::vector<std::string> buildScenes;
+        for (const fs::path& scene : Project::GetBuildScenes())
+            buildScenes.push_back(scene.lexically_normal().generic_string());
+        if (!buildScenes.empty() && !project->GetConfig().StartScene.empty())
+        {
+            const std::string start = project->GetConfig().StartScene.lexically_normal().generic_string();
+            if (std::find(buildScenes.begin(), buildScenes.end(), start) == buildScenes.end())
+            {
+                ZM_WARN("Boshlang'ich sahna build ro'yxatida yo'q - baribir eksportga qo'shiladi: {}", start);
+                buildScenes.push_back(start);
+            }
+        }
         // The exported game reads its asset registry from one file (made here, on this thread).
         std::string registryText;
         if (AssetRegistry* registry = Project::GetAssetRegistry())
@@ -5190,6 +5205,26 @@ namespace Zamin {
             copy(exeDir / "Resources", outputDirectory / "Resources");
             copy(projectFile, outputDirectory / "Game" / projectFile.filename());
             copy(projectDir / assetRel, outputDirectory / "Game" / assetRel);
+            if (!buildScenes.empty())
+            {
+                // Scenes that are not in the build list stay out of the game (with their .zmeta).
+                const fs::path assets = outputDirectory / "Game" / assetRel;
+                std::vector<fs::path> dropped;
+                for (auto it = fs::recursive_directory_iterator(assets, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
+                    if (it->path().extension() == ".zscene")
+                    {
+                        const std::string rel = fs::relative(it->path(), assets, ec).lexically_normal().generic_string();
+                        if (std::find(buildScenes.begin(), buildScenes.end(), rel) == buildScenes.end())
+                            dropped.push_back(it->path());
+                    }
+                for (const fs::path& scene : dropped)
+                {
+                    std::error_code e;
+                    fs::remove(scene, e);
+                    fs::remove(fs::path(scene.string() + ".zmeta"), e);
+                }
+                ZM_INFO("Eksport: build ro'yxatidagi {} ta sahna ({} tasi kiritilmadi)", buildScenes.size(), dropped.size());
+            }
             if (!registryText.empty() && !FileSystem::WriteTextFile(outputDirectory / "Game" / Project::BuildAssetRegistryFile, registryText))
                 ok = false;
             if (!modulePath.empty())
@@ -5353,6 +5388,7 @@ namespace Zamin {
         m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
         UI_SceneSettings();
         m_ProjectSettingsPanel.SetScene(m_EditorScene); // tag counts / renames apply to the saved scene
+        m_ProjectSettingsPanel.SetOpenScenePath(m_EditorScenePath.empty() ? fs::path() : fs::path(Project::GetAssetRelativePath(m_EditorScenePath)));
         m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
         m_SpriteEditorPanel.OnImGuiRender(&m_ShowSpriteEditor);

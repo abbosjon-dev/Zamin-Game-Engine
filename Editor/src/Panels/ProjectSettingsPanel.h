@@ -2,6 +2,7 @@
 
 #include <Zamin/Zamin.h>
 
+#include <filesystem>
 #include <functional>
 #include <string>
 #include <vector>
@@ -15,7 +16,7 @@ namespace Zamin {
     class ProjectSettingsPanel
     {
     public:
-        enum class Tab { Input = 0, SaveData, Tags, General, SortingLayers, PhysicsLayers };
+        enum class Tab { Input = 0, SaveData, Tags, General, SortingLayers, PhysicsLayers, BuildScenes };
 
         void OnImGuiRender(bool* show);
 
@@ -30,6 +31,11 @@ namespace Zamin {
         void SetSceneEditable(bool editable) { m_SceneEditable = editable; }
         // Renaming a tag also renames it on the scene's entities.
         std::function<void()> OnSceneModified;
+        // The scene open in the editor (relative to the assets, "" when unsaved): the build list's
+        // "add the open scene" button.
+        void SetOpenScenePath(const std::filesystem::path& path) { m_OpenScenePath = path; }
+        // A build scene was double-clicked: open it in the editor.
+        std::function<void(const std::filesystem::path&)> OnOpenSceneRequested;
         // Writes the active .zproject if there are unsaved changes.
         void SaveIfDirty();
         // Call when another project is opened / the project is closed.
@@ -49,6 +55,8 @@ namespace Zamin {
         };
 
         void DrawGeneral(ProjectConfig& config);
+        // The game's build scenes: order (drag / arrows), on / off, build indices, the start scene.
+        void DrawBuildScenes(ProjectConfig& config);
         void DrawSaveData();
         void DrawTags(ProjectConfig& config);
         void DrawSortingLayers(ProjectConfig& config);
@@ -80,6 +88,8 @@ namespace Zamin {
         uint32_t m_RenamingLayer = ~0u;
         std::string m_LayerRenameBuffer;
         bool m_FocusLayerRename = false;
+
+        std::filesystem::path m_OpenScenePath;
 
         // SaveData tab: new entry
         std::string m_NewSaveKey;

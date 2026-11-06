@@ -11,6 +11,7 @@
 #include "Panels/UnusedAssetsPanel.h"
 #include "Panels/SpriteEditorPanel.h"
 #include "Panels/AnimationTimelinePanel.h"
+#include "Panels/AnimatorGraphPanel.h"
 #include "AssetUsageCache.h"
 
 #include <atomic>
@@ -489,6 +490,9 @@ namespace Zamin {
         SpriteEditorPanel m_SpriteEditorPanel;
         AnimationTimelinePanel m_AnimationPanel;
         bool m_ShowAnimation = false;
+        AnimatorGraphPanel m_AnimatorGraphPanel;
+        bool m_ShowAnimatorGraph = false;
+        bool m_AnimatorGraphInViewport = false;   // automation: docked over the viewport (screenshots)
         bool m_ShowSpriteEditor = false;
         bool m_PreviewParallax = false;          // the scene view moves parallax layers with the editor camera
         bool m_ShowLauncher = false;

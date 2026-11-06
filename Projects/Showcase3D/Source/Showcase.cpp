@@ -1298,3 +1298,62 @@ private:
     float m_Flash = 0.0f;
 };
 ZM_REGISTER_SCRIPT(AnimationEventDemo, ZM_FIELD(AnimationEventDemo, Title), ZM_FIELD(AnimationEventDemo, Height))
+
+// Animator namoyishi (Scenes/Animator.zscene): float parametrni sekin to'lqin bilan o'zgartiradi
+// (blend tree aralashmasi yoki qatlam og'irligi), har TriggerEvery soniyada trigger yoqadi va
+// animatorning jonli holatini obyekt ustida yozib turadi.
+class AnimatorDemo : public ScriptableEntity
+{
+public:
+    std::string Title = "Animator";
+    std::string Parameter = "Blend";   // the float parameter it drives
+    float Min = 0.0f;
+    float Max = 2.0f;
+    float Period = 9.0f;               // seconds for a sweep there and back
+    std::string Trigger;               // fired every TriggerEvery seconds ("" = none)
+    float TriggerEvery = 7.0f;
+    float Height = 3.6f;               // the labels above the entity
+
+    void OnCreate() override { m_Next = TriggerEvery; }
+
+    void OnUpdate(Timestep ts) override
+    {
+        m_Time += ts;
+        auto* anim = TryGetComponent<AnimatorComponent>();
+        if (!anim)
+            return;
+        const float k = 0.5f - 0.5f * std::cos(m_Time * glm::two_pi<float>() / std::max(0.1f, Period));
+        const float value = Min + (Max - Min) * k;
+        anim->SetFloat(Parameter, value);
+        if (!Trigger.empty() && TriggerEvery > 0.0f && (m_Next -= ts) <= 0.0f)
+        {
+            anim->SetTrigger(Trigger);
+            m_Next = TriggerEvery;
+        }
+
+        const glm::vec3 p = GetWorldPosition();
+        DebugDraw::Text(p + glm::vec3(0.0f, Height + 0.35f, 0.0f), Title, glm::vec4(0.85f, 0.88f, 0.95f, 1.0f));
+        std::string line = std::format("{}: {:.2f}", Parameter, value);
+        if (anim->UsesStateMachine())
+            line += std::format("   holat: {}", anim->GetCurrentStateName());
+        if (anim->IsFading())
+            line += std::format("  (o'tish {:.0f}%)", anim->GetFadeProgress() * 100.0f);
+        DebugDraw::Text(p + glm::vec3(0.0f, Height, 0.0f), line, glm::vec4(1.0f, 0.82f, 0.3f, 1.0f));
+        // A blend tree's weights / the layers' weights.
+        std::string weights;
+        if (const AnimatorState* tree = anim->GetBlendTreeState(); tree && anim->BlendWeights.size() == tree->Motions.size())
+            for (size_t i = 0; i < tree->Motions.size(); i++)
+                weights += std::format("{}{} {:.2f}", i ? "   " : "", tree->Motions[i].Clip, anim->BlendWeights[i]);
+        for (const AnimatorLayer& l : anim->Layers)
+            weights += std::format("{}qatlam {}: {:.2f}", weights.empty() ? "" : "   ", l.Name, l.EffectiveWeight);
+        if (!weights.empty())
+            DebugDraw::Text(p + glm::vec3(0.0f, Height - 0.35f, 0.0f), weights, glm::vec4(0.6f, 0.78f, 1.0f, 1.0f));
+    }
+
+private:
+    float m_Time = 0.0f;
+    float m_Next = 0.0f;
+};
+ZM_REGISTER_SCRIPT(AnimatorDemo, ZM_FIELD(AnimatorDemo, Title), ZM_FIELD(AnimatorDemo, Parameter), ZM_FIELD(AnimatorDemo, Min),
+                   ZM_FIELD(AnimatorDemo, Max), ZM_FIELD(AnimatorDemo, Period), ZM_FIELD(AnimatorDemo, Trigger),
+                   ZM_FIELD(AnimatorDemo, TriggerEvery), ZM_FIELD(AnimatorDemo, Height))

@@ -1,5 +1,6 @@
 #include "SceneHierarchyPanel.h"
 #include "AssetInspectorPanel.h"
+#include "AnimatorEditing.h"
 #include "../UI.h"
 
 #include <Zamin/Utils/Image.h>
@@ -5404,7 +5405,8 @@ namespace Zamin {
         }, true, modified);
     }
 
-    static bool DrawAnimatorStateMachine(AnimatorComponent& c, const Ref<Model>& model, bool* isOpen)
+    static bool DrawAnimatorStateMachine(AnimatorComponent& c, const Ref<Model>& model, bool* isOpen, bool live,
+                                         const std::function<void()>& openGraph)
     {
         bool changed = false;
         ImGui::PushID("asm");
@@ -5415,146 +5417,89 @@ namespace Zamin {
             return false;
         }
         ImGui::Indent(6.0f);
-        if (c.CurrentState >= 0)
-            ImGui::TextColored(UI::AccentColor(), ICON_FA_PLAY "  Hozirgi holat: %s", c.GetCurrentStateName());
+        if (ImGui::Button(ICON_FA_DIAGRAM_PROJECT "  Graf oynasida ochish") && openGraph)
+            openGraph();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Animator grafi: holatlar node'lar, o'tishlar strelkalar - sudrab joylashtirish, o'tish chizish, shartlar");
         if (c.States.empty())
             ImGui::TextDisabled("Holatlar yo'q - Animator Play() bilan qo'lda boshqariladi.");
+        const Model* m = model.get();
 
         // ---- parameters
-        ImGui::SeparatorText("Parametrlar");
-        const char* types[] = { "Float", "Bool", "Trigger" };
-        for (size_t i = 0; i < c.Parameters.size(); i++)
+        ImGui::SeparatorText(live ? "Parametrlar (jonli)" : "Parametrlar");
+        changed |= AnimatorEditing::DrawParameters(c, live);
+
+        // ---- states: one collapsible row each
+        ImGui::SeparatorText("Holatlar");
+        int removeState = -1;
+        for (int i = 0; i < (int)c.States.size(); i++)
         {
-            auto& p = c.Parameters[i];
-            ImGui::PushID((int)i);
-            ImGui::SetNextItemWidth(110); changed |= ImGui::InputText("##n", &p.Name);
-            ImGui::SameLine(); ImGui::SetNextItemWidth(80);
-            int t = (int)p.Kind;
-            if (ImGui::Combo("##t", &t, types, 3)) { p.Kind = (AnimatorParameter::Type)t; changed = true; }
-            ImGui::SameLine(); ImGui::SetNextItemWidth(70);
-            if (p.Kind == AnimatorParameter::Type::Float) changed |= ImGui::DragFloat("##v", &p.Value, 0.05f);
-            else { bool b = p.Value != 0.0f; if (ImGui::Checkbox("##v", &b)) { p.Value = b ? 1.0f : 0.0f; changed = true; } }
-            ImGui::SameLine();
-            if (ImGui::SmallButton(ICON_FA_XMARK)) { c.Parameters.erase(c.Parameters.begin() + i); changed = true; ImGui::PopID(); break; }
+            const AnimatorState& st = c.States[(size_t)i];
+            ImGui::PushID(1000 + i);
+            const bool current = c.CurrentState == i;
+            std::string label = std::format("{}  {}{}{}###state", st.IsBlendTree() ? ICON_FA_SHUFFLE : ICON_FA_FILM, st.Name,
+                                            c.DefaultState == i ? "   (boshlang'ich)" : "", current ? "   " ICON_FA_PLAY : "");
+            if (current)
+                ImGui::PushStyleColor(ImGuiCol_Text, UI::AccentColor());
+            const bool open = ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding);
+            if (current)
+                ImGui::PopStyleColor();
+            if (open)
+            {
+                changed |= AnimatorEditing::DrawState(c, i, m);
+                if (ImGui::SmallButton(ICON_FA_TRASH "  Holatni o'chirish"))
+                    removeState = i;
+                ImGui::TreePop();
+            }
             ImGui::PopID();
         }
-        if (ImGui::SmallButton(ICON_FA_PLUS "  Parametr")) { c.Parameters.push_back({ "Param" + std::to_string(c.Parameters.size()), AnimatorParameter::Type::Float, 0.0f }); changed = true; }
-
-        // ---- states
-        ImGui::SeparatorText("Holatlar");
-        for (size_t i = 0; i < c.States.size(); i++)
+        if (removeState >= 0)
         {
-            auto& st = c.States[i];
-            ImGui::PushID(1000 + (int)i);
-            bool isDefault = c.DefaultState == (int)i;
-            if (ImGui::RadioButton("##def", isDefault)) { c.DefaultState = (int)i; changed = true; }
-            if (ImGui::IsItemHovered()) UI::Tooltip("Boshlang'ich holat");
-            ImGui::SameLine(); ImGui::SetNextItemWidth(90); changed |= ImGui::InputText("##name", &st.Name);
-            ImGui::SameLine(); ImGui::SetNextItemWidth(90);
-            if (ImGui::BeginCombo("##clip", st.Clip.empty() ? "(klip)" : st.Clip.c_str()))
-            {
-                if (model)
-                    for (const auto& clip : model->GetAnimations())
-                        if (ImGui::Selectable(clip.Name.c_str(), clip.Name == st.Clip)) { st.Clip = clip.Name; changed = true; }
-                ImGui::EndCombo();
-            }
-            ImGui::SameLine(); ImGui::SetNextItemWidth(50); changed |= ImGui::DragFloat("##spd", &st.Speed, 0.01f, 0.0f, 10.0f, "%.2f");
-            ImGui::SameLine(); changed |= ImGui::Checkbox("##loop", &st.Loop);
-            if (ImGui::IsItemHovered()) UI::Tooltip("Takrorlash");
-            ImGui::SameLine();
-            if (ImGui::SmallButton(ICON_FA_XMARK))
-            {
-                c.States.erase(c.States.begin() + i);
-                for (auto it = c.Transitions.begin(); it != c.Transitions.end();)
-                {
-                    if (it->From == (int)i || it->To == (int)i) { it = c.Transitions.erase(it); continue; }
-                    if (it->From > (int)i) it->From--;
-                    if (it->To > (int)i) it->To--;
-                    ++it;
-                }
-                changed = true;
-                ImGui::PopID();
-                break;
-            }
-            ImGui::SetNextItemWidth(160);
-            ImGui::Indent(28);
-            if (ImGui::BeginCombo("##sp", st.SpeedParameter.empty() ? "Tezlik parametri: yo'q" : ("Tezlik x " + st.SpeedParameter).c_str()))
-            {
-                if (ImGui::Selectable("yo'q", st.SpeedParameter.empty())) { st.SpeedParameter.clear(); changed = true; }
-                for (auto& p : c.Parameters)
-                    if (p.Kind == AnimatorParameter::Type::Float && ImGui::Selectable(p.Name.c_str(), p.Name == st.SpeedParameter)) { st.SpeedParameter = p.Name; changed = true; }
-                ImGui::EndCombo();
-            }
-            ImGui::Unindent(28);
-            ImGui::PopID();
+            AnimatorEditing::RemoveState(c, removeState);
+            changed = true;
         }
         if (ImGui::SmallButton(ICON_FA_PLUS "  Holat"))
         {
-            AnimatorState st;
-            st.Name = "Holat" + std::to_string(c.States.size());
-            if (model && !model->GetAnimations().empty()) st.Clip = model->GetAnimations()[std::min(c.States.size(), model->GetAnimations().size() - 1)].Name;
-            c.States.push_back(st);
+            AnimatorEditing::AddState(c, m, false, glm::vec2(40.0f + 30.0f * (float)c.States.size(), 40.0f + 60.0f * (float)c.States.size()));
             changed = true;
         }
+        ImGui::SameLine();
+        if (ImGui::SmallButton(ICON_FA_SHUFFLE "  Blend tree"))
+        {
+            AnimatorEditing::AddState(c, m, true, glm::vec2(40.0f + 30.0f * (float)c.States.size(), 40.0f + 60.0f * (float)c.States.size()));
+            changed = true;
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("1D blend tree holati: float parametr bo'yicha klipllar aralashadi (masalan Speed: turish / yurish / yugurish)");
 
         // ---- transitions
         ImGui::SeparatorText("O'tishlar");
-        auto stateName = [&](int i) -> std::string { return i < 0 ? "Har qanday" : (i < (int)c.States.size() ? c.States[i].Name : "?"); };
-        const char* ops[] = { ">", "<", "rost", "yolg'on", "trigger" };
-        for (size_t i = 0; i < c.Transitions.size(); i++)
+        int removeTransition = -1;
+        for (int i = 0; i < (int)c.Transitions.size(); i++)
         {
-            auto& tr = c.Transitions[i];
-            ImGui::PushID(2000 + (int)i);
-            ImGui::SetNextItemWidth(95);
-            if (ImGui::BeginCombo("##from", stateName(tr.From).c_str()))
+            const auto& tr = c.Transitions[(size_t)i];
+            ImGui::PushID(2000 + i);
+            std::string label = std::format("{}  " ICON_FA_ARROW_RIGHT "  {}   ({} shart{})###tr", AnimatorEditing::StateName(c, tr.From),
+                                            AnimatorEditing::StateName(c, tr.To), tr.Conditions.size(), tr.HasExitTime ? ", exit time" : "");
+            if (ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding))
             {
-                for (int k = -1; k < (int)c.States.size(); k++)
-                    if (ImGui::Selectable(stateName(k).c_str(), k == tr.From)) { tr.From = k; changed = true; }
-                ImGui::EndCombo();
+                changed |= AnimatorEditing::DrawTransition(c, i);
+                if (ImGui::SmallButton(ICON_FA_TRASH "  O'tishni o'chirish"))
+                    removeTransition = i;
+                ImGui::TreePop();
             }
-            ImGui::SameLine(); ImGui::TextUnformatted(ICON_FA_ARROW_RIGHT);
-            ImGui::SameLine(); ImGui::SetNextItemWidth(95);
-            if (ImGui::BeginCombo("##to", stateName(tr.To).c_str()))
-            {
-                for (int k = 0; k < (int)c.States.size(); k++)
-                    if (ImGui::Selectable(stateName(k).c_str(), k == tr.To)) { tr.To = k; changed = true; }
-                ImGui::EndCombo();
-            }
-            ImGui::SameLine(); ImGui::SetNextItemWidth(45); changed |= ImGui::DragFloat("##fade", &tr.Fade, 0.01f, 0.0f, 5.0f, "%.2fs");
-            ImGui::SameLine();
-            if (ImGui::SmallButton(ICON_FA_XMARK)) { c.Transitions.erase(c.Transitions.begin() + i); changed = true; ImGui::PopID(); break; }
-
-            ImGui::Indent(18);
-            changed |= ImGui::Checkbox("Exit time", &tr.HasExitTime);
-            if (tr.HasExitTime) { ImGui::SameLine(); ImGui::SetNextItemWidth(60); changed |= ImGui::DragFloat("##exit", &tr.ExitTime, 0.01f, 0.0f, 10.0f); }
-            for (size_t k = 0; k < tr.Conditions.size(); k++)
-            {
-                auto& cd = tr.Conditions[k];
-                ImGui::PushID((int)k);
-                ImGui::SetNextItemWidth(95);
-                if (ImGui::BeginCombo("##p", cd.Parameter.empty() ? "(parametr)" : cd.Parameter.c_str()))
-                {
-                    for (auto& p : c.Parameters)
-                        if (ImGui::Selectable(p.Name.c_str(), p.Name == cd.Parameter)) { cd.Parameter = p.Name; changed = true; }
-                    ImGui::EndCombo();
-                }
-                ImGui::SameLine(); ImGui::SetNextItemWidth(70);
-                int op = (int)cd.Mode;
-                if (ImGui::Combo("##op", &op, ops, 5)) { cd.Mode = (AnimatorCondition::Op)op; changed = true; }
-                if (cd.Mode == AnimatorCondition::Op::Greater || cd.Mode == AnimatorCondition::Op::Less)
-                {
-                    ImGui::SameLine(); ImGui::SetNextItemWidth(55); changed |= ImGui::DragFloat("##th", &cd.Threshold, 0.05f);
-                }
-                ImGui::SameLine();
-                if (ImGui::SmallButton(ICON_FA_XMARK)) { tr.Conditions.erase(tr.Conditions.begin() + k); changed = true; ImGui::PopID(); break; }
-                ImGui::PopID();
-            }
-            if (ImGui::SmallButton(ICON_FA_PLUS "  Shart")) { tr.Conditions.push_back({}); changed = true; }
-            ImGui::Unindent(18);
-            ImGui::Separator();
             ImGui::PopID();
         }
-        if (!c.States.empty() && ImGui::SmallButton(ICON_FA_PLUS "  O'tish")) { c.Transitions.push_back({ -1, 0 }); changed = true; }
+        if (removeTransition >= 0)
+        {
+            c.Transitions.erase(c.Transitions.begin() + removeTransition);
+            changed = true;
+        }
+        if (!c.States.empty() && ImGui::SmallButton(ICON_FA_PLUS "  O'tish"))
+        {
+            c.Transitions.push_back({ -1, 0 });
+            changed = true;
+        }
         ImGui::Unindent(6.0f);
         ImGui::PopID();
         return changed;
@@ -5969,6 +5914,173 @@ namespace Zamin {
             else if (!model->IsSkinned()) ImGui::TextDisabled("Modelda skelet yo'q");
             else ImGui::Text("%zu suyak, %zu klip, t=%.2f", model->GetSkeleton().Joints.size(), model->GetAnimations().size(), c.Time);
 
+            // ---- live state: what plays, how far, the crossfade, blend weights, layers; the
+            // parameters while the game runs (editable)
+            if (c.UsesStateMachine() || !m_SceneEditable || !c.Layers.empty())
+            {
+                const bool live = !m_SceneEditable;
+                UI::PropertyHeader(live ? "Holat (jonli)" : "Holat (editorda ko'rib chiqish)",
+                                   live ? "O'yin davomida: hozirgi holat, normalizatsiyalangan vaqt, o'tish jarayoni, blend og'irliklari "
+                                          "va qatlamlar. Parametrlarni shu yerda o'zgartirsa bo'ladi"
+                                        : "Editor boshlang'ich holatni ko'rsatadi (parametrlarning saqlangan qiymatlari bilan)");
+                AnimatorEditing::DrawLiveStatus(c, model.get(), true);
+                if (live && !c.Parameters.empty())
+                    for (size_t i = 0; i < c.Parameters.size(); i++)
+                    {
+                        AnimatorParameter& p = c.Parameters[i];
+                        ImGui::PushID((int)i + 9100);
+                        std::string label = std::format(ICON_FA_SLIDERS " {}", p.Name);
+                        UI::PropertyLabel(label.c_str(), "Parametr (jonli): skriptlar ham o'zgartiradi");
+                        if (p.Kind == AnimatorParameter::Type::Float)
+                            changed |= ImGui::DragFloat("##v", &p.Value, 0.05f, 0.0f, 0.0f, "%.2f");
+                        else if (p.Kind == AnimatorParameter::Type::Bool)
+                        {
+                            bool b = p.Value != 0.0f;
+                            if (ImGui::Checkbox("##v", &b)) { p.Value = b ? 1.0f : 0.0f; changed = true; }
+                        }
+                        else
+                        {
+                            const bool pending = p.Value != 0.0f;
+                            if (pending)
+                                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.85f, 0.55f, 0.15f, 1.0f));
+                            if (ImGui::Button(pending ? ICON_FA_BOLT "  Kutmoqda" : ICON_FA_BOLT "  Ishga tushirish"))
+                            {
+                                p.Value = 1.0f;
+                                changed = true;
+                            }
+                            if (pending)
+                                ImGui::PopStyleColor();
+                        }
+                        ImGui::PopID();
+                    }
+                if (c.UsesStateMachine())
+                {
+                    UI::PropertyLabel("");
+                    if (ImGui::Button(ICON_FA_DIAGRAM_PROJECT "  Animator grafi") && OnAnimatorGraphRequested)
+                        OnAnimatorGraphRequested(entity);
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip("Holat mashinasi graf ko'rinishida: node'lar, o'tishlar, jonli holat");
+                }
+            }
+
+            // ---- layers: clips over the base animation on parts of the body
+            UI::PropertyHeader("Qatlamlar", "Qatlam o'z klipini asosiy animatsiya ustidan faqat maskadagi suyaklarda o'ynaydi - masalan "
+                                            "ustki tana (maska: Spine) qo'l silkitadi, oyoqlar yuradi. Override: qatlam pozasi og'irligicha "
+                                            "o'rnini egallaydi; Additive: klipning birinchi kadridan farqi ustiga qo'shiladi. Skript: "
+                                            "PlayLayer(\"nom\", \"klip\"), SetLayerWeight(\"nom\", 0..1, fade)");
+            {
+                const Skeleton* skeleton = model && model->IsSkinned() ? &model->GetSkeleton() : nullptr;
+                int removeLayer = -1;
+                const float spacing = ImGui::GetStyle().ItemSpacing.x;
+                for (int i = 0; i < (int)c.Layers.size(); i++)
+                {
+                    AnimatorLayer& l = c.Layers[(size_t)i];
+                    ImGui::PushID(i + 9500);
+                    const std::string label = std::format(ICON_FA_LAYER_GROUP " Qatlam {}", i + 1);
+                    UI::PropertyLabel(label.c_str(), "Qatlam nomi (skriptlar shu nom bilan boshqaradi)");
+                    const float button = ImGui::GetFrameHeight();
+                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - button - spacing);
+                    changed |= ImGui::InputText("##name", &l.Name);
+                    ImGui::SameLine();
+                    if (ImGui::Button(ICON_FA_TRASH, ImVec2(button, 0)))
+                        removeLayer = i;
+                    UI::PropertyLabel("Klip");
+                    changed |= AnimatorEditing::ClipCombo("##clip", l.Clip, model.get(), "(yo'q)");
+                    UI::PropertyLabel("Og'irlik");
+                    if (ImGui::SliderFloat("##weight", &l.Weight, 0.0f, 1.0f, "%.2f"))
+                    {
+                        l.WeightFadeSpeed = 0.0f; // the slider sets it at once
+                        changed = true;
+                    }
+                    UI::PropertyLabel("Og'irlik x", "Ixtiyoriy float parametr (0..1) og'irlikni ko'paytiradi - skriptdan silliq boshqarish");
+                    changed |= AnimatorEditing::FloatParameterCombo("##wp", l.WeightParameter, c, "(yo'q)");
+                    {
+                        const char* blends[] = { "Override", "Additive" };
+                        int blend = (int)l.Blend;
+                        if (UI::PropertyCombo("Aralashtirish", blend, blends, 2))
+                        {
+                            l.Blend = (AnimatorLayerBlend)blend;
+                            changed = true;
+                        }
+                    }
+                    // The mask: bones whose subtrees the layer moves.
+                    UI::PropertyLabel("Maska", "Belgilangan suyak va undan pastdagi hamma suyaklar (bo'sh - butun tana)");
+                    std::string preview = l.MaskBones.empty() ? std::string("(butun tana)") : l.MaskBones.front();
+                    if (l.MaskBones.size() > 1)
+                        preview += std::format(" (+{})", l.MaskBones.size() - 1);
+                    if (skeleton)
+                    {
+                        std::vector<float> mask;
+                        const size_t count = BuildJointMask(*skeleton, l.MaskBones, mask);
+                        preview += std::format("  -  {}/{} suyak", count, skeleton->Joints.size());
+                    }
+                    if (ImGui::BeginCombo("##mask", preview.c_str(), ImGuiComboFlags_HeightLarge))
+                    {
+                        if (ImGui::Selectable("(butun tana)", l.MaskBones.empty(), ImGuiSelectableFlags_DontClosePopups))
+                        {
+                            l.MaskBones.clear();
+                            changed = true;
+                        }
+                        if (skeleton)
+                            for (size_t j = 0; j < skeleton->Joints.size(); j++)
+                            {
+                                const Joint& joint = skeleton->Joints[j];
+                                int depth = 0;
+                                for (int p = joint.Parent; p >= 0 && depth < 32; p = skeleton->Joints[(size_t)p].Parent)
+                                    depth++;
+                                auto it = std::find(l.MaskBones.begin(), l.MaskBones.end(), joint.Name);
+                                bool on = it != l.MaskBones.end();
+                                ImGui::PushID((int)j);
+                                ImGui::Indent(depth * 10.0f + 1.0f);
+                                if (ImGui::Checkbox(joint.Name.c_str(), &on))
+                                {
+                                    if (on) l.MaskBones.push_back(joint.Name);
+                                    else l.MaskBones.erase(it);
+                                    changed = true;
+                                }
+                                ImGui::Unindent(depth * 10.0f + 1.0f);
+                                ImGui::PopID();
+                            }
+                        else
+                            ImGui::TextDisabled("Modelda skelet yo'q");
+                        ImGui::EndCombo();
+                    }
+                    UI::PropertyLabel("Tezlik / takror");
+                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight() - spacing);
+                    changed |= ImGui::DragFloat("##speed", &l.Speed, 0.01f, -10.0f, 10.0f, "x%.2f");
+                    ImGui::SameLine();
+                    changed |= ImGui::Checkbox("##loop", &l.Loop);
+                    if (ImGui::IsItemHovered())
+                        UI::Tooltip("Takrorlash");
+                    ImGui::PopID();
+                }
+                if (removeLayer >= 0)
+                {
+                    c.Layers.erase(c.Layers.begin() + removeLayer);
+                    changed = true;
+                }
+                UI::PropertyLabel("");
+                if (ImGui::Button(ICON_FA_PLUS "  Qatlam"))
+                {
+                    AnimatorLayer l;
+                    l.Name = c.Layers.empty() ? "UpperBody" : std::format("Layer{}", c.Layers.size() + 1);
+                    // An upper body mask when the skeleton has a spine.
+                    if (skeleton)
+                        for (const Joint& j : skeleton->Joints)
+                        {
+                            std::string lower = j.Name;
+                            std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char ch) { return (char)std::tolower(ch); });
+                            if (lower.find("spine") != std::string::npos)
+                            {
+                                l.MaskBones = { j.Name };
+                                break;
+                            }
+                        }
+                    c.Layers.push_back(std::move(l));
+                    changed = true;
+                }
+            }
+
             // ---- root motion
             UI::PropertyHeader("Root motion", "Ildiz suyakning yurishi (XZ) va burilishi (Y) obyektni siljitadi: mesh obyektdan "
                                               "uzoqlashib ketmaydi. Character Controller 3D bo'lsa - u yuradi (to'qnashuvlar bilan). "
@@ -6063,7 +6175,12 @@ namespace Zamin {
                 if (m_FoldState)
                     ImGui::SetNextItemOpen(wasOpen, ImGuiCond_Always);
                 bool open = wasOpen;
-                modified |= DrawAnimatorStateMachine(*anim, mr ? mr->ModelAsset : nullptr, &open);
+                const UUID id = entity.GetUUID();
+                modified |= DrawAnimatorStateMachine(*anim, mr ? mr->ModelAsset : nullptr, &open, !m_SceneEditable, [this, id]() {
+                    if (OnAnimatorGraphRequested)
+                        if (Entity e = m_Context->GetEntityByUUID(id))
+                            OnAnimatorGraphRequested(e);
+                });
                 if (m_FoldState && open != wasOpen && m_FoldState->SetOpen(foldKey, open, false) && OnFoldStateModified)
                     OnFoldStateModified();
             } });

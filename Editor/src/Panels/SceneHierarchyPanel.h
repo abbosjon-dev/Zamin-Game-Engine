@@ -246,6 +246,8 @@ namespace Zamin {
         std::function<void()> OnPhysicsLayersRequested;
         // The Animation window is to open on an entity's Animation Player (clip: index in its list).
         std::function<void(Entity, int)> OnAnimationWindowRequested;
+        // The Animator graph window for this entity's state machine.
+        std::function<void(Entity)> OnAnimatorGraphRequested;
 
     private:
         // Where a hierarchy row drop puts the dragged entities.

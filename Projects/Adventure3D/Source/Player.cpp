@@ -62,13 +62,13 @@ public:
 
         // ---- animation state
         if (!cc->Grounded) m_AirTime += ts; else m_AirTime = 0.0f;
-        // The Animator state machine (defined in the scene) picks the clip from these parameters.
+        // The Animator state machine (defined in the scene) picks the clip from these parameters:
+        // on the ground a 1D blend tree mixes Idle / Walk / Run by Speed (thresholds 0, 3, 6.5 - the
+        // walk and run speeds, so the feet match the ground), in the air the Jump clip.
         if (auto* anim = TryGetComponent<AnimatorComponent>())
         {
             anim->SetFloat("Speed", speed);
             anim->SetBool("Grounded", m_AirTime <= 0.12f);
-            anim->SetFloat("WalkRate", std::max(0.6f, speed / WalkSpeed));
-            anim->SetFloat("RunRate", std::max(0.7f, speed / RunSpeed));
         }
 
         // ---- fell off the world

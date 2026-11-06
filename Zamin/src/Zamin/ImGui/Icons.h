@@ -182,3 +182,5 @@
 #define ICON_FA_CLAPPERBOARD "\xee\x84\xb1"
 #define ICON_FA_PERSON_WALKING "\xef\x95\x94"
 #define ICON_FA_FLAG "\xef\x80\xa4"
+#define ICON_FA_ARROW_DOWN_WIDE_SHORT "\xef\x85\xa0" // sort
+#define ICON_FA_ASTERISK "\x2a"

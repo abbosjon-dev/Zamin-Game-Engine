@@ -109,6 +109,13 @@ namespace Zamin {
             m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
             m_AnimationPanel.Open(e, clip);
         };
+        m_SceneHierarchyPanel.OnAnimatorGraphRequested = [this](Entity e) {
+            m_ShowAnimatorGraph = true;
+            m_AnimatorGraphPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
+            m_AnimatorGraphPanel.Open(e);
+            m_AnimatorGraphPanel.Focus();
+        };
+        m_AnimatorGraphPanel.OnModified = [this]() { MarkDirty(); };
         m_ContentBrowserPanel.OnOpenAnimation = [this](const fs::path& p) {
             m_ShowAnimation = true;
             m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
@@ -316,6 +323,26 @@ namespace Zamin {
                 if (v.find("key=") != std::string_view::npos)
                     m_AnimationPanel.SelectKey((int)number("track=", 0.0f), (int)number("key=", 0.0f));
                 m_AnimationPanel.SetRecording(v.find("record") != std::string_view::npos);
+            }
+            // ZAMIN_EDITOR_ANIMATOR_GRAPH=1 | state=N,transition=N,viewport: the Animator graph window on
+            // the selected entity (a state / transition selected; docked over the viewport).
+            if (const char* graph = std::getenv("ZAMIN_EDITOR_ANIMATOR_GRAPH"))
+            {
+                std::string_view v(graph);
+                m_ShowAnimatorGraph = true;
+                m_AnimatorGraphPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
+                if (Entity selected = m_SceneHierarchyPanel.GetSelectedEntity())
+                    m_AnimatorGraphPanel.Open(selected);
+                auto number = [&](std::string_view key) {
+                    size_t at = v.find(key);
+                    return at == std::string_view::npos ? -1 : std::atoi(std::string(v.substr(at + key.size())).c_str());
+                };
+                if (number("state=") >= 0)
+                    m_AnimatorGraphPanel.SelectState(number("state="));
+                if (number("transition=") >= 0)
+                    m_AnimatorGraphPanel.SelectTransition(number("transition="));
+                m_AnimatorGraphInViewport = v.find("viewport") != std::string_view::npos;
+                m_AnimatorGraphPanel.Focus();
             }
             // ZAMIN_EDITOR_ASSET=<path relative to Assets>: the asset inspector shows that file.
             if (const char* asset = std::getenv("ZAMIN_EDITOR_ASSET"))
@@ -5071,6 +5098,11 @@ namespace Zamin {
         if (ImGuiWindow* content = ImGui::FindWindowByName("###ContentBrowser"); content && content->DockId)
             m_AnimationPanel.SetDefaultDock(content->DockId); // first opened: a tab next to the content browser
         m_AnimationPanel.OnImGuiRender(&m_ShowAnimation);
+        m_AnimatorGraphPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
+        m_AnimatorGraphPanel.SetSelection(m_SceneHierarchyPanel.GetSelectedEntity());
+        if (ImGuiWindow* dock = ImGui::FindWindowByName(m_AnimatorGraphInViewport ? "###Viewport" : "###ContentBrowser"); dock && dock->DockId)
+            m_AnimatorGraphPanel.SetDefaultDock(dock->DockId); // first opened: a tab next to the content browser
+        m_AnimatorGraphPanel.OnImGuiRender(&m_ShowAnimatorGraph);
         m_AudioMixerPanel.SetPlaying(m_SceneState == SceneState::Play);
         m_AudioMixerPanel.OnImGuiRender(&m_ShowAudioMixer);
         m_SceneHierarchyPanel.DrawTilePaletteWindow(&m_ShowTilePalette);
@@ -5269,6 +5301,8 @@ namespace Zamin {
             ImGui::MenuItem(ICON_FA_SLIDERS "  Audio Mixer", nullptr, &m_ShowAudioMixer);
             if (ImGui::MenuItem(ICON_FA_TIMELINE "  Animatsiya", nullptr, &m_ShowAnimation) && m_ShowAnimation)
                 m_AnimationPanel.Focus();
+            if (ImGui::MenuItem(ICON_FA_DIAGRAM_PROJECT "  Animator grafi", nullptr, &m_ShowAnimatorGraph) && m_ShowAnimatorGraph)
+                m_AnimatorGraphPanel.Focus();
             ImGui::MenuItem(ICON_FA_BROOM "  Ishlatilmagan assetlar", nullptr, &m_ShowUnusedAssets, hasProject);
             if (ImGui::MenuItem(ICON_FA_SCISSORS "  Sprite muharriri", nullptr, m_ShowSpriteEditor, hasProject))
             {

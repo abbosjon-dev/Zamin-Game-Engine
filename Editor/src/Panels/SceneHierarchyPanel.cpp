@@ -5855,7 +5855,7 @@ namespace Zamin {
             UI::PropertyHeader("Root motion", "Ildiz suyakning yurishi (XZ) va burilishi (Y) obyektni siljitadi: mesh obyektdan "
                                               "uzoqlashib ketmaydi. Character Controller 3D bo'lsa - u yuradi (to'qnashuvlar bilan). "
                                               "Editor ko'rinishida joyida turadi");
-            changed |= UI::PropertyBool("Root motion qo'llash", c.ApplyRootMotion);
+            changed |= UI::PropertyBool("Qo'llash", c.ApplyRootMotion);
             if (c.ApplyRootMotion)
             {
                 UI::PropertyLabel("Ildiz suyak", "Qaysi suyakning harakati obyektga o'tadi. Avtomatik: klip siljitadigan eng yuqori suyak (odatda Hips / Root)");
@@ -5892,11 +5892,19 @@ namespace Zamin {
             {
                 AnimatorEvent& ev = c.Events[(size_t)i];
                 ImGui::PushID(i);
-                UI::PropertyLabel(i == 0 ? "Event'lar" : "");
+                // Two rows: its name (and the delete button), then which clip and when.
+                const std::string label = std::format("Event {}", i + 1);
+                UI::PropertyLabel(label.c_str(), "Nom: skriptning OnAnimationEvent(e) da e.Name; klip va vaqt (0..1)");
                 const float button = ImGui::GetFrameHeight();
                 const float spacing = ImGui::GetStyle().ItemSpacing.x;
-                const float avail = ImGui::GetContentRegionAvail().x - button - spacing * 3.0f;
-                ImGui::SetNextItemWidth(avail * 0.34f);
+                ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - button - spacing);
+                changed |= ImGui::InputTextWithHint("##name", "nom", &ev.Name);
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_TRASH, ImVec2(button, 0)))
+                    removeEvent = i;
+                UI::PropertyLabel("");
+                const float avail = ImGui::GetContentRegionAvail().x - spacing;
+                ImGui::SetNextItemWidth(avail * 0.55f);
                 if (ImGui::BeginCombo("##clip", ev.Clip.empty() ? "(har qanday)" : ev.Clip.c_str()))
                 {
                     if (ImGui::Selectable("(har qanday)", ev.Clip.empty())) { ev.Clip.clear(); changed = true; }
@@ -5906,14 +5914,8 @@ namespace Zamin {
                     ImGui::EndCombo();
                 }
                 ImGui::SameLine();
-                ImGui::SetNextItemWidth(avail * 0.26f);
+                ImGui::SetNextItemWidth(avail * 0.45f);
                 changed |= ImGui::SliderFloat("##time", &ev.Time, 0.0f, 1.0f, "%.2f");
-                ImGui::SameLine();
-                ImGui::SetNextItemWidth(avail * 0.40f);
-                changed |= ImGui::InputTextWithHint("##name", "nom", &ev.Name);
-                ImGui::SameLine();
-                if (ImGui::Button(ICON_FA_TRASH, ImVec2(button, 0)))
-                    removeEvent = i;
                 ImGui::PopID();
             }
             if (removeEvent >= 0)

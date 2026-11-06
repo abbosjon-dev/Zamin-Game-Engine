@@ -200,7 +200,25 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     tahrir qilinayotganda jonli kuzatiladi, diskdagi keshga faqat fayldagiga mos holati yoziladi
   - **glTF 2.0** modellar (`.gltf` / `.glb`): bir nechta mesh, PBR materiallar, ichki (embedded) teksturalar
   - **Skeletal animatsiya**: glTF skin'lari, suyaklar, animatsiya kliplari (GPU skinning, soyalar bilan), `Animator` komponenti,
-    kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`
+    kliplar orasida **silliq o'tish** (crossfade): `anim.Play("Run", true, 1.0f, 0.2f)`; **event'lar** (klipning 0..1 nuqtasi,
+    nom va parametr — skriptga `OnAnimationEvent`), **root motion** (ildiz suyakning XZ yurishi va Y burilishi obyektni yoki
+    Character Controller 3D'ni siljitadi, poza joyida qoladi; suyak avtomatik yoki tanlanadi)
+  - **Property animatsiya** (`.zanim` kliplar, **Animation Player** komponenti): obyekt va uning bolalarining (nom yo'li bilan,
+    `"Eshik/Oshiq"`) transformi, Sprite / Circle / Text / Mesh rangi, yorug'lik rangi va kuchi, UI joylashuvi / o'lchami /
+    masshtabi / shaffofligi, UI rasm rangi va skriptning float maydonlari; kalitlar **Step / Linear / Bezier** (avtomatik
+    silliq tangentlar — cho'qqida oshib ketmaydi, tekis yoki qo'lda), klip **bir marta / takror / borib-qaytish**, tezlik
+    (manfiy — orqaga), **event'lar** (har biri o'tilganda aynan bir marta, katta kadrda ham). Skript: `PlayAnimation("EshikOchilishi")`,
+    `PlayAnimation("EshikOchilishi", -1.0f)` (yopish), `StopAnimation()`, `IsAnimationPlaying()`, komponentda `SetTime`,
+    `GetNormalizedTime`; `OnAnimationEvent(e)` yoki `AddAnimationEventHandler("Pulse", fn)`, event bus'da `"AnimationEvent"`
+  - **Animatsiya oynasi** (Oyna > Animatsiya, timeline): treklar ro'yxati (+ Trek qo'shish: obyekt va xususiyat), **dope sheet**
+    (kalitlar romb, sudrab ko'chirish, ikki marta bosish — kalit, Delete, o'ng tugma — interpolyatsiya / tangent) va **egri
+    chiziqlar** (tanlangan trekning komponentlari, kalit nuqtalari va Bezier tutqichlari sudraladi), event'lar qatori, vaqt
+    chizg'ichi (scrub), g'ildirak bilan masshtab va surish, kadrlarga yopishish, klip davomiyligi / fps / tugash rejimi.
+    **Play rejimisiz ko'rib chiqish**: vaqt surilganda yoki ▶ bosilganda sahna ko'rinishida klip qo'llanadi, oyna yopilganda
+    (yoki saqlash / undo / Play) sahnaning o'z qiymatlari qaytadi. **Yozish** (●): inspektor yoki gizmo bilan qilingan
+    o'zgarishlar joriy vaqtda kalit bo'ladi (yangi xususiyat — yangi trek). O'z undo/redo'si (oyna fokusda: Ctrl+Z / Ctrl+Y),
+    Ctrl+S — klipni saqlash. Kontent: o'ng tugma → Yangi animatsiya klipi, `.zanim` ikki marta bosilsa oynada ochiladi.
+    Namuna: Showcase3D `Scenes/Animation.zscene` (mayoq, eshik, glTF Animator event'lari)
   - **Post-processing**: SSAO (ambient occlusion), bloom (**rangi** — porlash shu rangga ko'paytiriladi; **linza changi** —
     yorqin yorug'likning keng porlashi protsedural chang/dog' teksturasini yoritadi), vinyetka, kontrast/to'yinganlik/rang
     tuslash, **xromatik aberratsiya** (chetlarga tomon qizil va ko'k siljiydi), **plyonka donasi** (har kadr o'zgaradigan
@@ -772,7 +790,8 @@ Foydali API:
 | 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `ApplyImpulse(other, impulse)`, `Raycast2D(origin, dir, dist, LayerMask({ "Ground" }))`, `Raycast2DAll(origin, dir, dist, mask, includeTriggers)` (hamma urilishlar, yaqini birinchi), `OverlapCircle2D(center, r, mask)` / `OverlapBox2D(center, halfExtents, angle, mask)` / `OverlapPoint2D(p, mask)` → `std::vector<Entity>`, `LayerIndex("Player")`, uxlash: `IsSleeping()` / `WakeUp()` / `PutToSleep()` (`IsSleeping(other)`, `WakeUp(other)`); joint'lar: `GetComponent<RevoluteJoint2DComponent>()` → `.MotorSpeed`, `.EnableLimit`, `.JointAngle`, `.ReactionForce`, `.Broken` ... |
 | 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)`, uxlash: `IsSleeping3D()` / `WakeUp3D()` / `PutToSleep3D()` (`(other)` turlari ham); joint'lar: `GetComponent<HingeJoint3DComponent>()` → `.MotorSpeed`, `.EnableSpring`, `.SpringTargetAngle`, `.JointAngle`, `.ReactionForce`, `.Broken`; `SliderJoint3DComponent` → `.MotorSpeed`, `.JointTranslation` ... |
 | Qahramon | `GetComponent<CharacterController3DComponent>()` → `.Move(velocity)`, `.Jump(speed)`, `.Grounded`, `.Velocity` (oxirgi fizika qadamidagi haqiqiy tezlik) |
-| Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)`, `SetBool`, `SetTrigger` |
+| Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)`, `SetBool`, `SetTrigger`; `.ApplyRootMotion`, `.RootMotionVelocity` |
+| Property animatsiya | `PlayAnimation("Klip", speed)` (speed < 0 — oxiridan orqaga), `StopAnimation()`, `IsAnimationPlaying()`; `GetComponent<AnimationPlayerComponent>().SetTime(t)`; event'lar: `OnAnimationEvent(const AnimationEventInfo& e)` (`e.Name`, `e.Parameter`, `e.Clip`, `e.Skeletal`), `AddAnimationEventHandler("Footstep", fn)` |
 | Input harakatlari | `Input::IsActionPressed("Fire")`, `IsActionJustPressed("Jump")`, `IsActionJustReleased(...)`, `GetAxis("Horizontal")`, `GetAxis2D("Horizontal", "Vertical")` |
 | Input (qurilma) | `Input::IsKeyPressed / IsKeyJustPressed / IsKeyJustReleased`, `IsMouseButtonPressed / ...JustPressed / ...JustReleased`, `GetMouseDelta()`, `GetMouseScrollDelta()`, `IsGamepadButtonPressed / ...JustPressed`, `GetGamepadAxis`, `GetMousePosition()`, `GetMouseWorldPosition()`, `ScreenToWorld()` |
 | Saqlash | `SaveData::SetInt/SetFloat/SetString/SetBool(kalit, qiymat)`, `GetInt/GetFloat/GetString/GetBool(kalit, standart)`, `HasKey`, `DeleteKey`, `DeleteAll`, `Save()` |

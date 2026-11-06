@@ -280,11 +280,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M13 Animatsiya II
 
-- [ ] 241. Property animatsiya kliplari (.zanim): transform/rang kalit kadrlari
-- [ ] 242. Animatsiya timeline muharriri (editor oynasi)
-- [ ] 243. Kalit kadrlar interpolyatsiyasi (linear, step, bezier)
-- [ ] 244. Animatsiya event'lari (vaqtda skript callback)
-- [ ] 245. Root motion (glTF)
+- [x] 241. Property animatsiya kliplari (.zanim): transform/rang kalit kadrlari
+- [x] 242. Animatsiya timeline muharriri (editor oynasi)
+- [x] 243. Kalit kadrlar interpolyatsiyasi (linear, step, bezier)
+- [x] 244. Animatsiya event'lari (vaqtda skript callback)
+- [x] 245. Root motion (glTF)
 - [ ] 246. Blend tree 1D (tezlik bo'yicha walk/run aralashtirish)
 - [ ] 247. Animatsiya qatlamlari (ustki tana) - oddiy
 - [ ] 248. Sprite animatsiya kliplari asset sifatida

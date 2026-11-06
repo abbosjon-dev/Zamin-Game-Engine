@@ -270,6 +270,7 @@ namespace Zamin {
         m_SelectedKeys.clear();
         m_SelectedEvent = -1;
         m_EditOpen = false;
+        m_Applied.clear(); // what the preview wrote belongs to the other version (no edits to detect)
         Commit();
         return true;
     }
@@ -284,6 +285,7 @@ namespace Zamin {
         m_SelectedKeys.clear();
         m_SelectedEvent = -1;
         m_EditOpen = false;
+        m_Applied.clear(); // what the preview wrote belongs to the other version (no edits to detect)
         Commit();
         return true;
     }
@@ -657,6 +659,9 @@ namespace Zamin {
             const int count = track.GetComponentCount();
             if (Near(now, a.Value, count))
                 continue;
+            if (track.Property != a.Property || track.Field != a.Field || !player ||
+                AnimationTargets::Resolve(player, track.Path) != e)
+                continue; // the tracks changed since (removed, reordered)
             if (m_Recording)
             {
                 if (!m_RecordEditing)

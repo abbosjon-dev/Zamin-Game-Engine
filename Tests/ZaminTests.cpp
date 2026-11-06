@@ -20801,9 +20801,10 @@ TEST(AudioSampleScene)
         CHECK(Audio::GetMusic() == "Audio/MusicTense.wav" && AudioEngine::GetMusicVoiceCount() == 1);
         // The drone flies (the scripts are not loaded here: it is moved by hand) - its pitch follows.
         CHECK(AudioEngine::IsPlaying(buzz.RuntimeHandle));
+        drone.GetTransform().Translation.x = 4.0f; // the listener waits at x = -7 (its script is not loaded either)
         for (int i = 0; i < 3; i++)
         {
-            drone.GetTransform().Translation.z += 1.2f; // 12 m/s towards the listener's path
+            drone.GetTransform().Translation.x -= 1.2f; // 12 m/s along the listener's path, towards it
             scene->OnUpdateRuntime(0.1f);
             AudioEngine::Update(1.0f);
         }

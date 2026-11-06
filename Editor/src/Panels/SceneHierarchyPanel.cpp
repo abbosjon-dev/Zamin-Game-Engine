@@ -2072,16 +2072,21 @@ namespace Zamin {
             UI::Tooltip("PlayAudio(): boshidan (yangi tasodifiy balandlik / ton bilan)");
         ImGui::SameLine();
         ImGui::BeginDisabled(!alive);
-        if (alive && info.Paused)
+        const bool paused = alive && info.Paused;
+        if (ImGui::Button(paused ? ICON_FA_PLAY : ICON_FA_PAUSE))
         {
-            if (ImGui::Button(ICON_FA_PLAY "  Davom"))
+            if (paused)
                 m_Context->ResumeAudio(entity);
+            else
+                m_Context->PauseAudio(entity);
         }
-        else if (ImGui::Button(ICON_FA_PAUSE "  Pauza"))
-            m_Context->PauseAudio(entity);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip(paused ? "ResumeAudio(): to'xtagan joyidan davom" : "PauseAudio(): shu joyida to'xtatish");
         ImGui::SameLine();
         if (ImGui::Button(ICON_FA_STOP))
             m_Context->StopAudio(entity);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip("StopAudio(): to'xtatish (ovoz bo'shatiladi)");
         ImGui::EndDisabled();
         ImGui::PopID();
         if (!alive)
@@ -2096,38 +2101,32 @@ namespace Zamin {
             ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.35f, 0.8f, 0.45f, 1.0f));
             ImGui::ProgressBar(info.Paused ? 0.0f : fraction, ImVec2(-FLT_MIN, 0.0f), text.c_str());
             ImGui::PopStyleColor();
+            ImGui::TextDisabled("balandlik %.2f x%.2f", info.Volume, info.VolumeVariation);
             if (ImGui::IsItemHovered())
-            {
-                std::string tip = std::format("Balandlik {:.2f} x tasodifiy {:.2f} x guruh '{}' {:.2f}", info.Volume, info.VolumeVariation,
-                                              info.Group.empty() ? std::string("-") : info.Group, info.GroupGain);
-                if (info.Spatial)
-                    tip += std::format(" x masofa {:.2f} ({:.1f} m)", info.Attenuation, info.Distance);
-                UI::Tooltip(tip.c_str());
-            }
+                UI::Tooltip("Manbaning balandligi va bu ijroda olgan tasodifiy ko'paytuvchisi");
+            ImGui::TextDisabled("guruh %s %s", info.Group.empty() ? "-" : info.Group.c_str(),
+                                info.GroupGain <= 0.0f ? "jim" : std::format("{:+.1f} dB", AudioGain::ToDecibels(info.GroupGain)).c_str());
+            if (info.Spatial)
+                ImGui::TextDisabled("masofa %.1f m x%.2f", info.Distance, info.Attenuation);
         }
-        UI::PropertyLabel("");
-        if (info.Spatial)
-            ImGui::TextDisabled("x%.2f tasodifiy   guruh %.1f dB   masofa %.1f m (x%.2f)", info.VolumeVariation, AudioGain::ToDecibels(info.GroupGain),
-                                info.Distance, info.Attenuation);
-        else
-            ImGui::TextDisabled("x%.2f tasodifiy   guruh %.1f dB", info.VolumeVariation, AudioGain::ToDecibels(info.GroupGain));
 
         UI::PropertyLabel("Ton (hozir)", "So'ralgan ton x tasodifiy ko'paytuvchi x Doppler");
         ImGui::Text("%.3f", info.AppliedPitch);
-        ImGui::SameLine();
-        if (info.Spatial)
-            ImGui::TextDisabled("(x%.3f tasodifiy, x%.3f Doppler)", info.PitchVariation, info.DopplerPitch);
-        else
-            ImGui::TextDisabled("(x%.3f tasodifiy)", info.PitchVariation);
+        ImGui::TextDisabled("tasodifiy x%.3f", info.PitchVariation);
         if (info.Spatial)
         {
+            const float doppler = info.DopplerPitch;
+            ImVec4 color = doppler > 1.002f ? ImVec4(0.95f, 0.7f, 0.35f, 1.0f) : doppler < 0.998f ? ImVec4(0.45f, 0.7f, 1.0f, 1.0f)
+                                                                                                 : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
+            ImGui::TextColored(color, "Doppler x%.3f", doppler);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Yaqinlashayotganda > 1 (baland), uzoqlashayotganda < 1 (past)");
             UI::PropertyLabel("Tezlik", "Manba harakatidan o'lchanadi (Doppler uchun)");
             ImGui::Text("%.1f m/s", glm::length(info.Velocity));
         }
         AudioVoiceStats stats = AudioEngine::GetVoiceStats();
-        UI::PropertyLabel("Ovozlar");
-        ImGui::TextDisabled("%zu / %d ijro etilmoqda   %s%s", stats.Voices, stats.MaxVoices, info.Streamed ? ICON_FA_WAVE_SQUARE " oqim  " : "",
-                            std::format("ustuvorlik {}", info.Priority).c_str());
+        UI::PropertyLabel("Ovozlar", "Loyihada hozir ijro etilayotgan ovozlar / limit (musiqasiz)");
+        ImGui::TextDisabled("%zu / %d%s", stats.Voices, stats.MaxVoices, info.Streamed ? "   " ICON_FA_WAVE_SQUARE " oqim" : "");
     }
 
     // ------------------------------------------------------------------ 2D renderers

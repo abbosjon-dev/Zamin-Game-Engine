@@ -1014,10 +1014,10 @@ public:
                                : IsAudioPaused(hum)  ? std::format("pauza ({:.1f} s)", GetAudioTime(hum))
                                : IsAudioPlaying(hum) ? std::format("{:.1f} s", GetAudioTime(hum))
                                                      : std::string("jim");
-        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 1.0f, 0.0f),
-                        std::format("Qo'ng'iroqcha: {}  |  bir vaqtda {}/{}", last, m_Handles.size(), MaxAtOnce),
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 1.25f, 0.0f), std::format("Qo'ng'iroqcha: {}", last),
                         glm::vec4(1.0f, 0.9f, 0.55f, 1.0f));
-        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.65f, 0.0f), std::format("H - g'uvillash: {}", humState),
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.9f, 0.0f),
+                        std::format("bir vaqtda {}/{}   H - g'uvillash: {}", m_Handles.size(), MaxAtOnce, humState),
                         glm::vec4(0.75f, 0.9f, 1.0f, 1.0f));
     }
 

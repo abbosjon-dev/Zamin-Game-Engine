@@ -1258,3 +1258,43 @@ private:
     std::string m_Status;
 };
 ZM_REGISTER_SCRIPT(AudioOptions)
+
+// Animatsiya sahnasi (M13): obyektning Animation Player klipi chiqargan event'larni ko'rsatadi.
+// OnAnimationEvent hamma event'larni oladi; AddAnimationEventHandler esa bitta nomga usul bog'laydi.
+class AnimationEventDemo : public ScriptableEntity
+{
+public:
+    std::string Title = "Animatsiya";
+    float Height = 3.4f; // the labels above the entity
+
+    void OnCreate() override
+    {
+        AddAnimationEventHandler("Pulse", [this](const AnimationEventInfo&) { m_Pulses++; });
+    }
+    void OnAnimationEvent(const AnimationEventInfo& e) override
+    {
+        m_Last = e.Name;
+        m_Count++;
+        m_Flash = 1.0f;
+    }
+    void OnUpdate(Timestep ts) override
+    {
+        m_Flash = std::max(0.0f, m_Flash - ts * 1.5f);
+        const glm::vec3 p = GetWorldPosition();
+        DebugDraw::Text(p + glm::vec3(0.0f, Height + 0.35f, 0.0f), Title, glm::vec4(0.85f, 0.88f, 0.95f, 1.0f));
+        if (m_Last.empty())
+            return;
+        const glm::vec4 color = glm::mix(glm::vec4(0.7f, 0.75f, 0.82f, 1.0f), glm::vec4(1.0f, 0.82f, 0.3f, 1.0f), m_Flash);
+        std::string text = std::format("event: {}  (jami {})", m_Last, m_Count);
+        if (m_Pulses > 0)
+            text += std::format(", Pulse: {}", m_Pulses);
+        DebugDraw::Text(p + glm::vec3(0.0f, Height, 0.0f), text, color);
+    }
+
+private:
+    std::string m_Last;
+    int m_Count = 0;
+    int m_Pulses = 0;
+    float m_Flash = 0.0f;
+};
+ZM_REGISTER_SCRIPT(AnimationEventDemo, ZM_FIELD(AnimationEventDemo, Title), ZM_FIELD(AnimationEventDemo, Height))

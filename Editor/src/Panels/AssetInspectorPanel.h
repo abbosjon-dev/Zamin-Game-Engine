@@ -56,6 +56,8 @@ namespace Zamin {
         std::function<void(const std::vector<std::filesystem::path>&)> OnFilesCreated;
         // Textures: the Sprite Editor is to open for the shown file.
         std::function<void(const std::filesystem::path&)> OnOpenSpriteEditor;
+        // "Animatsiya oynasida ochish" of a .zanim clip.
+        std::function<void(const std::filesystem::path&)> OnOpenAnimation;
 
         // Models: writes the file's materials as .zmat files (Model::ExportMaterials) into the
         // default folder next to it. False when nothing could be exported (the reason is shown).
@@ -145,6 +147,7 @@ namespace Zamin {
         // A physics material (.zphysmat): its values, edited live (the running scene follows) and
         // saved to the file once an edit is finished.
         void DrawPhysicsMaterial();
+        void DrawAnimationClip();
         void DrawMaterialPreview();
         // The material's fields (into m_MaterialEdit); true when one changed.
         bool DrawMaterialFields();

@@ -56,6 +56,8 @@ namespace Zamin {
         // With a preset (the built-in library: metal, wood, glass...): a copy of it ("Wood.zmat",
         // its generated texture in Textures/ next to it).
         std::filesystem::path CreateMaterial(const MaterialPreset* preset = nullptr);
+        // "Yangi animatsiya klipi": an empty property clip (.zanim, 1 s, looping) under a free name.
+        std::filesystem::path CreateAnimationClip();
         // The "Yangi material" menu items: an empty material and the standard library. Returns true
         // when one was chosen.
         bool DrawNewMaterialMenu();
@@ -78,6 +80,8 @@ namespace Zamin {
         void SetUsageCache(AssetUsageCache* cache) { m_Usage = cache; }
 
         std::function<void(const std::filesystem::path&)> OnOpenScene;
+        // A .zanim clip was double-clicked: the Animation window opens it.
+        std::function<void(const std::filesystem::path&)> OnOpenAnimation;
         // An item was clicked: the file or folder the selection is about now (empty when the
         // click / Escape cleared it). The editor shows the file in the inspector.
         std::function<void(const std::filesystem::path&)> OnAssetSelected;

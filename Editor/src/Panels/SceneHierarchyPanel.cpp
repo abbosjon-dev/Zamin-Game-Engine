@@ -3059,6 +3059,105 @@ namespace Zamin {
         ImGui::Dummy(ImVec2(width, height + 6.0f));
     }
 
+    bool SceneHierarchyPanel::DrawAnimationPlayer(Entity entity, AnimationPlayerComponent& c)
+    {
+        bool changed = false;
+        InactiveComponentNote(entity, "Obyekt nofaol: animatsiya o'ynamaydi (joyida to'xtab turadi)");
+        // The clips: a cleared row goes away; the empty row at the end adds one.
+        int remove = -1;
+        for (int i = 0; i <= (int)c.Clips.size(); i++)
+        {
+            const bool adding = i == (int)c.Clips.size();
+            std::string path = adding ? std::string() : c.Clips[(size_t)i];
+            ImGui::PushID(i);
+            std::string label = adding ? std::string("Klip qo'shish") : std::format("Klip {}", i + 1);
+            UI::AssetPathOptions options;
+            bool open = false;
+            if (!adding)
+            {
+                options.ActionIcon = ICON_FA_TIMELINE;
+                options.ActionTooltip = "Animatsiya oynasida ochish (kalit kadrlar, event'lar)";
+                options.ActionClicked = &open;
+                options.Missing = !path.empty() && !PropertyClipLibrary::Load(path);
+            }
+            options.Tooltip = adding ? ".zanim faylini shu yerga tashlang yoki tanlang"
+                                     : i == 0 ? "Birinchi klip: o'yin boshlanganda o'ynaydi (Avto boshlash). Tozalash - ro'yxatdan olib tashlaydi"
+                                              : "O'ynaladigan klip (.zanim): skript Play(\"nom\") bilan. Tozalash - ro'yxatdan olib tashlaydi";
+            if (UI::PropertyAssetPath(label.c_str(), path, ".zanim", ICON_FA_FILM, options))
+            {
+                if (adding)
+                {
+                    if (!path.empty())
+                        c.Clips.push_back(path);
+                }
+                else if (path.empty())
+                    remove = i;
+                else
+                    c.Clips[(size_t)i] = path;
+                changed = true;
+            }
+            if (open && OnAnimationWindowRequested)
+                OnAnimationWindowRequested(entity, i);
+            ImGui::PopID();
+        }
+        if (remove >= 0)
+            c.Clips.erase(c.Clips.begin() + remove);
+        UI::PropertyLabel("");
+        ImGui::BeginDisabled(!Project::GetActive() || !m_SceneEditable);
+        if (ImGui::Button(ICON_FA_FILE_CIRCLE_PLUS "  Yangi klip"))
+        {
+            // Assets/Animations/<entity name>.zanim (a free name), added and opened in the Animation window.
+            std::string name;
+            for (char ch : entity.GetName())
+                name += std::isalnum((unsigned char)ch) || ch == '_' || ch == '-' ? ch : '_';
+            if (name.empty()) name = "Clip";
+            std::filesystem::path dir = Project::GetAssetDirectory() / "Animations";
+            std::filesystem::path file = AssetFiles::MakeUniquePath(dir, name + PropertyClip::Extension);
+            PropertyClip clip;
+            if (PropertyClipSerializer::Serialize(clip, file))
+            {
+                if (AssetRegistry* registry = Project::GetAssetRegistry())
+                    registry->OnFileAdded(file);
+                c.Clips.push_back(Project::GetAssetRelativePath(file));
+                changed = true;
+                ZM_INFO("Yangi animatsiya klipi: {}", c.Clips.back());
+                if (OnFilesCreated)
+                    OnFilesCreated({ file });
+                if (OnAnimationWindowRequested)
+                    OnAnimationWindowRequested(entity, (int)c.Clips.size() - 1);
+            }
+            else
+                ZM_ERROR("Animatsiya klipi yozilmadi: {}", file.string());
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip("Assets/Animations ichida bo'sh .zanim klip yaratiladi, ro'yxatga qo'shiladi va Animatsiya oynasida ochiladi");
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_TIMELINE "  Oyna") && OnAnimationWindowRequested)
+            OnAnimationWindowRequested(entity, c.Current >= 0 ? c.Current : 0);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Animatsiya oynasi: treklar, kalit kadrlar, event'lar, ko'rib chiqish");
+
+        changed |= UI::PropertyFloat("Tezlik", c.Speed, 0.01f, -10.0f, 10.0f);
+        UI::PropertyLabel("Avto boshlash", "O'yin boshlanganda birinchi klip o'ynaydi");
+        changed |= ImGui::Checkbox("##playonstart", &c.PlayOnStart);
+        {
+            const char* items[] = { "Klipdagidek", "Bir marta", "Takror", "Borib-qaytish" };
+            int wrap = (int)c.Wrap;
+            if (UI::PropertyCombo("Tugaganda", wrap, items, 4))
+            {
+                c.Wrap = (AnimationPlayerWrap)wrap;
+                changed = true;
+            }
+        }
+        if (c.Current >= 0)
+        {
+            UI::PropertyLabel("Holat");
+            ImGui::Text("%s  %s  %.2f / %.2f s", c.Playing ? ICON_FA_PLAY : ICON_FA_PAUSE, c.GetCurrentClipName().c_str(), c.GetTime(), c.GetDuration());
+        }
+        return changed;
+    }
+
     bool SceneHierarchyPanel::DrawTintAnimation(Entity entity, TintAnimationComponent& c)
     {
         bool changed = false;
@@ -5435,6 +5534,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<TextComponent>("Text", ICON_FA_FONT);
                 DisplayAddComponentEntry<MeshRendererComponent>("Mesh Renderer", ICON_FA_CUBE);
                 DisplayAddComponentEntry<AnimatorComponent>("Animator (skeletal)", ICON_FA_PERSON_RUNNING);
+                DisplayAddComponentEntry<AnimationPlayerComponent>("Animation Player (.zanim kliplar)", ICON_FA_FILM);
                 DisplayAddComponentEntry<CameraComponent>("Camera", ICON_FA_CAMERA);
                 ImGui::SeparatorText("Yorug'lik");
                 DisplayAddComponentEntry<DirectionalLightComponent>("Directional Light", ICON_FA_SUN);
@@ -5750,6 +5850,86 @@ namespace Zamin {
             if (!model) ImGui::TextDisabled("Mesh Renderer'da glTF model yo'q");
             else if (!model->IsSkinned()) ImGui::TextDisabled("Modelda skelet yo'q");
             else ImGui::Text("%zu suyak, %zu klip, t=%.2f", model->GetSkeleton().Joints.size(), model->GetAnimations().size(), c.Time);
+
+            // ---- root motion
+            UI::PropertyHeader("Root motion", "Ildiz suyakning yurishi (XZ) va burilishi (Y) obyektni siljitadi: mesh obyektdan "
+                                              "uzoqlashib ketmaydi. Character Controller 3D bo'lsa - u yuradi (to'qnashuvlar bilan). "
+                                              "Editor ko'rinishida joyida turadi");
+            changed |= UI::PropertyBool("Root motion qo'llash", c.ApplyRootMotion);
+            if (c.ApplyRootMotion)
+            {
+                UI::PropertyLabel("Ildiz suyak", "Qaysi suyakning harakati obyektga o'tadi. Avtomatik: klip siljitadigan eng yuqori suyak (odatda Hips / Root)");
+                const Skeleton* skeleton = model && model->IsSkinned() ? &model->GetSkeleton() : nullptr;
+                std::string preview = c.RootMotionBone.empty() ? std::string("(avtomatik)") : c.RootMotionBone;
+                if (c.RootMotionBone.empty() && skeleton)
+                {
+                    const int clipIndex = c.Clip.empty() ? 0 : model->FindAnimation(c.Clip);
+                    const AnimationClip* clip = clipIndex >= 0 && clipIndex < (int)model->GetAnimations().size() ? &model->GetAnimations()[clipIndex] : nullptr;
+                    const int joint = FindRootMotionJoint(*skeleton, clip);
+                    if (joint >= 0)
+                        preview += "  " + skeleton->Joints[joint].Name;
+                }
+                if (ImGui::BeginCombo("##rootbone", preview.c_str()))
+                {
+                    if (ImGui::Selectable("(avtomatik)", c.RootMotionBone.empty())) { c.RootMotionBone.clear(); changed = true; }
+                    if (skeleton)
+                        for (const Joint& j : skeleton->Joints)
+                            if (ImGui::Selectable(j.Name.c_str(), j.Name == c.RootMotionBone)) { c.RootMotionBone = j.Name; changed = true; }
+                    ImGui::EndCombo();
+                }
+                if (c.RootMotionVelocity != glm::vec3(0.0f) || c.RootMotionTurnRate != 0.0f)
+                {
+                    UI::PropertyLabel("");
+                    ImGui::TextDisabled("%.2f m/s, %.0f gradus/s", glm::length(c.RootMotionVelocity), glm::degrees(c.RootMotionTurnRate));
+                }
+            }
+
+            // ---- events
+            UI::PropertyHeader("Hodisalar (event)", "Klipning shu nuqtasidan o'tilganda (0..1 - klip boshidan oxirigacha) obyekt skripti "
+                                                    "OnAnimationEvent(nom) oladi; event bus'da \"AnimationEvent\". O'yin rejimida");
+            int removeEvent = -1;
+            for (int i = 0; i < (int)c.Events.size(); i++)
+            {
+                AnimatorEvent& ev = c.Events[(size_t)i];
+                ImGui::PushID(i);
+                UI::PropertyLabel(i == 0 ? "Event'lar" : "");
+                const float button = ImGui::GetFrameHeight();
+                const float spacing = ImGui::GetStyle().ItemSpacing.x;
+                const float avail = ImGui::GetContentRegionAvail().x - button - spacing * 3.0f;
+                ImGui::SetNextItemWidth(avail * 0.34f);
+                if (ImGui::BeginCombo("##clip", ev.Clip.empty() ? "(har qanday)" : ev.Clip.c_str()))
+                {
+                    if (ImGui::Selectable("(har qanday)", ev.Clip.empty())) { ev.Clip.clear(); changed = true; }
+                    if (model)
+                        for (const auto& clip : model->GetAnimations())
+                            if (ImGui::Selectable(clip.Name.c_str(), clip.Name == ev.Clip)) { ev.Clip = clip.Name; changed = true; }
+                    ImGui::EndCombo();
+                }
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(avail * 0.26f);
+                changed |= ImGui::SliderFloat("##time", &ev.Time, 0.0f, 1.0f, "%.2f");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(avail * 0.40f);
+                changed |= ImGui::InputTextWithHint("##name", "nom", &ev.Name);
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_TRASH, ImVec2(button, 0)))
+                    removeEvent = i;
+                ImGui::PopID();
+            }
+            if (removeEvent >= 0)
+            {
+                c.Events.erase(c.Events.begin() + removeEvent);
+                changed = true;
+            }
+            UI::PropertyLabel("");
+            if (ImGui::Button(ICON_FA_PLUS "  Event"))
+            {
+                AnimatorEvent ev;
+                ev.Clip = c.Clip;
+                ev.Name = "Footstep";
+                c.Events.push_back(ev);
+                changed = true;
+            }
             return changed;
         }, true, modified);
 
@@ -5767,6 +5947,10 @@ namespace Zamin {
                 if (m_FoldState && open != wasOpen && m_FoldState->SetOpen(foldKey, open, false) && OnFoldStateModified)
                     OnFoldStateModified();
             } });
+
+        AddSection<AnimationPlayerComponent>(ICON_FA_FILM, "Animation Player", entity, [&](AnimationPlayerComponent& c) {
+            return DrawAnimationPlayer(entity, c);
+        }, true, modified);
 
         AddSection<DirectionalLightComponent>(ICON_FA_SUN, "Directional Light", entity, [&](DirectionalLightComponent& c) {
             InactiveComponentNote(entity, "Obyekt nofaol: quyosh hisobga olinmaydi (yorug'lik ham, soya ham yo'q)");

@@ -30,6 +30,7 @@ namespace Zamin {
             case AssetType::Environment: color = IM_COL32(255, 200, 90, 255); return ICON_FA_GLOBE;
             case AssetType::Material:    color = IM_COL32(200, 160, 255, 255); return ICON_FA_PALETTE;
             case AssetType::PhysicsMaterial: color = IM_COL32(110, 215, 230, 255); return ICON_FA_GEM;
+            case AssetType::Animation:   color = IM_COL32(255, 170, 90, 255); return ICON_FA_TIMELINE;
             case AssetType::Script:      color = IM_COL32(100, 160, 240, 255); return ICON_FA_FILE_CODE;
             case AssetType::Project:     color = IM_COL32(46, 188, 148, 255); return ICON_FA_GAMEPAD;
             default:                     return ICON_FA_FILE;
@@ -723,6 +724,8 @@ namespace Zamin {
         }
         else if (entry.Type == AssetType::Scene && OnOpenScene)
             OnOpenScene(entry.Path);
+        else if (entry.Type == AssetType::Animation && OnOpenAnimation)
+            OnOpenAnimation(entry.Path);
         else
             Platform::OpenInFileBrowser(entry.Path);
     }
@@ -1199,6 +1202,29 @@ namespace Zamin {
         }
     }
 
+    fs::path ContentBrowserPanel::CreateAnimationClip()
+    {
+        fs::path file = AssetFiles::MakeUniquePath(m_CurrentDirectory, std::string("NewAnimation") + PropertyClip::Extension);
+        if (!PropertyClipSerializer::Serialize(PropertyClip(), file))
+        {
+            ShowNotice(std::format("Klip yaratilmadi: {}", file.filename().string()), true);
+            ZM_ERROR("Animatsiya klipi yozilmadi: {}", file.string());
+            return {};
+        }
+        if (AssetRegistry* registry = Project::GetAssetRegistry())
+            registry->OnFileAdded(file);
+        ZM_INFO("Yangi animatsiya klipi yaratildi: {}", Project::GetAssetRelativePath(file));
+        m_ListDirty = true;
+        if (OnFilesChanged)
+            OnFilesChanged();
+        m_Selection.clear();
+        Reveal({ file });
+        if (OnAssetSelected)
+            OnAssetSelected(file);
+        ShowNotice(std::format("Yangi klip: {}  (ikki marta bosing - Animatsiya oynasi; Animation Player'ga torting)", file.filename().string()));
+        return file;
+    }
+
     fs::path ContentBrowserPanel::CreateMaterial(const MaterialPreset* preset)
     {
         if (!Project::GetActive())
@@ -1392,6 +1418,8 @@ namespace Zamin {
                 DrawNewPhysicsMaterialMenu();
                 ImGui::EndMenu();
             }
+            if (ImGui::MenuItem(ICON_FA_TIMELINE "  Yangi animatsiya klipi", nullptr, false, Project::GetActive() != nullptr))
+                CreateAnimationClip();
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A", false, !m_Entries.empty()))
             {

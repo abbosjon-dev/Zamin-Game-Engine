@@ -510,6 +510,7 @@ namespace Zamin {
             case AssetType::Script:      DrawScript(); break;
             case AssetType::Material:    DrawMaterial(); break;
             case AssetType::PhysicsMaterial: DrawPhysicsMaterial(); break;
+            case AssetType::Animation:   DrawAnimationClip(); break;
             default:
                 ImGui::Spacing();
                 ImGui::TextDisabled(ICON_FA_CIRCLE_INFO "  Bu turdagi fayl uchun ko'rinish yo'q");
@@ -2265,6 +2266,49 @@ namespace Zamin {
                 ImGui::TextDisabled("%zu", count);
             }
         }
+    }
+
+    void AssetInspectorPanel::DrawAnimationClip()
+    {
+        Ref<PropertyClipAsset> asset = PropertyClipLibrary::Load(m_Path); // cached; edits in the Animation window show at once
+        ImGui::Spacing();
+        if (!asset)
+        {
+            ImGui::TextColored(s_ErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  Klip o'qilmadi - konsolni tekshiring");
+            return;
+        }
+        const PropertyClip& clip = asset->GetClip();
+        if (ImGui::Button(ICON_FA_TIMELINE "  Animatsiya oynasida ochish") && OnOpenAnimation)
+            OnOpenAnimation(m_Path);
+        ImGui::Spacing();
+        if (UI::BeginPropertyGrid("##clip"))
+        {
+            static const char* wraps[] = { "Bir marta", "Takror", "Borib-qaytish" };
+            UI::PropertyLabel("Davomiylik");
+            ImGui::Text("%.2f s  (%d kadr, %.0f fps)", clip.Duration, (int)std::round(clip.Duration * clip.FrameRate), clip.FrameRate);
+            UI::PropertyLabel("Tugaganda");
+            ImGui::TextUnformatted(wraps[std::clamp((int)clip.Wrap, 0, 2)]);
+            UI::PropertyLabel("Treklar");
+            ImGui::Text("%zu", clip.Tracks.size());
+            for (const AnimationTrack& t : clip.Tracks)
+            {
+                UI::PropertyLabel("");
+                std::string field = t.Property == AnimatedProperty::ScriptFloat ? " " + t.Field : std::string();
+                ImGui::TextDisabled("%s  %s%s  (%zu kalit)", t.Path.empty() ? "(o'zi)" : t.Path.c_str(),
+                                    PropertyAnimation::GetPropertyName(t.Property), field.c_str(), t.Keys.size());
+            }
+            UI::PropertyLabel("Event'lar");
+            ImGui::Text("%zu", clip.Events.size());
+            for (const AnimationEvent& e : clip.Events)
+            {
+                UI::PropertyLabel("");
+                ImGui::TextDisabled(ICON_FA_BELL "  %.2f s  %s", e.Time, e.Name.c_str());
+            }
+            UI::EndPropertyGrid();
+        }
+        ImGui::Spacing();
+        ImGui::TextWrapped("Obyektga Animation Player komponentini qo'shing va klipni uning ro'yxatiga torting; "
+                           "skript: GetComponent<AnimationPlayerComponent>().Play(\"%s\")", asset->GetName().c_str());
     }
 
     void AssetInspectorPanel::DrawFont()

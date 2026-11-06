@@ -10,6 +10,7 @@
 #include "Panels/ProjectSettingsPanel.h"
 #include "Panels/UnusedAssetsPanel.h"
 #include "Panels/SpriteEditorPanel.h"
+#include "Panels/AnimationTimelinePanel.h"
 #include "AssetUsageCache.h"
 
 #include <atomic>
@@ -486,6 +487,8 @@ namespace Zamin {
         std::string m_SceneSettingsScrollTo;
         bool m_ShowProjectSettings = false;
         SpriteEditorPanel m_SpriteEditorPanel;
+        AnimationTimelinePanel m_AnimationPanel;
+        bool m_ShowAnimation = false;
         bool m_ShowSpriteEditor = false;
         bool m_PreviewParallax = false;          // the scene view moves parallax layers with the editor camera
         bool m_ShowLauncher = false;

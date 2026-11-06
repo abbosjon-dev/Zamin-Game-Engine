@@ -1,0 +1,749 @@
+{
+    "Scene": "Animatsiya",
+    "Version": 1,
+    "Settings": {
+        "DrawSky": true,
+        "SkyTop": [
+            0.1,
+            0.16,
+            0.3
+        ],
+        "SkyHorizon": [
+            0.45,
+            0.5,
+            0.6
+        ],
+        "Ground": [
+            0.12,
+            0.12,
+            0.13
+        ],
+        "Ambient": 0.35,
+        "Exposure": 1.0,
+        "ShadowDistance": 40,
+        "Gravity": [
+            0,
+            -9.8
+        ],
+        "Gravity3D": [
+            0,
+            -9.81,
+            0
+        ],
+        "Post": {
+            "Bloom": true,
+            "BloomThreshold": 1.0,
+            "BloomKnee": 0.5,
+            "BloomIntensity": 0.45,
+            "BloomRadius": 1.0,
+            "Vignette": 0.2,
+            "Saturation": 1.05,
+            "Contrast": 1.05,
+            "Brightness": 0.0,
+            "Tint": [
+                1,
+                1,
+                1
+            ],
+            "Tonemap": 1,
+            "SSAO": true,
+            "SSAORadius": 0.6,
+            "SSAOIntensity": 1.0,
+            "SSAOBias": 0.03,
+            "FXAA": true,
+            "FXAASubpixel": 0.75
+        }
+    },
+    "Entities": [
+        {
+            "Entity": 7413000000000001,
+            "Tag": "Main Camera",
+            "Transform": {
+                "Translation": [
+                    0,
+                    4.2,
+                    10.5
+                ],
+                "Rotation": [
+                    -0.3,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "Camera": {
+                "ProjectionType": 0,
+                "PerspectiveFOV": 0.8,
+                "PerspectiveNear": 0.1,
+                "PerspectiveFar": 300,
+                "OrthographicSize": 10,
+                "OrthographicNear": -100,
+                "OrthographicFar": 100,
+                "Primary": true,
+                "FixedAspectRatio": false,
+                "ClearColor": [
+                    0.05,
+                    0.05,
+                    0.08,
+                    1
+                ]
+            }
+        },
+        {
+            "Entity": 7413000000000002,
+            "Tag": "Quyosh",
+            "Transform": {
+                "Translation": [
+                    0,
+                    10,
+                    0
+                ],
+                "Rotation": [
+                    -0.85,
+                    0.55,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "DirectionalLight": {
+                "Color": [
+                    1.0,
+                    0.9,
+                    0.8
+                ],
+                "Intensity": 1.6,
+                "CastShadows": true
+            }
+        },
+        {
+            "Entity": 7413000000000003,
+            "Tag": "Yer",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    26,
+                    1,
+                    26
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Plane",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.42,
+                    0.43,
+                    0.46,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.85,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7413000000000004,
+            "Tag": "Mayoq",
+            "Transform": {
+                "Translation": [
+                    -3.2,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "AnimationPlayer": {
+                "Clips": [
+                    {
+                        "Path": "Animations/Mayoq.zanim",
+                        "PathUUID": "5a3c71e09b2d4f13"
+                    }
+                ],
+                "Speed": 1.0,
+                "PlayOnStart": true,
+                "Wrap": "Clip"
+            },
+            "NativeScript": {
+                "Class": "AnimationEventDemo",
+                "Fields": {
+                    "Title": {
+                        "Type": "String",
+                        "Value": "Mayoq: joylashuv, burilish, rang, yorug'lik"
+                    },
+                    "Height": {
+                        "Type": "Float",
+                        "Value": 3.3
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 7413000000000005,
+            "Tag": "Poydevor",
+            "Parent": 7413000000000004,
+            "Transform": {
+                "Translation": [
+                    0,
+                    0.4,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1.5,
+                    0.8,
+                    1.5
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cylinder",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.3,
+                    0.32,
+                    0.36,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.6,
+                "Roughness": 0.5,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7413000000000006,
+            "Tag": "Kristall",
+            "Parent": 7413000000000004,
+            "Transform": {
+                "Translation": [
+                    0,
+                    1.45,
+                    0
+                ],
+                "Rotation": [
+                    0.61,
+                    0,
+                    0.785
+                ],
+                "Scale": [
+                    0.75,
+                    0.75,
+                    0.75
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cube",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    0.2,
+                    0.75,
+                    1.0,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.1,
+                "Roughness": 0.25,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7413000000000007,
+            "Tag": "Nur",
+            "Parent": 7413000000000004,
+            "Transform": {
+                "Translation": [
+                    0,
+                    1.45,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "PointLight": {
+                "Color": [
+                    0.3,
+                    0.75,
+                    1.0
+                ],
+                "Intensity": 3.0,
+                "Radius": 6.0
+            }
+        },
+        {
+            "Entity": 7413000000000008,
+            "Tag": "Eshik",
+            "Transform": {
+                "Translation": [
+                    3.2,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    -0.35,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            },
+            "AnimationPlayer": {
+                "Clips": [
+                    {
+                        "Path": "Animations/EshikOchilishi.zanim",
+                        "PathUUID": "5a3c71e09b2d4f14"
+                    }
+                ],
+                "Speed": 1.0,
+                "PlayOnStart": true,
+                "Wrap": "Clip"
+            },
+            "NativeScript": {
+                "Class": "AnimationEventDemo",
+                "Fields": {
+                    "Title": {
+                        "Type": "String",
+                        "Value": "Eshik: oshiq (Bezier), chiroq (Step), event'lar"
+                    },
+                    "Height": {
+                        "Type": "Float",
+                        "Value": 3.6
+                    }
+                }
+            }
+        },
+        {
+            "Entity": 7413000000000009,
+            "Tag": "Chap ustun",
+            "Parent": 7413000000000008,
+            "Transform": {
+                "Translation": [
+                    -1.05,
+                    1.25,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.25,
+                    2.5,
+                    0.35
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cube",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.5,
+                    0.5,
+                    0.52,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.8,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7413000000000010,
+            "Tag": "O'ng ustun",
+            "Parent": 7413000000000008,
+            "Transform": {
+                "Translation": [
+                    1.05,
+                    1.25,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.25,
+                    2.5,
+                    0.35
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cube",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.5,
+                    0.5,
+                    0.52,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.8,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7413000000000011,
+            "Tag": "Tepa",
+            "Parent": 7413000000000008,
+            "Transform": {
+                "Translation": [
+                    0,
+                    2.6,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    2.35,
+                    0.25,
+                    0.35
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cube",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.5,
+                    0.5,
+                    0.52,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.8,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7413000000000012,
+            "Tag": "Oshiq",
+            "Parent": 7413000000000008,
+            "Transform": {
+                "Translation": [
+                    -0.92,
+                    0,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1,
+                    1,
+                    1
+                ]
+            }
+        },
+        {
+            "Entity": 7413000000000013,
+            "Tag": "Tabaqa",
+            "Parent": 7413000000000012,
+            "Transform": {
+                "Translation": [
+                    0.9,
+                    1.22,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1.8,
+                    2.4,
+                    0.12
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Cube",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.55,
+                    0.36,
+                    0.2,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.7,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7413000000000014,
+            "Tag": "Tutqich",
+            "Parent": 7413000000000012,
+            "Transform": {
+                "Translation": [
+                    1.6,
+                    1.15,
+                    0.1
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.08,
+                    0.08,
+                    0.08
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    0.9,
+                    0.75,
+                    0.3,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 1.0,
+                "Roughness": 0.3,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            }
+        },
+        {
+            "Entity": 7413000000000015,
+            "Tag": "Chiroq",
+            "Parent": 7413000000000008,
+            "Transform": {
+                "Translation": [
+                    0,
+                    2.95,
+                    0.15
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.25,
+                    0.25,
+                    0.25
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Sphere",
+                "Model": "",
+                "CastShadows": false,
+                "Material": "",
+                "Albedo": [
+                    1.0,
+                    0.18,
+                    0.12,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.4,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            },
+            "PointLight": {
+                "Color": [
+                    1.0,
+                    0.18,
+                    0.12
+                ],
+                "Intensity": 5.0,
+                "Radius": 5.0
+            }
+        },
+        {
+            "Entity": 7413000000000016,
+            "Tag": "Paypaslagich",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0,
+                    -3.0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1.1,
+                    1.1,
+                    1.1
+                ]
+            },
+            "MeshRenderer": {
+                "Mesh": "Model",
+                "Model": "Models/Tentacle.gltf",
+                "CastShadows": true,
+                "Material": "",
+                "Albedo": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "AlbedoMap": "",
+                "Tiling": 1.0,
+                "Metallic": 0.0,
+                "Roughness": 0.5,
+                "Emission": [
+                    0,
+                    0,
+                    0
+                ],
+                "EmissionStrength": 0.0
+            },
+            "Animator": {
+                "Clip": "Wave",
+                "Speed": 1.0,
+                "Loop": true,
+                "Playing": true,
+                "PlayInEditor": true,
+                "Events": [
+                    {
+                        "Clip": "Wave",
+                        "Time": 0.0,
+                        "Name": "Boshlandi"
+                    },
+                    {
+                        "Clip": "Wave",
+                        "Time": 0.5,
+                        "Name": "O'rtasi"
+                    }
+                ]
+            },
+            "NativeScript": {
+                "Class": "AnimationEventDemo",
+                "Fields": {
+                    "Title": {
+                        "Type": "String",
+                        "Value": "Tentacle (glTF): Animator event'lari"
+                    },
+                    "Height": {
+                        "Type": "Float",
+                        "Value": 5.4
+                    }
+                }
+            }
+        }
+    ]
+}

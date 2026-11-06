@@ -104,6 +104,26 @@ namespace Zamin {
             m_AudioMixerPanel.Focus();
         };
         m_SceneHierarchyPanel.OnPrefabDropped = [this](const fs::path& p, Entity parent) { InstantiatePrefabInEditor(p, parent); };
+        m_SceneHierarchyPanel.OnAnimationWindowRequested = [this](Entity e, int clip) {
+            m_ShowAnimation = true;
+            m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
+            m_AnimationPanel.Open(e, clip);
+        };
+        m_ContentBrowserPanel.OnOpenAnimation = [this](const fs::path& p) {
+            m_ShowAnimation = true;
+            m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
+            m_AnimationPanel.OpenClipFile(p);
+        };
+        m_AssetInspectorPanel.OnOpenAnimation = [this](const fs::path& p) {
+            m_ShowAnimation = true;
+            m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
+            m_AnimationPanel.OpenClipFile(p);
+        };
+        m_AnimationPanel.OnClipSaved = [this](const fs::path& p) {
+            m_ContentBrowserPanel.InvalidateThumbnail(p);
+            m_ContentBrowserPanel.MarkListDirty();
+            m_AssetUsage.MarkDirty();
+        };
         m_SceneHierarchyPanel.OnMaterialDropped = [this](const std::string& p, Entity target) { ApplyMaterialToEntity(target, p); };
         m_ContentBrowserPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
         m_ContentBrowserPanel.OnRequestNewScript = [this]() { m_NewScriptName = "MyScript"; m_OpenNewScriptPopup = true; };
@@ -270,6 +290,32 @@ namespace Zamin {
                     }
                     m_SceneHierarchyPanel.GetSelection().Set(picked);
                 }
+            }
+            // ZAMIN_EDITOR_ANIMATION=1 | curves,time=0.5,track=1,key=1,record: the Animation window on the
+            // selected entity's player (curve view, scrubbed to a time, a track / key selected, recording).
+            if (const char* anim = std::getenv("ZAMIN_EDITOR_ANIMATION"))
+            {
+                std::string_view v(anim);
+                m_ShowAnimation = true;
+                m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
+                Entity selected = m_SceneHierarchyPanel.GetSelectedEntity();
+                for (Entity e = selected; e; e = m_ActiveScene->GetParent(e))
+                    if (e.HasComponent<AnimationPlayerComponent>())
+                    {
+                        m_AnimationPanel.Open(e, 0);
+                        break;
+                    }
+                auto number = [&](std::string_view key, float fallback) {
+                    size_t at = v.find(key);
+                    return at == std::string_view::npos ? fallback : (float)std::atof(std::string(v.substr(at + key.size())).c_str());
+                };
+                m_AnimationPanel.SetCurveView(v.find("curves") != std::string_view::npos);
+                m_AnimationPanel.SetTime(number("time=", 0.0f));
+                if (v.find("track=") != std::string_view::npos)
+                    m_AnimationPanel.SelectTrack((int)number("track=", 0.0f));
+                if (v.find("key=") != std::string_view::npos)
+                    m_AnimationPanel.SelectKey((int)number("track=", 0.0f), (int)number("key=", 0.0f));
+                m_AnimationPanel.SetRecording(v.find("record") != std::string_view::npos);
             }
             // ZAMIN_EDITOR_ASSET=<path relative to Assets>: the asset inspector shows that file.
             if (const char* asset = std::getenv("ZAMIN_EDITOR_ASSET"))
@@ -1060,6 +1106,10 @@ namespace Zamin {
                 m_OutlineCaptured = true;
             }
         }
+
+        // The Animation window's preview pose (edit mode) before the scene is drawn.
+        m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
+        m_AnimationPanel.OnUpdate(ts, m_ShowAnimation);
 
         uint64_t scenesDrawn = Renderer3D::GetEndSceneCount();
         {
@@ -3589,7 +3639,10 @@ namespace Zamin {
     void EditorLayer::SerializeScene(const Ref<Scene>& scene, const fs::path& path)
     {
         SceneSerializer serializer(scene);
-        if (serializer.Serialize(path))
+        bool written = false;
+        // The scene's own values, not the Animation window's preview pose.
+        m_AnimationPanel.WithoutPreview([&]() { written = serializer.Serialize(path); });
+        if (written)
             ZM_INFO("Sahna saqlandi: {}", path.filename().string());
     }
 
@@ -3606,6 +3659,7 @@ namespace Zamin {
             return;
         }
         SerializeScene(m_EditorScene, m_EditorScenePath);
+        m_AnimationPanel.SaveIfDirty(); // the clip being edited goes with the scene
         m_SceneDirty = false;
         m_AssetUsage.MarkDirty(); // the file says it now (a first save: it has a path at last)
         if (auto project = Project::GetActive(); project && project->GetConfig().StartScene.empty())
@@ -3657,6 +3711,7 @@ namespace Zamin {
         if (m_SceneState == SceneState::Simulate)
             OnSceneStop();
         m_SceneState = SceneState::Play;
+        m_AnimationPanel.StopPreview(true); // the game starts from the scene's own values
         m_PlayMaterials = MaterialLibrary::TakeSnapshot();
         Ref<Scene> runtime = Scene::Copy(m_EditorScene);
         runtime->ResolveAssets();
@@ -3679,6 +3734,7 @@ namespace Zamin {
         if (m_SceneState == SceneState::Play)
             OnSceneStop();
         m_SceneState = SceneState::Simulate;
+        m_AnimationPanel.StopPreview(true);
         m_PlayMaterials = MaterialLibrary::TakeSnapshot();
         Ref<Scene> sim = Scene::Copy(m_EditorScene);
         sim->ResolveAssets();
@@ -3918,7 +3974,12 @@ namespace Zamin {
     }
 
     // ================================================================== undo / redo
-    std::string EditorLayer::TakeSnapshot() { return SceneSerializer(m_EditorScene).SerializeToString(); }
+    std::string EditorLayer::TakeSnapshot()
+    {
+        std::string snapshot;
+        m_AnimationPanel.WithoutPreview([&]() { snapshot = SceneSerializer(m_EditorScene).SerializeToString(); });
+        return snapshot;
+    }
 
     void EditorLayer::ResetUndoHistory()
     {
@@ -4872,16 +4933,26 @@ namespace Zamin {
             bool ctrl = io.KeyCtrl, shift = io.KeyShift;
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S, false))
             {
-                shift ? SaveSceneAs() : SaveScene();
-                m_ProjectSettingsPanel.SaveIfDirty();
-                if (m_SpriteEditorPanel.HasUnsavedChanges())
-                    m_SpriteEditorPanel.Save();
+                if (m_AnimationPanel.IsFocused() && m_AnimationPanel.HasUnsavedChanges())
+                    m_AnimationPanel.Save(); // the clip only: the window that has the keyboard
+                else
+                {
+                    shift ? SaveSceneAs() : SaveScene();
+                    m_ProjectSettingsPanel.SaveIfDirty();
+                    if (m_SpriteEditorPanel.HasUnsavedChanges())
+                        m_SpriteEditorPanel.Save();
+                }
             }
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) { shift ? OpenProjectDialog() : OpenScene(); }
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) NewScene();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_D, false)) DuplicateSelectedEntity();
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) { shift ? Redo() : Undo(); }
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) Redo();
+            // The Animation window undoes its own clip edits while it has the keyboard.
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Z, false))
+            {
+                if (m_AnimationPanel.IsFocused()) shift ? m_AnimationPanel.Redo() : m_AnimationPanel.Undo();
+                else shift ? Redo() : Undo();
+            }
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) { m_AnimationPanel.IsFocused() ? (void)m_AnimationPanel.Redo() : Redo(); }
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_C, false)) CopySelectedEntity();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V, false)) PasteEntity();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_B, false)) BuildScripts(true);
@@ -4994,6 +5065,11 @@ namespace Zamin {
         m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         m_ProjectSettingsPanel.OnImGuiRender(&m_ShowProjectSettings);
         m_SpriteEditorPanel.OnImGuiRender(&m_ShowSpriteEditor);
+        m_AnimationPanel.SetContext(m_ActiveScene, m_SceneState == SceneState::Edit);
+        m_AnimationPanel.SetSelection(m_SceneHierarchyPanel.GetSelectedEntity());
+        if (ImGuiWindow* content = ImGui::FindWindowByName("###ContentBrowser"); content && content->DockId)
+            m_AnimationPanel.SetDefaultDock(content->DockId); // first opened: a tab next to the content browser
+        m_AnimationPanel.OnImGuiRender(&m_ShowAnimation);
         m_AudioMixerPanel.SetPlaying(m_SceneState == SceneState::Play);
         m_AudioMixerPanel.OnImGuiRender(&m_ShowAudioMixer);
         m_SceneHierarchyPanel.DrawTilePaletteWindow(&m_ShowTilePalette);
@@ -5053,6 +5129,7 @@ namespace Zamin {
         ImGui::DockBuilderDockWindow("###Console", bottom);
         ImGui::DockBuilderDockWindow("###TilePalette", bottom);
         ImGui::DockBuilderDockWindow("###AudioMixer", bottom);
+        ImGui::DockBuilderDockWindow("###Animation", bottom);
         ImGui::DockBuilderDockWindow("###Stats", left);
         ImGui::DockBuilderDockWindow("###Viewport", main);
         ImGui::DockBuilderFinish(dockspaceID);
@@ -5189,6 +5266,8 @@ namespace Zamin {
             ImGui::MenuItem(ICON_FA_CHART_LINE "  Statistika", nullptr, &m_ShowStats);
             ImGui::MenuItem(ICON_FA_STOPWATCH "  Profiler", nullptr, &m_ShowProfiler);
             ImGui::MenuItem(ICON_FA_SLIDERS "  Audio Mixer", nullptr, &m_ShowAudioMixer);
+            if (ImGui::MenuItem(ICON_FA_TIMELINE "  Animatsiya", nullptr, &m_ShowAnimation) && m_ShowAnimation)
+                m_AnimationPanel.Focus();
             ImGui::MenuItem(ICON_FA_BROOM "  Ishlatilmagan assetlar", nullptr, &m_ShowUnusedAssets, hasProject);
             if (ImGui::MenuItem(ICON_FA_SCISSORS "  Sprite muharriri", nullptr, m_ShowSpriteEditor, hasProject))
             {

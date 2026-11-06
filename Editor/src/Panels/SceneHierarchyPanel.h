@@ -244,6 +244,8 @@ namespace Zamin {
         std::function<void()> OnAudioMixerRequested;
         // Project settings > Physics layers is to open.
         std::function<void()> OnPhysicsLayersRequested;
+        // The Animation window is to open on an entity's Animation Player (clip: index in its list).
+        std::function<void(Entity, int)> OnAnimationWindowRequested;
 
     private:
         // Where a hierarchy row drop puts the dragged entities.
@@ -253,6 +255,8 @@ namespace Zamin {
 
         template<typename T>
         void DisplayAddComponentEntry(const char* name, const char* icon);
+        // The Animation Player section: its clips (the Animation window opens them), speed, wrap.
+        bool DrawAnimationPlayer(Entity entity, struct AnimationPlayerComponent& c);
         // The Material part of the Mesh Renderer section: the material asset (and per-submesh ones)
         // or the inline material. True when something changed.
         bool DrawMeshMaterial(Entity entity, struct MeshRendererComponent& c);

@@ -172,3 +172,13 @@
 #define ICON_FA_DICE "\xef\x94\xa2"
 #define ICON_FA_TREE "\xef\x86\xbb"         // ambient zone
 #define ICON_FA_ARROWS_UP_DOWN "\xef\x81\xbd" // scroll view
+// animation timeline (M13)
+#define ICON_FA_TIMELINE "\xee\x8a\x9c"
+#define ICON_FA_BACKWARD_STEP "\xef\x81\x88"
+#define ICON_FA_DIAMOND "\xef\x88\x99"
+#define ICON_FA_KEY "\xef\x82\x84"
+#define ICON_FA_BEZIER_CURVE "\xef\x95\x9b"
+#define ICON_FA_BELL "\xef\x83\xb3"
+#define ICON_FA_CLAPPERBOARD "\xee\x84\xb1"
+#define ICON_FA_PERSON_WALKING "\xef\x95\x94"
+#define ICON_FA_FLAG "\xef\x80\xa4"

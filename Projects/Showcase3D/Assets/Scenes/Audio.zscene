@@ -812,9 +812,9 @@
       "Tag": "Karnay ustuni",
       "Transform": {
         "Translation": [
-          -3.5,
+          -2.4,
           1.0,
-          -1.4
+          3.8
         ],
         "Rotation": [
           0,
@@ -846,9 +846,9 @@
       "Tag": "Karnay",
       "Transform": {
         "Translation": [
-          -3.5,
+          -2.4,
           2.05,
-          -1.4
+          3.8
         ],
         "Rotation": [
           0,
@@ -865,7 +865,7 @@
         "Path": "Audio/PaChime.wav",
         "Volume": 1.0,
         "Pitch": 1.0,
-        "Loop": true,
+        "Loop": false,
         "PlayOnStart": true,
         "Spatial": true,
         "MinDistance": 3.0,
@@ -877,6 +877,15 @@
           "InnerAngle": 80.0,
           "OuterAngle": 210.0,
           "OuterGain": 0.12
+        }
+      },
+      "NativeScript": {
+        "Class": "PaAnnouncer",
+        "Fields": {
+          "Pause": {
+            "Type": "Float",
+            "Value": 1.5
+          }
         }
       }
     },

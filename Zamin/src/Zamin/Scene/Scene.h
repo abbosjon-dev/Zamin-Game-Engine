@@ -569,6 +569,11 @@ namespace Zamin {
         Entity GetActiveAudioListener();
         // Where the 3D sounds are heard from: the active Audio Listener, else the primary camera.
         Entity GetAudioListenerEntity();
+        // ---- sounds that end (OnSoundFinished)
+        // `handle` is `owner`'s sound (a script's PlaySound): when it ends by itself, the script of
+        // `owner` gets OnSoundFinished. Audio Sources are known without it. 0 / an invalid owner:
+        // nothing.
+        void TrackSound(uint32_t handle, Entity owner);
         // ---- ambient zones (AmbientZoneComponent)
         // How far `point` is outside the zone's volume (0 inside), in world units, for the zone on
         // an entity with the world transform `world`.
@@ -767,6 +772,9 @@ namespace Zamin {
         void UpdateAudioListener(float ts);
         // Ambient zones follow the listener: their levels, their sounds started / stopped.
         void UpdateAmbientZones(float ts);
+        // The sounds that ended by themselves (AudioEngine::TakeFinishedSounds) to their entities'
+        // scripts (OnSoundFinished) and the event bus.
+        void DispatchFinishedSounds();
         void UpdateAnimators(Timestep ts, bool editor);
         // TintAnimationComponent: the playing ones advance (editor: only the inspector's previews).
         void UpdateTintAnimations(Timestep ts, bool editor);
@@ -988,6 +996,8 @@ namespace Zamin {
             float Force = 0.0f, Torque = 0.0f;
         };
         std::vector<JointBreak3DRecord> m_JointBreaks3D;
+        // Sounds the scripts played (PlaySound) -> the entity whose script is told when they end.
+        std::unordered_map<uint32_t, UUID> m_SoundOwners;
         std::unordered_set<uint64_t> m_ReportedMissingJointBodies; // connected bodies already warned about
         bool m_ScriptsPendingStart = false;
 

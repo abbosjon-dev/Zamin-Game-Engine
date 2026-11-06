@@ -1146,6 +1146,52 @@ ZM_REGISTER_SCRIPT(UnderwaterZone,
     ZM_FIELD_RANGE(UnderwaterZone, Cutoff, 50.0f, 20000.0f).Tooltip("Suv ostida SFX guruhining low-pass chastotasi, Hz"),
     ZM_FIELD_RANGE(UnderwaterZone, MusicCutoff, 50.0f, 20000.0f).Tooltip("Suv ostida Music guruhining low-pass chastotasi, Hz"))
 
+// Karnay e'lonlari: Audio Source (takrorlanmaydigan qo'ng'iroq, yo'nalish konusi bilan) tugaganda OnSoundFinished
+// keladi - skript Pause sekunddan keyin uni qayta chaladi va nechta e'lon bo'lganini ko'rsatadi. Ovozlar limiti
+// o'rnini olsa (sound.Stolen) ham xabar keladi.
+class PaAnnouncer : public ScriptableEntity
+{
+public:
+    float Pause = 2.0f;
+
+    void OnSoundFinished(const SoundFinished& sound) override
+    {
+        if (sound.Stolen)
+        {
+            m_Status = "limit to'xtatdi";
+            Invoke(Pause, [this]() { PlayAudio(); });
+            return;
+        }
+        m_Count++;
+        m_Status = std::format("e'lon #{} tugadi", m_Count);
+        m_NextAt = m_Clock + Pause;
+        Invoke(Pause, [this]() { PlayAudio(); });
+    }
+
+    void OnUpdate(Timestep ts) override
+    {
+        m_Clock += ts;
+        std::string state = IsAudioPlaying() ? std::format("e'lon #{} ({:.1f} s)", m_Count + 1, GetAudioTime())
+                          : m_Count > 0       ? std::format("{}, keyingisi {:.1f} s dan keyin", m_Status, std::max(0.0f, m_NextAt - m_Clock))
+                                              : m_Status;
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.75f, 0.0f), std::format("Karnay: {}   (OnSoundFinished)", state),
+                        glm::vec4(1.0f, 0.78f, 0.45f, 1.0f));
+        const auto* audio = GetEntity().TryGetComponent<AudioSourceComponent>();
+        SoundInfo info;
+        if (audio && GetEntity().GetScene()->GetAudioInfo(GetEntity(), info) && info.Cone.IsActive())
+            DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.45f, 0.0f),
+                            std::format("Yo'nalish konusi: x{:.2f} ({})", info.ConeGain,
+                                        info.ConeGain >= 0.999f ? "oldida" : info.ConeGain <= audio->Cone.OuterGain + 1e-3f ? "orqasida" : "yonida"),
+                            glm::vec4(1.0f, 0.65f, 0.35f, 1.0f));
+    }
+
+private:
+    int m_Count = 0;
+    float m_Clock = 0.0f, m_NextAt = 0.0f;
+    std::string m_Status = "kutmoqda";
+};
+ZM_REGISTER_SCRIPT(PaAnnouncer, ZM_FIELD_RANGE(PaAnnouncer, Pause, 0.0f, 30.0f).Tooltip("E'lonlar orasidagi tanaffus, sekund"))
+
 // Ambient zona yozuvi: zona (AmbientZoneComponent) ustida uning nomi va hozir eshitilayotgan darajasi - tinglovchi
 // hajm ichida bo'lsa to'liq, chetidan tashqarida aralashish masofasida asta so'nadi.
 class AmbientZoneLabel : public ScriptableEntity

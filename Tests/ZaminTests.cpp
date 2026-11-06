@@ -7948,6 +7948,45 @@ public:
 };
 ZM_REGISTER_SCRIPT(AudioControlProbe)
 
+// Hears its entity's sounds end (OnSoundFinished) and every "SoundFinished" on the bus; plays a
+// one-shot of its own when told to.
+class SoundFinishProbe : public ScriptableEntity
+{
+public:
+    std::vector<SoundFinished> Heard;
+    std::vector<SoundFinished> Bus;
+    std::string OneShot;
+    uint32_t OneShotHandle = 0;
+    bool ReplayOnFinish = false;
+    uint32_t Replayed = 0;
+
+    void OnCreate() override
+    {
+        Subscribe("SoundFinished", [this](const ScriptMessage& m) {
+            if (const SoundFinished* sound = m.TryGet<SoundFinished>())
+                Bus.push_back(*sound);
+        });
+    }
+    void OnUpdate(Timestep) override
+    {
+        if (!OneShot.empty())
+        {
+            OneShotHandle = PlaySound(OneShot, 0.5f);
+            OneShot.clear();
+        }
+    }
+    void OnSoundFinished(const SoundFinished& sound) override
+    {
+        Heard.push_back(sound);
+        if (ReplayOnFinish && sound.FromAudioSource && !sound.Stolen)
+        {
+            PlayAudio(); // a chain: the next one starts in the same frame
+            Replayed++;
+        }
+    }
+};
+ZM_REGISTER_SCRIPT(SoundFinishProbe)
+
 TEST(AudioSourceScriptControl)
 {
     bool wasAvailable = AudioEngine::IsAvailable();
@@ -9244,6 +9283,143 @@ TEST(AudioAmbientZones)
     CHECK(zone.RuntimeHandle == 0 && zone.Level == 0.0f && AudioEngine::GetPlayingCount() == 0);
 
     AudioEngine::StopAll();
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
+TEST(AudioOnSoundFinished)
+{
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = MakeTempDir("zamin-audio-finished-");
+    std::filesystem::path shortWav = dir / "short.wav", longWav = dir / "long.wav";
+    WriteTestWav(shortWav, 0.3f);
+    WriteTestWav(longWav, 2.0f);
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+
+    // ---- the engine: what ended by itself, once, oldest first
+    CHECK(AudioEngine::TakeFinishedSounds().empty());
+    uint32_t a = AudioEngine::Play(shortWav), b = AudioEngine::Play(shortWav);
+    SoundParams loop;
+    loop.Loop = true;
+    uint32_t looping = AudioEngine::Play(shortWav, loop);
+    uint32_t stopped = AudioEngine::Play(shortWav);
+    uint32_t faded = AudioEngine::Play(shortWav);
+    AudioEngine::Stop(stopped);           // on purpose: not reported
+    AudioEngine::Stop(faded, 0.1f);
+    AudioEngine::RenderOffline(0.5f);
+    AudioEngine::Update(0.5f);            // notices the ends (and the faded one going)
+    std::vector<FinishedSound> finished = AudioEngine::TakeFinishedSounds();
+    CHECK(finished.size() == 2 && finished[0].Handle == a && finished[1].Handle == b);
+    CHECK(finished[0].Reason == SoundEndReason::Finished && finished[0].File == shortWav && finished[0].Group == "SFX");
+    CHECK(AudioEngine::TakeFinishedSounds().empty() && AudioEngine::IsPlaying(looping)); // taken; a loop never ends
+    // The voice limit's victims are reported as stolen.
+    AudioSettings tight;
+    tight.MaxVoices = 1;
+    AudioEngine::SetMixerSettings(tight);
+    uint32_t newer = AudioEngine::Play(longWav);
+    CHECK(newer && !AudioEngine::IsPlaying(looping));
+    finished = AudioEngine::TakeFinishedSounds();
+    CHECK(finished.size() == 1 && finished[0].Handle == looping && finished[0].Reason == SoundEndReason::Stolen);
+    // The music is nobody's: never reported. StopAll forgets what waits.
+    CHECK(AudioEngine::PlayMusic(shortWav, 0.0f, false));
+    AudioEngine::RenderOffline(0.5f);
+    AudioEngine::Update(0.016f);
+    CHECK(!AudioEngine::IsMusicPlaying());
+    finished = AudioEngine::TakeFinishedSounds();
+    CHECK(finished.empty());
+    AudioEngine::Stop(newer);
+    AudioEngine::SetMixerSettings(AudioSettings());
+    AudioEngine::Play(shortWav);
+    AudioEngine::RenderOffline(0.5f);
+    AudioEngine::Update(0.016f);
+    CHECK(AudioEngine::GetFinishedSoundCount() == 1);
+    AudioEngine::StopAll();
+    CHECK(AudioEngine::GetFinishedSoundCount() == 0);
+    AudioEngine::SetMixerSettings(AudioSettings());
+
+    // ---- the scene: to the entity's script, on the main thread, after the frame's scripts ran
+    auto scene = CreateRef<Scene>();
+    Entity bell = scene->CreateEntity("Bell");
+    auto& source = bell.AddComponent<AudioSourceComponent>();
+    source.Path = shortWav.string();
+    source.Volume = 0.7f; // not looping, plays when the game starts
+    bell.AddComponent<NativeScriptComponent>().ClassName = "SoundFinishProbe";
+    Entity voice = scene->CreateEntity("Voice");
+    voice.AddComponent<NativeScriptComponent>().ClassName = "SoundFinishProbe";
+    Entity hum = scene->CreateEntity("Hum");
+    auto& humSource = hum.AddComponent<AudioSourceComponent>();
+    humSource.Path = shortWav.string();
+    humSource.Loop = true;
+    hum.AddComponent<NativeScriptComponent>().ClassName = "SoundFinishProbe";
+    // A sound from before the game started is not the game's.
+    AudioEngine::Play(shortWav);
+    AudioEngine::RenderOffline(0.5f);
+    AudioEngine::Update(0.016f);
+    CHECK(AudioEngine::GetFinishedSoundCount() == 1);
+    scene->OnRuntimeStart();
+    auto* bellProbe = dynamic_cast<SoundFinishProbe*>(bell.GetComponent<NativeScriptComponent>().Instance);
+    auto* voiceProbe = dynamic_cast<SoundFinishProbe*>(voice.GetComponent<NativeScriptComponent>().Instance);
+    auto* humProbe = dynamic_cast<SoundFinishProbe*>(hum.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(bellProbe && voiceProbe && humProbe);
+    if (!(bellProbe && voiceProbe && humProbe))
+        return;
+    CHECK(AudioEngine::GetFinishedSoundCount() == 0 && source.RuntimeHandle != 0);
+    const uint32_t bellHandle = source.RuntimeHandle;
+    voiceProbe->OneShot = shortWav.string();
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(voiceProbe->OneShotHandle != 0 && bellProbe->Heard.empty());
+    // Both end: each script hears its own (the bell's from its Audio Source, the voice's one-shot).
+    AudioEngine::RenderOffline(0.5f);
+    AudioEngine::Update(0.016f);
+    CHECK(bellProbe->Heard.empty()); // not before the scene's frame
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(bellProbe->Heard.size() == 1 && voiceProbe->Heard.size() == 1 && humProbe->Heard.empty());
+    if (bellProbe->Heard.size() == 1 && voiceProbe->Heard.size() == 1)
+    {
+        const SoundFinished& rang = bellProbe->Heard[0];
+        CHECK(rang.Handle == bellHandle && rang.FromAudioSource && !rang.Stolen && rang.Source == bell && rang.Clip == shortWav.generic_string());
+        const SoundFinished& spoke = voiceProbe->Heard[0];
+        CHECK(spoke.Handle == voiceProbe->OneShotHandle && !spoke.FromAudioSource && spoke.Source == voice);
+    }
+    // Every probe heard both on the bus.
+    CHECK(humProbe->Bus.size() == 2 && bellProbe->Bus.size() == 2);
+    // Delivered once.
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(bellProbe->Heard.size() == 1 && voiceProbe->Heard.size() == 1);
+    // A chain: the bell plays again from its own OnSoundFinished.
+    bellProbe->ReplayOnFinish = true;
+    CHECK(scene->PlayAudio(bell));
+    AudioEngine::RenderOffline(0.5f);
+    AudioEngine::Update(0.016f);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(bellProbe->Heard.size() == 2 && bellProbe->Replayed == 1 && scene->IsAudioPlaying(bell));
+    bellProbe->ReplayOnFinish = false;
+    // Stopped on purpose (StopAudio, switched off): nothing.
+    scene->StopAudio(bell);
+    hum.SetActive(false);
+    AudioEngine::RenderOffline(0.5f);
+    AudioEngine::Update(0.016f);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(bellProbe->Heard.size() == 2 && humProbe->Heard.empty());
+    hum.SetActive(true); // the hum starts again
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(scene->IsAudioPlaying(hum));
+    // The voice limit cuts the looping hum off: its script hears it (Stolen).
+    AudioEngine::SetMixerSettings(tight);
+    SoundParams vip;
+    vip.Priority = 255;
+    CHECK(AudioEngine::Play(longWav, vip) != 0);
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(humProbe->Heard.size() == 1 && humProbe->Heard[0].Stolen && humProbe->Heard[0].FromAudioSource);
+    scene->OnRuntimeStop();
+
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
     if (!wasAvailable)
         AudioEngine::Shutdown();
     std::filesystem::remove_all(dir);
@@ -21893,6 +22069,7 @@ TEST(AudioSampleScene)
     {
         const auto& pa = speaker.GetComponent<AudioSourceComponent>();
         CHECK(pa.Spatial && pa.Cone.IsActive() && pa.Cone.InnerAngle == 80.0f && pa.Cone.OuterAngle == 210.0f && pa.Path == "Audio/PaChime.wav");
+        CHECK(!pa.Loop && speaker.GetComponent<NativeScriptComponent>().ClassName == "PaAnnouncer"); // replayed from OnSoundFinished
         const glm::vec3 forward(scene->GetWorldTransform(speaker) * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f));
         CHECK(forward.x < -0.99f);
         CHECK_NEAR(Audio::GetClipLength("Audio/PaChime.wav"), 2.6f, 1e-3f);

@@ -96,6 +96,22 @@ namespace Zamin {
         glm::vec3 Direction{ 0.0f, 0.0f, -1.0f }; // 3D: the way it faces
     };
 
+    // Why a sound ended by itself (AudioEngine::TakeFinishedSounds).
+    enum class SoundEndReason
+    {
+        Finished = 0, // played to its end (not looping)
+        Stolen        // stopped by the voice limit to make room for another sound
+    };
+
+    // A sound that ended by itself.
+    struct FinishedSound
+    {
+        uint32_t Handle = 0;
+        std::filesystem::path File;
+        std::string Group;
+        SoundEndReason Reason = SoundEndReason::Finished;
+    };
+
     // The voice limit at work (AudioEngine::GetVoiceStats).
     struct AudioVoiceStats
     {
@@ -238,6 +254,14 @@ namespace Zamin {
         // The sound was stopped to make room for another one (voice limit).
         static bool WasStolen(uint32_t handle);
         static AudioVoiceStats GetVoiceStats();
+
+        // ---- sounds that ended by themselves, oldest first, since the last call (the scene hands them
+        // to its scripts: OnSoundFinished): non-looping sounds that played to their end (noticed on the
+        // main thread by Update and Play) and sounds the voice limit stopped. Not the ones stopped by
+        // Stop / a fade / StopAll, nor the music. At most MaxFinishedSounds wait (the oldest go).
+        static constexpr size_t MaxFinishedSounds = 1024;
+        static std::vector<FinishedSound> TakeFinishedSounds();
+        static size_t GetFinishedSoundCount();
 
         // ---- profiler
         // Every sound by kind, the voice limit, each mixer group's voices and what the limit cost

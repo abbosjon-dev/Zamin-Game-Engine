@@ -41,6 +41,19 @@ namespace Zamin {
         float Torque = 0.0f;
     };
 
+    // A sound of the script's entity that ended by itself (OnSoundFinished): its Audio Source's
+    // sound (not looping) or a one-shot this script played (PlaySound / PlaySoundAt).
+    struct SoundFinished
+    {
+        uint32_t Handle = 0;          // the AudioEngine handle the sound had
+        std::string Clip;             // its file, relative to Assets
+        Entity Source;                // the entity the sound belonged to
+        bool FromAudioSource = false; // the entity's Audio Source (false: PlaySound of the script)
+        // Not played to its end: the voice limit stopped it to make room for another sound
+        // (a looping one included).
+        bool Stolen = false;
+    };
+
     // Base class for C++ gameplay scripts.
     //
     //   class Player : public Zamin::ScriptableEntity
@@ -101,6 +114,13 @@ namespace Zamin {
         virtual void OnJointBreak3D(const JointBreak3D& /*joint*/) {}
         // Called when a UIButton on this entity is clicked.
         virtual void OnClick() {}
+        // A sound of this entity ended by itself, on the main thread, in the frame the engine noticed
+        // it (after OnLateUpdate): the Audio Source's sound or a one-shot this script played reached
+        // its end (not looping), or the voice limit cut it off (sound.Stolen). Not for sounds stopped
+        // on purpose (StopAudio, the entity switched off). Also emitted on the scene's event bus as
+        // "SoundFinished" (payload: SoundFinished) for other scripts to listen to.
+        //   void OnSoundFinished(const SoundFinished& sound) override { if (!sound.Stolen) PlayNextLine(); }
+        virtual void OnSoundFinished(const SoundFinished& /*sound*/) {}
         // Called for every message sent to this entity (SendMessage, Broadcast ...),
         // after the handlers registered with AddMessageHandler for that name.
         virtual void OnMessage(const ScriptMessage& /*message*/) {}
@@ -433,11 +453,13 @@ namespace Zamin {
         void LoadScene(const std::string& scenePath);
 
         // ---- audio (music and the mixer groups: the Audio class, e.g. Audio::CrossfadeTo("Audio/boss.ogg"))
-        // A one-shot sound in a mixer group (SFX, UI, ... ; an unknown name: SFX).
-        void PlaySound(const std::string& assetPath, float volume = 1.0f, float pitch = 1.0f, const std::string& group = "SFX");
+        // A one-shot sound in a mixer group (SFX, UI, ... ; an unknown name: SFX). The PlaySound
+        // overloads return the AudioEngine handle (0: not played) and OnSoundFinished tells this
+        // script when the sound ends.
+        uint32_t PlaySound(const std::string& assetPath, float volume = 1.0f, float pitch = 1.0f, const std::string& group = "SFX");
         // 3D positional sound (heard relative to the Audio Listener / primary camera)
-        void PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume = 1.0f, float pitch = 1.0f,
-                         const std::string& group = "SFX");
+        uint32_t PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume = 1.0f, float pitch = 1.0f,
+                             const std::string& group = "SFX");
         // A one-shot sound with everything SoundParams has: random volume / pitch range, priority
         // and instance limit, 3D position... e.g.
         //   SoundParams step; step.PitchRandom = { 0.9f, 1.1f }; step.MaxInstances = 3;

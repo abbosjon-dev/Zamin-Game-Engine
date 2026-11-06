@@ -1990,6 +1990,9 @@ namespace Zamin {
             }
         }
         AudioEngine::SetScenePreloads(preloads);
+        // Sounds that ended before this run (an earlier scene, the editor's previews) are not its.
+        AudioEngine::TakeFinishedSounds();
+        m_SoundOwners.clear();
         std::reverse(sources.begin(), sources.end()); // scene order
         for (auto e : sources)
             StartEntityEffects({ e, this });
@@ -2009,6 +2012,7 @@ namespace Zamin {
             m_Registry.get<AudioSourceComponent>(e).ResetRuntime();
         for (auto e : m_Registry.view<AmbientZoneComponent>())
             m_Registry.get<AmbientZoneComponent>(e).ResetRuntime();
+        m_SoundOwners.clear();
         SaveData::Save(); // flush what the scripts stored (no-op when nothing changed)
         DebugDraw::Clear(); // nothing the game drew stays in the editor's view
     }
@@ -5019,6 +5023,51 @@ namespace Zamin {
                 AudioEngine::SetLooping(a.RuntimeHandle, a.Loop);
                 AudioEngine::SetSoundFilter(a.RuntimeHandle, a.Filter);
             }
+        }
+        DispatchFinishedSounds();
+    }
+
+    void Scene::TrackSound(uint32_t handle, Entity owner)
+    {
+        if (!handle || !owner.IsValid() || owner.GetScene() != this)
+            return;
+        // Sounds stopped on purpose never report back: their entries are dropped now and then.
+        if (m_SoundOwners.size() >= 256)
+            std::erase_if(m_SoundOwners, [](const auto& entry) {
+                return !AudioEngine::IsPlaying(entry.first) && !AudioEngine::IsPaused(entry.first) && !AudioEngine::IsStopping(entry.first);
+            });
+        m_SoundOwners[handle] = owner.GetUUID();
+    }
+
+    void Scene::DispatchFinishedSounds()
+    {
+        std::vector<FinishedSound> finished = AudioEngine::TakeFinishedSounds();
+        for (const FinishedSound& sound : finished)
+        {
+            SoundFinished info;
+            info.Handle = sound.Handle;
+            info.Stolen = sound.Reason == SoundEndReason::Stolen;
+            if (auto it = m_SoundOwners.find(sound.Handle); it != m_SoundOwners.end())
+            {
+                info.Source = GetEntityByUUID(it->second);
+                m_SoundOwners.erase(it);
+            }
+            else
+                for (auto e : m_Registry.view<AudioSourceComponent>())
+                    if (m_Registry.get<AudioSourceComponent>(e).RuntimeHandle == sound.Handle)
+                    {
+                        info.Source = { e, this };
+                        info.FromAudioSource = true;
+                        break;
+                    }
+            if (!info.Source || !m_ScriptsRunning)
+                continue; // not this scene's (an editor preview, an earlier scene) or destroyed since
+            info.Clip = Project::GetAssetRelativePath(sound.File);
+            Entity source = info.Source;
+            if (auto* nsc = source.TryGetComponent<NativeScriptComponent>(); nsc && nsc->Instance && !nsc->Instance->m_Destroying)
+                nsc->Instance->OnSoundFinished(info);
+            // A callback may have destroyed the entity: the bus still hears of the sound.
+            m_EventBus->Emit("SoundFinished", info, source.IsValid() ? source : Entity());
         }
     }
 

@@ -621,18 +621,27 @@ namespace Zamin {
         }
     }
 
-    void ScriptableEntity::PlaySound(const std::string& assetPath, float volume, float pitch, const std::string& group)
+    uint32_t ScriptableEntity::PlaySound(const std::string& assetPath, float volume, float pitch, const std::string& group)
     {
-        Audio::PlaySound(assetPath, volume, pitch, group);
+        uint32_t handle = Audio::PlaySound(assetPath, volume, pitch, group);
+        m_Entity.GetScene()->TrackSound(handle, m_Entity);
+        return handle;
     }
 
-    void ScriptableEntity::PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume, float pitch,
-                                       const std::string& group)
+    uint32_t ScriptableEntity::PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume, float pitch,
+                                           const std::string& group)
     {
-        Audio::PlaySoundAt(assetPath, position, volume, pitch, group);
+        uint32_t handle = Audio::PlaySoundAt(assetPath, position, volume, pitch, group);
+        m_Entity.GetScene()->TrackSound(handle, m_Entity);
+        return handle;
     }
 
-    uint32_t ScriptableEntity::PlaySound(const std::string& assetPath, const SoundParams& params) { return Audio::PlaySound(assetPath, params); }
+    uint32_t ScriptableEntity::PlaySound(const std::string& assetPath, const SoundParams& params)
+    {
+        uint32_t handle = Audio::PlaySound(assetPath, params);
+        m_Entity.GetScene()->TrackSound(handle, m_Entity);
+        return handle;
+    }
 
     bool ScriptableEntity::PlayAudio() { return m_Entity.GetScene()->PlayAudio(m_Entity); }
     void ScriptableEntity::StopAudio() { m_Entity.GetScene()->StopAudio(m_Entity); }

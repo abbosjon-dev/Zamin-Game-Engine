@@ -172,6 +172,18 @@ namespace Zamin {
         // Unload) or not (a scene's clips, a clip's Preload setting on its first play).
         std::unordered_map<std::string, bool> s_Preloaded;
 
+        // Sounds that ended by themselves, waiting for TakeFinishedSounds.
+        std::vector<FinishedSound> s_Finished;
+
+        void RecordFinished(uint32_t handle, const Voice& voice, SoundEndReason reason)
+        {
+            if (voice.Music || voice.Stopping)
+                return; // the music has no owner to tell; one fading out was stopped on purpose
+            if (s_Finished.size() >= AudioEngine::MaxFinishedSounds)
+                s_Finished.erase(s_Finished.begin()); // nobody takes them (no scene runs): the oldest go
+            s_Finished.push_back({ handle, std::filesystem::path(voice.File), voice.Group, reason });
+        }
+
         // ---- profiler (since ResetProfileCounters)
         struct GroupLimitCounts
         {
@@ -548,8 +560,13 @@ namespace Zamin {
             for (auto& [handle, voice] : s_Voices)
                 if (!voice.Paused && !ma_sound_is_playing(voice.Sound.get()) && !ma_sound_is_looping(voice.Sound.get()))
                     finished.push_back(handle);
+            // In handle (start) order: what started first ended first.
+            std::sort(finished.begin(), finished.end());
             for (uint32_t handle : finished)
+            {
+                RecordFinished(handle, s_Voices.at(handle), SoundEndReason::Finished);
                 Release(handle);
+            }
         }
 
         // ---- voice limit
@@ -661,6 +678,7 @@ namespace Zamin {
             {
                 s_GroupLimitCounts[it->second.Group].Stolen++;
                 ma_sound_stop(it->second.Sound.get());
+                RecordFinished(handle, it->second, SoundEndReason::Stolen);
             }
             Release(handle);
         }
@@ -1411,6 +1429,15 @@ namespace Zamin {
         return stats;
     }
 
+    std::vector<FinishedSound> AudioEngine::TakeFinishedSounds()
+    {
+        std::vector<FinishedSound> finished;
+        finished.swap(s_Finished);
+        return finished;
+    }
+
+    size_t AudioEngine::GetFinishedSoundCount() { return s_Finished.size(); }
+
     // ------------------------------------------------------------------ profiler
     const AudioGroupProfile* AudioProfile::FindGroup(std::string_view name) const
     {
@@ -1611,6 +1638,7 @@ namespace Zamin {
             DestroyVoice(voice);
         }
         s_Voices.clear();
+        s_Finished.clear(); // nothing that played before is told about any more
         UnloadAll();
         float volume = s_Music.Volume;
         s_Music = {};

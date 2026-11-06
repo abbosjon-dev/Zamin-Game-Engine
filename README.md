@@ -484,6 +484,11 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   aralashish chegarasi chiziladi, inspektorda jonli daraja. API: `Scene::GetAmbientZoneLevel(entity)`,
   `Scene::GetAmbientZoneWeight(...)`. Namuna: `Scenes/Audio.zscene` — yashil zona ustidagi **o'rmon shovqini** (shamol va
   qushlar, Ambience guruhida)
+- **Audio hodisalar**: `OnSoundFinished(const SoundFinished& sound)` — obyektning ovozi o'zi tugaganda (Audio Source yoki
+  skriptning `PlaySound` ovozi, takrorlanmaydigan; ovozlar limiti to'xtatsa `Stolen`), asosiy oqimda yetkaziladi;
+  boshqa skriptlar `Subscribe("SoundFinished", ...)` bilan eshitadi. `PlaySound` / `PlaySoundAt` endi handle qaytaradi.
+  Dvigatelda: `AudioEngine::TakeFinishedSounds()` (`Finished` / `Stolen`). Namuna: `Scenes/Audio.zscene` — **karnay**
+  e'loni tugaganda `PaAnnouncer` skripti tanaffusdan keyin keyingisini chaladi
 - **Audio profiler**: Statistika oynasida faol ovozlar soni / limit (rang: to'lishiga qarab), so'nggi 240 kadr grafigi
   (limit chizig'i bilan), cho'qqi, ovoz turlari (ijroda / pauza / so'nmoqda, 3D, oqim, filtrli, musiqa, ko'rib chiqish,
   oldindan yuklangan fayllar) va **mixer guruhlari bo'yicha** jadval (o'zida / bola guruhlari bilan, limit sababli
@@ -634,6 +639,7 @@ ZM_REGISTER_SCRIPT(Player,
 | `OnDestroy()` | Obyekt o'chirilganda yoki o'yin to'xtaganda |
 | `OnJointBreak(joint)` | Shu obyektning 2D joint'i uzilganda (`joint.Type`, `joint.ConnectedBody`, `joint.Force`, `joint.Torque`) |
 | `OnJointBreak3D(joint)` | Shu obyektning 3D joint'i uzilganda (`joint.Type` - `Joint3DType::Fixed/Hinge/Distance/Slider`, `joint.ConnectedBody`, `joint.Force`, `joint.Torque`) |
+| `OnSoundFinished(sound)` | Shu obyektning ovozi o'zi tugaganda: Audio Source'ning takrorlanmaydigan ovozi yoki skriptning `PlaySound` / `PlaySoundAt` ovozi oxirigacha chalinsa, yoki ovozlar limiti uni to'xtatsa (`sound.Stolen`); `sound.Handle`, `sound.Clip`, `sound.FromAudioSource`. Asosiy oqimda, kadr skriptlaridan keyin; `StopAudio` bilan to'xtatilganda kelmaydi. Sahna event bus'ida ham `"SoundFinished"` (payload `SoundFinished`) |
 | `OnClick()` | Shu obyektdagi UI tugma bosilganda |
 | `OnMessage(msg)` | Shu obyektga xabar kelganda (`SendMessage`, `Broadcast` ...) |
 

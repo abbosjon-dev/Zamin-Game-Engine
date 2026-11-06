@@ -401,7 +401,11 @@ namespace Zamin {
                             { "WidthCurve", ParticleCurveToJson(m.WidthCurve) }, { "Gradient", ParticleGradientToJson(m.Gradient) },
                             { "InheritColor", m.InheritColor } };
         if (const auto& m = c.FollowCamera; m.Enabled || !(m == PS::FollowCameraModule{}))
+        {
             j["FollowCamera"] = { { "Enabled", m.Enabled }, { "Offset", ToJson(m.Offset) }, { "Wrap", m.Wrap }, { "WrapExtents", ToJson(m.WrapExtents) } };
+            if (m.NearFade != PS::FollowCameraModule{}.NearFade)
+                j["FollowCamera"]["NearFade"] = m.NearFade;
+        }
         if (const auto& m = c.TextureSheet; m.Enabled || !(m == PS::TextureSheetModule{}))
             j["TextureSheet"] = { { "Enabled", m.Enabled }, { "Source", EnumName(m.Source, s_SheetSources) }, { "Columns", m.Columns },
                                   { "Rows", m.Rows }, { "FrameCount", m.FrameCount }, { "SpritePrefix", m.SpritePrefix },
@@ -532,6 +536,7 @@ namespace Zamin {
             m.Offset = Vec(*it, "Offset", d.Offset);
             m.Wrap = it->value("Wrap", d.Wrap);
             m.WrapExtents = glm::max(Vec(*it, "WrapExtents", d.WrapExtents), glm::vec3(0.0f));
+            m.NearFade = std::max(0.0f, Number(*it, "NearFade", d.NearFade));
         }
         if (auto it = j.find("Trails"); it != j.end() && it->is_object())
         {
@@ -556,7 +561,7 @@ namespace Zamin {
     {
         using PS = ParticleSystemComponent;
         json j = {
-            { "Playing", c.Playing }, { "Looping", c.Looping }, { "PlayInEditor", c.PlayInEditor },
+            { "Playing", c.PlayOnStart }, { "Looping", c.Looping }, { "PlayInEditor", c.PlayInEditor },
             { "EmissionRate", c.EmissionRate }, { "Burst", c.Burst }, { "MaxParticles", c.MaxParticles },
             { "Shape", (int)c.Shape }, { "ShapeRadius", c.ShapeRadius }, { "ShapeExtents", ToJson(c.ShapeExtents) },
             { "LifetimeMin", c.LifetimeMin }, { "LifetimeMax", c.LifetimeMax }, { "SpeedMin", c.SpeedMin }, { "SpeedMax", c.SpeedMax },
@@ -612,7 +617,8 @@ namespace Zamin {
     static void ParticleSystemFromJson(const json& j, ParticleSystemComponent& c)
     {
         using PS = ParticleSystemComponent;
-        c.Playing = j.value("Playing", true);
+        c.PlayOnStart = j.value("Playing", true); // plays on start (the key of the first systems)
+        c.Playing = c.PlayOnStart;
         c.Looping = j.value("Looping", true);
         c.PlayInEditor = j.value("PlayInEditor", true);
         c.EmissionRate = j.value("EmissionRate", 30.0f);

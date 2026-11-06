@@ -78,6 +78,19 @@ namespace Zamin {
         ImGui::PopTextWrapPos();
     }
 
+    // A module switched on for the first time (its header's checkbox or "Add module") starts from
+    // what the system had: the colour gradient from the Start / End colours, the size curve from
+    // the End / Start sizes. `enabled` is the switch that was turned on.
+    static void SeedSwitchedOnModule(ParticleSystemComponent& c, const bool* enabled)
+    {
+        if (enabled == &c.ColorOverLifetime.Enabled && c.ColorOverLifetime.Enabled &&
+            c.ColorOverLifetime.Gradient == PS::ColorOverLifetimeModule{}.Gradient)
+            c.ColorOverLifetime.Gradient = ParticleGradient::TwoStops(c.StartColor, c.EndColor);
+        if (enabled == &c.SizeOverLifetime.Enabled && c.SizeOverLifetime.Enabled &&
+            c.SizeOverLifetime.Curve == PS::SizeOverLifetimeModule{}.Curve)
+            c.SizeOverLifetime.Curve = ParticleCurve::Linear(1.0f, c.StartSize > 0.0f ? c.EndSize / c.StartSize : 0.0f);
+    }
+
     static bool PropertyEnum(const char* label, int& value, const char* const* items, int count, const char* tooltip = nullptr)
     {
         bool changed = UI::PropertyCombo(label, value, items, count);
@@ -233,6 +246,19 @@ namespace Zamin {
             }
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                 UI::Tooltip("Bir sikl: portlashlar jadvali shu vaqt ichida; takrorlanmasa - shuncha chiqaradi, keyin tugaydi");
+            if (UI::PropertyBool("Boshida ijro", c.PlayOnStart))
+            {
+                // The scene view shows it as the game will start it (the game itself keeps playing).
+                if (!m_Context->IsRunning() && !m_Context->IsSimulating())
+                {
+                    c.Clear();
+                    c.Playing = c.PlayOnStart;
+                }
+                changed = true;
+            }
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Sahna boshlanganda o'zi chiqara boshlaydi (o'chiq: skript Play() chaqirguncha jim turadi). "
+                            "Yuqoridagi Ijro / To'xtatish tugmalari faqat ko'rib chiqish uchun - saqlanmaydi");
             changed |= UI::PropertyBool("Takrorlash", c.Looping);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                 UI::Tooltip("Sikl tugagach yana boshidan (o'chiq: bir marta - portlash, otishma effekti)");
@@ -490,6 +516,14 @@ namespace Zamin {
                     UI::Tooltip("Qutining yarim o'lchami har o'q bo'ylab (0 - shu o'q bo'ylab o'ralmaydi; yomg'ir: X va Z, 2D: X)");
                 if (m.Wrap && c.Space != PS::SimulationSpace::World)
                     Note("O'rash faqat Dunyo fazosida ishlaydi", true);
+                if (UI::PropertyFloat("Yaqinda so'nish", m.NearFade, 0.05f, 0.0f, 1000.0f, "%.2f"))
+                {
+                    m.NearFade = std::max(0.0f, m.NearFade);
+                    changed = true;
+                }
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    UI::Tooltip("Kameraga shundan yaqin particle'lar so'nadi (choragida butunlay yo'qoladi): ob'ektiv yonidan o'tgan "
+                                "tomchi ekran bo'ylab katta chiziq bo'lmaydi. 0 - o'chiq; faqat perspektiv kamerada");
                 if (m.Enabled && !c.FollowActive)
                     Note("Kamera topilmadi: emitter o'z joyida");
                 else if (m.Enabled)
@@ -548,9 +582,8 @@ namespace Zamin {
                 ModuleHeader("##colorModule", ICON_FA_PALETTE, "Rang (umr bo'yi)", &m.Enabled, changed,
                              "Particle rangi butun umri davomida: ko'p nuqtali gradient (Boshlang'ich / Oxirgi rang o'rniga)", wasOn))
             {
-                // Switched on for the first time: the gradient starts as the two colours it had.
-                if (m.Enabled && !wasOn && m.Gradient == PS::ColorOverLifetimeModule{}.Gradient)
-                    m.Gradient = ParticleGradient::TwoStops(c.StartColor, c.EndColor);
+                if (!wasOn)
+                    SeedSwitchedOnModule(c, &m.Enabled); // the gradient starts as the two colours it had
                 ImGui::BeginDisabled(!m.Enabled);
                 changed |= UI::PropertyGradient("Gradient", m.Gradient, "Chap - tug'ilganda, o'ng - o'lganda. Alfa - shaffoflik");
                 changed |= UI::PropertyBool("Ikki gradient orasida", m.RandomBetweenTwo);
@@ -560,15 +593,14 @@ namespace Zamin {
                     changed |= UI::PropertyGradient("Gradient B", m.GradientB);
                 ImGui::EndDisabled();
             }
-            else if (m.Enabled && !wasOn && m.Gradient == PS::ColorOverLifetimeModule{}.Gradient)
-                m.Gradient = ParticleGradient::TwoStops(c.StartColor, c.EndColor);
+            else if (!wasOn)
+                SeedSwitchedOnModule(c, &m.Enabled);
         }
         {
             auto& m = c.SizeOverLifetime;
             auto seed = [&]() {
-                // Switched on for the first time: the curve starts as the sizes it had.
-                if (m.Enabled && !wasOn && m.Curve == PS::SizeOverLifetimeModule{}.Curve)
-                    m.Curve = ParticleCurve::Linear(1.0f, c.StartSize > 0.0f ? c.EndSize / c.StartSize : 0.0f);
+                if (!wasOn)
+                    SeedSwitchedOnModule(c, &m.Enabled); // the curve starts as the sizes it had
             };
             if (shown(m.Enabled, ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER "  O'lcham (umr bo'yi)") &&
                 ModuleHeader("##sizeModule", ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER, "O'lcham (umr bo'yi)", &m.Enabled, changed,
@@ -967,6 +999,7 @@ namespace Zamin {
                     if (ImGui::MenuItem(title))
                     {
                         *enabled = true;
+                        SeedSwitchedOnModule(c, enabled); // as its header's checkbox would
                         changed = true;
                     }
                 ImGui::EndPopup();

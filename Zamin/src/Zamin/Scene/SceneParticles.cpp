@@ -213,6 +213,33 @@ namespace Zamin {
         }
     }
 
+    // Whether the sub-emitter templates of a finished system that are among `root`'s descendants
+    // (and theirs) still show particles - a rocket's last burst, which its stop action (or a script
+    // destroying it) would cut off. A template that keeps emitting by itself is not waited for.
+    static bool SubEmitterTemplatesLive(Scene& scene, Entity root, const ParticleSystemComponent& ps, int depth)
+    {
+        if (!ps.SubEmitters.Enabled || depth > 8)
+            return false;
+        for (const auto& sub : ps.SubEmitters.Emitters)
+        {
+            if (!sub.Emitter)
+                continue;
+            Entity target = scene.GetEntityByUUID(sub.Emitter.ID);
+            if (!target || target == root || !scene.IsAncestorOf(root, target) || !scene.IsActiveInHierarchy(target))
+                continue;
+            const auto* child = target.TryGetComponent<ParticleSystemComponent>();
+            if (!child)
+                continue;
+            const bool emitsForever = child->EmissionEnabled && child->Looping && child->IsEmitting() &&
+                                      (child->EmissionRate > 0.0f || !child->Bursts.empty());
+            if (!emitsForever && !child->Particles.empty())
+                return true;
+            if (SubEmitterTemplatesLive(scene, root, *child, depth + 1))
+                return true;
+        }
+        return false;
+    }
+
     void Scene::UpdateParticles(Timestep ts, bool editor)
     {
         ZM_PROFILE_SCOPE("Particle'lar");
@@ -301,7 +328,7 @@ namespace Zamin {
             {
                 ZM_PROFILE_SCOPE("Particle simulyatsiyasi");
                 if (ParticleSimulation::Update(ps, world, ts, editor, &environment))
-                    finished.push_back(e);
+                    ps.FinishPending = true;
             }
             // The camera moved on: what it left behind comes round to the front.
             if (ps.FollowActive && ps.FollowCamera.Wrap && ps.Space == ParticleSystemComponent::SimulationSpace::World && !ps.Paused)
@@ -312,14 +339,21 @@ namespace Zamin {
                 RunSubEmitters(*this, entity, ps, world, environment, ts * std::max(0.0f, ps.SimulationSpeed), editor);
             }
             ps.Events.clear();
+            if (ps.FinishPending)
+                finished.push_back(e);
         }
 
-        // Non-looping systems that finished: their scripts hear of it, then the stop action.
+        // Non-looping systems that finished (their sub-emitter templates among their children empty
+        // too): their scripts hear of it, then the stop action.
         for (entt::entity e : finished)
         {
             Entity entity{ e, this };
             if (!entity.IsValid())
                 continue;
+            auto* pending = entity.TryGetComponent<ParticleSystemComponent>();
+            if (!pending || !pending->FinishPending || SubEmitterTemplatesLive(*this, entity, *pending, 0))
+                continue;
+            pending->FinishPending = false;
             if (m_ScriptsRunning)
             {
                 if (auto* nsc = entity.TryGetComponent<NativeScriptComponent>(); nsc && nsc->Instance && !nsc->Instance->m_Destroying)
@@ -368,15 +402,25 @@ namespace Zamin {
             box.Max = glm::max(box.Max, pos);
         };
         const bool trails = ps.Trails.Enabled && ps.TrailPool.Capacity > 0;
+        float speed = 0.0f; // Stretched: the quads grow with it
         for (const auto& p : ps.Particles)
         {
             add(p.Position);
             scale = std::max(scale, p.SizeScale);
+            if (ps.Stretched)
+                speed = std::max(speed, glm::length(world ? p.Velocity : glm::vec3(space * glm::vec4(p.Velocity, 0.0f))));
             if (trails && p.Trail >= 0)
                 for (int i = 0, n = ps.TrailPool.GetCount(p.Trail); i < n; i++)
                     add(ps.TrailPool.Get(p.Trail, i).Position);
         }
         float radius = maxSize * scale * 0.70711f;
+        if (ps.Stretched)
+        {
+            // Centred on the particle: half the diagonal of size x its longest (GetStretchedQuad).
+            const float size = maxSize * scale;
+            const float length = std::max(size * 0.25f, size * std::max(0.0f, ps.StretchLength) + speed * std::max(0.0f, ps.StretchSpeed));
+            radius = std::max(radius, 0.5f * std::sqrt(size * size + length * length));
+        }
         if (trails)
         {
             const float width = std::abs(ps.Trails.Width) * (ps.Trails.WidthFromSize ? maxSize * scale : 1.0f) *
@@ -544,6 +588,8 @@ namespace Zamin {
         const glm::vec3 quadRight = ps.Billboard ? glm::vec3(billboard[0]) : glm::vec3(1.0f, 0.0f, 0.0f);
         const glm::vec3 quadUp = ps.Billboard ? glm::vec3(billboard[1]) : glm::vec3(0.0f, 1.0f, 0.0f);
         auto worldVelocity = [&](const Particle& p) { return world ? p.Velocity : glm::vec3(space * glm::vec4(p.Velocity, 0.0f)); };
+        // Weather at the camera: what passes right by the lens fades out (not drawn when gone).
+        const bool nearFade = perspective && ps.FollowCamera.Enabled && ps.FollowActive && ps.FollowCamera.NearFade > 0.0f;
 
         // Billboards (3D): GPU instances, one draw call for the system. The 2D ones (flat quads in
         // the sprites' plane) stay in the 2D batch with the sprites.
@@ -551,16 +597,22 @@ namespace Zamin {
         {
             static thread_local std::vector<ParticleInstance> instances;
             instances.resize(count);
+            size_t drawn = 0;
             for (size_t i = 0; i < count; i++)
             {
                 const Particle& p = particle(i);
-                ParticleInstance& instance = instances[i];
+                ParticleInstance& instance = instances[drawn];
                 instance.Position = world ? p.Position : glm::vec3(space * glm::vec4(p.Position, 1.0f));
+                const float fade = nearFade ? ParticleSimulation::GetNearFade(ps, glm::distance(instance.Position, viewer)) : 1.0f;
+                if (fade <= 0.0f)
+                    continue;
+                drawn++;
                 instance.Rotation = p.Rotation;
                 instance.Size = glm::vec2(ParticleSimulation::GetSize(ps, p));
                 if (ps.Stretched)
                     ParticleSimulation::GetStretchedQuad(ps, worldVelocity(p), quadRight, quadUp, instance.Size.x, instance.Rotation, instance.Size);
                 instance.Color = ParticleSimulation::GetColor(ps, p);
+                instance.Color.a *= fade;
                 instance.UVRect = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
                 if (ps.Texture && frameCount > 0)
                 {
@@ -575,16 +627,21 @@ namespace Zamin {
             params.Right = glm::vec3(billboard[0]);
             params.Up = glm::vec3(billboard[1]);
             params.EntityID = id;
-            ParticleRenderer::Draw(instances.data(), (uint32_t)count, params);
+            if (drawn > 0)
+                ParticleRenderer::Draw(instances.data(), (uint32_t)drawn, params);
         }
         else
         {
             for (size_t i = 0; i < count; i++)
             {
                 const Particle& p = particle(i);
-                glm::vec4 color = ParticleSimulation::GetColor(ps, p);
-                float size = ParticleSimulation::GetSize(ps, p);
                 glm::vec3 pos = world ? p.Position : glm::vec3(space * glm::vec4(p.Position, 1.0f));
+                const float fade = nearFade ? ParticleSimulation::GetNearFade(ps, glm::distance(pos, viewer)) : 1.0f;
+                if (fade <= 0.0f)
+                    continue;
+                glm::vec4 color = ParticleSimulation::GetColor(ps, p);
+                color.a *= fade;
+                float size = ParticleSimulation::GetSize(ps, p);
                 glm::mat4 m = glm::translate(glm::mat4(1.0f), pos);
                 if (ps.Billboard) m = m * billboard;
                 float rotation = p.Rotation;

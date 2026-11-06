@@ -412,7 +412,7 @@ namespace Zamin {
         for (auto e : registry.view<AnimatorComponent>()) registry.get<AnimatorComponent>(e).ResetRuntime();
         for (auto e : registry.view<CameraComponent>()) registry.get<CameraComponent>(e).Shake.ResetRuntime();
         for (auto e : registry.view<Camera2DFollowComponent>()) registry.get<Camera2DFollowComponent>(e).ResetRuntime();
-        for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).Clear();
+        for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).ResetRuntime();
         for (auto e : registry.view<MeshRendererComponent>())
         {
             Scene::ClearMaterialInstances(registry.get<MeshRendererComponent>(e));
@@ -479,7 +479,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<CameraComponent>()) c->Shake.ResetRuntime();
         if (auto* c = e.TryGetComponent<Camera2DFollowComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; c->Velocity = glm::vec3(0.0f); }
-        if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->Clear(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
+        if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->ResetRuntime(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
         if (auto* c = e.TryGetComponent<UIButtonComponent>()) c->Hovered = c->Pressed = c->Clicked = false;
         if (auto* c = e.TryGetComponent<UISliderComponent>()) c->Hovered = c->Dragging = c->ValueChanged = false;
         if (auto* c = e.TryGetComponent<UIToggleComponent>())
@@ -4494,6 +4494,7 @@ namespace Zamin {
             UpdateTintAnimations(ts, false);
             UpdateParticles(ts, false);
             UpdateAnimators(ts, false);
+            FlushDestroyQueue(); // what asked to go this frame (a particle system's Destroy stop action)
         }
         else
             DebugDraw::Hold();

@@ -2070,6 +2070,150 @@ TEST(ParticleStopActions)
     CHECK(edit->FindEntityByName("Preview") && !ps.Finished);
 }
 
+// A finished system's stop action and its scripts wait for the particles of its sub-emitter
+// templates among its children (a rocket's final burst); a child template that keeps emitting by
+// itself is not waited for.
+TEST(ParticleStopActionWaitsForSubEmitters)
+{
+    using PS = ParticleSystemComponent;
+    auto scene = CreateRef<Scene>();
+    auto rocket = [&](const std::string& name, PS::StopAction action, bool smokeForever) -> Entity {
+        Entity e = scene->CreateEntity(name);
+        Entity burst = scene->CreateEntity(name + " portlash");
+        scene->SetParent(burst, e, false);
+        auto& t = burst.AddComponent<PS>();
+        t.EmissionEnabled = false;
+        t.LifetimeMin = t.LifetimeMax = 0.3f;
+        if (smokeForever)
+        {
+            t.EmissionEnabled = true;
+            t.EmissionRate = 20.0f; // a looping template that emits by itself
+        }
+        auto& ps = e.AddComponent<PS>();
+        ps.Looping = false;
+        ps.Duration = 0.2f;
+        ps.EmissionRate = 0.0f;
+        ps.Burst = 1;
+        ps.LifetimeMin = ps.LifetimeMax = 0.25f; // dies after the cycle: finished in the frame of the burst
+        ps.StopActionType = action;
+        ps.SubEmitters.Enabled = true;
+        PS::SubEmitter sub;
+        sub.Trigger = PS::SubEmitter::TriggerType::Death;
+        sub.Count = 20;
+        sub.Emitter.ID = burst.GetUUID();
+        ps.SubEmitters.Emitters = { sub };
+        return e;
+    };
+    Entity gone = rocket("Raketa", PS::StopAction::Destroy, false);
+    Entity off = rocket("Raketa2", PS::StopAction::Disable, false);
+    Entity smoky = rocket("Raketa3", PS::StopAction::Disable, true);
+    Entity listener = scene->CreateEntity("Listener");
+    listener.AddComponent<NativeScriptComponent>().ClassName = "ParticlesFinishProbe";
+    const UUID goneBurst = scene->GetChildren(gone)[0].GetUUID();
+    scene->OnRuntimeStart();
+    auto* probe = dynamic_cast<ParticlesFinishProbe*>(listener.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(probe);
+    if (!probe)
+        return;
+    const float dt = 1.0f / 60.0f;
+    for (int i = 0; i < 24; i++) // 0.4 s: the rockets died at 0.25, their bursts live until 0.55
+        scene->OnUpdateRuntime(dt);
+    CHECK(scene->FindEntityByName("Raketa") && scene->IsActiveInHierarchy(off));
+    Entity goneBurstEntity = scene->GetEntityByUUID(goneBurst);
+    CHECK(goneBurstEntity && goneBurstEntity.GetComponent<PS>().Particles.size() == 20);
+    CHECK(gone.GetComponent<PS>().Finished && gone.GetComponent<PS>().FinishPending);
+    // The one whose template smokes by itself: not held back.
+    CHECK(!scene->IsActiveInHierarchy(smoky));
+    CHECK(probe->Bus == std::vector<std::string>({ "Raketa3" }));
+    for (int i = 0; i < 18; i++) // 0.7 s: the bursts are over
+        scene->OnUpdateRuntime(dt);
+    CHECK(!scene->FindEntityByName("Raketa") && !scene->GetEntityByUUID(goneBurst));
+    CHECK(!scene->IsActiveInHierarchy(off));
+    CHECK(probe->Bus.size() == 3 && std::count(probe->Bus.begin(), probe->Bus.end(), "Raketa") == 1 &&
+          std::count(probe->Bus.begin(), probe->Bus.end(), "Raketa2") == 1);
+    scene->OnRuntimeStop();
+}
+
+// The start burst waits for the start delay as the rate and the bursts list do.
+TEST(ParticleStartBurstWaitsForDelay)
+{
+    using PS = ParticleSystemComponent;
+    PS ps;
+    ps.EmissionRate = 0.0f;
+    ps.Burst = 50;
+    ps.StartDelay = 0.5f;
+    ps.LifetimeMin = ps.LifetimeMax = 10.0f;
+    const float dt = 1.0f / 60.0f;
+    for (int i = 0; i < 27; i++) // 0.45 s
+        ParticleSimulation::Update(ps, glm::mat4(1.0f), dt, false);
+    CHECK(ps.Particles.empty() && !ps.BurstDone);
+    for (int i = 0; i < 6; i++) // 0.55 s: in the step that reached 0.5
+        ParticleSimulation::Update(ps, glm::mat4(1.0f), dt, false);
+    CHECK(ps.Particles.size() == 50 && ps.BurstDone);
+    for (int i = 0; i < 60; i++)
+        ParticleSimulation::Update(ps, glm::mat4(1.0f), dt, false);
+    CHECK(ps.Particles.size() == 50); // once
+    // No delay: on the first frame; a delay longer than a step: not before it.
+    PS now;
+    now.EmissionRate = 0.0f;
+    now.Burst = 7;
+    ParticleSimulation::Update(now, glm::mat4(1.0f), dt, false);
+    CHECK(now.Particles.size() == 7);
+    PS big = now;
+    big.Clear();
+    big.StartDelay = 1.0f;
+    ParticleSimulation::Update(big, glm::mat4(1.0f), 0.5f, false);
+    CHECK(big.Particles.empty());
+    ParticleSimulation::Update(big, glm::mat4(1.0f), 0.5f, false);
+    CHECK(big.Particles.size() == 7);
+}
+
+// Play on start is what is saved; Play / Stop / Pause (the editor's preview controls, scripts)
+// change only the state it is in now: a copy for the game starts as saved.
+TEST(ParticlePlayOnStart)
+{
+    using PS = ParticleSystemComponent;
+    auto edit = CreateRef<Scene>();
+    Entity fx = edit->CreateEntity("Fx");
+    auto& ps = fx.AddComponent<PS>();
+    ps.EmissionRate = 0.0f;
+    ps.Burst = 4;
+    ps.LifetimeMin = ps.LifetimeMax = 10.0f;
+    edit->UpdateEditorAnimation(0.1f);
+    CHECK(ps.Particles.size() == 4);
+    ps.Stop(); // the preview's Stop
+    CHECK(!ps.Playing && ps.PlayOnStart);
+    const std::string text = SceneSerializer(edit).SerializeToString();
+    CHECK(text.find("\"Playing\": true") != std::string::npos && text.find("\"Playing\": false") == std::string::npos); // as it starts
+    auto game = Scene::Copy(edit);
+    game->OnRuntimeStart();
+    game->OnUpdateRuntime(0.1f);
+    Entity gameFx = game->FindEntityByName("Fx");
+    CHECK(gameFx && gameFx.GetComponent<PS>().Playing && gameFx.GetComponent<PS>().Particles.size() == 4);
+    game->OnRuntimeStop();
+    CHECK(!ps.Playing); // the edit scene's preview stays stopped
+
+    // Not playing on start: silent in the game until a script plays it.
+    ps.PlayOnStart = false;
+    ps.Playing = true;
+    auto quiet = Scene::Copy(edit);
+    quiet->OnRuntimeStart();
+    Entity quietFx = quiet->FindEntityByName("Fx");
+    auto& q = quietFx.GetComponent<PS>();
+    CHECK(!q.Playing && !q.PlayOnStart);
+    quiet->OnUpdateRuntime(0.1f);
+    CHECK(q.Particles.empty());
+    q.Play();
+    quiet->OnUpdateRuntime(0.1f);
+    CHECK(q.Particles.size() == 4);
+    quiet->OnRuntimeStop();
+    // Loaded: playing as saved.
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(edit).SerializeToString()));
+    if (Entity l = loaded->FindEntityByName("Fx"))
+        CHECK(!l.GetComponent<PS>().PlayOnStart && !l.GetComponent<PS>().Playing);
+}
+
 // The main settings (duration, delay, prewarm, speed, stop action, sorting, custom space, the
 // bursts list) round trip; a plain system writes none of them; older scenes load as before.
 TEST(ParticleMainSerialization)
@@ -2233,6 +2377,44 @@ TEST(ParticleModuleSwitchesAndPlayback)
     ps.RendererEnabled = false;
     scene->UpdateEditorAnimation(0.1f);
     CHECK(ps.Particles.size() >= 15);
+}
+
+// Weather at the lens: particles near the camera fade out (gone at a quarter of NearFade); a
+// stretched particle's box holds its whole streak.
+TEST(ParticleNearFadeAndStretchedBounds)
+{
+    using PS = ParticleSystemComponent;
+    PS ps;
+    ps.FollowCamera.NearFade = 2.0f;
+    CHECK(ParticleSimulation::GetNearFade(ps, 0.0f) == 0.0f && ParticleSimulation::GetNearFade(ps, 0.5f) == 0.0f);
+    CHECK_NEAR(ParticleSimulation::GetNearFade(ps, 1.25f), 0.5f, 1e-5f);
+    CHECK(ParticleSimulation::GetNearFade(ps, 2.0f) == 1.0f && ParticleSimulation::GetNearFade(ps, 50.0f) == 1.0f);
+    const float a = ParticleSimulation::GetNearFade(ps, 0.8f), b = ParticleSimulation::GetNearFade(ps, 1.6f);
+    CHECK(a > 0.0f && a < b && b < 1.0f);
+    ps.FollowCamera.NearFade = 0.0f; // off
+    CHECK(ParticleSimulation::GetNearFade(ps, 0.0f) == 1.0f);
+
+    // A rain drop 0.03 wide falling at 12 / s: 0.03 + 12 x 0.05 = 0.63 long, centred on it.
+    PS rain;
+    rain.StartSize = rain.EndSize = 0.03f;
+    rain.Stretched = true;
+    rain.StretchLength = 1.0f;
+    rain.StretchSpeed = 0.05f;
+    Particle drop;
+    drop.Position = { 0.0f, 5.0f, 0.0f };
+    drop.Velocity = { 0.0f, -12.0f, 0.0f };
+    drop.Lifetime = drop.Life = 1.0f;
+    rain.Particles.push_back(drop);
+    AABB box = Scene::GetParticleBounds(rain, glm::mat4(1.0f));
+    const float half = 0.5f * std::sqrt(0.03f * 0.03f + 0.63f * 0.63f);
+    CHECK_NEAR(box.Max.y, 5.0f + half, 1e-4f);
+    CHECK_NEAR(box.Min.y, 5.0f - half, 1e-4f);
+    rain.Stretched = false;
+    box = Scene::GetParticleBounds(rain, glm::mat4(1.0f));
+    CHECK_NEAR(box.Max.y, 5.0f + 0.03f * 0.70711f, 1e-4f);
+    // Weather made before NearFade loads with the default (a scene file without the key).
+    PS d;
+    CHECK(d.FollowCamera.NearFade == 4.0f);
 }
 
 // Weather around the camera: the emitter at the viewer plus the offset, particles that fall behind
@@ -2535,7 +2717,7 @@ TEST(ParticleSerializationEverything)
     sub.AddComponent<PS>().EmissionEnabled = false;
     Entity fx = scene->CreateEntity("Everything");
     PS c;
-    c.Playing = false; c.Looping = false; c.PlayInEditor = false;
+    c.PlayOnStart = false; c.Looping = false; c.PlayInEditor = false;
     c.Duration = 2.5f; c.StartDelay = 0.4f; c.Prewarm = true; c.SimulationSpeed = 1.5f; c.StopActionType = PS::StopAction::Disable;
     c.EmissionRate = 12.5f; c.Burst = 3; c.Bursts = { { 0.2f, 4, 2, 0.1f, 0.5f } }; c.EmissionEnabled = false; c.MaxParticles = 321;
     c.Shape = PS::EmitterShape::Mesh; c.ShapeEnabled = false; c.ShapeRadius = 0.7f; c.ShapeExtents = { 1, 2, 3 }; c.ShapeThickness = 0.25f;
@@ -2574,7 +2756,7 @@ TEST(ParticleSerializationEverything)
                        2.0f, 24.0f, 1, true, true };
     c.Trails = { true, 0.5f, 0.8f, 0.05f, 40, 2.0f, false, ParticleCurve::Linear(1, 0.2f),
                  ParticleGradient::TwoStops({ 1, 1, 0, 1 }, { 1, 0, 0, 0 }), false };
-    c.FollowCamera = { true, { 1, 7, -1 }, false, { 5, 1, 5 } };
+    c.FollowCamera = { true, { 1, 7, -1 }, false, { 5, 1, 5 }, 3.5f };
     c.RendererEnabled = false; c.RenderAsCircle = false; c.Additive = false; c.Stretched = true; c.StretchLength = 1.5f; c.StretchSpeed = 0.02f;
     c.Space = PS::SimulationSpace::Custom; c.CustomSpace.ID = space.GetUUID(); c.Billboard = false; c.Sorting = PS::SortMode::YoungestOnTop;
     c.TexturePath = "Textures/flame_sheet.png"; c.SortingOrder = -4;
@@ -2589,7 +2771,7 @@ TEST(ParticleSerializationEverything)
     if (!le)
         return;
     const PS& l = le.GetComponent<PS>();
-    CHECK(!l.Playing && !l.Looping && !l.PlayInEditor && l.Duration == 2.5f && l.StartDelay == 0.4f && l.Prewarm && l.SimulationSpeed == 1.5f);
+    CHECK(!l.PlayOnStart && !l.Playing && !l.Looping && !l.PlayInEditor && l.Duration == 2.5f && l.StartDelay == 0.4f && l.Prewarm && l.SimulationSpeed == 1.5f);
     CHECK(l.StopActionType == PS::StopAction::Disable && l.EmissionRate == 12.5f && l.Burst == 3 && l.Bursts == c.Bursts && !l.EmissionEnabled);
     CHECK(l.MaxParticles == 321 && l.Shape == PS::EmitterShape::Mesh && !l.ShapeEnabled && l.ShapeRadius == 0.7f && l.ShapeExtents == c.ShapeExtents);
     CHECK(l.ShapeThickness == 0.25f && l.ConeAngle == 33.0f && l.ConeLength == 2.0f && l.ConeFrom == PS::ConeEmitFrom::Volume && l.ConeFlat);
@@ -7204,6 +7386,38 @@ TEST(AssetMoveKeepsNamesAndTags)
     result = AssetFiles::MoveInto({ assets / "Hero" }, assets / "Characters", assets);
     CHECK(result.Errors.empty() && result.UpdatedReferences == 2);
     check("Characters/Hero");
+
+    std::error_code ec;
+    fs::remove_all(project, ec);
+}
+
+// A particle preset (.zparticle) follows a texture / model it uses when that is moved or renamed.
+TEST(AssetMoveUpdatesParticlePresets)
+{
+    namespace fs = std::filesystem;
+    fs::path project = MakeTempDir("zamin-move-particle-");
+    fs::path assets = project / "Assets";
+    WriteFile(assets / "Textures" / "spark.png", "png");
+    WriteFile(assets / "Models" / "rock.glb", "glb");
+    ParticlePreset preset;
+    preset.Name = "Uchqun";
+    preset.System.TexturePath = "Textures/spark.png";
+    preset.System.Shape = ParticleSystemComponent::EmitterShape::Mesh;
+    preset.System.MeshSource = ParticleSystemComponent::MeshShapeSource::Model;
+    preset.System.MeshModelPath = "Models/rock.glb";
+    const fs::path file = assets / "Particles" / "Uchqun.zparticle";
+    fs::create_directories(file.parent_path());
+    CHECK(ParticlePresets::Save(file, preset));
+
+    fs::create_directories(assets / "Sprites");
+    auto result = AssetFiles::MoveInto({ assets / "Textures" / "spark.png" }, assets / "Sprites", assets);
+    CHECK(result.Errors.empty() && result.UpdatedReferences == 1 && result.UpdatedFiles.size() == 1);
+    result = AssetFiles::Rename(assets / "Models", "Meshes", assets);
+    CHECK(result.Errors.empty() && result.UpdatedReferences == 1);
+    ParticlePreset loaded;
+    CHECK(ParticlePresets::Load(file, loaded));
+    CHECK(loaded.System.TexturePath == "Sprites/spark.png" && loaded.System.MeshModelPath == "Meshes/rock.glb");
+    CHECK(loaded.Name == "Uchqun"); // names stay
 
     std::error_code ec;
     fs::remove_all(project, ec);

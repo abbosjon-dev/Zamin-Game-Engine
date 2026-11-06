@@ -770,12 +770,13 @@ namespace Zamin {
                     ps.PlayTime = delay + std::fmod(ps.PlayTime - delay, cycle);
                 return;
             }
-            if (!ps.BurstDone)
+            const float t0 = ps.PlayTime;
+            // The start burst once the delay is over (in the step that reaches it).
+            if (!ps.BurstDone && t0 + dt >= std::max(0.0f, ps.StartDelay))
             {
                 Spawn(ps, emitterWorld, ps.Burst);
                 ps.BurstDone = true;
             }
-            const float t0 = ps.PlayTime;
             if (!ps.Bursts.empty())
             {
                 static thread_local std::vector<int> firings;
@@ -1252,6 +1253,15 @@ namespace Zamin {
             const float length = std::max(0.0f, size * ps.StretchLength + speed * std::max(0.0f, ps.StretchSpeed));
             quad = glm::vec2(size, std::max(size * 0.25f, length * (seen / speed)));
             return true;
+        }
+
+        float GetNearFade(const ParticleSystemComponent& ps, float distance)
+        {
+            const float range = ps.FollowCamera.NearFade;
+            if (!(range > 0.0f))
+                return 1.0f;
+            const float t = std::clamp((distance - range * 0.25f) / (range * 0.75f), 0.0f, 1.0f);
+            return t * t * (3.0f - 2.0f * t);
         }
 
         float GetTrailWidth(const ParticleSystemComponent& ps, float size, float u)

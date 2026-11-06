@@ -259,6 +259,10 @@ namespace Zamin {
         bool GetStretchedQuad(const ParticleSystemComponent& ps, const glm::vec3& velocity, const glm::vec3& right, const glm::vec3& up,
                               float size, float& rotation, glm::vec2& quad);
 
+        // Weather near the lens (FollowCamera.NearFade): how much of a particle `distance` from the
+        // camera is seen, 0..1 - 0 within a quarter of NearFade, 1 from NearFade on (and when off).
+        float GetNearFade(const ParticleSystemComponent& ps, float distance);
+
         // A trail's width / colour at `u` along it (0 at the particle, 1 at its oldest end) for a
         // particle of `size` and `color`.
         float GetTrailWidth(const ParticleSystemComponent& ps, float size, float u);

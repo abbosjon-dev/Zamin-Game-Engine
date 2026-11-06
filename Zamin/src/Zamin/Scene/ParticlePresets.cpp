@@ -490,7 +490,7 @@ namespace Zamin {
     // ------------------------------------------------------------------ capture / apply
     void ParticlePresets::ClearRuntime(ParticleSystemComponent& ps)
     {
-        ps.Clear();
+        ps.ResetRuntime();
         ps.Texture = nullptr;
         ps.RandomState = ParticleSystemComponent().RandomState;
     }

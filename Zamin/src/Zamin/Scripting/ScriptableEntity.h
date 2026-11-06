@@ -173,7 +173,8 @@ namespace Zamin {
         //   void OnSoundFinished(const SoundFinished& sound) override { if (!sound.Stolen) PlayNextLine(); }
         virtual void OnSoundFinished(const SoundFinished& /*sound*/) {}
         // This entity's non-looping Particle System played its whole cycle (Duration) and its last
-        // particle died - before its stop action (switched off / destroyed). Also emitted on the
+        // particle died (and those of its sub-emitter templates among its children: a rocket's
+        // final burst) - before its stop action (switched off / destroyed). Also emitted on the
         // scene's event bus as "ParticlesFinished" (sender: the entity, no payload).
         //   void OnParticlesFinished() override { Destroy(); }
         virtual void OnParticlesFinished() {}

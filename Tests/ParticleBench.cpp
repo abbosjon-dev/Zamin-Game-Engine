@@ -239,6 +239,8 @@ int main(int argc, char** argv)
             std::printf("%s\n", Profiler::FormatTree(Profiler::GetLastFrame(), 0.01f).c_str());
         }
     }
-    std::printf("\n(%.0f)\n", sink > 0.0 ? 1.0 : 0.0); // keeps the drawing work from being optimised away
+    // A volatile store keeps the drawing work from being optimised away (nothing to print).
+    static volatile double s_Sink;
+    s_Sink = sink;
     return 0;
 }

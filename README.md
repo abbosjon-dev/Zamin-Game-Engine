@@ -297,8 +297,11 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     **oldindan to'ldirish** (prewarm - takrorlanadigan tizim boshidanoq bir sikl ishlagandek to'la), boshlanish
     kechikishi, **simulyatsiya (vaqt) tezligi**, fazo - dunyo / lokal / **boshqa obyekt** (masalan kema: uchqunlar
     kema bilan siljiydi, aylanayotgan minora bilan emas), **tugaganda** (takrorlanmaydigan tizim siklini o'ynab
-    bo'lgach: obyekt o'chiriladi / yo'q qilinadi; skript `OnParticlesFinished()` va "ParticlesFinished" hodisasini
-    oladi). Emissiya: soniyasiga N, boshida bir martalik portlash va **portlashlar jadvali** (har siklda: vaqt, soni,
+    bo'lgach va bola obyektlardagi sub-emitter shablonlarining particle'lari ham tugagach - mushakning oxirgi portlashi
+    kesilmaydi: obyekt o'chiriladi / yo'q qilinadi; skript `OnParticlesFinished()` va "ParticlesFinished" hodisasini
+    oladi), **boshida ijro** (o'chiq: skript `Play()` chaqirguncha jim; inspektor / viewport'dagi Ijro / To'xtatish
+    faqat ko'rib chiqish uchun, sahnaga saqlanmaydi). Emissiya: soniyasiga N, boshida (kechikishdan keyin) bir martalik
+    portlash va **portlashlar jadvali** (har siklda: vaqt, soni,
     sikllar - cheksiz ham, oraliq, ehtimollik). Chizish: 3D billboardlar **GPU instancing** bilan - har tizim bitta
     chizish buyrug'ida (`ParticleRenderer`; 2D tekis particle'lar sprite'lar bilan 2D partiyada), shaffof (additive
     emas) tizimlar kameradan uzoqlik bo'yicha **orqadan oldinga saralanadi** (yoki yoshi bo'yicha / saralanmaydi);
@@ -330,7 +333,8 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     shablonlar bola obyekt bo'lib yaratiladi, sahnaga tegishli havolalar (boshqa obyekt fazosi, tekislik obyekti)
     saqlanmaydi. **Ob-havo (Kamera atrofida moduli)**: emitter asosiy kamera bilan (editorda - sahna ko'rinishi
     kamerasi bilan) yuradi, kamera ortda qoldirgan particle'lar quti bo'ylab oldinga o'raladi - yomg'ir tomchilari
-    yerga tegib sachraydi (to'qnashuv sub-emitteri), qor shovqin bilan aylanib tushadi. Chizish moduli: **tezlik
+    yerga tegib sachraydi (to'qnashuv sub-emitteri), qor shovqin bilan aylanib tushadi; kameraga juda yaqin particle'lar
+    so'nadi ("Yaqinda so'nish", standart 4 birlik - ob'ektiv yonidagi tomchi ekran bo'ylab chiziq bo'lmaydi). Chizish moduli: **tezlik
     bo'ylab cho'zilgan billboardlar** (yomg'ir chiziqlari, uchqunlar). Inspektor Unity'dagidek modullarga bo'lingan
     (Asosiy, Emissiya, Shakl, Kamera atrofida, Tezlik, Tezlik chegarasi, Rang, O'lcham, Shovqin, To'qnashuv,
     Sub-emitterlar, Tekstura sheet, Iz, Chizish) - har birida yoqish katagi, "faqat yoqilganlar" filtri va "Modul

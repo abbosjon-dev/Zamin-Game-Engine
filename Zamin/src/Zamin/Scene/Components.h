@@ -1182,7 +1182,8 @@ namespace Zamin {
         // (CustomSpace: a ship whose turret emits; not set or gone: World).
         enum class SimulationSpace { Local = 0, World, Custom };
         // What happens when a non-looping system has finished (its Duration over, its last
-        // particle dead) while the game runs: nothing, the entity switched off, or destroyed.
+        // particle dead, the particles of its sub-emitter templates among its children too) while
+        // the game runs: nothing, the entity switched off, or destroyed.
         // Scripts hear of it either way (OnParticlesFinished, the bus' "ParticlesFinished").
         enum class StopAction { None = 0, Disable, Destroy };
         // The order the particles are drawn in (the last one on top): Auto - back to front by
@@ -1202,6 +1203,9 @@ namespace Zamin {
             bool operator==(const EmissionBurst&) const = default;
         };
 
+        // Plays when the scene starts (saved; the scene file's "Playing"). Playing below is the
+        // state it is in now: Play / Stop / Pause and the editor's preview controls change only that.
+        bool PlayOnStart = true;
         bool Playing = true;
         bool Looping = true;
         bool PlayInEditor = true;
@@ -1425,13 +1429,16 @@ namespace Zamin {
         // is - the primary camera while the game runs, the scene view's in the editor - plus Offset
         // (world axes); its own rotation and scale stay. Wrap (World space): a particle farther
         // from the emitter than WrapExtents along a world axis (0: not along it) goes over to the
-        // other side of that box, so the camera never walks out of the rain.
+        // other side of that box, so the camera never walks out of the rain. NearFade (perspective
+        // cameras): particles nearer the camera than this fade out (gone at a quarter of it), so a
+        // drop passing by the lens is no streak across the screen; 0: off.
         struct FollowCameraModule
         {
             bool Enabled = false;
             glm::vec3 Offset{ 0.0f, 6.0f, 0.0f };
             bool Wrap = true;
             glm::vec3 WrapExtents{ 10.0f, 0.0f, 10.0f };
+            float NearFade = 4.0f;
             bool operator==(const FollowCameraModule&) const = default;
         } FollowCamera;
 
@@ -1462,6 +1469,9 @@ namespace Zamin {
         float PlayTime = 0.0f;                // seconds it has played (emitted) since it started, StartDelay included
         bool Prewarmed = false;
         bool Finished = false;                // a non-looping system that played its cycle and emptied (once)
+        // Finished, not yet reported: the scene waits for the particles of its sub-emitter templates
+        // among its children (a rocket's last burst) before the callbacks and the stop action.
+        bool FinishPending = false;
         bool Paused = false;                  // frozen as it is (the editor's pause; not saved)
         bool FollowActive = false;            // FollowCamera: placed at a camera in the last update,
         glm::vec3 FollowPosition{ 0.0f };     // at this point (world)
@@ -1499,6 +1509,12 @@ namespace Zamin {
             Playing = true;
         }
         bool IsEmitting() const { return Playing && !Paused && !Finished; }
+        // As a scene starts it (a copy for the game, a new instance): empty, playing when PlayOnStart.
+        void ResetRuntime()
+        {
+            Clear();
+            Playing = PlayOnStart;
+        }
 
         void Clear()
         {
@@ -1509,6 +1525,7 @@ namespace Zamin {
             PlayTime = 0.0f;
             Prewarmed = false;
             Finished = false;
+            FinishPending = false;
             Paused = false;
             FollowActive = false;
             Events.clear();

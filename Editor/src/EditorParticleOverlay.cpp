@@ -66,10 +66,10 @@ namespace Zamin {
             {
                 while (!name.empty() && ImGui::CalcTextSize((name + "...").c_str()).x > room)
                 {
-                    name.pop_back();
-                    while (!name.empty() && ((unsigned char)name.back() & 0xC0) == 0x80) // a whole UTF-8 letter
+                    // One whole UTF-8 letter off the end: its continuation bytes, then its lead (or ASCII) byte.
+                    while (!name.empty() && ((unsigned char)name.back() & 0xC0) == 0x80)
                         name.pop_back();
-                    if (!name.empty() && ((unsigned char)name.back() & 0xC0) == 0xC0)
+                    if (!name.empty())
                         name.pop_back();
                 }
                 name += "...";

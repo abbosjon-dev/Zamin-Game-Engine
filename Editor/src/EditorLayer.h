@@ -161,6 +161,33 @@ namespace Zamin {
         void SaveViewSettings();
         void MarkViewSettingsDirty() { m_ViewSettingsDirty = true; }
 
+        // ---- editor preferences (EditorPreferencesWindow.cpp): Tahrirlash > Sozlamalar, per user in
+        // preferences.json - the theme's accent colour and font size, the play-mode tint, the editor
+        // camera's defaults, the console's options.
+        void LoadPreferences();
+        void SavePreferences();
+        void MarkPreferencesDirty() { m_PreferencesDirty = true; }
+        // The editor camera takes the preferences' FOV / clip planes (and the fly speed: `flySpeed`).
+        void ApplyCameraDefaults(bool flySpeed);
+        // The ImGui style follows the preferences and the scene state (the play-mode tint): applied
+        // at the start of a frame when something changed.
+        void UpdateEditorTheme();
+        void UI_Preferences();
+        bool IsPlayTintActive() const;
+
+        // ---- the game view's resolution while playing (EditorGameView.cpp)
+        // Play with a resolution preset other than Free: the game picture is letterboxed / scaled.
+        bool IsGameViewSized() const;
+        // The viewport picture in the area [areaMin, areaMin + areaSize] (screen): the whole area,
+        // or the game view's layout with bars around it. Sets the viewport's bounds (where the
+        // picture is on screen) and size (the size it is drawn at).
+        void PlaceViewportImage(ImVec2 areaMin, ImVec2 areaSize, ImTextureID texture);
+        // A screen point in the viewport's picture (pixels from its top-left corner, at the size it
+        // is drawn at - the game's resolution while it is scaled).
+        glm::vec2 ScreenToViewportPixel(ImVec2 screen) const;
+        void UI_GameViewResolutionPopup();
+        bool UI_GameViewResolutionItems();
+
         // ---- C++ scripts
         void BuildScripts(bool reloadAfter = true);
         void ReloadScriptModule();
@@ -463,12 +490,30 @@ namespace Zamin {
         MaterialLibrary::Snapshot m_PlayMaterials;
 
         bool m_ViewportFocused = false, m_ViewportHovered = false;
+        // The size the viewport's picture is drawn at, and where it is on screen (they differ when a
+        // fixed game resolution is scaled down to fit); the panel's whole area (toolbar, bars).
         glm::vec2 m_ViewportSize = { 0.0f, 0.0f };
         glm::vec2 m_ViewportBounds[2] = {};
+        glm::vec2 m_ViewportPanelBounds[2] = {};
+        GameViewLayout m_GameViewLayout;
+        bool m_OpenGameViewMenu = false;  // automation (ZAMIN_EDITOR_GAME_VIEW=...,menu): the resolution popup opens
 
         // view options (snapping, grid, camera bookmarks are saved per user in editor-view.json)
         EditorViewSettings m_ViewSettings;
         bool m_ViewSettingsDirty = false;
+        // preferences.json (Tahrirlash > Sozlamalar)
+        EditorPreferences m_Preferences;
+        bool m_PreferencesDirty = false;
+        bool m_ShowPreferences = false;
+        int m_PreferencesPage = 0;
+        // What the ImGui style was last made from (UpdateEditorTheme applies it again when it differs).
+        struct AppliedTheme
+        {
+            glm::vec3 Accent{ -1.0f };
+            float FontSize = 0.0f;
+            bool Tinted = false;
+            glm::vec3 Tint{ 0.0f };
+        } m_AppliedTheme;
         std::string m_ViewportMessage;
         double m_ViewportMessageTime = -100.0;
         SceneLoadReport m_LoadReport;            // the last scene load that found something

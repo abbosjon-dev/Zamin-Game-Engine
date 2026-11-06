@@ -1195,14 +1195,14 @@ namespace Zamin {
                 if (y1 < eventsBottom)
                     continue;
                 if (t == m_SelectedTrack)
-                    dl->AddRectFilled(ImVec2(canvas.Min.x, y0), ImVec2(canvas.Max.x, y1), IM_COL32(46, 188, 148, 22));
+                    dl->AddRectFilled(ImVec2(canvas.Min.x, y0), ImVec2(canvas.Max.x, y1), UI::AccentU32(0.086f));
                 dl->AddLine(ImVec2(canvas.Min.x, y1), ImVec2(canvas.Max.x, y1), IM_COL32(255, 255, 255, 12));
                 const AnimationTrack& track = m_Work.Tracks[(size_t)t];
                 // segments between keys: Step dotted, Linear / Bezier a line
                 for (size_t k = 0; k + 1 < track.Keys.size(); k++)
                 {
                     const float xa = timeToX(track.Keys[k].Time), xb = timeToX(track.Keys[k + 1].Time);
-                    const ImU32 col = track.Keys[k].Interpolation == KeyInterpolation::Step ? IM_COL32(150, 150, 160, 80) : IM_COL32(46, 188, 148, 70);
+                    const ImU32 col = track.Keys[k].Interpolation == KeyInterpolation::Step ? IM_COL32(150, 150, 160, 80) : UI::AccentU32(0.275f);
                     dl->AddLine(ImVec2(xa, (y0 + y1) * 0.5f), ImVec2(xb, (y0 + y1) * 0.5f), col, 2.0f);
                 }
                 for (int k = 0; k < (int)track.Keys.size(); k++)

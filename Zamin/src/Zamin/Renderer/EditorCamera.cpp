@@ -125,6 +125,14 @@ namespace Zamin {
         return state;
     }
 
+    void EditorCamera::SetProjection(float fovDegrees, float nearClip, float farClip)
+    {
+        m_FOV = std::clamp(std::isfinite(fovDegrees) ? fovDegrees : 45.0f, 1.0f, 179.0f);
+        m_NearClip = std::max(std::isfinite(nearClip) ? nearClip : 0.1f, 1e-4f);
+        m_FarClip = std::max(std::isfinite(farClip) ? farClip : 1000.0f, m_NearClip * 10.0f);
+        UpdateProjection();
+    }
+
     void EditorCamera::UpdateProjection()
     {
         m_AspectRatio = m_ViewportWidth / m_ViewportHeight;

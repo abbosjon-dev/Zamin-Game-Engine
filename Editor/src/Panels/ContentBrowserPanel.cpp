@@ -21,7 +21,7 @@ namespace Zamin {
         switch (type)
         {
             case AssetType::Folder:      color = IM_COL32(240, 196, 92, 255); return ICON_FA_FOLDER;
-            case AssetType::Scene:       color = IM_COL32(46, 188, 148, 255); return ICON_FA_EARTH_ASIA;
+            case AssetType::Scene:       color = UI::AccentU32(); return ICON_FA_EARTH_ASIA;
             case AssetType::Prefab:      color = IM_COL32(120, 180, 255, 255); return ICON_FA_BOX;
             case AssetType::Texture:     color = IM_COL32(150, 200, 120, 255); return ICON_FA_FILE_IMAGE;
             case AssetType::Model:       color = IM_COL32(240, 140, 80, 255); return ICON_FA_CUBES;
@@ -34,7 +34,7 @@ namespace Zamin {
             case AssetType::SpriteAnimation: color = IM_COL32(255, 140, 170, 255); return ICON_FA_FILM;
             case AssetType::ParticlePreset: color = IM_COL32(255, 190, 90, 255); return ICON_FA_WAND_MAGIC_SPARKLES;
             case AssetType::Script:      color = IM_COL32(100, 160, 240, 255); return ICON_FA_FILE_CODE;
-            case AssetType::Project:     color = IM_COL32(46, 188, 148, 255); return ICON_FA_GAMEPAD;
+            case AssetType::Project:     color = UI::AccentU32(); return ICON_FA_GAMEPAD;
             default:                     return ICON_FA_FILE;
         }
     }

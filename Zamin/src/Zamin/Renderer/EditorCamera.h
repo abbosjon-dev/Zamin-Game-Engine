@@ -58,6 +58,10 @@ namespace Zamin {
         const glm::vec3& GetFocalPoint() const { return m_FocalPoint; }
         glm::quat GetOrientation() const;
 
+        // The perspective's vertical field of view (degrees; the 2D view's size follows it too) and
+        // clip planes (far at least 10x near).
+        void SetProjection(float fovDegrees, float nearClip, float farClip);
+
         float GetPitch() const { return m_Pitch; }
         float GetYaw() const { return m_Yaw; }
         float GetFOV() const { return m_FOV; }

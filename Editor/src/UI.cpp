@@ -392,8 +392,8 @@ namespace Zamin::UI {
     {
         if (active)
         {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.52f, 0.41f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.62f, 0.50f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, AccentDarkColor(1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, AccentMidColor());
         }
         else
         {

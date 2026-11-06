@@ -1,5 +1,6 @@
 #include "Zamin/ImGui/ImGuiLayer.h"
 #include "Zamin/ImGui/Icons.h"
+#include "Zamin/Editor/EditorPreferences.h"
 #include "Zamin/Core/Application.h"
 #include "Zamin/Renderer/Renderer.h"
 
@@ -8,6 +9,9 @@
 #include <imgui_impl_opengl3.h>
 #include <ImGuizmo.h>
 #include <GLFW/glfw3.h>
+
+#include <algorithm>
+#include <cmath>
 
 namespace Zamin {
 
@@ -45,6 +49,24 @@ namespace Zamin {
         return font;
     }
 
+    void ImGuiLayer::BuildFonts()
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.Fonts->Clear();
+        auto fonts = Renderer::GetResourcesDirectory() / "fonts";
+        float base = m_FontSize * m_ContentScale;
+        io.FontDefault = AddFontWithIcons(io, fonts / "Inter-Regular.ttf", base, base * 0.9f);
+        s_BoldFont = AddFontWithIcons(io, fonts / "Inter-Bold.ttf", base, base * 0.9f);
+        s_TitleFont = AddFontWithIcons(io, fonts / "Inter-Bold.ttf", base * 1.6f, base * 1.4f);
+        s_LargeIconFont = AddFontWithIcons(io, fonts / "Inter-Regular.ttf", base * 3.0f, base * 3.0f);
+        m_BuiltFontSize = m_FontSize;
+    }
+
+    void ImGuiLayer::SetFontSize(float pixels)
+    {
+        m_FontSize = std::clamp(std::isfinite(pixels) ? pixels : 16.0f, 8.0f, 48.0f);
+    }
+
     void ImGuiLayer::OnAttach()
     {
         IMGUI_CHECKVERSION();
@@ -55,17 +77,11 @@ namespace Zamin {
         io.ConfigWindowsMoveFromTitleBarOnly = true;
 
         Application& app = Application::Get();
-        float scale = std::max(1.0f, app.GetWindow().GetContentScale());
+        m_ContentScale = std::max(1.0f, app.GetWindow().GetContentScale());
+        BuildFonts();
 
-        auto fonts = Renderer::GetResourcesDirectory() / "fonts";
-        float base = 16.0f * scale;
-        io.FontDefault = AddFontWithIcons(io, fonts / "Inter-Regular.ttf", base, base * 0.9f);
-        s_BoldFont = AddFontWithIcons(io, fonts / "Inter-Bold.ttf", base, base * 0.9f);
-        s_TitleFont = AddFontWithIcons(io, fonts / "Inter-Bold.ttf", base * 1.6f, base * 1.4f);
-        s_LargeIconFont = AddFontWithIcons(io, fonts / "Inter-Regular.ttf", base * 3.0f, base * 3.0f);
-
-        SetDarkTheme();
-        ImGui::GetStyle().ScaleAllSizes(scale);
+        SetDarkTheme(s_Accent);
+        ImGui::GetStyle().ScaleAllSizes(m_ContentScale);
 
         GLFWwindow* window = static_cast<GLFWwindow*>(app.GetWindow().GetNativeWindow());
         ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -90,6 +106,13 @@ namespace Zamin {
 
     void ImGuiLayer::Begin()
     {
+        // A new font size: the atlas is baked again between two frames (its texture too).
+        if (m_FontSize != m_BuiltFontSize)
+        {
+            BuildFonts();
+            ImGui_ImplOpenGL3_DestroyFontsTexture();
+            ImGui_ImplOpenGL3_CreateFontsTexture();
+        }
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -109,6 +132,12 @@ namespace Zamin {
 
     void ImGuiLayer::SetDarkTheme()
     {
+        SetDarkTheme(GetDefaultAccentColor());
+    }
+
+    void ImGuiLayer::SetDarkTheme(const glm::vec3& accentColor)
+    {
+        s_Accent = glm::clamp(accentColor, glm::vec3(0.0f), glm::vec3(1.0f));
         ImGuiStyle& style = ImGui::GetStyle();
         style.WindowPadding = ImVec2(10, 10);
         style.FramePadding = ImVec2(8, 5);
@@ -141,9 +170,12 @@ namespace Zamin {
         const ImVec4 bg2     = ImVec4(0.125f, 0.137f, 0.161f, 1.0f);
         const ImVec4 bg3     = ImVec4(0.165f, 0.180f, 0.212f, 1.0f);
         const ImVec4 bg4     = ImVec4(0.215f, 0.235f, 0.275f, 1.0f);
-        const ImVec4 accent  = ImVec4(0.180f, 0.737f, 0.580f, 1.0f);
-        const ImVec4 accentH = ImVec4(0.250f, 0.820f, 0.660f, 1.0f);
-        const ImVec4 accentD = ImVec4(0.120f, 0.520f, 0.410f, 1.0f);
+        // The accent's lighter (hovered) and darker (pressed) shades follow it.
+        const glm::vec3 hover = EditorThemeSettings::GetHoverShade(s_Accent);
+        const glm::vec3 dark = EditorThemeSettings::GetDarkShade(s_Accent);
+        const ImVec4 accent  = ImVec4(s_Accent.r, s_Accent.g, s_Accent.b, 1.0f);
+        const ImVec4 accentH = ImVec4(hover.r, hover.g, hover.b, 1.0f);
+        const ImVec4 accentD = ImVec4(dark.r, dark.g, dark.b, 1.0f);
         const ImVec4 text    = ImVec4(0.900f, 0.920f, 0.940f, 1.0f);
         const ImVec4 textDim = ImVec4(0.520f, 0.560f, 0.610f, 1.0f);
 

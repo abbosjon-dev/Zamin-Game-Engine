@@ -122,7 +122,7 @@ namespace Zamin {
             {
                 ImVec2 a(p.x + i * cellW, p.y), b(p.x + (i + 1) * cellW - 2.0f, p.y + h);
                 const bool current = i == frame;
-                dl->AddRectFilled(a, b, current ? IM_COL32(46, 188, 148, 255) : IM_COL32(70, 74, 82, 255), 2.0f);
+                dl->AddRectFilled(a, b, current ? UI::AccentU32() : IM_COL32(70, 74, 82, 255), 2.0f);
                 for (const SpriteClipEvent& ev : clip.Events)
                     if (ev.Frame == i)
                     {

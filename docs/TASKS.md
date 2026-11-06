@@ -349,11 +349,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M16 Editor II
 
-- [ ] 301. O'yin rejimida editor rang tusi (tint)
-- [ ] 302. Game view rezolyutsiya preset'lari (16:9, 4:3, 1080p)
-- [ ] 303. Konsolda matn bo'yicha filtr
-- [ ] 304. Konsolda bir xil xabarlarni guruhlash (collapse)
-- [ ] 305. Sozlamalar oynasi (Preferences): tema rangi, shrift o'lchami
+- [x] 301. O'yin rejimida editor rang tusi (tint)
+- [x] 302. Game view rezolyutsiya preset'lari (16:9, 4:3, 1080p)
+- [x] 303. Konsolda matn bo'yicha filtr
+- [x] 304. Konsolda bir xil xabarlarni guruhlash (collapse)
+- [x] 305. Sozlamalar oynasi (Preferences): tema rangi, shrift o'lchami
 - [ ] 306. Klaviatura yorliqlari ro'yxati oynasi
 - [ ] 307. Avtomatik saqlash (autosave) va tiklash
 - [ ] 308. So'nggi sahnalar ro'yxati

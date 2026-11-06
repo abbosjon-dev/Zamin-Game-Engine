@@ -31761,3 +31761,314 @@ TEST(SceneManagementFlow)
     GameState::Clear();
     SceneLoadProfiler::SetLogging(true);
 }
+
+// ------------------------------------------------------------------ M16 Editor II
+// The console's filter: text (case-insensitive substring, case-sensitive, regex), level toggles with
+// counts that follow the text, collapsing identical messages (level + source + text) with a count.
+TEST(ConsoleFilterAndCollapse)
+{
+    auto msg = [](LogLevel level, bool client, const char* time, const char* text) {
+        LogMessage m;
+        m.Level = level;
+        m.FromClient = client;
+        m.Time = time;
+        m.Text = text;
+        return m;
+    };
+    std::vector<LogMessage> log = {
+        msg(LogLevel::Info, true, "10:00:00", "Sahna yuklandi"),            // 0
+        msg(LogLevel::Warn, true, "10:00:01", "Tanga topilmadi"),           // 1
+        msg(LogLevel::Trace, false, "10:00:02", "trace xabari"),            // 2
+        msg(LogLevel::Warn, true, "10:00:03", "Tanga topilmadi"),           // 3
+        msg(LogLevel::Error, false, "10:00:04", "Xato: fayl o'qilmadi"),    // 4
+        msg(LogLevel::Warn, false, "10:00:05", "Tanga topilmadi"),          // 5 (another source)
+        msg(LogLevel::Info, true, "10:00:06", "sahna YUKLANDI\nikkinchi qator"), // 6
+        msg(LogLevel::Warn, true, "10:00:07", "Tanga topilmadi"),           // 7
+        msg(LogLevel::Critical, false, "10:00:08", "Jiddiy xato"),          // 8
+    };
+
+    ConsoleFilterSettings filter;
+    ConsoleTextMatcher matcher;
+    // Default: everything but Trace, one row per message.
+    ConsoleView view = BuildConsoleView(log, filter, matcher);
+    CHECK(view.Rows.size() == 8);
+    CHECK(view.LevelCounts[(int)LogLevel::Trace] == 1);
+    CHECK(view.LevelCounts[(int)LogLevel::Warn] == 4);
+    CHECK(view.ErrorCount() == 2);
+    CHECK(view.Rows[0].First == 0 && view.Rows[0].Count == 1);
+    filter.ShowTrace = true;
+    CHECK(BuildConsoleView(log, filter, matcher).Rows.size() == 9);
+
+    // Case-insensitive substring by default; case-sensitive on request.
+    matcher.Set("sahna", false, false);
+    view = BuildConsoleView(log, filter, matcher);
+    CHECK(view.Rows.size() == 2);
+    CHECK(view.LevelCounts[(int)LogLevel::Info] == 2 && view.LevelCounts[(int)LogLevel::Warn] == 0);
+    matcher.Set("sahna", false, true);
+    view = BuildConsoleView(log, filter, matcher);
+    CHECK(view.Rows.size() == 1 && view.Rows[0].First == 6);
+    // Level toggles hide rows but the counts still tell what matches.
+    matcher.Set("tanga", false, false);
+    filter.ShowWarn = false;
+    view = BuildConsoleView(log, filter, matcher);
+    CHECK(view.Rows.empty());
+    CHECK(view.LevelCounts[(int)LogLevel::Warn] == 4);
+    filter.ShowWarn = true;
+
+    // Collapse: the three identical APP warnings are one row at the first one's place with a count of
+    // 3 (the latest is index 7); the same text from the engine is a row of its own.
+    filter.Collapse = true;
+    view = BuildConsoleView(log, filter, matcher);
+    CHECK(view.Rows.size() == 2);
+    CHECK(view.Rows[0].First == 1 && view.Rows[0].Last == 7 && view.Rows[0].Count == 3);
+    CHECK(view.Rows[1].First == 5 && view.Rows[1].Count == 1);
+    matcher.Set("", false, false);
+    view = BuildConsoleView(log, filter, matcher);
+    CHECK(view.Rows.size() == 7); // 9 - 2 repeats
+    for (size_t i = 1; i < view.Rows.size(); i++)
+        CHECK(view.Rows[i - 1].First < view.Rows[i].First); // still in log order
+    filter.Collapse = false;
+
+    // Regular expressions (case-insensitive unless asked); an invalid one filters nothing.
+    matcher.Set("^xato:\\s+\\w+", true, false);
+    CHECK(matcher.IsValid());
+    view = BuildConsoleView(log, filter, matcher);
+    CHECK(view.Rows.size() == 1 && view.Rows[0].First == 4);
+    matcher.Set("^xato:", true, true);
+    CHECK(BuildConsoleView(log, filter, matcher).Rows.empty());
+    matcher.Set("topilmadi|jiddiy", true, false);
+    CHECK(BuildConsoleView(log, filter, matcher).Rows.size() == 5);
+    matcher.Set("([", true, false);
+    CHECK(!matcher.IsValid() && !matcher.GetError().empty());
+    CHECK(BuildConsoleView(log, filter, matcher).Rows.size() == 9);
+    // The same text as plain search finds the literal characters.
+    matcher.Set("([", false, false);
+    CHECK(matcher.IsValid());
+    CHECK(BuildConsoleView(log, filter, matcher).Rows.empty());
+
+    CHECK(ContainsIgnoreCase("Sahna YUKLANDI", "yuklandi"));
+    CHECK(ContainsIgnoreCase("abc", ""));
+    CHECK(!ContainsIgnoreCase("abc", "abcd"));
+    CHECK(FormatConsoleMessage(log[1], true) == "[10:00:01] [WARN] APP: Tanga topilmadi");
+    CHECK(FormatConsoleMessage(log[4], false, 3) == "[ERROR] ZAMIN: Xato: fayl o'qilmadi (x3)");
+
+    // The log's revision changes with every message and Clear; messages keep their numbers.
+    const LogLevel minLevel = Log::GetMinLevel();
+    const bool terminal = Log::GetTerminalOutput();
+    Log::SetMinLevel(LogLevel::Trace);
+    Log::SetTerminalOutput(false);
+    Log::Clear();
+    const uint64_t revision = Log::GetRevision();
+    const uint64_t written = Log::GetTotalWritten();
+    ZM_INFO("konsol testi {}", 1);
+    ZM_WARN("konsol testi {}", 2);
+    CHECK(Log::GetRevision() == revision + 2);
+    CHECK(Log::GetTotalWritten() == written + 2);
+    uint64_t first = 0;
+    std::vector<LogMessage> messages = Log::GetMessages(&first);
+    CHECK(messages.size() == 2 && first == written);
+    CHECK(messages.size() == 2 && messages[1].Text == "konsol testi 2" && messages[1].Level == LogLevel::Warn && messages[1].FromClient);
+    Log::Clear();
+    CHECK(Log::GetRevision() == revision + 3);
+    CHECK(Log::GetMessageCount() == 0);
+    Log::SetTerminalOutput(terminal);
+    Log::SetMinLevel(minLevel);
+}
+
+// The game view's resolution presets: letterboxing to an aspect ratio, fixed resolutions 1:1 or
+// scaled down to fit, the mouse mapped into the game's pixels, the settings' keys and JSON.
+TEST(GameViewResolutionLayout)
+{
+    GameViewResolution res;
+    // Free: the whole (whole-pixel) area.
+    GameViewLayout l = ComputeGameViewLayout(res, { 1000.7f, 600.2f });
+    CHECK(l.Offset == glm::vec2(0.0f) && l.DisplaySize == glm::vec2(1000.0f, 600.0f));
+    CHECK(l.RenderSize == glm::uvec2(1000, 600) && l.Scale == 1.0f);
+    CHECK(res.GetLabel() == "Erkin" && !res.IsFixed() && !res.IsAspect());
+
+    // 16:9 in a tall area: bars above and below; in a wide one: left and right.
+    res.Preset = GameViewPreset::Aspect16x9;
+    l = ComputeGameViewLayout(res, { 1000.0f, 700.0f });
+    CHECK(l.DisplaySize == glm::vec2(1000.0f, 563.0f));
+    CHECK(l.Offset == glm::vec2(0.0f, 68.0f));
+    CHECK(l.RenderSize == glm::uvec2(1000, 563) && l.Scale == 1.0f);
+    l = ComputeGameViewLayout(res, { 1600.0f, 700.0f });
+    CHECK(l.DisplaySize == glm::vec2(1244.0f, 700.0f) && l.Offset == glm::vec2(178.0f, 0.0f));
+    CHECK(res.GetLabel() == "16:9" && res.IsAspect());
+    res.Preset = GameViewPreset::Aspect4x3;
+    l = ComputeGameViewLayout(res, { 800.0f, 600.0f });
+    CHECK(l.DisplaySize == glm::vec2(800.0f, 600.0f) && l.Offset == glm::vec2(0.0f));
+
+    // A fixed resolution that fits: centred pixel for pixel.
+    res.Preset = GameViewPreset::Fixed1280x720;
+    l = ComputeGameViewLayout(res, { 1500.0f, 900.0f });
+    CHECK(l.RenderSize == glm::uvec2(1280, 720) && l.DisplaySize == glm::vec2(1280.0f, 720.0f));
+    CHECK(l.Offset == glm::vec2(110.0f, 90.0f) && l.Scale == 1.0f);
+    CHECK(l.AreaToRender({ 110.0f, 90.0f }) == glm::vec2(0.0f));
+    // Too big: drawn at its size, shown scaled down to fit.
+    res.Preset = GameViewPreset::Fixed1920x1080;
+    l = ComputeGameViewLayout(res, { 960.0f, 700.0f });
+    CHECK(l.RenderSize == glm::uvec2(1920, 1080));
+    CHECK(l.DisplaySize == glm::vec2(960.0f, 540.0f) && l.Offset == glm::vec2(0.0f, 80.0f));
+    CHECK_NEAR(l.Scale, 0.5f, 1e-6f);
+    // The mouse: the picture's centre on screen is the game's centre pixel; the bars are outside.
+    CHECK(l.AreaToRender({ 480.0f, 350.0f }) == glm::vec2(960.0f, 540.0f));
+    CHECK(l.Contains({ 480.0f, 350.0f }) && !l.Contains({ 480.0f, 40.0f }) && !l.Contains({ 480.0f, 660.0f }));
+    const glm::vec2 above = l.AreaToRender({ 10.0f, 10.0f });
+    CHECK(above.y < 0.0f);
+    CHECK(res.GetLabel() == "1920x1080" && res.IsFixed());
+
+    // Custom: pixels or only an aspect ratio; sizes kept in range.
+    res.Preset = GameViewPreset::Custom;
+    res.CustomSize = { 800, 600 };
+    CHECK(res.GetLabel() == "800x600" && res.IsFixed());
+    res.CustomAspect = true;
+    res.CustomSize = { 5, 4 };
+    CHECK(res.GetLabel() == "5:4" && res.IsAspect());
+    l = ComputeGameViewLayout(res, { 1000.0f, 1000.0f });
+    CHECK(l.DisplaySize == glm::vec2(1000.0f, 800.0f) && l.Offset == glm::vec2(0.0f, 100.0f));
+    res.CustomSize = { 0, 100000 };
+    res.Sanitize();
+    CHECK(res.CustomSize == glm::ivec2(1, GameViewResolution::MaxSize));
+    res.CustomAspect = false; // as pixels: at least MinSize
+    CHECK(res.GetSize() == glm::ivec2(GameViewResolution::MinSize, GameViewResolution::MaxSize));
+    res.CustomAspect = true;
+    // A degenerate area still gives a usable picture.
+    l = ComputeGameViewLayout(res, { 0.0f, -5.0f });
+    CHECK(l.RenderSize.x >= 1 && l.RenderSize.y >= 1);
+
+    // Every preset's key reads back; unknown keys fall back.
+    for (int i = 0; i < GameViewPresetCount; i++)
+        CHECK(GameViewResolution::FromKey(GameViewResolution::GetKey((GameViewPreset)i), GameViewPreset::Free) == (GameViewPreset)i);
+    CHECK(GameViewResolution::FromKey("640x480", GameViewPreset::Free) == GameViewPreset::Free);
+
+    // Stored with the editor's view settings.
+    EditorViewSettings settings;
+    settings.GameView.Preset = GameViewPreset::Custom;
+    settings.GameView.CustomSize = { 1024, 768 };
+    settings.GameView.CustomAspect = false;
+    EditorViewSettings loaded;
+    CHECK(loaded.FromJson(settings.ToJson()));
+    CHECK(loaded.GameView == settings.GameView);
+    settings.GameView = {};
+    settings.GameView.Preset = GameViewPreset::Aspect16x10;
+    CHECK(loaded.FromJson(settings.ToJson()) && loaded.GameView.Preset == GameViewPreset::Aspect16x10);
+}
+
+// The editor preferences: JSON round trip, ranges, the play-mode tint's maths, the accent presets
+// and where the file lives.
+TEST(EditorPreferencesSettings)
+{
+    EditorPreferences prefs;
+    CHECK(prefs.Theme.FindAccentPreset() == 0);
+    CHECK(prefs.Theme.GetUIScale() == 1.0f);
+    prefs.Theme.Accent = EditorThemeSettings::GetAccentPresets()[2].Color;
+    prefs.Theme.FontSize = 18.0f;
+    prefs.PlayTint.Color = { 0.9f, 1.05f, 1.6f };
+    prefs.PlayTint.Strength = 0.5f;
+    prefs.PlayTint.InSimulate = true;
+    prefs.Camera.FOV = 60.0f;
+    prefs.Camera.NearClip = 0.05f;
+    prefs.Camera.FarClip = 5000.0f;
+    prefs.Camera.FlySpeed = 12.0f;
+    prefs.Console.ClearOnPlay = true;
+    prefs.Console.Collapse = true;
+    prefs.Console.ShowTimestamps = false;
+    prefs.Console.ShowTrace = true;
+
+    EditorPreferences loaded;
+    CHECK(loaded.FromJson(prefs.ToJson()));
+    CHECK(loaded.Theme.FindAccentPreset() == 2);
+    CHECK(loaded.Theme.FontSize == 18.0f);
+    CHECK_NEAR(loaded.Theme.GetUIScale(), 1.125f, 1e-6f);
+    CHECK(glm::all(glm::lessThan(glm::abs(loaded.PlayTint.Color - prefs.PlayTint.Color), glm::vec3(1e-5f))));
+    CHECK(loaded.PlayTint.FindPreset() == 1);
+    CHECK_NEAR(loaded.PlayTint.Strength, 0.5f, 1e-6f);
+    CHECK(loaded.PlayTint.InSimulate && loaded.PlayTint.Enabled);
+    CHECK_NEAR(loaded.Camera.FOV, 60.0f, 1e-4f);
+    CHECK_NEAR(loaded.Camera.NearClip, 0.05f, 1e-6f);
+    CHECK_NEAR(loaded.Camera.FarClip, 5000.0f, 1e-3f);
+    CHECK_NEAR(loaded.Camera.FlySpeed, 12.0f, 1e-5f);
+    CHECK(loaded.Console.ClearOnPlay && loaded.Console.Collapse && !loaded.Console.ShowTimestamps && loaded.Console.ShowTrace);
+
+    // Not a preferences file: nothing changes; missing sections keep their values.
+    CHECK(!loaded.FromJson("{\"ZaminEditorView\": 1}"));
+    CHECK(!loaded.FromJson("not json"));
+    CHECK(loaded.Theme.FontSize == 18.0f);
+    CHECK(loaded.FromJson("{\"ZaminEditorPreferences\": 1, \"Theme\": {\"FontSize\": 14}}"));
+    CHECK(loaded.Theme.FontSize == 14.0f && loaded.Theme.FindAccentPreset() == 2 && loaded.Console.Collapse);
+
+    // Out-of-range values are brought into range when read.
+    CHECK(loaded.FromJson("{\"ZaminEditorPreferences\": 1, \"Theme\": {\"FontSize\": 40, \"Accent\": [2, -1, 0.5]},"
+                          " \"PlayModeTint\": {\"Color\": [5, 1, 1], \"Strength\": 3},"
+                          " \"EditorCamera\": {\"FOV\": 500, \"Near\": 1, \"Far\": 2, \"FlySpeed\": 0}}"));
+    CHECK(loaded.Theme.FontSize == EditorThemeSettings::MaxFontSize);
+    CHECK(loaded.Theme.Accent == glm::vec3(1.0f, 0.0f, 0.5f));
+    CHECK(loaded.PlayTint.Color.x == PlayModeTintSettings::MaxChannel && loaded.PlayTint.Strength == 1.0f);
+    CHECK(loaded.Camera.FOV == EditorCameraDefaults::MaxFOV);
+    CHECK(loaded.Camera.FarClip >= loaded.Camera.NearClip * 10.0f - 1e-4f);
+    CHECK(loaded.Camera.FlySpeed == EditorCameraDefaults::MinFlySpeed);
+    EditorThemeSettings theme;
+    theme.FontSize = 13.4f;
+    theme.Accent = glm::vec3(std::numeric_limits<float>::quiet_NaN());
+    theme.Sanitize();
+    CHECK(theme.FontSize == 13.0f && theme.Accent == EditorThemeSettings::GetDefaultAccent());
+
+    // The tint: active in play (simulation only when asked), a per-channel multiplier faded by its
+    // strength, clamped colours with their alpha kept.
+    PlayModeTintSettings tint;
+    CHECK(tint.IsActive(true, false) && !tint.IsActive(false, true) && !tint.IsActive(false, false));
+    tint.InSimulate = true;
+    CHECK(tint.IsActive(false, true));
+    tint.Enabled = false;
+    CHECK(!tint.IsActive(true, false));
+    tint.Enabled = true;
+    tint.Color = { 1.5f, 1.0f, 0.5f };
+    tint.Strength = 1.0f;
+    glm::vec4 c = tint.Apply({ 0.1f, 0.1f, 0.1f, 0.5f });
+    CHECK_NEAR(c.r, 0.15f, 1e-6f);
+    CHECK_NEAR(c.g, 0.1f, 1e-6f);
+    CHECK_NEAR(c.b, 0.05f, 1e-6f);
+    CHECK(c.a == 0.5f);
+    CHECK(tint.Apply({ 0.9f, 0.9f, 0.9f, 1.0f }).r == 1.0f); // clamped
+    tint.Strength = 0.0f;
+    CHECK(tint.GetMultiplier() == glm::vec3(1.0f));
+    tint.Strength = 0.5f;
+    CHECK_NEAR(tint.GetMultiplier().r, 1.25f, 1e-6f);
+    CHECK_NEAR(tint.GetMultiplier().b, 0.75f, 1e-6f);
+    // Every tint preset changes a mid grey (none of them is a no-op).
+    for (const ColorPreset& preset : PlayModeTintSettings::GetPresets())
+    {
+        PlayModeTintSettings t;
+        t.Color = preset.Color;
+        CHECK(glm::vec3(t.Apply({ 0.3f, 0.3f, 0.3f, 1.0f })) != glm::vec3(0.3f));
+    }
+
+    // The accent's shades: lighter / darker, within 0..1.
+    for (const ColorPreset& preset : EditorThemeSettings::GetAccentPresets())
+    {
+        const glm::vec3 hover = EditorThemeSettings::GetHoverShade(preset.Color);
+        const glm::vec3 dark = EditorThemeSettings::GetDarkShade(preset.Color);
+        CHECK(hover.r + hover.g + hover.b > preset.Color.r + preset.Color.g + preset.Color.b);
+        CHECK(dark.r + dark.g + dark.b < preset.Color.r + preset.Color.g + preset.Color.b);
+        CHECK(glm::all(glm::lessThanEqual(hover, glm::vec3(1.0f))) && glm::all(glm::greaterThanEqual(dark, glm::vec3(0.0f))));
+    }
+
+    // Stored in the user's config directory ($XDG_CONFIG_HOME/zamin first).
+    const char* oldXdg = std::getenv("XDG_CONFIG_HOME");
+    std::string savedXdg = oldXdg ? oldXdg : "";
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / "zamin_prefs_test";
+    setenv("XDG_CONFIG_HOME", dir.string().c_str(), 1);
+    CHECK(EditorPreferences::GetDefaultPath() == dir / "zamin" / "preferences.json");
+    CHECK(prefs.Save(EditorPreferences::GetDefaultPath()));
+    EditorPreferences fromFile;
+    CHECK(fromFile.Load(EditorPreferences::GetDefaultPath()) && fromFile.Theme.FontSize == 18.0f && fromFile.Console.ClearOnPlay);
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+    CHECK(!fromFile.Load(EditorPreferences::GetDefaultPath()));
+    if (oldXdg)
+        setenv("XDG_CONFIG_HOME", savedXdg.c_str(), 1);
+    else
+        unsetenv("XDG_CONFIG_HOME");
+}

@@ -19,8 +19,25 @@
 // Small helpers for a consistent, good-looking editor UI.
 namespace Zamin::UI {
 
-    inline ImVec4 AccentColor() { return ImVec4(0.180f, 0.737f, 0.580f, 1.0f); }
-    inline ImU32 AccentU32(float alpha = 1.0f) { return ImGui::GetColorU32(ImVec4(0.180f, 0.737f, 0.580f, alpha)); }
+    // The theme's accent colour (Sozlamalar > Ko'rinish) and its darker shade (pressed buttons,
+    // the current preset, selected rows).
+    inline ImVec4 AccentColor(float alpha = 1.0f)
+    {
+        const glm::vec3 c = ImGuiLayer::GetAccentColor();
+        return ImVec4(c.r, c.g, c.b, alpha);
+    }
+    inline ImU32 AccentU32(float alpha = 1.0f) { return ImGui::GetColorU32(AccentColor(alpha)); }
+    inline ImVec4 AccentDarkColor(float alpha = 1.0f)
+    {
+        const glm::vec3 c = ImGuiLayer::GetAccentColor() * 0.68f;
+        return ImVec4(c.r, c.g, c.b, alpha);
+    }
+    // Between the two: a pressed / active button under the mouse.
+    inline ImVec4 AccentMidColor(float alpha = 1.0f)
+    {
+        const glm::vec3 c = ImGuiLayer::GetAccentColor() * 0.85f;
+        return ImVec4(c.r, c.g, c.b, alpha);
+    }
 
     // Two-column property table: label | widget
     // `labelWidth`: the label column's width (0: about a third of the panel, at most 8.5 lines high;

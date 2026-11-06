@@ -9,6 +9,7 @@ file(GLOB_RECURSE ZAMIN_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Physics/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Audio/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Debug/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Editor/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Project/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Asset/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/ImGui/*.cpp

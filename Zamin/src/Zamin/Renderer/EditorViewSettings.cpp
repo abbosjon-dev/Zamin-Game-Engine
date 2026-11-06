@@ -429,6 +429,12 @@ namespace Zamin {
             { "Ascending", ContentBrowser.SortAscending },
             { "SearchScope", ContentBrowser.SearchEverywhere ? "Project" : "Folder" },
         };
+        j["GameView"] = {
+            { "Preset", GameViewResolution::GetKey(GameView.Preset) },
+            { "CustomWidth", GameView.CustomSize.x },
+            { "CustomHeight", GameView.CustomSize.y },
+            { "CustomAspect", GameView.CustomAspect },
+        };
         return j.dump(2);
     }
 
@@ -593,6 +599,15 @@ namespace Zamin {
             if (auto scope = it->find("SearchScope"); scope != it->end() && scope->is_string())
                 cb.SearchEverywhere = scope->get<std::string>() != "Folder";
             cb.Sanitize();
+        }
+        if (auto it = j.find("GameView"); it != j.end() && it->is_object())
+        {
+            if (auto preset = it->find("Preset"); preset != it->end() && preset->is_string())
+                GameView.Preset = GameViewResolution::FromKey(preset->get<std::string>(), GameViewPreset::Free);
+            Read(*it, "CustomWidth", GameView.CustomSize.x);
+            Read(*it, "CustomHeight", GameView.CustomSize.y);
+            Read(*it, "CustomAspect", GameView.CustomAspect);
+            GameView.Sanitize();
         }
         return true;
     }

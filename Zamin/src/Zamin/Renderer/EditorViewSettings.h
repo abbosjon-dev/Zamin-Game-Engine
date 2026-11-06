@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Debug/DebugDraw.h"
+#include "Zamin/Editor/GameViewResolution.h"
 #include "Zamin/Project/AssetFiles.h"
 
 #include <glm/glm.hpp>
@@ -247,7 +248,7 @@ namespace Zamin {
     // Per-user viewport preferences of the editor: snapping, grid, the transform gizmo's size, the
     // selection outline, debug drawing, gizmos, the statistics overlay, the camera bookmarks of every scene (keyed by the
     // scene file path), the inspector's open / collapsed component headers and the content
-    // browser's view. Stored as JSON in the editor config directory.
+    // browser's view, the game view's resolution. Stored as JSON in the editor config directory.
     struct EditorViewSettings
     {
         SnapSettings Snap;
@@ -261,6 +262,8 @@ namespace Zamin {
         std::map<std::string, CameraBookmarks> Bookmarks;
         InspectorFoldState Inspector;
         ContentBrowserSettings ContentBrowser;
+        // The game view's size while playing (viewport toolbar / Ko'rinish menu).
+        GameViewResolution GameView;
 
         // Bookmarks of a scene file ("" = a scene that was never saved).
         static std::string SceneKey(const std::filesystem::path& scenePath);

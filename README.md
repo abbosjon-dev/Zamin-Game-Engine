@@ -42,6 +42,10 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
 - Viewport'da **nusxalab sudrash**: `Alt` + gizmo'ni sudrash nusxasini sudraydi, sudrash paytida `Ctrl+D` shu joyda nusxa qoldiradi
 - Viewport sozlamalari (snapping, grid, xatcho'plar, inspektor sarlavhalari, kontent brauzer ko'rinishi va filtri) foydalanuvchi uchun `~/.config/zamin/editor-view.json` faylida saqlanadi
 - **Play / Simulate / Pause / Step** — o'yinni editor ichida ishga tushirish (sahna nusxasida, tahrir buzilmaydi)
+- **Sozlamalar oynasi** (`Tahrirlash > Sozlamalar`, `Ctrl+,`): temaning asosiy rangi (8 ta tayyor rang yoki istalgani), shrift o'lchami (12–22 px, butun UI shu nisbatda o'zgaradi, shrift atlasi qayta quriladi), o'yin rejimi rang tusi, konsol va editor kamerasi standartlari (FOV, near/far, uchish tezligi) — `~/.config/zamin/preferences.json`da saqlanadi
+- **O'yin rejimida rang tusi**: Play paytida oyna fonlari, sarlavhalar, tablar, menyu va status bar tanlangan rangga ko'paytiriladi (qizg'ish, ko'kish, yashil ... yoki istalgan; kuchi, simulyatsiyada ham) — o'yin rejimidagi o'zgarishlar yo'qolishini unutmaslik uchun
+- **O'yin oynasi o'lchami** (Play paytida viewport toolbar'ida yoki `Ko'rinish` menyusida): Erkin, 16:9, 16:10, 4:3, 21:9, 1920x1080, 1280x720 yoki boshqa (piksel yoki nisbat) — rasm atrofida qora chiziqlar bilan joylanadi, sig'magan katta o'lcham kichraytirib ko'rsatiladi (o'yin baribir to'liq o'lchamda chiziladi), sichqoncha o'yin piksellariga to'g'ri o'tkaziladi
+- **Konsol**: matn bo'yicha qidiruv (katta-kichik harfsiz yoki farqli, regex `.*`), daraja tugmalari (topilganlar soni bilan), bir xil xabarlarni **guruhlash** (soni nishonchada), vaqtni yoqish/o'chirish, Play'da tozalash, xabarni bosib tanlash (to'liq matni pastda), `Ctrl+C` / o'ng tugma bilan nusxalash, "shu matn bo'yicha filtrlash"
 - Editor kamerasi: Unity kabi uchish (RMB + WASD) va Maya kabi orbit (Alt + sichqoncha)
 - 2D/3D rejim, infinite grid, fizik collider'larni ko'rsatish, kamera/yorug'lik ikonkalari
 - Kontent brauzerdan drag & drop (tekstura → sprite, model → model obyekti, ovoz → Audio Source, prefab, `.zscene` → sahnani ochish)

@@ -26,9 +26,7 @@ namespace Zamin {
 
     static fs::path ConfigDirectory()
     {
-        const char* xdg = std::getenv("XDG_CONFIG_HOME");
-        const char* home = std::getenv("HOME");
-        fs::path dir = xdg ? fs::path(xdg) / "zamin" : (home ? fs::path(home) / ".config" / "zamin" : fs::temp_directory_path() / "zamin");
+        fs::path dir = EditorPreferences::GetConfigDirectory();
         std::error_code ec;
         fs::create_directories(dir, ec);
         return dir;
@@ -90,6 +88,7 @@ namespace Zamin {
 
         m_EditorCamera.Focus({ 0.0f, 0.5f, 0.0f }, 14.0f);
         LoadViewSettings();
+        LoadPreferences();
 
         m_SceneHierarchyPanel.OnFocusRequested = [this](Entity e) { FocusEntity(e); };
         // Play mode with several scenes: the hierarchy shows the one picked there.
@@ -330,6 +329,8 @@ namespace Zamin {
         m_ProjectSettingsPanel.SaveIfDirty();
         if (m_ViewSettingsDirty)
             SaveViewSettings();
+        if (m_PreferencesDirty || m_ConsolePanel.ConsumePreferencesChanged())
+            SavePreferences();
         m_ActiveScene.reset();
         m_EditorScene.reset();
         ScriptEngine::UnloadModule();
@@ -338,6 +339,8 @@ namespace Zamin {
     // ================================================================== update
     void EditorLayer::OnUpdate(Timestep ts)
     {
+        // The UI's look (accent, font size, the play-mode tint) between two frames.
+        UpdateEditorTheme();
         // Automation hooks (CI / screenshots): ZAMIN_EDITOR_SELECT=<entity name>, ZAMIN_EDITOR_PLAY=1
         static int frame = 0;
         if (++frame == 5)
@@ -473,6 +476,71 @@ namespace Zamin {
                     list = comma == std::string_view::npos ? std::string_view() : list.substr(comma + 1);
                 }
             }
+            // ZAMIN_EDITOR_GAME_VIEW=<Free|16:9|16:10|4:3|21:9|1920x1080|1280x720|<w>x<h>|<w>:<h>>[,menu]: the game
+            // view's resolution while playing (not saved); "menu" opens its popup.
+            if (const char* gameView = std::getenv("ZAMIN_EDITOR_GAME_VIEW"))
+            {
+                std::string_view spec(gameView);
+                const size_t comma = spec.find(',');
+                const std::string key(spec.substr(0, comma));
+                m_OpenGameViewMenu = comma != std::string_view::npos && spec.substr(comma + 1) == "menu";
+                auto& view = m_ViewSettings.GameView;
+                view.Preset = GameViewResolution::FromKey(key, GameViewPreset::Custom);
+                int w = 0, h = 0;
+                char separator = 0;
+                if (view.Preset == GameViewPreset::Custom && std::sscanf(key.c_str(), "%d%c%d", &w, &separator, &h) == 3)
+                {
+                    view.CustomSize = { w, h };
+                    view.CustomAspect = separator == ':';
+                    view.Sanitize();
+                }
+            }
+            // ZAMIN_EDITOR_CONSOLE="filter=<text>;regex;case;collapse;trace;notime;select=<row>": the console's
+            // search and options (not saved).
+            if (const char* console = std::getenv("ZAMIN_EDITOR_CONSOLE"))
+                m_ConsolePanel.ApplyAutomation(console);
+            // ZAMIN_EDITOR_LOG="<n>x<trace|info|warn|error>:<text>|...": messages written to the log as the game's
+            // (console filter / collapse checks), e.g. "3xwarn:Tanga topilmadi|1xinfo:Sahna yuklandi".
+            if (const char* log = std::getenv("ZAMIN_EDITOR_LOG"))
+            {
+                std::string_view rest(log);
+                while (!rest.empty())
+                {
+                    const size_t bar = rest.find('|');
+                    const std::string_view item = rest.substr(0, bar);
+                    rest = bar == std::string_view::npos ? std::string_view() : rest.substr(bar + 1);
+                    const size_t x = item.find('x'), colon = item.find(':');
+                    if (x == std::string_view::npos || colon == std::string_view::npos || colon < x)
+                        continue;
+                    const int count = std::clamp(std::atoi(std::string(item.substr(0, x)).c_str()), 1, 1000);
+                    const std::string_view level = item.substr(x + 1, colon - x - 1);
+                    const LogLevel logLevel = level == "trace" ? LogLevel::Trace : level == "warn" ? LogLevel::Warn
+                                            : level == "error" ? LogLevel::Error : LogLevel::Info;
+                    for (int i = 0; i < count; i++)
+                        Log::Write(logLevel, true, std::string(item.substr(colon + 1)));
+                }
+            }
+            // ZAMIN_EDITOR_PREFERENCES=<page 0..3>: the preferences window opens on that page.
+            if (const char* prefs = std::getenv("ZAMIN_EDITOR_PREFERENCES"))
+            {
+                m_ShowPreferences = true;
+                m_PreferencesPage = std::clamp(std::atoi(prefs), 0, 3);
+            }
+            // ZAMIN_EDITOR_ACCENT=<preset key, e.g. Violet>, ZAMIN_EDITOR_FONT_SIZE=<px>, ZAMIN_EDITOR_TINT=<preset key>:
+            // the look for screenshots (not saved).
+            if (const char* accent = std::getenv("ZAMIN_EDITOR_ACCENT"))
+                for (const ColorPreset& preset : EditorThemeSettings::GetAccentPresets())
+                    if (std::string_view(accent) == preset.Key)
+                        m_Preferences.Theme.Accent = preset.Color;
+            if (const char* fontSize = std::getenv("ZAMIN_EDITOR_FONT_SIZE"))
+            {
+                m_Preferences.Theme.FontSize = (float)std::atof(fontSize);
+                m_Preferences.Theme.Sanitize();
+            }
+            if (const char* tint = std::getenv("ZAMIN_EDITOR_TINT"))
+                for (const ColorPreset& preset : PlayModeTintSettings::GetPresets())
+                    if (std::string_view(tint) == preset.Key)
+                        m_Preferences.PlayTint.Color = preset.Color;
             if (std::getenv("ZAMIN_EDITOR_PLAY"))
                 OnScenePlay();
             if (std::getenv("ZAMIN_EDITOR_STATS"))
@@ -1226,8 +1294,8 @@ namespace Zamin {
         m_Framebuffer->ClearAttachment(1, -1);
 
         {
-            ImVec2 mouse = ImGui::GetMousePos();
-            const glm::vec2 gameMouse{ mouse.x - m_ViewportBounds[0].x, mouse.y - m_ViewportBounds[0].y };
+            // In the game's own pixels (a scaled-down fixed resolution: its full size).
+            const glm::vec2 gameMouse = ScreenToViewportPixel(ImGui::GetMousePos());
             const bool gameButton = m_ViewportHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
             m_ActiveScene->SetViewportMouse(gameMouse, gameButton);
             // Typing reaches the game's input fields only while the game view has the focus.
@@ -1358,14 +1426,12 @@ namespace Zamin {
             OnSceneStop();
         }
 
-        // Mouse picking
-        auto [mx, my] = ImGui::GetMousePos();
-        mx -= m_ViewportBounds[0].x;
-        my -= m_ViewportBounds[0].y;
-        glm::vec2 viewportSize = m_ViewportBounds[1] - m_ViewportBounds[0];
-        my = viewportSize.y - my;
-        int mouseX = (int)mx, mouseY = (int)my;
-        if (mouseX >= 0 && mouseY >= 0 && mouseX < (int)viewportSize.x && mouseY < (int)viewportSize.y)
+        // Mouse picking (the viewport's pixels, bottom-left origin; on the bars around a sized game
+        // view the mouse is outside)
+        const glm::vec2 mousePixel = ScreenToViewportPixel(ImGui::GetMousePos());
+        const glm::vec2 viewportSize = m_ViewportSize;
+        int mouseX = (int)std::floor(mousePixel.x), mouseY = (int)std::floor(viewportSize.y - mousePixel.y);
+        if (mousePixel.x >= 0.0f && mousePixel.y >= 0.0f && mouseX < (int)viewportSize.x && mouseY >= 0 && mouseY < (int)viewportSize.y)
         {
             ZM_PROFILE_SCOPE("ID o'qish (sichqoncha)");
             glm::ivec2 render = ViewportToRenderPixel({ mouseX, mouseY });
@@ -1460,6 +1526,14 @@ namespace Zamin {
         }
     }
 
+    // Screen-space UI text gets no pixel contour: around every glyph of small text it reads as
+    // garbled, overlapping letters. Its rectangle is marked by the UI rect gizmo instead (the
+    // selected element's frame, a thin frame around the one under the mouse).
+    static bool OutlinesPixels(Entity entity)
+    {
+        return !(entity.HasComponent<TextComponent>() && entity.HasComponent<UITransformComponent>());
+    }
+
     std::vector<OutlineEntity> EditorLayer::CollectSelectionOutline()
     {
         std::vector<OutlineEntity> entities;
@@ -1471,19 +1545,23 @@ namespace Zamin {
         {
             if (!selected.IsValid() || selected.GetScene() != &scene)
                 continue;
-            entities.push_back({ id(selected), selected == primary ? OutlineCategory::Primary : OutlineCategory::Secondary });
+            if (OutlinesPixels(selected))
+                entities.push_back({ id(selected), selected == primary ? OutlineCategory::Primary : OutlineCategory::Secondary });
             if (children)
                 for (Entity child : scene.GetDescendants(selected))
-                    entities.push_back({ id(child), OutlineCategory::Child });
+                    if (OutlinesPixels(child))
+                        entities.push_back({ id(child), OutlineCategory::Child });
         }
         return entities;
     }
 
     void EditorLayer::AppendOutlineHover(std::vector<OutlineEntity>& entities, Entity hovered)
     {
-        entities.push_back({ (int)(uint32_t)(entt::entity)hovered, OutlineCategory::None, true });
+        if (OutlinesPixels(hovered))
+            entities.push_back({ (int)(uint32_t)(entt::entity)hovered, OutlineCategory::None, true });
         for (Entity child : m_ActiveScene->GetDescendants(hovered))
-            entities.push_back({ (int)(uint32_t)(entt::entity)child, OutlineCategory::None, true });
+            if (OutlinesPixels(child))
+                entities.push_back({ (int)(uint32_t)(entt::entity)child, OutlineCategory::None, true });
     }
 
     Entity EditorLayer::GetOutlineHoverEntity()
@@ -3198,7 +3276,7 @@ namespace Zamin {
             overlayView.Position = glm::vec3(world[3]);
             overlayView.Forward = glm::normalize(-glm::vec3(world[2]));
         }
-        overlayView.ViewportHeight = m_ViewportBounds[1].y - m_ViewportBounds[0].y;
+        overlayView.ViewportHeight = m_ViewportSize.y; // the final picture's pixels (what the overlay draws into)
 
         DrawComponentGizmos(overlayView, hidden);
 
@@ -4274,6 +4352,9 @@ namespace Zamin {
     {
         if (m_SceneState == SceneState::Simulate)
             OnSceneStop();
+        // Konsol > "O'yin boshlanganda tozalash": the game's run starts with an empty console.
+        if (m_ConsolePanel.GetPreferences().ClearOnPlay)
+            Log::Clear();
         m_SceneState = SceneState::Play;
         m_AnimationPanel.StopPreview(true); // the game starts from the scene's own values
         m_PlayMaterials = MaterialLibrary::TakeSnapshot();
@@ -5680,9 +5761,11 @@ namespace Zamin {
                 else shift ? Redo() : Undo();
             }
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) { clipUndo ? (void)m_AnimationPanel.Redo() : Redo(); }
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_C, false)) CopySelectedEntity();
+            // (In the console Ctrl+C copies its selected message.)
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_C, false) && !m_ConsolePanel.IsFocused()) CopySelectedEntity();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V, false)) PasteEntity();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_B, false)) BuildScripts(true);
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Comma, false)) m_ShowPreferences = !m_ShowPreferences;
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) { m_SceneState == SceneState::Edit ? OnScenePlay() : OnSceneStop(); }
             // (While collider points are edited, Delete removes the point under the mouse instead.)
             if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) && (m_ViewportFocused || m_SceneHierarchyPanel.IsHierarchyFocused()) &&
@@ -5829,6 +5912,7 @@ namespace Zamin {
             UI_MaximizedGame();
         if (m_ShowImGuiDemo) ImGui::ShowDemoWindow(&m_ShowImGuiDemo);
 
+        UI_Preferences();
         UI_Modals();
         UI_SceneLoadReport();
         if (m_ShowLauncher)
@@ -5838,6 +5922,10 @@ namespace Zamin {
             CommitUndo();
         if (m_ViewSettingsDirty && !ImGui::IsAnyItemActive())
             SaveViewSettings();
+        if (m_ConsolePanel.ConsumePreferencesChanged())
+            MarkPreferencesDirty();
+        if (m_PreferencesDirty && !ImGui::IsAnyItemActive())
+            SavePreferences();
 
         static bool lastDirty = false;
         if (lastDirty != m_SceneDirty)
@@ -5976,6 +6064,8 @@ namespace Zamin {
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A")) m_SceneHierarchyPanel.SelectAll();
             if (ImGui::MenuItem(ICON_FA_XMARK "  Tanlovni bekor qilish", nullptr, false, sel)) m_SceneHierarchyPanel.SetSelectedEntity({});
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_USER_GEAR "  Sozlamalar...", "Ctrl+,", m_ShowPreferences)) m_ShowPreferences = !m_ShowPreferences;
             ImGui::EndMenu();
         }
 
@@ -6233,16 +6323,13 @@ namespace Zamin {
         ImVec2 regionMin = ImGui::GetWindowContentRegionMin();
         ImVec2 regionMax = ImGui::GetWindowContentRegionMax();
         ImVec2 offset = ImGui::GetWindowPos();
-        m_ViewportBounds[0] = { regionMin.x + offset.x, regionMin.y + offset.y };
-        m_ViewportBounds[1] = { regionMax.x + offset.x, regionMax.y + offset.y };
 
         m_ViewportFocused = ImGui::IsWindowFocused();
-        ImVec2 panelSize = ImGui::GetContentRegionAvail();
-        m_ViewportSize = { std::max(1.0f, panelSize.x), std::max(1.0f, panelSize.y) };
-
+        // The picture fills the panel; while playing with a game resolution it is letterboxed /
+        // scaled in it (the bounds are then where it is, the size what the game draws at).
         uint64_t textureID = m_FinalFramebuffer->GetColorAttachmentRendererID(0);
         ImGui::SetNextItemAllowOverlap();
-        ImGui::Image((ImTextureID)textureID, ImVec2(m_ViewportSize.x, m_ViewportSize.y), ImVec2(0, 1), ImVec2(1, 0));
+        PlaceViewportImage(ImVec2(regionMin.x + offset.x, regionMin.y + offset.y), ImGui::GetContentRegionAvail(), (ImTextureID)textureID);
         m_ViewportHovered = ImGui::IsItemHovered();
         Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
 
@@ -6349,12 +6436,12 @@ namespace Zamin {
         UI_ViewportMessage();
         UI_SceneLoadBanner();
 
-        // Play-mode border
+        // Play-mode border (around the whole panel)
         if (m_SceneState != SceneState::Edit)
         {
             ImU32 col = m_SceneState == SceneState::Play ? IM_COL32(60, 200, 120, 200) : IM_COL32(80, 150, 255, 200);
-            ImGui::GetWindowDrawList()->AddRect(ImVec2(m_ViewportBounds[0].x, m_ViewportBounds[0].y),
-                                                ImVec2(m_ViewportBounds[1].x, m_ViewportBounds[1].y), col, 0.0f, 0, 2.0f);
+            ImGui::GetWindowDrawList()->AddRect(ImVec2(m_ViewportPanelBounds[0].x, m_ViewportPanelBounds[0].y),
+                                                ImVec2(m_ViewportPanelBounds[1].x, m_ViewportPanelBounds[1].y), col, 0.0f, 0, 2.0f);
         }
 
         if (m_SceneState == SceneState::Play && !GetViewScene().GetPrimaryCameraEntity())
@@ -6384,12 +6471,9 @@ namespace Zamin {
                      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNav);
         ImVec2 size = ImGui::GetContentRegionAvail();
         ImVec2 pos = ImGui::GetCursorScreenPos();
-        m_ViewportBounds[0] = { pos.x, pos.y };
-        m_ViewportBounds[1] = { pos.x + size.x, pos.y + size.y };
-        m_ViewportSize = { std::max(1.0f, size.x), std::max(1.0f, size.y) };
         m_ViewportFocused = true;
         ImGui::SetNextItemAllowOverlap();
-        ImGui::Image((ImTextureID)(uint64_t)m_FinalFramebuffer->GetColorAttachmentRendererID(0), size, ImVec2(0, 1), ImVec2(1, 0));
+        PlaceViewportImage(pos, size, (ImTextureID)(uint64_t)m_FinalFramebuffer->GetColorAttachmentRendererID(0));
         m_ViewportHovered = ImGui::IsItemHovered();
         Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
 
@@ -6408,7 +6492,7 @@ namespace Zamin {
     void EditorLayer::UI_ViewportToolbar()
     {
         ImVec2 regionMin = ImGui::GetWindowContentRegionMin();
-        float width = m_ViewportBounds[1].x - m_ViewportBounds[0].x;
+        float width = m_ViewportPanelBounds[1].x - m_ViewportPanelBounds[0].x;
         float buttonSize = ImGui::GetFrameHeight() + 4.0f;
         const float spacing = 2.0f, caretWidth = std::floor(buttonSize * 0.55f);
         ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -6416,7 +6500,7 @@ namespace Zamin {
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
 
         auto panelBg = [&](ImVec2 pos, float w) {
-            ImVec2 a(m_ViewportBounds[0].x + pos.x - 4, m_ViewportBounds[0].y + pos.y - 4);
+            ImVec2 a(m_ViewportPanelBounds[0].x + pos.x - 4, m_ViewportPanelBounds[0].y + pos.y - 4);
             ImVec2 b(a.x + w + 8, a.y + buttonSize + 8);
             dl->AddRectFilled(a, b, IM_COL32(18, 20, 24, 210), 7.0f);
         };
@@ -6473,6 +6557,41 @@ namespace Zamin {
             UI_TransformGizmoPopup();
             leftEnd = pos.x + w;
         }
+        if (m_SceneState == SceneState::Play)
+        {
+            // While playing (no gizmos to snap): the game view's resolution, next to the tools. The
+            // label shrinks to the icon when the viewport is narrow.
+            const auto& gameView = m_ViewSettings.GameView;
+            std::string label = std::string(ICON_FA_DESKTOP "  ") + gameView.GetLabel();
+            if (IsGameViewSized() && m_GameViewLayout.Scale < 0.995f)
+                label += std::format(" ({:.0f}%)", m_GameViewLayout.Scale * 100.0f);
+            label += "  " ICON_FA_CARET_DOWN;
+            const float padding = ImGui::GetStyle().FramePadding.x * 2.0f;
+            ImVec2 pos(leftEnd + 14.0f, 10);
+            float w = ImGui::CalcTextSize(label.c_str()).x + padding;
+            if (pos.x + w >= centerMin)
+            {
+                label = ICON_FA_DESKTOP " " ICON_FA_CARET_DOWN;
+                w = ImGui::CalcTextSize(label.c_str()).x + padding;
+            }
+            if (pos.x + w < centerMin)
+            {
+                beginPanel(pos, w);
+                const bool sized = gameView.Preset != GameViewPreset::Free;
+                std::string tip = std::format("O'yin oynasi o'lchami: {}\nErkin, 16:9, 16:10, 4:3, 21:9, 1920x1080, 1280x720 yoki boshqa",
+                                              GameViewResolution::GetName(gameView.Preset));
+                if (UI::ToolbarButton((label + "###GameViewResolution").c_str(), tip.c_str(), sized, ImVec2(w, buttonSize)))
+                    ImGui::OpenPopup("##GameViewResolution");
+                ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 8.0f), ImGuiCond_Appearing);
+            }
+            if (m_OpenGameViewMenu)
+            {
+                ImGui::OpenPopup("##GameViewResolution");
+                m_OpenGameViewMenu = false;
+            }
+            UI_GameViewResolutionPopup();
+        }
+        else
         {
             // The step of the current gizmo operation, e.g. "0.5", "15°", "x0.1".
             std::string step = m_GizmoMode == GizmoMode::Rotate ? std::format("{:g}\xc2\xb0", snap.Rotate)
@@ -6711,7 +6830,7 @@ namespace Zamin {
         {
             if (i++) ImGui::SameLine(0.0f, 3.0f);
             bool current = std::abs(value - preset) <= 1e-4f * std::max(1.0f, preset);
-            if (current) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.52f, 0.41f, 1.0f));
+            if (current) ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentDarkColor(1.0f));
             std::string label = std::format("{:g}{}", preset, suffix);
             if (ImGui::SmallButton(label.c_str()))
             {
@@ -7320,6 +7439,15 @@ namespace Zamin {
             UI::Tooltip("Viewport'da bosilganda ekran UI'si (matn, rasm, tugma...) to'rtburchagi bo'yicha tanlanadi - shaffof joyidan ham. "
                         "O'chiq bo'lsa faqat chizilgan piksellari tanlanadi");
         ImGui::MenuItem(ICON_FA_MOUNTAIN "  Parallax (editor kamerasi bilan)", nullptr, &m_PreviewParallax);
+        if (ImGui::BeginMenu((std::string(ICON_FA_DESKTOP "  O'yin oynasi o'lchami: ") + m_ViewSettings.GameView.GetLabel() + "###GameViewMenu").c_str()))
+        {
+            if (UI_GameViewResolutionItems())
+                MarkViewSettingsDirty();
+            ImGui::EndMenu();
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("O'yin rejimida viewport rasmi shu nisbat / o'lchamga keltiriladi (atrofida qora chiziqlar); "
+                        "katta o'lcham sig'masa kichraytirib ko'rsatiladi");
         if (ImGui::IsItemHovered())
             UI::Tooltip("Parallax qatlamlari sahna ko'rinishida ham editor kamerasi bilan siljiydi (o'yinda doim)");
         if (ImGui::BeginMenu(ICON_FA_SHAPES "  Gizmolar"))
@@ -10840,8 +10968,8 @@ namespace Zamin {
             if (!dir.empty()) m_NewProjectLocation = dir;
         }
         ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.52f, 0.41f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.62f, 0.50f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentDarkColor(1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::AccentMidColor());
         bool canCreate = !m_NewProjectName.empty() && !m_NewProjectLocation.empty();
         ImGui::BeginDisabled(!canCreate);
         if (ImGui::Button(ICON_FA_PLUS "  Yaratish", ImVec2(120, 0)))
@@ -10888,7 +11016,7 @@ namespace Zamin {
             bool clicked = ImGui::InvisibleButton("##card", ImVec2(w, h));
             bool hovered = ImGui::IsItemHovered();
             ImDrawList* d = ImGui::GetWindowDrawList();
-            d->AddRectFilled(p, ImVec2(p.x + w, p.y + h), hovered ? IM_COL32(46, 188, 148, 40) : IM_COL32(255, 255, 255, 8), 6.0f);
+            d->AddRectFilled(p, ImVec2(p.x + w, p.y + h), hovered ? UI::AccentU32(0.157f) : IM_COL32(255, 255, 255, 8), 6.0f);
             d->AddText(ImGuiLayer::GetBoldFont(), ImGui::GetFontSize(), ImVec2(p.x + 14, p.y + 6), ImGui::GetColorU32(ImGuiCol_Text),
                        (std::string(icon) + "   " + path.stem().string()).c_str());
             d->AddText(ImVec2(p.x + 14 + ImGui::GetFontSize() * 1.6f, p.y + h * 0.5f + 1), ImGui::GetColorU32(ImGuiCol_TextDisabled),

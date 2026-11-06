@@ -465,7 +465,7 @@ namespace Zamin {
                 continue;
             const bool selected = (int)r == m_SkelSelectedRow;
             if (selected)
-                dl->AddRectFilled(ImVec2(list.Min.x, y0), ImVec2(list.Max.x, y0 + s_SkelRowHeight), IM_COL32(46, 188, 148, 40));
+                dl->AddRectFilled(ImVec2(list.Min.x, y0), ImVec2(list.Max.x, y0 + s_SkelRowHeight), UI::AccentU32(0.157f));
             const SkeletalRow& row = rows[r];
             std::string label = row.Joint >= 0 ? std::string(ICON_FA_BONE " ") + row.Label : row.Label;
             dl->AddText(ImVec2(list.Min.x + 8.0f + row.Depth * 10.0f, y0 + 3.0f), selected ? IM_COL32(255, 255, 255, 255) : IM_COL32(200, 204, 212, 255),
@@ -552,7 +552,7 @@ namespace Zamin {
             if (y1 < eventsBottom)
                 continue;
             if ((int)r == m_SkelSelectedRow)
-                dl->AddRectFilled(ImVec2(canvas.Min.x, y0), ImVec2(canvas.Max.x, y1), IM_COL32(46, 188, 148, 22));
+                dl->AddRectFilled(ImVec2(canvas.Min.x, y0), ImVec2(canvas.Max.x, y1), UI::AccentU32(0.086f));
             dl->AddLine(ImVec2(canvas.Min.x, y1), ImVec2(canvas.Max.x, y1), IM_COL32(255, 255, 255, 12));
             const SkeletalRow& row = rows[r];
             const ImU32 fill = row.Paths & 8 ? IM_COL32(236, 120, 170, 255) : row.Paths == 2 ? IM_COL32(110, 160, 245, 255)

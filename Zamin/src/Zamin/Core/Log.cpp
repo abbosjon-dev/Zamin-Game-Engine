@@ -56,6 +56,28 @@ namespace Zamin {
         s_Messages.push_back({ level, fromClient, timeBuf, std::move(text) });
         if (s_Messages.size() > MaxMessages)
             s_Messages.pop_front();
+        s_Revision++;
+        s_TotalWritten++;
+    }
+
+    std::vector<LogMessage> Log::GetMessages(uint64_t* firstIndex)
+    {
+        std::lock_guard lock(s_Mutex);
+        if (firstIndex)
+            *firstIndex = s_TotalWritten - s_Messages.size();
+        return { s_Messages.begin(), s_Messages.end() };
+    }
+
+    uint64_t Log::GetRevision()
+    {
+        std::lock_guard lock(s_Mutex);
+        return s_Revision;
+    }
+
+    uint64_t Log::GetTotalWritten()
+    {
+        std::lock_guard lock(s_Mutex);
+        return s_TotalWritten;
     }
 
     void Log::ForEach(const std::function<void(const LogMessage&)>& fn)
@@ -69,6 +91,7 @@ namespace Zamin {
     {
         std::lock_guard lock(s_Mutex);
         s_Messages.clear();
+        s_Revision++;
     }
 
     size_t Log::GetMessageCount()

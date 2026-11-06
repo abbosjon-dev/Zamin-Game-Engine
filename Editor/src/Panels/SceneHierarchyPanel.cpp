@@ -869,7 +869,7 @@ namespace Zamin {
         // The primary entity is highlighted stronger than the rest of a multi-selection.
         if (selected)
         {
-            ImGui::PushStyleColor(ImGuiCol_Header, primary ? ImVec4(0.12f, 0.52f, 0.41f, 0.75f) : ImVec4(0.12f, 0.52f, 0.41f, 0.38f));
+            ImGui::PushStyleColor(ImGuiCol_Header, primary ? UI::AccentDarkColor(0.75f) : UI::AccentDarkColor(0.38f));
             ImGui::PushStyleColor(ImGuiCol_HeaderHovered, primary ? ImVec4(0.14f, 0.58f, 0.46f, 0.85f) : ImVec4(0.14f, 0.58f, 0.46f, 0.55f));
         }
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
@@ -5560,7 +5560,7 @@ namespace Zamin {
             const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
             int remove = -1;
             ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, ImGui::GetFrameHeight() * 0.5f);
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.52f, 0.41f, 0.55f));
+            ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentDarkColor(0.55f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.72f, 0.27f, 0.24f, 0.85f));
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.82f, 0.30f, 0.27f, 1.0f));
             for (int i = 0; i < (int)c.Tags.size(); i++)
@@ -6023,8 +6023,8 @@ namespace Zamin {
                 }
             }
             ImGui::SameLine();
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.52f, 0.41f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.16f, 0.62f, 0.50f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentDarkColor(1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UI::AccentMidColor());
             if (ImGui::Button(ICON_FA_PLUS "  Komponent"))
             {
                 m_AddComponentFilter.clear();

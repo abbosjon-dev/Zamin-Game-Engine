@@ -14,9 +14,13 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstring>
+#include <fstream>
+#include <stdexcept>
 
 namespace Zamin {
 
@@ -75,8 +79,34 @@ namespace Zamin {
         }
         void ReportMissingAsset(const json& object, std::string_view key, const std::string& path);
 
+        // What the registry said about a path during this (de)serialization: a large scene names the
+        // same few assets thousands of times (one registry / file system lookup per path).
+        struct PathInfo
+        {
+            bool Known = false;   // a registered asset (or the file is there)
+            std::string Handle;   // its UUID text when it has a .zmeta ("" otherwise)
+        };
+        const PathInfo& LookUp(const std::string& path)
+        {
+            auto it = m_Paths.find(path);
+            if (it != m_Paths.end())
+                return it->second;
+            PathInfo info;
+            if (m_Registry)
+            {
+                const AssetMetadata* meta = m_Registry->Find(std::filesystem::path(path));
+                if (meta && meta->HasMetaFile)
+                    info.Handle = meta->Handle.ToString();
+                std::error_code ec;
+                info.Known = meta || std::filesystem::exists(m_Registry->ToFileSystemPath(path), ec);
+            }
+            return m_Paths.emplace(path, std::move(info)).first->second;
+        }
+
     private:
         static inline thread_local AssetReferenceScope* s_Current = nullptr;
+        std::unordered_map<std::string, PathInfo> m_Paths;
+        std::unordered_set<std::string> m_ReportedMissing; // "<entity ID>/<component>/<path>"
         AssetReferenceScope* m_Previous = nullptr;
         AssetRegistry* m_Registry = nullptr;
         std::vector<SceneSerializer::AssetReferenceRepair>* m_Repairs = nullptr;
@@ -107,10 +137,8 @@ namespace Zamin {
             for (auto it = m_EntitySource->begin(); it != m_EntitySource->end() && component.empty(); ++it)
                 if (ContainsNode(it.value(), &object))
                     component = it.key();
-        for (const SceneLoadIssue& issue : m_Report->Issues)
-            if (issue.Type == SceneLoadIssue::Kind::MissingAsset && issue.EntityID == m_EntityID && issue.Asset == path &&
-                issue.Component == component)
-                return; // once per entity and component
+        if (!m_ReportedMissing.insert(std::format("{}/{}/{}", m_EntityID, component, path)).second)
+            return; // once per entity and component
         SceneLoadIssue issue;
         issue.Type = SceneLoadIssue::Kind::MissingAsset;
         issue.Level = SceneLoadIssue::Severity::Warning;
@@ -130,12 +158,11 @@ namespace Zamin {
     static void WriteAssetHandle(json& object, std::string_view key, const std::string& path)
     {
         AssetReferenceScope* scope = AssetReferenceScope::Get();
-        AssetRegistry* registry = scope ? scope->GetRegistry() : nullptr;
-        if (path.empty() || !registry)
+        if (path.empty() || !scope || !scope->GetRegistry())
             return;
         // Only a UUID stored in a .zmeta file means something in the next session.
-        if (const AssetMetadata* meta = registry->Find(std::filesystem::path(path)); meta && meta->HasMetaFile)
-            object[UUIDKey(key)] = meta->Handle.ToString();
+        if (const auto& info = scope->LookUp(path); !info.Handle.empty())
+            object[UUIDKey(key)] = info.Handle;
     }
 
     // The asset path stored under `key`, or where its UUID is now when that file is gone.
@@ -148,11 +175,8 @@ namespace Zamin {
             return path;
         AssetReferenceScope* scope = AssetReferenceScope::Get();
         AssetRegistry* registry = scope ? scope->GetRegistry() : nullptr;
-        if (!registry || registry->Find(std::filesystem::path(path)))
-            return path; // no project (paths mean nothing here), or the file is still there
-        std::error_code ec;
-        if (std::filesystem::exists(registry->ToFileSystemPath(path), ec))
-            return path; // there, just not a registered asset
+        if (!registry || scope->LookUp(path).Known)
+            return path; // no project (paths mean nothing here), or the file is still there (registered or not)
         auto handleIt = object.find(UUIDKey(key));
         std::optional<AssetHandle> handle = handleIt != object.end() && handleIt->is_string()
             ? AssetHandle::FromString(handleIt->get<std::string>()) : std::nullopt;
@@ -2755,6 +2779,11 @@ namespace Zamin {
         auto& children = parent.GetComponent<RelationshipComponent>().Children;
         std::vector<UUID> ordered;
         ordered.reserve(children.size());
+        // Membership in sets (a parent can have thousands of children).
+        std::unordered_set<uint64_t> present, placed;
+        present.reserve(children.size());
+        for (UUID child : children)
+            present.insert((uint64_t)child);
         for (const json& id : *it)
         {
             if (!id.is_number_integer()) continue;
@@ -2765,12 +2794,11 @@ namespace Zamin {
                 if (mapped == idMap->end()) continue;
                 child = mapped->second;
             }
-            if (std::find(children.begin(), children.end(), child) != children.end() &&
-                std::find(ordered.begin(), ordered.end(), child) == ordered.end())
+            if (present.contains((uint64_t)child) && placed.insert((uint64_t)child).second)
                 ordered.push_back(child);
         }
         for (UUID child : children) // anything not listed keeps the file order, after the listed ones
-            if (std::find(ordered.begin(), ordered.end(), child) == ordered.end())
+            if (placed.insert((uint64_t)child).second)
                 ordered.push_back(child);
         children = std::move(ordered);
     }
@@ -2876,12 +2904,13 @@ namespace Zamin {
         return true;
     }
 
-    std::string SceneSerializer::SerializeToString()
+    // The scene as the JSON tree of its file (the text and the binary cache are both made from it).
+    static json SceneToJson(Scene& scene)
     {
-        const auto& s = m_Scene->GetSettings();
+        const auto& s = scene.GetSettings();
         AssetReferenceScope assetReferences;
         json root;
-        root["Scene"] = m_Scene->GetName();
+        root["Scene"] = scene.GetName();
         root["Version"] = SceneMigration::CurrentVersion;
         root["Settings"] = {
             { "DrawSky", s.DrawSky }, { "SkyTop", ToJson(s.SkyTopColor) }, { "SkyHorizon", ToJson(s.SkyHorizonColor) },
@@ -2922,7 +2951,7 @@ namespace Zamin {
             root["Settings"]["Physics3D"] = { { "AllowSleep", s.Physics3D.AllowSleep }, { "TimeToSleep", s.Physics3D.TimeToSleep } };
 
         // Metadata only when there is some (written by the editor's scene inspector).
-        if (const SceneMetadata& meta = m_Scene->GetMetadata(); !meta.IsEmpty())
+        if (const SceneMetadata& meta = scene.GetMetadata(); !meta.IsEmpty())
         {
             json& j = root["Metadata"];
             j = json::object();
@@ -2937,17 +2966,322 @@ namespace Zamin {
         // The same scene always gives the same text (whatever order its entities were made in): sorted
         // by UUID, with the hierarchy's order written out (the roots here, the children with their parents).
         json entities = json::array();
-        std::vector<Entity> ordered = m_Scene->GetEntitiesInOrder();
-        std::sort(ordered.begin(), ordered.end(), [](const Entity& a, const Entity& b) { return (uint64_t)a.GetUUID() < (uint64_t)b.GetUUID(); });
+        std::vector<Entity> ordered;
+        {
+            // Sorted on the IDs read once (not looked up again in every comparison).
+            std::vector<std::pair<uint64_t, Entity>> keyed;
+            const std::vector<Entity> all = scene.GetEntitiesInOrder();
+            keyed.reserve(all.size());
+            for (Entity e : all)
+                keyed.emplace_back((uint64_t)e.GetUUID(), e);
+            std::sort(keyed.begin(), keyed.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+            ordered.reserve(keyed.size());
+            for (const auto& [id, e] : keyed)
+                ordered.push_back(e);
+        }
+        entities.get_ref<json::array_t&>().reserve(ordered.size());
         for (Entity e : ordered)
             entities.push_back(SerializeEntity(e));
         WriteChildOrder(entities, ordered);
         json rootOrder = json::array();
-        for (Entity e : m_Scene->GetRootEntities())
+        for (Entity e : scene.GetRootEntities())
             rootOrder.push_back((uint64_t)e.GetUUID());
         root["RootOrder"] = std::move(rootOrder);
         root["Entities"] = std::move(entities);
-        return root.dump(2);
+        return root;
+    }
+
+    // The JSON writer's output into one growing buffer (the library's string output appends a
+    // character at a time through the string's own members).
+    class TextOutput final : public nlohmann::detail::output_adapter_protocol<char>
+    {
+    public:
+        explicit TextOutput(size_t reserve) { m_Data.reserve(reserve); }
+        void write_character(char c) override
+        {
+            if (m_Size == m_Data.size())
+                Grow(1);
+            m_Data[m_Size++] = c;
+        }
+        void write_characters(const char* s, std::size_t length) override
+        {
+            if (m_Size + length > m_Data.size())
+                Grow(length);
+            std::memcpy(m_Data.data() + m_Size, s, length);
+            m_Size += length;
+        }
+        std::string Take() const { return std::string(m_Data.data(), m_Size); }
+
+    private:
+        void Grow(size_t more) { m_Data.resize(std::max(m_Data.size() * 2, m_Size + more + 4096)); }
+        std::vector<char> m_Data;
+        size_t m_Size = 0;
+    };
+
+    // `root` as indented text (what json::dump(2) gives).
+    static std::string DumpIndented(const json& root, size_t sizeHint)
+    {
+        auto output = std::make_shared<TextOutput>(sizeHint);
+        nlohmann::detail::serializer<json> writer(output, ' ', nlohmann::detail::error_handler_t::strict);
+        writer.dump(root, true, false, 2);
+        return output->Take();
+    }
+
+    std::string SceneSerializer::SerializeToString()
+    {
+        // About 900 bytes of text per entity (sprites, bodies ...): one allocation for most scenes.
+        return DumpIndented(SceneToJson(*m_Scene), 4096 + 1024 * m_Scene->GetRegistry().view<IDComponent>().size());
+    }
+
+    // ------------------------------------------------------------------ binary cache (.zsceneb)
+    // "ZMSB", the cache format's version, the size of the scene text it was made from (0: not made
+    // from a file), then the scene's JSON tree as MessagePack.
+    static constexpr uint8_t s_BinaryMagic[4] = { 'Z', 'M', 'S', 'B' };
+    static constexpr uint8_t s_BinaryFormat = 1;
+    static constexpr size_t s_BinaryHeaderSize = 4 + 1 + 8;
+    static std::atomic<bool> s_UseBinaryCache = true;
+
+    static std::vector<uint8_t> MakeBinary(const json& root, uint64_t sourceSize)
+    {
+        std::vector<uint8_t> bytes;
+        bytes.reserve(s_BinaryHeaderSize);
+        bytes.insert(bytes.end(), std::begin(s_BinaryMagic), std::end(s_BinaryMagic));
+        bytes.push_back(s_BinaryFormat);
+        for (int i = 0; i < 8; i++)
+            bytes.push_back((uint8_t)(sourceSize >> (8 * i)));
+        json::to_msgpack(root, bytes);
+        return bytes;
+    }
+
+    bool SceneSerializer::IsBinary(const void* data, size_t size)
+    {
+        return data && size >= s_BinaryHeaderSize && std::memcmp(data, s_BinaryMagic, 4) == 0;
+    }
+
+    // The size of the text a cache was made from (0: unknown), and whether the header is one this
+    // engine reads.
+    static bool ReadBinaryHeader(const uint8_t* data, size_t size, uint64_t& sourceSize)
+    {
+        if (!SceneSerializer::IsBinary(data, size) || data[4] != s_BinaryFormat)
+            return false;
+        sourceSize = 0;
+        for (int i = 0; i < 8; i++)
+            sourceSize |= (uint64_t)data[5 + i] << (8 * i);
+        return true;
+    }
+
+    // The cache's MessagePack back into a JSON tree. The library's reader takes a string a byte at a
+    // time; this one copies strings whole and appends an object's keys at its end (they were written
+    // sorted), so the cache is read about twice as fast as the text. Throws std::runtime_error on
+    // data that is not well-formed (sizes are checked against what is left: nothing is over-allocated).
+    class MessagePackReader
+    {
+    public:
+        MessagePackReader(const uint8_t* begin, const uint8_t* end) : m_At(begin), m_End(end) {}
+
+        void Read(json& out, int depth = 0)
+        {
+            if (depth > 512)
+                Fail("juda chuqur ichma-ich tuzilma");
+            const uint8_t b = Byte();
+            if (b <= 0x7f) { out = (uint64_t)b; return; }
+            if (b >= 0xe0) { out = (int64_t)(int8_t)b; return; }
+            if ((b & 0xf0) == 0x80) return ReadMap(out, b & 0x0f, depth);
+            if ((b & 0xf0) == 0x90) return ReadArray(out, b & 0x0f, depth);
+            if ((b & 0xe0) == 0xa0) return ReadString(out, b & 0x1f);
+            switch (b)
+            {
+                case 0xc0: out = nullptr; return;
+                case 0xc2: out = false; return;
+                case 0xc3: out = true; return;
+                case 0xc4: return ReadBinary(out, Unsigned(1));
+                case 0xc5: return ReadBinary(out, Unsigned(2));
+                case 0xc6: return ReadBinary(out, Unsigned(4));
+                case 0xca:
+                {
+                    const uint32_t bits = (uint32_t)Unsigned(4);
+                    float value;
+                    std::memcpy(&value, &bits, sizeof(value));
+                    out = (double)value;
+                    return;
+                }
+                case 0xcb:
+                {
+                    const uint64_t bits = Unsigned(8);
+                    double value;
+                    std::memcpy(&value, &bits, sizeof(value));
+                    out = value;
+                    return;
+                }
+                case 0xcc: out = Unsigned(1); return;
+                case 0xcd: out = Unsigned(2); return;
+                case 0xce: out = Unsigned(4); return;
+                case 0xcf: out = Unsigned(8); return;
+                case 0xd0: out = (int64_t)(int8_t)Unsigned(1); return;
+                case 0xd1: out = (int64_t)(int16_t)Unsigned(2); return;
+                case 0xd2: out = (int64_t)(int32_t)Unsigned(4); return;
+                case 0xd3: out = (int64_t)Unsigned(8); return;
+                case 0xd9: return ReadString(out, Unsigned(1));
+                case 0xda: return ReadString(out, Unsigned(2));
+                case 0xdb: return ReadString(out, Unsigned(4));
+                case 0xdc: return ReadArray(out, Unsigned(2), depth);
+                case 0xdd: return ReadArray(out, Unsigned(4), depth);
+                case 0xde: return ReadMap(out, Unsigned(2), depth);
+                case 0xdf: return ReadMap(out, Unsigned(4), depth);
+                default: break;
+            }
+            Fail(std::format("noma'lum MessagePack turi 0x{:02x}", b));
+        }
+        bool AtEnd() const { return m_At == m_End; }
+
+    private:
+        [[noreturn]] void Fail(const std::string& why) const { throw std::runtime_error(why); }
+        size_t Left() const { return (size_t)(m_End - m_At); }
+        uint8_t Byte()
+        {
+            if (m_At >= m_End)
+                Fail("ma'lumot kutilmaganda tugadi");
+            return *m_At++;
+        }
+        uint64_t Unsigned(int bytes) // big-endian
+        {
+            if (Left() < (size_t)bytes)
+                Fail("ma'lumot kutilmaganda tugadi");
+            uint64_t value = 0;
+            for (int i = 0; i < bytes; i++)
+                value = (value << 8) | m_At[i];
+            m_At += bytes;
+            return value;
+        }
+        std::string Text(uint64_t length)
+        {
+            if (length > Left())
+                Fail("satr uzunligi ma'lumotdan katta");
+            std::string text((const char*)m_At, (size_t)length);
+            m_At += length;
+            return text;
+        }
+        void ReadString(json& out, uint64_t length) { out = Text(length); }
+        void ReadBinary(json& out, uint64_t length)
+        {
+            if (length > Left())
+                Fail("binar uzunligi ma'lumotdan katta");
+            out = json::binary(std::vector<uint8_t>(m_At, m_At + length));
+            m_At += length;
+        }
+        void ReadArray(json& out, uint64_t count, int depth)
+        {
+            if (count > Left())
+                Fail("ro'yxat uzunligi ma'lumotdan katta");
+            out = json::array();
+            json::array_t& items = out.get_ref<json::array_t&>();
+            items.resize((size_t)count);
+            for (json& item : items)
+                Read(item, depth + 1);
+        }
+        void ReadMap(json& out, uint64_t count, int depth)
+        {
+            if (count > Left() / 2)
+                Fail("obyekt kalitlari soni ma'lumotdan katta");
+            out = json::object();
+            json::object_t& members = out.get_ref<json::object_t&>();
+            for (uint64_t i = 0; i < count; i++)
+            {
+                const uint8_t b = Byte();
+                uint64_t length = 0;
+                if ((b & 0xe0) == 0xa0)
+                    length = b & 0x1f;
+                else if (b == 0xd9)
+                    length = Unsigned(1);
+                else if (b == 0xda)
+                    length = Unsigned(2);
+                else if (b == 0xdb)
+                    length = Unsigned(4);
+                else
+                    Fail("obyekt kaliti satr emas");
+                // Written in sorted order: each key goes at the end in constant time.
+                json& value = members.emplace_hint(members.end(), Text(length), nullptr)->second;
+                Read(value, depth + 1);
+            }
+        }
+
+        const uint8_t* m_At;
+        const uint8_t* m_End;
+    };
+
+    static json ParseMessagePack(const uint8_t* begin, const uint8_t* end)
+    {
+        MessagePackReader reader(begin, end);
+        json root;
+        reader.Read(root);
+        if (!reader.AtEnd())
+            throw std::runtime_error("ma'lumot oxirida ortiqcha baytlar bor");
+        return root;
+    }
+
+    std::vector<uint8_t> SceneSerializer::SerializeToBinary()
+    {
+        return MakeBinary(SceneToJson(*m_Scene), 0);
+    }
+
+    std::filesystem::path SceneSerializer::GetBinaryCachePath(const std::filesystem::path& sceneFile)
+    {
+        std::filesystem::path cache = sceneFile;
+        cache.replace_extension(BinaryExtension);
+        return cache;
+    }
+
+    bool SceneSerializer::WriteBinaryCache(const std::filesystem::path& sceneFile, std::string* error)
+    {
+        auto fail = [&](std::string reason) {
+            if (error)
+                *error = std::move(reason);
+            return false;
+        };
+        std::string text = AssetImportLog::CheckReadable(sceneFile);
+        if (!text.empty())
+            return fail(text);
+        text = FileSystem::ReadTextFile(sceneFile);
+        if (text.empty())
+            return fail("fayl o'qilmadi");
+        json root = json::parse(text, nullptr, false);
+        if (root.is_discarded() || !root.is_object() || !root.contains("Scene"))
+            return fail("sahna fayli emas yoki JSON xato");
+        // Stored already migrated: the player reads the current format straight away.
+        SceneMigrationJson::Migrate(root);
+        const std::vector<uint8_t> bytes = MakeBinary(root, text.size());
+        if (!FileSystem::WriteBinaryFile(GetBinaryCachePath(sceneFile), bytes.data(), bytes.size()))
+            return fail("kesh yozilmadi");
+        return true;
+    }
+
+    void SceneSerializer::SetUseBinaryCache(bool use) { s_UseBinaryCache = use; }
+    bool SceneSerializer::GetUseBinaryCache() { return s_UseBinaryCache; }
+
+    // The cache next to a scene file when it can stand in for it: made from a text of the file's
+    // current size and not older than it (else the text is read).
+    static bool FindValidBinaryCache(const std::filesystem::path& sceneFile, std::filesystem::path& cache)
+    {
+        if (!s_UseBinaryCache || sceneFile.extension() == SceneSerializer::BinaryExtension)
+            return false;
+        cache = SceneSerializer::GetBinaryCachePath(sceneFile);
+        std::error_code ec;
+        if (!std::filesystem::is_regular_file(cache, ec))
+            return false;
+        const bool hasText = std::filesystem::is_regular_file(sceneFile, ec);
+        if (!hasText)
+            return true; // only the cache was shipped
+        std::ifstream in(cache, std::ios::binary);
+        uint8_t header[s_BinaryHeaderSize] = {};
+        uint64_t sourceSize = 0;
+        if (!in.read((char*)header, sizeof(header)) || !ReadBinaryHeader(header, sizeof(header), sourceSize))
+            return false;
+        const auto textSize = std::filesystem::file_size(sceneFile, ec);
+        if (ec || sourceSize != (uint64_t)textSize)
+            return false;
+        const auto textTime = std::filesystem::last_write_time(sceneFile, ec);
+        const auto cacheTime = std::filesystem::last_write_time(cache, ec);
+        return !ec && cacheTime >= textTime;
     }
 
     bool SceneSerializer::Serialize(const std::filesystem::path& filepath)
@@ -2964,26 +3298,44 @@ namespace Zamin {
     {
         m_Report.Clear();
         m_Report.File = filepath.generic_string();
-        const auto readStart = std::chrono::steady_clock::now();
-        m_LastError = AssetImportLog::CheckReadable(filepath);
-        std::string text = m_LastError.empty() ? FileSystem::ReadTextFile(filepath) : std::string();
-        const double readMs = ElapsedMilliseconds(readStart);
-        if (text.empty() && m_LastError.empty())
-            m_LastError = "fayl o'qilmadi";
+        // A binary cache next to the file (an exported game's) is read instead when it is current.
+        std::filesystem::path cache;
+        bool fromCache = FindValidBinaryCache(filepath, cache);
         bool ok = false;
-        if (m_LastError.empty())
+        size_t bytes = 0;
+        double readMs = 0.0;
+        for (int attempt = 0; attempt < 2 && !ok; attempt++)
         {
-            m_QuietErrors = true;
-            ok = DeserializeFromString(text);
-            m_QuietErrors = false;
-        }
-        else
-        {
-            m_Timing = {};
-            m_Report.Add(MakeUnreadableIssue(m_LastError));
+            const std::filesystem::path& source = fromCache ? cache : filepath;
+            m_Report.Clear();
+            m_Report.File = filepath.generic_string();
+            const auto readStart = std::chrono::steady_clock::now();
+            m_LastError = AssetImportLog::CheckReadable(source);
+            std::string data = m_LastError.empty() ? FileSystem::ReadTextFile(source) : std::string();
+            readMs = ElapsedMilliseconds(readStart);
+            bytes = data.size();
+            if (data.empty() && m_LastError.empty())
+                m_LastError = "fayl o'qilmadi";
+            if (m_LastError.empty())
+            {
+                m_QuietErrors = true;
+                ok = IsBinary(data.data(), data.size()) ? DeserializeFromMemory((const uint8_t*)data.data(), data.size())
+                                                        : DeserializeFromString(data);
+                m_QuietErrors = false;
+            }
+            else
+            {
+                m_Timing = {};
+                m_Report.Add(MakeUnreadableIssue(m_LastError));
+            }
+            if (ok || !fromCache)
+                break;
+            // A cache that cannot be read (nothing was made from it): the text instead.
+            ZM_CORE_WARN("Sahnaning binar keshi o'qilmadi ({}): matn fayli o'qiladi - {}", m_LastError, cache.filename().string());
+            fromCache = false;
         }
         m_Timing[SceneLoadTiming::Stage::Read] = readMs;
-        m_Timing.FileBytes = text.size();
+        m_Timing.FileBytes = bytes;
         m_Timing.Failed = !ok;
         if (!ok)
         {
@@ -2995,7 +3347,10 @@ namespace Zamin {
         }
         AssetImportLog::Clear(filepath);
         if (m_Scene->GetName().empty() || m_Scene->GetName() == "Untitled")
-            m_Scene->SetName(filepath.stem().string());
+        {
+            std::filesystem::path stem = filepath.stem();
+            m_Scene->SetName(stem.string());
+        }
         SceneMigration::LogMigration(SceneDisplayPath(filepath), m_Migration);
         m_Report.Log(); // what was left out (a clean load says nothing)
         return true;
@@ -3671,6 +4026,30 @@ namespace Zamin {
         }
     }
 
+    // A parsed scene file into `scene`: the migration, the settings, the entities in their load
+    // order, then the hierarchy (what cannot be read is reported and left out).
+    static void BuildSceneFromRoot(json& root, Scene& scene, SceneLoadReport& report, SceneMigrationResult& migration, SceneLoadTiming& timing)
+    {
+        auto stage = std::chrono::steady_clock::now();
+        auto lap = [&](SceneLoadTiming::Stage s) {
+            const auto now = std::chrono::steady_clock::now();
+            timing[s] += std::chrono::duration<double, std::milli>(now - stage).count();
+            stage = now;
+        };
+        migration = MigrateSceneRoot(root, &report);
+        lap(SceneLoadTiming::Stage::Migrate);
+        DeserializeSceneSettingsChecked(root, scene, &report);
+        const json& entityList = SceneEntityList(root, &report);
+        std::vector<LoadedEntity> loaded;
+        loaded.reserve(entityList.size());
+        for (size_t i : ComputeLoadOrder(root, entityList))
+            DeserializeSceneEntity(entityList[i], i, scene, loaded, &report);
+        LinkSceneHierarchy(scene, loaded, &report);
+        lap(SceneLoadTiming::Stage::Deserialize);
+        timing.Entities = loaded.size();
+        timing.SceneName = scene.GetName();
+    }
+
     bool SceneSerializer::DeserializeFromString(const std::string& text)
     {
         m_RepairedReferences.clear();
@@ -3689,35 +4068,68 @@ namespace Zamin {
                 ZM_CORE_ERROR("{}", m_LastError);
             return false;
         };
-        auto stage = std::chrono::steady_clock::now();
-        auto lap = [&](SceneLoadTiming::Stage s) {
-            const auto now = std::chrono::steady_clock::now();
-            m_Timing[s] += std::chrono::duration<double, std::milli>(now - stage).count();
-            stage = now;
-        };
+        const auto parseStart = std::chrono::steady_clock::now();
         json root;
         try { root = json::parse(text); }
         catch (const std::exception& e)
         {
-            lap(SceneLoadTiming::Stage::Parse);
+            m_Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
             return fail(MakeParseIssue(text, e));
         }
-        lap(SceneLoadTiming::Stage::Parse);
+        m_Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
         if (!root.is_object() || !root.contains("Scene"))
             return fail(MakeNotASceneIssue());
-        m_Migration = MigrateSceneRoot(root, &m_Report);
-        lap(SceneLoadTiming::Stage::Migrate);
+        BuildSceneFromRoot(root, *m_Scene, m_Report, m_Migration, m_Timing);
+        const auto freeStart = std::chrono::steady_clock::now();
+        root = json(); // the parsed tree is let go (part of reading it)
+        m_Timing[SceneLoadTiming::Stage::Parse] += ElapsedMilliseconds(freeStart);
+        return true;
+    }
 
-        DeserializeSceneSettingsChecked(root, *m_Scene, &m_Report);
-        const json& entityList = SceneEntityList(root, &m_Report);
-        std::vector<LoadedEntity> loaded;
-        loaded.reserve(entityList.size());
-        for (size_t i : ComputeLoadOrder(root, entityList))
-            DeserializeSceneEntity(entityList[i], i, *m_Scene, loaded, &m_Report);
-        LinkSceneHierarchy(*m_Scene, loaded, &m_Report);
-        lap(SceneLoadTiming::Stage::Deserialize);
-        m_Timing.Entities = loaded.size();
-        m_Timing.SceneName = m_Scene->GetName();
+    bool SceneSerializer::DeserializeFromBinary(const std::vector<uint8_t>& bytes)
+    {
+        return DeserializeFromMemory(bytes.data(), bytes.size());
+    }
+
+    bool SceneSerializer::DeserializeFromMemory(const uint8_t* data, size_t size)
+    {
+        m_RepairedReferences.clear();
+        m_LastError.clear();
+        m_Report.Clear();
+        m_Migration = {};
+        m_Timing = {};
+        m_Timing.FileBytes = size;
+        m_Timing.Binary = true;
+        AssetReferenceScope assetReferences(&m_RepairedReferences);
+        assetReferences.SetReport(&m_Report);
+        auto fail = [&](SceneLoadIssue issue) {
+            m_LastError = issue.Message;
+            m_Report.Add(std::move(issue));
+            m_Timing.Failed = true;
+            if (!m_QuietErrors)
+                ZM_CORE_ERROR("{}", m_LastError);
+            return false;
+        };
+        uint64_t sourceSize = 0;
+        if (!ReadBinaryHeader(data, size, sourceSize))
+            return fail(MakeIssue(SceneLoadIssue::Kind::Unreadable, SceneLoadIssue::Severity::Fatal,
+                                  "Binar sahna keshi emas yoki boshqa versiyadagi kesh"));
+        const auto parseStart = std::chrono::steady_clock::now();
+        json root;
+        try { root = ParseMessagePack(data + s_BinaryHeaderSize, data + size); }
+        catch (const std::exception& e)
+        {
+            m_Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
+            return fail(MakeIssue(SceneLoadIssue::Kind::ParseError, SceneLoadIssue::Severity::Fatal,
+                                  std::format("Binar sahna keshi buzilgan: {}", DescribeException(e))));
+        }
+        m_Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
+        if (!root.is_object() || !root.contains("Scene"))
+            return fail(MakeNotASceneIssue());
+        BuildSceneFromRoot(root, *m_Scene, m_Report, m_Migration, m_Timing);
+        const auto freeStart = std::chrono::steady_clock::now();
+        root = json();
+        m_Timing[SceneLoadTiming::Stage::Parse] += ElapsedMilliseconds(freeStart);
         return true;
     }
 
@@ -3809,28 +4221,46 @@ namespace Zamin {
     bool SceneLoadJob::Parse(const std::filesystem::path& path)
     {
         m_Data->File = path;
-        m_Data->Report.Clear();
-        m_Data->Report.File = path.generic_string();
-        const auto readStart = std::chrono::steady_clock::now();
-        std::string error = AssetImportLog::CheckReadable(path);
-        std::string text = error.empty() ? FileSystem::ReadTextFile(path) : std::string();
-        const double readMs = ElapsedMilliseconds(readStart);
-        if (text.empty() && error.empty())
-            error = "fayl o'qilmadi";
-        if (!error.empty())
+        std::filesystem::path cache;
+        bool fromCache = FindValidBinaryCache(path, cache);
+        for (int attempt = 0; attempt < 2; attempt++)
         {
-            m_Data->Timing = {};
-            m_Data->Timing[SceneLoadTiming::Stage::Read] = readMs;
-            m_Data->Timing.Failed = true;
-            m_Data->Fail(MakeUnreadableIssue(error));
-            return false;
+            const std::filesystem::path& source = fromCache ? cache : path;
+            m_Data->Report.Clear();
+            m_Data->Report.File = path.generic_string();
+            const auto readStart = std::chrono::steady_clock::now();
+            std::string error = AssetImportLog::CheckReadable(source);
+            std::string data = error.empty() ? FileSystem::ReadTextFile(source) : std::string();
+            const double readMs = ElapsedMilliseconds(readStart);
+            if (data.empty() && error.empty())
+                error = "fayl o'qilmadi";
+            if (!error.empty())
+            {
+                m_Data->Timing = {};
+                m_Data->Timing[SceneLoadTiming::Stage::Read] = readMs;
+                m_Data->Timing.Failed = true;
+                m_Data->Fail(MakeUnreadableIssue(error));
+                if (!fromCache)
+                    return false;
+            }
+            else
+            {
+                const bool parsed = SceneSerializer::IsBinary(data.data(), data.size())
+                    ? ParseMemory((const uint8_t*)data.data(), data.size())
+                    : ParseString(data);
+                m_Data->Timing[SceneLoadTiming::Stage::Read] = readMs;
+                if (parsed)
+                {
+                    SceneMigration::LogMigration(SceneDisplayPath(path), m_Data->Migration);
+                    return true;
+                }
+                if (!fromCache)
+                    return false;
+            }
+            ZM_CORE_WARN("Sahnaning binar keshi o'qilmadi ({}): matn fayli o'qiladi - {}", m_Data->Error, cache.filename().string());
+            fromCache = false;
         }
-        const bool parsed = ParseString(text);
-        m_Data->Timing[SceneLoadTiming::Stage::Read] = readMs;
-        if (!parsed)
-            return false;
-        SceneMigration::LogMigration(SceneDisplayPath(path), m_Data->Migration);
-        return true;
+        return false;
     }
 
     bool SceneLoadJob::ParseString(const std::string& text)
@@ -3839,32 +4269,67 @@ namespace Zamin {
         m_Data->Timing = {};
         m_Data->Timing.FileBytes = text.size();
         std::erase_if(m_Data->Report.Issues, [](const SceneLoadIssue& i) { return i.Level == SceneLoadIssue::Severity::Fatal; });
-        auto stage = std::chrono::steady_clock::now();
-        auto lap = [&](SceneLoadTiming::Stage s) {
-            const auto now = std::chrono::steady_clock::now();
-            m_Data->Timing[s] += std::chrono::duration<double, std::milli>(now - stage).count();
-            stage = now;
-        };
+        const auto parseStart = std::chrono::steady_clock::now();
         try { m_Data->Root = json::parse(text); }
         catch (const std::exception& e)
         {
-            lap(SceneLoadTiming::Stage::Parse);
+            m_Data->Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
             m_Data->Timing.Failed = true;
             m_Data->Fail(MakeParseIssue(text, e));
             return false;
         }
-        lap(SceneLoadTiming::Stage::Parse);
+        m_Data->Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
+        return AcceptParsed();
+    }
+
+    bool SceneLoadJob::ParseBinary(const std::vector<uint8_t>& bytes)
+    {
+        return ParseMemory(bytes.data(), bytes.size());
+    }
+
+    bool SceneLoadJob::ParseMemory(const uint8_t* data, size_t size)
+    {
+        m_Data->Error.clear();
+        m_Data->Timing = {};
+        m_Data->Timing.FileBytes = size;
+        m_Data->Timing.Binary = true;
+        std::erase_if(m_Data->Report.Issues, [](const SceneLoadIssue& i) { return i.Level == SceneLoadIssue::Severity::Fatal; });
+        uint64_t sourceSize = 0;
+        if (!ReadBinaryHeader(data, size, sourceSize))
+        {
+            m_Data->Timing.Failed = true;
+            m_Data->Fail(MakeIssue(SceneLoadIssue::Kind::Unreadable, SceneLoadIssue::Severity::Fatal,
+                                   "Binar sahna keshi emas yoki boshqa versiyadagi kesh"));
+            return false;
+        }
+        const auto parseStart = std::chrono::steady_clock::now();
+        try { m_Data->Root = ParseMessagePack(data + s_BinaryHeaderSize, data + size); }
+        catch (const std::exception& e)
+        {
+            m_Data->Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
+            m_Data->Timing.Failed = true;
+            m_Data->Fail(MakeIssue(SceneLoadIssue::Kind::ParseError, SceneLoadIssue::Severity::Fatal,
+                                   std::format("Binar sahna keshi buzilgan: {}", DescribeException(e))));
+            return false;
+        }
+        m_Data->Timing[SceneLoadTiming::Stage::Parse] = ElapsedMilliseconds(parseStart);
+        return AcceptParsed();
+    }
+
+    bool SceneLoadJob::AcceptParsed()
+    {
         if (!m_Data->Root.is_object() || !m_Data->Root.contains("Scene"))
         {
             m_Data->Timing.Failed = true;
             m_Data->Fail(MakeNotASceneIssue());
             return false;
         }
+        const auto migrateStart = std::chrono::steady_clock::now();
         std::erase_if(m_Data->Report.Issues, [](const SceneLoadIssue& i) { return i.Type == SceneLoadIssue::Kind::NewerVersion; });
         m_Data->Migration = MigrateSceneRoot(m_Data->Root, &m_Data->Report);
         // The order the entities are made in (any thread: only the parsed file is read).
         m_Data->Order = ComputeLoadOrder(m_Data->Root, m_Data->Entities());
-        lap(SceneLoadTiming::Stage::Migrate);
+        m_Data->Timing[SceneLoadTiming::Stage::Migrate] = ElapsedMilliseconds(migrateStart);
         m_Data->Timing.Entities = m_Data->Entities().size();
         m_Data->Step = Data::Phase::Parsed;
         return true;

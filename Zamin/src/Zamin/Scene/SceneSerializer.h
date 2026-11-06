@@ -109,6 +109,24 @@ namespace Zamin {
         // hierarchy order (files without "RootOrder", written before: in file order).
         std::string SerializeToString();
         bool DeserializeFromString(const std::string& text);
+
+        // The binary cache (.zsceneb): the same tree as MessagePack behind a small header ("ZMSB",
+        // its format, the size of the text it was made from) - smaller and parsed faster than the
+        // text, for an exported game (BuildGame writes one next to every scene). Deserialize(file)
+        // reads "Level1.zsceneb" instead of "Level1.zscene" when it is next to it, was made from a
+        // text of that size and is not older (else the text; a broken cache falls back to it);
+        // Deserialize("Level1.zsceneb") reads the cache itself.
+        static constexpr const char* BinaryExtension = ".zsceneb";
+        std::vector<uint8_t> SerializeToBinary();
+        bool DeserializeFromBinary(const std::vector<uint8_t>& bytes);
+        static bool IsBinary(const void* data, size_t size);
+        static std::filesystem::path GetBinaryCachePath(const std::filesystem::path& sceneFile);
+        // Writes the cache of a scene file next to it (migrated to the current format). Any thread:
+        // only the file's text is read. False with the reason in `error`.
+        static bool WriteBinaryCache(const std::filesystem::path& sceneFile, std::string* error = nullptr);
+        // Whether Deserialize / SceneLoadJob::Parse look for the cache (default on).
+        static void SetUseBinaryCache(bool use);
+        static bool GetUseBinaryCache();
         // Why the last Deserialize / DeserializeFromString call failed ("" after a success). A scene
         // file that cannot be read is reported once with its path (AssetImportLog).
         const std::string& GetLastError() const { return m_LastError; }
@@ -158,6 +176,8 @@ namespace Zamin {
         static bool DeserializeComponent(const std::string& text, Entity target);
 
     private:
+        bool DeserializeFromMemory(const uint8_t* data, size_t size);
+
         Ref<Scene> m_Scene;
         std::vector<AssetReferenceRepair> m_RepairedReferences;
         SceneLoadReport m_Report;
@@ -179,8 +199,10 @@ namespace Zamin {
         SceneLoadJob& operator=(const SceneLoadJob&) = delete;
 
         // Any thread. False with GetError() when the file cannot be read or is not a scene.
+        // Parse(file) reads the file's binary cache instead when it is current (see SceneSerializer).
         bool Parse(const std::filesystem::path& path);
         bool ParseString(const std::string& text);
+        bool ParseBinary(const std::vector<uint8_t>& bytes);
         // Any thread, after Parse: the image files the entities name (as written: relative to the
         // assets), each once - decoded ahead of the main thread's texture uploads.
         std::vector<std::string> CollectImagePaths() const;
@@ -201,6 +223,9 @@ namespace Zamin {
         const SceneLoadTiming& GetTiming() const;
 
     private:
+        bool ParseMemory(const uint8_t* data, size_t size);
+        bool AcceptParsed();
+
         struct Data;
         std::unique_ptr<Data> m_Data;
     };

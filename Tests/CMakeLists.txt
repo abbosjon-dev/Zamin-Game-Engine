@@ -56,6 +56,8 @@ add_custom_target(update_render_references
 add_executable(ZaminBench ParticleBench.cpp)
 target_link_libraries(ZaminBench PRIVATE Zamin)
 set_target_properties(ZaminBench PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/bin")
+# --serialize saves / loads a large scene in the sample Platformer2D project.
+target_compile_definitions(ZaminBench PRIVATE ZAMIN_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 if(ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG)
     target_compile_definitions(ZaminBench PRIVATE ZAMIN_PARTICLES_OPTIMIZED_IN_DEBUG=1)
 endif()

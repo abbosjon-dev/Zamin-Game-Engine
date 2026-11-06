@@ -34,6 +34,18 @@ add_custom_command(OUTPUT ${ZAMIN_ENGINE_NAMES}
     COMMENT "Zamin nomlari ro'yxati (skript klass nomlarini tekshirish uchun)"
     VERBATIM)
 
+# Large scenes are saved and loaded through the JSON library: the scene serializer is optimised in
+# Debug builds too (several times faster there). It is linked first, so the library's shared
+# template code (the JSON parser and writer every file format uses) is its optimised copy - the
+# linker keeps the first copy of such code it sees. Off: step through the serializer in a debugger.
+option(ZAMIN_OPTIMIZE_SERIALIZER_IN_DEBUG "Compile the scene serializer with -O2 in Debug builds" ON)
+if(ZAMIN_OPTIMIZE_SERIALIZER_IN_DEBUG AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(ZAMIN_SERIALIZER_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Scene/SceneSerializer.cpp)
+    list(REMOVE_ITEM ZAMIN_SOURCES ${ZAMIN_SERIALIZER_SOURCE})
+    list(PREPEND ZAMIN_SOURCES ${ZAMIN_SERIALIZER_SOURCE})
+    set_source_files_properties(${ZAMIN_SERIALIZER_SOURCE} PROPERTIES COMPILE_OPTIONS "$<$<CONFIG:Debug>:-O2>")
+endif()
+
 add_library(Zamin SHARED ${ZAMIN_SOURCES} ${ZAMIN_ENGINE_NAMES})
 add_library(Zamin::Zamin ALIAS Zamin)
 target_include_directories(Zamin PRIVATE ${ZAMIN_GENERATED_DIR})
@@ -73,6 +85,11 @@ target_link_libraries(Zamin PRIVATE glad glfw imgui imguizmo box2d Jolt nlohmann
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(Zamin PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers)
 endif()
+# Calls inside the library go to its own functions (not to copies of the same inline / template code
+# in the program that loads it - an unoptimised Debug editor's string or container code, say).
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_options(Zamin PRIVATE -Wl,-Bsymbolic-functions)
+endif()
 
 # The particle simulation and the loops that hand particles to the renderer run for every particle
 # every frame: optimised in Debug builds too (about 30x faster there), so effects with tens of
@@ -85,6 +102,7 @@ if(ZAMIN_OPTIMIZE_PARTICLES_IN_DEBUG AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clan
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Zamin/Scene/SceneParticles.cpp
         PROPERTIES COMPILE_OPTIONS "$<$<CONFIG:Debug>:-O2>")
 endif()
+
 
 # Copy engine resources (fonts ...) next to the binaries.
 add_custom_command(TARGET Zamin POST_BUILD

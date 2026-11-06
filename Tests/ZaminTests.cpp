@@ -31214,3 +31214,177 @@ TEST(SceneLoadTimingBreakdown)
     CHECK(SceneLoadProfiler::GetCount() == 0 && SceneLoadProfiler::GetSerial() > serial && !SceneLoadProfiler::GetLast(last));
     SceneLoadProfiler::SetLogging(true);
 }
+
+TEST(SceneBinaryCache)
+{
+    namespace fs = std::filesystem;
+    using Stage = SceneLoadTiming::Stage;
+    SceneFolder f;
+    // A scene with a hierarchy, a script field, a missing asset and a parent with many children.
+    f.Write("Cached", {}, [](Scene& s) {
+        Entity root = s.CreateEntity("Root");
+        for (int i = 0; i < 300; i++)
+        {
+            Entity child = s.CreateEntity(std::format("Child{}", i));
+            s.SetParent(child, root);
+            child.GetComponent<TransformComponent>().Translation = { (float)i, 0.5f, -2.0f };
+        }
+        Entity sprite = s.CreateEntity("Sprite");
+        sprite.AddComponent<SpriteRendererComponent>().TexturePath = "Textures/zamin-test-missing.png";
+        auto& nsc = sprite.AddComponent<NativeScriptComponent>();
+        nsc.ClassName = "CoinEmitterProbe";
+        ScriptFieldValue speed;
+        speed.Set(2.5f);
+        nsc.Fields["Speed"] = speed;
+        s.GetMetadata().Description = "Kesh sinovi";
+        // Children not in UUID order: written with "ChildOrder".
+        auto& children = root.GetComponent<RelationshipComponent>().Children;
+        std::reverse(children.begin(), children.end());
+    });
+    const fs::path text = f.Path("Cached");
+    const fs::path cache = SceneSerializer::GetBinaryCachePath(text);
+    CHECK(cache.extension() == ".zsceneb" && cache.stem() == "Cached");
+    const std::string original = FileSystem::ReadTextFile(text);
+
+    // In memory: the same scene from the MessagePack tree as from the text.
+    auto source = CreateRef<Scene>();
+    CHECK(SceneSerializer(source).Deserialize(text));
+    std::vector<uint8_t> bytes = SceneSerializer(source).SerializeToBinary();
+    CHECK(SceneSerializer::IsBinary(bytes.data(), bytes.size()) && !SceneSerializer::IsBinary(original.data(), original.size()));
+    CHECK(bytes.size() < original.size() / 2);
+    auto fromBytes = CreateRef<Scene>();
+    SceneSerializer binaryReader(fromBytes);
+    CHECK(binaryReader.DeserializeFromBinary(bytes) && binaryReader.GetTiming().Binary);
+    CHECK(SceneSerializer(fromBytes).SerializeToString() == original);
+    CHECK(fromBytes->GetMetadata().Description == "Kesh sinovi");
+    std::vector<Entity> order = fromBytes->GetEntitiesInHierarchyOrder();
+    CHECK(order.size() == 302 && order[1].GetName() == "Child299"); // the children's order came along
+    // Broken bytes: nothing is made, the reason is reported.
+    Log::SetMinLevel(LogLevel::Critical);
+    std::vector<uint8_t> broken(bytes.begin(), bytes.begin() + (ptrdiff_t)(bytes.size() / 2));
+    auto none = CreateRef<Scene>();
+    SceneSerializer brokenReader(none);
+    CHECK(!brokenReader.DeserializeFromBinary(broken) && brokenReader.GetLoadReport().Failed());
+    CHECK(none->GetRegistry().view<IDComponent>().empty());
+    std::vector<uint8_t> notCache = { 'Z', 'M', 'S', 'B', 99, 0, 0, 0, 0, 0, 0, 0, 0, 0x80 };
+    CHECK(!SceneSerializer(none).DeserializeFromBinary(notCache)); // another cache format
+    Log::SetMinLevel(LogLevel::Error);
+
+    // The cache file next to the scene: read instead of the text while it is current.
+    std::string error;
+    CHECK(SceneSerializer::WriteBinaryCache(text, &error) && fs::is_regular_file(cache));
+    {
+        auto scene = CreateRef<Scene>();
+        SceneSerializer serializer(scene);
+        CHECK(serializer.Deserialize(text) && serializer.GetTiming().Binary && serializer.GetTiming().FileBytes == fs::file_size(cache));
+        CHECK(SceneSerializer(scene).SerializeToString() == original && scene->GetName() == "Cached");
+        // Off: the text (the same scene, the same report).
+        SceneSerializer::SetUseBinaryCache(false);
+        auto plain = CreateRef<Scene>();
+        SceneSerializer textReader(plain);
+        CHECK(textReader.Deserialize(text) && !textReader.GetTiming().Binary);
+        CHECK(serializer.GetLoadReport().Issues.size() == textReader.GetLoadReport().Issues.size());
+        SceneSerializer::SetUseBinaryCache(true);
+        CHECK(SceneSerializer::GetUseBinaryCache());
+        // The async job reads it too.
+        SceneLoadJob job;
+        CHECK(job.Parse(text) && job.GetTiming().Binary && job.GetEntityCount() == 302);
+        auto built = CreateRef<Scene>();
+        while (!job.Build(*built, 1.0)) {}
+        CHECK(job.IsBuilt() && SceneSerializer(built).SerializeToString() == original);
+        // The cache file itself can be opened.
+        auto direct = CreateRef<Scene>();
+        CHECK(SceneSerializer(direct).Deserialize(cache) && direct->FindEntityByName("Child7"));
+    }
+    // The text changed (saved again with another size): the cache is stale, the text is read.
+    {
+        auto scene = CreateRef<Scene>();
+        CHECK(SceneSerializer(scene).Deserialize(text));
+        scene->FindEntityByName("Root").GetComponent<TagComponent>().Tag = "Ildiz yangi nom";
+        CHECK(SceneSerializer(scene).Serialize(text));
+        auto reread = CreateRef<Scene>();
+        SceneSerializer serializer(reread);
+        CHECK(serializer.Deserialize(text) && !serializer.GetTiming().Binary && reread->FindEntityByName("Ildiz yangi nom"));
+    }
+    // A broken cache that looks current: the text instead (with a warning).
+    {
+        CHECK(SceneSerializer::WriteBinaryCache(text));
+        std::vector<uint8_t> data = FileSystem::ReadBinaryFile(cache);
+        data.resize(data.size() / 3);
+        CHECK(FileSystem::WriteBinaryFile(cache, data.data(), data.size()));
+        // Same source size recorded in the header: still taken as current, then found broken.
+        Log::SetMinLevel(LogLevel::Critical);
+        auto scene = CreateRef<Scene>();
+        SceneSerializer serializer(scene);
+        CHECK(serializer.Deserialize(text) && !serializer.GetTiming().Binary && scene->FindEntityByName("Ildiz yangi nom"));
+        SceneLoadJob job;
+        CHECK(job.Parse(text) && !job.GetTiming().Binary);
+        Log::SetMinLevel(LogLevel::Error);
+    }
+    // An old-format file: the cache holds it already migrated.
+    {
+        const fs::path legacy = f.Dir / "Assets" / "Scenes" / "Legacy.zscene";
+        fs::copy_file(fs::path(ZAMIN_SOURCE_DIR) / "Tests" / "Fixtures" / "Scenes" / "LegacyV1.zscene", legacy);
+        CHECK(SceneSerializer::WriteBinaryCache(legacy));
+        auto fromText = CreateRef<Scene>();
+        SceneSerializer::SetUseBinaryCache(false);
+        CHECK(SceneSerializer(fromText).Deserialize(legacy));
+        SceneSerializer::SetUseBinaryCache(true);
+        auto fromCache = CreateRef<Scene>();
+        SceneSerializer serializer(fromCache);
+        CHECK(serializer.Deserialize(legacy) && serializer.GetTiming().Binary && !serializer.GetMigration().Migrated());
+        CHECK(SceneSerializer(fromCache).SerializeToString() == SceneSerializer(fromText).SerializeToString());
+        CHECK(serializer.GetTiming().Get(Stage::Migrate) >= 0.0);
+    }
+    CHECK(!SceneSerializer::WriteBinaryCache(f.Path("Missing"), &error) && error == "fayl topilmadi");
+}
+
+TEST(LargeSceneSerialization)
+{
+    // A large scene saves and loads back the same (the faster writer and the asset path cache), and
+    // its text does not depend on the order the entities were made in.
+    auto build = [](bool reversed) {
+        auto scene = CreateRef<Scene>();
+        scene->SetName("Large");
+        std::vector<int> ids(2000);
+        for (int i = 0; i < 2000; i++)
+            ids[(size_t)i] = reversed ? 1999 - i : i;
+        std::vector<Entity> made(2000);
+        for (int i : ids)
+        {
+            Entity e = scene->CreateEntityWithUUID(UUID(100000 + (uint64_t)i), std::format("Obyekt {}", i));
+            e.GetComponent<TransformComponent>().Translation = { (float)i * 0.5f, 1.0f, 0.0f };
+            if (i % 3)
+                e.AddComponent<SpriteRendererComponent>().TexturePath = i % 2 ? "Textures/a.png" : "Textures/b.png";
+            if (i % 5 == 0)
+                e.AddComponent<CircleRendererComponent>().Thickness = 0.25f;
+            made[(size_t)i] = e;
+        }
+        // Each tenth entity is the parent of the next nine, in index order.
+        for (int i = 0; i < 2000; i++)
+            if (i % 10)
+                scene->SetParent(made[(size_t)i], made[(size_t)(i - i % 10)]);
+        for (int i = 0; i < 2000; i += 10)
+        {
+            auto& children = made[(size_t)i].GetComponent<RelationshipComponent>().Children;
+            std::sort(children.begin(), children.end(), [](UUID a, UUID b) { return (uint64_t)a < (uint64_t)b; });
+        }
+        // Roots in index order too.
+        for (int i = 0; i < 2000; i += 10)
+            scene->SetSiblingIndex(made[(size_t)i], i / 10);
+        return scene;
+    };
+    Ref<Scene> forward = build(false), backward = build(true);
+    const std::string a = SceneSerializer(forward).SerializeToString();
+    const std::string b = SceneSerializer(backward).SerializeToString();
+    CHECK(a == b && a.size() > 100000);
+    CHECK(a == SceneSerializer(forward).SerializeToString());
+    // The same as the library's own writer would give.
+    auto loaded = CreateRef<Scene>();
+    SceneSerializer reader(loaded);
+    CHECK(reader.DeserializeFromString(a) && reader.GetTiming().Entities == 2000);
+    CHECK(SceneSerializer(loaded).SerializeToString() == a);
+    CHECK(loaded->GetRootEntities().size() == 200 && loaded->FindEntityByName("Obyekt 1999"));
+    CHECK(loaded->GetParent(loaded->FindEntityByName("Obyekt 1999")) == loaded->FindEntityByName("Obyekt 1990"));
+    CHECK(loaded->FindEntityByName("Obyekt 1").GetComponent<SpriteRendererComponent>().TexturePath == "Textures/a.png");
+}

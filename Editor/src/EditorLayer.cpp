@@ -5509,6 +5509,7 @@ namespace Zamin {
                 buildScenes.push_back(start);
             }
         }
+        const bool binaryScenes = m_BuildGameBinaryScenes;
         // The exported game reads its asset registry from one file (made here, on this thread).
         std::string registryText;
         if (AssetRegistry* registry = Project::GetAssetRegistry())
@@ -5556,6 +5557,31 @@ namespace Zamin {
                     fs::remove(fs::path(scene.string() + ".zmeta"), e);
                 }
                 ZM_INFO("Eksport: build ro'yxatidagi {} ta sahna ({} tasi kiritilmadi)", buildScenes.size(), dropped.size());
+            }
+            if (binaryScenes)
+            {
+                // Every scene of the game also as a binary cache next to it (smaller, already in the
+                // current format): the player reads that one instead (SceneSerializer).
+                const fs::path assets = outputDirectory / "Game" / assetRel;
+                size_t written = 0, textBytes = 0, binaryBytes = 0;
+                for (auto it = fs::recursive_directory_iterator(assets, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
+                {
+                    if (it->path().extension() != ".zscene")
+                        continue;
+                    std::string error;
+                    std::error_code e;
+                    if (SceneSerializer::WriteBinaryCache(it->path(), &error))
+                    {
+                        written++;
+                        textBytes += (size_t)fs::file_size(it->path(), e);
+                        binaryBytes += (size_t)fs::file_size(SceneSerializer::GetBinaryCachePath(it->path()), e);
+                    }
+                    else
+                        ZM_WARN("Sahnaning binar keshi yozilmadi ({}): {}", error, it->path().filename().string());
+                }
+                if (written)
+                    ZM_INFO("Eksport: {} ta sahna binar keshga yozildi ({:.1f} KB -> {:.1f} KB)", written, (double)textBytes / 1024.0,
+                            (double)binaryBytes / 1024.0);
             }
             if (!registryText.empty() && !FileSystem::WriteTextFile(outputDirectory / "Game" / Project::BuildAssetRegistryFile, registryText))
                 ok = false;
@@ -10668,6 +10694,10 @@ namespace Zamin {
                 std::string dir = FileDialogs::SelectFolder(Project::GetProjectDirectory());
                 if (!dir.empty()) m_BuildGameOutput = dir;
             }
+            ImGui::Checkbox("Sahnalarni binar keshga ham yozish (.zsceneb)", &m_BuildGameBinaryScenes);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Har sahna yoniga uning MessagePack nusxasi yoziladi: ~3 marta kichik, joriy formatda (migratsiyasiz). "
+                            "O'yin uni .zscene o'rniga o'qiydi (fayl o'zgargan bo'lsa - matnni)");
             ImGui::Spacing();
             if (ImGui::Button(ICON_FA_HAMMER "  Build", ImVec2(150, 0)))
             {

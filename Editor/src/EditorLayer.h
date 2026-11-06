@@ -582,6 +582,7 @@ namespace Zamin {
         // game export
         bool m_OpenBuildGamePopup = false;
         std::string m_BuildGameOutput;
+        bool m_BuildGameBinaryScenes = true; // export: every scene also as a binary cache (.zsceneb, smaller)
         std::atomic<bool> m_Exporting = false;
         std::thread m_ExportThread;
     };

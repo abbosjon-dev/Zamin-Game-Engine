@@ -13,12 +13,24 @@ namespace Zamin {
 
     std::string FileSystem::ReadTextFile(const std::filesystem::path& path)
     {
-        std::ifstream in(path, std::ios::in | std::ios::binary);
+        std::ifstream in(path, std::ios::in | std::ios::binary | std::ios::ate);
         if (!in)
         {
             ZM_CORE_ERROR("Fayl ochilmadi: '{}'", path.string());
             return {};
         }
+        // Read straight into the string (large scene files: no second copy through a stream).
+        const std::streamoff size = in.tellg();
+        if (size > 0)
+        {
+            std::string text((size_t)size, '\0');
+            in.seekg(0, std::ios::beg);
+            if (in.read(text.data(), size))
+                return text;
+            in.clear();
+        }
+        // Not a regular file of known size (a pipe ...): as a stream.
+        in.seekg(0, std::ios::beg);
         std::stringstream ss;
         ss << in.rdbuf();
         return ss.str();

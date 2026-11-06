@@ -4300,6 +4300,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<TextComponent>().Text = "Salom";
     e.AddComponent<MeshRendererComponent>();
     e.AddComponent<AnimatorComponent>();
+    e.AddComponent<AnimationPlayerComponent>();
     e.AddComponent<DirectionalLightComponent>();
     e.AddComponent<PointLightComponent>();
     e.AddComponent<SpotLightComponent>();
@@ -4354,7 +4355,7 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 61);
+    CHECK(types.size() == 62);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -4665,7 +4666,7 @@ TEST(AssetTypesAndFilter)
     CHECK(!filter.Matches(AssetType::Model) && filter.Count() == 2);
     filter.Clear();
     CHECK(!filter.IsActive());
-    CHECK(AssetTypeFilter::GetFilterableTypes().size() == 11);
+    CHECK(AssetTypeFilter::GetFilterableTypes().size() == 12);
     CHECK(AssetFiles::GetType("Physics/Ice.ZPHYSMAT") == AssetType::PhysicsMaterial);
 
     // Natural, case-insensitive name order.
@@ -25501,4 +25502,383 @@ TEST(UIScrollViewHorizontalInACanvas)
     CHECK(scene->ScrollIntoView(card, false));
     CHECK_NEAR(scene->GetUIRect(card).Max.x, 1200.0f - 8.0f, 1e-3f);
     scene->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ property animation (M13)
+static AnimationKey MakeKey(float time, glm::vec4 value, KeyInterpolation interpolation = KeyInterpolation::Linear)
+{
+    AnimationKey k;
+    k.Time = time;
+    k.Value = value;
+    k.Interpolation = interpolation;
+    return k;
+}
+
+TEST(PropertyClipInterpolation)
+{
+    AnimationTrack track;
+    track.Property = AnimatedProperty::LightIntensity;
+    CHECK(track.GetComponentCount() == 1 && track.Evaluate(1.0f) == glm::vec4(0.0f)); // no keys
+    track.Keys = { MakeKey(0.0f, glm::vec4(0.0f), KeyInterpolation::Step), MakeKey(1.0f, glm::vec4(10.0f)), MakeKey(2.0f, glm::vec4(4.0f)) };
+    track.Sort();
+    // Step: holds until the next key; Linear: straight; outside: the first / last value.
+    CHECK_NEAR(track.Evaluate(-1.0f).x, 0.0f, 1e-6f);
+    CHECK_NEAR(track.Evaluate(0.99f).x, 0.0f, 1e-6f);
+    CHECK_NEAR(track.Evaluate(1.0f).x, 10.0f, 1e-6f);
+    CHECK_NEAR(track.Evaluate(1.25f).x, 8.5f, 1e-5f);
+    CHECK_NEAR(track.Evaluate(5.0f).x, 4.0f, 1e-6f);
+
+    // Bezier with automatic tangents: flat at the ends (ease in / out), level at a peak (no overshoot).
+    for (AnimationKey& k : track.Keys)
+        k.Interpolation = KeyInterpolation::Bezier;
+    track.UpdateTangents();
+    CHECK(track.Keys[0].OutTangent.x == 0.0f && track.Keys[2].InTangent.x == 0.0f);
+    CHECK(track.Keys[1].InTangent.x == 0.0f && track.Keys[1].OutTangent.x == 0.0f); // 1 s is the peak
+    CHECK_NEAR(track.Evaluate(0.5f).x, 5.0f, 1e-5f);    // symmetric ease: half way at half time
+    CHECK(track.Evaluate(0.25f).x < 2.5f);               // slower than linear at the start
+    float highest = 0.0f;
+    for (int i = 0; i <= 200; i++)
+        highest = std::max(highest, track.Evaluate(i * 0.01f).x);
+    CHECK_NEAR(highest, 10.0f, 1e-4f);                   // never above the peak key
+
+    // A rising middle key gets a slope - limited so the curve stays monotonic.
+    AnimationTrack ramp;
+    ramp.Property = AnimatedProperty::LightIntensity;
+    ramp.Keys = { MakeKey(0.0f, glm::vec4(0.0f), KeyInterpolation::Bezier), MakeKey(1.0f, glm::vec4(1.0f), KeyInterpolation::Bezier),
+                  MakeKey(2.0f, glm::vec4(10.0f), KeyInterpolation::Bezier) };
+    ramp.Sort();
+    CHECK(ramp.Keys[1].OutTangent.x > 0.0f && ramp.Keys[1].OutTangent.x <= 3.0f + 1e-5f);
+    float last = -1.0f;
+    bool monotonic = true;
+    for (int i = 0; i <= 200; i++)
+    {
+        float v = ramp.Evaluate(i * 0.01f).x;
+        monotonic &= v >= last - 1e-5f;
+        last = v;
+    }
+    CHECK(monotonic);
+    // Hand-set (Free) tangents are kept and shape the curve: a steep start rises fast.
+    const float easedHalf = ramp.Evaluate(0.5f).x;
+    ramp.Keys[0].TangentMode = KeyTangentMode::Free;
+    ramp.Keys[0].OutTangent = glm::vec4(6.0f);
+    ramp.UpdateTangents();
+    CHECK(ramp.Keys[0].OutTangent.x == 6.0f);
+    CHECK_NEAR(ramp.Evaluate(0.5f).x, easedHalf + 0.125f * 6.0f, 1e-4f); // h10(0.5) = 1/8 of the slope
+    // The Hermite form equals the Bezier with handles a third of the way: check one point by hand.
+    {
+        AnimationKey a = MakeKey(0.0f, glm::vec4(0.0f), KeyInterpolation::Bezier), b = MakeKey(3.0f, glm::vec4(3.0f));
+        a.OutTangent = glm::vec4(3.0f);
+        b.InTangent = glm::vec4(0.0f);
+        // Control points 0, 0 + 3 * 3 / 3 = 3, 3 - 0 = 3, 3 -> at s = 0.5: (0 + 3*3 + 3*3 + 3) / 8 = 2.625
+        CHECK_NEAR(PropertyAnimation::Interpolate(a, b, 1.5f).x, 2.625f, 1e-5f);
+    }
+
+    // SetKey: replaces at the same time, inserts in order with the interpolation of the key before.
+    AnimationTrack pos;
+    pos.Property = AnimatedProperty::Position;
+    CHECK(pos.SetKey(1.0f, glm::vec4(1.0f, 2.0f, 3.0f, 0.0f)) == 0);
+    CHECK(pos.SetKey(0.0f, glm::vec4(0.0f)) == 0 && pos.Keys.size() == 2);
+    pos.Keys[0].Interpolation = KeyInterpolation::Step;
+    CHECK(pos.SetKey(0.5f, glm::vec4(5.0f)) == 1 && pos.Keys[1].Interpolation == KeyInterpolation::Step);
+    CHECK(pos.SetKey(0.50001f, glm::vec4(6.0f)) == 1 && pos.Keys.size() == 3 && pos.Keys[1].Value.x == 6.0f);
+    CHECK(pos.FindKey(1.0f) == 2 && pos.FindKey(0.7f) == -1);
+    CHECK(pos.Evaluate(1.0f) == glm::vec4(1.0f, 2.0f, 3.0f, 0.0f));
+}
+
+TEST(PropertyClipFileRoundtrip)
+{
+    PropertyClip clip;
+    clip.Duration = 2.5f;
+    clip.FrameRate = 24.0f;
+    clip.Wrap = AnimationWrap::PingPong;
+    AnimationTrack& rot = clip.GetOrAddTrack("Hinge", AnimatedProperty::Rotation);
+    rot.SetKey(0.0f, glm::vec4(0.0f));
+    rot.SetKey(1.0f, glm::vec4(0.0f, 90.0f, 0.0f, 0.0f));
+    rot.Keys[0].Interpolation = KeyInterpolation::Bezier;
+    rot.Keys[1].TangentMode = KeyTangentMode::Free;
+    rot.Keys[1].InTangent = glm::vec4(0.0f, 12.0f, 0.0f, 0.0f);
+    AnimationTrack& light = clip.GetOrAddTrack("Lamp/Bulb", AnimatedProperty::LightColor);
+    light.SetKey(0.5f, glm::vec4(1.0f, 0.5f, 0.25f, 0.0f));
+    AnimationTrack& field = clip.GetOrAddTrack("", AnimatedProperty::ScriptFloat, "Speed");
+    field.SetKey(2.0f, glm::vec4(3.5f));
+    CHECK(&clip.GetOrAddTrack("Hinge", AnimatedProperty::Rotation) == &clip.Tracks[0]); // found, not added
+    CHECK(clip.Tracks.size() == 3 && clip.FindTrack("", AnimatedProperty::ScriptFloat, "Speed") && !clip.FindTrack("", AnimatedProperty::ScriptFloat, "Other"));
+    clip.Events = { { 2.0f, "Creak", "loud" }, { 0.25f, "Start", "" } };
+    clip.SortEvents();
+    CHECK(clip.Events[0].Name == "Start");
+    CHECK_NEAR(clip.GetLastKeyTime(), 2.0f, 1e-6f);
+
+    std::string text = PropertyClipSerializer::SerializeToString(clip);
+    CHECK(text.find("\"Transform.Rotation\"") != std::string::npos && text.find("\"Light.Color\"") != std::string::npos);
+    PropertyClip loaded;
+    CHECK(PropertyClipSerializer::DeserializeFromString(text, loaded));
+    CHECK(loaded == clip);
+    CHECK(loaded.Wrap == AnimationWrap::PingPong && loaded.FrameRate == 24.0f && loaded.Duration == 2.5f);
+    CHECK(loaded.Tracks[0].Keys[1].TangentMode == KeyTangentMode::Free && loaded.Tracks[0].Keys[1].InTangent.y == 12.0f);
+    CHECK(loaded.Tracks[2].Field == "Speed" && loaded.Tracks[1].Path == "Lamp/Bulb");
+    CHECK(loaded.Events.size() == 2 && loaded.Events[1].Parameter == "loud");
+
+    // Broken / foreign content: refused or skipped, never a crash.
+    std::string error;
+    CHECK(!PropertyClipSerializer::DeserializeFromString("not json", loaded, &error) && !error.empty());
+    CHECK(!PropertyClipSerializer::DeserializeFromString("{\"Version\": 99}", loaded, &error));
+    CHECK(PropertyClipSerializer::DeserializeFromString(
+        "{\"Duration\": -3, \"Tracks\": [{\"Property\": \"Nope.Thing\"}, {\"Property\": \"Transform.Scale\", \"Keys\": [{\"Time\": 2, \"Value\": [2,2,2]}, {\"Time\": 1, \"Value\": 5}]}]}",
+        loaded, &error));
+    CHECK(loaded.Duration == 0.0f && loaded.Tracks.size() == 1 && loaded.Tracks[0].Keys.size() == 2);
+    CHECK(loaded.Tracks[0].Keys[0].Time == 1.0f && loaded.Tracks[0].Keys[0].Value.x == 5.0f); // sorted
+
+    // Files and the shared cache.
+    auto dir = MakeTempDir("zamin-zanim-");
+    auto file = dir / "Door.zanim";
+    CHECK(PropertyClipSerializer::Serialize(clip, file));
+    Ref<PropertyClipAsset> a = PropertyClipLibrary::Load(file);
+    CHECK(a && a->GetName() == "Door" && a->GetClip() == clip && PropertyClipLibrary::Load(file) == a);
+    CHECK(AssetTypes::FromPath(file) == AssetType::Animation && AssetTypes::IsRegistered(AssetType::Animation));
+    uint64_t revision = a->GetRevision();
+    CHECK(PropertyClipLibrary::ReloadFile(file) == 0 && a->GetRevision() == revision); // nothing changed
+    clip.Duration = 4.0f;
+    CHECK(PropertyClipSerializer::Serialize(clip, file));
+    CHECK(PropertyClipLibrary::ReloadFile(file) == 1 && a->GetClip().Duration == 4.0f && a->GetRevision() != revision);
+    CHECK(!PropertyClipLibrary::Load(dir / "Missing.zanim"));
+    PropertyClipLibrary::Clear();
+    std::filesystem::remove_all(dir);
+}
+
+// Event times 0..1 s of a 1 s clip, played with `steps` of `dt`: which fire, in order.
+static std::vector<std::string> PlayEvents(AnimationWrap wrap, float duration, const std::vector<AnimationEvent>& events,
+                                           const std::vector<float>& steps, ClipCursor* cursorOut = nullptr, ClipCursor start = {})
+{
+    std::vector<std::string> fired;
+    ClipCursor cursor = start;
+    for (float dt : steps)
+    {
+        std::vector<ClipSpan> spans;
+        AdvanceClip(cursor, dt, duration, wrap, &spans);
+        std::vector<size_t> hit;
+        CollectEvents(spans, events.size(), [&](size_t i) { return events[i].Time; }, hit);
+        for (size_t i : hit)
+            fired.push_back(events[i].Name);
+    }
+    if (cursorOut)
+        *cursorOut = cursor;
+    return fired;
+}
+
+TEST(AnimationEventsFireOnce)
+{
+    const std::vector<AnimationEvent> events = { { 0.0f, "A", "" }, { 0.5f, "B", "" }, { 1.0f, "C", "" } };
+    using V = std::vector<std::string>;
+    ClipCursor c;
+    // Loop: the start fires at once, the end and the start again at each wrap - every event once
+    // per cycle, whatever the frame steps are.
+    CHECK((PlayEvents(AnimationWrap::Loop, 1.0f, events, { 0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f }, &c) == V{ "A", "B" }));
+    CHECK_NEAR(c.Time, 0.6f, 1e-5f);
+    std::vector<float> frames(40, 0.0625f); // 2.5 cycles in small (exact) steps
+    CHECK((PlayEvents(AnimationWrap::Loop, 1.0f, events, frames) == V{ "A", "B", "C", "A", "B", "C", "A", "B" }));
+    // A step landing exactly on the end: C then A, and A not again on the next step.
+    CHECK((PlayEvents(AnimationWrap::Loop, 1.0f, events, { 0.5f, 0.5f, 0.25f }) == V{ "A", "B", "C", "A" }));
+    // A hitch of many cycles: each event once, and the time ends where it should.
+    CHECK((PlayEvents(AnimationWrap::Loop, 1.0f, events, { 0.2f, 7.5f }, &c) == V{ "A", "B", "C", "A" }));
+    CHECK_NEAR(c.Time, 0.7f, 1e-4f);
+    // Once: up to and including its end, then nothing more.
+    CHECK((PlayEvents(AnimationWrap::Once, 1.0f, events, { 0.6f, 0.6f, 0.6f, 5.0f }, &c) == V{ "A", "B", "C" }));
+    CHECK(c.Finished && c.Time == 1.0f);
+    // Ping-pong: there and back; the turning points fire once (not twice).
+    CHECK((PlayEvents(AnimationWrap::PingPong, 1.0f, events, { 0.75f, 0.5f, 0.5f, 0.5f }, &c) == V{ "A", "B", "C", "B", "A" }));
+    CHECK(c.Forward && std::abs(c.Time - 0.25f) < 1e-5f);
+    // Backwards (negative speed) from the end of a looping clip.
+    ClipCursor end;
+    end.Time = 1.0f;
+    CHECK((PlayEvents(AnimationWrap::Loop, 1.0f, events, { -0.3f, -0.3f, -0.3f, -0.3f }, &c, end) == V{ "C", "B", "A", "C" }));
+    // A clip with no length: Once fires its events once; nothing for a zero step.
+    CHECK((PlayEvents(AnimationWrap::Once, 0.0f, { { 0.0f, "Z", "" } }, { 0.0f, 0.1f, 0.1f }) == V{ "Z" }));
+    // Only what was passed: a step that stays put fires nothing.
+    CHECK((PlayEvents(AnimationWrap::Loop, 1.0f, events, { 0.0f, 0.0f }) == V{}));
+}
+
+class AnimEventProbe : public ScriptableEntity
+{
+public:
+    std::vector<std::string> Heard;
+    int Bound = 0;
+    float Glow = 0.0f;
+    void OnCreate() override
+    {
+        AddAnimationEventHandler("Creak", [this](const AnimationEventInfo& e) { Bound++; Heard.push_back("bound:" + e.Parameter); });
+    }
+    void OnAnimationEvent(const AnimationEventInfo& e) override { Heard.push_back(e.Clip + ":" + e.Name); }
+};
+ZM_REGISTER_SCRIPT(AnimEventProbe, ZM_FIELD(AnimEventProbe, Glow))
+
+TEST(AnimationPlayerPlaysClips)
+{
+    auto dir = MakeTempDir("zamin-anim-player-");
+    // A door: the hinge child turns 90 degrees, the lamp's light goes from white to red, the
+    // script's Glow field rises; a creak in the middle.
+    PropertyClip open;
+    open.Duration = 1.0f;
+    open.Wrap = AnimationWrap::Once;
+    AnimationTrack& hinge = open.GetOrAddTrack("Hinge", AnimatedProperty::Rotation);
+    hinge.SetKey(0.0f, glm::vec4(0.0f));
+    hinge.SetKey(1.0f, glm::vec4(0.0f, 90.0f, 0.0f, 0.0f));
+    AnimationTrack& lamp = open.GetOrAddTrack("Hinge/Lamp", AnimatedProperty::LightColor);
+    lamp.SetKey(0.0f, glm::vec4(1.0f, 1.0f, 1.0f, 0.0f));
+    lamp.SetKey(1.0f, glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+    open.GetOrAddTrack("", AnimatedProperty::ScriptFloat, "Glow").SetKey(1.0f, glm::vec4(2.0f));
+    open.GetOrAddTrack("Nobody", AnimatedProperty::Position).SetKey(0.0f, glm::vec4(9.0f)); // no such child: skipped
+    open.Events = { { 0.5f, "Creak", "door" }, { 1.0f, "Opened", "" } };
+    PropertyClip pulse;
+    pulse.Duration = 0.5f;
+    pulse.Wrap = AnimationWrap::Loop;
+    pulse.GetOrAddTrack("", AnimatedProperty::Scale).SetKey(0.0f, glm::vec4(2.0f));
+    CHECK(PropertyClipSerializer::Serialize(open, dir / "DoorOpen.zanim"));
+    CHECK(PropertyClipSerializer::Serialize(pulse, dir / "Pulse.zanim"));
+
+    auto scene = CreateRef<Scene>();
+    Entity door = scene->CreateEntity("Door");
+    Entity hingeE = scene->CreateEntity("Hinge");
+    Entity lampE = scene->CreateEntity("Lamp");
+    scene->SetParent(hingeE, door, false);
+    scene->SetParent(lampE, hingeE, false);
+    lampE.AddComponent<PointLightComponent>();
+    door.AddComponent<NativeScriptComponent>().ClassName = "AnimEventProbe";
+    auto& player = door.AddComponent<AnimationPlayerComponent>();
+    player.Clips = { (dir / "DoorOpen.zanim").string(), (dir / "Pulse.zanim").string() };
+
+    CHECK(AnimationTargets::Resolve(door, "Hinge/Lamp") == lampE && !AnimationTargets::Resolve(door, "Lamp"));
+    CHECK(AnimationTargets::MakePath(door, lampE) == std::optional<std::string>("Hinge/Lamp") && AnimationTargets::MakePath(door, door) == std::optional<std::string>(""));
+    CHECK(!AnimationTargets::MakePath(lampE, door));
+    CHECK(AnimationTargets::Has(lampE, AnimatedProperty::LightIntensity) && !AnimationTargets::Has(lampE, AnimatedProperty::SpriteColor));
+
+    auto copy = Scene::Copy(scene);
+    copy->OnRuntimeStart();
+    Entity d = copy->FindEntityByName("Door"), h = copy->FindEntityByName("Hinge"), l = copy->FindEntityByName("Lamp");
+    auto* probe = ScriptableEntity::GetScript<AnimEventProbe>(d);
+    CHECK(probe);
+    for (int i = 0; i < 6; i++)
+        copy->OnUpdateRuntime(0.1f); // PlayOnStart: the first clip, 0.6 s in
+    auto& p = d.GetComponent<AnimationPlayerComponent>();
+    CHECK(p.IsPlaying() && p.GetCurrentClipName() == "DoorOpen");
+    CHECK_NEAR(glm::degrees(h.GetComponent<TransformComponent>().Rotation.y), 54.0f, 0.1f);
+    CHECK_NEAR(l.GetComponent<PointLightComponent>().Color.g, 0.4f, 1e-3f);
+    CHECK(probe && probe->Heard == std::vector<std::string>({ "bound:door", "DoorOpen:Creak" }) && probe->Bound == 1);
+    for (int i = 0; i < 10; i++)
+        copy->OnUpdateRuntime(0.1f);
+    CHECK(!p.IsPlaying() && p.Cursor.Finished);               // Once: stays on its last values
+    CHECK_NEAR(glm::degrees(h.GetComponent<TransformComponent>().Rotation.y), 90.0f, 1e-3f);
+    CHECK_NEAR(probe->Glow, 2.0f, 1e-5f);                       // the script's field, animated
+    CHECK(probe->Heard.size() == 3 && probe->Heard[2] == "DoorOpen:Opened");
+    // A stopped player writes nothing: a script may move the hinge now.
+    h.GetComponent<TransformComponent>().Rotation.y = 0.0f;
+    copy->OnUpdateRuntime(0.1f);
+    CHECK(h.GetComponent<TransformComponent>().Rotation.y == 0.0f);
+    // Closing: the same clip backwards from its end; the creak again, "Opened" right at the start.
+    CHECK(probe->PlayAnimation("DoorOpen", -1.0f) && probe->IsAnimationPlaying());
+    for (int i = 0; i < 4; i++)
+        copy->OnUpdateRuntime(0.1f);
+    CHECK_NEAR(glm::degrees(h.GetComponent<TransformComponent>().Rotation.y), 54.0f, 0.1f);
+    CHECK(probe->Heard.size() == 4 && probe->Heard[3] == "DoorOpen:Opened");
+    copy->OnUpdateRuntime(0.1f);
+    CHECK(probe->Heard.size() == 6 && probe->Heard[5] == "DoorOpen:Creak");
+    // SetTime while stopped: written on the next update.
+    probe->StopAnimation();
+    p.SetTime(0.25f);
+    copy->OnUpdateRuntime(0.1f);
+    CHECK_NEAR(glm::degrees(h.GetComponent<TransformComponent>().Rotation.y), 22.5f, 0.1f);
+    CHECK(!p.IsPlaying());
+    // Another clip by name; unknown names are refused.
+    CHECK(!p.Play("Nope") && p.Play("Pulse"));
+    copy->OnUpdateRuntime(0.1f);
+    CHECK(d.GetComponent<TransformComponent>().Scale == glm::vec3(2.0f));
+    copy->OnRuntimeStop();
+    PropertyClipLibrary::Clear();
+
+    // The scene file keeps the player.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& lp = loaded->FindEntityByName("Door").GetComponent<AnimationPlayerComponent>();
+    CHECK(lp.Clips == player.Clips && lp.PlayOnStart && lp.Speed == 1.0f && lp.Wrap == AnimationPlayerWrap::Clip);
+    std::filesystem::remove_all(dir);
+}
+
+// A one-joint skeleton walking 2 m along +Z and turning 90 degrees left in 1 s, its height bobbing.
+static void MakeWalkingSkeleton(Skeleton& skeleton, AnimationClip& clip)
+{
+    skeleton = {};
+    Joint root;
+    root.Name = "Hips";
+    root.RestTranslation = glm::vec3(0.0f, 1.0f, 0.0f);
+    skeleton.Joints = { root };
+    clip = {};
+    clip.Name = "Walk";
+    clip.Duration = 1.0f;
+    AnimationChannel t;
+    t.JointIndex = 0;
+    t.Target = AnimationChannel::Path::Translation;
+    t.Times = { 0.0f, 0.5f, 1.0f };
+    t.Values = { glm::vec4(0.0f, 1.0f, 0.0f, 0.0f), glm::vec4(0.0f, 1.1f, 1.0f, 0.0f), glm::vec4(0.0f, 1.0f, 2.0f, 0.0f) };
+    AnimationChannel r;
+    r.JointIndex = 0;
+    r.Target = AnimationChannel::Path::Rotation;
+    r.Times = { 0.0f, 1.0f };
+    glm::quat q0(1.0f, 0.0f, 0.0f, 0.0f), q1 = glm::angleAxis(glm::half_pi<float>(), glm::vec3(0.0f, 1.0f, 0.0f));
+    r.Values = { glm::vec4(q0.x, q0.y, q0.z, q0.w), glm::vec4(q1.x, q1.y, q1.z, q1.w) };
+    clip.Channels = { t, r };
+}
+
+TEST(RootMotionExtraction)
+{
+    Skeleton skeleton;
+    AnimationClip clip;
+    MakeWalkingSkeleton(skeleton, clip);
+    CHECK(FindRootMotionJoint(skeleton, &clip) == 0 && FindRootMotionJoint(skeleton, &clip, "Hips") == 0);
+    CHECK(FindRootMotionJoint(skeleton, &clip, "Nope") == -1 && FindRootMotionJoint(skeleton, nullptr) == -1);
+
+    // The first half: 1 m forward (in the facing at the start), turned 45 degrees.
+    RootMotion half = ExtractRootMotion(skeleton, clip, 0, 0.0f, 0.5f, false);
+    CHECK_NEAR(half.Translation.z, 1.0f, 1e-4f);
+    CHECK_NEAR(half.Translation.x, 0.0f, 1e-4f);
+    CHECK(half.Translation.y == 0.0f);
+    CHECK_NEAR(half.Yaw, glm::quarter_pi<float>(), 1e-4f);
+    // The second half is expressed in the character's own (already turned) facing: 1 m along its
+    // turned axis, i.e. rotated back by 45 degrees.
+    RootMotion second = ExtractRootMotion(skeleton, clip, 0, 0.5f, 1.0f, false);
+    CHECK_NEAR(glm::length(second.Translation), 1.0f, 1e-4f);
+    CHECK_NEAR(second.Translation.x, -std::sqrt(0.5f), 1e-4f);
+    // Composed, the halves give the whole clip.
+    RootMotion whole = ExtractRootMotion(skeleton, clip, 0, 0.0f, 1.0f, false);
+    glm::vec3 composed = half.Translation + glm::angleAxis(half.Yaw, glm::vec3(0, 1, 0)) * second.Translation;
+    CHECK(glm::length(whole.Translation - composed) < 1e-4f && std::abs(whole.Yaw - glm::half_pi<float>()) < 1e-4f);
+    // Looping past the end: the whole cycle plus the next one's start, turned by the cycle's turn.
+    RootMotion wrap = ExtractRootMotion(skeleton, clip, 0, 0.5f, 1.5f, true);
+    glm::vec3 expected = second.Translation + glm::angleAxis(second.Yaw, glm::vec3(0, 1, 0)) * half.Translation;
+    CHECK(glm::length(wrap.Translation - expected) < 1e-4f);
+    CHECK_NEAR(wrap.Yaw, glm::half_pi<float>(), 1e-4f);
+    // Backwards undoes forwards; clamped when not looping; nothing for no time.
+    RootMotion back = ExtractRootMotion(skeleton, clip, 0, 0.5f, 0.0f, false);
+    CHECK_NEAR(back.Yaw, -glm::quarter_pi<float>(), 1e-4f);
+    CHECK(glm::length(ExtractRootMotion(skeleton, clip, 0, 1.0f, 3.0f, false).Translation) < 1e-6f);
+    CHECK(ExtractRootMotion(skeleton, clip, 0, 0.3f, 0.3f, true).Yaw == 0.0f);
+    // Two full cycles: 4 turns of 90 degrees would be a full circle - two are half of one.
+    RootMotion two = ExtractRootMotion(skeleton, clip, 0, 0.0f, 2.0f, true);
+    CHECK_NEAR(std::abs(two.Yaw), glm::pi<float>(), 1e-3f);
+
+    // The pose keeps the hips in place: XZ at the clip's start, the bob still there, no turn.
+    std::vector<glm::mat4> matrices, global;
+    EvaluatePose(skeleton, &clip, 0.5f, matrices, 0);
+    GetJointTransforms(skeleton, matrices, global);
+    glm::vec3 p = glm::vec3(global[0][3]);
+    CHECK_NEAR(p.x, 0.0f, 1e-4f);
+    CHECK_NEAR(p.z, 0.0f, 1e-4f);
+    CHECK_NEAR(p.y, 1.1f, 1e-4f);
+    CHECK(glm::length(glm::vec3(global[0][2]) - glm::vec3(0, 0, 1)) < 1e-4f); // still facing +Z
+    // Without root motion the pose walks away.
+    EvaluatePose(skeleton, &clip, 0.5f, matrices);
+    GetJointTransforms(skeleton, matrices, global);
+    CHECK_NEAR(global[0][3].z, 1.0f, 1e-4f);
+    // An import transform (the skeleton's root, 0.5 scale): the motion is in the model's space.
+    skeleton.RootTransform = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+    CHECK_NEAR(ExtractRootMotion(skeleton, clip, 0, 0.0f, 0.5f, false).Translation.z, 0.5f, 1e-4f);
 }

@@ -403,6 +403,14 @@ namespace Zamin {
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
         for (auto e : registry.view<SpriteRendererComponent>()) registry.get<SpriteRendererComponent>(e).StopFlash();
         for (auto e : registry.view<TintAnimationComponent>()) registry.get<TintAnimationComponent>(e).ResetRuntime();
+        for (auto e : registry.view<AnimationPlayerComponent>()) registry.get<AnimationPlayerComponent>(e).ResetRuntime();
+        for (auto e : registry.view<AnimatorComponent>())
+        {
+            auto& c = registry.get<AnimatorComponent>(e);
+            c.EventsAtStart = true;
+            c.RootMotionVelocity = glm::vec3(0.0f);
+            c.RootMotionTurnRate = 0.0f;
+        }
         for (auto e : registry.view<CameraComponent>()) registry.get<CameraComponent>(e).Shake.ResetRuntime();
         for (auto e : registry.view<Camera2DFollowComponent>()) registry.get<Camera2DFollowComponent>(e).ResetRuntime();
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).Clear();
@@ -461,6 +469,8 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
         if (auto* c = e.TryGetComponent<SpriteRendererComponent>()) c->StopFlash();
         if (auto* c = e.TryGetComponent<TintAnimationComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<AnimationPlayerComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<AnimatorComponent>()) { c->EventsAtStart = true; c->RootMotionVelocity = glm::vec3(0.0f); c->RootMotionTurnRate = 0.0f; }
         if (auto* c = e.TryGetComponent<TilemapComponent>()) c->RuntimeBody = nullptr;
         if (auto* c = e.TryGetComponent<CameraComponent>()) c->Shake.ResetRuntime();
         if (auto* c = e.TryGetComponent<Camera2DFollowComponent>()) c->ResetRuntime();
@@ -4334,6 +4344,9 @@ namespace Zamin {
             }
 
             StepPhysics(ts);
+            // Property animations write their values before OnLateUpdate (scripts may read or
+            // override them there); their events fire now.
+            UpdateAnimationPlayers(ts, false);
 
             {
                 ZM_PROFILE_SCOPE("Skriptlar");
@@ -4400,6 +4413,7 @@ namespace Zamin {
             m_AnimationTime += (double)ts;
             ApplyActiveChanges(); // flags changed in the inspector while simulating
             StepPhysics(ts);
+            UpdateAnimationPlayers(ts, false);
             UpdateTintAnimations(ts, false);
             UpdateParticles(ts, false);
             UpdateAnimators(ts, false);
@@ -4466,6 +4480,8 @@ namespace Zamin {
                 : TextureLibrary::Load(Project::GetAssetFileSystemPath(image->TexturePath), image->PixelArt ? TextureFilter::Nearest : TextureFilter::Linear);
         if (auto* field = entity.TryGetComponent<UIInputFieldComponent>())
             field->FontAsset = field->FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(field->FontPath));
+        if (auto* player = entity.TryGetComponent<AnimationPlayerComponent>())
+            player->ResolveClips();
     }
 
     // ------------------------------------------------------------------ sprites
@@ -4649,6 +4665,7 @@ namespace Zamin {
     void Scene::UpdateAnimators(Timestep ts, bool editor)
     {
         ZM_PROFILE_SCOPE("Animatsiya");
+        std::vector<PendingAnimationEvent> firedEvents;
         for (auto e : m_Registry.view<AnimatorComponent>())
         {
             // Inactive in the hierarchy: not updated at all - time, pose and state machine wait
@@ -4720,7 +4737,9 @@ namespace Zamin {
 
             const AnimationClip* clip = findClip(anim.Clip);
 
-            bool advance = anim.Playing && (!editor || anim.PlayInEditor);
+            const bool advance = anim.Playing && (!editor || anim.PlayInEditor);
+            const float time0 = anim.Time, previousTime0 = anim.PreviousTime;
+            const bool fading0 = anim.IsFading();
             if (advance)
             {
                 anim.Time += ts * anim.Speed;
@@ -4731,22 +4750,161 @@ namespace Zamin {
                 }
             }
 
+            // Events of the playing clip (play mode): the moments the time went past.
+            if (advance && !editor && clip && !anim.Events.empty())
+                CollectAnimatorEvents({ e, this }, anim, *clip, wrap(clip, time0, anim.Loop), ts * anim.Speed, firedEvents);
+
             if (!model || !model->IsSkinned())
             {
                 anim.JointMatrices.clear();
+                anim.RootMotionVelocity = glm::vec3(0.0f);
+                anim.RootMotionTurnRate = 0.0f;
                 continue;
             }
+            const Skeleton& skeleton = model->GetSkeleton();
+            const AnimationClip* prev = fading0 || anim.IsFading() ? findClip(anim.PreviousClip) : nullptr;
+            const int rootJoint = anim.ApplyRootMotion ? FindRootMotionJoint(skeleton, clip ? clip : prev, anim.RootMotionBone) : -1;
+            float w = anim.IsFading() ? anim.FadeElapsed / anim.FadeDuration : 1.0f;
+            w = w * w * (3.0f - 2.0f * w); // smoothstep
             if (anim.IsFading())
-            {
-                const AnimationClip* prev = findClip(anim.PreviousClip);
-                float w = anim.FadeElapsed / anim.FadeDuration;
-                w = w * w * (3.0f - 2.0f * w); // smoothstep
-                EvaluatePoseBlended(model->GetSkeleton(), prev, wrap(prev, anim.PreviousTime, anim.PreviousLoop),
-                                    clip, wrap(clip, anim.Time, anim.Loop), w, anim.JointMatrices);
-            }
+                EvaluatePoseBlended(skeleton, prev, wrap(prev, anim.PreviousTime, anim.PreviousLoop),
+                                    clip, wrap(clip, anim.Time, anim.Loop), w, anim.JointMatrices, rootJoint);
             else
-                EvaluatePose(model->GetSkeleton(), clip, wrap(clip, anim.Time, anim.Loop), anim.JointMatrices);
+                EvaluatePose(skeleton, clip, wrap(clip, anim.Time, anim.Loop), anim.JointMatrices, rootJoint);
+
+            // Root motion moves the entity (play mode; the editor's preview stays in place).
+            anim.RootMotionVelocity = glm::vec3(0.0f);
+            anim.RootMotionTurnRate = 0.0f;
+            if (rootJoint >= 0 && advance && !editor && ts > 0.0f)
+            {
+                RootMotion motion;
+                if (clip)
+                    motion = ExtractRootMotion(skeleton, *clip, rootJoint, time0, anim.Time, anim.Loop);
+                if (fading0 && prev)
+                {
+                    RootMotion old = ExtractRootMotion(skeleton, *prev, rootJoint, previousTime0, anim.PreviousTime, anim.PreviousLoop);
+                    motion.Translation = glm::mix(old.Translation, motion.Translation, w);
+                    motion.Yaw = glm::mix(old.Yaw, motion.Yaw, w);
+                }
+                ApplyRootMotion({ e, this }, anim, motion, ts);
+            }
         }
+        for (const auto& fired : firedEvents)
+            FireAnimationEvent(GetEntityByUUID(fired.Entity), fired.Event, fired.Clip, true);
+    }
+
+    void Scene::CollectAnimatorEvents(Entity entity, AnimatorComponent& anim, const AnimationClip& clip, float localTime, float delta,
+                                      std::vector<PendingAnimationEvent>& out)
+    {
+        std::vector<const AnimatorEvent*> events;
+        for (const AnimatorEvent& ev : anim.Events)
+            if (ev.Clip.empty() || ev.Clip == clip.Name)
+                events.push_back(&ev);
+        ClipCursor cursor;
+        cursor.Time = localTime;
+        cursor.AtStart = anim.EventsAtStart;
+        const AnimationWrap wrapMode = anim.Loop ? AnimationWrap::Loop : AnimationWrap::Once;
+        // Not looping and already at its end (in the direction it plays): nothing more happens.
+        if (!anim.Loop && ((delta > 0.0f && localTime >= clip.Duration) || (delta < 0.0f && localTime <= 0.0f)))
+            cursor.Finished = true;
+        std::vector<ClipSpan> spans;
+        AdvanceClip(cursor, delta, clip.Duration, wrapMode, &spans);
+        if (delta != 0.0f)
+            anim.EventsAtStart = cursor.AtStart;
+        if (events.empty())
+            return;
+        std::vector<size_t> hit;
+        const float duration = clip.Duration;
+        CollectEvents(spans, events.size(), [&](size_t i) { return std::clamp(events[i]->Time, 0.0f, 1.0f) * duration; }, hit);
+        for (size_t i : hit)
+            out.push_back({ entity.GetUUID(), { events[i]->Time, events[i]->Name, events[i]->Parameter }, clip.Name });
+    }
+
+    void Scene::ApplyRootMotion(Entity entity, AnimatorComponent& anim, const RootMotion& motion, float ts)
+    {
+        auto& tc = entity.GetComponent<TransformComponent>();
+        const glm::mat4 world = GetWorldTransform(entity);
+        // The root's walk is in the model's space: the entity's rotation and scale turn it into the world's.
+        const glm::vec3 worldDelta = glm::mat3(world) * motion.Translation;
+        anim.RootMotionVelocity = worldDelta / ts;
+        anim.RootMotionTurnRate = motion.Yaw / ts;
+        if (motion.Yaw != 0.0f)
+        {
+            if (std::abs(tc.Rotation.x) < 1e-5f && std::abs(tc.Rotation.z) < 1e-5f)
+                tc.Rotation.y = std::remainder(tc.Rotation.y + motion.Yaw, glm::two_pi<float>());
+            else
+                tc.Rotation = glm::eulerAngles(glm::quat(tc.Rotation) * glm::angleAxis(motion.Yaw, glm::vec3(0.0f, 1.0f, 0.0f)));
+        }
+        if (auto* cc = entity.TryGetComponent<CharacterController3DComponent>(); cc && cc->RuntimeID != 0xffffffff)
+        {
+            cc->Move(anim.RootMotionVelocity); // walked by the character next physics step (collisions, slopes)
+            return;
+        }
+        if (Entity parent = GetParent(entity))
+            tc.Translation += glm::inverse(glm::mat3(GetWorldTransform(parent))) * worldDelta;
+        else
+            tc.Translation += worldDelta;
+    }
+
+    void Scene::FireAnimationEvent(Entity entity, const AnimationEvent& event, const std::string& clip, bool skeletal)
+    {
+        if (!entity || !m_ScriptsRunning)
+            return;
+        AnimationEventInfo info;
+        info.Name = event.Name;
+        info.Parameter = event.Parameter;
+        info.Clip = clip;
+        info.Time = event.Time;
+        info.Source = entity;
+        info.Skeletal = skeletal;
+        if (auto* nsc = entity.TryGetComponent<NativeScriptComponent>(); nsc && nsc->Instance && !nsc->Instance->m_Destroying)
+            nsc->Instance->ReceiveAnimationEvent(info);
+        // A handler may have destroyed the entity: the bus still hears of the event.
+        m_EventBus->Emit("AnimationEvent", info, entity.IsValid() ? entity : Entity());
+    }
+
+    void Scene::UpdateAnimationPlayers(Timestep ts, bool editor)
+    {
+        if (m_Registry.view<AnimationPlayerComponent>().empty())
+            return;
+        ZM_PROFILE_SCOPE("Animatsiya");
+        std::vector<ClipSpan> spans;
+        std::vector<size_t> hit;
+        std::vector<PendingAnimationEvent> fired;
+        for (auto e : m_Registry.view<AnimationPlayerComponent>())
+        {
+            if (!IsActiveInHierarchy({ e, this })) // inactive: paused where it is
+                continue;
+            auto& player = m_Registry.get<AnimationPlayerComponent>(e);
+            player.ResolveClips();
+            if (!player.Started)
+            {
+                player.Started = true;
+                if (player.PlayOnStart && !editor)
+                    player.Play(0);
+            }
+            const PropertyClip* clip = player.GetCurrentClip();
+            if (!clip || (!player.Playing && !player.PoseDirty))
+                continue;
+            spans.clear();
+            if (player.Playing)
+            {
+                AdvanceClip(player.Cursor, ts * player.Speed * player.PlaySpeed, clip->Duration, player.GetWrap(), &spans);
+                if (player.Cursor.Finished)
+                    player.Playing = false; // stays on its last values
+            }
+            player.PoseDirty = false;
+            ApplyPropertyClip({ e, this }, *clip, player.Cursor.Time);
+            if (editor || clip->Events.empty())
+                continue;
+            hit.clear();
+            CollectEvents(spans, clip->Events.size(), [&](size_t i) { return clip->Events[i].Time; }, hit);
+            for (size_t i : hit)
+                fired.push_back({ Entity(e, this).GetUUID(), clip->Events[i], player.GetCurrentClipName() });
+        }
+        // After every player has moved: a handler may play, stop or destroy things.
+        for (const auto& event : fired)
+            FireAnimationEvent(GetEntityByUUID(event.Entity), event.Event, event.Clip, false);
     }
 
     void Scene::UpdateTintAnimations(Timestep ts, bool editor)

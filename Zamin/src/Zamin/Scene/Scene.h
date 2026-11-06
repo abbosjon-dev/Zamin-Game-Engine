@@ -10,6 +10,8 @@
 #include "Zamin/Renderer/Renderer3D.h"
 #include "Zamin/Renderer/SpriteSheet.h"
 #include "Zamin/Renderer/Lighting2D.h"
+#include "Zamin/Renderer/Animation.h"
+#include "Zamin/Scene/PropertyAnimation.h"
 #include "Zamin/Scene/SortingLayers.h"
 #include "Zamin/Scene/PixelPerfect.h"
 #include "Zamin/UI/UIAnimation.h"
@@ -937,6 +939,19 @@ namespace Zamin {
         // scripts (OnSoundFinished) and the event bus.
         void DispatchFinishedSounds();
         void UpdateAnimators(Timestep ts, bool editor);
+        // Property animation players (.zanim): the values of the playing clips and their events.
+        void UpdateAnimationPlayers(Timestep ts, bool editor);
+        struct PendingAnimationEvent
+        {
+            UUID Entity;
+            AnimationEvent Event;
+            std::string Clip;
+        };
+        void CollectAnimatorEvents(Entity entity, struct AnimatorComponent& anim, const AnimationClip& clip, float localTime, float delta,
+                                   std::vector<PendingAnimationEvent>& out);
+        void ApplyRootMotion(Entity entity, struct AnimatorComponent& anim, const RootMotion& motion, float ts);
+        // Tells the entity's script (OnAnimationEvent) and the event bus ("AnimationEvent").
+        void FireAnimationEvent(Entity entity, const AnimationEvent& event, const std::string& clip, bool skeletal);
         // TintAnimationComponent: the playing ones advance (editor: only the inspector's previews).
         void UpdateTintAnimations(Timestep ts, bool editor);
     public:

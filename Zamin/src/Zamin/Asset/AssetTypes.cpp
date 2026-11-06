@@ -61,6 +61,7 @@ namespace Zamin {
         { AssetType::Environment, "HDRI muhit", "Environment", "Textures", true },
         { AssetType::Material, "Material", "Material", "Materials", true },
         { AssetType::PhysicsMaterial, "Fizik material", "PhysicsMaterial", "Physics", true },
+        { AssetType::Animation, "Animatsiya klipi", "Animation", "Animations", true },
         { AssetType::Script, "C++ skript", "Script", "", false },
         { AssetType::Project, "Loyiha", "Project", "", false },
         { AssetType::Other, "Boshqa", "Other", "", false },
@@ -79,6 +80,7 @@ namespace Zamin {
             { ".hdr" },                                                   // Environment
             { ".zmat" },                                                  // Material
             { ".zphysmat" },                                              // PhysicsMaterial
+            { ".zanim" },                                                 // Animation
             { ".cpp", ".h", ".hpp", ".cc", ".c", ".inl" },                // Script
             { ".zproject" },                                              // Project
             {},                                                           // Other

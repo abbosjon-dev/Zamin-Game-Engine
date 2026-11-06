@@ -27,6 +27,7 @@ namespace Zamin {
             MakeTypeInfo<TextComponent>(),
             MakeTypeInfo<MeshRendererComponent>(),
             MakeTypeInfo<AnimatorComponent>(),
+            MakeTypeInfo<AnimationPlayerComponent>(),
             MakeTypeInfo<DirectionalLightComponent>(),
             MakeTypeInfo<PointLightComponent>(),
             MakeTypeInfo<SpotLightComponent>(),

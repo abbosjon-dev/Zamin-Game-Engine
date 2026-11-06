@@ -895,6 +895,47 @@ namespace Zamin {
         OnMessage(message);
     }
 
+    void ScriptableEntity::AddAnimationEventHandler(std::string name, AnimationEventHandler handler)
+    {
+        if (name.empty() || !handler) return;
+        m_AnimationHandlers.push_back({ std::move(name), std::move(handler) });
+    }
+
+    void ScriptableEntity::RemoveAnimationEventHandlers(std::string_view name)
+    {
+        std::erase_if(m_AnimationHandlers, [&](const NamedAnimationHandler& h) { return h.Name == name; });
+    }
+
+    void ScriptableEntity::ReceiveAnimationEvent(const AnimationEventInfo& event)
+    {
+        std::vector<AnimationEventHandler> handlers;
+        for (const NamedAnimationHandler& h : m_AnimationHandlers)
+            if (h.Name == event.Name)
+                handlers.push_back(h.Handler);
+        for (const AnimationEventHandler& handler : handlers)
+            handler(event);
+        OnAnimationEvent(event);
+    }
+
+    bool ScriptableEntity::PlayAnimation(std::string_view clip, float speed)
+    {
+        auto* player = m_Entity ? m_Entity.TryGetComponent<AnimationPlayerComponent>() : nullptr;
+        return player && player->Play(clip, speed);
+    }
+
+    void ScriptableEntity::StopAnimation()
+    {
+        if (auto* player = m_Entity ? m_Entity.TryGetComponent<AnimationPlayerComponent>() : nullptr)
+            player->Stop();
+    }
+
+    bool ScriptableEntity::IsAnimationPlaying() const
+    {
+        Entity e = m_Entity;
+        const auto* player = e ? e.TryGetComponent<AnimationPlayerComponent>() : nullptr;
+        return player && player->IsPlaying();
+    }
+
     bool ScriptableEntity::SendMessage(Entity target, std::string name, std::any payload)
     {
         return m_Entity.GetScene()->SendMessage(target, ScriptMessage{ std::move(name), m_Entity, std::move(payload) });

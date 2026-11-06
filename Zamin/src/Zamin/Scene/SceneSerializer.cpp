@@ -443,6 +443,35 @@ namespace Zamin {
             e["Animator"] = { { "Clip", c->Clip }, { "Speed", c->Speed }, { "Loop", c->Loop }, { "Playing", c->Playing },
                               { "PlayInEditor", c->PlayInEditor }, { "DefaultFade", c->DefaultFade }, { "DefaultState", c->DefaultState },
                               { "Parameters", params }, { "States", states }, { "Transitions", transitions } };
+            if (!c->Events.empty())
+            {
+                json events = json::array();
+                for (const AnimatorEvent& ev : c->Events)
+                {
+                    json j = { { "Clip", ev.Clip }, { "Time", ev.Time }, { "Name", ev.Name } };
+                    if (!ev.Parameter.empty())
+                        j["Parameter"] = ev.Parameter;
+                    events.push_back(std::move(j));
+                }
+                e["Animator"]["Events"] = std::move(events);
+            }
+            if (c->ApplyRootMotion)
+                e["Animator"]["ApplyRootMotion"] = true;
+            if (!c->RootMotionBone.empty())
+                e["Animator"]["RootMotionBone"] = c->RootMotionBone;
+        }
+        if (auto* c = entity.TryGetComponent<AnimationPlayerComponent>())
+        {
+            json clips = json::array();
+            for (const std::string& clip : c->Clips)
+            {
+                json j = { { "Path", clip } };
+                WriteAssetHandle(j, "Path", clip);
+                clips.push_back(std::move(j));
+            }
+            static const char* s_Wraps[] = { "Clip", "Once", "Loop", "PingPong" };
+            e["AnimationPlayer"] = { { "Clips", std::move(clips) }, { "Speed", c->Speed }, { "PlayOnStart", c->PlayOnStart },
+                                     { "Wrap", s_Wraps[std::clamp((int)c->Wrap, 0, 3)] } };
         }
         if (auto* c = entity.TryGetComponent<DirectionalLightComponent>())
             e["DirectionalLight"] = { { "Color", ToJson(c->Color) }, { "Intensity", c->Intensity }, { "CastShadows", c->CastShadows } };
@@ -1193,6 +1222,33 @@ namespace Zamin {
                     tr.Conditions.push_back({ cd.value("Parameter", ""), (AnimatorCondition::Op)cd.value("Op", 0), cd.value("Threshold", 0.0f) });
                 c.Transitions.push_back(std::move(tr));
             }
+            if (auto events = j.find("Events"); events != j.end() && events->is_array())
+                for (const json& ev : *events)
+                    if (ev.is_object())
+                        c.Events.push_back({ ev.value("Clip", std::string()), std::clamp(ev.value("Time", 0.0f), 0.0f, 1.0f),
+                                             ev.value("Name", std::string()), ev.value("Parameter", std::string()) });
+            c.ApplyRootMotion = j.value("ApplyRootMotion", false);
+            c.RootMotionBone = j.value("RootMotionBone", std::string());
+        }
+        if (e.contains("AnimationPlayer"))
+        {
+            const json& j = e["AnimationPlayer"];
+            auto& c = entity.AddComponent<AnimationPlayerComponent>();
+            if (auto clips = j.find("Clips"); clips != j.end() && clips->is_array())
+                for (const json& clip : *clips)
+                {
+                    if (clip.is_string())
+                        c.Clips.push_back(clip.get<std::string>());
+                    else if (clip.is_object())
+                        c.Clips.push_back(ReadAssetPath(clip, "Path"));
+                }
+            c.Speed = j.value("Speed", 1.0f);
+            if (!std::isfinite(c.Speed))
+                c.Speed = 1.0f;
+            c.PlayOnStart = j.value("PlayOnStart", true);
+            const std::string wrap = j.value("Wrap", std::string("Clip"));
+            c.Wrap = wrap == "Once" ? AnimationPlayerWrap::Once : wrap == "Loop" ? AnimationPlayerWrap::Loop
+                   : wrap == "PingPong" ? AnimationPlayerWrap::PingPong : AnimationPlayerWrap::Clip;
         }
         if (e.contains("DirectionalLight"))
         {

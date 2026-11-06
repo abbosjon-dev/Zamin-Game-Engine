@@ -11,6 +11,7 @@
 #include "Zamin/Renderer/SpriteSheet.h"
 #include "Zamin/Scene/Camera2D.h"
 #include "Zamin/Scene/PixelPerfect.h"
+#include "Zamin/Scene/PropertyAnimation.h"
 #include "Zamin/Scene/TintAnimation.h"
 #include "Zamin/Scene/SceneCamera.h"
 #include "Zamin/Scripting/ScriptField.h"
@@ -378,6 +379,16 @@ namespace Zamin {
         std::string SpeedParameter; // optional: multiplies Speed by a float parameter
     };
 
+    // A moment of a clip that tells the entity's script (ScriptableEntity::OnAnimationEvent) and the
+    // scene's event bus ("AnimationEvent") - footsteps, hits, sounds. Time is 0..1 of the clip.
+    struct AnimatorEvent
+    {
+        std::string Clip;       // animation name ("" = every clip)
+        float Time = 0.0f;      // normalized: 0 = its start, 1 = its end
+        std::string Name;
+        std::string Parameter;  // optional text handed over with it
+    };
+
     struct AnimatorTransition
     {
         int From = -1;          // -1 = any state
@@ -411,6 +422,19 @@ namespace Zamin {
         float FadeDuration = 0.0f;
         float FadeElapsed = 0.0f;
 
+        // Events of the clips (in play mode).
+        std::vector<AnimatorEvent> Events;
+        bool EventsAtStart = true; // runtime: the clip just started - events right at its start fire too
+
+        // ---- root motion: the root bone's walk (XZ) and turn (yaw) moves the entity instead of
+        // the mesh drifting away from it; the pose keeps the root in place (its height stays).
+        // With a Character Controller 3D it walks the character (its MoveVelocity), else the
+        // transform. The editor's preview stays in place.
+        bool ApplyRootMotion = false;
+        std::string RootMotionBone;                // joint name ("" = the first animated root joint)
+        glm::vec3 RootMotionVelocity{ 0.0f };      // runtime: the last frame's root motion (world units / s)
+        float RootMotionTurnRate = 0.0f;           // runtime: radians / s
+
         // Switch clip with a smooth crossfade (fade < 0 = DefaultFade, 0 = instant).
         void Play(const std::string& clip, bool loop = true, float speed = 1.0f, float fade = -1.0f)
         {
@@ -419,6 +443,7 @@ namespace Zamin {
             PreviousClip = Clip; PreviousTime = Time; PreviousSpeed = Speed; PreviousLoop = Loop;
             FadeDuration = fade; FadeElapsed = 0.0f;
             Clip = clip; Loop = loop; Speed = speed; Playing = true; Time = 0.0f;
+            EventsAtStart = true;
         }
         bool IsFading() const { return FadeDuration > 0.0f && FadeElapsed < FadeDuration; }
 
@@ -444,6 +469,61 @@ namespace Zamin {
             return CurrentState >= 0 && CurrentState < (int)States.size() ? States[CurrentState].Name.c_str() : "";
         }
         bool UsesStateMachine() const { return !States.empty(); }
+    };
+
+    // How an Animation Player plays its clips: as the clip says, or Once / Loop / PingPong.
+    enum class AnimationPlayerWrap : uint8_t { Clip = 0, Once, Loop, PingPong };
+
+    // Plays property animation clips (.zanim, made in the Animation window) on the entity and its
+    // children: transforms, colours, lights, UI and script float fields, with events at moments of
+    // the clip (ScriptableEntity::OnAnimationEvent, the event bus' "AnimationEvent"). The first clip
+    // starts with the game (PlayOnStart); scripts play the others by name (the file name without
+    // .zanim) or path:
+    //   GetComponent<AnimationPlayerComponent>().Play("DoorOpen");      // forwards from the start
+    //   GetComponent<AnimationPlayerComponent>().Play("DoorOpen", -1.0f); // backwards from the end
+    // A player that is not playing writes nothing, so scripts may change the same values then.
+    struct AnimationPlayerComponent
+    {
+        std::vector<std::string> Clips;           // .zanim files, relative to Assets
+        float Speed = 1.0f;                       // times the speed each Play() gives
+        bool PlayOnStart = true;                  // the first clip
+        AnimationPlayerWrap Wrap = AnimationPlayerWrap::Clip;
+
+        // runtime (reset when play starts / stops and for spawned copies)
+        std::vector<Ref<PropertyClipAsset>> ClipAssets; // the loaded Clips (ResolveClips)
+        std::vector<std::string> LoadedClips;     // the paths ClipAssets were looked up for
+        int Current = -1;                         // index into Clips (-1: none)
+        ClipCursor Cursor;
+        float PlaySpeed = 1.0f;                   // the speed the last Play() was given
+        bool Playing = false;
+        bool Started = false;                     // PlayOnStart was looked at
+        bool PoseDirty = false;                   // SetTime / Play / Stop: the pose is written on the next update
+
+        // Loads the clips that changed (Clips edited) - Play and the scene call it.
+        void ResolveClips();
+        // The clip with this name (file name without .zanim) or path; -1 when there is none.
+        int FindClip(std::string_view nameOrPath) const;
+        // Plays a clip ("" = the current one, else the first) from its start (speed < 0: backwards
+        // from its end). False when there is no such clip.
+        bool Play(std::string_view clip = {}, float speed = 1.0f);
+        bool Play(int index, float speed = 1.0f);
+        // Stops where it is (the values stay); Resume goes on from there.
+        void Stop() { Playing = false; }
+        void Resume() { if (Current >= 0) { Playing = true; Cursor.Finished = false; } }
+        bool IsPlaying() const { return Playing; }
+        // Moves to `seconds` into the current clip (the pose is written on the next update, also
+        // while stopped).
+        void SetTime(float seconds);
+        float GetTime() const { return Cursor.Time; }
+        float GetDuration() const;
+        float GetNormalizedTime() const { float d = GetDuration(); return d > 0.0f ? Cursor.Time / d : 0.0f; }
+        const PropertyClip* GetCurrentClip() const;
+        std::string GetCurrentClipName() const;
+        AnimationWrap GetWrap() const;
+        void ResetRuntime()
+        {
+            Current = -1; Cursor = {}; PlaySpeed = 1.0f; Playing = false; Started = false; PoseDirty = false;
+        }
     };
 
     struct CameraComponent
@@ -1919,7 +1999,7 @@ namespace Zamin {
 
     // Every component that is copied/serialized with an entity (IDComponent & TagComponent are handled separately).
     using AllComponents = ComponentGroup<RelationshipComponent, TagsComponent, TransformComponent, SpriteRendererComponent,
-        SpriteAnimationComponent, TintAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, CameraComponent,
+        SpriteAnimationComponent, TintAnimationComponent, CircleRendererComponent, TextComponent, MeshRendererComponent, AnimatorComponent, AnimationPlayerComponent, CameraComponent,
         DirectionalLightComponent, PointLightComponent, SpotLightComponent, Light2DComponent, Rigidbody2DComponent, BoxCollider2DComponent,
         CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,

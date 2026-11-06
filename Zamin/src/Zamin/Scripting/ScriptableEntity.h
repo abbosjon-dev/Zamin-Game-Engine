@@ -56,6 +56,19 @@ namespace Zamin {
         bool Stolen = false;
     };
 
+    // An animation event that reached the entity's script (OnAnimationEvent): a moment of a property
+    // clip (Animation Player, .zanim) or of a skeletal clip (the Animator's events).
+    struct AnimationEventInfo
+    {
+        std::string Name;
+        std::string Parameter;   // the event's optional text
+        std::string Clip;        // the clip's name (.zanim file name / glTF animation name)
+        float Time = 0.0f;       // seconds into a property clip; 0..1 of a skeletal clip
+        Entity Source;           // the entity whose player / animator played it
+        bool Skeletal = false;   // from the Animator (glTF clip)
+    };
+    using AnimationEventHandler = std::function<void(const AnimationEventInfo&)>;
+
     // Base class for C++ gameplay scripts.
     //
     //   class Player : public Zamin::ScriptableEntity
@@ -162,6 +175,13 @@ namespace Zamin {
         // Called for every message sent to this entity (SendMessage, Broadcast ...),
         // after the handlers registered with AddMessageHandler for that name.
         virtual void OnMessage(const ScriptMessage& /*message*/) {}
+        // An animation event of this entity's Animation Player or Animator was passed (play mode),
+        // after the handlers bound to its name (AddAnimationEventHandler). Several events of one
+        // frame come in the order they were passed; each fires once every time its moment is
+        // passed (a hitch longer than a looping clip plays each of its events once). Also emitted
+        // on the event bus as "AnimationEvent" (payload: AnimationEventInfo).
+        //   void OnAnimationEvent(const AnimationEventInfo& e) override { if (e.Name == "Footstep") PlayStep(); }
+        virtual void OnAnimationEvent(const AnimationEventInfo& /*event*/) {}
 
         // ---- enabled state (NativeScriptComponent::Enabled). SetEnabled runs
         // OnEnable / OnDisable immediately; a disabled script keeps its state and timers
@@ -617,6 +637,18 @@ namespace Zamin {
         //   AddMessageHandler("Damage", [this](const ScriptMessage& m) { Health -= m.Get<float>(); });
         void AddMessageHandler(std::string name, MessageHandler handler);
         void RemoveMessageHandlers(std::string_view name);
+
+        // ---- animation events: a method of this script called by an event's name
+        //   AddAnimationEventHandler("Footstep", [this](const AnimationEventInfo&) { PlayFootstep(); });
+        void AddAnimationEventHandler(std::string name, AnimationEventHandler handler);
+        void RemoveAnimationEventHandlers(std::string_view name);
+
+        // ---- property animation (AnimationPlayerComponent, clips made in the Animation window)
+        // Plays a clip of the entity's player by name ("" = the current / first one) from its start;
+        // speed < 0 plays it backwards from its end. False without a player or such a clip.
+        bool PlayAnimation(std::string_view clip = {}, float speed = 1.0f);
+        void StopAnimation();
+        bool IsAnimationPlaying() const;
         // true when `target` has a running script.
         bool SendMessage(Entity target, std::string name, std::any payload = {});
         // This entity (optional) and all its descendants. Returns the number of scripts reached.
@@ -664,6 +696,8 @@ namespace Zamin {
         Entity VisitParents(bool includeSelf, const std::function<bool(Entity)>& visit) const;
         // Called by the scene for SendMessage / Broadcast.
         void ReceiveMessage(const ScriptMessage& message);
+        // Called by the scene for animation events (the handlers of that name, then OnAnimationEvent).
+        void ReceiveAnimationEvent(const AnimationEventInfo& event);
 
         struct NamedHandler
         {
@@ -671,6 +705,12 @@ namespace Zamin {
             MessageHandler Handler;
         };
         std::vector<NamedHandler> m_MessageHandlers;
+        struct NamedAnimationHandler
+        {
+            std::string Name;
+            AnimationEventHandler Handler;
+        };
+        std::vector<NamedAnimationHandler> m_AnimationHandlers;
 
         struct Timer
         {

@@ -315,6 +315,10 @@ namespace Zamin {
         bool DrawSortingLayer(uint32_t& layer, int& order);
         // Audio Source: the mixer group it plays in (from the mixer's groups) + a button to the mixer.
         bool DrawAudioOutput(std::string& output);
+        // Audio Source while the game runs: playing / paused / stopped, the time with a progress bar
+        // (click: jump there), what is heard after the random variation, the mixer and the distance,
+        // the pitch with its variation and Doppler; Play / Pause / Stop buttons.
+        void DrawAudioSourceState(Entity entity, AudioSourceComponent& c);
         // Sprite Renderer: texture, sprite sheet frame, draw mode (Simple / Sliced / Tiled) ...
         bool DrawSpriteRenderer(Entity entity, SpriteRendererComponent& c);
         // Sprite Animation: grid cells or a list of sprite sheet frames.

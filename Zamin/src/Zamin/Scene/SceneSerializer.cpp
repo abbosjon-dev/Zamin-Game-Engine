@@ -714,9 +714,23 @@ namespace Zamin {
             e["AudioSource"] = { { "Path", c->Path }, { "Volume", c->Volume }, { "Pitch", c->Pitch }, { "Loop", c->Loop }, { "PlayOnStart", c->PlayOnStart },
                                  { "Spatial", c->Spatial }, { "MinDistance", c->MinDistance }, { "MaxDistance", c->MaxDistance },
                                  { "Output", c->Output } };
+            json& a = e["AudioSource"];
+            // Only what differs from the defaults: older files stay the same.
             if (c->Stream)
-                e["AudioSource"]["Stream"] = true; // only when on: older files stay the same
-            WriteAssetHandle(e["AudioSource"], "Path", c->Path);
+                a["Stream"] = true;
+            if (c->VolumeRandom != glm::vec2(1.0f))
+                a["VolumeRandom"] = ToJson(c->VolumeRandom);
+            if (c->PitchRandom != glm::vec2(1.0f))
+                a["PitchRandom"] = ToJson(c->PitchRandom);
+            if (c->Priority != 128)
+                a["Priority"] = c->Priority;
+            if (c->MaxInstances != 0)
+                a["MaxInstances"] = c->MaxInstances;
+            if (c->Steal != AudioStealPolicy::Oldest)
+                a["Steal"] = c->Steal == AudioStealPolicy::Quietest ? "Quietest" : "None";
+            if (c->DopplerFactor != 1.0f)
+                a["Doppler"] = c->DopplerFactor;
+            WriteAssetHandle(a, "Path", c->Path);
         }
         if (auto* c = entity.TryGetComponent<AudioListenerComponent>())
             e["AudioListener"] = { { "Enabled", c->Enabled }, { "Priority", c->Priority }, { "TrackVelocity", c->TrackVelocity } };
@@ -1483,6 +1497,18 @@ namespace Zamin {
             if (c.Output.empty())
                 c.Output = "SFX";
             c.Stream = j.value("Stream", false);
+            auto range = [](glm::vec2 v, float floor) {
+                for (int i = 0; i < 2; i++)
+                    v[i] = std::isfinite(v[i]) ? std::max(floor, v[i]) : 1.0f;
+                return glm::vec2(std::min(v.x, v.y), std::max(v.x, v.y));
+            };
+            c.VolumeRandom = range(Vec(j, "VolumeRandom", glm::vec2(1.0f)), 0.0f);
+            c.PitchRandom = range(Vec(j, "PitchRandom", glm::vec2(1.0f)), 0.01f);
+            c.Priority = std::clamp(j.value("Priority", 128), 0, 255);
+            c.MaxInstances = std::max(0, j.value("MaxInstances", 0));
+            std::string steal = j.contains("Steal") && j["Steal"].is_string() ? j["Steal"].get<std::string>() : std::string();
+            c.Steal = steal == "Quietest" ? AudioStealPolicy::Quietest : steal == "None" ? AudioStealPolicy::None : AudioStealPolicy::Oldest;
+            c.DopplerFactor = std::clamp(j.value("Doppler", 1.0f), 0.0f, AudioSettings::MaxDopplerFactor);
         }
         if (e.contains("AudioListener"))
         {

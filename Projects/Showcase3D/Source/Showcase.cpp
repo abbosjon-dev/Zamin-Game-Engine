@@ -921,3 +921,117 @@ ZM_REGISTER_SCRIPT(MusicDirector,
     ZM_FIELD(MusicDirector, Border),
     ZM_FIELD(MusicDirector, Ping).Tooltip("UI guruhida chalinadigan signal"),
     ZM_FIELD(MusicDirector, PingInterval))
+
+// Ovoz manbai bir o'q bo'ylab tez uchib o'tadi (kosinus bo'yicha borib-keladi) va tepasida jonli holati
+// yoziladi: tinglovchiga yaqinlashganda ton ko'tariladi, uzoqlashganda pasayadi (Doppler effekti; tezlik
+// obyekt harakatidan o'lchanadi, Audio Source'ning Doppler koeffitsiyenti uni kuchaytiradi).
+class DopplerFlyby : public ScriptableEntity
+{
+public:
+    glm::vec3 Axis{ 0.0f, 0.0f, 1.0f };
+    float Distance = 12.0f;
+    float Period = 4.0f;
+
+    void OnStart() override { m_Start = Transform().Translation; }
+
+    void OnUpdate(Timestep) override
+    {
+        const float period = std::max(0.1f, Period);
+        const float s = 0.5f - 0.5f * std::cos(std::fmod(GetTime(), period) / period * 6.2831853f);
+        if (glm::length(Axis) > 1e-6f)
+            Transform().Translation = m_Start + glm::normalize(Axis) * Distance * s;
+
+        SoundInfo info;
+        if (!GetEntity().GetScene()->GetAudioInfo(GetEntity(), info))
+            return;
+        const char* trend = info.DopplerPitch > 1.005f ? "yaqinlashmoqda" : info.DopplerPitch < 0.995f ? "uzoqlashmoqda" : "";
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.7f, 0.0f),
+                        std::format("Doppler x{:.3f}  {:.1f} m/s  {}", info.DopplerPitch, glm::length(info.Velocity), trend),
+                        glm::vec4(1.0f, 0.75f, 0.4f, 1.0f));
+    }
+
+private:
+    glm::vec3 m_Start{ 0.0f };
+};
+
+ZM_REGISTER_SCRIPT(DopplerFlyby,
+    ZM_FIELD(DopplerFlyby, Axis).Tooltip("Uchish yo'nalishi"),
+    ZM_FIELD(DopplerFlyby, Distance).Tooltip("Borib-kelish masofasi, m"),
+    ZM_FIELD(DopplerFlyby, Period).Tooltip("Bir borib-kelish vaqti, sekund (eng katta tezlik: pi x masofa / vaqt)"))
+
+// Shamol qo'ng'iroqchalari: bitta qisqa qo'ng'iroq ovozi tasodifiy oraliqlarda chalinadi - har safar boshqa
+// ton va balandlikda (SoundParams::PitchRandom / VolumeRandom). Bir vaqtda ko'pi bilan MaxAtOnce tasi
+// eshitiladi: yangisi eng past eshitilganining o'rnini oladi (MaxInstances + Quietest). H - ziyoratgoh
+// g'uvillashini pauza / davom ettirish (Audio Source skript API: PauseAudio / ResumeAudio / GetAudioTime).
+class ChimeRinger : public ScriptableEntity
+{
+public:
+    std::string Clip = "Audio/Chime.wav";
+    float MinInterval = 0.15f;
+    float MaxInterval = 0.55f;
+    glm::vec2 PitchRange{ 0.75f, 1.35f };
+    glm::vec2 VolumeRange{ 0.55f, 1.0f };
+    int MaxAtOnce = 3;
+    EntityRef Hum;
+
+    void OnUpdate(Timestep ts) override
+    {
+        if ((m_Wait -= ts) <= 0.0f)
+        {
+            m_Wait = Random::Range(MinInterval, MaxInterval);
+            SoundParams chime;
+            chime.Spatial = true;
+            chime.Position = GetWorldPosition();
+            chime.MinDistance = 1.5f;
+            chime.MaxDistance = 12.0f;
+            chime.PitchRandom = PitchRange;
+            chime.VolumeRandom = VolumeRange;
+            chime.MaxInstances = MaxAtOnce;
+            chime.Steal = AudioStealPolicy::Quietest;
+            chime.Priority = 100;
+            if (uint32_t handle = PlaySound(Clip, chime))
+            {
+                m_Handles.push_back(handle);
+                m_Last = handle;
+            }
+        }
+        std::erase_if(m_Handles, [](uint32_t h) { return !AudioEngine::IsPlaying(h); });
+
+        Entity hum = Resolve(Hum);
+        if (hum && Input::IsKeyJustPressed(Key::H))
+        {
+            if (IsAudioPaused(hum))
+                ResumeAudio(hum);
+            else
+                PauseAudio(hum);
+        }
+
+        SoundInfo info;
+        std::string last = AudioEngine::GetSoundInfo(m_Last, info)
+                               ? std::format("ton x{:.2f}, balandlik x{:.2f}", info.PitchVariation, info.VolumeVariation)
+                               : std::string("-");
+        std::string humState = !hum                  ? std::string("-")
+                               : IsAudioPaused(hum)  ? std::format("pauza ({:.1f} s)", GetAudioTime(hum))
+                               : IsAudioPlaying(hum) ? std::format("{:.1f} s", GetAudioTime(hum))
+                                                     : std::string("jim");
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 1.0f, 0.0f),
+                        std::format("Qo'ng'iroqcha: {}  |  bir vaqtda {}/{}", last, m_Handles.size(), MaxAtOnce),
+                        glm::vec4(1.0f, 0.9f, 0.55f, 1.0f));
+        DebugDraw::Text(GetWorldPosition() + glm::vec3(0.0f, 0.65f, 0.0f), std::format("H - g'uvillash: {}", humState),
+                        glm::vec4(0.75f, 0.9f, 1.0f, 1.0f));
+    }
+
+private:
+    float m_Wait = 0.0f;
+    uint32_t m_Last = 0;
+    std::vector<uint32_t> m_Handles;
+};
+
+ZM_REGISTER_SCRIPT(ChimeRinger,
+    ZM_FIELD(ChimeRinger, Clip).Tooltip("Qo'ng'iroq ovozi"),
+    ZM_FIELD_RANGE(ChimeRinger, MinInterval, 0.05f, 5.0f).Header("Chalinish").Tooltip("Ikki chalinish orasidagi eng qisqa vaqt, s"),
+    ZM_FIELD_RANGE(ChimeRinger, MaxInterval, 0.05f, 5.0f).Tooltip("Eng uzun vaqt, s"),
+    ZM_FIELD(ChimeRinger, PitchRange).Header("Tasodifiylik").Tooltip("Ton ko'paytuvchisi: min, max"),
+    ZM_FIELD(ChimeRinger, VolumeRange).Tooltip("Balandlik ko'paytuvchisi: min, max"),
+    ZM_FIELD_RANGE(ChimeRinger, MaxAtOnce, 1, 16).Tooltip("Bir vaqtda ko'pi bilan nechtasi eshitiladi"),
+    ZM_FIELD(ChimeRinger, Hum).Header("Pauza namunasi").Tooltip("H tugmasi bilan pauza qilinadigan Audio Source"))

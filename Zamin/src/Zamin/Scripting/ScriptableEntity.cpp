@@ -632,9 +632,44 @@ namespace Zamin {
         Audio::PlaySoundAt(assetPath, position, volume, pitch, group);
     }
 
+    uint32_t ScriptableEntity::PlaySound(const std::string& assetPath, const SoundParams& params) { return Audio::PlaySound(assetPath, params); }
+
     bool ScriptableEntity::PlayAudio() { return m_Entity.GetScene()->PlayAudio(m_Entity); }
     void ScriptableEntity::StopAudio() { m_Entity.GetScene()->StopAudio(m_Entity); }
+    bool ScriptableEntity::PauseAudio() { return m_Entity.GetScene()->PauseAudio(m_Entity); }
+    bool ScriptableEntity::ResumeAudio() { return m_Entity.GetScene()->ResumeAudio(m_Entity); }
     bool ScriptableEntity::IsAudioPlaying() const { return m_Entity.GetScene()->IsAudioPlaying(m_Entity); }
+    bool ScriptableEntity::IsAudioPaused() const { return m_Entity.GetScene()->IsAudioPaused(m_Entity); }
+    void ScriptableEntity::SetAudioVolume(float volume) { m_Entity.GetScene()->SetAudioVolume(m_Entity, volume); }
+    void ScriptableEntity::SetAudioPitch(float pitch) { m_Entity.GetScene()->SetAudioPitch(m_Entity, pitch); }
+    float ScriptableEntity::GetAudioTime() const { return m_Entity.GetScene()->GetAudioTime(m_Entity); }
+    bool ScriptableEntity::SetAudioTime(float seconds) { return m_Entity.GetScene()->SetAudioTime(m_Entity, seconds); }
+    float ScriptableEntity::GetAudioLength() const { return m_Entity.GetScene()->GetAudioLength(m_Entity); }
+
+    float ScriptableEntity::GetAudioVolume() const
+    {
+        Entity self = m_Entity;
+        const auto* audio = self.TryGetComponent<AudioSourceComponent>();
+        return audio ? audio->Volume : 0.0f;
+    }
+
+    float ScriptableEntity::GetAudioPitch() const
+    {
+        Entity self = m_Entity;
+        const auto* audio = self.TryGetComponent<AudioSourceComponent>();
+        return audio ? audio->Pitch : 0.0f;
+    }
+
+    bool ScriptableEntity::PlayAudio(Entity other) { return m_Entity.GetScene()->PlayAudio(other); }
+    void ScriptableEntity::StopAudio(Entity other) { m_Entity.GetScene()->StopAudio(other); }
+    bool ScriptableEntity::PauseAudio(Entity other) { return m_Entity.GetScene()->PauseAudio(other); }
+    bool ScriptableEntity::ResumeAudio(Entity other) { return m_Entity.GetScene()->ResumeAudio(other); }
+    bool ScriptableEntity::IsAudioPlaying(Entity other) const { return m_Entity.GetScene()->IsAudioPlaying(other); }
+    bool ScriptableEntity::IsAudioPaused(Entity other) const { return m_Entity.GetScene()->IsAudioPaused(other); }
+    void ScriptableEntity::SetAudioVolume(Entity other, float volume) { m_Entity.GetScene()->SetAudioVolume(other, volume); }
+    void ScriptableEntity::SetAudioPitch(Entity other, float pitch) { m_Entity.GetScene()->SetAudioPitch(other, pitch); }
+    float ScriptableEntity::GetAudioTime(Entity other) const { return m_Entity.GetScene()->GetAudioTime(other); }
+    bool ScriptableEntity::SetAudioTime(Entity other, float seconds) { return m_Entity.GetScene()->SetAudioTime(other, seconds); }
 
     float ScriptableEntity::GetTime() const { return m_Entity.GetScene()->GetTime(); }
 

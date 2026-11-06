@@ -42,6 +42,8 @@ namespace Zamin {
     class EventBus;
     class ScriptableEntity;
     struct ScriptMessage;
+    struct SoundInfo;
+    struct AudioSourceComponent;
 
     struct SceneSettings
     {
@@ -531,7 +533,23 @@ namespace Zamin {
         // hierarchy, it has no source / path, or the sound could not be started (no device).
         bool PlayAudio(Entity entity);
         void StopAudio(Entity entity);
+        // Heard now (false while paused).
         bool IsAudioPlaying(Entity entity);
+        // Pause keeps the sound where it is (its voice too); Resume goes on from there (refused
+        // while the entity is inactive). False when the source plays nothing.
+        bool PauseAudio(Entity entity);
+        bool ResumeAudio(Entity entity);
+        bool IsAudioPaused(Entity entity);
+        // The source's Volume / Pitch (also of the sound playing now; its random variation stays).
+        void SetAudioVolume(Entity entity, float volume);
+        void SetAudioPitch(Entity entity, float pitch);
+        // Seconds into the playing sound / its length (0 when it plays nothing). SetAudioTime jumps
+        // there (clamped to the length); false when it plays nothing.
+        float GetAudioTime(Entity entity);
+        bool SetAudioTime(Entity entity, float seconds);
+        float GetAudioLength(Entity entity);
+        // The playing sound's live state (the inspector). False when it plays nothing.
+        bool GetAudioInfo(Entity entity, SoundInfo& info);
         // The Audio Listener that listens: enabled, active in the hierarchy, the highest Priority
         // (ties: the one created first). Empty when there is none.
         Entity GetActiveAudioListener();
@@ -720,6 +738,8 @@ namespace Zamin {
         // Camera2DFollowComponent: the followers move after their targets (game time `dt`).
         void UpdateCameraFollow(float dt);
         void UpdateAudio(float ts);
+        // The entity's Audio Source (nullptr: none, or not this scene's entity).
+        AudioSourceComponent* GetAudioSource(Entity entity);
         // The listener's place / direction (and velocity) for the audio engine.
         void UpdateAudioListener(float ts);
         void UpdateAnimators(Timestep ts, bool editor);

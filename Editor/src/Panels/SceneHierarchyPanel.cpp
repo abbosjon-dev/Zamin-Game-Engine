@@ -2013,6 +2013,123 @@ namespace Zamin {
         return changed;
     }
 
+    void SceneHierarchyPanel::DrawAudioSourceState(Entity entity, AudioSourceComponent& c)
+    {
+        UI::PropertyHeader(ICON_FA_WAVE_SQUARE "  Holat (o'yin)", "Hozir ijro etilayotgan ovoz: o'yin davomida jonli");
+        SoundInfo info;
+        const bool alive = m_Context->GetAudioInfo(entity, info);
+        auto formatTime = [](float seconds) {
+            seconds = std::max(0.0f, seconds);
+            int minutes = (int)(seconds / 60.0f);
+            return std::format("{}:{:04.1f}", minutes, seconds - minutes * 60.0f);
+        };
+
+        UI::PropertyLabel("Holat");
+        if (!AudioEngine::IsAvailable())
+            ImGui::TextDisabled(ICON_FA_TRIANGLE_EXCLAMATION "  Audio qurilmasi yo'q");
+        else if (alive && info.Paused)
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_PAUSE "  Pauza");
+        else if (alive && info.Playing)
+            ImGui::TextColored(UI::AccentColor(), ICON_FA_PLAY "  Ijro etilmoqda%s", info.Looping ? "  (takror)" : "");
+        else if (c.RuntimeHandle && AudioEngine::WasStolen(c.RuntimeHandle))
+        {
+            ImGui::TextColored(ImVec4(0.95f, 0.5f, 0.35f, 1.0f), ICON_FA_STOP "  To'xtatildi: ovozlar limiti");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Limit to'lgani uchun o'rni boshqa (muhimroq yoki yangi) ovozga berildi");
+        }
+        else
+            ImGui::TextDisabled(ICON_FA_STOP "  To'xtagan");
+
+        // Time: a progress bar; a click (or drag) on it jumps there.
+        UI::PropertyLabel("Vaqt");
+        {
+            float fraction = alive && info.Length > 0.0f ? std::clamp(info.Time / info.Length, 0.0f, 1.0f) : 0.0f;
+            std::string text = alive ? std::format("{} / {}", formatTime(info.Time), formatTime(info.Length)) : std::string("--");
+            ImVec2 size(ImGui::GetContentRegionAvail().x, ImGui::GetFrameHeight());
+            ImVec2 start = ImGui::GetCursorScreenPos();
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, info.Paused ? ImVec4(0.75f, 0.6f, 0.25f, 1.0f) : UI::AccentColor());
+            ImGui::ProgressBar(fraction, size, text.c_str());
+            ImGui::PopStyleColor();
+            if (alive && info.Length > 0.0f)
+            {
+                ImGui::SetCursorScreenPos(start);
+                ImGui::InvisibleButton("##seek", size);
+                if (ImGui::IsItemActive())
+                {
+                    float t = std::clamp((ImGui::GetIO().MousePos.x - start.x) / std::max(1.0f, size.x), 0.0f, 1.0f);
+                    m_Context->SetAudioTime(entity, t * info.Length);
+                }
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Bosing yoki suring: shu joyga o'tish");
+            }
+        }
+
+        UI::PropertyLabel("");
+        ImGui::PushID("audioControls");
+        if (ImGui::Button(alive ? ICON_FA_ROTATE_RIGHT "  Qayta" : ICON_FA_PLAY "  Ijro"))
+            m_Context->PlayAudio(entity);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("PlayAudio(): boshidan (yangi tasodifiy balandlik / ton bilan)");
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!alive);
+        if (alive && info.Paused)
+        {
+            if (ImGui::Button(ICON_FA_PLAY "  Davom"))
+                m_Context->ResumeAudio(entity);
+        }
+        else if (ImGui::Button(ICON_FA_PAUSE "  Pauza"))
+            m_Context->PauseAudio(entity);
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_STOP))
+            m_Context->StopAudio(entity);
+        ImGui::EndDisabled();
+        ImGui::PopID();
+        if (!alive)
+            return;
+
+        // What is heard: the sound's volume after its variation, the mixer and the distance.
+        UI::PropertyLabel("Eshitilishi", "Balandlik x tasodifiy ko'paytuvchi x mixer guruhi (ota guruhlari bilan) x masofa (3D)");
+        {
+            float db = AudioGain::ToDecibels(info.AudibleVolume);
+            float fraction = std::clamp((db - AudioGain::MinDecibels) / (6.0f - AudioGain::MinDecibels), 0.0f, 1.0f);
+            std::string text = info.AudibleVolume <= 0.0f || db <= AudioGain::MinDecibels ? std::string("jim") : std::format("{:+.1f} dB", db);
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.35f, 0.8f, 0.45f, 1.0f));
+            ImGui::ProgressBar(info.Paused ? 0.0f : fraction, ImVec2(-FLT_MIN, 0.0f), text.c_str());
+            ImGui::PopStyleColor();
+            if (ImGui::IsItemHovered())
+            {
+                std::string tip = std::format("Balandlik {:.2f} x tasodifiy {:.2f} x guruh '{}' {:.2f}", info.Volume, info.VolumeVariation,
+                                              info.Group.empty() ? std::string("-") : info.Group, info.GroupGain);
+                if (info.Spatial)
+                    tip += std::format(" x masofa {:.2f} ({:.1f} m)", info.Attenuation, info.Distance);
+                UI::Tooltip(tip.c_str());
+            }
+        }
+        UI::PropertyLabel("");
+        if (info.Spatial)
+            ImGui::TextDisabled("x%.2f tasodifiy   guruh %.1f dB   masofa %.1f m (x%.2f)", info.VolumeVariation, AudioGain::ToDecibels(info.GroupGain),
+                                info.Distance, info.Attenuation);
+        else
+            ImGui::TextDisabled("x%.2f tasodifiy   guruh %.1f dB", info.VolumeVariation, AudioGain::ToDecibels(info.GroupGain));
+
+        UI::PropertyLabel("Ton (hozir)", "So'ralgan ton x tasodifiy ko'paytuvchi x Doppler");
+        ImGui::Text("%.3f", info.AppliedPitch);
+        ImGui::SameLine();
+        if (info.Spatial)
+            ImGui::TextDisabled("(x%.3f tasodifiy, x%.3f Doppler)", info.PitchVariation, info.DopplerPitch);
+        else
+            ImGui::TextDisabled("(x%.3f tasodifiy)", info.PitchVariation);
+        if (info.Spatial)
+        {
+            UI::PropertyLabel("Tezlik", "Manba harakatidan o'lchanadi (Doppler uchun)");
+            ImGui::Text("%.1f m/s", glm::length(info.Velocity));
+        }
+        AudioVoiceStats stats = AudioEngine::GetVoiceStats();
+        UI::PropertyLabel("Ovozlar");
+        ImGui::TextDisabled("%zu / %d ijro etilmoqda   %s%s", stats.Voices, stats.MaxVoices, info.Streamed ? ICON_FA_WAVE_SQUARE " oqim  " : "",
+                            std::format("ustuvorlik {}", info.Priority).c_str());
+    }
+
     // ------------------------------------------------------------------ 2D renderers
     bool SceneHierarchyPanel::DrawSortingLayer(uint32_t& layer, int& order)
     {
@@ -6169,6 +6286,13 @@ namespace Zamin {
             {
                 changed |= UI::PropertyFloat("Min masofa", c.MinDistance, 0.05f, 0.01f, 1000.0f);
                 changed |= UI::PropertyFloat("Max masofa", c.MaxDistance, 0.1f, 0.1f, 10000.0f);
+                UI::PropertyLabel("Doppler", "Ovoz manbai yoki tinglovchi harakatlanganda ton o'zgarishi kuchi (yaqinlashsa - "
+                                             "baland, uzoqlashsa - past): 1 - tabiiy, 0 - yo'q. Loyihaning Doppler "
+                                             "koeffitsiyentiga ko'paytiriladi (Audio Mixer > Sozlamalar). Tezlik "
+                                             "obyekt harakatidan o'lchanadi.");
+                ImGui::PushID("doppler");
+                changed |= ImGui::SliderFloat("##v", &c.DopplerFactor, 0.0f, AudioSettings::MaxDopplerFactor, "%.2f");
+                ImGui::PopID();
             }
             changed |= DrawAudioOutput(c.Output);
             UI::PropertyLabel("Streaming", "Fayl o'ynayotganda diskdan oqim bilan o'qiladi (xotiraga butunlay yuklanmaydi): "
@@ -6182,19 +6306,78 @@ namespace Zamin {
                 ImGui::TextDisabled("(katta fayl: baribir oqim)");
             }
             ImGui::PopID();
-            UI::PropertyLabel("");
-            if (ImGui::Button(ICON_FA_PLAY "  Eshitish") && !c.Path.empty())
+
+            UI::PropertyHeader(ICON_FA_SHUFFLE "  Tasodifiylik", "Har ijroda balandlik va ton shu oraliqdagi tasodifiy songa "
+                                                                "ko'paytiriladi (1 - 1: o'zgarmaydi): takrorlanadigan ovozlar "
+                                                                "(qadam, zarba, o'q) bir xil eshitilmasin.");
+            auto range = [&](const char* label, const char* id, glm::vec2& v, float lo, float hi, const char* tooltip) {
+                UI::PropertyLabel(label, tooltip);
+                ImGui::PushID(id);
+                bool edited = ImGui::DragFloatRange2("##v", &v.x, &v.y, 0.005f, lo, hi, "%.2f", "%.2f", ImGuiSliderFlags_AlwaysClamp);
+                ImGui::PopID();
+                return edited;
+            };
+            changed |= range("Balandlik oralig'i", "volumeRandom", c.VolumeRandom, 0.0f, 2.0f,
+                             "Balandlik ko'paytuvchisi: min - max (masalan 0.8 - 1.0)");
+            changed |= range("Ton oralig'i", "pitchRandom", c.PitchRandom, 0.1f, 3.0f,
+                             "Ton ko'paytuvchisi: min - max (masalan 0.9 - 1.1 - yarim tondan sal kam)");
+            if (c.PitchRandom != glm::vec2(1.0f))
             {
-                SoundParams params;
-                params.Volume = c.Volume;
-                params.Pitch = c.Pitch;
-                params.Group = c.Output;
-                params.Stream = c.Stream;
-                AudioEngine::Play(Project::GetAssetFileSystemPath(c.Path), params);
+                UI::PropertyLabel("");
+                ImGui::TextDisabled("%+.1f .. %+.1f yarim ton", 12.0f * std::log2(std::max(0.01f, c.PitchRandom.x)),
+                                    12.0f * std::log2(std::max(0.01f, c.PitchRandom.y)));
             }
-            ImGui::SameLine();
-            if (ImGui::Button(ICON_FA_STOP))
-                AudioEngine::StopAllExceptMusic();
+
+            UI::PropertyHeader(ICON_FA_LAYER_GROUP "  Ovozlar limiti", "Loyihada bir vaqtda eng ko'pi bilan Audio Mixer > Sozlamalar'dagi "
+                                                                       "sonda ovoz ijro etiladi (musiqa hisobga kirmaydi). Limit to'lsa yangi "
+                                                                       "ovoz muhimligi pastrog'ining o'rnini oladi.");
+            UI::PropertyLabel("Ustuvorlik", "0..255: limit to'lganda past ustuvorlikdagi ovoz to'xtatilib, o'rni muhimrog'iga "
+                                            "beriladi. Teng bo'lsa - quyidagi qoida bo'yicha.");
+            ImGui::PushID("priority");
+            changed |= ImGui::SliderInt("##v", &c.Priority, 0, 255, "%d", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::PopID();
+            UI::PropertyLabel("Bir vaqtda (shu fayl)", "Shu ovoz fayli bir vaqtda ko'pi bilan necha marta ijro etiladi "
+                                                       "(0 - cheklanmaydi): masalan 20 ta dushman bir xil o'kirsa ham 3 tasi eshitiladi.");
+            ImGui::PushID("maxInstances");
+            changed |= ImGui::DragInt("##v", &c.MaxInstances, 0.1f, 0, 256, c.MaxInstances > 0 ? "%d ta" : "cheklanmagan", ImGuiSliderFlags_AlwaysClamp);
+            ImGui::PopID();
+            {
+                static const char* policies[] = { "Eng eskisi to'xtaydi", "Eng past eshitilgani to'xtaydi", "Yangisi ijro etilmaydi" };
+                int policy = (int)c.Steal;
+                UI::PropertyLabel("Limit to'lsa", "Eng eskisi: birinchi boshlangan ovoz to'xtaydi. Eng past eshitilgani: balandlik x guruh x "
+                                                  "masofa bo'yicha eng jimi. Yangisi ijro etilmaydi: hech narsa to'xtamaydi (ustuvorligi "
+                                                  "pastroq ovoz bo'lsa - u to'xtaydi).");
+                ImGui::PushID("steal");
+                if (ImGui::Combo("##v", &policy, policies, 3))
+                {
+                    c.Steal = (AudioStealPolicy)std::clamp(policy, 0, 2);
+                    changed = true;
+                }
+                ImGui::PopID();
+            }
+
+            if (m_Context && m_Context->IsRunning())
+                DrawAudioSourceState(entity, c);
+            else
+            {
+                UI::PropertyLabel("");
+                if (ImGui::Button(ICON_FA_PLAY "  Eshitish") && !c.Path.empty())
+                {
+                    SoundParams params;
+                    params.Volume = c.Volume;
+                    params.Pitch = c.Pitch;
+                    params.Group = c.Output;
+                    params.Stream = c.Stream;
+                    params.VolumeRandom = c.VolumeRandom;
+                    params.PitchRandom = c.PitchRandom;
+                    AudioEngine::Play(Project::GetAssetFileSystemPath(c.Path), params);
+                }
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Tinglab ko'rish (tasodifiylik bilan: har bosishda boshqacha)");
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_STOP))
+                    AudioEngine::StopAllExceptMusic();
+            }
             return changed;
         }, true, modified);
 

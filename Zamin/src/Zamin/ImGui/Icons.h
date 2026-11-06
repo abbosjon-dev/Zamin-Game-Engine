@@ -162,3 +162,5 @@
 #define ICON_FA_VOLUME_XMARK "\xef\x9a\xa9" // muted
 #define ICON_FA_HEADPHONES "\xef\x80\xa5" // solo / audio mixer
 #define ICON_FA_WAVE_SQUARE "\xef\xa0\xbe" // streaming
+#define ICON_FA_SHUFFLE "\xef\x81\xb4"    // random variation
+#define ICON_FA_DICE "\xef\x94\xa2"

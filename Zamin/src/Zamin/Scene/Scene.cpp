@@ -396,7 +396,7 @@ namespace Zamin {
             c.Grounded = false;
             c.Velocity = glm::vec3(0.0f);
         }
-        for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).RuntimeHandle = 0;
+        for (auto e : registry.view<AudioSourceComponent>()) registry.get<AudioSourceComponent>(e).ResetRuntime();
         for (auto e : registry.view<AudioListenerComponent>()) registry.get<AudioListenerComponent>(e).ResetRuntime();
         for (auto e : registry.view<SpriteAnimationComponent>()) registry.get<SpriteAnimationComponent>(e).Time = 0.0f;
         for (auto e : registry.view<SpriteRendererComponent>()) registry.get<SpriteRendererComponent>(e).StopFlash();
@@ -432,7 +432,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<AreaEffector2DComponent>()) c->AffectedBodies = 0;
         if (auto* c = e.TryGetComponent<BuoyancyEffector2DComponent>()) { c->AffectedBodies = 0; c->SubmergedArea = 0.0f; }
         if (auto* c = e.TryGetComponent<Rigidbody3DComponent>()) c->RuntimeBodyID = 0xffffffff;
-        if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->RuntimeHandle = 0;
+        if (auto* c = e.TryGetComponent<AudioSourceComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<AudioListenerComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<SpriteAnimationComponent>()) c->Time = 0.0f;
         if (auto* c = e.TryGetComponent<SpriteRendererComponent>()) c->StopFlash();
@@ -1676,10 +1676,11 @@ namespace Zamin {
 
     void Scene::StopEntityEffects(Entity entity)
     {
-        if (auto* audio = entity.TryGetComponent<AudioSourceComponent>(); audio && audio->RuntimeHandle)
+        if (auto* audio = entity.TryGetComponent<AudioSourceComponent>())
         {
-            AudioEngine::Stop(audio->RuntimeHandle);
-            audio->RuntimeHandle = 0;
+            if (audio->RuntimeHandle)
+                AudioEngine::Stop(audio->RuntimeHandle);
+            audio->ResetRuntime();
         }
         if (auto* ps = entity.TryGetComponent<ParticleSystemComponent>())
             ps->Clear(); // starts over (Burst included) when the entity comes back
@@ -1954,7 +1955,10 @@ namespace Zamin {
         UpdateAudioListener(0.0f); // the 3D sounds start where the listener is
         std::vector<entt::entity> sources;
         for (auto e : m_Registry.view<AudioSourceComponent>())
+        {
+            m_Registry.get<AudioSourceComponent>(e).ResetRuntime(); // nothing left from an earlier run
             sources.push_back(e);
+        }
         std::reverse(sources.begin(), sources.end()); // scene order
         for (auto e : sources)
             StartEntityEffects({ e, this });
@@ -1970,6 +1974,8 @@ namespace Zamin {
         OnPhysics3DStop();
         m_AppliedInactive.clear();
         AudioEngine::StopAllExceptMusic(); // the music is the game's: it goes on into the next scene
+        for (auto e : m_Registry.view<AudioSourceComponent>())
+            m_Registry.get<AudioSourceComponent>(e).ResetRuntime();
         SaveData::Save(); // flush what the scripts stored (no-op when nothing changed)
         DebugDraw::Clear(); // nothing the game drew stays in the editor's view
     }
@@ -4613,15 +4619,21 @@ namespace Zamin {
         params.Position = GetWorldPosition(entity);
         params.MinDistance = audio->MinDistance;
         params.MaxDistance = audio->MaxDistance;
+        params.VolumeRandom = audio->VolumeRandom;
+        params.PitchRandom = audio->PitchRandom;
+        params.Priority = audio->Priority;
+        params.MaxInstances = audio->MaxInstances;
+        params.Steal = audio->Steal;
+        params.DopplerFactor = audio->DopplerFactor;
+        // A source that keeps moving keeps its measured velocity (restarted while flying past).
+        params.Velocity = audio->HasLastPosition ? audio->Velocity : glm::vec3(0.0f);
         audio->RuntimeHandle = AudioEngine::Play(Project::GetAssetFileSystemPath(audio->Path), params);
         return audio->RuntimeHandle != 0;
     }
 
     void Scene::StopAudio(Entity entity)
     {
-        if (!entity.IsValid() || entity.GetScene() != this)
-            return;
-        if (auto* audio = entity.TryGetComponent<AudioSourceComponent>(); audio && audio->RuntimeHandle)
+        if (auto* audio = GetAudioSource(entity); audio && audio->RuntimeHandle)
         {
             AudioEngine::Stop(audio->RuntimeHandle);
             audio->RuntimeHandle = 0;
@@ -4630,10 +4642,85 @@ namespace Zamin {
 
     bool Scene::IsAudioPlaying(Entity entity)
     {
-        if (!entity.IsValid() || entity.GetScene() != this)
-            return false;
-        auto* audio = entity.TryGetComponent<AudioSourceComponent>();
+        auto* audio = GetAudioSource(entity);
         return audio && audio->RuntimeHandle && AudioEngine::IsPlaying(audio->RuntimeHandle);
+    }
+
+    AudioSourceComponent* Scene::GetAudioSource(Entity entity)
+    {
+        if (!entity.IsValid() || entity.GetScene() != this)
+            return nullptr;
+        return entity.TryGetComponent<AudioSourceComponent>();
+    }
+
+    bool Scene::PauseAudio(Entity entity)
+    {
+        auto* audio = GetAudioSource(entity);
+        return audio && audio->RuntimeHandle && AudioEngine::Pause(audio->RuntimeHandle);
+    }
+
+    bool Scene::ResumeAudio(Entity entity)
+    {
+        if (!m_IsRunning || !IsActiveInHierarchy(entity))
+            return false;
+        auto* audio = GetAudioSource(entity);
+        return audio && audio->RuntimeHandle && AudioEngine::Resume(audio->RuntimeHandle);
+    }
+
+    bool Scene::IsAudioPaused(Entity entity)
+    {
+        auto* audio = GetAudioSource(entity);
+        return audio && audio->RuntimeHandle && AudioEngine::IsPaused(audio->RuntimeHandle);
+    }
+
+    void Scene::SetAudioVolume(Entity entity, float volume)
+    {
+        auto* audio = GetAudioSource(entity);
+        if (!audio || !std::isfinite(volume))
+            return;
+        audio->Volume = std::max(0.0f, volume);
+        if (audio->RuntimeHandle)
+            AudioEngine::SetVolume(audio->RuntimeHandle, audio->Volume);
+    }
+
+    void Scene::SetAudioPitch(Entity entity, float pitch)
+    {
+        auto* audio = GetAudioSource(entity);
+        if (!audio || !std::isfinite(pitch))
+            return;
+        audio->Pitch = std::max(0.01f, pitch);
+        if (audio->RuntimeHandle)
+            AudioEngine::SetPitch(audio->RuntimeHandle, audio->Pitch);
+    }
+
+    float Scene::GetAudioTime(Entity entity)
+    {
+        auto* audio = GetAudioSource(entity);
+        return audio && audio->RuntimeHandle ? AudioEngine::GetCursor(audio->RuntimeHandle) : 0.0f;
+    }
+
+    bool Scene::SetAudioTime(Entity entity, float seconds)
+    {
+        auto* audio = GetAudioSource(entity);
+        if (!audio || !audio->RuntimeHandle || !AudioEngine::IsAvailable() || !std::isfinite(seconds))
+            return false;
+        SoundInfo info;
+        if (!AudioEngine::GetSoundInfo(audio->RuntimeHandle, info))
+            return false;
+        AudioEngine::Seek(audio->RuntimeHandle, std::max(0.0f, seconds));
+        return true;
+    }
+
+    float Scene::GetAudioLength(Entity entity)
+    {
+        auto* audio = GetAudioSource(entity);
+        return audio && audio->RuntimeHandle ? AudioEngine::GetLength(audio->RuntimeHandle) : 0.0f;
+    }
+
+    bool Scene::GetAudioInfo(Entity entity, SoundInfo& info)
+    {
+        auto* audio = GetAudioSource(entity);
+        return audio && audio->RuntimeHandle && AudioEngine::GetSoundInfo(audio->RuntimeHandle, info);
     }
 
     Entity Scene::GetActiveAudioListener()
@@ -4695,12 +4782,43 @@ namespace Zamin {
     void Scene::UpdateAudio(float ts)
     {
         UpdateAudioListener(ts);
-        if (!AudioEngine::IsAvailable()) return;
+        // A jump faster than this is a teleport (respawn, a moved spawn point), not movement: it
+        // gives no Doppler sweep.
+        constexpr float teleportSpeed = 150.0f;
+        const bool engine = AudioEngine::IsAvailable();
         for (auto e : m_Registry.view<AudioSourceComponent>())
         {
             auto& a = m_Registry.get<AudioSourceComponent>(e);
-            if (a.Spatial && a.RuntimeHandle)
-                AudioEngine::SetSoundPosition(a.RuntimeHandle, GetWorldPosition({ e, this }));
+            if (!a.RuntimeHandle)
+                continue;
+            if (a.Spatial)
+            {
+                glm::vec3 position = GetWorldPosition({ e, this });
+                if (a.HasLastPosition && ts > 0.0f)
+                {
+                    glm::vec3 velocity = (position - a.LastPosition) / ts;
+                    a.Velocity = glm::length(velocity) <= teleportSpeed ? velocity : glm::vec3(0.0f);
+                }
+                a.LastPosition = position;
+                a.HasLastPosition = true;
+                if (engine)
+                {
+                    AudioEngine::SetSoundPosition(a.RuntimeHandle, position);
+                    AudioEngine::SetSoundVelocity(a.RuntimeHandle, a.Velocity);
+                    AudioEngine::SetSoundDopplerFactor(a.RuntimeHandle, a.DopplerFactor);
+                    AudioEngine::SetSoundDistances(a.RuntimeHandle, a.MinDistance, a.MaxDistance);
+                }
+            }
+            else
+                a.Velocity = glm::vec3(0.0f);
+            if (engine)
+            {
+                // The component is the sound's truth: inspector edits during play are heard at once
+                // (the random variation picked at the start stays).
+                AudioEngine::SetVolume(a.RuntimeHandle, a.Volume);
+                AudioEngine::SetPitch(a.RuntimeHandle, a.Pitch);
+                AudioEngine::SetLooping(a.RuntimeHandle, a.Loop);
+            }
         }
     }
 

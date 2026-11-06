@@ -28,6 +28,61 @@ namespace Zamin {
         glm::vec3 Position{ 0.0f };
         float MinDistance = 1.0f;
         float MaxDistance = 30.0f;
+
+        // Random variation, picked anew each time the sound starts: Volume and Pitch are multiplied
+        // by a value between x (min) and y (max) - e.g. pitch 0.9..1.1 so repeated footsteps do not
+        // all sound the same. 1..1 = none. (AudioEngine::SetRandomSeed makes it repeatable.)
+        glm::vec2 VolumeRandom{ 1.0f, 1.0f };
+        glm::vec2 PitchRandom{ 1.0f, 1.0f };
+
+        // Voice limits. When AudioSettings::MaxVoices sounds play already, this one takes the place
+        // of a less important one (lower Priority, 0..255; equal: by Steal) or is not played.
+        int Priority = 128;
+        // The same file at most this many times at once (0 = no limit of its own); one more
+        // replaces one of them by Steal (None: it is not played).
+        int MaxInstances = 0;
+        AudioStealPolicy Steal = AudioStealPolicy::Oldest;
+
+        // 3D sound: how strongly its pitch follows the Doppler effect (x the project's
+        // AudioSettings::DopplerFactor; 0 = off) and how fast it moves (units per second).
+        float DopplerFactor = 1.0f;
+        glm::vec3 Velocity{ 0.0f };
+    };
+
+    // What a sound is doing right now (AudioEngine::GetSoundInfo): for the inspector and tests.
+    struct SoundInfo
+    {
+        bool Playing = false;   // heard (started and not paused)
+        bool Paused = false;
+        bool Looping = false;
+        bool Spatial = false;
+        bool Streamed = false;
+        bool Music = false;
+        std::string Group;      // "" = past the mixer
+        float Time = 0.0f;      // seconds into the sound
+        float Length = 0.0f;    // seconds (0: unknown)
+        float Volume = 1.0f;    // as asked (SetVolume / SoundParams::Volume)
+        float VolumeVariation = 1.0f; // the random factor it got when it started
+        float GroupGain = 1.0f;       // its mixer group with the parents (mute / solo included)
+        float Attenuation = 1.0f;     // distance from the listener (3D; 1 for 2D sounds)
+        float AudibleVolume = 1.0f;   // Volume x VolumeVariation x GroupGain x Attenuation
+        float Pitch = 1.0f;           // as asked
+        float PitchVariation = 1.0f;  // the random factor it got when it started
+        float DopplerPitch = 1.0f;    // from the source's and the listener's movement (1: none)
+        float AppliedPitch = 1.0f;    // Pitch x PitchVariation x DopplerPitch
+        float DopplerFactor = 1.0f;   // the sound's own (before the project's)
+        glm::vec3 Velocity{ 0.0f };
+        float Distance = 0.0f;        // from the listener (3D)
+        int Priority = 128;
+    };
+
+    // The voice limit at work (AudioEngine::GetVoiceStats).
+    struct AudioVoiceStats
+    {
+        size_t Voices = 0;       // sounds that count towards the limit now (playing or paused)
+        int MaxVoices = 0;       // AudioSettings::MaxVoices
+        uint64_t Stolen = 0;     // sounds stopped to make room for another (since Init)
+        uint64_t Rejected = 0;   // sounds not played because there was no room (since Init)
     };
 
     // A mixer group's level meter (post-fader peaks as linear gains, 1 = full scale).
@@ -70,6 +125,10 @@ namespace Zamin {
         static uint32_t PlaySpatial(const std::filesystem::path& path, const glm::vec3& position, float volume = 1.0f,
                                     float pitch = 1.0f, bool loop = false, float minDistance = 1.0f, float maxDistance = 30.0f);
         static void SetSoundPosition(uint32_t handle, const glm::vec3& position);
+        // 3D sound: how fast it moves (units per second; Scene measures it from the transform) and
+        // its own Doppler factor (x AudioSettings::DopplerFactor).
+        static void SetSoundVelocity(uint32_t handle, const glm::vec3& velocity);
+        static void SetSoundDopplerFactor(uint32_t handle, float factor);
         static bool IsPlaying(uint32_t handle);
         // Playback position and length of a playing sound, in seconds (0 for an unknown handle).
         static float GetCursor(uint32_t handle);
@@ -77,8 +136,27 @@ namespace Zamin {
         // Jumps to `seconds` into the sound (clamped to its length).
         static void Seek(uint32_t handle, float seconds);
         static void SetVolume(uint32_t handle, float volume);
-        // The sound's own volume (before its group; 0 for an unknown handle).
+        // The sound's own volume (before its random variation and its group; 0 for an unknown handle).
         static float GetVolume(uint32_t handle);
+        // The pitch as asked (before its random variation and the Doppler effect; 0 for an unknown handle).
+        static void SetPitch(uint32_t handle, float pitch);
+        static float GetPitch(uint32_t handle);
+        static void SetLooping(uint32_t handle, bool loop);
+        // 3D sound: its attenuation distances.
+        static void SetSoundDistances(uint32_t handle, float minDistance, float maxDistance);
+        // Pause keeps the sound (and its place) where it is; Resume goes on from there. False for an
+        // unknown handle (a finished or stopped sound) and the music (Audio::PauseMusic).
+        static bool Pause(uint32_t handle);
+        static bool Resume(uint32_t handle);
+        static bool IsPaused(uint32_t handle);
+        // Everything about a living sound. False for an unknown handle (`info` is left as it was).
+        static bool GetSoundInfo(uint32_t handle, SoundInfo& info);
+        // The sound was stopped to make room for another one (voice limit).
+        static bool WasStolen(uint32_t handle);
+        static AudioVoiceStats GetVoiceStats();
+        // The random variation (SoundParams::VolumeRandom / PitchRandom) from here on is the same
+        // sequence for the same seed (tests, replays). Init picks a random seed.
+        static void SetRandomSeed(uint32_t seed);
         // Streamed from disk (not decoded into memory).
         static bool IsStreaming(uint32_t handle);
         // The mixer group the sound plays in ("" = past the mixer or unknown handle).
@@ -100,6 +178,15 @@ namespace Zamin {
         static void SetListenerVelocity(const glm::vec3& velocity);
         static glm::vec3 GetListenerPosition();
         static glm::vec3 GetListenerVelocity();
+
+        // ---- Doppler (the speed of sound: 343 units per second - metres)
+        static constexpr float SpeedOfSound = 343.3f;
+        // The pitch factor a sound at `sourcePosition` moving with `sourceVelocity` is heard with by
+        // a listener at `listenerPosition` moving with `listenerVelocity` (OpenAL's model): above 1
+        // while they come closer, below 1 while they move apart, 1 for factor 0. Speeds are capped
+        // (at half the speed of sound / factor) and the result kept in 0.5..2.
+        static float ComputeDopplerPitch(const glm::vec3& sourcePosition, const glm::vec3& sourceVelocity, const glm::vec3& listenerPosition,
+                                         const glm::vec3& listenerVelocity, float factor);
 
         // ---- mixer groups
         // Replaces the mixer (groups made / removed / moved, faders set). Kept when there is no

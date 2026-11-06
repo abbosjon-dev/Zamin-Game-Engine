@@ -200,11 +200,14 @@ namespace Zamin {
         if (!std::isfinite(StreamThresholdMB) || StreamThresholdMB <= 0.0f)
             StreamThresholdMB = 4.0f;
         StreamThresholdMB = std::clamp(StreamThresholdMB, 0.01f, 4096.0f);
+        MaxVoices = std::clamp(MaxVoices, 1, MaxVoicesLimit);
+        DopplerFactor = std::isfinite(DopplerFactor) ? std::clamp(DopplerFactor, 0.0f, MaxDopplerFactor) : 1.0f;
     }
 
     bool AudioSettings::EqualsIgnoringSolo(const AudioSettings& other) const
     {
-        if (Groups.size() != other.Groups.size() || StreamThresholdMB != other.StreamThresholdMB)
+        if (Groups.size() != other.Groups.size() || StreamThresholdMB != other.StreamThresholdMB || MaxVoices != other.MaxVoices ||
+            DopplerFactor != other.DopplerFactor)
             return false;
         for (size_t i = 0; i < Groups.size(); i++)
         {
@@ -230,7 +233,7 @@ namespace Zamin {
                 item["Muted"] = true;
             groups.push_back(std::move(item));
         }
-        json j = { { "StreamThresholdMB", StreamThresholdMB }, { "Groups", groups } };
+        json j = { { "StreamThresholdMB", StreamThresholdMB }, { "MaxVoices", MaxVoices }, { "DopplerFactor", DopplerFactor }, { "Groups", groups } };
         return j.dump(4);
     }
 
@@ -242,6 +245,10 @@ namespace Zamin {
         AudioSettings settings;
         if (auto it = j.find("StreamThresholdMB"); it != j.end() && it->is_number())
             settings.StreamThresholdMB = it->get<float>();
+        if (auto it = j.find("MaxVoices"); it != j.end() && it->is_number())
+            settings.MaxVoices = (int)std::clamp(it->get<double>(), 1.0, (double)MaxVoicesLimit);
+        if (auto it = j.find("DopplerFactor"); it != j.end() && it->is_number())
+            settings.DopplerFactor = it->get<float>();
         if (auto it = j.find("Groups"); it != j.end() && it->is_array())
         {
             settings.Groups.clear();

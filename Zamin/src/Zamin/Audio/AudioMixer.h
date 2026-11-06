@@ -6,6 +6,15 @@
 
 namespace Zamin {
 
+    // What happens when a new sound would go over a voice limit (AudioSettings::MaxVoices, or a
+    // clip's own MaxInstances): a playing sound gives its place to it, or it is not played.
+    enum class AudioStealPolicy
+    {
+        Oldest = 0, // the one that started first stops
+        Quietest,   // the one heard the least now stops (volume x group x distance)
+        None        // nothing stops: the new sound is not played (unless it is more important)
+    };
+
     // One mixer group (bus): the sounds routed to it and its child groups are mixed, multiplied by
     // its fader and passed on to its parent. Master is the root every group ends up in.
     struct AudioGroupSettings
@@ -35,6 +44,16 @@ namespace Zamin {
         // Files larger than this are streamed from disk instead of being decoded into memory
         // (music always streams; an Audio Source can ask for it with its Stream flag).
         float StreamThresholdMB = 4.0f;
+        // At most this many sounds play at once (the music and the editor's previews do not count).
+        // One more takes the place of a less important one (lower Priority; equal: by its steal
+        // policy) or is not played.
+        int MaxVoices = 64;
+        // The Doppler effect of moving 3D sounds and a moving listener: 1 = as in nature, 0 = off.
+        // Each sound's own factor (Audio Source "Doppler") is multiplied by it.
+        float DopplerFactor = 1.0f;
+
+        static constexpr int MaxVoicesLimit = 1024;
+        static constexpr float MaxDopplerFactor = 5.0f;
 
         static std::vector<AudioGroupSettings> DefaultGroups();
         static bool IsBuiltIn(std::string_view name);
@@ -66,7 +85,8 @@ namespace Zamin {
         float GetEffectiveGain(std::string_view name) const;
 
         // Master first, built-ins present, unique non-empty names, every parent known (no loops;
-        // otherwise Master), volumes in 0..MaxVolume, threshold positive.
+        // otherwise Master), volumes in 0..MaxVolume, threshold positive, 1..MaxVoicesLimit voices,
+        // Doppler in 0..MaxDopplerFactor.
         void Sanitize();
         // Equal to the defaults (Solo is not compared: it is never saved).
         bool IsDefault() const;

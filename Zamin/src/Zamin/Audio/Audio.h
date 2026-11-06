@@ -9,6 +9,8 @@
 
 namespace Zamin {
 
+    struct SoundParams;
+
     // The game's audio API (scripts): paths are relative to the project's Assets folder.
     // Music plays in the "Music" mixer group, streamed from disk, one track at a time; it is the
     // game's, not a scene's, so it goes on across LoadScene. The editor stops it (and puts the
@@ -47,6 +49,9 @@ namespace Zamin {
                                   const std::string& group = AudioSettings::SFX);
         static uint32_t PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume = 1.0f, float pitch = 1.0f,
                                     const std::string& group = AudioSettings::SFX);
+        // With everything SoundParams has (random volume / pitch range, priority, instance limit,
+        // 3D position, ...).
+        static uint32_t PlaySound(const std::string& assetPath, const SoundParams& params);
     };
 
 }

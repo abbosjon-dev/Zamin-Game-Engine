@@ -9,6 +9,7 @@
 #include "Zamin/Scripting/EventBus.h"
 
 #include <any>
+#include <cstdint>
 #include <functional>
 #include <initializer_list>
 #include <string>
@@ -17,6 +18,8 @@
 #include <vector>
 
 namespace Zamin {
+
+    struct SoundParams;
 
     // A 2D joint of the script's entity that broke (BreakForce / BreakTorque exceeded): it is gone
     // for good (its component's Broken flag is set; clearing it makes the joint again).
@@ -435,12 +438,44 @@ namespace Zamin {
         // 3D positional sound (heard relative to the Audio Listener / primary camera)
         void PlaySoundAt(const std::string& assetPath, const glm::vec3& position, float volume = 1.0f, float pitch = 1.0f,
                          const std::string& group = "SFX");
-        // This entity's AudioSourceComponent: (re)start it from the beginning / stop it. PlayAudio
-        // returns false while the entity is inactive (its sound stops when it is switched off and
-        // a PlayOnStart source starts again when it is switched back on).
+        // A one-shot sound with everything SoundParams has: random volume / pitch range, priority
+        // and instance limit, 3D position... e.g.
+        //   SoundParams step; step.PitchRandom = { 0.9f, 1.1f }; step.MaxInstances = 3;
+        //   PlaySound("Audio/step.wav", step);
+        // Returns the AudioEngine handle (0: not played - no device, a voice limit, a bad file).
+        uint32_t PlaySound(const std::string& assetPath, const SoundParams& params);
+        // This entity's AudioSourceComponent (the `other` overloads: another entity's).
+        // PlayAudio (re)starts it from the beginning (with a new random variation) and returns false
+        // while the entity is inactive (its sound stops when it is switched off and a PlayOnStart
+        // source starts again when it is switched back on) or a voice limit refused it.
         bool PlayAudio();
         void StopAudio();
+        // Pause keeps the sound where it is, Resume goes on from there; false when nothing plays.
+        bool PauseAudio();
+        bool ResumeAudio();
+        // Heard now (false while paused) / paused.
         bool IsAudioPlaying() const;
+        bool IsAudioPaused() const;
+        // The source's Volume / Pitch, also of the sound playing now.
+        void SetAudioVolume(float volume);
+        float GetAudioVolume() const;
+        void SetAudioPitch(float pitch);
+        float GetAudioPitch() const;
+        // Seconds into the playing sound (0 when nothing plays); SetAudioTime jumps there.
+        float GetAudioTime() const;
+        bool SetAudioTime(float seconds);
+        // The playing sound's length in seconds (0 when nothing plays).
+        float GetAudioLength() const;
+        bool PlayAudio(Entity other);
+        void StopAudio(Entity other);
+        bool PauseAudio(Entity other);
+        bool ResumeAudio(Entity other);
+        bool IsAudioPlaying(Entity other) const;
+        bool IsAudioPaused(Entity other) const;
+        void SetAudioVolume(Entity other, float volume);
+        void SetAudioPitch(Entity other, float pitch);
+        float GetAudioTime(Entity other) const;
+        bool SetAudioTime(Entity other, float seconds);
 
         // ---- time
         float GetTime() const;

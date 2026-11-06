@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/Audio/AudioMixer.h"
 #include "Zamin/Core/UUID.h"
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Renderer/Mesh.h"
@@ -1316,7 +1317,35 @@ namespace Zamin {
         // ambience). Files larger than the project's threshold always stream.
         bool Stream = false;
 
+        // Random variation, picked anew each time it starts: Volume and Pitch are multiplied by a
+        // value between x (min) and y (max), e.g. pitch 0.9..1.1 for footsteps. 1..1 = none.
+        glm::vec2 VolumeRandom{ 1.0f, 1.0f };
+        glm::vec2 PitchRandom{ 1.0f, 1.0f };
+
+        // Voice limits: with the project's maximum of sounds playing (Audio Mixer > Settings) a less
+        // important sound (lower Priority, 0..255) gives its place to this one; among equals the
+        // steal policy decides. MaxInstances: this file at most so many times at once (0 = no limit).
+        int Priority = 128;
+        int MaxInstances = 0;
+        AudioStealPolicy Steal = AudioStealPolicy::Oldest;
+
+        // 3D sound: how strongly its pitch follows the Doppler effect while it (or the listener)
+        // moves - x the project's Doppler factor; 0 = off. Its velocity comes from its movement.
+        float DopplerFactor = 1.0f;
+
+        // Runtime.
         uint32_t RuntimeHandle = 0;
+        glm::vec3 Velocity{ 0.0f };     // units per second (measured while a 3D sound plays)
+        glm::vec3 LastPosition{ 0.0f };
+        bool HasLastPosition = false;
+
+        void ResetRuntime()
+        {
+            RuntimeHandle = 0;
+            Velocity = glm::vec3(0.0f);
+            LastPosition = glm::vec3(0.0f);
+            HasLastPosition = false;
+        }
     };
 
     // Where the 3D sounds are heard from (instead of the primary camera), e.g. the player's head

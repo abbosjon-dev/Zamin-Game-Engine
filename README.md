@@ -435,6 +435,18 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   `Scenes/Audio.zscene` — tinglovchi shar tinch (yashil) va xavfli (qizil) zonalar orasida yuradi, `MusicDirector` skripti
   zonaga qarab musiqani crossfade qiladi (1 / 2 — trek, M — Music mute, P — pauza, S — to'xtatish), ziyoratgoh ovozi
   Ambience guruhida, signal UI guruhida
+- **Ovoz variatsiyasi, ovozlar limiti, Doppler**: Audio Source (va `SoundParams`) har ijroda **tasodifiy balandlik / ton
+  oralig'ini** oladi (masalan ton 0.9–1.1, `AudioEngine::SetRandomSeed` bilan takrorlanuvchi). Loyiha bo'yicha bir vaqtda
+  ijro etiladigan **ovozlar limiti** (standart 64, musiqa hisobga kirmaydi): limit to'lsa yangi ovoz ustuvorligi (0–255)
+  pastrog'ining o'rnini oladi, tenglarda — manbaning qoidasi (eng eskisi / eng past eshitilgani to'xtaydi yoki yangisi ijro
+  etilmaydi); bitta faylning bir vaqtdagi nusxalari soni ham cheklanadi (masalan 20 ta dushman o'kirsa ham 3 tasi).
+  **Doppler**: 3D manbaning tezligi harakatidan o'lchanadi (teleport hisobga olinmaydi), tinglovchinikini Audio Listener
+  beradi; manbaning va loyihaning koeffitsiyenti (Audio Mixer > Sozlamalar), ton silliq o'zgaradi va 0.5–2 oralig'ida qoladi.
+  Inspektorda o'yin davomida **jonli holat**: ijro / pauza / to'xtagan (limit sababli ham), vaqt chizig'i (bosib — o'sha
+  joyga), eshitilish dB (balandlik x tasodifiy x guruh x masofa), hozirgi ton (tasodifiy va Doppler bilan), tezlik;
+  Qayta / Pauza / To'xtatish tugmalari; inspektordagi o'zgarishlar darhol eshitiladi. Namuna: `Scenes/Audio.zscene` —
+  uchuvchi dron (Doppler x2) va shamol qo'ng'iroqchalari (tasodifiy ton, bir vaqtda 3 tasi; H — ziyoratgoh g'uvillashini
+  pauza / davom)
 - **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, 9 ta langar (anchor), `OnClick()`
 - **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash
 - Skriptlardan **sahna almashtirish** (`LoadScene`), prefab'larni `Instantiate` qilish
@@ -610,7 +622,7 @@ Foydali API:
 | Taymerlar | `Invoke(sekund, fn)`, `InvokeRepeating(kechikish, interval, fn)`, `CancelInvokes()`, `IsInvoking()` |
 | Tween | `Tween(davomiylik, [](float t){...}, Ease::OutBack, onComplete)`, `TweenPosition(target, sek, ease, onComplete)`, `TweenScale(...)`, `CancelTweens()`, `ApplyEase(ease, t)` |
 | Havolalar | `EntityRef Target;` maydoni + `Resolve(Target)` → `Entity` |
-| Audio manba | `PlayAudio()` (obyektning `AudioSourceComponent`'ini boshidan chaladi; obyekt nofaol bo'lsa `false`), `StopAudio()`, `IsAudioPlaying()`; `GetScene().PlayAudio(entity)` |
+| Audio manba | `PlayAudio()` (obyektning `AudioSourceComponent`'ini boshidan chaladi; obyekt nofaol bo'lsa yoki ovozlar limiti rad etsa `false`), `StopAudio()`, `PauseAudio()` / `ResumeAudio()`, `IsAudioPlaying()` / `IsAudioPaused()`, `SetAudioVolume(v)`, `SetAudioPitch(p)`, `GetAudioTime()` / `SetAudioTime(s)`, `GetAudioLength()`; boshqa obyektniki — `PauseAudio(entity)` va h.k.; `PlaySound(path, SoundParams)` — tasodifiy oraliq, ustuvorlik, nusxalar limiti, 3D o'rni bilan |
 | Musiqa va mixer | `Audio::PlayMusic("Audio/theme.ogg", 1.0f)`, `Audio::CrossfadeTo("Audio/boss.ogg", 2.0f)`, `Audio::StopMusic(fade)`, `PauseMusic()` / `ResumeMusic()`, `GetMusic()`, `SetMusicVolume(v)`; `Audio::SetGroupVolume("SFX", 0.5f)`, `SetGroupMuted("Music", true)`, `ResetMixer()`; `PlaySound(path, vol, pitch, "UI")` — guruh bilan |
 | Debug chizish | `DebugDraw::Line(a, b, DebugColor::Red)`, `Ray(o, dir)`, `Arrow(a, b)`, `Box(center, half)` / `Box(center, half, quat)` / `Box(worldTransform)`, `Bounds(aabb)`, `Rect(c, size)`, `WireSphere(c, r)`, `Circle(c, normal, r)`, `Cross(p, size)`, `Point(p)`, `Axes(transform)`, `Path(points)`, `NavigationPath(points)`, `Text(p, "matn")` — oxirgi parametrlar: rang, `duration` (soniya, 0 = bir kadr), `depthTest` |
 | Boshqa | `LoadScene("Scenes/Level2.zscene")`, `EmitParticles(n)`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |

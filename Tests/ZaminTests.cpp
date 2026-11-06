@@ -7675,6 +7675,498 @@ TEST(ProjectAudioSettings)
     fs::remove_all(dir);
 }
 
+TEST(AudioRandomVariation)
+{
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-audio-random-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    std::filesystem::path wav = dir / "step.wav";
+    WriteTestWav(wav, 0.5f);
+    AudioEngine::SetMixerSettings(AudioSettings());
+
+    // Every play picks its own factors inside the ranges; the asked volume / pitch stay as asked.
+    SoundParams params;
+    params.Loop = true;
+    params.Volume = 0.8f;
+    params.Pitch = 1.2f;
+    params.VolumeRandom = { 0.5f, 0.75f };
+    params.PitchRandom = { 1.25f, 0.8f }; // either order
+    auto sample = [&](std::vector<std::pair<float, float>>& out) {
+        for (int i = 0; i < 12; i++)
+        {
+            uint32_t h = AudioEngine::Play(wav, params);
+            SoundInfo info;
+            CHECK(h && AudioEngine::GetSoundInfo(h, info));
+            CHECK(info.VolumeVariation >= 0.5f && info.VolumeVariation <= 0.75f);
+            CHECK(info.PitchVariation >= 0.8f && info.PitchVariation <= 1.25f);
+            CHECK_NEAR(info.AppliedPitch, 1.2f * info.PitchVariation, 1e-5f); // 2D: no Doppler
+            CHECK_NEAR(info.AudibleVolume, 0.8f * info.VolumeVariation, 1e-5f);
+            CHECK(AudioEngine::GetVolume(h) == 0.8f && AudioEngine::GetPitch(h) == 1.2f);
+            out.push_back({ info.VolumeVariation, info.PitchVariation });
+            AudioEngine::Stop(h);
+        }
+    };
+    std::vector<std::pair<float, float>> first, second;
+    AudioEngine::SetRandomSeed(42);
+    sample(first);
+    AudioEngine::SetRandomSeed(42);
+    sample(second);
+    CHECK(first == second); // the same seed: the same variation
+    float lo = 10.0f, hi = 0.0f;
+    for (const auto& [volume, pitch] : first)
+    {
+        lo = std::min(lo, pitch);
+        hi = std::max(hi, pitch);
+    }
+    CHECK(hi - lo > 0.15f); // spread over the range
+    AudioEngine::SetRandomSeed(7);
+    second.clear();
+    sample(second);
+    CHECK(first != second);
+    // No range: exactly the asked values.
+    params.VolumeRandom = params.PitchRandom = glm::vec2(1.0f);
+    uint32_t plain = AudioEngine::Play(wav, params);
+    SoundInfo info;
+    CHECK(AudioEngine::GetSoundInfo(plain, info) && info.VolumeVariation == 1.0f && info.PitchVariation == 1.0f);
+    CHECK(!AudioEngine::GetSoundInfo(987654, info));
+    AudioEngine::StopAll();
+
+    // An Audio Source: a new pick every time it (re)starts.
+    auto scene = CreateRef<Scene>();
+    Entity steps = scene->CreateEntity("Steps");
+    auto& a = steps.AddComponent<AudioSourceComponent>();
+    a.Path = wav.string();
+    a.Loop = true;
+    a.PitchRandom = { 0.9f, 1.1f };
+    a.VolumeRandom = { 0.7f, 1.0f };
+    AudioEngine::SetRandomSeed(3);
+    scene->OnRuntimeStart();
+    std::set<float> picks;
+    for (int i = 0; i < 6; i++)
+    {
+        CHECK(scene->PlayAudio(steps));
+        CHECK(scene->GetAudioInfo(steps, info));
+        CHECK(info.PitchVariation >= 0.9f && info.PitchVariation <= 1.1f && info.VolumeVariation >= 0.7f && info.VolumeVariation <= 1.0f);
+        picks.insert(info.PitchVariation);
+    }
+    CHECK(picks.size() >= 4);
+    // The live sync keeps the variation (the component's Volume / Pitch are the asked values).
+    float variation = info.PitchVariation;
+    a.Pitch = 2.0f;
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(scene->GetAudioInfo(steps, info) && info.PitchVariation == variation && std::abs(info.AppliedPitch - 2.0f * variation) < 1e-5f);
+    scene->OnRuntimeStop();
+
+    // Saved only when set; older files: no variation.
+    std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("PitchRandom") != std::string::npos && text.find("VolumeRandom") != std::string::npos);
+    Ref<Scene> loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& read = loaded->FindEntityByName("Steps").GetComponent<AudioSourceComponent>();
+    CHECK(read.PitchRandom == glm::vec2(0.9f, 1.1f) && read.VolumeRandom == glm::vec2(0.7f, 1.0f));
+    a.PitchRandom = a.VolumeRandom = glm::vec2(1.0f);
+    CHECK(SceneSerializer(scene).SerializeToString().find("PitchRandom") == std::string::npos);
+    Ref<Scene> odd = CreateRef<Scene>();
+    CHECK(SceneSerializer(odd).DeserializeFromString(
+        R"({"Scene":"Odd","Entities":[{"Entity":1,"Tag":"S","AudioSource":{"Path":"a.wav","PitchRandom":[1.3,0.7],"VolumeRandom":[-1,0.5]}}]})"));
+    const auto& oddSource = odd->FindEntityByName("S").GetComponent<AudioSourceComponent>();
+    CHECK(oddSource.PitchRandom == glm::vec2(0.7f, 1.3f) && oddSource.VolumeRandom == glm::vec2(0.0f, 0.5f));
+
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
+TEST(AudioVoiceLimit)
+{
+    // The project setting (saved only when it differs, sanitized).
+    AudioSettings settings;
+    CHECK(settings.MaxVoices == 64 && settings.DopplerFactor == 1.0f && settings.IsDefault());
+    settings.MaxVoices = 12;
+    settings.DopplerFactor = 0.5f;
+    CHECK(!settings.IsDefault());
+    AudioSettings read;
+    CHECK(AudioSettings::FromJson(settings.ToJson(), read) && read.MaxVoices == 12 && read.DopplerFactor == 0.5f && read.EqualsIgnoringSolo(settings));
+    CHECK(AudioSettings::FromJson(R"({"MaxVoices":-5,"DopplerFactor":99})", read) && read.MaxVoices == 1 && read.DopplerFactor == AudioSettings::MaxDopplerFactor);
+
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-audio-voices-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    std::filesystem::path wav = dir / "hit.wav", other = dir / "other.wav";
+    WriteTestWav(wav, 0.5f);
+    WriteTestWav(other, 0.5f);
+    AudioEngine::StopAll();
+
+    AudioSettings mixer;
+    mixer.MaxVoices = 3;
+    AudioEngine::SetMixerSettings(mixer);
+    SoundParams loop;
+    loop.Loop = true;
+    const AudioVoiceStats start = AudioEngine::GetVoiceStats();
+    uint32_t h1 = AudioEngine::Play(wav, loop), h2 = AudioEngine::Play(wav, loop), h3 = AudioEngine::Play(other, loop);
+    CHECK(h1 && h2 && h3 && AudioEngine::GetVoiceStats().Voices == 3 && AudioEngine::GetVoiceStats().MaxVoices == 3);
+    // Full: the oldest of equal priority makes room.
+    uint32_t h4 = AudioEngine::Play(other, loop);
+    CHECK(h4 && !AudioEngine::IsPlaying(h1) && AudioEngine::WasStolen(h1) && !AudioEngine::WasStolen(h2));
+    CHECK(AudioEngine::GetVoiceStats().Voices == 3 && AudioEngine::GetVoiceStats().Stolen == start.Stolen + 1);
+    // "None": nothing of equal priority stops - the new sound is not played.
+    SoundParams polite = loop;
+    polite.Steal = AudioStealPolicy::None;
+    CHECK(AudioEngine::Play(wav, polite) == 0 && AudioEngine::GetVoiceStats().Rejected == start.Rejected + 1);
+    // Less important sounds never take a place of more important ones.
+    SoundParams minor = loop;
+    minor.Priority = 10;
+    CHECK(AudioEngine::Play(wav, minor) == 0);
+    // A more important one takes the place of the least important (even with "None").
+    polite.Priority = 200;
+    uint32_t vip = AudioEngine::Play(wav, polite);
+    CHECK(vip && AudioEngine::WasStolen(h2) && AudioEngine::IsPlaying(h3) && AudioEngine::IsPlaying(h4));
+    // Quietest: what is heard the least (volume x group x distance) goes.
+    AudioEngine::SetVolume(h4, 0.05f);
+    SoundParams quiet = loop;
+    quiet.Steal = AudioStealPolicy::Quietest;
+    uint32_t h5 = AudioEngine::Play(wav, quiet);
+    CHECK(h5 && AudioEngine::WasStolen(h4) && AudioEngine::IsPlaying(h3) && AudioEngine::IsPlaying(vip));
+    // ... a paused sound counts as silent.
+    AudioEngine::Pause(h3);
+    uint32_t h6 = AudioEngine::Play(wav, quiet);
+    CHECK(h6 && AudioEngine::WasStolen(h3) && AudioEngine::IsPlaying(h5));
+    // The music and the previews past the mixer do not count.
+    CHECK(AudioEngine::PlayMusic(other, 0.0f) && AudioEngine::IsMusicPlaying());
+    SoundParams preview;
+    preview.Group = "";
+    uint32_t pre = AudioEngine::Play(wav, preview);
+    CHECK(pre && AudioEngine::GetVoiceStats().Voices == 3 && AudioEngine::IsPlaying(vip) && AudioEngine::IsPlaying(h5));
+    AudioEngine::StopAll();
+
+    // A clip's own limit: the same file at most N times, other files are not touched.
+    AudioEngine::SetMixerSettings(AudioSettings());
+    SoundParams clip = loop;
+    clip.MaxInstances = 2;
+    uint32_t a = AudioEngine::Play(wav, clip), b = AudioEngine::Play(wav, clip), o = AudioEngine::Play(other, clip);
+    uint32_t c = AudioEngine::Play(wav, clip);
+    CHECK(a && b && c && o && AudioEngine::WasStolen(a) && AudioEngine::IsPlaying(b) && AudioEngine::IsPlaying(o));
+    AudioEngine::SetVolume(c, 0.1f);
+    clip.Steal = AudioStealPolicy::Quietest;
+    uint32_t d = AudioEngine::Play(wav, clip);
+    CHECK(d && AudioEngine::WasStolen(c) && AudioEngine::IsPlaying(b));
+    clip.Steal = AudioStealPolicy::None;
+    CHECK(AudioEngine::Play(wav, clip) == 0 && AudioEngine::IsPlaying(b) && AudioEngine::IsPlaying(d));
+    // The limit lowered below what plays: enough sounds go at the next start.
+    AudioEngine::Play(other, loop);
+    AudioEngine::Play(other, loop);
+    CHECK(AudioEngine::GetVoiceStats().Voices == 5);
+    AudioSettings tight;
+    tight.MaxVoices = 2;
+    AudioEngine::SetMixerSettings(tight);
+    CHECK(AudioEngine::Play(other, loop) && AudioEngine::GetVoiceStats().Voices == 2);
+    AudioEngine::StopAll();
+
+    // Audio Sources: Priority / MaxInstances / Steal from the component (and through the scene file).
+    AudioEngine::SetMixerSettings(AudioSettings());
+    auto scene = CreateRef<Scene>();
+    auto growl = [&](const std::string& name) {
+        Entity e = scene->CreateEntity(name);
+        auto& s = e.AddComponent<AudioSourceComponent>();
+        s.Path = wav.string();
+        s.Loop = true;
+        s.PlayOnStart = false;
+        s.MaxInstances = 1;
+        s.Priority = 90;
+        s.Steal = AudioStealPolicy::Quietest;
+        return e;
+    };
+    Entity wolf = growl("Wolf"), bear = growl("Bear");
+    scene->OnRuntimeStart();
+    CHECK(scene->PlayAudio(wolf) && scene->IsAudioPlaying(wolf));
+    uint32_t wolfHandle = wolf.GetComponent<AudioSourceComponent>().RuntimeHandle;
+    CHECK(scene->PlayAudio(bear) && scene->IsAudioPlaying(bear) && !scene->IsAudioPlaying(wolf) && AudioEngine::WasStolen(wolfHandle));
+    SoundInfo info;
+    CHECK(scene->GetAudioInfo(bear, info) && info.Priority == 90);
+    bear.GetComponent<AudioSourceComponent>().Steal = AudioStealPolicy::None;
+    wolf.GetComponent<AudioSourceComponent>().Steal = AudioStealPolicy::None;
+    CHECK(!scene->PlayAudio(wolf) && wolf.GetComponent<AudioSourceComponent>().RuntimeHandle == 0 && scene->IsAudioPlaying(bear));
+    scene->OnRuntimeStop();
+    std::string text = SceneSerializer(scene).SerializeToString();
+    Ref<Scene> loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& back = loaded->FindEntityByName("Bear").GetComponent<AudioSourceComponent>();
+    CHECK(back.MaxInstances == 1 && back.Priority == 90 && back.Steal == AudioStealPolicy::None);
+    Ref<Scene> old = CreateRef<Scene>();
+    CHECK(SceneSerializer(old).DeserializeFromString(R"({"Scene":"Old","Entities":[{"Entity":1,"Tag":"S","AudioSource":{"Path":"a.wav","Steal":3}}]})"));
+    const auto& oldSource = old->FindEntityByName("S").GetComponent<AudioSourceComponent>();
+    CHECK(oldSource.MaxInstances == 0 && oldSource.Priority == 128 && oldSource.Steal == AudioStealPolicy::Oldest && oldSource.DopplerFactor == 1.0f);
+
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
+static int g_AudioControlStep = 0;
+
+class AudioControlProbe : public ScriptableEntity
+{
+public:
+    Entity Other;
+    bool Played = false, Paused = false, Resumed = false, OtherPaused = false;
+    float Length = 0.0f;
+
+    void OnUpdate(Timestep) override
+    {
+        switch (g_AudioControlStep)
+        {
+            case 1:
+                Played = PlayAudio();
+                Length = GetAudioLength();
+                break;
+            case 2:
+                Paused = PauseAudio() && IsAudioPaused() && !IsAudioPlaying();
+                break;
+            case 3:
+                Resumed = ResumeAudio() && IsAudioPlaying() && !IsAudioPaused();
+                SetAudioVolume(0.4f);
+                SetAudioPitch(1.5f);
+                SetAudioTime(0.25f);
+                break;
+            case 4:
+                OtherPaused = PlayAudio(Other) && PauseAudio(Other) && IsAudioPaused(Other) && SetAudioTime(Other, 0.1f);
+                break;
+            default:
+                break;
+        }
+        g_AudioControlStep = 0;
+    }
+};
+ZM_REGISTER_SCRIPT(AudioControlProbe)
+
+TEST(AudioSourceScriptControl)
+{
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-audio-control-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    std::filesystem::path wav = dir / "tone.wav";
+    WriteTestWav(wav, 1.0f);
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+
+    auto scene = CreateRef<Scene>();
+    Entity radio = scene->CreateEntity("Radio");
+    auto& a = radio.AddComponent<AudioSourceComponent>();
+    a.Path = wav.string();
+    a.PlayOnStart = false; // not looping: it ends by itself
+    radio.AddComponent<NativeScriptComponent>().ClassName = "AudioControlProbe";
+    Entity bell = scene->CreateEntity("Bell");
+    auto& b = bell.AddComponent<AudioSourceComponent>();
+    b.Path = wav.string();
+    b.Loop = true;
+    b.PlayOnStart = false;
+
+    // Nothing plays: every control is refused quietly.
+    CHECK(!scene->PauseAudio(radio) && !scene->ResumeAudio(radio) && !scene->SetAudioTime(radio, 0.5f));
+    CHECK(scene->GetAudioTime(radio) == 0.0f && scene->GetAudioLength(radio) == 0.0f && !scene->IsAudioPaused(radio));
+
+    scene->OnRuntimeStart();
+    auto* probe = dynamic_cast<AudioControlProbe*>(radio.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(probe != nullptr);
+    if (!probe)
+        return;
+    probe->Other = bell;
+    g_AudioControlStep = 1;
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(probe->Played && scene->IsAudioPlaying(radio));
+    CHECK_NEAR(probe->Length, 1.0f, 0.01f);
+    AudioEngine::RenderOffline(0.3f);
+    CHECK_NEAR(scene->GetAudioTime(radio), 0.3f, 0.03f);
+
+    // Paused: it stays where it is (also through the engine's update: not released as finished).
+    g_AudioControlStep = 2;
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(probe->Paused && scene->IsAudioPaused(radio));
+    float pausedAt = scene->GetAudioTime(radio);
+    AudioEngine::RenderOffline(0.3f);
+    AudioEngine::Update(0.3f);
+    CHECK(scene->IsAudioPaused(radio) && std::abs(scene->GetAudioTime(radio) - pausedAt) < 1e-4f);
+    SoundInfo info;
+    CHECK(scene->GetAudioInfo(radio, info) && info.Paused && !info.Playing);
+
+    // Resumed from there; volume, pitch and the time from the script.
+    g_AudioControlStep = 3;
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(probe->Resumed && scene->IsAudioPlaying(radio));
+    CHECK(a.Volume == 0.4f && a.Pitch == 1.5f && probe->GetAudioVolume() == 0.4f && probe->GetAudioPitch() == 1.5f);
+    CHECK(AudioEngine::GetVolume(a.RuntimeHandle) == 0.4f && AudioEngine::GetPitch(a.RuntimeHandle) == 1.5f);
+    CHECK_NEAR(scene->GetAudioTime(radio), 0.25f, 0.01f);
+    AudioEngine::RenderOffline(0.2f); // at pitch 1.5: 0.3 s of the sound
+    CHECK_NEAR(scene->GetAudioTime(radio), 0.55f, 0.04f);
+    // The inspector edits the component during play: the sound follows the next frame.
+    a.Volume = 0.9f;
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(AudioEngine::GetVolume(a.RuntimeHandle) == 0.9f);
+
+    // Another entity's source.
+    g_AudioControlStep = 4;
+    scene->OnUpdateRuntime(0.016f);
+    CHECK(probe->OtherPaused && scene->IsAudioPaused(bell) && !scene->IsAudioPlaying(bell));
+    CHECK_NEAR(scene->GetAudioTime(bell), 0.1f, 0.01f);
+
+    // Switched off while paused: the sound goes, nothing resumes it.
+    bell.SetActive(false);
+    CHECK(b.RuntimeHandle == 0 && !scene->ResumeAudio(bell) && !scene->IsAudioPaused(bell));
+    bell.SetActive(true);
+
+    // Not looping: it ends by itself, then there is nothing to control.
+    AudioEngine::RenderOffline(0.6f);
+    AudioEngine::Update(0.016f);
+    CHECK(!scene->IsAudioPlaying(radio) && !scene->GetAudioInfo(radio, info) && scene->GetAudioTime(radio) == 0.0f);
+    CHECK(!scene->PauseAudio(radio));
+
+    // The music has its own pause.
+    CHECK(AudioEngine::PlayMusic(wav, 0.0f) && !AudioEngine::Pause(AudioEngine::GetMusicHandle()));
+    scene->OnRuntimeStop();
+    AudioEngine::StopAll();
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
+TEST(AudioDoppler)
+{
+    const float c = AudioEngine::SpeedOfSound, v = c * 0.1f;
+    const glm::vec3 listener(10.0f, 0.0f, 0.0f), still(0.0f);
+    // A source coming closer sounds higher, one moving away lower; a listener moving the same.
+    CHECK_NEAR(AudioEngine::ComputeDopplerPitch(glm::vec3(0.0f), { v, 0, 0 }, listener, still, 1.0f), 1.0f / 0.9f, 1e-4f);
+    CHECK_NEAR(AudioEngine::ComputeDopplerPitch(glm::vec3(0.0f), { -v, 0, 0 }, listener, still, 1.0f), 1.0f / 1.1f, 1e-4f);
+    CHECK_NEAR(AudioEngine::ComputeDopplerPitch(glm::vec3(0.0f), still, listener, { -v, 0, 0 }, 1.0f), 1.1f, 1e-4f);
+    CHECK_NEAR(AudioEngine::ComputeDopplerPitch(glm::vec3(0.0f), { v, 0, 0 }, listener, { v, 0, 0 }, 1.0f), 1.0f, 1e-5f); // together
+    CHECK_NEAR(AudioEngine::ComputeDopplerPitch(glm::vec3(0.0f), { v, 0, 0 }, listener, still, 2.0f), 1.0f / 0.8f, 1e-4f);
+    CHECK(AudioEngine::ComputeDopplerPitch(glm::vec3(0.0f), { v, 0, 0 }, listener, still, 0.0f) == 1.0f);
+    CHECK_NEAR(AudioEngine::ComputeDopplerPitch(glm::vec3(0.0f), { 0, v, 0 }, listener, still, 1.0f), 1.0f, 1e-5f); // sideways
+    CHECK(AudioEngine::ComputeDopplerPitch(listener, { v, 0, 0 }, listener, still, 1.0f) == 1.0f);                   // on top
+    CHECK(AudioEngine::ComputeDopplerPitch(glm::vec3(0.0f), { 1e6f, 0, 0 }, listener, still, 1.0f) == 2.0f);          // capped
+    CHECK(AudioEngine::ComputeDopplerPitch(glm::vec3(0.0f), { -1e6f, 0, 0 }, listener, { 1e6f, 0, 0 }, 1.0f) >= 0.5f);
+    CHECK(AudioEngine::ComputeDopplerPitch(glm::vec3(0.0f), { NAN, 0, 0 }, listener, still, 1.0f) == 1.0f);
+
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-audio-doppler-" + std::to_string((uint64_t)UUID()));
+    std::filesystem::create_directories(dir);
+    std::filesystem::path wav = dir / "engine.wav";
+    WriteTestWav(wav, 1.0f);
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+
+    // The engine: a moving 3D sound starts with its Doppler pitch, follows its velocity smoothly.
+    AudioEngine::SetListener(listener, { 0, 0, -1 }, { 0, 1, 0 });
+    AudioEngine::SetListenerVelocity(still);
+    SoundParams params;
+    params.Loop = true;
+    params.Spatial = true;
+    params.Pitch = 1.5f;
+    params.Velocity = { v, 0.0f, 0.0f };
+    params.MaxDistance = 100.0f;
+    uint32_t car = AudioEngine::Play(wav, params);
+    SoundInfo info;
+    CHECK(car && AudioEngine::GetSoundInfo(car, info) && info.Spatial);
+    CHECK_NEAR(info.DopplerPitch, 1.0f / 0.9f, 1e-4f);
+    CHECK_NEAR(info.AppliedPitch, 1.5f / 0.9f, 1e-4f);
+    CHECK_NEAR(info.Distance, 10.0f, 1e-4f);
+    CHECK(info.Attenuation < 1.0f && info.Attenuation > 0.0f);
+    AudioEngine::SetSoundVelocity(car, still);
+    AudioEngine::Update(0.0f); // no time: no change
+    CHECK(AudioEngine::GetSoundInfo(car, info) && std::abs(info.DopplerPitch - 1.0f / 0.9f) < 1e-4f);
+    AudioEngine::Update(0.05f); // part of the way
+    CHECK(AudioEngine::GetSoundInfo(car, info) && info.DopplerPitch < 1.0f / 0.9f && info.DopplerPitch > 1.0f);
+    AudioEngine::Update(1.0f);
+    CHECK(AudioEngine::GetSoundInfo(car, info) && info.DopplerPitch == 1.0f);
+    // The project's factor scales every sound's own; 0 turns it off.
+    AudioEngine::SetSoundVelocity(car, { -v, 0.0f, 0.0f });
+    AudioEngine::Update(1.0f);
+    CHECK(AudioEngine::GetSoundInfo(car, info) && std::abs(info.DopplerPitch - 1.0f / 1.1f) < 1e-3f);
+    AudioSettings off;
+    off.DopplerFactor = 0.0f;
+    AudioEngine::SetMixerSettings(off);
+    AudioEngine::Update(1.0f);
+    CHECK(AudioEngine::GetSoundInfo(car, info) && info.DopplerPitch == 1.0f);
+    AudioEngine::SetMixerSettings(AudioSettings());
+    AudioEngine::SetSoundDopplerFactor(car, 0.0f);
+    AudioEngine::Update(1.0f);
+    CHECK(AudioEngine::GetSoundInfo(car, info) && info.DopplerPitch == 1.0f && info.DopplerFactor == 0.0f);
+    AudioEngine::StopAll();
+
+    // A scene: the source's velocity is measured from its movement (teleports do not count).
+    auto scene = CreateRef<Scene>();
+    Entity ear = scene->CreateEntity("Ear");
+    ear.AddComponent<AudioListenerComponent>();
+    ear.GetTransform().Translation = listener;
+    Entity drone = scene->CreateEntity("Drone");
+    auto& a = drone.AddComponent<AudioSourceComponent>();
+    a.Path = wav.string();
+    a.Loop = true;
+    a.Spatial = true;
+    a.MaxDistance = 100.0f;
+    Entity radio = scene->CreateEntity("Radio"); // 2D: no velocity, no Doppler
+    auto& r = radio.AddComponent<AudioSourceComponent>();
+    r.Path = wav.string();
+    r.Loop = true;
+    scene->OnRuntimeStart();
+    for (int i = 0; i < 4; i++)
+    {
+        drone.GetTransform().Translation.x += 1.0f; // 10 m/s towards the listener
+        radio.GetTransform().Translation.x += 1.0f;
+        scene->OnUpdateRuntime(0.1f);
+        AudioEngine::Update(1.0f);
+    }
+    CHECK(glm::length(a.Velocity - glm::vec3(10.0f, 0.0f, 0.0f)) < 1e-3f && r.Velocity == glm::vec3(0.0f));
+    CHECK(scene->GetAudioInfo(drone, info) && glm::length(info.Velocity - a.Velocity) < 1e-4f);
+    CHECK_NEAR(info.DopplerPitch, c / (c - 10.0f), 1e-4f);
+    CHECK(scene->GetAudioInfo(radio, info) && info.DopplerPitch == 1.0f && !info.Spatial);
+    drone.GetTransform().Translation.x -= 200.0f; // a teleport
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(a.Velocity == glm::vec3(0.0f));
+    // The component's factor follows live (inspector); restarting keeps the measured velocity.
+    drone.GetTransform().Translation.x += 1.0f;
+    scene->OnUpdateRuntime(0.1f);
+    CHECK(scene->PlayAudio(drone) && scene->GetAudioInfo(drone, info) && std::abs(info.DopplerPitch - c / (c - 10.0f)) < 1e-4f);
+    a.DopplerFactor = 0.0f;
+    drone.GetTransform().Translation.x += 1.0f; // still moving: only the factor silences it
+    scene->OnUpdateRuntime(0.1f);
+    AudioEngine::Update(1.0f);
+    CHECK(glm::length(a.Velocity) > 9.0f && scene->GetAudioInfo(drone, info) && info.DopplerPitch == 1.0f && info.DopplerFactor == 0.0f);
+    // Runtime data does not travel into a copy, nor into the next run.
+    Ref<Scene> copy = Scene::Copy(scene);
+    const auto& copied = copy->FindEntityByName("Drone").GetComponent<AudioSourceComponent>();
+    CHECK(copied.Velocity == glm::vec3(0.0f) && !copied.HasLastPosition && copied.RuntimeHandle == 0 && copied.DopplerFactor == 0.0f);
+    scene->OnRuntimeStop();
+    CHECK(a.Velocity == glm::vec3(0.0f) && !a.HasLastPosition && a.RuntimeHandle == 0);
+
+    // Saved only when not 1.
+    a.DopplerFactor = 2.5f;
+    std::string text = SceneSerializer(scene).SerializeToString();
+    Ref<Scene> loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->FindEntityByName("Drone").GetComponent<AudioSourceComponent>().DopplerFactor == 2.5f);
+    CHECK(loaded->FindEntityByName("Radio").GetComponent<AudioSourceComponent>().DopplerFactor == 1.0f);
+
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::filesystem::remove_all(dir);
+}
+
 TEST(InactiveAnimatorsPause)
 {
     auto scene = CreateRef<Scene>();
@@ -20278,7 +20770,17 @@ TEST(AudioSampleScene)
     CHECK(hum.Output == "Ambience" && hum.Spatial && hum.Loop && hum.Path == "Audio/ShrineHum.wav");
     const auto& script = director.GetComponent<NativeScriptComponent>();
     CHECK(script.ClassName == "MusicDirector");
-    for (const char* file : { "Audio/MusicCalm.wav", "Audio/MusicTense.wav", "Audio/UiPing.wav" })
+    // The Doppler fly-by and the wind chimes (random pitch, instance limit, pausing the hum).
+    Entity drone = scene->FindEntityByName("Uchuvchi dron"), chimes = scene->FindEntityByName("Shamol qo'ng'iroqchalari");
+    CHECK(drone && chimes);
+    if (!(drone && chimes))
+        return;
+    const auto& buzz = drone.GetComponent<AudioSourceComponent>();
+    CHECK(buzz.Spatial && buzz.Loop && buzz.DopplerFactor == 2.0f && buzz.Priority == 160 && buzz.Path == "Audio/DroneBuzz.wav");
+    CHECK(drone.GetComponent<NativeScriptComponent>().ClassName == "DopplerFlyby");
+    CHECK(chimes.GetComponent<NativeScriptComponent>().ClassName == "ChimeRinger");
+    CHECK(chimes.GetComponent<NativeScriptComponent>().Fields.at("Hum").Get<EntityRef>().ID == (uint64_t)shrine.GetUUID());
+    for (const char* file : { "Audio/MusicCalm.wav", "Audio/MusicTense.wav", "Audio/UiPing.wav", "Audio/DroneBuzz.wav", "Audio/Chime.wav" })
     {
         CHECK(fs::exists(root / "Assets" / file));
         CHECK(fs::exists(root / "Assets" / (std::string(file) + ".zmeta")));
@@ -20297,6 +20799,18 @@ TEST(AudioSampleScene)
         CHECK(Audio::CrossfadeTo("Audio/MusicTense.wav", 2.0f) && AudioEngine::GetMusicVoiceCount() == 2);
         AudioEngine::Update(2.0f);
         CHECK(Audio::GetMusic() == "Audio/MusicTense.wav" && AudioEngine::GetMusicVoiceCount() == 1);
+        // The drone flies (the scripts are not loaded here: it is moved by hand) - its pitch follows.
+        CHECK(AudioEngine::IsPlaying(buzz.RuntimeHandle));
+        for (int i = 0; i < 3; i++)
+        {
+            drone.GetTransform().Translation.z += 1.2f; // 12 m/s towards the listener's path
+            scene->OnUpdateRuntime(0.1f);
+            AudioEngine::Update(1.0f);
+        }
+        SoundInfo info;
+        CHECK(scene->GetAudioInfo(drone, info) && info.DopplerPitch > 1.0f && glm::length(info.Velocity) > 11.0f);
+        // The hum pauses and goes on from where it was.
+        CHECK(scene->PauseAudio(shrine) && scene->IsAudioPaused(shrine) && scene->ResumeAudio(shrine) && scene->IsAudioPlaying(shrine));
         scene->OnRuntimeStop();
         CHECK(Audio::IsMusicPlaying()); // music goes on into the next scene
         AudioEngine::StopAll();

@@ -9,7 +9,9 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -77,6 +79,14 @@ namespace Zamin {
             bool Streamed = false;
             bool Music = false;
             bool Paused = false; // stopped where it is: not released as finished
+            bool Spatial = false;
+            bool Counted = false; // takes a place of the voice limit (not the music, not a preview past the mixer)
+            int Priority = 128;
+            // What miniaudio gets: Volume x VolumeVariation, Pitch x PitchVariation x DopplerPitch.
+            float Volume = 1.0f, VolumeVariation = 1.0f;
+            float Pitch = 1.0f, PitchVariation = 1.0f;
+            float DopplerFactor = 1.0f, DopplerPitch = 1.0f;
+            glm::vec3 Velocity{ 0.0f };
         };
 
         // A music track and its fade. Position runs 0..1 along the fade, the track is heard at
@@ -109,6 +119,34 @@ namespace Zamin {
         std::vector<std::unique_ptr<MixerGroup>> s_Groups;
         std::unordered_set<std::string> s_WarnedGroups;
         MusicState s_Music;
+        uint32_t s_RandomState = 0x9E3779B9u;
+        uint64_t s_StolenCount = 0, s_RejectedCount = 0;
+        std::unordered_set<uint32_t> s_StolenHandles;
+        bool s_WarnedVoiceLimit = false;
+
+        bool IsFinite(const glm::vec3& v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); }
+
+        // ---- random variation (xorshift32: the same seed gives the same sequence)
+        float RandomFloat01()
+        {
+            uint32_t& x = s_RandomState;
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            return (float)(x >> 8) * (1.0f / 16777216.0f);
+        }
+
+        // A value in [min, max] of the range (either order; 1 for broken values). `floor` keeps it above 0.
+        float RandomInRange(const glm::vec2& range, float floor)
+        {
+            float lo = std::isfinite(range.x) ? std::max(floor, range.x) : 1.0f;
+            float hi = std::isfinite(range.y) ? std::max(floor, range.y) : 1.0f;
+            if (lo > hi)
+                std::swap(lo, hi);
+            if (hi - lo <= 1e-6f)
+                return lo; // no variation: the sequence is not used
+            return lo + (hi - lo) * RandomFloat01();
+        }
 
         MixerGroup* FindGroup(std::string_view name)
         {
@@ -218,6 +256,59 @@ namespace Zamin {
             ApplyGains();
         }
 
+        void ApplyVolume(Voice& voice)
+        {
+            ma_sound_set_volume(voice.Sound.get(), std::max(0.0f, voice.Volume * voice.VolumeVariation));
+        }
+
+        void ApplyPitch(Voice& voice)
+        {
+            ma_sound_set_pitch(voice.Sound.get(), std::max(0.01f, voice.Pitch * voice.PitchVariation * voice.DopplerPitch));
+        }
+
+        glm::vec3 SoundPosition(const Voice& voice)
+        {
+            ma_vec3f p = ma_sound_get_position(voice.Sound.get());
+            return { p.x, p.y, p.z };
+        }
+
+        glm::vec3 ListenerPosition()
+        {
+            ma_vec3f p = ma_engine_listener_get_position(s_Engine, 0);
+            return { p.x, p.y, p.z };
+        }
+
+        // How much the distance from the listener lowers a 3D sound (miniaudio's inverse model).
+        float Attenuation(const Voice& voice, float* distanceOut = nullptr)
+        {
+            if (distanceOut)
+                *distanceOut = 0.0f;
+            if (!voice.Spatial)
+                return 1.0f;
+            const ma_sound* sound = voice.Sound.get();
+            float distance = glm::length(SoundPosition(voice) - ListenerPosition());
+            if (distanceOut)
+                *distanceOut = distance;
+            float minDistance = ma_sound_get_min_distance(sound), maxDistance = ma_sound_get_max_distance(sound);
+            float gain = 1.0f;
+            if (minDistance < maxDistance)
+                gain = minDistance / (minDistance + ma_sound_get_rolloff(sound) * (std::clamp(distance, minDistance, maxDistance) - minDistance));
+            return std::clamp(gain, ma_sound_get_min_gain(sound), ma_sound_get_max_gain(sound));
+        }
+
+        float GroupGain(const Voice& voice)
+        {
+            return voice.Group.empty() ? 1.0f : s_Mixer.GetEffectiveGain(voice.Group);
+        }
+
+        // What is heard of the sound now (0 while paused).
+        float AudibleVolume(const Voice& voice)
+        {
+            if (voice.Paused)
+                return 0.0f;
+            return std::max(0.0f, voice.Volume * voice.VolumeVariation) * GroupGain(voice) * Attenuation(voice);
+        }
+
         void Release(uint32_t handle)
         {
             if (auto it = s_Voices.find(handle); it != s_Voices.end())
@@ -235,6 +326,113 @@ namespace Zamin {
                     finished.push_back(handle);
             for (uint32_t handle : finished)
                 Release(handle);
+        }
+
+        // ---- voice limit
+        // The sound to stop among `candidates`: the least important first; among equals the steal
+        // policy decides (None: the oldest - only less important ones are candidates then).
+        uint32_t PickVictim(const std::vector<uint32_t>& candidates, AudioStealPolicy policy)
+        {
+            uint32_t best = 0;
+            int bestPriority = 0;
+            float bestVolume = 0.0f;
+            for (uint32_t handle : candidates)
+            {
+                const Voice& v = s_Voices.at(handle);
+                float volume = policy == AudioStealPolicy::Quietest ? AudibleVolume(v) : 0.0f;
+                bool better = !best || v.Priority < bestPriority;
+                if (!better && v.Priority == bestPriority)
+                {
+                    if (policy == AudioStealPolicy::Quietest && std::abs(volume - bestVolume) > 1e-6f)
+                        better = volume < bestVolume;
+                    else
+                        better = handle < best; // handles grow: the smaller one started first
+                }
+                if (better)
+                {
+                    best = handle;
+                    bestPriority = v.Priority;
+                    bestVolume = volume;
+                }
+            }
+            return best;
+        }
+
+        // The sounds that stop to make room for a new one (empty: there is room). False: no room,
+        // the new sound is not played.
+        bool MakeRoom(const std::string& file, const SoundParams& params, int priority, bool counted, std::vector<uint32_t>& victims)
+        {
+            auto mayStop = [&](const Voice& v) {
+                return v.Priority < priority || (v.Priority == priority && params.Steal != AudioStealPolicy::None);
+            };
+            // The clip's own limit: one of its instances makes room (the total stays the same).
+            if (params.MaxInstances > 0)
+            {
+                std::vector<uint32_t> same, candidates;
+                for (const auto& [handle, v] : s_Voices)
+                    if (v.Counted && v.File == file)
+                    {
+                        same.push_back(handle);
+                        if (mayStop(v))
+                            candidates.push_back(handle);
+                    }
+                if ((int)same.size() >= params.MaxInstances)
+                {
+                    // More than the limit (it was lowered): enough of them go.
+                    size_t needed = same.size() - (size_t)params.MaxInstances + 1;
+                    while (victims.size() < needed)
+                    {
+                        uint32_t victim = PickVictim(candidates, params.Steal);
+                        if (!victim)
+                            return false;
+                        victims.push_back(victim);
+                        std::erase(candidates, victim);
+                    }
+                    return true;
+                }
+            }
+            if (!counted)
+                return true;
+            std::vector<uint32_t> candidates;
+            size_t count = 0;
+            for (const auto& [handle, v] : s_Voices)
+                if (v.Counted)
+                {
+                    count++;
+                    if (mayStop(v))
+                        candidates.push_back(handle);
+                }
+            if ((int)count < s_Mixer.MaxVoices)
+                return true;
+            size_t needed = count - (size_t)s_Mixer.MaxVoices + 1;
+            while (victims.size() < needed)
+            {
+                uint32_t victim = PickVictim(candidates, params.Steal);
+                if (!victim)
+                {
+                    if (!s_WarnedVoiceLimit)
+                    {
+                        s_WarnedVoiceLimit = true;
+                        ZM_CORE_WARN("Ovozlar limiti ({}) to'ldi: yangi ovozlar ijro etilmayapti (Audio Mixer > Sozlamalar)", s_Mixer.MaxVoices);
+                    }
+                    victims.clear();
+                    return false;
+                }
+                victims.push_back(victim);
+                std::erase(candidates, victim);
+            }
+            return true;
+        }
+
+        void Steal(uint32_t handle)
+        {
+            if (s_StolenHandles.size() > 4096)
+                s_StolenHandles.clear(); // only the recent ones matter (the inspector asks about live sources)
+            s_StolenHandles.insert(handle);
+            s_StolenCount++;
+            if (auto it = s_Voices.find(handle); it != s_Voices.end())
+                ma_sound_stop(it->second.Sound.get());
+            Release(handle);
         }
 
         // miniaudio's resource manager (0.11.21; 0.11.22 too) reads the data buffer node it has just
@@ -296,6 +494,14 @@ namespace Zamin {
             }
             const std::string file = path.string();
             const bool stream = music || AudioEngine::ShouldStream(path, params.Stream);
+            const bool counted = !music && !group.empty();
+            const int priority = std::clamp(params.Priority, 0, 255);
+            std::vector<uint32_t> victims;
+            if (!music && !MakeRoom(file, params, priority, counted, victims))
+            {
+                s_RejectedCount++;
+                return 0;
+            }
             Voice voice;
             voice.Sound = std::make_unique<ma_sound>();
             ma_result result = CheckDecodable(file);
@@ -311,10 +517,21 @@ namespace Zamin {
                 return 0;
             }
             AssetImportLog::Clear(path);
+            for (uint32_t victim : victims)
+                Steal(victim);
             ma_sound* sound = voice.Sound.get();
-            ma_sound_set_volume(sound, std::max(0.0f, params.Volume));
-            ma_sound_set_pitch(sound, std::max(0.01f, params.Pitch));
+            voice.Volume = std::isfinite(params.Volume) ? std::max(0.0f, params.Volume) : 1.0f;
+            voice.Pitch = std::isfinite(params.Pitch) ? std::max(0.01f, params.Pitch) : 1.0f;
+            voice.VolumeVariation = RandomInRange(params.VolumeRandom, 0.0f);
+            voice.PitchVariation = RandomInRange(params.PitchRandom, 0.01f);
+            voice.Priority = priority;
+            voice.Counted = counted;
+            voice.Spatial = params.Spatial;
+            voice.DopplerFactor = std::isfinite(params.DopplerFactor) ? std::clamp(params.DopplerFactor, 0.0f, AudioSettings::MaxDopplerFactor) : 1.0f;
+            voice.Velocity = params.Velocity;
             ma_sound_set_looping(sound, params.Loop ? MA_TRUE : MA_FALSE);
+            // The Doppler pitch is worked out on the main thread (AudioEngine::Update): capped, smooth.
+            ma_sound_set_doppler_factor(sound, 0.0f);
             if (params.Spatial)
             {
                 ma_sound_set_spatialization_enabled(sound, MA_TRUE);
@@ -322,9 +539,15 @@ namespace Zamin {
                 ma_sound_set_min_distance(sound, std::max(0.01f, params.MinDistance));
                 ma_sound_set_max_distance(sound, std::max(params.MinDistance, params.MaxDistance));
                 ma_sound_set_position(sound, params.Position.x, params.Position.y, params.Position.z);
+                ma_vec3f listenerVelocity = ma_engine_listener_get_velocity(s_Engine, 0);
+                voice.DopplerPitch = AudioEngine::ComputeDopplerPitch(params.Position, voice.Velocity, ListenerPosition(),
+                                                                      { listenerVelocity.x, listenerVelocity.y, listenerVelocity.z },
+                                                                      voice.DopplerFactor * s_Mixer.DopplerFactor);
             }
             else
                 ma_sound_set_spatialization_enabled(sound, MA_FALSE);
+            ApplyVolume(voice);
+            ApplyPitch(voice);
             ma_sound_start(sound);
 
             voice.File = file;
@@ -361,7 +584,10 @@ namespace Zamin {
         void ApplyMusicVolume(const MusicVoice& v)
         {
             if (Voice* voice = FindVoice(v.Handle))
-                ma_sound_set_volume(voice->Sound.get(), MusicGain(v));
+            {
+                voice->Volume = MusicGain(v);
+                ApplyVolume(*voice);
+            }
         }
 
         bool SamePath(const std::filesystem::path& a, const std::filesystem::path& b)
@@ -467,6 +693,31 @@ namespace Zamin {
             }
         }
 
+        // The Doppler pitch of the moving 3D sounds follows their movement (smoothly: a jerky frame
+        // time does not make the pitch wobble).
+        void UpdateDoppler(float dt)
+        {
+            const glm::vec3 listener = ListenerPosition();
+            ma_vec3f lv = ma_engine_listener_get_velocity(s_Engine, 0);
+            const glm::vec3 listenerVelocity{ lv.x, lv.y, lv.z };
+            const float blend = 1.0f - std::exp(-12.0f * dt);
+            for (auto& [handle, voice] : s_Voices)
+            {
+                if (!voice.Spatial)
+                    continue;
+                float target = AudioEngine::ComputeDopplerPitch(SoundPosition(voice), voice.Velocity, listener, listenerVelocity,
+                                                                voice.DopplerFactor * s_Mixer.DopplerFactor);
+                float pitch = voice.DopplerPitch + (target - voice.DopplerPitch) * blend;
+                if (std::abs(target - pitch) < 1e-4f)
+                    pitch = target;
+                if (pitch != voice.DopplerPitch)
+                {
+                    voice.DopplerPitch = pitch;
+                    ApplyPitch(voice);
+                }
+            }
+        }
+
         void UpdateMeters(float dt)
         {
             // Falls 24 dB a second; the hold mark waits 1.5 s, then falls the same way.
@@ -514,6 +765,7 @@ namespace Zamin {
             return;
         }
         s_HasDevice = !withoutDevice;
+        AudioEngine::SetRandomSeed((uint32_t)std::chrono::steady_clock::now().time_since_epoch().count());
         BuildGroups();
         ZM_CORE_INFO("{}", withoutDevice ? "Audio tizimi qurilmasiz ishga tushdi" : "Audio tizimi ishga tushdi");
     }
@@ -540,6 +792,7 @@ namespace Zamin {
         float dt = std::isfinite(deltaSeconds) ? std::max(0.0f, deltaSeconds) : 0.0f;
         CleanupFinished();
         UpdateMusic(dt);
+        UpdateDoppler(dt);
         UpdateMeters(dt);
     }
 
@@ -591,6 +844,18 @@ namespace Zamin {
             ma_sound_set_position(v->Sound.get(), p.x, p.y, p.z);
     }
 
+    void AudioEngine::SetSoundVelocity(uint32_t handle, const glm::vec3& velocity)
+    {
+        if (Voice* v = FindVoice(handle))
+            v->Velocity = IsFinite(velocity) ? velocity : glm::vec3(0.0f);
+    }
+
+    void AudioEngine::SetSoundDopplerFactor(uint32_t handle, float factor)
+    {
+        if (Voice* v = FindVoice(handle))
+            v->DopplerFactor = std::isfinite(factor) ? std::clamp(factor, 0.0f, AudioSettings::MaxDopplerFactor) : 1.0f;
+    }
+
     bool AudioEngine::IsPlaying(uint32_t handle)
     {
         Voice* v = FindVoice(handle);
@@ -636,13 +901,134 @@ namespace Zamin {
     void AudioEngine::SetVolume(uint32_t handle, float volume)
     {
         if (Voice* v = FindVoice(handle))
-            ma_sound_set_volume(v->Sound.get(), std::max(0.0f, volume));
+        {
+            v->Volume = std::isfinite(volume) ? std::max(0.0f, volume) : 1.0f;
+            ApplyVolume(*v);
+        }
     }
 
     float AudioEngine::GetVolume(uint32_t handle)
     {
         Voice* v = FindVoice(handle);
-        return v ? ma_sound_get_volume(v->Sound.get()) : 0.0f;
+        return v ? v->Volume : 0.0f;
+    }
+
+    void AudioEngine::SetPitch(uint32_t handle, float pitch)
+    {
+        if (Voice* v = FindVoice(handle))
+        {
+            v->Pitch = std::isfinite(pitch) ? std::max(0.01f, pitch) : 1.0f;
+            ApplyPitch(*v);
+        }
+    }
+
+    float AudioEngine::GetPitch(uint32_t handle)
+    {
+        Voice* v = FindVoice(handle);
+        return v ? v->Pitch : 0.0f;
+    }
+
+    void AudioEngine::SetLooping(uint32_t handle, bool loop)
+    {
+        if (Voice* v = FindVoice(handle))
+            ma_sound_set_looping(v->Sound.get(), loop ? MA_TRUE : MA_FALSE);
+    }
+
+    void AudioEngine::SetSoundDistances(uint32_t handle, float minDistance, float maxDistance)
+    {
+        Voice* v = FindVoice(handle);
+        if (!v || !std::isfinite(minDistance) || !std::isfinite(maxDistance))
+            return;
+        ma_sound_set_min_distance(v->Sound.get(), std::max(0.01f, minDistance));
+        ma_sound_set_max_distance(v->Sound.get(), std::max(minDistance, maxDistance));
+    }
+
+    bool AudioEngine::Pause(uint32_t handle)
+    {
+        Voice* v = FindVoice(handle);
+        if (!v || v->Music)
+            return false;
+        if (!v->Paused)
+        {
+            ma_sound_stop(v->Sound.get());
+            v->Paused = true;
+        }
+        return true;
+    }
+
+    bool AudioEngine::Resume(uint32_t handle)
+    {
+        Voice* v = FindVoice(handle);
+        if (!v || v->Music)
+            return false;
+        if (v->Paused)
+        {
+            v->Paused = false;
+            ma_sound_start(v->Sound.get());
+        }
+        return true;
+    }
+
+    bool AudioEngine::IsPaused(uint32_t handle)
+    {
+        Voice* v = FindVoice(handle);
+        return v && v->Paused;
+    }
+
+    bool AudioEngine::GetSoundInfo(uint32_t handle, SoundInfo& info)
+    {
+        Voice* v = FindVoice(handle);
+        if (!v)
+            return false;
+        ma_sound* sound = v->Sound.get();
+        SoundInfo out;
+        out.Playing = ma_sound_is_playing(sound);
+        out.Paused = v->Paused;
+        out.Looping = ma_sound_is_looping(sound);
+        out.Spatial = v->Spatial;
+        out.Streamed = v->Streamed;
+        out.Music = v->Music;
+        out.Group = v->Group;
+        ma_sound_get_cursor_in_seconds(sound, &out.Time);
+        ma_sound_get_length_in_seconds(sound, &out.Length);
+        out.Volume = v->Volume;
+        out.VolumeVariation = v->VolumeVariation;
+        out.GroupGain = GroupGain(*v);
+        out.Attenuation = Attenuation(*v, &out.Distance);
+        out.AudibleVolume = std::max(0.0f, v->Volume * v->VolumeVariation) * out.GroupGain * out.Attenuation;
+        out.Pitch = v->Pitch;
+        out.PitchVariation = v->PitchVariation;
+        out.DopplerPitch = v->DopplerPitch;
+        out.AppliedPitch = std::max(0.01f, v->Pitch * v->PitchVariation * v->DopplerPitch);
+        out.DopplerFactor = v->DopplerFactor;
+        out.Velocity = v->Velocity;
+        out.Priority = v->Priority;
+        info = std::move(out);
+        return true;
+    }
+
+    bool AudioEngine::WasStolen(uint32_t handle) { return handle && s_StolenHandles.contains(handle); }
+
+    AudioVoiceStats AudioEngine::GetVoiceStats()
+    {
+        AudioVoiceStats stats;
+        for (const auto& [handle, voice] : s_Voices)
+            if (voice.Counted)
+                stats.Voices++;
+        stats.MaxVoices = s_Mixer.MaxVoices;
+        stats.Stolen = s_StolenCount;
+        stats.Rejected = s_RejectedCount;
+        return stats;
+    }
+
+    void AudioEngine::SetRandomSeed(uint32_t seed)
+    {
+        // Spread the seed's bits (nearby seeds give unrelated sequences); xorshift must not start at 0.
+        uint32_t x = seed + 0x9E3779B9u;
+        x = (x ^ (x >> 16)) * 0x85EBCA6Bu;
+        x = (x ^ (x >> 13)) * 0xC2B2AE35u;
+        x ^= x >> 16;
+        s_RandomState = x ? x : 0x9E3779B9u;
     }
 
     bool AudioEngine::IsStreaming(uint32_t handle)
@@ -737,6 +1123,24 @@ namespace Zamin {
         if (!s_Engine) return glm::vec3(0.0f);
         ma_vec3f v = ma_engine_listener_get_velocity(s_Engine, 0);
         return { v.x, v.y, v.z };
+    }
+
+    float AudioEngine::ComputeDopplerPitch(const glm::vec3& sourcePosition, const glm::vec3& sourceVelocity, const glm::vec3& listenerPosition,
+                                           const glm::vec3& listenerVelocity, float factor)
+    {
+        if (!std::isfinite(factor) || factor <= 0.0f)
+            return 1.0f;
+        glm::vec3 toListener = listenerPosition - sourcePosition;
+        float distance = glm::length(toListener);
+        if (!std::isfinite(distance) || distance < 1e-4f || !IsFinite(sourceVelocity) || !IsFinite(listenerVelocity))
+            return 1.0f;
+        glm::vec3 direction = toListener / distance;
+        // Speeds along the line between them; capped so the pitch cannot run away (a teleport).
+        const float limit = 0.5f * SpeedOfSound / factor;
+        float listenerSpeed = std::clamp(glm::dot(direction, listenerVelocity), -limit, limit);
+        float sourceSpeed = std::clamp(glm::dot(direction, sourceVelocity), -limit, limit);
+        float pitch = (SpeedOfSound - factor * listenerSpeed) / (SpeedOfSound - factor * sourceSpeed);
+        return std::clamp(pitch, 0.5f, 2.0f);
     }
 
     // ------------------------------------------------------------------ mixer

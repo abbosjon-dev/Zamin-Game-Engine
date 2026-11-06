@@ -111,7 +111,7 @@ namespace Zamin {
         if (ImGui::Button(ICON_FA_GEAR))
             ImGui::OpenPopup("##mixerSettings");
         if (ImGui::IsItemHovered())
-            UI::Tooltip("Audio sozlamalari (streaming chegarasi)");
+            UI::Tooltip("Audio sozlamalari (streaming chegarasi, ovozlar limiti, Doppler)");
         if (ImGui::BeginPopup("##mixerSettings"))
         {
             ImGui::TextDisabled("Shundan katta fayllar diskdan oqim bilan o'qiladi");
@@ -119,6 +119,20 @@ namespace Zamin {
             if (ImGui::DragFloat("Streaming chegarasi", &settings.StreamThresholdMB, 0.1f, 0.01f, 4096.0f, "%.2f MB"))
                 changed = true;
             ImGui::TextDisabled("Musiqa (Audio::PlayMusic) har doim oqim bilan o'qiladi");
+            ImGui::Separator();
+            ImGui::TextDisabled("Bir vaqtda ijro etiladigan ovozlar (musiqasiz)");
+            ImGui::SetNextItemWidth(ImGui::GetFontSize() * 9.0f);
+            if (ImGui::DragInt("Ovozlar limiti", &settings.MaxVoices, 0.25f, 1, AudioSettings::MaxVoicesLimit, "%d ta", ImGuiSliderFlags_AlwaysClamp))
+                changed = true;
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Limit to'lsa yangi ovoz ustuvorligi pastroq (teng bo'lsa - manbaning qoidasi bo'yicha) ovozning o'rnini oladi "
+                            "yoki ijro etilmaydi (Audio Source > Ovozlar limiti)");
+            ImGui::SetNextItemWidth(ImGui::GetFontSize() * 9.0f);
+            if (ImGui::SliderFloat("Doppler koeffitsiyenti", &settings.DopplerFactor, 0.0f, AudioSettings::MaxDopplerFactor, "%.2f"))
+                changed = true;
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Harakatlanayotgan 3D ovozlar tonining o'zgarishi: 1 - tabiiy, 0 - o'chirilgan; har manbaning o'z "
+                            "Doppler qiymatiga ko'paytiriladi");
             ImGui::EndPopup();
         }
         if (settings.AnySolo())
@@ -130,6 +144,18 @@ namespace Zamin {
                     g.Solo = false;
                 changed = true;
             }
+        }
+        if (AudioEngine::IsAvailable())
+        {
+            // The voice limit at work.
+            AudioVoiceStats stats = AudioEngine::GetVoiceStats();
+            ImGui::SameLine();
+            bool full = (int)stats.Voices >= stats.MaxVoices;
+            ImGui::TextColored(full ? ImVec4(0.95f, 0.55f, 0.3f, 1.0f) : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled],
+                               ICON_FA_LAYER_GROUP " %zu / %d", stats.Voices, stats.MaxVoices);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip(std::format("Ijro etilayotgan ovozlar / limit (musiqa hisobga kirmaydi)\n"
+                                        "Limit sababli to'xtatilgan: {}   ijro etilmagan: {}", stats.Stolen, stats.Rejected).c_str());
         }
         ImGui::SameLine();
         if (!AudioEngine::IsAvailable())

@@ -61,4 +61,11 @@ namespace Zamin {
         return AudioEngine::Play(Project::GetAssetFileSystemPath(assetPath), params);
     }
 
+    uint32_t Audio::PlaySound(const std::string& assetPath, const SoundParams& params)
+    {
+        if (assetPath.empty())
+            return 0;
+        return AudioEngine::Play(Project::GetAssetFileSystemPath(assetPath), params);
+    }
+
 }

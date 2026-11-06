@@ -239,11 +239,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 203. AudioListener komponenti (kamera o'rniga)
 - [x] 204. Musiqa crossfade API
 - [x] 205. Musiqani streaming (katta fayllar uchun)
-- [ ] 206. Ovoz pitch tasodifiyligi (random range)
-- [ ] 207. Bir vaqtda o'ynaydigan ovozlar limiti
-- [ ] 208. AudioSource: Play/Stop/Pause skript API
-- [ ] 209. AudioSource holatini inspektorda ko'rsatish
-- [ ] 210. Doppler effekti (oddiy)
+- [x] 206. Ovoz pitch tasodifiyligi (random range)
+- [x] 207. Bir vaqtda o'ynaydigan ovozlar limiti
+- [x] 208. AudioSource: Play/Stop/Pause skript API
+- [x] 209. AudioSource holatini inspektorda ko'rsatish
+- [x] 210. Doppler effekti (oddiy)
 - [ ] 211. Audio clip asset (davomiylik, format)
 - [ ] 212. Ovoz so'nishi (fade in/out)
 - [ ] 213. Ovoz effektlari: low-pass filter

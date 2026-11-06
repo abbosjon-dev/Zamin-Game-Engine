@@ -10032,17 +10032,24 @@ namespace Zamin {
             ImGui::Text("FPS: %.0f   Kadr: %.2f ms", Application::Get().GetFPS(), Application::Get().GetFrameTime());
             ImGui::PlotLines("##ft", history, (int)std::max<size_t>(1, frameTimes.Size()), 0, nullptr, 0.0f, 40.0f, ImVec2(-1, 50));
             // ZAMIN_EDITOR_STATS=profiler (automation): the render numbers start folded, the profiler shows.
-            // ZAMIN_EDITOR_STATS=audio: the same, the audio profiler first.
+            // ZAMIN_EDITOR_STATS=audio: the same, the audio profiler first; =load: the scene load times.
             static const bool profilerFirst = [] {
                 const char* v = std::getenv("ZAMIN_EDITOR_STATS");
                 return v && (std::string_view(v).find("profiler") != std::string_view::npos ||
-                             std::string_view(v).find("audio") != std::string_view::npos);
+                             std::string_view(v).find("audio") != std::string_view::npos ||
+                             std::string_view(v).find("load") != std::string_view::npos);
+            }();
+            static const bool loadFirst = [] {
+                const char* v = std::getenv("ZAMIN_EDITOR_STATS");
+                return v && std::string_view(v).find("load") != std::string_view::npos;
             }();
             if (profilerFirst && ImGui::IsWindowAppearing())
                 ImGui::SetNextItemOpen(false);
             if (!ImGui::CollapsingHeader(ICON_FA_CUBES "  Render statistikasi", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 UI_AnimationStats();
+                if (loadFirst && ImGui::IsWindowAppearing())
+                    ImGui::SetNextItemOpen(false); // the scene load times in view (automation)
                 UI_AudioProfiler();
                 UI_SceneLoadTimings(true);
                 UI_ProfilerTree(true);

@@ -630,6 +630,17 @@ namespace Zamin {
         void DontDestroyOnLoad(Entity entity);
         // The game's scene manager (null for a scene running on its own: tests, the editor's simulate).
         SceneManager* GetSceneManager() const { return m_Entity.GetScene() ? m_Entity.GetScene()->GetSceneManager() : nullptr; }
+        // Sub-scenes (SubSceneComponent on `host`; this entity without an argument): loaded additively
+        // at the end of the frame, placed by the host's transform / unloaded. A sub-scene whose
+        // LoadOnStart is off waits for this (a room that opens when the player gets near).
+        //   if (near && !GetSubScene()) LoadSubScene();
+        bool LoadSubScene();
+        bool LoadSubScene(Entity host);
+        bool UnloadSubScene();
+        bool UnloadSubScene(Entity host);
+        // The loaded sub-scene of `host` (null when it is not loaded).
+        Ref<Scene> GetSubScene() const;
+        Ref<Scene> GetSubScene(Entity host) const;
 
         // ---- audio (music and the mixer groups: the Audio class, e.g. Audio::CrossfadeTo("Audio/boss.ogg"))
         // A one-shot sound in a mixer group (SFX, UI, ... ; an unknown name: SFX). The PlaySound

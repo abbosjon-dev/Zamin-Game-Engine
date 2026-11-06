@@ -215,6 +215,27 @@ namespace Zamin {
         m_AssetInspectorPanel.SetUsageCache(&m_AssetUsage);
         m_AssetInspectorPanel.OnRevealRequested = [this](const fs::path& p) { RevealAsset(p); };
         m_SceneHierarchyPanel.OnAssetEditRequested = [this](const fs::path& p) { RevealAsset(p); };
+        // Sub-scenes: their content under the host (the preview in edit mode, the loaded scene in play).
+        m_SceneHierarchyPanel.GetSubScene = [this](Entity host) -> Ref<Scene> {
+            if (m_SceneState == SceneState::Play)
+                return m_RuntimeScenes ? m_RuntimeScenes->GetSubScene(host) : nullptr;
+            return m_SceneState == SceneState::Edit ? m_SubScenePreviews.Get(host) : nullptr;
+        };
+        m_SceneHierarchyPanel.GetSubSceneProblem = [this](Entity host) {
+            return m_SceneState == SceneState::Edit ? m_SubScenePreviews.GetProblem(host) : std::string();
+        };
+        m_SceneHierarchyPanel.OnOpenSceneRequested = [this](const fs::path& p) {
+            const fs::path file = Project::GetAssetFileSystemPath(p);
+            if (m_SceneState != SceneState::Edit)
+                OnSceneStop();
+            // The open scene's changes are kept: it is saved before the other one opens.
+            if (m_SceneDirty && !m_EditorScenePath.empty())
+            {
+                SaveScene();
+                ZM_INFO("Sahna saqlandi, sub-sahna ochiladi: {}", file.filename().string());
+            }
+            OpenScene(file);
+        };
         m_SceneHierarchyPanel.OnSpriteEditorRequested = [this](const std::string& texture) { OpenSpriteEditor(texture); };
         m_SceneHierarchyPanel.OnTilePaletteWindowRequested = [this]() {
             m_ShowTilePalette = true;
@@ -1313,6 +1334,12 @@ namespace Zamin {
         m_SceneStats = Renderer::GetStats();
         if (m_OutlineCaptured)
             Renderer3D::EndCapture();
+        // The open scene's sub-scenes in place (read-only), over its picture.
+        if (m_SceneState == SceneState::Edit)
+        {
+            m_SubScenePreviews.Update(m_ActiveScene, m_EditorScenePath);
+            m_SubScenePreviews.Render(m_EditorCamera, options);
+        }
         // The order the scene's transparent surfaces were just drawn in (the overlay shows it);
         // nothing when the scene was not drawn (no camera).
         if (Renderer3D::GetEndSceneCount() != scenesDrawn)
@@ -5509,6 +5536,22 @@ namespace Zamin {
                 buildScenes.push_back(start);
             }
         }
+        // The sub-scenes the listed scenes bring (SubSceneComponent) go into the game with them.
+        if (!buildScenes.empty())
+            for (size_t i = 0; i < buildScenes.size(); i++)
+            {
+                SceneFileInfo info;
+                if (!SceneSerializer::ReadSceneInfo(Project::GetAssetFileSystemPath(buildScenes[i]), info))
+                    continue;
+                for (const std::string& sub : info.SubScenes)
+                {
+                    const std::string path = fs::path(sub).lexically_normal().generic_string();
+                    if (std::find(buildScenes.begin(), buildScenes.end(), path) != buildScenes.end())
+                        continue;
+                    ZM_INFO("Eksport: '{}' sub-sahnasi ham kiritiladi ({} ichida)", path, buildScenes[i]);
+                    buildScenes.push_back(path);
+                }
+            }
         const bool binaryScenes = m_BuildGameBinaryScenes;
         // The exported game reads its asset registry from one file (made here, on this thread).
         std::string registryText;

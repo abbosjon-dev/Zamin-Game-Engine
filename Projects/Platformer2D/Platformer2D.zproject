@@ -217,6 +217,11 @@
             "Enabled": true,
             "Path": "Scenes/UIWidgets.zscene",
             "UUID": "7669f945ac64809f"
+        },
+        {
+            "Enabled": true,
+            "Path": "Scenes/SubScenes.zscene",
+            "UUID": "8d14c7e2a96f3b50"
         }
     ]
 }

@@ -80,6 +80,7 @@ namespace Zamin {
             MakeTypeInfo<AudioListenerComponent>(),
             MakeTypeInfo<AmbientZoneComponent>(),
             MakeTypeInfo<FootstepsComponent>(),
+            MakeTypeInfo<SubSceneComponent>(),
             MakeTypeInfo<NativeScriptComponent>(),
         };
         return s_Types;

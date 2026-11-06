@@ -1,0 +1,299 @@
+{
+    "Scene": "Camp",
+    "Version": 2,
+    "Metadata": {
+        "Author": "Zamin jamoasi",
+        "Tags": [
+            "bo'lak",
+            "sub-sahna"
+        ],
+        "Description": "Sub-sahna bo'lagi: kichik lager (platforma, butalar, tosh, kristall, tushadigan yashik). SubScenes.zscene uni uch joyga qo'yadi."
+    },
+    "Settings": {
+        "DrawSky": false,
+        "SkyTop": [
+            0.32,
+            0.52,
+            0.85
+        ],
+        "SkyHorizon": [
+            0.78,
+            0.86,
+            0.95
+        ],
+        "Ground": [
+            0.36,
+            0.33,
+            0.3
+        ],
+        "Ambient": 0.6,
+        "Exposure": 1.0,
+        "ShadowDistance": 40,
+        "Gravity": [
+            0,
+            -20
+        ],
+        "Gravity3D": [
+            0,
+            -9.81,
+            0
+        ],
+        "Post": {
+            "Bloom": false,
+            "Vignette": 0.2,
+            "Saturation": 1.05,
+            "Contrast": 1.05,
+            "Brightness": 0.0,
+            "Tint": [
+                1,
+                1,
+                1
+            ],
+            "Tonemap": 0
+        }
+    },
+    "Entities": [
+        {
+            "Entity": 9298100000000001,
+            "Tag": "Lager yeri",
+            "Transform": {
+                "Translation": [
+                    0,
+                    -0.3,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    6,
+                    0.6,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.47,
+                    0.34,
+                    0.22,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 0,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Static"
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Size": [
+                    0.5,
+                    0.5
+                ],
+                "Density": 1.0,
+                "Friction": 0.6,
+                "Restitution": 0.0
+            }
+        },
+        {
+            "Entity": 9298100000000002,
+            "Tag": "Butalar",
+            "Transform": {
+                "Translation": [
+                    0,
+                    0.55,
+                    -0.1
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    5,
+                    1.25,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.85,
+                    0.95,
+                    0.85,
+                    1
+                ],
+                "Texture": "Textures/bushes.png",
+                "Tiling": 1.0,
+                "SortingOrder": -1,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            }
+        },
+        {
+            "Entity": 9298100000000003,
+            "Tag": "Tosh",
+            "Transform": {
+                "Translation": [
+                    -2.0,
+                    0.5,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    1.2,
+                    1.0,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/boulder.png",
+                "Tiling": 1.0,
+                "SortingOrder": 1,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            }
+        },
+        {
+            "Entity": 9298100000000004,
+            "Tag": "Kristall",
+            "Transform": {
+                "Translation": [
+                    1.9,
+                    0.5,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.6,
+                    1.0,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "Texture": "Textures/crystal.png",
+                "Tiling": 1.0,
+                "SortingOrder": 1,
+                "PixelArt": true,
+                "FlipX": false,
+                "FlipY": false
+            }
+        },
+        {
+            "Entity": 9298100000000005,
+            "Tag": "Yashik",
+            "Transform": {
+                "Translation": [
+                    0.4,
+                    2.6,
+                    0
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0.3
+                ],
+                "Scale": [
+                    0.7,
+                    0.7,
+                    1
+                ]
+            },
+            "SpriteRenderer": {
+                "Color": [
+                    0.86,
+                    0.62,
+                    0.3,
+                    1
+                ],
+                "Texture": "",
+                "Tiling": 1.0,
+                "SortingOrder": 2,
+                "PixelArt": false,
+                "FlipX": false,
+                "FlipY": false
+            },
+            "Rigidbody2D": {
+                "BodyType": "Dynamic"
+            },
+            "BoxCollider2D": {
+                "Offset": [
+                    0,
+                    0
+                ],
+                "Size": [
+                    0.5,
+                    0.5
+                ],
+                "Density": 1.0,
+                "Friction": 0.6,
+                "Restitution": 0.0
+            }
+        },
+        {
+            "Entity": 9298100000000006,
+            "Tag": "Lager belgisi",
+            "Transform": {
+                "Translation": [
+                    0,
+                    2.0,
+                    0.1
+                ],
+                "Rotation": [
+                    0,
+                    0,
+                    0
+                ],
+                "Scale": [
+                    0.55,
+                    0.55,
+                    1
+                ]
+            },
+            "Text": {
+                "Text": "Lager",
+                "Color": [
+                    1,
+                    0.95,
+                    0.8,
+                    1
+                ],
+                "Kerning": 0.0,
+                "LineSpacing": 0.0,
+                "AlignH": "Center",
+                "AlignV": "Middle",
+                "Font": ""
+            }
+        }
+    ]
+}

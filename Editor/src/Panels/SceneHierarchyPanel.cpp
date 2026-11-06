@@ -24,6 +24,7 @@ namespace Zamin {
 
     static const char* EntityIcon(Entity e)
     {
+        if (e.HasComponent<SubSceneComponent>()) return ICON_FA_LAYER_GROUP;
         if (e.HasComponent<UIInputFieldComponent>()) return ICON_FA_I_CURSOR;
         if (e.HasComponent<UISliderComponent>()) return ICON_FA_SLIDERS;
         if (e.HasComponent<UIToggleComponent>()) return ICON_FA_SQUARE_CHECK;
@@ -843,10 +844,12 @@ namespace Zamin {
             return;
         }
 
+        // A sub-scene host lists the sub-scene's content under it (read-only rows).
+        Ref<Scene> subScene = m_Filter.empty() && GetSubScene && entity.HasComponent<SubSceneComponent>() ? GetSubScene(entity) : nullptr;
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick |
                                    ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding |
                                    ImGuiTreeNodeFlags_DefaultOpen;
-        if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
+        if (!hasChildren && !subScene) flags |= ImGuiTreeNodeFlags_Leaf;
         if (selected) flags |= ImGuiTreeNodeFlags_Selected;
 
         // The primary entity is highlighted stronger than the rest of a multi-selection.
@@ -937,6 +940,77 @@ namespace Zamin {
                     if (Entity c = m_Context->GetEntityByUUID(child))
                         DrawEntityNode(c, depth + 1);
             }
+            if (subScene && alive && entity.HasComponent<SubSceneComponent>())
+                DrawSubSceneRows(entity, subScene);
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+    }
+
+    void SceneHierarchyPanel::DrawSubSceneRows(Entity host, const Ref<Scene>& sub)
+    {
+        const std::string path = host.GetComponent<SubSceneComponent>().ScenePath;
+        const bool playing = m_SceneManager != nullptr;
+        ImGui::PushID("subScene");
+        auto stripe = [&]() {
+            const ImVec2 min = ImGui::GetCursorScreenPos();
+            const ImVec2 max(min.x + ImGui::GetContentRegionAvail().x, min.y + ImGui::GetFrameHeight());
+            if (m_RowIndex++ % 2 == 1)
+                ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(m_GutterX, min.y), max, IM_COL32(255, 255, 255, 6));
+        };
+        // The sub-scene itself: its name and size, in the sub-scene colour.
+        stripe();
+        const size_t count = sub->GetRegistry().view<IDComponent>().size();
+        const std::string label = std::format(ICON_FA_LAYER_GROUP "  {}  ({} obyekt)", sub->GetName(), count);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.52f, 0.74f, 0.98f, 0.95f));
+        const bool open = ImGui::TreeNodeEx("##sub", ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
+                                            ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_DefaultOpen, "%s", label.c_str());
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar();
+        if (ImGui::IsItemHovered())
+            UI::Tooltip(playing ? std::format("O'yinda yuklangan sub-sahna: {}\nIkki marta bosing: uning obyektlarini ierarxiyada ko'rsatish", path).c_str()
+                                : std::format("Sub-sahna: {}\nFaqat ko'rish uchun (o'yinda shu joyga yuklanadi).\nIkki marta bosing: "
+                                              "tahrirlash uchun faylni ochish", path).c_str());
+        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+        {
+            if (playing && OnRuntimeSceneSelected)
+                OnRuntimeSceneSelected(sub);
+            else if (!playing && OnOpenSceneRequested && !path.empty())
+                OnOpenSceneRequested(path);
+        }
+        if (open)
+        {
+            // Its entities as they are in it, greyed (no selection, no drag & drop); a long list is cut.
+            int budget = 200;
+            const ImVec4 grey = ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+            auto drawRow = [&](auto& self, Entity e) -> void {
+                if (budget-- <= 0)
+                    return;
+                const auto& children = e.GetComponent<RelationshipComponent>().Children;
+                stripe();
+                ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_DefaultOpen;
+                if (children.empty())
+                    flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
+                ImGui::PushStyleColor(ImGuiCol_Text, grey);
+                const bool rowOpen = ImGui::TreeNodeEx((void*)(uintptr_t)(uint32_t)(entt::entity)e, flags, "%s  %s", EntityIcon(e), e.GetName().c_str());
+                ImGui::PopStyleColor();
+                ImGui::PopStyleVar();
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(std::format("{} - '{}' sub-sahnasidan (faqat ko'rish uchun)", e.GetName(), sub->GetName()).c_str());
+                if (rowOpen && !children.empty())
+                {
+                    for (UUID child : children)
+                        if (Entity c = sub->GetEntityByUUID(child))
+                            self(self, c);
+                    ImGui::TreePop();
+                }
+            };
+            for (Entity root : sub->GetRootEntities())
+                drawRow(drawRow, root);
+            if (budget < 0)
+                ImGui::TextDisabled("   ... (ko'p obyekt: ro'yxat qisqartirildi)");
             ImGui::TreePop();
         }
         ImGui::PopID();
@@ -1393,7 +1467,7 @@ namespace Zamin {
             { "UICanvas", "UI Canvas" }, { "UILayoutGroup", "UI Layout Group" }, { "UILayoutElement", "UI Layout Element" }, { "UINavigation", "UI Navigation" },
             { "UIButton", "UI Button" }, { "UIImage", "UI Image" }, { "UISlider", "UI Slider" }, { "UIToggle", "UI Toggle" },
             { "UIProgressBar", "UI Progress Bar" }, { "UIInputField", "UI Input Field" }, { "UIMask", "UI Mask" }, { "UIScrollView", "UI Scroll View" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "AmbientZone", "Ambient Zone" },
-            { "NativeScript", "C++ Skript" },
+            { "SubScene", "Sub-sahna" }, { "NativeScript", "C++ Skript" },
         };
         for (const auto& [k, name] : s_Names)
             if (k == key)
@@ -3210,6 +3284,97 @@ namespace Zamin {
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered())
             UI::Tooltip("Joy va burilish 0: obyekt aynan suyak nuqtasida, suyak yo'nalishida (masshtab o'zgarmaydi)");
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::DrawSubScene(Entity entity, SubSceneComponent& c)
+    {
+        namespace fs = std::filesystem;
+        bool changed = false;
+        bool open = false;
+        const fs::path file = c.ScenePath.empty() ? fs::path() : Project::GetAssetFileSystemPath(c.ScenePath);
+        std::error_code ec;
+        const bool exists = !file.empty() && fs::is_regular_file(file, ec);
+        UI::AssetPathOptions options;
+        options.ActionIcon = ICON_FA_PEN;
+        options.ActionTooltip = "Sub-sahnani tahrirlash uchun ochish (ochiq sahna avval saqlanadi)";
+        options.ActionClicked = &open;
+        options.Missing = !c.ScenePath.empty() && !exists;
+        if (exists && GetAssetThumbnail)
+            options.PreviewTexture = GetAssetThumbnail(file);
+        options.PreviewTopRowFirst = true;
+        options.Tooltip = "Shu obyekt joyiga qo'yiladigan sahna fayli (.zscene): kontent brauzeridan tashlang. O'yinda u qo'shimcha "
+                          "(additive) yuklanadi - o'z obyektlari, skriptlari va fizika dunyosi bilan";
+        if (UI::PropertyAssetPath("Sahna", c.ScenePath, ".zscene", ICON_FA_LAYER_GROUP, options))
+            changed = true;
+        if (open && OnOpenSceneRequested && !c.ScenePath.empty())
+            OnOpenSceneRequested(c.ScenePath);
+        changed |= UI::PropertyBool("Birga yuklash", c.LoadOnStart);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Yoqilgan: sahna yuklanganda shu kadrning o'zida yuklanadi. O'chirilgan: skript LoadSubScene() "
+                        "chaqirganda (masalan, o'yinchi yaqinlashganda)");
+        changed |= UI::PropertyBool("Obyekt joyiga", c.ApplyTransform);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Sub-sahnaning ildiz obyektlari shu obyektning dunyo transformiga ko'chiriladi (yuklanganda bir marta). "
+                        "O'chirilgan: o'z faylidagi joyida");
+        changed |= UI::PropertyBool("Editorda chizish", c.ShowInEditor);
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Sahna ko'rinishida sub-sahna joyida chiziladi (faqat ko'rish uchun: tanlab bo'lmaydi)");
+
+        // What the file holds (read again when it changes).
+        if (exists)
+        {
+            const auto time = fs::last_write_time(file, ec);
+            if (m_SubSceneFile.Path != c.ScenePath || m_SubSceneFile.Time != time)
+            {
+                m_SubSceneFile.Path = c.ScenePath;
+                m_SubSceneFile.Time = time;
+                m_SubSceneFile.Readable = SceneSerializer::ReadSceneInfo(file, m_SubSceneFile.Info);
+            }
+            UI::PropertyLabel("Tarkibi");
+            if (m_SubSceneFile.Readable)
+            {
+                const SceneFileInfo& info = m_SubSceneFile.Info;
+                ImGui::TextDisabled("%s: %zu obyekt (%zu ildiz)", info.Name.c_str(), info.EntityCount, info.RootCount);
+                if (!info.Metadata.Description.empty() && ImGui::IsItemHovered())
+                    UI::Tooltip(info.Metadata.Description.c_str());
+            }
+            else
+                ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.40f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s", m_SubSceneFile.Info.Error.c_str());
+        }
+        if (GetSubSceneProblem)
+            if (const std::string problem = GetSubSceneProblem(entity); !problem.empty() && exists)
+            {
+                UI::PropertyLabel("");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s", problem.c_str());
+            }
+
+        // In the game: whether it is in, and loading / unloading it by hand.
+        if (m_SceneManager)
+        {
+            Ref<Scene> loaded = m_SceneManager->GetSubScene(entity);
+            UI::PropertyLabel("O'yinda");
+            if (loaded)
+            {
+                ImGui::TextColored(UI::AccentColor(), ICON_FA_CIRCLE_CHECK "  yuklangan (%zu obyekt)", loaded->GetRegistry().view<IDComponent>().size());
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Yopish"))
+                    m_SceneManager->UnloadSubScene(entity);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Sub-sahnani kadr oxirida yopish (UnloadSubScene)");
+            }
+            else
+            {
+                ImGui::TextDisabled("yuklanmagan");
+                ImGui::SameLine();
+                ImGui::BeginDisabled(c.ScenePath.empty());
+                if (ImGui::SmallButton("Yuklash"))
+                    m_SceneManager->LoadSubScene(entity);
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    UI::Tooltip("Sub-sahnani kadr oxirida shu obyekt joyiga yuklash (LoadSubScene)");
+            }
+        }
         return changed;
     }
 
@@ -5942,6 +6107,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<AudioListenerComponent>("Audio Listener (tinglovchi)", ICON_FA_EAR_LISTEN);
                 DisplayAddComponentEntry<AmbientZoneComponent>("Ambient Zone (hajmdagi fon ovozi)", ICON_FA_TREE);
                 DisplayAddComponentEntry<FootstepsComponent>("Footsteps (animatsiya event'idan qadam tovushi)", ICON_FA_SHOE_PRINTS);
+                DisplayAddComponentEntry<SubSceneComponent>("Sub-sahna (boshqa sahna fayli shu joyda)", ICON_FA_LAYER_GROUP);
                 DisplayAddComponentEntry<NativeScriptComponent>("C++ Script", ICON_FA_CODE);
                 DisplayAddComponentEntry<TagsComponent>("Teglar (Tags)", ICON_FA_TAGS);
                 ImGui::EndPopup();
@@ -8357,6 +8523,10 @@ namespace Zamin {
 
         AddSection<FootstepsComponent>(ICON_FA_SHOE_PRINTS, "Footsteps", entity, [&](FootstepsComponent& c) {
             return DrawFootsteps(entity, c);
+        }, true, modified);
+
+        AddSection<SubSceneComponent>(ICON_FA_LAYER_GROUP, "Sub-sahna", entity, [&](SubSceneComponent& c) {
+            return DrawSubScene(entity, c);
         }, true, modified);
 
         DrawScriptComponent(entity, modified);

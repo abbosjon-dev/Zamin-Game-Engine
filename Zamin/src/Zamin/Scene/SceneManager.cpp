@@ -212,9 +212,13 @@ namespace Zamin {
         timing.WallMilliseconds += ElapsedMilliseconds(clock);
         RecordStagesToProfiler(timing);
         std::vector<SceneLoadTiming> timings{ timing };
+        std::vector<SceneEventInfo> subScenes;
+        LoadSubScenes(scene, subScenes);
         FinishLoadTimings(timings, true);
         NotifyActiveSceneChanged({}, MakeEventInfo(scene));
         NotifySceneLoaded(MakeEventInfo(scene, LoadSceneMode::Single));
+        for (const SceneEventInfo& sub : subScenes)
+            NotifySceneLoaded(sub);
     }
 
     bool SceneManager::Start(const fs::path& path, std::string* error)
@@ -712,6 +716,8 @@ namespace Zamin {
         if (mode == LoadSceneMode::Single || !m_Active)
             SetActive(scene);
         ZM_CORE_INFO("Sahna yuklandi: {} ({})", path.empty() ? scene->GetName() : path, mode == LoadSceneMode::Additive ? "qo'shimcha" : "yagona");
+        std::vector<SceneEventInfo> subScenes;
+        LoadSubScenes(scene, subScenes);
 
         for (const SceneEventInfo& info : unloaded)
             NotifySceneUnloaded(info);
@@ -719,6 +725,144 @@ namespace Zamin {
             NotifyActiveSceneChanged(previousActive, MakeEventInfo(m_Active));
         // What the scripts ask for in these (unloading it again ...) waits for the end of the next frame.
         NotifySceneLoaded(MakeEventInfo(scene, mode));
+        for (const SceneEventInfo& sub : subScenes)
+            NotifySceneLoaded(sub);
+    }
+
+    // ------------------------------------------------------------------ sub-scenes
+    const SceneManager::SceneEntry* SceneManager::FindEntry(const Scene* scene) const
+    {
+        for (const SceneEntry& entry : m_Scenes)
+            if (entry.SceneRef.get() == scene)
+                return &entry;
+        return nullptr;
+    }
+
+    void SceneManager::OffsetRoots(Scene& scene, const glm::mat4& offset)
+    {
+        for (Entity root : scene.GetRootEntities())
+            scene.SetWorldTransform(root, offset * root.GetComponent<TransformComponent>().GetTransform());
+    }
+
+    Ref<Scene> SceneManager::GetSubScene(Entity host) const
+    {
+        if (!host.IsValid())
+            return nullptr;
+        for (const SceneEntry& entry : m_Scenes)
+            if (entry.Owner == host.GetScene() && entry.OwnerEntity == host.GetUUID())
+                return entry.SceneRef;
+        return nullptr;
+    }
+
+    Scene* SceneManager::GetSubSceneOwner(const Scene* scene, UUID* hostEntity) const
+    {
+        const SceneEntry* entry = FindEntry(scene);
+        if (hostEntity)
+            *hostEntity = entry ? entry->OwnerEntity : UUID(0);
+        return entry ? entry->Owner : nullptr;
+    }
+
+    std::vector<Ref<Scene>> SceneManager::CollectSubScenes(const Scene* scene) const
+    {
+        std::vector<Ref<Scene>> found;
+        std::vector<const Scene*> owners{ scene };
+        for (size_t i = 0; i < owners.size(); i++)
+            for (const SceneEntry& entry : m_Scenes)
+                if (entry.Owner == owners[i] && std::find(found.begin(), found.end(), entry.SceneRef) == found.end())
+                {
+                    found.push_back(entry.SceneRef);
+                    owners.push_back(entry.SceneRef.get());
+                }
+        return found;
+    }
+
+    void SceneManager::LoadSubScenes(const Ref<Scene>& scene, std::vector<SceneEventInfo>& loaded)
+    {
+        // In scene order; the entities that are switched off bring theirs when LoadSubScene asks.
+        std::vector<Entity> hosts;
+        for (Entity e : scene->FindEntitiesWith<SubSceneComponent>())
+            if (e.IsActive() && e.GetComponent<SubSceneComponent>().LoadOnStart && !e.GetComponent<SubSceneComponent>().ScenePath.empty())
+                hosts.push_back(e);
+        for (Entity host : hosts)
+            if (host.IsValid())
+                LoadSubSceneNow(scene, host, loaded);
+    }
+
+    bool SceneManager::LoadSubSceneNow(const Ref<Scene>& owner, Entity host, std::vector<SceneEventInfo>& loaded)
+    {
+        if (!host.IsValid() || !host.HasComponent<SubSceneComponent>() || GetSubScene(host))
+            return false;
+        const SubSceneComponent c = host.GetComponent<SubSceneComponent>();
+        if (c.ScenePath.empty())
+            return false;
+        const std::string path = ToAssetRelative(fs::path(c.ScenePath));
+        // Up the chain of owners: how deep this one is, and whether the file is already there (a loop).
+        int depth = 1;
+        for (const Scene* up = owner.get(); up; depth++)
+        {
+            const SceneEntry* entry = FindEntry(up);
+            if (entry && entry->Path == path)
+            {
+                ZM_CORE_WARN("Sub-sahna halqasi: '{}' o'zining ichida yuklanmaydi ('{}' obyekti)", path, host.GetName());
+                return false;
+            }
+            up = entry ? entry->Owner : nullptr;
+        }
+        if (depth > MaxSubSceneDepth)
+        {
+            ZM_CORE_WARN("Sub-sahna juda chuqur ({} qavatdan ortiq): '{}' yuklanmadi", MaxSubSceneDepth, path);
+            return false;
+        }
+        const auto clock = std::chrono::steady_clock::now();
+        SceneLoadTiming timing;
+        timing.How = SceneLoadTiming::Source::Additive;
+        std::string error;
+        Ref<Scene> sub = LoadNow(fs::path(path), &error, &timing);
+        if (!sub)
+        {
+            ZM_CORE_ERROR("Sub-sahna yuklanmadi: {} ('{}' obyekti: {})", path, host.GetName(), error);
+            timing.WallMilliseconds = ElapsedMilliseconds(clock);
+            SceneLoadProfiler::Record(timing);
+            return false;
+        }
+        if (c.ApplyTransform)
+            OffsetRoots(*sub, owner->GetWorldTransform(host)); // before it starts: bodies are made where they are
+        const Scene* clockScene = m_Active ? m_Active.get() : owner.get();
+        StartScene(sub, &timing);
+        sub->m_TimeScale = clockScene->m_TimeScale; // the game's clock as it is now
+        sub->m_TimeScaleBeforePause = clockScene->m_TimeScaleBeforePause;
+        SceneEntry entry;
+        entry.SceneRef = sub;
+        entry.Path = path;
+        entry.Owner = owner.get();
+        entry.OwnerEntity = host.GetUUID();
+        m_Scenes.push_back(std::move(entry));
+        ZM_CORE_INFO("Sub-sahna yuklandi: {} ('{}' ichida, '{}' obyekti)", path, owner->GetName(), host.GetName());
+        timing.SceneName = sub->GetName();
+        timing.WallMilliseconds = ElapsedMilliseconds(clock);
+        SceneLoadProfiler::Record(timing);
+        loaded.push_back(MakeEventInfo(sub, LoadSceneMode::Additive));
+        // Its own sub-scenes (in the same frame).
+        LoadSubScenes(sub, loaded);
+        return true;
+    }
+
+    bool SceneManager::LoadSubScene(Entity host)
+    {
+        if (!host.IsValid() || !host.HasComponent<SubSceneComponent>() || host.GetComponent<SubSceneComponent>().ScenePath.empty())
+            return false;
+        Request request;
+        request.Type = Request::Kind::LoadSub;
+        request.EntityScene = host.GetScene();
+        request.EntityID = host.GetUUID();
+        m_Requests.push_back(std::move(request));
+        return true;
+    }
+
+    bool SceneManager::UnloadSubScene(Entity host)
+    {
+        Ref<Scene> sub = GetSubScene(host);
+        return sub && UnloadScene(sub);
     }
 
     void SceneManager::RemoveLoaded(const Ref<Scene>& scene)
@@ -783,21 +927,45 @@ namespace Zamin {
                 {
                     if (!IsLoaded(request.Target.get()) || request.Target == m_Persistent)
                         break;
-                    if (m_Scenes.size() <= 1)
+                    // Its sub-scenes go with it (the deepest first); the last scene of the game stays.
+                    std::vector<Ref<Scene>> going = CollectSubScenes(request.Target.get());
+                    std::reverse(going.begin(), going.end());
+                    going.push_back(request.Target);
+                    if (going.size() >= m_Scenes.size())
                     {
                         ZM_CORE_WARN("Oxirgi sahnani yopib bo'lmaydi: '{}' (boshqasini Single rejimida yuklang)", request.Target->GetName());
                         break;
                     }
-                    const std::string name = request.Target->GetName();
-                    const SceneEventInfo info = MakeEventInfo(request.Target);
-                    const bool wasActive = request.Target == m_Active;
-                    RemoveLoaded(request.Target);
-                    StopScene(request.Target);
-                    ZM_CORE_INFO("Sahna yopildi: {}", name);
-                    changed = true;
-                    NotifySceneUnloaded(info);
-                    if (wasActive)
-                        NotifyActiveSceneChanged(info, MakeEventInfo(m_Active));
+                    for (const Ref<Scene>& scene : going)
+                    {
+                        const std::string name = scene->GetName();
+                        const SceneEventInfo info = MakeEventInfo(scene);
+                        const bool wasActive = scene == m_Active;
+                        RemoveLoaded(scene);
+                        StopScene(scene);
+                        ZM_CORE_INFO("Sahna yopildi: {}", name);
+                        changed = true;
+                        NotifySceneUnloaded(info);
+                        if (wasActive)
+                            NotifyActiveSceneChanged(info, MakeEventInfo(m_Active));
+                    }
+                    break;
+                }
+                case Request::Kind::LoadSub:
+                {
+                    // The host's scene is still loaded and the entity is there.
+                    const SceneEntry* owner = FindEntry(request.EntityScene);
+                    Entity host = owner ? owner->SceneRef->GetEntityByUUID(request.EntityID) : Entity();
+                    if (!host && m_Persistent.get() == request.EntityScene)
+                        host = m_Persistent->GetEntityByUUID(request.EntityID);
+                    if (!host)
+                        break;
+                    Ref<Scene> ownerScene = owner ? owner->SceneRef : m_Persistent;
+                    std::vector<SceneEventInfo> subScenes;
+                    if (LoadSubSceneNow(ownerScene, host, subScenes))
+                        changed = true;
+                    for (const SceneEventInfo& sub : subScenes)
+                        NotifySceneLoaded(sub);
                     break;
                 }
                 case Request::Kind::Load:

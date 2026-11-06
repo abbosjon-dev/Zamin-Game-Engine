@@ -272,6 +272,26 @@ namespace Zamin {
         // Grows with every switch of the active scene (hosts reset what adapted to the old one).
         uint64_t GetActiveSceneSerial() const { return m_ActiveSerial; }
 
+        // ---- sub-scenes (SubSceneComponent)
+        // A scene's entities with a SubSceneComponent (LoadOnStart) bring their scene files with it: each
+        // is loaded additively right after it (in the same frame, before its first update - its
+        // scripts' OnStart sees them, its OnCreate not yet), its roots placed by the entity's world
+        // transform, and goes when it is unloaded. A sub-scene's own sub-scenes come too (at most
+        // MaxSubSceneDepth deep; a file that is already up the chain is skipped: a loop).
+        static constexpr int MaxSubSceneDepth = 8;
+        // The sub-scene `host` (an entity with a SubSceneComponent) has loaded (null when none is).
+        Ref<Scene> GetSubScene(Entity host) const;
+        // The scene that brought `scene` as a sub-scene, and its entity (null / 0 for other scenes).
+        Scene* GetSubSceneOwner(const Scene* scene, UUID* hostEntity = nullptr) const;
+        bool IsSubScene(const Scene* scene) const { return GetSubSceneOwner(scene) != nullptr; }
+        // At the end of the frame: loads the sub-scene of `host` (LoadOnStart off, or unloaded earlier)
+        // / unloads it. False when the entity has no SubSceneComponent with a scene (or nothing is loaded).
+        bool LoadSubScene(Entity host);
+        bool UnloadSubScene(Entity host);
+        // `scene`'s roots moved by `offset` (their world transforms: offset x their own) - what a
+        // sub-scene's ApplyTransform does when it is loaded.
+        static void OffsetRoots(Scene& scene, const glm::mat4& offset);
+
         // ---- persistent objects
         // At the end of the frame `entity` (with its descendants; a child leaves its parent) moves to
         // the DontDestroyOnLoad scene: it survives every Single load, its script and sounds go on.
@@ -332,6 +352,8 @@ namespace Zamin {
         {
             Ref<Scene> SceneRef;
             std::string Path;
+            Scene* Owner = nullptr;   // a sub-scene: the scene whose entity brought it
+            UUID OwnerEntity = 0;
         };
         enum class FadePhase { None = 0, Waiting, Out, Covered, In };
         struct FadeState
@@ -345,7 +367,7 @@ namespace Zamin {
         };
         struct Request
         {
-            enum class Kind { Load, Unload, Persist } Type = Kind::Load;
+            enum class Kind { Load, Unload, Persist, LoadSub } Type = Kind::Load;
             std::filesystem::path Path;
             LoadSceneMode Mode = LoadSceneMode::Single;
             Ref<Scene> Target;
@@ -378,6 +400,14 @@ namespace Zamin {
         void NotifySceneUnloaded(const SceneEventInfo& scene);
         void NotifyActiveSceneChanged(const SceneEventInfo& previous, const SceneEventInfo& current);
         Ref<Scene> EnsurePersistentScene();
+        // The sub-scenes of `scene` that load with it (see LoadSubScene); their SceneLoaded events go
+        // to `loaded` (sent by the caller after the owner's).
+        void LoadSubScenes(const Ref<Scene>& scene, std::vector<SceneEventInfo>& loaded);
+        // `host`'s sub-scene now (false: none, already loaded, a loop, too deep, or not readable).
+        bool LoadSubSceneNow(const Ref<Scene>& owner, Entity host, std::vector<SceneEventInfo>& loaded);
+        // The sub-scenes owned by `scene` (and theirs), deepest last.
+        std::vector<Ref<Scene>> CollectSubScenes(const Scene* scene) const;
+        const SceneEntry* FindEntry(const Scene* scene) const;
         std::vector<Scene*> GetUpdateOrder() const;
         static std::filesystem::path ToAssetFile(const std::filesystem::path& path);
         static std::string ToAssetRelative(const std::filesystem::path& path);

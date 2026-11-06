@@ -244,6 +244,12 @@ namespace Zamin {
         std::function<void(Entity)> OnSavePrefabRequested;
         // An asset (absolute path) is to be edited in the inspector (a mesh renderer's material).
         std::function<void(const std::filesystem::path&)> OnAssetEditRequested;
+        // Sub-scenes (SubSceneComponent): the content of `host`'s sub-scene to list under it (the
+        // editor's preview / the loaded one in play mode; null: none), why there is none, and the
+        // request to open a scene file (relative to the assets) for editing.
+        std::function<Ref<Scene>(Entity host)> GetSubScene;
+        std::function<std::string(Entity host)> GetSubSceneProblem;
+        std::function<void(const std::filesystem::path&)> OnOpenSceneRequested;
         std::function<void(const std::filesystem::path&, Entity parent)> OnPrefabDropped;
         // A material asset (.zmat, path relative to Assets) was dropped onto an entity's row.
         std::function<void(const std::string&, Entity target)> OnMaterialDropped;
@@ -337,6 +343,9 @@ namespace Zamin {
         bool DrawEntityRefField(const char* name, EntityRef& ref, const char* tooltip = nullptr);
         bool DrawBoneAttachment(Entity entity, BoneAttachmentComponent& c);
         bool DrawFootsteps(Entity entity, FootstepsComponent& c);
+        bool DrawSubScene(Entity entity, SubSceneComponent& c);
+        // The read-only rows of `host`'s sub-scene under it in the hierarchy.
+        void DrawSubSceneRows(Entity host, const Ref<Scene>& sub);
         // Gameplay tags: removable chips + add field with suggestions.
         bool DrawTagsComponent(TagsComponent& c);
         // 2D renderers: the sorting layer (from the project's list) and the order inside it.
@@ -426,6 +435,14 @@ namespace Zamin {
     private:
         Ref<Scene> m_Context;
         SceneManager* m_SceneManager = nullptr;
+        // The scene file the inspector's Sub-sahna section describes (read again when it changes).
+        struct SubSceneFileCache
+        {
+            std::string Path;
+            std::filesystem::file_time_type Time{};
+            SceneFileInfo Info;
+            bool Readable = false;
+        } m_SubSceneFile;
         // The other loaded scenes of play mode, folded below the shown scene's tree.
         void DrawRuntimeSceneHeader();
         void DrawOtherRuntimeScenes();

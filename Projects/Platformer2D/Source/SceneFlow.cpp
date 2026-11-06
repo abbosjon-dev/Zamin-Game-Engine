@@ -239,3 +239,45 @@ private:
     GameState::ListenerID m_Watch = 0;
 };
 ZM_REGISTER_SCRIPT(GameSession, ZM_FIELD(GameSession, Hud).Tooltip("Sessiya matni (UI): faqat darajalarda ko'rinadi"))
+
+// Sub-sahnalar namunasi (SubScenes.zscene): bitta "Lager" bo'lagi (Scenes/Parts/Camp.zscene) uch joyda.
+// Ikkitasi sahna bilan yuklanadi (SubSceneComponent, "Sahna bilan yuklash"), uchinchisini shu skript
+// Delay sekunddan keyin LoadSubScene() bilan yuklaydi - masalan, o'yinchi yaqinlashganda ochiladigan
+// xona. Label (ixtiyoriy) holatni ko'rsatadi.
+class DelayedSubScene : public ScriptableEntity
+{
+public:
+    float Delay = 1.5f;
+    EntityRef Label;
+
+    void OnUpdate(Timestep ts) override
+    {
+        if (m_Requested)
+        {
+            if (!m_Shown && GetSubScene())
+            {
+                m_Shown = true;
+                SetLabel(std::format("'{}' yuklandi ({} obyekt)", GetSubScene()->GetName(), GetSubScene()->GetEntitiesInOrder().size()));
+            }
+            return;
+        }
+        m_Time += ts;
+        SetLabel(std::format("Uchinchi lager {:.1f} s dan keyin yuklanadi", std::max(0.0f, Delay - m_Time)));
+        if (m_Time >= Delay)
+            m_Requested = LoadSubScene(); // at the end of this frame, placed by this entity
+    }
+
+private:
+    void SetLabel(const std::string& text)
+    {
+        if (Entity label = Resolve(Label))
+            if (auto* t = label.TryGetComponent<TextComponent>())
+                t->Text = text;
+    }
+
+    float m_Time = 0.0f;
+    bool m_Requested = false;
+    bool m_Shown = false;
+};
+ZM_REGISTER_SCRIPT(DelayedSubScene, ZM_FIELD_RANGE(DelayedSubScene, Delay, 0.0f, 10.0f).Tooltip("Sub-sahna yuklanguncha kutish (sekund)"),
+                   ZM_FIELD(DelayedSubScene, Label).Tooltip("Holat matni (Text komponenti)"))

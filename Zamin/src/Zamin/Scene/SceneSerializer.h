@@ -80,6 +80,7 @@ namespace Zamin {
         size_t EntityCount = 0;
         size_t RootCount = 0;             // entities without a parent
         std::filesystem::path Thumbnail;  // SceneMetadata::GetThumbnailPath when the picture exists
+        std::vector<std::string> SubScenes; // the scene files its SubSceneComponents name (as written, each once)
         std::string Error;                // why the file could not be read ("" when it could)
     };
 

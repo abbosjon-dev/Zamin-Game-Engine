@@ -56,6 +56,32 @@ namespace Zamin {
             options.SkipEditorHidden = true;
             scene->OnRenderEditor(camera, options);
         }
+        // The sub-scenes the game starts with, where it puts them (over the scene, without a sky).
+        for (Entity host : scene->FindEntitiesWith<SubSceneComponent>())
+        {
+            const auto& c = host.GetComponent<SubSceneComponent>();
+            if (!c.LoadOnStart || c.ScenePath.empty() || !scene->IsActiveInHierarchy(host))
+                continue;
+            const fs::path file = Project::GetAssetFileSystemPath(c.ScenePath);
+            if (file.lexically_normal() == scenePath.lexically_normal())
+                continue; // itself
+            Ref<Scene> sub = CreateRef<Scene>();
+            if (!SceneSerializer(sub).Deserialize(file))
+                continue;
+            sub->ResolveAssets();
+            sub->OnViewportResize(width, height);
+            if (c.ApplyTransform)
+                SceneManager::OffsetRoots(*sub, scene->GetWorldTransform(host));
+            if (gameCamera)
+                sub->RenderRuntime(view, true);
+            else
+            {
+                SceneRenderOptions options;
+                options.SkipEditorHidden = true;
+                options.Overlay = true;
+                sub->OnRenderEditor(camera, options);
+            }
+        }
         hdr->Unbind();
 
         PostProcessInput input;

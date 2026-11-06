@@ -738,6 +738,34 @@ namespace Zamin {
         return manager && manager->UnloadScene(nameOrPath);
     }
 
+    bool ScriptableEntity::LoadSubScene() { return LoadSubScene(m_Entity); }
+    bool ScriptableEntity::UnloadSubScene() { return UnloadSubScene(m_Entity); }
+    Ref<Scene> ScriptableEntity::GetSubScene() const { return GetSubScene(m_Entity); }
+
+    bool ScriptableEntity::LoadSubScene(Entity host)
+    {
+        SceneManager* manager = host.GetScene() ? host.GetScene()->GetSceneManager() : nullptr;
+        if (!manager)
+        {
+            ZM_CORE_WARN("LoadSubScene('{}'): sahna SceneManager'siz ishlayapti - sub-sahna yuklanmadi",
+                         host.IsValid() ? host.GetName() : std::string("?"));
+            return false;
+        }
+        return manager->LoadSubScene(host);
+    }
+
+    bool ScriptableEntity::UnloadSubScene(Entity host)
+    {
+        SceneManager* manager = host.GetScene() ? host.GetScene()->GetSceneManager() : nullptr;
+        return manager && manager->UnloadSubScene(host);
+    }
+
+    Ref<Scene> ScriptableEntity::GetSubScene(Entity host) const
+    {
+        SceneManager* manager = host.GetScene() ? host.GetScene()->GetSceneManager() : nullptr;
+        return manager ? manager->GetSubScene(host) : nullptr;
+    }
+
     void ScriptableEntity::DontDestroyOnLoad() { DontDestroyOnLoad(m_Entity); }
 
     void ScriptableEntity::DontDestroyOnLoad(Entity entity)

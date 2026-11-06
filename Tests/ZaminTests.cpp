@@ -6784,10 +6784,11 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<AmbientZoneComponent>();
     e.AddComponent<FootstepsComponent>();
     e.AddComponent<BoneAttachmentComponent>();
+    e.AddComponent<SubSceneComponent>().ScenePath = "Scenes/Parts/Room.zscene";
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 64);
+    CHECK(types.size() == 65);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -31387,4 +31388,134 @@ TEST(LargeSceneSerialization)
     CHECK(loaded->GetRootEntities().size() == 200 && loaded->FindEntityByName("Obyekt 1999"));
     CHECK(loaded->GetParent(loaded->FindEntityByName("Obyekt 1999")) == loaded->FindEntityByName("Obyekt 1990"));
     CHECK(loaded->FindEntityByName("Obyekt 1").GetComponent<SpriteRendererComponent>().TexturePath == "Textures/a.png");
+}
+
+TEST(SubScenes)
+{
+    SceneFolder f;
+    auto host = [](Scene& s, const std::string& name, const std::filesystem::path& scene, const glm::vec3& at, bool onStart = true) {
+        Entity e = s.CreateEntity(name);
+        e.GetComponent<TransformComponent>().Translation = at;
+        auto& c = e.AddComponent<SubSceneComponent>();
+        c.ScenePath = scene.generic_string();
+        c.LoadOnStart = onStart;
+        return e;
+    };
+    f.Write("Lamp", { "Bulb" });
+    f.Write("Room", {}, [&](Scene& s) {
+        Entity chair = s.CreateEntity("Chair");
+        chair.GetComponent<TransformComponent>().Translation = { 1.0f, 0.0f, 0.0f };
+        Entity leg = s.CreateEntity("Leg");
+        s.SetParent(leg, chair);
+        leg.GetComponent<TransformComponent>().Translation = { 0.0f, -0.5f, 0.0f };
+        Entity crate = s.CreateEntity("Crate");
+        crate.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+        crate.AddComponent<BoxCollider2DComponent>();
+        host(s, "LampSpot", f.Path("Lamp"), { 0.0f, 2.0f, 0.0f }); // a sub-scene of its own
+    });
+    f.Write("Loop", {}, [&](Scene& s) { host(s, "Self", f.Path("Loop"), glm::vec3(0.0f)); });
+    f.Write("House", { "Floor" }, [&](Scene& s) {
+        Entity a = host(s, "RoomA", f.Path("Room"), { 10.0f, 0.0f, 0.0f });
+        a.GetComponent<TransformComponent>().Rotation.z = glm::half_pi<float>();
+        Entity b = host(s, "RoomB", f.Path("Room"), { -5.0f, 0.0f, 0.0f });
+        b.GetComponent<SubSceneComponent>().ApplyTransform = false;
+        host(s, "Later", f.Path("Lamp"), { 0.0f, 0.0f, 7.0f }, false);
+        host(s, "Looper", f.Path("Loop"), glm::vec3(0.0f));
+        host(s, "Broken", f.Path("Missing"), glm::vec3(0.0f));
+        s.CreateEntity("Probe").AddComponent<NativeScriptComponent>().ClassName = "SceneEventProbe";
+    });
+
+    // The component is saved and read back.
+    {
+        auto scene = CreateRef<Scene>();
+        CHECK(SceneSerializer(scene).Deserialize(f.Path("House")));
+        Entity later = scene->FindEntityByName("Later");
+        CHECK(later && later.HasComponent<SubSceneComponent>());
+        const auto& c = later.GetComponent<SubSceneComponent>();
+        CHECK(c.ScenePath == f.Path("Lamp").generic_string() && !c.LoadOnStart && c.ApplyTransform && c.ShowInEditor);
+        CHECK(!scene->FindEntityByName("RoomB").GetComponent<SubSceneComponent>().ApplyTransform);
+        CHECK(ComponentRegistry::Find("SubScene") && ComponentRegistry::Has(later, "SubScene"));
+    }
+
+    g_SceneEvents.clear();
+    Log::SetMinLevel(LogLevel::Critical); // the loop and the missing file are reported
+    SceneManager m;
+    CHECK(m.Start(f.Path("House")));
+    Log::SetMinLevel(LogLevel::Error);
+    Ref<Scene> house = m.GetActiveScene();
+    // House + RoomA + its Lamp + RoomB + its Lamp; the loop loads once (not into itself), the missing one not at all.
+    CHECK(m.GetSceneCount() == 6);
+    Entity roomAHost = house->FindEntityByName("RoomA");
+    Ref<Scene> roomA = m.GetSubScene(roomAHost);
+    Ref<Scene> roomB = m.GetSubScene(house->FindEntityByName("RoomB"));
+    CHECK(roomA && roomB && roomA != roomB && roomA->IsRunning() && roomA->GetName() == "Room");
+    UUID hostID = 0;
+    CHECK(m.GetSubSceneOwner(roomA.get(), &hostID) == house.get() && hostID == roomAHost.GetUUID() && m.IsSubScene(roomA.get()));
+    CHECK(!m.IsSubScene(house.get()) && m.GetActiveScene() == house);
+    // Placed by the host: RoomA turned a quarter and moved to x 10 (the chair at x 1 goes to y 1).
+    Entity chair = roomA->FindEntityByName("Chair");
+    glm::vec3 p = glm::vec3(roomA->GetWorldTransform(chair)[3]);
+    CHECK_NEAR(p.x, 10.0f, 1e-4f);
+    CHECK_NEAR(p.y, 1.0f, 1e-4f);
+    // A child keeps its place under its parent; RoomB keeps its file's positions.
+    glm::vec3 leg = glm::vec3(roomA->GetWorldTransform(roomA->FindEntityByName("Leg"))[3]);
+    CHECK_NEAR(leg.x, 10.5f, 1e-4f);
+    CHECK_NEAR(leg.y, 1.0f, 1e-4f);
+    CHECK_NEAR(glm::vec3(roomB->GetWorldTransform(roomB->FindEntityByName("Chair"))[3]).x, 1.0f, 1e-4f);
+    // The body was made where the sub-scene put it (before its physics started).
+    Entity crate = roomA->FindEntityByName("Crate");
+    CHECK(crate.GetComponent<Rigidbody2DComponent>().RuntimeBody != nullptr && roomA->GetPhysics2DStats().Bodies == 1);
+    // A sub-scene's own sub-scene, at the offset of both hosts (RoomA's lamp spot: (0,2) turned -> (-2,0) + (10,0)).
+    Ref<Scene> lampA = m.GetSubScene(roomA->FindEntityByName("LampSpot"));
+    CHECK(lampA && m.GetSubSceneOwner(lampA.get()) == roomA.get());
+    glm::vec3 bulb = glm::vec3(lampA->GetWorldTransform(lampA->FindEntityByName("Bulb"))[3]);
+    CHECK_NEAR(bulb.x, 8.0f, 1e-4f);
+    CHECK_NEAR(bulb.y, 0.0f, 1e-4f);
+    // The loop: loaded once under Looper, not again inside itself.
+    Ref<Scene> loop = m.GetSubScene(house->FindEntityByName("Looper"));
+    CHECK(loop && !m.GetSubScene(loop->FindEntityByName("Self")));
+    CHECK(!m.GetSubScene(house->FindEntityByName("Broken")));
+    // Found from anywhere; the events came after the owner's (House, then its sub-scenes in order).
+    CHECK(m.FindEntityByName("Bulb") && m.FindEntityByName("Chair"));
+    std::vector<std::string> loadedOrder;
+    for (const std::string& event : g_SceneEvents)
+        if (event.starts_with("Probe:loaded:"))
+            loadedOrder.push_back(event.substr(13, event.find(':', 13) - 13) + (event.find(":add:") != std::string::npos ? "+" : ""));
+    CHECK(loadedOrder == std::vector<std::string>({ "House", "Room+", "Lamp+", "Room+", "Lamp+", "Loop+" }));
+    // LoadOnStart off: loaded when asked (at the end of the frame), placed by its host.
+    Entity later = house->FindEntityByName("Later");
+    CHECK(!m.GetSubScene(later) && m.LoadSubScene(later) && !m.GetSubScene(later));
+    m.ProcessRequests();
+    Ref<Scene> lamp = m.GetSubScene(later);
+    CHECK(lamp && m.GetSceneCount() == 7);
+    CHECK_NEAR(glm::vec3(lamp->GetWorldTransform(lamp->FindEntityByName("Bulb"))[3]).z, 7.0f, 1e-4f);
+    CHECK(m.LoadSubScene(later));
+    m.ProcessRequests();
+    CHECK(m.GetSceneCount() == 7); // already loaded: once
+    // Unloading a sub-scene: alone; unloading its owner takes its sub-scenes along.
+    CHECK(m.UnloadSubScene(later));
+    m.ProcessRequests();
+    CHECK(!m.GetSubScene(later) && m.GetSceneCount() == 6);
+    CHECK(m.UnloadScene(roomA));
+    m.ProcessRequests();
+    CHECK(m.GetSceneCount() == 4 && !m.IsLoaded(roomA.get()) && !m.IsLoaded(lampA.get()) && !lampA->IsRunning());
+    CHECK(m.FindEntityByName("Bulb")); // RoomB's lamp is still there
+    // A Single load: everything goes, the new scene brings its own.
+    m.LoadScene(f.Path("Room"));
+    m.ProcessRequests();
+    CHECK(m.GetSceneCount() == 2 && m.GetActiveScene()->GetName() == "Room" && !house->IsRunning());
+    CHECK(m.GetSubScene(m.GetActiveScene()->FindEntityByName("LampSpot")));
+    m.Stop();
+    g_SceneEvents.clear();
+
+    // OffsetRoots on its own: the roots move, their children follow.
+    auto scene = CreateRef<Scene>();
+    Entity root = scene->CreateEntity("Root");
+    Entity kid = scene->CreateEntity("Kid");
+    scene->SetParent(kid, root);
+    kid.GetComponent<TransformComponent>().Translation = { 1.0f, 0.0f, 0.0f };
+    SceneManager::OffsetRoots(*scene, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 3.0f)));
+    CHECK_NEAR(root.GetComponent<TransformComponent>().Translation.z, 3.0f, 1e-5f);
+    CHECK_NEAR(kid.GetComponent<TransformComponent>().Translation.x, 1.0f, 1e-5f);
+    CHECK_NEAR(glm::vec3(scene->GetWorldTransform(kid)[3]).z, 3.0f, 1e-5f);
 }

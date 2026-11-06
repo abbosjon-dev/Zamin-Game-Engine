@@ -15,6 +15,7 @@
 #include "Panels/ScenesPanel.h"
 #include "AssetUsageCache.h"
 #include "SceneThumbnails.h"
+#include "SubScenePreviews.h"
 
 #include <atomic>
 #include <deque>
@@ -340,6 +341,7 @@ namespace Zamin {
         int m_EditorSceneFileVersion = SceneMigration::CurrentVersion;
         std::string m_NewSceneTag;          // the scene settings' new tag field
         SceneThumbnails m_SceneThumbnails;  // scene pictures at their own size (inspector, Scenes panel)
+        SubScenePreviews m_SubScenePreviews; // the open scene's sub-scenes, drawn in place (edit mode)
         bool m_ScenesPanelDirty = true;     // the Scenes panel reads the project's scene files again
         // Scene files whose thumbnails the Scenes panel asked for: one is loaded and drawn a frame.
         std::deque<std::filesystem::path> m_ThumbnailQueue;

@@ -829,6 +829,20 @@ namespace Zamin {
         }
     };
 
+    // A part of the scene kept in a scene file of its own (a level's rooms, a shared lighting set-up,
+    // a piece several levels use): at runtime the scene manager loads that file additively next to
+    // the scene this entity is in - its own entities, scripts and physics world - with its root
+    // entities placed by this entity's world transform (an offset applied once, when it is loaded:
+    // moving this entity later does not move them). Unloading the scene unloads its sub-scenes.
+    // The editor draws the sub-scene in place, read-only (open its file to edit it).
+    struct SubSceneComponent
+    {
+        std::string ScenePath;        // .zscene, relative to the assets
+        bool LoadOnStart = true;      // with the scene (else SceneManager::LoadSubScene / the script's LoadSubScene)
+        bool ApplyTransform = true;   // the roots placed by this entity's transform (else where their file has them)
+        bool ShowInEditor = true;     // drawn in place in the editor's scene view
+    };
+
     // Puts the entity on a bone of a skinned model - a sword in the hand, a hat on the head, a
     // lantern on the belt. The bone, as the model's Animator poses it (the editor's preview too),
     // takes the place of the entity's parent: its Transform is the offset in the bone's space, so
@@ -2707,6 +2721,6 @@ namespace Zamin {
         UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
         UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
         UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, FootstepsComponent,
-        BoneAttachmentComponent, NativeScriptComponent, EditorMetadataComponent>;
+        BoneAttachmentComponent, SubSceneComponent, NativeScriptComponent, EditorMetadataComponent>;
 
 }

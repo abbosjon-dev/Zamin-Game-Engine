@@ -1085,6 +1085,13 @@ namespace Zamin {
         }
         if (auto* c = entity.TryGetComponent<BoneAttachmentComponent>())
             e["BoneAttachment"] = { { "Target", c->Target.ID }, { "Bone", c->Bone }, { "InheritBoneScale", c->InheritBoneScale } };
+        if (auto* c = entity.TryGetComponent<SubSceneComponent>())
+        {
+            json& j = e["SubScene"];
+            j = { { "Scene", c->ScenePath }, { "LoadOnStart", c->LoadOnStart }, { "ApplyTransform", c->ApplyTransform },
+                  { "ShowInEditor", c->ShowInEditor } };
+            WriteAssetHandle(j, "Scene", c->ScenePath);
+        }
         if (auto* c = entity.TryGetComponent<FootstepsComponent>())
         {
             json sounds = json::array();
@@ -1930,6 +1937,15 @@ namespace Zamin {
             c.Target.ID = j.contains("Target") && j["Target"].is_number_unsigned() ? j["Target"].get<uint64_t>() : 0;
             c.Bone = j.value("Bone", std::string());
             c.InheritBoneScale = j.value("InheritBoneScale", false);
+        }
+        if (auto sub = e.find("SubScene"); sub != e.end() && sub->is_object())
+        {
+            const json& j = *sub;
+            auto& c = entity.AddComponent<SubSceneComponent>();
+            c.ScenePath = ReadAssetPath(j, "Scene");
+            c.LoadOnStart = j.value("LoadOnStart", true);
+            c.ApplyTransform = j.value("ApplyTransform", true);
+            c.ShowInEditor = j.value("ShowInEditor", true);
         }
         if (e.contains("Footsteps"))
         {
@@ -4163,6 +4179,10 @@ namespace Zamin {
                 out.EntityCount++;
                 if (!ReadEntityID(e, "Parent"))
                     out.RootCount++;
+                if (auto sub = e.find("SubScene"); sub != e.end() && sub->is_object())
+                    if (auto scene = sub->find("Scene"); scene != sub->end() && scene->is_string() && !scene->get_ref<const std::string&>().empty())
+                        if (std::find(out.SubScenes.begin(), out.SubScenes.end(), scene->get_ref<const std::string&>()) == out.SubScenes.end())
+                            out.SubScenes.push_back(scene->get<std::string>());
             }
         return true;
     }

@@ -1,8 +1,11 @@
 #pragma once
 
+#include "Zamin/Editor/EditorAutosave.h"
+
 #include <glm/glm.hpp>
 
 #include <filesystem>
+#include <map>
 #include <span>
 #include <string>
 
@@ -89,6 +92,14 @@ namespace Zamin {
         bool ShowTrace = false, ShowInfo = true, ShowWarn = true, ShowError = true;
     };
 
+    // The scene's undo history.
+    struct UndoPreferences
+    {
+        // Selection changes are undo steps of their own (Ctrl+Z picks the previous selection
+        // again); off: an edit's undo still brings back the selection it had.
+        bool RecordSelection = true;
+    };
+
     // The editor's per-user preferences (Tahrirlash > Sozlamalar), stored as JSON in the user's
     // config directory (~/.config/zamin/preferences.json).
     struct EditorPreferences
@@ -97,6 +108,10 @@ namespace Zamin {
         PlayModeTintSettings PlayTint;
         EditorCameraDefaults Camera;
         ConsolePreferences Console;
+        AutosaveSettings Autosave;
+        UndoPreferences Undo;
+        // Keyboard shortcuts rebound in the shortcuts window: id -> chord ("" = unbound).
+        std::map<std::string, std::string> Shortcuts;
 
         void Sanitize();
         std::string ToJson() const;

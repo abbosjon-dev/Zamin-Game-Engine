@@ -28,6 +28,7 @@ namespace Zamin {
             0x02BB, 0x02BC, // ʻ ʼ
             0x0400, 0x04FF, // Cyrillic
             0x2010, 0x205E, // punctuation
+            0x2190, 0x2199, // arrows (key names, "old -> new")
             0,
         };
         ImFontConfig cfg;

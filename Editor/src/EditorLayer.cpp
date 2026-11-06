@@ -87,6 +87,7 @@ namespace Zamin {
         m_LayoutInitialized = fs::exists(iniPath);
 
         m_EditorCamera.Focus({ 0.0f, 0.5f, 0.0f }, 14.0f);
+        RegisterShortcuts(); // before the preferences: they rebind some of them
         LoadViewSettings();
         LoadPreferences();
 
@@ -292,6 +293,7 @@ namespace Zamin {
         });
 
         LoadRecentProjects();
+        LoadRecentScenes();
         m_NewProjectLocation = (fs::path(std::getenv("HOME") ? std::getenv("HOME") : ".") / "ZaminProjects").string();
 
         NewScene();
@@ -331,6 +333,9 @@ namespace Zamin {
             SaveViewSettings();
         if (m_PreferencesDirty || m_ConsolePanel.ConsumePreferencesChanged())
             SavePreferences();
+        // Closed normally: this session's safety copy goes, and the project is no longer locked.
+        DiscardSessionAutosave();
+        ReleaseProjectLock();
         m_ActiveScene.reset();
         m_EditorScene.reset();
         ScriptEngine::UnloadModule();
@@ -520,12 +525,29 @@ namespace Zamin {
                         Log::Write(logLevel, true, std::string(item.substr(colon + 1)));
                 }
             }
-            // ZAMIN_EDITOR_PREFERENCES=<page 0..3>: the preferences window opens on that page.
+            // ZAMIN_EDITOR_PREFERENCES=<page 0..4>: the preferences window opens on that page.
             if (const char* prefs = std::getenv("ZAMIN_EDITOR_PREFERENCES"))
             {
                 m_ShowPreferences = true;
-                m_PreferencesPage = std::clamp(std::atoi(prefs), 0, 3);
+                m_PreferencesPage = std::clamp(std::atoi(prefs), 0, 4);
             }
+            // ZAMIN_EDITOR_UNDO="select=<name>;move=<name>,dx,dy,dz;rename=<name>,<new>;duplicate;delete;undo=<n>;history":
+            // undo steps made one by one (each its own step, named as usual); "history" opens the window.
+            if (const char* undo = std::getenv("ZAMIN_EDITOR_UNDO"))
+                ApplyUndoAutomation(undo);
+            // ZAMIN_EDITOR_MENU=<Fayl|Tahrirlash|Yordam>[/recent]: that main menu kept open (screenshots).
+            if (const char* menu = std::getenv("ZAMIN_EDITOR_MENU"))
+                m_OpenMenu = menu;
+            // ZAMIN_EDITOR_RECOVER=1: the recovery prompt's "Tiklash" (the offered copy is loaded).
+            if (std::getenv("ZAMIN_EDITOR_RECOVER") && !m_Recovery.Autosave.empty())
+            {
+                m_Recovery.Pending = false;
+                m_Recovery.CloseRequested = true;
+                RecoverAutosave();
+            }
+            // ZAMIN_EDITOR_AUTOSAVE=now: the open scene's safety copy is written (deleted again on exit).
+            if (const char* autosave = std::getenv("ZAMIN_EDITOR_AUTOSAVE"); autosave && std::string_view(autosave) == "now")
+                WriteAutosave(true);
             // ZAMIN_EDITOR_ACCENT=<preset key, e.g. Violet>, ZAMIN_EDITOR_FONT_SIZE=<px>, ZAMIN_EDITOR_TINT=<preset key>:
             // the look for screenshots (not saved).
             if (const char* accent = std::getenv("ZAMIN_EDITOR_ACCENT"))
@@ -3924,33 +3946,6 @@ namespace Zamin {
     }
 
     // ================================================================== projects
-    void EditorLayer::LoadRecentProjects()
-    {
-        m_RecentProjects.clear();
-        if (!fs::exists(ConfigDirectory() / "recent-projects.json")) return;
-        std::string text = FileSystem::ReadTextFile(ConfigDirectory() / "recent-projects.json");
-        if (text.empty()) return;
-        try
-        {
-            auto j = nlohmann::json::parse(text);
-            for (auto& p : j)
-                if (fs::exists(p.get<std::string>()))
-                    m_RecentProjects.emplace_back(p.get<std::string>());
-        }
-        catch (...) {}
-    }
-
-    void EditorLayer::AddRecentProject(const fs::path& path)
-    {
-        fs::path abs = fs::absolute(path);
-        std::erase(m_RecentProjects, abs);
-        m_RecentProjects.insert(m_RecentProjects.begin(), abs);
-        if (m_RecentProjects.size() > 10) m_RecentProjects.resize(10);
-        nlohmann::json j = nlohmann::json::array();
-        for (auto& p : m_RecentProjects) j.push_back(p.string());
-        FileSystem::WriteTextFile(ConfigDirectory() / "recent-projects.json", j.dump(2));
-    }
-
     void EditorLayer::NewProject(const fs::path& directory, const std::string& name)
     {
         fs::path dir = directory / name;
@@ -3982,11 +3977,14 @@ namespace Zamin {
         m_ProjectSettingsPanel.SaveIfDirty();
         SaveData::Save(); // the previous project's game data
         SaveAssetRegistryCache(true);
+        DiscardSessionAutosave(); // the previous project's scene is left
         if (!Project::Load(projectFile))
         {
             ZM_ERROR("Loyiha ochilmadi: {}", path.string());
             return false;
         }
+        // The lock file first: the start scene's autosave check knows whether the last session crashed.
+        AcquireProjectLock();
         m_ProjectSettingsPanel.OnProjectChanged();
         AddRecentProject(projectFile);
         m_ShowLauncher = false;
@@ -4013,6 +4011,9 @@ namespace Zamin {
         fs::path startScene = Project::GetAssetFileSystemPath(config.StartScene);
         if (config.StartScene.empty() || !OpenScene(startScene))
             NewScene();
+        // A scene that was never saved has its copy under a name of its own.
+        if (!m_Recovery.Pending)
+            CheckAutosaveRecovery({});
         UpdateWindowTitle();
         return true;
     }
@@ -4034,6 +4035,8 @@ namespace Zamin {
         m_ProjectSettingsPanel.SaveIfDirty();
         m_ProjectSettingsPanel.OnProjectChanged();
         SaveData::Save();
+        DiscardSessionAutosave();
+        ReleaseProjectLock();
         Project::SetActive(nullptr);
         m_ContentBrowserPanel.SetRoot({});
         m_ScenesPanel.OnProjectChanged();
@@ -4069,6 +4072,7 @@ namespace Zamin {
     {
         if (m_SceneState != SceneState::Edit)
             OnSceneStop();
+        DiscardSessionAutosave(); // the scene that was open is left
         m_EditorScene = CreateRef<Scene>();
         m_EditorScene->SetName("Yangi sahna");
         SetActiveScene(m_EditorScene);
@@ -4077,7 +4081,9 @@ namespace Zamin {
         m_ViewSettings.Bookmarks.erase(std::string()); // bookmarks of the previous unsaved scene
         m_SceneDirty = false;
         m_AssetUsage.MarkDirty(); // the previous scene's unsaved state no longer counts
-        ResetUndoHistory();
+        ResetUndoHistory("Yangi sahna");
+        if (ImGui::GetCurrentContext())
+            m_LastAutosaveTime = ImGui::GetTime();
         UpdateWindowTitle();
     }
 
@@ -4126,6 +4132,7 @@ namespace Zamin {
         else if (m_LoadReportBanner && m_LoadReport.File == serializer.GetLoadReport().File)
             m_LoadReportBanner = false; // fixed: loads clean now
 
+        DiscardSessionAutosave(); // the scene that was open is left
         m_EditorScene = newScene;
         m_SceneHierarchyPanel.SetContext({});
         SetActiveScene(m_EditorScene);
@@ -4138,7 +4145,7 @@ namespace Zamin {
         if (m_SceneDirty)
             m_ContentBrowserPanel.ShowNotice(std::format("Sahnada {} ta asset havolasi UUID orqali tiklandi - saqlang",
                                                          serializer.GetRepairedReferences().size()));
-        ResetUndoHistory();
+        ResetUndoHistory(std::format("Sahna ochildi: {}", path.stem().string()), !m_SceneDirty);
         // Auto-detect 2D scenes (orthographic primary camera; an inactive one still tells).
         Entity sceneCamera = m_EditorScene->GetPrimaryCameraEntity();
         if (!sceneCamera)
@@ -4146,6 +4153,9 @@ namespace Zamin {
         if (sceneCamera)
             Set2DMode(sceneCamera.GetComponent<CameraComponent>().Camera.GetProjectionType() == SceneCamera::ProjectionType::Orthographic);
         ZM_INFO("Sahna ochildi: {}", path.filename().string());
+        AddRecentScene(path);
+        m_LastAutosaveTime = ImGui::GetTime();
+        CheckAutosaveRecovery(path); // a newer safety copy (the last session crashed): offered back
         UpdateWindowTitle();
         return true;
     }
@@ -4298,7 +4308,18 @@ namespace Zamin {
             SaveSceneAs();
             return;
         }
+        CommitUndo(); // the history's current state is what the file gets
         SerializeScene(m_EditorScene, m_EditorScenePath);
+        m_UndoHistory.MarkSaved();
+        // The file has everything now: its safety copy (this session's or an older one) goes.
+        if (const fs::path autosave = GetAutosavePath(); !autosave.empty())
+        {
+            std::error_code ec;
+            fs::remove(autosave, ec);
+            m_SessionAutosaves.erase(autosave.lexically_normal().string());
+        }
+        m_AutosavedScene = m_UndoHistory.GetCurrent().Scene;
+        m_LastAutosaveTime = ImGui::GetTime();
         m_EditorSceneFileVersion = SceneMigration::CurrentVersion; // written in the current format now
         RenderSceneThumbnail(); // the scene's picture (Scenes panel, content browser, inspector)
         m_AnimationPanel.SaveIfDirty(); // the clip being edited goes with the scene
@@ -4344,8 +4365,10 @@ namespace Zamin {
                 m_ViewSettings.Bookmarks.erase(std::string());
             }
         }
+        DiscardSessionAutosave(); // the copy under the old path (or the unsaved scene's)
         m_EditorScenePath = p;
         SaveScene();
+        AddRecentScene(p);
     }
 
     void EditorLayer::OnScenePlay()
@@ -4519,6 +4542,8 @@ namespace Zamin {
         size_t count = m_SceneHierarchyPanel.DuplicateSelection(midDrag);
         if (count == 0)
             return;
+        if (Entity copy = m_SceneHierarchyPanel.GetSelectedEntity(); copy && m_PendingUndoName.empty())
+            m_PendingUndoName = count > 1 ? std::format("Nusxa olindi: {} (+{})", copy.GetName(), count - 1) : std::format("Nusxa olindi: {}", copy.GetName());
         if (midDrag)
         {
             // Ctrl+D during a gizmo drag: the originals stay where they are now and the drag
@@ -4704,70 +4729,6 @@ namespace Zamin {
         Application::Get().GetWindow().SetTitle(title);
     }
 
-    // ================================================================== undo / redo
-    std::string EditorLayer::TakeSnapshot()
-    {
-        std::string snapshot;
-        m_AnimationPanel.WithoutPreview([&]() { snapshot = SceneSerializer(m_EditorScene).SerializeToString(); });
-        return snapshot;
-    }
-
-    void EditorLayer::ResetUndoHistory()
-    {
-        m_UndoStack.clear();
-        m_RedoStack.clear();
-        m_PendingUndo = false;
-        m_LastSnapshot = m_EditorScene ? TakeSnapshot() : std::string();
-    }
-
-    void EditorLayer::CommitUndo()
-    {
-        if (!m_PendingUndo || m_SceneState != SceneState::Edit)
-            return;
-        m_PendingUndo = false;
-        std::string current = TakeSnapshot();
-        if (current == m_LastSnapshot)
-            return;
-        m_UndoStack.push_back(std::move(m_LastSnapshot));
-        if (m_UndoStack.size() > 100)
-            m_UndoStack.erase(m_UndoStack.begin());
-        m_RedoStack.clear();
-        m_LastSnapshot = std::move(current);
-    }
-
-    void EditorLayer::RestoreSnapshot(const std::string& snapshot)
-    {
-        Ref<Scene> scene = CreateRef<Scene>();
-        if (!SceneSerializer(scene).DeserializeFromString(snapshot))
-            return;
-        scene->ResolveAssets();
-        m_EditorScene = scene;
-        SetActiveScene(m_EditorScene, false);
-        m_SceneDirty = true;
-        m_AssetUsage.MarkDirty(); // undo / redo brings back (or takes away) what used assets
-        UpdateWindowTitle();
-    }
-
-    void EditorLayer::Undo()
-    {
-        if (m_SceneState != SceneState::Edit) return;
-        CommitUndo();
-        if (m_UndoStack.empty()) return;
-        m_RedoStack.push_back(std::move(m_LastSnapshot));
-        m_LastSnapshot = std::move(m_UndoStack.back());
-        m_UndoStack.pop_back();
-        RestoreSnapshot(m_LastSnapshot);
-    }
-
-    void EditorLayer::Redo()
-    {
-        if (m_SceneState != SceneState::Edit || m_RedoStack.empty()) return;
-        m_UndoStack.push_back(std::move(m_LastSnapshot));
-        m_LastSnapshot = std::move(m_RedoStack.back());
-        m_RedoStack.pop_back();
-        RestoreSnapshot(m_LastSnapshot);
-    }
-
     // ================================================================== clipboard / prefabs
     static void CollectSubtree(Scene& scene, Entity root, std::vector<Entity>& out)
     {
@@ -4807,7 +4768,8 @@ namespace Zamin {
             if (!m_EditorScene->GetParent(e))
                 roots.push_back(e);
         m_SceneHierarchyPanel.GetSelection().Set(roots, roots.empty() ? entities.front() : roots.front());
-        MarkDirty();
+        Entity first = roots.empty() ? entities.front() : roots.front();
+        MarkDirty(roots.size() > 1 ? std::format("Joylandi: {} (+{})", first.GetName(), roots.size() - 1) : std::format("Joylandi: {}", first.GetName()));
     }
 
     void EditorLayer::SavePrefab(Entity entity)
@@ -4842,7 +4804,7 @@ namespace Zamin {
         if (parent)
             m_EditorScene->SetParent(root, parent, false);
         m_SceneHierarchyPanel.SetSelectedEntity(root);
-        MarkDirty();
+        MarkDirty(std::format("Prefab qo'shildi: {}", root.GetName()));
         return root;
     }
 
@@ -4894,7 +4856,7 @@ namespace Zamin {
                 }
                 Entity created = ParticlePresets::Instantiate(*m_EditorScene, preset, m_EditorCamera.GetFocalPoint());
                 m_SceneHierarchyPanel.SetSelectedEntity(created);
-                MarkDirty();
+                MarkDirty(std::format("Particle preset: {}", created.GetName()));
                 return created;
             }
             default:
@@ -4942,7 +4904,7 @@ namespace Zamin {
         }
         if (!Scene::SetMeshMaterial(*mr, assetPath, submesh))
             return false;
-        MarkDirty();
+        MarkDirty(std::format("Material: {} ({})", fs::path(assetPath).stem().string(), entity.GetName()));
         bool loaded = submesh < 0 ? mr->MaterialRef != nullptr : Scene::GetMeshMaterialAsset(*mr, (size_t)submesh) != nullptr;
         if (!loaded)
         {
@@ -5434,9 +5396,8 @@ namespace Zamin {
                 }
             }
             // Undo / redo snapshots and the entity clipboard use the new paths, too.
-            for (std::string& snapshot : m_UndoStack) remap(snapshot);
-            for (std::string& snapshot : m_RedoStack) remap(snapshot);
-            remap(m_LastSnapshot);
+            m_UndoHistory.RewriteScenes([&](std::string& snapshot) { remap(snapshot); });
+            m_AutosavedScene.reset(); // the next copy has the new paths
             remap(m_Clipboard);
         }
 
@@ -5447,6 +5408,7 @@ namespace Zamin {
             fs::path moved = result.MapPath(current);
             if (moved != current)
             {
+                DiscardSessionAutosave(); // under the old path; the next copy goes under the new one
                 m_EditorScenePath = moved;
                 UpdateWindowTitle();
             }
@@ -5454,6 +5416,12 @@ namespace Zamin {
         for (const auto& m : result.Moved)
             if (m_ViewSettings.MoveSceneBookmarks(m.From, m.To) > 0)
                 MarkViewSettingsDirty();
+        // Recent scenes follow their files (folders too).
+        size_t renamed = 0;
+        for (const auto& m : result.Moved)
+            renamed += m_RecentScenes.Rename(m.From.string(), m.To.string());
+        if (renamed > 0)
+            SaveRecentScenes();
 
         // The project's start scene.
         if (auto project = Project::GetActive())
@@ -5730,125 +5698,8 @@ namespace Zamin {
     // ================================================================== ImGui
     void EditorLayer::OnImGuiRender()
     {
-        ImGuiIO& io = ImGui::GetIO();
-
-        // ---- keyboard shortcuts (ignored while typing - into the editor, or into the game's input field)
-        const bool typingInGame = m_SceneState == SceneState::Play && m_ViewportFocused && m_ActiveScene && m_ActiveScene->IsTextInputFocused();
-        if (!io.WantTextInput && !typingInGame)
-        {
-            bool ctrl = io.KeyCtrl, shift = io.KeyShift;
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S, false))
-            {
-                if (m_AnimationPanel.IsFocused() && m_AnimationPanel.HasUnsavedChanges())
-                    m_AnimationPanel.Save(); // the clip only: the window that has the keyboard
-                else
-                {
-                    shift ? SaveSceneAs() : SaveScene();
-                    m_ProjectSettingsPanel.SaveIfDirty();
-                    if (m_SpriteEditorPanel.HasUnsavedChanges())
-                        m_SpriteEditorPanel.Save();
-                }
-            }
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) { shift ? OpenProjectDialog() : OpenScene(); }
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) NewScene();
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_D, false)) DuplicateSelectedEntity();
-            // The Animation window undoes its own clip edits while it has the keyboard (its skeletal
-            // mode edits the scene's Animator events: the scene's undo).
-            const bool clipUndo = m_AnimationPanel.IsFocused() && !m_AnimationPanel.IsSkeletalMode();
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Z, false))
-            {
-                if (clipUndo) shift ? m_AnimationPanel.Redo() : m_AnimationPanel.Undo();
-                else shift ? Redo() : Undo();
-            }
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) { clipUndo ? (void)m_AnimationPanel.Redo() : Redo(); }
-            // (In the console Ctrl+C copies its selected message.)
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_C, false) && !m_ConsolePanel.IsFocused()) CopySelectedEntity();
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V, false)) PasteEntity();
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_B, false)) BuildScripts(true);
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Comma, false)) m_ShowPreferences = !m_ShowPreferences;
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_P, false)) { m_SceneState == SceneState::Edit ? OnScenePlay() : OnSceneStop(); }
-            // (While collider points are edited, Delete removes the point under the mouse instead.)
-            if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) && (m_ViewportFocused || m_SceneHierarchyPanel.IsHierarchyFocused()) &&
-                !(IsViewportHandleEditing() && m_ViewportHovered))
-                DeleteSelectedEntity();
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_A, false) &&
-                (m_SceneHierarchyPanel.IsHierarchyFocused() || (m_ViewportFocused && m_SceneState != SceneState::Play)))
-                m_SceneHierarchyPanel.SelectAll();
-            if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) && m_SceneState == SceneState::Play && Input::IsKeyPressed(Key::LeftShift))
-                OnSceneStop();
-            // Alt+Shift+A: switch the selection off / on (game state; while playing from the hierarchy).
-            if (!ctrl && shift && io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_A, false) &&
-                (m_SceneHierarchyPanel.IsHierarchyFocused() || (m_SceneState != SceneState::Play && (m_ViewportFocused || m_ViewportHovered))))
-                ToggleSelectionActive();
-            // H: hide / show the selection in the scene view, Alt+H: show everything again.
-            if (!ctrl && !shift && ImGui::IsKeyPressed(ImGuiKey_H, false) && m_SceneState == SceneState::Edit &&
-                (m_SceneHierarchyPanel.IsHierarchyFocused() || m_ViewportFocused || m_ViewportHovered) &&
-                !Input::IsMouseButtonPressed(MouseButton::Right))
-            {
-                if (io.KeyAlt) ShowAllHidden();
-                else ToggleSelectionHidden();
-            }
-
-            bool flying = Input::IsMouseButtonPressed(MouseButton::Right);
-            bool viewportKeys = !flying && (m_ViewportHovered || m_ViewportFocused);
-            if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit && m_SceneHierarchyPanel.IsTilePainting())
-            {
-                // Tile painting: B brush, R rectangle, G fill, E eraser, I picker; Q / W / Esc leave it.
-                using Tool = SceneHierarchyPanel::TileTool;
-                if (ImGui::IsKeyPressed(ImGuiKey_B, false)) m_SceneHierarchyPanel.SetTileTool(Tool::Brush);
-                if (ImGui::IsKeyPressed(ImGuiKey_R, false)) m_SceneHierarchyPanel.SetTileTool(Tool::Rectangle);
-                if (ImGui::IsKeyPressed(ImGuiKey_G, false)) m_SceneHierarchyPanel.SetTileTool(Tool::Fill);
-                if (ImGui::IsKeyPressed(ImGuiKey_E, false)) m_SceneHierarchyPanel.SetTileTool(Tool::Eraser);
-                if (ImGui::IsKeyPressed(ImGuiKey_I, false)) m_SceneHierarchyPanel.SetTileTool(Tool::Picker);
-                if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) m_SceneHierarchyPanel.SetTilePaint(false);
-                if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) { m_SceneHierarchyPanel.SetTilePaint(false); m_GizmoMode = GizmoMode::None; }
-                if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { m_SceneHierarchyPanel.SetTilePaint(false); m_GizmoMode = GizmoMode::Translate; }
-            }
-            else if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit && IsColliderPointEditing())
-            {
-                // Collider points: Esc / Q / W leave the editing (the transform gizmo comes back with W).
-                using Kind = SceneHierarchyPanel::ColliderPointKind;
-                if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_Q, false))
-                    m_SceneHierarchyPanel.SetColliderPointEdit(Kind::None);
-                if (ImGui::IsKeyPressed(ImGuiKey_W, false)) { m_SceneHierarchyPanel.SetColliderPointEdit(Kind::None); m_GizmoMode = GizmoMode::Translate; }
-            }
-            else if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit && (IsJointAnchorEditing() || IsJoint3DAnchorEditing()))
-            {
-                // Joint anchors: Esc / Q / W leave the editing as well.
-                if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_Q, false))
-                {
-                    m_SceneHierarchyPanel.SetJointAnchorEdit(-1);
-                    m_SceneHierarchyPanel.SetJoint3DAnchorEdit(-1);
-                }
-                if (ImGui::IsKeyPressed(ImGuiKey_W, false))
-                {
-                    m_SceneHierarchyPanel.SetJointAnchorEdit(-1);
-                    m_SceneHierarchyPanel.SetJoint3DAnchorEdit(-1);
-                    m_GizmoMode = GizmoMode::Translate;
-                }
-            }
-            else if (!ctrl && viewportKeys && m_SceneState == SceneState::Edit)
-            {
-                if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) m_GizmoMode = GizmoMode::None;
-                if (ImGui::IsKeyPressed(ImGuiKey_W, false)) m_GizmoMode = GizmoMode::Translate;
-                if (ImGui::IsKeyPressed(ImGuiKey_E, false)) m_GizmoMode = GizmoMode::Rotate;
-                if (ImGui::IsKeyPressed(ImGuiKey_R, false)) m_GizmoMode = GizmoMode::Scale;
-            }
-            // Editor camera (edit + simulate): F frames the selection, Shift+F the whole scene,
-            // Ctrl+1..5 stores the view in a bookmark, 1..5 flies back to it. (Not Home: ImGui's
-            // keyboard navigation uses it.)
-            if (viewportKeys && m_SceneState != SceneState::Play)
-            {
-                if (!ctrl && ImGui::IsKeyPressed(ImGuiKey_F, false)) { shift ? FrameAll() : FrameSelection(); }
-                for (int slot = 1; slot <= CameraBookmarks::SlotCount; slot++)
-                {
-                    if (!ImGui::IsKeyPressed((ImGuiKey)(ImGuiKey_0 + slot), false))
-                        continue;
-                    if (ctrl) SaveCameraBookmark(slot);
-                    else if (!shift && !io.KeyAlt) RecallCameraBookmark(slot);
-                }
-            }
-        }
+        // ---- keyboard shortcuts (EditorShortcuts.cpp; ignored while typing)
+        HandleShortcuts();
 
         if (!m_PendingFileDrop.empty())
         {
@@ -5913,13 +5764,16 @@ namespace Zamin {
         if (m_ShowImGuiDemo) ImGui::ShowDemoWindow(&m_ShowImGuiDemo);
 
         UI_Preferences();
+        UI_UndoHistory();
+        UI_ShortcutsWindow();
         UI_Modals();
+        UI_AutosaveRecovery();
         UI_SceneLoadReport();
         if (m_ShowLauncher)
             UI_Launcher();
 
-        if (m_PendingUndo && !ImGui::IsAnyItemActive() && !ImGuizmo::IsUsing() && !ImGui::IsMouseDown(ImGuiMouseButton_Left))
-            CommitUndo();
+        UpdateUndoTracking();
+        UpdateAutosave();
         if (m_ViewSettingsDirty && !ImGui::IsAnyItemActive())
             SaveViewSettings();
         if (m_ConsolePanel.ConsumePreferencesChanged())
@@ -5992,19 +5846,24 @@ namespace Zamin {
         ImGui::Spacing();
 
         bool hasProject = Project::GetActive() != nullptr;
+        if (m_OpenMenu.starts_with("Fayl"))
+            ImGui::OpenPopup("Fayl");
         if (ImGui::BeginMenu("Fayl"))
         {
             if (ImGui::MenuItem(ICON_FA_FILE_CIRCLE_PLUS "  Yangi loyiha...")) m_ShowLauncher = true;
-            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Loyihani ochish...", "Ctrl+Shift+O")) OpenProjectDialog();
-            if (ImGui::BeginMenu(ICON_FA_LIST "  So'nggi loyihalar", !m_RecentProjects.empty()))
+            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Loyihani ochish...", ShortcutLabel(EditorShortcut::OpenProject))) OpenProjectDialog();
+            if (ImGui::BeginMenu(ICON_FA_LIST "  So'nggi loyihalar", !m_RecentProjects.IsEmpty()))
             {
-                for (auto& p : m_RecentProjects)
-                    if (ImGui::MenuItem(p.stem().string().c_str(), p.parent_path().string().c_str()))
-                    {
-                        OpenProject(p);
-                        break;
-                    }
+                std::optional<fs::path> picked;
+                for (const RecentFileList::Entry& e : m_RecentProjects.GetEntries())
+                {
+                    const fs::path p(e.Path);
+                    if (ImGui::MenuItem(std::format("{}##{}", p.stem().string(), e.Path).c_str(), p.parent_path().string().c_str()))
+                        picked = p;
+                }
                 ImGui::EndMenu();
+                if (picked)
+                    OpenProject(*picked);
             }
             if (ImGui::MenuItem(ICON_FA_GEAR "  Loyiha sozlamalari...", nullptr, false, hasProject))
             {
@@ -6013,10 +5872,11 @@ namespace Zamin {
             }
             if (ImGui::MenuItem(ICON_FA_XMARK "  Loyihani yopish", nullptr, false, hasProject)) CloseProject();
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_FILE "  Yangi sahna", "Ctrl+N")) NewScene();
-            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Sahnani ochish...", "Ctrl+O")) OpenScene();
-            if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK "  Saqlash", "Ctrl+S")) SaveScene();
-            if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK "  Boshqacha saqlash...", "Ctrl+Shift+S")) SaveSceneAs();
+            if (ImGui::MenuItem(ICON_FA_FILE "  Yangi sahna", ShortcutLabel(EditorShortcut::NewScene))) NewScene();
+            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Sahnani ochish...", ShortcutLabel(EditorShortcut::OpenScene))) OpenScene();
+            UI_RecentScenesMenu();
+            if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK "  Saqlash", ShortcutLabel(EditorShortcut::SaveScene))) SaveScene();
+            if (ImGui::MenuItem(ICON_FA_FLOPPY_DISK "  Boshqacha saqlash...", ShortcutLabel(EditorShortcut::SaveSceneAs))) SaveSceneAs();
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_ROCKET "  O'yinni build qilish...", nullptr, false, hasProject))
             {
@@ -6028,44 +5888,62 @@ namespace Zamin {
             ImGui::EndMenu();
         }
 
+        if (m_OpenMenu.starts_with("Tahrirlash"))
+            ImGui::OpenPopup("Tahrirlash");
         if (ImGui::BeginMenu("Tahrirlash"))
         {
             bool sel = (bool)m_SceneHierarchyPanel.GetSelectedEntity();
             bool editing = m_SceneState == SceneState::Edit;
             size_t count = m_SceneHierarchyPanel.GetSelectionCount();
             std::string suffix = count > 1 ? std::format(" ({} ta)", count) : std::string();
-            if (ImGui::MenuItem(ICON_FA_ROTATE_LEFT "  Bekor qilish (Undo)", "Ctrl+Z", false, editing && (!m_UndoStack.empty() || m_PendingUndo))) Undo();
-            if (ImGui::MenuItem(ICON_FA_ROTATE_RIGHT "  Qaytarish (Redo)", "Ctrl+Y", false, editing && !m_RedoStack.empty())) Redo();
+            {
+                // The steps' names: "Bekor qilish: Transform o'zgardi (Player)".
+                const std::string& undoName = m_UndoHistory.GetUndoName();
+                const std::string& redoName = m_UndoHistory.GetRedoName();
+                const std::string undoLabel = m_PendingUndo ? std::string(ICON_FA_ROTATE_LEFT "  Bekor qilish (oxirgi o'zgarish)")
+                                            : undoName.empty() ? std::string(ICON_FA_ROTATE_LEFT "  Bekor qilish (Undo)")
+                                                               : std::format(ICON_FA_ROTATE_LEFT "  Bekor qilish: {}", undoName);
+                const std::string redoLabel = redoName.empty() ? std::string(ICON_FA_ROTATE_RIGHT "  Qaytarish (Redo)")
+                                                               : std::format(ICON_FA_ROTATE_RIGHT "  Qaytarish: {}", redoName);
+                if (ImGui::MenuItem((undoLabel + "##undo").c_str(), ShortcutLabel(EditorShortcut::Undo), false, editing && (m_UndoHistory.CanUndo() || m_PendingUndo))) Undo();
+                if (ImGui::MenuItem((redoLabel + "##redo").c_str(), ShortcutLabel(EditorShortcut::Redo), false, editing && m_UndoHistory.CanRedo())) Redo();
+                if (ImGui::MenuItem(ICON_FA_CLOCK_ROTATE_LEFT "  Undo tarixi...", ShortcutLabel(EditorShortcut::UndoHistory), m_ShowUndoHistory))
+                {
+                    m_ShowUndoHistory = !m_ShowUndoHistory;
+                    m_UndoHistoryScroll = true;
+                }
+            }
             ImGui::Separator();
-            if (ImGui::MenuItem((ICON_FA_COPY "  Nusxalash" + suffix).c_str(), "Ctrl+C", false, sel)) CopySelectedEntity();
-            if (ImGui::MenuItem(ICON_FA_PASTE "  Joylash", "Ctrl+V", false, editing)) PasteEntity();
+            if (ImGui::MenuItem((ICON_FA_COPY "  Nusxalash" + suffix).c_str(), ShortcutLabel(EditorShortcut::Copy), false, sel)) CopySelectedEntity();
+            if (ImGui::MenuItem(ICON_FA_PASTE "  Joylash", ShortcutLabel(EditorShortcut::Paste), false, editing)) PasteEntity();
             if (ImGui::MenuItem(ICON_FA_BOX "  Prefab sifatida saqlash", nullptr, false, sel && Project::GetActive())) SavePrefab(m_SceneHierarchyPanel.GetSelectedEntity());
             ImGui::Separator();
-            if (ImGui::MenuItem((ICON_FA_CLONE "  Nusxa olish" + suffix).c_str(), "Ctrl+D", false, sel && editing)) DuplicateSelectedEntity();
-            if (ImGui::MenuItem((ICON_FA_TRASH "  O'chirish" + suffix).c_str(), "Delete", false, sel && editing)) DeleteSelectedEntity();
-            if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Fokus", "F", false, sel)) FrameSelection();
+            if (ImGui::MenuItem((ICON_FA_CLONE "  Nusxa olish" + suffix).c_str(), ShortcutLabel(EditorShortcut::Duplicate), false, sel && editing)) DuplicateSelectedEntity();
+            if (ImGui::MenuItem((ICON_FA_TRASH "  O'chirish" + suffix).c_str(), ShortcutLabel(EditorShortcut::Delete), false, sel && editing)) DeleteSelectedEntity();
+            if (ImGui::MenuItem(ICON_FA_BULLSEYE "  Fokus", ShortcutLabel(EditorShortcut::FrameSelection), false, sel)) FrameSelection();
             ImGui::Separator();
             {
                 Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
                 bool hidden = primary && m_ActiveScene->IsHiddenInEditor(primary, false);
                 bool locked = primary && m_ActiveScene->IsLockedInEditor(primary, false);
-                if (ImGui::MenuItem(((hidden ? ICON_FA_EYE "  Ko'rsatish" : ICON_FA_EYE_SLASH "  Yashirish (editorda)") + suffix).c_str(), "H", false, sel && editing))
+                if (ImGui::MenuItem(((hidden ? ICON_FA_EYE "  Ko'rsatish" : ICON_FA_EYE_SLASH "  Yashirish (editorda)") + suffix).c_str(), ShortcutLabel(EditorShortcut::ToggleHidden), false, sel && editing))
                     ToggleSelectionHidden();
                 if (ImGui::MenuItem(((locked ? ICON_FA_LOCK_OPEN "  Qulfni ochish" : ICON_FA_LOCK "  Qulflash (viewport'da)") + suffix).c_str(), nullptr, false, sel && editing))
                     ToggleSelectionLocked();
                 bool active = !primary || primary.IsActive();
-                if (ImGui::MenuItem(((active ? ICON_FA_TOGGLE_OFF "  Nofaol qilish" : ICON_FA_TOGGLE_ON "  Faollashtirish") + suffix).c_str(), "Alt+Shift+A", false, sel))
+                if (ImGui::MenuItem(((active ? ICON_FA_TOGGLE_OFF "  Nofaol qilish" : ICON_FA_TOGGLE_ON "  Faollashtirish") + suffix).c_str(), ShortcutLabel(EditorShortcut::ToggleActive), false, sel))
                     ToggleSelectionActive();
-                if (ImGui::MenuItem(ICON_FA_EYE "  Hammasini ko'rsatish", "Alt+H", false, editing && m_ActiveScene->CountHiddenInEditor() > 0))
+                if (ImGui::MenuItem(ICON_FA_EYE "  Hammasini ko'rsatish", ShortcutLabel(EditorShortcut::ShowAllHidden), false, editing && m_ActiveScene->CountHiddenInEditor() > 0))
                     ShowAllHidden();
                 if (ImGui::MenuItem(ICON_FA_LOCK_OPEN "  Hamma qulflarni ochish", nullptr, false, editing && m_ActiveScene->CountLockedInEditor() > 0))
                     m_SceneHierarchyPanel.UnlockAll();
             }
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", "Ctrl+A")) m_SceneHierarchyPanel.SelectAll();
+            if (ImGui::MenuItem(ICON_FA_CHECK_DOUBLE "  Hammasini tanlash", ShortcutLabel(EditorShortcut::SelectAll))) m_SceneHierarchyPanel.SelectAll();
             if (ImGui::MenuItem(ICON_FA_XMARK "  Tanlovni bekor qilish", nullptr, false, sel)) m_SceneHierarchyPanel.SetSelectedEntity({});
             ImGui::Separator();
-            if (ImGui::MenuItem(ICON_FA_USER_GEAR "  Sozlamalar...", "Ctrl+,", m_ShowPreferences)) m_ShowPreferences = !m_ShowPreferences;
+            if (ImGui::MenuItem(ICON_FA_USER_GEAR "  Sozlamalar...", ShortcutLabel(EditorShortcut::Preferences), m_ShowPreferences)) m_ShowPreferences = !m_ShowPreferences;
+            if (ImGui::MenuItem(ICON_FA_KEYBOARD "  Klaviatura yorliqlari...", ShortcutLabel(EditorShortcut::ShortcutsWindow), m_ShowShortcuts)) m_ShowShortcuts = !m_ShowShortcuts;
             ImGui::EndMenu();
         }
 
@@ -6082,7 +5960,7 @@ namespace Zamin {
 
         if (ImGui::BeginMenu("Skriptlar"))
         {
-            if (ImGui::MenuItem(ICON_FA_HAMMER "  Kompilyatsiya + qayta yuklash", "Ctrl+B", false, hasProject && !m_Building)) BuildScripts(true);
+            if (ImGui::MenuItem(ICON_FA_HAMMER "  Kompilyatsiya + qayta yuklash", ShortcutLabel(EditorShortcut::BuildScripts), false, hasProject && !m_Building)) BuildScripts(true);
             if (ImGui::MenuItem(ICON_FA_ARROWS_ROTATE "  Modulni qayta yuklash", nullptr, false, hasProject)) ReloadScriptModule();
             ImGui::MenuItem(ICON_FA_BOLT "  Avtomatik hot-reload", nullptr, &m_AutoReload);
             ImGui::Separator();
@@ -6123,14 +6001,21 @@ namespace Zamin {
                     m_SpriteEditorPanel.Open(Project::GetAssetRelativePath(m_AssetInspectorPanel.GetPath()));
             }
             ImGui::MenuItem(ICON_FA_TABLE_CELLS "  Plitka palitrasi", nullptr, &m_ShowTilePalette);
+            if (ImGui::MenuItem(ICON_FA_CLOCK_ROTATE_LEFT "  Undo tarixi", ShortcutLabel(EditorShortcut::UndoHistory), &m_ShowUndoHistory) && m_ShowUndoHistory)
+                m_UndoHistoryScroll = true;
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_BORDER_ALL "  Standart joylashuv")) m_LayoutInitialized = false;
             ImGui::MenuItem("ImGui demo", nullptr, &m_ShowImGuiDemo);
             ImGui::EndMenu();
         }
 
+        if (m_OpenMenu.starts_with("Yordam"))
+            ImGui::OpenPopup("Yordam");
         if (ImGui::BeginMenu("Yordam"))
         {
+            if (ImGui::MenuItem(ICON_FA_KEYBOARD "  Klaviatura yorliqlari", ShortcutLabel(EditorShortcut::ShortcutsWindow), m_ShowShortcuts))
+                m_ShowShortcuts = !m_ShowShortcuts;
+            ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_CIRCLE_INFO "  Zamin haqida")) m_ShowAbout = true;
             ImGui::EndMenu();
         }
@@ -6163,6 +6048,8 @@ namespace Zamin {
                 ImGui::TextColored(stateColor, "%s", stateText);
                 ImGui::TextDisabled("|");
                 ImGui::TextDisabled("%s %s%s", ICON_FA_EARTH_ASIA, m_EditorScene ? m_EditorScene->GetName().c_str() : "", m_SceneDirty ? " *" : "");
+                if (ImGui::GetTime() - m_AutosaveNoticeTime < 4.0)
+                    ImGui::TextColored(UI::AccentColor(), "%s", m_AutosaveNotice.c_str());
                 ImGui::TextDisabled("|");
                 if (m_Building)
                 {
@@ -11027,6 +10914,14 @@ namespace Zamin {
         };
 
         ImGui::Dummy(ImVec2(0, 14));
+        // The scenes opened last (any project): one click opens the project and the scene.
+        if (UI_LauncherRecentScenes())
+        {
+            ImGui::CloseCurrentPopup();
+            ImGui::EndChild();
+            ImGui::EndPopup();
+            return;
+        }
         std::vector<fs::path> examples;
         {
             fs::path exe = FileSystem::GetExecutableDirectory();
@@ -11056,10 +10951,13 @@ namespace Zamin {
         ImGui::TextUnformatted(ICON_FA_LIST "  So'nggi loyihalar");
         ImGui::PopFont();
         ImGui::Spacing();
-        if (m_RecentProjects.empty())
+        if (m_RecentProjects.IsEmpty())
             ImGui::TextDisabled("Hali loyiha ochilmagan");
-        for (auto& p : m_RecentProjects)
+        for (const RecentFileList::Entry& e : m_RecentProjects.GetEntries())
+        {
+            const fs::path p(e.Path);
             if (projectCard(p, ICON_FA_FOLDER)) { if (OpenProject(p)) ImGui::CloseCurrentPopup(); break; }
+        }
 
         ImGui::EndChild();
         ImGui::EndPopup();

@@ -149,6 +149,7 @@ namespace Zamin {
         Theme.Sanitize();
         PlayTint.Sanitize();
         Camera.Sanitize();
+        Autosave.Sanitize();
     }
 
     std::string EditorPreferences::ToJson() const
@@ -181,6 +182,16 @@ namespace Zamin {
             { "Warn", Console.ShowWarn },
             { "Error", Console.ShowError },
         };
+        j["Autosave"] = {
+            { "Enabled", Autosave.Enabled },
+            { "IntervalMinutes", Autosave.IntervalMinutes },
+        };
+        j["Undo"] = {
+            { "RecordSelection", Undo.RecordSelection },
+        };
+        j["Shortcuts"] = json::object();
+        for (const auto& [id, chord] : Shortcuts)
+            j["Shortcuts"][id] = chord;
         return j.dump(2);
     }
 
@@ -218,6 +229,21 @@ namespace Zamin {
             Read(*it, "Info", Console.ShowInfo);
             Read(*it, "Warn", Console.ShowWarn);
             Read(*it, "Error", Console.ShowError);
+        }
+        if (auto it = j.find("Autosave"); it != j.end() && it->is_object())
+        {
+            Read(*it, "Enabled", Autosave.Enabled);
+            if (auto interval = it->find("IntervalMinutes"); interval != it->end() && interval->is_number())
+                Autosave.IntervalMinutes = (int)std::lround(interval->get<double>());
+        }
+        if (auto it = j.find("Undo"); it != j.end() && it->is_object())
+            Read(*it, "RecordSelection", Undo.RecordSelection);
+        if (auto it = j.find("Shortcuts"); it != j.end() && it->is_object())
+        {
+            Shortcuts.clear();
+            for (auto& [id, chord] : it->items())
+                if (chord.is_string())
+                    Shortcuts[id] = chord.get<std::string>();
         }
         Sanitize();
         return true;

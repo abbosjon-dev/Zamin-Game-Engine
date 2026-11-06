@@ -73,6 +73,7 @@ namespace Zamin {
         m_Preferences.Sanitize();
         m_ConsolePanel.SetPreferences(m_Preferences.Console);
         ApplyCameraDefaults(true);
+        ApplyShortcutPreferences(); // rebound keys over the defaults
         m_PreferencesDirty = false;
     }
 
@@ -146,6 +147,7 @@ namespace Zamin {
             ICON_FA_BRUSH "  O'yin rejimi",
             ICON_FA_TERMINAL "  Konsol",
             ICON_FA_CAMERA "  Editor kamerasi",
+            ICON_FA_FLOPPY_DISK "  Saqlash va undo",
         };
         if (ImGui::BeginChild("##pages", ImVec2(em * 11.0f, -ImGui::GetFrameHeightWithSpacing() - 6.0f), ImGuiChildFlags_Borders))
         {
@@ -355,6 +357,9 @@ namespace Zamin {
                     }
                     break;
                 }
+                case 4:
+                    UI_AutosavePreferences(changed);
+                    break;
             }
         }
         ImGui::EndChild();
@@ -382,6 +387,7 @@ namespace Zamin {
             m_Preferences = EditorPreferences();
             m_ConsolePanel.SetPreferences(m_Preferences.Console);
             ApplyCameraDefaults(true);
+            m_Shortcuts.ResetAll();
             changed = true;
         }
         if (changed)

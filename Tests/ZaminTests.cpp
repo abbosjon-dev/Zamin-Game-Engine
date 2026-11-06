@@ -32072,3 +32072,423 @@ TEST(EditorPreferencesSettings)
     else
         unsetenv("XDG_CONFIG_HOME");
 }
+
+TEST(ShortcutRegistryLookup)
+{
+    // Chords as text: what files store and what menus show.
+    KeyChord chord;
+    CHECK(KeyChord::Parse("Ctrl+Shift+S", chord) && chord == KeyChord(Key::S, true, true));
+    CHECK(chord.ToString() == "Ctrl+Shift+S" && chord.GetDisplayName() == "Ctrl+Shift+S");
+    CHECK(KeyChord::Parse("shift+ctrl+s", chord) && chord == KeyChord(Key::S, true, true));
+    CHECK(KeyChord::Parse("Ctrl+,", chord) && chord == KeyChord(Key::Comma, true));
+    CHECK(chord.ToString() == "Ctrl+Comma" && chord.GetDisplayName() == "Ctrl+,");
+    CHECK(KeyChord::Parse("Ctrl+Comma", chord) && chord.KeyCode == Key::Comma);
+    CHECK(KeyChord::Parse("Alt+Shift+A", chord) && chord.Alt && chord.Shift && !chord.Ctrl && chord.KeyCode == Key::A);
+    CHECK(KeyChord::Parse("Delete", chord) && chord.GetDisplayName() == "Del");
+    CHECK(KeyChord::Parse("Num +", chord) && chord.KeyCode == Key::KPAdd);
+    CHECK(KeyChord::Parse("Control+Num +", chord) && chord.KeyCode == Key::KPAdd && chord.Ctrl);
+    CHECK(KeyChord::Parse("", chord) && chord.IsEmpty() && chord.ToString().empty());
+    CHECK(!KeyChord::Parse("Ctrl+LeftShift", chord));
+    CHECK(!KeyChord::Parse("Ctrl+Nimadir", chord));
+    CHECK(!KeyChord::Parse("Super+S", chord));
+    for (const char* text : { "Ctrl+Z", "Shift+Escape", "F1", "Ctrl+5", "KP7", "Alt+H", "Ctrl+Alt+Shift+F12" })
+    {
+        KeyChord a, b;
+        CHECK(KeyChord::Parse(text, a) && KeyChord::Parse(a.ToString(), b) && a == b);
+        CHECK(KeyChord::Parse(a.GetDisplayName(), b) && a == b);
+    }
+
+    // The editor's table: unique ids, no conflicts in the defaults, every rebindable one bound.
+    ShortcutRegistry r;
+    RegisterEditorShortcuts(r);
+    CHECK(r.GetAll().size() > 50);
+    std::set<std::string> ids;
+    for (const ShortcutInfo& s : r.GetAll())
+    {
+        CHECK(ids.insert(s.Id).second);
+        CHECK(!s.Name.empty() && !s.Category.empty() && !s.Display.empty());
+        CHECK(s.Fixed || !s.Default.IsEmpty());
+    }
+    CHECK(r.CountConflicts() == 0);
+    CHECK(r.CountModified() == 0);
+    CHECK(std::string(r.GetDisplay(EditorShortcut::SaveSceneAs)) == "Ctrl+Shift+S");
+    CHECK(std::string(r.GetDisplay(EditorShortcut::BookmarkSave(3))) == "Ctrl+3");
+    CHECK(std::string(r.GetDisplay("nothing.here")).empty());
+    CHECK(r.GetCategories().front() == "Fayl");
+
+    // Lookup: the narrowest scope that applies now wins; Global ones whenever nothing narrower does.
+    using namespace ShortcutSituation;
+    auto match = [&](KeyChord c, uint32_t situations) {
+        const ShortcutInfo* s = r.Match(c, situations | Editor);
+        return s ? s->Id : std::string();
+    };
+    CHECK(match({ Key::S, true }, 0) == EditorShortcut::SaveScene);
+    CHECK(match({ Key::S, true, true }, 0) == EditorShortcut::SaveSceneAs);
+    CHECK(match({ Key::S }, 0).empty()); // plain S is nothing (the camera's WASD)
+    CHECK(match({ Key::Q }, 0).empty());
+    CHECK(match({ Key::Q }, SceneView | ViewportTools) == EditorShortcut::ToolNone);
+    CHECK(match({ Key::Q }, SceneView | ViewportTile) == EditorShortcut::TileExitNone);
+    CHECK(match({ Key::Q }, SceneView | ViewportHandles) == EditorShortcut::HandlesExitNone);
+    CHECK(match({ Key::E }, SceneView | ViewportTile) == EditorShortcut::TileEraser);
+    CHECK(match({ Key::F }, SceneView | ViewportTile) == EditorShortcut::FrameSelection);
+    CHECK(match({ Key::F }, Animation) == "animation.frame");
+    CHECK(match({ Key::Delete }, Hierarchy) == EditorShortcut::Delete);
+    CHECK(match({ Key::Delete }, SceneView | ViewportTools) == EditorShortcut::Delete);
+    CHECK(match({ Key::Delete }, SceneView | ViewportHandles) == "handles.delete_point"); // the point editor's own
+    CHECK(match({ Key::Delete }, ContentBrowser) == "content.delete");
+    CHECK(match({ Key::C, true }, 0) == EditorShortcut::Copy);
+    CHECK(match({ Key::C, true }, Console) == "console.copy");
+    CHECK(match({ Key::Escape, false, true }, 0).empty());
+    CHECK(match({ Key::Escape, false, true }, Playing) == EditorShortcut::PlayStop);
+    CHECK(match({ Key::D3 }, SceneView) == EditorShortcut::BookmarkRecall(3));
+    CHECK(match({ Key::D3, true }, SceneView) == EditorShortcut::BookmarkSave(3));
+    CHECK(r.Match({}, All) == nullptr);
+
+    // Actions run through Bind; fixed entries take none.
+    int ran = 0;
+    CHECK(r.Bind(EditorShortcut::SaveScene, [&]() { ran++; }));
+    CHECK(!r.Bind("console.copy", [&]() { ran++; }));
+    CHECK(!r.Bind("nothing.here", [&]() {}));
+    if (const ShortcutInfo* s = r.Match({ Key::S, true }, Editor); s && s->Action)
+        s->Action();
+    CHECK(ran == 1);
+
+    // Rebinding: conflicts within the same scope (or Global with Global); a narrower scope over a
+    // wider one is not one.
+    CHECK(r.Rebind(EditorShortcut::ToolMove, { Key::E }));
+    CHECK(r.FindConflicts(EditorShortcut::ToolMove).size() == 1 && r.FindConflicts(EditorShortcut::ToolMove)[0]->Id == EditorShortcut::ToolRotate);
+    CHECK(r.CountConflicts() == 2);
+    CHECK(r.Rebind(EditorShortcut::ToolMove, { Key::S, true }));  // Ctrl+S in the viewport tools: shadows Save there
+    CHECK(r.FindConflicts(EditorShortcut::ToolMove).empty() && r.CountConflicts() == 0);
+    CHECK(match({ Key::S, true }, SceneView | ViewportTools) == EditorShortcut::ToolMove);
+    CHECK(match({ Key::S, true }, Hierarchy) == EditorShortcut::SaveScene);
+    CHECK(r.Rebind(EditorShortcut::SaveScene, { Key::O, true }));
+    CHECK(r.FindConflicts(EditorShortcut::SaveScene).size() == 1);
+    CHECK(r.FindConflicts(KeyChord(Key::O, true), ShortcutScope::Global, EditorShortcut::SaveScene).front()->Id == EditorShortcut::OpenScene);
+    CHECK(!r.Rebind("console.copy", { Key::K }));           // fixed
+    CHECK(!r.Rebind(EditorShortcut::Copy, { Key::LeftShift })); // a modifier alone
+    CHECK(r.Rebind(EditorShortcut::Paste, {}));               // unbound
+    CHECK(std::string(r.GetDisplay(EditorShortcut::Paste)).empty() && match({ Key::V, true }, 0).empty());
+    CHECK(r.CountModified() == 3);
+    CHECK(ShortcutRegistry::ScopesConflict(ShortcutScope::Global, ShortcutScope::Global));
+    CHECK(!ShortcutRegistry::ScopesConflict(ShortcutScope::Global, ShortcutScope::Console));
+    CHECK(!ShortcutRegistry::ScopesConflict(ShortcutScope::TilePaint, ShortcutScope::ViewportTools));
+    CHECK(!ShortcutRegistry::ScopesConflict(ShortcutScope::Selection, ShortcutScope::ViewportTools));
+    CHECK(ShortcutRegistry::ScopesConflict(ShortcutScope::Selection, ShortcutScope::Camera) == false);
+    CHECK(!ShortcutRegistry::ScopesConflict(ShortcutScope::Hierarchy, ShortcutScope::ContentBrowser));
+
+    // The preferences keep only what changed; applied on a fresh table they give the same bindings.
+    std::map<std::string, std::string> overrides = r.GetOverrides();
+    CHECK(overrides.size() == 3 && overrides[EditorShortcut::SaveScene] == "Ctrl+O" && overrides[EditorShortcut::Paste].empty());
+    ShortcutRegistry fresh;
+    RegisterEditorShortcuts(fresh);
+    overrides["nothing.here"] = "Ctrl+K";
+    overrides["console.copy"] = "Ctrl+K";
+    overrides[EditorShortcut::Copy] = "Ctrl+Nimadir";
+    CHECK(fresh.ApplyOverrides(overrides) == 3);
+    CHECK(fresh.Find(EditorShortcut::ToolMove)->Chord == KeyChord(Key::S, true));
+    CHECK(fresh.Find(EditorShortcut::Paste)->Chord.IsEmpty());
+    CHECK(fresh.Find(EditorShortcut::Copy)->Chord == KeyChord(Key::C, true));
+    CHECK(fresh.ApplyOverrides({}) == 0 && fresh.CountModified() == 0); // everything back to its default
+    CHECK(r.ResetToDefault(EditorShortcut::SaveScene) && r.Find(EditorShortcut::SaveScene)->Chord == KeyChord(Key::S, true));
+    r.ResetAll();
+    CHECK(r.CountModified() == 0 && r.CountConflicts() == 0);
+
+    // The window's search: every word somewhere in the name, category, chord or scope.
+    auto found = [&](std::string_view query) {
+        std::vector<std::string> out;
+        for (const ShortcutInfo& s : r.GetAll())
+            if (ShortcutRegistry::MatchesSearch(s, query))
+                out.push_back(s.Id);
+        return out;
+    };
+    CHECK(found("").size() == r.GetAll().size());
+    CHECK(found("ctrl+shift+s") == std::vector<std::string>{ EditorShortcut::SaveSceneAs });
+    CHECK(found("SIQLASH viewport").empty());
+    CHECK(found("siljit viewport").size() == 1 && found("siljit viewport").front() == EditorShortcut::ToolMove);
+    CHECK(found("xatcho'p saqla").size() == (size_t)EditorShortcut::BookmarkSlots);
+    CHECK(found("konsol nusxa").size() == 1);
+}
+
+TEST(RecentFilesMRU)
+{
+    RecentFileList list(3);
+    list.Add("/p/a.zscene", "/p/P.zproject", 100);
+    list.Add("/p/b.zscene", "/p/P.zproject", 200);
+    list.Add("/p/c.zscene", "/q/Q.zproject", 300);
+    list.Add("/p/d.zscene", "/p/P.zproject", 400);
+    CHECK(list.GetEntries().size() == 3);
+    CHECK(list.GetEntries()[0].Path == "/p/d.zscene" && list.GetEntries()[2].Path == "/p/b.zscene");
+    CHECK(!list.Contains("/p/a.zscene"));
+    // Opened again: moves to the front, listed once (the same file however it is written).
+    list.Add("/p/./b.zscene", "/p/P.zproject", 500);
+    CHECK(list.GetEntries().size() == 3 && list.GetEntries()[0].Path == "/p/b.zscene" && list.GetEntries()[0].Time == 500);
+    CHECK(list.Contains("/p/x/../d.zscene"));
+    CHECK(RecentFileList::Normalize("/p/folder/") == "/p/folder");
+    // Per owner (a project's scenes).
+    std::vector<RecentFileList::Entry> mine = list.GetForOwner("/p/P.zproject");
+    CHECK(mine.size() == 2 && mine[0].Path == "/p/b.zscene" && mine[1].Path == "/p/d.zscene");
+    CHECK(list.GetForOwner("/p/P.zproject", 1).size() == 1);
+    // A folder moved: its files follow (not "/p/bb...").
+    list.Add("/p/bb.zscene", {}, 600);
+    CHECK(list.Rename("/p", "/r") == 3);
+    CHECK(list.Contains("/r/b.zscene") && list.Contains("/r/bb.zscene") && !list.Contains("/p/b.zscene"));
+    CHECK(list.GetForOwner("/r/P.zproject").size() == 2); // "/p/c" fell off when "/p/bb" came
+    CHECK(list.Rename("/r/bb.zscene", "/r/b.zscene") == 1 && list.GetEntries().size() == 2); // onto a listed one: once
+    // Gone files drop off.
+    CHECK(list.Prune([](const std::string& path) { return path != "/r/b.zscene"; }) == 1 && list.GetEntries().size() == 1);
+    CHECK(!list.Remove("/r/c.zscene") && list.Remove("/r/d.zscene") && list.IsEmpty());
+    list.Add("/a", "/o");
+    list.Add("/b", "/o2");
+    CHECK(list.ClearOwner("/o") == 1 && list.GetEntries().size() == 1);
+    CHECK(list.GetEntries()[0].Time > 1700000000); // now
+
+    // JSON (and the older plain list of paths).
+    RecentFileList loaded(10);
+    list.Add("/c", "/o2", 900);
+    CHECK(loaded.FromJson(list.ToJson()));
+    CHECK(loaded.GetEntries().size() == 2 && loaded.GetEntries()[0].Path == "/c" && loaded.GetEntries()[0].Owner == "/o2" &&
+          loaded.GetEntries()[0].Time == 900);
+    CHECK(loaded.FromJson("[\"/new.zproject\", \"/old.zproject\"]"));
+    CHECK(loaded.GetEntries().size() == 2 && loaded.GetEntries()[0].Path == "/new.zproject" && loaded.GetEntries()[1].Path == "/old.zproject");
+    CHECK(!loaded.FromJson("{\"x\": 1}") && !loaded.FromJson("not json"));
+    CHECK(loaded.GetEntries().size() == 2);
+
+    // "How long ago".
+    CHECK(FormatTimeAgo(1000, 1030) == "hozirgina");
+    CHECK(FormatTimeAgo(1000, 1000 + 5 * 60) == "5 daqiqa oldin");
+    CHECK(FormatTimeAgo(1000, 1000 + 3 * 3600) == "3 soat oldin");
+    CHECK(FormatTimeAgo(1000, 1000 + 86400 + 5) == "kecha");
+    CHECK(FormatTimeAgo(1000, 1000 + 4 * 86400) == "4 kun oldin");
+    CHECK(FormatTimeAgo(1000, 1000 + 15 * 86400) == "2 hafta oldin");
+    CHECK(FormatTimeAgo(1714521600, 1714521600 + 90 * 86400).size() == 10); // a date
+    CHECK(FormatTimeAgo(0, 1000).empty());
+}
+
+TEST(EditorAutosaveRecovery)
+{
+    namespace fs = std::filesystem;
+    const fs::path project = fs::temp_directory_path() / "zamin_autosave_test";
+    std::error_code ec;
+    fs::remove_all(project, ec);
+
+    // Paths: the scene's place under Assets kept, an unsaved scene has a name of its own, nothing
+    // leaves the folder.
+    CHECK(EditorAutosave::GetDirectory(project) == project / ".zamin" / "autosave");
+    CHECK(EditorAutosave::GetFilePath(project, "Scenes/Level1.zscene") == project / ".zamin" / "autosave" / "Scenes" / "Level1.zscene");
+    CHECK(EditorAutosave::GetFilePath(project, "") == project / ".zamin" / "autosave" / EditorAutosave::UnsavedSceneName);
+    CHECK(EditorAutosave::GetFilePath(project, "../../etc/x.zscene") == project / ".zamin" / "autosave" / "etc" / "x.zscene");
+    CHECK(EditorAutosave::GetFilePath(project, "/abs/y.zscene") == project / ".zamin" / "autosave" / "abs" / "y.zscene");
+    CHECK(EditorAutosave::GetLockPath(project) == project / ".zamin" / "editor.lock");
+
+    // When a copy is due.
+    AutosaveSettings settings;
+    settings.IntervalMinutes = 2;
+    CHECK(!EditorAutosave::IsDue(settings, 100.0, 0.0, true, false));
+    CHECK(EditorAutosave::IsDue(settings, 120.0, 0.0, true, false));
+    CHECK(!EditorAutosave::IsDue(settings, 500.0, 0.0, false, false)); // nothing new
+    CHECK(!EditorAutosave::IsDue(settings, 500.0, 0.0, true, true));   // dragging / typing / playing
+    settings.Enabled = false;
+    CHECK(!EditorAutosave::IsDue(settings, 500.0, 0.0, true, false));
+    settings.IntervalMinutes = 500;
+    settings.Sanitize();
+    CHECK(settings.IntervalMinutes == AutosaveSettings::MaxInterval);
+    settings.IntervalMinutes = 0;
+    settings.Sanitize();
+    CHECK(settings.IntervalMinutes == AutosaveSettings::MinInterval);
+
+    // The decision on opening a scene.
+    using D = EditorAutosave::RecoveryDecision;
+    EditorAutosave::RecoveryCheck check;
+    CHECK(EditorAutosave::DecideRecovery(check) == D::None);
+    check.AutosaveExists = true;
+    CHECK(EditorAutosave::DecideRecovery(check) == D::Offer);              // a scene never saved
+    check.SceneExists = true;
+    check.SceneTime = fs::file_time_type::clock::now();
+    check.AutosaveTime = check.SceneTime + std::chrono::seconds(30);
+    CHECK(EditorAutosave::DecideRecovery(check) == D::Offer);              // newer than the file
+    check.SameContent = true;
+    CHECK(EditorAutosave::DecideRecovery(check) == D::Discard);            // nothing in it the file lacks
+    check.SameContent = false;
+    check.AutosaveTime = check.SceneTime - std::chrono::seconds(30);
+    CHECK(EditorAutosave::DecideRecovery(check) == D::Discard);            // saved after it
+
+    // From real files (the copy written atomically: no temporary left behind).
+    const fs::path scene = project / "Assets" / "Scenes" / "Level1.zscene";
+    const fs::path copy = EditorAutosave::GetFilePath(project, "Scenes/Level1.zscene");
+    CHECK(EditorAutosave::WriteFileAtomic(scene, "{\"Scene\": \"A\"}"));
+    CHECK(EditorAutosave::WriteFileAtomic(copy, "{\"Scene\": \"B\"}"));
+    CHECK(fs::exists(copy) && !fs::exists(fs::path(copy.string() + ".tmp")));
+    CHECK(FileSystem::ReadTextFile(copy) == "{\"Scene\": \"B\"}");
+    fs::last_write_time(copy, fs::last_write_time(scene) + std::chrono::seconds(60));
+    CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(copy, scene)) == D::Offer);
+    fs::last_write_time(copy, fs::last_write_time(scene) - std::chrono::seconds(60));
+    CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(copy, scene)) == D::Discard);
+    CHECK(EditorAutosave::WriteFileAtomic(copy, "{\"Scene\": \"A\"}"));
+    fs::last_write_time(copy, fs::last_write_time(scene) + std::chrono::seconds(60));
+    CHECK(EditorAutosave::InspectRecovery(copy, scene).SameContent);
+    CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(copy, scene)) == D::Discard);
+    CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(copy, {})) == D::Offer);
+    CHECK(EditorAutosave::DecideRecovery(EditorAutosave::InspectRecovery(project / "none.zscene", scene)) == D::None);
+
+    // The lock file: who has the project open, and whether that session ended without closing it.
+    using L = EditorAutosave::LockState;
+    const fs::path lockPath = EditorAutosave::GetLockPath(project);
+    EditorAutosave::LockInfo lock = EditorAutosave::MakeLock();
+    CHECK(lock.ProcessId == EditorAutosave::GetCurrentProcessId() && lock.ProcessId > 0 && lock.StartedAt > 0);
+    CHECK(EditorAutosave::IsProcessAlive(lock.ProcessId) && !EditorAutosave::IsProcessAlive(0));
+    CHECK(!EditorAutosave::ReadLock(lockPath).has_value());
+    CHECK(EditorAutosave::CheckLock(EditorAutosave::ReadLock(lockPath), lock.ProcessId, EditorAutosave::IsProcessAlive) == L::Free);
+    CHECK(EditorAutosave::WriteLock(lockPath, lock));
+    auto read = EditorAutosave::ReadLock(lockPath);
+    CHECK(read && read->ProcessId == lock.ProcessId && read->StartedAt == lock.StartedAt && read->Host == lock.Host);
+    CHECK(EditorAutosave::CheckLock(read, lock.ProcessId, EditorAutosave::IsProcessAlive) == L::Own);
+    EditorAutosave::LockInfo other{ 424242, 1, "host" };
+    CHECK(EditorAutosave::CheckLock(other, lock.ProcessId, [](int) { return true; }) == L::OtherInstance);
+    CHECK(EditorAutosave::CheckLock(other, lock.ProcessId, [](int) { return false; }) == L::Crashed);
+    CHECK(EditorAutosave::WriteFileAtomic(lockPath, "garbage"));
+    CHECK(EditorAutosave::CheckLock(EditorAutosave::ReadLock(lockPath), lock.ProcessId, EditorAutosave::IsProcessAlive) == L::Crashed);
+    EditorAutosave::RemoveLock(lockPath);
+    CHECK(!fs::exists(lockPath));
+
+    // The preferences keep the autosave, undo and shortcut settings.
+    EditorPreferences prefs;
+    prefs.Autosave.Enabled = false;
+    prefs.Autosave.IntervalMinutes = 12;
+    prefs.Undo.RecordSelection = false;
+    prefs.Shortcuts["file.save"] = "Ctrl+Alt+S";
+    prefs.Shortcuts["edit.paste"] = "";
+    EditorPreferences loaded;
+    CHECK(loaded.FromJson(prefs.ToJson()));
+    CHECK(!loaded.Autosave.Enabled && loaded.Autosave.IntervalMinutes == 12 && !loaded.Undo.RecordSelection);
+    CHECK(loaded.Shortcuts.size() == 2 && loaded.Shortcuts["file.save"] == "Ctrl+Alt+S" && loaded.Shortcuts["edit.paste"].empty());
+    CHECK(loaded.FromJson("{\"ZaminEditorPreferences\": 1, \"Autosave\": {\"IntervalMinutes\": 9999}}"));
+    CHECK(loaded.Autosave.IntervalMinutes == AutosaveSettings::MaxInterval);
+    fs::remove_all(project, ec);
+}
+
+TEST(UndoHistoryNamingAndJumps)
+{
+    auto sel = [](std::vector<uint64_t> ids) {
+        UndoSelection s;
+        s.Entities = ids;
+        s.Primary = ids.empty() ? 0 : ids.back();
+        return s;
+    };
+    UndoHistory h(100, 100);
+    CHECK(h.IsEmpty() && !h.CanUndo() && !h.CanRedo() && h.GetCurrent().Name.empty());
+    h.Reset("A", sel({ 1 }), "Sahna ochildi", 1.0);
+    CHECK(!h.CanUndo() && h.GetCurrent().Kind == UndoEntryKind::Initial && h.IsAtSavedState());
+    CHECK(!h.CommitEdit("A", sel({ 1 }), "hech narsa"));                // the same scene: no step
+    CHECK(h.CommitEdit("B", sel({ 1 }), "Transform o'zgardi (Player)", 2.0));
+    CHECK(!h.IsAtSavedState());
+    CHECK(h.CommitSelection(sel({ 2 }), "Tanlash: Enemy", 3.0));
+    CHECK(!h.CommitSelection(sel({ 2 }), "Tanlash: Enemy"));            // the same selection
+    CHECK(h.GetEntries()[2].Scene == h.GetEntries()[1].Scene);         // shares the text
+    CHECK(h.GetMemoryUsage() == 2 && h.CountEdits() == 1 && h.CountSelections() == 1);
+    CHECK(h.CommitEdit("C", sel({}), "O'chirildi: Enemy", 4.0));
+    CHECK(h.GetUndoName() == "O'chirildi: Enemy" && h.GetRedoName().empty());
+
+    // Undo through them: the selection step puts back only the selection.
+    UndoHistory::Move m = h.Undo();
+    CHECK(m.Target && m.SceneChanged && *m.Target->Scene == "B" && m.Target->Selection == sel({ 2 }));
+    CHECK(h.GetUndoName() == "Tanlash: Enemy" && h.GetRedoName() == "O'chirildi: Enemy");
+    m = h.Undo();
+    CHECK(m.Target && !m.SceneChanged && m.Target->Selection == sel({ 1 }));
+    m = h.Undo();
+    CHECK(m.Target && m.SceneChanged && *m.Target->Scene == "A" && h.IsAtSavedState());
+    CHECK(!h.CanUndo() && h.Undo().Target == nullptr);
+    // Jumps (the history panel), there and back.
+    m = h.JumpTo(3);
+    CHECK(m.Target && m.SceneChanged && *m.Target->Scene == "C" && h.GetCurrentIndex() == 3 && !h.CanRedo());
+    CHECK(h.JumpTo(3).Target == nullptr && h.JumpTo(99).Target == nullptr);
+    m = h.JumpTo(2);
+    CHECK(m.Target && m.SceneChanged && m.Target->Name == "Tanlash: Enemy");
+    // A new step after an undo drops what could have been redone.
+    CHECK(h.CommitEdit("D", sel({ 2 }), "Nomi o'zgardi", 5.0));
+    CHECK(h.GetEntries().size() == 4 && !h.CanRedo() && *h.GetCurrent().Scene == "D");
+    // Saved: undo back to that state is clean again.
+    h.MarkSaved();
+    CHECK(h.IsAtSavedState());
+    h.Undo();
+    CHECK(!h.IsAtSavedState());
+    h.Redo();
+    CHECK(h.IsAtSavedState());
+    h.SetCurrentSelection(sel({ 7 }));
+    CHECK(h.GetCurrent().Selection == sel({ 7 }) && h.GetEntries().size() == 4);
+    // Paths moved: every text rewritten, a shared one once.
+    int rewrites = 0;
+    h.RewriteScenes([&](std::string& text) { text += "'"; rewrites++; });
+    CHECK(rewrites == 3 && *h.GetEntries()[1].Scene == "B'" && h.GetEntries()[2].Scene == h.GetEntries()[1].Scene && h.IsAtSavedState());
+    h.ClearHistory("Tarix tozalandi");
+    CHECK(h.GetEntries().size() == 1 && !h.CanUndo() && h.GetCurrent().Kind == UndoEntryKind::Initial && *h.GetCurrent().Scene == "D'");
+
+    // The oldest steps drop off past the limits (the first one left is where undo stops).
+    UndoHistory small(3, 2);
+    small.Reset("0", sel({}), "start");
+    for (int i = 1; i <= 6; i++)
+    {
+        small.CommitEdit(std::to_string(i), sel({}), std::format("edit {}", i));
+        small.CommitSelection(sel({ (uint64_t)i }), std::format("sel {}", i));
+    }
+    CHECK(small.CountEdits() <= 3 && small.CountSelections() <= 2);
+    CHECK(small.GetEntries().front().Kind == UndoEntryKind::Initial);
+    CHECK(small.GetCurrentIndex() == small.GetEntries().size() - 1 && small.GetCurrent().Name == "sel 6");
+    CHECK(!small.IsAtSavedState()); // the saved state dropped off
+
+    // Names from what the snapshots say changed.
+    Ref<Scene> scene = CreateRef<Scene>();
+    Entity player = scene->CreateEntity("Player");
+    Entity enemy = scene->CreateEntity("Enemy");
+    auto snap = [&]() { return SceneSerializer(scene).SerializeToString(); };
+    std::string before = snap();
+    CHECK(DescribeSceneChange(before, before) == "O'zgarish" && DiffSceneSnapshots(before, before).IsEmpty());
+    player.GetComponent<TransformComponent>().Translation.x = 3.0f;
+    std::string after = snap();
+    CHECK(DescribeSceneChange(before, after) == "Transform.Translation o'zgardi (Player)");
+    player.GetComponent<TransformComponent>().Scale = glm::vec3(2.0f);
+    CHECK(DescribeSceneChange(after, snap()) == "Transform.Scale o'zgardi (Player)");
+    player.GetComponent<TransformComponent>().Rotation.z = 1.0f;
+    player.GetComponent<TransformComponent>().Translation.y = 1.0f;
+    CHECK(DescribeSceneChange(after, snap()) == "Transform o'zgardi (Player)");
+    after = snap();
+    player.AddComponent<SpriteRendererComponent>();
+    CHECK(DescribeSceneChange(after, snap()) == "Komponent qo'shildi: SpriteRenderer (Player)");
+    before = snap();
+    player.RemoveComponent<SpriteRendererComponent>();
+    CHECK(DescribeSceneChange(before, snap()) == "Komponent olib tashlandi: SpriteRenderer (Player)");
+    before = snap();
+    player.GetComponent<TagComponent>().Tag = "Hero \"1\"";
+    CHECK(DescribeSceneChange(before, snap()) == "Nomi o'zgardi: Player \xe2\x86\x92 Hero \"1\"");
+    before = snap();
+    Entity coin = scene->CreateEntity("Coin");
+    after = snap();
+    CHECK(DescribeSceneChange(before, after) == "Qo'shildi: Coin");
+    CHECK(DescribeSceneChange(after, before) == "O'chirildi: Coin");
+    scene->CreateEntity("Coin 2");
+    scene->CreateEntity("Coin 3");
+    const std::string twoAdded = DescribeSceneChange(after, snap()); // in the file's order
+    CHECK(twoAdded == "Qo'shildi: Coin 2 (+1)" || twoAdded == "Qo'shildi: Coin 3 (+1)");
+    before = snap();
+    scene->SetParent(coin, enemy, false);
+    CHECK(DescribeSceneChange(before, snap()) == "Ierarxiya o'zgardi: Coin");
+    before = snap();
+    enemy.GetComponent<TransformComponent>().Translation.z = 5.0f;
+    coin.GetComponent<TransformComponent>().Translation.z = 5.0f;
+    const std::string twoMoved = DescribeSceneChange(before, snap());
+    CHECK(twoMoved == "Transform o'zgardi (Enemy (+1))" || twoMoved == "Transform o'zgardi (Coin (+1))");
+    before = snap();
+    scene->GetSettings().Gravity = { 0.0f, -3.0f };
+    SceneChange settingsChange = DiffSceneSnapshots(before, snap());
+    CHECK(settingsChange.Valid && settingsChange.SceneKeys.size() == 1 && settingsChange.SceneField == "Gravity");
+    CHECK(DescribeSceneChange(settingsChange) == "Sahna sozlamalari: Gravity");
+    before = snap();
+    enemy.SetActive(false);
+    CHECK(DescribeSceneChange(before, snap()) == "Nofaol qilindi: Enemy");
+    CHECK(DescribeSceneChange(snap(), before) == "Faollashtirildi: Enemy");
+    CHECK(DescribeSceneChange("not json", before) == "Sahna o'zgarishi" && !DiffSceneSnapshots("{", before).Valid);
+
+    CHECK(DescribeSelection({}) == "Tanlov bekor qilindi");
+    CHECK(DescribeSelection({ "Player" }) == "Tanlash: Player");
+    CHECK(DescribeSelection({ "Player", "Enemy", "Coin" }) == "Tanlash: Player (+2)");
+}

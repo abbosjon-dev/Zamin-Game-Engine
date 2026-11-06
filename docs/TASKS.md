@@ -354,11 +354,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 303. Konsolda matn bo'yicha filtr
 - [x] 304. Konsolda bir xil xabarlarni guruhlash (collapse)
 - [x] 305. Sozlamalar oynasi (Preferences): tema rangi, shrift o'lchami
-- [ ] 306. Klaviatura yorliqlari ro'yxati oynasi
-- [ ] 307. Avtomatik saqlash (autosave) va tiklash
-- [ ] 308. So'nggi sahnalar ro'yxati
-- [ ] 309. Undo tarixi paneli
-- [ ] 310. Selection uchun undo
+- [x] 306. Klaviatura yorliqlari ro'yxati oynasi
+- [x] 307. Avtomatik saqlash (autosave) va tiklash
+- [x] 308. So'nggi sahnalar ro'yxati
+- [x] 309. Undo tarixi paneli
+- [x] 310. Selection uchun undo
 - [ ] 311. Editor layout'larini saqlash/yuklash
 - [ ] 312. Bir nechta viewport (yon tomondan/yuqoridan ko'rinish)
 - [ ] 313. Ortografik ko'rinishlar (Top/Front/Right) tugmalari

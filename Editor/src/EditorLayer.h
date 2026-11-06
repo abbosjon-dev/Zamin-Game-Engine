@@ -53,8 +53,19 @@ namespace Zamin {
         bool OpenProject(const std::filesystem::path& path);
         void OpenProjectDialog();
         void CloseProject();
+
+        // ---- recent projects and scenes (EditorRecentFiles.cpp): per user in recent-projects.json /
+        // recent-scenes.json (a scene with the project it belongs to); the File menu, the launcher.
         void AddRecentProject(const std::filesystem::path& path);
         void LoadRecentProjects();
+        void LoadRecentScenes();
+        void SaveRecentScenes();
+        void AddRecentScene(const std::filesystem::path& scene);
+        // Opens the scene's project first when another one (or none) is open.
+        bool OpenRecentScene(const RecentFileList::Entry& entry);
+        void UI_RecentScenesMenu();
+        // The launcher's "So'nggi sahnalar" cards (true: one was opened).
+        bool UI_LauncherRecentScenes();
 
         // ---- scenes
         void NewScene();
@@ -66,15 +77,42 @@ namespace Zamin {
         // `newView`: another scene or another view of it (open, play, stop, a level switch) - the
         // viewport's auto exposure starts over. False for the same scene rebuilt (undo, references).
         void SetActiveScene(const Ref<Scene>& scene, bool newView = true);
-        void MarkDirty() { if (m_SceneState == SceneState::Edit) { m_SceneDirty = true; m_PendingUndo = true; m_AssetUsage.MarkDirty(); } }
+        // The scene changed (edit mode): an undo step once nothing is held any more. `undoName` names
+        // the step (the first name given wins); without one it is named from what changed.
+        void MarkDirty(std::string_view undoName = {})
+        {
+            if (m_SceneState != SceneState::Edit)
+                return;
+            m_SceneDirty = true;
+            m_PendingUndo = true;
+            if (!undoName.empty() && m_PendingUndoName.empty())
+                m_PendingUndoName = undoName;
+            m_AssetUsage.MarkDirty();
+        }
 
-        // ---- undo / redo (scene snapshots)
+        // ---- undo / redo (EditorUndoHistory.cpp): scene snapshots with the selection, each step
+        // named; selection changes are steps of their own (preferences); the "Undo tarixi" window.
         std::string TakeSnapshot();
-        void ResetUndoHistory();
+        UndoSelection CaptureUndoSelection() const;
+        void ApplyUndoSelection(const UndoSelection& selection);
+        // The history starts again from the scene as it is (`name`: its first state; `saved`: the
+        // scene's file holds it).
+        void ResetUndoHistory(std::string name = {}, bool saved = true);
         void CommitUndo();
+        void CommitSelectionUndo();
+        // Each frame (after the panels): selection changes become steps (or update the current
+        // state), pending steps are made once no mouse button / field / gizmo is held.
+        void UpdateUndoTracking();
         void Undo();
         void Redo();
+        void JumpToUndoState(size_t index);
+        void ApplyUndoMove(const UndoHistory::Move& move);
         void RestoreSnapshot(const std::string& snapshot);
+        // Whether the editor is in the middle of an edit (a drag, a field typed into, the gizmo).
+        bool IsEditInProgress() const;
+        void UI_UndoHistory();
+        // ZAMIN_EDITOR_UNDO: steps made one by one for automation (see the OnUpdate hook).
+        void ApplyUndoAutomation(std::string_view spec);
 
         // ---- clipboard / prefabs
         void CopySelectedEntity();
@@ -187,6 +225,35 @@ namespace Zamin {
         glm::vec2 ScreenToViewportPixel(ImVec2 screen) const;
         void UI_GameViewResolutionPopup();
         bool UI_GameViewResolutionItems();
+
+        // ---- keyboard shortcuts (EditorShortcuts.cpp): one table for the keys the editor dispatches,
+        // the menus' labels and the shortcuts window (Yordam > Klaviatura yorliqlari, F1); rebound
+        // keys are kept in preferences.json.
+        void RegisterShortcuts();
+        void ApplyShortcutPreferences();
+        void SaveShortcutPreferences();
+        // What the editor is doing this frame (ShortcutSituation bits).
+        uint32_t GetShortcutSituations() const;
+        void HandleShortcuts();
+        const char* ShortcutLabel(std::string_view id) const { return m_Shortcuts.GetDisplay(id); }
+        void UI_ShortcutsWindow();
+
+        // ---- autosave (EditorAutosaveRecovery.cpp): a safety copy of the open scene every few
+        // minutes in <project>/.zamin/autosave (never over the scene's file), the project's lock file
+        // (a crashed session is told from a closed one) and the recovery prompt on opening a scene.
+        void AcquireProjectLock();
+        void ReleaseProjectLock();
+        std::filesystem::path GetAutosavePath() const;
+        void UpdateAutosave();
+        bool WriteAutosave(bool manual);
+        // The copy this session wrote for the open scene goes (the scene was saved or closed).
+        void DiscardSessionAutosave();
+        // After a scene was opened (`path` empty: the project's unsaved scene): a newer copy is
+        // offered back, a stale one deleted.
+        void CheckAutosaveRecovery(const std::filesystem::path& scenePath);
+        void RecoverAutosave();
+        void UI_AutosaveRecovery();
+        void UI_AutosavePreferences(bool& changed);
 
         // ---- C++ scripts
         void BuildScripts(bool reloadAfter = true);
@@ -602,7 +669,8 @@ namespace Zamin {
         bool m_LayoutInitialized = false;
 
         // launcher state
-        std::vector<std::filesystem::path> m_RecentProjects;
+        RecentFileList m_RecentProjects{ 10 };
+        RecentFileList m_RecentScenes{ 30 };     // scenes with their project file (Owner)
         std::string m_NewProjectName = "MeningOyinim";
         std::string m_NewProjectLocation;
         std::string m_OpenProjectPath;
@@ -621,10 +689,45 @@ namespace Zamin {
         ScriptTemplateKind m_NewScriptTemplate = ScriptTemplateKind::Full;
 
         // undo
-        std::vector<std::string> m_UndoStack, m_RedoStack;
-        std::string m_LastSnapshot;
-        bool m_PendingUndo = false;
+        UndoHistory m_UndoHistory{ 100, 300 };
+        bool m_PendingUndo = false;           // the scene changed: a step when nothing is held
+        std::string m_PendingUndoName;        // its name, when the change gave one
+        bool m_PendingSelectionUndo = false;  // the selection changed: a selection step when idle
+        uint64_t m_UndoSelectionRevision = 0; // the selection's revision the history has seen
+        bool m_UndoSelectionSync = true;      // back in edit mode: the current state takes the selection
+        bool m_ShowUndoHistory = false;
+        bool m_UndoHistoryEditsOnly = false;  // the window hides the selection steps
+        bool m_UndoHistoryScroll = false;     // scroll the window to the current state
         std::string m_Clipboard;
+
+        // keyboard shortcuts
+        ShortcutRegistry m_Shortcuts;
+        bool m_ShowShortcuts = false;
+        std::string m_OpenMenu;               // automation (ZAMIN_EDITOR_MENU): a menu kept open ("Fayl/recent")
+        std::string m_ShortcutSearch;
+        std::string m_ShortcutCapture;        // the shortcut whose new keys are awaited ("" none)
+        bool m_ShortcutSearchByKey = false;   // the next keys pressed become the key filter
+        KeyChord m_ShortcutKeyFilter;         // only the shortcuts on these keys (empty: all)
+        bool m_ShortcutsModifiedOnly = false, m_ShortcutsConflictsOnly = false;
+        bool m_ShortcutsAutomation = false;   // bindings from ZAMIN_EDITOR_SHORTCUT_BIND (not saved)
+
+        // autosave
+        double m_LastAutosaveTime = 0.0;      // the last copy, or when the scene was opened / saved
+        std::shared_ptr<const std::string> m_AutosavedScene; // the snapshot the last copy holds
+        std::unordered_set<std::string> m_SessionAutosaves;  // copies this session wrote
+        std::filesystem::path m_LockedProject;               // the project whose lock file this session holds
+        bool m_PreviousSessionCrashed = false;
+        struct AutosaveRecovery
+        {
+            bool Pending = false;             // the prompt opens
+            std::filesystem::path Autosave, Scene; // the copy, the scene's file (empty: never saved)
+            std::string SceneName;
+            std::filesystem::file_time_type AutosaveTime{}, SceneTime{};
+            bool SceneExists = false, Crashed = false;
+            bool CloseRequested = false;      // the prompt closes (answered from outside it)
+        } m_Recovery;
+        std::string m_AutosaveNotice;
+        double m_AutosaveNoticeTime = -100.0;
 
         // game export
         bool m_OpenBuildGamePopup = false;

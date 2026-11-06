@@ -208,6 +208,8 @@
 #define ICON_FA_RIGHT_TO_BRACKET "\xef\x8b\xb6" // switch the game to a scene
 #define ICON_FA_DATABASE "\xef\x87\x80"         // the game's global state (GameState)
 #define ICON_FA_CLOCK "\xef\x80\x97"            // console timestamps
+#define ICON_FA_CLOCK_ROTATE_LEFT "\xef\x87\x9a" // undo history
+#define ICON_FA_LIFE_RING "\xef\x87\x8d"         // autosave recovery
 #define ICON_FA_DESKTOP "\xef\x8e\x90"          // game view resolution
 #define ICON_FA_TEXT_HEIGHT "\xef\x80\xb4"      // preferences: font size
 #define ICON_FA_USER_GEAR "\xef\x93\xbe"        // preferences

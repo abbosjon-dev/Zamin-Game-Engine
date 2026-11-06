@@ -1116,6 +1116,12 @@ namespace Zamin {
 
     EventBus& ScriptableEntity::GetEventBus() const { return m_Entity.GetScene()->GetEventBus(); }
 
+    GameState::ListenerID ScriptableEntity::WatchGameState(std::string_view key, GameState::Listener handler)
+    {
+        // Owned by this instance: the scene removes its listeners when the script is destroyed.
+        return GameState::AddListener(key, std::move(handler), (uint64_t)(uintptr_t)this);
+    }
+
     SubscriptionID ScriptableEntity::Subscribe(std::string eventName, MessageHandler handler)
     {
         return GetEventBus().Subscribe(std::move(eventName), std::move(handler), (uint64_t)m_Entity.GetUUID());

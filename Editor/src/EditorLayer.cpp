@@ -100,6 +100,24 @@ namespace Zamin {
                 SetActiveScene(scene, false);
             }
         };
+        // The Scenes window: open a project scene, its build list / start scene, the game's loaded scenes.
+        m_ScenesPanel.SetThumbnails(&m_SceneThumbnails);
+        m_ScenesPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
+        m_ScenesPanel.OnRevealScene = [this](const fs::path& p) { RevealAsset(p); };
+        m_ScenesPanel.OnProjectModified = [this]() {
+            m_ProjectSettingsPanel.MarkDirty();
+            m_ProjectSettingsPanel.SaveIfDirty();
+        };
+        m_ScenesPanel.OnRenderThumbnails = [this](const std::vector<fs::path>& scenes) {
+            for (const fs::path& scene : scenes)
+                if (std::find(m_ThumbnailQueue.begin(), m_ThumbnailQueue.end(), scene) == m_ThumbnailQueue.end())
+                    m_ThumbnailQueue.push_back(scene);
+            ZM_INFO("{} ta sahna rasmi chizilmoqda", m_ThumbnailQueue.size());
+        };
+        m_ScenesPanel.OnShowRuntimeScene = [this](const Ref<Scene>& scene) {
+            if (m_SceneHierarchyPanel.OnRuntimeSceneSelected)
+                m_SceneHierarchyPanel.OnRuntimeSceneSelected(scene);
+        };
         m_SceneHierarchyPanel.OnSceneModified = [this]() { MarkDirty(); };
         m_SceneHierarchyPanel.OnSavePrefabRequested = [this](Entity e) { SavePrefab(e); };
         m_SceneHierarchyPanel.OnProjectSettingsModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
@@ -143,6 +161,16 @@ namespace Zamin {
         };
         m_SceneHierarchyPanel.OnMaterialDropped = [this](const std::string& p, Entity target) { ApplyMaterialToEntity(target, p); };
         m_ContentBrowserPanel.OnOpenScene = [this](const fs::path& p) { OpenScene(p); };
+        m_AssetInspectorPanel.SetSceneThumbnails(&m_SceneThumbnails);
+        m_AssetInspectorPanel.IsOpenScene = [this](const fs::path& p) {
+            std::error_code ec;
+            return !m_EditorScenePath.empty() && fs::equivalent(p, m_EditorScenePath, ec);
+        };
+        m_AssetInspectorPanel.OnEditSceneMetadata = [this]() {
+            m_ShowSceneSettings = true;
+            m_FocusSceneSettings = true;
+            m_SceneSettingsScrollTo = "metadata";
+        };
         m_ContentBrowserPanel.OnRequestNewScript = [this]() { m_NewScriptName = "MyScript"; m_OpenNewScriptPopup = true; };
         m_ContentBrowserPanel.OnNewScene = [this](const fs::path& p) {
             Ref<Scene> scene = CreateRef<Scene>();
@@ -413,6 +441,17 @@ namespace Zamin {
                 if (y > 1.0f) m_SceneHierarchyPanel.ScrollInspectorTo(y);
                 else m_SceneHierarchyPanel.ScrollInspectorToBottom();
             }
+            // ZAMIN_EDITOR_PLAY_ADDITIVE=<scene>[,<scene>]: loaded additively with Play (the Scenes panel's mark).
+            if (const char* additive = std::getenv("ZAMIN_EDITOR_PLAY_ADDITIVE"))
+            {
+                std::string_view list(additive);
+                while (!list.empty())
+                {
+                    const size_t comma = list.find(',');
+                    m_ScenesPanel.SetPlayAdditive(std::string(list.substr(0, comma)), true);
+                    list = comma == std::string_view::npos ? std::string_view() : list.substr(comma + 1);
+                }
+            }
             if (std::getenv("ZAMIN_EDITOR_PLAY"))
                 OnScenePlay();
             if (std::getenv("ZAMIN_EDITOR_STATS"))
@@ -645,6 +684,34 @@ namespace Zamin {
                 m_ShowSceneSettings = m_FocusSceneSettings = true;
                 m_SceneSettingsScrollTo = settings;
             }
+            // ZAMIN_EDITOR_SCENES=1 | <scene relative to the assets>,list,thumbnails,thumbnails-all: the Scenes
+            // window in front (that scene's card selected; "list": the list view; the thumbnails of the
+            // scenes without one / of every scene drawn).
+            if (const char* scenes = std::getenv("ZAMIN_EDITOR_SCENES"))
+            {
+                m_ShowScenes = true;
+                m_ScenesPanel.Focus();
+                std::string_view values(scenes);
+                while (!values.empty())
+                {
+                    const size_t comma = values.find(',');
+                    const std::string_view value = values.substr(0, comma);
+                    values = comma == std::string_view::npos ? std::string_view() : values.substr(comma + 1);
+                    if (value == "list")
+                        m_ScenesPanel.SetListView(true);
+                    else if ((value == "thumbnails" || value == "thumbnails-all") && Project::GetActive())
+                    {
+                        std::error_code ec;
+                        for (auto it = fs::recursive_directory_iterator(Project::GetAssetDirectory(), ec); !ec && it != fs::recursive_directory_iterator();
+                             it.increment(ec))
+                            if (it->path().extension() == ".zscene" &&
+                                (value == "thumbnails-all" || !fs::exists(SceneMetadata::GetThumbnailPath(it->path()))))
+                                m_ThumbnailQueue.push_back(it->path());
+                    }
+                    else if (value.ends_with(".zscene"))
+                        m_ScenesPanel.Select(std::string(value));
+                }
+            }
             // Content browser: folder (relative to the project), list view, type filter ("Texture,Model").
             if (const char* dir = std::getenv("ZAMIN_EDITOR_CB_DIR"))
                 m_ContentBrowserPanel.SetCurrentDirectory(Project::GetProjectDirectory() / dir);
@@ -833,6 +900,32 @@ namespace Zamin {
                     ZM_INFO("Polygon collider spraytga moslandi: {} ta nuqta", e.GetComponent<PolygonCollider2DComponent>().Points.size());
                     MarkDirty();
                 }
+
+        // ZAMIN_EDITOR_PLAY_SCENE=<scene>[,additive][,<frame>]: the running game loads that scene (Single, or
+        // additively) at frame 30 (or the one given); ZAMIN_EDITOR_STOP_FRAME=<n>: Play stops at frame n.
+        if (const char* load = std::getenv("ZAMIN_EDITOR_PLAY_SCENE"); load && m_SceneState == SceneState::Play && m_RuntimeScenes)
+        {
+            std::string_view spec(load);
+            std::string scene;
+            LoadSceneMode mode = LoadSceneMode::Single;
+            int at = 30;
+            while (!spec.empty())
+            {
+                const size_t comma = spec.find(',');
+                const std::string_view part = spec.substr(0, comma);
+                spec = comma == std::string_view::npos ? std::string_view() : spec.substr(comma + 1);
+                if (part == "additive")
+                    mode = LoadSceneMode::Additive;
+                else if (!part.empty() && std::all_of(part.begin(), part.end(), [](char c) { return std::isdigit((unsigned char)c); }))
+                    at = std::atoi(std::string(part).c_str());
+                else
+                    scene = std::string(part);
+            }
+            if (frame == at && !scene.empty())
+                m_RuntimeScenes->LoadScene(fs::path(scene), mode);
+        }
+        if (const char* stop = std::getenv("ZAMIN_EDITOR_STOP_FRAME"); stop && frame == std::atoi(stop) && m_SceneState != SceneState::Edit)
+            OnSceneStop();
 
         if (const char* at = std::getenv("ZAMIN_EDITOR_SELECT_FRAME"); at && frame == std::max(6, std::atoi(at)))
             if (const char* sel = std::getenv("ZAMIN_EDITOR_SELECT"))
@@ -1077,6 +1170,8 @@ namespace Zamin {
 
         CheckModuleHotReload(ts);
         ProcessAssetChanges();
+        m_SceneThumbnails.Update();
+        ProcessThumbnailQueue();
 
         m_ActiveScene->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
         if (m_RuntimeScenes)
@@ -3803,6 +3898,8 @@ namespace Zamin {
         }
         m_SceneHierarchyPanel.OnScriptsReloaded();
         m_ContentBrowserPanel.SetRoot(Project::GetProjectDirectory());
+        m_ScenesPanel.OnProjectChanged();
+        m_SceneThumbnails.Clear();
         m_AssetInspectorPanel.Reset();
         m_SpriteEditorPanel.Reset();
         m_AssetUsage.Reset();
@@ -3834,6 +3931,8 @@ namespace Zamin {
         SaveData::Save();
         Project::SetActive(nullptr);
         m_ContentBrowserPanel.SetRoot({});
+        m_ScenesPanel.OnProjectChanged();
+        m_SceneThumbnails.Clear();
         m_AssetInspectorPanel.Reset();
         m_SpriteEditorPanel.Reset();
         m_AssetUsage.Reset();
@@ -3869,6 +3968,7 @@ namespace Zamin {
         m_EditorScene->SetName("Yangi sahna");
         SetActiveScene(m_EditorScene);
         m_EditorScenePath.clear();
+        m_EditorSceneFileVersion = SceneMigration::CurrentVersion;
         m_ViewSettings.Bookmarks.erase(std::string()); // bookmarks of the previous unsaved scene
         m_SceneDirty = false;
         m_AssetUsage.MarkDirty(); // the previous scene's unsaved state no longer counts
@@ -3911,6 +4011,7 @@ namespace Zamin {
         m_SceneHierarchyPanel.SetContext({});
         SetActiveScene(m_EditorScene);
         m_EditorScenePath = path;
+        m_EditorSceneFileVersion = serializer.GetMigration().FileVersion;
         // Asset paths found again by UUID (files renamed outside the editor): the scene in memory
         // is newer than its file until it is saved.
         m_SceneDirty = !serializer.GetRepairedReferences().empty();
@@ -3940,6 +4041,132 @@ namespace Zamin {
             ZM_INFO("Sahna saqlandi: {}", path.filename().string());
     }
 
+    // ------------------------------------------------------------------ scene metadata (description, author, tags, thumbnail)
+    void EditorLayer::UI_SceneMetadata(bool& changed)
+    {
+        ImGui::SeparatorText(ICON_FA_CIRCLE_INFO "  Ma'lumot");
+        if (m_SceneSettingsScrollTo == "metadata")
+        {
+            ImGui::SetScrollHereY(0.0f);
+            m_SceneSettingsScrollTo.clear();
+        }
+        SceneMetadata& meta = m_ActiveScene->GetMetadata();
+        if (UI::BeginPropertyGrid("meta"))
+        {
+            changed |= UI::PropertyString("Ta'rif", meta.Description, true);
+            changed |= UI::PropertyString("Muallif", meta.Author);
+            UI::PropertyLabel("Teglar");
+            // The tags as chips (x removes one), then a field for a new one (Enter adds it).
+            std::string removed;
+            const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+            for (size_t i = 0; i < meta.Tags.size(); i++)
+            {
+                const std::string label = std::format("{}  " ICON_FA_XMARK "##tag{}", meta.Tags[i], i);
+                const float width = ImGui::CalcTextSize(label.c_str(), nullptr, true).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+                if (i > 0)
+                {
+                    ImGui::SameLine();
+                    if (ImGui::GetCursorScreenPos().x + width > right)
+                        ImGui::NewLine();
+                }
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.32f, 0.45f, 1.0f));
+                if (ImGui::SmallButton(label.c_str()))
+                    removed = meta.Tags[i];
+                ImGui::PopStyleColor();
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Tegni olib tashlash");
+            }
+            if (!removed.empty() && meta.RemoveTag(removed))
+                changed = true;
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::InputTextWithHint("##newSceneTag", ICON_FA_PLUS "  teg qo'shish (Enter)", &m_NewSceneTag, ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                if (meta.AddTag(m_NewSceneTag))
+                    changed = true;
+                m_NewSceneTag.clear();
+                ImGui::SetKeyboardFocusHere(-1);
+            }
+            UI::PropertyLabel("Format");
+            if (m_EditorSceneFileVersion >= 0 && m_EditorSceneFileVersion < SceneMigration::CurrentVersion && m_SceneState == SceneState::Edit)
+            {
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), "v%d (fayl v%d)", SceneMigration::CurrentVersion, m_EditorSceneFileVersion);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(std::format("Fayl eski formatda (v{}): yuklashda v{} ga yangilandi, saqlanganda yangi formatda yoziladi",
+                                            m_EditorSceneFileVersion, SceneMigration::CurrentVersion).c_str());
+            }
+            else
+                ImGui::Text("v%d", SceneMigration::CurrentVersion);
+            UI::EndPropertyGrid();
+        }
+        // The thumbnail (drawn whenever the scene is saved).
+        if (m_SceneState == SceneState::Edit && !m_EditorScenePath.empty())
+        {
+            Ref<Texture2D> thumbnail = m_SceneThumbnails.Get(m_EditorScenePath);
+            const float width = std::min(ImGui::GetContentRegionAvail().x, 320.0f);
+            if (thumbnail)
+            {
+                const float height = width * (float)thumbnail->GetHeight() / (float)std::max(1u, thumbnail->GetWidth());
+                ImGui::Image((ImTextureID)(uintptr_t)thumbnail->GetRendererID(), ImVec2(width, height));
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Sahna rasmi: har saqlashda boshlang'ich kameradan (kamera bo'lmasa - editor kamerasidan) chiziladi");
+            }
+            else
+                ImGui::TextDisabled(ICON_FA_IMAGE "  Rasm yo'q - sahna saqlanganda chiziladi");
+            if (ImGui::SmallButton(ICON_FA_CAMERA "  Rasmni hozir chizish"))
+                RenderSceneThumbnail();
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Sahna rasmini qayta chizish (fayl saqlanmaydi)");
+        }
+    }
+
+    void EditorLayer::ProcessThumbnailQueue()
+    {
+        if (m_ThumbnailQueue.empty())
+            return;
+        const fs::path path = m_ThumbnailQueue.front();
+        m_ThumbnailQueue.pop_front();
+        std::error_code ec;
+        if (!m_EditorScenePath.empty() && fs::equivalent(path, m_EditorScenePath, ec) && m_SceneState == SceneState::Edit)
+            RenderSceneThumbnail(); // the open scene: as it is now, from the editor camera when it has none
+        else
+        {
+            // Loaded for its picture only; a scene without a camera is seen from the default editor view.
+            Ref<Scene> scene = CreateRef<Scene>();
+            SceneSerializer serializer(scene);
+            if (serializer.Deserialize(path))
+            {
+                EditorCamera camera;
+                camera.SetViewportSize((float)SceneMetadata::ThumbnailWidth, (float)SceneMetadata::ThumbnailHeight);
+                if (SceneThumbnails::Render(scene, path, &camera))
+                {
+                    m_SceneThumbnails.Invalidate(path);
+                    m_ContentBrowserPanel.InvalidateThumbnail(path);
+                }
+            }
+        }
+        if (m_ThumbnailQueue.empty())
+        {
+            m_ScenesPanelDirty = true;
+            ZM_INFO("Sahna rasmlari chizildi");
+        }
+    }
+
+    bool EditorLayer::RenderSceneThumbnail()
+    {
+        if (m_SceneState != SceneState::Edit || m_EditorScenePath.empty() || !m_EditorScene)
+            return false;
+        bool drawn = false;
+        // The scene's own values, not the Animation window's preview pose.
+        m_AnimationPanel.WithoutPreview([&]() { drawn = SceneThumbnails::Render(m_EditorScene, m_EditorScenePath, &m_EditorCamera); });
+        if (drawn)
+        {
+            m_SceneThumbnails.Invalidate(m_EditorScenePath);
+            m_ContentBrowserPanel.InvalidateThumbnail(m_EditorScenePath);
+            m_ScenesPanelDirty = true;
+        }
+        return drawn;
+    }
+
     void EditorLayer::SaveScene()
     {
         if (m_SceneState != SceneState::Edit)
@@ -3953,6 +4180,8 @@ namespace Zamin {
             return;
         }
         SerializeScene(m_EditorScene, m_EditorScenePath);
+        m_EditorSceneFileVersion = SceneMigration::CurrentVersion; // written in the current format now
+        RenderSceneThumbnail(); // the scene's picture (Scenes panel, content browser, inspector)
         m_AnimationPanel.SaveIfDirty(); // the clip being edited goes with the scene
         m_SceneDirty = false;
         m_AssetUsage.MarkDirty(); // the file says it now (a first save: it has a path at last)
@@ -4007,8 +4236,19 @@ namespace Zamin {
         m_SceneState = SceneState::Play;
         m_AnimationPanel.StopPreview(true); // the game starts from the scene's own values
         m_PlayMaterials = MaterialLibrary::TakeSnapshot();
+        // The editor's state, for Stop after the game has switched scenes.
+        m_PlayStart = {};
+        for (Entity e : m_SceneHierarchyPanel.GetSelection().GetEntities())
+            if (e && e.IsValid() && e != m_SceneHierarchyPanel.GetSelectedEntity())
+                m_PlayStart.Selection.push_back(e.GetUUID());
+        if (Entity primary = m_SceneHierarchyPanel.GetSelectedEntity(); primary && primary.IsValid())
+            m_PlayStart.Selection.push_back(primary.GetUUID());
+        m_PlayStart.Camera = m_EditorCamera.GetViewState();
+        m_PlayStart.Mode2D = m_2DMode;
+        m_PlayStart.SceneName = m_EditorScene->GetName();
         Ref<Scene> runtime = Scene::Copy(m_EditorScene);
         runtime->ResolveAssets();
+        m_PlayStart.RuntimeStart = runtime;
         SetActiveScene(runtime);
         ApplyDebugDrawSettings(); // before the scripts' OnCreate: they may change them
         // As in the player: the audio settings the game saved (its options menu) over the project's
@@ -4018,6 +4258,10 @@ namespace Zamin {
         // The display options too (no window of its own: the editor's stays as it is, the game sees them).
         Display::LoadSettings();
         AudioEngine::ResetProfileCounters(); // the audio profiler counts this run
+        // Every run starts as the game does: no global state, no services from the last run.
+        Services::Clear();
+        GameState::Clear();
+        GameState::ClearListeners();
         // The game runs in a scene manager (additive scenes, DontDestroyOnLoad, async loads, fades),
         // as in the player.
         m_RuntimeScenes = std::make_unique<SceneManager>();
@@ -4026,6 +4270,7 @@ namespace Zamin {
         m_RuntimeActiveSerial = m_RuntimeScenes->GetActiveSceneSerial();
         m_RuntimeReportSerial = m_RuntimeScenes->GetLoadReportSerial();
         m_SceneHierarchyPanel.SetSceneManager(m_RuntimeScenes.get());
+        LoadPlayAdditiveScenes();
         ImGui::SetWindowFocus("###Viewport");
         UpdateWindowTitle();
     }
@@ -4045,12 +4290,42 @@ namespace Zamin {
         UpdateWindowTitle();
     }
 
+    void EditorLayer::LoadPlayAdditiveScenes()
+    {
+        if (!m_RuntimeScenes)
+            return;
+        for (const std::string& scene : m_ScenesPanel.GetPlayAdditiveScenes())
+        {
+            if (!m_EditorScenePath.empty() && Project::GetAssetRelativePath(m_EditorScenePath) == scene)
+                continue; // the edit scene itself
+            m_RuntimeScenes->LoadScene(fs::path(scene), LoadSceneMode::Additive);
+            ZM_INFO("O'yin bilan qo'shimcha sahna yuklanadi: {}", scene);
+        }
+    }
+
     void EditorLayer::OnSceneStop()
     {
+        // The game has switched scenes (or the hierarchy shows another of its scenes): the edit scene
+        // comes back as it was left - its selection and the editor camera's view.
+        bool restoreView = false;
+        if (m_SceneState == SceneState::Play)
+        {
+            Ref<Scene> start = m_PlayStart.RuntimeStart.lock();
+            restoreView = !start || start != m_ActiveScene;
+        }
         if (m_SceneState == SceneState::Play && m_RuntimeScenes)
         {
             // Every scene of the game stops (the persistent one too).
             m_RuntimeScenes->Stop();
+        }
+        if (m_SceneState == SceneState::Play)
+        {
+            // The game's global state and services end with the run (made by its scripts' code).
+            if (const size_t services = Services::GetCount(); services > 0 || GameState::GetCount() > 0)
+                ZM_INFO("O'yin holati tozalandi: {} ta qiymat, {} ta servis", GameState::GetCount(), services);
+            Services::Clear();
+            GameState::Clear();
+            GameState::ClearListeners();
         }
         else if (m_SceneState == SceneState::Play)
             m_ActiveScene->OnRuntimeStop();
@@ -4060,6 +4335,20 @@ namespace Zamin {
         SetActiveScene(m_EditorScene);
         m_SceneHierarchyPanel.SetSceneManager(nullptr);
         m_RuntimeScenes.reset(); // the game's scenes go (the hierarchy shows the edit scene again)
+        if (restoreView)
+        {
+            std::vector<Entity> selection;
+            for (UUID id : m_PlayStart.Selection)
+                if (Entity e = m_EditorScene->GetEntityByUUID(id))
+                    selection.push_back(e);
+            m_SceneHierarchyPanel.GetSelection().Set(selection);
+            m_2DMode = m_PlayStart.Mode2D;
+            m_EditorCamera.SetViewState(m_PlayStart.Camera);
+            ZM_INFO("O'yin boshqa sahnada to'xtadi: editor '{}' sahnasiga qaytdi (tanlov: {} ta obyekt, kamera tiklandi)",
+                    m_EditorScene->GetName(), selection.size());
+            ShowViewportMessage(std::format(ICON_FA_ROTATE_LEFT "  Editor holati tiklandi: {} ({} ta tanlangan)", m_EditorScene->GetName(), selection.size()));
+        }
+        m_PlayStart.RuntimeStart.reset();
         // What the game's scripts changed of the debug drawing does not stay in the editor.
         ApplyDebugDrawSettings();
         // The game's music stops with it, and the mixer is the project's again (what the game or the
@@ -5407,6 +5696,17 @@ namespace Zamin {
         m_AssetInspectorPanel.DrawPopups();
         m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
         UI_SceneSettings();
+        m_ScenesPanel.SetSceneManager(m_SceneState == SceneState::Play ? m_RuntimeScenes.get() : nullptr);
+        m_ScenesPanel.SetShownScene(m_ActiveScene.get());
+        m_ScenesPanel.SetOpenScenePath(m_EditorScenePath);
+        if (m_ScenesPanelDirty)
+        {
+            m_ScenesPanel.MarkDirty();
+            m_ScenesPanelDirty = false;
+        }
+        if (ImGuiWindow* content = ImGui::FindWindowByName("###ContentBrowser"); content && content->DockId)
+            m_ScenesPanel.SetDefaultDock(content->DockId); // first opened: a tab next to the content browser
+        m_ScenesPanel.OnImGuiRender(&m_ShowScenes);
         m_ProjectSettingsPanel.SetScene(m_EditorScene); // tag counts / renames apply to the saved scene
         m_ProjectSettingsPanel.SetOpenScenePath(m_EditorScenePath.empty() ? fs::path() : fs::path(Project::GetAssetRelativePath(m_EditorScenePath)));
         m_ProjectSettingsPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
@@ -5479,6 +5779,7 @@ namespace Zamin {
         ImGui::DockBuilderDockWindow("###SceneSettings", right);
         ImGui::DockBuilderDockWindow("###ProjectSettings", right);
         ImGui::DockBuilderDockWindow("###ContentBrowser", bottom);
+        ImGui::DockBuilderDockWindow("###ScenesPanel", bottom);
         ImGui::DockBuilderDockWindow("###Console", bottom);
         ImGui::DockBuilderDockWindow("###TilePalette", bottom);
         ImGui::DockBuilderDockWindow("###AudioMixer", bottom);
@@ -5615,6 +5916,8 @@ namespace Zamin {
             ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Kontent", nullptr, &m_ShowContentBrowser);
             ImGui::MenuItem(ICON_FA_TERMINAL "  Konsol", nullptr, &m_ShowConsole);
             ImGui::MenuItem(ICON_FA_MOUNTAIN_SUN "  Sahna sozlamalari", nullptr, &m_ShowSceneSettings);
+            if (ImGui::MenuItem(ICON_FA_CLAPPERBOARD "  Sahnalar", nullptr, &m_ShowScenes, hasProject) && m_ShowScenes)
+                m_ScenesPanel.Focus();
             ImGui::MenuItem(ICON_FA_GEAR "  Loyiha sozlamalari", nullptr, &m_ShowProjectSettings);
             ImGui::MenuItem(ICON_FA_CHART_LINE "  Statistika", nullptr, &m_ShowStats);
             ImGui::MenuItem(ICON_FA_STOPWATCH "  Profiler", nullptr, &m_ShowProfiler);
@@ -9141,6 +9444,8 @@ namespace Zamin {
             }
             UI::EndPropertyGrid();
         }
+
+        UI_SceneMetadata(changed);
 
         ImGui::SeparatorText(ICON_FA_SUN "  Osmon gradienti va quyosh");
         if (m_SceneSettingsScrollTo == "sky")

@@ -8,6 +8,7 @@
 #include "Zamin/Scene/ComponentRegistry.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/ParticlePresets.h"
+#include "Zamin/Scene/SceneMigrationJson.h"
 #include "Zamin/Utils/FileSystem.h"
 
 #include <nlohmann/json.hpp>
@@ -2881,7 +2882,7 @@ namespace Zamin {
         AssetReferenceScope assetReferences;
         json root;
         root["Scene"] = m_Scene->GetName();
-        root["Version"] = 1;
+        root["Version"] = SceneMigration::CurrentVersion;
         root["Settings"] = {
             { "DrawSky", s.DrawSky }, { "SkyTop", ToJson(s.SkyTopColor) }, { "SkyHorizon", ToJson(s.SkyHorizonColor) },
             { "Ground", ToJson(s.GroundColor) }, { "Ambient", s.AmbientIntensity }, { "Exposure", s.Exposure },
@@ -2920,6 +2921,19 @@ namespace Zamin {
         if (s.Physics3D != SceneSettings::Physics3DSettings())
             root["Settings"]["Physics3D"] = { { "AllowSleep", s.Physics3D.AllowSleep }, { "TimeToSleep", s.Physics3D.TimeToSleep } };
 
+        // Metadata only when there is some (written by the editor's scene inspector).
+        if (const SceneMetadata& meta = m_Scene->GetMetadata(); !meta.IsEmpty())
+        {
+            json& j = root["Metadata"];
+            j = json::object();
+            if (!meta.Description.empty())
+                j["Description"] = meta.Description;
+            if (!meta.Author.empty())
+                j["Author"] = meta.Author;
+            if (!meta.Tags.empty())
+                j["Tags"] = meta.Tags;
+        }
+
         // The same scene always gives the same text (whatever order its entities were made in): sorted
         // by UUID, with the hierarchy's order written out (the roots here, the children with their parents).
         json entities = json::array();
@@ -2944,6 +2958,7 @@ namespace Zamin {
     }
 
     static SceneLoadIssue MakeUnreadableIssue(const std::string& reason);
+    static std::string SceneDisplayPath(const std::filesystem::path& file);
 
     bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
     {
@@ -2973,15 +2988,36 @@ namespace Zamin {
         AssetImportLog::Clear(filepath);
         if (m_Scene->GetName().empty() || m_Scene->GetName() == "Untitled")
             m_Scene->SetName(filepath.stem().string());
+        SceneMigration::LogMigration(SceneDisplayPath(filepath), m_Migration);
         m_Report.Log(); // what was left out (a clean load says nothing)
         return true;
     }
 
     // ------------------------------------------------------------------ scene files in steps
-    // The scene's name and settings ("Scene", "Settings").
+    // "Metadata" (absent: none). What is not text is left out.
+    static SceneMetadata ReadSceneMetadata(const json& root)
+    {
+        SceneMetadata meta;
+        auto it = root.find("Metadata");
+        if (it == root.end() || !it->is_object())
+            return meta;
+        const json& j = *it;
+        if (auto d = j.find("Description"); d != j.end() && d->is_string())
+            meta.Description = d->get<std::string>();
+        if (auto a = j.find("Author"); a != j.end() && a->is_string())
+            meta.Author = a->get<std::string>();
+        if (auto tags = j.find("Tags"); tags != j.end() && tags->is_array())
+            for (const json& tag : *tags)
+                if (tag.is_string())
+                    meta.AddTag(tag.get_ref<const std::string&>());
+        return meta;
+    }
+
+    // The scene's name, metadata and settings ("Scene", "Metadata", "Settings").
     static void DeserializeSceneSettings(const json& root, Scene& scene)
     {
         scene.SetName(root.value("Scene", "Untitled"));
+        scene.GetMetadata() = ReadSceneMetadata(root);
         if (root.contains("Settings"))
         {
             const json& j = root["Settings"];
@@ -3124,6 +3160,7 @@ namespace Zamin {
             case Kind::MissingAsset: return "Asset topilmadi";
             case Kind::DuplicateID: return "Takroriy ID";
             case Kind::BadHierarchy: return "Ierarxiya xato";
+            case Kind::NewerVersion: return "Yangiroq format";
         }
         return "?";
     }
@@ -3276,6 +3313,30 @@ namespace Zamin {
     static SceneLoadIssue MakeNotASceneIssue()
     {
         return MakeIssue(SceneLoadIssue::Kind::NotAScene, SceneLoadIssue::Severity::Fatal, "sahna fayli emas (\"Scene\" kaliti yo'q)");
+    }
+
+    // A scene file as the log names it: relative to the assets when it is one of the project's.
+    static std::string SceneDisplayPath(const std::filesystem::path& file)
+    {
+        if (Project::GetActive())
+        {
+            std::string relative = Project::GetAssetRelativePath(file);
+            if (!relative.empty() && !relative.starts_with("..") && std::filesystem::path(relative).is_relative())
+                return relative;
+        }
+        return file.generic_string();
+    }
+
+    // The parsed file in the current format (SceneMigration); a newer file is reported (read as far
+    // as it is understood).
+    static SceneMigrationResult MigrateSceneRoot(json& root, SceneLoadReport* report)
+    {
+        SceneMigrationResult migration = SceneMigrationJson::Migrate(root);
+        if (migration.IsNewer() && report)
+            report->Add(MakeIssue(SceneLoadIssue::Kind::NewerVersion, SceneLoadIssue::Severity::Warning,
+                                  std::format("Fayl yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): tanilmagan ma'lumotlar o'qilmadi "
+                                              "va saqlanganda yo'qoladi", migration.FileVersion, SceneMigration::CurrentVersion)));
+        return migration;
     }
 
     static void AddEntityIssue(SceneLoadReport* report, SceneLoadIssue::Kind kind, SceneLoadIssue::Severity level, std::string message,
@@ -3607,6 +3668,7 @@ namespace Zamin {
         m_RepairedReferences.clear();
         m_LastError.clear();
         m_Report.Clear();
+        m_Migration = {};
         AssetReferenceScope assetReferences(&m_RepairedReferences);
         assetReferences.SetReport(&m_Report);
         auto fail = [&](SceneLoadIssue issue) {
@@ -3624,6 +3686,7 @@ namespace Zamin {
         }
         if (!root.is_object() || !root.contains("Scene"))
             return fail(MakeNotASceneIssue());
+        m_Migration = MigrateSceneRoot(root, &m_Report);
 
         DeserializeSceneSettingsChecked(root, *m_Scene, &m_Report);
         const json& entityList = SceneEntityList(root, &m_Report);
@@ -3633,6 +3696,60 @@ namespace Zamin {
             DeserializeSceneEntity(entityList[i], i, *m_Scene, loaded, &m_Report);
         LinkSceneHierarchy(*m_Scene, loaded, &m_Report);
         return true;
+    }
+
+    // ------------------------------------------------------------------ scene file info
+    bool SceneSerializer::ReadSceneInfoFromString(const std::string& text, SceneFileInfo& out)
+    {
+        const std::string name = out.Name;
+        out = {};
+        out.Name = name;
+        json root = json::parse(text, nullptr, false);
+        if (root.is_discarded())
+        {
+            out.Error = "JSON o'qilmadi";
+            return false;
+        }
+        if (!root.is_object() || !root.contains("Scene"))
+        {
+            out.Error = "sahna fayli emas";
+            return false;
+        }
+        out.Version = SceneMigrationJson::ReadVersion(root);
+        SceneMigrationJson::Migrate(root); // read as the current format (string IDs of a v0 file ...)
+        if (auto scene = root.find("Scene"); scene->is_string() && !scene->get_ref<const std::string&>().empty())
+            out.Name = scene->get<std::string>();
+        out.Metadata = ReadSceneMetadata(root);
+        if (auto list = root.find("Entities"); list != root.end() && list->is_array())
+            for (const json& e : *list)
+            {
+                if (!e.is_object())
+                    continue;
+                out.EntityCount++;
+                if (!ReadEntityID(e, "Parent"))
+                    out.RootCount++;
+            }
+        return true;
+    }
+
+    bool SceneSerializer::ReadSceneInfo(const std::filesystem::path& file, SceneFileInfo& out)
+    {
+        out = {};
+        out.Name = file.stem().string();
+        std::string error = AssetImportLog::CheckReadable(file);
+        std::string text = error.empty() ? FileSystem::ReadTextFile(file) : std::string();
+        if (error.empty() && text.empty())
+            error = "fayl o'qilmadi";
+        if (!error.empty())
+        {
+            out.Error = std::move(error);
+            return false;
+        }
+        const bool ok = ReadSceneInfoFromString(text, out);
+        std::error_code ec;
+        if (std::filesystem::path thumbnail = SceneMetadata::GetThumbnailPath(file); std::filesystem::is_regular_file(thumbnail, ec))
+            out.Thumbnail = thumbnail;
+        return ok;
     }
 
     // ------------------------------------------------------------------ SceneLoadJob
@@ -3647,6 +3764,7 @@ namespace Zamin {
         std::vector<LoadedEntity> Loaded;
         std::vector<SceneSerializer::AssetReferenceRepair> Repairs;
         SceneLoadReport Report;
+        SceneMigrationResult Migration;
 
         const json& Entities() const
         {
@@ -3678,7 +3796,10 @@ namespace Zamin {
             m_Data->Fail(MakeUnreadableIssue(error));
             return false;
         }
-        return ParseString(text);
+        if (!ParseString(text))
+            return false;
+        SceneMigration::LogMigration(SceneDisplayPath(path), m_Data->Migration);
+        return true;
     }
 
     bool SceneLoadJob::ParseString(const std::string& text)
@@ -3696,6 +3817,8 @@ namespace Zamin {
             m_Data->Fail(MakeNotASceneIssue());
             return false;
         }
+        std::erase_if(m_Data->Report.Issues, [](const SceneLoadIssue& i) { return i.Type == SceneLoadIssue::Kind::NewerVersion; });
+        m_Data->Migration = MigrateSceneRoot(m_Data->Root, &m_Data->Report);
         // The order the entities are made in (any thread: only the parsed file is read).
         m_Data->Order = ComputeLoadOrder(m_Data->Root, m_Data->Entities());
         m_Data->Step = Data::Phase::Parsed;
@@ -3739,6 +3862,7 @@ namespace Zamin {
     bool SceneLoadJob::IsBuilt() const { return m_Data->Step == Data::Phase::Built; }
     const std::vector<SceneSerializer::AssetReferenceRepair>& SceneLoadJob::GetRepairedReferences() const { return m_Data->Repairs; }
     const SceneLoadReport& SceneLoadJob::GetReport() const { return m_Data->Report; }
+    const SceneMigrationResult& SceneLoadJob::GetMigration() const { return m_Data->Migration; }
 
     float SceneLoadJob::GetBuildProgress() const
     {

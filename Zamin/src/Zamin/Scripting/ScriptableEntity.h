@@ -4,7 +4,9 @@
 #include "Zamin/Scene/TintAnimation.h"
 #include "Zamin/Scene/Entity.h"
 #include "Zamin/Scene/SceneManager.h"
+#include "Zamin/Core/GameState.h"
 #include "Zamin/Core/Input.h"
+#include "Zamin/Core/Services.h"
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Math/Random.h"
 #include "Zamin/Scripting/EventBus.h"
@@ -770,6 +772,20 @@ namespace Zamin {
         int Emit(std::string eventName, std::any payload = {});
         void EmitDeferred(std::string eventName, std::any payload = {});
         EventBus& GetEventBus() const;
+
+        // ---- the game's global state and services: outside the scenes, every scene load keeps them
+        //   GameState::Increment("Coins");  GameState::GetInt("Coins");
+        //   WatchGameState("Coins", [this](std::string_view) { RefreshHud(); });
+        //   auto& inventory = GetOrCreateService<Inventory>();
+        // Calls `handler` after the value of `key` changes ("" = any key); ends with this script.
+        GameState::ListenerID WatchGameState(std::string_view key, GameState::Listener handler);
+        bool UnwatchGameState(GameState::ListenerID id) { return GameState::RemoveListener(id); }
+        // The game's service of type T (Services): null when none is registered.
+        template<typename T>
+        static T* GetService() { return Services::Get<T>(); }
+        // ... made with T's default constructor when there is none.
+        template<typename T>
+        static T& GetOrCreateService() { return Services::GetOrCreate<T>(); }
 
         // Returns the script instance of type T attached to `entity` (or nullptr).
         template<typename T>

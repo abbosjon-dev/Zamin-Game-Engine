@@ -1,0 +1,27 @@
+{
+  "Scene": "Eski1",
+  "Version": 1,
+  "Settings": { "DrawSky": false },
+  "Entities": [
+    {
+      "Entity": 2001,
+      "Tag": "Sarlavha",
+      "Transform": { "Translation": [0, 0, 0], "Rotation": [0, 0, 0], "Scale": [1, 1, 1] },
+      "UITransform": { "Anchor": 1, "Position": [0, -40], "Size": [400, 60], "FontSize": 32.0, "Order": 2 },
+      "Text": { "Text": "Bosh menyu", "Centered": true, "Color": [1, 1, 1, 1] }
+    },
+    {
+      "Entity": 2002,
+      "Tag": "Burchak",
+      "Transform": { "Translation": [0, 0, 0], "Rotation": [0, 0, 0], "Scale": [1, 1, 1] },
+      "UITransform": { "Anchor": 8, "Position": [-60, 40], "Size": [100, 50], "FontSize": 20.0, "Order": 0 },
+      "Text": { "Text": "v1.0", "Centered": false }
+    },
+    {
+      "Entity": 2003,
+      "Tag": "DunyoMatni",
+      "Transform": { "Translation": [0, 3, 0], "Rotation": [0, 0, 0], "Scale": [1, 1, 1] },
+      "Text": { "Text": "Xush kelibsiz", "Centered": false }
+    }
+  ]
+}

@@ -336,11 +336,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 288. Sahna ichida qidirish API'lari tezlashtirish
 - [x] 289. Sahnani yuklashda xatolarni ko'rsatish
 - [x] 290. Sahnalarni solishtirish (diff) uchun barqaror UUID tartibi
-- [ ] 291. Sahna metadata (ta'rif, thumbnail)
-- [ ] 292. Editor: sahnalar ro'yxati paneli
-- [ ] 293. Editor: o'yin rejimida sahna almashganda editor holatini tiklash
-- [ ] 294. Global o'yin holati (singleton servislar)
-- [ ] 295. Sahna versiya migratsiyasi
+- [x] 291. Sahna metadata (ta'rif, thumbnail)
+- [x] 292. Editor: sahnalar ro'yxati paneli
+- [x] 293. Editor: o'yin rejimida sahna almashganda editor holatini tiklash
+- [x] 294. Global o'yin holati (singleton servislar)
+- [x] 295. Sahna versiya migratsiyasi
 - [ ] 296. Sahna yuklash vaqtini profiler'da ko'rsatish
 - [ ] 297. Katta sahnalar uchun tezroq serializatsiya
 - [ ] 298. Sahnani bo'laklarga bo'lish (sub-scenes) - oddiy

@@ -1,6 +1,14 @@
 {
     "Scene": "Menu",
-    "Version": 1,
+    "Version": 2,
+    "Metadata": {
+        "Author": "Zamin jamoasi",
+        "Description": "Bosh menyu: \"Boshlash\" tugmasi yuklanish ekraniga, u esa 1-darajaga olib boradi. GameSession shu yerda yaratiladi va butun o'yin davomida yashaydi (DontDestroyOnLoad).",
+        "Tags": [
+            "menyu",
+            "oqim"
+        ]
+    },
     "Settings": {
         "DrawSky": false,
         "SkyTop": [

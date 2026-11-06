@@ -203,3 +203,7 @@
 #define ICON_FA_THUMBTACK "\xef\x82\x8d"     // DontDestroyOnLoad (persistent) scene
 #define ICON_FA_GRIP_LINES "\xef\x9e\xa4"    // drag handle (build scenes)
 #define ICON_FA_LIST_OL "\xef\x83\x8b"       // build scenes list
+#define ICON_FA_SPINNER "\xef\x84\x90"          // a scene loading in the background
+#define ICON_FA_MINUS "\xef\x81\xa8"            // out of the build list
+#define ICON_FA_RIGHT_TO_BRACKET "\xef\x8b\xb6" // switch the game to a scene
+#define ICON_FA_DATABASE "\xef\x87\x80"         // the game's global state (GameState)

@@ -1,5 +1,6 @@
 #include "Zamin/Project/AssetFiles.h"
 #include "Zamin/Asset/AssetMetadata.h"
+#include "Zamin/Scene/Scene.h"
 #include "Zamin/Utils/FileSystem.h"
 
 #include <algorithm>
@@ -711,21 +712,32 @@ namespace Zamin {
         return ec;
     }
 
-    // The .zmeta file of a moved asset goes with it (replacing an orphan one at the new place).
-    static void MoveMetaFile(const fs::path& from, const fs::path& to)
+    // A file that belongs to an asset moves with it (replacing an orphan one at the new place).
+    static void MoveSidecar(const fs::path& sidecar, const fs::path& target)
     {
         std::error_code ec;
-        fs::path meta = AssetMetaFile::GetMetaPath(from);
-        if (!fs::is_regular_file(meta, ec))
+        if (sidecar.empty() || target.empty() || !fs::is_regular_file(sidecar, ec))
             return;
-        fs::path target = AssetMetaFile::GetMetaPath(to);
-        fs::rename(meta, target, ec);
+        fs::rename(sidecar, target, ec);
         if (ec)
         {
             ec.clear();
-            fs::copy_file(meta, target, fs::copy_options::overwrite_existing, ec);
+            fs::copy_file(sidecar, target, fs::copy_options::overwrite_existing, ec);
             if (!ec)
-                fs::remove(meta, ec);
+                fs::remove(sidecar, ec);
+        }
+    }
+
+    // The .zmeta file of a moved asset goes with it, a scene's thumbnail too.
+    static void MoveMetaFile(const fs::path& from, const fs::path& to)
+    {
+        MoveSidecar(AssetMetaFile::GetMetaPath(from), AssetMetaFile::GetMetaPath(to));
+        if (from.extension() == ".zscene" && to.extension() == ".zscene")
+            MoveSidecar(SceneMetadata::GetThumbnailPath(from), SceneMetadata::GetThumbnailPath(to));
+        else if (from.extension() == ".zscene")
+        {
+            std::error_code ec;
+            fs::remove(SceneMetadata::GetThumbnailPath(from), ec); // renamed to something that is no scene
         }
     }
 
@@ -942,7 +954,11 @@ namespace Zamin {
             return false;
         }
         if (!isDirectory)
+        {
             fs::remove(AssetMetaFile::GetMetaPath(path), ec); // the asset's .zmeta goes with it
+            if (path.extension() == ".zscene")
+                fs::remove(SceneMetadata::GetThumbnailPath(path), ec); // and a scene's thumbnail
+        }
         return true;
     }
 
@@ -988,6 +1004,9 @@ namespace Zamin {
                 fs::path meta = AssetMetaFile::GetMetaPath(from);
                 if (fs::is_regular_file(meta, mec))
                     fs::copy_file(meta, AssetMetaFile::GetMetaPath(to), fs::copy_options::overwrite_existing, mec);
+                if (from.extension() == ".zscene")
+                    if (fs::path thumbnail = SceneMetadata::GetThumbnailPath(from); fs::is_regular_file(thumbnail, mec))
+                        fs::copy_file(thumbnail, SceneMetadata::GetThumbnailPath(to), fs::copy_options::overwrite_existing, mec);
             };
             std::vector<fs::path> deps = GetModelDependencies(src);
             if (deps.empty())

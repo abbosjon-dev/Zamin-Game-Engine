@@ -1,0 +1,22 @@
+{
+  "Scene": "Eski0",
+  "Entities": [
+    {
+      "Entity": "1001",
+      "Name": "Ota",
+      "Transform": { "Translation": [1, 2, 0], "Rotation": [0, 0, 0], "Scale": [1, 1, 1] }
+    },
+    {
+      "Entity": "1002",
+      "Name": "Bola",
+      "Parent": "1001",
+      "Transform": { "Translation": [0, 1, 0], "Rotation": [0, 0, 0], "Scale": [1, 1, 1] }
+    },
+    {
+      "Entity": 1003,
+      "Tag": "Yozuv",
+      "Parent": 1001,
+      "Text": { "Text": "Salom", "Centered": true }
+    }
+  ]
+}

@@ -1,4 +1,6 @@
 #include "Zamin/Scripting/ScriptEngine.h"
+#include "Zamin/Core/GameState.h"
+#include "Zamin/Core/Services.h"
 #include "Zamin/Scripting/ScriptableEntity.h"
 #include "Zamin/Core/Log.h"
 
@@ -62,6 +64,9 @@ namespace Zamin {
             return;
         if (s_Module.BeforeUnload)
             s_Module.BeforeUnload();
+        // Services and state listeners the module's code made must go while that code is loaded.
+        Services::Clear();
+        GameState::ClearListeners();
 #if defined(__linux__) || defined(__APPLE__)
         dlclose(s_Module.Handle);
 #endif

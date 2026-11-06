@@ -30755,3 +30755,365 @@ TEST(SceneSaveDeterministic)
     }
     CHECK(scenes >= 20);
 }
+
+TEST(SceneVersionMigration)
+{
+    namespace fs = std::filesystem;
+    // The chain: one step per version, contiguous, up to the current one.
+    const auto& chain = SceneMigration::GetChain();
+    CHECK((int)chain.size() == SceneMigration::CurrentVersion);
+    for (size_t i = 0; i < chain.size(); i++)
+        CHECK(chain[i].From == (int)i && chain[i].To == (int)i + 1 && !chain[i].Description.empty());
+    SceneMigration::ResetLog();
+
+    const fs::path fixtures = fs::path(ZAMIN_SOURCE_DIR) / "Tests" / "Fixtures" / "Scenes";
+    // Version 1 (the original format): Text "Centered" and the 9-point UI anchor in today's keys.
+    {
+        auto scene = CreateRef<Scene>();
+        SceneSerializer serializer(scene);
+        CHECK(serializer.Deserialize(fixtures / "LegacyV1.zscene"));
+        CHECK(!serializer.GetLoadReport().HasIssues());
+        const SceneMigrationResult& m = serializer.GetMigration();
+        CHECK(m.FileVersion == 1 && m.Version == SceneMigration::CurrentVersion && m.Migrated() && !m.IsNewer());
+        CHECK(m.Steps.size() == 1 && m.Steps[0].From == 1 && m.Steps[0].To == 2 && m.GetChangeCount() == 5);
+        CHECK(m.Summary().find("v1 -> v2") != std::string::npos);
+        Entity title = scene->FindEntityByName("Sarlavha"), corner = scene->FindEntityByName("Burchak"), world = scene->FindEntityByName("DunyoMatni");
+        CHECK(title && corner && world);
+        if (!title || !corner || !world)
+            return;
+        const auto& tu = title.GetComponent<UITransformComponent>();
+        CHECK(tu.AnchorMin == glm::vec2(0.5f, 1.0f) && tu.AnchorMax == tu.AnchorMin && tu.Pivot == glm::vec2(0.5f) && tu.Order == 2);
+        CHECK(title.GetComponent<TextComponent>().AlignH == TextAlignH::Center && title.GetComponent<TextComponent>().AlignV == TextAlignV::Middle);
+        CHECK(corner.GetComponent<UITransformComponent>().AnchorMin == glm::vec2(1.0f, 0.0f));
+        CHECK(corner.GetComponent<TextComponent>().AlignH == TextAlignH::Left && corner.GetComponent<TextComponent>().AlignV == TextAlignV::Middle);
+        CHECK(world.GetComponent<TextComponent>().AlignH == TextAlignH::Left && world.GetComponent<TextComponent>().AlignV == TextAlignV::Baseline);
+        // Saved in the current version, without the old keys; loading that again migrates nothing.
+        const std::string saved = SceneSerializer(scene).SerializeToString();
+        CHECK(saved.find(std::format("\"Version\": {}", SceneMigration::CurrentVersion)) != std::string::npos);
+        CHECK(saved.find("\"Centered\"") == std::string::npos && saved.find("\"Anchor\"") == std::string::npos);
+        CHECK(SceneMigration::ReadVersion(saved) == SceneMigration::CurrentVersion);
+        auto again = CreateRef<Scene>();
+        SceneSerializer reader(again);
+        CHECK(reader.DeserializeFromString(saved) && !reader.GetMigration().Migrated() && reader.GetMigration().FileVersion == SceneMigration::CurrentVersion);
+        CHECK(SceneSerializer(again).SerializeToString() == saved);
+        // The same as text (tools): the migrated file reads as the scene did.
+        std::string text = FileSystem::ReadTextFile(fixtures / "LegacyV1.zscene");
+        CHECK(SceneMigration::ReadVersion(text) == 1);
+        SceneMigrationResult result;
+        CHECK(SceneMigration::MigrateText(text, &result) && result.Migrated() && result.GetChangeCount() == 5);
+        CHECK(SceneMigration::ReadVersion(text) == SceneMigration::CurrentVersion);
+        CHECK(text.find("\"AlignH\": \"Center\"") != std::string::npos && text.find("\"Centered\"") == std::string::npos);
+        const std::string migratedText = text;
+        CHECK(SceneMigration::MigrateText(text, &result) && !result.Migrated() && text == migratedText); // already current
+        auto fromText = CreateRef<Scene>();
+        CHECK(SceneSerializer(fromText).DeserializeFromString(migratedText));
+        CHECK(SceneSerializer(fromText).SerializeToString() == saved);
+    }
+    // No "Version" (by hand / a tool): both steps - IDs written as text become numbers (the
+    // hierarchy is linked), the name under "Name" is the entity's name.
+    {
+        auto scene = CreateRef<Scene>();
+        SceneSerializer serializer(scene);
+        CHECK(serializer.Deserialize(fixtures / "LegacyV0.zscene"));
+        const SceneMigrationResult& m = serializer.GetMigration();
+        CHECK(m.FileVersion == 0 && m.Version == SceneMigration::CurrentVersion && m.Steps.size() == 2);
+        CHECK(m.Steps.size() == 2 && m.Steps[0].Changes == 5 && m.Steps[1].Changes == 1);
+        Entity parent = scene->GetEntityByUUID(UUID(1001)), child = scene->GetEntityByUUID(UUID(1002)), text = scene->FindEntityByName("Yozuv");
+        CHECK(parent && child && text && parent.GetName() == "Ota" && child.GetName() == "Bola");
+        if (parent && child && text)
+        {
+            CHECK(child.GetComponent<RelationshipComponent>().Parent == parent.GetUUID());
+            CHECK(text.GetComponent<RelationshipComponent>().Parent == parent.GetUUID());
+            CHECK(parent.GetComponent<RelationshipComponent>().Children.size() == 2);
+            CHECK(text.GetComponent<TextComponent>().AlignH == TextAlignH::Center && text.GetComponent<TextComponent>().AlignV == TextAlignV::Middle);
+        }
+        CHECK(!serializer.GetLoadReport().HasIssues());
+    }
+    // The background loader migrates the same way (on its worker thread).
+    {
+        SceneLoadJob job;
+        CHECK(job.Parse(fixtures / "LegacyV1.zscene"));
+        CHECK(job.GetMigration().FileVersion == 1 && job.GetMigration().Version == SceneMigration::CurrentVersion);
+        auto scene = CreateRef<Scene>();
+        while (!job.Build(*scene, 100.0)) {}
+        Entity title = scene->FindEntityByName("Sarlavha");
+        CHECK(title && title.GetComponent<TextComponent>().AlignH == TextAlignH::Center);
+    }
+    // A newer file: read as far as it is understood, with a warning (not migrated, its version kept).
+    {
+        auto scene = CreateRef<Scene>();
+        SceneSerializer serializer(scene);
+        CHECK(serializer.DeserializeFromString(R"({ "Scene": "Kelajak", "Version": 99, "FutureThing": { "X": 1 },
+            "Entities": [ { "Entity": 7, "Tag": "Bor", "HoloRenderer": { "Glow": 2 } } ] })"));
+        CHECK(serializer.GetMigration().IsNewer() && !serializer.GetMigration().Migrated() && serializer.GetMigration().Version == 99);
+        CHECK(scene->FindEntityByName("Bor"));
+        size_t newer = 0;
+        for (const SceneLoadIssue& issue : serializer.GetLoadReport().Issues)
+            newer += issue.Type == SceneLoadIssue::Kind::NewerVersion && issue.Level == SceneLoadIssue::Severity::Warning ? 1 : 0;
+        CHECK(newer == 1);
+        CHECK(SceneMigration::ReadVersion("{ \"Scene\": \"A\", \"Version\": 99 }") == 99);
+        CHECK(SceneMigration::ReadVersion("{ \"Version\": 1 }") == -1 && SceneMigration::ReadVersion("{ nope") == -1);
+        std::string notScene = "{ \"Entities\": [] }", error;
+        CHECK(!SceneMigration::MigrateText(notScene, nullptr, &error) && !error.empty() && notScene == "{ \"Entities\": [] }");
+    }
+    // The log says it once per file version (the editor reads files again and again).
+    SceneMigration::ResetLog();
+    SceneMigrationResult logged;
+    logged.FileVersion = 1;
+    logged.Version = 2;
+    logged.Steps.push_back({ 1, 2, "test", 3 });
+    CHECK(SceneMigration::LogMigration("Scenes/Test.zscene", logged));
+    CHECK(!SceneMigration::LogMigration("Scenes/Test.zscene", logged));
+    CHECK(!SceneMigration::LogMigration("Scenes/Other.zscene", SceneMigrationResult{}));
+    SceneMigration::ResetLog();
+}
+
+TEST(SceneMetadataAndThumbnail)
+{
+    namespace fs = std::filesystem;
+    // Metadata goes with the scene (written only when there is some) and survives Scene::Copy.
+    auto scene = CreateRef<Scene>();
+    scene->SetName("Daraja");
+    CHECK(scene->GetMetadata().IsEmpty());
+    CHECK(SceneSerializer(scene).SerializeToString().find("\"Metadata\"") == std::string::npos);
+    SceneMetadata& meta = scene->GetMetadata();
+    meta.Description = "Birinchi daraja: tangalarni yig'ing";
+    meta.Author = "Zamin";
+    CHECK(meta.AddTag(" daraja ") && meta.AddTag("2D") && !meta.AddTag("daraja") && !meta.AddTag("   "));
+    CHECK(meta.Tags.size() == 2 && meta.Tags[0] == "daraja" && meta.HasTag("2D"));
+    CHECK(meta.RemoveTag("2D") && !meta.RemoveTag("2D") && meta.AddTag("2D"));
+    scene->CreateEntity("Bir");
+    scene->CreateEntity("Ikki");
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    CHECK(text.find("\"Metadata\"") != std::string::npos && text.find("\"Author\": \"Zamin\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    CHECK(loaded->GetMetadata() == scene->GetMetadata());
+    CHECK(Scene::Copy(loaded)->GetMetadata() == scene->GetMetadata());
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+    // Broken values are left out, the rest is read.
+    auto broken = CreateRef<Scene>();
+    CHECK(SceneSerializer(broken).DeserializeFromString(R"({ "Scene": "B", "Version": 2, "Metadata": { "Description": 5, "Author": "A",
+        "Tags": ["x", 3, "x", "", "y"] }, "Entities": [] })"));
+    CHECK(broken->GetMetadata().Description.empty() && broken->GetMetadata().Author == "A");
+    CHECK(broken->GetMetadata().Tags == std::vector<std::string>({ "x", "y" }));
+
+    // A scene file's info without loading it.
+    fs::path dir = MakeTempDir("zamin-scene-meta-");
+    fs::path file = dir / "Scenes" / "Daraja.zscene";
+    WriteFile(file, text);
+    SceneFileInfo info;
+    CHECK(SceneSerializer::ReadSceneInfo(file, info) && info.Error.empty());
+    CHECK(info.Name == "Daraja" && info.Version == SceneMigration::CurrentVersion && info.EntityCount == 2 && info.RootCount == 2);
+    CHECK(info.Metadata == scene->GetMetadata() && info.Thumbnail.empty());
+    CHECK(!SceneSerializer::ReadSceneInfo(dir / "Yo'q.zscene", info) && !info.Error.empty());
+    CHECK(!SceneSerializer::ReadSceneInfoFromString("{ \"Entities\": [] }", info) && !info.Error.empty());
+    CHECK(SceneSerializer::ReadSceneInfoFromString(FileSystem::ReadTextFile(fs::path(ZAMIN_SOURCE_DIR) / "Tests" / "Fixtures" / "Scenes" / "LegacyV0.zscene"), info));
+    CHECK(info.Version == 0 && info.EntityCount == 3 && info.RootCount == 1); // string parent IDs read after the migration
+
+    // The thumbnail: a dot file next to the scene - no asset of its own; it moves, is copied and
+    // deleted with the scene.
+    const fs::path thumbnail = SceneMetadata::GetThumbnailPath(file);
+    CHECK(thumbnail.filename() == ".Daraja.zscene.png" && thumbnail.parent_path() == file.parent_path());
+    CHECK(SceneMetadata::IsThumbnailFile(thumbnail) && !SceneMetadata::IsThumbnailFile(file) && !SceneMetadata::IsThumbnailFile(dir / "a.png"));
+    WriteFile(thumbnail, "png");
+    CHECK(SceneSerializer::ReadSceneInfo(file, info) && info.Thumbnail == thumbnail);
+    const fs::path assets = dir;
+    AssetFiles::MoveResult moved = AssetFiles::Rename(file, "Boshqa.zscene", assets);
+    CHECK(moved.Errors.empty());
+    const fs::path renamed = dir / "Scenes" / "Boshqa.zscene";
+    CHECK(fs::exists(SceneMetadata::GetThumbnailPath(renamed)) && !fs::exists(thumbnail));
+    fs::create_directories(dir / "Levels");
+    moved = AssetFiles::MoveInto({ renamed }, dir / "Levels", assets);
+    CHECK(moved.Errors.empty());
+    const fs::path inLevels = dir / "Levels" / "Boshqa.zscene";
+    CHECK(fs::exists(SceneMetadata::GetThumbnailPath(inLevels)) && !fs::exists(SceneMetadata::GetThumbnailPath(renamed)));
+    AssetFiles::ImportResult copied = AssetFiles::Import({ inLevels }, dir / "Copies");
+    CHECK(copied.Errors.empty() && copied.Imported.size() == 1);
+    if (copied.Imported.size() == 1)
+        CHECK(fs::exists(SceneMetadata::GetThumbnailPath(copied.Imported[0])));
+    CHECK(AssetFiles::Remove(inLevels));
+    CHECK(!fs::exists(SceneMetadata::GetThumbnailPath(inLevels)));
+    // The content browser does not list it (dot files are not shown).
+    for (const AssetEntry& entry : AssetFiles::List(dir / "Copies", {}))
+        CHECK(!SceneMetadata::IsThumbnailFile(entry.Path));
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
+namespace {
+    struct TestScoreService
+    {
+        int Score = 0;
+        std::vector<std::string>* Log = nullptr;
+        TestScoreService() = default;
+        explicit TestScoreService(std::vector<std::string>* log, int score = 0) : Score(score), Log(log) {}
+        ~TestScoreService() { if (Log) Log->push_back("Score"); }
+    };
+    struct TestInventoryService
+    {
+        std::vector<std::string> Items;
+        std::vector<std::string>* Log = nullptr;
+        ~TestInventoryService()
+        {
+            if (Log)
+                Log->push_back(Services::Has<TestScoreService>() ? "Inventory(score bor)" : "Inventory(score yo'q)");
+        }
+    };
+}
+
+struct TestGameStateScript : ScriptableEntity
+{
+    int Heard = 0;
+    void OnCreate() override
+    {
+        WatchGameState("Coins", [this](std::string_view) { Heard++; });
+    }
+};
+ZM_REGISTER_SCRIPT(TestGameStateScript)
+
+TEST(ServicesRegistry)
+{
+    Services::Clear();
+    CHECK(Services::GetCount() == 0 && !Services::Has<TestScoreService>() && Services::Get<TestScoreService>() == nullptr);
+    std::vector<std::string> log;
+    const uint64_t revision = Services::GetRevision();
+    TestScoreService& score = Services::Register<TestScoreService>(&log, 5);
+    CHECK(Services::Get<TestScoreService>() == &score && score.Score == 5 && Services::GetRevision() > revision);
+    // One per type: registering again replaces (the old one is destroyed).
+    TestScoreService& again = Services::Register<TestScoreService>(&log, 7);
+    CHECK(log == std::vector<std::string>({ "Score" }) && Services::Get<TestScoreService>() == &again && again.Score == 7);
+    log.clear();
+    // GetOrCreate makes a default one once; a shared_ptr can be handed over too.
+    TestInventoryService& inventory = Services::GetOrCreate<TestInventoryService>();
+    inventory.Log = &log;
+    inventory.Items.push_back("Kalit");
+    CHECK(&Services::GetOrCreate<TestInventoryService>() == &inventory && Services::GetCount() == 2);
+    auto shared = std::make_shared<std::string>("salom");
+    CHECK(&Services::Register(shared) == shared.get() && *Services::Get<std::string>() == "salom");
+    CHECK(Services::Unregister<std::string>() && !Services::Unregister<std::string>() && shared.use_count() == 1);
+    // Readable names in registration order (for the editor).
+    const std::vector<std::string> names = Services::GetNames();
+    CHECK(names.size() == 2 && names[0].find("TestScoreService") != std::string::npos && names[1].find("TestInventoryService") != std::string::npos);
+    // Scripts see the same services (static helpers).
+    CHECK(ScriptableEntity::GetService<TestInventoryService>() == &inventory);
+    // Clear: the newest first - while it is destroyed the older ones are still there.
+    Services::Clear();
+    CHECK(log == std::vector<std::string>({ "Inventory(score bor)", "Score" }) && Services::GetCount() == 0);
+
+    // Services outlive scene loads: a scene manager switching scenes does not touch them.
+    Services::Register<TestScoreService>(nullptr, 3);
+    {
+        SceneManager manager;
+        auto first = CreateRef<Scene>();
+        first->CreateEntity("A");
+        manager.Start(first);
+        manager.UpdateScenes(Timestep(1.0f / 60.0f));
+        auto second = CreateRef<Scene>();
+        second->CreateEntity("B");
+        manager.Stop();
+        manager.Start(second);
+        manager.UpdateScenes(Timestep(1.0f / 60.0f));
+        manager.Stop();
+    }
+    CHECK(Services::Get<TestScoreService>() && Services::Get<TestScoreService>()->Score == 3);
+    Services::Clear();
+}
+
+TEST(GlobalGameState)
+{
+    namespace fs = std::filesystem;
+    GameState::Clear();
+    GameState::ClearListeners();
+    CHECK(GameState::GetCount() == 0 && !GameState::Has("Coins") && GameState::GetType("Coins") == SaveValueType::None);
+    CHECK(GameState::GetInt("Coins", 4) == 4 && GameState::GetString("Name", "x") == "x");
+    // Values and conversions.
+    GameState::SetInt("Coins", 3);
+    GameState::SetFloat("Speed", 1.5f);
+    GameState::SetBool("Door.Open", true);
+    GameState::SetString("Hero", "Ali");
+    CHECK(GameState::GetInt("Coins") == 3 && GameState::GetFloat("Coins") == 3.0f && GameState::GetInt("Speed") == 1);
+    CHECK(GameState::GetBool("Door.Open") && !GameState::GetBool("Coins") && GameState::GetString("Hero") == "Ali");
+    CHECK(GameState::GetString("Coins", "-") == "-" && GameState::GetType("Speed") == SaveValueType::Float);
+    CHECK(GameState::Increment("Coins") == 4 && GameState::Increment("Lives", -1) == -1);
+    CHECK(GameState::GetKeys() == std::vector<std::string>({ "Coins", "Door.Open", "Hero", "Lives", "Speed" }));
+    CHECK(GameState::Format(*GameState::Find("Hero")) == "\"Ali\"" && GameState::Format(*GameState::Find("Door.Open")) == "true");
+    CHECK(GameState::Format(*GameState::Find("Speed")) == "1.5" && GameState::Format(*GameState::Find("Coins")) == "4");
+
+    // Listeners: one key or every key; unchanged values tell nobody; removal is heard too.
+    int coins = 0, any = 0;
+    std::string lastKey;
+    const GameState::ListenerID coinWatch = GameState::AddListener("Coins", [&](std::string_view) { coins++; });
+    GameState::AddListener("", [&](std::string_view key) { any++; lastKey = std::string(key); }, 77);
+    GameState::SetInt("Coins", 10);
+    GameState::SetInt("Coins", 10); // the same value
+    GameState::SetBool("Door.Open", false);
+    CHECK(coins == 1 && any == 2 && lastKey == "Door.Open");
+    CHECK(GameState::Remove("Hero") && !GameState::Remove("Hero") && any == 3 && lastKey == "Hero");
+    CHECK(GameState::RemoveListener(coinWatch) && !GameState::RemoveListener(coinWatch));
+    GameState::Increment("Coins");
+    CHECK(coins == 1 && any == 4);
+    CHECK(GameState::RemoveListeners(77) == 1 && GameState::GetListenerCount() == 0);
+    // A listener that removes itself (and adds another) while it is called.
+    GameState::ListenerID self = 0;
+    int selfCalls = 0;
+    self = GameState::AddListener("Coins", [&](std::string_view) {
+        selfCalls++;
+        GameState::RemoveListener(self);
+        GameState::AddListener("Coins", [](std::string_view) {});
+    });
+    GameState::Increment("Coins");
+    GameState::Increment("Coins");
+    CHECK(selfCalls == 1 && GameState::GetListenerCount() == 1);
+    GameState::ClearListeners();
+
+    // Persistence: only the persistent keys go to SaveData (under "GameState.") and come back.
+    fs::path dir = MakeTempDir("zamin-gamestate-");
+    SaveData::SetFilePath(dir / "save.json");
+    GameState::SetPersistent("Best");
+    GameState::SetInt("Best", 42);
+    GameState::SetPersistent("Name");
+    GameState::SetString("Name", "Zamin");
+    GameState::SetPersistent("Gone"); // persistent but without a value: removed from SaveData
+    SaveData::SetInt("GameState.Gone", 1);
+    CHECK(GameState::Save() == 2);
+    CHECK(SaveData::GetInt("GameState.Best") == 42 && SaveData::GetString("GameState.Name") == "Zamin");
+    CHECK(!SaveData::HasKey("GameState.Gone") && !SaveData::HasKey("GameState.Coins"));
+    CHECK(fs::exists(dir / "save.json"));
+    GameState::Clear();
+    CHECK(GameState::GetCount() == 0 && !GameState::IsPersistent("Best"));
+    CHECK(GameState::Load() == 2 && GameState::GetInt("Best") == 42 && GameState::GetString("Name") == "Zamin" && GameState::IsPersistent("Best"));
+    SaveData::DeleteAll();
+    SaveData::Save();
+    SaveData::SetFilePath({});
+
+    // Scripts: WatchGameState ends with the script; the state outlives every scene load.
+    GameState::Clear();
+    {
+        SceneManager manager;
+        auto scene = CreateRef<Scene>();
+        Entity e = scene->CreateEntity("Watcher");
+        e.AddComponent<NativeScriptComponent>().ClassName = "TestGameStateScript";
+        manager.Start(scene);
+        manager.UpdateScenes(Timestep(1.0f / 60.0f));
+        auto* script = ScriptableEntity::GetScript<TestGameStateScript>(e);
+        CHECK(script != nullptr && GameState::GetListenerCount() == 1);
+        GameState::Increment("Coins");
+        GameState::SetInt("Other", 1);
+        CHECK(script && script->Heard == 1);
+        // A Single load: the old scene's script goes, its listener with it; the values stay.
+        auto next = CreateRef<Scene>();
+        next->CreateEntity("Bo'sh");
+        const fs::path nextFile = dir / "Next.zscene";
+        CHECK(SceneSerializer(next).Serialize(nextFile));
+        manager.LoadScene(nextFile);
+        manager.ProcessRequests();
+        CHECK(manager.GetActiveScene() && manager.GetActiveScene()->FindEntityByName("Bo'sh"));
+        CHECK(GameState::GetListenerCount() == 0 && GameState::GetInt("Coins") == 1);
+        manager.Stop();
+    }
+    GameState::Clear();
+    GameState::ClearListeners();
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}

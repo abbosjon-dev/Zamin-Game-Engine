@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Scene/Scene.h"
+#include "Zamin/Scene/SceneMigration.h"
 
 #include <filesystem>
 #include <memory>
@@ -26,7 +27,8 @@ namespace Zamin {
         enum class Kind
         {
             FileMissing = 0, Unreadable, ParseError, NotAScene,
-            BadEntity, BadComponent, UnknownComponent, MissingAsset, DuplicateID, BadHierarchy
+            BadEntity, BadComponent, UnknownComponent, MissingAsset, DuplicateID, BadHierarchy,
+            NewerVersion   // written by a newer engine (SceneMigration): read as far as it is understood
         };
         enum class Severity { Warning = 0, Error, Fatal };
 
@@ -67,6 +69,19 @@ namespace Zamin {
         void Clear() { Issues.clear(); EntitiesLoaded = EntitiesSkipped = 0; }
     };
 
+    // A scene file's description of itself, read without loading the scene (the editor's Scenes
+    // panel and inspector, a game's level select): SceneSerializer::ReadSceneInfo.
+    struct SceneFileInfo
+    {
+        std::string Name;                 // "Scene" (else the file's name)
+        int Version = 0;                  // the format version it was written in (SceneMigration)
+        SceneMetadata Metadata;
+        size_t EntityCount = 0;
+        size_t RootCount = 0;             // entities without a parent
+        std::filesystem::path Thumbnail;  // SceneMetadata::GetThumbnailPath when the picture exists
+        std::string Error;                // why the file could not be read ("" when it could)
+    };
+
     //
     // Asset references are paths relative to the asset folder ("Texture": "Textures/coin.png").
     // When the active project's asset registry knows the file, its UUID is written next to the
@@ -102,6 +117,10 @@ namespace Zamin {
         // Asset paths the last Deserialize* call took from UUIDs (the scene in memory differs from
         // its file until it is saved).
         const std::vector<AssetReferenceRepair>& GetRepairedReferences() const { return m_RepairedReferences; }
+        // The format migration of the last Deserialize* call (see SceneMigration): the file's
+        // version and the steps that brought it to the current one. Deserialize(file) logs it once
+        // per file version; DeserializeFromString leaves that to the caller.
+        const SceneMigrationResult& GetMigration() const { return m_Migration; }
 
         // Entity subsets (prefabs, copy/paste). Parents outside the set become roots.
         // includeEditorFlags = false (prefabs): the hierarchy's hidden / locked flags are left
@@ -112,6 +131,11 @@ namespace Zamin {
         // `error` (optional) receives why nothing could be read; the reason is logged only without it.
         static std::vector<Entity> DeserializeEntities(Scene& scene, const std::string& text, bool generateNewUUIDs,
                                                        std::vector<AssetReferenceRepair>* repairs = nullptr, std::string* error = nullptr);
+
+        // The name, version, metadata and entity count of a scene file (it is parsed, not loaded).
+        // False with `out.Error` when it cannot be read or is not a scene.
+        static bool ReadSceneInfo(const std::filesystem::path& file, SceneFileInfo& out);
+        static bool ReadSceneInfoFromString(const std::string& text, SceneFileInfo& out);
 
         // Transform clipboard text (inspector Copy / Paste). Deserialize returns false for any
         // text that is not a copied transform.
@@ -133,6 +157,7 @@ namespace Zamin {
         Ref<Scene> m_Scene;
         std::vector<AssetReferenceRepair> m_RepairedReferences;
         SceneLoadReport m_Report;
+        SceneMigrationResult m_Migration;
         std::string m_LastError;       // why the last Deserialize* call failed
         bool m_QuietErrors = false;    // Deserialize(file) reports the error with the file's path
     };
@@ -164,6 +189,8 @@ namespace Zamin {
         const std::vector<SceneSerializer::AssetReferenceRepair>& GetRepairedReferences() const;
         // What Parse / Build found (see SceneLoadReport); complete once it is built or failed.
         const SceneLoadReport& GetReport() const;
+        // The format migration Parse applied (see SceneMigration; Parse(file) logs it).
+        const SceneMigrationResult& GetMigration() const;
 
     private:
         struct Data;

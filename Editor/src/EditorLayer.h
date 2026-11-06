@@ -12,9 +12,12 @@
 #include "Panels/SpriteEditorPanel.h"
 #include "Panels/AnimationTimelinePanel.h"
 #include "Panels/AnimatorGraphPanel.h"
+#include "Panels/ScenesPanel.h"
 #include "AssetUsageCache.h"
+#include "SceneThumbnails.h"
 
 #include <atomic>
+#include <deque>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -226,6 +229,10 @@ namespace Zamin {
         void ApplyUIRectAutomation(const char* spec);
         bool IsUIRectGizmoHovered() const { return m_UIRect.Hover >= 0; }
         void UI_SceneSettings();
+        // The scene settings' "Ma'lumot" section: description, author, tags, format version, thumbnail.
+        void UI_SceneMetadata(bool& changed);
+        // Draws the open scene's thumbnail file again (SaveScene does it); false when it has no file.
+        bool RenderSceneThumbnail();
         void UI_Stats();
         // The profiler: the last frame's scopes as a tree (nested scopes inside), in the Stats panel
         // (`header`: under a collapsing header) and in a window of its own.
@@ -311,8 +318,30 @@ namespace Zamin {
         // Play mode: every scene of the running game (additive ones, DontDestroyOnLoad); the hierarchy
         // shows one of them at a time (m_ActiveScene).
         std::unique_ptr<SceneManager> m_RuntimeScenes;
+        // What the editor showed when play started: when the game has switched to another scene by
+        // the time it stops (or the hierarchy shows another loaded scene), the edit scene comes back
+        // with this selection and camera view (the game's scenes had other entities).
+        struct PlayStartState
+        {
+            std::vector<UUID> Selection;     // the primary last
+            EditorCameraState Camera;
+            bool Mode2D = false;
+            std::weak_ptr<Scene> RuntimeStart; // the copy of the edit scene the game started with
+            std::string SceneName;
+        } m_PlayStart;
+        // Project scenes the Scenes panel marks to be loaded with Play (additively, next to the edit scene).
+        void LoadPlayAdditiveScenes();
         uint64_t m_RuntimeActiveSerial = 0;
         std::filesystem::path m_EditorScenePath;
+        // The format version the open scene's file was written in (SceneMigration; older ones are
+        // migrated on load and written in the current version when saved).
+        int m_EditorSceneFileVersion = SceneMigration::CurrentVersion;
+        std::string m_NewSceneTag;          // the scene settings' new tag field
+        SceneThumbnails m_SceneThumbnails;  // scene pictures at their own size (inspector, Scenes panel)
+        bool m_ScenesPanelDirty = true;     // the Scenes panel reads the project's scene files again
+        // Scene files whose thumbnails the Scenes panel asked for: one is loaded and drawn a frame.
+        std::deque<std::filesystem::path> m_ThumbnailQueue;
+        void ProcessThumbnailQueue();
         bool m_SceneDirty = false;
 
         EditorCamera m_EditorCamera;
@@ -492,6 +521,7 @@ namespace Zamin {
 
         // panels
         SceneHierarchyPanel m_SceneHierarchyPanel;
+        ScenesPanel m_ScenesPanel;
         ContentBrowserPanel m_ContentBrowserPanel;
         AssetInspectorPanel m_AssetInspectorPanel; // the Inspector for a file picked in the content browser
         AssetUsageCache m_AssetUsage;              // who uses which asset (inspector, unused assets window)
@@ -503,6 +533,7 @@ namespace Zamin {
         bool m_ShowAudioMixer = false;
         bool m_ShowHierarchy = true, m_ShowInspector = true, m_ShowContentBrowser = true, m_ShowConsole = true;
         bool m_ShowSceneSettings = true, m_ShowStats = false, m_ShowImGuiDemo = false, m_ShowProfiler = false;
+        bool m_ShowScenes = true;           // the "Sahnalar" window (the project's scenes, the game's loaded ones)
         // Automation (ZAMIN_EDITOR_SCENE_SETTINGS): bring the scene settings tab to the front, and
         // scroll it to a section ("post": post-processing).
         bool m_FocusSceneSettings = false;

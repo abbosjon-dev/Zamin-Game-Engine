@@ -199,6 +199,32 @@ namespace Zamin {
         bool Overlay = false;
     };
 
+    // What a scene says about itself ("Metadata" in its file): shown by the editor (the inspector of
+    // the scene file, the Scenes panel, the content browser's tooltip) and readable by a game (a level
+    // select: SceneSerializer::ReadSceneInfo). The thumbnail is a picture next to the scene file
+    // (GetThumbnailPath), drawn by the editor whenever the scene is saved.
+    struct SceneMetadata
+    {
+        std::string Description;
+        std::string Author;
+        std::vector<std::string> Tags;   // free words ("daraja", "menyu"); unique, none empty
+
+        bool IsEmpty() const { return Description.empty() && Author.empty() && Tags.empty(); }
+        bool HasTag(std::string_view tag) const { return std::find(Tags.begin(), Tags.end(), tag) != Tags.end(); }
+        // Adds a tag (trimmed; false when empty or already there).
+        bool AddTag(std::string_view tag);
+        bool RemoveTag(std::string_view tag);
+        bool operator==(const SceneMetadata&) const = default;
+
+        // The scene's thumbnail: ".Level1.zscene.png" next to "Level1.zscene" - a dot file, so it is
+        // no asset of its own (no .zmeta, not listed in the content browser, which shows it as the
+        // scene's picture); it moves, is copied and deleted with its scene.
+        static std::filesystem::path GetThumbnailPath(const std::filesystem::path& scenePath);
+        static bool IsThumbnailFile(const std::filesystem::path& path);
+        // The size thumbnails are drawn at (16:9).
+        static constexpr uint32_t ThumbnailWidth = 320, ThumbnailHeight = 180;
+    };
+
     class Scene
     {
     public:
@@ -925,6 +951,9 @@ namespace Zamin {
 
         const std::string& GetName() const { return m_Name; }
         void SetName(const std::string& name) { m_Name = name; }
+        // Description, author, tags (saved with the scene; Scene::Copy keeps them).
+        SceneMetadata& GetMetadata() { return m_Metadata; }
+        const SceneMetadata& GetMetadata() const { return m_Metadata; }
 
         float GetTime() const { return m_Time; }
         // The clock of animated tiles (seconds): runs while the game runs (not while paused), while
@@ -1445,6 +1474,7 @@ namespace Zamin {
 
         std::string m_Name = "Untitled";
         SceneSettings m_Settings;
+        SceneMetadata m_Metadata;
 
         std::unique_ptr<PhysicsWorld2D> m_PhysicsWorld;
         std::unique_ptr<PhysicsWorld3D> m_PhysicsWorld3D;

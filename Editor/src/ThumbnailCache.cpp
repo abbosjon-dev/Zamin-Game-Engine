@@ -45,7 +45,7 @@ namespace Zamin {
     bool ThumbnailCache::CanHaveThumbnail(const fs::path& path)
     {
         AssetType type = AssetTypes::FromPath(path);
-        return AssetThumbnails::CanGenerate(path) || type == AssetType::Model || type == AssetType::Material;
+        return AssetThumbnails::CanGenerate(path) || type == AssetType::Model || type == AssetType::Material || type == AssetType::Scene;
     }
 
     void ThumbnailCache::SetCacheDirectory(const fs::path& directory)
@@ -76,6 +76,10 @@ namespace Zamin {
     {
         if (!CanHaveThumbnail(path))
             return nullptr;
+        // A scene shows the picture the editor drew when it was saved (its thumbnail file): none
+        // until it is saved once.
+        if (AssetTypes::FromPath(path) == AssetType::Scene)
+            return GetForFile(SceneMetadata::GetThumbnailPath(path));
         std::string key = path.string();
         ThumbnailStamp stamp = ThumbnailStamp::From(size, time, Size);
         auto [it, inserted] = m_Entries.try_emplace(key);
@@ -179,6 +183,8 @@ namespace Zamin {
 
     void ThumbnailCache::Invalidate(const fs::path& path)
     {
+        if (AssetTypes::FromPath(path) == AssetType::Scene)
+            Invalidate(SceneMetadata::GetThumbnailPath(path));
         std::string key = path.string();
         std::string prefix = key + "/";
         std::string fileKey = ThumbnailDiskCache::MakeKey(path);

@@ -31,8 +31,10 @@
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/SaveData.h"
 #include "Zamin/Debug/DebugDraw.h"
+#include "Zamin/Core/GameState.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstring>
 #include <functional>
@@ -590,6 +592,7 @@ namespace Zamin {
         newScene->m_ViewportHeight = other->m_ViewportHeight;
         newScene->m_Settings = other->m_Settings;
         newScene->m_Name = other->m_Name;
+        newScene->m_Metadata = other->m_Metadata;
 
         auto& srcRegistry = other->m_Registry;
         auto& dstRegistry = newScene->m_Registry;
@@ -616,6 +619,47 @@ namespace Zamin {
             ordered.emplace_back(e, this);
         std::reverse(ordered.begin(), ordered.end()); // entt views iterate newest-first
         return ordered;
+    }
+
+    // ------------------------------------------------------------------ metadata
+    static std::string_view TrimTag(std::string_view tag)
+    {
+        while (!tag.empty() && std::isspace((unsigned char)tag.front()))
+            tag.remove_prefix(1);
+        while (!tag.empty() && std::isspace((unsigned char)tag.back()))
+            tag.remove_suffix(1);
+        return tag;
+    }
+
+    bool SceneMetadata::AddTag(std::string_view tag)
+    {
+        tag = TrimTag(tag);
+        if (tag.empty() || HasTag(tag))
+            return false;
+        Tags.emplace_back(tag);
+        return true;
+    }
+
+    bool SceneMetadata::RemoveTag(std::string_view tag)
+    {
+        auto it = std::find(Tags.begin(), Tags.end(), tag);
+        if (it == Tags.end())
+            return false;
+        Tags.erase(it);
+        return true;
+    }
+
+    std::filesystem::path SceneMetadata::GetThumbnailPath(const std::filesystem::path& scenePath)
+    {
+        if (scenePath.empty() || !scenePath.has_filename())
+            return {};
+        return scenePath.parent_path() / ("." + scenePath.filename().string() + ".png");
+    }
+
+    bool SceneMetadata::IsThumbnailFile(const std::filesystem::path& path)
+    {
+        const std::string name = path.filename().string();
+        return name.size() > 12 && name.front() == '.' && name.ends_with(".zscene.png");
     }
 
     Entity Scene::CreateEntity(const std::string& name) { return CreateEntityWithUUID(UUID(), name); }
@@ -2740,6 +2784,7 @@ namespace Zamin {
         instance->OnDestroy();
         // Handlers capture the instance: they must not outlive it.
         m_EventBus->UnsubscribeOwner(instance->m_OwnerID);
+        GameState::RemoveListeners((uint64_t)(uintptr_t)instance);
         // Not deleted yet: this may be running inside one of the instance's own callbacks.
         m_RetiredScripts.push_back(instance);
     }
@@ -2757,6 +2802,7 @@ namespace Zamin {
         instance->m_Destroying = true;
         instance->m_EnabledState = false;
         m_EventBus->UnsubscribeOwner(instance->m_OwnerID);
+        GameState::RemoveListeners((uint64_t)(uintptr_t)instance);
         m_RetiredScripts.push_back(instance);
     }
 

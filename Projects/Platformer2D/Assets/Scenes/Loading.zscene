@@ -1,6 +1,14 @@
 {
     "Scene": "Loading",
-    "Version": 1,
+    "Version": 2,
+    "Metadata": {
+        "Author": "Zamin jamoasi",
+        "Description": "Yuklanish ekrani: keyingi daraja fonda yuklanadi (LoadSceneAsync), progress bar AsyncOperation::GetProgress() ni ko'rsatadi, tayyor bo'lgach so'nish bilan o'tadi.",
+        "Tags": [
+            "yuklanish",
+            "oqim"
+        ]
+    },
     "Settings": {
         "DrawSky": false,
         "SkyTop": [

@@ -3,14 +3,18 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <string>
+#include <utility>
+#include <vector>
 
 using namespace Zamin;
 
 // Sahnalar oqimi namunasi (M15): bosh menyu (Menu.zscene) -> yuklanish ekrani (Loading.zscene, daraja
 // fonda yuklanadi) -> 1-daraja (qora rangga so'nib-ochilish bilan). GameSession - o'yin sessiyasi
 // menejeri: menyuda yaratiladi va DontDestroyOnLoad bilan sahnalar almashganda ham saqlanadi - musiqa
-// uzilmaydi, hamma darajalarda yig'ilgan tangalar jamlanadi (hodisalar shinasi orqali), pastki chap
-// burchakdagi HUD faqat darajalarda ko'rinadi.
+// uzilmaydi, hamma darajalarda yig'ilgan tangalar global holatda (GameState) jamlanadi, darajalar
+// bo'yicha statistika SessionStats servisida (Services), pastki chap burchakdagi HUD faqat
+// darajalarda ko'rinadi.
 
 // Bosh menyu: "Boshlash" tugmasi (yoki Space / Enter) yuklanish ekraniga so'nib o'tadi.
 class MainMenu : public ScriptableEntity
@@ -138,8 +142,23 @@ ZM_REGISTER_SCRIPT(LoadingScreen,
     ZM_FIELD(LoadingScreen, Percent).Tooltip("Foiz matni"),
     ZM_FIELD(LoadingScreen, Stage).Tooltip("Bosqich matni"))
 
+// O'yin sessiyasi statistikasi - C++ servis (Services): sahnalardan tashqarida yashaydi, istalgan
+// skriptdan GetService<SessionStats>() bilan topiladi. Har darajada yig'ilgan tangalar.
+struct SessionStats
+{
+    std::vector<std::pair<std::string, int>> Levels; // daraja nomi, undagi tangalar
+    void AddCoin(const std::string& level)
+    {
+        if (Levels.empty() || Levels.back().first != level)
+            Levels.emplace_back(level, 0);
+        Levels.back().second++;
+    }
+};
+
 // O'yin sessiyasi: DontDestroyOnLoad - menyudan boshlab hamma sahnalarda yashaydi. Musiqasi
-// (AudioSource, PlayOnStart + Loop) sahna almashganda uzilmaydi; "CoinCollected" hodisalarini sanaydi.
+// (AudioSource, PlayOnStart + Loop) sahna almashganda uzilmaydi; "CoinCollected" hodisalarini
+// global holatga (GameState: "Session.Coins", "Session.Levels", "Session.Level") yozadi, rekord
+// ("Session.Best") doimiy kalit - SaveData orqali keyingi o'yinga qoladi.
 class GameSession : public ScriptableEntity
 {
 public:
@@ -155,31 +174,49 @@ public:
                 return;
             }
         DontDestroyOnLoad(); // moves (with its HUD) at the end of this frame
+        // The global state of a new session (the record comes from the last game's SaveData).
+        GameState::SetPersistent("Session.Best");
+        GameState::Load();
+        GameState::SetInt("Session.Coins", 0);
+        GameState::SetInt("Session.Levels", 0);
+        GetOrCreateService<SessionStats>() = {};
     }
 
     void OnEnable() override
     {
         m_Subscription = Subscribe("CoinCollected", [this](const ScriptMessage&) {
-            m_Coins++;
-            Refresh();
+            GameState::Increment("Session.Coins");
+            GetOrCreateService<SessionStats>().AddCoin(GameState::GetString("Session.Level"));
+        });
+        // The HUD follows the state, whoever changes it (also the editor's Scenes window).
+        m_Watch = WatchGameState("", [this](std::string_view key) {
+            if (key.starts_with("Session."))
+                Refresh();
         });
     }
 
     void OnDisable() override
     {
         Unsubscribe(m_Subscription);
-        m_Subscription = 0;
+        UnwatchGameState(m_Watch);
+        m_Subscription = m_Watch = 0;
     }
 
     // Scene event: another scene became the active one (the menu, the loading screen, a level).
-    // A level is counted and named; the HUD is only shown in levels.
+    // A level is counted and named; the HUD is only shown in levels; the record is saved.
     void OnActiveSceneChanged(const SceneEventInfo& /*previous*/, const SceneEventInfo& current) override
     {
         const bool level = current.Name.starts_with("Level");
         if (level)
         {
-            m_Levels++;
-            m_LevelName = current.Name;
+            GameState::Increment("Session.Levels");
+            GameState::SetString("Session.Level", current.Name);
+        }
+        const int coins = GameState::GetInt("Session.Coins");
+        if (coins > GameState::GetInt("Session.Best"))
+        {
+            GameState::SetInt("Session.Best", coins);
+            GameState::Save(); // the persistent keys to SaveData
         }
         Refresh();
         if (Entity hud = Resolve(Hud); hud && hud.IsActive() != level)
@@ -191,11 +228,14 @@ private:
     {
         if (Entity hud = Resolve(Hud))
             if (auto* text = hud.TryGetComponent<TextComponent>())
-                text->Text = std::format("Sessiya: {} tanga  |  {}  |  {} ta daraja", m_Coins, m_LevelName.empty() ? "-" : m_LevelName, m_Levels);
+            {
+                const std::string level = GameState::GetString("Session.Level");
+                text->Text = std::format("Sessiya: {} tanga  |  {}  |  {} ta daraja  |  rekord: {}", GameState::GetInt("Session.Coins"),
+                                         level.empty() ? "-" : level, GameState::GetInt("Session.Levels"), GameState::GetInt("Session.Best"));
+            }
     }
 
-    int m_Coins = 0, m_Levels = 0;
-    std::string m_LevelName;
     SubscriptionID m_Subscription = 0;
+    GameState::ListenerID m_Watch = 0;
 };
 ZM_REGISTER_SCRIPT(GameSession, ZM_FIELD(GameSession, Hud).Tooltip("Sessiya matni (UI): faqat darajalarda ko'rinadi"))

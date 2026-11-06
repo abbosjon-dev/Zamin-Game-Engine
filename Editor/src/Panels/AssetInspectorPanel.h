@@ -2,6 +2,8 @@
 
 #include <Zamin/Zamin.h>
 
+#include "../SceneThumbnails.h"
+
 #include <atomic>
 #include <filesystem>
 #include <functional>
@@ -52,6 +54,11 @@ namespace Zamin {
         // A file of the list was clicked: the editor shows it in the content browser (and here).
         std::function<void(const std::filesystem::path&)> OnRevealRequested;
         std::function<void(const std::filesystem::path&)> OnOpenScene;
+        // Scenes: the open scene's file (its metadata is edited in the scene settings) and asking for
+        // the scene settings' metadata section.
+        std::function<bool(const std::filesystem::path&)> IsOpenScene;
+        std::function<void()> OnEditSceneMetadata;
+        void SetSceneThumbnails(SceneThumbnails* thumbnails) { m_SceneThumbnails = thumbnails; }
         // Files were written here (a model's materials exported): the content browser lists them.
         std::function<void(const std::vector<std::filesystem::path>&)> OnFilesCreated;
         // Textures: the Sprite Editor is to open for the shown file.
@@ -148,6 +155,7 @@ namespace Zamin {
         void DrawAudio(const AssetMetadata* meta);
         void DrawWaveform(float height);
         void DrawSceneFile();
+        void DrawSceneMetadata();
         void DrawFont();
         void DrawScript();
         void DrawMaterial();
@@ -290,7 +298,9 @@ namespace Zamin {
             size_t Lines = 0;
             std::vector<std::string> Classes;
             std::string Error;
+            SceneFileInfo Scene;            // scenes: name, format version, metadata
         } m_Summary;
+        SceneThumbnails* m_SceneThumbnails = nullptr;
         struct FolderSummary
         {
             std::filesystem::path Path;

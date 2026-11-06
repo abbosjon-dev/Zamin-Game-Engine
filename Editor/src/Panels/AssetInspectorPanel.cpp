@@ -2259,6 +2259,8 @@ namespace Zamin {
         if (!m_Summary.Read)
         {
             m_Summary.Read = true;
+            if (m_Type == AssetType::Scene)
+                SceneSerializer::ReadSceneInfo(m_Path, m_Summary.Scene);
             nlohmann::json root = nlohmann::json::parse(FileSystem::ReadTextFile(m_Path), nullptr, false);
             if (root.is_discarded() || !root.is_object())
                 m_Summary.Error = "JSON o'qilmadi";
@@ -2289,6 +2291,8 @@ namespace Zamin {
             ImGui::TextColored(s_ErrorColor, ICON_FA_TRIANGLE_EXCLAMATION "  %s", m_Summary.Error.c_str());
             return;
         }
+        if (m_Type == AssetType::Scene)
+            DrawSceneMetadata();
         if (UI::BeginPropertyGrid("##sceneInfo"))
         {
             UI::PropertyHeader("Ma'lumot");
@@ -2313,6 +2317,77 @@ namespace Zamin {
                 ImGui::TextDisabled("%zu", count);
             }
         }
+    }
+
+    // A scene file's thumbnail and metadata (read only: the open scene's are edited in the scene settings).
+    void AssetInspectorPanel::DrawSceneMetadata()
+    {
+        const SceneFileInfo& info = m_Summary.Scene;
+        if (m_SceneThumbnails)
+            if (Ref<Texture2D> thumbnail = m_SceneThumbnails->Get(m_Path))
+            {
+                const float width = std::min(ImGui::GetContentRegionAvail().x, 360.0f);
+                const float height = width * (float)thumbnail->GetHeight() / (float)std::max(1u, thumbnail->GetWidth());
+                ImGui::Image((ImTextureID)(uintptr_t)thumbnail->GetRendererID(), ImVec2(width, height));
+                ImGui::Spacing();
+            }
+        const SceneMetadata& meta = info.Metadata;
+        if (UI::BeginPropertyGrid("##sceneMeta"))
+        {
+            UI::PropertyHeader("Sahna");
+            UI::PropertyLabel("Nomi");
+            ImGui::TextUnformatted(info.Name.c_str());
+            UI::PropertyLabel("Ta'rif");
+            ImGui::PushTextWrapPos(0.0f);
+            if (meta.Description.empty())
+                ImGui::TextDisabled("-");
+            else
+                ImGui::TextUnformatted(meta.Description.c_str());
+            ImGui::PopTextWrapPos();
+            UI::PropertyLabel("Muallif");
+            ImGui::TextUnformatted(meta.Author.empty() ? "-" : meta.Author.c_str());
+            UI::PropertyLabel("Teglar");
+            if (meta.Tags.empty())
+                ImGui::TextDisabled("-");
+            for (size_t i = 0; i < meta.Tags.size(); i++)
+            {
+                if (i > 0)
+                    ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.32f, 0.45f, 1.0f));
+                ImGui::SmallButton(std::format("{}##mtag{}", meta.Tags[i], i).c_str());
+                ImGui::PopStyleColor();
+            }
+            UI::PropertyLabel("Format");
+            if (info.Version < SceneMigration::CurrentVersion)
+            {
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.35f, 1.0f), "v%d (eski)", info.Version);
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(std::format("Yuklashda v{} ga yangilanadi (migratsiya); saqlanganda yangi formatda yoziladi",
+                                            SceneMigration::CurrentVersion).c_str());
+            }
+            else if (info.Version > SceneMigration::CurrentVersion)
+                ImGui::TextColored(s_ErrorColor, "v%d (yangiroq dvigatel)", info.Version);
+            else
+                ImGui::Text("v%d", info.Version);
+            if (Ref<Project> project = Project::GetActive())
+            {
+                UI::PropertyLabel("Build indeksi");
+                const int index = Project::GetBuildIndex(Project::GetAssetRelativePath(m_Path));
+                if (index >= 0)
+                    ImGui::Text("%d", index);
+                else
+                    ImGui::TextDisabled("ro'yxatda yo'q");
+            }
+            UI::EndPropertyGrid();
+        }
+        if (IsOpenScene && IsOpenScene(m_Path) && OnEditSceneMetadata)
+        {
+            if (ImGui::SmallButton(ICON_FA_PEN "  Ma'lumotni tahrirlash"))
+                OnEditSceneMetadata();
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Ochiq sahna: ta'rif, muallif va teglar Sahna oynasida tahrirlanadi");
+        }
+        ImGui::Spacing();
     }
 
     void AssetInspectorPanel::DrawAnimationClip()

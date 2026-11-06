@@ -743,9 +743,26 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   ota obyekti yo'q / halqa: konsolda, editorda viewport ustidagi banner va "Sahna yuklash muammolari" oynasi, player'da
   o'yin yopilish o'rniga xato ekrani; **barqaror fayl tartibi** — `.zscene` obyektlari UUID bo'yicha saralangan,
   ierarxiya tartibi `RootOrder` / `ChildOrder` da: bir xil sahna doim bir xil matn (diff'lar faqat o'zgarganini
-  ko'rsatadi), yuklashda obyektlar ierarxiya tartibida yaratiladi. Namuna: Platformer2D `Scenes/Menu.zscene` →
-  `Scenes/Loading.zscene` (progress bar) → 1-daraja, `GameSession` (DontDestroyOnLoad: musiqa va jami tangalar;
-  HUD `OnActiveSceneChanged` bilan yangilanadi)
+  ko'rsatadi), yuklashda obyektlar ierarxiya tartibida yaratiladi; **sahna metadata** — ta'rif, muallif, teglar
+  (`Scene::GetMetadata()`, faylda `"Metadata"`; Sahna oynasining "Ma'lumot" bo'limida tahrirlanadi) va **sahna rasmi**
+  (har saqlashda boshlang'ich kameradan 720p da chizilib 320x180 ga kichraytiriladi, sahna yonida yashirin
+  `.Level1.zscene.png` fayl: alohida asset emas, sahna bilan ko'chadi / nusxalanadi / o'chadi; kontent brauzer, inspektor
+  va Sahnalar oynasida ko'rinadi; `SceneSerializer::ReadSceneInfo` — sahnani yuklamay nomi, versiyasi, metadata va obyektlar
+  soni); **"Sahnalar" oynasi** (Oyna → Sahnalar) — loyihaning barcha sahnalari rasmli kartalar yoki ro'yxat ko'rinishida:
+  build indeksi, boshlang'ich sahna, eski format belgisi, qidiruv (nom, ta'rif, `#teg`), ochish, build ro'yxatiga
+  qo'shish/olib tashlash, boshlang'ich qilish, rasmlarni chizish, "Play bilan" qo'shimcha (additive) yuklash; o'yin
+  rejimida — yuklangan sahnalar (faol ★, DontDestroyOnLoad, fonda yuklanayotganlar), faol qilish, yopish, ierarxiyada
+  ko'rsatish, o'yinga sahnani additiv yoki almashtirib yuklash va global holat (GameState qiymatlari jonli tahrirlanadi,
+  servislar ro'yxati); **o'yin rejimidan chiqishda tiklash** — o'yin boshqa sahnaga o'tgan bo'lsa Stop editorni asl sahna,
+  tanlov va kamera ko'rinishiga qaytaradi; **global o'yin holati** — `Services::Register<T>()` / `Get<T>()` /
+  `GetOrCreate<T>()` (C++ servislar turi bo'yicha, sahnalardan tashqarida) va `GameState::SetInt / GetInt / Increment /
+  SetString ...` kalit-qiymat ombori, `WatchGameState(key, fn)` (skript bilan tugaydi), doimiy kalitlar
+  `GameState::SetPersistent` + `Save()` / `Load()` (SaveData); editor har Play boshida va oxirida tozalaydi;
+  **sahna formati versiyasi va migratsiya** — `"Version"` (hozir 2), eski fayllar yuklashda `vN → vN+1` qadamlar
+  zanjiri bilan yangilanadi (`SceneMigration`, konsolda bir marta yoziladi, saqlanganda yangi formatda), yangiroq
+  dvigatel fayli ogohlantirish bilan o'qiladi. Namuna: Platformer2D `Scenes/Menu.zscene` → `Scenes/Loading.zscene`
+  (progress bar) → 1-daraja, `GameSession` (DontDestroyOnLoad: musiqa; tangalar, darajalar va rekord `GameState` da,
+  darajalar statistikasi `SessionStats` servisida; HUD `WatchGameState` bilan yangilanadi)
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime
@@ -933,6 +950,7 @@ Foydali API:
 | Musiqa va mixer | `Audio::PlayMusic("Audio/theme.ogg", 1.0f)`, `Audio::CrossfadeTo("Audio/boss.ogg", 2.0f)`, `Audio::StopMusic(fade)`, `PauseMusic()` / `ResumeMusic()`, `GetMusic()`, `SetMusicVolume(v)`; `Audio::SetGroupVolume("SFX", 0.5f)`, `SetGroupMuted("Music", true)`, `SetGroupLowPass("SFX", 500)`, `ResetMixer()`; `Audio::SaveSettings()` / `LoadSettings()` — o'yinchi sozlamalari (SaveData); `Audio::GetClipLength(path)`, `Audio::Preload(path)`; `PlaySound(path, vol, pitch, "UI")` — guruh bilan |
 | Debug chizish | `DebugDraw::Line(a, b, DebugColor::Red)`, `Ray(o, dir)`, `Arrow(a, b)`, `Box(center, half)` / `Box(center, half, quat)` / `Box(worldTransform)`, `Bounds(aabb)`, `Rect(c, size)`, `WireSphere(c, r)`, `Circle(c, normal, r)`, `Cross(p, size)`, `Point(p)`, `Axes(transform)`, `Path(points)`, `NavigationPath(points)`, `Text(p, "matn")` — oxirgi parametrlar: rang, `duration` (soniya, 0 = bir kadr), `depthTest` |
 | Sahnalar | `LoadScene("Scenes/Level2.zscene")`, `LoadScene(path, LoadSceneMode::Additive)`, `LoadScene(path, SceneTransition::Fade(0.5f))`, `LoadScene(2)` (build indeksi), `auto op = LoadSceneAsync(path)` → `op->GetProgress()`, `op->SetAllowSceneActivation(false)`, `op->IsReady()`; `UnloadScene("HUD")`, `DontDestroyOnLoad()` / `DontDestroyOnLoad(entity)`, `GetSceneManager()` (`GetActiveScene`, `GetLoadedScenes`, `FindEntityByName`) |
+| Global holat | `GameState::Increment("Coins")`, `GameState::GetInt("Coins")`, `GameState::SetBool("Door.Open", true)`, `WatchGameState("Coins", [this](std::string_view) { ... })`, `GameState::SetPersistent("Best")` + `GameState::Save()` / `Load()`; servislar: `Services::Register<Inventory>()`, `GetService<Inventory>()`, `GetOrCreateService<QuestLog>()` |
 | Boshqa | `EmitParticles(n)`, `OnParticlesFinished()`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
 
 `ZM_FIELD` turlari: `float`, `int`, `bool`, `glm::vec2`, `glm::vec3`, `glm::vec4`, `std::string`, istalgan `enum` / `enum class` (har qanday asosiy tur: `uint8_t` ... `int64_t`), `EntityRef` (boshqa obyektga havola: inspektorda ierarxiyadan tortib tashlanadi yoki ro'yxatdan tanlanadi; nusxalash/prefab'da ichki havolalar yangi nusxaga moslashadi).

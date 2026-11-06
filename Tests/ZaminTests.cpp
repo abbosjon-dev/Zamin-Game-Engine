@@ -4885,13 +4885,16 @@ TEST(FindEntityNameCache)
     entities[6].SetName("");
     CHECK(entities[6].GetName() == "Entity");
 
-    // A direct write to the name: a stale hit is detected at once ...
+    // Creating, destroying and renaming re-list single entities: the index is never rebuilt.
+    CHECK(scene->GetNameCacheStats().Rebuilds == rebuilds0 + 1);
+    // A direct write to the name: a stale hit is detected at once (and only that entity re-listed) ...
     CHECK(scene->FindEntityByName("E7") == entities[7]); // cache is clean now
     uint32_t beforeDirect = scene->GetNameCacheStats().Rebuilds;
+    uint32_t updatesBefore = scene->GetNameCacheStats().Updates;
     entities[7].GetComponent<TagComponent>().Tag = "Direct7";
     CHECK(!scene->FindEntityByName("E7"));
     CHECK(scene->FindEntityByName("Direct7") == entities[7]);
-    CHECK(scene->GetNameCacheStats().Rebuilds == beforeDirect + 1);
+    CHECK(scene->GetNameCacheStats().Rebuilds == beforeDirect && scene->GetNameCacheStats().Updates == updatesBefore + 1);
     // ... a new name is found on the next frame at the latest ...
     scene->FindEntityByName("E9"); // validated for this frame
     entities[8].GetComponent<TagComponent>().Tag = "Direct8";
@@ -5906,18 +5909,19 @@ TEST(SceneOrderStableOnDestroy)
 
 TEST(HierarchyOrderSerialization)
 {
+    // Known UUIDs: scene files list the entities by UUID.
     auto scene = CreateRef<Scene>();
-    Entity p = scene->CreateEntity("P");
-    Entity x = scene->CreateEntity("X");
-    Entity y = scene->CreateEntity("Y");
-    Entity z = scene->CreateEntity("Z");
-    Entity r = scene->CreateEntity("R");
+    Entity p = scene->CreateEntityWithUUID(UUID(10), "P");
+    Entity x = scene->CreateEntityWithUUID(UUID(20), "X");
+    Entity y = scene->CreateEntityWithUUID(UUID(30), "Y");
+    Entity z = scene->CreateEntityWithUUID(UUID(40), "Z");
+    Entity r = scene->CreateEntityWithUUID(UUID(50), "R");
     for (Entity e : { x, y, z })
         scene->SetParent(e, p, false);
 
-    // Children in file order need no extra data (unchanged scene files stay unchanged).
+    // Children in UUID order need no extra data; the roots' order is always written.
     std::string plain = SceneSerializer(scene).SerializeToString();
-    CHECK(plain.find("ChildOrder") == std::string::npos);
+    CHECK(plain.find("ChildOrder") == std::string::npos && plain.find("RootOrder") != std::string::npos);
 
     scene->SetSiblingIndex(z, 0);  // P: Z,X,Y
     scene->SetSiblingIndex(r, 0);  // roots: R,P
@@ -30285,4 +30289,469 @@ TEST(BuildSceneList)
     m.ProcessRequests();
     CHECK(m.GetSceneCount() == 2 && m.GetSceneByPath("Scenes/Level2.zscene"));
     m.Stop();
+}
+
+// ------------------------------------------------------------------ M15: scene events, build index, queries, load errors, stable files
+namespace {
+    std::vector<std::string> g_SceneEvents;
+
+    std::string DescribeScene(const SceneEventInfo& info) { return info.IsValid() ? info.Name : std::string("-"); }
+}
+
+class SceneEventProbe : public ScriptableEntity
+{
+public:
+    bool Persist = false;
+    void OnCreate() override
+    {
+        if (Persist)
+            DontDestroyOnLoad();
+        Subscribe("SceneLoaded", [this](const ScriptMessage& m) {
+            if (const auto* info = std::any_cast<SceneEventInfo>(&m.Payload))
+                g_SceneEvents.push_back(std::format("{}:bus-loaded:{}", GetName(), info->Name));
+        });
+    }
+    void OnSceneLoaded(const SceneEventInfo& scene) override
+    {
+        g_SceneEvents.push_back(std::format("{}:loaded:{}:{}:{}:{}", GetName(), scene.Name, scene.Mode == LoadSceneMode::Additive ? "add" : "single",
+                                            scene.BuildIndex, scene.SceneRef == &GetScene() ? "own" : "other"));
+    }
+    void OnSceneUnloaded(const SceneEventInfo& scene) override
+    {
+        // The scene is still there during the call (stopped).
+        g_SceneEvents.push_back(std::format("{}:unloaded:{}:{}", GetName(), scene.Name, scene.SceneRef && !scene.SceneRef->IsRunning() ? "stopped" : "?"));
+    }
+    void OnActiveSceneChanged(const SceneEventInfo& previous, const SceneEventInfo& current) override
+    {
+        g_SceneEvents.push_back(std::format("{}:active:{}->{}", GetName(), DescribeScene(previous), DescribeScene(current)));
+    }
+};
+ZM_REGISTER_SCRIPT(SceneEventProbe, ZM_FIELD(SceneEventProbe, Persist))
+
+namespace {
+    // A scene folder with a project whose build list is `build` (asset-relative scene paths).
+    struct BuildProject
+    {
+        SceneFolder Folder;
+        Ref<Project> Active;
+        explicit BuildProject(const std::vector<std::string>& build)
+        {
+            std::string list;
+            for (const std::string& scene : build)
+                list += (list.empty() ? "" : ", ") + std::format("\"Scenes/{}.zscene\"", scene);
+            std::ofstream project(Folder.Dir / "Game.zproject");
+            project << std::format(R"({{ "Project": {{ "Name": "Game", "StartScene": "Scenes/{}.zscene", "AssetDirectory": "Assets" }}, "BuildScenes": [ {} ] }})",
+                                   build.empty() ? std::string("Start") : build.front(), list);
+            project.close();
+            Active = Project::Load(Folder.Dir / "Game.zproject");
+        }
+        ~BuildProject() { Project::SetActive(nullptr); }
+    };
+
+    void AddProbe(Scene& scene, const std::string& name, bool persist = false)
+    {
+        auto& nsc = scene.CreateEntity(name).AddComponent<NativeScriptComponent>();
+        nsc.ClassName = "SceneEventProbe";
+        ScriptFieldValue value;
+        value.Set(persist);
+        nsc.Fields["Persist"] = value;
+    }
+}
+
+TEST(SceneEventsOrder)
+{
+    BuildProject project({ "Menu", "Level1", "Hud" });
+    CHECK(project.Active != nullptr);
+    const SceneFolder& f = project.Folder;
+    f.Write("Menu", {}, [](Scene& s) { AddProbe(s, "Manager", true); AddProbe(s, "MenuScript"); });
+    f.Write("Level1", {}, [](Scene& s) { AddProbe(s, "LevelScript"); });
+    f.Write("Hud", {}, [](Scene& s) { AddProbe(s, "HudScript"); });
+    g_SceneEvents.clear();
+
+    SceneManager m;
+    std::vector<std::string> bus;
+    m.GetEventBus().Subscribe("ActiveSceneChanged", [&](const ScriptMessage& msg) {
+        if (const auto* change = std::any_cast<ActiveSceneChange>(&msg.Payload))
+            bus.push_back(std::format("active:{}->{}", DescribeScene(change->Previous), DescribeScene(change->Current)));
+    });
+    m.GetEventBus().Subscribe("SceneUnloaded", [&](const ScriptMessage& msg) {
+        if (const auto* info = std::any_cast<SceneEventInfo>(&msg.Payload))
+            bus.push_back("unloaded:" + info->Name);
+    });
+    // The first scene: its scripts hear that it became active and was loaded (after their OnCreate).
+    CHECK(m.Start("Scenes/Menu.zscene"));
+    CHECK(g_SceneEvents == std::vector<std::string>({ "Manager:active:-->Menu", "MenuScript:active:-->Menu",
+                                                       "Manager:loaded:Menu:single:0:own", "MenuScript:loaded:Menu:single:0:own",
+                                                       "Manager:bus-loaded:Menu", "MenuScript:bus-loaded:Menu" }));
+    CHECK(bus == std::vector<std::string>({ "active:-->Menu" }));
+    m.UpdateScenes(0.016f);
+    m.ProcessRequests(); // the manager moves to DontDestroyOnLoad: no scene event
+    CHECK(m.GetDontDestroyOnLoadScene() && m.GetDontDestroyOnLoadScene()->FindEntityByName("Manager"));
+
+    // A Single load: unloaded (the scene is still there, stopped), the active change, then loaded -
+    // to the persistent manager and to the new scene's scripts (after their OnCreate).
+    g_SceneEvents.clear();
+    bus.clear();
+    CHECK(m.LoadScene(1));
+    CHECK(g_SceneEvents.empty()); // at the end of the frame
+    m.ProcessRequests();
+    CHECK(g_SceneEvents == std::vector<std::string>({ "Manager:unloaded:Menu:stopped", "LevelScript:unloaded:Menu:stopped",
+                                                       "Manager:active:Menu->Level1", "LevelScript:active:Menu->Level1",
+                                                       "Manager:loaded:Level1:single:1:other", "LevelScript:loaded:Level1:single:1:own",
+                                                       "Manager:bus-loaded:Level1", "LevelScript:bus-loaded:Level1" }));
+    CHECK(bus == std::vector<std::string>({ "unloaded:Menu", "active:Menu->Level1" }));
+
+    // Additive: only loaded; the active scene stays.
+    g_SceneEvents.clear();
+    bus.clear();
+    m.LoadScene(std::filesystem::path("Scenes/Hud.zscene"), LoadSceneMode::Additive);
+    m.ProcessRequests();
+    CHECK(g_SceneEvents.size() == 6 && g_SceneEvents[0] == "Manager:loaded:Hud:add:2:other" && g_SceneEvents[1] == "LevelScript:loaded:Hud:add:2:other" &&
+          g_SceneEvents[2] == "HudScript:loaded:Hud:add:2:own");
+    CHECK(bus.empty());
+    // SetActiveScene: at once.
+    g_SceneEvents.clear();
+    CHECK(m.SetActiveScene(m.GetSceneByName("Hud")));
+    CHECK(g_SceneEvents.size() == 3 && g_SceneEvents[0] == "Manager:active:Level1->Hud");
+    CHECK(m.SetActiveScene(m.GetSceneByName("Hud")) && g_SceneEvents.size() == 3); // no change: no event
+    // Unloading the active scene: unloaded, then the active change.
+    g_SceneEvents.clear();
+    bus.clear();
+    CHECK(m.UnloadScene("Hud"));
+    m.ProcessRequests();
+    CHECK(g_SceneEvents == std::vector<std::string>({ "Manager:unloaded:Hud:stopped", "LevelScript:unloaded:Hud:stopped",
+                                                       "Manager:active:Hud->Level1", "LevelScript:active:Hud->Level1" }));
+    CHECK(bus == std::vector<std::string>({ "unloaded:Hud", "active:Hud->Level1" }));
+    // Stop: no events.
+    g_SceneEvents.clear();
+    m.Stop();
+    CHECK(g_SceneEvents.empty());
+}
+
+TEST(LoadSceneByBuildIndex)
+{
+    BuildProject project({ "Menu", "Level1", "Level2" });
+    CHECK(project.Active != nullptr);
+    const SceneFolder& f = project.Folder;
+    f.Write("Menu", { "Title" });
+    f.Write("Level1", { "Ground" });
+    f.Write("Level2", { "Lava" });
+    f.Write("Secret", { "Gold" }); // not in the build list
+    CHECK(SceneManager::GetBuildSceneCount() == 3);
+
+    SceneManager m;
+    CHECK(m.Start("Scenes/Menu.zscene"));
+    CHECK(m.GetActiveSceneBuildIndex() == 0 && m.GetBuildIndex(m.GetActiveScene().get()) == 0);
+    CHECK(m.GetSceneByBuildIndex(0) == m.GetActiveScene() && !m.GetSceneByBuildIndex(1) && !m.GetSceneByBuildIndex(-1));
+    // Out of range: false, nothing queued.
+    CHECK(!m.LoadScene(3) && !m.LoadScene(-1) && !m.LoadSceneAsync(5));
+    m.ProcessRequests();
+    CHECK(m.GetActiveScene()->GetName() == "Menu");
+    // The next one in the list, again and again; the last one has none.
+    CHECK(m.LoadNextScene());
+    m.ProcessRequests();
+    CHECK(m.GetActiveScene()->GetName() == "Level1" && m.GetActiveSceneBuildIndex() == 1);
+    CHECK(m.LoadNextScene());
+    m.ProcessRequests();
+    CHECK(m.GetActiveScene()->GetName() == "Level2" && m.GetActiveSceneBuildIndex() == 2);
+    CHECK(!m.LoadNextScene());
+    // A restart: a new scene from the same file.
+    Ref<Scene> before = m.GetActiveScene();
+    CHECK(m.ReloadActiveScene());
+    m.ProcessRequests();
+    CHECK(m.GetActiveScene() != before && m.GetActiveScene()->GetName() == "Level2" && !before->IsRunning());
+    // In the background by index.
+    Ref<AsyncOperation> op = m.LoadSceneAsync(0, LoadSceneMode::Additive);
+    CHECK(op != nullptr);
+    for (int i = 0; op && !op->IsDone() && i < 5000; i++)
+    {
+        m.UpdateAsyncLoads(2.0f);
+        m.ProcessRequests();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(op && op->IsDone() && m.GetSceneByBuildIndex(0) && m.GetSceneByBuildIndex(0)->GetName() == "Menu");
+    CHECK(op && !op->GetReport().HasIssues());
+    // A scene outside the list has no index (and no next one).
+    m.LoadScene(std::filesystem::path("Scenes/Secret.zscene"));
+    m.ProcessRequests();
+    CHECK(m.GetActiveSceneBuildIndex() == -1 && !m.LoadNextScene());
+    m.Stop();
+}
+
+class QueryProbeBase : public ScriptableEntity
+{
+};
+class QueryProbeDerived : public QueryProbeBase
+{
+};
+ZM_REGISTER_SCRIPT(QueryProbeBase)
+ZM_REGISTER_SCRIPT(QueryProbeDerived)
+
+TEST(SceneQueryIndices)
+{
+    auto scene = CreateRef<Scene>();
+    std::vector<Entity> e;
+    for (int i = 0; i < 10; i++)
+        e.push_back(scene->CreateEntity(std::format("E{}", i)));
+    for (int i = 0; i < 10; i += 2)
+        e[i].AddTag("Even");
+    e[3].AddTag("Enemy");
+    e[7].AddTag("Enemy");
+    // The first lookup builds the index; everything after it is incremental.
+    CHECK(scene->CountEntitiesWithTag("Even") == 5);
+    const uint32_t builds = scene->GetTagIndexStats().Rebuilds;
+    CHECK(builds == 1);
+    CHECK(scene->FindEntitiesWithTag("Enemy") == std::vector<Entity>({ e[3], e[7] }));
+    CHECK(scene->FindEntityWithTag("Enemy") == e[3] && !scene->FindEntityWithTag("Nope") && scene->CountEntitiesWithTag("") == 0);
+    // AddTag / RemoveTag / a new entity / destroying: seen at once, in scene order.
+    CHECK(e[1].AddTag("Enemy") && !e[1].AddTag("Enemy"));
+    CHECK(scene->FindEntitiesWithTag("Enemy") == std::vector<Entity>({ e[1], e[3], e[7] }));
+    CHECK(e[3].RemoveTag("Enemy") && !e[3].RemoveTag("Enemy"));
+    CHECK(scene->FindEntitiesWithTag("Enemy") == std::vector<Entity>({ e[1], e[7] }));
+    Entity late = scene->CreateEntity("Late");
+    late.AddTag("Enemy");
+    scene->DestroyEntity(e[7]);
+    CHECK(scene->FindEntitiesWithTag("Enemy") == std::vector<Entity>({ e[1], late }));
+    // Reordering the hierarchy reorders the results.
+    CHECK(scene->SetSiblingIndex(late, 0));
+    CHECK(scene->FindEntitiesWithTag("Enemy") == std::vector<Entity>({ late, e[1] }) && scene->FindEntityWithTag("Enemy") == late);
+    CHECK(scene->GetAllTags() == std::vector<std::string>({ "Enemy", "Even" }));
+    // A direct edit of the list: seen on the next frame, or after InvalidateTagIndex().
+    e[0].GetComponent<TagsComponent>().Tags.clear();
+    e[9].AddComponent<TagsComponent>().Tags.push_back("Boss");
+    scene->InvalidateTagIndex();
+    CHECK(scene->CountEntitiesWithTag("Even") == 4 && scene->FindEntityWithTag("Boss") == e[9]);
+    scene->OnRuntimeStart();
+    e[9].GetComponent<TagsComponent>().Tags.push_back("Elite");
+    scene->OnUpdateRuntime(0.016f); // a new frame (no camera: nothing is drawn)
+    CHECK(scene->FindEntitiesWithTag("Elite") == std::vector<Entity>({ e[9] }));
+    scene->OnRuntimeStop();
+    CHECK(scene->GetTagIndexStats().Rebuilds == builds); // never rebuilt
+    // Copies (play mode) have their own index.
+    auto copy = Scene::Copy(scene);
+    CHECK(copy->CountEntitiesWithTag("Enemy") == 2 && copy->FindEntityWithTag("Enemy").GetName() == "Late");
+
+    // Names: counted, spawned and destroyed without a rebuild.
+    CHECK(scene->CountEntitiesByName("E2") == 1);
+    const uint32_t nameBuilds = scene->GetNameCacheStats().Rebuilds;
+    for (int i = 0; i < 50; i++)
+    {
+        Entity bullet = scene->CreateEntity("Bullet");
+        CHECK(scene->CountEntitiesByName("Bullet") == 1 && scene->FindEntityByName("Bullet") == bullet);
+        scene->DestroyEntity(bullet);
+        CHECK(!scene->FindEntityByName("Bullet"));
+    }
+    CHECK(scene->GetNameCacheStats().Rebuilds == nameBuilds);
+
+    // By component type, in scene order.
+    e[5].AddComponent<CircleRendererComponent>();
+    e[2].AddComponent<CircleRendererComponent>();
+    late.AddComponent<CircleRendererComponent>();
+    CHECK(scene->FindEntitiesWith<CircleRendererComponent>() == std::vector<Entity>({ late, e[2], e[5] }));
+    CHECK(scene->FindEntityWith<CircleRendererComponent>() == late && scene->CountEntitiesWith<CircleRendererComponent>() == 3);
+    CHECK(!scene->FindEntityWith<CameraComponent>() && scene->FindObjectOfType<CameraComponent>() == nullptr);
+    std::vector<CircleRendererComponent*> circles = scene->FindObjectsOfType<CircleRendererComponent>();
+    CHECK(circles.size() == 3 && circles[0] == &late.GetComponent<CircleRendererComponent>());
+    // Script classes: the running instances of the class and of its subclasses.
+    e[4].AddComponent<NativeScriptComponent>().ClassName = "QueryProbeDerived";
+    e[6].AddComponent<NativeScriptComponent>().ClassName = "QueryProbeBase";
+    scene->OnRuntimeStart();
+    CHECK(scene->FindObjectsOfType<QueryProbeBase>().size() == 2 && scene->FindObjectsOfType<QueryProbeDerived>().size() == 1);
+    CHECK(scene->FindObjectOfType<QueryProbeDerived>() == ScriptableEntity::GetScript<QueryProbeDerived>(e[4]));
+    // From a script: this scene, then the other loaded scenes.
+    auto* probe = ScriptableEntity::GetScript<QueryProbeBase>(e[6]);
+    CHECK(probe && probe->FindObjectsOfType<QueryProbeBase>().size() == 2 && probe->FindObjectOfType<CircleRendererComponent>() == circles[0]);
+    scene->OnRuntimeStop();
+}
+
+TEST(SceneLoadErrors)
+{
+    // A broken file: where (line / column) and that line.
+    {
+        auto scene = CreateRef<Scene>();
+        SceneSerializer serializer(scene);
+        const std::string text = "{\n  \"Scene\": \"X\",\n  \"Entities\": [ { \"Entity\": 1, } ]\n}\n";
+        CHECK(!serializer.DeserializeFromString(text));
+        const SceneLoadReport& report = serializer.GetLoadReport();
+        CHECK(report.Failed() && report.Issues.size() == 1 && report.Issues[0].Type == SceneLoadIssue::Kind::ParseError);
+        CHECK(report.Issues[0].Line == 3 && report.Issues[0].Column > 20 && report.Issues[0].SourceLine.find("\"Entity\": 1") != std::string::npos);
+        CHECK(serializer.GetLastError().starts_with("JSON xatosi 3-qator"));
+        CHECK(report.Summary() == serializer.GetLastError() && report.Format().find("[xato]") != std::string::npos);
+        // Cut off at the end: the last line.
+        CHECK(!serializer.DeserializeFromString("{ \"Scene\": \"X\",\n \"Entities\": [") && serializer.GetLoadReport().Issues[0].Line == 2);
+        CHECK(!serializer.DeserializeFromString("{ \"Hello\": 1 }") && serializer.GetLoadReport().Issues[0].Type == SceneLoadIssue::Kind::NotAScene);
+    }
+    // A partial load: what can be read stays.
+    {
+        const std::string text = R"({ "Scene": "Partial", "Settings": { "Exposure": "bright", "Ambient": 0.25 },
+            "Entities": [
+                { "Entity": 11, "Tag": "Good", "SpriteRenderer": { "Color": [1, 0, 0, 1] } },
+                { "Entity": 12, "Tag": "Broken", "Camera": { "PerspectiveFOV": "wide" }, "CircleRenderer": { "Thickness": 0.5 } },
+                { "Entity": 13, "Tag": "Mystery", "Teleporter": { "Target": 5 } },
+                42,
+                { "Entity": 11, "Tag": "Twin" },
+                { "Entity": 14, "Tag": "Orphan", "Parent": 999 },
+                { "Entity": 15, "Tag": "LoopA", "Parent": 16 },
+                { "Entity": 16, "Tag": "LoopB", "Parent": 15 }
+            ] })";
+        auto scene = CreateRef<Scene>();
+        SceneSerializer serializer(scene);
+        CHECK(serializer.DeserializeFromString(text) && serializer.GetLastError().empty());
+        const SceneLoadReport& report = serializer.GetLoadReport();
+        auto count = [&](SceneLoadIssue::Kind kind) {
+            return std::count_if(report.Issues.begin(), report.Issues.end(), [&](const SceneLoadIssue& i) { return i.Type == kind; });
+        };
+        CHECK(!report.Failed() && report.EntitiesLoaded == 7 && report.EntitiesSkipped == 1);
+        CHECK(count(SceneLoadIssue::Kind::BadEntity) == 1 && count(SceneLoadIssue::Kind::UnknownComponent) == 1 && count(SceneLoadIssue::Kind::DuplicateID) == 1);
+        CHECK(count(SceneLoadIssue::Kind::BadComponent) == 2 && count(SceneLoadIssue::Kind::BadHierarchy) == 2);
+        CHECK(report.Count(SceneLoadIssue::Severity::Error) == 3 && report.Summary().find("3 ta xato") != std::string::npos);
+        // The broken component is left out, the entity's others stay; the settings keep what was read.
+        Entity broken = scene->FindEntityByName("Broken");
+        CHECK(broken && !broken.HasComponent<CameraComponent>() && broken.HasComponent<CircleRendererComponent>());
+        CHECK_NEAR(broken.GetComponent<CircleRendererComponent>().Thickness, 0.5f, 1e-6f);
+        CHECK(scene->FindEntityByName("Good").HasComponent<SpriteRendererComponent>());
+        const auto bad = std::find_if(report.Issues.begin(), report.Issues.end(), [](const SceneLoadIssue& i) { return i.Type == SceneLoadIssue::Kind::BadComponent && i.Entity == "Broken"; });
+        CHECK(bad != report.Issues.end() && bad->Component == "Camera" && bad->EntityID == 12);
+        const auto unknown = std::find_if(report.Issues.begin(), report.Issues.end(), [](const SceneLoadIssue& i) { return i.Type == SceneLoadIssue::Kind::UnknownComponent; });
+        CHECK(unknown != report.Issues.end() && unknown->Component == "Teleporter" && unknown->Entity == "Mystery");
+        // The duplicate got a new ID; the orphan and the loop are roots.
+        Entity twin = scene->FindEntityByName("Twin");
+        CHECK(twin && (uint64_t)twin.GetUUID() != 11 && (uint64_t)scene->FindEntityByName("Good").GetUUID() == 11);
+        CHECK(!scene->GetParent(scene->FindEntityByName("Orphan")));
+        Entity a = scene->FindEntityByName("LoopA"), b = scene->FindEntityByName("LoopB");
+        CHECK(a && b && (!scene->GetParent(a) || !scene->GetParent(b)) && scene->GetEntitiesInHierarchyOrder().size() == 7);
+        // The same through the sliced loader.
+        SceneLoadJob job;
+        CHECK(job.ParseString(text));
+        auto sliced = CreateRef<Scene>();
+        while (!job.Build(*sliced, 0.0)) {}
+        CHECK(job.GetError().empty() && job.GetReport().Issues.size() == report.Issues.size() && sliced->FindEntityByName("Broken").HasComponent<CircleRendererComponent>());
+    }
+    // Missing assets (with a project): the entity and the component.
+    {
+        BuildProject project({ "Level" });
+        CHECK(project.Active != nullptr);
+        project.Folder.Write("Level", {}, [](Scene& s) {
+            s.CreateEntity("Coin").AddComponent<SpriteRendererComponent>().TexturePath = "Textures/zamin-no-such-coin.png";
+            s.CreateEntity("Ok");
+        });
+        auto scene = CreateRef<Scene>();
+        SceneSerializer serializer(scene);
+        CHECK(serializer.Deserialize(project.Folder.Path("Level")));
+        const SceneLoadReport& report = serializer.GetLoadReport();
+        CHECK(report.Issues.size() == 1 && report.Issues[0].Type == SceneLoadIssue::Kind::MissingAsset);
+        CHECK(report.Issues.size() == 1 && report.Issues[0].Entity == "Coin" && report.Issues[0].Component == "SpriteRenderer" &&
+              report.Issues[0].Asset == "Textures/zamin-no-such-coin.png" && report.Issues[0].Level == SceneLoadIssue::Severity::Warning);
+        // The scene manager keeps what its loads found: a failed switch leaves the game as it was.
+        {
+            std::ofstream broken(project.Folder.Path("Broken"));
+            broken << "{ \"Scene\": \"Broken\", ";
+        }
+        SceneManager m;
+        CHECK(m.Start("Scenes/Level.zscene"));
+        CHECK(m.GetLoadReports().size() == 1 && !m.GetLoadReports()[0].Failed());
+        const uint64_t serial = m.GetLoadReportSerial();
+        m.LoadScene(std::filesystem::path("Scenes/Broken.zscene"));
+        m.ProcessRequests();
+        CHECK(m.GetActiveScene()->GetName() == "Level" && m.GetLoadReportSerial() == serial + 1);
+        std::vector<SceneLoadReport> reports = m.TakeLoadReports();
+        CHECK(reports.size() == 2 && reports[1].Failed() && reports[1].GetMain()->Type == SceneLoadIssue::Kind::ParseError);
+        CHECK(m.GetLoadReports().empty());
+        CHECK(!m.LoadSceneAsync(std::filesystem::path("Scenes/Gone.zscene")) && m.GetLoadReports().size() == 1 &&
+              m.GetLoadReports()[0].GetMain()->Type == SceneLoadIssue::Kind::FileMissing);
+        m.Stop();
+    }
+    // A missing file.
+    {
+        auto scene = CreateRef<Scene>();
+        SceneSerializer serializer(scene);
+        CHECK(!serializer.Deserialize(std::filesystem::temp_directory_path() / "zamin-absent-scene-file.zscene"));
+        CHECK(serializer.GetLoadReport().Failed() && serializer.GetLoadReport().GetMain()->Type == SceneLoadIssue::Kind::FileMissing);
+    }
+}
+
+TEST(SceneSaveDeterministic)
+{
+    // The same scene made in two different orders gives the same file.
+    auto build = [](bool reversed) {
+        auto scene = CreateRef<Scene>();
+        std::vector<std::pair<uint64_t, std::string>> items = { { 900, "Root" }, { 300, "ChildA" }, { 700, "ChildB" }, { 100, "Other" }, { 500, "Leaf" } };
+        if (reversed)
+            std::reverse(items.begin(), items.end());
+        for (auto& [id, name] : items)
+            scene->CreateEntityWithUUID(UUID(id), name).GetTransform().Translation = glm::vec3((float)id, 0.0f, 0.0f);
+        Entity root = scene->GetEntityByUUID(UUID(900)), a = scene->GetEntityByUUID(UUID(300)), b = scene->GetEntityByUUID(UUID(700));
+        scene->SetParent(b, root, false);
+        scene->SetParent(a, root, false);           // Root: ChildB, ChildA (not UUID order)
+        scene->SetParent(scene->GetEntityByUUID(UUID(500)), a, false);
+        // The roots: Root, Other.
+        scene->SetSiblingIndex(root, 0);
+        return scene;
+    };
+    auto first = build(false), second = build(true);
+    const std::string text = SceneSerializer(first).SerializeToString();
+    CHECK(text == SceneSerializer(second).SerializeToString());
+    // Entities by UUID in the file; the hierarchy written out.
+    CHECK(text.find("\"RootOrder\"") != std::string::npos && text.find("\"ChildOrder\"") != std::string::npos);
+    CHECK(text.find("\"Other\"") < text.find("\"ChildA\"") && text.find("\"ChildA\"") < text.find("\"Leaf\"") && text.find("\"Leaf\"") < text.find("\"ChildB\""));
+    // Loaded in hierarchy order (scene order = what the editor shows), saved again: the same text.
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text) && !SceneSerializer(loaded).GetLoadReport().HasIssues());
+    CHECK(Names(loaded->GetEntitiesInOrder()) == "Root,ChildB,ChildA,Leaf,Other");
+    CHECK(Names(loaded->GetEntitiesInHierarchyOrder()) == Names(first->GetEntitiesInHierarchyOrder()));
+    CHECK(SceneSerializer(loaded).SerializeToString() == text);
+    // Undo-style history (destroy and make again with the same UUID) does not change the file.
+    {
+        Entity other = first->GetEntityByUUID(UUID(100));
+        first->DestroyEntity(other);
+        Entity again = first->CreateEntityWithUUID(UUID(100), "Other");
+        again.GetTransform().Translation = glm::vec3(100.0f, 0.0f, 0.0f);
+        CHECK(SceneSerializer(first).SerializeToString() == text);
+    }
+    // An older file (no "RootOrder"): file order, as before.
+    {
+        auto old = CreateRef<Scene>();
+        CHECK(SceneSerializer(old).DeserializeFromString(R"({ "Scene": "Old", "Entities": [ { "Entity": 3, "Tag": "C", "Parent": 1 },
+                                                                                   { "Entity": 1, "Tag": "A" }, { "Entity": 2, "Tag": "B" } ] })"));
+        CHECK(Names(old->GetEntitiesInOrder()) == "C,A,B" && Names(old->GetRootEntities()) == "A,B");
+    }
+
+    // The sample projects' scenes: saved twice the same way, nothing lost in between, and they load
+    // without problems (no missing assets, no unknown components).
+    namespace fs = std::filesystem;
+    int scenes = 0;
+    for (const char* projectName : { "Showcase3D", "Platformer2D", "Adventure3D" })
+    {
+        fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / projectName;
+        auto project = Project::Load(root / (std::string(projectName) + ".zproject"));
+        CHECK(project != nullptr);
+        if (!project)
+            continue;
+        std::error_code ec;
+        for (const auto& entry : fs::recursive_directory_iterator(root / "Assets", ec))
+        {
+            if (entry.path().extension() != ".zscene")
+                continue;
+            auto original = CreateRef<Scene>();
+            SceneSerializer reader(original);
+            CHECK(reader.Deserialize(entry.path()));
+            if (reader.GetLoadReport().HasIssues())
+                std::printf("    %s: %s\n%s", entry.path().filename().string().c_str(), reader.GetLoadReport().Summary().c_str(),
+                            reader.GetLoadReport().Format(5).c_str());
+            CHECK(!reader.GetLoadReport().HasIssues());
+            const std::string once = SceneSerializer(original).SerializeToString();
+            auto again = CreateRef<Scene>();
+            CHECK(SceneSerializer(again).DeserializeFromString(once));
+            CHECK(SceneSerializer(again).SerializeToString() == once);
+            // The hierarchy came through unchanged.
+            std::vector<Entity> a = original->GetEntitiesInHierarchyOrder(), b = again->GetEntitiesInHierarchyOrder();
+            bool same = a.size() == b.size();
+            for (size_t i = 0; same && i < a.size(); i++)
+                same = a[i].GetUUID() == b[i].GetUUID() && a[i].GetName() == b[i].GetName();
+            CHECK(same);
+            scenes++;
+        }
+        Project::SetActive(nullptr);
+    }
+    CHECK(scenes >= 20);
 }

@@ -1299,6 +1299,14 @@ namespace Zamin {
         if (m_SceneState == SceneState::Play && m_RuntimeScenes)
         {
             m_RuntimeScenes->ProcessRequests();
+            // A scene the game switched to that could not be loaded / came without some of its file.
+            if (m_RuntimeScenes->GetLoadReportSerial() != m_RuntimeReportSerial)
+            {
+                m_RuntimeReportSerial = m_RuntimeScenes->GetLoadReportSerial();
+                std::vector<SceneLoadReport> reports = m_RuntimeScenes->TakeLoadReports();
+                if (!reports.empty())
+                    ShowSceneLoadReport(reports.back());
+            }
             SyncRuntimeScenes();
         }
     }
@@ -3885,8 +3893,16 @@ namespace Zamin {
         Ref<Scene> newScene = CreateRef<Scene>();
         SceneSerializer serializer(newScene);
         if (!serializer.Deserialize(path))
+        {
+            // The scene that was open stays; what went wrong is shown over the viewport.
+            ShowSceneLoadReport(serializer.GetLoadReport());
             return false;
+        }
         newScene->ResolveAssets();
+        if (serializer.GetLoadReport().HasIssues())
+            ShowSceneLoadReport(serializer.GetLoadReport());
+        else if (m_LoadReportBanner && m_LoadReport.File == serializer.GetLoadReport().File)
+            m_LoadReportBanner = false; // fixed: loads clean now
 
         m_EditorScene = newScene;
         m_SceneHierarchyPanel.SetContext({});
@@ -4005,6 +4021,7 @@ namespace Zamin {
         m_RuntimeScenes->OnViewportResize((uint32_t)m_ViewportSize.x, (uint32_t)m_ViewportSize.y);
         m_RuntimeScenes->Start(m_ActiveScene, m_EditorScenePath.empty() ? fs::path() : fs::path(Project::GetAssetRelativePath(m_EditorScenePath)));
         m_RuntimeActiveSerial = m_RuntimeScenes->GetActiveSceneSerial();
+        m_RuntimeReportSerial = m_RuntimeScenes->GetLoadReportSerial();
         m_SceneHierarchyPanel.SetSceneManager(m_RuntimeScenes.get());
         ImGui::SetWindowFocus("###Viewport");
         UpdateWindowTitle();
@@ -5413,6 +5430,7 @@ namespace Zamin {
         if (m_ShowImGuiDemo) ImGui::ShowDemoWindow(&m_ShowImGuiDemo);
 
         UI_Modals();
+        UI_SceneLoadReport();
         if (m_ShowLauncher)
             UI_Launcher();
 
@@ -5926,6 +5944,7 @@ namespace Zamin {
         UI_ParticleOverlay();
         UI_ViewportToolbar();
         UI_ViewportMessage();
+        UI_SceneLoadBanner();
 
         // Play-mode border
         if (m_SceneState != SceneState::Edit)
@@ -5972,6 +5991,7 @@ namespace Zamin {
         Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
 
         UI_StatsOverlay();
+        UI_SceneLoadBanner();
         // small stop button + hint
         ImGui::SetCursorPos(ImVec2(size.x * 0.5f - 40, 10));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.4f, 0.4f, 1));
@@ -6986,6 +7006,176 @@ namespace Zamin {
         const bool cameraWarning = m_SceneState == SceneState::Play && !GetViewScene().GetPrimaryCameraEntity();
         const float lift = cameraWarning ? ImGui::GetTextLineHeight() + 20.0f : 0.0f;
         banner(m_ViewportMessage.c_str(), alpha, max.y - 44.0f - lift);
+    }
+
+    void EditorLayer::ShowSceneLoadReport(const SceneLoadReport& report)
+    {
+        if (!report.HasIssues())
+            return;
+        m_LoadReport = report;
+        m_LoadReportBanner = true;
+        // A scene that could not be opened at all: the details at once.
+        if (report.Failed())
+            m_ShowLoadReport = true;
+    }
+
+    static std::string LoadReportFileName(const SceneLoadReport& report)
+    {
+        if (report.File.empty())
+            return "(matn)";
+        fs::path file(report.File);
+        std::string relative = Project::GetActive() ? Project::GetAssetRelativePath(file) : std::string();
+        return relative.empty() || relative.starts_with("..") ? file.filename().string() : relative;
+    }
+
+    void EditorLayer::UI_SceneLoadBanner()
+    {
+        if (!m_LoadReportBanner || !m_LoadReport.HasIssues())
+            return;
+        const bool failed = m_LoadReport.Failed();
+        const bool errors = failed || m_LoadReport.Count(SceneLoadIssue::Severity::Error) > 0;
+        const std::string name = LoadReportFileName(m_LoadReport);
+        const std::string text = failed
+            ? std::format(ICON_FA_CIRCLE_XMARK "  Sahna yuklanmadi: {} - {}", name, m_LoadReport.Summary())
+            : std::format(ICON_FA_TRIANGLE_EXCLAMATION "  '{}' sahnasi yuklandi, lekin: {}", name, m_LoadReport.Summary());
+        const ImGuiStyle& style = ImGui::GetStyle();
+        const float detailsWidth = ImGui::CalcTextSize("Batafsil").x + style.FramePadding.x * 2.0f;
+        const float closeWidth = ImGui::CalcTextSize(ICON_FA_XMARK).x + style.FramePadding.x * 2.0f;
+        const float available = m_ViewportBounds[1].x - m_ViewportBounds[0].x - 40.0f;
+        const float buttons = detailsWidth + closeWidth + style.ItemSpacing.x * 2.0f + 8.0f;
+        const float width = std::min(available, ImGui::CalcTextSize(text.c_str()).x + buttons + 24.0f);
+        const float toolbar = ImGui::GetFrameHeight() + 4.0f + 26.0f;
+        ImGui::SetCursorScreenPos(ImVec2((m_ViewportBounds[0].x + m_ViewportBounds[1].x - width) * 0.5f, m_ViewportBounds[0].y + toolbar));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 7.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 7.0f);
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, errors ? ImVec4(0.42f, 0.10f, 0.10f, 0.94f) : ImVec4(0.40f, 0.28f, 0.06f, 0.94f));
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(1.0f, 1.0f, 1.0f, 0.18f));
+        if (ImGui::BeginChild("##SceneLoadBanner", ImVec2(width, 0.0f),
+                              ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_Borders,
+                              ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings))
+        {
+            const float textWidth = std::max(40.0f, ImGui::GetContentRegionAvail().x - buttons);
+            ImGui::AlignTextToFramePadding();
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + textWidth);
+            ImGui::TextUnformatted(text.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::SameLine(ImGui::GetContentRegionMax().x - detailsWidth - closeWidth - style.ItemSpacing.x);
+            if (ImGui::Button("Batafsil"))
+                m_ShowLoadReport = true;
+            ImGui::SameLine();
+            if (ImGui::Button(ICON_FA_XMARK "##closeLoadBanner"))
+                m_LoadReportBanner = false;
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Yopish");
+        }
+        ImGui::EndChild();
+        ImGui::PopStyleColor(2);
+        ImGui::PopStyleVar(2);
+    }
+
+    void EditorLayer::UI_SceneLoadReport()
+    {
+        if (!m_ShowLoadReport)
+            return;
+        ImGui::SetNextWindowSize(ImVec2(760.0f, 420.0f), ImGuiCond_FirstUseEver);
+        ImGuiViewport* main = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(ImVec2(main->WorkPos.x + main->WorkSize.x * 0.5f, main->WorkPos.y + main->WorkSize.y * 0.4f),
+                                ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+        if (!ImGui::Begin(ICON_FA_TRIANGLE_EXCLAMATION "  Sahna yuklash muammolari###SceneLoadReport", &m_ShowLoadReport, ImGuiWindowFlags_NoDocking))
+        {
+            ImGui::End();
+            return;
+        }
+        const SceneLoadReport& report = m_LoadReport;
+        const bool failed = report.Failed();
+        ImGui::TextUnformatted(LoadReportFileName(report).c_str());
+        if (ImGui::IsItemHovered() && !report.File.empty())
+            ImGui::SetTooltip("%s", report.File.c_str());
+        ImGui::SameLine();
+        if (failed)
+            ImGui::TextColored(ImVec4(0.95f, 0.42f, 0.38f, 1.0f), " - yuklanmadi (oldingi sahna qoldi)");
+        else
+            ImGui::TextDisabled(" - %zu ta obyekt yuklandi%s", report.EntitiesLoaded,
+                                report.EntitiesSkipped ? std::format(", {} ta yozuv o'tkazib yuborildi", report.EntitiesSkipped).c_str() : "");
+        ImGui::TextDisabled("%s", report.Summary().c_str());
+        ImGui::Separator();
+
+        const float footer = ImGui::GetFrameHeightWithSpacing() + 6.0f;
+        if (ImGui::BeginTable("##loadIssues", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV |
+                                                    ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingStretchProp,
+                              ImVec2(0.0f, -footer)))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableSetupColumn("##level", ImGuiTableColumnFlags_WidthFixed, 22.0f);
+            ImGui::TableSetupColumn("Turi", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+            ImGui::TableSetupColumn("Obyekt", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+            ImGui::TableSetupColumn("Tafsilot", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
+            int row = 0;
+            for (const SceneLoadIssue& issue : report.Issues)
+            {
+                ImGui::PushID(row++);
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                const bool warning = issue.Level == SceneLoadIssue::Severity::Warning;
+                ImGui::TextColored(warning ? ImVec4(0.96f, 0.74f, 0.30f, 1.0f) : ImVec4(0.95f, 0.40f, 0.36f, 1.0f), "%s",
+                                   warning ? ICON_FA_TRIANGLE_EXCLAMATION : ICON_FA_CIRCLE_XMARK);
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(SceneLoadIssue::KindName(issue.Type));
+                ImGui::TableNextColumn();
+                if (!issue.Entity.empty())
+                {
+                    // Click: the entity in the hierarchy (when it is in the open scene).
+                    Entity target = issue.EntityID && m_ActiveScene ? m_ActiveScene->GetEntityByUUID(issue.EntityID) : Entity();
+                    if (target && ImGui::Selectable(issue.Entity.c_str(), false, ImGuiSelectableFlags_None))
+                        m_SceneHierarchyPanel.SetSelectedEntity(target);
+                    else if (!target)
+                        ImGui::TextUnformatted(issue.Entity.c_str());
+                    if (target && ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Ierarxiyada tanlash");
+                }
+                else
+                    ImGui::TextDisabled("%s", issue.Component == "Settings" ? "sozlamalar" : "fayl");
+                ImGui::TableNextColumn();
+                ImGui::PushTextWrapPos(0.0f);
+                ImGui::TextUnformatted(issue.Message.c_str());
+                if (!issue.SourceLine.empty())
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.80f, 0.88f, 1.0f));
+                    ImGui::TextUnformatted(issue.SourceLine.c_str());
+                    ImGui::PopStyleColor();
+                    if (issue.Column > 0)
+                    {
+                        // A caret under the column the parser stopped at.
+                        const int column = std::min<int>(issue.Column, (int)issue.SourceLine.size() + 1);
+                        const std::string caret = std::string((size_t)std::max(0, column - 1), ' ') + "^";
+                        ImGui::TextColored(ImVec4(0.95f, 0.40f, 0.36f, 1.0f), "%s", caret.c_str());
+                    }
+                }
+                ImGui::PopTextWrapPos();
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+        if (ImGui::Button(ICON_FA_COPY "  Nusxa olish"))
+            ImGui::SetClipboardText((LoadReportFileName(report) + "\n" + report.Format(1000)).c_str());
+        ImGui::SameLine();
+        if (!report.File.empty() && fs::exists(fs::path(report.File)) && m_SceneState == SceneState::Edit)
+        {
+            if (ImGui::Button(ICON_FA_ROTATE "  Qayta ochish"))
+            {
+                m_ShowLoadReport = false;
+                m_LoadReportBanner = false;
+                OpenScene(fs::path(report.File));
+            }
+            ImGui::SameLine();
+        }
+        if (ImGui::Button("Yopish"))
+        {
+            m_ShowLoadReport = false;
+            m_LoadReportBanner = false;
+        }
+        ImGui::End();
     }
 
     void EditorLayer::UI_TransparentOrder()

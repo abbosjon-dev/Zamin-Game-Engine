@@ -205,6 +205,11 @@ namespace Zamin {
         void UI_Joint3DAnchorEditor();
         void UI_ViewMenu();
         void UI_ViewportMessage();
+        // Scene load problems (SceneLoadReport): a dismissable banner over the viewport, the details
+        // in the "Sahna yuklash muammolari" window (opening a scene, play-mode scene switches).
+        void ShowSceneLoadReport(const SceneLoadReport& report);
+        void UI_SceneLoadBanner();
+        void UI_SceneLoadReport();
         void UI_MaximizedGame();
         void UI_TransparentOrder();
         void UI_ViewportIcons();
@@ -433,6 +438,9 @@ namespace Zamin {
         bool m_ViewSettingsDirty = false;
         std::string m_ViewportMessage;
         double m_ViewportMessageTime = -100.0;
+        SceneLoadReport m_LoadReport;            // the last scene load that found something
+        bool m_LoadReportBanner = false, m_ShowLoadReport = false;
+        uint64_t m_RuntimeReportSerial = 0;
         bool m_ShowColliders = true;
         bool m_ShowTransparentOrder = false;     // numbers over transparent surfaces: their drawing order
         std::vector<Renderer3D::TransparentDrawRecord> m_TransparentOrder;

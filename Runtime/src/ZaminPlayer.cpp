@@ -1,10 +1,15 @@
 // Zamin Player: runs an exported / development game project fullscreen-ready.
-//   ZaminPlayer [path/to/Game.zproject] [--scene Scenes/Level.zscene] [--fullscreen] [--width W --height H]
+//   ZaminPlayer [path/to/Game.zproject] [--scene Scenes/Level.zscene | <build index> | <build scene name>]
+//               [--fullscreen] [--width W --height H]
 //               [--no-debug-draw] [--debug-raycasts] [--debug-contacts] [--debug-contact-details] [--debug-joints]
 //               [--debug-velocities]
 #include <Zamin/Zamin.h>
 #include <Zamin/Core/EntryPoint.h>
 
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -63,11 +68,23 @@ namespace Zamin {
             if (auto module = Project::GetScriptModulePath(); !module.empty())
                 ScriptEngine::LoadModule(module);
 
-            // The start scene: --scene, else the project's start scene, else the first build scene.
+            // The start scene: --scene (a path, a build index or a build scene's name), else the
+            // project's start scene, else the first build scene.
             std::filesystem::path start = m_SceneOverride.empty() ? config.StartScene : std::filesystem::path(m_SceneOverride);
-            if (start.empty())
+            int buildIndex = -1;
+            if (const std::string& arg = m_SceneOverride; !arg.empty() &&
+                std::from_chars(arg.data(), arg.data() + arg.size(), buildIndex).ptr == arg.data() + arg.size())
+            {
+                start = Project::GetBuildScenePath(buildIndex);
+                if (start.empty())
+                    ZM_ERROR("--scene {}: build ro'yxatida bunday indeks yo'q ({} ta sahna bor)", buildIndex, SceneManager::GetBuildSceneCount());
+            }
+            else if (!m_SceneOverride.empty() && !start.has_extension())
+                if (std::filesystem::path named = Project::FindBuildScene(m_SceneOverride); !named.empty())
+                    start = named;
+            if (start.empty() && m_SceneOverride.empty())
                 start = Project::GetBuildScenePath(0);
-            std::filesystem::path scenePath = Project::GetAssetFileSystemPath(start);
+            std::filesystem::path scenePath = start.empty() ? std::filesystem::path() : Project::GetAssetFileSystemPath(start);
             // Every scene of the game runs in the scene manager: additive scenes, DontDestroyOnLoad,
             // background loading and fades between scenes.
             m_Scenes = std::make_unique<SceneManager>();
@@ -77,10 +94,23 @@ namespace Zamin {
             if (!m_Scenes->Start(scenePath, &error))
             {
                 ZM_CRITICAL("Boshlang'ich sahna yuklanmadi: {} ({})", scenePath.string(), error);
+                // An error screen instead of closing at once: what went wrong, Esc to quit.
+                std::vector<SceneLoadReport> reports = m_Scenes->TakeLoadReports();
+                if (!reports.empty())
+                    m_ErrorReport = reports.back();
+                else
+                {
+                    m_ErrorReport.File = scenePath.generic_string();
+                    SceneLoadIssue issue;
+                    issue.Level = SceneLoadIssue::Severity::Fatal;
+                    issue.Message = error.empty() ? std::string("sahna yuklanmadi") : error;
+                    m_ErrorReport.Add(std::move(issue));
+                }
+                m_ErrorScreen = true;
                 m_Scenes.reset();
-                Application::Get().Close();
                 return;
             }
+            m_ReportSerial = m_Scenes->GetLoadReportSerial();
             m_ActiveSerial = m_Scenes->GetActiveSceneSerial();
 
             // Automation (comparisons, CI): ZAMIN_PLAYER_NO_CULLING=1 / ZAMIN_PLAYER_NO_INSTANCING=1 turn the
@@ -173,8 +203,106 @@ namespace Zamin {
             Display::BindWindow(nullptr);
         }
 
+        // The game's first scene could not be loaded: what went wrong, instead of a closed window.
+        void RenderErrorScreen()
+        {
+            if (Input::IsKeyJustPressed(Key::Escape) || Input::IsKeyJustPressed(Key::Enter))
+            {
+                Application::Get().Close();
+                return;
+            }
+            auto& window = Application::Get().GetWindow();
+            const uint32_t w = window.GetFramebufferWidth(), h = window.GetFramebufferHeight();
+            if (w == 0 || h == 0)
+                return;
+            RenderCommand::SetViewport(0, 0, w, h);
+            RenderCommand::SetClearColor({ 0.055f, 0.06f, 0.075f, 1.0f });
+            RenderCommand::Clear();
+            RenderCommand::SetDepthTest(false);
+            const float scale = std::clamp((float)h / 720.0f, 0.7f, 2.5f);
+            Renderer2D::SetDisplayOutput(true);
+            Renderer2D::SetLit(false);
+            Renderer2D::BeginScene(glm::ortho(0.0f, (float)w, 0.0f, (float)h, -1.0f, 1.0f));
+            const Ref<Font> font = Font::GetDefault();
+            const float left = 72.0f * scale, right = (float)w - 48.0f * scale;
+            float y = (float)h - 96.0f * scale;
+            // A red mark down the left, then the lines of text from the top.
+            Renderer2D::DrawQuad(glm::vec2(40.0f * scale, (float)h * 0.5f), glm::vec2(8.0f * scale, (float)h - 120.0f * scale),
+                                 glm::vec4(0.86f, 0.27f, 0.25f, 1.0f));
+            auto line = [&](std::string text, float size, const glm::vec4& color) {
+                if (!font || y < 60.0f * scale)
+                    return;
+                // Cut what does not fit the width.
+                const float maxWidth = (right - left) / size;
+                if (Renderer2D::MeasureString(text, font).x > maxWidth)
+                {
+                    while (text.size() > 4 && Renderer2D::MeasureString(text + "...", font).x > maxWidth)
+                        text.pop_back();
+                    text += "...";
+                }
+                glm::mat4 transform = glm::translate(glm::mat4(1.0f), glm::vec3(left, y, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(size));
+                Renderer2D::TextParams params;
+                params.Color = color;
+                Renderer2D::DrawString(text, font, transform, params);
+                y -= size * 1.55f;
+            };
+            const glm::vec4 white(0.93f, 0.94f, 0.96f, 1.0f), grey(0.60f, 0.63f, 0.68f, 1.0f), red(0.95f, 0.45f, 0.42f, 1.0f);
+            line("O'yinning sahnasi yuklanmadi", 36.0f * scale, white);
+            line(m_ErrorReport.File.empty() ? std::string("(sahna ko'rsatilmagan)") : m_ErrorReport.File, 17.0f * scale, grey);
+            y -= 14.0f * scale;
+            size_t shown = 0;
+            for (const SceneLoadIssue& issue : m_ErrorReport.Issues)
+            {
+                if (shown++ == 10)
+                {
+                    line(std::format("... va yana {} ta", m_ErrorReport.Issues.size() - 10), 18.0f * scale, grey);
+                    break;
+                }
+                line(issue.Message, 20.0f * scale, issue.Level == SceneLoadIssue::Severity::Warning ? white : red);
+                if (!issue.SourceLine.empty())
+                    line("    " + issue.SourceLine, 17.0f * scale, grey);
+            }
+            y = 70.0f * scale;
+            line("Esc - chiqish.  To'liq ma'lumot konsolda (log).", 17.0f * scale, grey);
+            Renderer2D::EndScene();
+            Renderer2D::SetDisplayOutput(false);
+        }
+
+        // A scene the game switched to that could not be loaded (the game stays where it was): a
+        // strip over the top of the picture for a few seconds.
+        void RenderLoadBanner(uint32_t w, uint32_t h)
+        {
+            if (m_BannerTime <= 0.0f || m_BannerText.empty() || w == 0 || h == 0)
+                return;
+            const float alpha = std::clamp(m_BannerTime, 0.0f, 1.0f);
+            const float scale = std::clamp((float)h / 720.0f, 0.7f, 2.5f);
+            const float height = 44.0f * scale;
+            RenderCommand::SetDepthTest(false);
+            Renderer2D::SetDisplayOutput(true);
+            Renderer2D::SetLit(false);
+            Renderer2D::BeginScene(glm::ortho(0.0f, (float)w, 0.0f, (float)h, -1.0f, 1.0f));
+            Renderer2D::DrawQuad(glm::vec2((float)w * 0.5f, (float)h - height * 0.5f), glm::vec2((float)w, height),
+                                 glm::vec4(0.45f, 0.08f, 0.08f, 0.88f * alpha));
+            if (Ref<Font> font = Font::GetDefault())
+            {
+                const float size = 18.0f * scale;
+                glm::mat4 transform = glm::translate(glm::mat4(1.0f), glm::vec3(20.0f * scale, (float)h - height * 0.5f - size * 0.3f, 0.0f)) *
+                                      glm::scale(glm::mat4(1.0f), glm::vec3(size));
+                Renderer2D::TextParams params;
+                params.Color = glm::vec4(1.0f, 0.93f, 0.92f, alpha);
+                Renderer2D::DrawString(m_BannerText, font, transform, params);
+            }
+            Renderer2D::EndScene();
+            Renderer2D::SetDisplayOutput(false);
+        }
+
         void OnUpdate(Timestep ts) override
         {
+            if (m_ErrorScreen)
+            {
+                RenderErrorScreen();
+                return;
+            }
             if (!m_Scenes) return;
             if (!m_ScriptedInput.empty())
                 PlayScriptedInput();
@@ -254,6 +382,8 @@ namespace Zamin {
                 }
                 // A fade between scenes covers everything.
                 m_Scenes->RenderTransition(w, h);
+                RenderLoadBanner(w, h);
+                m_BannerTime -= ts;
             }
 
             if (m_Scenes->IsQuitRequested())
@@ -265,6 +395,19 @@ namespace Zamin {
             }
             // Scene switches asked for in this frame (LoadScene, async activations, DontDestroyOnLoad).
             m_Scenes->ProcessRequests();
+            if (m_Scenes->GetLoadReportSerial() != m_ReportSerial)
+            {
+                // (They are logged where they happen; only what broke a switch is shown.)
+                m_ReportSerial = m_Scenes->GetLoadReportSerial();
+                for (const SceneLoadReport& report : m_Scenes->TakeLoadReports())
+                    if (report.Failed() || report.Count(SceneLoadIssue::Severity::Error) > 0)
+                    {
+                        const std::string name = std::filesystem::path(report.File).filename().string();
+                        m_BannerText = report.Failed() ? std::format("Sahnaga o'tilmadi: {} - {}", name, report.Summary())
+                                                       : std::format("'{}' sahnasi qisman yuklandi: {}", name, report.Summary());
+                        m_BannerTime = 6.0f;
+                    }
+            }
             if (m_Scenes->GetActiveSceneSerial() != m_ActiveSerial)
             {
                 m_ActiveSerial = m_Scenes->GetActiveSceneSerial();
@@ -289,6 +432,12 @@ namespace Zamin {
         std::string m_LastAudioProfile = "-";
         std::unique_ptr<SceneManager> m_Scenes;
         uint64_t m_ActiveSerial = 0;
+        // Load problems: the error screen (the first scene failed), the strip over a running game.
+        bool m_ErrorScreen = false;
+        SceneLoadReport m_ErrorReport;
+        uint64_t m_ReportSerial = 0;
+        std::string m_BannerText;
+        float m_BannerTime = 0.0f;
         Ref<Framebuffer> m_Target;
         PostProcessHistory m_PostHistory; // auto exposure: the screen's adapted brightness
         // ZAMIN_PLAYER_INPUT

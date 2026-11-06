@@ -254,19 +254,31 @@ namespace Zamin {
         void OnViewportResize(uint32_t width, uint32_t height);
 
         // First entity with this name, in scene order (the order of GetEntitiesInOrder()).
-        // Cached: a hash lookup instead of a scan over all entities. Creating / destroying
-        // entities and Entity::SetName update the cache at once; a direct write to
-        // TagComponent::Tag is picked up on the next frame (or after InvalidateNameCache()).
+        // Indexed: a hash lookup instead of a scan over all entities - O(1) for a unique name, O(k)
+        // for k entities with it. The index is made at the first lookup and then kept up to date
+        // entity by entity: creating / destroying entities and Entity::SetName at once (no rebuild
+        // when a game spawns and destroys every frame), reordering the hierarchy at the next lookup
+        // of a name; a direct write to TagComponent::Tag is picked up on the next frame (one pass
+        // over the names, without hashing) or after InvalidateNameCache().
         Entity FindEntityByName(std::string_view name);
         // Every entity with this name, in scene order.
         std::vector<Entity> FindEntitiesByName(std::string_view name);
-        void InvalidateNameCache() { m_NameCacheDirty = true; }
+        // How many entities have this name (O(1) after the index's frame check).
+        size_t CountEntitiesByName(std::string_view name);
+        // The next lookup checks every name (after direct writes to TagComponent::Tag).
+        void InvalidateNameCache() { m_NameIndex.Check = true; }
         struct NameCacheStats
         {
-            uint32_t Rebuilds = 0;     // full rebuilds of the name -> entity map
-            uint32_t Validations = 0;  // once-per-frame consistency checks
+            uint32_t Rebuilds = 0;     // full builds of the index (the first lookup)
+            uint32_t Validations = 0;  // once-per-frame passes looking for direct writes
+            uint32_t Updates = 0;      // entities re-listed (a rename, a direct write)
         };
-        const NameCacheStats& GetNameCacheStats() const { return m_NameCacheStats; }
+        const NameCacheStats& GetNameCacheStats() const { return m_NameIndex.Stats; }
+        // The gameplay tags' index (FindEntitiesWithTag ...): the same rules, for TagsComponent::Tags
+        // (Entity::AddTag / RemoveTag at once, direct edits of the list - added or removed tags - on
+        // the next frame or after InvalidateTagIndex()).
+        const NameCacheStats& GetTagIndexStats() const { return m_TagIndex.Stats; }
+        void InvalidateTagIndex() { m_TagIndex.Check = true; }
 
         // ---- animation work of the last Animator update (the editor's statistics, profiling)
         struct AnimationStats
@@ -292,12 +304,27 @@ namespace Zamin {
         // Entities in creation order (stable, used by UI & serialization).
         std::vector<Entity> GetEntitiesInOrder();
 
-        // ---- gameplay tags (TagsComponent), results in scene order
+        // ---- gameplay tags (TagsComponent), results in scene order. Indexed like the names: O(k)
+        // for the k entities with the tag (CountEntitiesWithTag O(1)), see GetTagIndexStats.
         std::vector<Entity> FindEntitiesWithTag(std::string_view tag);
         Entity FindEntityWithTag(std::string_view tag);
         size_t CountEntitiesWithTag(std::string_view tag);
         // Every tag used in this scene (sorted, unique).
         std::vector<std::string> GetAllTags();
+
+        // ---- by component type (the registry's pool of T: O(k) for the k entities that have one)
+        // Every entity with a T, in scene order.
+        template<typename T> std::vector<Entity> FindEntitiesWith();
+        // The first one in scene order (null: none).
+        template<typename T> Entity FindEntityWith();
+        template<typename T> size_t CountEntitiesWith() { return m_Registry.storage<T>().size(); }
+        // Every T, in scene order: a component (pointers into the pool: valid until components of
+        // that type are added / removed) - or, for a script class (a ScriptableEntity subclass), the
+        // running instances of that class and of classes derived from it.
+        //   for (auto* light : scene.FindObjectsOfType<PointLightComponent>()) light->Intensity *= 0.5f;
+        //   for (auto* enemy : scene.FindObjectsOfType<EnemyAI>()) enemy->Alert();
+        template<typename T> std::vector<T*> FindObjectsOfType();
+        template<typename T> T* FindObjectOfType();
 
         // ---- hierarchy
         // Make `child` a child of `parent` (or a root when parent is invalid).
@@ -806,6 +833,10 @@ namespace Zamin {
         // Every running script in the scene (scene order), the sender included.
         int Broadcast(const ScriptMessage& message);
         static constexpr int MaxMessageDepth = 32;
+        // Calls `call` for every created script instance (OnCreate has returned, not being destroyed),
+        // in scene order - a snapshot: scripts the calls create are not visited, destroyed ones are
+        // skipped (SceneManager's scene events).
+        void ForEachRunningScript(const std::function<void(ScriptableEntity&)>& call);
 
         // ---- publish / subscribe events shared by all scripts (cleared when play mode stops)
         // SceneManager: every scene it runs shares one bus (a persistent manager hears the level's events).
@@ -1238,10 +1269,55 @@ namespace Zamin {
         // The main directional light of these (in scene order): the first that casts shadows, else the first.
         entt::entity PickSun(const std::vector<entt::entity>& directionalLights);
 
-        void OnNameChanged(entt::registry&, entt::entity) { m_NameCacheDirty = true; }
-        void RebuildNameCache();
-        bool IsNameCacheValid();
+        // ---- the name / tag indices (FindEntityByName, FindEntitiesWithTag)
+        struct StringHash
+        {
+            using is_transparent = void;
+            size_t operator()(std::string_view s) const { return std::hash<std::string_view>{}(s); }
+        };
+        // The entities listed under one name / tag; sorted in scene order when it is read (Order:
+        // the m_SceneOrderSerial it was sorted at).
+        struct IndexedEntities
+        {
+            std::vector<entt::entity> Entities;
+            uint64_t Order = 0;
+        };
+        struct EntityIndex
+        {
+            std::unordered_map<std::string, IndexedEntities, StringHash, std::equal_to<>> Lists;
+            bool Built = false;
+            bool Check = false;              // the next lookup checks every entity
+            uint64_t CheckedFrame = ~0ull;   // m_FrameIndex of the last check
+            NameCacheStats Stats;
+        };
+        // What each entity is listed under, by its entt index (entt::to_entity).
+        struct NameSlot
+        {
+            std::string Name;
+            bool Listed = false;
+        };
+        struct TagSlot
+        {
+            std::vector<std::string> Tags;
+            bool Listed = false;
+        };
+        void OnNameConstructed(entt::registry&, entt::entity e);
+        void OnNameUpdated(entt::registry&, entt::entity e);
+        void OnNameDestroyed(entt::registry&, entt::entity e);
+        void OnTagsChanged(entt::registry&, entt::entity e);
+        void OnTagsDestroyed(entt::registry&, entt::entity e);
+        void IndexInsert(EntityIndex& index, std::string_view key, entt::entity e);
+        void IndexErase(EntityIndex& index, std::string_view key, entt::entity e);
+        void ListName(entt::entity e);
+        void UnlistName(entt::entity e);
+        void ListTags(entt::entity e);
+        void UnlistTags(entt::entity e);
+        void EnsureNameIndex();
+        void EnsureTagIndex();
+        // The list under `key` in scene order (null: none); stale hits are re-listed first.
         const std::vector<entt::entity>* LookupName(std::string_view name);
+        const std::vector<entt::entity>* LookupTag(std::string_view tag, bool sorted = true);
+        void SortIndexed(IndexedEntities& list);
         void SortInSceneOrder(std::vector<Entity>& entities);
         // Moves the entity in the scene order (IDComponent pool) to just before `before`
         // (the end when invalid); every other entity keeps its relative order.
@@ -1413,18 +1489,13 @@ namespace Zamin {
         std::unordered_map<UUID, entt::entity> m_EntityMap;
         std::vector<UUID> m_DestroyQueue;
 
-        // FindEntityByName cache: name -> entities in scene order.
-        struct StringHash
-        {
-            using is_transparent = void;
-            size_t operator()(std::string_view s) const { return std::hash<std::string_view>{}(s); }
-        };
-        std::unordered_map<std::string, std::vector<entt::entity>, StringHash, std::equal_to<>> m_NameCache;
-        bool m_NameCacheDirty = true;
+        // FindEntityByName / FindEntitiesWithTag indices (see EntityIndex).
+        EntityIndex m_NameIndex, m_TagIndex;
+        std::vector<NameSlot> m_NameSlots;
+        std::vector<TagSlot> m_TagSlots;
+        uint64_t m_SceneOrderSerial = 1; // grows when the scene order changes (MoveInSceneOrder)
         uint64_t m_FrameIndex = 0;
         std::optional<glm::vec3> m_ParticleViewer; // SetParticleViewer
-        uint64_t m_NameCacheFrame = ~0ull; // frame of the last validation / rebuild
-        NameCacheStats m_NameCacheStats;
         AnimationStats m_AnimationStats;
         uint64_t m_AnimationUpdate = 0;           // UpdateAnimators calls
         uint64_t m_AnimationViewUpdate = ~0ull;   // the update after which a view was last drawn

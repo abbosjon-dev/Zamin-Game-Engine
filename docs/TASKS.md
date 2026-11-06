@@ -331,11 +331,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 283. Asinxron sahna yuklash (loading screen)
 - [x] 284. Sahna o'tishlari (fade in/out)
 - [x] 285. Build sahnalar ro'yxati (loyiha sozlamalarida)
-- [ ] 286. LoadScene indeks bo'yicha
-- [ ] 287. Sahna yuklanganda/yopilganda hodisalar
-- [ ] 288. Sahna ichida qidirish API'lari tezlashtirish
-- [ ] 289. Sahnani yuklashda xatolarni ko'rsatish
-- [ ] 290. Sahnalarni solishtirish (diff) uchun barqaror UUID tartibi
+- [x] 286. LoadScene indeks bo'yicha
+- [x] 287. Sahna yuklanganda/yopilganda hodisalar
+- [x] 288. Sahna ichida qidirish API'lari tezlashtirish
+- [x] 289. Sahnani yuklashda xatolarni ko'rsatish
+- [x] 290. Sahnalarni solishtirish (diff) uchun barqaror UUID tartibi
 - [ ] 291. Sahna metadata (ta'rif, thumbnail)
 - [ ] 292. Editor: sahnalar ro'yxati paneli
 - [ ] 293. Editor: o'yin rejimida sahna almashganda editor holatini tiklash

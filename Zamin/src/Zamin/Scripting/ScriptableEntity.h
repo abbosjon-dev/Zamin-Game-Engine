@@ -189,6 +189,18 @@ namespace Zamin {
         // on the event bus as "AnimationEvent" (payload: AnimationEventInfo).
         //   void OnAnimationEvent(const AnimationEventInfo& e) override { if (e.Name == "Footstep") PlayStep(); }
         virtual void OnAnimationEvent(const AnimationEventInfo& /*event*/) {}
+        // Scene events of the game's SceneManager (play mode, the player), to every script of every
+        // loaded scene and of the persistent DontDestroyOnLoad one, at the end of the frame the change
+        // happened in. A Single load: OnSceneUnloaded for each scene that went, OnActiveSceneChanged,
+        // then OnSceneLoaded (the new scene's own scripts get it too: after their OnCreate, before
+        // OnStart); an Additive load: OnSceneLoaded; UnloadScene: OnSceneUnloaded (+ OnActiveSceneChanged
+        // when it was the active one); the game's first scene: OnActiveSceneChanged (from no scene) and
+        // OnSceneLoaded. Also on the event bus: "SceneLoaded" / "SceneUnloaded" (payload SceneEventInfo),
+        // "ActiveSceneChanged" (payload ActiveSceneChange).
+        //   void OnSceneLoaded(const SceneEventInfo& scene) override { if (scene.BuildIndex == 3) PlayMusic("Audio/boss.ogg"); }
+        virtual void OnSceneLoaded(const SceneEventInfo& /*scene*/) {}
+        virtual void OnSceneUnloaded(const SceneEventInfo& /*scene*/) {}
+        virtual void OnActiveSceneChanged(const SceneEventInfo& /*previous*/, const SceneEventInfo& /*current*/) {}
 
         // ---- enabled state (NativeScriptComponent::Enabled). SetEnabled runs
         // OnEnable / OnDisable immediately; a disabled script keeps its state and timers
@@ -240,9 +252,42 @@ namespace Zamin {
         bool HasTag(std::string_view tag) const { return m_Entity.HasTag(tag); }
         bool AddTag(std::string_view tag) { return m_Entity.AddTag(tag); }
         bool RemoveTag(std::string_view tag) { return m_Entity.RemoveTag(tag); }
-        // This scene's first, then the other loaded scenes'.
+        // This scene's first, then the other loaded scenes' (indexed: O(k) for k tagged entities).
         std::vector<Entity> FindEntitiesWithTag(std::string_view tag) const;
         Entity FindEntityWithTag(std::string_view tag) const;
+        // ---- by type: every component T, or every running script of class T (and its subclasses),
+        // this script's scene first, then the other loaded scenes (the active one first, the
+        // persistent DontDestroyOnLoad one last). O(k): the k entities with a T (scripts: every script).
+        //   for (auto* enemy : FindObjectsOfType<EnemyAI>()) enemy->Alert();
+        //   if (auto* hud = FindObjectOfType<Hud>()) hud->SetScore(m_Score);
+        //   size_t lights = FindObjectsOfType<PointLightComponent>().size();
+        template<typename T>
+        std::vector<T*> FindObjectsOfType() const
+        {
+            Scene* scene = m_Entity.GetScene();
+            std::vector<T*> found = scene->template FindObjectsOfType<T>();
+            if (SceneManager* manager = scene->GetSceneManager())
+                for (Scene* other : manager->GetSearchOrder())
+                    if (other != scene)
+                    {
+                        std::vector<T*> more = other->template FindObjectsOfType<T>();
+                        found.insert(found.end(), more.begin(), more.end());
+                    }
+            return found;
+        }
+        template<typename T>
+        T* FindObjectOfType() const
+        {
+            Scene* scene = m_Entity.GetScene();
+            if (T* found = scene->template FindObjectOfType<T>())
+                return found;
+            if (SceneManager* manager = scene->GetSceneManager())
+                for (Scene* other : manager->GetSearchOrder())
+                    if (other != scene)
+                        if (T* found = other->template FindObjectOfType<T>())
+                            return found;
+            return nullptr;
+        }
         // Copy an existing entity (a "prefab") into the running scene. The copies keep their
         // own active flags: a switched-off template gives a switched-off clone (SetActive(clone,
         // true) brings it in). A template parked in a switched-off group gives a root clone.
@@ -551,8 +596,18 @@ namespace Zamin {
         void LoadScene(const std::string& scenePath);
         void LoadScene(const std::string& scenePath, LoadSceneMode mode, const SceneTransition& transition = {});
         void LoadScene(const std::string& scenePath, const SceneTransition& transition);
-        // False when the build list has no such index.
+        // By build index (Project settings > Build scenes: the enabled scenes, from 0). False (logged)
+        // when the build list has no such index.
         bool LoadScene(int buildIndex, LoadSceneMode mode = LoadSceneMode::Single, const SceneTransition& transition = {});
+        // The next scene of the build list after the active one (false at its end), the active one again.
+        //   if (!LoadNextScene(SceneTransition::Fade(0.5f))) LoadScene(0); // the last level: back to the menu
+        bool LoadNextScene(const SceneTransition& transition = {});
+        bool ReloadScene(const SceneTransition& transition = {});
+        // This script's scene's build index / the active scene's (-1: not in the build list), the
+        // build list's length.
+        int GetSceneBuildIndex() const;
+        int GetActiveSceneBuildIndex() const;
+        int GetBuildSceneCount() const;
         // In the background (a loading screen): the file is read, parsed and its textures decoded on a
         // worker thread, the rest a slice per frame; GetProgress() 0..1 (0.9: loaded, waiting for
         // activation). SetAllowSceneActivation(false) holds it until the screen is ready. Null without
@@ -562,6 +617,7 @@ namespace Zamin {
         //   ... bar.Value = m_Load->GetProgress() / 0.9f; if (m_Load->IsReady()) m_Load->SetAllowSceneActivation(true);
         Ref<AsyncOperation> LoadSceneAsync(const std::string& scenePath, LoadSceneMode mode = LoadSceneMode::Single,
                                            const SceneTransition& transition = {});
+        Ref<AsyncOperation> LoadSceneAsync(int buildIndex, LoadSceneMode mode = LoadSceneMode::Single, const SceneTransition& transition = {});
         // Unloads a loaded scene (its name or path) at the end of the frame (not the last one).
         bool UnloadScene(const std::string& nameOrPath);
         // `entity` (this one without an argument; a child leaves its parent) with its descendants moves

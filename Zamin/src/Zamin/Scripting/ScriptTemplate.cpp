@@ -159,6 +159,15 @@ public:
         }
     }
 
+    // ================================================================ sahnalar
+    // Sahna yuklandi (o'yinning birinchi sahnasi ham; Additive ham). LoadScene(1) - build indeksi bo'yicha,
+    // LoadNextScene() - build ro'yxatidagi keyingisi, ReloadScene() - shu darajani qaytadan.
+    void OnSceneLoaded(const SceneEventInfo& scene) override
+    {
+        if (ShowDebug)
+            ZM_INFO("$CLASS$: '{}' sahnasi yuklandi (build indeksi {})", scene.Name, scene.BuildIndex);
+    }
+
 private:
     glm::vec3 m_StartPosition{ 0.0f };
     SubscriptionID m_GameOverSubscription = 0;

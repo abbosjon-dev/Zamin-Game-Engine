@@ -11,6 +11,7 @@
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Scripting/EventBus.h"
+#include "Zamin/Scripting/ScriptableEntity.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -166,6 +167,8 @@ namespace Zamin {
         m_Scenes.push_back({ scene, path.empty() ? std::string() : ToAssetRelative(path) });
         SetActive(scene);
         ApplySharedPreloads();
+        NotifyActiveSceneChanged({}, MakeEventInfo(scene));
+        NotifySceneLoaded(MakeEventInfo(scene, LoadSceneMode::Single));
     }
 
     bool SceneManager::Start(const fs::path& path, std::string* error)
@@ -205,13 +208,74 @@ namespace Zamin {
         m_Paused = false;
     }
 
+    // ------------------------------------------------------------------ load reports
+    void SceneManager::AddLoadReport(const SceneLoadReport& report)
+    {
+        if (!report.HasIssues())
+            return;
+        if (m_LoadReports.size() >= MaxLoadReports)
+            m_LoadReports.erase(m_LoadReports.begin());
+        m_LoadReports.push_back(report);
+        m_LoadReportSerial++;
+    }
+
+    std::vector<SceneLoadReport> SceneManager::TakeLoadReports()
+    {
+        std::vector<SceneLoadReport> reports = std::move(m_LoadReports);
+        m_LoadReports.clear();
+        return reports;
+    }
+
+    // ------------------------------------------------------------------ scene events
+    SceneEventInfo SceneManager::MakeEventInfo(const Ref<Scene>& scene, LoadSceneMode mode) const
+    {
+        SceneEventInfo info;
+        if (!scene)
+            return info;
+        info.SceneRef = scene.get();
+        info.Name = scene->GetName();
+        info.Path = GetScenePath(scene.get());
+        info.BuildIndex = info.Path.empty() ? -1 : Project::GetBuildIndex(info.Path);
+        info.Mode = mode;
+        return info;
+    }
+
+    // Every running script of every scene (the persistent one first, then load order), then the bus.
+    template<typename Call>
+    static void ForEveryScript(const std::vector<Scene*>& scenes, const Call& call)
+    {
+        for (Scene* scene : scenes)
+            if (scene->IsRunning())
+                scene->ForEachRunningScript(call);
+    }
+
+    void SceneManager::NotifySceneLoaded(const SceneEventInfo& scene)
+    {
+        ForEveryScript(GetUpdateOrder(), [&](ScriptableEntity& script) { script.OnSceneLoaded(scene); });
+        m_EventBus->Emit("SceneLoaded", scene);
+    }
+
+    void SceneManager::NotifySceneUnloaded(const SceneEventInfo& scene)
+    {
+        ForEveryScript(GetUpdateOrder(), [&](ScriptableEntity& script) { script.OnSceneUnloaded(scene); });
+        m_EventBus->Emit("SceneUnloaded", scene);
+    }
+
+    void SceneManager::NotifyActiveSceneChanged(const SceneEventInfo& previous, const SceneEventInfo& current)
+    {
+        ForEveryScript(GetUpdateOrder(), [&](ScriptableEntity& script) { script.OnActiveSceneChanged(previous, current); });
+        m_EventBus->Emit("ActiveSceneChanged", ActiveSceneChange{ previous, current });
+    }
+
     Ref<Scene> SceneManager::LoadNow(const fs::path& path, std::string* error)
     {
         const fs::path file = ToAssetFile(ResolveScenePath(path));
         Ref<Scene> scene = CreateRef<Scene>();
         scene->OnViewportResize(m_ViewportWidth, m_ViewportHeight); // cameras get the view's aspect
         SceneSerializer serializer(scene);
-        if (!serializer.Deserialize(file))
+        const bool loaded = serializer.Deserialize(file); // logs what it found
+        AddLoadReport(serializer.GetLoadReport());
+        if (!loaded)
         {
             if (error)
                 *error = serializer.GetLastError();
@@ -396,6 +460,63 @@ namespace Zamin {
         return true;
     }
 
+    Ref<AsyncOperation> SceneManager::LoadSceneAsync(int buildIndex, LoadSceneMode mode, const SceneTransition& transition)
+    {
+        fs::path path = Project::GetBuildScenePath(buildIndex);
+        if (path.empty())
+        {
+            ZM_CORE_ERROR("Build ro'yxatida {} indeksli sahna yo'q ({} ta sahna bor)", buildIndex, Project::GetBuildScenes().size());
+            return nullptr;
+        }
+        return LoadSceneAsync(path, mode, transition);
+    }
+
+    bool SceneManager::LoadNextScene(const SceneTransition& transition)
+    {
+        const int current = GetActiveSceneBuildIndex();
+        if (current < 0)
+        {
+            ZM_CORE_WARN("Faol sahna build ro'yxatida yo'q: keyingi sahna noma'lum");
+            return false;
+        }
+        if (current + 1 >= GetBuildSceneCount())
+        {
+            ZM_CORE_WARN("'{}' build ro'yxatining oxirgi sahnasi: keyingisi yo'q", m_Active->GetName());
+            return false;
+        }
+        return LoadScene(current + 1, LoadSceneMode::Single, transition);
+    }
+
+    bool SceneManager::ReloadActiveScene(const SceneTransition& transition)
+    {
+        const std::string path = GetScenePath(m_Active.get());
+        if (path.empty())
+        {
+            ZM_CORE_WARN("Faol sahnaning fayli yo'q: qayta yuklab bo'lmaydi");
+            return false;
+        }
+        LoadScene(fs::path(path), LoadSceneMode::Single, transition);
+        return true;
+    }
+
+    int SceneManager::GetBuildIndex(const Scene* scene) const
+    {
+        const std::string path = GetScenePath(scene);
+        return path.empty() ? -1 : Project::GetBuildIndex(path);
+    }
+
+    Ref<Scene> SceneManager::GetSceneByBuildIndex(int buildIndex) const
+    {
+        if (buildIndex < 0)
+            return nullptr;
+        for (const SceneEntry& entry : m_Scenes)
+            if (!entry.Path.empty() && Project::GetBuildIndex(entry.Path) == buildIndex)
+                return entry.SceneRef;
+        return nullptr;
+    }
+
+    int SceneManager::GetBuildSceneCount() { return (int)Project::GetBuildScenes().size(); }
+
     Ref<AsyncOperation> SceneManager::LoadSceneAsync(const fs::path& requested, LoadSceneMode mode, const SceneTransition& transition)
     {
         const fs::path path = ResolveScenePath(requested);
@@ -404,6 +525,14 @@ namespace Zamin {
         if (!fs::is_regular_file(file, ec))
         {
             AssetImportLog::Report(file, "fayl topilmadi"); // logged once with the path
+            SceneLoadReport report;
+            report.File = file.generic_string();
+            SceneLoadIssue issue;
+            issue.Type = SceneLoadIssue::Kind::FileMissing;
+            issue.Level = SceneLoadIssue::Severity::Fatal;
+            issue.Message = "fayl topilmadi";
+            report.Add(std::move(issue));
+            AddLoadReport(report);
             return nullptr;
         }
         Ref<AsyncOperation> op = CreateRef<AsyncOperation>(fs::path(ToAssetRelative(path)), mode, transition);
@@ -487,10 +616,16 @@ namespace Zamin {
 
     void SceneManager::AddLoaded(const Ref<Scene>& scene, const std::string& path, LoadSceneMode mode)
     {
+        // The scenes that go stay alive until their events are out (the scripts may look at them).
+        std::vector<SceneEntry> old;
+        std::vector<SceneEventInfo> unloaded;
+        const SceneEventInfo previousActive = MakeEventInfo(m_Active);
         if (mode == LoadSceneMode::Single)
         {
             // Every loaded scene goes (the persistent one stays); the game clock starts at 1 again.
-            std::vector<SceneEntry> old = std::move(m_Scenes);
+            for (const SceneEntry& entry : m_Scenes)
+                unloaded.push_back(MakeEventInfo(entry.SceneRef));
+            old = std::move(m_Scenes);
             m_Scenes.clear();
             m_Active.reset();
             for (auto it = old.rbegin(); it != old.rend(); ++it)
@@ -513,6 +648,13 @@ namespace Zamin {
         if (mode == LoadSceneMode::Single || !m_Active)
             SetActive(scene);
         ZM_CORE_INFO("Sahna yuklandi: {} ({})", path.empty() ? scene->GetName() : path, mode == LoadSceneMode::Additive ? "qo'shimcha" : "yagona");
+
+        for (const SceneEventInfo& info : unloaded)
+            NotifySceneUnloaded(info);
+        if (m_Active.get() != previousActive.SceneRef)
+            NotifyActiveSceneChanged(previousActive, MakeEventInfo(m_Active));
+        // What the scripts ask for in these (unloading it again ...) waits for the end of the next frame.
+        NotifySceneLoaded(MakeEventInfo(scene, mode));
     }
 
     void SceneManager::RemoveLoaded(const Ref<Scene>& scene)
@@ -579,10 +721,15 @@ namespace Zamin {
                         break;
                     }
                     const std::string name = request.Target->GetName();
+                    const SceneEventInfo info = MakeEventInfo(request.Target);
+                    const bool wasActive = request.Target == m_Active;
                     RemoveLoaded(request.Target);
                     StopScene(request.Target);
                     ZM_CORE_INFO("Sahna yopildi: {}", name);
                     changed = true;
+                    NotifySceneUnloaded(info);
+                    if (wasActive)
+                        NotifyActiveSceneChanged(info, MakeEventInfo(m_Active));
                     break;
                 }
                 case Request::Kind::Load:
@@ -647,7 +794,12 @@ namespace Zamin {
             op.JoinWorker();
             op.m_Error = reason;
             op.m_Stage = Stage::Failed;
-            AssetImportLog::Report(op.m_File, reason); // logged once with the path
+            op.m_Report = op.m_Job->GetReport();
+            AddLoadReport(op.m_Report);
+            // Logged once with the path (and the line the parser stopped at).
+            if (AssetImportLog::Report(op.m_File, reason))
+                if (const SceneLoadIssue* main = op.m_Report.GetMain(); main && !main->SourceLine.empty())
+                    ZM_CORE_ERROR("    {}", main->SourceLine);
             if (!op.m_Decode.empty())
             {
                 TextureLibrary::DropPredecoded(op.m_Decode);
@@ -731,6 +883,10 @@ namespace Zamin {
                     TextureLibrary::DropPredecoded(op.m_Decode); // what no component asked for
                     op.m_Decode.clear();
                     op.m_Stage = Stage::Ready;
+                    // What the scene came without (a broken component, a missing asset...).
+                    op.m_Report = op.m_Job->GetReport();
+                    op.m_Report.Log();
+                    AddLoadReport(op.m_Report);
                     ZM_CORE_INFO("Sahna fonda yuklandi: {} ({} ta obyekt, {} ta rasm oldindan o'qildi)", op.m_Path.generic_string(),
                                  op.m_ResolveOrder.size(), op.m_ImagesDecoded.load());
                     return;
@@ -760,7 +916,11 @@ namespace Zamin {
     {
         if (!scene || scene == m_Persistent || !IsLoaded(scene.get()))
             return false;
+        if (scene == m_Active)
+            return true;
+        const SceneEventInfo previous = MakeEventInfo(m_Active);
         SetActive(scene);
+        NotifyActiveSceneChanged(previous, MakeEventInfo(scene));
         return true;
     }
 
@@ -830,45 +990,53 @@ namespace Zamin {
     }
 
     // ------------------------------------------------------------------ across scenes
-    Entity SceneManager::FindEntityByName(std::string_view name) const
+    std::vector<Scene*> SceneManager::GetSearchOrder() const
     {
+        std::vector<Scene*> order;
+        order.reserve(m_Scenes.size() + 1);
         if (m_Active)
-            if (Entity e = m_Active->FindEntityByName(name))
-                return e;
+            order.push_back(m_Active.get());
         for (const SceneEntry& entry : m_Scenes)
             if (entry.SceneRef != m_Active)
-                if (Entity e = entry.SceneRef->FindEntityByName(name))
-                    return e;
-        return m_Persistent ? m_Persistent->FindEntityByName(name) : Entity();
+                order.push_back(entry.SceneRef.get());
+        if (m_Persistent)
+            order.push_back(m_Persistent.get());
+        return order;
+    }
+
+    Entity SceneManager::FindEntityByName(std::string_view name) const
+    {
+        for (Scene* scene : GetSearchOrder())
+            if (Entity e = scene->FindEntityByName(name))
+                return e;
+        return {};
     }
 
     Entity SceneManager::FindEntityByUUID(UUID id) const
     {
-        if (m_Active)
-            if (Entity e = m_Active->GetEntityByUUID(id))
+        for (Scene* scene : GetSearchOrder())
+            if (Entity e = scene->GetEntityByUUID(id))
                 return e;
-        for (const SceneEntry& entry : m_Scenes)
-            if (entry.SceneRef != m_Active)
-                if (Entity e = entry.SceneRef->GetEntityByUUID(id))
-                    return e;
-        return m_Persistent ? m_Persistent->GetEntityByUUID(id) : Entity();
+        return {};
     }
 
     std::vector<Entity> SceneManager::FindEntitiesWithTag(std::string_view tag) const
     {
         std::vector<Entity> found;
-        auto add = [&](const Ref<Scene>& scene) {
+        for (Scene* scene : GetSearchOrder())
+        {
             std::vector<Entity> list = scene->FindEntitiesWithTag(tag);
             found.insert(found.end(), list.begin(), list.end());
-        };
-        if (m_Active)
-            add(m_Active);
-        for (const SceneEntry& entry : m_Scenes)
-            if (entry.SceneRef != m_Active)
-                add(entry.SceneRef);
-        if (m_Persistent)
-            add(m_Persistent);
+        }
         return found;
+    }
+
+    Entity SceneManager::FindEntityWithTag(std::string_view tag) const
+    {
+        for (Scene* scene : GetSearchOrder())
+            if (Entity e = scene->FindEntityWithTag(tag))
+                return e;
+        return {};
     }
 
     // ------------------------------------------------------------------ shared state

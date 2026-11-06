@@ -133,8 +133,7 @@ namespace Zamin {
         if (Entity e = scene->FindEntityWithTag(tag))
             return e;
         SceneManager* manager = scene->GetSceneManager();
-        std::vector<Entity> found = manager ? manager->FindEntitiesWithTag(tag) : std::vector<Entity>();
-        return found.empty() ? Entity() : found.front();
+        return manager ? manager->FindEntityWithTag(tag) : Entity();
     }
 
     Entity ScriptableEntity::Instantiate(Entity prefab) { return m_Entity.GetScene()->Instantiate(prefab); }
@@ -691,6 +690,47 @@ namespace Zamin {
         ZM_CORE_WARN("'{}': fonda yuklash uchun SceneManager kerak (o'yin rejimi / player)", scenePath);
         return nullptr;
     }
+
+    Ref<AsyncOperation> ScriptableEntity::LoadSceneAsync(int buildIndex, LoadSceneMode mode, const SceneTransition& transition)
+    {
+        if (SceneManager* manager = GetSceneManager())
+            return manager->LoadSceneAsync(buildIndex, mode, transition);
+        ZM_CORE_WARN("{}-build sahna: fonda yuklash uchun SceneManager kerak (o'yin rejimi / player)", buildIndex);
+        return nullptr;
+    }
+
+    bool ScriptableEntity::LoadNextScene(const SceneTransition& transition)
+    {
+        if (SceneManager* manager = GetSceneManager())
+            return manager->LoadNextScene(transition);
+        const int current = GetSceneBuildIndex();
+        if (current < 0 || current + 1 >= GetBuildSceneCount())
+            return false;
+        return LoadScene(current + 1, LoadSceneMode::Single, transition);
+    }
+
+    bool ScriptableEntity::ReloadScene(const SceneTransition& transition)
+    {
+        if (SceneManager* manager = GetSceneManager())
+            return manager->ReloadActiveScene(transition);
+        ZM_CORE_WARN("ReloadScene: sahna SceneManager'siz ishlayapti (o'yin rejimi / player kerak)");
+        return false;
+    }
+
+    int ScriptableEntity::GetSceneBuildIndex() const
+    {
+        if (SceneManager* manager = GetSceneManager())
+            return manager->GetBuildIndex(m_Entity.GetScene());
+        return -1;
+    }
+
+    int ScriptableEntity::GetActiveSceneBuildIndex() const
+    {
+        SceneManager* manager = GetSceneManager();
+        return manager ? manager->GetActiveSceneBuildIndex() : -1;
+    }
+
+    int ScriptableEntity::GetBuildSceneCount() const { return SceneManager::GetBuildSceneCount(); }
 
     bool ScriptableEntity::UnloadScene(const std::string& nameOrPath)
     {

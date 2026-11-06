@@ -171,21 +171,17 @@ public:
         m_Subscription = 0;
     }
 
-    void OnLateUpdate(Timestep) override
+    // Scene event: another scene became the active one (the menu, the loading screen, a level).
+    // A level is counted and named; the HUD is only shown in levels.
+    void OnActiveSceneChanged(const SceneEventInfo& /*previous*/, const SceneEventInfo& current) override
     {
-        SceneManager* scenes = GetSceneManager();
-        const Ref<Scene>& active = scenes ? scenes->GetActiveScene() : nullptr;
-        const bool level = active && active->GetName().starts_with("Level");
-        if (scenes && scenes->GetActiveSceneSerial() != m_Serial)
+        const bool level = current.Name.starts_with("Level");
+        if (level)
         {
-            m_Serial = scenes->GetActiveSceneSerial();
-            if (level)
-            {
-                m_Levels++;
-                m_LevelName = active->GetName();
-            }
-            Refresh();
+            m_Levels++;
+            m_LevelName = current.Name;
         }
+        Refresh();
         if (Entity hud = Resolve(Hud); hud && hud.IsActive() != level)
             SetActive(hud, level);
     }
@@ -199,7 +195,6 @@ private:
     }
 
     int m_Coins = 0, m_Levels = 0;
-    uint64_t m_Serial = 0;
     std::string m_LevelName;
     SubscriptionID m_Subscription = 0;
 };

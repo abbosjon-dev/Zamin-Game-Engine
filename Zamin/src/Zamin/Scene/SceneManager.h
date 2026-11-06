@@ -3,6 +3,7 @@
 #include "Zamin/Core/Base.h"
 #include "Zamin/Core/Timestep.h"
 #include "Zamin/Core/UUID.h"
+#include "Zamin/Scene/SceneSerializer.h"
 
 #include <glm/glm.hpp>
 
@@ -27,6 +28,26 @@ namespace Zamin {
     // one becomes the active scene (the persistent DontDestroyOnLoad scene stays); Additive - it is
     // loaded next to the others (the active scene stays the active one).
     enum class LoadSceneMode { Single = 0, Additive };
+
+    // A scene of a scene event (SceneManager): the scripts' OnSceneLoaded / OnSceneUnloaded /
+    // OnActiveSceneChanged and the event bus's "SceneLoaded" / "SceneUnloaded" (payload: this) and
+    // "ActiveSceneChanged" (payload: ActiveSceneChange).
+    struct SceneEventInfo
+    {
+        // The scene: an unloaded one is still there during the call (stopped: its scripts are gone)
+        // and freed afterwards - keep its name / path, not the pointer. Null: no scene (the active
+        // scene before the first one).
+        Scene* SceneRef = nullptr;
+        std::string Name;
+        std::string Path;                          // relative to the assets ("" without a file)
+        int BuildIndex = -1;                       // in the build list (Project settings), -1: not in it
+        LoadSceneMode Mode = LoadSceneMode::Single; // SceneLoaded: how it came
+        bool IsValid() const { return SceneRef != nullptr; }
+    };
+    struct ActiveSceneChange
+    {
+        SceneEventInfo Previous, Current;
+    };
 
     // A fade between scenes: the screen fades to Color over FadeOut seconds (the game goes on under
     // it), the scene switches while it is covered, then the cover fades away over FadeIn seconds.
@@ -75,6 +96,8 @@ namespace Zamin {
         bool IsReady() const { return m_Stage == Stage::Ready; }
         bool HasFailed() const { return m_Stage == Stage::Failed; }
         const std::string& GetError() const { return m_Error; }
+        // What the load found (see SceneLoadReport): the failure, or what the loaded scene is without.
+        const SceneLoadReport& GetReport() const { return m_Report; }
 
         void SetAllowSceneActivation(bool allow) { m_AllowActivation = allow; }
         bool GetAllowSceneActivation() const { return m_AllowActivation; }
@@ -99,6 +122,7 @@ namespace Zamin {
         bool m_AllowActivation = true;
         Stage m_Stage = Stage::Reading;
         std::string m_Error;
+        SceneLoadReport m_Report;
         Ref<Scene> m_Scene;
         std::unique_ptr<SceneLoadJob> m_Job;
         // Worker thread (reading / decoding): it sets m_WorkerDone when its part is finished.
@@ -122,6 +146,14 @@ namespace Zamin {
     // Entities moved to the DontDestroyOnLoad scene survive every Single load. Every scene shares one
     // event bus and one game clock (time scale, pause). Scene switches requested during a frame happen
     // at its end (ProcessRequests), outside every script callback.
+    //
+    // Scene events, at the end of the frame the change happened in (SetActiveScene: at once), to every
+    // script of every loaded scene and the persistent one (ScriptableEntity::OnSceneLoaded ...) and
+    // then on the event bus: a Single load gives "SceneUnloaded" for each scene that went, then
+    // "ActiveSceneChanged", then "SceneLoaded" (the new scene's own scripts hear it too: after their
+    // OnCreate, before their OnStart); an Additive load only "SceneLoaded"; UnloadScene "SceneUnloaded"
+    // (and "ActiveSceneChanged" when it was the active one). Start gives "ActiveSceneChanged" (from no
+    // scene) and "SceneLoaded"; Stop gives none.
     class SceneManager
     {
     public:
@@ -173,13 +205,26 @@ namespace Zamin {
         // ---- loading (paths relative to the assets; the switch happens at the end of the frame)
         void LoadScene(const std::filesystem::path& path, LoadSceneMode mode = LoadSceneMode::Single,
                        const SceneTransition& transition = {});
-        // By build index (Project settings > Build scenes: the enabled ones in order). False when
-        // there is no such scene.
+        // By build index (Project settings > Build scenes: the enabled ones in order, from 0). False
+        // (logged) when there is no such scene.
         bool LoadScene(int buildIndex, LoadSceneMode mode = LoadSceneMode::Single, const SceneTransition& transition = {});
         // In the background; null when the file cannot be found. A transition fades out once the
         // operation is allowed to activate (while it still loads), and in after the switch.
         Ref<AsyncOperation> LoadSceneAsync(const std::filesystem::path& path, LoadSceneMode mode = LoadSceneMode::Single,
                                            const SceneTransition& transition = {});
+        Ref<AsyncOperation> LoadSceneAsync(int buildIndex, LoadSceneMode mode = LoadSceneMode::Single, const SceneTransition& transition = {});
+        // The scene after the active one in the build list (Single); false at the end of the list or
+        // when the active scene is not in it.
+        bool LoadNextScene(const SceneTransition& transition = {});
+        // The active scene again from its file (Single: a level restart); false when it has none.
+        bool ReloadActiveScene(const SceneTransition& transition = {});
+        // A loaded scene's build index (-1: not in the build list / not loaded here).
+        int GetBuildIndex(const Scene* scene) const;
+        int GetActiveSceneBuildIndex() const { return GetBuildIndex(m_Active.get()); }
+        // The loaded scene with that build index (null when none is loaded).
+        Ref<Scene> GetSceneByBuildIndex(int buildIndex) const;
+        // How many scenes the build list has (the enabled ones).
+        static int GetBuildSceneCount();
         // At the end of the frame. The last loaded scene cannot be unloaded (load another one Single);
         // unloading the active scene makes the first other loaded scene active. False when it is not
         // loaded here.
@@ -224,9 +269,25 @@ namespace Zamin {
         void DontDestroyOnLoad(Entity entity);
 
         // ---- across the loaded scenes (the active one first, then load order, the persistent last)
+        // Each scene's lookup is indexed (Scene::FindEntityByName / FindEntitiesWithTag).
         Entity FindEntityByName(std::string_view name) const;
         Entity FindEntityByUUID(UUID id) const;
         std::vector<Entity> FindEntitiesWithTag(std::string_view tag) const;
+        Entity FindEntityWithTag(std::string_view tag) const;
+        // Every T of every scene (a component or a script class, see Scene::FindObjectsOfType).
+        template<typename T>
+        std::vector<T*> FindObjectsOfType() const
+        {
+            std::vector<T*> found;
+            for (Scene* scene : GetSearchOrder())
+            {
+                std::vector<T*> more = scene->template FindObjectsOfType<T>();
+                found.insert(found.end(), more.begin(), more.end());
+            }
+            return found;
+        }
+        // The scenes in the order the lookups go through them.
+        std::vector<Scene*> GetSearchOrder() const;
 
         // ---- shared by every scene
         EventBus& GetEventBus() { return *m_EventBus; }
@@ -236,6 +297,16 @@ namespace Zamin {
         float GetTimeScale() const;
         void SetGamePaused(bool paused);
         bool IsGamePaused() const;
+
+        // ---- load problems (see SceneLoadReport): a scene that could not be loaded (the game stays
+        // where it was), or one that came without some of its file (a broken component, a missing
+        // asset...). Kept until taken (at most MaxLoadReports, the newest); the editor shows them,
+        // the player shows an error screen when its first scene fails.
+        static constexpr size_t MaxLoadReports = 16;
+        const std::vector<SceneLoadReport>& GetLoadReports() const { return m_LoadReports; }
+        std::vector<SceneLoadReport> TakeLoadReports();
+        // Grows with every report (hosts notice new ones).
+        uint64_t GetLoadReportSerial() const { return m_LoadReportSerial; }
 
         // ---- transitions
         bool IsTransitioning() const { return m_Fade.Phase != FadePhase::None; }
@@ -286,6 +357,12 @@ namespace Zamin {
         void ApplySharedPreloads();
         void AssignFrameRoles();
         void SetActive(const Ref<Scene>& scene);
+        void AddLoadReport(const SceneLoadReport& report);
+        // Scene events (see the class comment): every running script, then the bus.
+        SceneEventInfo MakeEventInfo(const Ref<Scene>& scene, LoadSceneMode mode = LoadSceneMode::Single) const;
+        void NotifySceneLoaded(const SceneEventInfo& scene);
+        void NotifySceneUnloaded(const SceneEventInfo& scene);
+        void NotifyActiveSceneChanged(const SceneEventInfo& previous, const SceneEventInfo& current);
         Ref<Scene> EnsurePersistentScene();
         std::vector<Scene*> GetUpdateOrder() const;
         static std::filesystem::path ToAssetFile(const std::filesystem::path& path);
@@ -300,6 +377,8 @@ namespace Zamin {
         std::vector<Ref<AsyncOperation>> m_ToActivate;
         FadeState m_Fade;
         std::unique_ptr<std::vector<FinishedSound>> m_FinishedSounds;
+        std::vector<SceneLoadReport> m_LoadReports;
+        uint64_t m_LoadReportSerial = 0;
         float m_AsyncBudget = 4.0f;
         bool m_Running = false;
         bool m_Paused = false;

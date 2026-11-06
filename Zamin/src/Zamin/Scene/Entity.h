@@ -79,17 +79,25 @@ namespace Zamin {
             const auto* tags = m_Scene->m_Registry.try_get<TagsComponent>(m_EntityHandle);
             return tags && tags->Has(tag);
         }
-        // Adds a TagsComponent when needed. Returns false for empty / duplicate tags.
+        // Adds a TagsComponent when needed. Returns false for empty / duplicate tags. Through the
+        // registry (patch): the scene's tag index follows at once.
         bool AddTag(std::string_view tag)
         {
             if (tag.empty()) return false;
             auto* tags = m_Scene->m_Registry.try_get<TagsComponent>(m_EntityHandle);
-            return (tags ? *tags : AddComponent<TagsComponent>()).Add(tag);
+            if (tags && tags->Has(tag)) return false;
+            if (!tags) AddComponent<TagsComponent>();
+            bool added = false;
+            m_Scene->m_Registry.patch<TagsComponent>(m_EntityHandle, [&](TagsComponent& t) { added = t.Add(tag); });
+            return added;
         }
         bool RemoveTag(std::string_view tag)
         {
             auto* tags = m_Scene->m_Registry.try_get<TagsComponent>(m_EntityHandle);
-            return tags && tags->Remove(tag);
+            if (!tags || !tags->Has(tag)) return false;
+            bool removed = false;
+            m_Scene->m_Registry.patch<TagsComponent>(m_EntityHandle, [&](TagsComponent& t) { removed = t.Remove(tag); });
+            return removed;
         }
         // ---- active state (see Scene::SetActive)
         // The entity's own flag; IsActiveInHierarchy also looks at the ancestors.
@@ -111,6 +119,65 @@ namespace Zamin {
 }
 
 namespace Zamin {
+
+    template<typename T>
+    std::vector<Entity> Scene::FindEntitiesWith()
+    {
+        std::vector<Entity> result;
+        auto view = m_Registry.view<T>();
+        result.reserve(view.size());
+        for (entt::entity e : view)
+            if (m_Registry.all_of<IDComponent>(e))
+                result.emplace_back(e, this);
+        SortInSceneOrder(result);
+        return result;
+    }
+
+    template<typename T>
+    Entity Scene::FindEntityWith()
+    {
+        const auto& ids = m_Registry.storage<IDComponent>();
+        entt::entity best = entt::null;
+        for (entt::entity e : m_Registry.view<T>())
+            if (ids.contains(e) && (best == entt::null || ids.index(e) < ids.index(best)))
+                best = e;
+        return best == entt::null ? Entity{} : Entity{ best, this };
+    }
+
+    template<typename T>
+    std::vector<T*> Scene::FindObjectsOfType()
+    {
+        std::vector<T*> result;
+        if constexpr (std::is_base_of_v<ScriptableEntity, T>)
+        {
+            for (Entity e : FindEntitiesWith<NativeScriptComponent>())
+                if (T* script = dynamic_cast<T*>(e.GetComponent<NativeScriptComponent>().Instance))
+                    result.push_back(script);
+        }
+        else
+        {
+            for (Entity e : FindEntitiesWith<T>())
+                result.push_back(&e.GetComponent<T>());
+        }
+        return result;
+    }
+
+    template<typename T>
+    T* Scene::FindObjectOfType()
+    {
+        if constexpr (std::is_base_of_v<ScriptableEntity, T>)
+        {
+            for (Entity e : FindEntitiesWith<NativeScriptComponent>())
+                if (T* script = dynamic_cast<T*>(e.GetComponent<NativeScriptComponent>().Instance))
+                    return script;
+            return nullptr;
+        }
+        else
+        {
+            Entity e = FindEntityWith<T>();
+            return e ? &e.GetComponent<T>() : nullptr;
+        }
+    }
 
     template<typename T>
     inline void Scene::OnComponentAdded(Entity, T& component)

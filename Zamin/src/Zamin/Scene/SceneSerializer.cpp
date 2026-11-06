@@ -63,12 +63,65 @@ namespace Zamin {
                 m_Repairs->push_back({ from, to });
         }
 
+        // Scene loads: missing asset files are reported here, with the entity being read.
+        void SetReport(SceneLoadReport* report) { m_Report = report; }
+        SceneLoadReport* GetReport() const { return m_Report; }
+        void SetEntity(const json* source, std::string name, uint64_t id)
+        {
+            m_EntitySource = source;
+            m_EntityName = std::move(name);
+            m_EntityID = id;
+        }
+        void ReportMissingAsset(const json& object, std::string_view key, const std::string& path);
+
     private:
         static inline thread_local AssetReferenceScope* s_Current = nullptr;
         AssetReferenceScope* m_Previous = nullptr;
         AssetRegistry* m_Registry = nullptr;
         std::vector<SceneSerializer::AssetReferenceRepair>* m_Repairs = nullptr;
+        SceneLoadReport* m_Report = nullptr;
+        const json* m_EntitySource = nullptr; // the entity being read ("Settings" without one)
+        std::string m_EntityName;
+        uint64_t m_EntityID = 0;
     };
+
+    static bool ContainsNode(const json& j, const json* node)
+    {
+        if (&j == node)
+            return true;
+        if (j.is_object() || j.is_array())
+            for (const json& child : j)
+                if (ContainsNode(child, node))
+                    return true;
+        return false;
+    }
+
+    void AssetReferenceScope::ReportMissingAsset(const json& object, std::string_view key, const std::string& path)
+    {
+        if (!m_Report)
+            return;
+        // The component the reference belongs to: the entity's member that holds `object`.
+        std::string component = m_EntitySource ? std::string() : std::string("Settings");
+        if (m_EntitySource && m_EntitySource->is_object())
+            for (auto it = m_EntitySource->begin(); it != m_EntitySource->end() && component.empty(); ++it)
+                if (ContainsNode(it.value(), &object))
+                    component = it.key();
+        for (const SceneLoadIssue& issue : m_Report->Issues)
+            if (issue.Type == SceneLoadIssue::Kind::MissingAsset && issue.EntityID == m_EntityID && issue.Asset == path &&
+                issue.Component == component)
+                return; // once per entity and component
+        SceneLoadIssue issue;
+        issue.Type = SceneLoadIssue::Kind::MissingAsset;
+        issue.Level = SceneLoadIssue::Severity::Warning;
+        issue.Entity = m_EntityName;
+        issue.EntityID = m_EntityID;
+        issue.Component = component;
+        issue.Asset = path;
+        issue.Message = m_EntitySource
+            ? std::format("'{}' obyekti ({}.{}): asset topilmadi '{}'", m_EntityName, component, key, path)
+            : std::format("Sahna sozlamalari ({}): asset topilmadi '{}'", key, path);
+        m_Report->Add(std::move(issue));
+    }
 
     static std::string UUIDKey(std::string_view key) { return std::string(key) + "UUID"; }
 
@@ -85,23 +138,30 @@ namespace Zamin {
     }
 
     // The asset path stored under `key`, or where its UUID is now when that file is gone.
+    // A scene load (with a report) notes asset files that are not there.
     static std::string ReadAssetPath(const json& object, std::string_view key)
     {
-        std::string path = object.value(std::string(key), std::string());
-        auto handleIt = object.find(UUIDKey(key));
-        if (path.empty() || handleIt == object.end() || !handleIt->is_string())
+        auto pathIt = object.find(key);
+        std::string path = pathIt != object.end() && pathIt->is_string() ? pathIt->get<std::string>() : std::string();
+        if (path.empty())
             return path;
         AssetReferenceScope* scope = AssetReferenceScope::Get();
         AssetRegistry* registry = scope ? scope->GetRegistry() : nullptr;
         if (!registry || registry->Find(std::filesystem::path(path)))
-            return path; // no project, or the file is still there
+            return path; // no project (paths mean nothing here), or the file is still there
         std::error_code ec;
         if (std::filesystem::exists(registry->ToFileSystemPath(path), ec))
             return path; // there, just not a registered asset
-        std::optional<AssetHandle> handle = AssetHandle::FromString(handleIt->get<std::string>());
+        auto handleIt = object.find(UUIDKey(key));
+        std::optional<AssetHandle> handle = handleIt != object.end() && handleIt->is_string()
+            ? AssetHandle::FromString(handleIt->get<std::string>()) : std::nullopt;
         std::string moved = handle ? registry->GetPath(*handle) : std::string();
         if (moved.empty() || moved == path)
-            return path; // gone for good: the path stays (the editor shows what is missing)
+        {
+            // Gone for good: the path stays (the editor shows what is missing).
+            scope->ReportMissingAsset(object, key, path);
+            return path;
+        }
         ZM_CORE_INFO("Asset havolasi UUID orqali tiklandi: '{}' -> '{}'", path, moved);
         scope->AddRepair(path, moved);
         return moved;
@@ -2860,12 +2920,19 @@ namespace Zamin {
         if (s.Physics3D != SceneSettings::Physics3DSettings())
             root["Settings"]["Physics3D"] = { { "AllowSleep", s.Physics3D.AllowSleep }, { "TimeToSleep", s.Physics3D.TimeToSleep } };
 
+        // The same scene always gives the same text (whatever order its entities were made in): sorted
+        // by UUID, with the hierarchy's order written out (the roots here, the children with their parents).
         json entities = json::array();
-        std::vector<Entity> ordered = m_Scene->GetEntitiesInOrder(); // creation order => stable diffs
+        std::vector<Entity> ordered = m_Scene->GetEntitiesInOrder();
+        std::sort(ordered.begin(), ordered.end(), [](const Entity& a, const Entity& b) { return (uint64_t)a.GetUUID() < (uint64_t)b.GetUUID(); });
         for (Entity e : ordered)
             entities.push_back(SerializeEntity(e));
         WriteChildOrder(entities, ordered);
-        root["Entities"] = entities;
+        json rootOrder = json::array();
+        for (Entity e : m_Scene->GetRootEntities())
+            rootOrder.push_back((uint64_t)e.GetUUID());
+        root["RootOrder"] = std::move(rootOrder);
+        root["Entities"] = std::move(entities);
         return root.dump(2);
     }
 
@@ -2876,8 +2943,12 @@ namespace Zamin {
         return FileSystem::WriteTextFile(filepath, SerializeToString());
     }
 
+    static SceneLoadIssue MakeUnreadableIssue(const std::string& reason);
+
     bool SceneSerializer::Deserialize(const std::filesystem::path& filepath)
     {
+        m_Report.Clear();
+        m_Report.File = filepath.generic_string();
         m_LastError = AssetImportLog::CheckReadable(filepath);
         std::string text = m_LastError.empty() ? FileSystem::ReadTextFile(filepath) : std::string();
         if (text.empty() && m_LastError.empty())
@@ -2889,14 +2960,20 @@ namespace Zamin {
             ok = DeserializeFromString(text);
             m_QuietErrors = false;
         }
+        else
+            m_Report.Add(MakeUnreadableIssue(m_LastError));
         if (!ok)
         {
-            AssetImportLog::Report(filepath, m_LastError);
+            // Logged once with the file's path (and the line the parser stopped at).
+            if (AssetImportLog::Report(filepath, m_LastError))
+                if (const SceneLoadIssue* main = m_Report.GetMain(); main && !main->SourceLine.empty())
+                    ZM_CORE_ERROR("    {}", main->SourceLine);
             return false;
         }
         AssetImportLog::Clear(filepath);
         if (m_Scene->GetName().empty() || m_Scene->GetName() == "Untitled")
             m_Scene->SetName(filepath.stem().string());
+        m_Report.Log(); // what was left out (a clean load says nothing)
         return true;
     }
 
@@ -3032,67 +3109,520 @@ namespace Zamin {
         }
     }
 
-    // One entity of a scene file's "Entities" (its parent is linked when every entity exists).
-    static void DeserializeSceneEntity(const json& e, Scene& scene, std::vector<std::pair<Entity, uint64_t>>& parents)
+    // ------------------------------------------------------------------ load reports
+    const char* SceneLoadIssue::KindName(Kind kind)
     {
-        uint64_t uuid = e.value("Entity", (uint64_t)0);
-        Entity entity = scene.CreateEntityWithUUID(uuid ? UUID(uuid) : UUID(), e.value("Tag", "Entity"));
-        DeserializeEntityComponents(e, entity);
-        parents.emplace_back(entity, e.value("Parent", (uint64_t)0));
+        switch (kind)
+        {
+            case Kind::FileMissing: return "Fayl topilmadi";
+            case Kind::Unreadable: return "Fayl o'qilmadi";
+            case Kind::ParseError: return "JSON xatosi";
+            case Kind::NotAScene: return "Sahna fayli emas";
+            case Kind::BadEntity: return "Obyekt xato";
+            case Kind::BadComponent: return "Komponent xato";
+            case Kind::UnknownComponent: return "Noma'lum komponent";
+            case Kind::MissingAsset: return "Asset topilmadi";
+            case Kind::DuplicateID: return "Takroriy ID";
+            case Kind::BadHierarchy: return "Ierarxiya xato";
+        }
+        return "?";
     }
 
-    // Parents and children of the entities made from `entityList` (in its order).
-    static void LinkSceneHierarchy(Scene& scene, std::vector<std::pair<Entity, uint64_t>>& parents, const json& entityList)
+    bool SceneLoadReport::Failed() const
     {
-        for (auto& [entity, parent] : parents)
+        return std::any_of(Issues.begin(), Issues.end(), [](const SceneLoadIssue& i) { return i.Level == SceneLoadIssue::Severity::Fatal; });
+    }
+
+    size_t SceneLoadReport::Count(SceneLoadIssue::Severity level) const
+    {
+        return (size_t)std::count_if(Issues.begin(), Issues.end(), [&](const SceneLoadIssue& i) { return i.Level == level; });
+    }
+
+    const SceneLoadIssue* SceneLoadReport::GetMain() const
+    {
+        const SceneLoadIssue* main = nullptr;
+        for (const SceneLoadIssue& issue : Issues)
+            if (!main || issue.Level > main->Level)
+                main = &issue;
+        return main;
+    }
+
+    std::string SceneLoadReport::Summary() const
+    {
+        if (Failed())
+            return GetMain()->Message;
+        const size_t errors = Count(SceneLoadIssue::Severity::Error), warnings = Count(SceneLoadIssue::Severity::Warning);
+        if (errors && warnings)
+            return std::format("{} ta xato, {} ta ogohlantirish", errors, warnings);
+        if (errors)
+            return std::format("{} ta xato", errors);
+        if (warnings)
+            return std::format("{} ta ogohlantirish", warnings);
+        return "muammo yo'q";
+    }
+
+    std::string SceneLoadReport::Format(size_t maxLines) const
+    {
+        std::string text;
+        size_t shown = 0;
+        for (const SceneLoadIssue& issue : Issues)
         {
-            if (!parent) continue;
-            Entity p = scene.GetEntityByUUID(parent);
-            if (!p) continue;
-            entity.GetComponent<RelationshipComponent>().Parent = parent;
-            p.GetComponent<RelationshipComponent>().Children.push_back(entity.GetUUID());
+            if (shown == maxLines)
+            {
+                text += std::format("... va yana {} ta\n", Issues.size() - shown);
+                break;
+            }
+            const char* level = issue.Level == SceneLoadIssue::Severity::Warning ? "ogohlantirish" : "xato";
+            text += std::format("[{}] {}\n", level, issue.Message);
+            if (!issue.SourceLine.empty())
+                text += std::format("    {}\n", issue.SourceLine);
+            shown++;
         }
-        for (size_t i = 0; i < parents.size() && i < entityList.size(); i++)
-            ApplyChildOrder(parents[i].first, entityList[i], nullptr);
+        return text;
+    }
+
+    void SceneLoadReport::Log() const
+    {
+        if (Issues.empty())
+            return;
+        const std::string name = File.empty() ? std::string("(matn)") : std::filesystem::path(File).filename().string();
+        if (Failed())
+            ZM_CORE_ERROR("Sahna yuklanmadi: {} - {}", name, Summary());
+        else if (Count(SceneLoadIssue::Severity::Error))
+            ZM_CORE_ERROR("Sahna '{}' qisman yuklandi ({}): yaroqli obyektlar qoldi", name, Summary());
+        else
+            ZM_CORE_WARN("Sahna '{}' yuklandi, {}", name, Summary());
+        constexpr size_t MaxLogged = 20;
+        size_t logged = 0;
+        for (const SceneLoadIssue& issue : Issues)
+        {
+            if (issue.Level == SceneLoadIssue::Severity::Fatal)
+            {
+                if (!issue.SourceLine.empty())
+                    ZM_CORE_ERROR("    {}", issue.SourceLine);
+                continue;
+            }
+            if (logged++ == MaxLogged)
+            {
+                ZM_CORE_WARN("  ... va yana {} ta muammo", Issues.size() - MaxLogged);
+                break;
+            }
+            if (issue.Level == SceneLoadIssue::Severity::Error)
+                ZM_CORE_ERROR("  - {}", issue.Message);
+            else
+                ZM_CORE_WARN("  - {}", issue.Message);
+        }
+    }
+
+    void SceneLoadReport::Add(SceneLoadIssue issue) { Issues.push_back(std::move(issue)); }
+
+    static SceneLoadIssue MakeIssue(SceneLoadIssue::Kind kind, SceneLoadIssue::Severity level, std::string message)
+    {
+        SceneLoadIssue issue;
+        issue.Type = kind;
+        issue.Level = level;
+        issue.Message = std::move(message);
+        return issue;
+    }
+
+    // A file that cannot be read at all (AssetImportLog::CheckReadable's reason).
+    static SceneLoadIssue MakeUnreadableIssue(const std::string& reason)
+    {
+        return MakeIssue(reason == "fayl topilmadi" ? SceneLoadIssue::Kind::FileMissing : SceneLoadIssue::Kind::Unreadable,
+                         SceneLoadIssue::Severity::Fatal, reason);
+    }
+
+    // Where in `text` the parser stopped (1-based line / column), that line, and the parser's reason.
+    static SceneLoadIssue MakeParseIssue(const std::string& text, const std::exception& ex)
+    {
+        SceneLoadIssue issue = MakeIssue(SceneLoadIssue::Kind::ParseError, SceneLoadIssue::Severity::Fatal, {});
+        std::string reason = ex.what();
+        // "[json.exception.parse_error.101] parse error at line 3, column 5: syntax error ..." -> "syntax error ..."
+        if (size_t bracket = reason.find("] "); reason.starts_with("[json.exception") && bracket != std::string::npos)
+            reason = reason.substr(bracket + 2);
+        if (size_t colon = reason.find(": "); reason.starts_with("parse error") && colon != std::string::npos)
+            reason = reason.substr(colon + 2);
+        if (const auto* parse = dynamic_cast<const json::parse_error*>(&ex); parse && parse->byte > 0)
+        {
+            // `byte` counts from 1 (past the end: the input ended).
+            const size_t at = std::min<size_t>((size_t)parse->byte - 1, text.size());
+            const size_t lineStart = at == 0 ? 0 : (text.rfind('\n', at - 1) == std::string::npos ? 0 : text.rfind('\n', at - 1) + 1);
+            issue.Line = 1 + (int)std::count(text.begin(), text.begin() + (ptrdiff_t)lineStart, '\n');
+            issue.Column = 1 + (int)(at - lineStart);
+            size_t lineEnd = text.find('\n', lineStart);
+            std::string line = text.substr(lineStart, (lineEnd == std::string::npos ? text.size() : lineEnd) - lineStart);
+            std::replace(line.begin(), line.end(), '\t', ' ');
+            while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
+                line.pop_back();
+            if (line.size() > 160)
+                line = line.substr(0, 160) + "...";
+            issue.SourceLine = std::move(line);
+            issue.Message = std::format("JSON xatosi {}-qator, {}-ustunda: {}", issue.Line, issue.Column, reason);
+        }
+        else
+            issue.Message = std::format("JSON xatosi: {}", reason);
+        return issue;
+    }
+
+    static SceneLoadIssue MakeNotASceneIssue()
+    {
+        return MakeIssue(SceneLoadIssue::Kind::NotAScene, SceneLoadIssue::Severity::Fatal, "sahna fayli emas (\"Scene\" kaliti yo'q)");
+    }
+
+    static void AddEntityIssue(SceneLoadReport* report, SceneLoadIssue::Kind kind, SceneLoadIssue::Severity level, std::string message,
+                               const std::string& entity, uint64_t id, std::string component = {})
+    {
+        if (!report)
+            return;
+        SceneLoadIssue issue = MakeIssue(kind, level, std::move(message));
+        issue.Entity = entity;
+        issue.EntityID = id;
+        issue.Component = std::move(component);
+        report->Add(std::move(issue));
+    }
+
+    // Keys of an entity in a scene file: its own ones and the components'.
+    static bool IsKnownEntityKey(std::string_view key)
+    {
+        static const std::unordered_set<std::string_view> s_Keys = []() {
+            std::unordered_set<std::string_view> keys{ "Entity", "Tag", "Active", "Parent", "ChildOrder", "Editor" };
+            for (const ComponentTypeInfo& type : ComponentRegistry::GetTypes())
+                keys.insert(type.Key);
+            return keys;
+        }();
+        return s_Keys.contains(key);
+    }
+
+    // An entity whose components threw while they were read (a value of the wrong type ...): it starts
+    // over bare, then each component is read on its own - the broken ones are left out, the rest stay.
+    static void DeserializeComponentsOneByOne(const json& e, Entity entity, SceneLoadReport* report)
+    {
+        for (const ComponentTypeInfo& type : ComponentRegistry::GetTypes())
+            if (type.Key != "Transform" && type.Has(entity)) // every entity keeps its transform
+                type.Remove(entity);
+        if (entity.HasComponent<EditorMetadataComponent>())
+            entity.RemoveComponent<EditorMetadataComponent>();
+        entity.GetComponent<TransformComponent>() = TransformComponent();
+        entity.GetComponent<TagComponent>().Active = true;
+
+        std::vector<std::string_view> keys{ "Active" };
+        for (const ComponentTypeInfo& type : ComponentRegistry::GetTypes())
+            keys.push_back(type.Key);
+        keys.push_back("Editor");
+        AssetReferenceScope* scope = AssetReferenceScope::Get();
+        const std::string name = entity.GetName();
+        const uint64_t id = (uint64_t)entity.GetUUID();
+        for (std::string_view key : keys)
+        {
+            auto it = e.find(key);
+            if (it == e.end())
+                continue;
+            json single = json::object();
+            single[std::string(key)] = *it;
+            if (scope)
+                scope->SetEntity(&single, name, id);
+            try
+            {
+                DeserializeEntityComponents(single, entity);
+            }
+            catch (const std::exception& ex)
+            {
+                if (key == "Transform")
+                    entity.GetComponent<TransformComponent>() = TransformComponent();
+                else if (key == "Editor")
+                {
+                    if (entity.HasComponent<EditorMetadataComponent>())
+                        entity.RemoveComponent<EditorMetadataComponent>();
+                }
+                else if (key != "Active")
+                    ComponentRegistry::Remove(entity, key);
+                AddEntityIssue(report, SceneLoadIssue::Kind::BadComponent, SceneLoadIssue::Severity::Error,
+                               std::format("'{}' obyektining '{}' komponenti o'qilmadi ({}): usiz yuklandi", name, key, ex.what()),
+                               name, id, std::string(key));
+            }
+        }
+        if (scope)
+            scope->SetEntity(&e, name, id);
+    }
+
+    // An entity of a scene file as it is made: where it came from and its parent's ID in the file.
+    struct LoadedEntity
+    {
+        Entity Handle;
+        uint64_t Parent = 0;
+        const json* Source = nullptr;
+    };
+
+    static uint64_t ReadEntityID(const json& e, const char* key)
+    {
+        auto it = e.find(key);
+        if (it == e.end())
+            return 0;
+        if (it->is_number_unsigned())
+            return it->get<uint64_t>();
+        if (it->is_number_integer() && it->get<int64_t>() > 0)
+            return (uint64_t)it->get<int64_t>();
+        return 0;
+    }
+
+    // One entry of a scene file's "Entities" (`index`: its place in the file). Whatever of it can be
+    // read is made (see SceneLoadIssue); false when it is not an entity at all.
+    static bool DeserializeSceneEntity(const json& e, size_t index, Scene& scene, std::vector<LoadedEntity>& loaded, SceneLoadReport* report)
+    {
+        if (!e.is_object())
+        {
+            if (report)
+            {
+                report->EntitiesSkipped++;
+                AddEntityIssue(report, SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Error,
+                               std::format("\"Entities\" ro'yxatining {}-yozuvi obyekt emas ({}): o'tkazib yuborildi", index + 1, e.type_name()), {}, 0);
+            }
+            return false;
+        }
+        std::string name = "Entity";
+        if (auto tag = e.find("Tag"); tag != e.end() && tag->is_string() && !tag->get_ref<const std::string&>().empty())
+            name = tag->get<std::string>();
+        uint64_t uuid = ReadEntityID(e, "Entity");
+        if (!uuid && e.contains("Entity"))
+            AddEntityIssue(report, SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Warning,
+                           std::format("'{}' obyektining ID'si xato: yangi ID berildi", name), name, 0);
+        if (uuid && scene.GetEntityByUUID(uuid))
+        {
+            AddEntityIssue(report, SceneLoadIssue::Kind::DuplicateID, SceneLoadIssue::Severity::Warning,
+                           std::format("'{}' obyektining ID'si ({}) takrorlangan: yangi ID berildi", name, uuid), name, uuid);
+            uuid = 0;
+        }
+        Entity entity = scene.CreateEntityWithUUID(uuid ? UUID(uuid) : UUID(), name);
+        const uint64_t id = (uint64_t)entity.GetUUID();
+        AssetReferenceScope* scope = AssetReferenceScope::Get();
+        if (scope)
+            scope->SetEntity(&e, name, id);
+        if (report)
+            for (auto it = e.begin(); it != e.end(); ++it)
+                if (!IsKnownEntityKey(it.key()))
+                    AddEntityIssue(report, SceneLoadIssue::Kind::UnknownComponent, SceneLoadIssue::Severity::Warning,
+                                   std::format("'{}' obyektida noma'lum komponent '{}': o'tkazib yuborildi (saqlanganda yo'qoladi)", name, it.key()),
+                                   name, id, it.key());
+        try
+        {
+            DeserializeEntityComponents(e, entity);
+        }
+        catch (const std::exception&)
+        {
+            DeserializeComponentsOneByOne(e, entity, report);
+        }
+        if (scope)
+            scope->SetEntity(nullptr, {}, 0);
+        const uint64_t parent = ReadEntityID(e, "Parent");
+        if (!parent && e.contains("Parent"))
+            AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
+                           std::format("'{}' obyektining ota obyekti (\"Parent\") xato: ildiz qilib yuklandi", name), name, id);
+        loaded.push_back({ entity, parent, &e });
+        if (report)
+            report->EntitiesLoaded++;
+        return true;
+    }
+
+    // The order the entries of "Entities" are made in. A file with "RootOrder" (sorted by UUID): the
+    // hierarchy's - the roots in that order, each followed by its descendants depth first in their
+    // children's order ("ChildOrder", else file order) - so the scene's order is the one the editor
+    // showed. Older files (no "RootOrder"): file order, which was the scene's order.
+    static std::vector<size_t> ComputeLoadOrder(const json& root, const json& entities)
+    {
+        const size_t count = entities.size();
+        std::vector<size_t> order;
+        order.reserve(count);
+        auto rootOrder = root.find("RootOrder");
+        if (rootOrder == root.end() || !rootOrder->is_array())
+        {
+            for (size_t i = 0; i < count; i++)
+                order.push_back(i);
+            return order;
+        }
+        std::unordered_map<uint64_t, size_t> index;
+        index.reserve(count);
+        for (size_t i = 0; i < count; i++)
+            if (entities[i].is_object())
+                if (uint64_t id = ReadEntityID(entities[i], "Entity"))
+                    index.emplace(id, i); // the first of a duplicate ID
+        std::vector<std::vector<size_t>> children(count);
+        std::vector<char> isChild(count, 0), visited(count, 0);
+        for (size_t i = 0; i < count; i++)
+        {
+            if (!entities[i].is_object())
+                continue;
+            auto parent = index.find(ReadEntityID(entities[i], "Parent"));
+            if (parent != index.end() && parent->second != i)
+            {
+                children[parent->second].push_back(i);
+                isChild[i] = 1;
+            }
+        }
+        for (size_t i = 0; i < count; i++)
+        {
+            if (children[i].size() < 2)
+                continue;
+            auto listed = entities[i].find("ChildOrder");
+            if (listed == entities[i].end() || !listed->is_array())
+                continue;
+            std::vector<size_t> ordered;
+            ordered.reserve(children[i].size());
+            for (const json& id : *listed)
+            {
+                if (!id.is_number_unsigned())
+                    continue;
+                auto child = index.find(id.get<uint64_t>());
+                if (child != index.end() && std::find(children[i].begin(), children[i].end(), child->second) != children[i].end() &&
+                    std::find(ordered.begin(), ordered.end(), child->second) == ordered.end())
+                    ordered.push_back(child->second);
+            }
+            for (size_t child : children[i]) // the unlisted ones after the listed, in file order
+                if (std::find(ordered.begin(), ordered.end(), child) == ordered.end())
+                    ordered.push_back(child);
+            children[i] = std::move(ordered);
+        }
+        std::vector<size_t> stack;
+        auto visit = [&](size_t first) {
+            stack.push_back(first);
+            while (!stack.empty())
+            {
+                const size_t i = stack.back();
+                stack.pop_back();
+                if (visited[i])
+                    continue;
+                visited[i] = 1;
+                order.push_back(i);
+                for (auto it = children[i].rbegin(); it != children[i].rend(); ++it)
+                    if (!visited[*it])
+                        stack.push_back(*it);
+            }
+        };
+        for (const json& id : *rootOrder)
+            if (id.is_number_unsigned())
+                if (auto it = index.find(id.get<uint64_t>()); it != index.end() && !isChild[it->second] && !visited[it->second])
+                    visit(it->second);
+        for (size_t i = 0; i < count; i++) // roots not listed, in file order
+            if (!isChild[i] && !visited[i])
+                visit(i);
+        for (size_t i = 0; i < count; i++) // a parent loop: in file order
+            if (!visited[i])
+                visit(i);
+        return order;
+    }
+
+    // Parents and children of the entities made (in the order they were made). A parent that is not
+    // in the scene, or one that would close a loop, leaves the entity a root.
+    static void LinkSceneHierarchy(Scene& scene, std::vector<LoadedEntity>& loaded, SceneLoadReport* report)
+    {
+        for (LoadedEntity& item : loaded)
+        {
+            if (!item.Parent || !item.Handle)
+                continue;
+            Entity p = scene.GetEntityByUUID(item.Parent);
+            const std::string& name = item.Handle.GetName();
+            const UUID self = item.Handle.GetUUID();
+            if (!p || p == item.Handle)
+            {
+                AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
+                               std::format("'{}' obyektining ota obyekti ({}) sahnada yo'q: ildiz qilib yuklandi", name, item.Parent),
+                               name, (uint64_t)self);
+                continue;
+            }
+            bool loop = false;
+            UUID up = p.GetComponent<RelationshipComponent>().Parent;
+            for (size_t steps = 0; (uint64_t)up && steps <= loaded.size(); steps++)
+            {
+                if (up == self)
+                {
+                    loop = true;
+                    break;
+                }
+                Entity ancestor = scene.GetEntityByUUID(up);
+                if (!ancestor)
+                    break;
+                up = ancestor.GetComponent<RelationshipComponent>().Parent;
+            }
+            if (loop)
+            {
+                AddEntityIssue(report, SceneLoadIssue::Kind::BadHierarchy, SceneLoadIssue::Severity::Warning,
+                               std::format("'{}' obyekti o'z avlodining farzandi bo'lib qolardi (halqa): ildiz qilib yuklandi", name),
+                               name, (uint64_t)self);
+                continue;
+            }
+            item.Handle.GetComponent<RelationshipComponent>().Parent = item.Parent;
+            p.GetComponent<RelationshipComponent>().Children.push_back(self);
+        }
+        for (LoadedEntity& item : loaded)
+            if (item.Handle && item.Source)
+                ApplyChildOrder(item.Handle, *item.Source, nullptr);
         scene.InvalidateActiveCache(); // flags and parents were written directly
+    }
+
+    static const json& SceneEntityList(const json& root, SceneLoadReport* report)
+    {
+        static const json s_NoEntities = json::array();
+        auto list = root.find("Entities");
+        if (list == root.end())
+            return s_NoEntities;
+        if (!list->is_array())
+        {
+            if (report)
+                report->Add(MakeIssue(SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Error,
+                                      std::format("\"Entities\" ro'yxat emas ({}): obyektlar yuklanmadi", list->type_name())));
+            return s_NoEntities;
+        }
+        return *list;
+    }
+
+    // The settings; what cannot be read keeps its default (reported).
+    static void DeserializeSceneSettingsChecked(const json& root, Scene& scene, SceneLoadReport* report)
+    {
+        try
+        {
+            DeserializeSceneSettings(root, scene);
+        }
+        catch (const std::exception& ex)
+        {
+            if (report)
+            {
+                SceneLoadIssue issue = MakeIssue(SceneLoadIssue::Kind::BadComponent, SceneLoadIssue::Severity::Error,
+                                                 std::format("Sahna sozlamalari to'liq o'qilmadi ({}): qolganlari standart", ex.what()));
+                issue.Component = "Settings";
+                report->Add(std::move(issue));
+            }
+        }
     }
 
     bool SceneSerializer::DeserializeFromString(const std::string& text)
     {
         m_RepairedReferences.clear();
         m_LastError.clear();
+        m_Report.Clear();
         AssetReferenceScope assetReferences(&m_RepairedReferences);
-        auto fail = [&](std::string reason) {
+        assetReferences.SetReport(&m_Report);
+        auto fail = [&](SceneLoadIssue issue) {
+            m_LastError = issue.Message;
+            m_Report.Add(std::move(issue));
             if (!m_QuietErrors)
-                ZM_CORE_ERROR("{}", reason);
-            m_LastError = std::move(reason);
+                ZM_CORE_ERROR("{}", m_LastError);
             return false;
         };
         json root;
         try { root = json::parse(text); }
         catch (const std::exception& e)
         {
-            return fail(std::format("JSON xatosi: {}", e.what()));
+            return fail(MakeParseIssue(text, e));
         }
         if (!root.is_object() || !root.contains("Scene"))
-            return fail("sahna fayli emas (\"Scene\" kaliti yo'q)");
+            return fail(MakeNotASceneIssue());
 
-        try
-        {
-            DeserializeSceneSettings(root, *m_Scene);
-            std::vector<std::pair<Entity, uint64_t>> parents;
-            static const json s_NoEntities = json::array();
-            auto list = root.find("Entities");
-            const json& entityList = list != root.end() && list->is_array() ? *list : s_NoEntities;
-            parents.reserve(entityList.size());
-            for (const json& e : entityList)
-                DeserializeSceneEntity(e, *m_Scene, parents);
-            LinkSceneHierarchy(*m_Scene, parents, entityList);
-        }
-        catch (const std::exception& ex)
-        {
-            return fail(std::format("Sahna formati xato: {}", ex.what()));
-        }
+        DeserializeSceneSettingsChecked(root, *m_Scene, &m_Report);
+        const json& entityList = SceneEntityList(root, &m_Report);
+        std::vector<LoadedEntity> loaded;
+        loaded.reserve(entityList.size());
+        for (size_t i : ComputeLoadOrder(root, entityList))
+            DeserializeSceneEntity(entityList[i], i, *m_Scene, loaded, &m_Report);
+        LinkSceneHierarchy(*m_Scene, loaded, &m_Report);
         return true;
     }
 
@@ -3104,14 +3634,21 @@ namespace Zamin {
         std::string Error;
         enum class Phase { Empty = 0, Parsed, Settings, Entities, Hierarchy, Built } Step = Phase::Empty;
         size_t Next = 0;
-        std::vector<std::pair<Entity, uint64_t>> Parents;
+        std::vector<size_t> Order;           // the entries of "Entities" in the order they are made
+        std::vector<LoadedEntity> Loaded;
         std::vector<SceneSerializer::AssetReferenceRepair> Repairs;
+        SceneLoadReport Report;
 
         const json& Entities() const
         {
             static const json s_None = json::array();
             auto it = Root.find("Entities");
             return it != Root.end() && it->is_array() ? *it : s_None;
+        }
+        void Fail(SceneLoadIssue issue)
+        {
+            Error = issue.Message;
+            Report.Add(std::move(issue));
         }
     };
 
@@ -3121,13 +3658,15 @@ namespace Zamin {
     bool SceneLoadJob::Parse(const std::filesystem::path& path)
     {
         m_Data->File = path;
+        m_Data->Report.Clear();
+        m_Data->Report.File = path.generic_string();
         std::string error = AssetImportLog::CheckReadable(path);
         std::string text = error.empty() ? FileSystem::ReadTextFile(path) : std::string();
         if (text.empty() && error.empty())
             error = "fayl o'qilmadi";
         if (!error.empty())
         {
-            m_Data->Error = std::move(error);
+            m_Data->Fail(MakeUnreadableIssue(error));
             return false;
         }
         return ParseString(text);
@@ -3136,17 +3675,20 @@ namespace Zamin {
     bool SceneLoadJob::ParseString(const std::string& text)
     {
         m_Data->Error.clear();
+        std::erase_if(m_Data->Report.Issues, [](const SceneLoadIssue& i) { return i.Level == SceneLoadIssue::Severity::Fatal; });
         try { m_Data->Root = json::parse(text); }
         catch (const std::exception& e)
         {
-            m_Data->Error = std::format("JSON xatosi: {}", e.what());
+            m_Data->Fail(MakeParseIssue(text, e));
             return false;
         }
         if (!m_Data->Root.is_object() || !m_Data->Root.contains("Scene"))
         {
-            m_Data->Error = "sahna fayli emas (\"Scene\" kaliti yo'q)";
+            m_Data->Fail(MakeNotASceneIssue());
             return false;
         }
+        // The order the entities are made in (any thread: only the parsed file is read).
+        m_Data->Order = ComputeLoadOrder(m_Data->Root, m_Data->Entities());
         m_Data->Step = Data::Phase::Parsed;
         return true;
     }
@@ -3187,6 +3729,7 @@ namespace Zamin {
     const std::string& SceneLoadJob::GetError() const { return m_Data->Error; }
     bool SceneLoadJob::IsBuilt() const { return m_Data->Step == Data::Phase::Built; }
     const std::vector<SceneSerializer::AssetReferenceRepair>& SceneLoadJob::GetRepairedReferences() const { return m_Data->Repairs; }
+    const SceneLoadReport& SceneLoadJob::GetReport() const { return m_Data->Report; }
 
     float SceneLoadJob::GetBuildProgress() const
     {
@@ -3197,7 +3740,7 @@ namespace Zamin {
             case Data::Phase::Settings: return 0.0f;
             case Data::Phase::Entities:
             {
-                const size_t count = m_Data->Entities().size();
+                const size_t count = m_Data->Order.size();
                 return count ? 0.95f * (float)m_Data->Next / (float)count : 0.95f;
             }
             case Data::Phase::Hierarchy: return 0.95f;
@@ -3214,22 +3757,25 @@ namespace Zamin {
         const auto start = std::chrono::steady_clock::now();
         auto elapsed = [&]() { return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count(); };
         AssetReferenceScope assetReferences(&d.Repairs);
+        assetReferences.SetReport(&d.Report);
         try
         {
             if (d.Step == Data::Phase::Parsed)
                 d.Step = Data::Phase::Settings;
             if (d.Step == Data::Phase::Settings)
             {
-                DeserializeSceneSettings(d.Root, scene);
-                d.Parents.reserve(d.Entities().size());
+                DeserializeSceneSettingsChecked(d.Root, scene, &d.Report);
+                SceneEntityList(d.Root, &d.Report); // "Entities" that is not a list is reported
+                d.Loaded.reserve(d.Entities().size());
                 d.Step = Data::Phase::Entities;
             }
             if (d.Step == Data::Phase::Entities)
             {
                 const json& list = d.Entities();
-                while (d.Next < list.size())
+                while (d.Next < d.Order.size())
                 {
-                    DeserializeSceneEntity(list[d.Next], scene, d.Parents);
+                    const size_t index = d.Order[d.Next];
+                    DeserializeSceneEntity(list[index], index, scene, d.Loaded, &d.Report);
                     d.Next++;
                     // The clock is looked at every few entities (it costs more than a plain entity).
                     if ((d.Next & 7) == 0 && elapsed() >= budgetMs)
@@ -3241,17 +3787,18 @@ namespace Zamin {
             }
             if (d.Step == Data::Phase::Hierarchy)
             {
-                LinkSceneHierarchy(scene, d.Parents, d.Entities());
+                LinkSceneHierarchy(scene, d.Loaded, &d.Report);
                 if (scene.GetName().empty() || scene.GetName() == "Untitled")
                     scene.SetName(d.File.empty() ? std::string("Untitled") : d.File.stem().string());
-                d.Parents.clear();
+                d.Loaded.clear();
+                d.Order.clear();
                 d.Root = json(); // the parsed file is not needed any more
                 d.Step = Data::Phase::Built;
             }
         }
         catch (const std::exception& ex)
         {
-            d.Error = std::format("Sahna formati xato: {}", ex.what());
+            d.Fail(MakeIssue(SceneLoadIssue::Kind::BadEntity, SceneLoadIssue::Severity::Fatal, std::format("Sahna formati xato: {}", ex.what())));
         }
         return true;
     }

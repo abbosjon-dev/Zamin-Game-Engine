@@ -5,6 +5,10 @@
 // for the last frame of each case.
 //
 //   ZaminBench [--frames N] [--scale X] [--case <part of a name>] [--profile]
+//
+// ZaminBench --queries [--entities N]: the scene's lookups instead (FindEntityByName, the tags,
+// by component type) on N entities (10 000 by default) - the indices against a scan over every
+// entity, and a frame that spawns, finds and destroys (the index is kept, not rebuilt).
 #include <Zamin/Zamin.h>
 
 #include <algorithm>
@@ -160,6 +164,99 @@ namespace {
         return n;
     }
 
+    // ---- scene lookups (--queries)
+    double TimeMs(const std::function<void()>& work, int repeat)
+    {
+        const auto start = std::chrono::steady_clock::now();
+        for (int i = 0; i < repeat; i++)
+            work();
+        return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() / (double)repeat;
+    }
+
+    int RunQueryBench(int count)
+    {
+        auto scene = CreateRef<Scene>();
+        std::vector<std::string> names;
+        names.reserve((size_t)count);
+        for (int i = 0; i < count; i++)
+        {
+            names.push_back(std::format("Obyekt {}", i));
+            Entity e = scene->CreateEntity(names.back());
+            if (i % 100 == 0)
+                e.AddTag("Enemy");                // 1 % tagged
+            if (i % 10 == 0)
+                e.AddTag("Pickup");               // 10 %
+            if (i % 50 == 0)
+                e.AddComponent<CircleRendererComponent>();
+        }
+        size_t sink = 0;
+        // What the lookups were before the indices: a scan over every entity.
+        auto scanName = [&](std::string_view name) {
+            for (Entity e : scene->GetEntitiesInOrder())
+                if (e.GetName() == name)
+                    return e;
+            return Entity();
+        };
+        auto scanTag = [&](std::string_view tag) {
+            std::vector<Entity> found;
+            for (auto e : scene->GetAllEntitiesWith<TagsComponent>())
+                if (Entity(e, scene.get()).GetComponent<TagsComponent>().Has(tag))
+                    found.emplace_back(e, scene.get());
+            return found;
+        };
+        const int lookups = 1000;
+        scene->FindEntityByName(names[0]); // the indices are made once
+        scene->CountEntitiesWithTag("Enemy");
+
+        std::printf("Zamin sahna qidiruvi benchmark: %d obyekt\n\n", count);
+        std::printf("%-44s %14s %14s %9s\n", "Amal", "indeks", "skan", "farq");
+        auto row = [&](const char* what, double indexed, double scanned) {
+            std::printf("%-44s %11.4f ms %11.4f ms %8.0fx\n", what, indexed, scanned, indexed > 0.0 ? scanned / indexed : 0.0);
+        };
+        int pick = 0;
+        auto nextName = [&]() -> const std::string& { pick = (pick * 7919 + 13) % count; return names[(size_t)pick]; };
+        row("FindEntityByName x1000 (bitta kadr)",
+            TimeMs([&]() { for (int i = 0; i < lookups; i++) sink += (uint32_t)scene->FindEntityByName(nextName()); }, 5),
+            TimeMs([&]() { for (int i = 0; i < 20; i++) sink += (uint32_t)scanName(nextName()); }, 1) * (lookups / 20));
+        row("FindEntitiesWithTag(\"Enemy\") x1000 (1 %)",
+            TimeMs([&]() { for (int i = 0; i < lookups; i++) sink += scene->FindEntitiesWithTag("Enemy").size(); }, 3),
+            TimeMs([&]() { for (int i = 0; i < 20; i++) sink += scanTag("Enemy").size(); }, 1) * (lookups / 20));
+        row("CountEntitiesWithTag(\"Pickup\") x1000 (10 %)",
+            TimeMs([&]() { for (int i = 0; i < lookups; i++) sink += scene->CountEntitiesWithTag("Pickup"); }, 3),
+            TimeMs([&]() { for (int i = 0; i < 20; i++) sink += scanTag("Pickup").size(); }, 1) * (lookups / 20));
+        row("FindEntitiesWith<CircleRenderer> x1000 (2 %)",
+            TimeMs([&]() { for (int i = 0; i < lookups; i++) sink += scene->FindEntitiesWith<CircleRendererComponent>().size(); }, 3),
+            TimeMs([&]() {
+                for (int i = 0; i < 20; i++)
+                    for (Entity e : scene->GetEntitiesInOrder())
+                        sink += e.HasComponent<CircleRendererComponent>() ? 1 : 0;
+            }, 1) * (lookups / 20));
+
+        // A game frame: 50 spawned, 100 lookups, 50 destroyed - the index follows, no rebuild.
+        const uint32_t rebuilds = scene->GetNameCacheStats().Rebuilds;
+        std::vector<Entity> spawned;
+        const double frame = TimeMs([&]() {
+            for (int i = 0; i < 50; i++)
+                spawned.push_back(scene->CreateEntity("O'q"));
+            for (int i = 0; i < 100; i++)
+                sink += (uint32_t)scene->FindEntityByName(i % 2 ? std::string_view("O'q") : std::string_view(nextName()));
+            for (Entity e : spawned)
+                scene->DestroyEntity(e);
+            spawned.clear();
+        }, 50);
+        std::printf("\n%-44s %11.4f ms   (indeks qayta qurilishi: %u)\n", "Kadr: 50 yaratish + 100 qidiruv + 50 o'chirish", frame,
+                    scene->GetNameCacheStats().Rebuilds - rebuilds);
+        // The once-a-frame check for direct writes (InvalidateNameCache: as at a new frame).
+        const double check = TimeMs([&]() {
+            scene->InvalidateNameCache();
+            sink += (uint32_t)scene->FindEntityByName(names[1]);
+        }, 20);
+        std::printf("%-44s %11.4f ms\n", "Kadr boshidagi tekshiruv (to'g'ridan-to'g'ri yozuvlar)", check);
+        static volatile size_t s_Sink;
+        s_Sink = sink;
+        return 0;
+    }
+
 }
 
 int main(int argc, char** argv)
@@ -168,6 +265,8 @@ int main(int argc, char** argv)
     float scale = 1.0f;
     std::string only;
     bool profile = false;
+    bool queries = false;
+    int entities = 10000;
     for (int i = 1; i < argc; i++)
     {
         if (!std::strcmp(argv[i], "--frames") && i + 1 < argc)
@@ -178,12 +277,19 @@ int main(int argc, char** argv)
             only = argv[++i];
         else if (!std::strcmp(argv[i], "--profile"))
             profile = true;
+        else if (!std::strcmp(argv[i], "--queries"))
+            queries = true;
+        else if (!std::strcmp(argv[i], "--entities") && i + 1 < argc)
+            entities = std::max(10, std::atoi(argv[++i]));
         else
         {
-            std::printf("ZaminBench [--frames N] [--scale X] [--case <nom qismi>] [--profile]\n");
+            std::printf("ZaminBench [--frames N] [--scale X] [--case <nom qismi>] [--profile]\n"
+                        "ZaminBench --queries [--entities N]\n");
             return 1;
         }
     }
+    if (queries)
+        return RunQueryBench(entities);
     const int particles = (int)(50000.0f * scale);
 #if defined(NDEBUG)
     const char* build = "Release";

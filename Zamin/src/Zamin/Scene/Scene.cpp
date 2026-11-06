@@ -536,11 +536,14 @@ namespace Zamin {
     Scene::Scene()
         : m_EventBus(std::make_shared<EventBus>())
     {
-        // Every way of adding / replacing / removing a name goes through these signals
-        // (Entity::SetName uses patch -> on_update), so the name cache knows when to rebuild.
-        m_Registry.on_construct<TagComponent>().connect<&Scene::OnNameChanged>(*this);
-        m_Registry.on_update<TagComponent>().connect<&Scene::OnNameChanged>(*this);
-        m_Registry.on_destroy<TagComponent>().connect<&Scene::OnNameChanged>(*this);
+        // Every way of adding / replacing / removing a name or the tags goes through these signals
+        // (Entity::SetName / AddTag / RemoveTag use patch -> on_update): the indices follow at once.
+        m_Registry.on_construct<TagComponent>().connect<&Scene::OnNameConstructed>(*this);
+        m_Registry.on_update<TagComponent>().connect<&Scene::OnNameUpdated>(*this);
+        m_Registry.on_destroy<TagComponent>().connect<&Scene::OnNameDestroyed>(*this);
+        m_Registry.on_construct<TagsComponent>().connect<&Scene::OnTagsChanged>(*this);
+        m_Registry.on_update<TagsComponent>().connect<&Scene::OnTagsChanged>(*this);
+        m_Registry.on_destroy<TagsComponent>().connect<&Scene::OnTagsDestroyed>(*this);
         m_Registry.on_destroy<NativeScriptComponent>().connect<&Scene::OnScriptComponentDestroyed>(*this);
         ForEachJoint2DType([&](auto type) {
             using T = typename decltype(type)::type;
@@ -563,6 +566,9 @@ namespace Zamin {
         m_Registry.on_construct<TagComponent>().disconnect(this);
         m_Registry.on_update<TagComponent>().disconnect(this);
         m_Registry.on_destroy<TagComponent>().disconnect(this);
+        m_Registry.on_construct<TagsComponent>().disconnect(this);
+        m_Registry.on_update<TagsComponent>().disconnect(this);
+        m_Registry.on_destroy<TagsComponent>().disconnect(this);
         m_Registry.on_destroy<NativeScriptComponent>().disconnect(this);
         ForEachJoint2DType([&](auto type) {
             using T = typename decltype(type)::type;
@@ -691,6 +697,7 @@ namespace Zamin {
         for (size_t i = 0; i < desired.size(); i++)
             if (ids[first + i] != desired[i])
                 ids.swap_elements(ids[first + i], desired[i]);
+        m_SceneOrderSerial++; // the doomed ones moved (until they go, a lookup may still meet them)
     }
 
     void Scene::DestroyEntityRecursive(Entity entity)
@@ -1103,66 +1110,271 @@ namespace Zamin {
         return FileSystem::WriteTextFile(path, SceneSerializer::SerializeEntities(*this, entities, false));
     }
 
-    // ------------------------------------------------------------------ name cache
-    void Scene::RebuildNameCache()
+    // ------------------------------------------------------------------ name / tag indices
+    // Each index maps a name (a tag) to its entities. It is made at the first lookup; from then on
+    // the registry's signals keep it current entity by entity, and once a frame (at the first lookup
+    // in it) one pass compares every entity's name / tags with what it is listed under, for direct
+    // writes that bypass the signals. Lists are sorted in scene order when they are read after the
+    // order changed (m_SceneOrderSerial).
+    static size_t SlotOf(entt::entity e) { return (size_t)entt::to_entity(e); }
+
+    void Scene::SortIndexed(IndexedEntities& list)
     {
-        m_NameCache.clear();
-        for (Entity e : GetEntitiesInOrder())
-            if (const auto* tag = m_Registry.try_get<TagComponent>(e))
-            {
-                auto it = m_NameCache.find(std::string_view(tag->Tag));
-                if (it == m_NameCache.end())
-                    it = m_NameCache.emplace(tag->Tag, std::vector<entt::entity>{}).first;
-                it->second.push_back(e);
-            }
-        m_NameCacheDirty = false;
-        m_NameCacheFrame = m_FrameIndex;
-        m_NameCacheStats.Rebuilds++;
+        if (list.Order == m_SceneOrderSerial)
+            return;
+        list.Order = m_SceneOrderSerial;
+        if (list.Entities.size() < 2)
+            return;
+        const auto& ids = m_Registry.storage<IDComponent>();
+        std::vector<std::pair<size_t, entt::entity>> keyed;
+        keyed.reserve(list.Entities.size());
+        for (entt::entity e : list.Entities)
+            keyed.emplace_back(ids.contains(e) ? ids.index(e) : ids.size(), e);
+        std::stable_sort(keyed.begin(), keyed.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+        for (size_t i = 0; i < keyed.size(); i++)
+            list.Entities[i] = keyed[i].second;
     }
 
-    bool Scene::IsNameCacheValid()
+    void Scene::IndexInsert(EntityIndex& index, std::string_view key, entt::entity e)
     {
-        size_t cached = 0;
-        for (const auto& [name, entities] : m_NameCache)
-            for (entt::entity e : entities)
-            {
-                const auto* tag = m_Registry.valid(e) ? m_Registry.try_get<TagComponent>(e) : nullptr;
-                if (!tag || tag->Tag != name)
-                    return false;
-                cached++;
-            }
-        return cached == m_Registry.view<TagComponent>().size();
+        auto it = index.Lists.find(key);
+        if (it == index.Lists.end())
+            it = index.Lists.emplace(std::string(key), IndexedEntities{ {}, m_SceneOrderSerial }).first;
+        IndexedEntities& list = it->second;
+        // A new entity is the last one in scene order: appended, the list stays sorted.
+        const auto& ids = m_Registry.storage<IDComponent>();
+        if (!list.Entities.empty() && list.Order == m_SceneOrderSerial)
+        {
+            const entt::entity last = list.Entities.back();
+            if (!ids.contains(e) || !ids.contains(last) || ids.index(last) > ids.index(e))
+                list.Order = 0; // sorted again when it is read
+        }
+        list.Entities.push_back(e);
+    }
+
+    void Scene::IndexErase(EntityIndex& index, std::string_view key, entt::entity e)
+    {
+        auto it = index.Lists.find(key);
+        if (it == index.Lists.end())
+            return;
+        std::vector<entt::entity>& entities = it->second.Entities;
+        if (auto at = std::find(entities.begin(), entities.end(), e); at != entities.end())
+            entities.erase(at); // the others keep their order
+        if (entities.empty())
+            index.Lists.erase(it);
+    }
+
+    void Scene::ListName(entt::entity e)
+    {
+        const auto* tag = m_Registry.try_get<TagComponent>(e);
+        if (!tag)
+            return;
+        const size_t slot = SlotOf(e);
+        if (slot >= m_NameSlots.size())
+            m_NameSlots.resize(std::max(slot + 1, m_NameSlots.size() * 2));
+        NameSlot& entry = m_NameSlots[slot];
+        entry.Name = tag->Tag;
+        entry.Listed = true;
+        IndexInsert(m_NameIndex, entry.Name, e);
+    }
+
+    void Scene::UnlistName(entt::entity e)
+    {
+        const size_t slot = SlotOf(e);
+        if (slot >= m_NameSlots.size() || !m_NameSlots[slot].Listed)
+            return;
+        NameSlot& entry = m_NameSlots[slot];
+        IndexErase(m_NameIndex, entry.Name, e);
+        entry.Listed = false;
+        entry.Name.clear();
+    }
+
+    void Scene::ListTags(entt::entity e)
+    {
+        const auto* tags = m_Registry.try_get<TagsComponent>(e);
+        if (!tags)
+            return;
+        const size_t slot = SlotOf(e);
+        if (slot >= m_TagSlots.size())
+            m_TagSlots.resize(std::max(slot + 1, m_TagSlots.size() * 2));
+        TagSlot& entry = m_TagSlots[slot];
+        entry.Tags = tags->Tags;
+        entry.Listed = true;
+        for (size_t i = 0; i < entry.Tags.size(); i++)
+            if (!entry.Tags[i].empty() && std::find(entry.Tags.begin(), entry.Tags.begin() + (ptrdiff_t)i, entry.Tags[i]) == entry.Tags.begin() + (ptrdiff_t)i)
+                IndexInsert(m_TagIndex, entry.Tags[i], e); // once per tag (a hand-written duplicate)
+    }
+
+    void Scene::UnlistTags(entt::entity e)
+    {
+        const size_t slot = SlotOf(e);
+        if (slot >= m_TagSlots.size() || !m_TagSlots[slot].Listed)
+            return;
+        TagSlot& entry = m_TagSlots[slot];
+        for (const std::string& tag : entry.Tags)
+            IndexErase(m_TagIndex, tag, e);
+        entry.Listed = false;
+        entry.Tags.clear();
+    }
+
+    void Scene::OnNameConstructed(entt::registry&, entt::entity e)
+    {
+        if (m_NameIndex.Built)
+            ListName(e);
+    }
+
+    void Scene::OnNameUpdated(entt::registry&, entt::entity e)
+    {
+        if (!m_NameIndex.Built)
+            return;
+        const size_t slot = SlotOf(e);
+        const auto& tag = m_Registry.get<TagComponent>(e);
+        if (slot < m_NameSlots.size() && m_NameSlots[slot].Listed && m_NameSlots[slot].Name == tag.Tag)
+            return; // the same name (Active changed, or a copy)
+        UnlistName(e);
+        ListName(e);
+        m_NameIndex.Stats.Updates++;
+    }
+
+    void Scene::OnNameDestroyed(entt::registry&, entt::entity e)
+    {
+        if (m_NameIndex.Built)
+            UnlistName(e);
+    }
+
+    void Scene::OnTagsChanged(entt::registry&, entt::entity e)
+    {
+        if (!m_TagIndex.Built)
+            return;
+        UnlistTags(e);
+        ListTags(e);
+        m_TagIndex.Stats.Updates++;
+    }
+
+    void Scene::OnTagsDestroyed(entt::registry&, entt::entity e)
+    {
+        if (m_TagIndex.Built)
+            UnlistTags(e);
+    }
+
+    void Scene::EnsureNameIndex()
+    {
+        EntityIndex& index = m_NameIndex;
+        if (!index.Built)
+        {
+            index.Lists.clear();
+            m_NameSlots.clear();
+            index.Built = true;
+            for (Entity e : GetEntitiesInOrder()) // in scene order: every list is sorted
+                ListName(e);
+            for (auto& [name, list] : index.Lists)
+                list.Order = m_SceneOrderSerial;
+            index.Check = false;
+            index.CheckedFrame = m_FrameIndex;
+            index.Stats.Rebuilds++;
+            return;
+        }
+        if (!index.Check && index.CheckedFrame == m_FrameIndex)
+            return;
+        // Direct writes to TagComponent::Tag bypass the signals: one pass over the names (no hashing).
+        index.Check = false;
+        index.CheckedFrame = m_FrameIndex;
+        index.Stats.Validations++;
+        std::vector<entt::entity> stale;
+        for (auto [e, tag] : m_Registry.storage<TagComponent>().each())
+        {
+            const size_t slot = SlotOf(e);
+            if (slot >= m_NameSlots.size() || !m_NameSlots[slot].Listed || m_NameSlots[slot].Name != tag.Tag)
+                stale.push_back(e);
+        }
+        for (entt::entity e : stale)
+        {
+            UnlistName(e);
+            ListName(e);
+            index.Stats.Updates++;
+        }
+    }
+
+    void Scene::EnsureTagIndex()
+    {
+        EntityIndex& index = m_TagIndex;
+        if (!index.Built)
+        {
+            index.Lists.clear();
+            m_TagSlots.clear();
+            index.Built = true;
+            for (Entity e : GetEntitiesInOrder())
+                ListTags(e);
+            for (auto& [tag, list] : index.Lists)
+                list.Order = m_SceneOrderSerial;
+            index.Check = false;
+            index.CheckedFrame = m_FrameIndex;
+            index.Stats.Rebuilds++;
+            return;
+        }
+        if (!index.Check && index.CheckedFrame == m_FrameIndex)
+            return;
+        // Direct edits of TagsComponent::Tags (the inspector, scripts): one pass over the lists.
+        index.Check = false;
+        index.CheckedFrame = m_FrameIndex;
+        index.Stats.Validations++;
+        std::vector<entt::entity> stale;
+        for (auto [e, tags] : m_Registry.storage<TagsComponent>().each())
+        {
+            const size_t slot = SlotOf(e);
+            if (slot >= m_TagSlots.size() || !m_TagSlots[slot].Listed || m_TagSlots[slot].Tags != tags.Tags)
+                stale.push_back(e);
+        }
+        for (entt::entity e : stale)
+        {
+            UnlistTags(e);
+            ListTags(e);
+            index.Stats.Updates++;
+        }
     }
 
     const std::vector<entt::entity>* Scene::LookupName(std::string_view name)
     {
-        // Direct writes to TagComponent::Tag bypass the registry signals: check the
-        // whole cache once per frame (cheap compared to scanning on every lookup).
-        if (!m_NameCacheDirty && m_NameCacheFrame != m_FrameIndex)
-        {
-            m_NameCacheFrame = m_FrameIndex;
-            m_NameCacheStats.Validations++;
-            if (!IsNameCacheValid())
-                m_NameCacheDirty = true;
-        }
-        if (m_NameCacheDirty)
-            RebuildNameCache();
-
-        auto it = m_NameCache.find(name);
-        if (it == m_NameCache.end())
+        EnsureNameIndex();
+        auto it = m_NameIndex.Lists.find(name);
+        if (it == m_NameIndex.Lists.end())
             return nullptr;
         // Verifying a hit is cheap and catches a direct rename made earlier this frame.
-        for (entt::entity e : it->second)
+        std::vector<entt::entity> stale;
+        for (entt::entity e : it->second.Entities)
         {
             const auto* tag = m_Registry.valid(e) ? m_Registry.try_get<TagComponent>(e) : nullptr;
             if (!tag || tag->Tag != name)
-            {
-                RebuildNameCache();
-                it = m_NameCache.find(name);
-                return it == m_NameCache.end() ? nullptr : &it->second;
-            }
+                stale.push_back(e);
         }
-        return &it->second;
+        if (!stale.empty())
+        {
+            for (entt::entity e : stale)
+            {
+                UnlistName(e);
+                if (m_Registry.valid(e))
+                    ListName(e);
+                m_NameIndex.Stats.Updates++;
+            }
+            it = m_NameIndex.Lists.find(name);
+            if (it == m_NameIndex.Lists.end())
+                return nullptr;
+        }
+        SortIndexed(it->second);
+        return &it->second.Entities;
+    }
+
+    const std::vector<entt::entity>* Scene::LookupTag(std::string_view tag, bool sorted)
+    {
+        // No check of the hits here (a tag is looked for in a long list of entities): the frame's
+        // pass over the lists catches direct edits.
+        EnsureTagIndex();
+        auto it = m_TagIndex.Lists.find(tag);
+        if (it == m_TagIndex.Lists.end())
+            return nullptr;
+        if (sorted)
+            SortIndexed(it->second);
+        return &it->second.Entities;
     }
 
     Entity Scene::FindEntityByName(std::string_view name)
@@ -1175,19 +1387,33 @@ namespace Zamin {
     {
         std::vector<Entity> result;
         if (const std::vector<entt::entity>* entities = LookupName(name))
+        {
+            result.reserve(entities->size());
             for (entt::entity e : *entities)
                 result.emplace_back(e, this);
+        }
         return result;
+    }
+
+    size_t Scene::CountEntitiesByName(std::string_view name)
+    {
+        const std::vector<entt::entity>* entities = LookupName(name);
+        return entities ? entities->size() : 0;
     }
 
     // ------------------------------------------------------------------ tags
     void Scene::SortInSceneOrder(std::vector<Entity>& entities)
     {
-        // Scene order == position in the IDComponent pool (see GetEntitiesInOrder).
+        // Scene order == position in the IDComponent pool (see GetEntitiesInOrder). Each position is
+        // looked up once, then plain numbers are sorted.
         const auto& ids = m_Registry.storage<IDComponent>();
-        std::sort(entities.begin(), entities.end(), [&](const Entity& a, const Entity& b) {
-            return ids.index((entt::entity)a) < ids.index((entt::entity)b);
-        });
+        std::vector<std::pair<size_t, Entity>> keyed;
+        keyed.reserve(entities.size());
+        for (const Entity& e : entities)
+            keyed.emplace_back(ids.index((entt::entity)e), e);
+        std::sort(keyed.begin(), keyed.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+        for (size_t i = 0; i < keyed.size(); i++)
+            entities[i] = keyed[i].second;
     }
 
     void Scene::MoveInSceneOrder(Entity entity, Entity before)
@@ -1203,53 +1429,45 @@ namespace Zamin {
         // Adjacent swaps: everything else keeps its relative order.
         for (; from < to; from++) ids.swap_elements(ids[from], ids[from + 1]);
         for (; from > to; from--) ids.swap_elements(ids[from], ids[from - 1]);
-        // The name lookups list same-named entities in scene order: that order just changed
-        // (the cache's own check only notices renames and added / removed entities).
-        m_NameCacheDirty = true;
+        // The name / tag lookups list their entities in scene order: sorted again when read.
+        m_SceneOrderSerial++;
     }
 
     std::vector<Entity> Scene::FindEntitiesWithTag(std::string_view tag)
     {
         std::vector<Entity> result;
-        auto view = m_Registry.view<TagsComponent>();
-        for (auto e : view)
-            if (view.get<TagsComponent>(e).Has(tag) && m_Registry.all_of<IDComponent>(e))
+        if (tag.empty())
+            return result;
+        if (const std::vector<entt::entity>* entities = LookupTag(tag))
+        {
+            result.reserve(entities->size());
+            for (entt::entity e : *entities)
                 result.emplace_back(e, this);
-        SortInSceneOrder(result);
+        }
         return result;
     }
 
     Entity Scene::FindEntityWithTag(std::string_view tag)
     {
-        const auto& ids = m_Registry.storage<IDComponent>();
-        entt::entity best = entt::null;
-        auto view = m_Registry.view<TagsComponent>();
-        for (auto e : view)
-            if (view.get<TagsComponent>(e).Has(tag) && ids.contains(e))
-                if (best == entt::null || ids.index(e) < ids.index(best))
-                    best = e;
-        return best == entt::null ? Entity{} : Entity{ best, this };
+        const std::vector<entt::entity>* entities = tag.empty() ? nullptr : LookupTag(tag);
+        return entities && !entities->empty() ? Entity{ entities->front(), this } : Entity{};
     }
 
     size_t Scene::CountEntitiesWithTag(std::string_view tag)
     {
-        size_t n = 0;
-        auto view = m_Registry.view<TagsComponent>();
-        for (auto e : view)
-            if (view.get<TagsComponent>(e).Has(tag))
-                n++;
-        return n;
+        const std::vector<entt::entity>* entities = tag.empty() ? nullptr : LookupTag(tag, false);
+        return entities ? entities->size() : 0;
     }
 
     std::vector<std::string> Scene::GetAllTags()
     {
+        EnsureTagIndex();
         std::vector<std::string> tags;
-        auto view = m_Registry.view<TagsComponent>();
-        for (auto e : view)
-            for (const auto& t : view.get<TagsComponent>(e).Tags)
-                tags.push_back(t);
+        tags.reserve(m_TagIndex.Lists.size());
+        for (const auto& [tag, list] : m_TagIndex.Lists)
+            if (!list.Entities.empty())
+                tags.push_back(tag);
         std::sort(tags.begin(), tags.end());
-        tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
         return tags;
     }
 
@@ -1801,7 +2019,13 @@ namespace Zamin {
     {
         const auto& ids = m_Registry.storage<IDComponent>();
         std::erase_if(entities, [&](entt::entity e) { return !ids.contains(e); });
-        std::sort(entities.begin(), entities.end(), [&](entt::entity a, entt::entity b) { return ids.index(a) < ids.index(b); });
+        std::vector<std::pair<size_t, entt::entity>> keyed;
+        keyed.reserve(entities.size());
+        for (entt::entity e : entities)
+            keyed.emplace_back(ids.index(e), e);
+        std::sort(keyed.begin(), keyed.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+        for (size_t i = 0; i < keyed.size(); i++)
+            entities[i] = keyed[i].second;
     }
 
     entt::entity Scene::PickSun(const std::vector<entt::entity>& directionalLights)
@@ -2629,6 +2853,28 @@ namespace Zamin {
         for (Entity e : targets)
             delivered += DeliverMessage(e, message) ? 1 : 0;
         return delivered;
+    }
+
+    void Scene::ForEachRunningScript(const std::function<void(ScriptableEntity&)>& call)
+    {
+        std::vector<std::pair<Entity, ScriptableEntity*>> targets;
+        for (auto e : m_Registry.view<NativeScriptComponent>())
+            if (ScriptableEntity* script = m_Registry.get<NativeScriptComponent>(e).Instance; script && script->m_Created && !script->m_Destroying)
+                targets.emplace_back(Entity{ e, this }, script);
+        std::sort(targets.begin(), targets.end(), [&](const auto& a, const auto& b) {
+            const auto& ids = m_Registry.storage<IDComponent>();
+            return ids.index((entt::entity)a.first) < ids.index((entt::entity)b.first);
+        });
+        for (const auto& [entity, script] : targets)
+        {
+            // An earlier call may have destroyed it (or replaced its script).
+            if (!entity.IsValid())
+                continue;
+            const auto* nsc = m_Registry.try_get<NativeScriptComponent>(entity);
+            if (!nsc || nsc->Instance != script || script->m_Destroying)
+                continue;
+            call(*script);
+        }
     }
 
     void Scene::DestroyScriptInstances()

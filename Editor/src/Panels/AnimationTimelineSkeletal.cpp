@@ -449,8 +449,13 @@ namespace Zamin {
 
         // ---- list: what each row is
         dl->PushClipRect(list.Min, list.Max, true);
-        dl->AddText(ImVec2(list.Min.x + 8.0f, list.Min.y + 4.0f), IM_COL32(170, 175, 185, 255),
-                    std::format("{} - {} suyak, {:.2f} s", clip->Name, rows.size(), clip->Duration).c_str());
+        size_t boneRows = 0;
+        for (const SkeletalRow& row : rows)
+            boneRows += row.Joint >= 0 ? 1 : 0;
+        const std::string summary = boneRows == rows.size() ? std::format("{} - {} suyak, {:.2f} s", clip->Name, boneRows, clip->Duration)
+                                  : boneRows == 0 ? std::format("{} - {} blend shape, {:.2f} s", clip->Name, rows.size(), clip->Duration)
+                                  : std::format("{} - {} suyak, {} blend shape, {:.2f} s", clip->Name, boneRows, rows.size() - boneRows, clip->Duration);
+        dl->AddText(ImVec2(list.Min.x + 8.0f, list.Min.y + 4.0f), IM_COL32(170, 175, 185, 255), summary.c_str());
         dl->AddText(ImVec2(list.Min.x + 8.0f, rulerBottom + 4.0f), IM_COL32(230, 180, 90, 255), ICON_FA_BELL "  Event'lar");
         dl->PushClipRect(ImVec2(list.Min.x, eventsBottom), list.Max, true);
         for (size_t r = 0; r < rows.size(); r++)

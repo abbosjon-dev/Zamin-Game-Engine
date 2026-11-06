@@ -81,6 +81,8 @@ namespace Zamin {
         void SetTextureChannelView(ImageChannelView view) { m_ChannelView = view; }
         // Audio: plays the sound; model: plays its first animation.
         void StartPreviewPlayback();
+        // Models: entry `index` of the clip settings previewed, the view scrolled to them (automation).
+        void PreviewClipSetting(int index) { m_PendingClipSettingPreview = index; m_ScrollToClipSettings = true; }
         void StopAudio();
         uint32_t PlayPreviewSound();
         // Audio: the preview loops (inside the edited loop region); the waveform zoomed in
@@ -223,6 +225,8 @@ namespace Zamin {
         // source as edited (not applied yet), shown instead of m_Clip (-1: none)
         int m_ClipSettingPreview = -1;
         AnimationClip m_ClipSettingClip;
+        bool m_ScrollToClipSettings = false;
+        int m_PendingClipSettingPreview = -1;   // started once the model is there
         // the last "export materials" of the shown model
         bool m_ExportOverwrite = false;
         std::filesystem::path m_ExportModel;  // which model m_Export is about (empty = none yet)

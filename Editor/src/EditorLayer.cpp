@@ -301,7 +301,8 @@ namespace Zamin {
             }
             // ZAMIN_EDITOR_ANIMATION=1 | curves,time=0.5,track=1,key=1,record: the Animation window on the
             // selected entity's player (curve view, scrubbed to a time, a track / key selected, recording).
-            // skeletal,clip=Walk,time=0.4,event=0: its Animator's glTF clip scrubbed there (an event selected).
+            // skeletal,clip=Walk,time=0.4,event=0,row=2: its Animator's glTF clip scrubbed there (an event /
+            // a bone or blend shape row selected).
             if (const char* anim = std::getenv("ZAMIN_EDITOR_ANIMATION"))
             {
                 std::string_view v(anim);
@@ -330,6 +331,8 @@ namespace Zamin {
                 };
                 if (skeletal && v.find("event=") != std::string_view::npos)
                     m_AnimationPanel.SelectSkeletalEvent((int)number("event=", 0.0f));
+                if (skeletal && v.find("row=") != std::string_view::npos)
+                    m_AnimationPanel.SelectSkeletalRow((int)number("row=", 0.0f));
                 m_AnimationPanel.SetCurveView(v.find("curves") != std::string_view::npos);
                 m_AnimationPanel.SetTime(number("time=", 0.0f));
                 if (v.find("track=") != std::string_view::npos)
@@ -869,7 +872,8 @@ namespace Zamin {
         }
 
         // ZAMIN_EDITOR_ASSET_PREVIEW (with ZAMIN_EDITOR_ASSET) at frame 12: "play" starts the sound /
-        // the model's first animation; R, G, B, A or RGB shows that view of a texture. Audio:
+        // the model's first animation ("clipsetting=N": entry N of its clip settings); R, G, B, A or RGB
+        // shows that view of a texture. Audio:
         // "loop,zoom=4:0.3,play" - the preview loops, the waveform zoomed 4x around 30% of the sound.
         if (frame == 12 && m_AssetInspectorPanel.HasAsset())
             if (const char* preview = std::getenv("ZAMIN_EDITOR_ASSET_PREVIEW"))
@@ -892,6 +896,8 @@ namespace Zamin {
                 }
                 else if (v == "play")
                     m_AssetInspectorPanel.StartPreviewPlayback();
+                else if (v.starts_with("clipsetting=")) // models: that entry of the clip settings previewed (scrolled to them)
+                    m_AssetInspectorPanel.PreviewClipSetting(std::atoi(std::string(v.substr(12)).c_str()));
                 else if (v == "hdri" || v == "cube" || v == "plane" || v == "cylinder") // materials: lighting / shape
                 {
                     MaterialPreview::Settings& view = m_AssetInspectorPanel.GetMaterialPreviewSettings();
@@ -4988,13 +4994,15 @@ namespace Zamin {
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) { shift ? OpenProjectDialog() : OpenScene(); }
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) NewScene();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_D, false)) DuplicateSelectedEntity();
-            // The Animation window undoes its own clip edits while it has the keyboard.
+            // The Animation window undoes its own clip edits while it has the keyboard (its skeletal
+            // mode edits the scene's Animator events: the scene's undo).
+            const bool clipUndo = m_AnimationPanel.IsFocused() && !m_AnimationPanel.IsSkeletalMode();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Z, false))
             {
-                if (m_AnimationPanel.IsFocused()) shift ? m_AnimationPanel.Redo() : m_AnimationPanel.Undo();
+                if (clipUndo) shift ? m_AnimationPanel.Redo() : m_AnimationPanel.Undo();
                 else shift ? Redo() : Undo();
             }
-            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) { m_AnimationPanel.IsFocused() ? (void)m_AnimationPanel.Redo() : Redo(); }
+            if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Y, false)) { clipUndo ? (void)m_AnimationPanel.Redo() : Redo(); }
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_C, false)) CopySelectedEntity();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_V, false)) PasteEntity();
             if (ctrl && ImGui::IsKeyPressed(ImGuiKey_B, false)) BuildScripts(true);

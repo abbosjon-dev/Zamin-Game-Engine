@@ -221,6 +221,27 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     uning vaqti, o'tish strelkasi, blend og'irliklari; inspektorda ham **jonli holat** (normalizatsiyalangan vaqt, o'tish
     jarayoni, og'irliklar, qatlamlar) va parametrlarni o'zgartirish (trigger tugmasi). Namuna: Showcase3D
     `Scenes/Animator.zscene` (blend tree + Any State trigger, Bone2 maskali qatlam), Adventure3D robot (Idle/Walk/Run blend tree)
+  - **Skelet kliplarini editorda ko'rib chiqish** (Animatsiya oynasi, skelet rejimi — Animator'li obyekt tanlanganda):
+    modelning glTF kliplari, vaqt chizg'ichini bosib / sudrab **scrub** (sahnada o'yin rejimisiz ko'rinadi), o'ynatish /
+    to'xtatish, takror, tezlik, kadrlarga yopishish, masshtab / surish; klip harakatlantiradigan suyaklar va blend shape'lar
+    kalitlari bilan qatorlar (qator bosilsa — shu vaqtdagi T/R/S yoki og'irliklar); **Animator event'lari** shu klip uchun
+    vaqt chizig'ida qo'shiladi (ikki marta bosish, qo'ng'iroqcha tugmasi), sudraladi, nomlanadi, o'chiriladi (undo bilan)
+  - **Suyakka biriktirish** (`Bone Attachment` komponenti): obyekt skinned modelning suyagiga ergashadi (qo'lda qilich, boshda
+    shlyapa) — suyak Animator pozasi bilan (editorda ham) obyekt otasining o'rnini egallaydi, Transform suyakka nisbatan
+    siljish bo'ladi (gizmo ham suyak fazosida); model obyekti tanlanmasa eng yaqin skinned ota, suyak masshtabi ixtiyoriy
+  - **Qadam tovushlari** (`Footsteps` komponenti): animatsiya event'i (odatda `Footstep`) kelganda ovozlardan tasodifiysi
+    (ketma-ket takrorlanmaydi) — tezlik (Animator float parametri) bo'yicha balandroq va yuqoriroq tonda, tasodifiy
+    balandlik / ton oralig'i, sekinda jim, yaqin event'lar bitta qadam, 3D ovoz, mixer guruhi
+  - **Kliplarni kesish va bo'lish** (model `.zmeta` import sozlamalari, asset inspektorida): fayldagi klipning boshlanish /
+    oxiri (soniya va kadr, chetlari sudraladigan oraliq chizig'i) — shu nomli bo'lsa klip kesiladi, boshqa nom bilan alohida
+    klip bo'ladi (bitta uzun yozuvdan Walk / Run / Jump); qo'llashdan oldin ko'rib chiqish, asl kliplarni saqlash tanlovi
+  - **glTF morph target'lar** (blend shape'lar): target'larning joy / normal siljishlari va boshlang'ich og'irliklari
+    o'qiladi, CPU'da qo'llanadi (har obyekt o'z og'irliklari bilan o'z mesh nusxasini oladi, skinning bilan ham), glTF
+    `weights` animatsiya kanallari Animator kliplarida o'ynaydi (crossfade, blend tree bilan); Mesh Renderer inspektorida
+    slayderlar, skript: `GetComponent<MeshRendererComponent>().SetMorphWeight("Smile", 0.8f)`. Namunalar: Showcase3D
+    `Scenes/Animator.zscene` (morph'li `Blob.gltf`: Animator klipi va skript, tentakl uchidagi kristal — `Bone3` ga
+    biriktirilgan), Adventure3D robot (qo'lidagi fonar, Walk/Run qadam event'lari va `Footsteps`), `Tentacle.gltf` (`WaveHalf`
+    kesilgan klip)
   - **Property animatsiya** (`.zanim` kliplar, **Animation Player** komponenti): obyekt va uning bolalarining (nom yo'li bilan,
     `"Eshik/Oshiq"`) transformi, Sprite / Circle / Text / Mesh rangi, yorug'lik rangi va kuchi, UI joylashuvi / o'lchami /
     masshtabi / shaffofligi, UI rasm rangi va skriptning float maydonlari; kalitlar **Step / Linear / Bezier** (avtomatik
@@ -808,7 +829,7 @@ Foydali API:
 | 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `ApplyImpulse(other, impulse)`, `Raycast2D(origin, dir, dist, LayerMask({ "Ground" }))`, `Raycast2DAll(origin, dir, dist, mask, includeTriggers)` (hamma urilishlar, yaqini birinchi), `OverlapCircle2D(center, r, mask)` / `OverlapBox2D(center, halfExtents, angle, mask)` / `OverlapPoint2D(p, mask)` → `std::vector<Entity>`, `LayerIndex("Player")`, uxlash: `IsSleeping()` / `WakeUp()` / `PutToSleep()` (`IsSleeping(other)`, `WakeUp(other)`); joint'lar: `GetComponent<RevoluteJoint2DComponent>()` → `.MotorSpeed`, `.EnableLimit`, `.JointAngle`, `.ReactionForce`, `.Broken` ... |
 | 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)`, uxlash: `IsSleeping3D()` / `WakeUp3D()` / `PutToSleep3D()` (`(other)` turlari ham); joint'lar: `GetComponent<HingeJoint3DComponent>()` → `.MotorSpeed`, `.EnableSpring`, `.SpringTargetAngle`, `.JointAngle`, `.ReactionForce`, `.Broken`; `SliderJoint3DComponent` → `.MotorSpeed`, `.JointTranslation` ... |
 | Qahramon | `GetComponent<CharacterController3DComponent>()` → `.Move(velocity)`, `.Jump(speed)`, `.Grounded`, `.Velocity` (oxirgi fizika qadamidagi haqiqiy tezlik) |
-| Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)` (blend tree ham), `SetBool`, `SetTrigger`, `SetState("Jump")`, `GetNormalizedTime(model)`; qatlamlar: `PlayLayer("UpperBody", "Wave")`, `SetLayerWeight("UpperBody", w, fade)`; `.ApplyRootMotion`, `.RootMotionVelocity` |
+| Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)` (blend tree ham), `SetBool`, `SetTrigger`, `SetState("Jump")`, `GetNormalizedTime(model)`; qatlamlar: `PlayLayer("UpperBody", "Wave")`, `SetLayerWeight("UpperBody", w, fade)`; `.ApplyRootMotion`, `.RootMotionVelocity`; blend shape'lar: `GetComponent<MeshRendererComponent>().SetMorphWeight("Smile", 0.8f)`, `GetMorphWeight("Smile")` |
 | Sprite klip | `PlaySpriteClip("HeroSide")`, `GetSpriteClip()`; kadr event'lari `OnAnimationEvent(e)` orqali |
 | Property animatsiya | `PlayAnimation("Klip", speed)` (speed < 0 — oxiridan orqaga), `StopAnimation()`, `IsAnimationPlaying()`; `GetComponent<AnimationPlayerComponent>().SetTime(t)`; event'lar: `OnAnimationEvent(const AnimationEventInfo& e)` (`e.Name`, `e.Parameter`, `e.Clip`, `e.Skeletal`), `AddAnimationEventHandler("Footstep", fn)` |
 | Input harakatlari | `Input::IsActionPressed("Fire")`, `IsActionJustPressed("Jump")`, `IsActionJustReleased(...)`, `GetAxis("Horizontal")`, `GetAxis2D("Horizontal", "Vertical")` |

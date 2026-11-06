@@ -144,9 +144,19 @@ namespace Zamin {
         if (sources.empty() && m_ModelEdit.Clips.empty())
             return;
 
+        if (m_PendingClipSettingPreview >= 0)
+        {
+            StartClipSettingPreview(m_PendingClipSettingPreview);
+            m_PendingClipSettingPreview = -1;
+        }
+        if (m_ScrollToClipSettings)
+        {
+            ImGui::SetScrollHereY(0.15f);
+            m_ScrollToClipSettings = false;
+        }
         if (!UI::BeginPropertyGrid("##modelClipSettings"))
             return;
-        UI::PropertyHeader("Kliplarni kesish va bo'lish",
+        UI::PropertyHeader("Kliplarni kesish",
                            "Fayldagi klipning bir qismi (boshlanish..oxir) - shu nomli bo'lsa klip o'rniga (kesilgan), boshqa nom bilan "
                            "alohida klip bo'ladi (bitta uzun yozuvdan Walk, Run, Jump). Animator va Animatsiya oynasi yangi kliplarni "
                            "shu nomlar bilan ko'radi. \"Qo'llash\" bilan model qayta import qilinadi.");

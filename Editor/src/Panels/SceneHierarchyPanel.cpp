@@ -6092,7 +6092,7 @@ namespace Zamin {
                     const auto* anim = entity.TryGetComponent<AnimatorComponent>();
                     const bool animated = anim && anim->MorphWeights.size() == model.GetMorphWeightCount() &&
                                           (!m_SceneEditable || anim->EditorPreview.Active || (anim->PlayInEditor && anim->Playing));
-                    UI::PropertyHeader("Blend shape'lar (morph)",
+                    UI::PropertyHeader("Blend shape'lar",
                                        "glTF morph target'lari: har biri 0..1 og'irlik bilan mesh shaklini o'zgartiradi (yuz ifodalari, "
                                        "shishish). Saqlanadi; Animator kliplari og'irliklarni animatsiya qilsa, o'ynayotganda ular "
                                        "ishlatiladi. Skript: GetComponent<MeshRendererComponent>().SetMorphWeight(\"nom\", 0.8f)");
@@ -6432,7 +6432,7 @@ namespace Zamin {
             return DrawAnimationPlayer(entity, c);
         }, true, modified);
 
-        AddSection<BoneAttachmentComponent>(ICON_FA_PAPERCLIP, "Bone Attachment (suyakka biriktirish)", entity, [&](BoneAttachmentComponent& c) {
+        AddSection<BoneAttachmentComponent>(ICON_FA_PAPERCLIP, "Bone Attachment", entity, [&](BoneAttachmentComponent& c) {
             return DrawBoneAttachment(entity, c);
         }, true, modified);
 
@@ -8268,7 +8268,7 @@ namespace Zamin {
             return changed;
         }, true, modified);
 
-        AddSection<FootstepsComponent>(ICON_FA_SHOE_PRINTS, "Footsteps (qadam tovushlari)", entity, [&](FootstepsComponent& c) {
+        AddSection<FootstepsComponent>(ICON_FA_SHOE_PRINTS, "Footsteps", entity, [&](FootstepsComponent& c) {
             return DrawFootsteps(entity, c);
         }, true, modified);
 

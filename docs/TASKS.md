@@ -290,11 +290,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 248. Sprite animatsiya kliplari asset sifatida
 - [x] 249. Animator parametrlarini inspektorda runtime ko'rsatish
 - [x] 250. Holat mashinasi uchun vizual graf (node'lar)
-- [ ] 251. Animatsiya preview editorda (scrub)
-- [ ] 252. Skelet: suyakka obyekt biriktirish (attachment socket)
-- [ ] 253. Animatsiya tezligi bo'yicha qadam tovushlari event bilan
-- [ ] 254. Animatsiya kliplarini qisqartirish (start/end)
-- [ ] 255. glTF morph target'lar (blend shapes) - oddiy
+- [x] 251. Animatsiya preview editorda (scrub)
+- [x] 252. Skelet: suyakka obyekt biriktirish (attachment socket)
+- [x] 253. Animatsiya tezligi bo'yicha qadam tovushlari event bilan
+- [x] 254. Animatsiya kliplarini qisqartirish (start/end)
+- [x] 255. glTF morph target'lar (blend shapes) - oddiy
 - [ ] 256. Animatsiya keshlash (performance)
 - [ ] 257. Bir nechta skin qo'llab-quvvatlash
 - [ ] 258. Animatsiya testlari (property clip, event)

@@ -65,6 +65,7 @@ namespace Zamin {
         bool IsSkeletalMode() const { return m_Mode == Mode::Skeletal; }
         void SetSkeletalClip(const std::string& clip);
         void SelectSkeletalEvent(int index) { m_SkelSelectedEvent = index; }
+        void SelectSkeletalRow(int index) { m_SkelSelectedRow = index; }
         // An edit of the scene (an Animator event): undo point, unsaved mark.
         std::function<void()> OnSceneModified;
 

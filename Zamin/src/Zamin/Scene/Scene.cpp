@@ -799,6 +799,12 @@ namespace Zamin {
             }
             if (auto* attachment = e.TryGetComponent<BoneAttachmentComponent>())
                 remap(attachment->Target);
+            if (auto* ps = e.TryGetComponent<ParticleSystemComponent>())
+            {
+                remap(ps->Collision.PlaneEntity);
+                for (auto& sub : ps->SubEmitters.Emitters)
+                    remap(sub.Emitter);
+            }
             if (auto* nav = e.TryGetComponent<UINavigationComponent>())
             {
                 remap(nav->Up);
@@ -6824,7 +6830,8 @@ namespace Zamin {
                     }
             }
             else
-                DrawParticleSystem(m_Registry.get<ParticleSystemComponent>(item.Handle), transform, billboard, id, registry());
+                DrawParticleSystem(m_Registry.get<ParticleSystemComponent>(item.Handle), transform, billboard, id, registry(), cameraPosition,
+                                   projection[3][3] == 0.0f);
         }
         Renderer2D::SetLit(false);
         Renderer2D::EndScene();

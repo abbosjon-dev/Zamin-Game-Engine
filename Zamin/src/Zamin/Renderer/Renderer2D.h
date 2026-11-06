@@ -68,6 +68,11 @@ namespace Zamin {
         static void DrawQuadCorners(const glm::vec2 positions[4], const glm::vec2 uvs[4], const Ref<Texture2D>& texture,
                                     const glm::vec4& tintColor, int entityID = -1, float z = 0.0f);
 
+        // A quad of any four corners in 3D (in order around it; a ribbon's segment: particle trails)
+        // with a colour and a UV each. A null texture: plain colours.
+        static void DrawQuadVertices(const glm::vec3 positions[4], const glm::vec4 colors[4], const glm::vec2 uvs[4], const Ref<Texture2D>& texture,
+                                     int entityID = -1);
+
         static void DrawCircle(const glm::mat4& transform, const glm::vec4& color, float thickness = 1.0f, float fade = 0.005f, int entityID = -1);
 
         static void DrawLine(const glm::vec3& p0, const glm::vec3& p1, const glm::vec4& color, int entityID = -1);

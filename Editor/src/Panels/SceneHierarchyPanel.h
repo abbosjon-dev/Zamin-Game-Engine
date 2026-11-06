@@ -368,6 +368,8 @@ namespace Zamin {
         // Particle System: playback, emission, shape, motion, look and the optional modules
         // (colour / size / velocity over lifetime, speed limit, texture sheet) - SceneHierarchyParticles.cpp.
         bool DrawParticleSystem(Entity entity, ParticleSystemComponent& c);
+        // A child entity with a Particle System that emits nothing itself, made a Death sub-emitter of `owner`'s.
+        void CreateSubEmitterTemplate(UUID owner);
         // Tilemap: tileset, layers, paint tools, auto-tile rules, palette.
         bool DrawTilemap(Entity entity, TilemapComponent& c);
         // Writes the auto-tile rules into the tileset's .zmeta.
@@ -446,6 +448,7 @@ namespace Zamin {
         std::string m_PasteText, m_PasteKey;       // clipboard contents when the menu opened
         struct PendingMove { std::string Key, Target; bool After = false; int Index = -1; };
         PendingMove m_PendingMove;                 // applied after the inspector is drawn
+        UUID m_PendingSubEmitterFor = 0;           // "New template" of a particle system's sub-emitters (after the inspector)
         InspectorFoldState* m_FoldState = nullptr;
         bool m_SceneEditable = true;
         float m_GutterX = 0.0f;                    // left edge of the hierarchy's eye / lock column

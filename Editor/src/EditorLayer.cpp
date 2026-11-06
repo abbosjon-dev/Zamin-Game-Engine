@@ -2000,7 +2000,7 @@ namespace Zamin {
 
     // A Particle System's emitter shape in its local space (`world`: the emitter's transform):
     // circle / sphere / box outlines (the inner edge too when only an outer shell emits), the cone
-    // with its rim rays out to its length, the edge line, and the emission direction.
+    // with its rim rays out to its length, the edge line, the mesh's edges, and the emission direction.
     static void DrawParticleShapeGizmo(const glm::mat4& world, const ParticleSystemComponent& ps, const glm::vec4& color, float pixel)
     {
         using Shape = ParticleSystemComponent::EmitterShape;
@@ -2079,8 +2079,26 @@ namespace Zamin {
                 }
                 break;
             }
+            case Shape::Mesh:
+                if (const ParticleEmitterMesh* mesh = ps.MeshRuntime.get(); mesh && !mesh->IsEmpty())
+                {
+                    // The edges Edge mode emits from (each once, not inside flat faces); a big mesh: some.
+                    const size_t edges = mesh->EdgeSums.size();
+                    const size_t step = std::max<size_t>(1, edges / 6000);
+                    for (size_t e = 0; e < edges; e += step)
+                    {
+                        const float before = e == 0 ? 0.0f : mesh->EdgeSums[e - 1];
+                        if (mesh->EdgeSums[e] <= before)
+                            continue;
+                        const size_t t = e / 3;
+                        line(mesh->Positions[mesh->Indices[t * 3 + e % 3]], mesh->Positions[mesh->Indices[t * 3 + (e + 1) % 3]], faint);
+                    }
+                }
+                break;
             default: break;
         }
+        if (ps.Shape == Shape::Mesh)
+            return; // the normals give the directions
         // The direction (the cone's axis).
         const glm::vec3 from = toWorld(glm::vec3(0.0f)), to = toWorld(axis * arrow);
         DrawWireArrow(from, to, glm::length(to - from) * 0.2f, faint);
@@ -2672,8 +2690,37 @@ namespace Zamin {
                     continue;
                 Entity entity{ e, &scene };
                 const glm::mat4 world = scene.GetWorldTransform(entity);
-                DrawParticleShapeGizmo(world, entity.GetComponent<ParticleSystemComponent>(), tint(e, glm::vec4(0.55f, 0.75f, 1.0f, 0.9f)),
-                                       view.PixelSize(glm::vec3(world[3])));
+                const auto& ps = entity.GetComponent<ParticleSystemComponent>();
+                DrawParticleShapeGizmo(world, ps, tint(e, glm::vec4(0.55f, 0.75f, 1.0f, 0.9f)), view.PixelSize(glm::vec3(world[3])));
+                // The collision plane: a grid under the emitter (where it meets the plane) and its normal.
+                if (ps.Collision.Enabled && ps.Collision.Type == ParticleSystemComponent::CollisionModule::CollisionType::Plane)
+                {
+                    glm::vec3 normal = ps.Collision.PlaneNormal;
+                    float offset = ps.Collision.PlaneOffset;
+                    if (Entity planeEntity = ps.Collision.PlaneEntity ? scene.GetEntityByUUID(ps.Collision.PlaneEntity.ID) : Entity())
+                    {
+                        const glm::mat4 planeWorld = scene.GetWorldTransform(planeEntity);
+                        normal = glm::vec3(planeWorld[1]);
+                        offset = glm::length(normal) > 1e-6f ? glm::dot(glm::normalize(normal), glm::vec3(planeWorld[3])) : 0.0f;
+                    }
+                    else if (glm::length(normal) > 1e-6f)
+                        offset /= glm::length(normal);
+                    normal = glm::length(normal) > 1e-6f ? glm::normalize(normal) : glm::vec3(0, 1, 0);
+                    const glm::vec3 emitter(world[3]);
+                    const glm::vec3 center = emitter - normal * (glm::dot(normal, emitter) - offset);
+                    glm::vec3 u, v;
+                    PerpendicularAxes(normal, u, v);
+                    const glm::vec4 color = tint(e, glm::vec4(0.95f, 0.65f, 0.3f, 0.75f));
+                    const float half = std::max(1.0f, 120.0f * view.PixelSize(center));
+                    for (int i = -4; i <= 4; i++)
+                    {
+                        const float f = half * i / 4.0f;
+                        const glm::vec4 c = i == 0 || std::abs(i) == 4 ? color : glm::vec4(color.r, color.g, color.b, color.a * 0.4f);
+                        Renderer2D::DrawLine(center + u * f - v * half, center + u * f + v * half, c);
+                        Renderer2D::DrawLine(center + v * f - u * half, center + v * f + u * half, c);
+                    }
+                    DrawWireArrow(center, center + normal * half * 0.5f, half * 0.1f, color);
+                }
             }
 
         // 2D and 3D joints: anchors, connected anchors and limits (one setting for both).

@@ -8292,6 +8292,12 @@ namespace Zamin {
         m_Sections.clear();
         if (modified) MarkModified();
 
+        // A particle system's new sub-emitter template (adding a component while the inspector
+        // holds references into the storage would move them).
+        if (m_PendingSubEmitterFor && m_SceneEditable)
+            CreateSubEmitterTemplate(m_PendingSubEmitterFor);
+        m_PendingSubEmitterFor = 0;
+
         // Reordering (menu / header drag & drop) is applied after everything was drawn.
         PendingMove move = std::move(m_PendingMove);
         m_PendingMove = {};

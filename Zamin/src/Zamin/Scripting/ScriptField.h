@@ -18,6 +18,7 @@ namespace Zamin {
     {
         uint64_t ID = 0;
         explicit operator bool() const { return ID != 0; }
+        bool operator==(const EntityRef&) const = default;
     };
 
     // Enum: any C++ enum member (stored as a 64-bit integer, written back with the

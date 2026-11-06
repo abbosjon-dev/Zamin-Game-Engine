@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <unordered_map>
 
 namespace Zamin {
 
@@ -127,9 +129,217 @@ namespace Zamin {
         return c;
     }
 
+    // ------------------------------------------------------------------ emitter mesh
+    Ref<ParticleEmitterMesh> ParticleEmitterMesh::Build(const std::vector<glm::vec3>& positions, const std::vector<uint32_t>& indices)
+    {
+        auto mesh = CreateRef<ParticleEmitterMesh>();
+        mesh->Positions = positions;
+        mesh->VertexNormals.assign(positions.size(), glm::vec3(0.0f));
+        const size_t vertexCount = positions.size();
+        for (size_t i = 0; i + 2 < indices.size(); i += 3)
+        {
+            const uint32_t a = indices[i], b = indices[i + 1], c = indices[i + 2];
+            if (a >= vertexCount || b >= vertexCount || c >= vertexCount)
+                continue;
+            mesh->Indices.insert(mesh->Indices.end(), { a, b, c });
+        }
+        const size_t triangles = mesh->GetTriangleCount();
+        mesh->FaceNormals.resize(triangles);
+        mesh->AreaSums.resize(triangles);
+        mesh->EdgeSums.resize(triangles * 3);
+        // Each edge once: the second triangle at an edge (by vertex index) adds nothing, nor does an
+        // edge between two triangles in one plane (a quad's diagonal) - Edge mode draws the outline.
+        std::unordered_map<uint64_t, size_t> edges; // first triangle edge (triangle * 3 + k) by vertex pair
+        std::vector<float> edgeLength(triangles * 3, 0.0f);
+        float area = 0.0f;
+        for (size_t t = 0; t < triangles; t++)
+        {
+            const uint32_t* tri = &mesh->Indices[t * 3];
+            const glm::vec3 &a = positions[tri[0]], &b = positions[tri[1]], &c = positions[tri[2]];
+            const glm::vec3 cross = glm::cross(b - a, c - a);
+            const float length = glm::length(cross);
+            mesh->FaceNormals[t] = length > 1e-12f ? cross / length : glm::vec3(0.0f, 1.0f, 0.0f);
+            area += length * 0.5f;
+            mesh->AreaSums[t] = area;
+            for (int k = 0; k < 3; k++)
+                mesh->VertexNormals[tri[k]] += cross; // area weighted
+            for (int k = 0; k < 3; k++)
+            {
+                const uint32_t i0 = tri[k], i1 = tri[(k + 1) % 3];
+                const uint64_t key = ((uint64_t)std::min(i0, i1) << 32) | std::max(i0, i1);
+                auto [it, inserted] = edges.try_emplace(key, t * 3 + k);
+                if (inserted)
+                    edgeLength[t * 3 + k] = glm::length(positions[i1] - positions[i0]);
+                else if (glm::dot(mesh->FaceNormals[it->second / 3], mesh->FaceNormals[t]) > 0.9999f)
+                    edgeLength[it->second] = 0.0f; // inside a flat face
+            }
+        }
+        float total = 0.0f;
+        for (size_t i = 0; i < edgeLength.size(); i++)
+            mesh->EdgeSums[i] = total += edgeLength[i];
+        if (total <= 0.0f) // only flat faces' insides (cannot happen for a closed mesh): every edge
+            for (size_t t = 0, i = 0; t < triangles; t++)
+                for (int k = 0; k < 3; k++, i++)
+                {
+                    const uint32_t* tri = &mesh->Indices[t * 3];
+                    mesh->EdgeSums[i] = total += glm::length(positions[tri[(k + 1) % 3]] - positions[tri[k]]);
+                }
+        for (glm::vec3& n : mesh->VertexNormals)
+        {
+            const float length = glm::length(n);
+            n = length > 1e-12f ? n / length : glm::vec3(0.0f, 1.0f, 0.0f);
+        }
+        return mesh;
+    }
+
+    // The index of the first running total above `value` (a random point of the whole).
+    static size_t PickBySum(const std::vector<float>& sums, float value)
+    {
+        const size_t i = (size_t)(std::upper_bound(sums.begin(), sums.end(), value) - sums.begin());
+        return std::min(i, sums.size() - 1);
+    }
+
+    static glm::vec3 BlendNormal(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, float u, float v, const glm::vec3& fallback)
+    {
+        const glm::vec3 n = a * (1.0f - u - v) + b * u + c * v;
+        const float length = glm::length(n);
+        return length > 1e-6f ? n / length : fallback;
+    }
+
+    void ParticleEmitterMesh::Sample(ParticleMeshMode mode, uint32_t& rng, glm::vec3& position, glm::vec3& normal) const
+    {
+        position = glm::vec3(0.0f);
+        normal = glm::vec3(0.0f, 1.0f, 0.0f);
+        if (IsEmpty())
+            return;
+        switch (mode)
+        {
+            case ParticleMeshMode::Vertex:
+            {
+                const size_t i = std::min(Positions.size() - 1, (size_t)(ParticleSimulation::Random01(rng) * Positions.size()));
+                position = Positions[i];
+                normal = VertexNormals[i];
+                return;
+            }
+            case ParticleMeshMode::Edge:
+            {
+                const size_t e = PickBySum(EdgeSums, ParticleSimulation::Random01(rng) * EdgeSums.back());
+                const size_t t = e / 3;
+                const uint32_t i0 = Indices[t * 3 + e % 3], i1 = Indices[t * 3 + (e + 1) % 3];
+                const float f = ParticleSimulation::Random01(rng);
+                position = glm::mix(Positions[i0], Positions[i1], f);
+                const glm::vec3 n = glm::mix(VertexNormals[i0], VertexNormals[i1], f);
+                normal = glm::length(n) > 1e-6f ? glm::normalize(n) : FaceNormals[t];
+                return;
+            }
+            default:
+            {
+                const size_t t = PickBySum(AreaSums, ParticleSimulation::Random01(rng) * AreaSums.back());
+                float u = ParticleSimulation::Random01(rng), v = ParticleSimulation::Random01(rng);
+                if (u + v > 1.0f)
+                {
+                    u = 1.0f - u;
+                    v = 1.0f - v;
+                }
+                const uint32_t* tri = &Indices[t * 3];
+                const glm::vec3 &a = Positions[tri[0]], &b = Positions[tri[1]], &c = Positions[tri[2]];
+                position = a + (b - a) * u + (c - a) * v;
+                normal = BlendNormal(VertexNormals[tri[0]], VertexNormals[tri[1]], VertexNormals[tri[2]], u, v, FaceNormals[t]);
+                return;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ trails
+    void ParticleTrailPool::Reset(int capacity)
+    {
+        Capacity = std::clamp(capacity, 0, 1024);
+        Points.clear();
+        First.clear();
+        Count.clear();
+        Free.clear();
+    }
+
+    int ParticleTrailPool::Allocate()
+    {
+        if (Capacity <= 0)
+            return -1;
+        int slot;
+        if (!Free.empty())
+        {
+            slot = Free.back();
+            Free.pop_back();
+        }
+        else
+        {
+            slot = (int)Count.size();
+            First.push_back(0);
+            Count.push_back(0);
+            Points.resize(Points.size() + (size_t)Capacity);
+        }
+        First[(size_t)slot] = 0;
+        Count[(size_t)slot] = 0;
+        return slot;
+    }
+
+    void ParticleTrailPool::Release(int slot)
+    {
+        if (slot < 0 || slot >= (int)Count.size())
+            return;
+        Count[(size_t)slot] = 0;
+        Free.push_back(slot);
+    }
+
+    void ParticleTrailPool::Push(int slot, const glm::vec3& position, float time)
+    {
+        uint16_t& first = First[(size_t)slot];
+        uint16_t& count = Count[(size_t)slot];
+        if (count == Capacity)
+        {
+            first = (uint16_t)((first + 1) % Capacity); // the oldest goes
+            count--;
+        }
+        Points[(size_t)slot * Capacity + (first + count) % Capacity] = { position, time };
+        count++;
+    }
+
+    void ParticleTrailPool::Trim(int slot, float time, float maxAge)
+    {
+        uint16_t& first = First[(size_t)slot];
+        uint16_t& count = Count[(size_t)slot];
+        while (count > 0 && time - Points[(size_t)slot * Capacity + first].Time > maxAge)
+        {
+            first = (uint16_t)((first + 1) % Capacity);
+            count--;
+        }
+    }
+
     namespace ParticleSimulation {
 
         using Shape = ParticleSystemComponent::EmitterShape;
+
+        // Events the sub-emitters want (bits by ParticleEvent::Type).
+        static uint32_t GetEventMask(const ParticleSystemComponent& ps)
+        {
+            if (!ps.SubEmitters.Enabled)
+                return 0;
+            uint32_t mask = 0;
+            for (const auto& sub : ps.SubEmitters.Emitters)
+            {
+                if (!sub.Emitter || sub.Count <= 0 || sub.Probability <= 0.0f)
+                    continue;
+                using Trigger = ParticleSystemComponent::SubEmitter::TriggerType;
+                if (sub.Trigger == Trigger::Birth) mask |= 1u << (int)ParticleEvent::Type::Birth;
+                else if (sub.Trigger == Trigger::Death) mask |= 1u << (int)ParticleEvent::Type::Death;
+                else if (sub.Trigger == Trigger::Collision) mask |= 1u << (int)ParticleEvent::Type::Collision;
+            }
+            return mask;
+        }
+
+        static bool Wants(uint32_t mask, ParticleEvent::Type type) { return (mask >> (int)type) & 1u; }
+
+        // At most this many events wait for the scene (a system run on its own keeps no more).
+        static constexpr size_t MaxEvents = 16384;
 
         float Random01(uint32_t& state)
         {
@@ -149,6 +359,67 @@ namespace Zamin {
         float SeedRandom(uint32_t seed, uint32_t salt)
         {
             return (Hash(seed ^ (salt * 0x9E3779B9u)) & 0xFFFFFF) / float(0x1000000);
+        }
+
+        // ---- noise
+        // The gradient of a lattice corner (Perlin's improved set: the 12 edge midpoints of a cube).
+        static float Gradient(uint32_t hash, float x, float y, float z)
+        {
+            switch (hash & 15u)
+            {
+                case 0: case 12: return x + y;
+                case 1: case 13: return -x + y;
+                case 2: return x - y;
+                case 3: return -x - y;
+                case 4: return x + z;
+                case 5: return -x + z;
+                case 6: return x - z;
+                case 7: return -x - z;
+                case 8: return y + z;
+                case 9: case 14: return -y + z;
+                case 10: return y - z;
+                default: return -y - z;
+            }
+        }
+
+        float Noise(const glm::vec3& p, uint32_t seed)
+        {
+            const glm::vec3 floor = glm::floor(p);
+            const glm::vec3 f = p - floor;
+            const int x = (int)floor.x, y = (int)floor.y, z = (int)floor.z;
+            // Quintic fade: the field and its slope are smooth across the lattice.
+            const glm::vec3 u = f * f * f * (f * (f * 6.0f - 15.0f) + 10.0f);
+            const uint32_t hz0 = Hash((uint32_t)z ^ Hash(seed)), hz1 = Hash((uint32_t)(z + 1) ^ Hash(seed));
+            const uint32_t h00 = Hash((uint32_t)y + hz0), h10 = Hash((uint32_t)(y + 1) + hz0);
+            const uint32_t h01 = Hash((uint32_t)y + hz1), h11 = Hash((uint32_t)(y + 1) + hz1);
+            auto corner = [&](uint32_t hyz, int dx, float gx, float gy, float gz) { return Gradient(Hash((uint32_t)(x + dx) + hyz), gx, gy, gz); };
+            const float n000 = corner(h00, 0, f.x, f.y, f.z), n100 = corner(h00, 1, f.x - 1.0f, f.y, f.z);
+            const float n010 = corner(h10, 0, f.x, f.y - 1.0f, f.z), n110 = corner(h10, 1, f.x - 1.0f, f.y - 1.0f, f.z);
+            const float n001 = corner(h01, 0, f.x, f.y, f.z - 1.0f), n101 = corner(h01, 1, f.x - 1.0f, f.y, f.z - 1.0f);
+            const float n011 = corner(h11, 0, f.x, f.y - 1.0f, f.z - 1.0f), n111 = corner(h11, 1, f.x - 1.0f, f.y - 1.0f, f.z - 1.0f);
+            const float x00 = n000 + (n100 - n000) * u.x, x10 = n010 + (n110 - n010) * u.x;
+            const float x01 = n001 + (n101 - n001) * u.x, x11 = n011 + (n111 - n011) * u.x;
+            const float y0 = x00 + (x10 - x00) * u.y, y1 = x01 + (x11 - x01) * u.y;
+            return std::clamp(y0 + (y1 - y0) * u.z, -1.0f, 1.0f);
+        }
+
+        glm::vec3 NoiseField(const glm::vec3& p, uint32_t seed, int octaves, float octaveMultiplier, const glm::bvec3& axes)
+        {
+            octaves = std::clamp(octaves, 1, 8);
+            glm::vec3 sum(0.0f);
+            float amplitude = 1.0f, total = 0.0f, frequency = 1.0f;
+            for (int o = 0; o < octaves; o++)
+            {
+                const uint32_t s = Hash(seed * 0x632BE5ABu + (uint32_t)o * 0x85EBCA6Bu);
+                const glm::vec3 q = p * frequency;
+                for (int axis = 0; axis < 3; axis++)
+                    if (axes[axis])
+                        sum[axis] += Noise(q, s + (uint32_t)axis * 0x27D4EB2Fu) * amplitude;
+                total += amplitude;
+                amplitude *= octaveMultiplier;
+                frequency *= 2.0f;
+            }
+            return total > 0.0f ? sum / total : glm::vec3(0.0f);
         }
 
         // Two unit vectors at right angles to `dir` (a unit vector).
@@ -237,15 +508,76 @@ namespace Zamin {
                         local += dir * (Random01(rng) * std::max(0.0f, ps.ConeLength) / std::max(0.01f, std::cos(lean)));
                     return; // the cone gives the direction
                 }
+                case Shape::Mesh:
+                {
+                    if (!ps.MeshRuntime || ps.MeshRuntime->IsEmpty())
+                        break; // no mesh (yet): from the centre
+                    glm::vec3 normal;
+                    ps.MeshRuntime->Sample(ps.MeshMode, rng, local, normal);
+                    local += normal * ps.MeshNormalOffset;
+                    dir = RandomInCone(ps.MeshAlongNormal ? normal : ps.Direction, ps.Spread, rng);
+                    return;
+                }
                 default: break;
             }
             const bool outward = ps.AlignToShape && (ps.Shape == Shape::Circle || ps.Shape == Shape::Sphere || ps.Shape == Shape::Box);
             dir = RandomInCone(outward ? Outward(local, ps.Direction) : ps.Direction, ps.Spread, rng);
         }
 
-        void Spawn(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, int count)
+        // The pool holds MaxPoints per trail; a new size starts the trails over (the living
+        // particles keep theirs from where they are).
+        static void PrepareTrails(ParticleSystemComponent& ps)
+        {
+            if (!ps.Trails.Enabled)
+            {
+                if (ps.TrailPool.Capacity != 0)
+                {
+                    ps.TrailPool.Reset(0);
+                    for (auto& p : ps.Particles)
+                        p.Trail = -1;
+                }
+                return;
+            }
+            const int capacity = std::clamp(ps.Trails.MaxPoints, 2, 256);
+            if (ps.TrailPool.Capacity == capacity)
+                return;
+            ps.TrailPool.Reset(capacity);
+            for (auto& p : ps.Particles)
+            {
+                p.Trail = SeedRandom(p.Seed, 5) < ps.Trails.Ratio ? ps.TrailPool.Allocate() : -1;
+                if (p.Trail >= 0)
+                    ps.TrailPool.Push(p.Trail, p.Position, ps.Time);
+            }
+        }
+
+        static ParticleEvent MakeEvent(const ParticleSystemComponent& ps, const Particle& p, ParticleEvent::Type type)
+        {
+            Particle at = p;
+            at.Life = std::clamp(at.Life, 0.0f, at.Lifetime); // a dead one: its look at the end
+            return { type, p.Position, p.Velocity, GetColor(ps, at), GetSize(ps, at) };
+        }
+
+        void Spawn(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, int count, const ParticleSpawnOrigin* origin)
         {
             uint32_t& rng = ps.RandomState;
+            // A sub-emitter's particles: the shape around the origin (its axes the emitter's).
+            glm::mat4 at = emitterWorld;
+            glm::vec3 localOffset(0.0f), localVelocity(0.0f);
+            if (origin)
+            {
+                at[3] = glm::vec4(origin->Position, 1.0f);
+                if (!ps.WorldSpace)
+                {
+                    const glm::mat4 inverse = glm::inverse(emitterWorld);
+                    localOffset = glm::vec3(inverse * glm::vec4(origin->Position, 1.0f));
+                    localVelocity = glm::vec3(inverse * glm::vec4(origin->Velocity, 0.0f));
+                }
+            }
+            // Mesh normals stay at right angles to the surface under a non-uniform scale.
+            const bool normals = ps.Shape == Shape::Mesh && ps.MeshAlongNormal && ps.WorldSpace;
+            const glm::mat3 normalMatrix = normals ? glm::transpose(glm::inverse(glm::mat3(emitterWorld))) : glm::mat3(1.0f);
+            PrepareTrails(ps);
+            const bool births = Wants(GetEventMask(ps), ParticleEvent::Type::Birth);
             for (int i = 0; i < count && (int)ps.Particles.size() < ps.MaxParticles; i++)
             {
                 Particle p;
@@ -254,13 +586,15 @@ namespace Zamin {
                 float speed = ps.SpeedMin + (ps.SpeedMax - ps.SpeedMin) * Random01(rng);
                 if (ps.WorldSpace)
                 {
-                    p.Position = glm::vec3(emitterWorld * glm::vec4(local, 1.0f));
-                    p.Velocity = glm::normalize(glm::vec3(emitterWorld * glm::vec4(dir, 0.0f))) * speed;
+                    p.Position = glm::vec3(at * glm::vec4(local, 1.0f));
+                    p.Velocity = glm::normalize(normals ? normalMatrix * dir : glm::vec3(emitterWorld * glm::vec4(dir, 0.0f))) * speed;
+                    if (origin)
+                        p.Velocity += origin->Velocity;
                 }
                 else
                 {
-                    p.Position = local;
-                    p.Velocity = dir * speed;
+                    p.Position = origin ? local + localOffset : local;
+                    p.Velocity = origin ? dir * speed + localVelocity : dir * speed;
                 }
                 p.Lifetime = p.Life = std::max(0.01f, ps.LifetimeMin + (ps.LifetimeMax - ps.LifetimeMin) * Random01(rng));
                 p.Rotation = Random01(rng) * glm::two_pi<float>();
@@ -268,11 +602,24 @@ namespace Zamin {
                 // Its own numbers from the generator's state, without drawing more from it (the
                 // particles after it stay as they were before particles had seeds).
                 p.Seed = Hash(rng ^ 0x5bd1e995u);
+                if (origin)
+                {
+                    p.Tint = origin->Tint;
+                    p.SizeScale = origin->SizeScale;
+                }
+                if (ps.Trails.Enabled && SeedRandom(p.Seed, 5) < ps.Trails.Ratio)
+                {
+                    p.Trail = ps.TrailPool.Allocate();
+                    if (p.Trail >= 0)
+                        ps.TrailPool.Push(p.Trail, p.Position, ps.Time);
+                }
+                if (births && ps.Events.size() < MaxEvents)
+                    ps.Events.push_back(MakeEvent(ps, p, ParticleEvent::Type::Birth));
                 ps.Particles.push_back(p);
             }
         }
 
-        void Update(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float dt, bool editor)
+        void Update(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float dt, bool editor, const ParticleEnvironment* environment)
         {
             if (ps.Playing)
             {
@@ -291,15 +638,64 @@ namespace Zamin {
                 if (!ps.Looping && ps.BurstDone && ps.EmissionRate <= 0.0f && ps.Particles.empty() && editor)
                     ps.BurstDone = false; // keep previewing bursts in the editor
             }
-            Integrate(ps, emitterWorld, dt);
+            Integrate(ps, emitterWorld, dt, environment);
         }
 
-        void Integrate(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float ts)
+        glm::vec4 GetCollisionPlane(const ParticleSystemComponent& ps, const glm::mat4& emitterWorld, const ParticleEnvironment* environment)
         {
+            glm::vec4 plane;
+            if (environment && environment->HasPlane)
+                plane = environment->Plane;
+            else
+            {
+                const glm::vec3 n = ps.Collision.PlaneNormal;
+                const float length = glm::length(n);
+                plane = length > 1e-6f ? glm::vec4(n / length, ps.Collision.PlaneOffset / length) : glm::vec4(0.0f, 1.0f, 0.0f, ps.Collision.PlaneOffset);
+            }
+            if (ps.WorldSpace)
+                return plane;
+            // In the emitter's space: a point of the plane there, the normal turned (and squeezed) with it.
+            const glm::vec3 point = glm::vec3(glm::inverse(emitterWorld) * glm::vec4(glm::vec3(plane) * plane.w, 1.0f));
+            glm::vec3 normal = glm::transpose(glm::mat3(emitterWorld)) * glm::vec3(plane);
+            const float length = glm::length(normal);
+            normal = length > 1e-9f ? normal / length : glm::vec3(0.0f, 1.0f, 0.0f);
+            return glm::vec4(normal, glm::dot(normal, point));
+        }
+
+        // The particles that died go (their trail slots free, a death event each when wanted).
+        static void RemoveDead(ParticleSystemComponent& ps, bool deaths)
+        {
+            auto& particles = ps.Particles;
+            size_t kept = 0;
+            for (size_t i = 0; i < particles.size(); i++)
+            {
+                Particle& p = particles[i];
+                if (p.Life <= 0.0f)
+                {
+                    if (deaths && ps.Events.size() < MaxEvents)
+                        ps.Events.push_back(MakeEvent(ps, p, ParticleEvent::Type::Death));
+                    if (p.Trail >= 0)
+                        ps.TrailPool.Release(p.Trail);
+                    continue;
+                }
+                if (kept != i)
+                    particles[kept] = p;
+                kept++;
+            }
+            particles.resize(kept);
+        }
+
+        void Integrate(ParticleSystemComponent& ps, const glm::mat4& emitterWorld, float ts, const ParticleEnvironment* environment)
+        {
+            ps.Time += ts;
             const float drag = std::max(0.0f, 1.0f - ps.Drag * ts);
             const auto& vol = ps.VelocityOverLifetime;
             const auto& limit = ps.LimitVelocity;
-            if (!vol.Enabled && !limit.Enabled)
+            const auto& noise = ps.Noise;
+            const auto& collision = ps.Collision;
+            const uint32_t events = GetEventMask(ps);
+            PrepareTrails(ps);
+            if (!vol.Enabled && !limit.Enabled && !noise.Enabled && !collision.Enabled && !ps.Trails.Enabled && events == 0)
             {
                 for (auto& p : ps.Particles)
                 {
@@ -336,6 +732,39 @@ namespace Zamin {
             // The speed above the limit kept over this step (frame-rate independent: per 1/60 s).
             const float keep = limit.Enabled ? std::pow(1.0f - std::clamp(limit.Dampen, 0.0f, 1.0f), ts * 60.0f) : 1.0f;
 
+            // Noise: the field drifts along a slanted axis (in 2D the XY picture keeps changing).
+            const glm::bvec3 noiseAxes(noise.Strength.x != 0.0f, noise.Strength.y != 0.0f, noise.Strength.z != 0.0f);
+            const bool noisy = noise.Enabled && (noiseAxes.x || noiseAxes.y || noiseAxes.z);
+            const glm::vec3 scroll = glm::vec3(0.37f, 0.71f, 1.0f) * (ps.Time * noise.ScrollSpeed);
+            const float frequency = std::max(0.0f, noise.Frequency);
+
+            // Collisions: the plane in the particles' space, or the world's colliders (cast in world space).
+            using CollisionType = ParticleSystemComponent::CollisionModule::CollisionType;
+            const bool planeCollision = collision.Enabled && collision.Type == CollisionType::Plane;
+            const bool worldCollision = collision.Enabled && collision.Type != CollisionType::Plane && environment && environment->Cast;
+            const glm::vec4 plane = planeCollision ? GetCollisionPlane(ps, emitterWorld, environment) : glm::vec4(0.0f);
+            const glm::mat4 toLocal = worldCollision && !ps.WorldSpace ? glm::inverse(emitterWorld) : glm::mat4(1.0f);
+            // A particle's radius is in world units (it is drawn so); in the emitter's space the scale counts.
+            const float unitScale = ps.WorldSpace ? 1.0f
+                : std::max(1e-6f, (glm::length(glm::vec3(emitterWorld[0])) + glm::length(glm::vec3(emitterWorld[1])) + glm::length(glm::vec3(emitterWorld[2]))) / 3.0f);
+            const float bounce = std::max(0.0f, collision.Bounce);
+            const float dampen = std::clamp(collision.Dampen, 0.0f, 1.0f);
+            const float restKeep = std::pow(1.0f - dampen, ts * 60.0f); // speed along the surface kept while resting
+            // Slower than this off the surface: it comes to rest instead of hopping every frame.
+            const float restSpeed = glm::length(ps.Gravity) * ts * 2.0f + 0.01f;
+            const bool collisionEvents = Wants(events, ParticleEvent::Type::Collision);
+            // Gravity's direction in the world (for the world casts).
+            glm::vec3 down(0.0f);
+            if (worldCollision)
+            {
+                const glm::vec3 g = ps.WorldSpace ? ps.Gravity : glm::mat3(emitterWorld) * ps.Gravity;
+                if (glm::length(g) > 1e-6f)
+                    down = glm::normalize(g);
+            }
+
+            const auto& trails = ps.Trails;
+            const float minDistance2 = std::max(0.0f, trails.MinVertexDistance) * std::max(0.0f, trails.MinVertexDistance);
+
             for (auto& p : ps.Particles)
             {
                 const float age = std::clamp(p.GetAge01(), 0.0f, 1.0f);
@@ -368,11 +797,96 @@ namespace Zamin {
                         p.Position = center + turned;
                     }
                 }
+                if (noisy)
+                    motion += NoiseField(p.Position * frequency + scroll, noise.Seed, noise.Octaves, noise.OctaveMultiplier, noiseAxes) *
+                              noise.Strength * noise.StrengthCurve.Evaluate(age);
+                const glm::vec3 from = p.Position;
                 p.Position += motion * ts;
+
+                if (planeCollision || worldCollision)
+                {
+                    const float radius = std::max(0.0f, GetSize(ps, p) * 0.5f * collision.RadiusScale);
+                    bool hit = false;
+                    glm::vec3 normal(0.0f);
+                    if (planeCollision)
+                    {
+                        const float depth = glm::dot(glm::vec3(plane), p.Position) - plane.w - radius / unitScale;
+                        if (depth < 0.0f)
+                        {
+                            hit = true;
+                            normal = glm::vec3(plane);
+                            p.Position -= normal * depth;
+                        }
+                    }
+                    else
+                    {
+                        const glm::vec3 a = ps.WorldSpace ? from : glm::vec3(emitterWorld * glm::vec4(from, 1.0f));
+                        const glm::vec3 b = ps.WorldSpace ? p.Position : glm::vec3(emitterWorld * glm::vec4(p.Position, 1.0f));
+                        glm::vec3 c, n;
+                        // Moving along a surface it rests on: the ray down to it keeps it there
+                        // (the one along its way would pass over the surface).
+                        const bool cast = (a != b && environment->Cast(a, b, radius, c, n)) ||
+                                          ((p.Flags & ParticleFlag_Contact) && down != glm::vec3(0.0f) && environment->Cast(b, b + down * 0.02f, radius, c, n));
+                        if (cast)
+                        {
+                            hit = true;
+                            if (ps.WorldSpace)
+                            {
+                                p.Position = c;
+                                normal = n;
+                            }
+                            else
+                            {
+                                p.Position = glm::vec3(toLocal * glm::vec4(c, 1.0f));
+                                normal = glm::transpose(glm::mat3(emitterWorld)) * n;
+                                const float length = glm::length(normal);
+                                normal = length > 1e-9f ? normal / length : glm::vec3(0.0f, 1.0f, 0.0f);
+                            }
+                        }
+                    }
+                    if (hit)
+                    {
+                        const bool impact = !(p.Flags & ParticleFlag_Contact);
+                        const float into = glm::dot(p.Velocity, normal);
+                        if (into < 0.0f)
+                        {
+                            const glm::vec3 along = (p.Velocity - normal * into) * (impact ? 1.0f - dampen : restKeep);
+                            float away = -into * bounce;
+                            if (away < restSpeed)
+                                away = 0.0f;
+                            p.Velocity = along + normal * away;
+                        }
+                        if (impact)
+                        {
+                            p.Life -= std::max(0.0f, collision.LifetimeLoss) * p.Lifetime;
+                            if (collisionEvents && ps.Events.size() < MaxEvents)
+                                ps.Events.push_back(MakeEvent(ps, p, ParticleEvent::Type::Collision));
+                        }
+                        if (collision.MinKillSpeed > 0.0f && glm::length(p.Velocity) < collision.MinKillSpeed)
+                            p.Life = 0.0f;
+                        p.Flags |= ParticleFlag_Contact;
+                    }
+                    else
+                        p.Flags &= ~ParticleFlag_Contact;
+                }
+
                 p.Rotation += p.AngularVelocity * ts;
                 p.Life -= ts;
+                if (p.Trail >= 0)
+                {
+                    auto& pool = ps.TrailPool;
+                    pool.Trim(p.Trail, ps.Time, std::max(0.0f, trails.Lifetime));
+                    if (pool.GetCount(p.Trail) == 0)
+                        pool.Push(p.Trail, p.Position, ps.Time);
+                    else
+                    {
+                        const glm::vec3 d = p.Position - pool.Get(p.Trail, 0).Position;
+                        if (glm::dot(d, d) >= minDistance2)
+                            pool.Push(p.Trail, p.Position, ps.Time);
+                    }
+                }
             }
-            std::erase_if(ps.Particles, [](const Particle& p) { return p.Life <= 0.0f; });
+            RemoveDead(ps, Wants(events, ParticleEvent::Type::Death));
         }
 
         // ---- look
@@ -381,11 +895,11 @@ namespace Zamin {
             const float t = 1.0f - p.Life / p.Lifetime;
             const auto& module = ps.ColorOverLifetime;
             if (!module.Enabled)
-                return glm::mix(ps.StartColor, ps.EndColor, t);
+                return glm::mix(ps.StartColor, ps.EndColor, t) * p.Tint;
             glm::vec4 color = module.Gradient.Evaluate(t);
             if (module.RandomBetweenTwo)
                 color = glm::mix(color, module.GradientB.Evaluate(t), SeedRandom(p.Seed, 1));
-            return color;
+            return color * p.Tint;
         }
 
         float GetSize(const ParticleSystemComponent& ps, const Particle& p)
@@ -393,11 +907,11 @@ namespace Zamin {
             const float t = 1.0f - p.Life / p.Lifetime;
             const auto& module = ps.SizeOverLifetime;
             if (!module.Enabled)
-                return glm::mix(ps.StartSize, ps.EndSize, t);
+                return glm::mix(ps.StartSize, ps.EndSize, t) * p.SizeScale;
             float scale = module.Curve.Evaluate(t);
             if (module.RandomBetweenTwo)
                 scale = glm::mix(scale, module.CurveB.Evaluate(t), SeedRandom(p.Seed, 2));
-            return ps.StartSize * scale;
+            return ps.StartSize * scale * p.SizeScale;
         }
 
         float GetMaxSize(const ParticleSystemComponent& ps)
@@ -410,6 +924,18 @@ namespace Zamin {
             if (module.RandomBetweenTwo)
                 scale = std::max(scale, extent(module.CurveB));
             return std::abs(ps.StartSize) * scale;
+        }
+
+        float GetTrailWidth(const ParticleSystemComponent& ps, float size, float u)
+        {
+            const auto& trails = ps.Trails;
+            return std::max(0.0f, trails.Width * (trails.WidthFromSize ? size : 1.0f) * trails.WidthCurve.Evaluate(std::clamp(u, 0.0f, 1.0f)));
+        }
+
+        glm::vec4 GetTrailColor(const ParticleSystemComponent& ps, const glm::vec4& color, float u)
+        {
+            const glm::vec4 c = ps.Trails.Gradient.Evaluate(std::clamp(u, 0.0f, 1.0f));
+            return ps.Trails.InheritColor ? c * color : c;
         }
 
         int GetGridFrameCount(const ParticleSystemComponent& ps)

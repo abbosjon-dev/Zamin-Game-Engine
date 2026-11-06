@@ -169,6 +169,10 @@ namespace Zamin {
     static const char* const s_ConeEmitFrom[] = { "Base", "Volume" };
     static const char* const s_SheetSources[] = { "Grid", "Sprites" };
     static const char* const s_SheetTimeModes[] = { "Lifetime", "FrameRate" };
+    static const char* const s_MeshShapeSources[] = { "Primitive", "Model", "Renderer" };
+    static const char* const s_MeshEmitModes[] = { "Triangle", "Edge", "Vertex" };
+    static const char* const s_CollisionTypes[] = { "Plane", "World3D", "World2D" };
+    static const char* const s_SubEmitterTriggers[] = { "Birth", "Death", "Collision", "Lifetime" };
 
     template<typename E, size_t N>
     static const char* EnumName(E value, const char* const (&names)[N])
@@ -310,6 +314,29 @@ namespace Zamin {
         if (const auto& m = c.LimitVelocity; m.Enabled || !(m == PS::LimitVelocityModule{}))
             j["LimitVelocity"] = { { "Enabled", m.Enabled }, { "MaxSpeed", m.MaxSpeed }, { "MaxSpeedCurve", ParticleCurveToJson(m.MaxSpeedCurve) },
                                    { "Dampen", m.Dampen } };
+        if (const auto& m = c.Noise; m.Enabled || !(m == PS::NoiseModule{}))
+            j["Noise"] = { { "Enabled", m.Enabled }, { "Strength", ToJson(m.Strength) }, { "StrengthCurve", ParticleCurveToJson(m.StrengthCurve) },
+                           { "Frequency", m.Frequency }, { "ScrollSpeed", m.ScrollSpeed }, { "Octaves", m.Octaves },
+                           { "OctaveMultiplier", m.OctaveMultiplier }, { "Seed", m.Seed } };
+        if (const auto& m = c.Collision; m.Enabled || !(m == PS::CollisionModule{}))
+            j["Collision"] = { { "Enabled", m.Enabled }, { "Type", EnumName(m.Type, s_CollisionTypes) }, { "PlaneNormal", ToJson(m.PlaneNormal) },
+                               { "PlaneOffset", m.PlaneOffset }, { "PlaneEntity", m.PlaneEntity.ID }, { "Bounce", m.Bounce }, { "Dampen", m.Dampen },
+                               { "LifetimeLoss", m.LifetimeLoss }, { "MinKillSpeed", m.MinKillSpeed }, { "RadiusScale", m.RadiusScale },
+                               { "CollidesWith", m.CollidesWith } };
+        if (const auto& m = c.SubEmitters; m.Enabled || !m.Emitters.empty())
+        {
+            json list = json::array();
+            for (const auto& sub : m.Emitters)
+                list.push_back({ { "Trigger", EnumName(sub.Trigger, s_SubEmitterTriggers) }, { "Emitter", sub.Emitter.ID }, { "Count", sub.Count },
+                                 { "Probability", sub.Probability }, { "InheritVelocity", sub.InheritVelocity },
+                                 { "InheritColor", sub.InheritColor }, { "InheritSize", sub.InheritSize } });
+            j["SubEmitters"] = { { "Enabled", m.Enabled }, { "Emitters", std::move(list) } };
+        }
+        if (const auto& m = c.Trails; m.Enabled || !(m == PS::TrailsModule{}))
+            j["Trails"] = { { "Enabled", m.Enabled }, { "Ratio", m.Ratio }, { "Lifetime", m.Lifetime }, { "MinVertexDistance", m.MinVertexDistance },
+                            { "MaxPoints", m.MaxPoints }, { "Width", m.Width }, { "WidthFromSize", m.WidthFromSize },
+                            { "WidthCurve", ParticleCurveToJson(m.WidthCurve) }, { "Gradient", ParticleGradientToJson(m.Gradient) },
+                            { "InheritColor", m.InheritColor } };
         if (const auto& m = c.TextureSheet; m.Enabled || !(m == PS::TextureSheetModule{}))
             j["TextureSheet"] = { { "Enabled", m.Enabled }, { "Source", EnumName(m.Source, s_SheetSources) }, { "Columns", m.Columns },
                                   { "Rows", m.Rows }, { "FrameCount", m.FrameCount }, { "SpritePrefix", m.SpritePrefix },
@@ -375,6 +402,77 @@ namespace Zamin {
             m.StartFrame = std::max(0, it->value("StartFrame", 0));
             m.RandomStartFrame = it->value("RandomStartFrame", false);
             m.RandomRow = it->value("RandomRow", false);
+        }
+        auto entityRef = [](const json& o, const char* key) {
+            EntityRef ref;
+            if (auto i = o.find(key); i != o.end() && i->is_number_unsigned())
+                ref.ID = i->get<uint64_t>();
+            return ref;
+        };
+        if (auto it = j.find("Noise"); it != j.end() && it->is_object())
+        {
+            auto& m = c.Noise;
+            const PS::NoiseModule d;
+            m.Enabled = it->value("Enabled", false);
+            m.Strength = Vec(*it, "Strength", d.Strength);
+            m.StrengthCurve = ParticleCurveFromJson(*it, "StrengthCurve", d.StrengthCurve);
+            m.Frequency = std::max(0.0f, Number(*it, "Frequency", d.Frequency));
+            m.ScrollSpeed = Number(*it, "ScrollSpeed", d.ScrollSpeed);
+            m.Octaves = std::clamp(it->value("Octaves", d.Octaves), 1, 4);
+            m.OctaveMultiplier = std::clamp(Number(*it, "OctaveMultiplier", d.OctaveMultiplier), 0.0f, 1.0f);
+            m.Seed = it->contains("Seed") && (*it)["Seed"].is_number_unsigned() ? (*it)["Seed"].get<uint32_t>() : 0u;
+        }
+        if (auto it = j.find("Collision"); it != j.end() && it->is_object())
+        {
+            auto& m = c.Collision;
+            const PS::CollisionModule d;
+            m.Enabled = it->value("Enabled", false);
+            m.Type = EnumFromJson(*it, "Type", s_CollisionTypes, d.Type);
+            m.PlaneNormal = Vec(*it, "PlaneNormal", d.PlaneNormal);
+            m.PlaneOffset = Number(*it, "PlaneOffset", d.PlaneOffset);
+            m.PlaneEntity = entityRef(*it, "PlaneEntity");
+            m.Bounce = std::max(0.0f, Number(*it, "Bounce", d.Bounce));
+            m.Dampen = std::clamp(Number(*it, "Dampen", d.Dampen), 0.0f, 1.0f);
+            m.LifetimeLoss = std::clamp(Number(*it, "LifetimeLoss", d.LifetimeLoss), 0.0f, 1.0f);
+            m.MinKillSpeed = std::max(0.0f, Number(*it, "MinKillSpeed", d.MinKillSpeed));
+            m.RadiusScale = std::max(0.0f, Number(*it, "RadiusScale", d.RadiusScale));
+            m.CollidesWith = (uint16_t)std::clamp(it->value("CollidesWith", (int)d.CollidesWith), 0, 0xFFFF);
+        }
+        if (auto it = j.find("SubEmitters"); it != j.end() && it->is_object())
+        {
+            auto& m = c.SubEmitters;
+            m.Enabled = it->value("Enabled", false);
+            m.Emitters.clear();
+            if (auto list = it->find("Emitters"); list != it->end() && list->is_array())
+                for (const json& item : *list)
+                {
+                    if (!item.is_object())
+                        continue;
+                    PS::SubEmitter sub;
+                    sub.Trigger = EnumFromJson(item, "Trigger", s_SubEmitterTriggers, sub.Trigger);
+                    sub.Emitter = entityRef(item, "Emitter");
+                    sub.Count = std::clamp(item.value("Count", sub.Count), 0, 100000);
+                    sub.Probability = std::clamp(Number(item, "Probability", sub.Probability), 0.0f, 1.0f);
+                    sub.InheritVelocity = Number(item, "InheritVelocity", sub.InheritVelocity);
+                    sub.InheritColor = item.value("InheritColor", false);
+                    sub.InheritSize = item.value("InheritSize", false);
+                    m.Emitters.push_back(sub);
+                }
+        }
+        if (auto it = j.find("Trails"); it != j.end() && it->is_object())
+        {
+            auto& m = c.Trails;
+            const PS::TrailsModule d;
+            m.Enabled = it->value("Enabled", false);
+            m.Ratio = std::clamp(Number(*it, "Ratio", d.Ratio), 0.0f, 1.0f);
+            m.Lifetime = std::max(0.0f, Number(*it, "Lifetime", d.Lifetime));
+            m.MinVertexDistance = std::max(0.0f, Number(*it, "MinVertexDistance", d.MinVertexDistance));
+            m.MaxPoints = std::clamp(it->value("MaxPoints", d.MaxPoints), 2, 256);
+            m.Width = std::max(0.0f, Number(*it, "Width", d.Width));
+            m.WidthFromSize = it->value("WidthFromSize", d.WidthFromSize);
+            m.WidthCurve = ParticleCurveFromJson(*it, "WidthCurve", d.WidthCurve);
+            m.Gradient = ParticleGradientFromJson(*it, "Gradient", d.Gradient);
+            m.InheritColor = it->value("InheritColor", d.InheritColor);
         }
     }
 
@@ -1051,6 +1149,18 @@ namespace Zamin {
             }
             if (c->Shape == ParticleSystemComponent::EmitterShape::Edge || c->EdgeLength != d.EdgeLength)
                 j["EdgeLength"] = c->EdgeLength;
+            if (c->Shape == ParticleSystemComponent::EmitterShape::Mesh || c->MeshSource != d.MeshSource || c->MeshPrimitive != d.MeshPrimitive ||
+                !c->MeshModelPath.empty() || c->MeshMode != d.MeshMode || c->MeshAlongNormal != d.MeshAlongNormal ||
+                c->MeshNormalOffset != d.MeshNormalOffset)
+            {
+                j["MeshSource"] = EnumName(c->MeshSource, s_MeshShapeSources);
+                j["MeshPrimitive"] = PrimitiveMeshToString(c->MeshPrimitive);
+                j["MeshModel"] = c->MeshModelPath;
+                WriteAssetHandle(j, "MeshModel", c->MeshModelPath);
+                j["MeshMode"] = EnumName(c->MeshMode, s_MeshEmitModes);
+                j["MeshAlongNormal"] = c->MeshAlongNormal;
+                j["MeshNormalOffset"] = c->MeshNormalOffset;
+            }
             WriteParticleModules(j, *c);
         }
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
@@ -2067,7 +2177,7 @@ namespace Zamin {
             c.EmissionRate = j.value("EmissionRate", 30.0f);
             c.Burst = j.value("Burst", 0);
             c.MaxParticles = j.value("MaxParticles", 1000);
-            c.Shape = (ParticleSystemComponent::EmitterShape)std::clamp(j.value("Shape", 0), 0, (int)ParticleSystemComponent::EmitterShape::Edge);
+            c.Shape = (ParticleSystemComponent::EmitterShape)std::clamp(j.value("Shape", 0), 0, (int)ParticleSystemComponent::EmitterShape::Mesh);
             c.ShapeRadius = j.value("ShapeRadius", 0.5f);
             c.ShapeExtents = Vec(j, "ShapeExtents", glm::vec3(0.5f));
             c.ShapeThickness = std::clamp(Number(j, "ShapeThickness", 1.0f), 0.0f, 1.0f);
@@ -2077,6 +2187,13 @@ namespace Zamin {
             c.ConeFrom = EnumFromJson(j, "ConeFrom", s_ConeEmitFrom, c.ConeFrom);
             c.ConeFlat = j.value("ConeFlat", false);
             c.EdgeLength = std::max(0.0f, Number(j, "EdgeLength", c.EdgeLength));
+            c.MeshSource = EnumFromJson(j, "MeshSource", s_MeshShapeSources, c.MeshSource);
+            if (auto it = j.find("MeshPrimitive"); it != j.end() && it->is_string())
+                c.MeshPrimitive = PrimitiveMeshFromString(it->get<std::string>());
+            c.MeshModelPath = ReadAssetPath(j, "MeshModel");
+            c.MeshMode = EnumFromJson(j, "MeshMode", s_MeshEmitModes, c.MeshMode);
+            c.MeshAlongNormal = j.value("MeshAlongNormal", true);
+            c.MeshNormalOffset = Number(j, "MeshNormalOffset", 0.0f);
             c.LifetimeMin = j.value("LifetimeMin", 0.8f);
             c.LifetimeMax = j.value("LifetimeMax", 1.6f);
             c.SpeedMin = j.value("SpeedMin", 1.0f);

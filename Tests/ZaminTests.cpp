@@ -1019,7 +1019,630 @@ TEST(ParticleModulesSerialization)
     odd.replace(odd.find("\"Shape\": 1"), 10, "\"Shape\": 42");
     auto oddScene = CreateRef<Scene>();
     CHECK(SceneSerializer(oddScene).DeserializeFromString(odd));
-    CHECK((int)oddScene->FindEntityByName("Torch").GetComponent<ParticleSystemComponent>().Shape <= (int)ParticleSystemComponent::EmitterShape::Edge);
+    CHECK((int)oddScene->FindEntityByName("Torch").GetComponent<ParticleSystemComponent>().Shape <= (int)ParticleSystemComponent::EmitterShape::Mesh);
+}
+
+// ---- M14 Particle II: mesh shape, sub-emitters, collisions, noise, trails
+
+// A random point of a mesh: on its triangles by area, on its edges (not a flat face's diagonal), at
+// its vertices; the normal there.
+TEST(ParticleMeshEmitterSampling)
+{
+    // Two triangles apart: area 2 and 0.5.
+    const std::vector<glm::vec3> positions = { { 0, 0, 0 }, { 2, 0, 0 }, { 0, 2, 0 }, { 10, 0, 0 }, { 11, 0, 0 }, { 10, 1, 0 } };
+    auto mesh = ParticleEmitterMesh::Build(positions, { 0, 1, 2, 3, 4, 5 });
+    CHECK(mesh->GetTriangleCount() == 2 && !mesh->IsEmpty());
+    CHECK_NEAR(mesh->GetArea(), 2.5f, 1e-5f);
+    uint32_t rng = 777u;
+    int big = 0;
+    for (int i = 0; i < 4000; i++)
+    {
+        glm::vec3 p, n;
+        mesh->Sample(ParticleMeshMode::Triangle, rng, p, n);
+        CHECK_NEAR(n.z, 1.0f, 1e-5f); // counter-clockwise: +Z
+        CHECK(std::abs(p.z) < 1e-6f);
+        if (p.x < 5.0f)
+        {
+            big++;
+            CHECK(p.x >= -1e-5f && p.y >= -1e-5f && p.x + p.y <= 2.0f + 1e-4f);
+        }
+        else
+            CHECK(p.x >= 10.0f - 1e-5f && p.y >= -1e-5f && (p.x - 10.0f) + p.y <= 1.0f + 1e-4f);
+    }
+    CHECK_NEAR(big / 4000.0f, 0.8f, 0.03f); // by area
+    // Vertices: exactly one of them.
+    for (int i = 0; i < 50; i++)
+    {
+        glm::vec3 p, n;
+        mesh->Sample(ParticleMeshMode::Vertex, rng, p, n);
+        CHECK(std::find(positions.begin(), positions.end(), p) != positions.end());
+    }
+    // A quad (two triangles in one plane): its edges are the border, not the diagonal.
+    auto quad = ParticleEmitterMesh::Build({ { 0, 0, 0 }, { 1, 0, 0 }, { 1, 1, 0 }, { 0, 1, 0 } }, { 0, 1, 2, 0, 2, 3 });
+    for (int i = 0; i < 300; i++)
+    {
+        glm::vec3 p, n;
+        quad->Sample(ParticleMeshMode::Edge, rng, p, n);
+        const float border = std::min(std::min(std::abs(p.x), std::abs(p.x - 1.0f)), std::min(std::abs(p.y), std::abs(p.y - 1.0f)));
+        CHECK(border < 1e-5f);
+    }
+    // Indices out of range: left out.
+    CHECK(ParticleEmitterMesh::Build(positions, { 0, 1, 99 })->IsEmpty());
+
+    // In a scene: a cube primitive (scaled 2x): on its faces, out along their normals; the
+    // entity's Mesh Renderer sphere: on its surface.
+    auto scene = CreateRef<Scene>();
+    Entity cube = scene->CreateEntity("Cube");
+    Entity ball = scene->CreateEntity("Ball");
+    cube.AddComponent<ParticleSystemComponent>();
+    ball.AddComponent<ParticleSystemComponent>();
+    ball.AddComponent<MeshRendererComponent>().Type = PrimitiveMesh::Sphere;
+    cube.GetTransform().Translation = { 1.0f, 2.0f, 3.0f };
+    cube.GetTransform().Scale = glm::vec3(2.0f);
+    for (Entity e : { cube, ball })
+    {
+        auto& ps = e.GetComponent<ParticleSystemComponent>();
+        ps.Shape = ParticleSystemComponent::EmitterShape::Mesh;
+        ps.EmissionRate = 0.0f;
+        ps.Spread = 0.0f;
+        ps.SpeedMin = ps.SpeedMax = 1.0f;
+    }
+    cube.GetComponent<ParticleSystemComponent>().MeshPrimitive = PrimitiveMesh::Cube;
+    ball.GetComponent<ParticleSystemComponent>().MeshSource = ParticleSystemComponent::MeshShapeSource::Renderer;
+    scene->OnRuntimeStart();
+    scene->EmitParticles(cube, 200);
+    scene->EmitParticles(ball, 200);
+    const auto& c = cube.GetComponent<ParticleSystemComponent>();
+    CHECK(c.MeshRuntime && c.MeshRuntime->GetTriangleCount() == 12);
+    CHECK(c.Particles.size() == 200);
+    for (const Particle& p : c.Particles)
+    {
+        const glm::vec3 local = (p.Position - glm::vec3(1.0f, 2.0f, 3.0f)) / 2.0f;
+        const float outer = std::max(std::max(std::abs(local.x), std::abs(local.y)), std::abs(local.z));
+        CHECK_NEAR(outer, 0.5f, 1e-4f);
+        CHECK_NEAR(glm::length(p.Velocity), 1.0f, 1e-4f);
+        // Along the face's normal: the axis it is on.
+        const int axis = std::abs(local.x) > 0.4999f ? 0 : std::abs(local.y) > 0.4999f ? 1 : 2;
+        CHECK_NEAR(p.Velocity[axis], local[axis] > 0.0f ? 1.0f : -1.0f, 1e-3f);
+    }
+    const auto& b = ball.GetComponent<ParticleSystemComponent>();
+    CHECK(b.MeshRuntime != nullptr && b.Particles.size() == 200);
+    for (const Particle& p : b.Particles)
+    {
+        CHECK(glm::length(p.Position) <= 0.5f + 1e-4f && glm::length(p.Position) > 0.47f);
+        CHECK(glm::dot(glm::normalize(p.Position), p.Velocity) > 0.95f); // outwards (smooth normals)
+    }
+    // Not along the normals: Direction.
+    auto& cps = cube.GetComponent<ParticleSystemComponent>();
+    cps.Particles.clear();
+    cps.MeshAlongNormal = false;
+    cps.Direction = { 0.0f, 0.0f, 1.0f };
+    scene->EmitParticles(cube, 20);
+    for (const Particle& p : cps.Particles)
+        CHECK_NEAR(p.Velocity.z, 1.0f, 1e-4f);
+    scene->OnRuntimeStop();
+}
+
+// Sub-emitters: rockets that die into bursts of another system - where they died, with their
+// colour and part of their velocity; birth / lifetime triggers; chance; no system into itself.
+TEST(ParticleSubEmitters)
+{
+    auto scene = CreateRef<Scene>();
+    Entity rocket = scene->CreateEntity("Rocket");
+    Entity burst = scene->CreateEntity("Burst");
+    rocket.AddComponent<ParticleSystemComponent>();
+    burst.AddComponent<ParticleSystemComponent>();
+    burst.GetTransform().Translation = { 50.0f, 50.0f, 50.0f }; // the template's own place does not matter
+    {
+        auto& r = rocket.GetComponent<ParticleSystemComponent>();
+        r.EmissionRate = 0.0f;
+        r.Burst = 3;
+        r.Looping = false;
+        r.LifetimeMin = r.LifetimeMax = 0.5f;
+        r.SpeedMin = r.SpeedMax = 4.0f;
+        r.Spread = 0.0f;
+        r.ColorOverLifetime.Enabled = true;
+        r.ColorOverLifetime.Gradient = ParticleGradient::TwoStops({ 1, 0, 0, 1 }, { 0.2f, 0.4f, 1.0f, 0.0f });
+        auto& b = burst.GetComponent<ParticleSystemComponent>();
+        b.EmissionRate = 0.0f;
+        b.SpeedMin = b.SpeedMax = 0.0f;
+        b.LifetimeMin = b.LifetimeMax = 5.0f;
+        b.StartColor = b.EndColor = glm::vec4(1.0f);
+        r.SubEmitters.Enabled = true;
+        ParticleSystemComponent::SubEmitter sub;
+        sub.Emitter.ID = burst.GetUUID();
+        sub.Count = 4;
+        sub.InheritColor = true;
+        sub.InheritVelocity = 0.5f;
+        r.SubEmitters.Emitters.push_back(sub);
+    }
+    scene->OnRuntimeStart();
+    auto& r = rocket.GetComponent<ParticleSystemComponent>();
+    auto& b = burst.GetComponent<ParticleSystemComponent>();
+    for (int i = 0; i < 4; i++) scene->OnUpdateRuntime(0.1f);
+    CHECK(r.Particles.size() == 3 && b.Particles.empty());
+    for (int i = 0; i < 3; i++) scene->OnUpdateRuntime(0.1f);
+    CHECK(r.Particles.empty());
+    CHECK(b.Particles.size() == 12);
+    for (const Particle& p : b.Particles)
+    {
+        CHECK(std::abs(p.Position.x) < 1e-3f && std::abs(p.Position.z) < 1e-3f);
+        CHECK(p.Position.y > 1.7f && p.Position.y < 2.9f);       // where the rockets died (y = 4 * 0.5), moved on a little
+        CHECK_NEAR(p.Velocity.y, 2.0f, 1e-3f);                    // half the rocket's
+        const glm::vec4 color = ParticleSimulation::GetColor(b, p);
+        CHECK_NEAR(color.r, 0.2f, 1e-3f);
+        CHECK_NEAR(color.g, 0.4f, 1e-3f);
+        CHECK_NEAR(color.a, 1.0f, 1e-6f);                         // RGB only
+    }
+    // Birth: 2 for each new rocket. Lifetime: 10 per second from each (3 rockets x 0.5 s: about 15).
+    r.SubEmitters.Emitters[0].Trigger = ParticleSystemComponent::SubEmitter::TriggerType::Birth;
+    r.SubEmitters.Emitters[0].Count = 2;
+    b.Particles.clear();
+    scene->EmitParticles(rocket, 3);
+    scene->OnUpdateRuntime(0.01f);
+    CHECK(b.Particles.size() == 6);
+    for (int i = 0; i < 60; i++) scene->OnUpdateRuntime(0.1f);
+    b.Particles.clear();
+    r.SubEmitters.Emitters[0].Trigger = ParticleSystemComponent::SubEmitter::TriggerType::Lifetime;
+    r.SubEmitters.Emitters[0].Count = 10;
+    scene->EmitParticles(rocket, 3);
+    for (int i = 0; i < 60; i++) scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(b.Particles.size() >= 9 && b.Particles.size() <= 21);
+    // A chance of a half: about half of 400 deaths.
+    b.Particles.clear();
+    b.MaxParticles = 10000;
+    r.MaxParticles = 1000;
+    r.SubEmitters.Emitters[0].Trigger = ParticleSystemComponent::SubEmitter::TriggerType::Death;
+    r.SubEmitters.Emitters[0].Count = 1;
+    r.SubEmitters.Emitters[0].Probability = 0.5f;
+    scene->EmitParticles(rocket, 400);
+    for (int i = 0; i < 10; i++) scene->OnUpdateRuntime(0.1f);
+    CHECK(r.Particles.empty());
+    CHECK(b.Particles.size() >= 150 && b.Particles.size() <= 250);
+    // Into itself: nothing.
+    b.Particles.clear();
+    r.SubEmitters.Emitters[0].Probability = 1.0f;
+    r.SubEmitters.Emitters[0].Emitter.ID = rocket.GetUUID();
+    scene->EmitParticles(rocket, 5);
+    for (int i = 0; i < 10; i++) scene->OnUpdateRuntime(0.1f);
+    CHECK(r.Particles.empty() && b.Particles.empty());
+    // Module off: no events kept.
+    r.SubEmitters.Enabled = false;
+    scene->EmitParticles(rocket, 5);
+    for (int i = 0; i < 10; i++) scene->OnUpdateRuntime(0.1f);
+    CHECK(r.Events.empty());
+    scene->OnRuntimeStop();
+
+    // A duplicated emitter with its template as a child: the copy uses the copy's template.
+    auto edit = CreateRef<Scene>();
+    Entity parent = edit->CreateEntity("Firework");
+    Entity child = edit->CreateEntity("Spark burst");
+    parent.AddComponent<ParticleSystemComponent>();
+    child.AddComponent<ParticleSystemComponent>();
+    edit->SetParent(child, parent, false);
+    ParticleSystemComponent::SubEmitter link;
+    link.Emitter.ID = child.GetUUID();
+    parent.GetComponent<ParticleSystemComponent>().SubEmitters.Emitters.push_back(link);
+    parent.GetComponent<ParticleSystemComponent>().Collision.PlaneEntity.ID = child.GetUUID();
+    Entity copy = edit->DuplicateEntity(parent);
+    const auto& copied = copy.GetComponent<ParticleSystemComponent>();
+    CHECK(copied.SubEmitters.Emitters.size() == 1);
+    Entity copiedChild = edit->GetEntityByUUID(copy.GetComponent<RelationshipComponent>().Children.at(0));
+    CHECK(copiedChild && copied.SubEmitters.Emitters[0].Emitter.ID == (uint64_t)copiedChild.GetUUID());
+    CHECK(copied.Collision.PlaneEntity.ID == (uint64_t)copiedChild.GetUUID());
+}
+
+// Collisions with a plane: falling particles bounce lower each time, come to rest on it and never
+// go through; a whole lifetime lost on impact kills; radius; tilted plane of an entity; events.
+TEST(ParticleCollisionPlane)
+{
+    ParticleSystemComponent ps;
+    ps.Shape = ParticleSystemComponent::EmitterShape::Point;
+    ps.EmissionRate = 0.0f;
+    ps.Playing = false;
+    ps.SpeedMin = ps.SpeedMax = 0.0f;
+    ps.LifetimeMin = ps.LifetimeMax = 20.0f;
+    ps.Gravity = { 0.0f, -10.0f, 0.0f };
+    ps.StartSize = ps.EndSize = 0.4f;
+    ps.Collision.Enabled = true;
+    ps.Collision.Bounce = 0.5f;
+    ps.Collision.Dampen = 0.0f;
+    ps.Collision.RadiusScale = 0.0f; // points
+    // Collision events are kept for a sub-emitter (no scene takes them here).
+    ps.SubEmitters.Enabled = true;
+    ParticleSystemComponent::SubEmitter sub;
+    sub.Trigger = ParticleSystemComponent::SubEmitter::TriggerType::Collision;
+    sub.Emitter.ID = 12345;
+    ps.SubEmitters.Emitters.push_back(sub);
+    const glm::mat4 at = glm::translate(glm::mat4(1.0f), { 0.0f, 2.0f, 0.0f });
+    ParticleSimulation::Spawn(ps, at, 1);
+    float lowest = 10.0f, highestAfterBounce = 0.0f;
+    bool bounced = false;
+    size_t eventsAt3s = 0;
+    for (int i = 0; i < 360; i++)
+    {
+        ParticleSimulation::Update(ps, at, 1.0f / 60.0f, false);
+        const Particle& p = ps.Particles.at(0);
+        lowest = std::min(lowest, p.Position.y);
+        if (p.Velocity.y > 0.0f)
+            bounced = true;
+        if (bounced && i < 90)
+            highestAfterBounce = std::max(highestAfterBounce, p.Position.y);
+        if (i == 180)
+            eventsAt3s = ps.Events.size();
+    }
+    CHECK(lowest >= -1e-5f);
+    CHECK(bounced);
+    CHECK_NEAR(highestAfterBounce, 0.5f, 0.12f); // half the speed: a quarter of the height
+    CHECK_NEAR(ps.Particles[0].Position.y, 0.0f, 1e-4f); // at rest on it
+    CHECK(glm::length(ps.Particles[0].Velocity) < 0.25f);
+    CHECK(ps.Events.size() >= 3 && ps.Events.size() <= 8); // the impacts, not every frame at rest
+    CHECK(ps.Events.size() == eventsAt3s);
+    for (const ParticleEvent& e : ps.Events)
+        CHECK(e.Kind == ParticleEvent::Type::Collision && std::abs(e.Position.y) < 1e-3f);
+    // A radius: rests half its size up.
+    ps.Particles.clear();
+    ps.Collision.RadiusScale = 1.0f;
+    ParticleSimulation::Spawn(ps, at, 1);
+    for (int i = 0; i < 300; i++) ParticleSimulation::Update(ps, at, 1.0f / 60.0f, false);
+    CHECK_NEAR(ps.Particles.at(0).Position.y, 0.2f, 1e-3f);
+    // Lifetime loss 1: dies on impact (a rain drop).
+    ps.Particles.clear();
+    ps.Collision.LifetimeLoss = 1.0f;
+    ParticleSimulation::Spawn(ps, at, 1);
+    int steps = 0;
+    while (!ps.Particles.empty() && steps < 200)
+    {
+        ParticleSimulation::Update(ps, at, 1.0f / 60.0f, false);
+        steps++;
+    }
+    CHECK(ps.Particles.empty() && steps > 30 && steps < 45); // falls 2 - 0.2 in about 0.6 s
+    // Too slow after a hit: dies.
+    ps.Collision.LifetimeLoss = 0.0f;
+    ps.Collision.MinKillSpeed = 100.0f;
+    ParticleSimulation::Spawn(ps, at, 1);
+    for (int i = 0; i < 60; i++) ParticleSimulation::Update(ps, at, 1.0f / 60.0f, false);
+    CHECK(ps.Particles.empty());
+
+    // A plane through a tilted entity (its local Y the normal), in a scene; local-space particles too.
+    auto scene = CreateRef<Scene>();
+    Entity ground = scene->CreateEntity("Slope");
+    Entity fx = scene->CreateEntity("Fx");
+    fx.AddComponent<ParticleSystemComponent>();
+    ground.GetTransform().Translation = { 0.0f, -1.0f, 0.0f };
+    ground.GetTransform().Rotation = { 0.0f, 0.0f, glm::radians(30.0f) };
+    fx.GetTransform().Translation = { 0.0f, 3.0f, 0.0f };
+    {
+        auto& f = fx.GetComponent<ParticleSystemComponent>();
+        f.EmissionRate = 0.0f;
+        f.Burst = 50;
+        f.Looping = false;
+        f.Shape = ParticleSystemComponent::EmitterShape::Sphere;
+        f.ShapeRadius = 1.0f;
+        f.SpeedMin = f.SpeedMax = 0.5f;
+        f.LifetimeMin = f.LifetimeMax = 30.0f;
+        f.Gravity = { 0.0f, -9.8f, 0.0f };
+        f.Collision.Enabled = true;
+        f.Collision.RadiusScale = 0.0f;
+        f.Collision.PlaneEntity.ID = ground.GetUUID();
+    }
+    scene->OnRuntimeStart();
+    const glm::vec3 normal = glm::vec3(glm::rotate(glm::mat4(1.0f), glm::radians(30.0f), glm::vec3(0, 0, 1))[1]);
+    const glm::vec3 origin(0.0f, -1.0f, 0.0f);
+    float deepest = 1.0f;
+    for (int i = 0; i < 240; i++)
+    {
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        for (const Particle& p : fx.GetComponent<ParticleSystemComponent>().Particles)
+            deepest = std::min(deepest, glm::dot(p.Position - origin, normal));
+    }
+    CHECK(deepest > -1e-3f);
+    // They slide down the slope (-X): further than straight down from where they started.
+    float meanX = 0.0f;
+    for (const Particle& p : fx.GetComponent<ParticleSystemComponent>().Particles)
+        meanX += p.Position.x / 50.0f;
+    CHECK(meanX < -0.5f);
+    // Local space: the same plane (the emitter moved and turned).
+    {
+        auto& f = fx.GetComponent<ParticleSystemComponent>();
+        f.Clear();
+        f.WorldSpace = false;
+        fx.GetTransform().Rotation = { 0.0f, glm::radians(40.0f), glm::radians(10.0f) };
+    }
+    deepest = 1.0f;
+    for (int i = 0; i < 240; i++)
+    {
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        const glm::mat4 world = scene->GetWorldTransform(fx);
+        for (const Particle& p : fx.GetComponent<ParticleSystemComponent>().Particles)
+            deepest = std::min(deepest, glm::dot(glm::vec3(world * glm::vec4(p.Position, 1.0f)) - origin, normal));
+    }
+    CHECK(!fx.GetComponent<ParticleSystemComponent>().Particles.empty());
+    CHECK(deepest > -1e-2f);
+    scene->OnRuntimeStop();
+}
+
+// Collisions with the physics world: a 3D ground box and a 2D ground collider stop falling particles.
+TEST(ParticleCollisionWorld)
+{
+    for (int dims = 3; dims >= 2; dims--)
+    {
+        auto scene = CreateRef<Scene>();
+        Entity ground = scene->CreateEntity("Ground");
+        Entity fx = scene->CreateEntity("Rain");
+        fx.AddComponent<ParticleSystemComponent>();
+        ground.GetTransform().Translation = { 0.0f, -0.5f, 0.0f };
+        ground.GetTransform().Scale = { 20.0f, 1.0f, 20.0f };
+        if (dims == 3)
+        {
+            ground.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+            ground.AddComponent<BoxCollider3DComponent>();
+        }
+        else
+        {
+            ground.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+            ground.AddComponent<BoxCollider2DComponent>();
+        }
+        fx.GetTransform().Translation = { 0.0f, 3.0f, 0.0f };
+        {
+            auto& f = fx.GetComponent<ParticleSystemComponent>();
+            f.EmissionRate = 40.0f;
+            f.Shape = ParticleSystemComponent::EmitterShape::Edge;
+            f.EdgeLength = 6.0f;
+            f.Direction = { 0.0f, -1.0f, 0.0f };
+            f.Spread = 0.0f;
+            f.SpeedMin = f.SpeedMax = 2.0f;
+            f.LifetimeMin = f.LifetimeMax = 4.0f;
+            f.Gravity = { 0.0f, -9.8f, 0.0f };
+            f.Collision.Enabled = true;
+            f.Collision.Type = dims == 3 ? ParticleSystemComponent::CollisionModule::CollisionType::World3D
+                                         : ParticleSystemComponent::CollisionModule::CollisionType::World2D;
+            f.Collision.Bounce = 0.0f;
+            f.Collision.RadiusScale = 0.0f;
+        }
+        scene->OnRuntimeStart();
+        float lowest = 10.0f;
+        int resting = 0;
+        for (int i = 0; i < 180; i++)
+        {
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            for (const Particle& p : fx.GetComponent<ParticleSystemComponent>().Particles)
+                lowest = std::min(lowest, p.Position.y);
+        }
+        for (const Particle& p : fx.GetComponent<ParticleSystemComponent>().Particles)
+            resting += std::abs(p.Position.y) < 0.02f ? 1 : 0;
+        CHECK(lowest > -0.02f);
+        CHECK(resting > 20);
+        scene->OnRuntimeStop();
+    }
+}
+
+// Noise: smooth, -1..1, the same for the same point and seed; the module moves particles with it.
+TEST(ParticleNoise)
+{
+    float low = 1.0f, high = -1.0f;
+    for (int i = 0; i < 2000; i++)
+    {
+        const glm::vec3 p(i * 0.173f, i * 0.0291f - 7.0f, std::sin(i * 0.37f) * 9.0f);
+        const float n = ParticleSimulation::Noise(p, 7u);
+        CHECK(n >= -1.0f && n <= 1.0f);
+        CHECK(ParticleSimulation::Noise(p, 7u) == n);
+        CHECK(std::abs(ParticleSimulation::Noise(p + glm::vec3(0.001f, 0.0f, 0.0f), 7u) - n) < 0.01f); // smooth
+        low = std::min(low, n);
+        high = std::max(high, n);
+    }
+    CHECK(low < -0.3f && high > 0.3f);
+    CHECK(ParticleSimulation::Noise({ 3.0f, -4.0f, 5.0f }, 1u) == 0.0f); // zero on the lattice
+    float differ = 0.0f;
+    for (int i = 0; i < 200; i++)
+    {
+        const glm::vec3 p(i * 0.31f, 0.5f, i * 0.07f);
+        differ += std::abs(ParticleSimulation::Noise(p, 1u) - ParticleSimulation::Noise(p, 2u));
+    }
+    CHECK(differ > 10.0f); // another seed, another field
+    const glm::vec3 field = ParticleSimulation::NoiseField({ 0.3f, 0.6f, 0.9f }, 3u, 3, 0.5f, glm::bvec3(true, true, false));
+    CHECK(field.z == 0.0f && std::abs(field.x) <= 1.0f && std::abs(field.y) <= 1.0f && field.x != field.y);
+
+    // The module: still particles drift (and stay in the XY plane with Z strength 0).
+    auto make = [](uint32_t seed, glm::vec3 strength) {
+        ParticleSystemComponent ps;
+        ps.EmissionRate = 0.0f;
+        ps.Playing = false;
+        ps.Shape = ParticleSystemComponent::EmitterShape::Box;
+        ps.ShapeExtents = { 3.0f, 3.0f, 0.0f };
+        ps.SpeedMin = ps.SpeedMax = 0.0f;
+        ps.LifetimeMin = ps.LifetimeMax = 10.0f;
+        ps.Noise.Enabled = true;
+        ps.Noise.Strength = strength;
+        ps.Noise.Seed = seed;
+        ps.Noise.Octaves = 2;
+        ParticleSimulation::Spawn(ps, glm::mat4(1.0f), 40);
+        for (int i = 0; i < 60; i++) ParticleSimulation::Update(ps, glm::mat4(1.0f), 1.0f / 60.0f, false);
+        return ps;
+    };
+    ParticleSystemComponent start;
+    start.EmissionRate = 0.0f;
+    start.Shape = ParticleSystemComponent::EmitterShape::Box;
+    start.ShapeExtents = { 3.0f, 3.0f, 0.0f };
+    start.SpeedMin = start.SpeedMax = 0.0f;
+    start.LifetimeMin = start.LifetimeMax = 10.0f;
+    ParticleSimulation::Spawn(start, glm::mat4(1.0f), 40);
+    const ParticleSystemComponent a = make(1u, { 2.0f, 2.0f, 0.0f }), a2 = make(1u, { 2.0f, 2.0f, 0.0f }), b = make(2u, { 2.0f, 2.0f, 0.0f });
+    const ParticleSystemComponent still = make(1u, glm::vec3(0.0f));
+    float moved = 0.0f, between = 0.0f;
+    for (size_t i = 0; i < 40; i++)
+    {
+        moved += glm::length(a.Particles[i].Position - start.Particles[i].Position);
+        between += glm::length(a.Particles[i].Position - b.Particles[i].Position);
+        CHECK(a.Particles[i].Position == a2.Particles[i].Position); // deterministic
+        CHECK(a.Particles[i].Position.z == 0.0f);                  // 2D: no Z
+        CHECK(still.Particles[i].Position == start.Particles[i].Position);
+        CHECK(glm::length(a.Particles[i].Position - start.Particles[i].Position) <= 2.0f * 1.4143f + 1e-3f); // at most the strength x 1 s
+        CHECK(a.Particles[i].Velocity == glm::vec3(0.0f)); // it moves them, their velocity stays
+    }
+    CHECK(moved / 40.0f > 0.1f);
+    CHECK(between / 40.0f > 0.05f);
+}
+
+// Trails: the ring of points per particle, recorded as it moves (spaced, aged out, capped), freed
+// with the particle; their width / colour; the bounds cover them.
+TEST(ParticleTrails)
+{
+    ParticleTrailPool pool;
+    pool.Reset(4);
+    const int slot = pool.Allocate();
+    CHECK(slot == 0);
+    for (int i = 0; i < 6; i++)
+        pool.Push(slot, glm::vec3((float)i, 0.0f, 0.0f), (float)i);
+    CHECK(pool.GetCount(slot) == 4);
+    CHECK(pool.Get(slot, 0).Position.x == 5.0f && pool.Get(slot, 3).Position.x == 2.0f);
+    pool.Trim(slot, 6.0f, 2.5f); // older than 2.5 at time 6: 2 and 3 go
+    CHECK(pool.GetCount(slot) == 2 && pool.Get(slot, 1).Position.x == 4.0f);
+    const int other = pool.Allocate();
+    CHECK(other == 1 && pool.GetUsedCount() == 2);
+    pool.Release(slot);
+    CHECK(pool.GetUsedCount() == 1 && pool.Allocate() == slot);
+
+    ParticleSystemComponent ps;
+    ps.EmissionRate = 0.0f;
+    ps.Playing = false;
+    ps.Direction = { 1.0f, 0.0f, 0.0f };
+    ps.Spread = 0.0f;
+    ps.SpeedMin = ps.SpeedMax = 1.0f;
+    ps.LifetimeMin = ps.LifetimeMax = 3.0f;
+    ps.Trails.Enabled = true;
+    ps.Trails.Lifetime = 0.5f;
+    ps.Trails.MinVertexDistance = 0.1f;
+    ParticleSimulation::Spawn(ps, glm::mat4(1.0f), 1);
+    CHECK(ps.Particles[0].Trail >= 0 && ps.TrailPool.Capacity == 32);
+    for (int i = 0; i < 60; i++) ParticleSimulation::Update(ps, glm::mat4(1.0f), 1.0f / 60.0f, false);
+    const Particle& p = ps.Particles[0];
+    const int n = ps.TrailPool.GetCount(p.Trail);
+    CHECK(n >= 4 && n <= 7); // 0.5 s at 1 unit / s, a point every 0.1
+    CHECK(glm::length(ps.TrailPool.Get(p.Trail, 0).Position - p.Position) < 0.1f + 1e-4f);
+    for (int i = 0; i < n; i++)
+    {
+        CHECK(ps.Time - ps.TrailPool.Get(p.Trail, i).Time <= 0.5f + 1e-4f);
+        if (i > 0)
+            CHECK(ps.TrailPool.Get(p.Trail, i - 1).Position.x - ps.TrailPool.Get(p.Trail, i).Position.x >= 0.1f - 1e-4f);
+    }
+    // The bounds reach back over the trail.
+    const AABB bounds = Scene::GetParticleBounds(ps, glm::mat4(1.0f));
+    CHECK(bounds.Min.x <= ps.TrailPool.Get(p.Trail, n - 1).Position.x);
+    // Width (particle size x Width x curve: 1 at the particle, 0 at the end) and colour.
+    CHECK_NEAR(ParticleSimulation::GetTrailWidth(ps, 0.5f, 0.0f), 0.5f, 1e-6f);
+    CHECK_NEAR(ParticleSimulation::GetTrailWidth(ps, 0.5f, 1.0f), 0.0f, 1e-6f);
+    CHECK(ParticleSimulation::GetTrailColor(ps, { 1.0f, 0.5f, 0.0f, 1.0f }, 0.0f) == glm::vec4(1.0f, 0.5f, 0.0f, 1.0f));
+    CHECK_NEAR(ParticleSimulation::GetTrailColor(ps, glm::vec4(1.0f), 1.0f).a, 0.0f, 1e-6f);
+    // A smaller ring: the pool starts over (the particle keeps a trail from where it is).
+    ps.Trails.MaxPoints = 3;
+    ParticleSimulation::Update(ps, glm::mat4(1.0f), 1.0f / 60.0f, false);
+    CHECK(ps.TrailPool.Capacity == 3 && ps.Particles[0].Trail >= 0 && ps.TrailPool.GetCount(ps.Particles[0].Trail) <= 3);
+    for (int i = 0; i < 60; i++) ParticleSimulation::Update(ps, glm::mat4(1.0f), 1.0f / 60.0f, false);
+    CHECK(ps.TrailPool.GetCount(ps.Particles[0].Trail) == 3);
+    // Dead particles free their trails; none for Ratio 0; off: the pool is emptied.
+    for (int i = 0; i < 200; i++) ParticleSimulation::Update(ps, glm::mat4(1.0f), 1.0f / 60.0f, false);
+    CHECK(ps.Particles.empty() && ps.TrailPool.GetUsedCount() == 0);
+    ps.Trails.Ratio = 0.0f;
+    ParticleSimulation::Spawn(ps, glm::mat4(1.0f), 10);
+    for (const Particle& q : ps.Particles)
+        CHECK(q.Trail == -1);
+    ps.Trails.Ratio = 0.5f;
+    ParticleSimulation::Spawn(ps, glm::mat4(1.0f), 200);
+    const size_t trails = ps.TrailPool.GetUsedCount();
+    CHECK(trails > 60 && trails < 140);
+    ps.Trails.Enabled = false;
+    ParticleSimulation::Update(ps, glm::mat4(1.0f), 1.0f / 60.0f, false);
+    CHECK(ps.TrailPool.Capacity == 0 && ps.TrailPool.GetSlotCount() == 0);
+    for (const Particle& q : ps.Particles)
+        CHECK(q.Trail == -1);
+}
+
+// The newer modules and the mesh shape round-trip; a plain system writes none of them; an older
+// scene loads with them off.
+TEST(ParticleModulesSerializationII)
+{
+    auto scene = CreateRef<Scene>();
+    scene->CreateEntity("Plain").AddComponent<ParticleSystemComponent>();
+    Entity fx = scene->CreateEntity("Fx");
+    Entity burst = scene->CreateEntity("Burst");
+    fx.AddComponent<ParticleSystemComponent>();
+    burst.AddComponent<ParticleSystemComponent>();
+    auto& ps = fx.GetComponent<ParticleSystemComponent>();
+    ps.Shape = ParticleSystemComponent::EmitterShape::Mesh;
+    ps.MeshSource = ParticleSystemComponent::MeshShapeSource::Model;
+    ps.MeshPrimitive = PrimitiveMesh::Cylinder;
+    ps.MeshModelPath = "Models/Statue.glb";
+    ps.MeshMode = ParticleMeshMode::Edge;
+    ps.MeshAlongNormal = false;
+    ps.MeshNormalOffset = 0.05f;
+    ps.Noise.Enabled = true;
+    ps.Noise.Strength = { 1.5f, 0.5f, 0.0f };
+    ps.Noise.StrengthCurve = ParticleCurve::Linear(0.0f, 1.0f);
+    ps.Noise.Frequency = 2.0f;
+    ps.Noise.ScrollSpeed = -0.5f;
+    ps.Noise.Octaves = 3;
+    ps.Noise.OctaveMultiplier = 0.25f;
+    ps.Noise.Seed = 99;
+    ps.Collision.Enabled = true;
+    ps.Collision.Type = ParticleSystemComponent::CollisionModule::CollisionType::World2D;
+    ps.Collision.PlaneNormal = { 0.0f, 0.0f, 1.0f };
+    ps.Collision.PlaneOffset = -2.0f;
+    ps.Collision.PlaneEntity.ID = burst.GetUUID();
+    ps.Collision.Bounce = 0.8f;
+    ps.Collision.Dampen = 0.3f;
+    ps.Collision.LifetimeLoss = 0.25f;
+    ps.Collision.MinKillSpeed = 0.5f;
+    ps.Collision.RadiusScale = 2.0f;
+    ps.Collision.CollidesWith = 0x0005;
+    ps.SubEmitters.Enabled = true;
+    ParticleSystemComponent::SubEmitter a, b;
+    a.Emitter.ID = burst.GetUUID();
+    a.Count = 25;
+    a.InheritColor = true;
+    b.Trigger = ParticleSystemComponent::SubEmitter::TriggerType::Collision;
+    b.Emitter.ID = burst.GetUUID();
+    b.Probability = 0.3f;
+    b.InheritVelocity = 0.75f;
+    b.InheritSize = true;
+    ps.SubEmitters.Emitters = { a, b };
+    ps.Trails.Ratio = 0.5f; // off but changed: still written
+    ps.Trails.Lifetime = 1.5f;
+    ps.Trails.MinVertexDistance = 0.02f;
+    ps.Trails.MaxPoints = 64;
+    ps.Trails.Width = 0.3f;
+    ps.Trails.WidthFromSize = false;
+    ps.Trails.WidthCurve = ParticleCurve::Linear(0.5f, 1.0f);
+    ps.Trails.Gradient = ParticleGradient::TwoStops({ 1, 1, 0, 1 }, { 1, 0, 0, 0 });
+    ps.Trails.InheritColor = false;
+
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    const auto& l = loaded->FindEntityByName("Fx").GetComponent<ParticleSystemComponent>();
+    CHECK(l.Shape == ps.Shape && l.MeshSource == ps.MeshSource && l.MeshPrimitive == ps.MeshPrimitive && l.MeshModelPath == ps.MeshModelPath);
+    CHECK(l.MeshMode == ps.MeshMode && !l.MeshAlongNormal && l.MeshNormalOffset == 0.05f);
+    CHECK(l.Noise == ps.Noise);
+    CHECK(l.Collision == ps.Collision);
+    CHECK(l.SubEmitters == ps.SubEmitters);
+    CHECK(l.Trails == ps.Trails && !l.Trails.Enabled);
+    CHECK(SceneSerializer(loaded).SerializeToString() == text); // stable
+    const auto& plain = loaded->FindEntityByName("Plain").GetComponent<ParticleSystemComponent>();
+    CHECK(plain.Noise == ParticleSystemComponent::NoiseModule{} && plain.Collision == ParticleSystemComponent::CollisionModule{} &&
+          plain.SubEmitters == ParticleSystemComponent::SubEmittersModule{} && plain.Trails == ParticleSystemComponent::TrailsModule{});
+    {
+        auto only = CreateRef<Scene>();
+        only->CreateEntity("Plain").AddComponent<ParticleSystemComponent>();
+        const std::string plainText = SceneSerializer(only).SerializeToString();
+        for (const char* key : { "\"Noise\"", "\"Collision\"", "\"SubEmitters\"", "\"Trails\"", "MeshSource", "MeshModel" })
+            CHECK(plainText.find(key) == std::string::npos);
+    }
+    // Out-of-range values are clamped on load.
+    std::string odd = text;
+    odd.replace(odd.find("\"Octaves\": 3"), 12, "\"Octaves\": 40");
+    auto oddScene = CreateRef<Scene>();
+    CHECK(SceneSerializer(oddScene).DeserializeFromString(odd));
+    CHECK(oddScene->FindEntityByName("Fx").GetComponent<ParticleSystemComponent>().Noise.Octaves == 4);
 }
 
 TEST(SkeletalPoseEvaluation)

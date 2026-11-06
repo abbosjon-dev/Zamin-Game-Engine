@@ -1163,16 +1163,20 @@ namespace Zamin {
     // ------------------------------------------------------------------ particles
     // A particle emitter: the settings of a system simulated by the scene (ParticleSystem.h:
     // ParticleSimulation) and drawn as camera-facing quads / circles. The optional modules
-    // (ColorOverLifetime, SizeOverLifetime, VelocityOverLifetime, LimitVelocity, TextureSheet) do
-    // nothing until Enabled; without them a particle goes from StartColor / StartSize to EndColor /
-    // EndSize over its life.
+    // (ColorOverLifetime, SizeOverLifetime, VelocityOverLifetime, LimitVelocity, Noise, Collision,
+    // SubEmitters, TextureSheet, Trails) do nothing until Enabled; without them a particle goes from
+    // StartColor / StartSize to EndColor / EndSize over its life.
     struct ParticleSystemComponent
     {
         // Point; Circle (local XY disc); Sphere; Box (half size ShapeExtents); Cone (around
         // Direction: from a disc of ShapeRadius, ConeAngle wide at its rim); Edge (a line of
-        // EdgeLength along local X).
-        enum class EmitterShape { Point = 0, Circle, Sphere, Box, Cone, Edge };
+        // EdgeLength along local X); Mesh (the surface of a mesh: MeshSource).
+        enum class EmitterShape { Point = 0, Circle, Sphere, Box, Cone, Edge, Mesh };
         enum class ConeEmitFrom { Base = 0, Volume };
+        // The Mesh shape's mesh: a primitive (MeshPrimitive), a model file (MeshModelPath) or what
+        // the entity's own Mesh Renderer shows.
+        enum class MeshShapeSource { Primitive = 0, Model, Renderer };
+        using MeshEmitMode = ParticleMeshMode;
 
         bool Playing = true;
         bool Looping = true;
@@ -1195,6 +1199,16 @@ namespace Zamin {
         // Circle / Sphere / Box: particles fly away from the centre (Spread around that) instead
         // of along Direction.
         bool AlignToShape = false;
+        // Mesh: from a random point of its triangles (by area) / edges / vertices, in the mesh's
+        // own space (the emitter's transform places and scales it, as a Mesh Renderer draws it);
+        // MeshAlongNormal: away from the surface (Spread around its normal) instead of along
+        // Direction; MeshNormalOffset: that far out along the normal.
+        MeshShapeSource MeshSource = MeshShapeSource::Primitive;
+        PrimitiveMesh MeshPrimitive = PrimitiveMesh::Sphere;
+        std::string MeshModelPath;
+        MeshEmitMode MeshMode = MeshEmitMode::Triangle;
+        bool MeshAlongNormal = true;
+        float MeshNormalOffset = 0.0f;
 
         float LifetimeMin = 0.8f, LifetimeMax = 1.6f;
         float SpeedMin = 1.0f, SpeedMax = 3.0f;
@@ -1258,6 +1272,74 @@ namespace Zamin {
             bool operator==(const LimitVelocityModule&) const = default;
         } LimitVelocity;
 
+        // Turbulence: a smooth noise field (ParticleSimulation::NoiseField) moves the particles -
+        // up to Strength units / s per axis (0: not along it; 2D: Z 0) times StrengthCurve over
+        // their life. Frequency: how many swirls per unit; ScrollSpeed: how fast the field drifts
+        // and changes; Octaves: finer layers on top (each OctaveMultiplier as strong); Seed: another
+        // field of the same kind.
+        struct NoiseModule
+        {
+            bool Enabled = false;
+            glm::vec3 Strength{ 1.0f };
+            ParticleCurve StrengthCurve = ParticleCurve::Constant(1.0f);
+            float Frequency = 0.5f;
+            float ScrollSpeed = 0.25f;
+            int Octaves = 1;
+            float OctaveMultiplier = 0.5f;
+            uint32_t Seed = 0;
+            bool operator==(const NoiseModule&) const = default;
+        } Noise;
+
+        // Collisions: with a plane (world space: PlaneNormal, PlaneOffset along it - a ground at
+        // height Y for the up normal; PlaneEntity set: through that entity, its local Y the normal)
+        // or with the physics world's colliders (World3D / World2D: raycasts, only while physics
+        // runs - play / simulate; CollidesWith: their layers). A particle is a sphere of its
+        // size / 2 times RadiusScale. On a hit it bounces (Bounce: the part of its speed into the
+        // surface it keeps), loses Dampen of its speed along the surface (while resting: per 1/60 s),
+        // LifetimeLoss of its whole lifetime (1: dies) and dies when slower than MinKillSpeed.
+        struct CollisionModule
+        {
+            enum class CollisionType { Plane = 0, World3D, World2D };
+            bool Enabled = false;
+            CollisionType Type = CollisionType::Plane;
+            glm::vec3 PlaneNormal{ 0.0f, 1.0f, 0.0f };
+            float PlaneOffset = 0.0f;
+            EntityRef PlaneEntity;
+            float Bounce = 0.5f;
+            float Dampen = 0.1f;
+            float LifetimeLoss = 0.0f;
+            float MinKillSpeed = 0.0f;
+            float RadiusScale = 1.0f;
+            uint16_t CollidesWith = 0xFFFF;
+            bool operator==(const CollisionModule&) const = default;
+        } Collision;
+
+        // Sub-emitters: when a particle is born, dies or hits something (Collision module) - or all
+        // the time while it lives (Lifetime: Count per second) - the Emitter entity's Particle
+        // System makes Count new particles there (with that chance), from its own shape, speeds,
+        // colours..., plus InheritVelocity of the particle's velocity; InheritColor / InheritSize:
+        // multiplied by the particle's colour (RGB) / size. The template system usually emits
+        // nothing itself (Emission 0, no Burst, or not Playing). Firework: rockets that die into a
+        // burst; rain drops that splash on the ground.
+        struct SubEmitter
+        {
+            enum class TriggerType { Birth = 0, Death, Collision, Lifetime };
+            TriggerType Trigger = TriggerType::Death;
+            EntityRef Emitter;
+            int Count = 10;
+            float Probability = 1.0f;
+            float InheritVelocity = 0.0f;
+            bool InheritColor = false;
+            bool InheritSize = false;
+            bool operator==(const SubEmitter&) const = default;
+        };
+        struct SubEmittersModule
+        {
+            bool Enabled = false;
+            std::vector<SubEmitter> Emitters;
+            bool operator==(const SubEmittersModule&) const = default;
+        } SubEmitters;
+
         // Flipbook: the texture is a sheet of frames - a grid of Columns x Rows cells (left to
         // right, top to bottom; at most FrameCount, 0: all) or the named frames of its sprite
         // sheet (.zmeta; SpritePrefix: only the numbered "<prefix>_<n>" ones in order). A particle
@@ -1281,6 +1363,26 @@ namespace Zamin {
             bool operator==(const TextureSheetModule&) const = default;
         } TextureSheet;
 
+        // Trails: a ribbon behind a particle (Ratio of them) through the places it was over the
+        // last Lifetime seconds - a new point after every MinVertexDistance it moves, at most
+        // MaxPoints. Width (times the particle's size with WidthFromSize) times WidthCurve, and
+        // Gradient (times the particle's colour with InheritColor), from the particle (0) to the
+        // trail's end (1). It goes when the particle dies.
+        struct TrailsModule
+        {
+            bool Enabled = false;
+            float Ratio = 1.0f;
+            float Lifetime = 0.4f;
+            float MinVertexDistance = 0.1f;
+            int MaxPoints = 32;
+            float Width = 1.0f;
+            bool WidthFromSize = true;
+            ParticleCurve WidthCurve = ParticleCurve::Linear(1.0f, 0.0f);
+            ParticleGradient Gradient = ParticleGradient::TwoStops({ 1.0f, 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f, 1.0f, 0.0f });
+            bool InheritColor = true;
+            bool operator==(const TrailsModule&) const = default;
+        } Trails;
+
         bool RenderAsCircle = true;
         bool Additive = true;
         bool WorldSpace = true;      // particles stay in the world when the emitter moves
@@ -1295,8 +1397,23 @@ namespace Zamin {
         float EmitAccumulator = 0.0f;
         bool BurstDone = false;
         uint32_t RandomState = 0x9E3779B9u;
+        float Time = 0.0f;                    // seconds simulated since it started (noise, trails)
+        std::vector<ParticleEvent> Events;    // for the sub-emitters (the scene takes them every frame)
+        ParticleTrailPool TrailPool;
+        Ref<const ParticleEmitterMesh> MeshRuntime; // the Mesh shape's mesh (the scene finds it)
+        std::string MeshRuntimeKey;                 // what it was found for
 
-        void Clear() { Particles.clear(); EmitAccumulator = 0.0f; BurstDone = false; }
+        void Clear()
+        {
+            Particles.clear();
+            EmitAccumulator = 0.0f;
+            BurstDone = false;
+            Time = 0.0f;
+            Events.clear();
+            TrailPool.Reset(0);
+            MeshRuntime = nullptr;
+            MeshRuntimeKey.clear();
+        }
     };
 
     // ------------------------------------------------------------------ screen-space UI

@@ -186,6 +186,9 @@
 #define ICON_FA_ASTERISK "\x2a"
 // animation II (M13): footsteps, blend shapes, bone attachments
 #define ICON_FA_SHOE_PRINTS "\xef\x95\x8b"
+#define ICON_FA_BASKETBALL "\xef\x90\xb4" // particle collision
+#define ICON_FA_METEOR "\xef\x9d\x93"     // particle trails
+#define ICON_FA_TORNADO "\xef\x9d\xaf"    // particle noise
 #define ICON_FA_FACE_SMILE "\xef\x84\x98"
 #define ICON_FA_PAPERCLIP "\xef\x83\x86"
 #define ICON_FA_HAND "\xef\x89\x96"

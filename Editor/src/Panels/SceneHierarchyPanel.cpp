@@ -1781,6 +1781,24 @@ namespace Zamin {
                 c.MeshAsset = MeshLibrary::GetPrimitive(c.Type);
             if constexpr (std::is_same_v<T, TextComponent>)
                 c.FontAsset = Font::GetDefault();
+            // A UI widget lives in a UI rectangle: one is added with it (in the middle of the screen).
+            constexpr bool widget = std::is_same_v<T, UIImageComponent> || std::is_same_v<T, UISliderComponent> ||
+                                    std::is_same_v<T, UIToggleComponent> || std::is_same_v<T, UIProgressBarComponent> ||
+                                    std::is_same_v<T, UIInputFieldComponent>;
+            if constexpr (widget)
+                if (!entity.HasComponent<UITransformComponent>())
+                {
+                    auto& ui = entity.AddComponent<UITransformComponent>();
+                    ui.Anchor = UITransformComponent::AnchorPoint::Center;
+                    ui.Position = { 0.0f, 0.0f };
+                    if constexpr (std::is_same_v<T, UISliderComponent>) ui.Size = { 260.0f, 28.0f };
+                    else if constexpr (std::is_same_v<T, UIToggleComponent>) ui.Size = { 260.0f, 32.0f };
+                    else if constexpr (std::is_same_v<T, UIProgressBarComponent>) ui.Size = { 260.0f, 26.0f };
+                    else if constexpr (std::is_same_v<T, UIInputFieldComponent>) ui.Size = { 300.0f, 44.0f };
+                    else ui.Size = { 128.0f, 128.0f };
+                }
+            if constexpr (std::is_same_v<T, UIInputFieldComponent>)
+                c.FontAsset = Font::GetDefault();
             MarkModified();
             ImGui::CloseCurrentPopup();
         }

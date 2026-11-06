@@ -8812,6 +8812,151 @@ TEST(AudioProfiler)
     std::filesystem::remove_all(dir);
 }
 
+TEST(AudioWaveformViewAndLoopRegion)
+{
+    namespace fs = std::filesystem;
+    // ---- the waveform's view: zoom around an anchor, pan, limits
+    WaveformView view;
+    CHECK(!view.IsZoomed() && view.GetSpan() == 1.0);
+    view.ZoomAt(0.5, 2.0);
+    CHECK(view.IsZoomed() && std::abs(view.Start - 0.25) < 1e-12 && std::abs(view.End - 0.75) < 1e-12);
+    // The anchor keeps its place on screen.
+    double before = view.ToView(0.3);
+    view.ZoomAt(0.3, 4.0);
+    CHECK(std::abs(view.ToView(0.3) - before) < 1e-9 && std::abs(view.GetSpan() - 0.125) < 1e-12);
+    CHECK(std::abs(view.ToSound(view.ToView(0.31)) - 0.31) < 1e-12);
+    view.Pan(10.0); // kept inside the sound
+    CHECK(std::abs(view.End - 1.0) < 1e-12 && std::abs(view.GetSpan() - 0.125) < 1e-12);
+    view.Pan(-10.0);
+    CHECK(view.Start == 0.0);
+    view.CenterOn(0.5);
+    CHECK(std::abs(view.Start + view.End - 1.0) < 1e-12);
+    view.MinSpan = 0.01;
+    view.ZoomAt(0.5, 1e6); // not narrower than MinSpan
+    CHECK(std::abs(view.GetSpan() - 0.01) < 1e-12);
+    view.ZoomAt(0.5, 1e-6); // nor wider than the sound
+    CHECK(view.Start == 0.0 && view.End == 1.0 && !view.IsZoomed());
+    view.ZoomAt(std::nan(""), 2.0);
+    CHECK(!view.IsZoomed());
+    // Resolution, peaks of a range, ruler steps.
+    CHECK(WaveformView::GetBucketCount(1000) == 512 && WaveformView::GetBucketCount(22050 * 10) == 6890 &&
+          WaveformView::GetBucketCount(100000000) == 65536);
+    std::vector<glm::vec2> peaks = { { -0.1f, 0.2f }, { -0.5f, 0.1f }, { -0.2f, 0.9f }, { 0.0f, 0.3f } };
+    glm::vec2 peak = WaveformView::GetPeak(peaks, 0.0, 2.0);
+    CHECK(peak.x == -0.5f && peak.y == 0.2f);
+    peak = WaveformView::GetPeak(peaks, 1.5, 2.5); // fractional: buckets 1 and 2
+    CHECK(peak.x == -0.5f && peak.y == 0.9f);
+    peak = WaveformView::GetPeak(peaks, 2.2, 2.3); // inside one bucket
+    CHECK(peak.x == -0.2f && peak.y == 0.9f);
+    peak = WaveformView::GetPeak(peaks, 3.5, 99.0);
+    CHECK(peak.x == 0.0f && peak.y == 0.3f && WaveformView::GetPeak({}, 0.0, 1.0) == glm::vec2(0.0f));
+    CHECK(std::abs(WaveformView::GetTickStep(10.0, 500.0, 60.0) - 2.0) < 1e-12);  // 1.2 s at least -> 2 s
+    CHECK(std::abs(WaveformView::GetTickStep(1.0, 500.0, 60.0) - 0.2) < 1e-12);   // 0.12 -> 0.2
+    CHECK(std::abs(WaveformView::GetTickStep(100.0, 500.0, 50.0) - 10.0) < 1e-12); // 10 exactly
+    CHECK(std::abs(WaveformView::GetTickStep(0.01, 400.0, 60.0) - 0.002) < 1e-12);
+    CHECK(WaveformView::GetTickStep(0.0, 400.0, 60.0) == 1.0);
+
+    // ---- the clip's loop region: the .zmeta keys (only when set), sanitized, resolved
+    AudioClipSettings clip;
+    CHECK(!clip.HasLoopRegion());
+    AssetImportSettings import;
+    AssetImporter::WriteAudioSettings(clip, import);
+    CHECK(!import.Has("LoopStart") && !import.Has("LoopEnd"));
+    clip.LoopStart = 1.25f;
+    clip.LoopEnd = 3.5f;
+    AssetImporter::WriteAudioSettings(clip, import);
+    CHECK(import.GetNumber("LoopStart", 0.0) == 1.25 && import.GetNumber("LoopEnd", 0.0) == 3.5);
+    CHECK(AssetImporter::ReadAudioSettings(import) == clip);
+    clip.LoopStart = 0.0f;
+    clip.LoopEnd = 0.0f;
+    AssetImporter::WriteAudioSettings(clip, import);
+    CHECK(!import.Has("LoopStart") && !import.Has("LoopEnd")); // removed again
+    import.SetNumber("LoopStart", -4.0);
+    import.SetNumber("LoopEnd", 2.0);
+    AudioClipSettings odd = AssetImporter::ReadAudioSettings(import);
+    CHECK(odd.LoopStart == 0.0f && odd.LoopEnd == 2.0f);
+    import.SetNumber("LoopStart", 3.0); // an end before the start: the file's end
+    odd = AssetImporter::ReadAudioSettings(import);
+    CHECK(odd.LoopStart == 3.0f && odd.LoopEnd == 0.0f && odd.HasLoopRegion());
+    float start = 0.0f, end = 0.0f;
+    odd.GetLoopRegion(10.0f, start, end);
+    CHECK(start == 3.0f && end == 10.0f);
+    odd.GetLoopRegion(2.0f, start, end); // the whole region past the file: all of it
+    CHECK(start == 0.0f && end == 2.0f);
+    clip.LoopStart = 0.5f;
+    clip.LoopEnd = 1.5f;
+    clip.GetLoopRegion(4.0f, start, end);
+    CHECK(start == 0.5f && end == 1.5f);
+    clip.GetLoopRegion(1.0f, start, end); // the end past a shorter file
+    CHECK(start == 0.5f && end == 1.0f);
+
+    // ---- the engine: a looping sound repeats its region (an intro first)
+    bool wasAvailable = AudioEngine::IsAvailable();
+    AudioEngine::Init(true);
+    if (!AudioEngine::IsAvailable())
+        return;
+    AudioEngine::StopAll();
+    AudioEngine::SetMixerSettings(AudioSettings());
+    fs::path dir = MakeTempDir("zamin-audio-loop-");
+    CHECK(Project::CreateFromTemplate(dir, "LoopGame") != nullptr);
+    WriteTestWav(dir / "Assets" / "Audio" / "theme.wav", 1.0f);
+    CHECK(Project::Load(dir / "LoopGame.zproject") != nullptr);
+    AssetRegistry* registry = Project::GetAssetRegistry();
+    CHECK(registry != nullptr);
+    if (!registry)
+        return;
+    fs::path theme = Project::GetAssetFileSystemPath("Audio/theme.wav");
+    SoundParams loop;
+    loop.Loop = true;
+    uint32_t h = AudioEngine::Play(theme, loop);
+    CHECK(h && AudioEngine::GetLoopRegion(h).x == 0.0f && std::abs(AudioEngine::GetLoopRegion(h).y - 1.0f) < 1e-3f);
+    CHECK(AudioEngine::SetLoopRegion(h, 0.25f, 0.5f) && !AudioEngine::SetLoopRegion(0, 0.0f, 1.0f));
+    glm::vec2 region = AudioEngine::GetLoopRegion(h);
+    CHECK(std::abs(region.x - 0.25f) < 1e-3f && std::abs(region.y - 0.5f) < 1e-3f);
+    AudioEngine::RenderOffline(0.65f); // the intro (0..0.5), then back to 0.25: 0.15 s into the loop
+    float t = AudioEngine::GetCursor(h);
+    CHECK_NEAR(t, 0.4f, 0.03f);
+    AudioEngine::RenderOffline(1.3f);
+    t = AudioEngine::GetCursor(h);
+    CHECK(t >= 0.24f && t <= 0.5f && AudioEngine::IsPlaying(h));
+    // Back to the whole sound; an end past it or before the start means its end.
+    CHECK(AudioEngine::SetLoopRegion(h, 0.0f, 0.0f));
+    CHECK(AudioEngine::GetLoopRegion(h).x == 0.0f && std::abs(AudioEngine::GetLoopRegion(h).y - 1.0f) < 1e-3f);
+    CHECK(AudioEngine::SetLoopRegion(h, 0.6f, 0.2f));
+    CHECK(std::abs(AudioEngine::GetLoopRegion(h).x - 0.6f) < 1e-3f && std::abs(AudioEngine::GetLoopRegion(h).y - 1.0f) < 1e-3f);
+    AudioEngine::Stop(h);
+
+    // The file's import settings give every sound its region.
+    AssetHandle handle = registry->GetHandle("Audio/theme.wav");
+    AssetImportSettings values = registry->Find(handle)->Import;
+    AudioClipSettings settings;
+    settings.LoopStart = 0.5f;
+    settings.LoopEnd = 0.75f;
+    AssetImporter::WriteAudioSettings(settings, values);
+    CHECK(registry->SetImportSettings(handle, values));
+    h = AudioEngine::Play(theme, loop);
+    region = AudioEngine::GetLoopRegion(h);
+    CHECK(std::abs(region.x - 0.5f) < 1e-3f && std::abs(region.y - 0.75f) < 1e-3f);
+    AudioEngine::RenderOffline(1.0f);
+    t = AudioEngine::GetCursor(h);
+    CHECK(t >= 0.49f && t <= 0.75f);
+    // Not looping: the region is not used, the sound plays to its end.
+    uint32_t once = AudioEngine::Play(theme);
+    AudioEngine::RenderOffline(0.9f);
+    CHECK(AudioEngine::GetCursor(once) > 0.85f);
+    // Music too (streamed): the region is set on its stream.
+    CHECK(Audio::PlayMusic("Audio/theme.wav", 0.0f));
+    region = AudioEngine::GetLoopRegion(AudioEngine::GetMusicHandle());
+    CHECK(std::abs(region.x - 0.5f) < 1e-3f && std::abs(region.y - 0.75f) < 1e-3f);
+
+    AudioEngine::StopAll();
+    Project::SetActive(nullptr);
+    if (!wasAvailable)
+        AudioEngine::Shutdown();
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+}
+
 TEST(InactiveAnimatorsPause)
 {
     auto scene = CreateRef<Scene>();
@@ -21448,6 +21593,7 @@ TEST(AudioSampleScene)
     fs::path radioClip = Project::GetAssetFileSystemPath("Audio/RadioTune.wav");
     AudioClipSettings radioSettings = AssetImporter::GetAudioSettings(radioClip);
     CHECK(radioSettings.LoadMode == AudioLoadMode::Decompress && radioSettings.Preload && std::abs(radioSettings.Volume - 0.9f) < 1e-6f);
+    CHECK(radioSettings.LoopStart == 4.0f && radioSettings.LoopEnd == 0.0f); // a 4 s intro, then the second phrase loops
     CHECK(AssetImporter::GetAudioSettings(Project::GetAssetFileSystemPath("Audio/MusicCalm.wav")).LoadMode == AudioLoadMode::Stream);
     CHECK(AssetImporter::GetAudioSettings(Project::GetAssetFileSystemPath("Audio/Chime.wav")).Preload);
     CHECK_NEAR(Audio::GetClipLength("Audio/RadioTune.wav"), 8.0f, 1e-3f);

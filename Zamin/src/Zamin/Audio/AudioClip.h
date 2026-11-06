@@ -3,6 +3,9 @@
 #include "Zamin/Asset/AssetInfo.h"
 
 #include <filesystem>
+#include <vector>
+
+#include <glm/glm.hpp>
 
 namespace Zamin {
 
@@ -16,7 +19,8 @@ namespace Zamin {
 
     // Import settings of a sound file (the "Import" object of its .zmeta; the asset inspector
     // edits them):
-    //   { "LoadMode": "Auto" | "Decompress" | "Stream", "Preload": false, "Volume": 1.0 }
+    //   { "LoadMode": "Auto" | "Decompress" | "Stream", "Preload": false, "Volume": 1.0,
+    //     "LoopStart": 1.5, "LoopEnd": 9.0 }   (the loop keys only when a loop region is set)
     struct AudioClipSettings
     {
         AudioLoadMode LoadMode = AudioLoadMode::Auto;
@@ -27,8 +31,54 @@ namespace Zamin {
         // The file's own gain (balancing a file recorded too loud or too quiet), x every sound
         // played from it. 0..AudioSettings::MaxVolume.
         float Volume = 1.0f;
+        // The loop region, in seconds: a sound played from the file with Loop on plays from the
+        // beginning through LoopEnd, then again and again from LoopStart (an intro, then the loop).
+        // LoopEnd 0 = the end of the file; 0..0 = the whole file (no region).
+        float LoopStart = 0.0f;
+        float LoopEnd = 0.0f;
+
+        bool HasLoopRegion() const { return LoopStart > 0.0f || LoopEnd > 0.0f; }
+        // The region in seconds for a file `duration` long: start in 0..duration, end after it
+        // (an end of 0, past the file or before the start: the end of the file).
+        void GetLoopRegion(float duration, float& start, float& end) const;
+        // Finite, non-negative values; an end not after the start becomes 0 (the file's end).
+        void Sanitize();
 
         bool operator==(const AudioClipSettings&) const = default;
+    };
+
+    // The asset inspector's waveform: which part of the sound is shown (zoom / pan), as fractions
+    // of the sound's length (0 = its start, 1 = its end).
+    struct WaveformView
+    {
+        double Start = 0.0, End = 1.0;
+        // The narrowest view (a fraction of the sound): set from the waveform's resolution.
+        double MinSpan = 1.0 / 4096.0;
+
+        double GetSpan() const { return End - Start; }
+        bool IsZoomed() const { return Start > 0.0 || End < 1.0; }
+        void Reset() { Start = 0.0; End = 1.0; }
+        // `factor` > 1 zooms in, < 1 out; `anchor` (a fraction of the sound) stays where it is on screen.
+        void ZoomAt(double anchor, double factor);
+        // Moves the view by `delta` (a fraction of the sound), kept inside the sound.
+        void Pan(double delta);
+        // Moves the view so `center` is in its middle (the span stays).
+        void CenterOn(double center);
+        // `x` across the view (0..1) -> a fraction of the sound, and back.
+        double ToSound(double x) const { return Start + x * GetSpan(); }
+        double ToView(double sound) const { return GetSpan() > 0.0 ? (sound - Start) / GetSpan() : 0.0; }
+        // Span within MinSpan..1, the view inside 0..1.
+        void Clamp();
+
+        // How many peaks a waveform of `frames` samples is read with: enough to zoom in (a peak per
+        // ~32 frames), at least 512, at most 65536.
+        static uint32_t GetBucketCount(uint64_t frames);
+        // The lowest and highest sample (x, y) of the peaks in [from, to) - bucket positions, may be
+        // fractional; a range narrower than a bucket gives that bucket.
+        static glm::vec2 GetPeak(const std::vector<glm::vec2>& peaks, double from, double to);
+        // A tick step for a time ruler: 1, 2 or 5 x 10^n seconds, so ticks are at least
+        // `minPixels` apart when `seconds` take `pixels`.
+        static double GetTickStep(double seconds, double pixels, double minPixels);
     };
 
     // What a sound file holds, read once per version of the file (duration, format, channels,

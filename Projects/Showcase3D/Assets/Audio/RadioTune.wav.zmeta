@@ -3,6 +3,8 @@
     "Type": "Audio",
     "Import": {
         "LoadMode": "Decompress",
+        "LoopEnd": 0.0,
+        "LoopStart": 4.0,
         "Preload": true,
         "Volume": 0.9
     }

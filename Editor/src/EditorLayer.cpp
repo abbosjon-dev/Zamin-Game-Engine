@@ -773,12 +773,28 @@ namespace Zamin {
         }
 
         // ZAMIN_EDITOR_ASSET_PREVIEW (with ZAMIN_EDITOR_ASSET) at frame 12: "play" starts the sound /
-        // the model's first animation; R, G, B, A or RGB shows that view of a texture.
+        // the model's first animation; R, G, B, A or RGB shows that view of a texture. Audio:
+        // "loop,zoom=4:0.3,play" - the preview loops, the waveform zoomed 4x around 30% of the sound.
         if (frame == 12 && m_AssetInspectorPanel.HasAsset())
             if (const char* preview = std::getenv("ZAMIN_EDITOR_ASSET_PREVIEW"))
             {
                 std::string_view v(preview);
-                if (v == "play")
+                if (v.find("zoom=") != std::string_view::npos || v.find("loop") != std::string_view::npos)
+                {
+                    if (v.find("loop") != std::string_view::npos)
+                        m_AssetInspectorPanel.SetPreviewLoop(true);
+                    if (size_t at = v.find("zoom="); at != std::string_view::npos)
+                    {
+                        std::string zoom(v.substr(at + 5, v.find(',', at) == std::string_view::npos ? std::string_view::npos : v.find(',', at) - at - 5));
+                        double factor = std::atof(zoom.c_str()), center = 0.5;
+                        if (size_t colon = zoom.find(':'); colon != std::string::npos)
+                            center = std::atof(zoom.c_str() + colon + 1);
+                        m_AssetInspectorPanel.ZoomWaveform(factor > 0.0 ? factor : 1.0, center);
+                    }
+                    if (v.find("play") != std::string_view::npos)
+                        m_AssetInspectorPanel.StartPreviewPlayback();
+                }
+                else if (v == "play")
                     m_AssetInspectorPanel.StartPreviewPlayback();
                 else if (v == "hdri" || v == "cube" || v == "plane" || v == "cylinder") // materials: lighting / shape
                 {

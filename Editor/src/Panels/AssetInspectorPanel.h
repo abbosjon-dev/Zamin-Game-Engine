@@ -81,6 +81,11 @@ namespace Zamin {
         void StartPreviewPlayback();
         void StopAudio();
         uint32_t PlayPreviewSound();
+        // Audio: the preview loops (inside the edited loop region); the waveform zoomed in
+        // `factor` times around `center` (a fraction of the sound).
+        void SetPreviewLoop(bool loop) { m_Loop = loop; }
+        void ZoomWaveform(double factor, double center);
+        const WaveformView& GetWaveformView() const { return m_WaveView; }
 
         // The shown material's values as edited (null when no material is shown). After changing
         // them, ApplyMaterialEdit shows them on the material (what the editor fields do).
@@ -239,6 +244,17 @@ namespace Zamin {
         uint32_t m_Sound = 0;
         bool m_Loop = false;
         float m_Volume = 0.8f;
+        // The waveform's zoom and what the mouse is dragging on it.
+        enum class WaveDrag { None, Scrub, LoopStart, LoopEnd, NewLoop, Pan };
+        WaveformView m_WaveView;
+        WaveDrag m_WaveDrag = WaveDrag::None;
+        double m_WaveDragAnchor = 0.0;      // the sound fraction the drag started at
+        float m_ScrubTime = -1.0f;          // where the last scrub seek went
+        float m_WaveMenuTime = 0.0f;        // the time the context menu was opened at
+        glm::vec2 m_PreviewLoop{ -1.0f };   // the loop region the playing preview got (seconds)
+        // The loop region the preview should use (the edited import settings; 0, 0: all of it).
+        glm::vec2 GetEditedLoopRegion() const;
+        void ApplyPreviewLoop();
 
         // scene / prefab / script / folder summaries (read once per version)
         struct FileSummary

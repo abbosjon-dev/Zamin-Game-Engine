@@ -289,6 +289,8 @@ namespace Zamin {
         m_AudioInfo = {};
         m_AudioInfoRead = false;
         m_Waveform = nullptr;
+        m_WaveView.Reset();
+        m_WaveDrag = WaveDrag::None;
         m_Summary = {};
     }
 
@@ -1590,6 +1592,7 @@ namespace Zamin {
         if (m_Sound)
             AudioEngine::Stop(m_Sound);
         m_Sound = 0;
+        m_PreviewLoop = glm::vec2(-1.0f);
     }
 
     uint32_t AssetInspectorPanel::PlayPreviewSound()
@@ -1599,7 +1602,14 @@ namespace Zamin {
         params.Volume = m_Volume;
         params.Loop = m_Loop;
         params.Group.clear();
-        return AudioEngine::Play(m_Path, params);
+        const uint32_t sound = AudioEngine::Play(m_Path, params);
+        // The loop region as edited (it started with the applied one).
+        if (sound)
+        {
+            m_PreviewLoop = GetEditedLoopRegion();
+            AudioEngine::SetLoopRegion(sound, m_PreviewLoop.x, m_PreviewLoop.y);
+        }
+        return sound;
     }
 
     void AssetInspectorPanel::StartPreviewPlayback()
@@ -1619,91 +1629,383 @@ namespace Zamin {
         }
     }
 
+    glm::vec2 AssetInspectorPanel::GetEditedLoopRegion() const
+    {
+        if (!m_AudioEdit.HasLoopRegion())
+            return glm::vec2(0.0f);
+        float start = 0.0f, end = 0.0f;
+        m_AudioEdit.GetLoopRegion((float)m_AudioInfo.Duration, start, end);
+        return { start, end };
+    }
+
+    void AssetInspectorPanel::ApplyPreviewLoop()
+    {
+        // The preview loops inside the region as edited (applied or not): what Apply would give.
+        if (!m_Sound)
+            return;
+        const glm::vec2 region = GetEditedLoopRegion();
+        if (region == m_PreviewLoop)
+            return;
+        AudioEngine::SetLoopRegion(m_Sound, region.x, region.y);
+        m_PreviewLoop = region;
+    }
+
+    void AssetInspectorPanel::ZoomWaveform(double factor, double center)
+    {
+        m_WaveView.Reset();
+        m_WaveView.ZoomAt(0.5, factor);
+        m_WaveView.CenterOn(center);
+    }
+
+    // A ruler label for `seconds` with ticks `step` apart: no more digits than the step needs.
+    static std::string FormatRulerTime(double seconds, double step)
+    {
+        if (step >= 60.0 || seconds >= 60.0)
+        {
+            const int minutes = (int)(seconds / 60.0);
+            const double rest = seconds - minutes * 60.0;
+            return step >= 1.0 ? std::format("{}:{:02.0f}", minutes, std::floor(rest + 1e-6)) : std::format("{}:{:04.1f}", minutes, rest);
+        }
+        if (step >= 1.0)
+            return std::format("{:.0f}s", seconds);
+        if (step >= 0.1)
+            return std::format("{:.1f}s", seconds);
+        if (step >= 0.01)
+            return std::format("{:.2f}s", seconds);
+        return std::format("{:.0f}ms", seconds * 1000.0);
+    }
+
     void AssetInspectorPanel::DrawWaveform(float height)
     {
-        ImVec2 size(ImGui::GetContentRegionAvail().x, height);
-        ImVec2 min = ImGui::GetCursorScreenPos();
-        ImVec2 max(min.x + size.x, min.y + size.y);
-        ImGui::InvisibleButton("##waveform", size);
-        bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
-        bool hovered = ImGui::IsItemHovered();
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        dl->AddRectFilled(min, max, IM_COL32(24, 26, 30, 255), 4.0f);
-        float mid = (min.y + max.y) * 0.5f;
-        dl->AddLine(ImVec2(min.x, mid), ImVec2(max.x, mid), IM_COL32(60, 64, 72, 255));
-
+        ImGuiIO& io = ImGui::GetIO();
+        const float duration = m_AudioInfo.Valid ? (float)m_AudioInfo.Duration : 0.0f;
         if (!m_Waveform && m_AudioInfo.Valid)
         {
-            // Decoded on a thread: a long piece of music does not stall the editor.
+            // Decoded on a thread (a long piece of music does not stall the editor), fine enough
+            // to zoom in.
             m_Waveform = std::make_shared<Waveform>();
-            std::thread([waveform = m_Waveform, path = m_Path]() {
-                waveform->Peaks = AssetInfo::ReadAudioWaveform(path, 512, &waveform->Error);
+            const uint32_t buckets = WaveformView::GetBucketCount(m_AudioInfo.Frames);
+            std::thread([waveform = m_Waveform, path = m_Path, buckets]() {
+                waveform->Peaks = AssetInfo::ReadAudioWaveform(path, buckets, &waveform->Error);
                 waveform->Done = true;
             }).detach();
         }
-        bool playing = m_Sound && AudioEngine::IsPlaying(m_Sound);
-        float duration = (float)m_AudioInfo.Duration;
-        float progress = playing && duration > 0.0f ? std::clamp(AudioEngine::GetCursor(m_Sound) / duration, 0.0f, 1.0f) : -1.0f;
+        const bool ready = m_Waveform && m_Waveform->Done && !m_Waveform->Peaks.empty() && duration > 0.0f;
+        const std::vector<glm::vec2>* peaks = ready ? &m_Waveform->Peaks : nullptr;
+        // The narrowest view: ~40 peaks across (about a millisecond each for short sounds).
+        if (peaks)
+            m_WaveView.MinSpan = std::min(1.0, 40.0 / (double)peaks->size());
+        m_WaveView.Clamp();
 
+        const float width = std::max(32.0f, ImGui::GetContentRegionAvail().x);
+        const ImVec2 min = ImGui::GetCursorScreenPos();
+        const ImVec2 max(min.x + width, min.y + height);
+        ImGui::InvisibleButton("##waveform", ImVec2(width, height),
+                               ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle | ImGuiButtonFlags_MouseButtonRight);
+        const bool hovered = ImGui::IsItemHovered();
+        const bool active = ImGui::IsItemActive();
+        // The wheel zooms / scrolls the waveform here, not the inspector.
+        ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
+        ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelX);
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+
+        auto xOf = [&](double fraction) { return min.x + (float)(m_WaveView.ToView(fraction) * width); };
+        auto fractionAt = [&](float x) { return std::clamp(m_WaveView.ToSound(std::clamp((double)(x - min.x) / width, 0.0, 1.0)), 0.0, 1.0); };
+        const double mouseFraction = fractionAt(io.MousePos.x);
+        const float mouseTime = (float)mouseFraction * duration;
+        const bool available = AudioEngine::IsAvailable();
+        constexpr float minLoop = 0.01f; // seconds
+        auto snap = [](float t) { return std::round(t * 1000.0f) / 1000.0f; }; // whole milliseconds
+
+        bool hasLoop = m_AudioEdit.HasLoopRegion();
+        glm::vec2 loop = GetEditedLoopRegion();
+        float loopStartX = duration > 0.0f ? xOf(loop.x / duration) : min.x;
+        float loopEndX = duration > 0.0f ? xOf(loop.y / duration) : max.x;
+        const float grab = 5.0f;
+        const bool overStart = hovered && hasLoop && std::abs(io.MousePos.x - loopStartX) <= grab;
+        const bool overEnd = hovered && hasLoop && !overStart && std::abs(io.MousePos.x - loopEndX) <= grab;
+
+        // ---- input
+        if (hovered && ready)
+        {
+            // Wheel: zoom around the mouse. Shift + wheel (or a sideways wheel): scroll.
+            if (io.MouseWheel != 0.0f && !io.KeyShift)
+                m_WaveView.ZoomAt(mouseFraction, std::pow(1.25, (double)io.MouseWheel));
+            const float sideways = io.MouseWheelH + (io.KeyShift ? io.MouseWheel : 0.0f);
+            if (sideways != 0.0f)
+                m_WaveView.Pan(-(double)sideways * 0.1 * m_WaveView.GetSpan());
+        }
+        if (ready && ImGui::IsItemClicked(ImGuiMouseButton_Left))
+        {
+            m_WaveDragAnchor = mouseFraction;
+            m_ScrubTime = -1.0f;
+            if (overStart)
+                m_WaveDrag = WaveDrag::LoopStart;
+            else if (overEnd)
+                m_WaveDrag = WaveDrag::LoopEnd;
+            else if (io.KeyShift)
+                m_WaveDrag = WaveDrag::NewLoop;
+            else
+                m_WaveDrag = WaveDrag::Scrub;
+        }
+        if (ready && ImGui::IsItemClicked(ImGuiMouseButton_Middle))
+        {
+            m_WaveDrag = WaveDrag::Pan;
+            m_WaveDragAnchor = mouseFraction;
+        }
+        if (!active)
+            m_WaveDrag = WaveDrag::None;
+        if (active && ready)
+        {
+            // Dragging past an edge of a zoomed view scrolls it.
+            const bool edgeScroll = m_WaveDrag != WaveDrag::Pan && m_WaveDrag != WaveDrag::None;
+            if (edgeScroll && io.MousePos.x < min.x)
+                m_WaveView.Pan(-m_WaveView.GetSpan() * 0.02);
+            else if (edgeScroll && io.MousePos.x > max.x)
+                m_WaveView.Pan(m_WaveView.GetSpan() * 0.02);
+            switch (m_WaveDrag)
+            {
+                case WaveDrag::Scrub:
+                    // Scrubbing: the preview plays from under the mouse and jumps along with it.
+                    if (available && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+                    {
+                        if (!m_Sound || !AudioEngine::IsPlaying(m_Sound))
+                        {
+                            StopAudio();
+                            m_Sound = PlayPreviewSound();
+                            m_ScrubTime = -1.0f;
+                        }
+                        if (m_Sound && std::abs(mouseTime - m_ScrubTime) > 0.004f)
+                        {
+                            AudioEngine::Seek(m_Sound, mouseTime);
+                            m_ScrubTime = mouseTime;
+                        }
+                    }
+                    break;
+                case WaveDrag::LoopStart:
+                {
+                    float t = snap(std::clamp(mouseTime, 0.0f, loop.y - minLoop));
+                    m_AudioEdit.LoopStart = std::max(0.0f, t);
+                    if (m_AudioEdit.LoopEnd <= 0.0f && m_AudioEdit.LoopStart <= 0.0f)
+                        m_AudioEdit.LoopStart = 0.0f; // all of it again
+                    break;
+                }
+                case WaveDrag::LoopEnd:
+                {
+                    float t = snap(std::clamp(mouseTime, loop.x + minLoop, duration));
+                    m_AudioEdit.LoopEnd = t >= duration - 0.0005f ? 0.0f : t; // the file's end: 0
+                    break;
+                }
+                case WaveDrag::NewLoop:
+                {
+                    float a = snap((float)m_WaveDragAnchor * duration), b = snap(mouseTime);
+                    if (std::abs(b - a) >= minLoop)
+                    {
+                        m_AudioEdit.LoopStart = std::min(a, b);
+                        float end = std::max(a, b);
+                        m_AudioEdit.LoopEnd = end >= duration - 0.0005f ? 0.0f : end;
+                    }
+                    break;
+                }
+                case WaveDrag::Pan:
+                    // The point grabbed stays under the mouse.
+                    m_WaveView.Pan(m_WaveDragAnchor - mouseFraction);
+                    break;
+                case WaveDrag::None:
+                    break;
+            }
+        }
+        if (hovered && ready && ImGui::IsMouseReleased(ImGuiMouseButton_Right))
+        {
+            m_WaveMenuTime = snap(mouseTime);
+            ImGui::OpenPopup("##waveformMenu");
+        }
+        if (ImGui::BeginPopup("##waveformMenu"))
+        {
+            ImGui::TextDisabled("%s", AssetInfo::FormatDuration(m_WaveMenuTime).c_str());
+            if (ImGui::MenuItem(ICON_FA_PLAY "  Shu joydan ijro", nullptr, false, available))
+            {
+                StopAudio();
+                m_Sound = PlayPreviewSound();
+                if (m_Sound)
+                    AudioEngine::Seek(m_Sound, m_WaveMenuTime);
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_REPEAT "  Takrorlash boshi shu yerda"))
+            {
+                m_AudioEdit.LoopStart = m_WaveMenuTime;
+                if (m_AudioEdit.LoopEnd > 0.0f && m_AudioEdit.LoopEnd <= m_WaveMenuTime + minLoop)
+                    m_AudioEdit.LoopEnd = 0.0f;
+            }
+            if (ImGui::MenuItem(ICON_FA_REPEAT "  Takrorlash oxiri shu yerda", nullptr, false, m_WaveMenuTime > minLoop))
+            {
+                m_AudioEdit.LoopEnd = m_WaveMenuTime >= duration - 0.0005f ? 0.0f : m_WaveMenuTime;
+                if (m_AudioEdit.LoopStart >= m_WaveMenuTime - minLoop)
+                    m_AudioEdit.LoopStart = 0.0f;
+            }
+            if (ImGui::MenuItem(ICON_FA_XMARK "  Takrorlash oralig'ini olib tashlash", nullptr, false, hasLoop))
+                m_AudioEdit.LoopStart = m_AudioEdit.LoopEnd = 0.0f;
+            ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_MAGNIFYING_GLASS "  Oraliqni kattalashtirish", nullptr, false, hasLoop && duration > 0.0f))
+            {
+                const double pad = (double)(loop.y - loop.x) / duration * 0.08;
+                m_WaveView.Start = loop.x / duration - pad;
+                m_WaveView.End = loop.y / duration + pad;
+                m_WaveView.Clamp();
+            }
+            if (ImGui::MenuItem(ICON_FA_EXPAND "  Butun ovoz", nullptr, false, m_WaveView.IsZoomed()))
+                m_WaveView.Reset();
+            ImGui::EndPopup();
+        }
+        m_AudioEdit.Sanitize();
+        hasLoop = m_AudioEdit.HasLoopRegion();
+        loop = GetEditedLoopRegion();
+        loopStartX = duration > 0.0f ? xOf(loop.x / duration) : min.x;
+        loopEndX = duration > 0.0f ? xOf(loop.y / duration) : max.x;
+        ApplyPreviewLoop();
+
+        // Follows the playing cursor in a zoomed view (a page at a time).
+        const bool playing = m_Sound && AudioEngine::IsPlaying(m_Sound);
+        const float cursorTime = playing ? AudioEngine::GetCursor(m_Sound) : 0.0f;
+        const double progress = playing && duration > 0.0f ? std::clamp((double)cursorTime / duration, 0.0, 1.0) : -1.0;
+        if (progress >= 0.0 && m_WaveDrag == WaveDrag::None && m_WaveView.IsZoomed() &&
+            (progress < m_WaveView.Start || progress > m_WaveView.End))
+            m_WaveView.Pan(progress - m_WaveView.Start - m_WaveView.GetSpan() * 0.05);
+
+        // ---- drawing
+        dl->PushClipRect(min, max, true);
+        dl->AddRectFilled(min, max, IM_COL32(24, 26, 30, 255), 4.0f);
+        const float mid = (min.y + max.y) * 0.5f;
+        dl->AddLine(ImVec2(min.x, mid), ImVec2(max.x, mid), IM_COL32(60, 64, 72, 255));
+        if (hasLoop)
+        {
+            // The loop region: shaded, the intro before it a little darker.
+            dl->AddRectFilled(ImVec2(loopStartX, min.y), ImVec2(loopEndX, max.y), UI::AccentU32(0.13f));
+            if (loop.x > 0.0f)
+                dl->AddRectFilled(ImVec2(min.x, min.y), ImVec2(loopStartX, max.y), IM_COL32(0, 0, 0, 50));
+        }
         if (!m_Waveform || !m_Waveform->Done)
         {
             const char* text = m_AudioInfo.Valid ? "To'lqin shakli o'qilmoqda..." : "Ovoz o'qilmadi";
             ImVec2 ts = ImGui::CalcTextSize(text);
-            dl->AddText(ImVec2(min.x + (size.x - ts.x) * 0.5f, mid - ts.y * 0.5f), ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
+            dl->AddText(ImVec2(min.x + (width - ts.x) * 0.5f, mid - ts.y * 0.5f), ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
         }
-        else if (m_Waveform->Peaks.empty())
+        else if (!peaks)
         {
             std::string text = "To'lqin shakli yo'q: " + m_Waveform->Error;
             dl->AddText(ImVec2(min.x + 8.0f, mid - ImGui::GetTextLineHeight() * 0.5f), ImGui::GetColorU32(s_ErrorColor), text.c_str());
         }
         else
         {
-            const std::vector<glm::vec2>& peaks = m_Waveform->Peaks;
-            float half = size.y * 0.45f;
-            int columns = std::max(1, (int)size.x);
+            const double count = (double)peaks->size();
+            const float half = height * 0.42f;
+            const int columns = std::max(1, (int)width);
             for (int x = 0; x < columns; x++)
             {
-                size_t from = (size_t)x * peaks.size() / columns, to = std::max(from + 1, (size_t)(x + 1) * peaks.size() / columns);
-                glm::vec2 peak(1.0f, -1.0f);
-                for (size_t i = from; i < to && i < peaks.size(); i++)
-                {
-                    peak.x = std::min(peak.x, peaks[i].x);
-                    peak.y = std::max(peak.y, peaks[i].y);
-                }
-                bool played = progress >= 0.0f && (float)x / columns <= progress;
-                ImU32 color = played ? UI::AccentU32(0.95f) : IM_COL32(150, 160, 175, 255);
-                float y0 = mid - peak.y * half, y1 = mid - peak.x * half;
+                const double from = m_WaveView.ToSound((double)x / columns), to = m_WaveView.ToSound((double)(x + 1) / columns);
+                const glm::vec2 peak = WaveformView::GetPeak(*peaks, from * count, to * count);
+                const bool played = progress >= 0.0 && from <= progress;
+                const bool inLoop = !hasLoop || (from * duration >= loop.x - 1e-4 && from * duration <= loop.y + 1e-4);
+                ImU32 color = played ? UI::AccentU32(0.95f) : inLoop ? IM_COL32(150, 160, 175, 255) : IM_COL32(105, 112, 124, 255);
+                const float y0 = mid - peak.y * half, y1 = mid - peak.x * half;
                 dl->AddLine(ImVec2(min.x + x + 0.5f, y0), ImVec2(min.x + x + 0.5f, std::max(y1, y0 + 1.0f)), color);
             }
+
+            // Time ruler along the bottom edge.
+            const double visible = m_WaveView.GetSpan() * duration;
+            const double step = WaveformView::GetTickStep(visible, width, 64.0);
+            const double first = std::ceil(m_WaveView.Start * duration / step - 1e-9) * step;
+            for (double t = first; t <= m_WaveView.End * duration + 1e-9; t += step)
+            {
+                const float x = std::round(xOf(t / duration)) + 0.5f;
+                dl->AddLine(ImVec2(x, max.y - 5.0f), ImVec2(x, max.y), IM_COL32(255, 255, 255, 90));
+                const std::string label = FormatRulerTime(t, step);
+                dl->AddText(ImVec2(x + 3.0f, max.y - ImGui::GetFontSize() - 2.0f), IM_COL32(255, 255, 255, 85), label.c_str());
+            }
+            // Smaller ticks in between.
+            for (double t = first - step; t <= m_WaveView.End * duration + 1e-9; t += step * 0.5)
+                if (t >= m_WaveView.Start * duration)
+                {
+                    const float x = std::round(xOf(t / duration)) + 0.5f;
+                    dl->AddLine(ImVec2(x, max.y - 3.0f), ImVec2(x, max.y), IM_COL32(255, 255, 255, 50));
+                }
         }
-        if (progress >= 0.0f)
+        if (hasLoop && ready)
         {
-            float x = min.x + progress * size.x;
-            dl->AddLine(ImVec2(x, min.y), ImVec2(x, max.y), IM_COL32(255, 255, 255, 200), 1.5f);
+            // Its edges: handles to drag (a flag at the top of each).
+            for (int edge = 0; edge < 2; edge++)
+            {
+                const float x = std::round(edge == 0 ? loopStartX : loopEndX) + 0.5f;
+                const bool hot = (edge == 0 ? overStart : overEnd) || m_WaveDrag == (edge == 0 ? WaveDrag::LoopStart : WaveDrag::LoopEnd);
+                const ImU32 color = UI::AccentU32(hot ? 1.0f : 0.8f);
+                dl->AddLine(ImVec2(x, min.y), ImVec2(x, max.y), color, hot ? 2.0f : 1.5f);
+                const float dir = edge == 0 ? 1.0f : -1.0f;
+                dl->AddTriangleFilled(ImVec2(x, min.y), ImVec2(x + dir * 9.0f, min.y), ImVec2(x, min.y + 9.0f), color);
+            }
+            const char* label = ICON_FA_REPEAT " takrorlash";
+            const ImVec2 size = ImGui::CalcTextSize(label);
+            if (loopEndX - loopStartX > size.x + 24.0f)
+                dl->AddText(ImVec2(std::max(loopStartX, min.x) + 12.0f, min.y + 2.0f), UI::AccentU32(0.85f), label);
         }
-        // Position / length in the corner.
-        std::string time = std::format("{} / {}", AssetInfo::FormatDuration(playing ? AudioEngine::GetCursor(m_Sound) : 0.0f),
-                                       AssetInfo::FormatDuration(m_AudioInfo.Duration));
-        ImVec2 timeSize = ImGui::CalcTextSize(time.c_str());
-        ImVec2 timePos(max.x - timeSize.x - 6.0f, min.y + 3.0f);
+        if (progress >= 0.0)
+        {
+            const float x = xOf(progress);
+            dl->AddLine(ImVec2(x, min.y), ImVec2(x, max.y), IM_COL32(255, 255, 255, 220), 1.5f);
+        }
+        // Position / length (and the zoom) in the corner.
+        std::string time = std::format("{} / {}", AssetInfo::FormatDuration(cursorTime), AssetInfo::FormatDuration(duration));
+        if (m_WaveView.IsZoomed())
+        {
+            const double zoom = 1.0 / m_WaveView.GetSpan();
+            time = (zoom < 10.0 ? std::format("x{:.1f}   ", zoom) : std::format("x{:.0f}   ", zoom)) + time;
+        }
+        const ImVec2 timeSize = ImGui::CalcTextSize(time.c_str());
+        const ImVec2 timePos(max.x - timeSize.x - 6.0f, min.y + 3.0f);
         dl->AddRectFilled(ImVec2(timePos.x - 3.0f, timePos.y - 1.0f), ImVec2(max.x - 3.0f, timePos.y + timeSize.y + 1.0f), IM_COL32(24, 26, 30, 200), 3.0f);
         dl->AddText(timePos, ImGui::GetColorU32(ImGuiCol_TextDisabled), time.c_str());
-        if (hovered && duration > 0.0f)
+        if (hovered && ready)
         {
-            float t = std::clamp((ImGui::GetMousePos().x - min.x) / size.x, 0.0f, 1.0f) * duration;
-            float x = min.x + t / duration * size.x;
+            const float x = xOf(mouseFraction);
             dl->AddLine(ImVec2(x, min.y), ImVec2(x, max.y), IM_COL32(255, 255, 255, 70));
-            UI::Tooltip(std::format("{}  (bosing: shu joydan ijro)", AssetInfo::FormatDuration(t)).c_str());
-            if (clicked && AudioEngine::IsAvailable())
+            if (overStart || overEnd || m_WaveDrag == WaveDrag::LoopStart || m_WaveDrag == WaveDrag::LoopEnd)
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            if (overStart || m_WaveDrag == WaveDrag::LoopStart)
+                UI::Tooltip(std::format("Takrorlash boshi: {} (sudrang)", AssetInfo::FormatDuration(loop.x)).c_str());
+            else if (overEnd || m_WaveDrag == WaveDrag::LoopEnd)
+                UI::Tooltip(std::format("Takrorlash oxiri: {} (sudrang)", AssetInfo::FormatDuration(loop.y)).c_str());
+            else if (m_WaveDrag == WaveDrag::None)
+                UI::Tooltip(std::format("{}\nBosing / sudrang: shu joydan ijro (scrub)\nShift + sudrash: takrorlash oralig'i\n"
+                                        "G'ildirak: kattalashtirish, Shift + g'ildirak yoki o'rta tugma: surish\nO'ng tugma: menyu",
+                                        AssetInfo::FormatDuration(mouseTime)).c_str());
+        }
+        dl->PopClipRect();
+
+        // ---- the whole sound under a zoomed view: where the view is (click / drag to move it)
+        if (peaks && m_WaveView.IsZoomed())
+        {
+            const float stripHeight = 14.0f;
+            const ImVec2 a = ImGui::GetCursorScreenPos(), b(a.x + width, a.y + stripHeight);
+            ImGui::InvisibleButton("##waveOverview", ImVec2(width, stripHeight));
+            if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+                m_WaveView.CenterOn(std::clamp((double)(io.MousePos.x - a.x) / width, 0.0, 1.0));
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Butun ovoz: bosing yoki sudrang - ko'rinish shu joyga o'tadi");
+            dl->AddRectFilled(a, b, IM_COL32(18, 20, 24, 255), 3.0f);
+            const double count = (double)peaks->size();
+            const float stripMid = (a.y + b.y) * 0.5f, stripHalf = stripHeight * 0.45f;
+            for (int x = 0; x < (int)width; x += 2)
             {
-                if (!playing)
-                {
-                    StopAudio();
-                    m_Sound = PlayPreviewSound();
-                }
-                if (m_Sound)
-                    AudioEngine::Seek(m_Sound, t);
+                const glm::vec2 peak = WaveformView::GetPeak(*peaks, (double)x / width * count, (double)(x + 2) / width * count);
+                dl->AddLine(ImVec2(a.x + x + 0.5f, stripMid - peak.y * stripHalf), ImVec2(a.x + x + 0.5f, stripMid - peak.x * stripHalf + 1.0f),
+                            IM_COL32(110, 118, 130, 255));
             }
+            if (hasLoop)
+                dl->AddRectFilled(ImVec2(a.x + loop.x / duration * width, a.y), ImVec2(a.x + loop.y / duration * width, b.y), UI::AccentU32(0.15f));
+            const ImVec2 v0(a.x + (float)m_WaveView.Start * width, a.y), v1(a.x + (float)m_WaveView.End * width, b.y);
+            dl->AddRectFilled(v0, v1, IM_COL32(255, 255, 255, 30));
+            dl->AddRect(v0, ImVec2(std::max(v1.x, v0.x + 2.0f), v1.y), IM_COL32(255, 255, 255, 150), 2.0f);
+            if (progress >= 0.0)
+                dl->AddLine(ImVec2(a.x + (float)progress * width, a.y), ImVec2(a.x + (float)progress * width, b.y), IM_COL32(255, 255, 255, 220));
         }
     }
 
@@ -1716,7 +2018,7 @@ namespace Zamin {
         }
         const AudioFileInfo& info = m_AudioInfo;
         ImGui::Spacing();
-        DrawWaveform(84.0f);
+        DrawWaveform(std::floor(ImGui::GetFontSize() * 6.5f));
 
         // ---- play / stop
         bool available = AudioEngine::IsAvailable();
@@ -1743,7 +2045,7 @@ namespace Zamin {
             AudioEngine::Seek(m_Sound, at);
         }
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            UI::Tooltip("Takrorlash");
+            UI::Tooltip(m_AudioEdit.HasLoopRegion() ? "Takrorlash (intro, keyin takrorlash oralig'i)" : "Takrorlash");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(-FLT_MIN);
         if (ImGui::SliderFloat("##volume", &m_Volume, 0.0f, 1.0f, ICON_FA_VOLUME_HIGH " %.2f") && m_Sound)
@@ -1864,6 +2166,36 @@ namespace Zamin {
                 m_AudioEdit.Volume = decibels <= -40.0f ? 0.0f : std::clamp(AudioGain::FromDecibels(decibels), 0.0f, AudioSettings::MaxVolume);
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                 m_AudioEdit.Volume = 1.0f;
+
+            // The loop region (also dragged on the waveform: Shift + drag, its edges).
+            UI::PropertyLabel("Takrorlash oralig'i", "Takrorlanadigan (Loop) ovoz boshidan shu oraliq oxirigacha chalinadi, keyin "
+                                                     "oraliq boshidan qayta-qayta: intro + takrorlanadigan qism (musiqa uchun). To'lqin "
+                                                     "shaklida Shift + sudrash bilan belgilanadi, chetlari sudraladi. Oxiri 0 - fayl oxiri; "
+                                                     "0..0 - butun fayl.");
+            const float duration = m_AudioInfo.Valid ? (float)m_AudioInfo.Duration : 0.0f;
+            float region[2] = { m_AudioEdit.LoopStart, m_AudioEdit.LoopEnd };
+            const float clear = m_AudioEdit.HasLoopRegion() ? ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x : 0.0f;
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clear);
+            if (ImGui::DragFloat2("##loopRegion", region, 0.005f, 0.0f, std::max(0.0f, duration), "%.3f s", ImGuiSliderFlags_AlwaysClamp))
+            {
+                m_AudioEdit.LoopStart = std::round(region[0] * 1000.0f) / 1000.0f;
+                m_AudioEdit.LoopEnd = std::round(region[1] * 1000.0f) / 1000.0f;
+                if (m_AudioEdit.LoopEnd >= duration - 0.0005f)
+                    m_AudioEdit.LoopEnd = 0.0f;
+                m_AudioEdit.Sanitize();
+            }
+            if (m_AudioEdit.HasLoopRegion())
+            {
+                ImGui::SameLine();
+                if (ImGui::Button(ICON_FA_XMARK "##clearLoop", ImVec2(ImGui::GetFrameHeight(), 0)))
+                    m_AudioEdit.LoopStart = m_AudioEdit.LoopEnd = 0.0f;
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Takrorlash oralig'ini olib tashlash (butun fayl takrorlanadi)");
+                const glm::vec2 loop = GetEditedLoopRegion();
+                UI::PropertyLabel("");
+                ImGui::TextDisabled("intro %s, takrorlanadi %s", AssetInfo::FormatDuration(loop.x).c_str(),
+                                    AssetInfo::FormatDuration(loop.y - loop.x).c_str());
+            }
             UI::EndPropertyGrid();
         }
         DrawApplyBar(meta != nullptr);

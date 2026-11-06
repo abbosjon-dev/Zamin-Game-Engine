@@ -142,6 +142,9 @@ namespace Zamin {
         s.Preload = import.GetBool("Preload", s.Preload);
         double volume = import.GetNumber("Volume", 1.0);
         s.Volume = std::isfinite(volume) ? std::clamp((float)volume, 0.0f, AudioSettings::MaxVolume) : 1.0f;
+        s.LoopStart = (float)import.GetNumber("LoopStart", 0.0);
+        s.LoopEnd = (float)import.GetNumber("LoopEnd", 0.0);
+        s.Sanitize();
         return s;
     }
 
@@ -150,6 +153,19 @@ namespace Zamin {
         import.SetString("LoadMode", GetLoadModeKey(settings.LoadMode));
         import.SetBool("Preload", settings.Preload);
         import.SetNumber("Volume", std::round((double)settings.Volume * 10000.0) / 10000.0); // 0.9, not 0.89999997
+        // The loop region only when there is one (milliseconds are enough).
+        AudioClipSettings clean = settings;
+        clean.Sanitize();
+        if (clean.HasLoopRegion())
+        {
+            import.SetNumber("LoopStart", std::round((double)clean.LoopStart * 1000.0) / 1000.0);
+            import.SetNumber("LoopEnd", std::round((double)clean.LoopEnd * 1000.0) / 1000.0);
+        }
+        else
+        {
+            import.Remove("LoopStart");
+            import.Remove("LoopEnd");
+        }
     }
 
     // ------------------------------------------------------------------ lookups

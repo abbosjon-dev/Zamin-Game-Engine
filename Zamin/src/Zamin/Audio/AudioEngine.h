@@ -197,6 +197,13 @@ namespace Zamin {
         static float GetLength(uint32_t handle);
         // Jumps to `seconds` into the sound (clamped to its length).
         static void Seek(uint32_t handle, float seconds);
+        // The part a looping sound repeats, in seconds: it plays on from where it is through `end`,
+        // then again from `start` (an intro before the loop). end <= start or past the sound: its
+        // end; 0, 0: the whole sound. A sound starts with its file's region (import settings
+        // LoopStart / LoopEnd). False for an unknown handle.
+        static bool SetLoopRegion(uint32_t handle, float start, float end);
+        // The region in seconds (x start, y end; 0, length when the whole sound loops).
+        static glm::vec2 GetLoopRegion(uint32_t handle);
         static void SetVolume(uint32_t handle, float volume);
         // The sound's own volume (before its random variation and its group; 0 for an unknown handle).
         static float GetVolume(uint32_t handle);

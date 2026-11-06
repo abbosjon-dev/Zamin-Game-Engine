@@ -480,6 +480,39 @@ namespace Zamin {
             ma_sound_set_fade_in_milliseconds(voice.Sound.get(), -1.0f, target, (ma_uint64)std::llround(seconds * 1000.0f));
         }
 
+        // The sound's data in frames of its own sample rate (decoded data: the engine's rate).
+        ma_uint32 SoundSampleRate(ma_sound* sound)
+        {
+            ma_uint32 sampleRate = 0;
+            if (ma_sound_get_data_format(sound, nullptr, nullptr, &sampleRate, nullptr, 0) != MA_SUCCESS || sampleRate == 0)
+                sampleRate = ma_engine_get_sample_rate(s_Engine);
+            return sampleRate;
+        }
+
+        // Loop points of the sound's data source (seconds; see AudioEngine::SetLoopRegion).
+        bool ApplyLoopRegion(Voice& voice, float start, float end)
+        {
+            ma_sound* sound = voice.Sound.get();
+            ma_data_source* source = ma_sound_get_data_source(sound);
+            if (!source)
+                return false;
+            ma_uint64 length = 0;
+            ma_sound_get_length_in_pcm_frames(sound, &length);
+            const double rate = (double)SoundSampleRate(sound);
+            start = std::isfinite(start) ? std::max(0.0f, start) : 0.0f;
+            end = std::isfinite(end) ? end : 0.0f;
+            ma_uint64 begin = (ma_uint64)std::llround((double)start * rate);
+            ma_uint64 finish = end > start ? (ma_uint64)std::llround((double)end * rate) : ~(ma_uint64)0;
+            if (length > 0)
+            {
+                if (finish != ~(ma_uint64)0 && finish >= length)
+                    finish = ~(ma_uint64)0; // up to the end
+                if (begin >= length || (finish != ~(ma_uint64)0 && begin >= finish))
+                    begin = 0;
+            }
+            return ma_data_source_set_loop_point_in_pcm_frames(source, begin, finish) == MA_SUCCESS;
+        }
+
         void CleanupFinished()
         {
             std::vector<uint32_t> finished;
@@ -738,6 +771,9 @@ namespace Zamin {
             voice.DopplerFactor = std::isfinite(params.DopplerFactor) ? std::clamp(params.DopplerFactor, 0.0f, AudioSettings::MaxDopplerFactor) : 1.0f;
             voice.Velocity = params.Velocity;
             ma_sound_set_looping(sound, params.Loop ? MA_TRUE : MA_FALSE);
+            // The file's loop region (only heard while it loops).
+            if (clip.HasLoopRegion())
+                ApplyLoopRegion(voice, clip.LoopStart, clip.LoopEnd);
             // The Doppler pitch is worked out on the main thread (AudioEngine::Update): capped, smooth.
             ma_sound_set_doppler_factor(sound, 0.0f);
             if (params.Spatial)
@@ -1138,15 +1174,36 @@ namespace Zamin {
             return;
         ma_sound* sound = v->Sound.get();
         // Frames of the sound's own data (its sample rate, not the device's).
-        ma_uint32 sampleRate = 0;
-        if (ma_sound_get_data_format(sound, nullptr, nullptr, &sampleRate, nullptr, 0) != MA_SUCCESS || sampleRate == 0)
-            sampleRate = ma_engine_get_sample_rate(s_Engine);
+        const ma_uint32 sampleRate = SoundSampleRate(sound);
         ma_uint64 length = 0;
         ma_sound_get_length_in_pcm_frames(sound, &length);
         ma_uint64 frame = (ma_uint64)std::max(0.0, (double)seconds * (double)sampleRate);
         if (length > 0)
             frame = std::min(frame, length - 1);
         ma_sound_seek_to_pcm_frame(sound, frame);
+    }
+
+    bool AudioEngine::SetLoopRegion(uint32_t handle, float start, float end)
+    {
+        Voice* v = FindVoice(handle);
+        return v && ApplyLoopRegion(*v, start, end);
+    }
+
+    glm::vec2 AudioEngine::GetLoopRegion(uint32_t handle)
+    {
+        Voice* v = FindVoice(handle);
+        if (!v)
+            return glm::vec2(0.0f);
+        ma_sound* sound = v->Sound.get();
+        ma_data_source* source = ma_sound_get_data_source(sound);
+        ma_uint64 begin = 0, end = ~(ma_uint64)0, length = 0;
+        if (source)
+            ma_data_source_get_loop_point_in_pcm_frames(source, &begin, &end);
+        ma_sound_get_length_in_pcm_frames(sound, &length);
+        if (end == ~(ma_uint64)0 || (length > 0 && end > length))
+            end = length;
+        const double rate = (double)SoundSampleRate(sound);
+        return { (float)((double)begin / rate), (float)((double)end / rate) };
     }
 
     void AudioEngine::SetVolume(uint32_t handle, float volume)

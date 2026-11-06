@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <format>
+#include <map>
 #include <unordered_map>
 
 using namespace Zamin;
@@ -470,3 +471,190 @@ public:
     }
 };
 ZM_REGISTER_SCRIPT(LaserAll3D, ZM_FIELD(LaserAll3D, Range))
+
+// ---- Physics3D scene: continuous collision, sleeping, physics materials, triggers, characters pushing.
+
+// Shoots its body (a small ball) from where it started with Velocity every Interval seconds, and counts
+// the shots that ended beyond PaneX (went through the pane) and those that stopped before it.
+class Launcher3D : public ScriptableEntity
+{
+public:
+    glm::vec3 Velocity{ 60.0f, 0.0f, 0.0f };
+    float Interval = 1.2f;
+    float PaneX = 4.0f;
+
+    void OnStart() override
+    {
+        m_Start = Transform().Translation;
+        Shoot();
+    }
+
+    void OnUpdate(Timestep ts) override
+    {
+        m_Time += ts;
+        if (m_Time >= Interval)
+        {
+            (GetWorldPosition().x > PaneX ? m_Through : m_Stopped)++;
+            Shoot();
+        }
+        const auto* rb = TryGetComponent<Rigidbody3DComponent>();
+        const bool continuous = rb && rb->ContinuousCollision;
+        DebugDraw::Text(m_Start + glm::vec3(0.0f, 0.9f, 0.0f),
+                        std::format("{}\nO'tib ketdi: {}   To'xtadi: {}", continuous ? "CCD yoqiq" : "CCD o'chiq", m_Through, m_Stopped),
+                        continuous ? DebugColor::Green : DebugColor::Orange);
+    }
+
+private:
+    void Shoot()
+    {
+        m_Time = 0.0f;
+        SetPosition3D(m_Start);
+        SetVelocity3D(Velocity);
+    }
+
+    glm::vec3 m_Start{ 0.0f };
+    float m_Time = 0.0f;
+    int m_Through = 0, m_Stopped = 0;
+};
+ZM_REGISTER_SCRIPT(Launcher3D, ZM_FIELD(Launcher3D, Velocity), ZM_FIELD(Launcher3D, Interval), ZM_FIELD(Launcher3D, PaneX))
+
+// Tints its mesh by whether its 3D body sleeps (IsSleeping3D): SleepColor while asleep, its own colour awake.
+class SleepTint3D : public ScriptableEntity
+{
+public:
+    glm::vec4 SleepColor{ 0.42f, 0.52f, 0.95f, 1.0f };
+
+    void OnStart() override
+    {
+        if (auto* mr = TryGetComponent<MeshRendererComponent>())
+            m_Awake = mr->Mat.Albedo;
+    }
+
+    void OnUpdate(Timestep) override
+    {
+        if (auto* mr = TryGetComponent<MeshRendererComponent>())
+            mr->Mat.Albedo = IsSleeping3D() ? SleepColor : m_Awake;
+    }
+
+private:
+    glm::vec4 m_Awake{ 1.0f };
+};
+ZM_REGISTER_SCRIPT(SleepTint3D, ZM_FIELD_COLOR(SleepTint3D, SleepColor))
+
+// Moves its (kinematic) body Distance along Axis and back once every Period seconds, Delay seconds late.
+class Sweeper3D : public ScriptableEntity
+{
+public:
+    glm::vec3 Axis{ 1.0f, 0.0f, 0.0f };
+    float Distance = 3.0f;
+    float Period = 10.0f;
+    float Delay = 0.0f;
+
+    void OnStart() override { m_Start = Transform().Translation; }
+
+    void OnUpdate(Timestep) override
+    {
+        const float t = std::max(0.0f, GetTime() - Delay);
+        const float phase = std::fmod(t, std::max(0.1f, Period)) / std::max(0.1f, Period);
+        const float s = 0.5f - 0.5f * std::cos(phase * 6.2831853f);
+        const float length = glm::length(Axis);
+        if (length > 1e-6f)
+            Transform().Translation = m_Start + Axis / length * Distance * s;
+    }
+
+private:
+    glm::vec3 m_Start{ 0.0f };
+};
+ZM_REGISTER_SCRIPT(Sweeper3D, ZM_FIELD(Sweeper3D, Axis), ZM_FIELD(Sweeper3D, Distance), ZM_FIELD(Sweeper3D, Period), ZM_FIELD(Sweeper3D, Delay))
+
+// Puts its body back where it started (still, as it was turned) every Period seconds.
+class Respawn3D : public ScriptableEntity
+{
+public:
+    float Period = 6.0f;
+
+    void OnStart() override
+    {
+        m_Position = Transform().Translation;
+        m_Rotation = Transform().Rotation;
+    }
+
+    void OnUpdate(Timestep ts) override
+    {
+        m_Time += ts;
+        if (m_Time < Period)
+            return;
+        m_Time = 0.0f;
+        Transform().Rotation = m_Rotation;
+        SetPosition3D(m_Position); // also stops it and wakes it
+        SetAngularVelocity3D(glm::vec3(0.0f));
+    }
+
+private:
+    glm::vec3 m_Position{ 0.0f }, m_Rotation{ 0.0f };
+    float m_Time = 0.0f;
+};
+ZM_REGISTER_SCRIPT(Respawn3D, ZM_FIELD(Respawn3D, Period))
+
+// A trigger collider of its entity (a pressure plate, or a sphere around a crate) lights it up while
+// dynamic bodies or characters are inside it (OnTriggerBegin / OnTriggerEnd); Radius > 0 also draws
+// that sphere.
+class TriggerGlow3D : public ScriptableEntity
+{
+public:
+    std::string Title = "Trigger";
+    glm::vec4 Glow{ 0.3f, 1.0f, 0.5f, 1.0f };
+    float GlowStrength = 2.5f;
+    float Radius = 0.0f;
+    glm::vec3 LabelOffset{ 0.0f, 0.8f, 0.0f };
+
+    void OnStart() override
+    {
+        if (auto* mr = TryGetComponent<MeshRendererComponent>())
+        {
+            m_Emission = mr->Mat.Emission;
+            m_Strength = mr->Mat.EmissionStrength;
+        }
+    }
+
+    void OnTriggerBegin(Entity other) override
+    {
+        if (Counts(other))
+            m_Inside[(uint64_t)other.GetUUID()] = other.GetName();
+    }
+
+    void OnTriggerEnd(Entity other) override { m_Inside.erase((uint64_t)other.GetUUID()); }
+
+    void OnUpdate(Timestep) override
+    {
+        const bool lit = !m_Inside.empty();
+        if (auto* mr = TryGetComponent<MeshRendererComponent>())
+        {
+            mr->Mat.Emission = lit ? glm::vec3(Glow) : m_Emission;
+            mr->Mat.EmissionStrength = lit ? GlowStrength : m_Strength;
+        }
+        const glm::vec3 at = GetWorldPosition();
+        if (Radius > 0.0f)
+            DebugDraw::WireSphere(at, Radius, lit ? Glow : DebugColor::Gray, 0.0f, false);
+        std::string text = std::format("{}\nIchida: {}", Title, m_Inside.size());
+        for (const auto& [id, name] : m_Inside)
+            text += "\n" + name;
+        DebugDraw::Text(at + LabelOffset, text, lit ? Glow : DebugColor::White);
+    }
+
+private:
+    // Moving things only: a trigger also touches the ground it lies on.
+    static bool Counts(Entity e)
+    {
+        if (e.HasComponent<CharacterController3DComponent>())
+            return true;
+        const auto* rb = e.TryGetComponent<Rigidbody3DComponent>();
+        return rb && rb->Type == Rigidbody3DComponent::BodyType::Dynamic;
+    }
+
+    std::map<uint64_t, std::string> m_Inside;
+    glm::vec3 m_Emission{ 0.0f };
+    float m_Strength = 0.0f;
+};
+ZM_REGISTER_SCRIPT(TriggerGlow3D, ZM_FIELD(TriggerGlow3D, Title), ZM_FIELD_COLOR(TriggerGlow3D, Glow), ZM_FIELD(TriggerGlow3D, GlowStrength),
+                   ZM_FIELD(TriggerGlow3D, Radius), ZM_FIELD(TriggerGlow3D, LabelOffset))

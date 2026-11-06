@@ -221,11 +221,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 188. OverlapSphere/OverlapBox so'rovlari 3D
 - [x] 189. SphereCast/ShapeCast 3D
 - [x] 190. RaycastAll 3D
-- [ ] 191. Continuous collision detection (CCD) bayrog'i
-- [ ] 192. Sleeping/uyg'otish API
-- [ ] 193. Physics material 3D
-- [ ] 194. Trigger callback'lari 3D (OnTriggerBegin)
-- [ ] 195. Character controller dinamik jismlarni itarishi (kuch sozlamasi)
+- [x] 191. Continuous collision detection (CCD) bayrog'i
+- [x] 192. Sleeping/uyg'otish API
+- [x] 193. Physics material 3D
+- [x] 194. Trigger callback'lari 3D (OnTriggerBegin)
+- [x] 195. Character controller dinamik jismlarni itarishi (kuch sozlamasi)
 - [ ] 196. Joint'lar inspektori va wireframe
 - [ ] 197. Joint'lar serializatsiyasi
 - [ ] 198. 3D ragdoll (oddiy) namunasi

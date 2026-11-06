@@ -2175,10 +2175,13 @@ namespace Zamin {
             UI::PropertyLabel("");
             ImGui::PushTextWrapPos(0.0f);
             if (threeD)
+            {
+                // Jolt's own rule is the same as Box2D's (friction sqrt(a * b), bounce max(a, b)).
+                auto combine = [](PhysicsCombine mode) { return mode == PhysicsCombine::Default ? "Standart" : PhysicsMaterial::GetCombineName(mode); };
                 ImGui::TextDisabled(ICON_FA_GEM "  Ishqalanish %.2f (%s), sakrash %.2f (%s), sakrash chegarasi %.2f m/s. Zichlik 3D'da "
                                     "ishlatilmaydi: massa - Rigidbody 3D'da",
-                                    d.Friction, PhysicsMaterial::GetCombineName(d.FrictionCombine), d.Restitution,
-                                    PhysicsMaterial::GetCombineName(d.RestitutionCombine), d.RestitutionThreshold);
+                                    d.Friction, combine(d.FrictionCombine), d.Restitution, combine(d.RestitutionCombine), d.RestitutionThreshold);
+            }
             else
                 ImGui::TextDisabled(ICON_FA_GEM "  Ishqalanish %.2f (%s), sakrash %.2f (%s), zichlik %.2f", d.Friction,
                                     PhysicsMaterial::GetCombineName(d.FrictionCombine), d.Restitution,
@@ -5751,10 +5754,10 @@ namespace Zamin {
                                           "o'zgartirsa bo'ladi; so'rovlar (Raycast3D, OverlapSphere3D...) qatlam niqobini oladi.");
             const bool dynamic = c.Type == Rigidbody3DComponent::BodyType::Dynamic;
             ImGui::BeginDisabled(!dynamic);
-            changed |= UI::PropertyBool("Uzluksiz to'qnashuv (CCD)", c.ContinuousCollision);
+            changed |= UI::PropertyBool("Uzluksiz (CCD)", c.ContinuousCollision);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayShort))
-                UI::Tooltip(dynamic ? "Tez jism (o'q, otilgan to'p) har qadamda yo'li bo'ylab tekshiriladi: ikki qadam orasida yupqa "
+                UI::Tooltip(dynamic ? "Uzluksiz to'qnashuv: tez jism (o'q, otilgan to'p) har qadamda yo'li bo'ylab tekshiriladi: ikki qadam orasida yupqa "
                                       "devordan o'tib ketmaydi, unga urilib to'xtaydi. Qimmatroq - faqat tez va kichik jismlar uchun. "
                                       "O'yin davomida ham o'zgartirsa bo'ladi"
                                     : "Faqat dinamik jismlar uchun (kinematik jismni hech narsa to'xtatmaydi)");

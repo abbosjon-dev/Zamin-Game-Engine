@@ -324,7 +324,27 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
     normal). "Raycastlar" debug chizishda shakl, yo'l va tegishlar ko'rinadi (`DebugDraw::WireCapsule` ham bor).
     Namuna: Showcase3D `Scenes/Queries3D.zscene` (yarim quvurdagi sharlar, Arvoh sharlar o'tib ketadigan panjara,
     `SphereSweep3D`, `OverlapGlow3D`, `LaserAll3D` skriptlari)
-- **Character Controller 3D** (Jolt CharacterVirtual): qiyaliklar, zinapoyalar, yerni aniqlash, sakrash, harakatlanuvchi platformalarda yurish
+  - **Uzluksiz to'qnashuv (CCD)**: Rigidbody 3D > "Uzluksiz (CCD)" (dinamik jismlar, Jolt LinearCast) - tez jism (o'q,
+    otilgan to'p) har qadamda yo'li bo'ylab tekshiriladi va yupqa devordan o'tib ketmaydi; o'yin davomida ham yoqiladi
+  - **Uxlash 3D**: Sahna sozlamalari > Fizika > Jolt (3D) - yoqish / o'chirish va qancha vaqtdan keyin (Jolt'niki
+    0.5 s; o'chirilsa hamma jism uyg'onadi), har Rigidbody 3D: "Uyg'oq boshlanadi", "Uxlab boshlanadi" (urilguncha
+    kutadigan to'plam) yoki "Hech uxlamaydi". Inspektorda holati va "Uyg'otish" / "Uxlatish" tugmasi, sahna
+    sozlamalarida uyg'oq / uxlayotgan jismlar soni, colliderlar ko'rinishida uxlayotganlar ko'kish-kulrang; skriptda
+    `IsSleeping3D()`, `WakeUp3D()`, `PutToSleep3D()` (va `(other)` turlari). Uxlab qolgan jismlarning kontaktlari
+    saqlanadi (Box2D kabi): uxlagan quti trigger plitasidan yoki yerdan "chiqib ketmaydi"
+  - **Fizik material 3D**: 3D colliderlar ham 2D'dagi `.zphysmat` asset'ini oladi - ishqalanish, sakrash, sakrash
+    chegarasi va qo'shish usullari (Eng kichigi, Ko'paytma...; har kollider o'zinikini, bir jismdagi kolliderlar ham
+    alohida), fayl o'zgarsa o'yin davomida ham yangilanadi. Zichlik 3D'da ishlatilmaydi (massa - Rigidbody 3D'da)
+  - **Trigger'lar 3D**: `IsSensor` kolliderlar `OnTriggerBegin` / `OnTriggerEnd` beradi (2D bilan bir xil API, har
+    obyekt jufti bir marta). Bir jismda trigger va qattiq kolliderlar birga bo'lishi mumkin (quti + uning atrofidagi
+    "radar" sferasi): trigger qismi urilmaydi, qahramonni to'xtatmaydi, so'rovlar uni faqat "trigger'lar ham" bilan
+    ko'radi; kinematik trigger uxlab yotgan jismni ham sezadi
+- **Character Controller 3D** (Jolt CharacterVirtual): qiyaliklar, zinapoyalar, yerni aniqlash, sakrash, harakatlanuvchi platformalarda yurish;
+  yurib borib tekkan dinamik jismlarni **itaradi** ("Jismlarni itaradi", "Itarish kuchi" - ko'pi bilan shuncha N;
+  standart 100 N, og'ir jism uchun ko'proq). Namuna: Showcase3D `Scenes/Physics3D.zscene` - muz / oddiy / rezina
+  qutilar qiyalikda va trigger plitasi, uxlab turgan piramida va uni urib yuboradigan supurgich, CCD yoqiq / o'chiq
+  tez sharlar yupqa oynaga (`Launcher3D`), qutilarni itarib yuradigan qahramon va trigger sferali "radar" quti
+  (`SleepTint3D`, `Sweeper3D`, `Respawn3D`, `TriggerGlow3D` skriptlari)
 - **Raycast** 2D va 3D (`Raycast2DAll` / `Raycast3DAll`, overlap va shape cast so'rovlari)
 - **Debug chizish** (`DebugDraw`, `Zamin/Debug/DebugDraw.h`): skriptlardan va dvigateldan dunyo fazosida chiziq, nur, o'q,
   quti (AABB va burilgan), sfera, aylana, krest, nuqta, o'qlar, yo'l (path) va ekranga qaragan matn - rang, davomiylik
@@ -547,7 +567,7 @@ Foydali API:
 | Hodisalar (event bus) | `Subscribe("CoinCollected", fn)`, `Unsubscribe(id)`, `Emit("CoinCollected", qiymat)`, `EmitDeferred(...)` (kadr oxirida) |
 | Tasodifiy sonlar | `Random::Range(1.0f, 5.0f)`, `Random::Int(1, 6)` (ikkala chegara ham kiradi), `Random::Float()`, `Random::Bool(0.3f)`, `Random::InsideCircle(r)`, `Random::OnSphere(r)`, `Random::InsideSphere(r)`, `Random::Rotation()`, `Random::Pick(v)`, `Random::Shuffle(v)`, `Random::SetSeed(42)`, alohida oqim: `RandomGenerator rng(seed)` |
 | 2D fizika | `GetVelocity/SetVelocity/ApplyImpulse/ApplyForce/SetPosition2D`, `ApplyImpulse(other, impulse)`, `Raycast2D(origin, dir, dist, LayerMask({ "Ground" }))`, `Raycast2DAll(origin, dir, dist, mask, includeTriggers)` (hamma urilishlar, yaqini birinchi), `OverlapCircle2D(center, r, mask)` / `OverlapBox2D(center, halfExtents, angle, mask)` / `OverlapPoint2D(p, mask)` → `std::vector<Entity>`, `LayerIndex("Player")`, uxlash: `IsSleeping()` / `WakeUp()` / `PutToSleep()` (`IsSleeping(other)`, `WakeUp(other)`); joint'lar: `GetComponent<RevoluteJoint2DComponent>()` → `.MotorSpeed`, `.EnableLimit`, `.JointAngle`, `.ReactionForce`, `.Broken` ... |
-| 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)`; joint'lar: `GetComponent<HingeJoint3DComponent>()` → `.MotorSpeed`, `.EnableSpring`, `.SpringTargetAngle`, `.JointAngle`, `.ReactionForce`, `.Broken`; `SliderJoint3DComponent` → `.MotorSpeed`, `.JointTranslation` ... |
+| 3D fizika | `GetVelocity3D/SetVelocity3D/ApplyImpulse3D/ApplyForce3D/ApplyTorque3D/SetPosition3D`, `Raycast3D(...)`, uxlash: `IsSleeping3D()` / `WakeUp3D()` / `PutToSleep3D()` (`(other)` turlari ham); joint'lar: `GetComponent<HingeJoint3DComponent>()` → `.MotorSpeed`, `.EnableSpring`, `.SpringTargetAngle`, `.JointAngle`, `.ReactionForce`, `.Broken`; `SliderJoint3DComponent` → `.MotorSpeed`, `.JointTranslation` ... |
 | Qahramon | `GetComponent<CharacterController3DComponent>()` → `.Move(velocity)`, `.Jump(speed)`, `.Grounded`, `.Velocity` (oxirgi fizika qadamidagi haqiqiy tezlik) |
 | Animatsiya | `GetComponent<AnimatorComponent>().Play("Walk", loop, speed, fade)` yoki holat mashinasi: `SetFloat("Speed", v)`, `SetBool`, `SetTrigger` |
 | Input harakatlari | `Input::IsActionPressed("Fire")`, `IsActionJustPressed("Jump")`, `IsActionJustReleased(...)`, `GetAxis("Horizontal")`, `GetAxis2D("Horizontal", "Vertical")` |

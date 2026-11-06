@@ -18940,6 +18940,77 @@ TEST(Triggers3DContactsOfSleepingBodies)
     scene->OnRuntimeStop();
 }
 
+
+TEST(Physics3DSampleScene)
+{
+    namespace fs = std::filesystem;
+    // The Showcase3D sample's Physics3D scene: crates of three materials on a ramp and a pressure plate,
+    // a sleeping pyramid and its sweeper, fast balls at thin panes (with and without CCD), a character
+    // pushing crates around a radar crate's trigger sphere. Its scripts are the project's (not loaded
+    // here): what they do is done by hand.
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Showcase3D";
+    auto project = Project::Load(root / "Showcase3D.zproject");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    Project::SetActive(project);
+    ScopeExit noProject{ []() {
+        PhysicsMaterialLibrary::Clear();
+        Project::SetActive(nullptr);
+    } };
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "Physics3D.zscene"));
+    Entity ice = scene->FindEntityByName("Muz qutisi"), plain = scene->FindEntityByName("Oddiy quti"), rubber = scene->FindEntityByName("Rezina quti");
+    Entity plate = scene->FindEntityByName("Bosish plitasi"), sweeper = scene->FindEntityByName("Supurgich");
+    Entity fast = scene->FindEntityByName("Tez shar (CCD)"), slow = scene->FindEntityByName("Tez shar");
+    Entity hero = scene->FindEntityByName("Qahramon"), radar = scene->FindEntityByName("Radar quti");
+    std::vector<Entity> pyramid = scene->FindEntitiesByName("Uxlagan quti");
+    CHECK(ice && plain && rubber && plate && sweeper && fast && slow && hero && radar && pyramid.size() == 6);
+    if (!(ice && plain && rubber && plate && sweeper && fast && slow && hero && radar && pyramid.size() == 6))
+        return;
+    CHECK(ice.GetComponent<BoxCollider3DComponent>().MaterialPath == "Physics/Muz.zphysmat");
+    CHECK(rubber.GetComponent<BoxCollider3DComponent>().MaterialPath == "Physics/Rezina.zphysmat");
+    for (const char* file : { "Muz", "Rezina", "Sakraydigan" })
+        CHECK(PhysicsMaterialLibrary::Load(std::string("Physics/") + file + ".zphysmat") != nullptr);
+    CHECK(fast.GetComponent<Rigidbody3DComponent>().ContinuousCollision && !slow.GetComponent<Rigidbody3DComponent>().ContinuousCollision);
+    CHECK(radar.GetComponent<SphereCollider3DComponent>().IsSensor && !radar.GetComponent<BoxCollider3DComponent>().IsSensor);
+    CHECK(hero.GetComponent<CharacterController3DComponent>().PushForce > 100.0f);
+    // Headless: without a primary camera nothing is drawn.
+    scene->DestroyEntity(scene->FindEntityByName("Main Camera"));
+    scene->OnRuntimeStart();
+    PhysicsWorld3D* world = scene->GetPhysicsWorld3D();
+    const glm::vec3 iceStart = Pos3D(ice), plainStart = Pos3D(plain), rubberStart = Pos3D(rubber);
+    for (Entity crate : pyramid)
+        CHECK(scene->IsSleeping3D(crate));
+    // What Launcher3D does: both balls at 60 m/s towards their panes (x 4).
+    world->SetLinearVelocity(fast.GetComponent<Rigidbody3DComponent>().RuntimeBodyID, { 60.0f, 0.0f, 0.0f });
+    world->SetLinearVelocity(slow.GetComponent<Rigidbody3DComponent>().RuntimeBodyID, { 60.0f, 0.0f, 0.0f });
+    RunFrames(scene, 30);
+    CHECK(Pos3D(fast).x < 4.0f);  // stopped at its pane
+    CHECK(Pos3D(slow).x > 10.0f); // went through
+    RunFrames(scene, 90);
+    // Ice slid down onto the plate (against the stop), its own values crept, rubber held.
+    CHECK(glm::length(Pos3D(rubber) - rubberStart) < 0.05f);
+    CHECK(glm::length(Pos3D(plain) - plainStart) > 0.1f && glm::length(Pos3D(ice) - iceStart) > glm::length(Pos3D(plain) - plainStart) + 1.0f);
+    const glm::vec3 platePos = Pos3D(plate);
+    CHECK(std::abs(Pos3D(ice).x - platePos.x) < 0.8f && std::abs(Pos3D(ice).z - platePos.z) < 0.8f);
+    CHECK(scene->OverlapBox3D(platePos, { 0.8f, 0.2f, 0.8f }, glm::quat(1.0f, 0.0f, 0.0f, 0.0f), 0xFFFF, true).size() >= 2); // the plate and the crate
+    // What Sweeper3D does: the kinematic sweeper runs into the sleeping pyramid; it wakes and falls apart.
+    for (int i = 0; i < 90; i++)
+    {
+        sweeper.GetTransform().Translation.x += 0.04f;
+        RunFrames(scene, 1);
+    }
+    int awake = 0, moved = 0;
+    for (Entity crate : pyramid)
+    {
+        awake += scene->IsSleeping3D(crate) ? 0 : 1;
+        moved += Pos3D(crate).x > 2.9f || Pos3D(crate).y < 0.3f ? 1 : 0;
+    }
+    CHECK(awake >= 3 && moved >= 1);
+    scene->OnRuntimeStop();
+}
+
 int main()
 {
     Log::SetMinLevel(LogLevel::Error);

@@ -1,0 +1,8 @@
+{
+    "Friction": 0.02,
+    "Restitution": 0.0,
+    "RestitutionThreshold": 1.0,
+    "Density": 0.9,
+    "FrictionCombine": "Minimum",
+    "RestitutionCombine": "Default"
+}

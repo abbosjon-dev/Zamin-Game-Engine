@@ -197,8 +197,22 @@ namespace Zamin {
         DrawToolbar();
         if (m_SceneManager)
         {
-            DrawRuntimeScenes();
-            DrawGlobalState();
+            // A wide window: the game's scenes and its global state side by side.
+            if (ImGui::GetContentRegionAvail().x > 720.0f &&
+                ImGui::BeginTable("##playSplit", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
+            {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                DrawRuntimeScenes();
+                ImGui::TableNextColumn();
+                DrawGlobalState();
+                ImGui::EndTable();
+            }
+            else
+            {
+                DrawRuntimeScenes();
+                DrawGlobalState();
+            }
         }
 
         // The project's scenes: the build list's first (in build order), then the others by name.

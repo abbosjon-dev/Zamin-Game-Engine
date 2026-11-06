@@ -496,6 +496,30 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   Hisoblagichlar Play boshlanganda nollanadi. API: `AudioEngine::GetProfile()`, `ResetProfileCounters()`,
   `GetVoiceHistory()`; player `ZAMIN_PLAYER_STATS=1` bilan chiqishda va F11 bilan audio profilini log'ga yozadi
 - **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, 9 ta langar (anchor), `OnClick()`
+- **UI vidjetlari** (Obyekt > UI (ekran) menyusi, Komponent qo'shish > Effektlar va UI):
+  - **UI Image** — tekstura yoki uning sprite kadri (atlas), rang; turi: oddiy (nisbatni saqlash bilan), **9-slice**
+    (burchaklar ekran pikselida, chegara masshtabi), plitka, **to'ldirilgan** (gorizontal / vertikal / radial 360°,
+    boshlanish tomoni, soat yo'nalishi, `FillAmount` — chiziqlar, taymerlar, qayta tiklanish belgilari); "Sichqonchani
+    to'sadi" — ostidagi tugma/slayderlar bosilmaydi (dialog foni). UI Button bilan rangi tugma holatiga bo'yaladi
+  - **UI Slider** — min/max/qiymat, butun sonlar, 4 yo'nalish, yo'lak + to'ldirish + tutqich (yumaloq yoki to'rtburchak),
+    bosilgan joyga sakraydi, ushlab turilganda sichqonchaga ergashadi; `OnValueChanged(qiymat)`, `GetScene().SetSliderValue(e, v)`
+  - **UI Toggle** — belgilash qutisi (galochka / kvadrat / nuqta) yoki **switch** (tugmacha silliq suriladi), yozuvi —
+    obyektning Text komponenti; **guruhlar** (radio tugmalar: bittasi yoqiq, "o'chirishga ruxsat"); `OnToggleChanged(yoqiq)`,
+    `GetScene().SetToggle(e, true)`
+  - **UI Progress Bar** — qiymat 0..1, 4 yo'nalish, fon/to'ldirish ranglari, qiymatga qarab rang (sog'liq: qizil -> yashil),
+    silliq ergashish (tezlik), foiz yozuvi
+  - **UI Input Field** — bir qatorli matn maydoni: bosilganda tahrirlanadi (kursor sichqoncha joyiga), sudrab / Shift +
+    strelkalar / ikki marta bosish bilan tanlash, Ctrl+A/C/X/V (tizim bufer), Home/End, Ctrl + strelka/Backspace — so'z
+    bo'yicha, Enter — yuborish, Escape — bekor qilish (oldingi matn), boshqa joy bosilsa tahrir tugaydi; **UTF-8**
+    (oʻ, gʻ, sh, kirill harflari bitta belgi), belgilar chegarasi, mazmun turi (oddiy / butun son / o'nlik son / harf va
+    raqam / parol — nuqtalar bilan, buferga nusxalanmaydi), bo'sh paytdagi yozuv, faqat o'qish, kursor miltillashi,
+    uzun matn surilib kursor ko'rinib turadi (maydon chetida kesiladi). `OnTextChanged`, `OnTextSubmit`, `OnTextEndEdit`,
+    `GetScene().SetInputText` / `FocusInputField`. Editorda o'yin ko'rinishi fokusda bo'lganda yoziladi (editor
+    yorliqlari o'sha payt ishlamaydi)
+  - Hammasi event bus'ga ham chiqadi: `"UISliderChanged"` (float), `"UIToggleChanged"` (bool), `"UITextChanged"`,
+    `"UITextSubmitted"`, `"UITextEndEdit"` (std::string), jo'natuvchi — vidjet obyekti. Nofaol / "Faol" belgisi o'chiq
+    vidjet bosilmaydi. Matn kiritish uchun `Input::GetTextInput()` (yozilgan belgilar va avto-takrorli tugmalar) va
+    `Input::GetClipboardText()` / `SetClipboardText()`. Namuna: Platformer2D `Scenes/UIWidgets.zscene` (`UIWidgetsDemo`)
 - **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash
 - Skriptlardan **sahna almashtirish** (`LoadScene`), prefab'larni `Instantiate` qilish
 - **Audio** (miniaudio): wav/mp3/flac/ogg
@@ -641,6 +665,9 @@ ZM_REGISTER_SCRIPT(Player,
 | `OnJointBreak3D(joint)` | Shu obyektning 3D joint'i uzilganda (`joint.Type` - `Joint3DType::Fixed/Hinge/Distance/Slider`, `joint.ConnectedBody`, `joint.Force`, `joint.Torque`) |
 | `OnSoundFinished(sound)` | Shu obyektning ovozi o'zi tugaganda: Audio Source'ning takrorlanmaydigan ovozi yoki skriptning `PlaySound` / `PlaySoundAt` ovozi oxirigacha chalinsa, yoki ovozlar limiti uni to'xtatsa (`sound.Stolen`); `sound.Handle`, `sound.Clip`, `sound.FromAudioSource`. Asosiy oqimda, kadr skriptlaridan keyin; `StopAudio` bilan to'xtatilganda kelmaydi. Sahna event bus'ida ham `"SoundFinished"` (payload `SoundFinished`) |
 | `OnClick()` | Shu obyektdagi UI tugma bosilganda |
+| `OnValueChanged(value)` | Shu obyektdagi UI Slider o'yinchi tomonidan surilganda (yangi qiymat) |
+| `OnToggleChanged(isOn)` | Shu obyektdagi UI Toggle bosilganda (yoki guruhdagi boshqasi yoqilib, bu o'chganda) |
+| `OnTextChanged(text)` / `OnTextSubmit(text)` / `OnTextEndEdit(text)` | Shu obyektdagi UI Input Field: matn o'zgardi / Enter bosildi / tahrir tugadi (Enter, Escape, boshqa joy bosildi) |
 | `OnMessage(msg)` | Shu obyektga xabar kelganda (`SendMessage`, `Broadcast` ...) |
 
 Tartib: `OnCreate → OnEnable → OnStart → (OnUpdate → OnLateUpdate)… → OnDisable → OnDestroy`. O'chirilgan skript (inspektorda **Faol** belgisi yoki `SetEnabled(false)`) `OnUpdate`/`OnLateUpdate` olmaydi va taymer/tween'lari to'xtab turadi; yoqilganda davom etadi (`OnStart` qayta chaqirilmaydi). To'qnashuv, trigger, xabar va `OnClick` o'chirilgan skriptga ham keladi — u o'zini javoban yoqishi mumkin. To'qnashuv/trigger har bir obyekt jufti uchun bir marta keladi (bir nechta collider yoki tilemap katakchalari bo'lsa ham); obyekt ichida turgan paytda o'chirilsa, qolgan tomon `OnTriggerEnd`/`OnCollisionEnd` oladi.

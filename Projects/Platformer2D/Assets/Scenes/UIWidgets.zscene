@@ -1,0 +1,1595 @@
+{
+  "Scene": "UIWidgets",
+  "Version": 1,
+  "Settings": {
+    "DrawSky": false,
+    "SkyTop": [
+      0.32,
+      0.52,
+      0.85
+    ],
+    "SkyHorizon": [
+      0.78,
+      0.86,
+      0.95
+    ],
+    "Ground": [
+      0.36,
+      0.33,
+      0.3
+    ],
+    "Ambient": 0.6,
+    "Exposure": 1.0,
+    "ShadowDistance": 40,
+    "Gravity": [
+      0,
+      -9.81
+    ],
+    "Gravity3D": [
+      0,
+      -9.81,
+      0
+    ],
+    "Post": {
+      "Bloom": false,
+      "BloomThreshold": 0.95,
+      "BloomKnee": 0.3,
+      "BloomIntensity": 0.45,
+      "BloomRadius": 1.0,
+      "Vignette": 0.0,
+      "Saturation": 1.0,
+      "Contrast": 1.0,
+      "Brightness": 0.0,
+      "Tint": [
+        1,
+        1,
+        1
+      ],
+      "Tonemap": 0
+    }
+  },
+  "Entities": [
+    {
+      "Entity": 7600000000000001,
+      "Tag": "Main Camera",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          10
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Camera": {
+        "ProjectionType": 1,
+        "PerspectiveFOV": 0.7854,
+        "PerspectiveNear": 0.1,
+        "PerspectiveFar": 1000,
+        "OrthographicSize": 12.0,
+        "OrthographicNear": -100,
+        "OrthographicFar": 100,
+        "Primary": true,
+        "FixedAspectRatio": false,
+        "ClearColor": [
+          0.05,
+          0.07,
+          0.12,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7600000000000002,
+      "Tag": "Tog'lar",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          -1
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          26,
+          13,
+          1
+        ]
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.55,
+          0.62,
+          0.85,
+          1
+        ],
+        "Texture": "Textures/mountains.png",
+        "TextureUUID": "a5aec7978306d03b",
+        "Tiling": 1.0,
+        "SortingOrder": 0,
+        "PixelArt": true,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
+      "Entity": 7600000000000003,
+      "Tag": "Panel",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          760,
+          500
+        ],
+        "FontSize": 0.0,
+        "Order": 0
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "panel",
+        "BorderScale": 3.0
+      },
+      "NativeScript": {
+        "Class": "UIWidgetsDemo",
+        "Fields": {
+          "MusicSlider": {
+            "Type": "Entity",
+            "Value": 7600000000000007
+          },
+          "MusicValue": {
+            "Type": "Entity",
+            "Value": 7600000000000008
+          },
+          "EffectsSlider": {
+            "Type": "Entity",
+            "Value": 7600000000000010
+          },
+          "EffectsValue": {
+            "Type": "Entity",
+            "Value": 7600000000000011
+          },
+          "Loading": {
+            "Type": "Entity",
+            "Value": 7600000000000019
+          },
+          "Cooldown": {
+            "Type": "Entity",
+            "Value": 7600000000000023
+          },
+          "NameField": {
+            "Type": "Entity",
+            "Value": 7600000000000024
+          },
+          "SaveButton": {
+            "Type": "Entity",
+            "Value": 7600000000000025
+          },
+          "Status": {
+            "Type": "Entity",
+            "Value": 7600000000000026
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7600000000000004,
+      "Tag": "Sarlavha",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          0,
+          210
+        ],
+        "Size": [
+          700,
+          40
+        ],
+        "FontSize": 36,
+        "Order": 1
+      },
+      "Text": {
+        "Text": "UI vidjetlari",
+        "Color": [
+          1.0,
+          0.93,
+          0.62,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000005,
+      "Tag": "Izoh",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          0,
+          176
+        ],
+        "Size": [
+          700,
+          22
+        ],
+        "FontSize": 17,
+        "Order": 1
+      },
+      "Text": {
+        "Text": "rasm (9-slice, to'ldirish) - slayder - belgilash - progress bar - matn maydoni",
+        "Color": [
+          0.6,
+          0.66,
+          0.78,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000006,
+      "Tag": "Musiqa yozuvi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          -250,
+          135
+        ],
+        "Size": [
+          200,
+          28
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "Text": {
+        "Text": "Musiqa",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000007,
+      "Tag": "Musiqa",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          60,
+          135
+        ],
+        "Size": [
+          300,
+          24
+        ],
+        "FontSize": 0.0,
+        "Order": 1
+      },
+      "UISlider": {
+        "Min": 0.0,
+        "Max": 1.0,
+        "Value": 0.7,
+        "WholeNumbers": false,
+        "Direction": "LeftToRight",
+        "Interactable": true,
+        "TrackThickness": 8.0,
+        "HandleSize": 0.0,
+        "Rounded": true,
+        "TrackColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "FillColor": [
+          0.2,
+          0.68,
+          0.55,
+          1
+        ],
+        "HandleColor": [
+          0.93,
+          0.95,
+          0.97,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7600000000000008,
+      "Tag": "Musiqa qiymati",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          290,
+          135
+        ],
+        "Size": [
+          100,
+          28
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "Text": {
+        "Text": "70%",
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000009,
+      "Tag": "Effektlar yozuvi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          -250,
+          92
+        ],
+        "Size": [
+          200,
+          28
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "Text": {
+        "Text": "Effektlar",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000010,
+      "Tag": "Effektlar",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          60,
+          92
+        ],
+        "Size": [
+          300,
+          24
+        ],
+        "FontSize": 0.0,
+        "Order": 1
+      },
+      "UISlider": {
+        "Min": 0.0,
+        "Max": 10.0,
+        "Value": 7.0,
+        "WholeNumbers": true,
+        "Direction": "LeftToRight",
+        "Interactable": true,
+        "TrackThickness": 10.0,
+        "HandleSize": 16.0,
+        "Rounded": false,
+        "TrackColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "FillColor": [
+          0.95,
+          0.62,
+          0.22,
+          1
+        ],
+        "HandleColor": [
+          1.0,
+          0.9,
+          0.7,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7600000000000011,
+      "Tag": "Effektlar qiymati",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          290,
+          92
+        ],
+        "Size": [
+          100,
+          28
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "Text": {
+        "Text": "7",
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000012,
+      "Tag": "To'liq ekran",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          -200,
+          45
+        ],
+        "Size": [
+          300,
+          32
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "UIToggle": {
+        "IsOn": true,
+        "Interactable": true,
+        "Style": "Checkbox",
+        "Mark": "Check",
+        "BoxSize": 0.0,
+        "LabelSpacing": 12.0,
+        "Group": "",
+        "AllowSwitchOff": false,
+        "BoxColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "OnColor": [
+          0.2,
+          0.68,
+          0.55,
+          1
+        ],
+        "MarkColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "To'liq ekran",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000013,
+      "Tag": "VSync",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          190,
+          45
+        ],
+        "Size": [
+          320,
+          32
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "UIToggle": {
+        "IsOn": true,
+        "Interactable": true,
+        "Style": "Switch",
+        "Mark": "Check",
+        "BoxSize": 0.0,
+        "LabelSpacing": 12.0,
+        "Group": "",
+        "AllowSwitchOff": false,
+        "BoxColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "OnColor": [
+          0.2,
+          0.68,
+          0.55,
+          1
+        ],
+        "MarkColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Vertikal sinxron",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000014,
+      "Tag": "Qiyinlik yozuvi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          -275,
+          2
+        ],
+        "Size": [
+          150,
+          28
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "Text": {
+        "Text": "Qiyinlik:",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000015,
+      "Tag": "Oson",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          -110,
+          2
+        ],
+        "Size": [
+          140,
+          28
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "UIToggle": {
+        "IsOn": false,
+        "Interactable": true,
+        "Style": "Checkbox",
+        "Mark": "Dot",
+        "BoxSize": 24.0,
+        "LabelSpacing": 12.0,
+        "Group": "Qiyinlik",
+        "AllowSwitchOff": false,
+        "BoxColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "OnColor": [
+          0.2,
+          0.68,
+          0.55,
+          1
+        ],
+        "MarkColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Oson",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000016,
+      "Tag": "O'rta",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          50,
+          2
+        ],
+        "Size": [
+          140,
+          28
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "UIToggle": {
+        "IsOn": true,
+        "Interactable": true,
+        "Style": "Checkbox",
+        "Mark": "Dot",
+        "BoxSize": 24.0,
+        "LabelSpacing": 12.0,
+        "Group": "Qiyinlik",
+        "AllowSwitchOff": false,
+        "BoxColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "OnColor": [
+          0.2,
+          0.68,
+          0.55,
+          1
+        ],
+        "MarkColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "O'rta",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000017,
+      "Tag": "Qiyin",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          210,
+          2
+        ],
+        "Size": [
+          140,
+          28
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "UIToggle": {
+        "IsOn": false,
+        "Interactable": true,
+        "Style": "Checkbox",
+        "Mark": "Dot",
+        "BoxSize": 24.0,
+        "LabelSpacing": 12.0,
+        "Group": "Qiyinlik",
+        "AllowSwitchOff": false,
+        "BoxColor": [
+          0.1,
+          0.12,
+          0.18,
+          1
+        ],
+        "OnColor": [
+          0.2,
+          0.68,
+          0.55,
+          1
+        ],
+        "MarkColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "Text": {
+        "Text": "Qiyin",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000018,
+      "Tag": "Yuklanish yozuvi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          -275,
+          -42
+        ],
+        "Size": [
+          150,
+          26
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "Text": {
+        "Text": "Yuklanish",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000019,
+      "Tag": "Yuklanish",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          75,
+          -42
+        ],
+        "Size": [
+          550,
+          26
+        ],
+        "FontSize": 17,
+        "Order": 1
+      },
+      "UIProgressBar": {
+        "Value": 0.62,
+        "Direction": "LeftToRight",
+        "BackgroundColor": [
+          0.08,
+          0.1,
+          0.15,
+          1
+        ],
+        "FillColor": [
+          0.3,
+          0.55,
+          0.95,
+          1
+        ],
+        "UseLowColor": false,
+        "LowColor": [
+          0.86,
+          0.24,
+          0.2,
+          1
+        ],
+        "Padding": 3.0,
+        "SmoothSpeed": 0.0,
+        "ShowPercentage": true,
+        "TextColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7600000000000020,
+      "Tag": "Sog'liq yozuvi",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          -275,
+          -88
+        ],
+        "Size": [
+          150,
+          26
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "Text": {
+        "Text": "Sog'liq",
+        "Color": [
+          0.86,
+          0.9,
+          1.0,
+          1.0
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": false,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000021,
+      "Tag": "Sog'liq",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          -30,
+          -88
+        ],
+        "Size": [
+          340,
+          20
+        ],
+        "FontSize": 0.0,
+        "Order": 1
+      },
+      "UIProgressBar": {
+        "Value": 0.35,
+        "Direction": "LeftToRight",
+        "BackgroundColor": [
+          0.08,
+          0.1,
+          0.15,
+          1
+        ],
+        "FillColor": [
+          0.3,
+          0.85,
+          0.35,
+          1
+        ],
+        "UseLowColor": true,
+        "LowColor": [
+          0.92,
+          0.2,
+          0.18,
+          1
+        ],
+        "Padding": 3.0,
+        "SmoothSpeed": 0.5,
+        "ShowPercentage": false,
+        "TextColor": [
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "Entity": 7600000000000022,
+      "Tag": "Kristall fon",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          290,
+          -88
+        ],
+        "Size": [
+          60,
+          60
+        ],
+        "FontSize": 0.0,
+        "Order": 1
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          0.22
+        ],
+        "Texture": "Textures/crystal.png",
+        "Type": "Simple",
+        "PreserveAspect": true,
+        "PixelArt": true,
+        "RaycastTarget": false,
+        "TextureUUID": "9ac80625d7d84a9d"
+      }
+    },
+    {
+      "Entity": 7600000000000023,
+      "Tag": "Kristall",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          290,
+          -88
+        ],
+        "Size": [
+          60,
+          60
+        ],
+        "FontSize": 0.0,
+        "Order": 2
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/crystal.png",
+        "Type": "Filled",
+        "PreserveAspect": true,
+        "PixelArt": true,
+        "RaycastTarget": false,
+        "TextureUUID": "9ac80625d7d84a9d",
+        "Fill": {
+          "Method": "Radial360",
+          "Origin": 0,
+          "Amount": 0.6,
+          "Clockwise": true
+        }
+      }
+    },
+    {
+      "Entity": 7600000000000024,
+      "Tag": "Ism maydoni",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          -105,
+          -150
+        ],
+        "Size": [
+          490,
+          42
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "UIInputField": {
+        "Text": "Gʻulomjon",
+        "Placeholder": "Ismingizni kiriting...",
+        "ContentType": "Standard",
+        "CharacterLimit": 24,
+        "Interactable": true,
+        "ReadOnly": false,
+        "SelectAllOnFocus": true,
+        "Font": "",
+        "Padding": 12.0,
+        "BackgroundColor": [
+          0.06,
+          0.07,
+          0.11,
+          1
+        ],
+        "OutlineColor": [
+          0.3,
+          0.34,
+          0.45,
+          1
+        ],
+        "FocusColor": [
+          0.3,
+          0.75,
+          0.62,
+          1
+        ],
+        "TextColor": [
+          0.96,
+          0.97,
+          1.0,
+          1
+        ],
+        "PlaceholderColor": [
+          0.48,
+          0.52,
+          0.6,
+          1
+        ],
+        "CaretColor": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "SelectionColor": [
+          0.22,
+          0.46,
+          0.86,
+          0.55
+        ],
+        "CaretBlinkRate": 0.53
+      }
+    },
+    {
+      "Entity": 7600000000000025,
+      "Tag": "Saqlash",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          255,
+          -150
+        ],
+        "Size": [
+          190,
+          42
+        ],
+        "FontSize": 22,
+        "Order": 1
+      },
+      "UIButton": {
+        "Normal": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "Hover": [
+          0.7,
+          1.0,
+          0.9,
+          1
+        ],
+        "Pressed": [
+          0.4,
+          0.75,
+          0.62,
+          1
+        ],
+        "Interactable": true
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Texture": "Textures/ui_atlas.png",
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "Saqlash",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7600000000000026,
+      "Tag": "Holat",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 4,
+        "Position": [
+          0,
+          -205
+        ],
+        "Size": [
+          700,
+          26
+        ],
+        "FontSize": 20,
+        "Order": 1
+      },
+      "Text": {
+        "Text": "Ismingizni yozing va Enter yoki Saqlash tugmasini bosing",
+        "Color": [
+          0.75,
+          0.85,
+          1.0,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "Centered": true,
+        "Font": ""
+      }
+    }
+  ]
+}

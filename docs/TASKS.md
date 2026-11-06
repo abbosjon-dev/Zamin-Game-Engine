@@ -257,11 +257,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M12 UI tizimi
 
-- [ ] 221. UI Image komponenti (sprite, 9-slice)
-- [ ] 222. UI Slider
-- [ ] 223. UI Toggle (checkbox)
-- [ ] 224. UI Progress bar
-- [ ] 225. UI matn kiritish (input field)
+- [x] 221. UI Image komponenti (sprite, 9-slice)
+- [x] 222. UI Slider
+- [x] 223. UI Toggle (checkbox)
+- [x] 224. UI Progress bar
+- [x] 225. UI matn kiritish (input field)
 - [ ] 226. Vertikal/gorizontal layout guruhlari
 - [ ] 227. Stretch anchor'lar (chapdan-o'ngga cho'zilish)
 - [ ] 228. Ekran o'lchamiga moslashuvchi masshtab (reference resolution)

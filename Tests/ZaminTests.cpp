@@ -22942,3 +22942,48 @@ TEST(TextInputEventStream)
     CHECK(Input::GetClipboardText() == "Oʻzbekiston");
     Input::ResetState();
 }
+
+// The Platformer2D sample's UIWidgets scene: every widget of the batch, wired to its demo script.
+TEST(UIWidgetsSampleScene)
+{
+    namespace fs = std::filesystem;
+    fs::path root = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D";
+    auto project = Project::Load(root / "Platformer2D.zproject");
+    CHECK(project != nullptr);
+    if (!project)
+        return;
+    Project::SetActive(project);
+    ScopeExit noProject{ []() { Project::SetActive(nullptr); } };
+    auto scene = CreateRef<Scene>();
+    CHECK(SceneSerializer(scene).Deserialize(root / "Assets" / "Scenes" / "UIWidgets.zscene"));
+    Entity panel = scene->FindEntityByName("Panel"), music = scene->FindEntityByName("Musiqa"), name = scene->FindEntityByName("Ism maydoni");
+    Entity easy = scene->FindEntityByName("Oson"), medium = scene->FindEntityByName("O'rta"), cooldown = scene->FindEntityByName("Kristall");
+    CHECK(panel && music && name && easy && medium && cooldown);
+    if (!(panel && music && name && easy && medium && cooldown))
+        return;
+    const auto& image = panel.GetComponent<UIImageComponent>();
+    CHECK(image.Type == UIImageType::Sliced && image.SpriteName == "panel" && image.TexturePath == "Textures/ui_atlas.png");
+    CHECK(cooldown.GetComponent<UIImageComponent>().Type == UIImageType::Filled &&
+          cooldown.GetComponent<UIImageComponent>().FillMethod == UIFillMethod::Radial360);
+    CHECK(std::abs(music.GetComponent<UISliderComponent>().Value - 0.7f) < 1e-6f);
+    CHECK(name.GetComponent<UIInputFieldComponent>().Text == "G\xCA\xBBulomjon");
+    // The script's references point at the widgets.
+    const auto& script = panel.GetComponent<NativeScriptComponent>();
+    CHECK(script.ClassName == "UIWidgetsDemo");
+    // The difficulty radio buttons: one on at a time (headless: without the camera nothing is drawn).
+    if (Entity camera = scene->FindEntityByName("Main Camera"))
+        camera.GetComponent<CameraComponent>().Primary = false;
+    scene->OnViewportResize(1600, 900);
+    scene->OnRuntimeStart();
+    CHECK(medium.GetComponent<UIToggleComponent>().IsOn && !easy.GetComponent<UIToggleComponent>().IsOn);
+    const glm::vec2 at = scene->GetUIRect(easy).GetCenter();
+    for (bool down : { true, false })
+    {
+        scene->SetViewportMouse({ at.x, 900.0f - at.y }, down);
+        scene->OnUpdateRuntime(0.016f);
+    }
+    CHECK(easy.GetComponent<UIToggleComponent>().IsOn && !medium.GetComponent<UIToggleComponent>().IsOn);
+    // The panel's background catches the mouse: nothing behind it is reached.
+    CHECK(scene->PickUI(scene->GetUIRect(panel).Min + glm::vec2(5.0f)) == panel);
+    scene->OnRuntimeStop();
+}

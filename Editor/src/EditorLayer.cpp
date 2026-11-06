@@ -8334,7 +8334,9 @@ namespace Zamin {
     {
         m_GizmoHovered = false;
         Entity primary = m_SceneHierarchyPanel.GetSelectedEntity();
-        if (!primary || !primary.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting() || IsViewportHandleEditing())
+        // Screen-space UI is placed by its UI Transform (pixels), not by the Transform: no gizmo for it.
+        if (!primary || !primary.IsValid() || m_GizmoMode == GizmoMode::None || m_SceneHierarchyPanel.IsTilePainting() || IsViewportHandleEditing() ||
+            primary.HasComponent<UITransformComponent>())
         {
             m_GizmoEdit.End();
             return;

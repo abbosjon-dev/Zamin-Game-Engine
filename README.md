@@ -760,9 +760,21 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   `GameState::SetPersistent` + `Save()` / `Load()` (SaveData); editor har Play boshida va oxirida tozalaydi;
   **sahna formati versiyasi va migratsiya** — `"Version"` (hozir 2), eski fayllar yuklashda `vN → vN+1` qadamlar
   zanjiri bilan yangilanadi (`SceneMigration`, konsolda bir marta yoziladi, saqlanganda yangi formatda), yangiroq
-  dvigatel fayli ogohlantirish bilan o'qiladi. Namuna: Platformer2D `Scenes/Menu.zscene` → `Scenes/Loading.zscene`
+  dvigatel fayli ogohlantirish bilan o'qiladi; **yuklash vaqti** bosqichlar bo'yicha (o'qish, JSON, migratsiya,
+  obyektlar, fonda rasmlar, assetlar, audio, fizika, skriptlar) — konsolda, profiler'da (`Sahna yuklash` bo'limi) va
+  Statistika / Profiler oynalarining "Sahna yuklash vaqti" bo'limida (rangli chiziq, so'nggi 32 ta yuklash;
+  `SceneLoadProfiler`, `AsyncOperation::GetTiming()`); **katta sahnalar uchun tez serializatsiya** — 10 000 obyekt
+  Debug'da saqlash 1346 → 163 ms, yuklash 2076 → 222 ms (`ZaminBench --serialize`), ixtiyoriy **binar kesh**
+  `.zsceneb` (MessagePack, ~3 marta kichik, yuklash 140 ms; eksportda har sahna yoniga yoziladi, player uni avtomatik
+  o'qiydi); **sub-sahnalar** — `SubSceneComponent` boshqa `.zscene` faylini obyekt joyiga qo'shimcha sahna sifatida
+  yuklaydi (transform bilan, ichma-ich, halqadan himoyalangan, `LoadSubScene()` / `UnloadSubScene()`), editorda joyida
+  faqat ko'rish uchun chiziladi va ierarxiyada obyekt ostida ko'rinadi, eksport ularni ham kiritadi. Namuna:
+  Platformer2D `Scenes/Menu.zscene` → `Scenes/Loading.zscene`
   (progress bar) → 1-daraja, `GameSession` (DontDestroyOnLoad: musiqa; tangalar, darajalar va rekord `GameState` da,
-  darajalar statistikasi `SessionStats` servisida; HUD `WatchGameState` bilan yangilanadi)
+  darajalar statistikasi `SessionStats` servisida; HUD `WatchGameState` bilan yangilanadi); `Scenes/SubScenes.zscene`
+  (bitta `Parts/Camp.zscene` bo'lagi uch joyda, uchinchisi skript bilan keyinroq)
+  - Batafsil qo'llanma: [docs/scenes.md](docs/scenes.md) — yuklash rejimlari, DontDestroyOnLoad, fonda yuklash, o'tishlar,
+    build ro'yxati, hodisalar, qidiruv, xatolar, fayl formati, global holat, sub-sahnalar, profiler, binar kesh, kod misollari bilan
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime
@@ -949,7 +961,7 @@ Foydali API:
 | Audio manba | `PlayAudio()` (obyektning `AudioSourceComponent`'ini boshidan chaladi; obyekt nofaol bo'lsa yoki ovozlar limiti rad etsa `false`), `StopAudio()`, `PauseAudio()` / `ResumeAudio()`, `IsAudioPlaying()` / `IsAudioPaused()`, `SetAudioVolume(v)`, `SetAudioPitch(p)`, `GetAudioTime()` / `SetAudioTime(s)`, `GetAudioLength()`; so'nish bilan — `PlayAudio(fadeIn)`, `StopAudio(fadeOut)`, `FadeAudio(volume, sekund)`, `GetAudioFade()`; filtr — `SetAudioLowPass(hz)`, `SetAudioHighPass(hz)`; boshqa obyektniki — `PauseAudio(entity)` va h.k.; `PlaySound(path, SoundParams)` — tasodifiy oraliq, ustuvorlik, nusxalar limiti, 3D o'rni, FadeIn, filtr bilan |
 | Musiqa va mixer | `Audio::PlayMusic("Audio/theme.ogg", 1.0f)`, `Audio::CrossfadeTo("Audio/boss.ogg", 2.0f)`, `Audio::StopMusic(fade)`, `PauseMusic()` / `ResumeMusic()`, `GetMusic()`, `SetMusicVolume(v)`; `Audio::SetGroupVolume("SFX", 0.5f)`, `SetGroupMuted("Music", true)`, `SetGroupLowPass("SFX", 500)`, `ResetMixer()`; `Audio::SaveSettings()` / `LoadSettings()` — o'yinchi sozlamalari (SaveData); `Audio::GetClipLength(path)`, `Audio::Preload(path)`; `PlaySound(path, vol, pitch, "UI")` — guruh bilan |
 | Debug chizish | `DebugDraw::Line(a, b, DebugColor::Red)`, `Ray(o, dir)`, `Arrow(a, b)`, `Box(center, half)` / `Box(center, half, quat)` / `Box(worldTransform)`, `Bounds(aabb)`, `Rect(c, size)`, `WireSphere(c, r)`, `Circle(c, normal, r)`, `Cross(p, size)`, `Point(p)`, `Axes(transform)`, `Path(points)`, `NavigationPath(points)`, `Text(p, "matn")` — oxirgi parametrlar: rang, `duration` (soniya, 0 = bir kadr), `depthTest` |
-| Sahnalar | `LoadScene("Scenes/Level2.zscene")`, `LoadScene(path, LoadSceneMode::Additive)`, `LoadScene(path, SceneTransition::Fade(0.5f))`, `LoadScene(2)` (build indeksi), `auto op = LoadSceneAsync(path)` → `op->GetProgress()`, `op->SetAllowSceneActivation(false)`, `op->IsReady()`; `UnloadScene("HUD")`, `DontDestroyOnLoad()` / `DontDestroyOnLoad(entity)`, `GetSceneManager()` (`GetActiveScene`, `GetLoadedScenes`, `FindEntityByName`) |
+| Sahnalar | `LoadScene("Scenes/Level2.zscene")`, `LoadScene(path, LoadSceneMode::Additive)`, `LoadScene(path, SceneTransition::Fade(0.5f))`, `LoadScene(2)` (build indeksi), `auto op = LoadSceneAsync(path)` → `op->GetProgress()`, `op->SetAllowSceneActivation(false)`, `op->IsReady()`; `UnloadScene("HUD")`, `DontDestroyOnLoad()` / `DontDestroyOnLoad(entity)`, `LoadSubScene()` / `UnloadSubScene()` / `GetSubScene()`, `GetSceneManager()` (`GetActiveScene`, `GetLoadedScenes`, `FindEntityByName`) |
 | Global holat | `GameState::Increment("Coins")`, `GameState::GetInt("Coins")`, `GameState::SetBool("Door.Open", true)`, `WatchGameState("Coins", [this](std::string_view) { ... })`, `GameState::SetPersistent("Best")` + `GameState::Save()` / `Load()`; servislar: `Services::Register<Inventory>()`, `GetService<Inventory>()`, `GetOrCreateService<QuestLog>()` |
 | Boshqa | `EmitParticles(n)`, `OnParticlesFinished()`, `PlaySound(path)`, `PlaySoundAt(path, pos)`, `GetTime()`, `ZM_INFO/ZM_WARN/ZM_ERROR` (editor konsoliga) |
 

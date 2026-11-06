@@ -31519,3 +31519,136 @@ TEST(SubScenes)
     CHECK_NEAR(kid.GetComponent<TransformComponent>().Translation.x, 1.0f, 1e-5f);
     CHECK_NEAR(glm::vec3(scene->GetWorldTransform(kid)[3]).z, 3.0f, 1e-5f);
 }
+
+// ------------------------------------------------------------------ M15: scene management end to end
+namespace {
+    struct FlowStats
+    {
+        std::vector<std::string> Loaded; // every scene the manager heard of, in order
+    };
+}
+
+// A game manager: persistent, counts the loads in the global state and a service.
+class FlowManagerProbe : public ScriptableEntity
+{
+public:
+    void OnCreate() override
+    {
+        DontDestroyOnLoad();
+        Services::GetOrCreate<FlowStats>();
+    }
+    void OnSceneLoaded(const SceneEventInfo& scene) override
+    {
+        GameState::Increment("Flow.Loads");
+        if (FlowStats* stats = Services::Get<FlowStats>())
+            stats->Loaded.push_back(scene.Name);
+    }
+};
+ZM_REGISTER_SCRIPT(FlowManagerProbe)
+
+TEST(SceneManagementFlow)
+{
+    namespace fs = std::filesystem;
+    Services::Clear();
+    GameState::Clear();
+    GameState::ClearListeners();
+    SceneLoadProfiler::SetLogging(false);
+    SceneFolder f;
+    f.Write("Menu", { "Title" }, [](Scene& s) { s.CreateEntity("Manager").AddComponent<NativeScriptComponent>().ClassName = "FlowManagerProbe"; });
+    f.Write("Props", { "Barrel" });
+    // The level: 120 entities and a sub-scene of props next to the door.
+    f.Write("Level", { "Ground" }, [&](Scene& s) {
+        for (int i = 0; i < 120; i++)
+            s.CreateEntity(std::format("Tile{}", i));
+        Entity door = s.CreateEntity("Door");
+        door.GetComponent<TransformComponent>().Translation = { 4.0f, 0.0f, 0.0f };
+        door.AddComponent<SubSceneComponent>().ScenePath = f.Path("Props").generic_string();
+    });
+
+    // The async loader on its own, from text (no file): built in slices, progress only goes up.
+    {
+        SceneLoadJob job;
+        CHECK(job.ParseString(FileSystem::ReadTextFile(f.Path("Level"))) && job.GetEntityCount() == 122);
+        auto scene = CreateRef<Scene>();
+        float last = -1.0f;
+        bool rising = true;
+        int slices = 0;
+        while (!job.Build(*scene, 0.0) && slices < 10000)
+        {
+            rising = rising && job.GetBuildProgress() >= last;
+            last = job.GetBuildProgress();
+            slices++;
+        }
+        CHECK(rising && slices > 5 && job.IsBuilt() && job.GetBuildProgress() == 1.0f && scene->FindEntityByName("Tile119"));
+        CHECK(job.GetTiming().Get(SceneLoadTiming::Stage::Parse) > 0.0 && job.GetTiming().Get(SceneLoadTiming::Stage::Deserialize) > 0.0);
+    }
+
+    SceneManager m;
+    CHECK(m.Start(f.Path("Menu")));
+    m.UpdateScenes(0.016f);
+    m.ProcessRequests(); // the manager moves to DontDestroyOnLoad
+    CHECK(m.GetDontDestroyOnLoadScene() && m.GetDontDestroyOnLoadScene()->FindEntityByName("Manager"));
+    // The first scene's own scripts hear it come too (after their OnCreate).
+    CHECK(Services::Get<FlowStats>() && Services::Get<FlowStats>()->Loaded == std::vector<std::string>({ "Menu" }));
+
+    // Menu -> Level in the background with a fade; held until allowed in.
+    Ref<AsyncOperation> op = m.LoadSceneAsync(f.Path("Level"), LoadSceneMode::Single, SceneTransition::Fade(0.1f, 0.1f));
+    CHECK(op);
+    op->SetAllowSceneActivation(false);
+    float progress = 0.0f;
+    bool rising = true;
+    for (int i = 0; i < 5000 && !op->IsReady(); i++)
+    {
+        m.UpdateAsyncLoads(0.05f);
+        m.UpdateScenes(0.016f);
+        m.ProcessRequests();
+        rising = rising && op->GetProgress() >= progress;
+        progress = op->GetProgress();
+        if (op->GetStage() == AsyncOperation::Stage::Reading || op->GetStage() == AsyncOperation::Stage::Decoding)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(op->IsReady() && rising && std::abs(op->GetProgress() - 0.9f) < 1e-5f && m.GetActiveScene()->GetName() == "Menu");
+    // Allowed in: the screen fades out, the switch happens behind the full cover, then it fades in.
+    op->SetAllowSceneActivation(true);
+    bool switchedWhileCovered = false;
+    for (int i = 0; i < 200 && !op->IsDone(); i++)
+    {
+        m.UpdateAsyncLoads(1.0f);
+        m.OnUpdate(0.02f); // the fade advances with the frame (nothing is drawn headless: no camera)
+        const float cover = m.GetTransitionAlpha();
+        m.ProcessRequests();
+        if (op->IsDone())
+            switchedWhileCovered = cover >= 1.0f;
+    }
+    CHECK(op->IsDone() && !op->HasFailed() && switchedWhileCovered);
+    // The level is in with its sub-scene (placed by the door); the menu went, the manager stayed.
+    Ref<Scene> level = m.GetActiveScene();
+    CHECK(level && level->GetName() == "Level" && m.GetSceneCount() == 2);
+    Ref<Scene> props = m.GetSubScene(level->FindEntityByName("Door"));
+    CHECK(props && props->IsRunning() && m.GetSubSceneOwner(props.get()) == level.get());
+    CHECK_NEAR(glm::vec3(props->GetWorldTransform(props->FindEntityByName("Barrel"))[3]).x, 4.0f, 1e-4f);
+    CHECK(m.FindEntityByName("Manager") && m.FindEntityByName("Barrel") && !m.FindEntityByName("Title"));
+    // The manager heard both loads (the level, then its props), counted in the global state.
+    FlowStats* stats = Services::Get<FlowStats>();
+    CHECK(stats && stats->Loaded == std::vector<std::string>({ "Menu", "Level", "Props" }));
+    CHECK(GameState::GetInt("Flow.Loads") == 3);
+    // The load is timed: in the background over several frames, its file stages on the worker.
+    CHECK(op->GetTiming().How == SceneLoadTiming::Source::Async && op->GetTiming().Frames > 2 && op->GetTiming().Entities == 122);
+    // Back to the menu by build-index-free path, Single: the props go with the level.
+    m.LoadScene(f.Path("Menu"));
+    m.ProcessRequests();
+    CHECK(m.GetSceneCount() == 1 && !level->IsRunning() && !props->IsRunning());
+    // The menu's manager again (the same entity ID from the same file): it cannot join the one that is
+    // already persistent - it stays in the menu (a warning); a game checks FindObjectOfType first.
+    Log::SetMinLevel(LogLevel::Critical);
+    m.UpdateScenes(0.016f);
+    m.ProcessRequests();
+    Log::SetMinLevel(LogLevel::Error);
+    CHECK(m.GetDontDestroyOnLoadScene()->FindEntitiesWith<NativeScriptComponent>().size() == 1);
+    CHECK(m.GetActiveScene()->FindEntityByName("Manager") && m.FindObjectsOfType<FlowManagerProbe>().size() == 2);
+    m.Stop();
+    CHECK(!m.IsRunning() && Services::Get<FlowStats>()); // services outlive the run until the host clears them
+    Services::Clear();
+    GameState::Clear();
+    SceneLoadProfiler::SetLogging(true);
+}

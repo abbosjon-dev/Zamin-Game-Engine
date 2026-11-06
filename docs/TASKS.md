@@ -341,11 +341,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 293. Editor: o'yin rejimida sahna almashganda editor holatini tiklash
 - [x] 294. Global o'yin holati (singleton servislar)
 - [x] 295. Sahna versiya migratsiyasi
-- [ ] 296. Sahna yuklash vaqtini profiler'da ko'rsatish
-- [ ] 297. Katta sahnalar uchun tezroq serializatsiya
-- [ ] 298. Sahnani bo'laklarga bo'lish (sub-scenes) - oddiy
-- [ ] 299. Sahna boshqaruvi testlari
-- [ ] 300. Sahna boshqaruvi hujjatlari
+- [x] 296. Sahna yuklash vaqtini profiler'da ko'rsatish
+- [x] 297. Katta sahnalar uchun tezroq serializatsiya
+- [x] 298. Sahnani bo'laklarga bo'lish (sub-scenes) - oddiy
+- [x] 299. Sahna boshqaruvi testlari
+- [x] 300. Sahna boshqaruvi hujjatlari
 
 ## M16 Editor II
 

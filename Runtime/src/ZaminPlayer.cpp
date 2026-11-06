@@ -77,8 +77,9 @@ namespace Zamin {
                 Renderer3D::SetInstancing(false);
             // ZAMIN_PLAYER_INPUT="<frame>:<action>;..." plays input in (screenshots, CI): a key name
             // ("Down", "Enter", "Tab": pressed in that frame, released in the next), "mouse=x,y" (the
-            // game's mouse at window px from the top-left from then on) or "click" (the left button for
-            // one frame).
+            // game's mouse at window px from the top-left from then on), "click" (the left button for
+            // one frame), "down" / "up" (the left button held from then on / let go: drags) or
+            // "scroll=dy" / "scroll=dx,dy" (the mouse wheel in that frame, notches).
             if (const char* input = std::getenv("ZAMIN_PLAYER_INPUT"))
             {
                 std::string_view rest = input;
@@ -102,6 +103,7 @@ namespace Zamin {
                 Input::OnKeyEvent(key, false);
             m_ReleaseKeys.clear();
             m_ScriptedClick = false;
+            m_ScriptedScroll = glm::vec2(0.0f);
             for (const auto& [frame, action] : m_ScriptedInput)
             {
                 if (frame != m_Frame)
@@ -118,6 +120,16 @@ namespace Zamin {
                 }
                 else if (action == "click")
                     m_ScriptedClick = true;
+                else if (action == "down" || action == "up")
+                    m_ScriptedHold = action == "down";
+                else if (action.starts_with("scroll="))
+                {
+                    float x = 0.0f, y = 0.0f;
+                    if (std::sscanf(action.c_str() + 7, "%f,%f", &x, &y) == 2)
+                        m_ScriptedScroll = { x, y };
+                    else
+                        m_ScriptedScroll = { 0.0f, (float)std::atof(action.c_str() + 7) };
+                }
                 else if (KeyFromString(action, key))
                 {
                     Input::OnKeyEvent(key, true);
@@ -161,7 +173,8 @@ namespace Zamin {
             Renderer::ResetStats();
             glm::vec2 mouse = m_HasScriptedMouse ? m_ScriptedMouse : Input::GetMousePosition();
             float scale = window.GetWidth() > 0 ? (float)w / (float)window.GetWidth() : 1.0f;
-            m_Scene->SetViewportMouse(mouse * scale, Input::IsMouseButtonPressed(MouseButton::Left) || m_ScriptedClick);
+            m_Scene->SetViewportMouse(mouse * scale, Input::IsMouseButtonPressed(MouseButton::Left) || m_ScriptedClick || m_ScriptedHold);
+            m_Scene->SetViewportScroll(Input::GetMouseScrollDelta() + m_ScriptedScroll);
 
             const auto& post = m_Scene->GetSettings().Post;
             // The scene is rendered in linear HDR at the render scale of the window's size, then
@@ -264,7 +277,8 @@ namespace Zamin {
         std::vector<std::pair<int, std::string>> m_ScriptedInput;
         std::vector<Key> m_ReleaseKeys;
         glm::vec2 m_ScriptedMouse{ 0.0f };
-        bool m_HasScriptedMouse = false, m_ScriptedClick = false;
+        bool m_HasScriptedMouse = false, m_ScriptedClick = false, m_ScriptedHold = false;
+        glm::vec2 m_ScriptedScroll{ 0.0f };
         int m_Frame = 0;
     };
 

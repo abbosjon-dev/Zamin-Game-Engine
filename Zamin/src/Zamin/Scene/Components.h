@@ -18,6 +18,7 @@
 #include "Zamin/UI/TextLayout.h"
 #include "Zamin/UI/UIAnimation.h"
 #include "Zamin/UI/UILayout.h"
+#include "Zamin/UI/UIScroll.h"
 #include "Zamin/UI/UIWidgets.h"
 
 #include <glm/glm.hpp>
@@ -1154,6 +1155,71 @@ namespace Zamin {
         }
     };
 
+    // A mask: the entity's UI subtree (its UI children and theirs) is drawn - and found by the mouse
+    // - only inside its rectangle as drawn, Padding px in from its edges (left, right, top, bottom;
+    // negative: out). A mask inside a mask shows only what both let through (a list in a scrolled
+    // panel). ShowGraphic off: the mask's own picture (image, sprite, button colour) is not drawn -
+    // it only clips. Rectangles only (the scissor test): a round picture does not round the clip.
+    // On a scroll view without a viewport of its own it clips to the view (its scrollbars stay out).
+    struct UIMaskComponent
+    {
+        bool ShowGraphic = true;
+        glm::vec4 Padding{ 0.0f };
+    };
+
+    // A scroll view: its Content (a UI entity of its subtree - a list whose layout group fits its
+    // height, a big map) moves inside the view (the Viewport's rectangle, else the scroll view's
+    // own without its scrollbars) by the mouse wheel, by dragging it (also when the press starts
+    // on a button in it: the button is then not clicked), by the scrollbars it draws along its
+    // right / bottom edge (drag the handle, click the track) and by keyboard / gamepad navigation
+    // (the widget selected is scrolled into view). Its UI children are laid out in the space
+    // left of the scrollbars. A UI Mask on it (or on the Viewport) hides what is outside the view.
+    // Movement: Elastic - pulled past an edge it resists and springs back in Elasticity seconds;
+    // Clamped - it stops at the edges; Unrestricted. Inertia: it glides on after a drag, keeping
+    // DecelerationRate of its speed per second. The content's UI Transform Position is what moves
+    // (it must not be placed by a layout group). A change calls OnScrollChanged(position) on its
+    // script and emits "UIScrollChanged" (payload glm::vec2: x 0 left .. 1 right, y 1 top .. 0 bottom);
+    // Scene::SetScrollPosition / ScrollBy / ScrollIntoView move it from code.
+    struct UIScrollViewComponent
+    {
+        EntityRef Content;
+        EntityRef Viewport;                  // empty: the scroll view itself
+        bool Horizontal = false;
+        bool Vertical = true;
+        UIScrollMovement Movement = UIScrollMovement::Elastic;
+        float Elasticity = 0.1f;             // seconds it springs back in
+        bool Inertia = true;
+        float DecelerationRate = 0.135f;     // the part of the speed kept after a second
+        float ScrollSensitivity = 40.0f;     // UI units per notch of the mouse wheel
+        bool Draggable = true;               // the content can be dragged with the mouse
+        UIScrollbarVisibility Scrollbars = UIScrollbarVisibility::AutoHide;
+        float ScrollbarWidth = 10.0f;        // UI units
+        float ScrollbarInset = 3.0f;         // UI units between a bar and the edges
+        glm::vec4 TrackColor{ 0.0f, 0.0f, 0.0f, 0.28f };
+        glm::vec4 HandleColor{ 0.78f, 0.80f, 0.86f, 0.85f };
+
+        // runtime state (read by scripts)
+        glm::vec2 NormalizedPosition{ 0.0f, 1.0f };
+        glm::vec2 Velocity{ 0.0f };          // UI units per second (inertia, the spring)
+        bool Dragging = false;               // its content or a scrollbar is dragged
+        bool ScrollChanged = false;          // true for one frame: it moved
+        bool ShowHorizontalBar = false;      // the scrollbars shown now (the layout leaves room for them)
+        bool ShowVerticalBar = false;
+        int HoveredBar = -1;                 // the scrollbar under the mouse: 0 horizontal, 1 vertical, -1 none
+        int DraggedBar = -1;
+        bool Revealing = false;              // moving to show the selected widget
+        glm::vec2 RevealTarget{ 0.0f };      // the content's Position it moves to
+        bool PositionKnown = false;          // NormalizedPosition was measured (the first frame tells nothing)
+
+        void ResetRuntime()
+        {
+            NormalizedPosition = { 0.0f, 1.0f };
+            Velocity = RevealTarget = glm::vec2(0.0f);
+            Dragging = ScrollChanged = Revealing = PositionKnown = false;
+            HoveredBar = DraggedBar = -1;
+        }
+    };
+
     // ------------------------------------------------------------------ physics 2D
     struct Rigidbody2DComponent
     {
@@ -1859,7 +1925,7 @@ namespace Zamin {
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
         SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
         UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
-        UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent,
-        AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, NativeScriptComponent, EditorMetadataComponent>;
+        UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
+        UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, NativeScriptComponent, EditorMetadataComponent>;
 
 }

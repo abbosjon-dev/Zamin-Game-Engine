@@ -171,3 +171,4 @@
 #define ICON_FA_SHUFFLE "\xef\x81\xb4"    // random variation
 #define ICON_FA_DICE "\xef\x94\xa2"
 #define ICON_FA_TREE "\xef\x86\xbb"         // ambient zone
+#define ICON_FA_ARROWS_UP_DOWN "\xef\x81\xbd" // scroll view

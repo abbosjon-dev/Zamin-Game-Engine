@@ -4346,13 +4346,15 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<UIToggleComponent>();
     e.AddComponent<UIProgressBarComponent>();
     e.AddComponent<UIInputFieldComponent>();
+    e.AddComponent<UIMaskComponent>();
+    e.AddComponent<UIScrollViewComponent>();
     e.AddComponent<AudioSourceComponent>();
     e.AddComponent<AudioListenerComponent>();
     e.AddComponent<AmbientZoneComponent>();
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 59);
+    CHECK(types.size() == 61);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -24472,4 +24474,431 @@ TEST(UIRectPickingForTheEditor)
     scene->SetUIAnchors(label, { 0.0f, 0.0f }, { 1.0f, 1.0f }, true);
     CHECK(RectNear(scene->GetUIRect(label), { { 640.0f, 640.0f }, { 900.0f, 690.0f } }));
     CHECK(lt.IsStretchedX() && lt.IsStretchedY());
+}
+
+// ------------------------------------------------------------------ M12: masks and scroll views
+TEST(UIScrollMath)
+{
+    const UIRect view{ { 0.0f, 0.0f }, { 200.0f, 100.0f } };
+    // Bigger content: no gap at an edge; at the top / left it is in bounds.
+    const UIRect content{ { 0.0f, -300.0f }, { 400.0f, 100.0f } }; // 400 x 400, top at the view's top
+    CHECK(UIScroll::CalcOffset(view, content, true, true) == glm::vec2(0.0f));
+    CHECK(UIScroll::GetNormalizedPosition(view, content) == glm::vec2(0.0f, 1.0f));
+    // Pulled down 30 (a gap at the top) and left 50 too far (a gap at the right).
+    const UIRect pulled{ { -250.0f, -330.0f }, { 150.0f, 70.0f } };
+    CHECK(UIScroll::CalcOffset(view, pulled, true, true) == glm::vec2(50.0f, 30.0f));
+    CHECK(UIScroll::CalcOffset(view, pulled, false, true) == glm::vec2(0.0f, 30.0f)); // only the axes that scroll
+    // Smaller content sits at the top-left.
+    const UIRect small{ { 30.0f, 10.0f }, { 130.0f, 60.0f } };
+    CHECK(UIScroll::CalcOffset(view, small, true, true) == glm::vec2(-30.0f, 40.0f));
+    CHECK(UIScroll::GetNormalizedPosition(view, small) == glm::vec2(0.0f, 1.0f));
+    // Normalized positions: halfway, then moved there.
+    const UIRect half{ { -100.0f, -150.0f }, { 300.0f, 250.0f } };
+    CHECK_NEAR(UIScroll::GetNormalizedPosition(view, half).x, 0.5f, 1e-5f);
+    CHECK_NEAR(UIScroll::GetNormalizedPosition(view, half).y, 0.5f, 1e-5f);
+    const glm::vec2 toBottomRight = UIScroll::MoveToNormalized(view, content, { 1.0f, 0.0f }, { true, true });
+    CHECK(toBottomRight == glm::vec2(-200.0f, 300.0f));
+    CHECK(UIScroll::GetNormalizedPosition(view, { content.Min + toBottomRight, content.Max + toBottomRight }) == glm::vec2(1.0f, 0.0f));
+    CHECK(UIScroll::MoveToNormalized(view, content, { 1.0f, 0.0f }, { false, true }).x == 0.0f);
+    // The rubber band: less than pulled, ever less, never a whole view; signs kept.
+    const float r1 = UIScroll::RubberDelta(50.0f, 100.0f), r2 = UIScroll::RubberDelta(100.0f, 100.0f);
+    CHECK(r1 > 0.0f && r1 < 50.0f && r2 > r1 && r2 - r1 < r1 && UIScroll::RubberDelta(1e6f, 100.0f) < 100.0f);
+    CHECK_NEAR(UIScroll::RubberDelta(-50.0f, 100.0f), -r1, 1e-5f);
+    CHECK(UIScroll::RubberDelta(10.0f, 0.0f) == 0.0f);
+    // The spring: gets there without overshooting, the velocity dies out.
+    float x = 0.0f, v = 0.0f;
+    bool overshot = false;
+    for (int i = 0; i < 120; i++)
+    {
+        x = UIScroll::SmoothDamp(x, 100.0f, v, 0.1f, 1.0f / 60.0f);
+        overshot |= x > 100.0f;
+    }
+    CHECK(!overshot && std::abs(x - 100.0f) < 0.01f && std::abs(v) < 0.1f);
+    // Inertia: rate 0.5 keeps half after a second; below 1 unit/s it stops.
+    CHECK_NEAR(UIScroll::Decelerate(100.0f, 0.5f, 1.0f), 50.0f, 1e-3f);
+    CHECK(UIScroll::Decelerate(1.5f, 0.5f, 1.0f) == 0.0f);
+    CHECK(UIScroll::Decelerate(-100.0f, 1.0f, 1.0f) == -100.0f);
+    // Revealing a child: below the view it comes up to the bottom edge (with the margin); above, down
+    // to the top; shown already: nothing.
+    CHECK(UIScroll::RevealDelta(view, { { 10.0f, -60.0f }, { 50.0f, -20.0f } }, 5.0f, { true, true }) == glm::vec2(0.0f, 65.0f));
+    CHECK(UIScroll::RevealDelta(view, { { 10.0f, 120.0f }, { 50.0f, 160.0f } }, 0.0f, { true, true }) == glm::vec2(0.0f, -60.0f));
+    CHECK(UIScroll::RevealDelta(view, { { 10.0f, 20.0f }, { 50.0f, 60.0f } }, 5.0f, { true, true }) == glm::vec2(0.0f));
+    CHECK(UIScroll::RevealDelta(view, { { 250.0f, 20.0f }, { 300.0f, 60.0f } }, 0.0f, { true, false }) == glm::vec2(-100.0f, 0.0f));
+
+    // Scrollbars: the vertical one along the right edge, the horizontal one along the bottom
+    // (each stops before the other's corner); the handle shows the part of the content in view.
+    const UIRect rect{ { 0.0f, 0.0f }, { 300.0f, 200.0f } };
+    const UIRect vTrack = UIScroll::GetScrollbarTrack(rect, true, 10.0f, 2.0f, true);
+    CHECK(RectNear(vTrack, { { 288.0f, 14.0f }, { 298.0f, 198.0f } }));
+    const UIRect hTrack = UIScroll::GetScrollbarTrack(rect, false, 10.0f, 2.0f, true);
+    CHECK(RectNear(hTrack, { { 2.0f, 2.0f }, { 286.0f, 12.0f } }));
+    CHECK(RectNear(UIScroll::GetChildArea(rect, true, true, 10.0f, 2.0f), { { 0.0f, 14.0f }, { 286.0f, 200.0f } }));
+    const float length = UIScroll::GetHandleLength(184.0f, 100.0f, 400.0f, 20.0f);
+    CHECK_NEAR(length, 46.0f, 1e-4f);
+    CHECK(UIScroll::GetHandleLength(184.0f, 100.0f, 100000.0f, 20.0f) == 20.0f);   // never smaller than the minimum
+    CHECK(UIScroll::GetHandleLength(184.0f, 400.0f, 100.0f, 20.0f) == 184.0f);      // fits: the whole track
+    const UIRect top = UIScroll::GetScrollbarHandle(vTrack, true, length, 1.0f);
+    CHECK(RectNear(top, { { 288.0f, 152.0f }, { 298.0f, 198.0f } }));
+    const UIRect bottom = UIScroll::GetScrollbarHandle(vTrack, true, length, 0.0f);
+    CHECK(RectNear(bottom, { { 288.0f, 14.0f }, { 298.0f, 60.0f } }));
+    // The handle's centre at a point (held where it was grabbed) -> the position, clamped.
+    CHECK_NEAR(UIScroll::ScrollbarValueAt(vTrack, true, length, { 293.0f, 175.0f }, 0.0f), 1.0f, 1e-4f);
+    CHECK_NEAR(UIScroll::ScrollbarValueAt(vTrack, true, length, { 293.0f, 37.0f }, 0.0f), 0.0f, 1e-4f);
+    CHECK_NEAR(UIScroll::ScrollbarValueAt(vTrack, true, length, { 293.0f, 106.0f }, 0.0f), 0.5f, 1e-4f);
+    CHECK_NEAR(UIScroll::ScrollbarValueAt(vTrack, true, length, { 293.0f, 116.0f }, 10.0f), 0.5f, 1e-4f);
+    CHECK(UIScroll::ScrollbarValueAt(vTrack, true, length, { 293.0f, -500.0f }, 0.0f) == 0.0f);
+    CHECK_NEAR(UIScroll::ScrollbarValueAt(hTrack, false, 71.0f, { 2.0f + 35.5f + 106.5f, 7.0f }, 0.0f), 0.5f, 1e-4f);
+
+    // A mask's clip: padding in, cut by the clip it is in itself.
+    CHECK(RectNear(UIScroll::MaskClip(rect, { 10.0f, 20.0f, 30.0f, 40.0f }, false, {}), { { 10.0f, 40.0f }, { 280.0f, 170.0f } }));
+    CHECK(RectNear(UIScroll::MaskClip(rect, glm::vec4(0.0f), true, { { 100.0f, -50.0f }, { 400.0f, 50.0f } }), { { 100.0f, 0.0f }, { 300.0f, 50.0f } }));
+    CHECK(UIScroll::MaskClip(rect, glm::vec4(0.0f), true, { { 500.0f, 0.0f }, { 600.0f, 50.0f } }).IsEmpty());
+}
+
+TEST(UIMaskClipsDrawingAndPicking)
+{
+    auto scene = CreateRef<Scene>();
+    scene->OnViewportResize(800, 600);
+    using A = UITransformComponent::AnchorPoint;
+    Entity panel = MakeUIRect(scene, "Panel", A::Center, { 0.0f, 0.0f }, { 200.0f, 200.0f }); // x 300..500, y 200..400
+    panel.AddComponent<UIImageComponent>();
+    auto& mask = panel.AddComponent<UIMaskComponent>();
+    Entity inside = MakeUIRect(scene, "Inside", A::Center, { 90.0f, 0.0f }, { 100.0f, 50.0f });   // x 440..540: half out
+    inside.AddComponent<UIButtonComponent>();
+    scene->SetParent(inside, panel, false);
+    Entity outside = MakeUIRect(scene, "Outside", A::Center, { 160.0f, 0.0f }, { 100.0f, 50.0f }); // x 510..610: all out
+    outside.AddComponent<UIButtonComponent>();
+    scene->SetParent(outside, panel, false);
+    Entity free = MakeUIRect(scene, "Free", A::Center, { 300.0f, 0.0f }, { 80.0f, 50.0f });        // x 660..740, not masked
+    free.AddComponent<UIButtonComponent>();
+
+    UIRect clip;
+    CHECK(!scene->GetUIClipRect(panel, clip)); // the mask itself is not clipped by it
+    CHECK(scene->GetUIClipRect(inside, clip) && RectNear(clip, { { 300.0f, 200.0f }, { 500.0f, 400.0f } }));
+    CHECK(!scene->GetUIClipRect(free, clip));
+    // Only the part inside the mask is found by the mouse (the rest reaches what is below).
+    CHECK(scene->PickUI({ 470.0f, 300.0f }) == inside);
+    CHECK(scene->PickUI({ 520.0f, 300.0f }) != inside && !scene->PickUI({ 520.0f, 300.0f }));
+    CHECK(!scene->PickUI({ 560.0f, 300.0f }));
+    CHECK(scene->PickUI({ 700.0f, 300.0f }) == free);
+    CHECK(scene->PickUIRect({ 520.0f, 300.0f }) != outside && !scene->PickUIRect({ 560.0f, 300.0f })); // the editor's picking too
+    // Navigation does not go to a widget a mask hides altogether.
+    CHECK(scene->FindUINavigationTarget(inside, UINavDirection::Right) == free);
+
+    // Padding moves the clip in; a mask in a mask shows only what both let through.
+    mask.Padding = { 10.0f, 20.0f, 30.0f, 40.0f };
+    CHECK(scene->GetUIClipRect(inside, clip) && RectNear(clip, { { 310.0f, 240.0f }, { 480.0f, 370.0f } }));
+    mask.Padding = glm::vec4(0.0f);
+    Entity inner = MakeUIRect(scene, "Inner", A::Center, { 80.0f, 80.0f }, { 100.0f, 100.0f }); // x 430..530, y 330..430
+    inner.AddComponent<UIMaskComponent>();
+    scene->SetParent(inner, panel, false);
+    Entity deep = MakeUIRect(scene, "Deep", A::Center, { 0.0f, 0.0f }, { 100.0f, 100.0f });
+    deep.GetComponent<UITransformComponent>().SetStretch();
+    deep.AddComponent<UIButtonComponent>();
+    scene->SetParent(deep, inner, false);
+    CHECK(scene->GetUIClipRect(deep, clip) && RectNear(clip, { { 430.0f, 330.0f }, { 500.0f, 400.0f } }));
+    CHECK(scene->PickUI({ 450.0f, 390.0f }) == deep);
+    CHECK(scene->PickUI({ 450.0f, 410.0f }) != deep); // inside Inner, outside Panel
+    CHECK(scene->PickUI({ 510.0f, 350.0f }) != deep); // inside Panel's rect line, outside it
+    // Switched off, a mask clips nothing; its children are also off.
+    panel.RemoveComponent<UIMaskComponent>();
+    CHECK(scene->PickUI({ 505.0f, 300.0f }) == inside);
+    CHECK(scene->GetUIClipRect(deep, clip) && RectNear(clip, { { 430.0f, 330.0f }, { 530.0f, 430.0f } }));
+    panel.AddComponent<UIMaskComponent>();
+
+    // Under a scaled canvas the clip is in view pixels; a look (scale) shrinks it with the element.
+    Entity canvas = scene->CreateEntity("Canvas");
+    canvas.AddComponent<UITransformComponent>().SetStretch();
+    canvas.AddComponent<UICanvasComponent>().ReferenceResolution = { 1600.0f, 1200.0f }; // scale 0.5
+    scene->SetParent(panel, canvas, false);
+    CHECK(scene->GetUIClipRect(inside, clip) && RectNear(clip, { { 350.0f, 250.0f }, { 450.0f, 350.0f } }));
+    panel.GetComponent<UITransformComponent>().Scale = { 0.5f, 0.5f }; // around its centre (400, 300 px)
+    CHECK(scene->GetUIClipRect(inside, clip) && RectNear(clip, { { 375.0f, 275.0f }, { 425.0f, 325.0f } }));
+
+    // Saved and loaded.
+    panel.GetComponent<UIMaskComponent>().ShowGraphic = false;
+    panel.GetComponent<UIMaskComponent>().Padding = { 1.0f, 2.0f, 3.0f, 4.0f };
+    const std::string text = SceneSerializer::SerializeEntities(*scene, { panel });
+    auto loaded = CreateRef<Scene>();
+    SceneSerializer::DeserializeEntities(*loaded, text, false);
+    bool found = false;
+    for (auto e : loaded->GetAllEntitiesWith<UIMaskComponent>())
+    {
+        Entity m{ e, loaded.get() };
+        if (m.GetName() != "Panel")
+            continue;
+        found = true;
+        const auto& c = m.GetComponent<UIMaskComponent>();
+        CHECK(!c.ShowGraphic && c.Padding == glm::vec4(1.0f, 2.0f, 3.0f, 4.0f));
+    }
+    CHECK(found);
+}
+
+// A 300 x 200 scroll view in the middle of an 800 x 600 view (x 250..550, y 200..400) with a mask
+// and a list of `rows` 40-high buttons (a vertical layout group that fits its height, pinned to
+// the top and stretched across).
+struct ScrollFixture
+{
+    Ref<Scene> SceneRef;
+    Entity View, Content;
+    std::vector<Entity> Rows;
+};
+
+static ScrollFixture MakeScrollFixture(int rows = 10)
+{
+    ScrollFixture f;
+    f.SceneRef = CreateRef<Scene>();
+    auto& scene = f.SceneRef;
+    scene->OnViewportResize(800, 600);
+    f.View = MakeUIRect(scene, "Scroll", UITransformComponent::AnchorPoint::Center, { 0.0f, 0.0f }, { 300.0f, 200.0f });
+    f.View.AddComponent<UIImageComponent>();
+    f.View.AddComponent<UIMaskComponent>();
+    auto& s = f.View.AddComponent<UIScrollViewComponent>();
+    f.Content = scene->CreateEntity("Content");
+    auto& ct = f.Content.AddComponent<UITransformComponent>();
+    ct.AnchorMin = { 0.0f, 1.0f };
+    ct.AnchorMax = { 1.0f, 1.0f };
+    ct.Pivot = { 0.5f, 1.0f };
+    ct.Position = { 0.0f, 0.0f };
+    ct.Size = { 0.0f, 100.0f };
+    auto& group = f.Content.AddComponent<UILayoutGroupComponent>();
+    group.Type = UILayoutType::Vertical;
+    group.Spacing = 0.0f;
+    group.ControlChildWidth = group.ChildForceExpandWidth = true;
+    group.FitHeight = true;
+    scene->SetParent(f.Content, f.View, false);
+    s.Content.ID = f.Content.GetUUID();
+    for (int i = 0; i < rows; i++)
+    {
+        Entity row = MakeUIRect(scene, std::format("Row{}", i), UITransformComponent::AnchorPoint::Center, { 0.0f, 0.0f }, { 100.0f, 40.0f });
+        row.AddComponent<UIButtonComponent>();
+        scene->SetParent(row, f.Content, false);
+        f.Rows.push_back(row);
+    }
+    return f;
+}
+
+TEST(UIScrollViewLayoutAndWheel)
+{
+    ScrollFixture f = MakeScrollFixture();
+    auto& scene = f.SceneRef;
+    auto& s = f.View.GetComponent<UIScrollViewComponent>();
+    // The content (400 high) does not fit: the vertical bar shows and the children are laid out
+    // left of it (10 + 2 x 3 px); the view is that space.
+    CHECK(RectNear(scene->GetUIRect(f.Content), { { 250.0f, 0.0f }, { 534.0f, 400.0f } }));
+    CHECK(s.ShowVerticalBar && !s.ShowHorizontalBar);
+    CHECK(RectNear(scene->GetScrollViewRect(f.View), { { 250.0f, 200.0f }, { 534.0f, 400.0f } }));
+    CHECK(scene->GetScrollPosition(f.View) == glm::vec2(0.0f, 1.0f));
+    CHECK(scene->GetScrollContent(f.View) == f.Content);
+    // The rows below the view are masked out: the mouse finds the scroll view there, not them.
+    CHECK(scene->PickUI({ 400.0f, 380.0f }) == f.Rows[0]);
+    CHECK(!scene->PickUI({ 400.0f, 150.0f })); // Row6 is there, outside the view
+    // Over the scrollbar the scroll view is found (it is drawn over the rows).
+    CHECK(scene->PickUI({ 542.0f, 380.0f }) == f.View);
+
+    scene->OnRuntimeStart();
+    int events = 0;
+    glm::vec2 last(-1.0f);
+    scene->GetEventBus().Subscribe("UIScrollChanged", [&](const ScriptMessage& m) {
+        events++;
+        CHECK(m.Is<glm::vec2>() && m.Sender == f.View);
+        last = m.Get<glm::vec2>();
+    });
+    auto frame = [&](float x, float yUp, bool down, glm::vec2 wheel = glm::vec2(0.0f)) {
+        scene->SetViewportMouse({ x, 600.0f - yUp }, down);
+        scene->SetViewportScroll(wheel);
+        scene->OnUpdateRuntime(0.016f);
+    };
+    frame(400.0f, 300.0f, false);
+    CHECK(events == 0);
+    // The wheel towards the user: the content goes up one notch (40 units).
+    frame(400.0f, 300.0f, false, { 0.0f, -1.0f });
+    CHECK_NEAR(scene->GetUIRect(f.Content).Max.y, 440.0f, 1e-3f);
+    CHECK(events == 1 && std::abs(last.y - 0.8f) < 1e-4f && s.ScrollChanged);
+    frame(400.0f, 300.0f, false);
+    CHECK(events == 1 && !s.ScrollChanged); // nothing moves by itself
+    // The wheel never pulls past an edge: ten notches down end at the bottom.
+    frame(400.0f, 300.0f, false, { 0.0f, -10.0f });
+    CHECK_NEAR(scene->GetUIRect(f.Content).Min.y, 200.0f, 1e-3f);
+    CHECK(scene->GetScrollPosition(f.View) == glm::vec2(0.0f, 0.0f));
+    frame(400.0f, 300.0f, false, { 0.0f, 3.0f }); // back up three notches
+    CHECK_NEAR(scene->GetScrollPosition(f.View).y, 0.6f, 1e-4f);
+    // The wheel outside the view does nothing.
+    frame(100.0f, 100.0f, false, { 0.0f, 3.0f });
+    CHECK_NEAR(scene->GetScrollPosition(f.View).y, 0.6f, 1e-4f);
+    // From code: a position, a move.
+    CHECK(scene->SetScrollPosition(f.View, { 0.0f, 1.0f }));
+    CHECK_NEAR(scene->GetUIRect(f.Content).Max.y, 400.0f, 1e-3f);
+    CHECK(scene->ScrollBy(f.View, { 0.0f, 1000.0f }));
+    CHECK(scene->GetScrollPosition(f.View).y == 0.0f); // clamped
+    CHECK(!scene->SetScrollPosition(f.Rows[0], { 0.0f, 0.0f })); // not a scroll view
+    scene->OnRuntimeStop();
+
+    // Content that fits: no bar (AutoHide), the children get the whole width; it sits at the top.
+    ScrollFixture small = MakeScrollFixture(3);
+    CHECK(RectNear(small.SceneRef->GetUIRect(small.Content), { { 250.0f, 280.0f }, { 550.0f, 400.0f } }));
+    CHECK(!small.View.GetComponent<UIScrollViewComponent>().ShowVerticalBar);
+    small.View.GetComponent<UIScrollViewComponent>().Scrollbars = UIScrollbarVisibility::Permanent;
+    CHECK(small.SceneRef->GetUIRect(small.Content).Max.x == 534.0f);
+}
+
+TEST(UIScrollViewDragging)
+{
+    ScrollFixture f = MakeScrollFixture();
+    auto& scene = f.SceneRef;
+    auto& s = f.View.GetComponent<UIScrollViewComponent>();
+    s.Inertia = false;
+    scene->OnRuntimeStart();
+    std::vector<std::string> log;
+    scene->GetEventBus().Subscribe("UIClick", [&](const ScriptMessage& m) { log.push_back("click " + m.Sender.GetName()); });
+    scene->GetEventBus().Subscribe("UIPointerUp", [&](const ScriptMessage& m) {
+        log.push_back(std::string("up ") + m.Sender.GetName() + (m.Get<UIPointerEvent>().Inside ? " in" : " out"));
+    });
+    auto frame = [&](float yUp, bool down) {
+        scene->SetViewportMouse({ 400.0f, 600.0f - yUp }, down);
+        scene->OnUpdateRuntime(0.016f);
+    };
+    auto top = [&]() { return scene->GetUIRect(f.Content).Max.y; };
+    // A press that does not move is a click of the row.
+    frame(300.0f, false);
+    frame(300.0f, true);
+    frame(302.0f, true);  // a little shake is still a click
+    frame(302.0f, false);
+    CHECK(log.size() == 2 && log[0] == "up Row2 in" && log[1] == "click Row2");
+    CHECK_NEAR(top(), 400.0f, 1e-3f);
+    log.clear();
+    // Dragged: the content follows the mouse, the row is let go without a click.
+    frame(300.0f, true);
+    frame(330.0f, true);
+    CHECK(s.Dragging && !f.Rows[2].GetComponent<UIButtonComponent>().Pressed);
+    CHECK_NEAR(top(), 430.0f, 1e-3f);
+    frame(350.0f, true);
+    CHECK_NEAR(top(), 450.0f, 1e-3f);
+    frame(350.0f, false);
+    CHECK(log.size() == 1 && log[0] == "up Row2 out"); // no click
+    CHECK(!s.Dragging);
+    CHECK_NEAR(top(), 450.0f, 1e-3f); // no inertia: it stays
+    log.clear();
+
+    // Elastic: pulled down past the top it follows less and less, then springs back.
+    scene->SetScrollPosition(f.View, { 0.0f, 1.0f });
+    frame(300.0f, true);
+    frame(250.0f, true);
+    frame(200.0f, true); // 100 down
+    const float pulled = top() - 400.0f;
+    CHECK(pulled < -10.0f && pulled > -60.0f);
+    CHECK_NEAR(pulled, -UIScroll::RubberDelta(100.0f, 200.0f), 1e-2f);
+    frame(200.0f, false);
+    for (int i = 0; i < 60; i++)
+        frame(200.0f, false);
+    CHECK_NEAR(top(), 400.0f, 1e-3f);
+    CHECK(s.Velocity == glm::vec2(0.0f));
+    // Clamped: it stops at the edge.
+    s.Movement = UIScrollMovement::Clamped;
+    frame(300.0f, true);
+    frame(200.0f, true);
+    CHECK_NEAR(top(), 400.0f, 1e-3f);
+    frame(200.0f, false);
+
+    // Inertia: after a quick drag it glides on, slower and slower, and stops (the spring keeps it in).
+    s.Movement = UIScrollMovement::Elastic;
+    s.Inertia = true;
+    frame(260.0f, true);
+    frame(270.0f, true);
+    frame(290.0f, true);
+    frame(310.0f, true);
+    frame(310.0f, false);
+    const float released = top();
+    frame(310.0f, false);
+    const float after1 = top();
+    frame(310.0f, false);
+    const float after2 = top();
+    CHECK(after1 > released && after2 > after1 && after2 - after1 < after1 - released + 1e-3f);
+    for (int i = 0; i < 400; i++)
+        frame(310.0f, false);
+    CHECK(s.Velocity == glm::vec2(0.0f));
+    CHECK(top() >= 400.0f - 1e-2f && top() <= 600.0f + 1e-2f);
+
+    // Not draggable: a press and a move click nothing and move nothing (the row was left: no click).
+    s.Draggable = false;
+    scene->SetScrollPosition(f.View, { 0.0f, 1.0f });
+    log.clear();
+    frame(300.0f, true);
+    frame(340.0f, true);
+    frame(340.0f, false);
+    CHECK_NEAR(top(), 400.0f, 1e-3f);
+    CHECK(log.size() == 1 && log[0] == "up Row2 out");
+    scene->OnRuntimeStop();
+}
+
+TEST(UIScrollViewScrollbarAndNavigation)
+{
+    ScrollFixture f = MakeScrollFixture();
+    auto& scene = f.SceneRef;
+    auto& s = f.View.GetComponent<UIScrollViewComponent>();
+    scene->OnRuntimeStart();
+    auto frame = [&](float x, float yUp, bool down) {
+        scene->SetViewportMouse({ x, 600.0f - yUp }, down);
+        scene->OnUpdateRuntime(0.016f);
+    };
+    // The track: x 537..547, y 203..397; the handle is half of it (the view shows half the content).
+    frame(542.0f, 380.0f, false);
+    CHECK(s.HoveredBar == 1 && scene->GetHoveredUI() == f.View);
+    // A click low on the track: the handle jumps under the mouse (to the bottom), then follows it.
+    frame(542.0f, 210.0f, true);
+    CHECK(s.DraggedBar == 1 && s.Dragging);
+    CHECK(scene->GetScrollPosition(f.View).y == 0.0f);
+    frame(542.0f, 300.0f, true); // the handle's centre at 300: halfway up its travel (251.5 .. 348.5)
+    CHECK_NEAR(scene->GetScrollPosition(f.View).y, (300.0f - 251.5f) / 97.0f, 1e-3f);
+    frame(542.0f, 500.0f, true); // anywhere while held
+    CHECK(scene->GetScrollPosition(f.View).y == 1.0f);
+    frame(542.0f, 500.0f, false);
+    CHECK(s.DraggedBar == -1 && !s.Dragging && s.Velocity == glm::vec2(0.0f));
+    // Grabbed on the handle, it keeps the place it was taken at.
+    frame(542.0f, 390.0f, true);  // the handle: 300..397
+    frame(542.0f, 341.5f, true);  // 48.5 down = half the travel
+    CHECK_NEAR(scene->GetScrollPosition(f.View).y, 0.5f, 1e-3f);
+    frame(542.0f, 341.5f, false);
+
+    // Keyboard / gamepad navigation scrolls the selected row into view (smoothly).
+    scene->SetScrollPosition(f.View, { 0.0f, 1.0f });
+    scene->SetSelectedUI(f.Rows[0]);
+    for (int i = 0; i < 6; i++)
+        CHECK(scene->NavigateUI(UINavDirection::Down));
+    CHECK(scene->GetSelectedUI() == f.Rows[6]);
+    CHECK(s.Revealing);
+    for (int i = 0; i < 90; i++)
+        frame(100.0f, 100.0f, false);
+    CHECK(!s.Revealing);
+    const UIRect row6 = scene->GetUIRect(f.Rows[6]), view = scene->GetScrollViewRect(f.View);
+    CHECK(row6.Min.y >= view.Min.y + 7.9f && row6.Max.y <= view.Max.y);
+    // Back up to the first: shown at the top again (the margin cannot pull past the edge).
+    for (int i = 0; i < 6; i++)
+        scene->NavigateUI(UINavDirection::Up);
+    for (int i = 0; i < 90; i++)
+        frame(100.0f, 100.0f, false);
+    CHECK(scene->GetSelectedUI() == f.Rows[0] && scene->GetScrollPosition(f.View).y == 1.0f);
+    // From code, at once.
+    CHECK(scene->ScrollIntoView(f.Rows[9], false));
+    CHECK_NEAR(scene->GetUIRect(f.Rows[9]).Min.y, 200.0f, 1e-3f); // the bottom edge (no room for the margin)
+    CHECK(!scene->ScrollIntoView(f.Rows[9], false));               // shown already
+    scene->OnRuntimeStop();
+
+    // Saved and loaded with its references; a copy points at its own content.
+    s.Horizontal = true;
+    s.Movement = UIScrollMovement::Clamped;
+    s.Scrollbars = UIScrollbarVisibility::Hidden;
+    s.ScrollSensitivity = 25.0f;
+    const std::string text = SceneSerializer::SerializeEntities(*scene, { f.View, f.Content });
+    CHECK(text.find("\"Movement\": \"Clamped\"") != std::string::npos && text.find("\"Scrollbars\": \"Hidden\"") != std::string::npos);
+    auto loaded = CreateRef<Scene>();
+    std::vector<Entity> copies = SceneSerializer::DeserializeEntities(*loaded, text, true);
+    CHECK(copies.size() == 2);
+    Entity copyView, copyContent;
+    for (Entity e : copies)
+        (e.HasComponent<UIScrollViewComponent>() ? copyView : copyContent) = e;
+    CHECK(copyView && copyContent);
+    const auto& c = copyView.GetComponent<UIScrollViewComponent>();
+    CHECK(c.Content.ID == copyContent.GetUUID() && c.Horizontal && c.Movement == UIScrollMovement::Clamped &&
+          c.Scrollbars == UIScrollbarVisibility::Hidden && c.ScrollSensitivity == 25.0f);
 }

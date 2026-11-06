@@ -72,6 +72,8 @@ namespace Zamin {
             MakeTypeInfo<UIToggleComponent>(),
             MakeTypeInfo<UIProgressBarComponent>(),
             MakeTypeInfo<UIInputFieldComponent>(),
+            MakeTypeInfo<UIMaskComponent>(),
+            MakeTypeInfo<UIScrollViewComponent>(),
             MakeTypeInfo<AudioSourceComponent>(),
             MakeTypeInfo<AudioListenerComponent>(),
             MakeTypeInfo<AmbientZoneComponent>(),

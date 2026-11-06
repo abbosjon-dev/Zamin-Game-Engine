@@ -131,16 +131,48 @@ namespace Zamin {
             outScale = parentScale * own;
             outOffset = (pivot * (1.0f - own) + t.VisualOffset) * parentScale + parentOffset;
         };
-        auto box = [&](const glm::vec2& s, const glm::vec2& o) {
-            const glm::vec2 a = rect.Min * s + o, b = rect.Max * s + o;
+        auto box = [](const UIRect& r, const glm::vec2& s, const glm::vec2& o) {
+            const glm::vec2 a = r.Min * s + o, b = r.Max * s + o;
             return UIRect{ glm::min(a, b), glm::max(a, b) };
         };
         const glm::vec2 one(1.0f), zero(0.0f);
         compose(t.Scale * feedback, parentLook ? parentLook->VisScale : one, parentLook ? parentLook->VisOffset : zero, node.VisScale, node.VisOffset);
         compose(t.Scale, parentLook ? parentLook->HitScale : one, parentLook ? parentLook->HitOffset : zero, node.HitScale, node.HitOffset);
         node.Alpha = (parentLook ? parentLook->Alpha : 1.0f) * std::clamp(t.Alpha, 0.0f, 1.0f);
-        node.Visual = box(node.VisScale, node.VisOffset);
-        node.HitRect = box(node.HitScale, node.HitOffset);
+        node.Visual = box(rect, node.VisScale, node.VisOffset);
+        node.HitRect = box(rect, node.HitScale, node.HitOffset);
+        // The masks of its UI ancestors clip it.
+        if (parentLook && parentLook->ChildClipped)
+        {
+            node.Clipped = true;
+            node.VisClip = parentLook->ChildVisClip;
+            node.HitClip = parentLook->ChildHitClip;
+        }
+        auto* scroll = m_Registry.try_get<UIScrollViewComponent>(e);
+        // Its children's space (a scroll view's: without its scrollbars) and its own mask's clip for them.
+        auto prepareChildren = [&]() {
+            node.ChildArea = scroll ? UIScroll::GetChildArea(rect, scroll->ShowHorizontalBar, scroll->ShowVerticalBar, scroll->ScrollbarWidth,
+                                                             scroll->ScrollbarInset)
+                                    : rect;
+            node.ChildClipped = node.Clipped;
+            node.ChildVisClip = node.VisClip;
+            node.ChildHitClip = node.HitClip;
+            if (const auto* mask = m_Registry.try_get<UIMaskComponent>(e))
+            {
+                const UIRect area = scroll && !scroll->Viewport ? node.ChildArea : rect;
+                // Padding in view px through the look (per axis) and the canvas scale.
+                auto clip = [&](const glm::vec2& s, const glm::vec2& o, const UIRect& outer) {
+                    const glm::vec2 k = glm::abs(s) * scale;
+                    const glm::vec4 padding{ mask->Padding.x * k.x, mask->Padding.y * k.x, mask->Padding.z * k.y, mask->Padding.w * k.y };
+                    const UIRect px = box(area, s, o);
+                    return UIScroll::MaskClip({ px.Min * scale, px.Max * scale }, padding, node.Clipped, outer);
+                };
+                node.ChildVisClip = clip(node.VisScale, node.VisOffset, node.VisClip);
+                node.ChildHitClip = clip(node.HitScale, node.HitOffset, node.HitClip);
+                node.ChildClipped = true;
+            }
+        };
+        prepareChildren();
         m_UILayout[e] = node;
         if (auto* canvas = m_Registry.try_get<UICanvasComponent>(e))
             canvas->CurrentScale = scale; // an inner canvas takes the outer one's scale
@@ -148,28 +180,60 @@ namespace Zamin {
         GetUIChildren(e, children);
         if (children.empty())
             return;
-        // A layout group places its children (in hierarchy order); the rest follow their own UI Transform.
-        std::vector<entt::entity> placed;
-        std::vector<UIRect> rects;
-        if (const auto* group = m_Registry.try_get<UILayoutGroupComponent>(e))
-        {
-            std::vector<UILayoutItem> items;
+        auto layoutChildren = [&]() {
+            const UIRect area = node.ChildArea;
+            // A layout group places its children (in hierarchy order); the rest follow their own UI Transform.
+            std::vector<entt::entity> placed;
+            std::vector<UIRect> rects;
+            if (const auto* group = m_Registry.try_get<UILayoutGroupComponent>(e))
+            {
+                std::vector<UILayoutItem> items;
+                for (auto child : children)
+                    if (!IgnoredByLayout(m_Registry, child))
+                    {
+                        placed.push_back(child);
+                        items.push_back(GetUILayoutItem(child, area.GetSize(), sizes));
+                    }
+                UILayout::Arrange(area, *group, items, rects);
+            }
+            size_t next = 0;
             for (auto child : children)
-                if (!IgnoredByLayout(m_Registry, child))
-                {
-                    placed.push_back(child);
-                    items.push_back(GetUILayoutItem(child, rect.GetSize(), sizes));
-                }
-            UILayout::Arrange(rect, *group, items, rects);
-        }
-        size_t next = 0;
-        for (auto child : children)
+            {
+                if (next < placed.size() && placed[next] == child)
+                    LayoutUINode(child, area, rects[next++], scale, true, sizes, &node);
+                else
+                    LayoutUINode(child, area, ComputeOwnUIRect(child, area, sizes), scale, false, sizes, &node);
+            }
+        };
+        layoutChildren();
+        if (!scroll)
+            return;
+        // A scroll view shows a scrollbar while its content does not fit that way (AutoHide), always
+        // (Permanent) or never; the children are laid out again when that changed the room they have.
+        bool showH = false, showV = false;
+        if (scroll->Scrollbars == UIScrollbarVisibility::Permanent)
         {
-            if (next < placed.size() && placed[next] == child)
-                LayoutUINode(child, rect, rects[next++], scale, true, sizes, &node);
-            else
-                LayoutUINode(child, rect, ComputeOwnUIRect(child, rect, sizes), scale, false, sizes, &node);
+            showH = scroll->Horizontal;
+            showV = scroll->Vertical;
         }
+        else if (scroll->Scrollbars == UIScrollbarVisibility::AutoHide)
+        {
+            const entt::entity content = GetScrollContentEntity(e);
+            if (auto it = content != entt::null ? m_UILayout.find(content) : m_UILayout.end(); it != m_UILayout.end())
+            {
+                const UIRect contentRect = it->second.Rect;
+                const UIRect view = GetScrollViewRectLaidOut(e);
+                showH = scroll->Horizontal && contentRect.GetWidth() > view.GetWidth() + 0.5f;
+                showV = scroll->Vertical && contentRect.GetHeight() > view.GetHeight() + 0.5f;
+            }
+        }
+        if (showH == scroll->ShowHorizontalBar && showV == scroll->ShowVerticalBar)
+            return;
+        scroll->ShowHorizontalBar = showH;
+        scroll->ShowVerticalBar = showV;
+        prepareChildren();
+        m_UILayout[e] = node;
+        layoutChildren();
     }
 
     void Scene::LayoutUI()
@@ -282,12 +346,13 @@ namespace Zamin {
         {
             const entt::entity e = *it;
             const bool draws = m_Registry.any_of<SpriteRendererComponent, UIImageComponent, CircleRendererComponent, TextComponent>(e) ||
-                               m_Registry.any_of<UIButtonComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent>(e);
+                               m_Registry.any_of<UIButtonComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent>(e) ||
+                               m_Registry.any_of<UIScrollViewComponent>(e);
             if (!draws || !IsActiveInHierarchy({ e, this }))
                 continue;
             const UILayoutNode& node = GetUINode(e);
-            if (node.Alpha <= 0.001f || !node.HitRect.Contains(point / node.Scale))
-                continue;
+            if (node.Alpha <= 0.001f || !node.HitRect.Contains(point / node.Scale) || (node.Clipped && !node.HitClip.Contains(point)))
+                continue; // faded out, elsewhere, or hidden there by a mask
             if (accept && !accept({ e, this }))
                 continue;
             return { e, this };
@@ -389,6 +454,7 @@ namespace Zamin {
         if (auto* t = registry.try_get<UIToggleComponent>(e); t && t->Interactable) return true;
         if (auto* f = registry.try_get<UIInputFieldComponent>(e); f && f->Interactable) return true;
         if (auto* i = registry.try_get<UIImageComponent>(e); i && i->RaycastTarget) return true;
+        if (registry.all_of<UIScrollViewComponent>(e)) return true; // its view: wheel and drags (and nothing behind it is clicked)
         return false;
     }
 
@@ -401,6 +467,12 @@ namespace Zamin {
     entt::entity Scene::PickUILaidOut(const glm::vec2& point)
     {
         std::vector<entt::entity> order = GetUIDrawOrder();
+        // Scrollbars are drawn over their scroll view's content: a scroll view with one under the
+        // point is found before what is in it.
+        std::vector<entt::entity> bars;
+        for (auto e : m_Registry.view<UIScrollViewComponent>())
+            if (m_Registry.all_of<UITransformComponent>(e) && IsActiveInHierarchy({ e, this }) && ScrollbarAt(e, point) >= 0)
+                bars.push_back(e);
         // The topmost first: the last one drawn.
         for (auto it = order.rbegin(); it != order.rend(); ++it)
         {
@@ -408,10 +480,45 @@ namespace Zamin {
             if (!TakesMouse(m_Registry, e) || !IsActiveInHierarchy({ e, this }))
                 continue; // inactive UI is not drawn and cannot be hovered: the mouse reaches what is below
             const UILayoutNode& node = GetUINode(e);
-            if (node.Alpha > 0.001f && node.HitRect.Contains(point / node.Scale)) // where it is drawn; faded out: not there
-                return e;
+            // Where it is drawn; faded out: not there; hidden there by a mask: not there either.
+            if (node.Alpha <= 0.001f || !node.HitRect.Contains(point / node.Scale) || (node.Clipped && !node.HitClip.Contains(point)))
+                continue;
+            if (!bars.empty())
+                for (entt::entity a = GetUIParent(e); a != entt::null; a = GetUIParent(a))
+                    if (std::find(bars.begin(), bars.end(), a) != bars.end())
+                        return a;
+            return e;
         }
         return entt::null;
+    }
+
+    bool Scene::GetUIClipRect(Entity entity, UIRect& clip)
+    {
+        if (!HasUITransform(entity, this))
+            return false;
+        LayoutUI();
+        const UILayoutNode& node = GetUINode(entity);
+        if (!node.Clipped)
+            return false;
+        clip = node.HitClip;
+        return true;
+    }
+
+    bool Scene::IsUIClippedAway(entt::entity e)
+    {
+        const UILayoutNode& node = GetUINode(e);
+        if (!node.Clipped)
+            return false;
+        const UIRect px{ node.HitRect.Min * node.Scale, node.HitRect.Max * node.Scale };
+        return px.Intersect(node.HitClip).IsEmpty();
+    }
+
+    bool Scene::HasScrollViewAncestor(entt::entity e)
+    {
+        for (entt::entity a = GetUIParent(e); a != entt::null; a = GetUIParent(a))
+            if (m_Registry.all_of<UIScrollViewComponent>(a))
+                return true;
+        return false;
     }
 
     Entity Scene::GetHoveredUI()
@@ -527,6 +634,7 @@ namespace Zamin {
                     case UIChange::Select:        script->OnSelect(); break;
                     case UIChange::Deselect:      script->OnDeselect(); break;
                     case UIChange::Cancel:        script->OnCancel(); break;
+                    case UIChange::Scroll:        script->OnScrollChanged(change.Screen); break;
                 }
             }
         if (!m_Registry.valid(change.Entity))
@@ -548,6 +656,7 @@ namespace Zamin {
                 case UIChange::Select:        m_EventBus->Emit("UISelected", {}, entity); break;
                 case UIChange::Deselect:      m_EventBus->Emit("UIDeselected", {}, entity); break;
                 case UIChange::Cancel:        m_EventBus->Emit("UICancel", {}, entity); break;
+                case UIChange::Scroll:        m_EventBus->Emit("UIScrollChanged", change.Screen, entity); break;
             }
         // A button's click message: to its target, else to every running script.
         if (change.Kind == UIChange::Click && m_Registry.valid(change.Entity))
@@ -816,6 +925,11 @@ namespace Zamin {
         m_UINavRepeat = m_UISubmitFlashTime = 0.0f;
         m_LastUIClickTime = -1.0f;
         m_MouseWasDown = m_MouseDown;
+        m_ScrollPress = entt::null;
+        m_ScrollDragging = false;
+        m_ViewportScroll = glm::vec2(0.0f);
+        for (auto e : m_Registry.view<UIScrollViewComponent>())
+            m_Registry.get<UIScrollViewComponent>(e).ResetRuntime();
         for (auto e : m_Registry.view<UIButtonComponent>())
         {
             auto& b = m_Registry.get<UIButtonComponent>(e);
@@ -874,7 +988,12 @@ namespace Zamin {
             changes.push_back({ m_SelectedUI, UIChange::Deselect });
         m_SelectedUI = e;
         if (e != entt::null)
+        {
             changes.push_back({ e, UIChange::Select });
+            // Chosen by keys / gamepad: the scroll views it is in show it.
+            if (highlight)
+                RevealInScrollViews(e, true, 8.0f);
+        }
     }
 
     Entity Scene::GetSelectedUI()
@@ -915,7 +1034,7 @@ namespace Zamin {
         std::vector<entt::entity> candidates;
         std::vector<UIRect> rects;
         for (auto e : GetUIDrawOrder())
-            if (e != (entt::entity)from && IsUISelectable({ e, this }))
+            if (e != (entt::entity)from && IsUISelectable({ e, this }) && (!IsUIClippedAway(e) || HasScrollViewAncestor(e)))
             {
                 candidates.push_back(e);
                 rects.push_back(screenRect(e));
@@ -977,7 +1096,7 @@ namespace Zamin {
     {
         std::vector<entt::entity> order;
         for (auto e : GetUIDrawOrder())
-            if (IsUISelectable({ e, this }))
+            if (IsUISelectable({ e, this }) && (!IsUIClippedAway(e) || HasScrollViewAncestor(e))) // hidden by a mask: not reached (in a scroll view: scrolled to)
                 order.push_back(e);
         if (order.empty())
             return;
@@ -1300,6 +1419,10 @@ namespace Zamin {
             }
             m_LastUIClickEntity = hovered;
         }
+
+        // ---- scroll views: the wheel, a press that becomes a drag of the content (the widget it
+        // went down on is then not clicked), scrollbars, inertia, the spring back.
+        UpdateUIScrollViews(dt, mouse, pressedNow, released, hovered, changes);
 
         // Held down: a slider follows the mouse anywhere; an input field selects up to it (the
         // position the button came up at still counts).
@@ -1679,8 +1802,9 @@ namespace Zamin {
             }
     }
 
-    static void DrawUIInputField(UIInputFieldComponent& f, const UITransformComponent& t, const UIRect& rect, const glm::vec2& canvas,
-                                 const glm::vec2& lookScale, const glm::vec2& lookOffset, const glm::vec4& tint, int id)
+    // `outerClip`: the masks' clip it is drawn in (view px), kept after it.
+    static void DrawUIInputField(UIInputFieldComponent& f, const UITransformComponent& t, const UIRect& rect, float scale, const glm::vec2& viewport,
+                                 const UIRect* outerClip, const glm::vec2& lookScale, const glm::vec2& lookOffset, const glm::vec4& tint, int id)
     {
         if (!f.FontAsset)
             f.FontAsset = f.FontPath.empty() ? Font::GetDefault() : Font::Load(Project::GetAssetFileSystemPath(f.FontPath));
@@ -1710,11 +1834,13 @@ namespace Zamin {
         const float baseline = cy + (font->GetLineHeight() * 0.5f - font->GetAscent()) * px;
         const float top = baseline + font->GetAscent() * px, bottom = baseline + font->GetDescent() * px;
 
-        // Only inside the field (a long text scrolls under its edges).
-        const glm::vec2 v = glm::max(canvas, glm::vec2(1.0f)); // the canvas's size in UI units: the clip is 0..1 of the view
+        // Only inside the field (a long text scrolls under its edges) - and inside the masks it is in.
+        const glm::vec2 v = glm::max(viewport, glm::vec2(1.0f)); // the clip is 0..1 of the view
         UIRect clip = area.Inset(-1.0f, -1.0f, 0.0f, 0.0f).Intersect(rect);
         const glm::vec2 a = clip.Min * lookScale + lookOffset, b = clip.Max * lookScale + lookOffset; // as drawn
-        clip = { glm::min(a, b), glm::max(a, b) };
+        clip = { glm::min(a, b) * scale, glm::max(a, b) * scale };
+        if (outerClip)
+            clip = clip.Intersect(*outerClip);
         Renderer2D::SetClipRect(true, clip.Min / v, clip.Max / v);
 
         std::vector<float> offsets;
@@ -1738,7 +1864,10 @@ namespace Zamin {
                 DrawRectFilled({ { x - width * 0.5f, bottom }, { x + width * 0.5f, top } }, f.CaretColor * tint, id);
             }
         }
-        Renderer2D::SetClipRect(false);
+        if (outerClip)
+            Renderer2D::SetClipRect(true, outerClip->Min / v, outerClip->Max / v);
+        else
+            Renderer2D::SetClipRect(false);
     }
 
     // ------------------------------------------------------------------ the UI pass
@@ -1779,14 +1908,76 @@ namespace Zamin {
         };
         auto useNode = [&](const UILayoutNode& node) { useView(node.Scale, node.VisScale, node.VisOffset); };
         useView(1.0f, glm::vec2(1.0f), glm::vec2(0.0f));
+        // The masks' clip (view px) the next draws go through.
+        const glm::vec2 view01 = glm::max(viewport, glm::vec2(1.0f));
+        bool clipOn = false;
+        UIRect clipRect;
+        auto useClip = [&](bool on, const UIRect& r) {
+            if (on == clipOn && (!on || (r.Min == clipRect.Min && r.Max == clipRect.Max)))
+                return;
+            clipOn = on;
+            clipRect = r;
+            if (on)
+                Renderer2D::SetClipRect(true, r.Min / view01, r.Max / view01);
+            else
+                Renderer2D::SetClipRect(false);
+        };
+        // Scroll views draw their scrollbars over their content: when their subtree has been drawn.
+        struct AfterSubtree
+        {
+            entt::entity Entity;
+            int Depth;
+        };
+        std::vector<AfterSubtree> after;
+        auto depthOf = [&](entt::entity e) {
+            int depth = 0;
+            for (entt::entity a = GetUIParent(e); a != entt::null && depth < 1024; a = GetUIParent(a))
+                depth++;
+            return depth;
+        };
+        auto drawScrollbars = [&](entt::entity sv) {
+            const UILayoutNode& node = GetUINode(sv);
+            useNode(node);
+            useClip(node.Clipped, node.VisClip);
+            const auto& s = m_Registry.get<UIScrollViewComponent>(sv);
+            const ScrollbarGeometry g = GetScrollbars(sv);
+            glm::vec4 animated = m_Registry.all_of<TintAnimationComponent>(sv) ? m_Registry.get<TintAnimationComponent>(sv).GetColor() : glm::vec4(1.0f);
+            animated.a *= node.Alpha;
+            for (int axis = 0; axis < 2; axis++)
+            {
+                if (!g.Show[axis])
+                    continue;
+                glm::vec4 handle = s.HandleColor;
+                if (s.DraggedBar == axis)
+                    handle = Darken(handle, 0.15f);
+                else if (s.HoveredBar == axis)
+                    handle = Lighten(handle, 0.25f);
+                DrawBar(g.Track[axis], s.TrackColor * animated, true, (int)(uint32_t)sv);
+                DrawBar(g.Handle[axis], handle * animated, true, (int)(uint32_t)sv);
+            }
+        };
         const bool highlight = IsUISelectionHighlighted();
         for (auto e : ui)
         {
+            const int depth = depthOf(e);
+            while (!after.empty() && after.back().Depth >= depth)
+            {
+                drawScrollbars(after.back().Entity);
+                after.pop_back();
+            }
             const auto& t = m_Registry.get<UITransformComponent>(e);
             const UILayoutNode& node = GetUINode(e);
             if (node.Alpha <= 0.001f)
                 continue; // faded out (its children too)
+            if (node.Clipped && node.VisClip.IsEmpty())
+                continue; // all of it is outside its masks (its children too)
             useNode(node);
+            useClip(node.Clipped, node.VisClip);
+            if (const auto* s = m_Registry.try_get<UIScrollViewComponent>(e); s && (s->ShowHorizontalBar || s->ShowVerticalBar))
+                after.push_back({ e, depth });
+            // A mask that only clips does not draw its own picture.
+            const auto* mask = m_Registry.try_get<UIMaskComponent>(e);
+            const bool graphic = !mask || mask->ShowGraphic;
             const UIRect uiRect = node.Rect;
             const glm::vec2 center = uiRect.GetCenter(), uiSize = uiRect.GetSize();
             int id = (int)(uint32_t)e;
@@ -1805,8 +1996,8 @@ namespace Zamin {
             animated.a *= node.Alpha; // its alpha and its UI ancestors' fade all of it
             tint *= animated;
 
-            auto* image = m_Registry.try_get<UIImageComponent>(e);
-            if (auto* s = m_Registry.try_get<SpriteRendererComponent>(e))
+            auto* image = graphic ? m_Registry.try_get<UIImageComponent>(e) : nullptr;
+            if (auto* s = graphic ? m_Registry.try_get<SpriteRendererComponent>(e) : nullptr)
             {
                 glm::vec4 c = s->Color * tint;
                 const AssetRegistry* sheets = !s->SpriteName.empty() ? registry : nullptr;
@@ -1815,12 +2006,12 @@ namespace Zamin {
                 else // 9-slice / tiled panels: borders in UI units
                     DrawSprite(glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f)), *s, nullptr, c, id, sheets, &uiSize);
             }
-            else if (m_Registry.all_of<UIButtonComponent>(e) && !image)
+            else if (graphic && m_Registry.all_of<UIButtonComponent>(e) && !m_Registry.all_of<UIImageComponent>(e))
                 Renderer2D::DrawQuad(rect, tint, id);
             if (image)
                 DrawUIImage(*image, uiRect, image->Color * tint, id, registry);
 
-            if (auto* c = m_Registry.try_get<CircleRendererComponent>(e))
+            if (auto* c = graphic ? m_Registry.try_get<CircleRendererComponent>(e) : nullptr)
                 Renderer2D::DrawCircle(rect, c->Color * animated, c->Thickness, c->Fade, id);
 
             // Widgets draw over the entity's own picture.
@@ -1832,7 +2023,7 @@ namespace Zamin {
             if (toggle)
                 DrawUIToggle(*toggle, uiRect, m_IsRunning, selected, animated, id);
             if (auto* f = m_Registry.try_get<UIInputFieldComponent>(e))
-                DrawUIInputField(*f, t, uiRect, canvas, node.VisScale, node.VisOffset, animated, id);
+                DrawUIInputField(*f, t, uiRect, node.Scale, viewport, clipOn ? &clipRect : nullptr, node.VisScale, node.VisOffset, animated, id);
 
             if (auto* text = m_Registry.try_get<TextComponent>(e))
             {
@@ -1847,7 +2038,13 @@ namespace Zamin {
             }
         }
 
-        // The keyboard / gamepad selection's outline, over everything.
+        while (!after.empty())
+        {
+            drawScrollbars(after.back().Entity);
+            after.pop_back();
+        }
+
+        // The keyboard / gamepad selection's outline, over everything (inside the masks it is in).
         if (highlight && m_Registry.valid(m_SelectedUI) && m_UILayout.contains(m_SelectedUI) && (!skip || !skip->contains(m_SelectedUI)) &&
             IsActiveInHierarchy({ m_SelectedUI, this }))
         {
@@ -1856,12 +2053,14 @@ namespace Zamin {
             {
                 const UILayoutNode& node = GetUINode(m_SelectedUI);
                 useNode(node);
+                useClip(node.Clipped, node.VisClip);
                 const glm::vec4 color = nav ? nav->HighlightColor : UINavigationComponent{}.HighlightColor;
                 // Pulses softly so it is noticed.
                 const float pulse = 0.75f + 0.25f * std::cos(m_UITime * 5.0f);
                 DrawRectOutline(node.Rect.Inset(-4.0f), 3.0f, glm::vec4(glm::vec3(color), color.a * pulse * node.Alpha), (int)(uint32_t)m_SelectedUI);
             }
         }
+        useClip(false, {});
         Renderer2D::EndScene();
         RenderCommand::SetDepthTest(true);
     }

@@ -28,9 +28,11 @@ namespace Zamin {
         if (e.HasComponent<UIToggleComponent>()) return ICON_FA_SQUARE_CHECK;
         if (e.HasComponent<UIProgressBarComponent>()) return ICON_FA_BARS_PROGRESS;
         if (e.HasComponent<UIButtonComponent>()) return ICON_FA_HAND_POINTER;
+        if (e.HasComponent<UIScrollViewComponent>()) return ICON_FA_ARROWS_UP_DOWN;
         if (e.HasComponent<UILayoutGroupComponent>()) return ICON_FA_LIST;
         if (e.HasComponent<UIImageComponent>()) return ICON_FA_IMAGE;
         if (e.HasComponent<UICanvasComponent>()) return ICON_FA_EXPAND;
+        if (e.HasComponent<UIMaskComponent>()) return ICON_FA_CROP;
         if (e.HasComponent<UITransformComponent>()) return ICON_FA_TABLE_CELLS;
         if (e.HasComponent<ParticleSystemComponent>()) return ICON_FA_WAND_MAGIC_SPARKLES;
         if (e.HasComponent<CameraComponent>()) return ICON_FA_CAMERA;
@@ -605,6 +607,47 @@ namespace Zamin {
                 m_Context->SetParent(button, e, false);
             }
         }
+        else if (p == "UI Scroll View")
+        {
+            // A panel that clips and scrolls a list: its content (a vertical layout group that grows
+            // with its rows) is pinned to the top and stretched across.
+            e = m_Context->CreateEntity("UI Scroll View");
+            auto& ui = e.AddComponent<UITransformComponent>();
+            ui.SetAnchor(UITransformComponent::AnchorPoint::Center);
+            ui.Position = { 0.0f, 0.0f };
+            ui.Size = { 360.0f, 280.0f };
+            e.AddComponent<UIImageComponent>().Color = { 0.08f, 0.09f, 0.12f, 0.92f };
+            e.AddComponent<UIMaskComponent>();
+            auto& scroll = e.AddComponent<UIScrollViewComponent>();
+            Entity content = m_Context->CreateEntity("Content");
+            auto& ct = content.AddComponent<UITransformComponent>();
+            ct.AnchorMin = { 0.0f, 1.0f };
+            ct.AnchorMax = { 1.0f, 1.0f };
+            ct.Pivot = { 0.5f, 1.0f };
+            ct.Position = { 0.0f, 0.0f };
+            ct.Size = { 0.0f, 400.0f };
+            auto& group = content.AddComponent<UILayoutGroupComponent>();
+            group.Type = UILayoutType::Vertical;
+            group.Padding = glm::vec4(12.0f);
+            group.Spacing = 8.0f;
+            group.ControlChildWidth = group.ChildForceExpandWidth = true;
+            group.FitHeight = true;
+            m_Context->SetParent(content, e, false);
+            scroll.Content.ID = content.GetUUID();
+            for (int i = 0; i < 8; i++)
+            {
+                Entity row = m_Context->CreateEntity(std::format("Qator {}", i + 1));
+                auto& rt = row.AddComponent<UITransformComponent>();
+                rt.Size = { 300.0f, 44.0f };
+                rt.FontSize = 20.0f;
+                row.AddComponent<UIButtonComponent>();
+                auto& t = row.AddComponent<TextComponent>();
+                t.Text = std::format("Element {}", i + 1);
+                t.AlignH = TextAlignH::Center;
+                t.FontAsset = Font::GetDefault();
+                m_Context->SetParent(row, content, false);
+            }
+        }
         else if (p == "UI Button")
         {
             e = m_Context->CreateEntity("UI Tugma");
@@ -702,6 +745,7 @@ namespace Zamin {
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_EXPAND "  Canvas (ekranga moslashadi)")) CreateEntityPreset("UI Canvas");
             if (ImGui::MenuItem(ICON_FA_LIST "  Menyu (vertikal layout)")) CreateEntityPreset("UI Menu");
+            if (ImGui::MenuItem(ICON_FA_ARROWS_UP_DOWN "  Scroll view (ro'yxat)")) CreateEntityPreset("UI Scroll View");
             ImGui::EndMenu();
         }
         if (ImGui::MenuItem(ICON_FA_VOLUME_HIGH "  Ovoz manbai")) CreateEntityPreset("Audio");
@@ -1265,7 +1309,7 @@ namespace Zamin {
             { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
             { "UICanvas", "UI Canvas" }, { "UILayoutGroup", "UI Layout Group" }, { "UILayoutElement", "UI Layout Element" }, { "UINavigation", "UI Navigation" },
             { "UIButton", "UI Button" }, { "UIImage", "UI Image" }, { "UISlider", "UI Slider" }, { "UIToggle", "UI Toggle" },
-            { "UIProgressBar", "UI Progress Bar" }, { "UIInputField", "UI Input Field" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "AmbientZone", "Ambient Zone" },
+            { "UIProgressBar", "UI Progress Bar" }, { "UIInputField", "UI Input Field" }, { "UIMask", "UI Mask" }, { "UIScrollView", "UI Scroll View" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "AmbientZone", "Ambient Zone" },
             { "NativeScript", "C++ Skript" },
         };
         for (const auto& [k, name] : s_Names)
@@ -1845,7 +1889,8 @@ namespace Zamin {
                 if (!entity.HasComponent<UITransformComponent>())
                     entity.AddComponent<UITransformComponent>().SetStretch();
             if constexpr (std::is_same_v<T, UILayoutGroupComponent> || std::is_same_v<T, UILayoutElementComponent> ||
-                          std::is_same_v<T, UINavigationComponent> || std::is_same_v<T, UIAnimationComponent>)
+                          std::is_same_v<T, UINavigationComponent> || std::is_same_v<T, UIAnimationComponent> ||
+                          std::is_same_v<T, UIMaskComponent> || std::is_same_v<T, UIScrollViewComponent>)
                 if (!entity.HasComponent<UITransformComponent>())
                 {
                     auto& ui = entity.AddComponent<UITransformComponent>();
@@ -5440,6 +5485,8 @@ namespace Zamin {
                 DisplayAddComponentEntry<UIToggleComponent>("UI Toggle (belgilash)", ICON_FA_SQUARE_CHECK);
                 DisplayAddComponentEntry<UIProgressBarComponent>("UI Progress Bar", ICON_FA_BARS_PROGRESS);
                 DisplayAddComponentEntry<UIInputFieldComponent>("UI Input Field (matn maydoni)", ICON_FA_I_CURSOR);
+                DisplayAddComponentEntry<UIMaskComponent>("UI Mask (bolalarini to'rtburchakda kesadi)", ICON_FA_CROP);
+                DisplayAddComponentEntry<UIScrollViewComponent>("UI Scroll View (aylantiriladigan ro'yxat)", ICON_FA_ARROWS_UP_DOWN);
                 ImGui::SeparatorText("Boshqa");
                 DisplayAddComponentEntry<AudioSourceComponent>("Audio Source", ICON_FA_VOLUME_HIGH);
                 DisplayAddComponentEntry<AudioListenerComponent>("Audio Listener (tinglovchi)", ICON_FA_EAR_LISTEN);
@@ -7129,6 +7176,86 @@ namespace Zamin {
             changed |= UI::PropertyBool("Foizni ko'rsatish", c.ShowPercentage);
             if (c.ShowPercentage)
                 changed |= UI::PropertyColor4("Matn rangi", c.TextColor);
+            return changed;
+        }, true, modified);
+
+        AddSection<UIMaskComponent>(ICON_FA_CROP, "UI Mask", entity, [&](UIMaskComponent& c) {
+            bool changed = UI::PropertyBool("O'z rasmini ko'rsatish", c.ShowGraphic);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("O'chiq: maskaning o'z rasmi (UI Image, sprite, tugma rangi) chizilmaydi - faqat bolalarini kesadi");
+            changed |= UI::PropertyFloat4("Ichki chekka (C, O', Y, P)", c.Padding, 0.5f);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Kesish to'rtburchagi chetlardan shuncha UI birligi ichkarida (manfiy - tashqarida)");
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("Bolalari faqat shu to'rtburchak ichida ko'rinadi va bosiladi");
+            if (m_Context && entity.HasComponent<UITransformComponent>())
+            {
+                UIRect clip;
+                if (m_Context->GetUIClipRect(entity, clip))
+                {
+                    UI::PropertyLabel("");
+                    ImGui::TextDisabled("O'zi ham ota maskasi ichida (%.0f x %.0f px)", clip.GetWidth(), clip.GetHeight());
+                }
+            }
+            return changed;
+        }, true, modified);
+
+        AddSection<UIScrollViewComponent>(ICON_FA_ARROWS_UP_DOWN, "UI Scroll View", entity, [&](UIScrollViewComponent& c) {
+            bool changed = DrawEntityRefField("Kontent", c.Content, "Aylantiriladigan UI obyekti (ichidagi ro'yxat) - uning UI Transform Position'i suriladi");
+            changed |= DrawEntityRefField("Ko'rinish (viewport)", c.Viewport, "Kontent ko'rinadigan to'rtburchak (bo'sh - scroll view'ning o'zi, scrollbar'larsiz)");
+            if (m_Context && c.Content && !m_Context->GetScrollContent(entity))
+            {
+                UI::PropertyLabel("");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Kontentda UI Transform yo'q");
+            }
+            else if (!c.Content)
+            {
+                UI::PropertyLabel("");
+                ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  Kontent tanlanmagan");
+            }
+            changed |= UI::PropertyBool("Gorizontal", c.Horizontal);
+            changed |= UI::PropertyBool("Vertikal", c.Vertical);
+            static const char* const s_Movements[] = { "Cheklanmagan", "Elastik (qaytadi)", "Chetda to'xtaydi" };
+            int movement = (int)c.Movement;
+            if (UI::PropertyCombo("Harakat", movement, s_Movements, 3)) { c.Movement = (UIScrollMovement)movement; changed = true; }
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Elastik - chetdan tortilganda qarshilik qiladi va qo'yib yuborilganda qaytadi; chetda to'xtaydi - undan chiqmaydi");
+            if (c.Movement == UIScrollMovement::Elastic)
+                changed |= UI::PropertyFloat("Elastiklik (s)", c.Elasticity, 0.005f, 0.0f, 2.0f);
+            changed |= UI::PropertyBool("Inersiya", c.Inertia);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Sudrab qo'yib yuborilgandan keyin sekinlashib davom etadi");
+            if (c.Inertia)
+                changed |= UI::PropertySlider("Sekinlashish", c.DecelerationRate, 0.0f, 1.0f);
+            changed |= UI::PropertyFloat("G'ildirak sezgirligi", c.ScrollSensitivity, 0.5f, -1000.0f, 1000.0f, "%.0f");
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("Sichqoncha g'ildiragining bir pog'onasida necha UI birligi suriladi");
+            changed |= UI::PropertyBool("Sudrab aylantirish", c.Draggable);
+            UI::PropertyHeader("Scrollbar'lar", "Scroll view o'zi chizadi: vertikali o'ng chetda, gorizontali pastda");
+            static const char* const s_Bars[] = { "Doim", "Kerak bo'lganda", "Yo'q" };
+            int bars = (int)c.Scrollbars;
+            if (UI::PropertyCombo("Ko'rinishi", bars, s_Bars, 3)) { c.Scrollbars = (UIScrollbarVisibility)bars; changed = true; }
+            if (c.Scrollbars != UIScrollbarVisibility::Hidden)
+            {
+                changed |= UI::PropertyFloat("Qalinligi", c.ScrollbarWidth, 0.25f, 0.0f, 200.0f, "%.1f");
+                changed |= UI::PropertyFloat("Chetdan", c.ScrollbarInset, 0.25f, 0.0f, 200.0f, "%.1f");
+                changed |= UI::PropertyColor4("Yo'lak rangi", c.TrackColor);
+                changed |= UI::PropertyColor4("Tutqich rangi", c.HandleColor);
+            }
+            if (m_Context && entity.HasComponent<UITransformComponent>())
+            {
+                const glm::vec2 n = m_Context->GetScrollPosition(entity);
+                const UIRect view = m_Context->GetScrollViewRect(entity);
+                UI::PropertyLabel("");
+                ImGui::TextDisabled("Joyi: x %.2f, y %.2f   ko'rinish %.0f x %.0f", n.x, n.y, view.GetWidth(), view.GetHeight());
+                if (m_Context->IsRunning() && c.Dragging)
+                {
+                    UI::PropertyLabel("");
+                    ImGui::TextColored(ImVec4(0.45f, 0.85f, 0.55f, 1.0f), ICON_FA_HAND_POINTER "  Sudralmoqda");
+                }
+            }
+            UI::PropertyLabel("");
+            ImGui::TextDisabled("Skriptda: OnScrollChanged(pos); hodisa: \"UIScrollChanged\"");
             return changed;
         }, true, modified);
 

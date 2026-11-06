@@ -163,6 +163,8 @@ namespace Zamin {
     static const char* const s_TextAlignV[] = { "Top", "Middle", "Bottom", "Baseline" };
     static const char* const s_TextOverflows[] = { "Overflow", "Truncate", "Ellipsis" };
     static const char* const s_UIAnimPresets[] = { "None", "Fade", "Pop", "SlideLeft", "SlideRight", "SlideUp", "SlideDown" };
+    static const char* const s_UIScrollMovements[] = { "Unrestricted", "Elastic", "Clamped" };
+    static const char* const s_UIScrollbarVisibilities[] = { "Permanent", "AutoHide", "Hidden" };
 
     template<typename E, size_t N>
     static const char* EnumName(E value, const char* const (&names)[N])
@@ -866,6 +868,16 @@ namespace Zamin {
                   { "SelectionColor", ToJson(c->SelectionColor) }, { "CaretBlinkRate", c->CaretBlinkRate } };
             WriteAssetHandle(j, "Font", c->FontPath);
         }
+        if (auto* c = entity.TryGetComponent<UIMaskComponent>())
+            e["UIMask"] = { { "ShowGraphic", c->ShowGraphic }, { "Padding", ToJson(c->Padding) } };
+        if (auto* c = entity.TryGetComponent<UIScrollViewComponent>())
+            e["UIScrollView"] = { { "Content", c->Content.ID }, { "Viewport", c->Viewport.ID }, { "Horizontal", c->Horizontal },
+                                  { "Vertical", c->Vertical }, { "Movement", EnumName(c->Movement, s_UIScrollMovements) },
+                                  { "Elasticity", c->Elasticity }, { "Inertia", c->Inertia }, { "DecelerationRate", c->DecelerationRate },
+                                  { "ScrollSensitivity", c->ScrollSensitivity }, { "Draggable", c->Draggable },
+                                  { "Scrollbars", EnumName(c->Scrollbars, s_UIScrollbarVisibilities) }, { "ScrollbarWidth", c->ScrollbarWidth },
+                                  { "ScrollbarInset", c->ScrollbarInset }, { "TrackColor", ToJson(c->TrackColor) },
+                                  { "HandleColor", ToJson(c->HandleColor) } };
         if (auto* c = entity.TryGetComponent<AudioSourceComponent>())
         {
             e["AudioSource"] = { { "Path", c->Path }, { "Volume", c->Volume }, { "Pitch", c->Pitch }, { "Loop", c->Loop }, { "PlayOnStart", c->PlayOnStart },
@@ -1861,6 +1873,34 @@ namespace Zamin {
             c.CaretColor = Vec(j, "CaretColor", c.CaretColor);
             c.SelectionColor = Vec(j, "SelectionColor", c.SelectionColor);
             c.CaretBlinkRate = std::max(0.0f, j.value("CaretBlinkRate", 0.53f));
+        }
+        if (e.contains("UIMask"))
+        {
+            const json& j = e["UIMask"];
+            auto& c = entity.AddComponent<UIMaskComponent>();
+            c.ShowGraphic = j.value("ShowGraphic", true);
+            c.Padding = Vec(j, "Padding", c.Padding);
+        }
+        if (e.contains("UIScrollView"))
+        {
+            const json& j = e["UIScrollView"];
+            auto& c = entity.AddComponent<UIScrollViewComponent>();
+            auto ref = [&](const char* key) { return EntityRef{ j.contains(key) && j[key].is_number_unsigned() ? j[key].get<uint64_t>() : 0 }; };
+            c.Content = ref("Content");
+            c.Viewport = ref("Viewport");
+            c.Horizontal = j.value("Horizontal", false);
+            c.Vertical = j.value("Vertical", true);
+            c.Movement = EnumFromJson(j, "Movement", s_UIScrollMovements, UIScrollMovement::Elastic);
+            c.Elasticity = std::max(0.0f, j.value("Elasticity", 0.1f));
+            c.Inertia = j.value("Inertia", true);
+            c.DecelerationRate = std::clamp(j.value("DecelerationRate", 0.135f), 0.0f, 1.0f);
+            c.ScrollSensitivity = j.value("ScrollSensitivity", 40.0f);
+            c.Draggable = j.value("Draggable", true);
+            c.Scrollbars = EnumFromJson(j, "Scrollbars", s_UIScrollbarVisibilities, UIScrollbarVisibility::AutoHide);
+            c.ScrollbarWidth = std::max(0.0f, j.value("ScrollbarWidth", 10.0f));
+            c.ScrollbarInset = std::max(0.0f, j.value("ScrollbarInset", 3.0f));
+            c.TrackColor = Vec(j, "TrackColor", c.TrackColor);
+            c.HandleColor = Vec(j, "HandleColor", c.HandleColor);
         }
         if (e.contains("AudioSource"))
         {

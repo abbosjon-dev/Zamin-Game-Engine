@@ -1000,6 +1000,10 @@ namespace Zamin {
                                             m_ViewportHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left));
             // Typing reaches the game's input fields only while the game view has the focus.
             m_ActiveScene->SetUIKeyboardEnabled(m_ViewportFocused && !ImGui::GetIO().WantTextInput);
+            // The wheel over the game view scrolls the game's scroll views.
+            const ImGuiIO& io = ImGui::GetIO();
+            m_ActiveScene->SetViewportScroll(m_ViewportHovered && m_SceneState == SceneState::Play ? glm::vec2(io.MouseWheelH, io.MouseWheel)
+                                                                                                  : glm::vec2(0.0f));
         }
 
         SceneRenderOptions options;

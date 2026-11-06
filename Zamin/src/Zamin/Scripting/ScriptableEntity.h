@@ -149,6 +149,9 @@ namespace Zamin {
         virtual void OnTextChanged(const std::string& /*text*/) {}      // UI Input Field: typed, deleted, pasted
         virtual void OnTextSubmit(const std::string& /*text*/) {}       // UI Input Field: Enter
         virtual void OnTextEndEdit(const std::string& /*text*/) {}      // UI Input Field: editing ended (Enter, Escape, a click elsewhere)
+        // UI Scroll View: its content moved (wheel, drag, scrollbar, inertia, the spring back,
+        // navigation, code); x 0 = left .. 1 = right, y 1 = top .. 0 = bottom. Bus: "UIScrollChanged" (glm::vec2).
+        virtual void OnScrollChanged(const glm::vec2& /*position*/) {}
         // A sound of this entity ended by itself, on the main thread, in the frame the engine noticed
         // it (after OnLateUpdate): the Audio Source's sound or a one-shot this script played reached
         // its end (not looping), or the voice limit cut it off (sound.Stolen). Not for sounds stopped

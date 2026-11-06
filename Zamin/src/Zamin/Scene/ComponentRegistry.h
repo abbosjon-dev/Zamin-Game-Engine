@@ -70,6 +70,8 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, UIToggleComponent>) return "UIToggle";
         else if constexpr (std::is_same_v<T, UIProgressBarComponent>) return "UIProgressBar";
         else if constexpr (std::is_same_v<T, UIInputFieldComponent>) return "UIInputField";
+        else if constexpr (std::is_same_v<T, UIMaskComponent>) return "UIMask";
+        else if constexpr (std::is_same_v<T, UIScrollViewComponent>) return "UIScrollView";
         else if constexpr (std::is_same_v<T, AudioSourceComponent>) return "AudioSource";
         else if constexpr (std::is_same_v<T, AudioListenerComponent>) return "AudioListener";
         else if constexpr (std::is_same_v<T, AmbientZoneComponent>) return "AmbientZone";

@@ -506,6 +506,9 @@ namespace Zamin {
 
         // ---- viewport input (set by the host each frame; pixels, origin top-left of the game view)
         void SetViewportMouse(const glm::vec2& position, bool leftButtonDown) { m_MousePosition = position; m_MouseDown = leftButtonDown; }
+        // The mouse wheel over the game view this frame (notches; y > 0: away from the user) - the UI's
+        // scroll views use it. The host sets it each frame (it is used up by the next UI update).
+        void SetViewportScroll(const glm::vec2& wheel) { m_ViewportScroll = wheel; }
         const glm::vec2& GetViewportMouse() const { return m_MousePosition; }
         glm::vec2 GetViewportSize() const { return { (float)m_ViewportWidth, (float)m_ViewportHeight }; }
         // ---- screen-space UI (UITransformComponent). UI units are view pixels unless a UI Canvas
@@ -618,6 +621,26 @@ namespace Zamin {
         // while its game view does not have the focus. On by default.
         void SetUIKeyboardEnabled(bool enabled) { m_UIKeyboardEnabled = enabled; }
         bool IsUIKeyboardEnabled() const { return m_UIKeyboardEnabled; }
+        // ---- masks (UIMaskComponent): the rectangle (view px) the masks of the entity's UI ancestors
+        // let it be drawn / found in; false when no mask clips it.
+        bool GetUIClipRect(Entity entity, UIRect& clip);
+        // ---- scroll views (UIScrollViewComponent). Positions are normalized: x 0 = the content's
+        // left end shown .. 1 = its right end, y 1 = its top .. 0 = its bottom.
+        glm::vec2 GetScrollPosition(Entity scrollView);
+        // Moves the content there (clamped to 0..1) and stops its motion; `notify`: OnScrollChanged
+        // and "UIScrollChanged" hear of it. False without a scroll view with a content.
+        bool SetScrollPosition(Entity scrollView, const glm::vec2& normalized, bool notify = true);
+        // Moves the content by `delta` UI units (+y up: the content goes up, the view shows what is
+        // further down); kept in its bounds unless the movement is Unrestricted.
+        bool ScrollBy(Entity scrollView, const glm::vec2& delta, bool notify = true);
+        // Scrolls every scroll view the entity is in (innermost first) so that all of it is shown
+        // (`margin` UI units around it) - smoothly while the game runs and `animate`, else at once.
+        // Keyboard / gamepad navigation does this for the widget it selects. False: nothing to scroll.
+        bool ScrollIntoView(Entity entity, bool animate = true, float margin = 8.0f);
+        // The view of the scroll view (UI units): its Viewport's rectangle, else its own without its scrollbars.
+        UIRect GetScrollViewRect(Entity scrollView);
+        // The content the scroll view moves (invalid: none set or not found).
+        Entity GetScrollContent(Entity scrollView);
 
         // Projection and view matrix used by the most recent render (post-processing needs the
         // projection for SSAO, debug drawing both).
@@ -930,7 +953,7 @@ namespace Zamin {
         enum class UIChange
         {
             Slider, Toggle, TextChanged, TextSubmitted, TextEndEdit,
-            PointerEnter, PointerExit, PointerDown, PointerUp, PointerClick, Click, Select, Deselect, Cancel
+            PointerEnter, PointerExit, PointerDown, PointerUp, PointerClick, Click, Select, Deselect, Cancel, Scroll
         };
         struct UIChangeEvent
         {
@@ -940,7 +963,7 @@ namespace Zamin {
             bool On = false;
             std::string Text;
             entt::entity Target = entt::null; // pointer events: the element under the mouse
-            glm::vec2 Screen{ 0.0f };         // pointer events: the mouse (view px, bottom-left)
+            glm::vec2 Screen{ 0.0f };         // pointer events: the mouse (view px, bottom-left); Scroll: the normalized position
         };
         // The laid-out rectangle of a UI entity (UI units) and its canvas scale.
         struct UILayoutNode
@@ -959,6 +982,15 @@ namespace Zamin {
             glm::vec2 HitScale{ 1.0f };
             glm::vec2 HitOffset{ 0.0f };
             UIRect HitRect;
+            // Masks (UIMaskComponent) of its UI ancestors: it is drawn / found only inside VisClip /
+            // HitClip (view px) while Clipped; what its own UI children get (its mask on top).
+            bool Clipped = false;
+            UIRect VisClip, HitClip;
+            bool ChildClipped = false;
+            UIRect ChildVisClip, ChildHitClip;
+            // A scroll view: the space its UI children are laid out in (its rectangle without the
+            // scrollbars it shows).
+            UIRect ChildArea;
             bool HasLook() const { return VisScale != glm::vec2(1.0f) || VisOffset != glm::vec2(0.0f); }
             // A view point (UI units) in the layout's units (the look - without feedback - undone).
             glm::vec2 ToLayout(const glm::vec2& p) const
@@ -1029,6 +1061,31 @@ namespace Zamin {
         void ProcessTextInput(entt::entity field, std::vector<UIChangeEvent>& changes);
         // Keeps the focused field's caret in view (its Scroll), for its rectangle.
         void ScrollInputField(entt::entity field);
+        // ---- scroll views (SceneUI.cpp)
+        entt::entity GetScrollContentEntity(entt::entity scrollView);
+        // The view rectangle (UI units) of a laid-out scroll view.
+        UIRect GetScrollViewRectLaidOut(entt::entity scrollView);
+        // Its scrollbars (UI units of its layout): which are shown, their tracks and handles.
+        struct ScrollbarGeometry
+        {
+            bool Show[2] = { false, false };     // 0 horizontal, 1 vertical
+            UIRect Track[2], Handle[2];
+            float HandleLength[2] = { 0.0f, 0.0f };
+        };
+        ScrollbarGeometry GetScrollbars(entt::entity scrollView);
+        // The scrollbar of the scroll view at a view point (px): 0 horizontal, 1 vertical, -1 none.
+        int ScrollbarAt(entt::entity scrollView, const glm::vec2& point);
+        // Moves the content by `delta` (UI units) and lays the UI out again.
+        void MoveScrollContent(entt::entity scrollView, const glm::vec2& delta);
+        // Wheel, drags, scrollbars, inertia, the spring back, revealing the selection; the changes
+        // of position for the callbacks.
+        void UpdateUIScrollViews(float dt, const glm::vec2& mouse, bool pressedNow, bool released, entt::entity hovered,
+                                 std::vector<UIChangeEvent>& changes);
+        // Scrolls the scroll views around the entity to show it (see ScrollIntoView).
+        bool RevealInScrollViews(entt::entity e, bool animate, float margin);
+        // Whether the masks around a laid-out element leave none of it to be seen.
+        bool IsUIClippedAway(entt::entity e);
+        bool HasScrollViewAncestor(entt::entity e);
 
         void RenderUI(const std::unordered_set<entt::entity>* skip);
         // The Light 2D lights the view sees (culled by `frustum` when given; the nearest to
@@ -1190,6 +1247,13 @@ namespace Zamin {
         float m_UINavRepeat = 0.0f;                 // seconds until it repeats
         entt::entity m_UISubmitFlash = entt::null;  // a button submitted by key looks pressed for a moment
         float m_UISubmitFlashTime = 0.0f;
+        glm::vec2 m_ViewportScroll{ 0.0f };         // the wheel this frame (SetViewportScroll)
+        entt::entity m_ScrollPress = entt::null;    // the scroll view a press went down in (it may become a drag)
+        glm::vec2 m_ScrollPressPoint{ 0.0f };       // view px
+        glm::vec2 m_ScrollPressLocal{ 0.0f };       // the press in the scroll view's UI units
+        glm::vec2 m_ScrollContentStart{ 0.0f };     // the content's Position when the drag began
+        bool m_ScrollDragging = false;              // m_ScrollPress drags its content
+        float m_ScrollbarGrab = 0.0f;               // where on the handle a dragged scrollbar was taken
 
         std::unordered_map<UUID, entt::entity> m_EntityMap;
         std::vector<UUID> m_DestroyQueue;

@@ -40,6 +40,9 @@ namespace Zamin {
         static bool IsKeyPressed(Key key);         // held down this frame
         static bool IsKeyJustPressed(Key key);     // went down since the previous frame
         static bool IsKeyJustReleased(Key key);    // went up since the previous frame
+        // Any keyboard key (modifier keys alone - Shift, Ctrl, Alt, Super - do not count), mouse button
+        // or gamepad button went down since the previous frame ("press any key").
+        static bool IsAnyKeyJustPressed();
 
         // ---- mouse
         static bool IsMouseButtonPressed(MouseButton button);

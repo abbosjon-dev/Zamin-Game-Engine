@@ -99,6 +99,7 @@ namespace Zamin {
         // Company / product / version, the window, the icon (ProjectConfig::Player).
         void DrawPlayer(ProjectConfig& config);
         void DrawPlayerIcon(PlayerSettings& player);
+        void DrawPlayerSplash(PlayerSettings& player);
         void DrawDebug(ProjectConfig& config);
         void DrawQuality(ProjectConfig& config);
         void DrawAudio(ProjectConfig& config);
@@ -194,6 +195,10 @@ namespace Zamin {
         glm::uvec2 m_IconSize{ 0 };
         std::string m_VersionBuffer;
         bool m_VersionEditing = false;
+        // Player: the splash screen's preview (the Zamin logo, or the game's own picture).
+        Ref<Texture2D> m_SplashLogo, m_SplashImagePreview;
+        std::filesystem::path m_SplashImagePath;
+        bool m_SplashImageMissing = false;
 
         // Localization: the code of a language being added; the language files as last read.
         std::string m_NewLanguage;

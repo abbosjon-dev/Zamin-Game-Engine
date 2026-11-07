@@ -395,11 +395,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 
 ## M18 Runtime player
 
-- [ ] 341. Player oyna sozlamalarini loyihadan o'qish
-- [ ] 342. F11 bilan fullscreen almashtirish
-- [ ] 343. FPS cheklovi
-- [ ] 344. Splash ekran (Zamin logotipi)
-- [ ] 345. Player command line: --windowed, --resolution
+- [x] 341. Player oyna sozlamalarini loyihadan o'qish
+- [x] 342. F11 bilan fullscreen almashtirish
+- [x] 343. FPS cheklovi
+- [x] 344. Splash ekran (Zamin logotipi)
+- [x] 345. Player command line: --windowed, --resolution
 - [ ] 346. Player log faylga yozish
 - [ ] 347. Crash bo'lganda xabar oynasi
 - [ ] 348. Player'da kursorni yashirish/bloklash API

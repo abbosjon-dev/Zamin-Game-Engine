@@ -39,6 +39,9 @@ namespace Zamin {
         Version = Trim(Version);
         if (Version.empty())
             Version = DefaultVersion;
+        SplashDuration = std::isfinite(SplashDuration) ? std::clamp(SplashDuration, MinSplashDuration, MaxSplashDuration) : 2.0f;
+        for (int i = 0; i < 3; i++)
+            SplashBackground[i] = std::isfinite(SplashBackground[i]) ? std::clamp(SplashBackground[i], 0.0f, 1.0f) : 0.0f;
     }
 
     std::string PlayerSettings::GetProductName(std::string_view projectName) const
@@ -70,7 +73,8 @@ namespace Zamin {
     const std::vector<std::string>& PlayerSettings::GetKnownKeys()
     {
         static const std::vector<std::string> s_Keys = { "Company", "Product", "Version", "Width", "Height", "WindowMode", "Resizable", "VSync",
-                                                         "Title", "VersionInTitle", "TargetFrameRate", "RunInBackground", "Icon" };
+                                                         "Title", "VersionInTitle", "TargetFrameRate", "RunInBackground", "FullscreenToggle", "Icon",
+                                                         "Splash" };
         return s_Keys;
     }
 
@@ -89,7 +93,17 @@ namespace Zamin {
         j["VersionInTitle"] = VersionInTitle;
         j["TargetFrameRate"] = TargetFrameRate;
         j["RunInBackground"] = RunInBackground;
+        j["FullscreenToggle"] = FullscreenToggle;
         j["Icon"] = Icon.generic_string();
+        ordered_json splash;
+        splash["Enabled"] = SplashScreen;
+        // (Short decimals: "0.043", not the float's "0.0430000014603138".)
+        auto rounded = [](float value, double steps) { return std::round((double)value * steps) / steps; };
+        splash["Duration"] = rounded(SplashDuration, 100.0);
+        splash["Skippable"] = SplashSkippable;
+        splash["Image"] = SplashImage.generic_string();
+        splash["Background"] = { rounded(SplashBackground.r, 1000.0), rounded(SplashBackground.g, 1000.0), rounded(SplashBackground.b, 1000.0) };
+        j["Splash"] = std::move(splash);
         return j.dump(4);
     }
 
@@ -123,9 +137,21 @@ namespace Zamin {
         if (auto it = j.find("TargetFrameRate"); it != j.end() && it->is_number())
             s.TargetFrameRate = (int)std::clamp(it->get<double>(), 0.0, (double)MaxTargetFrameRate);
         readBool("RunInBackground", s.RunInBackground);
+        readBool("FullscreenToggle", s.FullscreenToggle);
         std::string icon;
         readString("Icon", icon);
         s.Icon = icon;
+        if (auto splash = j.find("Splash"); splash != j.end() && splash->is_object())
+        {
+            if (auto it = splash->find("Enabled"); it != splash->end() && it->is_boolean()) s.SplashScreen = it->get<bool>();
+            if (auto it = splash->find("Duration"); it != splash->end() && it->is_number()) s.SplashDuration = it->get<float>();
+            if (auto it = splash->find("Skippable"); it != splash->end() && it->is_boolean()) s.SplashSkippable = it->get<bool>();
+            if (auto it = splash->find("Image"); it != splash->end() && it->is_string()) s.SplashImage = it->get<std::string>();
+            if (auto it = splash->find("Background"); it != splash->end() && it->is_array() && it->size() == 3)
+                for (size_t i = 0; i < 3; i++)
+                    if ((*it)[i].is_number())
+                        s.SplashBackground[(int)i] = (*it)[i].get<float>();
+        }
         s.Sanitize();
         out = std::move(s);
         return true;

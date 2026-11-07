@@ -129,6 +129,7 @@ ZM_INFO("{} {} ({})", Application::GetProductName(), Application::GetVersion(), 
 | Sarlavhada versiya | `VersionInTitle` | `"Mening o'yinim 1.4.2"` |
 | FPS cheklovi | `TargetFrameRate` | Soniyadagi eng ko'p kadr (10 ... 1000); `0` - cheklovsiz (VSync boshqaradi) |
 | Fonda ishlash | `RunInBackground` | `false`: oyna oldinda bo'lmasa o'yin to'xtab turadi |
+| F11 / Alt+Enter | `FullscreenToggle` | O'yin ichida to'liq ekran <-> oyna (standart: yoqiq) |
 
 Standart: 1280x720, oynali, o'lchami o'zgaradi, VSync yoqiq, cheklovsiz, fonda ishlaydi - player avval ham
 shunday edi.
@@ -142,8 +143,57 @@ Display::SetVSync(false);
 Display::SaveSettings();     // SaveData: "Zamin.Display.*"
 ```
 
-Buyruq qatori (`--fullscreen`, `--windowed`, `--width`, `--height`, `--no-vsync`) esa saqlangan tanlovdan ham
-ustun (18-bo'lim).
+**Ustunlik tartibi** (har bir qiymat alohida, `PlayerLaunchSettings::Resolve`):
+
+1. buyruq qatori (`--fullscreen`, `--borderless`, `--windowed`, `--resolution`, `--monitor`, `--vsync` / `--no-vsync`,
+   `--fps`, `--no-splash` - 18-bo'lim);
+2. o'yinchi saqlagan tanlov (`Display::SaveSettings`: to'liq ekran, VSync; sifat va til ham o'zinikini saqlaydi);
+3. loyiha sozlamalari (shu bo'lim).
+
+Player saqlangan tanlovni oyna yaratilishidan **oldin** o'qiydi: o'yin to'liq ekranda yopilgan bo'lsa, keyingi safar
+darhol to'liq ekranda ochiladi (oynali -> to'liq ekran sakrashisiz). Masalan `--no-vsync` faqat VSync'ni o'zgartiradi:
+saqlangan to'liq ekran tanlovi kuchda qoladi. Log'da har bir qiymat qayerdan kelgani yoziladi:
+
+```
+Oyna sozlamalari: 1600x900 (buyruq qatori), to'liq ekran (saqlangan), VSync: ha (loyiha), FPS: 60 (loyiha), monitor: asosiy (loyiha), splash: ha (loyiha)
+```
+
+**F11 / Alt+Enter**: o'yin ichida to'liq ekran (loyihaning turi: eksklyuziv yoki chegarasiz) va oyna orasida
+almashtiradi. Oyna avvalgi o'lchami va joyiga qaytadi; to'liq ekran oyna turgan monitorda ochiladi (ikkinchi monitorga
+surilgan oyna o'sha yerda to'liq ekran bo'ladi). Tanlov `Display::SaveSettings` kabi saqlanadi. Input xaritasida
+`ToggleFullscreen` nomli harakat bo'lsa, u ham almashtiradi (masalan gamepad tugmasi). O'chirish: `FullscreenToggle: false`.
+
+**FPS cheklovi va VSync**: cheklov (`TargetFrameRate` yoki `--fps N`) VSync bilan birga shunday ishlaydi
+(`FramePacingPlan`):
+
+| Holat | Nima ushlab turadi |
+|---|---|
+| Cheklov yo'q | VSync (yoqiq bo'lsa) yoki hech narsa |
+| VSync + monitor chastotasini bo'ladigan cheklov (60 Hz da 30 / 20 / 15, 144 Hz da 72) | VSync har kadrda 2 / 3 / 4 yangilanish kutadi - kadrlar mutlaqo tekis |
+| VSync + monitor chastotasidan katta yoki teng cheklov | VSync o'zi |
+| VSync + boshqa cheklov (60 Hz da 50), VSync o'chiq, monitor chastotasi noma'lum | Kutish (uyqu + qisqa aylanish) |
+
+Kutish jadval bo'yicha: kadrlar boshi bir-biridan aniq bir davr uzoqlikda (`FramePacer`), shuning uchun bitta uyqu
+biroz kech uyg'onsa ham o'rtacha chastota aniq; davrdan uzoq to'xtash (yuklanish) jadvalni qayta boshlaydi.
+`ZAMIN_PLAYER_STATS=1` chiqishda haqiqiy kadr vaqtlarini yozadi (o'rtacha, min, max, eng sekin 1%).
+
+### Splash ekran
+
+Player birinchi sahnadan oldin Zamin logotipini (logotip dvigatelning o'zida chiziladi, fayl kerak emas) yoki o'yinning
+o'z rasmini ko'rsatadi: paydo bo'ladi (0.5 s), turadi va so'nadi (0.5 s). Shu vaqtda birinchi sahna **fonda yuklanadi**
+(`SceneManager::LoadSceneAsync`, keyin `SceneManager::Start(op)`); yuklanish splash'dan uzoq davom etsa, logotip
+progress chizig'i bilan kutib turadi. Splash'dan keyin o'yinning birinchi kadri fon rangidan ochiladi.
+
+| Maydon | Kalit (`"Splash": { ... }`) | Ma'nosi |
+|---|---|---|
+| Splash ko'rsatish | `Enabled` | Standart: yoqiq. Buyruq qatori: `--no-splash` |
+| Davomiyligi | `Duration` | Soniya (0.5 ... 10), paydo bo'lish va so'nish bilan; standart 2 |
+| Tugma bilan o'tkazish | `Skippable` | Istalgan tugma / sichqoncha / gamepad tugmasi tugatadi (sahna yuklangach) |
+| O'z rasmi | `Image` | PNG / JPG (assetlarga nisbatan); bo'sh: Zamin logotipi |
+| Fon rangi | `Background` | `[r, g, b]` (0 ... 1) |
+
+Avtomatlashtirilgan ishga tushishlarda (`ZAMIN_MAX_FRAMES`: skrinshotlar, CI) splash ko'rsatilmaydi;
+`ZAMIN_PLAYER_SPLASH=1` uni majburan yoqadi.
 
 ### Ikonka
 
@@ -578,20 +628,28 @@ Qisqartirilgan misol (Platformer2D asosida; `Physics`, `Time`, `Quality`, `Graph
 ## 18. Player buyruq qatori
 
 ```
-ZaminPlayer [O'yin.zproject] [--scene <yo'l | build indeks | nom>]
-            [--fullscreen | --windowed] [--width W --height H] [--no-vsync]
-            [--quality <nom | indeks>] [--lang <kod>]
-            [--gl <4.1 | 4.3 | 4.5 | 4.6>] [--msaa <0 | 2 | 4 | 8 | 16>] [--gl-debug | --no-gl-debug] [--srgb | --no-srgb]
-            [--no-debug-draw] [--debug-raycasts] [--debug-contacts] [--debug-contact-details] [--debug-joints] [--debug-velocities]
+ZaminPlayer [O'yin.zproject | loyiha papkasi] [variantlar]     # hammasi: ZaminPlayer --help
 ```
 
-| Variant | Nimadan ustun |
-|---|---|
-| `--fullscreen`, `--windowed`, `--width`, `--height`, `--no-vsync` | Player sozlamalari va o'yinchi saqlagan `Display` tanlovi |
-| `--quality` | O'yinchi saqlagan daraja va loyihaning standart darajasi |
-| `--lang` (`--language`) | O'yinchi saqlagan til, tizim tili, standart til; yo'q til - ogohlantirish, joriy til qoladi |
-| `--gl`, `--msaa`, `--gl-debug`, `--srgb` | Grafika sozlamalari |
-| `--scene` | Boshlang'ich sahna |
+Qiymatli variantlar ikki xil yoziladi: `--fps 60` yoki `--fps=60`. Tushunilmagan variant yoki noto'g'ri qiymat
+ogohlantirish bilan log'ga yoziladi, qolganlari ishlatiladi.
+
+| Variant | Ma'nosi | Nimadan ustun |
+|---|---|---|
+| `--windowed`, `--fullscreen`, `--borderless` | Oyna rejimi (oxirgisi yutadi) | Saqlangan `Display` tanlovi, loyiha |
+| `--resolution KxB` (`--width K`, `--height B`) | Oyna o'lchami; `--fullscreen` bilan video rejim ham | Loyiha |
+| `--monitor N` | Qaysi monitorda ochiladi (0 - asosiy; log monitorlar ro'yxatini yozadi) | Asosiy monitor |
+| `--vsync`, `--no-vsync` | Vertikal sinxronizatsiya | Saqlangan tanlov, loyiha |
+| `--fps N` | Kadr chastotasi cheklovi (0 - cheklovsiz, 10 ... 1000) | Loyiha |
+| `--scene <yo'l / indeks / nom>` | Boshlang'ich sahna | Loyihaning boshlang'ich sahnasi |
+| `--quality <nom / indeks>` | Sifat darajasi | O'yinchi saqlagan daraja, loyiha standarti |
+| `--lang <kod>` (`--language`) | Til; yo'q til - ogohlantirish, joriy til qoladi | Saqlangan til, tizim tili, standart til |
+| `--no-splash` | Splash ekransiz | Loyiha |
+| `--gl`, `--msaa`, `--gl-debug` / `--no-gl-debug`, `--srgb` / `--no-srgb` | OpenGL konteksti | Grafika sozlamalari |
+| `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities` | Debug chizish | Loyihaning debug sozlamalari |
+| `-h`, `--help` | Hamma variantlar va ustunlik tartibi | - |
+
+O'yin ichida: **F11** / **Alt+Enter** - to'liq ekran <-> oyna, **F10** - FPS va audio profili log'ga.
 
 ---
 
@@ -603,6 +661,9 @@ ZaminPlayer [O'yin.zproject] [--scene <yo'l | build indeks | nom>]
 |---|---|
 | `ProjectSettingsFullRoundTrip` | Hamma bo'limlar yozilib, qayta o'qilganda bir xil |
 | `PlayerSettingsSerialization`, `PlayerCompanySaveDataAndVersion`, `GameIconImagesAndDesktopEntry` | Oyna, nom / versiya, SaveData papkasi, ikonka va .desktop |
+| `PlayerCommandLineParser`, `PlayerLaunchSettingsPrecedence` | Buyruq qatori, `--help`, ustunlik tartibi (buyruq qatori > saqlangan > loyiha) |
+| `PlayerSettingsFullscreenToggleAndSplash`, `SplashTimelineAndLogo`, `SceneManagerStartFromBackgroundLoad` | F11, splash sozlamalari, vaqt jadvali, logotip, fonda yuklangan birinchi sahna |
+| `FramePacingPlanAndPacer`, `InputAnyKeyAndMonitorPlacement` | FPS cheklovi va VSync, kadr jadvali, "istalgan tugma", monitor tanlash |
 | `QualityLevelLimits`, `QualitySettingsJson`, `QualityRuntimeLevel` | Darajalar, cheklashlar, JSON, saqlangan tanlov |
 | `ProjectFileMigrationAndUnknownKeys` | v0 / v1 -> v2 migratsiya, noma'lum kalitlar saqlanishi |
 | `GraphicsContextSettings` | Versiyalar, MSAA, debug konteksti, JSON |

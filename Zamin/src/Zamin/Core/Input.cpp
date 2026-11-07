@@ -155,6 +155,25 @@ namespace Zamin {
         return b && JustPressed(*b);
     }
 
+    bool Input::IsAnyKeyJustPressed()
+    {
+        const InputState& s = State();
+        for (int code = Internal::InputFirstKey; code < Internal::InputKeyCount; code++)
+        {
+            const bool modifier = code >= (int)Key::LeftShift && code <= (int)Key::RightSuper;
+            if (!modifier && JustPressed(s.Keys[code]))
+                return true;
+        }
+        for (const ButtonState& b : s.Mouse)
+            if (JustPressed(b))
+                return true;
+        for (int id = 0; id < MaxGamepads; id++)
+            for (int b = 0; b < GamepadButtonCount; b++)
+                if (IsGamepadButtonJustPressed((GamepadButton)b, id))
+                    return true;
+        return false;
+    }
+
     bool Input::IsKeyJustReleased(Key key)
     {
         const ButtonState* b = KeyState(key);

@@ -1,6 +1,7 @@
 #include "Zamin/Platform/GLFW/GlfwWindow.h"
 
 #include <algorithm>
+#include <format>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -66,16 +67,43 @@ namespace Zamin {
         m_FullscreenMode = props.Mode != WindowMode::Windowed ? props.Mode
                          : props.FullscreenMode != WindowMode::Windowed ? props.FullscreenMode : WindowMode::Fullscreen;
 
-        // Fullscreen: the monitor's own video mode; borderless: an undecorated window of its size.
-        GLFWmonitor* primary = props.Mode != WindowMode::Windowed ? glfwGetPrimaryMonitor() : nullptr;
-        const GLFWvidmode* video = primary ? glfwGetVideoMode(primary) : nullptr;
+        m_FullscreenWidth = props.FullscreenWidth;
+        m_FullscreenHeight = props.FullscreenHeight;
+
+        // The monitor to open on (--monitor N): its index in the system's list, else the primary.
+        int monitorCount = 0;
+        GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
+        GLFWmonitor* target = glfwGetPrimaryMonitor();
+        if (props.Monitor >= 0)
+        {
+            if (props.Monitor < monitorCount)
+                target = monitors[props.Monitor];
+            else
+                ZM_CORE_WARN("Monitor {} yo'q ({} ta monitor bor) - asosiy monitor ishlatiladi", props.Monitor, monitorCount);
+        }
+        if (monitorCount > 1)
+        {
+            std::string list;
+            for (int i = 0; i < monitorCount; i++)
+            {
+                const GLFWvidmode* m = glfwGetVideoMode(monitors[i]);
+                const char* name = glfwGetMonitorName(monitors[i]);
+                list += std::format("{}{}: {} {}x{}@{}{}", i ? ", " : "", i, name ? name : "?", m ? m->width : 0, m ? m->height : 0,
+                                    m ? m->refreshRate : 0, monitors[i] == glfwGetPrimaryMonitor() ? " (asosiy)" : "");
+            }
+            ZM_CORE_INFO("Monitorlar: {}", list);
+        }
+
+        // Fullscreen: the monitor's own video mode (or the asked one); borderless: an undecorated window of its size.
+        const GLFWvidmode* video = props.Mode != WindowMode::Windowed && target ? glfwGetVideoMode(target) : nullptr;
         WindowMode mode = video ? props.Mode : WindowMode::Windowed;
         if (props.Mode != WindowMode::Windowed && !video)
             ZM_CORE_WARN("To'liq ekran: monitor topilmadi - oynali rejim");
         if (video)
         {
-            m_Data.Width = (uint32_t)video->width;
-            m_Data.Height = (uint32_t)video->height;
+            const bool ownMode = mode == WindowMode::Fullscreen && m_FullscreenWidth > 0 && m_FullscreenHeight > 0;
+            m_Data.Width = ownMode ? m_FullscreenWidth : (uint32_t)video->width;
+            m_Data.Height = ownMode ? m_FullscreenHeight : (uint32_t)video->height;
         }
         if (mode == WindowMode::Borderless)
             glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
@@ -112,7 +140,7 @@ namespace Zamin {
             }
             s_TryingContext = i + 1 < attempts.size(); // the last attempt's failure is an error
             m_Window = glfwCreateWindow((int)m_Data.Width, (int)m_Data.Height, m_Data.Title.c_str(),
-                                        mode == WindowMode::Fullscreen ? primary : nullptr, nullptr);
+                                        mode == WindowMode::Fullscreen ? target : nullptr, nullptr);
             if (m_Window)
             {
                 fellBack = i > 0;
@@ -130,27 +158,23 @@ namespace Zamin {
         m_Mode = mode;
         // (Wayland places windows itself: GLFW reports positions as unavailable there.)
         const bool canPlace = glfwGetPlatform() != GLFW_PLATFORM_WAYLAND;
+        // The window's place in windowed mode: the middle of the monitor's work area (also where a window
+        // that starts fullscreen goes back to).
+        if (canPlace && target)
+        {
+            MonitorArea work;
+            glfwGetMonitorWorkarea(target, &work.X, &work.Y, &work.Width, &work.Height);
+            if (work.Width > 0 && work.Height > 0)
+                CenterInArea(work, m_WindowedWidth, m_WindowedHeight, m_WindowedX, m_WindowedY);
+        }
         if (canPlace && mode == WindowMode::Borderless)
         {
             int mx = 0, my = 0;
-            glfwGetMonitorPos(primary, &mx, &my);
+            glfwGetMonitorPos(target, &mx, &my);
             glfwSetWindowPos(m_Window, mx, my);
         }
-        else if (canPlace && mode == WindowMode::Windowed && !props.Maximized)
-        {
-            // In the middle of the primary monitor's work area (where it goes back to from fullscreen too).
-            if (GLFWmonitor* monitor = glfwGetPrimaryMonitor())
-            {
-                int wx = 0, wy = 0, ww = 0, wh = 0;
-                glfwGetMonitorWorkarea(monitor, &wx, &wy, &ww, &wh);
-                if (ww > 0 && wh > 0)
-                {
-                    m_WindowedX = wx + std::max(0, (ww - m_WindowedWidth) / 2);
-                    m_WindowedY = wy + std::max(0, (wh - m_WindowedHeight) / 2);
-                    glfwSetWindowPos(m_Window, m_WindowedX, m_WindowedY);
-                }
-            }
-        }
+        else if (canPlace && mode == WindowMode::Windowed && !props.Maximized && target)
+            glfwSetWindowPos(m_Window, m_WindowedX, m_WindowedY);
         ZM_CORE_INFO("Oyna yaratildi: {} ({}x{}, {})", m_Data.Title, m_Data.Width, m_Data.Height,
                      mode == WindowMode::Fullscreen ? "to'liq ekran" : mode == WindowMode::Borderless ? "chegarasiz to'liq ekran" : "oynali");
 
@@ -274,8 +298,70 @@ namespace Zamin {
 
     void GlfwWindow::SetVSync(bool enabled)
     {
-        glfwSwapInterval(enabled ? 1 : 0);
+        glfwSwapInterval(enabled ? m_VSyncInterval : 0);
         m_Data.VSync = enabled;
+    }
+
+    void GlfwWindow::SetVSyncInterval(int interval)
+    {
+        interval = std::clamp(interval, 1, 4);
+        if (interval == m_VSyncInterval)
+            return;
+        m_VSyncInterval = interval;
+        if (m_Data.VSync)
+            glfwSwapInterval(interval);
+    }
+
+    GLFWmonitor* GlfwWindow::FindCurrentMonitor() const
+    {
+        if (GLFWmonitor* fullscreen = glfwGetWindowMonitor(m_Window))
+            return fullscreen;
+        int count = 0;
+        GLFWmonitor** monitors = glfwGetMonitors(&count);
+        if (count == 0)
+            return nullptr;
+        if (count == 1 || glfwGetPlatform() == GLFW_PLATFORM_WAYLAND)
+            return glfwGetPrimaryMonitor();
+        std::vector<MonitorArea> areas((size_t)count);
+        for (int i = 0; i < count; i++)
+        {
+            glfwGetMonitorPos(monitors[i], &areas[(size_t)i].X, &areas[(size_t)i].Y);
+            if (const GLFWvidmode* video = glfwGetVideoMode(monitors[i]))
+            {
+                areas[(size_t)i].Width = video->width;
+                areas[(size_t)i].Height = video->height;
+            }
+        }
+        int x = 0, y = 0, w = 0, h = 0;
+        glfwGetWindowPos(m_Window, &x, &y);
+        glfwGetWindowSize(m_Window, &w, &h);
+        const int index = FindMonitorForRect(areas, x, y, w, h);
+        return index >= 0 ? monitors[index] : glfwGetPrimaryMonitor();
+    }
+
+    int GlfwWindow::GetRefreshRate() const
+    {
+        GLFWmonitor* monitor = FindCurrentMonitor();
+        const GLFWvidmode* video = monitor ? glfwGetVideoMode(monitor) : nullptr;
+        return video ? std::max(0, video->refreshRate) : 0;
+    }
+
+    int GlfwWindow::GetMonitorIndex() const
+    {
+        GLFWmonitor* monitor = FindCurrentMonitor();
+        int count = 0;
+        GLFWmonitor** monitors = glfwGetMonitors(&count);
+        for (int i = 0; i < count; i++)
+            if (monitors[i] == monitor)
+                return i;
+        return -1;
+    }
+
+    int GlfwWindow::GetMonitorCount() const
+    {
+        int count = 0;
+        glfwGetMonitors(&count);
+        return count;
     }
 
     void GlfwWindow::SetFullscreen(bool fullscreen)
@@ -287,7 +373,8 @@ namespace Zamin {
     {
         if (mode == m_Mode)
             return;
-        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        // The monitor the window is on now (a window moved to the second monitor goes fullscreen there).
+        GLFWmonitor* monitor = FindCurrentMonitor();
         const GLFWvidmode* video = monitor ? glfwGetVideoMode(monitor) : nullptr;
         if (mode != WindowMode::Windowed && !video)
         {
@@ -308,9 +395,14 @@ namespace Zamin {
                 glfwSetWindowMonitor(m_Window, nullptr, m_WindowedX, m_WindowedY, std::max(1, m_WindowedWidth), std::max(1, m_WindowedHeight), 0);
                 break;
             case WindowMode::Fullscreen:
+            {
+                // The asked video mode (--resolution with --fullscreen; GLFW picks the closest), else the monitor's own.
+                const bool ownMode = m_FullscreenWidth > 0 && m_FullscreenHeight > 0;
                 glfwSetWindowAttrib(m_Window, GLFW_DECORATED, GLFW_TRUE);
-                glfwSetWindowMonitor(m_Window, monitor, 0, 0, video->width, video->height, video->refreshRate);
+                glfwSetWindowMonitor(m_Window, monitor, 0, 0, ownMode ? (int)m_FullscreenWidth : video->width,
+                                     ownMode ? (int)m_FullscreenHeight : video->height, ownMode ? GLFW_DONT_CARE : video->refreshRate);
                 break;
+            }
             case WindowMode::Borderless:
             {
                 int mx = 0, my = 0;

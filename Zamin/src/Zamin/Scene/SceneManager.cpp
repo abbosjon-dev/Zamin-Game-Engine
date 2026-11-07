@@ -238,6 +238,30 @@ namespace Zamin {
         return true;
     }
 
+    bool SceneManager::Start(const Ref<AsyncOperation>& op, std::string* error)
+    {
+        if (!op || !op->IsReady())
+        {
+            if (error)
+                *error = !op ? std::string("sahna yo'q") : op->HasFailed() ? op->GetError() : std::string("sahna hali yuklanmagan");
+            return false;
+        }
+        m_AsyncOps.erase(std::remove(m_AsyncOps.begin(), m_AsyncOps.end(), op), m_AsyncOps.end());
+        if (m_Fade.Operation == op)
+            m_Fade = {};
+        // Its stages so far (reading ... the GPU uploads, over every frame of the splash); the start adds
+        // the physics, the scripts and the audio.
+        SceneLoadTiming timing = op->m_Timing;
+        timing.WallMilliseconds = ElapsedMilliseconds(op->m_Started);
+        Ref<Scene> scene = op->m_Scene;
+        const fs::path path = op->m_Path;
+        op->m_Stage = AsyncOperation::Stage::Done;
+        op->m_Job.reset();
+        Start(scene, path, &timing);
+        op->m_Timing.SceneName = scene->GetName();
+        return true;
+    }
+
     void SceneManager::Stop()
     {
         // Loads in progress are dropped (their workers are joined as they go).

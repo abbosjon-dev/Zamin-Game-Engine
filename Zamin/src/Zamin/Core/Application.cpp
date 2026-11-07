@@ -15,10 +15,9 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
-#include <chrono>
 #include <cstdlib>
+#include <format>
 #include <string>
-#include <thread>
 
 namespace Zamin {
 
@@ -111,6 +110,37 @@ namespace Zamin {
             m_MutedForBackground = false;
         }
         ZM_CORE_INFO("O'yin {}", paused ? "to'xtatildi: oyna fokusda emas (fonda ishlash o'chirilgan)" : "davom etmoqda: oyna fokusda");
+    }
+
+    void Application::PaceFrame()
+    {
+        // The monitor's refresh rate, looked up now and then (the window can move to another monitor).
+        if (m_TargetFrameRate > 0 && --m_RefreshCheckFrames <= 0)
+        {
+            m_RefreshRate = m_Window->GetRefreshRate();
+            m_RefreshCheckFrames = 120;
+        }
+        const FramePacingPlan plan = m_TargetFrameRate > 0 ? FramePacingPlan::Choose(m_Window->IsVSync(), m_TargetFrameRate, m_RefreshRate)
+                                                           : FramePacingPlan();
+        if (plan != m_PacingPlan)
+        {
+            m_PacingPlan = plan;
+            m_Window->SetVSyncInterval(plan.VSyncInterval);
+            if (m_TargetFrameRate > 0)
+            {
+                const std::string monitor = m_RefreshRate > 0 ? std::format("{} Hz monitor", m_RefreshRate) : std::string("monitor chastotasi noma'lum");
+                if (plan.LimiterRate > 0)
+                    ZM_CORE_INFO("Kadr chastotasi: {} FPS - kutish bilan cheklanadi (VSync {}, {})", m_TargetFrameRate,
+                                 m_Window->IsVSync() ? "yoqiq" : "o'chiq", monitor);
+                else if (plan.VSyncInterval > 1)
+                    ZM_CORE_INFO("Kadr chastotasi: {} FPS - VSync har {} ta yangilanishda bir kadr ({})", m_TargetFrameRate, plan.VSyncInterval, monitor);
+                else
+                    ZM_CORE_INFO("Kadr chastotasi: {} FPS - VSync o'zi ushlab turadi ({})", m_TargetFrameRate, monitor);
+            }
+        }
+        m_FramePacer.SetTargetFrameRate(plan.LimiterRate);
+        if (plan.LimiterRate > 0)
+            m_FramePacer.Wait();
     }
 
     double Application::GetSecondsSinceInput() const
@@ -230,17 +260,9 @@ namespace Zamin {
                 ZM_PROFILE_SCOPE("Oyna (swap, hodisalar)");
                 m_Window->OnUpdate();
             }
-            // The game's frame rate limit: the rest of the frame's time asleep (the last bit spinning, the
-            // system's sleep is not that exact).
-            if (m_TargetFrameRate > 0 && m_Running && !IsAutomationRun())
-            {
-                const double frameEnd = frameStart + 1.0 / (double)m_TargetFrameRate;
-                double now = glfwGetTime();
-                if (frameEnd - now > 0.002)
-                    std::this_thread::sleep_for(std::chrono::duration<double>(frameEnd - now - 0.0015));
-                while ((now = glfwGetTime()) < frameEnd)
-                    std::this_thread::yield();
-            }
+            // The game's frame rate limit (Project settings > Player, ZaminPlayer --fps) with vsync.
+            if (m_Running && !IsAutomationRun())
+                PaceFrame();
             // A limited frame rate (the editor idling): the rest of the frame's time waiting for events.
             m_LastWaitMs = 0.0f;
             if (m_FrameRateLimit > 0.0f && m_Running && !IsAutomationRun())

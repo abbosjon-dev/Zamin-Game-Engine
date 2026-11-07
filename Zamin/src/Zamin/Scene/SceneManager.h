@@ -180,6 +180,10 @@ namespace Zamin {
         // Loads the file (relative to the assets, or absolute) and starts with it; false with the
         // reason in `error` when it cannot be read.
         bool Start(const std::filesystem::path& path, std::string* error = nullptr);
+        // Starts with a scene loaded in the background before the start (the player's splash screen:
+        // LoadSceneAsync while not running - with SetAllowSceneActivation(false) -, UpdateAsyncLoads every
+        // frame, then this once it IsReady()). False (the reason in `error`) when it failed / is not ready.
+        bool Start(const Ref<AsyncOperation>& loaded, std::string* error = nullptr);
         // Every scene stops (OnRuntimeStop), the persistent one too; loads in progress are dropped.
         void Stop();
         bool IsRunning() const { return m_Running; }

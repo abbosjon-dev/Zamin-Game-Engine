@@ -64,7 +64,7 @@ namespace Zamin {
             if (!project)
                 return SaveData::GetDirectoryForProject("Zamin") / s_FileName;
             const ProjectConfig& config = project->GetConfig();
-            return SaveData::GetDirectoryFor(config.Player.CompanyName, config.Player.GetProductName(config.Name)) / s_FileName;
+            return SaveData::GetFilePathFor(config.Player.CompanyName, config.Player.GetProductName(config.Name));
         }
 
         bool WriteFile(Store& s)
@@ -313,6 +313,11 @@ namespace Zamin {
         // kept its data before company names.
         const bool hasCompany = company.find_first_not_of(" .") != std::string_view::npos;
         return base / (hasCompany ? SanitizeName(company) : std::string("zamin")) / SanitizeName(product);
+    }
+
+    std::filesystem::path SaveData::GetFilePathFor(std::string_view company, std::string_view product)
+    {
+        return GetDirectoryFor(company, product) / s_FileName;
     }
 
     void SaveData::SetFilePath(const std::filesystem::path& path)

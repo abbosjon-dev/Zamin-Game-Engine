@@ -1,11 +1,12 @@
-// Zamin Player: runs an exported / development game project fullscreen-ready. Its window is made as
-// the project's player settings say (size, fullscreen / borderless, vsync, title, icon, frame rate
-// limit, running in the background); the command line wins over them.
-//   ZaminPlayer [path/to/Game.zproject] [--scene Scenes/Level.zscene | <build index> | <build scene name>]
-//               [--fullscreen | --windowed] [--width W --height H] [--no-vsync] [--quality <level name | index>] [--lang <code>]
-//               [--no-debug-draw] [--debug-raycasts] [--debug-contacts] [--debug-contact-details] [--debug-joints]
-//               [--debug-velocities] [--gl <4.1 | 4.3 | 4.5 | 4.6>] [--msaa <0 | 2 | 4 | 8 | 16>] [--gl-debug | --no-gl-debug]
-//               [--srgb | --no-srgb]
+// Zamin Player: runs an exported / development game project. Its window is made as the project's
+// player settings say (size, fullscreen / borderless, vsync, title, icon, frame rate limit, running in
+// the background); what the player saved in the game's options menu wins over them, and the command
+// line over both (PlayerLaunchSettings::Resolve). A splash screen (the Zamin logo or the game's picture)
+// shows while the first scene loads in the background; F11 / Alt+Enter switch fullscreen.
+//   ZaminPlayer [path/to/Game.zproject] [--windowed | --fullscreen | --borderless] [--resolution WxH]
+//               [--monitor N] [--vsync | --no-vsync] [--fps N] [--scene <path | build index | name>]
+//               [--quality <level>] [--lang <code>] [--no-splash] [--gl ...] [--msaa N] [--debug-...]
+//   ZaminPlayer --help lists every option.
 #include <Zamin/Zamin.h>
 #include <Zamin/Core/EntryPoint.h>
 
@@ -24,24 +25,15 @@
 
 namespace Zamin {
 
-    // --fullscreen / --windowed / --no-vsync were given: they win over the display options the game saved.
-    static bool s_DisplayFromCommandLine = false;
-    // --quality <name | index>: wins over the level the game saved (Quality::SaveSettings) and the project's default.
-    static std::string s_QualityFromCommandLine;
-    // --lang <code>: wins over the language the player chose (Localization::SaveSettings) and the project's start language.
-    static std::string s_LanguageFromCommandLine;
+    // How long the picture of the first scene fades in from the splash screen's colour.
+    static constexpr float s_SplashCoverSeconds = 0.35f;
 
     class RuntimeLayer : public Layer
     {
     public:
-        // Command line overrides of the project's debug drawing settings.
-        struct DebugDrawFlags
-        {
-            bool Disable = false, Raycasts = false, Contacts = false, ContactDetails = false, Joints = false, Velocities = false;
-        };
-
-        RuntimeLayer(std::filesystem::path project, std::string scene, DebugDrawFlags debugDraw)
-            : Layer("RuntimeLayer"), m_ProjectPath(std::move(project)), m_SceneOverride(std::move(scene)), m_DebugDrawFlags(debugDraw) {}
+        RuntimeLayer(std::filesystem::path project, PlayerCommandLine commandLine, PlayerLaunchSettings launch)
+            : Layer("RuntimeLayer"), m_ProjectPath(std::move(project)), m_SceneOverride(commandLine.Scene), m_CommandLine(std::move(commandLine)),
+              m_Launch(std::move(launch)) {}
 
         void OnAttach() override
         {
@@ -67,28 +59,31 @@ namespace Zamin {
                 else
                     ZM_WARN("O'yin ikonkasi o'qilmadi ({}): {}", player.Icon.generic_string(), error);
             }
-            Application::Get().SetTargetFrameRate(player.TargetFrameRate);
+            // The window was made with the resolved settings (the command line > the saved display options >
+            // the project); the frame rate limit the same way.
+            ZM_INFO("Oyna sozlamalari: {}", m_Launch.Describe());
+            Application::Get().SetTargetFrameRate(m_Launch.TargetFrameRate);
             Application::Get().SetRunInBackground(player.RunInBackground);
-            if (player.TargetFrameRate > 0)
-                ZM_INFO("Kadr chastotasi cheklovi: {} FPS", player.TargetFrameRate);
+            if (m_Launch.TargetFrameRate > 0)
+                ZM_INFO("Kadr chastotasi cheklovi: {} FPS", m_Launch.TargetFrameRate);
             // The player's own audio settings (the game's options menu saved them) over the project's mixer.
             if (Audio::LoadSettings())
                 ZM_INFO("Saqlangan ovoz sozlamalari yuklandi");
-            // The game's display options change this window (fullscreen, vsync); saved ones come back.
+            // The game's display options change this window (fullscreen, vsync); the window already is as
+            // they were saved (or as the command line says).
             Display::BindWindow(&Application::Get().GetWindow());
-            if (!s_DisplayFromCommandLine && Display::LoadSettings())
-                ZM_INFO("Saqlangan ekran sozlamalari yuklandi (to'liq ekran: {}, VSync: {})", Display::IsFullscreen() ? "ha" : "yo'q",
-                        Display::IsVSync() ? "ha" : "yo'q");
+            m_FullscreenToggle = player.FullscreenToggle;
+            m_HasToggleAction = Project::GetInputActionMap().FindAction("ToggleFullscreen") != nullptr;
 
             // Quality level: --quality, else the one the player chose in the game (saved), else the project's default.
-            if (!s_QualityFromCommandLine.empty())
+            if (!m_CommandLine.Quality.empty())
             {
-                if (!Quality::SetLevelFromString(s_QualityFromCommandLine))
+                if (!Quality::SetLevelFromString(m_CommandLine.Quality))
                 {
                     std::string names;
                     for (const std::string& name : Quality::GetLevelNames())
                         names += (names.empty() ? "" : ", ") + name;
-                    ZM_WARN("--quality {}: bunday sifat darajasi yo'q (bor: {}) - standart daraja qoldi", s_QualityFromCommandLine, names);
+                    ZM_WARN("--quality {}: bunday sifat darajasi yo'q (bor: {}) - standart daraja qoldi", m_CommandLine.Quality, names);
                 }
             }
             else if (Quality::LoadSettings())
@@ -96,14 +91,14 @@ namespace Zamin {
             ZM_INFO("Sifat darajasi: {}", Quality::GetLevelName());
 
             // Language: --lang, else the one the player chose in the game (saved), else the project's start language.
-            if (!s_LanguageFromCommandLine.empty())
+            if (!m_CommandLine.Language.empty())
             {
-                if (!Localization::SetLanguage(s_LanguageFromCommandLine))
+                if (!Localization::SetLanguage(m_CommandLine.Language))
                 {
                     std::string codes;
                     for (const std::string& code : Localization::GetLanguages())
                         codes += (codes.empty() ? "" : ", ") + code;
-                    ZM_WARN("--lang {}: o'yinda bunday til yo'q (bor: {}) - '{}' qoldi", s_LanguageFromCommandLine, codes, Localization::GetLanguage());
+                    ZM_WARN("--lang {}: o'yinda bunday til yo'q (bor: {}) - '{}' qoldi", m_CommandLine.Language, codes, Localization::GetLanguage());
                 }
             }
             else if (Localization::LoadSettings())
@@ -114,15 +109,42 @@ namespace Zamin {
             // Debug drawing: the project's settings, then the command line (Shipping: compiled out).
             DebugDrawSettings& debugDraw = DebugDraw::GetSettings();
             debugDraw = config.DebugDraw;
-            if (m_DebugDrawFlags.Disable) debugDraw.Enabled = false;
-            if (m_DebugDrawFlags.Raycasts) debugDraw.ShowRaycasts = true;
-            if (m_DebugDrawFlags.Contacts) debugDraw.ShowContacts = true;
-            if (m_DebugDrawFlags.ContactDetails) debugDraw.ShowContacts = debugDraw.ShowContactDetails = true;
-            if (m_DebugDrawFlags.Joints) debugDraw.ShowJoints = true;
-            if (m_DebugDrawFlags.Velocities) debugDraw.ShowVelocities = debugDraw.ShowBodyVelocities = true;
+            if (m_CommandLine.NoDebugDraw) debugDraw.Enabled = false;
+            if (m_CommandLine.DebugRaycasts) debugDraw.ShowRaycasts = true;
+            if (m_CommandLine.DebugContacts) debugDraw.ShowContacts = true;
+            if (m_CommandLine.DebugContactDetails) debugDraw.ShowContacts = debugDraw.ShowContactDetails = true;
+            if (m_CommandLine.DebugJoints) debugDraw.ShowJoints = true;
+            if (m_CommandLine.DebugVelocities) debugDraw.ShowVelocities = debugDraw.ShowBodyVelocities = true;
 
             if (auto module = Project::GetScriptModulePath(); !module.empty())
                 ScriptEngine::LoadModule(module);
+
+            // Automation (comparisons, CI): ZAMIN_PLAYER_NO_CULLING=1 / ZAMIN_PLAYER_NO_INSTANCING=1 turn the
+            // renderer's frustum culling / GPU instancing off; ZAMIN_PLAYER_STATS=1 logs the last frame's
+            // render statistics (and the audio profile) at exit.
+            if (std::getenv("ZAMIN_PLAYER_NO_CULLING"))
+                Renderer3D::SetFrustumCulling(false);
+            if (std::getenv("ZAMIN_PLAYER_NO_INSTANCING"))
+                Renderer3D::SetInstancing(false);
+            // ZAMIN_PLAYER_INPUT="<frame>:<action>;..." plays input in (screenshots, CI): a key name
+            // ("Down", "Enter", "Tab": pressed in that frame, released in the next), "mouse=x,y" (the
+            // game's mouse at window px from the top-left from then on), "click" (the left button for
+            // one frame), "down" / "up" (the left button held from then on / let go: drags) or
+            // "scroll=dy" / "scroll=dx,dy" (the mouse wheel in that frame, notches).
+            if (const char* input = std::getenv("ZAMIN_PLAYER_INPUT"))
+            {
+                std::string_view rest = input;
+                while (!rest.empty())
+                {
+                    const size_t end = rest.find(';');
+                    std::string_view item = rest.substr(0, end);
+                    rest = end == std::string_view::npos ? std::string_view() : rest.substr(end + 1);
+                    const size_t colon = item.find(':');
+                    if (colon == std::string_view::npos)
+                        continue;
+                    m_ScriptedInput.push_back({ std::atoi(std::string(item.substr(0, colon)).c_str()), std::string(item.substr(colon + 1)) });
+                }
+            }
 
             // The start scene: --scene (a path, a build index or a build scene's name), else the
             // project's start scene, else (it is not there / not set) the first build scene.
@@ -154,55 +176,126 @@ namespace Zamin {
             // background loading and fades between scenes.
             m_Scenes = std::make_unique<SceneManager>();
             m_Scenes->OnViewportResize(window.GetFramebufferWidth(), window.GetFramebufferHeight());
-            std::string error;
-            if (!m_Scenes->Start(scenePath, &error))
+            m_StartScenePath = scenePath;
+            // The splash screen while the first scene loads in the background (automation runs - screenshots,
+            // CI - go straight to the game unless ZAMIN_PLAYER_SPLASH=1 asks for it).
+            const bool splash = m_Launch.Splash && (!Application::IsAutomationRun() || std::getenv("ZAMIN_PLAYER_SPLASH"));
+            if (splash)
             {
-                ZM_CRITICAL("Boshlang'ich sahna yuklanmadi: {} ({})", scenePath.string(), error);
-                // An error screen instead of closing at once: what went wrong, Esc to quit.
-                std::vector<SceneLoadReport> reports = m_Scenes->TakeLoadReports();
-                if (!reports.empty())
-                    m_ErrorReport = reports.back();
-                else
+                m_StartLoad = m_Scenes->LoadSceneAsync(scenePath);
+                if (!m_StartLoad)
                 {
-                    m_ErrorReport.File = scenePath.generic_string();
-                    SceneLoadIssue issue;
-                    issue.Level = SceneLoadIssue::Severity::Fatal;
-                    issue.Message = error.empty() ? std::string("sahna yuklanmadi") : error;
-                    m_ErrorReport.Add(std::move(issue));
+                    ShowStartError("fayl topilmadi");
+                    return;
                 }
-                m_ErrorScreen = true;
-                m_Scenes.reset();
-                return;
+                m_StartLoad->SetAllowSceneActivation(false); // it starts the game itself, after the splash
+                const std::filesystem::path image = player.SplashImage.empty() ? std::filesystem::path()
+                                                                               : Project::GetAssetFileSystemPath(player.SplashImage);
+                m_Splash.Begin(player.SplashDuration, player.SplashSkippable, player.SplashBackground, image);
+                ZM_INFO("Splash ekran ({:.1f} s{}); birinchi sahna fonda yuklanmoqda: {}", player.SplashDuration,
+                        player.SplashSkippable ? ", tugma bosilsa o'tadi" : "", start.generic_string());
             }
+            else
+            {
+                std::string error;
+                if (!m_Scenes->Start(scenePath, &error))
+                {
+                    ShowStartError(error);
+                    return;
+                }
+                OnGameStarted();
+            }
+        }
+
+        // The first scene could not be loaded: an error screen instead of closing at once (what went
+        // wrong, Esc to quit).
+        void ShowStartError(const std::string& error)
+        {
+            ZM_CRITICAL("Boshlang'ich sahna yuklanmadi: {} ({})", m_StartScenePath.string(), error);
+            std::vector<SceneLoadReport> reports = m_Scenes ? m_Scenes->TakeLoadReports() : std::vector<SceneLoadReport>();
+            if (!reports.empty())
+                m_ErrorReport = reports.back();
+            else
+            {
+                m_ErrorReport.File = m_StartScenePath.generic_string();
+                SceneLoadIssue issue;
+                issue.Level = SceneLoadIssue::Severity::Fatal;
+                issue.Message = error.empty() ? std::string("sahna yuklanmadi") : error;
+                m_ErrorReport.Add(std::move(issue));
+            }
+            m_ErrorScreen = true;
+            m_StartLoad.reset();
+            m_Splash.End();
+            m_Scenes.reset();
+        }
+
+        // The game runs from here on (the first scene started).
+        void OnGameStarted()
+        {
             m_ReportSerial = m_Scenes->GetLoadReportSerial();
             m_ActiveSerial = m_Scenes->GetActiveSceneSerial();
+        }
 
-            // Automation (comparisons, CI): ZAMIN_PLAYER_NO_CULLING=1 / ZAMIN_PLAYER_NO_INSTANCING=1 turn the
-            // renderer's frustum culling / GPU instancing off; ZAMIN_PLAYER_STATS=1 logs the last frame's
-            // render statistics (and the audio profile) at exit.
-            if (std::getenv("ZAMIN_PLAYER_NO_CULLING"))
-                Renderer3D::SetFrustumCulling(false);
-            if (std::getenv("ZAMIN_PLAYER_NO_INSTANCING"))
-                Renderer3D::SetInstancing(false);
-            // ZAMIN_PLAYER_INPUT="<frame>:<action>;..." plays input in (screenshots, CI): a key name
-            // ("Down", "Enter", "Tab": pressed in that frame, released in the next), "mouse=x,y" (the
-            // game's mouse at window px from the top-left from then on), "click" (the left button for
-            // one frame), "down" / "up" (the left button held from then on / let go: drags) or
-            // "scroll=dy" / "scroll=dx,dy" (the mouse wheel in that frame, notches).
-            if (const char* input = std::getenv("ZAMIN_PLAYER_INPUT"))
+        // One frame of the splash screen: the first scene loads meanwhile; once both are done the game starts.
+        void UpdateSplash(Timestep ts, bool skip)
+        {
+            m_Scenes->UpdateAsyncLoads(12.0f); // nothing else to do in these frames
+            const bool failed = m_StartLoad->HasFailed();
+            m_Splash.Update(ts, m_StartLoad->IsReady() || failed, skip);
+            auto& window = Application::Get().GetWindow();
+            m_Splash.Render(window.GetFramebufferWidth(), window.GetFramebufferHeight(), m_StartLoad->GetProgress());
+            if (!m_Splash.IsDone())
+                return;
+            const SplashTimeline timeline = m_Splash.GetTimeline();
+            m_SplashColor = m_Splash.GetBackground();
+            m_Splash.End();
+            std::string error;
+            if (failed || !m_Scenes->Start(m_StartLoad, &error))
             {
-                std::string_view rest = input;
-                while (!rest.empty())
-                {
-                    const size_t end = rest.find(';');
-                    std::string_view item = rest.substr(0, end);
-                    rest = end == std::string_view::npos ? std::string_view() : rest.substr(end + 1);
-                    const size_t colon = item.find(':');
-                    if (colon == std::string_view::npos)
-                        continue;
-                    m_ScriptedInput.push_back({ std::atoi(std::string(item.substr(0, colon)).c_str()), std::string(item.substr(colon + 1)) });
-                }
+                ShowStartError(failed ? m_StartLoad->GetError() : error);
+                return;
             }
+            m_StartLoad.reset();
+            OnGameStarted();
+            m_SplashCover = 1.0f; // the game's first picture comes out of the splash's colour
+            ZM_INFO("Splash ekran tugadi ({:.1f} s{}), o'yin boshlandi", timeline.GetElapsed(), timeline.WasSkipped() ? ", o'tkazib yuborildi" : "");
+        }
+
+        // F11 / Alt+Enter (and the input map's "ToggleFullscreen"): fullscreen <-> the window as it was. True
+        // when it switched this frame.
+        bool HandleFullscreenToggle()
+        {
+            if (!m_FullscreenToggle)
+                return false;
+            // (Alt held, or pressed in the same frame as Enter: a quick chord.)
+            const bool alt = Input::IsKeyPressed(Key::LeftAlt) || Input::IsKeyPressed(Key::RightAlt) || Input::IsKeyJustPressed(Key::LeftAlt) ||
+                             Input::IsKeyJustPressed(Key::RightAlt);
+            bool toggle = Input::IsKeyJustPressed(Key::F11) || (alt && (Input::IsKeyJustPressed(Key::Enter) || Input::IsKeyJustPressed(Key::KPEnter)));
+            if (!toggle && m_HasToggleAction)
+                toggle = Input::IsActionJustPressed("ToggleFullscreen");
+            if (!toggle)
+                return false;
+            Display::SetFullscreen(!Display::IsFullscreen());
+            Display::SaveSettings(); // the next start opens the same way
+            ZM_INFO("Ekran: {} (saqlandi)", Display::IsFullscreen() ? "to'liq ekran" : "oynali rejim");
+            return true;
+        }
+
+        // The start of the game: its first frames fade in from the splash screen's colour.
+        void RenderSplashCover(uint32_t w, uint32_t h, float dt)
+        {
+            if (m_SplashCover <= 0.0f || w == 0 || h == 0)
+                return;
+            const float t = std::clamp(m_SplashCover, 0.0f, 1.0f);
+            RenderCommand::SetDepthTest(false);
+            Renderer2D::SetDisplayOutput(true);
+            Renderer2D::SetLit(false);
+            Renderer2D::BeginScene(glm::ortho(0.0f, (float)w, 0.0f, (float)h, -1.0f, 1.0f));
+            Renderer2D::DrawQuad(glm::vec2((float)w * 0.5f, (float)h * 0.5f), glm::vec2((float)w, (float)h),
+                                 glm::vec4(m_SplashColor, t * t * (3.0f - 2.0f * t)));
+            Renderer2D::EndScene();
+            Renderer2D::SetDisplayOutput(false);
+            m_SplashCover -= dt / s_SplashCoverSeconds;
         }
 
         // Plays the scripted input of this frame (seen by the next Input::Update).
@@ -255,6 +348,11 @@ namespace Zamin {
             if (std::getenv("ZAMIN_PLAYER_STATS"))
             {
                 ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
+                // The real frame times (frame pacing: --fps, vsync).
+                const FrameTimeHistory& frames = Application::Get().GetFrameTimeHistory();
+                const FrameTimeHistory::Summary summary = frames.Summarize();
+                ZM_INFO("Kadr vaqti (oxirgi {} kadr): o'rtacha {:.2f} ms ({:.1f} FPS), min {:.2f} ms, max {:.2f} ms, eng sekin 1%: {:.2f} ms", frames.Size(),
+                        summary.Average, summary.AverageFPS, summary.Min, summary.Max, summary.Worst1Percent);
                 ZM_INFO("Profiler (oxirgi kadr, ms):\n{}", Profiler::FormatTree(Profiler::GetLastFrame()));
                 ZM_INFO("Audio profili (oxirgi kadr): {}", m_LastAudioProfile);
                 for (const SceneLoadTiming& load : SceneLoadProfiler::GetHistory())
@@ -364,14 +462,20 @@ namespace Zamin {
 
         void OnUpdate(Timestep ts) override
         {
+            if (!m_ScriptedInput.empty())
+                PlayScriptedInput();
+            const bool toggled = HandleFullscreenToggle();
             if (m_ErrorScreen)
             {
                 RenderErrorScreen();
                 return;
             }
             if (!m_Scenes) return;
-            if (!m_ScriptedInput.empty())
-                PlayScriptedInput();
+            if (m_Splash.IsActive())
+            {
+                UpdateSplash(ts, Input::IsAnyKeyJustPressed() && !toggled);
+                return;
+            }
             // The audio engine is shut down before OnDetach: its profile is kept from the last frame.
             static const bool logStats = std::getenv("ZAMIN_PLAYER_STATS") != nullptr;
             if (logStats)
@@ -450,6 +554,7 @@ namespace Zamin {
                 m_Scenes->RenderTransition(w, h);
                 RenderLoadBanner(w, h);
                 m_BannerTime -= ts;
+                RenderSplashCover(w, h, ts);
             }
 
             if (m_Scenes->IsQuitRequested())
@@ -485,7 +590,8 @@ namespace Zamin {
         {
             EventDispatcher dispatcher(e);
             dispatcher.Dispatch<KeyPressedEvent>([](KeyPressedEvent& ev) {
-                if (ev.GetKeyCode() == Key::F11)
+                // (F11 switches fullscreen.)
+                if (ev.GetKeyCode() == Key::F10)
                     ZM_INFO("FPS: {:.0f} | audio: {}", Application::Get().GetFPS(), AudioEngine::GetProfile().Format());
                 return false;
             });
@@ -494,7 +600,15 @@ namespace Zamin {
     private:
         std::filesystem::path m_ProjectPath;
         std::string m_SceneOverride;
-        DebugDrawFlags m_DebugDrawFlags;
+        PlayerCommandLine m_CommandLine;
+        PlayerLaunchSettings m_Launch;
+        std::filesystem::path m_StartScenePath;
+        // The splash screen and the first scene loading behind it; then the cover the game fades in from.
+        SplashScreen m_Splash;
+        Ref<AsyncOperation> m_StartLoad;
+        float m_SplashCover = 0.0f;
+        glm::vec3 m_SplashColor{ 0.0f };
+        bool m_FullscreenToggle = true, m_HasToggleAction = false;
         std::string m_LastAudioProfile = "-";
         std::unique_ptr<SceneManager> m_Scenes;
         uint64_t m_ActiveSerial = 0;
@@ -518,10 +632,10 @@ namespace Zamin {
     class ZaminPlayer : public Application
     {
     public:
-        ZaminPlayer(const ApplicationSpecification& spec, std::filesystem::path project, std::string scene, RuntimeLayer::DebugDrawFlags debugDraw)
+        ZaminPlayer(const ApplicationSpecification& spec, std::filesystem::path project, PlayerCommandLine commandLine, PlayerLaunchSettings launch)
             : Application(spec)
         {
-            PushLayer(new RuntimeLayer(std::move(project), std::move(scene), debugDraw));
+            PushLayer(new RuntimeLayer(std::move(project), std::move(commandLine), std::move(launch)));
         }
     };
 
@@ -554,77 +668,39 @@ namespace Zamin {
         spec.CommandLineArgs = args;
         spec.EnableImGui = false;
 
-        const char* projectArg = nullptr;
-        std::string scene;
-        RuntimeLayer::DebugDrawFlags debugDraw;
-        bool fullscreen = false, windowed = false, noVSync = false;
-        int width = 0, height = 0;
-        // The OpenGL context from the command line (wins over Project settings > Graphics).
-        std::string glVersion;
-        int msaa = -1, glDebug = -1, srgb = -1;
-        for (int i = 1; i < args.Count; i++)
+        PlayerCommandLine commandLine = PlayerCommandLine::Parse(args.Count, args.Args);
+        if (commandLine.Help)
         {
-            if (!std::strcmp(args[i], "--fullscreen")) fullscreen = true;
-            else if (!std::strcmp(args[i], "--windowed")) windowed = true;
-            else if (!std::strcmp(args[i], "--scene") && i + 1 < args.Count) scene = args[++i];
-            else if (!std::strcmp(args[i], "--width") && i + 1 < args.Count) width = std::atoi(args[++i]);
-            else if (!std::strcmp(args[i], "--height") && i + 1 < args.Count) height = std::atoi(args[++i]);
-            else if (!std::strcmp(args[i], "--no-vsync")) noVSync = true;
-            else if (!std::strcmp(args[i], "--quality") && i + 1 < args.Count) s_QualityFromCommandLine = args[++i];
-            else if ((!std::strcmp(args[i], "--lang") || !std::strcmp(args[i], "--language")) && i + 1 < args.Count)
-                s_LanguageFromCommandLine = args[++i];
-            else if (!std::strcmp(args[i], "--no-debug-draw")) debugDraw.Disable = true;
-            else if (!std::strcmp(args[i], "--debug-raycasts")) debugDraw.Raycasts = true;
-            else if (!std::strcmp(args[i], "--debug-contacts")) debugDraw.Contacts = true;
-            else if (!std::strcmp(args[i], "--debug-contact-details")) debugDraw.ContactDetails = true;
-            else if (!std::strcmp(args[i], "--debug-joints")) debugDraw.Joints = true;
-            else if (!std::strcmp(args[i], "--debug-velocities")) debugDraw.Velocities = true;
-            else if (!std::strcmp(args[i], "--gl") && i + 1 < args.Count) glVersion = args[++i];
-            else if (!std::strcmp(args[i], "--msaa") && i + 1 < args.Count) msaa = std::max(0, std::atoi(args[++i]));
-            else if (!std::strcmp(args[i], "--gl-debug")) glDebug = 1;
-            else if (!std::strcmp(args[i], "--no-gl-debug")) glDebug = 0;
-            else if (!std::strcmp(args[i], "--srgb")) srgb = 1;
-            else if (!std::strcmp(args[i], "--no-srgb")) srgb = 0;
-            else projectArg = args[i];
+            const std::string program = args.Count > 0 && args[0] ? std::filesystem::path(args[0]).filename().string() : std::string("ZaminPlayer");
+            std::fputs(PlayerCommandLine::GetHelpText(program).c_str(), stdout);
+            std::exit(0);
         }
+        for (const std::string& problem : commandLine.Errors)
+            ZM_WARN("Buyruq qatori: {}", problem);
 
-        std::filesystem::path project = FindProject(projectArg);
+        std::filesystem::path project = FindProject(commandLine.Project.empty() ? nullptr : commandLine.Project.c_str());
         if (project.empty())
         {
-            ZM_CRITICAL("Loyiha topilmadi. Foydalanish: ZaminPlayer <Game.zproject>");
+            ZM_CRITICAL("Loyiha topilmadi. Foydalanish: ZaminPlayer <Game.zproject> (hamma variantlar: --help)");
             std::exit(1);
         }
 
-        // The window as the project's player settings say (read before the engine starts: the window
-        // is made with them); a file that cannot be read gets the defaults here and fails to load later.
+        // The window as the project's player settings say (read before the engine starts: the window is
+        // made with them); a file that cannot be read gets the defaults here and fails to load later.
         ProjectConfig config;
         std::string error;
         if (!ProjectSerializer::ConfigFromString(FileSystem::ReadTextFile(project), config, nullptr, &error))
             config = ProjectConfig();
-        spec.Window = config.Player.MakeWindowProps(config.Name);
-        // The command line wins.
-        if (width > 0) spec.Window.Width = (uint32_t)width;
-        if (height > 0) spec.Window.Height = (uint32_t)height;
-        if (fullscreen)
-            spec.Window.Mode = spec.Window.FullscreenMode;
-        else if (windowed)
-            spec.Window.Mode = WindowMode::Windowed;
-        if (noVSync)
-            spec.Window.VSync = false;
-        s_DisplayFromCommandLine = fullscreen || windowed || noVSync;
-        // The OpenGL context: Project settings > Graphics, then the command line.
-        GraphicsSettings& graphics = spec.Window.Graphics;
-        graphics = config.Graphics;
-        if (!glVersion.empty() && !GraphicsSettings::ParseVersion(glVersion, graphics.GLMajor, graphics.GLMinor))
-            ZM_WARN("--gl {}: bunday OpenGL versiyasi yo'q (bor: 4.1, 4.3, 4.5, 4.6) - loyihaniki qoldi", glVersion);
-        if (msaa >= 0)
-            graphics.MSAASamples = GraphicsSettings::SanitizeSamples(msaa);
-        if (glDebug >= 0)
-            graphics.DebugContext = glDebug ? GraphicsDebugContext::On : GraphicsDebugContext::Off;
-        if (srgb >= 0)
-            graphics.SRGBFramebuffer = srgb == 1;
-        graphics.Sanitize();
-        return new ZaminPlayer(spec, project, scene, debugDraw);
+        // The display options the game saved (its options menu), from its SaveData file - also before the
+        // window is made, so a game left fullscreen opens fullscreen at once.
+        SaveData::SetFilePath(SaveData::GetFilePathFor(config.Player.CompanyName, config.Player.GetProductName(config.Name)));
+        const SavedDisplaySettings saved = Display::GetSavedSettings();
+        SaveData::SetFilePath({}); // the project's own location once it is open (the same file)
+        PlayerLaunchSettings launch = PlayerLaunchSettings::Resolve(config, saved, commandLine);
+        for (const std::string& warning : launch.Warnings)
+            ZM_WARN("{}", warning);
+        spec.Window = launch.Window;
+        return new ZaminPlayer(spec, project, std::move(commandLine), std::move(launch));
     }
 
 }

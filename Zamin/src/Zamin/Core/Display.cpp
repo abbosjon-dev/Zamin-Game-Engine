@@ -97,6 +97,16 @@ namespace Zamin {
         return SaveData::GetType(SettingKey("Fullscreen")) == SaveValueType::Bool || SaveData::GetType(SettingKey("VSync")) == SaveValueType::Bool;
     }
 
+    SavedDisplaySettings Display::GetSavedSettings()
+    {
+        SavedDisplaySettings saved;
+        if (SaveData::GetType(SettingKey("Fullscreen")) == SaveValueType::Bool)
+            saved.Fullscreen = SaveData::GetBool(SettingKey("Fullscreen"));
+        if (SaveData::GetType(SettingKey("VSync")) == SaveValueType::Bool)
+            saved.VSync = SaveData::GetBool(SettingKey("VSync"));
+        return saved;
+    }
+
     void Display::ClearSavedSettings()
     {
         SaveData::DeleteKey(SettingKey("Fullscreen"));

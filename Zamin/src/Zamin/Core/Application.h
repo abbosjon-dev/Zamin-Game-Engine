@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Core/Base.h"
+#include "Zamin/Core/FramePacer.h"
 #include "Zamin/Core/Layer.h"
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/Window.h"
@@ -70,11 +71,15 @@ namespace Zamin {
         float GetLastWaitMs() const { return m_LastWaitMs; }
         static bool IsAutomationRun();
 
-        // ---- the game's frame rate limit (Project settings > Player): the most frames per second
-        // (0 = none). Unlike the editor's limit above, input does not end the wait - the frames keep
-        // their pace (sleep, then a short spin). Automation runs are never limited.
-        void SetTargetFrameRate(int fps) { m_TargetFrameRate = std::max(0, fps); }
+        // ---- the game's frame rate limit (Project settings > Player, ZaminPlayer --fps): the most frames
+        // per second (0 = none). Unlike the editor's limit above, input does not end the wait - the
+        // frames keep their pace. With vsync a limit that divides the monitor's rate is held by vsync
+        // itself (2 blanks per frame for 30 FPS on 60 Hz), otherwise by a sleep and a short spin on a
+        // fixed schedule (FramePacingPlan, FramePacer). Automation runs are never limited.
+        void SetTargetFrameRate(int fps) { m_TargetFrameRate = std::max(0, fps); m_RefreshCheckFrames = 0; }
         int GetTargetFrameRate() const { return m_TargetFrameRate; }
+        // How the frames are paced now (vsync blanks per frame, the sleep limiter's rate).
+        const FramePacingPlan& GetFramePacingPlan() const { return m_PacingPlan; }
         // false: while the window is not in front the layers are not updated (the game's time stands
         // still, the mixer's Master group is muted) and the loop only waits for events. Automation runs
         // always run.
@@ -102,6 +107,8 @@ namespace Zamin {
         void HandleAutomation();
         // RunInBackground: pauses / resumes the game when its window loses / gets the focus.
         void SetPausedInBackground(bool paused);
+        // The end of a frame: the target frame rate's wait (and vsync's interval for it).
+        void PaceFrame();
 
     private:
         ApplicationSpecification m_Specification;
@@ -120,6 +127,9 @@ namespace Zamin {
         bool m_WindowFocused = true;
         float m_LastWaitMs = 0.0f;
         int m_TargetFrameRate = 0;
+        FramePacer m_FramePacer;
+        FramePacingPlan m_PacingPlan;
+        int m_RefreshRate = 0, m_RefreshCheckFrames = 0;
         bool m_RunInBackground = true;
         bool m_PausedInBackground = false;
         bool m_MutedForBackground = false; // the Master group was muted by the pause (not by the game)

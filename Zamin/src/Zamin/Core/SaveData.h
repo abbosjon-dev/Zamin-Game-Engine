@@ -52,6 +52,8 @@ namespace Zamin {
         // <data home>/<company>/<product>; without a company <data home>/zamin/<product> (both names
         // made file-system safe).
         static std::filesystem::path GetDirectoryFor(std::string_view company, std::string_view product);
+        // The save file in that folder (GetDirectoryFor / savedata.json).
+        static std::filesystem::path GetFilePathFor(std::string_view company, std::string_view product);
         // Use a fixed file instead of the per-project location (tests, tools); an empty path
         // goes back to the automatic location. Unsaved data is saved to the old file first.
         static void SetFilePath(const std::filesystem::path& path);

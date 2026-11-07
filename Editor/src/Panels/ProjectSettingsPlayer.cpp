@@ -185,8 +185,9 @@ namespace Zamin {
         if (UI::BeginPropertyGrid("playerWindow"))
         {
             UI::PropertyHeader(ICON_FA_WINDOW_MAXIMIZE "  Oyna",
-                               "ZaminPlayer oynasi shunday yaratiladi. Buyruq qatori (--fullscreen, --windowed, --width/--height, --no-vsync) va "
-                               "o'yin menyusida saqlangan ekran sozlamalari (Display) bulardan ustun.");
+                               "ZaminPlayer oynasi shunday yaratiladi. O'yin menyusida saqlangan ekran sozlamalari (Display: to'liq ekran, VSync) "
+                               "bulardan ustun, buyruq qatori (--fullscreen, --windowed, --borderless, --resolution, --monitor, --fps, --no-vsync) "
+                               "esa ikkalasidan ham.");
             UI::PropertyLabel("Oyna o'lchami", "Oynali rejimdagi o'lcham (piksel). To'liq ekran va chegarasiz rejim monitorning o'z o'lchamida");
             int size[2] = { (int)p.Width, (int)p.Height };
             const float comboWidth = ImGui::GetFontSize() * 2.2f;
@@ -265,6 +266,10 @@ namespace Zamin {
             changed |= UI::PropertyBool("Fonda ishlash", p.RunInBackground);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("O'chirilsa: oyna fokusdan chiqqanda o'yin to'xtaydi (vaqt, fizika, skriptlar) va ovoz o'chadi; qaytganda davom etadi");
+            changed |= UI::PropertyBool("F11 / Alt+Enter", p.FullscreenToggle);
+            if (ImGui::IsItemHovered())
+                UI::Tooltip("O'yin ichida F11 yoki Alt+Enter to'liq ekran va oyna orasida almashtiradi (oyna avvalgi o'lchami va joyiga "
+                            "qaytadi; tanlov saqlanadi). Input xaritasida \"ToggleFullscreen\" harakati bo'lsa, u ham ishlaydi");
             UI::EndPropertyGrid();
         }
         const char* modeText = p.Mode == WindowMode::Fullscreen   ? "To'liq ekran (monitor o'lchamida)"
@@ -275,7 +280,110 @@ namespace Zamin {
                                                             p.TargetFrameRate > 0 ? std::format(", {} FPS", p.TargetFrameRate) : std::string());
         ImGui::TextDisabled("Ko'rinishi:");
         TitleBarPreview(p.GetWindowTitle(config.Name), m_IconPreview, modeLine.c_str());
+        ImGui::Spacing();
 
+        // ------------------------------------------------ splash screen
+        DrawPlayerSplash(p);
+
+        if (changed)
+        {
+            p.Sanitize();
+            m_Dirty = true;
+        }
+    }
+
+    void ProjectSettingsPanel::DrawPlayerSplash(PlayerSettings& p)
+    {
+        // The game's own picture: loaded again when the path changes.
+        const std::filesystem::path file = p.SplashImage.empty() ? std::filesystem::path() : Project::GetAssetFileSystemPath(p.SplashImage);
+        if (file != m_SplashImagePath)
+        {
+            m_SplashImagePath = file;
+            m_SplashImagePreview = nullptr;
+            m_SplashImageMissing = false;
+            if (!file.empty())
+            {
+                m_SplashImagePreview = Texture2D::Create(file.string());
+                if (!m_SplashImagePreview || !m_SplashImagePreview->IsLoaded())
+                {
+                    m_SplashImagePreview = nullptr;
+                    m_SplashImageMissing = true;
+                }
+            }
+        }
+        if (!m_SplashLogo)
+            m_SplashLogo = SplashLogo::CreateTexture(256);
+
+        bool changed = false;
+        if (UI::BeginPropertyGrid("playerSplash"))
+        {
+            UI::PropertyHeader(ICON_FA_FILM "  Splash ekran",
+                               "Player birinchi sahnadan oldin Zamin logotipini (yoki o'yinning o'z rasmini) ko'rsatadi: paydo bo'ladi, turadi va "
+                               "so'nadi. Shu vaqtda birinchi sahna fonda yuklanadi; yuklanish cho'zilsa splash kutib turadi (progress chizig'i bilan). "
+                               "Buyruq qatori: --no-splash.");
+            changed |= UI::PropertyBool("Splash ko'rsatish", p.SplashScreen);
+            ImGui::BeginDisabled(!p.SplashScreen);
+            UI::PropertyLabel("Davomiyligi", "Paydo bo'lish, turish va so'nish birga (soniya). Sahna hali yuklanmagan bo'lsa uzoqroq turadi");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::DragFloat("##splashDuration", &p.SplashDuration, 0.05f, PlayerSettings::MinSplashDuration, PlayerSettings::MaxSplashDuration,
+                                 "%.1f s", ImGuiSliderFlags_AlwaysClamp))
+                changed = true;
+            changed |= UI::PropertyBool("Tugma bilan o'tkazish", p.SplashSkippable);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                UI::Tooltip("Istalgan tugma, sichqoncha yoki gamepad tugmasi splashni tugatadi (sahna yuklangan bo'lsa darhol)");
+            std::string path = p.SplashImage.generic_string();
+            UI::AssetPathOptions options;
+            options.PreviewTexture = m_SplashImagePreview ? m_SplashImagePreview->GetRendererID() : 0;
+            options.Missing = m_SplashImageMissing;
+            options.Tooltip = "O'yinning o'z rasmi (PNG / JPG) Zamin logotipi o'rniga. Bo'sh: Zamin logotipi";
+            if (UI::PropertyAssetPath("O'z rasmi", path, ".png;.jpg;.jpeg", ICON_FA_IMAGE, options))
+            {
+                std::filesystem::path chosen(path);
+                p.SplashImage = chosen.is_absolute() ? std::filesystem::path(Project::GetAssetRelativePath(chosen)) : chosen;
+                changed = true;
+            }
+            changed |= UI::PropertyColor3("Fon rangi", p.SplashBackground);
+            ImGui::EndDisabled();
+            UI::EndPropertyGrid();
+        }
+
+        // A small screen as the player shows it at full opacity.
+        if (p.SplashScreen)
+        {
+            ImGui::TextDisabled("Ko'rinishi:");
+            const float width = std::min(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() * 22.0f);
+            const float height = width * 9.0f / 16.0f;
+            const ImVec2 min = ImGui::GetCursorScreenPos(), max(min.x + width, min.y + height);
+            ImDrawList* draw = ImGui::GetWindowDrawList();
+            const glm::vec3& bg = p.SplashBackground;
+            draw->AddRectFilled(min, max, ImGui::ColorConvertFloat4ToU32(ImVec4(bg.r, bg.g, bg.b, 1.0f)), 4.0f);
+            draw->AddRect(min, max, IM_COL32(70, 74, 86, 255), 4.0f);
+            if (m_SplashImagePreview)
+            {
+                const float aspect = (float)m_SplashImagePreview->GetWidth() / (float)std::max(1u, m_SplashImagePreview->GetHeight());
+                float w = width * 0.7f, h = w / aspect;
+                if (h > height * 0.55f)
+                {
+                    h = height * 0.55f;
+                    w = h * aspect;
+                }
+                const ImVec2 c(min.x + width * 0.5f, min.y + height * 0.48f);
+                draw->AddImage((ImTextureID)(uintptr_t)m_SplashImagePreview->GetRendererID(), ImVec2(c.x - w * 0.5f, c.y - h * 0.5f),
+                               ImVec2(c.x + w * 0.5f, c.y + h * 0.5f), ImVec2(0, 1), ImVec2(1, 0));
+            }
+            else if (m_SplashLogo)
+            {
+                const float side = std::min(height * 0.34f, width * 0.45f);
+                const ImVec2 c(min.x + width * 0.5f, min.y + height * 0.43f);
+                draw->AddImage((ImTextureID)(uintptr_t)m_SplashLogo->GetRendererID(), ImVec2(c.x - side * 0.5f, c.y - side * 0.5f),
+                               ImVec2(c.x + side * 0.5f, c.y + side * 0.5f), ImVec2(0, 1), ImVec2(1, 0));
+                const char* title = "ZAMIN ENGINE";
+                const ImVec2 size = ImGui::CalcTextSize(title);
+                draw->AddText(ImVec2(c.x - size.x * 0.5f, c.y + side * 0.62f), IM_COL32(236, 240, 244, 255), title);
+            }
+            ImGui::Dummy(ImVec2(width, height + 2.0f));
+            ImGui::TextDisabled("%.1f s%s", p.SplashDuration, p.SplashSkippable ? ", tugma bilan o'tkaziladi" : "");
+        }
         if (changed)
         {
             p.Sanitize();

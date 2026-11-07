@@ -42,10 +42,12 @@ namespace Zamin {
                   { "Project.Name", "Project.AssetDirectory", "Project.SourceDirectory", "Project.ScriptModulePath" } },
                 { "Player", ICON_FA_WINDOW_MAXIMIZE, "Player",
                   "O'yin player'da qanday ishga tushadi: kompaniya, mahsulot nomi va versiya (SaveData papkasi, "
-                  "Application::GetVersion), oyna (o'lcham, to'liq ekran, VSync, sarlavha, FPS cheklovi, fonda ishlash) va ikonka.",
+                  "Application::GetVersion), oyna (o'lcham, to'liq ekran, VSync, sarlavha, FPS cheklovi, fonda ishlash, F11), ikonka "
+                  "va splash ekran.",
                   { "Kompaniya", "Mahsulot nomi", "Versiya", "Semantik versiya", "SaveData papkasi", "Oyna o'lchami", "Ruxsat (resolution)",
                     "Oyna rejimi", "To'liq ekran", "Chegarasiz", "O'lchamini o'zgartirish", "VSync", "Oyna sarlavhasi",
-                    "Sarlavhada versiya", "FPS cheklovi", "Fonda ishlash", "Ikonka", "O'yin ikonkasi", ".desktop" },
+                    "Sarlavhada versiya", "FPS cheklovi", "Fonda ishlash", "Ikonka", "O'yin ikonkasi", ".desktop", "F11 / Alt+Enter",
+                    "Splash ekran", "Logotip", "Davomiyligi", "Tugma bilan o'tkazish", "O'z rasmi", "Fon rangi" },
                   { "Player" } },
                 { "Quality", ICON_FA_GAUGE_HIGH, "Sifat",
                   "Sifat darajalari: har bir daraja sahnalar so'ragan soya, effekt va render masshtabini cheklaydi. O'yin standart "

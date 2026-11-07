@@ -631,7 +631,7 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   oldindan yuklangan fayllar) va **mixer guruhlari bo'yicha** jadval (o'zida / bola guruhlari bilan, limit sababli
   to'xtatilgan / ijro etilmagan, daraja); viewport statistika overlay'ida **Audio** bo'limi (o'ng tugma > Audio).
   Hisoblagichlar Play boshlanganda nollanadi. API: `AudioEngine::GetProfile()`, `ResetProfileCounters()`,
-  `GetVoiceHistory()`; player `ZAMIN_PLAYER_STATS=1` bilan chiqishda va F11 bilan audio profilini log'ga yozadi
+  `GetVoiceHistory()`; player `ZAMIN_PLAYER_STATS=1` bilan chiqishda va F10 bilan audio profilini log'ga yozadi
 - **Ekran UI** (HUD): ekranga bog'langan matn/rasm/tugmalar, `OnClick()`
   - **UI ierarxiyasi** (RectTransform modeli): UI obyektning bolasi ota to'rtburchagiga nisbatan joylashadi (oddiy obyekt
     ostidagisi — ekranga). **Langar min/max** (0..1): bitta nuqtaga bog'lash (9 ta tayyor nuqta) yoki **cho'zish** —
@@ -734,8 +734,8 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   `SetUpdateWhenPaused(true)` qilgan skriptlar (pauza menyusi) `OnUpdate` oladi; UI (vidjetlar, UI tween'lari,
   navigatsiya) doim haqiqiy vaqtda ishlaydi. `GetUnscaledDeltaTime()`, `QuitGame()` (player yopiladi, editorda Play
   to'xtaydi). **Display**: `Display::SetFullscreen` / `SetVSync` (player oynasiga qo'llanadi, editorda faqat eslab
-  qoladi), `Display::SaveSettings()` / `LoadSettings()` (SaveData; player boshlanishda yuklaydi, `--fullscreen` /
-  `--no-vsync` ustun). Player avtomatlashtirish: `ZAMIN_PLAYER_INPUT` da `down` / `up` (sudrash) va `scroll=dy`
+  qoladi), `Display::SaveSettings()` / `LoadSettings()` (SaveData; player oynani saqlangan tanlov bilan yaratadi, buyruq
+  qatori ustun; F11 / Alt+Enter to'liq ekranni almashtiradi). Player avtomatlashtirish: `ZAMIN_PLAYER_INPUT` da `down` / `up` (sudrash) va `scroll=dy`
 - **Gamepad** (Xbox/PlayStation) qo'llab-quvvatlash
 - Skriptlardan **sahna almashtirish** (`LoadScene`), prefab'larni `Instantiate` qilish
 - **Sahna boshqaruvi** (`SceneManager`, editorning o'yin rejimi va player): bir vaqtda bir nechta sahna — **additive**
@@ -796,6 +796,10 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   sifat darajalari (Low..Ultra), OpenGL konteksti, vaqt (`Time::SetTimeScale`), standart gravitatsiya, audio standartlari (3D masofa
   modeli), lokalizatsiya (`Assets/Localization/<til>.json`, `Localize("key")`, Text komponenti kaliti), editor tili (o'zbek / ingliz)
   - Batafsil qo'llanma: [docs/project-settings.md](docs/project-settings.md) — har sozlama, `.zproject` formati, player buyruq qatori, kod misollari
+- **Player** (`ZaminPlayer`): oyna sozlamalari ustunlik tartibi bilan (buyruq qatori > o'yinchi saqlagani > loyiha), F11 / Alt+Enter
+  bilan to'liq ekran (oyna avvalgi joyiga qaytadi, oyna turgan monitorda), FPS cheklovi (`--fps`, VSync bilan kelishilgan: 30 FPS
+  60 Hz da VSync intervali 2, boshqalari uyqu + aylanish jadvali), Zamin logotipli splash ekran (birinchi sahna fonda yuklanadi,
+  tugma bilan o'tkaziladi, o'z rasmi / fon rangi), `--windowed` / `--borderless` / `--resolution` / `--monitor` / `--no-splash` / `--help`
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime
@@ -844,6 +848,7 @@ Boshqa barcha kutubxonalar (GLFW, GLM, EnTT, ImGui, ImGuizmo, Box2D, Jolt, nlohm
 ./build/bin/ZaminEditor Projects/Adventure3D     # uchinchi shaxs 3D o'yin
 ./build/bin/ZaminPlayer Projects/Platformer2D    # o'yinni editor'siz ishga tushirish
 ./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/DebugDraw.zscene --debug-raycasts --debug-contacts --debug-velocities
+./build/bin/ZaminPlayer Projects/Adventure3D --borderless --monitor 1 --fps 60   # hamma variantlar: --help
 ctest --test-dir build                           # unit testlar
 Tests/render_tests.sh                            # rendering regressiya testi (display kerak; yo'q bo'lsa xvfb-run)
 ```

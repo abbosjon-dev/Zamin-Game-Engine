@@ -4,6 +4,7 @@
 #include "Zamin/Renderer/GraphicsContext.h"
 
 struct GLFWwindow;
+struct GLFWmonitor;
 
 namespace Zamin {
 
@@ -25,6 +26,11 @@ namespace Zamin {
         void SetEventCallback(const EventCallbackFn& callback) override { m_Data.EventCallback = callback; }
         void SetVSync(bool enabled) override;
         bool IsVSync() const override { return m_Data.VSync; }
+        void SetVSyncInterval(int interval) override;
+        int GetVSyncInterval() const override { return m_VSyncInterval; }
+        int GetRefreshRate() const override;
+        int GetMonitorIndex() const override;
+        int GetMonitorCount() const override;
         void SetFullscreen(bool fullscreen) override;
         bool IsFullscreen() const override { return m_Mode != WindowMode::Windowed; }
         void SetWindowMode(WindowMode mode) override;
@@ -42,12 +48,19 @@ namespace Zamin {
         void* GetNativeWindow() const override { return m_Window; }
 
     private:
+        // The monitor the window is on: its fullscreen monitor, else the one it covers most (Wayland,
+        // where windows have no known position: the primary).
+        GLFWmonitor* FindCurrentMonitor() const;
+
+    private:
         GLFWwindow* m_Window = nullptr;
         Scope<GraphicsContext> m_Context;
         int m_WindowedX = 100, m_WindowedY = 100, m_WindowedWidth = 1600, m_WindowedHeight = 900; // before going fullscreen
         WindowMode m_Mode = WindowMode::Windowed;
         WindowMode m_FullscreenMode = WindowMode::Fullscreen; // what SetFullscreen(true) uses
         bool m_Resizable = true;
+        int m_VSyncInterval = 1;                              // vertical blanks per frame with vsync
+        uint32_t m_FullscreenWidth = 0, m_FullscreenHeight = 0; // exclusive fullscreen's video mode (0: the monitor's)
 
         struct WindowData
         {

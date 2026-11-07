@@ -1,8 +1,18 @@
 #pragma once
 
+#include <optional>
+
 namespace Zamin {
 
     class Window;
+
+    // The display options the game saved (Display::SaveSettings) - only what was saved.
+    struct SavedDisplaySettings
+    {
+        std::optional<bool> Fullscreen, VSync;
+
+        bool IsEmpty() const { return !Fullscreen && !VSync; }
+    };
 
     // The game's display options (an options menu): fullscreen and vertical sync. The host that owns
     // the game's window binds it (the player: its own window), and the options change that window;
@@ -28,6 +38,8 @@ namespace Zamin {
         // Applies the saved options; false when none were saved.
         static bool LoadSettings();
         static bool HasSavedSettings();
+        // What was saved, without applying it (the player makes its window with it).
+        static SavedDisplaySettings GetSavedSettings();
         static void ClearSavedSettings();
     };
 

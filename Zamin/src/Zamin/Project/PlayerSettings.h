@@ -2,6 +2,8 @@
 
 #include "Zamin/Core/Window.h"
 
+#include <glm/glm.hpp>
+
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -16,8 +18,8 @@ namespace Zamin {
     // window and its icon. Projects without a "Player" section get the defaults - a 1280x720 resizable
     // window with vsync, titled with the project's name, unlimited frame rate, running in the background
     // and no icon: what the player always did. ZaminPlayer applies them when it creates its window; its
-    // command line (--fullscreen, --windowed, --width / --height, --no-vsync) and the display options the
-    // game saved (Display::SaveSettings) win over them.
+    // command line (--fullscreen, --windowed, --resolution, --fps ...) and the display options the game
+    // saved (Display::SaveSettings) win over them (PlayerLaunchSettings::Resolve).
     struct PlayerSettings
     {
         // ---- identity
@@ -38,6 +40,17 @@ namespace Zamin {
         bool VersionInTitle = false;         // "<title> 1.4.2"
         int TargetFrameRate = 0;             // the most frames per second; 0: no limit (vsync paces it)
         bool RunInBackground = true;         // false: the game stands still while its window is not in front
+        // F11 and Alt+Enter (and the input map's "ToggleFullscreen" action, when it has one) switch between
+        // fullscreen and the window (the choice is saved like Display::SaveSettings).
+        bool FullscreenToggle = true;
+
+        // ---- splash screen (before the first scene, which loads in the background meanwhile)
+        bool SplashScreen = true;
+        float SplashDuration = 2.0f;         // seconds, fades included (longer while the scene still loads)
+        bool SplashSkippable = true;         // any key / click / gamepad button ends it (once the scene is loaded)
+        // The game's own picture (PNG / JPG relative to the assets) instead of the Zamin logo.
+        std::filesystem::path SplashImage;
+        glm::vec3 SplashBackground{ 0.043f, 0.051f, 0.067f };
 
         // ---- icon
         // A PNG (relative to the assets) for the window and the exported game's desktop entry. Empty:
@@ -47,6 +60,7 @@ namespace Zamin {
         static constexpr const char* DefaultVersion = "1.0.0";
         static constexpr uint32_t MinWindowSize = 160, MaxWindowSize = 7680;
         static constexpr int MaxTargetFrameRate = 1000, MinTargetFrameRate = 10;
+        static constexpr float MinSplashDuration = 0.5f, MaxSplashDuration = 10.0f;
         // The icon sizes made from the PNG (those not larger than it, at least the smallest).
         static constexpr uint32_t IconSizes[] = { 16, 32, 48, 64, 128, 256 };
 

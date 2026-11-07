@@ -30231,6 +30231,57 @@ TEST(SceneManagerAsyncLoad)
     CHECK(dropped && !dropped->IsDone() && m.GetSceneCount() == 0);
 }
 
+TEST(SceneManagerStartFromBackgroundLoad)
+{
+    // The player's splash screen: the first scene loads in the background before the game runs, then
+    // the game starts with it (the same as Start(path), with the events of a start).
+    SceneFolder f;
+    f.Write("First", { "Hero", "Ground" }, [](Scene& s) { s.FindEntityByName("Hero").AddTag("Player"); });
+    f.Write("Broken", {});
+    {
+        std::ofstream bad(f.Path("Broken"));
+        bad << "{ \"Scene\": \"Broken\", \"Entities\": [ ";
+    }
+    SceneManager m;
+    CHECK(!m.IsRunning());
+    std::string error;
+    CHECK(!m.Start(Ref<AsyncOperation>(), &error) && !error.empty());
+    Ref<AsyncOperation> op = m.LoadSceneAsync(f.Path("First"));
+    CHECK(op && !m.IsRunning() && m.GetSceneCount() == 0);
+    op->SetAllowSceneActivation(false);
+    CHECK(!m.Start(op, &error) && error.find("yuklanmagan") != std::string::npos); // not ready yet
+    std::vector<std::string> events;
+    m.GetEventBus().Subscribe("ActiveSceneChanged", [&](const ScriptMessage&) { events.push_back("ActiveSceneChanged"); });
+    m.GetEventBus().Subscribe("SceneLoaded", [&](const ScriptMessage&) { events.push_back("SceneLoaded"); });
+    for (int i = 0; !op->IsReady() && !op->IsDone() && i < 5000; i++)
+    {
+        m.UpdateAsyncLoads(2.0f);
+        m.ProcessRequests(); // not running: it does not activate it by itself
+        if (op->GetStage() == AsyncOperation::Stage::Reading || op->GetStage() == AsyncOperation::Stage::Decoding)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(op->IsReady() && m.GetSceneCount() == 0 && !m.IsRunning());
+    CHECK(m.Start(op, &error));
+    CHECK(m.IsRunning() && m.GetSceneCount() == 1 && m.GetActiveScene() == op->GetScene() && m.GetActiveScene()->GetName() == "First");
+    CHECK(op->IsDone() && !op->HasFailed() && op->GetProgress() == 1.0f && m.GetAsyncOperations().empty());
+    CHECK(m.GetActiveScene()->IsRunning() && m.FindEntityByName("Hero") && m.GetActiveSceneBuildIndex() == -1);
+    CHECK(events == std::vector<std::string>({ "ActiveSceneChanged", "SceneLoaded" }));
+    CHECK(!m.Start(op, &error)); // used up
+    m.Stop();
+
+    // A broken first scene: the load fails, the game does not start (the player shows its error screen).
+    SceneManager n;
+    Ref<AsyncOperation> bad = n.LoadSceneAsync(f.Path("Broken"));
+    for (int i = 0; bad && !bad->IsDone() && i < 5000; i++)
+    {
+        n.UpdateAsyncLoads(2.0f);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(bad && bad->HasFailed() && !n.Start(bad, &error) && error.starts_with("JSON xatosi") && !n.IsRunning());
+    CHECK(!n.TakeLoadReports().empty());
+    CHECK(!n.LoadSceneAsync(f.Path("Missing")) && !n.TakeLoadReports().empty());
+}
+
 TEST(SceneManagerFadeTransition)
 {
     SceneFolder f;
@@ -34119,6 +34170,357 @@ TEST(PlayerSettingsSerialization)
     CHECK(!ProjectSettingsIndex::IsChanged(categories[(size_t)ProjectSettingsIndex::Find("Quality")], changed));
     std::vector<std::string> hits;
     CHECK(ProjectSettingsIndex::Matches(categories[(size_t)ProjectSettingsIndex::Find("Player")], "versiya", &hits) && !hits.empty());
+}
+
+TEST(PlayerCommandLineParser)
+{
+    // Every option, values after the option or after '='.
+    PlayerCommandLine c = PlayerCommandLine::Parse({ "Games/Kosmos.zproject", "--borderless", "--resolution", "1920x1080", "--monitor", "1",
+                                                     "--fps=144", "--no-vsync", "--scene", "Level2", "--quality", "Low", "--lang=ru", "--no-splash",
+                                                     "--gl", "4.6", "--msaa", "4", "--gl-debug", "--no-srgb", "--debug-joints", "--debug-raycasts" });
+    CHECK(c.Errors.empty() && !c.Help);
+    CHECK(c.Project == "Games/Kosmos.zproject" && c.Mode == WindowMode::Borderless && c.Width == 1920 && c.Height == 1080);
+    CHECK(c.Monitor == 1 && c.TargetFrameRate == 144 && c.VSync == false && c.Scene == "Level2" && c.Quality == "Low" && c.Language == "ru");
+    CHECK(c.NoSplash && c.GLVersion == "4.6" && c.MSAA == 4 && c.GLDebug == 1 && c.SRGB == 0 && c.DebugJoints && c.DebugRaycasts);
+    CHECK(!c.DebugContacts && !c.NoDebugDraw);
+    // Nothing given: everything unset (the saved settings and the project decide).
+    PlayerCommandLine none = PlayerCommandLine::Parse(std::vector<std::string>{});
+    CHECK(none.Project.empty() && !none.Mode && none.Width == 0 && !none.Monitor && !none.VSync && !none.TargetFrameRate && !none.NoSplash);
+    CHECK(none.MSAA == -1 && none.GLDebug == -1 && none.SRGB == -1 && none.Errors.empty());
+    // The last mode wins; --width / --height (older spelling); --vsync; --language; 0 FPS = no limit.
+    c = PlayerCommandLine::Parse({ "--fullscreen", "--windowed", "--width", "1600", "--height=900", "--vsync", "--language", "en", "--fps", "0" });
+    CHECK(c.Errors.empty() && c.Mode == WindowMode::Windowed && c.Width == 1600 && c.Height == 900 && c.VSync == true && c.Language == "en");
+    CHECK(c.TargetFrameRate == 0);
+    CHECK(PlayerCommandLine::Parse({ "--fullscreen" }).Mode == WindowMode::Fullscreen);
+    // argv form: argv[0] is the program.
+    const char* argv[] = { "/opt/game/ZaminPlayer", "--fps", "60", "Game" };
+    c = PlayerCommandLine::Parse(4, argv);
+    CHECK(c.TargetFrameRate == 60 && c.Project == "Game" && c.Errors.empty());
+    for (const char* help : { "--help", "-h", "-?" })
+        CHECK(PlayerCommandLine::Parse({ help }).Help);
+
+    // Problems: one message each, the rest is still used.
+    c = PlayerCommandLine::Parse({ "--fps", "abc", "--resolution", "1920", "--monitor", "-1", "--bogus", "--fullscreen=1", "a.zproject", "b.zproject",
+                                   "--width", "50", "--msaa", "x", "--fps=-5", "--windowed", "--quality" });
+    CHECK(c.Errors.size() == 10);
+    CHECK(c.Mode == WindowMode::Windowed && c.Project == "a.zproject" && !c.TargetFrameRate && !c.Monitor && c.Width == 0 && c.MSAA == -1);
+    auto mentions = [&](const char* text) {
+        return std::any_of(c.Errors.begin(), c.Errors.end(), [&](const std::string& e) { return e.find(text) != std::string::npos; });
+    };
+    CHECK(mentions("--fps abc") && mentions("--resolution 1920") && mentions("--monitor -1") && mentions("noma'lum variant: --bogus"));
+    CHECK(mentions("--fullscreen: bu variant qiymat olmaydi") && mentions("ortiqcha argument: 'b.zproject'") && mentions("--width 50"));
+    CHECK(mentions("--quality: qiymat kerak"));
+
+    // Resolutions.
+    uint32_t w = 0, h = 0;
+    CHECK(PlayerCommandLine::ParseResolution("1920x1080", w, h) && w == 1920 && h == 1080);
+    CHECK(PlayerCommandLine::ParseResolution("1280X720", w, h) && w == 1280 && h == 720);
+    CHECK(PlayerCommandLine::ParseResolution("800*600", w, h) && w == 800 && h == 600);
+    for (const char* bad : { "1920", "x1080", "1920x", "1920x1080x2", " 1920x1080", "abcxdef", "100x100", "9000x9000", "-1920x1080" })
+        CHECK(!PlayerCommandLine::ParseResolution(bad, w, h));
+
+    // --help lists every option and the precedence.
+    const std::string help = PlayerCommandLine::GetHelpText("MyGame");
+    CHECK(help.find("Foydalanish: MyGame") != std::string::npos && help.find("Ustunlik: buyruq qatori") != std::string::npos);
+    for (const char* option : { "--windowed", "--fullscreen", "--borderless", "--resolution", "--width", "--height", "--monitor", "--vsync",
+                                "--no-vsync", "--fps", "--scene", "--quality", "--lang", "--language", "--no-splash", "--gl ", "--msaa",
+                                "--gl-debug", "--no-gl-debug", "--srgb", "--no-srgb", "--no-debug-draw", "--debug-raycasts", "--debug-contacts",
+                                "--debug-contact-details", "--debug-joints", "--debug-velocities", "--help", "F11", "Alt+Enter" })
+        CHECK(help.find(option) != std::string::npos);
+}
+
+TEST(PlayerLaunchSettingsPrecedence)
+{
+    ProjectConfig config;
+    config.Name = "Kosmos";
+    PlayerSettings& p = config.Player;
+    p.Width = 1280;
+    p.Height = 720;
+    p.Mode = WindowMode::Borderless;
+    p.VSync = true;
+    p.TargetFrameRate = 60;
+    config.Graphics.MSAASamples = 4;
+
+    // The project alone.
+    PlayerLaunchSettings r = PlayerLaunchSettings::Resolve(config, {}, {});
+    CHECK(r.Window.Width == 1280 && r.Window.Height == 720 && r.Window.Mode == WindowMode::Borderless && r.Window.FullscreenMode == WindowMode::Borderless);
+    CHECK(r.Window.VSync && r.TargetFrameRate == 60 && r.Window.Monitor == -1 && r.Splash && r.Window.Graphics.MSAASamples == 4);
+    CHECK(r.Window.FullscreenWidth == 0 && r.Window.Title == "Kosmos" && r.Warnings.empty());
+    CHECK(r.SizeSource == PlayerSettingSource::Project && r.ModeSource == PlayerSettingSource::Project && r.VSyncSource == PlayerSettingSource::Project);
+
+    // What the player saved in the game's options menu wins over the project...
+    SavedDisplaySettings saved;
+    saved.Fullscreen = false;
+    saved.VSync = false;
+    r = PlayerLaunchSettings::Resolve(config, saved, {});
+    CHECK(r.Window.Mode == WindowMode::Windowed && r.ModeSource == PlayerSettingSource::Saved && !r.Window.VSync && r.VSyncSource == PlayerSettingSource::Saved);
+    CHECK(r.Window.FullscreenMode == WindowMode::Borderless); // F11 still goes to the project's kind of fullscreen
+    // ...fullscreen in the project's kind (exclusive for a windowed project).
+    p.Mode = WindowMode::Windowed;
+    saved.Fullscreen = true;
+    r = PlayerLaunchSettings::Resolve(config, saved, {});
+    CHECK(r.Window.Mode == WindowMode::Fullscreen && r.Window.FullscreenMode == WindowMode::Fullscreen && r.ModeSource == PlayerSettingSource::Saved);
+    // Only what was saved: the vsync alone.
+    SavedDisplaySettings vsyncOnly;
+    vsyncOnly.VSync = false;
+    r = PlayerLaunchSettings::Resolve(config, vsyncOnly, {});
+    CHECK(r.Window.Mode == WindowMode::Windowed && r.ModeSource == PlayerSettingSource::Project && !r.Window.VSync);
+
+    // The command line wins over both.
+    PlayerCommandLine c = PlayerCommandLine::Parse({ "--fullscreen", "--resolution", "1600x900", "--vsync", "--fps", "5", "--monitor", "2", "--no-splash" });
+    saved.Fullscreen = false;
+    saved.VSync = false;
+    r = PlayerLaunchSettings::Resolve(config, saved, c);
+    CHECK(r.Window.Mode == WindowMode::Fullscreen && r.ModeSource == PlayerSettingSource::CommandLine && r.Window.VSync &&
+          r.VSyncSource == PlayerSettingSource::CommandLine);
+    CHECK(r.Window.Width == 1600 && r.Window.Height == 900 && r.SizeSource == PlayerSettingSource::CommandLine);
+    CHECK(r.Window.FullscreenWidth == 1600 && r.Window.FullscreenHeight == 900); // exclusive fullscreen at that video mode
+    CHECK(r.TargetFrameRate == PlayerSettings::MinTargetFrameRate && r.FrameRateSource == PlayerSettingSource::CommandLine); // into range
+    CHECK(r.Window.Monitor == 2 && r.MonitorSource == PlayerSettingSource::CommandLine && !r.Splash && r.SplashSource == PlayerSettingSource::CommandLine);
+    const std::string line = r.Describe();
+    CHECK(line.find("1600x900 (buyruq qatori)") != std::string::npos && line.find("to'liq ekran (buyruq qatori)") != std::string::npos);
+    CHECK(line.find("FPS: 10 (buyruq qatori)") != std::string::npos && line.find("splash: yo'q") != std::string::npos);
+    // --borderless keeps the monitor's size (no video mode); --fps 0 lifts the project's limit; an odd value is clamped.
+    r = PlayerLaunchSettings::Resolve(config, saved, PlayerCommandLine::Parse({ "--borderless", "--resolution", "1600x900", "--fps", "0" }));
+    CHECK(r.Window.Mode == WindowMode::Borderless && r.Window.FullscreenMode == WindowMode::Borderless && r.Window.FullscreenWidth == 0);
+    CHECK(r.TargetFrameRate == 0 && r.FrameRateSource == PlayerSettingSource::CommandLine);
+    CHECK(PlayerLaunchSettings::Resolve(config, {}, PlayerCommandLine::Parse({ "--fps", "5000" })).TargetFrameRate == PlayerSettings::MaxTargetFrameRate);
+    // Only --width: the project's height stays.
+    r = PlayerLaunchSettings::Resolve(config, {}, PlayerCommandLine::Parse({ "--width", "1000" }));
+    CHECK(r.Window.Width == 1000 && r.Window.Height == 720 && r.Window.Mode == WindowMode::Windowed);
+    // The splash: the project can turn it off.
+    p.SplashScreen = false;
+    CHECK(!PlayerLaunchSettings::Resolve(config, {}, {}).Splash);
+
+    // The OpenGL context: the project, then the command line; an unknown version is a warning.
+    r = PlayerLaunchSettings::Resolve(config, {}, PlayerCommandLine::Parse({ "--gl", "4.6", "--msaa", "8", "--srgb", "--no-gl-debug" }));
+    CHECK(r.Window.Graphics.GLMajor == 4 && r.Window.Graphics.GLMinor == 6 && r.Window.Graphics.MSAASamples == 8 && r.Window.Graphics.SRGBFramebuffer);
+    CHECK(r.Window.Graphics.DebugContext == GraphicsDebugContext::Off && r.Warnings.empty());
+    r = PlayerLaunchSettings::Resolve(config, {}, PlayerCommandLine::Parse({ "--gl", "9.9" }));
+    CHECK(r.Warnings.size() == 1 && r.Warnings[0].find("--gl 9.9") != std::string::npos && r.Window.Graphics.GLMajor == 4 &&
+          r.Window.Graphics.GLMinor == 1);
+    CHECK(std::string(PlayerSettingSourceToString(PlayerSettingSource::Saved)) == "saqlangan");
+
+    // The saved display options are read without applying them (the player reads them before its window exists).
+    auto file = std::filesystem::temp_directory_path() / ("zamin-display-" + std::to_string((uint64_t)UUID()) + ".json");
+    SaveData::SetFilePath(file);
+    CHECK(Display::GetSavedSettings().IsEmpty());
+    SaveData::SetBool(std::string(Display::SettingsKey) + ".Fullscreen", true);
+    SavedDisplaySettings read = Display::GetSavedSettings();
+    CHECK(read.Fullscreen == true && !read.VSync && !read.IsEmpty());
+    SaveData::SetString(std::string(Display::SettingsKey) + ".VSync", "nope"); // not a bool: not saved
+    CHECK(!Display::GetSavedSettings().VSync);
+    Display::ClearSavedSettings();
+    SaveData::SetFilePath({});
+    std::error_code ec;
+    std::filesystem::remove(file, ec);
+    CHECK(SaveData::GetFilePathFor("Studio", "Kosmos") == SaveData::GetDirectoryFor("Studio", "Kosmos") / "savedata.json");
+}
+
+TEST(PlayerSettingsFullscreenToggleAndSplash)
+{
+    PlayerSettings defaults;
+    CHECK(defaults.FullscreenToggle && defaults.SplashScreen && defaults.SplashSkippable && defaults.SplashImage.empty());
+    CHECK(defaults.SplashDuration == 2.0f && defaults.IsDefault());
+    ProjectConfig config;
+    config.Name = "Kosmos";
+    PlayerSettings& p = config.Player;
+    p.FullscreenToggle = false;
+    p.SplashScreen = false;
+    p.SplashDuration = 3.5f;
+    p.SplashSkippable = false;
+    p.SplashImage = "Textures/Studio.png";
+    p.SplashBackground = { 0.25f, 0.5f, 0.125f };
+    const std::string text = ProjectSerializer::ConfigToString(config);
+    CHECK(text.find("\"FullscreenToggle\": false") != std::string::npos && text.find("\"Splash\": {") != std::string::npos);
+    ProjectConfig copy;
+    CHECK(ProjectSerializer::ConfigFromString(text, copy) && copy.Player == p && ProjectSerializer::ConfigToString(copy) == text);
+    // Short decimals in the file.
+    p.SplashBackground = { 0.043f, 0.051f, 0.067f };
+    CHECK(p.ToJson().find("0.043,") != std::string::npos && p.ToJson().find("0.0430000") == std::string::npos);
+    // Sanitize: the duration into its range, the colour into 0..1.
+    p.SplashDuration = 60.0f;
+    p.SplashBackground = { -1.0f, 2.0f, std::numeric_limits<float>::quiet_NaN() };
+    p.Sanitize();
+    CHECK(p.SplashDuration == PlayerSettings::MaxSplashDuration && p.SplashBackground == glm::vec3(0.0f, 1.0f, 0.0f));
+    p.SplashDuration = 0.0f;
+    p.Sanitize();
+    CHECK(p.SplashDuration == PlayerSettings::MinSplashDuration);
+    // Older files (no keys) keep the defaults; wrong values too.
+    PlayerSettings read;
+    CHECK(PlayerSettings::FromJson(R"({ "Splash": { "Enabled": 1, "Duration": "long", "Background": [1, 0] }, "FullscreenToggle": "no" })", read));
+    CHECK(read.SplashScreen && read.SplashDuration == 2.0f && read.FullscreenToggle && read.SplashBackground == PlayerSettings().SplashBackground);
+    CHECK(PlayerSettings::FromJson(R"({ "Splash": { "Enabled": false, "Duration": 1.25, "Image": "a.png", "Background": [0.5, 0.5, 0.5] } })", read));
+    CHECK(!read.SplashScreen && read.SplashDuration == 1.25f && read.SplashImage == "a.png" && read.SplashBackground == glm::vec3(0.5f));
+    // The settings window finds them.
+    const auto& categories = ProjectSettingsIndex::GetCategories();
+    std::vector<std::string> hits;
+    CHECK(ProjectSettingsIndex::Matches(categories[(size_t)ProjectSettingsIndex::Find("Player")], "splash", &hits) && !hits.empty());
+    CHECK(ProjectSettingsIndex::Matches(categories[(size_t)ProjectSettingsIndex::Find("Player")], "F11", &hits));
+}
+
+TEST(FramePacingPlanAndPacer)
+{
+    using Plan = FramePacingPlan;
+    // No limit: vsync as it is.
+    CHECK(Plan::Choose(true, 0, 60) == Plan{} && Plan::Choose(false, 0, 60) == Plan{});
+    // Vsync and a limit that divides the monitor's rate: vsync waits for more blanks, no sleeping.
+    CHECK(Plan::Choose(true, 30, 60) == (Plan{ 2, 0 }) && Plan::Choose(true, 20, 60) == (Plan{ 3, 0 }) && Plan::Choose(true, 15, 60) == (Plan{ 4, 0 }));
+    CHECK(Plan::Choose(true, 72, 144) == (Plan{ 2, 0 }) && Plan::Choose(true, 30, 59) == (Plan{ 2, 0 })); // 59.94 Hz monitors
+    // At or above the monitor's rate: vsync alone holds it.
+    CHECK(Plan::Choose(true, 60, 60) == Plan{} && Plan::Choose(true, 144, 60) == Plan{});
+    // Any other limit, no vsync or an unknown monitor: the sleep limiter.
+    CHECK(Plan::Choose(true, 50, 60) == (Plan{ 1, 50 }) && Plan::Choose(true, 10, 60) == (Plan{ 1, 10 }));
+    CHECK(Plan::Choose(false, 30, 60) == (Plan{ 1, 30 }) && Plan::Choose(true, 30, 0) == (Plan{ 1, 30 }));
+
+    // The schedule: one period apart, whatever the frames took.
+    FramePacer pacer;
+    CHECK(pacer.Schedule(5.0) == 5.0 && pacer.GetTargetFrameRate() == 0.0); // no limit: never waits
+    pacer.SetTargetFrameRate(50.0);
+    CHECK_NEAR(pacer.GetPeriod(), 0.02, 1e-12);
+    CHECK(pacer.Schedule(1.0) == 1.0);               // the first frame starts it
+    CHECK_NEAR(pacer.Schedule(1.005), 1.02, 1e-9);  // a short frame waits for its time
+    CHECK_NEAR(pacer.Schedule(1.025), 1.04, 1e-9);
+    CHECK_NEAR(pacer.Schedule(1.065), 1.06, 1e-9);  // a late frame: the next starts at once (1.06 < now)...
+    CHECK_NEAR(pacer.Schedule(1.07), 1.08, 1e-9);   // ...and the one after is back on the schedule
+    CHECK_NEAR(pacer.Schedule(1.5), 1.5, 1e-9);     // a stall: a new schedule, no burst of frames to catch up
+    CHECK_NEAR(pacer.Schedule(1.505), 1.52, 1e-9);
+    // Over many frames of uneven work (and sleeps that overshoot) the average is the period.
+    pacer.SetTargetFrameRate(60.0);
+    double now = 10.0, start = 0.0;
+    uint32_t seed = 7;
+    for (int frame = 0; frame <= 600; frame++)
+    {
+        seed = seed * 1664525u + 1013904223u;
+        const double work = 0.002 + (seed >> 8) % 1000 * 0.000012; // 2 ... 14 ms
+        const double deadline = pacer.Schedule(now);
+        now = std::max(now, deadline) + (deadline > now ? 0.0003 : 0.0); // the sleep wakes a bit late
+        if (frame == 0)
+            start = now;
+        now += work;
+    }
+    CHECK_NEAR((now - start) / 600.0, 1.0 / 60.0, 0.0002);
+    pacer.SetTargetFrameRate(0.0);
+    CHECK(pacer.Schedule(3.0) == 3.0);
+
+    // Really waiting: 200 FPS for 20 frames takes at least 19 periods (and not much longer).
+    FramePacer real;
+    real.SetTargetFrameRate(200.0);
+    const double before = FramePacer::Now();
+    for (int i = 0; i < 20; i++)
+        real.Wait();
+    const double took = FramePacer::Now() - before;
+    CHECK(took >= 19 * 0.005 - 0.0005 && took < 0.5);
+}
+
+TEST(SplashTimelineAndLogo)
+{
+    using Phase = SplashTimeline::Phase;
+    // The usual run: in, hold, out - 2 s when the scene is loaded by then.
+    SplashTimeline t(2.0f, true);
+    CHECK(t.GetPhase() == Phase::FadeIn && t.GetAlpha() == 0.0f && !t.IsDone());
+    t.Update(0.25f, true, false);
+    CHECK(t.GetPhase() == Phase::FadeIn && std::abs(t.GetAlpha() - 0.5f) < 1e-5f);
+    t.Update(0.25f, true, false);
+    CHECK(t.GetPhase() == Phase::Hold && t.GetAlpha() == 1.0f);
+    t.Update(1.0f, true, false);
+    CHECK(t.GetPhase() == Phase::FadeOut && t.GetAlpha() == 1.0f);
+    t.Update(0.25f, true, false);
+    CHECK(std::abs(t.GetAlpha() - 0.5f) < 1e-5f);
+    t.Update(0.25f, true, false);
+    CHECK(t.IsDone() && t.GetAlpha() == 0.0f && std::abs(t.GetElapsed() - 2.0f) < 1e-5f && !t.WasSkipped());
+    t.Update(1.0f, true, false);
+    CHECK(t.IsDone() && std::abs(t.GetElapsed() - 2.0f) < 1e-5f);
+
+    // The scene still loading: it waits at full opacity, then fades out.
+    SplashTimeline wait(2.0f);
+    wait.Update(1.6f, false, false);
+    CHECK(wait.GetPhase() == Phase::Waiting && wait.GetAlpha() == 1.0f);
+    wait.Update(3.0f, false, false);
+    CHECK(wait.GetPhase() == Phase::Waiting);
+    wait.Update(0.1f, true, false);
+    CHECK(wait.GetPhase() == Phase::FadeOut);
+    wait.Update(0.5f, true, false);
+    CHECK(wait.IsDone() && std::abs(wait.GetElapsed() - 5.2f) < 1e-4f);
+
+    // A skip before the scene is there: remembered; the short fade starts from where it is once it is loaded.
+    SplashTimeline skip(2.0f);
+    skip.Update(0.1f, false, true);
+    CHECK(skip.GetPhase() == Phase::FadeIn && !skip.WasSkipped());
+    skip.Update(0.1f, true, false);
+    const float from = skip.GetAlpha();
+    CHECK(skip.GetPhase() == Phase::FadeOut && skip.WasSkipped() && from > 0.3f && from < 0.4f); // smoothstep(0.4) = 0.352
+    skip.Update(SplashTimeline::SkipFadeSeconds * 0.5f, true, false);
+    CHECK(std::abs(skip.GetAlpha() - from * 0.5f) < 1e-4f);
+    skip.Update(SplashTimeline::SkipFadeSeconds, true, false);
+    CHECK(skip.IsDone());
+    // Not skippable: keys do nothing.
+    SplashTimeline locked(2.0f, false);
+    locked.Update(0.6f, true, true);
+    CHECK(locked.GetPhase() == Phase::Hold && !locked.WasSkipped());
+    // The duration in its range; the fades are shorter for a short splash; odd steps are ignored.
+    CHECK(SplashTimeline(100.0f).GetDuration() == 10.0f && SplashTimeline(0.1f).GetDuration() == 0.5f);
+    SplashTimeline brief(0.5f);
+    brief.Update(0.15f, true, false);
+    CHECK(brief.GetPhase() == Phase::Hold);
+    brief.Update(std::numeric_limits<float>::quiet_NaN(), true, false);
+    brief.Update(-1.0f, true, false);
+    CHECK(std::abs(brief.GetElapsed() - 0.15f) < 1e-6f);
+
+    // The logo: drawn here, no file. A disc (transparent corners), the white Z in the middle, sky above, hills below.
+    ImageData logo = SplashLogo::Generate(128);
+    CHECK(logo.Width == 128 && logo.Height == 128 && logo.Channels == 4 && logo.Pixels.size() == 128u * 128u * 4u);
+    auto pixel = [&](float u, float v) {
+        const int x = std::clamp((int)((u + 1.0f) * 0.5f * 128.0f), 0, 127), y = std::clamp((int)((1.0f - v) * 0.5f * 128.0f), 0, 127);
+        return &logo.Pixels[((size_t)y * 128 + (size_t)x) * 4];
+    };
+    CHECK(pixel(-1.0f, 1.0f)[3] == 0 && pixel(0.99f, -0.99f)[3] == 0);
+    const uint8_t* center = pixel(0.0f, 0.0f);
+    CHECK(center[3] == 255 && center[0] > 230 && center[1] > 230 && center[2] > 220);
+    const uint8_t* sky = pixel(-0.5f, 0.55f);
+    CHECK(sky[3] == 255 && sky[2] > sky[0] + 40);
+    const uint8_t* land = pixel(0.0f, -0.7f);
+    CHECK(land[3] == 255 && land[1] > land[0] + 30 && land[1] > land[2]);
+    CHECK(SplashLogo::Generate(64).Pixels == SplashLogo::Generate(64).Pixels && SplashLogo::Generate(4).Width == 16);
+}
+
+TEST(InputAnyKeyAndMonitorPlacement)
+{
+    // "Press any key": keys, mouse and gamepad buttons; modifiers alone do not count.
+    Input::ResetState();
+    Input::Update();
+    CHECK(!Input::IsAnyKeyJustPressed());
+    Input::OnKeyEvent(Key::LeftShift, true);
+    Input::Update();
+    CHECK(!Input::IsAnyKeyJustPressed());
+    Input::OnKeyEvent(Key::Space, true);
+    Input::Update();
+    CHECK(Input::IsAnyKeyJustPressed());
+    Input::Update();
+    CHECK(!Input::IsAnyKeyJustPressed()); // held, not new
+    Input::OnMouseButtonEvent(MouseButton::Right, true);
+    Input::Update();
+    CHECK(Input::IsAnyKeyJustPressed());
+    Input::SimulateGamepadConnected(1, true);
+    Input::Update();
+    CHECK(!Input::IsAnyKeyJustPressed());
+    Input::SimulateGamepadButton(1, GamepadButton::Start, true);
+    Input::Update();
+    CHECK(Input::IsAnyKeyJustPressed());
+    Input::ResetState();
+
+    // The monitor a window is on: the one it covers most, else the nearest.
+    std::vector<MonitorArea> monitors = { { 0, 0, 1920, 1080 }, { 1920, 0, 2560, 1440 } };
+    CHECK(FindMonitorForRect(monitors, 100, 100, 800, 600) == 0);
+    CHECK(FindMonitorForRect(monitors, 1800, 100, 800, 600) == 1); // 120 px on the first, 680 on the second
+    CHECK(FindMonitorForRect(monitors, 1500, 100, 800, 600) == 0);
+    CHECK(FindMonitorForRect(monitors, 6000, 200, 300, 300) == 1 && FindMonitorForRect(monitors, -900, 0, 300, 300) == 0);
+    CHECK(FindMonitorForRect({}, 0, 0, 10, 10) == -1);
+    int x = 0, y = 0;
+    CenterInArea({ 1920, 0, 2560, 1400 }, 1280, 720, x, y);
+    CHECK(x == 1920 + 640 && y == 340);
+    CenterInArea({ 0, 30, 1280, 690 }, 1600, 900, x, y); // larger than the area: its corner
+    CHECK(x == 0 && y == 30);
 }
 
 TEST(PlayerCompanySaveDataAndVersion)

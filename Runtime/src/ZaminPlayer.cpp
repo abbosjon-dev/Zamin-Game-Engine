@@ -749,6 +749,8 @@ namespace Zamin {
                                                                              : std::string("O'yin oynasi fokusda emas - davom etish uchun oynani tanlang");
             const float scale = std::clamp((float)h / 720.0f, 0.6f, 3.0f);
             RenderCommand::SetDepthTest(false);
+            // (Colours only: the window stays opaque under the translucent band.)
+            RenderCommand::SetColorWriteMask(0, true, false);
             Renderer2D::SetDisplayOutput(true);
             Renderer2D::SetLit(false);
             Renderer2D::BeginScene(glm::ortho(0.0f, (float)w, 0.0f, (float)h, -1.0f, 1.0f));
@@ -773,6 +775,7 @@ namespace Zamin {
             centred(hint, 20.0f * scale, (float)h * 0.5f - 72.0f * scale, glm::vec4(0.70f, 0.74f, 0.80f, 1.0f));
             Renderer2D::EndScene();
             Renderer2D::SetDisplayOutput(false);
+            RenderCommand::SetColorWriteMask(0, true, true);
             return true;
         }
 

@@ -89,10 +89,12 @@ namespace Zamin {
         if (!m_ShowExportReport || !m_HasExportReport)
             return;
         const ExportReport& r = m_ExportReport;
-        ImGui::SetNextWindowSize(ImVec2(780, 790), ImGuiCond_FirstUseEver);
+        // Every report opens in the middle, as tall as it needs (within the editor's window).
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowSize(ImVec2(std::min(780.0f, viewport->WorkSize.x - 40.0f), std::min(800.0f, viewport->WorkSize.y - 30.0f)),
+                                 ImGuiCond_Appearing);
         ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f, viewport->WorkPos.y + viewport->WorkSize.y * 0.5f),
-                                ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+                                ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         if (!ImGui::Begin(Tr(ICON_FA_ROCKET "  Eksport hisoboti###ExportReport"), &m_ShowExportReport, ImGuiWindowFlags_NoCollapse))
         {
             ImGui::End();

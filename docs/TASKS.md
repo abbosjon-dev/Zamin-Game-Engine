@@ -367,8 +367,8 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 316. Sahna statistikasi paneli (komponentlar soni)
 - [x] 317. Editor ichida skript fayllarni ochish (tashqi muharrir)
 - [x] 318. Kompilyatsiya xatolarini fayl/qator bilan ko'rsatish
-- [ ] 319. Editor yangilanishini kamaytirish (idle bo'lganda FPS cheklash)
-- [ ] 320. Editor II testlari (headless)
+- [x] 319. Editor yangilanishini kamaytirish (idle bo'lganda FPS cheklash)
+- [x] 320. Editor II testlari (headless)
 
 ## M17 Loyiha sozlamalari
 

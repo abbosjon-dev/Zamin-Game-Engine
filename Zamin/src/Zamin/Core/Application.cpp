@@ -11,6 +11,7 @@
 
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <string>
 
@@ -72,8 +73,21 @@ namespace Zamin {
         m_MainThreadQueue.emplace_back(fn);
     }
 
+    bool Application::IsAutomationRun()
+    {
+        // ZAMIN_ALLOW_THROTTLE=1: an automation run that still idles (to see / test the throttling).
+        static const bool automation = std::getenv("ZAMIN_MAX_FRAMES") != nullptr && std::getenv("ZAMIN_ALLOW_THROTTLE") == nullptr;
+        return automation;
+    }
+
+    double Application::GetSecondsSinceInput() const
+    {
+        return glfwGetTime() - m_LastInputTime;
+    }
+
     void Application::OnEvent(Event& e)
     {
+        m_LastInputTime = glfwGetTime(); // every event is the user (or the system) doing something
         EventDispatcher dispatcher(e);
         // The input system sees every device event, even ones a layer (e.g. ImGui) handles.
         dispatcher.Dispatch<KeyPressedEvent>([](KeyPressedEvent& ev) {
@@ -104,7 +118,14 @@ namespace Zamin {
 
         while (m_Running)
         {
-            float time = (float)glfwGetTime();
+            const double frameStart = glfwGetTime();
+            // Focus changes wake the editor up like input does.
+            if (bool focused = m_Window->IsFocused(); focused != m_WindowFocused)
+            {
+                m_WindowFocused = focused;
+                m_LastInputTime = frameStart;
+            }
+            float time = (float)frameStart;
             const float frameSeconds = time - m_LastFrameTime;
             m_LastFrameTime = time;
             // The FPS, its frame time and the frame time history all count the real time of the
@@ -167,11 +188,24 @@ namespace Zamin {
                 ZM_PROFILE_SCOPE("Oyna (swap, hodisalar)");
                 m_Window->OnUpdate();
             }
+            // A limited frame rate (the editor idling): the rest of the frame's time waiting for events.
+            m_LastWaitMs = 0.0f;
+            if (m_FrameRateLimit > 0.0f && m_Running && !IsAutomationRun())
+            {
+                const double wait = 1.0 / (double)m_FrameRateLimit - (glfwGetTime() - frameStart);
+                if (wait > 0.0)
+                {
+                    const double before = glfwGetTime();
+                    m_Window->WaitEvents(std::min(wait, 1.0));
+                    m_LastWaitMs = (float)((glfwGetTime() - before) * 1000.0);
+                }
+            }
         }
     }
 
     // Automation hooks for CI / headless testing:
-    //   ZAMIN_MAX_FRAMES=N           close the app after N frames
+    //   ZAMIN_MAX_FRAMES=N           close the app after N frames (the frame rate is never limited then,
+    //                                unless ZAMIN_ALLOW_THROTTLE=1)
     //   ZAMIN_SCREENSHOT=path.png    save the back buffer at the last frame
     void Application::HandleAutomation()
     {

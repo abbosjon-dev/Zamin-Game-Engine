@@ -57,6 +57,18 @@ namespace Zamin {
         // Run a function on the main thread at the start of the next frame.
         void SubmitToMainThread(const std::function<void()>& fn);
 
+        // ---- frame pacing (the editor's idle throttling): the most frames per second (0 = no
+        // limit). A frame that ends early waits for the window's events for the rest of its time -
+        // any input ends the wait at once. Automation runs (ZAMIN_MAX_FRAMES) are never limited.
+        void SetFrameRateLimit(float fps) { m_FrameRateLimit = fps; }
+        float GetFrameRateLimit() const { return m_FrameRateLimit; }
+        // Seconds since the last event of the window (keys, mouse, scroll, resize, focus, dropped files).
+        double GetSecondsSinceInput() const;
+        bool IsWindowFocused() const { return m_WindowFocused; }
+        // How long the last frame waited for events (ms).
+        float GetLastWaitMs() const { return m_LastWaitMs; }
+        static bool IsAutomationRun();
+
         static Application& Get() { return *s_Instance; }
         static bool Exists() { return s_Instance != nullptr; }
 
@@ -78,6 +90,10 @@ namespace Zamin {
         float m_FrameTimeMs = 0.0f;
         uint64_t m_FrameCount = 0;
         FrameTimeHistory m_FrameTimes;
+        float m_FrameRateLimit = 0.0f;
+        double m_LastInputTime = 0.0;
+        bool m_WindowFocused = true;
+        float m_LastWaitMs = 0.0f;
 
         std::vector<std::function<void()>> m_MainThreadQueue;
         std::mutex m_MainThreadQueueMutex;

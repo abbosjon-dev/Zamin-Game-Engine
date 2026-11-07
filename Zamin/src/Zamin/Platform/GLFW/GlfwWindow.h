@@ -29,6 +29,8 @@ namespace Zamin {
         bool IsFullscreen() const override;
         void SetTitle(const std::string& title) override;
         void SetCursorLocked(bool locked) override;
+        bool IsFocused() const override;
+        void WaitEvents(double seconds) override;
 
         void* GetNativeWindow() const override { return m_Window; }
 

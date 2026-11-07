@@ -166,6 +166,7 @@ namespace Zamin {
         }
         m_BuildResult = succeeded ? BuildResult::Succeeded : BuildResult::Failed;
         m_BuildSeconds = seconds;
+        WakeEditor();
         if (!succeeded)
         {
             // The errors in front (the first one picked).

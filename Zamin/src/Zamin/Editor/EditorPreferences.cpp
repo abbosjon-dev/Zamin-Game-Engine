@@ -152,6 +152,7 @@ namespace Zamin {
         PlayTint.Sanitize();
         Camera.Sanitize();
         Autosave.Sanitize();
+        Idle.Sanitize();
     }
 
     std::string EditorPreferences::ToJson() const
@@ -196,6 +197,12 @@ namespace Zamin {
         };
         j["Layout"] = {
             { "Current", Layout.Current },
+        };
+        j["IdleThrottle"] = {
+            { "Enabled", Idle.Enabled },
+            { "UnfocusedFPS", Num(Idle.UnfocusedFPS) },
+            { "IdleFPS", Num(Idle.IdleFPS) },
+            { "IdleDelay", Num(Idle.IdleDelay) },
         };
         j["ExternalEditor"] = {
             { "Command", ExternalEditor.Command },
@@ -255,6 +262,13 @@ namespace Zamin {
         if (auto it = j.find("Layout"); it != j.end() && it->is_object())
             if (auto current = it->find("Current"); current != it->end() && current->is_string())
                 Layout.Current = current->get<std::string>();
+        if (auto it = j.find("IdleThrottle"); it != j.end() && it->is_object())
+        {
+            Read(*it, "Enabled", Idle.Enabled);
+            Read(*it, "UnfocusedFPS", Idle.UnfocusedFPS);
+            Read(*it, "IdleFPS", Idle.IdleFPS);
+            Read(*it, "IdleDelay", Idle.IdleDelay);
+        }
         if (auto it = j.find("ExternalEditor"); it != j.end() && it->is_object())
             if (auto command = it->find("Command"); command != it->end() && command->is_string())
                 ExternalEditor.Command = command->get<std::string>();

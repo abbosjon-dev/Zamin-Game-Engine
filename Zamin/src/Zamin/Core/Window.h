@@ -42,6 +42,10 @@ namespace Zamin {
         virtual bool IsFullscreen() const = 0;
         virtual void SetTitle(const std::string& title) = 0;
         virtual void SetCursorLocked(bool locked) = 0;
+        // Whether the window has the keyboard focus (in front of the other programs).
+        virtual bool IsFocused() const = 0;
+        // Waits up to `seconds` for the window's events and handles them (any input ends the wait).
+        virtual void WaitEvents(double seconds) = 0;
 
         virtual void* GetNativeWindow() const = 0;
 

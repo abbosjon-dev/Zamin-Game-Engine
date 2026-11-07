@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zamin/Editor/EditorAutosave.h"
+#include "Zamin/Editor/IdleThrottle.h"
 
 #include <glm/glm.hpp>
 
@@ -132,6 +133,7 @@ namespace Zamin {
         UndoPreferences Undo;
         LayoutPreferences Layout;
         ExternalEditorPreferences ExternalEditor;
+        IdleThrottleSettings Idle;    // fewer frames while unfocused / idle (Sozlamalar > Ishlash)
         // Keyboard shortcuts rebound in the shortcuts window: id -> chord ("" = unbound).
         std::map<std::string, std::string> Shortcuts;
 

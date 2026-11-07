@@ -535,11 +535,11 @@ namespace Zamin {
                         Log::Write(logLevel, true, std::string(item.substr(colon + 1)));
                 }
             }
-            // ZAMIN_EDITOR_PREFERENCES=<page 0..5>: the preferences window opens on that page.
+            // ZAMIN_EDITOR_PREFERENCES=<page 0..6>: the preferences window opens on that page.
             if (const char* prefs = std::getenv("ZAMIN_EDITOR_PREFERENCES"))
             {
                 m_ShowPreferences = true;
-                m_PreferencesPage = std::clamp(std::atoi(prefs), 0, 5);
+                m_PreferencesPage = std::clamp(std::atoi(prefs), 0, 6);
             }
             // ZAMIN_EDITOR_UNDO="select=<name>;move=<name>,dx,dy,dz;rename=<name>,<new>;duplicate;delete;undo=<n>;history":
             // undo steps made one by one (each its own step, named as usual); "history" opens the window.
@@ -4796,6 +4796,7 @@ namespace Zamin {
     {
         m_ViewportMessage = std::move(text);
         m_ViewportMessageTime = ImGui::GetCurrentContext() ? ImGui::GetTime() : 0.0;
+        WakeEditor(); // the notice fades in and out at full speed
     }
 
     void EditorLayer::LoadViewSettings()
@@ -5921,6 +5922,7 @@ namespace Zamin {
             lastDirty = m_SceneDirty;
             UpdateWindowTitle();
         }
+        UpdateIdleThrottle(); // after the UI: what is being dragged / typed into is known
     }
 
     void EditorLayer::UI_DockSpace()
@@ -6233,13 +6235,20 @@ namespace Zamin {
                     ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1), ICON_FA_ROCKET " Eksport...");
                 }
 
-                char fps[64];
-                std::snprintf(fps, sizeof(fps), "%.0f FPS  (%.2f ms)", Application::Get().GetFPS(), Application::Get().GetFrameTime());
+                char fps[96];
+                if (m_FrameLimit.IsLimited())
+                    std::snprintf(fps, sizeof(fps), ICON_FA_LEAF " %s: %.0f FPS", IdleThrottle::GetReasonName(m_FrameLimit.Reason), Application::Get().GetFPS());
+                else
+                    std::snprintf(fps, sizeof(fps), "%.0f FPS  (%.2f ms)", Application::Get().GetFPS(), Application::Get().GetFrameTime());
                 float w = ImGui::CalcTextSize(fps).x + 16;
                 if (m_ActiveScene)
                     UI_StatusBarSelection(ImGui::GetWindowWidth() - w - 12.0f);
                 ImGui::SameLine(ImGui::GetWindowWidth() - w);
                 ImGui::TextDisabled("%s", fps);
+                if (m_FrameLimit.IsLimited() && ImGui::IsItemHovered())
+                    UI::Tooltip(std::format("Editor tejamkor rejimda: {} FPS gacha ({}).\nSichqoncha yoki klaviatura bilan darhol to'liq tezlikka qaytadi.\n"
+                                            "Sozlash: Tahrirlash > Sozlamalar > Ishlash", m_FrameLimit.FPS,
+                                            IdleThrottle::GetReasonName(m_FrameLimit.Reason)).c_str());
                 ImGui::EndMenuBar();
             }
         }

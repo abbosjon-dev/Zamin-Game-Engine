@@ -52,6 +52,8 @@ namespace Zamin {
         // Runs `f` with the scene's own values in place (snapshots, saving), the preview after it.
         void WithoutPreview(const std::function<void()>& f);
         bool IsPreviewing() const { return m_Previewing; }
+        // The preview is playing (not paused / scrubbed): the editor keeps drawing at full speed.
+        bool IsPlaying() const { return m_Previewing && m_Playing; }
         bool HasUnsavedChanges() const { return m_Dirty; }
         bool Save();
         void SaveIfDirty() { if (m_Dirty) Save(); }

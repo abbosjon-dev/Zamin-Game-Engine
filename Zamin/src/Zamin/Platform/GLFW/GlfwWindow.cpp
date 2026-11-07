@@ -147,6 +147,17 @@ namespace Zamin {
         m_Context->SwapBuffers();
     }
 
+    bool GlfwWindow::IsFocused() const
+    {
+        return glfwGetWindowAttrib(m_Window, GLFW_FOCUSED) != 0;
+    }
+
+    void GlfwWindow::WaitEvents(double seconds)
+    {
+        if (seconds > 0.0)
+            glfwWaitEventsTimeout(seconds);
+    }
+
     uint32_t GlfwWindow::GetFramebufferWidth() const
     {
         int w, h;

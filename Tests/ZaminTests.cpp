@@ -33274,3 +33274,192 @@ TEST(CompilerOutputParsing)
     p.Clear();
     CHECK(p.GetDiagnostics().empty() && p.GetErrorCount() == 0);
 }
+
+// Idle throttling (319): when the editor draws fewer frames, how long a frame waits for events, and
+// the frame rate it settles at over a stretch of time without input.
+TEST(IdleThrottleDecision)
+{
+    IdleThrottleSettings settings;
+    IdleThrottleState state;
+    state.SecondsSinceInput = 0.0;
+    CHECK(!IdleThrottle::Decide(settings, state).IsLimited());          // input just now: full speed
+    state.SecondsSinceInput = 0.99;
+    CHECK(!IdleThrottle::Decide(settings, state).IsLimited());          // still within IdleDelay (1 s)
+    state.SecondsSinceInput = 2.0;
+    FrameLimit idle = IdleThrottle::Decide(settings, state);
+    CHECK(idle.Reason == FrameLimitReason::Idle && idle.FPS == 30.0f);
+    CHECK_NEAR(idle.GetFrameSeconds(), 1.0 / 30.0, 1e-9);
+    // Things that keep full speed while focused.
+    for (int which = 0; which < 4; which++)
+    {
+        IdleThrottleState busy = state;
+        if (which == 0) busy.Animating = true;      // a preview, the camera moving, a drag
+        if (which == 1) busy.Running = true;        // the game / simulation
+        if (which == 2) busy.PendingWork = true;    // loading, building
+        if (which == 3) busy.Automation = true;     // ZAMIN_MAX_FRAMES runs
+        CHECK(!IdleThrottle::Decide(settings, busy).IsLimited());
+    }
+    // Not in front: the unfocused rate, even right after input and with a preview playing...
+    IdleThrottleState unfocused = state;
+    unfocused.Focused = false;
+    unfocused.SecondsSinceInput = 0.0;
+    unfocused.Animating = true;
+    FrameLimit back = IdleThrottle::Decide(settings, unfocused);
+    CHECK(back.Reason == FrameLimitReason::Unfocused && back.FPS == 10.0f);
+    // ...but never while the game runs, work is pending or for automation.
+    unfocused.Running = true;
+    CHECK(!IdleThrottle::Decide(settings, unfocused).IsLimited());
+    unfocused.Running = false;
+    unfocused.Automation = true;
+    CHECK(!IdleThrottle::Decide(settings, unfocused).IsLimited());
+    // Switched off: never.
+    IdleThrottleSettings off;
+    off.Enabled = false;
+    CHECK(!IdleThrottle::Decide(off, state).IsLimited() && !IdleThrottle::Decide(off, IdleThrottleState{ false }).IsLimited());
+
+    // The wait: the rest of the frame's time (none when the frame took longer, or without a limit).
+    CHECK_NEAR(IdleThrottle::GetWaitSeconds(idle, 0.010), 1.0 / 30.0 - 0.010, 1e-9);
+    CHECK(IdleThrottle::GetWaitSeconds(idle, 0.050) == 0.0);
+    CHECK(IdleThrottle::GetWaitSeconds(FrameLimit{}, 0.0) == 0.0);
+    CHECK_NEAR(IdleThrottle::GetWaitSeconds(back, -1.0), 0.1, 1e-9);
+
+    // A stretch of frames at 60 Hz (vsync, 4 ms of work each): input at 0 s, then nothing. The first
+    // second stays at 60, then the frames settle at the idle rate.
+    double t = 0.0;
+    int framesFirst = 0, framesThird = 0;
+    while (t < 3.0)
+    {
+        IdleThrottleState s;
+        s.SecondsSinceInput = t;
+        const FrameLimit limit = IdleThrottle::Decide(settings, s);
+        const double work = 1.0 / 60.0;
+        const double frame = work + IdleThrottle::GetWaitSeconds(limit, work);
+        if (t < 1.0) framesFirst++;
+        if (t >= 2.0) framesThird++;
+        t += frame;
+    }
+    CHECK(framesFirst >= 59 && framesFirst <= 61);
+    CHECK(framesThird >= 29 && framesThird <= 31);
+
+    // Settings kept in range; the preferences file keeps them.
+    IdleThrottleSettings bad;
+    bad.IdleFPS = 0.0f;
+    bad.UnfocusedFPS = std::numeric_limits<float>::quiet_NaN();
+    bad.IdleDelay = 1000.0f;
+    bad.Sanitize();
+    CHECK(bad.IdleFPS == IdleThrottleSettings::MinFPS && bad.UnfocusedFPS == 10.0f && bad.IdleDelay == IdleThrottleSettings::MaxDelay);
+    EditorPreferences prefs;
+    prefs.Idle.Enabled = false;
+    prefs.Idle.IdleFPS = 24.0f;
+    prefs.Idle.UnfocusedFPS = 5.0f;
+    prefs.Idle.IdleDelay = 2.5f;
+    prefs.ExternalEditor.Command = "subl {file}:{line}";
+    EditorPreferences loaded;
+    CHECK(loaded.FromJson(prefs.ToJson()));
+    CHECK(!loaded.Idle.Enabled && loaded.Idle.IdleFPS == 24.0f && loaded.Idle.UnfocusedFPS == 5.0f && loaded.Idle.IdleDelay == 2.5f);
+    CHECK(loaded.ExternalEditor.Command == "subl {file}:{line}");
+    EditorPreferences older; // a file from before these settings: the defaults stay
+    CHECK(older.FromJson("{ \"ZaminEditorPreferences\": 1, \"IdleThrottle\": { \"IdleFPS\": 0 } }"));
+    CHECK(older.Idle.Enabled && older.Idle.IdleFPS == IdleThrottleSettings::MinFPS && older.ExternalEditor.Command.empty());
+    CHECK(std::string(IdleThrottle::GetReasonName(FrameLimitReason::Unfocused)) == "fokussiz");
+}
+
+// Editor II (320): the M16 pieces the other tests leave out - console level filter, autosave interval
+// and lock file, recent list capacity, fixed / modified shortcuts, the undo history's saved state,
+// the layouts folder, a compiler error opened in the external editor, prefab instances placed from a
+// prefab file and counted by the statistics.
+TEST(EditorIIPureLogic)
+{
+    namespace fs = std::filesystem;
+    // Console: the level toggles (Error covers Critical).
+    ConsoleFilterSettings console;
+    CHECK(!console.AcceptsLevel(LogLevel::Trace) && console.AcceptsLevel(LogLevel::Info) && console.AcceptsLevel(LogLevel::Critical));
+    console.ShowError = false;
+    console.ShowTrace = true;
+    CHECK(!console.AcceptsLevel(LogLevel::Error) && !console.AcceptsLevel(LogLevel::Critical) && console.AcceptsLevel(LogLevel::Trace));
+
+    // Autosave: the interval in seconds; the lock file's text both ways.
+    AutosaveSettings autosave;
+    autosave.IntervalMinutes = 3;
+    CHECK(autosave.GetIntervalSeconds() == 180.0);
+    EditorAutosave::LockInfo lock{ 4242, 1700000123, "ishxona" }, lockBack;
+    CHECK(EditorAutosave::LockFromJson(EditorAutosave::LockToJson(lock), lockBack));
+    CHECK(lockBack.ProcessId == 4242 && lockBack.StartedAt == 1700000123 && lockBack.Host == "ishxona");
+    CHECK(!EditorAutosave::LockFromJson("not json", lockBack) && !EditorAutosave::LockFromJson("[1, 2]", lockBack));
+
+    // Recent files: at least one is kept.
+    RecentFileList none(0);
+    CHECK(none.GetCapacity() == 1);
+    none.Add("/a.zscene");
+    none.Add("/b.zscene");
+    CHECK(none.GetEntries().size() == 1 && none.GetEntries()[0].Path == "/b.zscene");
+
+    // Shortcuts: fixed ones are listed but cannot be rebound; modified ones are counted.
+    ShortcutRegistry shortcuts;
+    shortcuts.Register("test.save", "Fayl", "Saqlash", KeyChord(Key::S, true));
+    shortcuts.RegisterFixed("test.fly", "Kamera", "Uchish", KeyChord(), ShortcutScope::SceneView, "O'ng tugma + WASD");
+    CHECK(!shortcuts.Rebind("test.fly", KeyChord(Key::F)) && !shortcuts.Find("test.fly")->IsModified());
+    CHECK(shortcuts.Find("test.fly")->Display == "O'ng tugma + WASD");
+    CHECK(shortcuts.Rebind("test.save", KeyChord(Key::S, true, true)) && shortcuts.Find("test.save")->IsModified() && shortcuts.CountModified() == 1);
+    CHECK(shortcuts.ResetToDefault("test.save") && !shortcuts.Find("test.save")->IsModified());
+    CHECK(KeyChord::IsModifierKey(Key::LeftControl) && KeyChord::IsModifierKey(Key::RightShift) && !KeyChord::IsModifierKey(Key::S));
+
+    // Undo: the saved state forgotten (the file was deleted / saved elsewhere) and asked per state.
+    UndoHistory history(10, 10);
+    history.Reset("A", {}, "Ochildi", 1.0);
+    CHECK(history.CommitEdit("B", {}, "O'zgardi", 2.0));
+    CHECK(history.IsSavedState(0) && !history.IsSavedState(1) && !history.IsAtSavedState());
+    history.ClearSaved();
+    CHECK(!history.IsSavedState(0) && !history.IsSavedState(1));
+    history.Undo();
+    CHECK(!history.IsAtSavedState());
+
+    // Layouts: another folder; names found whatever their letter case.
+    const fs::path layouts = fs::temp_directory_path() / ("zamin-layouts-" + std::to_string((uint64_t)UUID()));
+    EditorLayoutLibrary library(layouts / "a");
+    library.SetDirectory(layouts / "b");
+    CHECK(library.GetDirectory() == layouts / "b");
+    EditorLayout layout;
+    layout.Name = "Katta Ekran";
+    layout.Ini = "[Window][###Console]\n";
+    CHECK(library.Save(layout));
+    CHECK(library.Contains("katta ekran") && !library.Contains("boshqa") && library.GetNames()[0] == "Katta Ekran");
+    CHECK(library.Load("KATTA EKRAN") && library.Load("KATTA EKRAN")->Ini == layout.Ini);
+    CHECK(fs::exists(layouts / "b") && !fs::exists(layouts / "a"));
+
+    // A compiler error's place, given to the external editor's command (the window's double click).
+    CompilerOutputParser parser;
+    parser.AddLine("Source/Player.cpp:24:9: error: 'Jump' was not declared in this scope");
+    parser.Finish();
+    parser.ResolvePaths("/proj");
+    const CompilerDiagnostic& error = parser.GetDiagnostics().front();
+    CHECK(ExternalEditor::ExpandCommand("code -g {file}:{line}:{col}", error.File, error.Line, error.Column) ==
+          (std::vector<std::string>{ "code", "-g", "/proj/Source/Player.cpp:24:9" }));
+
+    // Prefab instances: placed from a prefab file, marked, duplicated - the statistics count them.
+    const fs::path prefabFile = layouts / "Crate.zprefab";
+    {
+        auto source = CreateRef<Scene>();
+        Entity crate = source->CreateEntity("Crate");
+        Entity lid = source->CreateEntity("Lid");
+        source->SetParent(lid, crate, false);
+        source->SetPrefabSource(crate, "Prefabs/Old.zprefab"); // not written into the prefab itself
+        CHECK(source->SavePrefab(crate, prefabFile));
+    }
+    auto scene = CreateRef<Scene>();
+    Entity first = scene->InstantiatePrefab(prefabFile);
+    CHECK(first && scene->GetPrefabSource(first).empty()); // the editor marks it (InstantiatePrefabInEditor)
+    scene->SetPrefabSource(first, "Prefabs/Crate.zprefab");
+    std::vector<Entity> copies = scene->DuplicateEntities({ first });
+    CHECK(copies.size() == 1 && scene->GetPrefabSource(copies[0]) == "Prefabs/Crate.zprefab"); // copies stay instances
+    scene->CreateEntity("Loose");
+    SceneStatisticsCollector collector;
+    SceneStatistics stats = collector.Collect(*scene, layouts);
+    CHECK(stats.Entities == 5 && stats.PrefabInstances == 2);
+    CHECK(stats.FindPrefab("Prefabs/Crate.zprefab") && stats.FindPrefab("Prefabs/Crate.zprefab")->Count() == 2);
+    scene->SetPrefabSource(first, "");
+    CHECK(!first.HasComponent<EditorMetadataComponent>()); // nothing left to remember
+    CHECK(collector.Collect(*scene, layouts).PrefabInstances == 1);
+    std::error_code ec;
+    fs::remove_all(layouts, ec);
+}

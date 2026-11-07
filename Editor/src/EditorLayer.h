@@ -297,6 +297,13 @@ namespace Zamin {
         // ZAMIN_EDITOR_BUILD_LOG=<file>: a saved build output read as if a build had just failed with it.
         void LoadBuildLogAutomation(const std::filesystem::path& file);
 
+        // ---- idle throttling (EditorIdleThrottle.cpp): fewer frames while the window is not in front or
+        // nothing happens (Sozlamalar > Ishlash); input wakes it up at once.
+        void UpdateIdleThrottle();
+        // Something worth drawing at full speed for a moment happened without input (a build ended...).
+        void WakeEditor() { m_WakeTime = ImGui::GetCurrentContext() ? ImGui::GetTime() : 0.0; }
+        void UI_IdlePreferences(bool& changed);
+
         // ---- export
         void BuildGame(const std::filesystem::path& outputDirectory);
 
@@ -858,6 +865,10 @@ namespace Zamin {
         int m_BuildOutputTab = 0;                     // 0: problems, 1: the whole output
         int m_BuildSelected = -1;
         std::string m_BuildSearch;
+        // idle throttling: this frame's limit and why
+        FrameLimit m_FrameLimit;
+        IdleThrottleState m_IdleState;
+        double m_WakeTime = 0.0;
         // script classes' source files (the inspector's / statistics' "open the code")
         std::unordered_map<std::string, SourceLocation> m_ScriptSources;
         double m_ScriptSourcesTime = -100.0;

@@ -1194,7 +1194,7 @@ namespace Zamin {
             { "Turli oynalarda", "In other windows" },
             { "Kursor bo'shatildi - qaytarish uchun o'yin ko'rinishini bosing", "Cursor released - click the game view to give it back" },
             { "Eksport", "Export" },
-            { "Ishlatilmaganlarni chiqarish", "Leave out unused" },
+            { "Faqat ishlatilganlar", "Only used assets" },
             { "Doim kiritish", "Always include" },
             { "Data/  yoki  Levels/*.zscene", "Data/  or  Levels/*.zscene" },
             { "Hajmi", "Size" },

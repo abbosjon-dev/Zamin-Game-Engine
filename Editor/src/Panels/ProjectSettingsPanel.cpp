@@ -899,7 +899,7 @@ namespace Zamin {
                                "material, model, klip ...), loyiha fayli (ikonka, splash) va C++ skriptlardagi \"Audio/jump.wav\" kabi "
                                "satrlar. Resources/ va til fayllari papkasi doim kiradi. Skript nomini o'zi yasaydigan assetlarni "
                                "\"Doim kiritish\" ro'yxatiga qo'shing. Chiqarib tashlanganlar ro'yxati: excluded-assets.txt.");
-            changed |= UI::PropertyBool("Ishlatilmaganlarni chiqarish", e.ExcludeUnusedAssets);
+            changed |= UI::PropertyBool("Faqat ishlatilganlar", e.ExcludeUnusedAssets);
             if (ImGui::IsItemHovered())
                 UI::Tooltip("O'chirilsa, Assets papkasidagi hamma fayl eksportga kiradi (build ro'yxatida yo'q sahnalardan tashqari)");
             UI::PropertyLabel("Doim kiritish", "Fayl yoki papka (Assets ichida); * istalgan qism: \"Levels/*.zscene\", \"Data/*\"");
@@ -909,12 +909,14 @@ namespace Zamin {
                 ImGui::PushID((int)i);
                 if (i > 0)
                     UI::PropertyLabel("");
+                if (ImGui::SmallButton(ICON_FA_XMARK))
+                    remove = (int)i;
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip("Ro'yxatdan olib tashlash");
+                ImGui::SameLine();
                 ImGui::TextUnformatted(ICON_FA_FOLDER_OPEN);
                 ImGui::SameLine();
                 ImGui::TextUnformatted(e.AlwaysInclude[i].c_str());
-                ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight());
-                if (ImGui::SmallButton(ICON_FA_XMARK))
-                    remove = (int)i;
                 ImGui::PopID();
             }
             if (!e.AlwaysInclude.empty())

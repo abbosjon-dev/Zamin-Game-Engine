@@ -93,7 +93,7 @@ namespace Zamin {
                   { "Tags", "SortingLayers" } },
                 { "BuildScenes", ICON_FA_LIST_OL, "Build sahnalar",
                   "O'yin quriladigan sahnalar, ularning build indekslari va boshlang'ich sahna; eksportga qaysi assetlar kiradi.",
-                  { "Build sahnalar", "Build indeksi", "Boshlang'ich sahna", "LoadScene", "Eksport", "Ishlatilmaganlarni chiqarish",
+                  { "Build sahnalar", "Build indeksi", "Boshlang'ich sahna", "LoadScene", "Eksport", "Faqat ishlatilganlar",
                     "Ishlatilmagan assetlar", "Doim kiritish", "excluded-assets.txt" },
                   { "BuildScenes", "Project.StartScene", "Project.StartSceneUUID", "Export" } },
                 { "Localization", ICON_FA_LANGUAGE, "Lokalizatsiya",

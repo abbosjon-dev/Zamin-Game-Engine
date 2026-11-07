@@ -30,8 +30,8 @@ namespace Zamin {
     {
         m_LoadErrors.clear();
         m_LoadedFor = Project::GetActive().get();
-        m_Table = m_LoadedFor ? LocalizationTable::Load(Project::GetLocalizationDirectory(), Localization::GetLanguages(), &m_LoadErrors)
-                              : LocalizationTable();
+        m_LoadedDirectory = m_LoadedFor ? Project::GetLocalizationDirectory() : std::filesystem::path();
+        m_Table = m_LoadedFor ? LocalizationTable::Load(m_LoadedDirectory, Localization::GetLanguages(), &m_LoadErrors) : LocalizationTable();
         // The display names stay as the files have them; languages without a file get their built-in one when saved.
         m_Keys = m_Table.GetKeys();
         m_Loaded = true;
@@ -52,8 +52,10 @@ namespace Zamin {
         for (StringTable& t : m_Table.Languages)
             if (t.DisplayName.empty())
                 t.DisplayName = Localization::GetLanguageName(t.Language);
+        // Into the folder the table was read from: when the project's folder changed since (Project settings >
+        // Localization), the edits belong to the old folder's files, not over the new folder's (it is read next).
         std::vector<std::string> errors;
-        if (!m_Table.Save(Project::GetLocalizationDirectory(), &errors))
+        if (m_LoadedDirectory.empty() || !m_Table.Save(m_LoadedDirectory, &errors))
         {
             for (const std::string& e : errors)
                 ZM_ERROR("Lokalizatsiya saqlanmadi: {}", e);
@@ -61,7 +63,7 @@ namespace Zamin {
         }
         m_Dirty = false;
         ZM_INFO("Lokalizatsiya saqlandi: {} ta til, {} ta kalit ({})", m_Table.Languages.size(), m_Keys.size(),
-                Project::GetAssetRelativePath(Project::GetLocalizationDirectory()));
+                Project::GetAssetRelativePath(m_LoadedDirectory));
         Localization::Reload(); // the scene's texts and the game use the new strings
         return true;
     }
@@ -108,7 +110,8 @@ namespace Zamin {
             ImGui::End();
             return;
         }
-        // Another project, or the offered languages changed (Project settings > Localization).
+        // Another project, or the offered languages / the files' folder changed (Project settings > Localization).
+        // With unsaved edits the table stays as it is (Save writes it where it was read from, then it is read again).
         if (m_Loaded && (m_LoadedFor != Project::GetActive().get()))
             m_Loaded = false;
         if (m_Loaded && !m_Dirty)
@@ -116,7 +119,7 @@ namespace Zamin {
             std::vector<std::string> columns;
             for (const StringTable& t : m_Table.Languages)
                 columns.push_back(t.Language);
-            if (columns != Localization::GetLanguages())
+            if (columns != Localization::GetLanguages() || m_LoadedDirectory != Project::GetLocalizationDirectory())
                 m_Loaded = false;
         }
         if (!m_Loaded)
@@ -177,7 +180,11 @@ namespace Zamin {
         for (const StringTable& t : m_Table.Languages)
             if (const size_t missing = m_Table.CountMissing(t.Language); missing > 0)
                 summary += std::format("  ·  {}: {} yo'q", t.Language, missing);
-        ImGui::TextDisabled("%s  ·  papka: %s", summary.c_str(), Project::GetAssetRelativePath(Project::GetLocalizationDirectory()).c_str());
+        ImGui::TextDisabled("%s  ·  papka: %s", summary.c_str(), Project::GetAssetRelativePath(m_LoadedDirectory).c_str());
+        if (m_LoadedDirectory != Project::GetLocalizationDirectory())
+            ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  Loyihaning papkasi o'zgardi (%s): saqlash eski papkaga yoziladi, "
+                                            "keyin yangisi o'qiladi",
+                               Project::GetAssetRelativePath(Project::GetLocalizationDirectory()).c_str());
         for (const std::string& error : m_LoadErrors)
             ImGui::TextColored(s_WarnColor, ICON_FA_TRIANGLE_EXCLAMATION "  %s", error.c_str());
         if (m_Table.Languages.empty())
@@ -293,7 +300,8 @@ namespace Zamin {
         }
         ImGui::TableHeadersRow();
 
-        std::string removeKey;
+        // Changes to the keys wait until the rows are drawn (`rows` points into m_Keys).
+        std::string removeKey, renameFrom, renameTo;
         ImGuiListClipper clipper;
         clipper.Begin((int)rows.size());
         while (clipper.Step())
@@ -314,13 +322,12 @@ namespace Zamin {
                     const bool done = ImGui::InputText("##rename", &m_RenameBuffer, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
                     if (done)
                     {
-                        if (m_RenameBuffer != key && m_Table.RenameKey(key, m_RenameBuffer))
+                        // Done after the table: `rows` points into m_Keys, which the rename rebuilds.
+                        if (m_RenameBuffer != key)
                         {
-                            m_Keys = m_Table.GetKeys();
-                            m_Dirty = true;
+                            renameFrom = key;
+                            renameTo = m_RenameBuffer;
                         }
-                        else if (m_RenameBuffer != key)
-                            m_KeyError = std::format("'{}' deb nomlab bo'lmadi (noto'g'ri yoki band)", m_RenameBuffer);
                         m_RenamingKey.clear();
                     }
                     else if (ImGui::IsItemDeactivated())
@@ -387,6 +394,18 @@ namespace Zamin {
                 ImGui::PopID();
             }
         ImGui::EndTable();
+        rows.clear();
+        if (!renameFrom.empty())
+        {
+            if (m_Table.RenameKey(renameFrom, renameTo))
+            {
+                m_Keys = m_Table.GetKeys();
+                m_Dirty = true;
+                m_KeyError.clear();
+            }
+            else
+                m_KeyError = std::format("'{}' deb nomlab bo'lmadi (noto'g'ri yoki band)", renameTo);
+        }
         if (!removeKey.empty() && m_Table.RemoveKey(removeKey))
         {
             m_Keys = m_Table.GetKeys();

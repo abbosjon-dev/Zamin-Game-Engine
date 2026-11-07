@@ -4225,6 +4225,10 @@ namespace Zamin {
         ReleaseProjectLock();
         Project::SetActive(nullptr);
         Project::ApplyLocalization(); // no project: no language files
+        // No project: no quality levels (nothing limited, textures sampled at full quality) and the
+        // mixer's defaults, not the closed project's.
+        Quality::Reset();
+        AudioEngine::SetMixerSettings(AudioSettings());
         m_LocalizationPanel.Invalidate();
         m_ContentBrowserPanel.SetRoot({});
         m_ScenesPanel.OnProjectChanged();
@@ -5963,8 +5967,10 @@ namespace Zamin {
             fs::permissions(launcher, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
                                           fs::perms::others_read | fs::perms::others_exec, ec);
 
-            // The game's icon next to the launcher and a desktop entry (application menus, file managers;
-            // copy it to ~/.local/share/applications to install). Its paths are where the game was exported to.
+            // The game's icon next to the launcher and a desktop entry (application menus, file managers).
+            // A desktop entry's paths must be absolute: this one is for where the game was exported to, and
+            // install-desktop-entry.sh writes it again for wherever the folder is moved / shipped to (and
+            // installs it into ~/.local/share/applications).
             const fs::path absoluteOut = fs::absolute(outputDirectory, ec);
             fs::path exportedIcon;
             if (!iconFile.empty())
@@ -5982,6 +5988,15 @@ namespace Zamin {
             else
                 fs::permissions(outputDirectory / (name + ".desktop"), fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
                                 fs::perm_options::add, ec);
+            const fs::path installScript = outputDirectory / ExportFiles::DesktopInstallScriptName;
+            if (!FileSystem::WriteTextFile(installScript,
+                                           ExportFiles::MakeDesktopInstallScript(productName, player, launcher.filename().string(),
+                                                                                 exportedIcon.empty() ? std::string() : exportedIcon.filename().string(),
+                                                                                 ExportFiles::MakeDesktopEntryId(name))))
+                ok = false;
+            else
+                fs::permissions(installScript, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec | fs::perms::others_read |
+                                                   fs::perms::others_exec, ec);
 
             if (ok) ZM_INFO("O'yin eksport qilindi " ICON_FA_ROCKET " {}  (ishga tushirish: {})", outputDirectory.string(), launcher.string());
             else ZM_ERROR("O'yinni eksport qilishda xatolar bo'ldi");
@@ -10757,6 +10772,11 @@ namespace Zamin {
                                     player.RunInBackground ? "" : ", fonda to'xtaydi");
                 ImGui::TextDisabled("Ikonka: %s  (%s.desktop + %s.png)", player.Icon.empty() ? "yo'q" : player.Icon.generic_string().c_str(),
                                     config.Name.c_str(), config.Name.c_str());
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(std::format("{}.desktop eksport papkasining to'liq yo'li bilan yoziladi. Papka ko'chirilsa yoki boshqa "
+                                            "kompyuterga berilsa, o'sha yerda {} ni ishga tushiring: u desktop faylini yangi joy uchun "
+                                            "qayta yozadi va dasturlar menyusiga qo'shadi (--uninstall - olib tashlash).",
+                                            config.Name, ExportFiles::DesktopInstallScriptName).c_str());
                 const GraphicsSettings& graphics = config.Graphics;
                 ImGui::TextDisabled("Grafika: OpenGL %s core%s%s%s", graphics.GetVersionString().c_str(), graphics.WantsDebugContext() ? ", debug" : "",
                                     graphics.MSAASamples > 0 ? std::format(", MSAA {}x", graphics.MSAASamples).c_str() : "",

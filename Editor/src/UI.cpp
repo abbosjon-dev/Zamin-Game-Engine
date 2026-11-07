@@ -295,12 +295,13 @@ namespace Zamin::UI {
             }
             ImGui::PushID(i);
             // A label wider than the button's inside: less padding at its sides, so more of it shows.
+            const char* item = Tr(items[i]); // the editor's language
             const ImVec2 padding = ImGui::GetStyle().FramePadding;
-            const float text = ImGui::CalcTextSize(items[i], nullptr, true).x;
+            const float text = ImGui::CalcTextSize(item, nullptr, true).x;
             const bool tight = text + padding.x * 2.0f > width;
             if (tight)
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(std::max(1.0f, (width - text) * 0.5f), padding.y));
-            if (ImGui::Button(items[i], ImVec2(width, 0.0f)) && !active)
+            if (ImGui::Button(item, ImVec2(width, 0.0f)) && !active)
             {
                 current = i;
                 changed = true;
@@ -323,16 +324,19 @@ namespace Zamin::UI {
         PropertyLabel(label);
         ImGui::PushID(label);
         bool changed = false;
-        if (ImGui::BeginCombo("##v", (current >= 0 && current < count) ? items[current] : ""))
+        // The items in the editor's language (ids by index: two translations may read the same).
+        if (ImGui::BeginCombo("##v", (current >= 0 && current < count) ? Tr(items[current]) : ""))
         {
             for (int i = 0; i < count; i++)
             {
                 bool selected = current == i;
-                if (ImGui::Selectable(items[i], selected))
+                ImGui::PushID(i);
+                if (ImGui::Selectable(Tr(items[i]), selected))
                 {
                     current = i;
                     changed = true;
                 }
+                ImGui::PopID();
                 if (selected) ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
@@ -418,6 +422,7 @@ namespace Zamin::UI {
 
     void TextCentered(const char* text)
     {
+        text = Tr(text); // the editor's language
         float width = ImGui::CalcTextSize(text).x;
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0f, (ImGui::GetContentRegionAvail().x - width) * 0.5f));
         ImGui::TextUnformatted(text);

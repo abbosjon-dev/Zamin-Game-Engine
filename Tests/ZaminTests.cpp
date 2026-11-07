@@ -34222,6 +34222,47 @@ TEST(GameIconImagesAndDesktopEntry)
     const std::string odd = ExportFiles::MakeDesktopEntry("A\nB", PlayerSettings(), "/x/$HOME`a\\b.sh", "", "");
     CHECK(odd.find("Name=A\\nB\n") != std::string::npos && odd.find("Icon=") == std::string::npos);
     CHECK(odd.find("Exec=\"/x/\\\\$HOME\\\\`a\\\\\\\\b.sh\"") != std::string::npos);
+
+    // The install script: the same entry for wherever the folder is when it runs, also installed.
+    CHECK(ExportFiles::MakeDesktopEntryId("Kosmos Sayohat!") == "zamin-Kosmos-Sayohat-");
+    CHECK(ExportFiles::MakeDesktopEntryId("") == "zamin-game" && ExportFiles::MakeDesktopEntryId("a.b_c-1") == "zamin-a.b_c-1");
+    const std::string script = ExportFiles::MakeDesktopInstallScript("Kosmos \"Sayohat\"", player, "O'yin.sh", "O'yin.png", "zamin-Oyin");
+    CHECK(script.starts_with("#!/bin/sh\n"));
+    CHECK(script.find("launcher='O'\\''yin.sh'\n") != std::string::npos && script.find("icon='O'\\''yin.png'\n") != std::string::npos);
+    CHECK(script.find("local_entry='O'\\''yin.desktop'\n") != std::string::npos && script.find("id='zamin-Oyin'\n") != std::string::npos);
+    CHECK(script.find("--uninstall") != std::string::npos);
+    // Run it (a POSIX shell is there on Linux) in a folder whose name needs every kind of escaping.
+    if (std::system("command -v sh >/dev/null 2>&1 && command -v sed >/dev/null 2>&1") == 0)
+    {
+        const fs::path game = dir / "My \"Game\" $HOME `x` \\b";
+        const fs::path data = dir / "data";
+        fs::create_directories(game);
+        FileSystem::WriteTextFile(game / "O'yin.sh", "#!/bin/sh\n");
+        FileSystem::WriteTextFile(game / "O'yin.png", "png");
+        FileSystem::WriteTextFile(game / ExportFiles::DesktopInstallScriptName, script);
+        // The command line quotes the paths with '...' (they have no ' of their own).
+        const std::string run = "XDG_DATA_HOME='" + data.string() + "' sh '" + (game / ExportFiles::DesktopInstallScriptName).string() + "' ";
+        CHECK(std::system((run + ">/dev/null 2>&1").c_str()) == 0);
+        const std::string expected = ExportFiles::MakeDesktopEntry("Kosmos \"Sayohat\"", player, game / "O'yin.sh", game / "O'yin.png", game);
+        const fs::path installed = data / "applications" / "zamin-Oyin.desktop";
+        CHECK(fs::exists(installed) && FileSystem::ReadTextFile(installed) == expected);
+        CHECK(FileSystem::ReadTextFile(game / "O'yin.desktop") == expected);
+        // No icon file: no Icon line.
+        fs::remove(game / "O'yin.png");
+        CHECK(std::system((run + ">/dev/null 2>&1").c_str()) == 0);
+        CHECK(FileSystem::ReadTextFile(installed) == ExportFiles::MakeDesktopEntry("Kosmos \"Sayohat\"", player, game / "O'yin.sh", "", game));
+        // Moved: the entry follows the folder.
+        const fs::path moved = dir / "moved here";
+        std::error_code e;
+        fs::rename(game, moved, e);
+        CHECK(!e);
+        const std::string runMoved = "XDG_DATA_HOME='" + data.string() + "' sh '" + (moved / ExportFiles::DesktopInstallScriptName).string() + "' ";
+        CHECK(std::system((runMoved + ">/dev/null 2>&1").c_str()) == 0);
+        CHECK(FileSystem::ReadTextFile(installed).find("\nExec=\"" + (moved / "O'yin.sh").string() + "\"\n") != std::string::npos);
+        CHECK(FileSystem::ReadTextFile(installed).find("\nPath=" + moved.string() + "\n") != std::string::npos);
+        CHECK(std::system((runMoved + "--uninstall >/dev/null 2>&1").c_str()) == 0);
+        CHECK(!fs::exists(installed));
+    }
     std::error_code ec;
     fs::remove_all(dir, ec);
 }
@@ -35287,6 +35328,17 @@ TEST(EditorLanguageStrings)
     CHECK(std::string(Tr("Yangi C++ skript###NewScript")) == "New C++ script###NewScript");
     CHECK(std::string(Tr(ICON_FA_LOCATION_DOT "  3D ovoz (standartlar)")) == ICON_FA_LOCATION_DOT "  3D sound (defaults)");
     CHECK(Tr(static_cast<const char*>(nullptr)) == nullptr);
+    // Inspector property rows and their choices, the project settings' descriptions.
+    for (const char* uz : { "Pozitsiya", "Aylanish", "Masshtab", "Turi", "Massa", "Chiziqli so'nish", "Soya tashlaydi", "Shar", "Dinamik",
+                            "Obyekt tanlanmagan" })
+        CHECK(EditorText::HasTranslation(uz));
+    CHECK(std::string(Tr("Pozitsiya")) == "Position" && std::string(Tr("Shar")) == "Sphere");
+    for (const ProjectSettingsCategory& category : ProjectSettingsIndex::GetCategories())
+        CHECK(EditorText::HasTranslation(category.Description));
+    // "words ..." : the spaces before the "..." are not part of the key.
+    const EditorText::Parts dots = EditorText::Split("Skriptlar: Time ...");
+    CHECK(dots.Core == "Skriptlar: Time" && dots.Suffix == " ...");
+    CHECK(std::string(Tr("Saqlash ...")) == "Save ...");
     EditorText::SetLanguage(EditorLanguage::Uzbek);
     CHECK(std::string(Tr("Fayl")) == "Fayl");
     CHECK(std::string(EditorText::Choose("Bekor qilish", "Undo")) == "Bekor qilish");

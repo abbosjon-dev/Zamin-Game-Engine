@@ -3912,7 +3912,7 @@ namespace Zamin {
         }
         if (ImGui::IsItemHovered())
             UI::Tooltip("Shu masofagacha to'liq yorqinlik, keyin radiusgacha so'nadi");
-        UI::PropertyLabel("So'nish", "(1 - t)^daraja: 1 - chiziqli, 2 - yumshoq, 4 - yorqin markaz, tez so'nadi");
+        UI::PropertyLabel(EditorText::Choose("So'nish", "Falloff"), "(1 - t)^daraja: 1 - chiziqli, 2 - yumshoq, 4 - yorqin markaz, tez so'nadi");
         if (ImGui::SliderFloat("##falloff", &c.Falloff, 0.25f, 6.0f, "%.2f"))
         {
             c.Falloff = std::clamp(c.Falloff, 0.1f, 8.0f);
@@ -7628,7 +7628,7 @@ namespace Zamin {
         AddSection<CharacterController3DComponent>(ICON_FA_PERSON_RUNNING, "Character Controller 3D", entity, [&](CharacterController3DComponent& c) {
             InactiveComponentNote(entity, "Obyekt nofaol: qahramon fizikada yo'q (faollashganda joriy joyida qayta yaratiladi)");
             bool changed = UI::PropertyFloat("Radius", c.Radius, 0.01f, 0.05f, 10.0f);
-            changed |= UI::PropertyFloat("Balandlik", c.Height, 0.01f, 0.2f, 20.0f);
+            changed |= UI::PropertyFloat(EditorText::Choose("Balandlik", "Height"), c.Height, 0.01f, 0.2f, 20.0f);
             changed |= UI::PropertySlider("Maks. qiyalik (°)", c.MaxSlope, 0.0f, 89.0f);
             changed |= UI::PropertyFloat("Zinapoya balandligi", c.StepHeight, 0.01f, 0.0f, 2.0f);
             changed |= UI::PropertyFloat("Massa", c.Mass, 0.5f, 1.0f, 10000.0f);

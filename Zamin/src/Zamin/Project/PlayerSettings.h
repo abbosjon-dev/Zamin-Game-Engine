@@ -96,6 +96,20 @@ namespace Zamin {
         std::string MakeDesktopEntry(const std::string& productName, const PlayerSettings& player, const std::filesystem::path& exec,
                                      const std::filesystem::path& icon, const std::filesystem::path& workingDirectory);
 
+        // A desktop entry's paths must be absolute, so the exported <game>.desktop only works where the game
+        // was exported to. This POSIX shell script (install-desktop-entry.sh, next to the launcher) writes the
+        // same entry for the folder it is in when it runs - after the folder was moved, unzipped or installed
+        // elsewhere - next to the launcher and into $XDG_DATA_HOME/applications (~/.local/share/applications)
+        // as <id>.desktop; "--uninstall" removes the installed one. `launcher` and `icon` are file names in
+        // that folder (the icon is left out when the file is not there or `icon` is empty).
+        std::string MakeDesktopInstallScript(const std::string& productName, const PlayerSettings& player, const std::string& launcher,
+                                             const std::string& icon, const std::string& id);
+        // The installed entry's file name (without ".desktop") for a game: "zamin-" and the name with
+        // letters, digits, '-', '_' and '.' kept, anything else '-'.
+        std::string MakeDesktopEntryId(std::string_view name);
+        // The install script's file name.
+        inline constexpr const char* DesktopInstallScriptName = "install-desktop-entry.sh";
+
     }
 
 }

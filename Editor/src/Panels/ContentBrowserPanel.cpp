@@ -1129,7 +1129,7 @@ namespace Zamin {
         for (const AssetEntry& e : m_Entries)
             if (!e.IsDirectory && IsSelected(e.Path))
                 selectedBytes += e.Size;
-        ImGui::TextDisabled("%zu ta element", m_Entries.size());
+        ImGui::TextDisabled(EditorText::Choose("%zu ta element", "%zu items"), m_Entries.size());
         if (!m_Selection.empty())
         {
             ImGui::SameLine();

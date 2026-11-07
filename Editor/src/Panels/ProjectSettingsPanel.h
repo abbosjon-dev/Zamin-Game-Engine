@@ -135,6 +135,9 @@ namespace Zamin {
         void ScanProjectUsage();
         // Renames a tag in the list, on the open scene's entities and (if chosen) in the files.
         void RenameTag(ProjectConfig& config, int index, const std::string& name);
+        // A rename that changed entities / files: written into the saved .zproject's tag list right away
+        // (only that), so reverting the Tags section keeps the name the scenes and prefabs now use.
+        void CommitTagRename(const std::string& from, const std::string& to);
 
     private:
         bool m_Dirty = false;

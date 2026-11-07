@@ -272,28 +272,125 @@ namespace Zamin {
                 quoted += '"';
                 return EntryValue(quoted);
             }
+
+            // The entry's lines before Exec / Path / Icon and after them (they do not depend on where the game is).
+            std::string EntryHead(const std::string& productName, const PlayerSettings& player)
+            {
+                std::string comment = productName + " " + player.Version;
+                if (!player.CompanyName.empty())
+                    comment += " (" + player.CompanyName + ")";
+                std::string head = "[Desktop Entry]\n"
+                                   "Type=Application\n"
+                                   "Version=1.5\n";
+                head += "Name=" + EntryValue(productName.empty() ? std::string("Game") : productName) + "\n";
+                head += "Comment=" + EntryValue(comment) + "\n";
+                return head;
+            }
+
+            std::string EntryTail(const PlayerSettings& player)
+            {
+                return "Terminal=false\n"
+                       "Categories=Game;\n"
+                       "X-Zamin-Version=" + EntryValue(player.Version) + "\n";
+            }
+
+            // A shell word in single quotes (a ' inside as '\'').
+            std::string ShellQuote(std::string_view text)
+            {
+                std::string out = "'";
+                for (char c : text)
+                {
+                    if (c == '\'') out += "'\\''";
+                    else out += c;
+                }
+                return out + "'";
+            }
         }
 
         std::string MakeDesktopEntry(const std::string& productName, const PlayerSettings& player, const std::filesystem::path& exec,
                                      const std::filesystem::path& icon, const std::filesystem::path& workingDirectory)
         {
-            std::string comment = productName + " " + player.Version;
-            if (!player.CompanyName.empty())
-                comment += " (" + player.CompanyName + ")";
-            std::string entry = "[Desktop Entry]\n"
-                                "Type=Application\n"
-                                "Version=1.5\n";
-            entry += "Name=" + EntryValue(productName.empty() ? std::string("Game") : productName) + "\n";
-            entry += "Comment=" + EntryValue(comment) + "\n";
+            std::string entry = EntryHead(productName, player);
             entry += "Exec=" + QuotedExec(exec) + "\n";
             if (!workingDirectory.empty())
                 entry += "Path=" + EntryValue(workingDirectory.string()) + "\n";
             if (!icon.empty())
                 entry += "Icon=" + EntryValue(icon.string()) + "\n";
-            entry += "Terminal=false\n"
-                     "Categories=Game;\n";
-            entry += "X-Zamin-Version=" + EntryValue(player.Version) + "\n";
-            return entry;
+            return entry + EntryTail(player);
+        }
+
+        std::string MakeDesktopEntryId(std::string_view name)
+        {
+            std::string id = "zamin-";
+            for (char c : name)
+            {
+                const bool keep = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.';
+                id += keep ? c : '-';
+            }
+            if (id.size() == 6)
+                id += "game";
+            return id;
+        }
+
+        std::string MakeDesktopInstallScript(const std::string& productName, const PlayerSettings& player, const std::string& launcher,
+                                             const std::string& icon, const std::string& id)
+        {
+            // The head / tail lines are fixed text (a quoted here-document: nothing in them is expanded); Exec,
+            // Path and Icon are escaped at run time the way MakeDesktopEntry does it: inside the Exec quotes
+            // ", `, $ and \ get a backslash, then every backslash of a value is doubled.
+            const std::string localEntry = std::filesystem::path(launcher).stem().string() + ".desktop";
+            std::string script = "#!/bin/sh\n"
+                                 "# " + EntryValue(productName) + ": puts the game into the application menus for the folder it is in now.\n"
+                                 "# Run it again after moving the folder; \"--uninstall\" takes the menu entry away.\n"
+                                 "set -e\n";
+            script += "launcher=" + ShellQuote(launcher) + "\n";
+            script += "icon=" + ShellQuote(icon) + "\n";
+            script += "local_entry=" + ShellQuote(localEntry) + "\n";
+            script += "id=" + ShellQuote(id) + "\n";
+            script += R"SH(dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+case "$dir" in
+*'
+'*) echo "Papka yo'lida qator tashlash bor: desktop fayli yozilmaydi" >&2; exit 1 ;;
+esac
+apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+installed="$apps/$id.desktop"
+if [ "$1" = "--uninstall" ]; then
+    rm -f "$installed"
+    echo "Dasturlar menyusidan olib tashlandi: $installed"
+    exit 0
+fi
+exec_value=$(printf '%s' "$dir/$launcher" | sed -e 's/[\\"`$]/\\&/g' -e 's/\\/\\\\/g')
+path_value=$(printf '%s' "$dir" | sed -e 's/\\/\\\\/g')
+icon_value=$(printf '%s' "$dir/$icon" | sed -e 's/\\/\\\\/g')
+write_entry()
+{
+    cat <<'ZAMIN_DESKTOP_HEAD'
+)SH";
+            script += EntryHead(productName, player);
+            script += R"SH(ZAMIN_DESKTOP_HEAD
+    printf 'Exec="%s"\n' "$exec_value"
+    printf 'Path=%s\n' "$path_value"
+    if [ -n "$icon" ] && [ -f "$dir/$icon" ]; then
+        printf 'Icon=%s\n' "$icon_value"
+    fi
+    cat <<'ZAMIN_DESKTOP_TAIL'
+)SH";
+            script += EntryTail(player);
+            script += R"SH(ZAMIN_DESKTOP_TAIL
+}
+mkdir -p "$apps"
+write_entry > "$installed"
+chmod +x "$installed"
+# The entry next to the launcher too (skipped when the folder cannot be written, e.g. a system folder).
+if { write_entry > "$dir/$local_entry"; } 2>/dev/null; then
+    chmod +x "$dir/$local_entry" 2>/dev/null || true
+fi
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$apps" >/dev/null 2>&1 || true
+fi
+echo "Dasturlar menyusiga qo'shildi: $installed"
+)SH";
+            return script;
         }
 
     }

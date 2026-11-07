@@ -150,8 +150,12 @@ ustun (18-bo'lim).
 `Icon` - assetlar ichidagi PNG (masalan `Textures/GameIcon.png`). Player oynaga 16, 32, 48, 64, 128, 256 px
 o'lchamlarini (rasmdan katta bo'lmaganlarini) qo'yadi; kvadrat bo'lmagan rasm shaffof kvadrat o'rtasiga
 joylanadi. Sozlamalar oynasi ikonkani ko'rsatadi va ogohlantiradi (kvadrat emas, 64 px dan kichik ...).
-Eksportda ikonka `.png` sifatida va `<o'yin>.desktop` fayli bilan birga yoziladi: uni
-`~/.local/share/applications` ga ko'chirsangiz o'yin dasturlar menyusida ko'rinadi.
+Eksportda ikonka `.png` sifatida va `<o'yin>.desktop` fayli bilan birga yoziladi. Desktop faylida yo'llar
+to'liq (absolyut) bo'lishi shart, shuning uchun u faqat eksport qilingan papkada ishlaydi. Papka ko'chirilsa,
+arxivlansa yoki boshqa kompyuterga berilsa, o'sha yerda `install-desktop-entry.sh` ni ishga tushiring: skript
+papkaning hozirgi joyi uchun `<o'yin>.desktop` ni qayta yozadi va `~/.local/share/applications` ga
+(`$XDG_DATA_HOME/applications`) `zamin-<o'yin>.desktop` nomi bilan o'rnatadi, shunda o'yin dasturlar menyusida
+ko'rinadi. `install-desktop-entry.sh --uninstall` uni menyudan olib tashlaydi.
 
 ---
 
@@ -355,7 +359,9 @@ glm::vec2 move = Input::GetVector("Move");
 ## 11. Teglar va qatlamlar
 
 - **Teglar** (`"Tags"`): inspektorda taklif qilinadigan gameplay teglari. Bo'lim har tegning loyihadagi
-  ishlatilishini ko'rsatadi; qayta nomlash hamma sahna fayllarida o'zgartiradi.
+  ishlatilishini ko'rsatadi; qayta nomlash hamma sahna fayllarida o'zgartiradi. Obyektlar yoki fayllar o'zgargan
+  qayta nomlash `.zproject` ning teglar ro'yxatiga ham darhol yoziladi (boshqa saqlanmagan sozlamalar saqlanmagan
+  holicha qoladi): "Bekor qilish" eski nomni qaytarmaydi, aks holda sahnalardagi teg ro'yxatda bo'lmay qolardi.
 - **Saralash qatlamlari** (`"SortingLayers"`): 2D chizish tartibi (orqadan oldinga), Y bo'yicha saralash.
 
 ---

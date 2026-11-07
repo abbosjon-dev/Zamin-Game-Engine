@@ -401,7 +401,9 @@ namespace Zamin {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.98f, 0.74f, 0.30f, 1.0f));
             applyOpen();
             const bool open = ImGui::TreeNodeEx("##conflicts", ImGuiTreeNodeFlags_SpanAvailWidth,
-                                                ICON_FA_TRIANGLE_EXCLAMATION "  %zu ta takroriy bog'lanish", conflicts.size());
+                                                EditorText::Choose(ICON_FA_TRIANGLE_EXCLAMATION "  %zu ta takroriy bog'lanish",
+                                                                   ICON_FA_TRIANGLE_EXCLAMATION "  %zu duplicate bindings"),
+                                                conflicts.size());
             ImGui::PopStyleColor();
             if (open)
             {

@@ -4,6 +4,7 @@
 
 #include <imgui.h>
 
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -49,6 +50,8 @@ namespace Zamin {
         bool m_Dirty = false;
         bool m_FocusRequested = false;
         const Project* m_LoadedFor = nullptr;
+        // The folder the table was read from (Save writes there).
+        std::filesystem::path m_LoadedDirectory;
         Ref<Scene> m_Scene;
 
         std::string m_Filter;

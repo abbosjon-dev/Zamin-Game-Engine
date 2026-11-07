@@ -395,7 +395,7 @@ namespace Zamin {
                 UI::Tooltip("Shu bo'limni loyiha faylidagi holatiga qaytarish");
         }
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-        ImGui::TextWrapped("%s", info.Description.c_str());
+        ImGui::TextWrapped("%s", Tr(info.Description).c_str());
         ImGui::PopStyleColor();
         ImGui::Separator();
         ImGui::Spacing();
@@ -942,6 +942,38 @@ namespace Zamin {
         m_Dirty = true;
         m_ProjectUsageValid = false;
         ZM_INFO("Teg '{}' -> '{}': ochiq sahnada {} ta obyekt, {} ta boshqa sahna / prefab fayli yangilandi", old, name, entities, files);
+        // The entities and files have the new name now, so "Bekor qilish" must not bring the old one
+        // back into the list: the rename goes into the project file at once.
+        if (entities > 0 || files > 0)
+            CommitTagRename(old, name);
+    }
+
+    void ProjectSettingsPanel::CommitTagRename(const std::string& from, const std::string& to)
+    {
+        // Only the saved file's tag list changes; the other unsaved settings stay unsaved.
+        std::vector<std::string>& saved = m_Saved.Tags;
+        auto it = std::find(saved.begin(), saved.end(), from);
+        if (it == saved.end())
+            return; // a tag added since the last save: saved with the rest of the list
+        if (std::find(saved.begin(), saved.end(), to) != saved.end())
+            saved.erase(it); // the saved list already has the new name (removed from the list since)
+        else
+            *it = to;
+        m_SavedSections = ProjectSerializer::ConfigToSections(m_Saved);
+        const std::filesystem::path file = Project::GetProjectFilePath();
+        std::error_code ec;
+        if (file.empty() || !std::filesystem::is_regular_file(file, ec))
+            return; // not saved yet: what is in memory counts as saved
+        if (FileSystem::WriteTextFile(file, ProjectSerializer::ConfigToString(m_Saved)))
+        {
+            // The file is in the current format now.
+            m_Saved.FileVersion = ProjectMigration::CurrentVersion;
+            if (Ref<Project> project = Project::GetActive())
+                project->GetConfig().FileVersion = ProjectMigration::CurrentVersion;
+            ZM_INFO("Teg nomi loyiha fayliga darhol yozildi ({}): sahna va prefablar bilan bir xil bo'lsin", file.filename().string());
+        }
+        else
+            ZM_ERROR("Teg nomi loyiha fayliga yozilmadi: {}", file.string());
     }
 
     void ProjectSettingsPanel::DrawTagsAndLayers(ProjectConfig& config)
@@ -1152,7 +1184,8 @@ namespace Zamin {
         ImGui::Checkbox(Tr("Qayta nomlashda loyihadagi boshqa sahna va prefablar ham yangilansin"), &m_RenameInFiles);
         if (ImGui::IsItemHovered())
             UI::Tooltip("Assets ichidagi .zscene / .zprefab fayllardagi obyektlarning teglari ham yangi nomga o'tadi (fayllar darhol "
-                        "yoziladi). Ochiq sahna xotirada o'zgaradi: uni saqlang.");
+                        "yoziladi). Ochiq sahna xotirada o'zgaradi: uni saqlang. Obyektlar o'zgargan qayta nomlash loyiha fayliga ham "
+                        "darhol yoziladi, shuning uchun 'Bekor qilish' eski nomni qaytarmaydi.");
         ImGui::TextDisabled("Loyiha: %zu ta sahna / prefab fayli, %zu ta obyekt (ochiq sahnadan tashqari)", m_ProjectUsage.Files,
                             m_ProjectUsage.Entities);
         ImGui::SameLine();

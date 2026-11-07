@@ -451,11 +451,11 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 388. Obstacle avoidance (raycast bilan)
 - [x] 389. AI holat mashinasi yordamchi klassi
 - [x] 390. Ko'rish maydoni (line of sight) tekshiruvi
-- [ ] 391. Patrol yo'llari (waypoints) komponenti
-- [ ] 392. Navigatsiya debug chizish
-- [ ] 393. Navigatsiya testlari
-- [ ] 394. AI namunasi: dushman ta'qib qiladi (2D)
-- [ ] 395. AI namunasi: 3D NPC patrul
+- [x] 391. Patrol yo'llari (waypoints) komponenti
+- [x] 392. Navigatsiya debug chizish
+- [x] 393. Navigatsiya testlari
+- [x] 394. AI namunasi: dushman ta'qib qiladi (2D)
+- [x] 395. AI namunasi: 3D NPC patrul
 - [ ] 396. Formation/guruh harakati (oddiy)
 - [ ] 397. Behavior tree (minimal) yordamchisi
 - [ ] 398. Navigatsiya performance testi

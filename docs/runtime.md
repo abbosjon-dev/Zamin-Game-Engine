@@ -121,7 +121,7 @@ log'ga ogohlantirish bo'lib yoziladi, qolganlari ishlatiladi. `ZaminPlayer --hel
 | `--no-splash` | Splash ekransiz |
 | `--gamma G`, `--brightness B` | Tasvir gammasi (0.5 ... 2.0) va yorqinligi (0.5 ... 1.5) |
 | `--gl 4.1/4.3/4.5/4.6`, `--msaa N`, `--gl-debug`, `--no-gl-debug`, `--srgb`, `--no-srgb` | OpenGL konteksti |
-| `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities` | Debug chizish (Shipping build'da yo'q) |
+| `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--debug-nav`, `--debug-nav-cells` | Debug chizish (Shipping build'da yo'q; `--debug-nav` - navigatsiya va AI) |
 | `--log-file <fayl>`, `--no-log-file` | Log faqat shu faylga / log faylsiz |
 | `--log-level <daraja>` | Log darajalari: `warn` (ikkala logger), `engine=warn,app=info,file=error` (6-bo'lim) |
 | `--no-crash-handler`, `--no-crash-dialog` | Crash hisobotisiz (debugger, core dump) / hisobot bor, oyna yo'q |

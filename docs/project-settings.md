@@ -677,7 +677,8 @@ tugmasi va pauza menyusidagi til tugmasi tilni almashtiradi va tanlovni saqlaydi
 `"DebugDraw"`: o'yinda (player) skriptlarning `DebugDraw` shakllari va fizika ko'rinishlari: raycastlar
 (`RaycastDuration` soniya ko'rinadi), kontakt nuqtalari va ularning tafsilotlari, joint'lar, personaj va jismlar
 tezligi (`VelocityScale`), chiziq qalinligi, matn o'lchami. Buyruq qatori: `--no-debug-draw`, `--debug-raycasts`,
-`--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`. Shipping build'larda debug
+`--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--debug-nav` (navigatsiya: grid kataklari,
+agentlar yo'li, ko'rish konuslari, patrul yo'llari; `--debug-nav-cells` - yuriladigan kataklar ham). Shipping build'larda debug
 chizish umuman yo'q; editor viewport'ining o'z tugmalari bor.
 
 ---
@@ -794,7 +795,7 @@ ogohlantirish bilan log'ga yoziladi, qolganlari ishlatiladi.
 | `--no-splash` | Splash ekransiz | Loyiha |
 | `--gamma G`, `--brightness B` | Tasvir gammasi (0.5 ... 2.0) va yorqinligi (0.5 ... 1.5); 1 - o'zgarishsiz | Saqlangan tanlov |
 | `--gl`, `--msaa`, `--gl-debug` / `--no-gl-debug`, `--srgb` / `--no-srgb` | OpenGL konteksti | Grafika sozlamalari |
-| `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities` | Debug chizish | Loyihaning debug sozlamalari |
+| `--no-debug-draw`, `--debug-raycasts`, `--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`, `--debug-nav`, `--debug-nav-cells` | Debug chizish | Loyihaning debug sozlamalari |
 | `--log-file <fayl>`, `--no-log-file` | Log faqat shu faylga / log faylsiz | Standart log papkasi |
 | `--no-crash-handler`, `--no-crash-dialog` | Crash hisobotisiz (debugger, core dump) / hisobot bor, oyna yo'q | - |
 | `--benchmark N` (`--benchmark-warmup`, `--benchmark-out`, `--benchmark-max-avg`, `--benchmark-max-p95`) | Ishlash testi: N kadr o'lchanadi (o'rtacha, mediana, p95, p99), JSON, chiqish kodi ([runtime.md](runtime.md#12-ishlash-testi-headless)) | Splash, FPS cheklovi, VSync |

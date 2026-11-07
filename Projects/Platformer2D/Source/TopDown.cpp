@@ -18,7 +18,18 @@ public:
 
     void OnCreate() override
     {
+        m_Spawn = glm::vec2(GetWorldPosition());
         ZM_INFO("Top-down qahramon tayyor. WASD / strelkalar - yurish");
+    }
+
+    // Chase2D: a guard caught the hero ("Ushlandi") - back to where it started, with a red flash.
+    void OnMessage(const ScriptMessage& message) override
+    {
+        if (message.Name != "Ushlandi")
+            return;
+        SetPosition2D(m_Spawn);
+        SetVelocity({ 0.0f, 0.0f });
+        Flash({ 1.0f, 0.25f, 0.2f, 1.0f }, 0.4f);
     }
 
     void OnUpdate(Timestep ts) override
@@ -68,6 +79,7 @@ private:
     enum class Facing { Down, Up, Left, Right };
     Facing m_Facing = Facing::Down;
     float m_Dip = 0.0f;
+    glm::vec2 m_Spawn{ 0.0f };
 };
 
 ZM_REGISTER_SCRIPT(TopDownController,

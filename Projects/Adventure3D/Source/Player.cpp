@@ -21,6 +21,17 @@ public:
         ZM_INFO("Qahramon tayyor: WASD - yurish, Shift - yugurish, Space - sakrash, RMB - kamera");
     }
 
+    // The island's guard caught the hero ("Ushlandi"): back to the start.
+    void OnMessage(const ScriptMessage& message) override
+    {
+        if (message.Name != "Ushlandi")
+            return;
+        SetPosition3D(m_Spawn);
+        m_Velocity = glm::vec3(0.0f);
+        if (auto* cc = TryGetComponent<CharacterController3DComponent>())
+            cc->VerticalVelocity = 0.0f;
+    }
+
     void OnUpdate(Timestep ts) override
     {
         auto* cc = TryGetComponent<CharacterController3DComponent>();

@@ -3732,14 +3732,14 @@
           30
         ],
         "Size": [
-          900,
+          1150,
           22
         ],
         "FontSize": 20,
         "Order": 5
       },
       "Text": {
-        "Text": "WASD - yurish   Shift - yugurish   Space - sakrash   RMB / Q E - kamera   T - sekinlashtirish",
+        "Text": "WASD - yurish   Shift - yugurish   Space - sakrash   RMB / Q E - kamera   T - sekinlashtirish   |   darvoza qo'riqchisiga ko'rinmang!",
         "Color": [
           1,
           1,
@@ -4193,6 +4193,513 @@
         ],
         "Intensity": 2.5,
         "Radius": 7.0
+      }
+    },
+    {
+      "Entity": 7394000000002001,
+      "Tag": "Navigatsiya",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "NavGrid3D": {
+        "Offset": [
+          0,
+          3,
+          -1
+        ],
+        "Size": [
+          30,
+          10,
+          28
+        ],
+        "CellSize": 0.5,
+        "AgentRadius": 0.4,
+        "AgentHeight": 1.8,
+        "MaxSlope": 40.0,
+        "StepHeight": 0.35,
+        "LayerMask": 65535,
+        "Diagonals": true,
+        "CutCorners": false,
+        "BakeOnStart": true
+      }
+    },
+    {
+      "Entity": 7394000000002006,
+      "Tag": "Holat",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 1,
+        "Position": [
+          0,
+          -110
+        ],
+        "Size": [
+          900,
+          40
+        ],
+        "FontSize": 30,
+        "Order": 6
+      },
+      "Text": {
+        "Text": "",
+        "Color": [
+          1.0,
+          0.85,
+          0.45,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7394000000002002,
+      "Tag": "Orol qo'riqchisi",
+      "Transform": {
+        "Translation": [
+          -4.5,
+          0.1,
+          -9.5
+        ],
+        "Rotation": [
+          0,
+          -1.5707963267948966,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "CharacterController3D": {
+        "Radius": 0.35,
+        "Height": 1.9,
+        "MaxSlope": 45.0,
+        "StepHeight": 0.35,
+        "Mass": 80.0,
+        "GravityScale": 1.6,
+        "StickToFloor": true
+      },
+      "NavAgent": {
+        "Grid": 7394000000002001,
+        "Target": 0,
+        "Speed": 2.2,
+        "Acceleration": 10.0,
+        "AngularSpeed": 400.0,
+        "StoppingDistance": 0.3,
+        "Radius": 0.35,
+        "LookAhead": 0.6,
+        "RepathInterval": 0.4,
+        "BaseOffset": 0.0,
+        "AutoBraking": true,
+        "SmoothPath": true,
+        "SplinePath": false,
+        "UpdateRotation": true,
+        "Avoidance": {
+          "Enabled": true,
+          "FeelerLength": 1.6,
+          "FeelerAngle": 35.0,
+          "FeelerHeight": 0.5,
+          "Weight": 1.0,
+          "LayerMask": 65535,
+          "Static": false
+        }
+      },
+      "SightSensor": {
+        "ViewDistance": 8.0,
+        "FieldOfView": 90.0,
+        "NearDistance": 1.5,
+        "EyeHeight": 1.6,
+        "Target": 7394000000000052,
+        "TargetTag": "Player",
+        "BlockingMask": 65535,
+        "CheckInterval": 0.1,
+        "MemoryTime": 3.0
+      },
+      "PatrolPath": {
+        "Source": "Points",
+        "Points": [
+          [
+            -4.5,
+            0.0,
+            -9.5,
+            2.5
+          ],
+          [
+            8.5,
+            0.0,
+            -9.0,
+            2.5
+          ],
+          [
+            8.5,
+            0.0,
+            -6.5
+          ],
+          [
+            -4.5,
+            0.0,
+            -7.0
+          ]
+        ],
+        "RelativeToStart": false,
+        "Route": 0,
+        "SplineSpacing": 0.0,
+        "Mode": "Loop",
+        "WaitTime": 0.6,
+        "WaitVariance": 0.3,
+        "ArriveDistance": 0.3,
+        "Speed": 2.0,
+        "FaceMovement": true,
+        "StartAtNearest": true,
+        "PlayOnStart": true
+      },
+      "NativeScript": {
+        "Class": "IslandGuard",
+        "Fields": {
+          "Model": {
+            "Type": "Entity",
+            "Value": 7394000000002003
+          },
+          "Lamp": {
+            "Type": "Entity",
+            "Value": 7394000000002004
+          },
+          "Status": {
+            "Type": "Entity",
+            "Value": 7394000000002006
+          }
+        }
+      }
+    },
+    {
+      "Entity": 7394000000002003,
+      "Tag": "Robot",
+      "Parent": 7394000000002002,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          3.141592653589793,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Model",
+        "Model": "Models/Robot.gltf",
+        "CastShadows": true,
+        "Albedo": [
+          0.75,
+          0.6,
+          0.55,
+          1
+        ],
+        "AlbedoMap": "",
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.6,
+        "Emission": [
+          0,
+          0,
+          0
+        ],
+        "EmissionStrength": 0.0
+      },
+      "Animator": {
+        "Clip": "Idle",
+        "Speed": 1.0,
+        "Loop": true,
+        "Playing": true,
+        "PlayInEditor": true,
+        "DefaultFade": 0.2,
+        "DefaultState": 0,
+        "Parameters": [
+          {
+            "Name": "Speed",
+            "Type": 0,
+            "Value": 0
+          },
+          {
+            "Name": "Grounded",
+            "Type": 1,
+            "Value": 1
+          }
+        ],
+        "States": [
+          {
+            "Name": "Harakat",
+            "Clip": "Idle",
+            "Speed": 1,
+            "Loop": true,
+            "SpeedParameter": "",
+            "Type": "BlendTree1D",
+            "BlendParameter": "Speed",
+            "Motions": [
+              {
+                "Clip": "Idle",
+                "Threshold": 0.0,
+                "Speed": 1.0
+              },
+              {
+                "Clip": "Walk",
+                "Threshold": 3.0,
+                "Speed": 1.0
+              },
+              {
+                "Clip": "Run",
+                "Threshold": 6.5,
+                "Speed": 1.0
+              }
+            ],
+            "Graph": [
+              0,
+              0
+            ]
+          },
+          {
+            "Name": "Air",
+            "Clip": "Jump",
+            "Speed": 1,
+            "Loop": true,
+            "SpeedParameter": "",
+            "Graph": [
+              330,
+              0
+            ]
+          }
+        ],
+        "Transitions": [
+          {
+            "From": -1,
+            "To": 1,
+            "Fade": 0.15,
+            "HasExitTime": false,
+            "ExitTime": 1,
+            "Conditions": [
+              {
+                "Parameter": "Grounded",
+                "Op": 3,
+                "Threshold": 0
+              }
+            ]
+          },
+          {
+            "From": 1,
+            "To": 0,
+            "Fade": 0.15,
+            "HasExitTime": false,
+            "ExitTime": 1,
+            "Conditions": [
+              {
+                "Parameter": "Grounded",
+                "Op": 2,
+                "Threshold": 0
+              }
+            ]
+          }
+        ],
+        "AnyStateGraph": [
+          100,
+          140
+        ],
+        "Events": [
+          {
+            "Clip": "Walk",
+            "Time": 0.0,
+            "Name": "Footstep",
+            "Parameter": "R"
+          },
+          {
+            "Clip": "Walk",
+            "Time": 0.5,
+            "Name": "Footstep",
+            "Parameter": "L"
+          },
+          {
+            "Clip": "Run",
+            "Time": 0.0,
+            "Name": "Footstep",
+            "Parameter": "R"
+          },
+          {
+            "Clip": "Run",
+            "Time": 0.5,
+            "Name": "Footstep",
+            "Parameter": "L"
+          }
+        ]
+      },
+      "Footsteps": {
+        "Sounds": [
+          {
+            "Path": "Audio/Step1.wav"
+          },
+          {
+            "Path": "Audio/Step2.wav"
+          },
+          {
+            "Path": "Audio/Step3.wav"
+          },
+          {
+            "Path": "Audio/Step4.wav"
+          }
+        ],
+        "Event": "Footstep",
+        "Volume": 0.45,
+        "VolumeRandom": [
+          0.85,
+          1.0
+        ],
+        "PitchRandom": [
+          0.92,
+          1.08
+        ],
+        "SpeedParameter": "Speed",
+        "ReferenceSpeed": 3.0,
+        "SpeedPitch": 0.12,
+        "SpeedVolume": 0.35,
+        "MinSpeed": 0.6,
+        "MinInterval": 0.12,
+        "Spatial": true,
+        "MinDistance": 1.0,
+        "MaxDistance": 18.0,
+        "Output": "SFX"
+      }
+    },
+    {
+      "Entity": 7394000000002004,
+      "Tag": "Chiroq",
+      "Parent": 7394000000002002,
+      "Transform": {
+        "Translation": [
+          0,
+          2.2,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          0.2,
+          0.2,
+          0.2
+        ]
+      },
+      "MeshRenderer": {
+        "Mesh": "Sphere",
+        "Model": "",
+        "CastShadows": false,
+        "Albedo": [
+          0.3,
+          0.95,
+          0.4,
+          1
+        ],
+        "AlbedoMap": "",
+        "NormalMap": "",
+        "NormalStrength": 1.0,
+        "MetalRoughMap": "",
+        "EmissiveMap": "",
+        "Tiling": 1.0,
+        "Metallic": 0.0,
+        "Roughness": 0.3,
+        "Emission": [
+          0.3,
+          0.95,
+          0.4
+        ],
+        "EmissionStrength": 4.0
+      },
+      "PointLight": {
+        "Color": [
+          0.3,
+          0.95,
+          0.4
+        ],
+        "Intensity": 2.0,
+        "Radius": 3.5
+      }
+    },
+    {
+      "Entity": 7394000000002005,
+      "Tag": "Fonar nuri",
+      "Parent": 7394000000002002,
+      "Transform": {
+        "Translation": [
+          0,
+          1.55,
+          -0.35
+        ],
+        "Rotation": [
+          -0.3,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "SpotLight": {
+        "Color": [
+          1.0,
+          0.92,
+          0.7
+        ],
+        "Intensity": 25.0,
+        "Range": 9.0,
+        "InnerAngle": 28.0,
+        "OuterAngle": 45.0
       }
     }
   ]

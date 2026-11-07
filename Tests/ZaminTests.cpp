@@ -42580,3 +42580,85 @@ TEST(NavigationDebugDrawing)
     CHECK(read->GetConfig().DebugDraw.ShowNavigation && !read->GetConfig().DebugDraw.ShowNavigationWalkable);
     fs::remove_all(dir);
 }
+
+TEST(PatrolSampleScenes)
+{
+    namespace fs = std::filesystem;
+    // Platformer2D "Chase2D": two guards walk their rounds on the village grid without seeing the
+    // hero where it starts (their scripts live in the game's module: only the components run here).
+    {
+        auto scene = CreateRef<Scene>();
+        CHECK(SceneSerializer(scene).Deserialize(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D" / "Assets" / "Scenes" / "Chase2D.zscene"));
+        Entity south = scene->FindEntityByName("Qo'riqchi (janub)"), east = scene->FindEntityByName("Qo'riqchi (sharq)");
+        Entity nav = scene->FindEntityByName("Navigatsiya");
+        CHECK(south && east && nav);
+        if (!(south && east && nav))
+            return;
+        for (Entity camera : scene->FindEntitiesWith<CameraComponent>())
+            camera.RemoveComponent<CameraComponent>(); // headless: nothing is drawn
+        for (Entity guard : { south, east })
+        {
+            CHECK(guard.HasComponent<NavAgentComponent>() && guard.HasComponent<PatrolPathComponent>());
+            std::vector<glm::vec3> points;
+            CHECK(scene->GetPatrolWaypoints(guard, points) && points.size() >= 3);
+            Entity eyes = guard.GetComponent<NativeScriptComponent>().Fields.size() > 0 ? scene->FindEntityByName("Ko'z") : Entity();
+            CHECK(eyes && eyes.HasComponent<SightSensorComponent>() && eyes.HasComponent<Light2DComponent>());
+        }
+        scene->OnRuntimeStart();
+        const NavGrid* grid = scene->GetNavGrid(nav, 2);
+        CHECK(grid && grid->CountWalkable() > 1000);
+        bool offGrid = false, seen = false;
+        for (int frame = 0; frame < 900; frame++)
+        {
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            for (Entity guard : { south, east })
+                if (grid && !grid->IsWalkable(grid->WorldToCell(glm::vec2(scene->GetWorldPosition(guard)))) && frame > 2)
+                    offGrid = true;
+            for (Entity eyes : scene->FindEntitiesWith<SightSensorComponent>())
+                seen = seen || eyes.GetComponent<SightSensorComponent>().CanSee;
+        }
+        CHECK(!offGrid && !seen);
+        CHECK(south.GetComponent<PatrolPathComponent>().Arrivals >= 2 && east.GetComponent<PatrolPathComponent>().Arrivals >= 2);
+        scene->OnRuntimeStop();
+    }
+    // Adventure3D "Island": the gate's guard walks its round on the 3D grid (the models left out:
+    // headless), its eyes on the hero, who stands out of its sight at the start.
+    {
+        std::string text = FileSystem::ReadTextFile(fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Adventure3D" / "Assets" / "Scenes" / "Island.zscene");
+        const std::string robot = "\"Model\": \"Models/Robot.gltf\"";
+        int robots = 0;
+        for (size_t at = text.find(robot); at != std::string::npos; at = text.find(robot, at))
+        {
+            text.replace(at, robot.size(), "\"Model\": \"\"");
+            robots++;
+        }
+        CHECK(robots == 2); // the hero and the guard
+        auto scene = CreateRef<Scene>();
+        CHECK(SceneSerializer(scene).DeserializeFromString(text));
+        for (Entity camera : scene->FindEntitiesWith<CameraComponent>())
+            camera.RemoveComponent<CameraComponent>();
+        Entity guard = scene->FindEntityByName("Orol qo'riqchisi"), hero = scene->FindEntityByName("Player");
+        CHECK(guard && hero);
+        if (!(guard && hero))
+            return;
+        CHECK(guard.HasComponent<CharacterController3DComponent>() && guard.HasComponent<NavAgentComponent>());
+        CHECK(guard.GetComponent<SightSensorComponent>().Target.ID == (uint64_t)hero.GetUUID());
+        CHECK(guard.GetComponent<PatrolPathComponent>().Points.size() == 4);
+        scene->OnRuntimeStart();
+        float lowest = 100.0f, highest = -100.0f;
+        bool seen = false;
+        for (int frame = 0; frame < 1500; frame++)
+        {
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            const glm::vec3 p = scene->GetWorldPosition(guard);
+            lowest = std::min(lowest, p.y);
+            highest = std::max(highest, p.y);
+            seen = seen || guard.GetComponent<SightSensorComponent>().CanSee;
+        }
+        const auto& patrol = guard.GetComponent<PatrolPathComponent>();
+        CHECK(patrol.Arrivals >= 2 && patrol.Skipped == 0 && !seen);
+        CHECK(lowest > -0.3f && highest < 0.6f); // on the island's floor all the way
+        CHECK(guard.GetComponent<NavAgentComponent>().PathRequests >= 2);
+        scene->OnRuntimeStop();
+    }
+}

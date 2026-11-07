@@ -141,4 +141,15 @@ namespace Zamin {
         static bool Read(const std::filesystem::path& directory, ExportReport& out);
     };
 
+    namespace ExportFiles {
+
+        // What an exported game's folder must hold to run: the launcher (<gameName>.sh, executable), the player
+        // and the engine library, Resources/, Game/ with one .zproject whose asset folder, start scene, enabled
+        // build scenes, asset registry and script module (when it has one) are there, and the desktop entry with
+        // its install script. One message per problem (Uzbek); empty: complete. Every export checks itself with
+        // it (the report's errors); Tests/export_test.sh runs the exported game afterwards.
+        std::vector<std::string> CheckExportFolder(const std::filesystem::path& folder, const std::string& gameName);
+
+    }
+
 }

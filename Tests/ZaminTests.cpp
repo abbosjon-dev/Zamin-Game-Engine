@@ -36711,3 +36711,237 @@ TEST(DisplayGammaAndBrightness)
     std::error_code ec;
     std::filesystem::remove_all(dir, ec);
 }
+
+// ZaminPlayer --benchmark: the frame time statistics (nearest-rank percentiles), the warm-up, the limits, the
+// JSON report; the command line's options and what they turn off.
+TEST(PlayerBenchmarkStatsAndLimits)
+{
+    // 1 ... 100 ms: nearest rank - p95 is the 95th value, p99 the 99th; an even count's median is the middle two's mean.
+    std::vector<double> values;
+    for (int i = 100; i >= 1; i--)
+        values.push_back((double)i);
+    FrameTimeStats s = FrameTimeStats::Compute(values);
+    CHECK(s.Count == 100 && s.Min == 1.0 && s.Max == 100.0);
+    CHECK_NEAR(s.Average, 50.5, 1e-9);
+    CHECK_NEAR(s.Median, 50.5, 1e-9);
+    CHECK(s.P95 == 95.0 && s.P99 == 99.0);
+    CHECK_NEAR(s.Total, 5050.0, 1e-9);
+    CHECK_NEAR(s.StdDev, std::sqrt((100.0 * 100.0 - 1.0) / 12.0), 1e-9);
+    CHECK_NEAR(s.AverageFPS, 1000.0 / 50.5, 1e-9);
+    CHECK_NEAR(s.Low1PercentFPS, 10.0, 1e-9); // the slowest 1%: the 100 ms frame
+    // Odd counts, one frame, none; values that are not times are left out.
+    s = FrameTimeStats::Compute({ 3.0, 1.0, 2.0, -5.0, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity() });
+    CHECK(s.Count == 3 && s.Median == 2.0 && s.P95 == 3.0 && s.Min == 1.0);
+    s = FrameTimeStats::Compute({ 16.0 });
+    CHECK(s.Count == 1 && s.Median == 16.0 && s.P99 == 16.0 && s.StdDev == 0.0);
+    CHECK(FrameTimeStats::Compute({}).Count == 0 && FrameTimeStats::Compute({}).Format() == "kadr yo'q");
+    CHECK(FrameTimeStats::Percentile({}, 95.0) == 0.0);
+    CHECK(FrameTimeStats::Percentile({ 1.0, 2.0, 3.0, 4.0 }, 0.0) == 1.0 && FrameTimeStats::Percentile({ 1.0, 2.0, 3.0, 4.0 }, 50.0) == 2.0);
+    CHECK(FrameTimeStats::Percentile({ 1.0, 2.0, 3.0, 4.0 }, 100.0) == 4.0 && FrameTimeStats::Percentile({ 1.0, 2.0, 3.0, 4.0 }, 76.0) == 4.0);
+    CHECK(FrameTimeStats::Compute(values).Format().find("p95 95.00") != std::string::npos);
+
+    // The warm-up frames are not measured; then the frames until the count is reached (more are ignored).
+    PlayerBenchmarkSettings settings;
+    settings.Frames = 4;
+    settings.Warmup = 2;
+    settings.MaxAverageMs = 20.0;
+    PlayerBenchmark bench(settings);
+    CHECK(bench.IsEnabled() && bench.IsWarmingUp() && !bench.IsDone());
+    CHECK(!bench.AddFrame(500.0, 400.0) && !bench.AddFrame(300.0, 200.0)); // shader compiles, the first scene
+    CHECK(!bench.IsWarmingUp() && bench.GetMeasuredFrames() == 0);
+    CHECK(!bench.AddFrame(10.0, 4.0) && !bench.AddFrame(12.0, 5.0) && !bench.AddFrame(14.0, 6.0));
+    CHECK(bench.AddFrame(16.0, 7.0) && bench.IsDone());
+    CHECK(bench.AddFrame(99.0, 99.0) && bench.GetMeasuredFrames() == 4 && bench.GetFramesSeen() == 6);
+    PlayerBenchmark::Result r = bench.GetResult();
+    CHECK(r.Passed && r.Failures.empty() && r.Warmup == 2 && r.Frame.Count == 4 && r.Update.Count == 4);
+    CHECK_NEAR(r.Frame.Average, 13.0, 1e-9);
+    CHECK_NEAR(r.Update.Average, 5.5, 1e-9);
+    CHECK_NEAR(r.Seconds, 0.052, 1e-9);
+    CHECK(r.FrameTimes == std::vector<double>({ 10.0, 12.0, 14.0, 16.0 }));
+    // The limits: the average and the 95th percentile.
+    settings.MaxAverageMs = 12.0;
+    settings.MaxP95Ms = 15.0;
+    PlayerBenchmark slow(settings);
+    for (double ms : { 1.0, 1.0, 10.0, 12.0, 14.0, 16.0 })
+        slow.AddFrame(ms, 1.0);
+    r = slow.GetResult();
+    CHECK(!r.Passed && r.Failures.size() == 2);
+    CHECK(r.Failures[0].find("13.00 ms > 12.00 ms") != std::string::npos && r.Failures[1].find("p95 16.00 ms > 15.00 ms") != std::string::npos);
+    // Not all frames came (the player was closed): a failure.
+    PlayerBenchmark early(settings);
+    early.AddFrame(1.0, 1.0);
+    CHECK(!early.GetResult().Passed && early.GetResult().Failures.front().find("0 / 4") != std::string::npos);
+    CHECK(!PlayerBenchmark().IsEnabled() && !PlayerBenchmark().AddFrame(1.0, 1.0));
+
+    // The report: what ran, the statistics, every frame; the log's lines.
+    r = bench.GetResult();
+    r.Game = "Kosmos";
+    r.GameVersion = "1.2.0";
+    r.Scene = "Scenes/Level.zscene";
+    r.Width = 1280;
+    r.Height = 720;
+    const std::string json = PlayerBenchmark::ToJson(r);
+    for (const char* part : { "\"Game\": \"Kosmos\"", "\"Scene\": \"Scenes/Level.zscene\"", "\"Width\": 1280", "\"Frame\": {", "\"Average\": 13.0",
+                              "\"P95\": 16.0", "\"Update\": {", "\"Passed\": true", "\"Frames\": [", "\"MaxAverage\": 20.0" })
+        CHECK(json.find(part) != std::string::npos);
+    const auto dir = std::filesystem::temp_directory_path() / ("zamin-bench-" + std::to_string((uint64_t)UUID()));
+    CHECK(PlayerBenchmark::WriteJson(r, dir / "sub" / "bench.json"));
+    CHECK(FileSystem::ReadTextFile(dir / "sub" / "bench.json") == json);
+    const std::string text = PlayerBenchmark::Describe(r);
+    CHECK(text.find("Kosmos 1.2.0") != std::string::npos && text.find("4 kadr (2 ta isitish") != std::string::npos);
+    CHECK(text.find("o'rtacha <= 20.00 ms - o'tdi") != std::string::npos);
+    CHECK(PlayerBenchmark::Describe(slow.GetResult()).find("XATO: p95") != std::string::npos);
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+
+    // The command line: --benchmark N with its options; bad values are reported.
+    PlayerCommandLine c = PlayerCommandLine::Parse({ "Game", "--benchmark", "300", "--benchmark-warmup=20", "--benchmark-out", "out/b.json",
+                                                     "--benchmark-max-avg", "16,7", "--benchmark-max-p95=20" });
+    CHECK(c.Errors.empty() && c.Benchmark.IsEnabled() && c.Benchmark.Frames == 300 && c.Benchmark.Warmup == 20);
+    CHECK(c.Benchmark.Output == "out/b.json" && c.Project == "Game");
+    CHECK_NEAR(c.Benchmark.MaxAverageMs, 16.7, 1e-9);
+    CHECK_NEAR(c.Benchmark.MaxP95Ms, 20.0, 1e-9);
+    CHECK(!PlayerCommandLine::Parse(std::vector<std::string>{}).Benchmark.IsEnabled());
+    CHECK(PlayerCommandLine::Parse(std::vector<std::string>{}).Benchmark.Warmup == PlayerBenchmarkSettings::DefaultWarmup);
+    c = PlayerCommandLine::Parse({ "--benchmark", "0", "--benchmark-warmup", "-1", "--benchmark-max-avg", "abc", "--benchmark-max-p95", "0",
+                                   "--benchmark-out=", "--benchmark" });
+    CHECK(c.Errors.size() == 6 && !c.Benchmark.IsEnabled());
+    // A benchmark runs as fast as it can: no splash, no frame limit, no vsync - unless the command line asks.
+    ProjectConfig config;
+    config.Player.TargetFrameRate = 60;
+    config.Player.VSync = true;
+    config.Player.SplashScreen = true;
+    PlayerLaunchSettings launch = PlayerLaunchSettings::Resolve(config, {}, PlayerCommandLine::Parse({ "--benchmark", "100" }));
+    CHECK(!launch.Splash && launch.TargetFrameRate == 0 && !launch.Window.VSync && launch.VSyncSource == PlayerSettingSource::CommandLine);
+    SavedDisplaySettings saved;
+    saved.VSync = true;
+    launch = PlayerLaunchSettings::Resolve(config, saved, PlayerCommandLine::Parse({ "--benchmark", "100", "--vsync", "--fps", "30" }));
+    CHECK(!launch.Splash && launch.TargetFrameRate == 30 && launch.Window.VSync);
+    launch = PlayerLaunchSettings::Resolve(config, {}, PlayerCommandLine::Parse(std::vector<std::string>{}));
+    CHECK(launch.Splash && launch.TargetFrameRate == 60 && launch.Window.VSync); // a normal start is unchanged
+    const std::string help = PlayerCommandLine::GetHelpText();
+    CHECK(help.find("--benchmark N") != std::string::npos && help.find("--benchmark-max-p95") != std::string::npos);
+    CHECK(PlayerBenchmarkSettings::ExitLimitExceeded == 3 && PlayerBenchmarkSettings::ExitFailed == 2);
+}
+
+// ZaminPlayer --version, the logs and a settings menu's corner: the engine's build (its commit, the dates) and
+// the game's version.
+TEST(BuildInfoAndVersionText)
+{
+    const BuildInfo& info = BuildInfo::Get();
+    CHECK(info.EngineVersion == ZM_ENGINE_VERSION && &info == &BuildInfo::Get());
+    // A commit is 10 hex digits (or none: a build outside git).
+    CHECK(info.Commit.empty() || (info.Commit.size() == 10 && std::all_of(info.Commit.begin(), info.Commit.end(), [](char ch) {
+                                      return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
+                                  })));
+    auto isDate = [](const std::string& d) {
+        return d.size() == 10 && d[4] == '-' && d[7] == '-' && std::isdigit((unsigned char)d[0]) && std::isdigit((unsigned char)d[9]);
+    };
+    CHECK(isDate(info.BuildDate) && (info.CommitDate.empty() || isDate(info.CommitDate)) && !info.BuildType.empty() && !info.Compiler.empty());
+    CHECK(info.Describe().starts_with(std::string("Zamin Engine ") + ZM_ENGINE_VERSION));
+    CHECK(info.Describe().find(info.BuildDate) != std::string::npos);
+
+    // The texts from known values.
+    BuildInfo b;
+    b.EngineVersion = "1.4.2";
+    b.Commit = "0123456789";
+    b.CommitDate = "2026-10-01";
+    b.BuildDate = "2026-11-07";
+    b.BuildType = "Release";
+    b.Compiler = "GCC 13.3.0";
+    CHECK(b.GetCommitText() == "0123456789" && b.GetShortVersion() == "1.4.2 (0123456)");
+    CHECK(b.Describe() == "Zamin Engine 1.4.2 (kommit 0123456789, build 2026-11-07, Release, GCC 13.3.0)");
+    b.Dirty = true;
+    CHECK(b.GetCommitText() == "0123456789-dirty" && b.GetShortVersion() == "1.4.2 (0123456*)");
+    b.Commit.clear();
+    b.Dirty = false;
+    CHECK(b.GetCommitText().empty() && b.GetShortVersion() == "1.4.2");
+    CHECK(b.Describe() == "Zamin Engine 1.4.2 (build 2026-11-07, Release, GCC 13.3.0)");
+
+    // The game's lines over the engine's.
+    ProjectConfig config;
+    config.Name = "Kosmos";
+    config.Player.ProductName = "Kosmos Sarguzashti";
+    config.Player.CompanyName = "Yulduz";
+    config.Player.Version = "2.0.1";
+    VersionInfo v = VersionInfo::ForConfig(config);
+    b.Commit = "0123456789";
+    v.Engine = b;
+    CHECK(v.HasGame && v.Product == "Kosmos Sarguzashti" && v.Version == "2.0.1" && v.Company == "Yulduz");
+    CHECK(v.Format() == "Kosmos Sarguzashti 2.0.1 - Yulduz\nZamin Engine 1.4.2\n  Kommit:  0123456789 (2026-10-01)\n"
+                        "  Build:   2026-11-07, Release, GCC 13.3.0\n");
+    CHECK(v.FormatShort() == "Kosmos Sarguzashti v2.0.1  |  Zamin Engine 1.4.2 (0123456)");
+    v.Engine.Dirty = true;
+    CHECK(v.Format().find("[o'zgarishlar bilan]") != std::string::npos);
+    // Without a project: the player and the engine only; without git: the commit is unknown.
+    VersionInfo none;
+    none.Engine = b;
+    none.Engine.Commit.clear();
+    CHECK(!none.HasGame && none.Format("Zamin Player").starts_with("Zamin Player\nZamin Engine 1.4.2\n"));
+    CHECK(none.Format().find("noma'lum") != std::string::npos && none.FormatShort() == "Zamin Engine 1.4.2");
+    CHECK(!VersionInfo::ForActiveProject().HasGame || Project::GetActive());
+    // The product name falls back to the project's name.
+    config.Player.ProductName.clear();
+    CHECK(VersionInfo::ForConfig(config).Product == "Kosmos");
+
+    // --version / -v.
+    CHECK(PlayerCommandLine::Parse({ "--version" }).Version && PlayerCommandLine::Parse({ "Game", "-v" }).Version);
+    CHECK(!PlayerCommandLine::Parse({ "--help" }).Version && PlayerCommandLine::Parse({ "--version" }).Errors.empty());
+    CHECK(PlayerCommandLine::GetHelpText().find("--version") != std::string::npos);
+}
+
+// The export checks its own folder: everything the exported game needs to start (Tests/export_test.sh then runs it).
+TEST(ExportFolderSelfCheck)
+{
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / ("zamin-export-check-" + std::to_string((uint64_t)UUID()));
+    ScopeExit cleanup{ [&]() {
+        std::error_code ec;
+        fs::remove_all(dir, ec);
+    } };
+    auto executable = [](const fs::path& file, const std::string& text) {
+        FileSystem::WriteTextFile(file, text);
+        fs::permissions(file, fs::perms::owner_all, fs::perm_options::add);
+    };
+    CHECK(ExportFiles::CheckExportFolder(dir, "Kosmos").size() == 1); // no folder
+    fs::create_directories(dir);
+    // An empty folder: the launcher, the player, the engine, Resources, the entry, its script, the project.
+    std::vector<std::string> problems = ExportFiles::CheckExportFolder(dir, "Kosmos");
+    CHECK(problems.size() == 7);
+    // A complete export.
+    executable(dir / "Kosmos.sh", "#!/bin/sh\n");
+    executable(dir / "ZaminPlayer", "elf");
+    FileSystem::WriteTextFile(dir / "libZamin.so", "elf");
+    FileSystem::WriteTextFile(dir / "Resources" / "Fonts" / "a.ttf", "font");
+    FileSystem::WriteTextFile(dir / "Kosmos.desktop", "[Desktop Entry]\n");
+    executable(dir / ExportFiles::DesktopInstallScriptName, "#!/bin/sh\n");
+    FileSystem::WriteTextFile(dir / "Game" / "Kosmos.zproject",
+                              R"({ "Project": { "Name": "Kosmos", "StartScene": "Scenes/Menu.zscene", "AssetDirectory": "Assets",
+                                   "ScriptModulePath": "Binaries/libKosmos.so" },
+                                   "BuildScenes": [ "Scenes/Menu.zscene", "Scenes/Level.zscene", { "Path": "Scenes/Old.zscene", "Enabled": false } ] })");
+    FileSystem::WriteTextFile(dir / "Game" / "Assets" / "Scenes" / "Menu.zscene", "{}");
+    FileSystem::WriteTextFile(dir / "Game" / "Assets" / "Scenes" / "Level.zscene", "{}");
+    FileSystem::WriteTextFile(dir / "Game" / Project::BuildAssetRegistryFile, "{}");
+    FileSystem::WriteTextFile(dir / "Game" / "Binaries" / "libKosmos.so", "elf");
+    problems = ExportFiles::CheckExportFolder(dir, "Kosmos");
+    CHECK(problems.empty());
+    for (const std::string& p : problems)
+        std::printf("      %s\n", p.c_str());
+    // What breaks it: a launcher that cannot run, a build scene, the script module, the registry gone.
+    fs::permissions(dir / "Kosmos.sh", fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec, fs::perm_options::remove);
+    fs::remove(dir / "Game" / "Assets" / "Scenes" / "Level.zscene");
+    fs::remove(dir / "Game" / "Binaries" / "libKosmos.so");
+    fs::remove(dir / "Game" / Project::BuildAssetRegistryFile);
+    problems = ExportFiles::CheckExportFolder(dir, "Kosmos");
+    CHECK(problems.size() == 4);
+    auto has = [&](const char* part) {
+        return std::any_of(problems.begin(), problems.end(), [&](const std::string& p) { return p.find(part) != std::string::npos; });
+    };
+    CHECK(has("bajarish huquqi") && has("Scenes/Level.zscene") && has("libKosmos.so") && has("AssetRegistry"));
+    CHECK(!has("Old.zscene")); // a disabled build scene is not exported
+    // The start scene gone: the first build scene is not there either -> nothing to start.
+    fs::remove(dir / "Game" / "Assets" / "Scenes" / "Menu.zscene");
+    CHECK(ExportFiles::CheckExportFolder(dir, "Kosmos").size() >= 4);
+    // Another game's name: its launcher and entry are missing.
+    CHECK(ExportFiles::CheckExportFolder(dir, "Boshqa").size() > problems.size());
+}

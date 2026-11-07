@@ -71,7 +71,8 @@ namespace Zamin {
         // Options that take a value (the next argument, or after '=').
         static const char* const s_ValueOptions[] = { "--scene", "--resolution", "--width", "--height", "--monitor", "--fps",
                                                       "--quality", "--lang", "--language", "--gl", "--msaa", "--log-file",
-                                                      "--crash-dialog", "--gamma", "--brightness" };
+                                                      "--crash-dialog", "--gamma", "--brightness", "--benchmark", "--benchmark-warmup",
+                                                      "--benchmark-out", "--benchmark-max-avg", "--benchmark-max-p95" };
         for (size_t i = 0; i < args.size(); i++)
         {
             const std::string& arg = args[i];
@@ -172,6 +173,32 @@ namespace Zamin {
                     else
                         c.Errors.push_back(std::format("{} {}: {:.1f} ... {:.1f} oralig'idagi son kerak (1 - o'zgarishsiz)", name, value, lo, hi));
                 }
+                else if (name == "--benchmark" || name == "--benchmark-warmup")
+                {
+                    const bool frames = name == "--benchmark";
+                    if (ParseInt(value, number) && number >= (frames ? 1 : 0) && number <= 1000000)
+                        (frames ? c.Benchmark.Frames : c.Benchmark.Warmup) = number;
+                    else
+                        c.Errors.push_back(std::format("{} {}: kadr soni kerak ({} ... 1000000)", name, value, frames ? 1 : 0));
+                }
+                else if (name == "--benchmark-out")
+                {
+                    if (value.empty())
+                        c.Errors.push_back("--benchmark-out: fayl yo'li kerak");
+                    else
+                        c.Benchmark.Output = value;
+                }
+                else if (name == "--benchmark-max-avg" || name == "--benchmark-max-p95")
+                {
+                    std::string text = value;
+                    std::replace(text.begin(), text.end(), ',', '.');
+                    char* end = nullptr;
+                    const double ms = std::strtod(text.c_str(), &end);
+                    if (!text.empty() && end && *end == '\0' && std::isfinite(ms) && ms > 0.0)
+                        (name == "--benchmark-max-avg" ? c.Benchmark.MaxAverageMs : c.Benchmark.MaxP95Ms) = ms;
+                    else
+                        c.Errors.push_back(std::format("{} {}: millisekund kerak (masalan 16.7)", name, value));
+                }
                 else if (name == "--msaa")
                 {
                     if (ParseInt(value, number) && number >= 0)
@@ -188,6 +215,8 @@ namespace Zamin {
             }
             if (name == "--help" || name == "-h" || name == "-?")
                 c.Help = true;
+            else if (name == "--version" || name == "-v")
+                c.Version = true;
             else if (name == "--windowed")
                 c.Mode = WindowMode::Windowed;
             else if (name == "--fullscreen")
@@ -277,12 +306,21 @@ namespace Zamin {
             "  --no-crash-handler            crash bo'lganda hisobot yozilmaydi (debugger, core dump uchun)\n"
             "  --no-crash-dialog             crash hisoboti yoziladi, lekin xabar oynasi ko'rsatilmaydi\n"
             "\n"
+            "Ishlash testi:\n"
+            "  --benchmark N                 o'yin o'rniga N kadrni o'lchash (splash, FPS cheklovi va VSync'siz) - o'rtacha,\n"
+            "                                mediana, p95, p99 ms; chiqish kodi: 0 - o'tdi, 3 - chegaradan oshdi, 2 - ishlamadi\n"
+            "  --benchmark-warmup N          o'lchashdan oldingi isitish kadrlari (standart: {1})\n"
+            "  --benchmark-out <fayl.json>   natija JSON faylga (har bir kadr vaqti ham)\n"
+            "  --benchmark-max-avg MS        o'rtacha kadr vaqti chegarasi\n"
+            "  --benchmark-max-p95 MS        95-persentil chegarasi\n"
+            "\n"
             "Boshqa:\n"
+            "  -v, --version                 o'yin va dvigatel versiyasi (kommit, build sanasi)\n"
             "  -h, --help                    shu yordam\n"
             "\n"
             "Ustunlik: buyruq qatori > o'yinchi saqlagan sozlamalar (o'yin menyusi: to'liq ekran, VSync, gamma, yorqinlik, sifat, til)\n"
             "          > loyiha sozlamalari (Project settings > Player, Graphics).\n",
-            program);
+            program, PlayerBenchmarkSettings::DefaultWarmup);
     }
 
     const char* PlayerSettingSourceToString(PlayerSettingSource source)
@@ -363,6 +401,24 @@ namespace Zamin {
         {
             r.Splash = false;
             r.SplashSource = Source::CommandLine;
+        }
+
+        // The performance test runs as fast as it can: no splash, no frame limit and no vsync - unless the
+        // command line itself asks for them (--fps, --vsync).
+        if (c.Benchmark.IsEnabled())
+        {
+            r.Splash = false;
+            r.SplashSource = Source::CommandLine;
+            if (!c.TargetFrameRate)
+            {
+                r.TargetFrameRate = 0;
+                r.FrameRateSource = Source::CommandLine;
+            }
+            if (!c.VSync)
+            {
+                r.Window.VSync = false;
+                r.VSyncSource = Source::CommandLine;
+            }
         }
 
         // The OpenGL context: Project settings > Graphics, then the command line.

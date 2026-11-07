@@ -41,6 +41,10 @@ namespace Zamin {
 
         void Run();
         void Close();
+        // The process's exit code (main returns it after Run): 0 unless a layer sets one - the player's
+        // performance test (2: it could not run, 3: a limit was exceeded).
+        void SetExitCode(int code) { m_ExitCode = code; }
+        int GetExitCode() const { return m_ExitCode; }
 
         void PushLayer(Layer* layer);
         void PushOverlay(Layer* layer);
@@ -126,6 +130,7 @@ namespace Zamin {
         ImGuiLayer* m_ImGuiLayer = nullptr;
         LayerStack m_LayerStack;
         bool m_Running = true;
+        int m_ExitCode = 0;
         bool m_Minimized = false;
         bool m_ZeroSize = false;   // the last resize made the window 0 x 0
         float m_LastFrameTime = 0.0f;

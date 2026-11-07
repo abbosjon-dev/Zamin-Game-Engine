@@ -10,7 +10,10 @@
 //               [--monitor N] [--vsync | --no-vsync] [--fps N] [--scene <path | build index | name>]
 //               [--quality <level>] [--lang <code>] [--no-splash] [--gamma G] [--brightness B] [--gl ...] [--msaa N] [--debug-...]
 //               [--log-file <path> | --no-log-file] [--no-crash-handler] [--no-crash-dialog]
-//   ZaminPlayer --help lists every option.
+//               [--benchmark N [--benchmark-warmup W] [--benchmark-out <file.json>] [--benchmark-max-avg MS] [--benchmark-max-p95 MS]]
+//   ZaminPlayer --help lists every option; ZaminPlayer --version prints the game's and the engine's versions.
+// --benchmark N: the performance test - N frames timed after a warm-up (average, median, p95, p99), the result
+// in the log and a JSON file, the exit code 0 / 3 (a limit exceeded) / 2 (it could not run).
 // The log goes to ~/.local/share/<company>/<product>/logs (player-<date>.log, the last 5 kept, latest.log);
 // a crash writes crash-<date>.txt there and the player shows it in a window of its own
 // (ZaminPlayer --crash-dialog <report>, started by the crash handler).
@@ -21,6 +24,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <chrono>
 #include <csignal>
 #include <ctime>
 #include <stdexcept>
@@ -41,18 +45,24 @@ namespace Zamin {
     class RuntimeLayer : public Layer
     {
     public:
+        using Clock = std::chrono::steady_clock;
+
         RuntimeLayer(std::filesystem::path project, PlayerCommandLine commandLine, PlayerLaunchSettings launch)
             : Layer("RuntimeLayer"), m_ProjectPath(std::move(project)), m_SceneOverride(commandLine.Scene), m_CommandLine(std::move(commandLine)),
-              m_Launch(std::move(launch)) {}
+              m_Launch(std::move(launch)), m_Benchmark(m_CommandLine.Benchmark) {}
 
         void OnAttach() override
         {
+            m_AttachTime = Clock::now();
             if (!Project::Load(m_ProjectPath))
             {
                 ZM_CRITICAL("Loyiha yuklanmadi: {}", m_ProjectPath.string());
+                if (m_Benchmark.IsEnabled())
+                    Application::Get().SetExitCode(PlayerBenchmarkSettings::ExitFailed);
                 Application::Get().Close();
                 return;
             }
+            m_ProjectLoaded = true;
             auto& config = Project::GetActive()->GetConfig();
             const PlayerSettings& player = config.Player;
             Window& window = Application::Get().GetWindow();
@@ -99,7 +109,14 @@ namespace Zamin {
                             m_CommandLine.Gamma ? "buyruq qatori" : saved.Gamma ? "saqlangan" : "standart", Display::GetBrightness() * 100.0f,
                             m_CommandLine.Brightness ? "buyruq qatori" : saved.Brightness ? "saqlangan" : "standart");
             }
-            if (!player.RunInBackground)
+            if (m_Benchmark.IsEnabled())
+            {
+                // The test measures the game, not a pause: it runs whatever the window's focus.
+                Application::Get().SetRunInBackground(true);
+                ZM_INFO("Ishlash testi: {} kadr o'lchanadi ({} ta isitish kadridan keyin; splash, FPS cheklovi{} yo'q)", m_Benchmark.GetSettings().Frames,
+                        m_Benchmark.GetSettings().Warmup, m_Launch.Window.VSync ? "" : " va VSync");
+            }
+            else if (!player.RunInBackground)
                 ZM_INFO("Fonda ishlash o'chiq: oyna fokusni yo'qotsa o'yin pauzada (vaqt, fizika, ovoz to'xtaydi)");
             // The game's cursor wishes (Cursor: hidden, locked, its picture) go to this window.
             Cursor::BindWindow(&Application::Get().GetWindow());
@@ -204,6 +221,7 @@ namespace Zamin {
             if (start.empty() && m_SceneOverride.empty())
                 start = Project::GetBuildScenePath(0);
             std::filesystem::path scenePath = start.empty() ? std::filesystem::path() : Project::GetAssetFileSystemPath(start);
+            m_StartSceneName = start.generic_string();
             // Every scene of the game runs in the scene manager: additive scenes, DontDestroyOnLoad,
             // background loading and fades between scenes.
             m_Scenes = std::make_unique<SceneManager>();
@@ -266,6 +284,70 @@ namespace Zamin {
         {
             m_ReportSerial = m_Scenes->GetLoadReportSerial();
             m_ActiveSerial = m_Scenes->GetActiveSceneSerial();
+            m_GameStarted = true;
+            m_LoadSeconds = std::chrono::duration<double>(Clock::now() - m_AttachTime).count();
+        }
+
+        // --benchmark: one frame of the game timed (from the start of the last one: its update, drawing, the
+        // swap) with the update + drawing calls of this layer in it; the result once the frames are all in.
+        void BenchmarkFrame(Clock::time_point start, Clock::time_point end)
+        {
+            if (m_BenchmarkFinished)
+                return;
+            if (m_ErrorScreen || (!m_Scenes && !m_ProjectLoaded))
+            {
+                FinishBenchmark(false);
+                return;
+            }
+            if (!m_GameStarted || !m_Scenes)
+                return;
+            if (m_HasLastFrameStart)
+            {
+                const double frameMs = std::chrono::duration<double, std::milli>(start - m_LastFrameStart).count();
+                const double updateMs = std::chrono::duration<double, std::milli>(end - start).count();
+                if (m_Benchmark.AddFrame(frameMs, updateMs))
+                    FinishBenchmark(true);
+            }
+            m_LastFrameStart = start;
+            m_HasLastFrameStart = true;
+        }
+
+        void FinishBenchmark(bool ran)
+        {
+            m_BenchmarkFinished = true;
+            PlayerBenchmark::Result result = m_Benchmark.GetResult();
+            if (Project::GetActive())
+            {
+                result.Game = Project::GetProductName();
+                result.GameVersion = Project::GetPlayerSettings().Version;
+            }
+            result.Scene = m_StartSceneName;
+            result.Engine = BuildInfo::Get().Describe();
+            result.Renderer = GraphicsContext::GetInfo().Renderer;
+            auto& window = Application::Get().GetWindow();
+            result.Width = window.GetFramebufferWidth();
+            result.Height = window.GetFramebufferHeight();
+            result.LoadSeconds = m_LoadSeconds;
+            if (!ran)
+            {
+                result.Passed = false;
+                result.Failures.insert(result.Failures.begin(), "o'yin ishga tushmadi (boshlang'ich sahna yuklanmadi)");
+            }
+            const std::string text = PlayerBenchmark::Describe(result);
+            if (result.Passed)
+                ZM_INFO("{}", text);
+            else
+                ZM_ERROR("{}", text);
+            if (const auto& output = m_Benchmark.GetSettings().Output; !output.empty())
+            {
+                std::string error;
+                if (PlayerBenchmark::WriteJson(result, output, &error))
+                    ZM_INFO("Ishlash testi natijasi: {}", std::filesystem::absolute(output).string());
+                else
+                    ZM_ERROR("Ishlash testi: {}", error);
+            }
+            Application::Get().SetExitCode(!ran ? PlayerBenchmarkSettings::ExitFailed : result.Passed ? 0 : PlayerBenchmarkSettings::ExitLimitExceeded);
+            Application::Get().Close();
         }
 
         // One frame of the splash screen: the first scene loads meanwhile; once both are done the game starts.
@@ -547,6 +629,14 @@ namespace Zamin {
 
         void OnUpdate(Timestep ts) override
         {
+            const Clock::time_point start = Clock::now();
+            UpdateFrame(ts);
+            if (m_Benchmark.IsEnabled())
+                BenchmarkFrame(start, Clock::now());
+        }
+
+        void UpdateFrame(Timestep ts)
+        {
             RunCrashTest();
             if (!m_ScriptedInput.empty())
                 PlayScriptedInput();
@@ -796,6 +886,13 @@ namespace Zamin {
         PlayerCommandLine m_CommandLine;
         PlayerLaunchSettings m_Launch;
         std::filesystem::path m_StartScenePath;
+        std::string m_StartSceneName; // as the project / --scene names it (the benchmark's report)
+        bool m_ProjectLoaded = false, m_GameStarted = false;
+        // --benchmark: the frames timed, the start of the last one, the time the first scene took.
+        PlayerBenchmark m_Benchmark;
+        Clock::time_point m_AttachTime{}, m_LastFrameStart{};
+        bool m_HasLastFrameStart = false, m_BenchmarkFinished = false;
+        double m_LoadSeconds = 0.0;
         // The splash screen and the first scene loading behind it; then the cover the game fades in from.
         SplashScreen m_Splash;
         Ref<AsyncOperation> m_StartLoad;
@@ -1044,6 +1141,20 @@ namespace Zamin {
             std::fputs(PlayerCommandLine::GetHelpText(program).c_str(), stdout);
             std::exit(0);
         }
+        // --version: the game's version (the project given, or the exported game's next to the player) and the
+        // engine's build - no window.
+        if (commandLine.Version)
+        {
+            VersionInfo info;
+            const std::filesystem::path project = FindProject(commandLine.Project.empty() ? nullptr : commandLine.Project.c_str());
+            std::error_code ec;
+            ProjectConfig config;
+            if (!project.empty() && std::filesystem::is_regular_file(project, ec) &&
+                ProjectSerializer::ConfigFromString(FileSystem::ReadTextFile(project), config, nullptr, nullptr))
+                info = VersionInfo::ForConfig(config);
+            std::fputs(info.Format("Zamin Player").c_str(), stdout);
+            std::exit(0);
+        }
         // The window about a crash report (the crash handler started this process): nothing else.
         if (!commandLine.CrashDialog.empty())
         {
@@ -1091,8 +1202,9 @@ namespace Zamin {
             std::tm tm{};
             localtime_r(&now, &tm);
             std::strftime(started, sizeof(started), "%Y-%m-%d %H:%M:%S", &tm);
-            const std::string header = std::format("# {} {} - Zamin Player (Zamin Engine {})\n# Boshlandi: {}\n# Loyiha: {}\n# Buyruq qatori: {}\n", product,
-                                                   config.Player.Version, ZM_ENGINE_VERSION, started, project.string(), command.empty() ? "-" : command);
+            const std::string header = std::format("# {} {} - Zamin Player\n# {}\n# Boshlandi: {}\n# Loyiha: {}\n# Buyruq qatori: {}\n", product,
+                                                   config.Player.Version, BuildInfo::Get().Describe(), started, project.string(),
+                                                   command.empty() ? "-" : command);
             std::string logError;
             const bool opened = !commandLine.LogFile.empty()
                                     ? LogFile::Open(commandLine.LogFile, header, &logError)
@@ -1113,7 +1225,9 @@ namespace Zamin {
             crash.Product = product;
             crash.Version = config.Player.Version;
             crash.LogFile = LogFile::GetPath();
-            crash.ShowDialog = !commandLine.NoCrashDialog && (!Application::IsAutomationRun() || std::getenv("ZAMIN_CRASH_DIALOG"));
+            // (A performance test is a test too: no window that waits for someone.)
+            crash.ShowDialog = !commandLine.NoCrashDialog && !commandLine.Benchmark.IsEnabled() &&
+                               (!Application::IsAutomationRun() || std::getenv("ZAMIN_CRASH_DIALOG"));
             crash.DialogProgram = FileSystem::GetExecutablePath();
             crash.DialogArguments = { "--crash-dialog" };
             if (CrashHandler::Install(crash))

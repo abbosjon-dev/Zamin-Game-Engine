@@ -67,3 +67,31 @@ add_custom_target(particle_bench
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMENT "Particle benchmark (ms / kadr)"
     USES_TERMINAL VERBATIM)
+
+# Player performance test (not part of ctest: it needs a display - xvfb-run without one): the sample games'
+# start scenes in ZaminPlayer --benchmark, ms / frame (average, median, p95, p99) and FPS per game, the reports
+# in build/PlayerBench. Run the player_bench target or Tests/player_bench.sh (--frames, --max-avg, --max-p95 ...).
+add_custom_target(player_bench
+    COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/player_bench.sh
+    DEPENDS ZaminPlayer
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Player ishlash testi (headless, ms / kadr)"
+    USES_TERMINAL VERBATIM)
+# Automatic export test (needs a display too): the editor exports Platformer2D into a temporary folder, the
+# exported game runs headless from its launcher (exit code, log, script module, a moved folder).
+# Run the export_test target or Tests/export_test.sh (--project, --frames, --keep).
+add_custom_target(export_test
+    COMMAND ${CMAKE_COMMAND} -E env ZAMIN_BUILD_DIR=${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/Tests/export_test.sh
+    DEPENDS ZaminPlayer
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Eksport testi (editor eksporti + eksport qilingan o'yin headless)"
+    USES_TERMINAL VERBATIM)
+if(TARGET ZaminEditor)
+    add_dependencies(export_test ZaminEditor)
+endif()
+foreach(game Platformer2D Showcase3D Adventure3D)
+    if(TARGET ${game})
+        add_dependencies(player_bench ${game})
+        add_dependencies(export_test ${game})
+    endif()
+endforeach()

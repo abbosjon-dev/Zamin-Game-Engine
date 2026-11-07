@@ -1,6 +1,7 @@
 #include "Zamin/Core/Application.h"
 
 #include "Zamin/ImGui/ImGuiLayer.h"
+#include "Zamin/Core/BuildInfo.h"
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/Cursor.h"
 #include "Zamin/Core/Input.h"
@@ -34,7 +35,7 @@ namespace Zamin {
         if (!m_Specification.WorkingDirectory.empty())
             std::filesystem::current_path(m_Specification.WorkingDirectory);
 
-        ZM_CORE_INFO("Zamin Engine v{} ishga tushmoqda ({})", ZM_ENGINE_VERSION, m_Specification.Name);
+        ZM_CORE_INFO("{} ishga tushmoqda ({})", BuildInfo::Get().Describe(), m_Specification.Name);
 
         WindowProps props = m_Specification.Window;
         if (props.Title.empty())

@@ -8,6 +8,7 @@ int main(int argc, char** argv)
 {
     Zamin::Application* app = Zamin::CreateApplication({ argc, argv });
     app->Run();
+    const int code = app->GetExitCode();
     delete app;
-    return 0;
+    return code;
 }

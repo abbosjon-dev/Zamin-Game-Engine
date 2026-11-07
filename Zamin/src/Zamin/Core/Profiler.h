@@ -125,6 +125,26 @@ namespace Zamin {
         size_t m_Next = 0;
     };
 
+    // Statistics over any number of frame times (ms): the player's performance test (ZaminPlayer
+    // --benchmark), benchmarks. Percentiles are by nearest rank: P95 is the smallest frame time that at
+    // least 95% of the frames are not slower than.
+    struct FrameTimeStats
+    {
+        size_t Count = 0;
+        double Average = 0.0, Median = 0.0, P95 = 0.0, P99 = 0.0, Min = 0.0, Max = 0.0;
+        double StdDev = 0.0;          // the frame times' standard deviation (ms): how even they are
+        double Total = 0.0;           // all of them together (ms)
+        double AverageFPS = 0.0;      // 1000 / Average
+        double Low1PercentFPS = 0.0;  // 1000 / the average of the slowest 1% (at least one frame)
+
+        // Values that are not finite or negative are left out.
+        static FrameTimeStats Compute(std::vector<double> milliseconds);
+        // The p-th percentile (0 ... 100) of ascending values by nearest rank (0 for none).
+        static double Percentile(const std::vector<double>& sorted, double p);
+        // "o'rtacha 4.12 ms (242.7 FPS), mediana 4.05, p95 5.10, p99 6.02, min 3.50, max 9.81 ms".
+        std::string Format() const;
+    };
+
 }
 
 #define ZM_PROFILE_CONCAT_INNER(a, b) a##b

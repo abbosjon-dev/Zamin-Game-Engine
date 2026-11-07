@@ -6194,6 +6194,14 @@ namespace Zamin {
                 fs::permissions(installScript, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec | fs::perms::others_read |
                                                    fs::perms::others_exec, ec);
 
+            // The folder checks itself: everything the exported game needs to start is there (the launcher, the
+            // player, the engine, the project, its start / build scenes, the registry, the script module).
+            for (const std::string& problem : ExportFiles::CheckExportFolder(outputDirectory, name))
+            {
+                fail(std::format("eksport to'liq emas - {}", problem));
+                ok = false;
+            }
+
             // The report: what the folder holds now, what was left out, how long it took and what went wrong.
             report->SetExcluded(assetPlan);
             report->ScanDirectory(outputDirectory);

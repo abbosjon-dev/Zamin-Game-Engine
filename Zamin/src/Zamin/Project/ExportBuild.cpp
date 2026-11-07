@@ -1,6 +1,7 @@
 #include "Zamin/Project/ExportBuild.h"
 
 #include "Zamin/Asset/AssetTypes.h"
+#include "Zamin/Project/Project.h"
 #include "Zamin/Utils/FileSystem.h"
 
 #include <nlohmann/json.hpp>
@@ -416,6 +417,78 @@ namespace Zamin {
         if (!fs::exists(file, ec))
             return false;
         return FromJson(FileSystem::ReadTextFile(file), out);
+    }
+
+    // ------------------------------------------------------------------ the exported folder
+    std::vector<std::string> ExportFiles::CheckExportFolder(const fs::path& folder, const std::string& gameName)
+    {
+        std::vector<std::string> problems;
+        std::error_code ec;
+        if (!fs::is_directory(folder, ec))
+        {
+            problems.push_back(std::format("eksport papkasi yo'q: {}", folder.string()));
+            return problems;
+        }
+        auto executable = [&](const fs::path& file, const std::string& what) {
+            std::error_code e;
+            if (!fs::is_regular_file(file, e))
+                problems.push_back(std::format("{} yo'q: {}", what, file.filename().string()));
+            else if ((fs::status(file, e).permissions() & fs::perms::owner_exec) == fs::perms::none)
+                problems.push_back(std::format("{} ishga tushirib bo'lmaydi (bajarish huquqi yo'q): {}", what, file.filename().string()));
+        };
+        executable(folder / (gameName + ".sh"), "ishga tushirish skripti");
+        executable(folder / "ZaminPlayer", "player");
+        bool engine = false;
+        for (const auto& entry : fs::directory_iterator(folder, ec))
+            if (entry.path().filename().string().starts_with("libZamin") && entry.is_regular_file(ec))
+                engine = true;
+        if (!engine)
+            problems.push_back("dvigatel kutubxonasi yo'q (libZamin.so)");
+        if (!fs::is_directory(folder / "Resources", ec) || fs::is_empty(folder / "Resources", ec))
+            problems.push_back("Resources/ papkasi yo'q yoki bo'sh (shriftlar, shaderlar)");
+        if (!fs::is_regular_file(folder / (gameName + ".desktop"), ec))
+            problems.push_back(std::format("{}.desktop yo'q", gameName));
+        executable(folder / DesktopInstallScriptName, DesktopInstallScriptName);
+
+        // The game: Game/<one>.zproject and what it names.
+        const fs::path game = folder / "Game";
+        std::vector<fs::path> projects;
+        for (const auto& entry : fs::directory_iterator(game, ec))
+            if (entry.path().extension() == ".zproject")
+                projects.push_back(entry.path());
+        if (projects.empty())
+        {
+            problems.push_back("Game/ papkasida .zproject yo'q");
+            return problems;
+        }
+        if (projects.size() > 1)
+            problems.push_back(std::format("Game/ papkasida {} ta .zproject bor (player birinchisini ochadi)", projects.size()));
+        ProjectConfig config;
+        std::string error;
+        if (!ProjectSerializer::ConfigFromString(FileSystem::ReadTextFile(projects.front()), config, nullptr, &error))
+        {
+            problems.push_back(std::format("{} o'qilmadi: {}", projects.front().filename().string(), error));
+            return problems;
+        }
+        const fs::path assets = game / config.AssetDirectory;
+        if (!fs::is_directory(assets, ec))
+        {
+            problems.push_back(std::format("assetlar papkasi yo'q: Game/{}", config.AssetDirectory.generic_string()));
+            return problems;
+        }
+        const fs::path start = Project::ResolveStartScene(config, assets);
+        if (start.empty())
+            problems.push_back("boshlang'ich sahna yo'q (na StartScene, na build ro'yxatida sahna)");
+        else if (!fs::is_regular_file(assets / start, ec))
+            problems.push_back(std::format("boshlang'ich sahna fayli yo'q: {}", start.generic_string()));
+        for (const BuildSceneEntry& scene : config.BuildScenes)
+            if (scene.Enabled && !fs::is_regular_file(assets / scene.Path, ec))
+                problems.push_back(std::format("build sahnasi yo'q: {}", scene.Path.generic_string()));
+        if (!fs::is_regular_file(game / Project::BuildAssetRegistryFile, ec))
+            problems.push_back(std::format("asset registri yo'q: Game/{}", Project::BuildAssetRegistryFile));
+        if (!config.ScriptModulePath.empty() && !fs::is_regular_file(game / config.ScriptModulePath, ec))
+            problems.push_back(std::format("skript moduli yo'q: Game/{}", config.ScriptModulePath.generic_string()));
+        return problems;
     }
 
 }

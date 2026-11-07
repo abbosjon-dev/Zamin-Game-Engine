@@ -1,5 +1,7 @@
 #include "Zamin/Core/CrashHandler.h"
 
+#include "Zamin/Core/BuildInfo.h"
+
 #include "Zamin/Core/Log.h"
 #include "Zamin/Core/Version.h"
 #include "Zamin/Utils/FileSystem.h"
@@ -506,7 +508,7 @@ namespace Zamin {
         header += std::format("Dastur: {}\n", settings.Application);
         if (!settings.Product.empty())
             header += std::format("O'yin: {}{}\n", settings.Product, settings.Version.empty() ? "" : " " + settings.Version);
-        header += std::format("Dvigatel: Zamin Engine {}\n", ZM_ENGINE_VERSION);
+        header += std::format("Dvigatel: {}\n", BuildInfo::Get().Describe());
         if (!settings.LogFile.empty())
             header += std::format("Log fayli: {}\n", settings.LogFile.string());
         CopyText(s_Header, HeaderSize, header);

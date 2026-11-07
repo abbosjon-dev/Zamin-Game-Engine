@@ -2,6 +2,7 @@
 
 #include "Zamin/Core/Display.h"
 #include "Zamin/Core/Window.h"
+#include "Zamin/Project/PlayerBenchmark.h"
 
 #include <optional>
 #include <string>
@@ -30,6 +31,12 @@ namespace Zamin {
         // --gamma G, --brightness B: the picture (Display::SetGamma / SetBrightness) over what was saved.
         std::optional<float> Gamma, Brightness;
         bool Help = false;                  // --help | -h | -?
+        // --version | -v: the game's and the engine's versions (the commit, the build's date) and nothing else.
+        bool Version = false;
+        // --benchmark N [--benchmark-warmup W] [--benchmark-out <file.json>] [--benchmark-max-avg MS]
+        // [--benchmark-max-p95 MS]: the performance test (PlayerBenchmark) instead of playing; no splash,
+        // no frame rate limit and no vsync unless the command line asks for them.
+        PlayerBenchmarkSettings Benchmark;
         // The log file: --log-file <path> writes only that file (else the rotating logs in
         // ~/.local/share/<company>/<product>/logs); --no-log-file none.
         std::string LogFile;

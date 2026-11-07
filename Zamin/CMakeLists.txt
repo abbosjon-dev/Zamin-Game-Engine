@@ -52,6 +52,16 @@ add_library(Zamin SHARED ${ZAMIN_SOURCES} ${ZAMIN_ENGINE_NAMES})
 add_library(Zamin::Zamin ALIAS Zamin)
 target_include_directories(Zamin PRIVATE ${ZAMIN_GENERATED_DIR})
 
+# The build's information (BuildInfo: the git commit, its date, the build's date and type - ZaminPlayer
+# --version, the logs, crash reports): checked on every build, rewritten only when it changed.
+set(ZAMIN_BUILD_INFO ${ZAMIN_GENERATED_DIR}/ZaminBuildInfo.inc)
+add_custom_target(ZaminBuildInfo
+    COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -DOUTPUT=${ZAMIN_BUILD_INFO} -DBUILD_TYPE=$<CONFIG>
+            -P ${PROJECT_SOURCE_DIR}/cmake/GenerateBuildInfo.cmake
+    BYPRODUCTS ${ZAMIN_BUILD_INFO}
+    VERBATIM)
+add_dependencies(Zamin ZaminBuildInfo)
+
 set_target_properties(Zamin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin

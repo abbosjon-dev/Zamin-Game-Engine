@@ -323,4 +323,58 @@ namespace Zamin {
         return s;
     }
 
+
+    // ------------------------------------------------------------------ FrameTimeStats
+    double FrameTimeStats::Percentile(const std::vector<double>& sorted, double p)
+    {
+        if (sorted.empty())
+            return 0.0;
+        // Nearest rank: the ceil(p / 100 * n)-th smallest value (1-based).
+        const double clamped = std::clamp(p, 0.0, 100.0);
+        size_t rank = (size_t)std::ceil(clamped / 100.0 * (double)sorted.size());
+        rank = std::clamp<size_t>(rank, 1, sorted.size());
+        return sorted[rank - 1];
+    }
+
+    FrameTimeStats FrameTimeStats::Compute(std::vector<double> milliseconds)
+    {
+        std::erase_if(milliseconds, [](double v) { return !std::isfinite(v) || v < 0.0; });
+        FrameTimeStats s;
+        s.Count = milliseconds.size();
+        if (milliseconds.empty())
+            return s;
+        std::sort(milliseconds.begin(), milliseconds.end());
+        double sum = 0.0;
+        for (double v : milliseconds)
+            sum += v;
+        s.Total = sum;
+        s.Average = sum / (double)s.Count;
+        double squares = 0.0;
+        for (double v : milliseconds)
+            squares += (v - s.Average) * (v - s.Average);
+        s.StdDev = std::sqrt(squares / (double)s.Count);
+        s.Min = milliseconds.front();
+        s.Max = milliseconds.back();
+        s.Median = s.Count % 2 ? milliseconds[s.Count / 2] : (milliseconds[s.Count / 2 - 1] + milliseconds[s.Count / 2]) * 0.5;
+        s.P95 = Percentile(milliseconds, 95.0);
+        s.P99 = Percentile(milliseconds, 99.0);
+        s.AverageFPS = s.Average > 0.0 ? 1000.0 / s.Average : 0.0;
+        // The slowest 1% (at least one frame): the end of the sorted list.
+        const size_t worst = std::max<size_t>(1, s.Count / 100);
+        double worstSum = 0.0;
+        for (size_t i = s.Count - worst; i < s.Count; i++)
+            worstSum += milliseconds[i];
+        const double worstAverage = worstSum / (double)worst;
+        s.Low1PercentFPS = worstAverage > 0.0 ? 1000.0 / worstAverage : 0.0;
+        return s;
+    }
+
+    std::string FrameTimeStats::Format() const
+    {
+        if (Count == 0)
+            return "kadr yo'q";
+        return std::format("o'rtacha {:.2f} ms ({:.1f} FPS), mediana {:.2f}, p95 {:.2f}, p99 {:.2f}, min {:.2f}, max {:.2f} ms", Average, AverageFPS,
+                           Median, P95, P99, Min, Max);
+    }
+
 }

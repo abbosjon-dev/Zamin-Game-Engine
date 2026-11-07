@@ -191,10 +191,12 @@ namespace Zamin {
                             changed = true;
                         }
                     }
-                    ImGui::TextDisabled("%s", EditorText::GetLanguage() == EditorLanguage::English
-                                                  ? "Menus, window titles, buttons, the main panels and the project settings "
-                                                    "(hints and longer texts stay in Uzbek)"
-                                                  : "Menyular, oyna sarlavhalari, tugmalar, asosiy panellar va loyiha sozlamalari");
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                    ImGui::TextWrapped("%s", EditorText::GetLanguage() == EditorLanguage::English
+                                                 ? "Menus, window titles, buttons, the main panels and the project settings "
+                                                   "(hints and longer texts stay in Uzbek)"
+                                                 : "Menyular, oyna sarlavhalari, tugmalar, asosiy panellar va loyiha sozlamalari");
+                    ImGui::PopStyleColor();
                     ImGui::SeparatorText(Tr("Asosiy rang (accent)"));
                     ImGui::TextDisabled("Tanlangan tablar, belgilar, slayderlar va ajratib ko'rsatishlar rangi");
                     int clicked = SwatchRow("accent", EditorThemeSettings::GetAccentPresets(), theme.FindAccentPreset(),

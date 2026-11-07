@@ -159,14 +159,35 @@ namespace Zamin::UI {
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::Dummy(ImVec2(0.0f, 2.0f));
-        ImGui::TextColored(AccentColor(), "%s", text);
+        // A title wider than the label column runs on over the value column (drawn above the columns'
+        // clipping) instead of being cut; the line then starts after it.
+        const ImVec2 textPos = ImGui::GetCursorScreenPos();
+        const ImVec2 textSize = ImGui::CalcTextSize(text);
+        const bool overflows = textSize.x > ImGui::GetContentRegionAvail().x;
+        if (overflows)
+        {
+            ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, textSize.y));
+            ImGui::TablePushBackgroundChannel();
+            ImGui::GetWindowDrawList()->AddText(textPos, ImGui::GetColorU32(AccentColor()), text);
+            ImGui::TablePopBackgroundChannel();
+        }
+        else
+            ImGui::TextColored(AccentColor(), "%s", text);
         HighlightIfSearched(text);
         if (tooltip && *tooltip)
         {
             ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();
+            if (overflows)
+            {
+                min = textPos;
+                max = ImVec2(textPos.x + textSize.x, textPos.y + textSize.y);
+                ImGui::TablePushBackgroundChannel();
+            }
             ImU32 dots = AccentU32(0.6f);
             for (float x = min.x; x < max.x; x += 3.0f)
                 ImGui::GetWindowDrawList()->AddLine(ImVec2(x, max.y), ImVec2(std::min(x + 1.5f, max.x), max.y), dots);
+            if (overflows)
+                ImGui::TablePopBackgroundChannel();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                 ImGui::SetTooltip("%s", tooltip);
         }
@@ -175,7 +196,9 @@ namespace Zamin::UI {
         ImGui::Dummy(ImVec2(0.0f, 2.0f));
         ImVec2 cursor = ImGui::GetCursorScreenPos();
         float width = ImGui::GetContentRegionAvail().x;
-        ImGui::GetWindowDrawList()->AddLine(ImVec2(cursor.x, y), ImVec2(cursor.x + width, y), AccentU32(0.35f));
+        const float lineStart = overflows ? std::max(cursor.x, textPos.x + textSize.x + ImGui::GetStyle().ItemSpacing.x) : cursor.x;
+        if (lineStart < cursor.x + width)
+            ImGui::GetWindowDrawList()->AddLine(ImVec2(lineStart, y), ImVec2(cursor.x + width, y), AccentU32(0.35f));
         ImGui::Dummy(ImVec2(width, ImGui::GetTextLineHeight()));
     }
 

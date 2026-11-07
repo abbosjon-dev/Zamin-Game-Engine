@@ -4238,6 +4238,55 @@
       }
     },
     {
+      "Entity": 7394000000002007,
+      "Tag": "Holat paneli",
+      "Active": false,
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "UITransform": {
+        "Anchor": 1,
+        "Position": [
+          0,
+          -110
+        ],
+        "Size": [
+          720,
+          54
+        ],
+        "FontSize": 0,
+        "Order": 5
+      },
+      "SpriteRenderer": {
+        "Color": [
+          0.03,
+          0.06,
+          0.1,
+          0.62
+        ],
+        "Texture": "",
+        "Tiling": 1.0,
+        "SortingOrder": 0,
+        "PixelArt": false,
+        "FlipX": false,
+        "FlipY": false
+      }
+    },
+    {
       "Entity": 7394000000002006,
       "Tag": "Holat",
       "Transform": {
@@ -4274,8 +4323,8 @@
         "Text": "",
         "Color": [
           1.0,
-          0.85,
-          0.45,
+          0.82,
+          0.4,
           1
         ],
         "Kerning": 0.0,
@@ -4402,6 +4451,10 @@
           "Status": {
             "Type": "Entity",
             "Value": 7394000000002006
+          },
+          "StatusPanel": {
+            "Type": "Entity",
+            "Value": 7394000000002007
           }
         }
       }

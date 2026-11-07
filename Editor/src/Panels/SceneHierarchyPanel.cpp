@@ -3107,11 +3107,23 @@ namespace Zamin {
                 PatrolPathComponent::Waypoint& w = c.Points[i];
                 UI::PropertyLabel(std::format("  {}", i).c_str());
                 const float spacing = ImGui::GetStyle().ItemSpacing.x;
-                ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - waitWidth - spacing * 2.0f));
+                // A wide inspector: position, wait and remove on one row; a narrow one: the wait below.
+                const bool oneRow = ImGui::GetContentRegionAvail().x >= 300.0f;
+                ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - spacing - (oneRow ? waitWidth + spacing : 0.0f)));
                 changed |= ImGui::DragFloat3("##p", &w.Position.x, 0.02f, 0.0f, 0.0f, "%.2f");
-                ImGui::SameLine();
-                ImGui::SetNextItemWidth(waitWidth);
-                if (ImGui::DragFloat("##wait", &w.Wait, 0.02f, -1.0f, 1000.0f, w.Wait < 0.0f ? "kutish" : "%.1f s", ImGuiSliderFlags_AlwaysClamp))
+                if (oneRow)
+                    ImGui::SameLine();
+                else
+                {
+                    ImGui::SameLine();
+                    if (ImGui::Button(ICON_FA_XMARK, ImVec2(button, 0)))
+                        remove = (int)i;
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                        UI::Tooltip("Nuqtani o'chirish");
+                    UI::PropertyLabel("      kutish");
+                }
+                ImGui::SetNextItemWidth(oneRow ? waitWidth : -FLT_MIN);
+                if (ImGui::DragFloat("##wait", &w.Wait, 0.02f, -1.0f, 1000.0f, w.Wait < 0.0f ? "umumiy" : "%.1f s", ImGuiSliderFlags_AlwaysClamp))
                 {
                     if (w.Wait < 0.0f)
                         w.Wait = -1.0f;
@@ -3119,11 +3131,14 @@ namespace Zamin {
                 }
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
                     UI::Tooltip("Shu nuqtada kutish (soniya). Chapga oxirigacha sudralsa - umumiy \"Kutish\" qiymati");
-                ImGui::SameLine();
-                if (ImGui::Button(ICON_FA_XMARK, ImVec2(button, 0)))
-                    remove = (int)i;
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
-                    UI::Tooltip("Nuqtani o'chirish");
+                if (oneRow)
+                {
+                    ImGui::SameLine();
+                    if (ImGui::Button(ICON_FA_XMARK, ImVec2(button, 0)))
+                        remove = (int)i;
+                    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                        UI::Tooltip("Nuqtani o'chirish");
+                }
                 ImGui::PopID();
             }
             if (remove >= 0)

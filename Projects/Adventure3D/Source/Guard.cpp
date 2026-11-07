@@ -16,6 +16,7 @@ public:
     EntityRef Model;          // the child with the robot model (its Animator: Speed / Grounded)
     EntityRef Lamp;           // a glowing sphere (with a point light) on its head
     EntityRef Status;         // a UI text for messages
+    EntityRef StatusPanel;    // its background (shown while there is a message)
     float ChaseSpeed = 4.6f;
     float SearchTime = 4.0f;  // s looking round where it lost the hero
     float CatchDistance = 1.3f;
@@ -170,6 +171,8 @@ private:
         status.GetComponent<TextComponent>().Text = text;
         m_Said = !text.empty();
         m_SayTimer = 3.0f;
+        if (Entity panel = Resolve(StatusPanel))
+            panel.SetActive(m_Said);
     }
 
     StateMachine m_AI;
@@ -183,6 +186,7 @@ private:
 ZM_REGISTER_SCRIPT(IslandGuard, ZM_FIELD(IslandGuard, Model).Label("Model").Tooltip("Robot modeli turgan bola obyekt (Animator)"),
                    ZM_FIELD(IslandGuard, Lamp).Label("Chiroq").Tooltip("Boshidagi chiroq: holat rangida yonadi"),
                    ZM_FIELD(IslandGuard, Status).Label("Xabar matni").Tooltip("Ekrandagi UI matn"),
+                   ZM_FIELD(IslandGuard, StatusPanel).Label("Xabar paneli").Tooltip("Xabar bor paytda ko'rinadigan fon"),
                    ZM_FIELD_RANGE(IslandGuard, ChaseSpeed, 0.5f, 12.0f).Label("Ta'qib tezligi"),
                    ZM_FIELD_RANGE(IslandGuard, SearchTime, 0.0f, 30.0f).Label("Qidiruv vaqti (s)"),
                    ZM_FIELD_RANGE(IslandGuard, CatchDistance, 0.2f, 5.0f).Label("Ushlash masofasi"),

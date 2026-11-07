@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/AI/Formation.h"
 #include "Zamin/Math/Easing.h"
 #include "Zamin/Math/Geometry.h"
 #include "Zamin/Math/MathUtils.h"
@@ -543,6 +544,21 @@ namespace Zamin {
         bool IsWaitingAtPatrolPoint() const;
         // Straight to waypoint `index` (it goes on from there).
         bool SetPatrolPoint(int index);
+
+        // ---- formations (a Formation on this entity: it leads the group; or this entity is a member)
+        // The leader's shape: Line, Column, Wedge or Circle (the members take their new slots). False
+        // without a Formation.
+        //   if (CanSeeTarget()) SetFormationShape(FormationShape::Line);
+        bool SetFormationShape(FormationShape shape);
+        FormationShape GetFormationShape() const;
+        // Members of the leader's list (False: already in / not in it, or the list is full).
+        bool AddFormationMember(Entity member);
+        bool RemoveFormationMember(Entity member);
+        // Every member of this leader's formation stands in its slot.
+        bool IsFormationInPlace() const;
+        // A member: the leader whose formation it is in (none: an empty entity), and its slot there.
+        Entity GetFormationLeader() const;
+        bool GetFormationSlot(glm::vec3& slot) const;
 
         // ---- AI state machines (AI/StateMachine.h)
         // The inspector shows the machine's state while playing (C++ Skript > AI). The machine must

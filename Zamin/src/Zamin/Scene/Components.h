@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Zamin/AI/Formation.h"
 #include "Zamin/AI/NavGrid.h"
 #include "Zamin/AI/NavPathfinder.h"
 #include "Zamin/Audio/AudioMixer.h"
@@ -1673,6 +1674,66 @@ namespace Zamin {
         }
     };
 
+    // A group that moves together (AI/Formation.h), on its leader: the Members (and the active
+    // entities tagged MemberTag) keep to slots round it - Line (side by side with it), Column (in a
+    // file behind it), Wedge (a V behind it, WedgeAngle open) or Circle (a ring round it that does
+    // not turn with it; its members face outwards) - Spacing apart, turned the way the leader goes
+    // (standing: the way it went last; at the start: the way it faces). Members with a Nav Agent walk
+    // to their slots on its grid (sent again every UpdateInterval while the slots move: give them a
+    // little more speed than the leader's); without one they move straight at Speed. With KeepOnGrid
+    // a slot in a blocked cell moves to the nearest walkable one, and one behind a wall comes in
+    // towards the leader. Each member takes the slot that makes the least walking in all
+    // (AssignNearest; else the list's order) - again when the shape, the members or the heading
+    // change a lot. A member in its slot (SlotTolerance) turns the way the formation faces.
+    // Scripts: SetFormationShape, AddFormationMember / RemoveFormationMember, IsFormationInPlace.
+    struct FormationComponent
+    {
+        static constexpr size_t MaxMembers = 64;
+
+        FormationShape Shape = FormationShape::Wedge;
+        float Spacing = 1.5f;             // between neighbouring members (units)
+        float WedgeAngle = 90.0f;         // Wedge: degrees, how wide the V opens
+        std::vector<EntityRef> Members;
+        std::string MemberTag;            // not empty: also every active entity with this tag
+        bool AssignNearest = true;        // slots by the least walking (else in the list's order)
+        bool FaceHeading = true;          // members in their slot turn the way the formation faces
+        bool KeepOnGrid = true;           // slots kept on the nav grid's walkable cells, in the leader's sight
+        float UpdateInterval = 0.25f;     // s: how often Nav Agent members are sent to their moved slots
+        float SlotTolerance = 0.35f;      // how near its slot a member counts as in place (planar)
+        float Speed = 3.0f;               // members without a Nav Agent: units / s
+
+        // runtime (read by scripts; cleared when play starts / stops)
+        std::vector<UUID> SlotMembers;    // the member of each slot
+        std::vector<glm::vec3> Slots;     // where the slots are (world), as of the last update
+        std::vector<glm::vec3> Issued;    // where each slot's Nav Agent member was last sent
+        glm::vec2 Heading{ 0.0f };        // where the formation faces, on the plane (unit; 0: not yet)
+        glm::vec2 AssignedHeading{ 0.0f }; // the heading when the slots were last handed out
+        glm::vec3 LastLeaderPosition{ 0.0f };
+        FormationShape AssignedShape = FormationShape::Wedge;
+        uint64_t MemberSignature = 0;     // of the members the slots were handed out to
+        bool Started = false;
+        bool LeaderMoving = false;
+        float Timer = 0.0f;               // s until Nav Agent members are sent again
+        int InPlace = 0;                  // members in their slot at the last update
+        uint32_t Assignments = 0;         // times the slots were handed out
+
+        bool IsInPlace() const { return !SlotMembers.empty() && InPlace >= (int)SlotMembers.size(); }
+        void ResetRuntime()
+        {
+            SlotMembers.clear();
+            Slots.clear();
+            Issued.clear();
+            Heading = AssignedHeading = glm::vec2(0.0f);
+            LastLeaderPosition = glm::vec3(0.0f);
+            AssignedShape = FormationShape::Wedge;
+            MemberSignature = 0;
+            Started = LeaderMoving = false;
+            Timer = 0.0f;
+            InPlace = 0;
+            Assignments = 0;
+        }
+    };
+
     // ------------------------------------------------------------------ particles
     // A particle emitter: the settings of a system simulated by the scene (ParticleSystem.h:
     // ParticleSimulation) and drawn as camera-facing quads / circles. The optional modules
@@ -3220,7 +3281,7 @@ namespace Zamin {
         CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
-        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, SplineComponent, SplineFollowerComponent, NavGrid2DComponent, NavGrid3DComponent, NavAgentComponent, NavObstacleComponent, SightSensorComponent, PatrolPathComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
+        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, SplineComponent, SplineFollowerComponent, NavGrid2DComponent, NavGrid3DComponent, NavAgentComponent, NavObstacleComponent, SightSensorComponent, PatrolPathComponent, FormationComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
         UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
         UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
         UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, FootstepsComponent,

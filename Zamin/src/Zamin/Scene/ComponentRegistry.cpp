@@ -69,6 +69,7 @@ namespace Zamin {
             MakeTypeInfo<NavObstacleComponent>(),
             MakeTypeInfo<SightSensorComponent>(),
             MakeTypeInfo<PatrolPathComponent>(),
+            MakeTypeInfo<FormationComponent>(),
             MakeTypeInfo<ParticleSystemComponent>(),
             MakeTypeInfo<UITransformComponent>(),
             MakeTypeInfo<UICanvasComponent>(),

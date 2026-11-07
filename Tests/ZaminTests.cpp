@@ -6962,10 +6962,11 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NavObstacleComponent>();
     e.AddComponent<SightSensorComponent>();
     e.AddComponent<PatrolPathComponent>();
+    e.AddComponent<FormationComponent>();
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 73);
+    CHECK(types.size() == 74);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -42931,5 +42932,350 @@ TEST(BehaviorTreeDecoratorsParallelAndBlackboard)
         tree.Reset();
         CHECK(tree.GetTickIndex() == 0 && tree.GetStatus() == BTStatus::Invalid && tree.GetActivePath().empty());
         CHECK(std::string(BTStatusName(BTStatus::Running)) == "Running" && std::string(BTStatusName(BTStatus::Invalid)) == "Invalid");
+    }
+}
+
+TEST(FormationSlotsAndAssignment)
+{
+    std::vector<glm::vec2> o;
+    // Line: right, left, right, left ... beside the leader, Spacing apart.
+    Formation::ComputeOffsets({ FormationShape::Line, 2.0f }, 4, o);
+    CHECK((o == std::vector<glm::vec2>{ { 2.0f, 0.0f }, { -2.0f, 0.0f }, { 4.0f, 0.0f }, { -4.0f, 0.0f } }));
+    // Column: behind it in a file.
+    Formation::ComputeOffsets({ FormationShape::Column, 1.5f }, 3, o);
+    CHECK((o == std::vector<glm::vec2>{ { 0.0f, -1.5f }, { 0.0f, -3.0f }, { 0.0f, -4.5f } }));
+    // Wedge: two wings back at half the angle each side, Spacing apart along a wing.
+    Formation::ComputeOffsets({ FormationShape::Wedge, 1.0f, 90.0f }, 4, o);
+    CHECK(o.size() == 4);
+    CHECK_NEAR(o[0].x, std::sqrt(0.5f), 1e-5f);
+    CHECK_NEAR(o[0].y, -std::sqrt(0.5f), 1e-5f);
+    CHECK_NEAR(o[1].x, -std::sqrt(0.5f), 1e-5f);
+    CHECK_NEAR(glm::length(o[2] - o[0]), 1.0f, 1e-5f);
+    CHECK(o[2].y < o[0].y && o[3].x < 0.0f);
+    Formation::ComputeOffsets({ FormationShape::Wedge, 1.0f, 60.0f }, 2, o);
+    CHECK_NEAR(std::atan2(o[0].x, -o[0].y), glm::radians(30.0f), 1e-4f);
+    Formation::ComputeOffsets({ FormationShape::Wedge, 1.0f, 500.0f }, 2, o); // clamped to 170
+    CHECK_NEAR(std::atan2(o[0].x, -o[0].y), glm::radians(85.0f), 1e-4f);
+    // Circle: evenly round, the first ahead; small groups at least Spacing out, big ones Spacing apart.
+    Formation::ComputeOffsets({ FormationShape::Circle, 1.0f }, 4, o);
+    CHECK(o.size() == 4);
+    CHECK_NEAR(o[0].x, 0.0f, 1e-5f);
+    CHECK_NEAR(o[0].y, 1.0f, 1e-5f);
+    CHECK_NEAR(o[1].x, 1.0f, 1e-5f);
+    for (const glm::vec2& p : o)
+        CHECK_NEAR(glm::length(p), 1.0f, 1e-5f);
+    Formation::ComputeOffsets({ FormationShape::Circle, 1.0f }, 20, o);
+    CHECK_NEAR(glm::length(o[1] - o[0]), 2.0f * Formation::CircleRadius(1.0f, 20) * std::sin(glm::pi<float>() / 20.0f), 1e-4f);
+    CHECK_NEAR(Formation::CircleRadius(1.0f, 20), 20.0f / glm::two_pi<float>(), 1e-5f);
+    // Counts are clamped; nonsense spacing does not explode.
+    Formation::ComputeOffsets({ FormationShape::Line, 1.0f }, -3, o);
+    CHECK(o.empty());
+    Formation::ComputeOffsets({ FormationShape::Line, 1.0f }, 100000, o);
+    CHECK((int)o.size() == Formation::MaxSlots);
+    Formation::ComputeOffsets({ FormationShape::Line, std::numeric_limits<float>::quiet_NaN() }, 2, o);
+    CHECK(std::isfinite(o[0].x) && std::isfinite(o[1].x));
+    CHECK(std::string(FormationShapeName(FormationShape::Circle)) == "Circle");
+    // ToWorld: the offset turned by the frame (3D seen from above: ahead -Z, right +X).
+    CHECK(Formation::ToWorld({ 1.0f, 1.0f }, { 0.0f, -1.0f }, { 1.0f, 0.0f }, { 2.0f, 3.0f }) == glm::vec2(3.0f, -2.0f));
+
+    // The assignment with the least total distance: the same as trying every permutation.
+    RandomGenerator random(77);
+    for (int round = 0; round < 40; round++)
+    {
+        const int n = 2 + round % 5;
+        std::vector<glm::vec2> members, slots;
+        for (int i = 0; i < n; i++)
+        {
+            members.push_back(random.InsideUnitCircle() * 10.0f);
+            slots.push_back(random.InsideUnitCircle() * 10.0f);
+        }
+        std::vector<int> assignment;
+        Formation::AssignSlots(members, slots, assignment);
+        std::vector<int> used = assignment;
+        std::sort(used.begin(), used.end());
+        bool permutation = true;
+        for (int i = 0; i < n; i++)
+            permutation = permutation && used[(size_t)i] == i;
+        CHECK(permutation);
+        std::vector<int> order(n);
+        for (int i = 0; i < n; i++)
+            order[(size_t)i] = i;
+        float best = std::numeric_limits<float>::max();
+        do
+            best = std::min(best, Formation::AssignmentCost(members, slots, order));
+        while (std::next_permutation(order.begin(), order.end()));
+        CHECK_NEAR(Formation::AssignmentCost(members, slots, assignment), best, 1e-3f);
+    }
+    // Members on a line and slots crossing over: no crossing in the result (each takes its own side).
+    {
+        const std::vector<glm::vec2> members = { { -1.0f, 0.0f }, { 1.0f, 0.0f } }, slots = { { 1.0f, 1.0f }, { -1.0f, 1.0f } };
+        std::vector<int> a;
+        Formation::AssignSlots(members, slots, a);
+        CHECK((a == std::vector<int>{ 1, 0 }));
+    }
+    // Fewer members than slots: some slots empty; more members: some without a slot; big groups too.
+    {
+        std::vector<int> a;
+        Formation::AssignSlots(std::vector<glm::vec2>{ { 5.0f, 0.0f } }, std::vector<glm::vec2>{ { 0.0f, 0.0f }, { 5.0f, 0.0f } }, a);
+        CHECK((a == std::vector<int>{ -1, 0 }));
+        Formation::AssignSlots(std::vector<glm::vec2>{ { 0.0f, 0.0f }, { 9.0f, 0.0f }, { 5.0f, 0.0f } }, std::vector<glm::vec2>{ { 5.1f, 0.0f } }, a);
+        CHECK((a == std::vector<int>{ 2 }));
+        Formation::AssignSlots({}, std::vector<glm::vec2>{ { 0.0f, 0.0f } }, a);
+        CHECK((a == std::vector<int>{ -1 }));
+        std::vector<glm::vec2> many, manySlots;
+        for (int i = 0; i < 80; i++)
+        {
+            many.push_back({ (float)i, 0.0f });
+            manySlots.push_back({ (float)(79 - i), 0.5f });
+        }
+        Formation::AssignSlots(many, manySlots, a);
+        std::set<int> distinct(a.begin(), a.end());
+        CHECK(a.size() == 80 && distinct.size() == 80 && !distinct.count(-1));
+        CHECK(Formation::AssignmentCost(many, manySlots, a) < 80.0f * 0.6f); // the nearest: straight across
+    }
+}
+
+TEST(FormationMembersFollowTheLeader)
+{
+    // 3D, no grid: the members (no Nav Agent) move straight to their slots behind a walking leader.
+    auto scene = CreateRef<Scene>();
+    Entity leader = scene->CreateEntity("Leader");
+    leader.GetTransform().Rotation.y = glm::radians(-90.0f); // faces +X (its -Z turned)
+    auto& f = leader.AddComponent<FormationComponent>();
+    f.Shape = FormationShape::Wedge;
+    f.Spacing = 2.0f;
+    f.Speed = 4.0f;
+    std::vector<Entity> members;
+    for (int i = 0; i < 4; i++)
+    {
+        Entity m = scene->CreateEntity(std::format("Member {}", i));
+        m.GetTransform().Translation = { -1.0f - (float)i, 0.0f, (i % 2 == 0 ? 3.0f : -3.0f) };
+        members.push_back(m);
+        CHECK(scene->AddFormationMember(leader, m));
+    }
+    CHECK(!scene->AddFormationMember(leader, members[0]) && !scene->AddFormationMember(leader, leader));
+    // In the editor (not running): the slots from the leader's facing, handed out by nearness.
+    std::vector<glm::vec3> slots;
+    std::vector<Entity> who;
+    CHECK(scene->GetFormationSlots(leader, slots, &who) && slots.size() == 4 && who.size() == 4);
+    for (const glm::vec3& s : slots)
+        CHECK(s.x < -0.5f); // behind a leader facing +X
+    std::set<uint64_t> distinctMembers;
+    for (Entity m : who)
+        distinctMembers.insert((uint64_t)m.GetUUID());
+    CHECK(distinctMembers.size() == 4);
+    // Right of a leader facing +X (seen from above): +Z.
+    CHECK(slots[0].z > 0.5f && slots[1].z < -0.5f);
+
+    scene->OnRuntimeStart();
+    const float dt = 1.0f / 60.0f;
+    for (int i = 0; i < 180; i++)
+    {
+        leader.GetTransform().Translation.x += 1.5f * dt; // walks along +X
+        scene->OnUpdateRuntime(dt);
+    }
+    CHECK(f.Started && f.LeaderMoving && f.Assignments >= 1 && f.SlotMembers.size() == 4);
+    CHECK_NEAR(f.Heading.x, 1.0f, 1e-3f);
+    CHECK(f.InPlace == 4 && f.IsInPlace());
+    for (Entity m : members)
+    {
+        glm::vec3 slot;
+        CHECK(scene->GetFormationSlot(m, slot));
+        CHECK(glm::length(glm::vec2(scene->GetWorldPosition(m).x - slot.x, scene->GetWorldPosition(m).z - slot.z)) <= f.SlotTolerance + 0.05f);
+        CHECK(scene->GetFormationLeader(m) == leader);
+        CHECK(scene->GetWorldPosition(m).x < leader.GetTransform().Translation.x - 1.0f);
+    }
+    CHECK(!scene->GetFormationLeader(leader));
+
+    // A new shape: handed out again; the line stands beside the leader.
+    const uint32_t before = f.Assignments;
+    CHECK(scene->SetFormationShape(leader, FormationShape::Line));
+    for (int i = 0; i < 180; i++)
+        scene->OnUpdateRuntime(dt);
+    CHECK(f.Assignments == before + 1 && f.IsInPlace());
+    for (Entity m : members)
+        CHECK_NEAR(scene->GetWorldPosition(m).x, leader.GetTransform().Translation.x, f.SlotTolerance + 0.05f);
+    // Standing: members face the formation's way (+X: rotation y = -90 degrees).
+    for (int i = 0; i < 60; i++)
+        scene->OnUpdateRuntime(dt);
+    CHECK(!f.LeaderMoving);
+    for (Entity m : members)
+        CHECK_NEAR(m.GetTransform().Rotation.y, glm::radians(-90.0f), 1e-3f);
+    // A ring: the members face outwards.
+    scene->SetFormationShape(leader, FormationShape::Circle);
+    for (int i = 0; i < 240; i++)
+        scene->OnUpdateRuntime(dt);
+    CHECK(f.IsInPlace());
+    for (Entity m : members)
+    {
+        const glm::vec3 out = scene->GetWorldPosition(m) - leader.GetTransform().Translation;
+        CHECK_NEAR(glm::length(glm::vec2(out.x, out.z)), 2.0f, f.SlotTolerance + 0.05f);
+        const float facing = m.GetTransform().Rotation.y;
+        const glm::vec2 forward(-std::sin(facing), -std::cos(facing));
+        CHECK(glm::dot(forward, glm::normalize(glm::vec2(out.x, out.z))) > 0.95f);
+    }
+    // A member leaves: the others take the slots again; an inactive one does not count.
+    CHECK(scene->RemoveFormationMember(leader, members[3]) && !scene->RemoveFormationMember(leader, members[3]));
+    members[2].GetComponent<TagComponent>().Active = false;
+    scene->OnUpdateRuntime(dt);
+    CHECK(f.SlotMembers.size() == 2 && scene->GetFormationMembers(leader).size() == 2);
+    members[2].GetComponent<TagComponent>().Active = true;
+    // MemberTag: tagged entities join.
+    Entity tagged = scene->CreateEntity("Tagged");
+    tagged.AddComponent<TagsComponent>().Tags = { "Askar" };
+    f.MemberTag = "Askar";
+    scene->OnUpdateRuntime(dt);
+    CHECK(f.SlotMembers.size() == 4);
+    scene->OnRuntimeStop();
+}
+
+TEST(FormationWithNavAgentsOnGrid)
+{
+    // 2D: a wall across most of the map; the leader walks along it, its members (Nav Agents) keep a
+    // column / line - slots inside the wall move onto walkable cells.
+    auto scene = CreateRef<Scene>();
+    scene->GetSettings().Gravity = { 0.0f, 0.0f };
+    Entity map = scene->CreateEntity("Map");
+    map.GetTransform().Translation = { -10.0f, -10.0f, 0.0f };
+    auto& tm = map.AddComponent<TilemapComponent>();
+    tm.Width = tm.Height = 20;
+    tm.EnsureSize();
+    for (int x = 0; x < 20; x++)
+        tm.Set(x, 12, 0); // a wall at y = 2..3
+    Entity nav = scene->CreateEntity("Nav");
+    nav.AddComponent<NavGrid2DComponent>().AgentRadius = 0.3f;
+    Entity leader = scene->CreateEntity("Leader");
+    leader.GetTransform().Translation = { -6.0f, 0.5f, 0.0f };
+    auto& leaderAgent = leader.AddComponent<NavAgentComponent>();
+    leaderAgent.Speed = 1.5f;
+    auto& f = leader.AddComponent<FormationComponent>();
+    f.Shape = FormationShape::Line;
+    f.Spacing = 1.5f;
+    std::vector<Entity> members;
+    for (int i = 0; i < 4; i++)
+    {
+        Entity m = scene->CreateEntity(std::format("Soldier {}", i));
+        m.GetTransform().Translation = { -8.0f + (float)i, -3.0f, 0.0f };
+        auto& a = m.AddComponent<NavAgentComponent>();
+        a.Speed = 3.0f;
+        a.StoppingDistance = 0.1f;
+        f.Members.push_back(EntityRef{ (uint64_t)m.GetUUID() });
+        members.push_back(m);
+    }
+    // Line beside a leader facing +X (2D: right is -Y): slots at y = 0.5 -/+ 1.5, 3.0 - the ones up
+    // in the wall (y 2..3) are moved off it.
+    scene->OnRuntimeStart();
+    const NavGrid* grid = scene->GetNavGrid(nav, 2);
+    CHECK(grid != nullptr);
+    if (!grid)
+        return;
+    leaderAgent.SetDestination({ 6.0f, 0.5f, 0.0f });
+    bool slotsWalkable = true;
+    int inPlaceFrames = 0;
+    for (int frame = 0; frame < 900; frame++)
+    {
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        for (const glm::vec3& s : f.Slots)
+            slotsWalkable = slotsWalkable && grid->IsWalkable(grid->WorldToCell(glm::vec2(s)));
+        inPlaceFrames += f.IsInPlace() ? 1 : 0;
+    }
+    CHECK(slotsWalkable && f.Slots.size() == 4);
+    CHECK(!leaderAgent.IsMoving() && f.IsInPlace() && inPlaceFrames > 60);
+    for (Entity m : members)
+    {
+        const glm::vec3 p = scene->GetWorldPosition(m);
+        CHECK(p.x > 4.0f && grid->IsWalkable(grid->WorldToCell(glm::vec2(p))));
+        CHECK(m.GetComponent<NavAgentComponent>().PathRequests >= 2);
+    }
+    // Slots that would be in the wall are not: everyone is below it.
+    for (const glm::vec3& s : f.Slots)
+        CHECK(s.y < 2.0f);
+    // A copy of the running scene (the editor's play copy) starts with no runtime state.
+    Ref<Scene> copy = Scene::Copy(scene);
+    Entity copiedLeader = copy->FindEntityByName("Leader");
+    CHECK(copiedLeader && copiedLeader.GetComponent<FormationComponent>().Slots.empty());
+    CHECK(copiedLeader && !copiedLeader.GetComponent<FormationComponent>().Started && copiedLeader.GetComponent<FormationComponent>().Assignments == 0);
+    scene->OnRuntimeStop();
+}
+
+TEST(FormationSerializationAndCopies)
+{
+    auto scene = CreateRef<Scene>();
+    Entity group = scene->CreateEntity("Group");
+    Entity leader = scene->CreateEntity("Leader");
+    scene->SetParent(leader, group);
+    Entity a = scene->CreateEntity("A"), b = scene->CreateEntity("B");
+    scene->SetParent(a, group);
+    scene->SetParent(b, group);
+    auto& f = leader.AddComponent<FormationComponent>();
+    f.Shape = FormationShape::Circle;
+    f.Spacing = 2.25f;
+    f.WedgeAngle = 70.0f;
+    f.Members = { EntityRef{ (uint64_t)a.GetUUID() }, EntityRef{ (uint64_t)b.GetUUID() } };
+    f.MemberTag = "Askar";
+    f.AssignNearest = false;
+    f.FaceHeading = false;
+    f.KeepOnGrid = false;
+    f.UpdateInterval = 0.5f;
+    f.SlotTolerance = 0.2f;
+    f.Speed = 5.5f;
+    f.Assignments = 7; // runtime: not saved
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(text));
+    Entity l = loaded->FindEntityByName("Leader");
+    CHECK(l && l.HasComponent<FormationComponent>());
+    if (l && l.HasComponent<FormationComponent>())
+    {
+        const auto& c = l.GetComponent<FormationComponent>();
+        CHECK(c.Shape == FormationShape::Circle && c.Spacing == 2.25f && c.WedgeAngle == 70.0f && c.Members == f.Members);
+        CHECK(c.MemberTag == "Askar" && !c.AssignNearest && !c.FaceHeading && !c.KeepOnGrid && c.UpdateInterval == 0.5f);
+        CHECK(c.SlotTolerance == 0.2f && c.Speed == 5.5f && c.Assignments == 0);
+        CHECK(loaded->GetFormationMembers(l).size() == 2);
+    }
+    // The binary cache too.
+    {
+        auto binary = CreateRef<Scene>();
+        const std::vector<uint8_t> bytes = SceneSerializer(scene).SerializeToBinary();
+        CHECK(!bytes.empty() && SceneSerializer(binary).DeserializeFromBinary(bytes));
+        Entity lb = binary->FindEntityByName("Leader");
+        CHECK(lb && lb.HasComponent<FormationComponent>() && lb.GetComponent<FormationComponent>().Members.size() == 2);
+    }
+    // Defaults and bad values.
+    {
+        auto plain = CreateRef<Scene>();
+        plain->CreateEntity("P").AddComponent<FormationComponent>();
+        std::string t = SceneSerializer(plain).SerializeToString();
+        auto back = CreateRef<Scene>();
+        CHECK(SceneSerializer(back).DeserializeFromString(t));
+        const auto& d = back->FindEntityByName("P").GetComponent<FormationComponent>();
+        CHECK(d.Shape == FormationShape::Wedge && d.Spacing == 1.5f && d.WedgeAngle == 90.0f && d.Members.empty() && d.AssignNearest);
+        const size_t at = t.find("\"Wedge\"");
+        CHECK(at != std::string::npos);
+        if (at != std::string::npos)
+            t.replace(at, 7, "\"Spiral\"");
+        const size_t angle = t.find("\"WedgeAngle\": 90.0");
+        if (angle != std::string::npos)
+            t.replace(angle, 18, "\"WedgeAngle\": 999.0");
+        auto bad = CreateRef<Scene>();
+        CHECK(SceneSerializer(bad).DeserializeFromString(t));
+        const auto& e = bad->FindEntityByName("P").GetComponent<FormationComponent>();
+        CHECK(e.Shape == FormationShape::Wedge && e.WedgeAngle == 170.0f);
+    }
+    // A copy of the group: its leader leads the copied members; its runtime is its own.
+    Entity copy = scene->DuplicateEntity(group);
+    Entity copyLeader, copyA;
+    for (Entity child : scene->GetChildren(copy))
+    {
+        if (child.GetName() == "Leader")
+            copyLeader = child;
+        if (child.GetName() == "A")
+            copyA = child;
+    }
+    CHECK(copyLeader && copyA);
+    if (copyLeader && copyA)
+    {
+        const auto& c = copyLeader.GetComponent<FormationComponent>();
+        CHECK(c.Members.size() == 2 && c.Members[0].ID == (uint64_t)copyA.GetUUID() && c.Assignments == 0);
     }
 }

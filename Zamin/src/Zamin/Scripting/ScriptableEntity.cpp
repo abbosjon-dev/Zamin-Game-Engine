@@ -1286,6 +1286,44 @@ namespace Zamin {
         return m_Entity.GetScene()->SetPatrolWaypoint(m_Entity, index);
     }
 
+    // ------------------------------------------------------------------ formations
+    bool ScriptableEntity::SetFormationShape(FormationShape shape)
+    {
+        return m_Entity.GetScene()->SetFormationShape(m_Entity, shape);
+    }
+
+    FormationShape ScriptableEntity::GetFormationShape() const
+    {
+        const auto* c = m_Entity.HasComponent<FormationComponent>() ? &m_Entity.GetComponent<FormationComponent>() : nullptr;
+        return c ? c->Shape : FormationShape::Wedge;
+    }
+
+    bool ScriptableEntity::AddFormationMember(Entity member)
+    {
+        return m_Entity.GetScene()->AddFormationMember(m_Entity, member);
+    }
+
+    bool ScriptableEntity::RemoveFormationMember(Entity member)
+    {
+        return m_Entity.GetScene()->RemoveFormationMember(m_Entity, member);
+    }
+
+    bool ScriptableEntity::IsFormationInPlace() const
+    {
+        const auto* c = m_Entity.HasComponent<FormationComponent>() ? &m_Entity.GetComponent<FormationComponent>() : nullptr;
+        return c && c->IsInPlace();
+    }
+
+    Entity ScriptableEntity::GetFormationLeader() const
+    {
+        return m_Entity.GetScene()->GetFormationLeader(m_Entity);
+    }
+
+    bool ScriptableEntity::GetFormationSlot(glm::vec3& slot) const
+    {
+        return m_Entity.GetScene()->GetFormationSlot(m_Entity, slot);
+    }
+
     // ------------------------------------------------------------------ AI state machines
     void ScriptableEntity::WatchStateMachine(const StateMachine& machine)
     {

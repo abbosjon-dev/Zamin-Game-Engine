@@ -247,6 +247,7 @@ namespace Zamin {
     static const char* const s_NavObstacleShapes[] = { "Box", "Circle" };
     static const char* const s_PatrolSources[] = { "Points", "Children", "Spline" };
     static const char* const s_PatrolModes[] = { "Loop", "PingPong", "Random", "Once" };
+    static const char* const s_FormationShapes[] = { "Line", "Column", "Wedge", "Circle" };
     static const char* const s_UIContentTypes[] = { "Standard", "Integer", "Decimal", "Alphanumeric", "Password" };
     static const char* const s_UIScaleModes[] = { "ConstantPixelSize", "ScaleWithScreenSize" };
     static const char* const s_UIScreenMatchModes[] = { "MatchWidthOrHeight", "Expand", "Shrink" };
@@ -1585,6 +1586,16 @@ namespace Zamin {
                                 { "ArriveDistance", c->ArriveDistance }, { "Speed", c->Speed }, { "FaceMovement", c->FaceMovement },
                                 { "StartAtNearest", c->StartAtNearest }, { "PlayOnStart", c->PlayOnStart } };
         }
+        if (auto* c = entity.TryGetComponent<FormationComponent>())
+        {
+            json members = json::array();
+            for (const EntityRef& m : c->Members)
+                members.push_back(m.ID);
+            e["Formation"] = { { "Shape", EnumName(c->Shape, s_FormationShapes) }, { "Spacing", c->Spacing }, { "WedgeAngle", c->WedgeAngle },
+                               { "Members", std::move(members) }, { "MemberTag", c->MemberTag }, { "AssignNearest", c->AssignNearest },
+                               { "FaceHeading", c->FaceHeading }, { "KeepOnGrid", c->KeepOnGrid }, { "UpdateInterval", c->UpdateInterval },
+                               { "SlotTolerance", c->SlotTolerance }, { "Speed", c->Speed } };
+        }
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
             e["ParticleSystem"] = ParticleSystemToJson(*c);
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
@@ -2749,6 +2760,25 @@ namespace Zamin {
             c.FaceMovement = j.value("FaceMovement", true);
             c.StartAtNearest = j.value("StartAtNearest", true);
             c.PlayOnStart = j.value("PlayOnStart", true);
+        }
+        if (auto it = e.find("Formation"); it != e.end() && it->is_object())
+        {
+            const json& j = *it;
+            auto& c = entity.AddComponent<FormationComponent>();
+            c.Shape = EnumFromJson(j, "Shape", s_FormationShapes, c.Shape);
+            c.Spacing = std::clamp(Number(j, "Spacing", c.Spacing), 0.0f, 1e3f);
+            c.WedgeAngle = std::clamp(Number(j, "WedgeAngle", c.WedgeAngle), 10.0f, 170.0f);
+            if (auto members = j.find("Members"); members != j.end() && members->is_array())
+                for (const json& m : *members)
+                    if (m.is_number_unsigned() && m.get<uint64_t>() != 0 && c.Members.size() < FormationComponent::MaxMembers)
+                        c.Members.push_back(EntityRef{ m.get<uint64_t>() });
+            c.MemberTag = j.value("MemberTag", std::string());
+            c.AssignNearest = j.value("AssignNearest", true);
+            c.FaceHeading = j.value("FaceHeading", true);
+            c.KeepOnGrid = j.value("KeepOnGrid", true);
+            c.UpdateInterval = std::clamp(Number(j, "UpdateInterval", c.UpdateInterval), 0.0f, 60.0f);
+            c.SlotTolerance = std::clamp(Number(j, "SlotTolerance", c.SlotTolerance), 0.01f, 100.0f);
+            c.Speed = std::clamp(Number(j, "Speed", c.Speed), 0.0f, 1e4f);
         }
         if (e.contains("ParticleSystem"))
             ParticleSystemFromJson(e["ParticleSystem"], entity.AddComponent<ParticleSystemComponent>());

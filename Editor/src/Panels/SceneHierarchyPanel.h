@@ -407,6 +407,7 @@ namespace Zamin {
         bool DrawNavObstacle(Entity entity, NavObstacleComponent& c);
         bool DrawSightSensor(Entity entity, SightSensorComponent& c);
         bool DrawPatrolPath(Entity entity, PatrolPathComponent& c);
+        bool DrawFormation(Entity entity, FormationComponent& c);
         // 2D joints: the connected body (with what keeps the joint from being made), the anchors and
         // the break limits; the type's own settings follow in its section, then the live read-outs.
         // `type`: which joint it is (the viewport editing toggle).

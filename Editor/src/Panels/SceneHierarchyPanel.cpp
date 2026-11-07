@@ -1480,7 +1480,7 @@ namespace Zamin {
             { "MeshCollider3D", "Mesh Collider 3D" },
             { "FixedJoint3D", "Fixed Joint 3D" }, { "HingeJoint3D", "Hinge Joint 3D" }, { "DistanceJoint3D", "Distance Joint 3D" },
             { "SliderJoint3D", "Slider Joint 3D" }, { "ConeJoint3D", "Cone Joint 3D" }, { "CharacterController3D", "Character Controller 3D" },
-            { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "Spline", "Spline" }, { "SplineFollower", "Spline Follower" }, { "NavGrid2D", "NavGrid 2D" }, { "NavGrid3D", "NavGrid 3D" }, { "NavAgent", "Nav Agent" }, { "NavObstacle", "Nav Obstacle" }, { "SightSensor", "Sight Sensor" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
+            { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "Spline", "Spline" }, { "SplineFollower", "Spline Follower" }, { "NavGrid2D", "NavGrid 2D" }, { "NavGrid3D", "NavGrid 3D" }, { "NavAgent", "Nav Agent" }, { "NavObstacle", "Nav Obstacle" }, { "SightSensor", "Sight Sensor" }, { "PatrolPath", "Patrol Path" }, { "Formation", "Formation" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
             { "UICanvas", "UI Canvas" }, { "UILayoutGroup", "UI Layout Group" }, { "UILayoutElement", "UI Layout Element" }, { "UINavigation", "UI Navigation" },
             { "UIButton", "UI Button" }, { "UIImage", "UI Image" }, { "UISlider", "UI Slider" }, { "UIToggle", "UI Toggle" },
             { "UIProgressBar", "UI Progress Bar" }, { "UIInputField", "UI Input Field" }, { "UIMask", "UI Mask" }, { "UIScrollView", "UI Scroll View" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "AmbientZone", "Ambient Zone" },
@@ -3323,6 +3323,136 @@ namespace Zamin {
             if (ImGui::Button(Tr(ICON_FA_FORWARD_STEP "  Keyingi nuqta")))
                 m_Context->SetPatrolWaypoint(entity, points.empty() ? 0 : (std::max(0, c.Current) + 1) % (int)points.size());
             ImGui::EndDisabled();
+        }
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::DrawFormation(Entity entity, FormationComponent& c)
+    {
+        bool changed = false;
+        InactiveComponentNote(entity, "Obyekt nofaol: guruh yurmaydi");
+
+        UI::PropertyHeader("Shakl", "A'zolar boshliq (shu obyekt) atrofida qanday turadi. Gizmo'lar > Navigatsiya - joylar, yo'nalish va kim qayerga");
+        static const char* const s_Shapes[] = { "Qator", "Kolonna", "Pona", "Doira" };
+        static const char* const s_ShapeTips[] = { "Yonma-yon, boshliq bilan bir qatorda (o'ngida, chapida, navbat bilan)",
+                                                   "Boshliq ortidan bir qator bo'lib",
+                                                   "V shaklida, boshliq uchida (ikki qanot orqaga)",
+                                                   "Boshliq atrofida halqa (boshliq bilan burilmaydi; a'zolar tashqariga qaraydi)" };
+        int shape = (int)c.Shape;
+        if (UI::PropertySegmented("Shakl", shape, s_Shapes, 4, s_ShapeTips))
+        {
+            c.Shape = (FormationShape)shape;
+            changed = true;
+        }
+        UI::PropertyLabel("Oraliq", "Qo'shni a'zolar orasidagi masofa, birlik (doira: halqa bo'ylab; boshliqdan kamida shuncha)");
+        changed |= ImGui::DragFloat("##spacing", &c.Spacing, 0.02f, 0.0f, 100.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+        if (c.Shape == FormationShape::Wedge)
+        {
+            UI::PropertyLabel("Pona burchagi", "V qanchalik ochiq: ikki qanot orasidagi burchak (gradus)");
+            changed |= ImGui::DragFloat("##wedge", &c.WedgeAngle, 0.5f, 10.0f, 170.0f, "%.0f deg", ImGuiSliderFlags_AlwaysClamp);
+        }
+
+        UI::PropertyHeader("A'zolar", "Boshliq ortidan yuradiganlar: ro'yxat va (ixtiyoriy) teg bo'yicha. Boshliqning o'zi a'zo bo'lmaydi");
+        int remove = -1;
+        for (size_t i = 0; i < c.Members.size(); i++)
+        {
+            ImGui::PushID((int)i);
+            const std::string label = std::format("  {}", i + 1);
+            changed |= DrawEntityRefField(label.c_str(), c.Members[i], "Guruh a'zosi (ierarxiyadan tortib tashlang)");
+            ImGui::SameLine(0.0f, 0.0f);
+            ImGui::PopID();
+            ImGui::PushID((int)(i + 100000));
+            if (ImGui::Button(ICON_FA_XMARK, ImVec2(ImGui::GetFrameHeight(), 0)))
+                remove = (int)i;
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("A'zoni ro'yxatdan olib tashlash");
+            ImGui::PopID();
+        }
+        if (remove >= 0)
+        {
+            c.Members.erase(c.Members.begin() + remove);
+            changed = true;
+        }
+        UI::PropertyLabel("");
+        ImGui::BeginDisabled(!m_SceneEditable || c.Members.size() >= FormationComponent::MaxMembers);
+        if (ImGui::Button(Tr(ICON_FA_PLUS "  A'zo qo'shish")))
+        {
+            c.Members.push_back({});
+            changed = true;
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip("Bo'sh qator qo'shadi: unga ierarxiyadan obyektni tortib tashlang");
+        ImGui::SameLine();
+        // The other entities selected in the hierarchy (Ctrl+click) join at once.
+        std::vector<Entity> picked;
+        for (Entity e : m_Selection.GetEntities())
+            if (e && e != entity && e.IsValid())
+                picked.push_back(e);
+        ImGui::BeginDisabled(picked.empty() || !m_Context);
+        if (ImGui::Button(Tr(ICON_FA_USERS "  Tanlanganlar")))
+            for (Entity e : picked)
+                changed |= m_Context->AddFormationMember(entity, e);
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            UI::Tooltip("Ierarxiyada (Ctrl bilan) birga tanlangan obyektlarni a'zo qilish");
+        ImGui::EndDisabled();
+        UI::PropertyLabel("Teg", "Bo'sh bo'lmasa - shu tegli har bir faol obyekt ham a'zo (masalan \"Askar\")");
+        changed |= ImGui::InputTextWithHint("##tag", Tr("(yo'q)"), &c.MemberTag);
+        const std::vector<Entity> members = m_Context ? m_Context->GetFormationMembers(entity) : std::vector<Entity>();
+        UI::PropertyLabel("");
+        if (members.empty())
+            ImGui::TextColored(ImVec4(0.95f, 0.75f, 0.3f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION "  %s", Tr("A'zolar yo'q"));
+        else
+        {
+            size_t agents = 0;
+            for (Entity m : members)
+                agents += m.HasComponent<NavAgentComponent>() ? 1 : 0;
+            ImGui::TextDisabled("%zu %s, %zu %s", members.size(), Tr("ta a'zo"), agents, Tr("tasi Nav Agent bilan"));
+        }
+
+        UI::PropertyHeader("Harakat");
+        changed |= UI::PropertyBool("Eng yaqin joyga", c.AssignNearest);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Har a'zo jami eng kam yuriladigan joyni oladi (shakl, a'zolar yoki yo'nalish ko'p o'zgarsa - qaytadan). O'chiq - ro'yxat tartibida");
+        changed |= UI::PropertyBool("Yo'nalishga qarash", c.FaceHeading);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Joyida turgan a'zo guruh qaragan tomonga buriladi (doira: tashqariga)");
+        changed |= UI::PropertyBool("Grid ichida", c.KeepOnGrid);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Nav grid'ning to'siq katagidagi joy eng yaqin yuriladigan katakka, devor ortidagisi boshliq tomonga suriladi");
+        UI::PropertyLabel("Yuborish oralig'i", "Nav Agent a'zolar joyi siljiganda shuncha soniyada bir yangi manzil oladi");
+        changed |= ImGui::DragFloat("##interval", &c.UpdateInterval, 0.01f, 0.0f, 10.0f, "%.2f s", ImGuiSliderFlags_AlwaysClamp);
+        UI::PropertyLabel("Joy chegarasi", "A'zo joyiga shuncha yaqin bo'lsa - joyida (Nav Agent: to'xtash masofasi ham qo'shiladi)");
+        changed |= ImGui::DragFloat("##tolerance", &c.SlotTolerance, 0.01f, 0.01f, 10.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+        UI::PropertyLabel("Tezlik", "Nav Agent'siz a'zolar: joyiga to'g'ri chiziq bo'ylab, birlik / soniya (Nav Agent'li - o'z tezligi bilan; "
+                                    "boshliqdan bir oz tezroq bo'lsin)");
+        changed |= ImGui::DragFloat("##speed", &c.Speed, 0.05f, 0.0f, 1000.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+
+        if (m_Context && m_Context->IsRunning())
+        {
+            UI::PropertyHeader("Jonli");
+            UI::PropertyLabel("Holat");
+            if (c.SlotMembers.empty())
+                ImGui::TextDisabled("%s", Tr("a'zolar yo'q"));
+            else if (c.IsInPlace())
+                ImGui::TextColored(ImVec4(0.45f, 0.95f, 0.5f, 1.0f), ICON_FA_CHECK "  %s (%d)", Tr("hammasi joyida"), c.InPlace);
+            else
+                ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.35f, 1.0f), ICON_FA_PERSON_WALKING "  %d / %zu %s", c.InPlace, c.SlotMembers.size(), Tr("joyida"));
+            UI::PropertyLabel("Boshliq");
+            ImGui::TextDisabled("%s, %u %s", c.LeaderMoving ? Tr("yuryapti") : Tr("turibdi"), c.Assignments, Tr("marta taqsimlandi"));
+            UI::PropertyLabel("");
+            for (int i = 0; i < 4; i++)
+            {
+                if (i > 0)
+                    ImGui::SameLine();
+                const bool current = (int)c.Shape == i;
+                if (current)
+                    ImGui::PushStyleColor(ImGuiCol_Button, UI::AccentColor());
+                if (ImGui::SmallButton(Tr(s_Shapes[i])))
+                    m_Context->SetFormationShape(entity, (FormationShape)i);
+                if (current)
+                    ImGui::PopStyleColor();
+            }
         }
         return changed;
     }
@@ -7098,6 +7228,7 @@ namespace Zamin {
                 DisplayAddComponentEntry<NavObstacleComponent>("Nav Obstacle (harakatlanuvchi to'siq)", ICON_FA_CUBE);
                 DisplayAddComponentEntry<SightSensorComponent>("Sight Sensor (ko'rish maydoni)", ICON_FA_EYE);
                 DisplayAddComponentEntry<PatrolPathComponent>("Patrol Path (nuqtalar bo'ylab patrul)", ICON_FA_SHOE_PRINTS);
+                DisplayAddComponentEntry<FormationComponent>("Formation (guruh shakli: qator, pona, doira)", ICON_FA_USERS);
                 ImGui::SeparatorText(Tr("Effektlar va UI"));
                 DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<ParallaxComponent>("Parallax", ICON_FA_MOUNTAIN);
@@ -7273,6 +7404,10 @@ namespace Zamin {
 
         AddSection<PatrolPathComponent>(ICON_FA_SHOE_PRINTS, "Patrol Path", entity, [&](PatrolPathComponent& c) {
             return DrawPatrolPath(entity, c);
+        }, true, modified);
+
+        AddSection<FormationComponent>(ICON_FA_USERS, "Formation", entity, [&](FormationComponent& c) {
+            return DrawFormation(entity, c);
         }, true, modified);
 
         AddSection<SpriteRendererComponent>(ICON_FA_IMAGE, "Sprite Renderer", entity, [&](SpriteRendererComponent& c) {

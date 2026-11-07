@@ -57,6 +57,7 @@ namespace Zamin {
         bool Obstacles = true;      // Nav Obstacles' shapes
         bool Sight = true;          // Sight Sensors' cones, what they see, where they last saw it
         bool Patrols = true;        // Patrol Paths' rounds and the point each is heading to
+        bool Formations = true;     // Formations' slots, the way they face, who goes to which slot
         bool Labels = false;        // waypoint numbers, waits (canvases with text)
         bool Running = true;        // the game runs: its live state (seen targets, the current waypoint)
         size_t MaxWalkableCells = 250000; // bigger grids never draw their walkable cells

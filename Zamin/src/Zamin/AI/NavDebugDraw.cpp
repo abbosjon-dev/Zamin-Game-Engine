@@ -1,5 +1,5 @@
 // Navigation debug drawing shared by the editor's Navigatsiya gizmo and the game's DebugDraw
-// (--debug-nav): grids, agents, obstacles, sight cones and patrol rounds.
+// (--debug-nav): grids, agents, obstacles, sight cones, patrol rounds and formations.
 #include "Zamin/AI/NavDebugDraw.h"
 
 #include "Zamin/AI/NavGrid.h"
@@ -366,6 +366,92 @@ namespace Zamin {
             }
         }
 
+
+        void DrawFormations(Scene& scene, NavDebugCanvas& canvas, const NavDebugOptions& o)
+        {
+            std::vector<glm::vec3> slots;
+            std::vector<Entity> members;
+            for (auto e : scene.GetAllEntitiesWith<FormationComponent>())
+            {
+                if (!Drawn(o, e))
+                    continue;
+                Entity leader{ e, &scene };
+                const auto& c = leader.GetComponent<FormationComponent>();
+                if (!scene.GetFormationSlots(leader, slots, &members))
+                    continue;
+                const bool selected = IsSelected(o, e);
+                const float alpha = selected || !o.Selected ? 1.0f : 0.6f;
+                const glm::vec4 color(0.35f, 0.85f, 1.0f, 0.95f * alpha), faint(0.35f, 0.85f, 1.0f, 0.4f * alpha);
+                const glm::vec4 inPlace(0.45f, 1.0f, 0.55f, 0.95f * alpha);
+                int dimension = 0;
+                if (leader.HasComponent<NavAgentComponent>())
+                    dimension = Scene::GetNavGridDimension(scene.GetNavAgentGrid(leader));
+                if (dimension == 0)
+                    dimension = scene.GetSightDimension(leader);
+                const glm::vec3 up = PlaneUp(dimension);
+                const glm::vec3 a(1.0f, 0.0f, 0.0f);
+                const glm::vec3 b = glm::normalize(glm::cross(up, a));
+                const glm::vec3 lift = dimension == 3 ? glm::vec3(0.0f, 0.08f, 0.0f) : glm::vec3(0.0f);
+                const glm::vec3 leaderPosition = scene.GetWorldPosition(leader) + lift;
+                // The way it faces: an arrow from the leader.
+                glm::vec2 heading = c.Heading;
+                if (glm::dot(heading, heading) < 1e-8f)
+                {
+                    const glm::mat4 world = scene.GetWorldTransform(leader);
+                    heading = dimension == 3 ? glm::vec2(-world[2].x, -world[2].z) : glm::vec2(world[0].x, world[0].y);
+                }
+                if (glm::dot(heading, heading) > 1e-8f)
+                {
+                    heading = glm::normalize(heading);
+                    const glm::vec3 dir = dimension == 3 ? glm::vec3(heading.x, 0.0f, heading.y) : glm::vec3(heading, 0.0f);
+                    const float length = std::max(c.Spacing, 0.5f) * 1.2f;
+                    canvas.Line(leaderPosition, leaderPosition + dir * length, color);
+                    Chevron(canvas, leaderPosition, leaderPosition + dir * length * 2.0f, up, canvas.PixelSize(leaderPosition) * 10.0f, color);
+                }
+                const float tolerance = std::max(0.01f, c.SlotTolerance);
+                for (size_t i = 0; i < slots.size(); i++)
+                {
+                    const glm::vec3 slot = slots[i] + lift;
+                    Entity member = i < members.size() ? members[i] : Entity();
+                    bool there = false;
+                    if (member && member.IsValid())
+                    {
+                        const glm::vec3 at = scene.GetWorldPosition(member) + lift;
+                        const glm::vec3 apart = at - slot;
+                        const float planar = dimension == 3 ? glm::length(glm::vec2(apart.x, apart.z)) : glm::length(glm::vec2(apart));
+                        there = planar <= tolerance + 0.05f;
+                        if (!there)
+                            canvas.Line(at, slot, faint); // on its way
+                    }
+                    // A ring the size of the tolerance, a dot in the middle (green: its member is there).
+                    WireCircle(canvas, slot, a, b, tolerance, there ? inPlace : color, 20);
+                    canvas.Dot(slot, selected ? 7.0f : 5.0f, there ? inPlace : color);
+                    if (o.Labels && selected)
+                        canvas.Text(slot + up * (canvas.PixelSize(slot) * 14.0f), std::to_string(i), color);
+                }
+                // The shape's outline through the slots (the leader in front of Line / Wedge / Column).
+                if (c.Shape == FormationShape::Circle && slots.size() >= 3)
+                    for (size_t i = 0; i < slots.size(); i++)
+                        canvas.Line(slots[i] + lift, slots[(i + 1) % slots.size()] + lift, faint);
+                else if (c.Shape == FormationShape::Column)
+                {
+                    glm::vec3 previous = leaderPosition;
+                    for (const glm::vec3& s : slots)
+                    {
+                        canvas.Line(previous, s + lift, faint);
+                        previous = s + lift;
+                    }
+                }
+                else
+                    for (size_t i = 0; i < slots.size(); i++)
+                    {
+                        // Wedge: each wing from the slot before it on the same side; Line: out from the leader.
+                        const glm::vec3 from = i >= 2 ? slots[i - 2] + lift : leaderPosition;
+                        canvas.Line(from, slots[i] + lift, faint);
+                    }
+            }
+        }
+
     }
 
     void NavDebugDraw::DrawGridCells(NavDebugCanvas& canvas, const NavGrid& grid, bool flat3D, bool walkable, float alpha)
@@ -403,6 +489,8 @@ namespace Zamin {
             DrawGrids(scene, canvas, o);
         if (o.Patrols)
             DrawPatrols(scene, canvas, o);
+        if (o.Formations)
+            DrawFormations(scene, canvas, o);
         if (o.Agents)
             DrawAgents(scene, canvas, o);
         if (o.Obstacles)

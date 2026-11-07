@@ -66,6 +66,7 @@ namespace Zamin {
         else if constexpr (std::is_same_v<T, NavObstacleComponent>) return "NavObstacle";
         else if constexpr (std::is_same_v<T, SightSensorComponent>) return "SightSensor";
         else if constexpr (std::is_same_v<T, PatrolPathComponent>) return "PatrolPath";
+        else if constexpr (std::is_same_v<T, FormationComponent>) return "Formation";
         else if constexpr (std::is_same_v<T, ParticleSystemComponent>) return "ParticleSystem";
         else if constexpr (std::is_same_v<T, UITransformComponent>) return "UITransform";
         else if constexpr (std::is_same_v<T, UICanvasComponent>) return "UICanvas";

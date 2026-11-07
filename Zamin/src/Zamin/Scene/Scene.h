@@ -46,6 +46,7 @@ namespace Zamin {
     class AssetRegistry;
     class NavGrid;
     enum class NavPathStatus : uint8_t;
+    enum class FormationShape : uint8_t;
     struct SightCone;
     struct TilemapComponent;
     class PhysicsWorld2D;
@@ -634,6 +635,25 @@ namespace Zamin {
         // Sends the patroller to waypoint `index` now (it then goes on from there). False when there
         // is no such point.
         bool SetPatrolWaypoint(Entity entity, int index);
+
+        // ---- formations (FormationComponent on the leader: SceneFormation.cpp)
+        // The leader's members as they count now (its Members and the entities tagged MemberTag:
+        // valid, active, not the leader, each once, at most MaxMembers), in that order.
+        std::vector<Entity> GetFormationMembers(Entity leader);
+        // Where the slots are now (world) and, with `members`, who stands in each (while the game
+        // runs: the members the slots were handed out to; in the editor: the nearest). False without
+        // a Formation or members.
+        bool GetFormationSlots(Entity leader, std::vector<glm::vec3>& slots, std::vector<Entity>* members = nullptr);
+        // Another shape (the slots are handed out again). False without a Formation.
+        bool SetFormationShape(Entity leader, FormationShape shape);
+        // Adds / removes a member of the leader's list (not one counted by MemberTag). False when it
+        // is not there to remove, already there, the leader itself, or the list is full.
+        bool AddFormationMember(Entity leader, Entity member);
+        bool RemoveFormationMember(Entity leader, Entity member);
+        // The leader whose formation `member` is in (the first one found), else an empty entity.
+        Entity GetFormationLeader(Entity member);
+        // The member's slot in its leader's formation (as of the last update). False when it is in none.
+        bool GetFormationSlot(Entity member, glm::vec3& slot);
 
         // ---- navigation debug drawing (AI/NavDebugDraw.h)
         // Queues the navigation overlays into DebugDraw for this frame: the baked grids' blocked /
@@ -1259,6 +1279,8 @@ namespace Zamin {
         void UpdateSightSensors(float dt);
         // Patrollers go round their waypoints (before the agents move; OnPatrolPointReached).
         void UpdatePatrolPaths(float dt);
+        // Formations hand out their slots and send their members there (before the agents move).
+        void UpdateFormations(float dt);
         // The obstacle-avoidance push of an agent's feelers (physics rays) for the way it wants to go.
         glm::vec2 ComputeNavAvoidance(Entity agent, struct NavAgentComponent& a, const NavGrid* grid, int dimension, const glm::vec2& desired);
         void UpdateAudio(float ts);

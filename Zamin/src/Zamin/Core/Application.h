@@ -31,6 +31,9 @@ namespace Zamin {
         ApplicationCommandLineArgs CommandLineArgs;
         WindowProps Window;
         bool EnableImGui = true;
+        // The job system's worker threads (JobSystem::Init): -1 the default (hardware threads - 1),
+        // 0 none (every job on the main thread), N that many. ZAMIN_JOBS=<n> wins over it.
+        int JobWorkers = -1;
     };
 
     class Application

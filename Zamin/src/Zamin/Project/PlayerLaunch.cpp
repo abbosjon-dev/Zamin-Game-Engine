@@ -69,7 +69,7 @@ namespace Zamin {
     {
         PlayerCommandLine c;
         // Options that take a value (the next argument, or after '=').
-        static const char* const s_ValueOptions[] = { "--scene", "--resolution", "--width", "--height", "--monitor", "--fps",
+        static const char* const s_ValueOptions[] = { "--scene", "--resolution", "--width", "--height", "--monitor", "--fps", "--jobs",
                                                       "--quality", "--lang", "--language", "--gl", "--msaa", "--log-file",
                                                       "--crash-dialog", "--gamma", "--brightness", "--benchmark", "--benchmark-warmup",
                                                       "--benchmark-out", "--benchmark-max-avg", "--benchmark-max-p95" };
@@ -157,6 +157,13 @@ namespace Zamin {
                         c.TargetFrameRate = number;
                     else
                         c.Errors.push_back(std::format("--fps {}: kadr soni kerak (0 - cheklovsiz)", value));
+                }
+                else if (name == "--jobs")
+                {
+                    if (ParseInt(value, number) && number >= 0)
+                        c.Jobs = number;
+                    else
+                        c.Errors.push_back(std::format("--jobs {}: ishchi oqimlar soni kerak (0 - o'chiq)", value));
                 }
                 else if (name == "--gamma" || name == "--brightness")
                 {
@@ -294,6 +301,10 @@ namespace Zamin {
             "  --msaa <0 | 2 | 4 | 8 | 16>   oyna buferining MSAA'si\n"
             "  --gl-debug, --no-gl-debug     OpenGL debug konteksti\n"
             "  --srgb, --no-srgb             sRGB oyna buferi\n"
+            "\n"
+            "Ishlash:\n"
+            "  --jobs N                      vazifalar tizimining ishchi oqimlari (0 - o'chiq, hammasi asosiy oqimda;\n"
+            "                                standart: protsessor oqimlari - 1; ZAMIN_JOBS muhit o'zgaruvchisi ham)\n"
             "\n"
             "Debug chizish (Shipping build'da yo'q):\n"
             "  --no-debug-draw               debug chizishni o'chirish\n"

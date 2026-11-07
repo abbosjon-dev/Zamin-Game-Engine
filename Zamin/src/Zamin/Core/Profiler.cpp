@@ -35,6 +35,8 @@ namespace Zamin {
         // The scopes this thread has open (indices into s_Current), valid for frame t_StackFrame.
         thread_local std::vector<int> t_Stack;
         thread_local uint64_t t_StackFrame = 0;
+        // Where this thread's scopes go while it has none open (SetThreadParent).
+        thread_local Profiler::ScopeToken t_Parent;
 
         constexpr uint64_t AverageKeepFrames = 300; // a path not seen for this long forgets its average
 
@@ -66,7 +68,11 @@ namespace Zamin {
         int FindOrAdd(const char* name)
         {
             std::vector<int>& stack = Stack();
-            const int parent = stack.empty() ? -1 : stack.back();
+            int parent = -1;
+            if (!stack.empty())
+                parent = stack.back();
+            else if (t_Parent.Index >= 0 && t_Parent.Frame == s_Frame && (size_t)t_Parent.Index < s_Current.size())
+                parent = t_Parent.Index;
             for (size_t i = parent < 0 ? 0 : (size_t)parent + 1; i < s_Current.size(); i++)
                 if (s_Current[i].Parent == parent && SameName(s_Current[i].Name, name))
                     return (int)i;
@@ -166,6 +172,24 @@ namespace Zamin {
         if (std::isfinite(ms) && ms > 0.0f)
             node.Milliseconds += ms;
         node.Calls++;
+    }
+
+    Profiler::ScopeToken Profiler::GetCurrentScope()
+    {
+        if (!s_Enabled)
+            return {};
+        std::lock_guard lock(s_Mutex);
+        const std::vector<int>& stack = Stack();
+        if (!stack.empty())
+            return { stack.back(), s_Frame };
+        if (t_Parent.Index >= 0 && t_Parent.Frame == s_Frame)
+            return t_Parent;
+        return {};
+    }
+
+    void Profiler::SetThreadParent(const ScopeToken& parent)
+    {
+        t_Parent = parent;
     }
 
     const std::vector<Profiler::Entry>& Profiler::GetLastFrame() { return s_Last; }

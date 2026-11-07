@@ -5,6 +5,7 @@
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Core/Cursor.h"
 #include "Zamin/Core/Input.h"
+#include "Zamin/Core/JobSystem.h"
 #include "Zamin/Core/SaveData.h"
 #include "Zamin/Core/Time.h"
 #include "Zamin/Core/Version.h"
@@ -45,6 +46,10 @@ namespace Zamin {
 
         Renderer::Init();
         AudioEngine::Init();
+        if (m_Specification.JobWorkers != 0 || std::getenv("ZAMIN_JOBS"))
+            JobSystem::Init(m_Specification.JobWorkers > 0 ? (uint32_t)m_Specification.JobWorkers : 0u);
+        else
+            ZM_CORE_INFO("Vazifalar tizimi o'chiq: hamma ish asosiy oqimda");
 
         if (m_Specification.EnableImGui)
         {
@@ -64,6 +69,7 @@ namespace Zamin {
     Application::~Application()
     {
         SaveData::Save(); // unsaved game data (PlayerPrefs) is never lost on exit
+        JobSystem::Shutdown();
         AudioEngine::Shutdown();
         Renderer::Shutdown();
     }
@@ -289,6 +295,7 @@ namespace Zamin {
             Time::OnFrame(timestep);
 
             Profiler::BeginFrame();
+            JobSystem::EndFrame();
             ExecuteMainThreadQueue();
             // Snapshot keyboard / mouse / gamepads once per frame (JustPressed, actions, axes).
             Input::Update();

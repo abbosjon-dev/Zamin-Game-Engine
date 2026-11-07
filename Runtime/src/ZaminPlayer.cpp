@@ -1203,6 +1203,8 @@ namespace Zamin {
         }
         for (const std::string& problem : commandLine.Errors)
             ZM_WARN("Buyruq qatori: {}", problem);
+        if (commandLine.Jobs)
+            spec.JobWorkers = *commandLine.Jobs;
 
         std::filesystem::path project = FindProject(commandLine.Project.empty() ? nullptr : commandLine.Project.c_str());
         if (project.empty())

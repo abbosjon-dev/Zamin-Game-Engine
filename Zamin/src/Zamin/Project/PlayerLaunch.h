@@ -25,6 +25,7 @@ namespace Zamin {
         std::optional<int> Monitor;         // --monitor N (0: the primary monitor)
         std::optional<bool> VSync;          // --vsync | --no-vsync
         std::optional<int> TargetFrameRate; // --fps N (0: no limit)
+        std::optional<int> Jobs;            // --jobs N: the job system's worker threads (0: off, all work on the main thread)
         std::string Quality;                // --quality <level name | index>
         std::string Language;               // --lang | --language <code>
         bool NoSplash = false;              // --no-splash

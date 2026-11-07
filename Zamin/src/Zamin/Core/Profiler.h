@@ -53,6 +53,12 @@ namespace Zamin {
         static void EndScope(const ScopeToken& token, float milliseconds);
         // A finished piece of work inside the innermost open scope (a leaf node).
         static void Record(const char* name, float milliseconds);
+        // The innermost scope this thread has open (Index -1: none) - for SetThreadParent.
+        static ScopeToken GetCurrentScope();
+        // While this thread has no scope of its own open, the scopes it opens go under `parent` (an
+        // open scope of another thread, GetCurrentScope there): the job system's workers put a job's
+        // scopes under the scope that scheduled it. {} (or a scope of an earlier frame): at the top.
+        static void SetThreadParent(const ScopeToken& parent);
 
         static const std::vector<Entry>& GetLastFrame();
         // The last frame's "Kadr" scope (the main loop's frame), 0 when there was none.

@@ -38234,3 +38234,220 @@ TEST(QuaternionSlerpRotateTowards)
     const glm::quat away = Math::RotateTowards(a, b, -10.0f);
     CHECK_NEAR(Math::Angle(away, b), Math::Pi, 1e-3f);
 }
+
+// ------------------------------------------------------------------ M19: job system (368)
+TEST(JobSystemInlineWithoutWorkers)
+{
+    JobSystem::Shutdown();
+    CHECK(!JobSystem::IsRunning() && !JobSystem::IsParallel() && JobSystem::GetWorkerCount() == 0 && JobSystem::GetThreadIndex() == 0);
+    // Not started: a job runs at once, on this thread, in order.
+    std::vector<int> order;
+    JobHandle a = JobSystem::Schedule([&] { order.push_back(1); });
+    CHECK(a.IsDone() && order.size() == 1);
+    JobHandle b = JobSystem::Schedule([&] { order.push_back(2); }, a);
+    JobSystem::Wait(b);
+    CHECK(b.IsDone() && order == std::vector<int>({ 1, 2 }) && JobHandle().IsDone() && !JobHandle().IsValid());
+    // ParallelFor: every piece in order, here.
+    std::vector<std::pair<uint32_t, uint32_t>> pieces;
+    JobSystem::ParallelFor(10, 3, [&](uint32_t begin, uint32_t end) { pieces.push_back({ begin, end }); });
+    using Pieces = std::vector<std::pair<uint32_t, uint32_t>>;
+    CHECK((pieces == Pieces{ { 0, 3 }, { 3, 6 }, { 6, 9 }, { 9, 10 } }));
+    pieces.clear();
+    JobSystem::ParallelFor(0, 3, [&](uint32_t begin, uint32_t end) { pieces.push_back({ begin, end }); });
+    CHECK(pieces.empty() && JobSystem::GetDefaultGrain(100) == 25); // one thread: four pieces
+    JobHandle pf = JobSystem::ScheduleParallelFor(5, 2, [&](uint32_t begin, uint32_t end) { pieces.push_back({ begin, end }); });
+    CHECK(pf.IsDone() && pieces.size() == 3);
+    // A job that throws: logged, done, nothing else breaks.
+    JobHandle thrown = JobSystem::Schedule([] { throw std::runtime_error("sinov"); });
+    CHECK(thrown.IsDone());
+    CHECK(JobSystem::DefaultWorkerCount() >= 1 && JobSystem::DefaultWorkerCount() <= JobSystem::MaxWorkers);
+}
+
+TEST(JobSystemParallelForCorrectness)
+{
+    JobSystem::Init(3);
+    CHECK(JobSystem::IsRunning() && JobSystem::IsParallel() && JobSystem::GetWorkerCount() == 3);
+    // Every index exactly once, for any piece size.
+    for (uint32_t grain : { 0u, 1u, 7u, 1000u, 200000u })
+    {
+        const uint32_t count = 100003;
+        std::vector<uint8_t> hits(count, 0);
+        std::atomic<uint64_t> sum{ 0 };
+        JobSystem::ParallelFor(count, grain, [&](uint32_t begin, uint32_t end) {
+            uint64_t local = 0;
+            for (uint32_t i = begin; i < end; i++)
+            {
+                hits[i]++;
+                local += i;
+            }
+            sum += local;
+        });
+        CHECK(std::all_of(hits.begin(), hits.end(), [](uint8_t h) { return h == 1; }));
+        CHECK(sum.load() == (uint64_t)count * (count - 1) / 2);
+    }
+    // Pieces run on several threads (the caller among them); each knows its thread index.
+    std::mutex mutex;
+    std::set<uint32_t> threads;
+    JobSystem::ParallelFor(48, 1, [&](uint32_t, uint32_t) {
+        std::this_thread::sleep_for(std::chrono::microseconds(500));
+        std::lock_guard lock(mutex);
+        threads.insert(JobSystem::GetThreadIndex());
+    });
+    CHECK(threads.size() >= 2 && *threads.rbegin() <= 3);
+    // Nested: a piece may run a ParallelFor of its own.
+    std::atomic<int> inner{ 0 };
+    JobSystem::ParallelFor(8, 1, [&](uint32_t, uint32_t) {
+        JobSystem::ParallelFor(100, 10, [&](uint32_t begin, uint32_t end) { inner += (int)(end - begin); });
+    });
+    CHECK(inner.load() == 800);
+    // Switched off while running: in order on this thread.
+    JobSystem::SetEnabled(false);
+    CHECK(!JobSystem::IsParallel());
+    std::vector<uint32_t> order;
+    JobSystem::ParallelFor(6, 2, [&](uint32_t begin, uint32_t) { order.push_back(begin); });
+    CHECK(order == std::vector<uint32_t>({ 0, 2, 4 }));
+    JobSystem::SetEnabled(true);
+    JobSystem::Shutdown();
+    CHECK(!JobSystem::IsRunning());
+}
+
+TEST(JobSystemDependencies)
+{
+    JobSystem::Init(2);
+    // A chain: each runs after the one before it.
+    std::atomic<int> step{ 0 };
+    int seenB = -1, seenC = -1;
+    JobHandle a = JobSystem::Schedule([&] { std::this_thread::sleep_for(std::chrono::milliseconds(5)); step = 1; });
+    JobHandle b = JobSystem::Schedule([&] { seenB = step.load(); step = 2; }, a);
+    JobHandle c = JobSystem::Schedule([&] { seenC = step.load(); step = 3; }, b);
+    JobSystem::Wait(c);
+    CHECK(seenB == 1 && seenC == 2 && step.load() == 3 && a.IsDone() && b.IsDone());
+    // A diamond: d after both b2 and c2; Combine.
+    std::atomic<int> parts{ 0 };
+    int seenD = -1;
+    JobHandle root = JobSystem::Schedule([&] { parts++; });
+    JobHandle left = JobSystem::Schedule([&] { std::this_thread::sleep_for(std::chrono::milliseconds(2)); parts++; }, root);
+    JobHandle right = JobSystem::Schedule([&] { parts++; }, root);
+    JobHandle join = JobSystem::Schedule([&] { seenD = parts.load(); }, { left, right });
+    const JobHandle all[] = { left, right, join };
+    JobHandle combined = JobSystem::Combine(all);
+    JobSystem::Wait(combined);
+    CHECK(seenD == 3 && join.IsDone());
+    // Dependencies already done, empty handles: queued at once.
+    JobHandle late = JobSystem::Schedule([] {}, { a, JobHandle(), c });
+    JobSystem::Wait(late);
+    CHECK(late.IsDone());
+    // A job that waits for another job runs it meanwhile (no deadlock, even with every worker waiting).
+    std::atomic<int> nested{ 0 };
+    std::vector<JobHandle> waiters;
+    for (int i = 0; i < 4; i++)
+        waiters.push_back(JobSystem::Schedule([&] {
+            JobHandle inner = JobSystem::Schedule([&] { nested++; });
+            JobSystem::Wait(inner);
+            nested++;
+        }));
+    JobSystem::Wait(waiters);
+    CHECK(nested.load() == 8);
+    // Many small jobs.
+    std::atomic<int> counter{ 0 };
+    std::vector<JobHandle> handles;
+    for (int i = 0; i < 5000; i++)
+        handles.push_back(JobSystem::Schedule([&] { counter++; }));
+    JobSystem::Wait(handles);
+    CHECK(counter.load() == 5000);
+    // ScheduleParallelFor after a job; a throwing job does not stop the others.
+    std::vector<int> data(1000, 0);
+    JobHandle fill = JobSystem::Schedule([&] { std::fill(data.begin(), data.end(), 1); });
+    JobHandle twice = JobSystem::ScheduleParallelFor((uint32_t)data.size(), 64, [&](uint32_t begin, uint32_t end) {
+        for (uint32_t i = begin; i < end; i++)
+            data[i] *= 2;
+    }, fill);
+    JobHandle thrown = JobSystem::Schedule([] { throw std::runtime_error("sinov"); });
+    JobSystem::Wait(twice);
+    JobSystem::Wait(thrown);
+    CHECK(std::all_of(data.begin(), data.end(), [](int v) { return v == 2; }) && thrown.IsDone());
+    // Shutdown runs what is queued first.
+    std::atomic<int> drained{ 0 };
+    for (int i = 0; i < 50; i++)
+        JobSystem::Schedule([&] { std::this_thread::sleep_for(std::chrono::microseconds(100)); drained++; });
+    JobSystem::Shutdown();
+    CHECK(drained.load() == 50);
+}
+
+TEST(JobSystemSpeedupAndStats)
+{
+    // CPU work split over the workers is faster than on one thread (the best of a few tries).
+    JobSystem::Init(3);
+    JobSystem::ResetStats();
+    const uint32_t count = 1u << 16;
+    std::vector<float> out(count);
+    auto work = [&](uint32_t begin, uint32_t end) {
+        for (uint32_t i = begin; i < end; i++)
+        {
+            float v = 0.0f;
+            for (int k = 0; k < 24; k++)
+                v += Noise::Perlin(glm::vec3(i * 0.013f + k, k * 0.7f, 1.5f));
+            out[i] = v;
+        }
+    };
+    auto time = [&](bool parallel) {
+        JobSystem::SetEnabled(parallel);
+        double best = 1e30;
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            const auto start = std::chrono::steady_clock::now();
+            JobSystem::ParallelFor(count, 0, work);
+            best = std::min(best, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
+        }
+        return best;
+    };
+    const double serial = time(false);
+    const std::vector<float> expected = out;
+    const double parallel = time(true);
+    std::printf("    vazifalar tizimi: 1 oqim %.1f ms, 4 oqim %.1f ms (%.2fx)\n", serial, parallel, serial / parallel);
+    CHECK(out == expected); // the same results
+    if (std::thread::hardware_concurrency() >= 2)
+        CHECK(parallel < serial * 0.85);
+
+    // Statistics: per thread; the frame's numbers after EndFrame.
+    const JobSystem::Stats stats = JobSystem::GetStats();
+    CHECK(stats.Workers == 3 && stats.Threads.size() == 4 && stats.Jobs > 0 && stats.ParallelFors >= 6);
+    uint64_t workerJobs = 0;
+    for (size_t i = 1; i < stats.Threads.size(); i++)
+        workerJobs += stats.Threads[i].Jobs;
+    CHECK(workerJobs > 0 && stats.Threads[0].BusyMilliseconds > 0.0);
+    JobSystem::EndFrame();
+    JobSystem::ParallelFor(64, 1, [](uint32_t, uint32_t) {});
+    JobSystem::EndFrame();
+    const JobSystem::Stats& frame = JobSystem::GetLastFrameStats();
+    CHECK(frame.ParallelFors == 1 && frame.Jobs >= 64 && frame.Threads.size() == 4);
+
+    // The profiler: a job's scopes under the scope that scheduled it, in a node per worker.
+    Profiler::Reset();
+    Profiler::BeginFrame();
+    {
+        ZM_PROFILE_SCOPE("Vazifalar sinovi");
+        JobSystem::ParallelFor(24, 1, [](uint32_t, uint32_t) {
+            ZM_PROFILE_SCOPE("Bo'lak");
+            std::this_thread::sleep_for(std::chrono::microseconds(400));
+        });
+        JobHandle job = JobSystem::Schedule([] { ZM_PROFILE_SCOPE("Alohida vazifa"); std::this_thread::sleep_for(std::chrono::milliseconds(1)); });
+        JobSystem::Wait(job);
+    }
+    Profiler::BeginFrame();
+    const auto& entries = Profiler::GetLastFrame();
+    const Profiler::Entry* root = Profiler::Find("Vazifalar sinovi");
+    CHECK(root != nullptr);
+    bool workerNode = false, pieceUnderWorker = false;
+    for (const Profiler::Entry& e : entries)
+        if (e.Parent >= 0 && std::strcmp(entries[(size_t)e.Parent].Name, "Vazifalar sinovi") == 0 && std::strncmp(e.Name, "Ishchi ", 7) == 0)
+        {
+            workerNode = true;
+            for (int i = (int)(&e - entries.data()) + 1; i < e.End; i++)
+                pieceUnderWorker |= std::strcmp(entries[(size_t)i].Name, "Bo'lak") == 0 || std::strcmp(entries[(size_t)i].Name, "Alohida vazifa") == 0;
+        }
+    CHECK(workerNode && pieceUnderWorker);
+    CHECK(Profiler::Find("Vazifalar sinovi/Bo'lak") != nullptr || workerNode); // the caller's own pieces sit right under it
+    JobSystem::SetEnabled(true);
+    JobSystem::Shutdown();
+}

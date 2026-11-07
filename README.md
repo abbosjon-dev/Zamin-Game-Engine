@@ -792,6 +792,10 @@ Hozircha **Linux** qo'llab-quvvatlanadi. Windows, macOS, Android va iOS keyingi 
   (bitta `Parts/Camp.zscene` bo'lagi uch joyda, uchinchisi skript bilan keyinroq)
   - Batafsil qo'llanma: [docs/scenes.md](docs/scenes.md) — yuklash rejimlari, DontDestroyOnLoad, fonda yuklash, o'tishlar,
     build ro'yxati, hodisalar, qidiruv, xatolar, fayl formati, global holat, sub-sahnalar, profiler, binar kesh, kod misollari bilan
+- **Loyiha sozlamalari** (Oyna → Loyiha sozlamalari, bo'limlar va qidiruv): player oynasi, ikonka, kompaniya / mahsulot / versiya,
+  sifat darajalari (Low..Ultra), OpenGL konteksti, vaqt (`Time::SetTimeScale`), standart gravitatsiya, audio standartlari (3D masofa
+  modeli), lokalizatsiya (`Assets/Localization/<til>.json`, `Localize("key")`, Text komponenti kaliti), editor tili (o'zbek / ingliz)
+  - Batafsil qo'llanma: [docs/project-settings.md](docs/project-settings.md) — har sozlama, `.zproject` formati, player buyruq qatori, kod misollari
 - **Audio** (miniaudio): wav/mp3/flac/ogg
 - **C++ skriptlar**: `ScriptableEntity` + `ZM_REGISTER_SCRIPT`, o'yin moduli `.so` sifatida yuklanadi, hot reload
 - Zamin Player — eksport qilingan o'yinlarni ishga tushiruvchi runtime

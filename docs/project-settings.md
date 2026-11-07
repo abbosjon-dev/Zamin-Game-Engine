@@ -1,0 +1,650 @@
+# Zamin Engine: loyiha sozlamalari
+
+Bu hujjat o'yin loyihasining sozlamalarini tushuntiradi: `.zproject` fayli va editordagi **Loyiha sozlamalari**
+oynasi, player oynasi va ikonka, kompaniya / mahsulot nomi va versiya, sifat darajalari, grafik kontekst, vaqt
+(qat'iy qadam, vaqt masshtabi va `Time::` skript API), standart gravitatsiya, audio standartlari, input,
+teglar va qatlamlar, build sahnalar, lokalizatsiya (til fayllari va `Localize("key")`), debug chizish va
+saqlangan ma'lumotlar. Oxirida editorning o'z tili (o'zbek / ingliz), fayl formati va player buyruq qatori
+bor. Skript misollari C++ (`#include <Zamin/Zamin.h>`, `using namespace Zamin;`).
+
+Mundarija:
+
+1. [Asosiy tushunchalar](#1-asosiy-tushunchalar)
+2. [Loyiha sozlamalari oynasi](#2-loyiha-sozlamalari-oynasi)
+3. [Umumiy](#3-umumiy)
+4. [Player: oyna, nom, versiya, ikonka](#4-player-oyna-nom-versiya-ikonka)
+5. [Sifat darajalari](#5-sifat-darajalari)
+6. [Grafika: OpenGL konteksti](#6-grafika-opengl-konteksti)
+7. [Vaqt va Time API](#7-vaqt-va-time-api)
+8. [Fizika: gravitatsiya va to'qnashuv qatlamlari](#8-fizika-gravitatsiya-va-toqnashuv-qatlamlari)
+9. [Audio standartlari](#9-audio-standartlari)
+10. [Input](#10-input)
+11. [Teglar va qatlamlar](#11-teglar-va-qatlamlar)
+12. [Build sahnalar](#12-build-sahnalar)
+13. [Lokalizatsiya](#13-lokalizatsiya)
+14. [Debug chizish](#14-debug-chizish)
+15. [Saqlangan ma'lumotlar (SaveData)](#15-saqlangan-malumotlar-savedata)
+16. [Editor tili (o'zbek / ingliz)](#16-editor-tili-ozbek--ingliz)
+17. [.zproject fayli: format, versiya, migratsiya](#17-zproject-fayli-format-versiya-migratsiya)
+18. [Player buyruq qatori](#18-player-buyruq-qatori)
+19. [Testlar](#19-testlar)
+20. [Qisqa API ma'lumotnomasi](#20-qisqa-api-malumotnomasi)
+
+---
+
+## 1. Asosiy tushunchalar
+
+Har bir o'yin - bu **loyiha**: `<Nom>.zproject` fayli, `Assets/` (sahnalar, teksturalar, ovozlar, til fayllari),
+`Source/` (C++ skriptlar) va skript moduli (`Binaries/lib<Nom>.so`). Loyiha sozlamalari `.zproject` faylida
+saqlanadi va **hamma sahnalar uchun umumiy**: oyna, sifat, vaqt, gravitatsiya, ovoz, tillar ...
+
+| Daraja | Qayerda | Misol |
+|---|---|---|
+| **Loyiha** | `.zproject`, *Oyna > Loyiha sozlamalari* | O'yin oynasi 1280x720, 60 Hz fizika, standart til `uz` |
+| **Sahna** | `.zscene`, *Sahna sozlamalari* | Shu sahnaning osmoni, soyalari, o'z gravitatsiyasi |
+| **O'yinchi tanlovi** | `SaveData` (o'yinlar orasida qoladi) | O'yinchi menyuda tanlagan sifat, til, to'liq ekran |
+| **Buyruq qatori** | `ZaminPlayer --...` | `--quality Low`, `--lang ru`, `--windowed` |
+
+Ustunlik tartibi (pastdagisi ustun): loyiha sozlamasi -> o'yinchi saqlagan tanlov -> buyruq qatori. Sahna o'z
+qiymatini bermagan joyda (masalan gravitatsiya, fizika qadami "Loyihadan") loyihaniki ishlatiladi.
+
+Loyiha ochilganda (`Project::Load`) sozlamalar darhol qo'llanadi: audio mikser (`AudioEngine::SetMixerSettings`),
+sifat darajalari (`Quality::SetSettings`), til fayllari (`Project::ApplyLocalization`). Player oynasi va grafik
+kontekst esa `ZaminPlayer` oynani yaratganda qo'llanadi. Sozlamasi yo'q (eski) loyihalar dvigatelning standart
+qiymatlarini oladi - ular o'zini avvalgidek tutadi.
+
+---
+
+## 2. Loyiha sozlamalari oynasi
+
+*Oyna > Loyiha sozlamalari* (yoki *Fayl > Loyiha sozlamalari...*). Oyna bo'limlarga ajratilgan:
+
+| Bo'lim | Nima bor |
+|---|---|
+| **Umumiy** | Loyiha nomi, papkalar, skript moduli, boshlang'ich sahna |
+| **Player** | Kompaniya, mahsulot nomi, versiya, oyna, FPS cheklovi, ikonka |
+| **Sifat** | Sifat darajalari (Low ... Ultra) va standart daraja |
+| **Grafika** | OpenGL versiyasi, debug konteksti, MSAA, sRGB; ishlayotgan kontekst ma'lumoti |
+| **Vaqt** | Qat'iy qadam, kadrdagi qadamlar, boshlang'ich vaqt masshtabi, eng uzun kadr |
+| **Fizika** | Standart gravitatsiya (2D / 3D), to'qnashuv qatlamlari va matritsasi, presetlar |
+| **Audio** | Master ovozi, mikser guruhlari, ovoz dvigateli, 3D ovoz standartlari |
+| **Input** | Harakatlar, o'qlar, 2D vektorlar |
+| **Teglar va qatlamlar** | Gameplay teglari, 2D saralash qatlamlari |
+| **Build sahnalar** | O'yin quriladigan sahnalar ro'yxati va build indekslari |
+| **Lokalizatsiya** | Standart til, taklif qilinadigan tillar, til fayllari papkasi, tizim tili |
+| **Debug** | O'yindagi debug chizish |
+| **Saqlangan ma'lumotlar** | `SaveData` qiymatlarini ko'rish va tahrirlash (loyiha faylida emas) |
+
+- **Qidiruv** (chap yuqorida): "soya", "VSync", "gravitatsiya" ... - mos bo'limlar qoladi, topilgan yorliqlar
+  ajratib ko'rsatiladi.
+- O'zgargan bo'lim nomi yonida `*` turadi. **Saqlash** `.zproject`ni yozadi, **Bekor qilish** hamma saqlanmagan
+  o'zgarishlarni qaytaradi; bo'limning o'zini ham standartga qaytarish mumkin.
+- Ko'p o'zgarishlar darhol ko'rinadi (sifat darajasi, audio, til), oyna va grafik kontekst esa player keyingi
+  safar ishga tushganda qo'llanadi.
+
+---
+
+## 3. Umumiy
+
+| Maydon | `.zproject` kaliti | Ma'nosi |
+|---|---|---|
+| Nomi | `Project.Name` | Loyiha nomi (mahsulot nomi bo'sh bo'lsa o'yin nomi ham shu) |
+| Assets papkasi | `Project.AssetDirectory` | Assetlar papkasi (standart `Assets`) |
+| Skriptlar papkasi | `Project.SourceDirectory` | C++ skriptlar (standart `Source`) |
+| Skript moduli | `Project.ScriptModulePath` | Kompilyatsiya qilingan modul (`Binaries/lib<Nom>.so`) |
+| Boshlang'ich sahna | `Project.StartScene`, `StartSceneUUID` | O'yin shu sahnadan boshlanadi |
+
+Boshlang'ich sahna UUID bilan ham saqlanadi: fayl editor yopiq paytda ko'chirilsa yoki qayta nomlansa ham
+topiladi. Sahna yo'q bo'lsa o'yin birinchi yoqilgan build sahnadan boshlanadi (12-bo'lim).
+
+---
+
+## 4. Player: oyna, nom, versiya, ikonka
+
+`.zproject`ning `"Player"` bo'limi. `ZaminPlayer` va eksport qilingan o'yin oynani shu sozlamalar bilan yaratadi.
+
+### Nom va versiya
+
+| Maydon | Kalit | Ma'nosi |
+|---|---|---|
+| Kompaniya | `Company` | Studiya / muallif. SaveData papkasi: `~/.local/share/<kompaniya>/<mahsulot>` |
+| Mahsulot nomi | `Product` | O'yinchilar ko'radigan nom (oyna sarlavhasi, SaveData papkasi). Bo'sh: loyiha nomi |
+| Versiya | `Version` | Semantik versiya: `1.4.2`, `2.0.0-beta.1` (standart `1.0.0`) |
+
+Kompaniya bo'sh bo'lsa SaveData `~/.local/share/zamin/<mahsulot>` papkasida turadi. Skriptlardan:
+
+```cpp
+ZM_INFO("{} {} ({})", Application::GetProductName(), Application::GetVersion(), Application::GetCompanyName());
+```
+
+### Oyna
+
+| Maydon | Kalit | Ma'nosi |
+|---|---|---|
+| Oyna o'lchami | `Width`, `Height` | Oynali rejimdagi o'lcham (160 ... 7680). To'liq ekran monitornikini oladi |
+| Oyna rejimi | `WindowMode` | `Windowed` (oynali), `Fullscreen` (to'liq ekran), `Borderless` (chegarasiz, ekran o'lchamida) |
+| O'lchamini o'zgartirish | `Resizable` | O'yinchi oynani cho'za oladimi |
+| VSync | `VSync` | Kadrlar monitor chastotasiga moslanadi |
+| Oyna sarlavhasi | `Title` | Bo'sh: mahsulot nomi |
+| Sarlavhada versiya | `VersionInTitle` | `"Mening o'yinim 1.4.2"` |
+| FPS cheklovi | `TargetFrameRate` | Soniyadagi eng ko'p kadr (10 ... 1000); `0` - cheklovsiz (VSync boshqaradi) |
+| Fonda ishlash | `RunInBackground` | `false`: oyna oldinda bo'lmasa o'yin to'xtab turadi |
+
+Standart: 1280x720, oynali, o'lchami o'zgaradi, VSync yoqiq, cheklovsiz, fonda ishlaydi - player avval ham
+shunday edi.
+
+O'yin ichidagi sozlamalar menyusi buni o'zgartira oladi va tanlovni saqlaydi (keyingi ishga tushishda
+loyiha sozlamasidan ustun):
+
+```cpp
+Display::SetFullscreen(!Display::IsFullscreen());
+Display::SetVSync(false);
+Display::SaveSettings();     // SaveData: "Zamin.Display.*"
+```
+
+Buyruq qatori (`--fullscreen`, `--windowed`, `--width`, `--height`, `--no-vsync`) esa saqlangan tanlovdan ham
+ustun (18-bo'lim).
+
+### Ikonka
+
+`Icon` - assetlar ichidagi PNG (masalan `Textures/GameIcon.png`). Player oynaga 16, 32, 48, 64, 128, 256 px
+o'lchamlarini (rasmdan katta bo'lmaganlarini) qo'yadi; kvadrat bo'lmagan rasm shaffof kvadrat o'rtasiga
+joylanadi. Sozlamalar oynasi ikonkani ko'rsatadi va ogohlantiradi (kvadrat emas, 64 px dan kichik ...).
+Eksportda ikonka `.png` sifatida va `<o'yin>.desktop` fayli bilan birga yoziladi: uni
+`~/.local/share/applications` ga ko'chirsangiz o'yin dasturlar menyusida ko'rinadi.
+
+---
+
+## 5. Sifat darajalari
+
+Sifat darajasi sahna **so'ragan** narsani cheklaydi: har sahna o'z soyalari, effektlari va render masshtabini
+saqlaydi, faol daraja esa ulardan "ko'pi bilan" qancha ishlatilishini aytadi. Hamma narsaga ruxsat beruvchi
+daraja (standart "Ultra") sahnani o'zgartirmaydi.
+
+| Maydon | JSON kaliti | Ma'nosi |
+|---|---|---|
+| Soyalar | `Shadows` | O'chiq: quyosh umuman soya tashlamaydi |
+| Soya atlasi (eng katta) | `ShadowAtlas` | 1024 / 2048 / 4096 |
+| Soya filtri (eng qimmati) | `ShadowFilter` | `Hard` < `PCF3x3` < `Poisson` < `PCF5x5` |
+| Kaskadlar (eng ko'pi) | `ShadowCascades` | 1 ... 4 |
+| Soya masofasi | `ShadowDistance` | Sahna soya masofasiga ko'paytiriladi |
+| SSAO, Bloom, FXAA, Avto ekspozitsiya | `SSAO`, `Bloom`, `FXAA`, `AutoExposure` | O'chiq: sahna yoqqan bo'lsa ham ishlamaydi |
+| Render masshtabi | `RenderScale` | Sahna render masshtabiga ko'paytiriladi (0.25 ... 2) |
+| Anizotropik filtr | `Anisotropy` | 1 (o'chiq), 2, 4, 8, 16 - darajaning o'ziniki |
+| Tekstura sifati | `TextureQuality` | 0 to'liq, 1 yarim, 2 chorak, 3 sakkizdan bir o'lcham |
+
+Standart darajalar:
+
+| Daraja | Soya atlasi | Filtr | Kaskad | Soya masofasi | SSAO | Bloom / FXAA / Avto eksp. | Render masshtabi | Tekstura |
+|---|---|---|---|---|---|---|---|---|
+| Low | 1024 | Hard | 1 | x0.5 | yo'q | yo'q | x0.75 | yarim |
+| Medium | 2048 | PCF3x3 | 2 | x0.75 | yo'q | ha | x1 | to'liq |
+| High | 4096 | PCF3x3 | 3 | x1 | ha | ha | x1 | to'liq |
+| Ultra | cheksiz | cheksiz | cheksiz | x1 | ha | ha | x1 | to'liq |
+
+Darajalarni qo'shish, nusxalash, qayta nomlash va o'chirish mumkin (16 tagacha); **Standart daraja** o'yin
+boshlanadigan darajadir. Editor ko'rinishi uchun ham daraja tanlanadi (*Sifat* bo'limida "Editorda ko'rish"),
+*Sahna sozlamalari* esa joriy daraja sahnada nimani cheklayotganini yozib ko'rsatadi.
+
+O'yindagi sozlamalar menyusi:
+
+```cpp
+// "Grafika: Low / Medium / High / Ultra" tugmasi
+int next = (Quality::GetLevel() + 1) % Quality::GetLevelCount();
+Quality::SetLevel(next);
+Quality::SaveSettings();          // SaveData: "Zamin.Quality.Level" = daraja nomi
+ZM_INFO("Sifat: {}", Quality::GetLevelName());
+```
+
+Player ishga tushganda tartib: `--quality <nom | indeks>` -> o'yinchi saqlagan daraja -> loyihaning standart
+darajasi.
+
+---
+
+## 6. Grafika: OpenGL konteksti
+
+`"Graphics"` bo'limi - player oynasining OpenGL konteksti va oyna buferi:
+
+| Maydon | Kalit | Ma'nosi |
+|---|---|---|
+| OpenGL versiyasi | `OpenGL` | `4.1` (standart; dvigatel shuni talab qiladi, macOS'dagi eng kattasi), `4.3`, `4.5`, `4.6` core |
+| Debug konteksti | `DebugContext` | `Auto` (faqat Debug build'da), `On` (Release'da ham, sekinroq), `Off` |
+| MSAA (oyna) | `MSAA` | Oyna buferining namunalari: 0, 2, 4, 8, 16 |
+| sRGB framebuffer | `SRGBFramebuffer` | Oxirgi rasm apparat sRGB kodlashi bilan (shader gamma 2.2 o'rniga) |
+
+- Yangi versiya faqat drayverdan ko'proq narsa so'raydi; dvigatelning o'z chizishi bir xil.
+- MSAA ekranga to'g'ridan-to'g'ri chiziladigan narsalarni (pixel-perfect o'yin ustidagi UI, debug chiziqlar)
+  silliqlaydi; 3D rasmni FXAA silliqlaydi (sifat darajasi).
+- Drayver so'ralgan kontekstni bera olmasa player standartga (4.1 core) qaytadi va logga yozadi.
+- Editorning o'z konteksti doim 4.1 core; *Grafika* bo'limi ishlayotgan kontekstni ko'rsatadi: ishlab
+  chiqaruvchi, renderer, versiya, MSAA, sRGB, eng katta tekstura va anizotropiya.
+- Buyruq qatori: `--gl 4.6`, `--msaa 4`, `--gl-debug` / `--no-gl-debug`, `--srgb` / `--no-srgb`.
+
+---
+
+## 7. Vaqt va Time API
+
+`"Time"` bo'limi:
+
+| Maydon | Kalit | Standart | Ma'nosi |
+|---|---|---|---|
+| Qat'iy qadam | `FixedStepRate` | 60 | Fizika (2D va 3D) soniyada necha qadam (20 ... 240 Hz; presetlar 50, 60, 100, 120, 144, 240) |
+| Kadrdagi qadamlar | `MaxStepsPerFrame` | 5 | Bitta kadr eng ko'pi bilan nechta qadam oladi; sekin kadrda qolgani tashlanadi (o'yin orqada qolib ketmaydi, sekinlashadi) |
+| Boshlang'ich vaqt masshtabi | `DefaultTimeScale` | 1 | O'yin boshlanadigan soat tezligi (0 ... 10) |
+| Eng uzun kadr | `MaxDeltaTime` | 0.1 s | Bundan uzun kadr (qotish, oynani sudrash) shuncha deb hisoblanadi - o'yin sakramaydi |
+
+Qat'iy qadam va kadrdagi qadamlar o'zinikini bermagan sahnalar uchun ("Loyihadan"); sahna *Sahna sozlamalari >
+Fizika* da o'z qiymatini qo'yishi mumkin.
+
+### Time:: skript API
+
+Bitta statik API - qayerdan chaqirilsa ham o'yin soati:
+
+| Funksiya | Ma'nosi |
+|---|---|
+| `Time::GetDeltaTime()` | Shu kadrning o'yin vaqti (masshtablangan; pauzada 0) |
+| `Time::GetUnscaledDeltaTime()` | Shu kadrning haqiqiy vaqti (eng ko'pi `MaxDeltaTime`) |
+| `Time::GetFixedDeltaTime()` | Fizika qadami (1 / qadam chastotasi) |
+| `Time::GetTime()` / `GetUnscaledTime()` | O'yin boshlangandan beri o'yin / haqiqiy vaqt |
+| `Time::GetTimeSinceStartup()` | Dastur boshlangandan beri haqiqiy soniyalar |
+| `Time::GetFrameCount()` | Dastur boshlangandan beri kadrlar |
+| `Time::SetTimeScale(s)` / `GetTimeScale()` | Soat tezligi: 1 oddiy, 0.5 yarim, 0 to'xtagan |
+| `Time::SetPaused(b)` / `IsPaused()` | Masshtab 0 va avvalgisiga qaytish (pauza menyusi) |
+| `Time::GetSettings()` | Loyihaning vaqt sozlamalari |
+
+Vaqt masshtabiga hamma yuklangan sahnalar ergashadi: fizika, animatsiyalar, particle'lar, taymer va
+tween'lar. UI esa haqiqiy vaqtda ishlaydi (pauza menyusi pauzada ham jonli).
+
+```cpp
+// Sekinlashtirish (Adventure3D: T tugmasi)
+void OnUpdate(Timestep) override
+{
+    if (Input::IsKeyJustPressed(Key::T))
+        Time::SetTimeScale(Time::GetTimeScale() < 1.0f ? 1.0f : 0.25f);
+}
+```
+
+Skriptning taymerlari va tween'lari haqiqiy vaqtda yursin desangiz (sekinlashtirish effektining o'z
+so'nishi, menyu animatsiyasi) - `SetTimersUnscaled(true)`.
+
+---
+
+## 8. Fizika: gravitatsiya va to'qnashuv qatlamlari
+
+### Standart gravitatsiya
+
+`"Physics"` bo'limi: `Gravity2D` (standart `[0, -9.8]`) va `Gravity3D` (standart `[0, -9.81, 0]`). Bu qiymatni
+o'z gravitatsiyasini bermagan hamma sahnalar oladi: yangi sahnalar va dvigatel standartini saqlagan eski
+sahnalar (sahna formati v4 da ular "Loyihadan" ga o'tkazilgan). Sahna *Sahna sozlamalari > Fizika* da o'zinikini
+qo'ya oladi. Presetlar: Yer (9.81), Oy (1.62), Mars (3.71), Yupiter (24.79), Platformer (20), Vaznsizlik (0).
+Har komponent eng ko'pi +-1000 m/s².
+
+### To'qnashuv qatlamlari
+
+16 ta nomli qatlam va qaysi juftlar to'qnashishini ko'rsatuvchi matritsa (2D va 3D uchun bir xil,
+`"CollisionLayers2D"`). Tayyor presetlar (masalan "Platformer 2D", "3D aksiya") matritsani bir bosishda to'ldiradi;
+qatorni nusxalash / qo'yish mumkin. Kollayder komponentlari qatlamni nomi bilan tanlaydi, `Raycast` va
+so'rovlar `LayerMask` oladi.
+
+---
+
+## 9. Audio standartlari
+
+*Audio* bo'limi va *Audio Mixer* oynasi bitta sozlamani (`"Audio"`) tahrirlaydi.
+
+| Maydon | Kalit | Ma'nosi |
+|---|---|---|
+| Master ovozi | `Groups[Master].Volume` | O'yinning umumiy ovozi: hamma ovozlar Master orqali o'tadi |
+| Mikser guruhlari | `Groups` | Music, SFX, UI ... - har birining boshlang'ich ovozi, ota guruhi, filtrlari |
+| Oqim chegarasi (MB) | `StreamThresholdMB` | Bundan katta fayllar xotiraga to'liq yuklanmaydi, oqim bilan o'qiladi |
+| Bir vaqtda ovozlar | `MaxVoices` | Eng ko'pi bilan nechta ovoz chalinadi (ortig'i - eng kam muhimi o'rnini beradi) |
+| Doppler | `DopplerFactor` | Harakatlanayotgan 3D ovozlarning Doppler effekti: 1 tabiiy, 0 o'chiq |
+
+### 3D ovoz standartlari
+
+`"Audio"` ichidagi `"Spatial"` (faqat standartdan farq qilsa yoziladi):
+
+| Maydon | Kalit | Standart | Ma'nosi |
+|---|---|---|---|
+| Min masofa | `MinDistance` | 1 m | Bundan yaqinda ovoz to'liq balandlikda |
+| Max masofa | `MaxDistance` | 30 m | Bundan uzoqda ovoz boshqa pasaymaydi (chiziqli modelda - eshitilmaydi) |
+| Masofa modeli | `Rolloff` | `Inverse` | Ovoz masofa bilan qanday pasayadi (pastda) |
+| Pasayish (rolloff) | `RolloffFactor` | 1 | Qanchalik tez pasayadi: 1 model o'zi, 0 umuman pasaymaydi (0 ... 10) |
+
+Masofa modellari (`d` - masofa, `min`/`max` oralig'ida qisiladi, `k` - pasayish koeffitsiyenti):
+
+| Model | Kuchaytirish | Qachon |
+|---|---|---|
+| `Inverse` (teskari) | `min / (min + k (d - min))` | Tabiatdagidek: yaqinda tez, keyin sekin pasayadi |
+| `Linear` (chiziqli) | `1 - k (d - min) / (max - min)` | Max masofada jim bo'lishi kerak bo'lsa |
+| `Exponential` | `(d / min) ^ -k` | Teskaridan tezroq pasayadi |
+| `None` (masofasiz) | `1` | Hamma joyda bir xil (faqat chap / o'ng) |
+
+Sozlamalar oynasi egri chiziqni chizadi (ustiga olib borilsa shu masofadagi foiz va dB). Masofa modeli hozir
+chalinayotgan 3D ovozlarga ham darhol ta'sir qiladi. Yangi **Audio Source** va **Footsteps** komponentlari
+loyihaning min / max masofasi bilan yaratiladi; inspektor ularning ostida loyiha qiymatlarini ko'rsatadi va
+"Standart" tugmasi bilan qaytaradi. Skriptlarda:
+
+```cpp
+// Masofalarsiz: loyiha standarti
+PlaySoundAt("Audio/explosion.wav", GetTransform().Translation);
+
+// Kodda o'qish
+const AudioSpatialSettings& spatial = Audio::GetSpatialDefaults();
+float gain = spatial.ComputeGain(12.0f);   // 12 m dagi kuchaytirish (0..1)
+```
+
+`SoundParams`ning `MinDistance` / `MaxDistance` maydonlari standart `-1` - "loyihaniki" degani.
+
+---
+
+## 10. Input
+
+`"InputActions"`: nomli **harakatlar** (`Jump`: `Key:Space`, `Gamepad:A` ...), **o'qlar** (`Horizontal`: musbat /
+manfiy tugmalar, gamepad o'qi, deadzone, teskari) va **2D vektorlar** (`Move` = `Horizontal` + `Vertical`, `Clamp`
+yoki `Normalize` rejimi, radial deadzone). Tahrirlovchida bog'lanish qo'shish uchun "Tugmani bosing..." rejimi bor
+(klaviatura, sichqoncha yoki gamepad), takroriy bog'lanishlar ogohlantiriladi, filtr bilan qidiriladi.
+
+```cpp
+if (Input::IsActionJustPressed("Jump")) Jump();
+glm::vec2 move = Input::GetVector("Move");
+```
+
+---
+
+## 11. Teglar va qatlamlar
+
+- **Teglar** (`"Tags"`): inspektorda taklif qilinadigan gameplay teglari. Bo'lim har tegning loyihadagi
+  ishlatilishini ko'rsatadi; qayta nomlash hamma sahna fayllarida o'zgartiradi.
+- **Saralash qatlamlari** (`"SortingLayers"`): 2D chizish tartibi (orqadan oldinga), Y bo'yicha saralash.
+
+---
+
+## 12. Build sahnalar
+
+`"BuildScenes"`: o'yin quriladigan sahnalar tartib bilan. Yoqilganlari build indeksini oladi (0, 1, 2 ...;
+`LoadScene(int)`), eksport faqat ularni (va boshlang'ich sahnani) oladi. Oyna muammolarni ko'rsatadi:
+boshlang'ich sahna yo'q / ro'yxatda emas / o'chirilgan, fayl topilmadi, takroriy sahna. Batafsil:
+[docs/scenes.md, 7-bo'lim](scenes.md#7-build-sahnalar-royxati-va-indekslar).
+
+---
+
+## 13. Lokalizatsiya
+
+### Til fayllari
+
+Har til - `Assets/Localization/<kod>.json` fayli (papka sozlamada o'zgaradi). Ichma-ich obyektlar nuqtali
+kalitlarga aylanadi, `"$name"` - tilning o'z nomi, faqat ko'plik shakllaridan iborat obyekt - bitta ko'plik
+yozuvi:
+
+```json
+{
+    "$name": "Русский",
+    "menu": {
+        "start": "Начать",
+        "options": { "audio": "Звук" }
+    },
+    "hud": {
+        "score": "Очки: {0}",
+        "coins": { "one": "{0} монета", "few": "{0} монеты", "many": "{0} монет", "other": "{0} монеты" }
+    }
+}
+```
+
+Bu yerda kalitlar: `menu.start`, `menu.options.audio`, `hud.score`, `hud.coins`. Yangi loyiha `uz.json` va
+`en.json` bilan yaratiladi.
+
+### Sozlamalar (`"Localization"`)
+
+| Maydon | Kalit | Ma'nosi |
+|---|---|---|
+| Standart til | `DefaultLanguage` | O'yin shu tilda boshlanadi; boshqa tilda yo'q yoki bo'sh kalitlar shu tildan olinadi (standart `uz`) |
+| Tillar ro'yxati | `Languages` | Taklif qilinadigan tillar, til menyusidagi tartibda. Bo'sh: papkadagi hamma fayllar (standart til birinchi) |
+| Til fayllari papkasi | `Directory` | Assets ichidagi papka (standart `Localization`) |
+| Tizim tilida boshlash | `UseSystemLanguage` | O'yin kompyuter tilida (`$LC_ALL` / `$LC_MESSAGES` / `$LANG`) boshlanadi, agar u taklif qilinsa |
+
+Til kodi: 2-8 belgi, harf, raqam, `-` yoki `_` (`uz`, `ru`, `en`, `pt-BR`). Bo'lim har tilning faylini,
+yetishmayotgan tarjimalar sonini ko'rsatadi, yo'q faylni yaratadi, til qo'shadi; ro'yxatdagi tilni bosish uni
+editorda ko'rish tili qiladi (sahnadagi kalitli matnlar shu tilda ko'rinadi).
+
+### Skript API
+
+```cpp
+Localize("menu.start");                    // "Boshlash" / "Начать" / "Start"
+Localize("hud.score", score);              // "Ochko: {0}" -> "Ochko: 120"
+Localize("hud.time", minutes, seconds);    // "{0}:{1:02}" - std::format belgilari ishlaydi
+LocalizePlural("hud.coins", coins);        // ko'plik shakli soniga qarab, {0} = son
+
+Localization::SetLanguage("ru");           // taklif qilinmagan til: false, hech narsa o'zgarmaydi
+Localization::NextLanguage();              // keyingi til (til tugmasi)
+Localization::SaveSettings();              // o'yinchi tanlovi: SaveData "Zamin.Language"
+Localization::GetLanguage();               // "ru"
+Localization::GetLanguageName("ru");       // "Русский"
+Localization::GetLanguages();              // { "uz", "ru", "en" }
+```
+
+- **Zaxira**: joriy tilda kalit yo'q yoki bo'sh bo'lsa standart tilniki olinadi; hech qayerda bo'lmasa kalitning
+  o'zi qaytadi va bir marta ogohlantiriladi (`Localization::GetMissingKeys()` ro'yxati; lokalizatsiya jadvali
+  ularni "qo'shish" tugmasi bilan ko'rsatadi).
+- **Formatlash**: `{0}`, `{1}` ... std::format qoidalari bilan (`{0:.1f}`, `{1:>4}`). Argumentsiz `Localize` matnni
+  o'zgartirmaydi (qavslarni qochirish shart emas); buzilgan naqsh matnni o'zgarishsiz qaytaradi.
+- **Ko'plik**: CLDR qoidalari (o'zbek / ingliz: one, other; rus: one, few, many, other; yapon, xitoy: faqat other).
+
+### Text komponenti va til almashishi
+
+Text komponentining **Lokalizatsiya kaliti** maydoni (inspektorda kalitlar ro'yxatidan tanlanadi): matn
+joriy tildagi satr bilan ko'rsatiladi va til o'zgarsa o'zi yangilanadi. Kalit hech bir tilda bo'lmasa
+komponentning o'z `Text`i ko'rinadi (inspektor ogohlantiradi).
+
+Skript o'zi yasagan matnlar uchun `OnLanguageChanged` chaqiriladi (keyingi kadrda, `OnUpdate`dan oldin):
+
+```cpp
+class Hud : public ScriptableEntity
+{
+public:
+    void OnCreate() override { Refresh(); }
+    void OnLanguageChanged(const std::string& language) override { Refresh(); }
+
+private:
+    void Refresh()
+    {
+        if (auto* text = TryGetComponent<TextComponent>())
+            text->Text = Localize("hud.coins_title") + ": " + LocalizePlural("hud.coins", m_Coins);
+    }
+    int m_Coins = 0;
+};
+```
+
+Player tilni shunday tanlaydi: `--lang <kod>` -> o'yinchi saqlagan til -> tizim tili (yoqilgan bo'lsa) ->
+standart til. Editorning Play rejimi o'yin ichida til almashsa, To'xtatishda editor ko'rish tiliga qaytadi.
+
+### Lokalizatsiya jadvali
+
+*Oyna > Lokalizatsiya*: hamma til fayllari bitta jadvalda - har kalit bir qator, har til bir ustun.
+Yetishmayotgan tarjimalar belgilanadi va sanaladi ("Faqat yetishmayotganlar" filtri), `{0}` belgilari standart
+tildagidan farq qilsa ogohlantiriladi, ko'plik shakllari alohida tahrirlanadi. Kalit qo'shish, qayta nomlash,
+o'chirish (hamma tillardan), `Localize("...")` ni nusxalash bor. **Saqlash** har `<kod>.json`ni yozadi va
+tillarni qayta yuklaydi; fayllar editor tashqarisida o'zgarsa ham editor ularni o'zi qayta o'qiydi.
+
+Namuna: **Platformer2D** menyu, HUD, yuklanish ekrani va pauza menyusi uch tilda (uz, ru, en); menyuda `L`
+tugmasi va pauza menyusidagi til tugmasi tilni almashtiradi va tanlovni saqlaydi.
+
+---
+
+## 14. Debug chizish
+
+`"DebugDraw"`: o'yinda (player) skriptlarning `DebugDraw` shakllari va fizika ko'rinishlari: raycastlar
+(`RaycastDuration` soniya ko'rinadi), kontakt nuqtalari va ularning tafsilotlari, joint'lar, personaj va jismlar
+tezligi (`VelocityScale`), chiziq qalinligi, matn o'lchami. Buyruq qatori: `--no-debug-draw`, `--debug-raycasts`,
+`--debug-contacts`, `--debug-contact-details`, `--debug-joints`, `--debug-velocities`. Shipping build'larda debug
+chizish umuman yo'q; editor viewport'ining o'z tugmalari bor.
+
+---
+
+## 15. Saqlangan ma'lumotlar (SaveData)
+
+*Saqlangan ma'lumotlar* bo'limi o'yin `SaveData` bilan saqlagan qiymatlarni (o'yinlar orasida qoladi) ko'rsatadi,
+tahrirlaydi, yangi qiymat qo'shadi va tozalaydi. Ular loyiha faylida emas, foydalanuvchi papkasida
+(`~/.local/share/<kompaniya>/<mahsulot>`). Dvigatelning o'z kalitlari: `Zamin.Display.*` (to'liq ekran, VSync),
+`Zamin.Quality.Level`, `Zamin.Language`.
+
+---
+
+## 16. Editor tili (o'zbek / ingliz)
+
+Editorning o'z interfeysi ikki tilda: **o'zbek** (standart) va **ingliz**. *Tahrirlash > Sozlamalar > Ko'rinish >
+Editor tili* - darhol almashadi va `~/.config/zamin/preferences.json` ga (`"Language": "uz" | "en"`) yoziladi.
+
+Tarjima qilinadi: asosiy menyular (Fayl, Tahrirlash, Ko'rinish, Obyekt, Skriptlar, Oyna, Yordam), hamma oyna
+sarlavhalari va dialoglar, tugmalar, belgilash katakchalari, tablar va bo'lim sarlavhalari, qidiruv maydonlari,
+holat paneli, loyiha sozlamalari yorliqlari. Uzun izohlar (tooltip'lar), log xabarlari va o'yinning o'z matnlari
+o'zbekcha qoladi. O'yinning tili (13-bo'lim) editor tilidan mustaqil.
+
+Avtomatlashtirish / skrinshotlar uchun: `ZAMIN_EDITOR_LANGUAGE=en ZaminEditor ...` (faylga yozilmaydi).
+
+Dasturchilar uchun: matnlar o'zbekcha yoziladi va `Tr()` bilan o'raladi; inglizchasi
+`Zamin/src/Zamin/Editor/EditorLanguage.cpp` jadvalidan olinadi (kalit - o'zbekcha matn):
+
+```cpp
+if (ImGui::BeginMenu(Tr("Fayl")))                                   // "File"
+ImGui::Begin(Tr(ICON_FA_GEAR "  Loyiha sozlamalari###ProjectSettings"));  // ikonka, "###id" saqlanadi
+ImGui::MenuItem(Tr(ICON_FA_FOLDER_OPEN "  Sahnani ochish..."));     // "..." va ":" ham saqlanadi
+std::format("{}: {}", EditorText::Choose("Bekor qilish", "Undo"), name); // bir so'z - ikki ma'no
+```
+
+`UI::PropertyLabel` va `UI::PropertyHeader` yorliqlarni o'zi tarjima qiladi. Oyna sarlavhalarida `###id`
+ishlatiladi - til almashganda oynaning joyi va joylashuvi (layout) saqlanadi. Jadvalda yo'q matn o'zgarishsiz
+ko'rinadi.
+
+---
+
+## 17. .zproject fayli: format, versiya, migratsiya
+
+Fayl JSON, bo'limlar qat'iy tartibda: `Version`, `Project`, `Player`, `BuildScenes`, `InputActions`, `Tags`,
+`SortingLayers`, `CollisionLayers2D`, `Physics`, `Time`, `Audio`, `Quality`, `Graphics`, `Localization`,
+`DebugDraw`. Standart qiymatdagi bo'limlar (`Physics`, `Time`, `Quality`, `Graphics`, `Localization`, audio
+`Spatial`) yozilmaydi - eski fayllar o'zgarmaydi.
+
+- **Versiya** (`"Version": 2`): eski fayl (v0 - tekis, v1 - `"Version"`siz) o'qilganda migratsiyalar zanjiri bilan
+  joriy versiyaga keltiriladi; diskdagi fayl loyiha saqlanmaguncha o'zgarmaydi. Log nima o'zgarganini yozadi.
+- **Noma'lum kalitlar** (asboblar bo'limlari, yangiroq dvigatel kalitlari) saqlanadi va loyiha saqlanganda
+  joyida qayta yoziladi; *Umumiy* bo'limi ularni ko'rsatadi.
+
+Qisqartirilgan misol (Platformer2D asosida; `Physics`, `Time`, `Quality`, `Graphics` qiymatlari namuna uchun):
+
+```json
+{
+    "Version": 2,
+    "Project": {
+        "Name": "Platformer2D",
+        "StartScene": "Scenes/Level1.zscene",
+        "AssetDirectory": "Assets",
+        "SourceDirectory": "Source",
+        "ScriptModulePath": "Binaries/libPlatformer2D.so"
+    },
+    "Player": {
+        "Company": "Zamin Studio",
+        "Product": "Zamin Platformer",
+        "Version": "0.4.0",
+        "Width": 1280, "Height": 720,
+        "WindowMode": "Windowed",
+        "Resizable": true, "VSync": true,
+        "Title": "", "VersionInTitle": false,
+        "TargetFrameRate": 0, "RunInBackground": true,
+        "Icon": "Textures/GameIcon.png"
+    },
+    "BuildScenes": [ { "Path": "Scenes/Menu.zscene", "Enabled": true, "UUID": "3c8e51a07d24f9b6" } ],
+    "Physics": { "Gravity2D": [0.0, -20.0], "Gravity3D": [0.0, -9.81, 0.0] },
+    "Time": { "FixedStepRate": 60, "MaxStepsPerFrame": 5, "DefaultTimeScale": 1.0, "MaxDeltaTime": 0.1 },
+    "Audio": {
+        "StreamThresholdMB": 4.0, "MaxVoices": 64, "DopplerFactor": 1.0,
+        "Groups": [ { "Name": "Master", "Volume": 1.0 }, { "Name": "Music", "Volume": 0.7, "Parent": "Master" } ],
+        "Spatial": { "MinDistance": 2.0, "MaxDistance": 50.0, "Rolloff": "Linear", "RolloffFactor": 1.0 }
+    },
+    "Quality": { "Default": "High", "Levels": [ { "Name": "Low", "Shadows": true, "ShadowAtlas": 1024 } ] },
+    "Graphics": { "OpenGL": "4.6", "DebugContext": "Auto", "MSAA": 4, "SRGBFramebuffer": false },
+    "Localization": { "DefaultLanguage": "uz", "Languages": ["uz", "ru", "en"], "Directory": "Localization" }
+}
+```
+
+---
+
+## 18. Player buyruq qatori
+
+```
+ZaminPlayer [O'yin.zproject] [--scene <yo'l | build indeks | nom>]
+            [--fullscreen | --windowed] [--width W --height H] [--no-vsync]
+            [--quality <nom | indeks>] [--lang <kod>]
+            [--gl <4.1 | 4.3 | 4.5 | 4.6>] [--msaa <0 | 2 | 4 | 8 | 16>] [--gl-debug | --no-gl-debug] [--srgb | --no-srgb]
+            [--no-debug-draw] [--debug-raycasts] [--debug-contacts] [--debug-contact-details] [--debug-joints] [--debug-velocities]
+```
+
+| Variant | Nimadan ustun |
+|---|---|
+| `--fullscreen`, `--windowed`, `--width`, `--height`, `--no-vsync` | Player sozlamalari va o'yinchi saqlagan `Display` tanlovi |
+| `--quality` | O'yinchi saqlagan daraja va loyihaning standart darajasi |
+| `--lang` (`--language`) | O'yinchi saqlagan til, tizim tili, standart til; yo'q til - ogohlantirish, joriy til qoladi |
+| `--gl`, `--msaa`, `--gl-debug`, `--srgb` | Grafika sozlamalari |
+| `--scene` | Boshlang'ich sahna |
+
+---
+
+## 19. Testlar
+
+`Tests/ZaminTests.cpp` (`./build/bin/ZaminTests`) loyiha sozlamalarini tekshiradi, jumladan:
+
+| Test | Nimani |
+|---|---|
+| `ProjectSettingsFullRoundTrip` | Hamma bo'limlar yozilib, qayta o'qilganda bir xil |
+| `PlayerSettingsSerialization`, `PlayerCompanySaveDataAndVersion`, `GameIconImagesAndDesktopEntry` | Oyna, nom / versiya, SaveData papkasi, ikonka va .desktop |
+| `QualityLevelLimits`, `QualitySettingsJson`, `QualityRuntimeLevel` | Darajalar, cheklashlar, JSON, saqlangan tanlov |
+| `ProjectFileMigrationAndUnknownKeys` | v0 / v1 -> v2 migratsiya, noma'lum kalitlar saqlanishi |
+| `GraphicsContextSettings` | Versiyalar, MSAA, debug konteksti, JSON |
+| `TimeSettingsAndClock`, `TimeApiTimeScaleAndUnscaledTimers` | Qadam, masshtab, `Time::` API |
+| `ProjectDefaultGravityAndStep` | Standart gravitatsiya, "Loyihadan" sahnalar |
+| `AudioSpatialDefaults` | Masofa modellari, `Spatial` JSON, yangi manbalar standarti |
+| `LocalizationStringFiles` | Til fayli: ichma-ich kalitlar, ko'plik, `$name`, yozish / o'qish |
+| `LocalizationLookupFormatPlural` | Zaxira til, `{0}` formatlash, ko'plik, yo'q kalitlar ro'yxati, til almashishi, tizim tili, saqlangan tanlov |
+| `LocalizationTableEditingAndFiles` | Jadval: kalit / til qo'shish, qayta nomlash, yetishmayotganlar, `{0}` mosligi, fayllar |
+| `LocalizedTextComponentAndScripts` | Text komponenti kaliti til bilan yangilanadi, `OnLanguageChanged` |
+| `ProjectLocalizationSettings` | `"Localization"` bo'limi va loyiha bilan yuklanishi |
+| `EditorLanguageStrings` | Editor tili jadvali: tarjima, ikonka / `###id` saqlanishi, `Choose`, preferences |
+
+---
+
+## 20. Qisqa API ma'lumotnomasi
+
+```cpp
+// Loyiha
+Ref<Project> project = Project::GetActive();
+ProjectConfig& config = project->GetConfig();
+Project::GetPlayerSettings(); Project::GetGraphicsSettings(); Project::GetTimeSettings(); Project::GetPhysicsDefaults();
+Project::GetProductName(); Project::GetIconPath(); Project::GetLocalizationDirectory();
+Application::GetVersion(); Application::GetProductName(); Application::GetCompanyName();
+
+// Oyna
+Display::SetFullscreen(bool); Display::IsFullscreen(); Display::SetVSync(bool); Display::SaveSettings(); Display::LoadSettings();
+
+// Sifat
+Quality::GetLevel(); Quality::GetLevelName(); Quality::GetLevelNames(); Quality::SetLevel(int | "High");
+Quality::SaveSettings(); Quality::LoadSettings();
+
+// Vaqt
+Time::GetDeltaTime(); Time::GetUnscaledDeltaTime(); Time::GetFixedDeltaTime(); Time::GetTime(); Time::GetUnscaledTime();
+Time::GetTimeSinceStartup(); Time::GetFrameCount(); Time::SetTimeScale(float); Time::GetTimeScale(); Time::SetPaused(bool);
+SetTimersUnscaled(bool);   // ScriptableEntity: taymer / tween'lar haqiqiy vaqtda
+
+// Audio
+Audio::GetSpatialDefaults();          // AudioSpatialSettings: MinDistance, MaxDistance, Rolloff, RolloffFactor, ComputeGain(d)
+AudioEngine::GetMixerSettings();
+
+// Lokalizatsiya
+Localize("key", args...); LocalizePlural("key", count, args...);
+Localization::SetLanguage("ru"); Localization::NextLanguage(); Localization::GetLanguage(); Localization::GetLanguages();
+Localization::GetLanguageName("ru"); Localization::Has("key"); Localization::GetMissingKeys();
+Localization::SaveSettings(); Localization::LoadSettings();
+virtual void OnLanguageChanged(const std::string& language);   // ScriptableEntity
+
+// Editor tili (editor kodi)
+Tr("Fayl"); EditorText::SetLanguage(EditorLanguage::English); EditorText::Choose("Bekor qilish", "Undo");
+```

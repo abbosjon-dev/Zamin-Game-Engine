@@ -128,7 +128,7 @@ public:
 
     void OnUpdate(Timestep ts) override
     {
-        if (!HasArrived())
+        if (IsMoving())
             return;
         m_Timer += ts;
         if (m_Timer < Wait)
@@ -153,12 +153,15 @@ public:
     glm::vec2 AreaMin{ -12.0f, -9.0f }; // XZ
     glm::vec2 AreaMax{ 12.0f, 9.0f };
     float PauseMin = 0.3f, PauseMax = 1.5f;
+    float StartDelay = 0.0f; // s it stands still first
     int Seed = 11;
 
     void OnStart() override
     {
         m_Random.SetSeed((uint64_t)Seed);
-        PickDestination();
+        m_Pause = StartDelay;
+        if (StartDelay <= 0.0f)
+            PickDestination();
     }
 
     void OnUpdate(Timestep ts) override
@@ -175,7 +178,7 @@ public:
             m_Pause = PauseMax;
             return;
         }
-        if (!HasArrived())
+        if (IsMoving())
             return;
         m_Pause -= ts;
         if (m_Pause <= 0.0f)
@@ -200,7 +203,7 @@ private:
 };
 ZM_REGISTER_SCRIPT(Visitor, ZM_FIELD(Visitor, AreaMin).Label("Maydon (min XZ)"), ZM_FIELD(Visitor, AreaMax).Label("Maydon (max XZ)"),
                    ZM_FIELD(Visitor, PauseMin).Label("Pauza (min, s)"), ZM_FIELD(Visitor, PauseMax).Label("Pauza (max, s)"),
-                   ZM_FIELD(Visitor, Seed).Label("Urug' (seed)"))
+                   ZM_FIELD(Visitor, StartDelay).Label("Boshida kutish (s)"), ZM_FIELD(Visitor, Seed).Label("Urug' (seed)"))
 
 // The guard: an AI state machine on top of its Nav Agent and Sight Sensor.
 //   Patrul  - walks the Route's points (its children), waiting a moment at each;
@@ -294,7 +297,7 @@ private:
 
     void Patrol(float dt)
     {
-        if (m_Points.empty() || !HasArrived())
+        if (m_Points.empty() || IsMoving())
             return;
         // A look round at each point, then on to the next one.
         m_Wait += dt;
@@ -322,7 +325,7 @@ private:
     void Search(float dt)
     {
         // At the spot: turns round slowly.
-        if (HasArrived())
+        if (!IsMoving())
             Transform().Rotation.y += dt * 2.0f;
     }
 

@@ -3015,8 +3015,11 @@ namespace Zamin {
             UI::PropertyHeader("Jonli");
             UI::PropertyLabel("Holat");
             if (c.IsCarving())
-                ImGui::TextDisabled("%zu %s, %zu grid, %u %s", c.GetCarvedCellCount(), Tr("katak yopiq"), c.Carvings.size(), c.CarveCount,
-                                    Tr("marta yangilandi"));
+            {
+                ImGui::TextDisabled("%zu %s, %zu grid", c.GetCarvedCellCount(), Tr("katak yopiq"), c.Carvings.size());
+                UI::PropertyLabel("");
+                ImGui::TextDisabled("%u %s", c.CarveCount, Tr("marta yangilandi"));
+            }
             else
                 ImGui::TextDisabled("%s", c.CarveOnlyStationary && c.StillTime < c.StationaryTime ? Tr("harakatda (yopmaydi)") : Tr("hech narsa yopmaydi"));
         }

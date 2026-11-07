@@ -43642,3 +43642,44 @@ TEST(NavigationComponentsRoundTrip)
         CHECK(!clip.empty() && SceneSerializer::GetSerializedComponentKey(clip) == key);
     }
 }
+
+TEST(FormationMembersKeepUpWhileWalking)
+{
+    // Members a little faster than the leader keep their slots while it walks (they move with it,
+    // not only towards where the slot was), in a ring too; they stop when it stops.
+    for (FormationShape shape : { FormationShape::Wedge, FormationShape::Circle })
+    {
+        auto scene = CreateRef<Scene>();
+        Entity leader = scene->CreateEntity("Leader");
+        auto& f = leader.AddComponent<FormationComponent>();
+        f.Shape = shape;
+        f.Spacing = 2.0f;
+        f.Speed = 2.0f; // the leader walks 1.5
+        f.SlotTolerance = 0.3f;
+        std::vector<Entity> members;
+        for (int i = 0; i < 4; i++)
+        {
+            Entity m = scene->CreateEntity(std::format("M{}", i));
+            m.GetTransform().Translation = { (float)i - 2.0f, 0.0f, 3.0f };
+            scene->AddFormationMember(leader, m);
+            members.push_back(m);
+        }
+        scene->OnRuntimeStart();
+        // (Only 0.5 units / s faster: the ones that start on the far side of the ring take a while.)
+        int inPlace = 0;
+        for (int i = 0; i < 1500; i++)
+        {
+            leader.GetTransform().Translation.z -= 1.5f / 60.0f;
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            inPlace += i >= 1200 && f.IsInPlace() ? 1 : 0;
+        }
+        CHECK(f.LeaderMoving && inPlace == 300); // every frame of the last 5 s
+        for (int i = 0; i < 60; i++)
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+        const glm::vec3 before = scene->GetWorldPosition(members[0]);
+        for (int i = 0; i < 30; i++)
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+        CHECK(!f.LeaderMoving && f.IsInPlace() && glm::length(scene->GetWorldPosition(members[0]) - before) < 0.02f);
+        scene->OnRuntimeStop();
+    }
+}

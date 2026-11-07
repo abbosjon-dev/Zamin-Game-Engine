@@ -33,6 +33,9 @@ namespace Zamin {
         constexpr float FaceTurnSpeed = 360.0f;
         // The leader counts as moving above this speed (units / s).
         constexpr float MovingSpeed = 0.15f;
+        // Members without a Nav Agent close on their slot at this rate (1 / s: the gap shrinks by this
+        // part of itself each second) on top of moving with the leader.
+        constexpr float FollowGain = 4.0f;
 
         glm::vec2 ToPlane(const glm::vec3& p, int dimension) { return dimension == 3 ? glm::vec2(p.x, p.z) : glm::vec2(p.x, p.y); }
 
@@ -443,7 +446,9 @@ namespace Zamin {
                     continue;
                 }
 
-                // Without a Nav Agent: straight there at Speed.
+                // Without a Nav Agent: straight there - moving with the leader (its velocity) plus a
+                // pull towards the slot, at most Speed (the leader's speed when that is more), so it
+                // keeps its slot while the group walks instead of trailing behind it.
                 const float moveSpeed = std::isfinite(c.Speed) ? std::max(0.0f, c.Speed) : 0.0f;
                 glm::vec3 to = slot - at;
                 if (dimension == 2)
@@ -455,10 +460,12 @@ namespace Zamin {
                 auto* rb3 = member.TryGetComponent<Rigidbody3DComponent>();
                 b2Body* body2 = rb2 ? (b2Body*)rb2->RuntimeBody : nullptr;
                 const bool dynamic3D = rb3 && rb3->RuntimeBodyID != 0xffffffff && rb3->Type == Rigidbody3DComponent::BodyType::Dynamic && m_PhysicsWorld3D;
-                if (distance <= tolerance * 0.5f || moveSpeed <= 0.0f || distance < 1e-5f)
+                const bool inPlace = distance <= tolerance;
+                if (inPlace)
+                    c.InPlace++;
+                if (moveSpeed <= 0.0f || (!c.LeaderMoving && (distance <= tolerance * 0.5f || distance < 1e-5f)))
                 {
-                    c.InPlace += distance <= tolerance ? 1 : 0;
-                    // At rest in its slot.
+                    // At rest in its slot (or told not to move).
                     if (cc && cc->RuntimeID != 0xffffffff)
                         cc->Move(glm::vec3(0.0f));
                     else if (body2 && rb2->Type != Rigidbody2DComponent::BodyType::Static)
@@ -472,12 +479,11 @@ namespace Zamin {
                         TurnToFace(member, face, dimension, FaceTurnSpeed, dt);
                     continue;
                 }
-                if (distance <= tolerance)
-                    c.InPlace++;
-                // Slows down over the last unit so it settles instead of overshooting.
-                const float wanted = std::min(moveSpeed, std::max(distance, 0.25f * moveSpeed) * 2.0f);
-                const glm::vec3 direction = to / std::max(glm::length(to), 1e-6f);
-                const glm::vec3 velocity3 = direction * wanted;
+                const glm::vec3 carried = c.LeaderMoving ? FromPlane(velocity, 0.0f, dimension) : glm::vec3(0.0f);
+                glm::vec3 velocity3 = carried + to * FollowGain;
+                const float limit = std::max(moveSpeed, glm::length(carried));
+                if (const float length = glm::length(velocity3); length > limit && length > 1e-6f)
+                    velocity3 *= limit / length;
                 if (cc && cc->RuntimeID != 0xffffffff)
                     cc->Move(glm::vec3(velocity3.x, 0.0f, velocity3.z));
                 else if (body2 && rb2->Type == Rigidbody2DComponent::BodyType::Dynamic)
@@ -489,16 +495,16 @@ namespace Zamin {
                 }
                 else
                 {
-                    const float step = std::min(distance, wanted * dt);
-                    glm::vec3 next = at + direction * step;
+                    glm::vec3 next = at + velocity3 * dt;
                     if (dimension == 3)
                         next.y = slot.y; // on the floor under its slot
                     SetWorldPosition(*this, member, next);
                     if (body2 && rb2->Type == Rigidbody2DComponent::BodyType::Kinematic)
                         PhysicsWorld2D::SetLinearVelocity(body2, glm::vec2(velocity3));
                 }
+                // Walking to its slot: the way it goes; in it (walking along): the formation's way.
                 if (c.FaceHeading)
-                    TurnToFace(member, ToPlane(direction, dimension), dimension, FaceTurnSpeed, dt);
+                    TurnToFace(member, inPlace ? face : ToPlane(velocity3, dimension), dimension, FaceTurnSpeed, dt);
             }
         }
     }

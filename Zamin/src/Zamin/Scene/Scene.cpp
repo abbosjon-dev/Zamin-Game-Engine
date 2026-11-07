@@ -31,6 +31,7 @@
 #include "Zamin/Math/Quaternion.h"
 #include "Zamin/Utils/FileSystem.h"
 #include "Zamin/Core/Profiler.h"
+#include "Zamin/Core/JobSystem.h"
 #include "Zamin/Core/SaveData.h"
 #include "Zamin/Debug/DebugDraw.h"
 #include "Zamin/Core/GameState.h"
@@ -5384,6 +5385,201 @@ namespace Zamin {
             std::vector<uint32_t> Signature;
         };
 
+        // This thread's scratch (the main thread's, a worker's).
+        AnimatorScratch& ThreadScratch()
+        {
+            static thread_local AnimatorScratch scratch;
+            return scratch;
+        }
+
+        // An animator's pose and morph weights for this frame: what to sample was settled by its
+        // update; this writes only the animator's JointMatrices, MorphWeights and its layers'
+        // EffectiveWeight (so the job system may pose several animators at the same time).
+        struct AnimatorPoseTask
+        {
+            AnimatorComponent* Anim = nullptr;
+            Ref<Model> ModelRef;
+            ResolvedMotion Current, Previous;
+            std::vector<float> MorphBase;  // the Mesh Renderer's (or the model's) morph weights
+            float Blend = 1.0f;            // the crossfade's weight
+            int RootJoint = -1;
+            bool Morphs = false, Skinned = false;
+            // Its pose caches were baked on the main thread: only looked up (Model::FindBakedClip).
+            bool Prebaked = false;
+            uint32_t CachedSamples = 0, ClipSamples = 0;
+        };
+
+        // sample false: only bakes the pose caches the sampling will read (main thread), in the
+        // order it reads them.
+        void PoseAnimator(AnimatorPoseTask& task, AnimatorScratch& scratch, bool sample)
+        {
+            AnimatorComponent& anim = *task.Anim;
+            const Model& model = *task.ModelRef;
+            const auto& clips = model.GetAnimations();
+            auto findClip = [&](const std::string& name) -> const AnimationClip* {
+                const int index = name.empty() ? (clips.empty() ? -1 : 0) : model.FindAnimation(name);
+                return index >= 0 ? &clips[(size_t)index] : nullptr;
+            };
+            auto parameterValue = [&](const std::string& name, float fallback) {
+                const AnimatorParameter* p = name.empty() ? nullptr : anim.FindParameter(name);
+                return p ? p->Value : fallback;
+            };
+            const ResolvedMotion& current = task.Current;
+            const ResolvedMotion& previous = task.Previous;
+            const float w = task.Blend;
+
+            // ---- morph target weights: each motion's clips over the Mesh Renderer's weights,
+            // mixed like the pose (blend tree shares, then the crossfade)
+            if (task.Morphs && sample)
+            {
+                auto sampleMorphs = [&](const ResolvedMotion& m, std::vector<float>& out) {
+                    out = task.MorphBase;
+                    if (m.Parts.empty())
+                        return;
+                    if (m.Parts.size() == 1)
+                    {
+                        SampleClipMorphWeights(model, m.Parts[0].Clip, m.Parts[0].Time, out);
+                        return;
+                    }
+                    std::fill(out.begin(), out.end(), 0.0f);
+                    float total = 0.0f;
+                    for (const MotionPart& part : m.Parts)
+                    {
+                        if (part.Weight <= 0.0f)
+                            continue;
+                        scratch.MorphPart = task.MorphBase;
+                        SampleClipMorphWeights(model, part.Clip, part.Time, scratch.MorphPart);
+                        for (size_t i = 0; i < out.size(); i++)
+                            out[i] += scratch.MorphPart[i] * part.Weight;
+                        total += part.Weight;
+                    }
+                    if (total > 0.0f && std::abs(total - 1.0f) > 1e-4f)
+                        for (float& v : out)
+                            v /= total;
+                    else if (total <= 0.0f)
+                        out = task.MorphBase;
+                };
+                sampleMorphs(current, anim.MorphWeights);
+                if (anim.IsFading())
+                {
+                    sampleMorphs(previous, scratch.MorphPrevious);
+                    for (size_t i = 0; i < anim.MorphWeights.size() && i < scratch.MorphPrevious.size(); i++)
+                        anim.MorphWeights[i] = scratch.MorphPrevious[i] + (anim.MorphWeights[i] - scratch.MorphPrevious[i]) * w;
+                }
+            }
+            if (!task.Skinned)
+                return;
+
+            const Skeleton& skeleton = model.GetSkeleton();
+            const bool fading = anim.IsFading();
+            const int rootJoint = task.RootJoint;
+            // A clip's pose: from its pose cache (CachePoses), else from its keys.
+            auto sampleClip = [&](const AnimationClip* clip, float time, LocalPose& out) {
+                if (clip && anim.CachePoses)
+                {
+                    if (!sample)
+                    {
+                        model.GetBakedClip(*clip, anim.PoseCacheRate);
+                        return;
+                    }
+                    if (const BakedClip* baked = task.Prebaked ? model.FindBakedClip(*clip, anim.PoseCacheRate)
+                                                               : model.GetBakedClip(*clip, anim.PoseCacheRate))
+                    {
+                        SampleBakedPose(skeleton, *clip, *baked, time, out, rootJoint);
+                        task.CachedSamples++;
+                        return;
+                    }
+                }
+                if (!sample)
+                    return;
+                SampleLocalPose(skeleton, clip, time, out, rootJoint);
+                task.ClipSamples += clip ? 1 : 0;
+            };
+            // A motion's pose: its parts mixed by weight (each one's share of what came before).
+            auto samplePose = [&](const ResolvedMotion& m, LocalPose& out) {
+                if (m.Parts.empty())
+                {
+                    if (sample)
+                        SampleLocalPose(skeleton, nullptr, 0.0f, out);
+                    return;
+                }
+                sampleClip(m.Parts[0].Clip, m.Parts[0].Time, out);
+                float sum = m.Parts[0].Weight;
+                for (size_t i = 1; i < m.Parts.size(); i++)
+                {
+                    sum += m.Parts[i].Weight;
+                    if (m.Parts[i].Weight <= 0.0f || sum <= 0.0f)
+                        continue;
+                    sampleClip(m.Parts[i].Clip, m.Parts[i].Time, scratch.Part);
+                    if (sample)
+                        BlendLocalPose(out, scratch.Part, m.Parts[i].Weight / sum);
+                }
+            };
+
+            ZM_PROFILE_SCOPE("Pozalar");
+            if (fading)
+            {
+                samplePose(previous, scratch.Base);
+                samplePose(current, scratch.Other);
+                if (sample)
+                    BlendLocalPose(scratch.Base, scratch.Other, w);
+            }
+            else
+                samplePose(current, scratch.Base);
+
+            // ---- layers on top, each on its mask's bones
+            for (AnimatorLayer& layer : anim.Layers)
+            {
+                if (sample)
+                    layer.EffectiveWeight = 0.0f;
+                const AnimationClip* c = layer.Clip.empty() ? nullptr : findClip(layer.Clip);
+                float weight = std::clamp(layer.CurrentWeight, 0.0f, 1.0f);
+                if (!layer.WeightParameter.empty())
+                    weight *= std::clamp(parameterValue(layer.WeightParameter, 1.0f), 0.0f, 1.0f);
+                if (!c || weight <= 0.0f)
+                    continue;
+                const AnimationClip* prev = layer.IsFading() ? (layer.PreviousClip.empty() ? nullptr : findClip(layer.PreviousClip)) : nullptr;
+                float fw = layer.IsFading() ? layer.FadeElapsed / layer.FadeDuration : 1.0f;
+                fw = fw * fw * (3.0f - 2.0f * fw);
+                if (layer.IsFading() && !prev)
+                    weight *= fw; // from nothing: the layer fades in
+                if (BuildJointMask(skeleton, layer.MaskBones, scratch.Mask) == 0 || weight <= 0.0f)
+                    continue;
+                if (sample)
+                    layer.EffectiveWeight = weight;
+                if (layer.Blend == AnimatorLayerBlend::Override)
+                {
+                    sampleClip(c, WrapClipTime(c, layer.Time, layer.Loop), scratch.Other);
+                    if (prev)
+                    {
+                        sampleClip(prev, WrapClipTime(prev, layer.PreviousTime, layer.PreviousLoop), scratch.Part);
+                        if (sample)
+                        {
+                            BlendLocalPose(scratch.Part, scratch.Other, fw);
+                            BlendLocalPose(scratch.Base, scratch.Part, weight, &scratch.Mask);
+                        }
+                    }
+                    else if (sample)
+                        BlendLocalPose(scratch.Base, scratch.Other, weight, &scratch.Mask);
+                }
+                else
+                {
+                    // Additive: each clip's change from its own first frame.
+                    auto add = [&](const AnimationClip* clip, float time, bool loop, float share) {
+                        sampleClip(clip, WrapClipTime(clip, time, loop), scratch.Other);
+                        sampleClip(clip, 0.0f, scratch.Reference);
+                        if (sample)
+                            AddLocalPose(scratch.Base, scratch.Other, scratch.Reference, share, &scratch.Mask);
+                    };
+                    if (prev)
+                        add(prev, layer.PreviousTime, layer.PreviousLoop, weight * (1.0f - fw));
+                    add(c, layer.Time, layer.Loop, prev ? weight * fw : weight);
+                }
+            }
+            if (sample)
+                ComposeJointMatrices(skeleton, scratch.Base, anim.JointMatrices);
+        }
+
     }
 
     void Scene::UpdateAnimators(Timestep ts, bool editor)
@@ -5395,7 +5591,10 @@ namespace Zamin {
         const bool viewKnown = m_AnimationViewUpdate == m_AnimationUpdate;
         const uint64_t lastUpdate = m_AnimationUpdate++;
         std::vector<PendingAnimationEvent> firedEvents;
-        static thread_local AnimatorScratch scratch;
+        AnimatorScratch& scratch = ThreadScratch();
+        // The poses that wait for the job system.
+        std::vector<AnimatorPoseTask> poseTasks;
+        const bool deferPoses = JobSystem::IsParallel();
         for (auto e : m_Registry.view<AnimatorComponent>())
         {
             // Inactive in the hierarchy: not updated at all - time, pose and state machine wait
@@ -5715,43 +5914,34 @@ namespace Zamin {
                 }
             }
 
-            // ---- morph target weights: each motion's clips over the Mesh Renderer's weights,
-            // mixed like the pose (blend tree shares, then the crossfade)
-            if (morphs && posePending)
+            // ---- the pose and the morph weights: sampled now, or with the job system after every
+            // animator was updated (on the workers; each writes only its own animator's pose)
+            if (posePending)
             {
-                auto sampleMorphs = [&](const ResolvedMotion& m, std::vector<float>& out) {
-                    out = scratch.MorphBase;
-                    if (m.Parts.empty())
-                        return;
-                    if (m.Parts.size() == 1)
-                    {
-                        SampleClipMorphWeights(*model, m.Parts[0].Clip, m.Parts[0].Time, out);
-                        return;
-                    }
-                    std::fill(out.begin(), out.end(), 0.0f);
-                    float total = 0.0f;
-                    for (const MotionPart& part : m.Parts)
-                    {
-                        if (part.Weight <= 0.0f)
-                            continue;
-                        scratch.MorphPart = scratch.MorphBase;
-                        SampleClipMorphWeights(*model, part.Clip, part.Time, scratch.MorphPart);
-                        for (size_t i = 0; i < out.size(); i++)
-                            out[i] += scratch.MorphPart[i] * part.Weight;
-                        total += part.Weight;
-                    }
-                    if (total > 0.0f && std::abs(total - 1.0f) > 1e-4f)
-                        for (float& v : out)
-                            v /= total;
-                    else if (total <= 0.0f)
-                        out = scratch.MorphBase;
-                };
-                sampleMorphs(current, anim.MorphWeights);
-                if (anim.IsFading())
+                AnimatorPoseTask& task = poseTasks.emplace_back();
+                task.Anim = &anim;
+                task.ModelRef = model;
+                task.Current = current;
+                task.Previous = previous;
+                task.Blend = w;
+                task.RootJoint = rootJoint;
+                task.Morphs = morphs;
+                task.Skinned = model && model->IsSkinned();
+                if (morphs)
+                    task.MorphBase = scratch.MorphBase;
+                if (deferPoses)
                 {
-                    sampleMorphs(previous, scratch.MorphPrevious);
-                    for (size_t i = 0; i < anim.MorphWeights.size() && i < scratch.MorphPrevious.size(); i++)
-                        anim.MorphWeights[i] = scratch.MorphPrevious[i] + (anim.MorphWeights[i] - scratch.MorphPrevious[i]) * w;
+                    // The pose caches it will read are baked here, in this order - as without the job system.
+                    if (anim.CachePoses && task.Skinned)
+                        PoseAnimator(task, scratch, false);
+                    task.Prebaked = true;
+                }
+                else
+                {
+                    PoseAnimator(task, scratch, true);
+                    m_AnimationStats.CachedSamples += task.CachedSamples;
+                    m_AnimationStats.ClipSamples += task.ClipSamples;
+                    poseTasks.pop_back();
                 }
             }
 
@@ -5765,95 +5955,6 @@ namespace Zamin {
                 continue;
             }
             const Skeleton& skeleton = model->GetSkeleton();
-            const bool fading = anim.IsFading();
-
-            // A clip's pose: from its pose cache (CachePoses), else from its keys.
-            auto sampleClip = [&](const AnimationClip* clip, float time, LocalPose& out) {
-                if (clip && anim.CachePoses)
-                    if (const BakedClip* baked = model->GetBakedClip(*clip, anim.PoseCacheRate))
-                    {
-                        SampleBakedPose(skeleton, *clip, *baked, time, out, rootJoint);
-                        m_AnimationStats.CachedSamples++;
-                        return;
-                    }
-                SampleLocalPose(skeleton, clip, time, out, rootJoint);
-                m_AnimationStats.ClipSamples += clip ? 1 : 0;
-            };
-            // A motion's pose: its parts mixed by weight (each one's share of what came before).
-            auto samplePose = [&](const ResolvedMotion& m, LocalPose& out) {
-                if (m.Parts.empty())
-                {
-                    SampleLocalPose(skeleton, nullptr, 0.0f, out);
-                    return;
-                }
-                sampleClip(m.Parts[0].Clip, m.Parts[0].Time, out);
-                float sum = m.Parts[0].Weight;
-                for (size_t i = 1; i < m.Parts.size(); i++)
-                {
-                    sum += m.Parts[i].Weight;
-                    if (m.Parts[i].Weight <= 0.0f || sum <= 0.0f)
-                        continue;
-                    sampleClip(m.Parts[i].Clip, m.Parts[i].Time, scratch.Part);
-                    BlendLocalPose(out, scratch.Part, m.Parts[i].Weight / sum);
-                }
-            };
-            if (posePending)
-            {
-                ZM_PROFILE_SCOPE("Pozalar");
-                if (fading)
-                {
-                    samplePose(previous, scratch.Base);
-                    samplePose(current, scratch.Other);
-                    BlendLocalPose(scratch.Base, scratch.Other, w);
-                }
-                else
-                    samplePose(current, scratch.Base);
-
-                // ---- layers on top, each on its mask's bones
-                for (AnimatorLayer& layer : anim.Layers)
-                {
-                    layer.EffectiveWeight = 0.0f;
-                    const AnimationClip* c = layer.Clip.empty() ? nullptr : findClip(layer.Clip);
-                    float weight = std::clamp(layer.CurrentWeight, 0.0f, 1.0f);
-                    if (!layer.WeightParameter.empty())
-                        weight *= std::clamp(parameterValue(layer.WeightParameter, 1.0f), 0.0f, 1.0f);
-                    if (!c || weight <= 0.0f)
-                        continue;
-                    const AnimationClip* prev = layer.IsFading() ? (layer.PreviousClip.empty() ? nullptr : findClip(layer.PreviousClip)) : nullptr;
-                    float fw = layer.IsFading() ? layer.FadeElapsed / layer.FadeDuration : 1.0f;
-                    fw = fw * fw * (3.0f - 2.0f * fw);
-                    if (layer.IsFading() && !prev)
-                        weight *= fw; // from nothing: the layer fades in
-                    if (BuildJointMask(skeleton, layer.MaskBones, scratch.Mask) == 0 || weight <= 0.0f)
-                        continue;
-                    layer.EffectiveWeight = weight;
-                    if (layer.Blend == AnimatorLayerBlend::Override)
-                    {
-                        sampleClip(c, WrapClipTime(c, layer.Time, layer.Loop), scratch.Other);
-                        if (prev)
-                        {
-                            sampleClip(prev, WrapClipTime(prev, layer.PreviousTime, layer.PreviousLoop), scratch.Part);
-                            BlendLocalPose(scratch.Part, scratch.Other, fw);
-                            BlendLocalPose(scratch.Base, scratch.Part, weight, &scratch.Mask);
-                        }
-                        else
-                            BlendLocalPose(scratch.Base, scratch.Other, weight, &scratch.Mask);
-                    }
-                    else
-                    {
-                        // Additive: each clip's change from its own first frame.
-                        auto add = [&](const AnimationClip* clip, float time, bool loop, float share) {
-                            sampleClip(clip, WrapClipTime(clip, time, loop), scratch.Other);
-                            sampleClip(clip, 0.0f, scratch.Reference);
-                            AddLocalPose(scratch.Base, scratch.Other, scratch.Reference, share, &scratch.Mask);
-                        };
-                        if (prev)
-                            add(prev, layer.PreviousTime, layer.PreviousLoop, weight * (1.0f - fw));
-                        add(c, layer.Time, layer.Loop, prev ? weight * fw : weight);
-                    }
-                }
-                ComposeJointMatrices(skeleton, scratch.Base, anim.JointMatrices);
-            }
 
             // Root motion moves the entity (play mode; the editor's preview stays in place).
             anim.RootMotionVelocity = glm::vec3(0.0f);
@@ -5881,6 +5982,20 @@ namespace Zamin {
                     motion.Yaw = glm::mix(old.Yaw, motion.Yaw, w);
                 }
                 ApplyRootMotion({ e, this }, anim, motion, ts);
+            }
+        }
+        if (!poseTasks.empty())
+        {
+            ZM_PROFILE_SCOPE("Pozalar (parallel)");
+            JobSystem::ParallelFor((uint32_t)poseTasks.size(), 1, [&poseTasks](uint32_t begin, uint32_t end) {
+                AnimatorScratch& own = ThreadScratch(); // the worker's
+                for (uint32_t i = begin; i < end; i++)
+                    PoseAnimator(poseTasks[i], own, true);
+            });
+            for (const AnimatorPoseTask& task : poseTasks)
+            {
+                m_AnimationStats.CachedSamples += task.CachedSamples;
+                m_AnimationStats.ClipSamples += task.ClipSamples;
             }
         }
         m_AnimationStats.CacheBytes = GetBakedClipMemory();

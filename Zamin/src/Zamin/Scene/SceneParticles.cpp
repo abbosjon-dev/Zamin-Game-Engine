@@ -4,6 +4,7 @@
 // billboard pass of the frame.
 #include "Zamin/Scene/Scene.h"
 #include "Zamin/Asset/AssetRegistry.h"
+#include "Zamin/Core/JobSystem.h"
 #include "Zamin/Core/Log.h"
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Physics/CollisionShapes3D.h"
@@ -246,19 +247,36 @@ namespace Zamin {
         std::vector<entt::entity> finished;
         std::optional<glm::vec3> viewer;
         bool viewerFound = false;
-        for (auto e : m_Registry.view<ParticleSystemComponent>())
+        auto view = m_Registry.view<ParticleSystemComponent>();
+
+        // With the job system, systems that neither emit into others (sub-emitters) nor are emitted
+        // into, nor cast rays into the physics world, are simulated in parallel - each one only
+        // touches its own component. The rest run after them here, in order, as before. Either way
+        // every system gets the same result as when all of them run one after another.
+        const bool parallel = JobSystem::IsParallel();
+        std::vector<uint64_t> templates; // the sub-emitters' target systems
+        if (parallel)
         {
-            auto& ps = m_Registry.get<ParticleSystemComponent>(e);
-            Entity entity{ e, this };
-            // Not previewed in the editor, or inactive in the hierarchy: stopped and empty, so it
-            // starts over (Burst included) when it plays again. Edit mode and direct writes to
-            // TagComponent::Active end up here; at runtime SetActive already cleared it.
-            if ((editor && !ps.PlayInEditor) || !IsActiveInHierarchy(entity))
+            for (auto e : view)
             {
-                if (!ps.Particles.empty() || ps.BurstDone || ps.EmitAccumulator != 0.0f || ps.PlayTime != 0.0f)
-                    ps.Clear();
-                continue;
+                const auto& ps = view.get<ParticleSystemComponent>(e);
+                if (ps.SubEmitters.Enabled)
+                    for (const auto& sub : ps.SubEmitters.Emitters)
+                        if (sub.Emitter)
+                            templates.push_back(sub.Emitter.ID);
             }
+            std::sort(templates.begin(), templates.end());
+        }
+        auto independent = [&](entt::entity e, const ParticleSystemComponent& ps) {
+            using CollisionType = ParticleSystemComponent::CollisionModule::CollisionType;
+            if (!parallel || ps.SubEmitters.Enabled || (ps.Collision.Enabled && ps.Collision.Type != CollisionType::Plane))
+                return false;
+            const uint64_t id = (uint64_t)m_Registry.get<IDComponent>(e).ID;
+            return !std::binary_search(templates.begin(), templates.end(), id);
+        };
+
+        // Where a system is this frame and what its simulation gets from the scene.
+        auto prepare = [&](Entity entity, ParticleSystemComponent& ps, glm::mat4& world, ParticleEnvironment& environment) {
             ResolveMeshShape(entity, ps);
             // Weather: the emitter at the camera (its own rotation and scale).
             glm::mat4 emitterWorld = GetWorldTransform(entity);
@@ -277,8 +295,7 @@ namespace Zamin {
                     emitterWorld[3] = glm::vec4(ps.FollowPosition, 1.0f);
                 }
             }
-            ParticleEnvironment environment;
-            const glm::mat4 world = ResolveSpace(*this, ps, emitterWorld, environment);
+            world = ResolveSpace(*this, ps, emitterWorld, environment);
 
             // Collisions: the plane through an entity, the physics world while it runs.
             const auto& collision = ps.Collision;
@@ -325,6 +342,9 @@ namespace Zamin {
                         return true;
                     };
             }
+        };
+        // The simulation itself (on a worker for the independent systems).
+        auto simulate = [ts, editor](ParticleSystemComponent& ps, const glm::mat4& world, const ParticleEnvironment& environment) {
             {
                 ZM_PROFILE_SCOPE("Particle simulyatsiyasi");
                 if (ParticleSimulation::Update(ps, world, ts, editor, &environment))
@@ -333,15 +353,73 @@ namespace Zamin {
             // The camera moved on: what it left behind comes round to the front.
             if (ps.FollowActive && ps.FollowCamera.Wrap && ps.Space == ParticleSystemComponent::SimulationSpace::World && !ps.Paused)
                 ParticleSimulation::WrapAround(ps, ps.FollowPosition, ps.FollowCamera.WrapExtents);
+        };
+
+        struct ParallelSystem
+        {
+            ParticleSystemComponent* System;
+            glm::mat4 World;
+            ParticleEnvironment Environment;
+        };
+        std::vector<ParallelSystem> parallelSystems;
+        std::vector<entt::entity> updated, ordered;
+        for (auto e : view)
+        {
+            auto& ps = view.get<ParticleSystemComponent>(e);
+            Entity entity{ e, this };
+            // Not previewed in the editor, or inactive in the hierarchy: stopped and empty, so it
+            // starts over (Burst included) when it plays again. Edit mode and direct writes to
+            // TagComponent::Active end up here; at runtime SetActive already cleared it.
+            if ((editor && !ps.PlayInEditor) || !IsActiveInHierarchy(entity))
+            {
+                if (!ps.Particles.empty() || ps.BurstDone || ps.EmitAccumulator != 0.0f || ps.PlayTime != 0.0f)
+                    ps.Clear();
+                continue;
+            }
+            updated.push_back(e);
+            if (!independent(e, ps))
+            {
+                ordered.push_back(e);
+                continue;
+            }
+            ParallelSystem& item = parallelSystems.emplace_back();
+            item.System = &ps;
+            prepare(entity, ps, item.World, item.Environment);
+        }
+        if (parallelSystems.size() > 1)
+            JobSystem::ParallelFor((uint32_t)parallelSystems.size(), 1, [&](uint32_t begin, uint32_t end) {
+                for (uint32_t i = begin; i < end; i++)
+                {
+                    ParallelSystem& item = parallelSystems[i];
+                    simulate(*item.System, item.World, item.Environment);
+                    item.System->Events.clear(); // no sub-emitters to hear of them
+                }
+            });
+        else
+            for (ParallelSystem& item : parallelSystems)
+            {
+                simulate(*item.System, item.World, item.Environment);
+                item.System->Events.clear();
+            }
+
+        for (entt::entity e : ordered)
+        {
+            auto& ps = view.get<ParticleSystemComponent>(e);
+            Entity entity{ e, this };
+            glm::mat4 world;
+            ParticleEnvironment environment;
+            prepare(entity, ps, world, environment);
+            simulate(ps, world, environment);
             if (ps.SubEmitters.Enabled && !ps.Paused)
             {
                 ZM_PROFILE_SCOPE("Sub-emitterlar");
                 RunSubEmitters(*this, entity, ps, world, environment, ts * std::max(0.0f, ps.SimulationSpeed), editor);
             }
             ps.Events.clear();
-            if (ps.FinishPending)
-                finished.push_back(e);
         }
+        for (entt::entity e : updated)
+            if (view.get<ParticleSystemComponent>(e).FinishPending)
+                finished.push_back(e);
 
         // Non-looping systems that finished (their sub-emitter templates among their children empty
         // too): their scripts hear of it, then the stop action.

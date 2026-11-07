@@ -4,7 +4,13 @@
 // CPU part of drawing (order, colour, size). The profiler's scopes inside the update are listed
 // for the last frame of each case.
 //
-//   ZaminBench [--frames N] [--scale X] [--case <part of a name>] [--profile]
+//   ZaminBench [--frames N] [--scale X] [--case <part of a name>] [--profile] [--jobs N]
+//
+// --jobs N: the job system with N worker threads (0: all on the main thread - the default) - the
+// systems that do not depend on each other are simulated in parallel.
+//
+// ZaminBench --animators N [--frames N] [--jobs N]: N skinned animators instead (their poses are
+// sampled on the workers with --jobs).
 //
 // ZaminBench --queries [--entities N]: the scene's lookups instead (FindEntityByName, the tags,
 // by component type) on N entities (10 000 by default) - the indices against a scan over every
@@ -422,6 +428,84 @@ namespace {
         return 0;
     }
 
+    // ---- animators: `count` skinned animators (a 40-bone chain, a blend tree and a layer each),
+    // the pose sampling per frame - on the workers with --jobs.
+    int RunAnimatorBench(int count, int frames)
+    {
+        Log::SetMinLevel(LogLevel::Error);
+        const int joints = 40;
+        Skeleton skeleton;
+        skeleton.Joints.resize((size_t)joints);
+        for (int i = 0; i < joints; i++)
+        {
+            skeleton.Joints[(size_t)i].Name = std::format("Bone{}", i);
+            skeleton.Joints[(size_t)i].Parent = i - 1;
+            skeleton.Joints[(size_t)i].RestTranslation = { 0.0f, i == 0 ? 0.0f : 0.2f, 0.0f };
+        }
+        std::vector<AnimationClip> clips;
+        for (int c = 0; c < 3; c++)
+        {
+            AnimationClip clip;
+            clip.Name = std::format("Clip{}", c);
+            clip.Duration = 1.0f + 0.25f * (float)c;
+            for (int j = 0; j < joints; j++)
+            {
+                AnimationChannel rot;
+                rot.JointIndex = j;
+                rot.Target = AnimationChannel::Path::Rotation;
+                for (int k = 0; k <= 30; k++)
+                {
+                    const float t = clip.Duration * (float)k / 30.0f;
+                    const glm::quat q = glm::angleAxis(0.3f * std::sin((float)k * 0.4f + (float)(j + c)), glm::vec3(1.0f, 0.0f, 0.0f));
+                    rot.Times.push_back(t);
+                    rot.Values.push_back(glm::vec4(q.x, q.y, q.z, q.w));
+                }
+                clip.Channels.push_back(rot);
+            }
+            clips.push_back(std::move(clip));
+        }
+        Ref<Model> model = Model::CreateSkeletal(skeleton, clips);
+        auto scene = CreateRef<Scene>();
+        for (int i = 0; i < count; i++)
+        {
+            Entity e = scene->CreateEntity(std::format("Hero {}", i));
+            auto& mr = e.AddComponent<MeshRendererComponent>();
+            mr.Type = PrimitiveMesh::Model;
+            mr.ModelAsset = model;
+            auto& a = e.AddComponent<AnimatorComponent>();
+            a.Speed = 0.8f + 0.01f * (float)(i % 40);
+            a.Parameters = { { "Speed", AnimatorParameter::Type::Float, 0.4f } };
+            AnimatorState move{ "Move" };
+            move.Type = AnimatorStateType::BlendTree1D;
+            move.BlendParameter = "Speed";
+            move.Motions = { { "Clip0", 0.0f, 1.0f }, { "Clip1", 1.0f, 1.0f } };
+            a.States = { move };
+            AnimatorLayer upper;
+            upper.Clip = "Clip2";
+            upper.Weight = 0.5f;
+            upper.MaskBones = { "Bone20" };
+            a.Layers = { upper };
+        }
+        scene->OnRuntimeStart();
+        for (int i = 0; i < 10; i++)
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+        std::vector<double> times;
+        for (int i = 0; i < frames; i++)
+        {
+            const auto start = std::chrono::steady_clock::now();
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            times.push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
+        }
+        const FrameTimeStats stats = FrameTimeStats::Compute(times);
+        std::printf("Animator benchmark: %d animator (%d suyak, blend tree + qatlam), %d kadr, %s\n", count, joints, frames,
+                    JobSystem::IsParallel() ? std::format("vazifalar tizimi: {} ishchi oqim", JobSystem::GetWorkerCount()).c_str() : "bitta oqim");
+        std::printf("  kadr: o'rtacha %.2f ms, mediana %.2f ms, eng kam %.2f ms (pozalar: %u)\n", stats.Average, stats.Median, stats.Min,
+                    (unsigned)scene->GetAnimationStats().Posed);
+        scene->OnRuntimeStop();
+        JobSystem::Shutdown();
+        return 0;
+    }
+
 }
 
 int main(int argc, char** argv)
@@ -433,6 +517,8 @@ int main(int argc, char** argv)
     bool queries = false;
     bool serialize = false;
     int entities = 10000;
+    int jobs = 0;
+    int animators = 0;
     for (int i = 1; i < argc; i++)
     {
         if (!std::strcmp(argv[i], "--frames") && i + 1 < argc)
@@ -449,13 +535,24 @@ int main(int argc, char** argv)
             serialize = true;
         else if (!std::strcmp(argv[i], "--entities") && i + 1 < argc)
             entities = std::max(10, std::atoi(argv[++i]));
+        else if (!std::strcmp(argv[i], "--animators") && i + 1 < argc)
+            animators = std::max(1, std::atoi(argv[++i]));
+        else if (!std::strcmp(argv[i], "--jobs") && i + 1 < argc)
+            jobs = std::clamp(std::atoi(argv[++i]), 0, (int)JobSystem::MaxWorkers);
         else
         {
-            std::printf("ZaminBench [--frames N] [--scale X] [--case <nom qismi>] [--profile]\n"
+            std::printf("ZaminBench [--frames N] [--scale X] [--case <nom qismi>] [--profile] [--jobs N]\n"
+                        "ZaminBench --animators N [--frames N] [--jobs N]\n"
                         "ZaminBench --queries [--entities N]\n"
                         "ZaminBench --serialize [--entities N]\n");
             return 1;
         }
+    }
+    if (animators > 0)
+    {
+        if (jobs > 0)
+            JobSystem::Init((uint32_t)jobs);
+        return RunAnimatorBench(animators, frames);
     }
     if (queries)
         return RunQueryBench(entities);
@@ -469,7 +566,11 @@ int main(int argc, char** argv)
 #else
     const char* build = "Debug (optimallashtirilmagan: Release'da o'nlab barobar tez)";
 #endif
-    std::printf("Zamin particle benchmark: ~%d particle, %d kadr, 1/60 s qadam, %s\n\n", particles, frames, build);
+    if (jobs > 0)
+        JobSystem::Init((uint32_t)jobs);
+    std::printf("Zamin particle benchmark: ~%d particle, %d kadr, 1/60 s qadam, %s, %s\n\n", particles, frames, build,
+                JobSystem::IsParallel() ? std::format("vazifalar tizimi: {} ishchi oqim", JobSystem::GetWorkerCount()).c_str()
+                                        : "bitta oqim");
     std::printf("%-22s %9s %10s %10s %10s %12s\n", "Holat", "Particle", "o'rtacha", "eng kam", "eng ko'p", "ns/particle");
     Profiler::SetEnabled(true);
     double sink = 0.0;
@@ -519,5 +620,6 @@ int main(int argc, char** argv)
     // A volatile store keeps the drawing work from being optimised away (nothing to print).
     static volatile double s_Sink;
     s_Sink = sink;
+    JobSystem::Shutdown();
     return 0;
 }

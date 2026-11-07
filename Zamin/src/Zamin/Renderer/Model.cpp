@@ -1310,6 +1310,21 @@ namespace Zamin {
         m_MorphGroups = std::move(groups);
     }
 
+    const BakedClip* Model::FindBakedClip(const AnimationClip& clip, float rate) const
+    {
+        if (m_Animations.empty() || &clip < m_Animations.data() || &clip >= m_Animations.data() + m_Animations.size())
+            return nullptr;
+        const size_t index = (size_t)(&clip - m_Animations.data());
+        if (index >= m_PoseCache.size())
+            return nullptr;
+        if (!std::isfinite(rate) || rate < 1.0f)
+            rate = 1.0f;
+        for (const PoseCacheEntry& e : m_PoseCache[index])
+            if (e.Baked && e.Baked->Rate == rate)
+                return e.Baked->Joints == m_Skeleton.Joints.size() && e.Baked->Frames != 0 ? e.Baked.get() : nullptr;
+        return nullptr;
+    }
+
     const BakedClip* Model::GetBakedClip(const AnimationClip& clip, float rate) const
     {
         if (m_Animations.empty() || &clip < m_Animations.data() || &clip >= m_Animations.data() + m_Animations.size())

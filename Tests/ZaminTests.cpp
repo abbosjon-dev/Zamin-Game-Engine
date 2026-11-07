@@ -38451,3 +38451,225 @@ TEST(JobSystemSpeedupAndStats)
     JobSystem::SetEnabled(true);
     JobSystem::Shutdown();
 }
+
+// ------------------------------------------------------------------ M19: parallel particles and animators (369)
+// Systems of every kind: independent ones (noise, trails, a collision plane, velocity over lifetime -
+// simulated on the workers), a sub-emitter and its template and a world-collision one (on the main
+// thread, in order).
+static Ref<Scene> MakeJobParticleScene()
+{
+    using PS = ParticleSystemComponent;
+    auto scene = CreateRef<Scene>();
+    for (int i = 0; i < 16; i++)
+    {
+        Entity e = scene->CreateEntity(std::format("Fx {}", i));
+        e.GetTransform().Translation = { (float)(i % 4) * 3.0f, 1.0f, (float)(i / 4) * 3.0f };
+        auto& ps = e.AddComponent<PS>();
+        ps.MaxParticles = 300;
+        ps.EmissionRate = 250.0f;
+        ps.LifetimeMin = 0.4f;
+        ps.LifetimeMax = 0.9f;
+        ps.Shape = PS::EmitterShape::Sphere;
+        ps.ShapeRadius = 0.5f;
+        ps.Gravity = { 0.0f, -3.0f, 0.0f };
+        ps.RandomState = 0x1234u + (uint32_t)i * 977u;
+        switch (i % 4)
+        {
+            case 0: ps.Noise.Enabled = true; break;
+            case 1: ps.Trails.Enabled = true; ps.Trails.MaxPoints = 8; break;
+            case 2: ps.Collision.Enabled = true; break; // the plane
+            default: ps.VelocityOverLifetime.Enabled = true; ps.VelocityOverLifetime.Orbital = { 0.0f, 1.0f, 0.0f }; break;
+        }
+    }
+    Entity templ = scene->CreateEntity("Shablon");
+    auto& tp = templ.AddComponent<PS>();
+    tp.EmissionEnabled = false;
+    tp.MaxParticles = 2000;
+    tp.LifetimeMin = tp.LifetimeMax = 0.3f;
+    Entity source = scene->CreateEntity("Manba");
+    auto& sp = source.AddComponent<PS>();
+    sp.MaxParticles = 200;
+    sp.EmissionRate = 200.0f;
+    sp.LifetimeMin = sp.LifetimeMax = 0.35f;
+    sp.SubEmitters.Enabled = true;
+    PS::SubEmitter sub;
+    sub.Emitter.ID = (uint64_t)templ.GetUUID();
+    sub.Count = 2;
+    sp.SubEmitters.Emitters = { sub };
+    Entity world = scene->CreateEntity("Dunyo to'qnashuvi");
+    auto& wp = world.AddComponent<PS>();
+    wp.EmissionRate = 100.0f;
+    wp.Collision.Enabled = true;
+    wp.Collision.Type = PS::CollisionModule::CollisionType::World3D;
+    return scene;
+}
+
+// Every system's particles (positions, velocities, lives) and trail points, in entity order.
+static std::vector<float> ParticleState(Scene& scene)
+{
+    std::vector<float> out;
+    for (auto e : scene.GetAllEntitiesWith<ParticleSystemComponent>())
+    {
+        const auto& ps = Entity(e, &scene).GetComponent<ParticleSystemComponent>();
+        out.push_back((float)ps.Particles.size());
+        for (const Particle& p : ps.Particles)
+            out.insert(out.end(), { p.Position.x, p.Position.y, p.Position.z, p.Velocity.x, p.Velocity.y, p.Velocity.z, p.Life });
+        for (const auto& point : ps.TrailPool.Points)
+            out.insert(out.end(), { point.Position.x, point.Position.y, point.Position.z, point.Time });
+    }
+    return out;
+}
+
+TEST(JobSystemParticlesMatchSerial)
+{
+    // Edit mode (the editor's preview) and play mode: the same particles with and without the workers.
+    const Ref<Scene> source = MakeJobParticleScene();
+    auto run = [&](bool play) {
+        Ref<Scene> scene = Scene::Copy(source); // the same UUIDs every time
+        if (play)
+            scene->OnRuntimeStart();
+        for (int i = 0; i < 75; i++)
+            play ? scene->OnUpdateRuntime(1.0f / 60.0f) : scene->UpdateEditorAnimation(1.0f / 60.0f);
+        std::vector<float> state = ParticleState(*scene);
+        if (play)
+            scene->OnRuntimeStop();
+        return state;
+    };
+    JobSystem::Shutdown();
+    const std::vector<float> serialEditor = run(false);
+    const std::vector<float> serialPlay = run(false); // the same twice
+    CHECK(serialEditor == serialPlay); // deterministic to begin with
+    const std::vector<float> serialRuntime = run(true);
+
+    JobSystem::Init(3);
+    const uint64_t before = JobSystem::GetStats().ParallelFors;
+    const std::vector<float> parallelEditor = run(false);
+    const std::vector<float> parallelRuntime = run(true);
+    CHECK(JobSystem::GetStats().ParallelFors >= before + 150); // a ParallelFor every frame
+    CHECK(parallelEditor.size() > 1000 && parallelEditor == serialEditor);
+    CHECK(parallelRuntime.size() > 1000 && parallelRuntime == serialRuntime);
+    // The template got the sub-emitter's particles in both.
+    JobSystem::Shutdown();
+}
+
+// A chain of `joints` bones and clips that swing them (each its own rhythm).
+static Ref<Model> MakeJobSkeletonModel(int joints)
+{
+    Skeleton skeleton;
+    skeleton.Joints.resize((size_t)joints);
+    for (int i = 0; i < joints; i++)
+    {
+        skeleton.Joints[(size_t)i].Name = std::format("Suyak{}", i);
+        skeleton.Joints[(size_t)i].Parent = i - 1;
+        skeleton.Joints[(size_t)i].RestTranslation = { 0.0f, i == 0 ? 0.0f : 0.25f, 0.0f };
+    }
+    std::vector<AnimationClip> clips;
+    for (int c = 0; c < 4; c++)
+    {
+        AnimationClip clip;
+        clip.Name = std::format("Klip{}", c);
+        clip.Duration = 0.8f + 0.3f * (float)c;
+        for (int j = 0; j < joints; j++)
+        {
+            AnimationChannel rot;
+            rot.JointIndex = j;
+            rot.Target = AnimationChannel::Path::Rotation;
+            AnimationChannel move;
+            move.JointIndex = j;
+            move.Target = AnimationChannel::Path::Translation;
+            for (int k = 0; k <= 8; k++)
+            {
+                const float t = clip.Duration * (float)k / 8.0f;
+                const glm::quat q = glm::angleAxis(0.4f * std::sin((float)k * 0.8f + (float)(j + c)), glm::normalize(glm::vec3(1.0f, (float)c, 0.5f)));
+                rot.Times.push_back(t);
+                rot.Values.push_back(glm::vec4(q.x, q.y, q.z, q.w));
+                move.Times.push_back(t);
+                move.Values.push_back(glm::vec4(0.02f * std::cos((float)(k + j)), j == 0 ? 0.0f : 0.25f, 0.0f, 0.0f));
+            }
+            clip.Channels.push_back(rot);
+            clip.Channels.push_back(move);
+        }
+        clips.push_back(std::move(clip));
+    }
+    return Model::CreateSkeletal(skeleton, clips);
+}
+
+TEST(JobSystemAnimatorsMatchSerial)
+{
+    Ref<Model> model = MakeJobSkeletonModel(24);
+    auto make = [&] {
+        auto scene = CreateRef<Scene>();
+        for (int i = 0; i < 14; i++)
+        {
+            Entity e = scene->CreateEntity(std::format("Qahramon {}", i));
+            auto& mr = e.AddComponent<MeshRendererComponent>();
+            mr.Type = PrimitiveMesh::Model;
+            mr.ModelAsset = model;
+            auto& a = e.AddComponent<AnimatorComponent>();
+            a.Clip = std::format("Klip{}", i % 4);
+            a.Speed = 0.7f + 0.1f * (float)i;
+            a.CachePoses = i % 2 == 0;           // half from the pose caches (baked first, read on the workers)
+            a.PoseCacheRate = i % 4 == 0 ? 30.0f : 24.0f;
+            if (i % 3 == 0)
+            {
+                // A blend tree over two clips and a crossfade into a state with an additive layer.
+                a.Parameters = { { "Tezlik", AnimatorParameter::Type::Float, 0.3f }, { "O'tish", AnimatorParameter::Type::Trigger, 0.0f } };
+                AnimatorState tree{ "Yurish" };
+                tree.Type = AnimatorStateType::BlendTree1D;
+                tree.BlendParameter = "Tezlik";
+                tree.Motions = { { "Klip0", 0.0f, 1.0f }, { "Klip1", 1.0f, 1.0f } };
+                a.States = { tree, { "Sakrash", "Klip2", 1.0f, true } };
+                AnimatorTransition go{ -1, 1 };
+                go.Fade = 0.3f;
+                go.Conditions = { { "O'tish", AnimatorCondition::Op::Triggered } };
+                a.Transitions = { go };
+            }
+            if (i % 3 == 1)
+            {
+                AnimatorLayer upper;
+                upper.Clip = "Klip3";
+                upper.Weight = 0.6f;
+                upper.MaskBones = { "Suyak12" };
+                AnimatorLayer add;
+                add.Clip = "Klip1";
+                add.Blend = AnimatorLayerBlend::Additive;
+                add.Weight = 0.5f;
+                a.Layers = { upper, add };
+            }
+        }
+        return scene;
+    };
+    auto run = [&] {
+        Ref<Scene> scene = make();
+        scene->OnRuntimeStart();
+        std::vector<glm::mat4> out;
+        for (int f = 0; f < 50; f++)
+        {
+            if (f == 20)
+                for (auto e : scene->GetAllEntitiesWith<AnimatorComponent>())
+                    Entity(e, scene.get()).GetComponent<AnimatorComponent>().SetTrigger("O'tish");
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            if (f == 25 || f == 49) // in the crossfade, after it
+                for (auto e : scene->GetAllEntitiesWith<AnimatorComponent>())
+                {
+                    const auto& a = Entity(e, scene.get()).GetComponent<AnimatorComponent>();
+                    out.insert(out.end(), a.JointMatrices.begin(), a.JointMatrices.end());
+                    for (const AnimatorLayer& layer : a.Layers)
+                        out.push_back(glm::mat4(layer.EffectiveWeight));
+                }
+        }
+        const Scene::AnimationStats stats = scene->GetAnimationStats();
+        scene->OnRuntimeStop();
+        return std::make_pair(out, stats);
+    };
+    JobSystem::Shutdown();
+    const auto [serial, serialStats] = run();
+    JobSystem::Init(3);
+    const uint64_t before = JobSystem::GetStats().ParallelFors;
+    const auto [parallel, parallelStats] = run();
+    CHECK(JobSystem::GetStats().ParallelFors >= before + 50);
+    CHECK(serial.size() == 2 * 14 * 24 + 2 * 5 * 2 && parallel == serial);
+    CHECK(parallelStats.Posed == serialStats.Posed && parallelStats.CachedSamples == serialStats.CachedSamples &&
+          parallelStats.ClipSamples == serialStats.ClipSamples && parallelStats.CachedSamples > 0 && parallelStats.ClipSamples > 0);
+    JobSystem::Shutdown();
+}

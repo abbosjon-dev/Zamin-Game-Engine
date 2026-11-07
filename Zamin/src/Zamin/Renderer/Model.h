@@ -195,7 +195,12 @@ namespace Zamin {
         // rate), so animators of the model with different rates share theirs instead of baking the
         // clip over and over. Dropped when the file is read again.
         static constexpr size_t MaxPoseCacheRates = 8;
+        // Main thread only (it may bake and evict).
         const BakedClip* GetBakedClip(const AnimationClip& clip, float rate) const;
+        // The cache GetBakedClip has made already (up to date), or nullptr - it changes nothing, so
+        // several threads may ask at the same time while nobody calls GetBakedClip (the job system's
+        // animator poses: baked first on the main thread, sampled on the workers).
+        const BakedClip* FindBakedClip(const AnimationClip& clip, float rate) const;
         // Goes up each time the file is read again (Reload / Reimport): what was made from the old
         // skeleton and clips is out of date.
         uint64_t GetRevision() const { return m_Revision; }

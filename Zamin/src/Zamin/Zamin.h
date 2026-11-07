@@ -51,6 +51,7 @@
 #include "Zamin/Editor/RecentFiles.h"
 #include "Zamin/Editor/ShortcutRegistry.h"
 #include "Zamin/Editor/UndoHistory.h"
+#include "Zamin/Editor/PrefabFieldLabels.h"
 #include "Zamin/Editor/EditorLayouts.h"
 #include "Zamin/Editor/SceneViews.h"
 #include "Zamin/Editor/SceneStatistics.h"

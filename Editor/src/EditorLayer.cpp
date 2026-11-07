@@ -130,6 +130,8 @@ namespace Zamin {
         };
         m_SceneHierarchyPanel.OnSceneModified = [this]() { MarkDirty(); };
         m_SceneHierarchyPanel.OnSavePrefabRequested = [this](Entity e) { SavePrefab(e); };
+        m_SceneHierarchyPanel.SetPrefabDatabase(&m_PrefabDatabase);
+        m_SceneHierarchyPanel.OnPrefabRequest = [this](const PrefabRequest& request) { QueuePrefabRequest(request); };
         m_SceneHierarchyPanel.OnProjectSettingsModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
         m_SceneHierarchyPanel.SetFoldState(&m_ViewSettings.Inspector); // open / collapsed inspector headers, per user
         m_SceneHierarchyPanel.OnFoldStateModified = [this]() { MarkViewSettingsDirty(); };
@@ -579,6 +581,10 @@ namespace Zamin {
             // undo steps made one by one (each its own step, named as usual); "history" opens the window.
             if (const char* undo = std::getenv("ZAMIN_EDITOR_UNDO"))
                 ApplyUndoAutomation(undo);
+            // ZAMIN_EDITOR_PREFAB="color=<name>,r,g,b;remove=<name>,<Component>;child=<parent>,<name>;apply=..;changes":
+            // prefab instance edits (EditorPrefabs.cpp).
+            if (const char* prefab = std::getenv("ZAMIN_EDITOR_PREFAB"))
+                ApplyPrefabAutomation(prefab);
             // ZAMIN_EDITOR_MENU=<Fayl|Tahrirlash|Ko'rinish|Oyna|Yordam>[/recent|/layout|/views]: that main menu kept open (screenshots).
             if (const char* menu = std::getenv("ZAMIN_EDITOR_MENU"))
                 m_OpenMenu = menu;
@@ -4423,6 +4429,7 @@ namespace Zamin {
         SaveData::Save(); // the previous project's game data
         SaveAssetRegistryCache(true);
         DiscardSessionAutosave(); // the previous project's scene is left
+        m_PrefabDatabase.Clear(); // the previous project's prefabs
         if (!Project::Load(projectFile))
         {
             ZM_ERROR("Loyiha ochilmadi: {}", path.string());
@@ -4599,7 +4606,17 @@ namespace Zamin {
         if (m_SceneDirty)
             m_ContentBrowserPanel.ShowNotice(std::format("Sahnada {} ta asset havolasi UUID orqali tiklandi - saqlang",
                                                          serializer.GetRepairedReferences().size()));
+        // Prefab instances: an older scene's are linked to their prefabs (nothing in them changes),
+        // the history starts there; then they follow what their prefabs are now (not a step of its own).
+        PrefabUtility::LinkLegacyInstances(*m_EditorScene, m_PrefabDatabase);
         ResetUndoHistory(std::format("Sahna ochildi: {}", path.stem().string()), !m_SceneDirty);
+        if (SyncPrefabInstances())
+        {
+            m_UndoHistory.ReplaceCurrentScene(TakeSnapshot());
+            m_SceneDirty = !m_UndoHistory.IsAtSavedState();
+            if (m_SceneDirty)
+                m_ContentBrowserPanel.ShowNotice(Tr("Prefab nusxalari prefablarning hozirgi holatiga yangilandi - saqlang"));
+        }
         // Auto-detect 2D scenes (orthographic primary camera; an inactive one still tells).
         Entity sceneCamera = m_EditorScene->GetPrimaryCameraEntity();
         if (!sceneCamera)
@@ -5026,6 +5043,19 @@ namespace Zamin {
         size_t count = m_SceneHierarchyPanel.DuplicateSelection(midDrag);
         if (count == 0)
             return;
+        // A copy of an entity of a prefab instance is added to it (the original keeps the link); a
+        // copied instance root is an instance of its own.
+        {
+            std::vector<Entity> copies;
+            for (Entity e : m_SceneHierarchyPanel.GetSelection().GetEntities())
+                if (e.IsValid())
+                {
+                    copies.push_back(e);
+                    for (Entity d : m_ActiveScene->GetDescendants(e))
+                        copies.push_back(d);
+                }
+            PrefabUtility::NormalizeLinks(*m_ActiveScene, &copies);
+        }
         if (Entity copy = m_SceneHierarchyPanel.GetSelectedEntity(); copy && m_PendingUndoName.empty())
             m_PendingUndoName = count > 1 ? std::format("Nusxa olindi: {} (+{})", copy.GetName(), count - 1) : std::format("Nusxa olindi: {}", copy.GetName());
         if (midDrag)
@@ -5268,6 +5298,8 @@ namespace Zamin {
         if (data.empty()) return;
         auto entities = SceneSerializer::DeserializeEntities(*m_EditorScene, data, true);
         if (entities.empty()) return;
+        // A pasted instance stays one; a pasted part of an instance (outside it now) is plain.
+        PrefabUtility::NormalizeLinks(*m_EditorScene, &entities);
         m_EditorScene->ResolveAssets();
         // Every pasted root is selected (the list comes roots first).
         std::vector<Entity> roots;
@@ -5290,28 +5322,41 @@ namespace Zamin {
             name += (std::isalnum((unsigned char)ch) || ch == '_' || ch == '-') ? ch : '_';
         if (name.empty()) name = "Prefab";
         fs::path path = dir / (name + ".zprefab");
-        if (m_ActiveScene->SavePrefab(entity, path))
+        if (m_SceneState == SceneState::Edit)
         {
-            ZM_INFO("Prefab saqlandi: {}", Project::GetAssetRelativePath(path));
-            // The flags are saved as they are: instances start the same way.
-            if (!entity.IsActive())
-                ZM_INFO("'{}' nofaol holatda saqlandi: prefab nusxalari ham nofaol boshlanadi (SetActive(true) bilan yoqiladi)", entity.GetName());
+            // An instance of that very prefab: its changes go into it (Apply), its links stay.
+            const std::string rel = Project::GetAssetRelativePath(path);
+            if (PrefabUtility::IsInstanceRoot(entity) && PrefabUtility::GetPrefabPath(entity) == rel && !PrefabUtility::IsLegacyInstance(entity))
+            {
+                PrefabRequest request;
+                request.Operation = PrefabRequest::Op::Apply;
+                request.Entity = entity.GetUUID();
+                RunPrefabRequest(request);
+                return;
+            }
+            // Another prefab of that name: asked first (it is not replaced silently).
+            if (fs::exists(path, ec))
+            {
+                m_PrefabOverwrite = { entity.GetUUID(), path, true };
+                return;
+            }
         }
+        WritePrefab(entity, path);
     }
 
     Entity EditorLayer::InstantiatePrefabInEditor(const fs::path& assetPath, Entity parent)
     {
         if (m_SceneState != SceneState::Edit) return {};
-        Entity root = m_EditorScene->InstantiatePrefab(Project::GetAssetFileSystemPath(assetPath));
+        // A linked instance: it follows its prefab, Apply / Revert work on it (the scene statistics
+        // count instances by the prefab it names).
+        const std::string rel = Project::GetAssetRelativePath(Project::GetAssetFileSystemPath(assetPath));
+        Entity root = PrefabUtility::InstantiateLinked(*m_EditorScene, m_PrefabDatabase, rel, parent);
         if (!root)
         {
             ZM_ERROR("Prefab yuklanmadi: {}", assetPath.string());
             return {};
         }
-        if (parent)
-            m_EditorScene->SetParent(root, parent, false);
-        // The instance remembers its prefab (the scene statistics count instances by it).
-        m_EditorScene->SetPrefabSource(root, Project::GetAssetRelativePath(Project::GetAssetFileSystemPath(assetPath)));
+        m_EditorScene->ResolveAssets();
         m_SceneHierarchyPanel.SetSelectedEntity(root);
         MarkDirty(std::format("Prefab qo'shildi: {}", root.GetName()));
         return root;
@@ -6474,6 +6519,8 @@ namespace Zamin {
 
         m_SceneHierarchyPanel.SetSceneEditable(m_SceneState == SceneState::Edit);
         m_SceneHierarchyPanel.OnImGuiRender(&m_ShowHierarchy, &m_ShowInspector);
+        ProcessPrefabRequests(); // Apply / Revert asked in the hierarchy / inspector (the panel is drawn)
+        UI_PrefabPopups();
         m_ContentBrowserPanel.OnImGuiRender(&m_ShowContentBrowser);
         if (m_ShowUnusedAssets && !m_UnusedAssetsShown)
             m_UnusedAssetsPanel.Refresh(); // opened: a fresh scan (C++ files are not watched)

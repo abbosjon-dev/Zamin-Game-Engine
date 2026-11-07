@@ -17,8 +17,10 @@
 #include <algorithm>
 #include <cstdint>
 #include <format>
+#include <functional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 // Small helpers for a consistent, good-looking editor UI.
 namespace Zamin::UI {
@@ -116,14 +118,45 @@ namespace Zamin::UI {
         dl->AddRect(ImVec2(min.x - 3.0f, min.y - 1.0f), ImVec2(max.x + 3.0f, max.y + 1.0f), AccentU32(0.85f), 3.0f);
     }
 
+    // ---- prefab instances: while the inspector draws a component of an entity linked to a prefab,
+    // the rows whose value the instance changed are marked (an accent bar, a dot) and a right-click
+    // on their label offers Apply / Revert of that value. The rows are found by their label as the
+    // inspector writes it (before the editor's language: PrefabFieldLabels), or by NextPath (script
+    // fields). No scope (other panels, plain entities): nothing is looked at.
+    struct PrefabFieldScope
+    {
+        std::string_view Component;                        // the component's scene-file key
+        const std::vector<std::string>* Overrides = nullptr;   // the entity's override paths
+        const std::vector<std::string>* Targets = nullptr;     // where it can be applied (its prefab first)
+        std::string NextPath;                              // the next row's path, set by the row's drawer
+        // `action`: 0 = revert, 1 + i = apply to Targets[i].
+        std::function<void(const std::string& path, int action)> OnAction;
+    };
+    inline PrefabFieldScope*& CurrentPrefabFieldScope()
+    {
+        static thread_local PrefabFieldScope* s_Scope = nullptr;
+        return s_Scope;
+    }
+    struct PrefabFieldScopeGuard
+    {
+        PrefabFieldScope* Previous;
+        explicit PrefabFieldScopeGuard(PrefabFieldScope* scope) : Previous(CurrentPrefabFieldScope()) { CurrentPrefabFieldScope() = scope; }
+        ~PrefabFieldScopeGuard() { CurrentPrefabFieldScope() = Previous; }
+    };
+    // The mark of the label just drawn (UI.cpp); `source` is its text before Tr.
+    void DrawPrefabFieldMarker(const char* source);
+
     inline void PropertyLabel(const char* label)
     {
+        const char* source = label;
         label = Tr(label); // the editor's language
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(ImVec4(0.72f, 0.75f, 0.80f, 1.0f), "%s", label);
         HighlightIfSearched(label);
+        if (CurrentPrefabFieldScope())
+            DrawPrefabFieldMarker(source);
         ImGui::TableSetColumnIndex(1);
         ImGui::SetNextItemWidth(-FLT_MIN);
     }
@@ -136,12 +169,15 @@ namespace Zamin::UI {
             PropertyLabel(label);
             return;
         }
+        const char* source = label;
         label = Tr(label);
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(ImVec4(0.80f, 0.83f, 0.88f, 1.0f), "%s", label);
         HighlightIfSearched(label);
+        if (CurrentPrefabFieldScope())
+            DrawPrefabFieldMarker(source);
         ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();
         ImU32 dots = ImGui::GetColorU32(ImVec4(0.55f, 0.60f, 0.68f, 0.9f));
         for (float x = min.x; x < max.x; x += 3.0f)

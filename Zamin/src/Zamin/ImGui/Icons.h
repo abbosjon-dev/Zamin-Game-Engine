@@ -236,3 +236,5 @@
 #define ICON_FA_LANGUAGE "\xef\x86\xab"            // localization / the editor's language
 // AI II (M20): formations
 #define ICON_FA_USERS "\xef\x83\x80"               // a formation (a group moving together)
+// prefabs II (M21): links, apply / revert, overrides
+#define ICON_FA_UPLOAD "\xef\x82\x93"              // apply to the prefab

@@ -133,6 +133,24 @@ namespace Zamin {
         void PasteEntity();
         void SavePrefab(Entity entity);
         Entity InstantiatePrefabInEditor(const std::filesystem::path& assetPath, Entity parent);
+        // ---- prefab instances (EditorPrefabs.cpp): linked to their prefab, Apply / Revert / Unpack
+        void QueuePrefabRequest(const PrefabRequest& request) { m_PrefabRequests.push_back(request); }
+        void ProcessPrefabRequests();
+        void RunPrefabRequest(const PrefabRequest& request);
+        // One undo step for a change that also wrote files (prefab Apply, Save as prefab).
+        void CommitPrefabStep(std::string name, std::vector<FileEdit> files);
+        // Undo / redo of such a step: the files put back (Before / After) first.
+        void ApplyUndoFiles(const std::vector<UndoHistory::FileStep>& files);
+        // The editor scene's instances linked (old scenes) and brought up to date with their prefabs;
+        // not a user step. True when the scene changed (assets resolved again).
+        bool SyncPrefabInstances();
+        // What the instances touched by an edit (`before` -> `after` snapshots) differ in from their
+        // prefabs is recorded. True when a list changed.
+        bool RecordPrefabOverrides(const std::string* before, const std::string& after);
+        void WritePrefab(Entity entity, const std::filesystem::path& path);
+        void UI_PrefabPopups();
+        // ZAMIN_EDITOR_PREFAB: prefab instance edits made as steps (screenshots, checks).
+        void ApplyPrefabAutomation(std::string_view spec);
         // A content browser item (asset-relative path) dropped onto the viewport: a scene opens,
         // an image / model / sound / prefab becomes an entity (edit mode). Returns that entity.
         Entity DropAssetOnViewport(const std::string& assetPath);
@@ -963,6 +981,22 @@ namespace Zamin {
         bool m_UndoHistoryEditsOnly = false;  // the window hides the selection steps
         bool m_UndoHistoryScroll = false;     // scroll the window to the current state
         std::string m_Clipboard;
+
+        // prefabs
+        PrefabDatabase m_PrefabDatabase;
+        std::vector<PrefabRequest> m_PrefabRequests;     // asked by the panels, run after they have drawn
+        struct PrefabOverwritePrompt
+        {
+            UUID Entity = 0;
+            std::filesystem::path Path;                   // the prefab file that is there already
+            bool Open = false;
+        } m_PrefabOverwrite;
+        struct PrefabRevertPrompt
+        {
+            UUID Root = 0;
+            std::vector<std::string> Added;               // the added entities a full revert deletes
+            bool Open = false;
+        } m_PrefabRevertConfirm;
 
         // keyboard shortcuts
         ShortcutRegistry m_Shortcuts;

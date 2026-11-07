@@ -2,12 +2,66 @@
 
 #include <imgui_stdlib.h>
 #include <Zamin/Utils/FileSystem.h>
+#include <Zamin/Editor/PrefabFieldLabels.h>
+#include <Zamin/Scene/PrefabOverrides.h>
 
 #include <algorithm>
 #include <filesystem>
 #include <cstring>
 
 namespace Zamin::UI {
+
+    void DrawPrefabFieldMarker(const char* source)
+    {
+        PrefabFieldScope* scope = CurrentPrefabFieldScope();
+        if (!scope || !source)
+            return;
+        std::string path = std::move(scope->NextPath);
+        scope->NextPath.clear();
+        if (path.empty())
+            path = std::string(PrefabFieldLabels::Find(scope->Component, source));
+        if (path.empty())
+            return;
+        bool changed = false;
+        if (scope->Overrides)
+            for (const std::string& o : *scope->Overrides)
+                changed = changed || PrefabOverrides::IsUnder(o, path) || PrefabOverrides::IsUnder(path, o);
+        const ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();
+        if (changed)
+        {
+            // The instance's own value: an accent bar at the row's start and a dot after the label.
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            const float x = ImGui::GetCursorScreenPos().x - ImGui::GetStyle().CellPadding.x - 1.0f;
+            dl->AddRectFilled(ImVec2(x - 3.0f, min.y - 1.0f), ImVec2(x, max.y + 1.0f), AccentU32(), 1.0f);
+            dl->AddCircleFilled(ImVec2(max.x + 5.0f, (min.y + max.y) * 0.5f), 2.5f, AccentU32());
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                ImGui::SetTooltip("%s", std::format("{}\n{}", Tr("Prefab nusxasining o'z qiymati (o'ng tugma: qo'llash / qaytarish)"), path).c_str());
+        }
+        if (!scope->OnAction)
+            return;
+        const std::string popup = "##prefabfield" + path;
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+            ImGui::OpenPopup(popup.c_str());
+        if (ImGui::BeginPopup(popup.c_str()))
+        {
+            ImGui::TextDisabled("%s", path.c_str());
+            ImGui::Separator();
+            if (scope->Targets && !scope->Targets->empty())
+            {
+                if (ImGui::MenuItem(Tr(ICON_FA_UPLOAD "  Prefabga qo'llash"), nullptr, false, changed))
+                    scope->OnAction(path, 1);
+                for (size_t i = 1; i < scope->Targets->size(); i++)
+                {
+                    const std::string label = std::format(ICON_FA_UPLOAD "  {}: {}", Tr("Qo'llash"), std::filesystem::path((*scope->Targets)[i]).filename().string());
+                    if (ImGui::MenuItem(label.c_str(), nullptr, false, changed))
+                        scope->OnAction(path, 1 + (int)i);
+                }
+            }
+            if (ImGui::MenuItem(Tr(ICON_FA_ROTATE_LEFT "  Asliga qaytarish"), nullptr, false, changed))
+                scope->OnAction(path, 0);
+            ImGui::EndPopup();
+        }
+    }
 
     bool PropertyString(const char* label, std::string& value, bool multiline)
     {

@@ -110,6 +110,9 @@ namespace Zamin {
         std::string name = !m_PendingUndoName.empty() ? std::move(m_PendingUndoName)
                          : before ? DescribeSceneChange(*before, current) : std::string("O'zgarish");
         m_PendingUndoName.clear();
+        // Prefab instances the change touched: what they now differ in from their prefabs (part of the step).
+        if (RecordPrefabOverrides(before.get(), current))
+            current = TakeSnapshot();
         // The selection the change left (a duplicate picks the copies, a delete clears it) is part of it.
         m_UndoHistory.CommitEdit(std::move(current), CaptureUndoSelection(), std::move(name), Now());
         m_UndoSelectionRevision = m_SceneHierarchyPanel.GetSelection().GetRevision();
@@ -187,6 +190,10 @@ namespace Zamin {
         scene->ResolveAssets();
         m_EditorScene = scene;
         SetActiveScene(m_EditorScene, false);
+        // Prefab instances follow what their prefabs are now (an undone Apply put the file back; a
+        // prefab changed since the state was recorded): the state itself takes that, not a new step.
+        if (SyncPrefabInstances())
+            m_UndoHistory.ReplaceCurrentScene(TakeSnapshot());
         m_SceneDirty = true;
         m_AssetUsage.MarkDirty(); // undo / redo brings back (or takes away) what used assets
         UpdateWindowTitle();
@@ -196,7 +203,9 @@ namespace Zamin {
     {
         if (!move.Target)
             return;
-        if (move.SceneChanged && move.Target->Scene)
+        // Files the steps wrote (a prefab Apply) are put back first: the scene follows them.
+        ApplyUndoFiles(move.Files);
+        if ((move.SceneChanged || !move.Files.empty()) && move.Target->Scene)
             RestoreSnapshot(*move.Target->Scene);
         ApplyUndoSelection(move.Target->Selection);
         m_SceneDirty = !m_UndoHistory.IsAtSavedState();
@@ -323,7 +332,8 @@ namespace Zamin {
                     const size_t i = rows[(size_t)row];
                     const UndoHistory::Entry& e = entries[i];
                     const bool isCurrent = i == current, future = i > current;
-                    const char* icon = e.Kind == UndoEntryKind::Initial ? ICON_FA_FILE : e.Kind == UndoEntryKind::Selection ? ICON_FA_ARROW_POINTER : ICON_FA_PEN;
+                    const char* icon = e.Kind == UndoEntryKind::Initial ? ICON_FA_FILE : e.Kind == UndoEntryKind::Selection ? ICON_FA_ARROW_POINTER
+                                     : !e.Files.empty() ? ICON_FA_FLOPPY_DISK : ICON_FA_PEN;
                     ImGui::PushID((int)i);
                     if (future)
                         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
@@ -357,6 +367,8 @@ namespace Zamin {
                     {
                         const char* kind = e.Kind == UndoEntryKind::Initial ? "Boshlang'ich holat" : e.Kind == UndoEntryKind::Selection ? "Tanlov" : "O'zgarish";
                         std::string tip = std::format("{}\n{} - {}", e.Name, kind, time);
+                        for (const FileEdit& file : e.Files)
+                            tip += std::format("\n" ICON_FA_FLOPPY_DISK " {}", file.Path);
                         if (saved)
                             tip += "\nFayldagi (saqlangan) holat";
                         if (!isCurrent)

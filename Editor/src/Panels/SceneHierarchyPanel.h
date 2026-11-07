@@ -14,6 +14,18 @@ namespace Zamin {
 
     class AssetInspectorPanel;
 
+    // What the hierarchy / inspector asks of a prefab instance (EditorLayer runs it after the panel
+    // has drawn: the scene may change under it). The entity is held by UUID.
+    struct PrefabRequest
+    {
+        enum class Op : uint8_t { Apply, Revert, RestoreRemoved, Unpack, UnpackCompletely, ShowInBrowser };
+        Op Operation = Op::Apply;
+        UUID Entity = 0;
+        PrefabScope Scope = PrefabScope::Instance;
+        std::string Path;     // the component key / the override path (Component / Field)
+        std::string Target;   // the prefab to apply to ("": the instance's own)
+    };
+
     // Hierarchy (entity list) + Inspector (component editor).
     class SceneHierarchyPanel
     {
@@ -301,6 +313,12 @@ namespace Zamin {
         std::function<void(const std::string&)> OnOpenScriptSource;
         // The Animator graph window for this entity's state machine.
         std::function<void(Entity)> OnAnimatorGraphRequested;
+        // Prefab instances: their links are shown (rows, the inspector's prefab bar, changed values);
+        // Apply / Revert / Unpack go through OnPrefabRequest.
+        void SetPrefabDatabase(PrefabDatabase* db) { m_Prefabs = db; }
+        std::function<void(const PrefabRequest&)> OnPrefabRequest;
+        // The inspector's list of the instance's changes opens (automation / screenshots).
+        void OpenPrefabChanges() { m_OpenPrefabChanges = true; }
 
     private:
         // Where a hierarchy row drop puts the dragged entities.
@@ -363,6 +381,23 @@ namespace Zamin {
         void DrawComponents(Entity entity);
         void DrawEntityNode(Entity entity, int depth);
         void DrawEntityContextMenu(Entity entity);
+        // ---- prefab instances (SceneHierarchyPrefabs.cpp)
+        void RequestPrefab(PrefabRequest::Op op, Entity entity, PrefabScope scope = PrefabScope::Instance, std::string path = {},
+                           std::string target = {});
+        // The "Prefab" submenu of a row's context menu.
+        void DrawPrefabMenu(Entity entity);
+        // The row's prefab marks (a changed / added entity) at its right end; the label colour.
+        void DrawPrefabRowMarks(Entity entity, const ImVec2& rowMin, const ImVec2& rowMax);
+        bool GetPrefabRowColor(Entity entity, ImVec4& color);
+        // The bar under the inspector's name: the prefab, its changes, Apply / Revert.
+        void DrawPrefabBar(Entity entity);
+        // The prefab components the instance removed, as ghost headers (Revert / apply the removal).
+        void DrawRemovedPrefabComponents(Entity entity);
+        // A component header of an instance: the changed-values bar, the added badge, its menu items.
+        void DrawPrefabSectionMarks(Entity entity, std::string_view key, const ImVec2& headerMin, const ImVec2& headerMax);
+        void DrawPrefabComponentMenuItems(Entity entity, std::string_view key);
+        // Whether `entity` may move below `newParent` (an entity of a prefab stays in its instance).
+        bool CanReparent(Entity entity, Entity newParent) const;
         void DrawScriptComponent(Entity entity, bool& modified);
         // One script field with its attributes (header, label, tooltip, range, color, enum).
         bool DrawScriptField(const ScriptFieldInfo& field, ScriptFieldValue& value);
@@ -549,6 +584,14 @@ namespace Zamin {
         Ref<Scene> m_PendingRuntimeScene;
         InspectorFoldState* m_FoldState = nullptr;
         bool m_SceneEditable = true;
+        PrefabDatabase* m_Prefabs = nullptr;
+        bool m_OpenPrefabChanges = false;
+        // The inspected entity of a prefab instance (this frame): where its values can be applied.
+        struct PrefabInspectorState
+        {
+            UUID Entity = 0;
+            std::vector<std::string> Targets;
+        } m_PrefabInspector;
         float m_GutterX = 0.0f;                    // left edge of the hierarchy's eye / lock column
     };
 

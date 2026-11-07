@@ -21,6 +21,7 @@ namespace Zamin {
     static const char* EntityIcon(Entity e)
     {
         if (e.HasComponent<SubSceneComponent>()) return ICON_FA_LAYER_GROUP;
+        if (const auto* meta = e.TryGetComponent<EditorMetadataComponent>(); meta && !meta->Prefab.empty()) return ICON_FA_BOX;
         if (e.HasComponent<UIInputFieldComponent>()) return ICON_FA_I_CURSOR;
         if (e.HasComponent<UISliderComponent>()) return ICON_FA_SLIDERS;
         if (e.HasComponent<UIToggleComponent>()) return ICON_FA_SQUARE_CHECK;
@@ -802,6 +803,7 @@ namespace Zamin {
         }
         if (ImGui::MenuItem(Tr(ICON_FA_BOX "  Prefab sifatida saqlash")) && OnSavePrefabRequested)
             OnSavePrefabRequested(entity);
+        DrawPrefabMenu(entity);
         ImGui::Separator();
         {
             // Applied to the whole selection (SetFlagFromRow), like the row buttons.
@@ -875,11 +877,14 @@ namespace Zamin {
             ImGui::PushStyleColor(ImGuiCol_HeaderHovered, primary ? ImVec4(0.14f, 0.58f, 0.46f, 0.85f) : ImVec4(0.14f, 0.58f, 0.46f, 0.55f));
         }
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
-        // Hidden in the scene view: a grey label; inactive (game state): a translucent one.
-        const bool dimmed = hiddenInView || inactive;
+        // Hidden in the scene view: a grey label; inactive (game state): a translucent one; an entity
+        // of a prefab instance: the prefab colour.
+        ImVec4 prefabColor;
+        const bool prefabRow = !hiddenInView && GetPrefabRowColor(entity, prefabColor);
+        const bool dimmed = hiddenInView || inactive || prefabRow;
         if (dimmed)
         {
-            ImVec4 color = ImGui::GetStyleColorVec4(hiddenInView ? ImGuiCol_TextDisabled : ImGuiCol_Text);
+            ImVec4 color = prefabRow ? prefabColor : ImGui::GetStyleColorVec4(hiddenInView ? ImGuiCol_TextDisabled : ImGuiCol_Text);
             if (inactive)
                 color.w *= 0.42f;
             ImGui::PushStyleColor(ImGuiCol_Text, color);
@@ -944,7 +949,10 @@ namespace Zamin {
         DrawEntityContextMenu(entity);
         const bool alive = entity.IsValid();
         if (alive)
+        {
             DrawRowToggles(entity, rowMin, rowMax);
+            DrawPrefabRowMarks(entity, rowMin, rowMax);
+        }
 
         if (open)
         {
@@ -1053,6 +1061,12 @@ namespace Zamin {
             }
             Entity dragged = m_Context->GetEntityByUUID(*(const uint64_t*)active->Data);
             bool self = dragged == entity && (zone == DropZone::Into || m_Selection.Size() <= 1 || !IsSelected(dragged));
+            const Entity newParent = zone == DropZone::Into || zone == DropZone::FirstChild ? entity : m_Context->GetParent(entity);
+            if (!self && dragged && !CanReparent(dragged, newParent))
+            {
+                UI::Tooltip(Tr(ICON_FA_BOX "  Prefab ichidagi obyektni tashqariga chiqarib bo'lmaydi (avval bog'lanishni uzing)"));
+                self = true;
+            }
             if (!self)
             {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_ENTITY",
@@ -1118,6 +1132,17 @@ namespace Zamin {
         // Dragging a selected row moves the whole selection (its top-level entities, in order).
         std::vector<Entity> moving = IsSelected(dragged) ? GetSelectedRoots() : std::vector<Entity>{ dragged };
         Entity target = drop.Target;
+        // An entity of a prefab instance stays in its instance.
+        {
+            const Entity newParent = drop.Zone == DropZone::Into || drop.Zone == DropZone::FirstChild ? target
+                                   : drop.Zone == DropZone::RootEnd || !target ? Entity() : m_Context->GetParent(target);
+            const size_t before = moving.size();
+            std::erase_if(moving, [&](Entity e) { return !CanReparent(e, newParent); });
+            if (moving.size() != before)
+                ZM_WARN("Prefab ichidagi obyektni tashqariga chiqarib bo'lmaydi (avval bog'lanishni uzing)");
+            if (moving.empty())
+                return;
+        }
         bool changed = false;
         switch (drop.Zone)
         {
@@ -1692,6 +1717,7 @@ namespace Zamin {
         ImGui::PopStyleVar();
         if (m_FoldState && open != wasOpen && m_FoldState->SetOpen(foldKey, open, true) && OnFoldStateModified)
             OnFoldStateModified();
+        DrawPrefabSectionMarks(entity, key, ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
         DrawSectionDragDrop(key);
 
         // Menu (gear button / right-click on the header): the component's own items, then copy /
@@ -1717,6 +1743,7 @@ namespace Zamin {
                 if (DrawComponentMenuItems(entity, key))
                     modified = true;
             }
+            DrawPrefabComponentMenuItems(entity, key);
             if (removable)
             {
                 ImGui::Separator();
@@ -1734,6 +1761,25 @@ namespace Zamin {
                 ImGui::Indent(4.0f);
                 if (UI::BeginPropertyGrid(name.c_str()))
                 {
+                    // An entity of a prefab instance: its changed values are marked (UI::PropertyLabel).
+                    UI::PrefabFieldScope prefabScope;
+                    UI::PrefabFieldScope* scope = nullptr;
+                    if (const auto* link = entity.TryGetComponent<PrefabLinkComponent>();
+                        link && link->PrefabEntity && m_SceneEditable && m_PrefabInspector.Entity == entity.GetUUID())
+                    {
+                        prefabScope.Component = key;
+                        prefabScope.Overrides = &link->Overrides;
+                        prefabScope.Targets = &m_PrefabInspector.Targets;
+                        prefabScope.OnAction = [this, entity](const std::string& path, int action) {
+                            if (action == 0)
+                                RequestPrefab(PrefabRequest::Op::Revert, entity, PrefabScope::Field, path);
+                            else if ((size_t)(action - 1) < m_PrefabInspector.Targets.size())
+                                RequestPrefab(PrefabRequest::Op::Apply, entity, PrefabScope::Field, path,
+                                              action == 1 ? std::string() : m_PrefabInspector.Targets[(size_t)(action - 1)]);
+                        };
+                        scope = &prefabScope;
+                    }
+                    UI::PrefabFieldScopeGuard guard(scope);
                     modified |= uiFunction(entity.GetComponent<T>());
                     UI::EndPropertyGrid();
                 }
@@ -6759,6 +6805,8 @@ namespace Zamin {
 
         const char* label = f.GetDisplayName().c_str();
         const char* tooltip = f.TooltipText.empty() ? nullptr : f.TooltipText.c_str();
+        if (UI::PrefabFieldScope* scope = UI::CurrentPrefabFieldScope())
+            scope->NextPath = "NativeScript/Fields/" + PrefabOverrides::EscapeSegment(f.Name);
         if (f.Type == ScriptFieldType::Entity)
         {
             EntityRef ref = v.Get<EntityRef>();
@@ -7306,6 +7354,15 @@ namespace Zamin {
                 ImGui::TextColored(ImVec4(0.96f, 0.72f, 0.32f, 1.0f), "  " ICON_FA_LOCK " qulflangan");
                 if (ImGui::IsItemHovered())
                     UI::Tooltip("Viewport'da tanlanmaydi va gizmo bilan surilmaydi; bu yerda tahrirlash mumkin");
+            }
+            // A prefab instance's entity: its prefab, what it changed, Apply / Revert.
+            m_PrefabInspector = {};
+            if (PrefabUtility::GetInstanceRoot(entity))
+            {
+                DrawPrefabBar(entity);
+                m_PrefabInspector.Entity = entity.GetUUID();
+                if (m_Prefabs && PrefabUtility::IsLinked(entity))
+                    m_PrefabInspector.Targets = PrefabUtility::GetApplyTargets(entity, *m_Prefabs);
             }
         }
 
@@ -9757,6 +9814,8 @@ namespace Zamin {
                 break;
         }
         m_Sections.clear();
+        if (entity.IsValid())
+            DrawRemovedPrefabComponents(entity);
         if (modified) MarkModified();
 
         // A particle system's new sub-emitter template (adding a component while the inspector

@@ -144,9 +144,11 @@ namespace Zamin {
             std::string Tag, OldTag;                          // the entity's name now / before
             std::vector<std::string> Added, Removed, Changed; // its top-level keys ("Transform", "Tag", "Parent" ...)
             std::string Field;                                // one key changed in one field: that field
+            uint64_t ID = 0;                                  // its UUID
         };
         bool Valid = false;                                   // both texts could be read
         std::vector<std::string> Added, Removed;              // names of the entities
+        std::vector<uint64_t> AddedIDs, RemovedIDs;           // their UUIDs (in the same order)
         std::vector<EntityChange> Changed;
         std::vector<std::string> SceneKeys;                   // "Settings", "Metadata", "Scene", "RootOrder"
         std::string SceneField;                               // only one key of Settings changed: it

@@ -1,5 +1,7 @@
 #include "Zamin/Editor/UndoHistory.h"
 
+#include <charconv>
+
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -501,6 +503,11 @@ namespace Zamin {
             for (size_t i = 0; i < a.size(); i++)
                 indexA[a[i].first] = i;
             std::unordered_set<std::string_view> seen;
+            auto number = [](std::string_view text) {
+                uint64_t value = 0;
+                std::from_chars(text.data(), text.data() + text.size(), value);
+                return value;
+            };
             for (const auto& [id, entity] : b)
             {
                 seen.insert(id);
@@ -508,6 +515,7 @@ namespace Zamin {
                 if (it == indexA.end())
                 {
                     change.Added.push_back(entity.Tag);
+                    change.AddedIDs.push_back(number(id));
                     continue;
                 }
                 const EntityText& old = a[it->second].second;
@@ -516,6 +524,7 @@ namespace Zamin {
                 SceneChange::EntityChange c;
                 c.Tag = entity.Tag;
                 c.OldTag = old.Tag;
+                c.ID = number(id);
                 CompareMembers(old.Fields, entity.Fields, c.Added, c.Removed, c.Changed);
                 if (c.Added.empty() && c.Removed.empty() && c.Changed.size() == 1)
                     c.Field = OnlyChangedField(Find(old.Fields, c.Changed.front()), Find(entity.Fields, c.Changed.front()));
@@ -524,7 +533,10 @@ namespace Zamin {
             }
             for (const auto& [id, entity] : a)
                 if (!seen.contains(id))
+                {
                     change.Removed.push_back(entity.Tag);
+                    change.RemovedIDs.push_back(number(id));
+                }
         }
         change.Valid = true;
         return change;

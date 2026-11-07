@@ -122,7 +122,7 @@ namespace Zamin {
         {
             case MemoryCategory::Textures: return "Teksturalar";
             case MemoryCategory::RenderTargets: return "Render buferlari";
-            case MemoryCategory::Meshes: return "Mesh va GPU buferlari";
+            case MemoryCategory::Meshes: return "GPU buferlari";
             case MemoryCategory::Audio: return "Audio";
             case MemoryCategory::Scenes: return "Sahnalar";
             case MemoryCategory::Particles: return "Particle'lar";
@@ -140,7 +140,7 @@ namespace Zamin {
             case MemoryCategory::RenderTargets:
                 return "Framebuffer'lar (viewport, post-process, soyalar, kamera tasvirlari): rang va chuqurlik qatlamlari, MSAA bilan";
             case MemoryCategory::Meshes:
-                return "Vertex va indeks buferlari (meshlar, modellar, 2D partiyalar)";
+                return "Vertex va indeks buferlari: meshlar, modellar, 2D partiyalar, particle instance buferlari";
             case MemoryCategory::Audio:
                 return "Xotiraga ochilgan (decode qilingan) ovoz fayllari - oqim (stream) bilan o'qiladiganlar kirmaydi";
             case MemoryCategory::Scenes:

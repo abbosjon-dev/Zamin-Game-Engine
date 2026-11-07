@@ -425,9 +425,9 @@ Har bir milestone 20 ta vazifadan iborat. `[x]` — bajarilgan, `[ ]` — rejada
 - [x] 365. Rang utilitalari (HSV, lerp, hex)
 - [x] 366. Math utilitalari (Remap, SmoothDamp, MoveTowards, Approximately)
 - [x] 367. Quaternion yordamchilari (LookRotation, Slerp)
-- [ ] 368. Job system / thread pool
-- [ ] 369. Parallel for (particle va animatsiya uchun)
-- [ ] 370. Xotira statistikasi profiler'da
+- [x] 368. Job system / thread pool
+- [x] 369. Parallel for (particle va animatsiya uchun)
+- [x] 370. Xotira statistikasi profiler'da
 - [ ] 371. Log fayl va log darajasi sozlamasi
 - [ ] 372. Assert'larni yaxshilash (xabar bilan)
 - [ ] 373. Timer va Stopwatch utilitalari

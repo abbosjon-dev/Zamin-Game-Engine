@@ -338,6 +338,18 @@ namespace Zamin {
         if (std::getenv("ZAMIN_EDITOR_STATS"))
         {
             ZM_INFO("Render statistikasi (oxirgi kadr): {}", Renderer::GetStats().Format());
+            {
+                const MemoryStats::ProcessMemory process = MemoryStats::GetProcessMemory(0.0);
+                std::string categories;
+                for (size_t i = 0; i < MemoryCategoryCount; i++)
+                    if (const MemoryStats::Category c = MemoryStats::Get((MemoryCategory)i); c.Bytes > 0)
+                        categories += std::format(", {} {}", MemoryStats::GetName((MemoryCategory)i), MemoryStats::FormatBytes(c.Bytes));
+                ZM_INFO("Xotira: RAM {} (eng ko'pi {}), dvigatel {}{}", MemoryStats::FormatBytes(process.Resident),
+                        MemoryStats::FormatBytes(process.PeakResident), MemoryStats::FormatBytes(MemoryStats::GetTrackedTotal()), categories);
+                const JobSystem::Stats& jobs = JobSystem::GetLastFrameStats();
+                ZM_INFO("Vazifalar tizimi: {} ishchi, oxirgi kadrda {} vazifa, {} parallel for", jobs.Workers, jobs.Jobs,
+                        jobs.ParallelFors);
+            }
             if (m_ActiveScene)
             {
                 const Scene::AnimationStats& a = m_ActiveScene->GetAnimationStats();
@@ -10459,12 +10471,15 @@ namespace Zamin {
             ImGui::Text("FPS: %.0f   Kadr: %.2f ms", Application::Get().GetFPS(), Application::Get().GetFrameTime());
             ImGui::PlotLines("##ft", history, (int)std::max<size_t>(1, frameTimes.Size()), 0, nullptr, 0.0f, 40.0f, ImVec2(-1, 50));
             // ZAMIN_EDITOR_STATS=profiler (automation): the render numbers start folded, the profiler shows.
-            // ZAMIN_EDITOR_STATS=audio: the same, the audio profiler first; =load: the scene load times.
+            // ZAMIN_EDITOR_STATS=audio: the same, the audio profiler first; =load: the scene load times;
+            // =memory / =jobs: the memory and the job system sections.
             static const bool profilerFirst = [] {
                 const char* v = std::getenv("ZAMIN_EDITOR_STATS");
                 return v && (std::string_view(v).find("profiler") != std::string_view::npos ||
                              std::string_view(v).find("audio") != std::string_view::npos ||
-                             std::string_view(v).find("load") != std::string_view::npos);
+                             std::string_view(v).find("load") != std::string_view::npos ||
+                             std::string_view(v).find("memory") != std::string_view::npos ||
+                             std::string_view(v).find("jobs") != std::string_view::npos);
             }();
             static const bool loadFirst = [] {
                 const char* v = std::getenv("ZAMIN_EDITOR_STATS");
@@ -10596,13 +10611,17 @@ namespace Zamin {
 
     void EditorLayer::UI_MemoryStats()
     {
-        // ZAMIN_EDITOR_STATS=memory (automation): open even when the panel starts folded.
-        static const bool memoryFirst = [] {
+        // ZAMIN_EDITOR_STATS=memory (automation): open even when the panel starts folded; =jobs
+        // without memory: folded (the job system and the profiler below it in view).
+        static const int memoryFirst = [] {
             const char* v = std::getenv("ZAMIN_EDITOR_STATS");
-            return v && std::string_view(v).find("memory") != std::string_view::npos;
+            if (!v)
+                return -1;
+            const std::string_view value(v);
+            return value.find("memory") != std::string_view::npos ? 1 : value.find("jobs") != std::string_view::npos ? 0 : -1;
         }();
-        if (memoryFirst && ImGui::IsWindowAppearing())
-            ImGui::SetNextItemOpen(true);
+        if (memoryFirst >= 0 && ImGui::IsWindowAppearing())
+            ImGui::SetNextItemOpen(memoryFirst == 1);
         if (!ImGui::CollapsingHeader(Tr(ICON_FA_MEMORY "  Xotira"), ImGuiTreeNodeFlags_DefaultOpen))
             return;
         const MemoryStats::ProcessMemory process = MemoryStats::GetProcessMemory();
@@ -10614,15 +10633,13 @@ namespace Zamin {
         if (UI::BeginPropertyGrid("memstats", labelWidth))
         {
             UI::PropertyLabel("RAM (RSS)", "Jarayonning hozir RAM'dagi xotirasi (/proc/self/statm) - dvigatel, kutubxonalar, GPU drayveri, "
-                                           "skriptlar hammasi. Qavsda: shu paytgacha eng ko'pi (VmHWM)");
+                                           "skriptlar hammasi");
             if (process.Valid)
-            {
                 ImGui::Text("%s", MemoryStats::FormatBytes(process.Resident).c_str());
-                ImGui::SameLine(0.0f, 6.0f);
-                ImGui::TextDisabled("(eng ko'pi %s)", MemoryStats::FormatBytes(process.PeakResident).c_str());
-            }
             else
                 ImGui::TextDisabled("bu tizimda o'qilmaydi");
+            UI::PropertyLabel("Eng ko'pi", "Ishga tushgandan beri RAM'dagi eng katta xotira (VmHWM)");
+            ImGui::TextDisabled("%s", process.Valid ? MemoryStats::FormatBytes(process.PeakResident).c_str() : "-");
             UI::PropertyLabel("Virtual", "Jarayon band qilgan manzil maydoni (hammasi ham RAM'da emas)");
             ImGui::TextDisabled("%s", process.Valid ? MemoryStats::FormatBytes(process.Virtual).c_str() : "-");
             UI::PropertyLabel("Dvigatel jami", "Dvigatel modullari o'zi hisoblagan xotira (quyidagi toifalar yig'indisi). GPU xotirasi "
@@ -10630,13 +10647,12 @@ namespace Zamin {
             ImGui::Text("%s", MemoryStats::FormatBytes(tracked).c_str());
             UI::EndPropertyGrid();
         }
-        // The categories: bytes, objects, peak, and a bar of each one's share.
-        if (ImGui::BeginTable("##memoryCategories", 4, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg | ImGuiTableFlags_NoSavedSettings))
+        // The categories: bytes and objects (the peak in the tooltip), and a bar of each one's share.
+        if (ImGui::BeginTable("##memoryCategories", 3, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg | ImGuiTableFlags_NoSavedSettings))
         {
-            ImGui::TableSetupColumn(Tr("Toifa"), ImGuiTableColumnFlags_WidthStretch, 1.5f);
-            ImGui::TableSetupColumn(Tr("Bayt"), ImGuiTableColumnFlags_WidthStretch, 0.9f);
-            ImGui::TableSetupColumn(Tr("Soni"), ImGuiTableColumnFlags_WidthStretch, 0.5f);
-            ImGui::TableSetupColumn(Tr("Eng ko'pi"), ImGuiTableColumnFlags_WidthStretch, 0.9f);
+            ImGui::TableSetupColumn(Tr("Toifa"), ImGuiTableColumnFlags_WidthStretch, 1.45f);
+            ImGui::TableSetupColumn(Tr("Bayt"), ImGuiTableColumnFlags_WidthStretch, 1.0f);
+            ImGui::TableSetupColumn(Tr("Soni"), ImGuiTableColumnFlags_WidthStretch, 0.45f);
             ImGui::TableHeadersRow();
             for (size_t i = 0; i < MemoryCategoryCount; i++)
             {
@@ -10662,10 +10678,11 @@ namespace Zamin {
                     ImGui::TextUnformatted(MemoryStats::FormatBytes(c.Bytes).c_str());
                 else
                     ImGui::TextDisabled("0");
+                if (ImGui::IsItemHovered())
+                    UI::Tooltip(std::format("{}: hozir {}, eng ko'pi {}", MemoryStats::GetName(category), MemoryStats::FormatBytes(c.Bytes),
+                                            MemoryStats::FormatBytes(c.PeakBytes)).c_str());
                 ImGui::TableSetColumnIndex(2);
                 ImGui::TextDisabled("%llu", (unsigned long long)c.Count);
-                ImGui::TableSetColumnIndex(3);
-                ImGui::TextDisabled("%s", MemoryStats::FormatBytes(c.PeakBytes).c_str());
             }
             ImGui::EndTable();
         }
@@ -10674,9 +10691,12 @@ namespace Zamin {
         if (ImGui::IsItemHovered())
             UI::Tooltip("Toifalarning 'eng ko'pi' ustunini hozirgi qiymatga qaytarish");
         const Scene::MemoryEstimate scene = m_ActiveScene->EstimateMemory();
-        ImGui::SameLine();
-        ImGui::TextDisabled("Bu sahna: %llu obyekt, %s (+%s particle)", (unsigned long long)scene.Entities,
-                            MemoryStats::FormatBytes(scene.Components).c_str(), MemoryStats::FormatBytes(scene.Particles).c_str());
+        ImGui::TextDisabled("Bu sahna: %llu obyekt, %s", (unsigned long long)scene.Entities, MemoryStats::FormatBytes(scene.Components).c_str());
+        if (scene.Particles > 0)
+        {
+            ImGui::SameLine(0.0f, 4.0f);
+            ImGui::TextDisabled("+ %s particle", MemoryStats::FormatBytes(scene.Particles).c_str());
+        }
     }
 
     void EditorLayer::UI_JobSystemStats()
@@ -10701,7 +10721,7 @@ namespace Zamin {
                         "Ishga tushirishda: ZAMIN_JOBS=<son> (0 - o'chiq), player'da --jobs N");
         ImGui::SameLine();
         if (JobSystem::IsRunning())
-            ImGui::TextDisabled("%u ishchi oqim + asosiy", JobSystem::GetWorkerCount());
+            ImGui::TextDisabled("%u ishchi", JobSystem::GetWorkerCount());
         else
             ImGui::TextDisabled("ishga tushmagan (ZAMIN_JOBS=0)");
         ImGui::Text("Oxirgi kadr: %llu vazifa, %llu parallel for", (unsigned long long)frame.Jobs, (unsigned long long)frame.ParallelFors);
@@ -10774,6 +10794,13 @@ namespace Zamin {
 
     void EditorLayer::UI_AudioProfiler()
     {
+        // ZAMIN_EDITOR_STATS=jobs (automation): folded, the profiler below in view.
+        static const bool jobsView = [] {
+            const char* v = std::getenv("ZAMIN_EDITOR_STATS");
+            return v && std::string_view(v).find("jobs") != std::string_view::npos;
+        }();
+        if (jobsView && ImGui::IsWindowAppearing())
+            ImGui::SetNextItemOpen(false);
         if (!ImGui::CollapsingHeader(Tr(ICON_FA_VOLUME_HIGH "  Audio profiler"), ImGuiTreeNodeFlags_DefaultOpen))
             return;
         const AudioProfile audio = AudioEngine::GetProfile();
@@ -11113,6 +11140,13 @@ namespace Zamin {
                 const char* v = std::getenv("ZAMIN_EDITOR_STATS");
                 return v && std::string_view(v).find("load") != std::string_view::npos;
             }();
+            // =jobs: folded (the profiler's worker nodes in view).
+            static const bool jobsView = [] {
+                const char* v = std::getenv("ZAMIN_EDITOR_STATS");
+                return v && std::string_view(v).find("jobs") != std::string_view::npos;
+            }();
+            if (jobsView && !loadFirst && ImGui::IsWindowAppearing())
+                ImGui::SetNextItemOpen(false);
             if (!ImGui::CollapsingHeader(title.c_str(), loadFirst || !history.empty() ? ImGuiTreeNodeFlags_DefaultOpen : 0))
                 return;
         }

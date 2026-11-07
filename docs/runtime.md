@@ -114,6 +114,7 @@ log'ga ogohlantirish bo'lib yoziladi, qolganlari ishlatiladi. `ZaminPlayer --hel
 | `--monitor N` | Qaysi monitorda ochiladi (0 - asosiy) |
 | `--vsync`, `--no-vsync` | Vertikal sinxronizatsiya |
 | `--fps N` | Kadr chastotasi cheklovi (0 - cheklovsiz) |
+| `--jobs N` | Vazifalar tizimining ishchi oqimlari (standart: protsessor oqimlari - 1; 0 - o'chiq, hamma ish asosiy oqimda). Mustaqil particle tizimlari va animator pozalari parallel hisoblanadi |
 | `--scene <yo'l / indeks / nom>` | Boshlang'ich sahna: `Scenes/Level2.zscene`, `2` (build indeksi) yoki `Level2` |
 | `--quality <nom / indeks>` | Sifat darajasi (`Low`, `High` ...) |
 | `--lang <kod>`, `--language <kod>` | Til (`uz`, `ru`, `en` ...) |
@@ -403,6 +404,8 @@ o'zgarmaydi (Release modul `<loyiha>/Build/ExportRelease` da, editor ham shunday
 | `ZAMIN_PLAYER_STATS=1` | player | Chiqishda render statistikasi, kadr vaqtlari, profiler, audio, sahna yuklash vaqtlari |
 | `ZAMIN_PLAYER_SPLASH=1` | player | Avtomatik ishga tushishda ham splash |
 | `ZAMIN_FOCUS_LOSS_TEST=<kadr>[:<soni>]` | hammasi | Fokus yo'qolishini taqlid qiladi (fonda pauza) |
+| `ZAMIN_JOBS=N` | hammasi | Vazifalar tizimining ishchi oqimlari (`--jobs`dan ustun; 0 yoki `off` - o'chiq) |
+| `ZAMIN_EDITOR_STATS=memory` / `jobs` | editor | Statistika panelida Xotira / Vazifalar tizimi bo'limlari ochiq; chiqishda xotira va vazifalar log'ga |
 | `ZAMIN_PLAYER_CRASH_TEST=<kadr>:<segv / abort / fpe / exception>` | player | Ataylab crash |
 | `ZAMIN_CRASH_DIALOG=1` | player | Avtomatik ishga tushishda ham crash oynasi |
 | `ZAMIN_PLAYER_NO_CULLING=1`, `ZAMIN_PLAYER_NO_INSTANCING=1` | player | Frustum culling / instancing o'chiq (solishtirish) |

@@ -224,7 +224,7 @@ namespace Zamin {
         void ApplyCameraDefaults(bool flySpeed);
         // ---- the log (EditorLogSettings.cpp): the preferences' levels applied (at start-up with the
         // command line's / ZAMIN_LOG_LEVEL over them), the editor's log file opened / closed as they say,
-        // the page in Sozlamalar > Konsol, and the assert handler (a game script's failed ZM_ASSERT is
+        // the page in Sozlamalar > Log, and the assert handler (a game script's failed ZM_ASSERT is
         // logged and the editor goes on instead of aborting).
         void ApplyLogPreferences(bool startup);
         void UpdateEditorLogFile();

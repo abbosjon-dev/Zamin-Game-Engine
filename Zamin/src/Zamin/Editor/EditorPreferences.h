@@ -100,7 +100,7 @@ namespace Zamin {
         bool ShowTrace = false, ShowInfo = true, ShowWarn = true, ShowError = true;
     };
 
-    // The editor's log (Sozlamalar > Konsol): the levels of the engine's and the editor's / game's
+    // The editor's log (Sozlamalar > Log): the levels of the engine's and the editor's / game's
     // messages (below them nothing is written: not to the console, the terminal or the file), and the
     // editor's own log files - ~/.local/share/zamin/editor/logs/editor-<date>.log (the last KeepFiles)
     // and latest.log, at FileLevel and above. ZAMIN_LOG_LEVEL / ZaminEditor --log-level win at start-up.

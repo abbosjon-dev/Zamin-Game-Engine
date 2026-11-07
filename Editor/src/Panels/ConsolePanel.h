@@ -32,7 +32,7 @@ namespace Zamin {
         // The console window (or its search field) had the keyboard focus last frame.
         bool IsFocused() const { return m_Focused; }
         // Automation (ZAMIN_EDITOR_CONSOLE): "filter=<text>;regex;case;collapse;trace;select=<n>;options"
-        // (options: the options menu open).
+        // (options: the options menu kept open, the console's tab in front).
         void ApplyAutomation(const std::string& spec);
 
     private:
@@ -47,7 +47,8 @@ namespace Zamin {
         ConsolePreferences m_Prefs;
         bool m_PrefsChanged = false;
         bool m_LogLevelsChanged = false;
-        bool m_OpenOptions = false;          // automation: the options menu opens once
+        bool m_OpenOptions = false;          // automation: the options menu kept open (screenshots)
+        bool m_FocusWindow = false;          // automation: the console's window to the front once
         std::string m_FilterText;
         bool m_Regex = false, m_CaseSensitive = false;
         ConsoleTextMatcher m_Matcher;

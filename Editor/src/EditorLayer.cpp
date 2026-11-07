@@ -569,11 +569,11 @@ namespace Zamin {
                         Log::Write(logLevel, true, std::string(item.substr(colon + 1)));
                 }
             }
-            // ZAMIN_EDITOR_PREFERENCES=<page 0..6>: the preferences window opens on that page.
+            // ZAMIN_EDITOR_PREFERENCES=<page 0..7>: the preferences window opens on that page (7: Log).
             if (const char* prefs = std::getenv("ZAMIN_EDITOR_PREFERENCES"))
             {
                 m_ShowPreferences = true;
-                m_PreferencesPage = std::clamp(std::atoi(prefs), 0, 6);
+                m_PreferencesPage = std::clamp(std::atoi(prefs), 0, 7);
             }
             // ZAMIN_EDITOR_UNDO="select=<name>;move=<name>,dx,dy,dz;rename=<name>,<new>;duplicate;delete;undo=<n>;history":
             // undo steps made one by one (each its own step, named as usual); "history" opens the window.

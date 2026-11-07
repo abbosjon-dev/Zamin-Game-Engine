@@ -1,4 +1,4 @@
-// The editor's log: the loggers' levels from the preferences (Sozlamalar > Konsol; at start-up the
+// The editor's log: the loggers' levels from the preferences (Sozlamalar > Log; at start-up the
 // command line's --log-level / ZAMIN_LOG_LEVEL over them), the editor's own log files
 // (~/.local/share/zamin/editor/logs: editor-<date>.log, the last N kept, latest.log) and the handler
 // that keeps a failed ZM_ASSERT of a game script from taking the editor down.
@@ -69,7 +69,7 @@ namespace Zamin {
         {
             if (LogFile::IsOpen())
             {
-                ZM_CORE_INFO("Editor log fayli yopildi (Sozlamalar > Konsol)");
+                ZM_CORE_INFO("Editor log fayli yopildi (Sozlamalar > Log)");
                 LogFile::Close();
             }
             return;
@@ -169,20 +169,24 @@ namespace Zamin {
         std::string shown = current.empty() ? GetEditorLogDirectory().string() : current.string();
         if (const char* home = std::getenv("HOME"); home && *home && shown.starts_with(home))
             shown = "~" + shown.substr(std::strlen(home));
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextDisabled("%s  %s", current.empty() ? ICON_FA_FOLDER : ICON_FA_FILE, current.empty() ? Tr("(yozilmayapti)") : shown.c_str());
-        if (ImGui::IsItemHovered() && !current.empty())
-            UI::Tooltip(current.string().c_str());
+        // The folder button first: the path may be long (it is cut at the window's edge, whole in the tooltip).
         std::error_code ec;
         const fs::path folder = current.empty() ? GetEditorLogDirectory() : current.parent_path();
         if (fs::is_directory(folder, ec))
         {
-            ImGui::SameLine();
             if (ImGui::SmallButton(Tr(ICON_FA_FOLDER_OPEN "  Papkani ochish")))
                 Platform::OpenInFileBrowser(folder);
+            ImGui::SameLine();
         }
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextDisabled("%s  %s", current.empty() ? ICON_FA_FOLDER : ICON_FA_FILE, current.empty() ? Tr("(yozilmayapti)") : shown.c_str());
+        if (ImGui::IsItemHovered() && !current.empty())
+            UI::Tooltip(current.string().c_str());
         ImGui::Spacing();
-        ImGui::TextDisabled("%s", "Player uchun: Project settings > Player > Log; buyruq qatori: --log-level warn yoki engine=warn,app=info,file=error");
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextWrapped("%s", "Player uchun: Project settings > Player > Log. Buyruq qatori: --log-level warn yoki "
+                                 "engine=warn,app=info,file=error (ZAMIN_LOG_LEVEL ham) - ishga tushishda bulardan ustun.");
+        ImGui::PopStyleColor();
     }
 
 }

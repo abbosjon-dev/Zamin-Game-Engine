@@ -625,7 +625,7 @@ namespace Zamin {
             m_SizeSettle = first && !area.Letterboxed ? 0 : 10;
         }
 
-        // ZAMIN_PLAYER_CRASH_TEST="<frame>:<segv | abort | fpe | exception>": the player crashes on purpose
+        // ZAMIN_PLAYER_CRASH_TEST="<frame>:<segv | abort | fpe | exception | assert>": the player crashes on purpose
         // in that frame (the crash handler, its report and dialog are checked with it).
         void RunCrashTest()
         {
@@ -652,7 +652,16 @@ namespace Zamin {
             }
             else if (kind == "exception")
                 throw std::runtime_error("ZAMIN_PLAYER_CRASH_TEST sinov istisnosi");
-            ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: noma'lum tur '{}' (segv, abort, fpe, exception)", kind);
+            else if (kind == "assert")
+            {
+                // A failed assert (where they are compiled in): the report names it as the reason.
+                const int lives = 0;
+                ZM_ASSERT(lives > 0, "o'yinchining joni {} - ZAMIN_PLAYER_CRASH_TEST sinov assert'i ({}-kadr)", lives, at);
+                if (!Assert::AreAssertsEnabled())
+                    ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: bu build'da assert'lar o'chiq (-DZAMIN_ASSERTS=ON)");
+                return;
+            }
+            ZM_WARN("ZAMIN_PLAYER_CRASH_TEST: noma'lum tur '{}' (segv, abort, fpe, exception, assert)", kind);
         }
 
         void OnUpdate(Timestep ts) override
@@ -1058,6 +1067,35 @@ namespace Zamin {
                                        params);
                 y -= size * after;
             };
+            // A long text over a few lines, broken at its words (what does not fit in `maxLines` is cut with "...").
+            auto wrapped = [&](const std::string& text, float size, const glm::vec4& color, size_t maxLines, float after) {
+                if (!font)
+                    return;
+                const float maxWidth = (maxRight - left) / size;
+                std::vector<std::string> lines;
+                std::string current;
+                for (std::string_view word : StringUtils::SplitView(text, ' ', StringUtils::SplitFlags::SkipEmpty))
+                {
+                    std::string candidate = current.empty() ? std::string(word) : current + " " + std::string(word);
+                    if (!current.empty() && Renderer2D::MeasureString(candidate, font).x > maxWidth)
+                    {
+                        lines.push_back(std::move(current));
+                        current = std::string(word);
+                    }
+                    else
+                        current = std::move(candidate);
+                }
+                if (!current.empty())
+                    lines.push_back(std::move(current));
+                if (maxLines > 0 && lines.size() > maxLines)
+                {
+                    for (size_t i = maxLines; i < lines.size(); i++)
+                        lines[maxLines - 1] += " " + lines[i];
+                    lines.resize(maxLines);
+                }
+                for (size_t i = 0; i < lines.size(); i++)
+                    line(lines[i], size, color, i + 1 < lines.size() ? 1.3f : after);
+            };
             const glm::vec4 white(0.94f, 0.95f, 0.97f, 1.0f), grey(0.60f, 0.63f, 0.68f, 1.0f), red(0.96f, 0.50f, 0.46f, 1.0f), dim(0.45f, 0.48f, 0.53f, 1.0f);
             line(std::format("{} kutilmaganda to'xtadi", m_Product), 30.0f * scale, white, 1.7f);
             if (m_HasReport)
@@ -1066,7 +1104,8 @@ namespace Zamin {
                     line(std::format("{}{}{}", m_Summary.Version.empty() ? "" : "Versiya " + m_Summary.Version, !m_Summary.Version.empty() && !m_Summary.Engine.empty() ? "  |  " : "",
                                      m_Summary.Engine),
                          15.0f * scale, dim, 1.9f);
-                line("Sabab: " + m_Summary.Reason, 18.0f * scale, red, 2.0f);
+                // (A failed assert's reason is long: the expression, the message, file:line.)
+                wrapped("Sabab: " + m_Summary.Reason, 18.0f * scale, red, 3, 2.0f);
             }
             else
                 line("Hisobot o'qilmadi.", 18.0f * scale, red, 2.0f);

@@ -90,7 +90,7 @@ namespace Zamin {
             else if (part.starts_with("select="))
                 m_AutomationSelect = std::atoi(std::string(part.substr(7)).c_str());
             else if (part == "options")
-                m_OpenOptions = true;
+                m_OpenOptions = m_FocusWindow = true; // (a docked console behind another tab comes to the front)
         }
     }
 
@@ -151,6 +151,11 @@ namespace Zamin {
         m_Focused = false;
         if (!*open)
             return;
+        if (m_FocusWindow)
+        {
+            ImGui::SetNextWindowFocus();
+            m_FocusWindow = false;
+        }
         if (!ImGui::Begin(Tr(ICON_FA_TERMINAL "  Konsol###Console"), open))
         {
             ImGui::End();
@@ -213,11 +218,9 @@ namespace Zamin {
         const std::string gearTip = dropping ? std::format("Konsol sozlamalari\nYoziladi: dvigatel - {}, editor/o'yin - {} va yuqori",
                                                            Log::LevelDisplayName(engineLevel), Log::LevelDisplayName(appLevel))
                                              : std::string("Konsol sozlamalari (log darajalari ham)");
-        if (UI::ToolbarButton(ICON_FA_GEAR, gearTip.c_str(), dropping) || m_OpenOptions)
-        {
+        // (Automation keeps it open: other windows taking the focus at start-up would close it.)
+        if (UI::ToolbarButton(ICON_FA_GEAR, gearTip.c_str(), dropping) || (m_OpenOptions && !ImGui::IsPopupOpen("##ConsoleOptions")))
             ImGui::OpenPopup("##ConsoleOptions");
-            m_OpenOptions = false;
-        }
         if (ImGui::BeginPopup("##ConsoleOptions"))
         {
             m_PrefsChanged |= ImGui::Checkbox(Tr("Avto-skroll (yangi xabarga)"), &m_Prefs.AutoScroll);
@@ -245,7 +248,7 @@ namespace Zamin {
             };
             levelMenu(Tr("Dvigatel (ZAMIN)"), LogSource::Engine);
             levelMenu(Tr("Editor va o'yin (APP)"), LogSource::App);
-            ImGui::TextDisabled("%s", Tr("Pastrog'i yozilmaydi; log fayli: Sozlamalar > Konsol"));
+            ImGui::TextDisabled("%s", Tr("Pastrog'i yozilmaydi; log fayli: Sozlamalar > Log"));
             ImGui::EndPopup();
         }
         ImGui::SameLine();

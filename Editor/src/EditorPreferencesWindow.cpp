@@ -159,6 +159,7 @@ namespace Zamin {
             ICON_FA_FLOPPY_DISK "  Saqlash va undo",
             ICON_FA_PEN_TO_SQUARE "  Tashqi muharrir",
             ICON_FA_LEAF "  Ishlash",
+            ICON_FA_FILE "  Log",
         };
         if (ImGui::BeginChild("##pages", ImVec2(em * 11.0f, -ImGui::GetFrameHeightWithSpacing() - 6.0f), ImGuiChildFlags_Borders))
         {
@@ -353,7 +354,7 @@ namespace Zamin {
                         m_ConsolePanel.SetPreferences(console);
                         changed = true;
                     }
-                    UI_LogPreferences(changed);
+                    ImGui::TextDisabled("%s", Tr("Log darajalari va log fayli: Log sahifasi"));
                     break;
                 }
                 case 3:
@@ -407,6 +408,9 @@ namespace Zamin {
                     break;
                 case 6:
                     UI_IdlePreferences(changed);
+                    break;
+                case 7:
+                    UI_LogPreferences(changed);
                     break;
             }
         }

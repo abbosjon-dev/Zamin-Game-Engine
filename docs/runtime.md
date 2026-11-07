@@ -186,7 +186,7 @@ ZaminPlayer Game.zproject --log-level engine=warn,file=error  # dvigatel jimroq,
 ZAMIN_LOG_LEVEL=app=trace ZaminPlayer Game.zproject
 ```
 
-Editor: **Sozlamalar > Konsol > Log darajalari / Log fayli** (editorning o'z log fayli:
+Editor: **Sozlamalar > Log > Log darajalari / Log fayli** (editorning o'z log fayli:
 `~/.local/share/zamin/editor/logs/editor-<sana>.log` va `latest.log`), konsolning ⚙ menyusida ham darajalar;
 `ZaminEditor <loyiha> --log-level ...` va `ZAMIN_LOG_LEVEL` ishga tushishda sozlamalardan ustun. Kodda:
 `Log::SetLevel(LogSource::Engine, LogLevel::Warn)`, `Log::SetFileLevel(...)`, `LogLevelSettings`,
@@ -447,7 +447,7 @@ o'zgarmaydi (Release modul `<loyiha>/Build/ExportRelease` da, editor ham shunday
 | `ZAMIN_ASSERT=auto/break/abort/continue` | hammasi | Bajarilmagan assert nima qiladi (7-bo'lim) |
 | `ZAMIN_EDITOR_CONSOLE=...;options` | editor | Konsolning sozlamalar menyusi (log darajalari bilan) ochiq |
 | `ZAMIN_EDITOR_STATS=memory` / `jobs` | editor | Statistika panelida Xotira / Vazifalar tizimi bo'limlari ochiq; chiqishda xotira va vazifalar log'ga |
-| `ZAMIN_PLAYER_CRASH_TEST=<kadr>:<segv / abort / fpe / exception>` | player | Ataylab crash |
+| `ZAMIN_PLAYER_CRASH_TEST=<kadr>:<segv / abort / fpe / exception / assert>` | player | Ataylab crash (`assert` - bajarilmagan `ZM_ASSERT`) |
 | `ZAMIN_CRASH_DIALOG=1` | player | Avtomatik ishga tushishda ham crash oynasi |
 | `ZAMIN_PLAYER_NO_CULLING=1`, `ZAMIN_PLAYER_NO_INSTANCING=1` | player | Frustum culling / instancing o'chiq (solishtirish) |
 | `ZAMIN_EDITOR_EXPORT=<papka>` | editor | 5-kadrda o'yinni eksport qiladi va tugashini kutadi |

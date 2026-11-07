@@ -45,6 +45,7 @@ namespace Zamin {
             case Tab::Player:        m_Category = Category::Player; break;
             case Tab::Graphics:      m_Category = Category::Graphics; break;
             case Tab::Time:          m_Category = Category::Time; break;
+            case Tab::Localization:  m_Category = Category::Localization; break;
         }
         // The asked category must be in the list.
         if (!ProjectSettingsIndex::Matches(Info(m_Category), m_Search))
@@ -128,6 +129,10 @@ namespace Zamin {
             case Category::Physics:
                 ApplySceneDefaults(config);
                 break;
+            case Category::Localization:
+                // The language files again (another folder / list); the preview language stays when offered.
+                Project::ApplyLocalization(true);
+                break;
             default:
                 break;
         }
@@ -163,6 +168,7 @@ namespace Zamin {
                 config.StartSceneHandle = s.StartSceneHandle;
                 break;
             case Category::Debug:         config.DebugDraw = s.DebugDraw; break;
+            case Category::Localization:  config.Localization = s.Localization; break;
             default:                      break;
         }
         ApplyRuntime(category, config);
@@ -408,6 +414,7 @@ namespace Zamin {
             case Category::Input:         DrawInputMap(config.InputActions); break;
             case Category::TagsAndLayers: DrawTagsAndLayers(config); break;
             case Category::BuildScenes:   DrawBuildScenes(config); break;
+            case Category::Localization:  DrawLocalization(config); break;
             case Category::Debug:         DrawDebug(config); break;
             case Category::SaveData:      DrawSaveData(); break;
             default:                      break;

@@ -359,6 +359,9 @@ namespace Zamin {
         // The project's default 3D distances / distance model (Project settings > Audio) under a 3D
         // sound's distances, with a button that puts them back to the defaults.
         bool DrawSpatialDefaultsRow(float& minDistance, float& maxDistance);
+        // A Text component's localization key: typed or picked from the language files, with its text now.
+        bool DrawLocalizationKey(TextComponent& c);
+        std::string m_LocalizationKeyFilter;
         // Audio Source while the game runs: playing / paused / stopped, the time with a progress bar
         // (click: jump there), what is heard after the random variation, the mixer and the distance,
         // the pitch with its variation and Doppler; Play / Pause / Stop buttons.

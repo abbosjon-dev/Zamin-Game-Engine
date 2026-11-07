@@ -448,6 +448,7 @@ namespace Zamin {
         for (auto e : registry.view<UIAnimationComponent>()) registry.get<UIAnimationComponent>(e).ResetRuntime();
         for (auto e : registry.view<UICanvasComponent>()) registry.get<UICanvasComponent>(e).CurrentScale = 1.0f;
         for (auto e : registry.view<UIScrollViewComponent>()) registry.get<UIScrollViewComponent>(e).ResetRuntime();
+        for (auto e : registry.view<TextComponent>()) registry.get<TextComponent>(e).ResetLocalized();
     }
 
     static void ResetRuntimeData(Entity e)
@@ -497,6 +498,7 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<UIAnimationComponent>()) c->ResetRuntime();      // a spawned panel's show plays
         if (auto* c = e.TryGetComponent<UICanvasComponent>()) c->CurrentScale = 1.0f;
         if (auto* c = e.TryGetComponent<UIScrollViewComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<TextComponent>()) c->ResetLocalized();
         if (auto* c = e.TryGetComponent<MeshRendererComponent>())
         {
             // A copy (Instantiate) looks like its original did, with material instances of its own.
@@ -4877,10 +4879,38 @@ namespace Zamin {
         RenderRuntime();
     }
 
+    void Scene::UpdateLocalizedTexts()
+    {
+        for (auto e : m_Registry.view<TextComponent>())
+            m_Registry.get<TextComponent>(e).UpdateLocalized();
+    }
+
+    void Scene::DispatchLanguageChanged()
+    {
+        const uint64_t version = Localization::GetVersion();
+        if (version == m_LanguageVersion)
+            return;
+        const bool first = m_LanguageVersion == 0;
+        m_LanguageVersion = version;
+        if (first || !m_ScriptsRunning)
+            return; // the scripts start in the language there is now
+        const std::string& language = Localization::GetLanguage();
+        std::vector<entt::entity> scripted;
+        for (auto e : m_Registry.view<NativeScriptComponent>())
+            scripted.push_back(e);
+        for (auto e : scripted)
+            if (auto* nsc = m_Registry.valid(e) ? m_Registry.try_get<NativeScriptComponent>(e) : nullptr;
+                nsc && nsc->Instance && nsc->Instance->IsActiveForUpdate() && IsActiveInHierarchy({ e, this }))
+                nsc->Instance->OnLanguageChanged(language);
+    }
+
     void Scene::UpdateRuntime(Timestep ts)
     {
         m_FrameIndex++;
         DeleteRetiredScripts(); // destroyed between frames (editor, other code)
+        // The language changed (a language menu, last frame): scripts refresh the texts they make.
+        DispatchLanguageChanged();
+        UpdateLocalizedTexts();
         const bool gamePausedBeforeUI = IsGamePaused();
         UpdateUI(ts); // real time: the UI works while the game is paused
         const bool advance = !m_IsPaused || m_StepFrames-- > 0; // the editor's pause / step
@@ -5033,6 +5063,7 @@ namespace Zamin {
 
     void Scene::RenderRuntime(const RuntimeView& view, bool overlay)
     {
+        UpdateLocalizedTexts(); // a script changed the language this frame: drawn in it already
         SceneRenderOptions options;
         options.Parallax = true; // the game camera moves the parallax layers
         options.PixelSnap = view.PixelSnap;
@@ -5046,6 +5077,7 @@ namespace Zamin {
     {
         m_FrameIndex++;
         m_ParticleViewer = camera.GetPosition(); // weather follows the scene view's camera
+        UpdateLocalizedTexts();
         if (!m_IsPaused || m_StepFrames-- > 0)
         {
             DebugDraw::Advance(ts);
@@ -5069,6 +5101,7 @@ namespace Zamin {
         m_ParticleViewer = camera.GetPosition(); // weather follows the scene view's camera
         DebugDraw::Advance(ts); // the edit scene's time is the editor's
         UpdateEditorAnimation(ts);
+        UpdateLocalizedTexts(); // the editor's preview language
         RenderScene(camera.GetViewMatrix(), camera.GetProjection(), camera.GetPosition(), options);
     }
 
@@ -7218,7 +7251,7 @@ namespace Zamin {
             if (culling2D)
             {
                 // The lines' box, as the draw below lays them out.
-                if (text.Text.empty())
+                if (text.GetDisplayText().empty())
                     continue; // nothing to draw
                 const UIRect box = text.LayoutWorld().GetBounds();
                 if (!seen(TransformAABB(AABB{ glm::vec3(box.Min, 0.0f), glm::vec3(box.Max, 0.0f) }, world(e))))
@@ -7347,7 +7380,7 @@ namespace Zamin {
             {
                 auto& text = m_Registry.get<TextComponent>(item.Handle);
                 Renderer2D::TextParams params{ text.Color * tintOf(item.Handle), text.Kerning, text.LineSpacing };
-                TextLayout::Draw(text.Text, text.LayoutWorld(), text.FontAsset, 1.0f, transform, params, id);
+                TextLayout::Draw(text.GetDisplayText(), text.LayoutWorld(), text.FontAsset, 1.0f, transform, params, id);
             }
             else if (item.Kind == 4)
             {

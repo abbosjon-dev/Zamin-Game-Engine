@@ -248,5 +248,15 @@
             "",
             ""
         ]
+    },
+    "Localization": {
+        "DefaultLanguage": "uz",
+        "Languages": [
+            "uz",
+            "ru",
+            "en"
+        ],
+        "Directory": "Localization",
+        "UseSystemLanguage": false
     }
 }

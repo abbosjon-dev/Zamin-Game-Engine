@@ -171,7 +171,8 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Yuklanmoqda"
+        "Text": "Yuklanmoqda",
+        "LocalizationKey": "loading.title"
       },
       "Transform": {
         "Rotation": [
@@ -429,7 +430,8 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Maslahat: daraja fonda yuklanadi (LoadSceneAsync) - ekran tayyor bo'lgach so'nib o'tadi"
+        "Text": "Maslahat: daraja fonda yuklanadi (LoadSceneAsync) - ekran tayyor bo'lgach so'nib o'tadi",
+        "LocalizationKey": "loading.tip"
       },
       "Transform": {
         "Rotation": [

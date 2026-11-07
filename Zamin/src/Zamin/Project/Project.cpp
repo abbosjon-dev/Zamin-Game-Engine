@@ -23,6 +23,7 @@ namespace Zamin {
         s_ActiveProject = CreateRef<Project>();
         AudioEngine::SetMixerSettings(s_ActiveProject->m_Config.Audio);
         Quality::SetSettings(s_ActiveProject->m_Config.Quality);
+        ApplyLocalization();
         return s_ActiveProject;
     }
 
@@ -37,6 +38,7 @@ namespace Zamin {
         s_ActiveProject = project;
         AudioEngine::SetMixerSettings(project->m_Config.Audio);
         Quality::SetSettings(project->m_Config.Quality);
+        ApplyLocalization();
         ZM_CORE_INFO("Loyiha ochildi: {} ({})", project->m_Config.Name, project->m_ProjectDirectory.string());
 
         // The start scene was renamed / moved outside the editor: found again by its UUID.
@@ -231,6 +233,23 @@ namespace Zamin {
     {
         static const PhysicsDefaults s_Default;
         return s_ActiveProject ? s_ActiveProject->m_Config.Physics : s_Default;
+    }
+
+    std::filesystem::path Project::GetLocalizationDirectory()
+    {
+        if (!s_ActiveProject)
+            return {};
+        return GetAssetDirectory() / s_ActiveProject->m_Config.Localization.Directory;
+    }
+
+    void Project::ApplyLocalization(bool keepLanguage)
+    {
+        if (!s_ActiveProject)
+        {
+            Localization::Clear();
+            return;
+        }
+        Localization::SetSettings(s_ActiveProject->m_Config.Localization, GetLocalizationDirectory(), keepLanguage);
     }
 
     bool Project::SaveActive(const std::filesystem::path& path)
@@ -537,7 +556,7 @@ namespace Zamin {
     {
         static const std::vector<std::string> s_Keys = { "Version", "Project", "Player", "BuildScenes", "InputActions", "Tags", "SortingLayers",
                                                          "CollisionLayers2D", "Physics", "Time", "Audio", "Quality", "Graphics",
-                                                         "DebugDraw" };
+                                                         "Localization", "DebugDraw" };
         return s_Keys;
     }
 
@@ -638,6 +657,9 @@ namespace Zamin {
             j["Quality"] = ToOrdered(c.Quality.ToJson());
         if (!c.Graphics.IsDefault())
             j["Graphics"] = ToOrdered(c.Graphics.ToJson());
+        // Written once the languages differ from the defaults (older files stay as they were).
+        if (!c.Localization.IsDefault())
+            j["Localization"] = ToOrdered(c.Localization.ToJson());
         ordered_json debug;
         debug["Enabled"] = c.DebugDraw.Enabled;
         debug["Raycasts"] = c.DebugDraw.ShowRaycasts;
@@ -799,6 +821,10 @@ namespace Zamin {
         c.Physics = PhysicsDefaults();
         if (auto it = j.find("Physics"); it != j.end() && it->is_object())
             PhysicsDefaults::FromJson(it->dump(), c.Physics);
+        // Languages (older projects: Uzbek, every language file of Assets/Localization).
+        c.Localization = LocalizationSettings();
+        if (auto it = j.find("Localization"); it != j.end() && it->is_object())
+            LocalizationSettings::FromJson(it->dump(), c.Localization);
     }
 
     // Migrates, reads, and keeps what is not understood. Throws (nlohmann) on a broken required part.
@@ -952,6 +978,21 @@ zamin_add_game_module({0} ${{GAME_SOURCES}})
         if (!std::filesystem::exists(directory / "Source" / "Scripts.cpp"))
             FileSystem::WriteTextFile(directory / "Source" / "Scripts.cpp", ScriptTemplate::GenerateProjectStarter());
         FileSystem::WriteTextFile(directory / ".gitignore", "Build/\nBinaries/\n.zamin/\n");
+        // Starter language files (Project settings > Localization; scripts: Localize("game.title")).
+        {
+            LocalizationTable languages;
+            languages.AddLanguage("uz");
+            languages.AddLanguage("en");
+            languages.Languages[0].DisplayName = "O'zbekcha";
+            languages.Languages[1].DisplayName = "English";
+            languages.Set("game.title", "uz", LocalizedString{ name, {} });
+            languages.Set("game.title", "en", LocalizedString{ name, {} });
+            languages.Set("game.start", "uz", LocalizedString{ "Boshlash", {} });
+            languages.Set("game.start", "en", LocalizedString{ "Start", {} });
+            const std::filesystem::path folder = directory / c.AssetDirectory / c.Localization.Directory;
+            if (!std::filesystem::exists(folder / "uz.json"))
+                languages.Save(folder);
+        }
 
         // Default scene
         Ref<Scene> scene = CreateRef<Scene>();

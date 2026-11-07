@@ -30,6 +30,7 @@ public:
     {
         // The button's ClickMessage "Start" comes here (its ClickTarget is this entity).
         AddMessageHandler("Start", [this](const ScriptMessage&) { Begin(); });
+        // The menu's texts have localization keys (Text > Lokalizatsiya kaliti): L switches the language.
         if (Entity title = Resolve(Title))
             m_TitleY = title.GetComponent<UITransformComponent>().Position.y;
         // The game's name and version (Project settings > Player).
@@ -45,6 +46,9 @@ public:
             title.GetComponent<UITransformComponent>().Position.y = m_TitleY + std::sin(m_Time * 2.0f) * 6.0f;
         if (Input::IsActionJustPressed("Jump") || Input::IsKeyJustPressed(Key::Enter))
             Begin();
+        // L: the next language (uz -> ru -> en), kept for the next game (SaveData).
+        if (Input::IsKeyJustPressed(Key::L) && Localization::NextLanguage())
+            Localization::SaveSettings();
     }
 
 private:
@@ -91,7 +95,7 @@ public:
         m_Time += dt;
         if (!m_Load || m_Load->HasFailed())
         {
-            SetText(Stage, m_Load ? "Xato: " + m_Load->GetError() : std::format("Sahna topilmadi: {}", Target));
+            SetText(Stage, m_Load ? Localize("loading.error", m_Load->GetError()) : Localize("loading.not_found", Target));
             return;
         }
         // The bar follows the real progress (0.9 = loaded), never faster than the minimum time.
@@ -120,13 +124,13 @@ private:
         const char* d = dots[(int)(m_Time * 3.0f) % 4];
         switch (m_Load->GetStage())
         {
-            case AsyncOperation::Stage::Reading:   return std::format("Sahna fayli o'qilmoqda{}", d);
-            case AsyncOperation::Stage::Decoding:  return std::format("Rasmlar ochilmoqda ({} / {}){}", m_Load->GetDecodedImageCount(),
-                                                                      m_Load->GetImageCount(), d);
-            case AsyncOperation::Stage::Building:  return std::format("Obyektlar yaratilmoqda{}", d);
-            case AsyncOperation::Stage::Resolving: return std::format("Grafika yuklanmoqda{}", d);
-            case AsyncOperation::Stage::Ready:     return m_Shown >= 1.0f ? "Tayyor!" : std::format("Tayyorlanmoqda{}", d);
-            default:                               return "Tayyor!";
+            // The stage in the player's language (Assets/Localization/<til>.json, "loading.*").
+            case AsyncOperation::Stage::Reading:   return Localize("loading.reading", d);
+            case AsyncOperation::Stage::Decoding:  return Localize("loading.decoding", m_Load->GetDecodedImageCount(), m_Load->GetImageCount(), d);
+            case AsyncOperation::Stage::Building:  return Localize("loading.building", d);
+            case AsyncOperation::Stage::Resolving: return Localize("loading.resolving", d);
+            case AsyncOperation::Stage::Ready:     return m_Shown >= 1.0f ? Localize("loading.ready") : Localize("loading.preparing", d);
+            default:                               return Localize("loading.ready");
         }
     }
 
@@ -208,6 +212,9 @@ public:
         m_Subscription = m_Watch = 0;
     }
 
+    // The language changed (the menu's L, the pause menu's language button): the HUD in the new one.
+    void OnLanguageChanged(const std::string&) override { Refresh(); }
+
     // Scene event: another scene became the active one (the menu, the loading screen, a level).
     // A level is counted and named; the HUD is only shown in levels; the record is saved.
     void OnActiveSceneChanged(const SceneEventInfo& /*previous*/, const SceneEventInfo& current) override
@@ -235,9 +242,12 @@ private:
         if (Entity hud = Resolve(Hud))
             if (auto* text = hud.TryGetComponent<TextComponent>())
             {
+                // "Sessiya: 5 tanga | Level1 | 2 ta daraja | rekord: 12" - the counts with their plural forms
+                // ("5 монет", "2 уровня"), from the language files.
                 const std::string level = GameState::GetString("Session.Level");
-                text->Text = std::format("Sessiya: {} tanga  |  {}  |  {} ta daraja  |  rekord: {}", GameState::GetInt("Session.Coins"),
-                                         level.empty() ? "-" : level, GameState::GetInt("Session.Levels"), GameState::GetInt("Session.Best"));
+                text->Text = Localize("hud.session", LocalizePlural("hud.session_coins", GameState::GetInt("Session.Coins")),
+                                      level.empty() ? std::string("-") : level, LocalizePlural("hud.session_levels", GameState::GetInt("Session.Levels")),
+                                      GameState::GetInt("Session.Best"));
             }
     }
 

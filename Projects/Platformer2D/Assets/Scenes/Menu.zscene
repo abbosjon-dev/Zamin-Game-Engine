@@ -437,7 +437,8 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Bosh menyu  ->  yuklanish ekrani  ->  1-daraja"
+        "Text": "Bosh menyu  ->  yuklanish ekrani  ->  1-daraja",
+        "LocalizationKey": "menu.flow"
       },
       "Transform": {
         "Rotation": [
@@ -497,7 +498,8 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Boshlash"
+        "Text": "Boshlash",
+        "LocalizationKey": "menu.start"
       },
       "Transform": {
         "Rotation": [
@@ -596,7 +598,8 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "Space / Enter yoki tugmani bosing"
+        "Text": "Space / Enter yoki tugmani bosing",
+        "LocalizationKey": "menu.hint"
       },
       "Transform": {
         "Rotation": [
@@ -656,7 +659,8 @@
         "Font": "",
         "Kerning": 0.0,
         "LineSpacing": 0.0,
-        "Text": "GameSession (DontDestroyOnLoad) musiqa va jami tangalarni\nhamma darajalarda saqlaydi"
+        "Text": "GameSession (DontDestroyOnLoad) musiqa va jami tangalarni\nhamma darajalarda saqlaydi",
+        "LocalizationKey": "menu.session_info"
       },
       "Transform": {
         "Rotation": [

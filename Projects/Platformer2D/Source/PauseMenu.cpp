@@ -9,7 +9,8 @@ using namespace Zamin;
 // "Davom etish", "Sozlamalar", "Chiqish". O'yin vaqti to'xtaydi (PauseGame: fizika, animatsiyalar,
 // boshqa skriptlar), UI esa ishlayveradi - bu skript SetUpdateWhenPaused bilan pauzada ham ishlaydi.
 // Sozlamalar: ovoz guruhlari (Master, Music, SFX, UI) slayderlari audio mikserga ulangan, to'liq ekran
-// va VSync belgilashlari; hammasi SaveData'da saqlanadi (Audio::SaveSettings, Display::SaveSettings) va
+// va VSync belgilashlari, til tugmasi (o'zbek / rus / ingliz: menyu matnlari lokalizatsiya kalitlari bilan,
+// til o'zgarganda o'zi yangilanadi); hammasi SaveData'da saqlanadi (Audio::SaveSettings, Display::SaveSettings) va
 // keyingi safar o'yin boshlanganda qaytadi. Sozlamalar ro'yxati scroll view ichida (g'ildirak, sudrash,
 // klaviatura bilan tanlanganda o'zi aylanadi). Klaviatura / gamepad: strelkalar / D-pad tanlaydi,
 // Enter / A bosadi, Esc / B orqaga qaytadi (sozlamalardan menyuga, menyudan o'yinga).
@@ -25,6 +26,7 @@ public:
     EntityRef MasterSlider, MusicSlider, SfxSlider, UiSlider;
     EntityRef MasterValue, MusicValue, SfxValue, UiValue;
     EntityRef FullscreenToggle, VSyncToggle;
+    EntityRef LanguageButton;   // "Til: O'zbekcha": the next language on each click
     float MusicMuffle = 900.0f; // Hz: the music's low-pass while paused (0 = off)
 
     void OnCreate() override
@@ -44,6 +46,14 @@ public:
             QuitGame(); // the player closes; the editor stops Play
         });
         AddMessageHandler("ResetSettings", [this](const ScriptMessage&) { ResetSettings(); });
+        // The language button: uz -> ru -> en ... Every text with a localization key follows at once; the
+        // choice is kept for the next game (Localization::SaveSettings, loaded by the player).
+        AddMessageHandler("NextLanguage", [this](const ScriptMessage&) {
+            if (Localization::NextLanguage())
+                Localization::SaveSettings();
+            RefreshLanguage();
+        });
+        RefreshLanguage();
         Subscribe("UISliderChanged", [this](const ScriptMessage& m) {
             if (const char* group = GroupOf(m.Sender))
             {
@@ -85,6 +95,8 @@ public:
         if (IsOpen())
             Close(); // the game is not left paused
     }
+
+    void OnLanguageChanged(const std::string&) override { RefreshLanguage(); }
 
     bool IsOpen() const
     {
@@ -174,6 +186,14 @@ private:
         RefreshLabels();
     }
 
+    // "Til: O'zbekcha" / "Язык: Русский" / "Language: English".
+    void RefreshLanguage()
+    {
+        if (Entity button = Resolve(LanguageButton))
+            if (auto* text = button.TryGetComponent<TextComponent>())
+                text->Text = Localize("settings.language", Localization::GetLanguageName(Localization::GetLanguage()));
+    }
+
     void RefreshLabels()
     {
         const std::pair<EntityRef*, EntityRef*> rows[] = { { &MasterSlider, &MasterValue }, { &MusicSlider, &MusicValue }, { &SfxSlider, &SfxValue },
@@ -227,4 +247,5 @@ ZM_REGISTER_SCRIPT(PauseMenu,
     ZM_FIELD(PauseMenu, UiValue),
     ZM_FIELD(PauseMenu, FullscreenToggle).Header("Ekran"),
     ZM_FIELD(PauseMenu, VSyncToggle),
+    ZM_FIELD(PauseMenu, LanguageButton).Header("Til").Tooltip("Bosilganda keyingi til (Localization::NextLanguage); matni joriy til nomi"),
     ZM_FIELD_RANGE(PauseMenu, MusicMuffle, 0.0f, 20000.0f).Label("Musiqa bo'g'iqligi (Hz)").Tooltip("Pauzada musiqaga low-pass filtr (0 - o'chiq)"))

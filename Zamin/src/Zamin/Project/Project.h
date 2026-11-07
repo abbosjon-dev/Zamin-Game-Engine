@@ -6,6 +6,7 @@
 #include "Zamin/Core/InputActions.h"
 #include "Zamin/Core/Time.h"
 #include "Zamin/Debug/DebugDraw.h"
+#include "Zamin/Localization/Localization.h"
 #include "Zamin/Physics/CollisionLayers.h"
 #include "Zamin/Physics/PhysicsDefaults.h"
 #include "Zamin/Project/PlayerSettings.h"
@@ -109,6 +110,10 @@ namespace Zamin {
         TimeSettings Time;
         // The gravity of the scenes that do not set their own (Project settings > Physics).
         PhysicsDefaults Physics;
+        // The game's languages (Project settings > Localization): the default / start language, the
+        // offered ones, the folder of the language files (Assets/Localization/<code>.json). Projects
+        // without a "Localization" section: Uzbek, every file found. Applied when the project is loaded.
+        LocalizationSettings Localization;
 
         // What the file has that this engine does not read (sections of tools, keys of a newer engine):
         // (key, JSON text) in file order, a top-level key as "<key>", one inside "Project" / "Player"
@@ -175,6 +180,11 @@ namespace Zamin {
         static const GraphicsSettings& GetGraphicsSettings();
         static const TimeSettings& GetTimeSettings();
         static const PhysicsDefaults& GetPhysicsDefaults();
+        // The language files' folder of the active project (absolute; "" without a project).
+        static std::filesystem::path GetLocalizationDirectory();
+        // Loads the active project's language files (Localization::SetSettings); keepLanguage: the
+        // current language stays when it is still offered (the editor after the settings changed).
+        static void ApplyLocalization(bool keepLanguage = false);
 
         // Every asset of the active project with its handle (nullptr without a project). Read from
         // the asset folder on first use (with the snapshot in the cache folder: files moved while the

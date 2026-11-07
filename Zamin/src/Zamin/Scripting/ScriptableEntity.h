@@ -191,6 +191,10 @@ namespace Zamin {
         // on the event bus as "AnimationEvent" (payload: AnimationEventInfo).
         //   void OnAnimationEvent(const AnimationEventInfo& e) override { if (e.Name == "Footstep") PlayStep(); }
         virtual void OnAnimationEvent(const AnimationEventInfo& /*event*/) {}
+        // The game's language changed (Localization::SetLanguage, e.g. a language menu): texts the
+        // script made with Localize(...) are made again here. Text components with a localization
+        // key follow by themselves. Called on the next frame, before the scripts' OnUpdate.
+        virtual void OnLanguageChanged(const std::string& /*language*/) {}
         // Scene events of the game's SceneManager (play mode, the player), to every script of every
         // loaded scene and of the persistent DontDestroyOnLoad one, at the end of the frame the change
         // happened in. A Single load: OnSceneUnloaded for each scene that went, OnActiveSceneChanged,

@@ -24,10 +24,12 @@ namespace Zamin {
     public:
         // What callers ask to see (Focus): a category, Tags / SortingLayers are the two pages of
         // "Tags and layers".
-        enum class Tab { Input = 0, SaveData, Tags, General, SortingLayers, PhysicsLayers, BuildScenes, Quality, Audio, Debug, Player, Graphics, Time };
+        enum class Tab { Input = 0, SaveData, Tags, General, SortingLayers, PhysicsLayers, BuildScenes, Quality, Audio, Debug, Player, Graphics, Time,
+                         Localization };
 
         // In the order of ProjectSettingsIndex::GetCategories() (titles, search keywords, file sections).
-        enum class Category { General = 0, Player, Quality, Graphics, Time, Physics, Audio, Input, TagsAndLayers, BuildScenes, Debug, SaveData, Count };
+        enum class Category { General = 0, Player, Quality, Graphics, Time, Physics, Audio, Input, TagsAndLayers, BuildScenes, Localization, Debug,
+                              SaveData, Count };
 
         void OnImGuiRender(bool* show);
 
@@ -52,6 +54,8 @@ namespace Zamin {
         std::function<void()> OnAudioMixerRequested;
         // The build scenes page's button: show the Scenes window (every scene of the project).
         std::function<void()> OnScenesPanelRequested;
+        // The localization page's button: show the localization table (keys x languages).
+        std::function<void()> OnLocalizationTableRequested;
         // Writes the active .zproject if there are unsaved changes.
         void SaveIfDirty();
         // Call when another project is opened / the project is closed.
@@ -114,6 +118,8 @@ namespace Zamin {
         void DrawTime(ProjectConfig& config);
         // The open scene follows the project's gravity / physics step again (after they changed).
         void ApplySceneDefaults(const ProjectConfig& config);
+        // The default / offered languages, the files' folder, the system language, the editor's preview language.
+        void DrawLocalization(ProjectConfig& config);
         void DrawInputMap(InputActionMap& map);
         bool DrawInputVectors(InputActionMap& map, int openRequest);
         bool DrawBindingList(const char* label, std::vector<InputBinding>& bindings, ListKind kind, int entry, const InputActionMap& map);
@@ -185,6 +191,14 @@ namespace Zamin {
         glm::uvec2 m_IconSize{ 0 };
         std::string m_VersionBuffer;
         bool m_VersionEditing = false;
+
+        // Localization: the code of a language being added; the language files as last read.
+        std::string m_NewLanguage;
+        LocalizationTable m_LocTable;
+        uint64_t m_LocTableVersion = 0;
+        std::vector<std::string> m_LocTableLanguages;
+        std::filesystem::path m_LocTableDirectory;
+        double m_LocTableTime = -100.0;
 
         // SaveData tab: new entry
         std::string m_NewSaveKey;

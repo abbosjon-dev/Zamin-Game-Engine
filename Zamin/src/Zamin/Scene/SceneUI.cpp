@@ -2050,7 +2050,7 @@ namespace Zamin {
                 const UIRect textRect = toggle ? UIMath::GetToggleLabel(uiRect, toggle->BoxSize, toggle->Style, toggle->LabelSpacing) : uiRect;
                 const float px = GetUITextSize(t, uiRect, toggle != nullptr);
                 // Aligned / wrapped / cut in its rectangle; lines on whole screen pixels.
-                TextLayout::Draw(text->Text, text->Layout(textRect, px), text->FontAsset, px, glm::mat4(1.0f), params, id,
+                TextLayout::Draw(text->GetDisplayText(), text->Layout(textRect, px), text->FontAsset, px, glm::mat4(1.0f), params, id,
                                  node.HasLook() ? 0.0f : node.Scale);
             }
         }

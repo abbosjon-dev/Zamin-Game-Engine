@@ -19,6 +19,7 @@
 #include "Zamin/Core/Time.h"
 #include "Zamin/Core/UUID.h"
 #include "Zamin/Events/Event.h"
+#include "Zamin/Localization/Localization.h"
 
 #include "Zamin/Renderer/Renderer.h"
 #include "Zamin/Renderer/Renderer2D.h"

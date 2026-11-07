@@ -5,6 +5,7 @@
 #include "Panels/SceneHierarchyPanel.h"
 #include "Panels/AssetInspectorPanel.h"
 #include "Panels/AudioMixerPanel.h"
+#include "Panels/LocalizationPanel.h"
 #include "Panels/ContentBrowserPanel.h"
 #include "Panels/ConsolePanel.h"
 #include "Panels/ProjectSettingsPanel.h"
@@ -545,6 +546,7 @@ namespace Zamin {
             std::weak_ptr<Scene> RuntimeStart; // the copy of the edit scene the game started with
             std::string SceneName;
             std::string QualityLevel;  // the editor's preview level: back on Stop (a script may change it)
+            std::string Language;      // the editor's preview language: back on Stop (a language menu may change it)
         } m_PlayStart;
         // Project scenes the Scenes panel marks to be loaded with Play (additively, next to the edit scene).
         void LoadPlayAdditiveScenes();
@@ -782,6 +784,8 @@ namespace Zamin {
         }
         AudioMixerPanel m_AudioMixerPanel;
         bool m_ShowAudioMixer = false;
+        LocalizationPanel m_LocalizationPanel;
+        bool m_ShowLocalization = false;
         bool m_ShowHierarchy = true, m_ShowInspector = true, m_ShowContentBrowser = true, m_ShowConsole = true;
         bool m_ShowSceneSettings = true, m_ShowStats = false, m_ShowImGuiDemo = false, m_ShowProfiler = false;
         bool m_ShowScenes = true;           // the "Sahnalar" window (the project's scenes, the game's loaded ones)

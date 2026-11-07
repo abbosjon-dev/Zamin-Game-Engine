@@ -2,7 +2,7 @@
 // the project's player settings say (size, fullscreen / borderless, vsync, title, icon, frame rate
 // limit, running in the background); the command line wins over them.
 //   ZaminPlayer [path/to/Game.zproject] [--scene Scenes/Level.zscene | <build index> | <build scene name>]
-//               [--fullscreen | --windowed] [--width W --height H] [--no-vsync] [--quality <level name | index>]
+//               [--fullscreen | --windowed] [--width W --height H] [--no-vsync] [--quality <level name | index>] [--lang <code>]
 //               [--no-debug-draw] [--debug-raycasts] [--debug-contacts] [--debug-contact-details] [--debug-joints]
 //               [--debug-velocities] [--gl <4.1 | 4.3 | 4.5 | 4.6>] [--msaa <0 | 2 | 4 | 8 | 16>] [--gl-debug | --no-gl-debug]
 //               [--srgb | --no-srgb]
@@ -28,6 +28,8 @@ namespace Zamin {
     static bool s_DisplayFromCommandLine = false;
     // --quality <name | index>: wins over the level the game saved (Quality::SaveSettings) and the project's default.
     static std::string s_QualityFromCommandLine;
+    // --lang <code>: wins over the language the player chose (Localization::SaveSettings) and the project's start language.
+    static std::string s_LanguageFromCommandLine;
 
     class RuntimeLayer : public Layer
     {
@@ -92,6 +94,22 @@ namespace Zamin {
             else if (Quality::LoadSettings())
                 ZM_INFO("Saqlangan sifat darajasi yuklandi");
             ZM_INFO("Sifat darajasi: {}", Quality::GetLevelName());
+
+            // Language: --lang, else the one the player chose in the game (saved), else the project's start language.
+            if (!s_LanguageFromCommandLine.empty())
+            {
+                if (!Localization::SetLanguage(s_LanguageFromCommandLine))
+                {
+                    std::string codes;
+                    for (const std::string& code : Localization::GetLanguages())
+                        codes += (codes.empty() ? "" : ", ") + code;
+                    ZM_WARN("--lang {}: o'yinda bunday til yo'q (bor: {}) - '{}' qoldi", s_LanguageFromCommandLine, codes, Localization::GetLanguage());
+                }
+            }
+            else if (Localization::LoadSettings())
+                ZM_INFO("Saqlangan til yuklandi");
+            if (Localization::GetLanguages().size() > 1 || Localization::GetTable(Localization::GetLanguage()))
+                ZM_INFO("Til: {} ({})", Localization::GetLanguageName(Localization::GetLanguage()), Localization::GetLanguage());
 
             // Debug drawing: the project's settings, then the command line (Shipping: compiled out).
             DebugDrawSettings& debugDraw = DebugDraw::GetSettings();
@@ -553,6 +571,8 @@ namespace Zamin {
             else if (!std::strcmp(args[i], "--height") && i + 1 < args.Count) height = std::atoi(args[++i]);
             else if (!std::strcmp(args[i], "--no-vsync")) noVSync = true;
             else if (!std::strcmp(args[i], "--quality") && i + 1 < args.Count) s_QualityFromCommandLine = args[++i];
+            else if ((!std::strcmp(args[i], "--lang") || !std::strcmp(args[i], "--language")) && i + 1 < args.Count)
+                s_LanguageFromCommandLine = args[++i];
             else if (!std::strcmp(args[i], "--no-debug-draw")) debugDraw.Disable = true;
             else if (!std::strcmp(args[i], "--debug-raycasts")) debugDraw.Raycasts = true;
             else if (!std::strcmp(args[i], "--debug-contacts")) debugDraw.Contacts = true;

@@ -3148,6 +3148,7 @@
       },
       "Text": {
         "Text": "2-daraja: Shom",
+        "LocalizationKey": "hud.level2",
         "Color": [
           1,
           1,
@@ -3182,6 +3183,7 @@
       },
       "Text": {
         "Text": "A/D - yurish   Space - sakrash   Bayroqqa yeting!",
+        "LocalizationKey": "hud.controls",
         "Color": [
           0.95,
           0.97,
@@ -3297,6 +3299,7 @@
       },
       "Text": {
         "Text": "Qayta boshlash",
+        "LocalizationKey": "hud.restart",
         "Color": [
           1,
           1,
@@ -3457,6 +3460,10 @@
           "MusicMuffle": {
             "Type": "Float",
             "Value": 900.0
+          },
+          "LanguageButton": {
+            "Type": "Entity",
+            "Value": 7722000000000040
           }
         }
       }
@@ -3748,6 +3755,7 @@
       },
       "Text": {
         "Text": "Pauza",
+        "LocalizationKey": "pause.title",
         "Color": [
           1.0,
           0.93,
@@ -3808,6 +3816,7 @@
       },
       "Text": {
         "Text": "O'yin to'xtatildi",
+        "LocalizationKey": "pause.subtitle",
         "Color": [
           0.78,
           0.82,
@@ -3907,6 +3916,7 @@
       },
       "Text": {
         "Text": "Davom etish",
+        "LocalizationKey": "pause.resume",
         "Color": [
           0.08,
           0.12,
@@ -4034,6 +4044,7 @@
       },
       "Text": {
         "Text": "Sozlamalar",
+        "LocalizationKey": "pause.settings",
         "Color": [
           0.08,
           0.12,
@@ -4161,6 +4172,7 @@
       },
       "Text": {
         "Text": "Chiqish",
+        "LocalizationKey": "pause.quit",
         "Color": [
           0.08,
           0.12,
@@ -4399,6 +4411,7 @@
       },
       "Text": {
         "Text": "Sozlamalar",
+        "LocalizationKey": "settings.title",
         "Color": [
           1.0,
           0.93,
@@ -4618,6 +4631,7 @@
       },
       "Text": {
         "Text": "Ovoz",
+        "LocalizationKey": "settings.audio",
         "Color": [
           0.55,
           0.95,
@@ -4724,6 +4738,7 @@
       },
       "Text": {
         "Text": "Umumiy ovoz",
+        "LocalizationKey": "settings.master",
         "Color": [
           0.94,
           0.96,
@@ -4980,6 +4995,7 @@
       },
       "Text": {
         "Text": "Musiqa",
+        "LocalizationKey": "settings.music",
         "Color": [
           0.94,
           0.96,
@@ -5236,6 +5252,7 @@
       },
       "Text": {
         "Text": "Effektlar",
+        "LocalizationKey": "settings.sfx",
         "Color": [
           0.94,
           0.96,
@@ -5492,6 +5509,7 @@
       },
       "Text": {
         "Text": "Interfeys",
+        "LocalizationKey": "settings.ui",
         "Color": [
           0.94,
           0.96,
@@ -5702,6 +5720,7 @@
       },
       "Text": {
         "Text": "Ekran",
+        "LocalizationKey": "settings.display",
         "Color": [
           0.55,
           0.95,
@@ -5790,6 +5809,7 @@
       },
       "Text": {
         "Text": "To'liq ekran",
+        "LocalizationKey": "settings.fullscreen",
         "Color": [
           0.94,
           0.96,
@@ -5893,6 +5913,7 @@
       },
       "Text": {
         "Text": "Vertikal sinxronlash (VSync)",
+        "LocalizationKey": "settings.vsync",
         "Color": [
           0.94,
           0.96,
@@ -5919,6 +5940,194 @@
           0.28,
           1.0
         ]
+      }
+    },
+    {
+      "Entity": 7722000000000039,
+      "Tag": "Til Header",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          44
+        ],
+        "FontSize": 28,
+        "Order": 0
+      },
+      "Text": {
+        "Text": "Til",
+        "LocalizationKey": "settings.language_header",
+        "Color": [
+          0.55,
+          0.95,
+          0.8,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Left",
+        "AlignV": "Middle",
+        "Font": ""
+      }
+    },
+    {
+      "Entity": 7722000000000040,
+      "Tag": "Language Button",
+      "Transform": {
+        "Translation": [
+          0,
+          0,
+          0
+        ],
+        "Rotation": [
+          0,
+          0,
+          0
+        ],
+        "Scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "Parent": 7722000000000013,
+      "UITransform": {
+        "AnchorMin": [
+          0.5,
+          0.5
+        ],
+        "AnchorMax": [
+          0.5,
+          0.5
+        ],
+        "Pivot": [
+          0.5,
+          0.5
+        ],
+        "Position": [
+          0,
+          0
+        ],
+        "Size": [
+          400,
+          52
+        ],
+        "FontSize": 26,
+        "Order": 0
+      },
+      "UIButton": {
+        "Normal": [
+          0.75,
+          0.84,
+          1.0,
+          1
+        ],
+        "Hover": [
+          0.86,
+          0.92,
+          1.0,
+          1
+        ],
+        "Pressed": [
+          0.58,
+          0.68,
+          0.86,
+          1
+        ],
+        "Interactable": true,
+        "ClickMessage": "NextLanguage",
+        "ClickTarget": 7722000000000001
+      },
+      "UIImage": {
+        "Color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "Type": "Sliced",
+        "PreserveAspect": false,
+        "PixelArt": true,
+        "RaycastTarget": true,
+        "Texture": "Textures/ui_atlas.png",
+        "TextureUUID": "f38b2ffc80a4df5a",
+        "Sprite": "button",
+        "BorderScale": 3.0
+      },
+      "Text": {
+        "Text": "Til: O'zbekcha",
+        "Color": [
+          0.08,
+          0.12,
+          0.16,
+          1
+        ],
+        "Kerning": 0.0,
+        "LineSpacing": 0.0,
+        "AlignH": "Center",
+        "AlignV": "Middle",
+        "Font": ""
+      },
+      "UINavigation": {
+        "Mode": "Automatic",
+        "Up": 0,
+        "Down": 0,
+        "Left": 0,
+        "Right": 0,
+        "SelectOnEnable": false,
+        "ShowHighlight": true,
+        "HighlightColor": [
+          1.0,
+          0.8,
+          0.28,
+          1.0
+        ]
+      },
+      "UIAnimation": {
+        "Show": "None",
+        "Hide": "None",
+        "ShowAtStart": true,
+        "Duration": 0.25,
+        "ShowDelay": 0.0,
+        "ShowEase": "OutBack",
+        "HideEase": "InQuad",
+        "SlideDistance": 160.0,
+        "HoverScale": 1.04,
+        "PressScale": 0.95,
+        "FeedbackDuration": 0.08
       }
     },
     {
@@ -5968,6 +6177,7 @@
       },
       "Text": {
         "Text": "Boshqaruv",
+        "LocalizationKey": "settings.controls",
         "Color": [
           0.55,
           0.95,
@@ -6028,6 +6238,7 @@
       },
       "Text": {
         "Text": "Esc / Start - pauza. Strelkalar / D-pad - tanlash, Enter / A - bosish, Esc / B - orqaga. Ro'yxatni sichqoncha g'ildiragi bilan yoki sudrab aylantiring.",
+        "LocalizationKey": "settings.controls_info",
         "Color": [
           0.78,
           0.82,
@@ -6128,6 +6339,7 @@
       },
       "Text": {
         "Text": "Orqaga",
+        "LocalizationKey": "settings.back",
         "Color": [
           0.08,
           0.12,
@@ -6255,6 +6467,7 @@
       },
       "Text": {
         "Text": "Standart",
+        "LocalizationKey": "settings.reset",
         "Color": [
           0.08,
           0.12,

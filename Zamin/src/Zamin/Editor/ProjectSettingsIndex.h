@@ -23,7 +23,7 @@ namespace Zamin {
     namespace ProjectSettingsIndex {
 
         // In the window's order: General, Player, Quality, Graphics, Time, Physics, Audio, Input,
-        // TagsAndLayers, BuildScenes, Debug, SaveData.
+        // TagsAndLayers, BuildScenes, Localization, Debug, SaveData.
         const std::vector<ProjectSettingsCategory>& GetCategories();
         // Index of the category with this id (case is ignored), -1 when there is none.
         int Find(std::string_view id);

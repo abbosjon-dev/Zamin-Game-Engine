@@ -272,6 +272,8 @@ TEST(ProjectTemplate)
     CHECK(std::filesystem::exists(dir / "Source" / "Scripts.cpp"));
     CHECK(std::filesystem::exists(dir / "Assets" / "Scenes" / "Main.zscene"));
 
+    CHECK(std::filesystem::exists(dir / "Assets" / "Localization" / "uz.json"));
+
     auto loaded = Project::Load(dir / "TestGame.zproject");
     CHECK(loaded != nullptr);
     CHECK(loaded && loaded->GetConfig().Name == "TestGame");
@@ -33980,10 +33982,11 @@ TEST(SceneFileTagReferences)
 TEST(ProjectSettingsIndexSearch)
 {
     const auto& categories = ProjectSettingsIndex::GetCategories();
-    CHECK(categories.size() == 12);
+    CHECK(categories.size() == 13);
     CHECK(ProjectSettingsIndex::Find("Quality") == 2 && ProjectSettingsIndex::Find("tagsandlayers") == 8 && ProjectSettingsIndex::Find("Nope") == -1);
     CHECK(ProjectSettingsIndex::Find("graphics") == 3 && ProjectSettingsIndex::Find("Time") == 4 && ProjectSettingsIndex::Find("Physics") == 5);
-    CHECK(categories[0].Id == "General" && categories[1].Id == "Player" && categories[11].Id == "SaveData" && categories[11].Sections.empty());
+    CHECK(categories[0].Id == "General" && categories[1].Id == "Player" && categories[12].Id == "SaveData" && categories[12].Sections.empty());
+    CHECK(ProjectSettingsIndex::Find("localization") == 10 && categories[10].Sections == std::vector<std::string>{ "Localization" });
     // Search: case and the Uzbek apostrophes are ignored.
     CHECK(ProjectSettingsIndex::TextContains("Soya atlasi", "ATLAS") && ProjectSettingsIndex::TextContains("anything", ""));
     CHECK(ProjectSettingsIndex::TextContains("Bog'lanish", "bog\xCA\xBBlan") && ProjectSettingsIndex::TextContains("O\xE2\x80\x99qlar", "o'q"));
@@ -34907,4 +34910,341 @@ TEST(AudioSpatialDefaults)
     Project::SetActive(nullptr);
     CHECK(Audio::GetSpatialDefaults().IsDefault());
     AudioEngine::SetMixerSettings(AudioSettings());
+    Localization::Clear();
+}
+
+TEST(LocalizationStringFiles)
+{
+    StringTable table;
+    std::string error;
+    std::vector<std::string> warnings;
+    const char* text = R"({
+        "$name": "Русский",
+        "menu": { "start": "Начать", "options": { "audio": "Звук" } },
+        "hud.score": "Очки: {0}",
+        "coins": { "one": "{0} монета", "few": "{0} монеты", "many": "{0} монет", "other": "{0} монеты" },
+        "count": 5,
+        "empty": ""
+    })";
+    CHECK(StringTable::Parse(text, table, &error, &warnings));
+    CHECK(table.DisplayName == "Русский" && table.Strings.size() == 5);
+    CHECK(table.Find("menu.start") && table.Find("menu.start")->Text == "Начать");
+    CHECK(table.Find("menu.options.audio") && table.Find("hud.score"));
+    CHECK(table.Find("coins") && table.Find("coins")->IsPlural() && table.Find("coins")->Plural.size() == 4);
+    CHECK(!table.Find("count") && warnings.size() == 1 && warnings[0].find("count") != std::string::npos);
+    CHECK(table.Find("empty") && !table.Has("empty") && table.Has("menu.start"));
+    CHECK(!StringTable::Parse("[1, 2]", table, &error) && !error.empty());
+    CHECK(!StringTable::Parse("{ broken", table, &error));
+
+    // Written nested at the dots, "$name" first, and read back the same.
+    StringTable written;
+    CHECK(StringTable::Parse(text, written));
+    const std::string json = written.ToJson();
+    CHECK(json.find("\"$name\"") < json.find("\"menu\"") && json.find("\"options\": {") != std::string::npos);
+    StringTable again;
+    CHECK(StringTable::Parse(json, again) && again == written);
+    // A key that cannot nest ("a" is a text, "a.b" too) is written flat and still reads back.
+    StringTable conflict;
+    conflict.Strings["a"] = LocalizedString{ "A", {} };
+    conflict.Strings["a.b"] = LocalizedString{ "AB", {} };
+    StringTable conflictRead;
+    CHECK(StringTable::Parse(conflict.ToJson(), conflictRead) && conflictRead.Strings == conflict.Strings);
+
+    // Plural forms: the category's text, else "other".
+    const LocalizedString& coins = *written.Find("coins");
+    CHECK(coins.Get(PluralCategory::Few) == "{0} монеты" && coins.Get(PluralCategory::Zero) == "{0} монеты");
+
+    // Settings: valid codes, the default language in an own list, a relative folder.
+    CHECK(LocalizationSettings::IsValidCode("uz") && LocalizationSettings::IsValidCode("pt-BR") && !LocalizationSettings::IsValidCode("x") &&
+          !LocalizationSettings::IsValidCode("ru/../x") && !LocalizationSettings::IsValidCode("-ru"));
+    LocalizationSettings settings;
+    CHECK(settings.IsDefault() && settings.DefaultLanguage == "uz");
+    settings.Languages = { "ru", "en", "ru", "??" };
+    settings.Directory = "/abs/path";
+    settings.Sanitize();
+    CHECK((settings.Languages == std::vector<std::string>{ "uz", "ru", "en" }) && settings.Directory == "Localization");
+    settings.UseSystemLanguage = true;
+    LocalizationSettings settingsRead;
+    CHECK(LocalizationSettings::FromJson(settings.ToJson(), settingsRead) && settingsRead == settings);
+    CHECK(LocalizationSettings::FromJson(R"({ "DefaultLanguage": 5, "Languages": "en" })", settingsRead) && settingsRead.IsDefault());
+    CHECK(!LocalizationSettings::FromJson("[]", settingsRead));
+}
+
+namespace {
+    std::vector<StringTable> MakeLanguages()
+    {
+        std::vector<StringTable> tables(3);
+        tables[0].Language = "uz";
+        tables[0].DisplayName = "O'zbekcha";
+        tables[0].Strings["menu.start"] = { "Boshlash", {} };
+        tables[0].Strings["hud.score"] = { "Ochko: {0}", {} };
+        tables[0].Strings["hud.coins"] = { "", { { "one", "{0} tanga" }, { "other", "{0} tanga" } } };
+        tables[0].Strings["only.uz"] = { "Faqat o'zbekcha", {} };
+        tables[0].Strings["braces"] = { "{yo'q}", {} };
+        tables[1].Language = "ru";
+        tables[1].Strings["menu.start"] = { "Начать", {} };
+        tables[1].Strings["hud.score"] = { "Очки: {0}", {} };
+        tables[1].Strings["hud.coins"] = { "", { { "one", "{0} монета" }, { "few", "{0} монеты" }, { "many", "{0} монет" }, { "other", "{0} монеты" } } };
+        tables[1].Strings["only.uz"] = { "", {} }; // empty: the default language's
+        tables[2].Language = "en";
+        tables[2].Strings["menu.start"] = { "Start", {} };
+        tables[2].Strings["hud.score"] = { "Score: {0:>3}", {} };
+        tables[2].Strings["hud.coins"] = { "", { { "one", "{0} coin" }, { "other", "{0} coins" } } };
+        return tables;
+    }
+}
+
+TEST(LocalizationLookupFormatPlural)
+{
+    LocalizationSettings settings;
+    settings.Languages = { "uz", "ru", "en" };
+    Localization::SetTables(MakeLanguages(), settings);
+    CHECK(Localization::GetLanguage() == "uz" && Localization::GetDefaultLanguage() == "uz");
+    CHECK((Localization::GetLanguages() == std::vector<std::string>{ "uz", "ru", "en" }));
+    CHECK(Localize("menu.start") == "Boshlash" && Localize("hud.score", 7) == "Ochko: 7");
+    // Without arguments the text is as it is; a broken pattern comes back unformatted.
+    CHECK(Localize("braces") == "{yo'q}" && Localize("braces", 1) == "{yo'q}");
+
+    // The language changes: the version goes up, listeners hear it.
+    const uint64_t version = Localization::GetVersion();
+    std::string heard;
+    const uint64_t listener = Localization::AddListener([&](const std::string& language) { heard = language; });
+    CHECK(Localization::SetLanguage("ru") && heard == "ru" && Localization::GetVersion() > version);
+    CHECK(!Localization::SetLanguage("de") && Localization::GetLanguage() == "ru");
+    CHECK(Localize("menu.start") == "Начать" && Localize("hud.score", 12) == "Очки: 12");
+    // Missing / empty in Russian: the default language's text.
+    CHECK(Localize("only.uz") == "Faqat o'zbekcha");
+    // Missing everywhere: the key itself, listed once.
+    CHECK(Localize("no.such.key") == "no.such.key" && Localize("no.such.key") == "no.such.key");
+    const auto missing = Localization::GetMissingKeys();
+    CHECK(std::count(missing.begin(), missing.end(), "no.such.key") == 1);
+    CHECK(!Localization::Has("no.such.key") && Localization::Has("only.uz"));
+
+    // Russian plural forms (CLDR).
+    CHECK(LocalizePlural("hud.coins", 1) == "1 монета" && LocalizePlural("hud.coins", 2) == "2 монеты" && LocalizePlural("hud.coins", 5) == "5 монет");
+    CHECK(LocalizePlural("hud.coins", 11) == "11 монет" && LocalizePlural("hud.coins", 21) == "21 монета" && LocalizePlural("hud.coins", 22) == "22 монеты");
+    CHECK(LocalizePlural("hud.coins", 112) == "112 монет" && LocalizePlural("hud.coins", 1.5) == "1.5 монеты");
+    CHECK(Localization::GetPluralCategory("ru", 0) == PluralCategory::Many && Localization::GetPluralCategory("ja", 1) == PluralCategory::Other);
+    CHECK(Localization::GetPluralCategory("fr", 0) == PluralCategory::One && Localization::GetPluralCategory("uz", 1) == PluralCategory::One);
+    CHECK((Localization::GetPluralCategories("ru") == std::vector<std::string>{ "one", "few", "many", "other" }));
+    CHECK((Localization::GetPluralCategories("en") == std::vector<std::string>{ "one", "other" }));
+
+    // English: format specs, plural, the next language wraps around.
+    CHECK(Localization::NextLanguage() && Localization::GetLanguage() == "en");
+    CHECK(Localize("hud.score", 7) == "Score:   7" && LocalizePlural("hud.coins", 1) == "1 coin" && LocalizePlural("hud.coins", 3) == "3 coins");
+    CHECK(Localization::NextLanguage() && Localization::GetLanguage() == "uz");
+    CHECK(LocalizePlural("hud.coins", 4) == "4 tanga");
+    Localization::RemoveListener(listener);
+    Localization::SetLanguage("ru");
+    CHECK(heard == "uz");
+
+    // Names: the file's "$name", else a built-in one, else the code.
+    CHECK(Localization::GetLanguageName("uz") == "O'zbekcha" && Localization::GetLanguageName("ru") == "Русский" &&
+          Localization::GetLanguageName("xx") == "xx");
+    // The system language from the locale variables.
+    CHECK(Localization::ParseLocaleName("ru_RU.UTF-8") == "ru" && Localization::ParseLocaleName("en-US") == "en" &&
+          Localization::ParseLocaleName("uz_UZ@latin") == "uz" && Localization::ParseLocaleName("C.UTF-8").empty() &&
+          Localization::ParseLocaleName("POSIX").empty());
+    const char* oldAll = std::getenv("LC_ALL");
+    const std::string savedAll = oldAll ? oldAll : "";
+    setenv("LC_ALL", "en_GB.UTF-8", 1);
+    CHECK(Localization::DetectSystemLanguage() == "en");
+    settings.UseSystemLanguage = true;
+    Localization::SetTables(MakeLanguages(), settings);
+    CHECK(Localization::GetLanguage() == "en"); // offered: the system's language
+    setenv("LC_ALL", "de_DE.UTF-8", 1);
+    Localization::SetTables(MakeLanguages(), settings);
+    CHECK(Localization::GetLanguage() == "uz"); // not offered: the default one
+    if (oldAll)
+        setenv("LC_ALL", savedAll.c_str(), 1);
+    else
+        unsetenv("LC_ALL");
+
+    // The player's choice is kept with SaveData.
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-lang-" + std::to_string((uint64_t)UUID()));
+    SaveData::SetFilePath(dir / "save.json");
+    CHECK(!Localization::HasSavedSettings() && !Localization::LoadSettings());
+    Localization::SetLanguage("ru");
+    CHECK(Localization::SaveSettings() && SaveData::GetString(Localization::SettingsKey) == "ru");
+    Localization::SetLanguage("uz");
+    CHECK(Localization::LoadSettings() && Localization::GetLanguage() == "ru");
+    SaveData::SetString(Localization::SettingsKey, "xx");
+    CHECK(!Localization::LoadSettings() && Localization::GetLanguage() == "ru");
+    Localization::ClearSavedSettings();
+    CHECK(!Localization::HasSavedSettings());
+    SaveData::DeleteAll();
+    SaveData::SetFilePath({});
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+    Localization::Clear();
+    CHECK(Localization::GetLanguage() == "uz" && Localization::GetLanguages() == std::vector<std::string>{ "uz" } && Localize("menu.start") == "menu.start");
+}
+
+TEST(LocalizationTableEditingAndFiles)
+{
+    LocalizationTable table;
+    table.Languages = MakeLanguages();
+    CHECK(table.GetKeys().size() == 5 && table.FindLanguage("ru") == 1 && table.FindLanguage("de") == -1);
+    CHECK(table.IsMissing("only.uz", "ru") && table.IsMissing("braces", "en") && !table.IsMissing("menu.start", "en"));
+    CHECK((table.GetMissing("en") == std::vector<std::string>{ "braces", "only.uz" }) && table.CountMissing("uz") == 0);
+    // Placeholders: {0} in one language, none in another.
+    CHECK((LocalizationTable::GetPlaceholders("{0} va {1:.2f}, {{lit}} {0}") == std::vector<int>{ 0, 1 }));
+    CHECK((LocalizationTable::GetPlaceholders("{} {}") == std::vector<int>{ 0, 1 }) && LocalizationTable::GetPlaceholders("yo'q").empty());
+    CHECK(!table.HasPlaceholderMismatch("hud.score", "en", "uz")); // {0:>3} is still {0}
+    table.Set("hud.score", "ru", LocalizedString{ "Очки", {} });
+    CHECK(table.HasPlaceholderMismatch("hud.score", "ru", "uz"));
+    // Keys: add (every language, empty), rename, remove; invalid names are refused.
+    CHECK(table.AddKey("menu.quit") && !table.AddKey("menu.quit") && !table.AddKey("bad key") && !table.AddKey("$name") && !table.AddKey("a..b"));
+    CHECK(table.IsMissing("menu.quit", "uz") && table.CountMissing("uz") == 1);
+    CHECK(table.Set("menu.quit", "uz", LocalizedString{ "Chiqish", {} }) && !table.Set("menu.quit", "de", LocalizedString{}));
+    CHECK(table.RenameKey("menu.quit", "menu.exit") && !table.RenameKey("menu.exit", "menu.start") && !table.RenameKey("nope", "x"));
+    CHECK(table.Get("menu.exit", "uz") && table.Get("menu.exit", "uz")->Text == "Chiqish" && !table.Get("menu.quit", "uz"));
+    CHECK(table.RemoveKey("menu.exit") && !table.RemoveKey("menu.exit"));
+    CHECK(table.AddLanguage("tr") && !table.AddLanguage("tr") && !table.AddLanguage("t") && table.CountMissing("tr") == table.GetKeys().size());
+    CHECK(table.RemoveLanguage("tr") && !table.RemoveLanguage("tr"));
+
+    // Files: <dir>/<code>.json, found, loaded back the same, picked up by the game's localization.
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-loc-" + std::to_string((uint64_t)UUID())) / "Localization";
+    CHECK(table.Save(dir));
+    CHECK((LocalizationTable::FindLanguageFiles(dir) == std::vector<std::string>{ "en", "ru", "uz" }));
+    std::vector<std::string> errors;
+    LocalizationTable loaded = LocalizationTable::Load(dir, { "uz", "ru", "en", "kk" }, &errors);
+    CHECK(errors.empty() && loaded.Languages.size() == 4 && loaded.Languages[3].Strings.empty());
+    loaded.RemoveLanguage("kk");
+    CHECK(loaded == table);
+    FileSystem::WriteTextFile(dir / "kk.json", "{ not json");
+    LocalizationTable::Load(dir, { "kk" }, &errors);
+    CHECK(errors.size() == 1);
+    std::filesystem::remove(dir / "kk.json");
+
+    // The game's tables from the folder (every file when the settings list none), reloaded after an edit.
+    LocalizationSettings settings;
+    settings.DefaultLanguage = "ru";
+    Localization::SetSettings(settings, dir);
+    CHECK((Localization::GetLanguages() == std::vector<std::string>{ "ru", "en", "uz" }) && Localization::GetLanguage() == "ru");
+    CHECK(Localize("menu.start") == "Начать" && Localization::GetLoadErrors().empty());
+    Localization::SetLanguage("en");
+    table.Set("menu.start", "en", LocalizedString{ "Play", {} });
+    table.Save(dir);
+    const uint64_t version = Localization::GetVersion();
+    Localization::Reload();
+    CHECK(Localization::GetVersion() > version && Localization::GetLanguage() == "en" && Localize("menu.start") == "Play");
+    // A listed language without its file is reported.
+    settings.Languages = { "ru", "de" };
+    Localization::SetSettings(settings, dir, true);
+    CHECK(Localization::GetLanguage() == "ru" && Localization::GetLoadErrors().size() == 1);
+    std::error_code ec;
+    std::filesystem::remove_all(dir.parent_path(), ec);
+    Localization::Clear();
+}
+
+namespace {
+    std::vector<std::string> g_LanguageEvents;
+}
+
+class LanguageProbe : public ScriptableEntity
+{
+public:
+    void OnLanguageChanged(const std::string& language) override { g_LanguageEvents.push_back(language + ":" + Localize("menu.start")); }
+};
+ZM_REGISTER_SCRIPT(LanguageProbe)
+
+TEST(LocalizedTextComponentAndScripts)
+{
+    LocalizationSettings settings;
+    settings.Languages = { "uz", "ru", "en" };
+    Localization::SetTables(MakeLanguages(), settings);
+    auto scene = CreateRef<Scene>();
+    Entity label = scene->CreateEntity("Label");
+    auto& text = label.AddComponent<TextComponent>();
+    text.Text = "Start (fallback)";
+    text.LocalizationKey = "menu.start";
+    Entity plain = scene->CreateEntity("Plain");
+    plain.AddComponent<TextComponent>().Text = "Oddiy";
+    Entity unknown = scene->CreateEntity("Unknown");
+    unknown.AddComponent<TextComponent>().Text = "Fallback";
+    unknown.GetComponent<TextComponent>().LocalizationKey = "no.key";
+    CHECK(text.GetDisplayText() == "Start (fallback)"); // not looked up yet
+    scene->UpdateLocalizedTexts();
+    CHECK(text.GetDisplayText() == "Boshlash" && text.Text == "Start (fallback)");
+    CHECK(plain.GetComponent<TextComponent>().GetDisplayText() == "Oddiy" && unknown.GetComponent<TextComponent>().GetDisplayText() == "Fallback");
+    Localization::SetLanguage("en");
+    scene->UpdateLocalizedTexts();
+    CHECK(text.GetDisplayText() == "Start");
+    // A new key is looked up again; no key: the text itself.
+    text.LocalizationKey = "hud.score";
+    scene->UpdateLocalizedTexts();
+    CHECK(text.GetDisplayText() == "Score: {0:>3}");
+    text.LocalizationKey.clear();
+    scene->UpdateLocalizedTexts();
+    CHECK(text.GetDisplayText() == "Start (fallback)" && !text.HasLocalizedText);
+
+    // Saved with the scene (only when set), the localized string is not.
+    text.LocalizationKey = "menu.start";
+    const std::string saved = SceneSerializer(scene).SerializeToString();
+    CHECK(saved.find("\"LocalizationKey\": \"menu.start\"") != std::string::npos && saved.find("\"Start\"") == std::string::npos);
+    auto read = CreateRef<Scene>();
+    CHECK(SceneSerializer(read).DeserializeFromString(saved));
+    Entity readLabel = read->FindEntityByName("Label");
+    CHECK(readLabel && readLabel.GetComponent<TextComponent>().LocalizationKey == "menu.start" && !readLabel.GetComponent<TextComponent>().HasLocalizedText);
+    CHECK(read->FindEntityByName("Plain").GetComponent<TextComponent>().LocalizationKey.empty());
+    // The play copy looks its texts up again (runtime fields reset).
+    scene->UpdateLocalizedTexts();
+    Ref<Scene> copy = Scene::Copy(scene);
+    CHECK(!copy->FindEntityByName("Label").GetComponent<TextComponent>().HasLocalizedText);
+
+    // Scripts hear about a language change on the next frame (not at the start).
+    g_LanguageEvents.clear();
+    Entity probe = copy->CreateEntity("Probe");
+    probe.AddComponent<NativeScriptComponent>().ClassName = "LanguageProbe";
+    copy->OnRuntimeStart();
+    copy->OnUpdateRuntime(0.016f);
+    CHECK(g_LanguageEvents.empty() && copy->FindEntityByName("Label").GetComponent<TextComponent>().GetDisplayText() == "Start");
+    Localization::SetLanguage("ru");
+    copy->OnUpdateRuntime(0.016f);
+    CHECK((g_LanguageEvents == std::vector<std::string>{ "ru:Начать" }));
+    CHECK(copy->FindEntityByName("Label").GetComponent<TextComponent>().GetDisplayText() == "Начать");
+    copy->OnUpdateRuntime(0.016f);
+    CHECK(g_LanguageEvents.size() == 1);
+    copy->OnRuntimeStop();
+    Localization::Clear();
+}
+
+TEST(ProjectLocalizationSettings)
+{
+    // Not written while default (older files stay the same); a category of its own in the settings window.
+    ProjectConfig config;
+    CHECK(ProjectSerializer::ConfigToString(config).find("\"Localization\"") == std::string::npos);
+    config.Localization.DefaultLanguage = "en";
+    config.Localization.Languages = { "en", "uz", "ru" };
+    config.Localization.UseSystemLanguage = true;
+    const std::string text = ProjectSerializer::ConfigToString(config);
+    CHECK(text.find("\"Localization\"") != std::string::npos && text.find("\"Graphics\"") == std::string::npos);
+    CHECK(text.find("\"Localization\"") < text.find("\"DebugDraw\""));
+    ProjectConfig read;
+    CHECK(ProjectSerializer::ConfigFromString(text, read) && read.Localization == config.Localization && read.ExtraSections.empty());
+    const auto changed = ProjectSettingsIndex::DiffSections(ProjectSerializer::ConfigToSections(ProjectConfig()), ProjectSerializer::ConfigToSections(config));
+    CHECK(changed == std::vector<std::string>{ "Localization" });
+    CHECK(ProjectSettingsIndex::IsChanged(ProjectSettingsIndex::GetCategories()[(size_t)ProjectSettingsIndex::Find("Localization")], changed));
+    std::vector<std::string> hits;
+    CHECK(ProjectSettingsIndex::Matches(ProjectSettingsIndex::GetCategories()[(size_t)ProjectSettingsIndex::Find("Localization")], "til", &hits) &&
+          hits.size() >= 3);
+
+    // A new project gets starter language files; loading it loads them.
+    auto dir = std::filesystem::temp_directory_path() / ("zamin-locproj-" + std::to_string((uint64_t)UUID()));
+    CHECK(Project::CreateFromTemplate(dir, "LangGame") != nullptr);
+    CHECK(std::filesystem::exists(dir / "Assets" / "Localization" / "uz.json") && std::filesystem::exists(dir / "Assets" / "Localization" / "en.json"));
+    CHECK(Project::Load(dir / "LangGame.zproject") != nullptr);
+    CHECK(Project::GetLocalizationDirectory() == Project::GetAssetDirectory() / "Localization");
+    CHECK(Localization::GetLanguage() == "uz" && Localize("game.title") == "LangGame" && Localize("game.start") == "Boshlash");
+    CHECK(Localization::SetLanguage("en") && Localize("game.start") == "Start");
+    // Another default language in the settings: applied keeping the current language.
+    Project::GetActive()->GetConfig().Localization.DefaultLanguage = "en";
+    Project::ApplyLocalization(true);
+    CHECK(Localization::GetDefaultLanguage() == "en" && Localization::GetLanguage() == "en");
+    Project::SetActive(nullptr);
+    Project::ApplyLocalization();
+    CHECK(Localization::GetTable("uz") == nullptr);
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
 }

@@ -283,6 +283,9 @@ namespace Zamin {
         // draws them all through one camera.
         void UpdateRuntime(Timestep ts);
         void RenderRuntime();
+        // Text components with a localization key show the current language's string (cheap when
+        // nothing changed: every update and editor frame calls it).
+        void UpdateLocalizedTexts();
         // The view the primary camera draws the game with this frame (false without one).
         struct RuntimeView
         {
@@ -1567,6 +1570,9 @@ namespace Zamin {
         std::vector<TagSlot> m_TagSlots;
         uint64_t m_SceneOrderSerial = 1; // grows when the scene order changes (MoveInSceneOrder)
         uint64_t m_FrameIndex = 0;
+        // Localization::GetVersion() the scripts last heard of (OnLanguageChanged).
+        uint64_t m_LanguageVersion = 0;
+        void DispatchLanguageChanged();
         std::optional<glm::vec3> m_ParticleViewer; // SetParticleViewer
         AnimationStats m_AnimationStats;
         uint64_t m_AnimationUpdate = 0;           // UpdateAnimators calls

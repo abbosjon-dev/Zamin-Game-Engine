@@ -59,20 +59,28 @@ void GameManager::OnPlayerFell()
     RefreshText();
 }
 
+void GameManager::OnLanguageChanged(const std::string&)
+{
+    RefreshText();
+}
+
 void GameManager::RefreshText()
 {
+    // The texts come from the language files (Assets/Localization/<til>.json): "{0}: {1} / {2}" ...
     if (auto* text = TryGetComponent<TextComponent>())
     {
-        text->Text = std::format("{}: {} / {}", Title, m_Coins, m_TotalCoins);
+        const std::string title = Localization::Has(TitleKey) ? Localize(TitleKey) : Title;
+        text->Text = Localize("hud.coins", title, m_Coins, m_TotalCoins);
         if (int total = SaveData::GetInt("TotalCoins"); total > 0)
-            text->Text += std::format("   (jami: {})", total);
+            text->Text += "   " + Localize("hud.coins_total", total);
         if (m_Falls > 0)
-            text->Text += std::format("\nYiqilishlar: {}", m_Falls);
+            text->Text += "\n" + Localize("hud.falls", m_Falls);
         if (m_TotalCoins > 0 && m_Coins == m_TotalCoins)
-            text->Text += "\nBarakalla! G'alaba!";
+            text->Text += "\n" + Localize("hud.win");
     }
 }
 
 ZM_REGISTER_SCRIPT(GameManager,
-    ZM_FIELD_TOOLTIP(GameManager, Title, "Ekrandagi hisob matni oldidagi so'z"),
+    ZM_FIELD_TOOLTIP(GameManager, Title, "Ekrandagi hisob matni oldidagi so'z (til fayllarida TitleKey bo'lmasa)"),
+    ZM_FIELD_TOOLTIP(GameManager, TitleKey, "Sarlavhaning lokalizatsiya kaliti (Assets/Localization/<til>.json)"),
     ZM_FIELD(GameManager, ScreenOffset).Tooltip("Matnning kameraga nisbatan joyi (UI elementi bo'lmasa)"))

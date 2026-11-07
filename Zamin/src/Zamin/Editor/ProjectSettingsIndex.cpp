@@ -91,6 +91,12 @@ namespace Zamin {
                 { "BuildScenes", ICON_FA_LIST_OL, "Build sahnalar", "O'yin quriladigan sahnalar, ularning build indekslari va boshlang'ich sahna.",
                   { "Build sahnalar", "Build indeksi", "Boshlang'ich sahna", "LoadScene" },
                   { "BuildScenes", "Project.StartScene", "Project.StartSceneUUID" } },
+                { "Localization", ICON_FA_LANGUAGE, "Lokalizatsiya",
+                  "O'yin tillari: standart (boshlang'ich) til, taklif qilinadigan tillar, til fayllari papkasi "
+                  "(Assets/Localization/<til>.json), tizim tilida boshlash; editorda tilni ko'rish va kalitlar x tillar jadvali.",
+                  { "Tillar", "Til", "Standart til", "Taklif qilinadigan tillar", "Til fayllari", "Til fayli papkasi", "Tizim tili",
+                    "Editorda ko'rish", "Lokalizatsiya jadvali", "Tarjima", "Kalit", "Yetishmayotgan", "Localize", "uz", "ru", "en" },
+                  { "Localization" } },
                 { "Debug", ICON_FA_BUG, "Debug", "O'yindagi debug chizish (skriptlarning DebugDraw'i va fizika ko'rinishlari).",
                   { "Debug chizish", "Raycastlar", "Raycast vaqti", "Kontakt nuqtalari", "Joint'lar", "Fizika qiymatlari", "Personaj tezligi",
                     "Jismlar tezligi", "Chiziq qalinligi", "Matn o'lchami" },

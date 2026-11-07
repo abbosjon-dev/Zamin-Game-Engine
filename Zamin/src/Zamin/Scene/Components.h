@@ -2,6 +2,7 @@
 
 #include "Zamin/Audio/AudioMixer.h"
 #include "Zamin/Core/UUID.h"
+#include "Zamin/Localization/Localization.h"
 #include "Zamin/Renderer/Texture.h"
 #include "Zamin/Renderer/Mesh.h"
 #include "Zamin/Renderer/Material.h"
@@ -328,6 +329,10 @@ namespace Zamin {
     struct TextComponent
     {
         std::string Text = "Matn";
+        // A key of the project's language files ("menu.start"): the text shown is that string in the
+        // current language and follows a language change by itself (Localization); Text is shown when
+        // no language has the key. "" = Text as it is.
+        std::string LocalizationKey;
         glm::vec4 Color{ 1.0f };
         float Kerning = 0.0f;       // em added after every character
         float LineSpacing = 0.0f;   // em added to every line's height
@@ -341,11 +346,48 @@ namespace Zamin {
         uint32_t SortingLayer = 0;
         int SortingOrder = 1000; // text draws over the sprites of its layer unless told otherwise
 
+        // Runtime: the localized string for LocalizationKey (UpdateLocalized), never saved.
+        std::string LocalizedText;
+        std::string LocalizedFor;   // the key it was looked up for
+        uint64_t LocalizedVersion = 0;
+        bool HasLocalizedText = false;
+
+        // What is drawn: the localized string when the key has one, else Text.
+        const std::string& GetDisplayText() const { return HasLocalizedText ? LocalizedText : Text; }
+        // Looks the key up again when the language (Localization::GetVersion) or the key changed.
+        // True when the shown text may have changed.
+        bool UpdateLocalized()
+        {
+            if (LocalizationKey.empty())
+            {
+                if (!HasLocalizedText && LocalizedFor.empty())
+                    return false;
+                ResetLocalized();
+                return true;
+            }
+            const uint64_t version = Localization::GetVersion();
+            if (version == LocalizedVersion && LocalizedFor == LocalizationKey)
+                return false;
+            LocalizedVersion = version;
+            LocalizedFor = LocalizationKey;
+            const std::string* text = Localization::Find(LocalizationKey);
+            HasLocalizedText = text != nullptr;
+            LocalizedText = text ? *text : std::string();
+            return true;
+        }
+        void ResetLocalized()
+        {
+            LocalizedText.clear();
+            LocalizedFor.clear();
+            LocalizedVersion = 0;
+            HasLocalizedText = false;
+        }
+
         TextLayoutSettings GetLayoutSettings() const { return { AlignH, AlignV, WordWrap, Overflow, Kerning, LineSpacing }; }
         // Laid out in a UI rectangle, `px` high.
         TextLayoutResult Layout(const UIRect& rect, float px) const
         {
-            return TextLayout::Layout(Text, TextMetrics::Of(FontAsset.get()), px, rect, GetLayoutSettings());
+            return TextLayout::Layout(GetDisplayText(), TextMetrics::Of(FontAsset.get()), px, rect, GetLayoutSettings());
         }
         // In the world: around the origin, in text units (1 = the font size); MaxWidth wide when set
         // (starting at the origin, centred on it or ending there - AlignH).
@@ -357,7 +399,7 @@ namespace Zamin {
                 const float x0 = AlignH == TextAlignH::Left ? 0.0f : AlignH == TextAlignH::Center ? -MaxWidth * 0.5f : -MaxWidth;
                 box = { { x0, 0.0f }, { x0 + MaxWidth, 0.0f } };
             }
-            return TextLayout::Layout(Text, TextMetrics::Of(FontAsset.get()), 1.0f, box, GetLayoutSettings());
+            return TextLayout::Layout(GetDisplayText(), TextMetrics::Of(FontAsset.get()), 1.0f, box, GetLayoutSettings());
         }
     };
 

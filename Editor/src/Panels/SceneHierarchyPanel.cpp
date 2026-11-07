@@ -2323,6 +2323,77 @@ namespace Zamin {
         return changed;
     }
 
+    // ------------------------------------------------------------------ localization
+    bool SceneHierarchyPanel::DrawLocalizationKey(TextComponent& c)
+    {
+        bool changed = false;
+        UI::PropertyLabel("Lokalizatsiya kaliti", "Til fayllaridagi kalit (masalan menu.start): matn joriy tildagi satr bilan almashadi va til "
+                                                  "o'zgarganda o'zi yangilanadi. Hech bir tilda bo'lmasa yuqoridagi Matn ko'rsatiladi. "
+                                                  "Kalitlar: Oyna > Lokalizatsiya.");
+        ImGui::PushID("localizationKey");
+        const float button = ImGui::GetFrameHeight();
+        ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - button - ImGui::GetStyle().ItemSpacing.x));
+        changed |= ImGui::InputTextWithHint("##key", "(yo'q: Matn o'zi)", &c.LocalizationKey);
+        ImGui::SameLine();
+        if (ImGui::Button(ICON_FA_LANGUAGE, ImVec2(button, 0.0f)))
+        {
+            m_LocalizationKeyFilter.clear();
+            ImGui::OpenPopup("##keys");
+        }
+        if (ImGui::IsItemHovered())
+            UI::Tooltip("Til fayllaridan kalit tanlash");
+        if (ImGui::BeginPopup("##keys"))
+        {
+            // Every key of the offered languages.
+            std::vector<std::string> keys;
+            for (const std::string& code : Localization::GetLanguages())
+                if (const StringTable* table = Localization::GetTable(code))
+                    for (const auto& [key, entry] : table->Strings)
+                        if (std::find(keys.begin(), keys.end(), key) == keys.end())
+                            keys.push_back(key);
+            std::sort(keys.begin(), keys.end());
+            if (ImGui::IsWindowAppearing())
+                ImGui::SetKeyboardFocusHere();
+            ImGui::SetNextItemWidth(320.0f);
+            ImGui::InputTextWithHint("##filter", ICON_FA_MAGNIFYING_GLASS "  qidirish", &m_LocalizationKeyFilter);
+            if (keys.empty())
+                ImGui::TextDisabled("Til fayllarida kalit yo'q (Loyiha sozlamalari > Lokalizatsiya)");
+            if (ImGui::BeginChild("##list", ImVec2(420.0f, std::min(320.0f, 24.0f * (float)keys.size() + 8.0f))))
+                for (const std::string& key : keys)
+                {
+                    const std::string* text = Localization::Find(key);
+                    if (!m_LocalizationKeyFilter.empty() && !ProjectSettingsIndex::TextContains(key, m_LocalizationKeyFilter) &&
+                        !(text && ProjectSettingsIndex::TextContains(*text, m_LocalizationKeyFilter)))
+                        continue;
+                    if (ImGui::Selectable(key.c_str(), key == c.LocalizationKey))
+                    {
+                        c.LocalizationKey = key;
+                        changed = true;
+                        ImGui::CloseCurrentPopup();
+                    }
+                    if (text)
+                    {
+                        ImGui::SameLine(170.0f);
+                        ImGui::TextDisabled("%s", text->c_str());
+                    }
+                }
+            ImGui::EndChild();
+            ImGui::EndPopup();
+        }
+        ImGui::PopID();
+        if (!c.LocalizationKey.empty())
+        {
+            UI::PropertyLabel("");
+            if (const std::string* text = Localization::Find(c.LocalizationKey))
+                ImGui::TextDisabled(ICON_FA_LANGUAGE " %s: %s", Localization::GetLanguage().c_str(), text->c_str());
+            else
+                ImGui::TextColored(ImVec4(0.95f, 0.72f, 0.32f, 1.0f), ICON_FA_TRIANGLE_EXCLAMATION " Kalit hech bir tilda yo'q: Matn ko'rsatiladi");
+        }
+        if (changed)
+            c.ResetLocalized(); // looked up again before it is drawn
+        return changed;
+    }
+
     // ------------------------------------------------------------------ audio
     bool SceneHierarchyPanel::DrawSpatialDefaultsRow(float& minDistance, float& maxDistance)
     {
@@ -6312,6 +6383,7 @@ namespace Zamin {
 
         AddSection<TextComponent>(ICON_FA_FONT, "Text", entity, [&](TextComponent& c) {
             bool changed = UI::PropertyString("Matn", c.Text, true);
+            changed |= DrawLocalizationKey(c);
             changed |= UI::PropertyColor4("Rang", c.Color);
             changed |= UI::PropertyFloat("Harf oralig'i", c.Kerning, 0.005f);
             changed |= UI::PropertyFloat("Qator oralig'i", c.LineSpacing, 0.01f);

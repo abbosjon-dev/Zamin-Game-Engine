@@ -1,0 +1,67 @@
+{
+    "$name": "English",
+    "hud": {
+        "coins": "{0}: {1} / {2}",
+        "coins_title": "Coins",
+        "coins_total": "(total: {0})",
+        "falls": "Falls: {0}",
+        "win": "Well done! Victory!",
+        "session": "Session: {0}  |  {1}  |  {2}  |  best: {3}",
+        "session_coins": {
+            "one": "{0} coin",
+            "other": "{0} coins"
+        },
+        "session_levels": {
+            "one": "{0} level",
+            "other": "{0} levels"
+        },
+        "level1": "Zamin Platformer - Level 1",
+        "level2": "Level 2: Dusk",
+        "level3": "Level 3: Tilemap",
+        "controls": "A/D - walk   Space - jump   Reach the flag!",
+        "restart": "Restart"
+    },
+    "menu": {
+        "flow": "Main menu  ->  loading screen  ->  level 1",
+        "start": "Start",
+        "hint": "Press Space / Enter or the button   ·   L - language",
+        "session_info": "GameSession (DontDestroyOnLoad) keeps the music and the coins\nacross every level",
+        "session_empty": "Session: 0 coins"
+    },
+    "loading": {
+        "title": "Loading",
+        "tip": "Tip: the level loads in the background (LoadSceneAsync) - the screen fades out once it is ready",
+        "reading": "Reading the scene file{0}",
+        "decoding": "Decoding images ({0} / {1}){2}",
+        "building": "Creating objects{0}",
+        "resolving": "Loading graphics{0}",
+        "preparing": "Preparing{0}",
+        "ready": "Ready!",
+        "error": "Error: {0}",
+        "not_found": "Scene not found: {0}"
+    },
+    "pause": {
+        "title": "Paused",
+        "subtitle": "The game is paused",
+        "resume": "Resume",
+        "settings": "Settings",
+        "quit": "Quit"
+    },
+    "settings": {
+        "title": "Settings",
+        "audio": "Audio",
+        "master": "Master volume",
+        "music": "Music",
+        "sfx": "Effects",
+        "ui": "Interface",
+        "display": "Display",
+        "fullscreen": "Fullscreen",
+        "vsync": "Vertical sync (VSync)",
+        "language_header": "Language",
+        "language": "Language: {0}",
+        "controls": "Controls",
+        "controls_info": "Esc / Start - pause. Arrows / D-pad - select, Enter / A - press, Esc / B - back. Scroll the list with the mouse wheel or by dragging.",
+        "back": "Back",
+        "reset": "Defaults"
+    }
+}

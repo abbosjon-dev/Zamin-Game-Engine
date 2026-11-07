@@ -1,0 +1,67 @@
+{
+    "$name": "O'zbekcha",
+    "hud": {
+        "coins": "{0}: {1} / {2}",
+        "coins_title": "Tangalar",
+        "coins_total": "(jami: {0})",
+        "falls": "Yiqilishlar: {0}",
+        "win": "Barakalla! G'alaba!",
+        "session": "Sessiya: {0}  |  {1}  |  {2}  |  rekord: {3}",
+        "session_coins": {
+            "one": "{0} tanga",
+            "other": "{0} tanga"
+        },
+        "session_levels": {
+            "one": "{0} ta daraja",
+            "other": "{0} ta daraja"
+        },
+        "level1": "Zamin Platformer - 1-daraja",
+        "level2": "2-daraja: Shom",
+        "level3": "3-daraja: Tilemap",
+        "controls": "A/D - yurish   Space - sakrash   Bayroqqa yeting!",
+        "restart": "Qayta boshlash"
+    },
+    "menu": {
+        "flow": "Bosh menyu  ->  yuklanish ekrani  ->  1-daraja",
+        "start": "Boshlash",
+        "hint": "Space / Enter yoki tugmani bosing   ·   L - til",
+        "session_info": "GameSession (DontDestroyOnLoad) musiqa va jami tangalarni\nhamma darajalarda saqlaydi",
+        "session_empty": "Sessiya: 0 tanga"
+    },
+    "loading": {
+        "title": "Yuklanmoqda",
+        "tip": "Maslahat: daraja fonda yuklanadi (LoadSceneAsync) - ekran tayyor bo'lgach so'nib o'tadi",
+        "reading": "Sahna fayli o'qilmoqda{0}",
+        "decoding": "Rasmlar ochilmoqda ({0} / {1}){2}",
+        "building": "Obyektlar yaratilmoqda{0}",
+        "resolving": "Grafika yuklanmoqda{0}",
+        "preparing": "Tayyorlanmoqda{0}",
+        "ready": "Tayyor!",
+        "error": "Xato: {0}",
+        "not_found": "Sahna topilmadi: {0}"
+    },
+    "pause": {
+        "title": "Pauza",
+        "subtitle": "O'yin to'xtatildi",
+        "resume": "Davom etish",
+        "settings": "Sozlamalar",
+        "quit": "Chiqish"
+    },
+    "settings": {
+        "title": "Sozlamalar",
+        "audio": "Ovoz",
+        "master": "Umumiy ovoz",
+        "music": "Musiqa",
+        "sfx": "Effektlar",
+        "ui": "Interfeys",
+        "display": "Ekran",
+        "fullscreen": "To'liq ekran",
+        "vsync": "Vertikal sinxronlash (VSync)",
+        "language_header": "Til",
+        "language": "Til: {0}",
+        "controls": "Boshqaruv",
+        "controls_info": "Esc / Start - pauza. Strelkalar / D-pad - tanlash, Enter / A - bosish, Esc / B - orqaga. Ro'yxatni sichqoncha g'ildiragi bilan yoki sudrab aylantiring.",
+        "back": "Orqaga",
+        "reset": "Standart"
+    }
+}

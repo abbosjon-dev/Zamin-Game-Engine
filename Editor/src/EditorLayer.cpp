@@ -137,6 +137,10 @@ namespace Zamin {
             m_ShowScenes = true;
             m_ScenesPanel.Focus();
         };
+        m_ProjectSettingsPanel.OnLocalizationTableRequested = [this]() {
+            m_ShowLocalization = true;
+            m_LocalizationPanel.Focus();
+        };
         m_ContentBrowserPanel.OnProjectSettingsModified = [this]() { m_ProjectSettingsPanel.MarkDirty(); };
         m_SceneHierarchyPanel.OnAudioMixerRequested = [this]() {
             m_ShowAudioMixer = true;
@@ -590,6 +594,23 @@ namespace Zamin {
                 m_Preferences.Theme.FontSize = (float)std::atof(fontSize);
                 m_Preferences.Theme.Sanitize();
             }
+            // ZAMIN_EDITOR_GAME_LANGUAGE=<code>: the preview language of the game's texts; ZAMIN_EDITOR_LOCALIZATION=1
+            // (+ _RECT="x,y,w,h", _FILTER=<text>): the localization table (screenshots; nothing is saved).
+            if (const char* language = std::getenv("ZAMIN_EDITOR_GAME_LANGUAGE"); language && !Localization::SetLanguage(language))
+                ZM_WARN("ZAMIN_EDITOR_GAME_LANGUAGE={}: o'yinda bunday til yo'q", language);
+            if (std::getenv("ZAMIN_EDITOR_LOCALIZATION"))
+            {
+                m_ShowLocalization = true;
+                m_LocalizationPanel.Focus();
+                if (const char* rect = std::getenv("ZAMIN_EDITOR_LOCALIZATION_RECT"))
+                {
+                    float x = 0, y = 0, w = 0, h = 0;
+                    if (std::sscanf(rect, "%f,%f,%f,%f", &x, &y, &w, &h) == 4 && w > 0 && h > 0)
+                        m_LocalizationPanel.SetFloatingRect(ImVec4(x, y, w, h));
+                }
+                if (const char* filter = std::getenv("ZAMIN_EDITOR_LOCALIZATION_FILTER"))
+                    m_LocalizationPanel.SetFilter(filter);
+            }
             if (const char* tint = std::getenv("ZAMIN_EDITOR_TINT"))
                 for (const ColorPreset& preset : PlayModeTintSettings::GetPresets())
                     if (std::string_view(tint) == preset.Key)
@@ -962,6 +983,7 @@ namespace Zamin {
                                            : t == "Player"          ? ProjectSettingsPanel::Tab::Player
                                            : t == "Graphics"        ? ProjectSettingsPanel::Tab::Graphics
                                            : t == "Time"            ? ProjectSettingsPanel::Tab::Time
+                                           : t == "Localization"    ? ProjectSettingsPanel::Tab::Localization
                                                                     : ProjectSettingsPanel::Tab::Input);
                 // ZAMIN_EDITOR_PROJECT_SETTINGS_RECT="x,y,w,h": the window floats there (screenshots);
                 // ZAMIN_EDITOR_PROJECT_SETTINGS_SEARCH=<text>: the category search.
@@ -4199,6 +4221,8 @@ namespace Zamin {
         DiscardSessionAutosave();
         ReleaseProjectLock();
         Project::SetActive(nullptr);
+        Project::ApplyLocalization(); // no project: no language files
+        m_LocalizationPanel.Invalidate();
         m_ContentBrowserPanel.SetRoot({});
         m_ScenesPanel.OnProjectChanged();
         m_SceneThumbnails.Clear();
@@ -4556,6 +4580,7 @@ namespace Zamin {
         m_PlayStart.Mode2D = m_2DMode;
         m_PlayStart.SceneName = m_EditorScene->GetName();
         m_PlayStart.QualityLevel = Quality::GetLevelName();
+        m_PlayStart.Language = Localization::GetLanguage();
         // The game's first scene is a copy of the edit scene: its making counts as the entities'
         // stage of the load (the scene manager adds the physics, the scripts and the audio).
         const auto playClock = std::chrono::steady_clock::now();
@@ -4574,6 +4599,9 @@ namespace Zamin {
             ZM_INFO("O'yinda saqlangan ovoz sozlamalari yuklandi (SaveData)");
         // The display options too (no window of its own: the editor's stays as it is, the game sees them).
         Display::LoadSettings();
+        // The language the player chose in the game's language menu (else the editor's preview language).
+        if (Localization::LoadSettings())
+            ZM_INFO("O'yinda saqlangan til yuklandi: {}", Localization::GetLanguageName(Localization::GetLanguage()));
         AudioEngine::ResetProfileCounters(); // the audio profiler counts this run
         // Every run starts as the game does: no global state, no services from the last run.
         Services::Clear();
@@ -4640,6 +4668,9 @@ namespace Zamin {
         // The game may have picked another quality level (an options menu): the editor's preview comes back.
         if (m_SceneState == SceneState::Play && !m_PlayStart.QualityLevel.empty() && Quality::GetLevelName() != m_PlayStart.QualityLevel)
             Quality::SetLevel(m_PlayStart.QualityLevel);
+        // The game may have switched the language (a language menu): the editor's preview language comes back.
+        if (m_SceneState == SceneState::Play && !m_PlayStart.Language.empty() && Localization::GetLanguage() != m_PlayStart.Language)
+            Localization::SetLanguage(m_PlayStart.Language);
         if (m_SceneState == SceneState::Play)
         {
             // The game's global state and services end with the run (made by its scripts' code).
@@ -5445,6 +5476,22 @@ namespace Zamin {
             ZM_WARN("{}", problem);
         if (!report.Moved.empty())
             OnAssetsMovedOutside(report.Moved);
+        // Language files edited outside (or saved by the localization table): the texts follow.
+        {
+            std::error_code ec;
+            const fs::path languages = fs::weakly_canonical(Project::GetLocalizationDirectory(), ec);
+            bool languageFiles = false;
+            for (const auto* list : { &report.Added, &report.Modified, &report.Removed })
+                for (const fs::path& p : *list)
+                    if (p.extension() == ".json" && fs::weakly_canonical(p, ec).parent_path() == languages)
+                        languageFiles = true;
+            if (languageFiles)
+            {
+                Localization::Reload();
+                m_LocalizationPanel.OnFilesChanged();
+                ZM_INFO("Til fayllari qayta yuklandi");
+            }
+        }
         for (const auto* list : { &report.Added, &report.Modified, &report.Removed })
             for (const fs::path& p : *list)
                 m_ContentBrowserPanel.InvalidateThumbnail(p);
@@ -6001,6 +6048,8 @@ namespace Zamin {
         m_AnimatorGraphPanel.OnImGuiRender(&m_ShowAnimatorGraph);
         m_AudioMixerPanel.SetPlaying(m_SceneState == SceneState::Play);
         m_AudioMixerPanel.OnImGuiRender(&m_ShowAudioMixer);
+        m_LocalizationPanel.SetScene(m_ActiveScene);
+        m_LocalizationPanel.OnImGuiRender(&m_ShowLocalization);
         m_SceneHierarchyPanel.DrawTilePaletteWindow(&m_ShowTilePalette);
         UI_Stats();
         UI_ProfilerWindow();
@@ -6240,6 +6289,8 @@ namespace Zamin {
                 m_FocusBuildOutput = true;
             ImGui::MenuItem(ICON_FA_STOPWATCH "  Profiler", nullptr, &m_ShowProfiler);
             ImGui::MenuItem(ICON_FA_SLIDERS "  Audio Mixer", nullptr, &m_ShowAudioMixer);
+            if (ImGui::MenuItem(ICON_FA_LANGUAGE "  Lokalizatsiya", nullptr, &m_ShowLocalization, hasProject) && m_ShowLocalization)
+                m_LocalizationPanel.Focus();
             if (ImGui::MenuItem(ICON_FA_TIMELINE "  Animatsiya", nullptr, &m_ShowAnimation) && m_ShowAnimation)
                 m_AnimationPanel.Focus();
             if (ImGui::MenuItem(ICON_FA_DIAGRAM_PROJECT "  Animator grafi", nullptr, &m_ShowAnimatorGraph) && m_ShowAnimatorGraph)

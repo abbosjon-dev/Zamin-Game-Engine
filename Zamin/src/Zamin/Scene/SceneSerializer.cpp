@@ -958,6 +958,8 @@ namespace Zamin {
                 e["Text"]["Overflow"] = EnumName(c->Overflow, s_TextOverflows);
             if (c->MaxWidth > 0.0f)
                 e["Text"]["MaxWidth"] = c->MaxWidth;
+            if (!c->LocalizationKey.empty())
+                e["Text"]["LocalizationKey"] = c->LocalizationKey;
             WriteAssetHandle(e["Text"], "Font", c->FontPath);
             if (c->SortingOrder != 1000)
                 e["Text"]["SortingOrder"] = c->SortingOrder;
@@ -1772,6 +1774,8 @@ namespace Zamin {
             c.WordWrap = j.value("WordWrap", false);
             c.Overflow = EnumFromJson(j, "Overflow", s_TextOverflows, TextOverflow::Overflow);
             c.MaxWidth = j.value("MaxWidth", 0.0f);
+            if (auto key = j.find("LocalizationKey"); key != j.end() && key->is_string())
+                c.LocalizationKey = key->get<std::string>();
             c.FontPath = ReadAssetPath(j, "Font");
             c.SortingOrder = j.value("SortingOrder", 1000);
             c.SortingLayer = ReadSortingLayer(j);

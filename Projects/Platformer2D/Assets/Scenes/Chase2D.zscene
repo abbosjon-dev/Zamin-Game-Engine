@@ -11926,6 +11926,10 @@
           "Title": {
             "Type": "String",
             "Value": "Kristallar"
+          },
+          "TitleKey": {
+            "Type": "String",
+            "Value": "hud.crystals_title"
           }
         }
       },

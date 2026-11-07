@@ -93,8 +93,8 @@ Ikkalasida ham `Paths` sozlamalari:
 |---|---|
 | `Diagonals` | 8 qo'shni (diagonal qadam sqrt 2 turadi), o'chiq - faqat 4 tomon |
 | `CutCorners` | diagonal qadam bitta to'siq katak yonidan o'tishi mumkin |
-| `BakeOnStart` | o'yin boshlanganda (skriptlardan oldin) quriladi; o'chiq bo'lsa - `GetScene().BakeNavGrid(e)` |
-| `CacheBake` | bake sahna yonidagi `.znav` faylida saqlanadi ([16-bo'lim](#16-serializatsiya-va-znav-fayli)) |
+| `BakeOnStart` | o'yin boshlanganda (skriptlardan oldin) quriladi; o'shanda nofaol grid - yoqilganda, o'yin paytida yaratilgani (`Instantiate`, prefab) - darhol; o'chiq bo'lsa - `GetScene().BakeNavGrid(e)` |
+| `CacheBake` | bake sahna yonidagi `.znav` faylida saqlanadi ([16-bo'lim](#16-serializatsiya-va-znav-fayli)); faqat `BakeOnStart` bilan |
 
 Editor grid'ni o'zi quradi va viewport'da ko'rsatadi (Gizmo'lar > Navigatsiya); inspektordagi "Grid'ni qurish"
 tugmasi qaytadan quradi. Skriptdan: `Scene::BakeNavGrid(entity)`, `Scene::BakeNavGrids()`.
@@ -145,7 +145,12 @@ class Guard : public ScriptableEntity
 ```
 
 Skript API: `SetDestination(p)` (yo'l darhol topiladi; topilmasa `false`), `StopMoving(immediate)`, `IsMoving()`,
-`HasArrived()`, `GetRemainingDistance()`, `FindPath(from, to)`, `HasNavLineOfSight(a, b)`.
+`HasArrived()`, `GetRemainingDistance()`, `FindPath(from, to)`, `HasNavLineOfSight(a, b)`, `SetNavTarget(e)`.
+
+`Target` li agent: `StopMoving()` (inspektordagi "To'xtatish" ham) va `SetDestination(p)` nishon ortidan yurishni
+**to'xtatib turadi** - `Target` saqlanadi, lekin agent turib qoladi yoki yuborilgan joyga boradi. Yana ta'qib qilish
+uchun: `SetNavTarget(e)` (komponentda `ResumeTarget()`, inspektorda "Nishon ortidan") yoki boshqa `Target` qo'yish;
+`SetNavTarget({})` nishonni olib tashlaydi va agentni to'xtatadi.
 
 > Maslahat: "yetib keldimi?" uchun `HasArrived()` emas, `IsMoving()` ni tekshiring - yo'l topilmagan agent "yetib
 > kelmaydi", lekin harakatlanmaydi ham.
@@ -395,7 +400,7 @@ qachon eskirmaydi, eksportga hech narsa qo'shmaydi va kichik grid'lar uchun arzo
 Katta 3D grid'larni qurish esa qimmat (har katakka nur va overlap; yuqoridagi jadvalga qarang). Ular uchun -
 **`.znav` fayli** (grid inspektorida "Faylda saqlash (.znav)" = `NavGridPathSettings::CacheBake`):
 
-1. Editor sahnani saqlaganda shu grid'larni quradi va sahna yoniga yozadi: `Level.zscene` -> `Level.znav`
+1. Editor sahnani saqlaganda shu grid'larni (`BakeOnStart` li, faol) quradi va sahna yoniga yozadi: `Level.zscene` -> `Level.znav`
    (`AI/NavBakeFile.h`: "ZNAV" sarlavhasi, versiya; har grid uchun UUID, o'lcham, **barmoq izi** va kataklar:
    yuriladigan bitlar, narxlar, pol balandliklari, `MaxClimb`). Hech bir grid so'ramasa eski fayl o'chiriladi.
 2. Barmoq izi - grid nimadan qurilgan bo'lsa hammasining xeshi: sozlamalari va joyi, tilemap'lar (plitkalar, tileset
@@ -445,7 +450,7 @@ Player'da: `./build/bin/ZaminPlayer Projects/Showcase3D --scene Scenes/Squad3D.z
 
 | Guruh | Funksiyalar |
 |---|---|
-| Navigatsiya | `SetDestination`, `StopMoving`, `IsMoving`, `HasArrived`, `GetRemainingDistance`, `FindPath`, `HasNavLineOfSight` |
+| Navigatsiya | `SetDestination`, `StopMoving`, `SetNavTarget`, `IsMoving`, `HasArrived`, `GetRemainingDistance`, `FindPath`, `HasNavLineOfSight` |
 | Ko'rish | `CanSee(e)`, `CanSeeTarget`, `GetSeenTarget`, `GetLastSeenPosition`, `RemembersTarget`; `OnTargetSpotted`, `OnTargetLost` |
 | Patrul | `PausePatrol`, `ResumePatrol`, `IsPatrolling`, `GetPatrolPoint`, `GetPatrolTarget`, `IsWaitingAtPatrolPoint`, `SetPatrolPoint`; `OnPatrolPointReached` |
 | Formatsiya | `SetFormationShape`, `GetFormationShape`, `AddFormationMember`, `RemoveFormationMember`, `IsFormationInPlace`, `GetFormationLeader`, `GetFormationSlot` |

@@ -3007,7 +3007,9 @@ namespace Zamin {
             UI::PropertyHeader("Jonli");
             UI::PropertyLabel("Holat");
             const char* state = c.Arrived ? "yetib keldi" : c.IsMoving() ? "yuryapti" : c.HasDestination ? "kutyapti" : "manzil yo'q";
-            ImGui::TextDisabled("%s  |  %s", Tr(state), NavPathStatusName(c.PathStatus));
+            const bool targetPaused = c.Target && !c.IsFollowingTarget();
+            ImGui::TextDisabled("%s  |  %s%s%s", Tr(state), NavPathStatusName(c.PathStatus), targetPaused ? "  |  " : "",
+                                targetPaused ? Tr("nishon to'xtatilgan") : "");
             UI::PropertyLabel("Qolgan masofa");
             ImGui::TextDisabled("%.2f birlik, %zu burchak, tezlik %.2f", c.Remaining, c.Path.size(), glm::length(c.Velocity));
             UI::PropertyLabel("Manzil");
@@ -3030,6 +3032,16 @@ namespace Zamin {
             UI::PropertyLabel("");
             if (ImGui::Button(Tr(ICON_FA_STOP "  To'xtatish")))
                 c.Stop();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort) && c.Target)
+                UI::Tooltip("Manzil o'chadi va agent nishon ortidan yurmaydi (\"Nishon ortidan\" - yana yuradi)");
+            if (targetPaused)
+            {
+                ImGui::SameLine();
+                if (ImGui::Button(Tr(ICON_FA_PLAY "  Nishon ortidan")))
+                    c.ResumeTarget();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                    UI::Tooltip("To'xtatish / SetDestination'dan keyin agent yana nishon ortidan yuradi (skript: SetNavTarget)");
+            }
         }
         return changed;
     }
@@ -3353,7 +3365,7 @@ namespace Zamin {
                                                    "V shaklida, boshliq uchida (ikki qanot orqaga)",
                                                    "Boshliq atrofida halqa (boshliq bilan burilmaydi; a'zolar tashqariga qaraydi)" };
         int shape = (int)c.Shape;
-        if (UI::PropertySegmented("Shakl", shape, s_Shapes, 4, s_ShapeTips))
+        if (UI::PropertySegmented("Tur", shape, s_Shapes, 4, s_ShapeTips))
         {
             c.Shape = (FormationShape)shape;
             changed = true;
@@ -3421,7 +3433,10 @@ namespace Zamin {
             size_t agents = 0;
             for (Entity m : members)
                 agents += m.HasComponent<NavAgentComponent>() ? 1 : 0;
-            ImGui::TextDisabled("%zu %s, %zu %s", members.size(), Tr("ta a'zo"), agents, Tr("tasi Nav Agent bilan"));
+            // Wrapped: the value column is narrow at the default inspector width.
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+            ImGui::TextWrapped("%zu %s, %zu %s", members.size(), Tr("ta a'zo"), agents, Tr("tasi Nav Agent bilan"));
+            ImGui::PopStyleColor();
         }
 
         UI::PropertyHeader("Harakat");

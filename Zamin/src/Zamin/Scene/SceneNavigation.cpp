@@ -451,9 +451,17 @@ namespace Zamin {
         if (!c->AutoBounds)
             h.Value(GetWorldPosition(entity));
         // The sources summed: the same level gives the same fingerprint whatever order its entities
-        // are in (the editor's scene and the one loaded from its file).
+        // are in (the editor's scene and the one loaded from its file). Their bounds as the bake finds
+        // them (GetNavGrid2DSourceBounds): without any, AutoBounds falls back to Size around the entity.
         uint64_t sources = 0;
+        glm::vec2 boundsMin(std::numeric_limits<float>::max()), boundsMax(std::numeric_limits<float>::lowest());
+        bool anySource = false;
         ForEachNavTilemap(*this, *c, [&](Entity e, const TilemapComponent& tm) {
+            glm::vec2 lo, hi;
+            NavGridBuilder::GetTilemapBounds(tm, GetWorldTransform(e), lo, hi);
+            boundsMin = glm::min(boundsMin, lo);
+            boundsMax = glm::max(boundsMax, hi);
+            anySource = true;
             SourceHasher t;
             t.Value(GetWorldTransform(e));
             t.Value(tm.Width);
@@ -482,6 +490,8 @@ namespace Zamin {
             CollectNavShapes2D(*this, c->LayerMask, c->OneWayBlocks, shapes);
             for (const NavShape2D& shape : shapes)
             {
+                GetShapeBounds(shape, boundsMin, boundsMax);
+                anySource = true;
                 SourceHasher t;
                 t.Value(shape.Type);
                 t.Value(shape.Center);
@@ -493,6 +503,9 @@ namespace Zamin {
             }
         }
         h.Value(sources);
+        // AutoBounds with no sources: the area is Size around the entity, so where it is counts too.
+        if (c->AutoBounds && !(anySource && boundsMin.x <= boundsMax.x && boundsMin.y <= boundsMax.y))
+            h.Value(GetWorldPosition(entity));
         return h.Hash;
     }
 
@@ -814,50 +827,103 @@ namespace Zamin {
         {
             if (!IsActiveInHierarchy(e))
                 continue;
-            if (auto* c = e.TryGetComponent<NavGrid3DComponent>(); c && c->Paths.CacheBake && BakeNavGrid3D(e))
+            // Only grids the game bakes at start read the saved bake (CacheBake is kept, hidden, while
+            // BakeOnStart is off).
+            if (auto* c = e.TryGetComponent<NavGrid3DComponent>(); c && c->Paths.CacheBake && c->Paths.BakeOnStart && BakeNavGrid3D(e))
                 add(e, 3, c->Grid);
-            if (auto* c = e.TryGetComponent<NavGrid2DComponent>(); c && c->Paths.CacheBake && BakeNavGrid2D(e))
+            if (auto* c = e.TryGetComponent<NavGrid2DComponent>(); c && c->Paths.CacheBake && c->Paths.BakeOnStart && BakeNavGrid2D(e))
                 add(e, 2, c->Grid);
         }
         return list;
     }
 
-    void Scene::StartNavigation()
+    void Scene::BakeNavGridOnStart(Entity e)
     {
+        if (auto* c = e.TryGetComponent<NavGrid2DComponent>(); c && c->StartBakePending)
+        {
+            c->StartBakePending = false;
+            if (c->Paths.CacheBake && LoadSavedNavBake(e, 2))
+                ZM_CORE_INFO("Navigatsiya: '{}' 2D grid'i .znav faylidan olindi: {}x{} katak ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
+                             c->Grid.GetHeight(), c->BakeMilliseconds);
+            else if (BakeNavGrid2D(e))
+                ZM_CORE_INFO("Navigatsiya: '{}' 2D grid'i {}x{} katak, {} tasi yuriladigan ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
+                             c->Grid.GetHeight(), c->Grid.CountWalkable(), c->BakeMilliseconds);
+        }
+        if (auto* c = e.TryGetComponent<NavGrid3DComponent>(); c && c->StartBakePending)
+        {
+            c->StartBakePending = false;
+            if (c->Paths.CacheBake && LoadSavedNavBake(e, 3))
+                ZM_CORE_INFO("Navigatsiya: '{}' 3D grid'i .znav faylidan olindi: {}x{} katak ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
+                             c->Grid.GetHeight(), c->BakeMilliseconds);
+            else if (BakeNavGrid3D(e))
+                ZM_CORE_INFO("Navigatsiya: '{}' 3D grid'i {}x{} katak, {} tasi yuriladigan, {} ta statik jism ({:.1f} ms)", e.GetName(),
+                             c->Grid.GetWidth(), c->Grid.GetHeight(), c->Grid.CountWalkable(), c->BakeBodies, c->BakeMilliseconds);
+        }
+    }
+
+    void Scene::BakePendingNavGrids()
+    {
+        // Each grid entity once (both components bake in one go), active ones only: the others when
+        // they are switched on.
         std::vector<Entity> grids;
         for (auto e : m_Registry.view<NavGrid2DComponent>())
-            if (m_Registry.get<NavGrid2DComponent>(e).Paths.BakeOnStart)
+            if (m_Registry.get<NavGrid2DComponent>(e).StartBakePending)
                 grids.push_back({ e, this });
         for (auto e : m_Registry.view<NavGrid3DComponent>())
-            if (m_Registry.get<NavGrid3DComponent>(e).Paths.BakeOnStart && !m_Registry.all_of<NavGrid2DComponent>(e))
-                grids.push_back({ e, this });
+            if (m_Registry.get<NavGrid3DComponent>(e).StartBakePending)
+                if (const auto* c2 = m_Registry.try_get<NavGrid2DComponent>(e); !c2 || !c2->StartBakePending)
+                    grids.push_back({ e, this });
         for (Entity e : grids)
+            if (e.IsValid() && IsActiveInHierarchy(e))
+                BakeNavGridOnStart(e);
+    }
+
+    void Scene::StartNavigation()
+    {
+        for (auto e : m_Registry.view<NavGrid2DComponent>())
         {
-            if (!IsActiveInHierarchy(e))
+            auto& c = m_Registry.get<NavGrid2DComponent>(e);
+            c.StartBakePending = c.Paths.BakeOnStart;
+        }
+        for (auto e : m_Registry.view<NavGrid3DComponent>())
+        {
+            auto& c = m_Registry.get<NavGrid3DComponent>(e);
+            c.StartBakePending = c.Paths.BakeOnStart;
+        }
+        BakePendingNavGrids();
+    }
+
+    void Scene::StartSpawnedNavGrids(const std::vector<Entity>& entities)
+    {
+        // A spawned grid starts as at play start: a copy of a live grid does not keep the bake made
+        // where the original is.
+        bool pending = false;
+        for (Entity e : entities)
+        {
+            if (!e.IsValid())
                 continue;
-            if (auto* c = e.TryGetComponent<NavGrid2DComponent>(); c && c->Paths.BakeOnStart)
+            if (auto* c = e.TryGetComponent<NavGrid2DComponent>())
             {
-                if (c->Paths.CacheBake && LoadSavedNavBake(e, 2))
-                    ZM_CORE_INFO("Navigatsiya: '{}' 2D grid'i .znav faylidan olindi: {}x{} katak ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
-                                 c->Grid.GetHeight(), c->BakeMilliseconds);
-                else if (BakeNavGrid2D(e))
-                    ZM_CORE_INFO("Navigatsiya: '{}' 2D grid'i {}x{} katak, {} tasi yuriladigan ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
-                                 c->Grid.GetHeight(), c->Grid.CountWalkable(), c->BakeMilliseconds);
+                c->ResetRuntime();
+                c->StartBakePending = c->Paths.BakeOnStart;
+                pending |= c->StartBakePending;
             }
-            if (auto* c = e.TryGetComponent<NavGrid3DComponent>(); c && c->Paths.BakeOnStart)
+            if (auto* c = e.TryGetComponent<NavGrid3DComponent>())
             {
-                if (c->Paths.CacheBake && LoadSavedNavBake(e, 3))
-                    ZM_CORE_INFO("Navigatsiya: '{}' 3D grid'i .znav faylidan olindi: {}x{} katak ({:.1f} ms)", e.GetName(), c->Grid.GetWidth(),
-                                 c->Grid.GetHeight(), c->BakeMilliseconds);
-                else if (BakeNavGrid3D(e))
-                    ZM_CORE_INFO("Navigatsiya: '{}' 3D grid'i {}x{} katak, {} tasi yuriladigan, {} ta statik jism ({:.1f} ms)", e.GetName(),
-                                 c->Grid.GetWidth(), c->Grid.GetHeight(), c->Grid.CountWalkable(), c->BakeBodies, c->BakeMilliseconds);
+                c->ResetRuntime();
+                c->StartBakePending = c->Paths.BakeOnStart;
+                pending |= c->StartBakePending;
             }
         }
+        if (pending)
+            BakePendingNavGrids();
     }
 
     void Scene::UpdateNavGrids(float dt)
     {
+        // BakeOnStart grids that were switched off until now (switching on bakes them already; this
+        // catches any left).
+        BakePendingNavGrids();
         for (auto e : m_Registry.view<NavGrid2DComponent>())
         {
             auto& c = m_Registry.get<NavGrid2DComponent>(e);
@@ -1329,8 +1395,10 @@ namespace Zamin {
             const int dim = grid ? dimension : (entity.HasComponent<CharacterController3DComponent>() || entity.HasComponent<Rigidbody3DComponent>() ? 3 : 2);
 
             // A target: it keeps going after it (the path is found again every RepathInterval, or when
-            // the target has gone more than a cell from where the path ends).
-            if (a.Target)
+            // the target has gone more than a cell from where the path ends) - unless Stop /
+            // SetDestination paused that (ResumeTarget).
+            const bool following = a.IsFollowingTarget();
+            if (following)
             {
                 Entity target = GetEntityByUUID(a.Target.ID);
                 if (target && target != entity && IsActiveInHierarchy(target))
@@ -1376,7 +1444,7 @@ namespace Zamin {
                 bool repath = a.RepathRequested;
                 if (grid && a.GridRevision != grid->GetRevision())
                     repath = true;
-                if (a.RepathInterval > 0.0f && a.RepathTimer <= 0.0f && (!a.Arrived || a.Target))
+                if (a.RepathInterval > 0.0f && a.RepathTimer <= 0.0f && (!a.Arrived || following))
                     repath = true;
                 if (repath)
                 {

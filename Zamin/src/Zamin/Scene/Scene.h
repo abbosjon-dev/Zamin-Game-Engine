@@ -582,8 +582,8 @@ namespace Zamin {
         // starts, a grid with CacheBake takes its saved bake while the fingerprint still matches.
         void SetNavBakes(std::shared_ptr<const NavBakeList> bakes) { m_NavBakes = std::move(bakes); }
         const std::shared_ptr<const NavBakeList>& GetNavBakes() const { return m_NavBakes; }
-        // The grids with CacheBake (active ones), baked now, with their fingerprints: what the editor
-        // saves into the .znav.
+        // The grids with CacheBake and BakeOnStart (active ones), baked now, with their fingerprints:
+        // what the editor saves into the .znav (only start bakes read it).
         NavBakeList CollectNavBakes();
         // The world rectangle around a NavGrid 2D's sources (what AutoBounds uses); false when it has none.
         bool GetNavGrid2DSourceBounds(Entity entity, glm::vec2& min, glm::vec2& max);
@@ -1282,8 +1282,14 @@ namespace Zamin {
         // Spline followers move along their paths (before physics: kinematic bodies by velocity).
         void UpdateSplineFollowers(float dt);
         // ---- navigation (SceneNavigation.cpp)
-        // Play start: the grids with BakeOnStart are baked.
+        // Play start: the grids with BakeOnStart are baked (switched off ones when they are switched on).
         void StartNavigation();
+        // The BakeOnStart grids still waiting (StartBakePending) that are active now are baked.
+        void BakePendingNavGrids();
+        // One grid entity's start bake: from the saved bakes (CacheBake) when they match, else baked.
+        void BakeNavGridOnStart(Entity entity);
+        // Grids spawned while the game runs bake as at play start.
+        void StartSpawnedNavGrids(const std::vector<Entity>& entities);
         // A grid with CacheBake from the saved bakes, when its fingerprint matches; false: bake it.
         bool LoadSavedNavBake(Entity entity, int dimension);
         // Grids with AutoRebuild bake again when their sources changed (checked a few times a second).

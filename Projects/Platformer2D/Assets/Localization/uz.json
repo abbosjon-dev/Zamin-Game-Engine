@@ -3,6 +3,7 @@
     "hud": {
         "coins": "{0}: {1} / {2}",
         "coins_title": "Tangalar",
+        "crystals_title": "Kristallar",
         "coins_total": "(jami: {0})",
         "falls": "Yiqilishlar: {0}",
         "win": "Barakalla! G'alaba!",

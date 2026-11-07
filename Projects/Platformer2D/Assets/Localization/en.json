@@ -3,6 +3,7 @@
     "hud": {
         "coins": "{0}: {1} / {2}",
         "coins_title": "Coins",
+        "crystals_title": "Crystals",
         "coins_total": "(total: {0})",
         "falls": "Falls: {0}",
         "win": "Well done! Victory!",

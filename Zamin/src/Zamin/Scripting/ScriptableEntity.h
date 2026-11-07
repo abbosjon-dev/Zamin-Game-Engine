@@ -507,8 +507,12 @@ namespace Zamin {
         //   if (CanSeePlayer()) SetDestination(player.GetComponent<TransformComponent>().Translation);
         bool SetDestination(const glm::vec3& destination);
         bool SetDestination(const glm::vec2& destination);
-        // No destination: the agent brakes to a stop (at once with `immediate`).
+        // No destination: the agent brakes to a stop (at once with `immediate`). With a Target it does
+        // not go after it any more (SetDestination too) until SetNavTarget.
         void StopMoving(bool immediate = false);
+        // The agent keeps going after `target` (its Target), also after StopMoving / SetDestination
+        // paused that; an empty entity: no Target (it stops).
+        void SetNavTarget(Entity target);
         // Walking a path or still moving; the distance left along its path (0 when there).
         bool IsMoving() const;
         float GetRemainingDistance() const;

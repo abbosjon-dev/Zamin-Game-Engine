@@ -43643,6 +43643,164 @@ TEST(NavigationComponentsRoundTrip)
     }
 }
 
+TEST(NavAgentTargetPauseAndResume)
+{
+    // Stop / SetDestination pause going after the Target (it is kept): the agent stays stopped or
+    // goes where it was sent; ResumeTarget - or another Target - goes after it again.
+    auto scene = CreateRef<Scene>();
+    Entity nav = scene->CreateEntity("Nav");
+    auto& grid = nav.AddComponent<NavGrid2DComponent>();
+    grid.AutoBounds = false;
+    grid.Size = { 30.0f, 30.0f };
+    grid.AgentRadius = 0.0f;
+    Entity target = scene->CreateEntity("Target");
+    target.GetTransform().Translation = { 8.0f, 0.0f, 0.0f };
+    Entity other = scene->CreateEntity("Other");
+    other.GetTransform().Translation = { 0.0f, 8.0f, 0.0f };
+    Entity chaser = scene->CreateEntity("Chaser");
+    auto& agent = chaser.AddComponent<NavAgentComponent>();
+    agent.Target.ID = (uint64_t)target.GetUUID();
+    agent.Speed = 6.0f;
+    agent.Acceleration = 0.0f;
+    agent.StoppingDistance = 0.5f;
+    agent.RepathInterval = 0.25f;
+    auto run = [&](int frames) {
+        for (int i = 0; i < frames; i++)
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+    };
+    auto distance = [&](Entity e) { return glm::length(scene->GetWorldPosition(chaser) - scene->GetWorldPosition(e)); };
+    scene->OnRuntimeStart();
+    run(20);
+    CHECK(agent.IsFollowingTarget() && agent.HasDestination && scene->GetWorldPosition(chaser).x > 0.5f);
+    // Stopped: it stays where it stopped, the Target kept.
+    agent.Stop(true);
+    run(2);
+    const glm::vec3 stopped = scene->GetWorldPosition(chaser);
+    run(60);
+    CHECK(agent.Target.ID == (uint64_t)target.GetUUID() && !agent.IsFollowingTarget() && !agent.HasDestination && !agent.IsMoving());
+    CHECK(glm::length(scene->GetWorldPosition(chaser) - stopped) < 1e-3f);
+    // A destination of its own: it goes there, not after the Target.
+    const glm::vec3 spot{ -6.0f, -6.0f, 0.0f };
+    CHECK(scene->SetNavDestination(chaser, spot));
+    run(180);
+    CHECK(agent.Arrived && agent.Destination == spot && glm::length(scene->GetWorldPosition(chaser) - spot) < 0.7f);
+    // Resumed: after the Target again.
+    agent.ResumeTarget();
+    run(180);
+    CHECK(agent.IsFollowingTarget() && distance(target) < 0.7f);
+    // Paused, then another Target: that one is followed at once.
+    agent.Stop();
+    agent.Target.ID = (uint64_t)other.GetUUID();
+    run(240);
+    CHECK(agent.IsFollowingTarget() && distance(other) < 0.7f);
+    scene->OnRuntimeStop();
+}
+
+TEST(NavGridStartBakesLateAndSpawned)
+{
+    // BakeOnStart grids: an entity with both grids where only the 3D one bakes at start; one switched
+    // off when the game starts (baked when switched on, AutoRebuild works after); one spawned while
+    // the game runs (baked at once, where the copy is).
+    auto scene = CreateRef<Scene>();
+    Entity floor = scene->CreateEntity("Floor");
+    floor.GetTransform().Translation = { 0.0f, -0.5f, 0.0f };
+    floor.GetTransform().Scale = { 20.0f, 1.0f, 20.0f };
+    floor.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    floor.AddComponent<BoxCollider3DComponent>();
+    Entity both = scene->CreateEntity("Both");
+    auto& b2 = both.AddComponent<NavGrid2DComponent>();
+    b2.Paths.BakeOnStart = false;
+    auto& b3 = both.AddComponent<NavGrid3DComponent>();
+    b3.Size = { 10.0f, 4.0f, 10.0f };
+    b3.AgentRadius = 0.0f;
+    Entity late = scene->CreateEntity("Late");
+    late.GetTransform().Translation = { 50.0f, 0.0f, 0.0f };
+    auto& l2 = late.AddComponent<NavGrid2DComponent>();
+    l2.AutoBounds = false;
+    l2.Size = { 6.0f, 6.0f };
+    late.SetActive(false);
+
+    scene->OnRuntimeStart();
+    CHECK(b3.Baked && b3.BakeCount == 1 && !b2.Baked && scene->GetNavGrid(both, 3) && b3.Grid.CountWalkable() > 0);
+    CHECK(scene->GetNavGrid(both, 2) == nullptr);
+    CHECK(!l2.Baked && l2.StartBakePending);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!l2.Baked); // still switched off
+    late.SetActive(true);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(l2.Baked && l2.BakeCount == 1 && !l2.StartBakePending);
+    CHECK_NEAR(l2.Grid.GetOrigin().x, 47.0f, 1e-3f);
+    // AutoRebuild after the late bake: the grid moved, baked again where it is.
+    l2.AutoRebuild = true;
+    late.GetTransform().Translation.x += 2.0f;
+    for (int i = 0; i < 40; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(l2.BakeCount == 2);
+    CHECK_NEAR(l2.Grid.GetOrigin().x, 49.0f, 1e-3f);
+    // Spawned: a copy of the live grid bakes at once where the copy is (not the original's bake).
+    Entity copy = scene->Instantiate(late, { -50.0f, 0.0f, 0.0f });
+    const auto& c2 = copy.GetComponent<NavGrid2DComponent>();
+    CHECK(c2.Baked && c2.BakeCount == 1 && !c2.StartBakePending);
+    CHECK_NEAR(c2.Grid.GetOrigin().x, -53.0f, 1e-3f);
+    CHECK(l2.BakeCount == 2); // the original keeps its own
+    // Spawned switched off: baked when switched on.
+    late.SetActive(false);
+    Entity parked = scene->Instantiate(late);
+    CHECK(!parked.GetComponent<NavGrid2DComponent>().Baked && parked.GetComponent<NavGrid2DComponent>().StartBakePending);
+    parked.SetActive(true);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(parked.GetComponent<NavGrid2DComponent>().Baked);
+    scene->OnRuntimeStop();
+}
+
+TEST(NavSerializationAndFingerprintEdgeCases)
+{
+    auto scene = CreateRef<Scene>();
+    // Avoidance off with its settings changed: they are kept (scene files, component copies and the
+    // editor's undo snapshots all use this text); a default agent writes no avoidance block.
+    Entity agent = scene->CreateEntity("Agent");
+    auto& a = agent.AddComponent<NavAgentComponent>();
+    a.FeelerLength = 3.0f;
+    a.FeelerAngle = 20.0f;
+    a.AvoidanceMask = 0x0003;
+    Entity plain = scene->CreateEntity("Plain");
+    plain.AddComponent<NavAgentComponent>();
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(scene).SerializeToString()));
+    const auto& la = loaded->FindEntityByName("Agent").GetComponent<NavAgentComponent>();
+    CHECK(!la.Avoidance && la.FeelerLength == 3.0f && la.FeelerAngle == 20.0f && la.AvoidanceMask == 0x0003);
+    CHECK(SceneSerializer::SerializeComponent(agent, "NavAgent").find("FeelerLength") != std::string::npos);
+    CHECK(SceneSerializer::SerializeComponent(plain, "NavAgent").find("Avoidance") == std::string::npos);
+
+    // AutoBounds without any source: the area is Size around the entity, so moving it changes the
+    // fingerprint (AutoRebuild, the editor's preview, the saved bake); with a source it does not.
+    Entity nav = scene->CreateEntity("Nav");
+    auto& g = nav.AddComponent<NavGrid2DComponent>();
+    g.Size = { 4.0f, 4.0f };
+    glm::vec2 lo, hi;
+    CHECK(!scene->GetNavGrid2DSourceBounds(nav, lo, hi));
+    const uint64_t empty = scene->GetNavGridSourceHash(nav);
+    nav.GetTransform().Translation = { 5.0f, 0.0f, 0.0f };
+    CHECK(scene->GetNavGridSourceHash(nav) != empty);
+    Entity rock = scene->CreateEntity("Rock");
+    rock.GetTransform().Translation = { 1.0f, 1.0f, 0.0f };
+    rock.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Static;
+    rock.AddComponent<CircleCollider2DComponent>().Radius = 0.5f;
+    CHECK(scene->GetNavGrid2DSourceBounds(nav, lo, hi));
+    const uint64_t withRock = scene->GetNavGridSourceHash(nav);
+    nav.GetTransform().Translation = { -5.0f, 0.0f, 0.0f };
+    CHECK(scene->GetNavGridSourceHash(nav) == withRock);
+
+    // Saved bakes: only grids the game bakes at start (CacheBake kept while BakeOnStart is off is not
+    // baked on every save).
+    g.Paths.CacheBake = true;
+    g.Paths.BakeOnStart = false;
+    CHECK(scene->CollectNavBakes().empty() && !g.Baked);
+    g.Paths.BakeOnStart = true;
+    const NavBakeList bakes = scene->CollectNavBakes();
+    CHECK(bakes.size() == 1 && bakes[0].Grid == (uint64_t)nav.GetUUID() && bakes[0].Dimension == 2 && g.Baked);
+}
+
 TEST(FormationMembersKeepUpWhileWalking)
 {
     // Members a little faster than the leader keep their slots while it walks (they move with it,

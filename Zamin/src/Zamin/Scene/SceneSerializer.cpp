@@ -249,6 +249,14 @@ namespace Zamin {
     static const char* const s_PatrolSources[] = { "Points", "Children", "Spline" };
     static const char* const s_PatrolModes[] = { "Loop", "PingPong", "Random", "Once" };
     static const char* const s_FormationShapes[] = { "Line", "Column", "Wedge", "Circle" };
+
+    // Whether any Nav Agent avoidance setting differs from a new agent's.
+    static bool NavAvoidanceChanged(const NavAgentComponent& c)
+    {
+        static const NavAgentComponent s_Default;
+        return c.FeelerLength != s_Default.FeelerLength || c.FeelerAngle != s_Default.FeelerAngle || c.FeelerHeight != s_Default.FeelerHeight ||
+               c.AvoidanceWeight != s_Default.AvoidanceWeight || c.AvoidanceMask != s_Default.AvoidanceMask;
+    }
     static const char* const s_UIContentTypes[] = { "Standard", "Integer", "Decimal", "Alphanumeric", "Password" };
     static const char* const s_UIScaleModes[] = { "ConstantPixelSize", "ScaleWithScreenSize" };
     static const char* const s_UIScreenMatchModes[] = { "MatchWidthOrHeight", "Expand", "Shrink" };
@@ -1562,7 +1570,9 @@ namespace Zamin {
                               { "LookAhead", c->LookAhead }, { "RepathInterval", c->RepathInterval }, { "BaseOffset", c->BaseOffset },
                               { "AutoBraking", c->AutoBraking }, { "SmoothPath", c->SmoothPath }, { "SplinePath", c->SplinePath },
                               { "UpdateRotation", c->UpdateRotation } };
-        if (auto* c = entity.TryGetComponent<NavAgentComponent>(); c && (c->Avoidance || c->AvoidStatic))
+        // Avoidance: when it is on or any of its settings is not the default (scene files without it stay
+        // as they were; what was set while it is off survives save / copy / undo).
+        if (auto* c = entity.TryGetComponent<NavAgentComponent>(); c && (c->Avoidance || c->AvoidStatic || NavAvoidanceChanged(*c)))
             e["NavAgent"]["Avoidance"] = { { "Enabled", c->Avoidance }, { "FeelerLength", c->FeelerLength }, { "FeelerAngle", c->FeelerAngle },
                                            { "FeelerHeight", c->FeelerHeight }, { "Weight", c->AvoidanceWeight }, { "LayerMask", c->AvoidanceMask },
                                            { "Static", c->AvoidStatic } };

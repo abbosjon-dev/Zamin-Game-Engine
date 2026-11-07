@@ -1295,7 +1295,9 @@ namespace Zamin {
     {
         bool Diagonals = true;   // 8 neighbours (else 4)
         bool CutCorners = false; // diagonal steps past one blocked side cell (graze corners)
-        bool BakeOnStart = true; // baked when the game starts (else: Scene::BakeNavGrid / a script)
+        // Baked when the game starts (else: Scene::BakeNavGrid / a script); a grid switched off then, or
+        // spawned later, when it is switched on / spawned.
+        bool BakeOnStart = true;
         // The editor saves the bake into the .znav next to the scene file (AI/NavBakeFile.h) and the
         // game starts with it while what it was baked from is unchanged (else it bakes): for big
         // grids that take long to bake. Off: baked every time (always up to date).
@@ -1335,6 +1337,7 @@ namespace Zamin {
         uint32_t BakeCount = 0;
         float BakeMilliseconds = 0.0f;
         bool FromBakeFile = false;        // the last bake came from the scene's .znav file
+        bool StartBakePending = false;    // BakeOnStart: not baked yet (switched off since play started)
 
         void ResetRuntime()
         {
@@ -1345,6 +1348,7 @@ namespace Zamin {
             BakeCount = 0;
             BakeMilliseconds = 0.0f;
             FromBakeFile = false;
+            StartBakePending = false;
         }
     };
 
@@ -1377,6 +1381,7 @@ namespace Zamin {
         float BakeMilliseconds = 0.0f;
         int BakeBodies = 0;               // static bodies the last bake saw
         bool FromBakeFile = false;        // the last bake came from the scene's .znav file
+        bool StartBakePending = false;    // BakeOnStart: not baked yet (switched off since play started)
 
         void ResetRuntime()
         {
@@ -1386,6 +1391,7 @@ namespace Zamin {
             BakeMilliseconds = 0.0f;
             BakeBodies = 0;
             FromBakeFile = false;
+            StartBakePending = false;
         }
     };
 
@@ -1397,7 +1403,8 @@ namespace Zamin {
     // transform), or else the transform itself (3D: on the grid's floor + BaseOffset). The path is
     // found again every RepathInterval seconds while moving and whenever its grid changes.
     // Scripts: SetDestination(p), Stop(), IsMoving(), RemainingDistance() (ScriptableEntity::
-    // SetDestination finds the path at once).
+    // SetDestination finds the path at once). Stop() and SetDestination() pause going after Target
+    // (it is kept): ResumeTarget() - or another Target - goes after it again.
     struct NavAgentComponent
     {
         EntityRef Grid;                   // the NavGrid entity (not set: the grid whose area holds the agent)
@@ -1452,26 +1459,42 @@ namespace Zamin {
         float LastDeltaTime = 0.0f;
         int AvoidSide = 0;                // the way it goes round what is ahead (+1 left, -1 right, 0 free)
         float AvoidClearTime = 0.0f;      // s since the feelers last hit something
+        uint64_t PausedTarget = 0;        // the Target that Stop / SetDestination paused (not followed while set)
 
         // Goes there (the path is found at the next navigation update, this frame when called from
-        // OnUpdate).
+        // OnUpdate) instead of after its Target (paused: ResumeTarget).
         void SetDestination(const glm::vec3& destination)
         {
             Destination = destination;
             HasDestination = true;
             Arrived = false;
             RepathRequested = true;
+            PausedTarget = Target.ID;
         }
-        // No destination any more: it brakes to a stop (at once with `immediate`). Target is kept.
+        // No destination any more: it brakes to a stop (at once with `immediate`). Target is kept but
+        // not followed until ResumeTarget (or another Target is set).
         void Stop(bool immediate = false)
         {
             HasDestination = Arrived = RepathRequested = false;
             Path.clear();
             PathIndex = 0;
             Remaining = 0.0f;
+            PausedTarget = Target.ID;
             if (immediate)
                 Velocity = glm::vec3(0.0f);
         }
+        // Goes after its Target again (after Stop / SetDestination paused it).
+        void ResumeTarget()
+        {
+            PausedTarget = 0;
+            if (Target)
+            {
+                HasDestination = RepathRequested = true;
+                Arrived = false;
+            }
+        }
+        // It has a Target it goes after now (not paused).
+        bool IsFollowingTarget() const { return Target && Target.ID != PausedTarget; }
         // Moving now, walking a path, or about to (a destination whose path is not found yet).
         bool IsMoving() const
         {
@@ -1496,6 +1519,7 @@ namespace Zamin {
             FeelersActive = false;
             LastDeltaTime = AvoidClearTime = 0.0f;
             AvoidSide = 0;
+            PausedTarget = 0;
         }
     };
 

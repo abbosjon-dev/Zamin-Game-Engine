@@ -981,6 +981,9 @@ namespace Zamin {
         SyncJoints3D();
         if (m_PhysicsWorld || m_PhysicsWorld3D)
             ReportMissingJointBodies(&entities);
+        // Spawned NavGrids with BakeOnStart bake over the bodies above, before the scripts start.
+        if (m_IsRunning)
+            StartSpawnedNavGrids(entities);
         if (m_ScriptsRunning)
         {
             for (Entity e : entities)
@@ -2207,6 +2210,10 @@ namespace Zamin {
         {
             SyncJoints2D(); // the joints of the bodies that came back
             SyncJoints3D();
+            // NavGrids with BakeOnStart that were switched off when the game started bake now, over the
+            // bodies that came back (OnEnable can find paths).
+            if (m_IsRunning)
+                BakePendingNavGrids();
         }
         if (m_ScriptsRunning)
             for (entt::entity e : switchedOn)

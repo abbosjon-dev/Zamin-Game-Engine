@@ -291,7 +291,10 @@ int RunNavBench(int agents, int size, int frames, int jobs)
     int walkable = 0;
     const double bake3D = Bake3D(size, walkable);
     std::printf("\nNavGrid 3D bake: %dx%d katak (nurlar bilan), %.1f ms, %d tasi yuriladigan\n", size, size, bake3D, walkable);
-    std::printf("\nXulosa: grid'lar o'yin boshlanganda qayta yaratiladi (.znav fayli yo'q) - yuqoridagi bake vaqti sahna yuklanishiga qo'shiladi.\n");
+    // The bench bakes without the .znav cache: what a grid costs at play start when it is baked.
+    std::printf("\nXulosa: benchmark .znav keshisiz ishlaydi - grid o'yin boshlanganda qurilsa, yuqoridagi bake vaqti sahna yuklanishiga "
+                "qo'shiladi. Katta grid'lar uchun NavGrid > \"Faylda saqlash\" (CacheBake): editor bake'ni sahna bilan .znav fayliga "
+                "yozadi va o'yin manbalar o'zgarmagan bo'lsa uni qayta qurmasdan o'qiydi.\n");
     JobSystem::Shutdown();
     return 0;
 }

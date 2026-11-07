@@ -1186,6 +1186,23 @@ namespace Zamin {
             agent->Stop(immediate);
     }
 
+    void ScriptableEntity::SetNavTarget(Entity target)
+    {
+        auto* agent = m_Entity.TryGetComponent<NavAgentComponent>();
+        if (!agent)
+            return;
+        if (target && target.IsValid() && target != m_Entity)
+        {
+            agent->Target.ID = (uint64_t)target.GetUUID();
+            agent->ResumeTarget();
+        }
+        else
+        {
+            agent->Target = {};
+            agent->Stop();
+        }
+    }
+
     bool ScriptableEntity::IsMoving() const
     {
         const auto* agent = m_Entity.HasComponent<NavAgentComponent>() ? &m_Entity.GetComponent<NavAgentComponent>() : nullptr;

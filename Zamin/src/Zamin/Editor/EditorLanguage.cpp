@@ -1293,6 +1293,8 @@ namespace Zamin {
             { "yuryapti", "moving" },
             { "kutyapti", "waiting" },
             { "manzil yo'q", "no destination" },
+            { "nishon to'xtatilgan", "target paused" },
+            { "Nishon ortidan", "Follow target" },
             { "Qurilgan grid yo'q: sahnaga NavGrid 2D / 3D qo'shing", "No baked grid: add a NavGrid 2D / 3D to the scene" },
             { "Radius", "Radius" },
             // ---- AI (Nav Obstacle, avoidance, Sight Sensor, state machines)

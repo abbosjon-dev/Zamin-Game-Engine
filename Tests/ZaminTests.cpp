@@ -6959,10 +6959,12 @@ TEST(ComponentKeysMatchSceneFiles)
     e.AddComponent<NavGrid2DComponent>();
     e.AddComponent<NavGrid3DComponent>();
     e.AddComponent<NavAgentComponent>();
+    e.AddComponent<NavObstacleComponent>();
+    e.AddComponent<SightSensorComponent>();
     e.AddComponent<NativeScriptComponent>().ClassName = "TestScript";
 
     const auto& types = ComponentRegistry::GetTypes();
-    CHECK(types.size() == 70);
+    CHECK(types.size() == 72);
     CHECK(types.front().Key == "Transform");
     std::vector<std::string> keys = ComponentRegistry::GetKeys(e);
     CHECK(keys.size() == types.size());
@@ -41289,4 +41291,701 @@ TEST(NavSampleScene3D)
         CHECK(npc.GetComponent<NavAgentComponent>().PathRequests > 5);
     CHECK(highest >= 0.0f);
     scene->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ M20: dynamic obstacles (386)
+TEST(NavGridCarving)
+{
+    NavGrid grid(10, 10, 1.0f, { 0.0f, 0.0f });
+    grid.SetWalkable(5, 5, false);
+    const uint32_t revision = grid.GetRevision(), carveRevision = grid.GetCarveRevision(), serial = grid.GetSerial();
+    // Carves are counted per cell; the baked state stays underneath.
+    const std::vector<uint32_t> a = { (uint32_t)grid.Index(2, 2), (uint32_t)grid.Index(3, 2), (uint32_t)grid.Index(5, 5) };
+    const std::vector<uint32_t> b = { (uint32_t)grid.Index(3, 2), (uint32_t)grid.Index(4, 2) };
+    grid.Carve(a);
+    grid.Carve(b);
+    CHECK(!grid.IsWalkable(2, 2) && !grid.IsWalkable(3, 2) && !grid.IsWalkable(4, 2) && grid.IsCarved(3, 2) && grid.IsBakedWalkable(3, 2));
+    CHECK(grid.CountCarved() == 4 && !grid.IsBakedWalkable(5, 5) && grid.IsCarved(5, 5));
+    CHECK(grid.GetRevision() == revision && grid.GetCarveRevision() > carveRevision && grid.GetSerial() == serial);
+    grid.Uncarve(a);
+    CHECK(grid.IsWalkable(2, 2) && !grid.IsWalkable(3, 2) && !grid.IsWalkable(5, 5) && grid.CountCarved() == 2);
+    // Editing the baked state under a carve: it shows once the carve is gone.
+    grid.SetWalkable(4, 2, false);
+    CHECK(!grid.IsWalkable(4, 2) && !grid.IsBakedWalkable(4, 2) && grid.GetRevision() != revision);
+    grid.SetWalkable(5, 5, true);
+    CHECK(grid.IsWalkable(5, 5));
+    grid.Uncarve(b);
+    CHECK(grid.IsWalkable(3, 2) && !grid.IsWalkable(4, 2) && grid.CountCarved() == 0);
+    // Erosion keeps clear of baked walls only (carves come and go).
+    grid.SetWalkable(4, 2, true);
+    grid.Carve({ (uint32_t)grid.Index(7, 7) });
+    grid.Erode(0.6f);
+    CHECK(grid.IsWalkable(7, 6) && grid.IsWalkable(6, 7) && !grid.IsWalkable(7, 7));
+    grid.ClearCarves();
+    CHECK(grid.IsWalkable(7, 7) && grid.CountCarved() == 0);
+    // A new grid: carves gone, another serial; invalid indices are ignored.
+    grid.Carve({ (uint32_t)grid.Index(1, 1), 100000u });
+    grid.Reset(10, 10);
+    CHECK(grid.GetSerial() != serial && grid.CountCarved() == 0 && grid.IsWalkable(1, 1));
+    grid.Uncarve({ (uint32_t)grid.Index(1, 1) });
+    CHECK(grid.IsWalkable(1, 1));
+
+    // Rasterising: a box turned 45 degrees, a circle, clearance, the 3D height span.
+    CHECK(NavCarving::ConvexHull({ { 0, 0 }, { 2, 0 }, { 1, 1 }, { 2, 2 }, { 0, 2 }, { 1, 0 } }).size() == 4);
+    NavGrid open(20, 20, 0.5f, { -5.0f, -5.0f });
+    NavCarveShape diamond;
+    diamond.Outline = NavCarving::ConvexHull({ { 0.0f, -1.0f }, { 1.0f, 0.0f }, { 0.0f, 1.0f }, { -1.0f, 0.0f } });
+    std::vector<uint32_t> cells;
+    NavCarving::CollectCells(open, diamond, 0.0f, 0.0f, 0.0f, cells);
+    CHECK(std::is_sorted(cells.begin(), cells.end()) && !cells.empty());
+    auto has = [&](const glm::vec2& p) {
+        const glm::ivec2 c = open.WorldToCell(p);
+        return std::binary_search(cells.begin(), cells.end(), (uint32_t)open.Index(c.x, c.y));
+    };
+    CHECK(has({ 0.1f, 0.1f }) && has({ 0.6f, 0.1f }) && !has({ 0.8f, 0.8f }) && !has({ 1.3f, 0.1f }));
+    NavCarving::CollectCells(open, diamond, 0.5f, 0.0f, 0.0f, cells); // wider by the agents' radius
+    CHECK(has({ 1.3f, 0.1f }) && !has({ 2.3f, 0.1f }));
+    NavCarveShape circle;
+    circle.Center = { 2.0f, 2.0f };
+    circle.Radius = 0.45f;
+    NavCarving::CollectCells(open, circle, 0.0f, 0.0f, 0.0f, cells);
+    CHECK(cells.size() == 4 && has({ 1.75f, 1.75f }) && has({ 2.25f, 2.25f })); // the 2x2 cells it overlaps
+    circle.Radius = 0.6f; // now also the 8 cells beside them (0.5 away), not the corner ones (0.71)
+    NavCarving::CollectCells(open, circle, 0.0f, 0.0f, 0.0f, cells);
+    CHECK(cells.size() == 12 && has({ 1.25f, 1.75f }) && !has({ 1.25f, 1.25f }));
+    CHECK_NEAR(NavCarving::Distance(circle, { 4.0f, 2.0f }), 1.4f, 1e-5f);
+    circle.Radius = 0.45f;
+    open.EnableHeights();
+    circle.Bottom = 2.5f; // hovering over the floor (0) higher than the agents
+    circle.Top = 3.5f;
+    NavCarving::CollectCells(open, circle, 0.0f, 0.3f, 1.8f, cells);
+    CHECK(cells.empty());
+    circle.Bottom = 0.0f;
+    circle.Top = 0.2f; // lower than a step
+    NavCarving::CollectCells(open, circle, 0.0f, 0.3f, 1.8f, cells);
+    CHECK(cells.empty());
+    circle.Top = 1.0f;
+    NavCarving::CollectCells(open, circle, 0.0f, 0.3f, 1.8f, cells);
+    CHECK(cells.size() == 4);
+    std::vector<uint32_t> added, removed;
+    NavCarving::Diff({ 1, 2, 3 }, { 2, 3, 4, 5 }, added, removed);
+    CHECK(added == std::vector<uint32_t>({ 4, 5 }) && removed == std::vector<uint32_t>({ 1 }));
+}
+
+TEST(NavObstacleCarvesAndAgentsRepath)
+{
+    auto scene = CreateRef<Scene>();
+    Entity nav = scene->CreateEntity("Nav");
+    auto& gridComponent = nav.AddComponent<NavGrid2DComponent>();
+    gridComponent.AutoBounds = false;
+    gridComponent.Size = { 20.0f, 20.0f };
+    gridComponent.AgentRadius = 0.3f;
+    Entity walker = scene->CreateEntity("Walker");
+    walker.GetTransform().Translation = { -8.0f, 0.0f, 0.0f };
+    auto& agent = walker.AddComponent<NavAgentComponent>();
+    agent.Speed = 4.0f;
+    agent.RepathInterval = 0.0f; // only when something changes
+    Entity door = scene->CreateEntity("Door");
+    door.GetTransform().Translation = { 0.0f, 30.0f, 0.0f }; // off the grid for now
+    auto& obstacle = door.AddComponent<NavObstacleComponent>();
+    obstacle.Size = { 1.0f, 8.0f, 1.0f };
+    scene->OnRuntimeStart();
+    const NavGrid* grid = scene->GetNavGrid(nav);
+    CHECK(grid && grid->CountCarved() == 0);
+    CHECK(scene->SetNavDestination(walker, { 8.0f, 0.0f, 0.0f }) && agent.Path.size() == 2);
+    for (int i = 0; i < 20; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    const uint32_t revision = grid->GetRevision(), requests = agent.PathRequests;
+    // The door swings into the way: its cells are carved (the baked grid is not rebuilt), the agent
+    // finds a way round at once.
+    door.GetTransform().Translation = { 0.0f, 0.0f, 0.0f };
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(obstacle.IsCarving() && grid->CountCarved() == obstacle.GetCarvedCellCount() && grid->GetRevision() == revision);
+    CHECK(!grid->IsWalkable(grid->WorldToCell({ 0.0f, 0.0f })) && !grid->IsWalkable(grid->WorldToCell({ 0.0f, 3.8f })));
+    CHECK(!grid->IsWalkable(grid->WorldToCell({ 0.6f, 0.0f }))); // widened by the agents' radius
+    CHECK(agent.BlockedRepaths == 1 && agent.PathRequests == requests + 1 && agent.Path.size() >= 3 && !scene->IsNavPathBlocked(walker));
+    bool wentRound = false, touched = false;
+    int frames = 0;
+    for (; frames < 900 && agent.IsMoving(); frames++)
+    {
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        const glm::vec3 p = scene->GetWorldPosition(walker);
+        wentRound |= std::abs(p.y) > 4.0f;
+        touched |= std::abs(p.x) < 0.5f && std::abs(p.y) < 4.0f;
+    }
+    CHECK(frames < 900 && agent.Arrived && wentRound && !touched);
+    CHECK(glm::length(glm::vec2(scene->GetWorldPosition(walker)) - glm::vec2(8.0f, 0.0f)) < 0.2f);
+
+    // Small moves do not carve again; a bigger one changes only the cells that differ.
+    const uint32_t carves = obstacle.CarveCount;
+    door.GetTransform().Translation.x = 0.05f;
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(obstacle.CarveCount == carves);
+    door.GetTransform().Translation.x = 2.0f;
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(obstacle.CarveCount == carves + 1 && grid->IsWalkable(grid->WorldToCell({ 0.0f, 0.0f })) && !grid->IsWalkable(grid->WorldToCell({ 2.0f, 0.0f })));
+    CHECK(grid->CountCarved() == obstacle.GetCarvedCellCount());
+    // Turned 90 degrees: a horizontal bar now.
+    door.GetTransform().Rotation.z = glm::radians(90.0f);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!grid->IsWalkable(grid->WorldToCell({ 5.0f, 0.0f })) && grid->IsWalkable(grid->WorldToCell({ 2.0f, 3.0f })));
+    // Inactive: the cells come back; active again: carved again.
+    door.SetActive(false);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(grid->CountCarved() == 0 && !obstacle.IsCarving());
+    door.SetActive(true);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(grid->CountCarved() > 0);
+    // The grid baked again: the obstacle carves the new one.
+    scene->BakeNavGrid(nav);
+    CHECK(grid->CountCarved() == 0);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(grid->CountCarved() == obstacle.GetCarvedCellCount() && grid->CountCarved() > 0);
+    // Removing the component (or destroying the entity) gives the cells back.
+    door.RemoveComponent<NavObstacleComponent>();
+    CHECK(grid->CountCarved() == 0);
+
+    // Only while standing still: a moving crate carves nothing until it has stood for StationaryTime.
+    Entity crate = scene->CreateEntity("Crate");
+    auto& still = crate.AddComponent<NavObstacleComponent>();
+    still.Shape = NavObstacleComponent::ShapeType::Circle;
+    still.Radius = 0.5f;
+    still.CarveOnlyStationary = true;
+    still.StationaryTime = 0.25f;
+    for (int i = 0; i < 30; i++)
+    {
+        crate.GetTransform().Translation = { -4.0f + 0.05f * (float)i, 2.0f, 0.0f };
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+        CHECK(grid->CountCarved() == 0);
+    }
+    for (int i = 0; i < 20; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(still.IsCarving() && !grid->IsWalkable(grid->WorldToCell({ -2.55f, 2.0f })));
+    scene->DestroyEntity(crate);
+    CHECK(grid->CountCarved() == 0);
+    scene->OnRuntimeStop();
+}
+
+TEST(NavObstacle3DOnFloor)
+{
+    // A cylinder on the floor of a NavGrid 3D carves its cells; lifted above the agents' heads it does not.
+    auto scene = CreateRef<Scene>();
+    Entity floor = scene->CreateEntity("Floor");
+    floor.GetTransform().Translation = { 0.0f, -0.5f, 0.0f };
+    floor.GetTransform().Scale = { 12.0f, 1.0f, 12.0f };
+    floor.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+    floor.AddComponent<BoxCollider3DComponent>();
+    Entity nav = scene->CreateEntity("Nav3D");
+    nav.AddComponent<NavGrid3DComponent>().Size = { 12.0f, 4.0f, 12.0f };
+    Entity barrel = scene->CreateEntity("Barrel");
+    auto& obstacle = barrel.AddComponent<NavObstacleComponent>();
+    obstacle.Shape = NavObstacleComponent::ShapeType::Circle;
+    obstacle.Radius = 0.5f;
+    obstacle.Size.y = 1.0f;
+    barrel.GetTransform().Translation = { 2.0f, 0.5f, 1.0f };
+    scene->OnRuntimeStart();
+    const NavGrid* grid = scene->GetNavGrid(nav, 3);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(grid && obstacle.IsCarving() && !grid->IsWalkable(grid->WorldToCell({ 2.0f, 1.0f })) && grid->IsWalkable(grid->WorldToCell({ -2.0f, 1.0f })));
+    barrel.GetTransform().Translation.y = 4.0f;
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(grid->CountCarved() == 0 && grid->IsWalkable(grid->WorldToCell({ 2.0f, 1.0f })));
+    scene->OnRuntimeStop();
+}
+
+// ------------------------------------------------------------------ M20: steering (387)
+TEST(SteeringBehaviours)
+{
+    using namespace Steering;
+    const glm::vec2 p(0.0f), v(0.0f);
+    // Seek / Flee: full speed towards / away; nothing beyond the panic distance.
+    CHECK(glm::length(Seek<2>(p, v, { 3.0f, 4.0f }, 2.0f) - glm::vec2(1.2f, 1.6f)) < 1e-5f);
+    CHECK(glm::length(Seek<2>(p, { 2.0f, 0.0f }, { 10.0f, 0.0f }, 2.0f)) < 1e-6f); // already going there
+    CHECK(glm::length(Flee<2>(p, v, { 1.0f, 0.0f }, 3.0f) - glm::vec2(-3.0f, 0.0f)) < 1e-5f);
+    CHECK(glm::length(Flee<2>(p, v, { 5.0f, 0.0f }, 3.0f, 4.0f)) == 0.0f);
+    // Arrive: full speed far away, slower inside the slowing radius, braking at the target.
+    CHECK_NEAR(glm::length(Arrive<2>(p, v, { 10.0f, 0.0f }, 4.0f, 2.0f)), 4.0f, 1e-5f);
+    CHECK_NEAR(glm::length(Arrive<2>(p, v, { 1.0f, 0.0f }, 4.0f, 2.0f)), 2.0f, 1e-5f);
+    CHECK(glm::length(Arrive<2>(p, { 1.0f, 1.0f }, { 0.0f, 0.0f }, 4.0f, 2.0f) + glm::vec2(1.0f, 1.0f)) < 1e-6f);
+    // Pursue leads a moving target; Evade runs from where it will be.
+    const glm::vec2 lead = Pursue<2>(p, v, { 4.0f, 0.0f }, { 0.0f, 4.0f }, 4.0f, 2.0f);
+    CHECK(lead.y > 0.5f && lead.x > 0.0f);
+    const glm::vec2 away = Evade<2>(p, v, { 4.0f, 0.0f }, { 0.0f, 4.0f }, 4.0f, 2.0f);
+    CHECK(away.x < 0.0f && away.y < 0.0f && glm::length(Evade<2>(p, v, { 40.0f, 0.0f }, glm::vec2(0.0f), 4.0f, 1.0f, 10.0f)) == 0.0f);
+    // 3D works the same.
+    CHECK(glm::length(Seek<3>(glm::vec3(0.0f), glm::vec3(0.0f), { 0.0f, 0.0f, -5.0f }, 1.0f) - glm::vec3(0.0f, 0.0f, -1.0f)) < 1e-6f);
+
+    // Wander: the same seed walks the same way, another seed another; 3D stays on the ground plane.
+    auto walk = [](uint64_t seed) {
+        WanderState2D state(seed);
+        glm::vec2 position(0.0f), velocity(1.0f, 0.0f);
+        for (int i = 0; i < 200; i++)
+            Integrate<2>(position, velocity, Wander<2>(state, position, velocity, 2.0f, 1.0f / 30.0f), 8.0f, 2.0f, 1.0f / 30.0f);
+        return position;
+    };
+    CHECK(walk(7) == walk(7) && glm::length(walk(7) - walk(8)) > 1e-3f);
+    WanderState3D state3(3);
+    glm::vec3 position3(0.0f), velocity3(0.0f, 0.0f, -1.0f);
+    for (int i = 0; i < 60; i++)
+    {
+        const glm::vec3 force = Wander<3>(state3, position3, velocity3, 2.0f, 1.0f / 30.0f);
+        CHECK(force.y == 0.0f);
+        Integrate<3>(position3, velocity3, force, 8.0f, 2.0f, 1.0f / 30.0f);
+        CHECK_NEAR(glm::length(state3.Target), WanderSettings().Radius, 1e-4f);
+    }
+    CHECK(position3.y == 0.0f && glm::length(velocity3) <= 2.0f + 1e-5f);
+
+    // Groups: pushed away from near neighbours (the nearer the harder), towards their heading and centre.
+    const std::vector<glm::vec2> neighbours = { { 1.0f, 0.0f }, { 0.0f, 3.0f } };
+    const glm::vec2 apart = Separation<2>(p, neighbours, 2.0f, 4.0f);
+    CHECK(apart.x < -1.0f && apart.y == 0.0f); // the far one (3 > 2) does not count
+    CHECK(glm::length(Separation<2>(p, std::span<const glm::vec2>(), 2.0f, 4.0f)) == 0.0f);
+    const std::vector<glm::vec2> headings = { { 2.0f, 0.0f }, { 0.0f, 2.0f } };
+    CHECK(glm::length(Alignment<2>(v, headings) - glm::vec2(1.0f, 1.0f)) < 1e-6f);
+    const glm::vec2 together = Cohesion<2>(p, v, neighbours, 4.0f, 1.0f);
+    CHECK(together.x > 0.0f && together.y > 0.0f);
+
+    // Blending within a budget; integration within the speed limit.
+    // (Buckland: what is left of the budget is maxForce minus the total's length so far.)
+    glm::vec2 total(0.0f);
+    CHECK(Accumulate<2>(total, { 3.0f, 0.0f }, 5.0f) && !Accumulate<2>(total, { 0.0f, 4.0f }, 5.0f));
+    CHECK(glm::length(total - glm::vec2(3.0f, 2.0f)) < 1e-5f);
+    for (int i = 0; i < 20; i++)
+        Accumulate<2>(total, { 10.0f, 0.0f }, 5.0f);
+    CHECK(glm::length(total) <= 5.0f + 1e-4f && glm::length(total) > 4.9f && !Accumulate<2>(total, { 1.0f, 0.0f }, glm::length(total)));
+    glm::vec2 pos(0.0f), vel(0.0f);
+    for (int i = 0; i < 100; i++)
+        Integrate<2>(pos, vel, Seek<2>(pos, vel, { 100.0f, 0.0f }, 3.0f), 6.0f, 3.0f, 0.05f);
+    CHECK(glm::length(vel) <= 3.0f + 1e-5f && pos.x > 10.0f && std::abs(pos.y) < 1e-5f);
+    CHECK(glm::length(Truncate<2>({ 3.0f, 4.0f }, 1.0f)) == 1.0f || std::abs(glm::length(Truncate<2>({ 3.0f, 4.0f }, 1.0f)) - 1.0f) < 1e-6f);
+}
+
+// ------------------------------------------------------------------ M20: obstacle avoidance (388)
+TEST(SteeringFeelers)
+{
+    using namespace Steering;
+    auto feelers = MakeFeelers({ 2.0f, 0.0f }, 2.0f, glm::radians(30.0f));
+    CHECK(feelers[0].Direction == glm::vec2(1.0f, 0.0f) && feelers[0].Length == 2.0f && feelers[1].Length == 1.5f);
+    CHECK(feelers[1].Direction.y > 0.4f && feelers[2].Direction.y < -0.4f); // left = counter-clockwise
+    CHECK(glm::length(AvoidObstacles({ 1.0f, 0.0f }, feelers, 3.0f)) == 0.0f);
+    // Head on, the right side blocked a little: it turns left and brakes.
+    feelers[0].Hit = true;
+    feelers[0].Distance = 0.5f;
+    feelers[0].Normal = { -1.0f, 0.0f };
+    feelers[2].Hit = true;
+    feelers[2].Distance = 1.2f;
+    feelers[2].Normal = { -0.7f, 0.7f };
+    const glm::vec2 push = AvoidObstacles({ 1.0f, 0.0f }, feelers, 3.0f);
+    CHECK(push.y > 0.5f && push.x < 0.0f && glm::length(push) <= 3.0f + 1e-5f);
+    // Only the left feeler touches something: pushed to the right, gently.
+    auto side = MakeFeelers({ 1.0f, 0.0f }, 2.0f, glm::radians(30.0f));
+    side[1].Hit = true;
+    side[1].Distance = 1.4f;
+    side[1].Normal = { 0.0f, -1.0f };
+    const glm::vec2 right = AvoidObstacles({ 1.0f, 0.0f }, side, 3.0f);
+    CHECK(right.y < 0.0f && std::abs(right.x) < 1e-5f && glm::length(right) < 3.0f);
+    // Head on with the obstacle's centre known: away from it (the short way round), and that side is
+    // kept while the caller keeps `side` (no dithering when the centre seems to move across).
+    auto ahead = MakeFeelers({ 1.0f, 0.0f }, 2.0f, glm::radians(30.0f));
+    ahead[0].Hit = true;
+    ahead[0].Distance = 1.0f;
+    ahead[0].Normal = { -1.0f, 0.0f };
+    ahead[0].HasCenter = true;
+    ahead[0].CenterOffset = { 1.5f, 0.3f }; // a little to the left
+    int way = 0;
+    CHECK(AvoidObstacles({ 1.0f, 0.0f }, ahead, 3.0f, &way).y < 0.0f && way == -1);
+    ahead[0].CenterOffset = { 1.5f, -0.3f };
+    CHECK(AvoidObstacles({ 1.0f, 0.0f }, ahead, 3.0f, &way).y < 0.0f && way == -1);
+    way = 0;
+    CHECK(AvoidObstacles({ 1.0f, 0.0f }, ahead, 3.0f, &way).y > 0.0f && way == 1);
+}
+
+TEST(NavAgentAvoidsMovingBodies)
+{
+    // A crate (a kinematic body: not in the baked grid) stands on the agent's straight path. With its
+    // feelers the agent steers round it; without them it walks right through (moved by transform).
+    for (int mode = 0; mode < 2; mode++)
+    {
+        auto scene = CreateRef<Scene>();
+        scene->GetSettings().Gravity = { 0.0f, 0.0f };
+        Entity nav = scene->CreateEntity("Nav");
+        auto& grid = nav.AddComponent<NavGrid2DComponent>();
+        grid.AutoBounds = false;
+        grid.Size = { 20.0f, 20.0f };
+        Entity crate = scene->CreateEntity("Crate");
+        crate.GetTransform().Translation = { 0.0f, 0.15f, 0.0f };
+        crate.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Kinematic;
+        crate.AddComponent<BoxCollider2DComponent>().Size = { 0.6f, 0.6f };
+        Entity walker = scene->CreateEntity("Walker");
+        walker.GetTransform().Translation = { -6.0f, 0.0f, 0.0f };
+        auto& agent = walker.AddComponent<NavAgentComponent>();
+        agent.Speed = 3.0f;
+        agent.Avoidance = mode == 1;
+        agent.FeelerLength = 2.0f;
+        scene->OnRuntimeStart();
+        CHECK(scene->SetNavDestination(walker, { 6.0f, 0.0f, 0.0f }) && agent.Path.size() == 2); // the crate is not in the grid
+        float nearest = 1e9f;
+        bool hit = false;
+        int frames = 0;
+        for (; frames < 900 && agent.IsMoving(); frames++)
+        {
+            scene->OnUpdateRuntime(1.0f / 60.0f);
+            nearest = std::min(nearest, glm::length(glm::vec2(scene->GetWorldPosition(walker)) - glm::vec2(0.0f, 0.15f)));
+            hit |= agent.FeelerHits != 0;
+        }
+        CHECK(frames < 900 && agent.Arrived && glm::length(glm::vec2(scene->GetWorldPosition(walker)) - glm::vec2(6.0f, 0.0f)) < 0.2f);
+        if (mode == 0)
+            CHECK(nearest < 0.3f && !hit && !agent.FeelersActive);
+        else
+            CHECK(nearest > 0.7f && hit && agent.AvoidSide == 0); // round the near side (below), the side forgotten once clear
+        scene->OnRuntimeStop();
+    }
+}
+
+// ------------------------------------------------------------------ M20: AI state machine (389)
+namespace {
+    struct GuardState : AIState
+    {
+        std::vector<std::string>* Log = nullptr;
+        int Updates = 0;
+        explicit GuardState(std::vector<std::string>* log) : Log(log) {}
+        void OnEnter() override { Log->push_back("enter " + GetName()); }
+        void OnUpdate(float) override { Updates++; }
+        void OnExit() override { Log->push_back("exit " + GetName()); }
+    };
+}
+
+TEST(AIStateMachineTransitions)
+{
+    std::vector<std::string> log;
+    bool seen = false, dead = false;
+    int patrolUpdates = 0;
+    StateMachine ai("Qorovul");
+    ai.AddState("Patrol", [&] { log.push_back("enter Patrol"); }, [&](float) { patrolUpdates++; }, [&] { log.push_back("exit Patrol"); })
+        .AddState("Chase", [&] { log.push_back("enter Chase"); }, {}, [&] { log.push_back("exit Chase"); })
+        .AddState("Search", [&] { log.push_back("enter Search"); })
+        .AddState("Dead", [&] { log.push_back("enter Dead"); })
+        .AddTransition("Patrol", "Chase", [&] { return seen; })
+        .AddTransition("Chase", "Search", [&] { return !seen; })
+        .AddTransition("Search", "Chase", [&] { return seen; })
+        .AddTimedTransition("Search", "Patrol", 1.0f)
+        .AddAnyTransition("Dead", [&] { return dead; })
+        .AddEventTransition("Patrol", "Search", "noise")
+        .AddEventTransition("", "Patrol", "reset");
+    CHECK(!ai.IsRunning() && ai.GetCurrentStateName().empty() && ai.Describe() == "(to'xtagan)");
+    CHECK(!ai.Start("Nope") && ai.Start());
+    CHECK(ai.IsInState("Patrol") && log == std::vector<std::string>({ "enter Patrol" }));
+    ai.Update(0.1f);
+    CHECK(patrolUpdates == 1 && ai.IsInState("Patrol"));
+    seen = true;
+    ai.Update(0.1f);
+    CHECK(ai.IsInState("Chase") && ai.GetPreviousStateName() == "Patrol" && ai.GetTimeInState() == 0.0f && patrolUpdates == 1);
+    seen = false;
+    ai.Update(0.1f);
+    CHECK(ai.IsInState("Search"));
+    // The timed transition: after a second in Search.
+    for (int i = 0; i < 9; i++)
+        ai.Update(0.1f);
+    CHECK(ai.IsInState("Search") && ai.GetTimeInState() > 0.85f);
+    ai.Update(0.11f);
+    ai.Update(0.01f);
+    CHECK(ai.IsInState("Patrol"));
+    // Events: only from their state (or any).
+    CHECK(!ai.SendEvent("unknown") && ai.SendEvent("noise") && ai.IsInState("Search"));
+    CHECK(!ai.SendEvent("noise") && ai.SendEvent("reset") && ai.IsInState("Patrol"));
+    // "Any state" transitions come first and do not re-enter their own state.
+    dead = true;
+    seen = true;
+    ai.Update(0.1f);
+    CHECK(ai.IsInState("Dead"));
+    const uint32_t transitions = ai.GetTransitionCount();
+    ai.Update(0.1f);
+    CHECK(ai.IsInState("Dead") && ai.GetTransitionCount() == transitions);
+    CHECK(ai.GetHistory().back().From == "Patrol" && ai.GetHistory().back().To == "Dead" && ai.GetHistory().back().Reason == "condition");
+    CHECK(ai.Describe().starts_with("Dead (") && ai.GetStateCount() == 4 && ai.HasState("Search") && !ai.HasState("Nope"));
+    // The order of the callbacks: the old state exits before the new one enters.
+    const std::vector<std::string> expected = { "enter Patrol", "exit Patrol", "enter Chase", "exit Chase", "enter Search", "enter Patrol",
+                                                "exit Patrol", "enter Search", "enter Patrol", "exit Patrol", "enter Dead" };
+    CHECK(log == expected);
+    ai.Stop();
+    CHECK(!ai.IsRunning() && !ai.ChangeState("Nope") && ai.ChangeState("Chase") && ai.IsInState("Chase"));
+
+    // Class states, switching from inside a callback (after it returns), chains, self transitions.
+    std::vector<std::string> classLog;
+    StateMachine fsm;
+    auto& idle = fsm.AddState<GuardState>("Idle", &classLog);
+    auto& alert = fsm.AddState<GuardState>("Alert", &classLog);
+    fsm.AddState("Bounce", [&] { classLog.push_back("enter Bounce"); fsm.ChangeState("Alert"); classLog.push_back("after ChangeState"); });
+    fsm.AddTimedTransition("Alert", "Alert", 0.5f);
+    CHECK(fsm.GetStateObject("Idle") == &idle && fsm.GetStateObject("Bounce") == nullptr && idle.GetMachine() == &fsm);
+    CHECK(fsm.Start("Idle") && classLog.back() == "enter Idle");
+    fsm.Update(0.25f);
+    CHECK(idle.Updates == 1 && idle.GetTimeInState() == 0.25f && alert.GetTimeInState() == 0.0f);
+    fsm.ChangeState("Bounce");
+    CHECK(fsm.IsInState("Alert"));
+    const std::vector<std::string> chain = { "enter Idle", "exit Idle", "enter Bounce", "after ChangeState", "enter Alert" };
+    CHECK(classLog == chain);
+    fsm.Update(0.6f); // the timed self transition re-enters Alert
+    CHECK(fsm.IsInState("Alert") && classLog.back() == "enter Alert" && classLog[classLog.size() - 2] == "exit Alert" && alert.Updates == 1);
+    // Two states that send each other back cannot hang it.
+    StateMachine loop;
+    loop.AddState("A", [&] { loop.ChangeState("B"); }).AddState("B", [&] { loop.ChangeState("A"); });
+    CHECK(loop.Start("A") && loop.IsRunning() && loop.GetTransitionCount() <= 8);
+}
+
+// ------------------------------------------------------------------ M20: sight (390)
+TEST(SightConeMath)
+{
+    SightCone cone;
+    cone.Eye = { 0.0f, 0.0f, 0.0f };
+    cone.Forward = { 0.0f, 0.0f, -1.0f };
+    cone.Distance = 10.0f;
+    cone.FieldOfView = 90.0f;
+    cone.NearDistance = 1.0f;
+    CHECK(Sight::InView(cone, { 0.0f, 0.0f, -5.0f }) && Sight::InView(cone, { 4.9f, 0.0f, -5.0f }) && !Sight::InView(cone, { 5.2f, 0.0f, -5.0f }));
+    CHECK(!Sight::InView(cone, { 0.0f, 0.0f, -10.5f }) && !Sight::InView(cone, { 0.0f, 0.0f, 5.0f }) && Sight::InView(cone, { 0.0f, 0.0f, 0.9f }));
+    CHECK_NEAR(Sight::AngleTo(cone, { 1.0f, 0.0f, 0.0f }), 90.0f, 1e-3f);
+    cone.FieldOfView = 360.0f;
+    CHECK(Sight::InView(cone, { 0.0f, 0.0f, 5.0f }));
+    // A box's points: centre, top / bottom, the two sides as the eye sees them; a flat 2D box gives 3.
+    std::vector<glm::vec3> points;
+    Sight::GetTargetPoints({ -1.0f, 0.0f, -6.0f }, { 1.0f, 2.0f, -4.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, points);
+    CHECK(points.size() == 5 && points[0] == glm::vec3(0.0f, 1.0f, -5.0f) && std::abs(points[1].y - 1.8f) < 1e-5f);
+    CHECK(std::abs(std::abs(points[3].x) - 0.8f) < 1e-5f && std::abs(points[3].z + 5.0f) < 1e-5f);
+    Sight::GetTargetPoints({ 4.0f, -1.0f, 0.0f }, { 6.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, points);
+    CHECK(points.size() == 3 && std::abs(std::abs(points[1].y) - 0.8f) < 1e-5f && std::abs(points[1].x - 5.0f) < 1e-5f);
+    cone.FieldOfView = 60.0f;
+    std::vector<glm::vec3> arc;
+    Sight::GetConeArc(cone, { 0.0f, 1.0f, 0.0f }, 4, arc);
+    CHECK(arc.size() == 5 && std::abs(glm::length(arc[2] - cone.Eye) - 10.0f) < 1e-4f && std::abs(arc[2].x) < 1e-5f);
+    CHECK_NEAR(Sight::AngleTo(cone, arc[0]), 30.0f, 1e-3f);
+}
+
+TEST(SightSensor2DWithWalls)
+{
+    auto scene = CreateRef<Scene>();
+    scene->GetSettings().Gravity = { 0.0f, 0.0f };
+    Entity guard = scene->CreateEntity("Guard");
+    guard.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Kinematic;
+    guard.AddComponent<CircleCollider2DComponent>().Radius = 0.3f;
+    auto& eyes = guard.AddComponent<SightSensorComponent>();
+    eyes.FieldOfView = 90.0f;
+    eyes.NearDistance = 1.0f;
+    eyes.CheckInterval = 0.0f;
+    eyes.MemoryTime = 0.5f;
+    Entity wall = scene->CreateEntity("Wall");
+    wall.GetTransform().Translation = { 2.5f, 0.0f, 0.0f };
+    wall.AddComponent<Rigidbody2DComponent>();
+    wall.AddComponent<BoxCollider2DComponent>().Size = { 0.2f, 1.5f };
+    Entity player = scene->CreateEntity("Player");
+    player.AddTag("Player");
+    player.GetTransform().Translation = { 5.0f, 0.0f, 0.0f };
+    player.AddComponent<Rigidbody2DComponent>().Type = Rigidbody2DComponent::BodyType::Kinematic;
+    player.AddComponent<BoxCollider2DComponent>().Size = { 0.3f, 0.3f };
+    int spotted = 0, lost = 0;
+    scene->GetEventBus().Subscribe("TargetSpotted", [&](const ScriptMessage& m) { spotted += m.Get<Entity>() == player ? 1 : 0; });
+    scene->GetEventBus().Subscribe("TargetLost", [&](const ScriptMessage&) { lost++; });
+    scene->OnRuntimeStart();
+    CHECK(scene->GetSightDimension(guard) == 2);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!eyes.CanSee && !scene->CanSee(guard, player) && eyes.Checks == 1); // behind the wall
+    player.GetTransform().Translation = { 5.0f, 3.5f, 0.0f };
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(eyes.CanSee && eyes.SeenTarget == player.GetUUID() && spotted == 1 && eyes.VisibleCount == 1);
+    CHECK(glm::length(eyes.LastSeenPosition - glm::vec3(5.0f, 3.5f, 0.0f)) < 1e-3f);
+    // Out of the cone (turned away): lost, remembered for a while.
+    guard.GetTransform().Rotation.z = glm::radians(180.0f);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!eyes.CanSee && lost == 1 && eyes.RemembersTarget() && eyes.SeenTarget == 0);
+    for (int i = 0; i < 40; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!eyes.RemembersTarget() && eyes.HasSeen && eyes.TimeSinceSeen > 0.5f);
+    // Right beside it, behind its back: noticed (NearDistance).
+    player.GetTransform().Translation = { 0.7f, 0.0f, 0.0f };
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(eyes.CanSee && spotted == 2);
+    // A specific Target instead of the tag; an untagged entity is not looked for.
+    Entity other = scene->CreateEntity("Other");
+    other.GetTransform().Translation = { -4.0f, 0.0f, 0.0f };
+    player.GetTransform().Translation = { 20.0f, 0.0f, 0.0f };
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!eyes.CanSee && scene->CanSee(guard, other));
+    eyes.Target.ID = (uint64_t)other.GetUUID();
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(eyes.CanSee && eyes.SeenTarget == other.GetUUID());
+    // The blocking layers: a mask without the wall's layer looks through it.
+    eyes.Target = {};
+    guard.GetTransform().Rotation.z = 0.0f;
+    player.GetTransform().Translation = { 5.0f, 0.0f, 0.0f };
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!eyes.CanSee);
+    eyes.BlockingMask = 0x0002;
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(eyes.CanSee);
+    scene->OnRuntimeStop();
+}
+
+TEST(SightSensor3DWithWalls)
+{
+    auto scene = CreateRef<Scene>();
+    auto addBox = [&](const char* name, const glm::vec3& position, const glm::vec3& size) {
+        Entity e = scene->CreateEntity(name);
+        e.GetTransform().Translation = position;
+        e.GetTransform().Scale = size;
+        e.AddComponent<Rigidbody3DComponent>().Type = Rigidbody3DComponent::BodyType::Static;
+        e.AddComponent<BoxCollider3DComponent>();
+        return e;
+    };
+    addBox("Floor", { 0.0f, -0.5f, 0.0f }, { 30.0f, 1.0f, 30.0f });
+    addBox("Wall", { 0.0f, 1.5f, -3.0f }, { 2.0f, 3.0f, 0.3f });
+    Entity guard = scene->CreateEntity("Guard");
+    guard.AddComponent<CharacterController3DComponent>();
+    auto& eyes = guard.AddComponent<SightSensorComponent>();
+    eyes.CheckInterval = 0.0f;
+    Entity player = scene->CreateEntity("Player");
+    player.AddTag("Player");
+    player.GetTransform().Translation = { 0.0f, 0.0f, -6.0f };
+    player.AddComponent<CharacterController3DComponent>();
+    scene->OnRuntimeStart();
+    CHECK(scene->GetSightDimension(guard) == 3);
+    SightCone cone;
+    CHECK(scene->GetSightCone(guard, cone) && std::abs(cone.Eye.y - 1.6f) < 1e-4f && cone.Forward.z < -0.99f);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!eyes.CanSee); // the wall is in the way
+    player.GetTransform().Translation = { 4.0f, 0.0f, -6.0f };
+    for (int i = 0; i < 3; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    glm::vec3 point(0.0f);
+    CHECK(eyes.CanSee && scene->CanSee(guard, player, &point) && point.x > 3.0f);
+    // Behind it: not seen; turned round: seen.
+    player.GetTransform().Translation = { 0.0f, 0.0f, 6.0f };
+    for (int i = 0; i < 3; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!eyes.CanSee);
+    guard.GetTransform().Rotation.y = glm::radians(180.0f);
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(eyes.CanSee);
+    // Too far.
+    player.GetTransform().Translation = { 0.0f, 0.0f, 14.0f };
+    for (int i = 0; i < 3; i++)
+        scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(!eyes.CanSee);
+    scene->OnRuntimeStop();
+}
+
+class SightProbe : public ScriptableEntity
+{
+public:
+    StateMachine AI{ "Qorovul" };
+    int Spotted = 0, Lost = 0;
+    void OnCreate() override
+    {
+        AI.AddState("Patrol").AddState("Chase").AddEventTransition("Patrol", "Chase", "spotted").AddEventTransition("Chase", "Patrol", "lost");
+        AI.Start();
+        WatchStateMachine(AI);
+        WatchStateMachine(AI);
+    }
+    void OnTargetSpotted(Entity) override { Spotted++; AI.SendEvent("spotted"); }
+    void OnTargetLost(Entity) override { Lost++; AI.SendEvent("lost"); }
+};
+ZM_REGISTER_SCRIPT(SightProbe)
+
+TEST(SightScriptCallbacksAndAIComponentsSerialization)
+{
+    auto scene = CreateRef<Scene>();
+    Entity guard = scene->CreateEntity("Guard");
+    auto& eyes = guard.AddComponent<SightSensorComponent>();
+    eyes.CheckInterval = 0.0f;
+    eyes.EyeHeight = 0.0f;
+    guard.AddComponent<NativeScriptComponent>().ClassName = "SightProbe";
+    Entity player = scene->CreateEntity("Player");
+    player.AddTag("Player");
+    player.GetTransform().Translation = { 0.0f, 0.0f, -4.0f };
+    scene->OnRuntimeStart();
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    auto* probe = dynamic_cast<SightProbe*>(guard.GetComponent<NativeScriptComponent>().Instance);
+    CHECK(probe && probe->Spotted == 1 && probe->AI.IsInState("Chase") && probe->GetWatchedStateMachines().size() == 1);
+    CHECK(probe && probe->CanSeeTarget() && probe->GetSeenTarget() == player && probe->CanSee(player) && probe->RemembersTarget());
+    player.GetTransform().Translation = { 0.0f, 0.0f, 4.0f };
+    scene->OnUpdateRuntime(1.0f / 60.0f);
+    CHECK(probe && probe->Lost == 1 && probe->AI.IsInState("Patrol") && !probe->CanSeeTarget());
+    CHECK(probe && glm::length(probe->GetLastSeenPosition() - glm::vec3(0.0f, 0.0f, -4.0f)) < 1e-4f);
+    if (probe)
+        probe->UnwatchStateMachine(probe->AI);
+    CHECK(probe && probe->GetWatchedStateMachines().empty());
+    scene->OnRuntimeStop();
+
+    // Saving / loading the new components and the agent's avoidance settings.
+    auto source = CreateRef<Scene>();
+    Entity grid = source->CreateEntity("Grid");
+    grid.AddComponent<NavGrid2DComponent>();
+    Entity group = source->CreateEntity("Group");
+    Entity door = source->CreateEntity("Door");
+    source->SetParent(door, group);
+    auto& o = door.AddComponent<NavObstacleComponent>();
+    o.Shape = NavObstacleComponent::ShapeType::Circle;
+    o.Center = { 0.5f, 1.0f, -0.5f };
+    o.Size = { 2.0f, 3.0f, 4.0f };
+    o.Radius = 1.25f;
+    o.Grid.ID = (uint64_t)grid.GetUUID();
+    o.MoveThreshold = 0.3f;
+    o.CarveOnlyStationary = true;
+    o.StationaryTime = 1.5f;
+    auto& s = door.AddComponent<SightSensorComponent>();
+    s.ViewDistance = 15.0f;
+    s.FieldOfView = 75.0f;
+    s.NearDistance = 2.0f;
+    s.EyeHeight = 1.2f;
+    s.Target.ID = (uint64_t)group.GetUUID();
+    s.TargetTag = "Dushman";
+    s.BlockingMask = 0x0011;
+    s.CheckInterval = 0.25f;
+    s.MemoryTime = 6.0f;
+    auto& a = door.AddComponent<NavAgentComponent>();
+    a.Avoidance = true;
+    a.FeelerLength = 3.0f;
+    a.FeelerAngle = 20.0f;
+    a.FeelerHeight = 0.8f;
+    a.AvoidanceWeight = 1.5f;
+    a.AvoidanceMask = 0x0006;
+    a.AvoidStatic = true;
+    s.CanSee = true; // runtime: not saved
+    o.CarveCount = 3;
+    auto loaded = CreateRef<Scene>();
+    CHECK(SceneSerializer(loaded).DeserializeFromString(SceneSerializer(source).SerializeToString()));
+    Entity ld = loaded->FindEntityByName("Door");
+    CHECK(ld && ld.HasComponent<NavObstacleComponent>() && ld.HasComponent<SightSensorComponent>());
+    if (!ld)
+        return;
+    const auto& lo = ld.GetComponent<NavObstacleComponent>();
+    CHECK(lo.Shape == NavObstacleComponent::ShapeType::Circle && lo.Center == o.Center && lo.Size == o.Size && lo.Radius == 1.25f);
+    CHECK(lo.Grid == o.Grid && lo.MoveThreshold == 0.3f && lo.CarveOnlyStationary && lo.StationaryTime == 1.5f && lo.CarveCount == 0);
+    const auto& ls = ld.GetComponent<SightSensorComponent>();
+    CHECK(ls.ViewDistance == 15.0f && ls.FieldOfView == 75.0f && ls.NearDistance == 2.0f && ls.EyeHeight == 1.2f && ls.Target == s.Target);
+    CHECK(ls.TargetTag == "Dushman" && ls.BlockingMask == 0x0011 && ls.CheckInterval == 0.25f && ls.MemoryTime == 6.0f && !ls.CanSee);
+    const auto& la = ld.GetComponent<NavAgentComponent>();
+    CHECK(la.Avoidance && la.FeelerLength == 3.0f && la.FeelerAngle == 20.0f && la.FeelerHeight == 0.8f && la.AvoidanceWeight == 1.5f);
+    CHECK(la.AvoidanceMask == 0x0006 && la.AvoidStatic);
+    // Defaults stay defaults (no avoidance block written for an agent without it).
+    auto plain = CreateRef<Scene>();
+    Entity p = plain->CreateEntity("P");
+    p.AddComponent<NavAgentComponent>();
+    p.AddComponent<NavObstacleComponent>();
+    p.AddComponent<SightSensorComponent>();
+    const std::string plainText = SceneSerializer(plain).SerializeToString();
+    CHECK(plainText.find("Avoidance") == std::string::npos);
+    auto again = CreateRef<Scene>();
+    CHECK(SceneSerializer(again).DeserializeFromString(plainText));
+    Entity pa = again->FindEntityByName("P");
+    CHECK(pa && !pa.GetComponent<NavAgentComponent>().Avoidance && pa.GetComponent<SightSensorComponent>().TargetTag == "Player");
+    CHECK(pa && pa.GetComponent<NavObstacleComponent>().Shape == NavObstacleComponent::ShapeType::Box && pa.GetComponent<NavObstacleComponent>().Size == glm::vec3(1.0f));
+    // Copies: runtime state cleared; references inside a duplicated group follow it.
+    Ref<Scene> copy = Scene::Copy(source);
+    Entity cd = copy->FindEntityByName("Door");
+    CHECK(cd && !cd.GetComponent<SightSensorComponent>().CanSee && cd.GetComponent<NavObstacleComponent>().CarveCount == 0);
+    Entity dup = source->DuplicateEntity(group);
+    Entity dupDoor = dup ? source->GetEntityByUUID(dup.GetComponent<RelationshipComponent>().Children.front()) : Entity();
+    CHECK(dupDoor && dupDoor.GetComponent<SightSensorComponent>().Target.ID == (uint64_t)dup.GetUUID());
+    CHECK(dupDoor && dupDoor.GetComponent<NavObstacleComponent>().Grid == o.Grid); // outside the group: unchanged
+    CHECK(ComponentRegistry::Find("NavObstacle") && ComponentRegistry::Find("SightSensor"));
 }

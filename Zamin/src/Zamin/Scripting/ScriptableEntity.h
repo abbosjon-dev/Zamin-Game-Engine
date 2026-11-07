@@ -31,6 +31,7 @@
 namespace Zamin {
 
     struct SoundParams;
+    class StateMachine;
 
     // A 2D joint of the script's entity that broke (BreakForce / BreakTorque exceeded): it is gone
     // for good (its component's Broken flag is set; clearing it makes the joint again).
@@ -188,6 +189,13 @@ namespace Zamin {
         // scene's event bus as "ParticlesFinished" (sender: the entity, no payload).
         //   void OnParticlesFinished() override { Destroy(); }
         virtual void OnParticlesFinished() {}
+        // This entity's Sight Sensor saw a target it did not see at its last check (the nearest one
+        // it sees now) / no longer sees the one it saw (`target` invalid when that one was destroyed).
+        // After the physics step; also on the event bus as "TargetSpotted" / "TargetLost" (payload:
+        // the target Entity, sender: this entity).
+        //   void OnTargetSpotted(Entity target) override { m_AI.SendEvent("spotted"); }
+        virtual void OnTargetSpotted(Entity /*target*/) {}
+        virtual void OnTargetLost(Entity /*target*/) {}
         // Called for every message sent to this entity (SendMessage, Broadcast ...),
         // after the handlers registered with AddMessageHandler for that name.
         virtual void OnMessage(const ScriptMessage& /*message*/) {}
@@ -503,6 +511,24 @@ namespace Zamin {
         std::vector<glm::vec3> FindPath(const glm::vec3& from, const glm::vec3& to) const;
         // Whether one could walk straight between the points (no blocked cell in between).
         bool HasNavLineOfSight(const glm::vec3& from, const glm::vec3& to) const;
+
+        // ---- sight (Sight Sensor on this entity; AI/Sight.h)
+        // Whether this entity sees `target` now (its Sight Sensor's cone and blocking layers, the
+        // defaults without one; physics rays: nothing blocks outside play).
+        bool CanSee(Entity target) const;
+        // The sensor's last check: it sees a target / which one (the nearest) / where it last saw one
+        // / it saw one less than MemoryTime ago.
+        bool CanSeeTarget() const;
+        Entity GetSeenTarget() const;
+        glm::vec3 GetLastSeenPosition() const;
+        bool RemembersTarget() const;
+
+        // ---- AI state machines (AI/StateMachine.h)
+        // The inspector shows the machine's state while playing (C++ Skript > AI). The machine must
+        // live as long as the script (a member) or be unwatched first.
+        void WatchStateMachine(const StateMachine& machine);
+        void UnwatchStateMachine(const StateMachine& machine);
+        const std::vector<const StateMachine*>& GetWatchedStateMachines() const { return m_WatchedMachines; }
 
         // ---- viewport / mouse (pixels, origin top-left of the game view)
         glm::vec2 GetMousePosition() const;
@@ -913,6 +939,8 @@ namespace Zamin {
         bool IsActiveForUpdate() const { return m_EnabledState && m_Started && !m_Destroying; }
         bool m_UpdateWhenPaused = false; // OnUpdate also while the game is paused (SetUpdateWhenPaused)
         bool m_TimersUnscaled = false;   // timers / tweens on real time (SetTimersUnscaled)
+
+        std::vector<const StateMachine*> m_WatchedMachines;
 
         Entity m_Entity;
         std::string m_ClassName;

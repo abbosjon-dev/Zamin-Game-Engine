@@ -404,6 +404,8 @@ namespace Zamin {
         bool DrawNavGrid2D(Entity entity, NavGrid2DComponent& c);
         bool DrawNavGrid3D(Entity entity, NavGrid3DComponent& c);
         bool DrawNavAgent(Entity entity, NavAgentComponent& c);
+        bool DrawNavObstacle(Entity entity, NavObstacleComponent& c);
+        bool DrawSightSensor(Entity entity, SightSensorComponent& c);
         // 2D joints: the connected body (with what keeps the joint from being made), the anchors and
         // the break limits; the type's own settings follow in its section, then the live read-outs.
         // `type`: which joint it is (the viewport editing toggle).

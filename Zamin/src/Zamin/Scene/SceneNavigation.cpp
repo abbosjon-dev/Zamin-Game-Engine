@@ -2,10 +2,12 @@
 // queries for scripts, and the Nav Agents walking their paths.
 #include "Zamin/Scene/Scene.h"
 
+#include "Zamin/AI/NavCarving.h"
 #include "Zamin/AI/NavGrid.h"
 #include "Zamin/AI/NavGridBuilder.h"
 #include "Zamin/AI/NavPathSmoothing.h"
 #include "Zamin/AI/NavPathfinder.h"
+#include "Zamin/AI/Steering.h"
 #include "Zamin/Core/Log.h"
 #include "Zamin/Core/Profiler.h"
 #include "Zamin/Math/Math.h"
@@ -191,6 +193,174 @@ namespace Zamin {
                 from = path[i];
             }
             return path.back();
+        }
+
+        // Whether the path ahead (from the agent's position through the corners from `index` on)
+        // crosses a cell that is not walkable now. The first leg counts only when the agent stands on
+        // a walkable cell (one carved under its feet: the new path starts from the nearest free one).
+        bool PathBlocked(const NavGrid& grid, const glm::vec2& position, const std::vector<glm::vec2>& path, int index)
+        {
+            glm::vec2 from = position;
+            bool check = grid.IsWalkable(grid.WorldToCell(position));
+            for (size_t i = (size_t)std::max(index, 1); i < path.size(); i++)
+            {
+                if (check && !grid.HasLineOfSight(from, path[i]))
+                    return true;
+                from = path[i];
+                check = true;
+            }
+            return false;
+        }
+
+        // `entity` is `root` or below it in the hierarchy.
+        bool IsSelfOrBelow(Scene& scene, Entity entity, Entity root)
+        {
+            for (int steps = 0; entity && steps < 256; steps++)
+            {
+                if (entity == root)
+                    return true;
+                entity = scene.GetParent(entity);
+            }
+            return false;
+        }
+
+        // A body the grid already knows about (static colliders, tilemaps).
+        bool IsStaticBody(Entity entity, int dimension)
+        {
+            if (dimension == 3)
+            {
+                const auto* rb = entity.TryGetComponent<Rigidbody3DComponent>();
+                return rb && rb->Type == Rigidbody3DComponent::BodyType::Static;
+            }
+            if (entity.HasComponent<TilemapComponent>())
+                return true;
+            const auto* rb = entity.TryGetComponent<Rigidbody2DComponent>();
+            return rb && rb->Type == Rigidbody2DComponent::BodyType::Static;
+        }
+
+        // ---- obstacles
+        // The points of an obstacle's shape in the world: a box's 8 corners; a circle's centre, a
+        // point on its rim along local X, Z and Y, and the ends of its height (3D: along local Y).
+        void GetObstaclePoints(const NavObstacleComponent& c, const glm::mat4& world, std::vector<glm::vec3>& out)
+        {
+            out.clear();
+            auto toWorld = [&](const glm::vec3& p) { return glm::vec3(world * glm::vec4(p, 1.0f)); };
+            if (c.Shape == NavObstacleComponent::ShapeType::Box)
+            {
+                const glm::vec3 h = glm::max(c.Size, glm::vec3(0.0f)) * 0.5f;
+                for (int i = 0; i < 8; i++)
+                    out.push_back(toWorld(c.Center + glm::vec3(i & 1 ? h.x : -h.x, i & 2 ? h.y : -h.y, i & 4 ? h.z : -h.z)));
+                return;
+            }
+            const float r = std::max(0.0f, c.Radius), hh = std::max(0.0f, c.Size.y) * 0.5f;
+            out.push_back(toWorld(c.Center));
+            out.push_back(toWorld(c.Center + glm::vec3(r, 0.0f, 0.0f)));
+            out.push_back(toWorld(c.Center + glm::vec3(0.0f, 0.0f, r)));
+            out.push_back(toWorld(c.Center + glm::vec3(0.0f, r, 0.0f)));
+            out.push_back(toWorld(c.Center - glm::vec3(0.0f, hh, 0.0f)));
+            out.push_back(toWorld(c.Center + glm::vec3(0.0f, hh, 0.0f)));
+        }
+
+        // The shape's footprint on a grid's plane (2D: XY, 3D: XZ with its height span).
+        NavCarveShape MakeCarveShape(const NavObstacleComponent& c, const std::vector<glm::vec3>& points, int dimension)
+        {
+            NavCarveShape shape;
+            if (points.empty())
+                return shape;
+            if (c.Shape == NavObstacleComponent::ShapeType::Box)
+            {
+                std::vector<glm::vec2> flat;
+                flat.reserve(points.size());
+                for (const glm::vec3& p : points)
+                    flat.push_back(ToPlane(p, dimension));
+                shape.Outline = NavCarving::ConvexHull(std::move(flat));
+                if (shape.Outline.size() == 1)
+                {
+                    // A box with no size: a point.
+                    shape.Center = shape.Outline[0];
+                    shape.Outline.clear();
+                }
+            }
+            else
+            {
+                const glm::vec2 center = ToPlane(points[0], dimension);
+                shape.Center = center;
+                // 2D: the disc lies in the local XY plane; 3D: in XZ (an upright cylinder).
+                const glm::vec2 a = ToPlane(points[1], dimension) - center;
+                const glm::vec2 b = ToPlane(points[dimension == 3 ? 2 : 3], dimension) - center;
+                shape.Radius = std::max(glm::length(a), glm::length(b));
+            }
+            if (dimension == 3)
+            {
+                shape.Bottom = std::numeric_limits<float>::max();
+                shape.Top = std::numeric_limits<float>::lowest();
+                for (size_t i = c.Shape == NavObstacleComponent::ShapeType::Box ? 0 : 4; i < points.size(); i++)
+                {
+                    shape.Bottom = std::min(shape.Bottom, points[i].y);
+                    shape.Top = std::max(shape.Top, points[i].y);
+                }
+            }
+            return shape;
+        }
+
+        float MaxDisplacement(const std::vector<glm::vec3>& a, const std::vector<glm::vec3>& b)
+        {
+            if (a.size() != b.size())
+                return std::numeric_limits<float>::max();
+            float d = 0.0f;
+            for (size_t i = 0; i < a.size(); i++)
+                d = std::max(d, glm::length(a[i] - b[i]));
+            return d;
+        }
+
+        // A baked grid an obstacle may carve, with what its cells keep clear of.
+        struct CarveTarget
+        {
+            uint64_t ID = 0;
+            int Dimension = 2;
+            NavGrid* Grid = nullptr;
+            float Clearance = 0.0f, StepHeight = 0.0f, AgentHeight = 0.0f;
+        };
+
+        void CollectCarveTargets(Scene& scene, const NavObstacleComponent& c, std::vector<CarveTarget>& out)
+        {
+            out.clear();
+            auto add = [&](Entity e) {
+                if (!scene.IsActiveInHierarchy(e))
+                    return;
+                if (auto* g = e.TryGetComponent<NavGrid2DComponent>(); g && g->Baked && !g->Grid.IsEmpty())
+                    out.push_back({ (uint64_t)e.GetUUID(), 2, &g->Grid, std::isfinite(g->AgentRadius) ? g->AgentRadius : 0.0f, 0.0f, 0.0f });
+                if (auto* g = e.TryGetComponent<NavGrid3DComponent>(); g && g->Baked && !g->Grid.IsEmpty())
+                    out.push_back({ (uint64_t)e.GetUUID(), 3, &g->Grid, std::isfinite(g->AgentRadius) ? g->AgentRadius : 0.0f,
+                                    std::isfinite(g->StepHeight) ? g->StepHeight : 0.4f, std::isfinite(g->AgentHeight) ? g->AgentHeight : 1.8f });
+            };
+            if (c.Grid)
+            {
+                if (Entity e = scene.GetEntityByUUID(c.Grid.ID))
+                    add(e);
+                return;
+            }
+            std::vector<Entity> grids;
+            for (auto e : scene.GetAllEntitiesWith<NavGrid2DComponent>())
+                grids.push_back({ e, &scene });
+            for (auto e : scene.GetAllEntitiesWith<NavGrid3DComponent>())
+                if (!scene.GetRegistry().all_of<NavGrid2DComponent>(e))
+                    grids.push_back({ e, &scene });
+            for (Entity e : grids)
+                add(e);
+        }
+
+        uint64_t CarveSignature(const std::vector<CarveTarget>& targets)
+        {
+            SourceHasher h;
+            for (const CarveTarget& t : targets)
+            {
+                h.Value(t.ID);
+                h.Value(t.Dimension);
+                h.Value(t.Grid->GetSerial());
+                h.Value(t.Clearance);
+            }
+            return h.Hash;
         }
 
         void SetEntityWorldPosition(Scene& scene, Entity entity, const glm::vec3& position)
@@ -646,6 +816,7 @@ namespace Zamin {
         }
         a.PathStatus = FindPathOnGrid(*grid, dimension, *settings, GetWorldPosition(agent), a.Destination, a.SmoothPath, a.SplinePath, a.Path);
         a.GridRevision = grid->GetRevision();
+        a.CarveRevision = grid->GetCarveRevision();
         a.Remaining = NavPathSmoothing::GetLength(a.Path);
         if (a.Path.size() < 2)
         {
@@ -666,6 +837,212 @@ namespace Zamin {
             return false;
         a->SetDestination(destination);
         return ComputeNavAgentPath(agent, *a);
+    }
+
+    bool Scene::IsNavPathBlocked(Entity agent)
+    {
+        const auto* a = agent && agent.IsValid() ? agent.TryGetComponent<NavAgentComponent>() : nullptr;
+        if (!a || a->Path.size() < 2)
+            return false;
+        int dimension;
+        const NavGridPathSettings* settings;
+        const NavGrid* grid = GetBakedGrid(GetNavAgentGrid(agent), dimension, settings);
+        if (!grid)
+            return false;
+        std::vector<glm::vec2> plane;
+        plane.reserve(a->Path.size());
+        for (const glm::vec3& corner : a->Path)
+            plane.push_back(ToPlane(corner, dimension));
+        return PathBlocked(*grid, ToPlane(GetWorldPosition(agent), dimension), plane, a->PathIndex);
+    }
+
+    // ------------------------------------------------------------------ obstacles
+    void Scene::ReleaseNavObstacle(NavObstacleComponent& c)
+    {
+        for (const NavObstacleComponent::Carving& carving : c.Carvings)
+        {
+            Entity e = GetEntityByUUID(carving.Grid);
+            if (!e)
+                continue;
+            NavGrid* grid = nullptr;
+            if (carving.Dimension == 3)
+            {
+                if (auto* g = e.TryGetComponent<NavGrid3DComponent>())
+                    grid = &g->Grid;
+            }
+            else if (auto* g = e.TryGetComponent<NavGrid2DComponent>())
+                grid = &g->Grid;
+            // A grid baked again since has none of these carves.
+            if (grid && grid->GetSerial() == carving.Serial)
+                grid->Uncarve(carving.Cells);
+        }
+        c.Carvings.clear();
+        c.CarvedPoints.clear();
+        c.GridSignature = 0;
+    }
+
+    void Scene::OnNavObstacleDestroyed(entt::registry& registry, entt::entity entity)
+    {
+        if (auto* c = registry.try_get<NavObstacleComponent>(entity); c && !c->Carvings.empty())
+            ReleaseNavObstacle(*c);
+    }
+
+    void Scene::UpdateNavObstacles()
+    {
+        UpdateNavObstacles(0.0f);
+    }
+
+    void Scene::UpdateNavObstacles(float dt)
+    {
+        auto view = m_Registry.view<NavObstacleComponent>();
+        if (view.empty())
+            return;
+        ZM_PROFILE_SCOPE("Navigatsiya to'siqlari");
+        std::vector<glm::vec3> points;
+        std::vector<CarveTarget> targets;
+        std::vector<uint32_t> cells, added, removed;
+        for (auto e : view)
+        {
+            Entity entity{ e, this };
+            auto& c = m_Registry.get<NavObstacleComponent>(e);
+            if (!IsActiveInHierarchy(entity))
+            {
+                if (!c.Carvings.empty())
+                    ReleaseNavObstacle(c);
+                c.LastPoints.clear();
+                c.StillTime = 0.0f;
+                continue;
+            }
+            GetObstaclePoints(c, GetWorldTransform(entity), points);
+            // Standing still (CarveOnlyStationary): no corner moved since the last frame.
+            if (!c.LastPoints.empty() && MaxDisplacement(points, c.LastPoints) <= 1e-4f)
+                c.StillTime += std::max(0.0f, dt);
+            else if (!c.LastPoints.empty())
+                c.StillTime = 0.0f;
+            c.LastPoints = points;
+            if (c.CarveOnlyStationary && c.StillTime < std::max(0.0f, c.StationaryTime))
+            {
+                if (!c.Carvings.empty())
+                    ReleaseNavObstacle(c);
+                continue;
+            }
+
+            CollectCarveTargets(*this, c, targets);
+            const uint64_t signature = CarveSignature(targets);
+            const bool moved = c.CarvedPoints.empty() || MaxDisplacement(points, c.CarvedPoints) > std::max(0.0f, c.MoveThreshold);
+            if (!moved && signature == c.GridSignature)
+                continue;
+
+            // Only the cells that changed are carved / given back.
+            std::vector<NavObstacleComponent::Carving> next;
+            std::vector<bool> kept(c.Carvings.size(), false);
+            for (const CarveTarget& t : targets)
+            {
+                NavCarving::CollectCells(*t.Grid, MakeCarveShape(c, points, t.Dimension), t.Clearance, t.StepHeight, t.AgentHeight, cells);
+                const NavObstacleComponent::Carving* before = nullptr;
+                for (size_t i = 0; i < c.Carvings.size(); i++)
+                    if (c.Carvings[i].Grid == t.ID && c.Carvings[i].Dimension == t.Dimension && c.Carvings[i].Serial == t.Grid->GetSerial())
+                    {
+                        before = &c.Carvings[i];
+                        kept[i] = true;
+                        break;
+                    }
+                if (before)
+                {
+                    NavCarving::Diff(before->Cells, cells, added, removed);
+                    t.Grid->Uncarve(removed);
+                    t.Grid->Carve(added);
+                }
+                else
+                    t.Grid->Carve(cells);
+                if (!cells.empty())
+                    next.push_back({ t.ID, t.Dimension, t.Grid->GetSerial(), cells });
+            }
+            // Grids it no longer covers (or no longer may carve) get their cells back.
+            for (size_t i = 0; i < c.Carvings.size(); i++)
+                if (!kept[i])
+                {
+                    NavObstacleComponent single;
+                    single.Carvings.push_back(std::move(c.Carvings[i]));
+                    ReleaseNavObstacle(single);
+                }
+            c.Carvings = std::move(next);
+            c.CarvedPoints = points;
+            c.GridSignature = signature;
+            c.CarveCount++;
+        }
+    }
+
+    // ------------------------------------------------------------------ avoidance
+    glm::vec2 Scene::ComputeNavAvoidance(Entity agent, NavAgentComponent& a, const NavGrid* grid, int dimension, const glm::vec2& desired)
+    {
+        (void)grid;
+        const float speed = glm::length(desired);
+        if (speed < 1e-4f || !(a.FeelerLength > 0.0f))
+            return glm::vec2(0.0f);
+        const glm::vec2 forward = desired / speed;
+        std::array<Steering::Feeler, 3> feelers =
+            Steering::MakeFeelers(forward, a.FeelerLength, glm::radians(std::clamp(a.FeelerAngle, 0.0f, 89.0f)));
+        const glm::vec3 position = GetWorldPosition(agent);
+        const glm::vec3 origin = dimension == 3 ? position + glm::vec3(0.0f, a.FeelerHeight, 0.0f) : position;
+        Entity target = a.Target ? GetEntityByUUID(a.Target.ID) : Entity();
+        a.FeelerOrigin = origin;
+        a.FeelerHits = 0;
+        // The plane's sideways direction (the straight feeler is cast from both edges of the agent's
+        // body: something just beside the centre line is in its way too).
+        const glm::vec2 left2(-forward.y, forward.x);
+        const glm::vec3 left = dimension == 3 ? glm::vec3(left2.x, 0.0f, left2.y) : glm::vec3(left2, 0.0f);
+        const float halfWidth = std::max(0.0f, a.Radius) * 0.9f;
+        auto cast = [&](Steering::Feeler& feeler, const glm::vec3& from) {
+            const glm::vec3 direction = dimension == 3 ? glm::vec3(feeler.Direction.x, 0.0f, feeler.Direction.y) : glm::vec3(feeler.Direction, 0.0f);
+            const std::vector<RaycastHit> hits = dimension == 3
+                ? Raycast3DAll(from, direction, feeler.Length, a.AvoidanceMask, false)
+                : Raycast2DAll(glm::vec2(from), feeler.Direction, feeler.Length, a.AvoidanceMask, false);
+            for (const RaycastHit& hit : hits)
+            {
+                Entity other = GetEntityByUUID(hit.EntityID);
+                if (!other || IsSelfOrBelow(*this, other, agent) || (target && IsSelfOrBelow(*this, other, target)) ||
+                    (!a.AvoidStatic && IsStaticBody(other, dimension)))
+                    continue;
+                if (!feeler.Hit || hit.Distance < feeler.Distance)
+                {
+                    feeler.Hit = true;
+                    feeler.Distance = hit.Distance;
+                    feeler.Normal = ToPlane(hit.Normal, dimension);
+                    feeler.HasCenter = true;
+                    feeler.CenterOffset = ToPlane(GetWorldPosition(other) - position, dimension);
+                }
+                break;
+            }
+        };
+        for (size_t i = 0; i < feelers.size(); i++)
+        {
+            Steering::Feeler& feeler = feelers[i];
+            if (i == 0 && halfWidth > 1e-4f)
+            {
+                cast(feeler, origin + left * halfWidth);
+                cast(feeler, origin - left * halfWidth);
+            }
+            else
+                cast(feeler, origin);
+            if (feeler.Hit)
+                a.FeelerHits |= (uint8_t)(1u << i);
+            const glm::vec3 direction = dimension == 3 ? glm::vec3(feeler.Direction.x, 0.0f, feeler.Direction.y) : glm::vec3(feeler.Direction, 0.0f);
+            a.FeelerEnds[i] = origin + direction * (feeler.Hit ? feeler.Distance : feeler.Length);
+        }
+        a.FeelersActive = true;
+        // The side it goes round on is kept until the way has been clear for a moment.
+        a.AvoidClearTime = a.FeelerHits ? 0.0f : a.AvoidClearTime + std::max(0.0f, a.LastDeltaTime);
+        if (a.AvoidClearTime > 0.5f)
+            a.AvoidSide = 0;
+        glm::vec2 push = Steering::AvoidObstacles(forward, feelers, std::max(0.0f, a.Speed), &a.AvoidSide) * std::max(0.0f, a.AvoidanceWeight);
+        // Nothing in front any more: the last push fades out over a moment (else the path pulls it
+        // straight back into the corner of what it just went round).
+        const glm::vec2 last = ToPlane(a.AvoidancePush, dimension);
+        const glm::vec2 fading = last * std::exp(-5.0f * std::max(0.0f, a.LastDeltaTime));
+        if (glm::dot(fading, fading) > glm::dot(push, push))
+            push = fading;
+        return push;
     }
 
     void Scene::UpdateNavAgents(float dt)
@@ -704,6 +1081,26 @@ namespace Zamin {
                         const glm::vec3 end = a.Path.empty() ? GetWorldPosition(entity) : a.Path.back();
                         if (glm::length(ToPlane(end, dim) - ToPlane(a.Destination, dim)) > std::max(grid->GetCellSize(), a.StoppingDistance))
                             a.RepathRequested = true;
+                    }
+                }
+            }
+
+            // The grid's carving changed (a Nav Obstacle moved): a new path when this one is blocked
+            // now - or was partial (the way may be open again).
+            if (grid && a.CarveRevision != grid->GetCarveRevision())
+            {
+                a.CarveRevision = grid->GetCarveRevision();
+                if (a.HasDestination && a.PathStatus == NavPathStatus::Partial)
+                    a.RepathRequested = true;
+                else if (a.HasDestination && !a.Arrived && a.Path.size() >= 2)
+                {
+                    plane.clear();
+                    for (const glm::vec3& corner : a.Path)
+                        plane.push_back(ToPlane(corner, dim));
+                    if (PathBlocked(*grid, ToPlane(GetWorldPosition(entity), dim), plane, a.PathIndex))
+                    {
+                        a.RepathRequested = true;
+                        a.BlockedRepaths++;
                     }
                 }
             }
@@ -783,6 +1180,32 @@ namespace Zamin {
             }
             else if (a.HasDestination && !a.Arrived && (!grid || a.Path.size() < 2) && a.PathStatus != NavPathStatus::None)
                 a.Remaining = 0.0f;
+
+            // Local avoidance: the feelers' push blended in (never towards a cell the grid blocks).
+            a.FeelersActive = false;
+            a.FeelerHits = 0;
+            a.LastDeltaTime = dt;
+            if (!a.Avoidance || glm::dot(desired, desired) <= 1e-8f)
+                a.AvoidancePush = glm::vec3(0.0f);
+            else
+            {
+                const glm::vec2 push = ComputeNavAvoidance(entity, a, grid, dim, desired);
+                a.AvoidancePush = dim == 3 ? glm::vec3(push.x, 0.0f, push.y) : glm::vec3(push, 0.0f);
+                if (glm::dot(push, push) > 1e-8f)
+                {
+                    const float wanted = glm::length(desired);
+                    glm::vec2 blended = Steering::Truncate<2>(desired + push, std::max(wanted, 1e-4f));
+                    if (grid && glm::dot(blended, blended) > 1e-8f)
+                    {
+                        const float probe = std::max(grid->GetCellSize() * 0.5f, a.Radius);
+                        const bool blockedThere = !grid->IsWalkable(grid->WorldToCell(p + glm::normalize(blended) * probe));
+                        const bool blockedAhead = !grid->IsWalkable(grid->WorldToCell(p + desired / wanted * probe));
+                        if (blockedThere && !blockedAhead)
+                            blended = desired;
+                    }
+                    desired = blended;
+                }
+            }
 
             // Speeding up / braking.
             glm::vec2 velocity = ToPlane(a.Velocity, dim);

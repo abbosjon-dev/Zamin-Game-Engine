@@ -3507,25 +3507,29 @@ namespace Zamin {
         Renderer2D::DrawQuad(transform, color);
     }
 
-    // The cells of a baked grid: blocked ones (red) always, walkable ones (green) when `walkable`;
-    // runs of equal cells (3D: on one floor height) merged into one quad. 3D cells without a floor are
-    // left out.
+    // The cells of a baked grid: blocked ones (red) and those Nav Obstacles carve (orange) always,
+    // walkable ones (green) when `walkable`; runs of equal cells (3D: on one floor height) merged into
+    // one quad. 3D cells without a floor are left out.
     static void DrawNavGridCells(const NavGrid& grid, bool flat3D, bool walkable, float alpha)
     {
         const glm::vec4 blockedColor(0.95f, 0.25f, 0.2f, 0.34f * alpha), walkableColor(0.3f, 0.95f, 0.45f, 0.16f * alpha);
+        const glm::vec4 carvedColor(1.0f, 0.6f, 0.12f, 0.5f * alpha);
+        const bool carves = grid.CountCarved() > 0;
+        // 1 walkable, 2 carved (walkable as baked), 0 blocked.
+        auto state = [&](int x, int y) { return grid.IsWalkable(x, y) ? 1 : carves && grid.IsCarved(x, y) && grid.IsBakedWalkable(x, y) ? 2 : 0; };
         for (int y = 0; y < grid.GetHeight(); y++)
         {
             int x = 0;
             while (x < grid.GetWidth())
             {
-                const bool open = grid.IsWalkable(x, y);
+                const int kind = state(x, y);
                 const float h = grid.GetFloorHeight(x, y);
                 int end = x + 1;
-                while (end < grid.GetWidth() && grid.IsWalkable(end, y) == open &&
+                while (end < grid.GetWidth() && state(end, y) == kind &&
                        (!flat3D || std::abs(grid.GetFloorHeight(end, y) - h) < 1e-3f || (std::isnan(h) && std::isnan(grid.GetFloorHeight(end, y)))))
                     end++;
-                if ((open ? walkable : true) && (!flat3D || std::isfinite(h)))
-                    DrawNavCellRun(grid, x, end, y, flat3D, flat3D ? h : 0.0f, open ? walkableColor : blockedColor);
+                if ((kind == 1 ? walkable : true) && (!flat3D || std::isfinite(h)))
+                    DrawNavCellRun(grid, x, end, y, flat3D, flat3D ? h : 0.0f, kind == 1 ? walkableColor : kind == 2 ? carvedColor : blockedColor);
                 x = end;
             }
         }
@@ -3632,6 +3636,102 @@ namespace Zamin {
                 Renderer2D::DrawLine(d - glm::vec3(size, 0, 0), d + glm::vec3(size, 0, 0), cross);
                 Renderer2D::DrawLine(d - glm::vec3(0, size, 0), d + glm::vec3(0, size, 0), cross);
                 Renderer2D::DrawLine(d - glm::vec3(0, 0, size), d + glm::vec3(0, 0, size), cross);
+            }
+            // Avoidance: the feelers (red where they hit) and the push they gave (yellow).
+            if (a.Avoidance && a.FeelersActive)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    const bool hit = (a.FeelerHits >> i) & 1u;
+                    Renderer2D::DrawLine(a.FeelerOrigin, a.FeelerEnds[(size_t)i], hit ? glm::vec4(1.0f, 0.3f, 0.25f, 1.0f) : glm::vec4(0.5f, 0.95f, 0.6f, 0.7f));
+                    if (hit)
+                        DrawScreenDot(a.FeelerEnds[(size_t)i], view.PixelSize(a.FeelerEnds[(size_t)i]) * 6.0f, glm::vec4(1.0f, 0.3f, 0.25f, 1.0f), view);
+                }
+                if (glm::dot(a.AvoidancePush, a.AvoidancePush) > 1e-6f)
+                    Renderer2D::DrawLine(a.FeelerOrigin, a.FeelerOrigin + a.AvoidancePush * 0.5f, glm::vec4(1.0f, 0.9f, 0.2f, 1.0f));
+            }
+        }
+
+        // Nav Obstacles: their footprint (orange; brighter while they carve).
+        for (auto e : scene.GetAllEntitiesWith<NavObstacleComponent>())
+        {
+            if (!ShowsGizmo(e, visibility, hidden))
+                continue;
+            Entity entity{ e, &scene };
+            const auto& c = entity.GetComponent<NavObstacleComponent>();
+            const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
+            const glm::vec4 color(1.0f, 0.62f, 0.15f, c.IsCarving() || selected ? 1.0f : 0.55f);
+            const glm::mat4 world = scene.GetWorldTransform(entity);
+            if (c.Shape == NavObstacleComponent::ShapeType::Box)
+                DrawWireBox(world * glm::translate(glm::mat4(1.0f), c.Center) * glm::scale(glm::mat4(1.0f), glm::max(c.Size, glm::vec3(0.001f))), color);
+            else
+            {
+                // 2D: a circle in the entity's XY plane; 3D: a cylinder along its Y.
+                const bool flat = scene.GetNavGridDimension(scene.FindNavGridEntity(scene.GetWorldPosition(entity))) == 2;
+                const glm::vec3 center(world * glm::vec4(c.Center, 1.0f));
+                const glm::vec3 ax = glm::vec3(world[0]), ay = glm::vec3(world[1]), az = glm::vec3(world[2]);
+                const float sx = glm::length(ax), sy = glm::length(ay), sz = glm::length(az);
+                const glm::vec3 nx = sx > 1e-6f ? ax / sx : glm::vec3(1, 0, 0), ny = sy > 1e-6f ? ay / sy : glm::vec3(0, 1, 0),
+                                nz = sz > 1e-6f ? az / sz : glm::vec3(0, 0, 1);
+                if (flat)
+                    DrawWireCircle(center, nx, ny, c.Radius * std::max(sx, sy), color);
+                else
+                {
+                    const float r = c.Radius * std::max(sx, sz), hh = std::max(0.0f, c.Size.y) * 0.5f * sy;
+                    DrawWireCircle(center - ny * hh, nx, nz, r, color);
+                    DrawWireCircle(center + ny * hh, nx, nz, r, color);
+                    for (int i = 0; i < 4; i++)
+                    {
+                        const float t = glm::half_pi<float>() * (float)i;
+                        const glm::vec3 rim = (nx * std::cos(t) + nz * std::sin(t)) * r;
+                        Renderer2D::DrawLine(center - ny * hh + rim, center + ny * hh + rim, color);
+                    }
+                }
+            }
+        }
+
+        // Sight Sensors: the view cone (yellow; red while it sees a target, with a line to it) and the
+        // near circle.
+        std::vector<glm::vec3> arc;
+        for (auto e : scene.GetAllEntitiesWith<SightSensorComponent>())
+        {
+            if (!ShowsGizmo(e, visibility, hidden))
+                continue;
+            Entity entity{ e, &scene };
+            const auto& c = entity.GetComponent<SightSensorComponent>();
+            SightCone cone;
+            if (!scene.GetSightCone(entity, cone))
+                continue;
+            const bool selected = m_SceneHierarchyPanel.IsSelected(entity);
+            const bool sees = !editing && c.CanSee;
+            const glm::vec4 color = sees ? glm::vec4(1.0f, 0.3f, 0.25f, 1.0f) : glm::vec4(1.0f, 0.85f, 0.25f, selected ? 1.0f : 0.7f);
+            const glm::vec3 up = scene.GetSightDimension(entity) == 3 ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(0.0f, 0.0f, 1.0f);
+            Sight::GetConeArc(cone, up, std::clamp((int)(cone.FieldOfView / 6.0f), 4, 60), arc);
+            if (cone.FieldOfView < 359.0f)
+            {
+                Renderer2D::DrawLine(cone.Eye, arc.front(), color);
+                Renderer2D::DrawLine(cone.Eye, arc.back(), color);
+            }
+            for (size_t i = 1; i < arc.size(); i++)
+                Renderer2D::DrawLine(arc[i - 1], arc[i], color);
+            if (cone.NearDistance > 0.0f)
+            {
+                const glm::vec3 a(1.0f, 0.0f, 0.0f);
+                const glm::vec3 b = glm::normalize(glm::cross(up, a));
+                DrawWireCircle(cone.Eye, a, b, cone.NearDistance, glm::vec4(color.r, color.g, color.b, color.a * 0.5f));
+            }
+            if (sees)
+                if (Entity target = scene.GetEntityByUUID(c.SeenTarget))
+                    Renderer2D::DrawLine(cone.Eye, scene.GetWorldPosition(target) + (up.y > 0.5f ? glm::vec3(0.0f, 0.9f, 0.0f) : glm::vec3(0.0f)), color);
+            if (!editing && c.HasSeen && !c.CanSee && c.RemembersTarget())
+            {
+                // Where it last saw one (a small cross while it remembers).
+                const glm::vec3 p = c.LastSeenPosition;
+                const float size = view.PixelSize(p) * 6.0f;
+                const glm::vec4 memory(1.0f, 0.6f, 0.3f, 0.9f);
+                Renderer2D::DrawLine(p - glm::vec3(size, 0, 0), p + glm::vec3(size, 0, 0), memory);
+                Renderer2D::DrawLine(p - glm::vec3(0, size, 0), p + glm::vec3(0, size, 0), memory);
+                Renderer2D::DrawLine(p - glm::vec3(0, 0, size), p + glm::vec3(0, 0, size), memory);
             }
         }
     }
@@ -7665,8 +7765,9 @@ namespace Zamin {
         option(ICON_FA_BEZIER_CURVE "  Spline yo'llar", g.Splines,
                "Spline komponentlarining yo'li (egri chiziq, nuqtalari, yo'nalish o'qi) va Spline Follower'larning boshlanish nuqtasi");
         option(ICON_FA_PERSON_WALKING "  Navigatsiya", g.Navigation,
-               "NavGrid 2D / 3D: yopiq kataklar (qizil) va maydon chegarasi, tanlangan grid'ning yuriladigan kataklari (yashil); Nav "
-               "Agent'larning yo'li, manzili va hozirgi burchagi. Editor'da grid ko'rish uchun avtomatik quriladi");
+               "NavGrid 2D / 3D: yopiq kataklar (qizil), Nav Obstacle yopgan kataklar (to'q sariq) va maydon chegarasi, tanlangan "
+               "grid'ning yuriladigan kataklari (yashil); Nav Agent'larning yo'li, manzili, hozirgi burchagi va to'siqni aylanib o'tish "
+               "nurlari; Nav Obstacle shakli; Sight Sensor ko'rish konusi (ko'rganda qizil). Editor'da grid ko'rish uchun avtomatik quriladi");
         option(ICON_FA_WAND_MAGIC_SPARKLES "  Particle shakli", g.ParticleShapes,
                "Particle System emitteri: doira, sfera, quti, konus (chetidagi nurlari bilan) yoki chiziq - particle'lar qayerdan "
                "chiqadi, va yo'nalish o'qi");

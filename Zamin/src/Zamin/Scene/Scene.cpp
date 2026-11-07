@@ -423,6 +423,8 @@ namespace Zamin {
         for (auto e : registry.view<NavGrid2DComponent>()) registry.get<NavGrid2DComponent>(e).ResetRuntime();
         for (auto e : registry.view<NavGrid3DComponent>()) registry.get<NavGrid3DComponent>(e).ResetRuntime();
         for (auto e : registry.view<NavAgentComponent>()) registry.get<NavAgentComponent>(e).ResetRuntime();
+        for (auto e : registry.view<NavObstacleComponent>()) registry.get<NavObstacleComponent>(e).ResetRuntime();
+        for (auto e : registry.view<SightSensorComponent>()) registry.get<SightSensorComponent>(e).ResetRuntime();
         for (auto e : registry.view<ParticleSystemComponent>()) registry.get<ParticleSystemComponent>(e).ResetRuntime();
         for (auto e : registry.view<MeshRendererComponent>())
         {
@@ -494,6 +496,8 @@ namespace Zamin {
         if (auto* c = e.TryGetComponent<NavGrid2DComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<NavGrid3DComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<NavAgentComponent>()) c->ResetRuntime();
+        if (auto* c = e.TryGetComponent<NavObstacleComponent>()) c->ResetRuntime(); // the copy's own carving comes at the next update
+        if (auto* c = e.TryGetComponent<SightSensorComponent>()) c->ResetRuntime();
         if (auto* c = e.TryGetComponent<CharacterController3DComponent>()) { c->RuntimeID = 0xffffffff; c->Grounded = false; c->Velocity = glm::vec3(0.0f); }
         if (auto* c = e.TryGetComponent<ParticleSystemComponent>()) { c->ResetRuntime(); c->RandomState ^= (uint32_t)(uint64_t)e.GetUUID(); }
         if (auto* c = e.TryGetComponent<UIButtonComponent>()) c->Hovered = c->Pressed = c->Clicked = false;
@@ -561,6 +565,7 @@ namespace Zamin {
         m_Registry.on_update<TagsComponent>().connect<&Scene::OnTagsChanged>(*this);
         m_Registry.on_destroy<TagsComponent>().connect<&Scene::OnTagsDestroyed>(*this);
         m_Registry.on_destroy<NativeScriptComponent>().connect<&Scene::OnScriptComponentDestroyed>(*this);
+        m_Registry.on_destroy<NavObstacleComponent>().connect<&Scene::OnNavObstacleDestroyed>(*this);
         ForEachJoint2DType([&](auto type) {
             using T = typename decltype(type)::type;
             m_Registry.on_destroy<T>().template connect<&Scene::OnJoint2DDestroyed<T>>(*this);
@@ -589,6 +594,7 @@ namespace Zamin {
         m_Registry.on_update<TagsComponent>().disconnect(this);
         m_Registry.on_destroy<TagsComponent>().disconnect(this);
         m_Registry.on_destroy<NativeScriptComponent>().disconnect(this);
+        m_Registry.on_destroy<NavObstacleComponent>().disconnect(this);
         ForEachJoint2DType([&](auto type) {
             using T = typename decltype(type)::type;
             m_Registry.on_destroy<T>().disconnect(this);
@@ -894,6 +900,10 @@ namespace Zamin {
                 remap(agent->Grid);
                 remap(agent->Target);
             }
+            if (auto* obstacle = e.TryGetComponent<NavObstacleComponent>())
+                remap(obstacle->Grid);
+            if (auto* sight = e.TryGetComponent<SightSensorComponent>())
+                remap(sight->Target);
             if (auto* button = e.TryGetComponent<UIButtonComponent>())
                 remap(button->ClickTarget);
             if (auto* scroll = e.TryGetComponent<UIScrollViewComponent>())
@@ -5023,9 +5033,12 @@ namespace Zamin {
             // Nav agents and spline followers move before physics: bodies by velocity, kinematic ones
             // on a path carry what stands on them.
             UpdateNavGrids(ts);
+            UpdateNavObstacles(ts);
             UpdateNavAgents(ts);
             UpdateSplineFollowers(ts);
             StepPhysics(ts);
+            // Eyes look where everything is after the step (OnTargetSpotted / OnTargetLost now).
+            UpdateSightSensors(ts);
             // Property animations write their values before OnLateUpdate (scripts may read or
             // override them there); their events fire now.
             UpdateAnimationPlayers(ts, false);

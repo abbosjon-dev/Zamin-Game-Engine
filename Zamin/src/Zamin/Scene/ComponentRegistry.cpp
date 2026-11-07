@@ -66,6 +66,8 @@ namespace Zamin {
             MakeTypeInfo<NavGrid2DComponent>(),
             MakeTypeInfo<NavGrid3DComponent>(),
             MakeTypeInfo<NavAgentComponent>(),
+            MakeTypeInfo<NavObstacleComponent>(),
+            MakeTypeInfo<SightSensorComponent>(),
             MakeTypeInfo<ParticleSystemComponent>(),
             MakeTypeInfo<UITransformComponent>(),
             MakeTypeInfo<UICanvasComponent>(),

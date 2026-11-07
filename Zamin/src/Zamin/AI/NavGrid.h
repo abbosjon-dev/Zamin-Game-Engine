@@ -112,6 +112,23 @@ namespace Zamin {
         // step between them within MaxClimb.
         bool HasLineOfSight(const glm::vec2& from, const glm::vec2& to) const;
 
+        // ---- carving (dynamic obstacles: NavObstacleComponent, NavCarving.h)
+        // Cells blocked on top of what was baked, counted per cell (obstacles may overlap): a cell is
+        // walkable when it was baked walkable and nothing carves it. Edits of the baked state
+        // (SetWalkable, Fill, Erode ...) keep the carves. Indices: Index(x, y); invalid ones are
+        // skipped. Carving does not bump GetRevision() (agents do not find every path again when an
+        // obstacle moves) but GetCarveRevision(): agents check whether their path got blocked.
+        void Carve(const std::vector<uint32_t>& cells);
+        void Uncarve(const std::vector<uint32_t>& cells);
+        void ClearCarves();
+        bool IsCarved(int x, int y) const { return Contains(x, y) && !m_Carves.empty() && m_Carves[Index(x, y)] != 0; }
+        // Walkable as baked (carves left out).
+        bool IsBakedWalkable(int x, int y) const;
+        size_t CountCarved() const; // cells carved by at least one obstacle
+        uint32_t GetCarveRevision() const { return m_CarveRevision; }
+        // Changes when the grid is made anew (Reset / Clear): carves made before are gone with it.
+        uint32_t GetSerial() const { return m_Serial; }
+
         // Bumped by every change (agents find their paths again when their grid changed).
         uint32_t GetRevision() const { return m_Revision; }
         size_t GetMemoryBytes() const;
@@ -120,15 +137,21 @@ namespace Zamin {
 
     private:
         void Touch() { m_Revision++; }
+        // The baked state of cell i (carving: kept apart from the walkable one).
+        void WriteBaked(size_t i, bool walkable);
 
         int m_Width = 0, m_Height = 0;
         float m_CellSize = 1.0f;
         glm::vec2 m_Origin{ 0.0f };
-        std::vector<uint8_t> m_Walkable; // 1 walkable, 0 blocked
+        std::vector<uint8_t> m_Walkable; // 1 walkable, 0 blocked (baked and not carved)
+        std::vector<uint8_t> m_Baked;    // with carves: the baked state (empty: never carved)
+        std::vector<uint16_t> m_Carves;  // obstacles carving each cell (empty: never carved)
         std::vector<float> m_Cost;
         std::vector<float> m_Heights;    // empty: a flat (2D) grid
         float m_MaxClimb = 0.0f;
         uint32_t m_Revision = 1;
+        uint32_t m_CarveRevision = 1;
+        uint32_t m_Serial = 1;
     };
 
 }

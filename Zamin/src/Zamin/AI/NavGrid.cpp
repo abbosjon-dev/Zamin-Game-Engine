@@ -21,6 +21,10 @@ namespace Zamin {
         m_Cost.assign(GetCellCount(), 1.0f);
         m_Heights.clear();
         m_MaxClimb = 0.0f;
+        m_Baked.clear();
+        m_Carves.clear();
+        m_Serial++;
+        m_CarveRevision++;
         Touch();
     }
 
@@ -33,17 +37,33 @@ namespace Zamin {
         m_Cost.clear();
         m_Heights.clear();
         m_MaxClimb = 0.0f;
+        m_Baked.clear();
+        m_Carves.clear();
+        m_Serial++;
+        m_CarveRevision++;
         Touch();
+    }
+
+    void NavGrid::WriteBaked(size_t i, bool walkable)
+    {
+        if (m_Carves.empty())
+            m_Walkable[i] = (uint8_t)walkable;
+        else
+        {
+            m_Baked[i] = (uint8_t)walkable;
+            m_Walkable[i] = (uint8_t)(walkable && m_Carves[i] == 0);
+        }
     }
 
     void NavGrid::SetWalkable(int x, int y, bool walkable)
     {
         if (!Contains(x, y))
             return;
-        uint8_t& cell = m_Walkable[Index(x, y)];
-        if (cell != (uint8_t)walkable)
+        const size_t i = Index(x, y);
+        const uint8_t baked = m_Carves.empty() ? m_Walkable[i] : m_Baked[i];
+        if (baked != (uint8_t)walkable)
         {
-            cell = (uint8_t)walkable;
+            WriteBaked(i, walkable);
             Touch();
         }
     }
@@ -63,7 +83,8 @@ namespace Zamin {
 
     void NavGrid::Fill(bool walkable)
     {
-        std::fill(m_Walkable.begin(), m_Walkable.end(), (uint8_t)walkable);
+        for (size_t i = 0; i < m_Walkable.size(); i++)
+            WriteBaked(i, walkable);
         Touch();
     }
 
@@ -77,13 +98,66 @@ namespace Zamin {
         x1 = std::min(x1, m_Width - 1); y1 = std::min(y1, m_Height - 1);
         for (int y = y0; y <= y1; y++)
             for (int x = x0; x <= x1; x++)
-                m_Walkable[Index(x, y)] = (uint8_t)walkable;
+                WriteBaked(Index(x, y), walkable);
         Touch();
     }
 
     size_t NavGrid::CountWalkable() const
     {
         return (size_t)std::count(m_Walkable.begin(), m_Walkable.end(), (uint8_t)1);
+    }
+
+    // ------------------------------------------------------------------ carving
+    void NavGrid::Carve(const std::vector<uint32_t>& cells)
+    {
+        if (cells.empty() || IsEmpty())
+            return;
+        if (m_Carves.empty())
+        {
+            m_Carves.assign(GetCellCount(), 0);
+            m_Baked = m_Walkable;
+        }
+        const size_t count = GetCellCount();
+        for (uint32_t i : cells)
+            if (i < count && m_Carves[i] < std::numeric_limits<uint16_t>::max())
+            {
+                m_Carves[i]++;
+                m_Walkable[i] = 0;
+            }
+        m_CarveRevision++;
+    }
+
+    void NavGrid::Uncarve(const std::vector<uint32_t>& cells)
+    {
+        if (cells.empty() || m_Carves.empty())
+            return;
+        const size_t count = GetCellCount();
+        for (uint32_t i : cells)
+            if (i < count && m_Carves[i] > 0 && --m_Carves[i] == 0)
+                m_Walkable[i] = m_Baked[i];
+        m_CarveRevision++;
+    }
+
+    void NavGrid::ClearCarves()
+    {
+        if (m_Carves.empty())
+            return;
+        m_Walkable = m_Baked;
+        m_Baked.clear();
+        m_Carves.clear();
+        m_CarveRevision++;
+    }
+
+    bool NavGrid::IsBakedWalkable(int x, int y) const
+    {
+        if (!Contains(x, y))
+            return false;
+        return (m_Carves.empty() ? m_Walkable[Index(x, y)] : m_Baked[Index(x, y)]) != 0;
+    }
+
+    size_t NavGrid::CountCarved() const
+    {
+        return m_Carves.empty() ? 0 : m_Carves.size() - (size_t)std::count(m_Carves.begin(), m_Carves.end(), (uint16_t)0);
     }
 
     // ------------------------------------------------------------------ heights
@@ -237,7 +311,8 @@ namespace Zamin {
         const float rc = radius / m_CellSize; // in cells
         const float rc2 = rc * rc;
         const int reach = (int)std::ceil(rc) + 1;
-        const std::vector<uint8_t> source = m_Walkable;
+        // The baked state (carves are not walls to keep clear of: they come and go).
+        const std::vector<uint8_t> source = m_Carves.empty() ? m_Walkable : m_Baked;
 
         // Ledges (3D): bit d of a walkable cell - its neighbour in direction d (+x, -x, +y, -y) is
         // walkable but more than MaxClimb higher or lower.
@@ -306,7 +381,7 @@ namespace Zamin {
                     }
                 if (block)
                 {
-                    m_Walkable[i] = 0;
+                    WriteBaked(i, false);
                     changed = true;
                 }
             }
@@ -408,7 +483,8 @@ namespace Zamin {
 
     size_t NavGrid::GetMemoryBytes() const
     {
-        return m_Walkable.capacity() * sizeof(uint8_t) + m_Cost.capacity() * sizeof(float) + m_Heights.capacity() * sizeof(float);
+        return m_Walkable.capacity() * sizeof(uint8_t) + m_Cost.capacity() * sizeof(float) + m_Heights.capacity() * sizeof(float) +
+               m_Baked.capacity() * sizeof(uint8_t) + m_Carves.capacity() * sizeof(uint16_t);
     }
 
 }

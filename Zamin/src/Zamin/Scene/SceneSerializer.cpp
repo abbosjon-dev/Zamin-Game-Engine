@@ -244,6 +244,7 @@ namespace Zamin {
     static const char* const s_UIToggleMarks[] = { "Check", "Square", "Dot" };
     static const char* const s_SplineFollowModes[] = { "Once", "Loop", "PingPong" };
     static const char* const s_SplineRotations[] = { "None", "Path3D", "Path2D" };
+    static const char* const s_NavObstacleShapes[] = { "Box", "Circle" };
     static const char* const s_UIContentTypes[] = { "Standard", "Integer", "Decimal", "Alphanumeric", "Password" };
     static const char* const s_UIScaleModes[] = { "ConstantPixelSize", "ScaleWithScreenSize" };
     static const char* const s_UIScreenMatchModes[] = { "MatchWidthOrHeight", "Expand", "Shrink" };
@@ -1553,6 +1554,18 @@ namespace Zamin {
                               { "LookAhead", c->LookAhead }, { "RepathInterval", c->RepathInterval }, { "BaseOffset", c->BaseOffset },
                               { "AutoBraking", c->AutoBraking }, { "SmoothPath", c->SmoothPath }, { "SplinePath", c->SplinePath },
                               { "UpdateRotation", c->UpdateRotation } };
+        if (auto* c = entity.TryGetComponent<NavAgentComponent>(); c && (c->Avoidance || c->AvoidStatic))
+            e["NavAgent"]["Avoidance"] = { { "Enabled", c->Avoidance }, { "FeelerLength", c->FeelerLength }, { "FeelerAngle", c->FeelerAngle },
+                                           { "FeelerHeight", c->FeelerHeight }, { "Weight", c->AvoidanceWeight }, { "LayerMask", c->AvoidanceMask },
+                                           { "Static", c->AvoidStatic } };
+        if (auto* c = entity.TryGetComponent<NavObstacleComponent>())
+            e["NavObstacle"] = { { "Shape", EnumName(c->Shape, s_NavObstacleShapes) }, { "Center", ToJson(c->Center) }, { "Size", ToJson(c->Size) },
+                                 { "Radius", c->Radius }, { "Grid", c->Grid.ID }, { "MoveThreshold", c->MoveThreshold },
+                                 { "CarveOnlyStationary", c->CarveOnlyStationary }, { "StationaryTime", c->StationaryTime } };
+        if (auto* c = entity.TryGetComponent<SightSensorComponent>())
+            e["SightSensor"] = { { "ViewDistance", c->ViewDistance }, { "FieldOfView", c->FieldOfView }, { "NearDistance", c->NearDistance },
+                                 { "EyeHeight", c->EyeHeight }, { "Target", c->Target.ID }, { "TargetTag", c->TargetTag },
+                                 { "BlockingMask", c->BlockingMask }, { "CheckInterval", c->CheckInterval }, { "MemoryTime", c->MemoryTime } };
         if (auto* c = entity.TryGetComponent<ParticleSystemComponent>())
             e["ParticleSystem"] = ParticleSystemToJson(*c);
         if (auto* c = entity.TryGetComponent<UITransformComponent>())
@@ -2650,6 +2663,44 @@ namespace Zamin {
             c.SmoothPath = j.value("SmoothPath", true);
             c.SplinePath = j.value("SplinePath", false);
             c.UpdateRotation = j.value("UpdateRotation", true);
+            if (auto av = j.find("Avoidance"); av != j.end() && av->is_object())
+            {
+                c.Avoidance = av->value("Enabled", false);
+                c.FeelerLength = std::clamp(Number(*av, "FeelerLength", c.FeelerLength), 0.0f, 1e3f);
+                c.FeelerAngle = std::clamp(Number(*av, "FeelerAngle", c.FeelerAngle), 0.0f, 89.0f);
+                c.FeelerHeight = std::clamp(Number(*av, "FeelerHeight", c.FeelerHeight), -1e3f, 1e3f);
+                c.AvoidanceWeight = std::clamp(Number(*av, "Weight", c.AvoidanceWeight), 0.0f, 10.0f);
+                c.AvoidanceMask = layerMask(*av);
+                c.AvoidStatic = av->value("Static", false);
+            }
+        }
+        if (auto it = e.find("NavObstacle"); it != e.end() && it->is_object())
+        {
+            const json& j = *it;
+            auto& c = entity.AddComponent<NavObstacleComponent>();
+            c.Shape = EnumFromJson(j, "Shape", s_NavObstacleShapes, c.Shape);
+            c.Center = Vec(j, "Center", c.Center);
+            c.Size = glm::clamp(Vec(j, "Size", c.Size), glm::vec3(0.0f), glm::vec3(1e4f));
+            c.Radius = std::clamp(Number(j, "Radius", c.Radius), 0.0f, 1e4f);
+            c.Grid.ID = entityRef(j, "Grid");
+            c.MoveThreshold = std::clamp(Number(j, "MoveThreshold", c.MoveThreshold), 0.0f, 1e3f);
+            c.CarveOnlyStationary = j.value("CarveOnlyStationary", false);
+            c.StationaryTime = std::clamp(Number(j, "StationaryTime", c.StationaryTime), 0.0f, 1e3f);
+        }
+        if (auto it = e.find("SightSensor"); it != e.end() && it->is_object())
+        {
+            const json& j = *it;
+            auto& c = entity.AddComponent<SightSensorComponent>();
+            c.ViewDistance = std::clamp(Number(j, "ViewDistance", c.ViewDistance), 0.0f, 1e5f);
+            c.FieldOfView = std::clamp(Number(j, "FieldOfView", c.FieldOfView), 0.0f, 360.0f);
+            c.NearDistance = std::clamp(Number(j, "NearDistance", c.NearDistance), 0.0f, 1e5f);
+            c.EyeHeight = std::clamp(Number(j, "EyeHeight", c.EyeHeight), -1e3f, 1e3f);
+            c.Target.ID = entityRef(j, "Target");
+            c.TargetTag = j.value("TargetTag", std::string("Player"));
+            if (auto mask = j.find("BlockingMask"); mask != j.end() && mask->is_number_integer())
+                c.BlockingMask = (uint16_t)std::clamp(mask->get<int64_t>(), (int64_t)0, (int64_t)0xFFFF);
+            c.CheckInterval = std::clamp(Number(j, "CheckInterval", c.CheckInterval), 0.0f, 60.0f);
+            c.MemoryTime = std::clamp(Number(j, "MemoryTime", c.MemoryTime), 0.0f, 1e4f);
         }
         if (e.contains("ParticleSystem"))
             ParticleSystemFromJson(e["ParticleSystem"], entity.AddComponent<ParticleSystemComponent>());

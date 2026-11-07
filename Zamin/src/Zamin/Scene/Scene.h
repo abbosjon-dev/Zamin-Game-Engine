@@ -46,6 +46,7 @@ namespace Zamin {
     class AssetRegistry;
     class NavGrid;
     enum class NavPathStatus : uint8_t;
+    struct SightCone;
     struct TilemapComponent;
     class PhysicsWorld2D;
     class PhysicsWorld3D;
@@ -600,6 +601,25 @@ namespace Zamin {
         // A Nav Agent's path to `destination`, found at once (the agent then walks it). False without a
         // Nav Agent, a baked grid, or when no path was found (it then stays where it is).
         bool SetNavDestination(Entity agent, const glm::vec3& destination);
+        // Whether something blocks the agent's path ahead now (a cell of a corner-to-corner segment no
+        // longer walkable: a Nav Obstacle moved in). Agents check this themselves when their grid's
+        // carving changes and find a new path.
+        bool IsNavPathBlocked(Entity agent);
+        // Nav Obstacles carve their cells now (the game does it every frame before the agents move):
+        // after moving one from a script, for paths found in the same frame.
+        void UpdateNavObstacles();
+
+        // ---- sight (AI/Sight.h; SightSensorComponent)
+        // Whether `viewer` sees `target` now: in its view cone (its Sight Sensor's settings, the
+        // defaults without one) and a physics ray reaches one of the target's points with no collider
+        // of the sensor's BlockingMask in between (the viewer's own colliders and its children's
+        // never block). Without a running physics world nothing blocks. `seenPoint`: the point seen.
+        bool CanSee(Entity viewer, Entity target, glm::vec3* seenPoint = nullptr);
+        // The viewer's eye and cone (its Sight Sensor's settings, the defaults without one): 3D from
+        // EyeHeight above it looking along its -Z, 2D from its position along its +X.
+        bool GetSightCone(Entity viewer, SightCone& out);
+        // 2 when the viewer looks on the XY plane (2D physics or a 2D grid), else 3.
+        int GetSightDimension(Entity viewer);
 
         // ---- bounds (editor framing: F = selection, Shift+F = whole scene)
         // World-space box around what the entity draws: mesh / model, sprite, circle, text,
@@ -1207,6 +1227,17 @@ namespace Zamin {
         bool BakeNavGrid3D(Entity entity);
         // The agent's path to its Destination, found now.
         bool ComputeNavAgentPath(Entity agent, struct NavAgentComponent& a);
+        // Nav Obstacles carve their cells into the grids they overlap (incrementally, before the agents
+        // move); `dt` counts towards CarveOnlyStationary.
+        void UpdateNavObstacles(float dt);
+        // Gives back the cells an obstacle carved (still baked grids only).
+        void ReleaseNavObstacle(struct NavObstacleComponent& obstacle);
+        // on_destroy<NavObstacleComponent>: a removed / destroyed obstacle lets go of its cells.
+        void OnNavObstacleDestroyed(entt::registry& registry, entt::entity entity);
+        // Sight Sensors look for their targets (after physics; OnTargetSpotted / OnTargetLost).
+        void UpdateSightSensors(float dt);
+        // The obstacle-avoidance push of an agent's feelers (physics rays) for the way it wants to go.
+        glm::vec2 ComputeNavAvoidance(Entity agent, struct NavAgentComponent& a, const NavGrid* grid, int dimension, const glm::vec2& desired);
         void UpdateAudio(float ts);
         // The entity's Audio Source (nullptr: none, or not this scene's entity).
         AudioSourceComponent* GetAudioSource(Entity entity);

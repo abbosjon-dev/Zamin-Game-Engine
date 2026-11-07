@@ -1480,7 +1480,7 @@ namespace Zamin {
             { "MeshCollider3D", "Mesh Collider 3D" },
             { "FixedJoint3D", "Fixed Joint 3D" }, { "HingeJoint3D", "Hinge Joint 3D" }, { "DistanceJoint3D", "Distance Joint 3D" },
             { "SliderJoint3D", "Slider Joint 3D" }, { "ConeJoint3D", "Cone Joint 3D" }, { "CharacterController3D", "Character Controller 3D" },
-            { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "Spline", "Spline" }, { "SplineFollower", "Spline Follower" }, { "NavGrid2D", "NavGrid 2D" }, { "NavGrid3D", "NavGrid 3D" }, { "NavAgent", "Nav Agent" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
+            { "Tilemap", "Tilemap" }, { "Parallax", "Parallax" }, { "Camera2DFollow", "Camera 2D Follow" }, { "Spline", "Spline" }, { "SplineFollower", "Spline Follower" }, { "NavGrid2D", "NavGrid 2D" }, { "NavGrid3D", "NavGrid 3D" }, { "NavAgent", "Nav Agent" }, { "NavObstacle", "Nav Obstacle" }, { "SightSensor", "Sight Sensor" }, { "ParticleSystem", "Particle System" }, { "UITransform", "UI Transform" },
             { "UICanvas", "UI Canvas" }, { "UILayoutGroup", "UI Layout Group" }, { "UILayoutElement", "UI Layout Element" }, { "UINavigation", "UI Navigation" },
             { "UIButton", "UI Button" }, { "UIImage", "UI Image" }, { "UISlider", "UI Slider" }, { "UIToggle", "UI Toggle" },
             { "UIProgressBar", "UI Progress Bar" }, { "UIInputField", "UI Input Field" }, { "UIMask", "UI Mask" }, { "UIScrollView", "UI Scroll View" }, { "AudioSource", "Audio Source" }, { "AudioListener", "Audio Listener" }, { "AmbientZone", "Ambient Zone" },
@@ -2915,6 +2915,25 @@ namespace Zamin {
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
             UI::Tooltip("Burchaklar Catmull-Rom egri chizig'i bilan yumaloqlanadi (to'siqqa kirib qoladigan joyda to'g'ri chiziq qoladi)");
 
+        UI::PropertyHeader("To'siqni aylanib o'tish", "Oldinga uchta fizika nuri (mo'ylov): biri yurish yo'nalishida, ikkitasi yonlarga. "
+                                                     "Tekkan narsadan (boshqa agentlar, qutilar) chetga buriladi. Gizmo'lar > Navigatsiya - nurlar");
+        changed |= UI::PropertyBool("Yoqilgan", c.Avoidance);
+        if (c.Avoidance)
+        {
+            UI::PropertyLabel("Nur uzunligi", "Oldingi nur uzunligi (yon nurlar - 3/4 qismi), dunyo birligida");
+            changed |= ImGui::DragFloat("##feelerLength", &c.FeelerLength, 0.02f, 0.0f, 100.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            UI::PropertyLabel("Nur burchagi", "Yon nurlar oldinga nisbatan shuncha darajaga buriladi");
+            changed |= ImGui::SliderFloat("##feelerAngle", &c.FeelerAngle, 0.0f, 89.0f, "%.0f°", ImGuiSliderFlags_AlwaysClamp);
+            UI::PropertyLabel("Nur balandligi", "3D: nurlar obyekt boshidan shuncha balanddan chiqadi");
+            changed |= ImGui::DragFloat("##feelerHeight", &c.FeelerHeight, 0.01f, -100.0f, 100.0f, "%.2f");
+            UI::PropertyLabel("Kuchi", "Yo'l bilan aralashish og'irligi: 1 - to'liq tezligigacha chetga buradi, 0 - o'chiq");
+            changed |= ImGui::DragFloat("##avoidWeight", &c.AvoidanceWeight, 0.01f, 0.0f, 10.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            changed |= DrawLayerMask("Qatlamlar", c.AvoidanceMask, "Nurlar faqat shu to'qnashuv qatlamlaridagi collider'larni ko'radi");
+            changed |= UI::PropertyBool("Statik jismlar ham", c.AvoidStatic);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                UI::Tooltip("Statik collider'lar va tilemap'lardan ham qochadi (odatda shart emas: grid ularni allaqachon chetlab o'tadi)");
+        }
+
         if (m_Context && m_Context->IsRunning())
         {
             UI::PropertyHeader("Jonli");
@@ -2925,9 +2944,130 @@ namespace Zamin {
             ImGui::TextDisabled("%.2f birlik, %zu burchak, tezlik %.2f", c.Remaining, c.Path.size(), glm::length(c.Velocity));
             UI::PropertyLabel("Manzil");
             ImGui::TextDisabled("%.2f, %.2f, %.2f  (%u marta yo'l topildi)", c.Destination.x, c.Destination.y, c.Destination.z, c.PathRequests);
+            if (c.BlockedRepaths > 0)
+            {
+                UI::PropertyLabel("");
+                ImGui::TextDisabled("%s: %u", Tr("to'siq tufayli qayta"), c.BlockedRepaths);
+            }
+            if (c.Avoidance)
+            {
+                UI::PropertyLabel("Nurlar");
+                const char* names[] = { "oldinda", "chapda", "o'ngda" };
+                std::string hits;
+                for (int i = 0; i < 3; i++)
+                    if (c.FeelerHits & (1u << i))
+                        hits += std::string(hits.empty() ? "" : ", ") + Tr(names[i]);
+                ImGui::TextDisabled("%s", !c.FeelersActive ? Tr("ishlamayapti") : hits.empty() ? Tr("bo'sh") : hits.c_str());
+            }
             UI::PropertyLabel("");
             if (ImGui::Button(Tr(ICON_FA_STOP "  To'xtatish")))
                 c.Stop();
+        }
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::DrawNavObstacle(Entity entity, NavObstacleComponent& c)
+    {
+        bool changed = false;
+        InactiveComponentNote(entity, "Obyekt nofaol: kataklarni yopmaydi");
+        UI::PropertyHeader("Shakl", "O'yin paytida grid'ning shu shakl ostidagi (va grid agent radiusicha atrofidagi) kataklari yopiladi");
+        int shape = (int)c.Shape;
+        static const char* const s_Shapes[] = { "Quti", "Doira" };
+        static const char* const s_ShapeTips[] = { "To'g'ri burchakli quti (obyekt bilan birga buriladi)", "2D - doira, 3D - tik silindr" };
+        if (UI::PropertySegmented("Tur", shape, s_Shapes, 2, s_ShapeTips))
+        {
+            c.Shape = (NavObstacleComponent::ShapeType)shape;
+            changed = true;
+        }
+        changed |= UI::PropertyFloat3("Markaz", c.Center, 0.05f);
+        if (c.Shape == NavObstacleComponent::ShapeType::Box)
+        {
+            UI::PropertyLabel("O'lcham", "Qutining to'liq o'lchami obyekt o'qlarida (masshtab bilan): 2D - X / Y, 3D - X / Y / Z");
+            if (ImGui::DragFloat3("##size", &c.Size.x, 0.02f, 0.0f, 10000.0f, "%.2f"))
+            {
+                c.Size = glm::max(c.Size, glm::vec3(0.0f));
+                changed = true;
+            }
+        }
+        else
+        {
+            UI::PropertyLabel("Radius", "Doira / silindr radiusi (masshtab bilan)");
+            changed |= ImGui::DragFloat("##radius", &c.Radius, 0.01f, 0.0f, 10000.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+            UI::PropertyLabel("Bo'yi", "3D: silindr balandligi (markaz atrofida)");
+            changed |= ImGui::DragFloat("##height", &c.Size.y, 0.02f, 0.0f, 10000.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+        }
+        changed |= DrawEntityRefField("Grid", c.Grid, "Faqat shu NavGrid 2D / 3D (tanlanmasa - ustidan o'tgan hamma qurilgan grid'lar)");
+
+        UI::PropertyHeader("Qayta yopish");
+        UI::PropertyLabel("Siljish chegarasi", "Shundan ko'proq siljisa / burilsa kataklar qayta yopiladi (faqat o'zgarganlari)");
+        changed |= ImGui::DragFloat("##threshold", &c.MoveThreshold, 0.01f, 0.0f, 100.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+        changed |= UI::PropertyBool("Faqat turganda", c.CarveOnlyStationary);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+            UI::Tooltip("Harakatlanayotganda kataklarni yopmaydi (agentlar uni nurlar bilan aylanib o'tadi), to'xtab turganda yopadi");
+        if (c.CarveOnlyStationary)
+        {
+            UI::PropertyLabel("Turish vaqti", "Soniya: shuncha qimirlamay tursa yopadi");
+            changed |= ImGui::DragFloat("##still", &c.StationaryTime, 0.01f, 0.0f, 100.0f, "%.2f s", ImGuiSliderFlags_AlwaysClamp);
+        }
+
+        if (m_Context && m_Context->IsRunning())
+        {
+            UI::PropertyHeader("Jonli");
+            UI::PropertyLabel("Holat");
+            if (c.IsCarving())
+                ImGui::TextDisabled("%zu %s, %zu grid, %u %s", c.GetCarvedCellCount(), Tr("katak yopiq"), c.Carvings.size(), c.CarveCount,
+                                    Tr("marta yangilandi"));
+            else
+                ImGui::TextDisabled("%s", c.CarveOnlyStationary && c.StillTime < c.StationaryTime ? Tr("harakatda (yopmaydi)") : Tr("hech narsa yopmaydi"));
+        }
+        return changed;
+    }
+
+    bool SceneHierarchyPanel::DrawSightSensor(Entity entity, SightSensorComponent& c)
+    {
+        bool changed = false;
+        InactiveComponentNote(entity, "Obyekt nofaol: ko'rmaydi");
+        UI::PropertyHeader("Ko'rish maydoni", "Oldinga (3D: -Z, 2D: +X) qaragan konus: masofa va burchak ichida, orada to'siq bo'lmasa - ko'radi. "
+                                              "Gizmo'lar > Navigatsiya - konus");
+        UI::PropertyLabel("Masofa", "Dunyo birligida: bundan uzoqni ko'rmaydi");
+        changed |= ImGui::DragFloat("##distance", &c.ViewDistance, 0.05f, 0.0f, 10000.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+        UI::PropertyLabel("Burchak", "Konusning to'liq burchagi (daraja): 360 - hamma tomonni");
+        changed |= ImGui::SliderFloat("##fov", &c.FieldOfView, 0.0f, 360.0f, "%.0f°", ImGuiSliderFlags_AlwaysClamp);
+        UI::PropertyLabel("Yaqin masofa", "Shundan yaqindagini qaysi tomonda bo'lsa ham sezadi (0 - faqat konus)");
+        changed |= ImGui::DragFloat("##near", &c.NearDistance, 0.02f, 0.0f, 10000.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+        UI::PropertyLabel("Ko'z balandligi", "3D: nurlar obyekt boshidan shuncha balanddan chiqadi");
+        changed |= ImGui::DragFloat("##eye", &c.EyeHeight, 0.01f, -1000.0f, 1000.0f, "%.2f");
+
+        UI::PropertyHeader("Nishonlar");
+        changed |= DrawEntityRefField("Nishon", c.Target, "Faqat shu obyektni qidiradi (tanlanmasa - quyidagi teg'li hamma obyektlar)");
+        if (!c.Target)
+            changed |= UI::PropertyString("Teg", c.TargetTag);
+        changed |= DrawLayerMask("To'suvchi qatlamlar", c.BlockingMask, "Shu to'qnashuv qatlamlaridagi collider'lar ko'rishni to'sadi");
+        UI::PropertyLabel("Tekshirish (s)", "Soniya: shu oraliqda qaraydi (0 - har kadr)");
+        changed |= ImGui::DragFloat("##interval", &c.CheckInterval, 0.01f, 0.0f, 60.0f, "%.2f s", ImGuiSliderFlags_AlwaysClamp);
+        UI::PropertyLabel("Xotira (s)", "Ko'rmay qolgach oxirgi ko'rgan joyini shuncha soniya eslab turadi (RemembersTarget)");
+        changed |= ImGui::DragFloat("##memory", &c.MemoryTime, 0.05f, 0.0f, 10000.0f, "%.1f s", ImGuiSliderFlags_AlwaysClamp);
+
+        if (m_Context && m_Context->IsRunning())
+        {
+            UI::PropertyHeader("Jonli");
+            UI::PropertyLabel("Holat");
+            if (c.CanSee)
+            {
+                Entity seen = m_Context->GetEntityByUUID(c.SeenTarget);
+                ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.35f, 1.0f), ICON_FA_EYE "  %s: %s", Tr("ko'ryapti"), seen ? seen.GetName().c_str() : "?");
+            }
+            else if (c.HasSeen)
+                ImGui::TextDisabled("%s (%.1f s %s)", Tr("ko'rmayapti"), c.TimeSinceSeen, Tr("oldin ko'rgan"));
+            else
+                ImGui::TextDisabled("%s", Tr("hech kimni ko'rmagan"));
+            if (c.HasSeen)
+            {
+                UI::PropertyLabel("Oxirgi joy");
+                ImGui::TextDisabled("%.2f, %.2f, %.2f", c.LastSeenPosition.x, c.LastSeenPosition.y, c.LastSeenPosition.z);
+            }
+            UI::PropertyLabel("Tekshiruvlar");
+            ImGui::TextDisabled("%u  (%d %s)", c.Checks, c.VisibleCount, Tr("ta ko'rinadi"));
         }
         return changed;
     }
@@ -6410,6 +6550,28 @@ namespace Zamin {
                     UI::PropertyLabel("Ishlayotgan klass");
                     ImGui::TextDisabled("%s", liveClass.c_str());
                 }
+                // AI state machines the script watches (WatchStateMachine): the state now, the history on hover.
+                for (const StateMachine* machine : c.Instance->GetWatchedStateMachines())
+                {
+                    ImGui::PushID(machine);
+                    UI::PropertyLabel(machine->Name.empty() ? "AI" : machine->Name.c_str());
+                    ImGui::TextColored(UI::AccentColor(), ICON_FA_SITEMAP "  %s", machine->Describe().c_str());
+                    if (!machine->GetPreviousStateName().empty())
+                    {
+                        ImGui::SameLine();
+                        ImGui::TextDisabled("<- %s", machine->GetPreviousStateName().c_str());
+                    }
+                    if (ImGui::IsItemHovered() && !machine->GetHistory().empty())
+                    {
+                        ImGui::BeginTooltip();
+                        ImGui::TextUnformatted(Tr("Oxirgi o'tishlar"));
+                        for (auto it = machine->GetHistory().rbegin(); it != machine->GetHistory().rend(); ++it)
+                            ImGui::TextDisabled("%6.1f s  %s -> %s  (%s)", it->Time, it->From.empty() ? "-" : it->From.c_str(), it->To.c_str(),
+                                                it->Reason.c_str());
+                        ImGui::EndTooltip();
+                    }
+                    ImGui::PopID();
+                }
                 if (const ScriptClassInfo* live = ScriptRegistry::Find(liveClass))
                     for (const auto& f : live->Fields)
                     {
@@ -6676,6 +6838,8 @@ namespace Zamin {
                 DisplayAddComponentEntry<NavGrid2DComponent>("NavGrid 2D (tilemap / collider'lardan yo'l grid'i)", ICON_FA_BORDER_ALL);
                 DisplayAddComponentEntry<NavGrid3DComponent>("NavGrid 3D (pol bo'yicha yo'l grid'i)", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<NavAgentComponent>("Nav Agent (yo'l topib yuradi)", ICON_FA_PERSON_WALKING);
+                DisplayAddComponentEntry<NavObstacleComponent>("Nav Obstacle (harakatlanuvchi to'siq)", ICON_FA_CUBE);
+                DisplayAddComponentEntry<SightSensorComponent>("Sight Sensor (ko'rish maydoni)", ICON_FA_EYE);
                 ImGui::SeparatorText(Tr("Effektlar va UI"));
                 DisplayAddComponentEntry<TilemapComponent>("Tilemap", ICON_FA_TABLE_CELLS);
                 DisplayAddComponentEntry<ParallaxComponent>("Parallax", ICON_FA_MOUNTAIN);
@@ -6839,6 +7003,14 @@ namespace Zamin {
 
         AddSection<NavAgentComponent>(ICON_FA_PERSON_WALKING, "Nav Agent", entity, [&](NavAgentComponent& c) {
             return DrawNavAgent(entity, c);
+        }, true, modified);
+
+        AddSection<NavObstacleComponent>(ICON_FA_CUBE, "Nav Obstacle", entity, [&](NavObstacleComponent& c) {
+            return DrawNavObstacle(entity, c);
+        }, true, modified);
+
+        AddSection<SightSensorComponent>(ICON_FA_EYE, "Sight Sensor", entity, [&](SightSensorComponent& c) {
+            return DrawSightSensor(entity, c);
         }, true, modified);
 
         AddSection<SpriteRendererComponent>(ICON_FA_IMAGE, "Sprite Renderer", entity, [&](SpriteRendererComponent& c) {

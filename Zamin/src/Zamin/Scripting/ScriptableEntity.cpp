@@ -1216,4 +1216,46 @@ namespace Zamin {
         return m_Entity.GetScene()->HasNavLineOfSight(from, to);
     }
 
+    // ------------------------------------------------------------------ sight
+    bool ScriptableEntity::CanSee(Entity target) const
+    {
+        return m_Entity.GetScene()->CanSee(m_Entity, target);
+    }
+
+    bool ScriptableEntity::CanSeeTarget() const
+    {
+        const auto* s = m_Entity.HasComponent<SightSensorComponent>() ? &m_Entity.GetComponent<SightSensorComponent>() : nullptr;
+        return s && s->CanSee;
+    }
+
+    Entity ScriptableEntity::GetSeenTarget() const
+    {
+        const auto* s = m_Entity.HasComponent<SightSensorComponent>() ? &m_Entity.GetComponent<SightSensorComponent>() : nullptr;
+        return s && s->SeenTarget ? m_Entity.GetScene()->GetEntityByUUID(s->SeenTarget) : Entity();
+    }
+
+    glm::vec3 ScriptableEntity::GetLastSeenPosition() const
+    {
+        const auto* s = m_Entity.HasComponent<SightSensorComponent>() ? &m_Entity.GetComponent<SightSensorComponent>() : nullptr;
+        return s ? s->LastSeenPosition : glm::vec3(0.0f);
+    }
+
+    bool ScriptableEntity::RemembersTarget() const
+    {
+        const auto* s = m_Entity.HasComponent<SightSensorComponent>() ? &m_Entity.GetComponent<SightSensorComponent>() : nullptr;
+        return s && s->RemembersTarget();
+    }
+
+    // ------------------------------------------------------------------ AI state machines
+    void ScriptableEntity::WatchStateMachine(const StateMachine& machine)
+    {
+        if (std::find(m_WatchedMachines.begin(), m_WatchedMachines.end(), &machine) == m_WatchedMachines.end())
+            m_WatchedMachines.push_back(&machine);
+    }
+
+    void ScriptableEntity::UnwatchStateMachine(const StateMachine& machine)
+    {
+        std::erase(m_WatchedMachines, &machine);
+    }
+
 }

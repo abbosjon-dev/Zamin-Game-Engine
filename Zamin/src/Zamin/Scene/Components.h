@@ -37,6 +37,7 @@
 #endif
 #include <glm/gtx/quaternion.hpp>
 
+#include <array>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -1404,6 +1405,18 @@ namespace Zamin {
         bool SmoothPath = true;           // string pulling (else through cell centres)
         bool SplinePath = false;          // rounded corners (Catmull-Rom over the string-pulled path)
         bool UpdateRotation = true;
+        // Local avoidance: three physics rays ("feelers": straight ahead along where it goes and
+        // FeelerAngle to each side) push it round what they hit - other agents, crates, moving bodies
+        // the grid does not know - blended with the path at AvoidanceWeight. Static bodies only with
+        // AvoidStatic (the grid already keeps the path clear of them). Its own body, its children and
+        // its Target are never avoided.
+        bool Avoidance = false;
+        float FeelerLength = 1.5f;        // units ahead (the side ones 3/4 of it)
+        float FeelerAngle = 35.0f;        // degrees
+        float FeelerHeight = 0.5f;        // 3D: above the agent's origin
+        float AvoidanceWeight = 1.0f;     // 0..: how hard it turns away (1: up to its full speed)
+        uint16_t AvoidanceMask = 0xFFFF;  // the collision layers the feelers see
+        bool AvoidStatic = false;
 
         // runtime (read by scripts; cleared when play starts / stops)
         glm::vec3 Destination{ 0.0f };
@@ -1417,7 +1430,19 @@ namespace Zamin {
         float Remaining = 0.0f;           // along the path to its end
         float RepathTimer = 0.0f;
         uint32_t GridRevision = 0;
+        uint32_t CarveRevision = 0;       // the grid's carving (Nav Obstacles) its path was checked against
         uint32_t PathRequests = 0;        // paths found since play started
+        uint32_t BlockedRepaths = 0;      // of them: because an obstacle blocked the path
+        // Avoidance (debug): the feelers of the last update (where each starts / ends, which hit) and
+        // the push they gave.
+        glm::vec3 FeelerOrigin{ 0.0f };
+        std::array<glm::vec3, 3> FeelerEnds{};
+        uint8_t FeelerHits = 0;           // bit i: feeler i hit (0 ahead, 1 left, 2 right)
+        bool FeelersActive = false;
+        glm::vec3 AvoidancePush{ 0.0f };
+        float LastDeltaTime = 0.0f;
+        int AvoidSide = 0;                // the way it goes round what is ahead (+1 left, -1 right, 0 free)
+        float AvoidClearTime = 0.0f;      // s since the feelers last hit something
 
         // Goes there (the path is found at the next navigation update, this frame when called from
         // OnUpdate).
@@ -1455,7 +1480,113 @@ namespace Zamin {
             PathStatus = NavPathStatus::None;
             Velocity = glm::vec3(0.0f);
             Remaining = RepathTimer = 0.0f;
-            GridRevision = PathRequests = 0;
+            GridRevision = CarveRevision = PathRequests = BlockedRepaths = 0;
+            FeelerOrigin = AvoidancePush = glm::vec3(0.0f);
+            FeelerEnds = {};
+            FeelerHits = 0;
+            FeelersActive = false;
+            LastDeltaTime = AvoidClearTime = 0.0f;
+            AvoidSide = 0;
+        }
+    };
+
+    // A moving or temporary obstacle for Nav Agents (a door, a crate pushed around, a parked cart):
+    // while the game runs it carves the cells under its shape out of the baked NavGrid 2D / 3D it
+    // overlaps (Grid: only that one's), widened by the grid's AgentRadius - a box (Size: its whole
+    // size in the entity's frame) or a circle (Radius; 3D: an upright cylinder Size.y tall) around
+    // Center. 2D grids see it on the XY plane, 3D ones on XZ (only floors it stands on: a 3D grid's
+    // cells under it between their step and agent heights). It carves again - only the cells that
+    // changed - when it moved or turned more than MoveThreshold, and lets go of them when it is
+    // removed, made inactive or destroyed. Agents whose path it blocks find a new one at once.
+    // CarveOnlyStationary: only after it has stood still for StationaryTime (while it moves the
+    // agents' Avoidance has to deal with it).
+    struct NavObstacleComponent
+    {
+        enum class ShapeType : uint8_t { Box = 0, Circle };
+
+        ShapeType Shape = ShapeType::Box;
+        glm::vec3 Center{ 0.0f };
+        glm::vec3 Size{ 1.0f, 1.0f, 1.0f };
+        float Radius = 0.5f;
+        EntityRef Grid;                   // not set: every baked grid it overlaps
+        float MoveThreshold = 0.1f;       // units
+        bool CarveOnlyStationary = false;
+        float StationaryTime = 0.5f;      // s
+
+        // runtime (cleared when play starts / stops)
+        struct Carving
+        {
+            uint64_t Grid = 0;            // the grid entity's UUID
+            int Dimension = 2;            // which of its grids (2D / 3D)
+            uint32_t Serial = 0;          // NavGrid::GetSerial when carved (rebaked since: gone)
+            std::vector<uint32_t> Cells;  // sorted NavGrid indices
+        };
+        std::vector<Carving> Carvings;
+        std::vector<glm::vec3> CarvedPoints; // the shape's corners when it last carved
+        std::vector<glm::vec3> LastPoints;   // and last frame (standing still)
+        float StillTime = 0.0f;
+        uint64_t GridSignature = 0;       // the baked grids it carved into (one rebaked: carve again)
+        uint32_t CarveCount = 0;          // times it carved (again)
+
+        size_t GetCarvedCellCount() const
+        {
+            size_t n = 0;
+            for (const Carving& c : Carvings)
+                n += c.Cells.size();
+            return n;
+        }
+        bool IsCarving() const { return !Carvings.empty(); }
+        void ResetRuntime()
+        {
+            Carvings.clear();
+            CarvedPoints.clear();
+            LastPoints.clear();
+            StillTime = 0.0f;
+            GridSignature = 0;
+            CarveCount = 0;
+        }
+    };
+
+    // Eyes for AI (line of sight and field of view): the entity sees a target that is within
+    // ViewDistance inside the FieldOfView cone around its forward (3D: its -Z, from EyeHeight above
+    // its origin; 2D: its +X turned by its rotation) - or nearer than NearDistance in any direction -
+    // when a physics ray from the eye reaches one of the target's points (the centre and edges of its
+    // collider / character / mesh) with no collider of BlockingMask's layers in between. Targets: the
+    // Target entity, else every active entity tagged TargetTag. Checked every CheckInterval seconds
+    // while the game runs; scripts read CanSeeTarget() / GetSeenTarget() / GetLastSeenPosition() or get
+    // OnTargetSpotted / OnTargetLost, and Scene::CanSee checks any entity at once.
+    struct SightSensorComponent
+    {
+        float ViewDistance = 10.0f;
+        float FieldOfView = 110.0f;       // degrees, the whole cone
+        float NearDistance = 1.0f;        // seen all round this near (0: only the cone)
+        float EyeHeight = 1.6f;           // 3D: above the origin
+        EntityRef Target;                 // not set: the entities tagged TargetTag
+        std::string TargetTag = "Player";
+        uint16_t BlockingMask = 0xFFFF;   // the collision layers whose colliders block the view
+        float CheckInterval = 0.1f;       // s (0: every frame)
+        float MemoryTime = 3.0f;          // s: how long it remembers where it last saw the target
+
+        // runtime (read by scripts; cleared when play starts / stops)
+        bool CanSee = false;
+        UUID SeenTarget = 0;              // the nearest target seen (0: none)
+        glm::vec3 LastSeenPosition{ 0.0f };
+        bool HasSeen = false;             // saw something since play started
+        float TimeSinceSeen = 0.0f;       // s since it last saw one (0 while it sees)
+        float CheckTimer = 0.0f;
+        uint32_t Checks = 0;
+        int VisibleCount = 0;             // targets seen at the last check
+
+        // Lost sight of the target less than MemoryTime ago (or sees it).
+        bool RemembersTarget() const { return CanSee || (HasSeen && TimeSinceSeen <= MemoryTime); }
+        void ResetRuntime()
+        {
+            CanSee = HasSeen = false;
+            SeenTarget = 0;
+            LastSeenPosition = glm::vec3(0.0f);
+            TimeSinceSeen = CheckTimer = 0.0f;
+            Checks = 0;
+            VisibleCount = 0;
         }
     };
 
@@ -3006,7 +3137,7 @@ namespace Zamin {
         CircleCollider2DComponent, PolygonCollider2DComponent, EdgeCollider2DComponent, PlatformEffector2DComponent, AreaEffector2DComponent, BuoyancyEffector2DComponent, DistanceJoint2DComponent, RevoluteJoint2DComponent, PrismaticJoint2DComponent, WeldJoint2DComponent,
         WheelJoint2DComponent, Rigidbody3DComponent, BoxCollider3DComponent, SphereCollider3DComponent,
         CapsuleCollider3DComponent, ConvexHullCollider3DComponent, MeshCollider3DComponent, FixedJoint3DComponent, HingeJoint3DComponent, DistanceJoint3DComponent,
-        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, SplineComponent, SplineFollowerComponent, NavGrid2DComponent, NavGrid3DComponent, NavAgentComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
+        SliderJoint3DComponent, ConeJoint3DComponent, CharacterController3DComponent, TilemapComponent, ParallaxComponent, Camera2DFollowComponent, SplineComponent, SplineFollowerComponent, NavGrid2DComponent, NavGrid3DComponent, NavAgentComponent, NavObstacleComponent, SightSensorComponent, ParticleSystemComponent, UITransformComponent, UICanvasComponent,
         UILayoutGroupComponent, UILayoutElementComponent, UINavigationComponent, UIAnimationComponent, UIButtonComponent,
         UIImageComponent, UISliderComponent, UIToggleComponent, UIProgressBarComponent, UIInputFieldComponent, UIMaskComponent,
         UIScrollViewComponent, AudioSourceComponent, AudioListenerComponent, AmbientZoneComponent, FootstepsComponent,

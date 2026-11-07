@@ -60,6 +60,7 @@ namespace Zamin {
             { "UndoHistory", "###UndoHistory", &m_ShowUndoHistory },
             { "UnusedAssets", "###UnusedAssets", &m_ShowUnusedAssets },
             { "SceneStatistics", "###SceneStatistics", &m_ShowSceneStatistics },
+            { "BuildOutput", "###BuildOutput", &m_ShowBuildOutput },
             { "SceneView2", "###SceneView2", &m_ViewSettings.SceneViews[0].Open },
             { "SceneView3", "###SceneView3", &m_ViewSettings.SceneViews[1].Open },
             { "SceneView4", "###SceneView4", &m_ViewSettings.SceneViews[2].Open },

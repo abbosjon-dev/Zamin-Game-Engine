@@ -33107,3 +33107,170 @@ TEST(ExternalEditorCommands)
     std::error_code ec;
     fs::remove_all(dir, ec);
 }
+
+// Compiler output (318): GCC and Clang diagnostics with file / line / column, their notes, snippets
+// and context, repeats dropped, linker errors (GNU ld, lld) and CMake errors.
+TEST(CompilerOutputParsing)
+{
+    const char* gcc =
+        "[1/3] Building CXX object CMakeFiles/Game.dir/Source/Player.cpp.o\n"
+        "FAILED: CMakeFiles/Game.dir/Source/Player.cpp.o\n"
+        "/usr/bin/c++ -DGame_EXPORTS -O2 -c /proj/Source/Player.cpp\n"
+        "In file included from /proj/Source/Player.cpp:2:\n"
+        "/proj/Source/Common.h:7:9: warning: unused variable 'unused' [-Wunused-variable]\n"
+        "    7 |     int unused = 0;\n"
+        "      |         ^~~~~~\n"
+        "/proj/Source/Player.cpp: In member function 'virtual void Player::OnUpdate(Zamin::Timestep)':\n"
+        "/proj/Source/Player.cpp:24:9: error: 'Jump' was not declared in this scope; did you mean 'jump'?\n"
+        "   24 |         Jump();\n"
+        "      |         ^~~~\n"
+        "      |         jump\n"
+        "/proj/Source/Player.cpp:30:22: error: no matching function for call to 'Foo::Bar(int)'\n"
+        "   30 |         m_Foo.Bar(3);\n"
+        "/proj/Source/Foo.h:5:10: note: candidate: 'void Foo::Bar()'\n"
+        "    5 |     void Bar();\n"
+        "      |          ^~~\n"
+        "/proj/Source/Foo.h:5:10: note:   candidate expects 0 arguments, 1 provided\n"
+        "[2/3] Building CXX object CMakeFiles/Game.dir/Source/Enemy.cpp.o\n"
+        "In file included from /proj/Source/Enemy.cpp:1:\n"
+        "/proj/Source/Common.h:7:9: warning: unused variable 'unused' [-Wunused-variable]\n"
+        "    7 |     int unused = 0;\n"
+        "Source/Enemy.cpp:12: warning: relative path, no column\n"
+        "ninja: build stopped: subcommand failed.\n";
+    CompilerOutputParser p;
+    p.AddText(gcc);
+    p.Finish();
+    const auto& d = p.GetDiagnostics();
+    CHECK(d.size() == 4);
+    CHECK(p.GetErrorCount() == 2 && p.GetWarningCount() == 2);
+    if (d.size() == 4)
+    {
+        CHECK(d[0].Severity == DiagnosticSeverity::Warning && d[0].File == "/proj/Source/Common.h" && d[0].Line == 7 && d[0].Column == 9);
+        CHECK(d[0].Message == "unused variable 'unused'" && d[0].Option == "-Wunused-variable");
+        CHECK(d[0].Context.size() == 1 && d[0].Context[0] == "In file included from /proj/Source/Player.cpp:2:");
+        CHECK(d[0].Snippet.size() == 2 && d[0].Snippet[0].find("int unused") != std::string::npos);
+        CHECK(d[1].Severity == DiagnosticSeverity::Error && d[1].Line == 24 && d[1].Column == 9);
+        CHECK(d[1].Message == "'Jump' was not declared in this scope; did you mean 'jump'?");
+        CHECK(d[1].Context.size() == 1 && d[1].Context[0].find("In member function") != std::string::npos);
+        CHECK(d[1].Snippet.size() == 3);
+        CHECK(d[2].Line == 30 && d[2].Notes.size() == 2 && d[2].Snippet.size() == 1);
+        CHECK(d[2].Notes.size() == 2 && d[2].Notes[0].File == "/proj/Source/Foo.h" && d[2].Notes[0].Line == 5 &&
+              d[2].Notes[0].Severity == DiagnosticSeverity::Note && d[2].Notes[0].Snippet.size() == 2);
+        CHECK(d[2].Notes.size() == 2 && d[2].Notes[1].Message == "candidate expects 0 arguments, 1 provided");
+        // The header's warning again (Enemy.cpp includes it too) is kept once; a line without a column.
+        CHECK(d[3].File == "Source/Enemy.cpp" && d[3].Line == 12 && d[3].Column == 0 && d[3].Message == "relative path, no column");
+        p.ResolvePaths("/proj/Build");
+        CHECK(p.GetDiagnostics()[3].File == "/proj/Build/Source/Enemy.cpp" && p.GetDiagnostics()[0].File == "/proj/Source/Common.h");
+        CHECK(d[1].Format() == "/proj/Source/Player.cpp:24:9: error: 'Jump' was not declared in this scope; did you mean 'jump'?");
+        CHECK(d[0].Format().ends_with("[-Wunused-variable]"));
+    }
+
+    // GCC's template trail: the instantiation context and "required from here" come before the error.
+    CompilerOutputParser t;
+    t.AddText("/p/a.h: In instantiation of 'void Store(T) [with T = int]':\n"
+              "/p/a.cpp:10:10:   required from here\n"
+              "/p/a.h:3:5: error: 'int' is not a class\n"
+              "    3 |     value.Save();\n");
+    t.Finish();
+    CHECK(t.GetDiagnostics().size() == 1);
+    if (!t.GetDiagnostics().empty())
+    {
+        const CompilerDiagnostic& e = t.GetDiagnostics()[0];
+        CHECK(e.Line == 3 && e.Context.size() == 1 && e.Notes.size() == 1 && e.Notes[0].Line == 10 && e.Notes[0].Message == "required from here");
+        CHECK(e.Snippet.size() == 1);
+    }
+
+    // Clang: the same shape; tool messages without a file; -Werror options.
+    CompilerOutputParser c;
+    c.AddText("/p/b.cpp:4:12: error: use of undeclared identifier 'speed'\n"
+              "    return speed * 2;\n"
+              "           ^\n"
+              "/p/b.cpp:9:7: warning: unused variable 'x' [-Werror,-Wunused-variable]\n"
+              "2 errors generated.\n"
+              "clang++: error: no such file or directory: 'missing.cpp'\n"
+              "c++: fatal error: no input files\n");
+    c.Finish();
+    CHECK(c.GetDiagnostics().size() == 4 && c.GetErrorCount() == 3);
+    if (c.GetDiagnostics().size() == 4)
+    {
+        CHECK(c.GetDiagnostics()[0].Snippet.size() == 2 && c.GetDiagnostics()[0].Column == 12);
+        CHECK(c.GetDiagnostics()[1].Option == "-Werror,-Wunused-variable");
+        CHECK(c.GetDiagnostics()[2].File.empty() && c.GetDiagnostics()[2].Message == "no such file or directory: 'missing.cpp'");
+        CHECK(!c.GetDiagnostics()[3].HasLocation() && c.GetDiagnostics()[3].Message == "no input files");
+    }
+
+    // GNU ld: undefined references with the function they are in; collect2's summary is left out.
+    CompilerOutputParser l;
+    l.AddText("[3/3] Linking CXX shared library libGame.so\n"
+              "/usr/bin/ld: CMakeFiles/Game.dir/Source/Player.cpp.o: in function `Player::OnUpdate(Zamin::Timestep)':\n"
+              "/proj/Source/Player.cpp:42:(.text+0x2a): undefined reference to `Enemy::Hit()'\n"
+              "/usr/bin/ld: Player.cpp:(.text+0x5f): undefined reference to `Enemy::Die()'\n"
+              "/usr/bin/ld: cannot find -lmissing: No such file or directory\n"
+              "/usr/bin/ld: warning: libfoo.so, needed by libbar.so, not found\n"
+              "collect2: error: ld returned 1 exit status\n");
+    l.Finish();
+    const auto& ld = l.GetDiagnostics();
+    CHECK(ld.size() == 4 && l.GetErrorCount() == 3 && l.GetWarningCount() == 1);
+    if (ld.size() == 4)
+    {
+        CHECK(ld[0].Linker && ld[0].File == "/proj/Source/Player.cpp" && ld[0].Line == 42 && ld[0].Message == "undefined reference to `Enemy::Hit()'");
+        CHECK(ld[0].Context.size() == 1 && ld[0].Context[0] == "in function `Player::OnUpdate(Zamin::Timestep)'");
+        CHECK(ld[1].File == "Player.cpp" && ld[1].Line == 0 && ld[1].Message == "undefined reference to `Enemy::Die()'");
+        CHECK(!ld[2].HasLocation() && ld[2].Message == "cannot find -lmissing: No such file or directory");
+        CHECK(ld[3].Severity == DiagnosticSeverity::Warning && ld[3].Linker);
+    }
+    CompilerOutputParser onlySummary;
+    onlySummary.AddLine("collect2: error: ld returned 1 exit status");
+    onlySummary.Finish();
+    CHECK(onlySummary.GetErrorCount() == 1 && onlySummary.GetDiagnostics()[0].Linker);
+
+    // lld: the place comes from ">>> referenced by".
+    CompilerOutputParser lld;
+    lld.AddText("ld.lld: error: undefined symbol: Enemy::Hit()\n"
+                ">>> referenced by Player.cpp:42 (/proj/Source/Player.cpp:42)\n"
+                ">>>               CMakeFiles/Game.dir/Source/Player.cpp.o:(Player::OnUpdate(Zamin::Timestep))\n"
+                "clang++: error: linker command failed with exit code 1 (use -v to see invocation)\n");
+    lld.Finish();
+    CHECK(lld.GetDiagnostics().size() == 1);
+    if (!lld.GetDiagnostics().empty())
+    {
+        const CompilerDiagnostic& e = lld.GetDiagnostics()[0];
+        CHECK(e.Linker && e.File == "/proj/Source/Player.cpp" && e.Line == 42 && e.Message == "undefined symbol: Enemy::Hit()" && e.Snippet.size() == 2);
+    }
+
+    // CMake: the message's indented lines joined.
+    CompilerOutputParser cm;
+    cm.AddText("-- Configuring incomplete, errors occurred!\n"
+               "CMake Error at CMakeLists.txt:12 (add_library):\n"
+               "  Cannot find source file:\n"
+               "\n"
+               "    Source/Missing.cpp\n"
+               "\n"
+               "CMake Warning (dev) at CMakeLists.txt:3 (project):\n"
+               "  Policy CMP0048 is not set.\n"
+               "CMake Error: The source directory \"/nowhere\" does not exist.\n");
+    cm.Finish();
+    CHECK(cm.GetDiagnostics().size() == 3 && cm.GetErrorCount() == 2 && cm.GetWarningCount() == 1);
+    if (cm.GetDiagnostics().size() == 3)
+    {
+        const CompilerDiagnostic& e = cm.GetDiagnostics()[0];
+        CHECK(e.CMake && e.File == "CMakeLists.txt" && e.Line == 12 && e.Message == "Cannot find source file:");
+        CHECK(e.Context.size() == 1 && e.Context[0] == "(add_library)");
+        CHECK(cm.GetDiagnostics()[1].Line == 3 && cm.GetDiagnostics()[1].Severity == DiagnosticSeverity::Warning);
+        CHECK(cm.GetDiagnostics()[2].Message == "The source directory \"/nowhere\" does not exist." && !cm.GetDiagnostics()[2].HasLocation());
+    }
+
+    // Single lines; colour codes; prose is not a diagnostic.
+    CompilerDiagnostic one;
+    CHECK(CompilerOutputParser::ParseDiagnosticLine("\x1b[1m/p/x.cpp:3:4: \x1b[31merror: \x1b[0mbad", one) == false); // raw colours: AddLine strips them
+    CompilerOutputParser colored;
+    colored.AddLine("\x1b[01m\x1b[K/p/x.cpp:3:4:\x1b[m\x1b[K \x1b[01;31m\x1b[Kerror: \x1b[m\x1b[Kbad thing");
+    CHECK(colored.GetErrorCount() == 1 && colored.GetDiagnostics()[0].Line == 3 && colored.GetDiagnostics()[0].Message == "bad thing");
+    CHECK(!CompilerOutputParser::ParseDiagnosticLine("Building target Game", one));
+    CHECK(!CompilerOutputParser::ParseDiagnosticLine("the docs say: error: is a word", one));
+    CHECK(CompilerOutputParser::ParseDiagnosticLine("/p/y.cpp:1:2: fatal error: Zamin.h: No such file or directory", one) &&
+          one.Severity == DiagnosticSeverity::Error && one.Message == "Zamin.h: No such file or directory" && one.Column == 2);
+    CHECK(std::string(CompilerDiagnostic::GetSeverityName(DiagnosticSeverity::Warning)) == "ogohlantirish");
+    p.Clear();
+    CHECK(p.GetDiagnostics().empty() && p.GetErrorCount() == 0);
+}

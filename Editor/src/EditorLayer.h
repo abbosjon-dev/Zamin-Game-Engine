@@ -22,6 +22,7 @@
 #include <deque>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <thread>
 #include <unordered_map>
@@ -282,6 +283,19 @@ namespace Zamin {
         // Where a class is written (cached for a few seconds; invalid when not found).
         const SourceLocation& GetScriptSource(const std::string& className);
         void UI_ExternalEditorPreferences(bool& changed);
+
+        // ---- the script build's messages (EditorBuildOutput.cpp): the compiler's / linker's / CMake's
+        // errors and warnings with file and line ("Kompilyatsiya" window, the status bar's badge);
+        // a double click opens the place in the external editor.
+        void BeginBuildOutput(const std::filesystem::path& buildDirectory);
+        // A line of the build's output (the build thread).
+        void AddBuildOutputLine(const std::string& line);
+        void FinishBuildOutput(bool succeeded, double seconds);
+        void OpenDiagnostic(const CompilerDiagnostic& diagnostic);
+        void UI_BuildOutput();
+        void UI_BuildStatusBadge();
+        // ZAMIN_EDITOR_BUILD_LOG=<file>: a saved build output read as if a build had just failed with it.
+        void LoadBuildLogAutomation(const std::filesystem::path& file);
 
         // ---- export
         void BuildGame(const std::filesystem::path& outputDirectory);
@@ -827,6 +841,23 @@ namespace Zamin {
         bool m_AutoReload = true;
         float m_HotReloadTimer = 0.0f;
         float m_BuildStartTime = 0.0f;
+        // the build's messages: written by the build thread under the mutex, read by the window
+        enum class BuildResult { None, Running, Succeeded, Failed };
+        std::mutex m_BuildOutputMutex;
+        CompilerOutputParser m_BuildParser;
+        std::vector<std::string> m_BuildLog;          // every line of the output
+        uint64_t m_BuildOutputRevision = 0;           // grows with every line
+        uint64_t m_BuildShownRevision = ~0ull;        // the revision the window's copy is of
+        std::vector<CompilerDiagnostic> m_BuildDiagnostics; // the window's copy (main thread)
+        size_t m_BuildErrors = 0, m_BuildWarnings = 0;
+        std::filesystem::path m_BuildDirectory;
+        BuildResult m_BuildResult = BuildResult::None;
+        double m_BuildSeconds = 0.0;
+        bool m_ShowBuildOutput = false, m_FocusBuildOutput = false;
+        bool m_BuildShowErrors = true, m_BuildShowWarnings = true, m_BuildShowNotes = true;
+        int m_BuildOutputTab = 0;                     // 0: problems, 1: the whole output
+        int m_BuildSelected = -1;
+        std::string m_BuildSearch;
         // script classes' source files (the inspector's / statistics' "open the code")
         std::unordered_map<std::string, SourceLocation> m_ScriptSources;
         double m_ScriptSourcesTime = -100.0;

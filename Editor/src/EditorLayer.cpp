@@ -990,6 +990,9 @@ namespace Zamin {
                 BuildGame(out);
             if (std::getenv("ZAMIN_EDITOR_BUILD"))
                 BuildScripts(true);
+            // ZAMIN_EDITOR_BUILD_LOG=<file>: a saved compiler output in the Kompilyatsiya window (screenshots).
+            if (const char* buildLog = std::getenv("ZAMIN_EDITOR_BUILD_LOG"))
+                LoadBuildLogAutomation(buildLog);
             if (const char* np = std::getenv("ZAMIN_EDITOR_NEW_PROJECT")) // "<dir>|<name>"
             {
                 std::string v = np;
@@ -1364,6 +1367,7 @@ namespace Zamin {
         {
             if (m_BuildThread.joinable()) m_BuildThread.join();
             m_AssetUsage.MarkDirty(); // the C++ code may name other assets now
+            FinishBuildOutput(m_BuildSucceeded, Platform::GetTime() - m_BuildStartTime);
             if (m_BuildSucceeded)
             {
                 ZM_INFO("Skriptlar muvaffaqiyatli kompilyatsiya qilindi ({:.1f} s)", Platform::GetTime() - m_BuildStartTime);
@@ -1371,7 +1375,7 @@ namespace Zamin {
                     ReloadScriptModule();
             }
             else
-                ZM_ERROR("Skriptlarni kompilyatsiya qilishda xato! Konsolni tekshiring.");
+                ZM_ERROR("Skriptlarni kompilyatsiya qilishda xato: {} xato, {} ogohlantirish (Oyna > Kompilyatsiya)", m_BuildErrors, m_BuildWarnings);
         }
         if (!m_Exporting && m_ExportThread.joinable())
             m_ExportThread.join();
@@ -5595,6 +5599,7 @@ namespace Zamin {
         m_Building = true;
         m_ReloadAfterBuild = reloadAfter;
         m_BuildStartTime = Platform::GetTime();
+        BeginBuildOutput(buildDir);
         ZM_INFO("C++ skriptlar kompilyatsiya qilinmoqda: {}", project->GetConfig().Name);
 
         m_BuildThread = std::thread([this, command]() {
@@ -5607,6 +5612,7 @@ namespace Zamin {
                 {
                     std::string s(line);
                     while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+                    AddBuildOutputLine(s); // the "Kompilyatsiya" window's messages
                     if (s.empty()) continue;
                     if (s.find("error") != std::string::npos || s.find("Error") != std::string::npos) ZM_ERROR("{}", s);
                     else if (s.find("warning") != std::string::npos) ZM_WARN("{}", s);
@@ -5844,6 +5850,7 @@ namespace Zamin {
         m_UnusedAssetsShown = m_ShowUnusedAssets;
         m_UnusedAssetsPanel.OnImGuiRender(&m_ShowUnusedAssets);
         UI_SceneStatistics();
+        UI_BuildOutput();
         m_AssetInspectorPanel.DrawPopups();
         m_ConsolePanel.OnImGuiRender(&m_ShowConsole);
         UI_SceneSettings();
@@ -6078,6 +6085,16 @@ namespace Zamin {
             if (ImGui::MenuItem(ICON_FA_HAMMER "  Kompilyatsiya + qayta yuklash", ShortcutLabel(EditorShortcut::BuildScripts), false, hasProject && !m_Building)) BuildScripts(true);
             if (ImGui::MenuItem(ICON_FA_ARROWS_ROTATE "  Modulni qayta yuklash", nullptr, false, hasProject)) ReloadScriptModule();
             ImGui::MenuItem(ICON_FA_BOLT "  Avtomatik hot-reload", nullptr, &m_AutoReload);
+            {
+                const std::string label = m_BuildErrors + m_BuildWarnings > 0
+                                              ? std::format(ICON_FA_SCREWDRIVER_WRENCH "  Kompilyatsiya natijalari ({} xato, {} ogohl.)", m_BuildErrors, m_BuildWarnings)
+                                              : std::string(ICON_FA_SCREWDRIVER_WRENCH "  Kompilyatsiya natijalari");
+                if (ImGui::MenuItem(label.c_str()))
+                {
+                    m_ShowBuildOutput = true;
+                    m_FocusBuildOutput = true;
+                }
+            }
             ImGui::Separator();
             if (ImGui::MenuItem(ICON_FA_FILE_CODE "  Yangi C++ skript...", nullptr, false, hasProject)) { m_NewScriptName = "MyScript"; m_OpenNewScriptPopup = true; }
             if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN "  Source papkasini ochish", nullptr, false, hasProject))
@@ -6104,6 +6121,8 @@ namespace Zamin {
             ImGui::MenuItem(ICON_FA_GEAR "  Loyiha sozlamalari", nullptr, &m_ShowProjectSettings);
             ImGui::MenuItem(ICON_FA_CHART_LINE "  Statistika", nullptr, &m_ShowStats);
             ImGui::MenuItem(ICON_FA_CHART_PIE "  Sahna statistikasi", nullptr, &m_ShowSceneStatistics);
+            if (ImGui::MenuItem(ICON_FA_SCREWDRIVER_WRENCH "  Kompilyatsiya", nullptr, &m_ShowBuildOutput) && m_ShowBuildOutput)
+                m_FocusBuildOutput = true;
             ImGui::MenuItem(ICON_FA_STOPWATCH "  Profiler", nullptr, &m_ShowProfiler);
             ImGui::MenuItem(ICON_FA_SLIDERS "  Audio Mixer", nullptr, &m_ShowAudioMixer);
             if (ImGui::MenuItem(ICON_FA_TIMELINE "  Animatsiya", nullptr, &m_ShowAnimation) && m_ShowAnimation)
@@ -6207,6 +6226,7 @@ namespace Zamin {
                     ImGui::TextDisabled("%s Skriptlar: %zu klass", ICON_FA_CODE, ScriptRegistry::GetAll().size());
                 else
                     ImGui::TextDisabled("%s Skript moduli yuklanmagan", ICON_FA_CODE);
+                UI_BuildStatusBadge();
                 if (m_Exporting)
                 {
                     ImGui::TextDisabled("|");

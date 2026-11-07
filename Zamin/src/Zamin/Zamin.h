@@ -41,6 +41,7 @@
 #include "Zamin/Editor/SceneViews.h"
 #include "Zamin/Editor/SceneStatistics.h"
 #include "Zamin/Editor/ExternalEditor.h"
+#include "Zamin/Editor/CompilerDiagnostics.h"
 #include "Zamin/Renderer/PostProcess.h"
 #include "Zamin/Renderer/SelectionOutline.h"
 #include "Zamin/Renderer/Environment.h"

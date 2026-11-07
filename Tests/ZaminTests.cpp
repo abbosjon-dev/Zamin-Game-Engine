@@ -44485,3 +44485,642 @@ TEST(PrefabUndoFileEdits)
         leftovers += entry.path().filename().string().find(".tmp-") != std::string::npos ? 1 : 0;
     CHECK(leftovers == 0);
 }
+
+// ------------------------------------------------------------------ M21 batch B: prefab mode, references, versions, recovery
+#include <regex>
+#include <sstream>
+
+namespace {
+    // `text` without the line holding `needle` (a key of a pretty-printed JSON file).
+    std::string WithoutLine(std::string text, const std::string& needle)
+    {
+        const size_t at = text.find(needle);
+        if (at == std::string::npos)
+            return text;
+        const size_t start = text.rfind('\n', at);
+        const size_t end = text.find('\n', at);
+        text.erase(start, end - start);
+        return text;
+    }
+}
+
+TEST(EntityRefVisitorCoverage)
+{
+    // Every EntityRef member of the components (as Components.h declares them) is a place
+    // ForEachEntityRef visits - a new reference field cannot be forgotten by the remaps.
+    const std::string source = FileSystem::ReadTextFile(std::filesystem::path(ZAMIN_SOURCE_DIR) / "Zamin" / "src" / "Zamin" / "Scene" / "Components.h");
+    CHECK(!source.empty());
+    struct Declared { std::string Top, Member; };
+    std::vector<Declared> declared;
+    std::vector<std::pair<std::string, int>> structs; // name, brace depth it opened at
+    int depth = 0;
+    std::string pendingStruct;
+    std::istringstream lines(source);
+    for (std::string line; std::getline(lines, line);)
+    {
+        std::string code = line.substr(0, line.find("//"));
+        static const std::regex structRe(R"(^\s*struct\s+(\w+)\s*(:[^{;]*)?\s*(\{)?\s*$)");
+        std::smatch m;
+        if (std::regex_match(code, m, structRe))
+            pendingStruct = m[1];
+        static const std::regex refRe(R"(^\s*(std::vector<EntityRef>|EntityRef)\s+([\w\s,]+);)");
+        if (std::regex_search(code, m, refRe) && !structs.empty())
+        {
+            std::stringstream names(m[2].str());
+            for (std::string name; std::getline(names, name, ',');)
+            {
+                name.erase(0, name.find_first_not_of(" \t"));
+                name.erase(name.find_last_not_of(" \t") + 1);
+                declared.push_back({ structs.front().first, name });
+            }
+        }
+        for (char c : code)
+        {
+            if (c == '{')
+            {
+                depth++;
+                if (!pendingStruct.empty())
+                {
+                    structs.emplace_back(pendingStruct, depth);
+                    pendingStruct.clear();
+                }
+            }
+            else if (c == '}')
+            {
+                if (!structs.empty() && structs.back().second == depth)
+                    structs.pop_back();
+                depth--;
+            }
+        }
+    }
+    const std::vector<std::string> sites = Scene::GetEntityRefSites();
+    auto member = [](const std::string& site) {
+        std::string last = site.substr(site.rfind('.') + 1);
+        if (last.ends_with("[]"))
+            last.resize(last.size() - 2);
+        return last;
+    };
+    auto key = [](const std::string& site) { return site.substr(0, site.find('.')); };
+    size_t plain = 0;
+    for (const Declared& d : declared)
+    {
+        bool found = false;
+        const bool base = d.Top.ends_with("ComponentBase");
+        const std::string componentKey = d.Top.ends_with("Component") ? d.Top.substr(0, d.Top.size() - 9) : d.Top;
+        for (const std::string& site : sites)
+            found |= member(site) == d.Member && (base || key(site) == componentKey);
+        CHECK(found);
+        if (!found)
+            std::printf("    ForEachEntityRef bilmaydi: %s::%s\n", d.Top.c_str(), d.Member.c_str());
+        plain += base ? 0 : 1;
+    }
+    // ... and nothing else (the joints' sites come from their two base structs, the scripts' fields are not members).
+    size_t plainSites = 0, jointSites = 0;
+    for (const std::string& site : sites)
+    {
+        if (site == "NativeScript.Fields[]")
+            continue;
+        if (member(site) == "ConnectedBody")
+            jointSites++;
+        else
+            plainSites++;
+    }
+    CHECK(declared.size() >= 20 && plain == plainSites && jointSites >= 2);
+    for (const std::string& site : sites)
+    {
+        if (site == "NativeScript.Fields[]")
+            continue;
+        bool known = false;
+        for (const Declared& d : declared)
+            known |= d.Member == member(site);
+        CHECK(known);
+    }
+}
+
+TEST(PrefabEntityRefRemap)
+{
+    TempDirectory temp("zamin-prefab");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    auto scene = CreateRef<Scene>();
+    Entity a = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    Entity b = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    Entity aw = a ? ChildNamed(*scene, a, "Weapon") : Entity(), as = a ? ChildNamed(*scene, a, "Shield") : Entity();
+    Entity bw = b ? ChildNamed(*scene, b, "Weapon") : Entity(), bs = b ? ChildNamed(*scene, b, "Shield") : Entity();
+    CHECK(a && b && aw && as && bw && bs);
+    if (!a || !b || !aw || !as || !bw || !bs)
+        return;
+    // Placed: the prefab's reference points at the instance's own entity.
+    CHECK(a.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)aw.GetUUID());
+    CHECK(b.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)bw.GetUUID());
+    // Applied: an instance UUID goes into the file as the prefab's ID, every instance gets its own.
+    a.GetComponent<Camera2DFollowComponent>().Target.ID = as.GetUUID();
+    PrefabUtility::RecordOverrides(a, db);
+    PrefabApplyResult r = PrefabUtility::Apply(a, PrefabScope::Field, "Camera2DFollow/Target", db);
+    CHECK(r.Applied);
+    const PrefabDatabase::Template* t = db.Get(prefab.Rel());
+    CHECK(t && t->Entities->GetEntityByUUID(prefab.Enemy.GetUUID()).GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)prefab.Shield.GetUUID());
+    CHECK(b.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)bs.GetUUID() && PrefabUtility::GetOverrides(a).empty());
+    // An instance's reference to a scene entity (an override) survives a sync; the others follow the prefab.
+    Entity outside = scene->CreateEntity("Kamera nishoni");
+    a.GetComponent<Camera2DFollowComponent>().Target.ID = outside.GetUUID();
+    PrefabUtility::RecordOverrides(a, db);
+    prefab.Weapon.GetComponent<SpriteRendererComponent>().Color = { 0.0f, 1.0f, 0.0f, 1.0f };
+    CHECK(prefab.Save());
+    db.Invalidate(prefab.Rel());
+    PrefabUtility::SyncScene(*scene, db);
+    CHECK(aw.GetComponent<SpriteRendererComponent>().Color == glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    CHECK(a.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)outside.GetUUID());
+    CHECK(b.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)bw.GetUUID()); // the file's again (re-saved from the source)
+    // Revert maps the prefab's reference to the instance's entity again.
+    CHECK(PrefabUtility::Revert(a, PrefabScope::Field, "Camera2DFollow/Target", db));
+    CHECK(a.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)aw.GetUUID());
+
+    // Nested: a reference inside the nested prefab's part is written in the outer prefab's IDs.
+    {
+        auto qs = CreateRef<Scene>();
+        Entity gun = qs->CreateEntity("Gun");
+        Entity muzzle = qs->CreateEntity("Muzzle");
+        qs->SetParent(muzzle, gun, false);
+        gun.AddComponent<Camera2DFollowComponent>().Target.ID = muzzle.GetUUID();
+        CHECK(qs->SavePrefab(gun, temp.GetPath() / "Prefabs" / "Gun.zprefab"));
+        auto ps = CreateRef<Scene>();
+        Entity soldier = ps->CreateEntity("Soldier");
+        Entity nested = PrefabUtility::InstantiateLinked(*ps, db, "Prefabs/Gun.zprefab", soldier);
+        CHECK(nested && ps->SavePrefab(soldier, temp.GetPath() / "Prefabs" / "Soldier.zprefab"));
+        Entity s = PrefabUtility::InstantiateLinked(*scene, db, "Prefabs/Soldier.zprefab");
+        Entity sGun = s ? ChildNamed(*scene, s, "Gun") : Entity();
+        Entity sMuzzle = sGun ? ChildNamed(*scene, sGun, "Muzzle") : Entity();
+        CHECK(sGun && sMuzzle && sGun.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)sMuzzle.GetUUID());
+        if (sGun && sMuzzle)
+        {
+            sGun.GetComponent<TransformComponent>().Scale = glm::vec3(2.0f);
+            PrefabUtility::RecordOverrides(s, db);
+            CHECK(PrefabUtility::Apply(s, PrefabScope::Instance, {}, db).Applied);
+            const PrefabDatabase::Template* st = db.Get("Prefabs/Soldier.zprefab");
+            Entity tGun, tMuzzle;
+            for (uint64_t id : st ? st->Order : std::vector<uint64_t>())
+            {
+                Entity e = st->Entities->GetEntityByUUID(UUID(id));
+                (e.GetName() == "Gun" ? tGun : e.GetName() == "Muzzle" ? tMuzzle : e) = e;
+            }
+            CHECK(tGun && tMuzzle && tGun.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)tMuzzle.GetUUID());
+            CHECK(tMuzzle && (uint64_t)tMuzzle.GetUUID() == PrefabUtility::GetPrefabEntity(sMuzzle));
+        }
+    }
+
+    // Duplicate: references inside the copied subtree point at the copies - also with a child UUID
+    // that has no entity and a child listed twice, and for one copy of DuplicateEntities.
+    {
+        auto d = CreateRef<Scene>();
+        Entity root = d->CreateEntity("Kema");
+        Entity mast = d->CreateEntity("Machta");
+        d->SetParent(mast, root, false);
+        root.AddComponent<Camera2DFollowComponent>().Target.ID = mast.GetUUID();
+        mast.AddComponent<UIButtonComponent>().ClickTarget.ID = root.GetUUID();
+        root.GetComponent<RelationshipComponent>().Children.push_back(UUID(424242)); // dangling
+        Entity copy = d->DuplicateEntity(root);
+        Entity copyMast = ChildNamed(*d, copy, "Machta");
+        CHECK(copyMast && copy.GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)copyMast.GetUUID());
+        CHECK(copyMast && copyMast.GetComponent<UIButtonComponent>().ClickTarget.ID == (uint64_t)copy.GetUUID());
+        std::vector<Entity> copies = d->DuplicateEntities({ root });
+        CHECK(copies.size() == 1);
+        Entity m2 = copies.empty() ? Entity() : ChildNamed(*d, copies[0], "Machta");
+        CHECK(m2 && copies[0].GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)m2.GetUUID());
+        // Two copies: a reference from one copied subtree into the other follows the copy.
+        Entity other = d->CreateEntity("Boshqa");
+        other.AddComponent<Camera2DFollowComponent>().Target.ID = mast.GetUUID();
+        std::vector<Entity> both = d->DuplicateEntities({ root, other });
+        CHECK(both.size() == 2);
+        if (both.size() == 2)
+        {
+            Entity bothMast = ChildNamed(*d, both[0], "Machta");
+            CHECK(bothMast && both[1].GetComponent<Camera2DFollowComponent>().Target.ID == (uint64_t)bothMast.GetUUID());
+        }
+    }
+
+    // Saving a prefab: every reference out of it is reported (not only joints').
+    {
+        auto w = CreateRef<Scene>();
+        Entity guard = w->CreateEntity("Qorovul");
+        Entity door = w->CreateEntity("Eshik");
+        guard.AddComponent<NavAgentComponent>().Target.ID = door.GetUUID();
+        size_t reported = 0;
+        const LogLevel level = Log::GetMinLevel();
+        Log::SetMinLevel(LogLevel::Warn); // the warning is what is checked
+        CHECK(w->SavePrefab(guard, temp.GetPath() / "Prefabs" / "Guard.zprefab"));
+        Log::SetMinLevel(level);
+        Log::ForEach([&](const LogMessage& m) {
+            reported += m.Text.find("Guard.zprefab") != std::string::npos && m.Text.find("tashqi havola") != std::string::npos &&
+                        m.Text.find("NavAgent.Target") != std::string::npos ? 1 : 0;
+        });
+        CHECK(reported == 1);
+        CHECK(FileSystem::ReadTextFile(temp.GetPath() / "Prefabs" / "Guard.zprefab").find(std::to_string((uint64_t)door.GetUUID())) != std::string::npos);
+    }
+}
+
+TEST(EntitySetVersionMigration)
+{
+    namespace fs = std::filesystem;
+    // The sets say their version and kind.
+    auto scene = CreateRef<Scene>();
+    Entity e = scene->CreateEntity("Yozuv");
+    e.AddComponent<TextComponent>().Text = "Salom";
+    e.AddComponent<UITransformComponent>();
+    e.AddComponent<SpriteRendererComponent>();
+    const std::string clip = SceneSerializer::SerializeEntities(*scene, { e });
+    const std::string prefabText = SceneSerializer::SerializeEntities(*scene, { e }, false);
+    CHECK(clip.find(std::format("\"Version\": {}", SceneMigration::CurrentVersion)) != std::string::npos && clip.find("\"Kind\": \"Clipboard\"") != std::string::npos);
+    CHECK(prefabText.find("\"Kind\": \"Prefab\"") != std::string::npos);
+    CHECK(SceneMigration::ReadVersion(clip) == SceneMigration::CurrentVersion);
+    // The chain changes nothing in what the serializer writes (a set without a version is v0).
+    {
+        std::string v0 = WithoutLine(prefabText, "\"Version\"");
+        CHECK(v0 != prefabText && SceneMigration::ReadVersion(v0) == 0);
+        SceneMigrationResult result;
+        CHECK(SceneMigration::MigrateText(v0, &result) && result.Migrated() && result.GetChangeCount() == 0);
+        CHECK(v0 == prefabText); // the same file again, with its version
+    }
+    // Every sample prefab: no step changes anything; it reads without problems.
+    for (const char* sample : { "Platformer2D/Assets/Prefabs/GameMenu.zprefab", "Platformer2D/Assets/Prefabs/Ragdoll.zprefab",
+                                "Platformer2D/Assets/Prefabs/CoinSparkle.zprefab", "Showcase3D/Assets/Prefabs/Ball.zprefab",
+                                "Showcase3D/Assets/Prefabs/Ragdoll3D.zprefab", "Adventure3D/Assets/Prefabs/CrystalBurst.zprefab" })
+    {
+        const fs::path file = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / sample;
+        const std::string original = FileSystem::ReadTextFile(file);
+        std::string text = original;
+        SceneMigrationResult result;
+        CHECK(SceneMigration::MigrateText(text, &result) && result.FileVersion == 0 && result.GetChangeCount() == 0);
+        auto loaded = CreateRef<Scene>();
+        SceneLoadReport report;
+        SceneMigrationResult migration;
+        SceneSerializer::EntitySetReadOptions options;
+        options.Report = &report;
+        options.Migration = &migration;
+        const size_t count = SceneSerializer::DeserializeEntities(*loaded, original, options).size();
+        size_t entries = 0;
+        for (size_t at = original.find("\"Entity\":"); at != std::string::npos; at = original.find("\"Entity\":", at + 1))
+            entries++;
+        CHECK(count > 0 && count == entries && report.Count(SceneLoadIssue::Severity::Error) == 0 && migration.FileVersion == 0);
+        CHECK(FileSystem::ReadTextFile(file) == original); // never written
+    }
+    // An old (v1) prefab: Text "Centered" and the 9-point anchor read in today's keys.
+    {
+        const std::string v1 = R"({ "ZaminEntities": 1, "Version": 1, "Entities": [
+            { "Entity": 5, "Tag": "Sarlavha", "UITransform": { "Anchor": 1 }, "Text": { "Text": "Salom", "Centered": true } } ] })";
+        auto s = CreateRef<Scene>();
+        SceneMigrationResult migration;
+        SceneSerializer::EntitySetReadOptions options;
+        options.GenerateNewUUIDs = false;
+        options.Migration = &migration;
+        std::vector<Entity> made = SceneSerializer::DeserializeEntities(*s, v1, options);
+        CHECK(made.size() == 1 && migration.FileVersion == 1 && migration.Version == SceneMigration::CurrentVersion);
+        CHECK(migration.Steps.size() == (size_t)SceneMigration::CurrentVersion - 1 && migration.GetChangeCount() == 2);
+        if (made.size() == 1)
+        {
+            CHECK(made[0].GetComponent<TextComponent>().AlignH == TextAlignH::Center && made[0].GetComponent<TextComponent>().AlignV == TextAlignV::Middle);
+            CHECK(made[0].GetComponent<UITransformComponent>().AnchorMin == glm::vec2(0.5f, 1.0f));
+        }
+    }
+    // Versionless, by hand: IDs as text, the name under "Name".
+    {
+        const std::string v0 = R"({ "ZaminEntities": 1, "Entities": [ { "Entity": "11", "Name": "Ota" }, { "Entity": "12", "Name": "Bola", "Parent": "11" } ] })";
+        auto s = CreateRef<Scene>();
+        SceneSerializer::EntitySetReadOptions options;
+        options.GenerateNewUUIDs = false;
+        SceneSerializer::DeserializeEntities(*s, v0, options);
+        Entity parent = s->GetEntityByUUID(UUID(11)), child = s->GetEntityByUUID(UUID(12));
+        CHECK(parent && child && parent.GetName() == "Ota" && child.GetName() == "Bola" && s->GetParent(child) == parent);
+    }
+    // A newer engine's prefab: read as far as understood (reported), never written over.
+    {
+        TempDirectory temp("zamin-prefab");
+        const fs::path file = temp.GetPath() / "Prefabs" / "Future.zprefab";
+        const std::string future = R"({ "ZaminEntities": 1, "Version": 99, "Kind": "Prefab", "Entities": [ { "Entity": 1, "Tag": "Kelajak", "Hologram": { "X": 1 } } ] })";
+        FileSystem::WriteTextFile(file, future);
+        auto s = CreateRef<Scene>();
+        SceneLoadReport report;
+        SceneSerializer::EntitySetReadOptions options;
+        options.Report = &report;
+        CHECK(SceneSerializer::DeserializeEntities(*s, future, options).size() == 1);
+        size_t newer = 0, unknown = 0;
+        for (const SceneLoadIssue& issue : report.Issues)
+        {
+            newer += issue.Type == SceneLoadIssue::Kind::NewerVersion ? 1 : 0;
+            unknown += issue.Type == SceneLoadIssue::Kind::UnknownComponent ? 1 : 0;
+        }
+        CHECK(newer == 1 && unknown == 1);
+        PrefabDatabase db(temp.GetPath());
+        const PrefabDatabase::Template* t = db.Get("Prefabs/Future.zprefab");
+        CHECK(t && t->Readable && t->Newer && t->FileVersion == 99);
+        CHECK(!db.Write("Prefabs/Future.zprefab", "{}") && FileSystem::ReadTextFile(file) == future);
+        auto inScene = CreateRef<Scene>();
+        Entity i = PrefabUtility::InstantiateLinked(*inScene, db, "Prefabs/Future.zprefab");
+        CHECK(i);
+        if (i)
+        {
+            i.GetComponent<TransformComponent>().Scale = glm::vec3(3.0f);
+            PrefabUtility::RecordOverrides(i, db);
+            PrefabApplyResult r = PrefabUtility::Apply(i, PrefabScope::Instance, {}, db);
+            CHECK(!r.Applied && r.Error.find("yangiroq") != std::string::npos && FileSystem::ReadTextFile(file) == future);
+        }
+        auto stage = CreateRef<Scene>();
+        CHECK(PrefabUtility::LoadStage(*stage, db, "Prefabs/Future.zprefab"));
+        std::string error;
+        CHECK(!PrefabUtility::SaveStage(*stage, db, "Prefabs/Future.zprefab", nullptr, &error) && error.find("yangiroq") != std::string::npos);
+        CHECK(FileSystem::ReadTextFile(file) == future);
+    }
+    // A prefab written by SavePrefab and applied to: current version, a prefab.
+    {
+        TempDirectory temp("zamin-prefab");
+        PrefabFixture prefab(temp.GetPath());
+        const std::string text = FileSystem::ReadTextFile(prefab.File);
+        CHECK(SceneMigration::ReadVersion(text) == SceneMigration::CurrentVersion && text.find("\"Kind\": \"Prefab\"") != std::string::npos);
+        // An old file applied to is written in the current version.
+        FileSystem::WriteTextFile(prefab.File, WithoutLine(WithoutLine(text, "\"Version\""), "\"Kind\""));
+        CHECK(SceneMigration::ReadVersion(FileSystem::ReadTextFile(prefab.File)) == 0);
+        PrefabDatabase db(temp.GetPath());
+        auto s = CreateRef<Scene>();
+        Entity i = PrefabUtility::InstantiateLinked(*s, db, prefab.Rel());
+        Entity w = i ? ChildNamed(*s, i, "Weapon") : Entity();
+        CHECK(w);
+        if (w)
+        {
+            w.GetComponent<SpriteRendererComponent>().Color = glm::vec4(1.0f);
+            PrefabUtility::RecordOverrides(i, db);
+            CHECK(PrefabUtility::Apply(w, PrefabScope::Field, "SpriteRenderer/Color", db).Applied);
+            const std::string applied = FileSystem::ReadTextFile(prefab.File);
+            CHECK(SceneMigration::ReadVersion(applied) == SceneMigration::CurrentVersion && applied.find("\"Kind\": \"Prefab\"") != std::string::npos);
+        }
+    }
+    // v4 -> v5: the prefab path of an instance with '/'.
+    {
+        const std::string v4 = R"({ "Scene": "Eski", "Version": 4, "Entities": [ { "Entity": 7, "Tag": "Dushman", "Editor": { "Prefab": "Prefabs\\Enemy.zprefab" } } ] })";
+        auto s = CreateRef<Scene>();
+        SceneSerializer reader(s);
+        CHECK(reader.DeserializeFromString(v4) && reader.GetMigration().Steps.size() == 1 && reader.GetMigration().GetChangeCount() == 1);
+        Entity d = s->GetEntityByUUID(UUID(7));
+        CHECK(d && s->GetPrefabSource(d) == "Prefabs/Enemy.zprefab");
+    }
+}
+
+TEST(EntitySetPartialLoad)
+{
+    // One broken entry no longer loses the rest: each entity is read on its own, what cannot be is reported.
+    const std::string text = R"({ "ZaminEntities": 1, "Version": 5, "Entities": [
+        { "Entity": 1, "Tag": "Yaxshi", "Transform": { "Translation": [1, 2, 3] } },
+        5,
+        { "Entity": 3, "Tag": "Buzuq", "Transform": { "Translation": [4, 5, 6] }, "SpriteRenderer": "qizil", "CircleRenderer": {} },
+        { "Entity": 4, "Tag": "Noma'lum", "Wibble": { "X": 1 } },
+        { "Entity": 5, "Tag": "Yetim", "Parent": 999 },
+        { "Entity": 6, "Tag": "HalqaA", "Parent": 7 },
+        { "Entity": 7, "Tag": "HalqaB", "Parent": 6 },
+        { "Entity": 1, "Tag": "Takror" },
+        { "Entity": 8, "Tag": "Bola", "Parent": 1 } ] })";
+    auto scene = CreateRef<Scene>();
+    SceneLoadReport report;
+    std::string error;
+    const LogLevel logLevel = Log::GetMinLevel();
+    Log::SetMinLevel(LogLevel::Critical); // the read problems below are expected
+    SceneSerializer::EntitySetReadOptions options;
+    options.GenerateNewUUIDs = false;
+    options.Report = &report;
+    options.Error = &error;
+    std::vector<Entity> made = SceneSerializer::DeserializeEntities(*scene, text, options);
+    CHECK(made.size() == 8 && report.EntitiesLoaded == 8 && report.EntitiesSkipped == 1);
+    CHECK(error.starts_with("Entity ma'lumotlari xato"));
+    Entity good = scene->GetEntityByUUID(UUID(1)), broken = scene->GetEntityByUUID(UUID(3)), orphan = scene->GetEntityByUUID(UUID(5));
+    Entity child = scene->GetEntityByUUID(UUID(8));
+    CHECK(good && good.GetName() == "Yaxshi" && good.GetComponent<TransformComponent>().Translation == glm::vec3(1, 2, 3));
+    CHECK(broken && !broken.HasComponent<SpriteRendererComponent>() && broken.HasComponent<CircleRendererComponent>());
+    CHECK(broken && broken.GetComponent<TransformComponent>().Translation == glm::vec3(4, 5, 6));
+    CHECK(orphan && !scene->GetParent(orphan));
+    CHECK(child && scene->GetParent(child) == good); // the first entity with an ID keeps it
+    Entity loopA = scene->GetEntityByUUID(UUID(6)), loopB = scene->GetEntityByUUID(UUID(7));
+    CHECK(loopA && loopB && (!scene->GetParent(loopA) || !scene->GetParent(loopB)));
+    size_t kinds[16] = {};
+    for (const SceneLoadIssue& issue : report.Issues)
+        kinds[(size_t)issue.Type]++;
+    CHECK(kinds[(size_t)SceneLoadIssue::Kind::BadEntity] >= 1 && kinds[(size_t)SceneLoadIssue::Kind::BadComponent] == 1);
+    CHECK(kinds[(size_t)SceneLoadIssue::Kind::UnknownComponent] == 1 && kinds[(size_t)SceneLoadIssue::Kind::DuplicateID] == 1);
+    CHECK(kinds[(size_t)SceneLoadIssue::Kind::BadHierarchy] >= 2);
+    // The fatal cases keep their messages.
+    std::string e1, e2;
+    CHECK(SceneSerializer::DeserializeEntities(*scene, "nope", true, nullptr, &e1).empty() && e1.starts_with("JSON xatosi"));
+    CHECK(SceneSerializer::DeserializeEntities(*scene, "{ \"ZaminEntities\": 1 }", true, nullptr, &e2).empty() && e2.find("Entities") != std::string::npos);
+    // A clean set has an empty report.
+    SceneLoadReport clean;
+    SceneSerializer::EntitySetReadOptions plain;
+    plain.Report = &clean;
+    auto other = CreateRef<Scene>();
+    Entity a = other->CreateEntity("A");
+    Entity b = other->CreateEntity("B");
+    other->SetParent(b, a, false);
+    CHECK(SceneSerializer::DeserializeEntities(*other, SceneSerializer::SerializeEntities(*other, { a, b }), plain).size() == 2 && !clean.HasIssues());
+    Log::SetMinLevel(logLevel);
+}
+
+TEST(SceneSalvage)
+{
+    namespace fs = std::filesystem;
+    const LogLevel logLevel = Log::GetMinLevel();
+    Log::SetMinLevel(LogLevel::Critical); // the parse errors below are expected
+    auto scene = CreateRef<Scene>();
+    scene->SetName("Tiklash");
+    for (int i = 0; i < 8; i++)
+    {
+        Entity e = scene->CreateEntity(std::format("Quti {}", i));
+        e.GetComponent<TransformComponent>().Translation = { (float)i, 0.0f, 0.0f };
+        e.AddComponent<SpriteRendererComponent>().Color = { 0.1f * i, 0.5f, 1.0f, 1.0f };
+    }
+    const std::string text = SceneSerializer(scene).SerializeToString();
+    // Cut off (a crash while writing): the entities before the cut come back.
+    {
+        const std::string cut = text.substr(0, text.size() * 6 / 10);
+        auto broken = CreateRef<Scene>();
+        CHECK(!SceneSerializer(broken).DeserializeFromString(cut)); // never automatic
+        auto recovered = CreateRef<Scene>();
+        SceneSerializer serializer(recovered);
+        CHECK(serializer.RecoverFromString(cut));
+        const size_t count = recovered->GetAllEntitiesWith<IDComponent>().size();
+        CHECK(count >= 3 && count < 8);
+        const SceneLoadReport& report = serializer.GetLoadReport();
+        bool parse = false, truncated = false;
+        for (const SceneLoadIssue& issue : report.Issues)
+        {
+            parse |= issue.Type == SceneLoadIssue::Kind::ParseError && issue.Level == SceneLoadIssue::Severity::Error &&
+                     issue.Message.find("obyekt tiklandi") != std::string::npos && issue.Line > 0;
+            truncated |= issue.Type == SceneLoadIssue::Kind::Truncated;
+        }
+        CHECK(parse && truncated && !report.Failed());
+        for (Entity e : recovered->GetEntitiesInOrder())
+            CHECK(e.HasComponent<SpriteRendererComponent>() && e.GetName().starts_with("Quti"));
+    }
+    // Garbage written into the middle of one entity: only that one is lost.
+    {
+        std::string damaged = text;
+        const size_t at = damaged.find("\"Quti 3\"");
+        CHECK(at != std::string::npos);
+        damaged.insert(at, "#!@ chiqindi @!# ");
+        auto recovered = CreateRef<Scene>();
+        SceneSerializer serializer(recovered);
+        CHECK(!SceneSerializer(CreateRef<Scene>()).DeserializeFromString(damaged) && serializer.RecoverFromString(damaged));
+        CHECK(recovered->GetAllEntitiesWith<IDComponent>().size() == 7 && !recovered->FindEntityByName("Quti 3"));
+        CHECK(recovered->GetName() == "Tiklash"); // the parts after the entities parse on their own
+        // A lost closing bracket: the next entry is found on its own line.
+        std::string unclosed = text;
+        const size_t q = unclosed.find("\"Quti 5\"");
+        const size_t close = unclosed.rfind('}', unclosed.find("\"Quti", q + 1));
+        CHECK(close != std::string::npos);
+        unclosed.erase(close, 1);
+        auto again = CreateRef<Scene>();
+        CHECK(SceneSerializer(again).RecoverFromString(unclosed) && again->GetAllEntitiesWith<IDComponent>().size() >= 6);
+    }
+    // An entity set (a prefab) cut off: the entities before the cut; without Recover nothing.
+    {
+        std::vector<Entity> all = scene->GetEntitiesInOrder();
+        const std::string set = SceneSerializer::SerializeEntities(*scene, all, false);
+        const std::string cut = set.substr(0, set.size() / 2);
+        auto target = CreateRef<Scene>();
+        std::string error;
+        CHECK(SceneSerializer::DeserializeEntities(*target, cut, true, nullptr, &error).empty() && error.starts_with("JSON xatosi"));
+        SceneLoadReport report;
+        SceneSerializer::EntitySetReadOptions options;
+        options.Recover = true;
+        options.Report = &report;
+        const size_t count = SceneSerializer::DeserializeEntities(*target, cut, options).size();
+        CHECK(count >= 2 && count < 8 && report.HasIssues() && !report.Failed());
+    }
+    // Not a scene at all: nothing to salvage.
+    for (const char* bad : { "nope", "[1, 2", "", "{ \"Hello\": 1 " })
+    {
+        auto s = CreateRef<Scene>();
+        CHECK(!SceneSerializer(s).RecoverFromString(bad));
+    }
+    std::string deep = "{\"Scene\":\"Chuqur\",\"Entities\":[{\"Entity\":1,\"X\":";
+    for (int i = 0; i < 600; i++)
+        deep += "[";
+    CHECK(!SceneRecovery::Salvage(deep).Recovered && !SceneSerializer(CreateRef<Scene>()).RecoverFromString(deep));
+    // The public API: the salvaged text parses; the summary line.
+    SceneRecovery::Result r = SceneRecovery::Salvage(text.substr(0, text.size() / 2));
+    CHECK(r.Recovered && r.Truncated && r.Entities >= 2 && !r.Text.empty() && SceneRecovery::Summary(r).find("obyekt tiklandi") != std::string::npos);
+    // The sample level, cut in half (read only: the file is not touched).
+    {
+        const fs::path level = fs::path(ZAMIN_SOURCE_DIR) / "Projects" / "Platformer2D" / "Assets" / "Scenes" / "Level1.zscene";
+        const std::string original = FileSystem::ReadTextFile(level);
+        auto s = CreateRef<Scene>();
+        CHECK(SceneSerializer(s).RecoverFromString(original.substr(0, original.size() / 2)) && s->GetAllEntitiesWith<IDComponent>().size() > 5);
+        CHECK(FileSystem::ReadTextFile(level) == original);
+    }
+    // The copy of the broken file kept aside first.
+    {
+        TempDirectory temp("zamin-salvage");
+        const fs::path file = temp.GetPath() / "Level.zscene";
+        FileSystem::WriteTextFile(file, "{ \"Scene\": \"Buzuq\", \"Entities\": [ {");
+        fs::path backup;
+        CHECK(SceneRecovery::WriteBackup(file, &backup) && fs::exists(backup));
+        CHECK(backup.filename().string().starts_with("Level.zscene.corrupt-") && backup.extension() == ".bak");
+        CHECK(FileSystem::ReadTextFile(backup) == FileSystem::ReadTextFile(file));
+        CHECK(SceneRecovery::BackupPath(file).parent_path() == file.parent_path());
+    }
+    Log::SetMinLevel(logLevel);
+}
+
+TEST(PrefabStageRoundTrip)
+{
+    namespace fs = std::filesystem;
+    TempDirectory temp("zamin-prefab");
+    PrefabFixture prefab(temp.GetPath());
+    PrefabDatabase db(temp.GetPath());
+    const std::string original = FileSystem::ReadTextFile(prefab.File);
+
+    // Opened on its own: the file's IDs are the UUIDs.
+    auto stage = CreateRef<Scene>();
+    SceneLoadReport report;
+    Entity root = PrefabUtility::LoadStage(*stage, db, prefab.Rel(), &report);
+    CHECK(root && root.GetUUID() == prefab.Enemy.GetUUID() && !report.HasIssues() && stage->GetName() == "Enemy");
+    CHECK(stage->GetEntityByUUID(prefab.Weapon.GetUUID()) && stage->GetEntityByUUID(prefab.Shield.GetUUID()));
+    CHECK(!PrefabUtility::IsInstanceRoot(root));
+    // Saved with no change: the same bytes, nothing written.
+    std::string error;
+    CHECK(PrefabUtility::SerializeStage(*stage, db, &error) == original);
+    std::vector<FileEdit> edits;
+    CHECK(PrefabUtility::SaveStage(*stage, db, prefab.Rel(), &edits, &error) && edits.empty() && FileSystem::ReadTextFile(prefab.File) == original);
+
+    // An instance in a scene follows what is saved there.
+    auto scene = CreateRef<Scene>();
+    Entity instance = PrefabUtility::InstantiateLinked(*scene, db, prefab.Rel());
+    Entity iw = instance ? ChildNamed(*scene, instance, "Weapon") : Entity();
+    CHECK(iw);
+    Entity weapon = stage->GetEntityByUUID(prefab.Weapon.GetUUID());
+    weapon.GetComponent<SpriteRendererComponent>().Color = { 0.0f, 0.0f, 1.0f, 1.0f };
+    Entity added = stage->CreateEntity("Qalqon belgisi");
+    stage->SetParent(added, root, false);
+    CHECK(PrefabUtility::SaveStage(*stage, db, prefab.Rel(), &edits, &error) && edits.size() == 1);
+    CHECK(edits.size() == 1 && edits[0].Before && *edits[0].Before == original && edits[0].After == FileSystem::ReadTextFile(prefab.File));
+    PrefabUtility::SyncScene(*scene, db);
+    CHECK(iw && iw.GetComponent<SpriteRendererComponent>().Color == glm::vec4(0.0f, 0.0f, 1.0f, 1.0f) && ChildNamed(*scene, instance, "Qalqon belgisi"));
+    // The IDs stay: opened again, the same UUIDs (the added entity keeps the one it was saved with).
+    auto again = CreateRef<Scene>();
+    Entity root2 = PrefabUtility::LoadStage(*again, db, prefab.Rel());
+    CHECK(root2 && root2.GetUUID() == root.GetUUID() && again->GetEntityByUUID(added.GetUUID()));
+    CHECK(PrefabUtility::SerializeStage(*again, db) == FileSystem::ReadTextFile(prefab.File));
+
+    // One root only.
+    Entity stray = stage->CreateEntity("Ortiqcha");
+    const std::string saved = FileSystem::ReadTextFile(prefab.File);
+    CHECK(!PrefabUtility::SaveStage(*stage, db, prefab.Rel(), nullptr, &error) && error.find("bitta ildiz") != std::string::npos);
+    CHECK(FileSystem::ReadTextFile(prefab.File) == saved);
+    stage->DestroyEntity(stray);
+
+    // Nested: a prefab inside is an instance in the stage; what changes there is the outer prefab's.
+    auto gs = CreateRef<Scene>();
+    Entity gun = gs->CreateEntity("Gun");
+    gun.AddComponent<CircleRendererComponent>().Color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    CHECK(gs->SavePrefab(gun, temp.GetPath() / "Prefabs" / "Gun.zprefab"));
+    Entity nested = PrefabUtility::InstantiateLinked(*stage, db, "Prefabs/Gun.zprefab", weapon);
+    CHECK(nested && PrefabUtility::SaveStage(*stage, db, prefab.Rel(), nullptr, &error));
+    const std::string gunText = FileSystem::ReadTextFile(temp.GetPath() / "Prefabs" / "Gun.zprefab");
+    auto nestedStage = CreateRef<Scene>();
+    Entity r3 = PrefabUtility::LoadStage(*nestedStage, db, prefab.Rel());
+    Entity stageGun = r3 ? nestedStage->FindEntityByName("Gun") : Entity();
+    CHECK(stageGun && PrefabUtility::IsInstanceRoot(stageGun) && PrefabUtility::IsLinked(stageGun) && !PrefabUtility::HasOverrides(stageGun));
+    if (stageGun)
+    {
+        stageGun.GetComponent<CircleRendererComponent>().Color = { 1.0f, 0.0f, 0.0f, 1.0f };
+        CHECK(PrefabUtility::SaveStage(*nestedStage, db, prefab.Rel(), nullptr, &error));
+        const std::string enemyText = FileSystem::ReadTextFile(prefab.File);
+        CHECK(enemyText.find("CircleRenderer/Color") != std::string::npos && FileSystem::ReadTextFile(temp.GetPath() / "Prefabs" / "Gun.zprefab") == gunText);
+        PrefabUtility::SyncScene(*scene, db);
+        Entity sceneGun = iw ? ChildNamed(*scene, iw, "Gun") : Entity();
+        CHECK(sceneGun && sceneGun.GetComponent<CircleRendererComponent>().Color == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+        // The nested prefab changed in its own stage: the outer one (and its instances) follow, the outer's own colour stays.
+        auto gunStage = CreateRef<Scene>();
+        Entity g = PrefabUtility::LoadStage(*gunStage, db, "Prefabs/Gun.zprefab");
+        CHECK(g);
+        if (g)
+        {
+            g.GetComponent<TransformComponent>().Scale = glm::vec3(3.0f);
+            edits.clear();
+            CHECK(PrefabUtility::SaveStage(*gunStage, db, "Prefabs/Gun.zprefab", &edits, &error) && edits.size() == 2); // Gun, then Enemy
+            PrefabUtility::SyncScene(*scene, db);
+            CHECK(sceneGun.GetComponent<TransformComponent>().Scale == glm::vec3(3.0f));
+            CHECK(sceneGun.GetComponent<CircleRendererComponent>().Color == glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+            // A cycle: the Gun stage cannot hold an instance of Enemy (made of Gun).
+            CHECK(PrefabUtility::InstantiateLinked(*gunStage, db, prefab.Rel(), g));
+            const std::string gunNow = FileSystem::ReadTextFile(temp.GetPath() / "Prefabs" / "Gun.zprefab");
+            CHECK(!PrefabUtility::SaveStage(*gunStage, db, "Prefabs/Gun.zprefab", nullptr, &error) && error.find("sikli") != std::string::npos);
+            CHECK(FileSystem::ReadTextFile(temp.GetPath() / "Prefabs" / "Gun.zprefab") == gunNow);
+        }
+    }
+    // A broken prefab file: nothing opens; asked to recover, what parses does.
+    const fs::path brokenFile = temp.GetPath() / "Prefabs" / "Broken.zprefab";
+    const std::string full = FileSystem::ReadTextFile(prefab.File);
+    FileSystem::WriteTextFile(brokenFile, full.substr(0, full.size() * 2 / 3));
+    auto broken = CreateRef<Scene>();
+    SceneLoadReport brokenReport;
+    CHECK(!PrefabUtility::LoadStage(*broken, db, "Prefabs/Broken.zprefab", &brokenReport) && brokenReport.Failed());
+    SceneLoadReport recoveredReport;
+    CHECK(PrefabUtility::LoadStage(*broken, db, "Prefabs/Broken.zprefab", &recoveredReport, true) && !recoveredReport.Failed() && recoveredReport.HasIssues());
+    CHECK(!PrefabUtility::LoadStage(*CreateRef<Scene>(), db, "Prefabs/Absent.zprefab"));
+}

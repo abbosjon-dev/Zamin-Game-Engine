@@ -12,6 +12,7 @@
 namespace Zamin {
 
     class PrefabDatabase;
+    struct SceneLoadReport;
 
     // What an Apply / Revert covers: the whole instance, one of its entities, one component of an
     // entity, or one value (an override path, PrefabOverrides.h).
@@ -136,6 +137,25 @@ namespace Zamin {
         // A prefab file brought up to date with the prefabs nested in it (written only when that
         // changes something). False when it cannot be read or written.
         static bool SyncPrefabFile(PrefabDatabase& db, std::string_view relPath, std::vector<FileEdit>* edits = nullptr);
+
+        // ---- prefab mode (the editor opens a prefab on its own, as a scene of its own)
+        // The prefab's entities into the empty `stage` with their IDs in the file as UUIDs (what it
+        // saves keeps them), the prefabs nested in it as linked instances brought up to date with
+        // their prefabs (their values, Apply / Revert work there as in a scene). `report` gets what
+        // could not be read; `recover`: a file whose text is broken is salvaged (SceneRecovery). The
+        // root (the first one), or null when nothing could be read.
+        static Entity LoadStage(Scene& stage, PrefabDatabase& db, std::string_view relPath, SceneLoadReport* report = nullptr,
+                                bool recover = false);
+        // The text a prefab mode scene is saved as: its one root's subtree depth-first, the nested
+        // instances with their links (their overrides recorded first). Unchanged since LoadStage:
+        // the file's text as SavePrefab wrote it. "" with `error` when it has no root or several.
+        static std::string SerializeStage(Scene& stage, PrefabDatabase& db, std::string* error = nullptr);
+        // Writes the stage into the prefab (PrefabDatabase::Write: atomic, `edits` for undo) and
+        // brings the prefabs made of it up to date (their files too). Refused (false, `error`): more
+        // than one root, a nested prefab that is made of this one (a cycle), a file of a newer format.
+        // True without writing when the file holds that text already.
+        static bool SaveStage(Scene& stage, PrefabDatabase& db, std::string_view relPath, std::vector<FileEdit>* edits = nullptr,
+                              std::string* error = nullptr);
     };
 
 }

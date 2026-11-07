@@ -81,6 +81,7 @@
 #include "Zamin/Scene/Prefab.h"
 #include "Zamin/Scene/PrefabDatabase.h"
 #include "Zamin/Scene/PrefabOverrides.h"
+#include "Zamin/Scene/SceneRecovery.h"
 #include "Zamin/Scene/SceneFileReferences.h"
 #include "Zamin/Scene/SceneManager.h"
 #include "Zamin/Scene/SceneLoadTiming.h"

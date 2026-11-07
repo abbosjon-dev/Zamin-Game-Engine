@@ -11,6 +11,7 @@
 #include "Zamin/Scene/SceneSerializer.h"
 #include "Zamin/Scene/SceneMigrationJson.h"
 #include "Zamin/Scene/SceneSerializerJson.h"
+#include "Zamin/Utils/FileSystem.h"
 
 #include <algorithm>
 #include <format>
@@ -1715,6 +1716,113 @@ namespace Zamin {
         if (ok)
             ZM_CORE_INFO("Prefab yangilandi (ichidagi prefab o'zgardi): {}", path);
         return ok;
+    }
+
+    // ------------------------------------------------------------------ prefab mode
+    Entity PrefabUtility::LoadStage(Scene& stage, PrefabDatabase& db, std::string_view relPath, SceneLoadReport* report, bool recover)
+    {
+        const std::string path = PrefabDatabase::NormalizePath(relPath);
+        const std::filesystem::path file = db.ToFileSystemPath(path);
+        auto fatal = [&](SceneLoadIssue::Kind kind, std::string message) {
+            if (report && !report->Failed())
+            {
+                SceneLoadIssue issue;
+                issue.Type = kind;
+                issue.Level = SceneLoadIssue::Severity::Fatal;
+                issue.Message = std::move(message);
+                report->Add(std::move(issue));
+            }
+            return Entity();
+        };
+        if (report)
+            report->File = path;
+        std::error_code ec;
+        if (path.empty() || !std::filesystem::is_regular_file(file, ec))
+            return fatal(SceneLoadIssue::Kind::FileMissing, "fayl topilmadi");
+        const std::string text = FileSystem::ReadTextFile(file);
+        SceneSerializer::EntitySetReadOptions options;
+        options.GenerateNewUUIDs = false;
+        options.KeepPrefabLinks = true;
+        options.Recover = recover;
+        options.Report = report;
+        std::string error;
+        options.Error = &error;
+        std::vector<Entity> created = SceneSerializer::DeserializeEntities(stage, text, options);
+        if (created.empty())
+            return fatal(SceneLoadIssue::Kind::NotAScene, error.empty() ? std::string("prefabda obyekt yo'q") : error);
+        stage.SetName(std::filesystem::path(path).stem().string());
+        // The prefabs nested in it as they are now (a file left stale by a change of one of them).
+        SyncScene(stage, db);
+        stage.InvalidateActiveCache();
+        return created.front();
+    }
+
+    std::string PrefabUtility::SerializeStage(Scene& stage, PrefabDatabase& db, std::string* error)
+    {
+        std::vector<Entity> roots;
+        for (Entity e : stage.GetEntitiesInHierarchyOrder())
+            if (!stage.GetParent(e))
+                roots.push_back(e);
+        if (roots.size() != 1)
+        {
+            if (error)
+                *error = roots.empty() ? std::string("Prefabda obyekt yo'q")
+                                       : std::format("Prefabda bitta ildiz bo'lishi kerak ({} ta ildiz bor)", roots.size());
+            return {};
+        }
+        // What the prefabs nested in it differ in from them, as it is now.
+        std::vector<Entity> ordered;
+        CollectSubtree(roots.front(), ordered);
+        for (Entity e : ordered)
+            if (HasMarker(e) && !stage.IsRunning())
+            {
+                Instance in;
+                if (Prepare(e, db, in))
+                    RecordOverridesImpl(in);
+            }
+        SceneSerializer::EntitySetWriteOptions options;
+        options.HiddenLocked = false;
+        options.PrefabLinks = true;
+        options.RootLink = true; // a variant's root keeps its base
+        options.Kind = SceneSerializer::EntitySetKind::Prefab;
+        return SceneSerializer::SerializeEntities(stage, ordered, options);
+    }
+
+    bool PrefabUtility::SaveStage(Scene& stage, PrefabDatabase& db, std::string_view relPath, std::vector<FileEdit>* edits, std::string* error)
+    {
+        auto fail = [&](std::string message) {
+            if (error)
+                *error = std::move(message);
+            return false;
+        };
+        if (stage.IsRunning())
+            return fail("O'yin paytida prefab saqlanmaydi");
+        const std::string path = PrefabDatabase::NormalizePath(relPath);
+        if (path.empty())
+            return fail("Prefab fayli ko'rsatilmagan");
+        if (const PrefabDatabase::Template* t = db.Get(path); t && t->Newer)
+            return fail(std::format("Prefab fayli yangiroq formatda (v{}, bu dvigatel v{} gacha biladi): yozilmaydi", t->FileVersion,
+                                    SceneMigration::CurrentVersion));
+        // A prefab nested in it must not be made of it.
+        for (Entity e : stage.GetEntitiesInHierarchyOrder())
+        {
+            if (!HasMarker(e))
+                continue;
+            const std::string nested = PrefabDatabase::NormalizePath(MarkerOf(e));
+            if (nested == path || db.DependsOn(nested, path))
+                return fail(std::format("Prefab sikli: {} ichidagi {} o'zi {} dan iborat", path, nested, path));
+        }
+        std::string text = SerializeStage(stage, db, error);
+        if (text.empty())
+            return false;
+        const size_t before = edits ? edits->size() : 0;
+        if (!db.Write(path, text, edits))
+            return fail(std::format("Prefab fayliga yozib bo'lmadi: {}", path));
+        // The prefabs made of it follow (their files too).
+        if (!edits || edits->size() > before)
+            for (const std::string& dependent : db.GetDependents(path))
+                SyncPrefabFile(db, dependent, edits);
+        return true;
     }
 
 }
